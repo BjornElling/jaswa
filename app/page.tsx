@@ -5,7 +5,7 @@ import { clearImportedGame, loadImportedGame, loadPreferences, saveImportedGame,
 import { blankPreferences, createImportedGame, defaultRunePotentialSettings, fileToText, importPreferencesFile, validateGameFile } from './lib/imports';
 import { monsterPresentation } from './lib/monster-catalog';
 import { calculateMonsterTotals, totalStatValue } from './lib/monster-stats';
-import type { ImportedGame, MonsterPreference, Preferences, RunePotentialSettings } from './lib/types';
+import type { ImportedGame, MonsterPreference, Preferences, RunePotentialSettings, RunePotentialSortOrder } from './lib/types';
 
 type Page = 'home' | 'monsters' | 'optimizer' | 'speed' | 'potential' | 'artifacts' | 'gems' | 'relics' | 'preferences';
 type ReportCategory = 'Monster' | 'Rune' | 'Gem' | 'Grindstone' | 'Artifact' | 'Relic' | 'Other';
@@ -53,7 +53,7 @@ export default function Home() {
 
   useEffect(() => {
     Promise.all([loadImportedGame(), loadPreferences()]).then(([savedGame, savedPreferences]) => {
-      setGame(savedGame); setPreferences(savedPreferences ? { ...savedPreferences, runePotential: savedPreferences.runePotential ?? defaultRunePotentialSettings } : blankPreferences());
+      setGame(savedGame); setPreferences(savedPreferences ? { ...savedPreferences, runePotential: { ...defaultRunePotentialSettings, ...savedPreferences.runePotential } } : blankPreferences());
     }).finally(() => setReady(true));
   }, []);
 
@@ -133,28 +133,43 @@ export default function Home() {
 }
 
 function RunePotentialPanel({ settings, onUpdate }: { settings: RunePotentialSettings; onUpdate: (update: Partial<RunePotentialSettings>) => Promise<void> }) {
-  const policyLabels = ['Fuld YOLO', 'Eventyrlysten', 'Balanceret', 'Kræsen', 'Ingen løse ender'];
-  const qualityLabels = ['Alt med en puls', 'Lovende', 'Godt stof', 'Tophylde', 'Kun guld'];
   return <section className="rune-potential-panel">
-    <div className="rune-potential-heading"><div><p className="eyebrow">RUNE POTENTIAL · OPSÆTNING</p><h2>Sæt din RNG-personlighed</h2><p>Vælg, hvor optimistisk Swaggr skal være, før en rune får lov at spise dine mana-sten.</p></div><span className="settings-badge">2 kernevalg</span></div>
+    <div className="rune-potential-heading"><div><h2>Set your RNG personality</h2><p>Tell Swaggr how optimistic to be before a rune gets to eat your mana stones.</p></div></div>
     <div className="potential-settings">
-      <PotentialSlider id="power-up-policy" label="Power Up Policy" value={settings.powerUpPolicy} valueLabel={policyLabels[settings.powerUpPolicy - 1]} description="Hvor villig er du til at rulle runer med potentiale? 1 prøver alt med en chance; 5 venter på det, der næsten allerede er en slam dunk." lowLabel="Rul bredt" highLabel="Spil sikkert" onChange={(value) => void onUpdate({ powerUpPolicy: value })} />
-      <PotentialSlider id="rune-quality" label="Rune Quality" value={settings.runeQuality} valueLabel={qualityLabels[settings.runeQuality - 1]} description="Hvor højt skal runens bedste tænkelige slutniveau være, før den får lov at rulle? Ikke alle main characters behøver audition." lowLabel="Potentiale nok" highLabel="Kun topklasse" onChange={(value) => void onUpdate({ runeQuality: value })} />
+      <div className="potential-column">
+        <PotentialSlider id="power-up-policy" label="Power Up Policy" value={settings.powerUpPolicy} description="How willing are you to roll runes with potential?" lowLabel="Gives every contender a shot." highLabel="Waits for a rune that is practically a slam dunk." onChange={(value) => void onUpdate({ powerUpPolicy: value })} />
+        <PotentialSlider id="rune-quality" label="Rune Quality" value={settings.runeQuality} description="How high must a rune's best-case final quality be before it gets a roll?" lowLabel="Gives every rough diamond a chance." highLabel="Only rolls future hall-of-famers." onChange={(value) => void onUpdate({ runeQuality: value })} />
+        <RuneVisibilityControls settings={settings} onUpdate={onUpdate} />
+      </div>
+      <div className="potential-column">
+        <PotentialSlider id="enchanted-gems" label="Enchanted Gems" value={settings.enchantedGems} steps={4} description="How generously should gem upgrades count toward a rune's potential?" lowLabel="Leave them out." highLabel="Use maximum value." onChange={(value) => void onUpdate({ enchantedGems: value })} />
+        <PotentialSlider id="grindstones" label="Grindstones" value={settings.grindstones} steps={4} description="How generously should grindstone upgrades count toward a rune's potential?" lowLabel="Leave them out." highLabel="Use maximum value." onChange={(value) => void onUpdate({ grindstones: value })} />
+        <RuneSortOrderControl settings={settings} onUpdate={onUpdate} />
+      </div>
     </div>
   </section>;
 }
 
-function PotentialSlider({ id, label, value, valueLabel, description, lowLabel, highLabel, onChange }: { id: string; label: string; value: number; valueLabel: string; description: string; lowLabel: string; highLabel: string; onChange: (value: number) => void }) {
-  const progress = `${((value - 1) / 4) * 100}%`;
+function PotentialSlider({ id, label, value, steps = 5, description, lowLabel, highLabel, onChange }: { id: string; label: string; value: number; steps?: number; description: string; lowLabel: string; highLabel: string; onChange: (value: number) => void }) {
+  const progress = `${((value - 1) / (steps - 1)) * 100}%`;
   return <article className="potential-setting">
-    <div className="potential-setting-header"><div><h3>{label}</h3><p>{description}</p></div><div className="setting-value" aria-live="polite"><strong>{value}</strong><span>{valueLabel}</span></div></div>
-    <div className="range-wrap"><input id={id} className="potential-range" type="range" min="1" max="5" step="1" value={value} onChange={(event) => onChange(Number(event.target.value))} aria-describedby={`${id}-help`} style={{ '--range-progress': progress } as React.CSSProperties} /><div className="range-steps" aria-hidden="true">{[1, 2, 3, 4, 5].map((step) => <span key={step} className={step <= value ? 'active' : ''}>{step}</span>)}</div></div>
+    <div className="potential-setting-header"><div><h3>{label}</h3><p>{description}</p></div></div>
+    <div className="range-wrap"><input id={id} className="potential-range" type="range" min="1" max={steps} step="1" value={value} onChange={(event) => onChange(Number(event.target.value))} aria-describedby={`${id}-help`} style={{ '--range-progress': progress } as React.CSSProperties} /><div className="range-steps" aria-hidden="true">{Array.from({ length: steps }, (_, index) => index + 1).map((step) => <span key={step} className={step <= value ? 'active' : ''} />)}</div></div>
     <p id={`${id}-help`} className="range-endpoints"><span>{lowLabel}</span><span>{highLabel}</span></p>
   </article>;
 }
 
+function RuneVisibilityControls({ settings, onUpdate }: { settings: RunePotentialSettings; onUpdate: (update: Partial<RunePotentialSettings>) => Promise<void> }) {
+  return <article className="potential-setting visibility-setting"><h3>Overview filters</h3><div className="checkbox-list"><label><input type="checkbox" checked={settings.includeLevel12Runes} onChange={(event) => void onUpdate({ includeLevel12Runes: event.target.checked })} />Include runes at +12 or higher.</label><label><input type="checkbox" checked={settings.includeEquippedRunes} onChange={(event) => void onUpdate({ includeEquippedRunes: event.target.checked })} />Include runes equipped on monsters.</label></div></article>;
+}
+
+function RuneSortOrderControl({ settings, onUpdate }: { settings: RunePotentialSettings; onUpdate: (update: Partial<RunePotentialSettings>) => Promise<void> }) {
+  const sortOrders: RunePotentialSortOrder[] = ['Grade', 'Sub Property', 'Sub Property Before Grinding', 'Power-up Lv.', 'Obtained', 'Sub Property Sum', 'Score'];
+  return <article className="potential-setting sort-order-setting"><label htmlFor="rune-sort-order">Sort order</label><select id="rune-sort-order" value={settings.sortOrder} onChange={(event) => void onUpdate({ sortOrder: event.target.value as RunePotentialSortOrder })}>{sortOrders.map((order) => <option key={order}>{order}</option>)}</select></article>;
+}
+
 function ImportSummary({ game, onReport }: { game: ImportedGame; onReport: (category: ReportCategory, details: string) => void }) {
-  const rows = [['Monsters', count(game.data.unit_list)], ['Runes', count(game.data.runes)], ['Artifacts', count(game.data.artifacts)], ['Relics', count(game.data.relics)], ['Gems & grinds', count(game.data.rune_craft_item_list)]];
+  const rows = [['Monsters', count(game.data.unit_list)], ['Runes (all)', count(game.data.runes)], ['Artifacts (all)', count(game.data.artifacts)], ['Relics (all)', count(game.data.relics)], ['Gems & grinds', count(game.data.rune_craft_item_list)]];
   const unknownMonsterIds = game.report.unknownMonsterIds ?? [];
   return <><div className="stat-list">{rows.map(([label, value]) => <div key={label}><span>{label}</span><strong>{value.toLocaleString('en')}</strong></div>)}</div>{unknownMonsterIds.length > 0 && <p className="compatibility-warning">Name information is missing for monster type{unknownMonsterIds.length === 1 ? '' : 's'} {unknownMonsterIds.join(', ')}. <button className="inline-report-button" onClick={() => onReport('Monster', `Swaggr could not find name information for monster type(s): ${unknownMonsterIds.join(', ')}.`)}>Report this</button></p>}</>;
 }

@@ -1,16 +1,52 @@
-import type { CompatibilityReport, ImportedGame, Preferences, RunePotentialSettings } from './types';
+import type { CompatibilityReport, ImportedGame, Preferences, RunePotentialSettings, RunePotentialSortOrder } from './types';
 import { hasMonsterCatalogEntry } from './monster-catalog';
 const expectedSections = ['unit_list', 'runes', 'artifacts', 'relics', 'rune_craft_item_list']; const excludedKeys = new Set(['session_key', 'session_key_node']);
-export const defaultRunePotentialSettings: RunePotentialSettings = { powerUpPolicy: 3, runeQuality: 4 };
+const runePotentialSortOrders: RunePotentialSortOrder[] = ['Grade', 'Sub Property', 'Sub Property Before Grinding', 'Power-up Lv.', 'Obtained', 'Sub Property Sum', 'Score'];
+export const defaultRunePotentialSettings: RunePotentialSettings = { powerUpPolicy: 3, runeQuality: 4, enchantedGems: 3, grindstones: 3, includeLevel12Runes: false, includeEquippedRunes: false, sortOrder: 'Power-up Lv.' };
 function normalizeRunePotentialSettings(value: unknown): RunePotentialSettings {
   if (!value || typeof value !== 'object') return defaultRunePotentialSettings;
   const settings = value as Partial<RunePotentialSettings>;
-  const clamp = (input: unknown, fallback: number) => typeof input === 'number' && Number.isFinite(input) ? Math.min(5, Math.max(1, Math.round(input))) : fallback;
-  return { powerUpPolicy: clamp(settings.powerUpPolicy, 3), runeQuality: clamp(settings.runeQuality, 4) };
+  const normalizeScale = (input: unknown, maximum: number, fallback: number) => typeof input === 'number' && Number.isFinite(input) ? Math.min(maximum, Math.max(1, Math.round(input))) : fallback;
+  const sortOrder = runePotentialSortOrders.includes(settings.sortOrder as RunePotentialSortOrder) ? settings.sortOrder as RunePotentialSortOrder : defaultRunePotentialSettings.sortOrder;
+  return { powerUpPolicy: normalizeScale(settings.powerUpPolicy, 5, 3), runeQuality: normalizeScale(settings.runeQuality, 5, 4), enchantedGems: normalizeScale(settings.enchantedGems, 4, 3), grindstones: normalizeScale(settings.grindstones, 4, 3), includeLevel12Runes: settings.includeLevel12Runes === true, includeEquippedRunes: settings.includeEquippedRunes === true, sortOrder };
 }
 export function blankPreferences(): Preferences { return { format: 'swaggr-preferences', version: 1, updatedAt: new Date().toISOString(), monsterPreferences: {}, runePotential: defaultRunePotentialSettings }; }
-export function validateGameFile(value: unknown): CompatibilityReport { if (!value || typeof value !== 'object' || Array.isArray(value)) return { valid: false, message: 'This is not a valid Summoners War JSON file.', knownSections: [], unknownMonsterIds: [] }; const record = value as Record<string, unknown>; const knownSections = expectedSections.filter((section) => Array.isArray(record[section])); if (!Array.isArray(record.unit_list) || !Array.isArray(record.runes)) return { valid: false, message: 'This file does not contain the monster and rune lists needed by Swaggr.', knownSections, unknownMonsterIds: [] }; const unknownMonsterIds = [...new Set(record.unit_list.map((monster) => String((monster as Record<string, unknown>).unit_master_id)).filter((id) => id !== 'undefined' && !hasMonsterCatalogEntry(id)))]; return { valid: true, message: 'Ready to import.', knownSections, unknownMonsterIds }; }
+type GameRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is GameRecord { return Boolean(value) && typeof value === 'object' && !Array.isArray(value); }
+function collection(value: unknown): unknown[] { return Array.isArray(value) ? value : isRecord(value) ? Object.values(value) : []; }
+function recordCollection(value: unknown): GameRecord[] { return collection(value).filter(isRecord); }
+function hasCollection(value: unknown): boolean { return Array.isArray(value) || isRecord(value); }
+
+function itemId(section: 'runes' | 'artifacts' | 'relics', item: GameRecord): string | undefined {
+  const key = section === 'runes' ? 'rune_id' : section === 'artifacts' ? 'artifact_id' : 'relic_id';
+  const value = item[key] ?? item.item_id;
+  return typeof value === 'number' || typeof value === 'string' ? `${key}:${value}` : undefined;
+}
+
+/**
+ * Game exports keep unequipped items in top-level lists, but put equipped
+ * items inside their owner in unit_list. Keep the original owner data and
+ * also expose a complete account-wide list for each item type.
+ */
+function completeEquipmentCollections(data: GameRecord): GameRecord {
+  const units = recordCollection(data.unit_list);
+  const complete = (section: 'runes' | 'artifacts' | 'relics') => {
+    const seen = new Set<string>();
+    return [...recordCollection(data[section]), ...units.flatMap((unit) => recordCollection(unit[section]))]
+      .filter((item) => {
+        const id = itemId(section, item);
+        if (!id) return true;
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      });
+  };
+  return { ...data, unit_list: units, runes: complete('runes'), artifacts: complete('artifacts'), relics: complete('relics'), rune_craft_item_list: recordCollection(data.rune_craft_item_list) };
+}
+
+export function validateGameFile(value: unknown): CompatibilityReport { if (!isRecord(value)) return { valid: false, message: 'This is not a valid Summoners War JSON file.', knownSections: [], unknownMonsterIds: [] }; const knownSections = expectedSections.filter((section) => hasCollection(value[section])); if (!hasCollection(value.unit_list) || !hasCollection(value.runes)) return { valid: false, message: 'This file does not contain the monster and rune lists needed by Swaggr.', knownSections, unknownMonsterIds: [] }; const unknownMonsterIds = [...new Set(recordCollection(value.unit_list).map((monster) => String(monster.unit_master_id)).filter((id) => id !== 'undefined' && !hasMonsterCatalogEntry(id)))]; return { valid: true, message: 'Ready to import.', knownSections, unknownMonsterIds }; }
 function removeExcludedKeys(value: unknown): unknown { if (Array.isArray(value)) return value.map(removeExcludedKeys); if (!value || typeof value !== 'object') return value; return Object.fromEntries(Object.entries(value as Record<string, unknown>).filter(([key]) => !excludedKeys.has(key)).map(([key, entry]) => [key, removeExcludedKeys(entry)])); }
-export function createImportedGame(fileName: string, data: Record<string, unknown>, report: CompatibilityReport): ImportedGame { return { fileName, importedAt: new Date().toISOString(), data: removeExcludedKeys(data) as Record<string, unknown>, report }; }
+export function createImportedGame(fileName: string, data: Record<string, unknown>, report: CompatibilityReport): ImportedGame { return { fileName, importedAt: new Date().toISOString(), data: completeEquipmentCollections(removeExcludedKeys(data) as GameRecord), report }; }
 export async function fileToText(file: File) { return file.text(); }
 export async function importPreferencesFile(file: File): Promise<Preferences> { const value = JSON.parse(await fileToText(file)) as Partial<Preferences>; if (value.format !== 'swaggr-preferences' || value.version !== 1 || !value.monsterPreferences || typeof value.monsterPreferences !== 'object') throw new Error('Invalid Swaggr preferences file'); return { format: 'swaggr-preferences', version: 1, updatedAt: new Date().toISOString(), monsterPreferences: value.monsterPreferences, runePotential: normalizeRunePotentialSettings(value.runePotential) }; }
