@@ -2,10 +2,10 @@
 
 import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { clearImportedGame, loadImportedGame, loadPreferences, saveImportedGame, savePreferences } from './lib/local-store';
-import { blankPreferences, createImportedGame, fileToText, importPreferencesFile, validateGameFile } from './lib/imports';
+import { blankPreferences, createImportedGame, defaultRunePotentialSettings, fileToText, importPreferencesFile, validateGameFile } from './lib/imports';
 import { monsterPresentation } from './lib/monster-catalog';
 import { calculateMonsterTotals, totalStatValue } from './lib/monster-stats';
-import type { ImportedGame, MonsterPreference, Preferences } from './lib/types';
+import type { ImportedGame, MonsterPreference, Preferences, RunePotentialSettings } from './lib/types';
 
 type Page = 'home' | 'monsters' | 'optimizer' | 'speed' | 'potential' | 'artifacts' | 'gems' | 'relics' | 'preferences';
 type ReportCategory = 'Monster' | 'Rune' | 'Gem' | 'Grindstone' | 'Artifact' | 'Relic' | 'Other';
@@ -53,7 +53,7 @@ export default function Home() {
 
   useEffect(() => {
     Promise.all([loadImportedGame(), loadPreferences()]).then(([savedGame, savedPreferences]) => {
-      setGame(savedGame); setPreferences(savedPreferences ?? blankPreferences());
+      setGame(savedGame); setPreferences(savedPreferences ? { ...savedPreferences, runePotential: savedPreferences.runePotential ?? defaultRunePotentialSettings } : blankPreferences());
     }).finally(() => setReady(true));
   }, []);
 
@@ -79,6 +79,10 @@ export default function Home() {
   }
   async function updateMonsterPreference(unitId: string, update: Partial<MonsterPreference>) {
     const next: Preferences = { ...preferences, monsterPreferences: { ...preferences.monsterPreferences, [unitId]: { ...preferences.monsterPreferences[unitId], unitId, ...update } }, updatedAt: new Date().toISOString() };
+    setPreferences(next); await savePreferences(next);
+  }
+  async function updateRunePotentialSettings(update: Partial<RunePotentialSettings>) {
+    const next: Preferences = { ...preferences, runePotential: { ...(preferences.runePotential ?? defaultRunePotentialSettings), ...update }, updatedAt: new Date().toISOString() };
     setPreferences(next); await savePreferences(next);
   }
   function handleDrop(event: DragEvent<HTMLDivElement>) { event.preventDefault(); setDragging(false); void selectGameFile(event.dataTransfer.files[0]); }
@@ -118,13 +122,35 @@ export default function Home() {
         </>}
         {page === 'preferences' && <PreferencesPanel monsters={monsters as Array<Record<string, unknown>>} preferences={preferences} onUpdate={updateMonsterPreference} onExport={() => download('swaggr-preferences.sw', JSON.stringify(preferences, null, 2))} onImport={() => settingsInput.current?.click()} />}
         {page === 'monsters' && <MonsterOverview monsters={monsters as Array<Record<string, unknown>>} preferences={preferences} />}
-        {page !== 'home' && page !== 'monsters' && page !== 'preferences' && <section className="future-panel"><p className="eyebrow">FOUNDATION READY</p><h2>{pageCopy[page].title}</h2><p>{pageCopy[page].text}</p>{game ? <p className="callout">Your current import is ready for this workspace. Calculation rules will be added here next.</p> : <p className="callout">Import your game data first. Your preferences can be prepared at any time.</p>}</section>}
+        {page === 'potential' && <RunePotentialPanel settings={preferences.runePotential ?? defaultRunePotentialSettings} onUpdate={updateRunePotentialSettings} />}
+        {page !== 'home' && page !== 'monsters' && page !== 'preferences' && page !== 'potential' && <section className="future-panel"><p className="eyebrow">FOUNDATION READY</p><h2>{pageCopy[page].title}</h2><p>{pageCopy[page].text}</p>{game ? <p className="callout">Your current import is ready for this workspace. Calculation rules will be added here next.</p> : <p className="callout">Import your game data first. Your preferences can be prepared at any time.</p>}</section>}
       </div>
     </section>
     <input ref={settingsInput} type="file" accept=".sw,application/json" hidden onChange={(event) => void handleSettingsImport(event)} />
     {pendingGame && <div className="modal-backdrop" role="presentation"><section className="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="replace-title"><p className="eyebrow">REPLACE GAME DATA</p><h2 id="replace-title">Replace the current import?</h2><p>This removes all current game data and replaces it with <strong>{pendingGame.fileName}</strong>. Your saved names, goals and preferences will remain.</p>{pendingGame.report.unknownMonsterIds.length > 0 && <p className="compatibility-warning">{pendingGame.report.unknownMonsterIds.length} monster type{pendingGame.report.unknownMonsterIds.length === 1 ? '' : 's'} {pendingGame.report.unknownMonsterIds.length === 1 ? 'is' : 'are'} newer than Swaggr’s saved name list. {pendingGame.report.unknownMonsterIds.join(', ')} will still be imported, but shown by game ID until the list is updated. <button className="inline-report-button" onClick={() => openReport('Monster', `Swaggr could not find name information for monster type(s): ${pendingGame.report.unknownMonsterIds.join(', ')}.\n\nJSON file: ${pendingGame.fileName}`)}>Report this</button></p>}<div className="modal-actions"><button className="quiet-button" onClick={() => setPendingGame(null)}>Cancel</button><button className="primary-button" onClick={() => void replaceImport()}>Replace data</button></div></section></div>}
     {report && <div className="modal-backdrop" role="presentation"><section className="confirm-dialog report-dialog" role="dialog" aria-modal="true" aria-labelledby="report-title"><p className="eyebrow">SEND A REPORT</p><h2 id="report-title">Report missing data</h2><p>Your normal mail program will open with this report filled in. Review it, then send it to the developer.</p><label>Data type<select value={report.category} onChange={(event) => setReport({ ...report, category: event.target.value as ReportCategory })}>{(['Monster', 'Rune', 'Gem', 'Grindstone', 'Artifact', 'Relic', 'Other'] as ReportCategory[]).map((category) => <option key={category}>{category}</option>)}</select></label><label>What is missing or unrecognized?<textarea value={report.details} onChange={(event) => setReport({ ...report, details: event.target.value })} placeholder="Include the name, game ID, or anything else shown by Swaggr." /></label><p className="report-note">Swaggr does not attach your game data to the e-mail.</p><div className="modal-actions"><button className="quiet-button" onClick={() => setReport(null)}>Cancel</button><button className="primary-button" onClick={sendReport}>Open e-mail</button></div></section></div>}
   </main>;
+}
+
+function RunePotentialPanel({ settings, onUpdate }: { settings: RunePotentialSettings; onUpdate: (update: Partial<RunePotentialSettings>) => Promise<void> }) {
+  const policyLabels = ['Fuld YOLO', 'Eventyrlysten', 'Balanceret', 'Kræsen', 'Ingen løse ender'];
+  const qualityLabels = ['Alt med en puls', 'Lovende', 'Godt stof', 'Tophylde', 'Kun guld'];
+  return <section className="rune-potential-panel">
+    <div className="rune-potential-heading"><div><p className="eyebrow">RUNE POTENTIAL · OPSÆTNING</p><h2>Sæt din RNG-personlighed</h2><p>Vælg, hvor optimistisk Swaggr skal være, før en rune får lov at spise dine mana-sten.</p></div><span className="settings-badge">2 kernevalg</span></div>
+    <div className="potential-settings">
+      <PotentialSlider id="power-up-policy" label="Power Up Policy" value={settings.powerUpPolicy} valueLabel={policyLabels[settings.powerUpPolicy - 1]} description="Hvor villig er du til at rulle runer med potentiale? 1 prøver alt med en chance; 5 venter på det, der næsten allerede er en slam dunk." lowLabel="Rul bredt" highLabel="Spil sikkert" onChange={(value) => void onUpdate({ powerUpPolicy: value })} />
+      <PotentialSlider id="rune-quality" label="Rune Quality" value={settings.runeQuality} valueLabel={qualityLabels[settings.runeQuality - 1]} description="Hvor højt skal runens bedste tænkelige slutniveau være, før den får lov at rulle? Ikke alle main characters behøver audition." lowLabel="Potentiale nok" highLabel="Kun topklasse" onChange={(value) => void onUpdate({ runeQuality: value })} />
+    </div>
+  </section>;
+}
+
+function PotentialSlider({ id, label, value, valueLabel, description, lowLabel, highLabel, onChange }: { id: string; label: string; value: number; valueLabel: string; description: string; lowLabel: string; highLabel: string; onChange: (value: number) => void }) {
+  const progress = `${((value - 1) / 4) * 100}%`;
+  return <article className="potential-setting">
+    <div className="potential-setting-header"><div><h3>{label}</h3><p>{description}</p></div><div className="setting-value" aria-live="polite"><strong>{value}</strong><span>{valueLabel}</span></div></div>
+    <div className="range-wrap"><input id={id} className="potential-range" type="range" min="1" max="5" step="1" value={value} onChange={(event) => onChange(Number(event.target.value))} aria-describedby={`${id}-help`} style={{ '--range-progress': progress } as React.CSSProperties} /><div className="range-steps" aria-hidden="true">{[1, 2, 3, 4, 5].map((step) => <span key={step} className={step <= value ? 'active' : ''}>{step}</span>)}</div></div>
+    <p id={`${id}-help`} className="range-endpoints"><span>{lowLabel}</span><span>{highLabel}</span></p>
+  </article>;
 }
 
 function ImportSummary({ game, onReport }: { game: ImportedGame; onReport: (category: ReportCategory, details: string) => void }) {
