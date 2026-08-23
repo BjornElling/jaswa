@@ -20,6 +20,11 @@ Copy should be concise, clear, and lightly playful. Cultural references are
 welcome when they improve the moment, but never at the expense of clarity or
 accessibility. Keep humour short; make the action or meaning obvious first.
 
+## Game terminology
+
+Use “monster” and “monsters” by default. **Mon** and **mons** are acceptable
+informal alternatives when explicitly requested by the user.
+
 ## Exceptions
 
 Verbatim game names, player-supplied data, imported game data, quotations, and
