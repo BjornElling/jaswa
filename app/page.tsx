@@ -2,7 +2,7 @@
 
 import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { clearImportedGame, loadImportedGame, loadPreferences, saveImportedGame, savePreferences } from './lib/local-store';
-import { blankPreferences, createImportedGame, defaultRunePotentialSettings, fileToText, importPreferencesFile, validateGameFile } from './lib/imports';
+import { blankPreferences, createImportedGame, defaultRunePotentialSettings, fileToText, importPreferencesFile, normalizeImportedGame, validateGameFile } from './lib/imports';
 import { monsterPresentation } from './lib/monster-catalog';
 import { calculateMonsterTotals, totalStatValue } from './lib/monster-stats';
 import type { ImportedGame, MonsterPreference, Preferences, RunePotentialSettings, RunePotentialSortOrder } from './lib/types';
@@ -53,7 +53,8 @@ export default function Home() {
 
   useEffect(() => {
     Promise.all([loadImportedGame(), loadPreferences()]).then(([savedGame, savedPreferences]) => {
-      setGame(savedGame); setPreferences(savedPreferences ? { ...savedPreferences, runePotential: { ...defaultRunePotentialSettings, ...savedPreferences.runePotential } } : blankPreferences());
+      const normalizedGame = savedGame ? normalizeImportedGame(savedGame) : null;
+      setGame(normalizedGame); if (normalizedGame) void saveImportedGame(normalizedGame); setPreferences(savedPreferences ? { ...savedPreferences, runePotential: { ...defaultRunePotentialSettings, ...savedPreferences.runePotential } } : blankPreferences());
     }).finally(() => setReady(true));
   }, []);
 
@@ -160,7 +161,7 @@ function PotentialSlider({ id, label, value, steps = 5, description, lowLabel, h
 }
 
 function RuneVisibilityControls({ settings, onUpdate }: { settings: RunePotentialSettings; onUpdate: (update: Partial<RunePotentialSettings>) => Promise<void> }) {
-  return <article className="potential-setting visibility-setting"><h3>Overview filters</h3><div className="checkbox-list"><label><input type="checkbox" checked={settings.includeLevel12Runes} onChange={(event) => void onUpdate({ includeLevel12Runes: event.target.checked })} />Include runes at +12 or higher.</label><label><input type="checkbox" checked={settings.includeEquippedRunes} onChange={(event) => void onUpdate({ includeEquippedRunes: event.target.checked })} />Include runes equipped on monsters.</label></div></article>;
+  return <article className="potential-setting visibility-setting"><h3>Overview filters</h3><div className="checkbox-list"><label><input type="checkbox" checked={settings.includeLevel12Runes} onChange={(event) => void onUpdate({ includeLevel12Runes: event.target.checked })} />Include runes at Level 12+.</label><label><input type="checkbox" checked={settings.includeEquippedRunes} onChange={(event) => void onUpdate({ includeEquippedRunes: event.target.checked })} />Include runes equipped on monsters.</label></div></article>;
 }
 
 function RuneSortOrderControl({ settings, onUpdate }: { settings: RunePotentialSettings; onUpdate: (update: Partial<RunePotentialSettings>) => Promise<void> }) {
