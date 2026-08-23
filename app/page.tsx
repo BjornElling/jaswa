@@ -5,6 +5,7 @@ import { clearImportedGame, loadImportedGame, loadPreferences, saveImportedGame,
 import { blankPreferences, createImportedGame, defaultRunePotentialSettings, fileToText, importPreferencesFile, normalizeImportedGame, validateGameFile } from './lib/imports';
 import { monsterPresentation } from './lib/monster-catalog';
 import { calculateMonsterTotals, totalStatValue } from './lib/monster-stats';
+import { runePotentialPresets } from './lib/rune-potential-presets';
 import type { ImportedGame, MonsterPreference, Preferences, RunePotentialSettings, RunePotentialSortOrder } from './lib/types';
 
 type Page = 'home' | 'monsters' | 'optimizer' | 'speed' | 'potential' | 'artifacts' | 'gems' | 'relics' | 'preferences';
@@ -134,20 +135,35 @@ export default function Home() {
 }
 
 function RunePotentialPanel({ settings, onUpdate }: { settings: RunePotentialSettings; onUpdate: (update: Partial<RunePotentialSettings>) => Promise<void> }) {
-  return <section className="rune-potential-panel">
-    <div className="rune-potential-heading"><div><h2>Set your RNG personality</h2><p>Tell Swaggr how optimistic to be before a rune gets to eat your mana stones.</p></div></div>
-    <div className="potential-settings">
-      <div className="potential-column">
-        <PotentialSlider id="power-up-policy" label="Power Up Policy" value={settings.powerUpPolicy} description="How willing are you to roll runes with potential?" lowLabel="Gives every contender a shot." highLabel="Waits for a rune that is practically a slam dunk." onChange={(value) => void onUpdate({ powerUpPolicy: value })} />
-        <PotentialSlider id="rune-quality" label="Rune Quality" value={settings.runeQuality} description="How high must a rune's best-case final quality be before it gets a roll?" lowLabel="Gives every rough diamond a chance." highLabel="Only rolls future hall-of-famers." onChange={(value) => void onUpdate({ runeQuality: value })} />
-        <RuneVisibilityControls settings={settings} onUpdate={onUpdate} />
+  return <div className="potential-workspace">
+    <section className="rune-potential-panel">
+      <div className="rune-potential-heading"><div><h2>Set your RNG personality</h2><p>Tell Swaggr how optimistic to be before a rune gets to eat your mana stones.</p></div></div>
+      <div className="potential-settings">
+        <div className="potential-column">
+          <PotentialSlider id="power-up-policy" label="Power Up Policy" value={settings.powerUpPolicy} description="How willing are you to roll runes with potential?" lowLabel="Gives every contender a shot." highLabel="Waits for a rune that is practically a slam dunk." onChange={(value) => void onUpdate({ powerUpPolicy: value })} />
+          <PotentialSlider id="rune-quality" label="Rune Quality" value={settings.runeQuality} description="How high must a rune's best-case final quality be before it gets a roll?" lowLabel="Gives every rough diamond a chance." highLabel="Only rolls future hall-of-famers." onChange={(value) => void onUpdate({ runeQuality: value })} />
+          <RuneVisibilityControls settings={settings} onUpdate={onUpdate} />
+        </div>
+        <div className="potential-column">
+          <PotentialSlider id="enchanted-gems" label="Enchanted Gems" value={settings.enchantedGems} steps={4} description="How generously should gem upgrades count toward a rune's potential?" lowLabel="Leave them out." highLabel="Use maximum value." onChange={(value) => void onUpdate({ enchantedGems: value })} />
+          <PotentialSlider id="grindstones" label="Grindstones" value={settings.grindstones} steps={4} description="How generously should grindstone upgrades count toward a rune's potential?" lowLabel="Leave them out." highLabel="Use maximum value." onChange={(value) => void onUpdate({ grindstones: value })} />
+          <RuneSortOrderControl settings={settings} onUpdate={onUpdate} />
+        </div>
       </div>
-      <div className="potential-column">
-        <PotentialSlider id="enchanted-gems" label="Enchanted Gems" value={settings.enchantedGems} steps={4} description="How generously should gem upgrades count toward a rune's potential?" lowLabel="Leave them out." highLabel="Use maximum value." onChange={(value) => void onUpdate({ enchantedGems: value })} />
-        <PotentialSlider id="grindstones" label="Grindstones" value={settings.grindstones} steps={4} description="How generously should grindstone upgrades count toward a rune's potential?" lowLabel="Leave them out." highLabel="Use maximum value." onChange={(value) => void onUpdate({ grindstones: value })} />
-        <RuneSortOrderControl settings={settings} onUpdate={onUpdate} />
-      </div>
-    </div>
+    </section>
+    <PresetPanel />
+  </div>;
+}
+
+function PresetPanel() {
+  return <section className="rune-preset-panel" aria-labelledby="presets-title">
+    <div className="preset-heading"><div><p className="eyebrow">LOCKED WORKING VALUES</p><h2 id="presets-title">Presets</h2><p>These source-controlled presets define desirable rune sets, substats and the role weighting of the three calculated values. A weight of 0 means the metric is intentionally ignored.</p></div><span className="settings-badge">SOURCE-CONTROLLED</span></div>
+    <div className="preset-list">{runePotentialPresets.map((preset) => <article className="preset-card" key={preset.id}>
+      <div className="preset-card-heading"><div><h3>{preset.name}</h3><p>{preset.description}</p></div></div>
+      <div className="preset-detail"><span>Desired sets</span><div className="preset-tags">{preset.desirableSets.map((set) => <b key={set}>{set}</b>)}</div></div>
+      <div className="preset-detail"><span>Desired stats</span><div className="preset-tags">{preset.desirableStats.map((stat) => <b key={stat}>{stat}</b>)}</div></div>
+      <dl className="preset-metrics"><div><dt>DMG</dt><dd>{preset.metricWeights.dmg}</dd></div><div><dt>E.HP</dt><dd>{preset.metricWeights.ehp}</dd></div><div><dt>E.HP D</dt><dd>{preset.metricWeights.ehpD}</dd></div></dl>
+    </article>)}</div>
   </section>;
 }
 
