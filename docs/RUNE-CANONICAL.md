@@ -1,0 +1,408 @@
+# Rune-regler — kanonisk specifikation
+
+**Status:** Bindende regelgrundlag for Swaggr Rune Potential  
+**Version:** 0.3-draft · **kontrolleret:** 23. august 2026  
+**Spil:** *Summoners War: Sky Arena* (ikke *Chronicles* eller *Lost Centuria*)
+
+Dette dokument er den kanoniske beskrivelse af spilregler, som Rune Potential
+må bygge på. Hvis kode, UI eller en sekundær guide modsiger dokumentet, er
+dokumentet styrende, indtil det er rettet med dokumenteret belæg.
+
+Det skelner bevidst mellem **verificeret regel** (dokumenteret i kilderne
+nederst eller i den observerede eksport) og **afventende verificering**. Det
+sidste er hverken en antagelse eller en tilladt standardværdi i kode.
+
+## 1. Grundmodel og ordliste
+
+Et monster kan have seks runer, én i hver **slot** 1–6. En rune har et
+**Rune Set** (`set_id`), slot (`slot_no`), stjerneklasse (**grade**, 1–6★;
+`class` i eksporten), sjældenhed (**default grade** / rarity; `rank`),
+**Main Property** (`pri_eff`), eventuelt **Prefix Property** / innate
+(`prefix_eff`) og nul til fire **Sub Properties** (`sec_eff`).
+
+En **roll** er enten den oprindelige værdi af en Sub Property eller en senere
+forbedring af den ved +3, +6, +9 eller +12. +15 giver ikke en Sub
+Property-roll; det forbedrer Main Property.
+
+Spilnavnene er **HP**, **ATK**, **DEF**, **SPD**, **CRI Rate**, **CRI Dmg**,
+**Resistance** og **Accuracy**. Swaggr skal bruge disse navne i UI; danske
+forklaringer må stå ved siden af, men må ikke erstatte dem.
+
+## 2. Stats og eksportkodning
+
+Mappingen er verificeret mod den brugerleverede eksport `Culpa-21822407.json`
+(klient 9.2.9) og svarer til SWEX-formatet.
+
+| Effekt-ID | Spilnavn | Form |
+| ---: | --- | --- |
+| 1 | HP + | flad |
+| 2 | HP % | procent |
+| 3 | ATK + | flad |
+| 4 | ATK % | procent |
+| 5 | DEF + | flad |
+| 6 | DEF % | procent |
+| 8 | SPD | flad |
+| 9 | CRI Rate | procentpoint |
+| 10 | CRI Dmg | procentpoint |
+| 11 | Resistance | procentpoint |
+| 12 | Accuracy | procentpoint |
+
+Effekt 7 er ikke en gyldig almindelig rune-property i den observerede eksport.
+Kode må ikke opfinde en betydning for den.
+
+## 3. Lovlige Main Properties pr. slot
+
+| Slot | Type | Lovlige Main Properties |
+| ---: | --- | --- |
+| 1 | fast | ATK + |
+| 2 | valgbar | HP +, HP %, ATK +, ATK %, DEF +, DEF %, SPD |
+| 3 | fast | DEF + |
+| 4 | valgbar | HP +, HP %, ATK +, ATK %, DEF +, DEF %, CRI Rate, CRI Dmg |
+| 5 | fast | HP + |
+| 6 | valgbar | HP +, HP %, ATK +, ATK %, DEF +, DEF %, Resistance, Accuracy |
+
+En Sub Property må ikke have samme stattype som Main Property, og samme
+Sub Property-type kan ikke forekomme to gange på samme rune.
+
+### Main Property ved +15
+
+Main Property vokser deterministisk ved power-up; den er ikke et roll. Tabellen
+viser den endelige +15-værdi for en almindelig rune pr. stjerneklasse. Hver
+stat kan kun bruges i de slots, der er tilladt i tabellen ovenfor.
+
+| Main Property | 1★ | 2★ | 3★ | 4★ | 5★ | 6★ |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| HP + | 804 | 1.092 | 1.380 | 1.704 | 2.088 | 2.448 |
+| HP %, ATK %, DEF % | 18 % | 20 % | 38 % | 43 % | 51 % | 63 % |
+| ATK +, DEF + | 54 | 74 | 93 | 113 | 135 | 160 |
+| SPD | 18 | 19 | 25 | 30 | 39 | 42 |
+| CRI Rate | 18 % | 20 % | 37 % | 41 % | 47 % | 58 % |
+| CRI Dmg | 20 % | 37 % | 43 % | 58 % | 65 % | 80 % |
+| Resistance, Accuracy | 18 % | 20 % | 38 % | 44 % | 51 % | 64 % |
+
+## 4. Prefix Property (innate)
+
+En **Prefix Property** (ofte kaldet *innate*) er den separate, ekstra stat,
+der står under Main Property. Den er ikke en Sub Property og bruger ikke en af
+de fire Sub Property-pladser. Den eksisterer fra runens oprettelse, har én
+fast værdi, får aldrig power-up-rolls og kan ikke være målet for Gem eller
+Grindstone.
+
+Prefix kan være en af de samme 11 stattyper som Sub Properties. En rune kan
+ikke have samme stattype i Main Property, Prefix Property og Sub Properties.
+Prefix gør altså den pågældende type utilgængelig som almindelig Sub Property.
+Det indgår i den tilladte statmængde ved både naturlige rolls, Gem og
+Reappraisal.
+
+For almindelige 6★-runer er Prefix-intervallerne:
+
+| Prefix Property | Min | Maks |
+| --- | ---: | ---: |
+| HP + | 53 | 323 |
+| HP %, ATK %, DEF % | 1 % | 8 % |
+| ATK + | 2 | 16 |
+| DEF + | 2 | 15 |
+| SPD | 1 | 6 |
+| CRI Rate | 1 % | 6 % |
+| CRI Dmg | 1 % | 7 % |
+| Resistance, Accuracy | 1 % | 8 % |
+
+## 5. Lovlige Sub Properties pr. slot
+
+Ud over forbuddet mod at duplikere Main Property eller Prefix Property gælder
+følgende slotregler for både naturlige rolls og Gems:
+
+| Slot | Sub Property-typer, der aldrig er lovlige |
+| ---: | --- |
+| 1 | ATK + (er Main Property), DEF + og DEF % |
+| 2 | kun den type, der er valgt som Main Property |
+| 3 | DEF + (er Main Property), ATK + og ATK % |
+| 4 | kun den type, der er valgt som Main Property |
+| 5 | HP + (er Main Property) |
+| 6 | kun den type, der er valgt som Main Property |
+
+Eksempel: slot 1 kan godt have ATK %, men aldrig DEF + eller DEF %; slot 3
+kan godt have DEF %, men aldrig ATK + eller ATK %. En Prefix Property lægger
+et yderligere forbud oven i denne tabel.
+
+## 6. Default grade og power-up-forløb
+
+Default grade afgør antallet af Sub Properties ved +0. Den ændres ikke af
+power-up. I aktuel eksport er labels og `rank`:
+
+| Default grade | Almindelig `rank` | Ancient `rank` | Sub Properties ved +0 | Nye Sub Properties | Forbedringer ved +3/+6/+9/+12 |
+| --- | ---: | ---: | ---: | --- | ---: |
+| Normal | 1 | 11 | 0 | +3, +6, +9, +12 | 0 |
+| Magic | 2 | 12 | 1 | +6, +9, +12 | 1 (+3) |
+| Rare | 3 | 13 | 2 | +9, +12 | 2 (+3, +6) |
+| Hero | 4 | 14 | 3 | +12 | 3 (+3, +6, +9) |
+| Legend | 5 | 15 | 4 | ingen | 4 (+3, +6, +9, +12) |
+
+Efter +12 har alle grades fire Sub Properties. Ved et forbedringstrin vælger
+spillet én eksisterende Sub Property. Største mulige antal af samme stat efter
++12, med start-roll medregnet, er derfor:
+
+| Default grade | Maks. antal af samme stat |
+| --- | ---: |
+| Normal | 1 |
+| Magic | 2 |
+| Rare | 3 |
+| Hero | 4 |
+| Legend | 5 |
+
+Det er et teoretisk loft, ikke en garanti. +15 lægger aldrig en Sub
+Property-roll til.
+
+## 7. 6★ almindelige runer: Sub Property-intervaller
+
+Første Rune Potential-version behandler kun 6★ almindelige runer. Disse
+intervaller for én almindelig 6★ Sub Property-værdi er bekræftet mod
+kildetabellen og støttet af +0-runer i den leverede eksport. De gælder både
+for start-roll og for en senere almindelig power-up-roll.
+
+| Sub Property | Min | Maks |
+| --- | ---: | ---: |
+| HP + | 135 | 375 |
+| HP %, ATK %, DEF % | 4 % | 8 % |
+| ATK +, DEF + | 10 | 20 |
+| SPD | 4 | 6 |
+| CRI Rate | 4 % | 6 % |
+| CRI Dmg | 4 % | 7 % |
+| Resistance, Accuracy | 4 % | 8 % |
+
+### Ancient Runes
+
+Ancient Runes kommer fra Dimension Hole. Den leverede eksport markerer dem
+med `class: 16`; almindelige 6★-runer er `class: 6`. De har forbedrede mulige
+startværdier. Eksporten bekræfter eksemplerne HP % 10, SPD 7 og Accuracy 10.
+
+Ancient Runes bruger deres egne **Ancient Enchanted Gems**, **Ancient
+Grindstones** og **Ancient Reappraisal Stones**. Ancient Gem og Grindstone kan
+kun anvendes på Ancient Runes; almindelige Gem/Grindstone må ikke bruges som
+en fallback. Ancient Grindstones og Gems har højere mulige værdier end de
+almindelige modstykker.
+
+**Afventende verificering:** Der er ikke fundet et komplet,
+officiel-/primærkildeverificeret intervalskema for hver Ancient-start-roll.
+Rune Potential må derfor ikke vise en numerisk Ancient-ceiling eller
+sammenligne Ancient og almindelige runer på gættede maksimumværdier. Det må
+vise kendte aktuelle stats og markere projektionen som ikke tilgængelig.
+
+## 8. Enchanted Gems og Grindstones
+
+### Enchanted Gem: erstatter én Sub Property
+
+En **Enchanted Gem** kan bruges på en Rune med `+12` eller højere. Den
+erstatter én eksisterende Sub Property med den stat, som Gem'en angiver.
+Den erstattede stats tidligere Power-up-rolls følger **ikke** med til den nye
+stat. En Rune må højst have én sådan Gem-konverteret Sub Property ad gangen;
+en senere Gem kan erstatte den konverterede stat igen.
+
+En almindelig Gem skal matche Runens Rune Set. En **Immemorial Gem** er
+set-uafhængig. Gem'en må ikke give den samme type som Runens Main Property,
+Prefix Property eller en af de øvrige Sub Properties. Dermed gælder alle
+forbudsregler i afsnit 4 og 5 også ved Gem-konvertering.
+
+| Gem-grade | HP + | HP %, ATK %, DEF % | ATK +, DEF + | SPD | CRI Rate | CRI Dmg | Resistance, Accuracy |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Normal | 100–150 | 2–4 % | 8–12 | 1–3 | 1–3 % | 1–3 % | 2–4 % |
+| Magic | 130–220 | 3–7 % | 10–16 | 2–4 | 2–4 % | 3–5 % | 3–6 % |
+| Rare | 200–310 | 5–9 % | 15–23 | 3–6 | 3–5 % | 4–6 % | 5–8 % |
+| Hero | 290–420 | 7–11 % | 20–30 | 5–8 | 4–7 % | 5–8 % | 6–9 % |
+| Legend | 400–580 | 9–13 % | 28–40 | 7–10 | 6–9 % | 7–10 % | 8–11 % |
+
+### Grindstone: tillæg til en mulig Sub Property
+
+En **Grindstone** lægger et separat tillæg på én eksisterende Sub Property.
+Kun HP +, HP %, ATK +, ATK %, DEF +, DEF % og SPD kan grinde's; CRI Rate,
+CRI Dmg, Resistance og Accuracy kan ikke. En almindelig Grindstone skal
+matche Runens Rune Set; en **Immemorial Grindstone** er set-uafhængig.
+
+En Gem-konverteret Sub Property kan efterfølgende få en Grindstone, når den
+nye type er grindbar. Det bekræftes også af den leverede eksport: samme
+`sec_eff`-post kan have både Gem-markør og Grindstone-tillæg.
+
+| Grindstone-grade | HP + | HP %, ATK %, DEF % | ATK +, DEF + | SPD |
+| --- | ---: | ---: | ---: | ---: |
+| Normal | 80–120 | 1–3 % | 4–8 | 1–2 |
+| Magic | 100–200 | 2–5 % | 6–12 | 1–2 |
+| Rare | 180–250 | 3–6 % | 10–18 | 2–3 |
+| Hero | 230–450 | 4–7 % | 12–22 | 3–4 |
+| Legend | 430–550 | 5–10 % | 18–30 | 4–5 |
+
+En senere Grindstone kan bruges på samme stat for at forsøge at opnå en bedre
+værdi, men kun når dens mulige slutværdi kan blive højere end det eksisterende
+tillæg. Det er det observerede tillæg, ikke Grindstone-itemets grade, som er
+den aktuelle Rune-stat.
+
+### Eksportrepræsentation af modifikationer
+
+For en Sub Property i `sec_eff` er det relevante normaliserede format:
+
+```text
+[effectId, baseOrGemValue, gemMarker, grindValue]
+currentSubValue = baseOrGemValue + grindValue
+```
+
+`gemMarker` angiver en Gem-konverteret Sub Property. `grindValue` er allerede
+opnået og må hverken behandles som en fremtidig roll eller tælles to gange.
+
+## 9. Omrulningseffekter: Reappraisal og Rune Refinement
+
+De to systemer har modsatte formål og må ikke blandes sammen:
+
+| Effekt | Bevarer | Ændrer | Centrale begrænsninger |
+| --- | --- | --- | --- |
+| **Reappraisal** | Rune Set, slot, grade, Main Property og Prefix Property | alle fire Sub Properties og deres Power-up-fordeling rulles om | Rune skal være mindst +12; Intangible kan ikke Reappraise |
+| **Rune Refinement** | Rune Set, slot, grade, Main Property, Prefix Property og Sub Property-typer | de numeriske Sub Property-værdier og Power-up-levels fordeles om | Rune skal være mindst +12; ikke Ancient, Intangible eller Gem-konverteret |
+
+En Reappraisal må accepteres eller afvises. Accepteres den, forsvinder
+eventuelle Gem- og Grindstone-modifikationer på runen; Prefix Property bliver
+stående. Reappraisal er således den effekt, der kan ændre *hvilke* Sub
+Properties runen har.
+
+Rune Refinement er i stedet en omfordeling af runens eksisterende Sub
+Property-værdier og Power-up-levels: typerne ændres ikke. Grindstone-tillæg
+bevares. En Rune med en Gem-konverteret Sub Property kan ikke Rune Refine;
+systemet må derfor afvise handlingen, ikke simulere en undtagelse.
+
+## 10. Rune Sets
+
+Et set aktiveres ved antallet i kolonnen **Set**. To-set-effekter kan normalt
+stakkes op til tre gange på samme monster; et fire-set kan kombineres med ét
+to-set. Intangible er undtagelsen og er beskrevet særskilt nedenfor.
+
+| `set_id` | Rune Set | Set | Effekt | Type for Rune Potential |
+| ---: | --- | ---: | --- | --- |
+| 1 | Energy | 2 | HP +15 % | konstant stat |
+| 2 | Guard | 2 | DEF +15 % | konstant stat |
+| 3 | Swift | 4 | SPD +25 % | konstant stat |
+| 4 | Blade | 2 | CRI Rate +12 % | konstant stat |
+| 5 | Rage | 4 | CRI Dmg +40 % | konstant stat |
+| 6 | Focus | 2 | Accuracy +20 % | konstant stat |
+| 7 | Endure | 2 | Resistance +20 % | konstant stat |
+| 8 | Fatal | 4 | ATK +35 % | konstant stat |
+| 10 | Despair | 4 | 25 % chance for Stun ved angreb | kamp-/chanceeffekt |
+| 11 | Vampire | 4 | Life Drain +35 % | kamp-/chanceeffekt |
+| 13 | Violent | 4 | 22 % chance for Additional Turn | kamp-/chanceeffekt |
+| 14 | Nemesis | 2 | ATK Gauge +4 % for hver 7 % HP tabt | kamp-/betinget effekt |
+| 15 | Will | 2 | Immunity i 1 turn ved kampstart | kamp-/betinget effekt |
+| 16 | Shield | 2 | 3-turn Shield til hele teamet, 15 % af bærerens base HP | kamp-/betinget effekt |
+| 17 | Revenge | 2 | 15 % counterattack med første skill ved 75 % af original skade | kamp-/chanceeffekt |
+| 18 | Destroy | 2 | modstanderens MAX HP −30 % af skade; loft 60 % | kamp-/betinget effekt |
+| 19 | Fight | 2 | Allies' ATK +8 % | konstant teamstat |
+| 20 | Determination | 2 | Allies' DEF +8 % | konstant teamstat |
+| 21 | Enhance | 2 | Allies' HP +8 % | konstant teamstat |
+| 22 | Accuracy | 2 | Allies' Accuracy +10 % | konstant teamstat |
+| 23 | Tolerance | 2 | Allies' Resistance +10 % | konstant teamstat |
+| 24 | Seal | 2 | 15 % chance for at deaktivere kvalificeret Rune Set-effekt i 1 turn | kamp-/chanceeffekt |
+| 25 | Intangible | 1 | fuldfører ét set, der mangler præcis én rune | særregel |
+
+### Modtager, grundlag og stacking
+
+Der er to forskellige modtagerregler, som beregningen skal holde strengt
+adskilt:
+
+1. **Bærerens egne seteffekter** (Energy, Guard, Swift, Blade, Rage, Focus,
+   Endure, Fatal, Despair, Vampire, Violent, Nemesis, Will, Shield, Revenge,
+   Destroy og Seal) opstår kun på monsteret med det færdige set — med Shield
+   som den udtrykkelige teameffekt.
+2. **Alle-monster/teamsets** (Fight, Determination, Enhance, Accuracy og
+   Tolerance) gælder hvert monster på samme hold, **inklusive bæreren**.
+   Com2uS' aktuelle tekst siger “all Monsters”; den må derfor ikke fortolkes
+   som “alle andre allies”.
+
+Fight, Determination og Enhance beregnes for hver modtager ud fra dennes egen
+base ATK, base DEF eller base HP — ikke ud fra bærerens stat. Et færdigt Fight
+set hos et monster giver således også netop dét monster +8 % af dets egen base
+ATK, og hvert andet monster på holdet +8 % af sin egen base ATK. De komplette
+teamset-bidrag stables additivt. Eksempel: tre færdige Fight-sets hos samme
+monster giver +24 % ATK til alle på holdet, inkl. bæreren.
+
+Energy, Guard, Fatal og Swift er ligeledes procentbonuser til bærerens egen
+base HP/DEF/ATK/SPD. Blade, Rage, Focus, Endure, Accuracy og Tolerance er
+vist som deres respektive CRI/Accuracy/Resistance-procentpoint og må ikke
+omfortolkes til multiplikative kampbuffs.
+
+### Bekræftede kampdetaljer med relevans for setværdi
+
+Disse fakta skal vises som setegenskaber, men indgår ikke i den første
+numeriske Rune Potential-score eller -ceiling:
+
+- **Shield:** Hvert færdigt set giver hele holdet et aftageligt Shield i 3
+  turns på 15 % af bærerens base HP. Flere Shield-sets på samme eller flere
+  holdmedlemmer stables. Det genaktiveres ved ny wave undtagen Secret Dungeon,
+  men ikke efter Revival.
+- **Will:** ét set giver Immunity i 1 turn ved kampstart. Flere færdige
+  Will-sets forlænger varigheden additivt, op til 3 turns med tre sets;
+  Immunity er et aftageligt buff.
+- **Despair:** 25 % Stun-kontrol er et selvstændigt forsøg ud over en skills
+  egen Stun. Det kan forsøges pr. hit på multi-hit attacks og kan ikke
+  resistes, men Immunity forhindrer det.
+- **Vampire:** heler bæreren med 35 % af skaden; effekten gælder ikke attacks,
+  der skalerer med målets HP.
+- **Nemesis:** +4 % Attack Bar pr. 7 % tabt HP per set. Effekten udløses ikke
+  af Continuous Damage eller skills, der ofrer bærerens HP.
+- **Revenge:** +15 % chance per set for counterattack til 75 % af basic damage;
+  flere sets øger chancen additivt.
+- **Destroy:** 30 % af påført skade reducerer fjendens MAX HP, dog højst 4 %
+  af fjendens MAX HP pr. set og højst 60 % samlet over kampen. Flere sets
+  løfter pr.-attack-loftet (8 % ved to, 12 % ved tre). Destroy kan ikke ramme
+  Bosses.
+- **Violent:** det første Additional Turn-forsøg er 22 %. Sandsynlighed for
+  efterfølgende sammenhængende Additional Turns falder; dette er kamp-RNG og
+  må ikke beregnes som statværdi.
+- **Seal:** 15 % chancen knytter Seal-effekten til bærerens attacks. Den kan
+  deaktivere Despair, Vampire, Violent, Nemesis, Revenge, Destroy eller Seal
+  i 1 turn, men ikke seteffekter der direkte ændrer stats.
+
+### Særregler
+
+- **Seal** kan deaktivere Despair, Vampire, Violent, Nemesis, Revenge,
+  Destroy og Seal, men ikke direkte statgivende set-effekter som Energy eller
+  Fatal.
+- **Intangible** har ikke egen statbonus. 3 Violent + 2 Will + 1 Intangible
+  giver både Violent og Will. Den må ikke tælle som flere manglende runer eller
+  fuldføre flere ufuldstændige sets samtidig.
+- Et monster må højst have **én** Intangible Rune. Den er dermed ikke en
+  generel erstatning for flere manglende runer.
+- Intangible kan ikke Reappraise. Den må kun have Intangible- eller
+  Immemorial Gems/Grindstones og kan heller ikke Rune Refine.
+- **Rune Refinement** kræver +12 eller højere, bevarer Sub Property-typer og
+  Grindstone-forbedringer og kan ikke bruges på Ancient, Intangible eller
+  Gem-konverterede runer.
+
+## 11. Afgrænsede eller fortsat uafklarede kampregler
+
+Følgende må ikke få en stiltiende formel i Rune Potential. De er registreret
+for at undgå, at fravær i den numeriske model bliver forvekslet med en
+spilregel:
+
+- Præcis hvordan Attack Bar, turn-limit og aftagelige buffs opfører sig i
+  hvert game mode — særligt Violent og Seal i realtids-PvP.
+- Om teamseteffekter krydser mellem adskilte hold i særlige multi-party modes.
+  Grundmodellen omfatter kun monsterets eget hold.
+- Kampresultatet af Despair, Vampire, Destroy, Nemesis, Revenge, Violent,
+  Will, Shield og Seal. De er dokumenterede setegenskaber, men kan ikke
+  konverteres ansvarligt til én universel rune-score.
+
+## 12. Hvad reglerne ikke afgør
+
+Runeværdi for en rolle, SPD kontra HP %, valg af hvilke Gems, Grindstones eller
+omrulninger der bør bruges, og enhver “efficiency”-/“rune score”-formel er
+produktbeslutninger, ikke spilfakta. De står kun i arbejdsdokumentet.
+
+## 13. Kilder og revisionsregel
+
+1. Com2uS, [Rune System — aktuel spilguide](https://summonerswar.com/en/skyarena/game) — seteffekter, all-monsters-formuleringen, Shield-varighed og Intangible-loft.
+2. Com2uS, [RELOADED developer's note](https://summonerswar.com/en/skyarena/news/list/4225) — Seal, Intangible, power-up og Intangible-begrænsninger.
+3. Com2uS, [v9.0.0 update notice](https://summonerswar.com/en/skyarena/news/list/6113) — Rune Refinement og begrænsninger.
+4. [Spokland — Rune Sets](https://summonerswar.spokland.com/rune/set), [Prefix Property](https://summonerswar.spokland.com/rune/prefix), [Sub Property](https://summonerswar.spokland.com/rune/sub-stat), [Enchanted Gem](https://summonerswar.spokland.com/rune/enchanted_gem), [Grindstone](https://summonerswar.spokland.com/rune/grindstone), [Reappraisal Stone](https://summonerswar.spokland.com/rune/reappraisal_stone) og [Ancient Rune](https://summonerswar.spokland.com/rune/ancient_rune) — detaljer om stacking og kampvirkning samt intervaltabeller og Ancient-itemadskillelse. Sekundær kilde; aktuel officiel spiltekst eller reproducerbar klientobservation vinder ved konflikt.
+5. [Summoners War: Sky Arena Wiki — Runes](https://summonerswar.fandom.com/wiki/Runes), [Enchanted Gem](https://summonerswar.fandom.com/wiki/Enchanted_Gem) og [Grindstone](https://summonerswar.fandom.com/wiki/Grindstone) — krydstjek af slots, Shield-grundlag, Gem/Grindstone-regler og almindelige set-effekter. Sekundær kilde.
+6. [SWEX mapping.js](https://github.com/Xzandro/sw-exporter/blob/master/app/mapping.js) — eksportens set-ID-mapping samt Gem- og Grindstone-tabeller; kontrolleret mod den lokale, aktuelle SWEX-kopi.
+7. Brugerleveret `Culpa-21822407.json`, 23. august 2026 — feltformat, `class`/`rank`, stat-ID'er og observerede Prefix-, Gem- og Grindstone-værdier.
+8. Brugerleveret `full_log.txt`, 23. august 2026 — ingen Rune Statistics-forespørgsel forekommer i den konkrete log.
+
+Ved hver spilopdatering skal set-tabellen, `class`/`rank`-mapping og
+Sub Property-intervaller revalideres. Et ukendt felt eller Rune Set må aldrig
+få en stiltiende fallback-regel.

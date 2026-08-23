@@ -1,0 +1,122 @@
+/**
+ * Small, local SWARFARM API snapshot used to supplement missing monster data.
+ * Endpoint: https://swarfarm.com/api/v2/monsters/?com2us_id=<id>
+ * Retrieved: 2026-08-22
+ *
+ * The API is queried only during deliberate, small development refreshes.
+ * Swaggr never requests this API from a user's browser at runtime.
+ */
+export const swarfarmMonsterSnapshot = [
+  {
+    "id": 1641,
+    "url": "https://swarfarm.com/api/v2/monsters/1641/",
+    "bestiary_slug": "24112-fire-ken",
+    "com2us_id": 24112,
+    "family_id": 24100,
+    "skill_group_id": 24100,
+    "name": "KEN",
+    "image_filename": "unit_icon_0060_1_2.png",
+    "element": "Fire",
+    "archetype": "Attack",
+    "base_stars": 6,
+    "natural_stars": 5,
+    "obtainable": true,
+    "can_awaken": true,
+    "awaken_level": 1,
+    "awaken_bonus": "",
+    "skills": [
+      2744,
+      2745,
+      2746
+    ],
+    "skill_ups_to_max": 11,
+    "leader_skill": {
+      "id": 138,
+      "url": "https://swarfarm.com/api/v2/leader-skills/138/",
+      "attribute": "Critical Rate",
+      "amount": 33,
+      "area": "Dungeon",
+      "element": null
+    },
+    "homunculus_skills": [],
+    "base_hp": 10050,
+    "base_attack": 834,
+    "base_defense": 637,
+    "speed": 103,
+    "crit_rate": 15,
+    "crit_damage": 50,
+    "resistance": 15,
+    "accuracy": 25,
+    "raw_hp": 61,
+    "raw_attack": 76,
+    "raw_defense": 58,
+    "max_lvl_hp": 10050,
+    "max_lvl_attack": 834,
+    "max_lvl_defense": 637,
+    "awakens_from": null,
+    "awakens_to": null,
+    "awaken_cost": [],
+    "transforms_to": null,
+    "source": [],
+    "fusion_food": false,
+    "homunculus": false,
+    "craft_cost": null,
+    "craft_materials": []
+  },
+  {
+    "id": 1973,
+    "url": "https://swarfarm.com/api/v2/monsters/1973/",
+    "bestiary_slug": "26213-wind-gingerbrave",
+    "com2us_id": 26213,
+    "family_id": 26200,
+    "skill_group_id": 26200,
+    "name": "GingerBrave",
+    "image_filename": "unit_icon_0089_1_3.png",
+    "element": "Wind",
+    "archetype": "Attack",
+    "base_stars": 6,
+    "natural_stars": 5,
+    "obtainable": true,
+    "can_awaken": true,
+    "awaken_level": 1,
+    "awaken_bonus": "",
+    "skills": [
+      3379,
+      3380,
+      3381
+    ],
+    "skill_ups_to_max": 9,
+    "leader_skill": {
+      "id": 145,
+      "url": "https://swarfarm.com/api/v2/leader-skills/145/",
+      "attribute": "Critical Rate",
+      "amount": 24,
+      "area": "General",
+      "element": null
+    },
+    "homunculus_skills": [],
+    "base_hp": 9885,
+    "base_attack": 823,
+    "base_defense": 659,
+    "speed": 110,
+    "crit_rate": 15,
+    "crit_damage": 50,
+    "resistance": 15,
+    "accuracy": 0,
+    "raw_hp": 60,
+    "raw_attack": 75,
+    "raw_defense": 60,
+    "max_lvl_hp": 9885,
+    "max_lvl_attack": 823,
+    "max_lvl_defense": 659,
+    "awakens_from": null,
+    "awakens_to": null,
+    "awaken_cost": [],
+    "transforms_to": null,
+    "source": [],
+    "fusion_food": false,
+    "homunculus": false,
+    "craft_cost": null,
+    "craft_materials": []
+  }
+] as const;
