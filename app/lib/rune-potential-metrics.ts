@@ -46,6 +46,13 @@ const mainStatMaximum: Record<number, Record<number, number>> = {
   12: { 1: 18, 2: 20, 3: 38, 4: 44, 5: 51, 6: 64 },
 };
 
+const flatEffectIds = new Set([1, 3, 5]);
+
+function efficiencyEffectValue(effect: RuneEffect): number {
+  const currentValue = finiteNonNegative(effect[1]) + finiteNonNegative(effect[3] ?? 0);
+  return flatEffectIds.has(effect[0]) ? currentValue * 0.5 : currentValue;
+}
+
 function finiteNonNegative(value: number): number {
   return Number.isFinite(value) ? Math.max(0, value) : 0;
 }
@@ -68,6 +75,7 @@ export function calculateRunePotentialMetrics(input: RunePotentialMetricInput): 
 /**
  * SWOP-compatible rune efficiency. This evaluates the main property, current
  * sub-property values (including already applied grinds) and innate property.
+ * Flat HP, ATK and DEF are weighted at 50%, matching SWOP.
  * It is intentionally a rune metric, not a monster-stat metric.
  */
 export function calculateRuneEfficiency(rune: RunePotentialRuneInput): number | null {
@@ -81,13 +89,13 @@ export function calculateRuneEfficiency(rune: RunePotentialRuneInput): number | 
   for (const effect of rune.secEff) {
     const maximum = subStatMaximum[effect[0]];
     if (!maximum) return null;
-    ratio += (finiteNonNegative(effect[1]) + finiteNonNegative(effect[3] ?? 0)) / maximum;
+    ratio += efficiencyEffectValue(effect) / maximum;
   }
 
   if (rune.prefixEff?.[0]) {
     const maximum = subStatMaximum[rune.prefixEff[0]];
     if (!maximum) return null;
-    ratio += finiteNonNegative(rune.prefixEff[1]) / maximum;
+    ratio += efficiencyEffectValue(rune.prefixEff) / maximum;
   }
 
   return ratio / 2.8 * 100;

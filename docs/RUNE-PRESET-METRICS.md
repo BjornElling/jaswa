@@ -71,11 +71,14 @@ E.HP også belønner den normale balance mellem HP og DEF.
 angiver, hvor meget af en standardiseret seksstjernet +15-runes statbudget der
 findes på den importerede rune. Main Property, aktuelle Sub Properties,
 Grindstone-tillæg og Prefix Property indgår; Gem-markøren ændrer ikke værdien.
+Flad HP, ATK og DEF tæller med 50 % af deres aktuelle værdi.
 
 ```text
 mainRatio = mainMax(star) / mainMax(6)
-subRatio  = sum((baseOrGemValue + grindValue) / sixStarSubMax(effect))
-innateRatio = prefixValue / sixStarSubMax(prefixEffect)   // kun hvis Prefix findes
+weightedValue = (baseOrGemValue + grindValue) × 0.5  // kun HP +, ATK + og DEF +
+              =  baseOrGemValue + grindValue        // alle andre stats
+subRatio  = sum(weightedValue / sixStarSubMax(effect))
+innateRatio = weightedPrefixValue / sixStarSubMax(prefixEffect)   // kun hvis Prefix findes
 
 Eff. % = 100 × (mainRatio + subRatio + innateRatio) / 2.8
 ```
@@ -120,7 +123,10 @@ de to +200 ATK skal derfor med i monsterets statark, før DMG beregnes.
 Beths seks uafrundede rune-effektiviteter er `94,86`, `81,46`, `96,30`,
 `94,05`, `89,50` og `88,73`; gennemsnittet er præcis `90,82`. Det matcher
 de viste enkelt-runer (95, 81, 96, 94, 90 og 89 efter SWOPs nedadgående
-heltalsvisning). Denne kontrol viste også, at den tidligere E.HP-konstant
+heltalsvisning). Kontrol af resten af de første ti rækker bekræftede også
+SWOPs 50 %-vægtning af flad HP/ATK/DEF: Lapis `93,41`, Konamiya `96,79`,
+Megan `106,17`, Emma `90,18`, Sigmarus `88,23` og Verad `90,50` matcher
+skærmprintet. Kontrollen viste desuden, at den tidligere E.HP-konstant
 `1142 + 3.572 × DEF` ikke er SWOP Pro-værdien og er erstattet ovenfor.
 
 ## 7. Preset-vægte
@@ -151,7 +157,10 @@ stiltiende default.
 3. [SWEX mapping.js](https://github.com/Xzandro/sw-exporter/blob/master/app/mapping.js)
    — åbent tilgængelig SWOP-kompatibel referenceimplementation for `Eff. %`,
    inklusive `2.8`-normalisering, Main/Prefix-logik og Grindstone-tillæg.
-4. [Summoners War Defense and HP](https://timmytim231blog.wordpress.com/2019/02/03/summoners-war-defense-and-hp/)
+4. [SWGT — EFF% og score](https://swgt.io/controllers/faq/view?faqEntryID=76)
+   — dokumenterer den SWOP-forankrede standard, hvor flad HP/ATK/DEF vægtes
+   til 50 %.
+5. [Summoners War Defense and HP](https://timmytim231blog.wordpress.com/2019/02/03/summoners-war-defense-and-hp/)
    — uafhængig forklaring af sammenhængen mellem HP, DEF og effective HP.
 
 SWCalc beskriver modellen som en verificeret praktisk forudsigelsesmodel, ikke
