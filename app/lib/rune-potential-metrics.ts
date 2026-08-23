@@ -18,6 +18,34 @@ export type RunePotentialMetrics = {
   ehpD: number;
 };
 
+export type RuneEffect = readonly [effectId: number, value: number, gemMarker?: number, grindValue?: number];
+
+export type RunePotentialRuneInput = {
+  class: number;
+  priEff: RuneEffect;
+  prefixEff?: RuneEffect | null;
+  secEff: readonly RuneEffect[];
+};
+
+const subStatMaximum: Record<number, number> = {
+  1: 1875, 2: 40, 3: 100, 4: 40, 5: 100, 6: 40,
+  8: 30, 9: 30, 10: 35, 11: 40, 12: 40,
+};
+
+const mainStatMaximum: Record<number, Record<number, number>> = {
+  1: { 1: 804, 2: 1092, 3: 1380, 4: 1704, 5: 2088, 6: 2448 },
+  2: { 1: 18, 2: 20, 3: 38, 4: 43, 5: 51, 6: 63 },
+  3: { 1: 54, 2: 74, 3: 93, 4: 113, 5: 135, 6: 160 },
+  4: { 1: 18, 2: 20, 3: 38, 4: 43, 5: 51, 6: 63 },
+  5: { 1: 54, 2: 74, 3: 93, 4: 113, 5: 135, 6: 160 },
+  6: { 1: 18, 2: 20, 3: 38, 4: 43, 5: 51, 6: 63 },
+  8: { 1: 18, 2: 19, 3: 25, 4: 30, 5: 39, 6: 42 },
+  9: { 1: 18, 2: 20, 3: 37, 4: 41, 5: 47, 6: 58 },
+  10: { 1: 20, 2: 37, 3: 43, 4: 58, 5: 65, 6: 80 },
+  11: { 1: 18, 2: 20, 3: 38, 4: 44, 5: 51, 6: 64 },
+  12: { 1: 18, 2: 20, 3: 38, 4: 44, 5: 51, 6: 64 },
+};
+
 function finiteNonNegative(value: number): number {
   return Number.isFinite(value) ? Math.max(0, value) : 0;
 }
@@ -32,7 +60,40 @@ export function calculateRunePotentialMetrics(input: RunePotentialMetricInput): 
 
   return {
     dmg: atk * (1 + criticalRate * criticalDamage),
-    ehp: hp * (1142 + 3.572 * def) / 1000,
-    ehpD: hp * (1142 + 3.572 * def * 0.3) / 1000,
+    ehp: hp * (1140 + 3.5 * def) / 1000,
+    ehpD: hp * (1140 + 3.5 * def * 0.3) / 1000,
   };
+}
+
+/**
+ * SWOP-compatible rune efficiency. This evaluates the main property, current
+ * sub-property values (including already applied grinds) and innate property.
+ * It is intentionally a rune metric, not a monster-stat metric.
+ */
+export function calculateRuneEfficiency(rune: RunePotentialRuneInput): number | null {
+  const mainEffect = rune.priEff[0];
+  const effectiveClass = rune.class === 16 ? 6 : rune.class;
+  const mainMaximum = mainStatMaximum[mainEffect]?.[effectiveClass];
+  const sixStarMainMaximum = mainStatMaximum[mainEffect]?.[6];
+  if (!mainMaximum || !sixStarMainMaximum) return null;
+
+  let ratio = mainMaximum / sixStarMainMaximum;
+  for (const effect of rune.secEff) {
+    const maximum = subStatMaximum[effect[0]];
+    if (!maximum) return null;
+    ratio += (finiteNonNegative(effect[1]) + finiteNonNegative(effect[3] ?? 0)) / maximum;
+  }
+
+  if (rune.prefixEff?.[0]) {
+    const maximum = subStatMaximum[rune.prefixEff[0]];
+    if (!maximum) return null;
+    ratio += finiteNonNegative(rune.prefixEff[1]) / maximum;
+  }
+
+  return ratio / 2.8 * 100;
+}
+
+/** The SWOP table presents computed values as whole numbers rounded down. */
+export function displayRunePotentialMetric(value: number): number {
+  return Math.floor(finiteNonNegative(value));
 }

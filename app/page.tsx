@@ -157,12 +157,12 @@ function RunePotentialPanel({ settings, onUpdate }: { settings: RunePotentialSet
 
 function PresetPanel() {
   return <section className="rune-preset-panel" aria-labelledby="presets-title">
-    <div className="preset-heading"><div><p className="eyebrow">LOCKED WORKING VALUES</p><h2 id="presets-title">Presets</h2><p>These source-controlled presets define desirable rune sets, substats and the role weighting of the three calculated values. A weight of 0 means the metric is intentionally ignored.</p></div><span className="settings-badge">SOURCE-CONTROLLED</span></div>
+    <div className="preset-heading"><div><p className="eyebrow">LOCKED WORKING VALUES</p><h2 id="presets-title">Presets</h2><p>These source-controlled presets define desirable rune sets, substats and the role weighting of the four calculated values. A weight of 0 means the metric is intentionally ignored.</p></div><span className="settings-badge">SOURCE-CONTROLLED</span></div>
     <div className="preset-list">{runePotentialPresets.map((preset) => <article className="preset-card" key={preset.id}>
       <div className="preset-card-heading"><div><h3>{preset.name}</h3><p>{preset.description}</p></div></div>
       <div className="preset-detail"><span>Desired sets</span><div className="preset-tags">{preset.desirableSets.map((set) => <b key={set}>{set}</b>)}</div></div>
       <div className="preset-detail"><span>Desired stats</span><div className="preset-tags">{preset.desirableStats.map((stat) => <b key={stat}>{stat}</b>)}</div></div>
-      <dl className="preset-metrics"><div><dt>DMG</dt><dd>{preset.metricWeights.dmg}</dd></div><div><dt>E.HP</dt><dd>{preset.metricWeights.ehp}</dd></div><div><dt>E.HP D</dt><dd>{preset.metricWeights.ehpD}</dd></div></dl>
+      <dl className="preset-metrics"><div><dt>DMG</dt><dd>{preset.metricWeights.dmg}</dd></div><div><dt>E.HP</dt><dd>{preset.metricWeights.ehp}</dd></div><div><dt>E.HP D</dt><dd>{preset.metricWeights.ehpD}</dd></div><div><dt>Eff. %</dt><dd>{preset.metricWeights.efficiency}</dd></div></dl>
     </article>)}</div>
   </section>;
 }
