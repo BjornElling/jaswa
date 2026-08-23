@@ -10,6 +10,7 @@
     "build": "vinext build",
     "start": "vinext start",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
+    "generate:pwa-assets": "pwa-assets-generator public/favicon.svg --preset minimal --manifest --override",
     "refresh:monsters": "node scripts/refresh-swarfarm-monsters.mjs"
   },
   "dependencies": {
@@ -21,19 +22,20 @@
     "@cloudflare/vite-plugin": "1.37.1",
     "@cloudflare/workers-types": "4.20260515.1",
     "@openai/sites-vite-plugin": "^0.1.0 || ^0.2.0",
-    "@tailwindcss/postcss": "4.2.1",
+    "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
+    "@vite-pwa/assets-generator": "^1.0.0",
     "@vitejs/plugin-react": "6.0.2",
-    "@vitejs/plugin-rsc": "0.5.26",
+    "@vitejs/plugin-rsc": "^0.5.34",
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.6",
     "react-server-dom-webpack": "19.2.6",
-    "tailwindcss": "4.2.1",
+    "tailwindcss": "^4.3.3",
     "typescript": "5.9.3",
-    "vinext": "1.0.0-beta.3",
-    "vite": "8.0.13",
+    "vinext": "^1.0.0-beta.8",
+    "vite": "^8.2.2",
     "wrangler": "4.92.0"
   },
   "type": "module"
