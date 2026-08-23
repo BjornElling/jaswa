@@ -161,7 +161,7 @@ function PotentialSlider({ id, label, value, steps = 5, description, lowLabel, h
 }
 
 function RuneVisibilityControls({ settings, onUpdate }: { settings: RunePotentialSettings; onUpdate: (update: Partial<RunePotentialSettings>) => Promise<void> }) {
-  return <article className="potential-setting visibility-setting"><h3>Overview filters</h3><div className="checkbox-list"><label><input type="checkbox" checked={settings.includeLevel12Runes} onChange={(event) => void onUpdate({ includeLevel12Runes: event.target.checked })} />Include runes at Level 12+.</label><label><input type="checkbox" checked={settings.includeEquippedRunes} onChange={(event) => void onUpdate({ includeEquippedRunes: event.target.checked })} />Include runes equipped on monsters.</label></div></article>;
+  return <article className="potential-setting visibility-setting"><h3>Overview filters</h3><div className="checkbox-list"><label><input type="checkbox" checked={settings.includeLevel12Runes} onChange={(event) => void onUpdate({ includeLevel12Runes: event.target.checked })} />Include runes at lvl. 12+.</label><label><input type="checkbox" checked={settings.includeEquippedRunes} onChange={(event) => void onUpdate({ includeEquippedRunes: event.target.checked })} />Include runes equipped on monsters.</label></div></article>;
 }
 
 function RuneSortOrderControl({ settings, onUpdate }: { settings: RunePotentialSettings; onUpdate: (update: Partial<RunePotentialSettings>) => Promise<void> }) {
