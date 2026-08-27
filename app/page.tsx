@@ -703,21 +703,23 @@ const potentialStepLabels = {
     'Three quarters — a good roll, short of perfect',
     'Maximum — the best the grade allows',
   ],
-  /* Both of the scales below run loose to strict, like the four above them, so
-     every track on the page reads the same way: further right is fussier. */
+  /* These two run strict to loose, the opposite of the four above them: both
+     scales are about what the box is allowed to keep rather than about how much
+     effort to spend on it, and stating the strictest answer first is how the
+     question gets asked out loud. */
   acceptedRunes: [
-    'Everything stays — even the ones you laugh at',
-    'Forgiving — a single good sub property is enough',
-    'Keep the good ones — the rest can go',
-    'Only the best — near the top of what the slot allows',
-    'Best of the best — the ones you would frame',
+    'Only want the best of the best of the best',
+    'Keep the best. 86 the rest.',
+    'Quality is quality.',
+    'Forgiving — if there’s potential, they stay',
+    'I love all my runes equally',
   ],
   offSetRunes: [
-    'No favourites — every set is worth the same look',
-    'Open-minded — a good rune outweighs the wrong set',
-    'Even-handed — the wrong set has to earn its place',
-    'Reluctant — only the standouts from sets you skip',
-    'Absolute no-go — a set you never build is dust',
+    'No',
+    'A very selected few',
+    'Occasionally',
+    'A good rune is a good rune',
+    'I love all broken things',
   ],
 } as const;
 
@@ -833,11 +835,11 @@ function RunePotentialSection({ settings, presets, onUpdate, onWritePresets }: {
         <div className="settings-layout">
           <div className="slider-grid">
             <PotentialSlider id="accepted-runes" label="Accepted runes" value={settings.acceptedRunes}
-              description="How good does a rune have to be before it is worth keeping at all?"
+              description="Policy towards accepted, non-preferred runes. You can live without them, but can you live with them?"
               stepLabels={potentialStepLabels.acceptedRunes}
               onChange={(value) => void onUpdate({ acceptedRunes: value })} />
             <PotentialSlider id="off-set-runes" label="Off-set runes" value={settings.offSetRunes}
-              description="How much patience do you have for runes in sets you never build?"
+              description="You didn’t ask for them. But do you want them?"
               stepLabels={potentialStepLabels.offSetRunes}
               onChange={(value) => void onUpdate({ offSetRunes: value })} />
           </div>
