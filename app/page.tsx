@@ -1,13 +1,16 @@
 'use client';
 
-import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, DragEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { clearImportedGame, loadImportedGame, loadPreferences, saveImportedGame, savePreferences } from './lib/local-store';
 import { blankPreferences, createImportedGame, defaultRunePotentialSettings, fileToText, importPreferencesFile, itemGrades, normalizeImportedGame, validateGameFile } from './lib/imports';
 import { monsterPresentation } from './lib/monster-catalog';
 import { calculateMonsterTotals } from './lib/monster-stats';
-import { activeRuneSets, elementName } from './lib/rune-sets';
-import { presetTargetColumns, runePotentialPresets } from './lib/rune-potential-presets';
-import type { PresetChoice, RunePotentialPreset } from './lib/rune-potential-presets';
+import { activeRuneSets, elementName, runeSetNameList } from './lib/rune-sets';
+import {
+  createRunePotentialPreset, normalizeRunePotentialPresets, presetStatTargetKeys, presetTargetColumns,
+  presetTypes, runeMainStats, withRefreshedMetrics,
+} from './lib/rune-potential-presets';
+import type { PresetChoice, PresetStatTargets, PresetType, RuneMainStat, RunePotentialPreset } from './lib/rune-potential-presets';
 import type { ImportedGame, ItemGrade, MonsterPreference, Preferences, RunePotentialSettings, RunePotentialSortOrder } from './lib/types';
 
 type Page = 'home' | 'monsters' | 'optimizer' | 'speed' | 'potential' | 'artifacts' | 'gems' | 'relics' | 'preferences';
@@ -122,7 +125,15 @@ export default function Home() {
       setGame(normalizedGame);
       if (normalizedGame) void saveImportedGame(normalizedGame);
       setPreferences(savedPreferences
-        ? { ...savedPreferences, runePotential: { ...defaultRunePotentialSettings, ...savedPreferences.runePotential } }
+        ? {
+            ...savedPreferences,
+            runePotential: { ...defaultRunePotentialSettings, ...savedPreferences.runePotential },
+            /* Presets saved before this list existed come back as `undefined`,
+               which the normalizer answers with the shipped set — the same
+               answer a first-time user gets. An empty list is the user having
+               deleted them all, and is left empty. */
+            runePotentialPresets: normalizeRunePotentialPresets(savedPreferences.runePotentialPresets),
+          }
         : blankPreferences());
     }).finally(() => setReady(true));
   }, []);
@@ -171,6 +182,14 @@ export default function Home() {
       runePotential: { ...(preferences.runePotential ?? defaultRunePotentialSettings), ...update },
       updatedAt: new Date().toISOString(),
     };
+    setPreferences(next); await savePreferences(next);
+  }
+  /**
+   * Presets are written whole rather than patched: an edit can change every
+   * part of one at once, and the editor already holds the finished preset.
+   */
+  async function writePresets(presets: RunePotentialPreset[]) {
+    const next: Preferences = { ...preferences, runePotentialPresets: presets, updatedAt: new Date().toISOString() };
     setPreferences(next); await savePreferences(next);
   }
   function handleDrop(event: DragEvent<HTMLDivElement>) {
@@ -257,7 +276,9 @@ export default function Home() {
 
       {page === 'potential' && <RunePotentialSection
         settings={preferences.runePotential ?? defaultRunePotentialSettings}
+        presets={preferences.runePotentialPresets ?? []}
         onUpdate={updateRunePotentialSettings}
+        onWritePresets={writePresets}
       />}
 
       {page === 'preferences' && <PreferencesSection
@@ -657,11 +678,31 @@ const potentialStepLabels = {
   ],
 } as const;
 
-function RunePotentialSection({ settings, onUpdate }: {
+function RunePotentialSection({ settings, presets, onUpdate, onWritePresets }: {
   settings: RunePotentialSettings;
+  presets: RunePotentialPreset[];
   onUpdate: (update: Partial<RunePotentialSettings>) => Promise<void>;
+  onWritePresets: (presets: RunePotentialPreset[]) => Promise<void>;
 }) {
   const sortOrders: RunePotentialSortOrder[] = ['Grade', 'Sub Property', 'Sub Property Before Grinding', 'Power-up Lv.', 'Obtained', 'Sub Property Sum', 'Score'];
+  /* The preset being edited, held as a draft so a cancelled edit changes
+     nothing, and `isNew` so cancelling a just-added preset does not leave an
+     empty one behind. */
+  const [editing, setEditing] = useState<{ draft: RunePotentialPreset; isNew: boolean } | null>(null);
+  const [deleting, setDeleting] = useState<RunePotentialPreset | null>(null);
+
+  async function savePreset(preset: RunePotentialPreset) {
+    const saved = withRefreshedMetrics(preset);
+    const index = presets.findIndex((entry) => entry.id === saved.id);
+    await onWritePresets(index === -1
+      ? [...presets, saved]
+      : presets.map((entry) => (entry.id === saved.id ? saved : entry)));
+    setEditing(null);
+  }
+  async function deletePreset(id: string) {
+    await onWritePresets(presets.filter((entry) => entry.id !== id));
+    setDeleting(null);
+  }
 
   return <div className="section-body">
     <PageHeader
@@ -750,10 +791,50 @@ function RunePotentialSection({ settings, onUpdate }: {
     </Disclosure>
 
     <Disclosure title="Presets">
-      <div className="preset-list">
-        {runePotentialPresets.map((preset) => <PresetCard key={preset.id} preset={preset} />)}
+      <div className="stack">
+        {/* The one action that makes a new thing sits above the list, where it
+            is found before the list has been read rather than after. */}
+        <div className="list-actions">
+          <p className="list-count">
+            {presets.length === 0 ? 'No presets' : <><b>{presets.length}</b> preset{presets.length === 1 ? '' : 's'}</>}
+          </p>
+          <button className="button primary" onClick={() => setEditing({ draft: createRunePotentialPreset(), isNew: true })}>
+            <span className="button-glyph" aria-hidden="true">+</span>
+            Add preset
+          </button>
+        </div>
+
+        {presets.length === 0
+          ? <p className="notice">Every preset is gone, including the ones Swaggr started you with. Add one to say what a rune should be judged against.</p>
+          : <div className="preset-list">
+            {presets.map((preset) => <PresetCard
+              key={preset.id}
+              preset={preset}
+              onEdit={() => setEditing({ draft: preset, isNew: false })}
+              onDelete={() => setDeleting(preset)}
+            />)}
+          </div>}
       </div>
     </Disclosure>
+
+    {editing && <PresetEditor
+      draft={editing.draft}
+      isNew={editing.isNew}
+      onCancel={() => setEditing(null)}
+      onSave={(preset) => void savePreset(preset)}
+    />}
+
+    {deleting && <div className="modal-backdrop" role="presentation">
+      <section className="dialog" role="dialog" aria-modal="true" aria-labelledby="delete-preset-title">
+        <p className="eyebrow">Delete preset</p>
+        <h2 id="delete-preset-title">Delete “{deleting.name}”?</h2>
+        <p>This preset is removed from this computer. Runes stop being judged against it, and nothing else changes.</p>
+        <div className="dialog-actions">
+          <button className="button" onClick={() => setDeleting(null)}>Keep it</button>
+          <button className="button danger" onClick={() => void deletePreset(deleting.id)}>Delete preset</button>
+        </div>
+      </section>
+    </div>}
   </div>;
 }
 
@@ -809,13 +890,30 @@ function PresetRow({ label, children }: { label: string; children: React.ReactNo
  * the top, then the sets it wants, the three slots that carry a choice, which
  * artifact primaries suit it, and the stat targets it aims at.
  */
-function PresetCard({ preset }: { preset: RunePotentialPreset }) {
+function PresetCard({ preset, onEdit, onDelete }: {
+  preset: RunePotentialPreset;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
   const artifacts: Array<[string, boolean]> = [['ATK', preset.artifacts.atk], ['DEF', preset.artifacts.def], ['HP', preset.artifacts.hp]];
 
   return <article className="preset-card">
+    {/* The name and its two actions share the top line: the actions belong to
+        this preset, so they sit on the line that names it rather than in a
+        footer the reader has to associate back. */}
     <header className="preset-head">
-      <h4 className="preset-name">{preset.name}</h4>
-      <p className="preset-type">{preset.type}</p>
+      <div className="preset-title">
+        <h4 className="preset-name">{preset.name}</h4>
+        <p className="preset-type">{preset.type}</p>
+      </div>
+      <div className="preset-actions">
+        <button className="icon-button" onClick={onEdit} title={`Edit ${preset.name}`} aria-label={`Edit ${preset.name}`}>
+          <PencilIcon />
+        </button>
+        <button className="icon-button danger" onClick={onDelete} title={`Delete ${preset.name}`} aria-label={`Delete ${preset.name}`}>
+          <TrashIcon />
+        </button>
+      </div>
     </header>
 
     <div className="preset-rows">
@@ -852,6 +950,205 @@ function PresetCard({ preset }: { preset: RunePotentialPreset }) {
       </PresetRow>
     </div>
   </article>;
+}
+
+/* Line art rather than a glyph from the type: at 14px an emoji pencil renders
+   at a different weight in every browser, where a stroked path matches the
+   chevrons and the select arrow already drawn this way. */
+function PencilIcon() {
+  return <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor"
+    strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M11.2 2.3a1.4 1.4 0 0 1 2 2L5.6 11.9l-2.8.8.8-2.8Z" />
+    <path d="M10 3.5 12.5 6" />
+  </svg>;
+}
+
+function TrashIcon() {
+  return <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor"
+    strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M2.8 4.4h10.4" />
+    <path d="M6.2 4.4V2.9h3.6v1.5" />
+    <path d="M4.2 4.4l.6 8.1a1 1 0 0 0 1 .9h4.4a1 1 0 0 0 1-.9l.6-8.1" />
+    <path d="M6.7 7v4M9.3 7v4" />
+  </svg>;
+}
+
+/* ---------------------------------------------------------- preset editor */
+
+/**
+ * The editor for one preset, over the page rather than in place: a preset
+ * states six different kinds of thing, which needs more room than the card it
+ * replaces and would otherwise push the rest of the list out of view.
+ *
+ * The draft is held here and returned whole on save, so a cancelled edit
+ * leaves the saved preset untouched.
+ */
+function PresetEditor({ draft, isNew, onCancel, onSave }: {
+  draft: RunePotentialPreset;
+  isNew: boolean;
+  onCancel: () => void;
+  onSave: (preset: RunePotentialPreset) => void;
+}) {
+  const [preset, setPreset] = useState<RunePotentialPreset>(draft);
+  const nameField = useRef<HTMLInputElement>(null);
+
+  /* Escape closes it, as it does any overlay, and the name takes focus on
+     open so a new preset can be named without reaching for the mouse. */
+  useEffect(() => {
+    nameField.current?.focus();
+    function onKeyDown(event: KeyboardEvent) { if (event.key === 'Escape') onCancel(); }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onCancel]);
+
+  const named = preset.name.trim().length > 0;
+  function update(change: Partial<RunePotentialPreset>) { setPreset((current) => ({ ...current, ...change })); }
+  function updateSlot(slot: keyof RunePotentialPreset['slots'], choice: PresetChoice<RuneMainStat>) {
+    setPreset((current) => ({ ...current, slots: { ...current.slots, [slot]: choice } }));
+  }
+  function updateTarget(key: keyof PresetStatTargets, value: number | undefined) {
+    setPreset((current) => {
+      const targets = { ...current.targets };
+      if (value === undefined) delete targets[key]; else targets[key] = value;
+      return { ...current, targets };
+    });
+  }
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!named) return;
+    onSave({ ...preset, name: preset.name.trim() });
+  }
+
+  return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onCancel(); }}>
+    <form className="dialog editor" role="dialog" aria-modal="true" aria-labelledby="preset-editor-title" onSubmit={submit}>
+      <header className="editor-head">
+        <p className="eyebrow">{isNew ? 'Add preset' : 'Edit preset'}</p>
+        <h2 id="preset-editor-title">{isNew ? 'A new preset' : preset.name.trim() || 'This preset'}</h2>
+      </header>
+
+      <div className="editor-body">
+        <div className="editor-pair">
+          <label className="field"><span>Name</span>
+            <input ref={nameField} value={preset.name} placeholder="e.g. Fast DD"
+              onChange={(event) => update({ name: event.target.value })} />
+          </label>
+          <label className="field"><span>Type</span>
+            <select value={preset.type} onChange={(event) => update({ type: event.target.value as PresetType })}>
+              {presetTypes.map((type) => <option key={type}>{type}</option>)}
+            </select>
+          </label>
+        </div>
+
+        <EditorBlock title="Rune sets" note="Preferred is what the role is built around. Acceptable still works when the box does not oblige.">
+          <ChoiceEditor choice={preset.sets} options={runeSetNameList} columns
+            onChange={(sets) => update({ sets })} />
+        </EditorBlock>
+
+        <EditorBlock title="Rune slots" note="Slots 1, 3 and 5 carry a fixed main stat, so only these three are stated.">
+          <div className="editor-slots">
+            {([['slot2', 'Slot 2'], ['slot4', 'Slot 4'], ['slot6', 'Slot 6']] as const).map(([key, label]) => <div className="editor-slot" key={key}>
+              <p className="editor-slot-label">{label}</p>
+              <ChoiceEditor choice={preset.slots[key]} options={runeMainStats}
+                onChange={(choice) => updateSlot(key, choice)} />
+            </div>)}
+          </div>
+        </EditorBlock>
+
+        <EditorBlock title="Artifacts" note="Which artifact primary stats suit this role.">
+          <div className="editor-flags">
+            {([['atk', 'ATK'], ['def', 'DEF'], ['hp', 'HP']] as const).map(([key, label]) => <CheckboxRow
+              key={key}
+              label={label}
+              checked={preset.artifacts[key]}
+              onChange={(checked) => update({ artifacts: { ...preset.artifacts, [key]: checked } })} />)}
+          </div>
+        </EditorBlock>
+
+        <EditorBlock title="Desired stats" note="Leave a stat empty for one this role does not aim at. DMG, E.HP and E.HP D follow from these and are not entered.">
+          <div className="editor-targets">
+            {presetStatTargetKeys.map((key) => {
+              const column = presetTargetColumns.find((entry) => entry.key === key);
+              const value = preset.targets[key];
+              return <label className="field field-compact" key={key}>
+                <span>{column?.label ?? key}{column?.unit}</span>
+                <input type="number" min={0} step={1} inputMode="numeric"
+                  value={value === undefined ? '' : value}
+                  placeholder="—"
+                  onChange={(event) => {
+                    const raw = event.target.value.trim();
+                    const parsed = Number(raw);
+                    updateTarget(key, raw === '' || !Number.isFinite(parsed) ? undefined : Math.max(0, Math.round(parsed)));
+                  }} />
+              </label>;
+            })}
+          </div>
+        </EditorBlock>
+      </div>
+
+      <div className="dialog-actions">
+        <button type="button" className="button" onClick={onCancel}>Cancel</button>
+        <button type="submit" className="button primary" disabled={!named}>
+          {isNew ? 'Add preset' : 'Save changes'}
+        </button>
+      </div>
+    </form>
+  </div>;
+}
+
+/** A titled group inside the editor, so the six kinds of thing stay separated. */
+function EditorBlock({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
+  return <section className="editor-block">
+    <h3 className="editor-block-title">{title}</h3>
+    {note && <p className="editor-note">{note}</p>}
+    {children}
+  </section>;
+}
+
+/**
+ * One preferred/acceptable choice, as a row of three-state chips: unchosen,
+ * preferred, acceptable. A chip cycles on click, so both halves of the choice
+ * are set from one list rather than from two lists the reader has to keep in
+ * step — and a value cannot end up in both, which the data forbids.
+ */
+function ChoiceEditor<T extends string>({ choice, options, columns = false, onChange }: {
+  choice: PresetChoice<T>;
+  options: readonly T[];
+  columns?: boolean;
+  onChange: (choice: PresetChoice<T>) => void;
+}) {
+  function state(option: T): 'preferred' | 'acceptable' | 'none' {
+    if (choice.preferred.includes(option)) return 'preferred';
+    if (choice.acceptable.includes(option)) return 'acceptable';
+    return 'none';
+  }
+  function cycle(option: T) {
+    const without = {
+      preferred: choice.preferred.filter((entry) => entry !== option),
+      acceptable: choice.acceptable.filter((entry) => entry !== option),
+    };
+    /* none → preferred → acceptable → none, in the order the card reads them. */
+    if (state(option) === 'none') return onChange({ ...without, preferred: [...without.preferred, option] });
+    if (state(option) === 'preferred') return onChange({ ...without, acceptable: [...without.acceptable, option] });
+    onChange(without);
+  }
+
+  return <div className={columns ? 'choice-editor columns' : 'choice-editor'}>
+    {options.map((option) => {
+      const current = state(option);
+      return <button
+        type="button"
+        key={option}
+        className={`choice-chip ${current}`}
+        onClick={() => cycle(option)}
+        aria-pressed={current !== 'none'}
+        title={current === 'none' ? `${option}: not wanted — click to prefer` : current === 'preferred' ? `${option}: preferred — click to accept` : `${option}: acceptable — click to clear`}
+      >
+        <span className="choice-chip-mark" aria-hidden="true" />
+        {option}
+        <span className="choice-chip-state">{current === 'preferred' ? 'Preferred' : current === 'acceptable' ? 'Acceptable' : ''}</span>
+      </button>;
+    })}
+  </div>;
 }
 
 function CheckboxRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {

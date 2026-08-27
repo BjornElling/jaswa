@@ -1,5 +1,6 @@
 import type { CompatibilityReport, ImportedGame, ItemGrade, Preferences, RunePotentialSettings, RunePotentialSortOrder } from './types';
 import { hasMonsterCatalogEntry } from './monster-catalog';
+import { defaultRunePotentialPresets, normalizeRunePotentialPresets } from './rune-potential-presets';
 const expectedSections = ['unit_list', 'runes', 'artifacts', 'relics', 'rune_craft_item_list']; const excludedKeys = new Set(['session_key', 'session_key_node']);
 const runePotentialSortOrders: RunePotentialSortOrder[] = ['Grade', 'Sub Property', 'Sub Property Before Grinding', 'Power-up Lv.', 'Obtained', 'Sub Property Sum', 'Score'];
 export const itemGrades: ItemGrade[] = ['Normal', 'Magic', 'Rare', 'Hero', 'Legend'];
@@ -13,7 +14,7 @@ function normalizeRunePotentialSettings(value: unknown): RunePotentialSettings {
   const fallback = defaultRunePotentialSettings;
   return { powerUpPolicy: normalizeScale(settings.powerUpPolicy, 5, fallback.powerUpPolicy), runeQuality: normalizeScale(settings.runeQuality, 5, fallback.runeQuality), enchantedGems: normalizeScale(settings.enchantedGems, 4, fallback.enchantedGems), grindstones: normalizeScale(settings.grindstones, 4, fallback.grindstones), gemGrade: normalizeGrade(settings.gemGrade, fallback.gemGrade), grindstoneGrade: normalizeGrade(settings.grindstoneGrade, fallback.grindstoneGrade), includeLevel12Runes: settings.includeLevel12Runes === true, includeEquippedRunes: settings.includeEquippedRunes === true, sortOrder };
 }
-export function blankPreferences(): Preferences { return { format: 'swaggr-preferences', version: 1, updatedAt: new Date().toISOString(), monsterPreferences: {}, runePotential: defaultRunePotentialSettings }; }
+export function blankPreferences(): Preferences { return { format: 'swaggr-preferences', version: 1, updatedAt: new Date().toISOString(), monsterPreferences: {}, runePotential: defaultRunePotentialSettings, runePotentialPresets: defaultRunePotentialPresets() }; }
 type GameRecord = Record<string, unknown>;
 
 function isRecord(value: unknown): value is GameRecord { return Boolean(value) && typeof value === 'object' && !Array.isArray(value); }
@@ -53,4 +54,4 @@ export function validateGameFile(value: unknown): CompatibilityReport { if (!isR
 function removeExcludedKeys(value: unknown): unknown { if (Array.isArray(value)) return value.map(removeExcludedKeys); if (!value || typeof value !== 'object') return value; return Object.fromEntries(Object.entries(value as Record<string, unknown>).filter(([key]) => !excludedKeys.has(key)).map(([key, entry]) => [key, removeExcludedKeys(entry)])); }
 export function createImportedGame(fileName: string, data: Record<string, unknown>, report: CompatibilityReport): ImportedGame { return normalizeImportedGame({ fileName, importedAt: new Date().toISOString(), data, report }); }
 export async function fileToText(file: File) { return file.text(); }
-export async function importPreferencesFile(file: File): Promise<Preferences> { const value = JSON.parse(await fileToText(file)) as Partial<Preferences>; if (value.format !== 'swaggr-preferences' || value.version !== 1 || !value.monsterPreferences || typeof value.monsterPreferences !== 'object') throw new Error('Invalid Swaggr preferences file'); return { format: 'swaggr-preferences', version: 1, updatedAt: new Date().toISOString(), monsterPreferences: value.monsterPreferences, runePotential: normalizeRunePotentialSettings(value.runePotential) }; }
+export async function importPreferencesFile(file: File): Promise<Preferences> { const value = JSON.parse(await fileToText(file)) as Partial<Preferences>; if (value.format !== 'swaggr-preferences' || value.version !== 1 || !value.monsterPreferences || typeof value.monsterPreferences !== 'object') throw new Error('Invalid Swaggr preferences file'); return { format: 'swaggr-preferences', version: 1, updatedAt: new Date().toISOString(), monsterPreferences: value.monsterPreferences, runePotential: normalizeRunePotentialSettings(value.runePotential), runePotentialPresets: normalizeRunePotentialPresets(value.runePotentialPresets) }; }

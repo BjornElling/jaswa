@@ -10,14 +10,22 @@
  * is what the role is built around; acceptable is what still works when the
  * box does not oblige. The distinction is carried through to the interface,
  * where preferred reads in full ink and acceptable is dimmed.
+ *
+ * The presets below are the ones Swaggr starts with, and nothing more: they
+ * are copied into the user's own preferences on first use, and from then on
+ * are edited and deleted exactly like presets the user typed in themselves.
  */
 import { calculateRunePotentialMetrics, displayRunePotentialMetric } from './rune-potential-metrics';
+import { runeSetNameList } from './rune-sets';
 
 /**
  * The main stats a rune can carry in slots 2, 4 and 6, named as the source
  * spreadsheet names them so the two can be compared line for line.
  */
 export type RuneMainStat = 'HP%' | 'Atk%' | 'Def%' | 'Spd' | 'CtR%' | 'CtD%' | 'Res%' | 'Acc%';
+
+/** Every main stat a choice may name, in the order the editor offers them. */
+export const runeMainStats: readonly RuneMainStat[] = ['HP%', 'Atk%', 'Def%', 'Spd', 'CtR%', 'CtD%', 'Res%', 'Acc%'];
 
 /** Preferred first, acceptable second — the same split for sets and main stats. */
 export type PresetChoice<T> = { preferred: readonly T[]; acceptable: readonly T[] };
@@ -40,9 +48,9 @@ export type PresetStatTargets = {
 
 /**
  * The full target row: the stated stats plus the three composite figures. The
- * composites are never stated — `runePotentialPresets` derives them from the
- * stats above by the contract in `docs/RUNE-PRESET-METRICS.md`, so a preset
- * cannot carry a DMG or E.HP that its own stats do not produce.
+ * composites are never stated — `withRefreshedMetrics` derives them from the
+ * stats above by the contract in `docs/RUNE-PRESET-METRICS.md` on every save,
+ * so a preset cannot carry a DMG or E.HP that its own stats do not produce.
  */
 export type PresetTargets = PresetStatTargets & {
   dmg?: number; ehp?: number; ehpD?: number;
@@ -56,6 +64,9 @@ export type PresetTargets = PresetStatTargets & {
  * privileges none.
  */
 export type PresetType = 'Attack type' | 'Support type' | 'Defence type' | 'HP type' | 'No type';
+
+/** The families, in the order the editor offers them. */
+export const presetTypes: readonly PresetType[] = ['Attack type', 'Support type', 'Defence type', 'HP type', 'No type'];
 
 export type RunePotentialPreset = {
   id: string;
@@ -92,6 +103,12 @@ function withDerivedMetrics(preset: PresetSource): RunePotentialPreset {
   };
 }
 
+/**
+ * The stats a preset states, as distinct from the three composites derived
+ * from them. The editor offers exactly these, in this order.
+ */
+export const presetStatTargetKeys: ReadonlyArray<keyof PresetStatTargets> = ['hp', 'atk', 'def', 'spd', 'criRate', 'criDmg', 'res', 'acc'];
+
 /* The order the targets are read in, with the short labels the interface
    uses. Kept beside the data so a new target cannot be added without also
    being given a place to appear. */
@@ -110,8 +127,9 @@ export const presetTargetColumns: ReadonlyArray<{ key: keyof PresetTargets; labe
 ];
 
 /*
- * Working presets deliberately live in source code. They are read-only until
- * the future preset editor is introduced.
+ * The presets Swaggr ships with. These are ordinary starting values, not
+ * fixtures: they are copied into the user's preferences the first time the
+ * workspace is opened, and are then editable and deletable like any other.
  *
  * Sets, slots, artifacts and the stat targets are transcribed from the source
  * spreadsheet. DMG, E.HP and E.HP D are deliberately absent: `withDerivedMetrics`
@@ -235,4 +253,148 @@ const presetSources: readonly PresetSource[] = [
   },
 ];
 
-export const runePotentialPresets: readonly RunePotentialPreset[] = presetSources.map(withDerivedMetrics);
+/**
+ * The presets a first-time user starts with. A fresh array each call: the
+ * caller owns what it gets back and may edit or delete any of it.
+ */
+export function defaultRunePotentialPresets(): RunePotentialPreset[] {
+  return presetSources.map(withDerivedMetrics);
+}
+
+/* ------------------------------------------------------------- new presets */
+
+/** An empty choice, for a preset or a slot that has not been given one yet. */
+function emptyChoice<T>(): PresetChoice<T> { return { preferred: [], acceptable: [] }; }
+
+/**
+ * A new preset, empty apart from the name. Everything else starts unset so the
+ * editor states only what the user has actually decided; the composites are
+ * derived, so a preset with no stats reads as zero rather than as a guess.
+ */
+export function createRunePotentialPreset(name = 'New preset'): RunePotentialPreset {
+  return withDerivedMetrics({
+    id: newPresetId(),
+    name,
+    type: 'No type',
+    sets: emptyChoice<string>(),
+    slots: { slot2: emptyChoice<RuneMainStat>(), slot4: emptyChoice<RuneMainStat>(), slot6: emptyChoice<RuneMainStat>() },
+    artifacts: { atk: false, def: false, hp: false },
+    targets: {},
+  });
+}
+
+/**
+ * Identifiers only have to be unique within one user's list, and are never
+ * shown. Time plus a random tail is enough, and needs no counter to carry
+ * across a reload.
+ */
+export function newPresetId(): string {
+  return `preset-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/**
+ * Recomputes DMG, E.HP and E.HP D from a preset's own stat targets. Called on
+ * every edit, so a saved preset can never carry a composite its stats do not
+ * produce — the same guarantee the shipped presets get.
+ */
+export function withRefreshedMetrics(preset: RunePotentialPreset): RunePotentialPreset {
+  return withDerivedMetrics({ ...preset, targets: statTargetsOnly(preset.targets) });
+}
+
+/** The stated stats of a target row, with the three derived composites dropped. */
+function statTargetsOnly(targets: PresetTargets): PresetStatTargets {
+  const stats: PresetStatTargets = {};
+  for (const key of presetStatTargetKeys) {
+    if (targets[key] !== undefined) stats[key] = targets[key];
+  }
+  return stats;
+}
+
+/* ------------------------------------------------------------ normalisation */
+
+/*
+ * Presets are saved in the user's own preferences file, which they can edit
+ * and re-import by hand. Everything read back is therefore checked: an
+ * unusable preset is dropped rather than allowed to reach the interface, and
+ * a preset with a bad part keeps the parts that were fine.
+ */
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+/** Keeps the members the app knows, in the order the allowed list states them, without duplicates. */
+function normalizeChoiceMembers<T extends string>(value: unknown, allowed: readonly T[]): T[] {
+  if (!Array.isArray(value)) return [];
+  const chosen = new Set(value.filter((entry): entry is T => allowed.includes(entry as T)));
+  return allowed.filter((entry) => chosen.has(entry));
+}
+
+/** A choice, with anything claimed as both preferred and acceptable counted only as preferred. */
+function normalizeChoice<T extends string>(value: unknown, allowed: readonly T[]): PresetChoice<T> {
+  const source = isRecord(value) ? value : {};
+  const preferred = normalizeChoiceMembers(source.preferred, allowed);
+  const acceptable = normalizeChoiceMembers(source.acceptable, allowed).filter((entry) => !preferred.includes(entry));
+  return { preferred, acceptable };
+}
+
+/** A stat target: absent or unusable means the role does not aim at it, and an explicit 0 is kept. */
+function normalizeTarget(value: unknown): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return undefined;
+  return Math.max(0, Math.round(value));
+}
+
+function normalizeStatTargets(value: unknown): PresetStatTargets {
+  const source = isRecord(value) ? value : {};
+  const targets: PresetStatTargets = {};
+  for (const key of presetStatTargetKeys) {
+    const target = normalizeTarget(source[key]);
+    if (target !== undefined) targets[key] = target;
+  }
+  return targets;
+}
+
+/**
+ * One saved preset, or `null` if it cannot be read as one. A preset without a
+ * name is the one thing not recoverable — every other part has a sensible
+ * empty value, but an unnamed preset could not be told apart in the list.
+ */
+function normalizePreset(value: unknown): RunePotentialPreset | null {
+  if (!isRecord(value)) return null;
+  const name = typeof value.name === 'string' ? value.name.trim() : '';
+  if (!name) return null;
+  const slots = isRecord(value.slots) ? value.slots : {};
+  const artifacts = isRecord(value.artifacts) ? value.artifacts : {};
+  return withRefreshedMetrics({
+    id: typeof value.id === 'string' && value.id ? value.id : newPresetId(),
+    name,
+    type: presetTypes.includes(value.type as PresetType) ? value.type as PresetType : 'No type',
+    sets: normalizeChoice(value.sets, runeSetNameList),
+    slots: {
+      slot2: normalizeChoice(slots.slot2, runeMainStats),
+      slot4: normalizeChoice(slots.slot4, runeMainStats),
+      slot6: normalizeChoice(slots.slot6, runeMainStats),
+    },
+    artifacts: { atk: artifacts.atk === true, def: artifacts.def === true, hp: artifacts.hp === true },
+    targets: normalizeStatTargets(value.targets),
+  });
+}
+
+/**
+ * The saved preset list. Absent means a user who has never seen the workspace,
+ * who gets the shipped presets; an empty list means a user who deleted them
+ * all, which is respected. Duplicate identifiers are re-issued so React keys
+ * and every later edit still address one preset each.
+ */
+export function normalizeRunePotentialPresets(value: unknown): RunePotentialPreset[] {
+  if (value === undefined || value === null) return defaultRunePotentialPresets();
+  if (!Array.isArray(value)) return defaultRunePotentialPresets();
+  const seen = new Set<string>();
+  return value.flatMap((entry) => {
+    const preset = normalizePreset(entry);
+    if (!preset) return [];
+    if (seen.has(preset.id)) preset.id = newPresetId();
+    seen.add(preset.id);
+    return [preset];
+  });
+}

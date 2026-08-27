@@ -27,6 +27,12 @@ const elementNames: Record<number, string> = {
   1: 'Water', 2: 'Fire', 3: 'Wind', 4: 'Light', 5: 'Dark',
 };
 
+/**
+ * Every set name, alphabetically. The preset editor offers these as the sets a
+ * role may ask for, so a preset cannot name a set the game does not have.
+ */
+export const runeSetNameList: readonly string[] = Object.values(runeSetNames).sort((left, right) => left.localeCompare(right));
+
 export type ActiveRuneSet = { name: string; abbreviation: string; count: number };
 
 function numberValue(value: unknown): number {

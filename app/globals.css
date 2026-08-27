@@ -652,6 +652,28 @@ button { cursor: pointer; }
    so the two open bars read as one workspace. */
 .preset-list { display: grid; gap: var(--s4); }
 
+/* The count on the left, the one action that adds to the list on the right.
+   Above the list rather than below it: the button is looked for before the
+   list has been read, not after. */
+.list-actions {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--s4); flex-wrap: wrap;
+}
+.list-count {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-small);
+  color: var(--faint);
+}
+.list-count b { color: var(--dim); font-weight: 500; }
+/* The plus sits with the label rather than replacing it — a bare glyph made
+   the one creating action the least legible thing in the bar. */
+.button-glyph {
+  font-family: var(--mono);
+  font-size: var(--t-base); line-height: 1;
+  margin-right: var(--s2);
+}
+
 .preset-card {
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -663,10 +685,35 @@ button { cursor: pointer; }
 /* The rule closes the name and its type together, so the two read as one
    heading rather than as a heading and a first row. */
 .preset-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: var(--s4);
   margin: 0 0 var(--s3);
   padding-bottom: var(--s3);
   border-bottom: 1px solid var(--line);
 }
+.preset-title { min-width: 0; }
+.preset-actions { display: flex; gap: var(--s1); flex: 0 0 auto; }
+
+/* A square target for one stroked icon. Quiet until the card or the button is
+   under the pointer, so eight cards do not present sixteen lit controls — but
+   always focusable, and never hidden from a keyboard or a touch screen. */
+.icon-button {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ghost);
+  transition: color .12s, border-color .12s, background .12s;
+}
+.preset-card:hover .icon-button { color: var(--faint); }
+.icon-button:hover {
+  color: var(--gold);
+  border-color: var(--line-strong);
+  background: var(--hover);
+}
+.icon-button.danger:hover { color: #d08a7a; border-color: #6a4038; }
+.icon-button:focus-visible { color: var(--gold); }
 .preset-name {
   margin: 0;
   font-size: var(--t-title); font-weight: 600;
@@ -1152,6 +1199,166 @@ button { cursor: pointer; }
 .dialog p { color: var(--dim); font-size: var(--t-body); line-height: 1.6; }
 .dialog .field { margin-top: var(--s4); }
 .dialog-actions { display: flex; justify-content: flex-end; gap: var(--s2); margin-top: var(--s5); }
+.dialog-actions .button:disabled {
+  color: var(--ghost); border-color: var(--line);
+  background: transparent; cursor: not-allowed;
+}
+.dialog-actions .button.primary:disabled { background: var(--gold-deep); border-color: var(--gold-edge); color: var(--faint); }
+
+/* ------------------------------------------------------- preset editor */
+
+/* Wider than a confirmation and capped at the viewport: a preset states six
+   different kinds of thing, so the body scrolls while the heading and the two
+   actions stay put — the reader always knows how to leave. */
+.dialog.editor {
+  width: min(880px, 100%);
+  max-height: min(88vh, 900px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  padding: 0;
+}
+.editor-head {
+  padding: var(--s5) var(--s5) var(--s4);
+  border-bottom: 1px solid var(--line);
+}
+.editor-head h2 { color: var(--gold); }
+/* The head and the actions are fixed, so a scrolled body can cut a row of
+   chips in half. The two inset gradients fade whichever edge has content
+   beyond it, so a cut reads as more to come rather than as a clipped row. */
+.editor-body {
+  overflow-y: auto;
+  padding: var(--s5);
+  display: grid; gap: var(--s5);
+  background:
+    linear-gradient(var(--raise) 30%, rgba(18, 22, 29, 0)) top / 100% 24px no-repeat,
+    linear-gradient(rgba(18, 22, 29, 0), var(--raise) 70%) bottom / 100% 24px no-repeat,
+    radial-gradient(farthest-side at 50% 0, rgba(0, 0, 0, .5), rgba(0, 0, 0, 0)) top / 100% 10px no-repeat,
+    radial-gradient(farthest-side at 50% 100%, rgba(0, 0, 0, .5), rgba(0, 0, 0, 0)) bottom / 100% 10px no-repeat;
+  background-attachment: local, local, scroll, scroll;
+}
+.dialog.editor .dialog-actions {
+  margin: 0;
+  padding: var(--s4) var(--s5);
+  border-top: 1px solid var(--line);
+  background: var(--sunk);
+}
+
+/* Name and type share a line: both are one short answer, and the pair reads as
+   the preset's identity before its contents. */
+.editor-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 220px);
+  gap: var(--s4);
+}
+
+.editor-block { display: grid; gap: var(--s2); }
+.editor-block-title {
+  margin: 0;
+  font-size: var(--t-lead); font-weight: 600;
+  letter-spacing: -.01em;
+  color: var(--ink);
+}
+.editor-note {
+  margin: 0 0 var(--s1);
+  font-size: var(--t-body); line-height: 1.5;
+  color: var(--faint);
+  max-width: 72ch;
+}
+
+/* The chips wrap freely for a short list of main stats, and fall into fixed
+   columns for the twenty-odd set names, where a ragged wrap made the list hard
+   to scan for one name. */
+.choice-editor { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.choice-editor.columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+  gap: var(--s2);
+}
+
+/* One control carrying three states. The dot on the left says which: empty,
+   filled gold for preferred, hollow gold for acceptable — the same two-tone
+   distinction the card makes with ink and dimming, in the one place where it
+   also has to be clickable. */
+.choice-chip {
+  display: inline-flex; align-items: center; gap: var(--s2);
+  min-height: 32px;
+  padding: 0 var(--s3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--sunk);
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: var(--t-small);
+  letter-spacing: .02em;
+  text-align: left;
+  transition: color .12s, border-color .12s, background .12s;
+}
+.choice-chip:hover { background: var(--hover); border-color: var(--faint); }
+.choice-chip-mark {
+  flex: 0 0 auto;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  border: 1px solid var(--ghost);
+  background: transparent;
+}
+.choice-chip.preferred { color: var(--ink); border-color: var(--gold-edge); background: var(--gold-deep); }
+.choice-chip.preferred .choice-chip-mark { background: var(--gold); border-color: var(--gold); }
+.choice-chip.acceptable { color: var(--dim); border-color: var(--gold-edge); }
+.choice-chip.acceptable .choice-chip-mark { border-color: var(--gold); }
+/* The state names itself on the chip, so the dot is a shorthand the reader can
+   confirm rather than a code they have to learn. It follows the name and takes
+   the remaining width, keeping the names on one vertical in the set columns. */
+.choice-chip-state {
+  margin-left: auto;
+  font-size: var(--t-micro);
+  letter-spacing: .04em;
+  color: var(--faint);
+  white-space: nowrap;
+}
+.choice-chip.preferred .choice-chip-state { color: var(--gold); }
+
+.editor-slots {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s4);
+}
+.editor-slot { display: grid; gap: var(--s2); align-content: start; min-width: 0; }
+.editor-slot-label {
+  margin: 0;
+  font-size: var(--t-micro);
+  letter-spacing: .06em; text-transform: uppercase;
+  color: var(--faint);
+}
+.editor-slot .choice-editor { gap: var(--s1); }
+
+.editor-flags { display: flex; flex-wrap: wrap; gap: var(--s3) var(--s5); }
+
+/* Eight small number fields on one grid, in the order the card reads them, so
+   entering the targets and checking them afterwards trace the same path. */
+.editor-targets {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--s3) var(--s4);
+}
+.field-compact > span { margin-bottom: var(--s1); font-size: var(--t-micro); letter-spacing: .04em; color: var(--faint); }
+.field-compact input {
+  height: 32px;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+/* The native spinners cover the last digit of a five-figure HP target and put
+   a control on eight fields that are all typed into. The keyboard's own arrow
+   stepping still works. */
+.field-compact input[type='number'] { -moz-appearance: textfield; appearance: textfield; }
+.field-compact input[type='number']::-webkit-outer-spin-button,
+.field-compact input[type='number']::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+@media (max-width: 820px) {
+  .editor-pair, .editor-slots { grid-template-columns: minmax(0, 1fr); }
+  .editor-targets { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dialog.editor { max-height: 92vh; }
+  .editor-head, .editor-body, .dialog.editor .dialog-actions { padding-inline: var(--s4); }
+}
 
 /* ----------------------------------------------------------- responsive */
 
