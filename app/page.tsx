@@ -703,6 +703,22 @@ const potentialStepLabels = {
     'Three quarters — a good roll, short of perfect',
     'Maximum — the best the grade allows',
   ],
+  /* Both of the scales below run loose to strict, like the four above them, so
+     every track on the page reads the same way: further right is fussier. */
+  acceptedRunes: [
+    'Everything stays — even the ones you laugh at',
+    'Forgiving — a single good sub property is enough',
+    'Keep the good ones — the rest can go',
+    'Only the best — near the top of what the slot allows',
+    'Best of the best — the ones you would frame',
+  ],
+  offSetRunes: [
+    'No favourites — every set is worth the same look',
+    'Open-minded — a good rune outweighs the wrong set',
+    'Even-handed — the wrong set has to earn its place',
+    'Reluctant — only the standouts from sets you skip',
+    'Absolute no-go — a set you never build is dust',
+  ],
 } as const;
 
 function RunePotentialSection({ settings, presets, onUpdate, onWritePresets }: {
@@ -805,6 +821,37 @@ function RunePotentialSection({ settings, presets, onUpdate, onWritePresets }: {
               </dl>
             </section>
           </aside>
+        </div>
+
+        <div className="bar-divide" />
+
+        {/* Reuses the layout above rather than choosing its own, so these two
+            tracks are exactly as long as the four before them and their labels
+            start on the same left edges. The rule's cell is left empty: it
+            separates the sliders from the aside, and what separates this group
+            from its neighbours is the hairline above and below it. */}
+        <div className="settings-layout">
+          <div className="slider-grid">
+            <PotentialSlider id="accepted-runes" label="Accepted runes" value={settings.acceptedRunes}
+              description="How good does a rune have to be before it is worth keeping at all?"
+              stepLabels={potentialStepLabels.acceptedRunes}
+              onChange={(value) => void onUpdate({ acceptedRunes: value })} />
+            <PotentialSlider id="off-set-runes" label="Off-set runes" value={settings.offSetRunes}
+              description="How much patience do you have for runes in sets you never build?"
+              stepLabels={potentialStepLabels.offSetRunes}
+              onChange={(value) => void onUpdate({ offSetRunes: value })} />
+          </div>
+          <div role="presentation" />
+          <div className="settings-aside">
+            <div className="stack tight">
+              <p className="field-legend">4 vs. 2 set-policy</p>
+              {/* The count follows the set, not the slot: a 4-set has to be
+                  filled four times over, so keeping as many candidates for it
+                  as for a 2-set leaves it half the choice. */}
+              <CheckboxRow label="Keep x2 runes for 4-sets" checked={settings.keepMoreForLargerSets}
+                onChange={(checked) => void onUpdate({ keepMoreForLargerSets: checked })} />
+            </div>
+          </div>
         </div>
 
         <div className="bar-divide" />

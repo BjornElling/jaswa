@@ -4,7 +4,7 @@ import { defaultRunePotentialPresets, normalizeRunePotentialPresets } from './ru
 const expectedSections = ['unit_list', 'runes', 'artifacts', 'relics', 'rune_craft_item_list']; const excludedKeys = new Set(['session_key', 'session_key_node']);
 const runePotentialSortOrders: RunePotentialSortOrder[] = ['Grade', 'Sub Property', 'Sub Property Before Grinding', 'Power-up Lv.', 'Obtained', 'Sub Property Sum', 'Score'];
 export const itemGrades: ItemGrade[] = ['Normal', 'Magic', 'Rare', 'Hero', 'Legend'];
-export const defaultRunePotentialSettings: RunePotentialSettings = { powerUpPolicy: 4, runeQuality: 4, enchantedGems: 3, grindstones: 3, gemGrade: 'Hero', grindstoneGrade: 'Hero', includeLevel12Runes: false, includeEquippedRunes: false, sortOrder: 'Power-up Lv.' };
+export const defaultRunePotentialSettings: RunePotentialSettings = { powerUpPolicy: 4, runeQuality: 4, enchantedGems: 3, grindstones: 3, gemGrade: 'Hero', grindstoneGrade: 'Hero', acceptedRunes: 3, offSetRunes: 3, keepMoreForLargerSets: false, includeLevel12Runes: false, includeEquippedRunes: false, sortOrder: 'Power-up Lv.' };
 function normalizeRunePotentialSettings(value: unknown): RunePotentialSettings {
   if (!value || typeof value !== 'object') return defaultRunePotentialSettings;
   const settings = value as Partial<RunePotentialSettings>;
@@ -12,7 +12,7 @@ function normalizeRunePotentialSettings(value: unknown): RunePotentialSettings {
   const normalizeGrade = (input: unknown, fallback: ItemGrade) => itemGrades.includes(input as ItemGrade) ? input as ItemGrade : fallback;
   const sortOrder = runePotentialSortOrders.includes(settings.sortOrder as RunePotentialSortOrder) ? settings.sortOrder as RunePotentialSortOrder : defaultRunePotentialSettings.sortOrder;
   const fallback = defaultRunePotentialSettings;
-  return { powerUpPolicy: normalizeScale(settings.powerUpPolicy, 5, fallback.powerUpPolicy), runeQuality: normalizeScale(settings.runeQuality, 5, fallback.runeQuality), enchantedGems: normalizeScale(settings.enchantedGems, 4, fallback.enchantedGems), grindstones: normalizeScale(settings.grindstones, 4, fallback.grindstones), gemGrade: normalizeGrade(settings.gemGrade, fallback.gemGrade), grindstoneGrade: normalizeGrade(settings.grindstoneGrade, fallback.grindstoneGrade), includeLevel12Runes: settings.includeLevel12Runes === true, includeEquippedRunes: settings.includeEquippedRunes === true, sortOrder };
+  return { powerUpPolicy: normalizeScale(settings.powerUpPolicy, 5, fallback.powerUpPolicy), runeQuality: normalizeScale(settings.runeQuality, 5, fallback.runeQuality), enchantedGems: normalizeScale(settings.enchantedGems, 4, fallback.enchantedGems), grindstones: normalizeScale(settings.grindstones, 4, fallback.grindstones), gemGrade: normalizeGrade(settings.gemGrade, fallback.gemGrade), grindstoneGrade: normalizeGrade(settings.grindstoneGrade, fallback.grindstoneGrade), acceptedRunes: normalizeScale(settings.acceptedRunes, 5, fallback.acceptedRunes), offSetRunes: normalizeScale(settings.offSetRunes, 5, fallback.offSetRunes), keepMoreForLargerSets: settings.keepMoreForLargerSets === true, includeLevel12Runes: settings.includeLevel12Runes === true, includeEquippedRunes: settings.includeEquippedRunes === true, sortOrder };
 }
 export function blankPreferences(): Preferences { return { format: 'swaggr-preferences', version: 1, updatedAt: new Date().toISOString(), monsterPreferences: {}, runePotential: defaultRunePotentialSettings, runePotentialPresets: defaultRunePotentialPresets() }; }
 
