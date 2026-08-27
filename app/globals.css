@@ -32,17 +32,50 @@
   --gold-edge: #5c4820;
   --gold-ink: #1a1206;
 
-  /* rhythm */
-  --row: 34px;
-  --rail: 52px;
-  --topbar: 50px;
-  --strip: 42px;
+  /* rhythm — one 4px scale. Every gap, pad and inset below is a step on it,
+     so nothing lands on an arbitrary 9px or 13px any more. */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --s7: 48px;
+
+  --row: 40px;
+  --rail: 244px;
+  /* the topbar now carries status only, so it need not stand as tall as a
+     titled header did */
+  --topbar: 48px;
+  --strip: 52px;
+
+  /* the reading measure. Prose and forms stop here instead of running to the
+     far edge of a wide display; the gutter keeps content off the rail. */
+  --measure: 1120px;
+  --measure-grid: 1680px;
+  --gutter: var(--s6);
+
+  /* type scale */
+  --t-micro: 11px;
+  --t-small: 12px;
+  --t-body: 13px;
+  --t-base: 14px;
+  --t-lead: 15px;
+  --t-title: 18px;
+  --t-display: 24px;
+
+  --radius: 8px;
+  --radius-sm: 6px;
 
   --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   --sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
 * { box-sizing: border-box; }
+
+/* The scrollbar's track is reserved whether or not it is needed, so centred
+   content does not shift sideways when a page grows past one screen. */
+html { scrollbar-gutter: stable; }
 
 body {
   margin: 0;
@@ -84,68 +117,103 @@ button { cursor: pointer; }
   border-right: 1px solid var(--line);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 10px 0;
+  padding: var(--s4) var(--s3);
   gap: 2px;
   position: sticky;
   top: 0;
   height: 100vh;
 }
+
+/* wordmark — the glyph keeps its square, the name sits beside it */
+.rail-brand {
+  display: flex; align-items: center; gap: var(--s3);
+  padding: 0 var(--s2);
+  height: 44px;
+  margin-bottom: var(--s4);
+}
 .rail-mark {
-  width: 32px; height: 32px;
-  border-radius: 8px;
+  width: 34px; height: 34px;
+  border-radius: var(--radius-sm);
   background: var(--gold);
   color: var(--gold-ink);
   display: grid; place-items: center;
   font-family: var(--mono);
-  font-weight: 700; font-size: 16px;
-  margin-bottom: 13px;
+  font-weight: 700; font-size: var(--t-title);
+  flex: 0 0 auto;
 }
+.rail-brand b {
+  font-size: var(--t-title); font-weight: 600;
+  letter-spacing: -.015em;
+}
+
+/* each group is its own element, so the spacing lives between groups
+   rather than on the heading — the first group then starts flush. */
+.rail-group + .rail-group { margin-top: var(--s5); }
+.rail-heading {
+  font-size: var(--t-micro); letter-spacing: .1em; text-transform: uppercase;
+  color: var(--ghost); font-weight: 700;
+  padding: 0 var(--s3);
+  margin: 0 0 var(--s2);
+}
+
+/* The rail is read at a glance from across a large screen, so it runs a
+   step above body text rather than at it. */
 .rail-item {
-  width: 36px; height: 34px;
+  display: flex; align-items: center; gap: var(--s3);
+  width: 100%; height: 48px;
+  padding: 0 var(--s3);
   border: 0; background: transparent;
   color: var(--dim);
-  border-radius: 7px;
-  font-size: 15px;
-  display: grid; place-items: center;
+  border-radius: var(--radius-sm);
+  font-size: var(--t-lead);
+  text-align: left;
   transition: color .12s, background .12s;
 }
+/* These are geometric glyphs (◈ ↝ ◌ ▣), not letterforms — they carry far
+   less ink per em than text does, so they need a size well above the label
+   beside them just to read as equally present. */
+.rail-item .glyph {
+  width: 28px;
+  flex: 0 0 auto;
+  text-align: center;
+  font-size: 24px;
+  line-height: 1;
+  color: var(--faint);
+}
 .rail-item:hover { background: var(--hover); color: var(--ink); }
+.rail-item:hover .glyph { color: var(--dim); }
 .rail-item.active {
   background: #181c24;
   color: var(--gold);
+  font-weight: 600;
   box-shadow: inset 2px 0 0 var(--gold);
 }
-.rail-spacer { flex: 1; }
+.rail-item.active .glyph { color: var(--gold); }
+.rail-spacer { flex: 1; min-height: var(--s4); }
 
 .workspace { min-width: 0; display: grid; grid-template-rows: auto 1fr; align-content: start; }
 
 /* -------------------------------------------------------------- topbar */
 .topbar {
-  display: flex; align-items: center; gap: 13px;
+  display: flex; align-items: center; gap: var(--s3);
   height: var(--topbar);
-  padding: 0 15px;
+  padding: 0 var(--gutter);
   border-bottom: 1px solid var(--line);
   background: var(--raise);
   position: sticky; top: 0; z-index: 20;
 }
-.topbar h1 {
-  margin: 0;
-  font-size: 15px; font-weight: 600; letter-spacing: -.015em;
-  display: flex; align-items: baseline; gap: 11px;
-}
-.topbar h1 em {
-  font-style: normal;
-  color: var(--dim);
-  font-size: 11.5px;
-  font-family: var(--mono);
-}
 .topbar-spacer { flex: 1; }
+.topbar-count {
+  font-family: var(--mono);
+  font-size: var(--t-small);
+  color: var(--faint);
+  white-space: nowrap;
+}
 .status-pill {
   font-family: var(--mono);
-  font-size: 11px;
-  padding: 3px 9px;
-  border-radius: 5px;
+  font-size: var(--t-micro);
+  padding: var(--s1) var(--s2);
+  border-radius: var(--radius-sm);
   border: 1px solid var(--line-strong);
   color: var(--dim);
   white-space: nowrap;
@@ -158,28 +226,29 @@ button { cursor: pointer; }
   min-height: var(--strip);
   border-bottom: 1px solid var(--line);
   background: var(--bg);
-  padding: 0 15px;
+  padding: 0 var(--gutter);
   overflow-x: auto;
 }
 .filter-group {
-  display: flex; align-items: center; gap: 5px;
-  padding-right: 13px; margin-right: 13px;
+  display: flex; align-items: center; gap: var(--s1);
+  padding-right: var(--s4); margin-right: var(--s4);
   border-right: 1px solid var(--line);
   white-space: nowrap;
 }
 .filter-group:last-child { border-right: 0; margin-right: 0; }
 .filter-label {
-  font-size: 10px; letter-spacing: .11em; text-transform: uppercase;
-  color: var(--faint); font-weight: 600;
+  font-size: var(--t-micro); letter-spacing: .1em; text-transform: uppercase;
+  color: var(--faint); font-weight: 700;
 }
 .filter-button {
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: var(--t-small);
   border: 1px solid transparent;
   background: transparent;
   color: var(--dim);
-  padding: 4px 9px;
-  border-radius: 5px;
+  height: 30px;
+  padding: 0 var(--s3);
+  border-radius: var(--radius-sm);
   transition: color .12s, background .12s, border-color .12s;
 }
 .filter-button:hover { background: var(--hover); color: var(--ink); }
@@ -190,19 +259,19 @@ button { cursor: pointer; }
 }
 
 .search-field {
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; gap: var(--s2);
   background: var(--sunk);
   border: 1px solid var(--line-strong);
-  border-radius: 6px;
-  padding: 0 10px;
-  height: 30px;
-  width: 240px;
+  border-radius: var(--radius-sm);
+  padding: 0 var(--s3);
+  height: 32px;
+  width: 260px;
   color: var(--dim);
 }
 .search-field:focus-within { border-color: var(--gold); }
 .search-field input {
   border: 0; background: transparent; color: var(--ink);
-  font-size: 13px; width: 100%; padding: 0; outline: none;
+  font-size: var(--t-body); width: 100%; padding: 0; outline: none;
 }
 .search-field input::placeholder { color: var(--faint); }
 .search-field kbd {
@@ -215,14 +284,22 @@ button { cursor: pointer; }
 /* ---------------------------------------------------------------- table */
 .table-wrap { overflow: auto; }
 
-.grid-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+/* the grid gets the same left gutter as prose, so a row's first character
+   lines up with a section heading instead of hugging the rail. */
+.grid-table { width: 100%; border-collapse: collapse; font-size: var(--t-body); }
+.grid-table thead th:first-child,
+.grid-table tbody td:first-child { padding-left: var(--gutter); }
+.grid-table thead th:last-child,
+.grid-table tbody td:last-child { padding-right: var(--gutter); }
+
 .grid-table thead th {
   position: sticky; top: 0; z-index: 10;
   background: var(--raise);
   text-align: right;
-  font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+  font-size: var(--t-micro); letter-spacing: .08em; text-transform: uppercase;
   color: var(--dim); font-weight: 700;
-  padding: 10px 11px;
+  height: var(--strip);
+  padding: 0 var(--s3);
   border-bottom: 1px solid var(--line-strong);
   white-space: nowrap;
   user-select: none;
@@ -236,7 +313,7 @@ button { cursor: pointer; }
 .grid-table thead th.reserved { color: var(--faint); font-style: italic; }
 
 .grid-table tbody td {
-  padding: 0 11px;
+  padding: 0 var(--s3);
   height: var(--row);
   border-bottom: 1px solid var(--line);
   text-align: right;
@@ -250,16 +327,16 @@ button { cursor: pointer; }
 .grid-table tbody td.dim { color: var(--dim); }
 .grid-table tbody td.pending { color: var(--faint); font-style: italic; }
 
-.row-index { color: var(--faint); font-size: 11px; width: 40px; }
+.row-index { color: var(--ghost); font-size: var(--t-micro); width: 64px; }
 
-.monster-cell { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.monster-cell { display: flex; align-items: center; gap: var(--s3); min-width: 0; }
 .monster-name {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-weight: 500; font-size: 13.5px;
+  font-weight: 500; font-size: var(--t-body);
 }
 .monster-name small {
   display: block;
-  font-size: 11px;
+  font-size: var(--t-micro);
   color: var(--faint);
   font-weight: 400;
   margin-top: 1px;
@@ -268,8 +345,8 @@ button { cursor: pointer; }
 /* monster portrait — the bundled artwork where it exists, the monster's
    own initial where it does not. Never the element. */
 .monster-portrait {
-  width: 26px; height: 26px;
-  border-radius: 5px;
+  width: 28px; height: 28px;
+  border-radius: var(--radius-sm);
   flex: 0 0 auto;
   background-color: var(--sunk);
   background-size: cover;
@@ -286,12 +363,12 @@ button { cursor: pointer; }
 /* rune sets: plain monospaced text, second set dimmed */
 .set-mark {
   font-family: var(--mono);
-  font-size: 11.5px;
+  font-size: var(--t-small);
   color: var(--ink);
   letter-spacing: .03em;
 }
-.set-mark + .set-mark { margin-left: 8px; color: var(--dim); }
-.set-none { font-family: var(--mono); font-size: 11.5px; color: var(--faint); }
+.set-mark + .set-mark { margin-left: var(--s2); color: var(--dim); }
+.set-none { font-family: var(--mono); font-size: var(--t-small); color: var(--faint); }
 
 /* an empty cell that is waiting on a calculation, not missing data */
 .awaiting {
@@ -302,60 +379,619 @@ button { cursor: pointer; }
 }
 
 /* ------------------------------------------------------------- sections */
-.section-body { padding: 26px 20px 48px; }
-.section-body.flush { padding: 0; }
 
-.section-intro { margin: 0 0 20px; max-width: 74ch; }
+/* Prose sections stop at the reading measure and centre inside the
+   workspace, so a wide display shows a balanced column instead of pushing
+   everything into the top-left corner. */
+.section-body {
+  width: 100%;
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: var(--s6) var(--gutter) var(--s7);
+  /* the page-header wash bleeds past the gutter; clip it rather than let it
+     open a horizontal scrollbar */
+  overflow-x: clip;
+}
+.section-body.flush { padding: 0; max-width: none; }
+
+/* a titled block: heading, optional lead, then its own content */
+.panel {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--raise);
+  padding: var(--s5);
+}
+.panel + .panel { margin-top: var(--s5); }
+
+/* a panel whose content reaches the edge — a table, typically. The heading
+   keeps the padding; the content below sheds it. */
+.panel.flush { padding: 0; }
+.panel.flush .panel-head { padding: var(--s5) var(--s5) var(--s4); }
+.panel.flush .panel-head .block-title { margin-bottom: var(--s2); }
+.table-wrap.inset { border-top: 1px solid var(--line); }
+.table-wrap.inset .grid-table thead th:first-child,
+.table-wrap.inset .grid-table tbody td:first-child { padding-left: var(--s5); }
+.table-wrap.inset .grid-table thead th:last-child,
+.table-wrap.inset .grid-table tbody td:last-child { padding-right: var(--s5); }
+.table-wrap.inset .grid-table tbody tr:last-child td { border-bottom: 0; }
+
+/* ------------------------------------------------------ disclosure bars */
+
+/* A full-width bar that opens in place. Closed, the row of bars reads as a
+   contents list for the page; open, each is an ordinary panel. */
+.bar {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--raise);
+  overflow: hidden;
+}
+.bar + .bar { margin-top: var(--s4); }
+.bar[open] { border-color: var(--line-strong); }
+
+.bar-head {
+  display: flex; align-items: center; gap: var(--s3);
+  padding: var(--s3) var(--s5);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  transition: background .12s;
+}
+.bar-head::-webkit-details-marker { display: none; }
+.bar-head:hover { background: var(--hover); }
+.bar-head:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+
+.bar-chevron {
+  flex: 0 0 auto;
+  width: 20px;
+  font-size: 20px; line-height: 1;
+  color: var(--faint);
+  text-align: center;
+  transition: transform .16s ease, color .12s;
+}
+.bar[open] .bar-chevron { transform: rotate(90deg); color: var(--gold); }
+.bar-head:hover .bar-chevron { color: var(--dim); }
+
+.bar-head b {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--t-title); font-weight: 600;
+  letter-spacing: -.02em;
+  color: var(--ink);
+}
+.bar[open] .bar-head b { color: var(--gold); }
+
+.bar-body {
+  padding: var(--s5);
+  border-top: 1px solid var(--line);
+}
+
+/* a hairline between two groups of controls inside one open bar */
+.bar-divide { height: 1px; background: var(--line); margin: var(--s1) 0; }
+
+.filter-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--s5);
+  align-items: start;
+}
+/* Matches .slider-label so the checkbox group reads as a peer of the four
+   settings above it rather than as a caption. */
+.field-legend {
+  margin: 0 0 var(--s2);
+  font-size: var(--t-lead); font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -.01em;
+  color: var(--ink);
+}
+
+/* a bordered table that sits inside a panel rather than bleeding to the edge */
+.table-wrap.card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--sunk);
+}
+.table-wrap.card .grid-table thead th { background: var(--raise); }
+.table-wrap.card .grid-table thead th:first-child,
+.table-wrap.card .grid-table tbody td:first-child { padding-left: var(--s4); }
+.table-wrap.card .grid-table thead th:last-child,
+.table-wrap.card .grid-table tbody td:last-child { padding-right: var(--s4); }
+.table-wrap.card .grid-table tbody tr:last-child td { border-bottom: 0; }
+
+/* -------------------------------------------------------------- sliders */
+
+/* The four sliders keep to two columns so gems and grindstones share the
+   second line; a hairline separates them from the aside that fills the
+   space left over beside them. */
+.settings-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 1px minmax(240px, 300px);
+  gap: var(--s5);
+  align-items: start;
+}
+/* Contrast against the panel: --line measured 1.21:1 and vanished, --ghost
+   2.70:1 and read as a hard border. This sits between them at 2.03:1 —
+   present, but quieter than the content it separates. */
+.settings-rule {
+  --rule: #414a5b;
+  align-self: stretch;
+  background: linear-gradient(180deg,
+    transparent,
+    var(--rule) 8%,
+    var(--rule) 92%,
+    transparent);
+}
+.settings-aside { display: grid; gap: var(--s5); align-content: start; }
+.grade-fields { display: grid; gap: var(--s4); }
+
+.slider-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s5);
+}
+
+@media (max-width: 1280px) {
+  /* the aside drops beneath the sliders and its two selects sit side by side */
+  .settings-layout { grid-template-columns: minmax(0, 1fr); }
+  .settings-rule {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--rule) 4%, var(--rule) 96%, transparent);
+  }
+  .grade-fields { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+}
+@media (max-width: 720px) {
+  .slider-grid { grid-template-columns: minmax(0, 1fr); }
+}
+.slider-label {
+  display: block;
+  min-height: 1.3em;
+  font-size: var(--t-lead); font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -.01em;
+}
+/* Two lines are reserved so the four descriptions, which differ in length,
+   still put their tracks on one line. */
+.slider-note {
+  margin: var(--s1) 0 0;
+  min-height: calc(2 * 1.5em);
+  color: var(--dim);
+  font-size: var(--t-body); line-height: 1.5;
+}
+.slider input[type='range'] {
+  display: block; width: 100%;
+  margin: var(--s4) 0 0;
+  accent-color: var(--gold);
+  height: 20px;
+}
+
+/* The chosen step names itself in the accent colour — this is the answer to
+   the question the label asked, so it carries the emphasis.
+
+   Three lines are reserved because this text changes on every drag: without
+   the reservation the card, and the whole row with it, would resize under
+   the pointer. It is a floor rather than a fixed height so that a long label
+   at a narrow width still wraps instead of being clipped. */
+.slider-choice {
+  margin: var(--s3) 0 0;
+  min-height: calc(3 * 1.45em);
+  color: var(--gold);
+  font-size: var(--t-body);
+  font-weight: 500;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+/* A fixed four-row frame: label, note, track, choice. The note takes the
+   slack so that every track and every gold line sits on one baseline across
+   the row, whatever the copy above runs to. */
+.slider {
+  display: grid;
+  grid-template-rows: auto 1fr auto auto;
+}
+
+/* ----------------------------------------------------------- statistics */
+
+/* The one place on the page that reports back rather than takes input, so it
+   is ringed in the accent and given the largest numerals in the workspace. */
+.statistics {
+  border: 1px solid var(--gold-edge);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, rgba(217, 173, 82, .06), transparent 60%),
+    var(--sunk);
+  padding: var(--s4);
+  box-shadow: inset 0 0 0 1px rgba(217, 173, 82, .06);
+}
+.statistics h4 {
+  margin: 0;
+  font-size: var(--t-lead); font-weight: 600;
+  letter-spacing: -.01em;
+  color: var(--gold);
+}
+.statistics-lead {
+  margin: var(--s1) 0 var(--s4);
+  color: var(--dim);
+  font-size: var(--t-body); line-height: 1.45;
+}
+.statistics dl { margin: 0; display: grid; gap: var(--s3); }
+
+/* Label left, figure right — the numbers form a column the eye can read
+   down, with the label centred against the full height of its figure. */
+.statistics dl > div {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--s3);
+  padding-top: var(--s3);
+  border-top: 1px solid var(--line-strong);
+}
+.statistics dl > div:first-child { padding-top: 0; border-top: 0; }
+.statistics dt {
+  font-size: var(--t-body);
+  color: var(--dim);
+}
+.statistics dd {
+  margin: 0;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 32px; font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -.03em;
+  color: var(--gold);
+  white-space: nowrap;
+}
+.statistics dd .unit {
+  font-size: 17px; font-weight: 700;
+  margin-left: var(--s1);
+  opacity: .75;
+}
+
+/* --------------------------------------------------------------- presets */
+
+/* Each preset is its own record rather than a row in one dense table: eight
+   roles, each stating six different kinds of thing, needed height and a shared
+   label column far more than it needed compactness. The card, the --sunk
+   ground and the gold heading are the same devices the statistics block uses,
+   so the two open bars read as one workspace. */
+.preset-list { display: grid; gap: var(--s4); }
+
+.preset-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--sunk);
+  padding: var(--s4) var(--s5) var(--s5);
+}
+.preset-card:hover { border-color: var(--line-strong); }
+
+/* The rule closes the name and its type together, so the two read as one
+   heading rather than as a heading and a first row. */
+.preset-head {
+  margin: 0 0 var(--s3);
+  padding-bottom: var(--s3);
+  border-bottom: 1px solid var(--line);
+}
+.preset-name {
+  margin: 0;
+  font-size: var(--t-title); font-weight: 600;
+  letter-spacing: -.02em;
+  color: var(--gold);
+}
+/* The family the role belongs to, in the quiet voice the row labels use: it
+   classifies the preset rather than naming it, so it must not compete with the
+   gold above it. */
+.preset-type {
+  margin: 2px 0 0;
+  font-size: var(--t-small);
+  color: var(--faint);
+}
+
+.preset-rows { display: grid; gap: var(--s1); }
+
+/* One shared label column, so the six rows line up down the card and the
+   labels read as a list of what a preset consists of. */
+.preset-row {
+  display: grid;
+  grid-template-columns: 124px minmax(0, 1fr);
+  gap: var(--s5);
+  align-items: baseline;
+  padding: var(--s3) 0;
+}
+.preset-row + .preset-row { border-top: 1px solid var(--line); }
+/* Sans-serif at the weight the sliders' own labels carry, so a preset's parts
+   are named in the same voice as the settings above rather than in the
+   table-header voice of the grid. */
+.preset-row-label {
+  font-size: var(--t-body);
+  font-weight: 600;
+  letter-spacing: -.01em;
+  color: var(--dim);
+}
+.preset-row-value { min-width: 0; }
+
+/* preferred in full ink, acceptable dimmed — the only distinction the two
+   groups need, and it survives being read at a glance down the column */
+.choice-line { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); align-items: baseline; }
+.choice {
+  font-family: var(--mono);
+  font-size: var(--t-small);
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+.choice.preferred { color: var(--ink); font-weight: 500; }
+.choice.acceptable { color: var(--faint); }
+.choice-none { font-family: var(--mono); font-size: var(--t-small); color: var(--ghost); }
+
+/* The three slots side by side in equal columns, each named above its own
+   choices. Equal thirds rather than content width so the slot names sit on the
+   same verticals down every card, the way the targets below them do. */
+.slot-group {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s3) var(--s4);
+}
+.slot { display: grid; gap: var(--s1); align-content: start; min-width: 0; }
+.slot-label {
+  font-size: var(--t-micro);
+  letter-spacing: .06em; text-transform: uppercase;
+  color: var(--faint);
+}
+/* Every gap between two adjacent stats is the same measured distance — end of
+   one word to start of the next — whatever the words run to. The wider
+   .slot-group gap is the only larger step, and it is what separates the three
+   slots from one another. */
+.slot .choice-line { gap: var(--s1) var(--s3); }
+
+/* Yes/No on the three artifact primaries, as plain text on the same two-tone
+   scale the sets and main stats use: a wanted primary reads in full ink, an
+   unwanted one recedes. No box and no accent — gold is reserved for what the
+   reader can act on, and these state a fact. The gap matches the stat rows so
+   the whole card keeps one rhythm. */
+/* Three fixed columns wide enough for the longest pair, so ATK, DEF and HP
+   hold the same position down every card. Fixed rather than equal thirds: the
+   thirds of a full-width row put the three so far apart they stopped reading
+   as one answer, and only ~76px is needed for "ATK Yes". */
+.flag-line {
+  display: grid;
+  grid-template-columns: repeat(3, 76px);
+  gap: var(--s3) var(--s4);
+  align-items: baseline;
+}
+.flag {
+  display: inline-flex; align-items: baseline; gap: var(--s2);
+  justify-self: start;
+  font-family: var(--mono);
+  font-size: var(--t-small);
+  letter-spacing: .02em;
+  white-space: nowrap;
+  color: var(--faint);
+}
+.flag b { font-weight: 500; letter-spacing: 0; }
+.flag.yes { color: var(--dim); }
+.flag.yes b { color: var(--ink); }
+.flag.no { color: var(--ghost); }
+.flag.no b { color: var(--faint); }
+
+/* Label above, figure below, in eleven equal columns. Read across, the targets
+   stay a list of labelled pairs rather than an unlabelled row of numbers the
+   reader has to count along; equal columns keep the eight cards' figures on
+   the same verticals, and stop a single long label from wrapping one pair onto
+   a line of its own. */
+.target-line {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(11, minmax(0, 1fr));
+  gap: var(--s3) var(--s2);
+}
+.target { display: grid; gap: 1px; align-content: start; }
+/* Cased as written rather than uppercased: the labels distinguish CtR from CtD
+   by their own capitals, which a text-transform would flatten away. */
+.target dt {
+  font-size: var(--t-micro);
+  letter-spacing: .06em;
+  color: var(--faint);
+  white-space: nowrap;
+}
+.target dd {
+  margin: 0;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--t-body); font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.target dd .unit { font-size: var(--t-micro); color: var(--faint); margin-left: 1px; }
+.target.empty dd { color: var(--ghost); font-weight: 400; }
+
+/* Eleven columns need the full measure. Below it the targets fall to six and
+   then four per line — still a grid, so the pairs stay aligned. */
+@media (max-width: 1180px) {
+  .target-line { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+}
+@media (max-width: 720px) {
+  .preset-card { padding: var(--s4); }
+  /* the label moves above its value so neither column is squeezed */
+  .preset-row { grid-template-columns: minmax(0, 1fr); gap: var(--s1); }
+  .target-line { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  /* three sets of main stats will not fit a phone; one slot per line does */
+  .slot-group { grid-template-columns: minmax(0, 1fr); }
+}
+
+.checkbox-row {
+  display: flex; align-items: center; gap: var(--s3);
+  min-height: 28px;
+  font-size: var(--t-body); color: var(--dim);
+  cursor: pointer;
+}
+.checkbox-row input {
+  width: 15px; height: 15px; margin: 0;
+  flex: 0 0 auto;
+  accent-color: var(--gold);
+}
+
+.field-narrow { max-width: 320px; }
+
+/* Raises a single field's label to the weight of a .field-legend, for a field
+   that stands beside a legend as its own heading rather than under one. */
+.field-lead > span {
+  font-size: var(--t-lead);
+  line-height: 1.3;
+  letter-spacing: -.01em;
+  color: var(--ink);
+}
+
+/* an editable table cell: invisible until it is hovered or focused, so a
+   long roster reads as text rather than as a wall of input boxes. */
+.cell-input {
+  width: 100%;
+  height: 28px;
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid transparent;
+  border-radius: var(--s1);
+  padding: 0 var(--s2);
+  font-size: var(--t-body);
+  transition: border-color .12s, background .12s;
+}
+.cell-input::placeholder { color: var(--ghost); }
+.cell-input:hover { border-color: var(--line); }
+.cell-input:focus {
+  outline: none;
+  border-color: var(--gold);
+  background: var(--sunk);
+}
+
+/* ---------------------------------------------------------- page header */
+
+/* A workspace opens on its own name at display size. The gold is carried by
+   a soft wash behind the title and a hairline rule beneath it, so the accent
+   still means "this is the live section" without shouting a coloured
+   headline at the reader. */
+/* Usually the title leads, so the block sets its own top space; when an
+   eyebrow is present it takes that role and the title tucks up beneath it. */
+.page-header {
+  position: relative;
+  margin: 0 0 var(--s6);
+  padding: var(--s2) 0 var(--s5);
+  /* --line-strong rather than --line: this rule closes the whole header and
+     has to read as a division, not as the hairlines between table rows. */
+  border-bottom: 1px solid var(--line-strong);
+}
+.page-header .eyebrow { margin-bottom: var(--s3); }
+/* the wash sits behind the text but inside the header's own stacking
+   context, so it never slips underneath the page background */
+.page-header > * { position: relative; z-index: 1; }
+.page-header::before {
+  content: '';
+  position: absolute;
+  left: calc(var(--s7) * -1);
+  right: calc(var(--s7) * -1);
+  top: calc(var(--s6) * -1);
+  bottom: 0;
+  background: radial-gradient(52% 120% at 4% 24%, rgba(217, 173, 82, .11), transparent 66%);
+  pointer-events: none;
+}
+.page-title {
+  margin: 0;
+  font-size: clamp(30px, 3.2vw, 42px);
+  font-weight: 700;
+  letter-spacing: -.035em;
+  line-height: 1.05;
+  text-wrap: balance;
+  color: var(--ink);
+}
+/* The gradient is applied only where it can actually be clipped to the
+   glyphs; without the guard an unsupporting engine keeps `transparent` and
+   the title disappears entirely. */
+@supports (background-clip: text) or (-webkit-background-clip: text) {
+  .page-title {
+    background: linear-gradient(96deg, var(--ink) 34%, var(--gold) 128%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
+.page-tagline {
+  margin: var(--s3) 0 0;
+  max-width: 62ch;
+  color: var(--dim);
+  font-size: var(--t-lead);
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+
+.section-intro { margin: 0 0 var(--s5); max-width: 68ch; }
 .section-intro h2 {
   margin: 0;
-  font-size: 22px; font-weight: 600; letter-spacing: -.028em;
+  font-size: var(--t-display); font-weight: 600; letter-spacing: -.025em;
   text-wrap: balance;
 }
 .section-intro p {
-  margin: 9px 0 0;
+  margin: var(--s2) 0 0;
   color: var(--dim);
-  font-size: 14px; line-height: 1.62;
+  font-size: var(--t-base); line-height: 1.6;
 }
 
+/* vertical rhythm inside a panel: one gap, applied between siblings only */
+.stack { display: grid; gap: var(--s4); }
+.stack.tight { gap: var(--s2); }
+
+.lead { margin: 0; color: var(--dim); font-size: var(--t-body); line-height: 1.6; max-width: 68ch; }
+.meta-line {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-body);
+  color: var(--faint);
+}
+
+/* a heading for a block inside a section — one step below section-intro */
+.block-title {
+  margin: 0 0 var(--s4);
+  font-size: var(--t-title); font-weight: 600; letter-spacing: -.02em;
+}
+.block-title + p { margin-top: calc(var(--s4) * -1 + var(--s2)); }
+
 .eyebrow {
-  margin: 0 0 10px;
-  font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+  margin: 0 0 var(--s2);
+  font-size: var(--t-micro); letter-spacing: .12em; text-transform: uppercase;
   font-weight: 700; color: var(--gold);
 }
 
 /* empty state — the honest version of a section with no data yet */
 .empty-state {
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius);
   background: var(--raise);
-  padding: 36px 32px;
-  max-width: 660px;
+  padding: var(--s6);
+  max-width: 640px;
 }
+/* Where a PageHeader already names the section, this line describes what
+   the workspace will do — a lead, not a second headline. */
 .empty-state h2 {
   margin: 0;
-  font-size: 21px; font-weight: 600; letter-spacing: -.025em;
+  font-size: var(--t-lead); font-weight: 500; line-height: 1.55;
+  letter-spacing: -.005em;
+  color: var(--ink);
 }
 .empty-state p {
-  margin: 10px 0 0;
+  margin: var(--s2) 0 0;
   color: var(--dim);
-  font-size: 14px; line-height: 1.62;
+  font-size: var(--t-base); line-height: 1.6;
 }
 .empty-state .next-step {
-  margin-top: 20px;
-  padding: 12px 15px;
+  margin-top: var(--s5);
+  padding: var(--s3) var(--s4);
   border: 1px solid var(--line);
   border-left: 2px solid var(--gold);
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   background: var(--sunk);
   color: var(--dim);
-  font-size: 13px; line-height: 1.55;
+  font-size: var(--t-body); line-height: 1.55;
 }
 
 /* ---------------------------------------------------------------- forms */
 .button {
-  border-radius: 6px;
-  padding: 8px 14px;
-  font-size: 13px; font-weight: 600;
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  padding: 0 var(--s4);
+  font-size: var(--t-body); font-weight: 600;
   white-space: nowrap;
   border: 1px solid var(--line-strong);
   background: transparent;
@@ -371,26 +1007,48 @@ button { cursor: pointer; }
 .button.primary:hover { background: #dcb45f; color: var(--gold-ink); }
 .button.danger:hover { color: #d08a7a; border-color: #6a4038; }
 
-.button-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.button-row { display: flex; flex-wrap: wrap; gap: var(--s2); }
 
 .field { display: block; }
+/* Field labels read as sentence-case text at body size rather than tiny
+   caps — at 10px the uppercase tracking was costing legibility. */
 .field > span {
   display: block;
-  font-size: 10px; letter-spacing: .11em; text-transform: uppercase;
-  color: var(--faint); font-weight: 600;
-  margin-bottom: 6px;
+  font-size: var(--t-body);
+  color: var(--dim); font-weight: 600;
+  margin-bottom: var(--s2);
 }
 .field input, .field select, .field textarea {
   display: block; width: 100%;
+  height: 36px;
   background: var(--sunk);
   color: var(--ink);
   border: 1px solid var(--line-strong);
-  border-radius: 6px;
-  padding: 8px 11px;
-  font-size: 13.5px;
+  border-radius: var(--radius-sm);
+  padding: 0 var(--s3);
+  font-size: var(--t-body);
   color-scheme: dark;
 }
-.field textarea { min-height: 120px; resize: vertical; font-family: var(--sans); }
+/* The native select button sits hard against the right edge and ignores the
+   field's padding, so the arrow is drawn as a background chevron instead —
+   inset by the same gutter as the text on the left. The stroke repeats
+   --dim literally because a data URI cannot read a custom property. */
+.field select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: var(--s6);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none' stroke='%23a8adb8' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5'/%3E%3C/svg%3E");
+  background-position: right var(--s3) center;
+  background-size: 11px 7px;
+  background-repeat: no-repeat;
+}
+.field select:hover { background-color: var(--hover); }
+
+.field textarea {
+  height: auto; min-height: 120px; resize: vertical;
+  padding: var(--s3);
+  font-family: var(--sans); line-height: 1.55;
+}
 .field input:focus, .field select:focus, .field textarea:focus {
   outline: none; border-color: var(--gold);
 }
@@ -398,47 +1056,45 @@ button { cursor: pointer; }
 /* drop target */
 .drop-zone {
   border: 1px dashed var(--line-strong);
-  border-radius: 10px;
+  border-radius: var(--radius);
   background: var(--sunk);
-  min-height: 148px;
+  min-height: 160px;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  gap: 8px;
+  gap: var(--s2);
   color: var(--dim);
   transition: border-color .14s, background .14s;
-  max-width: 660px;
   cursor: pointer;
 }
 .drop-zone:hover, .drop-zone.dragging { border-color: var(--gold); background: var(--hover); }
-.drop-zone strong { color: var(--ink); font-size: 14.5px; font-weight: 600; }
-.drop-zone span { font-size: 13px; }
-.drop-zone .glyph { color: var(--gold); font-size: 24px; font-family: var(--mono); }
+.drop-zone strong { color: var(--ink); font-size: var(--t-base); font-weight: 600; }
+.drop-zone span { font-size: var(--t-body); }
+.drop-zone .glyph { color: var(--gold); font-size: var(--t-display); font-family: var(--mono); }
 
 /* key/value summary */
 .kv-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 0;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius);
   overflow: hidden;
   background: var(--raise);
-  max-width: 900px;
 }
 .kv-list > div {
-  padding: 13px 16px;
+  padding: var(--s4);
   border-right: 1px solid var(--line);
 }
 .kv-list > div:last-child { border-right: 0; }
 .kv-list dt {
-  font-size: 10px; letter-spacing: .11em; text-transform: uppercase;
-  color: var(--faint); font-weight: 600;
+  font-size: var(--t-body);
+  color: var(--dim); font-weight: 600;
 }
 .kv-list dd {
-  margin: 7px 0 0;
+  margin: var(--s2) 0 0;
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;
-  font-size: 22px; font-weight: 500;
+  font-size: var(--t-display); font-weight: 500;
   letter-spacing: -.025em;
 }
 
@@ -446,12 +1102,12 @@ button { cursor: pointer; }
 .notice {
   border: 1px solid var(--line);
   border-left: 2px solid var(--gold);
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   background: var(--sunk);
-  padding: 12px 15px;
+  padding: var(--s3) var(--s4);
   color: var(--dim);
-  font-size: 13px; line-height: 1.55;
-  max-width: 720px;
+  font-size: var(--t-body); line-height: 1.55;
+  max-width: 68ch;
 }
 .notice.warning { border-left-color: var(--faint); }
 .notice-link {
@@ -463,12 +1119,13 @@ button { cursor: pointer; }
 
 /* --------------------------------------------------------------- footer */
 .grid-footer {
-  display: flex; align-items: center; gap: 14px;
-  padding: 9px 20px;
+  display: flex; align-items: center; gap: var(--s3);
+  height: var(--strip);
+  padding: 0 var(--gutter);
   border-top: 1px solid var(--line);
   background: var(--raise);
   font-family: var(--mono);
-  font-size: 11.5px;
+  font-size: var(--t-small);
   color: var(--faint);
   position: sticky; bottom: 0;
 }
@@ -480,34 +1137,72 @@ button { cursor: pointer; }
   position: fixed; inset: 0;
   background: rgba(4, 6, 10, .74);
   display: grid; place-items: center;
-  padding: 20px;
+  padding: var(--s5);
   z-index: 100;
 }
 .dialog {
-  width: min(460px, 100%);
+  width: min(480px, 100%);
   background: var(--raise);
   border: 1px solid var(--line-strong);
-  border-radius: 10px;
-  padding: 22px;
+  border-radius: var(--radius);
+  padding: var(--s5);
   box-shadow: 0 24px 70px rgba(0, 0, 0, .5);
 }
-.dialog h2 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.02em; }
-.dialog p { color: var(--dim); font-size: 12.5px; line-height: 1.6; }
-.dialog .field { margin-top: 14px; }
-.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.dialog h2 { margin: 0; font-size: var(--t-title); font-weight: 600; letter-spacing: -.02em; }
+.dialog p { color: var(--dim); font-size: var(--t-body); line-height: 1.6; }
+.dialog .field { margin-top: var(--s4); }
+.dialog-actions { display: flex; justify-content: flex-end; gap: var(--s2); margin-top: var(--s5); }
 
 /* ----------------------------------------------------------- responsive */
-@media (max-width: 860px) {
+
+/* The grid uses more width than prose does — fourteen columns need it — but
+   not the whole of a very wide display, where the eye loses the row between
+   the name and the last number. Past the grid measure the surplus becomes
+   gutter, so strip, grid and footer keep one shared vertical line while
+   their rules and borders still span the full workspace. */
+@media (min-width: 1800px) {
+  .filter-strip, .grid-footer {
+    padding-inline: calc((100% - var(--measure-grid)) / 2);
+  }
+  /* The table is centred in the workspace and the cells keep their ordinary
+     padding. Margin on the table resolves against the workspace, so unlike
+     a `vw` calculation it never counts the scrollbar track as usable width. */
+  .workspace > .table-wrap > .grid-table {
+    max-width: var(--measure-grid);
+    margin-inline: auto;
+  }
+}
+
+/* below the measure there is no spare width for a gutter this wide */
+@media (max-width: 1100px) {
+  :root { --gutter: var(--s5); }
+}
+
+
+/* the rail collapses to a horizontal bar of labelled items */
+@media (max-width: 900px) {
+  :root { --gutter: var(--s4); }
   .app-shell { grid-template-columns: 1fr; }
   .rail {
     position: static; height: auto;
-    flex-direction: row; flex-wrap: wrap;
-    justify-content: flex-start;
+    flex-direction: row; flex-wrap: wrap; align-items: center;
+    gap: var(--s1);
     border-right: 0; border-bottom: 1px solid var(--line);
-    padding: 8px 10px;
+    padding: var(--s2) var(--gutter);
   }
-  .rail-mark { margin-bottom: 0; margin-right: 6px; }
-  .rail-spacer { display: none; }
+  .rail-brand { height: auto; margin: 0 var(--s3) 0 0; padding: 0; }
+  .rail-heading { display: none; }
+  .rail-group { display: flex; gap: var(--s1); }
+  .rail-group + .rail-group { margin-top: 0; }
+  .rail-item { height: 38px; font-size: var(--t-body); }
+
+  .bar-head { padding: var(--s3) var(--s4); }
+  .bar-body { padding: var(--s4); }
+  .bar-head b { font-size: var(--t-lead); }
+  .rail-item { width: auto; height: 32px; padding: 0 var(--s3); }
+  .rail-item .glyph { display: none; }
   .rail-item.active { box-shadow: inset 0 2px 0 var(--gold); }
-  .search-field { width: 150px; }
+  .rail-spacer { display: none; }
+  .search-field { width: 180px; }
+  .section-body { padding-top: var(--s5); }
 }

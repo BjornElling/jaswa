@@ -2,35 +2,73 @@
 
 import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { clearImportedGame, loadImportedGame, loadPreferences, saveImportedGame, savePreferences } from './lib/local-store';
-import { blankPreferences, createImportedGame, defaultRunePotentialSettings, fileToText, importPreferencesFile, normalizeImportedGame, validateGameFile } from './lib/imports';
+import { blankPreferences, createImportedGame, defaultRunePotentialSettings, fileToText, importPreferencesFile, itemGrades, normalizeImportedGame, validateGameFile } from './lib/imports';
 import { monsterPresentation } from './lib/monster-catalog';
 import { calculateMonsterTotals } from './lib/monster-stats';
 import { activeRuneSets, elementName } from './lib/rune-sets';
-import { runePotentialPresets } from './lib/rune-potential-presets';
-import type { ImportedGame, MonsterPreference, Preferences, RunePotentialSettings, RunePotentialSortOrder } from './lib/types';
+import { presetTargetColumns, runePotentialPresets } from './lib/rune-potential-presets';
+import type { PresetChoice, RunePotentialPreset } from './lib/rune-potential-presets';
+import type { ImportedGame, ItemGrade, MonsterPreference, Preferences, RunePotentialSettings, RunePotentialSortOrder } from './lib/types';
 
 type Page = 'home' | 'monsters' | 'optimizer' | 'speed' | 'potential' | 'artifacts' | 'gems' | 'relics' | 'preferences';
 type ReportCategory = 'Monster' | 'Rune' | 'Gem' | 'Grindstone' | 'Artifact' | 'Relic' | 'Other';
 type MonsterRecord = Record<string, unknown>;
 
-const navigation: Array<{ id: Page; label: string; glyph: string }> = [
-  { id: 'home', label: 'Home', glyph: '⌂' },
-  { id: 'monsters', label: 'Monsters', glyph: '♜' },
-  { id: 'optimizer', label: 'Rune Optimizer', glyph: '◈' },
-  { id: 'speed', label: 'Speed Tuning', glyph: '↝' },
-  { id: 'potential', label: 'Rune Potential', glyph: '◌' },
-  { id: 'artifacts', label: 'Artifacts', glyph: '◇' },
-  { id: 'gems', label: 'Gems & Grinds', glyph: '✦' },
-  { id: 'relics', label: 'Relics', glyph: '▣' },
-  { id: 'preferences', label: 'Preferences', glyph: '⚙' },
+type NavigationItem = { id: Page; label: string; glyph: string };
+
+/* The rail is grouped so nine entries read as three short lists rather than
+   one undifferentiated column. */
+const navigationGroups: Array<{ heading: string; items: NavigationItem[] }> = [
+  {
+    heading: 'Overview',
+    items: [
+      { id: 'home', label: 'Home', glyph: '⌂' },
+      { id: 'monsters', label: 'Monsters', glyph: '♜' },
+    ],
+  },
+  {
+    heading: 'Workspaces',
+    items: [
+      { id: 'optimizer', label: 'Rune Optimizer', glyph: '◈' },
+      { id: 'speed', label: 'Speed Tuning', glyph: '↝' },
+      { id: 'potential', label: 'Rune Potential', glyph: '◌' },
+      { id: 'artifacts', label: 'Artifacts', glyph: '◇' },
+      { id: 'gems', label: 'Gems & Grinds', glyph: '✦' },
+      { id: 'relics', label: 'Relics', glyph: '▣' },
+    ],
+  },
+  {
+    heading: 'Setup',
+    items: [{ id: 'preferences', label: 'Preferences', glyph: '⚙' }],
+  },
 ];
 
-const upcomingWorkspaces: Record<'optimizer' | 'speed' | 'artifacts' | 'gems' | 'relics', { title: string; text: string }> = {
-  optimizer: { title: 'Rune Optimizer', text: 'Finds rune combinations that meet the requirements you save for each monster.' },
-  speed: { title: 'Speed Tuning', text: 'Works out the rune speeds your team needs to take turns in the order you intend.' },
-  artifacts: { title: 'Artifacts', text: 'Compares artifact effects against the monsters that would gain most from them.' },
-  gems: { title: 'Gems & Grinds', text: 'Ranks the gem and grindstone upgrades that move your account furthest.' },
-  relics: { title: 'Relics', text: 'Evaluates relic choices against the goals you have saved.' },
+const upcomingWorkspaces: Record<'optimizer' | 'speed' | 'artifacts' | 'gems' | 'relics', { title: string; tagline: string; text: string }> = {
+  optimizer: {
+    title: 'Rune Optimizer',
+    tagline: 'Six slots, thousands of runes, one answer. Let your computer do the arithmetic so you can go back to pretending it was intuition.',
+    text: 'Finds rune combinations that meet the requirements you save for each monster.',
+  },
+  speed: {
+    title: 'Speed Tuning',
+    tagline: 'Turn order is a solved problem. Getting your own team to respect it is the hard part.',
+    text: 'Works out the rune speeds your team needs to take turns in the order you intend.',
+  },
+  artifacts: {
+    title: 'Artifacts',
+    tagline: 'That artifact is superb. Just not for the monster wearing it.',
+    text: 'Compares artifact effects against the monsters that would gain most from them.',
+  },
+  gems: {
+    title: 'Gems & Grinds',
+    tagline: 'You have a box full of upgrades and a shortage of patience. One of those is fixable.',
+    text: 'Ranks the gem and grindstone upgrades that move your account furthest.',
+  },
+  relics: {
+    title: 'Relics',
+    tagline: 'Judged against the goals you actually saved, not the ones you meant to.',
+    text: 'Evaluates relic choices against the goals you have saved.',
+  },
 };
 
 type NumericSortKey = 'level' | 'hp' | 'atk' | 'def' | 'spd' | 'criticalRate' | 'criticalDamage' | 'resistance' | 'accuracy';
@@ -161,30 +199,41 @@ export default function Home() {
 
   if (!ready) return <main className="loading-screen">Preparing your local workspace…</main>;
 
-  const active = navigation.find((item) => item.id === page);
   const exportPreferences = () => download('swaggr-preferences.sw', JSON.stringify(preferences, null, 2));
 
   return <main className="app-shell">
     <nav className="rail" aria-label="Swaggr sections">
-      <div className="rail-mark" aria-hidden="true">S</div>
-      {navigation.map((item) => <button
-        key={item.id}
-        className={page === item.id ? 'rail-item active' : 'rail-item'}
-        onClick={() => setPage(item.id)}
-        title={item.label}
-        aria-label={item.label}
-        aria-current={page === item.id ? 'page' : undefined}
-      ><span aria-hidden="true">{item.glyph}</span></button>)}
+      <div className="rail-brand">
+        <span className="rail-mark" aria-hidden="true">S</span>
+        <b>Swaggr</b>
+      </div>
+      {navigationGroups.map((group) => <div className="rail-group" key={group.heading}>
+        <p className="rail-heading">{group.heading}</p>
+        {group.items.map((item) => <button
+          key={item.id}
+          className={page === item.id ? 'rail-item active' : 'rail-item'}
+          onClick={() => setPage(item.id)}
+          aria-current={page === item.id ? 'page' : undefined}
+        >
+          <span className="glyph" aria-hidden="true">{item.glyph}</span>
+          {item.label}
+        </button>)}
+      </div>)}
       <div className="rail-spacer" />
-      <button className="rail-item" onClick={() => openReport()} title="Report missing data" aria-label="Report missing data">
-        <span aria-hidden="true">!</span>
+      <button className="rail-item" onClick={() => openReport()}>
+        <span className="glyph" aria-hidden="true">!</span>
+        Report missing data
       </button>
     </nav>
 
     <section className="workspace">
+      {/* The section is named by its own PageHeader, so the topbar carries
+          only the state of the import. */}
       <header className="topbar">
-        <h1>{active?.label}{game && <em>{monsters.length.toLocaleString('en')} monsters · {count(game.data.runes).toLocaleString('en')} runes</em>}</h1>
         <div className="topbar-spacer" />
+        {game && <span className="topbar-count">
+          {monsters.length.toLocaleString('en')} monsters · {count(game.data.runes).toLocaleString('en')} runes
+        </span>}
         <span className={game ? 'status-pill live' : 'status-pill'}>
           {game ? `imported ${dateTime(game.importedAt)}` : 'no game data'}
         </span>
@@ -220,10 +269,11 @@ export default function Home() {
       />}
 
       {(page === 'optimizer' || page === 'speed' || page === 'artifacts' || page === 'gems' || page === 'relics') && <div className="section-body">
+        <PageHeader
+          title={upcomingWorkspaces[page].title}
+          tagline={upcomingWorkspaces[page].tagline} />
         <section className="empty-state">
-          <p className="eyebrow">Foundation ready</p>
-          <h2>{upcomingWorkspaces[page].title}</h2>
-          <p>{upcomingWorkspaces[page].text}</p>
+          <h2>{upcomingWorkspaces[page].text}</h2>
           <p className="next-step">{game
             ? 'Your current import is ready for this workspace. The calculation rules are being written next.'
             : 'Import your game data first. Your preferences can be prepared at any time.'}</p>
@@ -293,60 +343,63 @@ function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLe
 }) {
   const unknownMonsterIds = game?.report.unknownMonsterIds ?? [];
   return <div className="section-body">
-    <div className="section-intro">
-      <p className="eyebrow">Local-only workspace</p>
-      <h2>Your Summoners War decisions, in one place</h2>
-      <p>Import a JSON file, set goals for individual monsters, and use each workspace as it becomes available. Your game data never leaves this computer.</p>
-    </div>
+    <PageHeader
+      title="Your account, minus the guesswork"
+      tagline="Drop in a JSON file, set goals for individual monsters, and use each workspace as it opens. Nothing leaves this computer — not even the embarrassing runes." />
 
-    <div
-      className={dragging ? 'drop-zone dragging' : 'drop-zone'}
-      onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop} onClick={onPickFile}
-      role="button" tabIndex={0}
-      onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onPickFile(); } }}
-    >
-      <span className="glyph" aria-hidden="true">↓</span>
-      <strong>Drop your Summoners War JSON file here</strong>
-      <span>or choose a file from your computer</span>
-    </div>
+    <section className="panel">
+      <h3 className="block-title">Game data</h3>
+      <div className="stack">
+        <div
+          className={dragging ? 'drop-zone dragging' : 'drop-zone'}
+          onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop} onClick={onPickFile}
+          role="button" tabIndex={0}
+          onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onPickFile(); } }}
+        >
+          <span className="glyph" aria-hidden="true">↓</span>
+          <strong>Drop your Summoners War JSON file here</strong>
+          <span>or choose a file from your computer</span>
+        </div>
 
-    {message && <p className="notice" role="status" style={{ marginTop: 16 }}>{message}</p>}
+        {message && <p className="notice" role="status">{message}</p>}
 
-    {game && <>
-      <div className="section-intro" style={{ marginTop: 28 }}>
-        <h2>Imported game data</h2>
-        <p>{game.fileName} · imported {dateTime(game.importedAt)}</p>
+        {game && <>
+          <dl className="kv-list">
+            {([
+              ['Monsters', count(game.data.unit_list)],
+              ['Runes', count(game.data.runes)],
+              ['Artifacts', count(game.data.artifacts)],
+              ['Relics', count(game.data.relics)],
+              ['Gems & grinds', count(game.data.rune_craft_item_list)],
+            ] as Array<[string, number]>).map(([label, value]) => <div key={label}>
+              <dt>{label}</dt><dd>{value.toLocaleString('en')}</dd>
+            </div>)}
+          </dl>
+
+          <p className="meta-line">{game.fileName} · imported {dateTime(game.importedAt)}</p>
+
+          {unknownMonsterIds.length > 0 && <p className="notice warning">
+            Name information is missing for monster type{unknownMonsterIds.length === 1 ? '' : 's'} {unknownMonsterIds.join(', ')}.{' '}
+            <button className="notice-link" onClick={() => onReport('Monster', `Swaggr could not find name information for monster type(s): ${unknownMonsterIds.join(', ')}.`)}>Report this</button>
+          </p>}
+
+          <div className="button-row">
+            <button className="button danger" onClick={onRemove}>Remove game data</button>
+          </div>
+        </>}
       </div>
-      <dl className="kv-list">
-        {([
-          ['Monsters', count(game.data.unit_list)],
-          ['Runes', count(game.data.runes)],
-          ['Artifacts', count(game.data.artifacts)],
-          ['Relics', count(game.data.relics)],
-          ['Gems & grinds', count(game.data.rune_craft_item_list)],
-        ] as Array<[string, number]>).map(([label, value]) => <div key={label}>
-          <dt>{label}</dt><dd>{value.toLocaleString('en')}</dd>
-        </div>)}
-      </dl>
+    </section>
 
-      {unknownMonsterIds.length > 0 && <p className="notice warning" style={{ marginTop: 16 }}>
-        Name information is missing for monster type{unknownMonsterIds.length === 1 ? '' : 's'} {unknownMonsterIds.join(', ')}.{' '}
-        <button className="notice-link" onClick={() => onReport('Monster', `Swaggr could not find name information for monster type(s): ${unknownMonsterIds.join(', ')}.`)}>Report this</button>
-      </p>}
-
-      <div className="button-row" style={{ marginTop: 20 }}>
-        <button className="button danger" onClick={onRemove}>Remove game data</button>
+    <section className="panel">
+      <h3 className="block-title">Your preferences</h3>
+      <div className="stack">
+        <p className="lead">Personal names, monster goals and rune requirements are stored separately from the game import, so replacing your data keeps them.</p>
+        <div className="button-row">
+          <button className="button" onClick={onExportPreferences}>Download .sw file</button>
+          <button className="button" onClick={onImportPreferences}>Load .sw file</button>
+        </div>
       </div>
-    </>}
-
-    <div className="section-intro" style={{ marginTop: 32 }}>
-      <h2>Your preferences</h2>
-      <p>Personal names, monster goals and rune requirements are stored separately from the game import, so replacing your data keeps them.</p>
-    </div>
-    <div className="button-row">
-      <button className="button" onClick={onExportPreferences}>Download .sw file</button>
-      <button className="button" onClick={onImportPreferences}>Load .sw file</button>
-    </div>
+    </section>
   </div>;
 }
 
@@ -435,10 +488,11 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
   }
 
   if (!monsters.length) return <div className="section-body">
+    <PageHeader
+      title="Your roster, told straight"
+      tagline="Every monster you own, with the stats it actually has on right now — runes included." />
     <section className="empty-state">
-      <p className="eyebrow">Monsters</p>
-      <h2>Start with a game import</h2>
-      <p>After importing your JSON file, every monster and its current stats appear here.</p>
+      <h2>Nothing to show until a game file is imported.</h2>
       <p className="next-step">Go to Home and drop in the JSON file exported from Summoners War.</p>
     </section>
   </div>;
@@ -530,112 +584,279 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
   </>;
 }
 
+/* ------------------------------------------------------ shared furniture */
+
+/**
+ * The masthead a workspace opens with. The section name is stated here at
+ * display size rather than only in the topbar, so a page announces itself.
+ */
+function PageHeader({ eyebrow, title, tagline }: { eyebrow?: string; title: string; tagline: string }) {
+  return <header className="page-header">
+    {eyebrow && <p className="eyebrow">{eyebrow}</p>}
+    <h2 className="page-title">{title}</h2>
+    <p className="page-tagline">{tagline}</p>
+  </header>;
+}
+
+/**
+ * A full-width bar that opens to reveal its contents. Uses <details> so the
+ * open state, keyboard behaviour and find-in-page all come from the browser
+ * rather than from state we would have to keep ourselves.
+ */
+function Disclosure({ title, defaultOpen = false, children }: {
+  title: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  return <details className="bar" open={defaultOpen}>
+    <summary className="bar-head">
+      <span className="bar-chevron" aria-hidden="true">›</span>
+      <b>{title}</b>
+    </summary>
+    <div className="bar-body">{children}</div>
+  </details>;
+}
+
 /* -------------------------------------------------------- rune potential */
+
+/**
+ * What each step on a setting actually means, in the reader's terms. The
+ * chosen one is shown under its slider, so these carry the explanation that
+ * a bare "3 / 5" never could.
+ */
+const potentialStepLabels = {
+  powerUpPolicy: [
+    'Full YOLO — anything with potential gets a roll',
+    'Adventurous — a hint of promise is enough',
+    'Balanced — rolls the runes worth rolling',
+    'Picky — wants the odds on its side first',
+    'No loose ends — practically a slam dunk or nothing',
+  ],
+  runeQuality: [
+    'Rough diamonds — every underdog gets a look',
+    'Promising — some upside is enough to start',
+    'Good stuff — solid runes only',
+    'Top shelf — near the best its slot can hold',
+    'Hall of famers — the ones you would frame',
+  ],
+  /* Four steps up the same scale: nothing further, an ordinary roll, a good
+     one, the best the grade allows. These describe what Swaggr assumes you
+     would still apply — whatever a rune already carries stays with it either
+     way — and the slider label already says which item is meant. */
+  enchantedGems: [
+    'None — takes each rune as it stands today',
+    'Average — an ordinary roll, nothing special',
+    'Three quarters — a good roll, short of perfect',
+    'Maximum — the best the grade allows',
+  ],
+  grindstones: [
+    'None — takes each rune as it stands today',
+    'Average — an ordinary roll, nothing special',
+    'Three quarters — a good roll, short of perfect',
+    'Maximum — the best the grade allows',
+  ],
+} as const;
 
 function RunePotentialSection({ settings, onUpdate }: {
   settings: RunePotentialSettings;
   onUpdate: (update: Partial<RunePotentialSettings>) => Promise<void>;
 }) {
   const sortOrders: RunePotentialSortOrder[] = ['Grade', 'Sub Property', 'Sub Property Before Grinding', 'Power-up Lv.', 'Obtained', 'Sub Property Sum', 'Score'];
+
   return <div className="section-body">
-    <div className="section-intro">
-      <p className="eyebrow">Before you spend mana</p>
-      <h2>Set your RNG personality</h2>
-      <p>Tell Swaggr how optimistic to be before a rune is worth powering up. These settings are saved with your preferences.</p>
-    </div>
+    <PageHeader
+      title="Rune Potential"
+      tagline="Which runes deserve your mana. Set your tolerance for disappointment below." />
 
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20, maxWidth: 900 }}>
-      <PotentialSlider id="power-up-policy" label="Power-up policy" value={settings.powerUpPolicy} steps={5}
-        description="How willing are you to roll runes with potential?"
-        lowLabel="Every contender" highLabel="Slam dunks only"
-        onChange={(value) => void onUpdate({ powerUpPolicy: value })} />
-      <PotentialSlider id="rune-quality" label="Rune quality floor" value={settings.runeQuality} steps={5}
-        description="How high must a rune's best case be before it earns a roll?"
-        lowLabel="Rough diamonds" highLabel="Hall of famers"
-        onChange={(value) => void onUpdate({ runeQuality: value })} />
-      <PotentialSlider id="enchanted-gems" label="Enchanted gems" value={settings.enchantedGems} steps={4}
-        description="How generously should gem upgrades count toward potential?"
-        lowLabel="Leave them out" highLabel="Maximum value"
-        onChange={(value) => void onUpdate({ enchantedGems: value })} />
-      <PotentialSlider id="grindstones" label="Grindstones" value={settings.grindstones} steps={4}
-        description="How generously should grindstone upgrades count toward potential?"
-        lowLabel="Leave them out" highLabel="Maximum value"
-        onChange={(value) => void onUpdate({ grindstones: value })} />
-    </div>
+    <Disclosure title="Settings" defaultOpen>
+      <div className="stack">
+        {/* Two fixed columns so the gem and grindstone settings share the
+            second line, and the space beside them becomes the aside. */}
+        <div className="settings-layout">
+          <div className="slider-grid">
+            <PotentialSlider id="power-up-policy" label="Power-up policy" value={settings.powerUpPolicy}
+              description="How willing are you to roll runes with potential?"
+              stepLabels={potentialStepLabels.powerUpPolicy}
+              onChange={(value) => void onUpdate({ powerUpPolicy: value })} />
+            <PotentialSlider id="rune-quality" label="Rune quality floor" value={settings.runeQuality}
+              description="How high must a rune's best case be before it earns a roll?"
+              stepLabels={potentialStepLabels.runeQuality}
+              onChange={(value) => void onUpdate({ runeQuality: value })} />
+            <PotentialSlider id="enchanted-gems" label="Enchanted gems" value={settings.enchantedGems}
+              description="How much of a gem roll to count toward potential."
+              stepLabels={potentialStepLabels.enchantedGems}
+              onChange={(value) => void onUpdate({ enchantedGems: value })} />
+            <PotentialSlider id="grindstones" label="Grindstones" value={settings.grindstones}
+              description="How much of a grindstone roll to count toward potential."
+              stepLabels={potentialStepLabels.grindstones}
+              onChange={(value) => void onUpdate({ grindstones: value })} />
+          </div>
 
-    <div className="section-intro" style={{ marginTop: 30 }}>
-      <h2>Overview filters</h2>
-    </div>
-    <div style={{ display: 'grid', gap: 9, maxWidth: 440 }}>
-      <CheckboxRow label="Include runes at Lv. 12 and above" checked={settings.includeLevel12Runes}
-        onChange={(checked) => void onUpdate({ includeLevel12Runes: checked })} />
-      <CheckboxRow label="Include runes equipped on monsters" checked={settings.includeEquippedRunes}
-        onChange={(checked) => void onUpdate({ includeEquippedRunes: checked })} />
-      <label className="field" style={{ marginTop: 8 }}><span>Sort order</span>
-        <select value={settings.sortOrder} onChange={(event) => void onUpdate({ sortOrder: event.target.value as RunePotentialSortOrder })}>
-          {sortOrders.map((order) => <option key={order}>{order}</option>)}
-        </select>
-      </label>
-    </div>
+          <div className="settings-rule" role="presentation" />
 
-    <div className="section-intro" style={{ marginTop: 34 }}>
-      <h2>Presets</h2>
-      <p>These source-controlled presets pair the rune sets and target stats that suit each role. They are read-only until the preset editor arrives.</p>
-    </div>
-    <div className="table-wrap" style={{ maxWidth: 900, border: '1px solid var(--line)', borderRadius: 8 }}>
-      <table className="grid-table">
-        <thead>
-          <tr>
-            <th className="align-left">Preset</th>
-            <th className="align-left">Desired sets</th>
-            <th className="align-left">Target stats</th>
-          </tr>
-        </thead>
-        <tbody>
-          {runePotentialPresets.map((preset) => <tr key={preset.id}>
-            <td className="align-left">
-              <span className="monster-name">{preset.name}<small>{preset.description}</small></span>
-            </td>
-            <td className="align-left">
-              {preset.desirableSets.map((set) => <span className="set-mark" key={set}>{set}</span>)}
-            </td>
-            <td className="align-left">
-              {preset.desirableStats.map((stat) => <span className="set-mark" key={stat}>{stat}</span>)}
-            </td>
-          </tr>)}
-        </tbody>
-      </table>
-    </div>
+          <aside className="settings-aside">
+            <div className="grade-fields">
+              <label className="field"><span>Gem grade</span>
+                <select value={settings.gemGrade}
+                  onChange={(event) => void onUpdate({ gemGrade: event.target.value as ItemGrade })}>
+                  {itemGrades.map((grade) => <option key={grade}>{grade}</option>)}
+                </select>
+              </label>
+              <label className="field"><span>Grindstone grade</span>
+                <select value={settings.grindstoneGrade}
+                  onChange={(event) => void onUpdate({ grindstoneGrade: event.target.value as ItemGrade })}>
+                  {itemGrades.map((grade) => <option key={grade}>{grade}</option>)}
+                </select>
+              </label>
+            </div>
+
+            {/* TODO: both figures are placeholders. They become real once the
+                potential calculation lands and can read the settings above. */}
+            <section className="statistics" aria-live="polite">
+              <h4>Statistics</h4>
+              <p className="statistics-lead">Current settings will give you…</p>
+              <dl>
+                <div>
+                  <dt>Percent to roll</dt>
+                  <dd>18<span className="unit">%</span></dd>
+                </div>
+                <div>
+                  <dt>Percent to keep</dt>
+                  <dd>62<span className="unit">%</span></dd>
+                </div>
+              </dl>
+            </section>
+          </aside>
+        </div>
+
+        <div className="bar-divide" />
+
+        <div className="filter-columns">
+          <div className="stack tight">
+            <p className="field-legend">Runes to include</p>
+            <CheckboxRow label="Include runes at Lv. 12 and above" checked={settings.includeLevel12Runes}
+              onChange={(checked) => void onUpdate({ includeLevel12Runes: checked })} />
+            <CheckboxRow label="Include runes equipped on monsters" checked={settings.includeEquippedRunes}
+              onChange={(checked) => void onUpdate({ includeEquippedRunes: checked })} />
+          </div>
+          <label className="field field-narrow field-lead"><span>Sort order</span>
+            <select value={settings.sortOrder} onChange={(event) => void onUpdate({ sortOrder: event.target.value as RunePotentialSortOrder })}>
+              {sortOrders.map((order) => <option key={order}>{order}</option>)}
+            </select>
+          </label>
+        </div>
+
+      </div>
+    </Disclosure>
+
+    <Disclosure title="Presets">
+      <div className="preset-list">
+        {runePotentialPresets.map((preset) => <PresetCard key={preset.id} preset={preset} />)}
+      </div>
+    </Disclosure>
   </div>;
 }
 
-function PotentialSlider({ id, label, value, steps, description, lowLabel, highLabel, onChange }: {
-  id: string; label: string; value: number; steps: number;
-  description: string; lowLabel: string; highLabel: string;
+/**
+ * One setting on a 1..n scale. The chosen step names itself underneath the
+ * track — the number alone said nothing, and a pair of fixed end labels made
+ * the reader work out where they had landed between them.
+ */
+function PotentialSlider({ id, label, value, description, stepLabels, onChange }: {
+  id: string; label: string; value: number;
+  description: string;
+  stepLabels: readonly string[];
   onChange: (value: number) => void;
 }) {
-  return <div>
-    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
-      <label htmlFor={id} style={{ fontSize: 13, fontWeight: 600 }}>{label}</label>
-      <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', background: 'var(--gold-deep)', border: '1px solid var(--gold-edge)', borderRadius: 4, padding: '1px 6px' }}>
-        {value} / {steps}
-      </span>
-    </div>
-    <p style={{ margin: '5px 0 10px', color: 'var(--dim)', fontSize: 11.5, lineHeight: 1.45 }}>{description}</p>
+  const steps = stepLabels.length;
+  return <div className="slider">
+    <label className="slider-label" htmlFor={id}>{label}</label>
+    <p className="slider-note">{description}</p>
     <input id={id} type="range" min={1} max={steps} step={1} value={value}
       onChange={(event) => onChange(Number(event.target.value))}
-      aria-describedby={`${id}-ends`}
-      style={{ width: '100%', accentColor: 'var(--gold)', margin: 0 }} />
-    <p id={`${id}-ends`} style={{ display: 'flex', justifyContent: 'space-between', gap: 14, margin: '6px 0 0', color: 'var(--faint)', fontSize: 10 }}>
-      <span>{lowLabel}</span><span style={{ textAlign: 'right' }}>{highLabel}</span>
+      aria-describedby={`${id}-choice`} />
+    <p id={`${id}-choice`} className="slider-choice" aria-live="polite">
+      {stepLabels[value - 1]}
     </p>
   </div>;
 }
 
+/* ------------------------------------------------------ preset cards */
+
+/**
+ * Preferred entries in full ink, acceptable ones dimmed behind them. The two
+ * groups run on one line: the distinction is carried by weight and colour, so
+ * a second row would only add height for something already legible.
+ */
+function ChoiceLine({ choice }: { choice: PresetChoice<string> }) {
+  if (!choice.preferred.length && !choice.acceptable.length) return <span className="choice-none">—</span>;
+  return <span className="choice-line">
+    {choice.preferred.map((value) => <span className="choice preferred" key={value}>{value}</span>)}
+    {choice.acceptable.map((value) => <span className="choice acceptable" key={value}>{value}</span>)}
+  </span>;
+}
+
+/** A labelled row inside a preset card. The label column is shared by all rows. */
+function PresetRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return <div className="preset-row">
+    <span className="preset-row-label">{label}</span>
+    <div className="preset-row-value">{children}</div>
+  </div>;
+}
+
+/**
+ * One preset, read as a small record rather than as a table row: the name at
+ * the top, then the sets it wants, the three slots that carry a choice, which
+ * artifact primaries suit it, and the stat targets it aims at.
+ */
+function PresetCard({ preset }: { preset: RunePotentialPreset }) {
+  const artifacts: Array<[string, boolean]> = [['ATK', preset.artifacts.atk], ['DEF', preset.artifacts.def], ['HP', preset.artifacts.hp]];
+
+  return <article className="preset-card">
+    <header className="preset-head">
+      <h4 className="preset-name">{preset.name}</h4>
+      <p className="preset-type">{preset.type}</p>
+    </header>
+
+    <div className="preset-rows">
+      <PresetRow label="Runes"><ChoiceLine choice={preset.sets} /></PresetRow>
+      {/* The three slots read across rather than down: each holds only two or
+          three main stats, so a row apiece spent height on nothing, and side by
+          side they invite the comparison between slots that matters. */}
+      <PresetRow label="Rune slots">
+        <div className="slot-group">
+          {([['Slot 2', preset.slots.slot2], ['Slot 4', preset.slots.slot4], ['Slot 6', preset.slots.slot6]] as const)
+            .map(([label, choice]) => <div className="slot" key={label}>
+              <span className="slot-label">{label}</span>
+              <ChoiceLine choice={choice} />
+            </div>)}
+        </div>
+      </PresetRow>
+      <PresetRow label="Artifacts">
+        <span className="flag-line">
+          {artifacts.map(([label, wanted]) => <span className={wanted ? 'flag yes' : 'flag no'} key={label}>
+            {label}<b>{wanted ? 'Yes' : 'No'}</b>
+          </span>)}
+        </span>
+      </PresetRow>
+      <PresetRow label="Desired stats">
+        <dl className="target-line">
+          {presetTargetColumns.map((column) => {
+            const value = preset.targets[column.key];
+            return <div className={value === undefined ? 'target empty' : 'target'} key={column.key}>
+              <dt>{column.label}</dt>
+              <dd>{value === undefined ? '—' : <>{value.toLocaleString('en')}{column.unit && <span className="unit">{column.unit}</span>}</>}</dd>
+            </div>;
+          })}
+        </dl>
+      </PresetRow>
+    </div>
+  </article>;
+}
+
 function CheckboxRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
-  return <label style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 12, color: 'var(--dim)', cursor: 'pointer' }}>
-    <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)}
-      style={{ width: 14, height: 14, margin: 0, accentColor: 'var(--gold)' }} />
+  return <label className="checkbox-row">
+    <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
     {label}
   </label>;
 }
@@ -652,10 +873,11 @@ function PreferencesSection({ monsters, preferences, onUpdate, onExport, onImpor
   const [search, setSearch] = useState('');
 
   if (!monsters.length) return <div className="section-body">
+    <PageHeader
+      title="Call them what you call them"
+      tagline="Give each monster the name you actually use and the goals you actually have. Kept separate from the import, so replacing your data keeps them." />
     <section className="empty-state">
-      <p className="eyebrow">Preferences</p>
-      <h2>Start with a game import</h2>
-      <p>After importing your JSON file, you can give each monster a personal name and save its goals here.</p>
+      <h2>Nothing to name until a game file is imported.</h2>
       <p className="next-step">Go to Home and drop in the JSON file exported from Summoners War.</p>
     </section>
   </div>;
@@ -738,16 +960,11 @@ function PreferencesSection({ monsters, preferences, onUpdate, onExport, onImpor
 function PreferenceInput({ value, placeholder, onCommit }: { value: string; placeholder: string; onCommit: (value: string) => void }) {
   const [draft, setDraft] = useState(value);
   return <input
+    className="cell-input"
     value={draft}
     placeholder={placeholder}
     onChange={(event) => setDraft(event.target.value)}
     onBlur={() => { if (draft !== value) onCommit(draft); }}
     onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }}
-    style={{
-      width: '100%', background: 'transparent', color: 'var(--ink)',
-      border: '1px solid transparent', borderRadius: 4, padding: '3px 6px', fontSize: 12,
-    }}
-    onFocus={(event) => { event.currentTarget.style.borderColor = 'var(--line-strong)'; event.currentTarget.style.background = 'var(--sunk)'; }}
-    onBlurCapture={(event) => { event.currentTarget.style.borderColor = 'transparent'; event.currentTarget.style.background = 'transparent'; }}
   />;
 }
