@@ -902,7 +902,9 @@ button { cursor: pointer; }
   color: var(--ink);
   white-space: nowrap;
 }
-.target dd .unit { font-size: var(--t-micro); color: var(--faint); margin-left: 1px; }
+/* A thin space before the sign, so the figure and its unit read as two things
+   rather than one long token. */
+.target dd .unit { font-size: var(--t-micro); color: var(--faint); margin-left: .2em; }
 /* Colour only. The weight stays at 500 in both states: a lighter dash and a
    heavier number are different widths, so setting a target would have nudged
    its neighbours along the row. */
