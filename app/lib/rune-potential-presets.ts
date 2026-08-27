@@ -126,7 +126,7 @@ const presetSources: readonly PresetSource[] = [
     name: 'Slow DD',
     type: 'Attack type',
     sets: {
-      preferred: ['Fight', 'Rage', 'Shield', 'Violent', 'Will'],
+      preferred: ['Fight', 'Intangible', 'Rage', 'Shield', 'Violent', 'Will'],
       acceptable: ['Blade', 'Fatal', 'Swift', 'Vampire'],
     },
     slots: {
@@ -142,8 +142,8 @@ const presetSources: readonly PresetSource[] = [
     name: 'Fast DD',
     type: 'Attack type',
     sets: {
-      preferred: ['Blade', 'Fight', 'Nemesis', 'Rage', 'Vampire', 'Violent', 'Will'],
-      acceptable: ['Despair', 'Fatal', 'Focus', 'Shield', 'Swift'],
+      preferred: ['Blade', 'Fight', 'Intangible', 'Nemesis', 'Rage', 'Vampire', 'Violent', 'Will'],
+      acceptable: ['Despair', 'Fatal', 'Focus', 'Seal', 'Shield', 'Swift'],
     },
     slots: {
       slot2: { preferred: ['Atk%', 'Spd'], acceptable: [] },
@@ -158,7 +158,7 @@ const presetSources: readonly PresetSource[] = [
     name: 'Def DD',
     type: 'Attack type',
     sets: {
-      preferred: ['Determination', 'Guard', 'Rage', 'Vampire', 'Will'],
+      preferred: ['Determination', 'Guard', 'Intangible', 'Rage', 'Vampire', 'Will'],
       acceptable: ['Blade', 'Fight', 'Violent'],
     },
     slots: {
@@ -174,7 +174,7 @@ const presetSources: readonly PresetSource[] = [
     name: 'Bomber',
     type: 'Attack type',
     sets: {
-      preferred: ['Fatal', 'Violent', 'Will'],
+      preferred: ['Fatal', 'Intangible', 'Violent', 'Will'],
       acceptable: ['Destroy', 'Energy', 'Fight', 'Focus', 'Vampire'],
     },
     slots: {
@@ -190,7 +190,7 @@ const presetSources: readonly PresetSource[] = [
     name: 'Support',
     type: 'Support type',
     sets: {
-      preferred: ['Accuracy', 'Despair', 'Focus', 'Fight', 'Swift', 'Violent', 'Will'],
+      preferred: ['Accuracy', 'Despair', 'Focus', 'Fight', 'Intangible', 'Seal', 'Swift', 'Violent', 'Will'],
       acceptable: ['Determination', 'Enhance', 'Energy', 'Tolerance', 'Guard'],
     },
     slots: {
@@ -206,7 +206,7 @@ const presetSources: readonly PresetSource[] = [
     name: 'PvP def',
     type: 'HP type',
     sets: {
-      preferred: ['Endure', 'Enhance', 'Fight', 'Shield', 'Tolerance', 'Violent', 'Will'],
+      preferred: ['Endure', 'Enhance', 'Fight', 'Intangible', 'Seal', 'Shield', 'Tolerance', 'Violent', 'Will'],
       acceptable: ['Despair', 'Destroy', 'Determination', 'Energy', 'Revenge', 'Nemesis', 'Vampire'],
     },
     slots: {
@@ -222,7 +222,7 @@ const presetSources: readonly PresetSource[] = [
     name: 'Bruiser',
     type: 'No type',
     sets: {
-      preferred: ['Blade', 'Fight', 'Shield', 'Vampire', 'Violent', 'Will'],
+      preferred: ['Blade', 'Fight', 'Intangible', 'Seal', 'Shield', 'Vampire', 'Violent', 'Will'],
       acceptable: ['Despair', 'Destroy', 'Energy', 'Rage', 'Revenge'],
     },
     slots: {
