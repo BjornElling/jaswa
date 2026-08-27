@@ -844,11 +844,11 @@ function RunePotentialSection({ settings, presets, onUpdate, onWritePresets }: {
           <div role="presentation" />
           <div className="settings-aside">
             <div className="stack tight">
-              <p className="field-legend">4 vs. 2 set-policy</p>
+              <p className="field-legend">4-sets vs. 2-sets</p>
               {/* The count follows the set, not the slot: a 4-set has to be
                   filled four times over, so keeping as many candidates for it
                   as for a 2-set leaves it half the choice. */}
-              <CheckboxRow label="Keep x2 runes for 4-sets" checked={settings.keepMoreForLargerSets}
+              <CheckboxRow label="Keep twice as many 4-set runes" checked={settings.keepMoreForLargerSets}
                 onChange={(checked) => void onUpdate({ keepMoreForLargerSets: checked })} />
             </div>
           </div>
