@@ -703,23 +703,21 @@ const potentialStepLabels = {
     'Three quarters — a good roll, short of perfect',
     'Maximum — the best the grade allows',
   ],
-  /* These two run strict to loose, the opposite of the four above them: both
-     scales are about what the box is allowed to keep rather than about how much
-     effort to spend on it, and stating the strictest answer first is how the
-     question gets asked out loud. */
+  /* Loose to strict, like the four above them, so every track on the page reads
+     the same way: further right is fussier. */
   acceptedRunes: [
-    'Only want the best of the best of the best',
-    'Keep the best. 86 the rest.',
-    'Quality is quality.',
-    'Forgiving — if there’s potential, they stay',
     'I love all my runes equally',
+    'Forgiving — if there’s potential, they stay',
+    'Quality is quality.',
+    'Keep the best. 86 the rest.',
+    'Only want the best of the best of the best',
   ],
-  offSetRunes: [
-    'No',
-    'A very selected few',
-    'Occasionally',
-    'A good rune is a good rune',
+  brokenRunes: [
     'I love all broken things',
+    'A good rune is a good rune',
+    'Occasionally',
+    'A very selected few',
+    'No',
   ],
 } as const;
 
@@ -838,10 +836,10 @@ function RunePotentialSection({ settings, presets, onUpdate, onWritePresets }: {
               description="Non-preferred, but accepted. You can live without them, but can you live with them?"
               stepLabels={potentialStepLabels.acceptedRunes}
               onChange={(value) => void onUpdate({ acceptedRunes: value })} />
-            <PotentialSlider id="off-set-runes" label="Off-set runes" value={settings.offSetRunes}
+            <PotentialSlider id="broken-runes" label="Broken runes" value={settings.brokenRunes}
               description="You didn’t ask for them. But do you want them?"
-              stepLabels={potentialStepLabels.offSetRunes}
-              onChange={(value) => void onUpdate({ offSetRunes: value })} />
+              stepLabels={potentialStepLabels.brokenRunes}
+              onChange={(value) => void onUpdate({ brokenRunes: value })} />
           </div>
           <div role="presentation" />
           <div className="settings-aside">
