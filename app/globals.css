@@ -525,9 +525,9 @@ button { cursor: pointer; }
 
 /* -------------------------------------------------------------- sliders */
 
-/* The four sliders keep to two columns so gems and grindstones share the
-   second line; a hairline separates them from the aside that fills the
-   space left over beside them. */
+/* Sliders keep to two columns, so a group of four reads as a block rather
+   than a list; a hairline separates them from the aside that fills the space
+   left over beside them. */
 .settings-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 1px minmax(240px, 300px);
@@ -547,7 +547,18 @@ button { cursor: pointer; }
     transparent);
 }
 .settings-aside { display: grid; gap: var(--s5); align-content: start; }
+/* Sits lower in the aside than the gap alone would put it — far enough from
+   the box above to be its own question, still clearly inside the column. */
+.aside-detached { margin-top: var(--s5); }
+
+/* The grade you own of each item, stacked in the aside beside the two sliders
+   that count them — one select per slider, in the same left-to-right order the
+   tracks read. */
 .grade-fields { display: grid; gap: var(--s4); }
+@media (max-width: 1280px) {
+  /* stacked under the sliders, the two selects have the width to sit abreast */
+  .grade-fields { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+}
 
 .slider-grid {
   display: grid;
@@ -556,13 +567,12 @@ button { cursor: pointer; }
 }
 
 @media (max-width: 1280px) {
-  /* the aside drops beneath the sliders and its two selects sit side by side */
+  /* the aside drops beneath the sliders */
   .settings-layout { grid-template-columns: minmax(0, 1fr); }
   .settings-rule {
     height: 1px;
     background: linear-gradient(90deg, transparent, var(--rule) 4%, var(--rule) 96%, transparent);
   }
-  .grade-fields { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
 }
 @media (max-width: 720px) {
   .slider-grid { grid-template-columns: minmax(0, 1fr); }
@@ -627,10 +637,12 @@ button { cursor: pointer; }
   padding: var(--s4);
   box-shadow: inset 0 0 0 1px rgba(217, 173, 82, .06);
 }
+/* Set as .bar-head b is, so the box's heading and the heading of the bar it
+   sits in are the same size and cut — a peer, not a caption. */
 .statistics h4 {
   margin: 0;
-  font-size: var(--t-lead); font-weight: 600;
-  letter-spacing: -.01em;
+  font-size: var(--t-title); font-weight: 600;
+  letter-spacing: -.02em;
   color: var(--gold);
 }
 .statistics-lead {

@@ -762,8 +762,9 @@ function RunePotentialSection({ settings, presets, onUpdate, onWritePresets }: {
 
     <Disclosure title="Settings" defaultOpen>
       <div className="stack">
-        {/* Two fixed columns so the gem and grindstone settings share the
-            second line, and the space beside them becomes the aside. */}
+        {/* The four questions about which runes you keep, in one block: two
+            about what earns a roll, two about what you'll settle for. Two
+            columns, so they read as one group of four rather than a list. */}
         <div className="settings-layout">
           <div className="slider-grid">
             <PotentialSlider id="power-up-policy" label="Power-up policy" value={settings.powerUpPolicy}
@@ -774,12 +775,67 @@ function RunePotentialSection({ settings, presets, onUpdate, onWritePresets }: {
               description="How high must a rune's best case be before it earns a roll?"
               stepLabels={potentialStepLabels.runeQuality}
               onChange={(value) => void onUpdate({ runeQuality: value })} />
+            <PotentialSlider id="accepted-runes" label="Accepted runes" value={settings.acceptedRunes}
+              description="Non-preferred, but accepted. You can live without them, but can you live with them?"
+              stepLabels={potentialStepLabels.acceptedRunes}
+              onChange={(value) => void onUpdate({ acceptedRunes: value })} />
+            <PotentialSlider id="broken-runes" label="Broken runes" value={settings.brokenRunes}
+              description="You didn’t ask for them. But do you want them?"
+              stepLabels={potentialStepLabels.brokenRunes}
+              onChange={(value) => void onUpdate({ brokenRunes: value })} />
+          </div>
+
+          <div className="settings-rule" role="presentation" />
+
+          <aside className="settings-aside">
+            {/* The outcome first, level with the four sliders that decide it.
+
+                Dashes, not numbers. These read from the settings once the
+                calculation exists; until then a figure here would be a claim
+                about the settings that nothing behind it supports, and the two
+                would not change as the sliders moved. */}
+            <section className="statistics pending">
+              <h4>Statistics</h4>
+              <p className="statistics-lead">What your settings would give you, once the calculation is in place.</p>
+              <dl>
+                <div>
+                  <dt>Percent to roll</dt>
+                  <dd>—</dd>
+                </div>
+                <div>
+                  <dt>Percent to keep</dt>
+                  <dd>—</dd>
+                </div>
+              </dl>
+            </section>
+
+            {/* Set apart from the box above by more than the aside's own gap,
+                so it reads as its own question rather than as a footnote to the
+                statistics. The count follows the set, not the slot: a 4-set has
+                to be filled four times over, so keeping as many candidates for
+                it as for a 2-set leaves it half the choice. */}
+            <div className="stack tight aside-detached">
+              <p className="field-legend">4-sets vs. 2-sets</p>
+              <CheckboxRow label="Keep twice as many 4-set runes" checked={settings.keepMoreForLargerSets}
+                onChange={(checked) => void onUpdate({ keepMoreForLargerSets: checked })} />
+            </div>
+          </aside>
+        </div>
+
+        <div className="bar-divide" />
+
+        {/* The two items you spend on a rune, side by side across the slider
+            column as the four above them are, with both grades stacked in the
+            third of the width beside them — each select level with, and reading
+            in the same order as, the track it qualifies. */}
+        <div className="settings-layout">
+          <div className="slider-grid">
             <PotentialSlider id="enchanted-gems" label="Enchanted gems" value={settings.enchantedGems}
-              description="How much of a gem roll to count toward potential."
+              description="Credit every rune with this much of a gem, before you spend one."
               stepLabels={potentialStepLabels.enchantedGems}
               onChange={(value) => void onUpdate({ enchantedGems: value })} />
             <PotentialSlider id="grindstones" label="Grindstones" value={settings.grindstones}
-              description="How much of a grindstone roll to count toward potential."
+              description="Credit every rune with this much of a grindstone, before you spend one."
               stepLabels={potentialStepLabels.grindstones}
               onChange={(value) => void onUpdate({ grindstones: value })} />
           </div>
@@ -801,57 +857,7 @@ function RunePotentialSection({ settings, presets, onUpdate, onWritePresets }: {
                 </select>
               </label>
             </div>
-
-            {/* Dashes, not numbers. These read from the settings once the
-                calculation exists; until then a figure here would be a claim
-                about the settings that nothing behind it supports, and the two
-                would not change as the sliders moved. */}
-            <section className="statistics pending">
-              <h4>Statistics</h4>
-              <p className="statistics-lead">What your settings would give you, once the calculation is in place.</p>
-              <dl>
-                <div>
-                  <dt>Percent to roll</dt>
-                  <dd>—</dd>
-                </div>
-                <div>
-                  <dt>Percent to keep</dt>
-                  <dd>—</dd>
-                </div>
-              </dl>
-            </section>
           </aside>
-        </div>
-
-        <div className="bar-divide" />
-
-        {/* Reuses the layout above rather than choosing its own, so these two
-            tracks are exactly as long as the four before them and their labels
-            start on the same left edges. The rule's cell is left empty: it
-            separates the sliders from the aside, and what separates this group
-            from its neighbours is the hairline above and below it. */}
-        <div className="settings-layout">
-          <div className="slider-grid">
-            <PotentialSlider id="accepted-runes" label="Accepted runes" value={settings.acceptedRunes}
-              description="Non-preferred, but accepted. You can live without them, but can you live with them?"
-              stepLabels={potentialStepLabels.acceptedRunes}
-              onChange={(value) => void onUpdate({ acceptedRunes: value })} />
-            <PotentialSlider id="broken-runes" label="Broken runes" value={settings.brokenRunes}
-              description="You didn’t ask for them. But do you want them?"
-              stepLabels={potentialStepLabels.brokenRunes}
-              onChange={(value) => void onUpdate({ brokenRunes: value })} />
-          </div>
-          <div role="presentation" />
-          <div className="settings-aside">
-            <div className="stack tight">
-              <p className="field-legend">4-sets vs. 2-sets</p>
-              {/* The count follows the set, not the slot: a 4-set has to be
-                  filled four times over, so keeping as many candidates for it
-                  as for a 2-set leaves it half the choice. */}
-              <CheckboxRow label="Keep twice as many 4-set runes" checked={settings.keepMoreForLargerSets}
-                onChange={(checked) => void onUpdate({ keepMoreForLargerSets: checked })} />
-            </div>
-          </div>
         </div>
 
         <div className="bar-divide" />
