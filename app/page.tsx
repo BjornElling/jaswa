@@ -2,13 +2,13 @@
 
 import { ChangeEvent, DragEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { clearImportedGame, loadImportedGame, loadPreferences, saveImportedGame, savePreferences } from './lib/local-store';
-import { blankPreferences, createImportedGame, defaultRunePotentialSettings, fileToText, importPreferencesFile, itemGrades, normalizeImportedGame, validateGameFile } from './lib/imports';
+import { blankPreferences, createImportedGame, defaultRunePotentialSettings, fileToText, importPreferencesFile, itemGrades, normalizeImportedGame, normalizePreferences, validateGameFile } from './lib/imports';
 import { monsterPresentation } from './lib/monster-catalog';
 import { calculateMonsterTotals } from './lib/monster-stats';
 import { activeRuneSets, elementName, runeSetNameList } from './lib/rune-sets';
 import {
-  createRunePotentialPreset, normalizeRunePotentialPresets, presetStatTargetKeys, presetTargetColumns,
-  presetTypes, runeMainStats, withRefreshedMetrics,
+  createRunePotentialPreset, presetNameMaximum, presetStatTargetKeys, presetTargetColumns,
+  presetTargetMaximum, presetTypes, runeMainStats, withRefreshedMetrics,
 } from './lib/rune-potential-presets';
 import type { PresetChoice, PresetStatTargets, PresetType, RuneMainStat, RunePotentialPreset } from './lib/rune-potential-presets';
 import type { ImportedGame, ItemGrade, MonsterPreference, Preferences, RunePotentialSettings, RunePotentialSortOrder } from './lib/types';
@@ -97,10 +97,18 @@ type MonsterRow = {
 };
 
 function count(value: unknown): number { return Array.isArray(value) ? value.length : 0; }
+/* An unparseable timestamp makes Intl throw a RangeError, and this is read from
+   the topbar on every render — so a single bad stored date would take the whole
+   app down rather than one line of it. An unreadable date is reported as
+   unknown, which is all the reader can do anything with anyway. */
 function dateTime(value?: string): string {
-  return value ? new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : 'Never';
+  if (!value) return 'Never';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return 'an unknown time';
+  return new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'short' }).format(parsed);
 }
 function numeric(value: unknown): number { return typeof value === 'number' && Number.isFinite(value) ? value : 0; }
+function blankMonsterPreference(unitId: string): MonsterPreference { return { unitId, label: '', runeSets: '', statGoals: '' }; }
 function download(filename: string, content: string) {
   const url = URL.createObjectURL(new Blob([content], { type: 'application/json' }));
   const anchor = document.createElement('a');
@@ -124,22 +132,23 @@ export default function Home() {
       const normalizedGame = savedGame ? normalizeImportedGame(savedGame) : null;
       setGame(normalizedGame);
       if (normalizedGame) void saveImportedGame(normalizedGame);
-      setPreferences(savedPreferences
-        ? {
-            ...savedPreferences,
-            runePotential: { ...defaultRunePotentialSettings, ...savedPreferences.runePotential },
-            /* Presets saved before this list existed come back as `undefined`,
-               which the normalizer answers with the shipped set — the same
-               answer a first-time user gets. An empty list is the user having
-               deleted them all, and is left empty. */
-            runePotentialPresets: normalizeRunePotentialPresets(savedPreferences.runePotentialPresets),
-          }
-        : blankPreferences());
+      /* Everything read back is normalized, not merely spread over the
+         defaults. A stored setting of `null`, a string, or a step outside its
+         own scale used to reach a slider unaltered, where it showed a thumb at
+         one position and a blank description under it. */
+      setPreferences(savedPreferences ? normalizePreferences(savedPreferences) : blankPreferences());
+    }).catch(() => {
+      /* A record too broken to read is not worth taking the app down for: the
+         workspace opens empty, which the user can recover from by importing. */
+      setPreferences(blankPreferences());
     }).finally(() => setReady(true));
   }, []);
 
+  /* `data` is guarded as well as `game`: a partially written record in
+     IndexedDB has no `data` at all, and reaching through it threw during the
+     first render, before anything was on screen. */
   const monsters = useMemo(
-    () => (Array.isArray(game?.data.unit_list) ? game.data.unit_list : []) as MonsterRecord[],
+    () => (Array.isArray(game?.data?.unit_list) ? game.data.unit_list : []) as MonsterRecord[],
     [game],
   );
 
@@ -165,32 +174,44 @@ export default function Home() {
     await clearImportedGame(); setGame(null);
     setMessage('The imported game data was removed. Your preferences are still saved on this computer.');
   }
-  async function updateMonsterPreference(unitId: string, update: Partial<MonsterPreference>) {
-    const next: Preferences = {
-      ...preferences,
-      monsterPreferences: {
-        ...preferences.monsterPreferences,
-        [unitId]: { ...preferences.monsterPreferences[unitId], unitId, ...update },
-      },
-      updatedAt: new Date().toISOString(),
-    };
-    setPreferences(next); await savePreferences(next);
+  /**
+   * The one path that changes preferences. The change is applied to whatever
+   * state React holds at the moment it runs, not to the value captured when the
+   * handler was created: a slider drag and a checkbox toggled in the same
+   * moment both used to build from the same stale copy, so the second write
+   * silently undid the first.
+   */
+  function changePreferences(change: (current: Preferences) => Preferences) {
+    setPreferences((current) => {
+      const next = { ...change(current), updatedAt: new Date().toISOString() };
+      void savePreferences(next);
+      return next;
+    });
   }
-  async function updateRunePotentialSettings(update: Partial<RunePotentialSettings>) {
-    const next: Preferences = {
-      ...preferences,
-      runePotential: { ...(preferences.runePotential ?? defaultRunePotentialSettings), ...update },
-      updatedAt: new Date().toISOString(),
-    };
-    setPreferences(next); await savePreferences(next);
+  function updateMonsterPreference(unitId: string, update: Partial<MonsterPreference>) {
+    changePreferences((current) => ({
+      ...current,
+      monsterPreferences: {
+        ...current.monsterPreferences,
+        /* The blank record first, so a preference saved before all three
+           fields existed cannot leave one of them undefined and turn its
+           input uncontrolled. */
+        [unitId]: { ...blankMonsterPreference(unitId), ...current.monsterPreferences[unitId], ...update, unitId },
+      },
+    }));
+  }
+  function updateRunePotentialSettings(update: Partial<RunePotentialSettings>) {
+    changePreferences((current) => ({
+      ...current,
+      runePotential: { ...(current.runePotential ?? defaultRunePotentialSettings), ...update },
+    }));
   }
   /**
    * Presets are written whole rather than patched: an edit can change every
    * part of one at once, and the editor already holds the finished preset.
    */
-  async function writePresets(presets: RunePotentialPreset[]) {
-    const next: Preferences = { ...preferences, runePotentialPresets: presets, updatedAt: new Date().toISOString() };
-    setPreferences(next); await savePreferences(next);
+  function writePresets(change: (current: RunePotentialPreset[]) => RunePotentialPreset[]) {
+    changePreferences((current) => ({ ...current, runePotentialPresets: change(current.runePotentialPresets ?? []) }));
   }
   function handleDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault(); setDragging(false);
@@ -531,7 +552,9 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
           <span aria-hidden="true">⌕</span>
           <input value={search} onChange={(event) => setSearch(event.target.value)}
             placeholder="Filter monsters" aria-label="Filter monsters by name or set" />
-          {search && <button className="filter-button" onClick={() => setSearch('')} aria-label="Clear filter">✕</button>}
+          {/* Always present, so the input does not resize on the first keystroke. */}
+          <button className="filter-button" onClick={() => setSearch('')}
+            hidden={!search} disabled={!search} aria-label="Clear filter">✕</button>
         </div>
       </div>
       <div className="filter-group">
@@ -595,11 +618,15 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
       </table>
     </div>
 
+    {/* The active filters sit in their own middle cell, which takes the slack:
+        the count on the left and the note on the right are pinned to the
+        footer's two edges, so typing in the search box cannot move either. */}
     <div className="grid-footer">
-      <span><b>{visible.length}</b> of {rows.length} shown</span>
-      {element && <><span>·</span><span><b>{element}</b></span></>}
-      {search && <><span>·</span><span>matching <b>{search}</b></span></>}
-      <span className="spacer" />
+      <span className="footer-count"><b>{visible.length}</b> of {rows.length} shown</span>
+      <span className="footer-filters">
+        {element && <><span aria-hidden="true">·</span><span><b>{element}</b></span></>}
+        {search && <><span aria-hidden="true">·</span><span>matching <b>{search}</b></span></>}
+      </span>
       <span>EFF and GOAL await the calculation rules</span>
     </div>
   </>;
@@ -681,8 +708,8 @@ const potentialStepLabels = {
 function RunePotentialSection({ settings, presets, onUpdate, onWritePresets }: {
   settings: RunePotentialSettings;
   presets: RunePotentialPreset[];
-  onUpdate: (update: Partial<RunePotentialSettings>) => Promise<void>;
-  onWritePresets: (presets: RunePotentialPreset[]) => Promise<void>;
+  onUpdate: (update: Partial<RunePotentialSettings>) => void;
+  onWritePresets: (change: (current: RunePotentialPreset[]) => RunePotentialPreset[]) => void;
 }) {
   const sortOrders: RunePotentialSortOrder[] = ['Grade', 'Sub Property', 'Sub Property Before Grinding', 'Power-up Lv.', 'Obtained', 'Sub Property Sum', 'Score'];
   /* The preset being edited, held as a draft so a cancelled edit changes
@@ -691,16 +718,24 @@ function RunePotentialSection({ settings, presets, onUpdate, onWritePresets }: {
   const [editing, setEditing] = useState<{ draft: RunePotentialPreset; isNew: boolean } | null>(null);
   const [deleting, setDeleting] = useState<RunePotentialPreset | null>(null);
 
-  async function savePreset(preset: RunePotentialPreset) {
+  /**
+   * An edit replaces the preset it addresses; a new preset is appended. Both
+   * read the list as it stands at the moment of the write, so an edit saved
+   * after something else changed the list cannot take the rest of it back — and
+   * a preset deleted while its editor was open stays deleted rather than being
+   * resurrected by the save.
+   */
+  function savePreset(preset: RunePotentialPreset, isNew: boolean) {
     const saved = withRefreshedMetrics(preset);
-    const index = presets.findIndex((entry) => entry.id === saved.id);
-    await onWritePresets(index === -1
-      ? [...presets, saved]
-      : presets.map((entry) => (entry.id === saved.id ? saved : entry)));
+    onWritePresets((current) => {
+      if (isNew) return [...current, saved];
+      const index = current.findIndex((entry) => entry.id === saved.id);
+      return index === -1 ? current : current.map((entry) => (entry.id === saved.id ? saved : entry));
+    });
     setEditing(null);
   }
-  async function deletePreset(id: string) {
-    await onWritePresets(presets.filter((entry) => entry.id !== id));
+  function deletePreset(id: string) {
+    onWritePresets((current) => current.filter((entry) => entry.id !== id));
     setDeleting(null);
   }
 
@@ -751,19 +786,21 @@ function RunePotentialSection({ settings, presets, onUpdate, onWritePresets }: {
               </label>
             </div>
 
-            {/* TODO: both figures are placeholders. They become real once the
-                potential calculation lands and can read the settings above. */}
-            <section className="statistics" aria-live="polite">
+            {/* Dashes, not numbers. These read from the settings once the
+                calculation exists; until then a figure here would be a claim
+                about the settings that nothing behind it supports, and the two
+                would not change as the sliders moved. */}
+            <section className="statistics pending">
               <h4>Statistics</h4>
-              <p className="statistics-lead">Current settings will give you…</p>
+              <p className="statistics-lead">What your settings would give you, once the calculation is in place.</p>
               <dl>
                 <div>
                   <dt>Percent to roll</dt>
-                  <dd>18<span className="unit">%</span></dd>
+                  <dd>—</dd>
                 </div>
                 <div>
                   <dt>Percent to keep</dt>
-                  <dd>62<span className="unit">%</span></dd>
+                  <dd>—</dd>
                 </div>
               </dl>
             </section>
@@ -795,8 +832,11 @@ function RunePotentialSection({ settings, presets, onUpdate, onWritePresets }: {
         {/* The one action that makes a new thing sits above the list, where it
             is found before the list has been read rather than after. */}
         <div className="list-actions">
+          {/* Always "N presets", plural included, so the width does not change
+              as presets are added and deleted — a narrower count would move the
+              wrap threshold and could drop the button onto its own line. */}
           <p className="list-count">
-            {presets.length === 0 ? 'No presets' : <><b>{presets.length}</b> preset{presets.length === 1 ? '' : 's'}</>}
+            <b>{presets.length}</b> presets
           </p>
           <button className="button primary" onClick={() => setEditing({ draft: createRunePotentialPreset(), isNew: true })}>
             <span className="button-glyph" aria-hidden="true">+</span>
@@ -817,11 +857,14 @@ function RunePotentialSection({ settings, presets, onUpdate, onWritePresets }: {
       </div>
     </Disclosure>
 
+    {/* Keyed on the preset, so opening the editor on a different one always
+        gets a fresh draft rather than reusing the previous instance's state. */}
     {editing && <PresetEditor
+      key={editing.draft.id}
       draft={editing.draft}
       isNew={editing.isNew}
       onCancel={() => setEditing(null)}
-      onSave={(preset) => void savePreset(preset)}
+      onSave={(preset) => savePreset(preset, editing.isNew)}
     />}
 
     {deleting && <div className="modal-backdrop" role="presentation">
@@ -869,11 +912,15 @@ function PotentialSlider({ id, label, value, description, stepLabels, onChange }
  * groups run on one line: the distinction is carried by weight and colour, so
  * a second row would only add height for something already legible.
  */
-function ChoiceLine({ choice }: { choice: PresetChoice<string> }) {
-  if (!choice.preferred.length && !choice.acceptable.length) return <span className="choice-none">—</span>;
+function ChoiceLine({ choice }: { choice?: PresetChoice<string> }) {
+  /* A choice can be missing outright on a record that predates it, so both
+     halves are read defensively rather than assumed. */
+  const preferred = choice?.preferred ?? [];
+  const acceptable = (choice?.acceptable ?? []).filter((value) => !preferred.includes(value));
+  if (!preferred.length && !acceptable.length) return <span className="choice-none">—</span>;
   return <span className="choice-line">
-    {choice.preferred.map((value) => <span className="choice preferred" key={value}>{value}</span>)}
-    {choice.acceptable.map((value) => <span className="choice acceptable" key={value}>{value}</span>)}
+    {preferred.map((value) => <span className="choice preferred" key={value}>{value}</span>)}
+    {acceptable.map((value) => <span className="choice acceptable" key={value}>{value}</span>)}
   </span>;
 }
 
@@ -990,6 +1037,8 @@ function PresetEditor({ draft, isNew, onCancel, onSave }: {
   onSave: (preset: RunePotentialPreset) => void;
 }) {
   const [preset, setPreset] = useState<RunePotentialPreset>(draft);
+  /* Captured once, so the heading is stable while the Name field is typed in. */
+  const [openedAs] = useState(() => draft.name.trim());
   const nameField = useRef<HTMLInputElement>(null);
 
   /* Escape closes it, as it does any overlay, and the name takes focus on
@@ -1021,15 +1070,24 @@ function PresetEditor({ draft, isNew, onCancel, onSave }: {
 
   return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onCancel(); }}>
     <form className="dialog editor" role="dialog" aria-modal="true" aria-labelledby="preset-editor-title" onSubmit={submit}>
+      {/* The heading names the preset as it stood when the editor opened, not
+          as the Name field currently reads. Following the field would re-wrap
+          the heading while the user types, and since the head is a fixed row
+          of a grid whose body scrolls, that would shrink the body and jump the
+          chips below it on a keystroke. */}
       <header className="editor-head">
         <p className="eyebrow">{isNew ? 'Add preset' : 'Edit preset'}</p>
-        <h2 id="preset-editor-title">{isNew ? 'A new preset' : preset.name.trim() || 'This preset'}</h2>
+        <h2 id="preset-editor-title">{isNew ? 'A new preset' : openedAs || 'This preset'}</h2>
       </header>
 
       <div className="editor-body">
         <div className="editor-pair">
+          {/* Capped: a name is a label on a card and a heading in this editor,
+              and an uncapped one wrapped to a dozen lines, taking the card's
+              own contents off the screen. 60 characters is far more than any
+              role needs and still fits one line at card width. */}
           <label className="field"><span>Name</span>
-            <input ref={nameField} value={preset.name} placeholder="e.g. Fast DD"
+            <input ref={nameField} value={preset.name} placeholder="e.g. Fast DD" maxLength={presetNameMaximum}
               onChange={(event) => update({ name: event.target.value })} />
           </label>
           <label className="field"><span>Type</span>
@@ -1039,12 +1097,12 @@ function PresetEditor({ draft, isNew, onCancel, onSave }: {
           </label>
         </div>
 
-        <EditorBlock title="Rune sets" note="Preferred is what the role is built around. Acceptable still works when the box does not oblige.">
+        <EditorBlock title="Rune sets" legend note="Preferred is what the role is built around. Acceptable still works when the box does not oblige.">
           <ChoiceEditor choice={preset.sets} options={runeSetNameList} columns
             onChange={(sets) => update({ sets })} />
         </EditorBlock>
 
-        <EditorBlock title="Rune slots" note="Slots 1, 3 and 5 carry a fixed main stat, so only these three are stated.">
+        <EditorBlock title="Rune slots" legend note="Slots 1, 3 and 5 carry a fixed main stat, so only these three are stated.">
           <div className="editor-slots">
             {([['slot2', 'Slot 2'], ['slot4', 'Slot 4'], ['slot6', 'Slot 6']] as const).map(([key, label]) => <div className="editor-slot" key={key}>
               <p className="editor-slot-label">{label}</p>
@@ -1071,13 +1129,20 @@ function PresetEditor({ draft, isNew, onCancel, onSave }: {
               const value = preset.targets[key];
               return <label className="field field-compact" key={key}>
                 <span>{column?.label ?? key}{column?.unit}</span>
-                <input type="number" min={0} step={1} inputMode="numeric"
+                {/* An empty field means the role does not aim at this stat, and
+                    is kept distinct from a typed 0, which is a stated target of
+                    nothing. Anything unparseable reads as empty rather than
+                    reaching state as NaN, and the value is clamped here so what
+                    is stored is what the field shows. */}
+                <input type="number" min={0} max={presetTargetMaximum} step={1} inputMode="numeric"
                   value={value === undefined ? '' : value}
                   placeholder="—"
                   onChange={(event) => {
                     const raw = event.target.value.trim();
                     const parsed = Number(raw);
-                    updateTarget(key, raw === '' || !Number.isFinite(parsed) ? undefined : Math.max(0, Math.round(parsed)));
+                    updateTarget(key, raw === '' || !Number.isFinite(parsed)
+                      ? undefined
+                      : Math.min(presetTargetMaximum, Math.max(0, Math.round(parsed))));
                   }} />
               </label>;
             })}
@@ -1096,12 +1161,30 @@ function PresetEditor({ draft, isNew, onCancel, onSave }: {
 }
 
 /** A titled group inside the editor, so the six kinds of thing stay separated. */
-function EditorBlock({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
+function EditorBlock({ title, note, legend = false, children }: {
+  title: string; note?: string; legend?: boolean; children: React.ReactNode;
+}) {
   return <section className="editor-block">
-    <h3 className="editor-block-title">{title}</h3>
+    <header className="editor-block-head">
+      <h3 className="editor-block-title">{title}</h3>
+      {legend && <ChoiceLegend />}
+    </header>
     {note && <p className="editor-note">{note}</p>}
     {children}
   </section>;
+}
+
+/**
+ * What the two filled states mean, stated once beside the heading. The chips
+ * themselves say nothing but their own name, so the key has to live somewhere —
+ * and here it is fixed text that no click can change.
+ */
+function ChoiceLegend() {
+  return <p className="choice-legend">
+    <span className="choice-legend-item"><span className="choice-key preferred" aria-hidden="true" />Preferred</span>
+    <span className="choice-legend-item"><span className="choice-key acceptable" aria-hidden="true" />Acceptable</span>
+    <span className="choice-legend-hint">click to cycle</span>
+  </p>;
 }
 
 /**
@@ -1132,6 +1215,11 @@ function ChoiceEditor<T extends string>({ choice, options, columns = false, onCh
     onChange(without);
   }
 
+  /* The state is carried by colour and by the chip's own accessible name, not
+     by text inside it: added text would widen the chip and re-wrap the row. */
+  const described = { none: 'not wanted', preferred: 'preferred', acceptable: 'acceptable' } as const;
+  const nextStep = { none: 'prefer it', preferred: 'accept it', acceptable: 'clear it' } as const;
+
   return <div className={columns ? 'choice-editor columns' : 'choice-editor'}>
     {options.map((option) => {
       const current = state(option);
@@ -1141,11 +1229,11 @@ function ChoiceEditor<T extends string>({ choice, options, columns = false, onCh
         className={`choice-chip ${current}`}
         onClick={() => cycle(option)}
         aria-pressed={current !== 'none'}
-        title={current === 'none' ? `${option}: not wanted — click to prefer` : current === 'preferred' ? `${option}: preferred — click to accept` : `${option}: acceptable — click to clear`}
+        aria-label={`${option}: ${described[current]}`}
+        title={`${option}: ${described[current]} — click to ${nextStep[current]}`}
       >
         <span className="choice-chip-mark" aria-hidden="true" />
         {option}
-        <span className="choice-chip-state">{current === 'preferred' ? 'Preferred' : current === 'acceptable' ? 'Acceptable' : ''}</span>
       </button>;
     })}
   </div>;
@@ -1163,7 +1251,7 @@ function CheckboxRow({ label, checked, onChange }: { label: string; checked: boo
 function PreferencesSection({ monsters, preferences, onUpdate, onExport, onImport }: {
   monsters: MonsterRecord[];
   preferences: Preferences;
-  onUpdate: (unitId: string, update: Partial<MonsterPreference>) => Promise<void>;
+  onUpdate: (unitId: string, update: Partial<MonsterPreference>) => void;
   onExport: () => void;
   onImport: () => void;
 }) {
@@ -1195,7 +1283,9 @@ function PreferencesSection({ monsters, preferences, onUpdate, onExport, onImpor
           <span aria-hidden="true">⌕</span>
           <input value={search} onChange={(event) => setSearch(event.target.value)}
             placeholder="Filter monsters" aria-label="Filter monsters by name" />
-          {search && <button className="filter-button" onClick={() => setSearch('')} aria-label="Clear filter">✕</button>}
+          {/* Always present, so the input does not resize on the first keystroke. */}
+          <button className="filter-button" onClick={() => setSearch('')}
+            hidden={!search} disabled={!search} aria-label="Clear filter">✕</button>
         </div>
       </div>
       <div className="filter-group">

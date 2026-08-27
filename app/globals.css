@@ -205,6 +205,7 @@ button { cursor: pointer; }
 .topbar-spacer { flex: 1; }
 .topbar-count {
   font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
   font-size: var(--t-small);
   color: var(--faint);
   white-space: nowrap;
@@ -274,6 +275,17 @@ button { cursor: pointer; }
   font-size: var(--t-body); width: 100%; padding: 0; outline: none;
 }
 .search-field input::placeholder { color: var(--faint); }
+/* The clear button keeps its slot whether or not there is anything to clear.
+   Mounting it on the first keystroke used to take ~42px out of a fixed-width
+   field, so the text the user had just typed jumped left under the caret. */
+.search-field .filter-button {
+  flex: 0 0 auto;
+  width: 22px; height: 22px;
+  padding: 0;
+  border-color: transparent;
+  font-size: var(--t-small);
+}
+.search-field .filter-button[hidden] { display: block; visibility: hidden; }
 .search-field kbd {
   font-family: var(--mono); font-size: 10px;
   border: 1px solid var(--line-strong);
@@ -308,8 +320,22 @@ button { cursor: pointer; }
 .grid-table thead th.sortable:hover { color: var(--ink); }
 .grid-table thead th.align-left { text-align: left; }
 .grid-table thead th.sorted { color: var(--gold); }
-.grid-table thead th.sorted::after { content: ' ↓'; }
-.grid-table thead th.sorted.ascending::after { content: ' ↑'; }
+/* Every sortable header reserves the arrow's width from the outset and shows
+   it only when that column is the sorted one. The table is auto-layout, so an
+   arrow that appeared on click would re-measure all fourteen columns and shift
+   the whole grid sideways under the pointer. The glyph is a fixed-width
+   inline-block for the same reason: ↑ and ↓ must occupy the same space. */
+.grid-table thead th.sortable::after {
+  content: '↓';
+  display: inline-block;
+  width: 1em;
+  margin-left: var(--s1);
+  text-align: center;
+  opacity: 0;
+}
+.grid-table thead th.sortable:hover::after { opacity: .35; }
+.grid-table thead th.sorted::after { opacity: 1; }
+.grid-table thead th.sorted.ascending::after { content: '↑'; }
 .grid-table thead th.reserved { color: var(--faint); font-style: italic; }
 
 .grid-table tbody td {
@@ -642,6 +668,11 @@ button { cursor: pointer; }
   margin-left: var(--s1);
   opacity: .75;
 }
+/* Awaiting a calculation. Gold is for what the reader can act on and for a
+   figure that means something; a dash here means neither yet. The block keeps
+   its full height so the aside does not resize when the figures arrive. */
+.statistics.pending { border-color: var(--line); background: var(--sunk); }
+.statistics.pending dd { color: var(--ghost); font-weight: 400; }
 
 /* --------------------------------------------------------------- presets */
 
@@ -659,9 +690,13 @@ button { cursor: pointer; }
   display: flex; align-items: center; justify-content: space-between;
   gap: var(--s4); flex-wrap: wrap;
 }
+/* Tabular figures and a floor wide enough for a three-digit count, so the
+   number changing never moves the button beside it. */
 .list-count {
   margin: 0;
+  min-width: 11ch;
   font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
   font-size: var(--t-small);
   color: var(--faint);
 }
@@ -714,11 +749,16 @@ button { cursor: pointer; }
 }
 .icon-button.danger:hover { color: #d08a7a; border-color: #6a4038; }
 .icon-button:focus-visible { color: var(--gold); }
+/* A long name wraps rather than pushing the actions off the line, and stops at
+   three lines so one preset cannot take a screen to itself. */
 .preset-name {
   margin: 0;
   font-size: var(--t-title); font-weight: 600;
   letter-spacing: -.02em;
   color: var(--gold);
+  overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3;
+  overflow: hidden;
 }
 /* The family the role belongs to, in the quiet voice the row labels use: it
    classifies the preset rather than naming it, so it must not compete with the
@@ -754,7 +794,12 @@ button { cursor: pointer; }
 
 /* preferred in full ink, acceptable dimmed — the only distinction the two
    groups need, and it survives being read at a glance down the column */
+/* One line's worth of height is reserved whether the choice is empty or not,
+   so a slot gaining its first main stat does not push the Artifacts and
+   Desired stats rows below it down the card. */
+.choice-line, .choice-none { min-height: 1.35em; }
 .choice-line { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); align-items: baseline; }
+.choice-none { display: inline-block; }
 .choice {
   font-family: var(--mono);
   font-size: var(--t-small);
@@ -809,7 +854,9 @@ button { cursor: pointer; }
   white-space: nowrap;
   color: var(--faint);
 }
-.flag b { font-weight: 500; letter-spacing: 0; }
+/* Wide enough for "Yes" in both states, so toggling a primary does not change
+   the ink extent inside its start-justified box. */
+.flag b { font-weight: 500; letter-spacing: 0; display: inline-block; min-width: 3ch; }
 .flag.yes { color: var(--dim); }
 .flag.yes b { color: var(--ink); }
 .flag.no { color: var(--ghost); }
@@ -844,7 +891,10 @@ button { cursor: pointer; }
   white-space: nowrap;
 }
 .target dd .unit { font-size: var(--t-micro); color: var(--faint); margin-left: 1px; }
-.target.empty dd { color: var(--ghost); font-weight: 400; }
+/* Colour only. The weight stays at 500 in both states: a lighter dash and a
+   heavier number are different widths, so setting a target would have nudged
+   its neighbours along the row. */
+.target.empty dd { color: var(--ghost); }
 
 /* Eleven columns need the full measure. Below it the targets fall to six and
    then four per line — still a grid, so the pairs stay aligned. */
@@ -1178,6 +1228,22 @@ button { cursor: pointer; }
 }
 .grid-footer b { color: var(--dim); font-weight: 500; }
 .grid-footer .spacer { flex: 1; }
+/* Tabular figures and a reserved floor, so filtering from 350 rows to 7 does
+   not slide what follows the count. */
+.grid-footer .footer-count {
+  font-variant-numeric: tabular-nums;
+  min-width: 16ch;
+  flex: 0 0 auto;
+}
+/* The filters take all the slack and clip rather than push: the note at the
+   right edge stays put while a search term is typed. */
+.grid-footer .footer-filters {
+  flex: 1;
+  min-width: 0;
+  display: flex; align-items: center; gap: var(--s3);
+  overflow: hidden;
+  white-space: nowrap;
+}
 
 /* ---------------------------------------------------------------- modal */
 .modal-backdrop {
@@ -1221,7 +1287,12 @@ button { cursor: pointer; }
   padding: var(--s5) var(--s5) var(--s4);
   border-bottom: 1px solid var(--line);
 }
-.editor-head h2 { color: var(--gold); }
+/* One line only. The head is a fixed row above the scrolling body, so a
+   heading that wrapped would take that height out of the body. */
+.editor-head h2 {
+  color: var(--gold);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 /* The head and the actions are fixed, so a scrolled body can cut a row of
    chips in half. The two inset gradients fade whichever edge has content
    beyond it, so a cut reads as more to come rather than as a clipped row. */
@@ -1252,12 +1323,37 @@ button { cursor: pointer; }
 }
 
 .editor-block { display: grid; gap: var(--s2); }
+/* The heading and, where the block uses chips, the key to their colours. The
+   key is fixed text: the chips no longer name their own state, so this is
+   where the reader learns it, and it must never change as they click. */
+.editor-block-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--s4); flex-wrap: wrap;
+}
 .editor-block-title {
   margin: 0;
   font-size: var(--t-lead); font-weight: 600;
   letter-spacing: -.01em;
   color: var(--ink);
 }
+
+.choice-legend {
+  margin: 0;
+  display: flex; align-items: center; gap: var(--s4);
+  font-size: var(--t-micro);
+  letter-spacing: .04em;
+  color: var(--faint);
+}
+.choice-legend-item { display: inline-flex; align-items: center; gap: var(--s2); }
+/* The same two grounds the chips carry, at the size of a word's cap height. */
+.choice-key {
+  width: 12px; height: 12px;
+  border-radius: 3px;
+  border: 1px solid var(--gold-edge);
+}
+.choice-key.preferred { background: var(--gold); border-color: var(--gold); }
+.choice-key.acceptable { background: var(--gold-deep); }
+.choice-legend-hint { color: var(--ghost); }
 .editor-note {
   margin: 0 0 var(--s1);
   font-size: var(--t-body); line-height: 1.5;
@@ -1275,10 +1371,15 @@ button { cursor: pointer; }
   gap: var(--s2);
 }
 
-/* One control carrying three states. The dot on the left says which: empty,
-   filled gold for preferred, hollow gold for acceptable — the same two-tone
-   distinction the card makes with ink and dimming, in the one place where it
-   also has to be clickable. */
+/* One control carrying three states, told entirely by colour: unchosen is a
+   plain outline, preferred is filled gold, acceptable is the same gold held to
+   the border and a tinted ground. The distinction repeats the card's own
+   two-tone reading — preferred in full ink, acceptable dimmed.
+ *
+ * Nothing about the box changes between the three: same padding, same border
+ * width, same font weight, same text. The chips sit in a wrapping row, so a
+ * chip that grew on selection would re-wrap every chip after it and shuffle
+ * the list under the pointer that had just clicked one. Only colour moves. */
 .choice-chip {
   display: inline-flex; align-items: center; gap: var(--s2);
   min-height: 32px;
@@ -1293,29 +1394,41 @@ button { cursor: pointer; }
   text-align: left;
   transition: color .12s, border-color .12s, background .12s;
 }
-.choice-chip:hover { background: var(--hover); border-color: var(--faint); }
+.choice-chip:hover { border-color: var(--faint); color: var(--dim); }
+
+/* The mark is a fixed 8px circle in every state — only its fill and edge
+   change, so it never resizes its own chip. It repeats what the colour already
+   says, for a reader who cannot rely on hue alone. */
 .choice-chip-mark {
   flex: 0 0 auto;
   width: 8px; height: 8px;
   border-radius: 50%;
   border: 1px solid var(--ghost);
   background: transparent;
+  transition: background .12s, border-color .12s, box-shadow .12s;
 }
-.choice-chip.preferred { color: var(--ink); border-color: var(--gold-edge); background: var(--gold-deep); }
-.choice-chip.preferred .choice-chip-mark { background: var(--gold); border-color: var(--gold); }
-.choice-chip.acceptable { color: var(--dim); border-color: var(--gold-edge); }
-.choice-chip.acceptable .choice-chip-mark { border-color: var(--gold); }
-/* The state names itself on the chip, so the dot is a shorthand the reader can
-   confirm rather than a code they have to learn. It follows the name and takes
-   the remaining width, keeping the names on one vertical in the set columns. */
-.choice-chip-state {
-  margin-left: auto;
-  font-size: var(--t-micro);
-  letter-spacing: .04em;
-  color: var(--faint);
-  white-space: nowrap;
+
+/* Preferred: the accent at full strength, as the one thing the role is built
+   around. Gold ground, gold edge, dark ink on top — the same treatment the
+   primary button carries, because both are "this is the chosen one". */
+.choice-chip.preferred {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--gold-ink);
 }
-.choice-chip.preferred .choice-chip-state { color: var(--gold); }
+.choice-chip.preferred:hover { background: #dcb45f; border-color: #dcb45f; color: var(--gold-ink); }
+.choice-chip.preferred .choice-chip-mark { background: var(--gold-ink); border-color: var(--gold-ink); }
+
+/* Acceptable: the same accent, an order of magnitude quieter — the deep gold
+   ground and gold edge the statistics block uses. Unmistakably chosen, and
+   unmistakably not the first choice. */
+.choice-chip.acceptable {
+  background: var(--gold-deep);
+  border-color: var(--gold-edge);
+  color: var(--ink);
+}
+.choice-chip.acceptable:hover { border-color: var(--gold); }
+.choice-chip.acceptable .choice-chip-mark { background: transparent; border-color: var(--gold); }
 
 .editor-slots {
   display: grid;

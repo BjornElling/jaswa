@@ -338,10 +338,21 @@ function normalizeChoice<T extends string>(value: unknown, allowed: readonly T[]
   return { preferred, acceptable };
 }
 
+/**
+ * The largest target a preset may state. Well past anything the game produces,
+ * and low enough that the figures derived from it stay inside the width the
+ * card reserves for them — a nine-digit HP produced a sixteen-digit E.HP that
+ * painted over the columns beside it.
+ */
+export const presetTargetMaximum = 100_000;
+
+/** The longest name a preset may carry, in the editor and in a saved file alike. */
+export const presetNameMaximum = 60;
+
 /** A stat target: absent or unusable means the role does not aim at it, and an explicit 0 is kept. */
 function normalizeTarget(value: unknown): number | undefined {
   if (typeof value !== 'number' || !Number.isFinite(value)) return undefined;
-  return Math.max(0, Math.round(value));
+  return Math.min(presetTargetMaximum, Math.max(0, Math.round(value)));
 }
 
 function normalizeStatTargets(value: unknown): PresetStatTargets {
@@ -361,7 +372,7 @@ function normalizeStatTargets(value: unknown): PresetStatTargets {
  */
 function normalizePreset(value: unknown): RunePotentialPreset | null {
   if (!isRecord(value)) return null;
-  const name = typeof value.name === 'string' ? value.name.trim() : '';
+  const name = typeof value.name === 'string' ? value.name.trim().slice(0, presetNameMaximum) : '';
   if (!name) return null;
   const slots = isRecord(value.slots) ? value.slots : {};
   const artifacts = isRecord(value.artifacts) ? value.artifacts : {};
@@ -393,8 +404,12 @@ export function normalizeRunePotentialPresets(value: unknown): RunePotentialPres
   return value.flatMap((entry) => {
     const preset = normalizePreset(entry);
     if (!preset) return [];
-    if (seen.has(preset.id)) preset.id = newPresetId();
-    seen.add(preset.id);
-    return [preset];
+    /* A reissued identifier is itself checked, and kept being reissued until it
+       is genuinely unused. Two presets sharing one identifier would be edited
+       and deleted together, since both operations address a preset by it. */
+    let id = preset.id;
+    while (seen.has(id)) id = newPresetId();
+    seen.add(id);
+    return [{ ...preset, id }];
   });
 }

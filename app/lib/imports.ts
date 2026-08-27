@@ -1,4 +1,4 @@
-import type { CompatibilityReport, ImportedGame, ItemGrade, Preferences, RunePotentialSettings, RunePotentialSortOrder } from './types';
+import type { CompatibilityReport, ImportedGame, ItemGrade, MonsterPreference, Preferences, RunePotentialSettings, RunePotentialSortOrder } from './types';
 import { hasMonsterCatalogEntry } from './monster-catalog';
 import { defaultRunePotentialPresets, normalizeRunePotentialPresets } from './rune-potential-presets';
 const expectedSections = ['unit_list', 'runes', 'artifacts', 'relics', 'rune_craft_item_list']; const excludedKeys = new Set(['session_key', 'session_key_node']);
@@ -15,6 +15,39 @@ function normalizeRunePotentialSettings(value: unknown): RunePotentialSettings {
   return { powerUpPolicy: normalizeScale(settings.powerUpPolicy, 5, fallback.powerUpPolicy), runeQuality: normalizeScale(settings.runeQuality, 5, fallback.runeQuality), enchantedGems: normalizeScale(settings.enchantedGems, 4, fallback.enchantedGems), grindstones: normalizeScale(settings.grindstones, 4, fallback.grindstones), gemGrade: normalizeGrade(settings.gemGrade, fallback.gemGrade), grindstoneGrade: normalizeGrade(settings.grindstoneGrade, fallback.grindstoneGrade), includeLevel12Runes: settings.includeLevel12Runes === true, includeEquippedRunes: settings.includeEquippedRunes === true, sortOrder };
 }
 export function blankPreferences(): Preferences { return { format: 'swaggr-preferences', version: 1, updatedAt: new Date().toISOString(), monsterPreferences: {}, runePotential: defaultRunePotentialSettings, runePotentialPresets: defaultRunePotentialPresets() }; }
+
+/**
+ * One monster's saved preference. All three text fields are always present, so
+ * a record that was written with only one of them filled in cannot later hand
+ * an `undefined` to a text input and turn it uncontrolled.
+ */
+function normalizeMonsterPreference(unitId: string, value: unknown): MonsterPreference {
+  const source = isRecord(value) ? value : {};
+  const text = (input: unknown) => typeof input === 'string' ? input : '';
+  return { unitId, label: text(source.label), runeSets: text(source.runeSets), statGoals: text(source.statGoals) };
+}
+
+function normalizeMonsterPreferences(value: unknown): Record<string, MonsterPreference> {
+  // An array passes `typeof === 'object'`, so the shape is checked properly.
+  if (!isRecord(value)) return {};
+  return Object.fromEntries(Object.entries(value).map(([unitId, preference]) => [unitId, normalizeMonsterPreference(unitId, preference)]));
+}
+
+/**
+ * The whole preferences record, checked. Used by both the load path and the
+ * `.sw` import, so a file the user hand-edited and a record an older version of
+ * Swaggr wrote are held to the same standard.
+ */
+export function normalizePreferences(value: Partial<Preferences>): Preferences {
+  return {
+    format: 'swaggr-preferences',
+    version: 1,
+    updatedAt: typeof value.updatedAt === 'string' ? value.updatedAt : new Date().toISOString(),
+    monsterPreferences: normalizeMonsterPreferences(value.monsterPreferences),
+    runePotential: normalizeRunePotentialSettings(value.runePotential),
+    runePotentialPresets: normalizeRunePotentialPresets(value.runePotentialPresets),
+  };
+}
 type GameRecord = Record<string, unknown>;
 
 function isRecord(value: unknown): value is GameRecord { return Boolean(value) && typeof value === 'object' && !Array.isArray(value); }
@@ -49,9 +82,11 @@ function completeEquipmentCollections(data: GameRecord): GameRecord {
   return { ...data, unit_list: units, runes: complete('runes'), artifacts: complete('artifacts'), relics: complete('relics'), rune_craft_item_list: recordCollection(data.rune_craft_item_list) };
 }
 
-export function normalizeImportedGame(game: ImportedGame): ImportedGame { return { ...game, data: completeEquipmentCollections(removeExcludedKeys(game.data) as GameRecord) }; }
+// A record written partially, or one hand-edited into shape, can arrive without
+// `data`. An empty account is a readable answer; a thrown TypeError is not.
+export function normalizeImportedGame(game: ImportedGame): ImportedGame { const data = isRecord(game.data) ? game.data : {}; return { ...game, data: completeEquipmentCollections(removeExcludedKeys(data) as GameRecord) }; }
 export function validateGameFile(value: unknown): CompatibilityReport { if (!isRecord(value)) return { valid: false, message: 'This is not a valid Summoners War JSON file.', knownSections: [], unknownMonsterIds: [] }; const knownSections = expectedSections.filter((section) => hasCollection(value[section])); if (!hasCollection(value.unit_list) || !hasCollection(value.runes)) return { valid: false, message: 'This file does not contain the monster and rune lists needed by Swaggr.', knownSections, unknownMonsterIds: [] }; const unknownMonsterIds = [...new Set(recordCollection(value.unit_list).map((monster) => String(monster.unit_master_id)).filter((id) => id !== 'undefined' && !hasMonsterCatalogEntry(id)))]; return { valid: true, message: 'Ready to import.', knownSections, unknownMonsterIds }; }
 function removeExcludedKeys(value: unknown): unknown { if (Array.isArray(value)) return value.map(removeExcludedKeys); if (!value || typeof value !== 'object') return value; return Object.fromEntries(Object.entries(value as Record<string, unknown>).filter(([key]) => !excludedKeys.has(key)).map(([key, entry]) => [key, removeExcludedKeys(entry)])); }
 export function createImportedGame(fileName: string, data: Record<string, unknown>, report: CompatibilityReport): ImportedGame { return normalizeImportedGame({ fileName, importedAt: new Date().toISOString(), data, report }); }
 export async function fileToText(file: File) { return file.text(); }
-export async function importPreferencesFile(file: File): Promise<Preferences> { const value = JSON.parse(await fileToText(file)) as Partial<Preferences>; if (value.format !== 'swaggr-preferences' || value.version !== 1 || !value.monsterPreferences || typeof value.monsterPreferences !== 'object') throw new Error('Invalid Swaggr preferences file'); return { format: 'swaggr-preferences', version: 1, updatedAt: new Date().toISOString(), monsterPreferences: value.monsterPreferences, runePotential: normalizeRunePotentialSettings(value.runePotential), runePotentialPresets: normalizeRunePotentialPresets(value.runePotentialPresets) }; }
+export async function importPreferencesFile(file: File): Promise<Preferences> { const value = JSON.parse(await fileToText(file)) as Partial<Preferences>; if (value.format !== 'swaggr-preferences' || value.version !== 1 || !isRecord(value.monsterPreferences)) throw new Error('Invalid Swaggr preferences file'); return { ...normalizePreferences(value), updatedAt: new Date().toISOString() }; }
