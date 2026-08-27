@@ -44,6 +44,34 @@ henter aldrig monsterbilleder. Kun billeder, der allerede ligger lokalt i
 `public/monster-images`, vises. Det forhindrer, at en dataopdatering bliver
 flere tusinde ekstra forespørgsler.
 
+## Monsterbilleder
+
+**Monsterbilleder må aldrig committes.** Dette repository er offentligt, og
+grafikken er ikke vores at videredistribuere. `public/monster-images/` er
+git-ignoreret, og hver arbejdskopi henter sine egne filer:
+
+```text
+npm run fetch:monster-images
+```
+
+Kommandoen læser billedfilnavnene fra den lokale snapshot og henter ét billede
+ad gangen med 250 ms pause. Den:
+
+- springer over, hvad der allerede ligger lokalt, så en afbrudt kørsel kan
+  genoptages ved blot at køre kommandoen igen;
+- skriver til et midlertidigt navn og omdøber, så en afbrydelse aldrig
+  efterlader en halvskrevet PNG;
+- verificerer PNG-signaturen før en fil accepteres;
+- stopper ved HTTP 429/5xx i stedet for at presse værten videre;
+- genskriver `app/lib/local-monster-images.ts` ud fra det, der faktisk ligger
+  på disken, efter hver kørsel.
+
+`--limit <n>` henter kun de første n manglende. `--all` gennemgår hele listen
+igen i stedet for kun det manglende.
+
+Et manglende billede er ikke en fejl: oversigten viser monsterets forbogstav i
+stedet, så appen fungerer fuldt ud uden en eneste hentet fil.
+
 ## Validering og brug
 
 En ny snapshot accepteres kun, når alle sider er hentet, det observerede antal

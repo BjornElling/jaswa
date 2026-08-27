@@ -1,0 +1,75 @@
+/**
+ * Rune set and element display names.
+ *
+ * The set identifiers are the ones the game uses in `set_id` on each rune,
+ * and the element identifiers are the ones used in `attribute` on each
+ * monster. Both are shown as text rather than colour: the overview encodes
+ * meaning through form and position, and reserves colour for interactive
+ * state.
+ */
+
+const runeSetNames: Record<number, string> = {
+  1: 'Energy', 2: 'Guard', 3: 'Swift', 4: 'Blade', 5: 'Rage', 6: 'Focus',
+  7: 'Endure', 8: 'Fatal', 10: 'Despair', 11: 'Vampire', 13: 'Violent',
+  14: 'Nemesis', 15: 'Will', 16: 'Shield', 17: 'Revenge', 18: 'Destroy',
+  19: 'Fight', 20: 'Determination', 21: 'Enhance', 22: 'Accuracy', 23: 'Tolerance',
+  24: 'Seal', 25: 'Intangible',
+};
+
+// The number of equipped pieces a set needs before its bonus applies.
+const runeSetPieces: Record<number, number> = {
+  1: 2, 2: 2, 3: 4, 4: 2, 5: 4, 6: 2, 7: 2, 8: 4, 10: 4, 11: 4, 13: 4,
+  14: 2, 15: 2, 16: 2, 17: 2, 18: 2, 19: 2, 20: 2, 21: 2, 22: 2, 23: 2,
+  24: 2, 25: 4,
+};
+
+const elementNames: Record<number, string> = {
+  1: 'Water', 2: 'Fire', 3: 'Wind', 4: 'Light', 5: 'Dark',
+};
+
+export type ActiveRuneSet = { name: string; abbreviation: string; count: number };
+
+function numberValue(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+export function runeSetName(setId: unknown): string | undefined {
+  return runeSetNames[numberValue(setId)];
+}
+
+export function elementName(attribute: unknown): string | undefined {
+  return elementNames[numberValue(attribute)];
+}
+
+/** The single letter shown in the overview's element mark. */
+export function elementMark(attribute: unknown): string {
+  return elementName(attribute)?.slice(0, 1).toUpperCase() ?? '·';
+}
+
+/**
+ * The sets a monster currently has completed, most pieces first. A set only
+ * appears once enough pieces are equipped for its bonus to apply, so the
+ * overview shows what is actually in effect rather than what is merely worn.
+ */
+export function activeRuneSets(monster: Record<string, unknown>): ActiveRuneSet[] {
+  const runes = Array.isArray(monster.runes) ? monster.runes : [];
+  const counts: Record<number, number> = {};
+
+  for (const rune of runes) {
+    if (!rune || typeof rune !== 'object' || Array.isArray(rune)) continue;
+    const setId = numberValue((rune as Record<string, unknown>).set_id);
+    if (setId) counts[setId] = (counts[setId] ?? 0) + 1;
+  }
+
+  return Object.entries(counts)
+    .map(([rawSetId, count]) => {
+      const setId = Number(rawSetId);
+      const required = runeSetPieces[setId] ?? 2;
+      const complete = Math.floor(count / required);
+      const name = runeSetNames[setId];
+      if (!name || complete < 1) return undefined;
+      return { name, abbreviation: name.slice(0, 3).toUpperCase(), count: complete * required };
+    })
+    .filter((set): set is ActiveRuneSet => set !== undefined)
+    .sort((left, right) => right.count - left.count || left.name.localeCompare(right.name));
+}
