@@ -835,7 +835,7 @@ function RunePotentialSection({ settings, presets, onUpdate, onWritePresets }: {
         <div className="settings-layout">
           <div className="slider-grid">
             <PotentialSlider id="accepted-runes" label="Accepted runes" value={settings.acceptedRunes}
-              description="You can live without them, but can you live with them?"
+              description="Non-preferred, but accepted. You can live without them, but can you live with them?"
               stepLabels={potentialStepLabels.acceptedRunes}
               onChange={(value) => void onUpdate({ acceptedRunes: value })} />
             <PotentialSlider id="off-set-runes" label="Off-set runes" value={settings.offSetRunes}
