@@ -782,8 +782,12 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
         >{monsterArchetypeLabels[archetype]}</button>)}
       </div>
       <div className="filter-group">
-        <CheckboxRow className="checkbox-row compact" label="Storage mons"
-          checked={showStorage} onChange={setShowStorage} />
+        <span className="filter-label">Storage</span>
+        {/* The visible label is the group's, so the box carries its own name
+            for anyone who cannot see the two sit together. */}
+        <input type="checkbox" className="filter-checkbox" checked={showStorage}
+          onChange={(event) => setShowStorage(event.target.checked)}
+          aria-label="Show monsters kept in storage" />
       </div>
       <span className="monster-filter-count"><b>{visible.length}</b> of {rows.length} shown</span>
     </div>
@@ -1549,8 +1553,8 @@ function ChoiceEditor<T extends string>({ choice, options, columns = false, onCh
   </div>;
 }
 
-function CheckboxRow({ label, checked, onChange, className = 'checkbox-row' }: { label: string; checked: boolean; onChange: (checked: boolean) => void; className?: string }) {
-  return <label className={className}>
+function CheckboxRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
+  return <label className="checkbox-row">
     <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
     {label}
   </label>;
