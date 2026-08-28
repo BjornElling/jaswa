@@ -552,7 +552,7 @@ function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLe
   }, [hardwareAcceleration, detected]);
 
   const status: AccelerationStatus = !hardwareAcceleration ? disabledStatus
-    : detected ?? { state: 'checking', adapterName: 'Asking the browser…', detail: 'Looking for a graphics card JASWA can compute on.' };
+    : detected ?? { state: 'checking', adapterName: 'Asking the browser…', detail: 'Looking for a graphics card to compute on.' };
 
   /* The home page announces the app rather than the section, so it opens with
      the name spelled out instead of the shared PageHeader. The three lines step
@@ -583,53 +583,40 @@ function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLe
     <section className="panel">
       <h3 className="block-title">Hardware acceleration</h3>
       <div className="settings-layout">
+        {/* Two sentences: what the card is for, and when not to use it. A
+            legend over the checkbox would only repeat the panel's own heading,
+            so the box sits directly under the line that explains it. */}
         <div className="stack acceleration-choice">
           <p className="lead">
-            Ranking a full rune inventory means running the same short sum
-            hundreds of thousands of times. A graphics card runs thousands of
-            those at once, where the processor takes them one after another, so
-            a search that takes a minute on the processor can finish in seconds
-            on the card. JASWA still does all of it on your own computer — the
-            card is another part of your machine, not a service somewhere else.
+            Your processor runs every calculation one at a time whereas your
+            graphics card runs thousands of those at once. You should utilize
+            this, unless it causes the program to misbehave.
           </p>
-          <div className="stack tight">
-            <p className="field-legend">Acceleration</p>
-            <CheckboxRow label="Use the graphics card for heavy calculations" checked={hardwareAcceleration}
-              onChange={onHardwareAcceleration} />
-            {/* The way out, said before it is needed. Turning this off is the
-                first thing to try if a workspace draws oddly or the machine
-                grows hot, and a user who is not told that will reach for the
-                browser's own settings instead. */}
-            <p className="lead">
-              Leave this on unless something looks wrong. JASWA falls back to the
-              processor on its own where no card is available, so switching it
-              off is only worth doing if a calculation misbehaves.
-            </p>
-          </div>
+          <CheckboxRow label="Use the graphics card for heavy calculations" checked={hardwareAcceleration}
+            onChange={onHardwareAcceleration} />
         </div>
 
         <div className="settings-rule" role="presentation" />
 
         <aside className="settings-aside">
-          {/* The whole verdict is one live region rather than the word alone:
-              the sentence under it changes with the word and is the part that
-              says what to do about it, so announcing one without the other
-              would give a listener half the answer. */}
-          <section className={`statistics acceleration ${status.state}`} role="status">
-            <h4>Connection</h4>
+          {/* A mark, a word, and the card's name: the box says what happened and
+              what it happened to, and the panel's own heading says what it is
+              about. A "Connection" heading over it and a sentence under it were
+              both restating one of those two.
+
+              Named for a listener, since the heading that named it is gone, and
+              one live region so the verdict and the card it refers to are
+              announced together rather than as two unrelated changes. */}
+          <section className={`statistics acceleration ${status.state}`} role="status" aria-label="Graphics card connection">
             <div className="acceleration-verdict">
               {/* The mark restates the word beside it, so it is hidden from a
                   reader who is listening rather than read out twice. */}
               <AccelerationMark state={status.state} />
               <p className="acceleration-word">{accelerationWords[status.state]}</p>
             </div>
-            <p className="acceleration-detail">{status.detail}</p>
-            <dl>
-              <div>
-                <dt>Graphics card</dt>
-                <dd className="acceleration-adapter">{status.adapterName}</dd>
-              </div>
-            </dl>
+            <p className="acceleration-adapter">
+              <span>Graphics card:</span> <b>{status.adapterName}</b>
+            </p>
           </section>
         </aside>
       </div>

@@ -872,13 +872,13 @@ button { cursor: pointer; }
 
 /* ------------------------------------------- hardware acceleration status */
 
-/* The statistics box, reporting a verdict instead of a figure. It takes its
-   ring from the state it is in, so the answer is legible from across the page
-   before a word of it has been read.
+/* The statistics box, reporting a verdict instead of a figure.
 
-   The base block washes itself gold, which would tint a red verdict amber, so
-   the ground goes back to plain --sunk and the colour in the box is only ever
-   the colour of the answer.
+   The border is the ordinary --line every box on the page carries, and the base
+   block's gold ring and wash are dropped with it: the edge says "this is a box",
+   the same as every other edge, and the mark and the word inside say what
+   happened. A ring that changed colour made the whole box the status light and
+   left the reader nothing quieter to read it against.
 
    Every part below is given its height rather than fitted to its content: the
    mark, the word and the lines under them are the same size in all four states,
@@ -886,28 +886,29 @@ button { cursor: pointer; }
    beside it is pushed by the reader's own click. */
 .statistics.acceleration {
   --state: var(--faint);
-  border-color: var(--state);
+  border-color: var(--line);
   background: var(--sunk);
   box-shadow: none;
 }
 .statistics.acceleration.ready { --state: var(--state-good); }
 .statistics.acceleration.disabled { --state: var(--state-warn); }
 .statistics.acceleration.unavailable { --state: var(--state-bad); }
-.statistics.acceleration h4 { color: var(--ink); }
 
-/* The measure stays at .lead's 68ch — set to the column's full width the
-   paragraph read as one long band and the panel looked emptier, not fuller. The
-   two items are spaced as the settings layout spaces its own, and the column is
-   left shorter than the box beside it: the alternative is padding the prose to
-   fill a height, which is writing to a layout rather than to the reader. */
-.acceleration-choice { gap: var(--s5); }
-/* The legend and its checkbox stay tight to each other; the note explaining
-   when to use the switch is a separate thought and stands off by a full step. */
-.acceleration-choice .checkbox-row + .lead { margin-top: var(--s2); }
+/* Two lines and a checkbox make a column far shorter than the status box beside
+   them, and that is left alone: prose written to fill a height is written to the
+   layout rather than to the reader.
 
+   `.lead`'s 68ch measure is widened here, though. At 68ch the two sentences
+   wrapped into three short lines with a band of empty panel to their right; at
+   the column's full width they ran to two very long ones. 95ch puts the break
+   between the sentences, so each is a line of its own. */
+.acceleration-choice { gap: var(--s4); }
+.acceleration-choice .lead { max-width: 95ch; }
+
+/* No heading above it any more, so the mark starts at the top of the box. */
 .acceleration-verdict {
   display: flex; align-items: center; gap: var(--s3);
-  margin: var(--s4) 0 var(--s3);
+  margin: 0 0 var(--s3);
 }
 .acceleration-mark {
   flex: 0 0 auto;
@@ -925,41 +926,30 @@ button { cursor: pointer; }
   letter-spacing: -.02em;
   color: var(--state);
 }
-/* Three lines held open for a sentence that runs to two or three depending on
-   what the browser said, so the card's name below it never moves. */
-.acceleration-detail {
-  margin: 0 0 var(--s4);
-  min-height: calc(3 * 1.45em);
-  color: var(--dim);
-  font-size: var(--t-body); line-height: 1.45;
-}
-/* One entry, so the base block's first-child reset would leave it with no rule
-   at all and the card's name would run straight on from the sentence above it.
-   The hairline is put back, and the row stacks rather than splitting label left
-   and value right — a name is not a figure to line a column up on. */
-.statistics.acceleration dl > div {
-  display: block;
-  padding-top: var(--s3);
-  border-top: 1px solid var(--line-strong);
-}
-/* The card names itself at whatever length it likes — "NVIDIA GeForce RTX 4070"
-   from one browser, a bare vendor from another that would rather not be
-   fingerprinted — so it wraps, and it is set as prose: a name, not a figure, and
-   `.statistics dd`'s 32px gold numerals made it look like a reading. That rule
-   is a class and an element, so this one is qualified by the block to outrank
-   it. Two lines are held open, because unticking the box swaps a wrapping name
-   for a short one and the box must not shrink under the click that did it. */
-.statistics.acceleration dd.acceleration-adapter {
-  margin: var(--s1) 0 0;
-  min-height: calc(2 * 1.45em);
-  font-family: var(--sans);
-  font-size: var(--t-body); font-weight: 500;
+/* Label and value on one line, with no rule between them and the verdict: with
+   only one fact left under the mark, a hairline separated a box from nothing.
+
+   The card names itself at whatever length it likes — "NVIDIA GeForce RTX 4070"
+   from one browser, a bare "amd rdna-4" from another that would rather not be
+   fingerprinted — so the value wraps to a second line where it needs one.
+
+   Exactly two lines: fixed, not a floor. Every real model fits, and holding a
+   third open for the one pathological name that would need it cost twenty
+   blank pixels under every ordinary card. A name past two lines is clipped
+   rather than allowed to grow the box under the reader's own click, and keeps
+   its full text for anyone reading the page by other means. */
+.acceleration-adapter {
+  margin: 0;
+  height: calc(2 * 1.45em);
+  overflow: hidden;
+  font-size: var(--t-body);
   line-height: 1.45;
-  letter-spacing: 0;
-  color: var(--ink);
-  white-space: normal;
   overflow-wrap: anywhere;
 }
+/* The two-tone device the house style already uses for primary against
+   secondary: the label dimmed, the answer in full ink. */
+.acceleration-adapter span { color: var(--dim); font-weight: 400; }
+.acceleration-adapter b { color: var(--ink); font-weight: 700; }
 
 /* --------------------------------------------------------------- presets */
 
