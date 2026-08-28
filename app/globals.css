@@ -127,7 +127,7 @@ button { cursor: pointer; }
 
 /* wordmark — the glyph keeps its square, the name sits beside it */
 .rail-brand {
-  display: flex; align-items: center; gap: var(--s3);
+  display: flex; align-items: center; gap: var(--s4);
   padding: 0 var(--s2);
   height: 44px;
   margin-bottom: var(--s4);
