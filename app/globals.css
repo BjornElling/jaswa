@@ -141,6 +141,17 @@ button { cursor: pointer; }
   font-size: var(--t-title); font-weight: 600;
   letter-spacing: -.015em;
 }
+/* The SW the name is a pun on. It is marked with the app's own underline
+   device rather than a rule of its own, so the wordmark uses the same
+   mechanism as every other gold underline here; the offset keeps it off
+   the baseline, and the thickness is fixed so it stays a hairline instead
+   of thickening with the 18px type. */
+.brand-sw {
+  color: var(--gold);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
 
 /* each group is its own element, so the spacing lives between groups
    rather than on the heading — the first group then starts flush. */
