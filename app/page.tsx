@@ -101,6 +101,7 @@ type MonsterRow = {
   artifactTypes: EquipmentPrimaryTypeSlot[];
   relicTypes: EquipmentPrimaryTypeSlot[];
   index: number;
+  inStorage: boolean;
   level: number | null;
   hp: number | null;
   atk: number | null;
@@ -160,6 +161,14 @@ function dateTime(value?: string): string {
   return new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'short' }).format(parsed);
 }
 function numericOrNull(value: unknown): number | null { return typeof value === 'number' && Number.isFinite(value) ? value : null; }
+/* The game export marks a monster's whereabouts with `building_id`: zero for
+   the roster it summons from, the Monster Storage building's own id for
+   anything put away. A missing field is read as "not stored", so a file that
+   predates the field still shows its whole roster rather than none of it. */
+function isStoredMonster(monster: MonsterRecord): boolean {
+  const buildingId = numericOrNull(monster.building_id);
+  return buildingId !== null && buildingId !== 0;
+}
 const equipmentPrimaryTypes: Record<number, EquipmentPrimaryType> = { 100: 'HP', 101: 'ATK', 102: 'DEF' };
 function primaryEquipmentType(item: unknown): EquipmentPrimaryTypeSlot {
   if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
@@ -605,6 +614,9 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
   const [search, setSearch] = useState('');
   const [selectedElements, setSelectedElements] = useState<string[]>([]);
   const [selectedArchetypes, setSelectedArchetypes] = useState<MonsterArchetype[]>([]);
+  /* The roster reads as the whole account by default; storage is a place a
+     monster sits, not a reason to hide it. */
+  const [showStorage, setShowStorage] = useState(true);
   const stickyHeaderTable = useRef<HTMLTableElement>(null);
   const rosterTable = useRef<HTMLTableElement>(null);
 
@@ -653,6 +665,7 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
         artifactTypes: equippedEquipmentTypes(monster, 'artifacts'),
         relicTypes: equippedEquipmentTypes(monster, 'relics'),
         index,
+        inStorage: isStoredMonster(monster),
         level: numericOrNull(monster.unit_level),
         hp, atk, def, spd, criticalRate, criticalDamage,
         resistance: numericOrNull(monster.resist) === null ? null : totals.resistance,
@@ -672,6 +685,7 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
     const filtered = rows.filter((row) => {
+      if (!showStorage && row.inStorage) return false;
       if (selectedElements.length && (!row.element || !selectedElements.includes(row.element))) return false;
       if (selectedArchetypes.length && (!row.archetype || !selectedArchetypes.includes(row.archetype))) return false;
       if (!term) return true;
@@ -694,7 +708,7 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
       }
       return compareNumbersWithBlanks(left[key], right[key], direction) || left.index - right.index;
     });
-  }, [rows, search, selectedElements, selectedArchetypes, sort]);
+  }, [rows, search, selectedElements, selectedArchetypes, showStorage, sort]);
 
   function toggleSort(key: SortKey) {
     setSort((current) => current.key === key
@@ -766,6 +780,14 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
           onClick={() => toggleArchetype(archetype)}
           aria-pressed={selectedArchetypes.includes(archetype)}
         >{monsterArchetypeLabels[archetype]}</button>)}
+      </div>
+      <div className="filter-group" role="group" aria-label="Filter by storage">
+        <span className="filter-label">Storage</span>
+        <button
+          className={showStorage ? 'filter-button active' : 'filter-button'}
+          onClick={() => setShowStorage((current) => !current)}
+          aria-pressed={showStorage}
+        >Storage mons</button>
       </div>
       <span className="monster-filter-count"><b>{visible.length}</b> of {rows.length} shown</span>
     </div>
