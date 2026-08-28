@@ -2,6 +2,7 @@
 
 import { ChangeEvent, DragEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
+import { WorkspacePage } from './components/workspace-page';
 import { clearImportedGame, loadImportedGame, loadPreferences, saveImportedGame, savePreferences } from './lib/local-store';
 import { blankPreferences, createImportedGame, defaultRunePotentialSettings, fileToText, importPreferencesFile, itemGrades, normalizeImportedGame, normalizePreferences, validateGameFile } from './lib/imports';
 import { monsterPresentation } from './lib/monster-catalog';
@@ -347,17 +348,18 @@ export default function Home() {
         onImport={() => settingsInput.current?.click()}
       />}
 
-      {(page === 'optimizer' || page === 'speed' || page === 'artifacts' || page === 'gems' || page === 'relics') && <div className="section-body">
-        <PageHeader
+      {(page === 'optimizer' || page === 'speed' || page === 'artifacts' || page === 'gems' || page === 'relics') && <WorkspacePage
+        header={<PageHeader
           title={upcomingWorkspaces[page].title}
-          tagline={upcomingWorkspaces[page].tagline} />
+          tagline={upcomingWorkspaces[page].tagline} />}
+      >
         <section className="empty-state">
           <h2>{upcomingWorkspaces[page].text}</h2>
           <p className="next-step">{game
             ? 'Your current import is ready for this workspace. The calculation rules are being written next.'
             : 'Import your game data first. Your preferences can be prepared at any time.'}</p>
         </section>
-      </div>}
+      </WorkspacePage>}
     </section>
 
     <input ref={gameInput} type="file" accept="application/json,.json" hidden
@@ -421,12 +423,8 @@ function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLe
   onImportPreferences: () => void;
 }) {
   const unknownMonsterIds = game?.report.unknownMonsterIds ?? [];
-  return <div className="section-body">
-    {/* The home page announces the app rather than the section, so it opens
-        with the name spelled out instead of the shared PageHeader. The three
-        lines step to the right and the middle one carries the accent: the
-        initials the name is built from are what the eye should catch. */}
-    <header className="hero">
+  return <WorkspacePage
+    header={<header className="hero">
       <div className="hero-rune" aria-hidden="true">
         <Image src="/favicon.svg" alt="" width={520} height={520} priority />
       </div>
@@ -441,8 +439,12 @@ function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLe
           The last beat is the one that never ends, so it is the one that
           takes the colour. */}
       <p className="hero-quote">Roll. Sell. <span>Repeat.</span></p>
-    </header>
-
+    </header>}
+  >
+    {/* The home page announces the app rather than the section, so it opens
+        with the name spelled out instead of the shared PageHeader. The three
+        lines step to the right and the middle one carries the accent: the
+        initials the name is built from are what the eye should catch. */}
     <section className="panel">
       <h3 className="block-title">Game data</h3>
       <div className="stack">
@@ -499,7 +501,7 @@ function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLe
         </div>
       </div>
     </section>
-  </div>;
+  </WorkspacePage>;
 }
 
 /* -------------------------------------------------------------- monsters */
@@ -877,10 +879,11 @@ function RunePotentialSection({ settings, presets, onUpdate, onWritePresets }: {
     setDeleting(null);
   }
 
-  return <div className="section-body">
-    <PageHeader
+  return <WorkspacePage
+    header={<PageHeader
       title="Rune Potential"
-      tagline="Which runes deserve your mana. Set your tolerance for disappointment below." />
+      tagline="Which runes deserve your mana. Set your tolerance for disappointment below." />}
+  >
 
     <Disclosure title="Settings" defaultOpen>
       <div className="stack">
@@ -1063,7 +1066,7 @@ function RunePotentialSection({ settings, presets, onUpdate, onWritePresets }: {
         </div>
       </section>
     </div>}
-  </div>;
+  </WorkspacePage>;
 }
 
 /**
@@ -1444,15 +1447,16 @@ function PreferencesSection({ monsters, preferences, onUpdate, onExport, onImpor
 }) {
   const [search, setSearch] = useState('');
 
-  if (!monsters.length) return <div className="section-body">
-    <PageHeader
+  if (!monsters.length) return <WorkspacePage
+    header={<PageHeader
       title="Call them what you call them"
-      tagline="Give each monster the name you actually use and the goals you actually have. Kept separate from the import, so replacing your data keeps them." />
+      tagline="Give each monster the name you actually use and the goals you actually have. Kept separate from the import, so replacing your data keeps them." />}
+  >
     <section className="empty-state">
       <h2>Nothing to name until a game file is imported.</h2>
       <p className="next-step">Go to Home and drop in the JSON file exported from Summoners War.</p>
     </section>
-  </div>;
+  </WorkspacePage>;
 
   const defaultNames = numberedMonsterNames(monsters);
   const term = search.trim().toLowerCase();
@@ -1463,7 +1467,11 @@ function PreferencesSection({ monsters, preferences, onUpdate, onExport, onImpor
     return (preference?.label || defaultNames[unitId]).toLowerCase().includes(term);
   });
 
-  return <>
+  return <WorkspacePage
+    header={<PageHeader
+      title="Call them what you call them"
+      tagline="Give each monster the name you actually use and the goals you actually have. Kept separate from the import, so replacing your data keeps them." />}
+  >
     <div className="filter-strip">
       <div className="filter-group">
         <div className="search-field">
@@ -1523,7 +1531,7 @@ function PreferencesSection({ monsters, preferences, onUpdate, onExport, onImpor
       <span className="spacer" />
       <span>saved on this computer</span>
     </div>
-  </>;
+  </WorkspacePage>;
 }
 
 /**

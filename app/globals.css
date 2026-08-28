@@ -53,9 +53,10 @@
   --badge-width: 440px;
   --badge-height: 78px;
 
-  /* the reading measure. Prose and forms stop here instead of running to the
-     far edge of a wide display; the gutter keeps content off the rail. */
+  /* The legacy measure remains for the intentionally table-first Monsters
+     view. Every ordinary workspace uses --workspace-max below. */
   --measure: 1120px;
+  --workspace-max: 1480px;
   --measure-grid: 1680px;
   --gutter: var(--s6);
 
@@ -218,7 +219,10 @@ button { cursor: pointer; }
 .import-badge {
   position: absolute;
   top: var(--s4);
-  right: var(--gutter);
+  /* Align the status card with the standard page frame rather than the far
+     edge of a large viewport. The max keeps the normal gutter on narrower
+     workspaces, where the frame already fills the available width. */
+  right: max(var(--gutter), calc((100% - var(--workspace-max)) / 2 + var(--gutter)));
   z-index: 20;
   margin: 0;
   padding: var(--s2) var(--s3);
@@ -481,9 +485,35 @@ button { cursor: pointer; }
 
 /* ------------------------------------------------------------- sections */
 
+/* Standard pages share one frame: the header starts at the workspace top,
+   and its outside edge is the same edge every panel and content block uses.
+   Only the Monsters view opts out because its dense table is deliberately a
+   full-workspace surface. */
+.workspace-page {
+  width: min(100%, var(--workspace-max));
+  margin: 0 auto;
+  padding: 0 var(--gutter) var(--s7);
+  overflow-x: clip;
+}
+.workspace-page-content { min-width: 0; }
+
+/* The header's box reaches the same width as the content below. Its text
+   reserves the status card's corner, while the rule and wash stay whole. */
+.workspace-page .page-header,
+.workspace-page .hero {
+  margin: 0 0 var(--s6);
+  padding: var(--s5) min(40%, calc(var(--badge-width) + var(--s4))) var(--s5) var(--s5);
+}
+.workspace-page .page-header::before {
+  left: 0;
+  right: 0;
+  top: 0;
+}
+.workspace-page .hero { padding-bottom: var(--s6); }
+
 /* Prose sections stop at the reading measure and centre inside the
-   workspace, so a wide display shows a balanced column instead of pushing
-   everything into the top-left corner. */
+   workspace, so the separate, table-first Monsters empty state retains its
+   current presentation. */
 .section-body {
   width: 100%;
   max-width: var(--measure);
@@ -1065,19 +1095,12 @@ button { cursor: pointer; }
    headline at the reader. */
 /* Usually the title leads, so the block sets its own top space; when an
    eyebrow is present it takes that role and the title tucks up beneath it. */
-/* Every section header — the shared one and the home page's own — opens at
-   the same distance from the top of the content column and runs to the same
-   edges, so switching sections does not shift the page under the reader.
-   The two share these through the tokens rather than by repeating numbers. */
+/* The shared header treatment is deliberately independent of page geometry.
+   .workspace-page owns placement; the legacy Monsters empty state keeps its
+   former offsets until that view gets a purpose-built redesign. */
 .page-header, .hero {
   position: relative;
   margin: 0 0 var(--s6);
-  /* --s5 to the sides is a panel's own padding: it puts a section title on
-     the same line as the headings and prose inside the panels beneath it,
-     rather than on the line of the panel's outer edge, which is where the
-     eye reads a column from. The right side also keeps the title clear of
-     the import badge in the corner, which is the only thing up here it can
-     run into. */
   padding: var(--s2) var(--s5) 0;
   border-bottom: 1px solid var(--line-strong);
 }
@@ -1798,6 +1821,8 @@ button { cursor: pointer; }
   .rail-spacer { display: none; }
   .search-field { width: 180px; }
   .section-body { padding-top: var(--s5); }
+  .workspace-page .page-header,
+  .workspace-page .hero { padding-right: 0; }
 
   /* there is no spare corner at this width, so the badge stops floating and
      simply opens the workspace as a right-aligned line of its own */
