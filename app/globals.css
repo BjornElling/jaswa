@@ -508,7 +508,20 @@ button { cursor: pointer; }
   right: 0;
   top: 0;
 }
-.workspace-page .hero { padding-bottom: var(--s6); }
+.workspace-page .hero {
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-bottom: var(--s5);
+}
+
+/* On a roomy workspace the home hero has enough clear ground below the
+   corner status card to use its own right edge. The quote is therefore
+   aligned to that edge with the header's fixed inset, not the status card. */
+@media (min-width: 1400px) {
+  .workspace-page .hero { padding-right: var(--s5); }
+}
 
 /* Prose sections stop at the reading measure and centre inside the
    workspace, so the separate, table-first Monsters empty state retains its
