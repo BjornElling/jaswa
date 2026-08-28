@@ -1069,7 +1069,11 @@ button { cursor: pointer; }
 .page-header, .hero {
   position: relative;
   margin: 0 0 var(--s6);
-  padding-top: var(--s2);
+  /* --s5 to the sides is a panel's own padding: it puts a section title on
+     the same line as the headings and prose inside the panels beneath it,
+     rather than on the line of the panel's outer edge, which is where the
+     eye reads a column from. */
+  padding: var(--s2) var(--s5) 0;
   border-bottom: 1px solid var(--line-strong);
 }
 
