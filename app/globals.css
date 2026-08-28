@@ -356,7 +356,7 @@ button { cursor: pointer; }
   overflow: hidden;
   background: var(--raise);
 }
-.monster-header-wrap .monster-grid { will-change: transform; }
+.monster-header-wrap .monster-grid { margin-inline: auto; will-change: transform; }
 .monster-header-wrap .grid-table thead th { position: static; }
 .table-wrap { overflow: auto; }
 
