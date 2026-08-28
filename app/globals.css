@@ -1100,28 +1100,35 @@ button { cursor: pointer; }
 }
 /* `accent-color` only paints the tick and its fill; an unchecked box keeps the
    browser's white, which is a hole in a dark page. The box is drawn here
-   instead, on the sunk ground the text fields already use, and the tick is a
-   stroked mark in the accent — the same "you can act on this" gold the filter
-   buttons carry. */
+   instead, and the tick is a stroked mark in the accent — the same "you can act
+   on this" gold the filter buttons carry.
+
+   A text field can sit on --sunk and still be found, because it is wide and
+   ringed all the way round. At 16px square that reads as a smudge, so the box
+   is raised above the page ground rather than cut into it, and takes the
+   --ghost border that marks the edge of something empty but present. */
 .checkbox-row input, .filter-checkbox {
   appearance: none; -webkit-appearance: none;
-  width: 15px; height: 15px; margin: 0;
+  width: 16px; height: 16px; margin: 0;
   flex: 0 0 auto;
-  background: var(--sunk);
-  border: 1px solid var(--line-strong);
+  background: var(--raise);
+  border: 1px solid var(--ghost);
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background .12s, border-color .12s;
 }
-.checkbox-row input:hover, .filter-checkbox:hover { border-color: var(--gold-edge); }
+.checkbox-row input:hover, .filter-checkbox:hover {
+  background: var(--hover);
+  border-color: var(--gold);
+}
 /* The tick is a background image rather than a pseudo-element: `input` is a
    replaced element and cannot carry ::after in every browser. */
 .checkbox-row input:checked, .filter-checkbox:checked {
   background:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23d9ad52' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5 6.5 11.5 12.5 4.5'/%3E%3C/svg%3E")
-    center / 13px 13px no-repeat,
+    center / 14px 14px no-repeat,
     var(--gold-deep);
-  border-color: var(--gold-edge);
+  border-color: var(--gold);
 }
 /* A checkbox standing on its own in the filter strip, named by the group's
    label rather than by text of its own. A filter button pads its text by --s3
