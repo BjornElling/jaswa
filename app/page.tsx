@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { WorkspacePage } from './components/workspace-page';
 import { clearImportedGame, loadImportedGame, loadPreferences, saveImportedGame, savePreferences } from './lib/local-store';
 import { blankPreferences, createImportedGame, defaultRunePotentialSettings, fileToText, importPreferencesFile, itemGrades, normalizeImportedGame, normalizePreferences, validateGameFile } from './lib/imports';
-import { monsterArchetypes, monsterPresentation } from './lib/monster-catalog';
+import { monsterPresentation } from './lib/monster-catalog';
 import type { MonsterArchetype } from './lib/monster-catalog';
 import { calculateMonsterTotals } from './lib/monster-stats';
 import { calculateRunePotentialMetrics, displayRunePotentialMetric } from './lib/rune-potential-metrics';
@@ -25,6 +25,7 @@ type EquipmentPrimaryTypeSlot = EquipmentPrimaryType | null;
 const monsterArchetypeLabels: Record<MonsterArchetype, string> = {
   Attack: 'ATK', Defense: 'DEF', HP: 'HP', Support: 'SUP', Material: 'MAT', none: 'NONE',
 };
+const monsterFilterArchetypes: MonsterArchetype[] = ['Attack', 'Defense', 'HP', 'Support'];
 
 type NavigationItem = { id: Page; label: string; glyph: string };
 
@@ -759,7 +760,7 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
       </div>
       <div className="filter-group" role="group" aria-label="Filter by monster type">
         <span className="filter-label">Type</span>
-        {monsterArchetypes.map((archetype) => <button
+        {monsterFilterArchetypes.map((archetype) => <button
           key={archetype}
           className={selectedArchetypes.includes(archetype) ? 'filter-button active' : 'filter-button'}
           onClick={() => toggleArchetype(archetype)}
