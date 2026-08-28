@@ -351,7 +351,7 @@ button { cursor: pointer; }
 /* the grid gets the same left gutter as prose, so a row's first character
    lines up with a section heading instead of hugging the rail. */
 .grid-table { width: 100%; border-collapse: collapse; font-size: var(--t-body); }
-.monster-grid { min-width: 1512px; table-layout: fixed; }
+.monster-grid { min-width: 1848px; table-layout: fixed; }
 .monster-grid .monster-col-index { width: 72px; }
 .monster-grid .monster-col-name { width: 240px; }
 .monster-grid .monster-col-sets { width: 136px; }
@@ -367,6 +367,9 @@ button { cursor: pointer; }
 .monster-grid .monster-col-efficiency { width: 104px; }
 .monster-grid .monster-col-artifacts { width: 112px; }
 .monster-grid .monster-col-relic { width: 80px; }
+.monster-grid .monster-col-ehp,
+.monster-grid .monster-col-ehpD,
+.monster-grid .monster-col-dmg { width: 112px; }
 .grid-table thead th:first-child,
 .grid-table tbody td:first-child { padding-left: var(--gutter); }
 .grid-table thead th:last-child,

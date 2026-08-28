@@ -8,6 +8,7 @@ import { blankPreferences, createImportedGame, defaultRunePotentialSettings, fil
 import { monsterPresentation } from './lib/monster-catalog';
 import { calculateMonsterEfficiency } from './lib/monster-efficiency';
 import { calculateMonsterTotals } from './lib/monster-stats';
+import { calculateRunePotentialMetrics, displayRunePotentialMetric } from './lib/rune-potential-metrics';
 import { activeRuneSets, elementName, presetRuneSetNameList } from './lib/rune-sets';
 import {
   createRunePotentialPreset, presetNameMaximum, presetStatTargetKeys, presetTargetColumns,
@@ -79,7 +80,7 @@ const upcomingWorkspaces: Record<'optimizer' | 'speed' | 'artifacts' | 'gems' | 
   },
 };
 
-type NumericSortKey = 'level' | 'hp' | 'atk' | 'def' | 'spd' | 'criticalRate' | 'criticalDamage' | 'resistance' | 'accuracy';
+type NumericSortKey = 'level' | 'hp' | 'atk' | 'def' | 'spd' | 'criticalRate' | 'criticalDamage' | 'resistance' | 'accuracy' | 'ehp' | 'ehpD' | 'dmg';
 type EquipmentSortKey = 'artifactTypes' | 'relicTypes';
 type SortKey = 'index' | 'name' | 'sets' | 'efficiency' | EquipmentSortKey | NumericSortKey;
 
@@ -104,6 +105,9 @@ type MonsterRow = {
   criticalDamage: number | null;
   resistance: number | null;
   accuracy: number | null;
+  ehp: number | null;
+  ehpD: number | null;
+  dmg: number | null;
 };
 
 function count(value: unknown): number { return Array.isArray(value) ? value.length : 0; }
@@ -143,6 +147,7 @@ const defaultMonsterSortDirections: Record<SortKey, boolean> = {
   artifactTypes: true, relicTypes: true,
   level: false, hp: false, atk: false, def: false, spd: false,
   criticalRate: false, criticalDamage: false, resistance: false, accuracy: false,
+  ehp: false, ehpD: false, dmg: false,
 };
 function displayNumber(value: number | null): string {
   return value === null ? '—' : value.toLocaleString('en');
@@ -573,6 +578,16 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
       const baseAtk = numericOrNull(monster.atk);
       const baseDef = numericOrNull(monster.def);
       const baseSpd = numericOrNull(monster.spd);
+      const hp = baseHp === null ? null : totals.hp;
+      const atk = baseAtk === null ? null : totals.atk;
+      const def = baseDef === null ? null : totals.def;
+      const spd = baseSpd === null ? null : totals.spd;
+      const criticalRate = numericOrNull(monster.critical_rate) === null ? null : totals.criticalRate;
+      const criticalDamage = numericOrNull(monster.critical_damage) === null ? null : totals.criticalDamage;
+      const metrics = calculateRunePotentialMetrics({
+        atk: totals.atk, hp: totals.hp, def: totals.def,
+        criticalRate: totals.criticalRate, criticalDamage: totals.criticalDamage,
+      });
       return {
         unitId,
         name: preference?.label || defaultNames[unitId],
@@ -586,14 +601,12 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
         efficiency: calculateMonsterEfficiency(monster),
         index,
         level: numericOrNull(monster.unit_level),
-        hp: baseHp === null ? null : totals.hp,
-        atk: baseAtk === null ? null : totals.atk,
-        def: baseDef === null ? null : totals.def,
-        spd: baseSpd === null ? null : totals.spd,
-        criticalRate: numericOrNull(monster.critical_rate) === null ? null : totals.criticalRate,
-        criticalDamage: numericOrNull(monster.critical_damage) === null ? null : totals.criticalDamage,
+        hp, atk, def, spd, criticalRate, criticalDamage,
         resistance: numericOrNull(monster.resist) === null ? null : totals.resistance,
         accuracy: numericOrNull(monster.accuracy) === null ? null : totals.accuracy,
+        ehp: hp === null || def === null ? null : displayRunePotentialMetric(metrics.ehp),
+        ehpD: hp === null || def === null ? null : displayRunePotentialMetric(metrics.ehpD),
+        dmg: atk === null || criticalRate === null || criticalDamage === null ? null : displayRunePotentialMetric(metrics.dmg),
       };
     });
   }, [monsters, preferences]);
@@ -692,9 +705,12 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
           <col className="monster-col-name" />
           <col className="monster-col-sets" />
           {columns.map((column) => <col key={column.key} className={`monster-col-${column.key}`} />)}
-          <col className="monster-col-efficiency" />
           <col className="monster-col-artifacts" />
           <col className="monster-col-relic" />
+          <col className="monster-col-ehp" />
+          <col className="monster-col-ehpD" />
+          <col className="monster-col-dmg" />
+          <col className="monster-col-efficiency" />
         </colgroup>
         <thead>
           <tr>
@@ -702,9 +718,12 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
             {sortHeader('name', 'Monster', true)}
             {sortHeader('sets', 'Runes', true)}
             {columns.map((column) => sortHeader(column.key, column.label))}
-            {sortHeader('efficiency', 'EFF')}
             {sortHeader('artifactTypes', 'Artifacts', false, 'equipment-start')}
             {sortHeader('relicTypes', 'Relic')}
+            {sortHeader('ehp', 'E.HP')}
+            {sortHeader('ehpD', 'E.HP D')}
+            {sortHeader('dmg', 'DMG')}
+            {sortHeader('efficiency', 'R. Eff %')}
           </tr>
         </thead>
         <tbody>
@@ -733,14 +752,17 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
             <td className={row.criticalDamage === null ? 'muted' : undefined}>{displayNumber(row.criticalDamage)}</td>
             <td className={row.resistance === null ? 'muted' : undefined}>{displayNumber(row.resistance)}</td>
             <td className={row.accuracy === null ? 'muted' : undefined}>{displayNumber(row.accuracy)}</td>
-            <td className={row.efficiency === null ? 'muted' : undefined}>
-              {row.efficiency === null ? '—' : `${row.efficiency.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`}
-            </td>
             <td className={row.artifactTypes.some((type) => type !== null) ? 'equipment-start equipment-types' : 'equipment-start muted'}>
               {displayArtifactTypes(row.artifactTypes)}
             </td>
             <td className={row.relicTypes.some((type) => type !== null) ? 'equipment-types' : 'muted'}>
               {displayRelicType(row.relicTypes)}
+            </td>
+            <td className={row.ehp === null ? 'muted' : undefined}>{displayNumber(row.ehp)}</td>
+            <td className={row.ehpD === null ? 'muted' : undefined}>{displayNumber(row.ehpD)}</td>
+            <td className={row.dmg === null ? 'muted' : undefined}>{displayNumber(row.dmg)}</td>
+            <td className={row.efficiency === null ? 'muted' : undefined}>
+              {row.efficiency === null ? '—' : `${row.efficiency.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`}
             </td>
           </tr>)}
         </tbody>
@@ -756,7 +778,7 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
         {element && <><span aria-hidden="true">·</span><span><b>{element}</b></span></>}
         {search && <><span aria-hidden="true">·</span><span>matching <b>{search}</b></span></>}
       </span>
-      <span>EFF is the average of six equipped runes</span>
+      <span>R. Eff % is the average of six equipped runes</span>
     </div>
   </>;
 }
