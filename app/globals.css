@@ -509,7 +509,7 @@ button { cursor: pointer; }
   top: 0;
 }
 .workspace-page .hero {
-  min-height: 400px;
+  min-height: 352px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -1212,7 +1212,7 @@ button { cursor: pointer; }
   aspect-ratio: 1;
   /* The line under the name crosses it, which is the intent: the rune is
      ground, not an object the text has to avoid. */
-  opacity: .1;
+  opacity: .06;
   pointer-events: none;
 }
 @media (max-width: 1180px) {
@@ -1265,7 +1265,7 @@ button { cursor: pointer; }
   /* Pushed to the far edge of the content column, mirroring the name's own
      flush left edge, so the header is bracketed evenly. The stair of the
      name runs left to right and this finishes the movement. */
-  margin: var(--s6) 0 0 auto;
+  margin: var(--s6) var(--s7) 0 auto;
   width: fit-content;
   /* Great Vibes has a small x-height for its point size and its joins close
      up below about 40px, so it is set far larger than the sans it replaced
