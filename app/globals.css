@@ -400,6 +400,7 @@ button { cursor: pointer; }
 }
 .grid-table thead th.sortable { cursor: pointer; }
 .grid-table thead th.sortable:hover { color: var(--ink); }
+.grid-table thead th.sortable.sorted:hover { color: var(--gold); }
 .grid-table thead th.align-left { text-align: left; }
 .grid-table thead th.sorted { color: var(--gold); }
 /* Every sortable header reserves the arrow's width from the outset and shows
@@ -429,6 +430,7 @@ button { cursor: pointer; }
 }
 .grid-table thead th.sortable:hover .table-sort-button::after { opacity: .35; }
 .grid-table thead th.sorted .table-sort-button::after { opacity: 1; }
+.grid-table thead th.sortable.sorted:hover .table-sort-button::after { opacity: 1; }
 .grid-table thead th.sorted.ascending .table-sort-button::after { content: '↑'; }
 .grid-table thead th.reserved { color: var(--faint); font-style: italic; }
 
