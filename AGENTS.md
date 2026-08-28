@@ -32,6 +32,9 @@ server.**
 
 - Do not start, stop, replace, or take ownership of the development server
   unless the user explicitly asks.
+- Codex in VS Code has no usable browser-control surface here. Do not attempt
+  browser, screenshot, click, or visual-interaction verification, and do not
+  report its absence as a blocked check.
 - Do not deploy, publish, save a hosted version, obtain hosting credentials,
   or push to a hosting remote unless the user explicitly asks to publish or
   deploy. The presence of `.openai/hosting.json` is not publication approval.
