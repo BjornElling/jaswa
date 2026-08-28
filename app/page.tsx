@@ -411,6 +411,13 @@ function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLe
         <span aria-hidden="true" className="hero-line two">Summoners War</span>
         <span aria-hidden="true" className="hero-line three">App</span>
       </h2>
+      {/* The game's actual loop, said the way a player would say it. It sits
+          below the name and steps further right than any line of it, so the
+          eye finishes the name and lands here. */}
+      <blockquote className="hero-quote">
+        <p>Roll. Sell. Repeat.</p>
+        <cite>every rune you have ever ground</cite>
+      </blockquote>
     </header>
 
     <section className="panel">

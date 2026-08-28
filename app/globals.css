@@ -1177,6 +1177,40 @@ button { cursor: pointer; }
   color: var(--ink);
   margin-left: clamp(var(--s6), 8vw, 148px);
 }
+/* The line under the name. It is set as a quotation because that is what it
+   is — the loop the game actually runs on, in a player's words. Dropped well
+   below the name and stepped past even the deepest line of it, so it reads
+   as an aside to the title rather than a fourth line of it. */
+.hero-quote {
+  margin: var(--s6) 0 0;
+  padding: var(--s1) 0 var(--s1) var(--s4);
+  /* the same step as the App line above, so the quote continues the stair
+     rather than looking as though it slid off the bottom of it */
+  margin-left: clamp(var(--s6), 8vw, 148px);
+  /* the gold rule, not a gold fill: the accent stays a marker here, and the
+     wordmark above keeps the only large area of it on the page */
+  border-left: 2px solid var(--gold);
+  max-width: 46ch;
+}
+.hero-quote p {
+  margin: 0;
+  font-size: clamp(19px, 1.9vw, 25px);
+  font-weight: 600;
+  letter-spacing: -.02em;
+  color: var(--ink);
+  /* the words are the beat: let them breathe rather than tuck up tight */
+  word-spacing: .06em;
+}
+.hero-quote cite {
+  display: block;
+  margin-top: var(--s2);
+  font-style: normal;
+  font-family: var(--mono);
+  font-size: var(--t-small);
+  letter-spacing: .04em;
+  color: var(--faint);
+}
+
 .section-intro { margin: 0 0 var(--s5); max-width: 68ch; }
 .section-intro h2 {
   margin: 0;
