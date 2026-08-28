@@ -1,7 +1,8 @@
 @import 'tailwindcss';
 /* The italic axis is requested explicitly: without it the browser synthesises
-   one by shearing the upright, which shows badly at display sizes. */
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=JetBrains+Mono:wght@400;500;700&display=swap');
+   one by shearing the upright, which shows badly at display sizes. Great Vibes
+   is the home hero's one display face and is used nowhere else. */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=JetBrains+Mono:wght@400;500;700&family=Great+Vibes&display=swap');
 
 /* =====================================================================
    JASWA — Obsidian Grid
@@ -1183,15 +1184,26 @@ button { cursor: pointer; }
    nothing but itself: no rule, no attribution. Italic and a step down in
    weight set it apart from the name above without adding another device. */
 .hero-quote {
-  /* the same step as the App line above, so it sits under the name rather
-     than starting a column of its own */
-  margin: var(--s5) 0 0 clamp(var(--s6), 8vw, 148px);
-  font-size: clamp(18px, 1.8vw, 23px);
-  font-style: italic;
+  /* Stepped past the App line and dropped clear of it: the script needs air
+     on both sides, and at the name's own indent it read as a fourth line of
+     the title rather than as an aside to it. */
+  margin: var(--s6) 0 0 clamp(var(--s7), 13vw, 250px);
+  /* Great Vibes has a small x-height for its point size and its joins close
+     up below about 40px, so it is set far larger than the sans it replaced
+     while occupying much the same optical weight. */
+  font-family: 'Great Vibes', 'Apple Chancery', cursive;
+  font-size: clamp(38px, 3.6vw, 52px);
   font-weight: 400;
-  letter-spacing: -.01em;
+  font-style: normal;
+  line-height: 1.15;
+  letter-spacing: .01em;
   color: var(--dim);
-  word-spacing: .06em;
+}
+/* The last beat lands, but only just: gold mixed back toward the ground so
+   it stays a shift in temperature rather than a second accent competing
+   with the wordmark above. */
+.hero-quote span {
+  color: color-mix(in srgb, var(--gold) 62%, var(--faint));
 }
 
 .section-intro { margin: 0 0 var(--s5); max-width: 68ch; }

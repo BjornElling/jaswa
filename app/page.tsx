@@ -411,8 +411,10 @@ function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLe
         <span aria-hidden="true" className="hero-line two">Summoners War</span>
         <span aria-hidden="true" className="hero-line three">App</span>
       </h2>
-      {/* The game's actual loop, left to stand on its own under the name. */}
-      <p className="hero-quote">Roll. Sell. Repeat.</p>
+      {/* The game's actual loop, left to stand on its own under the name.
+          The last beat is the one that never ends, so it is the one that
+          takes the colour. */}
+      <p className="hero-quote">Roll. Sell. <span>Repeat.</span></p>
     </header>
 
     <section className="panel">
