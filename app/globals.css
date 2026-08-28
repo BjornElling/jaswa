@@ -1139,16 +1139,16 @@ button { cursor: pointer; }
 }
 .hero > * { position: relative; z-index: 1; }
 
-/* The wash reaches further than a section header's, so the name has
-   something to sit in rather than floating on the flat ground. */
+/* Light on the ground, not a plate. The panels below are real plates with
+   borders, and a wash dense enough to have a visible boundary reads as one
+   of them sitting a few pixels out of line — which is exactly how it looked.
+   Anchored off the top-left corner and faded out well inside the box, it
+   goes back to being a glow behind the name. */
 .hero::before {
   content: '';
   position: absolute;
-  left: calc(var(--s7) * -1);
-  right: calc(var(--s7) * -1);
-  top: calc(var(--s6) * -1);
-  bottom: 0;
-  background: radial-gradient(60% 130% at 2% 20%, rgba(217, 173, 82, .14), transparent 68%);
+  inset: 0;
+  background: radial-gradient(58% 88% at 0% 0%, rgba(217, 173, 82, .1), transparent 72%);
   pointer-events: none;
 }
 
