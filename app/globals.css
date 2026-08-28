@@ -905,7 +905,9 @@ button { cursor: pointer; }
 .acceleration-choice { gap: var(--s4); }
 .acceleration-choice .lead { max-width: 95ch; }
 
-/* No heading above it any more, so the mark starts at the top of the box. */
+/* No heading above it any more, so the mark starts at the top of the box. The
+   margin stays at --s3; the extra air under the verdict comes from the card
+   line's own offset instead, so the box does not grow to pay for it. */
 .acceleration-verdict {
   display: flex; align-items: center; gap: var(--s3);
   margin: 0 0 var(--s3);
@@ -926,18 +928,25 @@ button { cursor: pointer; }
   letter-spacing: -.02em;
   color: var(--state);
 }
-/* Label and value on one line, with no rule between them and the verdict: with
-   only one fact left under the mark, a hairline separated a box from nothing.
+/* The label on its own line and the name under it, with no rule between them and
+   the verdict: with only one fact left under the mark, a hairline separated a
+   box from nothing.
 
-   The card names itself at whatever length it likes — "NVIDIA GeForce RTX 4070"
-   from one browser, a bare "amd rdna-4" from another that would rather not be
-   fingerprinted — so the value wraps to a second line where it needs one.
+   The name always starts the second line — "Not connected" as much as a model
+   — so the label reads as a heading for it rather than sometimes sharing its
+   line and sometimes not.
 
-   Exactly two lines: fixed, not a floor. Every real model fits, and holding a
-   third open for the one pathological name that would need it cost twenty
-   blank pixels under every ordinary card. A name past two lines is clipped
-   rather than allowed to grow the box under the reader's own click, and keeps
-   its full text for anyone reading the page by other means. */
+   Two lines, and no more: the label and the name. Every model the browsers
+   actually report fits on one line at this width — "AMD Radeon RX 9070 XT",
+   "NVIDIA GeForce RTX 4070 Laptop GPU", a bare "amd rdna-4" from a browser that
+   would rather not be fingerprinted. Holding a spare line open for the rare name
+   that would want one left a band of empty box under every ordinary card, which
+   is a real cost paid on every view against a case that may never occur.
+
+   Fixed, not a floor, so the box is the same height in every state and neither
+   grows nor shrinks as the browser answers. A name past one line is clipped
+   rather than pushing the box out under the reader's own click, and keeps its
+   full text in the markup for anyone reading the page by other means. */
 .acceleration-adapter {
   margin: 0;
   height: calc(2 * 1.45em);
@@ -945,6 +954,14 @@ button { cursor: pointer; }
   font-size: var(--t-body);
   line-height: 1.45;
   overflow-wrap: anywhere;
+}
+/* A name too long for its line ends in an ellipsis rather than being cut through
+   a letter, which is what a bare clip did to "Laptop GPU". */
+.acceleration-adapter span, .acceleration-adapter b {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 /* The two-tone device the house style already uses for primary against
    secondary: the label dimmed, the answer in full ink. */

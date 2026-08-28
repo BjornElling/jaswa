@@ -614,8 +614,14 @@ function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLe
               <AccelerationMark state={status.state} />
               <p className="acceleration-word">{accelerationWords[status.state]}</p>
             </div>
+            {/* The name always starts its own line, whatever its length and
+                whatever the state: "Not connected" under the label reads as the
+                same kind of answer as a model does, and a label that sometimes
+                shares its line and sometimes does not is a layout that moves for
+                no reason the reader can see. */}
             <p className="acceleration-adapter">
-              <span>Graphics card:</span> <b>{status.adapterName}</b>
+              <span>Graphics card:</span>
+              <b>{status.adapterName}</b>
             </p>
           </section>
         </aside>
