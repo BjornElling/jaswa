@@ -219,10 +219,9 @@ button { cursor: pointer; }
 .import-badge {
   position: absolute;
   top: var(--s4);
-  /* Align the status card with the standard page frame rather than the far
-     edge of a large viewport. The max keeps the normal gutter on narrower
-     workspaces, where the frame already fills the available width. */
-  right: max(var(--gutter), calc((100% - var(--workspace-max)) / 2 + var(--gutter)));
+  /* This is workspace status, not page content: it belongs in the workspace
+     corner even when a standard page is deliberately narrower than the view. */
+  right: var(--gutter);
   z-index: 20;
   margin: 0;
   padding: var(--s2) var(--s3);
