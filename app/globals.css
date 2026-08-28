@@ -1159,7 +1159,9 @@ button { cursor: pointer; }
   height: 82%;
   width: auto;
   aspect-ratio: 1;
-  opacity: .06;
+  /* The line under the name crosses it, which is the intent: the rune is
+     ground, not an object the text has to avoid. */
+  opacity: .1;
   pointer-events: none;
 }
 @media (max-width: 1180px) {
@@ -1210,10 +1212,11 @@ button { cursor: pointer; }
    nothing but itself: no rule, no attribution. Italic and a step down in
    weight set it apart from the name above without adding another device. */
 .hero-quote {
-  /* Stepped past the App line and dropped clear of it: the script needs air
-     on both sides, and at the name's own indent it read as a fourth line of
-     the title rather than as an aside to it. */
-  margin: var(--s6) 0 0 clamp(var(--s7), 13vw, 250px);
+  /* Pushed to the far edge, inset by the same amount the name is inset from
+     the left, so the header is bracketed by one measure on both sides. The
+     stair of the name runs left to right and this finishes the movement. */
+  margin: var(--s6) clamp(var(--s5), 4vw, var(--s7)) 0 auto;
+  width: fit-content;
   /* Great Vibes has a small x-height for its point size and its joins close
      up below about 40px, so it is set far larger than the sans it replaced
      while occupying much the same optical weight. */
@@ -1223,10 +1226,11 @@ button { cursor: pointer; }
   font-style: normal;
   line-height: 1.15;
   letter-spacing: .01em;
-  /* Dimmed through colour rather than opacity: the line sits over the hero's
-     gold wash, and a transparent letterform would let that wash through
-     unevenly instead of holding one tone. */
   color: var(--faint);
+  /* Now that the line crosses the rune, a little transparency is what is
+     wanted: the two settle into each other rather than the text sitting on
+     top as a hard plate. */
+  opacity: .82;
 }
 /* The last beat lands, but only just: gold mixed back toward the ground so
    it stays a shift in temperature rather than a second accent competing
