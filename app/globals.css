@@ -271,7 +271,6 @@ button { cursor: pointer; }
   display: flex; align-items: center;
   height: var(--strip);
   min-height: var(--strip);
-  border-bottom: 1px solid var(--line);
   background: var(--bg);
   padding: 0 var(--gutter);
   overflow-x: auto;
@@ -355,7 +354,11 @@ button { cursor: pointer; }
   z-index: 30;
   overflow: hidden;
 }
-.monster-header-wrap .monster-grid { margin-inline: auto; will-change: transform; }
+.monster-header-wrap .monster-grid {
+  margin-inline: auto;
+  border-top: 1px solid var(--line);
+  will-change: transform;
+}
 .monster-header-wrap .grid-table thead th { position: static; }
 .table-wrap { overflow: auto; }
 
