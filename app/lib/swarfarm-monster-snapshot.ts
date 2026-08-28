@@ -4,7 +4,7 @@
  * Retrieved: 2026-08-22
  *
  * The API is queried only during deliberate, small development refreshes.
- * Swaggr never requests this API from a user's browser at runtime.
+ * JASWA never requests this API from a user's browser at runtime.
  */
 export const swarfarmMonsterSnapshot = [
   {

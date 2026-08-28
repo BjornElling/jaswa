@@ -2,7 +2,7 @@
 
 ## Binding decision
 
-When Swaggr is ready for release, its source code will live in a GitHub repository. A push directly to `main` will trigger GitHub Actions, which will build and publish the application to Cloudflare Pages. The project does not use branches as part of its workflow.
+When JASWA is ready for release, its source code will live in a GitHub repository. A push directly to `main` will trigger GitHub Actions, which will build and publish the application to Cloudflare Pages. The project does not use branches as part of its workflow.
 
 Neither the GitHub repository nor the Cloudflare Pages project has been created yet. This document records the intended target; it does **not** authorize creating either service or publishing the application before the owner asks for that work.
 

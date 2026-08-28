@@ -4,7 +4,7 @@
  * Retrieved: 2026-08-22
  *
  * 12 targeted records from the active development sample, queried gradually.
- * Swaggr never requests this API from a user's browser at runtime.
+ * JASWA never requests this API from a user's browser at runtime.
  */
 export const swarfarmMonsterBatch001 = [
   {

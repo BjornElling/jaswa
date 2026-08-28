@@ -9,7 +9,7 @@ export type ItemGrade = 'Normal' | 'Magic' | 'Rare' | 'Hero' | 'Legend';
 export type RunePotentialSettings = { powerUpPolicy: number; runeQuality: number; enchantedGems: number; grindstones: number; gemGrade: ItemGrade; grindstoneGrade: ItemGrade; acceptedRunes: number; brokenRunes: number; intangibleRunes: number; keepMoreForLargerSets: boolean; includeLevel12Runes: boolean; includeEquippedRunes: boolean; sortOrder: RunePotentialSortOrder };
 /**
  * The presets are part of the user's own preferences rather than of the
- * program: Swaggr supplies a starting set, and after that they are the user's
+ * program: JASWA supplies a starting set, and after that they are the user's
  * to rename, retune and delete, and they travel with the .sw file.
  */
-export type Preferences = { format: 'swaggr-preferences'; version: 1; updatedAt: string; monsterPreferences: Record<string, MonsterPreference>; runePotential: RunePotentialSettings; runePotentialPresets: RunePotentialPreset[] };
+export type Preferences = { format: 'jaswa-preferences'; version: 1; updatedAt: string; monsterPreferences: Record<string, MonsterPreference>; runePotential: RunePotentialSettings; runePotentialPresets: RunePotentialPreset[] };

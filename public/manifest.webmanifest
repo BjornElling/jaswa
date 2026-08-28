@@ -1,6 +1,6 @@
 {
-  "name": "Swaggr — Summoners War Tools",
-  "short_name": "Swaggr",
+  "name": "JASWA — Just Another Summoners War App",
+  "short_name": "JASWA",
   "description": "A local-first workspace for Summoners War runes, monsters and upgrades.",
   "start_url": "/",
   "display": "standalone",

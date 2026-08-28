@@ -3,7 +3,7 @@
  * Source: https://github.com/Xzandro/sw-exporter/blob/master/app/mapping.js
  * Retrieved: 2026-08-22
  *
- * This is data only. The upstream JavaScript source is never executed by Swaggr.
+ * This is data only. The upstream JavaScript source is never executed by JASWA.
  * Refresh this snapshot manually when checking for new monsters.
  */
 export const swExporterMonsterNames: Record<string, string> = {

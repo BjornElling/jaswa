@@ -3,7 +3,7 @@ import { PwaServiceWorker } from './components/pwa-service-worker';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Swaggr — Summoners War Tools',
+  title: 'JASWA — Just Another Summoners War App',
   description: 'A private, local-first workspace for Summoners War runes, monsters and upgrades.',
   manifest: '/manifest.webmanifest',
   icons: {

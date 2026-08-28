@@ -1,6 +1,6 @@
 # Rune-regler — kanonisk specifikation
 
-**Status:** Bindende regelgrundlag for Swaggr Rune Potential  
+**Status:** Bindende regelgrundlag for JASWA Rune Potential  
 **Version:** 0.3-draft · **kontrolleret:** 23. august 2026  
 **Spil:** *Summoners War: Sky Arena* (ikke *Chronicles* eller *Lost Centuria*)
 
@@ -25,7 +25,7 @@ forbedring af den ved +3, +6, +9 eller +12. +15 giver ikke en Sub
 Property-roll; det forbedrer Main Property.
 
 Spilnavnene er **HP**, **ATK**, **DEF**, **SPD**, **CRI Rate**, **CRI Dmg**,
-**Resistance** og **Accuracy**. Swaggr skal bruge disse navne i UI; danske
+**Resistance** og **Accuracy**. JASWA skal bruge disse navne i UI; danske
 forklaringer må stå ved siden af, men må ikke erstatte dem.
 
 ## 2. Stats og eksportkodning

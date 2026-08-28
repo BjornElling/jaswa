@@ -5,7 +5,7 @@
 
 ## Rule
 
-All Swaggr product work is written in English.
+All JASWA product work is written in English.
 
 This includes:
 

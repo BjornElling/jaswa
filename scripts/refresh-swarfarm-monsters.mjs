@@ -68,7 +68,7 @@ async function fetchPage(page) {
   const response = await fetch(url, {
     headers: {
       Accept: 'application/json',
-      'User-Agent': 'Swaggr monster-catalog refresh (local maintenance; no runtime API requests)',
+      'User-Agent': 'JASWA monster-catalog refresh (local maintenance; no runtime API requests)',
     },
   });
 

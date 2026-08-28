@@ -11,7 +11,7 @@
  * box does not oblige. The distinction is carried through to the interface,
  * where preferred reads in full ink and acceptable is dimmed.
  *
- * The presets below are the ones Swaggr starts with, and nothing more: they
+ * The presets below are the ones JASWA starts with, and nothing more: they
  * are copied into the user's own preferences on first use, and from then on
  * are edited and deleted exactly like presets the user typed in themselves.
  */
@@ -127,7 +127,7 @@ export const presetTargetColumns: ReadonlyArray<{ key: keyof PresetTargets; labe
 ];
 
 /*
- * The presets Swaggr ships with. These are ordinary starting values, not
+ * The presets JASWA ships with. These are ordinary starting values, not
  * fixtures: they are copied into the user's preferences the first time the
  * workspace is opened, and are then editable and deletable like any other.
  *

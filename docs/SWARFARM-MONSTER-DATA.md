@@ -7,7 +7,7 @@ grundstats uden at lægge almindelig brugertrafik på Swarfarm.
 
 ## Princip
 
-Swaggr må **aldrig** hente Swarfarm-data fra browseren, ved JSON-import eller
+JASWA må **aldrig** hente Swarfarm-data fra browseren, ved JSON-import eller
 som del af en almindelig sidevisning. Brugerens import slås altid op i den
 versionsstyrede, lokale fil `app/lib/swarfarm-monsters.json`.
 
@@ -28,7 +28,7 @@ monstre pr. side og en pause på mindst 3 sekunder mellem sider. Der er ca.
 31 sider ved den aktuelt observerede størrelse. Den:
 
 - foretager ingen forespørgsel, når den lokale snapshot er yngre end 7 dage;
-- gemmer kun de felter, Swaggr behøver til identitet, udviklingsrelationer,
+- gemmer kun de felter, JASWA behøver til identitet, udviklingsrelationer,
   leader skill og grundstats;
 - skriver atomisk, så eksisterende data bevares ved netværks- eller
   schemafejl;

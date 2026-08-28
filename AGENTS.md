@@ -1,4 +1,4 @@
-# Agent rules for Swaggr
+# Agent rules for JASWA
 
 **Status:** Binding project rules
 **Reviewed:** August 27, 2026
@@ -86,7 +86,7 @@ large numbers, many records. Specifically:
 - Selecting every option in a group must not re-wrap or overflow its container.
 - Duplicate names are allowed; duplicate identifiers are not.
 
-**Nothing assumed from the defaults.** The presets Swaggr ships with are
+**Nothing assumed from the defaults.** The presets JASWA ships with are
 starting values the user may edit or delete. Never assume a field is populated
 because the shipped data populated it.
 

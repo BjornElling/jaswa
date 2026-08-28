@@ -14,7 +14,7 @@ function normalizeRunePotentialSettings(value: unknown): RunePotentialSettings {
   const fallback = defaultRunePotentialSettings;
   return { powerUpPolicy: normalizeScale(settings.powerUpPolicy, 5, fallback.powerUpPolicy), runeQuality: normalizeScale(settings.runeQuality, 5, fallback.runeQuality), enchantedGems: normalizeScale(settings.enchantedGems, 4, fallback.enchantedGems), grindstones: normalizeScale(settings.grindstones, 4, fallback.grindstones), gemGrade: normalizeGrade(settings.gemGrade, fallback.gemGrade), grindstoneGrade: normalizeGrade(settings.grindstoneGrade, fallback.grindstoneGrade), acceptedRunes: normalizeScale(settings.acceptedRunes, 5, fallback.acceptedRunes), brokenRunes: normalizeScale(settings.brokenRunes, 5, fallback.brokenRunes), intangibleRunes: normalizeScale(settings.intangibleRunes, 5, fallback.intangibleRunes), keepMoreForLargerSets: settings.keepMoreForLargerSets === true, includeLevel12Runes: settings.includeLevel12Runes === true, includeEquippedRunes: settings.includeEquippedRunes === true, sortOrder };
 }
-export function blankPreferences(): Preferences { return { format: 'swaggr-preferences', version: 1, updatedAt: new Date().toISOString(), monsterPreferences: {}, runePotential: defaultRunePotentialSettings, runePotentialPresets: defaultRunePotentialPresets() }; }
+export function blankPreferences(): Preferences { return { format: 'jaswa-preferences', version: 1, updatedAt: new Date().toISOString(), monsterPreferences: {}, runePotential: defaultRunePotentialSettings, runePotentialPresets: defaultRunePotentialPresets() }; }
 
 /**
  * One monster's saved preference. All three text fields are always present, so
@@ -36,11 +36,11 @@ function normalizeMonsterPreferences(value: unknown): Record<string, MonsterPref
 /**
  * The whole preferences record, checked. Used by both the load path and the
  * `.sw` import, so a file the user hand-edited and a record an older version of
- * Swaggr wrote are held to the same standard.
+ * JASWA wrote are held to the same standard.
  */
 export function normalizePreferences(value: Partial<Preferences>): Preferences {
   return {
-    format: 'swaggr-preferences',
+    format: 'jaswa-preferences',
     version: 1,
     updatedAt: typeof value.updatedAt === 'string' ? value.updatedAt : new Date().toISOString(),
     monsterPreferences: normalizeMonsterPreferences(value.monsterPreferences),
@@ -85,8 +85,8 @@ function completeEquipmentCollections(data: GameRecord): GameRecord {
 // A record written partially, or one hand-edited into shape, can arrive without
 // `data`. An empty account is a readable answer; a thrown TypeError is not.
 export function normalizeImportedGame(game: ImportedGame): ImportedGame { const data = isRecord(game.data) ? game.data : {}; return { ...game, data: completeEquipmentCollections(removeExcludedKeys(data) as GameRecord) }; }
-export function validateGameFile(value: unknown): CompatibilityReport { if (!isRecord(value)) return { valid: false, message: 'This is not a valid Summoners War JSON file.', knownSections: [], unknownMonsterIds: [] }; const knownSections = expectedSections.filter((section) => hasCollection(value[section])); if (!hasCollection(value.unit_list) || !hasCollection(value.runes)) return { valid: false, message: 'This file does not contain the monster and rune lists needed by Swaggr.', knownSections, unknownMonsterIds: [] }; const unknownMonsterIds = [...new Set(recordCollection(value.unit_list).map((monster) => String(monster.unit_master_id)).filter((id) => id !== 'undefined' && !hasMonsterCatalogEntry(id)))]; return { valid: true, message: 'Ready to import.', knownSections, unknownMonsterIds }; }
+export function validateGameFile(value: unknown): CompatibilityReport { if (!isRecord(value)) return { valid: false, message: 'This is not a valid Summoners War JSON file.', knownSections: [], unknownMonsterIds: [] }; const knownSections = expectedSections.filter((section) => hasCollection(value[section])); if (!hasCollection(value.unit_list) || !hasCollection(value.runes)) return { valid: false, message: 'This file does not contain the monster and rune lists needed by JASWA.', knownSections, unknownMonsterIds: [] }; const unknownMonsterIds = [...new Set(recordCollection(value.unit_list).map((monster) => String(monster.unit_master_id)).filter((id) => id !== 'undefined' && !hasMonsterCatalogEntry(id)))]; return { valid: true, message: 'Ready to import.', knownSections, unknownMonsterIds }; }
 function removeExcludedKeys(value: unknown): unknown { if (Array.isArray(value)) return value.map(removeExcludedKeys); if (!value || typeof value !== 'object') return value; return Object.fromEntries(Object.entries(value as Record<string, unknown>).filter(([key]) => !excludedKeys.has(key)).map(([key, entry]) => [key, removeExcludedKeys(entry)])); }
 export function createImportedGame(fileName: string, data: Record<string, unknown>, report: CompatibilityReport): ImportedGame { return normalizeImportedGame({ fileName, importedAt: new Date().toISOString(), data, report }); }
 export async function fileToText(file: File) { return file.text(); }
-export async function importPreferencesFile(file: File): Promise<Preferences> { const value = JSON.parse(await fileToText(file)) as Partial<Preferences>; if (value.format !== 'swaggr-preferences' || value.version !== 1 || !isRecord(value.monsterPreferences)) throw new Error('Invalid Swaggr preferences file'); return { ...normalizePreferences(value), updatedAt: new Date().toISOString() }; }
+export async function importPreferencesFile(file: File): Promise<Preferences> { const value = JSON.parse(await fileToText(file)) as Partial<Preferences>; if (value.format !== 'jaswa-preferences' || value.version !== 1 || !isRecord(value.monsterPreferences)) throw new Error('Invalid JASWA preferences file'); return { ...normalizePreferences(value), updatedAt: new Date().toISOString() }; }

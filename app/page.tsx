@@ -161,7 +161,7 @@ export default function Home() {
       setPendingGame(createImportedGame(file.name, raw as Record<string, unknown>, validation));
       setMessage('');
     } catch {
-      setMessage('Swaggr could not read this file. Please choose the original JSON file exported from Summoners War.');
+      setMessage('JASWA could not read this file. Please choose the original JSON file exported from Summoners War.');
     }
   }
   async function replaceImport() {
@@ -225,27 +225,27 @@ export default function Home() {
       setPreferences(next); await savePreferences(next);
       setMessage('Your preferences were loaded.');
     } catch {
-      setMessage('Swaggr could not read this settings file. Please choose a .sw file exported from Swaggr.');
+      setMessage('JASWA could not read this settings file. Please choose a .sw file exported from JASWA.');
     } finally { event.target.value = ''; }
   }
   function openReport(category: ReportCategory = 'Other', details = '') { setReport({ category, details }); }
   function sendReport() {
     if (!report) return;
     const importDetails = game ? `\n\nActive import: ${game.fileName}\nImported: ${dateTime(game.importedAt)}` : '';
-    const body = `Hello,\n\nI found missing or unrecognized data in Swaggr.\n\nCategory: ${report.category}\n\nDetails:\n${report.details || 'Please describe what Swaggr could not recognize.'}${importDetails}\n\nPlease do not attach your full game JSON file.`;
-    window.location.href = `mailto:bj.elling@gmail.com?subject=${encodeURIComponent(`Swaggr missing data: ${report.category}`)}&body=${encodeURIComponent(body)}`;
+    const body = `Hello,\n\nI found missing or unrecognized data in JASWA.\n\nCategory: ${report.category}\n\nDetails:\n${report.details || 'Please describe what JASWA could not recognize.'}${importDetails}\n\nPlease do not attach your full game JSON file.`;
+    window.location.href = `mailto:bj.elling@gmail.com?subject=${encodeURIComponent(`JASWA missing data: ${report.category}`)}&body=${encodeURIComponent(body)}`;
     setReport(null);
   }
 
   if (!ready) return <main className="loading-screen">Preparing your local workspace…</main>;
 
-  const exportPreferences = () => download('swaggr-preferences.sw', JSON.stringify(preferences, null, 2));
+  const exportPreferences = () => download('jaswa-preferences.sw', JSON.stringify(preferences, null, 2));
 
   return <main className="app-shell">
-    <nav className="rail" aria-label="Swaggr sections">
+    <nav className="rail" aria-label="JASWA sections">
       <div className="rail-brand">
-        <span className="rail-mark" aria-hidden="true">S</span>
-        <b>Swaggr</b>
+        <span className="rail-mark" aria-hidden="true">J</span>
+        <b>JASWA</b>
       </div>
       {navigationGroups.map((group) => <div className="rail-group" key={group.heading}>
         <p className="rail-heading">{group.heading}</p>
@@ -342,8 +342,8 @@ export default function Home() {
         <h2 id="replace-title">Replace the current import?</h2>
         <p>This removes all current game data and replaces it with <strong>{pendingGame.fileName}</strong>. Your saved names, goals and preferences remain.</p>
         {pendingGame.report.unknownMonsterIds.length > 0 && <p className="notice warning">
-          {pendingGame.report.unknownMonsterIds.length} monster type{pendingGame.report.unknownMonsterIds.length === 1 ? '' : 's'} {pendingGame.report.unknownMonsterIds.length === 1 ? 'is' : 'are'} newer than Swaggr’s name list. {pendingGame.report.unknownMonsterIds.join(', ')} will still be imported, shown by game ID until the list is updated.{' '}
-          <button className="notice-link" onClick={() => openReport('Monster', `Swaggr could not find name information for monster type(s): ${pendingGame.report.unknownMonsterIds.join(', ')}.\n\nJSON file: ${pendingGame.fileName}`)}>Report this</button>
+          {pendingGame.report.unknownMonsterIds.length} monster type{pendingGame.report.unknownMonsterIds.length === 1 ? '' : 's'} {pendingGame.report.unknownMonsterIds.length === 1 ? 'is' : 'are'} newer than JASWA’s name list. {pendingGame.report.unknownMonsterIds.join(', ')} will still be imported, shown by game ID until the list is updated.{' '}
+          <button className="notice-link" onClick={() => openReport('Monster', `JASWA could not find name information for monster type(s): ${pendingGame.report.unknownMonsterIds.join(', ')}.\n\nJSON file: ${pendingGame.fileName}`)}>Report this</button>
         </p>}
         <div className="dialog-actions">
           <button className="button" onClick={() => setPendingGame(null)}>Cancel</button>
@@ -364,9 +364,9 @@ export default function Home() {
         </label>
         <label className="field"><span>What is missing or unrecognized?</span>
           <textarea value={report.details} onChange={(event) => setReport({ ...report, details: event.target.value })}
-            placeholder="Include the name, game ID, or anything else shown by Swaggr." />
+            placeholder="Include the name, game ID, or anything else shown by JASWA." />
         </label>
-        <p className="notice">Swaggr does not attach your game data to the e-mail.</p>
+        <p className="notice">JASWA does not attach your game data to the e-mail.</p>
         <div className="dialog-actions">
           <button className="button" onClick={() => setReport(null)}>Cancel</button>
           <button className="button primary" onClick={sendReport}>Open e-mail</button>
@@ -430,7 +430,7 @@ function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLe
 
           {unknownMonsterIds.length > 0 && <p className="notice warning">
             Name information is missing for monster type{unknownMonsterIds.length === 1 ? '' : 's'} {unknownMonsterIds.join(', ')}.{' '}
-            <button className="notice-link" onClick={() => onReport('Monster', `Swaggr could not find name information for monster type(s): ${unknownMonsterIds.join(', ')}.`)}>Report this</button>
+            <button className="notice-link" onClick={() => onReport('Monster', `JASWA could not find name information for monster type(s): ${unknownMonsterIds.join(', ')}.`)}>Report this</button>
           </p>}
 
           <div className="button-row">
@@ -681,7 +681,7 @@ function Disclosure({ title, defaultOpen = false, children }: {
  * a bare "3 / 5" never could.
  *
  * A scale keeps one voice down its whole length — the player speaks on some,
- * Swaggr describes on others — but no scale may be half one and half the other.
+ * JASWA describes on others — but no scale may be half one and half the other.
  *
  * Punctuation is the same on every scale, whoever is speaking:
  *
@@ -708,7 +708,7 @@ const potentialStepLabels = {
     'Picky — I like to play it safe',
     'Take no chances — only roll guaranteed keepers',
   ],
-  /* This scale is the player speaking rather than Swaggr describing, so the
+  /* This scale is the player speaking rather than JASWA describing, so the
      steps are said in the first person and place the reader in the game
      instead of grading the runes. */
   runeQuality: [
@@ -719,7 +719,7 @@ const potentialStepLabels = {
     'I’ve got “you’ve seen my replays” high standards',
   ],
   /* Four steps up the same scale: nothing further, an ordinary roll, a good
-     one, the best the grade allows. These describe what Swaggr assumes you
+     one, the best the grade allows. These describe what JASWA assumes you
      would still apply — whatever a rune already carries stays with it either
      way — and the slider label already says which item is meant. */
   enchantedGems: [
@@ -950,7 +950,7 @@ function RunePotentialSection({ settings, presets, onUpdate, onWritePresets }: {
         </div>
 
         {presets.length === 0
-          ? <p className="notice">Every preset is gone, including the ones Swaggr started you with. Add one to say what a rune should be judged against.</p>
+          ? <p className="notice">Every preset is gone, including the ones JASWA started you with. Add one to say what a rune should be judged against.</p>
           : <div className="preset-list">
             {presets.map((preset) => <PresetCard
               key={preset.id}

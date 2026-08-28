@@ -119,7 +119,7 @@ goal = {
 }
 ```
 
-For hver kandidatvektor `V` beregnes monsterets totale stats efter Swaggrs
+For hver kandidatvektor `V` beregnes monsterets totale stats efter JASWA's
 fælles statformler. Målet er **opnåeligt**, når mindst én lovlig sluttilstand
 opfylder alle minimumstats samt set- og Main Property-krav.
 
@@ -205,7 +205,7 @@ fortsat ikke i den numeriske projektion:
 - forventet kampværdi af chancebaserede Rune Sets;
 - Ancient Rune-ceilings og alle 1–5★ Rune-ceilings.
 
-Det er ikke en værdidom over disse runer; det forhindrer blot, at Swaggr
+Det er ikke en værdidom over disse runer; det forhindrer blot, at JASWA
 forklæder en antagelse som spilfaktum.
 
 ## 8. Adversarial testkrav
