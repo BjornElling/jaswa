@@ -12,4 +12,4 @@ export type RunePotentialSettings = { powerUpPolicy: number; runeQuality: number
  * program: JASWA supplies a starting set, and after that they are the user's
  * to rename, retune and delete, and they travel with the .sw file.
  */
-export type Preferences = { format: 'jaswa-preferences'; version: 1; updatedAt: string; monsterPreferences: Record<string, MonsterPreference>; runePotential: RunePotentialSettings; runePotentialPresets: RunePotentialPreset[] };
+export type Preferences = { format: 'jaswa-preferences'; version: 1; updatedAt: string; hardwareAcceleration: boolean; monsterPreferences: Record<string, MonsterPreference>; runePotential: RunePotentialSettings; runePotentialPresets: RunePotentialPreset[] };

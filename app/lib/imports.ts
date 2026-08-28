@@ -14,7 +14,7 @@ function normalizeRunePotentialSettings(value: unknown): RunePotentialSettings {
   const fallback = defaultRunePotentialSettings;
   return { powerUpPolicy: normalizeScale(settings.powerUpPolicy, 5, fallback.powerUpPolicy), runeQuality: normalizeScale(settings.runeQuality, 5, fallback.runeQuality), enchantedGems: normalizeScale(settings.enchantedGems, 4, fallback.enchantedGems), grindstones: normalizeScale(settings.grindstones, 4, fallback.grindstones), gemGrade: normalizeGrade(settings.gemGrade, fallback.gemGrade), grindstoneGrade: normalizeGrade(settings.grindstoneGrade, fallback.grindstoneGrade), acceptedRunes: normalizeScale(settings.acceptedRunes, 5, fallback.acceptedRunes), brokenRunes: normalizeScale(settings.brokenRunes, 5, fallback.brokenRunes), intangibleRunes: normalizeScale(settings.intangibleRunes, 5, fallback.intangibleRunes), keepMoreForLargerSets: settings.keepMoreForLargerSets === true, includeLevel12Runes: settings.includeLevel12Runes === true, includeEquippedRunes: settings.includeEquippedRunes === true, sortOrder };
 }
-export function blankPreferences(): Preferences { return { format: 'jaswa-preferences', version: 1, updatedAt: new Date().toISOString(), monsterPreferences: {}, runePotential: defaultRunePotentialSettings, runePotentialPresets: defaultRunePotentialPresets() }; }
+export function blankPreferences(): Preferences { return { format: 'jaswa-preferences', version: 1, updatedAt: new Date().toISOString(), hardwareAcceleration: true, monsterPreferences: {}, runePotential: defaultRunePotentialSettings, runePotentialPresets: defaultRunePotentialPresets() }; }
 
 /**
  * One monster's saved preference. All three text fields are always present, so
@@ -43,6 +43,10 @@ export function normalizePreferences(value: Partial<Preferences>): Preferences {
     format: 'jaswa-preferences',
     version: 1,
     updatedAt: typeof value.updatedAt === 'string' ? value.updatedAt : new Date().toISOString(),
+    /* Absent means "never chosen", and the card is worth having, so the default
+       is on. Only an explicit `false` switches it off — which is why this is not
+       the `=== true` test the other flags use. */
+    hardwareAcceleration: value.hardwareAcceleration !== false,
     monsterPreferences: normalizeMonsterPreferences(value.monsterPreferences),
     runePotential: normalizeRunePotentialSettings(value.runePotential),
     runePotentialPresets: normalizeRunePotentialPresets(value.runePotentialPresets),

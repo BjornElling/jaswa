@@ -5,6 +5,8 @@ import Image from 'next/image';
 import { WorkspacePage } from './components/workspace-page';
 import { clearImportedGame, loadImportedGame, loadPreferences, saveImportedGame, savePreferences } from './lib/local-store';
 import { blankPreferences, createImportedGame, defaultRunePotentialSettings, fileToText, importPreferencesFile, itemGrades, normalizeImportedGame, normalizePreferences, validateGameFile } from './lib/imports';
+import { detectGraphicsCard, disabledStatus } from './lib/hardware-acceleration';
+import type { AccelerationState, AccelerationStatus } from './lib/hardware-acceleration';
 import { monsterPresentation } from './lib/monster-catalog';
 import type { MonsterArchetype } from './lib/monster-catalog';
 import { calculateMonsterTotals } from './lib/monster-stats';
@@ -82,6 +84,15 @@ const upcomingWorkspaces: Record<'optimizer' | 'speed' | 'artifacts' | 'gems' | 
     tagline: 'Judged against the goals you actually saved, not the ones you meant to.',
     text: 'Evaluates relic choices against the goals you have saved.',
   },
+};
+
+/* One word each, so the verdict reads at a glance and the four are the same
+   kind of answer to the same question. */
+const accelerationWords: Record<AccelerationState, string> = {
+  checking: 'Checking',
+  disabled: 'Disabled',
+  ready: 'Connected',
+  unavailable: 'Unavailable',
 };
 
 type NumericSortKey = 'level' | 'hp' | 'atk' | 'def' | 'spd' | 'criticalRate' | 'criticalDamage' | 'resistance' | 'accuracy' | 'ehp' | 'ehpD' | 'dmg';
@@ -304,6 +315,9 @@ export default function Home() {
       },
     }));
   }
+  function updateHardwareAcceleration(enabled: boolean) {
+    changePreferences((current) => ({ ...current, hardwareAcceleration: enabled }));
+  }
   function updateRunePotentialSettings(update: Partial<RunePotentialSettings>) {
     changePreferences((current) => ({
       ...current,
@@ -405,6 +419,8 @@ export default function Home() {
         onReport={openReport}
         onExportPreferences={exportPreferences}
         onImportPreferences={() => settingsInput.current?.click()}
+        hardwareAcceleration={preferences.hardwareAcceleration}
+        onHardwareAcceleration={updateHardwareAcceleration}
       />}
 
       {page === 'monsters' && <MonsterOverview monsters={monsters} preferences={preferences} />}
@@ -485,7 +501,29 @@ export default function Home() {
 
 /* ------------------------------------------------------------------ home */
 
-function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLeave, onDrop, onRemove, onReport, onExportPreferences, onImportPreferences }: {
+/**
+ * The verdict, as a mark rather than a word: a tick when the card answered, an
+ * exclamation when the user has switched it off, a cross when it is not there.
+ * Stroked paths in one 44px box, so the three states are the same size and the
+ * box beneath them does not move as the answer changes.
+ */
+function AccelerationMark({ state }: { state: AccelerationState }) {
+  /* An empty ring while the adapter is being asked for: at this moment JASWA
+     has no verdict, and any of the three marks would be a claim. */
+  const path = state === 'ready' ? 'M13 22.5 19.5 29 31 15'
+    : state === 'disabled' ? 'M22 12v13M22 30.5v.5'
+      : state === 'unavailable' ? 'M14 14 30 30M30 14 14 30'
+        : '';
+  return <span className={`acceleration-mark ${state}`} aria-hidden="true">
+    <svg viewBox="0 0 44 44" width="44" height="44" fill="none" stroke="currentColor"
+      strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="22" cy="22" r="19" strokeWidth="2" opacity=".45" />
+      {path && <path d={path} />}
+    </svg>
+  </span>;
+}
+
+function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLeave, onDrop, onRemove, onReport, onExportPreferences, onImportPreferences, hardwareAcceleration, onHardwareAcceleration }: {
   game: ImportedGame | null;
   message: string;
   dragging: boolean;
@@ -497,8 +535,29 @@ function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLe
   onReport: (category: ReportCategory, details: string) => void;
   onExportPreferences: () => void;
   onImportPreferences: () => void;
+  hardwareAcceleration: boolean;
+  onHardwareAcceleration: (enabled: boolean) => void;
 }) {
   const unknownMonsterIds = game?.report.unknownMonsterIds ?? [];
+  /* What the card answered, kept apart from the setting: switching the setting
+     off must not throw away a verdict that is still true, or the box would have
+     to ask the browser again every time the box is ticked. */
+  const [detected, setDetected] = useState<AccelerationStatus | null>(null);
+
+  useEffect(() => {
+    if (!hardwareAcceleration || detected) return;
+    let current = true;
+    void detectGraphicsCard().then((status) => { if (current) setDetected(status); });
+    return () => { current = false; };
+  }, [hardwareAcceleration, detected]);
+
+  const status: AccelerationStatus = !hardwareAcceleration ? disabledStatus
+    : detected ?? { state: 'checking', adapterName: 'Asking the browser…', detail: 'Looking for a graphics card JASWA can compute on.' };
+
+  /* The home page announces the app rather than the section, so it opens with
+     the name spelled out instead of the shared PageHeader. The three lines step
+     to the right and the middle one carries the accent: the initials the name is
+     built from are what the eye should catch. */
   return <WorkspacePage
     header={<header className="hero">
       <div className="hero-rune" aria-hidden="true">
@@ -517,10 +576,65 @@ function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLe
       <p className="hero-quote">Roll. Sell. <span>Repeat.</span></p>
     </header>}
   >
-    {/* The home page announces the app rather than the section, so it opens
-        with the name spelled out instead of the shared PageHeader. The three
-        lines step to the right and the middle one carries the accent: the
-        initials the name is built from are what the eye should catch. */}
+    {/* Above the import, because it decides how everything the import feeds
+        will be computed rather than what is computed. The two columns are the
+        settings layout the Rune Potential workspace uses: the choice on the
+        left, and what came of it reported back on the right. */}
+    <section className="panel">
+      <h3 className="block-title">Hardware acceleration</h3>
+      <div className="settings-layout">
+        <div className="stack acceleration-choice">
+          <p className="lead">
+            Ranking a full rune inventory means running the same short sum
+            hundreds of thousands of times. A graphics card runs thousands of
+            those at once, where the processor takes them one after another, so
+            a search that takes a minute on the processor can finish in seconds
+            on the card. JASWA still does all of it on your own computer — the
+            card is another part of your machine, not a service somewhere else.
+          </p>
+          <div className="stack tight">
+            <p className="field-legend">Acceleration</p>
+            <CheckboxRow label="Use the graphics card for heavy calculations" checked={hardwareAcceleration}
+              onChange={onHardwareAcceleration} />
+            {/* The way out, said before it is needed. Turning this off is the
+                first thing to try if a workspace draws oddly or the machine
+                grows hot, and a user who is not told that will reach for the
+                browser's own settings instead. */}
+            <p className="lead">
+              Leave this on unless something looks wrong. JASWA falls back to the
+              processor on its own where no card is available, so switching it
+              off is only worth doing if a calculation misbehaves.
+            </p>
+          </div>
+        </div>
+
+        <div className="settings-rule" role="presentation" />
+
+        <aside className="settings-aside">
+          {/* The whole verdict is one live region rather than the word alone:
+              the sentence under it changes with the word and is the part that
+              says what to do about it, so announcing one without the other
+              would give a listener half the answer. */}
+          <section className={`statistics acceleration ${status.state}`} role="status">
+            <h4>Connection</h4>
+            <div className="acceleration-verdict">
+              {/* The mark restates the word beside it, so it is hidden from a
+                  reader who is listening rather than read out twice. */}
+              <AccelerationMark state={status.state} />
+              <p className="acceleration-word">{accelerationWords[status.state]}</p>
+            </div>
+            <p className="acceleration-detail">{status.detail}</p>
+            <dl>
+              <div>
+                <dt>Graphics card</dt>
+                <dd className="acceleration-adapter">{status.adapterName}</dd>
+              </div>
+            </dl>
+          </section>
+        </aside>
+      </div>
+    </section>
+
     <section className="panel">
       <h3 className="block-title">Game data</h3>
       <div className="stack">

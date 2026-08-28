@@ -35,6 +35,17 @@
   --gold-edge: #5c4820;
   --gold-ink: #1a1206;
 
+  /* Verdicts, and only verdicts: a machine reporting whether it is working.
+     That is a different question from "you can act on this", so these are named
+     separately even where the value matches — the caution amber and the accent
+     are the same yellow by coincidence of the palette, not because a warning is
+     an invitation, and either may move without dragging the other. Used for
+     nothing else: not data, not emphasis, not decoration. Each clears 4.5:1
+     against --sunk. */
+  --state-good: #5fbf82;
+  --state-warn: #d9ad52;
+  --state-bad: #e0705f;
+
   /* rhythm — one 4px scale. Every gap, pad and inset below is a step on it,
      so nothing lands on an arbitrary 9px or 13px any more. */
   --s1: 4px;
@@ -705,7 +716,12 @@ button { cursor: pointer; }
     var(--rule) 92%,
     transparent);
 }
-.settings-aside { display: grid; gap: var(--s5); align-content: start; }
+/* `minmax(0, …)` on the tracks: a grid item's automatic minimum is its
+   min-content width, so one unbreakable string inside — a graphics card that
+   names itself in one long word — widened the whole column past the 300px cap
+   its parent track sets, and the box changed width as the reported name
+   changed. The floor of zero lets the content wrap instead. */
+.settings-aside { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s5); align-content: start; min-width: 0; }
 /* Sits lower in the aside than the gap alone would put it — far enough from
    the box above to be its own question, still clearly inside the column. */
 .aside-detached { margin-top: var(--s5); }
@@ -853,6 +869,97 @@ button { cursor: pointer; }
    its full height so the aside does not resize when the figures arrive. */
 .statistics.pending { border-color: var(--line); background: var(--sunk); }
 .statistics.pending dd { color: var(--ghost); font-weight: 400; }
+
+/* ------------------------------------------- hardware acceleration status */
+
+/* The statistics box, reporting a verdict instead of a figure. It takes its
+   ring from the state it is in, so the answer is legible from across the page
+   before a word of it has been read.
+
+   The base block washes itself gold, which would tint a red verdict amber, so
+   the ground goes back to plain --sunk and the colour in the box is only ever
+   the colour of the answer.
+
+   Every part below is given its height rather than fitted to its content: the
+   mark, the word and the lines under them are the same size in all four states,
+   so the box neither grows nor shrinks as the browser answers, and nothing
+   beside it is pushed by the reader's own click. */
+.statistics.acceleration {
+  --state: var(--faint);
+  border-color: var(--state);
+  background: var(--sunk);
+  box-shadow: none;
+}
+.statistics.acceleration.ready { --state: var(--state-good); }
+.statistics.acceleration.disabled { --state: var(--state-warn); }
+.statistics.acceleration.unavailable { --state: var(--state-bad); }
+.statistics.acceleration h4 { color: var(--ink); }
+
+/* The measure stays at .lead's 68ch — set to the column's full width the
+   paragraph read as one long band and the panel looked emptier, not fuller. The
+   two items are spaced as the settings layout spaces its own, and the column is
+   left shorter than the box beside it: the alternative is padding the prose to
+   fill a height, which is writing to a layout rather than to the reader. */
+.acceleration-choice { gap: var(--s5); }
+/* The legend and its checkbox stay tight to each other; the note explaining
+   when to use the switch is a separate thought and stands off by a full step. */
+.acceleration-choice .checkbox-row + .lead { margin-top: var(--s2); }
+
+.acceleration-verdict {
+  display: flex; align-items: center; gap: var(--s3);
+  margin: var(--s4) 0 var(--s3);
+}
+.acceleration-mark {
+  flex: 0 0 auto;
+  display: block;
+  width: 44px; height: 44px;
+  color: var(--state);
+}
+/* Nothing has been decided yet, so the empty ring is quieted rather than
+   coloured — a ring in the accent would read as an answer. */
+.acceleration-mark.checking { color: var(--ghost); }
+.acceleration-word {
+  margin: 0;
+  min-width: 0;
+  font-size: var(--t-title); font-weight: 600;
+  letter-spacing: -.02em;
+  color: var(--state);
+}
+/* Three lines held open for a sentence that runs to two or three depending on
+   what the browser said, so the card's name below it never moves. */
+.acceleration-detail {
+  margin: 0 0 var(--s4);
+  min-height: calc(3 * 1.45em);
+  color: var(--dim);
+  font-size: var(--t-body); line-height: 1.45;
+}
+/* One entry, so the base block's first-child reset would leave it with no rule
+   at all and the card's name would run straight on from the sentence above it.
+   The hairline is put back, and the row stacks rather than splitting label left
+   and value right — a name is not a figure to line a column up on. */
+.statistics.acceleration dl > div {
+  display: block;
+  padding-top: var(--s3);
+  border-top: 1px solid var(--line-strong);
+}
+/* The card names itself at whatever length it likes — "NVIDIA GeForce RTX 4070"
+   from one browser, a bare vendor from another that would rather not be
+   fingerprinted — so it wraps, and it is set as prose: a name, not a figure, and
+   `.statistics dd`'s 32px gold numerals made it look like a reading. That rule
+   is a class and an element, so this one is qualified by the block to outrank
+   it. Two lines are held open, because unticking the box swaps a wrapping name
+   for a short one and the box must not shrink under the click that did it. */
+.statistics.acceleration dd.acceleration-adapter {
+  margin: var(--s1) 0 0;
+  min-height: calc(2 * 1.45em);
+  font-family: var(--sans);
+  font-size: var(--t-body); font-weight: 500;
+  line-height: 1.45;
+  letter-spacing: 0;
+  color: var(--ink);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 
 /* --------------------------------------------------------------- presets */
 
