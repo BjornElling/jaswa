@@ -134,12 +134,7 @@ button { cursor: pointer; }
 }
 .rail-mark {
   width: 34px; height: 34px;
-  border-radius: var(--radius-sm);
-  background: var(--gold);
-  color: var(--gold-ink);
-  display: grid; place-items: center;
-  font-family: var(--mono);
-  font-weight: 700; font-size: var(--t-title);
+  object-fit: contain;
   flex: 0 0 auto;
 }
 .rail-brand b {

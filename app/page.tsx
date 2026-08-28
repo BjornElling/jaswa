@@ -1,6 +1,7 @@
 'use client';
 
 import { ChangeEvent, DragEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import Image from 'next/image';
 import { clearImportedGame, loadImportedGame, loadPreferences, saveImportedGame, savePreferences } from './lib/local-store';
 import { blankPreferences, createImportedGame, defaultRunePotentialSettings, fileToText, importPreferencesFile, itemGrades, normalizeImportedGame, normalizePreferences, validateGameFile } from './lib/imports';
 import { monsterPresentation } from './lib/monster-catalog';
@@ -242,10 +243,10 @@ export default function Home() {
   const exportPreferences = () => download('jaswa-preferences.sw', JSON.stringify(preferences, null, 2));
 
   return <main className="app-shell">
-    <nav className="rail" aria-label="JASWA sections">
+    <nav className="rail" aria-label="jaswa sections">
       <div className="rail-brand">
-        <span className="rail-mark" aria-hidden="true">J</span>
-        <b>JASWA</b>
+        <Image className="rail-mark" src="/favicon.svg" alt="" aria-hidden="true" width={34} height={34} priority />
+        <b>jaswa</b>
       </div>
       {navigationGroups.map((group) => <div className="rail-group" key={group.heading}>
         <p className="rail-heading">{group.heading}</p>
