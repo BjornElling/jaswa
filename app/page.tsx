@@ -1,6 +1,6 @@
 'use client';
 
-import { ChangeEvent, DragEvent, FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, DragEvent, FormEvent, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import { WorkspacePage } from './components/workspace-page';
 import { clearImportedGame, loadImportedGame, loadPreferences, saveImportedGame, savePreferences } from './lib/local-store';
@@ -605,6 +605,19 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
   const [selectedElements, setSelectedElements] = useState<string[]>([]);
   const [selectedArchetypes, setSelectedArchetypes] = useState<MonsterArchetype[]>([]);
   const stickyHeaderTable = useRef<HTMLTableElement>(null);
+  const rosterTable = useRef<HTMLTableElement>(null);
+
+  useLayoutEffect(() => {
+    const header = stickyHeaderTable.current;
+    const table = rosterTable.current;
+    if (!header || !table) return;
+
+    const syncHeaderWidth = () => { header.style.width = `${table.offsetWidth}px`; };
+    syncHeaderWidth();
+    const observer = new ResizeObserver(syncHeaderWidth);
+    observer.observe(table);
+    return () => observer.disconnect();
+  }, [monsters.length]);
 
   const rows = useMemo<MonsterRow[]>(() => {
     const defaultNames = numberedMonsterNames(monsters);
@@ -764,7 +777,7 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
     <div className="table-wrap" onScroll={(event) => {
       if (stickyHeaderTable.current) stickyHeaderTable.current.style.transform = `translateX(${-event.currentTarget.scrollLeft}px)`;
     }}>
-      <table className="grid-table monster-grid" aria-label="Monster roster">
+      <table ref={rosterTable} className="grid-table monster-grid" aria-label="Monster roster">
         <MonsterColumnGroup columns={columns} />
         <tbody>
           {visible.map((row) => <tr key={row.unitId}>
