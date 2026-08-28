@@ -19,6 +19,7 @@ import type { ImportedGame, ItemGrade, MonsterPreference, Preferences, RunePoten
 type Page = 'home' | 'monsters' | 'optimizer' | 'speed' | 'potential' | 'artifacts' | 'gems' | 'relics' | 'preferences';
 type ReportCategory = 'Monster' | 'Rune' | 'Gem' | 'Grindstone' | 'Artifact' | 'Relic' | 'Other';
 type MonsterRecord = Record<string, unknown>;
+type EquipmentPrimaryType = 'HP' | 'ATK' | 'DEF';
 
 type NavigationItem = { id: Page; label: string; glyph: string };
 
@@ -88,6 +89,8 @@ type MonsterRow = {
   imageFilename?: string;
   initial: string;
   sets: Array<{ name: string; abbreviation: string }>;
+  artifactTypes: EquipmentPrimaryType[];
+  relicTypes: EquipmentPrimaryType[];
   efficiency: number | null;
   index: number;
   level: number | null;
@@ -113,6 +116,17 @@ function dateTime(value?: string): string {
   return new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'short' }).format(parsed);
 }
 function numericOrNull(value: unknown): number | null { return typeof value === 'number' && Number.isFinite(value) ? value : null; }
+const equipmentPrimaryTypes: Record<number, EquipmentPrimaryType> = { 100: 'HP', 101: 'ATK', 102: 'DEF' };
+function equippedEquipmentTypes(monster: MonsterRecord, key: 'artifacts' | 'relics'): EquipmentPrimaryType[] {
+  if (!Array.isArray(monster[key])) return [];
+  return monster[key].flatMap((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return [];
+    const effect = (item as MonsterRecord).pri_effect;
+    if (!Array.isArray(effect) || typeof effect[0] !== 'number' || !Number.isFinite(effect[0])) return [];
+    const type = equipmentPrimaryTypes[effect[0]];
+    return type ? [type] : [];
+  });
+}
 function blankMonsterPreference(unitId: string): MonsterPreference { return { unitId, label: '', runeSets: '', statGoals: '' }; }
 const monsterNameCollator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
 const defaultMonsterSortDirections: Record<SortKey, boolean> = {
@@ -557,6 +571,8 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
         imageFilename: display.imageFilename,
         initial: display.shortName,
         sets: activeRuneSets(monster),
+        artifactTypes: equippedEquipmentTypes(monster, 'artifacts'),
+        relicTypes: equippedEquipmentTypes(monster, 'relics'),
         efficiency: calculateMonsterEfficiency(monster),
         index,
         level: numericOrNull(monster.unit_level),
@@ -664,14 +680,18 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
           <col className="monster-col-sets" />
           {columns.map((column) => <col key={column.key} className={`monster-col-${column.key}`} />)}
           <col className="monster-col-efficiency" />
+          <col className="monster-col-artifacts" />
+          <col className="monster-col-relic" />
         </colgroup>
         <thead>
           <tr>
             {sortHeader('index', '#', true)}
             {sortHeader('name', 'Monster', true)}
-            {sortHeader('sets', 'Sets', true)}
+            {sortHeader('sets', 'Runes', true)}
             {columns.map((column) => sortHeader(column.key, column.label))}
             {sortHeader('efficiency', 'EFF')}
+            <th scope="col" className="equipment-start">Artifacts</th>
+            <th scope="col">Relic</th>
           </tr>
         </thead>
         <tbody>
@@ -702,6 +722,12 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
             <td className={row.accuracy === null ? 'muted' : undefined}>{displayNumber(row.accuracy)}</td>
             <td className={row.efficiency === null ? 'muted' : undefined}>
               {row.efficiency === null ? '—' : `${row.efficiency.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`}
+            </td>
+            <td className={row.artifactTypes.length ? 'equipment-start equipment-types' : 'equipment-start muted'}>
+              {row.artifactTypes.length ? row.artifactTypes.join('/') : '—'}
+            </td>
+            <td className={row.relicTypes.length ? 'equipment-types' : 'muted'}>
+              {row.relicTypes.length ? row.relicTypes.join('/') : '—'}
             </td>
           </tr>)}
         </tbody>

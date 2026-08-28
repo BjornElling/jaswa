@@ -351,7 +351,7 @@ button { cursor: pointer; }
 /* the grid gets the same left gutter as prose, so a row's first character
    lines up with a section heading instead of hugging the rail. */
 .grid-table { width: 100%; border-collapse: collapse; font-size: var(--t-body); }
-.monster-grid { min-width: 1320px; table-layout: fixed; }
+.monster-grid { min-width: 1512px; table-layout: fixed; }
 .monster-grid .monster-col-index { width: 72px; }
 .monster-grid .monster-col-name { width: 240px; }
 .monster-grid .monster-col-sets { width: 136px; }
@@ -365,6 +365,8 @@ button { cursor: pointer; }
 .monster-grid .monster-col-resistance,
 .monster-grid .monster-col-accuracy { width: 80px; }
 .monster-grid .monster-col-efficiency { width: 104px; }
+.monster-grid .monster-col-artifacts { width: 112px; }
+.monster-grid .monster-col-relic { width: 80px; }
 .grid-table thead th:first-child,
 .grid-table tbody td:first-child { padding-left: var(--gutter); }
 .grid-table thead th:last-child,
@@ -430,6 +432,12 @@ button { cursor: pointer; }
 .grid-table tbody td.muted { color: var(--faint); }
 .grid-table tbody td.dim { color: var(--dim); }
 .grid-table tbody td.pending { color: var(--faint); font-style: italic; }
+
+/* Artifacts and relics are equipment alongside the rune sheet, so a fixed
+   rule gives their compact pair a distinct start without changing any row's
+   measured columns. */
+.monster-grid .equipment-start { border-left: 1px solid var(--line-strong); }
+.monster-grid .equipment-types { white-space: nowrap; }
 
 .row-index { color: var(--ghost); font-size: var(--t-micro); width: 64px; }
 
