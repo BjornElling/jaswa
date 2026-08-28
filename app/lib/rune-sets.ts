@@ -64,9 +64,9 @@ export function elementMark(attribute: unknown): string {
 }
 
 /**
- * The sets a monster currently has completed, most pieces first. A set only
- * appears once enough pieces are equipped for its bonus to apply, so the
- * overview shows what is actually in effect rather than what is merely worn.
+ * The completed sets a monster currently has, most pieces first. Repeating an
+ * abbreviation for each completed set keeps a 6-piece Fight build legible as
+ * `FIG/FIG/FIG` instead of hiding two of its active bonuses.
  */
 export function activeRuneSets(monster: Record<string, unknown>): ActiveRuneSet[] {
   const runes = Array.isArray(monster.runes) ? monster.runes : [];
@@ -85,8 +85,13 @@ export function activeRuneSets(monster: Record<string, unknown>): ActiveRuneSet[
       const complete = Math.floor(count / required);
       const name = runeSetNames[setId];
       if (!name || complete < 1) return undefined;
-      return { name, abbreviation: name.slice(0, 3).toUpperCase(), count: complete * required };
+      return { name, abbreviation: name.slice(0, 3).toUpperCase(), count: complete * required, complete };
     })
-    .filter((set): set is ActiveRuneSet => set !== undefined)
-    .sort((left, right) => right.count - left.count || left.name.localeCompare(right.name));
+    .filter((set): set is ActiveRuneSet & { complete: number } => set !== undefined)
+    .sort((left, right) => right.count - left.count || left.name.localeCompare(right.name))
+    .flatMap((set) => Array.from({ length: set.complete }, () => ({
+      name: set.name,
+      abbreviation: set.abbreviation,
+      count: set.count,
+    })));
 }

@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { clearImportedGame, loadImportedGame, loadPreferences, saveImportedGame, savePreferences } from './lib/local-store';
 import { blankPreferences, createImportedGame, defaultRunePotentialSettings, fileToText, importPreferencesFile, itemGrades, normalizeImportedGame, normalizePreferences, validateGameFile } from './lib/imports';
 import { monsterPresentation } from './lib/monster-catalog';
+import { calculateMonsterEfficiency } from './lib/monster-efficiency';
 import { calculateMonsterTotals } from './lib/monster-stats';
 import { activeRuneSets, elementName, presetRuneSetNameList } from './lib/rune-sets';
 import {
@@ -76,7 +77,7 @@ const upcomingWorkspaces: Record<'optimizer' | 'speed' | 'artifacts' | 'gems' | 
 };
 
 type NumericSortKey = 'level' | 'hp' | 'atk' | 'def' | 'spd' | 'criticalRate' | 'criticalDamage' | 'resistance' | 'accuracy';
-type SortKey = 'index' | 'name' | NumericSortKey;
+type SortKey = 'index' | 'name' | 'sets' | 'efficiency' | NumericSortKey;
 
 type MonsterRow = {
   unitId: string;
@@ -86,6 +87,8 @@ type MonsterRow = {
   imageFilename?: string;
   initial: string;
   sets: Array<{ name: string; abbreviation: string }>;
+  efficiency: number | null;
+  index: number;
   level: number;
   hp: number;
   atk: number;
@@ -110,6 +113,12 @@ function dateTime(value?: string): string {
 }
 function numeric(value: unknown): number { return typeof value === 'number' && Number.isFinite(value) ? value : 0; }
 function blankMonsterPreference(unitId: string): MonsterPreference { return { unitId, label: '', runeSets: '', statGoals: '' }; }
+const monsterNameCollator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
+const defaultMonsterSortDirections: Record<SortKey, boolean> = {
+  index: true, name: true, sets: true, efficiency: false,
+  level: false, hp: false, atk: false, def: false, spd: false,
+  criticalRate: false, criticalDamage: false, resistance: false, accuracy: false,
+};
 function download(filename: string, content: string) {
   const url = URL.createObjectURL(new Blob([content], { type: 'application/json' }));
   const anchor = document.createElement('a');
@@ -525,6 +534,8 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
         imageFilename: display.imageFilename,
         initial: display.shortName,
         sets: activeRuneSets(monster),
+        efficiency: calculateMonsterEfficiency(monster),
+        index,
         level: numeric(monster.unit_level),
         hp: totals.hp, atk: totals.atk, def: totals.def, spd: totals.spd,
         criticalRate: totals.criticalRate, criticalDamage: totals.criticalDamage,
@@ -548,16 +559,32 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
         || row.sets.some((set) => set.name.toLowerCase().includes(term));
     });
     const { key, ascending } = sort;
-    if (key === 'index') return filtered;
+    if (key === 'index') return ascending ? filtered : [...filtered].reverse();
     const direction = ascending ? 1 : -1;
-    if (key === 'name') return [...filtered].sort((left, right) => left.name.localeCompare(right.name) * direction);
-    return [...filtered].sort((left, right) => (left[key] - right[key]) * direction);
+    return [...filtered].sort((left, right) => {
+      if (key === 'name') return monsterNameCollator.compare(left.name, right.name) * direction || left.index - right.index;
+      if (key === 'sets') {
+        const leftSets = left.sets.map((set) => set.name).join('/');
+        const rightSets = right.sets.map((set) => set.name).join('/');
+        return monsterNameCollator.compare(leftSets, rightSets) * direction || left.index - right.index;
+      }
+      if (key === 'efficiency') {
+        const leftEfficiency = left.efficiency;
+        const rightEfficiency = right.efficiency;
+        if (leftEfficiency === null || rightEfficiency === null) {
+          if (leftEfficiency === rightEfficiency) return left.index - right.index;
+          return leftEfficiency === null ? 1 : -1;
+        }
+        return (leftEfficiency - rightEfficiency) * direction || left.index - right.index;
+      }
+      return (left[key] - right[key]) * direction || left.index - right.index;
+    });
   }, [rows, search, element, sort]);
 
   function toggleSort(key: SortKey) {
     setSort((current) => current.key === key
       ? { key, ascending: !current.ascending }
-      : { key, ascending: key === 'name' });
+      : { key, ascending: defaultMonsterSortDirections[key] });
   }
 
   if (!monsters.length) return <div className="section-body">
@@ -575,6 +602,14 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
     { key: 'def', label: 'DEF' }, { key: 'spd', label: 'SPD' }, { key: 'criticalRate', label: 'CR%' },
     { key: 'criticalDamage', label: 'CD%' }, { key: 'resistance', label: 'RES%' }, { key: 'accuracy', label: 'ACC%' },
   ];
+  const sortHeader = (key: SortKey, label: string, alignLeft = false) => {
+    const sorted = sort.key === key;
+    const className = [alignLeft ? 'align-left' : '', 'sortable', sorted ? 'sorted' : '', sorted && sort.ascending ? 'ascending' : '']
+      .filter(Boolean).join(' ');
+    return <th key={key} scope="col" aria-sort={sorted ? (sort.ascending ? 'ascending' : 'descending') : 'none'} className={className}>
+      <button type="button" className="table-sort-button" onClick={() => toggleSort(key)}>{label}</button>
+    </th>;
+  };
 
   return <>
     <div className="filter-strip">
@@ -600,25 +635,26 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
     </div>
 
     <div className="table-wrap">
-      <table className="grid-table">
+      <table className="grid-table monster-grid">
+        <colgroup>
+          <col className="monster-col-index" />
+          <col className="monster-col-name" />
+          <col className="monster-col-sets" />
+          {columns.map((column) => <col key={column.key} className={`monster-col-${column.key}`} />)}
+          <col className="monster-col-efficiency" />
+        </colgroup>
         <thead>
           <tr>
-            <th className="align-left">#</th>
-            <th className={sort.key === 'name' ? `align-left sortable sorted${sort.ascending ? ' ascending' : ''}` : 'align-left sortable'}
-              onClick={() => toggleSort('name')}>Monster</th>
-            <th className="align-left">Sets</th>
-            {columns.map((column) => <th
-              key={column.key}
-              className={sort.key === column.key ? `sortable sorted${sort.ascending ? ' ascending' : ''}` : 'sortable'}
-              onClick={() => toggleSort(column.key)}
-            >{column.label}</th>)}
-            <th className="reserved" title="Available once the rune efficiency calculation is in place">EFF</th>
-            <th className="reserved" title="Available once monster goals can be compared">GOAL</th>
+            {sortHeader('index', '#', true)}
+            {sortHeader('name', 'Monster', true)}
+            {sortHeader('sets', 'Sets', true)}
+            {columns.map((column) => sortHeader(column.key, column.label))}
+            {sortHeader('efficiency', 'EFF')}
           </tr>
         </thead>
         <tbody>
-          {visible.map((row, index) => <tr key={row.unitId}>
-            <td className="align-left row-index">{String(index + 1).padStart(2, '0')}</td>
+          {visible.map((row) => <tr key={row.unitId}>
+            <td className="align-left row-index">{String(row.index + 1).padStart(2, '0')}</td>
             <td className="align-left">
               <div className="monster-cell">
                 <MonsterPortrait imageFilename={row.imageFilename} initial={row.initial} name={row.name} />
@@ -630,7 +666,7 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
             </td>
             <td className="align-left">
               {row.sets.length
-                ? row.sets.map((set) => <span className="set-mark" key={set.name} title={set.name}>{set.abbreviation}</span>)
+                ? <span className="set-mark" title={row.sets.map((set) => set.name).join(' / ')}>{row.sets.map((set) => set.abbreviation).join('/')}</span>
                 : <span className="set-none">—</span>}
             </td>
             <td className="dim">{row.level}</td>
@@ -642,8 +678,9 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
             <td className={row.criticalDamage ? undefined : 'muted'}>{row.criticalDamage}</td>
             <td className={row.resistance ? undefined : 'muted'}>{row.resistance}</td>
             <td className={row.accuracy ? undefined : 'muted'}>{row.accuracy}</td>
-            <td className="pending"><span className="awaiting" aria-label="Not calculated yet" /></td>
-            <td className="pending"><span className="awaiting" aria-label="Not calculated yet" /></td>
+            <td className={row.efficiency === null ? 'muted' : undefined}>
+              {row.efficiency === null ? '—' : `${row.efficiency.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`}
+            </td>
           </tr>)}
         </tbody>
       </table>
@@ -658,7 +695,7 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
         {element && <><span aria-hidden="true">·</span><span><b>{element}</b></span></>}
         {search && <><span aria-hidden="true">·</span><span>matching <b>{search}</b></span></>}
       </span>
-      <span>EFF and GOAL await the calculation rules</span>
+      <span>EFF is the average of six equipped runes</span>
     </div>
   </>;
 }

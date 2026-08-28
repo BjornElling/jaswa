@@ -348,6 +348,20 @@ button { cursor: pointer; }
 /* the grid gets the same left gutter as prose, so a row's first character
    lines up with a section heading instead of hugging the rail. */
 .grid-table { width: 100%; border-collapse: collapse; font-size: var(--t-body); }
+.monster-grid { min-width: 1320px; table-layout: fixed; }
+.monster-grid .monster-col-index { width: 72px; }
+.monster-grid .monster-col-name { width: 240px; }
+.monster-grid .monster-col-sets { width: 136px; }
+.monster-grid .monster-col-level { width: 64px; }
+.monster-grid .monster-col-hp,
+.monster-grid .monster-col-atk,
+.monster-grid .monster-col-def { width: 96px; }
+.monster-grid .monster-col-spd,
+.monster-grid .monster-col-criticalRate,
+.monster-grid .monster-col-criticalDamage,
+.monster-grid .monster-col-resistance,
+.monster-grid .monster-col-accuracy { width: 80px; }
+.monster-grid .monster-col-efficiency { width: 104px; }
 .grid-table thead th:first-child,
 .grid-table tbody td:first-child { padding-left: var(--gutter); }
 .grid-table thead th:last-child,
@@ -370,21 +384,33 @@ button { cursor: pointer; }
 .grid-table thead th.align-left { text-align: left; }
 .grid-table thead th.sorted { color: var(--gold); }
 /* Every sortable header reserves the arrow's width from the outset and shows
-   it only when that column is the sorted one. The table is auto-layout, so an
-   arrow that appeared on click would re-measure all fourteen columns and shift
-   the whole grid sideways under the pointer. The glyph is a fixed-width
-   inline-block for the same reason: ↑ and ↓ must occupy the same space. */
-.grid-table thead th.sortable::after {
+   it only when that column is the sorted one. The fixed-layout grid and the
+   fixed-width glyph keep the whole table still when a sort changes. */
+.table-sort-button {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: var(--s1);
+  border: 0; padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  text-align: inherit;
+}
+.grid-table thead th.align-left .table-sort-button { justify-content: flex-start; }
+.table-sort-button::after {
   content: '↓';
   display: inline-block;
   width: 1em;
+  flex: 0 0 1em;
   margin-left: var(--s1);
   text-align: center;
   opacity: 0;
 }
-.grid-table thead th.sortable:hover::after { opacity: .35; }
-.grid-table thead th.sorted::after { opacity: 1; }
-.grid-table thead th.sorted.ascending::after { content: '↑'; }
+.grid-table thead th.sortable:hover .table-sort-button::after { opacity: .35; }
+.grid-table thead th.sorted .table-sort-button::after { opacity: 1; }
+.grid-table thead th.sorted.ascending .table-sort-button::after { content: '↑'; }
 .grid-table thead th.reserved { color: var(--faint); font-style: italic; }
 
 .grid-table tbody td {
@@ -441,8 +467,8 @@ button { cursor: pointer; }
   font-size: var(--t-small);
   color: var(--ink);
   letter-spacing: .03em;
+  white-space: nowrap;
 }
-.set-mark + .set-mark { margin-left: var(--s2); color: var(--dim); }
 .set-none { font-family: var(--mono); font-size: var(--t-small); color: var(--faint); }
 
 /* an empty cell that is waiting on a calculation, not missing data */
@@ -1197,13 +1223,16 @@ button { cursor: pointer; }
   font-style: normal;
   line-height: 1.15;
   letter-spacing: .01em;
-  color: var(--dim);
+  /* Dimmed through colour rather than opacity: the line sits over the hero's
+     gold wash, and a transparent letterform would let that wash through
+     unevenly instead of holding one tone. */
+  color: var(--faint);
 }
 /* The last beat lands, but only just: gold mixed back toward the ground so
    it stays a shift in temperature rather than a second accent competing
    with the wordmark above. */
 .hero-quote span {
-  color: color-mix(in srgb, var(--gold) 62%, var(--faint));
+  color: color-mix(in srgb, var(--gold) 52%, var(--faint));
 }
 
 .section-intro { margin: 0 0 var(--s5); max-width: 68ch; }
