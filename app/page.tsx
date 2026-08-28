@@ -130,6 +130,7 @@ function equippedEquipmentTypes(monster: MonsterRecord, key: 'artifacts' | 'reli
   return monster[key].map(primaryEquipmentType);
 }
 function displayArtifactTypes(types: EquipmentPrimaryTypeSlot[]): string {
+  if (!types.some((type) => type !== null)) return '—';
   return [types[0] ?? '-', types[1] ?? '-'].join('/');
 }
 function displayRelicType(types: EquipmentPrimaryTypeSlot[]): string {
