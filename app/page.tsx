@@ -79,7 +79,8 @@ const upcomingWorkspaces: Record<'optimizer' | 'speed' | 'artifacts' | 'gems' | 
 };
 
 type NumericSortKey = 'level' | 'hp' | 'atk' | 'def' | 'spd' | 'criticalRate' | 'criticalDamage' | 'resistance' | 'accuracy';
-type SortKey = 'index' | 'name' | 'sets' | 'efficiency' | NumericSortKey;
+type EquipmentSortKey = 'artifactTypes' | 'relicTypes';
+type SortKey = 'index' | 'name' | 'sets' | 'efficiency' | EquipmentSortKey | NumericSortKey;
 
 type MonsterRow = {
   unitId: string;
@@ -131,6 +132,7 @@ function blankMonsterPreference(unitId: string): MonsterPreference { return { un
 const monsterNameCollator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
 const defaultMonsterSortDirections: Record<SortKey, boolean> = {
   index: true, name: true, sets: true, efficiency: false,
+  artifactTypes: true, relicTypes: true,
   level: false, hp: false, atk: false, def: false, spd: false,
   criticalRate: false, criticalDamage: false, resistance: false, accuracy: false,
 };
@@ -607,10 +609,11 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
     const direction = ascending ? 1 : -1;
     return [...filtered].sort((left, right) => {
       if (key === 'name') return monsterNameCollator.compare(left.name, right.name) * direction || left.index - right.index;
-      if (key === 'sets') {
-        const leftSets = left.sets.length ? left.sets.map((set) => set.name).join('/') : null;
-        const rightSets = right.sets.length ? right.sets.map((set) => set.name).join('/') : null;
-        return compareTextWithBlanks(leftSets, rightSets, direction) || left.index - right.index;
+      if (key === 'sets' || key === 'artifactTypes' || key === 'relicTypes') {
+        const values = key === 'sets'
+          ? (row: MonsterRow) => row.sets.length ? row.sets.map((set) => set.name).join('/') : null
+          : (row: MonsterRow) => row[key].length ? row[key].join('/') : null;
+        return compareTextWithBlanks(values(left), values(right), direction) || left.index - right.index;
       }
       if (key === 'efficiency') {
         return compareNumbersWithBlanks(left.efficiency, right.efficiency, direction) || left.index - right.index;
@@ -640,9 +643,9 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
     { key: 'def', label: 'DEF' }, { key: 'spd', label: 'SPD' }, { key: 'criticalRate', label: 'CR%' },
     { key: 'criticalDamage', label: 'CD%' }, { key: 'resistance', label: 'RES%' }, { key: 'accuracy', label: 'ACC%' },
   ];
-  const sortHeader = (key: SortKey, label: string, alignLeft = false) => {
+  const sortHeader = (key: SortKey, label: string, alignLeft = false, extraClassName = '') => {
     const sorted = sort.key === key;
-    const className = [alignLeft ? 'align-left' : '', 'sortable', sorted ? 'sorted' : '', sorted && sort.ascending ? 'ascending' : '']
+    const className = [alignLeft ? 'align-left' : '', 'sortable', sorted ? 'sorted' : '', sorted && sort.ascending ? 'ascending' : '', extraClassName]
       .filter(Boolean).join(' ');
     return <th key={key} scope="col" aria-sort={sorted ? (sort.ascending ? 'ascending' : 'descending') : 'none'} className={className}>
       <button type="button" className="table-sort-button" onClick={() => toggleSort(key)}>{label}</button>
@@ -690,8 +693,8 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
             {sortHeader('sets', 'Runes', true)}
             {columns.map((column) => sortHeader(column.key, column.label))}
             {sortHeader('efficiency', 'EFF')}
-            <th scope="col" className="equipment-start">Artifacts</th>
-            <th scope="col">Relic</th>
+            {sortHeader('artifactTypes', 'Artifacts', false, 'equipment-start')}
+            {sortHeader('relicTypes', 'Relic')}
           </tr>
         </thead>
         <tbody>

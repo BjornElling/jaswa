@@ -433,10 +433,10 @@ button { cursor: pointer; }
 .grid-table tbody td.dim { color: var(--dim); }
 .grid-table tbody td.pending { color: var(--faint); font-style: italic; }
 
-/* Artifacts and relics are equipment alongside the rune sheet, so a fixed
-   rule gives their compact pair a distinct start without changing any row's
-   measured columns. */
-.monster-grid .equipment-start { border-left: 1px solid var(--line-strong); }
+/* Artifacts and relics are equipment alongside the rune sheet. The reserved
+   inset separates that compact pair without drawing a hard rule through the
+   table or changing its measured columns. */
+.monster-grid .equipment-start { padding-left: var(--s5); }
 .monster-grid .equipment-types { white-space: nowrap; }
 
 .row-index { color: var(--ghost); font-size: var(--t-micro); width: 64px; }
