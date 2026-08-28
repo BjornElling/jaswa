@@ -137,15 +137,19 @@ button { cursor: pointer; }
   object-fit: contain;
   flex: 0 0 auto;
 }
+/* The one size in the app that is not a step on the type scale: the
+   wordmark is a mark rather than text, and it is set just under the 34px
+   glyph so the two read as one lockup instead of the name shouting over
+   the rune. */
 .rail-brand b {
-  font-size: var(--t-title); font-weight: 600;
+  font-size: 26px; font-weight: 600;
   letter-spacing: -.015em;
 }
 /* The SW the name is a pun on. It is marked with the app's own underline
    device rather than a rule of its own, so the wordmark uses the same
    mechanism as every other gold underline here; the offset keeps it off
-   the baseline, and the thickness is fixed so it stays a hairline instead
-   of thickening with the 18px type. */
+   the baseline, and the thickness is fixed so it stays a hairline rather
+   than scaling up with the wordmark's type. */
 .brand-sw {
   color: var(--gold);
   text-decoration: underline;
