@@ -1107,7 +1107,12 @@ button { cursor: pointer; }
    label rather than by text of its own. It takes the filter buttons' height so
    the strip's controls sit on one line. */
 .filter-checkbox {
-  width: 15px; height: 15px; margin: 0;
+  width: 15px; height: 15px;
+  /* A filter button pads its text by --s3 inside its own box, so a label sits
+     that much clear of it on top of the group's gap. The box has no such
+     padding of its own, and takes the same step as a margin to stand off its
+     label by the same distance. */
+  margin: 0 0 0 var(--s3);
   flex: 0 0 auto;
   accent-color: var(--gold);
   cursor: pointer;
