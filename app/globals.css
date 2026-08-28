@@ -1103,6 +1103,15 @@ button { cursor: pointer; }
   flex: 0 0 auto;
   accent-color: var(--gold);
 }
+/* A checkbox standing among the filter strip's buttons rather than in a form:
+   it takes the strip's smaller type and its button height, so the row of
+   controls sits on one line. */
+.checkbox-row.compact {
+  gap: var(--s2);
+  min-height: 30px;
+  font-size: var(--t-small);
+  white-space: nowrap;
+}
 
 .field-narrow { max-width: 320px; }
 
