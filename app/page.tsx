@@ -20,6 +20,7 @@ type Page = 'home' | 'monsters' | 'optimizer' | 'speed' | 'potential' | 'artifac
 type ReportCategory = 'Monster' | 'Rune' | 'Gem' | 'Grindstone' | 'Artifact' | 'Relic' | 'Other';
 type MonsterRecord = Record<string, unknown>;
 type EquipmentPrimaryType = 'HP' | 'ATK' | 'DEF';
+type EquipmentPrimaryTypeSlot = EquipmentPrimaryType | null;
 
 type NavigationItem = { id: Page; label: string; glyph: string };
 
@@ -90,8 +91,8 @@ type MonsterRow = {
   imageFilename?: string;
   initial: string;
   sets: Array<{ name: string; abbreviation: string }>;
-  artifactTypes: EquipmentPrimaryType[];
-  relicTypes: EquipmentPrimaryType[];
+  artifactTypes: EquipmentPrimaryTypeSlot[];
+  relicTypes: EquipmentPrimaryTypeSlot[];
   efficiency: number | null;
   index: number;
   level: number | null;
@@ -118,15 +119,21 @@ function dateTime(value?: string): string {
 }
 function numericOrNull(value: unknown): number | null { return typeof value === 'number' && Number.isFinite(value) ? value : null; }
 const equipmentPrimaryTypes: Record<number, EquipmentPrimaryType> = { 100: 'HP', 101: 'ATK', 102: 'DEF' };
-function equippedEquipmentTypes(monster: MonsterRecord, key: 'artifacts' | 'relics'): EquipmentPrimaryType[] {
+function primaryEquipmentType(item: unknown): EquipmentPrimaryTypeSlot {
+  if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+  const effect = (item as MonsterRecord).pri_effect;
+  if (!Array.isArray(effect) || typeof effect[0] !== 'number' || !Number.isFinite(effect[0])) return null;
+  return equipmentPrimaryTypes[effect[0]] ?? null;
+}
+function equippedEquipmentTypes(monster: MonsterRecord, key: 'artifacts' | 'relics'): EquipmentPrimaryTypeSlot[] {
   if (!Array.isArray(monster[key])) return [];
-  return monster[key].flatMap((item) => {
-    if (!item || typeof item !== 'object' || Array.isArray(item)) return [];
-    const effect = (item as MonsterRecord).pri_effect;
-    if (!Array.isArray(effect) || typeof effect[0] !== 'number' || !Number.isFinite(effect[0])) return [];
-    const type = equipmentPrimaryTypes[effect[0]];
-    return type ? [type] : [];
-  });
+  return monster[key].map(primaryEquipmentType);
+}
+function displayArtifactTypes(types: EquipmentPrimaryTypeSlot[]): string {
+  return [types[0] ?? '-', types[1] ?? '-'].join('/');
+}
+function displayRelicType(types: EquipmentPrimaryTypeSlot[]): string {
+  return types.find((type): type is EquipmentPrimaryType => type !== null) ?? '—';
 }
 function blankMonsterPreference(unitId: string): MonsterPreference { return { unitId, label: '', runeSets: '', statGoals: '' }; }
 const monsterNameCollator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
@@ -612,7 +619,9 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
       if (key === 'sets' || key === 'artifactTypes' || key === 'relicTypes') {
         const values = key === 'sets'
           ? (row: MonsterRow) => row.sets.length ? row.sets.map((set) => set.name).join('/') : null
-          : (row: MonsterRow) => row[key].length ? row[key].join('/') : null;
+          : key === 'artifactTypes'
+            ? (row: MonsterRow) => row.artifactTypes.some((type) => type !== null) ? displayArtifactTypes(row.artifactTypes) : null
+            : (row: MonsterRow) => row.relicTypes.some((type) => type !== null) ? displayRelicType(row.relicTypes) : null;
         return compareTextWithBlanks(values(left), values(right), direction) || left.index - right.index;
       }
       if (key === 'efficiency') {
@@ -726,11 +735,11 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
             <td className={row.efficiency === null ? 'muted' : undefined}>
               {row.efficiency === null ? '—' : `${row.efficiency.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`}
             </td>
-            <td className={row.artifactTypes.length ? 'equipment-start equipment-types' : 'equipment-start muted'}>
-              {row.artifactTypes.length ? row.artifactTypes.join('/') : '—'}
+            <td className={row.artifactTypes.some((type) => type !== null) ? 'equipment-start equipment-types' : 'equipment-start muted'}>
+              {displayArtifactTypes(row.artifactTypes)}
             </td>
-            <td className={row.relicTypes.length ? 'equipment-types' : 'muted'}>
-              {row.relicTypes.length ? row.relicTypes.join('/') : '—'}
+            <td className={row.relicTypes.some((type) => type !== null) ? 'equipment-types' : 'muted'}>
+              {displayRelicType(row.relicTypes)}
             </td>
           </tr>)}
         </tbody>
