@@ -583,14 +583,16 @@ function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLe
     <section className="panel">
       <h3 className="block-title">Hardware acceleration</h3>
       <div className="settings-layout">
-        {/* Two sentences: what the card is for, and when not to use it. A
-            legend over the checkbox would only repeat the panel's own heading,
-            so the box sits directly under the line that explains it. */}
+        {/* What the card is for, what that has to do with this app, and when not
+            to use it. The middle beat is two words: the reader does not need the
+            parallel spelled out once "Like runes." has landed it. A legend over
+            the checkbox would only repeat the panel's own heading, so the box
+            sits directly under the line that explains it. */}
         <div className="stack acceleration-choice">
           <p className="lead">
-            Your processor runs every calculation one at a time whereas your
-            graphics card runs thousands of those at once. You should utilize
-            this, unless it causes the program to misbehave.
+            Your graphics card was designed to calculate thousands of little
+            things at once. Like runes. You should utilize this, unless it causes
+            the program to misbehave.
           </p>
           <CheckboxRow label="Use the graphics card for heavy calculations" checked={hardwareAcceleration}
             onChange={onHardwareAcceleration} />
