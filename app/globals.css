@@ -1062,14 +1062,21 @@ button { cursor: pointer; }
    headline at the reader. */
 /* Usually the title leads, so the block sets its own top space; when an
    eyebrow is present it takes that role and the title tucks up beneath it. */
-.page-header {
+/* Every section header — the shared one and the home page's own — opens at
+   the same distance from the top of the content column and runs to the same
+   edges, so switching sections does not shift the page under the reader.
+   The two share these through the tokens rather than by repeating numbers. */
+.page-header, .hero {
   position: relative;
   margin: 0 0 var(--s6);
-  padding: var(--s2) 0 var(--s5);
-  /* --line-strong rather than --line: this rule closes the whole header and
-     has to read as a division, not as the hairlines between table rows. */
+  padding-top: var(--s2);
   border-bottom: 1px solid var(--line-strong);
 }
+
+/* --line-strong on the shared rule above rather than --line: it closes the
+   whole header and has to read as a division, not as the hairlines between
+   table rows. */
+.page-header { padding-bottom: var(--s5); }
 .page-header .eyebrow { margin-bottom: var(--s3); }
 /* the wash sits behind the text but inside the header's own stacking
    context, so it never slips underneath the page background */
@@ -1118,15 +1125,11 @@ button { cursor: pointer; }
 /* The home page's own header. It replaces the shared .page-header here
    because this one page introduces the app rather than a section: the name
    is spelled out in full, stepped to the right, with the rune behind it. */
+/* Position, margin, top padding and the closing rule all come from the rule
+   it shares with .page-header. Only the depth below the name and the clip
+   are its own. */
 .hero {
-  position: relative;
-  margin: 0 0 var(--s6);
-  /* The top matches the name's own left inset, so the header is framed by
-     one measure on three sides. It is set a little short of that inset
-     because the first line's box carries a few pixels of leading above the
-     cap height, and it is the visible ink the eye measures, not the box. */
-  padding: clamp(var(--s4), 3.2vw, 42px) 0 var(--s6);
-  border-bottom: 1px solid var(--line-strong);
+  padding-bottom: var(--s6);
   /* the rune bleeds past the gutter; clip rather than open a scrollbar */
   overflow: clip;
 }
@@ -1175,12 +1178,11 @@ button { cursor: pointer; }
 
 /* The three lines of the name. Each is its own row so the indent can grow
    down the stack; the steps are on the 4px rhythm like everything else. */
-/* The whole name is inset from the header's left edge: set flush, the J sat
-   hard against the panel wall with no margin to breathe into. The steps
-   below are measured from this indent rather than from the edge. */
+/* Flush with the content column, like every other section title: the space
+   the J needs comes from .section-body's gutter, the same one that sets the
+   left edge on every page. The steps below are measured from it. */
 .hero-name {
   margin: 0;
-  padding-left: clamp(var(--s5), 4vw, var(--s7));
   display: flex;
   flex-direction: column;
   line-height: .92;
@@ -1216,10 +1218,10 @@ button { cursor: pointer; }
    nothing but itself: no rule, no attribution. Italic and a step down in
    weight set it apart from the name above without adding another device. */
 .hero-quote {
-  /* Pushed to the far edge, inset by the same amount the name is inset from
-     the left, so the header is bracketed by one measure on both sides. The
-     stair of the name runs left to right and this finishes the movement. */
-  margin: var(--s6) clamp(var(--s5), 4vw, var(--s7)) 0 auto;
+  /* Pushed to the far edge of the content column, mirroring the name's own
+     flush left edge, so the header is bracketed evenly. The stair of the
+     name runs left to right and this finishes the movement. */
+  margin: var(--s6) 0 0 auto;
   width: fit-content;
   /* Great Vibes has a small x-height for its point size and its joins close
      up below about 40px, so it is set far larger than the sans it replaced
