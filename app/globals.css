@@ -349,6 +349,15 @@ button { cursor: pointer; }
 }
 
 /* ---------------------------------------------------------------- table */
+.monster-header-wrap {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  overflow: hidden;
+  background: var(--raise);
+}
+.monster-header-wrap .monster-grid { will-change: transform; }
+.monster-header-wrap .grid-table thead th { position: static; }
 .table-wrap { overflow: auto; }
 
 /* the grid gets the same left gutter as prose, so a row's first character

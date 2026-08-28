@@ -1,6 +1,6 @@
 'use client';
 
-import { ChangeEvent, DragEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, DragEvent, FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import { WorkspacePage } from './components/workspace-page';
 import { clearImportedGame, loadImportedGame, loadPreferences, saveImportedGame, savePreferences } from './lib/local-store';
@@ -86,6 +86,7 @@ const upcomingWorkspaces: Record<'optimizer' | 'speed' | 'artifacts' | 'gems' | 
 type NumericSortKey = 'level' | 'hp' | 'atk' | 'def' | 'spd' | 'criticalRate' | 'criticalDamage' | 'resistance' | 'accuracy' | 'ehp' | 'ehpD' | 'dmg';
 type EquipmentSortKey = 'artifactTypes' | 'relicTypes';
 type SortKey = 'index' | 'name' | 'sets' | EquipmentSortKey | NumericSortKey;
+type MonsterGridColumn = { key: SortKey; label: string };
 
 type MonsterRow = {
   unitId: string;
@@ -112,6 +113,39 @@ type MonsterRow = {
   ehpD: number | null;
   dmg: number | null;
 };
+
+function MonsterColumnGroup({ columns }: { columns: MonsterGridColumn[] }) {
+  return <colgroup>
+    <col className="monster-col-index" />
+    <col className="monster-col-name" />
+    <col className="monster-col-sets" />
+    {columns.map((column) => <col key={column.key} className={`monster-col-${column.key}`} />)}
+    <col className="monster-col-artifacts" />
+    <col className="monster-col-relic" />
+    <col className="monster-col-ehp" />
+    <col className="monster-col-ehpD" />
+    <col className="monster-col-dmg" />
+  </colgroup>;
+}
+
+function MonsterTableHeader({ columns, sortHeader }: {
+  columns: MonsterGridColumn[];
+  sortHeader: (key: SortKey, label: string, alignLeft?: boolean, extraClassName?: string) => ReactNode;
+}) {
+  return <thead>
+    <tr>
+      {sortHeader('index', '#', true)}
+      {sortHeader('name', 'Monster', true)}
+      {sortHeader('sets', 'Runes', true)}
+      {columns.map((column) => sortHeader(column.key, column.label))}
+      {sortHeader('artifactTypes', 'Artifacts', false, 'equipment-start')}
+      {sortHeader('relicTypes', 'Relic')}
+      {sortHeader('ehp', 'E.HP')}
+      {sortHeader('ehpD', 'E.HP D')}
+      {sortHeader('dmg', 'DMG')}
+    </tr>
+  </thead>;
+}
 
 function count(value: unknown): number { return Array.isArray(value) ? value.length : 0; }
 /* An unparseable timestamp makes Intl throw a RangeError, and this is read from
@@ -570,6 +604,7 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
   const [search, setSearch] = useState('');
   const [selectedElements, setSelectedElements] = useState<string[]>([]);
   const [selectedArchetypes, setSelectedArchetypes] = useState<MonsterArchetype[]>([]);
+  const stickyHeaderTable = useRef<HTMLTableElement>(null);
 
   const rows = useMemo<MonsterRow[]>(() => {
     const defaultNames = numberedMonsterNames(monsters);
@@ -675,7 +710,7 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
     </section>
   </div>;
 
-  const columns: Array<{ key: SortKey; label: string }> = [
+  const columns: MonsterGridColumn[] = [
     { key: 'level', label: 'LVL' }, { key: 'hp', label: 'HP' }, { key: 'atk', label: 'ATK' },
     { key: 'def', label: 'DEF' }, { key: 'spd', label: 'SPD' }, { key: 'criticalRate', label: 'CR%' },
     { key: 'criticalDamage', label: 'CD%' }, { key: 'resistance', label: 'RES%' }, { key: 'accuracy', label: 'ACC%' },
@@ -688,7 +723,6 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
       <button type="button" className="table-sort-button" onClick={() => toggleSort(key)}>{label}</button>
     </th>;
   };
-
   return <>
     <div className="filter-strip">
       <div className="filter-group">
@@ -721,32 +755,17 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
       </div>
     </div>
 
-    <div className="table-wrap">
-      <table className="grid-table monster-grid">
-        <colgroup>
-          <col className="monster-col-index" />
-          <col className="monster-col-name" />
-          <col className="monster-col-sets" />
-          {columns.map((column) => <col key={column.key} className={`monster-col-${column.key}`} />)}
-          <col className="monster-col-artifacts" />
-          <col className="monster-col-relic" />
-          <col className="monster-col-ehp" />
-          <col className="monster-col-ehpD" />
-          <col className="monster-col-dmg" />
-        </colgroup>
-        <thead>
-          <tr>
-            {sortHeader('index', '#', true)}
-            {sortHeader('name', 'Monster', true)}
-            {sortHeader('sets', 'Runes', true)}
-            {columns.map((column) => sortHeader(column.key, column.label))}
-            {sortHeader('artifactTypes', 'Artifacts', false, 'equipment-start')}
-            {sortHeader('relicTypes', 'Relic')}
-            {sortHeader('ehp', 'E.HP')}
-            {sortHeader('ehpD', 'E.HP D')}
-            {sortHeader('dmg', 'DMG')}
-          </tr>
-        </thead>
+    <div className="monster-header-wrap">
+      <table ref={stickyHeaderTable} className="grid-table monster-grid" aria-label="Monster roster columns">
+        <MonsterColumnGroup columns={columns} />
+        <MonsterTableHeader columns={columns} sortHeader={sortHeader} />
+      </table>
+    </div>
+    <div className="table-wrap" onScroll={(event) => {
+      if (stickyHeaderTable.current) stickyHeaderTable.current.style.transform = `translateX(${-event.currentTarget.scrollLeft}px)`;
+    }}>
+      <table className="grid-table monster-grid" aria-label="Monster roster">
+        <MonsterColumnGroup columns={columns} />
         <tbody>
           {visible.map((row) => <tr key={row.unitId}>
             <td className="align-left row-index">{String(row.index + 1).padStart(2, '0')}</td>
