@@ -1810,7 +1810,7 @@ button { cursor: pointer; }
    gutter, so strip, grid and footer keep one shared vertical line while
    their rules and borders still span the full workspace. */
 @media (min-width: 1800px) {
-  .filter-strip, .grid-footer {
+  .filter-strip, .import-badge + .filter-strip, .grid-footer {
     padding-inline: calc((100% - var(--measure-grid)) / 2);
   }
   /* The table is centred in the workspace and the cells keep their ordinary
