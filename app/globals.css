@@ -206,7 +206,7 @@ button { cursor: pointer; }
 .rail-item.active .glyph { color: var(--gold); }
 .rail-spacer { flex: 1; min-height: var(--s4); }
 
-.workspace { min-width: 0; position: relative; display: grid; grid-template-rows: 1fr; align-content: start; }
+.workspace { min-width: 0; position: relative; display: grid; grid-template-rows: auto; grid-auto-rows: auto; align-content: start; }
 
 /* -------------------------------------------------------- import badge */
 
@@ -269,21 +269,24 @@ button { cursor: pointer; }
 /* --------------------------------------------------------- filter strip */
 .filter-strip {
   display: flex; align-items: center;
+  height: var(--strip);
   min-height: var(--strip);
   border-bottom: 1px solid var(--line);
   background: var(--bg);
   padding: 0 var(--gutter);
   overflow-x: auto;
+  overflow-y: hidden;
 }
 /* a table page opens on its strip, and the import badge rests over that same
    corner: the strip stands tall enough to hold the badge and keeps its own
    controls clear of it */
 .import-badge + .filter-strip {
+  height: calc(var(--badge-height) + var(--s5));
   min-height: calc(var(--badge-height) + var(--s5));
   padding-right: calc(var(--badge-width) + var(--gutter));
 }
 .filter-group {
-  display: flex; align-items: center; gap: var(--s1);
+  display: flex; flex: 0 0 auto; align-items: center; gap: var(--s1);
   padding-right: var(--s4); margin-right: var(--s4);
   border-right: 1px solid var(--line);
   white-space: nowrap;
@@ -312,7 +315,7 @@ button { cursor: pointer; }
 }
 
 .search-field {
-  display: flex; align-items: center; gap: var(--s2);
+  display: flex; flex: 0 0 260px; align-items: center; gap: var(--s2);
   background: var(--sunk);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
@@ -324,7 +327,7 @@ button { cursor: pointer; }
 .search-field:focus-within { border-color: var(--gold); }
 .search-field input {
   border: 0; background: transparent; color: var(--ink);
-  font-size: var(--t-body); width: 100%; padding: 0; outline: none;
+  font-size: var(--t-body); width: 100%; min-width: 0; padding: 0; outline: none;
 }
 .search-field input::placeholder { color: var(--faint); }
 /* The clear button keeps its slot whether or not there is anything to clear.
@@ -351,7 +354,7 @@ button { cursor: pointer; }
 /* the grid gets the same left gutter as prose, so a row's first character
    lines up with a section heading instead of hugging the rail. */
 .grid-table { width: 100%; border-collapse: collapse; font-size: var(--t-body); }
-.monster-grid { min-width: 1848px; table-layout: fixed; }
+.monster-grid { min-width: 1744px; table-layout: fixed; }
 .monster-grid .monster-col-index { width: 72px; }
 .monster-grid .monster-col-name { width: 240px; }
 .monster-grid .monster-col-sets { width: 136px; }
@@ -364,7 +367,6 @@ button { cursor: pointer; }
 .monster-grid .monster-col-criticalDamage,
 .monster-grid .monster-col-resistance,
 .monster-grid .monster-col-accuracy { width: 80px; }
-.monster-grid .monster-col-efficiency { width: 104px; }
 .monster-grid .monster-col-artifacts { width: 112px; }
 .monster-grid .monster-col-relic { width: 80px; }
 .monster-grid .monster-col-ehp,
@@ -1794,7 +1796,7 @@ button { cursor: pointer; }
 
 /* ----------------------------------------------------------- responsive */
 
-/* The grid uses more width than prose does — fourteen columns need it — but
+/* The grid uses more width than prose does — seventeen columns need it — but
    not the whole of a very wide display, where the eye loses the row between
    the name and the last number. Past the grid measure the surplus becomes
    gutter, so strip, grid and footer keep one shared vertical line while
@@ -1849,13 +1851,17 @@ button { cursor: pointer; }
 
   /* there is no spare corner at this width, so the badge stops floating and
      simply opens the workspace as a right-aligned line of its own */
-  .workspace { grid-template-rows: auto 1fr; }
+  .workspace { grid-template-rows: auto; }
   .import-badge {
     position: static;
     justify-self: end;
     margin: var(--s3) var(--gutter) 0;
   }
-  .import-badge + .filter-strip { min-height: var(--strip); padding-right: var(--gutter); }
+  .import-badge + .filter-strip {
+    height: var(--strip);
+    min-height: var(--strip);
+    padding-right: var(--gutter);
+  }
   /* the figures are wider than a narrow screen, so here they are allowed to
      fall onto as many lines as they need */
   .import-badge p { white-space: normal; }

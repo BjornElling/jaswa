@@ -18,11 +18,11 @@ const endpoint = 'https://swarfarm.com/api/v2/monsters/';
 const requestedPageSize = 100;
 const minimumDelayMs = 3_000;
 const maximumSnapshotAgeMs = 7 * 24 * 60 * 60 * 1_000;
-const snapshotSchemaVersion = 2;
+const snapshotSchemaVersion = 3;
 const force = process.argv.includes('--force');
 
 const fields = [
-  'com2us_id', 'family_id', 'skill_group_id', 'name', 'image_filename',
+  'com2us_id', 'family_id', 'skill_group_id', 'name', 'image_filename', 'archetype',
   'element', 'base_stars', 'natural_stars', 'base_hp', 'base_attack',
   'base_defense', 'speed', 'crit_rate', 'crit_damage', 'resistance',
   'accuracy', 'max_lvl_hp', 'max_lvl_attack', 'max_lvl_defense',

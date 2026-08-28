@@ -5,8 +5,8 @@ import Image from 'next/image';
 import { WorkspacePage } from './components/workspace-page';
 import { clearImportedGame, loadImportedGame, loadPreferences, saveImportedGame, savePreferences } from './lib/local-store';
 import { blankPreferences, createImportedGame, defaultRunePotentialSettings, fileToText, importPreferencesFile, itemGrades, normalizeImportedGame, normalizePreferences, validateGameFile } from './lib/imports';
-import { monsterPresentation } from './lib/monster-catalog';
-import { calculateMonsterEfficiency } from './lib/monster-efficiency';
+import { monsterArchetypes, monsterPresentation } from './lib/monster-catalog';
+import type { MonsterArchetype } from './lib/monster-catalog';
 import { calculateMonsterTotals } from './lib/monster-stats';
 import { calculateRunePotentialMetrics, displayRunePotentialMetric } from './lib/rune-potential-metrics';
 import { activeRuneSets, elementName, presetRuneSetNameList } from './lib/rune-sets';
@@ -22,6 +22,9 @@ type ReportCategory = 'Monster' | 'Rune' | 'Gem' | 'Grindstone' | 'Artifact' | '
 type MonsterRecord = Record<string, unknown>;
 type EquipmentPrimaryType = 'HP' | 'ATK' | 'DEF';
 type EquipmentPrimaryTypeSlot = EquipmentPrimaryType | null;
+const monsterArchetypeLabels: Record<MonsterArchetype, string> = {
+  Attack: 'ATK', Defense: 'DEF', HP: 'HP', Support: 'SUP', Material: 'MAT', none: 'NONE',
+};
 
 type NavigationItem = { id: Page; label: string; glyph: string };
 
@@ -82,19 +85,19 @@ const upcomingWorkspaces: Record<'optimizer' | 'speed' | 'artifacts' | 'gems' | 
 
 type NumericSortKey = 'level' | 'hp' | 'atk' | 'def' | 'spd' | 'criticalRate' | 'criticalDamage' | 'resistance' | 'accuracy' | 'ehp' | 'ehpD' | 'dmg';
 type EquipmentSortKey = 'artifactTypes' | 'relicTypes';
-type SortKey = 'index' | 'name' | 'sets' | 'efficiency' | EquipmentSortKey | NumericSortKey;
+type SortKey = 'index' | 'name' | 'sets' | EquipmentSortKey | NumericSortKey;
 
 type MonsterRow = {
   unitId: string;
   name: string;
   secondaryName?: string;
   element?: string;
+  archetype?: MonsterArchetype;
   imageFilename?: string;
   initial: string;
   sets: Array<{ name: string; abbreviation: string }>;
   artifactTypes: EquipmentPrimaryTypeSlot[];
   relicTypes: EquipmentPrimaryTypeSlot[];
-  efficiency: number | null;
   index: number;
   level: number | null;
   hp: number | null;
@@ -143,7 +146,7 @@ function displayRelicType(types: EquipmentPrimaryTypeSlot[]): string {
 function blankMonsterPreference(unitId: string): MonsterPreference { return { unitId, label: '', runeSets: '', statGoals: '' }; }
 const monsterNameCollator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
 const defaultMonsterSortDirections: Record<SortKey, boolean> = {
-  index: true, name: true, sets: true, efficiency: false,
+  index: true, name: true, sets: true,
   artifactTypes: true, relicTypes: true,
   level: false, hp: false, atk: false, def: false, spd: false,
   criticalRate: false, criticalDamage: false, resistance: false, accuracy: false,
@@ -565,7 +568,8 @@ function numberedMonsterNames(monsters: MonsterRecord[]): Record<string, string>
 function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[]; preferences: Preferences }) {
   const [sort, setSort] = useState<{ key: SortKey; ascending: boolean }>({ key: 'index', ascending: true });
   const [search, setSearch] = useState('');
-  const [element, setElement] = useState<string | null>(null);
+  const [selectedElements, setSelectedElements] = useState<string[]>([]);
+  const [selectedArchetypes, setSelectedArchetypes] = useState<MonsterArchetype[]>([]);
 
   const rows = useMemo<MonsterRow[]>(() => {
     const defaultNames = numberedMonsterNames(monsters);
@@ -593,12 +597,12 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
         name: preference?.label || defaultNames[unitId],
         secondaryName: preference?.label ? defaultNames[unitId] : display.secondaryName,
         element: elementName(monster.attribute),
+        archetype: display.archetype,
         imageFilename: display.imageFilename,
         initial: display.shortName,
         sets: activeRuneSets(monster),
         artifactTypes: equippedEquipmentTypes(monster, 'artifacts'),
         relicTypes: equippedEquipmentTypes(monster, 'relics'),
-        efficiency: calculateMonsterEfficiency(monster),
         index,
         level: numericOrNull(monster.unit_level),
         hp, atk, def, spd, criticalRate, criticalDamage,
@@ -619,7 +623,8 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
     const filtered = rows.filter((row) => {
-      if (element && row.element !== element) return false;
+      if (selectedElements.length && (!row.element || !selectedElements.includes(row.element))) return false;
+      if (selectedArchetypes.length && (!row.archetype || !selectedArchetypes.includes(row.archetype))) return false;
       if (!term) return true;
       return row.name.toLowerCase().includes(term)
         || row.secondaryName?.toLowerCase().includes(term)
@@ -638,17 +643,26 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
             : (row: MonsterRow) => row.relicTypes.some((type) => type !== null) ? displayRelicType(row.relicTypes) : null;
         return compareTextWithBlanks(values(left), values(right), direction) || left.index - right.index;
       }
-      if (key === 'efficiency') {
-        return compareNumbersWithBlanks(left.efficiency, right.efficiency, direction) || left.index - right.index;
-      }
       return compareNumbersWithBlanks(left[key], right[key], direction) || left.index - right.index;
     });
-  }, [rows, search, element, sort]);
+  }, [rows, search, selectedElements, selectedArchetypes, sort]);
 
   function toggleSort(key: SortKey) {
     setSort((current) => current.key === key
       ? { key, ascending: !current.ascending }
       : { key, ascending: defaultMonsterSortDirections[key] });
+  }
+
+  function toggleElement(name: string) {
+    setSelectedElements((current) => current.includes(name)
+      ? current.filter((entry) => entry !== name)
+      : [...current, name]);
+  }
+
+  function toggleArchetype(archetype: MonsterArchetype) {
+    setSelectedArchetypes((current) => current.includes(archetype)
+      ? current.filter((entry) => entry !== archetype)
+      : [...current, archetype]);
   }
 
   if (!monsters.length) return <div className="section-body">
@@ -687,14 +701,23 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
             hidden={!search} disabled={!search} aria-label="Clear filter">✕</button>
         </div>
       </div>
-      <div className="filter-group">
+      <div className="filter-group" role="group" aria-label="Filter by element">
         <span className="filter-label">Element</span>
         {elements.map((name) => <button
           key={name}
-          className={element === name ? 'filter-button active' : 'filter-button'}
-          onClick={() => setElement(element === name ? null : name)}
-          aria-pressed={element === name}
+          className={selectedElements.includes(name) ? 'filter-button active' : 'filter-button'}
+          onClick={() => toggleElement(name)}
+          aria-pressed={selectedElements.includes(name)}
         >{name.slice(0, 3).toUpperCase()}</button>)}
+      </div>
+      <div className="filter-group" role="group" aria-label="Filter by monster type">
+        <span className="filter-label">Type</span>
+        {monsterArchetypes.map((archetype) => <button
+          key={archetype}
+          className={selectedArchetypes.includes(archetype) ? 'filter-button active' : 'filter-button'}
+          onClick={() => toggleArchetype(archetype)}
+          aria-pressed={selectedArchetypes.includes(archetype)}
+        >{monsterArchetypeLabels[archetype]}</button>)}
       </div>
     </div>
 
@@ -710,7 +733,6 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
           <col className="monster-col-ehp" />
           <col className="monster-col-ehpD" />
           <col className="monster-col-dmg" />
-          <col className="monster-col-efficiency" />
         </colgroup>
         <thead>
           <tr>
@@ -723,7 +745,6 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
             {sortHeader('ehp', 'E.HP')}
             {sortHeader('ehpD', 'E.HP D')}
             {sortHeader('dmg', 'DMG')}
-            {sortHeader('efficiency', 'R. Eff %')}
           </tr>
         </thead>
         <tbody>
@@ -761,9 +782,6 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
             <td className={row.ehp === null ? 'muted' : undefined}>{displayNumber(row.ehp)}</td>
             <td className={row.ehpD === null ? 'muted' : undefined}>{displayNumber(row.ehpD)}</td>
             <td className={row.dmg === null ? 'muted' : undefined}>{displayNumber(row.dmg)}</td>
-            <td className={row.efficiency === null ? 'muted' : undefined}>
-              {row.efficiency === null ? '—' : `${row.efficiency.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`}
-            </td>
           </tr>)}
         </tbody>
       </table>
@@ -775,10 +793,11 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
     <div className="grid-footer">
       <span className="footer-count"><b>{visible.length}</b> of {rows.length} shown</span>
       <span className="footer-filters">
-        {element && <><span aria-hidden="true">·</span><span><b>{element}</b></span></>}
+        {selectedElements.length > 0 && <><span aria-hidden="true">·</span><span><b>{selectedElements.join(', ')}</b></span></>}
+        {selectedArchetypes.length > 0 && <><span aria-hidden="true">·</span><span><b>{selectedArchetypes.join(', ')}</b></span></>}
         {search && <><span aria-hidden="true">·</span><span>matching <b>{search}</b></span></>}
       </span>
-      <span>R. Eff % is the average of six equipped runes</span>
+      <span>Choose one or more elements or types</span>
     </div>
   </>;
 }

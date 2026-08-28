@@ -2,9 +2,12 @@ import { swExporterMonsterNames } from './sw-exporter-monster-names';
 import swarfarmMonsterData from './swarfarm-monsters.json';
 import { localMonsterImageFilenames } from './local-monster-images';
 
-type MonsterPresentation = { name: string; secondaryName?: string; shortName: string; imageFilename?: string };
+export const monsterArchetypes = ['Attack', 'Defense', 'HP', 'Support', 'Material', 'none'] as const;
+export type MonsterArchetype = typeof monsterArchetypes[number];
 
-type SwarfarmMonster = { com2us_id: number; name: string; image_filename?: string };
+type MonsterPresentation = { name: string; secondaryName?: string; shortName: string; imageFilename?: string; archetype?: MonsterArchetype };
+
+type SwarfarmMonster = { com2us_id: number; name: string; image_filename?: string; archetype?: unknown };
 
 const swarfarmByCom2usId = Object.fromEntries((swarfarmMonsterData.monsters as SwarfarmMonster[])
   .map((monster) => [String(monster.com2us_id), monster]));
@@ -22,6 +25,10 @@ function isSecondAwakened(masterId: string): boolean {
   return /^\d{3}3\d$/.test(masterId);
 }
 
+function monsterArchetype(value: unknown): MonsterArchetype | undefined {
+  return monsterArchetypes.includes(value as MonsterArchetype) ? value as MonsterArchetype : undefined;
+}
+
 export function monsterPresentation(masterId: unknown): MonsterPresentation {
   const key = String(masterId ?? 'unknown');
   const renamed = renamedMonsters[key];
@@ -35,6 +42,7 @@ export function monsterPresentation(masterId: unknown): MonsterPresentation {
     secondaryName: renamed?.formerName,
     shortName: name.slice(0, 1).toUpperCase(),
     imageFilename: imageFilename && localMonsterImageFilenames.has(imageFilename) ? imageFilename : undefined,
+    archetype: monsterArchetype(swarfarmMonster?.archetype),
   };
 }
 
