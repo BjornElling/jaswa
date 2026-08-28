@@ -411,7 +411,6 @@ function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLe
         <span aria-hidden="true" className="hero-line two">Summoners War</span>
         <span aria-hidden="true" className="hero-line three">App</span>
       </h2>
-      <p className="hero-tagline">Drop in a JSON file, set goals for individual monsters, and use each workspace as it opens. Nothing leaves this computer — not even the embarrassing runes.</p>
     </header>
 
     <section className="panel">

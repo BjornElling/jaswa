@@ -1140,8 +1140,12 @@ button { cursor: pointer; }
 
 /* The three lines of the name. Each is its own row so the indent can grow
    down the stack; the steps are on the 4px rhythm like everything else. */
+/* The whole name is inset from the header's left edge: set flush, the J sat
+   hard against the panel wall with no margin to breathe into. The steps
+   below are measured from this indent rather than from the edge. */
 .hero-name {
   margin: 0;
+  padding-left: clamp(var(--s5), 4vw, var(--s7));
   display: flex;
   flex-direction: column;
   line-height: .92;
@@ -1151,33 +1155,28 @@ button { cursor: pointer; }
 }
 .hero-line { display: block; }
 .hero-line.one {
-  font-size: clamp(26px, 3.4vw, 46px);
+  font-size: clamp(24px, 3.2vw, 42px);
   color: var(--ink);
 }
 /* The initials the app is named after, so this line takes the accent and
    the size. It is the one place gold is used at scale rather than as a
    marker, which is what makes the page read as a title screen. */
+/* About 1.4x the lines above and below rather than twice their size: at 2x
+   the middle line stopped being part of a name and became a banner the
+   other two hung off. This is the ratio at which the three still read as
+   one name while the accent line stays clearly the subject. */
 .hero-line.two {
-  font-size: clamp(40px, 6.6vw, 92px);
+  font-size: clamp(38px, 4.6vw, 64px);
   color: var(--gold);
   margin-left: clamp(var(--s4), 3.4vw, var(--s7));
-  margin-top: .04em;
-  margin-bottom: .04em;
+  margin-top: .06em;
+  margin-bottom: .06em;
 }
 .hero-line.three {
-  font-size: clamp(26px, 3.4vw, 46px);
+  font-size: clamp(24px, 3.2vw, 42px);
   color: var(--ink);
   margin-left: clamp(var(--s6), 8vw, 148px);
 }
-.hero-tagline {
-  margin: var(--s5) 0 0;
-  max-width: 62ch;
-  color: var(--dim);
-  font-size: var(--t-lead);
-  line-height: 1.6;
-  text-wrap: pretty;
-}
-
 .section-intro { margin: 0 0 var(--s5); max-width: 68ch; }
 .section-intro h2 {
   margin: 0;
