@@ -156,6 +156,13 @@ button { cursor: pointer; }
   text-decoration-thickness: 2px;
   text-underline-offset: 3px;
 }
+/* The domain is held back a weight and a shade: it says where the app
+   lives without competing with the name for the eye, so the mark still
+   reads as "jaswa" first. */
+.brand-tld {
+  color: var(--faint);
+  font-weight: 400;
+}
 
 /* each group is its own element, so the spacing lives between groups
    rather than on the heading — the first group then starts flush. */

@@ -248,7 +248,7 @@ export default function Home() {
         <Image className="rail-mark" src="/favicon.svg" alt="" aria-hidden="true" width={34} height={34} priority />
         {/* The two letters the joke turns on are marked in place rather than
            spelled out: the name still reads and copies as one word. */}
-        <b>ja<span className="brand-sw">sw</span>a</b>
+        <b>ja<span className="brand-sw">sw</span>a<span className="brand-tld">.net</span></b>
       </div>
       {navigationGroups.map((group) => <div className="rail-group" key={group.heading}>
         <p className="rail-heading">{group.heading}</p>
