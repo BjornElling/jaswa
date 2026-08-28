@@ -66,32 +66,40 @@ export function elementMark(attribute: unknown): string {
 /**
  * The completed sets a monster currently has, most pieces first. Repeating an
  * abbreviation for each completed set keeps a 6-piece Fight build legible as
- * `FIG/FIG/FIG` instead of hiding two of its active bonuses.
+ * `FIG/FIG/FIG`; all leftover pieces collapse into one `BROKEN` marker.
  */
 export function activeRuneSets(monster: Record<string, unknown>): ActiveRuneSet[] {
   const runes = Array.isArray(monster.runes) ? monster.runes : [];
   const counts: Record<number, number> = {};
+  let hasBrokenRune = false;
 
   for (const rune of runes) {
-    if (!rune || typeof rune !== 'object' || Array.isArray(rune)) continue;
+    if (!rune || typeof rune !== 'object' || Array.isArray(rune)) {
+      hasBrokenRune = true;
+      continue;
+    }
     const setId = numberValue((rune as Record<string, unknown>).set_id);
-    if (setId) counts[setId] = (counts[setId] ?? 0) + 1;
+    if (runeSetNames[setId] && runeSetPieces[setId]) counts[setId] = (counts[setId] ?? 0) + 1;
+    else hasBrokenRune = true;
   }
 
-  return Object.entries(counts)
+  const completedSets = Object.entries(counts)
     .map(([rawSetId, count]) => {
       const setId = Number(rawSetId);
-      const required = runeSetPieces[setId] ?? 2;
-      const complete = Math.floor(count / required);
+      const required = runeSetPieces[setId];
       const name = runeSetNames[setId];
-      if (!name || complete < 1) return undefined;
-      return { name, abbreviation: name.slice(0, 3).toUpperCase(), count: complete * required, complete };
+      if (!required || !name) return undefined;
+      const complete = Math.floor(count / required);
+      return { name, abbreviation: name.slice(0, 3).toUpperCase(), count, complete, broken: count % required > 0 };
     })
-    .filter((set): set is ActiveRuneSet & { complete: number } => set !== undefined)
-    .sort((left, right) => right.count - left.count || left.name.localeCompare(right.name))
-    .flatMap((set) => Array.from({ length: set.complete }, () => ({
+    .filter((set): set is { name: string; abbreviation: string; count: number; complete: number; broken: boolean } => set !== undefined)
+    .sort((left, right) => right.count - left.count || left.name.localeCompare(right.name));
+  const sets = completedSets.flatMap((set) => Array.from({ length: set.complete }, () => ({
       name: set.name,
       abbreviation: set.abbreviation,
       count: set.count,
     })));
+  if (completedSets.some((set) => set.broken)) hasBrokenRune = true;
+  if (hasBrokenRune) sets.push({ name: 'Broken', abbreviation: 'BROKEN', count: 0 });
+  return sets;
 }
