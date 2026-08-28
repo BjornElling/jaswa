@@ -767,6 +767,7 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
           aria-pressed={selectedArchetypes.includes(archetype)}
         >{monsterArchetypeLabels[archetype]}</button>)}
       </div>
+      <span className="monster-filter-count"><b>{visible.length}</b> of {rows.length} shown</span>
     </div>
 
     <div className="monster-header-wrap">
@@ -820,18 +821,6 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
       </table>
     </div>
 
-    {/* The active filters sit in their own middle cell, which takes the slack:
-        the count on the left and the note on the right are pinned to the
-        footer's two edges, so typing in the search box cannot move either. */}
-    <div className="grid-footer">
-      <span className="footer-count"><b>{visible.length}</b> of {rows.length} shown</span>
-      <span className="footer-filters">
-        {selectedElements.length > 0 && <><span aria-hidden="true">·</span><span><b>{selectedElements.join(', ')}</b></span></>}
-        {selectedArchetypes.length > 0 && <><span aria-hidden="true">·</span><span><b>{selectedArchetypes.join(', ')}</b></span></>}
-        {search && <><span aria-hidden="true">·</span><span>matching <b>{search}</b></span></>}
-      </span>
-      <span>Choose one or more elements or types</span>
-    </div>
   </>;
 }
 

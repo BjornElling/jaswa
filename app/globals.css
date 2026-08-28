@@ -291,6 +291,17 @@ button { cursor: pointer; }
   white-space: nowrap;
 }
 .filter-group:last-child { border-right: 0; margin-right: 0; }
+.monster-filter-count {
+  flex: 0 0 16ch;
+  margin-left: auto;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: var(--t-small);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+.monster-filter-count b { color: var(--dim); font-weight: 500; }
 .filter-label {
   font-size: var(--t-micro); letter-spacing: .1em; text-transform: uppercase;
   color: var(--faint); font-weight: 700;
@@ -1562,22 +1573,6 @@ button { cursor: pointer; }
 }
 .grid-footer b { color: var(--dim); font-weight: 500; }
 .grid-footer .spacer { flex: 1; }
-/* Tabular figures and a reserved floor, so filtering from 350 rows to 7 does
-   not slide what follows the count. */
-.grid-footer .footer-count {
-  font-variant-numeric: tabular-nums;
-  min-width: 16ch;
-  flex: 0 0 auto;
-}
-/* The filters take all the slack and clip rather than push: the note at the
-   right edge stays put while a search term is typed. */
-.grid-footer .footer-filters {
-  flex: 1;
-  min-width: 0;
-  display: flex; align-items: center; gap: var(--s3);
-  overflow: hidden;
-  white-space: nowrap;
-}
 
 /* ---------------------------------------------------------------- modal */
 .modal-backdrop {
