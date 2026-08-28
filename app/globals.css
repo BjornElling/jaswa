@@ -1121,7 +1121,11 @@ button { cursor: pointer; }
 .hero {
   position: relative;
   margin: 0 0 var(--s6);
-  padding: var(--s5) 0 var(--s6);
+  /* The top matches the name's own left inset, so the header is framed by
+     one measure on three sides. It is set a little short of that inset
+     because the first line's box carries a few pixels of leading above the
+     cap height, and it is the visible ink the eye measures, not the box. */
+  padding: clamp(var(--s4), 3.2vw, 42px) 0 var(--s6);
   border-bottom: 1px solid var(--line-strong);
   /* the rune bleeds past the gutter; clip rather than open a scrollbar */
   overflow: clip;
