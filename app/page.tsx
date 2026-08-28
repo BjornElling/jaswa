@@ -89,15 +89,15 @@ type MonsterRow = {
   sets: Array<{ name: string; abbreviation: string }>;
   efficiency: number | null;
   index: number;
-  level: number;
-  hp: number;
-  atk: number;
-  def: number;
-  spd: number;
-  criticalRate: number;
-  criticalDamage: number;
-  resistance: number;
-  accuracy: number;
+  level: number | null;
+  hp: number | null;
+  atk: number | null;
+  def: number | null;
+  spd: number | null;
+  criticalRate: number | null;
+  criticalDamage: number | null;
+  resistance: number | null;
+  accuracy: number | null;
 };
 
 function count(value: unknown): number { return Array.isArray(value) ? value.length : 0; }
@@ -111,7 +111,7 @@ function dateTime(value?: string): string {
   if (Number.isNaN(parsed.getTime())) return 'an unknown time';
   return new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'short' }).format(parsed);
 }
-function numeric(value: unknown): number { return typeof value === 'number' && Number.isFinite(value) ? value : 0; }
+function numericOrNull(value: unknown): number | null { return typeof value === 'number' && Number.isFinite(value) ? value : null; }
 function blankMonsterPreference(unitId: string): MonsterPreference { return { unitId, label: '', runeSets: '', statGoals: '' }; }
 const monsterNameCollator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
 const defaultMonsterSortDirections: Record<SortKey, boolean> = {
@@ -119,6 +119,23 @@ const defaultMonsterSortDirections: Record<SortKey, boolean> = {
   level: false, hp: false, atk: false, def: false, spd: false,
   criticalRate: false, criticalDamage: false, resistance: false, accuracy: false,
 };
+function displayNumber(value: number | null): string {
+  return value === null ? '—' : value.toLocaleString('en');
+}
+function compareNumbersWithBlanks(left: number | null, right: number | null, direction: number): number {
+  if (left === null || right === null) {
+    if (left === right) return 0;
+    return left === null ? 1 : -1;
+  }
+  return (left - right) * direction;
+}
+function compareTextWithBlanks(left: string | null, right: string | null, direction: number): number {
+  if (left === null || right === null) {
+    if (left === right) return 0;
+    return left === null ? 1 : -1;
+  }
+  return monsterNameCollator.compare(left, right) * direction;
+}
 function download(filename: string, content: string) {
   const url = URL.createObjectURL(new Blob([content], { type: 'application/json' }));
   const anchor = document.createElement('a');
@@ -526,6 +543,10 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
       const display = monsterPresentation(monster.unit_master_id);
       const totals = calculateMonsterTotals(monster);
       const preference = preferences.monsterPreferences[unitId];
+      const baseHp = numericOrNull(monster.con);
+      const baseAtk = numericOrNull(monster.atk);
+      const baseDef = numericOrNull(monster.def);
+      const baseSpd = numericOrNull(monster.spd);
       return {
         unitId,
         name: preference?.label || defaultNames[unitId],
@@ -536,10 +557,15 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
         sets: activeRuneSets(monster),
         efficiency: calculateMonsterEfficiency(monster),
         index,
-        level: numeric(monster.unit_level),
-        hp: totals.hp, atk: totals.atk, def: totals.def, spd: totals.spd,
-        criticalRate: totals.criticalRate, criticalDamage: totals.criticalDamage,
-        resistance: totals.resistance, accuracy: totals.accuracy,
+        level: numericOrNull(monster.unit_level),
+        hp: baseHp === null ? null : totals.hp,
+        atk: baseAtk === null ? null : totals.atk,
+        def: baseDef === null ? null : totals.def,
+        spd: baseSpd === null ? null : totals.spd,
+        criticalRate: numericOrNull(monster.critical_rate) === null ? null : totals.criticalRate,
+        criticalDamage: numericOrNull(monster.critical_damage) === null ? null : totals.criticalDamage,
+        resistance: numericOrNull(monster.resist) === null ? null : totals.resistance,
+        accuracy: numericOrNull(monster.accuracy) === null ? null : totals.accuracy,
       };
     });
   }, [monsters, preferences]);
@@ -564,20 +590,14 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
     return [...filtered].sort((left, right) => {
       if (key === 'name') return monsterNameCollator.compare(left.name, right.name) * direction || left.index - right.index;
       if (key === 'sets') {
-        const leftSets = left.sets.map((set) => set.name).join('/');
-        const rightSets = right.sets.map((set) => set.name).join('/');
-        return monsterNameCollator.compare(leftSets, rightSets) * direction || left.index - right.index;
+        const leftSets = left.sets.length ? left.sets.map((set) => set.name).join('/') : null;
+        const rightSets = right.sets.length ? right.sets.map((set) => set.name).join('/') : null;
+        return compareTextWithBlanks(leftSets, rightSets, direction) || left.index - right.index;
       }
       if (key === 'efficiency') {
-        const leftEfficiency = left.efficiency;
-        const rightEfficiency = right.efficiency;
-        if (leftEfficiency === null || rightEfficiency === null) {
-          if (leftEfficiency === rightEfficiency) return left.index - right.index;
-          return leftEfficiency === null ? 1 : -1;
-        }
-        return (leftEfficiency - rightEfficiency) * direction || left.index - right.index;
+        return compareNumbersWithBlanks(left.efficiency, right.efficiency, direction) || left.index - right.index;
       }
-      return (left[key] - right[key]) * direction || left.index - right.index;
+      return compareNumbersWithBlanks(left[key], right[key], direction) || left.index - right.index;
     });
   }, [rows, search, element, sort]);
 
@@ -669,15 +689,15 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
                 ? <span className="set-mark" title={row.sets.map((set) => set.name).join(' / ')}>{row.sets.map((set) => set.abbreviation).join('/')}</span>
                 : <span className="set-none">—</span>}
             </td>
-            <td className="dim">{row.level}</td>
-            <td>{row.hp.toLocaleString('en')}</td>
-            <td>{row.atk.toLocaleString('en')}</td>
-            <td>{row.def.toLocaleString('en')}</td>
-            <td>{row.spd.toLocaleString('en')}</td>
-            <td className={row.criticalRate ? undefined : 'muted'}>{row.criticalRate}</td>
-            <td className={row.criticalDamage ? undefined : 'muted'}>{row.criticalDamage}</td>
-            <td className={row.resistance ? undefined : 'muted'}>{row.resistance}</td>
-            <td className={row.accuracy ? undefined : 'muted'}>{row.accuracy}</td>
+            <td className={row.level === null ? 'dim muted' : 'dim'}>{displayNumber(row.level)}</td>
+            <td className={row.hp === null ? 'muted' : undefined}>{displayNumber(row.hp)}</td>
+            <td className={row.atk === null ? 'muted' : undefined}>{displayNumber(row.atk)}</td>
+            <td className={row.def === null ? 'muted' : undefined}>{displayNumber(row.def)}</td>
+            <td className={row.spd === null ? 'muted' : undefined}>{displayNumber(row.spd)}</td>
+            <td className={row.criticalRate === null ? 'muted' : undefined}>{displayNumber(row.criticalRate)}</td>
+            <td className={row.criticalDamage === null ? 'muted' : undefined}>{displayNumber(row.criticalDamage)}</td>
+            <td className={row.resistance === null ? 'muted' : undefined}>{displayNumber(row.resistance)}</td>
+            <td className={row.accuracy === null ? 'muted' : undefined}>{displayNumber(row.accuracy)}</td>
             <td className={row.efficiency === null ? 'muted' : undefined}>
               {row.efficiency === null ? '—' : `${row.efficiency.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`}
             </td>
