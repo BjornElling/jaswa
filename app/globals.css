@@ -488,9 +488,12 @@ button { cursor: pointer; }
   width: 100%;
   max-width: var(--measure);
   margin: 0 auto;
-  /* the top space also clears the import badge resting in the corner, so a
-     long title never runs underneath it */
-  padding: calc(var(--badge-height) + var(--s4)) var(--gutter) var(--s7);
+  /* The badge rests in the top-right corner only, so the page starts at the
+     top like any other and the headers keep their own clearance from it on
+     the right. Pushing every page down by the badge's full height left a
+     band of empty ground across the whole width, most of it nowhere near
+     the badge. */
+  padding: var(--s5) var(--gutter) var(--s7);
   /* the page-header wash bleeds past the gutter; clip it rather than let it
      open a horizontal scrollbar */
   overflow-x: clip;
@@ -1072,7 +1075,9 @@ button { cursor: pointer; }
   /* --s5 to the sides is a panel's own padding: it puts a section title on
      the same line as the headings and prose inside the panels beneath it,
      rather than on the line of the panel's outer edge, which is where the
-     eye reads a column from. */
+     eye reads a column from. The right side also keeps the title clear of
+     the import badge in the corner, which is the only thing up here it can
+     run into. */
   padding: var(--s2) var(--s5) 0;
   border-bottom: 1px solid var(--line-strong);
 }
