@@ -354,7 +354,6 @@ button { cursor: pointer; }
   top: 0;
   z-index: 30;
   overflow: hidden;
-  background: var(--raise);
 }
 .monster-header-wrap .monster-grid { margin-inline: auto; will-change: transform; }
 .monster-header-wrap .grid-table thead th { position: static; }
