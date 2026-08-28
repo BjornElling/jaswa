@@ -44,10 +44,11 @@
 
   --row: 40px;
   --rail: 244px;
-  /* the topbar now carries status only, so it need not stand as tall as a
-     titled header did */
-  --topbar: 48px;
   --strip: 52px;
+  /* what the import badge takes out of the top-right corner. Content that
+     opens there measures its clearance from these rather than guessing. */
+  --badge-width: 440px;
+  --badge-height: 78px;
 
   /* the reading measure. Prose and forms stop here instead of running to the
      far edge of a wide display; the gutter keeps content off the rail. */
@@ -191,35 +192,63 @@ button { cursor: pointer; }
 .rail-item.active .glyph { color: var(--gold); }
 .rail-spacer { flex: 1; min-height: var(--s4); }
 
-.workspace { min-width: 0; display: grid; grid-template-rows: auto 1fr; align-content: start; }
+.workspace { min-width: 0; position: relative; display: grid; grid-template-rows: 1fr; align-content: start; }
 
-/* -------------------------------------------------------------- topbar */
-.topbar {
-  display: flex; align-items: center; gap: var(--s3);
-  height: var(--topbar);
-  padding: 0 var(--gutter);
-  border-bottom: 1px solid var(--line);
-  background: var(--raise);
-  position: sticky; top: 0; z-index: 20;
-}
-.topbar-spacer { flex: 1; }
-.topbar-count {
-  font-family: var(--mono);
-  font-variant-numeric: tabular-nums;
-  font-size: var(--t-small);
-  color: var(--faint);
-  white-space: nowrap;
-}
-.status-pill {
-  font-family: var(--mono);
-  font-size: var(--t-micro);
-  padding: var(--s1) var(--s2);
-  border-radius: var(--radius-sm);
+/* -------------------------------------------------------- import badge */
+
+/* The state of the import is not a section of the page, so it no longer takes
+   a bar across the top; the content runs to the top of the window and this
+   card rests in the corner above it. Positioned against the workspace rather
+   than the window, so it keeps the same gutter as the content instead of
+   sliding under the reserved scrollbar track. Being read-only, it lets clicks
+   through to whatever it happens to cover. */
+.import-badge {
+  position: absolute;
+  top: var(--s4);
+  right: var(--gutter);
+  z-index: 20;
+  margin: 0;
+  padding: var(--s2) var(--s3);
   border: 1px solid var(--line-strong);
-  color: var(--dim);
-  white-space: nowrap;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--raise) 88%, transparent);
+  backdrop-filter: blur(6px);
+  text-align: right;
+  pointer-events: none;
 }
-.status-pill.live { color: var(--gold); border-color: var(--gold-edge); }
+.import-badge.live {
+  border-color: var(--gold-edge);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--gold-deep) 62%, transparent), transparent 78%),
+    color-mix(in srgb, var(--raise) 90%, transparent);
+}
+.import-badge p { margin: 0; white-space: nowrap; font-family: var(--mono); }
+.import-badge-count {
+  font-size: var(--t-small);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+/* the collections still waiting on their workspaces: the same line of figures,
+   read a step quieter than the two that are already in use */
+.import-badge-count.secondary {
+  margin-top: 2px;
+  font-size: var(--t-micro);
+  color: var(--dim);
+}
+.import-badge-when {
+  font-size: var(--t-micro);
+  letter-spacing: .02em;
+  color: var(--faint);
+}
+/* only when figures stand above it: with no import the date is the whole card
+   and has nothing to be divided from */
+.import-badge-count + .import-badge-when {
+  margin-top: var(--s1);
+  padding-top: var(--s1);
+  border-top: 1px solid var(--line);
+}
+.import-badge.live .import-badge-count + .import-badge-when { border-top-color: var(--gold-edge); }
+.import-badge.live .import-badge-when { color: var(--gold); }
 
 /* --------------------------------------------------------- filter strip */
 .filter-strip {
@@ -229,6 +258,13 @@ button { cursor: pointer; }
   background: var(--bg);
   padding: 0 var(--gutter);
   overflow-x: auto;
+}
+/* a table page opens on its strip, and the import badge rests over that same
+   corner: the strip stands tall enough to hold the badge and keeps its own
+   controls clear of it */
+.import-badge + .filter-strip {
+  min-height: calc(var(--badge-height) + var(--s5));
+  padding-right: calc(var(--badge-width) + var(--gutter));
 }
 .filter-group {
   display: flex; align-items: center; gap: var(--s1);
@@ -413,7 +449,9 @@ button { cursor: pointer; }
   width: 100%;
   max-width: var(--measure);
   margin: 0 auto;
-  padding: var(--s6) var(--gutter) var(--s7);
+  /* the top space also clears the import badge resting in the corner, so a
+     long title never runs underneath it */
+  padding: calc(var(--badge-height) + var(--s4)) var(--gutter) var(--s7);
   /* the page-header wash bleeds past the gutter; clip it rather than let it
      open a horizontal scrollbar */
   overflow-x: clip;
@@ -623,6 +661,15 @@ button { cursor: pointer; }
   display: grid;
   grid-template-rows: auto 1fr auto auto;
 }
+
+/* A slider standing alone rather than in the grid: the reserved lines above and
+   below its track buy nothing when there is no neighbouring track to meet, so
+   each row takes only the height its own copy needs. The choice keeps a single
+   line reserved, which is all its labels ever run to, so the aside below it
+   does not shift as the handle moves. */
+.slider-compact { grid-template-rows: auto auto auto auto; }
+.slider-compact .slider-note { min-height: 0; }
+.slider-compact .slider-choice { min-height: 1.45em; }
 
 /* ----------------------------------------------------------- statistics */
 
@@ -1539,4 +1586,17 @@ button { cursor: pointer; }
   .rail-spacer { display: none; }
   .search-field { width: 180px; }
   .section-body { padding-top: var(--s5); }
+
+  /* there is no spare corner at this width, so the badge stops floating and
+     simply opens the workspace as a right-aligned line of its own */
+  .workspace { grid-template-rows: auto 1fr; }
+  .import-badge {
+    position: static;
+    justify-self: end;
+    margin: var(--s3) var(--gutter) 0;
+  }
+  .import-badge + .filter-strip { min-height: var(--strip); padding-right: var(--gutter); }
+  /* the figures are wider than a narrow screen, so here they are allowed to
+     fall onto as many lines as they need */
+  .import-badge p { white-space: normal; }
 }

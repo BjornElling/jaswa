@@ -1,0 +1,29 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    The same rune star as favicon.svg, but on the app's own dark plate, and
+    this is the source the installed-app icons are generated from.
+
+    The two cannot be one file. A browser tab composites the favicon onto its
+    own chrome, so a plate there is a rectangle of the wrong colour sitting in
+    the tab bar; transparency is right. A home-screen icon is the opposite: iOS
+    does not honour transparency in apple-touch-icon at all and fills it with
+    black, and Android masks the maskable icon to a shape that must be opaque
+    to its edges. So the plate belongs here and nowhere else.
+
+    Theme-dependent colour is also wrong here — these are rasterised once at
+    build time, so the gold stays the app's accent against the app's ground.
+
+    Geometry is documented in favicon.svg; if the star changes, change it in
+    both. The star is drawn at 1.0 rather than favicon.svg's 1.06 because the
+    plate needs a margin the transparent version does not.
+  -->
+  <rect width="64" height="64" rx="12" fill="#0b0d12"/>
+  <g transform="translate(32 32)" fill="#d9ad52">
+    <path id="s" d="M-4.4 -9.74 4.4 -9.74 8.8 -17.36 0 -28.95 -8.8 -17.36z"/>
+    <use href="#s" transform="rotate(60)"/>
+    <use href="#s" transform="rotate(120)"/>
+    <use href="#s" transform="rotate(180)"/>
+    <use href="#s" transform="rotate(240)"/>
+    <use href="#s" transform="rotate(300)"/>
+  </g>
+</svg>

@@ -16,7 +16,7 @@
  * are edited and deleted exactly like presets the user typed in themselves.
  */
 import { calculateRunePotentialMetrics, displayRunePotentialMetric } from './rune-potential-metrics';
-import { runeSetNameList } from './rune-sets';
+import { presetRuneSetNameList } from './rune-sets';
 
 /**
  * The main stats a rune can carry in slots 2, 4 and 6, named as the source
@@ -144,7 +144,7 @@ const presetSources: readonly PresetSource[] = [
     name: 'Slow DD',
     type: 'Attack type',
     sets: {
-      preferred: ['Fight', 'Intangible', 'Rage', 'Shield', 'Violent', 'Will'],
+      preferred: ['Fight', 'Rage', 'Shield', 'Violent', 'Will'],
       acceptable: ['Blade', 'Fatal', 'Swift', 'Vampire'],
     },
     slots: {
@@ -160,7 +160,7 @@ const presetSources: readonly PresetSource[] = [
     name: 'Fast DD',
     type: 'Attack type',
     sets: {
-      preferred: ['Blade', 'Fight', 'Intangible', 'Nemesis', 'Rage', 'Vampire', 'Violent', 'Will'],
+      preferred: ['Blade', 'Fight', 'Nemesis', 'Rage', 'Vampire', 'Violent', 'Will'],
       acceptable: ['Despair', 'Fatal', 'Focus', 'Seal', 'Shield', 'Swift'],
     },
     slots: {
@@ -176,7 +176,7 @@ const presetSources: readonly PresetSource[] = [
     name: 'Def DD',
     type: 'Attack type',
     sets: {
-      preferred: ['Determination', 'Guard', 'Intangible', 'Rage', 'Vampire', 'Will'],
+      preferred: ['Determination', 'Guard', 'Rage', 'Vampire', 'Will'],
       acceptable: ['Blade', 'Fight', 'Violent'],
     },
     slots: {
@@ -192,7 +192,7 @@ const presetSources: readonly PresetSource[] = [
     name: 'Bomber',
     type: 'Attack type',
     sets: {
-      preferred: ['Fatal', 'Intangible', 'Violent', 'Will'],
+      preferred: ['Fatal', 'Violent', 'Will'],
       acceptable: ['Destroy', 'Energy', 'Fight', 'Focus', 'Vampire'],
     },
     slots: {
@@ -208,7 +208,7 @@ const presetSources: readonly PresetSource[] = [
     name: 'Support',
     type: 'Support type',
     sets: {
-      preferred: ['Accuracy', 'Despair', 'Focus', 'Fight', 'Intangible', 'Seal', 'Swift', 'Violent', 'Will'],
+      preferred: ['Accuracy', 'Despair', 'Focus', 'Fight', 'Seal', 'Swift', 'Violent', 'Will'],
       acceptable: ['Determination', 'Enhance', 'Energy', 'Tolerance', 'Guard'],
     },
     slots: {
@@ -224,7 +224,7 @@ const presetSources: readonly PresetSource[] = [
     name: 'PvP def',
     type: 'HP type',
     sets: {
-      preferred: ['Endure', 'Enhance', 'Fight', 'Intangible', 'Seal', 'Shield', 'Tolerance', 'Violent', 'Will'],
+      preferred: ['Endure', 'Enhance', 'Fight', 'Seal', 'Shield', 'Tolerance', 'Violent', 'Will'],
       acceptable: ['Despair', 'Destroy', 'Determination', 'Energy', 'Revenge', 'Nemesis', 'Vampire'],
     },
     slots: {
@@ -240,7 +240,7 @@ const presetSources: readonly PresetSource[] = [
     name: 'Bruiser',
     type: 'No type',
     sets: {
-      preferred: ['Blade', 'Fight', 'Intangible', 'Seal', 'Shield', 'Vampire', 'Violent', 'Will'],
+      preferred: ['Blade', 'Fight', 'Seal', 'Shield', 'Vampire', 'Violent', 'Will'],
       acceptable: ['Despair', 'Destroy', 'Energy', 'Rage', 'Revenge'],
     },
     slots: {
@@ -380,7 +380,7 @@ function normalizePreset(value: unknown): RunePotentialPreset | null {
     id: typeof value.id === 'string' && value.id ? value.id : newPresetId(),
     name,
     type: presetTypes.includes(value.type as PresetType) ? value.type as PresetType : 'No type',
-    sets: normalizeChoice(value.sets, runeSetNameList),
+    sets: normalizeChoice(value.sets, presetRuneSetNameList),
     slots: {
       slot2: normalizeChoice(slots.slot2, runeMainStats),
       slot4: normalizeChoice(slots.slot4, runeMainStats),

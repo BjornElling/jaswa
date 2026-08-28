@@ -27,11 +27,22 @@ const elementNames: Record<number, string> = {
   1: 'Water', 2: 'Fire', 3: 'Wind', 4: 'Light', 5: 'Dark',
 };
 
+/** Every set name the game has, alphabetically. */
+const runeSetNameList: readonly string[] = Object.values(runeSetNames).sort((left, right) => left.localeCompare(right));
+
 /**
- * Every set name, alphabetically. The preset editor offers these as the sets a
- * role may ask for, so a preset cannot name a set the game does not have.
+ * The sets a preset may ask for, alphabetically. The preset editor offers these,
+ * so a preset cannot name a set the game does not have — and a saved or imported
+ * preset is held to the same list, so one naming a set that is not choosable
+ * loses it on load rather than keeping a choice the editor could not have made.
+ *
+ * Intangible is deliberately absent. A monster may wear at most one, it carries
+ * no set bonus of its own, and it completes a set that is one rune short rather
+ * than being a set a role is built around — so asking a preset to prefer it says
+ * nothing about which runes are worth keeping. How much an Intangible rune is
+ * wanted is asked once, on its own slider, not per preset.
  */
-export const runeSetNameList: readonly string[] = Object.values(runeSetNames).sort((left, right) => left.localeCompare(right));
+export const presetRuneSetNameList: readonly string[] = runeSetNameList.filter((name) => name !== 'Intangible');
 
 export type ActiveRuneSet = { name: string; abbreviation: string; count: number };
 

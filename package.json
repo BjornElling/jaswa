@@ -10,7 +10,7 @@
     "build": "vinext build",
     "start": "vinext start",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
-    "generate:pwa-assets": "pwa-assets-generator public/favicon.svg --preset minimal --manifest --override",
+    "generate:pwa-assets": "pwa-assets-generator",
     "refresh:monsters": "node scripts/refresh-swarfarm-monsters.mjs",
     "fetch:monster-images": "node scripts/fetch-monster-images.mjs"
   },

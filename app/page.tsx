@@ -5,7 +5,7 @@ import { clearImportedGame, loadImportedGame, loadPreferences, saveImportedGame,
 import { blankPreferences, createImportedGame, defaultRunePotentialSettings, fileToText, importPreferencesFile, itemGrades, normalizeImportedGame, normalizePreferences, validateGameFile } from './lib/imports';
 import { monsterPresentation } from './lib/monster-catalog';
 import { calculateMonsterTotals } from './lib/monster-stats';
-import { activeRuneSets, elementName, runeSetNameList } from './lib/rune-sets';
+import { activeRuneSets, elementName, presetRuneSetNameList } from './lib/rune-sets';
 import {
   createRunePotentialPreset, presetNameMaximum, presetStatTargetKeys, presetTargetColumns,
   presetTargetMaximum, presetTypes, runeMainStats, withRefreshedMetrics,
@@ -98,7 +98,7 @@ type MonsterRow = {
 
 function count(value: unknown): number { return Array.isArray(value) ? value.length : 0; }
 /* An unparseable timestamp makes Intl throw a RangeError, and this is read from
-   the topbar on every render — so a single bad stored date would take the whole
+   the import badge on every render — so a single bad stored date would take the whole
    app down rather than one line of it. An unreadable date is reported as
    unknown, which is all the reader can do anything with anyway. */
 function dateTime(value?: string): string {
@@ -267,17 +267,25 @@ export default function Home() {
     </nav>
 
     <section className="workspace">
-      {/* The section is named by its own PageHeader, so the topbar carries
-          only the state of the import. */}
-      <header className="topbar">
-        <div className="topbar-spacer" />
-        {game && <span className="topbar-count">
-          {monsters.length.toLocaleString('en')} monsters · {count(game.data.runes).toLocaleString('en')} runes
-        </span>}
-        <span className={game ? 'status-pill live' : 'status-pill'}>
+      {/* The section is named by its own PageHeader and the content reaches
+          the top of the window, so the state of the import is a small card
+          resting in the top-right corner rather than a bar across the page. */}
+      <aside className={game ? 'import-badge live' : 'import-badge'} aria-label="Imported game data">
+        {game && <>
+          <p className="import-badge-count">
+            {monsters.length.toLocaleString('en')} monsters · {count(game.data.runes).toLocaleString('en')} runes
+          </p>
+          {/* The second line carries the collections the workspaces for them are
+              still being written against; gems and grindstones arrive in one
+              list from the game, so they are counted as one figure here too. */}
+          <p className="import-badge-count secondary">
+            {count(game.data.rune_craft_item_list).toLocaleString('en')} gems &amp; grinds · {count(game.data.artifacts).toLocaleString('en')} artifacts · {count(game.data.relics).toLocaleString('en')} relics
+          </p>
+        </>}
+        <p className="import-badge-when">
           {game ? `imported ${dateTime(game.importedAt)}` : 'no game data'}
-        </span>
-      </header>
+        </p>
+      </aside>
 
       {page === 'home' && <HomeSection
         game={game}
@@ -636,7 +644,7 @@ function MonsterOverview({ monsters, preferences }: { monsters: MonsterRecord[];
 
 /**
  * The masthead a workspace opens with. The section name is stated here at
- * display size rather than only in the topbar, so a page announces itself.
+ * display size, so a page announces itself.
  */
 function PageHeader({ eyebrow, title, tagline }: { eyebrow?: string; title: string; tagline: string }) {
   return <header className="page-header">
@@ -671,21 +679,44 @@ function Disclosure({ title, defaultOpen = false, children }: {
  * What each step on a setting actually means, in the reader's terms. The
  * chosen one is shown under its slider, so these carry the explanation that
  * a bare "3 / 5" never could.
+ *
+ * A scale keeps one voice down its whole length — the player speaks on some,
+ * Swaggr describes on others — but no scale may be half one and half the other.
+ *
+ * Punctuation is the same on every scale, whoever is speaking:
+ *
+ *   No step ends in a full stop. A step is a label under a slider, not prose,
+ *   and the closing stop buys nothing once every step in the column is missing
+ *   one. `?` and `!` do close a step, because they carry the reading of it
+ *   rather than merely ending it — a question or an exclamation is not the same
+ *   sentence without its mark. An ellipsis may trail for the same reason.
+ *
+ *   It follows that a step is one statement. Two sentences would need a stop
+ *   between them, and a step carrying an internal stop but none at the end
+ *   reads as an oversight rather than a style — so a step that wants two
+ *   clauses joins them with a comma or a dash instead.
+ *
+ * Anything appended for reference rather than voice — the multipliers on
+ * `intangibleRunes` — sits in parentheses after the wording and is not part of
+ * the sentence, so it neither takes nor prevents a mark.
  */
 const potentialStepLabels = {
   powerUpPolicy: [
     'Full YOLO — anything with potential gets a roll',
     'Adventurous — a hint of promise is enough',
     'Balanced — rolls the runes worth rolling',
-    'Picky — wants the odds on its side first',
-    'No loose ends — practically a slam dunk or nothing',
+    'Picky — I like to play it safe',
+    'Take no chances — only roll guaranteed keepers',
   ],
+  /* This scale is the player speaking rather than Swaggr describing, so the
+     steps are said in the first person and place the reader in the game
+     instead of grading the runes. */
   runeQuality: [
-    'Rough diamonds — every underdog gets a look',
-    'Promising — some upside is enough to start',
-    'Good stuff — solid runes only',
-    'Top shelf — near the best its slot can hold',
-    'Hall of famers — the ones you would frame',
+    'I’m a newbie — everything beats what I’ve got',
+    'Been playing for a while, still some way to go',
+    'I’ve got good runes, and I want more good runes',
+    'G1 baby — they need some quality to stay',
+    'I’ve got “you’ve seen my replays” high standards',
   ],
   /* Four steps up the same scale: nothing further, an ordinary roll, a good
      one, the best the grade allows. These describe what Swaggr assumes you
@@ -708,16 +739,27 @@ const potentialStepLabels = {
   acceptedRunes: [
     'I love all my runes equally',
     'Forgiving — if there’s potential, they stay',
-    'Quality is quality.',
-    'Keep the best. 86 the rest.',
+    'Quality is quality',
+    'Keep the best, 86 the rest',
     'Only want the best of the best of the best',
   ],
   brokenRunes: [
-    'I love all broken things',
+    'I love all things broken',
     'A good rune is a good rune',
     'Occasionally',
     'A very selected few',
     'No',
+  ],
+  /* A weight rather than a threshold, so each step says how much the rune is
+     wanted and carries its multiplier along in parentheses — the figure is what
+     the setting does, the wording is why you would pick it. The halves are set
+     as fractions rather than 1.5 to keep the column reading as multiples. */
+  intangibleRunes: [
+    'All runes are created equal (×1)',
+    'But they’re sooo pretty…!! (×1½)',
+    'I need more. More! (×2)',
+    'Got to catch ’em all (×3½)',
+    'My precious…!!! (×5)',
   ],
 } as const;
 
@@ -772,11 +814,11 @@ function RunePotentialSection({ settings, presets, onUpdate, onWritePresets }: {
               stepLabels={potentialStepLabels.powerUpPolicy}
               onChange={(value) => void onUpdate({ powerUpPolicy: value })} />
             <PotentialSlider id="rune-quality" label="Rune quality floor" value={settings.runeQuality}
-              description="How high must a rune's best case be before it earns a roll?"
+              description="How high must a rune's potential be before it earns a roll?"
               stepLabels={potentialStepLabels.runeQuality}
               onChange={(value) => void onUpdate({ runeQuality: value })} />
             <PotentialSlider id="accepted-runes" label="Accepted runes" value={settings.acceptedRunes}
-              description="Non-preferred, but accepted. You can live without them, but can you live with them?"
+              description="Non-preferred, but accepted. How B-tier are your standards?"
               stepLabels={potentialStepLabels.acceptedRunes}
               onChange={(value) => void onUpdate({ acceptedRunes: value })} />
             <PotentialSlider id="broken-runes" label="Broken runes" value={settings.brokenRunes}
@@ -811,10 +853,20 @@ function RunePotentialSection({ settings, presets, onUpdate, onWritePresets }: {
 
             {/* Set apart from the box above by more than the aside's own gap,
                 so it reads as its own question rather than as a footnote to the
-                statistics. The count follows the set, not the slot: a 4-set has
-                to be filled four times over, so keeping as many candidates for
-                it as for a 2-set leaves it half the choice. */}
-            <div className="stack tight aside-detached">
+                statistics. A weight, not a threshold — the four tracks in the
+                column decide what a rune is worth, and this says how much that
+                verdict counts for when the rune's value is the kind you cannot
+                read off its lines. */}
+            <PotentialSlider id="intangible-runes" label="Intangible runes"
+                className="slider-compact aside-detached" value={settings.intangibleRunes}
+                description="How badly do you want them?"
+                stepLabels={potentialStepLabels.intangibleRunes}
+                onChange={(value) => void onUpdate({ intangibleRunes: value })} />
+
+            {/* The count follows the set, not the slot: a 4-set has to be filled
+                four times over, so keeping as many candidates for it as for a
+                2-set leaves it half the choice. */}
+            <div className="stack tight">
               <p className="field-legend">4-sets vs. 2-sets</p>
               <CheckboxRow label="Keep twice as many 4-set runes" checked={settings.keepMoreForLargerSets}
                 onChange={(checked) => void onUpdate({ keepMoreForLargerSets: checked })} />
@@ -939,14 +991,16 @@ function RunePotentialSection({ settings, presets, onUpdate, onWritePresets }: {
  * track — the number alone said nothing, and a pair of fixed end labels made
  * the reader work out where they had landed between them.
  */
-function PotentialSlider({ id, label, value, description, stepLabels, onChange }: {
+function PotentialSlider({ id, label, value, description, stepLabels, className, onChange }: {
   id: string; label: string; value: number;
   description: string;
   stepLabels: readonly string[];
+  /** For a slider that stands on its own, outside the grid the reserved rows serve. */
+  className?: string;
   onChange: (value: number) => void;
 }) {
   const steps = stepLabels.length;
-  return <div className="slider">
+  return <div className={className ? `slider ${className}` : 'slider'}>
     <label className="slider-label" htmlFor={id}>{label}</label>
     <p className="slider-note">{description}</p>
     <input id={id} type="range" min={1} max={steps} step={1} value={value}
@@ -1151,7 +1205,7 @@ function PresetEditor({ draft, isNew, onCancel, onSave }: {
         </div>
 
         <EditorBlock title="Rune sets" legend note="Preferred is what the role is built around. Acceptable still works when the box does not oblige.">
-          <ChoiceEditor choice={preset.sets} options={runeSetNameList} columns
+          <ChoiceEditor choice={preset.sets} options={presetRuneSetNameList} columns
             onChange={(sets) => update({ sets })} />
         </EditorBlock>
 
