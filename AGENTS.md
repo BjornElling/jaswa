@@ -25,6 +25,20 @@ file is corrected.
 - Do not push unless asked. Committing is expected; publishing is the user's
   call.
 
+## 1.1 Local preview and publishing
+
+**The user reviews JASWA through their own, manually started `npm run dev`
+server.**
+
+- Do not start, stop, replace, or take ownership of the development server
+  unless the user explicitly asks.
+- Do not deploy, publish, save a hosted version, obtain hosting credentials,
+  or push to a hosting remote unless the user explicitly asks to publish or
+  deploy. The presence of `.openai/hosting.json` is not publication approval.
+- When browser verification is useful and an existing local server is
+  available, use that local server. If it cannot be accessed, say so plainly;
+  never substitute a hosted preview.
+
 ## 2. Layout must not move under the user
 
 **A user's choice must never move, resize, or re-wrap other content on the
