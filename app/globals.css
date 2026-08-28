@@ -156,13 +156,6 @@ button { cursor: pointer; }
   text-decoration-thickness: 2px;
   text-underline-offset: 3px;
 }
-/* The domain is held back a weight and a shade: it says where the app
-   lives without competing with the name for the eye, so the mark still
-   reads as "jaswa" first. */
-.brand-tld {
-  color: var(--faint);
-  font-weight: 400;
-}
 
 /* each group is its own element, so the spacing lives between groups
    rather than on the heading — the first group then starts flush. */
@@ -1091,6 +1084,100 @@ button { cursor: pointer; }
   text-wrap: pretty;
 }
 
+/* ------------------------------------------------------------------ hero */
+
+/* The home page's own header. It replaces the shared .page-header here
+   because this one page introduces the app rather than a section: the name
+   is spelled out in full, stepped to the right, with the rune behind it. */
+.hero {
+  position: relative;
+  margin: 0 0 var(--s6);
+  padding: var(--s5) 0 var(--s6);
+  border-bottom: 1px solid var(--line-strong);
+  /* the rune bleeds past the gutter; clip rather than open a scrollbar */
+  overflow: clip;
+}
+.hero > * { position: relative; z-index: 1; }
+
+/* The wash reaches further than a section header's, so the name has
+   something to sit in rather than floating on the flat ground. */
+.hero::before {
+  content: '';
+  position: absolute;
+  left: calc(var(--s7) * -1);
+  right: calc(var(--s7) * -1);
+  top: calc(var(--s6) * -1);
+  bottom: 0;
+  background: radial-gradient(60% 130% at 2% 20%, rgba(217, 173, 82, .14), transparent 68%);
+  pointer-events: none;
+}
+
+/* The app's own mark, blown up and dropped to a whisper. It is the one
+   ornament on the page, and it is a shape the app already owns rather
+   than a new decoration. */
+/* Kept whole and inside the frame: cropped, the six stones stop reading as
+   the app's mark and become anonymous hexagons. */
+.hero-rune {
+  position: absolute;
+  z-index: 0;
+  top: 50%;
+  right: var(--s4);
+  translate: 0 -50%;
+  /* Sized against the hero's own height rather than the viewport: the hero
+     is capped by --measure, so a viewport-based width kept outgrowing the
+     space left beside the name and the clip sheared the rune into anonymous
+     hexagons. Height is stable, so the rune stays whole and stays inside. */
+  height: 82%;
+  width: auto;
+  aspect-ratio: 1;
+  opacity: .06;
+  pointer-events: none;
+}
+@media (max-width: 1180px) {
+  .hero-rune { display: none; }
+}
+.hero-rune img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+/* The three lines of the name. Each is its own row so the indent can grow
+   down the stack; the steps are on the 4px rhythm like everything else. */
+.hero-name {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: .92;
+  letter-spacing: -.04em;
+  font-weight: 700;
+  text-wrap: nowrap;
+}
+.hero-line { display: block; }
+.hero-line.one {
+  font-size: clamp(26px, 3.4vw, 46px);
+  color: var(--ink);
+}
+/* The initials the app is named after, so this line takes the accent and
+   the size. It is the one place gold is used at scale rather than as a
+   marker, which is what makes the page read as a title screen. */
+.hero-line.two {
+  font-size: clamp(40px, 6.6vw, 92px);
+  color: var(--gold);
+  margin-left: clamp(var(--s4), 3.4vw, var(--s7));
+  margin-top: .04em;
+  margin-bottom: .04em;
+}
+.hero-line.three {
+  font-size: clamp(26px, 3.4vw, 46px);
+  color: var(--ink);
+  margin-left: clamp(var(--s6), 8vw, 148px);
+}
+.hero-tagline {
+  margin: var(--s5) 0 0;
+  max-width: 62ch;
+  color: var(--dim);
+  font-size: var(--t-lead);
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+
 .section-intro { margin: 0 0 var(--s5); max-width: 68ch; }
 .section-intro h2 {
   margin: 0;
@@ -1228,23 +1315,52 @@ button { cursor: pointer; }
   outline: none; border-color: var(--gold);
 }
 
-/* drop target */
+/* drop target — the one action the home page is asking for, so it carries a
+   faint wash of the accent even at rest and lifts under the pointer. */
 .drop-zone {
+  position: relative;
   border: 1px dashed var(--line-strong);
   border-radius: var(--radius);
-  background: var(--sunk);
-  min-height: 160px;
+  background:
+    radial-gradient(80% 140% at 50% 0%, rgba(217, 173, 82, .05), transparent 70%),
+    var(--sunk);
+  min-height: 200px;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   gap: var(--s2);
   color: var(--dim);
-  transition: border-color .14s, background .14s;
+  transition: border-color .14s, background .14s, box-shadow .14s;
   cursor: pointer;
 }
-.drop-zone:hover, .drop-zone.dragging { border-color: var(--gold); background: var(--hover); }
-.drop-zone strong { color: var(--ink); font-size: var(--t-base); font-weight: 600; }
+.drop-zone:hover, .drop-zone.dragging {
+  border-color: var(--gold);
+  border-style: solid;
+  background:
+    radial-gradient(80% 140% at 50% 0%, rgba(217, 173, 82, .11), transparent 70%),
+    var(--hover);
+  box-shadow: 0 0 0 1px var(--gold-edge), 0 12px 32px -18px rgba(217, 173, 82, .5);
+}
+.drop-zone strong { color: var(--ink); font-size: var(--t-lead); font-weight: 600; }
 .drop-zone span { font-size: var(--t-body); }
-.drop-zone .glyph { color: var(--gold); font-size: var(--t-display); font-family: var(--mono); }
+/* the arrow eases down on approach — the only motion on the page, and it
+   points at the thing the pointer is already over */
+.drop-zone .glyph {
+  color: var(--gold); font-size: 30px; font-family: var(--mono);
+  transition: translate .14s;
+}
+.drop-zone:hover .glyph, .drop-zone.dragging .glyph { translate: 0 3px; }
+
+/* With an import in place the zone is a way back, not the ask: it loses the
+   wash and most of its height so the counts below become the page's subject.
+   Declared after the base rules above, which it has to override. Hover still
+   brings the full treatment back. */
+.drop-zone.settled {
+  min-height: 96px;
+  background: var(--sunk);
+}
+.drop-zone.settled .glyph { font-size: var(--t-title); }
+.drop-zone.settled strong { font-size: var(--t-body); font-weight: 500; color: var(--dim); }
+.drop-zone.settled:hover strong { color: var(--ink); }
 
 /* key/value summary */
 .kv-list {
@@ -1265,12 +1381,15 @@ button { cursor: pointer; }
   font-size: var(--t-body);
   color: var(--dim); font-weight: 600;
 }
+/* The counts are what an import produces, so they are read as a figure
+   rather than as a field: gold, and a size up from the label. */
 .kv-list dd {
   margin: var(--s2) 0 0;
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;
-  font-size: var(--t-display); font-weight: 500;
-  letter-spacing: -.025em;
+  font-size: 28px; font-weight: 500;
+  letter-spacing: -.03em;
+  color: var(--gold);
 }
 
 /* notices */

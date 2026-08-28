@@ -248,7 +248,7 @@ export default function Home() {
         <Image className="rail-mark" src="/favicon.svg" alt="" aria-hidden="true" width={34} height={34} priority />
         {/* The two letters the joke turns on are marked in place rather than
            spelled out: the name still reads and copies as one word. */}
-        <b>ja<span className="brand-sw">sw</span>a<span className="brand-tld">.net</span></b>
+        <b>ja<span className="brand-sw">sw</span>a</b>
       </div>
       {navigationGroups.map((group) => <div className="rail-group" key={group.heading}>
         <p className="rail-heading">{group.heading}</p>
@@ -396,21 +396,38 @@ function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLe
 }) {
   const unknownMonsterIds = game?.report.unknownMonsterIds ?? [];
   return <div className="section-body">
-    <PageHeader
-      title="Your account, minus the guesswork"
-      tagline="Drop in a JSON file, set goals for individual monsters, and use each workspace as it opens. Nothing leaves this computer — not even the embarrassing runes." />
+    {/* The home page announces the app rather than the section, so it opens
+        with the name spelled out instead of the shared PageHeader. The three
+        lines step to the right and the middle one carries the accent: the
+        initials the name is built from are what the eye should catch. */}
+    <header className="hero">
+      <div className="hero-rune" aria-hidden="true">
+        <Image src="/favicon.svg" alt="" width={520} height={520} priority />
+      </div>
+      {/* Announced as one name: read line by line it would be three
+          fragments, and the stepped layout is visual rather than semantic. */}
+      <h2 className="hero-name" aria-label="Just Another Summoners War App">
+        <span aria-hidden="true" className="hero-line one">Just Another</span>
+        <span aria-hidden="true" className="hero-line two">Summoners War</span>
+        <span aria-hidden="true" className="hero-line three">App</span>
+      </h2>
+      <p className="hero-tagline">Drop in a JSON file, set goals for individual monsters, and use each workspace as it opens. Nothing leaves this computer — not even the embarrassing runes.</p>
+    </header>
 
     <section className="panel">
       <h3 className="block-title">Game data</h3>
       <div className="stack">
+        {/* Once data is in, the drop target stops being the loudest thing on
+            the page: it shrinks to a quiet way back rather than continuing to
+            ask for the file the user has already given. */}
         <div
-          className={dragging ? 'drop-zone dragging' : 'drop-zone'}
+          className={['drop-zone', dragging ? 'dragging' : '', game ? 'settled' : ''].filter(Boolean).join(' ')}
           onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop} onClick={onPickFile}
           role="button" tabIndex={0}
           onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onPickFile(); } }}
         >
           <span className="glyph" aria-hidden="true">↓</span>
-          <strong>Drop your Summoners War JSON file here</strong>
+          <strong>{game ? 'Replace with another JSON file' : 'Drop your Summoners War JSON file here'}</strong>
           <span>or choose a file from your computer</span>
         </div>
 
