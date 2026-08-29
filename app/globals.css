@@ -1413,7 +1413,7 @@ button { cursor: pointer; }
   margin: 0;
   display: flex;
   flex-direction: column;
-  transform: translateX(calc(var(--s4) + var(--s1)));
+  transform: translateX(calc(var(--s5) + var(--s4)));
   line-height: .92;
   letter-spacing: -.04em;
   font-weight: 700;
