@@ -1451,6 +1451,7 @@ button { cursor: pointer; }
      flush left edge, so the header is bracketed evenly. The stair of the
      name runs left to right and this finishes the movement. */
   margin: var(--s6) var(--s7) 0 auto;
+  transform: translateY(var(--s2));
   width: fit-content;
   /* Great Vibes has a small x-height for its point size and its joins close
      up below about 40px, so it is set far larger than the sans it replaced
