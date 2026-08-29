@@ -1806,24 +1806,34 @@ button { cursor: pointer; }
    page is "this is the one that is live". */
 .import-route.chosen .route-option { color: var(--gold); }
 
-/* The unchosen column, made plainly unavailable. Nothing is removed and nothing
-   moves, so the two columns keep their positions and the reader can still
-   compare the route they did not take.
+/* The unchosen column, put well back. Nothing is removed and nothing moves, so
+   the two columns keep their positions; the route that is not running simply
+   stops competing for the eye, which is what makes the chosen one findable at a
+   glance rather than by reading both headings.
 
-   The fade stops at .72 rather than going as far as the eye alone would like.
-   Below roughly .7, --dim body text on --raise drops under 4.5:1 against the
-   panel — measured, not guessed — and a column dimmed past legibility is no
-   longer available to compare, which is the one thing it is still for. The rest
-   of "unavailable" is carried by things that cost no contrast: the colour drains
-   out, the accent leaves the heading, and the drop zone stops answering the
-   pointer.
+   This is deep enough that the body text is below the 4.5:1 the house style
+   asks of anything meant to be read: --dim on --raise measures about 2.2:1 at
+   this opacity. That is deliberate, and it is why the rule below exists — the
+   column comes back to full strength on hover and on keyboard focus, so a
+   reader comparing the two routes always has a way to read the one they did not
+   take. Faded is the resting state of something inactive, not the only state it
+   has.
 
    The head is left at full strength — it is the live control that switches
    back, and dimming the only way out of a state is how a user gets stuck. */
 .import-route:not(.chosen) .route-body {
-  opacity: .72;
-  filter: saturate(.15);
+  opacity: .38;
+  filter: saturate(.25);
   transition: opacity .14s, filter .14s;
+}
+/* Reading the route you did not choose. `:focus-within` carries the same
+   recovery to the keyboard: the body is inert, so focus lands here from the
+   card's own radio, and the column it describes is legible while that radio is
+   the thing being decided. */
+.import-route:not(.chosen):hover .route-body,
+.import-route:not(.chosen):focus-within .route-body {
+  opacity: 1;
+  filter: none;
 }
 /* `inert` already takes the subtree off the pointer in browsers that have it;
    this says the same thing in the ones that do not, so the unchosen drop zone
@@ -1840,8 +1850,11 @@ button { cursor: pointer; }
     radial-gradient(80% 140% at 50% 0%, rgba(217, 173, 82, .11), transparent 70%),
     var(--hover);
 }
-/* The zone's own hover treatment is the loudest thing in either column, so it
-   is silenced explicitly rather than left to the opacity to mute. */
+/* Belt and braces. `pointer-events: none` above should already stop the zone
+   ever seeing a hover, but the unchosen column is now brought back to full
+   opacity under the pointer, so the one thing that must not happen is a dead
+   drop target lighting up as though it would take a file. Cheap to state
+   twice; expensive to get wrong. */
 .import-route:not(.chosen) .drop-zone:hover {
   border-color: var(--line-strong);
   border-style: dashed;
