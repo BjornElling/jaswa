@@ -1944,6 +1944,9 @@ button { cursor: pointer; }
 /* The verdict card is a full-width block in the aside it was written for; here
    it sits in a column of its own content and takes the column's width. */
 .statistics.acceleration.route-link { width: 100%; }
+/* The helper's detail gets more air below the verdict inside the height already
+   reserved for it. Keeping this visual-only leaves the card and first row put. */
+.statistics.acceleration.route-link .acceleration-adapter { transform: translateY(var(--s2)); }
 /* Same reason the drop zone is raised inside a chosen card: --sunk on --sunk
    leaves the box with only its border to stand on. */
 .import-route.chosen .statistics.acceleration.route-link { background: var(--raise); }
