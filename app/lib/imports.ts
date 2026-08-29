@@ -1,4 +1,4 @@
-import type { CompatibilityReport, ImportedGame, ItemGrade, MonsterPreference, Preferences, RunePotentialSettings, RunePotentialSortOrder } from './types';
+import type { CompatibilityReport, DirectImportMode, ImportedGame, ItemGrade, MonsterPreference, Preferences, RunePotentialSettings, RunePotentialSortOrder } from './types';
 import { hasMonsterCatalogEntry } from './monster-catalog';
 import { defaultRunePotentialPresets, normalizeRunePotentialPresets } from './rune-potential-presets';
 const expectedSections = ['unit_list', 'runes', 'artifacts', 'relics', 'rune_craft_item_list']; const excludedKeys = new Set(['session_key', 'session_key_node']);
@@ -14,7 +14,12 @@ function normalizeRunePotentialSettings(value: unknown): RunePotentialSettings {
   const fallback = defaultRunePotentialSettings;
   return { powerUpPolicy: normalizeScale(settings.powerUpPolicy, 5, fallback.powerUpPolicy), runeQuality: normalizeScale(settings.runeQuality, 5, fallback.runeQuality), enchantedGems: normalizeScale(settings.enchantedGems, 4, fallback.enchantedGems), grindstones: normalizeScale(settings.grindstones, 4, fallback.grindstones), gemGrade: normalizeGrade(settings.gemGrade, fallback.gemGrade), grindstoneGrade: normalizeGrade(settings.grindstoneGrade, fallback.grindstoneGrade), acceptedRunes: normalizeScale(settings.acceptedRunes, 5, fallback.acceptedRunes), brokenRunes: normalizeScale(settings.brokenRunes, 5, fallback.brokenRunes), intangibleRunes: normalizeScale(settings.intangibleRunes, 5, fallback.intangibleRunes), keepMoreForLargerSets: settings.keepMoreForLargerSets === true, includeLevel12Runes: settings.includeLevel12Runes === true, includeEquippedRunes: settings.includeEquippedRunes === true, sortOrder };
 }
-export function blankPreferences(): Preferences { return { format: 'jaswa-preferences', version: 1, updatedAt: new Date().toISOString(), hardwareAcceleration: true, monsterPreferences: {}, runePotential: defaultRunePotentialSettings, runePotentialPresets: defaultRunePotentialPresets() }; }
+/* The mode that cannot lose work is the one a user who has never chosen gets:
+   live sync overwrites a build the moment the game disagrees with it, and that
+   is not a thing to opt somebody into on their behalf. */
+export const defaultDirectImportMode: DirectImportMode = 'on-load';
+const directImportModes: DirectImportMode[] = ['live', 'on-load'];
+export function blankPreferences(): Preferences { return { format: 'jaswa-preferences', version: 1, updatedAt: new Date().toISOString(), hardwareAcceleration: true, directImportMode: defaultDirectImportMode, monsterPreferences: {}, runePotential: defaultRunePotentialSettings, runePotentialPresets: defaultRunePotentialPresets() }; }
 
 /**
  * One monster's saved preference. All three text fields are always present, so
@@ -47,6 +52,11 @@ export function normalizePreferences(value: Partial<Preferences>): Preferences {
        is on. Only an explicit `false` switches it off — which is why this is not
        the `=== true` test the other flags use. */
     hardwareAcceleration: value.hardwareAcceleration !== false,
+    /* An unknown string in a hand-edited file falls back rather than reaching
+       the radio group, where it would show two unselected options and no way to
+       tell which one is running. */
+    directImportMode: directImportModes.includes(value.directImportMode as DirectImportMode)
+      ? value.directImportMode as DirectImportMode : defaultDirectImportMode,
     monsterPreferences: normalizeMonsterPreferences(value.monsterPreferences),
     runePotential: normalizeRunePotentialSettings(value.runePotential),
     runePotentialPresets: normalizeRunePotentialPresets(value.runePotentialPresets),

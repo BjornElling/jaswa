@@ -1646,9 +1646,11 @@ button { cursor: pointer; }
 .drop-zone:hover .glyph, .drop-zone.dragging .glyph { translate: 0 3px; }
 
 /* With an import in place the zone is a way back, not the ask: it loses the
-   wash and most of its height so the counts below become the page's subject.
-   Declared after the base rules above, which it has to override. Hover still
-   brings the full treatment back. */
+   wash and the height it was claiming, so it stops shouting for a file that has
+   already been given. Beside a full route column it grows past this floor
+   anyway; the reduction is what the stacked layout gets, where nothing is
+   holding the column open. Declared after the base rules above, which it has to
+   override. Hover still brings the full treatment back. */
 .drop-zone.settled {
   min-height: 96px;
   background: var(--sunk);
@@ -1657,34 +1659,155 @@ button { cursor: pointer; }
 .drop-zone.settled strong { font-size: var(--t-body); font-weight: 500; color: var(--dim); }
 .drop-zone.settled:hover strong { color: var(--ink); }
 
-/* key/value summary */
-.kv-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 0;
+/* ------------------------------------------------------ loaded game data */
+
+/* What is already in, above the two ways of putting it there. Deliberately the
+   quietest box on the panel: it is read once to confirm the right file is
+   loaded, and after that it is scenery. Two lines and a button, on --sunk so it
+   reads as a state of the panel rather than a third thing to act on. */
+.loaded-data {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--s4); flex-wrap: wrap;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  overflow: hidden;
+  background: var(--sunk);
+  padding: var(--s3) var(--s4);
+}
+/* The filename can be long, so it gets the room that is left and wraps inside
+   it rather than pushing the button off the row. */
+.loaded-data-text { min-width: 0; flex: 1 1 260px; }
+.loaded-data .eyebrow { margin-bottom: var(--s1); }
+.loaded-data .meta-line { overflow-wrap: anywhere; }
+
+/* ----------------------------------------------------------- import routes */
+
+/* The two ways in, side by side and equal: neither is the recommended one, so
+   neither gets the wider column. The hairline between them is the same
+   .settings-rule the acceleration panel uses. */
+.import-routes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr);
+  gap: var(--s5);
+  align-items: stretch;
+}
+@media (max-width: 1080px) {
+  /* Below this the two columns are too narrow for the drop zone to read as a
+     target, so the routes stack and the rule turns horizontal. */
+  .import-routes { grid-template-columns: minmax(0, 1fr); }
+  .import-routes .settings-rule {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--rule) 4%, var(--rule) 96%, transparent);
+  }
+}
+/* Each route is a column of its own content, top-aligned. The two columns hold
+   different numbers of things and are not forced to match row for row — a grid
+   template here would tie the drop zone's top edge to whatever happens to be
+   third in the other column. */
+.import-route {
+  display: flex; flex-direction: column;
+  align-items: stretch;
+  gap: var(--s4);
+  min-width: 0;
+}
+/* The drop zone takes whatever height the other column has left over, so two
+   routes of unequal content still end level. It is the only part of either
+   column that can absorb the difference without something being stretched that
+   was written to sit at its own size. */
+.import-route .drop-zone { flex: 1 1 auto; }
+
+/* "Option 1" in the accent, the name of the route in ink beside it: the number
+   orders the two columns, the name says what they are. One line, so the two
+   route headings sit at the same height whatever their names. */
+.route-label {
+  display: flex; align-items: baseline; gap: var(--s3);
+  margin: 0;
+  font-size: var(--t-lead); font-weight: 600;
+  letter-spacing: -.01em;
+  color: var(--ink);
+}
+.route-label span {
+  flex: 0 0 auto;
+  font-size: var(--t-micro); letter-spacing: .12em; text-transform: uppercase;
+  font-weight: 700; color: var(--gold);
+}
+
+/* The button and the line explaining why it does nothing, on one row where
+   there is width for it. The note carries the reason, so the disabled button
+   does not have to look broken to say so. */
+.route-download {
+  display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap;
+}
+/* A control that cannot be used says so by weight, not by disappearing: it
+   keeps its full box, so nothing moves on the day it starts working. */
+.route-download .button:disabled {
+  color: var(--ghost);
+  border-color: var(--line);
+  border-style: dashed;
+  cursor: not-allowed;
+}
+.route-download .button:disabled:hover { color: var(--ghost); border-color: var(--line); }
+.route-note { margin: 0; color: var(--faint); font-size: var(--t-body); line-height: 1.5; }
+
+/* The verdict card is a full-width block in the aside it was written for; here
+   it sits in a column of its own content and takes the column's width. */
+.statistics.acceleration.route-link { width: 100%; }
+
+/* ------------------------------------------------------------ radio rows */
+
+/* A fieldset carries the group for a screen reader; it brings a border and
+   default padding that the house style does not use. */
+.route-modes { border: 0; margin: 0; padding: 0; min-width: 0; }
+.route-modes .field-legend { padding: 0; }
+.route-modes .radio-row + .radio-row { margin-top: var(--s3); }
+
+/* The control on the baseline of the label, with the note under it in the same
+   column — an option and the sentence that says what it costs, not two
+   unrelated lines. */
+.radio-row {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: var(--s3);
+  cursor: pointer;
+}
+/* Drawn here for the same reason the checkbox is: `accent-color` leaves an
+   unchecked control the browser's white, which is a hole in a dark page. The
+   round form is the one difference that matters — it is what says only one of
+   these can be true. */
+.radio-row input {
+  appearance: none; -webkit-appearance: none;
+  width: 16px; height: 16px; margin: 0;
+  /* centred on the label's first line rather than its box, so the control sits
+     with the text it names and not above a two-line block of it */
+  margin-top: calc((1.4em - 16px) / 2);
+  flex: 0 0 auto;
   background: var(--raise);
+  border: 1px solid var(--ghost);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background .12s, border-color .12s;
 }
-.kv-list > div {
-  padding: var(--s4);
-  border-right: 1px solid var(--line);
+.radio-row input:hover { background: var(--hover); border-color: var(--gold); }
+/* The dot is a background image for the same reason the tick is: `input` is a
+   replaced element and cannot carry a pseudo-element in every browser. */
+.radio-row input:checked {
+  background:
+    radial-gradient(circle at 50% 50%, var(--gold) 3.2px, transparent 3.4px),
+    var(--gold-deep);
+  border-color: var(--gold);
 }
-.kv-list > div:last-child { border-right: 0; }
-.kv-list dt {
-  font-size: var(--t-body);
-  color: var(--dim); font-weight: 600;
+.radio-row input:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.radio-text { display: block; min-width: 0; }
+.radio-text b {
+  display: block;
+  font-size: var(--t-body); font-weight: 600; line-height: 1.4;
+  color: var(--ink);
 }
-/* The counts are what an import produces, so they are read as a figure
-   rather than as a field: gold, and a size up from the label. */
-.kv-list dd {
-  margin: var(--s2) 0 0;
-  font-family: var(--mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 28px; font-weight: 500;
-  letter-spacing: -.03em;
-  color: var(--gold);
+.radio-note {
+  display: block;
+  margin-top: var(--s1);
+  color: var(--dim);
+  font-size: var(--t-body); line-height: 1.5;
 }
 
 /* notices */

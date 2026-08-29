@@ -17,7 +17,7 @@ import {
   presetTargetMaximum, presetTypes, runeMainStats, withRefreshedMetrics,
 } from './lib/rune-potential-presets';
 import type { PresetChoice, PresetStatTargets, PresetType, RuneMainStat, RunePotentialPreset } from './lib/rune-potential-presets';
-import type { ImportedGame, ItemGrade, MonsterPreference, Preferences, RunePotentialSettings, RunePotentialSortOrder } from './lib/types';
+import type { DirectImportMode, ImportedGame, ItemGrade, MonsterPreference, Preferences, RunePotentialSettings, RunePotentialSortOrder } from './lib/types';
 
 type Page = 'home' | 'monsters' | 'optimizer' | 'speed' | 'potential' | 'artifacts' | 'gems' | 'relics' | 'preferences';
 type ReportCategory = 'Monster' | 'Rune' | 'Gem' | 'Grindstone' | 'Artifact' | 'Relic' | 'Other';
@@ -318,6 +318,9 @@ export default function Home() {
   function updateHardwareAcceleration(enabled: boolean) {
     changePreferences((current) => ({ ...current, hardwareAcceleration: enabled }));
   }
+  function updateDirectImportMode(mode: DirectImportMode) {
+    changePreferences((current) => ({ ...current, directImportMode: mode }));
+  }
   function updateRunePotentialSettings(update: Partial<RunePotentialSettings>) {
     changePreferences((current) => ({
       ...current,
@@ -421,6 +424,8 @@ export default function Home() {
         onImportPreferences={() => settingsInput.current?.click()}
         hardwareAcceleration={preferences.hardwareAcceleration}
         onHardwareAcceleration={updateHardwareAcceleration}
+        directImportMode={preferences.directImportMode}
+        onDirectImportMode={updateDirectImportMode}
       />}
 
       {page === 'monsters' && <MonsterOverview monsters={monsters} preferences={preferences} />}
@@ -523,7 +528,7 @@ function AccelerationMark({ state }: { state: AccelerationState }) {
   </span>;
 }
 
-function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLeave, onDrop, onRemove, onReport, onExportPreferences, onImportPreferences, hardwareAcceleration, onHardwareAcceleration }: {
+function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLeave, onDrop, onRemove, onReport, onExportPreferences, onImportPreferences, hardwareAcceleration, onHardwareAcceleration, directImportMode, onDirectImportMode }: {
   game: ImportedGame | null;
   message: string;
   dragging: boolean;
@@ -537,6 +542,8 @@ function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLe
   onImportPreferences: () => void;
   hardwareAcceleration: boolean;
   onHardwareAcceleration: (enabled: boolean) => void;
+  directImportMode: DirectImportMode;
+  onDirectImportMode: (mode: DirectImportMode) => void;
 }) {
   const unknownMonsterIds = game?.report.unknownMonsterIds ?? [];
   /* What the card answered, kept apart from the setting: switching the setting
@@ -633,46 +640,114 @@ function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLe
     <section className="panel">
       <h3 className="block-title">Game data</h3>
       <div className="stack">
-        {/* Once data is in, the drop target stops being the loudest thing on
-            the page: it shrinks to a quiet way back rather than continuing to
-            ask for the file the user has already given. */}
-        <div
-          className={['drop-zone', dragging ? 'dragging' : '', game ? 'settled' : ''].filter(Boolean).join(' ')}
-          onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop} onClick={onPickFile}
-          role="button" tabIndex={0}
-          onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onPickFile(); } }}
-        >
-          <span className="glyph" aria-hidden="true">↓</span>
-          <strong>{game ? 'Replace with another JSON file' : 'Drop your Summoners War JSON file here'}</strong>
-          <span>or choose a file from your computer</span>
-        </div>
+        {/* What is already loaded, stated once and quietly: the file it came
+            from, when it arrived, and the one action that undoes it. The counts
+            that used to stand here as five large figures are in the badge at the
+            top of every workspace, where they are read far more often than this
+            panel is opened. */}
+        {game && <div className="loaded-data">
+          <div className="loaded-data-text">
+            <p className="eyebrow">Already loaded</p>
+            <p className="meta-line">{game.fileName} · imported {dateTime(game.importedAt)}</p>
+          </div>
+          <button className="button danger" onClick={onRemove}>Remove game data</button>
+        </div>}
+
+        {game && unknownMonsterIds.length > 0 && <p className="notice warning">
+          Name information is missing for monster type{unknownMonsterIds.length === 1 ? '' : 's'} {unknownMonsterIds.join(', ')}.{' '}
+          <button className="notice-link" onClick={() => onReport('Monster', `JASWA could not find name information for monster type(s): ${unknownMonsterIds.join(', ')}.`)}>Report this</button>
+        </p>}
 
         {message && <p className="notice" role="status">{message}</p>}
 
-        {game && <>
-          <dl className="kv-list">
-            {([
-              ['Monsters', count(game.data.unit_list)],
-              ['Runes', count(game.data.runes)],
-              ['Artifacts', count(game.data.artifacts)],
-              ['Relics', count(game.data.relics)],
-              ['Gems & grinds', count(game.data.rune_craft_item_list)],
-            ] as Array<[string, number]>).map(([label, value]) => <div key={label}>
-              <dt>{label}</dt><dd>{value.toLocaleString('en')}</dd>
-            </div>)}
-          </dl>
+        {/* Two ways in, neither of them better than the other for everybody, so
+            the page asks rather than picks. */}
+        <p className="lead">
+          Two ways to get your account in here. Pick your poison: let a small
+          helper pour the data in while you play, or hand JASWA the file
+          yourself.
+        </p>
 
-          <p className="meta-line">{game.fileName} · imported {dateTime(game.importedAt)}</p>
+        <div className="import-routes">
+          <div className="import-route">
+            <p className="route-label"><span>Option 1</span>Direct import</p>
+            <p className="lead">
+              A small helper program that sits on your computer, listens to what
+              the game tells your account, and passes it straight to JASWA. No
+              exporting, no files, no remembering to do it again next week.
+            </p>
 
-          {unknownMonsterIds.length > 0 && <p className="notice warning">
-            Name information is missing for monster type{unknownMonsterIds.length === 1 ? '' : 's'} {unknownMonsterIds.join(', ')}.{' '}
-            <button className="notice-link" onClick={() => onReport('Monster', `JASWA could not find name information for monster type(s): ${unknownMonsterIds.join(', ')}.`)}>Report this</button>
-          </p>}
+            {/* The button is dead on purpose: the helper is not written yet, and
+                a link to nothing is worse than a control that says so. It keeps
+                its full size and place so the panel does not resize on the day
+                it starts working. */}
+            <div className="route-download">
+              <button className="button" disabled aria-describedby="helper-availability">
+                Download the helper
+              </button>
+              <p className="route-note" id="helper-availability">Not built yet. It will land here.</p>
+            </div>
 
-          <div className="button-row">
-            <button className="button danger" onClick={onRemove}>Remove game data</button>
+            {/* The same verdict device the acceleration card uses, asking a
+                different question. Nothing can answer it until the helper
+                exists, so it holds the neutral ring rather than claiming the
+                connection is broken. */}
+            <section className="statistics acceleration checking route-link" role="status" aria-label="Helper program connection">
+              <div className="acceleration-verdict">
+                <AccelerationMark state="checking" />
+                <p className="acceleration-word">Waiting</p>
+              </div>
+              <p className="acceleration-adapter">
+                <span>Helper program:</span>
+                <b>Not connected</b>
+              </p>
+            </section>
+
+            {/* Asked now rather than when the helper arrives: the answer decides
+                whether JASWA is a mirror of the account or a desk to plan on,
+                and that is a decision about how the user works, not a setting to
+                bury behind a program that is not here yet. */}
+            <fieldset className="route-modes">
+              <legend className="field-legend">Once it is connected</legend>
+              <RadioRow
+                name="direct-import-mode"
+                label="Keep everything up to date"
+                note="Every change in the game reaches JASWA as it happens. Nothing to refresh — and nothing stays where you put it, so a build you are drafting is overwritten the moment the game disagrees."
+                value="live"
+                current={directImportMode}
+                onChange={onDirectImportMode}
+              />
+              <RadioRow
+                name="direct-import-mode"
+                label="Read once per game session"
+                note="One snapshot when the game starts, then nothing until it restarts. Your runes stay where you put them, so builds can be planned in peace."
+                value="on-load"
+                current={directImportMode}
+                onChange={onDirectImportMode}
+              />
+            </fieldset>
           </div>
-        </>}
+
+          <div className="settings-rule" role="presentation" />
+
+          <div className="import-route">
+            <p className="route-label"><span>Option 2</span>Load a JSON file</p>
+            <p className="lead">
+              The file your game exporter wrote. Works today, works offline, and
+              is as current as the moment you exported it.
+            </p>
+            <div
+              className={['drop-zone', dragging ? 'dragging' : '', game ? 'settled' : ''].filter(Boolean).join(' ')}
+              onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop} onClick={onPickFile}
+              role="button" tabIndex={0}
+              onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onPickFile(); } }}
+            >
+              <span className="glyph" aria-hidden="true">↓</span>
+              <strong>{game ? 'Replace with another JSON file' : 'Drop your Summoners War JSON file here'}</strong>
+              <span>or choose a file from your computer</span>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -1666,6 +1741,30 @@ function CheckboxRow({ label, checked, onChange }: { label: string; checked: boo
   return <label className="checkbox-row">
     <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
     {label}
+  </label>;
+}
+
+/**
+ * One option in a group where exactly one is true, with the sentence that says
+ * what it costs. A native radio rather than a pair of chips: the browser gives
+ * arrow-key movement between the options and announces "1 of 2" for free, and
+ * the note is long enough that a chip would be the wrong shape for it.
+ */
+function RadioRow<Value extends string>({ name, label, note, value, current, onChange }: {
+  name: string;
+  label: string;
+  note: string;
+  value: Value;
+  current: Value;
+  onChange: (value: Value) => void;
+}) {
+  return <label className="radio-row">
+    <input type="radio" name={name} value={value} checked={current === value}
+      onChange={() => onChange(value)} />
+    <span className="radio-text">
+      <b>{label}</b>
+      <span className="radio-note">{note}</span>
+    </span>
   </label>;
 }
 

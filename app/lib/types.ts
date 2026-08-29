@@ -8,8 +8,18 @@ export type RunePotentialSortOrder = 'Grade' | 'Sub Property' | 'Sub Property Be
 export type ItemGrade = 'Normal' | 'Magic' | 'Rare' | 'Hero' | 'Legend';
 export type RunePotentialSettings = { powerUpPolicy: number; runeQuality: number; enchantedGems: number; grindstones: number; gemGrade: ItemGrade; grindstoneGrade: ItemGrade; acceptedRunes: number; brokenRunes: number; intangibleRunes: number; keepMoreForLargerSets: boolean; includeLevel12Runes: boolean; includeEquippedRunes: boolean; sortOrder: RunePotentialSortOrder };
 /**
+ * How the companion program is allowed to feed JASWA once it is connected.
+ *
+ * `live` keeps the workspace equal to the account at every moment, which means
+ * a rune JASWA shows you moving is moved back the instant the game says
+ * otherwise. `on-load` takes one snapshot per game session, so a plan survives
+ * long enough to be finished. The two cannot both be true, which is why this is
+ * one setting with two values rather than two switches.
+ */
+export type DirectImportMode = 'live' | 'on-load';
+/**
  * The presets are part of the user's own preferences rather than of the
  * program: JASWA supplies a starting set, and after that they are the user's
  * to rename, retune and delete, and they travel with the .sw file.
  */
-export type Preferences = { format: 'jaswa-preferences'; version: 1; updatedAt: string; hardwareAcceleration: boolean; monsterPreferences: Record<string, MonsterPreference>; runePotential: RunePotentialSettings; runePotentialPresets: RunePotentialPreset[] };
+export type Preferences = { format: 'jaswa-preferences'; version: 1; updatedAt: string; hardwareAcceleration: boolean; directImportMode: DirectImportMode; monsterPreferences: Record<string, MonsterPreference>; runePotential: RunePotentialSettings; runePotentialPresets: RunePotentialPreset[] };
