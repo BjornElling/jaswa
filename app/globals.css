@@ -1737,8 +1737,19 @@ button { cursor: pointer; }
 /* The drop zone takes whatever height the other column has left over, so two
    routes of unequal content still end level. It is the only part of either
    column that can absorb the difference without something being stretched that
-   was written to sit at its own size. */
-.import-route .drop-zone { flex: 1 1 auto; }
+   was written to sit at its own size.
+
+   It also gives that height back. `min-height` on the base .drop-zone is a
+   floor written for a zone that was the whole panel; here the zone is the slack
+   in a column that has to match the one beside it, so text added above it
+   shortens the zone instead of growing the panel. The floor drops to the height
+   the zone still needs to read as a target — arrow, headline, subline, and air
+   — and `flex-basis: 0` keeps it from claiming its content height first and
+   arguing about the rest. */
+.import-route .drop-zone {
+  flex: 1 1 0;
+  min-height: 132px;
+}
 
 /* ------------------------------------------------------- choosing a route */
 
@@ -1878,6 +1889,34 @@ button { cursor: pointer; }
   box-shadow: none;
 }
 .import-route:not(.chosen) .drop-zone:hover .glyph { translate: none; }
+
+/* Where to get the file, under the description of what it is. A list rather
+   than two sentences: they are two errands, and the reader doing the second one
+   has already done the first. Tight, because this is the small print of the
+   route and not its subject. */
+.route-links {
+  margin: calc(var(--s4) * -1 + var(--s2)) 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid; gap: var(--s2);
+  color: var(--dim);
+  font-size: var(--t-body); line-height: 1.5;
+}
+/* The URLs are long enough to overflow a narrow column on their own, and the
+   link text stands in for them, so nothing here needs to break mid-word. */
+.route-links li { min-width: 0; overflow-wrap: anywhere; }
+
+/* The app's one link treatment, matching .notice-link: the accent, because a
+   link is the definition of "you can act on this", and an underline because
+   colour alone must not be what marks it. */
+.text-link {
+  color: var(--gold);
+  font-weight: 600;
+  text-decoration: underline; text-underline-offset: 2px;
+  transition: color .12s;
+}
+.text-link:hover { color: #dcb45f; }
+.text-link:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 2px; }
 
 /* The button and the line explaining why it does nothing, on one row where
    there is width for it. The note carries the reason, so the disabled button

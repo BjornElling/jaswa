@@ -751,6 +751,20 @@ function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLe
               The file your game exporter wrote. Works today, works offline, and
               is as current as the moment you exported it.
             </p>
+            {/* Where the file comes from, for the reader who has the route
+                selected and no file to give it. Named rather than described:
+                SWEX is what they will be looking for on the page that opens. */}
+            <ul className="route-links">
+              <li>
+                To get your JSON data you need{' '}
+                <a className="text-link" href="https://github.com/Xzandro/sw-exporter/releases"
+                  target="_blank" rel="noreferrer noopener">SWEX</a>
+              </li>
+              <li>
+                <a className="text-link" href="https://www.swlens.io/guides/swex-json"
+                  target="_blank" rel="noreferrer noopener">Installation guide for SWEX</a>
+              </li>
+            </ul>
             {/* The drop zone answers the pointer only on the chosen route. It
                 keeps its full size either way, so choosing a route colours the
                 columns rather than resizing them. */}
