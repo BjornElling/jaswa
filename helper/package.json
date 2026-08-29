@@ -1,0 +1,47 @@
+{
+  "name": "jaswa-helper",
+  "version": "0.1.0",
+  "private": true,
+  "author": "JASWA",
+  "description": "Local Steam companion for JASWA.",
+  "main": "src/tray.cjs",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test",
+    "package": "electron-builder --win nsis --x64"
+  },
+  "dependencies": {
+    "http-mitm-proxy": "1.1.0"
+  },
+  "devDependencies": {
+    "electron": "24.8.8",
+    "electron-builder": "24.13.3"
+  },
+  "build": {
+    "appId": "dk.jaswa.helper",
+    "productName": "JASWA Helper",
+    "artifactName": "JASWA-Helper-Setup.exe",
+    "icon": "../public/pwa-512x512.png",
+    "directories": {
+      "output": "../public"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../public/favicon.ico",
+        "to": "favicon.ico"
+      }
+    ],
+    "nsis": {
+      "oneClick": true,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": false
+    },
+    "win": {
+      "signAndEditExecutable": false
+    }
+  }
+}

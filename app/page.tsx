@@ -7,6 +7,8 @@ import { clearImportedGame, loadImportedGame, loadPreferences, saveImportedGame,
 import { blankPreferences, createImportedGame, defaultRunePotentialSettings, fileToText, importPreferencesFile, itemGrades, normalizeImportedGame, normalizePreferences, validateGameFile } from './lib/imports';
 import { detectGraphicsCard, disabledStatus } from './lib/hardware-acceleration';
 import type { AccelerationState, AccelerationStatus } from './lib/hardware-acceleration';
+import { checkHelperConnection, readHelperProfile } from './lib/direct-import';
+import type { HelperConnection } from './lib/direct-import';
 import { monsterPresentation } from './lib/monster-catalog';
 import type { MonsterArchetype } from './lib/monster-catalog';
 import { calculateMonsterTotals } from './lib/monster-stats';
@@ -91,6 +93,11 @@ const upcomingWorkspaces: Record<'optimizer' | 'speed' | 'artifacts' | 'gems' | 
 const accelerationWords: Record<AccelerationState, string> = {
   checking: 'Checking',
   disabled: 'Disabled',
+  ready: 'Connected',
+  unavailable: 'Unavailable',
+};
+const helperWords: Record<HelperConnection['state'], string> = {
+  checking: 'Waiting',
   ready: 'Connected',
   unavailable: 'Unavailable',
 };
@@ -239,8 +246,10 @@ export default function Home() {
   const [report, setReport] = useState<{ category: ReportCategory; details: string } | null>(null);
   const [ready, setReady] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [helperConnection, setHelperConnection] = useState<HelperConnection>({ state: 'checking', detail: 'Open JASWA Helper first.', profileReady: false });
   const gameInput = useRef<HTMLInputElement>(null);
   const settingsInput = useRef<HTMLInputElement>(null);
+  const appliedHelperSnapshot = useRef<string | null>(null);
 
   useEffect(() => {
     Promise.all([loadImportedGame(), loadPreferences()]).then(([savedGame, savedPreferences]) => {
@@ -258,6 +267,27 @@ export default function Home() {
       setPreferences(blankPreferences());
     }).finally(() => setReady(true));
   }, []);
+
+  useEffect(() => {
+    if (!ready || preferences.importRoute !== 'direct') return;
+    let disposed = false;
+    async function refreshHelper() {
+      const connection = await checkHelperConnection();
+      if (disposed) return;
+      setHelperConnection(connection);
+      if (!connection.profileReady) return;
+      const profile = await readHelperProfile();
+      if (disposed || !profile || (preferences.directImportMode !== 'live' && appliedHelperSnapshot.current)) return;
+      if (preferences.directImportMode === 'live' && appliedHelperSnapshot.current === profile.updatedAt) return;
+      const validation = validateGameFile(profile.data);
+      if (!validation.valid) return;
+      await applyImport(createImportedGame('JASWA Helper — Steam', profile.data, validation));
+      appliedHelperSnapshot.current = profile.updatedAt;
+    }
+    void refreshHelper();
+    const interval = window.setInterval(() => void refreshHelper(), 2000);
+    return () => { disposed = true; window.clearInterval(interval); };
+  }, [preferences.directImportMode, preferences.importRoute, ready]);
 
   /* `data` is guarded as well as `game`: a partially written record in
      IndexedDB has no `data` at all, and reaching through it threw during the
@@ -431,6 +461,7 @@ export default function Home() {
         onDirectImportMode={updateDirectImportMode}
         importRoute={preferences.importRoute}
         onImportRoute={updateImportRoute}
+        helperConnection={helperConnection}
       />}
 
       {page === 'monsters' && <MonsterOverview monsters={monsters} preferences={preferences} />}
@@ -533,7 +564,7 @@ function AccelerationMark({ state }: { state: AccelerationState }) {
   </span>;
 }
 
-function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLeave, onDrop, onRemove, onReport, onExportPreferences, onImportPreferences, hardwareAcceleration, onHardwareAcceleration, directImportMode, onDirectImportMode, importRoute, onImportRoute }: {
+function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLeave, onDrop, onRemove, onReport, onExportPreferences, onImportPreferences, hardwareAcceleration, onHardwareAcceleration, directImportMode, onDirectImportMode, importRoute, onImportRoute, helperConnection }: {
   game: ImportedGame | null;
   message: string;
   dragging: boolean;
@@ -551,6 +582,7 @@ function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLe
   onDirectImportMode: (mode: DirectImportMode) => void;
   importRoute: ImportRoute;
   onImportRoute: (route: ImportRoute) => void;
+  helperConnection: HelperConnection;
 }) {
   const unknownMonsterIds = game?.report.unknownMonsterIds ?? [];
   /* What the card answered, kept apart from the setting: switching the setting
@@ -690,29 +722,19 @@ function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLe
               change.
             </p>
 
-            {/* The button is dead on purpose: the helper is not written yet, and
-                a link to nothing is worse than a control that says so. It keeps
-                its full size and place so the panel does not resize on the day
-                it starts working. */}
             <div className="route-download">
-              <button className="button" disabled aria-describedby="helper-availability">
-                Download the helper
-              </button>
-              <p className="route-note" id="helper-availability">Not built yet. It will land here.</p>
+              <a className="button" href="/JASWA-Helper-Setup.exe" download>Download the helper</a>
+              <p className="route-note">Windows + Steam only. Open it, approve Windows, then start the game.</p>
             </div>
 
-            {/* The same verdict device the acceleration card uses, asking a
-                different question. Nothing can answer it until the helper
-                exists, so it holds the neutral ring rather than claiming the
-                connection is broken. */}
-            <section className="statistics acceleration checking route-link" role="status" aria-label="Helper program connection">
+            <section className={`statistics acceleration ${helperConnection.state} route-link`} role="status" aria-label="Helper program connection">
               <div className="acceleration-verdict">
-                <AccelerationMark state="checking" />
-                <p className="acceleration-word">Waiting</p>
+                <AccelerationMark state={helperConnection.state} />
+                <p className="acceleration-word">{helperWords[helperConnection.state]}</p>
               </div>
               <p className="acceleration-adapter">
                 <span>Helper program:</span>
-                <b>Not connected</b>
+                <b title={helperConnection.detail}>{helperConnection.detail}</b>
               </p>
             </section>
 
