@@ -28,20 +28,20 @@
   <style>
     /* Bare :root is the light case, so a browser that does not resolve the
        media query still gets the gold that survives a light tab bar. */
-    :root { --ink: #a87f26; --ink-dim: #8e6b20; }
+    :root { --ink: #a87f26; --ink-dim: #78591a; }
     @media (prefers-color-scheme: dark) {
-      :root { --ink: #d9ad52; --ink-dim: #b78d43; }
+      :root { --ink: #d9ad52; --ink-dim: #916f35; }
     }
   </style>
   <g transform="translate(32 32) scale(1.06)" fill="var(--ink, #a87f26)">
     <defs>
       <path id="s" d="M-4.4 -9.74 4.4 -9.74 8.8 -17.36 0 -28.95 -8.8 -17.36z"/>
     </defs>
-    <use href="#s" fill="var(--ink-dim, #8e6b20)"/>
+    <use href="#s" fill="var(--ink-dim, #78591a)"/>
     <use href="#s" transform="rotate(60)"/>
-    <use href="#s" transform="rotate(120)" fill="var(--ink-dim, #8e6b20)"/>
+    <use href="#s" transform="rotate(120)" fill="var(--ink-dim, #78591a)"/>
     <use href="#s" transform="rotate(180)"/>
-    <use href="#s" transform="rotate(240)" fill="var(--ink-dim, #8e6b20)"/>
+    <use href="#s" transform="rotate(240)" fill="var(--ink-dim, #78591a)"/>
     <use href="#s" transform="rotate(300)"/>
   </g>
 </svg>

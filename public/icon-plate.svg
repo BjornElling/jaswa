@@ -22,11 +22,11 @@
     <defs>
       <path id="s" d="M-4.4 -9.74 4.4 -9.74 8.8 -17.36 0 -28.95 -8.8 -17.36z"/>
     </defs>
-    <use href="#s" fill="#b78d43"/>
+    <use href="#s" fill="#916f35"/>
     <use href="#s" transform="rotate(60)"/>
-    <use href="#s" transform="rotate(120)" fill="#b78d43"/>
+    <use href="#s" transform="rotate(120)" fill="#916f35"/>
     <use href="#s" transform="rotate(180)"/>
-    <use href="#s" transform="rotate(240)" fill="#b78d43"/>
+    <use href="#s" transform="rotate(240)" fill="#916f35"/>
     <use href="#s" transform="rotate(300)"/>
   </g>
 </svg>
