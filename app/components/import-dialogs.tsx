@@ -33,7 +33,7 @@ export function DirectImportModeDialog({ mode, onCancel, onConfirm }: {
       <h2 id="direct-import-mode-title">{switchingToOnLoad ? 'Stop automatic synchronization?' : 'Turn on automatic synchronization?'}</h2>
       <p id="direct-import-mode-warning">
         {switchingToOnLoad
-          ? 'Automatic synchronization will stop now. Updating the game data will require you to restart the program.'
+          ? 'Automatic synchronization will stop now. Updating the game data will require you to restart Summoners War.'
           : 'Warning: this will overwrite any changes you may have made to the current game data.'}
       </p>
       <div className="dialog-actions">
