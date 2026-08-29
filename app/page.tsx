@@ -6,7 +6,7 @@ import { HomeSection } from './components/home-section';
 import { ImportBadge } from './components/import-badge';
 import { MonsterOverview } from './components/monster-overview';
 import { PreferencesSection } from './components/preferences-section';
-import { DirectImportModeDialog, ReplaceImportDialog, ReportDialog } from './components/import-dialogs';
+import { DirectImportModeDialog, RemoveGameDataDialog, ReplaceImportDialog, ReportDialog } from './components/import-dialogs';
 import { RunePotentialSection } from './components/rune-potential-section';
 import { UpcomingWorkspace } from './components/upcoming-workspace';
 import { clearImportedGame, loadImportedGame, loadPreferences, saveImportedGame, savePreferences } from './lib/browser-storage';
@@ -28,6 +28,7 @@ export default function Home() {
   const [report, setReport] = useState<{ category: ReportCategory; details: string } | null>(null);
   const [ready, setReady] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [removeGameDataPrompt, setRemoveGameDataPrompt] = useState(false);
   const [pendingDirectImportMode, setPendingDirectImportMode] = useState<DirectImportMode | null>(null);
   const [helperConnection, setHelperConnection] = useState<HelperConnection>({ state: 'checking', detail: 'This would work better, if you actually ran the helper program.', profileReady: false });
   const gameInput = useRef<HTMLInputElement>(null);
@@ -206,7 +207,7 @@ export default function Home() {
         onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
         onDrop={handleDrop}
-        onRemove={() => void removeImport()}
+        onRemove={() => setRemoveGameDataPrompt(true)}
         onReport={openReport}
         onExportPreferences={() => downloadJson('jaswa-preferences.sw', JSON.stringify(preferences, null, 2))}
         onImportPreferences={() => settingsInput.current?.click()}
@@ -258,6 +259,11 @@ export default function Home() {
       mode={pendingDirectImportMode}
       onCancel={() => setPendingDirectImportMode(null)}
       onConfirm={confirmDirectImportMode}
+    />}
+
+    {removeGameDataPrompt && <RemoveGameDataDialog
+      onCancel={() => setRemoveGameDataPrompt(false)}
+      onConfirm={() => { setRemoveGameDataPrompt(false); void removeImport(); }}
     />}
 
     {report && <ReportDialog

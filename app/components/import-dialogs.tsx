@@ -2,6 +2,42 @@ import { useEffect, useRef } from 'react';
 import type { ReportCategory } from '../lib/workspace-config';
 import type { DirectImportMode, ImportedGame } from '../lib/types';
 
+export function RemoveGameDataDialog({ onCancel, onConfirm }: {
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  const onCancelRef = useRef(onCancel);
+
+  useEffect(() => {
+    onCancelRef.current = onCancel;
+  }, [onCancel]);
+
+  useEffect(() => {
+    cancelRef.current?.focus();
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      onCancelRef.current();
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  return <div className="modal-backdrop" role="presentation">
+    <section className="dialog" role="dialog" aria-modal="true"
+      aria-labelledby="remove-game-data-title" aria-describedby="remove-game-data-description">
+      <p className="eyebrow">Remove game data</p>
+      <h2 id="remove-game-data-title">Remove the current game data?</h2>
+      <p id="remove-game-data-description">This removes the imported game data from JASWA. Your saved names, goals and preferences stay.</p>
+      <div className="dialog-actions">
+        <button ref={cancelRef} className="button" onClick={onCancel}>Cancel</button>
+        <button className="button danger" onClick={onConfirm}>Remove game data</button>
+      </div>
+    </section>
+  </div>;
+}
+
 export function DirectImportModeDialog({ mode, onCancel, onConfirm }: {
   mode: DirectImportMode;
   onCancel: () => void;
