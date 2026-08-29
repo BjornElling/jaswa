@@ -9,7 +9,7 @@ grundstats uden at lægge almindelig brugertrafik på Swarfarm.
 
 JASWA må **aldrig** hente Swarfarm-data fra browseren, ved JSON-import eller
 som del af en almindelig sidevisning. Brugerens import slås altid op i den
-versionsstyrede, lokale fil `app/lib/swarfarm-monsters.json`.
+versionsstyrede, lokale fil `app/data/swarfarm-monsters.json`.
 
 Swarfarm beskriver selv API'et som offentligt, men rate-limited, og kræver
 proxy via egen server for webapplikationer. En lokal snapshot eliminerer både
@@ -63,7 +63,7 @@ ad gangen med 250 ms pause. Den:
   efterlader en halvskrevet PNG;
 - verificerer PNG-signaturen før en fil accepteres;
 - stopper ved HTTP 429/5xx i stedet for at presse værten videre;
-- genskriver `app/lib/local-monster-images.ts` ud fra det, der faktisk ligger
+- genskriver `app/data/local-monster-images.ts` ud fra det, der faktisk ligger
   på disken, efter hver kørsel.
 
 `--limit <n>` henter kun de første n manglende. `--all` gennemgår hele listen

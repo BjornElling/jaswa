@@ -2,7 +2,7 @@
 
 const path = require('node:path');
 const { app, Menu, nativeImage, shell, Tray } = require('electron');
-const { reportStartupError, start } = require('./index.cjs');
+const { reportStartupError, start } = require('./service.cjs');
 
 let helper;
 let tray;

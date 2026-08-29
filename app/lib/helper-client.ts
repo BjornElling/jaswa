@@ -1,4 +1,4 @@
-import { validateGameFile } from './imports';
+import { validateGameFile } from './file-imports';
 
 const helperOrigin = 'http://127.0.0.1:37654';
 

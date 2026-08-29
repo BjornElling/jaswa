@@ -13,7 +13,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const outputPath = resolve(repositoryRoot, 'app/lib/swarfarm-monsters.json');
+const outputPath = resolve(repositoryRoot, 'app/data/swarfarm-monsters.json');
 const endpoint = 'https://swarfarm.com/api/v2/monsters/';
 const requestedPageSize = 100;
 const minimumDelayMs = 3_000;

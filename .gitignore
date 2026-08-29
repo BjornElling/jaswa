@@ -1,6 +1,9 @@
 # dependencies
-/node_modules
-/helper/node_modules
+/node_modules/
+/helper/node_modules/
+/helper/.cache/
+/helper/dist/
+/helper/out/
 /public/win-unpacked/
 /public/*.blockmap
 /public/.icon-ico/

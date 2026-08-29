@@ -1,6 +1,6 @@
-import { swExporterMonsterNames } from './sw-exporter-monster-names';
-import swarfarmMonsterData from './swarfarm-monsters.json';
-import { localMonsterImageFilenames } from './local-monster-images';
+import { swExporterMonsterNames } from '../data/sw-exporter-monster-names';
+import swarfarmMonsterData from '../data/swarfarm-monsters.json';
+import { localMonsterImageFilenames } from '../data/local-monster-images';
 
 export const monsterArchetypes = ['Attack', 'Defense', 'HP', 'Support', 'Material', 'none'] as const;
 export type MonsterArchetype = typeof monsterArchetypes[number];

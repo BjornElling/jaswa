@@ -19,9 +19,9 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const snapshotPath = resolve(repositoryRoot, 'app/lib/swarfarm-monsters.json');
+const snapshotPath = resolve(repositoryRoot, 'app/data/swarfarm-monsters.json');
 const imageDirectory = resolve(repositoryRoot, 'public/monster-images');
-const allowlistPath = resolve(repositoryRoot, 'app/lib/local-monster-images.ts');
+const allowlistPath = resolve(repositoryRoot, 'app/data/local-monster-images.ts');
 const imageBaseUrl = 'https://swarfarm.com/static/herders/images/monsters/';
 const minimumDelayMs = 250;
 const maximumFailures = 10;

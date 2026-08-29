@@ -1672,6 +1672,12 @@ button { cursor: pointer; }
   border-radius: var(--radius);
   background: var(--sunk);
   padding: var(--s3) var(--s4);
+  /* This box reports on the import; everything under it is about making a new
+     one. The stack's own gap reads as one continuous list, so the extra margin
+     sets the statement apart from the instructions that follow. It sits on the
+     box rather than on the next sibling because what follows varies — the lead,
+     or a compatibility warning ahead of it. */
+  margin-bottom: var(--s3);
 }
 /* The filename can be long, so it gets the room that is left and wraps inside
    it rather than pushing the button off the row. */
