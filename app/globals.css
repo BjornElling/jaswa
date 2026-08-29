@@ -1760,6 +1760,20 @@ button { cursor: pointer; }
   transition: background .12s;
 }
 .route-head:hover { background: var(--hover); }
+/* The head is the only part of an unchosen card that answers the pointer, so it
+   has to answer visibly — and the background alone does not: --hover against the
+   panel's own --raise measures 1.05:1, a change you can compute and not one you
+   can see. The route's name carries it instead, dimmed at rest on the card that
+   is not running and brought up to full ink under the pointer. That is the
+   two-tone device the house style already uses for primary against secondary,
+   and it gives the resting state somewhere to move from.
+
+   Names only. The number keeps the colour it has in each state — gold on the
+   chosen card, --faint on the other — because that pair is what says which
+   route is live, and a hover that touched it would be answering a question the
+   pointer did not ask. */
+.import-route:not(.chosen) .route-name { color: var(--dim); }
+.import-route:not(.chosen) .route-head:hover .route-name { color: var(--ink); }
 /* Bigger than the settings radios: this is the page's primary fork, not a
    detail inside one of its answers. */
 .route-head input {
@@ -1790,7 +1804,12 @@ button { cursor: pointer; }
   font-size: var(--t-base); font-weight: 700;
   letter-spacing: .14em; text-transform: uppercase;
   line-height: 1.2;
-  color: var(--faint);
+  /* --dim, not --faint: on the unchosen card this sits on the panel's own
+     ground, where --faint measures 4.26:1 and misses the 4.5:1 the house style
+     asks. The head is a live control on both cards and its number is a real
+     heading, so it clears the bar in both states. The gold on the chosen card
+     is what marks the difference; this is only the other half of that pair. */
+  color: var(--dim);
   transition: color .12s;
 }
 /* The name of the route, immediately under its number. */
@@ -1801,6 +1820,7 @@ button { cursor: pointer; }
   letter-spacing: -.02em;
   line-height: 1.25;
   color: var(--ink);
+  transition: color .12s;
 }
 /* Gold on the chosen one, and only there: the accent's single meaning on this
    page is "this is the one that is live". */
@@ -1812,28 +1832,24 @@ button { cursor: pointer; }
    glance rather than by reading both headings.
 
    This is deep enough that the body text is below the 4.5:1 the house style
-   asks of anything meant to be read: --dim on --raise measures about 2.2:1 at
-   this opacity. That is deliberate, and it is why the rule below exists — the
-   column comes back to full strength on hover and on keyboard focus, so a
-   reader comparing the two routes always has a way to read the one they did not
-   take. Faded is the resting state of something inactive, not the only state it
-   has.
+   asks of anything meant to be read, and it stays there: hovering the column
+   does not bring it back. A body that lit up under the pointer made the whole
+   card behave like a control, when the only control here is the heading — and
+   it undid the fade at exactly the moment the reader was looking at it, which
+   is the moment the page most needs to say which route is running.
 
-   The head is left at full strength — it is the live control that switches
-   back, and dimming the only way out of a state is how a user gets stuck. */
+   The reading of an unchosen route is a click away, not a hover away: choosing
+   it is how you get its detail, and choosing back costs one more click. Inert
+   already keeps the text in the accessibility tree for anyone reading the page
+   by other means.
+
+   The head is exempt — it sits outside this element, stays at full strength,
+   and carries the hover on its own. It is the live control that switches back,
+   and dimming the only way out of a state is how a user gets stuck. */
 .import-route:not(.chosen) .route-body {
   opacity: .38;
   filter: saturate(.25);
   transition: opacity .14s, filter .14s;
-}
-/* Reading the route you did not choose. `:focus-within` carries the same
-   recovery to the keyboard: the body is inert, so focus lands here from the
-   card's own radio, and the column it describes is legible while that radio is
-   the thing being decided. */
-.import-route:not(.chosen):hover .route-body,
-.import-route:not(.chosen):focus-within .route-body {
-  opacity: 1;
-  filter: none;
 }
 /* `inert` already takes the subtree off the pointer in browsers that have it;
    this says the same thing in the ones that do not, so the unchosen drop zone
@@ -1851,10 +1867,10 @@ button { cursor: pointer; }
     var(--hover);
 }
 /* Belt and braces. `pointer-events: none` above should already stop the zone
-   ever seeing a hover, but the unchosen column is now brought back to full
-   opacity under the pointer, so the one thing that must not happen is a dead
-   drop target lighting up as though it would take a file. Cheap to state
-   twice; expensive to get wrong. */
+   ever seeing a hover, and `inert` before it. This is the third statement of
+   the same thing, kept because the failure it prevents — a dead drop target
+   brightening as though it would take a file — is the most misleading thing
+   either column could do, and because it costs four declarations to be sure. */
 .import-route:not(.chosen) .drop-zone:hover {
   border-color: var(--line-strong);
   border-style: dashed;
