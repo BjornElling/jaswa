@@ -18,8 +18,16 @@ export type RunePotentialSettings = { powerUpPolicy: number; runeQuality: number
  */
 export type DirectImportMode = 'live' | 'on-load';
 /**
+ * Which of the two ways in the user has chosen. The routes are exclusive rather
+ * than two doors left open: a helper feeding the account in as you play and a
+ * file you hand over yourself are two different answers to "where does JASWA's
+ * data come from", and letting both look live invites the user to set up one and
+ * wonder why the other is not doing anything.
+ */
+export type ImportRoute = 'direct' | 'file';
+/**
  * The presets are part of the user's own preferences rather than of the
  * program: JASWA supplies a starting set, and after that they are the user's
  * to rename, retune and delete, and they travel with the .sw file.
  */
-export type Preferences = { format: 'jaswa-preferences'; version: 1; updatedAt: string; hardwareAcceleration: boolean; directImportMode: DirectImportMode; monsterPreferences: Record<string, MonsterPreference>; runePotential: RunePotentialSettings; runePotentialPresets: RunePotentialPreset[] };
+export type Preferences = { format: 'jaswa-preferences'; version: 1; updatedAt: string; hardwareAcceleration: boolean; importRoute: ImportRoute; directImportMode: DirectImportMode; monsterPreferences: Record<string, MonsterPreference>; runePotential: RunePotentialSettings; runePotentialPresets: RunePotentialPreset[] };

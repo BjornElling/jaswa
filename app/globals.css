@@ -1681,9 +1681,9 @@ button { cursor: pointer; }
 
 /* ----------------------------------------------------------- import routes */
 
-/* The two ways in, side by side and equal: neither is the recommended one, so
-   neither gets the wider column. The hairline between them is the same
-   .settings-rule the acceleration panel uses. */
+/* The two ways in, side by side and equal in width: the choice between them is
+   the user's, so neither is given the larger column to argue with. The hairline
+   between them is the same .settings-rule the acceleration panel uses. */
 .import-routes {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr);
@@ -1703,10 +1703,35 @@ button { cursor: pointer; }
    different numbers of things and are not forced to match row for row — a grid
    template here would tie the drop zone's top edge to whatever happens to be
    third in the other column. */
+/* The card is padded and ringed in both states, and only the colours change
+   between them: a border that appeared on selection would resize the column and
+   push the one beside it. */
 .import-route {
   display: flex; flex-direction: column;
   align-items: stretch;
   gap: var(--s4);
+  min-width: 0;
+  padding: var(--s4);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  transition: border-color .14s, background .14s;
+}
+/* The chosen route stands on its own ground with an edge to match. The
+   unchosen one keeps the panel's ground and a transparent edge, so the pair
+   reads as one card lit and one not. */
+.import-route.chosen {
+  border-color: var(--gold-edge);
+  background:
+    linear-gradient(180deg, rgba(217, 173, 82, .05), transparent 55%),
+    var(--sunk);
+}
+/* The body carries the column's own rhythm, so the head sits apart from it as a
+   heading rather than as another item in the stack. */
+.route-body {
+  display: flex; flex-direction: column;
+  align-items: stretch;
+  gap: var(--s4);
+  flex: 1 1 auto;
   min-width: 0;
 }
 /* The drop zone takes whatever height the other column has left over, so two
@@ -1715,21 +1740,115 @@ button { cursor: pointer; }
    was written to sit at its own size. */
 .import-route .drop-zone { flex: 1 1 auto; }
 
-/* "Option 1" in the accent, the name of the route in ink beside it: the number
-   orders the two columns, the name says what they are. One line, so the two
-   route headings sit at the same height whatever their names. */
-.route-label {
-  display: flex; align-items: baseline; gap: var(--s3);
-  margin: 0;
-  font-size: var(--t-lead); font-weight: 600;
-  letter-spacing: -.01em;
+/* ------------------------------------------------------- choosing a route */
+
+/* The heading is the control. The radio sits at the top-left of a two-line
+   block: "OPTION 1" as the line the eye lands on when it is deciding which
+   column to read, and the route's own name under it as the subheading that says
+   what it is. */
+.route-head {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: var(--s3);
+  align-items: start;
+  cursor: pointer;
+  /* Padded and ringed so the whole heading reads as one target, and so the
+     chosen card's tint has an edge to sit inside. */
+  padding: var(--s3);
+  margin: calc(var(--s3) * -1);
+  border-radius: var(--radius-sm);
+  transition: background .12s;
+}
+.route-head:hover { background: var(--hover); }
+/* Bigger than the settings radios: this is the page's primary fork, not a
+   detail inside one of its answers. */
+.route-head input {
+  appearance: none; -webkit-appearance: none;
+  width: 18px; height: 18px; margin: 0;
+  margin-top: 3px;
+  background: var(--raise);
+  border: 1px solid var(--ghost);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background .12s, border-color .12s;
+}
+.route-head:hover input { border-color: var(--gold); }
+.route-head input:checked {
+  background:
+    radial-gradient(circle at 50% 50%, var(--gold) 3.6px, transparent 3.8px),
+    var(--gold-deep);
+  border-color: var(--gold);
+}
+.route-head input:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.route-head-text { display: block; min-width: 0; }
+/* The number, at the size the choice deserves. Tracked caps rather than the
+   --t-micro eyebrow used elsewhere: this one is a heading to be chosen between,
+   not a label over a box. */
+.route-option {
+  display: block;
+  font-size: var(--t-base); font-weight: 700;
+  letter-spacing: .14em; text-transform: uppercase;
+  line-height: 1.2;
+  color: var(--faint);
+  transition: color .12s;
+}
+/* The name of the route, immediately under its number. */
+.route-name {
+  display: block;
+  margin-top: var(--s1);
+  font-size: var(--t-title); font-weight: 600;
+  letter-spacing: -.02em;
+  line-height: 1.25;
   color: var(--ink);
 }
-.route-label span {
-  flex: 0 0 auto;
-  font-size: var(--t-micro); letter-spacing: .12em; text-transform: uppercase;
-  font-weight: 700; color: var(--gold);
+/* Gold on the chosen one, and only there: the accent's single meaning on this
+   page is "this is the one that is live". */
+.import-route.chosen .route-option { color: var(--gold); }
+
+/* The unchosen column, made plainly unavailable. Nothing is removed and nothing
+   moves, so the two columns keep their positions and the reader can still
+   compare the route they did not take.
+
+   The fade stops at .72 rather than going as far as the eye alone would like.
+   Below roughly .7, --dim body text on --raise drops under 4.5:1 against the
+   panel — measured, not guessed — and a column dimmed past legibility is no
+   longer available to compare, which is the one thing it is still for. The rest
+   of "unavailable" is carried by things that cost no contrast: the colour drains
+   out, the accent leaves the heading, and the drop zone stops answering the
+   pointer.
+
+   The head is left at full strength — it is the live control that switches
+   back, and dimming the only way out of a state is how a user gets stuck. */
+.import-route:not(.chosen) .route-body {
+  opacity: .72;
+  filter: saturate(.15);
+  transition: opacity .14s, filter .14s;
 }
+/* `inert` already takes the subtree off the pointer in browsers that have it;
+   this says the same thing in the ones that do not, so the unchosen drop zone
+   cannot light up under a cursor that can no longer use it. */
+.import-route:not(.chosen) .route-body,
+.import-route:not(.chosen) .route-body * { pointer-events: none; }
+/* Inside the chosen card the zone would otherwise be --sunk on --sunk, and its
+   dashed edge would be the only thing telling it from the ground it sits on.
+   Raised by one step so it stays a box within a box. */
+.import-route.chosen .drop-zone { background: var(--raise); }
+.import-route.chosen .drop-zone:hover,
+.import-route.chosen .drop-zone.dragging {
+  background:
+    radial-gradient(80% 140% at 50% 0%, rgba(217, 173, 82, .11), transparent 70%),
+    var(--hover);
+}
+/* The zone's own hover treatment is the loudest thing in either column, so it
+   is silenced explicitly rather than left to the opacity to mute. */
+.import-route:not(.chosen) .drop-zone:hover {
+  border-color: var(--line-strong);
+  border-style: dashed;
+  background: var(--sunk);
+  box-shadow: none;
+}
+.import-route:not(.chosen) .drop-zone:hover .glyph { translate: none; }
 
 /* The button and the line explaining why it does nothing, on one row where
    there is width for it. The note carries the reason, so the disabled button
@@ -1751,6 +1870,9 @@ button { cursor: pointer; }
 /* The verdict card is a full-width block in the aside it was written for; here
    it sits in a column of its own content and takes the column's width. */
 .statistics.acceleration.route-link { width: 100%; }
+/* Same reason the drop zone is raised inside a chosen card: --sunk on --sunk
+   leaves the box with only its border to stand on. */
+.import-route.chosen .statistics.acceleration.route-link { background: var(--raise); }
 
 /* ------------------------------------------------------------ radio rows */
 

@@ -1,4 +1,4 @@
-import type { CompatibilityReport, DirectImportMode, ImportedGame, ItemGrade, MonsterPreference, Preferences, RunePotentialSettings, RunePotentialSortOrder } from './types';
+import type { CompatibilityReport, DirectImportMode, ImportRoute, ImportedGame, ItemGrade, MonsterPreference, Preferences, RunePotentialSettings, RunePotentialSortOrder } from './types';
 import { hasMonsterCatalogEntry } from './monster-catalog';
 import { defaultRunePotentialPresets, normalizeRunePotentialPresets } from './rune-potential-presets';
 const expectedSections = ['unit_list', 'runes', 'artifacts', 'relics', 'rune_craft_item_list']; const excludedKeys = new Set(['session_key', 'session_key_node']);
@@ -19,7 +19,12 @@ function normalizeRunePotentialSettings(value: unknown): RunePotentialSettings {
    is not a thing to opt somebody into on their behalf. */
 export const defaultDirectImportMode: DirectImportMode = 'on-load';
 const directImportModes: DirectImportMode[] = ['live', 'on-load'];
-export function blankPreferences(): Preferences { return { format: 'jaswa-preferences', version: 1, updatedAt: new Date().toISOString(), hardwareAcceleration: true, directImportMode: defaultDirectImportMode, monsterPreferences: {}, runePotential: defaultRunePotentialSettings, runePotentialPresets: defaultRunePotentialPresets() }; }
+/* The route that works today. Choosing the helper for somebody would point them
+   at a program that does not exist yet, so the file is where everyone starts and
+   the other route is theirs to pick. */
+export const defaultImportRoute: ImportRoute = 'file';
+const importRoutes: ImportRoute[] = ['direct', 'file'];
+export function blankPreferences(): Preferences { return { format: 'jaswa-preferences', version: 1, updatedAt: new Date().toISOString(), hardwareAcceleration: true, importRoute: defaultImportRoute, directImportMode: defaultDirectImportMode, monsterPreferences: {}, runePotential: defaultRunePotentialSettings, runePotentialPresets: defaultRunePotentialPresets() }; }
 
 /**
  * One monster's saved preference. All three text fields are always present, so
@@ -54,7 +59,10 @@ export function normalizePreferences(value: Partial<Preferences>): Preferences {
     hardwareAcceleration: value.hardwareAcceleration !== false,
     /* An unknown string in a hand-edited file falls back rather than reaching
        the radio group, where it would show two unselected options and no way to
-       tell which one is running. */
+       tell which one is running. The route is held to the same standard: with
+       neither value valid, both columns would read as the disabled one. */
+    importRoute: importRoutes.includes(value.importRoute as ImportRoute)
+      ? value.importRoute as ImportRoute : defaultImportRoute,
     directImportMode: directImportModes.includes(value.directImportMode as DirectImportMode)
       ? value.directImportMode as DirectImportMode : defaultDirectImportMode,
     monsterPreferences: normalizeMonsterPreferences(value.monsterPreferences),

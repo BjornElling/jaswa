@@ -17,7 +17,7 @@ import {
   presetTargetMaximum, presetTypes, runeMainStats, withRefreshedMetrics,
 } from './lib/rune-potential-presets';
 import type { PresetChoice, PresetStatTargets, PresetType, RuneMainStat, RunePotentialPreset } from './lib/rune-potential-presets';
-import type { DirectImportMode, ImportedGame, ItemGrade, MonsterPreference, Preferences, RunePotentialSettings, RunePotentialSortOrder } from './lib/types';
+import type { DirectImportMode, ImportRoute, ImportedGame, ItemGrade, MonsterPreference, Preferences, RunePotentialSettings, RunePotentialSortOrder } from './lib/types';
 
 type Page = 'home' | 'monsters' | 'optimizer' | 'speed' | 'potential' | 'artifacts' | 'gems' | 'relics' | 'preferences';
 type ReportCategory = 'Monster' | 'Rune' | 'Gem' | 'Grindstone' | 'Artifact' | 'Relic' | 'Other';
@@ -321,6 +321,9 @@ export default function Home() {
   function updateDirectImportMode(mode: DirectImportMode) {
     changePreferences((current) => ({ ...current, directImportMode: mode }));
   }
+  function updateImportRoute(route: ImportRoute) {
+    changePreferences((current) => ({ ...current, importRoute: route }));
+  }
   function updateRunePotentialSettings(update: Partial<RunePotentialSettings>) {
     changePreferences((current) => ({
       ...current,
@@ -426,6 +429,8 @@ export default function Home() {
         onHardwareAcceleration={updateHardwareAcceleration}
         directImportMode={preferences.directImportMode}
         onDirectImportMode={updateDirectImportMode}
+        importRoute={preferences.importRoute}
+        onImportRoute={updateImportRoute}
       />}
 
       {page === 'monsters' && <MonsterOverview monsters={monsters} preferences={preferences} />}
@@ -528,7 +533,7 @@ function AccelerationMark({ state }: { state: AccelerationState }) {
   </span>;
 }
 
-function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLeave, onDrop, onRemove, onReport, onExportPreferences, onImportPreferences, hardwareAcceleration, onHardwareAcceleration, directImportMode, onDirectImportMode }: {
+function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLeave, onDrop, onRemove, onReport, onExportPreferences, onImportPreferences, hardwareAcceleration, onHardwareAcceleration, directImportMode, onDirectImportMode, importRoute, onImportRoute }: {
   game: ImportedGame | null;
   message: string;
   dragging: boolean;
@@ -544,6 +549,8 @@ function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLe
   onHardwareAcceleration: (enabled: boolean) => void;
   directImportMode: DirectImportMode;
   onDirectImportMode: (mode: DirectImportMode) => void;
+  importRoute: ImportRoute;
+  onImportRoute: (route: ImportRoute) => void;
 }) {
   const unknownMonsterIds = game?.report.unknownMonsterIds ?? [];
   /* What the card answered, kept apart from the setting: switching the setting
@@ -668,9 +675,15 @@ function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLe
           yourself.
         </p>
 
-        <div className="import-routes">
-          <div className="import-route">
-            <p className="route-label"><span>Option 1</span>Direct import</p>
+        {/* One choice, two columns. The group is a radiogroup rather than two
+            independent cards: only one route can be feeding JASWA, and a page
+            that lets both look live invites the user to set up the helper and
+            then wonder why dropping a file did nothing. */}
+        <div className="import-routes" role="radiogroup" aria-label="How to load game data">
+          <ImportRouteCard
+            option="Option 1" name="Direct import"
+            value="direct" current={importRoute} onChoose={onImportRoute}
+          >
             <p className="lead">
               A small helper program that sits on your computer, listens to what
               the game tells your account, and passes it straight to JASWA. No
@@ -726,27 +739,39 @@ function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLe
                 onChange={onDirectImportMode}
               />
             </fieldset>
-          </div>
+          </ImportRouteCard>
 
           <div className="settings-rule" role="presentation" />
 
-          <div className="import-route">
-            <p className="route-label"><span>Option 2</span>Load a JSON file</p>
+          <ImportRouteCard
+            option="Option 2" name="Load a JSON file"
+            value="file" current={importRoute} onChoose={onImportRoute}
+          >
             <p className="lead">
               The file your game exporter wrote. Works today, works offline, and
               is as current as the moment you exported it.
             </p>
+            {/* The drop zone answers the pointer only on the chosen route. It
+                keeps its full size either way, so choosing a route colours the
+                columns rather than resizing them. */}
             <div
               className={['drop-zone', dragging ? 'dragging' : '', game ? 'settled' : ''].filter(Boolean).join(' ')}
-              onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop} onClick={onPickFile}
-              role="button" tabIndex={0}
-              onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onPickFile(); } }}
+              onDragOver={importRoute === 'file' ? onDragOver : undefined}
+              onDragLeave={importRoute === 'file' ? onDragLeave : undefined}
+              onDrop={importRoute === 'file' ? onDrop : undefined}
+              onClick={importRoute === 'file' ? onPickFile : undefined}
+              role="button" tabIndex={importRoute === 'file' ? 0 : -1}
+              aria-disabled={importRoute === 'file' ? undefined : true}
+              onKeyDown={(event) => {
+                if (importRoute !== 'file') return;
+                if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onPickFile(); }
+              }}
             >
               <span className="glyph" aria-hidden="true">↓</span>
               <strong>{game ? 'Replace with another JSON file' : 'Drop your Summoners War JSON file here'}</strong>
               <span>or choose a file from your computer</span>
             </div>
-          </div>
+          </ImportRouteCard>
         </div>
       </div>
     </section>
@@ -1742,6 +1767,51 @@ function CheckboxRow({ label, checked, onChange }: { label: string; checked: boo
     <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
     {label}
   </label>;
+}
+
+/**
+ * One of the two ways game data gets in, as a card the user picks.
+ *
+ * The whole card is the control, so the choice can be made by clicking anywhere
+ * in the column rather than by finding a small mark in its corner. It is a
+ * `radio` in the accessibility tree for the same reason it is exclusive on
+ * screen: choosing one is choosing against the other, and a pair of checkboxes
+ * would say the opposite.
+ *
+ * The unchosen card is dimmed rather than emptied or unmounted. Its contents
+ * stay legible — a user comparing the two routes is reading exactly the column
+ * they have not picked — and stay exactly where they are, so the panel does not
+ * resize under the click that chose them.
+ */
+function ImportRouteCard({ option, name, value, current, onChoose, children }: {
+  option: string;
+  name: string;
+  value: ImportRoute;
+  current: ImportRoute;
+  onChoose: (value: ImportRoute) => void;
+  children: ReactNode;
+}) {
+  const chosen = current === value;
+  return <div className={chosen ? 'import-route chosen' : 'import-route'}>
+    {/* A label wrapping its own radio: the heading names the choice, so it is
+        also what activates it, and no second visible control is needed. */}
+    <label className="route-head">
+      <input type="radio" name="import-route" value={value} checked={chosen}
+        onChange={() => onChoose(value)} />
+      <span className="route-head-text">
+        <span className="route-option">{option}</span>
+        <span className="route-name">{name}</span>
+      </span>
+    </label>
+    {/* `inert` rather than a pile of per-control `disabled`: it takes the whole
+        subtree out of the tab order and off the pointer in one place, so a
+        control added to a route later cannot quietly stay live in the column
+        nobody chose. The text stays selectable to a screen reader, which is the
+        point — the unchosen route is what a user comparing the two is reading. */}
+    <div className="route-body" inert={!chosen}>
+      {children}
+    </div>
+  </div>;
 }
 
 /**
