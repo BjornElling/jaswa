@@ -30,6 +30,7 @@ export default function Home() {
   const [dragging, setDragging] = useState(false);
   const [removeGameDataPrompt, setRemoveGameDataPrompt] = useState(false);
   const [pendingDirectImportMode, setPendingDirectImportMode] = useState<DirectImportMode | null>(null);
+  const [pendingImportRoute, setPendingImportRoute] = useState<ImportRoute | null>(null);
   const [helperConnection, setHelperConnection] = useState<HelperConnection>({ state: 'checking', detail: 'This would work better, if you actually ran the helper program.', profileReady: false });
   const gameInput = useRef<HTMLInputElement>(null);
   const settingsInput = useRef<HTMLInputElement>(null);
@@ -144,6 +145,20 @@ export default function Home() {
   }
 
   function updateImportRoute(route: ImportRoute) {
+    if (route === preferences.importRoute) return;
+    /* Switching a live source while data is loaded can immediately replace
+       changes made in JASWA, so let the user approve that source change first. */
+    if (game && preferences.directImportMode === 'live') {
+      setPendingImportRoute(route);
+      return;
+    }
+    changePreferences((current) => ({ ...current, importRoute: route }));
+  }
+
+  function confirmImportRoute() {
+    if (!pendingImportRoute) return;
+    const route = pendingImportRoute;
+    setPendingImportRoute(null);
     changePreferences((current) => ({ ...current, importRoute: route }));
   }
 
@@ -259,6 +274,12 @@ export default function Home() {
       mode={pendingDirectImportMode}
       onCancel={() => setPendingDirectImportMode(null)}
       onConfirm={confirmDirectImportMode}
+    />}
+
+    {pendingImportRoute && <DirectImportModeDialog
+      mode="live"
+      onCancel={() => setPendingImportRoute(null)}
+      onConfirm={confirmImportRoute}
     />}
 
     {removeGameDataPrompt && <RemoveGameDataDialog
