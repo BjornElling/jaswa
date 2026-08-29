@@ -685,9 +685,9 @@ function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLe
             value="direct" current={importRoute} onChoose={onImportRoute}
           >
             <p className="lead">
-              A small helper program that sits on your computer and constantly
-              keeps the program synchronized with your game. No exporting, no
-              files, no need to re-import every time you make a change.
+              A small helper that keeps the program synchronized with your game.
+              No exporting, no files, no need to re-import every time you make a
+              change.
             </p>
 
             {/* The button is dead on purpose: the helper is not written yet, and
