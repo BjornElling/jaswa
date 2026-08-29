@@ -98,7 +98,7 @@ async function start() {
   let running = true;
   const api = createApi({
     allowedOrigins: allowedOrigins(), port: helperPort, profileStore,
-    status: () => ({ running, profileReady: Boolean(profileStore.read()), lastError }),
+    status: () => ({ running, profileReady: profileStore.isConnected(), lastError }),
   });
   const proxy = new Proxy();
   let hostsInstalled = false;
@@ -114,6 +114,7 @@ async function start() {
   });
   proxy.onRequest((context, callback) => {
     if (!context.clientToProxyRequest.url.includes(gatewayPath)) return callback();
+    profileStore.markActivity();
     context.use(Proxy.gunzip);
     requestBodies.set(context, []); responseBodies.set(context, []);
     context.onRequestData((requestContext, chunk, next) => { requestBodies.get(requestContext).push(chunk); next(null, chunk); });

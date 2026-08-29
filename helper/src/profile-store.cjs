@@ -7,6 +7,7 @@ const watchedCollections = Object.freeze({
   relics: 'relic_id',
   rune_craft_item_list: 'craft_item_id',
 });
+const profileActivityTimeoutMs = 10_000;
 
 function isRecord(value) { return Boolean(value) && typeof value === 'object' && !Array.isArray(value); }
 function identifier(value, key) { return isRecord(value) && (typeof value[key] === 'string' || typeof value[key] === 'number') ? String(value[key]) : undefined; }
@@ -28,13 +29,39 @@ function removeCollectionItems(current, identifiers, key) {
 function firstRecord(value) { return isRecord(value) ? value : undefined; }
 
 class ProfileStore {
-  constructor() { this.profile = null; this.updatedAt = null; this.source = null; }
+  constructor(now = () => Date.now()) {
+    this.profile = null;
+    this.updatedAt = null;
+    this.source = null;
+    this.lastActivityAt = null;
+    this.now = now;
+  }
+
+  markActivity() {
+    const activityAt = this.now();
+    /* A snapshot from a previous game session must not be served as the next
+       session's first import before the new login response arrives. */
+    if (this.profile && this.lastActivityAt !== null && activityAt - this.lastActivityAt > profileActivityTimeoutMs) this.clear();
+    this.lastActivityAt = activityAt;
+  }
+
+  isConnected() {
+    return Boolean(this.profile && this.lastActivityAt !== null && this.now() - this.lastActivityAt <= profileActivityTimeoutMs);
+  }
+
+  clear() {
+    this.profile = null;
+    this.updatedAt = null;
+    this.source = null;
+    this.lastActivityAt = null;
+  }
 
   acceptSnapshot(profile) {
     if (!isRecord(profile) || !Array.isArray(profile.unit_list) || !Array.isArray(profile.runes)) return false;
     this.profile = structuredClone(profile);
     this.updatedAt = new Date().toISOString();
     this.source = 'game-start';
+    this.markActivity();
     return true;
   }
 
@@ -75,10 +102,11 @@ class ProfileStore {
     if (!changed) return false;
     this.updatedAt = new Date().toISOString();
     this.source = 'live';
+    this.markActivity();
     return true;
   }
 
   read() { return this.profile ? { updatedAt: this.updatedAt, source: this.source, data: structuredClone(this.profile) } : null; }
 }
 
-module.exports = { ProfileStore, mergeCollection, removeCollectionItems };
+module.exports = { ProfileStore, mergeCollection, profileActivityTimeoutMs, removeCollectionItems };
