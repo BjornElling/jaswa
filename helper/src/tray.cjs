@@ -1,7 +1,9 @@
 'use strict';
 
+const fs = require('node:fs/promises');
 const path = require('node:path');
-const { app, Menu, nativeImage, shell, Tray } = require('electron');
+const { app, dialog, Menu, nativeImage, shell, Tray } = require('electron');
+const { serializeProfile, suggestedExportPath, withJsonExtension } = require('./profile-export.cjs');
 const { reportStartupError, start } = require('./service.cjs');
 
 let helper;
@@ -9,6 +11,24 @@ let tray;
 
 function iconPath() {
   return app.isPackaged ? path.join(process.resourcesPath, 'favicon.ico') : path.join(__dirname, '..', '..', 'public', 'favicon.ico');
+}
+
+async function downloadJson() {
+  const content = serializeProfile(helper?.profile());
+  if (!content) return;
+  try {
+    const result = await dialog.showSaveDialog({
+      title: 'Download JSON',
+      defaultPath: suggestedExportPath(app.getPath('downloads')),
+      filters: [{ name: 'JSON files', extensions: ['json'] }],
+      properties: ['createDirectory', 'showOverwriteConfirmation'],
+    });
+    if (result.canceled || !result.filePath) return;
+    await fs.writeFile(withJsonExtension(result.filePath), content, 'utf8');
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : 'The file could not be written.';
+    dialog.showErrorBox('Could not download JSON', `JASWA Helper could not save the JSON file.\n\n${detail}`);
+  }
 }
 
 function refreshMenu() {
@@ -21,6 +41,7 @@ function refreshMenu() {
     { label: detail, enabled: false },
     { type: 'separator' },
     { label: 'Open JASWA', click: () => void shell.openExternal('http://localhost:3000') },
+    { label: 'Download JSON', enabled: Boolean(profile), click: () => void downloadJson() },
     { label: 'Quit', click: () => void helper.stop().finally(() => app.quit()) },
   ]));
 }
