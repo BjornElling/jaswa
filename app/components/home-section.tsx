@@ -124,9 +124,8 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
         {message && <p className="notice" role="status">{message}</p>}
 
         <p className="lead">
-          Two ways to get your account in here. Pick your poison: let a small
-          helper pour the data in while you play, or hand JASWA the file
-          yourself.
+          Two ways to get your game data in here: Either let a small helper
+          pickpocket it, or hand it over in classic JSON-style.
         </p>
 
         <div className="import-routes" role="radiogroup" aria-label="How to load game data">
@@ -142,7 +141,7 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
 
             <div className="route-download">
               <a className="button" href="/JASWA-Helper-Setup.exe" download>Download the helper</a>
-              <p className="route-note">Windows + Steam only. Open it, approve Windows, then start the game.</p>
+              <p className="route-note">Windows + Steam only.</p>
             </div>
 
             <section className={`statistics acceleration ${helperConnection.state} route-link`} role="status" aria-label="Helper program connection">

@@ -28,7 +28,7 @@ export default function Home() {
   const [report, setReport] = useState<{ category: ReportCategory; details: string } | null>(null);
   const [ready, setReady] = useState(false);
   const [dragging, setDragging] = useState(false);
-  const [helperConnection, setHelperConnection] = useState<HelperConnection>({ state: 'checking', detail: 'Open JASWA Helper first.', profileReady: false });
+  const [helperConnection, setHelperConnection] = useState<HelperConnection>({ state: 'checking', detail: 'This would work better, if you actually ran the helper program.', profileReady: false });
   const gameInput = useRef<HTMLInputElement>(null);
   const settingsInput = useRef<HTMLInputElement>(null);
   const appliedHelperSnapshot = useRef<string | null>(null);

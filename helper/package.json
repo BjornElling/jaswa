@@ -21,7 +21,7 @@
     "appId": "dk.jaswa.helper",
     "productName": "JASWA Helper",
     "artifactName": "JASWA-Helper-Setup.exe",
-    "icon": "../public/pwa-512x512.png",
+    "icon": "../public/favicon.ico",
     "directories": {
       "output": "../public"
     },

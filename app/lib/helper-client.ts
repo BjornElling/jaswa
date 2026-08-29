@@ -32,10 +32,10 @@ export async function checkHelperConnection(): Promise<HelperConnection> {
     const value = await response.json() as unknown;
     if (!isRecord(value) || value.running !== true) return { state: 'unavailable', detail: 'The helper is not ready.', profileReady: false };
     return value.profileReady === true
-      ? { state: 'ready', detail: 'A game snapshot is ready.', profileReady: true }
-      : { state: 'checking', detail: 'Start Summoners War through Steam.', profileReady: false };
+      ? { state: 'ready', detail: 'Link is stable, Captain. We’re ready to go to warp.', profileReady: true }
+      : { state: 'checking', detail: 'Runner is doint just fine. Are you going to start the game soon?', profileReady: false };
   } catch {
-    return { state: 'unavailable', detail: 'Open JASWA Helper first.', profileReady: false };
+    return { state: 'unavailable', detail: 'This would work better, if you actually ran the helper program.', profileReady: false };
   }
 }
 
