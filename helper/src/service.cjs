@@ -104,7 +104,14 @@ async function start() {
   let hostsInstalled = false;
   const requestBodies = new WeakMap();
   const responseBodies = new WeakMap();
-  proxy.onError((_context, error) => { lastError = error.message; });
+  /* The proxy also carries unrelated game traffic. Only an error tied to the
+   * intercepted gateway, or a proxy-level error with no request context, can
+   * say anything useful about the profile connection. */
+  proxy.onError((context, error) => {
+    const requestUrl = context?.clientToProxyRequest?.url;
+    if (requestUrl && !requestUrl.includes(gatewayPath)) return;
+    lastError = error.message;
+  });
   proxy.onRequest((context, callback) => {
     if (!context.clientToProxyRequest.url.includes(gatewayPath)) return callback();
     context.use(Proxy.gunzip);
@@ -117,6 +124,9 @@ async function start() {
         const response = decodeResponse(Buffer.concat(responseBodies.get(responseContext)).toString('utf8'));
         if (request.command === 'HubUserLogin' || request.command === 'GuestLogin') profileStore.acceptSnapshot(response);
         else profileStore.applyUpdate(response, request);
+        /* A decoded gateway response proves the link recovered. Do not leave a
+         * transient proxy error in the tray forever after that proof arrives. */
+        lastError = null;
       } catch (error) { lastError = `Could not read one game response: ${error.message}`; }
       next();
     });
