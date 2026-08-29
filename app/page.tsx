@@ -6,7 +6,7 @@ import { HomeSection } from './components/home-section';
 import { ImportBadge } from './components/import-badge';
 import { MonsterOverview } from './components/monster-overview';
 import { PreferencesSection } from './components/preferences-section';
-import { ReplaceImportDialog, ReportDialog } from './components/import-dialogs';
+import { DirectImportModeDialog, ReplaceImportDialog, ReportDialog } from './components/import-dialogs';
 import { RunePotentialSection } from './components/rune-potential-section';
 import { UpcomingWorkspace } from './components/upcoming-workspace';
 import { clearImportedGame, loadImportedGame, loadPreferences, saveImportedGame, savePreferences } from './lib/browser-storage';
@@ -28,6 +28,7 @@ export default function Home() {
   const [report, setReport] = useState<{ category: ReportCategory; details: string } | null>(null);
   const [ready, setReady] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [pendingDirectImportMode, setPendingDirectImportMode] = useState<DirectImportMode | null>(null);
   const [helperConnection, setHelperConnection] = useState<HelperConnection>({ state: 'checking', detail: 'This would work better, if you actually ran the helper program.', profileReady: false });
   const gameInput = useRef<HTMLInputElement>(null);
   const settingsInput = useRef<HTMLInputElement>(null);
@@ -130,6 +131,14 @@ export default function Home() {
   }
 
   function updateDirectImportMode(mode: DirectImportMode) {
+    if (mode === preferences.directImportMode) return;
+    setPendingDirectImportMode(mode);
+  }
+
+  function confirmDirectImportMode() {
+    if (!pendingDirectImportMode) return;
+    const mode = pendingDirectImportMode;
+    setPendingDirectImportMode(null);
     changePreferences((current) => ({ ...current, directImportMode: mode }));
   }
 
@@ -243,6 +252,12 @@ export default function Home() {
       onCancel={() => setPendingGame(null)}
       onReplace={() => void applyImport(pendingGame)}
       onReport={openReport}
+    />}
+
+    {pendingDirectImportMode && <DirectImportModeDialog
+      mode={pendingDirectImportMode}
+      onCancel={() => setPendingDirectImportMode(null)}
+      onConfirm={confirmDirectImportMode}
     />}
 
     {report && <ReportDialog

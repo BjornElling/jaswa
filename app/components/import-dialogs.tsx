@@ -1,5 +1,48 @@
+import { useEffect, useRef } from 'react';
 import type { ReportCategory } from '../lib/workspace-config';
-import type { ImportedGame } from '../lib/types';
+import type { DirectImportMode, ImportedGame } from '../lib/types';
+
+export function DirectImportModeDialog({ mode, onCancel, onConfirm }: {
+  mode: DirectImportMode;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  const onCancelRef = useRef(onCancel);
+
+  useEffect(() => {
+    onCancelRef.current = onCancel;
+  }, [onCancel]);
+
+  useEffect(() => {
+    cancelRef.current?.focus();
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      onCancelRef.current();
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const switchingToOnLoad = mode === 'on-load';
+  return <div className="modal-backdrop" role="presentation">
+    <section className="dialog" role="dialog" aria-modal="true"
+      aria-labelledby="direct-import-mode-title" aria-describedby="direct-import-mode-warning">
+      <p className="eyebrow">Change sync mode</p>
+      <h2 id="direct-import-mode-title">{switchingToOnLoad ? 'Stop automatic synchronization?' : 'Turn on automatic synchronization?'}</h2>
+      <p id="direct-import-mode-warning">
+        {switchingToOnLoad
+          ? 'Automatic synchronization will stop now. Updating the game data will require you to restart the program.'
+          : 'Warning: this will overwrite any changes you may have made to the current game data.'}
+      </p>
+      <div className="dialog-actions">
+        <button ref={cancelRef} className="button" onClick={onCancel}>Cancel</button>
+        <button className="button primary" onClick={onConfirm}>Switch mode</button>
+      </div>
+    </section>
+  </div>;
+}
 
 export function ReplaceImportDialog({ pendingGame, onCancel, onReplace, onReport }: {
   pendingGame: ImportedGame;
