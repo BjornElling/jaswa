@@ -724,16 +724,16 @@ function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLe
               <legend className="field-legend">Once it is connected</legend>
               <RadioRow
                 name="direct-import-mode"
-                label="Keep everything up to date"
-                note="Every change in the game reaches JASWA as it happens. Nothing to refresh — and nothing stays where you put it, so a build you are drafting is overwritten the moment the game disagrees."
+                label="Always synchronized"
+                note="The program will constantly display the same data as your game. Good while leveling up runes. Bad for planning."
                 value="live"
                 current={directImportMode}
                 onChange={onDirectImportMode}
               />
               <RadioRow
                 name="direct-import-mode"
-                label="Read once per game session"
-                note="One snapshot when the game starts, then nothing until it restarts. Your runes stay where you put them, so builds can be planned in peace."
+                label="Read on game start"
+                note="Only loads data when you start the game. Good for planning. Doesn't factor in any changes you make in the game in the meantime."
                 value="on-load"
                 current={directImportMode}
                 onChange={onDirectImportMode}

@@ -1947,8 +1947,15 @@ button { cursor: pointer; }
 /* A fieldset carries the group for a screen reader; it brings a border and
    default padding that the house style does not use. */
 .route-modes { border: 0; margin: 0; padding: 0; min-width: 0; }
-.route-modes .field-legend { padding: 0; }
-.route-modes .radio-row + .radio-row { margin-top: var(--s3); }
+/* More air under this legend than .field-legend's own --s2. It heads a pair of
+   options that each carry a sentence of their own, so at 8px it sat as close to
+   the first option's label as that label sits to its own note, and read as part
+   of the option rather than as the question both options answer. --s4 is the
+   step the rest of the column already uses between one block and the next. */
+.route-modes .field-legend { padding: 0; margin-bottom: var(--s4); }
+/* The options stand further apart than the lines within one option, so each
+   label binds to its own note rather than to the option below it. */
+.route-modes .radio-row + .radio-row { margin-top: var(--s4); }
 
 /* The control on the baseline of the label, with the note under it in the same
    column — an option and the sentence that says what it costs, not two
