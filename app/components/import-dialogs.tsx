@@ -29,7 +29,7 @@ export function RemoveGameDataDialog({ onCancel, onConfirm }: {
       aria-labelledby="remove-game-data-title" aria-describedby="remove-game-data-description">
       <p className="eyebrow">Remove game data</p>
       <h2 id="remove-game-data-title">Remove the current game data?</h2>
-      <p id="remove-game-data-description">This removes the imported game data from JASWA. Your saved names, goals and preferences stay.</p>
+      <p id="remove-game-data-description">You probably have already deducted this, but this action will remove the imported game data from JASWA.</p>
       <div className="dialog-actions">
         <button ref={cancelRef} className="button" onClick={onCancel}>Cancel</button>
         <button className="button danger" onClick={onConfirm}>Remove game data</button>
