@@ -8,6 +8,7 @@ const { reportStartupError, start } = require('./service.cjs');
 
 let helper;
 let tray;
+const uninstallerName = 'Uninstall JASWA Helper.exe';
 
 function iconPath() {
   return app.isPackaged ? path.join(process.resourcesPath, 'favicon.ico') : path.join(__dirname, '..', '..', 'public', 'favicon.ico');
@@ -31,6 +32,27 @@ async function downloadJson() {
   }
 }
 
+async function uninstallHelper() {
+  const result = await dialog.showMessageBox({
+    type: 'warning',
+    title: 'Uninstall JASWA Helper',
+    message: 'Uninstall JASWA Helper?',
+    detail: 'This removes the helper program from Windows. Your game data in JASWA stays in the browser.',
+    buttons: ['Cancel', 'Uninstall'],
+    defaultId: 0,
+    cancelId: 0,
+  });
+  if (result.response !== 1) return;
+
+  await helper?.stop();
+  const error = await shell.openPath(path.join(path.dirname(app.getPath('exe')), uninstallerName));
+  if (error) {
+    dialog.showErrorBox('Could not start uninstall', `JASWA Helper could not start its uninstaller.\n\n${error}`);
+    return;
+  }
+  app.quit();
+}
+
 function refreshMenu() {
   const profile = helper?.profile();
   const error = helper?.status().lastError;
@@ -42,6 +64,8 @@ function refreshMenu() {
     { type: 'separator' },
     { label: 'Open JASWA', click: () => void shell.openExternal('http://localhost:3000') },
     { label: 'Download JSON', enabled: Boolean(profile), click: () => void downloadJson() },
+    { type: 'separator' },
+    { label: 'Uninstall JASWA Helper', enabled: app.isPackaged, click: () => void uninstallHelper() },
     { label: 'Quit', click: () => void helper.stop().finally(() => app.quit()) },
   ]));
 }
