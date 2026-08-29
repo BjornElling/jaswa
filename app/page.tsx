@@ -761,7 +761,7 @@ function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLe
                   target="_blank" rel="noreferrer noopener">SWEX</a>
               </li>
               <li>
-                You might also like this{' '}
+                You might also need this{' '}
                 <a className="text-link" href="https://www.swlens.io/guides/swex-json"
                   target="_blank" rel="noreferrer noopener">installation guide</a>
               </li>
