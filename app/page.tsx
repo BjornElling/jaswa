@@ -725,7 +725,7 @@ function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLe
               <RadioRow
                 name="direct-import-mode"
                 label="Always synchronized"
-                note="The program will constantly display the same data as your game. Good while leveling up runes. Bad for planning."
+                note="The program will constantly display the same data as your game. Good while leveling up runes. Bad for planning since any changes you make will be constantly overwritten."
                 value="live"
                 current={directImportMode}
                 onChange={onDirectImportMode}
@@ -733,7 +733,7 @@ function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLe
               <RadioRow
                 name="direct-import-mode"
                 label="Read on game start"
-                note="Only loads data when you start the game. Good for planning. Doesn't factor in any changes you make in the game in the meantime."
+                note="Only loads data when you start the game. Good for planning. Doesn't factor in any changes you make in the game after that point."
                 value="on-load"
                 current={directImportMode}
                 onChange={onDirectImportMode}
