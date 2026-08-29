@@ -19,11 +19,14 @@
   -->
   <rect width="64" height="64" rx="12" fill="#0b0d12"/>
   <g transform="translate(32 32)" fill="#d9ad52">
-    <path id="s" d="M-4.4 -9.74 4.4 -9.74 8.8 -17.36 0 -28.95 -8.8 -17.36z"/>
+    <defs>
+      <path id="s" d="M-4.4 -9.74 4.4 -9.74 8.8 -17.36 0 -28.95 -8.8 -17.36z"/>
+    </defs>
+    <use href="#s" fill="#b78d43"/>
     <use href="#s" transform="rotate(60)"/>
-    <use href="#s" transform="rotate(120)"/>
+    <use href="#s" transform="rotate(120)" fill="#b78d43"/>
     <use href="#s" transform="rotate(180)"/>
-    <use href="#s" transform="rotate(240)"/>
+    <use href="#s" transform="rotate(240)" fill="#b78d43"/>
     <use href="#s" transform="rotate(300)"/>
   </g>
 </svg>
