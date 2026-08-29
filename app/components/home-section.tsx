@@ -150,7 +150,6 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
                 <p className="acceleration-word">{helperLabels[helperConnection.state]}</p>
               </div>
               <p className="acceleration-adapter">
-                <span>Helper program:</span>
                 <b title={helperConnection.detail}>{helperConnection.detail}</b>
               </p>
             </section>
