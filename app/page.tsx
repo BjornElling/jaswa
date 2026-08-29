@@ -761,8 +761,9 @@ function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLe
                   target="_blank" rel="noreferrer noopener">SWEX</a>
               </li>
               <li>
+                You might also like this{' '}
                 <a className="text-link" href="https://www.swlens.io/guides/swex-json"
-                  target="_blank" rel="noreferrer noopener">Installation guide for SWEX</a>
+                  target="_blank" rel="noreferrer noopener">installation guide</a>
               </li>
             </ul>
             {/* The drop zone answers the pointer only on the chosen route. It
