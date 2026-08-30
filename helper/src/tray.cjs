@@ -119,7 +119,7 @@ async function handleRuntimeFailure(kind, error) {
 app.whenReady().then(async () => {
   app.setAppUserModelId('dk.jaswa.helper');
   if (process.argv.includes('--jaswa-cleanup')) {
-    await cleanup();
+    await cleanup({ removeCertificate: process.argv.includes('--jaswa-remove-certificate') });
     return app.quit();
   }
   helper = await start();

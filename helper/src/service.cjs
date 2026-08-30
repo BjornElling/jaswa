@@ -130,7 +130,7 @@ async function certificateThumbprint(certificatePath) {
 }
 
 async function removeCertificate(thumbprint) {
-  await run('certutil.exe', ['-user', '-delstore', 'Root', thumbprint], { windowsHide: true });
+  await run('certutil.exe', ['-user', '-silent', '-delstore', 'Root', thumbprint], { windowsHide: true });
 }
 
 async function removeCertificateDirectory(certificatePath) {
@@ -143,14 +143,15 @@ async function removeCertificateDirectory(certificatePath) {
   }
 }
 
-async function cleanup() {
-  if (process.platform !== 'win32') return;
-  const certificatePath = path.join(dataDirectory(), 'certificates', 'certs', 'ca.pem');
+async function cleanup({ removeCertificate: shouldRemoveCertificate = false, platform = process.platform, certificatePath = path.join(dataDirectory(), 'certificates', 'certs', 'ca.pem'), removeHostEntries = removeEntries, execute = run, removeCertificateAt = removeCertificateDirectory } = {}) {
+  if (platform !== 'win32') return;
   const failures = [];
-  try { await removeEntries(); await run('ipconfig.exe', ['/flushdns'], { windowsHide: true }); }
+  try { await removeHostEntries(); await execute('ipconfig.exe', ['/flushdns'], { windowsHide: true }); }
   catch (error) { failures.push(error); }
-  try { await removeCertificateDirectory(certificatePath); }
-  catch (error) { failures.push(error); }
+  if (shouldRemoveCertificate) {
+    try { await removeCertificateAt(certificatePath); }
+    catch (error) { failures.push(error); }
+  }
   if (failures.length > 0) throw failures[0];
 }
 
@@ -170,9 +171,9 @@ async function start() {
   await fs.mkdir(directory, { recursive: true });
   const certificateDirectory = path.join(directory, 'certificates');
   const certificatePath = path.join(certificateDirectory, 'certs', 'ca.pem');
-  /* A crash cannot run normal shutdown. On the next launch, remove any CA left
-     by that interrupted session before creating a fresh, short-lived one. */
-  await removeCertificateDirectory(certificatePath);
+  /* The proxy's CA is a stable local identity. Keeping its key lets a restart,
+     an update, or a reinstallation reuse the same trusted certificate. */
+  const certificateAlreadyExists = await fs.access(certificatePath).then(() => true).catch(() => false);
   const profileStore = new ProfileStore();
   let lastError = null;
   let gameProcessError = null;
@@ -262,8 +263,7 @@ async function start() {
     },
   });
   let bridges = [];
-  let certificateThumbprintValue = null;
-  let certificateInstalled = false;
+  let createdCertificate = false;
   try {
     /* Hosts changes are the only administrative operation. Do it before
      * opening ports or trusting a certificate, so declining the Windows prompt
@@ -271,10 +271,12 @@ async function start() {
     await writeEntries();
     hostsInstalled = true;
     await run('ipconfig.exe', ['/flushdns'], { windowsHide: true });
+    createdCertificate = !certificateAlreadyExists;
     await new Promise((resolve, reject) => proxy.listen({ host: '127.0.0.1', port: proxyPort, sslCaDir: certificateDirectory, httpsAgent: upstreamAgent }, (error) => error ? reject(error) : resolve()));
-    certificateThumbprintValue = await certificateThumbprint(certificatePath);
+    /* Adding the same certificate to a Windows store is idempotent. This also
+       restores trust if the user kept JASWA's local CA file but removed its
+       matching root-store entry outside the helper. */
     await installCertificate(certificatePath);
-    certificateInstalled = true;
     for (const [hostname, address] of Object.entries(gatewayHosts)) bridges.push(await startGatewayBridge(hostname, address));
     await refreshGameProcess();
     gameProcessTimer = setInterval(() => void refreshGameProcess(), gameProcessPollIntervalMs);
@@ -282,8 +284,8 @@ async function start() {
     api.close();
     for (const bridge of bridges) bridge.close();
     try { proxy.close(); } catch { /* The proxy can fail before it owns a server. */ }
-    if (certificateInstalled && certificateThumbprintValue) {
-      try { await removeCertificate(certificateThumbprintValue); await fs.rm(certificateDirectory, { recursive: true, force: true }); } catch { /* The startup error is the useful one. */ }
+    if (createdCertificate) {
+      try { await removeCertificateDirectory(certificatePath); } catch { /* The startup error is the useful one. */ }
     }
     if (hostsInstalled) {
       try { await removeEntries(); await run('ipconfig.exe', ['/flushdns'], { windowsHide: true }); } catch { /* The original startup error is the useful one. */ }
@@ -298,9 +300,6 @@ async function start() {
     proxy.close(); api.close();
     if (hostsInstalled) {
       try { await removeEntries(); await run('ipconfig.exe', ['/flushdns'], { windowsHide: true }); } catch (error) { console.error(`Could not remove the temporary gateway rules: ${error.message}`); }
-    }
-    if (certificateInstalled && certificateThumbprintValue) {
-      try { await removeCertificate(certificateThumbprintValue); await fs.rm(certificateDirectory, { recursive: true, force: true }); } catch (error) { console.error(`Could not remove the temporary JASWA certificate: ${error.message}`); }
     }
   };
   process.once('SIGINT', () => void stop().finally(() => process.exit(0)));
