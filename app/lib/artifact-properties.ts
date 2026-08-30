@@ -16,6 +16,8 @@ export type ArtifactGrade = 'Normal' | 'Magic' | 'Rare' | 'Hero' | 'Legend';
 export type ArtifactPropertyDefinition = {
   id: number;
   name: string;
+  /** Reductions carry their sign with the value rather than hiding it in the label. */
+  valueSign?: '−';
   availability: ArtifactCategory | 'both';
   status: 'current' | 'legacy';
   minRoll: number | null;
@@ -77,7 +79,7 @@ export const artifactProperties: readonly ArtifactPropertyDefinition[] = [
   /* Available on both categories. */
   { id: 206, name: 'ATK/DEF UP Effect', availability: 'both', status: 'current', minRoll: 3, maxRoll: 6 },
   { id: 210, name: 'Bomb Damage', availability: 'both', status: 'current', minRoll: 1, maxRoll: 4 },
-  { id: 214, name: 'CRIT DMG Taken −', availability: 'both', status: 'current', minRoll: 2, maxRoll: 4 },
+  { id: 214, name: 'CRIT DMG Taken', valueSign: '−', availability: 'both', status: 'current', minRoll: 2, maxRoll: 4 },
   { id: 215, name: 'Life Drain', availability: 'both', status: 'current', minRoll: 5, maxRoll: 8 },
   { id: 218, name: 'Additional Damage by HP', availability: 'both', status: 'current', minRoll: 0.2, maxRoll: 0.3 },
   { id: 219, name: 'Additional Damage by ATK', availability: 'both', status: 'current', minRoll: 2, maxRoll: 4 },
@@ -97,11 +99,11 @@ export const artifactProperties: readonly ArtifactPropertyDefinition[] = [
   { id: 302, name: 'Damage Dealt on Wind', availability: 'attribute', status: 'current', minRoll: 3, maxRoll: 5 },
   { id: 303, name: 'Damage Dealt on Light', availability: 'attribute', status: 'current', minRoll: 3, maxRoll: 5 },
   { id: 304, name: 'Damage Dealt on Dark', availability: 'attribute', status: 'current', minRoll: 3, maxRoll: 5 },
-  { id: 305, name: 'Damage Taken from Fire −', availability: 'attribute', status: 'current', minRoll: 4, maxRoll: 6 },
-  { id: 306, name: 'Damage Taken from Water −', availability: 'attribute', status: 'current', minRoll: 4, maxRoll: 6 },
-  { id: 307, name: 'Damage Taken from Wind −', availability: 'attribute', status: 'current', minRoll: 4, maxRoll: 6 },
-  { id: 308, name: 'Damage Taken from Light −', availability: 'attribute', status: 'current', minRoll: 4, maxRoll: 6 },
-  { id: 309, name: 'Damage Taken from Dark −', availability: 'attribute', status: 'current', minRoll: 4, maxRoll: 6 },
+  { id: 305, name: 'Damage Taken from Fire', valueSign: '−', availability: 'attribute', status: 'current', minRoll: 4, maxRoll: 6 },
+  { id: 306, name: 'Damage Taken from Water', valueSign: '−', availability: 'attribute', status: 'current', minRoll: 4, maxRoll: 6 },
+  { id: 307, name: 'Damage Taken from Wind', valueSign: '−', availability: 'attribute', status: 'current', minRoll: 4, maxRoll: 6 },
+  { id: 308, name: 'Damage Taken from Light', valueSign: '−', availability: 'attribute', status: 'current', minRoll: 4, maxRoll: 6 },
+  { id: 309, name: 'Damage Taken from Dark', valueSign: '−', availability: 'attribute', status: 'current', minRoll: 4, maxRoll: 6 },
 
   /* Type artifacts only. */
   { id: 400, name: '[Skill 1] CRIT DMG', availability: 'type', status: 'current', minRoll: 4, maxRoll: 6 },

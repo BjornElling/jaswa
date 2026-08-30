@@ -43,7 +43,7 @@ export function displaySubProperty(
   format: (value: number) => string,
 ): string {
   const powerUps = subProperty.powerUps ? ` [${subProperty.powerUps}]` : '';
-  return `${subProperty.definition.name} +${format(subProperty.valueHundredths / 100)}%${powerUps}`;
+  return `${subProperty.definition.name} ${subProperty.definition.valueSign ?? '+'}${format(subProperty.valueHundredths / 100)}%${powerUps}`;
 }
 
 export function compareArtifactRows(
