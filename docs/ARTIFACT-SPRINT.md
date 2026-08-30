@@ -293,15 +293,48 @@ The rune vocabulary landing exactly on the existing canonical table is a useful
 corroboration: the statistics speak the same language the codebase already
 does.
 
+### Two game modes, selected by a badly named field
+
+**There are two statistical models per monster type, and `favorite_type`
+chooses between them: `0` is PvE, `1` is RTA.** Decision 22 takes PvE.
+
+**The name is a lie, and this file says so because the field will mislead the
+next reader.** It has nothing to do with favourite monsters. Proven three ways:
+
+- The user's RTA favourite list is empty (`GetRtpvpFavoriteList` →
+  `favorite_list: []`), yet every call made inside RTA sent `1`.
+- Beth is not in `favorite_unit_list` either, yet sent `0` outside RTA and `1`
+  inside.
+- The clinching case: **Onmyouji (25012), a favourite in neither list, was
+  opened in both places.** Same monster, same `request_type: 3`, only
+  `favorite_type` differing.
+
+| Onmyouji, rune sets | `favorite_type: 0` (PvE) | `favorite_type: 1` (RTA) |
+| --- | ---: | ---: |
+| Sample size | 41,861 | 4,961 |
+| `[10,15]` Despair/Will | 27.1 % | 28.3 % |
+| `[6,10]` | 14.2 % | 5.2 % |
+| `[13,15]` Violent/Will | 12.4 % | 23.9 % |
+
+The same split shows on Beth: 65,983 PvE observations against 3,598 in RTA.
+The field name is reused elsewhere in this API for unrelated things —
+`emoticon_favorites` carries a `favorite_type` about emoji packs — so it is a
+generic "which list" field, not a favourite flag. **Do not name it after
+favourites in JASWA's own code.**
+
+**Relics have only one model.** `getUnitStatsRelicInfo` never sends
+`favorite_type`, and its response was byte-identical inside and outside RTA. So
+decision 22's "PvE for relics" is automatic rather than a choice: there is
+nothing else on offer.
+
 ### What is still unknown
 
 Nothing below has been observed; none of it may be assumed in code.
 
-- **What `request_type: 3` selects.** A constant in all three observed calls. It
-  may choose a game mode, an arena tier, or a time window; if it varies, the
-  dataset needs to say which slice it holds.
-- **What `favorite_type: 0` selects**, sent on the rune and artifact calls and
-  echoed in both responses. Absent from the relic call.
+- **What `request_type: 3` selects.** Constant across every observed call —
+  inside RTA and out, on three monster types. Not the game-mode switch; that is
+  `favorite_type` (see below). Still unexplained, but it has never varied, so
+  nothing depends on it.
 - The meaning of each `effect_id` in the artifact `2xx`/`3xx`/`4xx` space and
   the relic small-integer space, and whether they match the identifiers on the
   user's own items. **This is now the only vocabulary work left** — the rune
@@ -309,6 +342,13 @@ Nothing below has been observed; none of it may be assumed in code.
 - Whether an unpopular monster returns empty lists or omits the keys entirely.
   Beth is a heavily used monster; a rarely built one is the case that will show
   it, and it decides what "no data" has to look like in the workspace.
+- **Whether the statistics id is always the awakened form**, and how JASWA maps
+  an owned monster to it. The capture keys rows on whatever
+  `getUnitStats*Info` sent, but the workspace has to look a row up *from the
+  user's own monster*, and `swarfarm-monsters.json` holds no awakening
+  relation. If an account can own a monster in its un-awakened form, that
+  lookup misses unless the mapping is known. Worth settling before A3 stores
+  anything.
 
 ### Way in — JASWA Helper's own "Log all traffic"
 
@@ -336,40 +376,50 @@ on starts a fresh file; it stops at 64 MB and says so on the menu label.
 calls are:
 
 1. Switch on **Log all traffic**, with the game already running.
-2. Open the monster, then its **Statistics** tab. Opening the tab is what
-   issues the requests — the monster alone fetches nothing.
-3. Visit each of the three panels once: rune, artifact, relic. **One visit per
+2. **Open the monster from the ordinary monster list, not from inside RTA.**
+   Decision 22 takes the PvE model, and the RTA screen returns the other one.
+3. Open its **Statistics** tab. Opening the tab is what issues the requests —
+   the monster alone fetches nothing.
+4. Visit each of the three panels once: rune, artifact, relic. **One visit per
    panel is enough** — a panel's dropdowns are all served by its single
    response, so there is no need to click through them.
-4. Switch recording off, then **Open traffic log**.
+5. Switch recording off, then **Open traffic log**.
 
 All three calls are now understood, so a capture run needs no exploration — it
-is the four steps above, repeated per monster type.
+is the five steps above, repeated per monster type.
 
-Step 2 answers the cost question, and step 4 answers the keying question.
+**Every captured row must carry `favorite_type: 0`.** A `1` means it came from
+the RTA screen and belongs to the other model; the import should reject it
+rather than blend the two.
 
-**The request pattern is the question that governs cost.** Whether one response
-carries all three panels when the monster is opened, or each dropdown fetches
-its own, decides whether a monster costs one interaction or nine. Not yet
-known; the log settles it.
+**One caution the capture must respect: the two commands disagree about which
+id they mean.** Opening one monster sends *different* `unit_master_id` values on
+the two commands, ten apart, one second apart:
 
-**Worth checking in the log:** whether the response carries more than the panel
-displays. If the client filters a fuller payload, the capture may yield the
-untruncated lists — without the rune panel's **Others** bucket and without the
-entries hidden below the artifact and relic scroll.
+| Monster | `GetUnitRecommendPage_V2` | `getUnitStats*Info` |
+| --- | ---: | ---: |
+| Onimusha / Kaki | 25102 | 25112 |
+| Onmyouji | 25002 | 25012 |
+| Garuda / Cahule | 10902 | 10912 |
+| Beth | 17911 | 17911 |
 
-**Capture both a second monster and a second copy of the same monster type**,
-so the log shows whether the statistics are keyed by `unit_master_id` (the
-monster type, shared by every copy) or `unit_id` (this one instance). That
-decides whether the dataset holds one row per type or per instance.
+The catalog names the pairs differently (25102 "Onimusha", 25112 "Kaki"), which
+fits the un-awakened/awakened relation; Beth, already awakened, sends one id for
+both. **Read the id from the `getUnitStats*Info` request itself** — never from
+the neighbouring recommend call — or every captured row is keyed ten too low.
+The last digit of a `unit_master_id` is the element (1–5 across the account's
+264 owned types), so the "+10" is a change of form, not of element.
 
-**This one now has a consequence beyond the dataset.** Decision 15 keys the
-user's own property preferences on `unit_master_id`. If the statistics turn out
-to be keyed the same way, the defaults seed them directly and no mapping is
-needed. If they
-are keyed on `unit_id`, the capture has to be reduced to one row per type before
-it can serve as a default — and what to do when two copies of one monster report
-different statistics becomes a real question rather than a hypothetical one.
+*Not yet confirmed:* whether the statistics id is always the awakened form.
+Kaki is owned under 25112 and not 25102, which supports it, but Onmyouji is
+owned under neither, so the sample is thin. `swarfarm-monsters.json` carries no
+awakening fields (`com2us_id`, `name`, `image_filename`, `archetype` only), so
+the mapping cannot be resolved from the catalog as it stands.
+
+**Keyed on the monster type, as decision 15 needs.** The statistics are keyed on
+`unit_master_id`, never `unit_id`, so the defaults seed the user's property
+preferences directly with no mapping, and the question of two copies reporting
+different statistics never arises.
 
 **The log contains account data**, including the session keys JASWA's own
 import strips (`app/lib/file-imports.ts`). It stays on the user's computer and
@@ -460,6 +510,7 @@ recorded here once the user has taken it.
 | 19 | 2026-08-30 | Property preferences cannot be copied from one monster type to another. | Asked and declined. Nothing is shared between monster types: each states its own preferences, seeded from the engraving defaults (decision 10) and edited from there. |
 | 20 | 2026-08-30 | Attribute properties and Type properties are presented **separately**, not as one combined list — and probably as separate areas of the Artifacts workspace rather than only as two groups inside one editor. | The user's call, on a list of around 33 current properties. It also follows the game's own division: §5 of the canonical document puts nine properties on Type artifacts only and ten on Attribute artifacts only, and a monster wears exactly one of each. Two shorter lists that each mean something beat one long list that mixes two questions. How far the separation goes — two groups, two fold-outs, or two areas — is settled in step 5 against the running app. |
 | 21 | 2026-08-30 | A property preference is keyed by **`(category, property)`**, not by property alone. The fourteen both-category properties therefore appear in both lists and are set independently: `Life Drain` may be preferred on the Type artifact and unwanted on the Attribute one. | The user's call, and the reason decision 20 is a model decision rather than a layout one. A monster wears one artifact of each category, so "which property do I want here" is genuinely two questions — a `Life Drain` roll on the Attribute artifact is a different opportunity from one on the Type artifact, and it competes against a different set of alternatives. Keying on the property alone would silently force one answer onto both. |
+| 22 | 2026-08-30 | **The engraving statistics JASWA captures and turns into defaults are the PvE ones** (`favorite_type: 0`), for artifacts and relics alike. The RTA model is not captured. | The user's call. The game keeps two models per monster type and the capture must pick one, because a default seeded from a mix of both would mean nothing. PvE is the mode most of an account's equipment is actually built for, and it rests on far more observations — 41,861 against 4,961 on Onmyouji, 65,983 against 3,598 on Beth. For relics the choice is moot: the game offers only one model. |
 
 ---
 
@@ -1021,3 +1072,47 @@ A2 is complete. Two fronts remain, and the user chooses which.
   what everything after it waits on.
 
 Q11b and Q8 shape step 5 but need not be answered before it starts.
+
+### Session 1, continued — which game mode the statistics describe
+
+**Asked.** The user suspected `request_type: 3` selected a game mode — PvE by
+default, with RTA and perhaps Siege as alternatives — and drove the game while
+the log was read after each step.
+
+**`request_type` was not it.** It stayed `3` across every call: inside RTA and
+out, on four monster types. It has never varied and nothing depends on it.
+
+**The mode switch is `favorite_type`, and the name is a lie.** `0` is PvE, `1`
+is RTA. The user was right that two models exist; the field carrying the choice
+is simply misnamed. Established against the user's own correction — they
+pointed out, rightly, that a favourite-monster reading could not explain it:
+
+- `GetRtpvpFavoriteList` returned `favorite_list: []` — no RTA favourites at
+  all — yet every RTA call sent `1`.
+- Beth is not in `favorite_unit_list` either, so her `0`/`1` split was not
+  about favourites.
+- **Onmyouji (25012) settled it.** A favourite in neither list, opened in both
+  places: `favorite_type: 0` outside RTA over 41,861 observations, `1` inside
+  over 4,961, with `[6,10]` at 14.2 % against 5.2 % and `[13,15]` at 12.4 %
+  against 23.9 %.
+
+`emoticon_favorites` uses the same field name for emoji packs, so it is a
+generic "which list" selector. JASWA must not name it after favourites.
+
+**Relics have one model only.** `getUnitStatsRelicInfo` never sends the field,
+and returned identical bytes inside and outside RTA.
+
+**Decision 22: the dataset captures PvE**, for artifacts and relics alike — the
+user's call. Recorded, along with the recipe change (open monsters from the
+ordinary list, never from RTA) and a rule that a captured row carrying
+`favorite_type: 1` is rejected rather than blended in.
+
+**A separate hazard found while checking.** `GetUnitRecommendPage_V2` and
+`getUnitStats*Info` send *different* `unit_master_id` values for the same
+monster, ten apart — 25102 against 25112, 25002 against 25012 — apparently the
+un-awakened and awakened forms. A capture that takes the id from the neighbouring
+recommend call would key every row ten too low. §2a now says to read it from the
+statistics request itself, and a new open question asks how the workspace maps
+an owned monster to that id, since the catalog holds no awakening relation.
+
+**Not done.** No production code changed.
