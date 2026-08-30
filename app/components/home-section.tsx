@@ -11,11 +11,11 @@ import { formatDateTime } from '../lib/formatting';
 import type { HelperConnection } from '../lib/helper-client';
 import type { DirectImportMode, GeneralSettings, ImportRoute, ImportedGame } from '../lib/types';
 
-function AccelerationMark({ state }: { state: AccelerationState }) {
+function AccelerationMark({ state }: { state: AccelerationState | 'restart' }) {
   /* An empty ring while the adapter is being asked for: at this moment JASWA
      has no verdict, and any of the three marks would be a claim. */
   const path = state === 'ready' ? 'M13 22.5 19.5 29 31 15'
-    : state === 'disabled' ? 'M22 12v13M22 30.5v.5'
+    : state === 'disabled' || state === 'restart' ? 'M22 12v13M22 30.5v.5'
       : state === 'unavailable' ? 'M14 14 30 30M30 14 14 30'
         : '';
   return <span className={`acceleration-mark ${state}`} aria-hidden="true">
@@ -60,6 +60,8 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
 
   const status: AccelerationStatus = !hardwareAcceleration ? disabledStatus
     : detected ?? { state: 'checking', adapterName: 'Asking the browser…', detail: 'Looking for a graphics card to compute on.' };
+  const helperState = helperConnection.restartRequired ? 'restart' : helperConnection.state;
+  const helperLabel = helperConnection.restartRequired ? 'Restart game' : helperLabels[helperConnection.state];
 
   return <WorkspacePage
     header={<header className="hero">
@@ -148,10 +150,10 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
               <p className="route-note">Windows + Steam only</p>
             </div>
 
-            <section className={`statistics acceleration ${helperConnection.state} route-link`} role="status" aria-label="Helper program connection">
+            <section className={`statistics acceleration ${helperState} route-link`} role="status" aria-label="Helper program connection">
               <div className="acceleration-verdict">
-                <AccelerationMark state={helperConnection.state} />
-                <p className="acceleration-word">{helperLabels[helperConnection.state]}</p>
+                <AccelerationMark state={helperState} />
+                <p className="acceleration-word">{helperLabel}</p>
               </div>
               <p className="acceleration-adapter">
                 <b title={helperConnection.detail}>{helperConnection.detail}</b>

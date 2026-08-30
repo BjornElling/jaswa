@@ -892,6 +892,7 @@ button { cursor: pointer; }
 }
 .statistics.acceleration.ready { --state: var(--state-good); }
 .statistics.acceleration.disabled { --state: var(--state-warn); }
+.statistics.acceleration.restart { --state: var(--state-warn); }
 .statistics.acceleration.unavailable { --state: var(--state-bad); }
 
 /* Two lines and a checkbox make a column far shorter than the status box beside
