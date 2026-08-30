@@ -298,6 +298,7 @@ button { cursor: pointer; }
    label names the buttons beneath it rather than the ones to its right. */
 .filter-strip {
   display: grid;
+  position: relative;
   --filter-columns: 4;
   grid-template-columns: repeat(var(--filter-columns), var(--filter-column));
   align-content: start;
@@ -312,7 +313,7 @@ button { cursor: pointer; }
    that is. Four columns need 1184px of a 1600px window beside the rail; below
    that the strip steps down rather than letting a column overflow. */
 .filter-strip > .filter-group:nth-child(4n + 1) { padding-left: 0; border-left: 0; }
-@media (max-width: 1420px) {
+@media (max-width: 1700px) {
   .filter-strip { --filter-columns: 3; }
   .filter-strip > .filter-group:nth-child(4n + 1) { padding-left: var(--s4); border-left: 1px solid var(--line); }
   .filter-strip > .filter-group:nth-child(3n + 1) { padding-left: 0; border-left: 0; }
@@ -338,24 +339,30 @@ button { cursor: pointer; }
    wrapping: a group whose right edge is the strip's own content edge ends its
    row, wherever that falls at the current width. */
 .filter-group:last-of-type { border-right: 0; }
-.monster-filter-count {
-  /* Its own full row, ended right: the count belongs to the whole strip rather
-     than to the group it would otherwise sit beside, and it is the one thing
-     here whose text changes on every click — given a column it would drag a
-     divider around as "1.862" became "77". */
-  grid-column: 1 / -1;
-  justify-self: end;
-  /* A fixed measure as well, because its text changes on every click: sized to
-     the digits it can hold, it stays put as "1.862" becomes "77". */
+.filter-summary {
+  /* The count is account status, not another filter. It occupies a reserved
+     box in the strip's empty top-right corner, so a shorter result never adds
+     a row or moves a control the user did not act on. */
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s1);
   width: 20ch;
+  height: 32px;
+  padding: 0 var(--s2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--sunk);
   color: var(--faint);
   font-family: var(--mono);
   font-size: var(--t-small);
   font-variant-numeric: tabular-nums;
-  text-align: right;
   white-space: nowrap;
 }
-.monster-filter-count b { color: var(--dim); font-weight: 500; }
+.filter-summary b { color: var(--dim); font-weight: 500; }
 .filter-label {
   font-size: var(--t-micro); letter-spacing: .1em; text-transform: uppercase;
   color: var(--faint); font-weight: 700;
@@ -421,6 +428,11 @@ button { cursor: pointer; }
   min-width: 0;
   margin: 0 auto;
   padding: var(--s5) 0 var(--s7);
+}
+@media (max-width: 760px) {
+  .filter-strip { --filter-columns: 1; }
+  .filter-strip > .filter-group:nth-child(2n + 1) { padding-left: var(--s4); border-left: 1px solid var(--line); }
+  .filter-strip > .filter-group { padding-left: 0; border-left: 0; }
 }
 .import-badge + .data-table-page {
   padding-top: calc(var(--s4) + var(--badge-height) + var(--s3));

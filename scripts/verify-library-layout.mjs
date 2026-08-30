@@ -40,6 +40,14 @@ try {
       assert(filter && header && table, `${pageName} did not render its shared table surfaces.`);
       assert(nearlyEqual(filter.width, header.width) && nearlyEqual(header.width, table.width),
         `${pageName} filters, heading and rows do not share one width at ${width}px.`);
+      const [summary, firstLabel, strip] = await Promise.all([
+        page.locator('.filter-summary').boundingBox(),
+        page.locator('.filter-label').first().boundingBox(),
+        page.locator('.filter-strip').boundingBox(),
+      ]);
+      assert(summary && firstLabel && strip && nearlyEqual(summary.y, firstLabel.y)
+        && nearlyEqual(summary.x + summary.width, strip.x + strip.width),
+      `${pageName} result summary is not aligned with the filter headings at ${width}px.`);
 
       const overflow = await page.locator('.data-table-filter-panel, .data-table-scroll, .grid-table')
         .evaluateAll((elements) => elements.map((element) => ({

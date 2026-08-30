@@ -235,7 +235,9 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
           >Rainbowmons</button>
         </div>
       </div>
-      <span className="monster-filter-count"><b>{visible.length}</b> of {rows.length} shown</span>
+      <output className="filter-summary" aria-label={`${visible.length} of ${rows.length} monsters shown`}>
+        <b>{visible.length}</b> of {rows.length} shown
+      </output>
     </>}
   >
     <tbody>
