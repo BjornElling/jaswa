@@ -6,7 +6,8 @@
 and its collector exist, every observation carries its own date (decision 25),
 and the capture list is 1,086 monster types. Collection is now the user's to
 run, in stages, with `scripts/collect-engraving-statistics.mjs` after each
-session
+session. Decision 28 settles the last of Q8: a user-entered preference always
+wins, and the statistics are consulted only where the user has stated nothing
 
 This file is the memory of the Artifact sprint. It carries the purpose, the
 decisions taken, the questions still open, and the state of the work, so a new
@@ -125,6 +126,23 @@ monster type, is its **property preferences**.
 Earlier drafts of this file called them "marks", which collided with `AGENTS.md`
 §2 and §5, where a mark is a visual selected-state indicator — a different thing
 entirely. Do not reintroduce the shorter word.
+
+**A preference the user has stated is not the same object as a default they have
+not.** Decision 28 makes the user's entry authoritative and the engraving
+statistics a fallback consulted only where the user has said nothing, so the two
+must never be merged into one stored table. Three states, and they are three:
+
+| State | Stored | The answer comes from |
+| --- | --- | --- |
+| The user stated preferred or acceptable | The value | The user |
+| The user stated *nothing* | Nothing | The engraving statistics, if the dataset covers the type |
+| The user deliberately cleared it | An explicit "neither" | The user — **not** the default |
+
+The third row is the one that will be got wrong. Seeding the stored preferences
+from the defaults at first view collapses rows one and two, and treating a
+cleared preference as absent collapses rows two and three — in which case the
+default returns and quietly overrules the user. This is `AGENTS.md` rule 3's
+absent-versus-zero distinction, in the place it costs most.
 
 **The two preference models are keyed differently, and must stay separate.**
 `MonsterPreference` is `{ unitId, label, runeSets, statGoals }` — keyed on the
@@ -583,6 +601,7 @@ recorded here once the user has taken it.
 | 25 | 2026-08-30 | **Every observation carries its own capture date**, and the dataset carries `observedFrom`, `observedTo` and `lastMergedAt` besides. The game recomputes these statistics monthly. | The user's requirement, and it answers half of Q8. A dataset gathered over several sessions is not a snapshot of one day, and a monthly recapture will land beside older rows rather than replacing the file wholesale. Dating each row is what lets a reader tell a figure captured this month from one captured three months ago — and what makes it possible to recapture the stale part only. |
 | 26 | 2026-08-30 | **Collection runs in stages against the whole catalog** — 1,086 monster types — rather than being narrowed to natural 4/5★ or to the user's own roster. The dataset is usable at any coverage. | The user's call. Narrowing by rarity needs a natural-star field the catalog does not carry, and narrowing to the account would break decision 24. Because a type without a row is simply not judged (decision 18), partial coverage is a working state rather than a broken one, so the work can stop and resume at any point. |
 | 27 | 2026-08-30 | **The traffic log is a buffer, not an archive.** `scripts/collect-engraving-statistics.mjs` merges it into the dataset additively after each session; the helper's "start a fresh file each recording" behaviour is left alone. | Switching recording on clears the log, which would lose a previous day's clicking. Making the helper append instead would need an installer rebuild and would undo a deliberate decision — a log that silently continued an earlier one invites reading yesterday's traffic as today's evidence. Merging after each session keeps that guarantee and still loses nothing, as long as the merge runs before recording is switched on again. |
+| 28 | 2026-08-30 | **A user-entered preference always takes precedence over the game's figures. The engraving statistics are consulted only where the user has entered nothing.** The two are never blended, averaged, or reconciled: for a given `(monster type, category, property)` the answer comes from the user if they have stated one, and from the dataset otherwise. | The user's call, and it answers Q8's override half. It also removes a whole class of problem rather than solving it: because a recapture cannot touch anything the user has stated, the dataset needs no merge policy against preferences, and there is no "your default changed" case to design. The distinction it *does* require is between **never stated** and **deliberately stated as nothing** — under `AGENTS.md` rule 3 those are different answers, and a cleared preference that fell back to the default would silently overrule the user. So a monster type's preferences must be stored as an explicit record of what the user said, absent where they said nothing, and never as a copy of the defaults seeded at first view. |
 
 ---
 
@@ -601,7 +620,7 @@ Status is one of **Not started**, **In progress**, **Blocked**, **Done**.
 | 2 | Model and read artifacts — types, parsing, validation from `game.data.artifacts` | **Blocked** | Blocked on `ARTIFACT-CANONICAL.md` §15 — the export encoding. The rules it must enforce are already written (§13 validation rules). |
 | 3 | Artifact library — list, sort, filter, empty state | Not started | The first thing the user can see. Sections framed by the shared `Disclosure` (decision 14). |
 | 4 | Judgement — roll quality against the monster type's property preferences | Not started | Decision 9: value is how well the artifact rolled on the properties the user preferred, weighted by the decision 11 slider. No skill data, no combat simulation. The artifact's own category selects which half of the preferences applies (decision 21). Needs step 2's parsed values and step 5's preferences. |
-| 5 | Artifact preferences — per-type property preferences, the acceptable factor, and the defaults | Not started | Decisions 9–12, 15–21. Its own model in `Preferences`, extending `isValidPreferences`. Preferences are keyed `(category, property)` (decision 21), and Attribute and Type properties are presented separately (20). Defaults come from A3; §7 Q7a governs a type the dataset does not cover. Breaking change by design. |
+| 5 | Artifact preferences — per-type property preferences, the acceptable factor, and the defaults | Not started | Decisions 9–12, 15–21, **28**. Its own model in `Preferences`, extending `isValidPreferences`. Preferences are keyed `(category, property)` (decision 21), and Attribute and Type properties are presented separately (20). **Store only what the user actually stated** — never a copy of the seeded defaults, or a cleared preference becomes indistinguishable from an unset one and the default silently returns (decision 28). The statistics are read at the point of use as a fallback. §7 Q7a governs a type the dataset does not cover. Breaking change by design. |
 | 6 | Monster fit — which monsters gain most from an artifact | Not started | The tagline's promise. Under decision 13 it is a second reading of step 4's table rather than separate work. Depends on 2 and 4. |
 | 7 | Replace the placeholder — route `artifacts` to the real component | Not started | Remove `'artifacts'` from the `UpcomingWorkspace` branch and from `upcomingWorkspaces`. |
 | 8 | Verify and finish — both extremes, layout check, definition of done, commit | Not started | `AGENTS.md` §7. |
@@ -689,15 +708,16 @@ whole file. Because the collector merges by `(monster, panel)` and takes the
 later observation, a partial recapture is a normal operation rather than a
 rebuild.
 
-**What is still open**, and it needs answering before step 5 ships:
+**The override half is now answered too (decision 28).** A user-entered
+preference always wins; the statistics are consulted **only** where the user has
+stated nothing. A recapture therefore cannot disturb anything the user has
+touched, and the dataset needs no merge policy against preferences at all.
+
+**What is still open** is smaller than it was:
 
 - **Whether JASWA shows a row's age**, and whether a figure past some age is
-  presented differently or withdrawn. Nothing forces a choice yet.
-- **What a recapture does to preferences the user has already edited.** Decision
-  10 makes the statistics a *default*, so a changed default must not silently
-  overwrite a deliberate override — but JASWA does not yet record whether a
-  preference was edited or merely inherited. That distinction has to exist in
-  the model from the start, or it cannot be recovered later.
+  presented differently or withdrawn. Nothing forces a choice yet, and under
+  decision 28 a stale row can only affect a monster type the user never edited.
 
 **Q10 — Are properties set per monster, or per something reusable? —
 Answered (decisions 15 and 16).** Per **monster type**, keyed by
@@ -1334,3 +1354,28 @@ captures monsters in stages and runs the merge after each session. Q8's second
 half — what a recapture does to a preference the user has edited — should be
 answered before step 5 builds the preference model, because the
 edited-versus-inherited distinction cannot be recovered after the fact.
+
+### Session 2, continued — the override rule
+
+**Stated by the user.** User-entered preferences always take precedence over the
+game's figures. The statistics are used **solely** as defaults, where the user
+has entered nothing.
+
+**Recorded as decision 28, and it closes Q8.** The dating half was already
+settled by decision 25; this settles the override half, and does it by removing
+the problem rather than solving it. Because a recapture cannot touch anything
+the user has stated, there is no merge policy to design between a changed
+default and an existing preference, and no "your default has moved" case to
+present.
+
+**The one thing it demands of the model, recorded in §2 before step 5 starts.**
+It requires three states where a careless implementation has two: stated,
+never stated, and *deliberately cleared*. Seeding a monster type's stored
+preferences from the defaults when it is first viewed would collapse "stated"
+into "never stated"; treating a cleared preference as absent would collapse
+"cleared" into "never stated", and the default would come back and overrule the
+user — the exact outcome decision 28 forbids. So the preferences record only
+what the user actually said, and the statistics are read at the point of use.
+This is `AGENTS.md` rule 3 again, in the place it costs most.
+
+**Not done.** No code was changed; step 5 is where this takes effect.
