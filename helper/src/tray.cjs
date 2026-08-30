@@ -5,7 +5,7 @@ const path = require('node:path');
 const { app, dialog, Menu, nativeImage, shell, Tray } = require('electron');
 const { serializeProfile, suggestedExportPath, withJsonExtension } = require('./profile-export.cjs');
 const { diagnosticPath, recordDiagnostic } = require('./diagnostics.cjs');
-const { cleanup, reportStartupError, start } = require('./service.cjs');
+const { AdministratorPermissionError, CertificateInstallationDeclinedError, CertificateInstallationError, cleanup, reportStartupError, start } = require('./service.cjs');
 const { setStartsWithWindows, startsWithWindows } = require('./startup.cjs');
 
 let helper;
@@ -102,9 +102,42 @@ function refreshMenu() {
 
 async function showStartupFailure(error) {
   await reportStartupError(error);
-  dialog.showErrorBox('JASWA Helper could not start', `The helper stopped before it could appear in the taskbar. Details were saved locally in:\n\n${diagnosticPath()}`);
+  const detail = error instanceof Error ? error.message : String(error);
+  if (error instanceof AdministratorPermissionError) {
+    dialog.showErrorBox('Administrator permission was not granted', `JASWA Helper needs administrator permission to prepare its local connection, so setup stopped before the helper could appear in the taskbar. Run the JASWA Helper installer again and approve the Windows prompt.\n\n${detail}\n\nDetails were saved locally in:\n\n${diagnosticPath()}`);
+  } else if (error instanceof CertificateInstallationDeclinedError) {
+    dialog.showErrorBox('Certificate installation was cancelled', `JASWA Helper cannot run without its local certificate, so setup stopped before the helper could appear in the taskbar. Run the JASWA Helper installer again and choose Install certificate.\n\nDetails were saved locally in:\n\n${diagnosticPath()}`);
+  } else if (error instanceof CertificateInstallationError) {
+    dialog.showErrorBox('Could not install the JASWA Helper certificate', `JASWA Helper cannot run without its local certificate, so setup stopped before the helper could appear in the taskbar.\n\n${detail}\n\nDetails were saved locally in:\n\n${diagnosticPath()}`);
+  } else {
+    dialog.showErrorBox('JASWA Helper could not start', `The helper stopped before it could appear in the taskbar.\n\n${detail}\n\nDetails were saved locally in:\n\n${diagnosticPath()}`);
+  }
   quitting = true;
   app.exit(1);
+}
+
+async function confirmCertificateInstallation() {
+  const result = await dialog.showMessageBox({
+    type: 'warning',
+    title: 'Install the JASWA Helper certificate',
+    message: 'JASWA Helper needs to install its local certificate.',
+    detail: 'This lets it read Summoners War safely on this computer. The helper cannot run without it.',
+    buttons: ['Cancel setup', 'Install certificate'],
+    defaultId: 1,
+    cancelId: 0,
+  });
+  return result.response === 1;
+}
+
+async function showInstallationSuccess() {
+  await dialog.showMessageBox({
+    type: 'info',
+    title: 'JASWA Helper is running',
+    message: 'JASWA Helper is ready.',
+    detail: 'It is running in the taskbar notification area, near the clock. Select its icon to open JASWA or see its status.',
+    buttons: ['Got it'],
+    defaultId: 0,
+  });
 }
 
 async function handleRuntimeFailure(kind, error) {
@@ -122,12 +155,13 @@ app.whenReady().then(async () => {
     await cleanup({ removeCertificate: process.argv.includes('--jaswa-remove-certificate') });
     return app.quit();
   }
-  helper = await start();
+  helper = await start({ confirmCertificateInstallation });
   if (helper.elevationRequested) return app.quit();
   const icon = nativeImage.createFromPath(iconPath());
   tray = new Tray(icon.resize({ width: 16, height: 16 }));
   tray.on('click', () => void shell.openExternal('http://localhost:3000'));
   refreshMenu();
+  if (process.argv.includes('--jaswa-installed')) await showInstallationSuccess();
   setInterval(refreshMenu, 2000);
 }).catch(showStartupFailure);
 

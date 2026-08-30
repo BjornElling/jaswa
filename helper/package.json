@@ -46,6 +46,7 @@
       "oneClick": true,
       "perMachine": true,
       "allowToChangeInstallationDirectory": false,
+      "runAfterFinish": false,
       "include": "build/uninstall-cleanup.nsh"
     },
     "win": {

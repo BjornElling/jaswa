@@ -31,6 +31,29 @@ const fallbackUpstreams = Object.freeze({
   'summonerswar-cn-lb.qpyou.cn': ['34.111.217.241'],
 });
 
+class CertificateInstallationDeclinedError extends Error {
+  constructor() {
+    super('The JASWA Helper certificate was not installed.');
+    this.name = 'CertificateInstallationDeclinedError';
+  }
+}
+
+class CertificateInstallationError extends Error {
+  constructor(cause) {
+    super(`Windows could not install the JASWA Helper certificate: ${cause instanceof Error ? cause.message : String(cause)}`);
+    this.name = 'CertificateInstallationError';
+    this.cause = cause;
+  }
+}
+
+class AdministratorPermissionError extends Error {
+  constructor(cause) {
+    super(`Windows did not grant JASWA Helper administrator permission: ${cause instanceof Error ? cause.message : String(cause)}`);
+    this.name = 'AdministratorPermissionError';
+    this.cause = cause;
+  }
+}
+
 function restartRequired(snapshot, gameRunning, waitingForFreshStart) {
   return gameRunning && waitingForFreshStart && !snapshot.hasProfile;
 }
@@ -169,10 +192,11 @@ function retainBodyChunk(bodies, sizes, context, chunk) {
   if (size <= maximumInterceptedBodyBytes) bodies.get(context).push(chunk);
 }
 
-async function start() {
+async function start({ confirmCertificateInstallation = async () => true } = {}) {
   if (process.platform !== 'win32') throw new Error('JASWA Helper only works with Summoners War on Steam for Windows.');
   if (!await isAdministrator()) {
-    await restartAsAdministrator(await resolveGatewayAddresses());
+    try { await restartAsAdministrator(await resolveGatewayAddresses()); }
+    catch (error) { throw new AdministratorPermissionError(error); }
     return { elevationRequested: true };
   }
   const directory = dataDirectory();
@@ -295,7 +319,9 @@ async function start() {
     /* Adding the same certificate to a Windows store is idempotent. This also
        restores trust if the user kept JASWA's local CA file but removed its
        matching root-store entry outside the helper. */
-    await installCertificate(certificatePath);
+    if (createdCertificate && !await confirmCertificateInstallation()) throw new CertificateInstallationDeclinedError();
+    try { await installCertificate(certificatePath); }
+    catch (error) { throw new CertificateInstallationError(error); }
     for (const [hostname, address] of Object.entries(gatewayHosts)) bridges.push(await startGatewayBridge(hostname, address));
     await refreshGameProcess();
     gameProcessTimer = setInterval(() => void refreshGameProcess(), gameProcessPollIntervalMs);
@@ -338,4 +364,4 @@ async function reportStartupError(error) {
 
 if (require.main === module) start().catch((error) => void reportStartupError(error).finally(() => process.exit(1)));
 
-module.exports = { certificateThumbprint, cleanup, gameProcessPollIntervalMs, maximumInterceptedBodyBytes, removeCertificateDirectory, reportStartupError, restartRequired, resolveGatewayAddresses, start, startsWithActiveGame, startupAddresses };
+module.exports = { AdministratorPermissionError, CertificateInstallationDeclinedError, CertificateInstallationError, certificateThumbprint, cleanup, gameProcessPollIntervalMs, maximumInterceptedBodyBytes, removeCertificateDirectory, reportStartupError, restartRequired, resolveGatewayAddresses, start, startsWithActiveGame, startupAddresses };
