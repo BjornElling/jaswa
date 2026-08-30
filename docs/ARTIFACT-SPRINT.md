@@ -342,13 +342,16 @@ Nothing below has been observed; none of it may be assumed in code.
 - Whether an unpopular monster returns empty lists or omits the keys entirely.
   Beth is a heavily used monster; a rarely built one is the case that will show
   it, and it decides what "no data" has to look like in the workspace.
-- **Whether the statistics id is always the awakened form**, and how JASWA maps
-  an owned monster to it. The capture keys rows on whatever
-  `getUnitStats*Info` sent, but the workspace has to look a row up *from the
-  user's own monster*, and `swarfarm-monsters.json` holds no awakening
-  relation. If an account can own a monster in its un-awakened form, that
-  lookup misses unless the mapping is known. Worth settling before A3 stores
-  anything.
+- **How the workspace looks up a monster the user owns un-awakened.** Decision
+  23 settles what the dataset holds; this is the lookup in the other direction.
+  The account holds exactly **one** tier-0 type against 225 at tier 1 and 38 at
+  tier 3, so this is a rare case rather than a structural gap — but it still
+  needs an answer: derive the tier-1 id arithmetically (`id + 10`), or leave
+  such a monster unjudged. `swarfarm-monsters.json` carries no awakening
+  relation, so arithmetic is the only route available today.
+- **What tier digits `2` and `4`–`7` mean.** They occur in the catalog (52 and
+  57 entries) but the account owns none, and none has been observed in a
+  statistics call.
 
 ### Way in — JASWA Helper's own "Log all traffic"
 
@@ -392,29 +395,42 @@ is the five steps above, repeated per monster type.
 the RTA screen and belongs to the other model; the import should reject it
 rather than blend the two.
 
-**One caution the capture must respect: the two commands disagree about which
-id they mean.** Opening one monster sends *different* `unit_master_id` values on
-the two commands, ten apart, one second apart:
+### How `unit_master_id` encodes the awakening tier
 
-| Monster | `GetUnitRecommendPage_V2` | `getUnitStats*Info` |
-| --- | ---: | ---: |
-| Onimusha / Kaki | 25102 | 25112 |
-| Onmyouji | 25002 | 25012 |
-| Garuda / Cahule | 10902 | 10912 |
-| Beth | 17911 | 17911 |
+**A `unit_master_id` is `<family><tier><element>`.** The last digit is the
+element (1–5); the second-to-last is the awakening tier. Each tier is a
+*separate id with its own statistics*.
 
-The catalog names the pairs differently (25102 "Onimusha", 25112 "Kaki"), which
-fits the un-awakened/awakened relation; Beth, already awakened, sends one id for
-both. **Read the id from the `getUnitStats*Info` request itself** — never from
-the neighbouring recommend call — or every captured row is keyed ten too low.
-The last digit of a `unit_master_id` is the element (1–5 across the account's
-264 owned types), so the "+10" is a change of form, not of element.
+| Tier digit | Meaning | Example |
+| ---: | --- | --- |
+| `0` | un-awakened | `20802` Frankenstein, `25102` Onimusha |
+| `1` | awakened (1A) | `20812` Bulldozer, `25112` Kaki, `17911` Beth |
+| `3` | second awakened (2A) | `20832` Bulldozer 2A, `10631` Tarq 2A |
 
-*Not yet confirmed:* whether the statistics id is always the awakened form.
-Kaki is owned under 25112 and not 25102, which supports it, but Onmyouji is
-owned under neither, so the sample is thin. `swarfarm-monsters.json` carries no
-awakening fields (`com2us_id`, `name`, `image_filename`, `archetype` only), so
-the mapping cannot be resolved from the catalog as it stands.
+Tier `2` and `4`–`7` also occur in the catalog and are not yet identified. The
+account owns 225 types at tier 1, 38 at tier 3, and 1 at tier 0 — so **2A
+monsters are a real and substantial part of a roster, not an edge case.**
+
+A 2A monster keeps its name (`20812` and `20832` are both "Bulldozer"), so the
+catalog cannot distinguish the tiers by name — only by id.
+
+**2A has its own statistics, and they are genuinely different.** Bulldozer 2A
+(`20832`) returns `[5,15]` at 37.0 % over 38,397 observations — a distribution
+that belongs to the 2A form, not the 1A one. Reading 1A's statistics for a 2A
+monster would be wrong data, not merely imprecise.
+
+**Why two different ids can appear one second apart.** Opening an un-awakened
+monster fires `GetUnitRecommendPage_V2` with the tier-0 id and
+`getUnitStats*Info` with the tier-1 id — the recommend page addresses the
+monster the user clicked, the statistics address the form worth measuring. For a
+monster already at its final form the two agree: Beth sent `17911` on both, and
+Bulldozer 2A sent `20832` on both.
+
+**The rule for the capture: read the id from the `getUnitStats*Info` request
+itself**, never from the neighbouring recommend call, and keep whatever tier it
+names. That yields tier 1 for an un-awakened or 1A monster and tier 3 for a 2A
+one, which is exactly what decision 23 wants — the awakened form the monster
+actually has.
 
 **Keyed on the monster type, as decision 15 needs.** The statistics are keyed on
 `unit_master_id`, never `unit_id`, so the defaults seed the user's property
@@ -511,6 +527,7 @@ recorded here once the user has taken it.
 | 20 | 2026-08-30 | Attribute properties and Type properties are presented **separately**, not as one combined list — and probably as separate areas of the Artifacts workspace rather than only as two groups inside one editor. | The user's call, on a list of around 33 current properties. It also follows the game's own division: §5 of the canonical document puts nine properties on Type artifacts only and ten on Attribute artifacts only, and a monster wears exactly one of each. Two shorter lists that each mean something beat one long list that mixes two questions. How far the separation goes — two groups, two fold-outs, or two areas — is settled in step 5 against the running app. |
 | 21 | 2026-08-30 | A property preference is keyed by **`(category, property)`**, not by property alone. The fourteen both-category properties therefore appear in both lists and are set independently: `Life Drain` may be preferred on the Type artifact and unwanted on the Attribute one. | The user's call, and the reason decision 20 is a model decision rather than a layout one. A monster wears one artifact of each category, so "which property do I want here" is genuinely two questions — a `Life Drain` roll on the Attribute artifact is a different opportunity from one on the Type artifact, and it competes against a different set of alternatives. Keying on the property alone would silently force one answer onto both. |
 | 22 | 2026-08-30 | **The engraving statistics JASWA captures and turns into defaults are the PvE ones** (`favorite_type: 0`), for artifacts and relics alike. The RTA model is not captured. | The user's call. The game keeps two models per monster type and the capture must pick one, because a default seeded from a mix of both would mean nothing. PvE is the mode most of an account's equipment is actually built for, and it rests on far more observations — 41,861 against 4,961 on Onmyouji, 65,983 against 3,598 on Beth. For relics the choice is moot: the game offers only one model. |
+| 23 | 2026-08-30 | **The dataset holds awakened forms only, and each awakening tier is its own row.** Rows are keyed on the `unit_master_id` the `getUnitStats*Info` request itself carries — tier 1 for an awakened monster, tier 3 for a second-awakened one. | The user's call: only awakened forms are worth judging equipment for. The tier is encoded in the id's second-to-last digit, and **2A is not a variant of 1A but a separate monster with its own statistics** — Bulldozer 2A returns a distribution 1A does not, and the account holds 38 such types. Treating them as one would file the wrong evidence against a third of the roster. The statistics call already names the right tier, so no conversion is needed. See §2a. |
 
 ---
 
@@ -1114,5 +1131,41 @@ un-awakened and awakened forms. A capture that takes the id from the neighbourin
 recommend call would key every row ten too low. §2a now says to read it from the
 statistics request itself, and a new open question asks how the workspace maps
 an owned monster to that id, since the catalog holds no awakening relation.
+
+**Not done.** No production code changed.
+
+### Session 1, continued — the awakening tier in the id
+
+**Asked.** The user explained the two-id behaviour: they had opened a monster in
+both its un-awakened and awakened forms, and JASWA wants only the awakened one.
+They then noted that monsters also exist in **2A (second awakened)** form, which
+likely has its own id — and opened a 2A Bulldozer so it could be checked.
+
+**The structure, now established.** A `unit_master_id` is
+`<family><tier><element>`: the last digit is the element, the second-to-last the
+awakening tier. `0` un-awakened, `1` awakened, `3` second awakened. Tier `2` (52
+catalog entries) and `4`–`7` (57) exist but were never observed and the account
+owns none.
+
+**2A is a separate monster, not a variant — and this is the finding that
+matters.** Bulldozer 1A is `20812` and 2A is `20832`, both named "Bulldozer", so
+only the id tells them apart. The 2A form returns its own distribution:
+`[5,15]` at 37.0 % over 38,397 observations. The account holds **38 types at
+tier 3** against 225 at tier 1, so treating 2A as 1A would file the wrong
+evidence against roughly a seventh of the roster.
+
+**A correction to what the previous entry recorded.** That entry framed the two
+ids as "the recommend call sends the un-awakened id, the statistics call the
+awakened one", implying a fixed offset of ten. That is only true for an
+un-awakened monster. Where the monster is already at its final form the two
+calls agree — Beth sent `17911` on both, Bulldozer 2A sent `20832` on both. The
+rule that survives is simpler: **read the id from the `getUnitStats*Info`
+request itself and keep the tier it names.**
+
+**Decision 23 rewritten** to say awakened forms only, each tier its own row.
+
+**One question left open**, and it is small: the account owns exactly one
+tier-0 type, so a monster held un-awakened is a rare case rather than a
+structural gap. Either derive `id + 10` or leave it unjudged.
 
 **Not done.** No production code changed.
