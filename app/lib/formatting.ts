@@ -1,5 +1,5 @@
 import type { GeneralSettings } from './types';
-import { formattingHour12, formattingLocale, formattingTimeZone } from './regional-settings';
+import { dateLocale, formattingHour12, formattingTimeZone, numberLocale } from './regional-settings';
 
 export function count(value: unknown): number {
   return Array.isArray(value) ? value.length : 0;
@@ -12,7 +12,7 @@ export function formatDateTime(value: string | undefined, settings: GeneralSetti
   if (!value) return 'Never';
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return 'an unknown time';
-  return new Intl.DateTimeFormat(formattingLocale(settings), {
+  return new Intl.DateTimeFormat(dateLocale(settings), {
     dateStyle: 'medium',
     timeStyle: 'short',
     timeZone: formattingTimeZone(settings),
@@ -21,7 +21,7 @@ export function formatDateTime(value: string | undefined, settings: GeneralSetti
 }
 
 export function formatNumber(value: number | null, settings: GeneralSettings): string {
-  return value === null ? '—' : value.toLocaleString(formattingLocale(settings));
+  return value === null ? '—' : value.toLocaleString(numberLocale(settings));
 }
 
 export function downloadJson(filename: string, content: string): void {

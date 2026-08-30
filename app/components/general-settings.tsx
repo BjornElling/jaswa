@@ -1,35 +1,26 @@
 import { useMemo } from 'react';
 import { RadioLine } from './form-controls';
-import {
-  availableTimeZones, formattingHour12, formattingLocale, formattingTimeZone,
-} from '../lib/regional-settings';
-import type { GeneralSettings as GeneralSettingsValue, HourCycleChoice, NumberFormatChoice, TimeZoneChoice } from '../lib/types';
+import { availableTimeZones } from '../lib/regional-settings';
+import type {
+  DateOrderChoice, GeneralSettings as GeneralSettingsValue, HourCycleChoice,
+  NumberFormatChoice, TimeZoneChoice,
+} from '../lib/types';
 
-/* A number wide enough to show both separators doing their work, and a date
-   that cannot be read the wrong way round while the sample is the only place
-   the choice is visible before it reaches the rest of the app. */
-const sampleNumber = 1234567.89;
-const sampleDate = new Date('2026-08-30T15:04:00Z');
-
-function sampleText(settings: GeneralSettingsValue): string {
-  const locale = formattingLocale(settings);
-  const number = sampleNumber.toLocaleString(locale);
-  const time = new Intl.DateTimeFormat(locale, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-    timeZone: formattingTimeZone(settings),
-    hour12: formattingHour12(settings),
-  }).format(sampleDate);
-  return `${number} · ${time}`;
-}
-
-/* The options say what they mean on sight: the two number formats are written
-   as the number they produce, and the clocks as the time they produce. That
+/* The options say what they mean on sight: the number formats are written as
+   the number they produce, and the date orders as the date they produce. That
    leaves nothing for a note to add. */
 const numberOptions: Array<{ value: NumberFormatChoice; label: string }> = [
   { value: 'system', label: 'Automatic' },
   { value: 'european', label: '1.234.567,89' },
   { value: 'american', label: '1,234,567.89' },
+];
+
+/* Written out with a real month name rather than as a pattern: "30 Aug 2026"
+   answers the question the pattern "d mmm yyyy" only describes. */
+const dateOptions: Array<{ value: DateOrderChoice; label: string }> = [
+  { value: 'system', label: 'Automatic' },
+  { value: 'day-first', label: '30 Aug 2026' },
+  { value: 'month-first', label: 'Aug 30, 2026' },
 ];
 
 const clockOptions: Array<{ value: HourCycleChoice; label: string }> = [
@@ -42,6 +33,42 @@ const zoneOptions: Array<{ value: TimeZoneChoice; label: string }> = [
   { value: 'system', label: 'Automatic' },
   { value: 'manual', label: 'Choose' },
 ];
+
+/**
+ * Where exported files are written. The folder is shown before the button that
+ * changes it: the current state is what the user came to check, and the action
+ * follows from it.
+ */
+function SaveLocation({ saveFolder, canChooseFolder, onChooseFolder, onForgetFolder }: {
+  saveFolder: string | null;
+  canChooseFolder: boolean;
+  onChooseFolder: () => void;
+  onForgetFolder: () => void;
+}) {
+  if (!canChooseFolder) {
+    return <p className="lead">
+      This browser cannot choose a folder, so files go to your browser’s
+      downloads. Chrome and Edge support it; Firefox and Safari do not.
+    </p>;
+  }
+  return <div className="stack tight">
+    <p className="setting-line">
+      <span className="radio-line-legend">Current</span>
+      <span className="radio-line-options">
+        <span className="sample-value folder-name">{saveFolder ?? 'Browser downloads'}</span>
+        {/* Present in both states so the row does not resize on the day a
+            folder is chosen; without one there is nothing to reset to. */}
+        <button className="text-link" onClick={onForgetFolder} disabled={!saveFolder}>Reset</button>
+      </span>
+    </p>
+    <p className="setting-line">
+      <span className="radio-line-legend" />
+      <span className="radio-line-options">
+        <button className="button" onClick={onChooseFolder}>Choose folder…</button>
+      </span>
+    </p>
+  </div>;
+}
 
 export function GeneralSettings({ settings, saveFolder, canChooseFolder, onChange, onChooseFolder, onForgetFolder }: {
   settings: GeneralSettingsValue;
@@ -56,60 +83,54 @@ export function GeneralSettings({ settings, saveFolder, canChooseFolder, onChang
      browser does not enumerate still has an option to sit on. */
   const timeZones = useMemo(() => availableTimeZones(new Date(), settings.manualTimeZone), [settings.manualTimeZone]);
 
-  return <section className="panel">
-    <h3 className="block-title">General settings</h3>
-    <div className="stack">
-      <RadioLine<NumberFormatChoice>
-        name="number-format" legend="Numbers" options={numberOptions}
-        current={settings.numberFormat}
-        onChange={(value) => onChange({ numberFormat: value })} />
+  return <>
+    <section className="panel">
+      <h3 className="block-title">General settings</h3>
+      <SaveLocation
+        saveFolder={saveFolder}
+        canChooseFolder={canChooseFolder}
+        onChooseFolder={onChooseFolder}
+        onForgetFolder={onForgetFolder}
+      />
+    </section>
 
-      <RadioLine<HourCycleChoice>
-        name="hour-cycle" legend="Clock" options={clockOptions}
-        current={settings.hourCycle}
-        onChange={(value) => onChange({ hourCycle: value })} />
-
-      <RadioLine<TimeZoneChoice>
-        name="time-zone" legend="Time zone" options={zoneOptions}
-        current={settings.timeZone}
-        onChange={(value) => onChange({ timeZone: value })}>
-        {/* The select keeps its place on the line whichever option is chosen,
-            rather than appearing on selection and moving the row. Disabled, it
-            still shows the zone it would use. */}
-        <label className="zone-select">
-          <span className="visually-hidden">Time zone</span>
-          <select value={settings.manualTimeZone} disabled={settings.timeZone !== 'manual'}
-            onChange={(event) => onChange({ manualTimeZone: event.target.value })}>
-            {timeZones.map(({ zone, label }) => <option key={zone} value={zone}>{label}</option>)}
-          </select>
-        </label>
-      </RadioLine>
-
-      <p className="format-sample">
-        <span className="sample-label">Preview</span>
-        <span className="sample-value">{sampleText(settings)}</span>
-      </p>
-
-      <div className="settings-divider" />
-
-      <div className="setting-line">
-        <span className="radio-line-legend">Save files to</span>
-        {canChooseFolder
-          ? <div className="radio-line-options">
-            {/* The label does not change with the folder: "Choose" and "Change"
-                are the same count of characters but not the same width, and in
-                a wrapping row that moves the button beside it. The line below
-                carries the state instead. */}
-            <button className="button" onClick={onChooseFolder}>Choose folder…</button>
-            <button className="button" onClick={onForgetFolder} disabled={!saveFolder}>
-              Browser downloads
-            </button>
-            <span className="sample-value folder-name">{saveFolder ?? 'Browser downloads'}</span>
-          </div>
-          : <span className="sample-value folder-name">
-            Browser downloads — this browser cannot choose a folder
-          </span>}
+    <section className="panel">
+      <h3 className="block-title">Formats</h3>
+      <div className="stack">
+        <RadioLine<NumberFormatChoice>
+          name="number-format" legend="Numbers" options={numberOptions}
+          current={settings.numberFormat}
+          onChange={(value) => onChange({ numberFormat: value })} />
+        <RadioLine<DateOrderChoice>
+          name="date-order" legend="Dates" options={dateOptions}
+          current={settings.dateOrder}
+          onChange={(value) => onChange({ dateOrder: value })} />
       </div>
-    </div>
-  </section>;
+    </section>
+
+    <section className="panel">
+      <h3 className="block-title">Time</h3>
+      <div className="stack">
+        <RadioLine<HourCycleChoice>
+          name="hour-cycle" legend="Clock" options={clockOptions}
+          current={settings.hourCycle}
+          onChange={(value) => onChange({ hourCycle: value })} />
+        <RadioLine<TimeZoneChoice>
+          name="time-zone" legend="Time zone" options={zoneOptions}
+          current={settings.timeZone}
+          onChange={(value) => onChange({ timeZone: value })}>
+          {/* The select keeps its place on the line whichever option is chosen,
+              rather than appearing on selection and moving the row. Disabled,
+              it still shows the zone it would use. */}
+          <label className="zone-select">
+            <span className="visually-hidden">Time zone</span>
+            <select value={settings.manualTimeZone} disabled={settings.timeZone !== 'manual'}
+              onChange={(event) => onChange({ manualTimeZone: event.target.value })}>
+              {timeZones.map(({ zone, label }) => <option key={zone} value={zone}>{label}</option>)}
+            </select>
+          </label>
+        </RadioLine>
+      </div>
+    </section>
+  </>;
 }

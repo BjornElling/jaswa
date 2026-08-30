@@ -1,19 +1,27 @@
-import type { GeneralSettings, HourCycleChoice, NumberFormatChoice, TimeZoneChoice } from './types';
+import type { DateOrderChoice, GeneralSettings, HourCycleChoice, NumberFormatChoice, TimeZoneChoice } from './types';
 
 /* Every regional choice offers "follow this computer" and defaults to it,
    because the browser already knows the answer the user gave their operating
    system and repeating that question is a worse default than reading it. */
 export const numberFormatChoices: NumberFormatChoice[] = ['system', 'european', 'american'];
+export const dateOrderChoices: DateOrderChoice[] = ['system', 'day-first', 'month-first'];
 export const hourCycleChoices: HourCycleChoice[] = ['system', 'h23', 'h12'];
 export const timeZoneChoices: TimeZoneChoice[] = ['system', 'manual'];
 
-/* One European and one American locale stand in for the two separator
-   conventions. The locale is never shown to the user and carries nothing else:
-   it is the standard way to ask Intl for "1.234.567,89" or "1,234,567.89"
-   without hand-rolling a separator table that would then have to be maintained
-   for currencies, percentages and every other Intl consumer. */
-const europeanLocale = 'de-DE';
-const americanLocale = 'en-US';
+/* Locales stand in for the conventions rather than a hand-rolled table of
+   separators and field orders, which would then have to be maintained for
+   currencies, percentages, month names and every other Intl consumer. None of
+   these is ever shown to the user; each is chosen only for the one convention
+   it carries.
+
+   Numbers and dates take separate locales because the two questions do not
+   answer each other: de-DE writes the European number but an all-numeric date,
+   and the two date orders below both spell the month out. Picking one locale
+   for both would have made the number format silently decide the date order. */
+const europeanNumberLocale = 'de-DE';
+const americanNumberLocale = 'en-US';
+const dayFirstDateLocale = 'en-GB';
+const monthFirstDateLocale = 'en-US';
 
 /**
  * The IANA zone this computer is set to. Every browser JASWA targets resolves
@@ -105,6 +113,7 @@ export function isTimeZone(value: unknown): value is string {
 export function blankGeneralSettings(): GeneralSettings {
   return {
     numberFormat: 'system',
+    dateOrder: 'system',
     hourCycle: 'system',
     timeZone: 'system',
     manualTimeZone: systemTimeZone(),
@@ -115,19 +124,27 @@ export function isGeneralSettings(value: unknown): value is GeneralSettings {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const settings = value as Record<string, unknown>;
   return numberFormatChoices.includes(settings.numberFormat as NumberFormatChoice)
+    && dateOrderChoices.includes(settings.dateOrder as DateOrderChoice)
     && hourCycleChoices.includes(settings.hourCycle as HourCycleChoice)
     && timeZoneChoices.includes(settings.timeZone as TimeZoneChoice)
     && isTimeZone(settings.manualTimeZone);
 }
 
 /**
- * The locale JASWA formats with. `undefined` is what Intl wants for "use this
- * computer" — passing a resolved locale string instead would freeze the
+ * The locale numbers are written with. `undefined` is what Intl wants for "use
+ * this computer" — passing a resolved locale string instead would freeze the
  * setting at the value read when the page loaded.
  */
-export function formattingLocale(settings: GeneralSettings): string | undefined {
-  if (settings.numberFormat === 'european') return europeanLocale;
-  if (settings.numberFormat === 'american') return americanLocale;
+export function numberLocale(settings: GeneralSettings): string | undefined {
+  if (settings.numberFormat === 'european') return europeanNumberLocale;
+  if (settings.numberFormat === 'american') return americanNumberLocale;
+  return undefined;
+}
+
+/** The locale dates are written with, on the same terms as `numberLocale`. */
+export function dateLocale(settings: GeneralSettings): string | undefined {
+  if (settings.dateOrder === 'day-first') return dayFirstDateLocale;
+  if (settings.dateOrder === 'month-first') return monthFirstDateLocale;
   return undefined;
 }
 

@@ -2461,34 +2461,35 @@ button { cursor: pointer; }
   cursor: not-allowed;
 }
 .setting-line .button:disabled:hover { color: var(--ghost); border-color: var(--line); }
+
+/* .text-link is written for an anchor, which carries no chrome of its own. As
+   a button it needs the browser's default box taken back off before the link
+   treatment reads. */
+.setting-line .text-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: var(--t-body);
+  cursor: pointer;
+}
+/* Nothing to reset to: the control keeps its box and says so by weight, so the
+   row does not resize when a folder is chosen. */
+.setting-line .text-link:disabled {
+  color: var(--ghost);
+  text-decoration-color: var(--ghost);
+  cursor: not-allowed;
+}
+.setting-line .text-link:disabled:hover { color: var(--ghost); }
 /* Wraps inside the row rather than widening it; a folder name can be anything. */
 .folder-name { min-width: 0; overflow-wrap: anywhere; color: var(--dim); }
 
-/* The one line that shows every choice above at once, aligned to the same
-   column the options start in so it reads as their result. */
-.format-sample {
-  display: grid;
-  grid-template-columns: 140px minmax(0, 1fr);
-  align-items: baseline;
-  gap: var(--s4);
-  margin: 0;
-}
-.sample-label {
-  font-size: var(--t-micro); letter-spacing: .12em; text-transform: uppercase;
-  font-weight: 700; color: var(--faint);
-}
+/* The value a setting currently holds, set in the figure face the rest of the
+   app uses for data. */
 .sample-value {
   font-family: var(--mono);
   font-size: var(--t-body);
   color: var(--ink);
   font-variant-numeric: tabular-nums;
-}
-
-/* Separates the regional lines from the folder question: two subjects in one
-   panel, said with a hairline rather than a second heading level. */
-.settings-divider {
-  height: 1px;
-  background: linear-gradient(90deg, transparent, #414a5b 4%, #414a5b 96%, transparent);
 }
 
 /* Available to a screen reader, absent from the page: the zone select needs a
@@ -2506,6 +2507,6 @@ button { cursor: pointer; }
 /* Narrow: the legend takes its own line above the options rather than
    squeezing them into what is left of the row. */
 @media (max-width: 760px) {
-  .setting-line, .radio-line, .format-sample { grid-template-columns: minmax(0, 1fr); gap: var(--s2); }
+  .setting-line, .radio-line { grid-template-columns: minmax(0, 1fr); gap: var(--s2); }
   .zone-select select { width: 100%; }
 }

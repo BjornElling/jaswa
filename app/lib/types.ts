@@ -39,6 +39,13 @@ export type NumberFormatChoice = 'system' | 'european' | 'american';
  * `h23` is 00:00–23:00 and `h12` is 12:00 AM–11:00 PM.
  */
 export type HourCycleChoice = 'system' | 'h23' | 'h12';
+/**
+ * Which of the day and the month is written first. Both orders spell the month
+ * out — `30 Aug 2026` against `Aug 30, 2026` — because the all-numeric forms
+ * are the ones that cannot be read without knowing which convention wrote
+ * them, and a date nobody can read is worse than a long one.
+ */
+export type DateOrderChoice = 'system' | 'day-first' | 'month-first';
 /** Whether the zone comes from this computer or from `manualTimeZone`. */
 export type TimeZoneChoice = 'system' | 'manual';
 /**
@@ -48,7 +55,7 @@ export type TimeZoneChoice = 'system' | 'manual';
  * looks at the manual option and changes their mind does not lose the zone
  * they picked, and the select has something to show the moment it is enabled.
  */
-export type GeneralSettings = { numberFormat: NumberFormatChoice; hourCycle: HourCycleChoice; timeZone: TimeZoneChoice; manualTimeZone: string };
+export type GeneralSettings = { numberFormat: NumberFormatChoice; dateOrder: DateOrderChoice; hourCycle: HourCycleChoice; timeZone: TimeZoneChoice; manualTimeZone: string };
 /**
  * The presets are part of the user's own preferences rather than of the
  * program: JASWA supplies a starting set, and after that they are the user's
