@@ -2,10 +2,11 @@
 
 **Status:** Live working document for the Artifacts workspace
 **Started:** August 30, 2026
-**Last updated:** August 30, 2026 — session 1, the judgement model settled
-(decisions 9–21): each monster **type** states its own property preferences,
-keyed `(category, property)`, JASWA measures only the roll, and a type with none
-is not judged rather than scored zero
+**Last updated:** August 30, 2026 — session 2, **A3 built**: the dataset file
+and its collector exist, every observation carries its own date (decision 25),
+and the capture list is 1,086 monster types. Collection is now the user's to
+run, in stages, with `scripts/collect-engraving-statistics.mjs` after each
+session
 
 This file is the memory of the Artifact sprint. It carries the purpose, the
 decisions taken, the questions still open, and the state of the work, so a new
@@ -351,12 +352,21 @@ Nothing below has been observed; none of it may be assumed in code.
   renames like `13211` Lulu → `13231` "Lulu and Friends", not mismatches. The
   only failures are 6 six-digit boss and tower entries (`111331` Incarnation of
   Greed, `112033` Tower) with no tier-1 partner, which are not player monsters
-  and should be excluded from the capture anyway. **Still unproven** that the
-  rule holds for every real monster, and tiers `2` and `4`–`7` are unexamined.
-- **What tier digits `2` and `4`–`7` mean.** 52 and 57 catalog entries
-  respectively, none observed in a statistics call. They matter only if one of
-  them turns out to be an awakening above tier 3, which would change what
-  "highest awakening" resolves to.
+  and should be excluded from the capture anyway. **Session 2 settled the shape
+  of the list**, if not the rule's truth for every entry: restricting to
+  five-digit ids gives 1,110 types at highest awakening (89 at tier 3, 1,021 at
+  tier 1), and dropping 12 Material monsters — Devilmons and rainbowmons, which
+  wear no equipment — and 16 Korean-named test rows leaves the **1,086** the
+  collector's `--todo` works through. The `id + 20` rule stays unproven monster
+  by monster; a 2A form the catalog fails to pair would be captured at tier 1
+  and can be corrected when noticed.
+- ~~**What tier digits `2` and `4`–`7` mean.**~~ **Answered in session 2, by
+  reading the catalog.** Tier `2` is the *Imperfect* line — `11223` Imperfect
+  Nine-tailed Fox, `13322` Imperfect Succubus — and tiers `4`–`7` are Ancient
+  Spirits, guild bosses (`72041` 길드보스) and Towers. **None is an awakening
+  above 2A**, so "highest awakening" still resolves to tier 3 where it exists
+  and tier 1 otherwise. All are excluded from the capture, along with every
+  six-digit id: the player-monster space is exactly the five-digit ids.
 - **What a recommendation does with a monster whose type has no row** — because
   it is un-awakened, or because the capture never covered it. This is the same
   shape as Q7a and should get the same answer: not judged, rather than judged as
@@ -399,6 +409,37 @@ calls are:
 
 All three calls are now understood, so a capture run needs no exploration — it
 is the five steps above, repeated per monster type.
+
+### The collector — how a session's clicking becomes dataset
+
+Built in session 2. `scripts/collect-engraving-statistics.mjs` reads the traffic
+log and merges what it finds into `app/data/engraving-statistics.json`. It makes
+no network request; everything it writes was already observed.
+
+```
+node scripts/collect-engraving-statistics.mjs --todo 40   what to capture next
+… capture those monsters in the game, with logging on …
+node scripts/collect-engraving-statistics.mjs             merge the session
+node scripts/collect-engraving-statistics.mjs --progress  how far it has got
+```
+
+**Run the merge before switching recording on again.** The helper clears the log
+at the start of each recording (decision 27), so the log is a buffer and the
+dataset is the archive. The merge is additive and idempotent: re-running it
+changes nothing, and a session only ever adds to what is already there.
+
+**What it refuses.** An RTA row (`favorite_type: 1`), an un-awakened or
+unrecognised tier, a response whose `ret_code` is not `0`, and any counts list
+that is missing or malformed. Each refusal is counted and explained on stdout
+rather than passed silently, because a quietly dropped monster is a hole nobody
+notices until the defaults look wrong.
+
+**What it stores.** Counts exactly as the game sends them, never percentages —
+the sample size is evidence, and a percentage discards it. Each panel carries
+its own `observedAt` (decision 25). The file is written compactly, one line per
+monster type: indented JSON costs 2.6× the bytes, which at full coverage is
+13 MB against 4.7 MB, and a line per monster keeps a session's diff readable
+anyway.
 
 **Every captured row must carry `favorite_type: 0`.** A `1` means it came from
 the RTA screen and belongs to the other model; the import should reject it
@@ -539,6 +580,9 @@ recorded here once the user has taken it.
 | 22 | 2026-08-30 | **The engraving statistics JASWA captures and turns into defaults are the PvE ones** (`favorite_type: 0`), for artifacts and relics alike. The RTA model is not captured. | The user's call. The game keeps two models per monster type and the capture must pick one, because a default seeded from a mix of both would mean nothing. PvE is the mode most of an account's equipment is actually built for, and it rests on far more observations — 41,861 against 4,961 on Onmyouji, 65,983 against 3,598 on Beth. For relics the choice is moot: the game offers only one model. |
 | 23 | 2026-08-30 | **The dataset holds exactly one row per monster type: its highest awakening.** Nothing else is collected — not un-awakened forms, not a lower tier of a type that has a higher one. | The user's call. The statistics say what other players equip; on an un-awakened monster that is mostly poor runes parked somewhere convenient, so tier-0 data is actively misleading rather than merely thin. The tier lives in the id's second-to-last digit (`0` un-awakened, `1` awakened, `3` second awakened), and **2A is a separate monster with its own statistics, not a variant of 1A** — Bulldozer 2A returns a distribution 1A does not, and both are named "Bulldozer", so only the id separates them. See §2a. |
 | 24 | 2026-08-30 | **The dataset is catalog-wide and has nothing to do with the user's own account.** It is collected per monster *type*, and the property preferences the user sets are likewise per type. Which monsters the user owns is irrelevant to both. | The user's correction of an agent misreading. Ownership enters at exactly one point: when the workspace recommends artifacts for the user's monsters, and even there it only looks up the preferences already recorded against that monster type. Letting the account shape the dataset or the preferences would make a general reference into a private one, and would mean the same monster type could be judged differently for no reason. |
+| 25 | 2026-08-30 | **Every observation carries its own capture date**, and the dataset carries `observedFrom`, `observedTo` and `lastMergedAt` besides. The game recomputes these statistics monthly. | The user's requirement, and it answers half of Q8. A dataset gathered over several sessions is not a snapshot of one day, and a monthly recapture will land beside older rows rather than replacing the file wholesale. Dating each row is what lets a reader tell a figure captured this month from one captured three months ago — and what makes it possible to recapture the stale part only. |
+| 26 | 2026-08-30 | **Collection runs in stages against the whole catalog** — 1,086 monster types — rather than being narrowed to natural 4/5★ or to the user's own roster. The dataset is usable at any coverage. | The user's call. Narrowing by rarity needs a natural-star field the catalog does not carry, and narrowing to the account would break decision 24. Because a type without a row is simply not judged (decision 18), partial coverage is a working state rather than a broken one, so the work can stop and resume at any point. |
+| 27 | 2026-08-30 | **The traffic log is a buffer, not an archive.** `scripts/collect-engraving-statistics.mjs` merges it into the dataset additively after each session; the helper's "start a fresh file each recording" behaviour is left alone. | Switching recording on clears the log, which would lose a previous day's clicking. Making the helper append instead would need an installer rebuild and would undo a deliberate decision — a log that silently continued an earlier one invites reading yesterday's traffic as today's evidence. Merging after each session keeps that guarantee and still loses nothing, as long as the merge runs before recording is switched on again. |
 
 ---
 
@@ -552,7 +596,7 @@ Status is one of **Not started**, **In progress**, **Blocked**, **Done**.
 | 0 | Write and maintain this sprint file | **In progress** | Created in session 1. Updated continuously for the sprint's life. |
 | A1 | Helper "Log all traffic" — tray toggle, off by default, writing decoded exchanges | **Done, proven live** | Session 1. `helper/src/traffic-log.cjs`, wired in `service.cjs`, offered in `tray.cjs`. 7 tests; suite 37/37. Installer rebuilt and verified. Captured 41 real exchanges from a live session. |
 | A2 | Record a log and write the true payload shape into §2a | **Done** | All three panels captured and verified against the screenshots: `getUnitStatsRuneInfo`, `getUnitStatsArtifactInfo`, `getUnitStatsRelicInfo`. Keyed on `unit_master_id`; raw counts, full distributions, one call per panel, three per monster. Rune `effect_id`s match `RUNE-CANONICAL.md` §2 exactly. Outstanding for A3, but not blocking it: the artifact and relic secondary vocabularies, and what `request_type`/`favorite_type` select. |
-| A3 | Design and build the recorded dataset from the observed shape | Not started | **Now a product dependency, not a reference.** Decision 10 makes this the source of every monster type's default property preferences, so what it covers is what the workspace can open with. A2 confirmed the keying is `unit_master_id`, which matches decision 15 — the defaults seed the preferences directly, with no mapping. Scope still governed by §7 Q7. One-time capture, never a live import. |
+| A3 | Design and build the recorded dataset from the observed shape | **Built; collection in progress** | Session 2. `scripts/collect-engraving-statistics.mjs` merges the traffic log into `app/data/engraving-statistics.json` additively and idempotently. Verified against the user's screenshots: every stored count reproduces the displayed percentage exactly. Dates per observation (decision 25). **4 of 1,086 monster types captured** — the rest is the user's clicking, in stages (decision 26), and `--todo` names what is next. |
 | 1 | Establish the artifact rules — a canonical document from the game and a real export | **Mostly done** | `docs/ARTIFACT-CANONICAL.md` written in session 1 from the user's rules research, then extended from a second independent specification (decision 8). The *game rules* are recorded. What remains is the **encoding**, listed in its §15: field layout, property IDs, how power-up counts and the conversion slot are stored. That needs a real export. |
 | 2 | Model and read artifacts — types, parsing, validation from `game.data.artifacts` | **Blocked** | Blocked on `ARTIFACT-CANONICAL.md` §15 — the export encoding. The rules it must enforce are already written (§13 validation rules). |
 | 3 | Artifact library — list, sort, filter, empty state | Not started | The first thing the user can see. Sections framed by the shared `Disclosure` (decision 14). |
@@ -609,8 +653,16 @@ the main-effect maths, both shared with relics. A fuller artifact model may
 want that code in an artifact library instead. Extend in place, or lift it out
 — and if lifted, relics come along.
 
-**Q7 — How many monsters must the engraving dataset cover? — Raised in
-importance by decision 10, still open.**
+**Q7 — How many monsters must the engraving dataset cover? — Answered
+(decision 26): all of them, in stages.** The capture list is **1,086 monster
+types** — every five-digit id at its highest awakening, less Material monsters
+and test rows. Coverage is not a precondition for anything: a type without a row
+is simply not judged (decision 18), so the workspace works at 4 types and works
+better at 1,086. `--todo` names what is next; `--progress` says how far it has
+got.
+
+The reasoning that led there is kept below, because it is what makes the staged
+answer safe.
 The capture is manual, but **much cheaper than first estimated**. The second
 recording showed one call serves a whole panel's dropdowns, so a monster costs
 opening its Statistics tab and visiting three panels — not nine dropdown views.
@@ -628,12 +680,24 @@ the workspace is populated on first use.
 score-sorted views. No fallback from archetype or anything else: every artifact
 would score zero against such a type, and a zero reads as an answer.
 
-**Q8 — What happens to the dataset as the game moves on?**
-It is a snapshot of community usage on the day it was taken, and it will drift.
-Does JASWA show its capture date, does it age out, or does it stand until the
-user recaptures it? Under decision 10 this also asks what happens to a user's
-own property preferences when the dataset is recaptured — overwritten, or
-preserved as deliberate overrides of a changed default?
+**Q8 — What happens to the dataset as the game moves on? — Half answered
+(decision 25).** The **dating** half is settled: every observation carries its
+own `observedAt`, and the file carries `observedFrom`, `observedTo` and
+`lastMergedAt`. The game recomputes these statistics monthly, so a row's age is
+part of what it says, and a recapture can target the stale rows rather than the
+whole file. Because the collector merges by `(monster, panel)` and takes the
+later observation, a partial recapture is a normal operation rather than a
+rebuild.
+
+**What is still open**, and it needs answering before step 5 ships:
+
+- **Whether JASWA shows a row's age**, and whether a figure past some age is
+  presented differently or withdrawn. Nothing forces a choice yet.
+- **What a recapture does to preferences the user has already edited.** Decision
+  10 makes the statistics a *default*, so a changed default must not silently
+  overwrite a deliberate override — but JASWA does not yet record whether a
+  preference was edited or merely inherited. That distinction has to exist in
+  the model from the start, or it cannot be recovered later.
 
 **Q10 — Are properties set per monster, or per something reusable? —
 Answered (decisions 15 and 16).** Per **monster type**, keyed by
@@ -1211,3 +1275,62 @@ six-digit boss and tower entries with no tier-1 partner, which are not player
 monsters. Recorded in §2a as promising but unproven.
 
 **Not done.** No production code changed.
+
+### Session 2 — August 30, 2026 — A3 built, and collection begins
+
+**Asked.** Run the large data-mining: the user goes through the statistics for
+every monster in the game, the agent reads out the values for runes, artifacts
+and relics and keeps them in one dated reference file, which can later define
+default preferred/acceptable artifact values. **The dataset must be dated**,
+because the game produces new statistics every month.
+
+**Two decisions taken before any code, because neither could be fixed
+afterwards.** How much of the catalog to cover — all of it, in stages
+(decision 26) — and how to keep a multi-day capture from losing yesterday's
+work (decision 27). The second was a real hazard rather than a hypothetical:
+`TrafficLog.setEnabled(true)` clears the file, so a second day's recording would
+have silently discarded the first.
+
+**Built.** `scripts/collect-engraving-statistics.mjs` and
+`app/data/engraving-statistics.json`. The collector merges the traffic log into
+the dataset additively and idempotently, keyed `(unit_master_id, panel)` with
+the later observation winning. Modes: merge, `--dry-run`, `--progress`,
+`--todo [n]`, `--log PATH`.
+
+**Verified against the user's own screenshots, not merely against itself.**
+Every percentage recomputed from the stored counts matches exactly — artifact
+primary 81.1/12.5/6.4, artifact secondary 11.4/6.4/6.2/6.1/4.9, relic primary
+68.6/28.0/3.4, rune sets 30.8/18.0/12.7/11.3/8.0/6.5. The 7 RTA responses in the
+log were rejected and the 8 PvE panels kept, which is decision 22 working. A
+second run reported "0 new, 8 already current" and wrote nothing.
+`npx tsc --noEmit` and `npm run lint` both clean.
+
+**Dating, as the user required (decision 25).** Three levels: each panel carries
+its own `observedAt`, and the file carries `observedFrom`, `observedTo` and
+`lastMergedAt`. Because the merge takes the later observation per
+`(monster, panel)`, next month's recapture can target the stale rows instead of
+rebuilding the file — which is the point of dating rows rather than the file.
+
+**Two of §2a's unknowns fell out of the catalog work.** Tier `2` is the
+*Imperfect* line and tiers `4`–`7` are Ancient Spirits, guild bosses and Towers
+— **none is an awakening above 2A**, so "highest awakening" is settled. And the
+capture list is now a number rather than an estimate: **1,086 monster types**,
+being the 1,110 five-digit ids at highest awakening less 12 Material monsters
+and 16 Korean-named test rows.
+
+**A finding worth keeping about the payload.** No tail to trim: all 23 artifact
+secondary rows for a slot sit above 1 %, so the distribution is informative all
+the way down and nothing is dropped. Compact JSON puts full coverage at 4.7 MB
+against 13 MB indented, which is why the file is written one line per monster.
+
+**Not done.** No commit yet. Collection itself is 4 of 1,086 types — that is the
+user's clicking, and it is what everything downstream of decision 10 waits on.
+The `effect_id` vocabularies for artifact `2xx`/`3xx`/`4xx` and relic small
+integers are still undecoded; the dataset stores them faithfully as raw ids, so
+decoding is a later mapping rather than a recapture.
+
+**Stopped at.** The collector is ready and the recipe is in §2a. The user
+captures monsters in stages and runs the merge after each session. Q8's second
+half — what a recapture does to a preference the user has edited — should be
+answered before step 5 builds the preference model, because the
+edited-versus-inherited distinction cannot be recovered after the fact.
