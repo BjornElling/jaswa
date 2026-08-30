@@ -33,7 +33,7 @@ export const navigationGroups: Array<{ heading: string; items: NavigationItem[] 
   },
 ];
 
-export const upcomingWorkspaces: Record<'optimizer' | 'speed' | 'artifacts' | 'gems' | 'relics', { title: string; tagline: string; text: string }> = {
+export const upcomingWorkspaces: Record<'optimizer' | 'speed' | 'gems' | 'relics', { title: string; tagline: string; text: string }> = {
   optimizer: {
     title: 'Rune Optimizer',
     tagline: 'Six slots, thousands of runes, one answer. Let your computer do the arithmetic so you can go back to pretending it was intuition.',
@@ -43,11 +43,6 @@ export const upcomingWorkspaces: Record<'optimizer' | 'speed' | 'artifacts' | 'g
     title: 'Speed Tuning',
     tagline: 'Turn order is a solved problem. Getting your own team to respect it is the hard part.',
     text: 'Works out the rune speeds your team needs to take turns in the order you intend.',
-  },
-  artifacts: {
-    title: 'Artifacts',
-    tagline: 'That artifact is superb. Just not for the monster wearing it.',
-    text: 'Compares artifact effects against the monsters that would gain most from them.',
   },
   gems: {
     title: 'Gems & Grinds',

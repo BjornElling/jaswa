@@ -2,8 +2,11 @@
 
 **Status:** Live working document for the Artifacts workspace
 **Started:** August 30, 2026
-**Last updated:** August 30, 2026 — session 3: decision 29 fixes the simple
-thresholds that turn engraving counts into preferred and acceptable defaults.
+**Last updated:** August 30, 2026 — session 3: decision 30 fixes the workspace's
+four areas, and the placeholder is gone — `artifacts` now routes to a real
+component carrying the four headings and nothing else. Decision 29 fixes the
+simple thresholds that turn engraving counts into preferred and acceptable
+defaults.
 The dataset and its collector exist, every observation carries its own date
 (decision 25), and the capture list is 1,086 monster types. Collection is now
 the user's to run, in stages, with `scripts/collect-engraving-statistics.mjs`
@@ -70,13 +73,15 @@ they saved — with nothing left behind a placeholder.
 Verified by reading the repository on August 30, 2026.
 
 **The navigation entry.** `app/lib/workspace-config.ts` — `'artifacts'` is a
-member of the `Page` union, sits in the `Workspaces` group of
-`navigationGroups` with the glyph `◇`, and has copy in `upcomingWorkspaces`.
+member of the `Page` union and sits in the `Workspaces` group of
+`navigationGroups` with the glyph `◇`.
 
-**The placeholder.** `app/page.tsx` routes `artifacts` into
-`UpcomingWorkspace` together with `optimizer`, `speed`, `gems`, and `relics`.
-`app/components/upcoming-workspace.tsx` renders title, tagline, and one empty
-state.
+**The placeholder is gone (step 7, session 3).** `app/page.tsx` routes
+`artifacts` to `app/components/artifacts-section.tsx`, which frames decision
+30's four areas as `Disclosure` headings; `UpcomingWorkspace` now covers only
+`optimizer`, `speed`, `gems`, and `relics`, and `upcomingWorkspaces` no longer
+carries an `artifacts` entry. The four sections hold their heading and stated
+purpose and no judgement — that arrives with steps 2–6.
 
 **The imported data.** `app/lib/file-imports.ts` already carries artifacts
 through the import:
@@ -620,6 +625,7 @@ recorded here once the user has taken it.
 | 27 | 2026-08-30 | **The traffic log is a buffer, not an archive.** `scripts/collect-engraving-statistics.mjs` merges it into the dataset additively after each session; the helper's "start a fresh file each recording" behaviour is left alone. | Switching recording on clears the log, which would lose a previous day's clicking. Making the helper append instead would need an installer rebuild and would undo a deliberate decision — a log that silently continued an earlier one invites reading yesterday's traffic as today's evidence. Merging after each session keeps that guarantee and still loses nothing, as long as the merge runs before recording is switched on again. |
 | 28 | 2026-08-30 | **A user-entered preference always takes precedence over the game's figures. The engraving statistics are consulted only where the user has entered nothing.** The two are never blended, averaged, or reconciled: for a given `(monster type, category, property)` the answer comes from the user if they have stated one, and from the dataset otherwise. | The user's call, and it answers Q8's override half. It also removes a whole class of problem rather than solving it: because a recapture cannot touch anything the user has stated, the dataset needs no merge policy against preferences, and there is no "your default changed" case to design. The distinction it *does* require is between **never stated** and **deliberately stated as nothing** — under `AGENTS.md` rule 3 those are different answers, and a cleared preference that fell back to the default would silently overrule the user. So a monster type's preferences must be stored as an explicit record of what the user said, absent where they said nothing, and never as a copy of the defaults seeded at first view. |
 | 29 | 2026-08-30 | **Default property preferences use fixed shares of their own engraving distribution.** Main Property is preferred at ≥ 40 % and acceptable at ≥ 10 %; Sub Property is preferred at ≥ 10 % and acceptable at ≥ 5 %. A lower share is neither; the calculation uses raw counts, separately for each monster type and artifact category. | Main Property has three values, whereas each Attribute or Type sub-property distribution has 23. One threshold would either discard useful main-property alternatives or label most sub-properties desirable. These limits keep the rule legible, produce a typical main-property result of one preferred and one acceptable choice, and leave a flat sub-property distribution honestly without a preferred default. |
+| 30 | 2026-08-30 | **The workspace is four areas, in this order: Best monster for this artifact, Best artifact for this monster, Recommended changelist, All artifacts.** Each is a `Disclosure` on the single Artifacts page. | The user's call, and it makes decision 13 concrete: the first two and the changelist are the three questions, and the fourth is the library they are all read against. Putting the two "best" views first sets judgement ahead of inventory, and the changelist sits where a user acts rather than browses. Naming the four now lets them exist as headings before their content does, so steps 2–6 fill an agreed frame instead of negotiating one late. |
 
 ---
 
@@ -636,11 +642,11 @@ Status is one of **Not started**, **In progress**, **Blocked**, **Done**.
 | A3 | Design and build the recorded dataset from the observed shape | **Built; collection in progress** | Session 2. `scripts/collect-engraving-statistics.mjs` merges the traffic log into `app/data/engraving-statistics.json` additively and idempotently. Verified against the user's screenshots: every stored count reproduces the displayed percentage exactly. Dates per observation (decision 25). **396 of 1,086 monster types captured (36 %), none part-captured** — the rest is the user's clicking, in stages (decision 26), and `--todo` names what is next. |
 | 1 | Establish the artifact rules — a canonical document from the game and a real export | **Done** | `docs/ARTIFACT-CANONICAL.md`. The *rules* were written in session 1; the **encoding** was settled in session 2 against 1,785 real artifact records found in the traffic log (§15). Five of its six open questions are closed and §5.3's pending verification is discharged. Three narrow fields stay pending and may not be computed from. |
 | 2 | Model and read artifacts — types, parsing, validation from `game.data.artifacts` | **Unblocked, not started** | §15 answers what blocked it. The record shape, the property vocabulary and its category split, the power-up encoding and its grade invariant, and the conversion slot are all verified. `equipmentPrimaryTypes` and `addArtifactMainEffect` were confirmed correct, so the existing footholds extend rather than get replaced (Q6). Validation rules are in `ARTIFACT-CANONICAL.md` §13. |
-| 3 | Artifact library — list, sort, filter, empty state | Not started | The first thing the user can see. Sections framed by the shared `Disclosure` (decision 14). |
+| 3 | Artifact library — list, sort, filter, empty state | Not started | This is decision 30's fourth area, **All artifacts**. Its heading exists; its content does not. Sections framed by the shared `Disclosure` (decision 14). |
 | 4 | Judgement — roll quality against the monster type's property preferences | Not started | Decision 9: value is how well the artifact rolled on the properties the user preferred, weighted by the decision 11 slider. No skill data, no combat simulation. The artifact's own category selects which half of the preferences applies (decision 21). Needs step 2's parsed values and step 5's preferences. |
 | 5 | Artifact preferences — per-type property preferences, the acceptable factor, and the defaults | Not started | Decisions 9–12, 15–21, **28–29**. Its own model in `Preferences`, extending `isValidPreferences`. Preferences are keyed `(category, property)` (decision 21), and Attribute and Type properties are presented separately (20). **Store only what the user actually stated** — never a copy of the seeded defaults, or a cleared preference becomes indistinguishable from an unset one and the default silently returns (decision 28). The statistics are read at the point of use as a fallback, applying decision 29's raw-count thresholds. §7 Q7a governs a type the dataset does not cover. Breaking change by design. |
-| 6 | Monster fit — which monsters gain most from an artifact | Not started | The tagline's promise. Under decision 13 it is a second reading of step 4's table rather than separate work. Depends on 2 and 4. |
-| 7 | Replace the placeholder — route `artifacts` to the real component | Not started | Remove `'artifacts'` from the `UpcomingWorkspace` branch and from `upcomingWorkspaces`. |
+| 6 | Monster fit — which monsters gain most from an artifact | Not started | The tagline's promise, and decision 30's first area. Under decision 13 it is a second reading of step 4's table rather than separate work. Depends on 2 and 4. |
+| 7 | Replace the placeholder — route `artifacts` to the real component | **Done** | Session 3. `app/components/artifacts-section.tsx` carries decision 30's four `Disclosure` headings and their stated purpose, and nothing more. `app/page.tsx` routes `artifacts` to it; `'artifacts'` is out of the `UpcomingWorkspace` branch and out of `upcomingWorkspaces`, whose tagline now lives in the component. |
 | 8 | Verify and finish — both extremes, layout check, definition of done, commit | Not started | `AGENTS.md` §7. |
 
 ---
@@ -1577,3 +1583,54 @@ one preferred and one acceptable value. For each Attribute or Type sub-property
 list it produces one preferred and three acceptable values, while leaving a flat
 distribution without an invented preferred choice. The rule is now recorded in
 §2 and the step 5 plan; implementation remains unstarted.
+
+### Session 3, continued — the four areas, and the placeholder retired
+
+**Asked.** Begin building the content of the Artifacts page. Put up the four
+menu items that had been discussed before, as headings only — carrying any
+content already clearly defined, and **no invented content beyond that**.
+
+**The four were not written down anywhere.** They had been settled in
+conversation but never recorded here, and the agent could not find them in the
+repository, so it stopped and asked rather than reconstructing a plausible four
+from §3's seven in-scope items. The user supplied them: *Best monster for this
+artifact*, *Best artifact for this monster*, *Recommended changelist*, *All
+artifacts*. Recorded as **decision 30** — which is the lesson as much as the
+decision: a settled choice that lives only in a conversation is not settled for
+the next session.
+
+**Built (step 7).** `app/components/artifacts-section.tsx` — the four areas as
+shared `Disclosure` fold-outs (decision 14), in decision 30's order, on the
+`WorkspacePage` frame with the shipped tagline as its `PageHeader`. `page.tsx`
+routes `artifacts` to it.
+
+**The placeholder was removed rather than left beside it.** `'artifacts'` is out
+of the `UpcomingWorkspace` branch and out of `upcomingWorkspaces`, whose
+`Record` key union narrowed with it. `AGENTS.md` §0 forbids leaving the remnant,
+and a second copy of the tagline in a table nothing reads is exactly the kind of
+thing that later drifts from the one on screen.
+
+**What each section says, and why it says so little.** A heading plus one
+sentence of purpose, drawn only from what is already decided: decision 18's
+"not ranked at all rather than ranked last" under the first, decision 9's
+preferred-and-acceptable roll judgement under the second. No scores, no
+placeholder rows, no invented controls. Writing an interim reading of the
+judgement would put a second answer beside the one steps 2–6 will produce.
+
+**One thing the frame does handle now.** With no import, the four folds would
+have been four empty boxes, so the no-game case keeps the `empty-state` panel
+and its next step, and the first fold opens by default only when an import
+exists.
+
+**Verified.** `npx tsc --noEmit` clean, `npm run lint` clean, `npx next build`
+succeeds — so the new module typechecks and compiles. **The visual check of
+`AGENTS.md` §3 and §7.4 was not done:** no browser-control tool is available in
+this session, so the four folds were not opened, and the empty and imported
+cases were not driven on screen. The dev server on `http://localhost:3000/` is
+running and was confirmed responding; its initial HTML carries no workspace copy
+for *any* page, this app being client-rendered, so fetching it proves nothing
+about the section either way. This is the one step of the definition of done left
+outstanding, and it needs the user or a browser session.
+
+**Not done.** Steps 2–6 are unstarted; the four sections are frames waiting for
+them.

@@ -2,6 +2,7 @@
 
 import { type ChangeEvent, type DragEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { AppRail } from './components/app-rail';
+import { ArtifactsSection } from './components/artifacts-section';
 import { HomeSection } from './components/home-section';
 import { ImportBadge } from './components/import-badge';
 import { MonsterOverview } from './components/monster-overview';
@@ -306,6 +307,8 @@ export default function Home() {
         onWritePresets={writePresets}
       />}
 
+      {page === 'artifacts' && <ArtifactsSection hasGame={Boolean(game)} />}
+
       {page === 'settings' && <SettingsSection
         general={preferences.general}
         saveFolder={saveFolder?.name ?? null}
@@ -317,7 +320,7 @@ export default function Home() {
         onImport={() => setLoadPreferencesPrompt(true)}
       />}
 
-      {(page === 'optimizer' || page === 'speed' || page === 'artifacts' || page === 'gems' || page === 'relics') && <UpcomingWorkspace
+      {(page === 'optimizer' || page === 'speed' || page === 'gems' || page === 'relics') && <UpcomingWorkspace
         {...upcomingWorkspaces[page]}
         hasGame={Boolean(game)}
       />}
