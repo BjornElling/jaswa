@@ -2,7 +2,7 @@
 
 **Status:** Live working document for the Artifacts workspace
 **Started:** August 30, 2026
-**Last updated:** August 30, 2026 — decision 32 defines
+**Last updated:** August 30, 2026 — decision 32 defines the benchmark-based
 `calculateArtifactOptimalValue`, the canonical artifact-versus-monster value.
 Decision 30 fixes the workspace's five areas and decision 31 the
 acceptable-versus-preferred factor, which is built and persisted. The placeholder
@@ -629,7 +629,7 @@ recorded here once the user has taken it.
 | 29 | 2026-08-30 | **Default property preferences use fixed shares of their own engraving distribution.** Main Property is preferred at ≥ 40 % and acceptable at ≥ 10 %; Sub Property is preferred at ≥ 10 % and acceptable at ≥ 5 %. A lower share is neither; the calculation uses raw counts, separately for each monster type and artifact category. | Main Property has three values, whereas each Attribute or Type sub-property distribution has 23. One threshold would either discard useful main-property alternatives or label most sub-properties desirable. These limits keep the rule legible, produce a typical main-property result of one preferred and one acceptable choice, and leave a flat sub-property distribution honestly without a preferred default. |
 | 30 | 2026-08-30 | **The workspace is five areas, in this order: Recommendations, Best monster for this artifact, Best artifact for this monster, All artifacts, Settings.** Each is a `Disclosure` on the single Artifacts page, and **none opens by default.** | The user's call, and it makes decision 13 concrete: Recommendations and the two "best" views are the three questions, All artifacts is the library they are read against, and Settings holds the tolerance applied to all of them. **Recommendations leads** because it is the answer a user comes to this page for — the account-wide "what should I actually change" — where the two "best" views answer a question about one artifact or one monster the user must first have in mind. **Settings sits last**, being set once and then left alone. Every fold starts closed and behaves identically, so the page never decides for the user which question they arrived with. Naming the five now lets them exist as headings before their content does, so steps 2–6 fill an agreed frame instead of negotiating one late. |
 | 31 | 2026-08-30 | **The acceptable-versus-preferred factor is stored as the percentage itself** — one of 0, 25, 50, 75 or 100 — **not as a 1–5 step index.** It defaults to 50 %, lives in `Preferences.artifacts` as `ArtifactSettings.acceptableWorth`, and is offered as a five-stop slider in the Artifacts **Settings** area. | Decision 11 fixed that there is one global factor; this fixes what is stored. The judgement multiplies by the factor, so storing the percentage keeps the value the user reads and the value the calculation uses as one thing — a step index would need translating into a factor somewhere, and that translation is a second source of truth. 50 % is the honest midpoint and reads as a deliberate answer, where 0 % (an acceptable property may as well be unwanted) and 100 % (the distinction stops meaning anything) read as the feature switched off. The five stops are a validated set rather than a range: a `.sw` file claiming 37 % did not come from this slider. |
-| 32 | 2026-08-30 | **Artifact-versus-monster value is `calculateArtifactOptimalValue`: main-property preference weight × the weighted mean of the four sub-property fractions of their respective maxima.** Preferred weighs 1; acceptable weighs `Acceptable ctr. preferred`; unwanted weighs 0. The sub-property weight appears in both the numerator and denominator. | The user wants one central value for every future reading of artifact value. A weighted mean lets acceptable properties affect the result in proportion to the slider without pretending a fully rolled acceptable property is only partly rolled. Main-property preference stays a whole-artifact multiplier, as specified. The complete contract is `ARTIFACT-CANONICAL.md` §16; the TypeScript function is its sole executable implementation. |
+| 32 | 2026-08-30 | **Artifact-versus-monster value is `calculateArtifactOptimalValue`: main-property preference weight × weighted, roll-quality sub-property sum, divided by the fixed benchmark `1 preferred + 3 acceptable`.** Preferred weighs 1; acceptable weighs `Acceptable ctr. preferred`; unwanted weighs 0. Scores may exceed 100 %. | The user approved a benchmark rather than an artifact-specific denominator. It keeps a max-rolled `2 preferred + 2 acceptable` artifact visibly exceptional (120 % at the default factor), while rewarding the rarer four-property preferred match more still. A dynamic denominator would erase unmatched slots and falsely make a narrow match perfect. The complete contract is `ARTIFACT-CANONICAL.md` §16; the TypeScript function is its sole executable implementation. |
 
 ---
 
@@ -647,7 +647,7 @@ Status is one of **Not started**, **In progress**, **Blocked**, **Done**.
 | 1 | Establish the artifact rules — a canonical document from the game and a real export | **Done** | `docs/ARTIFACT-CANONICAL.md`. The *rules* were written in session 1; the **encoding** was settled in session 2 against 1,785 real artifact records found in the traffic log (§15). Five of its six open questions are closed and §5.3's pending verification is discharged. Three narrow fields stay pending and may not be computed from. |
 | 2 | Model and read artifacts — types, parsing, validation from `game.data.artifacts` | **Unblocked, not started** | §15 answers what blocked it. The record shape, the property vocabulary and its category split, the power-up encoding and its grade invariant, and the conversion slot are all verified. `equipmentPrimaryTypes` and `addArtifactMainEffect` were confirmed correct, so the existing footholds extend rather than get replaced (Q6). Validation rules are in `ARTIFACT-CANONICAL.md` §13. |
 | 3 | Artifact library — list, sort, filter, empty state | Not started | This is decision 30's fourth area, **All artifacts**. Its heading exists; its content does not. Sections framed by the shared `Disclosure` (decision 14). |
-| 4 | Judgement — roll quality against the monster type's property preferences | Not started | Decision 9: value is how well the artifact rolled on the properties the user preferred, weighted by the decision 11 slider. No skill data, no combat simulation. The artifact's own category selects which half of the preferences applies (decision 21). Needs step 2's parsed values and step 5's preferences. |
+| 4 | Judgement — roll quality against the monster type's property preferences | **Partly done** | The canonical benchmark calculation is built (decision 32), but cannot receive real artifacts or preferences until steps 2 and 5 provide their validated models. No skill data or combat simulation: the artifact's own category selects which half of the preferences applies (decision 21). |
 | 5 | Artifact preferences — per-type property preferences, the acceptable factor, and the defaults | **Partly done** | The **acceptable factor is built** (decision 31): `ArtifactSettings.acceptableWorth` in `Preferences`, validated against its five stops, offered as the slider in the Artifacts Settings area. The per-type property preferences and the decision 29 defaults are unstarted, and they are the larger half. Decisions 9–12, 15–21, **28–29**. Its own model in `Preferences`, extending `isValidPreferences`. Preferences are keyed `(category, property)` (decision 21), and Attribute and Type properties are presented separately (20). **Store only what the user actually stated** — never a copy of the seeded defaults, or a cleared preference becomes indistinguishable from an unset one and the default silently returns (decision 28). The statistics are read at the point of use as a fallback, applying decision 29's raw-count thresholds. §7 Q7a governs a type the dataset does not cover. Breaking change by design. |
 | 6 | Monster fit — which monsters gain most from an artifact | Not started | The tagline's promise, and decision 30's **Best monster for this artifact** area. Under decision 13 it is a second reading of step 4's table rather than separate work. Depends on 2 and 4. |
 | 7 | Replace the placeholder — route `artifacts` to the real component | **Done** | Session 3. `app/components/artifacts-section.tsx` carries decision 30's four `Disclosure` headings and their stated purpose, and nothing more. `app/page.tsx` routes `artifacts` to it; `'artifacts'` is out of the `UpcomingWorkspace` branch and out of `upcomingWorkspaces`, whose tagline now lives in the component. |
@@ -1726,3 +1726,31 @@ which is the least interesting thing on it.
 **Verified.** `npx tsc --noEmit`, `npm run lint` and `npx next build` clean; the
 22-case settings contract check still passes, being untouched by an ordering
 change. The visual gap from the previous two entries stands unchanged.
+
+### Session 4 — August 30, 2026 — value benchmark settled
+
+**Asked.** Establish one canonical artifact value that rewards both roll quality
+and the rarer case where an artifact matches more of a monster's desired sub
+properties, without presenting an exceptional `2 preferred + 2 acceptable`
+artifact as a disappointing 75 % result.
+
+**Decision 32 revised and approved.** `calculateArtifactOptimalValue` uses the
+fixed max-roll benchmark of **one preferred and three acceptable sub
+properties**, not the preferences an artifact happens to match. Main-property
+preference remains a separate multiplier. At the default 50 % acceptable
+factor, the reference profile is 100 %, `2 preferred + 2 acceptable` is 120 %,
+and four preferred lines are 160 %.
+
+**Why a fixed benchmark is necessary.** The earlier weighted mean divided by
+the artifact's matching weights. That normalised missing desired lines away: one
+max preferred line plus three unwanted lines could score the same as four
+desired max lines. A denominator fixed before reading the artifact preserves
+the opportunity represented by all four slots. Scores above 100 % are a feature,
+not an overflow: the reference is ordinary excellence, and extra preferred
+lines identify a rarer artifact.
+
+**Built.** The executable formula lives only in
+`app/lib/artifact-optimal-value.ts`; `ARTIFACT-CANONICAL.md` §16 gives the same
+contract, examples, endpoints, invalid-input behaviour, and the reason for the
+design. The calculation has no real call site yet: the validated artifact and
+preference models remain steps 2 and 5.

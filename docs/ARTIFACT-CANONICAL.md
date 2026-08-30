@@ -1133,20 +1133,39 @@ w(unwanted)   = 0
 For the main property, `m = w(main preference)`. For each of the artifact's four
 sub properties, let `rᵢ = rolled valueᵢ / maximum valueᵢ`, with its maximum
 derived from the property definition and the artifact's natural grade (§3).
-Then:
+The sub-property benchmark is one preferred line and three acceptable lines:
 
 ```text
-subValue = Σ(wᵢ × rᵢ) / Σwᵢ
+benchmark = 1 + 3a
+subValue = Σ(wᵢ × rᵢ) / benchmark
 optimalValue = m × subValue
 ```
 
-The sub-property denominator is weighted too. An acceptable line therefore has
-less influence on the sub-value, but a fully rolled acceptable line is still a
-fully rolled line rather than a value silently capped at `a`. The main property
-is deliberately different: an acceptable main multiplies the entire result by
-`a`, exactly as the user chose.
+This is a fixed denominator. It must not be replaced with the weights of the
+properties the artifact happened to roll: doing that lets one max preferred line
+and three irrelevant lines score the same as four desired max lines. The chosen
+benchmark instead gives ordinary profiles an intuitive reference point while
+preserving the extra value of every additional preferred line.
 
-`optimalValue` is a fraction from 0 to 1. A monster category with no property
-preferences is **not judged** and returns `undefined`; a judged category whose
-artifact matches no chosen sub property returns the real value `0`. Invalid
-roll data is rejected as `undefined`, never clamped or repaired.
+At the default `a = 0.5`, with a preferred main and max rolls, the benchmark
+profile `1 preferred + 3 acceptable` is 100 %; `2 preferred + 2 acceptable` is
+120 %; four preferred lines are 160 %; and one preferred plus one acceptable
+line is 60 %. A score above 100 % is intentional: 100 % is the benchmark, not
+the ceiling. It says an artifact is exceptional without making a max-rolled
+`2 preferred + 2 acceptable` artifact look merely three-quarters complete.
+
+The main property remains a separate multiplier. A preferred main preserves the
+sub-property value; an acceptable main multiplies it by `a`; an unwanted main
+sets it to zero. The main is fixed rather than rolled, so it does not belong in
+the four-line benchmark.
+
+At `a = 0`, acceptable means unwanted; at `a = 1`, acceptable and preferred
+mean the same thing. Those endpoints deliberately change what can reach the
+benchmark: at 100 %, four acceptable max lines reach 100 %, because the user
+has removed the distinction. The function returns the score as a ratio, so
+`1.2` is displayed as 120 %.
+
+A monster category with no property preferences is **not judged** and returns
+`undefined`; a judged category whose artifact matches no chosen sub property
+returns the real value `0`. Invalid roll data is rejected as `undefined`, never
+clamped or repaired.

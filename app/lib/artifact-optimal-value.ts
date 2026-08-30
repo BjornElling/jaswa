@@ -31,9 +31,14 @@ function isRollFraction(value: number, maximum: number): boolean {
  * decide which properties matter, and the calculation says how well this
  * artifact rolled on those choices.
  *
+ * One is the benchmark: a preferred main property plus max rolls on one
+ * preferred and three acceptable sub properties. More preferred max rolls can
+ * exceed it, which lets the recommendation distinguish a broad match from a
+ * narrow one without calling an exceptional artifact mediocre.
+ *
  * `undefined` means the monster category has no property preferences and is
- * therefore not judged. A number is always a 0–1 fraction; zero is a real
- * result for a judged monster whose artifact matches none of its choices.
+ * therefore not judged. Zero is a real result for a judged monster whose
+ * artifact matches none of its choices.
  */
 export function calculateArtifactOptimalValue(input: ArtifactOptimalValueInput): number | undefined {
   if (!input.hasPropertyPreferences) return undefined;
@@ -43,18 +48,15 @@ export function calculateArtifactOptimalValue(input: ArtifactOptimalValueInput):
     || input.subProperties.length !== 4) return undefined;
 
   const mainWeight = preferenceWeight(input.mainPreference, input.acceptableWorth);
+  const acceptableWeight = input.acceptableWorth / 100;
+  const benchmark = 1 + 3 * acceptableWeight;
   let weightedRolls = 0;
-  let totalWeight = 0;
 
   for (const subProperty of input.subProperties) {
     if (!isRollFraction(subProperty.value, subProperty.maximum)) return undefined;
     const weight = preferenceWeight(subProperty.preference, input.acceptableWorth);
     weightedRolls += weight * (subProperty.value / subProperty.maximum);
-    totalWeight += weight;
   }
 
-  // A judged category can still have no matching sub property on this artifact.
-  // Its value is zero, while an unjudged category above remains undefined.
-  if (totalWeight === 0) return 0;
-  return mainWeight * (weightedRolls / totalWeight);
+  return mainWeight * (weightedRolls / benchmark);
 }
