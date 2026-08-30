@@ -264,12 +264,27 @@ function reportTodo(dataset, catalog, limit) {
     return !(row?.runes && row?.artifacts && row?.relics);
   });
 
-  console.log(`${outstanding.length} monster type(s) still to capture. Next ${Math.min(limit, outstanding.length)}:\n`);
-  for (const monster of outstanding.slice(0, limit)) {
-    const row = dataset.monsters[String(monster.id)];
-    const missing = row ? ['runes', 'artifacts', 'relics'].filter((panel) => !row[panel]) : null;
-    const note = missing ? `  (partial — needs ${missing.join(', ')})` : '';
-    console.log(`  ${monster.id}  ${monster.name}${note}`);
+  /* A half-captured monster is the cheapest work there is — one panel rather
+     than three — and the easiest to lose track of, because nothing on screen
+     says a panel was missed. It goes first. */
+  const partial = outstanding.filter((monster) => dataset.monsters[String(monster.id)]);
+  const untouched = outstanding.filter((monster) => !dataset.monsters[String(monster.id)]);
+
+  console.log(`${outstanding.length} monster type(s) still to capture.\n`);
+
+  if (partial.length) {
+    console.log(`${partial.length} need only a missed panel — finish these first:`);
+    for (const monster of partial) {
+      const row = dataset.monsters[String(monster.id)];
+      const missing = ['runes', 'artifacts', 'relics'].filter((panel) => !row[panel]);
+      console.log(`  ${monster.id}  ${(monster.name ?? '').padEnd(22)} needs ${missing.join(', ')}`);
+    }
+    console.log('');
+  }
+
+  console.log(`Next ${Math.min(limit, untouched.length)} not yet started:`);
+  for (const monster of untouched.slice(0, limit)) {
+    console.log(`  ${monster.id}  ${monster.name}`);
   }
 }
 

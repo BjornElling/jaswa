@@ -615,7 +615,7 @@ Status is one of **Not started**, **In progress**, **Blocked**, **Done**.
 | 0 | Write and maintain this sprint file | **In progress** | Created in session 1. Updated continuously for the sprint's life. |
 | A1 | Helper "Log all traffic" — tray toggle, off by default, writing decoded exchanges | **Done, proven live** | Session 1. `helper/src/traffic-log.cjs`, wired in `service.cjs`, offered in `tray.cjs`. 7 tests; suite 37/37. Installer rebuilt and verified. Captured 41 real exchanges from a live session. |
 | A2 | Record a log and write the true payload shape into §2a | **Done** | All three panels captured and verified against the screenshots: `getUnitStatsRuneInfo`, `getUnitStatsArtifactInfo`, `getUnitStatsRelicInfo`. Keyed on `unit_master_id`; raw counts, full distributions, one call per panel, three per monster. Rune `effect_id`s match `RUNE-CANONICAL.md` §2 exactly. Outstanding for A3, but not blocking it: the artifact and relic secondary vocabularies, and what `request_type`/`favorite_type` select. |
-| A3 | Design and build the recorded dataset from the observed shape | **Built; collection in progress** | Session 2. `scripts/collect-engraving-statistics.mjs` merges the traffic log into `app/data/engraving-statistics.json` additively and idempotently. Verified against the user's screenshots: every stored count reproduces the displayed percentage exactly. Dates per observation (decision 25). **4 of 1,086 monster types captured** — the rest is the user's clicking, in stages (decision 26), and `--todo` names what is next. |
+| A3 | Design and build the recorded dataset from the observed shape | **Built; collection in progress** | Session 2. `scripts/collect-engraving-statistics.mjs` merges the traffic log into `app/data/engraving-statistics.json` additively and idempotently. Verified against the user's screenshots: every stored count reproduces the displayed percentage exactly. Dates per observation (decision 25). **55 of 1,086 monster types captured** — the rest is the user's clicking, in stages (decision 26), and `--todo` names what is next. |
 | 1 | Establish the artifact rules — a canonical document from the game and a real export | **Mostly done** | `docs/ARTIFACT-CANONICAL.md` written in session 1 from the user's rules research, then extended from a second independent specification (decision 8). The *game rules* are recorded. What remains is the **encoding**, listed in its §15: field layout, property IDs, how power-up counts and the conversion slot are stored. That needs a real export. |
 | 2 | Model and read artifacts — types, parsing, validation from `game.data.artifacts` | **Blocked** | Blocked on `ARTIFACT-CANONICAL.md` §15 — the export encoding. The rules it must enforce are already written (§13 validation rules). |
 | 3 | Artifact library — list, sort, filter, empty state | Not started | The first thing the user can see. Sections framed by the shared `Disclosure` (decision 14). |
@@ -1343,7 +1343,7 @@ secondary rows for a slot sit above 1 %, so the distribution is informative all
 the way down and nothing is dropped. Compact JSON puts full coverage at 4.7 MB
 against 13 MB indented, which is why the file is written one line per monster.
 
-**Not done.** No commit yet. Collection itself is 4 of 1,086 types — that is the
+**Not done.** No commit yet. Collection itself is 55 of 1,086 types — that is the
 user's clicking, and it is what everything downstream of decision 10 waits on.
 The `effect_id` vocabularies for artifact `2xx`/`3xx`/`4xx` and relic small
 integers are still undecoded; the dataset stores them faithfully as raw ids, so
@@ -1379,3 +1379,54 @@ what the user actually said, and the statistics are read at the point of use.
 This is `AGENTS.md` rule 3 again, in the place it costs most.
 
 **Not done.** No code was changed; step 5 is where this takes effect.
+
+### Session 2, continued — the first real capture run, and what it taught
+
+**Asked.** The user clicked through the statistics tabs for a number of monsters
+as a test, and asked whether everything had been captured or something was
+missed.
+
+**Checked, and merged.** 366 log lines, 61 monster types, **55 complete and 5
+short**. The dataset now holds 60 types (Kaki being present but RTA-only). No
+empty lists, and no thin evidence anywhere: the smallest artifact sample is
+1,942 observations (Anduril) against 267,831 at the top (Raoq).
+
+**The five gaps have two different causes, and only one is a mistake.**
+
+- **Purian, Anduril, Eludain, Drogan** (`11731`/`33`/`34`/`35`) are missing
+  relics because **recording stopped mid-family** — the log's final line is an
+  artifact call at 14:19:23, and the relic sweep for that family never happened.
+- **Kaki** (`25112`) has all three panels, but every one was fetched **inside
+  RTA** (`favorite_type: 1`), so decision 22 rejected them. Nothing was missed
+  by the user; it was captured from the wrong screen back in the earlier
+  exploration.
+
+**A pattern in the log worth knowing, because it makes capture cheaper than the
+recipe assumes.** The user does not visit three panels per monster. Opening one
+monster's Statistics and switching element re-fetches the *same panel* for all
+five of a family, so a family is captured as three sweeps of five rather than
+five visits of three:
+
+```
+14:18:56  12031 Rune      14:19:00  12034 Artifact   14:19:05  12031 Relic
+14:18:56  12033 Rune      14:19:01  12033 Artifact   14:19:06  12033 Relic
+14:18:57  12034 Rune      14:19:02  12031 Artifact   14:19:07  12034 Relic
+```
+
+That is ~11 seconds for five monster types. It also explains the failure mode:
+an interrupted run loses **one panel across a whole family**, not one monster.
+So the thing to check after a session is exactly what `--todo` now reports
+first.
+
+**Changed.** `--todo` lists partially captured monsters ahead of untouched ones,
+with the panels each still needs. A half-captured monster is the cheapest work
+available and the easiest to lose track of, since nothing on screen says a panel
+was missed.
+
+**One reassurance from the repeats.** Bulldozer 2A's rune panel was captured
+four times over 23 minutes and returned byte-identical counts (38,397
+observations, `[5,15]` at 14,210) every time. The figures are stable within a
+session, so revisiting a monster costs nothing but time and the merge keeps the
+latest timestamp.
+
+**Not done.** No production code changed beyond the `--todo` ordering.
