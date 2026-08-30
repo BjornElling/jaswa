@@ -22,6 +22,10 @@ function mergeCollection(current, incoming, key) {
   return [...byId.values()];
 }
 
+function normalizedCollection(items, key) {
+  return mergeCollection([], Array.isArray(items) ? items : [], key);
+}
+
 function removeCollectionItems(current, identifiers, key) {
   const removed = new Set((Array.isArray(identifiers) ? identifiers : []).map(String));
   return (Array.isArray(current) ? current : []).filter((item) => !removed.has(identifier(item, key)));
@@ -78,6 +82,16 @@ function itemFromAccount(profile, entity, itemId) {
     if (equipped) return equipped;
   }
   return undefined;
+}
+
+function isKnownAccountEntity(profile, entity, item) {
+  const id = identifier(item, entity.identifierKey);
+  return Boolean(id && itemFromAccount(profile, entity, id));
+}
+
+function isRtaCommand(request) {
+  const command = isRecord(request) && typeof request.command === 'string' ? request.command : '';
+  return /rtpvp|world_?arena/i.test(command);
 }
 
 function moveEquipment(profile, entity, itemId, unitId) {
@@ -139,7 +153,20 @@ class ProfileStore {
 
   acceptSnapshot(profile) {
     if (!isRecord(profile) || !Array.isArray(profile.unit_list) || !Array.isArray(profile.runes)) return false;
-    this.profile = structuredClone(profile);
+    const wizardId = identifier(profile, 'wizard_id');
+    /* Login is the sole authoritative inventory response. Its root owner ID
+       lets us reject any units the game happens to include for another player,
+       while identifier-based normalization also prevents a malformed reply
+       from creating a second copy of a roster item. */
+    this.profile = {
+      ...structuredClone(profile),
+      unit_list: normalizedCollection(profile.unit_list
+        .filter((unit) => !wizardId || identifier(unit, 'wizard_id') === wizardId), 'unit_id'),
+      runes: normalizedCollection(profile.runes, 'rune_id'),
+      artifacts: normalizedCollection(profile.artifacts, 'artifact_id'),
+      relics: normalizedCollection(profile.relics, 'relic_id'),
+      rune_craft_item_list: normalizedCollection(profile.rune_craft_item_list, 'craft_item_id'),
+    };
     this.updatedAt = new Date().toISOString();
     this.source = 'game-start';
     this.sessionId += 1;
@@ -149,11 +176,19 @@ class ProfileStore {
 
   applyUpdate(response, request = {}) {
     if (!this.profile || !isRecord(response)) return false;
+    /* RTA answers describe a temporary battle roster. Even an owned monster
+       there has RTA equipment and stats, so it must never overwrite PvE. */
+    if (isRtaCommand(request)) return false;
     let changed = false;
     /* The game uses different response wrappers for the same account objects.
        Looking for identified records, rather than an ever-growing command list,
        catches upgrades, crafts, reappraisals and placement changes alike. */
     for (const [entity, item] of responseEntities(response, '')) {
+      /* Read-only replies for helpers, recommendations, shops and opponents
+         reuse the same item shapes as account updates. Only merge an entity
+         already present in the authoritative login snapshot; a new drop joins
+         at the next login rather than risking someone else's equipment. */
+      if (!isKnownAccountEntity(this.profile, entity, item)) continue;
       const next = mergeCollection(this.profile[entity.collection], [item], entity.identifierKey);
       if (!isDeepStrictEqual(next, this.profile[entity.collection])) {
         this.profile[entity.collection] = next;

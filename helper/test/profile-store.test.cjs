@@ -4,21 +4,56 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { ProfileStore } = require('../src/profile-store.cjs');
 
-test('keeps an account snapshot and merges live rune updates by identifier', () => {
+test('keeps an account snapshot and merges known live runes by identifier', () => {
   const store = new ProfileStore();
   assert.equal(store.acceptSnapshot({ unit_list: [{ unit_id: 1 }], runes: [{ rune_id: 5, upgrade_curr: 9 }], artifacts: [], relics: [], rune_craft_item_list: [] }), true);
   assert.equal(store.applyUpdate({ runes: [{ rune_id: 5, upgrade_curr: 12 }, { rune_id: 6, upgrade_curr: 0 }] }), true);
-  assert.deepEqual(store.read().data.runes, [{ rune_id: 5, upgrade_curr: 12 }, { rune_id: 6, upgrade_curr: 0 }]);
+  assert.deepEqual(store.read().data.runes, [{ rune_id: 5, upgrade_curr: 12 }]);
   assert.equal(store.read().source, 'live');
 });
 
-test('keeps live single-item responses and removes sold items', () => {
+test('keeps known live item responses and removes sold items', () => {
   const store = new ProfileStore();
   store.acceptSnapshot({ unit_list: [], runes: [{ rune_id: 5 }], artifacts: [], relics: [], rune_craft_item_list: [{ craft_item_id: 9 }] });
-  assert.equal(store.applyUpdate({ rune: { rune_id: 6, upgrade_curr: 12 } }, { command: 'upgradeRune' }), true);
+  assert.equal(store.applyUpdate({ rune: { rune_id: 5, upgrade_curr: 12 } }, { command: 'upgradeRune' }), true);
   assert.equal(store.applyUpdate({}, { command: 'SellRuneCraftItem', craft_id_list: [9] }), true);
-  assert.deepEqual(store.read().data.runes, [{ rune_id: 5 }, { rune_id: 6, upgrade_curr: 12 }]);
+  assert.deepEqual(store.read().data.runes, [{ rune_id: 5, upgrade_curr: 12 }]);
   assert.deepEqual(store.read().data.rune_craft_item_list, []);
+});
+
+test('keeps one owned PvE copy of each snapshot monster', () => {
+  const store = new ProfileStore();
+  store.acceptSnapshot({
+    wizard_id: 7,
+    unit_list: [
+      { unit_id: 1, wizard_id: 7, unit_master_id: 10101, building_id: 0 },
+      { unit_id: 2, wizard_id: 9, unit_master_id: 10101, building_id: 0 },
+      { unit_id: 1, wizard_id: 7, unit_master_id: 10101, building_id: 0 },
+    ],
+    runes: [{ rune_id: 5 }, { rune_id: 5 }], artifacts: [{ artifact_id: 6 }, { artifact_id: 6 }], relics: [{ relic_id: 7 }, { relic_id: 7 }], rune_craft_item_list: [],
+  });
+
+  assert.deepEqual(store.read().data.unit_list.map((unit) => unit.unit_id), [1]);
+  assert.deepEqual(store.read().data.runes.map((rune) => rune.rune_id), [5]);
+  assert.deepEqual(store.read().data.artifacts.map((artifact) => artifact.artifact_id), [6]);
+  assert.deepEqual(store.read().data.relics.map((relic) => relic.relic_id), [7]);
+});
+
+test('does not add opponent, helper, shop-preview or RTA records to the account', () => {
+  const store = new ProfileStore();
+  store.acceptSnapshot({
+    wizard_id: 7,
+    unit_list: [{ unit_id: 1, wizard_id: 7, unit_master_id: 10101, building_id: 0 }],
+    runes: [{ rune_id: 5, upgrade_curr: 9 }], artifacts: [], relics: [], rune_craft_item_list: [],
+  });
+  const revision = store.status().revision;
+
+  assert.equal(store.applyUpdate({ helper: { unit_id: 2, wizard_id: 9, unit_master_id: 10101 } }, { command: 'GetHelperList_v2' }), false);
+  assert.equal(store.applyUpdate({ rune: { rune_id: 6, upgrade_curr: 12 } }, { command: 'GetBlackMarketList' }), false);
+  assert.equal(store.applyUpdate({ unit: { unit_id: 1, wizard_id: 7, unit_master_id: 10101, building_id: 99 } }, { command: 'GetRTPvPInfo_v3' }), false);
+  assert.equal(store.status().revision, revision);
+  assert.deepEqual(store.read().data.unit_list, [{ unit_id: 1, wizard_id: 7, unit_master_id: 10101, building_id: 0 }]);
+  assert.deepEqual(store.read().data.runes, [{ rune_id: 5, upgrade_curr: 9 }]);
 });
 
 test('keeps a snapshot ready during a quiet game session', () => {
