@@ -342,16 +342,25 @@ Nothing below has been observed; none of it may be assumed in code.
 - Whether an unpopular monster returns empty lists or omits the keys entirely.
   Beth is a heavily used monster; a rarely built one is the case that will show
   it, and it decides what "no data" has to look like in the workspace.
-- **How the workspace looks up a monster the user owns un-awakened.** Decision
-  23 settles what the dataset holds; this is the lookup in the other direction.
-  The account holds exactly **one** tier-0 type against 225 at tier 1 and 38 at
-  tier 3, so this is a rare case rather than a structural gap — but it still
-  needs an answer: derive the tier-1 id arithmetically (`id + 10`), or leave
-  such a monster unjudged. `swarfarm-monsters.json` carries no awakening
-  relation, so arithmetic is the only route available today.
-- **What tier digits `2` and `4`–`7` mean.** They occur in the catalog (52 and
-  57 entries) but the account owns none, and none has been observed in a
-  statistics call.
+- **How to tell, from the catalog alone, what a monster type's highest
+  awakening is.** The capture needs this to know which id to ask for, and
+  `swarfarm-monsters.json` carries no awakening relation — only `com2us_id`,
+  `name`, `image_filename`, `archetype`. The arithmetic ("is there an entry at
+  `id + 20`?") survives a first check: of 1237 tier-1 entries, 111 have a
+  tier-3 partner, and 103 of those share the 1A name — the 8 that differ are
+  renames like `13211` Lulu → `13231` "Lulu and Friends", not mismatches. The
+  only failures are 6 six-digit boss and tower entries (`111331` Incarnation of
+  Greed, `112033` Tower) with no tier-1 partner, which are not player monsters
+  and should be excluded from the capture anyway. **Still unproven** that the
+  rule holds for every real monster, and tiers `2` and `4`–`7` are unexamined.
+- **What tier digits `2` and `4`–`7` mean.** 52 and 57 catalog entries
+  respectively, none observed in a statistics call. They matter only if one of
+  them turns out to be an awakening above tier 3, which would change what
+  "highest awakening" resolves to.
+- **What a recommendation does with a monster whose type has no row** — because
+  it is un-awakened, or because the capture never covered it. This is the same
+  shape as Q7a and should get the same answer: not judged, rather than judged as
+  zero.
 
 ### Way in — JASWA Helper's own "Log all traffic"
 
@@ -407,30 +416,31 @@ element (1–5); the second-to-last is the awakening tier. Each tier is a
 | `1` | awakened (1A) | `20812` Bulldozer, `25112` Kaki, `17911` Beth |
 | `3` | second awakened (2A) | `20832` Bulldozer 2A, `10631` Tarq 2A |
 
-Tier `2` and `4`–`7` also occur in the catalog and are not yet identified. The
-account owns 225 types at tier 1, 38 at tier 3, and 1 at tier 0 — so **2A
-monsters are a real and substantial part of a roster, not an edge case.**
+Tier `2` (52 catalog entries) and `4`–`7` (57) also occur and are not yet
+identified. Of the catalog's 3089 entries, 1626 sit at tier 0, 1237 at tier 1
+and 117 at tier 3.
 
-A 2A monster keeps its name (`20812` and `20832` are both "Bulldozer"), so the
-catalog cannot distinguish the tiers by name — only by id.
+A 2A monster keeps its name — `20812` and `20832` are both "Bulldozer" — so the
+catalog cannot separate the tiers by name, only by id.
 
 **2A has its own statistics, and they are genuinely different.** Bulldozer 2A
-(`20832`) returns `[5,15]` at 37.0 % over 38,397 observations — a distribution
-that belongs to the 2A form, not the 1A one. Reading 1A's statistics for a 2A
-monster would be wrong data, not merely imprecise.
+(`20832`) returns `[5,15]` at 37.0 % over 38,397 observations, a distribution
+the 1A form does not. Reading 1A's numbers for a 2A monster would be wrong data,
+not merely imprecise.
 
 **Why two different ids can appear one second apart.** Opening an un-awakened
 monster fires `GetUnitRecommendPage_V2` with the tier-0 id and
 `getUnitStats*Info` with the tier-1 id — the recommend page addresses the
-monster the user clicked, the statistics address the form worth measuring. For a
-monster already at its final form the two agree: Beth sent `17911` on both, and
+monster on screen, the statistics address the form worth measuring. Where the
+monster is already at its final form the two agree: Beth sent `17911` on both,
 Bulldozer 2A sent `20832` on both.
 
-**The rule for the capture: read the id from the `getUnitStats*Info` request
-itself**, never from the neighbouring recommend call, and keep whatever tier it
-names. That yields tier 1 for an un-awakened or 1A monster and tier 3 for a 2A
-one, which is exactly what decision 23 wants — the awakened form the monster
-actually has.
+**The rule for the capture: collect each monster type at its highest awakening,
+and read the id from the `getUnitStats*Info` request itself** — never from the
+neighbouring recommend call. A type with a 2A form is collected at tier 3; one
+without, at tier 1. Tier 0 is never collected: decision 23 rules it out, because
+what players hang on an un-awakened monster is mostly spare runes parked out of
+the way, which would describe the parking rather than the monster.
 
 **Keyed on the monster type, as decision 15 needs.** The statistics are keyed on
 `unit_master_id`, never `unit_id`, so the defaults seed the user's property
@@ -527,7 +537,8 @@ recorded here once the user has taken it.
 | 20 | 2026-08-30 | Attribute properties and Type properties are presented **separately**, not as one combined list — and probably as separate areas of the Artifacts workspace rather than only as two groups inside one editor. | The user's call, on a list of around 33 current properties. It also follows the game's own division: §5 of the canonical document puts nine properties on Type artifacts only and ten on Attribute artifacts only, and a monster wears exactly one of each. Two shorter lists that each mean something beat one long list that mixes two questions. How far the separation goes — two groups, two fold-outs, or two areas — is settled in step 5 against the running app. |
 | 21 | 2026-08-30 | A property preference is keyed by **`(category, property)`**, not by property alone. The fourteen both-category properties therefore appear in both lists and are set independently: `Life Drain` may be preferred on the Type artifact and unwanted on the Attribute one. | The user's call, and the reason decision 20 is a model decision rather than a layout one. A monster wears one artifact of each category, so "which property do I want here" is genuinely two questions — a `Life Drain` roll on the Attribute artifact is a different opportunity from one on the Type artifact, and it competes against a different set of alternatives. Keying on the property alone would silently force one answer onto both. |
 | 22 | 2026-08-30 | **The engraving statistics JASWA captures and turns into defaults are the PvE ones** (`favorite_type: 0`), for artifacts and relics alike. The RTA model is not captured. | The user's call. The game keeps two models per monster type and the capture must pick one, because a default seeded from a mix of both would mean nothing. PvE is the mode most of an account's equipment is actually built for, and it rests on far more observations — 41,861 against 4,961 on Onmyouji, 65,983 against 3,598 on Beth. For relics the choice is moot: the game offers only one model. |
-| 23 | 2026-08-30 | **The dataset holds awakened forms only, and each awakening tier is its own row.** Rows are keyed on the `unit_master_id` the `getUnitStats*Info` request itself carries — tier 1 for an awakened monster, tier 3 for a second-awakened one. | The user's call: only awakened forms are worth judging equipment for. The tier is encoded in the id's second-to-last digit, and **2A is not a variant of 1A but a separate monster with its own statistics** — Bulldozer 2A returns a distribution 1A does not, and the account holds 38 such types. Treating them as one would file the wrong evidence against a third of the roster. The statistics call already names the right tier, so no conversion is needed. See §2a. |
+| 23 | 2026-08-30 | **The dataset holds exactly one row per monster type: its highest awakening.** Nothing else is collected — not un-awakened forms, not a lower tier of a type that has a higher one. | The user's call. The statistics say what other players equip; on an un-awakened monster that is mostly poor runes parked somewhere convenient, so tier-0 data is actively misleading rather than merely thin. The tier lives in the id's second-to-last digit (`0` un-awakened, `1` awakened, `3` second awakened), and **2A is a separate monster with its own statistics, not a variant of 1A** — Bulldozer 2A returns a distribution 1A does not, and both are named "Bulldozer", so only the id separates them. See §2a. |
+| 24 | 2026-08-30 | **The dataset is catalog-wide and has nothing to do with the user's own account.** It is collected per monster *type*, and the property preferences the user sets are likewise per type. Which monsters the user owns is irrelevant to both. | The user's correction of an agent misreading. Ownership enters at exactly one point: when the workspace recommends artifacts for the user's monsters, and even there it only looks up the preferences already recorded against that monster type. Letting the account shape the dataset or the preferences would make a general reference into a private one, and would mean the same monster type could be judged differently for no reason. |
 
 ---
 
@@ -1167,5 +1178,36 @@ request itself and keep the tier it names.**
 **One question left open**, and it is small: the account owns exactly one
 tier-0 type, so a monster held un-awakened is a rare case rather than a
 structural gap. Either derive `id + 10` or leave it unjudged.
+
+**Not done.** No production code changed.
+
+### Session 1, continued — the dataset is a catalog, not an account
+
+**Asked.** The user stated the collection rule: gather statistics only for each
+monster type's **highest awakening**, because what players hang on an
+un-awakened monster is mostly spare runes parked out of the way and says nothing
+about the monster.
+
+**Then corrected a misreading.** The agent had begun reasoning from the user's
+own roster — counting how many owned types sat at each tier, and asking whether
+a monster owned at 1A but having a 2A form should be captured at 2A. That
+framing was wrong. **The dataset is catalog-wide and has nothing to do with the
+account.** Statistics are collected per monster *type*, at its highest
+awakening, full stop. The property preferences the user later sets are likewise
+per type. Ownership enters at exactly one point — recommending artifacts for the
+user's own monsters — and even there only by looking up the preferences already
+recorded against that monster's type.
+
+Recorded as **decision 24**, and decision 23 rewritten to say "one row per
+monster type, its highest awakening" rather than describing tiers in terms of
+what the account holds. The account-derived counts have been taken out of §2a.
+
+**A check the correction made worth running.** Since the capture must resolve
+"highest awakening" from the catalog rather than from owned monsters, the
+`id + 20` arithmetic was tested across all 3089 entries: 111 of 1237 tier-1
+entries have a tier-3 partner, 103 sharing the 1A name and 8 renamed
+(`13211` Lulu → `13231` "Lulu and Friends"). The only failures are six
+six-digit boss and tower entries with no tier-1 partner, which are not player
+monsters. Recorded in §2a as promising but unproven.
 
 **Not done.** No production code changed.
