@@ -27,7 +27,7 @@ function AccelerationMark({ state }: { state: AccelerationState }) {
   </span>;
 }
 
-export function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLeave, onDrop, onRemove, onReport, onExportPreferences, onImportPreferences, hardwareAcceleration, onHardwareAcceleration, directImportMode, onDirectImportMode, importRoute, onImportRoute, helperConnection }: {
+export function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLeave, onDrop, onRemove, onReport, hardwareAcceleration, onHardwareAcceleration, directImportMode, onDirectImportMode, importRoute, onImportRoute, helperConnection }: {
   game: ImportedGame | null;
   message: string;
   dragging: boolean;
@@ -37,8 +37,6 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
   onDrop: (event: DragEvent<HTMLDivElement>) => void;
   onRemove: () => void;
   onReport: (category: ReportCategory, details: string) => void;
-  onExportPreferences: () => void;
-  onImportPreferences: () => void;
   hardwareAcceleration: boolean;
   onHardwareAcceleration: (enabled: boolean) => void;
   directImportMode: DirectImportMode;
@@ -215,17 +213,6 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
               <span>or choose a file from your computer</span>
             </div>
           </ImportRouteCard>
-        </div>
-      </div>
-    </section>
-
-    <section className="panel">
-      <h3 className="block-title">Your preferences</h3>
-      <div className="stack">
-        <p className="lead">Personal names, monster goals and rune requirements are stored separately from the game import, so replacing your data keeps them.</p>
-        <div className="button-row">
-          <button className="button" onClick={onExportPreferences}>Download .sw file</button>
-          <button className="button" onClick={onImportPreferences}>Load .sw file</button>
         </div>
       </div>
     </section>

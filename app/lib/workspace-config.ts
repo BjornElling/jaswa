@@ -1,7 +1,7 @@
 import type { AccelerationState } from './hardware-acceleration';
 import type { HelperConnection } from './helper-client';
 
-export type Page = 'home' | 'monsters' | 'optimizer' | 'speed' | 'potential' | 'artifacts' | 'gems' | 'relics' | 'preferences';
+export type Page = 'home' | 'monsters' | 'optimizer' | 'speed' | 'potential' | 'artifacts' | 'gems' | 'relics' | 'settings';
 export type ReportCategory = 'Monster' | 'Rune' | 'Gem' | 'Grindstone' | 'Artifact' | 'Relic' | 'Other';
 
 export type NavigationItem = { id: Page; label: string; glyph: string };
@@ -29,7 +29,7 @@ export const navigationGroups: Array<{ heading: string; items: NavigationItem[] 
   },
   {
     heading: 'Setup',
-    items: [{ id: 'preferences', label: 'Preferences', glyph: '⚙' }],
+    items: [{ id: 'settings', label: 'Settings', glyph: '⚙' }],
   },
 ];
 

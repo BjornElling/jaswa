@@ -5,7 +5,7 @@ import { AppRail } from './components/app-rail';
 import { HomeSection } from './components/home-section';
 import { ImportBadge } from './components/import-badge';
 import { MonsterOverview } from './components/monster-overview';
-import { PreferencesSection } from './components/preferences-section';
+import { SettingsSection } from './components/settings-section';
 import { DirectImportModeDialog, RemoveGameDataDialog, ReplaceImportDialog, ReportDialog } from './components/import-dialogs';
 import { RunePotentialSection } from './components/rune-potential-section';
 import { UpcomingWorkspace } from './components/upcoming-workspace';
@@ -15,7 +15,7 @@ import { checkHelperConnection, readHelperProfile } from './lib/helper-client';
 import type { HelperConnection } from './lib/helper-client';
 import { downloadJson, formatDateTime } from './lib/formatting';
 import type { GameRecord } from './lib/game-data';
-import type { DirectImportMode, ImportRoute, ImportedGame, MonsterPreference, Preferences, RunePotentialSettings } from './lib/types';
+import type { DirectImportMode, ImportRoute, ImportedGame, Preferences, RunePotentialSettings } from './lib/types';
 import type { RunePotentialPreset } from './lib/rune-potential-presets';
 import { type Page, type ReportCategory, upcomingWorkspaces } from './lib/workspace-config';
 
@@ -128,21 +128,6 @@ export default function Home() {
     });
   }
 
-  function updateMonsterPreference(unitId: string, update: Partial<MonsterPreference>) {
-    changePreferences((current) => ({
-      ...current,
-      monsterPreferences: {
-        ...current.monsterPreferences,
-        [unitId]: Object.assign(
-          { unitId, label: '', runeSets: '', statGoals: '' },
-          current.monsterPreferences[unitId],
-          update,
-          { unitId },
-        ),
-      },
-    }));
-  }
-
   function updateHardwareAcceleration(enabled: boolean) {
     changePreferences((current) => ({ ...current, hardwareAcceleration: enabled }));
   }
@@ -239,8 +224,6 @@ export default function Home() {
         onDrop={handleDrop}
         onRemove={() => setRemoveGameDataPrompt(true)}
         onReport={openReport}
-        onExportPreferences={() => downloadJson('jaswa-preferences.sw', JSON.stringify(preferences, null, 2))}
-        onImportPreferences={() => settingsInput.current?.click()}
         hardwareAcceleration={preferences.hardwareAcceleration}
         onHardwareAcceleration={updateHardwareAcceleration}
         directImportMode={preferences.directImportMode}
@@ -259,10 +242,7 @@ export default function Home() {
         onWritePresets={writePresets}
       />}
 
-      {page === 'preferences' && <PreferencesSection
-        monsters={monsters}
-        preferences={preferences}
-        onUpdate={updateMonsterPreference}
+      {page === 'settings' && <SettingsSection
         onExport={() => downloadJson('jaswa-preferences.sw', JSON.stringify(preferences, null, 2))}
         onImport={() => settingsInput.current?.click()}
       />}
