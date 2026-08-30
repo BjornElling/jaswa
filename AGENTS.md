@@ -58,6 +58,10 @@ server.**
   it would materially test a changed interface, layout, interaction, or a
   visual defect reported by the user. Browser access is available for this
   purpose; do not infer otherwise from the editor in use.
+- Distinguish the local server from browser automation. Verify the existing
+  `http://localhost:3000/` server directly before calling it unavailable; a
+  missing or disconnected browser-control session means visual interaction is
+  unavailable, not that the development server has stopped.
 - Keep visual verification proportional. Do not inspect every page by ritual
   after a documentation, data-only, or non-visual change. Do inspect the
   affected flow when a change could alter rendering, behaviour, layout, focus,
