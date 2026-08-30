@@ -12,9 +12,7 @@ import type {
    closes each line as the way out of choosing. */
 const numberChoices: NumberFormatChoice[] = ['european', 'american', 'system'];
 const dateChoices: DateOrderChoice[] = ['european', 'american', 'system'];
-/* Clock keeps Automatic first: its two explicit options differ only in the
-   hour, so the line reads better from the default outwards. */
-const clockChoices: HourCycleChoice[] = ['system', 'h23', 'h12'];
+const clockChoices: HourCycleChoice[] = ['h23', 'h12', 'system'];
 
 function sampled<Value extends string>(choices: Value[], sample: (choice: Value) => string) {
   return choices.map((value) => ({
@@ -24,8 +22,8 @@ function sampled<Value extends string>(choices: Value[], sample: (choice: Value)
 }
 
 const zoneOptions: Array<{ value: TimeZoneChoice; label: string }> = [
-  { value: 'system', label: 'Automatic' },
   { value: 'manual', label: 'Choose' },
+  { value: 'system', label: 'Automatic' },
 ];
 
 /**
@@ -96,35 +94,9 @@ export function GeneralSettings({ settings, saveFolder, canChooseFolder, onChang
     [settings],
   );
 
+  /* Formats and Time first: they are the settings a user comes here to change.
+     The file questions below them are the ones you set once and then leave. */
   return <>
-    <section className="panel">
-      <h3 className="block-title">File location</h3>
-      <div className="stack">
-        <p className="lead">Where to store your .sw stash and loot JSON files.</p>
-        <SaveLocation
-          saveFolder={saveFolder}
-          canChooseFolder={canChooseFolder}
-          onChooseFolder={onChooseFolder}
-          onForgetFolder={onForgetFolder}
-        />
-      </div>
-    </section>
-
-    <section className="panel">
-      <h3 className="block-title">Export/import personalization</h3>
-      <div className="stack">
-        <p className="lead">
-          The browser remembers your personalized settings for rune and
-          artifact optimization, but in case you’d like an offline copy,
-          this is where the magic happens.
-        </p>
-        <div className="button-row">
-          <button className="button" onClick={onExport}>Download .sw file</button>
-          <button className="button" onClick={onImport}>Load .sw file</button>
-        </div>
-      </div>
-    </section>
-
     <section className="panel">
       <h3 className="block-title">Formats</h3>
       <div className="stack">
@@ -149,7 +121,8 @@ export function GeneralSettings({ settings, saveFolder, canChooseFolder, onChang
         <RadioLine<TimeZoneChoice>
           name="time-zone" legend="Time zone" options={zoneOptions}
           current={settings.timeZone}
-          onChange={(value) => onChange({ timeZone: value })}>
+          onChange={(value) => onChange({ timeZone: value })}
+          childrenAfter="manual">
           {/* The select keeps its place on the line whichever option is chosen,
               rather than appearing on selection and moving the row. Disabled,
               it still shows the zone it would use. */}
@@ -161,6 +134,34 @@ export function GeneralSettings({ settings, saveFolder, canChooseFolder, onChang
             </select>
           </label>
         </RadioLine>
+      </div>
+    </section>
+
+    <section className="panel">
+      <h3 className="block-title">Export/import personalization</h3>
+      <div className="stack">
+        <p className="lead">
+          The browser remembers your personalized settings for rune and
+          artifact optimization, but in case you’d like an offline copy,
+          this is where the magic happens.
+        </p>
+        <div className="button-row">
+          <button className="button" onClick={onExport}>Download .sw file</button>
+          <button className="button" onClick={onImport}>Load .sw file</button>
+        </div>
+      </div>
+    </section>
+
+    <section className="panel">
+      <h3 className="block-title">File location</h3>
+      <div className="stack">
+        <p className="lead">Where to store your .sw stash and go looking for JSON files.</p>
+        <SaveLocation
+          saveFolder={saveFolder}
+          canChooseFolder={canChooseFolder}
+          onChooseFolder={onChooseFolder}
+          onForgetFolder={onForgetFolder}
+        />
       </div>
     </section>
   </>;

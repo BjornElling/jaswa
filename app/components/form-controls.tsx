@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import type { ReactNode } from 'react';
 import type { ImportRoute } from '../lib/types';
 
@@ -40,23 +41,30 @@ export function ImportRouteCard({ option, name, value, current, onChoose, childr
  * settings whose options say what they mean on sight — "24-hour", or the
  * separators written out as the number they produce.
  */
-export function RadioLine<Value extends string>({ name, legend, options, current, onChange, children }: {
+export function RadioLine<Value extends string>({ name, legend, options, current, onChange, children, childrenAfter }: {
   name: string;
   legend: string;
   options: Array<{ value: Value; label: string }>;
   current: Value;
   onChange: (value: Value) => void;
   children?: ReactNode;
+  /** The option `children` belong to, so a control that completes one option
+      sits beside it rather than at the end of a line it does not answer.
+      Without it the children close the row. */
+  childrenAfter?: Value;
 }) {
   return <fieldset className="radio-line">
     <legend className="radio-line-legend">{legend}</legend>
     <div className="radio-line-options">
-      {options.map((option) => <label key={option.value} className="radio-chip">
-        <input type="radio" name={name} value={option.value} checked={current === option.value}
-          onChange={() => onChange(option.value)} />
-        <span>{option.label}</span>
-      </label>)}
-      {children}
+      {options.map((option) => <Fragment key={option.value}>
+        <label className="radio-chip">
+          <input type="radio" name={name} value={option.value} checked={current === option.value}
+            onChange={() => onChange(option.value)} />
+          <span>{option.label}</span>
+        </label>
+        {childrenAfter === option.value && children}
+      </Fragment>)}
+      {childrenAfter === undefined && children}
     </div>
   </fieldset>;
 }
