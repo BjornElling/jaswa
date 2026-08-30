@@ -7,6 +7,7 @@ import type { GameRecord } from '../lib/game-data';
 import type { ImportedGame, Preferences } from '../lib/types';
 import { readArtifacts } from '../lib/artifacts';
 import { artifactValueOnMonster } from '../lib/artifact-value-on-monster';
+import { defaultPropertyPreferences } from '../lib/artifact-preferences';
 import {
   artifactCategoryLabel, artifactEquipClass, compareArtifactRows,
   defaultArtifactSortDirections, displaySubProperty,
@@ -23,6 +24,22 @@ import { formatNumber } from '../lib/formatting';
 const categoryOrder: readonly ArtifactCategory[] = ['attribute', 'type'];
 const elementOrder = Object.values(artifactElements);
 const archetypeOrder = Object.values(artifactArchetypes);
+
+function ConvertedMark() {
+  return <svg className="artifact-sub-mark artifact-sub-converted" viewBox="0 0 16 16" role="img" aria-label="Converted">
+    <path d="M13 5.5A5.25 5.25 0 0 0 3.6 4L2.5 5.25" />
+    <path d="M2.5 2.75v2.5H5" />
+    <path d="M3 10.5A5.25 5.25 0 0 0 12.4 12l1.1-1.25" />
+    <path d="M13.5 13.25v-2.5H11" />
+  </svg>;
+}
+
+function PowerUpMark() {
+  return <svg className="artifact-sub-mark artifact-sub-power-up-arrow" viewBox="0 0 16 16" aria-hidden="true">
+    <path d="M8 13V3" />
+    <path d="m4.5 6.5 3.5-3.5 3.5 3.5" />
+  </svg>;
+}
 
 function ArtifactColumnGroup() {
   return <colgroup>
@@ -81,6 +98,9 @@ export function ArtifactList({ game, monsters, preferences }: {
       const wearer = artifact.occupiedId === null ? undefined : wearers.get(artifact.occupiedId);
       const unitId = wearer?.unit_id === undefined ? null : String(wearer.unit_id);
       const preference = unitId === null ? undefined : preferences.monsterPreferences[unitId];
+      const propertyPreferences = wearer
+        ? defaultPropertyPreferences(wearer.unit_master_id, artifact.category)
+        : undefined;
       return {
         artifact,
         index,
@@ -93,6 +113,7 @@ export function ArtifactList({ game, monsters, preferences }: {
           : unitId === null ? null : preference?.label || names[unitId] || null,
         value: wearer ? artifactValueOnMonster(artifact, wearer.unit_master_id, preferences.artifacts.acceptableWorth) : undefined,
         subProperties: artifact.subProperties,
+        subPropertyPreferences: propertyPreferences?.sub ?? null,
       };
     });
   }, [artifacts, monsters, preferences]);
@@ -252,10 +273,20 @@ export function ArtifactList({ game, monsters, preferences }: {
             </td>
             <td className="align-left">
               <ul className="artifact-subs">
-                {row.subProperties.map((subProperty) => <li
-                  key={subProperty.definition.id}
-                  className={subProperty.definition.status === 'legacy' ? 'legacy' : undefined}
-                >{displaySubProperty(subProperty, (value) => formatNumber(value, preferences.general))}</li>)}
+                {row.subProperties.map((subProperty) => {
+                  const preference = row.subPropertyPreferences?.get(subProperty.definition.id) ?? 'unwanted';
+                  return <li
+                    key={subProperty.definition.id}
+                    className={`artifact-sub-${preference}${subProperty.definition.status === 'legacy' ? ' legacy' : ''}`}
+                  >
+                    {displaySubProperty(subProperty, (value) => formatNumber(value, preferences.general))}
+                    {subProperty.converted && <ConvertedMark />}
+                    {subProperty.powerUps > 0 && <>{' '}<span className="artifact-sub-power-ups">
+                      <span aria-hidden="true">[{subProperty.powerUps}<PowerUpMark />]</span>
+                      <span className="visually-hidden"> {subProperty.powerUps} power-up{subProperty.powerUps === 1 ? '' : 's'}</span>
+                    </span></>}
+                  </li>;
+                })}
               </ul>
             </td>
           </tr>)}

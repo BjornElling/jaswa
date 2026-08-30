@@ -1,4 +1,5 @@
 import type { Artifact, ArtifactSubProperty } from './artifacts';
+import type { ArtifactPropertyPreference } from './artifact-optimal-value';
 import type { ArtifactCategory, ArtifactGrade } from './artifact-properties';
 import { artifactCategoryLabels, artifactGradeOrder } from './artifact-properties';
 import { monsterNameCollator } from './monster-grid';
@@ -12,6 +13,8 @@ export type ArtifactRow = {
   location: string | null;
   value: number | undefined;
   subProperties: ArtifactSubProperty[];
+  /** `null` means this artifact is not currently worn by a judged monster. */
+  subPropertyPreferences: ReadonlyMap<number, ArtifactPropertyPreference> | null;
 };
 
 /* Text sorts ascending because a name list reads from A; the value column
@@ -33,17 +36,17 @@ export function artifactCategoryLabel(category: ArtifactCategory): string {
 }
 
 /**
- * A sub property as one line. The number goes through the caller's formatter so
- * the list follows the user's regional settings the way every other figure in
- * the app does — `formatNumber` needs the settings, which a lib module has no
- * business reaching for itself.
+ * The text portion of a sub property. The number goes through the caller's
+ * formatter so the list follows the user's regional settings the way every
+ * other figure in the app does — `formatNumber` needs the settings, which a
+ * lib module has no business reaching for itself. The caller adds visual marks
+ * for conversion and power-ups around this stable text.
  */
 export function displaySubProperty(
   subProperty: ArtifactSubProperty,
   format: (value: number) => string,
 ): string {
-  const powerUps = subProperty.powerUps ? ` [${subProperty.powerUps}]` : '';
-  return `${subProperty.definition.name} ${subProperty.definition.valueSign ?? '+'}${format(subProperty.valueHundredths / 100)}%${powerUps}`;
+  return `${subProperty.definition.name} ${subProperty.definition.valueSign ?? '+'}${format(subProperty.valueHundredths / 100)}%`;
 }
 
 export function compareArtifactRows(

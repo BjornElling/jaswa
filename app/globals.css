@@ -531,10 +531,29 @@ button { cursor: pointer; }
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: var(--faint);
 }
+/* These colours describe fit, never an available action: full ink is what the
+   current monster prefers, dim ink is still useful, and faint means no fit. */
+.artifact-subs li.artifact-sub-preferred { color: var(--ink); }
+.artifact-subs li.artifact-sub-acceptable { color: var(--dim); }
 /* A property the game no longer drops still shows its value, dimmed: it is a
    real line on a real artifact, but nothing here can judge how well it rolled. */
 .artifact-subs li.legacy { color: var(--faint); }
+.artifact-sub-mark {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  margin-left: var(--s1);
+  vertical-align: -.14em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.artifact-sub-power-ups { color: inherit; }
+.artifact-sub-power-up-arrow { margin-left: 0; }
 
 .grid-table thead th:first-child,
 .grid-table tbody td:first-child { padding-left: var(--gutter); }
