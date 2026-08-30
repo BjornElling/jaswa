@@ -22,9 +22,13 @@ export const timeZoneChoices: TimeZoneChoice[] = ['system', 'manual'];
    Numbers and dates keep separate locales even so, because the two questions
    do not answer each other: a user may want European numbers with American
    dates, and one shared locale would have let the first silently decide the
-   second. */
-const europeanLocale = 'de-DE';
-const americanLocale = 'en-US';
+   second. The European ones differ for that reason — de-DE writes the
+   European number but an all-numeric date, so dates take da-DK, which spells
+   the month the way the rest of Europe reads it: 30. aug. 2026. */
+const europeanNumberLocale = 'de-DE';
+const americanNumberLocale = 'en-US';
+const europeanDateLocale = 'da-DK';
+const americanDateLocale = 'en-US';
 
 /**
  * The IANA zone this computer is set to. Every browser JASWA targets resolves
@@ -139,15 +143,15 @@ export function isGeneralSettings(value: unknown): value is GeneralSettings {
  * setting at the value read when the page loaded.
  */
 export function numberLocale(settings: GeneralSettings): string | undefined {
-  if (settings.numberFormat === 'european') return europeanLocale;
-  if (settings.numberFormat === 'american') return americanLocale;
+  if (settings.numberFormat === 'european') return europeanNumberLocale;
+  if (settings.numberFormat === 'american') return americanNumberLocale;
   return undefined;
 }
 
 /** The locale dates are written with, on the same terms as `numberLocale`. */
 export function dateLocale(settings: GeneralSettings): string | undefined {
-  if (settings.dateOrder === 'european') return europeanLocale;
-  if (settings.dateOrder === 'american') return americanLocale;
+  if (settings.dateOrder === 'european') return europeanDateLocale;
+  if (settings.dateOrder === 'american') return americanDateLocale;
   return undefined;
 }
 
