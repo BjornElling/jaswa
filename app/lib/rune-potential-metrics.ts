@@ -73,7 +73,7 @@ export function calculateRunePotentialMetrics(input: RunePotentialMetricInput): 
 }
 
 /**
- * SWOP-compatible rune efficiency. This evaluates the main property, current
+ * Rune efficiency following SWOP's published calculation. This evaluates the main property, current
  * sub-property values (including already applied grinds) and innate property.
  * Flat HP, ATK and DEF are weighted at 50%, matching SWOP.
  * It is intentionally a rune metric, not a monster-stat metric.

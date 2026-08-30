@@ -1,4 +1,3 @@
-import { swExporterMonsterNames } from '../data/sw-exporter-monster-names';
 import swarfarmMonsterData from '../data/swarfarm-monsters.json';
 import { localMonsterImageFilenames } from '../data/local-monster-images';
 
@@ -33,8 +32,7 @@ export function monsterPresentation(masterId: unknown): MonsterPresentation {
   const key = String(masterId ?? 'unknown');
   const renamed = renamedMonsters[key];
   const swarfarmMonster = swarfarmByCom2usId[key];
-  const upstreamName = swExporterMonsterNames[key];
-  const baseName = renamed?.currentName || swarfarmMonster?.name || upstreamName || `Monster ${key}`;
+  const baseName = renamed?.currentName || swarfarmMonster?.name || `Monster ${key}`;
   const name = isSecondAwakened(key) && !baseName.includes('(2A)') ? `${baseName} (2A)` : baseName;
   const imageFilename = swarfarmMonster?.image_filename;
   return {
@@ -48,5 +46,5 @@ export function monsterPresentation(masterId: unknown): MonsterPresentation {
 
 export function hasMonsterCatalogEntry(masterId: unknown): boolean {
   const key = String(masterId ?? 'unknown');
-  return Boolean(swarfarmByCom2usId[key] || swExporterMonsterNames[key]);
+  return Boolean(swarfarmByCom2usId[key]);
 }

@@ -3,10 +3,10 @@
 const crypto = require('node:crypto');
 const zlib = require('node:zlib');
 
-/* The current Windows Steam protocol key is a compatibility value, kept in one
- * place so a game update is a small, reviewable change rather than a hidden
- * behavior of the proxy. It decrypts only the gateway envelope already sent to
- * this computer; JASWA never forwards it or the account data anywhere else. */
+/* The Windows Steam protocol key lives in one place so a game update is a
+ * small, reviewable change rather than a hidden behavior of the proxy. It
+ * decrypts only the gateway envelope already sent to this computer; JASWA
+ * never forwards it or the account data anywhere else. */
 const steamProtocolKey = Buffer.from('Gr4S2eiNl7zq5MrU', 'utf8');
 const zeroIv = Buffer.alloc(16);
 const maximumDecodedResponseBytes = 32 * 1024 * 1024;

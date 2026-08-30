@@ -10,7 +10,7 @@ import { DirectImportModeDialog, RemoveGameDataDialog, ReplaceImportDialog, Repo
 import { RunePotentialSection } from './components/rune-potential-section';
 import { UpcomingWorkspace } from './components/upcoming-workspace';
 import { clearImportedGame, loadImportedGame, loadPreferences, saveImportedGame, savePreferences } from './lib/browser-storage';
-import { blankPreferences, createImportedGame, defaultRunePotentialSettings, fileToText, importPreferencesFile, normalizeImportedGame, normalizePreferences, validateGameFile } from './lib/file-imports';
+import { blankPreferences, createImportedGame, fileToText, importPreferencesFile, isCurrentImportedGame, isCurrentPreferences, validateGameFile } from './lib/file-imports';
 import { checkHelperConnection, readHelperProfile } from './lib/helper-client';
 import type { HelperConnection } from './lib/helper-client';
 import { downloadJson, formatDateTime } from './lib/formatting';
@@ -39,11 +39,10 @@ export default function Home() {
 
   useEffect(() => {
     Promise.all([loadImportedGame(), loadPreferences()]).then(([savedGame, savedPreferences]) => {
-      const normalizedGame = savedGame ? normalizeImportedGame(savedGame) : null;
-      setGame(normalizedGame);
-      if (normalizedGame?.helperSession) appliedHelperSession.current = `${normalizedGame.helperSession.instanceId}:${normalizedGame.helperSession.sessionId}`;
-      if (normalizedGame) void saveImportedGame(normalizedGame);
-      setPreferences(savedPreferences ? normalizePreferences(savedPreferences) : blankPreferences());
+      const currentGame = savedGame && isCurrentImportedGame(savedGame) ? savedGame : null;
+      setGame(currentGame);
+      if (currentGame?.helperSession) appliedHelperSession.current = `${currentGame.helperSession.instanceId}:${currentGame.helperSession.sessionId}`;
+      setPreferences(savedPreferences && isCurrentPreferences(savedPreferences) ? savedPreferences : blankPreferences());
     }).catch(() => {
       setPreferences(blankPreferences());
     }).finally(() => setReady(true));
@@ -165,12 +164,12 @@ export default function Home() {
   function updateRunePotentialSettings(update: Partial<RunePotentialSettings>) {
     changePreferences((current) => ({
       ...current,
-      runePotential: { ...(current.runePotential ?? defaultRunePotentialSettings), ...update },
+      runePotential: { ...current.runePotential, ...update },
     }));
   }
 
   function writePresets(change: (current: RunePotentialPreset[]) => RunePotentialPreset[]) {
-    changePreferences((current) => ({ ...current, runePotentialPresets: change(current.runePotentialPresets ?? []) }));
+    changePreferences((current) => ({ ...current, runePotentialPresets: change(current.runePotentialPresets) }));
   }
 
   function handleDrop(event: DragEvent<HTMLDivElement>) {
@@ -236,8 +235,8 @@ export default function Home() {
       {page === 'monsters' && <MonsterOverview monsters={monsters} preferences={preferences} />}
 
       {page === 'potential' && <RunePotentialSection
-        settings={preferences.runePotential ?? defaultRunePotentialSettings}
-        presets={preferences.runePotentialPresets ?? []}
+        settings={preferences.runePotential}
+        presets={preferences.runePotentialPresets}
         onUpdate={updateRunePotentialSettings}
         onWritePresets={writePresets}
       />}

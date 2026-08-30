@@ -1,12 +1,31 @@
 # Agent rules for JASWA
 
 **Status:** Binding project rules
-**Reviewed:** August 27, 2026
+**Reviewed:** August 30, 2026
 
 Rules an agent must follow when working in this repository. A rule here
 overrides an agent's own habits and defaults. Where a rule and a document in
 `docs/` disagree, the document in `docs/` wins for its own subject and this
 file is corrected.
+
+---
+
+## 0. Development posture
+
+**JASWA is under active development and its developer is its only user.**
+
+- Treat every product, architecture, storage, helper, and file-format change as
+  intentionally breaking. Do not preserve, migrate, read, normalize, or
+  otherwise support earlier application state, IndexedDB records, helper data,
+  preference files, or other saved files.
+- Design from the best final product, not from the shape of an earlier
+  implementation. A cleaner model, API, or file format takes precedence over
+  continuity with any existing local data.
+- Refactor opportunistically. Fix every incidental defect, inconsistency, and
+  legacy remnant found while working, regardless of the size or consequences
+  of the resulting breaking change.
+- Validate only the current contract. Reject malformed or obsolete input
+  rather than repairing it into a newer shape.
 
 ---
 
@@ -152,9 +171,9 @@ parts an agent must not quietly break:
   cannot carry a stale composite. Any figure that follows from another follows
   it in one place.
 - **Validate everything read back.** Preferences are user-editable files.
-  Anything loaded from IndexedDB or a `.sw` file is normalized before it
-  reaches the interface: unknown values dropped, missing parts given a sensible
-  empty, and a record too broken to show discarded rather than rendered.
+  Anything loaded from IndexedDB or a `.sw` file must satisfy the complete
+  current contract before it reaches the interface. Discard malformed or
+  obsolete records rather than repairing them into a newer shape.
 - **`undefined` and empty are different answers.** A missing list means "never
   set, use the default"; an empty list means "the user cleared it", and must
   stay empty across a reload.

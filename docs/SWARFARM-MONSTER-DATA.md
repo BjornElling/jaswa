@@ -28,8 +28,7 @@ monstre pr. side og en pause på mindst 3 sekunder mellem sider. Der er ca.
 31 sider ved den aktuelt observerede størrelse. Den:
 
 - foretager ingen forespørgsel, når den lokale snapshot er yngre end 7 dage;
-- gemmer kun de felter, JASWA behøver til identitet, udviklingsrelationer,
-  leader skill og grundstats;
+- gemmer kun de felter, JASWA behøver til ID, navn, billedfilnavn og archetype;
 - skriver atomisk, så eksisterende data bevares ved netværks- eller
   schemafejl;
 - stopper ved HTTP 429/503 og respekterer et rapporteret `Retry-After` ved at
@@ -76,8 +75,7 @@ stedet, så appen fungerer fuldt ud uden en eneste hentet fil.
 
 En ny snapshot accepteres kun, når alle sider er hentet, det observerede antal
 monstre matcher API'ets `count`, og hver `com2us_id` er unik. Kataloget er den
-primære navne- og grundstatskilde. SW-Exporter-navne bevares kun som fallback
-for en ID, der endnu ikke findes i den senest kendte snapshot.
+eneste navne- og grundstatskilde.
 
 Efter en vellykket refresh skal projektets build køres. Hvis den fejler eller
 et nyt import-ID stadig ikke findes, beholdes den forrige fungerende snapshot

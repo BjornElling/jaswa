@@ -310,34 +310,6 @@ function statTargetsOnly(targets: PresetTargets): PresetStatTargets {
   return stats;
 }
 
-/* ------------------------------------------------------------ normalisation */
-
-/*
- * Presets are saved in the user's own preferences file, which they can edit
- * and re-import by hand. Everything read back is therefore checked: an
- * unusable preset is dropped rather than allowed to reach the interface, and
- * a preset with a bad part keeps the parts that were fine.
- */
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-/** Keeps the members the app knows, in the order the allowed list states them, without duplicates. */
-function normalizeChoiceMembers<T extends string>(value: unknown, allowed: readonly T[]): T[] {
-  if (!Array.isArray(value)) return [];
-  const chosen = new Set(value.filter((entry): entry is T => allowed.includes(entry as T)));
-  return allowed.filter((entry) => chosen.has(entry));
-}
-
-/** A choice, with anything claimed as both preferred and acceptable counted only as preferred. */
-function normalizeChoice<T extends string>(value: unknown, allowed: readonly T[]): PresetChoice<T> {
-  const source = isRecord(value) ? value : {};
-  const preferred = normalizeChoiceMembers(source.preferred, allowed);
-  const acceptable = normalizeChoiceMembers(source.acceptable, allowed).filter((entry) => !preferred.includes(entry));
-  return { preferred, acceptable };
-}
-
 /**
  * The largest target a preset may state. Well past anything the game produces,
  * and low enough that the figures derived from it stay inside the width the
@@ -349,67 +321,43 @@ export const presetTargetMaximum = 100_000;
 /** The longest name a preset may carry, in the editor and in a saved file alike. */
 export const presetNameMaximum = 60;
 
-/** A stat target: absent or unusable means the role does not aim at it, and an explicit 0 is kept. */
-function normalizeTarget(value: unknown): number | undefined {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return undefined;
-  return Math.min(presetTargetMaximum, Math.max(0, Math.round(value)));
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
-function normalizeStatTargets(value: unknown): PresetStatTargets {
-  const source = isRecord(value) ? value : {};
-  const targets: PresetStatTargets = {};
-  for (const key of presetStatTargetKeys) {
-    const target = normalizeTarget(source[key]);
-    if (target !== undefined) targets[key] = target;
-  }
-  return targets;
+function isChoice<T extends string>(value: unknown, allowed: readonly T[]): value is PresetChoice<T> {
+  if (!isRecord(value) || !Array.isArray(value.preferred) || !Array.isArray(value.acceptable)) return false;
+  const members = [...value.preferred, ...value.acceptable];
+  return members.every((entry): entry is T => typeof entry === 'string' && allowed.includes(entry as T))
+    && new Set(members).size === members.length;
 }
 
-/**
- * One saved preset, or `null` if it cannot be read as one. A preset without a
- * name is the one thing not recoverable — every other part has a sensible
- * empty value, but an unnamed preset could not be told apart in the list.
- */
-function normalizePreset(value: unknown): RunePotentialPreset | null {
-  if (!isRecord(value)) return null;
-  const name = typeof value.name === 'string' ? value.name.trim().slice(0, presetNameMaximum) : '';
-  if (!name) return null;
-  const slots = isRecord(value.slots) ? value.slots : {};
-  const artifacts = isRecord(value.artifacts) ? value.artifacts : {};
-  return withRefreshedMetrics({
-    id: typeof value.id === 'string' && value.id ? value.id : newPresetId(),
-    name,
-    type: presetTypes.includes(value.type as PresetType) ? value.type as PresetType : 'No type',
-    sets: normalizeChoice(value.sets, presetRuneSetNameList),
-    slots: {
-      slot2: normalizeChoice(slots.slot2, runeMainStats),
-      slot4: normalizeChoice(slots.slot4, runeMainStats),
-      slot6: normalizeChoice(slots.slot6, runeMainStats),
-    },
-    artifacts: { atk: artifacts.atk === true, def: artifacts.def === true, hp: artifacts.hp === true },
-    targets: normalizeStatTargets(value.targets),
-  });
+function isTargets(value: unknown): value is PresetTargets {
+  if (!isRecord(value)) return false;
+  const allowed = new Set([...presetStatTargetKeys, 'dmg', 'ehp', 'ehpD']);
+  if (!Object.keys(value).every((key) => allowed.has(key))) return false;
+  if (!presetStatTargetKeys.every((key) => value[key] === undefined || (typeof value[key] === 'number' && Number.isInteger(value[key]) && value[key] >= 0 && value[key] <= presetTargetMaximum))) return false;
+  return typeof value.dmg === 'number' && Number.isFinite(value.dmg)
+    && typeof value.ehp === 'number' && Number.isFinite(value.ehp)
+    && typeof value.ehpD === 'number' && Number.isFinite(value.ehpD);
 }
 
-/**
- * The saved preset list. Absent means a user who has never seen the workspace,
- * who gets the shipped presets; an empty list means a user who deleted them
- * all, which is respected. Duplicate identifiers are re-issued so React keys
- * and every later edit still address one preset each.
- */
-export function normalizeRunePotentialPresets(value: unknown): RunePotentialPreset[] {
-  if (value === undefined || value === null) return defaultRunePotentialPresets();
-  if (!Array.isArray(value)) return defaultRunePotentialPresets();
-  const seen = new Set<string>();
-  return value.flatMap((entry) => {
-    const preset = normalizePreset(entry);
-    if (!preset) return [];
-    /* A reissued identifier is itself checked, and kept being reissued until it
-       is genuinely unused. Two presets sharing one identifier would be edited
-       and deleted together, since both operations address a preset by it. */
-    let id = preset.id;
-    while (seen.has(id)) id = newPresetId();
-    seen.add(id);
-    return [{ ...preset, id }];
-  });
+function isCurrentRunePotentialPreset(value: unknown): value is RunePotentialPreset {
+  if (!isRecord(value) || typeof value.id !== 'string' || value.id.length === 0
+    || typeof value.name !== 'string' || value.name.trim() !== value.name || value.name.length === 0 || value.name.length > presetNameMaximum
+    || !presetTypes.includes(value.type as PresetType) || !isChoice(value.sets, presetRuneSetNameList)
+    || !isRecord(value.slots) || !isChoice(value.slots.slot2, runeMainStats) || !isChoice(value.slots.slot4, runeMainStats) || !isChoice(value.slots.slot6, runeMainStats)
+    || !isRecord(value.artifacts) || typeof value.artifacts.atk !== 'boolean' || typeof value.artifacts.def !== 'boolean' || typeof value.artifacts.hp !== 'boolean'
+    || !isTargets(value.targets)) return false;
+  const refreshed = withRefreshedMetrics(value as RunePotentialPreset);
+  return value.targets.dmg === refreshed.targets.dmg
+    && value.targets.ehp === refreshed.targets.ehp
+    && value.targets.ehpD === refreshed.targets.ehpD;
+}
+
+/** Validate the complete current preset contract without repairing older data. */
+export function isCurrentRunePotentialPresets(value: unknown): value is RunePotentialPreset[] {
+  return Array.isArray(value)
+    && value.every(isCurrentRunePotentialPreset)
+    && new Set(value.map((preset) => preset.id)).size === value.length;
 }

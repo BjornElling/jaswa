@@ -104,7 +104,7 @@ class ProfileStore {
       }
     }
     const command = isRecord(request) && typeof request.command === 'string' ? request.command : '';
-    const deletions = command === 'SellRune' || command === 'SellRune_v2'
+    const deletions = command === 'SellRune_v2'
       ? [['runes', 'rune_id', request.rune_id_list]]
       : command === 'SellArtifacts'
         ? [['artifacts', 'artifact_id', request.artifact_ids]]

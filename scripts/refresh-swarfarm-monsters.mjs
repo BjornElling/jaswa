@@ -18,15 +18,11 @@ const endpoint = 'https://swarfarm.com/api/v2/monsters/';
 const requestedPageSize = 100;
 const minimumDelayMs = 3_000;
 const maximumSnapshotAgeMs = 7 * 24 * 60 * 60 * 1_000;
-const snapshotSchemaVersion = 3;
+const snapshotSchemaVersion = 5;
 const force = process.argv.includes('--force');
 
 const fields = [
-  'com2us_id', 'family_id', 'skill_group_id', 'name', 'image_filename', 'archetype',
-  'element', 'base_stars', 'natural_stars', 'base_hp', 'base_attack',
-  'base_defense', 'speed', 'crit_rate', 'crit_damage', 'resistance',
-  'accuracy', 'max_lvl_hp', 'max_lvl_attack', 'max_lvl_defense',
-  'awakens_from', 'awakens_to', 'transforms_to',
+  'com2us_id', 'name', 'image_filename', 'archetype',
 ];
 
 function sleep(milliseconds) {
@@ -37,12 +33,6 @@ function compactMonster(monster) {
   const compacted = Object.fromEntries(fields
     .filter((field) => Object.hasOwn(monster, field))
     .map((field) => [field, monster[field]]));
-  if (monster.leader_skill && typeof monster.leader_skill === 'object') {
-    const leaderSkill = monster.leader_skill;
-    compacted.leader_skill = Object.fromEntries(['attribute', 'amount', 'area', 'element']
-      .filter((field) => Object.hasOwn(leaderSkill, field))
-      .map((field) => [field, leaderSkill[field]]));
-  }
   return compacted;
 }
 
@@ -56,7 +46,7 @@ async function readExistingSnapshot() {
 }
 
 function isFresh(snapshot) {
-  if (!snapshot || typeof snapshot.retrievedAt !== 'string') return false;
+  if (!snapshot || snapshot.schemaVersion !== snapshotSchemaVersion || typeof snapshot.retrievedAt !== 'string') return false;
   const retrievedAt = Date.parse(snapshot.retrievedAt);
   return Number.isFinite(retrievedAt) && Date.now() - retrievedAt < maximumSnapshotAgeMs;
 }
@@ -94,16 +84,7 @@ async function writeSnapshot(snapshot) {
 }
 
 async function main() {
-  let existing = await readExistingSnapshot();
-  if (existing && existing.schemaVersion !== snapshotSchemaVersion && Array.isArray(existing.monsters)) {
-    existing = {
-      ...existing,
-      schemaVersion: snapshotSchemaVersion,
-      monsters: existing.monsters.map(compactMonster),
-    };
-    await writeSnapshot(existing);
-    console.log('Migrated the local snapshot to the current compact schema; no API request was made.');
-  }
+  const existing = await readExistingSnapshot();
   if (!force && isFresh(existing)) {
     console.log(`Snapshot is younger than seven days (${existing.retrievedAt}); no API request was made. Use --force only for a deliberate refresh.`);
     return;
