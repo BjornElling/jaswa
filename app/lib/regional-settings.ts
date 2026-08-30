@@ -15,10 +15,6 @@ export const timeZoneChoices: TimeZoneChoice[] = ['system', 'manual'];
 const europeanLocale = 'de-DE';
 const americanLocale = 'en-US';
 
-export function systemLocale(): string {
-  return new Intl.DateTimeFormat().resolvedOptions().locale;
-}
-
 /**
  * The IANA zone this computer is set to. Every browser JASWA targets resolves
  * one, but a locked-down or misconfigured host can report an empty string, so
@@ -26,17 +22,6 @@ export function systemLocale(): string {
  */
 export function systemTimeZone(): string {
   return new Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-}
-
-/**
- * Whether this computer writes times as 13:00 or 1:00 PM. `hourCycle` is only
- * populated when the format explicitly asks for an hour, so the probe requests
- * one; older engines answer through `hour12` instead and both are read.
- */
-export function systemUsesTwelveHourClock(): boolean {
-  const resolved = new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).resolvedOptions();
-  if (resolved.hourCycle) return resolved.hourCycle === 'h11' || resolved.hourCycle === 'h12';
-  return resolved.hour12 === true;
 }
 
 /** The complete IANA list for the manual picker, newest browsers first. */

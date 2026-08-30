@@ -2355,45 +2355,123 @@ button { cursor: pointer; }
 
 /* ------------------------------------------------- general settings */
 
-/* The three regional questions sit abreast where there is room: they are one
-   decision about how JASWA writes things, not three unrelated settings, and
-   reading them in a single row makes the preview below them legible as their
-   combined result. `minmax(0, …)` keeps a long zone name from widening its
-   column past its share. */
-.general-grid {
+/* Each setting is one line: its name in a fixed column, its options abreast in
+   the space that follows. The column is wide enough for the longest legend so
+   every row's options start at the same x, and the whole panel reads as a
+   short list of questions rather than three stacked blocks of prose. */
+.setting-line, .radio-line {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--s5);
-  align-items: start;
+  grid-template-columns: 140px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--s4);
+  border: 0; margin: 0; padding: 0; min-width: 0;
 }
-@media (max-width: 1100px) {
-  .general-grid { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.radio-line-legend {
+  /* `float` rather than the grid's own placement: a legend is taken out of
+     flow by the browser and does not accept a grid cell in every engine. */
+  float: left;
+  padding: 0;
+  font-size: var(--t-body); font-weight: 600;
+  color: var(--dim);
+}
+.radio-line-options {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: var(--s2) var(--s4);
+  min-width: 0;
 }
 
-/* The zone select holds its place under the two radios whether or not it is
-   the chosen option, so picking one does not move the panel beneath it. */
-.zone-field { margin-top: var(--s4); }
-.zone-field select:disabled {
+/* An option is its control and its name, kept together on one baseline. The
+   name carries the whole option, so there is no second line to bind to. */
+.radio-chip {
+  display: inline-flex; align-items: center; gap: var(--s2);
+  cursor: pointer;
+  font-size: var(--t-body);
+  color: var(--dim);
+  white-space: nowrap;
+}
+.radio-chip:hover { color: var(--ink); }
+/* Colour marks the chosen option; the weight stays put, because bold is wider
+   than regular and would re-wrap every option after it on this row. */
+.radio-chip:has(input:checked) { color: var(--ink); }
+/* The numeric options are the number they produce, so they are set in the
+   figure face the rest of the app uses for data. */
+.radio-chip span { font-variant-numeric: tabular-nums; }
+
+.radio-chip input {
+  appearance: none; -webkit-appearance: none;
+  width: 16px; height: 16px; margin: 0;
+  flex: 0 0 auto;
+  background: var(--raise);
+  border: 1px solid var(--ghost);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background .12s, border-color .12s;
+}
+.radio-chip input:hover { background: var(--hover); border-color: var(--gold); }
+.radio-chip input:checked {
+  background:
+    radial-gradient(circle at 50% 50%, var(--gold) 3.2px, transparent 3.4px),
+    var(--gold-deep);
+  border-color: var(--gold);
+}
+.radio-chip input:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* Sits on the row with the options it belongs to, at a width that fits the
+   longest zone names without letting one widen the row. */
+.zone-select select {
+  height: 32px;
+  width: 220px;
+  background: var(--sunk);
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--s6) 0 var(--s3);
+  font-size: var(--t-body);
+  color-scheme: dark;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none' stroke='%23a8adb8' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5'/%3E%3C/svg%3E");
+  background-position: right var(--s3) center;
+  background-size: 11px 7px;
+  background-repeat: no-repeat;
+}
+.zone-select select:hover { background-color: var(--hover); }
+.zone-select select:focus { outline: none; border-color: var(--gold); }
+/* A control that cannot be used keeps its full box and says so by weight, so
+   nothing moves on the day it starts working. */
+.zone-select select:disabled {
   color: var(--faint);
   border-color: var(--line);
   border-style: dashed;
   cursor: not-allowed;
 }
-.zone-field select:disabled:hover { background-color: var(--sunk); }
+.zone-select select:disabled:hover { background-color: var(--sunk); }
 
-/* A label and its value on one row, in the two-tone device the house style
-   already uses for primary against secondary. Both the preview and the folder
-   line take it, because both are "here is what that setting currently means". */
-.format-sample, .save-folder-line {
-  display: flex; align-items: baseline; gap: var(--s3); flex-wrap: wrap;
+/* The save row's buttons are shorter than the page's standard control: this is
+   a line of settings, not a call to action. */
+.setting-line .button { height: 32px; }
+.setting-line .button:disabled {
+  color: var(--ghost);
+  border-color: var(--line);
+  border-style: dashed;
+  cursor: not-allowed;
+}
+.setting-line .button:disabled:hover { color: var(--ghost); border-color: var(--line); }
+/* Wraps inside the row rather than widening it; a folder name can be anything. */
+.folder-name { min-width: 0; overflow-wrap: anywhere; color: var(--dim); }
+
+/* The one line that shows every choice above at once, aligned to the same
+   column the options start in so it reads as their result. */
+.format-sample {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--s4);
   margin: 0;
 }
 .sample-label {
   font-size: var(--t-micro); letter-spacing: .12em; text-transform: uppercase;
   font-weight: 700; color: var(--faint);
-  /* The two labels are different words of different lengths; a shared floor
-     lines their values up with each other down the panel. */
-  min-width: 6ch;
 }
 .sample-value {
   font-family: var(--mono);
@@ -2402,17 +2480,15 @@ button { cursor: pointer; }
   font-variant-numeric: tabular-nums;
 }
 
-/* Separates the regional block from the folder question: they are two subjects
-   inside one panel, and the hairline says so without a second heading level.
-   Matches the tone of .settings-rule, drawn along the other axis. */
+/* Separates the regional lines from the folder question: two subjects in one
+   panel, said with a hairline rather than a second heading level. */
 .settings-divider {
   height: 1px;
   background: linear-gradient(90deg, transparent, #414a5b 4%, #414a5b 96%, transparent);
 }
 
-/* Available to a screen reader, absent from the page. The select beneath the
-   two time-zone radios needs a name of its own; on screen the legend and the
-   radio it follows already say what it is. */
+/* Available to a screen reader, absent from the page: the zone select needs a
+   name of its own, which the legend beside it already gives on screen. */
 .visually-hidden {
   position: absolute;
   width: 1px; height: 1px;
@@ -2423,19 +2499,9 @@ button { cursor: pointer; }
   border: 0;
 }
 
-/* Same treatment as .route-download's: a control that cannot be used keeps its
-   full box and says so by weight, so nothing moves on the day it starts
-   working. Here that day is the one the user picks a folder. */
-.save-folder-actions .button:disabled {
-  color: var(--ghost);
-  border-color: var(--line);
-  border-style: dashed;
-  cursor: not-allowed;
+/* Narrow: the legend takes its own line above the options rather than
+   squeezing them into what is left of the row. */
+@media (max-width: 760px) {
+  .setting-line, .radio-line, .format-sample { grid-template-columns: minmax(0, 1fr); gap: var(--s2); }
+  .zone-select select { width: 100%; }
 }
-.save-folder-actions .button:disabled:hover { color: var(--ghost); border-color: var(--line); }
-
-/* The folder line swaps between a short folder name and a sentence about the
-   browser's own downloads. It is the last element in its stack, so nothing
-   below it can be pushed, but a long name still has to wrap inside the panel
-   rather than widen it. */
-.save-folder-line .sample-value { overflow-wrap: anywhere; }

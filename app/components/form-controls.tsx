@@ -34,6 +34,33 @@ export function ImportRouteCard({ option, name, value, current, onChoose, childr
   </div>;
 }
 
+/**
+ * A radio group laid out along its label's own line, each option carrying only
+ * its name. Where `RadioRow` gives every option a sentence, this is for the
+ * settings whose options say what they mean on sight — "24-hour", or the
+ * separators written out as the number they produce.
+ */
+export function RadioLine<Value extends string>({ name, legend, options, current, onChange, children }: {
+  name: string;
+  legend: string;
+  options: Array<{ value: Value; label: string }>;
+  current: Value;
+  onChange: (value: Value) => void;
+  children?: ReactNode;
+}) {
+  return <fieldset className="radio-line">
+    <legend className="radio-line-legend">{legend}</legend>
+    <div className="radio-line-options">
+      {options.map((option) => <label key={option.value} className="radio-chip">
+        <input type="radio" name={name} value={option.value} checked={current === option.value}
+          onChange={() => onChange(option.value)} />
+        <span>{option.label}</span>
+      </label>)}
+      {children}
+    </div>
+  </fieldset>;
+}
+
 export function RadioRow<Value extends string>({ name, label, note, value, current, onChange }: {
   name: string;
   label: string;
