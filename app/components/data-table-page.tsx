@@ -7,6 +7,7 @@ type DataTablePageProps = {
   columnGroup: ReactNode;
   header: ReactNode;
   children: ReactNode;
+  filterClassName?: string;
   tableClassName: string;
   headerLabel: string;
   tableLabel: string;
@@ -18,11 +19,11 @@ type DataTablePageProps = {
  * the horizontal-scroll behaviour a dense table needs.
  */
 export function DataTablePage({
-  filters, columnGroup, header, children, tableClassName, headerLabel, tableLabel,
+  filters, columnGroup, header, children, filterClassName, tableClassName, headerLabel, tableLabel,
 }: DataTablePageProps) {
   return <section className="data-table-page">
     <section className="panel data-table-filter-panel" aria-label="Table filters">
-      <div className="filter-strip">{filters}</div>
+      <div className={filterClassName ? `filter-strip ${filterClassName}` : 'filter-strip'}>{filters}</div>
     </section>
 
     <div className="data-table-header-wrap">

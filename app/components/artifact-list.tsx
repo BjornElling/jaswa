@@ -169,8 +169,8 @@ export function ArtifactList({ game, monsters, preferences }: {
   const toggleGroup = <T extends string>(
     label: string, description: string, options: readonly T[],
     selected: T[], set: (update: (current: T[]) => T[]) => void,
-    display: (option: T) => string,
-  ) => <div className="filter-group" role="group" aria-label={description}>
+    display: (option: T) => string, className: string,
+  ) => <div className={`filter-group ${className}`} role="group" aria-label={description}>
     <span className="filter-label">{label}</span>
     <div className="filter-group-controls">
       {options.map((option) => <button
@@ -184,13 +184,14 @@ export function ArtifactList({ game, monsters, preferences }: {
   const abbreviate = (option: string) => option.slice(0, 3).toUpperCase();
 
   return <DataTablePage
+    filterClassName="artifact-filter-strip"
     tableClassName="artifact-grid"
     headerLabel="Artifact library columns"
     tableLabel="Artifact library"
     columnGroup={<ArtifactColumnGroup />}
     header={<ArtifactTableHeader sortHeader={sortHeader} />}
     filters={<>
-      <div className="filter-group">
+      <div className="filter-group artifact-filter-search">
         <span className="filter-label">Search</span>
         <div className="filter-group-controls">
           <div className="search-field">
@@ -203,16 +204,16 @@ export function ArtifactList({ game, monsters, preferences }: {
         </div>
       </div>
       {toggleGroup('Type', 'Filter by artifact type', categoryOrder,
-        selectedCategories, setSelectedCategories, (category) => artifactCategoryLabels[category])}
+        selectedCategories, setSelectedCategories, (category) => artifactCategoryLabels[category], 'artifact-filter-type')}
       {toggleGroup('Element', 'Filter by element', classOptions.attribute,
-        selectedClasses, setSelectedClasses, abbreviate)}
+        selectedClasses, setSelectedClasses, abbreviate, 'artifact-filter-element')}
       {toggleGroup('Archetype', 'Filter by monster type', classOptions.type,
-        selectedClasses, setSelectedClasses, abbreviate)}
+        selectedClasses, setSelectedClasses, abbreviate, 'artifact-filter-archetype')}
       {toggleGroup('Quality', 'Filter by quality', artifactGradeOrder,
-        selectedGrades, setSelectedGrades, abbreviate)}
+        selectedGrades, setSelectedGrades, abbreviate, 'artifact-filter-quality')}
       {toggleGroup('Main stat', 'Filter by main stat', artifactMainPropertyOrder,
-        selectedMainProperties, setSelectedMainProperties, (property) => property)}
-      <div className="filter-group" role="group" aria-label="Choose artifact locations">
+        selectedMainProperties, setSelectedMainProperties, (property) => property, 'artifact-filter-main-stat')}
+      <div className="filter-group artifact-filter-location" role="group" aria-label="Choose artifact locations">
         <span className="filter-label">Location</span>
         <div className="filter-group-controls">
           <button type="button" className={showEquipped ? 'filter-button active' : 'filter-button'}

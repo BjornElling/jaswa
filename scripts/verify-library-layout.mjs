@@ -48,6 +48,26 @@ try {
       assert(summary && firstLabel && strip && nearlyEqual(summary.y, firstLabel.y)
         && nearlyEqual(summary.x + summary.width, strip.x + strip.width),
       `${pageName} result summary is not aligned with the filter headings at ${width}px.`);
+      if (pageName === 'Artifacts' && width === 2000) {
+        const positions = await page.locator(
+          '.artifact-filter-search, .artifact-filter-quality, .artifact-filter-main-stat, .artifact-filter-location, .artifact-filter-type, .artifact-filter-element, .artifact-filter-archetype',
+        ).evaluateAll((elements) => Object.fromEntries(elements.map((element) => [
+          [...element.classList].find((name) => name.startsWith('artifact-filter-')),
+          element.getBoundingClientRect().toJSON(),
+        ])));
+        const search = positions['artifact-filter-search'];
+        const quality = positions['artifact-filter-quality'];
+        const main = positions['artifact-filter-main-stat'];
+        const location = positions['artifact-filter-location'];
+        const type = positions['artifact-filter-type'];
+        const element = positions['artifact-filter-element'];
+        const archetype = positions['artifact-filter-archetype'];
+        assert(nearlyEqual(search.y, quality.y) && nearlyEqual(quality.y, main.y) && nearlyEqual(main.y, location.y)
+          && search.x < quality.x && quality.x < main.x && main.x < location.x
+          && type.y > quality.y && nearlyEqual(type.x, quality.x) && nearlyEqual(element.x, main.x)
+          && nearlyEqual(archetype.x, location.x),
+        'Artifact filters do not follow the requested two-row arrangement.');
+      }
 
       const overflow = await page.locator('.data-table-filter-panel, .data-table-scroll, .grid-table')
         .evaluateAll((elements) => elements.map((element) => ({

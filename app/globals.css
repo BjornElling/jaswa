@@ -363,6 +363,38 @@ button { cursor: pointer; }
   white-space: nowrap;
 }
 .filter-summary b { color: var(--dim); font-weight: 500; }
+.artifact-filter-strip {
+  grid-template-areas:
+    "search quality main location"
+    ". type element archetype";
+}
+.artifact-filter-strip > .filter-group { padding-left: var(--s4); border-left: 1px solid var(--line); }
+.artifact-filter-search { grid-area: search; padding-left: 0 !important; border-left: 0 !important; }
+.artifact-filter-quality { grid-area: quality; }
+.artifact-filter-main-stat { grid-area: main; }
+.artifact-filter-location { grid-area: location; }
+.artifact-filter-type { grid-area: type; }
+.artifact-filter-element { grid-area: element; }
+.artifact-filter-archetype { grid-area: archetype; }
+@media (max-width: 1700px) {
+  .artifact-filter-strip {
+    grid-template-areas:
+      "search quality main"
+      ". type element"
+      ". location archetype";
+  }
+}
+@media (max-width: 1120px) {
+  .artifact-filter-strip {
+    grid-template-areas:
+      "search quality"
+      ". type"
+      ". main"
+      ". element"
+      ". location"
+      ". archetype";
+  }
+}
 .filter-label {
   font-size: var(--t-micro); letter-spacing: .1em; text-transform: uppercase;
   color: var(--faint); font-weight: 700;
