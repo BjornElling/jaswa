@@ -148,11 +148,39 @@ export function numberLocale(settings: GeneralSettings): string | undefined {
   return undefined;
 }
 
-/** The locale dates are written with, on the same terms as `numberLocale`. */
-export function dateLocale(settings: GeneralSettings): string | undefined {
+/**
+ * Whether this computer writes the day before the month.
+ *
+ * Only the order is read, never the locale's own spelling: de-DE puts the day
+ * first and writes 30.08.2026, and an all-numeric date is the one form a
+ * reader cannot decode without already knowing which convention produced it.
+ * So the answer is a yes or no, and the date is then written in one of JASWA's
+ * two locales.
+ *
+ * A locale that leads with the year — ja-JP, hu-HU — still has the month
+ * before the day, and reads as American here. That is the right half of a
+ * two-way split: those readers expect the month first.
+ */
+function systemWritesDayFirst(): boolean {
+  const parts = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).formatToParts(new Date());
+  const day = parts.findIndex((part) => part.type === 'day');
+  const month = parts.findIndex((part) => part.type === 'month');
+  /* A format missing either field cannot be read for order; the European form
+     is the wider convention, so it is the safer of the two to fall back to. */
+  if (day < 0 || month < 0) return true;
+  return day < month;
+}
+
+/**
+ * The locale dates are written with. Unlike `numberLocale` this never returns
+ * `undefined`: letting Intl fall back to the computer's own locale is what
+ * produced 30.08.2026 for a German user, so `system` resolves to whichever of
+ * the two JASWA locales matches the order that computer keeps.
+ */
+export function dateLocale(settings: GeneralSettings): string {
   if (settings.dateOrder === 'european') return europeanDateLocale;
   if (settings.dateOrder === 'american') return americanDateLocale;
-  return undefined;
+  return systemWritesDayFirst() ? europeanDateLocale : americanDateLocale;
 }
 
 export function formattingTimeZone(settings: GeneralSettings): string | undefined {
