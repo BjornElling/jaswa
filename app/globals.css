@@ -59,6 +59,10 @@
   --row: 40px;
   --rail: 244px;
   --strip: 52px;
+  /* One filter group's column in the strip. Wide enough for the widest group —
+     the search field, and the five-button Element and Quality rows — so every
+     group occupies exactly one column and the rows align. */
+  --filter-column: 296px;
   /* what the import badge takes out of the top-right corner. Content that
      opens there measures its clearance from these rather than guessing. */
   --badge-width: 440px;
@@ -278,20 +282,44 @@ button { cursor: pointer; }
 .import-badge.live .import-badge-when { color: var(--gold); }
 
 /* --------------------------------------------------------- filter strip
-   The strip wraps. There are more filters than fit one line on an ordinary
-   window — Artifacts has seven groups — and a single scrolling row hid the
-   last of them behind the import badge with nothing to say they were there.
-   Wrapping shows every control at once and grows the strip downwards, which
-   moves only the table below it. Each group stacks its heading over its own
-   controls so a label names the buttons beneath it rather than the ones to
-   its right. */
+   The strip is a grid, not a wrapping row. There are more filters than fit one
+   line on an ordinary window — Artifacts has seven groups — and a single
+   scrolling row hid the last of them behind the import badge with nothing to
+   say they were there. Wrapping showed them all, but each group sized itself to
+   its own content, so a second row's headings landed at their own offsets and
+   the two rows lined up nowhere.
+
+   A fixed column measure fixes that: every group occupies one column, so
+   `Quality` sits under `Search` and `Main stat` under `Type`, and the strip
+   reads as a table of filters rather than as text that happened to wrap. The
+   measure holds the widest group — five buttons — so no group spills into its
+   neighbour's column. Each group stacks its heading over its own controls, so a
+   label names the buttons beneath it rather than the ones to its right. */
 .filter-strip {
-  display: flex; flex-wrap: wrap; align-items: flex-start;
-  align-content: flex-start;
+  display: grid;
+  --filter-columns: 4;
+  grid-template-columns: repeat(var(--filter-columns), var(--filter-column));
+  align-content: start;
+  justify-content: start;
   gap: var(--s3) 0;
   min-height: var(--strip);
   background: var(--bg);
   padding: var(--s3) var(--gutter);
+}
+/* The column count is stated rather than filled, because the group that starts
+   each row has to lose its divider and only a known count says which group
+   that is. Four columns need 1184px of a 1600px window beside the rail; below
+   that the strip steps down rather than letting a column overflow. */
+.filter-strip > .filter-group:nth-child(4n + 1) { padding-left: 0; border-left: 0; }
+@media (max-width: 1420px) {
+  .filter-strip { --filter-columns: 3; }
+  .filter-strip > .filter-group:nth-child(4n + 1) { padding-left: var(--s4); border-left: 1px solid var(--line); }
+  .filter-strip > .filter-group:nth-child(3n + 1) { padding-left: 0; border-left: 0; }
+}
+@media (max-width: 1120px) {
+  .filter-strip { --filter-columns: 2; }
+  .filter-strip > .filter-group:nth-child(3n + 1) { padding-left: var(--s4); border-left: 1px solid var(--line); }
+  .filter-strip > .filter-group:nth-child(2n + 1) { padding-left: 0; border-left: 0; }
 }
 /* A table page opens on its strip, and the import badge rests over that same
    corner. The strip clears the badge's full height before its first row, so a
@@ -303,24 +331,35 @@ button { cursor: pointer; }
      box and left the first row two pixels under it. */
   padding-top: calc(var(--s4) + var(--badge-height) + var(--s3));
 }
+/* The divider sits on a group's left and is dropped where a column starts a
+   row, so a rule never hangs at the end of a row with nothing beyond it. Which
+   groups start a row depends on how many columns fit, so the count is set per
+   breakpoint below alongside the columns themselves. */
 .filter-group {
-  display: flex; flex: 0 0 auto; flex-direction: column; gap: var(--s1);
-  padding-right: var(--s4); margin-right: var(--s4);
-  border-right: 1px solid var(--line);
+  display: flex; flex-direction: column; gap: var(--s1);
+  padding-left: var(--s4);
+  border-left: 1px solid var(--line);
   white-space: nowrap;
 }
 .filter-group-controls { display: flex; align-items: center; gap: var(--s1); min-height: 30px; }
 /* A group whose heading is its control's own label — the checkboxes — keeps
    them side by side rather than stacking a word above a box. */
-.filter-group.inline { flex-direction: row; align-items: center; }
-.filter-group:last-of-type { border-right: 0; margin-right: 0; }
+.filter-group.inline { flex-direction: row; align-items: center; gap: var(--s2); }
+/* A divider separates one group from the next, so the last group in a row has
+   nothing to divide it from and drops its rule. `:has()` reads the grid's real
+   wrapping: a group whose right edge is the strip's own content edge ends its
+   row, wherever that falls at the current width. */
+.filter-group:last-of-type { border-right: 0; }
 .monster-filter-count {
-  /* A fixed measure, because the count is the one thing in the strip whose
-     text changes on every click: sized to the digits it can hold, it stays put
-     as "1.862" becomes "77" instead of sliding along its own row. */
-  flex: 0 0 20ch;
-  margin-left: auto;
-  align-self: center;
+  /* Its own full row, ended right: the count belongs to the whole strip rather
+     than to the group it would otherwise sit beside, and it is the one thing
+     here whose text changes on every click — given a column it would drag a
+     divider around as "1.862" became "77". */
+  grid-column: 1 / -1;
+  justify-self: end;
+  /* A fixed measure as well, because its text changes on every click: sized to
+     the digits it can hold, it stays put as "1.862" becomes "77". */
+  width: 20ch;
   color: var(--faint);
   font-family: var(--mono);
   font-size: var(--t-small);
