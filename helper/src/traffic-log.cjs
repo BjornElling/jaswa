@@ -30,6 +30,9 @@ class TrafficLog {
     this.enabled = false;
     this.entries = 0;
     this.bytes = 0;
+    /* Survives switching off, so a finished recording can still be opened.
+       Reset only when a new session overwrites the file. */
+    this.recorded = false;
     this.lastError = null;
     /* Responses arrive faster than the disk answers. Chaining keeps the file's
        line order equal to the traffic's order and stops interleaved writes. */
@@ -51,6 +54,7 @@ class TrafficLog {
     if (enabled) {
       this.entries = 0;
       this.bytes = 0;
+      this.recorded = false;
       this.lastError = null;
       /* Each session starts clean: a log that silently continued an earlier one
          would invite reading yesterday's traffic as today's evidence. */
@@ -83,6 +87,7 @@ class TrafficLog {
     })}\n`;
     this.bytes += Buffer.byteLength(line, 'utf8');
     this.entries += 1;
+    this.recorded = true;
     const full = this.bytes >= this.maximumBytes;
     this.writing = this.writing.then(async () => {
       try {
@@ -104,6 +109,7 @@ class TrafficLog {
     return {
       enabled: this.enabled,
       entries: this.entries,
+      recorded: this.recorded,
       bytes: this.bytes,
       full: this.bytes >= this.maximumBytes,
       file: this.file(),

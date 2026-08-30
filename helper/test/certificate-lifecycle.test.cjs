@@ -4,6 +4,9 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { cleanup, releaseHostEntries } = require('../src/service.cjs');
 
+/* Every case here must pass its own `record`. The default is the real
+   diagnostic writer, and a test that omits it appends its deliberate failures
+   to the running installation's own log, where they read as a genuine fault. */
 test('keeps the local certificate when cleanup does not request its removal', async () => {
   const calls = [];
   await cleanup({
@@ -11,6 +14,7 @@ test('keeps the local certificate when cleanup does not request its removal', as
     certificatePath: 'C:\\JASWA Helper\\certificates\\certs\\ca.pem',
     removeHostEntries: async () => { calls.push('hosts'); },
     execute: async () => { calls.push('flush DNS'); },
+    record: async () => {},
     removeCertificateAt: async () => { calls.push('certificate'); },
   });
 
@@ -25,6 +29,7 @@ test('removes the local certificate only when uninstalling with approval', async
     certificatePath: 'C:\\JASWA Helper\\certificates\\certs\\ca.pem',
     removeHostEntries: async () => { calls.push('hosts'); },
     execute: async () => { calls.push('flush DNS'); },
+    record: async () => {},
     removeCertificateAt: async (certificatePath) => { calls.push(certificatePath); },
   });
 

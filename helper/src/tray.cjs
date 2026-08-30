@@ -127,7 +127,9 @@ function refreshMenu() {
       checked: Boolean(trafficStatus?.enabled),
       click: (item) => void setTrafficLogging(item.checked),
     },
-    { label: 'Open traffic log', enabled: Boolean(trafficStatus?.entries), click: () => void openTrafficLog() },
+    /* The recording stays readable after it is switched off — that is when a
+       user goes looking for it — so this follows the file, not the switch. */
+    { label: 'Open traffic log', enabled: Boolean(trafficStatus?.entries || trafficStatus?.recorded), click: () => void openTrafficLog() },
     {
       label: 'Start JASWA Helper with Windows',
       type: 'checkbox',

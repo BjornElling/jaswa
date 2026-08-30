@@ -2,7 +2,9 @@
 
 **Status:** Live working document for the Artifacts workspace
 **Started:** August 30, 2026
-**Last updated:** August 30, 2026 — session 1, before any code was written
+**Last updated:** August 30, 2026 — session 1, `docs/ARTIFACT-CANONICAL.md`
+written from the user's rules research and then extended from a second
+independent specification of the same rules
 
 This file is the memory of the Artifact sprint. It carries the purpose, the
 decisions taken, the questions still open, and the state of the work, so a new
@@ -204,6 +206,13 @@ available for any future question about what the proxy can derive.
 which asks for confirmation because the file holds account data in the clear),
 and **Open traffic log** beside it.
 
+**Rebuild the installer after changing the helper.** `npm run package` in
+`helper/` refreshes `public/JASWA-Helper-Setup.exe`; committing helper source
+alone leaves the installed program on the previous build. The installer's own
+bytes are compressed, so verify a feature reached it by grepping the packaged
+`win-unpacked/resources/app.asar` in electron-builder's output — grepping the
+`.exe` gives a false negative.
+
 **What it writes.** `%LOCALAPPDATA%\JASWA Helper\traffic.log` — one JSON object
 per line: `{ at, command, request, response }`. Line-per-entry rather than one
 array, so the file stays readable if the helper stops mid-session. Switching it
@@ -309,6 +318,9 @@ recorded here once the user has taken it.
 | 3 | 2026-08-30 | Capture the game's own engraving statistics — the community usage percentages for rune sets, rune slot properties, artifact main and sub properties, and relic main and unique properties — as a one-time recorded dataset, not a live import. | The game already answers "what does everyone else run on this monster". Recording it once gives the sprint a real reference to judge against, without the program ever depending on that data staying fresh. |
 | 4 | 2026-08-30 | *(Superseded by 5.)* Read an SWEX log before writing any helper capture code. | SWEX already decrypts the same gateway and can log it completely, answering the unknowns without building anything. |
 | 5 | 2026-08-30 | Build "Log all traffic" into JASWA Helper itself — a general investigation tool, offered in the tray menu and off by default — rather than reading an SWEX log. | It answers the same questions as decision 4 while staying useful afterwards: any future question about what the proxy can derive is then one toggle away, with no second program and no account data leaving the user's own tooling. |
+| 6 | 2026-08-30 | The artifact rules live in `docs/ARTIFACT-CANONICAL.md`, structured as a reference work rather than as a narrative, and separating verified rule from pending verification in the manner of `docs/RUNE-CANONICAL.md`. | Step 1 blocks every step after it, and the questions it must answer arrive one at a time over the sprint. A document organised by subject — equip rules, property pool, per-property behaviour, additional damage, rounding, conversion, reappraisal, legacy — can be consulted at the point of doubt; a narrative has to be re-read. |
+| 7 | 2026-08-30 | Everything the pre-v8.0.0 artifact system did is treated as legacy and marked as such, but legacy *properties* stay importable. | The rule research found that most surviving guides describe the pre-v8 system, so the document has to state its own vintage loudly. `AGENTS.md` §0 forbids migrations for JASWA's own data — but a legacy property on a live account is current input, not an old JASWA format, so rejecting it would reject a legal artifact. |
+| 8 | 2026-08-30 | A second specification of the same rules, supplied as TypeScript, is absorbed into `ARTIFACT-CANONICAL.md` rather than kept as its own document or committed as code. | Two documents on one subject drift, and the reader has to arbitrate between them at every question. Its four genuine contributions — the contribution count as data, the three evaluation axes, the `allowedRolls` escape hatch, and the rounding table — belong where the rules already live. Its concrete property IDs and roll values are exactly what `ARTIFACT-CANONICAL.md` §15 forbids assuming before an export exists. |
 
 ---
 
@@ -320,11 +332,11 @@ Status is one of **Not started**, **In progress**, **Blocked**, **Done**.
 | # | Step | Status | Notes |
 | ---: | --- | --- | --- |
 | 0 | Write and maintain this sprint file | **In progress** | Created in session 1. Updated continuously for the sprint's life. |
-| A1 | Helper "Log all traffic" — tray toggle, off by default, writing decoded exchanges | **Done** | Session 1. `helper/src/traffic-log.cjs`, wired in `service.cjs`, offered in `tray.cjs`. 6 tests; full suite 36/36. Not yet run against the live game. |
+| A1 | Helper "Log all traffic" — tray toggle, off by default, writing decoded exchanges | **Done, installer built** | Session 1. `helper/src/traffic-log.cjs`, wired in `service.cjs`, offered in `tray.cjs`. 7 tests; full suite 37/37. `public/JASWA-Helper-Setup.exe` rebuilt and verified to contain it. Not yet run against the live game. |
 | A2 | Record a log and write the true payload shape into §2a | **Next** | Follow the recipe in §2a. Answers everything under "What is still unknown", including whether a monster costs one interaction or nine. Blocks A3. |
 | A3 | Design and build the recorded dataset from the observed shape | Not started | Scope depends on §7 Q7. One-time capture, never a live import. |
-| 1 | Establish the artifact rules — a canonical document from the game and a real export | Not started | Depends on the export sample and the sources in §7 Q1. Blocks every step after it. |
-| 2 | Model and read artifacts — types, parsing, validation from `game.data.artifacts` | Not started | Needs step 1's field mapping. |
+| 1 | Establish the artifact rules — a canonical document from the game and a real export | **Mostly done** | `docs/ARTIFACT-CANONICAL.md` written in session 1 from the user's rules research, then extended from a second independent specification (decision 8). The *game rules* are recorded. What remains is the **encoding**, listed in its §15: field layout, property IDs, how power-up counts and the conversion slot are stored. That needs a real export. |
+| 2 | Model and read artifacts — types, parsing, validation from `game.data.artifacts` | **Blocked** | Blocked on `ARTIFACT-CANONICAL.md` §15 — the export encoding. The rules it must enforce are already written (§13 validation rules). |
 | 3 | Artifact library — list, sort, filter, empty state | Not started | The first thing the user can see. |
 | 4 | Judgement — the score, its inputs, and its explanation | Not started | Needs step 1's rules and the §7 Q3 settings model. |
 | 5 | Artifact preferences — settings and presets in `Preferences`, carried in `.sw` | Not started | Extends `isValidPreferences`. Breaking change by design. |
@@ -339,11 +351,13 @@ Status is one of **Not started**, **In progress**, **Blocked**, **Done**.
 To be answered by the user, or by evidence, before the steps that depend on
 them. **None of these has an assumed default.**
 
-**Q1 — What is the canonical source for artifact rules?**
-Rune Potential rests on `docs/RUNE-CANONICAL.md`, verified against a real
-export. Artifacts need the same. Which sources count, and is there a game
-export available to verify the field encoding against? No such file is in the
-repository today.
+**Q1 — What is the canonical source for artifact rules? — Answered, in part.**
+`docs/ARTIFACT-CANONICAL.md`, written in session 1 from the user's rules
+research and listing its sources in §14. The **game rules** are settled there.
+The **export encoding** is not: no export is in the repository, so §15 lists the
+six encoding questions that remain, and the document forbids computing a
+maximum, a projection, or a score from a guessed encoding until they are
+answered.
 
 **Q2 — What does the workspace answer first?**
 "Which artifacts should I keep?" and "which monster should wear this artifact?"
@@ -474,7 +488,77 @@ response in the real wire format, decoded them through `protocol.cjs`, and
 confirmed both round-trip intact into the log. **Not exercised against the
 live game** — that is A2, and it needs the user.
 
-**Stopped at.** A2: the user records a log by the recipe in §2a, and the
-observed payload shape gets written into §2a. Nothing further should be
-designed until then. Q7 governs how far the capture goes; Q1 still blocks
-step 1.
+**Then asked.** The user supplied their own research into the current artifact
+rules — written with a calculation program in mind — and asked for it to be set
+up as a canonical reference work that any question or uncertainty about
+artifacts can be settled from.
+
+**Written (step 1, rules half).** `docs/ARTIFACT-CANONICAL.md`, following the
+shape of `docs/RUNE-CANONICAL.md`: status header, verified rule separated from
+pending verification, sources and a revision rule at the end. Restructured from
+the research's 48 sequential sections into 15 subject sections, so a question
+lands on one place rather than being reconstructed from a narrative — the equip
+model, main property, grade and roll maths, the property pool, per-property
+behaviour, additional damage, runtime context, rounding, conversion,
+reappraisal, legacy, and the calculation contract with its validation rules.
+Recorded decisions 6 and 7, answered Q1 in part, and moved steps 1 and 2.
+
+**The document's own headline.** Most artifact material still circulating
+describes the pre-v8.0.0 system, so the file states its vintage at the top and
+confines pre-v8 behaviour to its §12. The three rules most likely to be
+implemented wrong are called out where they bite: additional damage is a flat
+per-hit bucket that truncates **per stat component** and cannot crit; buff
+amplification multiplies the buff's strength and floors it, so
+`ATK/DEF UP Effect +25%` is not +25 percentage points of ATK; and Accuracy
+moves the ACC-vs-RES check, never a debuff's activation chance.
+
+**Two places the document deliberately refuses to guess.** §5.3 flags that
+"available on both categories" is unconfirmed against a real export, and §12
+flags that legacy roll ranges are unknown — in both cases prescribing a warning
+or a display-only treatment rather than a rejection or a computed projection.
+
+**Not done.** No code was changed. No commit was made. The export encoding —
+`ARTIFACT-CANONICAL.md` §15 — is untouched, and step 2 is blocked on it.
+
+**Then asked.** The user supplied a second specification of the same artifact
+rules — a full TypeScript engine sketch with data tables, validation, and combat
+functions — and asked whether it was sound and usable, leaving the judgement of
+how to absorb it to the agent, on the grounds that the agent is the one who will
+later write the calculating code.
+
+**Judged, and absorbed (decision 8).** The specification is a competent second
+pass over the same research, not new evidence. Keeping it as a separate document
+would have created two answers to every artifact question; committing it as code
+would have violated `ARTIFACT-CANONICAL.md` §15, which forbids assuming an export
+encoding. Four contributions were genuinely new and went into the canonical
+document where each belongs:
+
+- **§3** — the contribution count as a stored `ArtifactGradeDefinition` field, so
+  the per-grade maximum table becomes a test fixture rather than a second source;
+  plus the `allowedRolls` escape hatch if a property ever proves non-contiguous.
+- **§9** — the rounding policy as one named table, with `NONE` stated as a
+  positive claim that a mechanic does *not* truncate there.
+- **§12** — unknown legacy ranges modelled as `null`, not `0`.
+- **§13** — `ArtifactEvaluation`'s three axes (roll quality, monster
+  compatibility, combat value), the sharpest available answer to "there is no
+  single artifact score", plus the two rival definitions of roll quality.
+
+**Four faults in the specification, recorded so they are not reintroduced.**
+Its property IDs (`'skill_1_crit_damage'` and friends) are invented and would
+have to be rewritten once the export is read — §13 now says so explicitly. Its
+legacy definitions carry `minRoll: 0, maxRoll: 0`, which makes a maximum compute
+to a plausible-looking zero. Its grade table gives Normal
+`initialProperties: 0, powerUpRolls: 0`, which yields no lines at all for an
+artifact that must finish with four — §3 now calls that case out. And it defines
+base buff strengths inside the artifact layer, which §13's new "What belongs
+outside this layer" now forbids.
+
+**Not done.** No code was changed. No commit was made. The specification itself
+was not added to the repository; only its findings were. Step 2 remains blocked
+on §15.
+
+**Stopped at.** Two independent fronts, either of which the user may pick up.
+A2: record a traffic log by the recipe in §2a and write the observed payload
+shape into it. Step 1's remaining half: supply an export so
+`ARTIFACT-CANONICAL.md` §15's six encoding questions can be answered, which is
+what unblocks step 2. Q7 still governs how far the engraving capture goes.

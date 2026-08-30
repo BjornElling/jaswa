@@ -78,6 +78,24 @@ test('stops recording at its size limit and says so', async () => {
   assert.equal(log.status().full, true);
 });
 
+test('a finished recording stays openable after logging is switched off', async () => {
+  const directory = await temporaryDirectory();
+  const log = new TrafficLog({ directory });
+
+  assert.equal(log.status().recorded, false);
+  log.setEnabled(true);
+  log.record('Captured', {}, {});
+  await log.flush();
+  log.setEnabled(false);
+
+  /* Switching off is exactly when the user goes looking for the file. */
+  assert.equal(log.status().recorded, true);
+  assert.equal((await readLines(directory))[0].command, 'Captured');
+
+  log.setEnabled(true);
+  assert.equal(log.status().recorded, false);
+});
+
 test('a missing command is recorded as null rather than invented', async () => {
   const directory = await temporaryDirectory();
   const log = new TrafficLog({ directory });
