@@ -10,8 +10,6 @@ const watchedCollections = Object.freeze({
   relics: 'relic_id',
   rune_craft_item_list: 'craft_item_id',
 });
-const profileActivityTimeoutMs = 10_000;
-
 function isRecord(value) { return Boolean(value) && typeof value === 'object' && !Array.isArray(value); }
 function identifier(value, key) { return isRecord(value) && (typeof value[key] === 'string' || typeof value[key] === 'number') ? String(value[key]) : undefined; }
 
@@ -32,34 +30,23 @@ function removeCollectionItems(current, identifiers, key) {
 function firstRecord(value) { return isRecord(value) ? value : undefined; }
 
 class ProfileStore {
-  constructor(now = () => Date.now()) {
+  constructor() {
     this.profile = null;
     this.updatedAt = null;
     this.source = null;
-    this.lastActivityAt = null;
     this.revision = 0;
     this.sessionId = 0;
     this.instanceId = crypto.randomUUID();
-    this.now = now;
-  }
-
-  markActivity() {
-    const activityAt = this.now();
-    /* A snapshot from a previous game session must not be served as the next
-       session's first import before the new login response arrives. */
-    if (this.profile && this.lastActivityAt !== null && activityAt - this.lastActivityAt > profileActivityTimeoutMs) this.clear();
-    this.lastActivityAt = activityAt;
   }
 
   isConnected() {
-    return Boolean(this.profile && this.lastActivityAt !== null && this.now() - this.lastActivityAt <= profileActivityTimeoutMs);
+    return Boolean(this.profile);
   }
 
   clear() {
     this.profile = null;
     this.updatedAt = null;
     this.source = null;
-    this.lastActivityAt = null;
   }
 
   acceptSnapshot(profile) {
@@ -67,9 +54,6 @@ class ProfileStore {
     this.profile = structuredClone(profile);
     this.updatedAt = new Date().toISOString();
     this.source = 'game-start';
-    /* A login can arrive after a quiet previous session. Marking activity after
-       replacing the snapshot would otherwise clear the freshly captured data. */
-    this.lastActivityAt = this.now();
     this.sessionId += 1;
     this.revision += 1;
     return true;
@@ -120,7 +104,6 @@ class ProfileStore {
     this.updatedAt = new Date().toISOString();
     this.source = 'live';
     this.revision += 1;
-    this.markActivity();
     return true;
   }
 
@@ -142,4 +125,4 @@ class ProfileStore {
   }
 }
 
-module.exports = { ProfileStore, mergeCollection, profileActivityTimeoutMs, removeCollectionItems };
+module.exports = { ProfileStore, mergeCollection, removeCollectionItems };

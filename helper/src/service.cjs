@@ -13,6 +13,7 @@ const { createApi } = require('./api.cjs');
 const { allowedOrigins, dataDirectory, gatewayHosts, helperPort, proxyPort } = require('./config.cjs');
 const { recordDiagnostic } = require('./diagnostics.cjs');
 const { removeEntries, writeEntries } = require('./hosts.cjs');
+const { isSummonersWarRunning } = require('./game-process.cjs');
 const { ProfileStore } = require('./profile-store.cjs');
 const { decodeRequest, decodeResponse } = require('./protocol.cjs');
 
@@ -20,6 +21,7 @@ const run = promisify(execFile);
 const gatewayPath = '/api/gateway_c2.php';
 const upstreamArgument = '--jaswa-upstream-map=';
 const maximumInterceptedBodyBytes = 16 * 1024 * 1024;
+const gameProcessPollIntervalMs = 2_000;
 const fallbackUpstreams = Object.freeze({
   'summonerswar-eu-lb.qpyou.cn': ['34.160.156.240'],
   'summonerswar-gb-lb.qpyou.cn': ['34.160.216.76'],
@@ -173,10 +175,39 @@ async function start() {
   await removeCertificateDirectory(certificatePath);
   const profileStore = new ProfileStore();
   let lastError = null;
+  let gameProcessError = null;
   let running = true;
+  let gameRunning = false;
+  let gameCheckFailed = false;
+  let gameProcessTimer = null;
+  const status = () => {
+    const snapshot = profileStore.status();
+    return {
+      running,
+      ...snapshot,
+      /* Network traffic is naturally bursty. A captured snapshot stays ready
+       while the game process is alive; a stopped process or proxy fault is a
+       real loss of the live link. */
+      profileReady: snapshot.hasProfile && gameRunning && !gameCheckFailed && lastError === null && gameProcessError === null,
+      lastError: lastError ?? gameProcessError,
+    };
+  };
+  const refreshGameProcess = async () => {
+    try {
+      const nextGameRunning = await isSummonersWarRunning();
+      if (gameRunning && !nextGameRunning) profileStore.clear();
+      gameRunning = nextGameRunning;
+      gameCheckFailed = false;
+      gameProcessError = null;
+    } catch (error) {
+      gameRunning = false;
+      gameCheckFailed = true;
+      gameProcessError = `Could not check whether Summoners War is running: ${error.message}`;
+    }
+  };
   const api = createApi({
     allowedOrigins: allowedOrigins(), port: helperPort, profileStore,
-    status: () => ({ running, ...profileStore.status(), lastError }),
+    status,
   });
   const proxy = new Proxy();
   let hostsInstalled = false;
@@ -194,7 +225,6 @@ async function start() {
   });
   proxy.onRequest((context, callback) => {
     if (!context.clientToProxyRequest.url.includes(gatewayPath)) return callback();
-    profileStore.markActivity();
     context.use(Proxy.gunzip);
     requestBodies.set(context, []); responseBodies.set(context, []);
     requestBodySizes.set(context, 0); responseBodySizes.set(context, 0);
@@ -246,6 +276,8 @@ async function start() {
     await installCertificate(certificatePath);
     certificateInstalled = true;
     for (const [hostname, address] of Object.entries(gatewayHosts)) bridges.push(await startGatewayBridge(hostname, address));
+    await refreshGameProcess();
+    gameProcessTimer = setInterval(() => void refreshGameProcess(), gameProcessPollIntervalMs);
   } catch (error) {
     api.close();
     for (const bridge of bridges) bridge.close();
@@ -261,6 +293,7 @@ async function start() {
   const stop = async () => {
     if (!running) return;
     running = false;
+    if (gameProcessTimer) clearInterval(gameProcessTimer);
     for (const bridge of bridges) bridge.close();
     proxy.close(); api.close();
     if (hostsInstalled) {
@@ -274,7 +307,7 @@ async function start() {
   process.once('SIGTERM', () => void stop().finally(() => process.exit(0)));
   return {
     profile: () => profileStore.read(),
-    status: () => ({ running, ...profileStore.status(), lastError }),
+    status,
     stop,
   };
 }
@@ -287,4 +320,4 @@ async function reportStartupError(error) {
 
 if (require.main === module) start().catch((error) => void reportStartupError(error).finally(() => process.exit(1)));
 
-module.exports = { certificateThumbprint, cleanup, maximumInterceptedBodyBytes, removeCertificateDirectory, reportStartupError, resolveGatewayAddresses, start, startupAddresses };
+module.exports = { certificateThumbprint, cleanup, gameProcessPollIntervalMs, maximumInterceptedBodyBytes, removeCertificateDirectory, reportStartupError, resolveGatewayAddresses, start, startupAddresses };
