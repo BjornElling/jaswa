@@ -13,6 +13,9 @@ It deliberately separates **verified rule** — supported by the sources in §14
 by an observed export — from **pending verification**, which is neither an
 assumption nor a permitted default in code. Pending items are marked inline.
 
+**The export encoding is settled** as of August 30, 2026, against 1,785 real
+artifact records. §15 records it, and three narrow fields remain pending there.
+
 > **The single most important caveat.** Most artifact guides and tables still
 > circulating describe the system **before v8.0.0**. Roll ranges, property
 > names, the drop state of a new artifact, and several removed properties all
@@ -262,10 +265,11 @@ artifacts may still carry the separate legacy names (§12).
 Since v8 the game shows the roll range directly on the artifact, which makes
 this table checkable in-client rather than only against secondary sources.
 
-**Pending verification.** Whether every property in §5.3 truly appears on both
-categories with identical ranges has not been confirmed against a real export.
-Until it is, validation should warn rather than reject a §5.3 property found on
-either category.
+~~**Pending verification.**~~ **Confirmed August 30, 2026** against 1,785 real
+artifact records (§15.4). All fourteen appear on both categories, and the
+category split is absolute: ids `3xx` occur only on Attribute artifacts and
+`4xx` only on Type artifacts, with no crossover in the data. Validation may now
+reject a category violation rather than merely warn.
 
 ---
 
@@ -922,8 +926,12 @@ strength. Pick one per surface, label it, and never average them.
 7. Summoners War Wiki and SW Database — property pool, elemental property
    ranges, legacy property names. Secondary; superseded by current official text
    or reproducible client observation on conflict.
-8. **Not yet available:** a user-supplied export verifying artifact field
-   encoding. §15 lists what it must settle.
+8. **The user's own account**, read from a `HubUserLogin` response on
+   August 30, 2026: 1,251 account artifacts and 534 equipped, 1,785 records.
+   Primary and checkable, and the basis of §15. It settles the field layout, the
+   property vocabulary and its category split, the power-up encoding and its
+   grade invariant, the conversion slot, and how legacy properties are
+   recognised.
 
 Revalidate on every game update: the property pool, roll ranges, merged or
 removed properties, and the reappraisal roll-preservation rule. An unknown
@@ -931,22 +939,175 @@ property ID must never receive a silent fallback rule.
 
 ---
 
-## 15. Open against a real export
+## 15. The export encoding — settled
 
-The rules above are game rules. The following are **encoding** questions that
-only an export can settle, and no code may assume an answer.
+**Answered August 30, 2026** against a real `HubUserLogin` response: 1,251
+account artifacts and 534 equipped ones, 1,785 records in total. Every claim
+below is a count over that data, not an inference from a guide. The section
+that preceded this one listed six open questions; five are now closed and the
+sixth is narrowed to a single field.
 
-- The field layout of an artifact record in the export, and how it relates to
-  the existing `pri_effect[0]` / `pri_effect[1]` reading in
-  `app/lib/monster-grid.ts` and `app/lib/monster-stats.ts`.
-- The numeric IDs for every sub property, and whether merged v8 properties
-  reuse an old ID or received a new one.
-- How the per-property power-up count is encoded, and whether the natural grade
-  is stored directly or must be derived from it.
-- How the conversion slot is marked.
-- Whether reappraisal leaves any trace in the record.
-- Whether legacy properties are distinguishable from current ones by ID alone.
+### 15.1 The record
 
-Until these are answered, the Artifacts workspace may display known current
-values but must not compute a maximum, a projection, or a score from a guessed
-encoding.
+```jsonc
+{
+  "rid": 319233427,          // the artifact's own id
+  "occupied_id": 0,          // 0 when unequipped; otherwise the wearer's unit_id
+  "slot": 0,                 // 0 when unequipped; else 1 = Attribute, 2 = Type
+  "type": 2,                 // 1 = Attribute artifact, 2 = Type artifact
+  "attribute": 0,            // element, on type 1 only
+  "unit_style": 2,           // monster type, on type 2 only
+  "natural_rank": 3,         // natural grade: 3 Rare, 4 Hero, 5 Legend
+  "rank": 5,                 // always 5
+  "level": 15,               // always 15
+  "pri_effect": [100, 1500, 15, 0, 0],
+  "sec_effects": [[220, 4, 0, 0, 0], /* … exactly four … */],
+  "locked": 0, "source": 50001, "extra": [],
+  "date_add": "…", "date_mod": "…"
+}
+```
+
+**`type` decides which of `attribute` and `unit_style` carries meaning**, and
+the other is `0`. In 1,251 records a non-zero `attribute` appeared only on
+`type: 1` and a non-zero `unit_style` only on `type: 2`, with no exceptions.
+`slot` agrees with `type` on every equipped artifact (`1/1` and `2/2`), so it is
+a second statement of the same fact rather than an independent one.
+
+**`rank` and `level` are constants.** All 1,785 records are `rank: 5`,
+`level: 15` — §2's "artifacts drop finished" as a property of the data. Do not
+build a level or upgrade path; there is nothing to model. `extra` was empty on
+every record, and `natural_rank` never fell below 3.
+
+**The value 98** appears in both `attribute` (21 records) and `unit_style` (6).
+It is not an element or a monster type. Treat it as its own case rather than a
+number to compare against 1–5 — **pending verification** of what it names.
+
+### 15.2 `pri_effect` — main property
+
+`[id, value, level, 0, 0]`, where `level` is always 15 and the last two are
+always zero. The id/value pairs observed are exactly three, and only three:
+
+| id | value | Meaning |
+| ---: | ---: | --- |
+| 100 | 1500 | HP +1,500 |
+| 101 | 100 | ATK +100 |
+| 102 | 100 | DEF +100 |
+
+This **confirms `equipmentPrimaryTypes` in `app/lib/monster-grid.ts`** and the
+`pri_effect[1]` addition in `app/lib/monster-stats.ts`. Both were right, and the
+distribution is near-even: 424 HP, 408 ATK, 419 DEF.
+
+### 15.3 `sec_effects` — the sub properties
+
+Four tuples, always, on all 1,785 records (§4 confirmed). Each is:
+
+```text
+[ effectId, value, powerUpCount, conversionFlag, newestLineFlag ]
+```
+
+**Position 2 is the power-up count, and the grade invariant holds exactly.**
+Summed across an artifact's four lines it equals `natural_rank − 1`, in every
+single record:
+
+| `natural_rank` | Σ power-ups | Records |
+| ---: | ---: | ---: |
+| 3 (Rare) | 2 | 334 |
+| 4 (Hero) | 3 | 747 |
+| 5 (Legend) | 4 | 170 |
+
+That is §3's table, observed rather than assumed. The natural grade is stored
+directly *and* derivable from the lines, so the two are a mutual check — a
+record where they disagree is corrupt and should be rejected, not repaired.
+
+**Values confirm the §5 roll ranges and the contribution arithmetic.** Grouping
+each property's values by its power-up count reproduces `initial + n rolls`:
+
+```text
+effect 206   rolls 0: 4–6    rolls 1: 8–12   rolls 2: 12–18   rolls 3: 17–24
+effect 221   rolls 0: 25–40  rolls 1: 52–79  rolls 2: 81–115  rolls 3: 110–145
+effect 218   rolls 0: 0.2–0.3
+```
+
+**`218` is stored as a decimal**, and it arrives with float error already in it
+— `0.6000000000000001` appears in the data. This is §9's rule vindicated at the
+worst possible moment: convert to hundredths of a percent on read, and never
+compare these values as floats.
+
+### 15.4 The property vocabulary
+
+**Every id divides cleanly by category, and the split matches §5.**
+
+| Range | Category | Count | §5 section |
+| --- | --- | ---: | --- |
+| `2xx` | Both | 14 current | §5.3 |
+| `3xx` | Attribute only (`type: 1`) | 10 | §5.2 |
+| `4xx` | Type only (`type: 2`) | 10 | §5.1 |
+
+The 14 `2xx` properties appeared on both categories, with 300 → 309 confined to
+`type: 1` and 400 → 411 to `type: 2` without a single crossover.
+**This discharges §5.3's pending verification**: "available on both categories"
+is now observed, not merely claimed, and the ten/ten/fourteen shape is exactly
+what §5 predicted.
+
+`4xx` skips `402` and `403`, and `3xx` is contiguous. A gap is not evidence of a
+missing property; it may simply be an id the pool never used.
+
+### 15.5 Legacy properties are distinguishable, and here is how
+
+**Three ids — `201`, `205`, `217` — appear in the account but never in the
+engraving statistics**, across 383 captured monster types. All three sit on
+**one artifact**, `rid` 319233427, added 2022-09-29:
+
+```text
+[[220, 4, 0, 0, 0], [201, 37, 2, 0, 0], [205, 2, 0, 0, 0], [217, 5, 0, 0, 0]]
+```
+
+That is §12 in the data: properties removed from the drop pool but preserved on
+an artifact that already carried them. **The reverse check is what makes this
+usable** — every id present in the statistics also appears in the owned
+collection, so the two vocabularies agree completely except for these three.
+
+An id absent from the statistics is therefore a strong legacy signal, but it is
+**not a definition**, and code must not derive `status: 'LEGACY'` from it: a
+current property could be absent simply because no captured monster favours it.
+Keep the legacy list explicit, and let the statistics inform it rather than
+determine it. §12's rule stands unchanged — accept these on import, refuse to
+generate them, and compute no maximum for them until their ranges are known.
+
+### 15.6 Position 3 — the conversion flag
+
+Non-zero on **at most one line per artifact**, on all 1,785 records. That is
+exactly §10's binding restriction: once a property has been chosen for
+conversion, it is the one that can be converted again. `convertedPropertyIndex`
+is therefore a faithful model, and validation rule 13 is checkable.
+
+Values above 1 occur (2, 3, 4 on 17 lines), so it is not a boolean. **Pending
+verification** of what the magnitude counts — plausibly how many times that slot
+has been converted, but nothing here proves it.
+
+### 15.7 Position 4 — the one field still unexplained
+
+Set on exactly one line of 452 of the 534 equipped artifacts, and — the useful
+constraint — **only ever on a line whose power-up count is zero**:
+
+```text
+rolls 0:  761 unset, 451 set
+rolls 1+:  923 unset,   0 set
+```
+
+So it marks an un-upgraded line, one per artifact. A reappraisal trace (§11) is
+the obvious guess and it is **not confirmed**; nothing in this data proves the
+semantics. Read it, keep it, and let nothing depend on it until an observation
+settles what it means.
+
+### 15.8 What this unblocks, and what it does not
+
+Step 2 of the sprint — modelling and reading artifacts — is unblocked. Roll
+quality (§13's first evaluation axis) is computable today: the property, its
+power-up count, its value, and the grade invariant are all present and verified.
+
+Two fields carry a **pending verification** marker (`attribute`/`unit_style`
+value 98, and `sec_effects` position 4) and one carries a partial (position 3's
+magnitude). Under §14's revision rule none of them may receive a silent fallback:
+store them, surface them where they matter, and do not compute anything from a
+meaning nobody has established.

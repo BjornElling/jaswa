@@ -616,8 +616,8 @@ Status is one of **Not started**, **In progress**, **Blocked**, **Done**.
 | A1 | Helper "Log all traffic" — tray toggle, off by default, writing decoded exchanges | **Done, proven live** | Session 1. `helper/src/traffic-log.cjs`, wired in `service.cjs`, offered in `tray.cjs`. 7 tests; suite 37/37. Installer rebuilt and verified. Captured 41 real exchanges from a live session. |
 | A2 | Record a log and write the true payload shape into §2a | **Done** | All three panels captured and verified against the screenshots: `getUnitStatsRuneInfo`, `getUnitStatsArtifactInfo`, `getUnitStatsRelicInfo`. Keyed on `unit_master_id`; raw counts, full distributions, one call per panel, three per monster. Rune `effect_id`s match `RUNE-CANONICAL.md` §2 exactly. Outstanding for A3, but not blocking it: the artifact and relic secondary vocabularies, and what `request_type`/`favorite_type` select. |
 | A3 | Design and build the recorded dataset from the observed shape | **Built; collection in progress** | Session 2. `scripts/collect-engraving-statistics.mjs` merges the traffic log into `app/data/engraving-statistics.json` additively and idempotently. Verified against the user's screenshots: every stored count reproduces the displayed percentage exactly. Dates per observation (decision 25). **383 of 1,086 monster types captured (35 %)** — the rest is the user's clicking, in stages (decision 26), and `--todo` names what is next. |
-| 1 | Establish the artifact rules — a canonical document from the game and a real export | **Mostly done** | `docs/ARTIFACT-CANONICAL.md` written in session 1 from the user's rules research, then extended from a second independent specification (decision 8). The *game rules* are recorded. What remains is the **encoding**, listed in its §15: field layout, property IDs, how power-up counts and the conversion slot are stored. That needs a real export. |
-| 2 | Model and read artifacts — types, parsing, validation from `game.data.artifacts` | **Blocked** | Blocked on `ARTIFACT-CANONICAL.md` §15 — the export encoding. The rules it must enforce are already written (§13 validation rules). |
+| 1 | Establish the artifact rules — a canonical document from the game and a real export | **Done** | `docs/ARTIFACT-CANONICAL.md`. The *rules* were written in session 1; the **encoding** was settled in session 2 against 1,785 real artifact records found in the traffic log (§15). Five of its six open questions are closed and §5.3's pending verification is discharged. Three narrow fields stay pending and may not be computed from. |
+| 2 | Model and read artifacts — types, parsing, validation from `game.data.artifacts` | **Unblocked, not started** | §15 answers what blocked it. The record shape, the property vocabulary and its category split, the power-up encoding and its grade invariant, and the conversion slot are all verified. `equipmentPrimaryTypes` and `addArtifactMainEffect` were confirmed correct, so the existing footholds extend rather than get replaced (Q6). Validation rules are in `ARTIFACT-CANONICAL.md` §13. |
 | 3 | Artifact library — list, sort, filter, empty state | Not started | The first thing the user can see. Sections framed by the shared `Disclosure` (decision 14). |
 | 4 | Judgement — roll quality against the monster type's property preferences | Not started | Decision 9: value is how well the artifact rolled on the properties the user preferred, weighted by the decision 11 slider. No skill data, no combat simulation. The artifact's own category selects which half of the preferences applies (decision 21). Needs step 2's parsed values and step 5's preferences. |
 | 5 | Artifact preferences — per-type property preferences, the acceptable factor, and the defaults | Not started | Decisions 9–12, 15–21, **28**. Its own model in `Preferences`, extending `isValidPreferences`. Preferences are keyed `(category, property)` (decision 21), and Attribute and Type properties are presented separately (20). **Store only what the user actually stated** — never a copy of the seeded defaults, or a cleared preference becomes indistinguishable from an unset one and the default silently returns (decision 28). The statistics are read at the point of use as a fallback. §7 Q7a governs a type the dataset does not cover. Breaking change by design. |
@@ -632,13 +632,13 @@ Status is one of **Not started**, **In progress**, **Blocked**, **Done**.
 To be answered by the user, or by evidence, before the steps that depend on
 them. **None of these has an assumed default.**
 
-**Q1 — What is the canonical source for artifact rules? — Answered, in part.**
+**Q1 — What is the canonical source for artifact rules? — Answered.**
 `docs/ARTIFACT-CANONICAL.md`, written in session 1 from the user's rules
-research and listing its sources in §14. The **game rules** are settled there.
-The **export encoding** is not: no export is in the repository, so §15 lists the
-six encoding questions that remain, and the document forbids computing a
-maximum, a projection, or a score from a guessed encoding until they are
-answered.
+research and listing its sources in §14. The **game rules** were settled there,
+and the **export encoding** was settled in session 2 (§15) against 1,785 real
+artifact records the traffic log already held. Five of the six encoding
+questions are closed; the remainder are three narrow fields, each marked pending
+and none of which may be computed from.
 
 **Q2 — What does the workspace answer first? — Answered (decision 13).**
 All three: which artifacts to keep, which monster should wear a given artifact,
@@ -666,11 +666,13 @@ preferences, nothing else. This also settles the related question about skill da
 never needs to know what Skill 2 does, because the user states whether they want
 a Skill 2 property.
 
-**Q6 — Do the existing footholds stay, move, or get replaced?**
-`monster-grid.ts` owns the primary-type mapping and `monster-stats.ts` owns
-the main-effect maths, both shared with relics. A fuller artifact model may
-want that code in an artifact library instead. Extend in place, or lift it out
-— and if lifted, relics come along.
+**Q6 — Do the existing footholds stay, move, or get replaced? — The evidence
+half is answered.** Both footholds are **correct**, confirmed in session 2
+against 1,785 real records: `pri_effect[0]` really is `100`/`101`/`102` for
+HP/ATK/DEF and nothing else, and `pri_effect[1]` really is the flat value
+`addArtifactMainEffect` adds. So neither has to be *replaced* — the choice is
+only whether the fuller model lifts them into an artifact library, and relics
+come along if it does. Decide it in step 2, on structure rather than on doubt.
 
 **Q7 — How many monsters must the engraving dataset cover? — Answered
 (decision 26): all of them, in stages.** The capture list is **1,086 monster
@@ -1454,3 +1456,57 @@ against a third of the catalog. Decision 18 is what makes that safe: a monster
 type without a row is not judged rather than judged as zero, so partial coverage
 is the ordinary state the interface must handle well — and building against it
 now means that state gets tested for real rather than assumed away.
+
+### Session 2, continued — the export encoding, found in the log we already had
+
+**Asked.** Move on from collection to building the workspace.
+
+**The blocker was checked before choosing a direction, and it was gone.** Step 2
+had been blocked since session 1 on `ARTIFACT-CANONICAL.md` §15 — the export
+encoding, which needed "a real export". The traffic log contains one:
+`HubUserLogin` carries **1,251 account artifacts and 534 equipped**, 1,785
+records with full field detail. No export file was ever needed.
+
+**§15 rewritten from observation.** Five of its six questions are closed, and
+every claim is a count over the 1,785 records rather than a reading of a guide:
+
+- **The record.** `type` 1 = Attribute (carries `attribute`), 2 = Type (carries
+  `unit_style`); the unused one is always `0`, without exception. `rank` and
+  `level` are constants (5 and 15) — §2's "drops arrive finished" visible in the
+  data, so there is no upgrade path to model.
+- **`pri_effect` confirms both existing footholds.** Exactly three id/value
+  pairs exist — `100`→1500 HP, `101`→100 ATK, `102`→100 DEF — which is
+  `equipmentPrimaryTypes` and `addArtifactMainEffect` proven right rather than
+  merely plausible. That answers Q6's evidence half.
+- **The grade invariant holds in all 1,785 records.** `sec_effects` position 2
+  is the power-up count, and its sum per artifact is exactly `natural_rank − 1`:
+  Rare 2, Hero 3, Legend 4. §3's table, observed. The grade is stored *and*
+  derivable, so the two are a mutual check and a disagreement means a corrupt
+  record.
+- **The vocabulary splits exactly as §5 predicted** — `2xx` both categories,
+  `3xx` Attribute-only, `4xx` Type-only, with **no crossover in 1,785 records**.
+  This discharges §5.3's pending verification, so validation may now reject a
+  category violation instead of warning.
+- **Legacy properties are recognisable.** Three ids — `201`, `205`, `217` —
+  appear in the account but in none of the 383 captured monster types' statistics,
+  and all three sit on a single artifact added in 2022. That is §12 in the data.
+  The reverse also holds: every id in the statistics appears in the collection.
+  Recorded with a caution — absence from the statistics is a strong signal but
+  **not a definition**, so the legacy list stays explicit.
+- **The conversion slot is position 3**, non-zero on at most one line per
+  artifact across all 1,785 — precisely §10's binding restriction, which makes
+  `convertedPropertyIndex` a faithful model and validation rule 13 checkable.
+
+**Three fields stay pending, and are marked so.** `attribute`/`unit_style` value
+`98` (27 records) is neither an element nor a monster type. Position 3's
+magnitude exceeds 1 on 17 lines, so it is not a boolean. Position 4 is set on
+exactly one line of 452 equipped artifacts and **only ever on a line with zero
+power-ups** — a reappraisal trace is the obvious guess and remains a guess.
+Under §14 none of them may receive a fallback rule.
+
+**One rule vindicated at the worst moment.** Property `218` (Additional Damage
+by HP, 0.20–0.30 %) is stored as a decimal and arrives with float error already
+present — `0.6000000000000001` is in the data. §9's "store hundredths of a
+percent, never floats" is not a stylistic preference.
+
+**Not done.** No production code changed. Step 2 is unblocked but unstarted.
