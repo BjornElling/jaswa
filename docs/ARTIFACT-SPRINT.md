@@ -205,29 +205,84 @@ contain the statistics, but it ruled things out that matter:
   save/load-preset feature (`snapshot_info_list`, `save_cooltime`), and is
   unrelated to engraving statistics.
 
-**What this implies.** The Statistics panel almost certainly issues its own
-request when it is opened, and the first recording stopped short of it — the
-panel was never reached, so the interesting call was never made. That is the
-one thing the next recording must do differently, and it also means the
-one-click-or-nine question is still open.
-
 **A tray counter reading `(0)` is not a fault.** The first screenshot was taken
 before the game was started; the log filled correctly afterwards. The counter
 refreshes about every two seconds.
+
+### Second recording — the statistics captured, August 30, 2026
+
+Opening the **Statistics** tab on Beth produced the calls the first recording
+missed. **This settles the payload shape.** Verified against the user's own
+screenshots: every percentage below reproduces exactly.
+
+**The two commands.**
+
+| Command | Request | Response |
+| --- | --- | --- |
+| `getUnitStatsArtifactInfo` | `unit_master_id`, `request_type: 3`, `favorite_type: 0` | `primary_effect`, `secondary_effect`, `favorite_type` |
+| `getUnitStatsRelicInfo` | `unit_master_id`, `request_type: 3` | `primary_effect`, `secondary_effect` |
+
+`GetUnitRecommendPage_V2` fires alongside them and carries `comments` — the
+community write-ups, not statistics. Not wanted here.
+
+**Keyed on `unit_master_id`, not `unit_id`.** Beth was `17911`. The dataset
+therefore holds **one row per monster type**, not per owned copy — which
+answers the keying question outright and matches decision 15.
+
+**One call covers a whole panel's dropdowns.** A single
+`getUnitStatsArtifactInfo` response carried the Main Property figures *and*
+both Sub Property views: `secondary_effect` splits on `slot_id` 1 and 2, which
+are the game's "Sub Prop. (Attribute)" and "Sub Prop. (Type)" tabs. So an
+artifact costs **one** request, not three, and a monster costs **two** requests
+in total for artifacts and relics — not the nine that the dropdown count
+suggested.
+
+**Counts, not percentages.** Every row is `{ slot_id?, effect_id, count }` with
+a raw occurrence count. The displayed percentage is derived by dividing by the
+total of its own group:
+
+- Artifact primary, `slot_id: 1` — `101: 67740`, `100: 10463`, `102: 5346`,
+  total 83549 → 81.1 % / 12.5 % / 6.4 %.
+- Artifact secondary, `slot_id: 1` — `219` is 11.4 %, `300` 6.4 %, `221` 6.2 %,
+  `307` 6.1 %, `223` 4.9 %, matching the screenshot exactly.
+- Relic primary — `101: 9195`, `100: 3759`, `102: 459` → 68.6 % / 28.0 % /
+  3.4 %, matching the screenshot.
+- Relic secondary — `14` is 24.5 %, `1` 12.9 %, `7` 8.8 %, matching.
+
+Storing the counts rather than the percentages keeps the sample size, which the
+percentage discards — a 30 % share drawn from 83549 uses is not the same
+evidence as 30 % drawn from 12.
+
+**No `Others` bucket, and nothing truncated.** The response carries the full
+distribution: 46 artifact secondary rows (23 per slot) and 16 relic secondary
+rows. The panel's **Others** row and its scroll limit are presentation only.
+This is better data than the screenshots suggested.
+
+**`effect_id` spaces differ per item kind.** Artifact primary and relic primary
+both use `100`/`101`/`102` for HP/ATK/DEF, which agrees with
+`equipmentPrimaryTypes` in `app/lib/monster-grid.ts`. Artifact secondary uses a
+`2xx`/`3xx`/`4xx` space (`219`, `300`, `409`…); relic secondary uses small
+integers (`1`, `7`, `14`…). These are **different vocabularies** and must not
+share a lookup table.
 
 ### What is still unknown
 
 Nothing below has been observed; none of it may be assumed in code.
 
-- The command name for the statistics request, and whether one response carries
-  a whole panel, one dropdown, or all three panels at once.
-- Whether the response is keyed by `unit_master_id` or by `unit_id`.
-- How percentages are encoded — a number, a scaled integer, or a rank order —
-  and whether **Others** arrives as a value or must be derived.
-- Whether the truncated lists are complete in the payload even when the panel
-  scrolls.
-- How artifact sub-property and relic unique-property effects are identified,
-  and whether those identifiers match the ones already on the user's own items.
+- **The rune statistics command has not been captured.** The recording caught
+  the artifact and relic calls but no rune equivalent — the user opened only
+  some sub-panels. Expect a sibling of `getUnitStats*Info`; the Rune Engraving
+  panel has four dropdowns (Rune Sets, Property slots 2/4/6), so its response
+  shape is still an open question.
+- **What `request_type: 3` selects.** A constant in both observed calls. It may
+  choose a game mode, an arena tier, or a time window; if it varies, the dataset
+  needs to say which slice it holds.
+- **What `favorite_type: 0` selects**, sent on the artifact call and echoed in
+  its response.
+- The meaning of each `effect_id` in the artifact `2xx`/`3xx`/`4xx` space and
+  the relic small-integer space, and whether they match the identifiers on the
+  user's own items.
+- Whether an unpopular monster returns empty lists or omits the keys entirely.
 
 ### Way in — JASWA Helper's own "Log all traffic"
 
@@ -251,27 +306,19 @@ per line: `{ at, command, request, response }`. Line-per-entry rather than one
 array, so the file stays readable if the helper stops mid-session. Switching it
 on starts a fresh file; it stops at 64 MB and says so on the menu label.
 
-**How to use it for this sprint.** The first attempt stopped at the monster and
-never reached the panel, which is where the request is made — so the numbered
-steps below matter in order:
+**How to capture a monster**, now that the second recording has shown what the
+calls are:
 
-1. Switch on **Log all traffic**, with the game already running and idle.
-2. Open Monster Info on one monster. (The first recording proved this alone
-   fetches nothing.)
-3. Open **Statistics** — the tab in the screenshots, beside Debate, Community
-   and Usage. **This is the step that was missed**, and the likeliest place the
-   request is issued.
-4. Stop there briefly. If opening the tab fetches all three panels at once, a
-   monster costs one interaction rather than nine.
-5. Work through the dropdowns one at a time: the rune panel's four, the
-   artifact panel's three, the relic panel's two.
-6. Open a **second monster**, and a **second copy of the same monster type**.
-7. Switch recording off, then **Open traffic log**.
+1. Switch on **Log all traffic**, with the game already running.
+2. Open the monster, then its **Statistics** tab. Opening the tab is what
+   issues the requests — the monster alone fetches nothing.
+3. Visit each of the three panels once: rune, artifact, relic. **One visit per
+   panel is enough** — a panel's dropdowns are all served by its single
+   response, so there is no need to click through them.
+4. Switch recording off, then **Open traffic log**.
 
-**If steps 3–5 still produce no traffic**, the statistics are not fetched per
-view. They would then have to arrive in some bulk payload, or the panel is
-served by a route the gateway proxy does not carry — either of which changes
-the approach, and is worth knowing before more clicking.
+The rune panel still needs a first observation; the artifact and relic calls
+are already understood.
 
 Step 2 answers the cost question, and step 4 answers the keying question.
 
@@ -395,7 +442,7 @@ Status is one of **Not started**, **In progress**, **Blocked**, **Done**.
 | ---: | --- | --- | --- |
 | 0 | Write and maintain this sprint file | **In progress** | Created in session 1. Updated continuously for the sprint's life. |
 | A1 | Helper "Log all traffic" — tray toggle, off by default, writing decoded exchanges | **Done, proven live** | Session 1. `helper/src/traffic-log.cjs`, wired in `service.cjs`, offered in `tray.cjs`. 7 tests; suite 37/37. Installer rebuilt and verified. Captured 41 real exchanges from a live session. |
-| A2 | Record a log and write the true payload shape into §2a | **In progress** | First recording missed the Statistics tab and so did not reach the request; it did rule out login and monster-open as sources. Repeat with the sharpened recipe in §2a. |
+| A2 | Record a log and write the true payload shape into §2a | **Artifacts and relics done; runes outstanding** | `getUnitStatsArtifactInfo` and `getUnitStatsRelicInfo` captured and verified against the screenshots. Keyed on `unit_master_id`; raw counts, full distributions, one call per panel. The rune equivalent has not been seen yet. |
 | A3 | Design and build the recorded dataset from the observed shape | Not started | **Now a product dependency, not a reference.** Decision 10 makes this the source of every monster's default marks, so what it covers is what the workspace can open with. Scope still governed by §7 Q7. One-time capture, never a live import. |
 | 1 | Establish the artifact rules — a canonical document from the game and a real export | **Mostly done** | `docs/ARTIFACT-CANONICAL.md` written in session 1 from the user's rules research, then extended from a second independent specification (decision 8). The *game rules* are recorded. What remains is the **encoding**, listed in its §15: field layout, property IDs, how power-up counts and the conversion slot are stored. That needs a real export. |
 | 2 | Model and read artifacts — types, parsing, validation from `game.data.artifacts` | **Blocked** | Blocked on `ARTIFACT-CANONICAL.md` §15 — the export encoding. The rules it must enforce are already written (§13 validation rules). |
@@ -455,9 +502,11 @@ want that code in an artifact library instead. Extend in place, or lift it out
 
 **Q7 — How many monsters must the engraving dataset cover? — Raised in
 importance by decision 10, still open.**
-The capture is manual: roughly nine dropdown views per monster, and the user
-performs every one of them. One monster is a proof of concept; a whole roster
-is hours of clicking. Which monsters earn the effort?
+The capture is manual, but **much cheaper than first estimated**. The second
+recording showed one call serves a whole panel's dropdowns, so a monster costs
+opening its Statistics tab and visiting three panels — not nine dropdown views.
+Still, it is per monster type, and the roster is 279 copies across rather fewer
+types. Which types earn the effort?
 
 The stakes changed. The dataset is no longer a reference to check against — it
 is where every monster's **default** preferred/acceptable marks come from
@@ -770,3 +819,39 @@ its own step, and says what it means if steps 3–5 still produce nothing.
 
 **Not done.** No production code changed. The payload shape is still unobserved,
 so A3 stays blocked and the one-click-or-nine question is still open.
+
+### Session 1, later still — the statistics captured
+
+**Asked.** The user opened the Statistics window on Beth, visited some but not
+all sub-panels, and asked for the log to be read again.
+
+**Captured.** `getUnitStatsArtifactInfo` and `getUnitStatsRelicInfo`, both keyed
+on `unit_master_id` (Beth = 17911). Full findings in §2a; the four that change
+the work:
+
+1. **One call per panel, not one per dropdown.** A single artifact response
+   holds Main Property *and* both Sub Property views, split on `slot_id`. A
+   monster costs visiting three panels, not nine dropdown views — Q7's cost
+   estimate was far too pessimistic.
+2. **Raw counts, not percentages.** `{ slot_id?, effect_id, count }`; the
+   displayed percentage is the row's share of its group's total. Storing counts
+   keeps the sample size that a percentage throws away.
+3. **Nothing is truncated.** 46 artifact and 16 relic secondary rows — the
+   panel's **Others** bucket and its scroll limit are presentation only. Better
+   data than the screenshots implied.
+4. **Keyed on the monster type**, which matches decision 15 without adjustment.
+
+**Verified, not assumed.** Every percentage recomputed from the counts matches
+the user's screenshots exactly — artifact primary 81.1/12.5/6.4 for slot 1,
+artifact secondary 11.4/6.4/6.2/6.1/4.9, relic primary 68.6/28.0/3.4, relic
+secondary 24.5/12.9/8.8. A stripped sample (account identifiers removed) was
+kept in the session scratchpad for designing against.
+
+**Still missing: the rune statistics.** The user visited only some panels, and
+no rune equivalent appeared. `getRuneOccupiedSnapshotInfo` in the log is the
+rune save/load-preset feature, not statistics. §2a lists this first under what
+is still unknown, along with what `request_type: 3` and `favorite_type: 0`
+select.
+
+**Not done.** No production code changed. A3 stays blocked on the rune shape
+and on the `effect_id` vocabularies, which are not yet decoded.
