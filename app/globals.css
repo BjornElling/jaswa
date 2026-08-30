@@ -373,7 +373,11 @@ button { cursor: pointer; }
 .artifact-filter-quality { grid-area: quality; }
 .artifact-filter-main-stat { grid-area: main; }
 .artifact-filter-location { grid-area: location; }
-.artifact-filter-type { grid-area: type; }
+.artifact-filter-type {
+  grid-area: type;
+  padding-left: 0 !important;
+  border-left: 0 !important;
+}
 .artifact-filter-element { grid-area: element; }
 .artifact-filter-archetype { grid-area: archetype; }
 @media (max-width: 1700px) {

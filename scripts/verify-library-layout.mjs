@@ -69,10 +69,14 @@ try {
         const type = positions['artifact-filter-type'];
         const element = positions['artifact-filter-element'];
         const archetype = positions['artifact-filter-archetype'];
+        const [qualityLabel, typeLabel] = await Promise.all([
+          page.locator('.artifact-filter-quality .filter-label').boundingBox(),
+          page.locator('.artifact-filter-type .filter-label').boundingBox(),
+        ]);
         assert(nearlyEqual(search.y, quality.y) && nearlyEqual(quality.y, main.y) && nearlyEqual(main.y, location.y)
           && search.x < quality.x && quality.x < main.x && main.x < location.x
           && type.y > quality.y && nearlyEqual(type.x, quality.x) && nearlyEqual(element.x, main.x)
-          && nearlyEqual(archetype.x, location.x),
+          && nearlyEqual(archetype.x, location.x) && qualityLabel && typeLabel && nearlyEqual(qualityLabel.x, typeLabel.x),
         'Artifact filters do not follow the requested two-row arrangement.');
       }
 
