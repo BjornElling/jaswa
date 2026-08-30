@@ -9,6 +9,7 @@ const zlib = require('node:zlib');
  * this computer; JASWA never forwards it or the account data anywhere else. */
 const steamProtocolKey = Buffer.from('Gr4S2eiNl7zq5MrU', 'utf8');
 const zeroIv = Buffer.alloc(16);
+const maximumDecodedResponseBytes = 32 * 1024 * 1024;
 
 function decryptEnvelope(payload, key = steamProtocolKey) {
   if (typeof payload !== 'string' || !payload.trim()) throw new Error('The gateway envelope was empty.');
@@ -22,7 +23,7 @@ function decodeRequest(payload, key = steamProtocolKey) {
 }
 
 function decodeResponse(payload, key = steamProtocolKey) {
-  return JSON.parse(zlib.inflateSync(decryptEnvelope(payload, key)).toString('utf8'));
+  return JSON.parse(zlib.inflateSync(decryptEnvelope(payload, key), { maxOutputLength: maximumDecodedResponseBytes }).toString('utf8'));
 }
 
-module.exports = { decodeRequest, decodeResponse, decryptEnvelope, steamProtocolKey };
+module.exports = { decodeRequest, decodeResponse, decryptEnvelope, maximumDecodedResponseBytes, steamProtocolKey };

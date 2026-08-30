@@ -13,9 +13,14 @@
   "dependencies": {
     "http-mitm-proxy": "1.1.0"
   },
+  "overrides": {
+    "http-mitm-proxy": {
+      "uuid": "11.1.0"
+    }
+  },
   "devDependencies": {
-    "electron": "24.8.8",
-    "electron-builder": "24.13.3"
+    "electron": "44.0.0",
+    "electron-builder": "26.15.3"
   },
   "build": {
     "appId": "dk.jaswa.helper",
@@ -38,7 +43,8 @@
     "nsis": {
       "oneClick": true,
       "perMachine": true,
-      "allowToChangeInstallationDirectory": false
+      "allowToChangeInstallationDirectory": false,
+      "include": "build/uninstall-cleanup.nsh"
     },
     "win": {
       "signAndEditExecutable": false

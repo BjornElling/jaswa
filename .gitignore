@@ -2,9 +2,12 @@
 /node_modules/
 /helper/node_modules/
 /helper/.cache/
+/helper/.next/
 /helper/dist/
 /helper/out/
 /public/win-unpacked/
+/public/win-unpacked.tmp/
+/helper-build/
 /public/*.blockmap
 /public/.icon-ico/
 /public/JASWA-Helper.exe

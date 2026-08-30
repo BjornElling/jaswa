@@ -16,8 +16,9 @@ function writeJson(response, status, value, origin, allowedOrigins) {
 function createApi({ allowedOrigins, port, profileStore, status }) {
   return http.createServer((request, response) => {
     const origin = request.headers.origin;
+    const originAllowed = typeof origin === 'string' && allowedOrigins.has(origin);
     if (request.method === 'OPTIONS') {
-      if (!origin || !allowedOrigins.has(origin)) return writeJson(response, 403, { error: 'This page is not allowed to read JASWA Helper.' }, origin, allowedOrigins);
+      if (!originAllowed) return writeJson(response, 403, { error: 'This page is not allowed to read JASWA Helper.' }, origin, allowedOrigins);
       response.writeHead(204, {
         'Access-Control-Allow-Origin': origin,
         'Access-Control-Allow-Methods': 'GET, OPTIONS',
@@ -28,7 +29,9 @@ function createApi({ allowedOrigins, port, profileStore, status }) {
       return response.end();
     }
     if (request.method !== 'GET') return writeJson(response, 405, { error: 'Only reading your local import is supported.' }, origin, allowedOrigins);
-    if (origin && !allowedOrigins.has(origin)) return writeJson(response, 403, { error: 'This page is not allowed to read JASWA Helper.' }, origin, allowedOrigins);
+    /* Loopback is not an Internet-facing service. Requiring an approved Origin
+       prevents an unrelated website from reading the local profile in a browser. */
+    if (!originAllowed) return writeJson(response, 403, { error: 'This page is not allowed to read JASWA Helper.' }, origin, allowedOrigins);
     if (request.url === '/health') return writeJson(response, 200, status(), origin, allowedOrigins);
     if (request.url === '/profile') {
       const profile = profileStore.read();

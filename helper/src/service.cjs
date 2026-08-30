@@ -1,6 +1,7 @@
 'use strict';
 
 const dns = require('node:dns');
+const crypto = require('node:crypto');
 const fs = require('node:fs/promises');
 const https = require('node:https');
 const net = require('node:net');
@@ -17,6 +18,7 @@ const { decodeRequest, decodeResponse } = require('./protocol.cjs');
 const run = promisify(execFile);
 const gatewayPath = '/api/gateway_c2.php';
 const upstreamArgument = '--jaswa-upstream-map=';
+const maximumInterceptedBodyBytes = 16 * 1024 * 1024;
 const fallbackUpstreams = Object.freeze({
   'summonerswar-eu-lb.qpyou.cn': ['34.160.156.240'],
   'summonerswar-gb-lb.qpyou.cn': ['34.160.216.76'],
@@ -31,7 +33,11 @@ async function isAdministrator() {
 }
 
 async function resolveGatewayAddresses() {
-  const entries = await Promise.all(Object.keys(gatewayHosts).map(async (hostname) => [hostname, await dns.promises.resolve4(hostname)]));
+  const entries = await Promise.all(Object.keys(gatewayHosts).map(async (hostname) => {
+    const addresses = (await dns.promises.resolve4(hostname)).filter((address) => net.isIP(address) === 4);
+    if (addresses.length === 0) throw new Error(`DNS returned no IPv4 address for ${hostname}.`);
+    return [hostname, addresses];
+  }));
   return Object.fromEntries(entries);
 }
 
@@ -40,7 +46,12 @@ function startupAddresses() {
   if (!encoded) return new Map(Object.entries(fallbackUpstreams));
   try {
     const value = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
-    return new Map(Object.entries(value).filter(([, addresses]) => Array.isArray(addresses) && addresses.every((address) => typeof address === 'string')));
+    const entries = Object.keys(gatewayHosts).map((hostname) => {
+      const addresses = value[hostname];
+      if (!Array.isArray(addresses) || addresses.length === 0 || !addresses.every((address) => typeof address === 'string' && net.isIP(address) === 4)) throw new Error('Invalid saved gateway addresses.');
+      return [hostname, addresses];
+    });
+    return new Map(entries);
   } catch { return new Map(Object.entries(fallbackUpstreams)); }
 }
 
@@ -51,7 +62,7 @@ async function restartAsAdministrator(addresses) {
   await run('powershell.exe', ['-NoProfile', '-Command', command], { windowsHide: true });
 }
 
-function startGatewayBridge(hostname, address) {
+async function startGatewayBridge(hostname, address) {
   const server = net.createServer((gameSocket) => {
     const proxySocket = net.connect(proxyPort, '127.0.0.1', () => {
       proxySocket.write(`CONNECT ${hostname}:443 HTTP/1.1\r\nHost: ${hostname}:443\r\n\r\n`);
@@ -61,6 +72,7 @@ function startGatewayBridge(hostname, address) {
     const onProxyData = (chunk) => {
       if (!opening) return gameSocket.write(chunk);
       header = Buffer.concat([header, chunk]);
+      if (header.length > 8 * 1024) return closeBoth();
       const boundary = header.indexOf('\r\n\r\n');
       if (boundary === -1) return;
       const firstLine = header.subarray(0, boundary).toString('ascii').split('\r\n')[0];
@@ -76,12 +88,55 @@ function startGatewayBridge(hostname, address) {
     const closeBoth = () => { gameSocket.destroy(); proxySocket.destroy(); };
     gameSocket.on('error', closeBoth); proxySocket.on('error', closeBoth);
   });
-  server.listen(443, address);
+  await new Promise((resolve, reject) => {
+    const onError = (error) => { server.off('listening', onListening); reject(error); };
+    const onListening = () => { server.off('error', onError); resolve(); };
+    server.once('error', onError);
+    server.once('listening', onListening);
+    server.listen(443, address);
+  });
+  server.on('error', (error) => console.error(`Gateway bridge for ${hostname} stopped: ${error.message}`));
   return server;
 }
 
 async function installCertificate(certificatePath) {
   await run('certutil.exe', ['-user', '-addstore', '-f', 'Root', certificatePath], { windowsHide: true });
+}
+
+async function certificateThumbprint(certificatePath) {
+  const certificate = new crypto.X509Certificate(await fs.readFile(certificatePath));
+  return crypto.createHash('sha1').update(certificate.raw).digest('hex').toUpperCase();
+}
+
+async function removeCertificate(thumbprint) {
+  await run('certutil.exe', ['-user', '-delstore', 'Root', thumbprint], { windowsHide: true });
+}
+
+async function removeCertificateDirectory(certificatePath) {
+  try {
+    await removeCertificate(await certificateThumbprint(certificatePath));
+    await fs.rm(path.dirname(certificatePath), { recursive: true, force: true });
+  } catch (error) {
+    if (error && typeof error === 'object' && error.code === 'ENOENT') return;
+    throw error;
+  }
+}
+
+async function cleanup() {
+  if (process.platform !== 'win32') return;
+  const certificatePath = path.join(dataDirectory(), 'certificates', 'certs', 'ca.pem');
+  const failures = [];
+  try { await removeEntries(); await run('ipconfig.exe', ['/flushdns'], { windowsHide: true }); }
+  catch (error) { failures.push(error); }
+  try { await removeCertificateDirectory(certificatePath); }
+  catch (error) { failures.push(error); }
+  if (failures.length > 0) throw failures[0];
+}
+
+function retainBodyChunk(bodies, sizes, context, chunk) {
+  const size = (sizes.get(context) ?? 0) + chunk.length;
+  sizes.set(context, size);
+  if (size <= maximumInterceptedBodyBytes) bodies.get(context).push(chunk);
 }
 
 async function start() {
@@ -93,17 +148,23 @@ async function start() {
   const directory = dataDirectory();
   await fs.mkdir(directory, { recursive: true });
   const certificateDirectory = path.join(directory, 'certificates');
+  const certificatePath = path.join(certificateDirectory, 'certs', 'ca.pem');
+  /* A crash cannot run normal shutdown. On the next launch, remove any CA left
+     by that interrupted session before creating a fresh, short-lived one. */
+  await removeCertificateDirectory(certificatePath);
   const profileStore = new ProfileStore();
   let lastError = null;
   let running = true;
   const api = createApi({
     allowedOrigins: allowedOrigins(), port: helperPort, profileStore,
-    status: () => ({ running, profileReady: profileStore.isConnected(), lastError }),
+    status: () => ({ running, ...profileStore.status(), lastError }),
   });
   const proxy = new Proxy();
   let hostsInstalled = false;
   const requestBodies = new WeakMap();
   const responseBodies = new WeakMap();
+  const requestBodySizes = new WeakMap();
+  const responseBodySizes = new WeakMap();
   /* The proxy also carries unrelated game traffic. Only an error tied to the
    * intercepted gateway, or a proxy-level error with no request context, can
    * say anything useful about the profile connection. */
@@ -117,10 +178,12 @@ async function start() {
     profileStore.markActivity();
     context.use(Proxy.gunzip);
     requestBodies.set(context, []); responseBodies.set(context, []);
-    context.onRequestData((requestContext, chunk, next) => { requestBodies.get(requestContext).push(chunk); next(null, chunk); });
-    context.onResponseData((responseContext, chunk, next) => { responseBodies.get(responseContext).push(chunk); next(null, chunk); });
+    requestBodySizes.set(context, 0); responseBodySizes.set(context, 0);
+    context.onRequestData((requestContext, chunk, next) => { retainBodyChunk(requestBodies, requestBodySizes, requestContext, chunk); next(null, chunk); });
+    context.onResponseData((responseContext, chunk, next) => { retainBodyChunk(responseBodies, responseBodySizes, responseContext, chunk); next(null, chunk); });
     context.onResponseEnd((responseContext, next) => {
       try {
+        if ((requestBodySizes.get(responseContext) ?? 0) > maximumInterceptedBodyBytes || (responseBodySizes.get(responseContext) ?? 0) > maximumInterceptedBodyBytes) throw new Error('The game response was too large to import safely.');
         const request = decodeRequest(Buffer.concat(requestBodies.get(responseContext)).toString('utf8'));
         const response = decodeResponse(Buffer.concat(responseBodies.get(responseContext)).toString('utf8'));
         if (request.command === 'HubUserLogin' || request.command === 'GuestLogin') profileStore.acceptSnapshot(response);
@@ -150,6 +213,8 @@ async function start() {
     },
   });
   let bridges = [];
+  let certificateThumbprintValue = null;
+  let certificateInstalled = false;
   try {
     /* Hosts changes are the only administrative operation. Do it before
      * opening ports or trusting a certificate, so declining the Windows prompt
@@ -158,12 +223,17 @@ async function start() {
     hostsInstalled = true;
     await run('ipconfig.exe', ['/flushdns'], { windowsHide: true });
     await new Promise((resolve, reject) => proxy.listen({ host: '127.0.0.1', port: proxyPort, sslCaDir: certificateDirectory, httpsAgent: upstreamAgent }, (error) => error ? reject(error) : resolve()));
-    const certificatePath = path.join(certificateDirectory, 'certs', 'ca.pem');
+    certificateThumbprintValue = await certificateThumbprint(certificatePath);
     await installCertificate(certificatePath);
-    bridges = Object.entries(gatewayHosts).map(([hostname, address]) => startGatewayBridge(hostname, address));
+    certificateInstalled = true;
+    for (const [hostname, address] of Object.entries(gatewayHosts)) bridges.push(await startGatewayBridge(hostname, address));
   } catch (error) {
     api.close();
+    for (const bridge of bridges) bridge.close();
     try { proxy.close(); } catch { /* The proxy can fail before it owns a server. */ }
+    if (certificateInstalled && certificateThumbprintValue) {
+      try { await removeCertificate(certificateThumbprintValue); await fs.rm(certificateDirectory, { recursive: true, force: true }); } catch { /* The startup error is the useful one. */ }
+    }
     if (hostsInstalled) {
       try { await removeEntries(); await run('ipconfig.exe', ['/flushdns'], { windowsHide: true }); } catch { /* The original startup error is the useful one. */ }
     }
@@ -177,12 +247,15 @@ async function start() {
     if (hostsInstalled) {
       try { await removeEntries(); await run('ipconfig.exe', ['/flushdns'], { windowsHide: true }); } catch (error) { console.error(`Could not remove the temporary gateway rules: ${error.message}`); }
     }
+    if (certificateInstalled && certificateThumbprintValue) {
+      try { await removeCertificate(certificateThumbprintValue); await fs.rm(certificateDirectory, { recursive: true, force: true }); } catch (error) { console.error(`Could not remove the temporary JASWA certificate: ${error.message}`); }
+    }
   };
   process.once('SIGINT', () => void stop().finally(() => process.exit(0)));
   process.once('SIGTERM', () => void stop().finally(() => process.exit(0)));
   return {
     profile: () => profileStore.read(),
-    status: () => ({ running, lastError }),
+    status: () => ({ running, ...profileStore.status(), lastError }),
     stop,
   };
 }
@@ -200,4 +273,4 @@ function reportStartupError(error) {
 
 if (require.main === module) start().catch(reportStartupError);
 
-module.exports = { reportStartupError, start };
+module.exports = { certificateThumbprint, cleanup, maximumInterceptedBodyBytes, removeCertificateDirectory, reportStartupError, start, startupAddresses };

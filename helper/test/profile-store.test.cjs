@@ -53,3 +53,24 @@ test('drops the previous snapshot before a new session can reuse it', () => {
   assert.equal(store.read(), null);
   assert.equal(store.isConnected(), false);
 });
+
+test('keeps a fresh login snapshot after the previous session has expired', () => {
+  let now = 1_000;
+  const store = new ProfileStore(() => now);
+  store.acceptSnapshot({ unit_list: [{ unit_id: 1 }], runes: [], artifacts: [], relics: [], rune_craft_item_list: [] });
+
+  now += profileActivityTimeoutMs + 1;
+  assert.equal(store.acceptSnapshot({ unit_list: [{ unit_id: 2 }], runes: [], artifacts: [], relics: [], rune_craft_item_list: [] }), true);
+  assert.deepEqual(store.read().data.unit_list, [{ unit_id: 2 }]);
+  assert.equal(store.status().sessionId, 2);
+});
+
+test('does not publish a new revision for an unchanged live response', () => {
+  const store = new ProfileStore();
+  store.acceptSnapshot({ unit_list: [], runes: [{ rune_id: 5, upgrade_curr: 9 }], artifacts: [], relics: [], rune_craft_item_list: [] });
+  const revision = store.status().revision;
+
+  assert.equal(store.applyUpdate({ rune: { rune_id: 5, upgrade_curr: 9 } }, { command: 'upgradeRune_v2' }), false);
+  assert.equal(store.status().revision, revision);
+  assert.equal(store.read().source, 'game-start');
+});

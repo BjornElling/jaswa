@@ -1,7 +1,8 @@
 import type { RunePotentialPreset } from './rune-potential-presets';
 
 export type CompatibilityReport ={ valid: boolean; message: string; knownSections: string[]; unknownMonsterIds: string[] };
-export type ImportedGame = { fileName: string; importedAt: string; data: Record<string, unknown>; report: CompatibilityReport };
+export type HelperSession = { instanceId: string; sessionId: number };
+export type ImportedGame = { fileName: string; importedAt: string; data: Record<string, unknown>; report: CompatibilityReport; helperSession?: HelperSession };
 export type MonsterPreference = { unitId: string; label: string; runeSets: string; statGoals: string };
 export type RunePotentialSortOrder = 'Grade' | 'Sub Property' | 'Sub Property Before Grinding' | 'Power-up Lv.' | 'Obtained' | 'Sub Property Sum' | 'Score';
 /** The five item grades from `docs/RUNE-CANONICAL.md`, shared by gems and grindstones. */

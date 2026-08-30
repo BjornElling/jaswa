@@ -1,5 +1,8 @@
 'use strict';
 
+const crypto = require('node:crypto');
+const { isDeepStrictEqual } = require('node:util');
+
 const watchedCollections = Object.freeze({
   unit_list: 'unit_id',
   runes: 'rune_id',
@@ -34,6 +37,9 @@ class ProfileStore {
     this.updatedAt = null;
     this.source = null;
     this.lastActivityAt = null;
+    this.revision = 0;
+    this.sessionId = 0;
+    this.instanceId = crypto.randomUUID();
     this.now = now;
   }
 
@@ -61,7 +67,11 @@ class ProfileStore {
     this.profile = structuredClone(profile);
     this.updatedAt = new Date().toISOString();
     this.source = 'game-start';
-    this.markActivity();
+    /* A login can arrive after a quiet previous session. Marking activity after
+       replacing the snapshot would otherwise clear the freshly captured data. */
+    this.lastActivityAt = this.now();
+    this.sessionId += 1;
+    this.revision += 1;
     return true;
   }
 
@@ -71,8 +81,11 @@ class ProfileStore {
     for (const [collection, key] of Object.entries(watchedCollections)) {
       const incoming = response[collection];
       if (!Array.isArray(incoming)) continue;
-      this.profile[collection] = mergeCollection(this.profile[collection], incoming, key);
-      changed = true;
+      const next = mergeCollection(this.profile[collection], incoming, key);
+      if (!isDeepStrictEqual(next, this.profile[collection])) {
+        this.profile[collection] = next;
+        changed = true;
+      }
     }
     const directItems = [
       ['rune', 'runes', 'rune_id'],
@@ -84,8 +97,11 @@ class ProfileStore {
     for (const [responseKey, collection, identifierKey] of directItems) {
       const item = firstRecord(response[responseKey]);
       if (!item) continue;
-      this.profile[collection] = mergeCollection(this.profile[collection], [item], identifierKey);
-      changed = true;
+      const next = mergeCollection(this.profile[collection], [item], identifierKey);
+      if (!isDeepStrictEqual(next, this.profile[collection])) {
+        this.profile[collection] = next;
+        changed = true;
+      }
     }
     const command = isRecord(request) && typeof request.command === 'string' ? request.command : '';
     const deletions = command === 'SellRune' || command === 'SellRune_v2'
@@ -96,17 +112,36 @@ class ProfileStore {
           ? [['rune_craft_item_list', 'craft_item_id', request.craft_id_list]]
           : [];
     for (const [collection, identifierKey, removed] of deletions) {
-      this.profile[collection] = removeCollectionItems(this.profile[collection], removed, identifierKey);
-      changed = true;
+      const next = removeCollectionItems(this.profile[collection], removed, identifierKey);
+      if (!isDeepStrictEqual(next, this.profile[collection])) {
+        this.profile[collection] = next;
+        changed = true;
+      }
     }
     if (!changed) return false;
     this.updatedAt = new Date().toISOString();
     this.source = 'live';
+    this.revision += 1;
     this.markActivity();
     return true;
   }
 
-  read() { return this.profile ? { updatedAt: this.updatedAt, source: this.source, data: structuredClone(this.profile) } : null; }
+  status() {
+    return {
+      hasProfile: Boolean(this.profile),
+      profileReady: this.isConnected(),
+      instanceId: this.instanceId,
+      revision: this.revision,
+      sessionId: this.sessionId,
+      source: this.source,
+    };
+  }
+
+  read() {
+    return this.profile
+      ? { updatedAt: this.updatedAt, instanceId: this.instanceId, revision: this.revision, sessionId: this.sessionId, source: this.source, data: structuredClone(this.profile) }
+      : null;
+  }
 }
 
 module.exports = { ProfileStore, mergeCollection, profileActivityTimeoutMs, removeCollectionItems };

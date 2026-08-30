@@ -12,14 +12,10 @@ function hostsPath(platform = process.platform, root = process.env.SystemRoot) {
 
 function withoutHelperEntries(contents) {
   const lines = contents.replace(/\r\n/g, '\n').split('\n');
-  const retained = [];
-  let skipping = false;
-  for (const line of lines) {
-    if (line === hostsMarker) { skipping = true; continue; }
-    if (line === `${hostsMarker} end`) { skipping = false; continue; }
-    if (!skipping) retained.push(line);
-  }
-  return retained.join('\r\n').replace(/\r\n+$/, '');
+  /* A malformed or user-added marker must never make cleanup delete an
+     unbounded range of unrelated hosts entries. */
+  const helperLines = new Set(helperBlock().split('\r\n'));
+  return lines.filter((line) => !helperLines.has(line)).join('\r\n').replace(/(?:\r\n)+$/, '');
 }
 
 function helperBlock(entries = gatewayHosts) {

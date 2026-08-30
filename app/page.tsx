@@ -31,15 +31,17 @@ export default function Home() {
   const [removeGameDataPrompt, setRemoveGameDataPrompt] = useState(false);
   const [pendingDirectImportMode, setPendingDirectImportMode] = useState<DirectImportMode | null>(null);
   const [pendingImportRoute, setPendingImportRoute] = useState<ImportRoute | null>(null);
-  const [helperConnection, setHelperConnection] = useState<HelperConnection>({ state: 'checking', detail: 'This would work better, if you actually ran the helper program.', profileReady: false });
+  const [helperConnection, setHelperConnection] = useState<HelperConnection>({ state: 'checking', detail: 'This would work better, if you actually ran the helper program.', profileReady: false, instanceId: '', revision: 0, sessionId: 0 });
   const gameInput = useRef<HTMLInputElement>(null);
   const settingsInput = useRef<HTMLInputElement>(null);
-  const appliedHelperSnapshot = useRef<string | null>(null);
+  const appliedHelperRevision = useRef<number | null>(null);
+  const appliedHelperSession = useRef<string | null>(null);
 
   useEffect(() => {
     Promise.all([loadImportedGame(), loadPreferences()]).then(([savedGame, savedPreferences]) => {
       const normalizedGame = savedGame ? normalizeImportedGame(savedGame) : null;
       setGame(normalizedGame);
+      if (normalizedGame?.helperSession) appliedHelperSession.current = `${normalizedGame.helperSession.instanceId}:${normalizedGame.helperSession.sessionId}`;
       if (normalizedGame) void saveImportedGame(normalizedGame);
       setPreferences(savedPreferences ? normalizePreferences(savedPreferences) : blankPreferences());
     }).catch(() => {
@@ -50,18 +52,31 @@ export default function Home() {
   useEffect(() => {
     if (!ready || preferences.importRoute !== 'direct') return;
     let disposed = false;
+    let refreshing = false;
     async function refreshHelper() {
-      const connection = await checkHelperConnection();
-      if (disposed) return;
-      setHelperConnection(connection);
-      if (!connection.profileReady) return;
-      const profile = await readHelperProfile();
-      if (disposed || !profile || (preferences.directImportMode !== 'live' && appliedHelperSnapshot.current)) return;
-      if (preferences.directImportMode === 'live' && appliedHelperSnapshot.current === profile.updatedAt) return;
-      const validation = validateGameFile(profile.data);
-      if (!validation.valid) return;
-      await applyImport(createImportedGame('JASWA Helper — Steam', profile.data, validation));
-      appliedHelperSnapshot.current = profile.updatedAt;
+      if (refreshing) return;
+      refreshing = true;
+      try {
+        const connection = await checkHelperConnection();
+        if (disposed) return;
+        setHelperConnection(connection);
+        if (!connection.profileReady) return;
+        const needsImport = preferences.directImportMode === 'live'
+          ? appliedHelperRevision.current !== connection.revision
+          : appliedHelperSession.current !== `${connection.instanceId}:${connection.sessionId}`;
+        if (!needsImport) return;
+        const profile = await readHelperProfile();
+        if (disposed || !profile) return;
+        const validation = validateGameFile(profile.data);
+        if (!validation.valid) return;
+        await applyImport(createImportedGame('JASWA Helper — Steam', profile.data, validation, { instanceId: profile.instanceId, sessionId: profile.sessionId }));
+        appliedHelperRevision.current = profile.revision;
+        appliedHelperSession.current = `${profile.instanceId}:${profile.sessionId}`;
+      } catch {
+        if (!disposed) setMessage('JASWA could not save the helper import. Please try again.');
+      } finally {
+        refreshing = false;
+      }
     }
     void refreshHelper();
     const interval = window.setInterval(() => void refreshHelper(), 2000);

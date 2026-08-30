@@ -1,5 +1,5 @@
 import type {
-  CompatibilityReport, DirectImportMode, ImportRoute, ImportedGame, ItemGrade,
+  CompatibilityReport, DirectImportMode, HelperSession, ImportRoute, ImportedGame, ItemGrade,
   MonsterPreference, Preferences, RunePotentialSettings, RunePotentialSortOrder,
 } from './types';
 import { hasMonsterCatalogEntry } from './monster-catalog';
@@ -185,11 +185,16 @@ function removeExcludedKeys(value: unknown): unknown {
 export function normalizeImportedGame(value: unknown): ImportedGame | null {
   if (!isRecord(value)) return null;
   const data = isRecord(value.data) ? value.data : {};
+  const helperSession = isRecord(value.helperSession) && typeof value.helperSession.instanceId === 'string' && value.helperSession.instanceId.length > 0
+    && typeof value.helperSession.sessionId === 'number' && Number.isSafeInteger(value.helperSession.sessionId) && value.helperSession.sessionId > 0
+    ? { instanceId: value.helperSession.instanceId, sessionId: value.helperSession.sessionId }
+    : undefined;
   return {
     fileName: typeof value.fileName === 'string' && value.fileName ? value.fileName : 'Imported game data',
     importedAt: typeof value.importedAt === 'string' ? value.importedAt : new Date().toISOString(),
     data: completeEquipmentCollections(removeExcludedKeys(data) as GameRecord),
     report: normalizeCompatibilityReport(value.report),
+    ...(helperSession ? { helperSession } : {}),
   };
 }
 
@@ -205,12 +210,13 @@ export function validateGameFile(value: unknown): CompatibilityReport {
   return { valid: true, message: 'Ready to import.', knownSections, unknownMonsterIds };
 }
 
-export function createImportedGame(fileName: string, data: Record<string, unknown>, report: CompatibilityReport): ImportedGame {
+export function createImportedGame(fileName: string, data: Record<string, unknown>, report: CompatibilityReport, helperSession?: HelperSession): ImportedGame {
   return {
     fileName,
     importedAt: new Date().toISOString(),
     data: completeEquipmentCollections(removeExcludedKeys(data) as GameRecord),
     report: normalizeCompatibilityReport(report),
+    ...(helperSession ? { helperSession } : {}),
   };
 }
 
