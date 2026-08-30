@@ -4,11 +4,13 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { app, dialog, Menu, nativeImage, shell, Tray } = require('electron');
 const { serializeProfile, suggestedExportPath, withJsonExtension } = require('./profile-export.cjs');
+const { diagnosticPath, recordDiagnostic } = require('./diagnostics.cjs');
 const { cleanup, reportStartupError, start } = require('./service.cjs');
 const { setStartsWithWindows, startsWithWindows } = require('./startup.cjs');
 
 let helper;
 let tray;
+let quitting = false;
 const uninstallerName = 'Uninstall JASWA Helper.exe';
 
 function iconPath() {
@@ -30,6 +32,19 @@ async function downloadJson() {
   } catch (error) {
     const detail = error instanceof Error ? error.message : 'The file could not be written.';
     dialog.showErrorBox('Could not download JSON', `JASWA Helper could not save the JSON file.\n\n${detail}`);
+  }
+}
+
+async function openDiagnosticLog() {
+  const file = diagnosticPath();
+  try {
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.appendFile(file, '', 'utf8');
+    const error = await shell.openPath(file);
+    if (error) throw new Error(error);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : 'The diagnostic log could not be opened.';
+    dialog.showErrorBox('Could not open diagnostic log', `JASWA Helper could not open its diagnostic log.\n\n${detail}`);
   }
 }
 
@@ -65,6 +80,7 @@ function refreshMenu() {
     { type: 'separator' },
     { label: 'Open JASWA', click: () => void shell.openExternal('http://localhost:3000') },
     { label: 'Download JSON', enabled: Boolean(status?.hasProfile), click: () => void downloadJson() },
+    { label: 'Open diagnostic log', click: () => void openDiagnosticLog() },
     {
       label: 'Start JASWA Helper with Windows',
       type: 'checkbox',
@@ -84,6 +100,22 @@ function refreshMenu() {
   ]));
 }
 
+async function showStartupFailure(error) {
+  await reportStartupError(error);
+  dialog.showErrorBox('JASWA Helper could not start', `The helper stopped before it could appear in the taskbar. Details were saved locally in:\n\n${diagnosticPath()}`);
+  quitting = true;
+  app.exit(1);
+}
+
+async function handleRuntimeFailure(kind, error) {
+  await recordDiagnostic(kind, error);
+  const detail = error instanceof Error ? error.message : String(error);
+  if (tray) {
+    tray.displayBalloon({ title: 'JASWA Helper needs attention', content: `A runtime error was saved to the diagnostic log.\n\n${detail}` });
+    refreshMenu();
+  }
+}
+
 app.whenReady().then(async () => {
   app.setAppUserModelId('dk.jaswa.helper');
   if (process.argv.includes('--jaswa-cleanup')) {
@@ -97,11 +129,15 @@ app.whenReady().then(async () => {
   tray.on('click', () => void shell.openExternal('http://localhost:3000'));
   refreshMenu();
   setInterval(refreshMenu, 2000);
-}).catch(reportStartupError);
+}).catch(showStartupFailure);
 
 app.on('window-all-closed', (event) => event.preventDefault());
 app.on('before-quit', (event) => {
-  if (!helper || helper.elevationRequested) return;
+  if (quitting || !helper || helper.elevationRequested) return;
   event.preventDefault();
+  quitting = true;
   helper.stop().finally(() => { helper = null; app.quit(); });
 });
+
+process.on('uncaughtException', (error) => void handleRuntimeFailure('uncaught exception', error));
+process.on('unhandledRejection', (error) => void handleRuntimeFailure('unhandled rejection', error));

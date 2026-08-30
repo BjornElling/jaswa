@@ -11,6 +11,7 @@ const { promisify } = require('node:util');
 const { Proxy } = require('http-mitm-proxy');
 const { createApi } = require('./api.cjs');
 const { allowedOrigins, dataDirectory, gatewayHosts, helperPort, proxyPort } = require('./config.cjs');
+const { recordDiagnostic } = require('./diagnostics.cjs');
 const { removeEntries, writeEntries } = require('./hosts.cjs');
 const { ProfileStore } = require('./profile-store.cjs');
 const { decodeRequest, decodeResponse } = require('./protocol.cjs');
@@ -32,11 +33,20 @@ async function isAdministrator() {
   try { await run('net.exe', ['session'], { windowsHide: true }); return true; } catch { return false; }
 }
 
-async function resolveGatewayAddresses() {
+async function resolveGatewayAddresses({ resolve4 = dns.promises.resolve4, record = recordDiagnostic } = {}) {
   const entries = await Promise.all(Object.keys(gatewayHosts).map(async (hostname) => {
-    const addresses = (await dns.promises.resolve4(hostname)).filter((address) => net.isIP(address) === 4);
-    if (addresses.length === 0) throw new Error(`DNS returned no IPv4 address for ${hostname}.`);
-    return [hostname, addresses];
+    try {
+      const addresses = (await resolve4(hostname)).filter((address) => net.isIP(address) === 4);
+      if (addresses.length > 0) return [hostname, addresses];
+      throw new Error('DNS returned no IPv4 address.');
+    } catch (error) {
+      const fallback = fallbackUpstreams[hostname];
+      if (fallback) {
+        await record('startup DNS fallback', `${hostname}: ${error instanceof Error ? error.message : String(error)}`);
+        return [hostname, fallback];
+      }
+      throw error;
+    }
   }));
   return Object.fromEntries(entries);
 }
@@ -260,17 +270,12 @@ async function start() {
   };
 }
 
-function reportStartupError(error) {
-  const message = `JASWA Helper could not start: ${error.stack || error.message}`;
+async function reportStartupError(error) {
+  const message = `JASWA Helper could not start: ${error instanceof Error ? error.stack || error.message : String(error)}`;
   console.error(message);
-  /* Packaged Windows applications do not always have a visible console. A
-   * short local startup note turns a vanished window into something support can
-   * diagnose without writing account data or proxy traffic to disk. */
-  fs.mkdir(dataDirectory(), { recursive: true })
-    .then(() => fs.appendFile(path.join(dataDirectory(), 'startup.log'), `${new Date().toISOString()} ${message}\n`))
-    .finally(() => process.exit(1));
+  await recordDiagnostic('startup failure', message);
 }
 
-if (require.main === module) start().catch(reportStartupError);
+if (require.main === module) start().catch((error) => void reportStartupError(error).finally(() => process.exit(1)));
 
-module.exports = { certificateThumbprint, cleanup, maximumInterceptedBodyBytes, removeCertificateDirectory, reportStartupError, start, startupAddresses };
+module.exports = { certificateThumbprint, cleanup, maximumInterceptedBodyBytes, removeCertificateDirectory, reportStartupError, resolveGatewayAddresses, start, startupAddresses };
