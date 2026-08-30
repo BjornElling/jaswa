@@ -11,6 +11,7 @@
 /public/*.blockmap
 /public/.icon-ico/
 /public/JASWA-Helper.exe
+/public/JASWA-Helper-Setup.exe
 /.pnp
 .pnp.*
 .yarn/*
