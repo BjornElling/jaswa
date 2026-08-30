@@ -27,13 +27,13 @@ const archetypeOrder = Object.values(artifactArchetypes);
 function ArtifactColumnGroup() {
   return <colgroup>
     <col className="artifact-col-index" />
+    <col className="artifact-col-location" />
+    <col className="artifact-col-value" />
     <col className="artifact-col-category" />
     <col className="artifact-col-equipClass" />
     <col className="artifact-col-grade" />
     <col className="artifact-col-mainProperty" />
     <col className="artifact-col-subProperties" />
-    <col className="artifact-col-location" />
-    <col className="artifact-col-value" />
   </colgroup>;
 }
 
@@ -43,13 +43,13 @@ function ArtifactTableHeader({ sortHeader }: {
   return <thead>
     <tr>
       {sortHeader('index', '#', true)}
+      {sortHeader('location', 'Location', true)}
+      {sortHeader('value', <span className="table-heading-two-line" aria-label="Value on mon">Value on<br />mon</span>)}
       {sortHeader('category', 'Type', true)}
       {sortHeader('equipClass', 'Restriction', true)}
       {sortHeader('grade', 'Quality', true)}
       {sortHeader('mainProperty', 'Main stat', true)}
       {sortHeader('subProperties', 'Subs', true)}
-      {sortHeader('location', 'Location', true)}
-      {sortHeader('value', <span className="table-heading-two-line">Value on<br />mon</span>)}
     </tr>
   </thead>;
 }
@@ -232,6 +232,16 @@ export function ArtifactList({ game, monsters, preferences }: {
     <tbody>
           {visible.map((row) => <tr key={row.artifact.id}>
             <td className="align-left row-index">{String(row.index + 1).padStart(2, '0')}</td>
+            <td className={row.location ? 'align-left' : 'align-left muted'}
+              title={row.location === null ? 'Worn by a monster this import does not contain' : undefined}>
+              {row.location ?? 'Unknown monster'}
+            </td>
+            <td className={row.value === undefined ? 'muted' : undefined}
+              title={row.value === undefined && row.artifact.occupiedId !== null
+                ? 'Not judged: nothing recorded for this monster type'
+                : undefined}>
+              {row.value === undefined ? '—' : `${formatNumber(Math.round(row.value * 100), preferences.general)} %`}
+            </td>
             <td className="align-left dim">{artifactCategoryLabel(row.artifact.category)}</td>
             <td className={artifactEquipClass(row.artifact) ? 'align-left' : 'align-left muted'}>
               {artifactEquipClass(row.artifact) ?? '—'}
@@ -247,16 +257,6 @@ export function ArtifactList({ game, monsters, preferences }: {
                   className={subProperty.definition.status === 'legacy' ? 'legacy' : undefined}
                 >{displaySubProperty(subProperty, (value) => formatNumber(value, preferences.general))}</li>)}
               </ul>
-            </td>
-            <td className={row.location ? 'align-left' : 'align-left muted'}
-              title={row.location === null ? 'Worn by a monster this import does not contain' : undefined}>
-              {row.location ?? 'Unknown monster'}
-            </td>
-            <td className={row.value === undefined ? 'muted' : undefined}
-              title={row.value === undefined && row.artifact.occupiedId !== null
-                ? 'Not judged: nothing recorded for this monster type'
-                : undefined}>
-              {row.value === undefined ? '—' : `${formatNumber(Math.round(row.value * 100), preferences.general)} %`}
             </td>
           </tr>)}
     </tbody>
