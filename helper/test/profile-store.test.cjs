@@ -30,13 +30,29 @@ test('keeps one owned PvE copy of each snapshot monster', () => {
       { unit_id: 2, wizard_id: 9, unit_master_id: 10101, building_id: 0 },
       { unit_id: 1, wizard_id: 7, unit_master_id: 10101, building_id: 0 },
     ],
-    runes: [{ rune_id: 5 }, { rune_id: 5 }], artifacts: [{ artifact_id: 6 }, { artifact_id: 6 }], relics: [{ relic_id: 7 }, { relic_id: 7 }], rune_craft_item_list: [],
+    runes: [{ rune_id: 5 }, { rune_id: 5 }], artifacts: [{ rid: 6 }, { rid: 6 }], relics: [{ rid: 7 }, { rid: 7 }], rune_craft_item_list: [],
   });
 
   assert.deepEqual(store.read().data.unit_list.map((unit) => unit.unit_id), [1]);
   assert.deepEqual(store.read().data.runes.map((rune) => rune.rune_id), [5]);
-  assert.deepEqual(store.read().data.artifacts.map((artifact) => artifact.artifact_id), [6]);
-  assert.deepEqual(store.read().data.relics.map((relic) => relic.relic_id), [7]);
+  assert.deepEqual(store.read().data.artifacts.map((artifact) => artifact.rid), [6]);
+  assert.deepEqual(store.read().data.relics.map((relic) => relic.rid), [7]);
+});
+
+test('retains inventory artifacts and relics alongside equipped items', () => {
+  const store = new ProfileStore();
+  store.acceptSnapshot({
+    unit_list: [{ unit_id: 1, artifacts: [{ rid: 6 }], relics: [{ rid: 7 }] }],
+    runes: [],
+    artifacts: [{ rid: 8 }, { rid: 8 }],
+    relics: [{ rid: 9 }, { rid: 9 }],
+    rune_craft_item_list: [],
+  });
+
+  assert.deepEqual(store.read().data.artifacts.map((artifact) => artifact.rid), [8]);
+  assert.deepEqual(store.read().data.relics.map((relic) => relic.rid), [9]);
+  assert.deepEqual(store.read().data.unit_list[0].artifacts.map((artifact) => artifact.rid), [6]);
+  assert.deepEqual(store.read().data.unit_list[0].relics.map((relic) => relic.rid), [7]);
 });
 
 test('does not add opponent, helper, shop-preview or RTA records to the account', () => {
@@ -100,18 +116,18 @@ test('keeps rune, artifact and relic ownership current when an action has no ite
   store.acceptSnapshot({
     unit_list: [{ unit_id: 1, unit_master_id: 10101, runes: [], artifacts: [], relics: [] }],
     runes: [{ rune_id: 5, set_id: 13 }],
-    artifacts: [{ artifact_id: 6, pri_effect: [100, 100] }],
-    relics: [{ relic_id: 7, pri_effect: [101, 100] }],
+    artifacts: [{ rid: 6, pri_effect: [100, 100] }],
+    relics: [{ rid: 7, pri_effect: [101, 100] }],
     rune_craft_item_list: [],
   });
 
   assert.equal(store.applyUpdate({}, { command: 'EquipRune', rune_id: 5, unit_id: 1 }), true);
   assert.deepEqual(store.read().data.unit_list[0].runes, [{ rune_id: 5, set_id: 13 }]);
   assert.deepEqual(store.read().data.runes, []);
-  assert.equal(store.applyUpdate({}, { command: 'UpdateArtifactOccupation', updates: [{ artifact_id: 6, unit_id: 1 }] }), true);
-  assert.equal(store.applyUpdate({}, { command: 'UpdateRelicOccupation', updates: [{ relic_id: 7, unit_id: 1 }] }), true);
-  assert.deepEqual(store.read().data.unit_list[0].artifacts, [{ artifact_id: 6, pri_effect: [100, 100] }]);
-  assert.deepEqual(store.read().data.unit_list[0].relics, [{ relic_id: 7, pri_effect: [101, 100] }]);
+  assert.equal(store.applyUpdate({}, { command: 'UpdateArtifactOccupation', updates: [{ rid: 6, unit_id: 1 }] }), true);
+  assert.equal(store.applyUpdate({}, { command: 'UpdateRelicOccupation', updates: [{ rid: 7, unit_id: 1 }] }), true);
+  assert.deepEqual(store.read().data.unit_list[0].artifacts, [{ rid: 6, pri_effect: [100, 100] }]);
+  assert.deepEqual(store.read().data.unit_list[0].relics, [{ rid: 7, pri_effect: [101, 100] }]);
   assert.equal(store.applyUpdate({}, { command: 'UnequipRune', rune_id: 5 }), true);
   assert.deepEqual(store.read().data.unit_list[0].runes, []);
   assert.deepEqual(store.read().data.runes, [{ rune_id: 5, set_id: 13 }]);
@@ -120,13 +136,13 @@ test('keeps rune, artifact and relic ownership current when an action has no ite
 test('removes every sold tracked item, including its equipped copy', () => {
   const store = new ProfileStore();
   store.acceptSnapshot({
-    unit_list: [{ unit_id: 1, unit_master_id: 10101, artifacts: [{ artifact_id: 6 }], relics: [{ relic_id: 7 }] }],
-    runes: [{ rune_id: 5 }], artifacts: [{ artifact_id: 6 }], relics: [{ relic_id: 7 }], rune_craft_item_list: [{ craft_item_id: 8 }],
+    unit_list: [{ unit_id: 1, unit_master_id: 10101, artifacts: [{ rid: 6 }], relics: [{ rid: 7 }] }],
+    runes: [{ rune_id: 5 }], artifacts: [{ rid: 6 }], relics: [{ rid: 7 }], rune_craft_item_list: [{ craft_item_id: 8 }],
   });
 
   assert.equal(store.applyUpdate({}, { command: 'SellRune', rune_id_list: [5] }), true);
-  assert.equal(store.applyUpdate({}, { command: 'SellArtifacts', artifact_ids: [6] }), true);
-  assert.equal(store.applyUpdate({}, { command: 'SellRelics', relic_ids: [7] }), true);
+  assert.equal(store.applyUpdate({}, { command: 'SellArtifacts', rid_list: [6] }), true);
+  assert.equal(store.applyUpdate({}, { command: 'SellRelics', rid_list: [7] }), true);
   assert.equal(store.applyUpdate({}, { command: 'SellRuneCraftItem', craft_id_list: [8] }), true);
   assert.deepEqual(store.read().data.runes, []);
   assert.deepEqual(store.read().data.artifacts, []);

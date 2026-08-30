@@ -41,11 +41,11 @@ const trackedEntities = Object.freeze([
     isCandidate: (value) => Object.hasOwn(value, 'set_id') || Object.hasOwn(value, 'slot_no') || Object.hasOwn(value, 'upgrade_curr') || Object.hasOwn(value, 'pri_effect') || Object.hasOwn(value, 'sec_effect'),
   },
   {
-    collection: 'artifacts', identifierKey: 'artifact_id', directKeys: new Set(['artifact']),
+    collection: 'artifacts', identifierKey: 'rid', directKeys: new Set(['artifact']),
     isCandidate: (value) => Object.hasOwn(value, 'set_id') || Object.hasOwn(value, 'slot_no') || Object.hasOwn(value, 'upgrade_curr') || Object.hasOwn(value, 'pri_effect') || Object.hasOwn(value, 'sec_effect'),
   },
   {
-    collection: 'relics', identifierKey: 'relic_id', directKeys: new Set(['relic']),
+    collection: 'relics', identifierKey: 'rid', directKeys: new Set(['relic']),
     isCandidate: (value) => Object.hasOwn(value, 'set_id') || Object.hasOwn(value, 'slot_no') || Object.hasOwn(value, 'upgrade_curr') || Object.hasOwn(value, 'pri_effect') || Object.hasOwn(value, 'sec_effect'),
   },
   {
@@ -163,8 +163,8 @@ class ProfileStore {
       unit_list: normalizedCollection(profile.unit_list
         .filter((unit) => !wizardId || identifier(unit, 'wizard_id') === wizardId), 'unit_id'),
       runes: normalizedCollection(profile.runes, 'rune_id'),
-      artifacts: normalizedCollection(profile.artifacts, 'artifact_id'),
-      relics: normalizedCollection(profile.relics, 'relic_id'),
+      artifacts: normalizedCollection(profile.artifacts, 'rid'),
+      relics: normalizedCollection(profile.relics, 'rid'),
       rune_craft_item_list: normalizedCollection(profile.rune_craft_item_list, 'craft_item_id'),
     };
     this.updatedAt = new Date().toISOString();

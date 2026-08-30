@@ -91,7 +91,7 @@ through the import:
 - `artifacts` is one of `expectedSections`, so its presence is reported in
   `ImportReport.knownSections`;
 - `completeEquipmentCollections` merges account-level `data.artifacts` with the
-  artifacts equipped on each unit and de-duplicates them on `artifact_id`, so
+  artifacts equipped on each unit and de-duplicates them on `rid`, so
   `game.data.artifacts` is the complete account-wide collection;
 - import validity does **not** require artifacts — only `unit_list` and
   `runes`. An account with no artifacts is a valid import.
