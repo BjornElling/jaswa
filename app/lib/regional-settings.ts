@@ -138,14 +138,30 @@ export function isGeneralSettings(value: unknown): value is GeneralSettings {
 }
 
 /**
- * The locale numbers are written with. `undefined` is what Intl wants for "use
- * this computer" — passing a resolved locale string instead would freeze the
- * setting at the value read when the page loaded.
+ * Whether this computer writes 1.234.567,89 rather than 1,234,567.89.
+ *
+ * Only the decimal mark is read, and only for which of the two conventions it
+ * names. The locale's own grouping is not carried over: fr-FR and sv-SE group
+ * with spaces, de-CH with apostrophes, and en-IN by lakh as 12,34,567.89 —
+ * none of which is either option JASWA offers.
  */
-export function numberLocale(settings: GeneralSettings): string | undefined {
+function systemWritesCommaDecimal(): boolean {
+  const decimal = new Intl.NumberFormat(undefined).formatToParts(1.5)
+    .find((part) => part.type === 'decimal')?.value;
+  /* No decimal part means the format cannot be read for its convention; the
+     European form is the wider of the two, so it is the safer fallback. */
+  return decimal === undefined || decimal === ',';
+}
+
+/**
+ * The locale numbers are written with. Like `dateLocale` this never returns
+ * `undefined`: that would let a French user's own locale through, and its
+ * 1 234 567,89 is neither of the two options on the line.
+ */
+export function numberLocale(settings: GeneralSettings): string {
   if (settings.numberFormat === 'european') return europeanNumberLocale;
   if (settings.numberFormat === 'american') return americanNumberLocale;
-  return undefined;
+  return systemWritesCommaDecimal() ? europeanNumberLocale : americanNumberLocale;
 }
 
 /**
