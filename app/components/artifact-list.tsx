@@ -238,8 +238,7 @@ export function ArtifactList({ game, monsters, preferences }: {
             </td>
             <td className="align-left dim">{row.artifact.grade}</td>
             <td className="align-left">
-              {row.artifact.mainProperty}{' '}
-              <span className="artifact-main-value">+{formatNumber(row.artifact.mainValue, preferences.general)}</span>
+              {row.artifact.mainProperty}
             </td>
             <td className="align-left">
               <ul className="artifact-subs">

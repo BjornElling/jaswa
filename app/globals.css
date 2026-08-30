@@ -519,7 +519,6 @@ button { cursor: pointer; }
 .artifact-grid .artifact-col-mainProperty { width: 8.7156%; }
 .artifact-grid .artifact-col-subProperties { width: 43.1193%; }
 .artifact-grid tbody td { height: auto; padding-block: var(--s2); vertical-align: top; }
-.artifact-main-value { color: var(--dim); }
 .artifact-subs { margin: 0; padding: 0; list-style: none; }
 .artifact-subs li {
   font-family: var(--mono);

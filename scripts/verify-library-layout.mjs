@@ -49,6 +49,9 @@ try {
         && nearlyEqual(summary.x + summary.width, strip.x + strip.width),
       `${pageName} result summary is not aligned with the filter headings at ${width}px.`);
       if (pageName === 'Artifacts' && width === 2000) {
+        const mainStatShowsValue = await page.locator('.artifact-grid tbody td:nth-child(5)')
+          .evaluateAll((cells) => cells.some((cell) => cell.textContent?.includes('+')));
+        assert(!mainStatShowsValue, 'Artifact main-stat cells must show the stat name without its numeric value.');
         const positions = await page.locator(
           '.artifact-filter-search, .artifact-filter-quality, .artifact-filter-main-stat, .artifact-filter-location, .artifact-filter-type, .artifact-filter-element, .artifact-filter-archetype',
         ).evaluateAll((elements) => Object.fromEntries(elements.map((element) => [
