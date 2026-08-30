@@ -25,25 +25,46 @@ try {
   const replaceImport = page.getByRole('button', { name: /replace/i });
   if (await replaceImport.isVisible().catch(() => false)) await replaceImport.click();
 
-  for (const [pageName, toggleName] of [['Monsters', 'Storage'], ['Artifacts', 'Equipped']]) {
-    await page.getByRole('button', { name: pageName, exact: true }).click();
-    await page.locator('.data-table-page').waitFor();
+  for (const width of [2000, 1400, 1100]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const [pageName, toggleName] of [['Monsters', 'Storage'], ['Artifacts', 'Equipped']]) {
+      await page.getByRole('button', { name: pageName, exact: true }).click();
+      await page.locator('.data-table-page').waitFor();
+      await page.evaluate(() => window.scrollTo(0, 0));
 
-    const [filter, header, table] = await Promise.all([
-      page.locator('.filter-strip').boundingBox(),
-      page.locator('.data-table-header-wrap table').boundingBox(),
-      page.locator('.data-table-scroll table').boundingBox(),
-    ]);
-    assert(filter && header && table, `${pageName} did not render its shared table surfaces.`);
-    assert(nearlyEqual(filter.width, header.width) && nearlyEqual(header.width, table.width),
-      `${pageName} filters, heading and rows do not share one width.`);
+      const [filter, header, table] = await Promise.all([
+        page.locator('.data-table-filter-panel').boundingBox(),
+        page.locator('.data-table-header-wrap table').boundingBox(),
+        page.locator('.data-table-scroll table').boundingBox(),
+      ]);
+      assert(filter && header && table, `${pageName} did not render its shared table surfaces.`);
+      assert(nearlyEqual(filter.width, header.width) && nearlyEqual(header.width, table.width),
+        `${pageName} filters, heading and rows do not share one width at ${width}px.`);
 
-    const before = await page.locator('.data-table-header-wrap').boundingBox();
-    await page.getByRole('button', { name: toggleName, exact: true }).click();
-    const after = await page.locator('.data-table-header-wrap').boundingBox();
-    assert(before && after && nearlyEqual(before.x, after.x) && nearlyEqual(before.y, after.y)
-      && nearlyEqual(before.width, after.width) && nearlyEqual(before.height, after.height),
-    `${pageName} changed the table header's layout when ${toggleName} was selected.`);
+      const overflow = await page.locator('.data-table-filter-panel, .data-table-scroll, .grid-table')
+        .evaluateAll((elements) => elements.map((element) => ({
+          label: element.className,
+          clientWidth: element.clientWidth,
+          scrollWidth: element.scrollWidth,
+        })));
+      for (const surface of overflow) {
+        assert(surface.scrollWidth <= surface.clientWidth,
+          `${pageName} has horizontal overflow at ${width}px: ${surface.label}.`);
+      }
+      const documentWidth = await page.evaluate(() => ({
+        clientWidth: document.documentElement.clientWidth,
+        scrollWidth: document.documentElement.scrollWidth,
+      }));
+      assert(documentWidth.scrollWidth <= documentWidth.clientWidth,
+        `${pageName} makes the page horizontally scroll at ${width}px.`);
+
+      const before = await page.locator('.data-table-header-wrap').boundingBox();
+      await page.getByRole('button', { name: toggleName, exact: true }).click();
+      const after = await page.locator('.data-table-header-wrap').boundingBox();
+      assert(before && after && nearlyEqual(before.x, after.x) && nearlyEqual(before.y, after.y)
+        && nearlyEqual(before.width, after.width) && nearlyEqual(before.height, after.height),
+      `${pageName} changed the table header's layout when ${toggleName} was selected.`);
+    }
   }
 
   await page.getByRole('button', { name: 'Artifact Optimization', exact: true }).click();

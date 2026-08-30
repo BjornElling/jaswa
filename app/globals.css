@@ -418,6 +418,7 @@ button { cursor: pointer; }
    solve sticky headers or horizontal scrolling in subtly different ways. */
 .data-table-page {
   width: min(100%, var(--measure-grid));
+  min-width: 0;
   margin: 0 auto;
   padding: var(--s5) 0 var(--s7);
 }
@@ -427,9 +428,8 @@ button { cursor: pointer; }
 .data-table-filter-panel {
   margin-bottom: var(--s4);
   padding: var(--s5);
-  overflow-x: auto;
 }
-.data-table-filter-panel .filter-strip { width: var(--measure-grid); }
+.data-table-filter-panel .filter-strip { width: 100%; }
 .data-table-header-wrap {
   position: sticky;
   top: 0;
@@ -437,46 +437,43 @@ button { cursor: pointer; }
   overflow: hidden;
 }
 .data-table-header-wrap .grid-table {
-  margin-inline: auto;
   border-top: 1px solid var(--line);
-  will-change: transform;
 }
 .data-table-header-wrap .grid-table thead th { position: static; }
-.data-table-scroll { overflow: auto; }
-.data-table-scroll > .grid-table { margin-inline: auto; }
+.data-table-scroll { overflow: clip; }
 
 /* the grid gets the same left gutter as prose, so a row's first character
    lines up with a section heading instead of hugging the rail. */
 .grid-table { width: 100%; border-collapse: collapse; font-size: var(--t-body); }
-.monster-grid { width: var(--measure-grid); min-width: var(--measure-grid); table-layout: fixed; }
-.monster-grid .monster-col-index { width: 72px; }
-.monster-grid .monster-col-name { width: 240px; }
-.monster-grid .monster-col-sets { width: 136px; }
-.monster-grid .monster-col-level { width: 64px; }
+.monster-grid { width: 100%; min-width: 0; table-layout: fixed; }
+.monster-grid .monster-col-index { width: 4.1284%; }
+.monster-grid .monster-col-name { width: 13.7615%; }
+.monster-grid .monster-col-sets { width: 7.7982%; }
+.monster-grid .monster-col-level { width: 3.6697%; }
 .monster-grid .monster-col-hp,
 .monster-grid .monster-col-atk,
-.monster-grid .monster-col-def { width: 96px; }
+.monster-grid .monster-col-def { width: 5.5046%; }
 .monster-grid .monster-col-spd,
 .monster-grid .monster-col-criticalRate,
 .monster-grid .monster-col-criticalDamage,
 .monster-grid .monster-col-resistance,
-.monster-grid .monster-col-accuracy { width: 80px; }
-.monster-grid .monster-col-artifacts { width: 112px; }
-.monster-grid .monster-col-relic { width: 80px; }
+.monster-grid .monster-col-accuracy { width: 4.5872%; }
+.monster-grid .monster-col-artifacts { width: 6.422%; }
+.monster-grid .monster-col-relic { width: 4.5872%; }
 .monster-grid .monster-col-ehp,
-.monster-grid .monster-col-ehpD,
-.monster-grid .monster-col-dmg { width: 112px; }
+.monster-grid .monster-col-ehpD { width: 6.422%; }
+.monster-grid .monster-col-dmg { width: 7.3394%; }
 /* Artifact rows are allowed to grow for their four sub-property lines; the
    shell still supplies their width and column-heading behaviour. */
-.artifact-grid { width: var(--measure-grid); min-width: var(--measure-grid); table-layout: fixed; }
-.artifact-grid .artifact-col-index { width: 72px; }
-.artifact-grid .artifact-col-location { width: 240px; }
-.artifact-grid .artifact-col-value { width: 136px; }
-.artifact-grid .artifact-col-category { width: 128px; }
-.artifact-grid .artifact-col-equipClass { width: 136px; }
-.artifact-grid .artifact-col-grade { width: 128px; }
-.artifact-grid .artifact-col-mainProperty { width: 152px; }
-.artifact-grid .artifact-col-subProperties { width: 752px; }
+.artifact-grid { width: 100%; min-width: 0; table-layout: fixed; }
+.artifact-grid .artifact-col-index { width: 4.1284%; }
+.artifact-grid .artifact-col-location { width: 13.7615%; }
+.artifact-grid .artifact-col-value { width: 7.7982%; }
+.artifact-grid .artifact-col-category { width: 7.3394%; }
+.artifact-grid .artifact-col-equipClass { width: 7.7982%; }
+.artifact-grid .artifact-col-grade { width: 7.3394%; }
+.artifact-grid .artifact-col-mainProperty { width: 8.7156%; }
+.artifact-grid .artifact-col-subProperties { width: 43.1193%; }
 .artifact-grid tbody td { height: auto; padding-block: var(--s2); vertical-align: top; }
 .artifact-main-value { color: var(--dim); }
 .artifact-subs { margin: 0; padding: 0; list-style: none; }
