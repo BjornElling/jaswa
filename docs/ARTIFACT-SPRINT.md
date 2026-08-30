@@ -2,11 +2,12 @@
 
 **Status:** Live working document for the Artifacts workspace
 **Started:** August 30, 2026
-**Last updated:** August 30, 2026 — session 3: decision 30 fixes the workspace's
-five areas and decision 31 the acceptable-versus-preferred factor, which is
-built and persisted. The placeholder is gone — `artifacts` routes to a real
-component. Decision 29 fixes the thresholds that turn engraving counts into
-preferred and acceptable defaults.
+**Last updated:** August 30, 2026 — decision 32 defines
+`calculateArtifactOptimalValue`, the canonical artifact-versus-monster value.
+Decision 30 fixes the workspace's five areas and decision 31 the
+acceptable-versus-preferred factor, which is built and persisted. The placeholder
+is gone — `artifacts` routes to a real component. Decision 29 fixes the
+thresholds that turn engraving counts into preferred and acceptable defaults.
 The dataset and its collector exist, every observation carries its own date
 (decision 25), and the capture list is 1,086 monster types. Collection is now
 the user's to run, in stages, with `scripts/collect-engraving-statistics.mjs`
@@ -628,6 +629,7 @@ recorded here once the user has taken it.
 | 29 | 2026-08-30 | **Default property preferences use fixed shares of their own engraving distribution.** Main Property is preferred at ≥ 40 % and acceptable at ≥ 10 %; Sub Property is preferred at ≥ 10 % and acceptable at ≥ 5 %. A lower share is neither; the calculation uses raw counts, separately for each monster type and artifact category. | Main Property has three values, whereas each Attribute or Type sub-property distribution has 23. One threshold would either discard useful main-property alternatives or label most sub-properties desirable. These limits keep the rule legible, produce a typical main-property result of one preferred and one acceptable choice, and leave a flat sub-property distribution honestly without a preferred default. |
 | 30 | 2026-08-30 | **The workspace is five areas, in this order: Recommendations, Best monster for this artifact, Best artifact for this monster, All artifacts, Settings.** Each is a `Disclosure` on the single Artifacts page, and **none opens by default.** | The user's call, and it makes decision 13 concrete: Recommendations and the two "best" views are the three questions, All artifacts is the library they are read against, and Settings holds the tolerance applied to all of them. **Recommendations leads** because it is the answer a user comes to this page for — the account-wide "what should I actually change" — where the two "best" views answer a question about one artifact or one monster the user must first have in mind. **Settings sits last**, being set once and then left alone. Every fold starts closed and behaves identically, so the page never decides for the user which question they arrived with. Naming the five now lets them exist as headings before their content does, so steps 2–6 fill an agreed frame instead of negotiating one late. |
 | 31 | 2026-08-30 | **The acceptable-versus-preferred factor is stored as the percentage itself** — one of 0, 25, 50, 75 or 100 — **not as a 1–5 step index.** It defaults to 50 %, lives in `Preferences.artifacts` as `ArtifactSettings.acceptableWorth`, and is offered as a five-stop slider in the Artifacts **Settings** area. | Decision 11 fixed that there is one global factor; this fixes what is stored. The judgement multiplies by the factor, so storing the percentage keeps the value the user reads and the value the calculation uses as one thing — a step index would need translating into a factor somewhere, and that translation is a second source of truth. 50 % is the honest midpoint and reads as a deliberate answer, where 0 % (an acceptable property may as well be unwanted) and 100 % (the distinction stops meaning anything) read as the feature switched off. The five stops are a validated set rather than a range: a `.sw` file claiming 37 % did not come from this slider. |
+| 32 | 2026-08-30 | **Artifact-versus-monster value is `calculateArtifactOptimalValue`: main-property preference weight × the weighted mean of the four sub-property fractions of their respective maxima.** Preferred weighs 1; acceptable weighs `Acceptable ctr. preferred`; unwanted weighs 0. The sub-property weight appears in both the numerator and denominator. | The user wants one central value for every future reading of artifact value. A weighted mean lets acceptable properties affect the result in proportion to the slider without pretending a fully rolled acceptable property is only partly rolled. Main-property preference stays a whole-artifact multiplier, as specified. The complete contract is `ARTIFACT-CANONICAL.md` §16; the TypeScript function is its sole executable implementation. |
 
 ---
 

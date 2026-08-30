@@ -1111,3 +1111,42 @@ value 98, and `sec_effects` position 4) and one carries a partial (position 3's
 magnitude). Under §14's revision rule none of them may receive a silent fallback:
 store them, surface them where they matter, and do not compute anything from a
 meaning nobody has established.
+
+---
+
+## 16. JASWA optimal value
+
+`calculateArtifactOptimalValue` in `app/lib/artifact-optimal-value.ts` is the
+single source of truth for JASWA's artifact-versus-monster value. It measures
+how fully an artifact rolled on what the user declared valuable for that monster
+type and category. It is not a combat simulation or a sum of unlike effects.
+
+Let `a` be `Acceptable ctr. preferred` as a fraction, and assign each property
+preference a weight:
+
+```text
+w(preferred)  = 1
+w(acceptable) = a
+w(unwanted)   = 0
+```
+
+For the main property, `m = w(main preference)`. For each of the artifact's four
+sub properties, let `rᵢ = rolled valueᵢ / maximum valueᵢ`, with its maximum
+derived from the property definition and the artifact's natural grade (§3).
+Then:
+
+```text
+subValue = Σ(wᵢ × rᵢ) / Σwᵢ
+optimalValue = m × subValue
+```
+
+The sub-property denominator is weighted too. An acceptable line therefore has
+less influence on the sub-value, but a fully rolled acceptable line is still a
+fully rolled line rather than a value silently capped at `a`. The main property
+is deliberately different: an acceptable main multiplies the entire result by
+`a`, exactly as the user chose.
+
+`optimalValue` is a fraction from 0 to 1. A monster category with no property
+preferences is **not judged** and returns `undefined`; a judged category whose
+artifact matches no chosen sub property returns the real value `0`. Invalid
+roll data is rejected as `undefined`, never clamped or repaired.
