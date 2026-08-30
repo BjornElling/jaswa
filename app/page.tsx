@@ -36,6 +36,7 @@ export default function Home() {
   const [pendingImportRoute, setPendingImportRoute] = useState<ImportRoute | null>(null);
   const [helperConnection, setHelperConnection] = useState<HelperConnection>({ state: 'checking', detail: 'Roll for initiative. Then run the helper.', profileReady: false, restartRequired: false, instanceId: '', revision: 0, sessionId: 0 });
   const [saveFolder, setSaveFolder] = useState<DirectoryHandle | null>(null);
+  const preferencesRef = useRef(preferences);
   const gameInput = useRef<HTMLInputElement>(null);
   const settingsInput = useRef<HTMLInputElement>(null);
   const appliedHelperRevision = useRef<number | null>(null);
@@ -46,9 +47,13 @@ export default function Home() {
       const savedCurrentGame = savedGame && isValidImportedGame(savedGame) ? savedGame : null;
       setGame(savedCurrentGame);
       if (savedCurrentGame?.helperSession) appliedHelperSession.current = `${savedCurrentGame.helperSession.instanceId}:${savedCurrentGame.helperSession.sessionId}`;
-      setPreferences(savedPreferences && isValidPreferences(savedPreferences) ? savedPreferences : blankPreferences());
+      const savedCurrentPreferences = savedPreferences && isValidPreferences(savedPreferences) ? savedPreferences : blankPreferences();
+      preferencesRef.current = savedCurrentPreferences;
+      setPreferences(savedCurrentPreferences);
     }).catch(() => {
-      setPreferences(blankPreferences());
+      const emptyPreferences = blankPreferences();
+      preferencesRef.current = emptyPreferences;
+      setPreferences(emptyPreferences);
     }).finally(() => setReady(true));
     /* The folder is a live handle rather than a path, so it is read from its
        own record instead of travelling in the preferences document. */
@@ -75,7 +80,7 @@ export default function Home() {
         if (disposed || !profile) return;
         const validation = validateGameFile(profile.data);
         if (!validation.valid) return;
-        await applyImport(createImportedGame('JASWA Helper — Steam', profile.data, validation, { instanceId: profile.instanceId, sessionId: profile.sessionId }));
+        if (!await applyImport(createImportedGame('JASWA Helper — Steam', profile.data, validation, { instanceId: profile.instanceId, sessionId: profile.sessionId }))) return;
         appliedHelperRevision.current = profile.revision;
         appliedHelperSession.current = `${profile.instanceId}:${profile.sessionId}`;
       } catch {
@@ -112,25 +117,40 @@ export default function Home() {
   }
 
   async function applyImport(imported: ImportedGame) {
-    await saveImportedGame(imported);
+    try {
+      await saveImportedGame(imported);
+    } catch {
+      setMessage('JASWA could not save this import. Please try again.');
+      return false;
+    }
     setGame(imported);
     setPendingGame(null);
     setMessage('');
+    return true;
   }
 
   async function removeImport() {
-    await clearImportedGame();
+    try {
+      await clearImportedGame();
+    } catch {
+      setMessage('JASWA could not remove the saved import. Please try again.');
+      return;
+    }
     setGame(null);
     setMessage('');
   }
 
-  /* All preference writes pass through one functional update, so two controls
-     changed close together cannot save stale copies over each other. */
+  /* This is the sole route from a committed preference choice to both React and
+     persistent storage. The ref makes rapid, consecutive changes build on the
+     latest choice before React has rendered; browser-storage writes them in the
+     same order and mirrors each one synchronously. */
   function changePreferences(change: (current: Preferences) => Preferences) {
-    setPreferences((current) => {
-      const next = { ...change(current), updatedAt: new Date().toISOString() };
-      void savePreferences(next);
-      return next;
+    const next = { ...change(preferencesRef.current), updatedAt: new Date().toISOString() };
+    const writing = savePreferences(next);
+    preferencesRef.current = next;
+    setPreferences(next);
+    void writing.catch(() => {
+      setMessage('JASWA could not save your preferences. Your latest choice is still on screen.');
     });
   }
 
@@ -180,8 +200,12 @@ export default function Home() {
   }
 
   async function dropSaveFolder() {
-    await forgetSaveFolder();
-    setSaveFolder(null);
+    try {
+      await forgetSaveFolder();
+      setSaveFolder(null);
+    } catch {
+      setMessage('JASWA could not forget this folder. Please try again.');
+    }
   }
 
   /* One writer for both file kinds: it uses the chosen folder when there is
@@ -217,8 +241,14 @@ export default function Home() {
     if (!file) return;
     try {
       const next = await importPreferencesFile(file);
+      try {
+        await savePreferences(next);
+      } catch {
+        setMessage('JASWA could not save these preferences. Please try again.');
+        return;
+      }
+      preferencesRef.current = next;
       setPreferences(next);
-      await savePreferences(next);
       setMessage('Your preferences were loaded.');
     } catch {
       setMessage('JASWA could not read this settings file. Please choose a .sw file exported from JASWA.');

@@ -49,17 +49,34 @@ function openDatabase(): Promise<IDBDatabase> {
 function put(value: DirectoryHandle | null): Promise<void> {
   return openDatabase().then((database) => new Promise((resolve, reject) => {
     const store = database.transaction(storeName, 'readwrite').objectStore(storeName);
-    const request = value === null ? store.delete(saveFolderKey) : store.put(value, saveFolderKey);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
+    const transaction = store.transaction;
+    if (value === null) store.delete(saveFolderKey); else store.put(value, saveFolderKey);
+    transaction.oncomplete = () => {
+      database.close();
+      resolve();
+    };
+    transaction.onerror = () => {
+      database.close();
+      reject(transaction.error);
+    };
+    transaction.onabort = () => {
+      database.close();
+      reject(transaction.error);
+    };
   }));
 }
 
 function get(): Promise<DirectoryHandle | null> {
   return openDatabase().then((database) => new Promise((resolve, reject) => {
     const request = database.transaction(storeName, 'readonly').objectStore(storeName).get(saveFolderKey);
-    request.onsuccess = () => resolve((request.result as DirectoryHandle | undefined) ?? null);
-    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      database.close();
+      resolve((request.result as DirectoryHandle | undefined) ?? null);
+    };
+    request.onerror = () => {
+      database.close();
+      reject(request.error);
+    };
   }));
 }
 
@@ -107,12 +124,7 @@ export async function chooseSaveFolder(): Promise<DirectoryHandle | null> {
 }
 
 export async function forgetSaveFolder(): Promise<void> {
-  try {
-    await put(null);
-  } catch {
-    /* Losing the record leaves the next export going through the browser's own
-       download, which is the same place it would have gone without a folder. */
-  }
+  await put(null);
 }
 
 /**
