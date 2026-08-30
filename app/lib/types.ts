@@ -56,8 +56,19 @@ export type TimeZoneChoice = 'system' | 'manual';
  */
 export type GeneralSettings = { numberFormat: NumberFormatChoice; dateOrder: DateOrderChoice; hourCycle: HourCycleChoice; timeZone: TimeZoneChoice; manualTimeZone: string };
 /**
+ * What an *acceptable* artifact property is worth against a *preferred* one,
+ * as a percentage — `ARTIFACT-SPRINT.md` decision 11.
+ *
+ * It is stored as the percentage itself rather than as a 1–5 step, because the
+ * judgement multiplies by it: a step index would have to be translated into a
+ * factor somewhere, and that translation is the kind of second source of truth
+ * this project keeps out. One factor for the whole account, not one per monster
+ * — the user is stating a general tolerance, not tuning each row.
+ */
+export type ArtifactSettings = { acceptableWorth: number };
+/**
  * The presets are part of the user's own preferences rather than of the
  * program: JASWA supplies a starting set, and after that they are the user's
  * to rename, retune and delete, and they travel with the .sw file.
  */
-export type Preferences = { updatedAt: string; hardwareAcceleration: boolean; importRoute: ImportRoute; directImportMode: DirectImportMode; general: GeneralSettings; monsterPreferences: Record<string, MonsterPreference>; runePotential: RunePotentialSettings; runePotentialPresets: RunePotentialPreset[] };
+export type Preferences = { updatedAt: string; hardwareAcceleration: boolean; importRoute: ImportRoute; directImportMode: DirectImportMode; general: GeneralSettings; monsterPreferences: Record<string, MonsterPreference>; runePotential: RunePotentialSettings; runePotentialPresets: RunePotentialPreset[]; artifacts: ArtifactSettings };

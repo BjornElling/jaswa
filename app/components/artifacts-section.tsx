@@ -2,18 +2,41 @@
 
 import { WorkspacePage } from './workspace-page';
 import { Disclosure, PageHeader } from './page-chrome';
+import { artifactAcceptableWorthChoices } from '../lib/file-imports';
+import type { ArtifactSettings } from '../lib/types';
 
-/* The workspace answers all three of decision 13's questions plus the library
-   itself, and it answers them as four areas rather than one ranked view: they
-   are four readings of the same table, so none of them leads. Each section is
-   framed by the shared Disclosure (decision 14) rather than by its own chrome.
+/* The slider's stops are the stored percentages themselves (decision 11), so
+   the label a user reads and the factor the judgement multiplies by are one
+   value. Indexed by position in `artifactAcceptableWorthChoices`. */
+const acceptableWorthLabels = [
+  'Preferred or nothing — 0 %',
+  'A grudging nod — 25 %',
+  'Half credit, fair’s fair — 50 %',
+  'Nearly as good, honestly — 75 %',
+  'Why did I even rank them — 100 %',
+] as const;
 
-   Every section below is a heading and its stated purpose only. The judgement
-   they present comes from steps 2, 4 and 5 of docs/ARTIFACT-SPRINT.md, and
-   inventing an interim reading here would put a second answer beside the one
-   those steps will produce. */
+/* Five areas (decision 30): the three questions of decision 13, the library
+   they are read against, and the one setting that weights all of them. Settings
+   leads because it governs the other four, which is where Rune Potential puts
+   it too. Each is framed by the shared Disclosure (decision 14) rather than by
+   its own chrome.
 
-export function ArtifactsSection({ hasGame }: { hasGame: boolean }) {
+   Settings is the only section with content: decision 11 fixes what it holds.
+   The other four are a heading and their stated purpose only, because the
+   judgement they present comes from steps 2, 4 and 5 of
+   docs/ARTIFACT-SPRINT.md, and inventing an interim reading here would put a
+   second answer beside the one those steps will produce. */
+
+export function ArtifactsSection({ settings, hasGame, onUpdate }: {
+  settings: ArtifactSettings;
+  hasGame: boolean;
+  onUpdate: (update: Partial<ArtifactSettings>) => void;
+}) {
+  const step = artifactAcceptableWorthChoices.indexOf(
+    settings.acceptableWorth as typeof artifactAcceptableWorthChoices[number],
+  );
+
   return <WorkspacePage
     header={<PageHeader
       title="Artifacts"
@@ -24,7 +47,26 @@ export function ArtifactsSection({ hasGame }: { hasGame: boolean }) {
       <p className="next-step">Import your game data first. Your preferences can be prepared at any time.</p>
     </section>}
 
-    <Disclosure title="Best monster for this artifact" defaultOpen={hasGame}>
+    <Disclosure title="Settings" defaultOpen>
+      <div className="slider-grid">
+        <div className="slider">
+          <label className="slider-label" htmlFor="acceptable-worth">Acceptable ctr. preferred</label>
+          <p className="slider-note">What is second choice worth against first choice?</p>
+          <input id="acceptable-worth" type="range"
+            min={1} max={artifactAcceptableWorthChoices.length} step={1}
+            value={step + 1}
+            onChange={(event) => void onUpdate({
+              acceptableWorth: artifactAcceptableWorthChoices[Number(event.target.value) - 1],
+            })}
+            aria-describedby="acceptable-worth-choice" />
+          <p id="acceptable-worth-choice" className="slider-choice" aria-live="polite">
+            {acceptableWorthLabels[step]}
+          </p>
+        </div>
+      </div>
+    </Disclosure>
+
+    <Disclosure title="Best monster for this artifact">
       <p className="lead">
         Takes one artifact and ranks the monsters that would gain most from it. A monster
         type with no property preferences is not ranked at all, rather than ranked last.

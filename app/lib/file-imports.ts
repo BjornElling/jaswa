@@ -1,5 +1,5 @@
 import type {
-  DirectImportMode, HelperSession, ImportReport, ImportRoute, ImportedGame, ItemGrade,
+  ArtifactSettings, DirectImportMode, HelperSession, ImportReport, ImportRoute, ImportedGame, ItemGrade,
   MonsterPreference, Preferences, RunePotentialSettings, RunePotentialSortOrder,
 } from './types';
 import { hasMonsterCatalogEntry } from './monster-catalog';
@@ -32,6 +32,14 @@ export const defaultRunePotentialSettings: RunePotentialSettings = {
   sortOrder: 'Power-up Lv.',
 };
 
+/* Half credit is the honest midpoint of decision 11's question, and it reads as
+   a deliberate answer rather than a disabled feature the way 0 % or 100 % would:
+   at 0 % an acceptable property may as well be unwanted, and at 100 % the
+   preferred/acceptable distinction stops meaning anything. */
+export const artifactAcceptableWorthChoices = [0, 25, 50, 75, 100] as const;
+
+export const defaultArtifactSettings: ArtifactSettings = { acceptableWorth: 50 };
+
 function isRecord(value: unknown): value is GameRecord {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
@@ -55,7 +63,16 @@ export function blankPreferences(): Preferences {
     monsterPreferences: {},
     runePotential: defaultRunePotentialSettings,
     runePotentialPresets: defaultRunePotentialPresets(),
+    artifacts: defaultArtifactSettings,
   };
+}
+
+/* The stored value is the percentage, so it is checked against the offered
+   choices rather than against a 1–5 range: a file claiming 37 % came from
+   somewhere other than this slider and is not a contract JASWA honours. */
+function isArtifactSettings(value: unknown): value is ArtifactSettings {
+  return isRecord(value)
+    && artifactAcceptableWorthChoices.includes(value.acceptableWorth as typeof artifactAcceptableWorthChoices[number]);
 }
 
 function isScale(value: unknown, maximum: number): value is number {
@@ -98,7 +115,8 @@ export function isValidPreferences(value: unknown): value is Preferences {
     && isGeneralSettings(value.general)
     && isMonsterPreferences(value.monsterPreferences)
     && isRunePotentialSettings(value.runePotential)
-    && isCurrentRunePotentialPresets(value.runePotentialPresets);
+    && isCurrentRunePotentialPresets(value.runePotentialPresets)
+    && isArtifactSettings(value.artifacts);
 }
 
 function recordCollection(value: unknown): GameRecord[] {

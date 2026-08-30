@@ -3,10 +3,10 @@
 **Status:** Live working document for the Artifacts workspace
 **Started:** August 30, 2026
 **Last updated:** August 30, 2026 — session 3: decision 30 fixes the workspace's
-four areas, and the placeholder is gone — `artifacts` now routes to a real
-component carrying the four headings and nothing else. Decision 29 fixes the
-simple thresholds that turn engraving counts into preferred and acceptable
-defaults.
+five areas and decision 31 the acceptable-versus-preferred factor, which is
+built and persisted. The placeholder is gone — `artifacts` routes to a real
+component. Decision 29 fixes the thresholds that turn engraving counts into
+preferred and acceptable defaults.
 The dataset and its collector exist, every observation carries its own date
 (decision 25), and the capture list is 1,086 monster types. Collection is now
 the user's to run, in stages, with `scripts/collect-engraving-statistics.mjs`
@@ -78,10 +78,11 @@ member of the `Page` union and sits in the `Workspaces` group of
 
 **The placeholder is gone (step 7, session 3).** `app/page.tsx` routes
 `artifacts` to `app/components/artifacts-section.tsx`, which frames decision
-30's four areas as `Disclosure` headings; `UpcomingWorkspace` now covers only
+30's five areas as `Disclosure` headings; `UpcomingWorkspace` now covers only
 `optimizer`, `speed`, `gems`, and `relics`, and `upcomingWorkspaces` no longer
-carries an `artifacts` entry. The four sections hold their heading and stated
-purpose and no judgement — that arrives with steps 2–6.
+carries an `artifacts` entry. **Settings** holds the decision 31 slider; the
+other four hold their heading and stated purpose and no judgement — that arrives
+with steps 2–6.
 
 **The imported data.** `app/lib/file-imports.ts` already carries artifacts
 through the import:
@@ -625,7 +626,8 @@ recorded here once the user has taken it.
 | 27 | 2026-08-30 | **The traffic log is a buffer, not an archive.** `scripts/collect-engraving-statistics.mjs` merges it into the dataset additively after each session; the helper's "start a fresh file each recording" behaviour is left alone. | Switching recording on clears the log, which would lose a previous day's clicking. Making the helper append instead would need an installer rebuild and would undo a deliberate decision — a log that silently continued an earlier one invites reading yesterday's traffic as today's evidence. Merging after each session keeps that guarantee and still loses nothing, as long as the merge runs before recording is switched on again. |
 | 28 | 2026-08-30 | **A user-entered preference always takes precedence over the game's figures. The engraving statistics are consulted only where the user has entered nothing.** The two are never blended, averaged, or reconciled: for a given `(monster type, category, property)` the answer comes from the user if they have stated one, and from the dataset otherwise. | The user's call, and it answers Q8's override half. It also removes a whole class of problem rather than solving it: because a recapture cannot touch anything the user has stated, the dataset needs no merge policy against preferences, and there is no "your default changed" case to design. The distinction it *does* require is between **never stated** and **deliberately stated as nothing** — under `AGENTS.md` rule 3 those are different answers, and a cleared preference that fell back to the default would silently overrule the user. So a monster type's preferences must be stored as an explicit record of what the user said, absent where they said nothing, and never as a copy of the defaults seeded at first view. |
 | 29 | 2026-08-30 | **Default property preferences use fixed shares of their own engraving distribution.** Main Property is preferred at ≥ 40 % and acceptable at ≥ 10 %; Sub Property is preferred at ≥ 10 % and acceptable at ≥ 5 %. A lower share is neither; the calculation uses raw counts, separately for each monster type and artifact category. | Main Property has three values, whereas each Attribute or Type sub-property distribution has 23. One threshold would either discard useful main-property alternatives or label most sub-properties desirable. These limits keep the rule legible, produce a typical main-property result of one preferred and one acceptable choice, and leave a flat sub-property distribution honestly without a preferred default. |
-| 30 | 2026-08-30 | **The workspace is four areas, in this order: Best monster for this artifact, Best artifact for this monster, Recommended changelist, All artifacts.** Each is a `Disclosure` on the single Artifacts page. | The user's call, and it makes decision 13 concrete: the first two and the changelist are the three questions, and the fourth is the library they are all read against. Putting the two "best" views first sets judgement ahead of inventory, and the changelist sits where a user acts rather than browses. Naming the four now lets them exist as headings before their content does, so steps 2–6 fill an agreed frame instead of negotiating one late. |
+| 30 | 2026-08-30 | **The workspace is five areas, in this order: Settings, Best monster for this artifact, Best artifact for this monster, Recommended changelist, All artifacts.** Each is a `Disclosure` on the single Artifacts page. | The user's call, and it makes decision 13 concrete: the two "best" views and the changelist are the three questions, All artifacts is the library they are read against, and Settings holds the tolerance applied to all of them. Settings leads because it is the one section that governs the other four, which is also where Rune Potential puts it. Putting the two "best" views ahead of the list sets judgement before inventory. Naming the five now lets them exist as headings before their content does, so steps 2–6 fill an agreed frame instead of negotiating one late. |
+| 31 | 2026-08-30 | **The acceptable-versus-preferred factor is stored as the percentage itself** — one of 0, 25, 50, 75 or 100 — **not as a 1–5 step index.** It defaults to 50 %, lives in `Preferences.artifacts` as `ArtifactSettings.acceptableWorth`, and is offered as a five-stop slider in the Artifacts **Settings** area. | Decision 11 fixed that there is one global factor; this fixes what is stored. The judgement multiplies by the factor, so storing the percentage keeps the value the user reads and the value the calculation uses as one thing — a step index would need translating into a factor somewhere, and that translation is a second source of truth. 50 % is the honest midpoint and reads as a deliberate answer, where 0 % (an acceptable property may as well be unwanted) and 100 % (the distinction stops meaning anything) read as the feature switched off. The five stops are a validated set rather than a range: a `.sw` file claiming 37 % did not come from this slider. |
 
 ---
 
@@ -644,8 +646,8 @@ Status is one of **Not started**, **In progress**, **Blocked**, **Done**.
 | 2 | Model and read artifacts — types, parsing, validation from `game.data.artifacts` | **Unblocked, not started** | §15 answers what blocked it. The record shape, the property vocabulary and its category split, the power-up encoding and its grade invariant, and the conversion slot are all verified. `equipmentPrimaryTypes` and `addArtifactMainEffect` were confirmed correct, so the existing footholds extend rather than get replaced (Q6). Validation rules are in `ARTIFACT-CANONICAL.md` §13. |
 | 3 | Artifact library — list, sort, filter, empty state | Not started | This is decision 30's fourth area, **All artifacts**. Its heading exists; its content does not. Sections framed by the shared `Disclosure` (decision 14). |
 | 4 | Judgement — roll quality against the monster type's property preferences | Not started | Decision 9: value is how well the artifact rolled on the properties the user preferred, weighted by the decision 11 slider. No skill data, no combat simulation. The artifact's own category selects which half of the preferences applies (decision 21). Needs step 2's parsed values and step 5's preferences. |
-| 5 | Artifact preferences — per-type property preferences, the acceptable factor, and the defaults | Not started | Decisions 9–12, 15–21, **28–29**. Its own model in `Preferences`, extending `isValidPreferences`. Preferences are keyed `(category, property)` (decision 21), and Attribute and Type properties are presented separately (20). **Store only what the user actually stated** — never a copy of the seeded defaults, or a cleared preference becomes indistinguishable from an unset one and the default silently returns (decision 28). The statistics are read at the point of use as a fallback, applying decision 29's raw-count thresholds. §7 Q7a governs a type the dataset does not cover. Breaking change by design. |
-| 6 | Monster fit — which monsters gain most from an artifact | Not started | The tagline's promise, and decision 30's first area. Under decision 13 it is a second reading of step 4's table rather than separate work. Depends on 2 and 4. |
+| 5 | Artifact preferences — per-type property preferences, the acceptable factor, and the defaults | **Partly done** | The **acceptable factor is built** (decision 31): `ArtifactSettings.acceptableWorth` in `Preferences`, validated against its five stops, offered as the slider in the Artifacts Settings area. The per-type property preferences and the decision 29 defaults are unstarted, and they are the larger half. Decisions 9–12, 15–21, **28–29**. Its own model in `Preferences`, extending `isValidPreferences`. Preferences are keyed `(category, property)` (decision 21), and Attribute and Type properties are presented separately (20). **Store only what the user actually stated** — never a copy of the seeded defaults, or a cleared preference becomes indistinguishable from an unset one and the default silently returns (decision 28). The statistics are read at the point of use as a fallback, applying decision 29's raw-count thresholds. §7 Q7a governs a type the dataset does not cover. Breaking change by design. |
+| 6 | Monster fit — which monsters gain most from an artifact | Not started | The tagline's promise, and decision 30's **Best monster for this artifact** area. Under decision 13 it is a second reading of step 4's table rather than separate work. Depends on 2 and 4. |
 | 7 | Replace the placeholder — route `artifacts` to the real component | **Done** | Session 3. `app/components/artifacts-section.tsx` carries decision 30's four `Disclosure` headings and their stated purpose, and nothing more. `app/page.tsx` routes `artifacts` to it; `'artifacts'` is out of the `UpcomingWorkspace` branch and out of `upcomingWorkspaces`, whose tagline now lives in the component. |
 | 8 | Verify and finish — both extremes, layout check, definition of done, commit | Not started | `AGENTS.md` §7. |
 
@@ -670,11 +672,13 @@ and what a given monster is missing. Under decision 9 they are three readings of
 one table rather than three products, so none has to lead.
 
 **Q3 — How are the user's artifact preferences expressed? — Answered
-(decisions 9, 11, 12, 29).** Artifacts get their own model in `Preferences`, not an
+(decisions 9, 11, 12, 29, 31).** Artifacts get their own model in `Preferences`, not an
 extension of `RunePotentialPreset`. Per monster type, the user sets each property
 to **preferred** or **acceptable**; one global slider sets what an acceptable
-property is worth against a preferred one. The engraving statistics supply the
-defaults (decision 10), classified by decision 29's fixed raw-count thresholds.
+property is worth against a preferred one, stored as the percentage itself
+(decision 31) and **built** in the Artifacts Settings area. The engraving
+statistics supply the defaults (decision 10), classified by decision 29's fixed
+raw-count thresholds.
 
 **Q4 — How much does this share with Rune Potential? — Answered, in part.**
 The preference *models* are separate (decision 12). The **interface** is shared:
@@ -1633,4 +1637,66 @@ about the section either way. This is the one step of the definition of done lef
 outstanding, and it needs the user or a browser session.
 
 **Not done.** Steps 2–6 are unstarted; the four sections are frames waiting for
-them.
+them. (A fifth, **Settings**, was added in the next exchange.)
+
+### Session 3, continued — a Settings area, and the acceptable factor built
+
+**Asked.** Add a fifth area, **Settings**, holding a slider for what percentage
+an acceptable property is worth against a preferred one — keeping Rune
+Potential's style and humorous tone, and a consistent look with that page.
+
+**This is decision 11, which had been settled but never built.** So the work was
+implementation rather than a new choice, and the one genuine decision left in it
+was what to *store*.
+
+**Decision 31: store the percentage, not a step index.** Rune Potential's
+sliders are all 1–5 steps with prose labels, and copying that shape would have
+meant a step index translated into a factor somewhere else. The judgement
+multiplies by this value, so the number the user reads and the number the
+calculation uses are kept as one thing. The slider is still a five-stop control
+with a label per stop, so it looks and behaves like its neighbours; the stops
+are 0, 25, 50, 75 and 100 %, and the stored value is the percentage.
+
+**50 % is the default**, being the honest midpoint. The extremes are deliberately
+reachable but read as answers rather than as an off switch: at 0 % an acceptable
+property may as well be unwanted, at 100 % the preferred/acceptable distinction
+stops meaning anything.
+
+**Persisted through the one existing route.** `ArtifactSettings` in
+`app/lib/types.ts`, `Preferences.artifacts`, `defaultArtifactSettings` and
+`isArtifactSettings` in `file-imports.ts`, and `updateArtifactSettings` in
+`page.tsx` going through `changePreferences` like every other preference. Added
+to `docs/LOCAL-PERSISTENCE-CONTRACT.md`, as that document requires of new
+persistent data. The validator checks the value against **the five offered
+stops** rather than a 0–100 range: a `.sw` file claiming 37 % did not come from
+this slider, and `AGENTS.md` §0 says to reject rather than repair.
+
+**One breaking consequence, by design.** `isValidPreferences` now requires
+`artifacts`, so preferences already in IndexedDB fail validation once and fall
+back to `blankPreferences()`. That is `AGENTS.md` §0's intended behaviour and
+the existing fallback in `page.tsx` already handles it, but it does mean saved
+Rune Potential settings reset on the first load after this change.
+
+**Then corrected, on the user's word.** The draft had copied Rune Potential's
+`statistics pending` box into the aside and labelled the slider *Acceptable
+properties*. Both were wrong: the statistics box is Rune Potential's, not a
+house fixture to replicate, and the label was insider shorthand. The box is gone
+— with it the whole `settings-layout`/aside scaffold, leaving the slider in a
+plain `slider-grid` — and the label is now **Acceptable ctr. preferred**, which
+states the comparison the slider actually makes. A `.slider-grid.single` CSS
+modifier written for the one-slider case went with it; `globals.css` ends up
+untouched.
+
+**Verified.** `npx tsc --noEmit`, `npm run lint` and `npx next build` all clean.
+A 22-case structural check of the contract passed: the default, both extremes
+accepted as real answers, `37`/`'50'`/`null`/`NaN`/missing all rejected, 0 %
+distinguishable from absent (`AGENTS.md` rule 3), and the step↔percentage
+round-trip exact at every stop.
+
+**Not verified, and it is the same gap as the previous entry.** No browser-control
+tool is available in this session, so the slider was not dragged, the five labels
+were not read on screen, the fold was not opened, and rule 2's
+screenshot-interact-screenshot comparison was not done. The persistence gate in
+`LOCAL-PERSISTENCE-CONTRACT.md` — a changed value surviving a reload, for an
+empty and a populated workspace — also needs the running app. Outstanding for
+the user or a browser session.

@@ -18,7 +18,7 @@ import { downloadJson, formatDateTime } from './lib/formatting';
 import { canChooseSaveFolder, chooseSaveFolder, forgetSaveFolder, loadSaveFolder, writeToSaveFolder } from './lib/save-location';
 import type { DirectoryHandle } from './lib/save-location';
 import type { GameRecord } from './lib/game-data';
-import type { DirectImportMode, GeneralSettings, ImportRoute, ImportedGame, Preferences, RunePotentialSettings } from './lib/types';
+import type { ArtifactSettings, DirectImportMode, GeneralSettings, ImportRoute, ImportedGame, Preferences, RunePotentialSettings } from './lib/types';
 import type { RunePotentialPreset } from './lib/rune-potential-presets';
 import { type Page, type ReportCategory, upcomingWorkspaces } from './lib/workspace-config';
 
@@ -227,6 +227,13 @@ export default function Home() {
     }));
   }
 
+  function updateArtifactSettings(update: Partial<ArtifactSettings>) {
+    changePreferences((current) => ({
+      ...current,
+      artifacts: { ...current.artifacts, ...update },
+    }));
+  }
+
   function writePresets(change: (current: RunePotentialPreset[]) => RunePotentialPreset[]) {
     changePreferences((current) => ({ ...current, runePotentialPresets: change(current.runePotentialPresets) }));
   }
@@ -307,7 +314,11 @@ export default function Home() {
         onWritePresets={writePresets}
       />}
 
-      {page === 'artifacts' && <ArtifactsSection hasGame={Boolean(game)} />}
+      {page === 'artifacts' && <ArtifactsSection
+        settings={preferences.artifacts}
+        hasGame={Boolean(game)}
+        onUpdate={updateArtifactSettings}
+      />}
 
       {page === 'settings' && <SettingsSection
         general={preferences.general}

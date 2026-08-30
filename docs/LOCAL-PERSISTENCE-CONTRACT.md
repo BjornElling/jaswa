@@ -16,8 +16,8 @@ The durable workspace contains:
 
 - the current imported game, including its prepared account data;
 - all preferences: import route and mode, graphics preference, formats and
-  time zone, monster preferences, Rune Potential settings, and Rune Potential
-  presets;
+  time zone, monster preferences, Rune Potential settings, Rune Potential
+  presets, and Artifacts settings;
 - the chosen export-folder handle when the browser supports it.
 
 The first two records live in IndexedDB under the local `jaswa-local`
