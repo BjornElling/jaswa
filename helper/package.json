@@ -26,7 +26,6 @@
     "productName": "JASWA Helper",
     "artifactName": "JASWA-Helper-Setup.exe",
     "electronLanguages": [
-      "da",
       "en-US"
     ],
     "icon": "../public/favicon.ico",

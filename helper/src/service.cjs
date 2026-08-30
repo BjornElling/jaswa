@@ -33,20 +33,29 @@ async function isAdministrator() {
   try { await run('net.exe', ['session'], { windowsHide: true }); return true; } catch { return false; }
 }
 
-async function resolveGatewayAddresses({ resolve4 = dns.promises.resolve4, record = recordDiagnostic } = {}) {
+function wait(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function resolveGatewayAddresses({ attempts = 3, pause = wait, record = recordDiagnostic, resolve4 = dns.promises.resolve4 } = {}) {
   const entries = await Promise.all(Object.keys(gatewayHosts).map(async (hostname) => {
-    try {
-      const addresses = (await resolve4(hostname)).filter((address) => net.isIP(address) === 4);
-      if (addresses.length > 0) return [hostname, addresses];
-      throw new Error('DNS returned no IPv4 address.');
-    } catch (error) {
-      const fallback = fallbackUpstreams[hostname];
-      if (fallback) {
-        await record('startup DNS fallback', `${hostname}: ${error instanceof Error ? error.message : String(error)}`);
-        return [hostname, fallback];
+    let failure;
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      try {
+        const addresses = (await resolve4(hostname)).filter((address) => net.isIP(address) === 4);
+        if (addresses.length > 0) return [hostname, addresses];
+        throw new Error('DNS returned no IPv4 address.');
+      } catch (error) {
+        failure = error;
+        if (attempt < attempts) await pause(500);
       }
-      throw error;
     }
+    const fallback = fallbackUpstreams[hostname];
+    if (fallback) {
+      await record('startup DNS fallback', `${hostname}: ${failure instanceof Error ? failure.message : String(failure)} after ${attempts} attempts`);
+      return [hostname, fallback];
+    }
+    throw failure;
   }));
   return Object.fromEntries(entries);
 }

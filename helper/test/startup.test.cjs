@@ -36,10 +36,13 @@ test('does not register a development build at Windows sign-in', () => {
 });
 
 test('uses built-in gateway addresses when the local DNS resolver is unavailable', async () => {
+  let calls = 0;
   const addresses = await resolveGatewayAddresses({
-    resolve4: async () => { throw new Error('ECONNREFUSED'); },
+    pause: async () => {},
+    resolve4: async () => { calls += 1; throw new Error('ECONNREFUSED'); },
     record: async () => {},
   });
+  assert.equal(calls, 18);
   assert.deepEqual(addresses, {
     'summonerswar-eu-lb.qpyou.cn': ['34.160.156.240'],
     'summonerswar-gb-lb.qpyou.cn': ['34.160.216.76'],
