@@ -11,9 +11,13 @@ export function CheckboxRow({ label, checked, onChange }: { label: string; check
 
 /** The two import routes share one native radio group, so the browser exposes
     their exclusivity even when the visual control is the whole card. */
-export function ImportRouteCard({ option, name, value, current, onChoose, children }: {
+export function ImportRouteCard({ option, name, qualifier, value, current, onChoose, children }: {
   option: string;
   name: string;
+  /** The condition the route only works under, read as part of its name rather
+      than as a note further down: whoever cannot use the route learns it while
+      reading the heading, before the body argues for it. */
+  qualifier?: string;
   value: ImportRoute;
   current: ImportRoute;
   onChoose: (value: ImportRoute) => void;
@@ -26,7 +30,13 @@ export function ImportRouteCard({ option, name, value, current, onChoose, childr
         onChange={() => onChoose(value)} />
       <span className="route-head-text">
         <span className="route-option">{option}</span>
-        <span className="route-name">{name}</span>
+        <span className="route-name">
+          {name}
+          {/* The gap before the qualifier is a margin, not this space, so the
+              distance can be set against the heading's size rather than the
+              font's idea of a word space. */}
+          {qualifier && <span className="route-qualifier">({qualifier})</span>}
+        </span>
       </span>
     </label>
     <div className="route-body" inert={!chosen}>

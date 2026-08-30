@@ -1559,6 +1559,10 @@ button { cursor: pointer; }
   transition: color .12s, border-color .12s, background .12s;
 }
 .button:hover { color: var(--ink); border-color: var(--faint); }
+/* A platform mark before the label. Sized off the cap height rather than the
+   line box, so it sits as a badge beside the word instead of out-measuring it,
+   and `flex: none` keeps it from being squeezed when the row runs short. */
+.button-mark { flex: none; margin-right: var(--s2); }
 .button.primary {
   background: var(--gold);
   border-color: var(--gold);
@@ -1841,6 +1845,23 @@ button { cursor: pointer; }
   color: var(--ink);
   transition: color .12s;
 }
+/* The condition, carried by the heading but not competing with it: a step down
+   in size and weight and off the heading's white, so the line still reads as one
+   heading with a qualifier rather than as two titles. It keeps its own colour on
+   the chosen card too, which is what stops it from being read as part of the
+   name. */
+.route-qualifier {
+  /* Roughly twice a word space: enough that the qualifier reads as an aside
+     rather than as the next word of the name, while the two still sit on one
+     line. `inline-block` so the margin survives a line wrap collapsing it. */
+  margin-left: var(--s2);
+  display: inline-block;
+  font-size: var(--t-base); font-weight: 400;
+  letter-spacing: 0;
+  color: var(--faint);
+}
+.import-route:not(.chosen) .route-qualifier { color: var(--ghost); }
+.import-route:not(.chosen) .route-head:hover .route-qualifier { color: var(--faint); }
 /* Gold on the chosen one, and only there: the accent's single meaning on this
    page is "this is the one that is live". */
 .import-route.chosen .route-option { color: var(--gold); }
@@ -1926,22 +1947,40 @@ button { cursor: pointer; }
 .text-link:hover { color: #dcb45f; }
 .text-link:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 2px; }
 
-/* The button and the line explaining why it does nothing, on one row where
-   there is width for it. The note carries the reason, so the disabled button
-   does not have to look broken to say so. */
+/* The download row. The reason the route may not apply is carried by the
+   heading's qualifier, so this row holds the button alone. */
 .route-download {
   display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap;
 }
+/* The gold frame, on the border alone rather than the filled `.primary`: this
+   is the one action the chosen route asks for, so it is worth the accent, but a
+   solid gold slab would outweigh the route heading it sits under. */
+.route-download .button { border-color: var(--gold); }
+/* --hover is the program's one hover ground, the same lift the rail items and
+   the route heading above this button take, so the button answers the pointer
+   in the vocabulary the rest of the page already uses. */
+.route-download .button:hover {
+  background: var(--hover);
+  border-color: #dcb45f;
+  color: var(--ink);
+}
 /* A control that cannot be used says so by weight, not by disappearing: it
-   keeps its full box, so nothing moves on the day it starts working. */
+   keeps its full box, so nothing moves on the day it starts working. The gold
+   is dropped with the ability to use it — an accent on a dead control would be
+   pointing at nothing. */
 .route-download .button:disabled {
   color: var(--ghost);
   border-color: var(--line);
   border-style: dashed;
   cursor: not-allowed;
 }
-.route-download .button:disabled:hover { color: var(--ghost); border-color: var(--line); }
-.route-note { margin: 0; color: var(--faint); font-size: var(--t-body); line-height: 1.5; }
+/* The background is held back too, not just the colour and border: a control
+   that cannot be pressed should not light up under the pointer. */
+.route-download .button:disabled:hover {
+  background: transparent;
+  color: var(--ghost);
+  border-color: var(--line);
+}
 
 /* The verdict card is a full-width block in the aside it was written for; here
    it sits in a column of its own content and takes the column's width. */

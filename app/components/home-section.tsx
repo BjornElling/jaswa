@@ -27,6 +27,23 @@ function AccelerationMark({ state }: { state: AccelerationState | 'restart' }) {
   </span>;
 }
 
+/* The four-pane Windows mark, the badge a download row conventionally uses to
+   say which platform a file is for. Filled in `currentColor` so it takes the
+   button's colour through hover and the disabled state rather than staying lit
+   while the label around it dims. */
+function WindowsMark() {
+  return <svg className="button-mark" viewBox="0 0 16 16" width="13" height="13"
+    fill="currentColor" aria-hidden="true" focusable="false">
+    {/* Tilted panes: the top edges rise to the right and the left panes are
+        shorter, which is the perspective that reads as the Windows flag rather
+        than as a plain window grid. */}
+    <path d="M0 2.25 6.5 1.4v6.05H0z" />
+    <path d="M7.35 1.28 16 0v7.45H7.35z" />
+    <path d="M0 8.3h6.5v6.06L0 13.5z" />
+    <path d="M7.35 8.3H16V16l-8.65-1.24z" />
+  </svg>;
+}
+
 export function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLeave, onDrop, onRemove, onReport, hardwareAcceleration, onHardwareAcceleration, directImportMode, onDirectImportMode, importRoute, onImportRoute, helperConnection, general }: {
   game: ImportedGame | null;
   general: GeneralSettings;
@@ -131,7 +148,7 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
 
         <div className="import-routes" role="radiogroup" aria-label="How to load game data">
           <ImportRouteCard
-            option="Option 1" name="Direct import"
+            option="Option 1" name="Direct import" qualifier="Windows + Steam only"
             value="direct" current={importRoute} onChoose={onImportRoute}
           >
             <p className="lead">
@@ -146,8 +163,7 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
             </p>
 
             <div className="route-download">
-              <a className="button" href="/JASWA-Helper-Setup.exe" download>Download the helper</a>
-              <p className="route-note">Windows + Steam only</p>
+              <a className="button" href="/JASWA-Helper-Setup.exe" download><WindowsMark />Download helper</a>
             </div>
 
             <section className={`statistics acceleration ${helperState} route-link`} role="status" aria-label="Helper program connection">
