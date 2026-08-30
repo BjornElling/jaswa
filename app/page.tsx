@@ -14,8 +14,10 @@ import { blankPreferences, createImportedGame, fileToText, importPreferencesFile
 import { checkHelperConnection, readHelperProfile } from './lib/helper-client';
 import type { HelperConnection } from './lib/helper-client';
 import { downloadJson, formatDateTime } from './lib/formatting';
+import { canChooseSaveFolder, chooseSaveFolder, forgetSaveFolder, loadSaveFolder, writeToSaveFolder } from './lib/save-location';
+import type { DirectoryHandle } from './lib/save-location';
 import type { GameRecord } from './lib/game-data';
-import type { DirectImportMode, ImportRoute, ImportedGame, Preferences, RunePotentialSettings } from './lib/types';
+import type { DirectImportMode, GeneralSettings, ImportRoute, ImportedGame, Preferences, RunePotentialSettings } from './lib/types';
 import type { RunePotentialPreset } from './lib/rune-potential-presets';
 import { type Page, type ReportCategory, upcomingWorkspaces } from './lib/workspace-config';
 
@@ -32,6 +34,7 @@ export default function Home() {
   const [pendingDirectImportMode, setPendingDirectImportMode] = useState<DirectImportMode | null>(null);
   const [pendingImportRoute, setPendingImportRoute] = useState<ImportRoute | null>(null);
   const [helperConnection, setHelperConnection] = useState<HelperConnection>({ state: 'checking', detail: 'Roll for initiative. Then run the helper.', profileReady: false, restartRequired: false, instanceId: '', revision: 0, sessionId: 0 });
+  const [saveFolder, setSaveFolder] = useState<DirectoryHandle | null>(null);
   const gameInput = useRef<HTMLInputElement>(null);
   const settingsInput = useRef<HTMLInputElement>(null);
   const appliedHelperRevision = useRef<number | null>(null);
@@ -46,6 +49,9 @@ export default function Home() {
     }).catch(() => {
       setPreferences(blankPreferences());
     }).finally(() => setReady(true));
+    /* The folder is a live handle rather than a path, so it is read from its
+       own record instead of travelling in the preferences document. */
+    void loadSaveFolder().then(setSaveFolder);
   }, []);
 
   useEffect(() => {
@@ -161,6 +167,33 @@ export default function Home() {
     changePreferences((current) => ({ ...current, importRoute: route }));
   }
 
+  function updateGeneralSettings(update: Partial<GeneralSettings>) {
+    changePreferences((current) => ({ ...current, general: { ...current.general, ...update } }));
+  }
+
+  async function pickSaveFolder() {
+    const handle = await chooseSaveFolder();
+    /* A dismissed picker returns nothing and must leave the current folder
+       alone rather than clearing it. */
+    if (handle) setSaveFolder(handle);
+  }
+
+  async function dropSaveFolder() {
+    await forgetSaveFolder();
+    setSaveFolder(null);
+  }
+
+  /* One writer for both file kinds: it uses the chosen folder when there is
+     one and falls back to the browser's download when there is not, so the
+     user always ends up with the file. */
+  async function saveFile(filename: string, content: string) {
+    if (await writeToSaveFolder(saveFolder, filename, content)) {
+      setMessage(`Saved ${filename} to ${saveFolder?.name}.`);
+      return;
+    }
+    downloadJson(filename, content);
+  }
+
   function updateRunePotentialSettings(update: Partial<RunePotentialSettings>) {
     changePreferences((current) => ({
       ...current,
@@ -199,7 +232,7 @@ export default function Home() {
 
   function sendReport() {
     if (!report) return;
-    const importDetails = game ? `\n\nActive import: ${game.fileName}\nImported: ${formatDateTime(game.importedAt)}` : '';
+    const importDetails = game ? `\n\nActive import: ${game.fileName}\nImported: ${formatDateTime(game.importedAt, preferences.general)}` : '';
     const body = `Hello,\n\nI found missing or unrecognized data in JASWA.\n\nCategory: ${report.category}\n\nDetails:\n${report.details || 'Please describe what JASWA could not recognize.'}${importDetails}\n\nPlease do not attach your full game JSON file.`;
     window.location.href = `mailto:bj.elling@gmail.com?subject=${encodeURIComponent(`JASWA missing data: ${report.category}`)}&body=${encodeURIComponent(body)}`;
     setReport(null);
@@ -211,7 +244,7 @@ export default function Home() {
     <AppRail page={page} onNavigate={setPage} onReport={() => openReport()} />
 
     <section className="workspace">
-      {game && <ImportBadge game={game} monsterCount={monsters.length} />}
+      {game && <ImportBadge game={game} monsterCount={monsters.length} general={preferences.general} />}
 
       {page === 'home' && <HomeSection
         game={game}
@@ -230,6 +263,7 @@ export default function Home() {
         importRoute={preferences.importRoute}
         onImportRoute={updateImportRoute}
         helperConnection={helperConnection}
+        general={preferences.general}
       />}
 
       {page === 'monsters' && <MonsterOverview monsters={monsters} preferences={preferences} />}
@@ -242,7 +276,13 @@ export default function Home() {
       />}
 
       {page === 'settings' && <SettingsSection
-        onExport={() => downloadJson('jaswa-preferences.sw', JSON.stringify(preferences, null, 2))}
+        general={preferences.general}
+        saveFolder={saveFolder?.name ?? null}
+        canChooseFolder={canChooseSaveFolder()}
+        onGeneralChange={updateGeneralSettings}
+        onChooseFolder={() => void pickSaveFolder()}
+        onForgetFolder={() => void dropSaveFolder()}
+        onExport={() => void saveFile('jaswa-preferences.sw', JSON.stringify(preferences, null, 2))}
         onImport={() => settingsInput.current?.click()}
       />}
 

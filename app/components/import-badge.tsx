@@ -1,14 +1,14 @@
-import type { ImportedGame } from '../lib/types';
-import { count, formatDateTime } from '../lib/formatting';
+import type { GeneralSettings, ImportedGame } from '../lib/types';
+import { count, formatDateTime, formatNumber } from '../lib/formatting';
 
-export function ImportBadge({ game, monsterCount }: { game: ImportedGame; monsterCount: number }) {
+export function ImportBadge({ game, monsterCount, general }: { game: ImportedGame; monsterCount: number; general: GeneralSettings }) {
   return <aside className="import-badge live" aria-label="Imported game data">
     <p className="import-badge-count">
-      {monsterCount.toLocaleString('en')} monsters · {count(game.data.runes).toLocaleString('en')} runes
+      {formatNumber(monsterCount, general)} monsters · {formatNumber(count(game.data.runes), general)} runes
     </p>
     <p className="import-badge-count secondary">
-      {count(game.data.rune_craft_item_list).toLocaleString('en')} gems &amp; grinds · {count(game.data.artifacts).toLocaleString('en')} artifacts · {count(game.data.relics).toLocaleString('en')} relics
+      {formatNumber(count(game.data.rune_craft_item_list), general)} gems &amp; grinds · {formatNumber(count(game.data.artifacts), general)} artifacts · {formatNumber(count(game.data.relics), general)} relics
     </p>
-    <p className="import-badge-when">imported {formatDateTime(game.importedAt)}</p>
+    <p className="import-badge-when">imported {formatDateTime(game.importedAt, general)}</p>
   </aside>;
 }

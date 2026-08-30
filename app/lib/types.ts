@@ -27,8 +27,31 @@ export type DirectImportMode = 'live' | 'on-load';
  */
 export type ImportRoute = 'direct' | 'file';
 /**
+ * Which way round the decimal separator and the thousands separator go.
+ * `european` writes 1.234.567,89 and `american` writes 1,234,567.89; `system`
+ * takes whichever this computer is set to and is the default, because the user
+ * has already answered this question once in their operating system.
+ */
+export type NumberFormatChoice = 'system' | 'european' | 'american';
+/**
+ * The clock JASWA writes times on. Named for the Unicode hour cycles rather
+ * than for "12" and "24" so the values say which convention they mean:
+ * `h23` is 00:00–23:00 and `h12` is 12:00 AM–11:00 PM.
+ */
+export type HourCycleChoice = 'system' | 'h23' | 'h12';
+/** Whether the zone comes from this computer or from `manualTimeZone`. */
+export type TimeZoneChoice = 'system' | 'manual';
+/**
+ * How JASWA writes numbers, times and dates.
+ *
+ * `manualTimeZone` is held even while the choice is `system`, so a user who
+ * looks at the manual option and changes their mind does not lose the zone
+ * they picked, and the select has something to show the moment it is enabled.
+ */
+export type GeneralSettings = { numberFormat: NumberFormatChoice; hourCycle: HourCycleChoice; timeZone: TimeZoneChoice; manualTimeZone: string };
+/**
  * The presets are part of the user's own preferences rather than of the
  * program: JASWA supplies a starting set, and after that they are the user's
  * to rename, retune and delete, and they travel with the .sw file.
  */
-export type Preferences = { updatedAt: string; hardwareAcceleration: boolean; importRoute: ImportRoute; directImportMode: DirectImportMode; monsterPreferences: Record<string, MonsterPreference>; runePotential: RunePotentialSettings; runePotentialPresets: RunePotentialPreset[] };
+export type Preferences = { updatedAt: string; hardwareAcceleration: boolean; importRoute: ImportRoute; directImportMode: DirectImportMode; general: GeneralSettings; monsterPreferences: Record<string, MonsterPreference>; runePotential: RunePotentialSettings; runePotentialPresets: RunePotentialPreset[] };

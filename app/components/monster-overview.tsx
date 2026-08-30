@@ -260,24 +260,24 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
                 ? <span className="set-mark" title={row.sets.map((set) => set.name).join(' / ')}>{row.sets.map((set) => set.abbreviation).join('/')}</span>
                 : <span className="set-none">—</span>}
             </td>
-            <td className={row.level === null ? 'dim muted' : 'dim'}>{formatNumber(row.level)}</td>
-            <td className={row.hp === null ? 'muted' : undefined}>{formatNumber(row.hp)}</td>
-            <td className={row.atk === null ? 'muted' : undefined}>{formatNumber(row.atk)}</td>
-            <td className={row.def === null ? 'muted' : undefined}>{formatNumber(row.def)}</td>
-            <td className={row.spd === null ? 'muted' : undefined}>{formatNumber(row.spd)}</td>
-            <td className={row.criticalRate === null ? 'muted' : undefined}>{formatNumber(row.criticalRate)}</td>
-            <td className={row.criticalDamage === null ? 'muted' : undefined}>{formatNumber(row.criticalDamage)}</td>
-            <td className={row.resistance === null ? 'muted' : undefined}>{formatNumber(row.resistance)}</td>
-            <td className={row.accuracy === null ? 'muted' : undefined}>{formatNumber(row.accuracy)}</td>
+            <td className={row.level === null ? 'dim muted' : 'dim'}>{formatNumber(row.level, preferences.general)}</td>
+            <td className={row.hp === null ? 'muted' : undefined}>{formatNumber(row.hp, preferences.general)}</td>
+            <td className={row.atk === null ? 'muted' : undefined}>{formatNumber(row.atk, preferences.general)}</td>
+            <td className={row.def === null ? 'muted' : undefined}>{formatNumber(row.def, preferences.general)}</td>
+            <td className={row.spd === null ? 'muted' : undefined}>{formatNumber(row.spd, preferences.general)}</td>
+            <td className={row.criticalRate === null ? 'muted' : undefined}>{formatNumber(row.criticalRate, preferences.general)}</td>
+            <td className={row.criticalDamage === null ? 'muted' : undefined}>{formatNumber(row.criticalDamage, preferences.general)}</td>
+            <td className={row.resistance === null ? 'muted' : undefined}>{formatNumber(row.resistance, preferences.general)}</td>
+            <td className={row.accuracy === null ? 'muted' : undefined}>{formatNumber(row.accuracy, preferences.general)}</td>
             <td className={row.artifactTypes.some((type) => type !== null) ? 'equipment-start equipment-types' : 'equipment-start muted'}>
               {displayArtifactTypes(row.artifactTypes)}
             </td>
             <td className={row.relicTypes.some((type) => type !== null) ? 'equipment-types' : 'muted'}>
               {displayRelicType(row.relicTypes)}
             </td>
-            <td className={row.ehp === null ? 'muted' : undefined}>{formatNumber(row.ehp)}</td>
-            <td className={row.ehpD === null ? 'muted' : undefined}>{formatNumber(row.ehpD)}</td>
-            <td className={row.dmg === null ? 'muted' : undefined}>{formatNumber(row.dmg)}</td>
+            <td className={row.ehp === null ? 'muted' : undefined}>{formatNumber(row.ehp, preferences.general)}</td>
+            <td className={row.ehpD === null ? 'muted' : undefined}>{formatNumber(row.ehpD, preferences.general)}</td>
+            <td className={row.dmg === null ? 'muted' : undefined}>{formatNumber(row.dmg, preferences.general)}</td>
           </tr>)}
         </tbody>
       </table>

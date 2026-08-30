@@ -2352,3 +2352,90 @@ button { cursor: pointer; }
      fall onto as many lines as they need */
   .import-badge p { white-space: normal; }
 }
+
+/* ------------------------------------------------- general settings */
+
+/* The three regional questions sit abreast where there is room: they are one
+   decision about how JASWA writes things, not three unrelated settings, and
+   reading them in a single row makes the preview below them legible as their
+   combined result. `minmax(0, …)` keeps a long zone name from widening its
+   column past its share. */
+.general-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s5);
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .general-grid { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+}
+
+/* The zone select holds its place under the two radios whether or not it is
+   the chosen option, so picking one does not move the panel beneath it. */
+.zone-field { margin-top: var(--s4); }
+.zone-field select:disabled {
+  color: var(--faint);
+  border-color: var(--line);
+  border-style: dashed;
+  cursor: not-allowed;
+}
+.zone-field select:disabled:hover { background-color: var(--sunk); }
+
+/* A label and its value on one row, in the two-tone device the house style
+   already uses for primary against secondary. Both the preview and the folder
+   line take it, because both are "here is what that setting currently means". */
+.format-sample, .save-folder-line {
+  display: flex; align-items: baseline; gap: var(--s3); flex-wrap: wrap;
+  margin: 0;
+}
+.sample-label {
+  font-size: var(--t-micro); letter-spacing: .12em; text-transform: uppercase;
+  font-weight: 700; color: var(--faint);
+  /* The two labels are different words of different lengths; a shared floor
+     lines their values up with each other down the panel. */
+  min-width: 6ch;
+}
+.sample-value {
+  font-family: var(--mono);
+  font-size: var(--t-body);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Separates the regional block from the folder question: they are two subjects
+   inside one panel, and the hairline says so without a second heading level.
+   Matches the tone of .settings-rule, drawn along the other axis. */
+.settings-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #414a5b 4%, #414a5b 96%, transparent);
+}
+
+/* Available to a screen reader, absent from the page. The select beneath the
+   two time-zone radios needs a name of its own; on screen the legend and the
+   radio it follows already say what it is. */
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Same treatment as .route-download's: a control that cannot be used keeps its
+   full box and says so by weight, so nothing moves on the day it starts
+   working. Here that day is the one the user picks a folder. */
+.save-folder-actions .button:disabled {
+  color: var(--ghost);
+  border-color: var(--line);
+  border-style: dashed;
+  cursor: not-allowed;
+}
+.save-folder-actions .button:disabled:hover { color: var(--ghost); border-color: var(--line); }
+
+/* The folder line swaps between a short folder name and a sentence about the
+   browser's own downloads. It is the last element in its stack, so nothing
+   below it can be pushed, but a long name still has to wrap inside the panel
+   rather than widen it. */
+.save-folder-line .sample-value { overflow-wrap: anywhere; }

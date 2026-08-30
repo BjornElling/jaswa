@@ -5,6 +5,7 @@ import type {
 import { hasMonsterCatalogEntry } from './monster-catalog';
 import type { GameRecord } from './game-data';
 import { defaultRunePotentialPresets, isCurrentRunePotentialPresets } from './rune-potential-presets';
+import { blankGeneralSettings, isGeneralSettings } from './regional-settings';
 
 const expectedSections = ['unit_list', 'runes', 'artifacts', 'relics', 'rune_craft_item_list'] as const;
 const excludedKeys = new Set(['session_key', 'session_key_node']);
@@ -50,6 +51,7 @@ export function blankPreferences(): Preferences {
     hardwareAcceleration: true,
     importRoute: defaultImportRoute,
     directImportMode: defaultDirectImportMode,
+    general: blankGeneralSettings(),
     monsterPreferences: {},
     runePotential: defaultRunePotentialSettings,
     runePotentialPresets: defaultRunePotentialPresets(),
@@ -93,6 +95,7 @@ export function isValidPreferences(value: unknown): value is Preferences {
     && typeof value.hardwareAcceleration === 'boolean'
     && importRoutes.includes(value.importRoute as ImportRoute)
     && directImportModes.includes(value.directImportMode as DirectImportMode)
+    && isGeneralSettings(value.general)
     && isMonsterPreferences(value.monsterPreferences)
     && isRunePotentialSettings(value.runePotential)
     && isCurrentRunePotentialPresets(value.runePotentialPresets);

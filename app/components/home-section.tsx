@@ -9,7 +9,7 @@ import type { AccelerationState, AccelerationStatus } from '../lib/hardware-acce
 import { accelerationLabels, helperLabels, type ReportCategory } from '../lib/workspace-config';
 import { formatDateTime } from '../lib/formatting';
 import type { HelperConnection } from '../lib/helper-client';
-import type { DirectImportMode, ImportRoute, ImportedGame } from '../lib/types';
+import type { DirectImportMode, GeneralSettings, ImportRoute, ImportedGame } from '../lib/types';
 
 function AccelerationMark({ state }: { state: AccelerationState }) {
   /* An empty ring while the adapter is being asked for: at this moment JASWA
@@ -27,8 +27,9 @@ function AccelerationMark({ state }: { state: AccelerationState }) {
   </span>;
 }
 
-export function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLeave, onDrop, onRemove, onReport, hardwareAcceleration, onHardwareAcceleration, directImportMode, onDirectImportMode, importRoute, onImportRoute, helperConnection }: {
+export function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLeave, onDrop, onRemove, onReport, hardwareAcceleration, onHardwareAcceleration, directImportMode, onDirectImportMode, importRoute, onImportRoute, helperConnection, general }: {
   game: ImportedGame | null;
+  general: GeneralSettings;
   message: string;
   dragging: boolean;
   onPickFile: () => void;
@@ -109,7 +110,7 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
         {game && <div className="loaded-data">
           <div className="loaded-data-text">
             <p className="eyebrow">Currently loaded</p>
-            <p className="meta-line">{game.fileName} · imported {formatDateTime(game.importedAt)}</p>
+            <p className="meta-line">{game.fileName} · imported {formatDateTime(game.importedAt, general)}</p>
           </div>
           <button className="button danger" onClick={onRemove}>Remove game data</button>
         </div>}
