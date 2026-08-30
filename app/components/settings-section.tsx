@@ -25,20 +25,8 @@ export function SettingsSection({ general, saveFolder, canChooseFolder, onGenera
       onChange={onGeneralChange}
       onChooseFolder={onChooseFolder}
       onForgetFolder={onForgetFolder}
+      onExport={onExport}
+      onImport={onImport}
     />
-
-    <section className="panel">
-      <h3 className="block-title">Your preferences</h3>
-      <div className="stack">
-        <p className="lead">
-          Personal names, monster goals and rune requirements are stored
-          separately from the game import, so replacing your data keeps them.
-        </p>
-        <div className="button-row">
-          <button className="button" onClick={onExport}>Download .sw file</button>
-          <button className="button" onClick={onImport}>Load .sw file</button>
-        </div>
-      </div>
-    </section>
   </WorkspacePage>;
 }

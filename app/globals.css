@@ -2480,8 +2480,26 @@ button { cursor: pointer; }
   cursor: not-allowed;
 }
 .setting-line .text-link:disabled:hover { color: var(--ghost); }
-/* Wraps inside the row rather than widening it; a folder name can be anything. */
-.folder-name { min-width: 0; overflow-wrap: anywhere; color: var(--dim); }
+/* A reserved column, not a content-sized box: the name changes with every
+   folder the user picks and gains "(default)" when there is none, and anything
+   after it on the row would otherwise sit in a different place each time. Wide
+   enough for the longest state it shows by default; a longer name wraps inside
+   the box rather than widening it. */
+.folder-name {
+  flex: 0 0 auto;
+  width: 30ch;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--dim);
+}
+/* The parenthetical is a note about the value, not part of it. */
+.value-note { color: var(--faint); }
+
+@media (max-width: 760px) {
+  /* Below the fold of the fixed column the row stacks anyway, so the reserved
+     width would only force a horizontal scroll. */
+  .folder-name { width: auto; }
+}
 
 /* The value a setting currently holds, set in the figure face the rest of the
    app uses for data. */
@@ -2510,3 +2528,8 @@ button { cursor: pointer; }
   .setting-line, .radio-line { grid-template-columns: minmax(0, 1fr); gap: var(--s2); }
   .zone-select select { width: 100%; }
 }
+
+/* A subsection heading inside a panel. .field-legend carries its own bottom
+   margin for the fieldsets it was written for; inside a stack that margin
+   lands on top of the stack's gap, so it is dropped here. */
+.stack > .field-legend { margin-bottom: 0; }

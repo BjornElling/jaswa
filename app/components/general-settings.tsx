@@ -47,7 +47,15 @@ function SaveLocation({ saveFolder, canChooseFolder, onChooseFolder, onForgetFol
     <p className="setting-line">
       <span className="radio-line-legend">Current</span>
       <span className="radio-line-options">
-        <span className="sample-value folder-name">{saveFolder ?? 'Browser downloads'}</span>
+        {/* The name column is reserved rather than content-sized: a folder can
+            be called anything, and "(default)" is present in one state only, so
+            a box that fitted its contents would put Reset in a different place
+            for every folder the user picks. */}
+        <span className="sample-value folder-name">
+          {saveFolder ?? 'Browser downloads'}
+          {/* Marks the state the app falls back to when no folder is set. */}
+          {!saveFolder && <span className="value-note"> (default)</span>}
+        </span>
         {/* Present in both states so the row does not resize on the day a
             folder is chosen; without one there is nothing to reset to. */}
         <button className="text-link" onClick={onForgetFolder} disabled={!saveFolder}>Reset</button>
@@ -62,13 +70,15 @@ function SaveLocation({ saveFolder, canChooseFolder, onChooseFolder, onForgetFol
   </div>;
 }
 
-export function GeneralSettings({ settings, saveFolder, canChooseFolder, onChange, onChooseFolder, onForgetFolder }: {
+export function GeneralSettings({ settings, saveFolder, canChooseFolder, onChange, onChooseFolder, onForgetFolder, onExport, onImport }: {
   settings: GeneralSettingsValue;
   saveFolder: string | null;
   canChooseFolder: boolean;
   onChange: (update: Partial<GeneralSettingsValue>) => void;
   onChooseFolder: () => void;
   onForgetFolder: () => void;
+  onExport: () => void;
+  onImport: () => void;
 }) {
   /* 418 zones built into one array on every keystroke elsewhere on the page is
      work nobody asked for. The chosen zone is passed in so a value this
@@ -86,13 +96,31 @@ export function GeneralSettings({ settings, saveFolder, canChooseFolder, onChang
 
   return <>
     <section className="panel">
-      <h3 className="block-title">General settings</h3>
-      <SaveLocation
-        saveFolder={saveFolder}
-        canChooseFolder={canChooseFolder}
-        onChooseFolder={onChooseFolder}
-        onForgetFolder={onForgetFolder}
-      />
+      <h3 className="block-title">Preferences</h3>
+      <div className="stack">
+        <div className="stack tight">
+          <h4 className="field-legend">File location</h4>
+          <SaveLocation
+            saveFolder={saveFolder}
+            canChooseFolder={canChooseFolder}
+            onChooseFolder={onChooseFolder}
+            onForgetFolder={onForgetFolder}
+          />
+        </div>
+
+        <div className="stack tight">
+          <h4 className="field-legend">Export everything</h4>
+          <p className="lead">
+            The browser remembers your personalized settings for rune and
+            artifact optimization, but in case you’d like an offline copy,
+            this is where the magic happens.
+          </p>
+          <div className="button-row">
+            <button className="button" onClick={onExport}>Download .sw file</button>
+            <button className="button" onClick={onImport}>Load .sw file</button>
+          </div>
+        </div>
+      </div>
     </section>
 
     <section className="panel">
