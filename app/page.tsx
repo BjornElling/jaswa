@@ -31,7 +31,7 @@ export default function Home() {
   const [removeGameDataPrompt, setRemoveGameDataPrompt] = useState(false);
   const [pendingDirectImportMode, setPendingDirectImportMode] = useState<DirectImportMode | null>(null);
   const [pendingImportRoute, setPendingImportRoute] = useState<ImportRoute | null>(null);
-  const [helperConnection, setHelperConnection] = useState<HelperConnection>({ state: 'checking', detail: 'This would work better, if you actually ran the helper program.', profileReady: false, restartRequired: false, instanceId: '', revision: 0, sessionId: 0 });
+  const [helperConnection, setHelperConnection] = useState<HelperConnection>({ state: 'checking', detail: 'Roll for initiative. Then run the helper.', profileReady: false, restartRequired: false, instanceId: '', revision: 0, sessionId: 0 });
   const gameInput = useRef<HTMLInputElement>(null);
   const settingsInput = useRef<HTMLInputElement>(null);
   const appliedHelperRevision = useRef<number | null>(null);
