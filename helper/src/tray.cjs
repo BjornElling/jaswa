@@ -35,17 +35,50 @@ async function downloadJson() {
   }
 }
 
-async function openDiagnosticLog() {
-  const file = diagnosticPath();
+async function openLogFile(file, title) {
   try {
     await fs.mkdir(path.dirname(file), { recursive: true });
     await fs.appendFile(file, '', 'utf8');
     const error = await shell.openPath(file);
     if (error) throw new Error(error);
   } catch (error) {
-    const detail = error instanceof Error ? error.message : 'The diagnostic log could not be opened.';
-    dialog.showErrorBox('Could not open diagnostic log', `JASWA Helper could not open its diagnostic log.\n\n${detail}`);
+    const detail = error instanceof Error ? error.message : 'The file could not be opened.';
+    dialog.showErrorBox(`Could not open ${title}`, `JASWA Helper could not open its ${title}.\n\n${detail}`);
   }
+}
+
+async function openTrafficLog() {
+  const log = helper?.trafficLog;
+  if (!log) return;
+  /* The newest lines are still queued while recording. Flush first, or the
+     user opens the file and finds the exchange they just made missing. */
+  await log.flush();
+  await openLogFile(log.file(), 'traffic log');
+}
+
+/* Recording is deliberately a decision, not a switch. It writes the account
+   data the game sent — monsters, runes, artifacts — in the clear, so the user
+   should know what the file holds before it exists. */
+async function confirmTrafficLogging() {
+  const result = await dialog.showMessageBox({
+    type: 'warning',
+    title: 'Log all traffic',
+    message: 'Record everything Summoners War sends to this computer?',
+    detail: 'This writes each decoded exchange to a file on this computer, for investigating what the helper can read. It includes your account data and is never uploaded. Recording starts a new file and stops when you switch it off or quit.',
+    buttons: ['Cancel', 'Start recording'],
+    defaultId: 0,
+    cancelId: 0,
+  });
+  return result.response === 1;
+}
+
+async function setTrafficLogging(wanted) {
+  const log = helper?.trafficLog;
+  if (!log) return;
+  if (wanted && !await confirmTrafficLogging()) return refreshMenu();
+  log.setEnabled(wanted);
+  if (!wanted) await log.flush();
+  refreshMenu();
 }
 
 async function uninstallHelper() {
@@ -71,6 +104,7 @@ async function uninstallHelper() {
 
 function refreshMenu() {
   const status = helper?.status();
+  const trafficStatus = helper?.trafficLog?.status();
   const error = status?.lastError;
   const detail = error ? 'Connection needs attention' : status?.profileReady ? `Snapshot ready · ${status.source === 'live' ? 'live sync' : 'game start'}` : status?.restartRequired ? 'Restart Summoners War to connect' : 'Waiting for Summoners War';
   tray.setToolTip(`JASWA Helper — ${detail}`);
@@ -80,7 +114,20 @@ function refreshMenu() {
     { type: 'separator' },
     { label: 'Open JASWA', click: () => void shell.openExternal('http://localhost:3000') },
     { label: 'Download JSON', enabled: Boolean(status?.hasProfile), click: () => void downloadJson() },
-    { label: 'Open diagnostic log', click: () => void openDiagnosticLog() },
+    { label: 'Open diagnostic log', click: () => void openLogFile(diagnosticPath(), 'diagnostic log') },
+    { type: 'separator' },
+    {
+      /* A log that stopped writing looks identical to a quiet game, so the
+         count, the limit and any write failure belong on the label itself. */
+      label: !trafficStatus?.enabled ? 'Log all traffic'
+        : trafficStatus.lastError ? 'Log all traffic — could not write'
+          : trafficStatus.full ? `Log all traffic — limit reached (${trafficStatus.entries})`
+            : `Log all traffic — recording (${trafficStatus.entries})`,
+      type: 'checkbox',
+      checked: Boolean(trafficStatus?.enabled),
+      click: (item) => void setTrafficLogging(item.checked),
+    },
+    { label: 'Open traffic log', enabled: Boolean(trafficStatus?.entries), click: () => void openTrafficLog() },
     {
       label: 'Start JASWA Helper with Windows',
       type: 'checkbox',

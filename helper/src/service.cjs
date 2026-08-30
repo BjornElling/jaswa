@@ -16,6 +16,7 @@ const { removeEntries, writeEntries } = require('./hosts.cjs');
 const { isSummonersWarRunning } = require('./game-process.cjs');
 const { ProfileStore } = require('./profile-store.cjs');
 const { decodeRequest, decodeResponse } = require('./protocol.cjs');
+const { TrafficLog } = require('./traffic-log.cjs');
 
 const run = promisify(execFile);
 const gatewayPath = '/api/gateway_c2.php';
@@ -256,6 +257,9 @@ async function start({ confirmCertificateInstallation = async () => true } = {})
      an update, or a reinstallation reuse the same trusted certificate. */
   const certificateAlreadyExists = await fs.access(certificatePath).then(() => true).catch(() => false);
   const profileStore = new ProfileStore();
+  /* Off until the user asks for it in the tray. It records what the game
+     already sent to this computer, to a local file, and uploads nothing. */
+  const trafficLog = new TrafficLog();
   let lastError = null;
   let gameProcessError = null;
   let running = true;
@@ -325,6 +329,9 @@ async function start({ confirmCertificateInstallation = async () => true } = {})
         if ((requestBodySizes.get(responseContext) ?? 0) > maximumInterceptedBodyBytes || (responseBodySizes.get(responseContext) ?? 0) > maximumInterceptedBodyBytes) throw new Error('The game response was too large to import safely.');
         const request = decodeRequest(Buffer.concat(requestBodies.get(responseContext)).toString('utf8'));
         const response = decodeResponse(Buffer.concat(responseBodies.get(responseContext)).toString('utf8'));
+        /* Log before importing. A response the import cannot use is precisely
+         * the one worth investigating, so it must not be lost to a throw. */
+        trafficLog.record(request.command, request, response);
         if (request.command === 'HubUserLogin' || request.command === 'GuestLogin') {
           profileStore.acceptSnapshot(response);
           waitingForFreshStart = false;
@@ -393,6 +400,9 @@ async function start({ confirmCertificateInstallation = async () => true } = {})
     if (!running) return;
     running = false;
     if (gameProcessTimer) clearInterval(gameProcessTimer);
+    /* Queued log lines are the ones written just before quitting, so they are
+       the ones a user is most likely to be looking for. */
+    await trafficLog.flush();
     for (const bridge of bridges) bridge.close();
     proxy.close(); api.close();
     if (hostsInstalled) {
@@ -409,6 +419,7 @@ async function start({ confirmCertificateInstallation = async () => true } = {})
     profile: () => profileStore.read(),
     status,
     stop,
+    trafficLog,
   };
 }
 
