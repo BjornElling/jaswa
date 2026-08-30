@@ -66,7 +66,7 @@ export function elementMark(attribute: unknown): string {
 /**
  * The completed sets a monster currently has, most pieces first. Repeating an
  * abbreviation for each completed set keeps a 6-piece Fight build legible as
- * `FIG/FIG/FIG`; all leftover pieces collapse into one `BROKEN` marker.
+ * `FIG/FIG/FIG`; all leftover pieces collapse into one `BRO` marker.
  */
 export function activeRuneSets(monster: Record<string, unknown>): ActiveRuneSet[] {
   const runes = Array.isArray(monster.runes) ? monster.runes : [];
@@ -100,6 +100,6 @@ export function activeRuneSets(monster: Record<string, unknown>): ActiveRuneSet[
       count: set.count,
     })));
   if (completedSets.some((set) => set.broken)) hasBrokenRune = true;
-  if (hasBrokenRune) sets.push({ name: 'Broken', abbreviation: 'BROKEN', count: 0 });
+  if (hasBrokenRune) sets.push({ name: 'Broken', abbreviation: 'BRO', count: 0 });
   return sets;
 }
