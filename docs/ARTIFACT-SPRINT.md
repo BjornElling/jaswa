@@ -2,9 +2,9 @@
 
 **Status:** Live working document for the Artifacts workspace
 **Started:** August 30, 2026
-**Last updated:** August 30, 2026 — session 1, `docs/ARTIFACT-CANONICAL.md`
-written from the user's rules research and then extended from a second
-independent specification of the same rules
+**Last updated:** August 30, 2026 — session 1, the judgement model settled
+(decisions 9–18): the user marks each monster **type**, JASWA measures only the
+roll, and an unmarked type is not judged rather than scored zero
 
 This file is the memory of the Artifact sprint. It carries the purpose, the
 decisions taken, the questions still open, and the state of the work, so a new
@@ -109,8 +109,15 @@ them deliberately:
 **Rune Potential already has an artifact opinion.** A `RunePotentialPreset`
 carries `preset.artifacts` with booleans `atk`, `def`, `hp` — "which artifact
 primary stats suit this role" — rendered as a yes/no row in the preset editor.
-This is the existing bridge between a saved role and artifacts, and §7 Q3 and
-Q4 must decide whether the Artifacts workspace extends it or supersedes it.
+Decision 12 leaves it exactly as it is: it states a main-stat preference for a
+rune role, which is a different question from the marks decision 9 introduces.
+
+**The two preference models are keyed differently, and must stay separate.**
+`MonsterPreference` is `{ unitId, label, runeSets, statGoals }` — keyed on the
+**owned copy**. Artifact marks are keyed on the **monster type**
+(`unit_master_id`, decision 15). Both live in `Preferences`, and nothing about
+their names says which is which, so anyone reaching for "the monster preference"
+must check which key they are holding. They cannot be merged.
 
 **What does not exist.** No artifact rules document, no artifact-specific
 types, no reading of artifact *secondary* effects, no artifact set or
@@ -182,6 +189,32 @@ Any design that synthesises requests to fill the dataset faster is out of
 bounds for this sprint. It would be exactly the behaviour the user asked to
 avoid.
 
+### First recording — what it settled, August 30, 2026
+
+A 41-entry log covering login and about seven minutes of play. It did **not**
+contain the statistics, but it ruled things out that matter:
+
+- **The account arrives whole at login.** `HubUserLogin` carried 279 monsters,
+  1574 runes and 1251 artifacts in a 152-key response — and **no** engraving
+  statistics. So the figures are not a by-product of the import; they must be
+  fetched by their own request.
+- **Opening a monster fetched nothing.** Three-minute gaps in the timeline,
+  where the user navigated and opened a monster, produced no gateway traffic at
+  all. The client serves Monster Info from what it already holds.
+- **`getArtifactOccupiedSnapshotInfo` is not it.** It is the artifact
+  save/load-preset feature (`snapshot_info_list`, `save_cooltime`), and is
+  unrelated to engraving statistics.
+
+**What this implies.** The Statistics panel almost certainly issues its own
+request when it is opened, and the first recording stopped short of it — the
+panel was never reached, so the interesting call was never made. That is the
+one thing the next recording must do differently, and it also means the
+one-click-or-nine question is still open.
+
+**A tray counter reading `(0)` is not a fault.** The first screenshot was taken
+before the game was started; the log filled correctly afterwards. The counter
+refreshes about every two seconds.
+
 ### What is still unknown
 
 Nothing below has been observed; none of it may be assumed in code.
@@ -218,15 +251,27 @@ per line: `{ at, command, request, response }`. Line-per-entry rather than one
 array, so the file stays readable if the helper stops mid-session. Switching it
 on starts a fresh file; it stops at 64 MB and says so on the menu label.
 
-**How to use it for this sprint:**
+**How to use it for this sprint.** The first attempt stopped at the monster and
+never reached the panel, which is where the request is made — so the numbered
+steps below matter in order:
 
-1. Switch on **Log all traffic**, with the game running and idle.
-2. Open Monster Info on one monster and **stop** — touch no dropdown yet. This
-   alone shows whether opening a monster fetches all three panels at once.
-3. Work through the dropdowns one at a time: the rune panel's four, the
+1. Switch on **Log all traffic**, with the game already running and idle.
+2. Open Monster Info on one monster. (The first recording proved this alone
+   fetches nothing.)
+3. Open **Statistics** — the tab in the screenshots, beside Debate, Community
+   and Usage. **This is the step that was missed**, and the likeliest place the
+   request is issued.
+4. Stop there briefly. If opening the tab fetches all three panels at once, a
+   monster costs one interaction rather than nine.
+5. Work through the dropdowns one at a time: the rune panel's four, the
    artifact panel's three, the relic panel's two.
-4. Open a **second monster**, and a **second copy of the same monster type**.
-5. Switch recording off, then **Open traffic log**.
+6. Open a **second monster**, and a **second copy of the same monster type**.
+7. Switch recording off, then **Open traffic log**.
+
+**If steps 3–5 still produce no traffic**, the statistics are not fetched per
+view. They would then have to arrive in some bulk payload, or the panel is
+served by a route the gateway proxy does not carry — either of which changes
+the approach, and is worth knowing before more clicking.
 
 Step 2 answers the cost question, and step 4 answers the keying question.
 
@@ -244,6 +289,13 @@ entries hidden below the artifact and relic scroll.
 so the log shows whether the statistics are keyed by `unit_master_id` (the
 monster type, shared by every copy) or `unit_id` (this one instance). That
 decides whether the dataset holds one row per type or per instance.
+
+**This one now has a consequence beyond the dataset.** Decision 15 keys the
+user's own marks on `unit_master_id`. If the statistics turn out to be keyed the
+same way, the defaults seed the marks directly and no mapping is needed. If they
+are keyed on `unit_id`, the capture has to be reduced to one row per type before
+it can serve as a default — and what to do when two copies of one monster report
+different statistics becomes a real question rather than a hypothetical one.
 
 **The log contains account data**, including the session keys JASWA's own
 import strips (`app/lib/file-imports.ts`). It stays on the user's computer and
@@ -321,6 +373,16 @@ recorded here once the user has taken it.
 | 6 | 2026-08-30 | The artifact rules live in `docs/ARTIFACT-CANONICAL.md`, structured as a reference work rather than as a narrative, and separating verified rule from pending verification in the manner of `docs/RUNE-CANONICAL.md`. | Step 1 blocks every step after it, and the questions it must answer arrive one at a time over the sprint. A document organised by subject — equip rules, property pool, per-property behaviour, additional damage, rounding, conversion, reappraisal, legacy — can be consulted at the point of doubt; a narrative has to be re-read. |
 | 7 | 2026-08-30 | Everything the pre-v8.0.0 artifact system did is treated as legacy and marked as such, but legacy *properties* stay importable. | The rule research found that most surviving guides describe the pre-v8 system, so the document has to state its own vintage loudly. `AGENTS.md` §0 forbids migrations for JASWA's own data — but a legacy property on a live account is current input, not an old JASWA format, so rejecting it would reject a legal artifact. |
 | 8 | 2026-08-30 | A second specification of the same rules, supplied as TypeScript, is absorbed into `ARTIFACT-CANONICAL.md` rather than kept as its own document or committed as code. | Two documents on one subject drift, and the reader has to arbitrate between them at every question. Its four genuine contributions — the contribution count as data, the three evaluation axes, the `allowedRolls` escape hatch, and the rounding table — belong where the rules already live. Its concrete property IDs and roll values are exactly what `ARTIFACT-CANONICAL.md` §15 forbids assuming before an export exists. |
+| 9 | 2026-08-30 | **The user declares what matters; JASWA measures only the roll.** Artifact value is not derived from what a property *does* in combat. Per monster, the user marks properties and attributes as preferred or acceptable, and an artifact's value is how well it rolled on exactly those. | It removes the dependency on skill data entirely. JASWA has none, and judging "[Skill 2] Recovery" would otherwise require knowing whether Skill 2 heals. It also puts the judgement where the knowledge actually is: the player knows what their monster is for. |
+| 10 | 2026-08-30 | The engraving statistics (§2a) supply the **default** preferred/acceptable marks per monster. | Answers what decision 9 leaves open — an empty roster is useless, and asking the user to fill in every monster before seeing anything is worse. The community's own usage is the honest starting opinion, and the user overrides it wherever they disagree. This promotes A2/A3 from a side investigation to a dependency of the main product. |
+| 11 | 2026-08-30 | One slider sets how much an *acceptable* mark is worth against a *preferred* one, as a single global factor. | Rune Potential already establishes preferred-versus-acceptable as this project's two-tone device, and its "Accepted runes" slider is the same idea. One factor, not one per monster: the user is stating a general tolerance, not tuning each row. |
+| 12 | 2026-08-30 | Artifacts get their own preference model in `Preferences`, not an extension of `RunePotentialPreset`. | `PresetArtifacts` is `{atk, def, hp}` — main property only, with no way to express a sub-property wish. Decision 9 needs per-monster property marks, which is a different shape from a role-based rune preset, and forcing both into one editor would burden Rune Potential with a model it does not use. |
+| 13 | 2026-08-30 | The workspace answers all three questions — keep, who should wear it, what is missing — rather than leading with one. | The user's call. The three share one calculation under decision 9, so they are three readings of the same table rather than three products. |
+| 14 | 2026-08-30 | Reuse the existing `Disclosure` component from `app/components/page-chrome.tsx` for the Artifacts workspace's sections. | The user named the Rune Potential fold-outs as working well visually and in use. It is already a shared component wrapping a native `<details>`, so reuse costs nothing and keeps keyboard behaviour and find-in-page consistent. Do not copy or reimplement it. |
+| 15 | 2026-08-30 | Marks are held **per monster type**, keyed by `unit_master_id` — never per owned copy. Two copies of the same monster cannot carry different marks, and the interface offers no way to try. | The user's call. It matches how the engraving statistics are expected to be keyed (§2a), so the defaults and the marks they seed share one key. It also matches the nature of the judgement: a mark says what this *kind* of monster is for. |
+| 16 | 2026-08-30 | Marks are declared without reference to the monster's actual skills, and JASWA never checks whether a mark is sensible for that monster. | The completion of decision 9. Validating a mark against the monster's kit would reintroduce the skill-data dependency decision 9 removed, and would put JASWA in the position of overruling the user about their own monster. A mark the user regrets is theirs to change. |
+| 17 | 2026-08-30 | Every available property is its own independent choice, presented as one long list the user marks as preferred or acceptable. The five attributes get no separate mechanic. | The ten elemental properties are marked exactly like the other twenty-three. Keeping one rule rather than two also matches the defaults, which arrive per property (decision 10) rather than per element — and the offensive `Damage Dealt on X` and defensive `Damage Taken from X` families point in opposite directions, so collapsing them into one "element" mark would lose the distinction. |
+| 18 | 2026-08-30 | A monster type with no marks is shown as **not yet judged**, kept out of score-sorted views, and given no fallback score derived from archetype or anything else. | `AGENTS.md` rule 3: an absent value is not a zero. Every artifact would score zero against an unmarked monster, and a zero renders and sorts as though it were an answer. The dataset will never cover every monster — each capture costs the user nine dropdown views, and new monsters keep arriving — so this is the ordinary case, not an edge case. A guess that looks like a judgement is worse than an honest gap. |
 
 ---
 
@@ -332,15 +394,15 @@ Status is one of **Not started**, **In progress**, **Blocked**, **Done**.
 | # | Step | Status | Notes |
 | ---: | --- | --- | --- |
 | 0 | Write and maintain this sprint file | **In progress** | Created in session 1. Updated continuously for the sprint's life. |
-| A1 | Helper "Log all traffic" — tray toggle, off by default, writing decoded exchanges | **Done, installer built** | Session 1. `helper/src/traffic-log.cjs`, wired in `service.cjs`, offered in `tray.cjs`. 7 tests; full suite 37/37. `public/JASWA-Helper-Setup.exe` rebuilt and verified to contain it. Not yet run against the live game. |
-| A2 | Record a log and write the true payload shape into §2a | **Next** | Follow the recipe in §2a. Answers everything under "What is still unknown", including whether a monster costs one interaction or nine. Blocks A3. |
-| A3 | Design and build the recorded dataset from the observed shape | Not started | Scope depends on §7 Q7. One-time capture, never a live import. |
+| A1 | Helper "Log all traffic" — tray toggle, off by default, writing decoded exchanges | **Done, proven live** | Session 1. `helper/src/traffic-log.cjs`, wired in `service.cjs`, offered in `tray.cjs`. 7 tests; suite 37/37. Installer rebuilt and verified. Captured 41 real exchanges from a live session. |
+| A2 | Record a log and write the true payload shape into §2a | **In progress** | First recording missed the Statistics tab and so did not reach the request; it did rule out login and monster-open as sources. Repeat with the sharpened recipe in §2a. |
+| A3 | Design and build the recorded dataset from the observed shape | Not started | **Now a product dependency, not a reference.** Decision 10 makes this the source of every monster's default marks, so what it covers is what the workspace can open with. Scope still governed by §7 Q7. One-time capture, never a live import. |
 | 1 | Establish the artifact rules — a canonical document from the game and a real export | **Mostly done** | `docs/ARTIFACT-CANONICAL.md` written in session 1 from the user's rules research, then extended from a second independent specification (decision 8). The *game rules* are recorded. What remains is the **encoding**, listed in its §15: field layout, property IDs, how power-up counts and the conversion slot are stored. That needs a real export. |
 | 2 | Model and read artifacts — types, parsing, validation from `game.data.artifacts` | **Blocked** | Blocked on `ARTIFACT-CANONICAL.md` §15 — the export encoding. The rules it must enforce are already written (§13 validation rules). |
-| 3 | Artifact library — list, sort, filter, empty state | Not started | The first thing the user can see. |
-| 4 | Judgement — the score, its inputs, and its explanation | Not started | Needs step 1's rules and the §7 Q3 settings model. |
-| 5 | Artifact preferences — settings and presets in `Preferences`, carried in `.sw` | Not started | Extends `isValidPreferences`. Breaking change by design. |
-| 6 | Monster fit — which monsters gain most from an artifact | Not started | The tagline's promise. Depends on 2 and 4. |
+| 3 | Artifact library — list, sort, filter, empty state | Not started | The first thing the user can see. Sections framed by the shared `Disclosure` (decision 14). |
+| 4 | Judgement — roll quality against the monster's declared marks | Not started | Decision 9: value is how well the artifact rolled on properties the user marked, weighted by the decision 11 slider. No skill data, no combat simulation. Needs step 2's parsed values and step 5's marks. |
+| 5 | Artifact preferences — per-monster marks, the acceptable factor, and the defaults | Not started | Decisions 9–12. Its own model in `Preferences`, extending `isValidPreferences`. Defaults come from A3; §7 Q7a governs a monster the dataset does not cover. Breaking change by design. |
+| 6 | Monster fit — which monsters gain most from an artifact | Not started | The tagline's promise. Under decision 13 it is a second reading of step 4's table rather than separate work. Depends on 2 and 4. |
 | 7 | Replace the placeholder — route `artifacts` to the real component | Not started | Remove `'artifacts'` from the `UpcomingWorkspace` branch and from `upcomingWorkspaces`. |
 | 8 | Verify and finish — both extremes, layout check, definition of done, commit | Not started | `AGENTS.md` §7. |
 
@@ -359,22 +421,31 @@ six encoding questions that remain, and the document forbids computing a
 maximum, a projection, or a score from a guessed encoding until they are
 answered.
 
-**Q2 — What does the workspace answer first?**
-"Which artifacts should I keep?" and "which monster should wear this artifact?"
-are different products. Both are in the tagline. Which one leads?
+**Q2 — What does the workspace answer first? — Answered (decision 13).**
+All three: which artifacts to keep, which monster should wear a given artifact,
+and what a given monster is missing. Under decision 9 they are three readings of
+one table rather than three products, so none has to lead.
 
-**Q3 — How are the user's artifact preferences expressed?**
-Rune Potential uses scale settings plus named presets with stat targets. Do
-artifacts reuse that shape, use a different one, or attach to the existing
-per-monster `MonsterPreference`?
+**Q3 — How are the user's artifact preferences expressed? — Answered
+(decisions 9, 11, 12).** Artifacts get their own model in `Preferences`, not an
+extension of `RunePotentialPreset`. Per monster, the user marks properties and
+attributes as **preferred** or **acceptable**; one global slider sets what an
+acceptable mark is worth against a preferred one. The engraving statistics
+supply the defaults (decision 10).
 
-**Q4 — How much does this share with Rune Potential?**
-Both judge an item against saved goals. Shared library code, or two independent
-models that happen to rhyme?
+**Q4 — How much does this share with Rune Potential? — Answered, in part.**
+The preference *models* are separate (decision 12). The **interface** is shared:
+the `Disclosure` fold-out is reused as-is (decision 14), and preferred-versus-
+acceptable keeps the established two-tone device — full ink against dimmed,
+`AGENTS.md` §5. Whether any *calculation* is shared is still open, and probably
+answers itself as "no": Rune Potential scores against stat targets, artifacts
+score against declared property marks.
 
-**Q5 — Does artifact judgement need to know about equipped runes?**
-An artifact's value may depend on what the wearing monster already has. Is that
-in scope, or does judgement look at the artifact alone?
+**Q5 — Does artifact judgement need to know about equipped runes? — Answered by
+decision 9.** No. Judgement reads the artifact and the monster's declared marks,
+nothing else. This also settles the related question about skill data: JASWA
+never needs to know what Skill 2 does, because the user states whether they want
+a Skill 2 property.
 
 **Q6 — Do the existing footholds stay, move, or get replaced?**
 `monster-grid.ts` owns the primary-type mapping and `monster-stats.ts` owns
@@ -382,16 +453,52 @@ the main-effect maths, both shared with relics. A fuller artifact model may
 want that code in an artifact library instead. Extend in place, or lift it out
 — and if lifted, relics come along.
 
-**Q7 — How many monsters must the engraving dataset cover?**
+**Q7 — How many monsters must the engraving dataset cover? — Raised in
+importance by decision 10, still open.**
 The capture is manual: roughly nine dropdown views per monster, and the user
 performs every one of them. One monster is a proof of concept; a whole roster
-is hours of clicking. Which monsters earn the effort — and is the dataset
-worth having if it covers only some of them?
+is hours of clicking. Which monsters earn the effort?
+
+The stakes changed. The dataset is no longer a reference to check against — it
+is where every monster's **default** preferred/acceptable marks come from
+(decision 10). A monster outside the dataset opens with no opinion at all, and
+the user must mark it by hand. So this question now decides how much of the
+workspace is populated on first use.
+
+**Q7a — What does a monster outside the dataset look like? — Answered
+(decision 18).** Not yet judged, with a way to mark it, and out of score-sorted
+views. No fallback from archetype or anything else: every artifact would score
+zero against an unmarked monster, and a zero reads as an answer.
 
 **Q8 — What happens to the dataset as the game moves on?**
 It is a snapshot of community usage on the day it was taken, and it will drift.
 Does JASWA show its capture date, does it age out, or does it stand until the
-user recaptures it?
+user recaptures it? Under decision 10 this also asks what happens to a user's
+own marks when the dataset is recaptured — overwritten, or preserved as
+deliberate overrides of a changed default?
+
+**Q10 — Are properties marked per monster, or per something reusable? —
+Answered (decisions 15 and 16).** Per **monster type**, keyed by
+`unit_master_id`. No named roles, and no per-copy marks: two Beth share one set
+of marks, and the interface offers no way to differ. Reusable roles were
+considered and rejected — they exist to spare the user from filling in a whole
+roster, and decision 10's defaults already do that.
+
+**Q10a — Should marks be copyable from one monster type to another?**
+Left open deliberately. Decision 15 settles the model; whether the editor offers
+"copy marks from…" as a convenience is an interface question for step 5, and is
+best judged against the real screen with a real roster on it.
+
+**Q11 — Are attributes marked like properties, or separately? — Answered
+(decision 17).** Like any other property. One long list, every property an
+independent choice, no element mechanic.
+
+**Q11a — Is the property list split by category, or shown whole?**
+New and small. §5 of the canonical document puts nine properties on Type
+artifacts only and ten on Attribute artifacts only, with the rest on both. Around
+33 current properties is a long list to mark in one run. Whether it is split into
+Attribute and Type groups, or shown whole, is layout rather than model — settled
+in step 5 against the running app.
 
 **Q9 — What is the acceptance test for "done"?**
 Beyond `AGENTS.md` §7 — what must the user be able to do in the browser for
@@ -557,8 +664,109 @@ outside this layer" now forbids.
 was not added to the repository; only its findings were. Step 2 remains blocked
 on §15.
 
+**Then asked.** Whether anything about artifacts was still unknown or unsettled,
+with the agent's questions gathered and asked in one go rather than as they
+arose.
+
+**Asked, after reviewing what was already recorded.** Four questions, chosen to
+avoid re-asking anything the canonical document already answers and to skip the
+§15 encoding questions, which an export settles rather than the user: which of
+the three products leads; whether JASWA can know what a monster's Skill 2 does;
+what becomes of `PresetArtifacts`; and whether the user holds practical
+knowledge the rules do not carry.
+
+**The answer that reshapes the sprint (decision 9).** The skill-data question was
+the wrong question. Artifact value is not derived from what a property does in
+combat — the user marks, per monster, which properties and attributes are
+preferred and which are acceptable, and JASWA measures only how well the artifact
+rolled on those. Two consequences follow immediately. The dependency on skill
+data disappears entirely, which would otherwise have blocked most of the
+judgement. And `ArtifactEvaluation`'s `combatValue` axis — the one needing the
+full §13 damage pipeline — is not needed for the product at all; roll quality
+against declared marks is the whole calculation.
+
+**The answer that promotes a side front (decision 10).** The engraving statistics
+supply the default marks per monster. A2 and A3 were an investigation running
+beside the main work; they are now what decides whether the workspace opens
+populated or empty. Q7 — how many monsters the capture covers — therefore stopped
+being a question about a reference dataset and became a question about how much
+of the product works on first use.
+
+**Also settled.** Artifacts get their own preference model rather than an
+extension of `RunePotentialPreset`, whose `{atk, def, hp}` cannot express a
+sub-property wish (decision 12). One global slider weights acceptable against
+preferred (11). All three questions are answered rather than one leading (13).
+The existing `Disclosure` fold-out is reused as-is, at the user's request, since
+it already works well in Rune Potential (14). The user confirmed the canonical
+rules cover their practical knowledge; nothing was added to
+`ARTIFACT-CANONICAL.md` in this exchange.
+
+**Three new open questions**, all consequences of decision 9 and 10 rather than
+gaps in the rules: Q7a, what an unmarked monster looks like when the dataset does
+not cover it; Q10, whether marks are per monster or reusable across monsters as
+Rune Potential's roles are; and Q11, whether the five attributes are marked like
+any other property or expand into the ten elemental ones.
+
+**Then asked.** Put those three questions one at a time, each with a
+recommendation, so they could be agreed to or corrected singly.
+
+**Answered, and the mark model is now settled (decisions 15–18).** Marks hang on
+the **monster type**, not the owned copy — two Beth cannot differ, and the
+interface offers no way to try. They are declared without regard to the monster's
+actual skills, and JASWA never checks whether a mark makes sense for that
+monster; validating it would reintroduce exactly the skill-data dependency
+decision 9 removed. Every property is an independent choice in one long list,
+with no separate mechanic for the five attributes. A monster type with no marks
+is shown as not judged and kept out of score-sorted views, with no fallback score.
+
+**The recommendation that was simplified by the answer.** For Q10 the
+recommendation was per-monster marks with a possible "copy from another monster"
+convenience; the user's answer settled the model as per monster *type* and left
+the convenience unasked, so it is recorded as Q10a rather than assumed. For Q11
+the recommendation was to treat the ten elemental properties as ordinary
+properties, which the answer confirmed and went further on: every property is its
+own choice, full stop.
+
+**Two consequences recorded rather than acted on.** §2 now states that
+`MonsterPreference` (keyed on the owned copy) and artifact marks (keyed on the
+monster type) are two differently-keyed models in one `Preferences` object, and
+cannot be merged. §2a now states what hangs on the log's keying answer: if the
+statistics key on `unit_master_id`, the defaults seed the marks directly; if on
+`unit_id`, the capture must be reduced per type first, and disagreeing copies
+become a question that needs an answer.
+
+**Not done.** No code was changed. No commit was made.
+
 **Stopped at.** Two independent fronts, either of which the user may pick up.
 A2: record a traffic log by the recipe in §2a and write the observed payload
-shape into it. Step 1's remaining half: supply an export so
-`ARTIFACT-CANONICAL.md` §15's six encoding questions can be answered, which is
-what unblocks step 2. Q7 still governs how far the engraving capture goes.
+shape into it — now on the critical path, since decision 10 makes the dataset the
+source of every monster's default marks. Step 1's remaining half: supply an
+export so `ARTIFACT-CANONICAL.md` §15's six encoding questions can be answered,
+which is what unblocks step 2. Q7 still governs how far the capture goes; Q10a
+and Q11a are interface questions for step 5 and are best judged against the
+running app rather than settled on paper.
+
+### Session 1, later — the first live recording
+
+**Asked.** The user installed the rebuilt helper, switched logging on, started
+the game and opened a monster, but the tray still read `recording (0)` — had
+they done something wrong?
+
+**Answered: no.** The screenshot was taken before the game started; the log
+filled correctly afterwards. 41 exchanges, spanning login and about seven
+minutes of play.
+
+**What the recording settled**, now recorded in §2a: the account arrives whole
+at `HubUserLogin` (279 monsters, 1574 runes, 1251 artifacts) **without** any
+engraving statistics, and opening a monster produced no gateway traffic at all.
+So the figures are neither a by-product of the import nor fetched when a
+monster is opened — they need their own request.
+`getArtifactOccupiedSnapshotInfo`, the one artifact-shaped command present, is
+the save/load-preset feature and unrelated.
+
+**Why it fell short.** The recording never reached the **Statistics** tab, which
+is the likeliest place the request is issued. §2a's recipe now names that tab as
+its own step, and says what it means if steps 3–5 still produce nothing.
+
+**Not done.** No production code changed. The payload shape is still unobserved,
+so A3 stays blocked and the one-click-or-nine question is still open.
