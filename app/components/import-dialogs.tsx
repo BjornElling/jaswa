@@ -1,11 +1,17 @@
 import { useEffect, useRef } from 'react';
+import type { RefObject } from 'react';
 import type { ReportCategory } from '../lib/workspace-config';
 import type { DirectImportMode, ImportedGame } from '../lib/types';
 
-export function RemoveGameDataDialog({ onCancel, onConfirm }: {
-  onCancel: () => void;
-  onConfirm: () => void;
-}) {
+/**
+ * Escape closes the dialog, and the safe action takes focus when it opens.
+ *
+ * Returns the ref to put on that button. The cancel callback is held in a ref
+ * of its own so the listener is bound once for the life of the dialog: a
+ * parent that passes a new closure on every render would otherwise rebind it
+ * on every render.
+ */
+function useDismissable(onCancel: () => void): RefObject<HTMLButtonElement | null> {
   const cancelRef = useRef<HTMLButtonElement>(null);
   const onCancelRef = useRef(onCancel);
 
@@ -23,6 +29,15 @@ export function RemoveGameDataDialog({ onCancel, onConfirm }: {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  return cancelRef;
+}
+
+export function RemoveGameDataDialog({ onCancel, onConfirm }: {
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const cancelRef = useDismissable(onCancel);
 
   return <div className="modal-backdrop" role="presentation">
     <section className="dialog" role="dialog" aria-modal="true"
@@ -43,23 +58,7 @@ export function DirectImportModeDialog({ mode, onCancel, onConfirm }: {
   onCancel: () => void;
   onConfirm: () => void;
 }) {
-  const cancelRef = useRef<HTMLButtonElement>(null);
-  const onCancelRef = useRef(onCancel);
-
-  useEffect(() => {
-    onCancelRef.current = onCancel;
-  }, [onCancel]);
-
-  useEffect(() => {
-    cancelRef.current?.focus();
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key !== 'Escape') return;
-      event.preventDefault();
-      onCancelRef.current();
-    }
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  const cancelRef = useDismissable(onCancel);
 
   const switchingToOnLoad = mode === 'on-load';
   return <div className="modal-backdrop" role="presentation">
@@ -75,6 +74,35 @@ export function DirectImportModeDialog({ mode, onCancel, onConfirm }: {
       <div className="dialog-actions">
         <button ref={cancelRef} className="button" onClick={onCancel}>Cancel</button>
         <button className="button primary" onClick={onConfirm}>Switch mode</button>
+      </div>
+    </section>
+  </div>;
+}
+
+/**
+ * Loading a .sw file replaces every preference at once — names, goals, rune
+ * requirements, presets — and the file is chosen before JASWA can say what is
+ * in it, so the warning has to come before the picker rather than after.
+ */
+export function LoadPreferencesDialog({ onCancel, onConfirm }: {
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const cancelRef = useDismissable(onCancel);
+
+  return <div className="modal-backdrop" role="presentation">
+    <section className="dialog" role="dialog" aria-modal="true"
+      aria-labelledby="load-preferences-title" aria-describedby="load-preferences-warning">
+      <p className="eyebrow">Load personalization</p>
+      <h2 id="load-preferences-title">Replace your personalization?</h2>
+      <p id="load-preferences-warning">
+        Everything you have set up for monsters, runes and artifacts — names,
+        goals, rune requirements and saved presets — is overwritten by the file
+        you choose next. Your imported game data is not affected.
+      </p>
+      <div className="dialog-actions">
+        <button ref={cancelRef} className="button" onClick={onCancel}>Cancel</button>
+        <button className="button primary" onClick={onConfirm}>Choose file…</button>
       </div>
     </section>
   </div>;

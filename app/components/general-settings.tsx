@@ -6,18 +6,20 @@ import type {
   NumberFormatChoice, TimeZoneChoice,
 } from '../lib/types';
 
-/* Every option is labelled with what it actually writes, taken from the same
-   formatter the app uses, so a label cannot drift from its result. "Automatic"
-   is named as well as shown: what it produces is already on the line, and the
-   word is what tells the user why it might change. */
-const numberChoices: NumberFormatChoice[] = ['system', 'european', 'american'];
-const dateChoices: DateOrderChoice[] = ['system', 'european', 'american'];
+/* The explicit options are labelled with what they actually write, taken from
+   the same formatter the app uses, so a label cannot drift from its result.
+   They come first because they are the answer to the question; Automatic
+   closes each line as the way out of choosing. */
+const numberChoices: NumberFormatChoice[] = ['european', 'american', 'system'];
+const dateChoices: DateOrderChoice[] = ['european', 'american', 'system'];
+/* Clock keeps Automatic first: its two explicit options differ only in the
+   hour, so the line reads better from the default outwards. */
 const clockChoices: HourCycleChoice[] = ['system', 'h23', 'h12'];
 
 function sampled<Value extends string>(choices: Value[], sample: (choice: Value) => string) {
   return choices.map((value) => ({
     value,
-    label: value === 'system' ? `Automatic — ${sample(value)}` : sample(value),
+    label: value === 'system' ? 'Automatic' : sample(value),
   }));
 }
 
@@ -96,29 +98,29 @@ export function GeneralSettings({ settings, saveFolder, canChooseFolder, onChang
 
   return <>
     <section className="panel">
-      <h3 className="block-title">Preferences</h3>
+      <h3 className="block-title">File location</h3>
       <div className="stack">
-        <div className="stack tight">
-          <h4 className="field-legend">File location</h4>
-          <SaveLocation
-            saveFolder={saveFolder}
-            canChooseFolder={canChooseFolder}
-            onChooseFolder={onChooseFolder}
-            onForgetFolder={onForgetFolder}
-          />
-        </div>
+        <p className="lead">Where to store your .sw stash and loot JSON files.</p>
+        <SaveLocation
+          saveFolder={saveFolder}
+          canChooseFolder={canChooseFolder}
+          onChooseFolder={onChooseFolder}
+          onForgetFolder={onForgetFolder}
+        />
+      </div>
+    </section>
 
-        <div className="stack tight">
-          <h4 className="field-legend">Export everything</h4>
-          <p className="lead">
-            The browser remembers your personalized settings for rune and
-            artifact optimization, but in case you’d like an offline copy,
-            this is where the magic happens.
-          </p>
-          <div className="button-row">
-            <button className="button" onClick={onExport}>Download .sw file</button>
-            <button className="button" onClick={onImport}>Load .sw file</button>
-          </div>
+    <section className="panel">
+      <h3 className="block-title">Export/import personalization</h3>
+      <div className="stack">
+        <p className="lead">
+          The browser remembers your personalized settings for rune and
+          artifact optimization, but in case you’d like an offline copy,
+          this is where the magic happens.
+        </p>
+        <div className="button-row">
+          <button className="button" onClick={onExport}>Download .sw file</button>
+          <button className="button" onClick={onImport}>Load .sw file</button>
         </div>
       </div>
     </section>

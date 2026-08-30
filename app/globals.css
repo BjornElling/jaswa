@@ -2528,8 +2528,3 @@ button { cursor: pointer; }
   .setting-line, .radio-line { grid-template-columns: minmax(0, 1fr); gap: var(--s2); }
   .zone-select select { width: 100%; }
 }
-
-/* A subsection heading inside a panel. .field-legend carries its own bottom
-   margin for the fieldsets it was written for; inside a stack that margin
-   lands on top of the stack's gap, so it is dropped here. */
-.stack > .field-legend { margin-bottom: 0; }

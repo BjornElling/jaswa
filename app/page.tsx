@@ -6,7 +6,7 @@ import { HomeSection } from './components/home-section';
 import { ImportBadge } from './components/import-badge';
 import { MonsterOverview } from './components/monster-overview';
 import { SettingsSection } from './components/settings-section';
-import { DirectImportModeDialog, RemoveGameDataDialog, ReplaceImportDialog, ReportDialog } from './components/import-dialogs';
+import { DirectImportModeDialog, LoadPreferencesDialog, RemoveGameDataDialog, ReplaceImportDialog, ReportDialog } from './components/import-dialogs';
 import { RunePotentialSection } from './components/rune-potential-section';
 import { UpcomingWorkspace } from './components/upcoming-workspace';
 import { clearImportedGame, loadImportedGame, loadPreferences, saveImportedGame, savePreferences } from './lib/browser-storage';
@@ -31,6 +31,7 @@ export default function Home() {
   const [ready, setReady] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [removeGameDataPrompt, setRemoveGameDataPrompt] = useState(false);
+  const [loadPreferencesPrompt, setLoadPreferencesPrompt] = useState(false);
   const [pendingDirectImportMode, setPendingDirectImportMode] = useState<DirectImportMode | null>(null);
   const [pendingImportRoute, setPendingImportRoute] = useState<ImportRoute | null>(null);
   const [helperConnection, setHelperConnection] = useState<HelperConnection>({ state: 'checking', detail: 'Roll for initiative. Then run the helper.', profileReady: false, restartRequired: false, instanceId: '', revision: 0, sessionId: 0 });
@@ -283,7 +284,7 @@ export default function Home() {
         onChooseFolder={() => void pickSaveFolder()}
         onForgetFolder={() => void dropSaveFolder()}
         onExport={() => void saveFile('jaswa-preferences.sw', JSON.stringify(preferences, null, 2))}
-        onImport={() => settingsInput.current?.click()}
+        onImport={() => setLoadPreferencesPrompt(true)}
       />}
 
       {(page === 'optimizer' || page === 'speed' || page === 'artifacts' || page === 'gems' || page === 'relics') && <UpcomingWorkspace
@@ -314,6 +315,11 @@ export default function Home() {
       mode="live"
       onCancel={() => setPendingImportRoute(null)}
       onConfirm={confirmImportRoute}
+    />}
+
+    {loadPreferencesPrompt && <LoadPreferencesDialog
+      onCancel={() => setLoadPreferencesPrompt(false)}
+      onConfirm={() => { setLoadPreferencesPrompt(false); settingsInput.current?.click(); }}
     />}
 
     {removeGameDataPrompt && <RemoveGameDataDialog
