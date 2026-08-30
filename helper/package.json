@@ -50,7 +50,7 @@
       "include": "build/uninstall-cleanup.nsh"
     },
     "win": {
-      "signAndEditExecutable": false
+      "signExecutable": false
     }
   }
 }
