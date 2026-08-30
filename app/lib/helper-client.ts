@@ -44,7 +44,7 @@ export async function checkHelperConnection(): Promise<HelperConnection> {
         ? { state: 'checking', detail: 'Helper was late to the party. Restart Summoners War and then all will be fine.', profileReady: false, restartRequired: true, instanceId: value.instanceId, revision: value.revision, sessionId: value.sessionId }
         : { state: 'checking', detail: 'Helper goblin is awake and waiting for you to run Summoners War.', profileReady: false, restartRequired: false, instanceId: value.instanceId, revision: value.revision, sessionId: value.sessionId };
   } catch {
-    return { state: 'unavailable', detail: 'Roll for initiative. Then run the helper.', profileReady: false, restartRequired: false, instanceId: '', revision: 0, sessionId: 0 };
+    return { state: 'unavailable', detail: 'Run the helper. Then roll for initiative.', profileReady: false, restartRequired: false, instanceId: '', revision: 0, sessionId: 0 };
   }
 }
 
