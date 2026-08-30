@@ -1396,7 +1396,7 @@ button { cursor: pointer; }
   aspect-ratio: 1;
   /* The line under the name crosses it, which is the intent: the rune is
      ground, not an object the text has to avoid. */
-  opacity: .06;
+  opacity: .1;
   pointer-events: none;
 }
 @media (max-width: 1180px) {

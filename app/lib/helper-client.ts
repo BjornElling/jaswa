@@ -39,7 +39,7 @@ export async function checkHelperConnection(): Promise<HelperConnection> {
     if (!isRecord(value) || value.running !== true || typeof value.instanceId !== 'string' || value.instanceId.length === 0 || typeof value.revision !== 'number' || !Number.isSafeInteger(value.revision) || value.revision < 0 || typeof value.sessionId !== 'number' || !Number.isSafeInteger(value.sessionId) || value.sessionId < 0) return { state: 'unavailable', detail: 'The helper is not ready.', profileReady: false, instanceId: '', revision: 0, sessionId: 0 };
     return value.profileReady === true
       ? { state: 'ready', detail: 'Link is stable, Captain. We’re ready to go to warp.', profileReady: true, instanceId: value.instanceId, revision: value.revision, sessionId: value.sessionId }
-      : { state: 'checking', detail: 'Runner is doing just fine. Are you going to start the game soon?', profileReady: false, instanceId: value.instanceId, revision: value.revision, sessionId: value.sessionId };
+      : { state: 'checking', detail: 'Helper goblin is awake and waiting for you to run Summoners War.', profileReady: false, instanceId: value.instanceId, revision: value.revision, sessionId: value.sessionId };
   } catch {
     return { state: 'unavailable', detail: 'This would work better, if you actually ran the helper program.', profileReady: false, instanceId: '', revision: 0, sessionId: 0 };
   }

@@ -133,13 +133,18 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
           >
             <p className="lead">
               A small helper that keeps the program synchronized with your game.
-              No exporting, no files, no need to re-import every time you make a
-              change.
+              No exporting, no JSON files, no need to re-import every time you
+              make a change.
+            </p>
+
+            <p className="lead">
+              Installation requires administrator rights, and you will be asked
+              to approve a certificate.
             </p>
 
             <div className="route-download">
               <a className="button" href="/JASWA-Helper-Setup.exe" download>Download the helper</a>
-              <p className="route-note">Windows + Steam only (requires administrator rights).</p>
+              <p className="route-note">Windows + Steam only</p>
             </div>
 
             <section className={`statistics acceleration ${helperConnection.state} route-link`} role="status" aria-label="Helper program connection">
