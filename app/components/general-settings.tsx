@@ -52,8 +52,9 @@ export function GeneralSettings({ settings, saveFolder, canChooseFolder, onChang
   onForgetFolder: () => void;
 }) {
   /* 418 zones built into one array on every keystroke elsewhere on the page is
-     work nobody asked for. */
-  const timeZones = useMemo(() => availableTimeZones(), []);
+     work nobody asked for. The chosen zone is passed in so a value this
+     browser does not enumerate still has an option to sit on. */
+  const timeZones = useMemo(() => availableTimeZones(new Date(), settings.manualTimeZone), [settings.manualTimeZone]);
 
   return <section className="panel">
     <h3 className="block-title">General settings</h3>
@@ -79,7 +80,7 @@ export function GeneralSettings({ settings, saveFolder, canChooseFolder, onChang
           <span className="visually-hidden">Time zone</span>
           <select value={settings.manualTimeZone} disabled={settings.timeZone !== 'manual'}
             onChange={(event) => onChange({ manualTimeZone: event.target.value })}>
-            {timeZones.map((zone) => <option key={zone} value={zone}>{zone}</option>)}
+            {timeZones.map(({ zone, label }) => <option key={zone} value={zone}>{label}</option>)}
           </select>
         </label>
       </RadioLine>

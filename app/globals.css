@@ -2416,11 +2416,15 @@ button { cursor: pointer; }
 }
 .radio-chip input:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
-/* Sits on the row with the options it belongs to, at a width that fits the
-   longest zone names without letting one widen the row. */
+/* Sits on the row with the options it belongs to. The width holds the common
+   run of names with their offset — the longest, America/Argentina/Rio_Gallegos
+   (GMT-03:00), is 42 characters and is allowed to ellipsise rather than making
+   every row wide enough for the rarest entry. It is fixed either way, so the
+   row does not resize as the chosen zone changes. */
 .zone-select select {
   height: 32px;
-  width: 220px;
+  width: 300px;
+  text-overflow: ellipsis;
   background: var(--sunk);
   color: var(--ink);
   border: 1px solid var(--line-strong);

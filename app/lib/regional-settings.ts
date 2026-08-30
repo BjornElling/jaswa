@@ -24,9 +24,68 @@ export function systemTimeZone(): string {
   return new Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 }
 
-/** The complete IANA list for the manual picker, newest browsers first. */
-export function availableTimeZones(): string[] {
-  return typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [systemTimeZone()];
+/**
+ * How far a zone runs from GMT right now, as `GMT+02:00`.
+ *
+ * Read from the formatter rather than worked out from a date arithmetic:
+ * offsets are not all whole hours — Kolkata is +05:30 and Kathmandu +05:45 —
+ * and half of them move twice a year, so the only answer that stays true is
+ * the one the zone database gives for the moment being asked about.
+ */
+function gmtOffset(zone: string, at: Date): string {
+  try {
+    return new Intl.DateTimeFormat('en', { timeZone: zone, timeZoneName: 'longOffset' })
+      .formatToParts(at).find((part) => part.type === 'timeZoneName')?.value ?? '';
+  } catch {
+    return '';
+  }
+}
+
+/** Sorts `GMT-11:00` before `GMT+14:00` without parsing the string twice. */
+function offsetMinutes(offset: string): number {
+  const match = /^GMT([+-])(\d{2}):(\d{2})$/.exec(offset);
+  if (!match) return 0;
+  const size = Number(match[2]) * 60 + Number(match[3]);
+  return match[1] === '-' ? -size : size;
+}
+
+export type TimeZoneOption = { zone: string; label: string };
+
+/**
+ * The complete IANA list for the manual picker, each entry carrying the offset
+ * it currently runs at, ordered west to east. A bare list of 418 names says
+ * nothing about how far away any of them is; ordering by offset also puts the
+ * zones that keep the same time next to each other, which is how someone
+ * looking for "an hour ahead" actually searches.
+ *
+ * The offsets are those in force when the list is built. A page left open
+ * across a daylight-saving change shows the previous offset until it is
+ * reloaded, which is the same staleness every clock in the app already has.
+ *
+ * `include` is a zone that must appear whatever the browser enumerates. The
+ * lists differ between engines — one offers `Asia/Kolkata` and another the
+ * older `Asia/Calcutta`, and some omit `UTC` — so a .sw file written on one
+ * browser can name a perfectly valid zone this one does not list. Without it
+ * the select would have no option matching its own value and would render
+ * blank, hiding a setting the user did choose.
+ */
+export function availableTimeZones(at: Date = new Date(), include?: string): TimeZoneOption[] {
+  const listed = typeof Intl.supportedValuesOf === 'function'
+    ? Intl.supportedValuesOf('timeZone')
+    : [systemTimeZone()];
+  const zones = include && isTimeZone(include) && !listed.includes(include)
+    ? [...listed, include]
+    : listed;
+  return zones
+    .map((zone) => {
+      const offset = gmtOffset(zone, at);
+      return { zone, offset, label: offset ? `${zone} (${offset})` : zone };
+    })
+    .sort((left, right) => offsetMinutes(left.offset) - offsetMinutes(right.offset)
+      /* Ties keep alphabetical order so the list does not reshuffle between
+         browsers that enumerate the zone database differently. */
+      || left.zone.localeCompare(right.zone))
+    .map(({ zone, label }) => ({ zone, label }));
 }
 
 export function isTimeZone(value: unknown): value is string {
