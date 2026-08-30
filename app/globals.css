@@ -68,11 +68,12 @@
   --badge-width: 440px;
   --badge-height: 78px;
 
-  /* The grid measure remains for the intentionally table-first Monsters
-     view. Every ordinary workspace uses --workspace-max below. */
+  /* The account libraries use one fixed table measure. Their filters, column
+     heading and rows all share it, so a page cannot acquire a second, almost
+     identical width as its controls grow. */
   --measure: 1120px;
   --workspace-max: 1480px;
-  --measure-grid: 1680px;
+  --measure-grid: 1744px;
   --gutter: var(--s6);
 
   /* type scale */
@@ -303,8 +304,8 @@ button { cursor: pointer; }
   justify-content: start;
   gap: var(--s3) 0;
   min-height: var(--strip);
-  background: var(--bg);
-  padding: var(--s3) var(--gutter);
+  background: transparent;
+  padding: 0;
 }
 /* The column count is stated rather than filled, because the group that starts
    each row has to lose its divider and only a known count says which group
@@ -321,16 +322,6 @@ button { cursor: pointer; }
   .filter-strip > .filter-group:nth-child(3n + 1) { padding-left: var(--s4); border-left: 1px solid var(--line); }
   .filter-strip > .filter-group:nth-child(2n + 1) { padding-left: 0; border-left: 0; }
 }
-/* A table page opens on its strip, and the import badge rests over that same
-   corner. The strip clears the badge's full height before its first row, so a
-   filter never sits under it — the badge is an overlay, and a control it
-   covers is a control the user cannot reach. */
-.import-badge + .filter-strip {
-  /* The badge's own offset plus its height, then a gap: measured from where it
-     actually sits rather than from its height alone, which cleared only the
-     box and left the first row two pixels under it. */
-  padding-top: calc(var(--s4) + var(--badge-height) + var(--s3));
-}
 /* The divider sits on a group's left and is dropped where a column starts a
    row, so a rule never hangs at the end of a row with nothing beyond it. Which
    groups start a row depends on how many columns fit, so the count is set per
@@ -342,9 +333,6 @@ button { cursor: pointer; }
   white-space: nowrap;
 }
 .filter-group-controls { display: flex; align-items: center; gap: var(--s1); min-height: 30px; }
-/* A group whose heading is its control's own label — the checkboxes — keeps
-   them side by side rather than stacking a word above a box. */
-.filter-group.inline { flex-direction: row; align-items: center; gap: var(--s2); }
 /* A divider separates one group from the next, so the last group in a row has
    nothing to divide it from and drops its rule. `:has()` reads the grid's real
    wrapping: a group whose right edge is the strip's own content edge ends its
@@ -424,25 +412,43 @@ button { cursor: pointer; }
   color: var(--faint);
 }
 
-/* ---------------------------------------------------------------- table */
-.monster-header-wrap {
+/* ---------------------------------------------------------------- table
+   The library shell owns all three horizontally sensitive surfaces: filters,
+   the fixed heading and the rows. The two account libraries therefore cannot
+   solve sticky headers or horizontal scrolling in subtly different ways. */
+.data-table-page {
+  width: min(100%, var(--measure-grid));
+  margin: 0 auto;
+  padding: var(--s5) 0 var(--s7);
+}
+.import-badge + .data-table-page {
+  padding-top: calc(var(--s4) + var(--badge-height) + var(--s3));
+}
+.data-table-filter-panel {
+  margin-bottom: var(--s4);
+  padding: var(--s5);
+  overflow-x: auto;
+}
+.data-table-filter-panel .filter-strip { width: var(--measure-grid); }
+.data-table-header-wrap {
   position: sticky;
   top: 0;
   z-index: 30;
   overflow: hidden;
 }
-.monster-header-wrap .monster-grid {
+.data-table-header-wrap .grid-table {
   margin-inline: auto;
   border-top: 1px solid var(--line);
   will-change: transform;
 }
-.monster-header-wrap .grid-table thead th { position: static; }
-.table-wrap { overflow: auto; }
+.data-table-header-wrap .grid-table thead th { position: static; }
+.data-table-scroll { overflow: auto; }
+.data-table-scroll > .grid-table { margin-inline: auto; }
 
 /* the grid gets the same left gutter as prose, so a row's first character
    lines up with a section heading instead of hugging the rail. */
 .grid-table { width: 100%; border-collapse: collapse; font-size: var(--t-body); }
-.monster-grid { min-width: 1744px; table-layout: fixed; }
+.monster-grid { width: var(--measure-grid); min-width: var(--measure-grid); table-layout: fixed; }
 .monster-grid .monster-col-index { width: 72px; }
 .monster-grid .monster-col-name { width: 240px; }
 .monster-grid .monster-col-sets { width: 136px; }
@@ -460,20 +466,17 @@ button { cursor: pointer; }
 .monster-grid .monster-col-ehp,
 .monster-grid .monster-col-ehpD,
 .monster-grid .monster-col-dmg { width: 112px; }
-/* The artifact library. Its four sub-property lines make the row taller than
-   the roster's fixed height, so the row grows once here rather than every cell
-   fighting `--row`. Columns are measured for their widest real content —
-   "Additional Damage by SPD +145% [3]" in the subs column, a three-digit
-   percentage in the value one — so a sort never re-measures the table. */
-.artifact-grid { min-width: 1180px; table-layout: fixed; }
+/* Artifact rows are allowed to grow for their four sub-property lines; the
+   shell still supplies their width and column-heading behaviour. */
+.artifact-grid { width: var(--measure-grid); min-width: var(--measure-grid); table-layout: fixed; }
 .artifact-grid .artifact-col-index { width: 72px; }
-.artifact-grid .artifact-col-location { width: 200px; }
-.artifact-grid .artifact-col-value { width: 116px; }
-.artifact-grid .artifact-col-category { width: 100px; }
-.artifact-grid .artifact-col-equipClass { width: 108px; }
-.artifact-grid .artifact-col-grade { width: 96px; }
-.artifact-grid .artifact-col-mainProperty { width: 120px; }
-.artifact-grid .artifact-col-subProperties { width: 368px; }
+.artifact-grid .artifact-col-location { width: 240px; }
+.artifact-grid .artifact-col-value { width: 136px; }
+.artifact-grid .artifact-col-category { width: 128px; }
+.artifact-grid .artifact-col-equipClass { width: 136px; }
+.artifact-grid .artifact-col-grade { width: 128px; }
+.artifact-grid .artifact-col-mainProperty { width: 152px; }
+.artifact-grid .artifact-col-subProperties { width: 752px; }
 .artifact-grid tbody td { height: auto; padding-block: var(--s2); vertical-align: top; }
 .artifact-main-value { color: var(--dim); }
 .artifact-subs { margin: 0; padding: 0; list-style: none; }
@@ -526,6 +529,7 @@ button { cursor: pointer; }
   text-transform: inherit;
   text-align: inherit;
 }
+.table-heading-two-line { display: block; line-height: 1.2; white-space: normal; }
 .grid-table thead th.align-left .table-sort-button { justify-content: flex-start; }
 .table-sort-button::after {
   content: '↓';
@@ -856,6 +860,31 @@ button { cursor: pointer; }
   margin: var(--s4) 0 0;
   accent-color: var(--gold);
   height: 20px;
+}
+.slider select {
+  width: 100%;
+  min-height: 32px;
+  margin: var(--s4) 0 0;
+  padding: 0 var(--s2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--sunk);
+  color: var(--ink);
+}
+.optimizer-draft { display: grid; gap: var(--s3); }
+.optimizer-draft .lead, .optimizer-draft-note { margin: 0; }
+.optimizer-draft-note { color: var(--dim); }
+.optimizer-draft-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 10ch;
+  gap: var(--s4);
+  padding: var(--s3) var(--s4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--sunk);
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: var(--t-small);
 }
 
 /* The chosen step names itself in the accent colour — this is the answer to
@@ -2405,24 +2434,6 @@ button { cursor: pointer; }
 }
 
 /* ----------------------------------------------------------- responsive */
-
-/* The grid uses more width than prose does — seventeen columns need it — but
-   not the whole of a very wide display, where the eye loses the row between
-   the name and the last number. Past the grid measure the surplus becomes
-   gutter, so strip, grid and footer keep one shared vertical line while
-   their rules and borders still span the full workspace. */
-@media (min-width: 1800px) {
-  .filter-strip, .import-badge + .filter-strip, .grid-footer {
-    padding-inline: calc((100% - var(--measure-grid)) / 2);
-  }
-  /* The table is centred in the workspace and the cells keep their ordinary
-     padding. Margin on the table resolves against the workspace, so unlike
-     a `vw` calculation it never counts the scrollbar track as usable width. */
-  .workspace > .table-wrap > .grid-table {
-    max-width: var(--measure-grid);
-    margin-inline: auto;
-  }
-}
 
 /* below the measure there is no spare width for a gutter this wide */
 @media (max-width: 1100px) {

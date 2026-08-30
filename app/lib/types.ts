@@ -65,7 +65,11 @@ export type GeneralSettings = { numberFormat: NumberFormatChoice; dateOrder: Dat
  * this project keeps out. One factor for the whole account, not one per monster
  * — the user is stating a general tolerance, not tuning each row.
  */
-export type ArtifactSettings = { acceptableWorth: number };
+export type ArtifactSettings = {
+  acceptableWorth: number;
+  conversionStoneGrade: ItemGrade;
+  conversionStoneMaxValue: number;
+};
 /**
  * The presets are part of the user's own preferences rather than of the
  * program: JASWA supplies a starting set, and after that they are the user's

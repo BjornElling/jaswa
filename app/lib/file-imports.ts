@@ -38,7 +38,11 @@ export const defaultRunePotentialSettings: RunePotentialSettings = {
    preferred/acceptable distinction stops meaning anything. */
 export const artifactAcceptableWorthChoices = [0, 25, 50, 75, 100] as const;
 
-export const defaultArtifactSettings: ArtifactSettings = { acceptableWorth: 50 };
+export const defaultArtifactSettings: ArtifactSettings = {
+  acceptableWorth: 50,
+  conversionStoneGrade: 'Hero',
+  conversionStoneMaxValue: 50,
+};
 
 function isRecord(value: unknown): value is GameRecord {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -72,7 +76,9 @@ export function blankPreferences(): Preferences {
    somewhere other than this slider and is not a contract JASWA honours. */
 function isArtifactSettings(value: unknown): value is ArtifactSettings {
   return isRecord(value)
-    && artifactAcceptableWorthChoices.includes(value.acceptableWorth as typeof artifactAcceptableWorthChoices[number]);
+    && artifactAcceptableWorthChoices.includes(value.acceptableWorth as typeof artifactAcceptableWorthChoices[number])
+    && itemGrades.includes(value.conversionStoneGrade as ItemGrade)
+    && isScale(value.conversionStoneMaxValue, 100);
 }
 
 function isScale(value: unknown, maximum: number): value is number {

@@ -1,7 +1,8 @@
 'use client';
 
-import { type ReactNode, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
 import { PageHeader } from './page-chrome';
+import { DataTablePage } from './data-table-page';
 import { MonsterPortrait } from './monster-portrait';
 import { monsterPresentation } from '../lib/monster-catalog';
 import type { MonsterArchetype } from '../lib/monster-catalog';
@@ -61,21 +62,6 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
      monster sits, not a reason to hide it. */
   const [showStorage, setShowStorage] = useState(true);
   const [showRainbowmons, setShowRainbowmons] = useState(false);
-  const stickyHeaderTable = useRef<HTMLTableElement>(null);
-  const rosterTable = useRef<HTMLTableElement>(null);
-
-  useLayoutEffect(() => {
-    const header = stickyHeaderTable.current;
-    const table = rosterTable.current;
-    if (!header || !table) return;
-
-    const syncHeaderWidth = () => { header.style.width = `${table.offsetWidth}px`; };
-    syncHeaderWidth();
-    const observer = new ResizeObserver(syncHeaderWidth);
-    observer.observe(table);
-    return () => observer.disconnect();
-  }, [monsters.length]);
-
   const rows = useMemo<MonsterRow[]>(() => {
     const defaultNames = numberedMonsterNames(monsters);
     return monsters.map((monster, index) => {
@@ -197,8 +183,13 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
       <button type="button" className="table-sort-button" onClick={() => toggleSort(key)}>{label}</button>
     </th>;
   };
-  return <>
-    <div className="filter-strip">
+  return <DataTablePage
+    tableClassName="monster-grid"
+    headerLabel="Monster roster columns"
+    tableLabel="Monster roster"
+    columnGroup={<MonsterColumnGroup columns={columns} />}
+    header={<MonsterTableHeader columns={columns} sortHeader={sortHeader} />}
+    filters={<>
       <div className="filter-group">
         <span className="filter-label">Search</span>
         <div className="filter-group-controls">
@@ -233,33 +224,21 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
           >{monsterArchetypeLabels[archetype]}</button>)}
         </div>
       </div>
-      <div className="filter-group inline">
-        <span className="filter-label">Storage</span>
-        <input type="checkbox" className="filter-checkbox" checked={showStorage}
-          onChange={(event) => setShowStorage(event.target.checked)}
-          aria-label="Show monsters kept in storage" />
-      </div>
-      <div className="filter-group inline">
-        <span className="filter-label">Rainbowmons</span>
-        <input type="checkbox" className="filter-checkbox" checked={showRainbowmons}
-          onChange={(event) => setShowRainbowmons(event.target.checked)}
-          aria-label="Show Rainbowmons" />
+      <div className="filter-group" role="group" aria-label="Choose which monsters to include">
+        <span className="filter-label">Include</span>
+        <div className="filter-group-controls">
+          <button type="button" className={showStorage ? 'filter-button active' : 'filter-button'}
+            onClick={() => setShowStorage((current) => !current)} aria-pressed={showStorage}
+          >Storage</button>
+          <button type="button" className={showRainbowmons ? 'filter-button active' : 'filter-button'}
+            onClick={() => setShowRainbowmons((current) => !current)} aria-pressed={showRainbowmons}
+          >Rainbowmons</button>
+        </div>
       </div>
       <span className="monster-filter-count"><b>{visible.length}</b> of {rows.length} shown</span>
-    </div>
-
-    <div className="monster-header-wrap">
-      <table ref={stickyHeaderTable} className="grid-table monster-grid" aria-label="Monster roster columns">
-        <MonsterColumnGroup columns={columns} />
-        <MonsterTableHeader columns={columns} sortHeader={sortHeader} />
-      </table>
-    </div>
-    <div className="table-wrap" onScroll={(event) => {
-      if (stickyHeaderTable.current) stickyHeaderTable.current.style.transform = `translateX(${-event.currentTarget.scrollLeft}px)`;
-    }}>
-      <table ref={rosterTable} className="grid-table monster-grid" aria-label="Monster roster">
-        <MonsterColumnGroup columns={columns} />
-        <tbody>
+    </>}
+  >
+    <tbody>
           {visible.map((row) => <tr key={row.unitId}>
             <td className="align-left row-index">{String(row.index + 1).padStart(2, '0')}</td>
             <td className="align-left">
@@ -295,8 +274,6 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
             <td className={row.ehpD === null ? 'muted' : undefined}>{formatNumber(row.ehpD, preferences.general)}</td>
             <td className={row.dmg === null ? 'muted' : undefined}>{formatNumber(row.dmg, preferences.general)}</td>
           </tr>)}
-        </tbody>
-      </table>
-    </div>
-  </>;
+    </tbody>
+  </DataTablePage>;
 }

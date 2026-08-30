@@ -58,6 +58,10 @@ server.**
   it would materially test a changed interface, layout, interaction, or a
   visual defect reported by the user. Browser access is available for this
   purpose; do not infer otherwise from the editor in use.
+- Playwright is an installed project dependency and is part of visual work when
+  it is relevant, or whenever the user asks for visual confirmation. Use it
+  against the user's existing local server to drive the affected flow and make
+  an evidence-based layout check; do not start a second server for it.
 - Distinguish the local server from browser automation. Verify the existing
   `http://localhost:3000/` server directly before calling it unavailable; a
   missing or disconnected browser-control session means visual interaction is

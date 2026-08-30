@@ -1,7 +1,8 @@
 'use client';
 
-import { type ReactNode, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
 import { PageHeader } from './page-chrome';
+import { DataTablePage } from './data-table-page';
 import type { GameRecord } from '../lib/game-data';
 import type { ImportedGame, Preferences } from '../lib/types';
 import { readArtifacts } from '../lib/artifacts';
@@ -26,29 +27,29 @@ const archetypeOrder = Object.values(artifactArchetypes);
 function ArtifactColumnGroup() {
   return <colgroup>
     <col className="artifact-col-index" />
-    <col className="artifact-col-location" />
-    <col className="artifact-col-value" />
     <col className="artifact-col-category" />
     <col className="artifact-col-equipClass" />
     <col className="artifact-col-grade" />
     <col className="artifact-col-mainProperty" />
     <col className="artifact-col-subProperties" />
+    <col className="artifact-col-location" />
+    <col className="artifact-col-value" />
   </colgroup>;
 }
 
 function ArtifactTableHeader({ sortHeader }: {
-  sortHeader: (key: ArtifactSortKey, label: string, alignLeft?: boolean) => ReactNode;
+  sortHeader: (key: ArtifactSortKey, label: ReactNode, alignLeft?: boolean) => ReactNode;
 }) {
   return <thead>
     <tr>
       {sortHeader('index', '#', true)}
-      {sortHeader('location', 'Location', true)}
-      {sortHeader('value', 'Value on mon')}
       {sortHeader('category', 'Type', true)}
       {sortHeader('equipClass', 'Restriction', true)}
       {sortHeader('grade', 'Quality', true)}
       {sortHeader('mainProperty', 'Main stat', true)}
       {sortHeader('subProperties', 'Subs', true)}
+      {sortHeader('location', 'Location', true)}
+      {sortHeader('value', <span className="table-heading-two-line">Value on<br />mon</span>)}
     </tr>
   </thead>;
 }
@@ -68,22 +69,7 @@ export function ArtifactList({ game, monsters, preferences }: {
      the list starts as the whole account and each is switched off separately. */
   const [showEquipped, setShowEquipped] = useState(true);
   const [showInventory, setShowInventory] = useState(true);
-  const stickyHeaderTable = useRef<HTMLTableElement>(null);
-  const listTable = useRef<HTMLTableElement>(null);
-
   const artifacts = useMemo(() => readArtifacts(game?.data), [game]);
-
-  useLayoutEffect(() => {
-    const header = stickyHeaderTable.current;
-    const table = listTable.current;
-    if (!header || !table) return;
-
-    const syncHeaderWidth = () => { header.style.width = `${table.offsetWidth}px`; };
-    syncHeaderWidth();
-    const observer = new ResizeObserver(syncHeaderWidth);
-    observer.observe(table);
-    return () => observer.disconnect();
-  }, [artifacts.length]);
 
   const rows = useMemo<ArtifactRow[]>(() => {
     const names = numberedMonsterNames(monsters);
@@ -169,7 +155,7 @@ export function ArtifactList({ game, monsters, preferences }: {
     </section>
   </div>;
 
-  const sortHeader = (key: ArtifactSortKey, label: string, alignLeft = false) => {
+  const sortHeader = (key: ArtifactSortKey, label: ReactNode, alignLeft = false) => {
     const sorted = sort.key === key;
     const className = [alignLeft ? 'align-left' : '', 'sortable', sorted ? 'sorted' : '', sorted && sort.ascending ? 'ascending' : '']
       .filter(Boolean).join(' ');
@@ -197,8 +183,13 @@ export function ArtifactList({ game, monsters, preferences }: {
   </div>;
   const abbreviate = (option: string) => option.slice(0, 3).toUpperCase();
 
-  return <>
-    <div className="filter-strip">
+  return <DataTablePage
+    tableClassName="artifact-grid"
+    headerLabel="Artifact library columns"
+    tableLabel="Artifact library"
+    columnGroup={<ArtifactColumnGroup />}
+    header={<ArtifactTableHeader sortHeader={sortHeader} />}
+    filters={<>
       <div className="filter-group">
         <span className="filter-label">Search</span>
         <div className="filter-group-controls">
@@ -221,45 +212,23 @@ export function ArtifactList({ game, monsters, preferences }: {
         selectedGrades, setSelectedGrades, abbreviate)}
       {toggleGroup('Main stat', 'Filter by main stat', artifactMainPropertyOrder,
         selectedMainProperties, setSelectedMainProperties, (property) => property)}
-      <div className="filter-group inline">
-        <span className="filter-label">Equipped</span>
-        <input type="checkbox" className="filter-checkbox" checked={showEquipped}
-          onChange={(event) => setShowEquipped(event.target.checked)}
-          aria-label="Show artifacts a monster is wearing" />
-      </div>
-      <div className="filter-group inline">
-        <span className="filter-label">Inventory</span>
-        <input type="checkbox" className="filter-checkbox" checked={showInventory}
-          onChange={(event) => setShowInventory(event.target.checked)}
-          aria-label="Show artifacts in the inventory" />
+      <div className="filter-group" role="group" aria-label="Choose artifact locations">
+        <span className="filter-label">Location</span>
+        <div className="filter-group-controls">
+          <button type="button" className={showEquipped ? 'filter-button active' : 'filter-button'}
+            onClick={() => setShowEquipped((current) => !current)} aria-pressed={showEquipped}
+          >Equipped</button>
+          <button type="button" className={showInventory ? 'filter-button active' : 'filter-button'}
+            onClick={() => setShowInventory((current) => !current)} aria-pressed={showInventory}
+          >Inventory</button>
+        </div>
       </div>
       <span className="monster-filter-count"><b>{visible.length}</b> of {rows.length} shown</span>
-    </div>
-
-    <div className="monster-header-wrap">
-      <table ref={stickyHeaderTable} className="grid-table artifact-grid" aria-label="Artifact columns">
-        <ArtifactColumnGroup />
-        <ArtifactTableHeader sortHeader={sortHeader} />
-      </table>
-    </div>
-    <div className="table-wrap" onScroll={(event) => {
-      if (stickyHeaderTable.current) stickyHeaderTable.current.style.transform = `translateX(${-event.currentTarget.scrollLeft}px)`;
-    }}>
-      <table ref={listTable} className="grid-table artifact-grid" aria-label="Artifacts">
-        <ArtifactColumnGroup />
-        <tbody>
+    </>}
+  >
+    <tbody>
           {visible.map((row) => <tr key={row.artifact.id}>
             <td className="align-left row-index">{String(row.index + 1).padStart(2, '0')}</td>
-            <td className={row.location ? 'align-left' : 'align-left muted'}
-              title={row.location === null ? 'Worn by a monster this import does not contain' : undefined}>
-              {row.location ?? 'Unknown monster'}
-            </td>
-            <td className={row.value === undefined ? 'muted' : undefined}
-              title={row.value === undefined && row.artifact.occupiedId !== null
-                ? 'Not judged: nothing recorded for this monster type'
-                : undefined}>
-              {row.value === undefined ? '—' : `${formatNumber(Math.round(row.value * 100), preferences.general)} %`}
-            </td>
             <td className="align-left dim">{artifactCategoryLabel(row.artifact.category)}</td>
             <td className={artifactEquipClass(row.artifact) ? 'align-left' : 'align-left muted'}>
               {artifactEquipClass(row.artifact) ?? '—'}
@@ -277,9 +246,17 @@ export function ArtifactList({ game, monsters, preferences }: {
                 >{displaySubProperty(subProperty, (value) => formatNumber(value, preferences.general))}</li>)}
               </ul>
             </td>
+            <td className={row.location ? 'align-left' : 'align-left muted'}
+              title={row.location === null ? 'Worn by a monster this import does not contain' : undefined}>
+              {row.location ?? 'Unknown monster'}
+            </td>
+            <td className={row.value === undefined ? 'muted' : undefined}
+              title={row.value === undefined && row.artifact.occupiedId !== null
+                ? 'Not judged: nothing recorded for this monster type'
+                : undefined}>
+              {row.value === undefined ? '—' : `${formatNumber(Math.round(row.value * 100), preferences.general)} %`}
+            </td>
           </tr>)}
-        </tbody>
-      </table>
-    </div>
-  </>;
+    </tbody>
+  </DataTablePage>;
 }
