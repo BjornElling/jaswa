@@ -66,7 +66,7 @@ function ArtifactTableHeader({ sortHeader }: {
       {sortHeader('equipClass', 'Restriction', true)}
       {sortHeader('grade', 'Quality', true)}
       {sortHeader('mainProperty', 'Main stat', true)}
-      {sortHeader('subProperties', 'Subs', true)}
+      {sortHeader('subProperties', 'Substats', true)}
     </tr>
   </thead>;
 }

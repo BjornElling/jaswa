@@ -533,10 +533,10 @@ button { cursor: pointer; }
   text-overflow: ellipsis;
   color: var(--faint);
 }
-/* These colours describe fit, never an available action: full ink is what the
-   current monster prefers, dim ink is still useful, and faint means no fit. */
-.artifact-subs li.artifact-sub-preferred { color: var(--ink); }
-.artifact-subs li.artifact-sub-acceptable { color: var(--dim); }
+/* The requested artifact-fit palette makes preferred lines gold, keeps
+   acceptable lines in full ink, and leaves every other line faint. */
+.artifact-subs li.artifact-sub-preferred { color: var(--gold); }
+.artifact-subs li.artifact-sub-acceptable { color: var(--ink); }
 /* A property the game no longer drops still shows its value, dimmed: it is a
    real line on a real artifact, but nothing here can judge how well it rolled. */
 .artifact-subs li.legacy { color: var(--faint); }
