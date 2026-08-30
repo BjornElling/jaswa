@@ -6,6 +6,7 @@ export type HelperConnection = {
   state: 'checking' | 'ready' | 'unavailable';
   detail: string;
   profileReady: boolean;
+  restartRequired: boolean;
   instanceId: string;
   revision: number;
   sessionId: number;
@@ -34,14 +35,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export async function checkHelperConnection(): Promise<HelperConnection> {
   try {
     const response = await localFetch('/health');
-    if (!response.ok) return { state: 'unavailable', detail: 'The helper did not answer.', profileReady: false, instanceId: '', revision: 0, sessionId: 0 };
+    if (!response.ok) return { state: 'unavailable', detail: 'The helper did not answer.', profileReady: false, restartRequired: false, instanceId: '', revision: 0, sessionId: 0 };
     const value = await response.json() as unknown;
-    if (!isRecord(value) || value.running !== true || typeof value.instanceId !== 'string' || value.instanceId.length === 0 || typeof value.revision !== 'number' || !Number.isSafeInteger(value.revision) || value.revision < 0 || typeof value.sessionId !== 'number' || !Number.isSafeInteger(value.sessionId) || value.sessionId < 0) return { state: 'unavailable', detail: 'The helper is not ready.', profileReady: false, instanceId: '', revision: 0, sessionId: 0 };
+    if (!isRecord(value) || value.running !== true || typeof value.instanceId !== 'string' || value.instanceId.length === 0 || typeof value.revision !== 'number' || !Number.isSafeInteger(value.revision) || value.revision < 0 || typeof value.sessionId !== 'number' || !Number.isSafeInteger(value.sessionId) || value.sessionId < 0 || typeof value.restartRequired !== 'boolean') return { state: 'unavailable', detail: 'The helper is not ready.', profileReady: false, restartRequired: false, instanceId: '', revision: 0, sessionId: 0 };
     return value.profileReady === true
-      ? { state: 'ready', detail: 'Link is stable, Captain. We’re ready to go to warp.', profileReady: true, instanceId: value.instanceId, revision: value.revision, sessionId: value.sessionId }
-      : { state: 'checking', detail: 'Helper goblin is awake and waiting for you to run Summoners War.', profileReady: false, instanceId: value.instanceId, revision: value.revision, sessionId: value.sessionId };
+      ? { state: 'ready', detail: 'Link is stable, Captain. We’re ready to go to warp.', profileReady: true, restartRequired: false, instanceId: value.instanceId, revision: value.revision, sessionId: value.sessionId }
+      : value.restartRequired
+        ? { state: 'checking', detail: 'Summoners War was already open. Close and reopen it to link the helper.', profileReady: false, restartRequired: true, instanceId: value.instanceId, revision: value.revision, sessionId: value.sessionId }
+        : { state: 'checking', detail: 'Helper goblin is awake and waiting for you to run Summoners War.', profileReady: false, restartRequired: false, instanceId: value.instanceId, revision: value.revision, sessionId: value.sessionId };
   } catch {
-    return { state: 'unavailable', detail: 'This would work better, if you actually ran the helper program.', profileReady: false, instanceId: '', revision: 0, sessionId: 0 };
+    return { state: 'unavailable', detail: 'This would work better, if you actually ran the helper program.', profileReady: false, restartRequired: false, instanceId: '', revision: 0, sessionId: 0 };
   }
 }
 
