@@ -2,12 +2,13 @@
 
 **Status:** Live working document for the Artifacts workspace
 **Started:** August 30, 2026
-**Last updated:** August 30, 2026 — session 2, **A3 built**: the dataset file
-and its collector exist, every observation carries its own date (decision 25),
-and the capture list is 1,086 monster types. Collection is now the user's to
-run, in stages, with `scripts/collect-engraving-statistics.mjs` after each
-session. Decision 28 settles the last of Q8: a user-entered preference always
-wins, and the statistics are consulted only where the user has stated nothing
+**Last updated:** August 30, 2026 — session 3: decision 29 fixes the simple
+thresholds that turn engraving counts into preferred and acceptable defaults.
+The dataset and its collector exist, every observation carries its own date
+(decision 25), and the capture list is 1,086 monster types. Collection is now
+the user's to run, in stages, with `scripts/collect-engraving-statistics.mjs`
+after each session. A user-entered preference always wins, and the statistics
+are consulted only where the user has stated nothing (decision 28).
 
 This file is the memory of the Artifact sprint. It carries the purpose, the
 decisions taken, the questions still open, and the state of the work, so a new
@@ -143,6 +144,22 @@ from the defaults at first view collapses rows one and two, and treating a
 cleared preference as absent collapses rows two and three — in which case the
 default returns and quietly overrules the user. This is `AGENTS.md` rule 3's
 absent-versus-zero distinction, in the place it costs most.
+
+**The default rule is fixed.** Work from the raw counts in one `(monster type,
+artifact category, view)` distribution, never from rounded display percentages:
+`share = property count / sum of all property counts in that distribution`.
+
+| View | Preferred | Acceptable | Neither |
+| --- | --- | --- | --- |
+| Main Property (HP, ATK, DEF) | share ≥ 40 % | share ≥ 10 % and < 40 % | share < 10 % |
+| Sub Property (Attribute or Type) | share ≥ 10 % | share ≥ 5 % and < 10 % | share < 5 % |
+
+The two thresholds intentionally differ. Main Property has three possible
+values, so 40 % is a meaningful choice over an even split and 10 % preserves a
+real minority option. Each sub-property distribution has 23 values, making an
+even share about 4.3 %; 10 % is a clear preference and 5 % is worth accepting.
+No category is forced to have a preferred default when its statistics make no
+property stand out.
 
 **The two preference models are keyed differently, and must stay separate.**
 `MonsterPreference` is `{ unitId, label, runeSets, statGoals }` — keyed on the
@@ -602,6 +619,7 @@ recorded here once the user has taken it.
 | 26 | 2026-08-30 | **Collection runs in stages against the whole catalog** — 1,086 monster types — rather than being narrowed to natural 4/5★ or to the user's own roster. The dataset is usable at any coverage. | The user's call. Narrowing by rarity needs a natural-star field the catalog does not carry, and narrowing to the account would break decision 24. Because a type without a row is simply not judged (decision 18), partial coverage is a working state rather than a broken one, so the work can stop and resume at any point. |
 | 27 | 2026-08-30 | **The traffic log is a buffer, not an archive.** `scripts/collect-engraving-statistics.mjs` merges it into the dataset additively after each session; the helper's "start a fresh file each recording" behaviour is left alone. | Switching recording on clears the log, which would lose a previous day's clicking. Making the helper append instead would need an installer rebuild and would undo a deliberate decision — a log that silently continued an earlier one invites reading yesterday's traffic as today's evidence. Merging after each session keeps that guarantee and still loses nothing, as long as the merge runs before recording is switched on again. |
 | 28 | 2026-08-30 | **A user-entered preference always takes precedence over the game's figures. The engraving statistics are consulted only where the user has entered nothing.** The two are never blended, averaged, or reconciled: for a given `(monster type, category, property)` the answer comes from the user if they have stated one, and from the dataset otherwise. | The user's call, and it answers Q8's override half. It also removes a whole class of problem rather than solving it: because a recapture cannot touch anything the user has stated, the dataset needs no merge policy against preferences, and there is no "your default changed" case to design. The distinction it *does* require is between **never stated** and **deliberately stated as nothing** — under `AGENTS.md` rule 3 those are different answers, and a cleared preference that fell back to the default would silently overrule the user. So a monster type's preferences must be stored as an explicit record of what the user said, absent where they said nothing, and never as a copy of the defaults seeded at first view. |
+| 29 | 2026-08-30 | **Default property preferences use fixed shares of their own engraving distribution.** Main Property is preferred at ≥ 40 % and acceptable at ≥ 10 %; Sub Property is preferred at ≥ 10 % and acceptable at ≥ 5 %. A lower share is neither; the calculation uses raw counts, separately for each monster type and artifact category. | Main Property has three values, whereas each Attribute or Type sub-property distribution has 23. One threshold would either discard useful main-property alternatives or label most sub-properties desirable. These limits keep the rule legible, produce a typical main-property result of one preferred and one acceptable choice, and leave a flat sub-property distribution honestly without a preferred default. |
 
 ---
 
@@ -615,12 +633,12 @@ Status is one of **Not started**, **In progress**, **Blocked**, **Done**.
 | 0 | Write and maintain this sprint file | **In progress** | Created in session 1. Updated continuously for the sprint's life. |
 | A1 | Helper "Log all traffic" — tray toggle, off by default, writing decoded exchanges | **Done, proven live** | Session 1. `helper/src/traffic-log.cjs`, wired in `service.cjs`, offered in `tray.cjs`. 7 tests; suite 37/37. Installer rebuilt and verified. Captured 41 real exchanges from a live session. |
 | A2 | Record a log and write the true payload shape into §2a | **Done** | All three panels captured and verified against the screenshots: `getUnitStatsRuneInfo`, `getUnitStatsArtifactInfo`, `getUnitStatsRelicInfo`. Keyed on `unit_master_id`; raw counts, full distributions, one call per panel, three per monster. Rune `effect_id`s match `RUNE-CANONICAL.md` §2 exactly. Outstanding for A3, but not blocking it: the artifact and relic secondary vocabularies, and what `request_type`/`favorite_type` select. |
-| A3 | Design and build the recorded dataset from the observed shape | **Built; collection in progress** | Session 2. `scripts/collect-engraving-statistics.mjs` merges the traffic log into `app/data/engraving-statistics.json` additively and idempotently. Verified against the user's screenshots: every stored count reproduces the displayed percentage exactly. Dates per observation (decision 25). **393 of 1,086 monster types captured (36 %), none part-captured** — the rest is the user's clicking, in stages (decision 26), and `--todo` names what is next. |
+| A3 | Design and build the recorded dataset from the observed shape | **Built; collection in progress** | Session 2. `scripts/collect-engraving-statistics.mjs` merges the traffic log into `app/data/engraving-statistics.json` additively and idempotently. Verified against the user's screenshots: every stored count reproduces the displayed percentage exactly. Dates per observation (decision 25). **396 of 1,086 monster types captured (36 %), none part-captured** — the rest is the user's clicking, in stages (decision 26), and `--todo` names what is next. |
 | 1 | Establish the artifact rules — a canonical document from the game and a real export | **Done** | `docs/ARTIFACT-CANONICAL.md`. The *rules* were written in session 1; the **encoding** was settled in session 2 against 1,785 real artifact records found in the traffic log (§15). Five of its six open questions are closed and §5.3's pending verification is discharged. Three narrow fields stay pending and may not be computed from. |
 | 2 | Model and read artifacts — types, parsing, validation from `game.data.artifacts` | **Unblocked, not started** | §15 answers what blocked it. The record shape, the property vocabulary and its category split, the power-up encoding and its grade invariant, and the conversion slot are all verified. `equipmentPrimaryTypes` and `addArtifactMainEffect` were confirmed correct, so the existing footholds extend rather than get replaced (Q6). Validation rules are in `ARTIFACT-CANONICAL.md` §13. |
 | 3 | Artifact library — list, sort, filter, empty state | Not started | The first thing the user can see. Sections framed by the shared `Disclosure` (decision 14). |
 | 4 | Judgement — roll quality against the monster type's property preferences | Not started | Decision 9: value is how well the artifact rolled on the properties the user preferred, weighted by the decision 11 slider. No skill data, no combat simulation. The artifact's own category selects which half of the preferences applies (decision 21). Needs step 2's parsed values and step 5's preferences. |
-| 5 | Artifact preferences — per-type property preferences, the acceptable factor, and the defaults | Not started | Decisions 9–12, 15–21, **28**. Its own model in `Preferences`, extending `isValidPreferences`. Preferences are keyed `(category, property)` (decision 21), and Attribute and Type properties are presented separately (20). **Store only what the user actually stated** — never a copy of the seeded defaults, or a cleared preference becomes indistinguishable from an unset one and the default silently returns (decision 28). The statistics are read at the point of use as a fallback. §7 Q7a governs a type the dataset does not cover. Breaking change by design. |
+| 5 | Artifact preferences — per-type property preferences, the acceptable factor, and the defaults | Not started | Decisions 9–12, 15–21, **28–29**. Its own model in `Preferences`, extending `isValidPreferences`. Preferences are keyed `(category, property)` (decision 21), and Attribute and Type properties are presented separately (20). **Store only what the user actually stated** — never a copy of the seeded defaults, or a cleared preference becomes indistinguishable from an unset one and the default silently returns (decision 28). The statistics are read at the point of use as a fallback, applying decision 29's raw-count thresholds. §7 Q7a governs a type the dataset does not cover. Breaking change by design. |
 | 6 | Monster fit — which monsters gain most from an artifact | Not started | The tagline's promise. Under decision 13 it is a second reading of step 4's table rather than separate work. Depends on 2 and 4. |
 | 7 | Replace the placeholder — route `artifacts` to the real component | Not started | Remove `'artifacts'` from the `UpcomingWorkspace` branch and from `upcomingWorkspaces`. |
 | 8 | Verify and finish — both extremes, layout check, definition of done, commit | Not started | `AGENTS.md` §7. |
@@ -646,11 +664,11 @@ and what a given monster is missing. Under decision 9 they are three readings of
 one table rather than three products, so none has to lead.
 
 **Q3 — How are the user's artifact preferences expressed? — Answered
-(decisions 9, 11, 12).** Artifacts get their own model in `Preferences`, not an
+(decisions 9, 11, 12, 29).** Artifacts get their own model in `Preferences`, not an
 extension of `RunePotentialPreset`. Per monster type, the user sets each property
 to **preferred** or **acceptable**; one global slider sets what an acceptable
 property is worth against a preferred one. The engraving statistics supply the
-defaults (decision 10).
+defaults (decision 10), classified by decision 29's fixed raw-count thresholds.
 
 **Q4 — How much does this share with Rune Potential? — Answered, in part.**
 The preference *models* are separate (decision 12). The **interface** is shared:
@@ -1535,3 +1553,27 @@ came from the same two causes the earlier entries named — recording stopped
 mid-family, and a monster opened inside RTA — and both were closed by exactly
 the work `--todo` described, with no hunting. The part-captured-first ordering
 is doing its job.
+
+### Session 3 — August 30, 2026 — default thresholds chosen
+
+**Asked.** Propose a formula that uses the captured artifact statistics to set
+preferred and acceptable defaults, separately for Main Property and Sub Property,
+but remains easy to read and explain.
+
+**Measured before choosing.** Across the 396 captured monster types, the median
+largest main-property share is 82.0 % for Attribute artifacts and 75.6 % for Type
+artifacts; the median second share is 12.1 % and 16.7 %. Sub-property use is much
+flatter: its median largest share is 12.5 % and 13.1 %, while the second is 7.1 %
+and 7.4 %. The two distributions cannot honestly use one percentage scale.
+
+**Decision 29.** The user chose fixed shares of each monster type's own,
+category-specific distribution. A main property is preferred at 40 % and
+acceptable at 10 %; a sub-property is preferred at 10 % and acceptable at 5 %.
+The shares are calculated from raw counts, never the game's rounded display
+percentages. A lower share is neither.
+
+**Why this is the working fit.** It produces a typical main-property default of
+one preferred and one acceptable value. For each Attribute or Type sub-property
+list it produces one preferred and three acceptable values, while leaving a flat
+distribution without an invented preferred choice. The rule is now recorded in
+§2 and the step 5 plan; implementation remains unstarted.
