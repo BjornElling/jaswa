@@ -4,24 +4,27 @@ import type { DateOrderChoice, GeneralSettings, HourCycleChoice, NumberFormatCho
    because the browser already knows the answer the user gave their operating
    system and repeating that question is a worse default than reading it. */
 export const numberFormatChoices: NumberFormatChoice[] = ['system', 'european', 'american'];
-export const dateOrderChoices: DateOrderChoice[] = ['system', 'day-first', 'month-first'];
+export const dateOrderChoices: DateOrderChoice[] = ['system', 'european', 'american'];
 export const hourCycleChoices: HourCycleChoice[] = ['system', 'h23', 'h12'];
 export const timeZoneChoices: TimeZoneChoice[] = ['system', 'manual'];
 
-/* Locales stand in for the conventions rather than a hand-rolled table of
-   separators and field orders, which would then have to be maintained for
-   currencies, percentages, month names and every other Intl consumer. None of
-   these is ever shown to the user; each is chosen only for the one convention
-   it carries.
+/* A choice is a whole locale, not a separator or a field order picked out of
+   one. `system` passes `undefined`, which is how Intl says "this computer",
+   and the other two pin a locale that writes the convention they name.
 
-   Numbers and dates take separate locales because the two questions do not
-   answer each other: de-DE writes the European number but an all-numeric date,
-   and the two date orders below both spell the month out. Picking one locale
-   for both would have made the number format silently decide the date order. */
-const europeanNumberLocale = 'de-DE';
-const americanNumberLocale = 'en-US';
-const dayFirstDateLocale = 'en-GB';
-const monthFirstDateLocale = 'en-US';
+   The alternative — keeping the user's own locale and reordering the parts it
+   produces — was tried and rejected: Intl exposes no standard lever for it
+   (`-u-rg-` is not honoured for date order), so it means assembling the date
+   from its pieces by hand, which yields `aug. 30, 2026` in Danish and
+   `08 30, 2026` in German. A convention taken whole is the only form that
+   stays correct in every language.
+
+   Numbers and dates keep separate locales even so, because the two questions
+   do not answer each other: a user may want European numbers with American
+   dates, and one shared locale would have let the first silently decide the
+   second. */
+const europeanLocale = 'de-DE';
+const americanLocale = 'en-US';
 
 /**
  * The IANA zone this computer is set to. Every browser JASWA targets resolves
@@ -136,15 +139,15 @@ export function isGeneralSettings(value: unknown): value is GeneralSettings {
  * setting at the value read when the page loaded.
  */
 export function numberLocale(settings: GeneralSettings): string | undefined {
-  if (settings.numberFormat === 'european') return europeanNumberLocale;
-  if (settings.numberFormat === 'american') return americanNumberLocale;
+  if (settings.numberFormat === 'european') return europeanLocale;
+  if (settings.numberFormat === 'american') return americanLocale;
   return undefined;
 }
 
 /** The locale dates are written with, on the same terms as `numberLocale`. */
 export function dateLocale(settings: GeneralSettings): string | undefined {
-  if (settings.dateOrder === 'day-first') return dayFirstDateLocale;
-  if (settings.dateOrder === 'month-first') return monthFirstDateLocale;
+  if (settings.dateOrder === 'european') return europeanLocale;
+  if (settings.dateOrder === 'american') return americanLocale;
   return undefined;
 }
 
@@ -158,4 +161,47 @@ export function formattingHour12(settings: GeneralSettings): boolean | undefined
   if (settings.hourCycle === 'h12') return true;
   if (settings.hourCycle === 'h23') return false;
   return undefined;
+}
+
+/* One number and one instant, wide enough that every separator and field is
+   doing visible work. The date is the last of a month so day and month cannot
+   be mistaken for each other. */
+const sampleNumber = 1234567.89;
+const sampleInstant = new Date('2026-08-30T15:04:00Z');
+
+/**
+ * What a given choice actually writes.
+ *
+ * The options label themselves with these rather than with a fixed string, so
+ * an option can never promise a format the app does not then produce — the bug
+ * that came of labelling a locale by the convention it was picked for instead
+ * of by what it prints. `system` is included: it renders through the same path
+ * with no locale, so its label is this computer's own answer.
+ */
+export function numberSample(choice: NumberFormatChoice): string {
+  return sampleNumber.toLocaleString(numberLocale({ ...blankNumberOnly(), numberFormat: choice }));
+}
+
+export function dateSample(choice: DateOrderChoice, at: Date = sampleInstant): string {
+  return new Intl.DateTimeFormat(dateLocale({ ...blankNumberOnly(), dateOrder: choice }), { dateStyle: 'medium' }).format(at);
+}
+
+/**
+ * What a clock choice writes, in the date convention currently chosen: the
+ * hour is the question, but the separator between hour and minute belongs to
+ * the locale, so the sample has to be taken in it to be honest.
+ */
+export function clockSample(choice: HourCycleChoice, settings: GeneralSettings, at: Date = sampleInstant): string {
+  return new Intl.DateTimeFormat(dateLocale(settings), {
+    timeStyle: 'short',
+    timeZone: formattingTimeZone(settings),
+    hour12: formattingHour12({ ...settings, hourCycle: choice }),
+  }).format(at);
+}
+
+/* The samples vary one field at a time, so they need a settings object that is
+   otherwise inert rather than the user's own — a number sample must not change
+   because a time zone was chosen. */
+function blankNumberOnly(): GeneralSettings {
+  return { numberFormat: 'system', dateOrder: 'system', hourCycle: 'system', timeZone: 'system', manualTimeZone: 'UTC' };
 }

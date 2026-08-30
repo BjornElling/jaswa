@@ -1,33 +1,25 @@
 import { useMemo } from 'react';
 import { RadioLine } from './form-controls';
-import { availableTimeZones } from '../lib/regional-settings';
+import { availableTimeZones, clockSample, dateSample, numberSample } from '../lib/regional-settings';
 import type {
   DateOrderChoice, GeneralSettings as GeneralSettingsValue, HourCycleChoice,
   NumberFormatChoice, TimeZoneChoice,
 } from '../lib/types';
 
-/* The options say what they mean on sight: the number formats are written as
-   the number they produce, and the date orders as the date they produce. That
-   leaves nothing for a note to add. */
-const numberOptions: Array<{ value: NumberFormatChoice; label: string }> = [
-  { value: 'system', label: 'Automatic' },
-  { value: 'european', label: '1.234.567,89' },
-  { value: 'american', label: '1,234,567.89' },
-];
+/* Every option is labelled with what it actually writes, taken from the same
+   formatter the app uses, so a label cannot drift from its result. "Automatic"
+   is named as well as shown: what it produces is already on the line, and the
+   word is what tells the user why it might change. */
+const numberChoices: NumberFormatChoice[] = ['system', 'european', 'american'];
+const dateChoices: DateOrderChoice[] = ['system', 'european', 'american'];
+const clockChoices: HourCycleChoice[] = ['system', 'h23', 'h12'];
 
-/* Written out with a real month name rather than as a pattern: "30 Aug 2026"
-   answers the question the pattern "d mmm yyyy" only describes. */
-const dateOptions: Array<{ value: DateOrderChoice; label: string }> = [
-  { value: 'system', label: 'Automatic' },
-  { value: 'day-first', label: '30 Aug 2026' },
-  { value: 'month-first', label: 'Aug 30, 2026' },
-];
-
-const clockOptions: Array<{ value: HourCycleChoice; label: string }> = [
-  { value: 'system', label: 'Automatic' },
-  { value: 'h23', label: '24-hour' },
-  { value: 'h12', label: '12-hour' },
-];
+function sampled<Value extends string>(choices: Value[], sample: (choice: Value) => string) {
+  return choices.map((value) => ({
+    value,
+    label: value === 'system' ? `Automatic — ${sample(value)}` : sample(value),
+  }));
+}
 
 const zoneOptions: Array<{ value: TimeZoneChoice; label: string }> = [
   { value: 'system', label: 'Automatic' },
@@ -82,6 +74,15 @@ export function GeneralSettings({ settings, saveFolder, canChooseFolder, onChang
      work nobody asked for. The chosen zone is passed in so a value this
      browser does not enumerate still has an option to sit on. */
   const timeZones = useMemo(() => availableTimeZones(new Date(), settings.manualTimeZone), [settings.manualTimeZone]);
+  const numberOptions = useMemo(() => sampled(numberChoices, numberSample), []);
+  const dateOptions = useMemo(() => sampled(dateChoices, (choice) => dateSample(choice)), []);
+  /* The clock samples are taken in the chosen date convention and zone, so
+     they follow the settings above them rather than showing a separator the
+     app will not use. */
+  const clockOptions = useMemo(
+    () => sampled(clockChoices, (choice) => clockSample(choice, settings)),
+    [settings],
+  );
 
   return <>
     <section className="panel">

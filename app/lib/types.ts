@@ -40,12 +40,11 @@ export type NumberFormatChoice = 'system' | 'european' | 'american';
  */
 export type HourCycleChoice = 'system' | 'h23' | 'h12';
 /**
- * Which of the day and the month is written first. Both orders spell the month
- * out — `30 Aug 2026` against `Aug 30, 2026` — because the all-numeric forms
- * are the ones that cannot be read without knowing which convention wrote
- * them, and a date nobody can read is worse than a long one.
+ * Which convention writes dates. The values match `NumberFormatChoice`
+ * because they mean the same thing: `system` reads this computer's own
+ * locale, and the other two pin a European or American one whole.
  */
-export type DateOrderChoice = 'system' | 'day-first' | 'month-first';
+export type DateOrderChoice = 'system' | 'european' | 'american';
 /** Whether the zone comes from this computer or from `manualTimeZone`. */
 export type TimeZoneChoice = 'system' | 'manual';
 /**
