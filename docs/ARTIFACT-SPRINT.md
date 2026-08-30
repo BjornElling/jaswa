@@ -626,7 +626,7 @@ recorded here once the user has taken it.
 | 27 | 2026-08-30 | **The traffic log is a buffer, not an archive.** `scripts/collect-engraving-statistics.mjs` merges it into the dataset additively after each session; the helper's "start a fresh file each recording" behaviour is left alone. | Switching recording on clears the log, which would lose a previous day's clicking. Making the helper append instead would need an installer rebuild and would undo a deliberate decision — a log that silently continued an earlier one invites reading yesterday's traffic as today's evidence. Merging after each session keeps that guarantee and still loses nothing, as long as the merge runs before recording is switched on again. |
 | 28 | 2026-08-30 | **A user-entered preference always takes precedence over the game's figures. The engraving statistics are consulted only where the user has entered nothing.** The two are never blended, averaged, or reconciled: for a given `(monster type, category, property)` the answer comes from the user if they have stated one, and from the dataset otherwise. | The user's call, and it answers Q8's override half. It also removes a whole class of problem rather than solving it: because a recapture cannot touch anything the user has stated, the dataset needs no merge policy against preferences, and there is no "your default changed" case to design. The distinction it *does* require is between **never stated** and **deliberately stated as nothing** — under `AGENTS.md` rule 3 those are different answers, and a cleared preference that fell back to the default would silently overrule the user. So a monster type's preferences must be stored as an explicit record of what the user said, absent where they said nothing, and never as a copy of the defaults seeded at first view. |
 | 29 | 2026-08-30 | **Default property preferences use fixed shares of their own engraving distribution.** Main Property is preferred at ≥ 40 % and acceptable at ≥ 10 %; Sub Property is preferred at ≥ 10 % and acceptable at ≥ 5 %. A lower share is neither; the calculation uses raw counts, separately for each monster type and artifact category. | Main Property has three values, whereas each Attribute or Type sub-property distribution has 23. One threshold would either discard useful main-property alternatives or label most sub-properties desirable. These limits keep the rule legible, produce a typical main-property result of one preferred and one acceptable choice, and leave a flat sub-property distribution honestly without a preferred default. |
-| 30 | 2026-08-30 | **The workspace is five areas, in this order: Settings, Best monster for this artifact, Best artifact for this monster, Recommended changelist, All artifacts.** Each is a `Disclosure` on the single Artifacts page. | The user's call, and it makes decision 13 concrete: the two "best" views and the changelist are the three questions, All artifacts is the library they are read against, and Settings holds the tolerance applied to all of them. Settings leads because it is the one section that governs the other four, which is also where Rune Potential puts it. Putting the two "best" views ahead of the list sets judgement before inventory. Naming the five now lets them exist as headings before their content does, so steps 2–6 fill an agreed frame instead of negotiating one late. |
+| 30 | 2026-08-30 | **The workspace is five areas, in this order: Recommendations, Best monster for this artifact, Best artifact for this monster, All artifacts, Settings.** Each is a `Disclosure` on the single Artifacts page, and **none opens by default.** | The user's call, and it makes decision 13 concrete: Recommendations and the two "best" views are the three questions, All artifacts is the library they are read against, and Settings holds the tolerance applied to all of them. **Recommendations leads** because it is the answer a user comes to this page for — the account-wide "what should I actually change" — where the two "best" views answer a question about one artifact or one monster the user must first have in mind. **Settings sits last**, being set once and then left alone. Every fold starts closed and behaves identically, so the page never decides for the user which question they arrived with. Naming the five now lets them exist as headings before their content does, so steps 2–6 fill an agreed frame instead of negotiating one late. |
 | 31 | 2026-08-30 | **The acceptable-versus-preferred factor is stored as the percentage itself** — one of 0, 25, 50, 75 or 100 — **not as a 1–5 step index.** It defaults to 50 %, lives in `Preferences.artifacts` as `ArtifactSettings.acceptableWorth`, and is offered as a five-stop slider in the Artifacts **Settings** area. | Decision 11 fixed that there is one global factor; this fixes what is stored. The judgement multiplies by the factor, so storing the percentage keeps the value the user reads and the value the calculation uses as one thing — a step index would need translating into a factor somewhere, and that translation is a second source of truth. 50 % is the honest midpoint and reads as a deliberate answer, where 0 % (an acceptable property may as well be unwanted) and 100 % (the distinction stops meaning anything) read as the feature switched off. The five stops are a validated set rather than a range: a `.sw` file claiming 37 % did not come from this slider. |
 
 ---
@@ -1700,3 +1700,27 @@ screenshot-interact-screenshot comparison was not done. The persistence gate in
 `LOCAL-PERSISTENCE-CONTRACT.md` — a changed value surviving a reload, for an
 empty and a populated workspace — also needs the running app. Outstanding for
 the user or a browser session.
+
+### Session 3, continued — the running order settled
+
+**Asked.** Three corrections to the frame: Settings must not open by default and
+should behave exactly as the other folds do; Settings moves to the bottom; and
+*Recommended changelist* moves to the top and is renamed **Recommendations**.
+
+**Done, and decision 30 rewritten** — the order is now Recommendations, Best
+monster for this artifact, Best artifact for this monster, All artifacts,
+Settings, with **no `defaultOpen` on any of them**.
+
+**What the reordering says about the page, worth recording because it is a
+product judgement rather than a preference.** Recommendations at the top makes
+the account-wide "what should I actually change" the thing the page offers first;
+the two "best" views answer a narrower question the user has to arrive already
+holding, about one artifact or one monster. Settings at the bottom is the setting
+you touch once. And with every fold closed and identical, the page stops
+asserting which question the user came with — the previous draft's
+`defaultOpen` on Settings had the workspace opening on its own configuration,
+which is the least interesting thing on it.
+
+**Verified.** `npx tsc --noEmit`, `npm run lint` and `npx next build` clean; the
+22-case settings contract check still passes, being untouched by an ordering
+change. The visual gap from the previous two entries stands unchanged.

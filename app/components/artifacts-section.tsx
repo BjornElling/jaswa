@@ -17,10 +17,11 @@ const acceptableWorthLabels = [
 ] as const;
 
 /* Five areas (decision 30): the three questions of decision 13, the library
-   they are read against, and the one setting that weights all of them. Settings
-   leads because it governs the other four, which is where Rune Potential puts
-   it too. Each is framed by the shared Disclosure (decision 14) rather than by
-   its own chrome.
+   they are read against, and the one setting that weights all of them.
+   Recommendations leads because it is the answer a user comes for; Settings
+   sits last, being the thing you set once and then leave alone. No section
+   opens by default — five folds all behaving alike, so the page never decides
+   for the user which question they arrived with.
 
    Settings is the only section with content: decision 11 fixes what it holds.
    The other four are a heading and their stated purpose only, because the
@@ -47,23 +48,11 @@ export function ArtifactsSection({ settings, hasGame, onUpdate }: {
       <p className="next-step">Import your game data first. Your preferences can be prepared at any time.</p>
     </section>}
 
-    <Disclosure title="Settings" defaultOpen>
-      <div className="slider-grid">
-        <div className="slider">
-          <label className="slider-label" htmlFor="acceptable-worth">Acceptable ctr. preferred</label>
-          <p className="slider-note">What is second choice worth against first choice?</p>
-          <input id="acceptable-worth" type="range"
-            min={1} max={artifactAcceptableWorthChoices.length} step={1}
-            value={step + 1}
-            onChange={(event) => void onUpdate({
-              acceptableWorth: artifactAcceptableWorthChoices[Number(event.target.value) - 1],
-            })}
-            aria-describedby="acceptable-worth-choice" />
-          <p id="acceptable-worth-choice" className="slider-choice" aria-live="polite">
-            {acceptableWorthLabels[step]}
-          </p>
-        </div>
-      </div>
+    <Disclosure title="Recommendations">
+      <p className="lead">
+        The swaps worth making across the account, in order — where a monster is wearing
+        one artifact while a better one for it sits unused.
+      </p>
     </Disclosure>
 
     <Disclosure title="Best monster for this artifact">
@@ -81,18 +70,30 @@ export function ArtifactsSection({ settings, hasGame, onUpdate }: {
       </p>
     </Disclosure>
 
-    <Disclosure title="Recommended changelist">
-      <p className="lead">
-        The swaps worth making across the account, in order — where a monster is wearing
-        one artifact while a better one for it sits unused.
-      </p>
-    </Disclosure>
-
     <Disclosure title="All artifacts">
       <p className="lead">
         Every artifact on the account, sortable and filterable. The list you look through
         when you want to see what you actually have.
       </p>
+    </Disclosure>
+
+    <Disclosure title="Settings">
+      <div className="slider-grid">
+        <div className="slider">
+          <label className="slider-label" htmlFor="acceptable-worth">Acceptable ctr. preferred</label>
+          <p className="slider-note">What is second choice worth against first choice?</p>
+          <input id="acceptable-worth" type="range"
+            min={1} max={artifactAcceptableWorthChoices.length} step={1}
+            value={step + 1}
+            onChange={(event) => void onUpdate({
+              acceptableWorth: artifactAcceptableWorthChoices[Number(event.target.value) - 1],
+            })}
+            aria-describedby="acceptable-worth-choice" />
+          <p id="acceptable-worth-choice" className="slider-choice" aria-live="polite">
+            {acceptableWorthLabels[step]}
+          </p>
+        </div>
+      </div>
     </Disclosure>
   </WorkspacePage>;
 }
