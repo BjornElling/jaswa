@@ -66,7 +66,7 @@ function refreshMenu() {
     { label: 'Open JASWA', click: () => void shell.openExternal('http://localhost:3000') },
     { label: 'Download JSON', enabled: Boolean(status?.hasProfile), click: () => void downloadJson() },
     {
-      label: 'Start JASWA Helper when I sign in',
+      label: 'Start JASWA Helper with Windows',
       type: 'checkbox',
       checked: startsWithWindows(app),
       enabled: app.isPackaged,
