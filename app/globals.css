@@ -277,34 +277,50 @@ button { cursor: pointer; }
 .import-badge.live .import-badge-count + .import-badge-when { border-top-color: var(--gold-edge); }
 .import-badge.live .import-badge-when { color: var(--gold); }
 
-/* --------------------------------------------------------- filter strip */
+/* --------------------------------------------------------- filter strip
+   The strip wraps. There are more filters than fit one line on an ordinary
+   window — Artifacts has seven groups — and a single scrolling row hid the
+   last of them behind the import badge with nothing to say they were there.
+   Wrapping shows every control at once and grows the strip downwards, which
+   moves only the table below it. Each group stacks its heading over its own
+   controls so a label names the buttons beneath it rather than the ones to
+   its right. */
 .filter-strip {
-  display: flex; align-items: center;
-  height: var(--strip);
+  display: flex; flex-wrap: wrap; align-items: flex-start;
+  align-content: flex-start;
+  gap: var(--s3) 0;
   min-height: var(--strip);
   background: var(--bg);
-  padding: 0 var(--gutter);
-  overflow-x: auto;
-  overflow-y: hidden;
+  padding: var(--s3) var(--gutter);
 }
-/* a table page opens on its strip, and the import badge rests over that same
-   corner: the strip stands tall enough to hold the badge and keeps its own
-   controls clear of it */
+/* A table page opens on its strip, and the import badge rests over that same
+   corner. The strip clears the badge's full height before its first row, so a
+   filter never sits under it — the badge is an overlay, and a control it
+   covers is a control the user cannot reach. */
 .import-badge + .filter-strip {
-  height: calc(var(--badge-height) + var(--s5));
-  min-height: calc(var(--badge-height) + var(--s5));
-  padding-right: calc(var(--badge-width) + var(--gutter));
+  /* The badge's own offset plus its height, then a gap: measured from where it
+     actually sits rather than from its height alone, which cleared only the
+     box and left the first row two pixels under it. */
+  padding-top: calc(var(--s4) + var(--badge-height) + var(--s3));
 }
 .filter-group {
-  display: flex; flex: 0 0 auto; align-items: center; gap: var(--s1);
+  display: flex; flex: 0 0 auto; flex-direction: column; gap: var(--s1);
   padding-right: var(--s4); margin-right: var(--s4);
   border-right: 1px solid var(--line);
   white-space: nowrap;
 }
-.filter-group:last-child { border-right: 0; margin-right: 0; }
+.filter-group-controls { display: flex; align-items: center; gap: var(--s1); min-height: 30px; }
+/* A group whose heading is its control's own label — the checkboxes — keeps
+   them side by side rather than stacking a word above a box. */
+.filter-group.inline { flex-direction: row; align-items: center; }
+.filter-group:last-of-type { border-right: 0; margin-right: 0; }
 .monster-filter-count {
-  flex: 0 0 16ch;
+  /* A fixed measure, because the count is the one thing in the strip whose
+     text changes on every click: sized to the digits it can hold, it stays put
+     as "1.862" becomes "77" instead of sliding along its own row. */
+  flex: 0 0 20ch;
   margin-left: auto;
+  align-self: center;
   color: var(--faint);
   font-family: var(--mono);
   font-size: var(--t-small);

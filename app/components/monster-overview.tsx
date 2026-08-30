@@ -200,39 +200,46 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
   return <>
     <div className="filter-strip">
       <div className="filter-group">
-        <div className="search-field">
-          <span aria-hidden="true">⌕</span>
-          <input value={search} onChange={(event) => setSearch(event.target.value)}
-            placeholder="Filter monsters" aria-label="Filter monsters by name or set" />
-          <button className="filter-button" onClick={() => setSearch('')}
-            hidden={!search} disabled={!search} aria-label="Clear filter">✕</button>
+        <span className="filter-label">Search</span>
+        <div className="filter-group-controls">
+          <div className="search-field">
+            <span aria-hidden="true">⌕</span>
+            <input value={search} onChange={(event) => setSearch(event.target.value)}
+              placeholder="Filter monsters" aria-label="Filter monsters by name or set" />
+            <button className="filter-button" onClick={() => setSearch('')}
+              hidden={!search} disabled={!search} aria-label="Clear filter">✕</button>
+          </div>
         </div>
       </div>
       <div className="filter-group" role="group" aria-label="Filter by element">
         <span className="filter-label">Element</span>
-        {elements.map((name) => <button
-          key={name}
-          className={selectedElements.includes(name) ? 'filter-button active' : 'filter-button'}
-          onClick={() => toggleElement(name)}
-          aria-pressed={selectedElements.includes(name)}
-        >{name.slice(0, 3).toUpperCase()}</button>)}
+        <div className="filter-group-controls">
+          {elements.map((name) => <button
+            key={name}
+            className={selectedElements.includes(name) ? 'filter-button active' : 'filter-button'}
+            onClick={() => toggleElement(name)}
+            aria-pressed={selectedElements.includes(name)}
+          >{name.slice(0, 3).toUpperCase()}</button>)}
+        </div>
       </div>
       <div className="filter-group" role="group" aria-label="Filter by monster type">
         <span className="filter-label">Type</span>
-        {monsterFilterArchetypes.map((archetype) => <button
-          key={archetype}
-          className={selectedArchetypes.includes(archetype) ? 'filter-button active' : 'filter-button'}
-          onClick={() => toggleArchetype(archetype)}
-          aria-pressed={selectedArchetypes.includes(archetype)}
-        >{monsterArchetypeLabels[archetype]}</button>)}
+        <div className="filter-group-controls">
+          {monsterFilterArchetypes.map((archetype) => <button
+            key={archetype}
+            className={selectedArchetypes.includes(archetype) ? 'filter-button active' : 'filter-button'}
+            onClick={() => toggleArchetype(archetype)}
+            aria-pressed={selectedArchetypes.includes(archetype)}
+          >{monsterArchetypeLabels[archetype]}</button>)}
+        </div>
       </div>
-      <div className="filter-group">
+      <div className="filter-group inline">
         <span className="filter-label">Storage</span>
         <input type="checkbox" className="filter-checkbox" checked={showStorage}
           onChange={(event) => setShowStorage(event.target.checked)}
           aria-label="Show monsters kept in storage" />
       </div>
-      <div className="filter-group">
+      <div className="filter-group inline">
         <span className="filter-label">Rainbowmons</span>
         <input type="checkbox" className="filter-checkbox" checked={showRainbowmons}
           onChange={(event) => setShowRainbowmons(event.target.checked)}

@@ -178,69 +178,56 @@ export function ArtifactList({ game, monsters, preferences }: {
     </th>;
   };
 
+  /* Five of the seven groups are the same shape — a heading, then one toggle
+     per option — so they are written once and given their options. */
+  const toggleGroup = <T extends string>(
+    label: string, description: string, options: readonly T[],
+    selected: T[], set: (update: (current: T[]) => T[]) => void,
+    display: (option: T) => string,
+  ) => <div className="filter-group" role="group" aria-label={description}>
+    <span className="filter-label">{label}</span>
+    <div className="filter-group-controls">
+      {options.map((option) => <button
+        key={option}
+        className={selected.includes(option) ? 'filter-button active' : 'filter-button'}
+        onClick={() => toggle(option, set)}
+        aria-pressed={selected.includes(option)}
+      >{display(option)}</button>)}
+    </div>
+  </div>;
+  const abbreviate = (option: string) => option.slice(0, 3).toUpperCase();
+
   return <>
     <div className="filter-strip">
       <div className="filter-group">
-        <div className="search-field">
-          <span aria-hidden="true">⌕</span>
-          <input value={search} onChange={(event) => setSearch(event.target.value)}
-            placeholder="Filter artifacts" aria-label="Filter artifacts by monster or property" />
-          <button className="filter-button" onClick={() => setSearch('')}
-            hidden={!search} disabled={!search} aria-label="Clear filter">✕</button>
+        <span className="filter-label">Search</span>
+        <div className="filter-group-controls">
+          <div className="search-field">
+            <span aria-hidden="true">⌕</span>
+            <input value={search} onChange={(event) => setSearch(event.target.value)}
+              placeholder="Filter artifacts" aria-label="Filter artifacts by monster or property" />
+            <button className="filter-button" onClick={() => setSearch('')}
+              hidden={!search} disabled={!search} aria-label="Clear filter">✕</button>
+          </div>
         </div>
       </div>
-      <div className="filter-group" role="group" aria-label="Filter by artifact type">
-        <span className="filter-label">Type</span>
-        {categoryOrder.map((category) => <button
-          key={category}
-          className={selectedCategories.includes(category) ? 'filter-button active' : 'filter-button'}
-          onClick={() => toggle(category, setSelectedCategories)}
-          aria-pressed={selectedCategories.includes(category)}
-        >{artifactCategoryLabels[category]}</button>)}
-      </div>
-      <div className="filter-group" role="group" aria-label="Filter by element">
-        <span className="filter-label">Element</span>
-        {classOptions.attribute.map((equipClass) => <button
-          key={equipClass}
-          className={selectedClasses.includes(equipClass) ? 'filter-button active' : 'filter-button'}
-          onClick={() => toggle(equipClass, setSelectedClasses)}
-          aria-pressed={selectedClasses.includes(equipClass)}
-        >{equipClass.slice(0, 3).toUpperCase()}</button>)}
-      </div>
-      <div className="filter-group" role="group" aria-label="Filter by monster type">
-        <span className="filter-label">Archetype</span>
-        {classOptions.type.map((equipClass) => <button
-          key={equipClass}
-          className={selectedClasses.includes(equipClass) ? 'filter-button active' : 'filter-button'}
-          onClick={() => toggle(equipClass, setSelectedClasses)}
-          aria-pressed={selectedClasses.includes(equipClass)}
-        >{equipClass.slice(0, 3).toUpperCase()}</button>)}
-      </div>
-      <div className="filter-group" role="group" aria-label="Filter by quality">
-        <span className="filter-label">Quality</span>
-        {artifactGradeOrder.map((grade) => <button
-          key={grade}
-          className={selectedGrades.includes(grade) ? 'filter-button active' : 'filter-button'}
-          onClick={() => toggle(grade, setSelectedGrades)}
-          aria-pressed={selectedGrades.includes(grade)}
-        >{grade.slice(0, 3).toUpperCase()}</button>)}
-      </div>
-      <div className="filter-group" role="group" aria-label="Filter by main stat">
-        <span className="filter-label">Main stat</span>
-        {artifactMainPropertyOrder.map((property) => <button
-          key={property}
-          className={selectedMainProperties.includes(property) ? 'filter-button active' : 'filter-button'}
-          onClick={() => toggle(property, setSelectedMainProperties)}
-          aria-pressed={selectedMainProperties.includes(property)}
-        >{property}</button>)}
-      </div>
-      <div className="filter-group">
+      {toggleGroup('Type', 'Filter by artifact type', categoryOrder,
+        selectedCategories, setSelectedCategories, (category) => artifactCategoryLabels[category])}
+      {toggleGroup('Element', 'Filter by element', classOptions.attribute,
+        selectedClasses, setSelectedClasses, abbreviate)}
+      {toggleGroup('Archetype', 'Filter by monster type', classOptions.type,
+        selectedClasses, setSelectedClasses, abbreviate)}
+      {toggleGroup('Quality', 'Filter by quality', artifactGradeOrder,
+        selectedGrades, setSelectedGrades, abbreviate)}
+      {toggleGroup('Main stat', 'Filter by main stat', artifactMainPropertyOrder,
+        selectedMainProperties, setSelectedMainProperties, (property) => property)}
+      <div className="filter-group inline">
         <span className="filter-label">Equipped</span>
         <input type="checkbox" className="filter-checkbox" checked={showEquipped}
           onChange={(event) => setShowEquipped(event.target.checked)}
           aria-label="Show artifacts a monster is wearing" />
       </div>
-      <div className="filter-group">
+      <div className="filter-group inline">
         <span className="filter-label">Inventory</span>
         <input type="checkbox" className="filter-checkbox" checked={showInventory}
           onChange={(event) => setShowInventory(event.target.checked)}
