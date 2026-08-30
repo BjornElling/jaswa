@@ -12,16 +12,40 @@ export function formatDateTime(value: string | undefined, settings: GeneralSetti
   if (!value) return 'Never';
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return 'an unknown time';
-  return new Intl.DateTimeFormat(dateLocale(settings), {
+  const options: Intl.DateTimeFormatOptions = {
     dateStyle: 'medium',
     timeStyle: 'short',
-    timeZone: formattingTimeZone(settings),
     hour12: formattingHour12(settings),
-  }).format(parsed);
+  };
+  const zone = formattingTimeZone(settings);
+  try {
+    return new Intl.DateTimeFormat(dateLocale(settings), { ...options, timeZone: zone }).format(parsed);
+  } catch {
+    /* The zone is the one part of this that a hand-edited .sw file can make
+       unusable — a name valid in the browser that wrote the file need not
+       exist in the one reading it. The time is still worth showing, so it is
+       written in the computer's own zone rather than lost with the setting. */
+    try {
+      return new Intl.DateTimeFormat(dateLocale(settings), options).format(parsed);
+    } catch {
+      return 'an unknown time';
+    }
+  }
 }
 
 export function formatNumber(value: number | null, settings: GeneralSettings): string {
-  return value === null ? '—' : value.toLocaleString(numberLocale(settings));
+  /* NaN and Infinity read as "NaN" and "∞" on screen, which tell the user
+     nothing and are the shape of a bug rather than of a figure. They mean the
+     same thing to a reader as a value that was never set, so they are shown
+     the same way. */
+  if (value === null || !Number.isFinite(value)) return '—';
+  /* Guarded for the same reason the date is: a formatter is being handed a
+     locale, and nothing on the page is worth a blank workspace. */
+  try {
+    return value.toLocaleString(numberLocale(settings));
+  } catch {
+    return String(value);
+  }
 }
 
 export function downloadJson(filename: string, content: string): void {

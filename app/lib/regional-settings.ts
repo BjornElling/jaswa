@@ -36,7 +36,7 @@ const americanDateLocale = 'en-US';
  * the caller gets UTC rather than a formatter that throws on every date.
  */
 export function systemTimeZone(): string {
-  return new Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  return readSystem(() => new Intl.DateTimeFormat().resolvedOptions().timeZone) || 'UTC';
 }
 
 /**
@@ -85,21 +85,28 @@ export type TimeZoneOption = { zone: string; label: string };
  * blank, hiding a setting the user did choose.
  */
 export function availableTimeZones(at: Date = new Date(), include?: string): TimeZoneOption[] {
-  const listed = typeof Intl.supportedValuesOf === 'function'
+  /* supportedValuesOf is absent before 2022 and can throw on an engine built
+     without the zone database, which is the same situation as not having it. */
+  const listed = readSystem(() => (typeof Intl.supportedValuesOf === 'function'
     ? Intl.supportedValuesOf('timeZone')
-    : [systemTimeZone()];
+    : undefined)) ?? [];
   const zones = include && isTimeZone(include) && !listed.includes(include)
     ? [...listed, include]
     : listed;
-  return zones
+  /* An empty list would leave the select with nothing to show and no way back
+     to a working setting; the computer's own zone is always something. */
+  const complete = zones.length > 0 ? zones : [systemTimeZone()];
+  return complete
     .map((zone) => {
       const offset = gmtOffset(zone, at);
       return { zone, offset, label: offset ? `${zone} (${offset})` : zone };
     })
     .sort((left, right) => offsetMinutes(left.offset) - offsetMinutes(right.offset)
       /* Ties keep alphabetical order so the list does not reshuffle between
-         browsers that enumerate the zone database differently. */
-      || left.zone.localeCompare(right.zone))
+         browsers that enumerate the zone database differently. localeCompare
+         is given no locale of its own: these are ASCII identifiers, and a
+         collator built for a broken one would throw on every comparison. */
+      || (left.zone < right.zone ? -1 : left.zone > right.zone ? 1 : 0))
     .map(({ zone, label }) => ({ zone, label }));
 }
 
@@ -144,14 +151,28 @@ export function isGeneralSettings(value: unknown): value is GeneralSettings {
  * names. The locale's own grouping is not carried over: fr-FR and sv-SE group
  * with spaces, de-CH with apostrophes, and en-IN by lakh as 12,34,567.89 —
  * none of which is either option JASWA offers.
+ *
+ * A comma decimal is not always U+002C: Arabic writes ١٫٥ with U+066B, and
+ * Persian uses U+066B too. Both are the comma convention and must not fall
+ * through to the American branch on the strength of their code point.
  */
 function systemWritesCommaDecimal(): boolean {
-  const decimal = new Intl.NumberFormat(undefined).formatToParts(1.5)
-    .find((part) => part.type === 'decimal')?.value;
-  /* No decimal part means the format cannot be read for its convention; the
-     European form is the wider of the two, so it is the safer fallback. */
-  return decimal === undefined || decimal === ',';
+  const decimal = readSystem(
+    () => new Intl.NumberFormat(undefined).formatToParts(1.5)
+      .find((part) => part.type === 'decimal')?.value,
+  );
+  /* Unreadable means undecided, and the comma convention is the wider of the
+     two, so it is the safer of them to land on. */
+  if (typeof decimal !== 'string') return true;
+  return commaDecimals.has(decimal) || !periodDecimals.has(decimal);
 }
+
+/* The decimal marks in use, by the convention each belongs to. Both sets are
+   listed rather than testing for one and assuming the other, so a mark in
+   neither is treated as undecided and takes the fallback. U+066B is the Arabic
+   decimal separator; the fullwidth forms appear in CJK locales. */
+const commaDecimals = new Set([',', '٫', '，']);
+const periodDecimals = new Set(['.', '․', '．']);
 
 /**
  * The locale numbers are written with. Like `dateLocale` this never returns
@@ -162,6 +183,24 @@ export function numberLocale(settings: GeneralSettings): string {
   if (settings.numberFormat === 'european') return europeanNumberLocale;
   if (settings.numberFormat === 'american') return americanNumberLocale;
   return systemWritesCommaDecimal() ? europeanNumberLocale : americanNumberLocale;
+}
+
+/**
+ * Reads one fact about this computer, or reports that it could not be read.
+ *
+ * Everything the derivations ask Intl can fail on a machine JASWA has never
+ * seen: a malformed locale tag raises a RangeError, and an engine with a
+ * trimmed-down Intl — some embedded and locale-stripped builds ship one —
+ * raises a TypeError on a method that is not there. Neither is worth a broken
+ * page, because there is always a sound answer to fall back to: the setting is
+ * a two-way choice, and both ways are formats JASWA can write.
+ */
+function readSystem<T>(read: () => T | undefined): T | undefined {
+  try {
+    return read();
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -178,13 +217,17 @@ export function numberLocale(settings: GeneralSettings): string {
  * two-way split: those readers expect the month first.
  */
 function systemWritesDayFirst(): boolean {
-  const parts = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).formatToParts(new Date());
-  const day = parts.findIndex((part) => part.type === 'day');
-  const month = parts.findIndex((part) => part.type === 'month');
-  /* A format missing either field cannot be read for order; the European form
-     is the wider convention, so it is the safer of the two to fall back to. */
-  if (day < 0 || month < 0) return true;
-  return day < month;
+  const order = readSystem(() => {
+    const parts = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).formatToParts(new Date());
+    const day = parts.findIndex((part) => part.type === 'day');
+    const month = parts.findIndex((part) => part.type === 'month');
+    /* A format naming neither field cannot be read for order. Every calendar
+       checked — Buddhist, Japanese, Persian, Hebrew — does name both, but a
+       browser is free to disagree. */
+    return day < 0 || month < 0 ? undefined : day < month;
+  });
+  /* Undecided lands on the day-first form, the wider of the two conventions. */
+  return order ?? true;
 }
 
 /**
@@ -226,12 +269,28 @@ const sampleInstant = new Date('2026-08-30T15:04:00Z');
  * of by what it prints. `system` is included: it renders through the same path
  * with no locale, so its label is this computer's own answer.
  */
+/* A sample that cannot be produced falls back to the plainest true statement
+   about the option rather than to nothing: an option with no label is one the
+   user cannot choose, and the settings page must survive a stored value that
+   this browser dislikes. */
+const numberFallbacks: Record<NumberFormatChoice, string> = {
+  european: '1.234.567,89', american: '1,234,567.89', system: '1.234.567,89',
+};
+const dateFallbacks: Record<DateOrderChoice, string> = {
+  european: '30. aug. 2026', american: 'Aug 30, 2026', system: '30. aug. 2026',
+};
+const clockFallbacks: Record<HourCycleChoice, string> = {
+  h23: '17.04', h12: '5:04 PM', system: '17.04',
+};
+
 export function numberSample(choice: NumberFormatChoice): string {
-  return sampleNumber.toLocaleString(numberLocale({ ...blankNumberOnly(), numberFormat: choice }));
+  return readSystem(() => sampleNumber.toLocaleString(numberLocale({ ...blankNumberOnly(), numberFormat: choice })))
+    ?? numberFallbacks[choice];
 }
 
 export function dateSample(choice: DateOrderChoice, at: Date = sampleInstant): string {
-  return new Intl.DateTimeFormat(dateLocale({ ...blankNumberOnly(), dateOrder: choice }), { dateStyle: 'medium' }).format(at);
+  return readSystem(() => new Intl.DateTimeFormat(dateLocale({ ...blankNumberOnly(), dateOrder: choice }), { dateStyle: 'medium' }).format(at))
+    ?? dateFallbacks[choice];
 }
 
 /**
@@ -240,11 +299,17 @@ export function dateSample(choice: DateOrderChoice, at: Date = sampleInstant): s
  * the locale, so the sample has to be taken in it to be honest.
  */
 export function clockSample(choice: HourCycleChoice, settings: GeneralSettings, at: Date = sampleInstant): string {
-  return new Intl.DateTimeFormat(dateLocale(settings), {
+  const withZone = (zone: string | undefined) => new Intl.DateTimeFormat(dateLocale(settings), {
     timeStyle: 'short',
-    timeZone: formattingTimeZone(settings),
+    timeZone: zone,
     hour12: formattingHour12({ ...settings, hourCycle: choice }),
   }).format(at);
+  /* A stored zone this browser does not know must not cost the user the whole
+     settings page, so the sample falls back to the computer's own zone — the
+     same thing the app itself does when it comes to write a real time. */
+  return readSystem(() => withZone(formattingTimeZone(settings)))
+    ?? readSystem(() => withZone(undefined))
+    ?? clockFallbacks[choice];
 }
 
 /* The samples vary one field at a time, so they need a settings object that is
