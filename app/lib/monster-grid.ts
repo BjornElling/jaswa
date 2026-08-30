@@ -33,6 +33,7 @@ export type MonsterRow = {
   ehp: number | null;
   ehpD: number | null;
   dmg: number | null;
+  isRainbowmon: boolean;
 };
 
 export const monsterArchetypeLabels: Record<MonsterArchetype, string> = {

@@ -60,6 +60,7 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
   /* The roster reads as the whole account by default; storage is a place a
      monster sits, not a reason to hide it. */
   const [showStorage, setShowStorage] = useState(true);
+  const [showRainbowmons, setShowRainbowmons] = useState(false);
   const stickyHeaderTable = useRef<HTMLTableElement>(null);
   const rosterTable = useRef<HTMLTableElement>(null);
 
@@ -116,6 +117,7 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
         ehp: hp === null || def === null ? null : displayRunePotentialMetric(metrics.ehp),
         ehpD: hp === null || def === null ? null : displayRunePotentialMetric(metrics.ehpD),
         dmg: atk === null || criticalRate === null || criticalDamage === null ? null : displayRunePotentialMetric(metrics.dmg),
+        isRainbowmon: display.name === 'Rainbowmon',
       };
     });
   }, [monsters, preferences]);
@@ -129,6 +131,7 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
     const term = search.trim().toLowerCase();
     const filtered = rows.filter((row) => {
       if (!showStorage && row.inStorage) return false;
+      if (!showRainbowmons && row.isRainbowmon) return false;
       if (selectedElements.length && (!row.element || !selectedElements.includes(row.element))) return false;
       if (selectedArchetypes.length && (!row.archetype || !selectedArchetypes.includes(row.archetype))) return false;
       if (!term) return true;
@@ -151,7 +154,7 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
       }
       return compareNumbersWithBlanks(left[key], right[key], direction) || left.index - right.index;
     });
-  }, [rows, search, selectedElements, selectedArchetypes, showStorage, sort]);
+  }, [rows, search, selectedElements, selectedArchetypes, showStorage, showRainbowmons, sort]);
 
   function toggleSort(key: SortKey) {
     setSort((current) => current.key === key
@@ -228,6 +231,12 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
         <input type="checkbox" className="filter-checkbox" checked={showStorage}
           onChange={(event) => setShowStorage(event.target.checked)}
           aria-label="Show monsters kept in storage" />
+      </div>
+      <div className="filter-group">
+        <span className="filter-label">Rainbowmons</span>
+        <input type="checkbox" className="filter-checkbox" checked={showRainbowmons}
+          onChange={(event) => setShowRainbowmons(event.target.checked)}
+          aria-label="Show Rainbowmons" />
       </div>
       <span className="monster-filter-count"><b>{visible.length}</b> of {rows.length} shown</span>
     </div>
