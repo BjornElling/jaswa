@@ -51,15 +51,26 @@ server.**
 
 - Do not start, stop, replace, or take ownership of the development server
   unless the user explicitly asks.
-- Codex in VS Code has no usable browser-control surface here. Do not attempt
-  browser, screenshot, click, or visual-interaction verification, and do not
-  report its absence as a blocked check.
+- Use the already running local server for focused visual verification whenever
+  it would materially test a changed interface, layout, interaction, or a
+  visual defect reported by the user. Browser access is available for this
+  purpose; do not infer otherwise from the editor in use.
+- Keep visual verification proportional. Do not inspect every page by ritual
+  after a documentation, data-only, or non-visual change. Do inspect the
+  affected flow when a change could alter rendering, behaviour, layout, focus,
+  state, or user-visible error handling.
+- Work only against the existing local URL. Reuse its browser context, keep a
+  stable viewport when comparing states, and drive the relevant real flow. For
+  a reported visual bug, reproduce it first, make the fix, then repeat the
+  same steps and confirm the result. Compare screenshots before and after an
+  interaction when rule 2 applies.
+- Do not use Sites, a hosted preview, deployment tooling, or any workflow that
+  requests GitHub or hosting credentials merely to preview or verify JASWA.
 - Do not deploy, publish, save a hosted version, obtain hosting credentials,
   or push to a hosting remote unless the user explicitly asks to publish or
   deploy. The presence of `.openai/hosting.json` is not publication approval.
-- When browser verification is useful and an existing local server is
-  available, use that local server. If it cannot be accessed, say so plainly;
-  never substitute a hosted preview.
+- If the local server is unavailable, say so plainly. Do not substitute a
+  hosted preview or start a competing server without the user's direction.
 
 ## 2. Layout must not move under the user
 
@@ -91,13 +102,15 @@ Legitimate movement is movement the user asked for: opening a disclosure,
 adding a preset to a list, filtering rows away. The test is whether the content
 that moved is the content acted upon.
 
-**How to check it:** screenshot the component, interact, screenshot again, and
-compare. Anything that moved and was not the target of the click is a bug.
+**How to check it:** for a layout or interaction change, screenshot the
+component, interact, screenshot again, and compare. Anything that moved and
+was not the target of the click is a bug.
 
 ## 3. Test both extremes of user input
 
-**Every feature is verified with nothing filled in and with everything filled
-in.** Most real bugs live at these two ends, not in the middle.
+**Every feature that changes user-visible behaviour is verified with nothing
+filled in and with everything filled in.** Most real bugs live at these two
+ends, not in the middle.
 
 **Nothing filled in.** No import, no presets, an empty list, a record with only
 a name, every number field blank. Specifically:
@@ -126,9 +139,11 @@ large numbers, many records. Specifically:
 starting values the user may edit or delete. Never assume a field is populated
 because the shipped data populated it.
 
-**Verification is by running the app**, in a browser, driving the real flow —
-not by reading the code and reasoning that it should hold. State plainly what
-was exercised and what the result was. If something was not tested, say so.
+**Verification of visual or interactive changes is by running the app**, in a
+browser, driving the real flow — not by reading the code and reasoning that it
+should hold. State plainly what was exercised and what the result was. For a
+non-visual change, use the smallest relevant automated or structural check and
+state it. If something was not tested, say so.
 
 ## 4. Language
 
@@ -192,9 +207,11 @@ Before reporting a change complete, all of these hold:
 1. `npx tsc --noEmit` is clean.
 2. `npm run lint` is clean — no new warnings, not just no errors.
 3. `npx next build` succeeds.
-4. The app was **run** and the changed flow driven, including the empty case and
-   the full case from rule 3.
-5. Layout was checked against rule 2 by interacting and comparing.
+4. For a visual or interactive change, the app was **run** and the changed flow
+   driven, including the empty case and the full case from rule 3. For a
+   non-visual change, the relevant automated or structural check was run.
+5. For a layout or interaction change, layout was checked against rule 2 by
+   interacting and comparing.
 6. Every added string, comment, and identifier was reviewed against the
    language contract.
 7. The work is committed to `main`.
