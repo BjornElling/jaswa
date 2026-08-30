@@ -72,7 +72,7 @@ async function uninstallHelper() {
 function refreshMenu() {
   const status = helper?.status();
   const error = status?.lastError;
-  const detail = error ? 'Connection needs attention' : status?.profileReady ? `Snapshot ready · ${status.source === 'live' ? 'live sync' : 'game start'}` : 'Waiting for Summoners War';
+  const detail = error ? 'Connection needs attention' : status?.profileReady ? `Snapshot ready · ${status.source === 'live' ? 'live sync' : 'game start'}` : status?.restartRequired ? 'Restart Summoners War to connect' : 'Waiting for Summoners War';
   tray.setToolTip(`JASWA Helper — ${detail}`);
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: 'JASWA Helper', enabled: false },

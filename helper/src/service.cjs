@@ -31,6 +31,14 @@ const fallbackUpstreams = Object.freeze({
   'summonerswar-cn-lb.qpyou.cn': ['34.111.217.241'],
 });
 
+function restartRequired(snapshot, gameRunning, waitingForFreshStart) {
+  return gameRunning && waitingForFreshStart && !snapshot.hasProfile;
+}
+
+function startsWithActiveGame(observedGameProcess, gameRunning, snapshot) {
+  return !observedGameProcess && gameRunning && !snapshot.hasProfile;
+}
+
 async function isAdministrator() {
   try { await run('net.exe', ['session'], { windowsHide: true }); return true; } catch { return false; }
 }
@@ -180,6 +188,8 @@ async function start() {
   let running = true;
   let gameRunning = false;
   let gameCheckFailed = false;
+  let observedGameProcess = false;
+  let waitingForFreshStart = false;
   let gameProcessTimer = null;
   const status = () => {
     const snapshot = profileStore.status();
@@ -190,13 +200,19 @@ async function start() {
        while the game process is alive; a stopped process or proxy fault is a
        real loss of the live link. */
       profileReady: snapshot.hasProfile && gameRunning && !gameCheckFailed && lastError === null && gameProcessError === null,
+      restartRequired: restartRequired(snapshot, gameRunning, waitingForFreshStart),
       lastError: lastError ?? gameProcessError,
     };
   };
   const refreshGameProcess = async () => {
     try {
       const nextGameRunning = await isSummonersWarRunning();
-      if (gameRunning && !nextGameRunning) profileStore.clear();
+      if (startsWithActiveGame(observedGameProcess, nextGameRunning, profileStore.status())) waitingForFreshStart = true;
+      observedGameProcess = true;
+      if (gameRunning && !nextGameRunning) {
+        profileStore.clear();
+        waitingForFreshStart = false;
+      }
       gameRunning = nextGameRunning;
       gameCheckFailed = false;
       gameProcessError = null;
@@ -236,7 +252,10 @@ async function start() {
         if ((requestBodySizes.get(responseContext) ?? 0) > maximumInterceptedBodyBytes || (responseBodySizes.get(responseContext) ?? 0) > maximumInterceptedBodyBytes) throw new Error('The game response was too large to import safely.');
         const request = decodeRequest(Buffer.concat(requestBodies.get(responseContext)).toString('utf8'));
         const response = decodeResponse(Buffer.concat(responseBodies.get(responseContext)).toString('utf8'));
-        if (request.command === 'HubUserLogin' || request.command === 'GuestLogin') profileStore.acceptSnapshot(response);
+        if (request.command === 'HubUserLogin' || request.command === 'GuestLogin') {
+          profileStore.acceptSnapshot(response);
+          waitingForFreshStart = false;
+        }
         else profileStore.applyUpdate(response, request);
         /* A decoded gateway response proves the link recovered. Do not leave a
          * transient proxy error in the tray forever after that proof arrives. */
@@ -319,4 +338,4 @@ async function reportStartupError(error) {
 
 if (require.main === module) start().catch((error) => void reportStartupError(error).finally(() => process.exit(1)));
 
-module.exports = { certificateThumbprint, cleanup, gameProcessPollIntervalMs, maximumInterceptedBodyBytes, removeCertificateDirectory, reportStartupError, resolveGatewayAddresses, start, startupAddresses };
+module.exports = { certificateThumbprint, cleanup, gameProcessPollIntervalMs, maximumInterceptedBodyBytes, removeCertificateDirectory, reportStartupError, restartRequired, resolveGatewayAddresses, start, startsWithActiveGame, startupAddresses };
