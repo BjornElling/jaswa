@@ -72,7 +72,7 @@ export function graphicsCardModel(renderer: string): string | undefined {
 
      Only a backend named at a word boundary *after* the model is dropped. An
      earlier attempt matched "Metal" anywhere and cut Apple's "ANGLE Metal
-     Renderer: Apple M2 Pro" down to "ANGLE", so the pattern requires the version
+     Renderer: Apple M2 Pro" down to "ANGLE", so the pattern requires that text
      or shader levels that follow a real backend name. */
   model = model
     .replace(/\s*\(0x[0-9a-f]+\)/i, '')

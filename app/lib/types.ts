@@ -31,4 +31,4 @@ export type ImportRoute = 'direct' | 'file';
  * program: JASWA supplies a starting set, and after that they are the user's
  * to rename, retune and delete, and they travel with the .sw file.
  */
-export type Preferences = { format: 'jaswa-preferences'; version: 2; updatedAt: string; hardwareAcceleration: boolean; importRoute: ImportRoute; directImportMode: DirectImportMode; monsterPreferences: Record<string, MonsterPreference>; runePotential: RunePotentialSettings; runePotentialPresets: RunePotentialPreset[] };
+export type Preferences = { updatedAt: string; hardwareAcceleration: boolean; importRoute: ImportRoute; directImportMode: DirectImportMode; monsterPreferences: Record<string, MonsterPreference>; runePotential: RunePotentialSettings; runePotentialPresets: RunePotentialPreset[] };

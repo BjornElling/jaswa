@@ -15,9 +15,12 @@ file is corrected.
 **JASWA is under active development and its developer is its only user.**
 
 - Treat every product, architecture, storage, helper, and file-format change as
-  intentionally breaking. Do not preserve, migrate, read, normalize, or
-  otherwise support earlier application state, IndexedDB records, helper data,
-  preference files, or other saved files.
+  intentionally breaking. No earlier application state, IndexedDB records,
+  helper data, preference files, or other saved files exist; do not add code
+  that assumes or supports them.
+- JASWA has one form only: the form being built now. Do not add application
+  version, format-version, schema-version, database-version, or migration
+  fields and do not branch behaviour by an earlier form of data.
 - Design from the best final product, not from the shape of an earlier
   implementation. A cleaner model, API, or file format takes precedence over
   continuity with any existing local data.
@@ -29,7 +32,7 @@ file is corrected.
 
 ---
 
-## 1. Version control
+## 1. Source control
 
 **Commit to `main`. This project does not use branches.**
 
@@ -66,7 +69,7 @@ server.**
   interaction when rule 2 applies.
 - Do not use Sites, a hosted preview, deployment tooling, or any workflow that
   requests GitHub or hosting credentials merely to preview or verify JASWA.
-- Do not deploy, publish, save a hosted version, obtain hosting credentials,
+- Do not deploy, publish, save a hosted build, obtain hosting credentials,
   or push to a hosting remote unless the user explicitly asks to publish or
   deploy. The presence of `.openai/hosting.json` is not publication approval.
 - If the local server is unavailable, say so plainly. Do not substitute a

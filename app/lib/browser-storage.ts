@@ -1,6 +1,6 @@
 import type { ImportedGame, Preferences } from './types';
 
-const databaseName = 'jaswa-local-v2';
+const databaseName = 'jaswa-local';
 const storeName = 'workspace';
 const gameKey = 'imported-game';
 const preferencesKey = 'preferences';

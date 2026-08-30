@@ -3,7 +3,7 @@
 **Status:** Kanonisk beregningskontrakt for `DMG`, `E.HP`, `E.HP D` og `Eff. %`
 i Rune Potential-presets
 **Afhængighed:** `docs/RUNE-POTENTIAL-MATH.md` og `docs/RUNE-CANONICAL.md`  
-**Version:** 1.1 · **kontrolleret:** 23. august 2026
+**Kontrolleret:** 23. august 2026
 
 Dette er det eneste dokument, der fastlægger disse fire metrikker. De bruges
 til at vægte, hvilke stats og Rune Sets en preset finder ønskværdige, når

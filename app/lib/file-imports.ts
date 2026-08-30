@@ -46,8 +46,6 @@ const importRoutes: ImportRoute[] = ['direct', 'file'];
 
 export function blankPreferences(): Preferences {
   return {
-    format: 'jaswa-preferences',
-    version: 2,
     updatedAt: new Date().toISOString(),
     hardwareAcceleration: true,
     importRoute: defaultImportRoute,
@@ -87,12 +85,10 @@ function isMonsterPreferences(value: unknown): value is Record<string, MonsterPr
     && typeof preference.statGoals === 'string');
 }
 
-/** Accept only the current, complete preferences contract. */
-export function isCurrentPreferences(value: unknown): value is Preferences {
+/** Accept only a complete preferences document. */
+export function isValidPreferences(value: unknown): value is Preferences {
   if (!isRecord(value)) return false;
-  return value.format === 'jaswa-preferences'
-    && value.version === 2
-    && typeof value.updatedAt === 'string'
+  return typeof value.updatedAt === 'string'
     && Number.isFinite(Date.parse(value.updatedAt))
     && typeof value.hardwareAcceleration === 'boolean'
     && importRoutes.includes(value.importRoute as ImportRoute)
@@ -157,8 +153,8 @@ function isImportReport(value: unknown): value is ImportReport {
     && Array.isArray(value.unknownMonsterIds) && value.unknownMonsterIds.every((entry) => typeof entry === 'string');
 }
 
-/** Accept only a complete game record written by the current application. */
-export function isCurrentImportedGame(value: unknown): value is ImportedGame {
+/** Accept only a complete game record. */
+export function isValidImportedGame(value: unknown): value is ImportedGame {
   if (!isRecord(value)) return false;
   const helperSession = value.helperSession === undefined || (isRecord(value.helperSession)
     && typeof value.helperSession.instanceId === 'string' && value.helperSession.instanceId.length > 0
@@ -198,6 +194,6 @@ export async function fileToText(file: File): Promise<string> {
 
 export async function importPreferencesFile(file: File): Promise<Preferences> {
   const value = JSON.parse(await fileToText(file)) as unknown;
-  if (!isCurrentPreferences(value)) throw new Error('Invalid JASWA preferences file');
+  if (!isValidPreferences(value)) throw new Error('Invalid JASWA preferences file');
   return { ...value, updatedAt: new Date().toISOString() };
 }

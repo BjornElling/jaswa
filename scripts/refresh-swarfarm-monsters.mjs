@@ -18,7 +18,6 @@ const endpoint = 'https://swarfarm.com/api/v2/monsters/';
 const requestedPageSize = 100;
 const minimumDelayMs = 3_000;
 const maximumSnapshotAgeMs = 7 * 24 * 60 * 60 * 1_000;
-const snapshotSchemaVersion = 5;
 const force = process.argv.includes('--force');
 
 const fields = [
@@ -46,7 +45,7 @@ async function readExistingSnapshot() {
 }
 
 function isFresh(snapshot) {
-  if (!snapshot || snapshot.schemaVersion !== snapshotSchemaVersion || typeof snapshot.retrievedAt !== 'string') return false;
+  if (!snapshot || typeof snapshot.retrievedAt !== 'string') return false;
   const retrievedAt = Date.parse(snapshot.retrievedAt);
   return Number.isFinite(retrievedAt) && Date.now() - retrievedAt < maximumSnapshotAgeMs;
 }
@@ -70,7 +69,7 @@ async function fetchPage(page) {
 
   const payload = await response.json();
   if (!payload || !Array.isArray(payload.results) || !Number.isInteger(payload.count)) {
-    throw new Error('Swarfarm response did not match the expected paginated monster schema. The existing snapshot was kept.');
+    throw new Error('Swarfarm response did not match the expected paginated monster shape. The existing snapshot was kept.');
   }
   return payload;
 }
@@ -111,7 +110,6 @@ async function main() {
   if (duplicateId) throw new Error(`Duplicate com2us_id ${duplicateId.com2us_id} in Swarfarm response. The existing snapshot was kept.`);
 
   await writeSnapshot({
-    schemaVersion: snapshotSchemaVersion,
     source: endpoint,
     retrievedAt: new Date().toISOString(),
     totalCount,

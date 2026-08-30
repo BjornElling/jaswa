@@ -1,7 +1,7 @@
 # Rune-regler — kanonisk specifikation
 
 **Status:** Bindende regelgrundlag for JASWA Rune Potential  
-**Version:** 0.3-draft · **kontrolleret:** 23. august 2026  
+**Kontrolleret:** 23. august 2026
 **Spil:** *Summoners War: Sky Arena* (ikke *Chronicles* eller *Lost Centuria*)
 
 Dette dokument er den kanoniske beskrivelse af spilregler, som Rune Potential
@@ -155,7 +155,7 @@ Property-roll til.
 
 ## 7. 6★ almindelige runer: Sub Property-intervaller
 
-Første Rune Potential-version behandler kun 6★ almindelige runer. Disse
+Rune Potential behandler kun 6★ almindelige runer. Disse
 intervaller for én almindelig 6★ Sub Property-værdi er bekræftet mod
 kildetabellen og støttet af +0-runer i den leverede eksport. De gælder både
 for start-roll og for en senere almindelig power-up-roll.

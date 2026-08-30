@@ -10,7 +10,7 @@ import { DirectImportModeDialog, RemoveGameDataDialog, ReplaceImportDialog, Repo
 import { RunePotentialSection } from './components/rune-potential-section';
 import { UpcomingWorkspace } from './components/upcoming-workspace';
 import { clearImportedGame, loadImportedGame, loadPreferences, saveImportedGame, savePreferences } from './lib/browser-storage';
-import { blankPreferences, createImportedGame, fileToText, importPreferencesFile, isCurrentImportedGame, isCurrentPreferences, validateGameFile } from './lib/file-imports';
+import { blankPreferences, createImportedGame, fileToText, importPreferencesFile, isValidImportedGame, isValidPreferences, validateGameFile } from './lib/file-imports';
 import { checkHelperConnection, readHelperProfile } from './lib/helper-client';
 import type { HelperConnection } from './lib/helper-client';
 import { downloadJson, formatDateTime } from './lib/formatting';
@@ -39,10 +39,10 @@ export default function Home() {
 
   useEffect(() => {
     Promise.all([loadImportedGame(), loadPreferences()]).then(([savedGame, savedPreferences]) => {
-      const currentGame = savedGame && isCurrentImportedGame(savedGame) ? savedGame : null;
-      setGame(currentGame);
-      if (currentGame?.helperSession) appliedHelperSession.current = `${currentGame.helperSession.instanceId}:${currentGame.helperSession.sessionId}`;
-      setPreferences(savedPreferences && isCurrentPreferences(savedPreferences) ? savedPreferences : blankPreferences());
+      const savedCurrentGame = savedGame && isValidImportedGame(savedGame) ? savedGame : null;
+      setGame(savedCurrentGame);
+      if (savedCurrentGame?.helperSession) appliedHelperSession.current = `${savedCurrentGame.helperSession.instanceId}:${savedCurrentGame.helperSession.sessionId}`;
+      setPreferences(savedPreferences && isValidPreferences(savedPreferences) ? savedPreferences : blankPreferences());
     }).catch(() => {
       setPreferences(blankPreferences());
     }).finally(() => setReady(true));

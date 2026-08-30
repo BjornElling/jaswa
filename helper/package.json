@@ -1,6 +1,5 @@
 {
   "name": "jaswa-helper",
-  "version": "0.1.0",
   "private": true,
   "author": "JASWA",
   "description": "Local Steam companion for JASWA.",

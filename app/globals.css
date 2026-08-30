@@ -1512,7 +1512,7 @@ button { cursor: pointer; }
   font-weight: 700; color: var(--gold);
 }
 
-/* empty state — the honest version of a section with no data yet */
+/* empty state — the honest form of a section with no data yet */
 .empty-state {
   border: 1px solid var(--line);
   border-radius: var(--radius);

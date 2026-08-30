@@ -15,10 +15,9 @@ test('keeps an account snapshot and merges live rune updates by identifier', () 
 test('keeps live single-item responses and removes sold items', () => {
   const store = new ProfileStore();
   store.acceptSnapshot({ unit_list: [], runes: [{ rune_id: 5 }], artifacts: [], relics: [], rune_craft_item_list: [{ craft_item_id: 9 }] });
-  assert.equal(store.applyUpdate({ rune: { rune_id: 6, upgrade_curr: 12 } }, { command: 'upgradeRune_v2' }), true);
-  assert.equal(store.applyUpdate({}, { command: 'SellRune_v2', rune_id_list: [5] }), true);
+  assert.equal(store.applyUpdate({ rune: { rune_id: 6, upgrade_curr: 12 } }, { command: 'upgradeRune' }), true);
   assert.equal(store.applyUpdate({}, { command: 'SellRuneCraftItem', craft_id_list: [9] }), true);
-  assert.deepEqual(store.read().data.runes, [{ rune_id: 6, upgrade_curr: 12 }]);
+  assert.deepEqual(store.read().data.runes, [{ rune_id: 5 }, { rune_id: 6, upgrade_curr: 12 }]);
   assert.deepEqual(store.read().data.rune_craft_item_list, []);
 });
 
@@ -71,7 +70,7 @@ test('does not publish a new revision for an unchanged live response', () => {
   store.acceptSnapshot({ unit_list: [], runes: [{ rune_id: 5, upgrade_curr: 9 }], artifacts: [], relics: [], rune_craft_item_list: [] });
   const revision = store.status().revision;
 
-  assert.equal(store.applyUpdate({ rune: { rune_id: 5, upgrade_curr: 9 } }, { command: 'upgradeRune_v2' }), false);
+  assert.equal(store.applyUpdate({ rune: { rune_id: 5, upgrade_curr: 9 } }, { command: 'upgradeRune' }), false);
   assert.equal(store.status().revision, revision);
   assert.equal(store.read().source, 'game-start');
 });

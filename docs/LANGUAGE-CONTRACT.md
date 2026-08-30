@@ -1,7 +1,7 @@
 # Language Contract
 
 **Status:** Binding project rule  
-**Version:** 1.0 · **Reviewed:** August 23, 2026
+**Reviewed:** August 23, 2026
 
 ## Rule
 

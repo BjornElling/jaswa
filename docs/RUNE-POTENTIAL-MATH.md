@@ -2,7 +2,7 @@
 
 **Status:** Bindende arbejdsdokument for Rune Potential  
 **Afhængighed:** `docs/RUNE-CANONICAL.md`  
-**Version:** 0.3-draft · **kontrolleret:** 23. august 2026
+**Kontrolleret:** 23. august 2026
 
 Dette dokument fastlægger beregningen, men ikke spillets regler. Det må kun
 bruge accepterede regeldata fra den kanoniske specifikation og den lokale
@@ -41,7 +41,7 @@ ikke tælles to gange. Main Property og Prefix Property er aktuelle stats, men
 de er ikke Sub Property-rolls. `gemMarker` medfører, at den importerede
 Sub Property er Gem-konverteret; det er inputfakta, ikke en beregnet antagelse.
 
-Version 1 accepterer kun 6★ almindelige runer (`class = 6`) med `rank` 1–5 og
+Rune Potential accepterer kun 6★ almindelige runer (`class = 6`) med `rank` 1–5 og
 `upgrade_curr` 0–15. Alt andet vises med kendte aktuelle data, men uden
 numerisk potentiale. Det gælder især Ancient Runes (`class = 16`), indtil deres
 komplette intervaltabel er verificeret.
