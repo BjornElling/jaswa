@@ -615,7 +615,7 @@ Status is one of **Not started**, **In progress**, **Blocked**, **Done**.
 | 0 | Write and maintain this sprint file | **In progress** | Created in session 1. Updated continuously for the sprint's life. |
 | A1 | Helper "Log all traffic" — tray toggle, off by default, writing decoded exchanges | **Done, proven live** | Session 1. `helper/src/traffic-log.cjs`, wired in `service.cjs`, offered in `tray.cjs`. 7 tests; suite 37/37. Installer rebuilt and verified. Captured 41 real exchanges from a live session. |
 | A2 | Record a log and write the true payload shape into §2a | **Done** | All three panels captured and verified against the screenshots: `getUnitStatsRuneInfo`, `getUnitStatsArtifactInfo`, `getUnitStatsRelicInfo`. Keyed on `unit_master_id`; raw counts, full distributions, one call per panel, three per monster. Rune `effect_id`s match `RUNE-CANONICAL.md` §2 exactly. Outstanding for A3, but not blocking it: the artifact and relic secondary vocabularies, and what `request_type`/`favorite_type` select. |
-| A3 | Design and build the recorded dataset from the observed shape | **Built; collection in progress** | Session 2. `scripts/collect-engraving-statistics.mjs` merges the traffic log into `app/data/engraving-statistics.json` additively and idempotently. Verified against the user's screenshots: every stored count reproduces the displayed percentage exactly. Dates per observation (decision 25). **55 of 1,086 monster types captured** — the rest is the user's clicking, in stages (decision 26), and `--todo` names what is next. |
+| A3 | Design and build the recorded dataset from the observed shape | **Built; collection in progress** | Session 2. `scripts/collect-engraving-statistics.mjs` merges the traffic log into `app/data/engraving-statistics.json` additively and idempotently. Verified against the user's screenshots: every stored count reproduces the displayed percentage exactly. Dates per observation (decision 25). **383 of 1,086 monster types captured (35 %)** — the rest is the user's clicking, in stages (decision 26), and `--todo` names what is next. |
 | 1 | Establish the artifact rules — a canonical document from the game and a real export | **Mostly done** | `docs/ARTIFACT-CANONICAL.md` written in session 1 from the user's rules research, then extended from a second independent specification (decision 8). The *game rules* are recorded. What remains is the **encoding**, listed in its §15: field layout, property IDs, how power-up counts and the conversion slot are stored. That needs a real export. |
 | 2 | Model and read artifacts — types, parsing, validation from `game.data.artifacts` | **Blocked** | Blocked on `ARTIFACT-CANONICAL.md` §15 — the export encoding. The rules it must enforce are already written (§13 validation rules). |
 | 3 | Artifact library — list, sort, filter, empty state | Not started | The first thing the user can see. Sections framed by the shared `Disclosure` (decision 14). |
@@ -1430,3 +1430,27 @@ session, so revisiting a monster costs nothing but time and the merge keeps the
 latest timestamp.
 
 **Not done.** No production code changed beyond the `--todo` ordering.
+
+### Session 2, continued — the dataset reaches a third of the catalog
+
+**Asked.** The user captured a large batch and asked for it to be merged, then
+to pause collection and move on to building the workspace itself.
+
+**Merged.** 1,480 log lines, 392 monster types touched, **383 now complete —
+35 % of the capture list**, from 55 before. 2.36 MB on disk, which puts full
+coverage near the 4.7 MB projected.
+
+**Quality checked rather than counted.** No empty lists and no thin evidence:
+artifact sample sizes run from 275 (Stark, a recent monster) through a median of
+16,302 to 417,100 (Icaru). Nothing in the batch needs recapturing.
+
+**Six outstanding, both familiar cases.** Kaki still carries only its RTA rows,
+and the five Frieren elements are missing relics because recording again stopped
+just after a relic sweep — the log's last line is `24715 Relic` at 14:46:47.
+Same failure mode as the 117xx family, and `--todo` names them first.
+
+**Collection is deliberately paused here**, with the workspace to be built
+against a third of the catalog. Decision 18 is what makes that safe: a monster
+type without a row is not judged rather than judged as zero, so partial coverage
+is the ordinary state the interface must handle well — and building against it
+now means that state gets tested for real rather than assumed away.
