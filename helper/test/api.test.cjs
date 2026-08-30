@@ -1,10 +1,9 @@
 'use strict';
 
 const http = require('node:http');
-const { once } = require('node:events');
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createApi } = require('../src/api.cjs');
+const { createApi, listenApi, PortUnavailableError } = require('../src/api.cjs');
 const { ProfileStore } = require('../src/profile-store.cjs');
 
 function request(server, path, headers = {}) {
@@ -29,7 +28,7 @@ test('allows the profile only to an approved JASWA origin', async () => {
     profileStore: store,
     status: () => ({ running: true, ...store.status(), lastError: null }),
   });
-  await once(server, 'listening');
+  await listenApi(server, 0);
   try {
     const noOrigin = await request(server, '/profile');
     assert.equal(noOrigin.status, 403);
@@ -43,5 +42,20 @@ test('allows the profile only to an approved JASWA origin', async () => {
     assert.deepEqual(JSON.parse(approved.body), { running: true, ...store.status(), lastError: null });
   } finally {
     await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  }
+});
+
+test('reports a taken local port instead of listening silently', async () => {
+  const store = new ProfileStore();
+  const options = { allowedOrigins: new Set(), profileStore: store, status: () => store.status() };
+  const occupied = await listenApi(createApi({ ...options, port: 0 }), 0);
+  const { port } = occupied.address();
+  try {
+    await assert.rejects(
+      listenApi(createApi({ ...options, port }), port),
+      (error) => error instanceof PortUnavailableError && error.message.includes(String(port)),
+    );
+  } finally {
+    await new Promise((resolve, reject) => occupied.close((error) => error ? reject(error) : resolve()));
   }
 });

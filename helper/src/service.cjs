@@ -9,7 +9,7 @@ const path = require('node:path');
 const { execFile } = require('node:child_process');
 const { promisify } = require('node:util');
 const { Proxy } = require('http-mitm-proxy');
-const { createApi } = require('./api.cjs');
+const { createApi, listenApi, PortUnavailableError } = require('./api.cjs');
 const { allowedOrigins, dataDirectory, gatewayHosts, helperPort, proxyPort } = require('./config.cjs');
 const { recordDiagnostic } = require('./diagnostics.cjs');
 const { removeEntries, writeEntries } = require('./hosts.cjs');
@@ -42,6 +42,14 @@ class CertificateInstallationError extends Error {
   constructor(cause) {
     super(`Windows could not install the JASWA Helper certificate: ${cause instanceof Error ? cause.message : String(cause)}`);
     this.name = 'CertificateInstallationError';
+    this.cause = cause;
+  }
+}
+
+class GatewayPortError extends Error {
+  constructor(hostname, cause) {
+    super(`Another program is using port 443 on this computer, so JASWA Helper could not open its local link for ${hostname}. Close web-server software such as IIS or Docker Desktop and start JASWA Helper again.`);
+    this.name = 'GatewayPortError';
     this.cause = cause;
   }
 }
@@ -141,7 +149,15 @@ async function startGatewayBridge(hostname, address) {
     gameSocket.on('error', closeBoth); proxySocket.on('error', closeBoth);
   });
   await new Promise((resolve, reject) => {
-    const onError = (error) => { server.off('listening', onListening); reject(error); };
+    const onError = (error) => {
+      server.off('listening', onListening);
+      /* Something already owns port 443 on this loopback address — IIS, Docker
+         or another proxy binding every interface. Say so plainly, because the
+         raw errno tells the player nothing about what to close. */
+      reject(error?.code === 'EADDRINUSE' || error?.code === 'EACCES'
+        ? new GatewayPortError(hostname, error)
+        : error);
+    };
     const onListening = () => { server.off('error', onError); resolve(); };
     server.once('error', onError);
     server.once('listening', onListening);
@@ -151,8 +167,11 @@ async function startGatewayBridge(hostname, address) {
   return server;
 }
 
+/* The helper always runs elevated, so "-user" would trust the CA for whichever
+   account answered the UAC prompt — not necessarily the one playing the game.
+   The machine store is the only one that reliably covers the real player. */
 async function installCertificate(certificatePath) {
-  await run('certutil.exe', ['-user', '-addstore', '-f', 'Root', certificatePath], { windowsHide: true });
+  await run('certutil.exe', ['-addstore', '-f', 'Root', certificatePath], { windowsHide: true });
 }
 
 async function certificateThumbprint(certificatePath) {
@@ -160,8 +179,15 @@ async function certificateThumbprint(certificatePath) {
   return crypto.createHash('sha1').update(certificate.raw).digest('hex').toUpperCase();
 }
 
+/* Earlier builds trusted the CA per user. Clear both stores so upgrading and
+   then uninstalling never strands a trusted certificate on the machine. */
 async function removeCertificate(thumbprint) {
-  await run('certutil.exe', ['-user', '-silent', '-delstore', 'Root', thumbprint], { windowsHide: true });
+  const failures = [];
+  for (const scope of [[], ['-user']]) {
+    try { await run('certutil.exe', [...scope, '-silent', '-delstore', 'Root', thumbprint], { windowsHide: true }); }
+    catch (error) { failures.push(error); }
+  }
+  if (failures.length === 2) throw failures[0];
 }
 
 async function removeCertificateDirectory(certificatePath) {
@@ -174,11 +200,34 @@ async function removeCertificateDirectory(certificatePath) {
   }
 }
 
-async function cleanup({ removeCertificate: shouldRemoveCertificate = false, platform = process.platform, certificatePath = path.join(dataDirectory(), 'certificates', 'certs', 'ca.pem'), removeHostEntries = removeEntries, execute = run, removeCertificateAt = removeCertificateDirectory } = {}) {
+/* Antivirus and other scanners take brief exclusive locks on the hosts file.
+   A single failed attempt would leave the game pointed at loopback, so retry
+   before reporting, and always record what happened. */
+async function releaseHostEntries({ attempts = 4, pause = wait, record = recordDiagnostic, removeHostEntries = removeEntries, execute = run } = {}) {
+  let failure;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await removeHostEntries();
+      try { await execute('ipconfig.exe', ['/flushdns'], { windowsHide: true }); }
+      catch { /* Stale DNS resolves to the entries that are already gone. */ }
+      return true;
+    } catch (error) {
+      failure = error;
+      if (attempt < attempts) await pause(400);
+    }
+  }
+  await record('hosts cleanup failure', failure);
+  return false;
+}
+
+async function cleanup({ removeCertificate: shouldRemoveCertificate = false, platform = process.platform, certificatePath = path.join(dataDirectory(), 'certificates', 'certs', 'ca.pem'), removeHostEntries = removeEntries, execute = run, pause = wait, record = recordDiagnostic, removeCertificateAt = removeCertificateDirectory } = {}) {
   if (platform !== 'win32') return;
   const failures = [];
-  try { await removeHostEntries(); await execute('ipconfig.exe', ['/flushdns'], { windowsHide: true }); }
-  catch (error) { failures.push(error); }
+  /* Uninstalling is the last chance to remove the block. Retry through a
+     transient lock rather than leaving the game unable to reach its servers. */
+  try {
+    if (!await releaseHostEntries({ removeHostEntries, execute, pause, record })) throw new Error('The temporary gateway rules could not be removed from the hosts file.');
+  } catch (error) { failures.push(error); }
   if (shouldRemoveCertificate) {
     try { await removeCertificateAt(certificatePath); }
     catch (error) { failures.push(error); }
@@ -314,8 +363,11 @@ async function start({ confirmCertificateInstallation = async () => true } = {})
     await writeEntries();
     hostsInstalled = true;
     await run('ipconfig.exe', ['/flushdns'], { windowsHide: true });
+    await listenApi(api, helperPort);
     createdCertificate = !certificateAlreadyExists;
-    await new Promise((resolve, reject) => proxy.listen({ host: '127.0.0.1', port: proxyPort, sslCaDir: certificateDirectory, httpsAgent: upstreamAgent }, (error) => error ? reject(error) : resolve()));
+    await new Promise((resolve, reject) => proxy.listen({ host: '127.0.0.1', port: proxyPort, sslCaDir: certificateDirectory, httpsAgent: upstreamAgent }, (error) => error
+      ? reject(error?.code === 'EADDRINUSE' || error?.code === 'EACCES' ? new PortUnavailableError(proxyPort, error) : error)
+      : resolve()));
     /* Adding the same certificate to a Windows store is idempotent. This also
        restores trust if the user kept JASWA's local CA file but removed its
        matching root-store entry outside the helper. */
@@ -344,7 +396,11 @@ async function start({ confirmCertificateInstallation = async () => true } = {})
     for (const bridge of bridges) bridge.close();
     proxy.close(); api.close();
     if (hostsInstalled) {
-      try { await removeEntries(); await run('ipconfig.exe', ['/flushdns'], { windowsHide: true }); } catch (error) { console.error(`Could not remove the temporary gateway rules: ${error.message}`); }
+      /* Leaving the block behind points the game's servers at loopback with no
+         proxy answering, which breaks Summoners War until it is removed. An
+         antivirus scanner briefly locking the hosts file is the common cause,
+         so retry before giving up, and leave a record either way. */
+      await releaseHostEntries();
     }
   };
   process.once('SIGINT', () => void stop().finally(() => process.exit(0)));
@@ -364,4 +420,4 @@ async function reportStartupError(error) {
 
 if (require.main === module) start().catch((error) => void reportStartupError(error).finally(() => process.exit(1)));
 
-module.exports = { AdministratorPermissionError, CertificateInstallationDeclinedError, CertificateInstallationError, certificateThumbprint, cleanup, gameProcessPollIntervalMs, maximumInterceptedBodyBytes, removeCertificateDirectory, reportStartupError, restartRequired, resolveGatewayAddresses, start, startsWithActiveGame, startupAddresses };
+module.exports = { AdministratorPermissionError, CertificateInstallationDeclinedError, CertificateInstallationError, GatewayPortError, PortUnavailableError, certificateThumbprint, cleanup, gameProcessPollIntervalMs, maximumInterceptedBodyBytes, releaseHostEntries, removeCertificateDirectory, reportStartupError, restartRequired, resolveGatewayAddresses, start, startsWithActiveGame, startupAddresses };

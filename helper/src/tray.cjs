@@ -5,7 +5,7 @@ const path = require('node:path');
 const { app, dialog, Menu, nativeImage, shell, Tray } = require('electron');
 const { serializeProfile, suggestedExportPath, withJsonExtension } = require('./profile-export.cjs');
 const { diagnosticPath, recordDiagnostic } = require('./diagnostics.cjs');
-const { AdministratorPermissionError, CertificateInstallationDeclinedError, CertificateInstallationError, cleanup, reportStartupError, start } = require('./service.cjs');
+const { AdministratorPermissionError, CertificateInstallationDeclinedError, CertificateInstallationError, GatewayPortError, PortUnavailableError, cleanup, reportStartupError, start } = require('./service.cjs');
 const { setStartsWithWindows, startsWithWindows } = require('./startup.cjs');
 
 let helper;
@@ -109,6 +109,8 @@ async function showStartupFailure(error) {
     dialog.showErrorBox('Certificate installation was cancelled', `JASWA Helper cannot run without its local certificate, so setup stopped before the helper could appear in the taskbar. Run the JASWA Helper installer again and choose Install certificate.\n\nDetails were saved locally in:\n\n${diagnosticPath()}`);
   } else if (error instanceof CertificateInstallationError) {
     dialog.showErrorBox('Could not install the JASWA Helper certificate', `JASWA Helper cannot run without its local certificate, so setup stopped before the helper could appear in the taskbar.\n\n${detail}\n\nDetails were saved locally in:\n\n${diagnosticPath()}`);
+  } else if (error instanceof GatewayPortError || error instanceof PortUnavailableError) {
+    dialog.showErrorBox('A local port is already in use', `${detail}\n\nClose the other program and open JASWA Helper from the Start menu again.\n\nDetails were saved locally in:\n\n${diagnosticPath()}`);
   } else {
     dialog.showErrorBox('JASWA Helper could not start', `The helper stopped before it could appear in the taskbar.\n\n${detail}\n\nDetails were saved locally in:\n\n${diagnosticPath()}`);
   }
@@ -149,11 +151,35 @@ async function handleRuntimeFailure(kind, error) {
   }
 }
 
+/* Cleanup is a one-shot command the installer and uninstaller run, sometimes
+   while a helper is still live. It must never take or wait for the lock. */
+const cleanupRequested = process.argv.includes('--jaswa-cleanup');
+/* Two helpers would fight over the hosts file and the local ports, and the
+   loser used to linger as a broken tray icon. Hand the request to the instance
+   that is already running instead.
+
+   Electron scopes this lock per user, and elevation moves the relaunch into the
+   administrator's session, so the lock cannot span the UAC step. The elevated
+   instance is the one that keeps running, so it is the one that takes the lock;
+   the unelevated launcher only survives until UAC is answered and would
+   otherwise deny its own elevated continuation. */
+const elevatedRelaunch = process.argv.some((argument) => argument.startsWith('--jaswa-upstream-map='));
+if (!cleanupRequested && !app.requestSingleInstanceLock() && !elevatedRelaunch) app.exit(0);
+
+app.on('second-instance', (_event, argv) => {
+  if (argv.includes('--jaswa-installed')) void showInstallationSuccess();
+  else void shell.openExternal('http://localhost:3000');
+});
+
 app.whenReady().then(async () => {
   app.setAppUserModelId('dk.jaswa.helper');
-  if (process.argv.includes('--jaswa-cleanup')) {
-    await cleanup({ removeCertificate: process.argv.includes('--jaswa-remove-certificate') });
-    return app.quit();
+  if (cleanupRequested) {
+    /* The installer and uninstaller wait on this run and have no interface for
+       a dialog. Record what failed and exit non-zero rather than blocking
+       setup behind a message box nobody is watching for. */
+    try { await cleanup({ removeCertificate: process.argv.includes('--jaswa-remove-certificate') }); }
+    catch (error) { await recordDiagnostic('cleanup failure', error); return app.exit(1); }
+    return app.exit(0);
   }
   helper = await start({ confirmCertificateInstallation });
   if (helper.elevationRequested) return app.quit();
