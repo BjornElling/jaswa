@@ -615,7 +615,7 @@ Status is one of **Not started**, **In progress**, **Blocked**, **Done**.
 | 0 | Write and maintain this sprint file | **In progress** | Created in session 1. Updated continuously for the sprint's life. |
 | A1 | Helper "Log all traffic" — tray toggle, off by default, writing decoded exchanges | **Done, proven live** | Session 1. `helper/src/traffic-log.cjs`, wired in `service.cjs`, offered in `tray.cjs`. 7 tests; suite 37/37. Installer rebuilt and verified. Captured 41 real exchanges from a live session. |
 | A2 | Record a log and write the true payload shape into §2a | **Done** | All three panels captured and verified against the screenshots: `getUnitStatsRuneInfo`, `getUnitStatsArtifactInfo`, `getUnitStatsRelicInfo`. Keyed on `unit_master_id`; raw counts, full distributions, one call per panel, three per monster. Rune `effect_id`s match `RUNE-CANONICAL.md` §2 exactly. Outstanding for A3, but not blocking it: the artifact and relic secondary vocabularies, and what `request_type`/`favorite_type` select. |
-| A3 | Design and build the recorded dataset from the observed shape | **Built; collection in progress** | Session 2. `scripts/collect-engraving-statistics.mjs` merges the traffic log into `app/data/engraving-statistics.json` additively and idempotently. Verified against the user's screenshots: every stored count reproduces the displayed percentage exactly. Dates per observation (decision 25). **383 of 1,086 monster types captured (35 %)** — the rest is the user's clicking, in stages (decision 26), and `--todo` names what is next. |
+| A3 | Design and build the recorded dataset from the observed shape | **Built; collection in progress** | Session 2. `scripts/collect-engraving-statistics.mjs` merges the traffic log into `app/data/engraving-statistics.json` additively and idempotently. Verified against the user's screenshots: every stored count reproduces the displayed percentage exactly. Dates per observation (decision 25). **393 of 1,086 monster types captured (36 %), none part-captured** — the rest is the user's clicking, in stages (decision 26), and `--todo` names what is next. |
 | 1 | Establish the artifact rules — a canonical document from the game and a real export | **Done** | `docs/ARTIFACT-CANONICAL.md`. The *rules* were written in session 1; the **encoding** was settled in session 2 against 1,785 real artifact records found in the traffic log (§15). Five of its six open questions are closed and §5.3's pending verification is discharged. Three narrow fields stay pending and may not be computed from. |
 | 2 | Model and read artifacts — types, parsing, validation from `game.data.artifacts` | **Unblocked, not started** | §15 answers what blocked it. The record shape, the property vocabulary and its category split, the power-up encoding and its grade invariant, and the conversion slot are all verified. `equipmentPrimaryTypes` and `addArtifactMainEffect` were confirmed correct, so the existing footholds extend rather than get replaced (Q6). Validation rules are in `ARTIFACT-CANONICAL.md` §13. |
 | 3 | Artifact library — list, sort, filter, empty state | Not started | The first thing the user can see. Sections framed by the shared `Disclosure` (decision 14). |
@@ -1510,3 +1510,28 @@ present — `0.6000000000000001` is in the data. §9's "store hundredths of a
 percent, never floats" is not a stylistic preference.
 
 **Not done.** No production code changed. Step 2 is unblocked but unstarted.
+
+### Session 2, continued — the outstanding six closed
+
+**Asked.** The user re-visited the monsters `--todo` had named and asked for
+another merge. (Kahli first, on a misreading of the list; then Kaki.)
+
+**Merged, and the backlog is empty.** 393 of 1,086 monster types complete —
+**and for the first time nothing is part-captured.** Every type the dataset
+holds now carries all three panels.
+
+- The five **Frieren** elements gained their missing relic panel.
+- **Kaki** was recaptured from the ordinary monster list, so its PvE rows
+  replaced the RTA-only ones decision 22 had been rejecting — 190,138
+  observations where there had been none usable. The whole 251xx family came
+  with it, Suiki through Ongyouki.
+
+**Checked rather than counted, again.** No empty lists and no panel under 50
+observations anywhere in the file. Sample sizes on the new rows run from 303
+(Frieren Dark, a very recent monster) to 190,138.
+
+**What the two rounds of gap-filling confirm about the workflow.** Both gaps
+came from the same two causes the earlier entries named — recording stopped
+mid-family, and a monster opened inside RTA — and both were closed by exactly
+the work `--todo` described, with no hunting. The part-captured-first ordering
+is doing its job.
