@@ -537,6 +537,9 @@ button { cursor: pointer; }
    acceptable lines in full ink, and leaves every other line faint. */
 .artifact-subs li.artifact-sub-preferred { color: var(--gold); }
 .artifact-subs li.artifact-sub-acceptable { color: var(--ink); }
+.artifact-grid td.artifact-main-unwanted { color: var(--faint); }
+.artifact-grid td.artifact-main-preferred { color: var(--gold); }
+.artifact-grid td.artifact-main-acceptable { color: var(--ink); }
 /* A property the game no longer drops still shows its value, dimmed: it is a
    real line on a real artifact, but nothing here can judge how well it rolled. */
 .artifact-subs li.legacy { color: var(--faint); }

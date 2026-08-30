@@ -12,6 +12,7 @@ export type ArtifactRow = {
   /** The wearer's display name, or `null` while the artifact sits in the inventory. */
   location: string | null;
   value: number | undefined;
+  mainPropertyPreference: ArtifactPropertyPreference;
   subProperties: ArtifactSubProperty[];
   /** `null` means this artifact is not currently worn by a judged monster. */
   subPropertyPreferences: ReadonlyMap<number, ArtifactPropertyPreference> | null;

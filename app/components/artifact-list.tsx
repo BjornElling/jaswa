@@ -112,6 +112,7 @@ export function ArtifactList({ game, monsters, preferences }: {
           ? 'Inventory'
           : unitId === null ? null : preference?.label || names[unitId] || null,
         value: wearer ? artifactValueOnMonster(artifact, wearer.unit_master_id, preferences.artifacts.acceptableWorth) : undefined,
+        mainPropertyPreference: propertyPreferences?.main[artifact.mainProperty] ?? 'unwanted',
         subProperties: artifact.subProperties,
         subPropertyPreferences: propertyPreferences?.sub ?? null,
       };
@@ -268,7 +269,7 @@ export function ArtifactList({ game, monsters, preferences }: {
               {artifactEquipClass(row.artifact) ?? '—'}
             </td>
             <td className="align-left dim">{row.artifact.grade}</td>
-            <td className="align-left">
+            <td className={`align-left artifact-main-${row.mainPropertyPreference}`}>
               {row.artifact.mainProperty}
             </td>
             <td className="align-left">
