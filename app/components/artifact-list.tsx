@@ -1,0 +1,298 @@
+'use client';
+
+import { type ReactNode, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { PageHeader } from './page-chrome';
+import type { GameRecord } from '../lib/game-data';
+import type { ImportedGame, Preferences } from '../lib/types';
+import { readArtifacts } from '../lib/artifacts';
+import { artifactValueOnMonster } from '../lib/artifact-value-on-monster';
+import {
+  artifactCategoryLabel, artifactEquipClass, compareArtifactRows,
+  defaultArtifactSortDirections, displaySubProperty,
+} from '../lib/artifact-grid';
+import type { ArtifactRow, ArtifactSortKey } from '../lib/artifact-grid';
+import {
+  artifactArchetypes, artifactCategoryLabels, artifactElements, artifactGradeOrder,
+  artifactMainPropertyOrder,
+} from '../lib/artifact-properties';
+import type { ArtifactCategory, ArtifactGrade, ArtifactMainProperty } from '../lib/artifact-properties';
+import { numberedMonsterNames } from '../lib/monster-names';
+import { formatNumber } from '../lib/formatting';
+
+const categoryOrder: readonly ArtifactCategory[] = ['attribute', 'type'];
+const elementOrder = Object.values(artifactElements);
+const archetypeOrder = Object.values(artifactArchetypes);
+
+function ArtifactColumnGroup() {
+  return <colgroup>
+    <col className="artifact-col-index" />
+    <col className="artifact-col-location" />
+    <col className="artifact-col-value" />
+    <col className="artifact-col-category" />
+    <col className="artifact-col-equipClass" />
+    <col className="artifact-col-grade" />
+    <col className="artifact-col-mainProperty" />
+    <col className="artifact-col-subProperties" />
+  </colgroup>;
+}
+
+function ArtifactTableHeader({ sortHeader }: {
+  sortHeader: (key: ArtifactSortKey, label: string, alignLeft?: boolean) => ReactNode;
+}) {
+  return <thead>
+    <tr>
+      {sortHeader('index', '#', true)}
+      {sortHeader('location', 'Location', true)}
+      {sortHeader('value', 'Value on mon')}
+      {sortHeader('category', 'Type', true)}
+      {sortHeader('equipClass', 'Restriction', true)}
+      {sortHeader('grade', 'Quality', true)}
+      {sortHeader('mainProperty', 'Main stat', true)}
+      {sortHeader('subProperties', 'Subs', true)}
+    </tr>
+  </thead>;
+}
+
+export function ArtifactList({ game, monsters, preferences }: {
+  game: ImportedGame | null;
+  monsters: GameRecord[];
+  preferences: Preferences;
+}) {
+  const [sort, setSort] = useState<{ key: ArtifactSortKey; ascending: boolean }>({ key: 'index', ascending: true });
+  const [search, setSearch] = useState('');
+  const [selectedCategories, setSelectedCategories] = useState<ArtifactCategory[]>([]);
+  const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
+  const [selectedGrades, setSelectedGrades] = useState<ArtifactGrade[]>([]);
+  const [selectedMainProperties, setSelectedMainProperties] = useState<ArtifactMainProperty[]>([]);
+  /* Equipped and inventory are both ordinary places for an artifact to be, so
+     the list starts as the whole account and each is switched off separately. */
+  const [showEquipped, setShowEquipped] = useState(true);
+  const [showInventory, setShowInventory] = useState(true);
+  const stickyHeaderTable = useRef<HTMLTableElement>(null);
+  const listTable = useRef<HTMLTableElement>(null);
+
+  const artifacts = useMemo(() => readArtifacts(game?.data), [game]);
+
+  useLayoutEffect(() => {
+    const header = stickyHeaderTable.current;
+    const table = listTable.current;
+    if (!header || !table) return;
+
+    const syncHeaderWidth = () => { header.style.width = `${table.offsetWidth}px`; };
+    syncHeaderWidth();
+    const observer = new ResizeObserver(syncHeaderWidth);
+    observer.observe(table);
+    return () => observer.disconnect();
+  }, [artifacts.length]);
+
+  const rows = useMemo<ArtifactRow[]>(() => {
+    const names = numberedMonsterNames(monsters);
+    const wearers = new Map<string, GameRecord>();
+    for (const monster of monsters) {
+      if (monster.unit_id !== undefined && monster.unit_id !== null) wearers.set(String(monster.unit_id), monster);
+    }
+    return artifacts.map((artifact, index) => {
+      const wearer = artifact.occupiedId === null ? undefined : wearers.get(artifact.occupiedId);
+      const unitId = wearer?.unit_id === undefined ? null : String(wearer.unit_id);
+      const preference = unitId === null ? undefined : preferences.monsterPreferences[unitId];
+      return {
+        artifact,
+        index,
+        /* Three different states, kept apart: `Inventory` for an artifact
+           nothing is wearing, the monster's name where the roster has it, and
+           `null` for a wearer the roster does not contain — a gap in the
+           import, which must not read as an empty inventory. */
+        location: artifact.occupiedId === null
+          ? 'Inventory'
+          : unitId === null ? null : preference?.label || names[unitId] || null,
+        value: wearer ? artifactValueOnMonster(artifact, wearer.unit_master_id, preferences.artifacts.acceptableWorth) : undefined,
+        subProperties: artifact.subProperties,
+      };
+    });
+  }, [artifacts, monsters, preferences]);
+
+  /* Every class the game has, always, in both groups' full length. Narrowing
+     this to the chosen categories would take buttons out of the row and slide
+     the filters after it sideways on a click the user aimed elsewhere, which is
+     the movement `AGENTS.md` rule 2 forbids — and it would strand a selection
+     whose button had just disappeared. The two categories are separated instead
+     by their own labelled groups. */
+  const classOptions = { attribute: elementOrder, type: archetypeOrder };
+
+  const visible = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    const filtered = rows.filter((row) => {
+      const equipped = row.artifact.occupiedId !== null;
+      if (!showEquipped && equipped) return false;
+      if (!showInventory && !equipped) return false;
+      if (selectedCategories.length && !selectedCategories.includes(row.artifact.category)) return false;
+      if (selectedGrades.length && !selectedGrades.includes(row.artifact.grade)) return false;
+      if (selectedMainProperties.length && !selectedMainProperties.includes(row.artifact.mainProperty)) return false;
+      if (selectedClasses.length) {
+        const equipClass = artifactEquipClass(row.artifact);
+        if (!equipClass || !selectedClasses.includes(equipClass)) return false;
+      }
+      if (!term) return true;
+      return row.location?.toLowerCase().includes(term)
+        || row.subProperties.some((property) => property.definition.name.toLowerCase().includes(term));
+    });
+    const { key, ascending } = sort;
+    if (key === 'index') return ascending ? filtered : [...filtered].reverse();
+    const direction = ascending ? 1 : -1;
+    return [...filtered].sort((left, right) =>
+      compareArtifactRows(left, right, key, direction) || left.index - right.index);
+  }, [rows, search, selectedCategories, selectedClasses, selectedGrades, selectedMainProperties, showEquipped, showInventory, sort]);
+
+  function toggleSort(key: ArtifactSortKey) {
+    setSort((current) => current.key === key
+      ? { key, ascending: !current.ascending }
+      : { key, ascending: defaultArtifactSortDirections[key] });
+  }
+
+  function toggle<T>(value: T, set: (update: (current: T[]) => T[]) => void) {
+    set((current) => current.includes(value)
+      ? current.filter((entry) => entry !== value)
+      : [...current, value]);
+  }
+
+  if (!artifacts.length) return <div className="section-body">
+    <PageHeader
+      title="Every artifact you own"
+      tagline="The library the recommendations are read against — what you actually have, in one list." />
+    <section className="empty-state">
+      <h2>{game
+        ? 'This import holds no artifacts JASWA can read.'
+        : 'Nothing to show until a game file is imported.'}</h2>
+      <p className="next-step">{game
+        ? 'Report it from the rail if your account does have artifacts.'
+        : 'Go to Home and drop in the JSON file exported from Summoners War.'}</p>
+    </section>
+  </div>;
+
+  const sortHeader = (key: ArtifactSortKey, label: string, alignLeft = false) => {
+    const sorted = sort.key === key;
+    const className = [alignLeft ? 'align-left' : '', 'sortable', sorted ? 'sorted' : '', sorted && sort.ascending ? 'ascending' : '']
+      .filter(Boolean).join(' ');
+    return <th key={key} scope="col" aria-sort={sorted ? (sort.ascending ? 'ascending' : 'descending') : 'none'} className={className}>
+      <button type="button" className="table-sort-button" onClick={() => toggleSort(key)}>{label}</button>
+    </th>;
+  };
+
+  return <>
+    <div className="filter-strip">
+      <div className="filter-group">
+        <div className="search-field">
+          <span aria-hidden="true">⌕</span>
+          <input value={search} onChange={(event) => setSearch(event.target.value)}
+            placeholder="Filter artifacts" aria-label="Filter artifacts by monster or property" />
+          <button className="filter-button" onClick={() => setSearch('')}
+            hidden={!search} disabled={!search} aria-label="Clear filter">✕</button>
+        </div>
+      </div>
+      <div className="filter-group" role="group" aria-label="Filter by artifact type">
+        <span className="filter-label">Type</span>
+        {categoryOrder.map((category) => <button
+          key={category}
+          className={selectedCategories.includes(category) ? 'filter-button active' : 'filter-button'}
+          onClick={() => toggle(category, setSelectedCategories)}
+          aria-pressed={selectedCategories.includes(category)}
+        >{artifactCategoryLabels[category]}</button>)}
+      </div>
+      <div className="filter-group" role="group" aria-label="Filter by element">
+        <span className="filter-label">Element</span>
+        {classOptions.attribute.map((equipClass) => <button
+          key={equipClass}
+          className={selectedClasses.includes(equipClass) ? 'filter-button active' : 'filter-button'}
+          onClick={() => toggle(equipClass, setSelectedClasses)}
+          aria-pressed={selectedClasses.includes(equipClass)}
+        >{equipClass.slice(0, 3).toUpperCase()}</button>)}
+      </div>
+      <div className="filter-group" role="group" aria-label="Filter by monster type">
+        <span className="filter-label">Archetype</span>
+        {classOptions.type.map((equipClass) => <button
+          key={equipClass}
+          className={selectedClasses.includes(equipClass) ? 'filter-button active' : 'filter-button'}
+          onClick={() => toggle(equipClass, setSelectedClasses)}
+          aria-pressed={selectedClasses.includes(equipClass)}
+        >{equipClass.slice(0, 3).toUpperCase()}</button>)}
+      </div>
+      <div className="filter-group" role="group" aria-label="Filter by quality">
+        <span className="filter-label">Quality</span>
+        {artifactGradeOrder.map((grade) => <button
+          key={grade}
+          className={selectedGrades.includes(grade) ? 'filter-button active' : 'filter-button'}
+          onClick={() => toggle(grade, setSelectedGrades)}
+          aria-pressed={selectedGrades.includes(grade)}
+        >{grade.slice(0, 3).toUpperCase()}</button>)}
+      </div>
+      <div className="filter-group" role="group" aria-label="Filter by main stat">
+        <span className="filter-label">Main stat</span>
+        {artifactMainPropertyOrder.map((property) => <button
+          key={property}
+          className={selectedMainProperties.includes(property) ? 'filter-button active' : 'filter-button'}
+          onClick={() => toggle(property, setSelectedMainProperties)}
+          aria-pressed={selectedMainProperties.includes(property)}
+        >{property}</button>)}
+      </div>
+      <div className="filter-group">
+        <span className="filter-label">Equipped</span>
+        <input type="checkbox" className="filter-checkbox" checked={showEquipped}
+          onChange={(event) => setShowEquipped(event.target.checked)}
+          aria-label="Show artifacts a monster is wearing" />
+      </div>
+      <div className="filter-group">
+        <span className="filter-label">Inventory</span>
+        <input type="checkbox" className="filter-checkbox" checked={showInventory}
+          onChange={(event) => setShowInventory(event.target.checked)}
+          aria-label="Show artifacts in the inventory" />
+      </div>
+      <span className="monster-filter-count"><b>{visible.length}</b> of {rows.length} shown</span>
+    </div>
+
+    <div className="monster-header-wrap">
+      <table ref={stickyHeaderTable} className="grid-table artifact-grid" aria-label="Artifact columns">
+        <ArtifactColumnGroup />
+        <ArtifactTableHeader sortHeader={sortHeader} />
+      </table>
+    </div>
+    <div className="table-wrap" onScroll={(event) => {
+      if (stickyHeaderTable.current) stickyHeaderTable.current.style.transform = `translateX(${-event.currentTarget.scrollLeft}px)`;
+    }}>
+      <table ref={listTable} className="grid-table artifact-grid" aria-label="Artifacts">
+        <ArtifactColumnGroup />
+        <tbody>
+          {visible.map((row) => <tr key={row.artifact.id}>
+            <td className="align-left row-index">{String(row.index + 1).padStart(2, '0')}</td>
+            <td className={row.location ? 'align-left' : 'align-left muted'}
+              title={row.location === null ? 'Worn by a monster this import does not contain' : undefined}>
+              {row.location ?? 'Unknown monster'}
+            </td>
+            <td className={row.value === undefined ? 'muted' : undefined}
+              title={row.value === undefined && row.artifact.occupiedId !== null
+                ? 'Not judged: nothing recorded for this monster type'
+                : undefined}>
+              {row.value === undefined ? '—' : `${formatNumber(Math.round(row.value * 100), preferences.general)} %`}
+            </td>
+            <td className="align-left dim">{artifactCategoryLabel(row.artifact.category)}</td>
+            <td className={artifactEquipClass(row.artifact) ? 'align-left' : 'align-left muted'}>
+              {artifactEquipClass(row.artifact) ?? '—'}
+            </td>
+            <td className="align-left dim">{row.artifact.grade}</td>
+            <td className="align-left">
+              {row.artifact.mainProperty}{' '}
+              <span className="artifact-main-value">+{formatNumber(row.artifact.mainValue, preferences.general)}</span>
+            </td>
+            <td className="align-left">
+              <ul className="artifact-subs">
+                {row.subProperties.map((subProperty) => <li
+                  key={subProperty.definition.id}
+                  className={subProperty.definition.status === 'legacy' ? 'legacy' : undefined}
+                >{displaySubProperty(subProperty, (value) => formatNumber(value, preferences.general))}</li>)}
+              </ul>
+            </td>
+          </tr>)}
+        </tbody>
+      </table>
+    </div>
+  </>;
+}

@@ -1112,6 +1112,46 @@ magnitude). Under §14's revision rule none of them may receive a silent fallbac
 store them, surface them where they matter, and do not compute anything from a
 meaning nobody has established.
 
+### 15.9 Corrections from building the reader — August 30, 2026
+
+Session 4 built `app/lib/artifact-properties.ts` from the export rather than
+from §5, against 1,864 artifacts — 79 more than §15 was written from. Four of
+its claims did not survive contact with the data. Under §14 the observation is
+primary and the secondary tables are corrected, not the reader.
+
+**The category split holds, and the counts move.** 33 property ids occur, and
+the engraving statistics name 30 of them as current: **13** on both categories,
+10 Attribute-only, 10 Type-only. §5.3 lists fourteen both-category properties,
+one more than the data has, and the fourteenth — `First Attack CRIT DMG`, id
+411 — appears **only on Type artifacts** in 79 occurrences. §5.3's table should
+move it to §5.1.
+
+**`4xx` does not skip `402` and `403`.** §15.4 records a gap; both ids exist
+and are **legacy**, absent from the engraving statistics and present only on
+artifacts added in 2020–2022. They are the pre-v8 `[Skill 3]` and `[Skill 4]`
+CRIT DMG that §5.1's merge note describes, preserved exactly as §12 predicts.
+
+**Three roll ranges in §5 are too narrow**, and the artifacts that break them
+were acquired *this month*, unconverted, on current-generation records:
+
+| id | Property | §5 says | Observed | Evidence |
+| ---: | --- | --- | --- | ---: |
+| 206 | ATK/DEF UP Effect | 3–5 | **3–6** | 157 lines |
+| 210 | Bomb Damage | 2–4 | **1–4** | 108 lines |
+| 401 | [Skill 2] CRIT DMG | 4–6 | **4–7** | 1 line of 6,881 |
+
+The 401 widening rests on a single observation, which is thin — but the
+alternative is a ceiling a real artifact provably exceeds, and a roll fraction
+above 1 empties the benchmark of meaning. The general rule it illustrates:
+**compute a maximum from the observed range, never from a guide's table.**
+
+**Position 4 is a contribution, whatever else it means.** §15.7 leaves the
+field unexplained and forbids computing from it. Counting a set flag as one
+extra contribution repairs the grade invariant on **43 of the 44 records that
+otherwise break it**, leaving one. That is strong evidence about the roll
+structure and none at all about the field's semantics, so the reader uses it for
+the contribution count and for nothing else — §15.7's prohibition stands.
+
 ---
 
 ## 16. JASWA optimal value

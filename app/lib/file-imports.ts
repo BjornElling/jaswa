@@ -127,8 +127,14 @@ function hasCollection(value: unknown): boolean {
   return Array.isArray(value);
 }
 
+/* Artifacts and relics both carry their own id as `rid`, not `artifact_id` or
+   `relic_id`: no record in the export has either, so keying on them silently
+   de-duplicated nothing and would let an equipped item appear twice once the
+   account list and a unit's list overlapped. Runes really do use `rune_id`.
+   `ARTIFACT-CANONICAL.md` §15.1 settles the artifact field, and the relic
+   records in the same export carry the same one. */
 function itemId(section: 'runes' | 'artifacts' | 'relics', item: GameRecord): string | undefined {
-  const key = section === 'runes' ? 'rune_id' : section === 'artifacts' ? 'artifact_id' : 'relic_id';
+  const key = section === 'runes' ? 'rune_id' : 'rid';
   const value = item[key];
   return typeof value === 'number' || typeof value === 'string' ? `${key}:${value}` : undefined;
 }

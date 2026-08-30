@@ -1,7 +1,7 @@
 import type { AccelerationState } from './hardware-acceleration';
 import type { HelperConnection } from './helper-client';
 
-export type Page = 'home' | 'monsters' | 'optimizer' | 'speed' | 'potential' | 'artifacts' | 'gems' | 'relics' | 'settings';
+export type Page = 'home' | 'monsters' | 'artifact-list' | 'optimizer' | 'speed' | 'potential' | 'artifacts' | 'gems' | 'relics' | 'settings';
 export type ReportCategory = 'Monster' | 'Rune' | 'Gem' | 'Grindstone' | 'Artifact' | 'Relic' | 'Other';
 
 export type NavigationItem = { id: Page; label: string; glyph: string };
@@ -14,6 +14,10 @@ export const navigationGroups: Array<{ heading: string; items: NavigationItem[] 
     items: [
       { id: 'home', label: 'Home', glyph: '⌂' },
       { id: 'monsters', label: 'Monsters', glyph: '♜' },
+      /* The library sits beside Monsters rather than inside the Artifacts
+         workspace: it is a plain list of what the account holds, where the
+         workspace is the judgement read against it. */
+      { id: 'artifact-list', label: 'Artifacts', glyph: '◇' },
     ],
   },
   {
@@ -22,7 +26,9 @@ export const navigationGroups: Array<{ heading: string; items: NavigationItem[] 
       { id: 'optimizer', label: 'Rune Optimizer', glyph: '◈' },
       { id: 'speed', label: 'Speed Tuning', glyph: '↝' },
       { id: 'potential', label: 'Rune Potential', glyph: '◌' },
-      { id: 'artifacts', label: 'Artifacts', glyph: '◇' },
+      /* The filled diamond against the library's hollow one: the two Artifacts
+         entries read as a pair, and neither borrows the Rune Optimizer's mark. */
+      { id: 'artifacts', label: 'Artifact Optimization', glyph: '◆' },
       { id: 'gems', label: 'Gems & Grinds', glyph: '✦' },
       { id: 'relics', label: 'Relics', glyph: '▣' },
     ],

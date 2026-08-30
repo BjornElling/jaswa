@@ -405,6 +405,35 @@ button { cursor: pointer; }
 .monster-grid .monster-col-ehp,
 .monster-grid .monster-col-ehpD,
 .monster-grid .monster-col-dmg { width: 112px; }
+/* The artifact library. Its four sub-property lines make the row taller than
+   the roster's fixed height, so the row grows once here rather than every cell
+   fighting `--row`. Columns are measured for their widest real content —
+   "Additional Damage by SPD +145% [3]" in the subs column, a three-digit
+   percentage in the value one — so a sort never re-measures the table. */
+.artifact-grid { min-width: 1180px; table-layout: fixed; }
+.artifact-grid .artifact-col-index { width: 72px; }
+.artifact-grid .artifact-col-location { width: 200px; }
+.artifact-grid .artifact-col-value { width: 116px; }
+.artifact-grid .artifact-col-category { width: 100px; }
+.artifact-grid .artifact-col-equipClass { width: 108px; }
+.artifact-grid .artifact-col-grade { width: 96px; }
+.artifact-grid .artifact-col-mainProperty { width: 120px; }
+.artifact-grid .artifact-col-subProperties { width: 368px; }
+.artifact-grid tbody td { height: auto; padding-block: var(--s2); vertical-align: top; }
+.artifact-main-value { color: var(--dim); }
+.artifact-subs { margin: 0; padding: 0; list-style: none; }
+.artifact-subs li {
+  font-family: var(--mono);
+  font-size: var(--t-small);
+  line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* A property the game no longer drops still shows its value, dimmed: it is a
+   real line on a real artifact, but nothing here can judge how well it rolled. */
+.artifact-subs li.legacy { color: var(--faint); }
+
 .grid-table thead th:first-child,
 .grid-table tbody td:first-child { padding-left: var(--gutter); }
 .grid-table thead th:last-child,

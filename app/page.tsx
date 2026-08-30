@@ -2,6 +2,7 @@
 
 import { type ChangeEvent, type DragEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { AppRail } from './components/app-rail';
+import { ArtifactList } from './components/artifact-list';
 import { ArtifactsSection } from './components/artifacts-section';
 import { HomeSection } from './components/home-section';
 import { ImportBadge } from './components/import-badge';
@@ -306,6 +307,8 @@ export default function Home() {
       />}
 
       {page === 'monsters' && <MonsterOverview monsters={monsters} preferences={preferences} />}
+
+      {page === 'artifact-list' && <ArtifactList game={game} monsters={monsters} preferences={preferences} />}
 
       {page === 'potential' && <RunePotentialSection
         settings={preferences.runePotential}
