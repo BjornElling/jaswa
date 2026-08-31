@@ -2019,6 +2019,9 @@ button { cursor: pointer; }
   border-radius: var(--radius-sm);
   transition: background .12s;
 }
+/* Artifact source cards keep their descriptive title in the body, so their
+   one-line source label and radio can share a vertical centre. */
+.route-head-body-title { align-items: center; }
 .route-head:hover { background: var(--hover); }
 /* The head is the only part of an unchosen card that answers the pointer, so it
    has to answer visibly — and the background alone does not: --hover against the
@@ -2046,6 +2049,7 @@ button { cursor: pointer; }
   cursor: pointer;
   transition: background .12s, border-color .12s;
 }
+.route-head.route-head-body-title input { margin-top: 0; }
 .route-head:hover input { border-color: var(--gold); }
 .route-head input:checked {
   background:

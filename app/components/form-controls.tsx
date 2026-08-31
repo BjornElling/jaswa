@@ -29,7 +29,7 @@ export function OptionCard<Value extends string>({ option, name, namePlacement =
   const chosen = current === value;
   const nameInBody = namePlacement === 'body';
   return <div className={chosen ? 'import-route chosen' : 'import-route'}>
-    <label className="route-head">
+    <label className={nameInBody ? 'route-head route-head-body-title' : 'route-head'}>
       <input type="radio" name={radioName} value={value} checked={chosen}
         onChange={() => onChoose(value)} />
       <span className="route-head-text">
