@@ -21,10 +21,54 @@ import {
 import type { ArtifactCategory, ArtifactGrade, ArtifactMainProperty } from '../lib/artifact-properties';
 import { numberedMonsterNames } from '../lib/monster-names';
 import { formatNumber } from '../lib/formatting';
+import { useSessionStorageState } from '../lib/session-storage-state';
 
 const categoryOrder: readonly ArtifactCategory[] = ['attribute', 'type'];
 const elementOrder = Object.values(artifactElements);
 const archetypeOrder = Object.values(artifactArchetypes);
+const artifactClassOptions = [...elementOrder, ...archetypeOrder];
+
+type ArtifactFilterState = {
+  search: string;
+  selectedCategories: ArtifactCategory[];
+  selectedClasses: string[];
+  selectedGrades: ArtifactGrade[];
+  selectedMainProperties: ArtifactMainProperty[];
+  sortBySubProperty: number | null;
+  showEquipped: boolean;
+  showInventory: boolean;
+};
+
+const defaultArtifactFilters: ArtifactFilterState = {
+  search: '',
+  selectedCategories: [],
+  selectedClasses: [],
+  selectedGrades: [],
+  selectedMainProperties: [],
+  sortBySubProperty: null,
+  showEquipped: true,
+  showInventory: true,
+};
+
+function isArtifactFilterState(value: unknown): value is ArtifactFilterState {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const candidate = value as Record<string, unknown>;
+  return typeof candidate.search === 'string'
+    && Array.isArray(candidate.selectedCategories)
+    && candidate.selectedCategories.every((entry) => categoryOrder.includes(entry as ArtifactCategory))
+    && Array.isArray(candidate.selectedClasses)
+    && candidate.selectedClasses.every((entry) => typeof entry === 'string' && artifactClassOptions.includes(entry))
+    && Array.isArray(candidate.selectedGrades)
+    && candidate.selectedGrades.every((entry) => artifactGradeOrder.includes(entry as ArtifactGrade))
+    && Array.isArray(candidate.selectedMainProperties)
+    && candidate.selectedMainProperties.every((entry) => artifactMainPropertyOrder.includes(entry as ArtifactMainProperty))
+    && (candidate.sortBySubProperty === null
+      || (typeof candidate.sortBySubProperty === 'number'
+        && Number.isSafeInteger(candidate.sortBySubProperty)
+        && candidate.sortBySubProperty >= 0))
+    && typeof candidate.showEquipped === 'boolean'
+    && typeof candidate.showInventory === 'boolean';
+}
 
 function subPropertyMagnitude(row: ArtifactRow, propertyId: number): number | null {
   for (const subProperty of row.subProperties) {
@@ -90,16 +134,11 @@ export function ArtifactList({ game, monsters, preferences }: {
   preferences: Preferences;
 }) {
   const [sort, setSort] = useState<{ key: ArtifactSortKey; ascending: boolean }>({ key: 'index', ascending: true });
-  const [search, setSearch] = useState('');
-  const [selectedCategories, setSelectedCategories] = useState<ArtifactCategory[]>([]);
-  const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
-  const [selectedGrades, setSelectedGrades] = useState<ArtifactGrade[]>([]);
-  const [selectedMainProperties, setSelectedMainProperties] = useState<ArtifactMainProperty[]>([]);
-  const [sortBySubProperty, setSortBySubProperty] = useState<number | null>(null);
-  /* Equipped and inventory are both ordinary places for an artifact to be, so
-     the list starts as the whole account and each is switched off separately. */
-  const [showEquipped, setShowEquipped] = useState(true);
-  const [showInventory, setShowInventory] = useState(true);
+  const [filters, setFilters] = useSessionStorageState(
+    'jaswa.filters.artifacts', defaultArtifactFilters, isArtifactFilterState,
+  );
+  const { search, selectedCategories, selectedClasses, selectedGrades, selectedMainProperties,
+    sortBySubProperty, showEquipped, showInventory } = filters;
   const artifacts = useMemo(() => readArtifacts(game?.data), [game]);
 
   const rows = useMemo<ArtifactRow[]>(() => {
@@ -213,6 +252,38 @@ export function ArtifactList({ game, monsters, preferences }: {
     set((current) => current.includes(value)
       ? current.filter((entry) => entry !== value)
       : [...current, value]);
+  }
+
+  function setSearch(update: string) {
+    setFilters((current) => ({ ...current, search: update }));
+  }
+
+  function setSelectedCategories(update: (current: ArtifactCategory[]) => ArtifactCategory[]) {
+    setFilters((current) => ({ ...current, selectedCategories: update(current.selectedCategories) }));
+  }
+
+  function setSelectedClasses(update: (current: string[]) => string[]) {
+    setFilters((current) => ({ ...current, selectedClasses: update(current.selectedClasses) }));
+  }
+
+  function setSelectedGrades(update: (current: ArtifactGrade[]) => ArtifactGrade[]) {
+    setFilters((current) => ({ ...current, selectedGrades: update(current.selectedGrades) }));
+  }
+
+  function setSelectedMainProperties(update: (current: ArtifactMainProperty[]) => ArtifactMainProperty[]) {
+    setFilters((current) => ({ ...current, selectedMainProperties: update(current.selectedMainProperties) }));
+  }
+
+  function setSortBySubProperty(update: number | null) {
+    setFilters((current) => ({ ...current, sortBySubProperty: update }));
+  }
+
+  function setShowEquipped(update: (current: boolean) => boolean) {
+    setFilters((current) => ({ ...current, showEquipped: update(current.showEquipped) }));
+  }
+
+  function setShowInventory(update: (current: boolean) => boolean) {
+    setFilters((current) => ({ ...current, showInventory: update(current.showInventory) }));
   }
 
   if (!artifacts.length) return <div className="section-body">

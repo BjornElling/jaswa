@@ -19,6 +19,36 @@ import {
 import type { MonsterGridColumn, MonsterRow, SortKey } from '../lib/monster-grid';
 import { numberedMonsterNames } from '../lib/monster-names';
 import { formatNumber } from '../lib/formatting';
+import { useSessionStorageState } from '../lib/session-storage-state';
+
+type MonsterFilterState = {
+  search: string;
+  selectedElements: string[];
+  selectedArchetypes: MonsterArchetype[];
+  showStorage: boolean;
+  showRainbowmons: boolean;
+};
+
+const defaultMonsterFilters: MonsterFilterState = {
+  search: '',
+  selectedElements: [],
+  selectedArchetypes: [],
+  showStorage: true,
+  showRainbowmons: false,
+};
+const monsterElementOptions = ['Water', 'Fire', 'Wind', 'Light', 'Dark'] as const;
+
+function isMonsterFilterState(value: unknown): value is MonsterFilterState {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const candidate = value as Record<string, unknown>;
+  return typeof candidate.search === 'string'
+    && Array.isArray(candidate.selectedElements)
+    && candidate.selectedElements.every((entry) => monsterElementOptions.includes(entry as typeof monsterElementOptions[number]))
+    && Array.isArray(candidate.selectedArchetypes)
+    && candidate.selectedArchetypes.every((entry) => monsterFilterArchetypes.includes(entry as MonsterArchetype))
+    && typeof candidate.showStorage === 'boolean'
+    && typeof candidate.showRainbowmons === 'boolean';
+}
 
 function MonsterColumnGroup({ columns }: { columns: MonsterGridColumn[] }) {
   return <colgroup>
@@ -55,13 +85,10 @@ function MonsterTableHeader({ columns, sortHeader }: {
 
 export function MonsterOverview({ monsters, preferences }: { monsters: GameRecord[]; preferences: Preferences }) {
   const [sort, setSort] = useState<{ key: SortKey; ascending: boolean }>({ key: 'index', ascending: true });
-  const [search, setSearch] = useState('');
-  const [selectedElements, setSelectedElements] = useState<string[]>([]);
-  const [selectedArchetypes, setSelectedArchetypes] = useState<MonsterArchetype[]>([]);
-  /* The roster reads as the whole account by default; storage is a place a
-     monster sits, not a reason to hide it. */
-  const [showStorage, setShowStorage] = useState(true);
-  const [showRainbowmons, setShowRainbowmons] = useState(false);
+  const [filters, setFilters] = useSessionStorageState(
+    'jaswa.filters.monsters', defaultMonsterFilters, isMonsterFilterState,
+  );
+  const { search, selectedElements, selectedArchetypes, showStorage, showRainbowmons } = filters;
   const rows = useMemo<MonsterRow[]>(() => {
     const defaultNames = numberedMonsterNames(monsters);
     return monsters.map((monster, index) => {
@@ -149,15 +176,21 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
   }
 
   function toggleElement(name: string) {
-    setSelectedElements((current) => current.includes(name)
-      ? current.filter((entry) => entry !== name)
-      : [...current, name]);
+    setFilters((current) => ({
+      ...current,
+      selectedElements: current.selectedElements.includes(name)
+        ? current.selectedElements.filter((entry) => entry !== name)
+        : [...current.selectedElements, name],
+    }));
   }
 
   function toggleArchetype(archetype: MonsterArchetype) {
-    setSelectedArchetypes((current) => current.includes(archetype)
-      ? current.filter((entry) => entry !== archetype)
-      : [...current, archetype]);
+    setFilters((current) => ({
+      ...current,
+      selectedArchetypes: current.selectedArchetypes.includes(archetype)
+        ? current.selectedArchetypes.filter((entry) => entry !== archetype)
+        : [...current.selectedArchetypes, archetype],
+    }));
   }
 
   if (!monsters.length) return <div className="section-body">
@@ -195,9 +228,9 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
         <div className="filter-group-controls">
           <div className="search-field">
             <span aria-hidden="true">⌕</span>
-            <input value={search} onChange={(event) => setSearch(event.target.value)}
+            <input value={search} onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
               placeholder="Filter monsters" aria-label="Filter monsters by name or set" />
-            <button className="filter-button" onClick={() => setSearch('')}
+            <button className="filter-button" onClick={() => setFilters((current) => ({ ...current, search: '' }))}
               hidden={!search} disabled={!search} aria-label="Clear filter">✕</button>
           </div>
         </div>
@@ -228,10 +261,10 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
         <span className="filter-label">Include</span>
         <div className="filter-group-controls">
           <button type="button" className={showStorage ? 'filter-button active' : 'filter-button'}
-            onClick={() => setShowStorage((current) => !current)} aria-pressed={showStorage}
+            onClick={() => setFilters((current) => ({ ...current, showStorage: !current.showStorage }))} aria-pressed={showStorage}
           >Storage</button>
           <button type="button" className={showRainbowmons ? 'filter-button active' : 'filter-button'}
-            onClick={() => setShowRainbowmons((current) => !current)} aria-pressed={showRainbowmons}
+            onClick={() => setFilters((current) => ({ ...current, showRainbowmons: !current.showRainbowmons }))} aria-pressed={showRainbowmons}
           >Rainbowmons</button>
         </div>
       </div>
