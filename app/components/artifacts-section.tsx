@@ -114,7 +114,7 @@ export function ArtifactsSection({ settings, hasGame, onUpdate }: {
           <div className="import-routes" role="radiogroup" aria-label="How to handle conversion stones">
             <OptionCard
               option="No conversion"
-              name="As they are"
+              name="Keep it real"
               namePlacement="body"
               radioName="artifact-conversion-stone-mode"
               value="none"
@@ -138,7 +138,7 @@ export function ArtifactsSection({ settings, hasGame, onUpdate }: {
               onChoose={(value) => void onUpdate({ conversionStoneMode: value as ArtifactConversionStoneMode })}
             >
               <p className="lead">
-                Each conversion is assigned a calculated value from the fixed conversion range.
+                Each conversion is assigned a calculated value from the fixed conversion range (unless a better value has already been rolled).
               </p>
             </OptionCard>
 
@@ -154,7 +154,7 @@ export function ArtifactsSection({ settings, hasGame, onUpdate }: {
               onChoose={(value) => void onUpdate({ conversionStoneMode: value as ArtifactConversionStoneMode })}
             >
               <p className="lead">
-                Potential conversion gains are based solely on the engraved conversion stones you actually own.
+                Potential conversion gains are based on engraved conversion stones you own (unless a better value has already been rolled).
               </p>
             </OptionCard>
           </div>
