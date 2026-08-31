@@ -1093,6 +1093,7 @@ button { cursor: pointer; }
 .best-monster-artifact-select { grid-area: artifact; }
 .best-monster-artifact-select .filter-group-controls { width: 100%; }
 .best-monster-artifact-select .jaswa-select { width: 100%; min-width: 0; }
+.best-artifact-monster-select .filter-group-controls { width: 50%; }
 .best-artifact-monster-select .jaswa-select { width: 100%; min-width: 30ch; }
 .best-artifact-calculate { height: 32px; white-space: nowrap; }
 .best-monster-calculate { grid-area: calculate; justify-self: start; height: 32px; white-space: nowrap; }
@@ -1148,6 +1149,7 @@ button { cursor: pointer; }
   .best-monster-filters { grid-template-columns: minmax(0, 1fr); align-items: stretch; }
   .best-artifact-filters { grid-template-areas: "element" "archetype" "location" "monster" "calculate"; }
   .best-monster-filters { grid-template-areas: "type" "restriction" "quality" "substat" "main" "location" "artifact" "calculate"; }
+  .best-artifact-monster-select .filter-group-controls { width: 100%; }
   .best-artifact-monster-select .jaswa-select { min-width: 0; }
   .best-monster-artifact-select .jaswa-select { min-width: 0; }
   .best-artifact-calculate { width: 100%; }
