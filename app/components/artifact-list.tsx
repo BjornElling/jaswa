@@ -47,12 +47,6 @@ function ConvertedMark({ position }: { position: number }) {
   </svg>;
 }
 
-function ArtifactConversionNote() {
-  return <p className="artifact-conversion-note" role="note">
-    <b>Conversion rule.</b> A Conversion Stone changes one sub-property. The circular-arrow mark identifies its permanently locked line in the displayed order (1st–4th): later stones may change that same line again, but never another line, and the conversion cannot be undone.
-  </p>;
-}
-
 function PowerUpMark() {
   return <svg className="artifact-sub-mark artifact-sub-power-up-arrow" viewBox="0 0 16 16" aria-hidden="true">
     <path d="M8 13V3" />
@@ -232,7 +226,6 @@ export function ArtifactList({ game, monsters, preferences }: {
       <p className="next-step">{game
         ? 'Report it from the rail if your account does have artifacts.'
         : 'Go to Home and drop in the JSON file exported from Summoners War.'}</p>
-      <ArtifactConversionNote />
     </section>
   </div>;
 
@@ -265,7 +258,6 @@ export function ArtifactList({ game, monsters, preferences }: {
   const abbreviate = (option: string) => option.slice(0, 3).toUpperCase();
 
   return <div className="artifact-library">
-    <ArtifactConversionNote />
     <DataTablePage
       filterClassName="artifact-filter-strip"
       tableClassName="artifact-grid"
