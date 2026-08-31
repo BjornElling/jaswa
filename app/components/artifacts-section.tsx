@@ -2,10 +2,9 @@
 
 import { WorkspacePage } from './workspace-page';
 import { Disclosure, PageHeader } from './page-chrome';
-import { Dropdown } from './dropdown';
 import { CheckboxRow, OptionCard } from './form-controls';
-import { artifactAcceptableWorthChoices, itemGrades } from '../lib/file-imports';
-import type { ArtifactConversionStoneMode, ArtifactSettings, ItemGrade } from '../lib/types';
+import { artifactAcceptableWorthChoices } from '../lib/file-imports';
+import type { ArtifactConversionStoneMode, ArtifactSettings } from '../lib/types';
 
 /* The slider's stops are the stored percentages themselves (decision 11), so
    the label a user reads and the factor the judgement multiplies by are one
@@ -24,11 +23,6 @@ const conversionStoneValueLabels = [
   'Three quarters — a good roll, short of perfect',
   'Maximum — the best the grade allows',
 ] as const;
-
-const ownedConversionStoneGradeLabels = itemGrades.map((grade) => ({
-  value: grade,
-  label: `${grade} (and under)`,
-}));
 
 /* The library is deliberately separate from this workspace: it answers what
    the account owns, while this page will answer what to change. Keeping those
@@ -89,49 +83,37 @@ export function ArtifactsSection({ settings, hasGame, onUpdate }: {
         <CheckboxRow label="Only factor in mons you own" checked={settings.onlyFactorInOwnedMonsters}
           onChange={(checked) => void onUpdate({ onlyFactorInOwnedMonsters: checked })} />
 
-        <div className="import-routes" role="radiogroup" aria-label="How to value conversion stones">
-          <OptionCard
-            option="Option 1"
-            name="Use only stones you own"
-            radioName="artifact-conversion-stone-mode"
-            value="owned"
-            current={settings.conversionStoneMode}
-            onChoose={(value) => void onUpdate({ conversionStoneMode: value as ArtifactConversionStoneMode })}
-          >
-            <div className="slider">
-              <label className="slider-label" htmlFor="owned-conversion-stone-grade">Conversion stone grade</label>
-              <p className="slider-note">Which level of conversion stones should be applied?</p>
-              <Dropdown id="owned-conversion-stone-grade" value={settings.ownedConversionStoneGrade}
-                onChange={(event) => void onUpdate({ ownedConversionStoneGrade: event.target.value as ItemGrade })}>
-                {ownedConversionStoneGradeLabels.map((grade) => <option key={grade.value} value={grade.value}>{grade.label}</option>)}
-              </Dropdown>
-            </div>
-          </OptionCard>
+        <div className="artifact-conversion-layout">
+          <div className="import-routes" role="radiogroup" aria-label="How to value conversion stones">
+            <OptionCard
+              option="Conversion stones"
+              name="Calculated values"
+              radioName="artifact-conversion-stone-mode"
+              value="theoretical"
+              current={settings.conversionStoneMode}
+              onChoose={(value) => void onUpdate({ conversionStoneMode: value as ArtifactConversionStoneMode })}
+            >
+              <p className="lead">
+                Each conversion is assigned a value from the fixed conversion range.
+              </p>
+            </OptionCard>
 
-          <div className="settings-rule" role="presentation" />
+            <div className="settings-rule" role="presentation" />
 
-          <OptionCard
-            option="Option 2"
-            name="Use theoretical calculations"
-            radioName="artifact-conversion-stone-mode"
-            value="theoretical"
-            current={settings.conversionStoneMode}
-            onChoose={(value) => void onUpdate({ conversionStoneMode: value as ArtifactConversionStoneMode })}
-          >
-            <div className="slider">
-              <label className="slider-label" htmlFor="theoretical-conversion-stone-grade">Conversion stone grade</label>
-              <p className="slider-note">Which conversion stone should the draft assume is available?</p>
-              <Dropdown id="theoretical-conversion-stone-grade" value={settings.conversionStoneGrade}
-                onChange={(event) => void onUpdate({ conversionStoneGrade: event.target.value as ItemGrade })}>
-                {itemGrades.map((grade) => <option key={grade} value={grade}>{grade}</option>)}
-              </Dropdown>
-            </div>
-          </OptionCard>
-        </div>
+            <OptionCard
+              option="Engraved conversion stones"
+              name="Use what you’ve got"
+              radioName="artifact-conversion-stone-mode"
+              value="owned"
+              current={settings.conversionStoneMode}
+              onChoose={(value) => void onUpdate({ conversionStoneMode: value as ArtifactConversionStoneMode })}
+            >
+              <p className="lead">
+                Only calculated values based on the engraved conversion stones you actually own are included.
+              </p>
+            </OptionCard>
+          </div>
 
-        <div className="bar-divide" />
-
-        <div className="slider-grid">
           <div className="slider">
             <label className="slider-label" htmlFor="conversion-stone-value">Conversion stone value</label>
             <p className="slider-note">How much of that stone’s maximum value should count in the draft?</p>
@@ -143,6 +125,11 @@ export function ArtifactsSection({ settings, hasGame, onUpdate }: {
               {conversionStoneValueLabels[conversionStoneValueStep]}
             </p>
           </div>
+        </div>
+
+        <div className="bar-divide" />
+
+        <div className="slider-grid">
           <div className="slider">
             <label className="slider-label" htmlFor="acceptable-worth">Acceptable ctr. preferred</label>
             <p className="slider-note">What is second choice worth against first choice?</p>

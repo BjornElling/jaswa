@@ -38,13 +38,16 @@ export const defaultRunePotentialSettings: RunePotentialSettings = {
    preferred/acceptable distinction stops meaning anything. */
 export const artifactAcceptableWorthChoices = [0, 25, 50, 75, 100] as const;
 export const artifactConversionStoneModes: ArtifactConversionStoneMode[] = ['owned', 'theoretical'];
+/* The exact key set rejects the retired grade-specific source shape instead of
+   silently carrying fields the current settings page no longer offers. */
+const artifactSettingKeys = [
+  'acceptableWorth', 'onlyFactorInOwnedMonsters', 'conversionStoneMode', 'conversionStoneValue',
+] as const;
 
 export const defaultArtifactSettings: ArtifactSettings = {
   acceptableWorth: 50,
   onlyFactorInOwnedMonsters: true,
   conversionStoneMode: 'owned',
-  ownedConversionStoneGrade: 'Hero',
-  conversionStoneGrade: 'Hero',
   conversionStoneValue: 3,
 };
 
@@ -80,11 +83,11 @@ export function blankPreferences(): Preferences {
    somewhere other than this slider and is not a contract JASWA honours. */
 function isArtifactSettings(value: unknown): value is ArtifactSettings {
   return isRecord(value)
+    && Object.keys(value).length === artifactSettingKeys.length
+    && Object.keys(value).every((key) => artifactSettingKeys.includes(key as typeof artifactSettingKeys[number]))
     && artifactAcceptableWorthChoices.includes(value.acceptableWorth as typeof artifactAcceptableWorthChoices[number])
     && typeof value.onlyFactorInOwnedMonsters === 'boolean'
     && artifactConversionStoneModes.includes(value.conversionStoneMode as ArtifactConversionStoneMode)
-    && itemGrades.includes(value.ownedConversionStoneGrade as ItemGrade)
-    && itemGrades.includes(value.conversionStoneGrade as ItemGrade)
     && isScale(value.conversionStoneValue, 4);
 }
 

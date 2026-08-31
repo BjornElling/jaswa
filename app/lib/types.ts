@@ -70,8 +70,6 @@ export type ArtifactSettings = {
   acceptableWorth: number;
   onlyFactorInOwnedMonsters: boolean;
   conversionStoneMode: ArtifactConversionStoneMode;
-  ownedConversionStoneGrade: ItemGrade;
-  conversionStoneGrade: ItemGrade;
   conversionStoneValue: number;
 };
 /**

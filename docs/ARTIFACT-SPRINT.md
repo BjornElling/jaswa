@@ -634,7 +634,7 @@ recorded here once the user has taken it.
 | 32 | 2026-08-30 | **Artifact-versus-monster value is `calculateArtifactOptimalValue`: main-property preference weight × weighted, roll-quality sub-property sum, divided by the fixed benchmark `1 preferred + 3 acceptable`.** Preferred weighs 1; acceptable weighs `Acceptable ctr. preferred`; unwanted weighs 0. Scores may exceed 100 %. | The user approved a benchmark rather than an artifact-specific denominator. It keeps a max-rolled `2 preferred + 2 acceptable` artifact visibly exceptional (120 % at the default factor), while rewarding the rarer four-property preferred match more still. A dynamic denominator would erase unmatched slots and falsely make a narrow match perfect. The complete contract is `ARTIFACT-CANONICAL.md` §16; the TypeScript function is its sole executable implementation. |
 | 33 | 2026-08-30 | **The artifact library leaves the Artifacts workspace and becomes its own rail entry, `Artifacts`, beside Monsters; the workspace is renamed `Artifact Optimization` and keeps the other four of decision 30's areas.** | The user's call. It separates a library from a judgement: `Artifacts` is the plain list of what the account holds, where `Artifact Optimization` is the three questions read against it — and the rail now names each for what it is. It also gives the table the room it needs, which a `Disclosure` on a workspace page could not: the list is full-width, sortable and filterable in the manner of Monsters, and follows that page's conventions throughout rather than inventing a second table idiom. Decision 30's ordering of the remaining four areas is untouched. |
 | 34 | 2026-08-30 | **Where the export contradicts `ARTIFACT-CANONICAL.md`, the export governs and the document is corrected.** Three roll ranges in §5 and two claims in §15.4 were wrong against the user's own 1,864 artifacts. | Session 4 built the property table from the export rather than from §5, and the disagreements were real: current artifacts acquired this month roll outside §5's stated range on three properties. §14's revision rule already makes an observation primary over a secondary guide, so the table records what was observed and §15.9 records the corrections. A range the code trusted over the data would have judged real lines as impossible ones. |
-| 35 | 2026-08-31 | **Artifact Optimization settings factor in owned monsters by default and offer two conversion-stone sources:** *Use only stones you own* with a grade applied to that grade and under, or *Use theoretical calculations* with one assumed grade. The stone-value control has four prose-labelled steps matching Rune Potential's Enchanted gems scale; the acceptable-versus-preferred factor stays outside the source choice. | The user's call. Ownership is a separate monster-scope filter, while the two stone sources answer whether the draft should use account inventory or an assumed grade. Separate grades preserve both answers when the user switches sources, and keeping the two sliders outside the option cards makes them apply to either source rather than look conditional. The new settings are validated as a complete current shape, with no migration path. |
+| 35 | 2026-08-31 | **Artifact Optimization settings factor in owned monsters by default and offer two conversion-stone sources:** *Conversion stones* with *Calculated values*, or *Engraved conversion stones* with *Use what you've got*. The stone-value control has four prose-labelled steps matching Rune Potential's Enchanted gems scale; the acceptable-versus-preferred factor stays outside the source choice. | The user's call. The two source cards now explain the difference directly: the first uses the fixed conversion range, while the second uses calculated values from engraved stones the user actually owns. Grade dropdowns are not part of this decision, and the shared value slider sits beside the cards so it is visibly common to both sources. The current preferences shape keeps only the choices that the interface offers. |
 
 ---
 
@@ -1792,3 +1792,17 @@ the maximums, option switching kept every outside control at the same x/y/size,
 and both states survived reload. The browser-control bridge itself had no
 session, so the visual evidence came from Playwright screenshots against the
 user's already-running local server.
+
+### Session 6 — August 31, 2026 — source cards clarified
+
+**Asked.** Replace the two grade dropdowns with clearer source descriptions:
+**Conversion stones / Calculated values** for the fixed conversion range and
+**Engraved conversion stones / Use what you've got** for the engraved stones
+the user owns. Place the shared **Conversion stone value** slider to the right
+of the source cards, using two thirds of the settings panel for those cards.
+
+**Built.** The two grade fields are removed from `ArtifactSettings`, its
+defaults and its validator. The cards keep their fixed radio-control boxes and
+now carry only the explanatory copy. The four-step value slider is the right-
+hand third on wide screens and stacks below the cards at the responsive
+breakpoint; the acceptable-property slider remains below the source choice.
