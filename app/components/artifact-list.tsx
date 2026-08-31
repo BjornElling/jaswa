@@ -282,14 +282,14 @@ export function ArtifactList({ game, monsters, preferences }: {
         <label className="filter-label" htmlFor="artifact-sort-by">Sort by</label>
         <div className="filter-group-controls">
           <Dropdown id="artifact-sort-by"
-            className={activeSortBySubProperty === null ? 'artifact-sort-select' : 'artifact-sort-select active'}
+            className="artifact-sort-select"
             value={activeSortBySubProperty ?? ''}
             onChange={(event) => {
               const selected = subPropertyOptions.find((option) => String(option.id) === event.target.value);
               setSortBySubProperty(selected?.id ?? null);
             }}
-            aria-label="Sort artifacts by substat">
-            <option value="">Select a substat</option>
+            aria-label="Sort artifacts by substat"
+            placeholder="Select a substat">
             {subPropertyOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
           </Dropdown>
         </div>
