@@ -1044,7 +1044,9 @@ button { cursor: pointer; }
 /* The chooser keeps all its filter controls mounted. A narrower roster changes
    only the dropdown options and result rows, never the controls around them. */
 .best-artifact-for-monster { display: grid; gap: var(--s4); }
+.best-monster-for-artifact { display: grid; gap: var(--s4); }
 .best-artifact-for-monster > .lead, .best-artifact-meta { margin: 0; }
+.best-monster-for-artifact > .lead { margin: 0; }
 .best-artifact-filters {
   display: grid;
   grid-template-columns: max-content max-content minmax(30ch, 1fr) max-content;
@@ -1056,8 +1058,21 @@ button { cursor: pointer; }
   background: var(--sunk);
 }
 .best-artifact-filters .filter-group { min-width: 0; }
+.best-monster-filters {
+  display: grid;
+  grid-template-columns: max-content max-content minmax(30ch, 1fr);
+  align-items: end;
+  gap: var(--s4);
+  padding: var(--s4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--sunk);
+}
+.best-monster-filters .filter-group { min-width: 0; }
+.best-monster-artifact-select .jaswa-select { width: 100%; min-width: 34ch; }
 .best-artifact-monster-select .jaswa-select { width: 100%; min-width: 30ch; }
 .best-artifact-calculate { height: 32px; white-space: nowrap; }
+.best-monster-calculate { height: 32px; white-space: nowrap; }
 .best-artifact-meta { color: var(--dim); font-family: var(--mono); font-size: var(--t-small); font-variant-numeric: tabular-nums; }
 .best-artifact-results { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s4); }
 .best-artifact-result { min-width: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
@@ -1076,16 +1091,37 @@ button { cursor: pointer; }
 .best-artifact-result td b { min-height: 1.45em; font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 500; }
 .best-artifact-result td span { margin-top: var(--s1); color: var(--dim); line-height: 1.35; }
 .best-artifact-empty { padding: var(--s4); color: var(--dim); }
+.best-monster-artifact-details { display: grid; grid-template-columns: minmax(22ch, .8fr) minmax(0, 1.2fr); gap: var(--s5); padding: var(--s4); border: 1px solid var(--line); border-radius: var(--radius); background: var(--sunk); }
+.best-monster-artifact-details p, .best-monster-artifact-details h3 { margin: 0; }
+.best-monster-artifact-details h3 { margin-top: var(--s1); font-size: var(--t-lead); }
+.best-monster-artifact-details h3 + p { margin-top: var(--s2); color: var(--dim); }
+.best-monster-artifact-details .artifact-subs { align-self: center; columns: 2; column-gap: var(--s5); }
+.best-monster-artifact-details .artifact-subs li { break-inside: avoid; }
+.best-monster-converted { display: inline; margin-left: var(--s2); color: var(--gold); font-size: var(--t-micro); letter-spacing: .06em; text-transform: uppercase; }
+.best-monster-result-scroll { max-height: 38rem; overflow: auto; }
+.best-monster-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: var(--t-small); }
+.best-monster-table th, .best-monster-table td { padding: var(--s3); border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.best-monster-table th { color: var(--faint); font-size: var(--t-micro); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.best-monster-table th:nth-child(1) { width: 37%; }
+.best-monster-table tr:last-child td { border-bottom: 0; }
+.best-monster-table td b { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 500; }
 @media (max-width: 1420px) {
   .best-artifact-filters { grid-template-columns: max-content max-content minmax(30ch, 1fr); }
+  .best-monster-filters { grid-template-columns: max-content minmax(30ch, 1fr); }
   .best-artifact-calculate { justify-self: start; }
+  .best-monster-calculate { justify-self: start; }
   .best-artifact-results { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 900px) {
   .best-artifact-filters { grid-template-columns: minmax(0, 1fr); align-items: stretch; }
+  .best-monster-filters { grid-template-columns: minmax(0, 1fr); align-items: stretch; }
   .best-artifact-monster-select .jaswa-select { min-width: 0; }
+  .best-monster-artifact-select .jaswa-select { min-width: 0; }
   .best-artifact-calculate { width: 100%; }
+  .best-monster-calculate { width: 100%; }
   .best-artifact-results { grid-template-columns: minmax(0, 1fr); }
+  .best-monster-artifact-details { grid-template-columns: minmax(0, 1fr); }
+  .best-monster-artifact-details .artifact-subs { columns: 1; }
 }
 
 /* The result table stays inside the disclosure's normal reading width: score

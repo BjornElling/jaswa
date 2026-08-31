@@ -5,6 +5,7 @@ import { Disclosure, PageHeader } from './page-chrome';
 import { CheckboxRow, OptionCard } from './form-controls';
 import { ArtifactMaximumValues } from './artifact-maximum-values';
 import { BestArtifactForMonster } from './best-artifact-for-monster';
+import { BestMonsterForArtifact } from './best-monster-for-artifact';
 import { artifactAcceptableWorthChoices } from '../lib/file-imports';
 import type { ArtifactConversionStoneMode, ArtifactSettings, GeneralSettings } from '../lib/types';
 import type { GameRecord } from '../lib/game-data';
@@ -60,10 +61,8 @@ export function ArtifactsSection({ settings, data, monsters, general, hardwareAc
     </Disclosure>
 
     <Disclosure title="Best monster for this artifact" sessionKey="artifacts.best-monster">
-      <div className="optimizer-draft">
-        <p className="lead">Choose one artifact, then see the monsters that would make the best use of its main and sub properties.</p>
-        <p className="optimizer-draft-note">Monster types without property preferences stay out of the ranking instead of being treated as bad fits.</p>
-      </div>
+      {data ? <BestMonsterForArtifact data={data} monsters={monsters} settings={settings} general={general}
+        hardwareAcceleration={hardwareAcceleration} /> : <p className="lead">Import your game data first, then find the monster that can make an artifact shine.</p>}
     </Disclosure>
 
     <Disclosure title="Best artifact for this monster" sessionKey="artifacts.best-artifact">

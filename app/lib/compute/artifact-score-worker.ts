@@ -80,6 +80,28 @@ function targetScoresFromScores(request: ArtifactScoreRequest, scores: Float32Ar
   return targetScores;
 }
 
+function allScoresFromScores(request: ArtifactScoreRequest, scores: Float32Array): ArtifactMaximumScore[] {
+  if (!request.includeAllScores) return [];
+  const allScores: ArtifactMaximumScore[] = [];
+  for (let artifactIndex = 0; artifactIndex < request.artifacts.length; artifactIndex += 1) {
+    const artifact = request.artifacts[artifactIndex];
+    for (let monsterIndex = 0; monsterIndex < request.monsters.length; monsterIndex += 1) {
+      const value = scores[artifactIndex * request.monsters.length + monsterIndex];
+      if (value < 0) continue;
+      const monster = request.monsters[monsterIndex];
+      const detail = scoreArtifactOnMonster(artifact, monster, request);
+      allScores.push({
+        artifactId: artifact.id,
+        monsterId: monster.id,
+        monsterName: monster.name,
+        value,
+        conversion: detail?.conversion,
+      });
+    }
+  }
+  return allScores;
+}
+
 self.onmessage = async (event: MessageEvent<ArtifactScoreWorkerRequest>) => {
   const message = event.data;
   if (message.type !== 'calculate') return;
@@ -105,6 +127,7 @@ self.onmessage = async (event: MessageEvent<ArtifactScoreWorkerRequest>) => {
         evaluatedPairs: message.request.artifacts.length * message.request.monsters.length,
         maxima: maximaFromScores(message.request, scores),
         targetScores: targetScoresFromScores(message.request, scores),
+        allScores: allScoresFromScores(message.request, scores),
         ownedConversionCount: message.request.ownedConversionPropertyIndexes.length,
       },
     };

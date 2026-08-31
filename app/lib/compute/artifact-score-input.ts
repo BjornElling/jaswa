@@ -106,9 +106,10 @@ export function buildArtifactScoreRequestsForMonsterIds(
   data: GameRecord | undefined,
   monsterIds: readonly string[],
   settings: ArtifactSettings,
+  artifactIds?: ReadonlySet<string>,
 ): ArtifactScoreRequest[] {
   const sourceIds = [...new Set(monsterIds)];
-  const artifacts = readArtifacts(data);
+  const artifacts = readArtifacts(data).filter((artifact) => artifactIds === undefined || artifactIds.has(artifact.id));
   const ownedConversionPropertyIndexes = readOwnedEngravedConversionPropertyIndexes(data);
   const conversionMode: 0 | 1 | 2 = settings.conversionStoneMode === 'none' ? 0
     : settings.conversionStoneMode === 'theoretical' ? 1 : 2;
@@ -128,6 +129,7 @@ export function buildArtifactScoreRequests(
   data: GameRecord | undefined,
   monsters: readonly GameRecord[],
   settings: ArtifactSettings,
+  artifactIds?: ReadonlySet<string>,
 ): ArtifactScoreRequest[] {
-  return buildArtifactScoreRequestsForMonsterIds(data, sourceMonsterIds(monsters, settings.onlyFactorInOwnedMonsters), settings);
+  return buildArtifactScoreRequestsForMonsterIds(data, sourceMonsterIds(monsters, settings.onlyFactorInOwnedMonsters), settings, artifactIds);
 }
