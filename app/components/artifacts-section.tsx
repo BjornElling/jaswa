@@ -48,7 +48,7 @@ export function ArtifactsSection({ settings, hasGame, onUpdate }: {
       <p className="next-step">Import your game data first. Your preferences can be prepared at any time.</p>
     </section>}
 
-    <Disclosure title="Recommendations">
+    <Disclosure title="Recommendations" sessionKey="artifacts.recommendations">
       <div className="optimizer-draft">
         <p className="lead">
           The swaps worth making across the account, ordered by how much better the receiving monster fits the artifact.
@@ -64,21 +64,21 @@ export function ArtifactsSection({ settings, hasGame, onUpdate }: {
       </div>
     </Disclosure>
 
-    <Disclosure title="Best monster for this artifact">
+    <Disclosure title="Best monster for this artifact" sessionKey="artifacts.best-monster">
       <div className="optimizer-draft">
         <p className="lead">Choose one artifact, then see the monsters that would make the best use of its main and sub properties.</p>
         <p className="optimizer-draft-note">Monster types without property preferences stay out of the ranking instead of being treated as bad fits.</p>
       </div>
     </Disclosure>
 
-    <Disclosure title="Best artifact for this monster">
+    <Disclosure title="Best artifact for this monster" sessionKey="artifacts.best-artifact">
       <div className="optimizer-draft">
         <p className="lead">Choose one monster, then compare the artifacts that suit its saved role — equipped and inventory candidates side by side.</p>
         <p className="optimizer-draft-note">Preferred properties lead; acceptable ones use the account-wide allowance below.</p>
       </div>
     </Disclosure>
 
-    <Disclosure title="Settings">
+    <Disclosure title="Settings" sessionKey="artifacts.settings">
       <div className="stack">
         <div className="artifact-general-layout">
           <div className="slider">

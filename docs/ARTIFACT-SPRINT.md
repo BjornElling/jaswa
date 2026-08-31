@@ -1838,3 +1838,13 @@ width and add **No conversion / As they are** as the first choice.
 **Built.** The conversion row now has three equal options: no conversion,
 fixed-range Conversion stones, and owned Engraved conversion stones. The
 shared value slider sits below that row at half width and stacks responsively.
+
+### Session 10 — August 31, 2026 — session-scoped interface state
+
+**Asked.** Keep the current page and the open or collapsed state of the
+workspace menus when moving between pages or reloading the same browser tab.
+
+**Built.** Navigation and every shared disclosure now use the existing
+validated session-storage hook. Each disclosure has a stable workspace key, so
+Artifact Optimization and Rune Potential restore their own fold state without
+sharing it with another tab or adding it to durable preferences.

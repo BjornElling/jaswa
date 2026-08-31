@@ -19,7 +19,7 @@ function writeSessionValue<T>(key: string, value: T) {
   try {
     window.sessionStorage.setItem(key, JSON.stringify(value));
   } catch {
-    /* Filters remain usable when storage is unavailable or full. */
+    /* Session-scoped choices remain usable when storage is unavailable or full. */
   }
 }
 
@@ -70,7 +70,7 @@ function createSessionStore<T>(
 /**
  * Session state starts with its server-safe default, then adopts a validated
  * value from this tab during hydration. Updates write immediately so leaving a
- * page cannot race the effect that would otherwise persist the latest filter.
+ * page cannot race the effect that would otherwise persist the latest choice.
  */
 export function useSessionStorageState<T>(
   key: string,

@@ -1,4 +1,7 @@
 import type { ReactNode } from 'react';
+import { useSessionStorageState } from '../lib/session-storage-state';
+
+const isBoolean = (value: unknown): value is boolean => typeof value === 'boolean';
 
 export function PageHeader({ eyebrow, title, tagline }: { eyebrow?: string; title: string; tagline: string }) {
   return <header className="page-header">
@@ -9,13 +12,25 @@ export function PageHeader({ eyebrow, title, tagline }: { eyebrow?: string; titl
 }
 
 /** A native disclosure keeps keyboard behaviour and find-in-page support in
-    the browser, while the shared bar gives every workspace the same frame. */
-export function Disclosure({ title, defaultOpen = false, children }: {
+    the browser, while the shared bar gives every workspace the same frame.
+    The explicit key lets a workspace leave and return without losing its
+    current reading position during this browser tab. */
+export function Disclosure({ title, sessionKey, defaultOpen = false, children }: {
   title: string;
+  sessionKey: string;
   defaultOpen?: boolean;
   children: ReactNode;
 }) {
-  return <details className="bar" open={defaultOpen}>
+  const [open, setOpen] = useSessionStorageState<boolean>(
+    `jaswa.disclosures.${sessionKey}`,
+    defaultOpen,
+    isBoolean,
+  );
+
+  return <details className="bar" open={open} onToggle={(event) => {
+    const nextOpen = event.currentTarget.open;
+    setOpen((current) => current === nextOpen ? current : nextOpen);
+  }}>
     <summary className="bar-head">
       <span className="bar-chevron" aria-hidden="true">›</span>
       <b>{title}</b>

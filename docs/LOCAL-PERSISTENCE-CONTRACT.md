@@ -7,8 +7,8 @@
 
 JASWA keeps committed user data on the same computer and in the same browser
 profile after a reload, a browser restart, or a development-server restart.
-It sends none of that data to a server. `sessionStorage` is not used anywhere
-in the application.
+It sends none of that data to a server. Session-scoped interface state is kept
+in the current browser tab only and is cleared when that tab closes.
 
 ## Durable data
 
@@ -29,12 +29,20 @@ before IndexedDB completes; IndexedDB remains the complete workspace store.
 A folder handle is an IndexedDB record because browser handles cannot travel in
 an exported preferences file.
 
+## Session-scoped state
+
+The current navigation page, which disclosure bars are open or closed, and
+table filters are stored in `sessionStorage`. They survive page navigation and
+reloads in the same tab, but are not part of the durable workspace and are not
+shared with another tab. Invalid stored values are ignored and the interface
+returns to its current default.
+
 ## What is not a saved choice
 
 Open dialogs, unfinished preset edits, drag highlighting, messages, loading
-states, current navigation, table filters, sorting, scroll positions, and
-hardware-detection results are temporary interface state. A draft becomes
-durable only when the user presses its explicit save or confirmation control.
+states, sorting, scroll positions, and hardware-detection results are
+temporary interface state. A draft becomes durable only when the user presses
+its explicit save or confirmation control.
 
 ## Write rule
 
@@ -45,10 +53,11 @@ new value reaches the interface, and queues an IndexedDB write after the
 earlier preference writes. Imported game data and folder choices wait for their
 IndexedDB transaction to complete before appearing as saved state.
 
-New persistent data must have one named, central write route, a complete
+New durable data must have one named, central write route, a complete
 validator for data read back from the browser or a file, and an entry in this
-contract. Do not add direct `localStorage`, `sessionStorage`, or IndexedDB
-writes to components.
+contract. Session-scoped interface state uses the shared
+`useSessionStorageState` hook and validates every value read back. Components
+do not write to `localStorage`, `sessionStorage`, or IndexedDB directly.
 
 ## Origin is part of the local workspace
 
@@ -68,5 +77,6 @@ unless the user exports their source JSON separately.
 For any persistence change, verify in the running app that a changed value
 survives a reload for both an empty workspace and a fully populated one. Test
 two consecutive changes before the first write settles, then reload and verify
-the last value. Confirm that changing the temporary states listed above does
-not accidentally create durable data.
+the last value. For session-scoped state, also verify page navigation, reload,
+and a fresh browser tab, and confirm that changing the temporary states listed
+above does not accidentally create durable data.
