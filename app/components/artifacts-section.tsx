@@ -82,7 +82,7 @@ export function ArtifactsSection({ settings, hasGame, onUpdate }: {
       <div className="stack">
         <div className="artifact-general-layout">
           <div className="slider">
-            <label className="slider-label" htmlFor="acceptable-worth">Acceptable ctr. preferred</label>
+            <label className="slider-label" htmlFor="acceptable-worth">Acceptable stats ctr. preferred</label>
             <p className="slider-note">What is second choice worth against first choice?</p>
             <input id="acceptable-worth" type="range"
               min={1} max={artifactAcceptableWorthChoices.length} step={1}
