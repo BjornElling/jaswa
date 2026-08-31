@@ -878,16 +878,19 @@ button { cursor: pointer; }
 
 /* -------------------------------------------------------------- sliders */
 
-/* The general judgement takes two thirds of the row, while monster scope gets
-   its own quieter callout so the account-wide filter does not disappear among
-   the stone-specific choices below. */
+/* The judgement slider occupies half the row, while monster scope keeps its
+   existing one-third track; the remaining space creates breathing room
+   between two decisions that deserve different visual weight. */
 .artifact-general-layout {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: var(--s5);
   align-items: start;
 }
-.artifact-general-layout > .slider { min-width: 0; }
+.artifact-general-layout > .slider {
+  min-width: 0;
+  width: 75%;
+}
 .artifact-scope-box {
   min-width: 0;
   padding: var(--s4);
@@ -910,6 +913,7 @@ button { cursor: pointer; }
 }
 @media (max-width: 1280px) {
   .artifact-general-layout { grid-template-columns: minmax(0, 1fr); }
+  .artifact-general-layout > .slider { width: 100%; }
 }
 
 /* The source choices fill their row; the shared stone-value question sits
