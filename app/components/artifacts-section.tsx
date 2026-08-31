@@ -134,7 +134,7 @@ export function ArtifactsSection({ settings, hasGame, onUpdate }: {
               onChoose={(value) => void onUpdate({ conversionStoneMode: value as ArtifactConversionStoneMode })}
             >
               <p className="lead">
-                Each conversion is assigned a value from the fixed conversion range.
+                Each conversion is assigned a calculated value from the fixed conversion range.
               </p>
             </OptionCard>
 
