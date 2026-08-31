@@ -561,19 +561,12 @@ button { cursor: pointer; }
   text-overflow: ellipsis;
   color: var(--faint);
 }
-.artifact-sort-select {
+.jaswa-select.artifact-sort-select {
   flex: 0 1 260px;
   width: 260px;
   max-width: 100%;
   height: 32px;
-  padding: 0 var(--s3);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-sm);
-  background: var(--sunk);
-  color: var(--dim);
-  font-family: var(--mono);
   font-size: var(--t-small);
-  outline: none;
 }
 .artifact-sort-select:focus { border-color: var(--gold); }
 .artifact-sort-select.active {
@@ -982,15 +975,11 @@ button { cursor: pointer; }
   accent-color: var(--gold);
   height: 20px;
 }
-.slider select {
+.slider .jaswa-select {
   width: 100%;
   min-height: 32px;
   margin: var(--s4) 0 0;
-  padding: 0 var(--s2);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-sm);
-  background: var(--sunk);
-  color: var(--ink);
+  padding-left: var(--s2);
 }
 .optimizer-draft { display: grid; gap: var(--s3); }
 .optimizer-draft .lead, .optimizer-draft-note { margin: 0; }
@@ -1816,7 +1805,7 @@ button { cursor: pointer; }
   color: var(--dim); font-weight: 600;
   margin-bottom: var(--s2);
 }
-.field input, .field select, .field textarea {
+.field input, .field textarea {
   display: block; width: 100%;
   height: 36px;
   background: var(--sunk);
@@ -1827,27 +1816,34 @@ button { cursor: pointer; }
   font-size: var(--t-body);
   color-scheme: dark;
 }
-/* The native select button sits hard against the right edge and ignores the
-   field's padding, so the arrow is drawn as a background chevron instead —
-   inset by the same gutter as the text on the left. The stroke repeats
-   --dim literally because a data URI cannot read a custom property. */
-.field select {
+.jaswa-select {
+  display: block;
+  width: 100%;
+  height: 36px;
+  background: var(--sunk);
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--s6) 0 var(--s3);
+  font-size: var(--t-body);
+  color-scheme: dark;
   appearance: none;
   -webkit-appearance: none;
-  padding-right: var(--s6);
+  /* The button ignores the field's text padding, so a shared chevron reserves
+     the same right gutter everywhere a dropdown appears. */
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none' stroke='%23a8adb8' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5'/%3E%3C/svg%3E");
   background-position: right var(--s3) center;
   background-size: 11px 7px;
   background-repeat: no-repeat;
 }
-.field select:hover { background-color: var(--hover); }
+.jaswa-select:hover { background-color: var(--hover); }
 
 .field textarea {
   height: auto; min-height: 120px; resize: vertical;
   padding: var(--s3);
   font-family: var(--sans); line-height: 1.55;
 }
-.field input:focus, .field select:focus, .field textarea:focus {
+.field input:focus, .jaswa-select:focus, .field textarea:focus {
   outline: none; border-color: var(--gold);
 }
 
@@ -2677,35 +2673,20 @@ button { cursor: pointer; }
    (GMT-03:00), is 42 characters and is allowed to ellipsise rather than making
    every row wide enough for the rarest entry. It is fixed either way, so the
    row does not resize as the chosen zone changes. */
-.zone-select select {
+.zone-select .jaswa-select {
   height: 32px;
   width: 300px;
   text-overflow: ellipsis;
-  background: var(--sunk);
-  color: var(--ink);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-sm);
-  padding: 0 var(--s6) 0 var(--s3);
-  font-size: var(--t-body);
-  color-scheme: dark;
-  appearance: none;
-  -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none' stroke='%23a8adb8' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5'/%3E%3C/svg%3E");
-  background-position: right var(--s3) center;
-  background-size: 11px 7px;
-  background-repeat: no-repeat;
 }
-.zone-select select:hover { background-color: var(--hover); }
-.zone-select select:focus { outline: none; border-color: var(--gold); }
 /* A control that cannot be used keeps its full box and says so by weight, so
    nothing moves on the day it starts working. */
-.zone-select select:disabled {
+.jaswa-select:disabled {
   color: var(--faint);
   border-color: var(--line);
   border-style: dashed;
   cursor: not-allowed;
 }
-.zone-select select:disabled:hover { background-color: var(--sunk); }
+.jaswa-select:disabled:hover { background-color: var(--sunk); }
 
 /* The save row's buttons are shorter than the page's standard control: this is
    a line of settings, not a call to action. */
@@ -2782,5 +2763,5 @@ button { cursor: pointer; }
    squeezing them into what is left of the row. */
 @media (max-width: 760px) {
   .setting-line, .radio-line { grid-template-columns: minmax(0, 1fr); gap: var(--s2); }
-  .zone-select select { width: 100%; }
+  .zone-select .jaswa-select { width: 100%; }
 }

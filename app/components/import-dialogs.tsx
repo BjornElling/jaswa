@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { RefObject } from 'react';
+import { Dropdown } from './dropdown';
 import type { ReportCategory } from '../lib/workspace-config';
 import type { DirectImportMode, ImportedGame } from '../lib/types';
 
@@ -145,9 +146,9 @@ export function ReportDialog({ report, onChange, onCancel, onSend }: {
       <h2 id="report-title">Report missing data</h2>
       <p>Your mail program opens with this report filled in. Review it, then send it to the developer.</p>
       <label className="field"><span>Data type</span>
-        <select value={report.category} onChange={(event) => onChange({ ...report, category: event.target.value as ReportCategory })}>
+        <Dropdown value={report.category} onChange={(event) => onChange({ ...report, category: event.target.value as ReportCategory })}>
           {categories.map((category) => <option key={category}>{category}</option>)}
-        </select>
+        </Dropdown>
       </label>
       <label className="field"><span>What is missing or unrecognized?</span>
         <textarea value={report.details} onChange={(event) => onChange({ ...report, details: event.target.value })}

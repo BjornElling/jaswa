@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { RadioLine } from './form-controls';
+import { Dropdown } from './dropdown';
 import { availableTimeZones, clockSample, dateSample, numberSample } from '../lib/regional-settings';
 import type {
   DateOrderChoice, GeneralSettings as GeneralSettingsValue, HourCycleChoice,
@@ -128,10 +129,10 @@ export function GeneralSettings({ settings, saveFolder, canChooseFolder, onChang
               it still shows the zone it would use. */}
           <label className="zone-select">
             <span className="visually-hidden">Time zone</span>
-            <select value={settings.manualTimeZone} disabled={settings.timeZone !== 'manual'}
+            <Dropdown value={settings.manualTimeZone} disabled={settings.timeZone !== 'manual'}
               onChange={(event) => onChange({ manualTimeZone: event.target.value })}>
               {timeZones.map(({ zone, label }) => <option key={zone} value={zone}>{label}</option>)}
-            </select>
+            </Dropdown>
           </label>
         </RadioLine>
       </div>

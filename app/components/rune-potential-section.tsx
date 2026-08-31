@@ -3,6 +3,7 @@
 import { type FormEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { WorkspacePage } from './workspace-page';
 import { Disclosure, PageHeader } from './page-chrome';
+import { Dropdown } from './dropdown';
 import { CheckboxRow } from './form-controls';
 import { itemGrades } from '../lib/file-imports';
 import {
@@ -166,16 +167,16 @@ export function RunePotentialSection({ settings, presets, onUpdate, onWritePrese
           <aside className="settings-aside">
             <div className="grade-fields">
               <label className="field"><span>Gem grade</span>
-                <select value={settings.gemGrade}
+                <Dropdown value={settings.gemGrade}
                   onChange={(event) => void onUpdate({ gemGrade: event.target.value as ItemGrade })}>
                   {itemGrades.map((grade) => <option key={grade}>{grade}</option>)}
-                </select>
+                </Dropdown>
               </label>
               <label className="field"><span>Grindstone grade</span>
-                <select value={settings.grindstoneGrade}
+                <Dropdown value={settings.grindstoneGrade}
                   onChange={(event) => void onUpdate({ grindstoneGrade: event.target.value as ItemGrade })}>
                   {itemGrades.map((grade) => <option key={grade}>{grade}</option>)}
-                </select>
+                </Dropdown>
               </label>
             </div>
           </aside>
@@ -192,9 +193,9 @@ export function RunePotentialSection({ settings, presets, onUpdate, onWritePrese
               onChange={(checked) => void onUpdate({ includeEquippedRunes: checked })} />
           </div>
           <label className="field field-narrow field-lead"><span>Sort order</span>
-            <select value={settings.sortOrder} onChange={(event) => void onUpdate({ sortOrder: event.target.value as RunePotentialSortOrder })}>
+            <Dropdown value={settings.sortOrder} onChange={(event) => void onUpdate({ sortOrder: event.target.value as RunePotentialSortOrder })}>
               {sortOrders.map((order) => <option key={order}>{order}</option>)}
-            </select>
+            </Dropdown>
           </label>
         </div>
       </div>
@@ -405,9 +406,9 @@ function PresetEditor({ draft, isNew, onCancel, onSave }: {
               onChange={(event) => update({ name: event.target.value })} />
           </label>
           <label className="field"><span>Type</span>
-            <select value={preset.type} onChange={(event) => update({ type: event.target.value as PresetType })}>
+            <Dropdown value={preset.type} onChange={(event) => update({ type: event.target.value as PresetType })}>
               {presetTypes.map((type) => <option key={type}>{type}</option>)}
-            </select>
+            </Dropdown>
           </label>
         </div>
 

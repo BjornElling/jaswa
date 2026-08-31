@@ -2,6 +2,7 @@
 
 import { WorkspacePage } from './workspace-page';
 import { Disclosure, PageHeader } from './page-chrome';
+import { Dropdown } from './dropdown';
 import { artifactAcceptableWorthChoices, itemGrades } from '../lib/file-imports';
 import type { ArtifactSettings, ItemGrade } from '../lib/types';
 
@@ -74,10 +75,10 @@ export function ArtifactsSection({ settings, hasGame, onUpdate }: {
         <div className="slider">
           <label className="slider-label" htmlFor="conversion-stone-grade">Conversion stone grade</label>
           <p className="slider-note">Which conversion stone should the draft assume is available?</p>
-          <select id="conversion-stone-grade" value={settings.conversionStoneGrade}
+          <Dropdown id="conversion-stone-grade" value={settings.conversionStoneGrade}
             onChange={(event) => void onUpdate({ conversionStoneGrade: event.target.value as ItemGrade })}>
             {itemGrades.map((grade) => <option key={grade} value={grade}>{grade}</option>)}
-          </select>
+          </Dropdown>
         </div>
         <div className="slider">
           <label className="slider-label" htmlFor="conversion-stone-max-value">Conversion stone value</label>

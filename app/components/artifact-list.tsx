@@ -3,6 +3,7 @@
 import { type ReactNode, useMemo, useState } from 'react';
 import { PageHeader } from './page-chrome';
 import { DataTablePage } from './data-table-page';
+import { Dropdown } from './dropdown';
 import type { GameRecord } from '../lib/game-data';
 import type { ImportedGame, Preferences } from '../lib/types';
 import { readArtifacts } from '../lib/artifacts';
@@ -288,7 +289,7 @@ export function ArtifactList({ game, monsters, preferences }: {
       <div className="filter-group artifact-filter-sort-by" role="group" aria-label="Sort artifacts by substat">
         <label className="filter-label" htmlFor="artifact-sort-by">Sort by</label>
         <div className="filter-group-controls">
-          <select id="artifact-sort-by"
+          <Dropdown id="artifact-sort-by"
             className={activeSortBySubProperty === null ? 'artifact-sort-select' : 'artifact-sort-select active'}
             value={activeSortBySubProperty ?? ''}
             onChange={(event) => {
@@ -298,7 +299,7 @@ export function ArtifactList({ game, monsters, preferences }: {
             aria-label="Sort artifacts by substat">
             <option value="">Select a substat</option>
             {subPropertyOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
-          </select>
+          </Dropdown>
         </div>
       </div>
       {toggleGroup('Type', 'Filter by artifact type', categoryOrder,
