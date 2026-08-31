@@ -74,7 +74,7 @@ function ArtifactTableHeader({ sortHeader }: {
     <tr>
       {sortHeader('index', '#', true)}
       {sortHeader('location', 'Location', true)}
-      {sortHeader('value', <span className="table-heading-two-line" aria-label="Value on mon">Value on<br />mon</span>)}
+      {sortHeader('value', <span className="table-heading-two-line" aria-label="Value on mon">Value on<br />mon</span>, true)}
       {sortHeader('category', 'Type', true)}
       {sortHeader('equipClass', 'Restriction', true)}
       {sortHeader('grade', 'Quality', true)}
@@ -327,7 +327,7 @@ export function ArtifactList({ game, monsters, preferences }: {
               title={row.location === null ? 'Worn by a monster this import does not contain' : undefined}>
               {row.location ?? 'Unknown monster'}
             </td>
-            <td className={row.value === undefined ? 'muted' : undefined}
+            <td className={row.value === undefined ? 'align-left muted' : 'align-left'}
               title={row.value === undefined && row.artifact.occupiedId !== null
                 ? 'Not judged: nothing recorded for this monster type'
                 : undefined}>
