@@ -103,7 +103,7 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
             <td>#{String(artifactNumbers.get(maximum.artifactId) ?? maximum.artifactId)}</td>
             <td>{maximum.monsterName}</td>
             <td>{formatNumber(Math.round(maximum.value * 100), general)} %</td>
-            <td className={maximum.conversion ? '' : 'muted'}>{conversionLabel(maximum) ?? 'Keep it real'}</td>
+            <td className={maximum.conversion ? '' : 'muted'}>{conversionLabel(maximum) ?? 'None'}</td>
           </tr>)}</tbody>
         </table>
       </div> : <p className="artifact-maximum-empty">None of these artifacts can be judged against the monsters in this scope yet.</p>}

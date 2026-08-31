@@ -292,7 +292,7 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
         <ResultCard title="No artifact in this slot" description="The ten strongest eligible monsters with no artifact in this category equipped yet."
           empty={slotlessRows.length ? undefined : 'Every monster already has an artifact in this slot.'}>
           <table className="best-monster-table"><thead><tr><th scope="col">Monster</th><th scope="col">Score</th><th scope="col">Conversion</th></tr></thead><tbody>
-            {slotlessRows.map(({ monster, score }) => <tr key={monster.unitId}><td>{monster.name}</td><td><b><Score score={score} general={general} /></b></td><td>{score ? conversionLabel(score) ?? 'Keep it real' : 'Not judged'}</td></tr>)}
+            {slotlessRows.map(({ monster, score }) => <tr key={monster.unitId}><td>{monster.name}</td><td><b><Score score={score} general={general} /></b></td><td>{score ? conversionLabel(score) ?? 'None' : 'Not judged'}</td></tr>)}
           </tbody></table>
         </ResultCard>
         <ResultCard title="Improves on current" description={owner ? `The ten strongest monsters that score higher than this artifact's ${owner.name} score.` : 'Equip this inventory artifact first to establish a current score.'}
@@ -304,7 +304,7 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
         <ResultCard title="Raw score ranking" description="The ten highest-scoring eligible monsters in the active scope."
           empty={rawRows.length ? undefined : 'No monster in the active scope can be judged for this artifact.'}>
           <table className="best-monster-table"><thead><tr><th scope="col">Monster</th><th scope="col">Score</th><th scope="col">Conversion</th></tr></thead><tbody>
-            {rawRows.map((score) => <tr key={score.monsterId}><td>{score.monsterName}</td><td><b><Score score={score} general={general} /></b></td><td>{conversionLabel(score) ?? 'Keep it real'}</td></tr>)}
+            {rawRows.map((score) => <tr key={score.monsterId}><td>{score.monsterName}</td><td><b><Score score={score} general={general} /></b></td><td>{conversionLabel(score) ?? 'None'}</td></tr>)}
           </tbody></table>
         </ResultCard>
       </div>

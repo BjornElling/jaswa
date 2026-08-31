@@ -123,7 +123,7 @@ function ArtifactResults({ title, description, rows, general, selectedMonster }:
             </td>
             <td>
               <b><Score score={row.target} general={general} /></b>
-              <span className={targetConversion ? '' : 'muted'}>{targetConversion ?? 'Keep it real'}</span>
+              <span className={targetConversion ? '' : 'muted'}>{targetConversion ?? 'None'}</span>
             </td>
             <td>
               {row.artifact.occupiedId === null ? <span className="muted">Inventory</span> : <>
