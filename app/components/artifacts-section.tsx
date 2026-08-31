@@ -88,6 +88,7 @@ export function ArtifactsSection({ settings, hasGame, onUpdate }: {
             <OptionCard
               option="Conversion stones"
               name="Calculated values"
+              namePlacement="body"
               radioName="artifact-conversion-stone-mode"
               value="theoretical"
               current={settings.conversionStoneMode}
@@ -103,6 +104,7 @@ export function ArtifactsSection({ settings, hasGame, onUpdate }: {
             <OptionCard
               option="Engraved conversion stones"
               name="Use what you’ve got"
+              namePlacement="body"
               radioName="artifact-conversion-stone-mode"
               value="owned"
               current={settings.conversionStoneMode}

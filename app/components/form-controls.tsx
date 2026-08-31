@@ -11,11 +11,14 @@ export function CheckboxRow({ label, checked, onChange }: { label: string; check
 
 /** Option cards share one native radio group, so the browser exposes their
     exclusivity even when the visual control is the whole card. */
-export function OptionCard<Value extends string>({ option, name, qualifier, radioName, value, current, onChoose, children }: {
+export function OptionCard<Value extends string>({ option, name, namePlacement = 'header', qualifier, radioName, value, current, onChoose, children }: {
   option: string;
   name: string;
-  /** An option's condition is read as part of its name rather than as a note
-      further down, so it is understood before the body argues for it. */
+  /** Some setting choices need their descriptive title to belong to the body,
+      leaving only the source itself inside the clickable option header. */
+  namePlacement?: 'header' | 'body';
+  /** An option's condition is read as part of its name when the name lives in
+      the header; a body title is available when the copy belongs there. */
   qualifier?: string;
   radioName: string;
   value: Value;
@@ -24,22 +27,24 @@ export function OptionCard<Value extends string>({ option, name, qualifier, radi
   children: ReactNode;
 }) {
   const chosen = current === value;
+  const nameInBody = namePlacement === 'body';
   return <div className={chosen ? 'import-route chosen' : 'import-route'}>
     <label className="route-head">
       <input type="radio" name={radioName} value={value} checked={chosen}
         onChange={() => onChoose(value)} />
       <span className="route-head-text">
         <span className="route-option">{option}</span>
-        <span className="route-name">
-          {name}
-          {/* The gap before the qualifier is a margin, not this space, so the
-              distance can be set against the heading's size rather than the
-              font's idea of a word space. */}
-          {qualifier && <span className="route-qualifier">({qualifier})</span>}
-        </span>
+        {!nameInBody && <span className="route-name">
+            {name}
+            {/* The gap before the qualifier is a margin, not this space, so the
+                distance can be set against the heading's size rather than the
+                font's idea of a word space. */}
+            {qualifier && <span className="route-qualifier">({qualifier})</span>}
+          </span>}
       </span>
     </label>
-    <div className="route-body" inert={!chosen}>
+    <div className={nameInBody ? 'route-body route-body-with-title' : 'route-body'} inert={!chosen}>
+      {nameInBody && <h3 className="route-body-title">{name}</h3>}
       {children}
     </div>
   </div>;
