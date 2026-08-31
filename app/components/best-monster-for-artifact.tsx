@@ -19,6 +19,9 @@ import type { ArtifactSettings, GeneralSettings } from '../lib/types';
 
 const categoryOrder: readonly ArtifactCategory[] = ['attribute', 'type'];
 const restrictionOptions = [...Object.values(artifactElements), ...Object.values(artifactArchetypes)];
+const artifactLocations = ['inventory', 'equipped'] as const;
+
+type ArtifactLocation = typeof artifactLocations[number];
 
 type ArtifactFilters = {
   categories: ArtifactCategory[];
@@ -26,6 +29,7 @@ type ArtifactFilters = {
   grades: ArtifactGrade[];
   mainProperties: ArtifactMainProperty[];
   subPropertyId: string;
+  locations: ArtifactLocation[];
 };
 
 type MonsterOption = {
@@ -43,7 +47,9 @@ type Calculation = {
   evaluatedPairs: number;
 };
 
-const defaultFilters: ArtifactFilters = { categories: [], restrictions: [], grades: [], mainProperties: [], subPropertyId: '' };
+const defaultFilters: ArtifactFilters = {
+  categories: [], restrictions: [], grades: [], mainProperties: [], subPropertyId: '', locations: [],
+};
 
 const optionPartSeparator = '\u2002·\u2002';
 const optionRestrictionSeparator = '\u2002/\u2002';
@@ -133,7 +139,8 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
       && (!filters.restrictions.length || (restriction !== null && filters.restrictions.includes(restriction)))
       && (!filters.grades.length || filters.grades.includes(artifact.grade))
       && (!filters.mainProperties.length || filters.mainProperties.includes(artifact.mainProperty))
-      && (!selectedSubPropertyId || artifact.subProperties.some((property) => String(property.definition.id) === selectedSubPropertyId));
+      && (!selectedSubPropertyId || artifact.subProperties.some((property) => String(property.definition.id) === selectedSubPropertyId))
+      && (!filters.locations.length || filters.locations.includes(artifact.occupiedId === null ? 'inventory' : 'equipped'));
   }).sort((left, right) => monsterNameCollator.compare(artifactSortKey(left), artifactSortKey(right))
     || monsterNameCollator.compare(left.id, right.id)), [artifacts, filters, selectedSubPropertyId]);
   const selectedArtifact = artifactsByFilter.find((artifact) => artifact.id === selectedArtifactId);
@@ -233,6 +240,7 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
         </div>
       </div>
       {buttonGroup('Main stat', 'mainProperties', artifactMainPropertyOrder, (property) => property, 'best-monster-filter-main')}
+      {buttonGroup('Location', 'locations', artifactLocations, (location) => location === 'inventory' ? 'Inventory' : 'Equipped', 'best-monster-filter-location')}
       <div className="filter-group best-monster-artifact-select">
         <label className="filter-label" htmlFor="best-monster-artifact">Artifact</label>
         <div className="filter-group-controls">
@@ -280,7 +288,7 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
 
     {currentCalculation && selectedArtifact && <>
       <p className="best-artifact-meta" role="status">{formatNumber(currentCalculation.evaluatedPairs, general)} pairs checked · {currentCalculation.backend === 'webgpu' ? 'Graphics card' : 'Processor'}</p>
-      <div className="best-artifact-results">
+      <div className="best-monster-results">
         <ResultCard title="No artifact in this slot" description="The ten strongest eligible monsters with no artifact in this category equipped yet."
           empty={slotlessRows.length ? undefined : 'Every monster already has an artifact in this slot.'}>
           <table className="best-monster-table"><thead><tr><th scope="col">Monster</th><th scope="col">Score</th><th scope="col">Conversion</th></tr></thead><tbody>

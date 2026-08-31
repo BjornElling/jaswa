@@ -5,7 +5,7 @@ import { calculateArtifactScores } from '../lib/compute/artifact-score-client';
 import { buildArtifactScoreRequests, buildArtifactScoreRequestsForMonsterIds } from '../lib/compute/artifact-score-input';
 import { readArtifacts } from '../lib/artifacts';
 import { artifactCategoryLabel, artifactEquipClass } from '../lib/artifact-grid';
-import { artifactProperty } from '../lib/artifact-properties';
+import { artifactCategoryLabels, artifactProperty } from '../lib/artifact-properties';
 import { Dropdown } from './dropdown';
 import { formatNumber } from '../lib/formatting';
 import type { Artifact } from '../lib/artifacts';
@@ -17,9 +17,13 @@ import { numberedMonsterNames } from '../lib/monster-names';
 import { monsterNameCollator } from '../lib/monster-grid';
 import { elementName } from '../lib/rune-sets';
 import type { ArtifactSettings, GeneralSettings } from '../lib/types';
+import type { ArtifactCategory } from '../lib/artifact-properties';
 
 const monsterElements = ['Water', 'Fire', 'Wind', 'Light', 'Dark'] as const;
 const monsterArchetypes = ['Attack', 'Defense', 'HP', 'Support'] as const;
+const artifactLocations = ['inventory', 'equipped'] as const;
+
+type ArtifactLocation = typeof artifactLocations[number];
 
 type MonsterOption = {
   unitId: string;
@@ -147,6 +151,7 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
 }) {
   const [selectedElements, setSelectedElements] = useState<string[]>([]);
   const [selectedArchetypes, setSelectedArchetypes] = useState<MonsterArchetype[]>([]);
+  const [selectedLocations, setSelectedLocations] = useState<ArtifactLocation[]>([]);
   const [selectedUnitId, setSelectedUnitId] = useState('');
   const [calculation, setCalculation] = useState<ArtifactScoreMaps | undefined>();
   const [state, setState] = useState<'idle' | 'calculating' | 'error'>('idle');
@@ -186,10 +191,11 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
     }).sort((left, right) => right.target.value - left.target.value || left.index - right.index);
   }, [artifacts, artifactNumbers, currentCalculation, selectedMonster, wearers]);
 
-  const inventoryRows = rows.filter((row) => row.artifact.occupiedId === null).slice(0, 10);
-  const highestRows = rows.slice(0, 10);
-  const improvementRows = rows.filter((row) => row.artifact.occupiedId !== null
-    && row.current !== undefined && row.target.value > row.current.value).slice(0, 10);
+  const locationRows = rows.filter((row) => !selectedLocations.length
+    || selectedLocations.includes(row.artifact.occupiedId === null ? 'inventory' : 'equipped'));
+  const categoryRows = (category: ArtifactCategory) => locationRows
+    .filter((row) => row.artifact.category === category)
+    .slice(0, 10);
 
   function toggleElement(element: string) {
     setSelectedElements((current) => current.includes(element)
@@ -201,6 +207,12 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
     setSelectedArchetypes((current) => current.includes(archetype)
       ? current.filter((entry) => entry !== archetype)
       : [...current, archetype]);
+  }
+
+  function toggleLocation(location: ArtifactLocation) {
+    setSelectedLocations((current) => current.includes(location)
+      ? current.filter((entry) => entry !== location)
+      : [...current, location]);
   }
 
   async function calculate() {
@@ -246,7 +258,7 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
   return <div className="best-artifact-for-monster">
     <p className="lead">Filter your roster, choose a monster, then compare every compatible artifact using the active optimization settings.</p>
     <div className="best-artifact-filters">
-      <div className="filter-group" role="group" aria-label="Filter monsters by element">
+      <div className="filter-group best-artifact-filter-element" role="group" aria-label="Filter monsters by element">
         <span className="filter-label">Element</span>
         <div className="filter-group-controls">
           {monsterElements.map((element) => <button key={element} type="button"
@@ -255,13 +267,22 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
           >{element}</button>)}
         </div>
       </div>
-      <div className="filter-group" role="group" aria-label="Filter monsters by archetype">
+      <div className="filter-group best-artifact-filter-archetype" role="group" aria-label="Filter monsters by archetype">
         <span className="filter-label">Archetype</span>
         <div className="filter-group-controls">
           {monsterArchetypes.map((archetype) => <button key={archetype} type="button"
             className={selectedArchetypes.includes(archetype) ? 'filter-button active' : 'filter-button'}
             onClick={() => toggleArchetype(archetype)} aria-pressed={selectedArchetypes.includes(archetype)}
           >{archetype}</button>)}
+        </div>
+      </div>
+      <div className="filter-group best-artifact-filter-location" role="group" aria-label="Filter artifacts by location">
+        <span className="filter-label">Location</span>
+        <div className="filter-group-controls">
+          {artifactLocations.map((location) => <button key={location} type="button"
+            className={selectedLocations.includes(location) ? 'filter-button active' : 'filter-button'}
+            onClick={() => toggleLocation(location)} aria-pressed={selectedLocations.includes(location)}
+          >{location === 'inventory' ? 'Inventory' : 'Equipped'}</button>)}
         </div>
       </div>
       <div className="filter-group best-artifact-monster-select">
@@ -287,15 +308,10 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
         {formatNumber(currentCalculation.evaluatedPairs, general)} pairs checked · {currentCalculation.backend === 'webgpu' ? 'Graphics card' : 'Processor'}
       </p>
       <div className="best-artifact-results">
-        <ArtifactResults title="Unequipped artifacts"
-          description="The ten highest-scoring compatible artifacts in inventory, ready for this monster."
-          rows={inventoryRows} general={general} selectedMonster={selectedMonster} />
-        <ArtifactResults title="Highest score here"
-          description="The ten compatible artifacts with the highest score on this monster."
-          rows={highestRows} general={general} selectedMonster={selectedMonster} />
-        <ArtifactResults title="Better than current"
-          description="The ten engraved artifacts that score higher here than on the monster wearing them now."
-          rows={improvementRows} general={general} selectedMonster={selectedMonster} />
+        {(['attribute', 'type'] as const).map((category) => <ArtifactResults key={category}
+          title={artifactCategoryLabels[category]}
+          description={`The ten highest-scoring compatible ${artifactCategoryLabels[category].toLowerCase()} artifacts for this monster.`}
+          rows={categoryRows(category)} general={general} selectedMonster={selectedMonster} />)}
       </div>
     </>}
   </div>;

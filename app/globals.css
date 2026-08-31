@@ -1049,7 +1049,10 @@ button { cursor: pointer; }
 .best-monster-for-artifact > .lead { margin: 0; }
 .best-artifact-filters {
   display: grid;
-  grid-template-columns: max-content max-content minmax(30ch, 1fr) max-content;
+  grid-template-columns: max-content max-content max-content minmax(0, 1fr);
+  grid-template-areas:
+    "element archetype location calculate"
+    "monster monster monster monster";
   align-items: end;
   gap: var(--s4);
   padding: var(--s4);
@@ -1058,12 +1061,18 @@ button { cursor: pointer; }
   background: var(--sunk);
 }
 .best-artifact-filters .filter-group { min-width: 0; }
+.best-artifact-filter-element { grid-area: element; }
+.best-artifact-filter-archetype { grid-area: archetype; }
+.best-artifact-filter-location { grid-area: location; }
+.best-artifact-monster-select { grid-area: monster; }
+.best-artifact-calculate { grid-area: calculate; justify-self: end; }
 .best-monster-filters {
   display: grid;
   grid-template-columns: max-content minmax(24ch, 1fr) max-content;
   grid-template-areas:
     "type restriction restriction"
     "quality substat main"
+    "location location location"
     "artifact artifact artifact"
     "calculate calculate calculate";
   align-items: end;
@@ -1079,6 +1088,7 @@ button { cursor: pointer; }
 .best-monster-filter-quality { grid-area: quality; }
 .best-monster-filter-substat { grid-area: substat; }
 .best-monster-filter-main { grid-area: main; }
+.best-monster-filter-location { grid-area: location; }
 .best-monster-filter-substat .jaswa-select { width: 100%; min-width: 0; }
 .best-monster-artifact-select { grid-area: artifact; }
 .best-monster-artifact-select .filter-group-controls { width: 100%; }
@@ -1087,7 +1097,8 @@ button { cursor: pointer; }
 .best-artifact-calculate { height: 32px; white-space: nowrap; }
 .best-monster-calculate { grid-area: calculate; justify-self: start; height: 32px; white-space: nowrap; }
 .best-artifact-meta { color: var(--dim); font-family: var(--mono); font-size: var(--t-small); font-variant-numeric: tabular-nums; }
-.best-artifact-results { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s4); }
+.best-artifact-results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s4); }
+.best-monster-results { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s4); }
 .best-artifact-result { min-width: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
 .best-artifact-result > header { min-height: 126px; padding: var(--s4); border-bottom: 1px solid var(--line); background: var(--sunk); }
 .best-artifact-result h3, .best-artifact-result p { margin: 0; }
@@ -1119,16 +1130,24 @@ button { cursor: pointer; }
 .best-monster-table tr:last-child td { border-bottom: 0; }
 .best-monster-table td b { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 500; }
 @media (max-width: 1420px) {
-  .best-artifact-filters { grid-template-columns: max-content max-content minmax(30ch, 1fr); }
   .best-monster-filters { grid-template-columns: max-content minmax(20ch, 1fr) max-content; }
   .best-artifact-calculate { justify-self: start; }
   .best-monster-calculate { justify-self: start; }
-  .best-artifact-results { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 1200px) {
+  .best-artifact-filters {
+    grid-template-columns: max-content minmax(0, 1fr);
+    grid-template-areas:
+      "element archetype"
+      "location calculate"
+      "monster monster";
+  }
 }
 @media (max-width: 900px) {
   .best-artifact-filters { grid-template-columns: minmax(0, 1fr); align-items: stretch; }
   .best-monster-filters { grid-template-columns: minmax(0, 1fr); align-items: stretch; }
-  .best-monster-filters { grid-template-areas: "type" "restriction" "quality" "substat" "main" "artifact" "calculate"; }
+  .best-artifact-filters { grid-template-areas: "element" "archetype" "location" "monster" "calculate"; }
+  .best-monster-filters { grid-template-areas: "type" "restriction" "quality" "substat" "main" "location" "artifact" "calculate"; }
   .best-artifact-monster-select .jaswa-select { min-width: 0; }
   .best-monster-artifact-select .jaswa-select { min-width: 0; }
   .best-artifact-calculate { width: 100%; }
