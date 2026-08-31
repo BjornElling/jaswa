@@ -1817,3 +1817,15 @@ scope are read before the stone-specific choices.
 monster-scope checkbox and a divider. The conversion-source cards and their
 shared value slider remain together below it. The checkbox's visual prominence
 is intentionally left open for the next design choice.
+
+### Session 8 — August 31, 2026 — monster scope made explicit
+
+**Asked.** Give **Only factor in mons you own** its own scope box to the right
+of the acceptable-property slider, so this central account-wide decision does
+not disappear among the conversion choices.
+
+**Built.** The acceptable-property slider and monster scope now share a
+two-thirds/one-third row. The scope box has a gold action edge, a clear
+**Monster scope** heading, the existing checkbox, and a short explanation. It
+stacks below the slider at the responsive breakpoint and keeps its dimensions
+when the checkbox changes.

@@ -80,7 +80,7 @@ export function ArtifactsSection({ settings, hasGame, onUpdate }: {
 
     <Disclosure title="Settings">
       <div className="stack">
-        <div className="slider-grid">
+        <div className="artifact-general-layout">
           <div className="slider">
             <label className="slider-label" htmlFor="acceptable-worth">Acceptable ctr. preferred</label>
             <p className="slider-note">What is second choice worth against first choice?</p>
@@ -95,10 +95,14 @@ export function ArtifactsSection({ settings, hasGame, onUpdate }: {
               {acceptableWorthLabels[step]}
             </p>
           </div>
-        </div>
 
-        <CheckboxRow label="Only factor in mons you own" checked={settings.onlyFactorInOwnedMonsters}
-          onChange={(checked) => void onUpdate({ onlyFactorInOwnedMonsters: checked })} />
+          <section className="artifact-scope-box" aria-labelledby="artifact-scope-title">
+            <h3 id="artifact-scope-title">Monster scope</h3>
+            <CheckboxRow label="Only factor in mons you own" checked={settings.onlyFactorInOwnedMonsters}
+              onChange={(checked) => void onUpdate({ onlyFactorInOwnedMonsters: checked })} />
+            <p className="artifact-scope-note">Keep recommendations focused on the monsters in your collection.</p>
+          </section>
+        </div>
 
         <div className="bar-divide" />
 
