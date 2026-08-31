@@ -3,8 +3,10 @@
 import { WorkspacePage } from './workspace-page';
 import { Disclosure, PageHeader } from './page-chrome';
 import { CheckboxRow, OptionCard } from './form-controls';
+import { ArtifactMaximumValues } from './artifact-maximum-values';
 import { artifactAcceptableWorthChoices } from '../lib/file-imports';
-import type { ArtifactConversionStoneMode, ArtifactSettings } from '../lib/types';
+import type { ArtifactConversionStoneMode, ArtifactSettings, GeneralSettings } from '../lib/types';
+import type { GameRecord } from '../lib/game-data';
 
 /* The slider's stops are the stored percentages themselves (decision 11), so
    the label a user reads and the factor the judgement multiplies by are one
@@ -28,9 +30,12 @@ const conversionStoneValueLabels = [
    the account owns, while this page will answer what to change. Keeping those
    questions apart leaves the optimizer room for a clear, decision-first draft. */
 
-export function ArtifactsSection({ settings, hasGame, onUpdate }: {
+export function ArtifactsSection({ settings, data, monsters, general, hardwareAcceleration, onUpdate }: {
   settings: ArtifactSettings;
-  hasGame: boolean;
+  data: GameRecord | undefined;
+  monsters: readonly GameRecord[];
+  general: GeneralSettings;
+  hardwareAcceleration: boolean;
   onUpdate: (update: Partial<ArtifactSettings>) => void;
 }) {
   const step = artifactAcceptableWorthChoices.indexOf(
@@ -43,25 +48,14 @@ export function ArtifactsSection({ settings, hasGame, onUpdate }: {
       title="Artifact Optimization"
       tagline="That artifact is superb. Just not for the monster wearing it." />}
   >
-    {!hasGame && <section className="empty-state">
+    {!data && <section className="empty-state">
       <h2>Compares artifact effects against the monsters that would gain most from them.</h2>
       <p className="next-step">Import your game data first. Your preferences can be prepared at any time.</p>
     </section>}
 
     <Disclosure title="Recommendations" sessionKey="artifacts.recommendations">
-      <div className="optimizer-draft">
-        <p className="lead">
-          The swaps worth making across the account, ordered by how much better the receiving monster fits the artifact.
-        </p>
-        <div className="optimizer-draft-columns" aria-label="Recommendation draft columns">
-          <span>Current home</span>
-          <span>Better candidate</span>
-          <span>Gain</span>
-        </div>
-        <p className="optimizer-draft-note">
-          Import a game file and set monster roles to turn this draft into a ranked move list.
-        </p>
-      </div>
+      {data ? <ArtifactMaximumValues data={data} monsters={monsters} settings={settings} general={general}
+        hardwareAcceleration={hardwareAcceleration} /> : <p className="lead">Import your game data first, then ask every artifact where it can shine.</p>}
     </Disclosure>
 
     <Disclosure title="Best monster for this artifact" sessionKey="artifacts.best-monster">

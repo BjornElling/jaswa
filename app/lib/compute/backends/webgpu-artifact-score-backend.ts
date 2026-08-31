@@ -1,0 +1,126 @@
+import { artifactPropertyAvailability, scoredArtifactProperties } from '../artifact-score-schema';
+import type { ArtifactScoreRequest } from '../artifact-score-protocol';
+import { artifactScoreGpuLayout, artifactScoreShader } from '../webgpu/artifact-score-shader';
+import type { ArtifactScoreBackend } from './artifact-score-backend';
+
+type GpuBuffer = {
+  mapAsync(mode: number): Promise<void>;
+  getMappedRange(): ArrayBuffer;
+  unmap(): void;
+  destroy(): void;
+};
+type GpuDevice = {
+  queue: { writeBuffer(buffer: GpuBuffer, offset: number, data: AllowSharedBufferSource): void; submit(commands: unknown[]): void };
+  lost: Promise<unknown>;
+  createBuffer(descriptor: { size: number; usage: number }): GpuBuffer;
+  createShaderModule(descriptor: { code: string }): unknown;
+  createComputePipelineAsync(descriptor: unknown): Promise<unknown>;
+  createBindGroup(descriptor: unknown): unknown;
+  createCommandEncoder(): {
+    beginComputePass(): { setPipeline(pipeline: unknown): void; setBindGroup(index: number, group: unknown): void; dispatchWorkgroups(count: number): void; end(): void };
+    copyBufferToBuffer(source: GpuBuffer, sourceOffset: number, target: GpuBuffer, targetOffset: number, size: number): void;
+    finish(): unknown;
+  };
+};
+type GpuAdapter = { requestDevice(): Promise<GpuDevice> };
+type WebGpu = { requestAdapter(options?: { powerPreference: 'high-performance' }): Promise<GpuAdapter | null> };
+
+const bufferUsage = { mapRead: 1, copySource: 4, copyDestination: 8, uniform: 64, storage: 128 } as const;
+
+function alignedByteLength(byteLength: number): number {
+  return Math.max(4, Math.ceil(byteLength / 4) * 4);
+}
+
+function floatBuffer(values: number[]): Float32Array {
+  return new Float32Array(values);
+}
+
+/**
+ * WebGPU is kept behind the same backend contract as the CPU reference. The
+ * device and pipeline live for the worker's lifetime; calculation calls only
+ * upload the changing packed matrix and read back its scores.
+ */
+export class WebGpuArtifactScoreBackend implements ArtifactScoreBackend {
+  readonly type = 'webgpu' as const;
+  private device: GpuDevice | undefined;
+  private pipeline: unknown;
+  private lost = false;
+
+  async initialize(): Promise<void> {
+    const gpu = (self.navigator as Navigator & { gpu?: WebGpu }).gpu;
+    if (!gpu) throw new Error('WebGPU is unavailable in this browser.');
+    const adapter = await gpu.requestAdapter({ powerPreference: 'high-performance' });
+    if (!adapter) throw new Error('The browser did not provide a WebGPU adapter.');
+    const device = await adapter.requestDevice();
+    device.lost.then(() => { this.lost = true; });
+    const shaderModule = device.createShaderModule({ code: artifactScoreShader });
+    this.pipeline = await device.createComputePipelineAsync({
+      layout: 'auto', compute: { module: shaderModule, entryPoint: 'main' },
+    });
+    this.device = device;
+  }
+
+  async calculate(request: ArtifactScoreRequest): Promise<Float32Array> {
+    if (!this.device || !this.pipeline || this.lost) throw new Error('The WebGPU device is not ready.');
+    const device = this.device;
+    const artifactData = floatBuffer(request.artifacts.flatMap((artifact) => [
+      artifact.category, artifact.restriction, artifact.mainProperty, artifact.convertedPropertyIndex,
+      ...artifact.subPropertyIndexes, ...artifact.subPropertyFractions,
+    ]));
+    const monsterData = floatBuffer(request.monsters.flatMap((monster) => [
+      monster.element, monster.archetype, ...monster.mainPreferences, ...monster.subPropertyPreferences,
+    ]));
+    const owned = new Int32Array(scoredArtifactProperties.length);
+    for (const propertyIndex of request.ownedConversionPropertyIndexes) if (propertyIndex >= 0 && propertyIndex < owned.length) owned[propertyIndex] = 1;
+    const parameters = new ArrayBuffer(24);
+    const parameterView = new DataView(parameters);
+    parameterView.setUint32(0, request.artifacts.length, true);
+    parameterView.setUint32(4, request.monsters.length, true);
+    parameterView.setUint32(8, request.conversionMode, true);
+    parameterView.setFloat32(16, request.conversionValue, true);
+    parameterView.setFloat32(20, request.acceptableWorth / 100, true);
+    const resultByteLength = alignedByteLength(request.artifacts.length * request.monsters.length * Float32Array.BYTES_PER_ELEMENT);
+    const artifacts = this.createUploadBuffer(device, artifactData, bufferUsage.storage);
+    const monsters = this.createUploadBuffer(device, monsterData, bufferUsage.storage);
+    const availability = this.createUploadBuffer(device, new Int32Array(artifactPropertyAvailability), bufferUsage.storage);
+    const ownedProperties = this.createUploadBuffer(device, owned, bufferUsage.storage);
+    const parameterBuffer = this.createUploadBuffer(device, new Uint8Array(parameters), bufferUsage.uniform);
+    const output = device.createBuffer({ size: resultByteLength, usage: bufferUsage.storage | bufferUsage.copySource });
+    const readback = device.createBuffer({ size: resultByteLength, usage: bufferUsage.mapRead | bufferUsage.copyDestination });
+    try {
+      const bindGroup = device.createBindGroup({
+        layout: (this.pipeline as { getBindGroupLayout(index: number): unknown }).getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: artifacts } }, { binding: 1, resource: { buffer: monsters } },
+          { binding: 2, resource: { buffer: availability } }, { binding: 3, resource: { buffer: ownedProperties } },
+          { binding: 4, resource: { buffer: parameterBuffer } }, { binding: 5, resource: { buffer: output } },
+        ],
+      });
+      const encoder = device.createCommandEncoder();
+      const pass = encoder.beginComputePass();
+      pass.setPipeline(this.pipeline);
+      pass.setBindGroup(0, bindGroup);
+      const pairCount = request.artifacts.length * request.monsters.length;
+      pass.dispatchWorkgroups(Math.ceil(pairCount / 64));
+      pass.end();
+      encoder.copyBufferToBuffer(output, 0, readback, 0, resultByteLength);
+      device.queue.submit([encoder.finish()]);
+      await readback.mapAsync(bufferUsage.mapRead);
+      return new Float32Array(readback.getMappedRange().slice(0, pairCount * Float32Array.BYTES_PER_ELEMENT));
+    } finally {
+      readback.unmap();
+      artifacts.destroy(); monsters.destroy(); availability.destroy(); ownedProperties.destroy(); parameterBuffer.destroy();
+      output.destroy(); readback.destroy();
+    }
+  }
+
+  dispose(): void { this.device = undefined; this.pipeline = undefined; }
+
+  private createUploadBuffer(device: GpuDevice, data: AllowSharedBufferSource, usage: number): GpuBuffer {
+    const buffer = device.createBuffer({ size: alignedByteLength(data.byteLength), usage: usage | bufferUsage.copyDestination });
+    device.queue.writeBuffer(buffer, 0, data);
+    return buffer;
+  }
+}
+
+export const artifactScoreWebGpuPacking = artifactScoreGpuLayout;

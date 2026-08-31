@@ -1041,6 +1041,26 @@ button { cursor: pointer; }
   font-size: var(--t-small);
 }
 
+/* The result table stays inside the disclosure's normal reading width: score
+   values are concise, while monster and conversion names need the room. */
+.artifact-maximum-values { display: grid; gap: var(--s4); }
+.artifact-maximum-intro { display: flex; align-items: center; justify-content: space-between; gap: var(--s4); }
+.artifact-maximum-intro .lead, .artifact-maximum-meta, .artifact-maximum-empty { margin: 0; }
+.artifact-maximum-meta { color: var(--dim); font-family: var(--mono); font-size: var(--t-small); font-variant-numeric: tabular-nums; }
+.artifact-maximum-table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); }
+.artifact-maximum-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.artifact-maximum-table th, .artifact-maximum-table td { padding: var(--s3) var(--s4); border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.artifact-maximum-table th { color: var(--dim); font-size: var(--t-small); font-weight: 500; }
+.artifact-maximum-table tr:last-child td { border-bottom: 0; }
+.artifact-maximum-table th:nth-child(1), .artifact-maximum-table td:nth-child(1) { width: 10ch; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.artifact-maximum-table th:nth-child(3), .artifact-maximum-table td:nth-child(3) { width: 14ch; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.artifact-maximum-table th:nth-child(4), .artifact-maximum-table td:nth-child(4) { width: 38%; }
+@media (max-width: 720px) {
+  .artifact-maximum-intro { align-items: flex-start; flex-direction: column; }
+  .artifact-maximum-intro .button { width: 100%; }
+  .artifact-maximum-table { min-width: 720px; }
+}
+
 /* The chosen step names itself in the accent colour — this is the answer to
    the question the label asked, so it carries the emphasis.
 

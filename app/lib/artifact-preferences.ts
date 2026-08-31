@@ -8,6 +8,9 @@ type MonsterStatistics = { artifacts?: { primaryEffect?: EffectCount[]; secondar
 
 const monsterStatistics = (statistics as { monsters: Record<string, MonsterStatistics> }).monsters;
 
+/** Monster types whose recorded distributions can support a real judgement. */
+export const recordedArtifactPreferenceMonsterIds = Object.keys(monsterStatistics);
+
 /* The category as the statistics slot it: the game serves both artifact slots
    from one panel, and slot 1 is the Attribute artifact, slot 2 the Type one —
    the same numbering the export's own `slot` field uses. */

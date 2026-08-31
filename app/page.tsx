@@ -323,7 +323,10 @@ export default function Home() {
 
       {page === 'artifacts' && <ArtifactsSection
         settings={preferences.artifacts}
-        hasGame={Boolean(game)}
+        data={game?.data}
+        monsters={monsters}
+        general={preferences.general}
+        hardwareAcceleration={preferences.hardwareAcceleration}
         onUpdate={updateArtifactSettings}
       />}
 

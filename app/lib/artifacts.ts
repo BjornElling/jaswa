@@ -76,9 +76,19 @@ function readSubProperty(entry: unknown, category: ArtifactCategory, grade: Arti
      reach, quietly making a good roll look poor. */
   const lineContributions = contributions(powerUps, Boolean(numberOrNull(entry[4])));
   if (lineContributions > artifactGrades[grade].maxContributions) return null;
+  /* A displayed line must be a reachable sum of this slot's rolls. Rounding is
+     deliberately limited to the export's known float noise; accepting a value
+     such as 0.251 % as 0.25 % would quietly repair malformed user data. */
+  const valueHundredths = toHundredths(value);
+  if (Math.abs(value * 100 - valueHundredths) > 0.000001) return null;
+  if (definition.minRoll !== null && definition.maxRoll !== null) {
+    const minimumHundredths = toHundredths(definition.minRoll * lineContributions);
+    const maximumHundredths = toHundredths(definition.maxRoll * lineContributions);
+    if (valueHundredths < minimumHundredths || valueHundredths > maximumHundredths) return null;
+  }
   return {
     definition,
-    valueHundredths: toHundredths(value),
+    valueHundredths,
     powerUps,
     /* The ceiling is what this line could hold given the contributions it
        actually collected, not the grade's best case: a line that received one
@@ -132,6 +142,10 @@ export function readArtifact(record: unknown): Artifact | null {
   }
   /* §4: the same property never appears twice on one artifact. */
   if (new Set(subProperties.map((property) => property.definition.id)).size !== subProperties.length) return null;
+  /* The export's grade invariant is exact: it is the only trustworthy check
+     that a record has not redistributed or invented a power-up while still
+     making each line look individually plausible. */
+  if (subProperties.reduce((total, property) => total + property.powerUps, 0) !== artifactGrades[grade].naturalRank - 1) return null;
 
   const occupied = numberOrNull(source.occupied_id);
   return {
