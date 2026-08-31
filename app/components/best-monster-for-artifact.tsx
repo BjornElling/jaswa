@@ -44,46 +44,6 @@ type Calculation = {
 
 const defaultFilters: ArtifactFilters = { categories: [], restrictions: [], grades: [], mainProperties: [] };
 
-const substatLabels: Record<string, string> = {
-  'ATK/DEF UP Effect': 'ATK/DEF UP',
-  'Bomb Damage': 'BOMB DMG',
-  'CRIT DMG Taken': 'CD TAKEN',
-  'Life Drain': 'LIFESTEAL',
-  'Additional Damage by HP': 'ADD DMG/HP',
-  'Additional Damage by ATK': 'ADD DMG/ATK',
-  'Additional Damage by DEF': 'ADD DMG/DEF',
-  'Additional Damage by SPD': 'ADD DMG/SPD',
-  'CRIT DMG as enemy HP is more': 'CD vs EN HP↑',
-  'CRIT DMG as enemy HP is less': 'CD vs EN HP↓',
-  'Own turn 1-target CRIT DMG': '1T CD',
-  'Counterattack/Co-op Attack DMG': 'COUNTER/CO-OP DMG',
-  'SPD UP Effect': 'SPD UP',
-  'Damage Dealt on Fire': 'DMG DEALT FIRE',
-  'Damage Dealt on Water': 'DMG DEALT WATER',
-  'Damage Dealt on Wind': 'DMG DEALT WIND',
-  'Damage Dealt on Light': 'DMG DEALT LIGHT',
-  'Damage Dealt on Dark': 'DMG DEALT DARK',
-  'Damage Taken from Fire': 'DMG TAKEN FIRE',
-  'Damage Taken from Water': 'DMG TAKEN WATER',
-  'Damage Taken from Wind': 'DMG TAKEN WIND',
-  'Damage Taken from Light': 'DMG TAKEN LIGHT',
-  'Damage Taken from Dark': 'DMG TAKEN DARK',
-  '[Skill 1] CRIT DMG': 'S1 CD',
-  '[Skill 2] CRIT DMG': 'S2 CD',
-  '[Skill 3/4] CRIT DMG': 'S3/4 CD',
-  '[Skill 1] Recovery': 'S1 REC',
-  '[Skill 2] Recovery': 'S2 REC',
-  '[Skill 3] Recovery': 'S3 REC',
-  '[Skill 1] Accuracy': 'S1 ACC',
-  '[Skill 2] Accuracy': 'S2 ACC',
-  '[Skill 3] Accuracy': 'S3 ACC',
-  'First Attack CRIT DMG': '1ST ATK CD',
-};
-
-function compactSubstat(name: string, value: number, sign: string | undefined, general: GeneralSettings): string {
-  return `${substatLabels[name] ?? name} ${sign ?? '+'}${formatNumber(value / 100, general)}%`;
-}
-
 function artifactSortKey(artifact: ReturnType<typeof readArtifacts>[number]): string {
   return [
     artifactCategoryLabel(artifact.category), artifactEquipClass(artifact) ?? '', artifact.mainProperty,
@@ -230,7 +190,7 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
     }
   }
 
-  const buttonGroup = <T extends string>(label: string, key: keyof ArtifactFilters, values: readonly T[], display: (value: T) => string) => <div className="filter-group" role="group" aria-label={label}>
+  const buttonGroup = <T extends string>(label: string, key: keyof ArtifactFilters, values: readonly T[], display: (value: T) => string, className: string) => <div className={`filter-group ${className}`} role="group" aria-label={label}>
     <span className="filter-label">{label}</span>
     <div className="filter-group-controls">
       {values.map((value) => <button key={value} type="button" className={(filters[key] as string[]).includes(value) ? 'filter-button active' : 'filter-button'}
@@ -241,10 +201,10 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
   return <div className="best-monster-for-artifact">
     <p className="lead">Filter the artifact library, choose one piece, then see the monsters that can make the most of it.</p>
     <div className="best-monster-filters">
-      {buttonGroup('Type', 'categories', categoryOrder, (category) => artifactCategoryLabels[category])}
-      {buttonGroup('Restriction', 'restrictions', restrictionOptions, (restriction) => restriction)}
-      {buttonGroup('Quality', 'grades', artifactGradeOrder, (grade) => grade.slice(0, 3).toUpperCase())}
-      {buttonGroup('Main stat', 'mainProperties', artifactMainPropertyOrder, (property) => property)}
+      {buttonGroup('Type', 'categories', categoryOrder, (category) => artifactCategoryLabels[category], 'best-monster-filter-type')}
+      {buttonGroup('Restriction', 'restrictions', restrictionOptions, (restriction) => restriction, 'best-monster-filter-restriction')}
+      {buttonGroup('Quality', 'grades', artifactGradeOrder, (grade) => grade.slice(0, 3).toUpperCase(), 'best-monster-filter-quality')}
+      {buttonGroup('Main stat', 'mainProperties', artifactMainPropertyOrder, (property) => property, 'best-monster-filter-main')}
       <div className="filter-group best-monster-artifact-select">
         <label className="filter-label" htmlFor="best-monster-artifact">Artifact</label>
         <div className="filter-group-controls">
@@ -254,7 +214,7 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
               const index = artifactNumbers.get(artifact.id) ?? 0;
               const restriction = artifactEquipClass(artifact);
               const substats = artifact.subProperties.map((property) =>
-                compactSubstat(property.definition.name, property.valueHundredths, property.definition.valueSign, general)).join(' | ');
+                displaySubProperty(property, (value) => formatNumber(value, general))).join(' | ');
               return <option key={artifact.id} value={artifact.id}>#{String(index + 1).padStart(2, '0')} · {artifactCategoryLabel(artifact.category)}{restriction ? ` / ${restriction}` : ''} · {artifact.mainProperty}+{formatNumber(artifact.mainValue, general)} · {substats}</option>;
             })}
           </Dropdown>

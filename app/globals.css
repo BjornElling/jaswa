@@ -1060,7 +1060,12 @@ button { cursor: pointer; }
 .best-artifact-filters .filter-group { min-width: 0; }
 .best-monster-filters {
   display: grid;
-  grid-template-columns: max-content max-content minmax(30ch, 1fr);
+  grid-template-columns: max-content minmax(0, 1fr);
+  grid-template-areas:
+    "type restriction"
+    "quality main"
+    "artifact artifact"
+    "calculate calculate";
   align-items: end;
   gap: var(--s4);
   padding: var(--s4);
@@ -1069,10 +1074,16 @@ button { cursor: pointer; }
   background: var(--sunk);
 }
 .best-monster-filters .filter-group { min-width: 0; }
-.best-monster-artifact-select .jaswa-select { width: 100%; min-width: 34ch; }
+.best-monster-filter-type { grid-area: type; }
+.best-monster-filter-restriction { grid-area: restriction; }
+.best-monster-filter-quality { grid-area: quality; }
+.best-monster-filter-main { grid-area: main; }
+.best-monster-artifact-select { grid-area: artifact; }
+.best-monster-artifact-select .filter-group-controls { width: 100%; }
+.best-monster-artifact-select .jaswa-select { width: 100%; min-width: 0; }
 .best-artifact-monster-select .jaswa-select { width: 100%; min-width: 30ch; }
 .best-artifact-calculate { height: 32px; white-space: nowrap; }
-.best-monster-calculate { height: 32px; white-space: nowrap; }
+.best-monster-calculate { grid-area: calculate; justify-self: start; height: 32px; white-space: nowrap; }
 .best-artifact-meta { color: var(--dim); font-family: var(--mono); font-size: var(--t-small); font-variant-numeric: tabular-nums; }
 .best-artifact-results { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s4); }
 .best-artifact-result { min-width: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
@@ -1107,7 +1118,7 @@ button { cursor: pointer; }
 .best-monster-table td b { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 500; }
 @media (max-width: 1420px) {
   .best-artifact-filters { grid-template-columns: max-content max-content minmax(30ch, 1fr); }
-  .best-monster-filters { grid-template-columns: max-content minmax(30ch, 1fr); }
+  .best-monster-filters { grid-template-columns: max-content minmax(0, 1fr); }
   .best-artifact-calculate { justify-self: start; }
   .best-monster-calculate { justify-self: start; }
   .best-artifact-results { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1115,6 +1126,7 @@ button { cursor: pointer; }
 @media (max-width: 900px) {
   .best-artifact-filters { grid-template-columns: minmax(0, 1fr); align-items: stretch; }
   .best-monster-filters { grid-template-columns: minmax(0, 1fr); align-items: stretch; }
+  .best-monster-filters { grid-template-areas: "type" "restriction" "quality" "main" "artifact" "calculate"; }
   .best-artifact-monster-select .jaswa-select { min-width: 0; }
   .best-monster-artifact-select .jaswa-select { min-width: 0; }
   .best-artifact-calculate { width: 100%; }
