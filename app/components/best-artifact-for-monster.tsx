@@ -112,7 +112,7 @@ function ArtifactResults({ title, description, rows, general, selectedMonster }:
     </header>
     {rows.length ? <div className="best-artifact-result-scroll">
       <table>
-        <thead><tr><th scope="col">Artifact</th><th scope="col">On {selectedMonster.name}</th><th scope="col">Now</th><th scope="col">Best</th></tr></thead>
+        <thead><tr><th scope="col">Artifact</th><th scope="col">On {selectedMonster.name}</th><th scope="col">Location</th><th scope="col">Best</th></tr></thead>
         <tbody>{rows.map((row) => {
           const restriction = artifactEquipClass(row.artifact);
           const targetConversion = conversionLabel(row.target);
