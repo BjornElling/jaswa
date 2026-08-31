@@ -3,8 +3,9 @@
 import { WorkspacePage } from './workspace-page';
 import { Disclosure, PageHeader } from './page-chrome';
 import { Dropdown } from './dropdown';
+import { CheckboxRow, OptionCard } from './form-controls';
 import { artifactAcceptableWorthChoices, itemGrades } from '../lib/file-imports';
-import type { ArtifactSettings, ItemGrade } from '../lib/types';
+import type { ArtifactConversionStoneMode, ArtifactSettings, ItemGrade } from '../lib/types';
 
 /* The slider's stops are the stored percentages themselves (decision 11), so
    the label a user reads and the factor the judgement multiplies by are one
@@ -16,6 +17,18 @@ const acceptableWorthLabels = [
   'Nearly as good, honestly — 75 %',
   'Why did I even rank them — 100 %',
 ] as const;
+
+const conversionStoneValueLabels = [
+  'None — takes each artifact as it stands today',
+  'Average — an ordinary roll, nothing special',
+  'Three quarters — a good roll, short of perfect',
+  'Maximum — the best the grade allows',
+] as const;
+
+const ownedConversionStoneGradeLabels = itemGrades.map((grade) => ({
+  value: grade,
+  label: `${grade} (and under)`,
+}));
 
 /* The library is deliberately separate from this workspace: it answers what
    the account owns, while this page will answer what to change. Keeping those
@@ -29,6 +42,7 @@ export function ArtifactsSection({ settings, hasGame, onUpdate }: {
   const step = artifactAcceptableWorthChoices.indexOf(
     settings.acceptableWorth as typeof artifactAcceptableWorthChoices[number],
   );
+  const conversionStoneValueStep = settings.conversionStoneValue - 1;
 
   return <WorkspacePage
     header={<PageHeader
@@ -71,39 +85,78 @@ export function ArtifactsSection({ settings, hasGame, onUpdate }: {
     </Disclosure>
 
     <Disclosure title="Settings">
-      <div className="slider-grid">
-        <div className="slider">
-          <label className="slider-label" htmlFor="conversion-stone-grade">Conversion stone grade</label>
-          <p className="slider-note">Which conversion stone should the draft assume is available?</p>
-          <Dropdown id="conversion-stone-grade" value={settings.conversionStoneGrade}
-            onChange={(event) => void onUpdate({ conversionStoneGrade: event.target.value as ItemGrade })}>
-            {itemGrades.map((grade) => <option key={grade} value={grade}>{grade}</option>)}
-          </Dropdown>
+      <div className="stack">
+        <CheckboxRow label="Only factor in mons you own" checked={settings.onlyFactorInOwnedMonsters}
+          onChange={(checked) => void onUpdate({ onlyFactorInOwnedMonsters: checked })} />
+
+        <div className="import-routes" role="radiogroup" aria-label="How to value conversion stones">
+          <OptionCard
+            option="Option 1"
+            name="Use only stones you own"
+            radioName="artifact-conversion-stone-mode"
+            value="owned"
+            current={settings.conversionStoneMode}
+            onChoose={(value) => void onUpdate({ conversionStoneMode: value as ArtifactConversionStoneMode })}
+          >
+            <div className="slider">
+              <label className="slider-label" htmlFor="owned-conversion-stone-grade">Conversion stone grade</label>
+              <p className="slider-note">Which level of conversion stones should be applied?</p>
+              <Dropdown id="owned-conversion-stone-grade" value={settings.ownedConversionStoneGrade}
+                onChange={(event) => void onUpdate({ ownedConversionStoneGrade: event.target.value as ItemGrade })}>
+                {ownedConversionStoneGradeLabels.map((grade) => <option key={grade.value} value={grade.value}>{grade.label}</option>)}
+              </Dropdown>
+            </div>
+          </OptionCard>
+
+          <div className="settings-rule" role="presentation" />
+
+          <OptionCard
+            option="Option 2"
+            name="Use theoretical calculations"
+            radioName="artifact-conversion-stone-mode"
+            value="theoretical"
+            current={settings.conversionStoneMode}
+            onChoose={(value) => void onUpdate({ conversionStoneMode: value as ArtifactConversionStoneMode })}
+          >
+            <div className="slider">
+              <label className="slider-label" htmlFor="theoretical-conversion-stone-grade">Conversion stone grade</label>
+              <p className="slider-note">Which conversion stone should the draft assume is available?</p>
+              <Dropdown id="theoretical-conversion-stone-grade" value={settings.conversionStoneGrade}
+                onChange={(event) => void onUpdate({ conversionStoneGrade: event.target.value as ItemGrade })}>
+                {itemGrades.map((grade) => <option key={grade} value={grade}>{grade}</option>)}
+              </Dropdown>
+            </div>
+          </OptionCard>
         </div>
-        <div className="slider">
-          <label className="slider-label" htmlFor="conversion-stone-max-value">Conversion stone value</label>
-          <p className="slider-note">How much of that stone’s maximum value should count in the draft?</p>
-          <input id="conversion-stone-max-value" type="range" min={1} max={100} step={1}
-            value={settings.conversionStoneMaxValue}
-            onChange={(event) => void onUpdate({ conversionStoneMaxValue: Number(event.target.value) })}
-            aria-describedby="conversion-stone-max-value-choice" />
-          <p id="conversion-stone-max-value-choice" className="slider-choice" aria-live="polite">
-            {settings.conversionStoneMaxValue} % of maximum value
-          </p>
-        </div>
-        <div className="slider">
-          <label className="slider-label" htmlFor="acceptable-worth">Acceptable ctr. preferred</label>
-          <p className="slider-note">What is second choice worth against first choice?</p>
-          <input id="acceptable-worth" type="range"
-            min={1} max={artifactAcceptableWorthChoices.length} step={1}
-            value={step + 1}
-            onChange={(event) => void onUpdate({
-              acceptableWorth: artifactAcceptableWorthChoices[Number(event.target.value) - 1],
-            })}
-            aria-describedby="acceptable-worth-choice" />
-          <p id="acceptable-worth-choice" className="slider-choice" aria-live="polite">
-            {acceptableWorthLabels[step]}
-          </p>
+
+        <div className="bar-divide" />
+
+        <div className="slider-grid">
+          <div className="slider">
+            <label className="slider-label" htmlFor="conversion-stone-value">Conversion stone value</label>
+            <p className="slider-note">How much of that stone’s maximum value should count in the draft?</p>
+            <input id="conversion-stone-value" type="range" min={1} max={conversionStoneValueLabels.length} step={1}
+              value={settings.conversionStoneValue}
+              onChange={(event) => void onUpdate({ conversionStoneValue: Number(event.target.value) })}
+              aria-describedby="conversion-stone-value-choice" />
+            <p id="conversion-stone-value-choice" className="slider-choice" aria-live="polite">
+              {conversionStoneValueLabels[conversionStoneValueStep]}
+            </p>
+          </div>
+          <div className="slider">
+            <label className="slider-label" htmlFor="acceptable-worth">Acceptable ctr. preferred</label>
+            <p className="slider-note">What is second choice worth against first choice?</p>
+            <input id="acceptable-worth" type="range"
+              min={1} max={artifactAcceptableWorthChoices.length} step={1}
+              value={step + 1}
+              onChange={(event) => void onUpdate({
+                acceptableWorth: artifactAcceptableWorthChoices[Number(event.target.value) - 1],
+              })}
+              aria-describedby="acceptable-worth-choice" />
+            <p id="acceptable-worth-choice" className="slider-choice" aria-live="polite">
+              {acceptableWorthLabels[step]}
+            </p>
+          </div>
         </div>
       </div>
     </Disclosure>

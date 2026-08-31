@@ -1,5 +1,5 @@
 import type {
-  ArtifactSettings, DirectImportMode, HelperSession, ImportReport, ImportRoute, ImportedGame, ItemGrade,
+  ArtifactConversionStoneMode, ArtifactSettings, DirectImportMode, HelperSession, ImportReport, ImportRoute, ImportedGame, ItemGrade,
   MonsterPreference, Preferences, RunePotentialSettings, RunePotentialSortOrder,
 } from './types';
 import { hasMonsterCatalogEntry } from './monster-catalog';
@@ -37,11 +37,15 @@ export const defaultRunePotentialSettings: RunePotentialSettings = {
    at 0 % an acceptable property may as well be unwanted, and at 100 % the
    preferred/acceptable distinction stops meaning anything. */
 export const artifactAcceptableWorthChoices = [0, 25, 50, 75, 100] as const;
+export const artifactConversionStoneModes: ArtifactConversionStoneMode[] = ['owned', 'theoretical'];
 
 export const defaultArtifactSettings: ArtifactSettings = {
   acceptableWorth: 50,
+  onlyFactorInOwnedMonsters: true,
+  conversionStoneMode: 'owned',
+  ownedConversionStoneGrade: 'Hero',
   conversionStoneGrade: 'Hero',
-  conversionStoneMaxValue: 50,
+  conversionStoneValue: 3,
 };
 
 function isRecord(value: unknown): value is GameRecord {
@@ -77,8 +81,11 @@ export function blankPreferences(): Preferences {
 function isArtifactSettings(value: unknown): value is ArtifactSettings {
   return isRecord(value)
     && artifactAcceptableWorthChoices.includes(value.acceptableWorth as typeof artifactAcceptableWorthChoices[number])
+    && typeof value.onlyFactorInOwnedMonsters === 'boolean'
+    && artifactConversionStoneModes.includes(value.conversionStoneMode as ArtifactConversionStoneMode)
+    && itemGrades.includes(value.ownedConversionStoneGrade as ItemGrade)
     && itemGrades.includes(value.conversionStoneGrade as ItemGrade)
-    && isScale(value.conversionStoneMaxValue, 100);
+    && isScale(value.conversionStoneValue, 4);
 }
 
 function isScale(value: unknown, maximum: number): value is number {

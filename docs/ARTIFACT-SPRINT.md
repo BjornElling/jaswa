@@ -2,8 +2,10 @@
 
 **Status:** Live working document for the Artifacts workspace
 **Started:** August 30, 2026
-**Last updated:** August 30, 2026 — decision 32 defines the benchmark-based
-`calculateArtifactOptimalValue`, the canonical artifact-versus-monster value.
+**Last updated:** August 31, 2026 — decision 35 defines the conversion-stone
+settings and their four-step value scale; the controls are built and persisted.
+Decision 32 defines the benchmark-based `calculateArtifactOptimalValue`, the
+canonical artifact-versus-monster value.
 Decision 30 fixes the workspace's five areas and decision 31 the
 acceptable-versus-preferred factor, which is built and persisted. The placeholder
 is gone — `artifacts` routes to a real component. Decision 29 fixes the
@@ -632,6 +634,7 @@ recorded here once the user has taken it.
 | 32 | 2026-08-30 | **Artifact-versus-monster value is `calculateArtifactOptimalValue`: main-property preference weight × weighted, roll-quality sub-property sum, divided by the fixed benchmark `1 preferred + 3 acceptable`.** Preferred weighs 1; acceptable weighs `Acceptable ctr. preferred`; unwanted weighs 0. Scores may exceed 100 %. | The user approved a benchmark rather than an artifact-specific denominator. It keeps a max-rolled `2 preferred + 2 acceptable` artifact visibly exceptional (120 % at the default factor), while rewarding the rarer four-property preferred match more still. A dynamic denominator would erase unmatched slots and falsely make a narrow match perfect. The complete contract is `ARTIFACT-CANONICAL.md` §16; the TypeScript function is its sole executable implementation. |
 | 33 | 2026-08-30 | **The artifact library leaves the Artifacts workspace and becomes its own rail entry, `Artifacts`, beside Monsters; the workspace is renamed `Artifact Optimization` and keeps the other four of decision 30's areas.** | The user's call. It separates a library from a judgement: `Artifacts` is the plain list of what the account holds, where `Artifact Optimization` is the three questions read against it — and the rail now names each for what it is. It also gives the table the room it needs, which a `Disclosure` on a workspace page could not: the list is full-width, sortable and filterable in the manner of Monsters, and follows that page's conventions throughout rather than inventing a second table idiom. Decision 30's ordering of the remaining four areas is untouched. |
 | 34 | 2026-08-30 | **Where the export contradicts `ARTIFACT-CANONICAL.md`, the export governs and the document is corrected.** Three roll ranges in §5 and two claims in §15.4 were wrong against the user's own 1,864 artifacts. | Session 4 built the property table from the export rather than from §5, and the disagreements were real: current artifacts acquired this month roll outside §5's stated range on three properties. §14's revision rule already makes an observation primary over a secondary guide, so the table records what was observed and §15.9 records the corrections. A range the code trusted over the data would have judged real lines as impossible ones. |
+| 35 | 2026-08-31 | **Artifact Optimization settings factor in owned monsters by default and offer two conversion-stone sources:** *Use only stones you own* with a grade applied to that grade and under, or *Use theoretical calculations* with one assumed grade. The stone-value control has four prose-labelled steps matching Rune Potential's Enchanted gems scale; the acceptable-versus-preferred factor stays outside the source choice. | The user's call. Ownership is a separate monster-scope filter, while the two stone sources answer whether the draft should use account inventory or an assumed grade. Separate grades preserve both answers when the user switches sources, and keeping the two sliders outside the option cards makes them apply to either source rather than look conditional. The new settings are validated as a complete current shape, with no migration path. |
 
 ---
 
@@ -650,7 +653,7 @@ Status is one of **Not started**, **In progress**, **Blocked**, **Done**.
 | 2 | Model and read artifacts — types, parsing, validation from `game.data.artifacts` | **Done** | Session 4. `app/lib/artifact-properties.ts` holds the vocabulary and the grade table; `app/lib/artifacts.ts` reads and validates a record. All 1,864 artifacts in the user's own export parse, and every malformed shape in §13's list is rejected rather than repaired. Three corrections to §15 came out of it, recorded in §15.9. §15 answers what blocked it. The record shape, the property vocabulary and its category split, the power-up encoding and its grade invariant, and the conversion slot are all verified. `equipmentPrimaryTypes` and `addArtifactMainEffect` were confirmed correct, so the existing footholds extend rather than get replaced (Q6). Validation rules are in `ARTIFACT-CANONICAL.md` §13. |
 | 3 | Artifact library — list, sort, filter, empty state | **Done** | Session 4. `app/components/artifact-list.tsx`, on its own **Artifacts** rail entry beside Monsters rather than as a fold on the workspace page — see decision 33. Filter strip and sortable full-width table follow the Monsters page throughout. Columns: location, value on mon, type, restriction, quality, main stat, subs. |
 | 4 | Judgement — roll quality against the monster type's property preferences | **Partly done** | Session 4 connected it: `app/lib/artifact-value-on-monster.ts` feeds real artifacts and the engraving defaults into decision 32's calculation, and the library's **Value on mon** column is its first reading. All six of `ARTIFACT-CANONICAL.md` §16's worked examples reproduce exactly. It still judges against the *defaults* only — the user's own preferences arrive with step 5's larger half. The canonical benchmark calculation is built (decision 32), but could not receive real artifacts or preferences until steps 2 and 5 provided their validated models. No skill data or combat simulation: the artifact's own category selects which half of the preferences applies (decision 21). |
-| 5 | Artifact preferences — per-type property preferences, the acceptable factor, and the defaults | **Partly done** | The **acceptable factor is built** (decision 31): `ArtifactSettings.acceptableWorth` in `Preferences`, validated against its five stops, offered as the slider in the Artifacts Settings area. The **decision 29 defaults are built** (session 4): `app/lib/artifact-preferences.ts` classifies each monster type's engraving distribution by the fixed shares, per category, and returns `undefined` for a type the dataset has not captured so decision 18's *not judged* is the honest answer rather than a zero. The per-type property preferences the user states themselves are unstarted, and they are the larger half. Decisions 9–12, 15–21, **28–29**. Its own model in `Preferences`, extending `isValidPreferences`. Preferences are keyed `(category, property)` (decision 21), and Attribute and Type properties are presented separately (20). **Store only what the user actually stated** — never a copy of the seeded defaults, or a cleared preference becomes indistinguishable from an unset one and the default silently returns (decision 28). The statistics are read at the point of use as a fallback, applying decision 29's raw-count thresholds. §7 Q7a governs a type the dataset does not cover. Breaking change by design. |
+| 5 | Artifact preferences — per-type property preferences, the acceptable factor, and the defaults | **Partly done** | The **acceptable factor is built** (decision 31): `ArtifactSettings.acceptableWorth` in `Preferences`, validated against its five stops, offered as the slider in the Artifacts Settings area. **Conversion-stone and monster-scope settings are built** (decision 35) in the same validated `ArtifactSettings` shape, but the eventual draft calculation does not consume them yet. The **decision 29 defaults are built** (session 4): `app/lib/artifact-preferences.ts` classifies each monster type's engraving distribution by the fixed shares, per category, and returns `undefined` for a type the dataset has not captured so decision 18's *not judged* is the honest answer rather than a zero. The per-type property preferences the user states themselves are unstarted, and they are the larger half. Decisions 9–12, 15–21, **28–29**, **35**. Its own model in `Preferences`, extending `isValidPreferences`. Preferences are keyed `(category, property)` (decision 21), and Attribute and Type properties are presented separately (20). **Store only what the user actually stated** — never a copy of the seeded defaults, or a cleared preference becomes indistinguishable from an unset one and the default silently returns (decision 28). The statistics are read at the point of use as a fallback, applying decision 29's raw-count thresholds. §7 Q7a governs a type the dataset does not cover. Breaking change by design. |
 | 6 | Monster fit — which monsters gain most from an artifact | Not started | The tagline's promise, and decision 30's **Best monster for this artifact** area. Under decision 13 it is a second reading of step 4's table rather than separate work. Depends on 2 and 4. |
 | 7 | Replace the placeholder — route `artifacts` to the real component | **Done** | Session 3. `app/components/artifacts-section.tsx` carries decision 30's four `Disclosure` headings and their stated purpose, and nothing more. `app/page.tsx` routes `artifacts` to it; `'artifacts'` is out of the `UpcomingWorkspace` branch and out of `upcomingWorkspaces`, whose tagline now lives in the component. |
 | 8 | Verify and finish — both extremes, layout check, definition of done, commit | Not started | `AGENTS.md` §7. |
@@ -1756,3 +1759,36 @@ lines identify a rarer artifact.
 contract, examples, endpoints, invalid-input behaviour, and the reason for the
 design. The calculation has no real call site yet: the validated artifact and
 preference models remain steps 2 and 5.
+
+### Session 5 — August 31, 2026 — conversion-stone settings
+
+**Asked.** Add an owned-monster checkbox, make Conversion stone value a
+four-step scale like Rune Potential's Enchanted gems, and split conversion
+stones into an owned-inventory option and a theoretical-calculation option.
+Keep the stone-value and acceptable-versus-preferred sliders outside the option
+cards so both sources share them.
+
+**Built (decision 35).** `Artifacts` Settings now defaults to **Only factor in
+mons you own**, with **Use only stones you own** selected. The owned source has
+a grade dropdown whose choices read `Normal (and under)` through
+`Legend (and under)`. The theoretical source keeps its existing grade question
+and plain `Normal` through `Legend` choices. Both grade answers persist
+separately, so switching sources does not overwrite the other answer.
+Conversion stone value stores a four-step scale and uses the same
+`None`/`Average`/`Three quarters`/`Maximum` vocabulary as Enchanted gems;
+`Acceptable ctr. preferred` remains a five-stop percentage outside the cards.
+
+The shared home-page option card is now reusable by the artifact source choice,
+while its fixed box, radio, disabled-body and responsive behaviour stay the
+same. New fields are part of the complete current preferences contract, so an
+older preferences record is rejected and the existing blank-preferences path
+provides the new shape.
+
+**Verified.** `npx tsc --noEmit`, `npm run lint` and `npx next build` all pass.
+The existing `http://localhost:3000/` server returned HTTP 200. Playwright
+exercised the empty workspace and a minimally populated import: the checkbox
+defaulted on, all labels and options appeared, the full-value state reached
+the maximums, option switching kept every outside control at the same x/y/size,
+and both states survived reload. The browser-control bridge itself had no
+session, so the visual evidence came from Playwright screenshots against the
+user's already-running local server.

@@ -9,24 +9,24 @@ export function CheckboxRow({ label, checked, onChange }: { label: string; check
   </label>;
 }
 
-/** The two import routes share one native radio group, so the browser exposes
-    their exclusivity even when the visual control is the whole card. */
-export function ImportRouteCard({ option, name, qualifier, value, current, onChoose, children }: {
+/** Option cards share one native radio group, so the browser exposes their
+    exclusivity even when the visual control is the whole card. */
+export function OptionCard<Value extends string>({ option, name, qualifier, radioName, value, current, onChoose, children }: {
   option: string;
   name: string;
-  /** The condition the route only works under, read as part of its name rather
-      than as a note further down: whoever cannot use the route learns it while
-      reading the heading, before the body argues for it. */
+  /** An option's condition is read as part of its name rather than as a note
+      further down, so it is understood before the body argues for it. */
   qualifier?: string;
-  value: ImportRoute;
-  current: ImportRoute;
-  onChoose: (value: ImportRoute) => void;
+  radioName: string;
+  value: Value;
+  current: Value;
+  onChoose: (value: Value) => void;
   children: ReactNode;
 }) {
   const chosen = current === value;
   return <div className={chosen ? 'import-route chosen' : 'import-route'}>
     <label className="route-head">
-      <input type="radio" name="import-route" value={value} checked={chosen}
+      <input type="radio" name={radioName} value={value} checked={chosen}
         onChange={() => onChoose(value)} />
       <span className="route-head-text">
         <span className="route-option">{option}</span>
@@ -43,6 +43,26 @@ export function ImportRouteCard({ option, name, qualifier, value, current, onCho
       {children}
     </div>
   </div>;
+}
+
+export function ImportRouteCard({ option, name, qualifier, value, current, onChoose, children }: {
+  option: string;
+  name: string;
+  qualifier?: string;
+  value: ImportRoute;
+  current: ImportRoute;
+  onChoose: (value: ImportRoute) => void;
+  children: ReactNode;
+}) {
+  return <OptionCard
+    option={option}
+    name={name}
+    qualifier={qualifier}
+    radioName="import-route"
+    value={value}
+    current={current}
+    onChoose={onChoose}
+  >{children}</OptionCard>;
 }
 
 /**
