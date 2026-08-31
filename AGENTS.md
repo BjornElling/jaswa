@@ -1,7 +1,7 @@
 # Agent rules for JASWA
 
 **Status:** Binding project rules
-**Reviewed:** August 30, 2026
+**Reviewed:** August 31, 2026
 
 Rules an agent must follow when working in this repository. A rule here
 overrides an agent's own habits and defaults. Where a rule and a document in
@@ -56,25 +56,30 @@ server.**
   unless the user explicitly asks.
 - Use the already running local server for focused visual verification whenever
   it would materially test a changed interface, layout, interaction, or a
-  visual defect reported by the user. Browser access is available for this
-  purpose; do not infer otherwise from the editor in use.
-- Playwright is an installed project dependency and is part of visual work when
-  it is relevant, or whenever the user asks for visual confirmation. Use it
-  against the user's existing local server to drive the affected flow and make
-  an evidence-based layout check; do not start a second server for it.
-- Distinguish the local server from browser automation. Verify the existing
-  `http://localhost:3000/` server directly before calling it unavailable; a
-  missing or disconnected browser-control session means visual interaction is
-  unavailable, not that the development server has stopped.
+  visual defect reported by the user.
+- **VS Code visual-verification rule:** The ChatGPT Browser/in-app browser is
+  not available from the Codex IDE extension or Codex CLI. Do not try to find a
+  browser bridge in this environment and do not treat a missing browser
+  session as a server failure. For JASWA, use the installed project Playwright
+  dependency against the user's existing `http://localhost:3000/` server.
+- Before browser automation, verify that exact URL directly with
+  `Invoke-WebRequest -UseBasicParsing http://localhost:3000/`. If it does not
+  respond successfully, report the server as unavailable; never start a
+  competing server, substitute a hosted preview, or claim visual verification.
+- For a visual or interactive change, run Playwright at a stable viewport,
+  drive the real affected flow, and take screenshots before and after the
+  relevant interaction. Check both the empty state and the fully populated
+  state, and compare the screenshots for unintended movement under rule 2.
+  If Playwright cannot launch, state that visual verification was not done;
+  do not replace this check with code inspection or an unavailable Browser
+  bridge.
 - Keep visual verification proportional. Do not inspect every page by ritual
   after a documentation, data-only, or non-visual change. Do inspect the
   affected flow when a change could alter rendering, behaviour, layout, focus,
   state, or user-visible error handling.
-- Work only against the existing local URL. Reuse its browser context, keep a
-  stable viewport when comparing states, and drive the relevant real flow. For
-  a reported visual bug, reproduce it first, make the fix, then repeat the
-  same steps and confirm the result. Compare screenshots before and after an
-  interaction when rule 2 applies.
+- Work only against the existing local URL. For a reported visual bug,
+  reproduce it first, make the fix, then repeat the same steps and confirm the
+  result.
 - Do not use Sites, a hosted preview, deployment tooling, or any workflow that
   requests GitHub or hosting credentials merely to preview or verify JASWA.
 - Do not deploy, publish, save a hosted build, obtain hosting credentials,
