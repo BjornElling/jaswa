@@ -154,7 +154,7 @@ export function ArtifactsSection({ settings, hasGame, onUpdate }: {
               onChoose={(value) => void onUpdate({ conversionStoneMode: value as ArtifactConversionStoneMode })}
             >
               <p className="lead">
-                Only calculated values based on the engraved conversion stones you actually own are included.
+                Potential conversion gains are based solely on the engraved conversion stones you actually own.
               </p>
             </OptionCard>
           </div>
