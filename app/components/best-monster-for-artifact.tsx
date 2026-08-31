@@ -265,7 +265,7 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
           </Dropdown>
         </div>
       </div>
-      <button type="button" className="button best-monster-calculate" onClick={() => void calculate()} disabled={!selectedArtifact || state === 'calculating'}>
+      <button type="button" className="button important-action best-monster-calculate" onClick={() => void calculate()} disabled={!selectedArtifact || state === 'calculating'}>
         {state === 'calculating' ? 'Calculating…' : 'Calculate monsters'}
       </button>
     </div>

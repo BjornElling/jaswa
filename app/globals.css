@@ -1973,6 +1973,25 @@ button { cursor: pointer; }
 }
 .button.primary:hover { background: #dcb45f; color: var(--gold-ink); }
 .button.danger:hover { color: #d08a7a; border-color: #6a4038; }
+/* Important actions use a gold frame, not a filled slab, so they stand out
+   without competing with the filter state or the surrounding section title. */
+.button.important-action { border-color: var(--gold); }
+.button.important-action:hover:not(:disabled) {
+  background: var(--hover);
+  border-color: #dcb45f;
+  color: var(--ink);
+}
+.button.important-action:disabled {
+  color: var(--ghost);
+  border-color: var(--line);
+  border-style: dashed;
+  cursor: not-allowed;
+}
+.button.important-action:disabled:hover {
+  background: transparent;
+  color: var(--ghost);
+  border-color: var(--line);
+}
 
 .button-row { display: flex; flex-wrap: wrap; gap: var(--s2); }
 
@@ -2378,35 +2397,6 @@ button { cursor: pointer; }
    heading's qualifier, so this row holds the button alone. */
 .route-download {
   display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap;
-}
-/* The gold frame, on the border alone rather than the filled `.primary`: this
-   is the one action the chosen route asks for, so it is worth the accent, but a
-   solid gold slab would outweigh the route heading it sits under. */
-.route-download .button { border-color: var(--gold); }
-/* --hover is the program's one hover ground, the same lift the rail items and
-   the route heading above this button take, so the button answers the pointer
-   in the vocabulary the rest of the page already uses. */
-.route-download .button:hover {
-  background: var(--hover);
-  border-color: #dcb45f;
-  color: var(--ink);
-}
-/* A control that cannot be used says so by weight, not by disappearing: it
-   keeps its full box, so nothing moves on the day it starts working. The gold
-   is dropped with the ability to use it — an accent on a dead control would be
-   pointing at nothing. */
-.route-download .button:disabled {
-  color: var(--ghost);
-  border-color: var(--line);
-  border-style: dashed;
-  cursor: not-allowed;
-}
-/* The background is held back too, not just the colour and border: a control
-   that cannot be pressed should not light up under the pointer. */
-.route-download .button:disabled:hover {
-  background: transparent;
-  color: var(--ghost);
-  border-color: var(--line);
 }
 
 /* The verdict card is a full-width block in the aside it was written for; here

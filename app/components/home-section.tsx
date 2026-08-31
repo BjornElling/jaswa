@@ -163,7 +163,7 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
             </p>
 
             <div className="route-download">
-              <a className="button" href="/JASWA-Helper-Setup.exe" download><WindowsMark />Download helper</a>
+              <a className="button important-action" href="/JASWA-Helper-Setup.exe" download><WindowsMark />Download helper</a>
             </div>
 
             <section className={`statistics acceleration ${helperState} route-link`} role="status" aria-label="Helper program connection">
