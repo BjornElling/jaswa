@@ -1820,6 +1820,9 @@ button { cursor: pointer; }
 .jaswa-select:hover { background-color: var(--hover); }
 .jaswa-select[data-placeholder] { color: var(--faint); }
 .jaswa-select option { background: var(--raise); color: var(--ink); }
+/* Native select rendering can use the selected option's color instead of the
+   control's inherited color, so the empty placeholder needs its own rule. */
+.jaswa-select[data-placeholder] option[value=''] { color: var(--faint); }
 
 .field textarea {
   height: auto; min-height: 120px; resize: vertical;
