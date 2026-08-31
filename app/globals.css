@@ -912,17 +912,29 @@ button { cursor: pointer; }
   .artifact-general-layout { grid-template-columns: minmax(0, 1fr); }
 }
 
-/* The source choice gets two thirds of the settings panel; the shared stone
-   value question sits beside it rather than looking like part of either card. */
+/* The source choices fill their row; the shared stone-value question sits
+   below them at half width rather than looking like part of either card. */
 .artifact-conversion-layout {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s5);
   align-items: start;
 }
-.artifact-conversion-layout > .slider { min-width: 0; }
-@media (max-width: 1280px) {
-  .artifact-conversion-layout { grid-template-columns: minmax(0, 1fr); }
+.artifact-conversion-layout > .slider-grid { min-width: 0; }
+
+/* Artifact conversion has one additional choice beyond the two-route import
+   cards, so its three options get equal tracks and two quiet separators. */
+.artifact-conversion-layout .import-routes {
+  grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr) 1px minmax(0, 1fr);
+}
+@media (max-width: 1080px) {
+  .artifact-conversion-layout .import-routes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .artifact-conversion-layout .import-routes .settings-rule {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--rule) 4%, var(--rule) 96%, transparent);
+  }
 }
 
 /* Sliders keep to two columns, so a group of four reads as a block rather

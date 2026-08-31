@@ -37,7 +37,7 @@ export const defaultRunePotentialSettings: RunePotentialSettings = {
    at 0 % an acceptable property may as well be unwanted, and at 100 % the
    preferred/acceptable distinction stops meaning anything. */
 export const artifactAcceptableWorthChoices = [0, 25, 50, 75, 100] as const;
-export const artifactConversionStoneModes: ArtifactConversionStoneMode[] = ['owned', 'theoretical'];
+export const artifactConversionStoneModes: ArtifactConversionStoneMode[] = ['none', 'owned', 'theoretical'];
 /* The exact key set rejects the retired grade-specific source shape instead of
    silently carrying fields the current settings page no longer offers. */
 const artifactSettingKeys = [

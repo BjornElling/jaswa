@@ -7,7 +7,7 @@ export type MonsterPreference = { unitId: string; label: string; runeSets: strin
 export type RunePotentialSortOrder = 'Grade' | 'Sub Property' | 'Sub Property Before Grinding' | 'Power-up Lv.' | 'Obtained' | 'Sub Property Sum' | 'Score';
 /** The five item grades from `docs/RUNE-CANONICAL.md`, shared by gems and grindstones. */
 export type ItemGrade = 'Normal' | 'Magic' | 'Rare' | 'Hero' | 'Legend';
-export type ArtifactConversionStoneMode = 'owned' | 'theoretical';
+export type ArtifactConversionStoneMode = 'none' | 'owned' | 'theoretical';
 export type RunePotentialSettings = { powerUpPolicy: number; runeQuality: number; enchantedGems: number; grindstones: number; gemGrade: ItemGrade; grindstoneGrade: ItemGrade; acceptedRunes: number; brokenRunes: number; intangibleRunes: number; keepMoreForLargerSets: boolean; includeLevel12Runes: boolean; includeEquippedRunes: boolean; sortOrder: RunePotentialSortOrder };
 /**
  * How the companion program is allowed to feed JASWA once it is connected.

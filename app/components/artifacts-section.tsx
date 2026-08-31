@@ -107,7 +107,23 @@ export function ArtifactsSection({ settings, hasGame, onUpdate }: {
         <div className="bar-divide" />
 
         <div className="artifact-conversion-layout">
-          <div className="import-routes" role="radiogroup" aria-label="How to value conversion stones">
+          <div className="import-routes" role="radiogroup" aria-label="How to handle conversion stones">
+            <OptionCard
+              option="No conversion"
+              name="As they are"
+              namePlacement="body"
+              radioName="artifact-conversion-stone-mode"
+              value="none"
+              current={settings.conversionStoneMode}
+              onChoose={(value) => void onUpdate({ conversionStoneMode: value as ArtifactConversionStoneMode })}
+            >
+              <p className="lead">
+                Do not factor in any conversion; use artifacts exactly as they appear today.
+              </p>
+            </OptionCard>
+
+            <div className="settings-rule" role="presentation" />
+
             <OptionCard
               option="Conversion stones"
               name="Calculated values"
@@ -139,16 +155,18 @@ export function ArtifactsSection({ settings, hasGame, onUpdate }: {
             </OptionCard>
           </div>
 
-          <div className="slider">
-            <label className="slider-label" htmlFor="conversion-stone-value">Value to factor in</label>
-            <p className="slider-note">How much of the maximum possible roll value should be factored into the draft?</p>
-            <input id="conversion-stone-value" type="range" min={1} max={conversionStoneValueLabels.length} step={1}
-              value={settings.conversionStoneValue}
-              onChange={(event) => void onUpdate({ conversionStoneValue: Number(event.target.value) })}
-              aria-describedby="conversion-stone-value-choice" />
-            <p id="conversion-stone-value-choice" className="slider-choice" aria-live="polite">
-              {conversionStoneValueLabels[conversionStoneValueStep]}
-            </p>
+          <div className="slider-grid">
+            <div className="slider">
+              <label className="slider-label" htmlFor="conversion-stone-value">Value to factor in</label>
+              <p className="slider-note">How much of the maximum possible roll value should be factored into the draft?</p>
+              <input id="conversion-stone-value" type="range" min={1} max={conversionStoneValueLabels.length} step={1}
+                value={settings.conversionStoneValue}
+                onChange={(event) => void onUpdate({ conversionStoneValue: Number(event.target.value) })}
+                aria-describedby="conversion-stone-value-choice" />
+              <p id="conversion-stone-value-choice" className="slider-choice" aria-live="polite">
+                {conversionStoneValueLabels[conversionStoneValueStep]}
+              </p>
+            </div>
           </div>
         </div>
       </div>
