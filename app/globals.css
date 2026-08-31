@@ -1060,12 +1060,12 @@ button { cursor: pointer; }
 .best-artifact-filters .filter-group { min-width: 0; }
 .best-monster-filters {
   display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
+  grid-template-columns: max-content minmax(24ch, 1fr) max-content;
   grid-template-areas:
-    "type restriction"
-    "quality main"
-    "artifact artifact"
-    "calculate calculate";
+    "type restriction restriction"
+    "quality substat main"
+    "artifact artifact artifact"
+    "calculate calculate calculate";
   align-items: end;
   gap: var(--s4);
   padding: var(--s4);
@@ -1077,7 +1077,9 @@ button { cursor: pointer; }
 .best-monster-filter-type { grid-area: type; }
 .best-monster-filter-restriction { grid-area: restriction; }
 .best-monster-filter-quality { grid-area: quality; }
+.best-monster-filter-substat { grid-area: substat; }
 .best-monster-filter-main { grid-area: main; }
+.best-monster-filter-substat .jaswa-select { width: 100%; min-width: 0; }
 .best-monster-artifact-select { grid-area: artifact; }
 .best-monster-artifact-select .filter-group-controls { width: 100%; }
 .best-monster-artifact-select .jaswa-select { width: 100%; min-width: 0; }
@@ -1118,7 +1120,7 @@ button { cursor: pointer; }
 .best-monster-table td b { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 500; }
 @media (max-width: 1420px) {
   .best-artifact-filters { grid-template-columns: max-content max-content minmax(30ch, 1fr); }
-  .best-monster-filters { grid-template-columns: max-content minmax(0, 1fr); }
+  .best-monster-filters { grid-template-columns: max-content minmax(20ch, 1fr) max-content; }
   .best-artifact-calculate { justify-self: start; }
   .best-monster-calculate { justify-self: start; }
   .best-artifact-results { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1126,7 +1128,7 @@ button { cursor: pointer; }
 @media (max-width: 900px) {
   .best-artifact-filters { grid-template-columns: minmax(0, 1fr); align-items: stretch; }
   .best-monster-filters { grid-template-columns: minmax(0, 1fr); align-items: stretch; }
-  .best-monster-filters { grid-template-areas: "type" "restriction" "quality" "main" "artifact" "calculate"; }
+  .best-monster-filters { grid-template-areas: "type" "restriction" "quality" "substat" "main" "artifact" "calculate"; }
   .best-artifact-monster-select .jaswa-select { min-width: 0; }
   .best-monster-artifact-select .jaswa-select { min-width: 0; }
   .best-artifact-calculate { width: 100%; }

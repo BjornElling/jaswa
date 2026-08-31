@@ -25,6 +25,7 @@ type ArtifactFilters = {
   restrictions: string[];
   grades: ArtifactGrade[];
   mainProperties: ArtifactMainProperty[];
+  subPropertyId: string;
 };
 
 type MonsterOption = {
@@ -42,7 +43,7 @@ type Calculation = {
   evaluatedPairs: number;
 };
 
-const defaultFilters: ArtifactFilters = { categories: [], restrictions: [], grades: [], mainProperties: [] };
+const defaultFilters: ArtifactFilters = { categories: [], restrictions: [], grades: [], mainProperties: [], subPropertyId: '' };
 
 const optionPartSeparator = '\u2002·\u2002';
 const optionRestrictionSeparator = '\u2002/\u2002';
@@ -113,15 +114,28 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
   const [state, setState] = useState<'idle' | 'calculating' | 'error'>('idle');
   const artifacts = useMemo(() => readArtifacts(data), [data]);
   const artifactNumbers = useMemo(() => new Map(artifacts.map((artifact, index) => [artifact.id, index])), [artifacts]);
+  const subPropertyOptions = useMemo(() => {
+    const definitions = new Map<number, { id: number; name: string }>();
+    for (const artifact of artifacts) {
+      for (const subProperty of artifact.subProperties) {
+        definitions.set(subProperty.definition.id, { id: subProperty.definition.id, name: subProperty.definition.name });
+      }
+    }
+    return [...definitions.values()].sort((left, right) => monsterNameCollator.compare(left.name, right.name)
+      || monsterNameCollator.compare(String(left.id), String(right.id)));
+  }, [artifacts]);
   const ownMonsters = useMemo(() => ownMonsterOptions(monsters), [monsters]);
+  const selectedSubPropertyId = subPropertyOptions.some((option) => String(option.id) === filters.subPropertyId)
+    ? filters.subPropertyId : '';
   const artifactsByFilter = useMemo(() => artifacts.filter((artifact) => {
     const restriction = artifactEquipClass(artifact);
     return (!filters.categories.length || filters.categories.includes(artifact.category))
       && (!filters.restrictions.length || (restriction !== null && filters.restrictions.includes(restriction)))
       && (!filters.grades.length || filters.grades.includes(artifact.grade))
-      && (!filters.mainProperties.length || filters.mainProperties.includes(artifact.mainProperty));
+      && (!filters.mainProperties.length || filters.mainProperties.includes(artifact.mainProperty))
+      && (!selectedSubPropertyId || artifact.subProperties.some((property) => String(property.definition.id) === selectedSubPropertyId));
   }).sort((left, right) => monsterNameCollator.compare(artifactSortKey(left), artifactSortKey(right))
-    || monsterNameCollator.compare(left.id, right.id)), [artifacts, filters]);
+    || monsterNameCollator.compare(left.id, right.id)), [artifacts, filters, selectedSubPropertyId]);
   const selectedArtifact = artifactsByFilter.find((artifact) => artifact.id === selectedArtifactId);
   const equippedSlots = useMemo(() => {
     const slots = new Map<string, Set<ArtifactCategory>>();
@@ -208,6 +222,16 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
       {buttonGroup('Type', 'categories', categoryOrder, (category) => artifactCategoryLabels[category], 'best-monster-filter-type')}
       {buttonGroup('Restriction', 'restrictions', restrictionOptions, (restriction) => restriction, 'best-monster-filter-restriction')}
       {buttonGroup('Quality', 'grades', artifactGradeOrder, (grade) => grade.slice(0, 3).toUpperCase(), 'best-monster-filter-quality')}
+      <div className="filter-group best-monster-filter-substat">
+        <label className="filter-label" htmlFor="best-monster-substat">Substat</label>
+        <div className="filter-group-controls">
+          <Dropdown id="best-monster-substat" value={selectedSubPropertyId}
+            onChange={(event) => setFilters((current) => ({ ...current, subPropertyId: event.target.value }))}
+            aria-label="Filter artifacts by substat" placeholder="All substats">
+            {subPropertyOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
+          </Dropdown>
+        </div>
+      </div>
       {buttonGroup('Main stat', 'mainProperties', artifactMainPropertyOrder, (property) => property, 'best-monster-filter-main')}
       <div className="filter-group best-monster-artifact-select">
         <label className="filter-label" htmlFor="best-monster-artifact">Artifact</label>
