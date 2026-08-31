@@ -25,13 +25,20 @@ const categoryOrder: readonly ArtifactCategory[] = ['attribute', 'type'];
 const elementOrder = Object.values(artifactElements);
 const archetypeOrder = Object.values(artifactArchetypes);
 
-function ConvertedMark() {
-  return <svg className="artifact-sub-mark artifact-sub-converted" viewBox="0 0 16 16" role="img" aria-label="Converted">
+function ConvertedMark({ position }: { position: number }) {
+  return <svg className="artifact-sub-mark artifact-sub-converted" viewBox="0 0 16 16" role="img"
+    aria-label={`Converted sub-property ${position + 1}; this slot can be converted again`}>
     <path d="M13 5.5A5.25 5.25 0 0 0 3.6 4L2.5 5.25" />
     <path d="M2.5 2.75v2.5H5" />
     <path d="M3 10.5A5.25 5.25 0 0 0 12.4 12l1.1-1.25" />
     <path d="M13.5 13.25v-2.5H11" />
   </svg>;
+}
+
+function ArtifactConversionNote() {
+  return <p className="artifact-conversion-note" role="note">
+    <b>Conversion rule.</b> A Conversion Stone changes one sub-property. The circular-arrow mark identifies its permanently locked line in the displayed order (1st–4th): later stones may change that same line again, but never another line, and the conversion cannot be undone.
+  </p>;
 }
 
 function PowerUpMark() {
@@ -174,6 +181,7 @@ export function ArtifactList({ game, monsters, preferences }: {
       <p className="next-step">{game
         ? 'Report it from the rail if your account does have artifacts.'
         : 'Go to Home and drop in the JSON file exported from Summoners War.'}</p>
+      <ArtifactConversionNote />
     </section>
   </div>;
 
@@ -205,14 +213,16 @@ export function ArtifactList({ game, monsters, preferences }: {
   </div>;
   const abbreviate = (option: string) => option.slice(0, 3).toUpperCase();
 
-  return <DataTablePage
-    filterClassName="artifact-filter-strip"
-    tableClassName="artifact-grid"
-    headerLabel="Artifact library columns"
-    tableLabel="Artifact library"
-    columnGroup={<ArtifactColumnGroup />}
-    header={<ArtifactTableHeader sortHeader={sortHeader} />}
-    filters={<>
+  return <div className="artifact-library">
+    <ArtifactConversionNote />
+    <DataTablePage
+      filterClassName="artifact-filter-strip"
+      tableClassName="artifact-grid"
+      headerLabel="Artifact library columns"
+      tableLabel="Artifact library"
+      columnGroup={<ArtifactColumnGroup />}
+      header={<ArtifactTableHeader sortHeader={sortHeader} />}
+      filters={<>
       <div className="filter-group artifact-filter-search">
         <span className="filter-label">Search</span>
         <div className="filter-group-controls">
@@ -249,9 +259,9 @@ export function ArtifactList({ game, monsters, preferences }: {
       <output className="filter-summary" aria-label={`${visible.length} of ${rows.length} artifacts shown`}>
         <b>{visible.length}</b> of {rows.length} shown
       </output>
-    </>}
-  >
-    <tbody>
+      </>}
+    >
+      <tbody>
           {visible.map((row) => <tr key={row.artifact.id}>
             <td className="align-left row-index">{String(row.index + 1).padStart(2, '0')}</td>
             <td className={row.location ? 'align-left' : 'align-left muted'}
@@ -274,14 +284,14 @@ export function ArtifactList({ game, monsters, preferences }: {
             </td>
             <td className="align-left">
               <ul className="artifact-subs">
-                {row.subProperties.map((subProperty) => {
+                {row.subProperties.map((subProperty, index) => {
                   const preference = row.subPropertyPreferences?.get(subProperty.definition.id) ?? 'unwanted';
                   return <li
                     key={subProperty.definition.id}
                     className={`artifact-sub-${preference}${subProperty.definition.status === 'legacy' ? ' legacy' : ''}`}
                   >
                     {displaySubProperty(subProperty, (value) => formatNumber(value, preferences.general))}
-                    {subProperty.converted && <ConvertedMark />}
+                    {row.artifact.convertedPropertyIndex === index && <ConvertedMark position={index} />}
                     {subProperty.powerUps > 0 && <>{' '}<span className="artifact-sub-power-ups">
                       <span aria-hidden="true">[{subProperty.powerUps}<PowerUpMark />]</span>
                       <span className="visually-hidden"> {subProperty.powerUps} power-up{subProperty.powerUps === 1 ? '' : 's'}</span>
@@ -291,6 +301,7 @@ export function ArtifactList({ game, monsters, preferences }: {
               </ul>
             </td>
           </tr>)}
-    </tbody>
-  </DataTablePage>;
+      </tbody>
+    </DataTablePage>
+  </div>;
 }

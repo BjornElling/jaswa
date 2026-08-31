@@ -15,7 +15,6 @@ export type ArtifactSubProperty = {
   powerUps: number;
   /** The ceiling this line could have reached, or `null` for a legacy property. */
   maximumHundredths: number | null;
-  converted: boolean;
 };
 
 export type Artifact = {
@@ -28,6 +27,8 @@ export type Artifact = {
   mainValue: number;
   grade: ArtifactGrade;
   subProperties: ArtifactSubProperty[];
+  /** The zero-based sub-property position permanently bound to conversion. */
+  convertedPropertyIndex: number | null;
   /** The wearer's `unit_id`, or `null` when the artifact sits in the inventory. */
   occupiedId: string | null;
   locked: boolean;
@@ -87,7 +88,6 @@ function readSubProperty(entry: unknown, category: ArtifactCategory, grade: Arti
     maximumHundredths: definition.maxRoll === null
       ? null
       : toHundredths(definition.maxRoll * lineContributions),
-    converted: Boolean(numberOrNull(entry[3])),
   };
 }
 
@@ -115,7 +115,17 @@ export function readArtifact(record: unknown): Artifact | null {
   const secondary = source.sec_effects;
   if (!Array.isArray(secondary) || secondary.length !== 4) return null;
   const subProperties: ArtifactSubProperty[] = [];
-  for (const entry of secondary) {
+  let convertedPropertyIndex: number | null = null;
+  for (const [index, entry] of secondary.entries()) {
+    /* The conversion flag identifies the line's permanent conversion slot.
+       Its magnitude is not part of the model yet, but a malformed flag must
+       not quietly become an unconverted artifact. */
+    const conversionFlag = numberOrNull(Array.isArray(entry) ? entry[3] : null);
+    if (conversionFlag === null || !Number.isInteger(conversionFlag) || conversionFlag < 0) return null;
+    if (conversionFlag > 0) {
+      if (convertedPropertyIndex !== null) return null;
+      convertedPropertyIndex = index;
+    }
     const subProperty = readSubProperty(entry, category, grade);
     if (!subProperty) return null;
     subProperties.push(subProperty);
@@ -133,6 +143,7 @@ export function readArtifact(record: unknown): Artifact | null {
     mainValue,
     grade,
     subProperties,
+    convertedPropertyIndex,
     occupiedId: occupied === null || occupied === 0 ? null : String(occupied),
     locked: Boolean(numberOrNull(source.locked)),
   };

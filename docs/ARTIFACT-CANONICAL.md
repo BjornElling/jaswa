@@ -613,15 +613,23 @@ Artifacts cannot take rune Enchanted Gems. They have **Conversion** instead.
 | Mechanism | What it does | Requires |
 | --- | --- | --- |
 | **Normal Conversion** | Replaces one chosen sub property with a random other legal property | Conversion Stones, Mana |
-| **Engraved Conversion** | The stone names the property type, so the inserted property is targeted | Engraved Conversion Stone, Mana |
+| **Engraved Conversion** | Replaces one chosen sub property with the property named by the stone | Engraved Conversion Stone, Mana |
 
-**The binding restriction.** Once a property on the artifact has been chosen for
-conversion, that is the property that can be converted again. You cannot then
-freely convert a different line as you could with multiple rune gems. Hence:
+**The permanent slot lock.** A Conversion Stone can change one sub property on
+an artifact. After the first conversion, the lock belongs to that sub property's
+position in the four-line list, not to the property's current name. Later
+Conversion Stones can change that same position again, so its property and value
+may change again, but no other position may be converted. The conversion cannot
+be undone, cleared, or moved to another position. Hence:
 
 ```ts
-convertedPropertyIndex: number | null;
+convertedPropertyIndex: number | null;  // zero-based; null before first conversion
 ```
+
+In the interface, the converted mark is therefore attached to sub-property 1,
+2, 3, or 4 in the artifact's displayed order. It means that line is the only
+line eligible for future Conversion Stones; it does not mean that the current
+property name is permanently retained.
 
 **There are no artifact Grindstones.** `[Skill 3] CD 24%` cannot be pushed to
 28 %. There is no artifact equivalent of a permanent additive grind on an
@@ -789,7 +797,9 @@ A complete validation layer checks at least:
 10. The sum of power-up levels matches the natural grade.
 11. A legacy property is accepted on an existing artifact.
 12. A current-generation generator never produces a legacy property.
-13. Conversion affects only the conversion slot.
+13. Conversion affects only the permanent conversion slot; repeated Conversion
+    Stones may change that same slot again, but cannot target another slot or
+    undo the lock.
 14. Reappraisal preserves the total power-up count.
 15. Locked reappraisal lines keep both type and power-up level.
 
@@ -1077,9 +1087,11 @@ generate them, and compute no maximum for them until their ranges are known.
 ### 15.6 Position 3 — the conversion flag
 
 Non-zero on **at most one line per artifact**, on all 1,785 records. That is
-exactly §10's binding restriction: once a property has been chosen for
-conversion, it is the one that can be converted again. `convertedPropertyIndex`
-is therefore a faithful model, and validation rule 13 is checkable.
+exactly §10's permanent slot lock: once a line has been chosen for conversion,
+only that position can be converted again. `convertedPropertyIndex` is therefore
+a faithful model, and validation rule 13 is checkable. The index is the line's
+position in `sec_effects`, not the current property's id or name; a later
+conversion may replace that property's type and value without moving the lock.
 
 Values above 1 occur (2, 3, 4 on 17 lines), so it is not a boolean. **Pending
 verification** of what the magnitude counts — plausibly how many times that slot

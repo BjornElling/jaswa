@@ -465,6 +465,23 @@ button { cursor: pointer; }
   margin: 0 auto;
   padding: var(--s5) 0 var(--s7);
 }
+.artifact-library { width: 100%; }
+.import-badge + .artifact-library { padding-top: calc(var(--s4) + var(--badge-height) + var(--s3)); }
+.artifact-conversion-note {
+  width: min(100%, var(--measure-grid));
+  margin: var(--s5) auto 0;
+  padding: var(--s3) var(--gutter);
+  border-left: 2px solid var(--gold);
+  color: var(--dim);
+  font-size: var(--t-small);
+  line-height: 1.5;
+}
+.artifact-conversion-note b { color: var(--ink); }
+.empty-state .artifact-conversion-note {
+  width: auto;
+  margin: var(--s5) 0 0;
+  padding-inline: 0;
+}
 @media (max-width: 760px) {
   .filter-strip { --filter-columns: 1; }
   .filter-strip > .filter-group:nth-child(2n + 1) { padding-left: var(--s4); border-left: 1px solid var(--line); }
