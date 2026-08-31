@@ -25,6 +25,17 @@ const categoryOrder: readonly ArtifactCategory[] = ['attribute', 'type'];
 const elementOrder = Object.values(artifactElements);
 const archetypeOrder = Object.values(artifactArchetypes);
 
+function subPropertyMagnitude(row: ArtifactRow, propertyId: number): number | null {
+  for (const subProperty of row.subProperties) {
+    if (subProperty.definition.id === propertyId) {
+      /* A reduction displays with a minus sign, but -12 is stronger than -10,
+         so this ranking compares the size of the effect rather than its sign. */
+      return Math.abs(subProperty.valueHundredths);
+    }
+  }
+  return null;
+}
+
 function ConvertedMark({ position }: { position: number }) {
   return <svg className="artifact-sub-mark artifact-sub-converted" viewBox="0 0 16 16" role="img"
     aria-label={`Converted sub-property ${position + 1}; this slot can be converted again`}>
@@ -89,6 +100,7 @@ export function ArtifactList({ game, monsters, preferences }: {
   const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
   const [selectedGrades, setSelectedGrades] = useState<ArtifactGrade[]>([]);
   const [selectedMainProperties, setSelectedMainProperties] = useState<ArtifactMainProperty[]>([]);
+  const [sortBySubProperty, setSortBySubProperty] = useState<number | null>(null);
   /* Equipped and inventory are both ordinary places for an artifact to be, so
      the list starts as the whole account and each is switched off separately. */
   const [showEquipped, setShowEquipped] = useState(true);
@@ -126,6 +138,26 @@ export function ArtifactList({ game, monsters, preferences }: {
     });
   }, [artifacts, monsters, preferences]);
 
+  const subPropertyOptions = useMemo(() => {
+    const definitions = new Map<number, { id: number; name: string }>();
+    for (const row of rows) {
+      for (const subProperty of row.subProperties) {
+        definitions.set(subProperty.definition.id, {
+          id: subProperty.definition.id,
+          name: subProperty.definition.name,
+        });
+      }
+    }
+    return [...definitions.values()].sort((left, right) =>
+      left.name.localeCompare(right.name) || left.id - right.id);
+  }, [rows]);
+
+  /* A changed import can remove the property that was selected in the previous
+     one. Keep that stale state from turning into an invisible filter. */
+  const activeSortBySubProperty = sortBySubProperty !== null
+    && subPropertyOptions.some((option) => option.id === sortBySubProperty)
+    ? sortBySubProperty : null;
+
   /* Every class the game has, always, in both groups' full length. Narrowing
      this to the chosen categories would take buttons out of the row and slide
      the filters after it sideways on a click the user aimed elsewhere, which is
@@ -147,18 +179,36 @@ export function ArtifactList({ game, monsters, preferences }: {
         const equipClass = artifactEquipClass(row.artifact);
         if (!equipClass || !selectedClasses.includes(equipClass)) return false;
       }
+      if (activeSortBySubProperty !== null
+        && !row.subProperties.some((property) => property.definition.id === activeSortBySubProperty)) return false;
       if (!term) return true;
       return row.location?.toLowerCase().includes(term)
         || row.subProperties.some((property) => property.definition.name.toLowerCase().includes(term));
     });
+    if (activeSortBySubProperty !== null) {
+      return [...filtered].sort((left, right) => {
+        const leftMagnitude = subPropertyMagnitude(left, activeSortBySubProperty);
+        const rightMagnitude = subPropertyMagnitude(right, activeSortBySubProperty);
+        if (leftMagnitude === null || rightMagnitude === null) {
+          if (leftMagnitude === rightMagnitude) return left.index - right.index;
+          return leftMagnitude === null ? 1 : -1;
+        }
+        return rightMagnitude - leftMagnitude || left.index - right.index;
+      });
+    }
     const { key, ascending } = sort;
     if (key === 'index') return ascending ? filtered : [...filtered].reverse();
     const direction = ascending ? 1 : -1;
     return [...filtered].sort((left, right) =>
       compareArtifactRows(left, right, key, direction) || left.index - right.index);
-  }, [rows, search, selectedCategories, selectedClasses, selectedGrades, selectedMainProperties, showEquipped, showInventory, sort]);
+  }, [rows, search, selectedCategories, selectedClasses, selectedGrades, selectedMainProperties,
+    showEquipped, showInventory, sort, activeSortBySubProperty]);
 
   function toggleSort(key: ArtifactSortKey) {
+    /* A table-header click hands ordering back to the table and clears the
+       property-specific ordering, while the dropdown remains the compact way
+       to both filter and rank one substat. */
+    setSortBySubProperty(null);
     setSort((current) => current.key === key
       ? { key, ascending: !current.ascending }
       : { key, ascending: defaultArtifactSortDirections[key] });
@@ -186,7 +236,7 @@ export function ArtifactList({ game, monsters, preferences }: {
   </div>;
 
   const sortHeader = (key: ArtifactSortKey, label: ReactNode, alignLeft = false) => {
-    const sorted = sort.key === key;
+    const sorted = activeSortBySubProperty === null && sort.key === key;
     const className = [alignLeft ? 'align-left' : '', 'sortable', sorted ? 'sorted' : '', sorted && sort.ascending ? 'ascending' : '']
       .filter(Boolean).join(' ');
     return <th key={key} scope="col" aria-sort={sorted ? (sort.ascending ? 'ascending' : 'descending') : 'none'} className={className}>
@@ -235,6 +285,22 @@ export function ArtifactList({ game, monsters, preferences }: {
           </div>
         </div>
       </div>
+      <div className="filter-group artifact-filter-sort-by" role="group" aria-label="Sort artifacts by substat">
+        <label className="filter-label" htmlFor="artifact-sort-by">Sort by</label>
+        <div className="filter-group-controls">
+          <select id="artifact-sort-by"
+            className={activeSortBySubProperty === null ? 'artifact-sort-select' : 'artifact-sort-select active'}
+            value={activeSortBySubProperty ?? ''}
+            onChange={(event) => {
+              const selected = subPropertyOptions.find((option) => String(option.id) === event.target.value);
+              setSortBySubProperty(selected?.id ?? null);
+            }}
+            aria-label="Sort artifacts by substat">
+            <option value="">Select a substat</option>
+            {subPropertyOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
+          </select>
+        </div>
+      </div>
       {toggleGroup('Type', 'Filter by artifact type', categoryOrder,
         selectedCategories, setSelectedCategories, (category) => artifactCategoryLabels[category], 'artifact-filter-type')}
       {toggleGroup('Element', 'Filter by element', classOptions.attribute,
@@ -262,7 +328,7 @@ export function ArtifactList({ game, monsters, preferences }: {
       </>}
     >
       <tbody>
-          {visible.map((row) => <tr key={row.artifact.id}>
+          {visible.length ? visible.map((row) => <tr key={row.artifact.id}>
             <td className="align-left row-index">{String(row.index + 1).padStart(2, '0')}</td>
             <td className={row.location ? 'align-left' : 'align-left muted'}
               title={row.location === null ? 'Worn by a monster this import does not contain' : undefined}>
@@ -300,7 +366,9 @@ export function ArtifactList({ game, monsters, preferences }: {
                 })}
               </ul>
             </td>
-          </tr>)}
+          </tr>) : <tr>
+            <td className="table-empty-state" colSpan={8}>No artifacts match these filters. Clear a filter to see more.</td>
+          </tr>}
       </tbody>
     </DataTablePage>
   </div>;

@@ -284,14 +284,14 @@ button { cursor: pointer; }
 
 /* --------------------------------------------------------- filter strip
    The strip is a grid, not a wrapping row. There are more filters than fit one
-   line on an ordinary window — Artifacts has seven groups — and a single
+   line on an ordinary window — Artifacts has eight groups — and a single
    scrolling row hid the last of them behind the import badge with nothing to
    say they were there. Wrapping showed them all, but each group sized itself to
    its own content, so a second row's headings landed at their own offsets and
    the two rows lined up nowhere.
 
    A fixed column measure fixes that: every group occupies one column, so
-   `Quality` sits under `Search` and `Main stat` under `Type`, and the strip
+   `Quality` sits beside `Search` and `Sort by` sits under it, while the strip
    reads as a table of filters rather than as text that happened to wrap. The
    measure holds the widest group — five buttons — so no group spills into its
    neighbour's column. Each group stacks its heading over its own controls, so a
@@ -366,25 +366,22 @@ button { cursor: pointer; }
 .artifact-filter-strip {
   grid-template-areas:
     "search quality main location"
-    ". type element archetype";
+    "sort type element archetype";
 }
 .artifact-filter-strip > .filter-group { padding-left: var(--s4); border-left: 1px solid var(--line); }
 .artifact-filter-search { grid-area: search; padding-left: 0 !important; border-left: 0 !important; }
+.artifact-filter-sort-by { grid-area: sort; padding-left: 0 !important; border-left: 0 !important; }
 .artifact-filter-quality { grid-area: quality; }
 .artifact-filter-main-stat { grid-area: main; }
 .artifact-filter-location { grid-area: location; }
-.artifact-filter-type {
-  grid-area: type;
-  padding-left: 0 !important;
-  border-left: 0 !important;
-}
+.artifact-filter-type { grid-area: type; }
 .artifact-filter-element { grid-area: element; }
 .artifact-filter-archetype { grid-area: archetype; }
 @media (max-width: 1700px) {
   .artifact-filter-strip {
     grid-template-areas:
       "search quality main"
-      ". type element"
+      "sort type element"
       ". location archetype";
   }
 }
@@ -392,11 +389,25 @@ button { cursor: pointer; }
   .artifact-filter-strip {
     grid-template-areas:
       "search quality"
-      ". type"
+      "sort type"
       ". main"
       ". element"
       ". location"
       ". archetype";
+  }
+}
+@media (max-width: 760px) {
+  .artifact-filter-strip {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "search"
+      "sort"
+      "quality"
+      "type"
+      "main"
+      "element"
+      "location"
+      "archetype";
   }
 }
 .filter-label {
@@ -550,6 +561,27 @@ button { cursor: pointer; }
   text-overflow: ellipsis;
   color: var(--faint);
 }
+.artifact-sort-select {
+  flex: 0 1 260px;
+  width: 260px;
+  max-width: 100%;
+  height: 32px;
+  padding: 0 var(--s3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--sunk);
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: var(--t-small);
+  outline: none;
+}
+.artifact-sort-select:focus { border-color: var(--gold); }
+.artifact-sort-select.active {
+  border-color: var(--gold-edge);
+  background: var(--gold-deep);
+  color: var(--gold);
+}
+.artifact-sort-select option { background: var(--raise); color: var(--ink); }
 /* The requested artifact-fit palette makes preferred lines gold, keeps
    acceptable lines in full ink, and leaves every other line faint. */
 .artifact-subs li.artifact-sub-preferred { color: var(--gold); }
@@ -643,6 +675,12 @@ button { cursor: pointer; }
 .grid-table tbody td.muted { color: var(--faint); }
 .grid-table tbody td.dim { color: var(--dim); }
 .grid-table tbody td.pending { color: var(--faint); font-style: italic; }
+.grid-table tbody td.table-empty-state {
+  height: 56px;
+  color: var(--dim);
+  text-align: left;
+  font-family: var(--sans);
+}
 
 /* Artifacts and relics are equipment alongside the rune sheet. The reserved
    inset separates that compact pair without drawing a hard rule through the
