@@ -14,6 +14,7 @@ import type { GameRecord } from '../lib/game-data';
 import type { MonsterArchetype } from '../lib/monster-catalog';
 import { monsterPresentation } from '../lib/monster-catalog';
 import { numberedMonsterNames } from '../lib/monster-names';
+import { monsterNameCollator } from '../lib/monster-grid';
 import { elementName } from '../lib/rune-sets';
 import type { ArtifactSettings, GeneralSettings } from '../lib/types';
 
@@ -68,7 +69,8 @@ function monsterOptions(monsters: readonly GameRecord[]): MonsterOption[] {
       archetype: presentation.archetype,
     });
   }
-  return options.sort((left, right) => left.name.localeCompare(right.name) || left.unitId.localeCompare(right.unitId));
+  return options.sort((left, right) => monsterNameCollator.compare(left.name, right.name)
+    || monsterNameCollator.compare(left.unitId, right.unitId));
 }
 
 function conversionLabel(score: ArtifactMaximumScore): string | undefined {

@@ -10,6 +10,7 @@ import { readArtifacts } from '../lib/artifacts';
 import { formatNumber } from '../lib/formatting';
 import { monsterPresentation } from '../lib/monster-catalog';
 import { numberedMonsterNames } from '../lib/monster-names';
+import { monsterNameCollator } from '../lib/monster-grid';
 import type { ArtifactCategory, ArtifactGrade, ArtifactMainProperty } from '../lib/artifact-properties';
 import type { ArtifactMaximumScore } from '../lib/compute/artifact-score-protocol';
 import type { GameRecord } from '../lib/game-data';
@@ -83,6 +84,13 @@ function compactSubstat(name: string, value: number, sign: string | undefined, g
   return `${substatLabels[name] ?? name} ${sign ?? '+'}${formatNumber(value / 100, general)}%`;
 }
 
+function artifactSortKey(artifact: ReturnType<typeof readArtifacts>[number]): string {
+  return [
+    artifactCategoryLabel(artifact.category), artifactEquipClass(artifact) ?? '', artifact.mainProperty,
+    ...artifact.subProperties.map((property) => `${property.definition.name} ${property.valueHundredths}`),
+  ].join(' · ');
+}
+
 function scoreMap(scores: readonly ArtifactMaximumScore[]): Map<string, ArtifactMaximumScore> {
   return new Map(scores.map((score) => [score.monsterId, score]));
 }
@@ -105,7 +113,8 @@ function ownMonsterOptions(monsters: readonly GameRecord[]): MonsterOption[] {
     seen.add(unitId);
     options.push({ unitId, masterId, name: names[unitId] ?? monsterPresentation(masterId).name, archetype: monsterPresentation(masterId).archetype });
   }
-  return options.sort((left, right) => left.name.localeCompare(right.name) || left.unitId.localeCompare(right.unitId));
+  return options.sort((left, right) => monsterNameCollator.compare(left.name, right.name)
+    || monsterNameCollator.compare(left.unitId, right.unitId));
 }
 
 function Score({ score, general }: { score: ArtifactMaximumScore | undefined; general: GeneralSettings }) {
@@ -147,7 +156,8 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
       && (!filters.restrictions.length || (restriction !== null && filters.restrictions.includes(restriction)))
       && (!filters.grades.length || filters.grades.includes(artifact.grade))
       && (!filters.mainProperties.length || filters.mainProperties.includes(artifact.mainProperty));
-  }), [artifacts, filters]);
+  }).sort((left, right) => monsterNameCollator.compare(artifactSortKey(left), artifactSortKey(right))
+    || monsterNameCollator.compare(left.id, right.id)), [artifacts, filters]);
   const selectedArtifact = artifactsByFilter.find((artifact) => artifact.id === selectedArtifactId);
   const equippedSlots = useMemo(() => {
     const slots = new Map<string, Set<ArtifactCategory>>();
