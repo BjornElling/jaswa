@@ -1805,4 +1805,15 @@ of the source cards, using two thirds of the settings panel for those cards.
 defaults and its validator. The cards keep their fixed radio-control boxes and
 now carry only the explanatory copy. The four-step value slider is the right-
 hand third on wide screens and stacks below the cards at the responsive
-breakpoint; the acceptable-property slider remains below the source choice.
+breakpoint.
+
+### Session 7 — August 31, 2026 — settings order clarified
+
+**Asked.** Put **Acceptable ctr. preferred** and **Only factor in mons you own**
+before the conversion-source section, so the general judgement and monster
+scope are read before the stone-specific choices.
+
+**Built.** The acceptable-property slider now comes first, followed by the
+monster-scope checkbox and a divider. The conversion-source cards and their
+shared value slider remain together below it. The checkbox's visual prominence
+is intentionally left open for the next design choice.

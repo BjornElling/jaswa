@@ -80,8 +80,27 @@ export function ArtifactsSection({ settings, hasGame, onUpdate }: {
 
     <Disclosure title="Settings">
       <div className="stack">
+        <div className="slider-grid">
+          <div className="slider">
+            <label className="slider-label" htmlFor="acceptable-worth">Acceptable ctr. preferred</label>
+            <p className="slider-note">What is second choice worth against first choice?</p>
+            <input id="acceptable-worth" type="range"
+              min={1} max={artifactAcceptableWorthChoices.length} step={1}
+              value={step + 1}
+              onChange={(event) => void onUpdate({
+                acceptableWorth: artifactAcceptableWorthChoices[Number(event.target.value) - 1],
+              })}
+              aria-describedby="acceptable-worth-choice" />
+            <p id="acceptable-worth-choice" className="slider-choice" aria-live="polite">
+              {acceptableWorthLabels[step]}
+            </p>
+          </div>
+        </div>
+
         <CheckboxRow label="Only factor in mons you own" checked={settings.onlyFactorInOwnedMonsters}
           onChange={(checked) => void onUpdate({ onlyFactorInOwnedMonsters: checked })} />
+
+        <div className="bar-divide" />
 
         <div className="artifact-conversion-layout">
           <div className="import-routes" role="radiogroup" aria-label="How to value conversion stones">
@@ -125,25 +144,6 @@ export function ArtifactsSection({ settings, hasGame, onUpdate }: {
               aria-describedby="conversion-stone-value-choice" />
             <p id="conversion-stone-value-choice" className="slider-choice" aria-live="polite">
               {conversionStoneValueLabels[conversionStoneValueStep]}
-            </p>
-          </div>
-        </div>
-
-        <div className="bar-divide" />
-
-        <div className="slider-grid">
-          <div className="slider">
-            <label className="slider-label" htmlFor="acceptable-worth">Acceptable ctr. preferred</label>
-            <p className="slider-note">What is second choice worth against first choice?</p>
-            <input id="acceptable-worth" type="range"
-              min={1} max={artifactAcceptableWorthChoices.length} step={1}
-              value={step + 1}
-              onChange={(event) => void onUpdate({
-                acceptableWorth: artifactAcceptableWorthChoices[Number(event.target.value) - 1],
-              })}
-              aria-describedby="acceptable-worth-choice" />
-            <p id="acceptable-worth-choice" className="slider-choice" aria-live="polite">
-              {acceptableWorthLabels[step]}
             </p>
           </div>
         </div>
