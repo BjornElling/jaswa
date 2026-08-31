@@ -266,7 +266,7 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
         </div>
       </div>
       <button type="button" className="button best-monster-calculate" onClick={() => void calculate()} disabled={!selectedArtifact || state === 'calculating'}>
-        {state === 'calculating' ? 'Calculating…' : 'Calculate monster fits'}
+        {state === 'calculating' ? 'Calculating…' : 'Calculate monsters'}
       </button>
     </div>
 
