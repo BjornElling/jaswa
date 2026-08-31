@@ -130,7 +130,7 @@ export function ArtifactsSection({ settings, hasGame, onUpdate }: {
 
             <OptionCard
               option="Conversion stones"
-              name="Calculated values"
+              name="Fixed range"
               namePlacement="body"
               radioName="artifact-conversion-stone-mode"
               value="theoretical"
