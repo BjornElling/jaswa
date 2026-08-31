@@ -1080,7 +1080,7 @@ button { cursor: pointer; }
 .best-artifact-result h3, .best-artifact-result p { margin: 0; }
 .best-artifact-result h3 { font-size: var(--t-lead); }
 .best-artifact-result header p { margin-top: var(--s2); color: var(--dim); font-size: var(--t-small); line-height: 1.45; }
-.best-artifact-result-scroll { overflow: auto; }
+.best-artifact-result-scroll { overflow: visible; }
 .best-artifact-result table { width: 100%; min-width: 0; border-collapse: collapse; table-layout: fixed; font-size: var(--t-small); }
 .best-artifact-result th, .best-artifact-result td { padding: var(--s3); border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
 .best-artifact-result th { color: var(--faint); font-size: var(--t-micro); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
@@ -1098,7 +1098,7 @@ button { cursor: pointer; }
 .best-monster-artifact-details .artifact-subs { align-self: center; columns: 2; column-gap: var(--s5); }
 .best-monster-artifact-details .artifact-subs li { break-inside: avoid; }
 .best-monster-converted { display: inline; margin-left: var(--s2); color: var(--gold); font-size: var(--t-micro); letter-spacing: .06em; text-transform: uppercase; }
-.best-monster-result-scroll { max-height: 38rem; overflow: auto; }
+.best-monster-result-scroll { overflow: visible; }
 .best-monster-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: var(--t-small); }
 .best-monster-table th, .best-monster-table td { padding: var(--s3); border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
 .best-monster-table th { color: var(--faint); font-size: var(--t-micro); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }

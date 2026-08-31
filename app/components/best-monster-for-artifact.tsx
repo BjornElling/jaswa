@@ -169,11 +169,15 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
   const slotlessRows = ownMonsters.filter((monster) => selectedArtifact !== undefined
     && !equippedSlots.get(monster.unitId)?.has(selectedArtifact.category))
     .map((monster) => ({ monster, score: currentCalculation?.ownedScores.get(monster.masterId) }))
-    .sort((left, right) => (right.score?.value ?? -1) - (left.score?.value ?? -1) || left.monster.name.localeCompare(right.monster.name));
+    .sort((left, right) => (right.score?.value ?? -1) - (left.score?.value ?? -1) || left.monster.name.localeCompare(right.monster.name))
+    .slice(0, 10);
   const improvementRows = ownMonsters.map((monster) => ({ monster, score: currentCalculation?.ownedScores.get(monster.masterId) }))
     .filter((row) => currentScore !== undefined && row.score !== undefined && row.score.value > currentScore.value)
-    .sort((left, right) => (right.score?.value ?? 0) - (left.score?.value ?? 0) || left.monster.name.localeCompare(right.monster.name));
-  const rawRows = currentCalculation?.scopeScores.slice().sort((left, right) => right.value - left.value || left.monsterName.localeCompare(right.monsterName)) ?? [];
+    .sort((left, right) => (right.score?.value ?? 0) - (left.score?.value ?? 0) || left.monster.name.localeCompare(right.monster.name))
+    .slice(0, 10);
+  const rawRows = currentCalculation?.scopeScores.slice()
+    .sort((left, right) => right.value - left.value || left.monsterName.localeCompare(right.monsterName))
+    .slice(0, 10) ?? [];
 
   function toggle(key: keyof ArtifactFilters, value: string) {
     setFilters((current) => ({
@@ -270,19 +274,19 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
     {currentCalculation && selectedArtifact && <>
       <p className="best-artifact-meta" role="status">{formatNumber(currentCalculation.evaluatedPairs, general)} pairs checked · {currentCalculation.backend === 'webgpu' ? 'Graphics card' : 'Processor'}</p>
       <div className="best-artifact-results">
-        <ResultCard title="No artifact in this slot" description="Your monsters with no artifact in this category equipped yet."
+        <ResultCard title="No artifact in this slot" description="The ten strongest eligible monsters with no artifact in this category equipped yet."
           empty={slotlessRows.length ? undefined : 'Every monster already has an artifact in this slot.'}>
           <table className="best-monster-table"><thead><tr><th scope="col">Monster</th><th scope="col">Score</th><th scope="col">Conversion</th></tr></thead><tbody>
             {slotlessRows.map(({ monster, score }) => <tr key={monster.unitId}><td>{monster.name}</td><td><b><Score score={score} general={general} /></b></td><td>{score ? conversionLabel(score) ?? 'Keep it real' : 'Not judged'}</td></tr>)}
           </tbody></table>
         </ResultCard>
-        <ResultCard title="Improves on current" description={owner ? `Monsters that score higher than this artifact's ${owner.name} score.` : 'Equip this inventory artifact first to establish a current score.'}
+        <ResultCard title="Improves on current" description={owner ? `The ten strongest monsters that score higher than this artifact's ${owner.name} score.` : 'Equip this inventory artifact first to establish a current score.'}
           empty={owner === undefined ? 'This artifact is in inventory, so it has no current score to improve.' : improvementRows.length ? undefined : 'No monster scores higher than its current wearer.'}>
           <table className="best-monster-table"><thead><tr><th scope="col">Monster</th><th scope="col">Here</th><th scope="col">Current</th><th scope="col">Gain</th></tr></thead><tbody>
             {improvementRows.map(({ monster, score }) => <tr key={monster.unitId}><td>{monster.name}</td><td><b><Score score={score} general={general} /></b></td><td><Score score={currentScore} general={general} /></td><td><b>{formatNumber(Math.round(((score?.value ?? 0) - (currentScore?.value ?? 0)) * 100), general)} pp</b></td></tr>)}
           </tbody></table>
         </ResultCard>
-        <ResultCard title="Raw score ranking" description="Every eligible monster in the active scope, sorted by this artifact's score."
+        <ResultCard title="Raw score ranking" description="The ten highest-scoring eligible monsters in the active scope."
           empty={rawRows.length ? undefined : 'No monster in the active scope can be judged for this artifact.'}>
           <table className="best-monster-table"><thead><tr><th scope="col">Monster</th><th scope="col">Score</th><th scope="col">Conversion</th></tr></thead><tbody>
             {rawRows.map((score) => <tr key={score.monsterId}><td>{score.monsterName}</td><td><b><Score score={score} general={general} /></b></td><td>{conversionLabel(score) ?? 'Keep it real'}</td></tr>)}

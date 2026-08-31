@@ -184,9 +184,10 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
     }).sort((left, right) => right.target.value - left.target.value || left.index - right.index);
   }, [artifacts, artifactNumbers, currentCalculation, selectedMonster, wearers]);
 
-  const inventoryRows = rows.filter((row) => row.artifact.occupiedId === null);
+  const inventoryRows = rows.filter((row) => row.artifact.occupiedId === null).slice(0, 10);
+  const highestRows = rows.slice(0, 10);
   const improvementRows = rows.filter((row) => row.artifact.occupiedId !== null
-    && row.current !== undefined && row.target.value > row.current.value);
+    && row.current !== undefined && row.target.value > row.current.value).slice(0, 10);
 
   function toggleElement(element: string) {
     setSelectedElements((current) => current.includes(element)
@@ -285,13 +286,13 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
       </p>
       <div className="best-artifact-results">
         <ArtifactResults title="Unequipped artifacts"
-          description="Compatible artifacts in inventory, ready for this monster."
+          description="The ten highest-scoring compatible artifacts in inventory, ready for this monster."
           rows={inventoryRows} general={general} selectedMonster={selectedMonster} />
         <ArtifactResults title="Highest score here"
-          description="Every compatible artifact, ranked by the score it can reach on this monster."
-          rows={rows} general={general} selectedMonster={selectedMonster} />
+          description="The ten compatible artifacts with the highest score on this monster."
+          rows={highestRows} general={general} selectedMonster={selectedMonster} />
         <ArtifactResults title="Better than current"
-          description="Engraved artifacts that score higher here than on the monster wearing them now."
+          description="The ten engraved artifacts that score higher here than on the monster wearing them now."
           rows={improvementRows} general={general} selectedMonster={selectedMonster} />
       </div>
     </>}
