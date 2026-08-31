@@ -44,6 +44,10 @@ type Calculation = {
 
 const defaultFilters: ArtifactFilters = { categories: [], restrictions: [], grades: [], mainProperties: [] };
 
+const optionPartSeparator = '\u2002·\u2002';
+const optionRestrictionSeparator = '\u2002/\u2002';
+const optionSubstatSeparator = '\u2002|\u2002';
+
 function artifactSortKey(artifact: ReturnType<typeof readArtifacts>[number]): string {
   return [
     artifactCategoryLabel(artifact.category), artifactEquipClass(artifact) ?? '', artifact.mainProperty,
@@ -214,8 +218,17 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
               const index = artifactNumbers.get(artifact.id) ?? 0;
               const restriction = artifactEquipClass(artifact);
               const substats = artifact.subProperties.map((property) =>
-                displaySubProperty(property, (value) => formatNumber(value, general))).join(' | ');
-              return <option key={artifact.id} value={artifact.id}>#{String(index + 1).padStart(2, '0')} · {artifactCategoryLabel(artifact.category)}{restriction ? ` / ${restriction}` : ''} · {artifact.mainProperty}+{formatNumber(artifact.mainValue, general)} · {substats}</option>;
+                displaySubProperty(property, (value) => formatNumber(value, general))).join(optionSubstatSeparator);
+              const category = artifactCategoryLabel(artifact.category);
+              const categoryAndRestriction = restriction
+                ? `${category}${optionRestrictionSeparator}${restriction}`
+                : category;
+              return <option key={artifact.id} value={artifact.id}>{[
+                `#${String(index + 1).padStart(2, '0')}`,
+                categoryAndRestriction,
+                artifact.mainProperty,
+                substats,
+              ].join(optionPartSeparator)}</option>;
             })}
           </Dropdown>
         </div>
