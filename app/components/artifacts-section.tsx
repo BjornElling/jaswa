@@ -100,7 +100,11 @@ export function ArtifactsSection({ settings, hasGame, onUpdate }: {
             <h3 id="artifact-scope-title">Monster scope</h3>
             <CheckboxRow label="Only factor in mons you own" checked={settings.onlyFactorInOwnedMonsters}
               onChange={(checked) => void onUpdate({ onlyFactorInOwnedMonsters: checked })} />
-            <p className="artifact-scope-note">Keep recommendations focused on the monsters in your collection.</p>
+            <p className="artifact-scope-note">
+              {settings.onlyFactorInOwnedMonsters
+                ? 'Only mons in your inventory or storage are included in recommendations.'
+                : 'Calculations are based on all mons in the game.'}
+            </p>
           </section>
         </div>
 
