@@ -4,6 +4,7 @@ import { WorkspacePage } from './workspace-page';
 import { Disclosure, PageHeader } from './page-chrome';
 import { CheckboxRow, OptionCard } from './form-controls';
 import { ArtifactMaximumValues } from './artifact-maximum-values';
+import { BestArtifactForMonster } from './best-artifact-for-monster';
 import { artifactAcceptableWorthChoices } from '../lib/file-imports';
 import type { ArtifactConversionStoneMode, ArtifactSettings, GeneralSettings } from '../lib/types';
 import type { GameRecord } from '../lib/game-data';
@@ -66,10 +67,8 @@ export function ArtifactsSection({ settings, data, monsters, general, hardwareAc
     </Disclosure>
 
     <Disclosure title="Best artifact for this monster" sessionKey="artifacts.best-artifact">
-      <div className="optimizer-draft">
-        <p className="lead">Choose one monster, then compare the artifacts that suit its saved role — equipped and inventory candidates side by side.</p>
-        <p className="optimizer-draft-note">Preferred properties lead; acceptable ones use the account-wide allowance below.</p>
-      </div>
+      {data ? <BestArtifactForMonster data={data} monsters={monsters} settings={settings} general={general}
+        hardwareAcceleration={hardwareAcceleration} /> : <p className="lead">Import your game data first, then compare artifacts against one monster at a time.</p>}
     </Disclosure>
 
     <Disclosure title="Settings" sessionKey="artifacts.settings">

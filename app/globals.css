@@ -1041,6 +1041,53 @@ button { cursor: pointer; }
   font-size: var(--t-small);
 }
 
+/* The chooser keeps all its filter controls mounted. A narrower roster changes
+   only the dropdown options and result rows, never the controls around them. */
+.best-artifact-for-monster { display: grid; gap: var(--s4); }
+.best-artifact-for-monster > .lead, .best-artifact-meta { margin: 0; }
+.best-artifact-filters {
+  display: grid;
+  grid-template-columns: max-content max-content minmax(30ch, 1fr) max-content;
+  align-items: end;
+  gap: var(--s4);
+  padding: var(--s4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--sunk);
+}
+.best-artifact-filters .filter-group { min-width: 0; }
+.best-artifact-monster-select .jaswa-select { width: 100%; min-width: 30ch; }
+.best-artifact-calculate { height: 32px; white-space: nowrap; }
+.best-artifact-meta { color: var(--dim); font-family: var(--mono); font-size: var(--t-small); font-variant-numeric: tabular-nums; }
+.best-artifact-results { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s4); }
+.best-artifact-result { min-width: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.best-artifact-result > header { min-height: 126px; padding: var(--s4); border-bottom: 1px solid var(--line); background: var(--sunk); }
+.best-artifact-result h3, .best-artifact-result p { margin: 0; }
+.best-artifact-result h3 { font-size: var(--t-lead); }
+.best-artifact-result header p { margin-top: var(--s2); color: var(--dim); font-size: var(--t-small); line-height: 1.45; }
+.best-artifact-result-scroll { overflow: auto; }
+.best-artifact-result table { width: 100%; min-width: 0; border-collapse: collapse; table-layout: fixed; font-size: var(--t-small); }
+.best-artifact-result th, .best-artifact-result td { padding: var(--s3); border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.best-artifact-result th { color: var(--faint); font-size: var(--t-micro); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.best-artifact-result th:nth-child(1) { width: 30%; }
+.best-artifact-result th:nth-child(2), .best-artifact-result th:nth-child(3), .best-artifact-result th:nth-child(4) { width: 23.333%; }
+.best-artifact-result tr:last-child td { border-bottom: 0; }
+.best-artifact-result td b, .best-artifact-result td span { display: block; }
+.best-artifact-result td b { min-height: 1.45em; font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 500; }
+.best-artifact-result td span { margin-top: var(--s1); color: var(--dim); line-height: 1.35; }
+.best-artifact-empty { padding: var(--s4); color: var(--dim); }
+@media (max-width: 1420px) {
+  .best-artifact-filters { grid-template-columns: max-content max-content minmax(30ch, 1fr); }
+  .best-artifact-calculate { justify-self: start; }
+  .best-artifact-results { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 900px) {
+  .best-artifact-filters { grid-template-columns: minmax(0, 1fr); align-items: stretch; }
+  .best-artifact-monster-select .jaswa-select { min-width: 0; }
+  .best-artifact-calculate { width: 100%; }
+  .best-artifact-results { grid-template-columns: minmax(0, 1fr); }
+}
+
 /* The result table stays inside the disclosure's normal reading width: score
    values are concise, while monster and conversion names need the room. */
 .artifact-maximum-values { display: grid; gap: var(--s4); }

@@ -1,0 +1,299 @@
+'use client';
+
+import { useMemo, useState } from 'react';
+import { calculateArtifactScores } from '../lib/compute/artifact-score-client';
+import { buildArtifactScoreRequests, buildArtifactScoreRequestsForMonsterIds } from '../lib/compute/artifact-score-input';
+import { readArtifacts } from '../lib/artifacts';
+import { artifactCategoryLabel, artifactEquipClass } from '../lib/artifact-grid';
+import { artifactProperty } from '../lib/artifact-properties';
+import { Dropdown } from './dropdown';
+import { formatNumber } from '../lib/formatting';
+import type { Artifact } from '../lib/artifacts';
+import type { ArtifactMaximumScore } from '../lib/compute/artifact-score-protocol';
+import type { GameRecord } from '../lib/game-data';
+import type { MonsterArchetype } from '../lib/monster-catalog';
+import { monsterPresentation } from '../lib/monster-catalog';
+import { numberedMonsterNames } from '../lib/monster-names';
+import { elementName } from '../lib/rune-sets';
+import type { ArtifactSettings, GeneralSettings } from '../lib/types';
+
+const monsterElements = ['Water', 'Fire', 'Wind', 'Light', 'Dark'] as const;
+const monsterArchetypes = ['Attack', 'Defense', 'HP', 'Support'] as const;
+
+type MonsterOption = {
+  unitId: string;
+  masterId: string;
+  name: string;
+  element: string | undefined;
+  archetype: MonsterArchetype | undefined;
+};
+
+type ArtifactScoreMaps = {
+  inputKey: string;
+  target: Map<string, ArtifactMaximumScore>;
+  current: Map<string, ArtifactMaximumScore>;
+  maximum: Map<string, ArtifactMaximumScore>;
+  backend: 'cpu' | 'webgpu';
+  evaluatedPairs: number;
+};
+
+type ResultRow = {
+  artifact: Artifact;
+  index: number;
+  target: ArtifactMaximumScore;
+  current: ArtifactMaximumScore | undefined;
+  currentMonsterName: string | undefined;
+  maximum: ArtifactMaximumScore | undefined;
+};
+
+function monsterOptions(monsters: readonly GameRecord[]): MonsterOption[] {
+  const names = numberedMonsterNames([...monsters]);
+  const seen = new Set<string>();
+  const options: MonsterOption[] = [];
+  for (const monster of monsters) {
+    const rawUnitId = monster.unit_id;
+    const rawMasterId = monster.unit_master_id;
+    if ((typeof rawUnitId !== 'number' && typeof rawUnitId !== 'string')
+      || (typeof rawMasterId !== 'number' && typeof rawMasterId !== 'string')) continue;
+    const unitId = String(rawUnitId);
+    const masterId = String(rawMasterId);
+    if (!unitId || !masterId || seen.has(unitId)) continue;
+    seen.add(unitId);
+    const presentation = monsterPresentation(masterId);
+    options.push({
+      unitId,
+      masterId,
+      name: names[unitId] ?? presentation.name,
+      element: elementName(monster.attribute),
+      archetype: presentation.archetype,
+    });
+  }
+  return options.sort((left, right) => left.name.localeCompare(right.name) || left.unitId.localeCompare(right.unitId));
+}
+
+function conversionLabel(score: ArtifactMaximumScore): string | undefined {
+  if (!score.conversion) return undefined;
+  const property = artifactProperty(score.conversion.propertyId);
+  return property ? `Convert sub ${score.conversion.sourceIndex + 1} to ${property.name}` : undefined;
+}
+
+function scoreMap(scores: ArtifactMaximumScore[]): Map<string, ArtifactMaximumScore> {
+  return new Map(scores.map((score) => [score.artifactId, score]));
+}
+
+async function calculateRequests(
+  requests: ReturnType<typeof buildArtifactScoreRequests>,
+  hardwareAcceleration: boolean,
+) {
+  return Promise.all(requests.map((request) => calculateArtifactScores(request, hardwareAcceleration)));
+}
+
+function Score({ score, general, fallback = '—' }: { score: ArtifactMaximumScore | undefined; general: GeneralSettings; fallback?: string }) {
+  return <>{score ? `${formatNumber(Math.round(score.value * 100), general)} %` : fallback}</>;
+}
+
+function ArtifactResults({ title, description, rows, general, selectedMonster }: {
+  title: string;
+  description: string;
+  rows: readonly ResultRow[];
+  general: GeneralSettings;
+  selectedMonster: MonsterOption;
+}) {
+  return <section className="best-artifact-result" aria-labelledby={`${title}-title`}>
+    <header>
+      <h3 id={`${title}-title`}>{title}</h3>
+      <p>{description}</p>
+    </header>
+    {rows.length ? <div className="best-artifact-result-scroll">
+      <table>
+        <thead><tr><th scope="col">Artifact</th><th scope="col">On {selectedMonster.name}</th><th scope="col">Now</th><th scope="col">Best</th></tr></thead>
+        <tbody>{rows.map((row) => {
+          const restriction = artifactEquipClass(row.artifact);
+          const targetConversion = conversionLabel(row.target);
+          return <tr key={row.artifact.id}>
+            <td>
+              <b>#{String(row.index + 1).padStart(2, '0')}</b>
+              <span>{artifactCategoryLabel(row.artifact.category)}{restriction ? ` · ${restriction}` : ''}</span>
+            </td>
+            <td>
+              <b><Score score={row.target} general={general} /></b>
+              <span className={targetConversion ? '' : 'muted'}>{targetConversion ?? 'Keep it real'}</span>
+            </td>
+            <td>
+              {row.artifact.occupiedId === null ? <span className="muted">Inventory</span> : <>
+                <b><Score score={row.current} general={general} fallback="Not judged" /></b>
+                <span>{row.currentMonsterName ?? 'Unknown monster'}</span>
+              </>}
+            </td>
+            <td>
+              <b><Score score={row.maximum} general={general} fallback="Not judged" /></b>
+              <span>{row.maximum?.monsterName ?? '—'}</span>
+            </td>
+          </tr>;
+        })}</tbody>
+      </table>
+    </div> : <p className="best-artifact-empty">No artifacts belong in this view yet.</p>}
+  </section>;
+}
+
+export function BestArtifactForMonster({ data, monsters, settings, general, hardwareAcceleration }: {
+  data: GameRecord;
+  monsters: readonly GameRecord[];
+  settings: ArtifactSettings;
+  general: GeneralSettings;
+  hardwareAcceleration: boolean;
+}) {
+  const [selectedElements, setSelectedElements] = useState<string[]>([]);
+  const [selectedArchetypes, setSelectedArchetypes] = useState<MonsterArchetype[]>([]);
+  const [selectedUnitId, setSelectedUnitId] = useState('');
+  const [calculation, setCalculation] = useState<ArtifactScoreMaps | undefined>();
+  const [state, setState] = useState<'idle' | 'calculating' | 'error'>('idle');
+
+  const allMonsters = useMemo(() => monsterOptions(monsters), [monsters]);
+  const filteredMonsters = useMemo(() => allMonsters.filter((monster) =>
+    (!selectedElements.length || (monster.element !== undefined && selectedElements.includes(monster.element)))
+    && (!selectedArchetypes.length || (monster.archetype !== undefined && selectedArchetypes.includes(monster.archetype)))),
+  [allMonsters, selectedArchetypes, selectedElements]);
+  const selectedMonster = filteredMonsters.find((monster) => monster.unitId === selectedUnitId);
+  const artifacts = useMemo(() => readArtifacts(data), [data]);
+  const artifactNumbers = useMemo(() => new Map(artifacts.map((artifact, index) => [artifact.id, index])), [artifacts]);
+  const wearers = useMemo(() => new Map(allMonsters.map((monster) => [monster.unitId, monster])), [allMonsters]);
+  const inputKey = JSON.stringify({
+    artifacts: artifacts.map((artifact) => [artifact.id, artifact.occupiedId, artifact.mainProperty, artifact.convertedPropertyIndex,
+      ...artifact.subProperties.map((subProperty) => [subProperty.definition.id, subProperty.valueHundredths, subProperty.maximumHundredths])]),
+    monsterIds: allMonsters.map((monster) => [monster.unitId, monster.masterId]),
+    selectedUnitId,
+    settings,
+  });
+  const currentCalculation = calculation?.inputKey === inputKey ? calculation : undefined;
+
+  const rows = useMemo<ResultRow[]>(() => {
+    if (!currentCalculation || !selectedMonster) return [];
+    return artifacts.flatMap((artifact) => {
+      const target = currentCalculation.target.get(artifact.id);
+      const index = artifactNumbers.get(artifact.id);
+      if (!target || index === undefined) return [];
+      return [{
+        artifact,
+        index,
+        target,
+        current: currentCalculation.current.get(artifact.id),
+        currentMonsterName: artifact.occupiedId === null ? undefined : wearers.get(artifact.occupiedId)?.name,
+        maximum: currentCalculation.maximum.get(artifact.id),
+      }];
+    }).sort((left, right) => right.target.value - left.target.value || left.index - right.index);
+  }, [artifacts, artifactNumbers, currentCalculation, selectedMonster, wearers]);
+
+  const inventoryRows = rows.filter((row) => row.artifact.occupiedId === null);
+  const improvementRows = rows.filter((row) => row.artifact.occupiedId !== null
+    && row.current !== undefined && row.target.value > row.current.value);
+
+  function toggleElement(element: string) {
+    setSelectedElements((current) => current.includes(element)
+      ? current.filter((entry) => entry !== element)
+      : [...current, element]);
+  }
+
+  function toggleArchetype(archetype: MonsterArchetype) {
+    setSelectedArchetypes((current) => current.includes(archetype)
+      ? current.filter((entry) => entry !== archetype)
+      : [...current, archetype]);
+  }
+
+  async function calculate() {
+    if (!selectedMonster) return;
+    const currentMonsterIds = new Map<string, string>();
+    for (const artifact of artifacts) {
+      if (artifact.occupiedId === null) continue;
+      const wearer = wearers.get(artifact.occupiedId);
+      if (wearer) currentMonsterIds.set(artifact.id, wearer.masterId);
+    }
+    const allRequests = buildArtifactScoreRequests(data, monsters, settings);
+    const targetRequests = buildArtifactScoreRequestsForMonsterIds(data, [selectedMonster.masterId], settings);
+    const currentRequests = buildArtifactScoreRequestsForMonsterIds(data, [...new Set(currentMonsterIds.values())], settings)
+      .map((request) => ({ ...request, targetMonsterIdByArtifact: Object.fromEntries(currentMonsterIds) }));
+    if (!targetRequests.length || !allRequests.length) {
+      setCalculation(undefined);
+      setState('error');
+      return;
+    }
+    setState('calculating');
+    try {
+      const [allResults, targetResults, currentResults] = await Promise.all([
+        calculateRequests(allRequests, hardwareAcceleration),
+        calculateRequests(targetRequests, hardwareAcceleration),
+        calculateRequests(currentRequests, hardwareAcceleration),
+      ]);
+      setCalculation({
+        inputKey,
+        maximum: scoreMap(allResults.flatMap((result) => result.maxima)),
+        target: scoreMap(targetResults.flatMap((result) => result.maxima)),
+        current: scoreMap(currentResults.flatMap((result) => result.targetScores)),
+        backend: [...allResults, ...targetResults, ...currentResults].every((result) => result.backend === 'webgpu') ? 'webgpu' : 'cpu',
+        evaluatedPairs: [...allResults, ...targetResults, ...currentResults]
+          .reduce((total, result) => total + result.evaluatedPairs, 0),
+      });
+      setState('idle');
+    } catch {
+      setCalculation(undefined);
+      setState('error');
+    }
+  }
+
+  return <div className="best-artifact-for-monster">
+    <p className="lead">Filter your roster, choose a monster, then compare every compatible artifact using the active optimization settings.</p>
+    <div className="best-artifact-filters">
+      <div className="filter-group" role="group" aria-label="Filter monsters by element">
+        <span className="filter-label">Element</span>
+        <div className="filter-group-controls">
+          {monsterElements.map((element) => <button key={element} type="button"
+            className={selectedElements.includes(element) ? 'filter-button active' : 'filter-button'}
+            onClick={() => toggleElement(element)} aria-pressed={selectedElements.includes(element)}
+          >{element}</button>)}
+        </div>
+      </div>
+      <div className="filter-group" role="group" aria-label="Filter monsters by archetype">
+        <span className="filter-label">Archetype</span>
+        <div className="filter-group-controls">
+          {monsterArchetypes.map((archetype) => <button key={archetype} type="button"
+            className={selectedArchetypes.includes(archetype) ? 'filter-button active' : 'filter-button'}
+            onClick={() => toggleArchetype(archetype)} aria-pressed={selectedArchetypes.includes(archetype)}
+          >{archetype}</button>)}
+        </div>
+      </div>
+      <div className="filter-group best-artifact-monster-select">
+        <label className="filter-label" htmlFor="best-artifact-monster">Monster</label>
+        <div className="filter-group-controls">
+          <Dropdown id="best-artifact-monster" value={selectedMonster?.unitId ?? ''}
+            onChange={(event) => setSelectedUnitId(event.target.value)} placeholder="Choose a monster"
+            aria-label="Choose a monster for artifact recommendations">
+            {filteredMonsters.map((monster) => <option key={monster.unitId} value={monster.unitId}>{monster.name}</option>)}
+          </Dropdown>
+        </div>
+      </div>
+      <button type="button" className="button best-artifact-calculate" onClick={() => void calculate()}
+        disabled={!selectedMonster || state === 'calculating'}>
+        {state === 'calculating' ? 'Calculating…' : 'Calculate artifact fits'}
+      </button>
+    </div>
+
+    {state === 'error' && <p className="notice warning" role="status">JASWA could not calculate this monster’s artifact fits from the imported data.</p>}
+
+    {currentCalculation && selectedMonster && <>
+      <p className="best-artifact-meta" role="status">
+        {formatNumber(currentCalculation.evaluatedPairs, general)} pairs checked · {currentCalculation.backend === 'webgpu' ? 'Graphics card' : 'Processor'}
+      </p>
+      <div className="best-artifact-results">
+        <ArtifactResults title="Unequipped artifacts"
+          description="Compatible artifacts in inventory, ready for this monster."
+          rows={inventoryRows} general={general} selectedMonster={selectedMonster} />
+        <ArtifactResults title="Highest score here"
+          description="Every compatible artifact, ranked by the score it can reach on this monster."
+          rows={rows} general={general} selectedMonster={selectedMonster} />
+        <ArtifactResults title="Better than current"
+          description="Engraved artifacts that score higher here than on the monster wearing them now."
+          rows={improvementRows} general={general} selectedMonster={selectedMonster} />
+      </div>
+    </>}
+  </div>;
+}

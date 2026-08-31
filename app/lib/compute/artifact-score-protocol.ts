@@ -34,6 +34,8 @@ export type ArtifactScoreRequest = {
   conversionValue: number;
   /** The compact property indexes named by engraved stones in this import. */
   ownedConversionPropertyIndexes: readonly number[];
+  /** When supplied, report the score on this artifact's actual wearer as well as the category maximum. */
+  targetMonsterIdByArtifact?: Readonly<Record<string, string>>;
 };
 
 export type ArtifactConversion = {
@@ -54,6 +56,8 @@ export type ArtifactScoreResult = {
   durationMs: number;
   evaluatedPairs: number;
   maxima: ArtifactMaximumScore[];
+  /** Scores for the artifact-to-monster assignments requested by the caller. */
+  targetScores: ArtifactMaximumScore[];
   /** `owned` may correctly have no candidates when the import has no stones. */
   ownedConversionCount: number;
 };

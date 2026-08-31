@@ -102,12 +102,12 @@ function sourceMonsterIds(monsters: readonly GameRecord[], ownOnly: boolean): re
 }
 
 /** Builds two category-specific matrices so no artifact is compared with an ineligible element or archetype. */
-export function buildArtifactScoreRequests(
+export function buildArtifactScoreRequestsForMonsterIds(
   data: GameRecord | undefined,
-  monsters: readonly GameRecord[],
+  monsterIds: readonly string[],
   settings: ArtifactSettings,
 ): ArtifactScoreRequest[] {
-  const sourceIds = sourceMonsterIds(monsters, settings.onlyFactorInOwnedMonsters);
+  const sourceIds = [...new Set(monsterIds)];
   const artifacts = readArtifacts(data);
   const ownedConversionPropertyIndexes = readOwnedEngravedConversionPropertyIndexes(data);
   const conversionMode: 0 | 1 | 2 = settings.conversionStoneMode === 'none' ? 0
@@ -121,4 +121,13 @@ export function buildArtifactScoreRequests(
     conversionValue,
     ownedConversionPropertyIndexes,
   })).filter((request) => request.artifacts.length > 0 && request.monsters.length > 0);
+}
+
+/** Uses the configured account scope for recommendations that are not about one chosen monster. */
+export function buildArtifactScoreRequests(
+  data: GameRecord | undefined,
+  monsters: readonly GameRecord[],
+  settings: ArtifactSettings,
+): ArtifactScoreRequest[] {
+  return buildArtifactScoreRequestsForMonsterIds(data, sourceMonsterIds(monsters, settings.onlyFactorInOwnedMonsters), settings);
 }

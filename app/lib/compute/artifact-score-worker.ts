@@ -56,6 +56,30 @@ function maximaFromScores(request: ArtifactScoreRequest, scores: Float32Array): 
   return maxima;
 }
 
+function targetScoresFromScores(request: ArtifactScoreRequest, scores: Float32Array): ArtifactMaximumScore[] {
+  if (!request.targetMonsterIdByArtifact) return [];
+  const monsterIndexes = new Map(request.monsters.map((monster, index) => [monster.id, index]));
+  const targetScores: ArtifactMaximumScore[] = [];
+  for (let artifactIndex = 0; artifactIndex < request.artifacts.length; artifactIndex += 1) {
+    const artifact = request.artifacts[artifactIndex];
+    const monsterId = request.targetMonsterIdByArtifact[artifact.id];
+    const monsterIndex = monsterId === undefined ? undefined : monsterIndexes.get(monsterId);
+    if (monsterIndex === undefined) continue;
+    const value = scores[artifactIndex * request.monsters.length + monsterIndex];
+    if (value < 0) continue;
+    const monster = request.monsters[monsterIndex];
+    const detail = scoreArtifactOnMonster(artifact, monster, request);
+    targetScores.push({
+      artifactId: artifact.id,
+      monsterId: monster.id,
+      monsterName: monster.name,
+      value,
+      conversion: detail?.conversion,
+    });
+  }
+  return targetScores;
+}
+
 self.onmessage = async (event: MessageEvent<ArtifactScoreWorkerRequest>) => {
   const message = event.data;
   if (message.type !== 'calculate') return;
@@ -80,6 +104,7 @@ self.onmessage = async (event: MessageEvent<ArtifactScoreWorkerRequest>) => {
         durationMs: performance.now() - startedAt,
         evaluatedPairs: message.request.artifacts.length * message.request.monsters.length,
         maxima: maximaFromScores(message.request, scores),
+        targetScores: targetScoresFromScores(message.request, scores),
         ownedConversionCount: message.request.ownedConversionPropertyIndexes.length,
       },
     };
