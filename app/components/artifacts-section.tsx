@@ -117,8 +117,8 @@ export function ArtifactsSection({ settings, hasGame, onUpdate }: {
           </div>
 
           <div className="slider">
-            <label className="slider-label" htmlFor="conversion-stone-value">Conversion stone value</label>
-            <p className="slider-note">How much of that stone’s maximum value should count in the draft?</p>
+            <label className="slider-label" htmlFor="conversion-stone-value">Value to factor in</label>
+            <p className="slider-note">How much of the maximum possible roll value should be factored into the draft?</p>
             <input id="conversion-stone-value" type="range" min={1} max={conversionStoneValueLabels.length} step={1}
               value={settings.conversionStoneValue}
               onChange={(event) => void onUpdate({ conversionStoneValue: Number(event.target.value) })}
