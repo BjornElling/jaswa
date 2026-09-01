@@ -10,6 +10,7 @@
     "start": "vinext start",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "verify:library-layout": "node scripts/verify-library-layout.mjs",
+    "verify:engraved-conversion-stones": "node scripts/verify-engraved-conversion-stones.mjs",
     "generate:pwa-assets": "pwa-assets-generator",
     "refresh:monsters": "node scripts/refresh-swarfarm-monsters.mjs",
     "fetch:monster-images": "node scripts/fetch-monster-images.mjs"

@@ -76,20 +76,28 @@ function ownMonsterMasterIds(monsters: readonly GameRecord[]): string[] {
   return [...ids];
 }
 
-/**
- * The game has not supplied a separate documented inventory schema for these
- * stones. A property id is useful only where it is one of the known current
- * artifact properties, so this reader accepts that narrow, independently
- * verifiable shape and ignores every other craft record rather than guessing.
- */
+/* Engraved conversion stones use craft type 6. Their `craft_type_id` is the
+   game's item id, not the artifact effect id: the final four digits hold the
+   effect plus 600, so both 140814 and 220815 name effects 214 and 215. The
+   prefix varies with the stone, while the suffix makes the usable property
+   explicit and keeps ordinary rune craft items out of this calculation. */
+const engravedConversionStoneCraftType = 6;
+const engravedConversionStoneEffectOffset = 600;
+const engravedConversionStoneEffectDigits = 10_000;
+
+/** Reads the current artifact properties named by owned engraved stones. */
 export function readOwnedEngravedConversionPropertyIndexes(data: GameRecord | undefined): number[] {
   const records = data?.rune_craft_item_list;
   if (!Array.isArray(records)) return [];
   const propertyIndexes = new Set<number>();
   for (const record of records) {
     if (!record || typeof record !== 'object' || Array.isArray(record)) continue;
-    const candidate = (record as GameRecord).craft_type_id;
-    const definition = artifactProperty(candidate);
+    const craft = record as GameRecord;
+    if (craft.craft_type !== engravedConversionStoneCraftType || typeof craft.craft_type_id !== 'number'
+      || !Number.isInteger(craft.craft_type_id)) continue;
+    const definition = artifactProperty(
+      (craft.craft_type_id % engravedConversionStoneEffectDigits) - engravedConversionStoneEffectOffset,
+    );
     if (!definition || definition.status !== 'current') continue;
     const propertyIndex = artifactPropertyIndex.get(definition.id);
     if (propertyIndex !== undefined) propertyIndexes.add(propertyIndex);
