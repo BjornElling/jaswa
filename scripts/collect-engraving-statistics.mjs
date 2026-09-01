@@ -186,6 +186,20 @@ function awakeningTier(unitMasterId) {
   return Number(digits[digits.length - 2]);
 }
 
+/**
+ * One monster across all its awakening tiers — the id with the tier digit
+ * blanked, so `10101`, `10111` and `10131` are one lineage and the five elements
+ * of a family stay five lineages.
+ *
+ * Not the same thing as a species: a species merges two *names* for one monster
+ * (`monsterSpeciesId`), while a lineage merges one monster's own forms.
+ */
+function monsterLineage(unitMasterId) {
+  const digits = String(unitMasterId);
+  if (digits.length < 3) return digits;
+  return `${digits.slice(0, -2)}_${digits.at(-1)}`;
+}
+
 async function readJson(path, fallback) {
   try {
     return JSON.parse(await readFile(path, 'utf8'));
@@ -199,8 +213,7 @@ async function readJson(path, fallback) {
  * The set of monster types the dataset is meant to cover.
  *
  * One row per type at its highest awakening (decision 23): every 2A, plus each
- * awakened form that has no 2A. Six-digit ids are towers, guild bosses and
- * boss-only entries rather than player monsters, and are excluded.
+ * awakened form that has no 2A.
  */
 function captureList(catalog) {
   const monsters = Array.isArray(catalog) ? catalog : catalog?.monsters;
@@ -209,10 +222,12 @@ function captureList(catalog) {
   const wanted = [];
   for (const monster of monsters) {
     const id = Number(monster.com2us_id);
-    /* Six-digit ids are Towers, guild bosses and boss-only entries; tier 2 is
-       the Imperfect line and tiers 4–7 are Ancient Spirits and bosses. The
-       player-monster space is exactly the five-digit ids at tier 1 or 3. */
-    if (!Number.isInteger(id) || String(id).length !== 5) continue;
+    /* Tier 2 is the Imperfect line and tiers 4–7 are Ancient Spirits and bosses;
+       the archetype filters below remove the rest. Length is deliberately not a
+       test: Homunculus carries seven-digit ids (`1000111`), and a five-digit rule
+       counted its captured statistics in the dataset while never listing it as
+       work — imported and used, but invisible to coverage. */
+    if (!Number.isInteger(id)) continue;
     /* Material monsters — Devilmons, rainbowmons — wear no equipment, and the
        Korean-named rows are test entries the live game does not offer. Both
        would otherwise sit in the work list forever, uncapturable. */
@@ -412,12 +427,40 @@ async function main() {
   let unchanged = 0;
   const touched = new Set();
 
+  /* Decision 39: where one session captured the same monster at two awakening
+     tiers, only the highest is kept.
+
+     The game makes this all but impossible on its own — asked for statistics it
+     silently normalises upward, serving the awakened panel for an un-awakened
+     monster and the 2A panel where a 2A exists. Across 685 monsters captured so
+     far it has never once returned a lower tier. But "all but impossible" is not
+     the same as impossible, and the reader keys on the master id with no notion
+     of tier: two tiers of one monster would sit in the dataset as two unrelated
+     monsters, each ranked on its own and each claiming to be that monster. That
+     is a parity break of the third kind (`AGENTS.md` §0.1) — counted, usable,
+     and wrong — so it is detected here rather than trusted not to happen. */
+  const lowerTierSuperseded = [];
+  const highestTierPerMonster = new Map();
+  for (const { unitMasterId, panel } of seen.values()) {
+    const tier = awakeningTier(unitMasterId);
+    if (tier === null) continue;
+    const key = `${monsterLineage(unitMasterId)}:${panel}`;
+    const best = highestTierPerMonster.get(key);
+    if (best === undefined || tier > best) highestTierPerMonster.set(key, tier);
+  }
+
   for (const { unitMasterId, panel, observation } of seen.values()) {
     /* Decision 23: awakened forms only. An un-awakened monster's statistics
        describe where players park spare runes, not what the monster is for. */
     const tier = awakeningTier(unitMasterId);
     if (tier !== 1 && tier !== 3) {
       tierRejected.push(`${unitMasterId} (tier ${tier})`);
+      continue;
+    }
+
+    const highest = highestTierPerMonster.get(`${monsterLineage(unitMasterId)}:${panel}`);
+    if (highest !== undefined && tier < highest) {
+      lowerTierSuperseded.push(`${unitMasterId} (tier ${tier}) superseded by tier ${highest} for ${panel}`);
       continue;
     }
 
@@ -431,10 +474,52 @@ async function main() {
     touched.add(id);
   }
 
+  /* The check above only sees this log. A lower tier captured in an *earlier*
+     session is already on disk, so the same collision is looked for across the
+     whole dataset — otherwise capturing a monster's 2A after its awakened form
+     would leave both, which is the very state this guards against. */
+  const staleLowerTier = [];
+  const bestTierInDataset = new Map();
+  for (const id of Object.keys(dataset.monsters)) {
+    const tier = awakeningTier(id);
+    if (tier === null) continue;
+    for (const panel of Object.keys(dataset.monsters[id])) {
+      const key = `${monsterLineage(id)}:${panel}`;
+      const best = bestTierInDataset.get(key);
+      if (best === undefined || tier > best.tier) bestTierInDataset.set(key, { tier, id });
+    }
+  }
+  for (const id of Object.keys(dataset.monsters)) {
+    const tier = awakeningTier(id);
+    if (tier === null) continue;
+    for (const panel of Object.keys(dataset.monsters[id])) {
+      const best = bestTierInDataset.get(`${monsterLineage(id)}:${panel}`);
+      if (!best || best.id === id) continue;
+      staleLowerTier.push({ id, panel, tier, winner: best.id, winnerTier: best.tier });
+    }
+  }
+  for (const stale of staleLowerTier) {
+    delete dataset.monsters[stale.id][stale.panel];
+    if (Object.keys(dataset.monsters[stale.id]).length === 0) delete dataset.monsters[stale.id];
+  }
+
   console.log(`Read ${lines.length} log lines from ${logPath}.`);
   if (unparseable) console.log(`${unparseable} line(s) were not valid JSON and were skipped.`);
   for (const [reason, count] of rejections) console.log(`Rejected ${count} statistics response(s): ${reason}.`);
   if (tierRejected.length) console.log(`Skipped ${tierRejected.length} un-awakened or unrecognised tier(s): ${tierRejected.slice(0, 8).join(', ')}${tierRejected.length > 8 ? ', …' : ''}.`);
+  if (lowerTierSuperseded.length) {
+    console.log(`\nThis log holds the same monster at two awakening tiers. Only the highest is kept:`);
+    for (const entry of lowerTierSuperseded.slice(0, 10)) console.log(`  ${entry}`);
+    if (lowerTierSuperseded.length > 10) console.log(`  … and ${lowerTierSuperseded.length - 10} more.`);
+    console.log('  Nothing is lost: the game serves the same panel for both, normalising upward.');
+  }
+  if (staleLowerTier.length) {
+    console.log(`\nDropped ${staleLowerTier.length} panel(s) held at a lower tier by an earlier session:`);
+    for (const stale of staleLowerTier.slice(0, 10)) {
+      console.log(`  ${stale.id} (tier ${stale.tier}) ${stale.panel} — superseded by ${stale.winner} (tier ${stale.winnerTier})`);
+    }
+    if (staleLowerTier.length > 10) console.log(`  … and ${staleLowerTier.length - 10} more.`);
+  }
   console.log(`${added} new panel(s), ${replaced} updated, ${unchanged} already current, across ${touched.size} monster type(s).`);
 
   if (dryRun) {
@@ -443,7 +528,7 @@ async function main() {
     return;
   }
 
-  if (added || replaced) {
+  if (added || replaced || staleLowerTier.length) {
     /* The dataset carries its own dates at three levels: each observation, each
        merge, and the whole file. The game recomputes these statistics monthly,
        so a row's age is part of what it says. */

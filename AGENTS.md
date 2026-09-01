@@ -286,6 +286,8 @@ Before reporting a change complete, all of these hold:
    language contract.
 7. After a change to monster naming, the catalogue, or the collaboration species
    table, `npm run verify:element-qualified-names` passes.
-8. The work is committed to `main`.
+8. After a statistics capture or a change to the collector,
+   `npm run verify:statistics-tiers` passes.
+9. The work is committed to `main`.
 
 Report faithfully. If a step was skipped or a check failed, say which and why.
