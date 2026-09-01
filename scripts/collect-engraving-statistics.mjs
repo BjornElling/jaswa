@@ -218,6 +218,12 @@ function captureList(catalog) {
        would otherwise sit in the work list forever, uncapturable. */
     if (monster.archetype === 'Material') continue;
     if (/[ᄀ-ᇿ가-힯]/.test(monster.name ?? '')) continue;
+    /* An archetype of `none` is the catalog saying this row is not a monster a
+       player fields: the Ancient Spirit line numbers its eight rows 62703–62773
+       through the same digit this file reads as an awakening tier, so 62733
+       otherwise reads as a 2A and joins the work list, where no Statistics panel
+       will ever exist to answer it. */
+    if (!monster.archetype || monster.archetype === 'none') continue;
     const tier = awakeningTier(id);
     if (tier === 3) wanted.push({ id, name: monster.name, archetype: monster.archetype });
     else if (tier === 1 && !ids.has(id + 20)) wanted.push({ id, name: monster.name, archetype: monster.archetype });
