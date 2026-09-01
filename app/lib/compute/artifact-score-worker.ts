@@ -128,6 +128,7 @@ self.onmessage = async (event: MessageEvent<ArtifactScoreWorkerRequest>) => {
         maxima: maximaFromScores(message.request, scores),
         targetScores: targetScoresFromScores(message.request, scores),
         allScores: allScoresFromScores(message.request, scores),
+        scoreMatrix: message.request.includeScoreMatrix ? scores : undefined,
         ownedConversionCount: message.request.ownedConversionPropertyIndexes.length,
       },
     };

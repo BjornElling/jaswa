@@ -38,6 +38,8 @@ export type ArtifactScoreRequest = {
   targetMonsterIdByArtifact?: Readonly<Record<string, string>>;
   /** Return every eligible artifact-to-monster score for a focused comparison. */
   includeAllScores?: boolean;
+  /** Return the compact score matrix for a bulk allocation without expanding it into objects. */
+  includeScoreMatrix?: boolean;
 };
 
 export type ArtifactConversion = {
@@ -62,6 +64,8 @@ export type ArtifactScoreResult = {
   targetScores: ArtifactMaximumScore[];
   /** Every eligible pair when the caller needs a complete ranking rather than one maximum. */
   allScores: ArtifactMaximumScore[];
+  /** Row-major scores, retained only for bulk allocation callers. Negative values are ineligible pairs. */
+  scoreMatrix: Float32Array | undefined;
   /** `owned` may correctly have no candidates when the import has no stones. */
   ownedConversionCount: number;
 };

@@ -1159,24 +1159,50 @@ button { cursor: pointer; }
   .best-monster-artifact-details .artifact-subs { columns: 1; }
 }
 
-/* The result table stays inside the disclosure's normal reading width: score
-   values are concise, while monster and conversion names need the room. */
-.artifact-maximum-values { display: grid; gap: var(--s4); }
-.artifact-maximum-intro { display: flex; align-items: center; justify-content: space-between; gap: var(--s4); }
-.artifact-maximum-intro .lead, .artifact-maximum-meta, .artifact-maximum-empty { margin: 0; }
-.artifact-maximum-meta { color: var(--dim); font-family: var(--mono); font-size: var(--t-small); font-variant-numeric: tabular-nums; }
-.artifact-maximum-table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); }
-.artifact-maximum-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-.artifact-maximum-table th, .artifact-maximum-table td { padding: var(--s3) var(--s4); border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
-.artifact-maximum-table th { color: var(--dim); font-size: var(--t-small); font-weight: 500; }
-.artifact-maximum-table tr:last-child td { border-bottom: 0; }
-.artifact-maximum-table th:nth-child(1), .artifact-maximum-table td:nth-child(1) { width: 10ch; font-family: var(--mono); font-variant-numeric: tabular-nums; }
-.artifact-maximum-table th:nth-child(3), .artifact-maximum-table td:nth-child(3) { width: 14ch; font-family: var(--mono); font-variant-numeric: tabular-nums; }
-.artifact-maximum-table th:nth-child(4), .artifact-maximum-table td:nth-child(4) { width: 38%; }
-@media (max-width: 720px) {
-  .artifact-maximum-intro { align-items: flex-start; flex-direction: column; }
-  .artifact-maximum-intro .button { width: 100%; }
-  .artifact-maximum-table { min-width: 720px; }
+/* Recommendations preserve the whole allocation while filters only choose
+   rows to inspect. That keeps a click on a filter from silently changing the
+   advice in every remaining row. */
+.artifact-recommendations { display: grid; gap: var(--s4); }
+.artifact-recommendations > .lead, .artifact-recommendation-meta, .artifact-recommendation-empty { margin: 0; }
+.artifact-recommendation-filters {
+  display: grid;
+  grid-template-columns: max-content minmax(24ch, 1fr) max-content;
+  grid-template-areas: "type restriction restriction" "quality substat main" "location location location" "calculate calculate calculate";
+  align-items: end;
+  gap: var(--s4);
+  padding: var(--s4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--sunk);
+}
+.artifact-recommendation-filters .filter-group { min-width: 0; }
+.artifact-recommendation-filter-type { grid-area: type; }
+.artifact-recommendation-filter-restriction { grid-area: restriction; }
+.artifact-recommendation-filter-quality { grid-area: quality; }
+.artifact-recommendation-filter-substat { grid-area: substat; }
+.artifact-recommendation-filter-main { grid-area: main; }
+.artifact-recommendation-filter-location { grid-area: location; }
+.artifact-recommendation-filter-substat .jaswa-select { width: 100%; min-width: 0; }
+.artifact-recommendation-calculate { grid-area: calculate; justify-self: start; width: 25ch; height: 32px; white-space: nowrap; }
+.artifact-recommendation-meta { color: var(--dim); font-family: var(--mono); font-size: var(--t-small); font-variant-numeric: tabular-nums; }
+.artifact-recommendation-table-wrap { width: 100%; overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); }
+.artifact-recommendation-table { width: 100%; min-width: 1100px; border-collapse: collapse; table-layout: fixed; font-size: var(--t-small); }
+.artifact-recommendation-table th, .artifact-recommendation-table td { padding: var(--s3); border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.artifact-recommendation-table th { color: var(--faint); font-size: var(--t-micro); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.artifact-recommendation-table tr:last-child td { border-bottom: 0; }
+.artifact-recommendation-table th:nth-child(1), .artifact-recommendation-table td:nth-child(1) { width: 4ch; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.artifact-recommendation-table th:nth-child(2) { width: 7ch; }
+.artifact-recommendation-table th:nth-child(3) { width: 9ch; }
+.artifact-recommendation-table th:nth-child(4) { width: 10ch; }
+.artifact-recommendation-table th:nth-child(5) { width: 20%; }
+.artifact-recommendation-table th:nth-child(6) { width: 12ch; }
+.artifact-recommendation-table th:nth-child(7), .artifact-recommendation-table th:nth-child(9), .artifact-recommendation-table td:nth-child(7), .artifact-recommendation-table td:nth-child(9) { width: 10ch; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.artifact-recommendation-table th:nth-child(8) { width: 12ch; }
+.artifact-recommendation-table th:nth-child(10) { width: 16ch; }
+.artifact-recommendation-sell { color: var(--faint); }
+@media (max-width: 900px) {
+  .artifact-recommendation-filters { grid-template-columns: minmax(0, 1fr); grid-template-areas: "type" "restriction" "quality" "substat" "main" "location" "calculate"; align-items: stretch; }
+  .artifact-recommendation-calculate { width: 100%; }
 }
 
 /* The chosen step names itself in the accent colour — this is the answer to
