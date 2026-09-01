@@ -1306,23 +1306,37 @@ button { cursor: pointer; }
 .button.artifact-recommendation-clear:disabled:hover { color: var(--ghost); border-color: var(--line); background: transparent; }
 .artifact-recommendation-meta { color: var(--dim); font-family: var(--mono); font-size: var(--t-small); font-variant-numeric: tabular-nums; }
 .artifact-recommendation-table-wrap { width: 100%; overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); }
-.artifact-recommendation-table { width: 100%; min-width: 1100px; border-collapse: collapse; table-layout: fixed; font-size: var(--t-small); }
+/* The column widths below are `ch` values measured against the content each
+   column actually holds, and the table is pinned to the width they sum to.
+   `table-layout: fixed` otherwise reads a width as a *ratio* and stretches
+   every column to fill the window, so a fixed table width is what makes the
+   widths mean what they say: a column is the same size on a laptop as on a
+   4K monitor, and the gap between two columns is always 2 × var(--s3). A
+   window narrower than the table scrolls it rather than squeezing it, which
+   is what `.artifact-recommendation-table-wrap` is there for. */
+.artifact-recommendation-table-wrap > .artifact-recommendation-table { width: 1370px; max-width: 1370px; min-width: 1370px; border-collapse: collapse; table-layout: fixed; font-size: var(--t-small); }
 .artifact-recommendation-table th, .artifact-recommendation-table td { padding: var(--s3); border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
 .artifact-recommendation-table th { color: var(--faint); font-size: var(--t-micro); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .artifact-recommendation-table tr:last-child td { border-bottom: 0; }
-.artifact-recommendation-table th:nth-child(1), .artifact-recommendation-table td:nth-child(1) { width: 4ch; font-family: var(--mono); font-variant-numeric: tabular-nums; }
-.artifact-recommendation-table th:nth-child(2) { width: 7ch; }
-.artifact-recommendation-table th:nth-child(3) { width: 9ch; }
-.artifact-recommendation-table th:nth-child(4) { width: 10ch; }
-.artifact-recommendation-table th:nth-child(5) { width: 20%; }
-.artifact-recommendation-table th:nth-child(6) { width: 12ch; }
-.artifact-recommendation-table th:nth-child(7), .artifact-recommendation-table th:nth-child(9), .artifact-recommendation-table td:nth-child(7), .artifact-recommendation-table td:nth-child(9) { width: 10ch; font-family: var(--mono); font-variant-numeric: tabular-nums; }
-.artifact-recommendation-table th:nth-child(8) { width: 12ch; }
-.artifact-recommendation-table th:nth-child(10) { width: 16ch; }
+.artifact-recommendation-table th:nth-child(1), .artifact-recommendation-table td:nth-child(1) { width: 8ch; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.artifact-recommendation-table th:nth-child(2) { width: 10ch; }
+.artifact-recommendation-table th:nth-child(3) { width: 11ch; }
+.artifact-recommendation-table th:nth-child(4) { width: 9ch; }
+/* Wide enough for a full substat line — the longest names run to 37 characters
+   before their value — so the list reads instead of ellipsing on every row. */
+.artifact-recommendation-table th:nth-child(5) { width: 44ch; }
+/* Monster names, which have to stay on one line to be scannable. */
+.artifact-recommendation-table th:nth-child(6), .artifact-recommendation-table th:nth-child(8) { width: 19ch; }
+.artifact-recommendation-table th:nth-child(7), .artifact-recommendation-table th:nth-child(9), .artifact-recommendation-table td:nth-child(7), .artifact-recommendation-table td:nth-child(9) { width: 11ch; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+/* The conversion is a whole sentence and the only column allowed to run to
+   several lines: it gives its width up to the substats and the two monster
+   name columns rather than holding a single long line of its own. */
+.artifact-recommendation-table th:nth-child(10) { width: 20ch; }
+.artifact-recommendation-table td:nth-child(10) { overflow-wrap: break-word; }
 /* The refinement flag ends the row: narrow, unlabelled, and empty on every
    artifact that needs no attention. The marker is the cell's only content, so
    the margin it carries for trailing running text is dropped here. */
-.artifact-recommendation-table th:nth-child(11), .artifact-recommendation-table td:nth-child(11) { width: 5ch; text-align: right; }
+.artifact-recommendation-table th:nth-child(11), .artifact-recommendation-table td:nth-child(11) { width: 6ch; text-align: right; }
 .artifact-recommendation-flag > * { margin-left: 0; }
 .artifact-recommendation-sell { color: var(--faint); }
 /* Below about 1240px the action no longer fits beside the filters, so it drops
