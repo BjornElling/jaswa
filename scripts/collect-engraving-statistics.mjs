@@ -28,6 +28,7 @@ import { fileURLToPath } from 'node:url';
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const outputPath = resolve(repositoryRoot, 'app/data/engraving-statistics.json');
 const catalogPath = resolve(repositoryRoot, 'app/data/swarfarm-monsters.json');
+const collaborationSpeciesPath = resolve(repositoryRoot, 'app/data/collaboration-species.json');
 
 /* The helper writes here; `helper/src/config.cjs` `dataDirectory()` is the
    authority on the location, and this mirrors it for a read-only consumer. */
@@ -36,6 +37,33 @@ function defaultLogPath() {
     ?? (process.env.APPDATA ? join(process.env.APPDATA, '..', 'Local') : null);
   if (!base) return null;
   return join(base, 'JASWA Helper', 'traffic.log');
+}
+
+/* A collaboration monster and its generic re-release are one monster with two
+   master ids, and the game serves both ids the same statistics — verified
+   identical for every pair captured on both sides. So coverage counts the pair
+   once and capturing either name is enough. `app/data/collaboration-species.json`
+   is the shared table; `app/lib/monster-species.ts` is its other consumer. */
+let speciesByMember = new Map();
+let speciesMembers = new Map();
+
+async function loadCollaborationSpecies() {
+  const raw = await readFile(collaborationSpeciesPath, 'utf8').catch(() => null);
+  if (!raw) return;
+  const parsed = JSON.parse(raw);
+  for (const [speciesId, entry] of Object.entries(parsed.species ?? {})) {
+    const members = Array.isArray(entry?.members) ? entry.members.map(String) : [];
+    speciesMembers.set(String(speciesId), [String(speciesId), ...members]);
+    for (const member of members) speciesByMember.set(member, String(speciesId));
+  }
+}
+
+function monsterSpeciesId(masterId) {
+  return speciesByMember.get(String(masterId)) ?? String(masterId);
+}
+
+function monsterSpeciesMemberIds(speciesId) {
+  return speciesMembers.get(String(speciesId)) ?? [String(speciesId)];
 }
 
 /* One command per panel. The game serves a whole panel's dropdowns from a
@@ -194,7 +222,15 @@ function captureList(catalog) {
     if (tier === 3) wanted.push({ id, name: monster.name, archetype: monster.archetype });
     else if (tier === 1 && !ids.has(id + 20)) wanted.push({ id, name: monster.name, archetype: monster.archetype });
   }
-  return wanted;
+  /* A collaboration monster and its generic twin are one monster released under
+     two names, so they count once towards coverage. Capturing either satisfies
+     the pair, because the reader pools their observations into one sample. */
+  const bySpecies = new Map();
+  for (const entry of wanted) {
+    const speciesId = monsterSpeciesId(entry.id);
+    if (!bySpecies.has(speciesId)) bySpecies.set(speciesId, entry);
+  }
+  return [...bySpecies.values()];
 }
 
 /**
@@ -219,6 +255,22 @@ async function writeDataset(dataset) {
   await rm(temporaryPath, { force: true });
 }
 
+/* The game returns the same distributions for both ids of a collaboration pair,
+   so capturing either one covers the species: a panel present under either name
+   is that panel captured. Merging the members mirrors what the reader does. */
+function speciesRow(dataset, masterId) {
+  const members = monsterSpeciesMemberIds(monsterSpeciesId(masterId));
+  const row = {};
+  let found = false;
+  for (const member of members) {
+    const recorded = dataset.monsters[member];
+    if (!recorded) continue;
+    found = true;
+    for (const panel of ['runes', 'artifacts', 'relics']) if (recorded[panel]) row[panel] = recorded[panel];
+  }
+  return found ? row : undefined;
+}
+
 function reportProgress(dataset, catalog) {
   const wanted = captureList(catalog);
   if (!wanted) {
@@ -226,11 +278,11 @@ function reportProgress(dataset, catalog) {
     return;
   }
   const covered = wanted.filter((monster) => {
-    const row = dataset.monsters[String(monster.id)];
+    const row = speciesRow(dataset, monster.id);
     return row?.runes && row?.artifacts && row?.relics;
   });
   const partial = wanted.filter((monster) => {
-    const row = dataset.monsters[String(monster.id)];
+    const row = speciesRow(dataset, monster.id);
     return row && !(row.runes && row.artifacts && row.relics);
   });
   const percentage = wanted.length ? (covered.length / wanted.length) * 100 : 0;
@@ -238,7 +290,7 @@ function reportProgress(dataset, catalog) {
   if (partial.length) {
     console.log(`${partial.length} started but incomplete — a panel was missed:`);
     for (const monster of partial.slice(0, 10)) {
-      const row = dataset.monsters[String(monster.id)];
+      const row = speciesRow(dataset, monster.id);
       const missing = ['runes', 'artifacts', 'relics'].filter((panel) => !row[panel]);
       console.log(`  ${monster.id} ${monster.name} — missing ${missing.join(', ')}`);
     }
@@ -260,22 +312,22 @@ function reportTodo(dataset, catalog, limit) {
     return;
   }
   const outstanding = wanted.filter((monster) => {
-    const row = dataset.monsters[String(monster.id)];
+    const row = speciesRow(dataset, monster.id);
     return !(row?.runes && row?.artifacts && row?.relics);
   });
 
   /* A half-captured monster is the cheapest work there is — one panel rather
      than three — and the easiest to lose track of, because nothing on screen
      says a panel was missed. It goes first. */
-  const partial = outstanding.filter((monster) => dataset.monsters[String(monster.id)]);
-  const untouched = outstanding.filter((monster) => !dataset.monsters[String(monster.id)]);
+  const partial = outstanding.filter((monster) => speciesRow(dataset, monster.id));
+  const untouched = outstanding.filter((monster) => !speciesRow(dataset, monster.id));
 
   console.log(`${outstanding.length} monster type(s) still to capture.\n`);
 
   if (partial.length) {
     console.log(`${partial.length} need only a missed panel — finish these first:`);
     for (const monster of partial) {
-      const row = dataset.monsters[String(monster.id)];
+      const row = speciesRow(dataset, monster.id);
       const missing = ['runes', 'artifacts', 'relics'].filter((panel) => !row[panel]);
       console.log(`  ${monster.id}  ${(monster.name ?? '').padEnd(22)} needs ${missing.join(', ')}`);
     }
@@ -290,6 +342,7 @@ function reportTodo(dataset, catalog, limit) {
 
 async function main() {
   const catalog = await readJson(catalogPath, null);
+  await loadCollaborationSpecies();
 
   const dataset = await readJson(outputPath, null) ?? {
     description: 'Community engraving statistics observed from the game\'s own Monster Info → Statistics panels. Counts as the game reports them; percentages are derived, never stored.',

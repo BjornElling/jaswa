@@ -14,6 +14,7 @@ import type { ArtifactMaximumScore } from '../lib/compute/artifact-score-protoco
 import type { GameRecord } from '../lib/game-data';
 import type { MonsterArchetype } from '../lib/monster-catalog';
 import { monsterPresentation } from '../lib/monster-catalog';
+import { monsterSpeciesId } from '../lib/monster-species';
 import { numberedMonsterNames } from '../lib/monster-names';
 import { monsterNameCollator } from '../lib/monster-grid';
 import { elementName } from '../lib/rune-sets';
@@ -222,10 +223,10 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
     for (const artifact of artifacts) {
       if (artifact.occupiedId === null) continue;
       const wearer = wearers.get(artifact.occupiedId);
-      if (wearer) currentMonsterIds.set(artifact.id, wearer.masterId);
+      if (wearer) currentMonsterIds.set(artifact.id, monsterSpeciesId(wearer.masterId));
     }
     const allRequests = buildArtifactScoreRequests(data, monsters, settings);
-    const targetRequests = buildArtifactScoreRequestsForMonsterIds(data, [selectedMonster.masterId], settings);
+    const targetRequests = buildArtifactScoreRequestsForMonsterIds(data, [monsterSpeciesId(selectedMonster.masterId)], settings);
     const currentRequests = buildArtifactScoreRequestsForMonsterIds(data, [...new Set(currentMonsterIds.values())], settings)
       .map((request) => ({ ...request, targetMonsterIdByArtifact: Object.fromEntries(currentMonsterIds) }));
     if (!targetRequests.length || !allRequests.length) {

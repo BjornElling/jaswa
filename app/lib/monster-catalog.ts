@@ -1,5 +1,6 @@
 import swarfarmMonsterData from '../data/swarfarm-monsters.json';
 import { localMonsterImageFilenames } from '../data/local-monster-images';
+import { isCollaborationSpecies, monsterSpeciesId, monsterSpeciesMemberIds } from './monster-species';
 
 export const monsterArchetypes = ['Attack', 'Defense', 'HP', 'Support', 'Material', 'none'] as const;
 export type MonsterArchetype = typeof monsterArchetypes[number];
@@ -28,6 +29,18 @@ function monsterArchetype(value: unknown): MonsterArchetype | undefined {
   return monsterArchetypes.includes(value as MonsterArchetype) ? value as MonsterArchetype : undefined;
 }
 
+// The name the same monster carries under its other release. Read straight from
+// the catalogue rather than through `monsterPresentation`, which calls this.
+function twinName(masterId: string, ownName: string): string | undefined {
+  const speciesId = monsterSpeciesId(masterId);
+  const members = monsterSpeciesMemberIds(speciesId);
+  if (members.length < 2) return undefined;
+  return members
+    .filter((memberId) => memberId !== masterId)
+    .map((memberId) => swarfarmByCom2usId[memberId]?.name)
+    .find((name): name is string => Boolean(name) && name !== ownName);
+}
+
 export function monsterPresentation(masterId: unknown): MonsterPresentation {
   const key = String(masterId ?? 'unknown');
   const renamed = renamedMonsters[key];
@@ -37,7 +50,10 @@ export function monsterPresentation(masterId: unknown): MonsterPresentation {
   const imageFilename = swarfarmMonster?.image_filename;
   return {
     name,
-    secondaryName: renamed?.formerName,
+    // A collaboration monster is searchable under its twin's name, so a player
+    // who thinks of the unit by the name the game now advertises still finds
+    // the copy they summoned under the licensed one.
+    secondaryName: renamed?.formerName ?? twinName(key, name),
     shortName: name.slice(0, 1).toUpperCase(),
     imageFilename: imageFilename && localMonsterImageFilenames.has(imageFilename) ? imageFilename : undefined,
     archetype: monsterArchetype(swarfarmMonster?.archetype),
@@ -47,4 +63,31 @@ export function monsterPresentation(masterId: unknown): MonsterPresentation {
 export function hasMonsterCatalogEntry(masterId: unknown): boolean {
   const key = String(masterId ?? 'unknown');
   return Boolean(swarfarmByCom2usId[key]);
+}
+
+// Unawakened collaboration monsters carry Korean placeholder names in the
+// catalogue, which read as noise beside their English counterpart. Where a name
+// is not usable, the species falls back to the generic name alone rather than
+// pairing a readable name with an unreadable one.
+function isReadableName(name: string): boolean {
+  return /^[\x20-\x7EÀ-ɏ]+$/.test(name);
+}
+
+// How a monster is named where the subject is the monster itself rather than a
+// copy of it — statistics, rankings, recommendations. A collaboration pair is
+// one monster with two names, so it is shown once, as "collab / generic".
+export function monsterSpeciesPresentation(speciesId: unknown): MonsterPresentation {
+  const key = monsterSpeciesId(speciesId);
+  const generic = monsterPresentation(key);
+  if (!isCollaborationSpecies(key)) return generic;
+
+  const collabNames = monsterSpeciesMemberIds(key)
+    .slice(1)
+    .map((memberId) => monsterPresentation(memberId).name)
+    .filter((name) => isReadableName(name) && name !== generic.name);
+  const uniqueCollabNames = [...new Set(collabNames)];
+  if (uniqueCollabNames.length === 0) return generic;
+
+  const name = `${uniqueCollabNames.join(' / ')} / ${generic.name}`;
+  return { ...generic, name, secondaryName: undefined, shortName: generic.shortName };
 }

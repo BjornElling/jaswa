@@ -4,7 +4,8 @@ import { artifactProperty } from '../artifact-properties';
 import type { Artifact, ArtifactSubProperty } from '../artifacts';
 import type { ArtifactCategory, ArtifactMainProperty } from '../artifact-properties';
 import type { GameRecord } from '../game-data';
-import { monsterPresentation } from '../monster-catalog';
+import { monsterSpeciesPresentation } from '../monster-catalog';
+import { monsterSpeciesId } from '../monster-species';
 import { elementName } from '../rune-sets';
 import { artifactPropertyIndex, categoryCode, scoredArtifactProperties } from './artifact-score-schema';
 import { intangibleRestrictionCode } from './artifact-score-protocol';
@@ -65,10 +66,14 @@ function packArtifact(artifact: Artifact): PackedArtifactScoreInput {
   };
 }
 
-function packMonster(masterId: string, category: ArtifactCategory): PackedMonsterScoreInput | undefined {
-  const preferences = defaultPropertyPreferences(masterId, category);
+/* Scores describe a monster, not a copy of one, so both callers below pass a
+   species id and the name shown is the species name — a collaboration pair
+   appears once, under both of its names, rather than twice under one each. */
+function packMonster(speciesId: string, category: ArtifactCategory): PackedMonsterScoreInput | undefined {
+  const preferences = defaultPropertyPreferences(speciesId, category);
   if (!preferences) return undefined;
-  const presentation = monsterPresentation(masterId);
+  const presentation = monsterSpeciesPresentation(speciesId);
+  const masterId = speciesId;
   return {
     id: masterId,
     name: presentation.name,
@@ -81,11 +86,16 @@ function packMonster(masterId: string, category: ArtifactCategory): PackedMonste
   };
 }
 
-function ownMonsterMasterIds(monsters: readonly GameRecord[]): string[] {
+/* Collapsed to species: holding both halves of a collaboration pair is holding
+   one monster twice over, and scoring it twice would rank the same result above
+   everything else it ties with. */
+function ownMonsterSpeciesIds(monsters: readonly GameRecord[]): string[] {
   const ids = new Set<string>();
   for (const monster of monsters) {
     const masterId = monster.unit_master_id;
-    if ((typeof masterId === 'number' || typeof masterId === 'string') && String(masterId)) ids.add(String(masterId));
+    if ((typeof masterId === 'number' || typeof masterId === 'string') && String(masterId)) {
+      ids.add(monsterSpeciesId(masterId));
+    }
   }
   return [...ids];
 }
@@ -120,7 +130,7 @@ export function readOwnedEngravedConversionPropertyIndexes(data: GameRecord | un
 }
 
 function sourceMonsterIds(monsters: readonly GameRecord[], ownOnly: boolean): readonly string[] {
-  return ownOnly ? ownMonsterMasterIds(monsters) : recordedArtifactPreferenceMonsterIds;
+  return ownOnly ? ownMonsterSpeciesIds(monsters) : recordedArtifactPreferenceMonsterIds;
 }
 
 /** Builds two category-specific matrices so no artifact is compared with an ineligible element or archetype. */

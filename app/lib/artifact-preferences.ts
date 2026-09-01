@@ -2,13 +2,38 @@ import statistics from '../data/engraving-statistics.json';
 import type { ArtifactPropertyPreference } from './artifact-optimal-value';
 import type { ArtifactCategory, ArtifactMainProperty } from './artifact-properties';
 import { artifactMainProperties } from './artifact-properties';
+import { monsterSpeciesId } from './monster-species';
 
 type EffectCount = { effectId: number; count: number; slotId?: number };
-type MonsterStatistics = { artifacts?: { primaryEffect?: EffectCount[]; secondaryEffect?: EffectCount[] } };
+type MonsterStatistics = { artifacts?: { observedAt?: string; primaryEffect?: EffectCount[]; secondaryEffect?: EffectCount[] } };
 
-const monsterStatistics = (statistics as { monsters: Record<string, MonsterStatistics> }).monsters;
+const recordedStatistics = (statistics as { monsters: Record<string, MonsterStatistics> }).monsters;
 
-/** Monster types whose recorded distributions can support a real judgement. */
+/* A collaboration pair is one monster the game released under two names, and the
+   game's own Statistics panel proves it: for all 112 pairs captured on both
+   sides, the two ids return byte-identical distributions down to the last count.
+   The population is shared, not merely comparable.
+
+   So the two rows are one observation seen twice, and the merge takes the later
+   one rather than adding them — summing would double every count and claim twice
+   the evidence that exists. The shares below are unchanged by the choice of
+   member, which is what makes it safe.
+
+   Resolving happens here, at the point of reading, so the dataset on disk stays a
+   faithful record of what was observed under each name, and a catalogue sync that
+   corrects a pairing takes effect without rewriting 3.9 MB of history. */
+function observedAt(entry: MonsterStatistics | undefined): string {
+  return entry?.artifacts?.observedAt ?? '';
+}
+
+const monsterStatistics: Record<string, MonsterStatistics> = {};
+for (const [masterId, recorded] of Object.entries(recordedStatistics)) {
+  const speciesId = monsterSpeciesId(masterId);
+  const existing = monsterStatistics[speciesId];
+  if (!existing || observedAt(recorded) > observedAt(existing)) monsterStatistics[speciesId] = recorded;
+}
+
+/** Monster species whose recorded distributions can support a real judgement. */
 export const recordedArtifactPreferenceMonsterIds = Object.keys(monsterStatistics);
 
 /* The category as the statistics slot it: the game serves both artifact slots
@@ -43,13 +68,14 @@ function totalCount(rows: EffectCount[]): number {
 }
 
 /**
- * What the community equips on this monster type, in this artifact category,
- * turned into preferences by decision 29's fixed shares.
+ * What the community equips on this monster species, in this artifact category,
+ * turned into preferences by decision 29's fixed shares. A master id resolves to
+ * its species first, so a collaboration monster and its generic twin answer
+ * alike whichever name the player's copy carries.
  *
- * `undefined` where the dataset has not captured this monster type — 396 of
- * 1,086 are recorded, so an uncaptured type is the ordinary case rather than an
- * edge one, and decision 18 requires it to read as *not judged* rather than as
- * a score of zero.
+ * `undefined` where the dataset has not captured this species — most are not, so
+ * an uncaptured one is the ordinary case rather than an edge one, and decision 18
+ * requires it to read as *not judged* rather than as a score of zero.
  *
  * These are defaults only. When the user's own per-type preferences arrive they
  * take precedence wherever they are stated, and are consulted nowhere else
@@ -59,7 +85,7 @@ export function defaultPropertyPreferences(
   masterId: unknown,
   category: ArtifactCategory,
 ): ArtifactPropertyPreferences | undefined {
-  const key = typeof masterId === 'number' || typeof masterId === 'string' ? String(masterId) : null;
+  const key = typeof masterId === 'number' || typeof masterId === 'string' ? monsterSpeciesId(masterId) : null;
   const artifacts = key === null ? undefined : monsterStatistics[key]?.artifacts;
   if (!artifacts) return undefined;
 

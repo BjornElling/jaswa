@@ -14,6 +14,7 @@
     "verify:craft-item-count": "node scripts/verify-craft-item-count.mjs",
     "verify:historical-artifact-import": "node scripts/verify-historical-artifact-import.mjs",
     "verify:intangible-artifacts": "node scripts/verify-intangible-artifacts.mjs",
+    "verify:collaboration-species": "node scripts/verify-collaboration-species.mjs",
     "audit:import-parity": "node scripts/audit-import-parity.mjs",
     "generate:pwa-assets": "pwa-assets-generator",
     "refresh:monsters": "node scripts/refresh-swarfarm-monsters.mjs",

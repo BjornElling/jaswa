@@ -81,6 +81,31 @@ Efter en vellykket refresh skal projektets build køres. Hvis den fejler eller
 et nyt import-ID stadig ikke findes, beholdes den forrige fungerende snapshot
 og afvigelsen undersøges før en ny forespørgselsrunde.
 
+## Collab-monstre og deres generiske udgaver
+
+Efter et collab-event genudgiver spillet de samme monstre under egne navne, med
+identiske stats og skills — kun navn og artwork skifter. Begge master-ID'er
+forbliver i omløb, og et eksemplar beholder det navn, det blev summonet under.
+
+Kataloget kender ikke det slægtskab, og det kan ikke udledes af ID'et: de tidlige
+collabs ligger i familieblokke med fast forskydning, mens Demon Slayer, TEKKEN 8
+og Ringenes Herre ikke gør. Sammenhængen er derfor skrevet ned i
+`app/data/collaboration-species.json` — bevidst uden for den synkroniserede
+snapshot, så en refresh ikke overskriver den. Filen holder 292 klasser over 591
+master-ID'er; `app/lib/monster-species.ts` og
+`scripts/collect-engraving-statistics.mjs` læser den begge, så der kun er én
+kilde.
+
+`npm run verify:collaboration-species` kontrollerer efter hver refresh, at hver
+klasse hænger sammen: medlemmerne findes i kataloget, deler element og
+awakening-trin, og er enige om `archetype`. Archetype er den bærende kontrol,
+fordi den ikke følger af ID'et — enighed på tværs af et par er dermed reelt
+bevis for, at parringen er rigtig. Kommandoen melder også, når et *pending* par
+kan opløses, fordi kataloget nu bærer modparten.
+
+Beslutning 37 i `ARTIFACT-SPRINT.md` er den bindende regel for, hvad der
+navngives efter master-ID og hvad efter art.
+
 ## Kilder
 
 - [Swarfarm README — API](https://github.com/swarfarm/swarfarm/blob/master/README.md)

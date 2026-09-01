@@ -14,7 +14,8 @@ import {
 } from '../lib/artifact-properties';
 import { readArtifacts } from '../lib/artifacts';
 import { formatNumber } from '../lib/formatting';
-import { monsterPresentation } from '../lib/monster-catalog';
+import { monsterPresentation, monsterSpeciesPresentation } from '../lib/monster-catalog';
+import { monsterSpeciesId } from '../lib/monster-species';
 import { numberedMonsterNames } from '../lib/monster-names';
 import { monsterNameCollator } from '../lib/monster-grid';
 import type { Artifact } from '../lib/artifacts';
@@ -59,16 +60,21 @@ function readOwnedMonsters(monsters: readonly GameRecord[]): OwnedMonster[] {
 
 function recommendationMonsters(monsters: readonly GameRecord[], onlyOwned: boolean): OwnedMonster[] {
   if (onlyOwned) return readOwnedMonsters(monsters);
-  return recordedArtifactPreferenceMonsterIds.map((masterId) => ({
-    unitId: `catalog-${masterId}`,
-    masterId,
-    name: monsterPresentation(masterId).name,
+  /* Not owned copies but monsters in the abstract, so each is named as a species
+     and a collaboration pair is listed once under both of its names. */
+  return recordedArtifactPreferenceMonsterIds.map((speciesId) => ({
+    unitId: `species-${speciesId}`,
+    masterId: speciesId,
+    name: monsterSpeciesPresentation(speciesId).name,
   })).sort((left, right) => monsterNameCollator.compare(left.name, right.name) || monsterNameCollator.compare(left.masterId, right.masterId));
 }
 
+/* Score matrices are built per species, while the rows above are per owned copy,
+   so an owned master id resolves to its species before it is looked up. */
 function scoreAt(calculation: CategoryCalculation, artifactId: string, masterId: string): number | undefined {
+  const speciesId = monsterSpeciesId(masterId);
   const artifactIndex = calculation.request.artifacts.findIndex((artifact) => artifact.id === artifactId);
-  const monsterIndex = calculation.request.monsters.findIndex((monster) => monster.id === masterId);
+  const monsterIndex = calculation.request.monsters.findIndex((monster) => monster.id === speciesId);
   const matrix = calculation.result.scoreMatrix;
   if (artifactIndex < 0 || monsterIndex < 0 || !matrix) return undefined;
   const value = matrix[artifactIndex * calculation.request.monsters.length + monsterIndex];
@@ -77,7 +83,7 @@ function scoreAt(calculation: CategoryCalculation, artifactId: string, masterId:
 
 function conversionAt(calculation: CategoryCalculation, artifactId: string, masterId: string): ArtifactConversion | undefined {
   const artifact = calculation.request.artifacts.find((entry) => entry.id === artifactId);
-  const monster = calculation.request.monsters.find((entry) => entry.id === masterId);
+  const monster = calculation.request.monsters.find((entry) => entry.id === monsterSpeciesId(masterId));
   return artifact && monster ? scoreArtifactOnMonster(artifact, monster, calculation.request)?.conversion : undefined;
 }
 

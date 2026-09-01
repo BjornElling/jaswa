@@ -10,6 +10,7 @@ import { artifactArchetypes, artifactCategoryLabels, artifactElements, artifactG
 import { readArtifacts } from '../lib/artifacts';
 import { formatNumber } from '../lib/formatting';
 import { monsterPresentation } from '../lib/monster-catalog';
+import { monsterSpeciesId } from '../lib/monster-species';
 import { numberedMonsterNames } from '../lib/monster-names';
 import { monsterNameCollator } from '../lib/monster-grid';
 import type { ArtifactCategory, ArtifactGrade, ArtifactMainProperty } from '../lib/artifact-properties';
@@ -40,6 +41,9 @@ type ArtifactFilters = {
 type MonsterOption = {
   unitId: string;
   masterId: string;
+  /* Scores are computed per species, so a copy carries the id its scores are
+     filed under as well as the master id the game gave it. */
+  speciesId: string;
   name: string;
   archetype: MonsterArchetype | undefined;
 };
@@ -87,7 +91,7 @@ function ownMonsterOptions(monsters: readonly GameRecord[]): MonsterOption[] {
       ? String(monster.unit_master_id) : undefined;
     if (!unitId || !masterId || seen.has(unitId)) continue;
     seen.add(unitId);
-    options.push({ unitId, masterId, name: names[unitId] ?? monsterPresentation(masterId).name, archetype: monsterPresentation(masterId).archetype });
+    options.push({ unitId, masterId, speciesId: monsterSpeciesId(masterId), name: names[unitId] ?? monsterPresentation(masterId).name, archetype: monsterPresentation(masterId).archetype });
   }
   return options.sort((left, right) => monsterNameCollator.compare(left.name, right.name)
     || monsterNameCollator.compare(left.unitId, right.unitId));
@@ -161,17 +165,17 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
   }, [artifacts]);
   const artifactInput = artifacts.map((artifact) => [artifact.id, artifact.occupiedId, artifact.mainProperty, artifact.convertedPropertyIndex,
     ...artifact.subProperties.map((subProperty) => [subProperty.definition.id, subProperty.valueHundredths, subProperty.maximumHundredths])]);
-  const inputKey = JSON.stringify({ artifactInput, monsterIds: ownMonsters.map((monster) => [monster.unitId, monster.masterId]), selectedArtifactId, settings });
+  const inputKey = JSON.stringify({ artifactInput, monsterIds: ownMonsters.map((monster) => [monster.unitId, monster.speciesId]), selectedArtifactId, settings });
   const currentCalculation = calculation?.inputKey === inputKey ? calculation : undefined;
   const owner = selectedArtifact?.occupiedId === null || selectedArtifact === undefined
     ? undefined : ownMonsters.find((monster) => monster.unitId === selectedArtifact.occupiedId);
-  const currentScore = owner ? currentCalculation?.ownedScores.get(owner.masterId) : undefined;
+  const currentScore = owner ? currentCalculation?.ownedScores.get(owner.speciesId) : undefined;
   const slotlessRows = ownMonsters.filter((monster) => selectedArtifact !== undefined
     && !equippedSlots.get(monster.unitId)?.has(selectedArtifact.category))
-    .map((monster) => ({ monster, score: currentCalculation?.ownedScores.get(monster.masterId) }))
+    .map((monster) => ({ monster, score: currentCalculation?.ownedScores.get(monster.speciesId) }))
     .sort((left, right) => (right.score?.value ?? -1) - (left.score?.value ?? -1) || left.monster.name.localeCompare(right.monster.name))
     .slice(0, 10);
-  const improvementRows = ownMonsters.map((monster) => ({ monster, score: currentCalculation?.ownedScores.get(monster.masterId) }))
+  const improvementRows = ownMonsters.map((monster) => ({ monster, score: currentCalculation?.ownedScores.get(monster.speciesId) }))
     .filter((row) => currentScore !== undefined && row.score !== undefined && row.score.value > currentScore.value)
     .sort((left, right) => (right.score?.value ?? 0) - (left.score?.value ?? 0) || left.monster.name.localeCompare(right.monster.name))
     .slice(0, 10);
@@ -193,7 +197,7 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
     const selected = new Set([selectedArtifact.id]);
     const scopeRequests = buildArtifactScoreRequests(data, monsters, settings, selected)
       .map((request) => ({ ...request, includeAllScores: true }));
-    const ownedRequests = buildArtifactScoreRequestsForMonsterIds(data, ownMonsters.map((monster) => monster.masterId), settings, selected)
+    const ownedRequests = buildArtifactScoreRequestsForMonsterIds(data, ownMonsters.map((monster) => monster.speciesId), settings, selected)
       .map((request) => ({ ...request, includeAllScores: true }));
     if (!scopeRequests.length) {
       setCalculation(undefined);
