@@ -21,7 +21,7 @@ import {
 import type { ArtifactCategory, ArtifactGrade, ArtifactMainProperty } from '../lib/artifact-properties';
 import { numberedMonsterNames } from '../lib/monster-names';
 import { formatNumber } from '../lib/formatting';
-import { useSessionStorageState } from '../lib/session-storage-state';
+import { useLocalStorageState } from '../lib/local-storage-state';
 
 const categoryOrder: readonly ArtifactCategory[] = ['attribute', 'type'];
 const elementOrder = Object.values(artifactElements);
@@ -134,7 +134,7 @@ export function ArtifactList({ game, monsters, preferences }: {
   preferences: Preferences;
 }) {
   const [sort, setSort] = useState<{ key: ArtifactSortKey; ascending: boolean }>({ key: 'index', ascending: true });
-  const [filters, setFilters] = useSessionStorageState(
+  const [filters, setFilters] = useLocalStorageState(
     'jaswa.filters.artifacts', defaultArtifactFilters, isArtifactFilterState,
   );
   const { search, selectedCategories, selectedClasses, selectedGrades, selectedMainProperties,

@@ -1,11 +1,11 @@
 import { type Dispatch, type SetStateAction, useMemo, useSyncExternalStore } from 'react';
 
-type SessionValueValidator<T> = (value: unknown) => value is T;
+type StoredValueValidator<T> = (value: unknown) => value is T;
 
-function readSessionValue<T>(key: string, validate: SessionValueValidator<T>): T | null {
+function readStoredValue<T>(key: string, validate: StoredValueValidator<T>): T | null {
   if (typeof window === 'undefined') return null;
   try {
-    const raw = window.sessionStorage.getItem(key);
+    const raw = window.localStorage.getItem(key);
     if (raw === null) return null;
     const value: unknown = JSON.parse(raw);
     return validate(value) ? value : null;
@@ -14,27 +14,27 @@ function readSessionValue<T>(key: string, validate: SessionValueValidator<T>): T
   }
 }
 
-function writeSessionValue<T>(key: string, value: T) {
+function writeStoredValue<T>(key: string, value: T) {
   if (typeof window === 'undefined') return;
   try {
-    window.sessionStorage.setItem(key, JSON.stringify(value));
+    window.localStorage.setItem(key, JSON.stringify(value));
   } catch {
-    /* Session-scoped choices remain usable when storage is unavailable or full. */
+    /* The current choice remains usable when persistent storage is unavailable or full. */
   }
 }
 
-type SessionStore<T> = {
+type LocalStore<T> = {
   subscribe: (listener: () => void) => () => void;
   getSnapshot: () => T;
   getServerSnapshot: () => T;
   setState: (update: SetStateAction<T>) => void;
 };
 
-function createSessionStore<T>(
+function createLocalStore<T>(
   key: string,
   initialValue: T,
-  validate: SessionValueValidator<T>,
-): SessionStore<T> {
+  validate: StoredValueValidator<T>,
+): LocalStore<T> {
   let value = initialValue;
   let loaded = false;
   const listeners = new Set<() => void>();
@@ -42,7 +42,7 @@ function createSessionStore<T>(
   function load() {
     if (loaded) return;
     loaded = true;
-    const stored = readSessionValue(key, validate);
+    const stored = readStoredValue(key, validate);
     if (stored !== null) value = stored;
   }
 
@@ -61,23 +61,23 @@ function createSessionStore<T>(
       value = typeof update === 'function'
         ? (update as (previous: T) => T)(value)
         : update;
-      writeSessionValue(key, value);
+      writeStoredValue(key, value);
       listeners.forEach((listener) => listener());
     },
   };
 }
 
 /**
- * Session state starts with its server-safe default, then adopts a validated
- * value from this tab during hydration. Updates write immediately so leaving a
- * page cannot race the effect that would otherwise persist the latest choice.
+ * Local state starts with its server-safe default, then adopts a validated
+ * value saved on this computer during hydration. Updates write immediately so
+ * closing a tab cannot race the persistence of the latest choice.
  */
-export function useSessionStorageState<T>(
+export function useLocalStorageState<T>(
   key: string,
   initialValue: T,
-  validate: SessionValueValidator<T>,
+  validate: StoredValueValidator<T>,
 ): [T, Dispatch<SetStateAction<T>>] {
-  const store = useMemo(() => createSessionStore(key, initialValue, validate), [key, initialValue, validate]);
+  const store = useMemo(() => createLocalStore(key, initialValue, validate), [key, initialValue, validate]);
   const value = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getServerSnapshot);
   return [value, store.setState];
 }

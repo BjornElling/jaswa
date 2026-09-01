@@ -55,22 +55,22 @@ export function ArtifactsSection({ settings, data, monsters, general, hardwareAc
       <p className="next-step">Import your game data first. Your preferences can be prepared at any time.</p>
     </section>}
 
-    <Disclosure title="Recommendations" sessionKey="artifacts.recommendations">
+    <Disclosure title="Recommendations" storageKey="artifacts.recommendations">
       {data ? <ArtifactMaximumValues data={data} monsters={monsters} settings={settings} general={general}
         hardwareAcceleration={hardwareAcceleration} /> : <p className="lead">Import your game data first, then ask every artifact where it can shine.</p>}
     </Disclosure>
 
-    <Disclosure title="Best monster for this artifact" sessionKey="artifacts.best-monster">
+    <Disclosure title="Best monster for this artifact" storageKey="artifacts.best-monster">
       {data ? <BestMonsterForArtifact data={data} monsters={monsters} settings={settings} general={general}
         hardwareAcceleration={hardwareAcceleration} /> : <p className="lead">Import your game data first, then find the monster that can make an artifact shine.</p>}
     </Disclosure>
 
-    <Disclosure title="Best artifact for this monster" sessionKey="artifacts.best-artifact">
+    <Disclosure title="Best artifact for this monster" storageKey="artifacts.best-artifact">
       {data ? <BestArtifactForMonster data={data} monsters={monsters} settings={settings} general={general}
         hardwareAcceleration={hardwareAcceleration} /> : <p className="lead">Import your game data first, then compare artifacts against one monster at a time.</p>}
     </Disclosure>
 
-    <Disclosure title="Settings" sessionKey="artifacts.settings">
+    <Disclosure title="Settings" storageKey="artifacts.settings">
       <div className="stack">
         <div className="artifact-general-layout">
           <div className="slider">

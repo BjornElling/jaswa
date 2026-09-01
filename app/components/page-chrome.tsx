@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useSessionStorageState } from '../lib/session-storage-state';
+import { useLocalStorageState } from '../lib/local-storage-state';
 
 const isBoolean = (value: unknown): value is boolean => typeof value === 'boolean';
 
@@ -14,15 +14,15 @@ export function PageHeader({ eyebrow, title, tagline }: { eyebrow?: string; titl
 /** A native disclosure keeps keyboard behaviour and find-in-page support in
     the browser, while the shared bar gives every workspace the same frame.
     The explicit key lets a workspace leave and return without losing its
-    current reading position during this browser tab. */
-export function Disclosure({ title, sessionKey, defaultOpen = false, children }: {
+    current reading position across restarts on this computer. */
+export function Disclosure({ title, storageKey, defaultOpen = false, children }: {
   title: string;
-  sessionKey: string;
+  storageKey: string;
   defaultOpen?: boolean;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useSessionStorageState<boolean>(
-    `jaswa.disclosures.${sessionKey}`,
+  const [open, setOpen] = useLocalStorageState<boolean>(
+    `jaswa.disclosures.${storageKey}`,
     defaultOpen,
     isBoolean,
   );

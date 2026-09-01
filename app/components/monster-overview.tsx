@@ -19,7 +19,7 @@ import {
 import type { MonsterGridColumn, MonsterRow, SortKey } from '../lib/monster-grid';
 import { numberedMonsterNames } from '../lib/monster-names';
 import { formatNumber } from '../lib/formatting';
-import { useSessionStorageState } from '../lib/session-storage-state';
+import { useLocalStorageState } from '../lib/local-storage-state';
 
 type MonsterFilterState = {
   search: string;
@@ -85,7 +85,7 @@ function MonsterTableHeader({ columns, sortHeader }: {
 
 export function MonsterOverview({ monsters, preferences }: { monsters: GameRecord[]; preferences: Preferences }) {
   const [sort, setSort] = useState<{ key: SortKey; ascending: boolean }>({ key: 'index', ascending: true });
-  const [filters, setFilters] = useSessionStorageState(
+  const [filters, setFilters] = useLocalStorageState(
     'jaswa.filters.monsters', defaultMonsterFilters, isMonsterFilterState,
   );
   const { search, selectedElements, selectedArchetypes, showStorage, showRainbowmons } = filters;

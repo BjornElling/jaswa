@@ -1,4 +1,5 @@
 import type { ImportedGame, Preferences } from './types';
+import { isValidPreferences } from './file-imports';
 
 const databaseName = 'jaswa-local';
 const storeName = 'workspace';
@@ -57,14 +58,26 @@ async function write(key: string, value: unknown): Promise<void> {
   });
 }
 
-function readPreferencesMirror(): Preferences | null {
+function readPreferencesMirror(): unknown {
   if (typeof window === 'undefined') return null;
   try {
     const raw = window.localStorage.getItem(preferencesMirrorKey);
-    return raw ? JSON.parse(raw) as Preferences : null;
+    return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
+}
+
+function latestPreferences(first: unknown, second: unknown): Preferences | null {
+  const firstValid = isValidPreferences(first) ? first : null;
+  const secondValid = isValidPreferences(second) ? second : null;
+  if (!firstValid) return secondValid;
+  if (!secondValid) return firstValid;
+  /* The synchronous mirror is written before IndexedDB, so it must win an
+     exact tie as well as a newer timestamp after a tab closes mid-write. */
+  return Date.parse(secondValid.updatedAt) >= Date.parse(firstValid.updatedAt)
+    ? secondValid
+    : firstValid;
 }
 
 function writePreferencesMirror(preferences: Preferences) {
@@ -105,11 +118,11 @@ export async function clearImportedGame(): Promise<void> {
 }
 
 export async function loadPreferences(): Promise<Preferences | null> {
+  const mirror = readPreferencesMirror();
   try {
-    const preferences = await read<Preferences>(preferencesKey);
-    return preferences ?? readPreferencesMirror();
+    return latestPreferences(await read<unknown>(preferencesKey), mirror);
   } catch {
-    return readPreferencesMirror();
+    return latestPreferences(null, mirror);
   }
 }
 
