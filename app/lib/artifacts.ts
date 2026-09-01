@@ -133,6 +133,12 @@ function readSubProperty(
    rolls are incomplete. The cutoff is deliberately conservative: a malformed
    current artifact is still rejected instead of being reinterpreted. */
 const artifactPowerUpRemoval = Date.UTC(2023, 6, 1);
+/* v6.2.0, which raised initial and power-up values. The account confirms the
+   date rather than merely inheriting it: every single-roll line that falls
+   below today's floor — 206 at 3, 406 at 3, 210 at 1 — sits on an artifact
+   acquired before it, and none after. Those 28 artifacts are exactly the set
+   carrying no power-ups at all, so the pre-v6.2 cohort and the unrefined
+   cohort are the same 28 records. */
 const artifactPropertyImprovement = Date.UTC(2021, 0, 28);
 
 function hasHistoricalRollModel(value: unknown): boolean {
@@ -143,7 +149,13 @@ function hasHistoricalRollModel(value: unknown): boolean {
 /* The v6.0 launch table, the v6.2 improvement notice and the preserved values
    in the export agree that pre-v8 records use a five-roll ceiling. Some old
    property ids disappeared later, so their ceilings belong here instead of
-   being guessed from today's drop pool. Values are percentage points. */
+   being guessed from today's drop pool. Values are percentage points.
+
+   206 and 226 follow the corrected names: 206 is SPD UP Effect (4-6, so 30)
+   and 226 the merged ATK/DEF UP Effect (3-5, so 25). The account shows why the
+   two are not interchangeable — 204 and 205 stop dead at v8 (90 and 42 lines
+   before, none after) while 226 begins there (none before, 223 after), so 226
+   is the merger of those two halves, and 206 spans both eras untouched. */
 function historicalPropertyMaximum(definition: ArtifactPropertyDefinition, dateAdded: unknown): number | null {
   const timestamp = typeof dateAdded === 'string' ? Date.parse(dateAdded) : Number.NaN;
   const improved = Number.isFinite(timestamp) && timestamp >= artifactPropertyImprovement;
@@ -153,9 +165,9 @@ function historicalPropertyMaximum(definition: ArtifactPropertyDefinition, dateA
     207: 30, 208: 15, 209: 20, 211: 30, 213: 15,
     216: improved ? 30 : 15, 217: improved ? 30 : 15,
     402: 30, 403: 30,
-    206: 25, 210: improved ? 20 : 15, 214: improved ? 20 : 15,
+    206: 30, 210: improved ? 20 : 15, 214: improved ? 20 : 15,
     215: improved ? 40 : 15, 218: 1.5, 219: 20, 220: 20, 221: 200,
-    222: 30, 223: 60, 224: 20, 225: 20, 226: 30,
+    222: 30, 223: 60, 224: 20, 225: 20, 226: 25,
     300: improved ? 25 : 20, 301: improved ? 25 : 20, 302: improved ? 25 : 20,
     303: improved ? 25 : 20, 304: improved ? 25 : 20,
     305: 30, 306: 30, 307: 30, 308: 30, 309: 30,

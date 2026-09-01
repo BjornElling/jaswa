@@ -1187,14 +1187,23 @@ and are **legacy**, absent from the engraving statistics and present only on
 artifacts added in 2020–2022. They are the pre-v8 `[Skill 3]` and `[Skill 4]`
 CRIT DMG that §5.1's merge note describes, preserved exactly as §12 predicts.
 
-**Three roll ranges in §5 are too narrow**, and the artifacts that break them
+**Two roll ranges in §5 are too narrow**, and the artifacts that break them
 were acquired *this month*, unconverted, on current-generation records:
 
 | id | Property | §5 says | Observed | Evidence |
 | ---: | --- | --- | --- | ---: |
-| 206 | ATK/DEF UP Effect | 3–5 | **3–6** | 157 lines |
 | 210 | Bomb Damage | 2–4 | **1–4** | 108 lines |
 | 401 | [Skill 2] CRIT DMG | 4–6 | **4–7** | 1 line of 6,881 |
+
+**206 was a third entry here and was wrong.** It read "ATK/DEF UP Effect,
+observed 3–6", but the game's own artifact panel (rid 1215663871) names 206
+**SPD UP Effect** and 226 **ATK/DEF UP Effect** — §5.3's two ranges were right
+and the ids were swapped against them. 206 rolls 4–6 as §5.3 says of SPD UP
+Effect; its lone 3 came from a pre-v6.2.0 artifact rolling under the older,
+lower table (§15.11), not from a wider current range. The occurrence counts
+settle it independently: 204 and 205 stop dead at v8 (90 and 42 lines before,
+none after) while 226 appears only after it (none before, 223 after), so 226 is
+the merger of those two halves and 206 was never merged at all.
 
 The 401 widening rests on a single observation, which is thin — but the
 alternative is a ceiling a real artifact provably exceeds, and a roll fraction
@@ -1224,6 +1233,43 @@ unrefined and must carry a visible Refine marker, but it remains in every
 recommendation and calculation. A current-dated record with the same broken
 invariant remains malformed and is rejected; historical date alone does not
 turn corrupt new data into a legacy record.
+
+### 15.11 Three generations, and the v6.2.0 boundary is visible in the data
+
+The roll tables have changed twice, so "the range" is a question about a date:
+
+| Generation | From | What changed |
+| --- | --- | --- |
+| Launch | v6.0 | the original, lower roll table |
+| **v6.2.0** | 2021-01-28 | initial and power-up values raised |
+| v8.0.0 | 2023-06-30 | drops arrive finished; five properties retired, six merged into three, one added |
+
+**v8 did not generally change the roll ranges.** Comparing single-roll values
+either side of it across 29 properties, 24 are identical; the exceptions are
+sparse tails or the v6.2.0 effect below. What v8 changed is the *vocabulary*
+and the upgrade mechanic, not the per-roll figures.
+
+**The v6.2.0 date is confirmed by the account, not merely inherited from patch
+notes.** Every single-roll line that falls below today's floor — 206 at 3 %,
+406 at 3 %, 210 at 1 % — sits on an artifact acquired *before* 2021-01-28, and
+none after. Those 28 artifacts are exactly the set carrying no power-ups at
+all, so the pre-v6.2 cohort and §15.10's unrefined cohort are the same records.
+
+The legacy roll ranges are therefore knowable, by reading single unpowered
+lines from artifacts acquired after the increase:
+
+| id | Range | id | Range |
+| ---: | --- | ---: | --- |
+| 200 / 201 / 202 | 9–14 | 208 / 209 | 2–4 |
+| 204 | 3–5 | 216 | 4–6 |
+| 205 | 2–4 | 402 | 4–6 |
+
+Each agrees with the published v8 merge table. **They are still not stored as
+ranges**, because `readSubProperty` uses a range as a rejection test: filling
+these in refuses 55 artifacts this account legitimately holds — the 28 that
+predate v6.2.0, plus pre-v8 lines whose value is not a whole multiple of any
+per-roll figure, the old upgrade mechanic not having worked that way. §12's
+rule governs: a range that would reject a legal artifact is worse than none.
 
 ---
 

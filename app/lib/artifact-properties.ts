@@ -89,17 +89,26 @@ export const artifactIntangibleLabel = 'Intangible';
  * range, and the game's engraving statistics separate current from legacy —
  * an id the statistics never mention is one the drop pool no longer produces.
  *
- * The ranges are the observed ones. Four of them (206, 210, 219, 220) roll
- * below the figure `ARTIFACT-CANONICAL.md` §5 records, on current artifacts
- * acquired this month, so the export governs and §5's table is the narrower
- * secondary source.
+ * The ranges are the observed ones. Three of them (210, 219, 220) roll below
+ * the figure `ARTIFACT-CANONICAL.md` §5 records, on current artifacts acquired
+ * this month, so the export governs and §5's table is the narrower secondary
+ * source.
+ *
+ * 206 and 226 were a fourth such case until the game's own artifact panel
+ * showed the cause was a swapped pair of names rather than a wider range: §5.3
+ * pairs "SPD UP Effect" with 4-6 and "ATK/DEF UP Effect" with 3-5, and the
+ * export agrees once each name sits on the right id (§15.9).
  *
  * Legacy names come from the lines the export actually carries; legacy ranges
  * stay `null` under §12 rather than being inferred from the few examples owned.
  */
 export const artifactProperties: readonly ArtifactPropertyDefinition[] = [
   /* Available on both categories. */
-  { id: 206, name: 'ATK/DEF UP Effect', availability: 'both', status: 'current', minRoll: 3, maxRoll: 6 },
+  /* The game's own artifact panel names these two, on rid 1215663871: its
+     unpowered +6 line reads "SPD UP effect" and its unpowered +5 line reads
+     "ATK/DEF UP Effect". That also settles the ranges the export observes —
+     4-6 here and 3-5 on 226 — against §5.3, which had the pairing reversed. */
+  { id: 206, name: 'SPD UP Effect', availability: 'both', status: 'current', minRoll: 4, maxRoll: 6 },
   { id: 210, name: 'Bomb Damage', availability: 'both', status: 'current', minRoll: 1, maxRoll: 4 },
   { id: 214, name: 'CRIT DMG Taken', valueSign: '−', availability: 'both', status: 'current', minRoll: 2, maxRoll: 4 },
   { id: 215, name: 'Life Drain', availability: 'both', status: 'current', minRoll: 5, maxRoll: 8 },
@@ -111,7 +120,7 @@ export const artifactProperties: readonly ArtifactPropertyDefinition[] = [
   { id: 223, name: 'CRIT DMG as enemy HP is less', availability: 'both', status: 'current', minRoll: 8, maxRoll: 12 },
   { id: 224, name: 'Own turn 1-target CRIT DMG', availability: 'both', status: 'current', minRoll: 2, maxRoll: 4 },
   { id: 225, name: 'Counterattack/Co-op Attack DMG', availability: 'both', status: 'current', minRoll: 2, maxRoll: 4 },
-  { id: 226, name: 'SPD UP Effect', availability: 'both', status: 'current', minRoll: 3, maxRoll: 5 },
+  { id: 226, name: 'ATK/DEF UP Effect', availability: 'both', status: 'current', minRoll: 3, maxRoll: 5 },
 
   /* Attribute artifacts only. It is the target's element that matters, not the
      wearer's (§5.2), so the names say "on" and "from" rather than naming the
@@ -146,23 +155,50 @@ export const artifactProperties: readonly ArtifactPropertyDefinition[] = [
   /* Legacy. Kept because the game preserves them on artifacts that already
      carried them, and rejecting one would reject a legal artifact (§12).
 
-     Three names are anchored by an artifact the game itself displayed — 201,
-     205 and 217 on rid 319233427 — and 402/403 by the merge §5.1 records.
-     The rest are matched to §12's list of removed properties by their category
-     and value shape, which is weaker evidence than the current vocabulary has.
-     An id no observation names keeps its number rather than borrowing a label
-     from a neighbouring one. */
+     Every name here but one is anchored by an artifact the game itself
+     displayed: 201, 205 and 217 on rid 319233427; 200 and 217 on rid 60850484;
+     207, 208 and 213 on rid 60874386; 203 and 211 on rid 52204289; 208 and 209
+     on rid 147366072. 402/403 come from the merge §5.1 records. Only 212 is
+     unanchored — it is the one legacy id this account does not carry, so its
+     name still rests on §12's list alone.
+
+     Every id here does occur on this account once equipped artifacts are read
+     as well: they cluster on the roster, not in the inventory, which is why
+     §15.5 saw only three of them from `data.artifacts` by itself.
+
+     `availability` stays 'both' even where the observed lines fall on one
+     category only — 203 on three Type artifacts, 207 on a single Attribute
+     one. Those samples are far too thin to narrow a field whose only effect is
+     to reject a line on import, and §12's rule is that a legal artifact must
+     never be refused.
+
+     The ranges stay `null` even though the account now supplies them. Reading
+     single unpowered lines from artifacts acquired after the v6.2.0 increase
+     gives 200/201/202 = 9-14, 204 = 3-5, 205 = 2-4, 208/209 = 2-4, 216 = 4-6
+     and 402 = 4-6, each agreeing with the published v8 merge table. They are
+     recorded here rather than in the fields because `readSubProperty` treats a
+     range as a rejection test: filling these in refuses 55 artifacts this
+     account holds — the 28 that predate v6.2.0 and roll under the older, lower
+     table, plus pre-v8 lines whose value is not a whole multiple of any
+     per-roll figure because the old upgrade mechanic did not work that way.
+     A range that would reject a legal artifact is worse than no range (§12). */
   { id: 200, name: 'ATK Increased Proportional to Lost HP', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null },
   { id: 201, name: 'DEF Increased Proportional to Lost HP', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null },
   { id: 202, name: 'SPD Increased Proportional to Lost HP', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null },
-  { id: 203, name: 'Legacy property 203', availability: 'type', status: 'legacy', minRoll: null, maxRoll: null },
+  { id: 203, name: 'SPD Under Inability Effects', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null },
   { id: 204, name: 'ATK Increasing Effect', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null },
   { id: 205, name: 'DEF Increasing Effect', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null },
-  { id: 207, name: 'Legacy property 207', availability: 'attribute', status: 'legacy', minRoll: null, maxRoll: null },
-  { id: 208, name: 'Legacy property 208', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null },
-  { id: 209, name: 'Legacy property 209', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null },
-  { id: 211, name: 'Legacy property 211', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null },
-  { id: 213, name: 'Legacy property 213', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null },
+  { id: 207, name: 'CRIT Rate Increasing Effect', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null },
+  /* 208 and 209 are the pre-v8 halves of what §5.1 records as a merge, both
+     confirmed on artifact panels: "Counterattack DMG" and "Co-op attack DMG",
+     which v8 combined into 225 "Counterattack/Co-op Attack DMG". Each half is
+     named after the side of that survivor it became — the same shape, and the
+     same reason they are legacy, as 402/403 → 410. */
+  { id: 208, name: 'Counterattack DMG', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null },
+  { id: 209, name: 'Co-op Attack DMG', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null },
+  { id: 211, name: 'Damage Dealt by Reflect DMG', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null },
+  { id: 212, name: 'Crushing Hit DMG', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null },
+  { id: 213, name: 'Damage Received Under Inability Effects', valueSign: '−', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null },
   { id: 216, name: 'HP when Revived', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null },
   { id: 217, name: 'Attack Bar when Revived', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null },
   { id: 402, name: '[Skill 3] CRIT DMG', availability: 'type', status: 'legacy', minRoll: null, maxRoll: null },

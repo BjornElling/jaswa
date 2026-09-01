@@ -19,8 +19,8 @@ const server = await createServer({
    which of `attribute`/`unit_style` carries the class, as §15.1 records. */
 function artifact(id, { type, attribute = 0, unitStyle = 0 }) {
   const effects = type === 1
-    ? [[206, 3, 0, 0, 0], [223, 8, 0, 0, 0], [304, 8, 1, 0, 0], [220, 6, 1, 0, 0]]
-    : [[206, 3, 0, 0, 0], [223, 8, 0, 0, 0], [400, 8, 1, 0, 0], [220, 6, 1, 0, 0]];
+    ? [[206, 4, 0, 0, 0], [223, 8, 0, 0, 0], [304, 8, 1, 0, 0], [220, 6, 1, 0, 0]]
+    : [[206, 4, 0, 0, 0], [223, 8, 0, 0, 0], [400, 8, 1, 0, 0], [220, 6, 1, 0, 0]];
   return {
     rid: id, type, attribute, unit_style: unitStyle, natural_rank: 3, rank: 5, level: 15,
     pri_effect: [101, 100, 15, 0, 0], sec_effects: effects,
