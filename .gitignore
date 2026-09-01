@@ -5,6 +5,7 @@
 /helper/.next/
 /helper/dist/
 /helper/out/
+/helper/native/target/
 /public/win-unpacked/
 /public/win-unpacked.tmp/
 /helper-build/

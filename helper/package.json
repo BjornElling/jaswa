@@ -3,54 +3,10 @@
   "private": true,
   "author": "JASWA",
   "description": "Local Steam companion for JASWA.",
-  "main": "src/tray.cjs",
   "scripts": {
-    "start": "electron .",
-    "test": "node --test",
+    "start": "cargo run --release --manifest-path native/Cargo.toml",
+    "test": "cargo test --manifest-path native/Cargo.toml",
     "package": "node scripts/package.cjs"
   },
-  "dependencies": {
-    "http-mitm-proxy": "1.1.0"
-  },
-  "overrides": {
-    "http-mitm-proxy": {
-      "uuid": "11.1.0"
-    }
-  },
-  "devDependencies": {
-    "electron": "24.8.8",
-    "electron-builder": "26.15.3"
-  },
-  "build": {
-    "appId": "dk.jaswa.helper",
-    "productName": "JASWA Helper",
-    "artifactName": "JASWA-Helper-Setup.exe",
-    "electronLanguages": [
-      "en-US"
-    ],
-    "icon": "../public/favicon.ico",
-    "directories": {
-      "output": "../public"
-    },
-    "files": [
-      "src/**/*",
-      "package.json"
-    ],
-    "extraResources": [
-      {
-        "from": "../public/favicon.ico",
-        "to": "favicon.ico"
-      }
-    ],
-    "nsis": {
-      "oneClick": true,
-      "perMachine": true,
-      "allowToChangeInstallationDirectory": false,
-      "runAfterFinish": false,
-      "include": "build/uninstall-cleanup.nsh"
-    },
-    "win": {
-      "signExecutable": false
-    }
-  }
+  "engines": { "node": ">=22.13.0" }
 }
