@@ -164,3 +164,18 @@ test('removes a gem or grindstone when it is spent on a rune', () => {
   assert.deepEqual(store.read().data.rune_craft_item_list, []);
   assert.deepEqual(store.read().data.runes, [{ rune_id: 5, upgrade_curr: 12, sec_effect: [[4, 15]] }]);
 });
+
+test('decrements a stacked gem or grindstone for each rune action', () => {
+  const store = new ProfileStore();
+  store.acceptSnapshot({
+    unit_list: [], runes: [{ rune_id: 5, upgrade_curr: 12, sec_effect: [[8, 10]] }], artifacts: [], relics: [],
+    rune_craft_item_list: [{ craft_item_id: 8, craft_type: 1, amount: 3 }],
+  });
+
+  assert.equal(store.applyUpdate({ rune: { rune_id: 5, sec_effect: [[8, 15]] } }, { command: 'AmplifyRune_v2', rune_id: 5, craft_item_id: 8 }), true);
+  assert.deepEqual(store.read().data.rune_craft_item_list, [{ craft_item_id: 8, craft_type: 1, amount: 2 }]);
+  assert.equal(store.applyUpdate({ rune: { rune_id: 5, sec_effect: [[8, 18]] } }, { command: 'AmplifyRune_v2', rune_id: 5, craft_item_id: 8 }), true);
+  assert.deepEqual(store.read().data.rune_craft_item_list, [{ craft_item_id: 8, craft_type: 1, amount: 1 }]);
+  assert.equal(store.applyUpdate({ rune: { rune_id: 5, sec_effect: [[8, 21]] } }, { command: 'AmplifyRune_v2', rune_id: 5, craft_item_id: 8 }), true);
+  assert.deepEqual(store.read().data.rune_craft_item_list, []);
+});

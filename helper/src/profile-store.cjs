@@ -31,6 +31,18 @@ function removeCollectionItems(current, identifiers, key) {
   return (Array.isArray(current) ? current : []).filter((item) => !removed.has(identifier(item, key)));
 }
 
+/* Craft records are stacks. A rune action consumes one gem or grindstone from
+   its identified stack; only a one-item (or malformed) stack disappears. */
+function consumeCraftItems(current, identifiers) {
+  const consumed = new Set((Array.isArray(identifiers) ? identifiers : []).map(String));
+  return (Array.isArray(current) ? current : []).flatMap((item) => {
+    if (!consumed.has(identifier(item, 'craft_item_id'))) return [item];
+    const amount = isRecord(item) ? item.amount : undefined;
+    if (!Number.isSafeInteger(amount) || amount <= 1) return [];
+    return [{ ...item, amount: amount - 1 }];
+  });
+}
+
 const trackedEntities = Object.freeze([
   {
     collection: 'unit_list', identifierKey: 'unit_id', directKeys: new Set(['unit_info', 'unit']),
@@ -216,14 +228,14 @@ class ProfileStore {
       const runeId = identifier(request, 'rune_id');
       if (runeId && moveEquipment(this.profile, rune, runeId)) changed = true;
     }
-    /* Gems and grindstones are account items too. Their actions return the
-       altered rune but not the consumed craft item, so remove that item from
-       the snapshot from the request that spent it. */
+    /* The rune response omits the craft stack it consumed. The request names
+       that stack, so keep the snapshot equal to the account by decrementing
+       it once rather than dropping every matching gem or grindstone. */
     if (commandName.includes('amplifyrune') || commandName.includes('convertrune')) {
       const craft = trackedEntities.find((entity) => entity.collection === 'rune_craft_item_list');
       if (craft) {
         const ids = requestIdentifiers(request, craft.identifierKey);
-        const next = removeCollectionItems(this.profile[craft.collection], ids, craft.identifierKey);
+        const next = consumeCraftItems(this.profile[craft.collection], ids);
         if (!isDeepStrictEqual(next, this.profile[craft.collection])) {
           this.profile[craft.collection] = next;
           changed = true;

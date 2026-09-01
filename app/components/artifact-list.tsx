@@ -4,6 +4,7 @@ import { type ReactNode, useMemo, useState } from 'react';
 import { PageHeader } from './page-chrome';
 import { DataTablePage } from './data-table-page';
 import { Dropdown } from './dropdown';
+import { UnrefinedArtifactMark } from './unrefined-artifact-mark';
 import type { GameRecord } from '../lib/game-data';
 import type { ImportedGame, Preferences } from '../lib/types';
 import { readArtifacts } from '../lib/artifacts';
@@ -393,7 +394,7 @@ export function ArtifactList({ game, monsters, preferences }: {
     >
       <tbody>
           {visible.length ? visible.map((row) => <tr key={row.artifact.id}>
-            <td className="align-left row-index">{String(row.index + 1).padStart(2, '0')}</td>
+            <td className="align-left row-index"><UnrefinedArtifactMark unrefined={row.artifact.unrefined} />{String(row.index + 1).padStart(2, '0')}</td>
             <td className={row.location ? 'align-left' : 'align-left muted'}
               title={row.location === null ? 'Worn by a monster this import does not contain' : undefined}>
               {row.location ?? 'Unknown monster'}

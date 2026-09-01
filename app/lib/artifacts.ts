@@ -32,6 +32,8 @@ export type Artifact = {
   /** The wearer's `unit_id`, or `null` when the artifact sits in the inventory. */
   occupiedId: string | null;
   locked: boolean;
+  /** Pre-v8 artifacts below +15 still need the game's one-time Refine action. */
+  unrefined: boolean;
 };
 
 function numberOrNull(value: unknown): number | null {
@@ -60,7 +62,13 @@ function contributions(powerUps: number, newestLine: boolean): number {
   return powerUps + (newestLine ? 1 : 0) + 1;
 }
 
-function readSubProperty(entry: unknown, category: ArtifactCategory, grade: ArtifactGrade): ArtifactSubProperty | null {
+function readSubProperty(
+  entry: unknown,
+  category: ArtifactCategory,
+  grade: ArtifactGrade,
+  rollModel: 'current' | 'historical',
+  historicalMaximumHundredths: number | null,
+): ArtifactSubProperty | null {
   if (!Array.isArray(entry)) return null;
   const definition = artifactProperty(entry[0]);
   const value = numberOrNull(entry[1]);
@@ -81,7 +89,7 @@ function readSubProperty(entry: unknown, category: ArtifactCategory, grade: Arti
      such as 0.251 % as 0.25 % would quietly repair malformed user data. */
   const valueHundredths = toHundredths(value);
   if (Math.abs(value * 100 - valueHundredths) > 0.000001) return null;
-  if (definition.minRoll !== null && definition.maxRoll !== null) {
+  if (rollModel === 'current' && definition.minRoll !== null && definition.maxRoll !== null) {
     const minimumHundredths = toHundredths(definition.minRoll * lineContributions);
     const maximumHundredths = toHundredths(definition.maxRoll * lineContributions);
     if (valueHundredths < minimumHundredths || valueHundredths > maximumHundredths) return null;
@@ -95,10 +103,50 @@ function readSubProperty(entry: unknown, category: ArtifactCategory, grade: Arti
        roll cannot reach the four-roll maximum, and judging it against that
        would call every ordinary line a poor one. The grade still bounds it —
        `artifactPropertyMaximum` is the same arithmetic at the grade's limit. */
-    maximumHundredths: definition.maxRoll === null
-      ? null
+    maximumHundredths: rollModel === 'historical'
+      ? historicalMaximumHundredths
+      : definition.maxRoll === null
+        ? historicalMaximumHundredths
       : toHundredths(definition.maxRoll * lineContributions),
   };
+}
+
+/* v8's late-June 2023 artifact update retired manual power-ups. A date before
+   the following month can therefore name a real pre-v8 artifact whose stored
+   rolls are incomplete. The cutoff is deliberately conservative: a malformed
+   current artifact is still rejected instead of being reinterpreted. */
+const artifactPowerUpRemoval = Date.UTC(2023, 6, 1);
+const artifactPropertyImprovement = Date.UTC(2021, 0, 28);
+
+function hasHistoricalRollModel(value: unknown): boolean {
+  return typeof value === 'string' && Number.isFinite(Date.parse(value))
+    && Date.parse(value) < artifactPowerUpRemoval;
+}
+
+/* The v6.0 launch table, the v6.2 improvement notice and the preserved values
+   in the export agree that pre-v8 records use a five-roll ceiling. Some old
+   property ids disappeared later, so their ceilings belong here instead of
+   being guessed from today's drop pool. Values are percentage points. */
+function historicalPropertyMaximum(definition: ArtifactPropertyDefinition, dateAdded: unknown): number | null {
+  const timestamp = typeof dateAdded === 'string' ? Date.parse(dateAdded) : Number.NaN;
+  const improved = Number.isFinite(timestamp) && timestamp >= artifactPropertyImprovement;
+  const maxima: Record<number, number> = {
+    200: improved ? 70 : 30, 201: improved ? 70 : 30, 202: improved ? 70 : 30,
+    203: 30, 204: improved ? 25 : 20, 205: improved ? 25 : 20,
+    207: 30, 208: 15, 209: 20, 211: 30, 213: 15,
+    216: improved ? 30 : 15, 217: improved ? 30 : 15,
+    402: 30, 403: 30,
+    206: 25, 210: improved ? 20 : 15, 214: improved ? 20 : 15,
+    215: improved ? 40 : 15, 218: 1.5, 219: 20, 220: 20, 221: 200,
+    222: 30, 223: 60, 224: 20, 225: 20, 226: 30,
+    300: improved ? 25 : 20, 301: improved ? 25 : 20, 302: improved ? 25 : 20,
+    303: improved ? 25 : 20, 304: improved ? 25 : 20,
+    305: 30, 306: 30, 307: 30, 308: 30, 309: 30,
+    400: 30, 401: 30, 404: 30, 405: 30, 406: 30, 407: 30, 408: 30, 409: 30,
+    410: 30, 411: 30,
+  };
+  const maximum = maxima[definition.id];
+  return maximum === undefined ? null : toHundredths(maximum);
 }
 
 /**
@@ -124,7 +172,10 @@ export function readArtifact(record: unknown): Artifact | null {
 
   const secondary = source.sec_effects;
   if (!Array.isArray(secondary) || secondary.length !== 4) return null;
-  const subProperties: ArtifactSubProperty[] = [];
+  const historicalMaximum = (definition: ArtifactPropertyDefinition) => hasHistoricalRollModel(source.date_add)
+    ? historicalPropertyMaximum(definition, source.date_add)
+    : null;
+  const currentSubProperties: ArtifactSubProperty[] = [];
   let convertedPropertyIndex: number | null = null;
   for (const [index, entry] of secondary.entries()) {
     /* The conversion flag identifies the line's permanent conversion slot.
@@ -136,16 +187,31 @@ export function readArtifact(record: unknown): Artifact | null {
       if (convertedPropertyIndex !== null) return null;
       convertedPropertyIndex = index;
     }
-    const subProperty = readSubProperty(entry, category, grade);
-    if (!subProperty) return null;
-    subProperties.push(subProperty);
+    const definition = artifactProperty(Array.isArray(entry) ? entry[0] : null);
+    const subProperty = readSubProperty(entry, category, grade, 'current', definition ? historicalMaximum(definition) : null);
+    if (subProperty) currentSubProperties.push(subProperty);
   }
-  /* §4: the same property never appears twice on one artifact. */
-  if (new Set(subProperties.map((property) => property.definition.id)).size !== subProperties.length) return null;
-  /* The export's grade invariant is exact: it is the only trustworthy check
-     that a record has not redistributed or invented a power-up while still
-     making each line look individually plausible. */
-  if (subProperties.reduce((total, property) => total + property.powerUps, 0) !== artifactGrades[grade].naturalRank - 1) return null;
+  const currentRollModel = currentSubProperties.length === secondary.length
+    && new Set(currentSubProperties.map((property) => property.definition.id)).size === currentSubProperties.length
+    /* The export's grade invariant is exact for v8-era artifacts: it is the
+       only trustworthy check that a record has not redistributed or invented
+       a power-up while still making each line look individually plausible. */
+    && currentSubProperties.reduce((total, property) => total + property.powerUps, 0) === artifactGrades[grade].naturalRank - 1;
+
+  let subProperties = currentSubProperties;
+  if (!currentRollModel) {
+    if (!hasHistoricalRollModel(source.date_add)) return null;
+    subProperties = [];
+    for (const entry of secondary) {
+      const definition = artifactProperty(Array.isArray(entry) ? entry[0] : null);
+      const subProperty = readSubProperty(entry, category, grade, 'historical', definition ? historicalMaximum(definition) : null);
+      if (!subProperty) return null;
+      subProperties.push(subProperty);
+    }
+    /* §4 is true for both generations; the old model only relaxes the roll
+       ranges and total because those are precisely what Refine completed. */
+    if (new Set(subProperties.map((property) => property.definition.id)).size !== subProperties.length) return null;
+  }
 
   const occupied = numberOrNull(source.occupied_id);
   return {
@@ -160,6 +226,9 @@ export function readArtifact(record: unknown): Artifact | null {
     convertedPropertyIndex,
     occupiedId: occupied === null || occupied === 0 ? null : String(occupied),
     locked: Boolean(numberOrNull(source.locked)),
+    unrefined: hasHistoricalRollModel(source.date_add)
+      && Number.isSafeInteger(numberOrNull(source.level))
+      && (numberOrNull(source.level) as number) < 15,
   };
 }
 

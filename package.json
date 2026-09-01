@@ -12,6 +12,7 @@
     "verify:library-layout": "node scripts/verify-library-layout.mjs",
     "verify:engraved-conversion-stones": "node scripts/verify-engraved-conversion-stones.mjs",
     "verify:craft-item-count": "node scripts/verify-craft-item-count.mjs",
+    "verify:historical-artifact-import": "node scripts/verify-historical-artifact-import.mjs",
     "generate:pwa-assets": "pwa-assets-generator",
     "refresh:monsters": "node scripts/refresh-swarfarm-monsters.mjs",
     "fetch:monster-images": "node scripts/fetch-monster-images.mjs"

@@ -2,6 +2,7 @@
 
 import { type ReactNode, useMemo, useState } from 'react';
 import { Dropdown } from './dropdown';
+import { UnrefinedArtifactMark } from './unrefined-artifact-mark';
 import { calculateArtifactScores } from '../lib/compute/artifact-score-client';
 import { buildArtifactScoreRequests, buildArtifactScoreRequestsForMonsterIds } from '../lib/compute/artifact-score-input';
 import { artifactCategoryLabel, artifactEquipClass, displaySubProperty } from '../lib/artifact-grid';
@@ -273,7 +274,7 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
     {selectedArtifact && <section className="best-monster-artifact-details" aria-labelledby="selected-artifact-title">
       <div>
         <p className="filter-label">Selected artifact</p>
-        <h3 id="selected-artifact-title">#{String((artifactNumbers.get(selectedArtifact.id) ?? 0) + 1).padStart(2, '0')} · {selectedArtifact.grade} {artifactCategoryLabel(selectedArtifact.category)}</h3>
+        <h3 id="selected-artifact-title"><UnrefinedArtifactMark unrefined={selectedArtifact.unrefined} />#{String((artifactNumbers.get(selectedArtifact.id) ?? 0) + 1).padStart(2, '0')} · {selectedArtifact.grade} {artifactCategoryLabel(selectedArtifact.category)}</h3>
         <p>{artifactEquipClass(selectedArtifact) ?? 'Unknown restriction'} · Main stat {selectedArtifact.mainProperty} +{formatNumber(selectedArtifact.mainValue, general)}</p>
       </div>
       <ul className="artifact-subs">

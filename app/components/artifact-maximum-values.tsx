@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Dropdown } from './dropdown';
+import { UnrefinedArtifactMark } from './unrefined-artifact-mark';
 import { calculateArtifactScores } from '../lib/compute/artifact-score-client';
 import { buildArtifactScoreRequestsForMonsterIds } from '../lib/compute/artifact-score-input';
 import { scoreArtifactOnMonster } from '../lib/compute/artifact-score-core';
@@ -229,7 +230,7 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
       {visibleArtifacts.length ? <div className="artifact-recommendation-table-wrap"><table className="artifact-recommendation-table"><thead><tr><th scope="col">#</th><th scope="col">Type</th><th scope="col">Restriction</th><th scope="col">Main stat</th><th scope="col">Substats</th><th scope="col">Location</th><th scope="col">Value on mon</th><th scope="col">Recommendation</th><th scope="col">New value</th><th scope="col">Best conversion</th></tr></thead><tbody>{visibleArtifacts.map((artifact) => {
         const wearer = artifact.occupiedId === null ? undefined : wearerByUnitId.get(artifact.occupiedId);
         const allocation = currentCalculation.allocations.get(artifact.id);
-        return <tr key={artifact.id}><td>#{String(artifactNumbers.get(artifact.id) ?? artifact.id)}</td><td>{artifactCategoryLabel(artifact.category)}</td><td>{artifactEquipClass(artifact) ?? 'Unknown'}</td><td>{artifact.mainProperty} +{formatNumber(artifact.mainValue, general)}</td><td><ul className="artifact-subs">{artifact.subProperties.map((property) => <li key={property.definition.id}>{displaySubProperty(property, (value) => formatNumber(value, general))}</li>)}</ul></td><td>{artifact.occupiedId === null ? 'Inventory' : wearer?.name ?? 'Missing monster'}</td><td><Score value={scoreForWearer(artifact)} general={general} /></td><td className={allocation ? '' : 'artifact-recommendation-sell'}>{allocation ? allocation.monster.name : 'Sell'}</td><td><Score value={allocation?.value} general={general} /></td><td className={allocation ? '' : 'muted'}>{allocation ? conversionLabel(allocation.conversion) : '—'}</td></tr>;
+        return <tr key={artifact.id}><td><UnrefinedArtifactMark unrefined={artifact.unrefined} />#{String(artifactNumbers.get(artifact.id) ?? artifact.id)}</td><td>{artifactCategoryLabel(artifact.category)}</td><td>{artifactEquipClass(artifact) ?? 'Unknown'}</td><td>{artifact.mainProperty} +{formatNumber(artifact.mainValue, general)}</td><td><ul className="artifact-subs">{artifact.subProperties.map((property) => <li key={property.definition.id}>{displaySubProperty(property, (value) => formatNumber(value, general))}</li>)}</ul></td><td>{artifact.occupiedId === null ? 'Inventory' : wearer?.name ?? 'Missing monster'}</td><td><Score value={scoreForWearer(artifact)} general={general} /></td><td className={allocation ? '' : 'artifact-recommendation-sell'}>{allocation ? allocation.monster.name : 'Sell'}</td><td><Score value={allocation?.value} general={general} /></td><td className={allocation ? '' : 'muted'}>{allocation ? conversionLabel(allocation.conversion) : '—'}</td></tr>;
       })}</tbody></table></div> : <p className="artifact-recommendation-empty">No artifacts match these filters.</p>}
     </>}
   </div>;

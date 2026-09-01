@@ -1164,6 +1164,23 @@ otherwise break it**, leaving one. That is strong evidence about the roll
 structure and none at all about the field's semantics, so the reader uses it for
 the contribution count and for nothing else — §15.7's prohibition stands.
 
+### 15.10 Pre-v8 artifacts can remain unrefined
+
+The September 1 import audit found 202 readable artifacts added in 2020–2022
+whose values and category layout are valid, but whose old ranges or power-up
+totals do not match §15.3's current finished-artifact invariant. This is the
+state that v8's Refine action was designed to complete: an account may still
+retain an old artifact until its owner chooses to refine it.
+
+The reader must accept those records when their `date_add` predates July 2023.
+Their values are evaluated against the documented historical +15 ceilings: the
+launch table, the v6.2 property improvement, and the current export together
+cover both old range families. An artifact whose stored `level` is below 15 is
+unrefined and must carry a visible Refine marker, but it remains in every
+recommendation and calculation. A current-dated record with the same broken
+invariant remains malformed and is rejected; historical date alone does not
+turn corrupt new data into a legacy record.
+
 ---
 
 ## 16. JASWA optimal value

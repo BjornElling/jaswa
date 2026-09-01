@@ -7,6 +7,7 @@ import { readArtifacts } from '../lib/artifacts';
 import { artifactCategoryLabel, artifactEquipClass } from '../lib/artifact-grid';
 import { artifactCategoryLabels, artifactProperty } from '../lib/artifact-properties';
 import { Dropdown } from './dropdown';
+import { UnrefinedArtifactMark } from './unrefined-artifact-mark';
 import { formatNumber } from '../lib/formatting';
 import type { Artifact } from '../lib/artifacts';
 import type { ArtifactMaximumScore } from '../lib/compute/artifact-score-protocol';
@@ -118,7 +119,7 @@ function ArtifactResults({ title, description, rows, general, selectedMonster }:
           const targetConversion = conversionLabel(row.target);
           return <tr key={row.artifact.id}>
             <td>
-              <b>#{String(row.index + 1).padStart(2, '0')}</b>
+              <b><UnrefinedArtifactMark unrefined={row.artifact.unrefined} />#{String(row.index + 1).padStart(2, '0')}</b>
               <span>{artifactCategoryLabel(row.artifact.category)}{restriction ? ` · ${restriction}` : ''}</span>
             </td>
             <td>
