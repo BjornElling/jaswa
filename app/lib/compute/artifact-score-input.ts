@@ -83,6 +83,7 @@ function packMonster(speciesId: string, category: ArtifactCategory): PackedMonst
       preferenceCode(preferences.main.HP), preferenceCode(preferences.main.ATK), preferenceCode(preferences.main.DEF),
     ],
     subPropertyPreferences: scoredArtifactProperties.map((property) => preferenceCode(preferences.sub.get(property.id))),
+    subPropertyShares: scoredArtifactProperties.map((property) => preferences.subShares.get(property.id) ?? 0),
   };
 }
 

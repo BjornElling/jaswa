@@ -36,6 +36,14 @@ export type PackedMonsterScoreInput = {
   mainPreferences: readonly [number, number, number];
   /** One preference entry for every item in `scoredArtifactProperties`. */
   subPropertyPreferences: readonly number[];
+  /**
+   * Each property's observed share of this slot's distribution, in the same
+   * order. The score deliberately does not read these — the preference band is
+   * what it weighs — but a conversion choosing between two equally weighted
+   * candidates breaks the tie on the larger share, so the property more players
+   * actually engrave is the one recommended.
+   */
+  subPropertyShares: readonly number[];
 };
 
 export type ArtifactScoreRequest = {

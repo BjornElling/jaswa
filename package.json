@@ -14,6 +14,7 @@
     "verify:craft-item-count": "node scripts/verify-craft-item-count.mjs",
     "verify:historical-artifact-import": "node scripts/verify-historical-artifact-import.mjs",
     "verify:intangible-artifacts": "node scripts/verify-intangible-artifacts.mjs",
+    "verify:conversion-share-tiebreak": "node scripts/verify-conversion-share-tiebreak.mjs",
     "verify:collaboration-species": "node scripts/verify-collaboration-species.mjs",
     "verify:statistics-tiers": "node scripts/verify-statistics-tiers.mjs",
     "verify:element-qualified-names": "node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs scripts/verify-element-qualified-names.mjs",

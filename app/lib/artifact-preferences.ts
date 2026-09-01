@@ -55,6 +55,8 @@ const thresholds = {
 export type ArtifactPropertyPreferences = {
   main: Record<ArtifactMainProperty, ArtifactPropertyPreference>;
   sub: Map<number, ArtifactPropertyPreference>;
+  /** Each sub property's share of its own slot's distribution, for ordering within one preference band. */
+  subShares: Map<number, number>;
 };
 
 function classify(share: number, limits: { preferred: number; acceptable: number }): ArtifactPropertyPreference {
@@ -108,7 +110,12 @@ export function defaultPropertyPreferences(
   }
 
   const sub = new Map<number, ArtifactPropertyPreference>();
-  for (const row of secondary) sub.set(row.effectId, classify(row.count / secondaryTotal, thresholds.sub));
+  const subShares = new Map<number, number>();
+  for (const row of secondary) {
+    const share = row.count / secondaryTotal;
+    sub.set(row.effectId, classify(share, thresholds.sub));
+    subShares.set(row.effectId, share);
+  }
 
-  return { main, sub };
+  return { main, sub, subShares };
 }

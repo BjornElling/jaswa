@@ -80,6 +80,7 @@ try {
   const monster = (element, archetype) => ({
     id: 'm', name: 'M', element, archetype,
     mainPreferences: [0, 2, 0], subPropertyPreferences: new Array(64).fill(2),
+    subPropertyShares: new Array(64).fill(0),
   });
 
   for (const element of [1, 2, 3, 4, 5]) {
