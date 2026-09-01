@@ -35,8 +35,13 @@ export type Artifact = {
    * category slot still binds; only the class within it is open.
    */
   intangible: boolean;
+  /**
+   * Which of HP/ATK/DEF the main property grants — never how much. The main
+   * value is read during import only to reject a malformed record; it is
+   * deliberately not part of the model, because no view may show it and no
+   * calculation depends on it.
+   */
   mainProperty: ArtifactMainProperty;
-  mainValue: number;
   grade: ArtifactGrade;
   subProperties: ArtifactSubProperty[];
   /** The zero-based sub-property position permanently bound to conversion. */
@@ -179,8 +184,10 @@ export function readArtifact(record: unknown): Artifact | null {
   const primary = source.pri_effect;
   if (!Array.isArray(primary)) return null;
   const mainProperty = artifactMainProperties[numberOrNull(primary[0]) ?? -1];
-  const mainValue = numberOrNull(primary[1]);
-  if (!mainProperty || mainValue === null) return null;
+  /* The magnitude is checked and then dropped: a record without a readable main
+     value is malformed and must fail loudly, but the number itself is never
+     carried into the model — see the `mainProperty` note on `Artifact`. */
+  if (!mainProperty || numberOrNull(primary[1]) === null) return null;
 
   const secondary = source.sec_effects;
   if (!Array.isArray(secondary) || secondary.length !== 4) return null;
@@ -247,7 +254,6 @@ export function readArtifact(record: unknown): Artifact | null {
     archetype: category === 'type' ? artifactArchetypes[equipClassCode ?? -1] ?? null : null,
     intangible,
     mainProperty,
-    mainValue,
     grade,
     subProperties,
     convertedPropertyIndex,

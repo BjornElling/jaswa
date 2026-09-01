@@ -280,7 +280,7 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
       <div>
         <p className="filter-label">Selected artifact</p>
         <h3 id="selected-artifact-title"><UnrefinedArtifactMark unrefined={selectedArtifact.unrefined} />#{String((artifactNumbers.get(selectedArtifact.id) ?? 0) + 1).padStart(2, '0')} · {selectedArtifact.grade} {artifactCategoryLabel(selectedArtifact.category)}</h3>
-        <p>{artifactEquipClassLabel(selectedArtifact)} · Main stat {selectedArtifact.mainProperty} +{formatNumber(selectedArtifact.mainValue, general)}</p>
+        <p>{artifactEquipClassLabel(selectedArtifact)} · Main stat {selectedArtifact.mainProperty}</p>
         {selectedArtifact.intangible && <p className="best-monster-intangible">
           Intangible: it fits any {selectedArtifact.category === 'attribute' ? 'element' : 'monster type'}, so every
           monster below is eligible.

@@ -231,6 +231,12 @@ parts an agent must not quietly break:
   change width as digits change.
 - **Icons are stroked SVG paths**, sized to the type, using `currentColor`. Not
   emoji — they render at a different weight in every browser.
+- **An artifact's main stat is named, never quantified.** Every view says `HP`,
+  `ATK` or `DEF` and stops there — no `+1,500`, no roll, no bar. The magnitude
+  is fixed by grade and adds nothing to the judgement the user is making, so a
+  number in that column only costs column width and reading time. `Artifact`
+  deliberately carries no main value at all (`app/lib/artifacts.ts`); the import
+  reads it once to reject a malformed record and drops it.
 - Respect `prefers-reduced-motion`; it is already handled globally.
 
 ## 6. Code conventions
