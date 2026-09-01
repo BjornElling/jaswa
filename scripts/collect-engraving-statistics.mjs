@@ -168,6 +168,16 @@ function readObservation(entry) {
   const secondary = readCounts(response.secondary_effect, { requireSlot: false });
   if (!secondary) return { rejected: 'secondary_effect was missing or malformed' };
 
+  /* Decision 40: a panel the game answers with nothing is not evidence.
+     The game returns `ret_code 0` and two empty lists for monsters too little
+     played to have a distribution — every 1★ monster does this, and so does the
+     occasional relic panel for a monster nobody puts relics on. Storing it would
+     count the monster as captured while holding nothing any calculation can use,
+     which is `AGENTS.md` §0.1's third failure. Rejecting keeps the gap visible. */
+  if (primary.length === 0 && secondary.length === 0) {
+    return { rejected: `the game returned an empty ${panel} distribution` };
+  }
+
   const observation = { observedAt, primaryEffect: primary, secondaryEffect: secondary };
 
   if (panel === 'runes') {
@@ -503,6 +513,21 @@ async function main() {
     if (Object.keys(dataset.monsters[stale.id]).length === 0) delete dataset.monsters[stale.id];
   }
 
+  /* Decision 40 again, for what an earlier run already stored. The rule now
+     rejects an empty distribution on the way in, but a panel merged before it
+     existed is still on disk claiming to be a capture. */
+  const emptyPanels = [];
+  for (const id of Object.keys(dataset.monsters)) {
+    for (const [panel, observation] of Object.entries(dataset.monsters[id])) {
+      const counted = (observation?.primaryEffect?.length ?? 0) + (observation?.secondaryEffect?.length ?? 0);
+      if (counted === 0) emptyPanels.push({ id, panel });
+    }
+  }
+  for (const empty of emptyPanels) {
+    delete dataset.monsters[empty.id][empty.panel];
+    if (Object.keys(dataset.monsters[empty.id]).length === 0) delete dataset.monsters[empty.id];
+  }
+
   console.log(`Read ${lines.length} log lines from ${logPath}.`);
   if (unparseable) console.log(`${unparseable} line(s) were not valid JSON and were skipped.`);
   for (const [reason, count] of rejections) console.log(`Rejected ${count} statistics response(s): ${reason}.`);
@@ -512,6 +537,11 @@ async function main() {
     for (const entry of lowerTierSuperseded.slice(0, 10)) console.log(`  ${entry}`);
     if (lowerTierSuperseded.length > 10) console.log(`  … and ${lowerTierSuperseded.length - 10} more.`);
     console.log('  Nothing is lost: the game serves the same panel for both, normalising upward.');
+  }
+  if (emptyPanels.length) {
+    console.log(`\nDropped ${emptyPanels.length} panel(s) an earlier session stored with no distribution at all:`);
+    for (const empty of emptyPanels.slice(0, 10)) console.log(`  ${empty.id} ${empty.panel}`);
+    if (emptyPanels.length > 10) console.log(`  … and ${emptyPanels.length - 10} more.`);
   }
   if (staleLowerTier.length) {
     console.log(`\nDropped ${staleLowerTier.length} panel(s) held at a lower tier by an earlier session:`);
@@ -528,7 +558,7 @@ async function main() {
     return;
   }
 
-  if (added || replaced || staleLowerTier.length) {
+  if (added || replaced || staleLowerTier.length || emptyPanels.length) {
     /* The dataset carries its own dates at three levels: each observation, each
        merge, and the whole file. The game recomputes these statistics monthly,
        so a row's age is part of what it says. */

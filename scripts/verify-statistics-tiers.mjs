@@ -2,7 +2,8 @@
 
 /**
  * Proves `app/data/engraving-statistics.json` holds each monster at one
- * awakening tier only — decision 39.
+ * awakening tier only (decision 39), and that no panel is an empty answer
+ * (decision 40).
  *
  * The game makes a two-tier capture all but impossible: asked for statistics it
  * normalises upward, serving the awakened panel for an un-awakened monster and
@@ -75,6 +76,19 @@ async function main() {
   /* A row the catalogue does not know is a record nothing can name or reach. */
   const unknown = Object.keys(rows).filter((id) => !known.has(id));
 
+  /* Decision 40: a panel with no distribution at all is not a capture. The game
+     answers this way for monsters too little played to have one — every 1★ does
+     — and storing it would count the monster as covered while holding nothing. */
+  const emptyPanels = [];
+  for (const id of Object.keys(rows)) {
+    for (const panel of panels) {
+      const observation = rows[id][panel];
+      if (!observation) continue;
+      const counted = (observation.primaryEffect?.length ?? 0) + (observation.secondaryEffect?.length ?? 0);
+      if (counted === 0) emptyPanels.push({ id, panel });
+    }
+  }
+
   let failed = false;
 
   if (collisions.length) {
@@ -102,8 +116,18 @@ async function main() {
     console.error('  A record the catalogue cannot name is one the interface cannot show.');
   }
 
+  if (emptyPanels.length) {
+    failed = true;
+    console.error(`\n${emptyPanels.length} panel(s) hold no distribution at all:`);
+    for (const entry of emptyPanels.slice(0, 20)) {
+      console.error(`  ${entry.id} ${known.get(entry.id)?.name ?? '?'} — ${entry.panel}`);
+    }
+    if (emptyPanels.length > 20) console.error(`  … and ${emptyPanels.length - 20} more.`);
+    console.error('  Decision 40: an empty answer is not a capture. Re-run the collector, which drops these.');
+  }
+
   if (failed) {
-    console.error('\nSee decision 39 in docs/ARTIFACT-SPRINT.md.');
+    console.error('\nSee decisions 39 and 40 in docs/ARTIFACT-SPRINT.md.');
     process.exitCode = 1;
     return;
   }
@@ -116,7 +140,7 @@ async function main() {
   }
   const shape = [...tiers].sort((left, right) => left[0] - right[0]).map(([tier, count]) => `${count} at tier ${tier}`).join(', ');
   console.log(`${Object.keys(rows).length} monster row(s) and ${panelCount} panel(s): ${shape}.`);
-  console.log('Every monster is held at one awakening tier, and every row is a catalogued monster.');
+  console.log('Every monster is held at one awakening tier, every row is a catalogued monster, and every panel carries a distribution.');
 }
 
 main().catch((error) => {
