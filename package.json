@@ -15,6 +15,7 @@
     "verify:historical-artifact-import": "node scripts/verify-historical-artifact-import.mjs",
     "verify:intangible-artifacts": "node scripts/verify-intangible-artifacts.mjs",
     "verify:collaboration-species": "node scripts/verify-collaboration-species.mjs",
+    "verify:element-qualified-names": "node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs scripts/verify-element-qualified-names.mjs",
     "audit:import-parity": "node scripts/audit-import-parity.mjs",
     "generate:pwa-assets": "pwa-assets-generator",
     "refresh:monsters": "node scripts/refresh-swarfarm-monsters.mjs",

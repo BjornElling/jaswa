@@ -237,6 +237,12 @@ parts an agent must not quietly break:
   number in that column only costs column width and reading time. `Artifact`
   deliberately carries no main value at all (`app/lib/artifacts.ts`); the import
   reads it once to reject a malformed record and drops it.
+- **An ambiguous monster name keeps its element.** `DHALSIM (Water)` is not
+  clutter to be tidied away: the game ships five elemental copies under that one
+  name, so the parenthesis is the half that identifies the monster.
+  `docs/MONSTER-NAME-ELEMENT-DECISION.md` is binding and explains why this one
+  label is allowed to grow against the rule above;
+  `npm run verify:element-qualified-names` fails if it is removed.
 - Respect `prefers-reduced-motion`; it is already handled globally.
 
 ## 6. Code conventions
@@ -278,6 +284,8 @@ Before reporting a change complete, all of these hold:
    interacting and comparing.
 6. Every added string, comment, and identifier was reviewed against the
    language contract.
-7. The work is committed to `main`.
+7. After a change to monster naming, the catalogue, or the collaboration species
+   table, `npm run verify:element-qualified-names` passes.
+8. The work is committed to `main`.
 
 Report faithfully. If a step was skipped or a check failed, say which and why.
