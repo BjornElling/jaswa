@@ -5,6 +5,21 @@ export function count(value: unknown): number {
   return Array.isArray(value) ? value.length : 0;
 }
 
+/* The game's craft inventory groups identical gems and grindstones on one
+   record. Its `amount` is therefore the inventory total a player sees, while
+   the array length is only the number of different stacks. */
+export function craftItemCount(value: unknown): number {
+  if (!Array.isArray(value)) return 0;
+  let total = 0;
+  for (const item of value) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+    const amount = (item as Record<string, unknown>).amount;
+    if (typeof amount !== 'number' || !Number.isSafeInteger(amount) || amount < 0) continue;
+    total += amount;
+  }
+  return total;
+}
+
 /* An unparseable timestamp makes Intl throw a RangeError. Stored import data
    is user-editable, so one bad date must degrade to one line of copy rather
    than take down the workspace. */
