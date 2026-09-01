@@ -1167,7 +1167,7 @@ button { cursor: pointer; }
 .artifact-recommendation-filters {
   display: grid;
   grid-template-columns: max-content minmax(24ch, 1fr) max-content;
-  grid-template-areas: "type restriction restriction" "quality substat main" "location location location" "calculate calculate calculate";
+  grid-template-areas: "type restriction quality" "main substat location" "calculate calculate calculate";
   align-items: end;
   gap: var(--s4);
   padding: var(--s4);
@@ -1182,7 +1182,7 @@ button { cursor: pointer; }
 .artifact-recommendation-filter-substat { grid-area: substat; }
 .artifact-recommendation-filter-main { grid-area: main; }
 .artifact-recommendation-filter-location { grid-area: location; }
-.artifact-recommendation-filter-substat .jaswa-select { width: 100%; min-width: 0; }
+.artifact-recommendation-filter-substat .jaswa-select { width: 22ch; min-width: 0; }
 .artifact-recommendation-calculate { grid-area: calculate; justify-self: start; width: 25ch; height: 32px; white-space: nowrap; }
 .artifact-recommendation-meta { color: var(--dim); font-family: var(--mono); font-size: var(--t-small); font-variant-numeric: tabular-nums; }
 .artifact-recommendation-table-wrap { width: 100%; overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); }
@@ -1201,7 +1201,8 @@ button { cursor: pointer; }
 .artifact-recommendation-table th:nth-child(10) { width: 16ch; }
 .artifact-recommendation-sell { color: var(--faint); }
 @media (max-width: 900px) {
-  .artifact-recommendation-filters { grid-template-columns: minmax(0, 1fr); grid-template-areas: "type" "restriction" "quality" "substat" "main" "location" "calculate"; align-items: stretch; }
+  .artifact-recommendation-filters { grid-template-columns: minmax(0, 1fr); grid-template-areas: "type" "restriction" "quality" "main" "substat" "location" "calculate"; align-items: stretch; }
+  .artifact-recommendation-filter-substat .jaswa-select { width: 100%; }
   .artifact-recommendation-calculate { width: 100%; }
 }
 
