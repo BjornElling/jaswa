@@ -1,9 +1,21 @@
 export type ArtifactComputeBackend = 'cpu' | 'webgpu';
 
+/**
+ * The `restriction` value for an Intangible artifact, which fits every monster
+ * its category allows. Chosen as `0` because it is outside both class
+ * numberings — elements run 1–5 and archetypes 1–4 — so no restricted artifact
+ * can collide with it. Both backends must treat it identically; see `fits` in
+ * `artifact-score-core.ts` and the same test in the WebGPU shader.
+ */
+export const intangibleRestrictionCode = 0;
+
 export type PackedArtifactScoreInput = {
   id: string;
   category: 1 | 2;
-  /** Element for Attribute artifacts; archetype for Type artifacts. */
+  /**
+   * Element for Attribute artifacts; archetype for Type artifacts;
+   * `intangibleRestrictionCode` when the artifact restricts to neither.
+   */
   restriction: number;
   mainProperty: 0 | 1 | 2;
   convertedPropertyIndex: number;

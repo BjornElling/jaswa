@@ -537,8 +537,16 @@ button { cursor: pointer; }
 .artifact-grid .artifact-col-equipClass { width: 7.7982%; }
 .artifact-grid .artifact-col-grade { width: 7.3394%; }
 .artifact-grid .artifact-col-mainProperty { width: 8.7156%; }
-.artifact-grid .artifact-col-subProperties { width: 43.1193%; }
+/* The substats column funds the refinement flag beside it: the widths are a
+   percentage set that has to keep summing to 100, so the new column's share
+   comes out of the widest one rather than pushing the total over. */
+.artifact-grid .artifact-col-subProperties { width: 39.1193%; }
+.artifact-grid .artifact-col-refinement { width: 4%; }
 .artifact-grid tbody td { height: auto; padding-block: var(--s2); vertical-align: top; }
+/* The marker is the cell's only content, so the margin it carries for
+   trailing running text is dropped here. */
+.artifact-refinement-flag { text-align: right; }
+.artifact-refinement-flag > * { margin-left: 0; }
 .artifact-subs { margin: 0; padding: 0; list-style: none; }
 .artifact-subs li {
   font-family: var(--mono);
@@ -1041,18 +1049,33 @@ button { cursor: pointer; }
   font-size: var(--t-small);
 }
 
-/* The chooser keeps all its filter controls mounted. A narrower roster changes
-   only the dropdown options and result rows, never the controls around them. */
-.best-artifact-for-monster { display: grid; gap: var(--s4); }
-.best-monster-for-artifact { display: grid; gap: var(--s4); }
-.best-artifact-for-monster > .lead, .best-artifact-meta { margin: 0; }
-.best-monster-for-artifact > .lead { margin: 0; }
-.best-artifact-filters {
+/* ================================================================ filter panel
+   THE AUTHORITATIVE SKELETON for every boxed filter panel.
+
+   Three panels used to declare their own border, padding and gaps, and they
+   drifted apart: one ended up on 24px padding and 32px gaps while the others
+   stayed on 16px, so the same control sat at a different indent depending on
+   which box it was in. Everything shared now lives here, once, and a panel
+   contributes only its own grid-template-columns and grid-template-areas.
+
+   The measurements this fixes, and which must stay identical in every panel:
+
+     panel padding        --s4   (16px, all four sides)
+     column gap           --s4   (16px)
+     row gap              --s4   (16px)
+     divider -> label      17px  (the group's --s4 padding + the 1px rule)
+     choice -> choice       4px  (--s1, from .filter-group-controls; NEVER varies)
+
+   Indentation comes from exactly one place: the divider on .filter-group.
+   Every block carries one, row-starters included, so the leftmost rules stack
+   into a continuous edge down the panel and every label in a column lines up.
+   A panel must not set padding-left or border-left on its groups — overriding
+   either is what breaks alignment between boxes.
+
+   To add a panel: give it .filter-panel plus its own class for the areas only.
+   To change spacing: change it here, so every box moves together. */
+.filter-panel {
   display: grid;
-  grid-template-columns: max-content max-content max-content minmax(0, 1fr);
-  grid-template-areas:
-    "element archetype location calculate"
-    "monster monster monster monster";
   align-items: end;
   gap: var(--s4);
   padding: var(--s4);
@@ -1060,14 +1083,42 @@ button { cursor: pointer; }
   border-radius: var(--radius);
   background: var(--sunk);
 }
-.best-artifact-filters .filter-group { min-width: 0; }
+/* min-width lets a group shrink inside its track instead of forcing the panel
+   wider than its container. */
+.filter-panel .filter-group { min-width: 0; }
+/* A row of choices too long for the panel wraps onto a second line rather than
+   pushing the box wider than the viewport. The wrap reuses the group's own gap,
+   so two choices stay 4px apart in both directions and the rule above holds.
+   Without this a long row (nine restrictions on a phone) overflows sideways.
+   The threshold is the widest point at which any panel stacks, so wrapping is
+   always available by the time a row has the full panel width to itself. */
+@media (max-width: 960px) {
+  .filter-panel .filter-group { white-space: normal; }
+  .filter-panel .filter-group-controls { flex-wrap: wrap; }
+}
+/* Stacked, every block sits on its own row and stretches to the panel. */
+.filter-panel.is-stacked { grid-template-columns: minmax(0, 1fr); align-items: stretch; }
+
+/* The chooser keeps all its filter controls mounted. A narrower roster changes
+   only the dropdown options and result rows, never the controls around them. */
+.best-artifact-for-monster { display: grid; gap: var(--s4); }
+.best-monster-for-artifact { display: grid; gap: var(--s4); }
+.best-artifact-for-monster > .lead, .best-artifact-meta { margin: 0; }
+.best-monster-for-artifact > .lead { margin: 0; }
+/* Layout only — every shared measurement comes from .filter-panel. */
+.best-artifact-filters {
+  grid-template-columns: max-content max-content max-content minmax(0, 1fr);
+  grid-template-areas:
+    "element archetype location calculate"
+    "monster monster monster monster";
+}
 .best-artifact-filter-element { grid-area: element; }
 .best-artifact-filter-archetype { grid-area: archetype; }
 .best-artifact-filter-location { grid-area: location; }
 .best-artifact-monster-select { grid-area: monster; }
 .best-artifact-calculate { grid-area: calculate; justify-self: end; }
+/* Layout only — every shared measurement comes from .filter-panel. */
 .best-monster-filters {
-  display: grid;
   grid-template-columns: max-content minmax(24ch, 1fr) max-content;
   grid-template-areas:
     "type restriction restriction"
@@ -1075,14 +1126,7 @@ button { cursor: pointer; }
     "location location location"
     "artifact artifact artifact"
     "calculate calculate calculate";
-  align-items: end;
-  gap: var(--s4);
-  padding: var(--s4);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--sunk);
 }
-.best-monster-filters .filter-group { min-width: 0; }
 .best-monster-filter-type { grid-area: type; }
 .best-monster-filter-restriction { grid-area: restriction; }
 .best-monster-filter-quality { grid-area: quality; }
@@ -1123,6 +1167,9 @@ button { cursor: pointer; }
 .best-monster-artifact-details .artifact-subs { align-self: center; columns: 2; column-gap: var(--s5); }
 .best-monster-artifact-details .artifact-subs li { break-inside: avoid; }
 .best-monster-converted { display: inline; margin-left: var(--s2); color: var(--gold); font-size: var(--t-micro); letter-spacing: .06em; text-transform: uppercase; }
+/* A statement of fact about the artifact, not a warning: Intangible widens the
+   candidate list rather than signalling anything wrong. */
+.best-monster-intangible { margin-top: var(--s2); color: var(--gold); font-size: var(--t-small); }
 .best-monster-result-scroll { overflow: visible; }
 .best-monster-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: var(--t-small); }
 .best-monster-table th, .best-monster-table td { padding: var(--s3); border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
@@ -1164,26 +1211,99 @@ button { cursor: pointer; }
    advice in every remaining row. */
 .artifact-recommendations { display: grid; gap: var(--s4); }
 .artifact-recommendations > .lead, .artifact-recommendation-meta, .artifact-recommendation-empty { margin: 0; }
+/* Every filter column sizes to its own content, so no group is ever stretched
+   and the gap between two adjacent choices is always the 4px that
+   .filter-group-controls sets — never a share of the panel's leftover width.
+   Restriction shares the first row with Type and spans the rest of it, so its
+   nine buttons still set the panel's width. Quality, Main stat and Substat
+   gather on the second row, and Location takes a third of its own.
+
+   The single 1fr is a deliberately empty spacer column: all surplus width
+   collects there, between the filters and the action, instead of leaking into
+   the groups. Its minimum keeps the action clear of the filters when the panel
+   is only just wide enough for this layout.
+
+   Spacing, padding and the divider indent all come from .filter-panel, so this
+   box measures the same as every other one. align-items is the single
+   exception: these rows differ in height, and they hang from their tops. */
 .artifact-recommendation-filters {
-  display: grid;
-  grid-template-columns: max-content minmax(24ch, 1fr) max-content;
-  grid-template-areas: "type restriction quality" "main substat location" "calculate calculate calculate";
-  align-items: end;
-  gap: var(--s4);
-  padding: var(--s4);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--sunk);
+  grid-template-columns: max-content max-content max-content minmax(var(--s4), 1fr) max-content;
+  grid-template-areas:
+    "type     restriction restriction .  calculate"
+    "quality  main        substat     .  calculate"
+    "location location    location    .  calculate";
+  align-items: start;
 }
-.artifact-recommendation-filters .filter-group { min-width: 0; }
 .artifact-recommendation-filter-type { grid-area: type; }
 .artifact-recommendation-filter-restriction { grid-area: restriction; }
 .artifact-recommendation-filter-quality { grid-area: quality; }
-.artifact-recommendation-filter-substat { grid-area: substat; }
 .artifact-recommendation-filter-main { grid-area: main; }
 .artifact-recommendation-filter-location { grid-area: location; }
-.artifact-recommendation-filter-substat .jaswa-select { width: 22ch; min-width: 0; }
-.artifact-recommendation-calculate { grid-area: calculate; justify-self: start; width: 25ch; height: 32px; white-space: nowrap; }
+/* Sized to the longest option the list can hold — the legacy "ATK Increased
+   Proportional to Lost HP" family, which needs about 270px including the
+   padding and the chevron's reserved space. Anything narrower clips a name
+   the user may well have on an artifact. */
+.artifact-recommendation-filter-substat { grid-area: substat; justify-self: start; }
+.artifact-recommendation-filter-substat .jaswa-select { width: 35ch; min-width: 0; }
+/* The panel's actions: calculating is the conclusion of the filters above, and
+   clearing is its quiet counterpart, so they stack in one column centred
+   against the filter rows. */
+.artifact-recommendation-actions {
+  grid-area: calculate;
+  align-self: center;
+  display: grid;
+  justify-items: stretch;
+  /* Wide enough that clearing is never a slip of the hand while reaching for
+     calculate — the two do opposite things, so they should not sit as a pair
+     of adjacent choices. */
+  gap: var(--s5);
+}
+/* The primary action: the same gold frame as every other important-action in
+   JASWA, enlarged so it reads as the panel's conclusion rather than one more
+   control in the flow.
+
+   Written against .button so it carries that rule's specificity: the shared
+   button sizing is defined later in this file, and a single class here would
+   lose the height and font size to it on source order alone. */
+.button.artifact-recommendation-calculate {
+  display: grid;
+  height: 44px;
+  padding: 0 var(--s5);
+  font-size: 14px;
+  white-space: nowrap;
+}
+/* Both labels occupy the same cell, so the button's width is the wider of the
+   two and its height is one line — whichever label is showing. `visibility`
+   rather than `display` keeps the hidden one contributing that width, which is
+   the whole point: the button must not resize when the work starts. */
+.artifact-recommendation-calculate-label {
+  grid-area: 1 / 1;
+  align-self: center;
+  justify-self: center;
+}
+.artifact-recommendation-calculate[data-state="idle"] .artifact-recommendation-calculate-label[data-label="busy"],
+.artifact-recommendation-calculate[data-state="busy"] .artifact-recommendation-calculate-label[data-label="idle"] { visibility: hidden; }
+/* Subordinate to the calculate button: no gold, and the quieter of the two
+   neutral borders, so it reads as the undo beside the action rather than a
+   second thing to decide between. It only names itself as destructive on
+   hover, in the same red .button.danger uses, so the warning arrives when the
+   pointer is on it rather than colouring the panel at rest. */
+.button.artifact-recommendation-clear {
+  height: 32px;
+  padding: 0 var(--s4);
+  font-size: var(--t-small);
+  color: var(--faint);
+  border-color: var(--line);
+  white-space: nowrap;
+}
+.button.artifact-recommendation-clear:hover:not(:disabled) {
+  color: #d08a7a;
+  border-color: #6a4038;
+  background: #1c1210;
+}
+.button.artifact-recommendation-clear:focus-visible:not(:disabled) { color: #d08a7a; border-color: #6a4038; }
+.button.artifact-recommendation-clear:disabled { color: var(--ghost); border-color: var(--line); cursor: not-allowed; }
+.button.artifact-recommendation-clear:disabled:hover { color: var(--ghost); border-color: var(--line); background: transparent; }
 .artifact-recommendation-meta { color: var(--dim); font-family: var(--mono); font-size: var(--t-small); font-variant-numeric: tabular-nums; }
 .artifact-recommendation-table-wrap { width: 100%; overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); }
 .artifact-recommendation-table { width: 100%; min-width: 1100px; border-collapse: collapse; table-layout: fixed; font-size: var(--t-small); }
@@ -1199,11 +1319,40 @@ button { cursor: pointer; }
 .artifact-recommendation-table th:nth-child(7), .artifact-recommendation-table th:nth-child(9), .artifact-recommendation-table td:nth-child(7), .artifact-recommendation-table td:nth-child(9) { width: 10ch; font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .artifact-recommendation-table th:nth-child(8) { width: 12ch; }
 .artifact-recommendation-table th:nth-child(10) { width: 16ch; }
+/* The refinement flag ends the row: narrow, unlabelled, and empty on every
+   artifact that needs no attention. The marker is the cell's only content, so
+   the margin it carries for trailing running text is dropped here. */
+.artifact-recommendation-table th:nth-child(11), .artifact-recommendation-table td:nth-child(11) { width: 5ch; text-align: right; }
+.artifact-recommendation-flag > * { margin-left: 0; }
 .artifact-recommendation-sell { color: var(--faint); }
-@media (max-width: 900px) {
+/* Below about 1240px the action no longer fits beside the filters, so it drops
+   under them. The three filter rows are unchanged. */
+@media (max-width: 1240px) {
+  .artifact-recommendation-filters {
+    grid-template-columns: max-content max-content max-content;
+    grid-template-areas:
+      "type      restriction restriction"
+      "quality   main        substat"
+      "location  location    location"
+      "calculate calculate   calculate";
+  }
+  /* Packed left below the filters, and only as wide as the buttons need. */
+  .artifact-recommendation-actions { align-self: stretch; justify-self: start; justify-items: start; }
+}
+/* Below about 960px the three filter columns no longer fit, so every block
+   takes its own row. */
+@media (max-width: 960px) {
+  /* Matches .filter-panel.is-stacked; spelled out because this panel also
+     needs its own area names for the action. */
   .artifact-recommendation-filters { grid-template-columns: minmax(0, 1fr); grid-template-areas: "type" "restriction" "quality" "main" "substat" "location" "calculate"; align-items: stretch; }
+  /* Wrapping is handled by .filter-panel, so nothing to repeat here. */
+  .artifact-recommendation-filter-substat { justify-self: stretch; }
+  /* Full panel width: below about 360px that is still narrower than the longest
+     option, which the select then ellipsises. Nothing to be done at that width
+     without shrinking the type. */
   .artifact-recommendation-filter-substat .jaswa-select { width: 100%; }
-  .artifact-recommendation-calculate { width: 100%; }
+  .artifact-recommendation-actions { justify-self: stretch; justify-items: stretch; }
+  .button.artifact-recommendation-calculate { padding: 0 var(--s4); }
 }
 
 /* The chosen step names itself in the accent colour — this is the answer to

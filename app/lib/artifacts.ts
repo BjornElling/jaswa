@@ -2,7 +2,7 @@ import type { GameRecord } from './game-data';
 import type { MonsterArchetype } from './monster-catalog';
 import {
   artifactArchetypes, artifactCategoryFromType, artifactElements, artifactGradeFromRank,
-  artifactGrades, artifactMainProperties, artifactProperty,
+  artifactGrades, artifactIntangibleEquipClass, artifactMainProperties, artifactProperty,
 } from './artifact-properties';
 import type {
   ArtifactCategory, ArtifactGrade, ArtifactMainProperty, ArtifactPropertyDefinition,
@@ -20,9 +20,21 @@ export type ArtifactSubProperty = {
 export type Artifact = {
   id: string;
   category: ArtifactCategory;
-  /** The element or monster type it may be equipped to; `null` when unrecognised. */
+  /**
+   * The element or monster type it may be equipped to. `null` on an Intangible
+   * artifact, which names no single class because it matches every one of them
+   * — read `intangible` rather than testing these for absence, and never treat
+   * `null` as "unknown".
+   */
   element: string | null;
   archetype: MonsterArchetype | null;
+  /**
+   * Whether this artifact may be equipped to any element (attribute category)
+   * or any monster type (type category). The game calls it Intangible and
+   * `artifactIntangibleEquipClass` records the code and the evidence. The
+   * category slot still binds; only the class within it is open.
+   */
+  intangible: boolean;
   mainProperty: ArtifactMainProperty;
   mainValue: number;
   grade: ArtifactGrade;
@@ -214,11 +226,26 @@ export function readArtifact(record: unknown): Artifact | null {
   }
 
   const occupied = numberOrNull(source.occupied_id);
+  /* §15.1: `type` decides which of the two fields carries the equip class, and
+     the other is always 0. Reading only the field that governs keeps a value in
+     the unused field from being mistaken for this artifact's class. */
+  const equipClassCode = numberOrNull(category === 'attribute' ? source.attribute : source.unit_style);
+  const intangible = equipClassCode === artifactIntangibleEquipClass;
+  /* Parity rule (`AGENTS.md` §0.1): an equip class JASWA cannot name is a
+     reader gap, and the loud failure of a rejected record is what surfaces it.
+     Accepting one would import an artifact the user owns and then hide it from
+     every recommendation, because no monster could ever match it — the silent
+     shortfall the parity rule exists to prevent. */
+  const namedClass = category === 'attribute'
+    ? artifactElements[equipClassCode ?? -1] !== undefined
+    : artifactArchetypes[equipClassCode ?? -1] !== undefined;
+  if (!namedClass && !intangible) return null;
   return {
     id: String(id),
     category,
-    element: category === 'attribute' ? artifactElements[numberOrNull(source.attribute) ?? -1] ?? null : null,
-    archetype: category === 'type' ? artifactArchetypes[numberOrNull(source.unit_style) ?? -1] ?? null : null,
+    element: category === 'attribute' ? artifactElements[equipClassCode ?? -1] ?? null : null,
+    archetype: category === 'type' ? artifactArchetypes[equipClassCode ?? -1] ?? null : null,
+    intangible,
     mainProperty,
     mainValue,
     grade,

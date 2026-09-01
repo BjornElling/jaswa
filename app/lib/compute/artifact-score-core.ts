@@ -1,4 +1,5 @@
 import { artifactPropertyAvailability, scoredArtifactProperties } from './artifact-score-schema';
+import { intangibleRestrictionCode } from './artifact-score-protocol';
 import type {
   ArtifactConversion, ArtifactScoreRequest, PackedArtifactScoreInput, PackedMonsterScoreInput,
 } from './artifact-score-protocol';
@@ -8,7 +9,22 @@ function weight(preference: number, acceptableWorth: number): number {
   return preference === 1 ? acceptableWorth / 100 : 0;
 }
 
+/**
+ * Whether the equip rule (§1) permits this pair.
+ *
+ * The restriction code `0` means **Intangible**: the artifact fills its category
+ * slot but names no class, so it fits every monster the category allows. The
+ * category itself still binds, and that is the only reason this can be a
+ * wildcard safely — an attribute Intangible is still compared only against the
+ * attribute matrix.
+ *
+ * A monster whose own class the catalogue does not describe also carries `0`,
+ * and a *restricted* artifact still demands an exact class — which `0` is not —
+ * so such a monster is refused rather than matched by accident. The wildcard
+ * accepts it, which is correct: an Intangible genuinely fits any monster.
+ */
 function fits(artifact: PackedArtifactScoreInput, monster: PackedMonsterScoreInput): boolean {
+  if (artifact.restriction === intangibleRestrictionCode) return true;
   return artifact.category === 1
     ? monster.element === artifact.restriction
     : monster.archetype === artifact.restriction;

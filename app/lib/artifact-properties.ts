@@ -62,6 +62,28 @@ export const artifactElements: Record<number, string> = { 1: 'Water', 2: 'Fire',
 export const artifactArchetypes: Record<number, MonsterArchetype> = { 1: 'Attack', 2: 'Defense', 3: 'HP', 4: 'Support' };
 
 /**
+ * The equip-class code the game uses for an **Intangible** artifact: one that
+ * fills its category slot but matches *any* element or *any* monster type. The
+ * game names it in the artifact panel — "Intangible Type Artifact".
+ *
+ * It is the same wildcard concept `RUNE-CANONICAL.md` §10 records for the
+ * Intangible rune, applied to the equip restriction instead of the set.
+ *
+ * `ARTIFACT-CANONICAL.md` §15.1 recorded the code as pending; the user's own
+ * account settles it. 31 of 1,862 records carry it — 25 on `attribute`, 6 on
+ * `unit_style` — and in every other respect they are ordinary artifacts: the
+ * same grades, sources, main properties and `rank`/`level` constants. Crucially
+ * `type` is unchanged, and a `type: 1` Intangible still carries `3xx`
+ * attribute-only properties while a `type: 2` one carries `4xx` type-only
+ * properties, so the **category** restriction still binds and only the class
+ * within it is open.
+ */
+export const artifactIntangibleEquipClass = 98;
+
+/** What the interface calls the wildcard class, as the game names it. */
+export const artifactIntangibleLabel = 'Intangible';
+
+/**
  * The property vocabulary, derived from the user's own export rather than from
  * a guide: 1,864 artifacts supplied every id, its category, and its per-roll
  * range, and the game's engraving statistics separate current from legacy —

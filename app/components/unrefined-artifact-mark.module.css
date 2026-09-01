@@ -1,13 +1,19 @@
+/* A warning triangle marking an artifact that still needs refining. It is
+   drawn in the page's gold rather than a true warning red: an unrefined
+   artifact is something left to finish, not something broken.
+
+   Nothing renders at all when an artifact is refined, so a row without a
+   marker has no placeholder occupying its line. In the tables the marker gets
+   a column of its own at the end of the row; the left margin is for the two
+   places where it instead trails a number in running text. */
 .mark {
   display: inline-block;
-  width: 1em;
-  height: 1em;
-  margin-right: var(--s1);
-  vertical-align: -.12em;
+  width: 13px;
+  height: 13px;
+  margin-left: var(--s2);
+  vertical-align: -.15em;
   color: var(--gold);
 }
-
-.empty { visibility: hidden; }
 
 .mark svg {
   display: block;
@@ -15,7 +21,12 @@
   height: 100%;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.5;
+  stroke-width: 1.4;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+/* The bar and dot only read at this size with a slightly heavier stroke. */
+.mark .bang {
+  stroke-width: 1.7;
 }

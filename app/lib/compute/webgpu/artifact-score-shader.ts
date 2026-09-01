@@ -1,4 +1,5 @@
 import { scoredArtifactProperties } from '../artifact-score-schema';
+import { intangibleRestrictionCode } from '../artifact-score-protocol';
 
 const artifactStride = 12;
 const monsterStride = 5 + scoredArtifactProperties.length;
@@ -12,6 +13,7 @@ export const artifactScoreShader = /* wgsl */`
 const ARTIFACT_STRIDE: u32 = ${artifactStride}u;
 const MONSTER_STRIDE: u32 = ${monsterStride}u;
 const PROPERTY_COUNT: u32 = ${scoredArtifactProperties.length}u;
+const INTANGIBLE_RESTRICTION: i32 = ${intangibleRestrictionCode};
 
 struct Parameters {
   artifactCount: u32,
@@ -56,7 +58,11 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
   let element = i32(monsters[monsterOffset]);
   let archetype = i32(monsters[monsterOffset + 1u]);
 
-  if ((category == 1 && element != restriction) || (category == 2 && archetype != restriction)) {
+  // INTANGIBLE_RESTRICTION fits every monster the category allows, exactly as
+  // fits() in artifact-score-core.ts accepts it. The two backends must agree on
+  // eligibility, so this test is the same test.
+  if (restriction != INTANGIBLE_RESTRICTION
+    && ((category == 1 && element != restriction) || (category == 2 && archetype != restriction))) {
     output[pairIndex] = -1.0;
     return;
   }

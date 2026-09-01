@@ -7,11 +7,15 @@ import type { GameRecord } from '../game-data';
 import { monsterPresentation } from '../monster-catalog';
 import { elementName } from '../rune-sets';
 import { artifactPropertyIndex, categoryCode, scoredArtifactProperties } from './artifact-score-schema';
+import { intangibleRestrictionCode } from './artifact-score-protocol';
 import type { ArtifactScoreRequest, PackedArtifactScoreInput, PackedMonsterScoreInput } from './artifact-score-protocol';
 import type { ArtifactSettings } from '../types';
 
 const mainPropertyIndexes: Record<ArtifactMainProperty, 0 | 1 | 2> = { HP: 0, ATK: 1, DEF: 2 };
 const archetypeCodes: Record<string, number> = { Attack: 1, Defense: 2, HP: 3, Support: 4 };
+/* The same numbering `artifactElements` uses, so an artifact's element and a
+   monster's element are compared on one scale. */
+const elementCodes: Record<string, number> = { Water: 1, Fire: 2, Wind: 3, Light: 4, Dark: 5 };
 
 function preferenceCode(preference: 'preferred' | 'acceptable' | 'unwanted' | undefined): number {
   if (preference === 'preferred') return 2;
@@ -23,13 +27,23 @@ function masterIdElement(masterId: string): number {
   return elementName(lastDigit) ? lastDigit : 0;
 }
 
+/**
+ * The equip class as a comparison code, or `intangibleRestrictionCode` for an
+ * Intangible artifact, which matches every monster its category allows.
+ *
+ * `readArtifact` has already rejected any artifact whose class cannot be named,
+ * so there is no third case to encode here: every artifact that reaches this
+ * point is either restricted to one named class or deliberately unrestricted.
+ */
 function artifactRestriction(artifact: Artifact): number {
-  if (artifact.category === 'attribute') {
-    const entry = Object.entries({ Water: 1, Fire: 2, Wind: 3, Light: 4, Dark: 5 })
-      .find(([element]) => element === artifact.element);
-    return entry ? entry[1] : 0;
-  }
-  return artifact.archetype ? archetypeCodes[artifact.archetype] ?? 0 : 0;
+  if (artifact.intangible) return intangibleRestrictionCode;
+  const code = artifact.category === 'attribute'
+    ? elementCodes[artifact.element ?? '']
+    : archetypeCodes[artifact.archetype ?? ''];
+  /* Unreachable for an artifact from `readArtifact`. Kept as the wildcard code
+     rather than a silent mismatch so a future reader change cannot make an
+     artifact vanish from the rankings without anyone noticing. */
+  return code ?? intangibleRestrictionCode;
 }
 
 function fraction(subProperty: ArtifactSubProperty): number {

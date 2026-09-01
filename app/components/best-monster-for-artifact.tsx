@@ -5,8 +5,8 @@ import { Dropdown } from './dropdown';
 import { UnrefinedArtifactMark } from './unrefined-artifact-mark';
 import { calculateArtifactScores } from '../lib/compute/artifact-score-client';
 import { buildArtifactScoreRequests, buildArtifactScoreRequestsForMonsterIds } from '../lib/compute/artifact-score-input';
-import { artifactCategoryLabel, artifactEquipClass, displaySubProperty } from '../lib/artifact-grid';
-import { artifactArchetypes, artifactCategoryLabels, artifactElements, artifactGradeOrder, artifactMainPropertyOrder, artifactProperty } from '../lib/artifact-properties';
+import { artifactCategoryLabel, artifactEquipClassLabel, displaySubProperty } from '../lib/artifact-grid';
+import { artifactArchetypes, artifactCategoryLabels, artifactElements, artifactGradeOrder, artifactIntangibleLabel, artifactMainPropertyOrder, artifactProperty } from '../lib/artifact-properties';
 import { readArtifacts } from '../lib/artifacts';
 import { formatNumber } from '../lib/formatting';
 import { monsterPresentation } from '../lib/monster-catalog';
@@ -19,7 +19,11 @@ import type { MonsterArchetype } from '../lib/monster-catalog';
 import type { ArtifactSettings, GeneralSettings } from '../lib/types';
 
 const categoryOrder: readonly ArtifactCategory[] = ['attribute', 'type'];
-const restrictionOptions = [...Object.values(artifactElements), ...Object.values(artifactArchetypes)];
+/* Intangible is offered alongside the named classes so the wildcard artifacts
+   are reachable by filter rather than only findable by scrolling. */
+const restrictionOptions = [
+  ...Object.values(artifactElements), ...Object.values(artifactArchetypes), artifactIntangibleLabel,
+];
 const artifactLocations = ['inventory', 'equipped'] as const;
 
 type ArtifactLocation = typeof artifactLocations[number];
@@ -58,7 +62,7 @@ const optionSubstatSeparator = '\u2002|\u2002';
 
 function artifactSortKey(artifact: ReturnType<typeof readArtifacts>[number]): string {
   return [
-    artifactCategoryLabel(artifact.category), artifactEquipClass(artifact) ?? '', artifact.mainProperty,
+    artifactCategoryLabel(artifact.category), artifactEquipClassLabel(artifact), artifact.mainProperty,
     ...artifact.subProperties.map((property) => `${property.definition.name} ${property.valueHundredths}`),
   ].join(' · ');
 }
@@ -135,9 +139,9 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
   const selectedSubPropertyId = subPropertyOptions.some((option) => String(option.id) === filters.subPropertyId)
     ? filters.subPropertyId : '';
   const artifactsByFilter = useMemo(() => artifacts.filter((artifact) => {
-    const restriction = artifactEquipClass(artifact);
+    const restriction = artifactEquipClassLabel(artifact);
     return (!filters.categories.length || filters.categories.includes(artifact.category))
-      && (!filters.restrictions.length || (restriction !== null && filters.restrictions.includes(restriction)))
+      && (!filters.restrictions.length || filters.restrictions.includes(restriction))
       && (!filters.grades.length || filters.grades.includes(artifact.grade))
       && (!filters.mainProperties.length || filters.mainProperties.includes(artifact.mainProperty))
       && (!selectedSubPropertyId || artifact.subProperties.some((property) => String(property.definition.id) === selectedSubPropertyId))
@@ -226,7 +230,7 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
 
   return <div className="best-monster-for-artifact">
     <p className="lead">Filter the artifact library, choose one piece, then see the monsters that can make the most of it.</p>
-    <div className="best-monster-filters">
+    <div className="filter-panel best-monster-filters">
       {buttonGroup('Type', 'categories', categoryOrder, (category) => artifactCategoryLabels[category], 'best-monster-filter-type')}
       {buttonGroup('Restriction', 'restrictions', restrictionOptions, (restriction) => restriction, 'best-monster-filter-restriction')}
       {buttonGroup('Quality', 'grades', artifactGradeOrder, (grade) => grade.slice(0, 3).toUpperCase(), 'best-monster-filter-quality')}
@@ -249,13 +253,14 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
             placeholder="Choose an artifact" aria-label="Choose an artifact for monster recommendations">
             {artifactsByFilter.map((artifact) => {
               const index = artifactNumbers.get(artifact.id) ?? 0;
-              const restriction = artifactEquipClass(artifact);
               const substats = artifact.subProperties.map((property) =>
                 displaySubProperty(property, (value) => formatNumber(value, general))).join(optionSubstatSeparator);
-              const category = artifactCategoryLabel(artifact.category);
-              const categoryAndRestriction = restriction
-                ? `${category}${optionRestrictionSeparator}${restriction}`
-                : category;
+              /* The restriction is always named, readable or not: an option that
+                 silently dropped the segment read as an ordinary artifact whose
+                 category happened to be the last word before the main stat. */
+              const categoryAndRestriction = [
+                artifactCategoryLabel(artifact.category), artifactEquipClassLabel(artifact),
+              ].join(optionRestrictionSeparator);
               return <option key={artifact.id} value={artifact.id}>{[
                 `#${String(index + 1).padStart(2, '0')}`,
                 categoryAndRestriction,
@@ -275,7 +280,11 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
       <div>
         <p className="filter-label">Selected artifact</p>
         <h3 id="selected-artifact-title"><UnrefinedArtifactMark unrefined={selectedArtifact.unrefined} />#{String((artifactNumbers.get(selectedArtifact.id) ?? 0) + 1).padStart(2, '0')} · {selectedArtifact.grade} {artifactCategoryLabel(selectedArtifact.category)}</h3>
-        <p>{artifactEquipClass(selectedArtifact) ?? 'Unknown restriction'} · Main stat {selectedArtifact.mainProperty} +{formatNumber(selectedArtifact.mainValue, general)}</p>
+        <p>{artifactEquipClassLabel(selectedArtifact)} · Main stat {selectedArtifact.mainProperty} +{formatNumber(selectedArtifact.mainValue, general)}</p>
+        {selectedArtifact.intangible && <p className="best-monster-intangible">
+          Intangible: it fits any {selectedArtifact.category === 'attribute' ? 'element' : 'monster type'}, so every
+          monster below is eligible.
+        </p>}
       </div>
       <ul className="artifact-subs">
         {selectedArtifact.subProperties.map((property, index) => <li key={property.definition.id}>

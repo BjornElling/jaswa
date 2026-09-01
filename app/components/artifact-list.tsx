@@ -11,13 +11,13 @@ import { readArtifacts } from '../lib/artifacts';
 import { artifactValueOnMonster } from '../lib/artifact-value-on-monster';
 import { defaultPropertyPreferences } from '../lib/artifact-preferences';
 import {
-  artifactCategoryLabel, artifactEquipClass, compareArtifactRows,
+  artifactCategoryLabel, artifactEquipClassLabel, compareArtifactRows,
   defaultArtifactSortDirections, displaySubProperty,
 } from '../lib/artifact-grid';
 import type { ArtifactRow, ArtifactSortKey } from '../lib/artifact-grid';
 import {
   artifactArchetypes, artifactCategoryLabels, artifactElements, artifactGradeOrder,
-  artifactMainPropertyOrder,
+  artifactIntangibleLabel, artifactMainPropertyOrder,
 } from '../lib/artifact-properties';
 import type { ArtifactCategory, ArtifactGrade, ArtifactMainProperty } from '../lib/artifact-properties';
 import { numberedMonsterNames } from '../lib/monster-names';
@@ -27,7 +27,12 @@ import { useLocalStorageState } from '../lib/local-storage-state';
 const categoryOrder: readonly ArtifactCategory[] = ['attribute', 'type'];
 const elementOrder = Object.values(artifactElements);
 const archetypeOrder = Object.values(artifactArchetypes);
-const artifactClassOptions = [...elementOrder, ...archetypeOrder];
+/* Intangible is one option rather than one per group: it is a single class that
+   belongs to neither the elements nor the archetypes, and the Type filter
+   already separates an Intangible attribute artifact from an Intangible type
+   one when the user wants only one of them. */
+const intangibleOption: readonly string[] = [artifactIntangibleLabel];
+const artifactClassOptions = [...elementOrder, ...archetypeOrder, ...intangibleOption];
 
 type ArtifactFilterState = {
   search: string;
@@ -109,6 +114,7 @@ function ArtifactColumnGroup() {
     <col className="artifact-col-grade" />
     <col className="artifact-col-mainProperty" />
     <col className="artifact-col-subProperties" />
+    <col className="artifact-col-refinement" />
   </colgroup>;
 }
 
@@ -125,6 +131,9 @@ function ArtifactTableHeader({ sortHeader }: {
       {sortHeader('grade', 'Quality', true)}
       {sortHeader('mainProperty', 'Main stat', true)}
       {sortHeader('subProperties', 'Substats', true)}
+      {/* Not sortable: the flag marks a handful of rows and reads as an
+          annotation on the row rather than a column to order by. */}
+      <th scope="col"><span className="visually-hidden">Refinement</span></th>
     </tr>
   </thead>;
 }
@@ -210,10 +219,7 @@ export function ArtifactList({ game, monsters, preferences }: {
       if (selectedCategories.length && !selectedCategories.includes(row.artifact.category)) return false;
       if (selectedGrades.length && !selectedGrades.includes(row.artifact.grade)) return false;
       if (selectedMainProperties.length && !selectedMainProperties.includes(row.artifact.mainProperty)) return false;
-      if (selectedClasses.length) {
-        const equipClass = artifactEquipClass(row.artifact);
-        if (!equipClass || !selectedClasses.includes(equipClass)) return false;
-      }
+      if (selectedClasses.length && !selectedClasses.includes(artifactEquipClassLabel(row.artifact))) return false;
       if (activeSortBySubProperty !== null
         && !row.subProperties.some((property) => property.definition.id === activeSortBySubProperty)) return false;
       if (!term) return true;
@@ -372,6 +378,10 @@ export function ArtifactList({ game, monsters, preferences }: {
         selectedClasses, setSelectedClasses, abbreviate, 'artifact-filter-element')}
       {toggleGroup('Archetype', 'Filter by monster type', classOptions.type,
         selectedClasses, setSelectedClasses, abbreviate, 'artifact-filter-archetype')}
+      {/* Its own group because it belongs to neither list: an Intangible
+          artifact restricts to no element and no monster type. */}
+      {toggleGroup('Wildcard', 'Filter by unrestricted equip class', intangibleOption,
+        selectedClasses, setSelectedClasses, abbreviate, 'artifact-filter-intangible')}
       {toggleGroup('Quality', 'Filter by quality', artifactGradeOrder,
         selectedGrades, setSelectedGrades, abbreviate, 'artifact-filter-quality')}
       {toggleGroup('Main stat', 'Filter by main stat', artifactMainPropertyOrder,
@@ -394,7 +404,7 @@ export function ArtifactList({ game, monsters, preferences }: {
     >
       <tbody>
           {visible.length ? visible.map((row) => <tr key={row.artifact.id}>
-            <td className="align-left row-index"><UnrefinedArtifactMark unrefined={row.artifact.unrefined} />{String(row.index + 1).padStart(2, '0')}</td>
+            <td className="align-left row-index">{String(row.index + 1).padStart(2, '0')}</td>
             <td className={row.location ? 'align-left' : 'align-left muted'}
               title={row.location === null ? 'Worn by a monster this import does not contain' : undefined}>
               {row.location ?? 'Unknown monster'}
@@ -406,9 +416,7 @@ export function ArtifactList({ game, monsters, preferences }: {
               {row.value === undefined ? '—' : `${formatNumber(Math.round(row.value * 100), preferences.general)} %`}
             </td>
             <td className="align-left dim">{artifactCategoryLabel(row.artifact.category)}</td>
-            <td className={artifactEquipClass(row.artifact) ? 'align-left' : 'align-left muted'}>
-              {artifactEquipClass(row.artifact) ?? '—'}
-            </td>
+            <td className="align-left">{artifactEquipClassLabel(row.artifact)}</td>
             <td className="align-left dim">{row.artifact.grade}</td>
             <td className={`align-left artifact-main-${row.mainPropertyPreference}`}>
               {row.artifact.mainProperty}
@@ -431,8 +439,9 @@ export function ArtifactList({ game, monsters, preferences }: {
                 })}
               </ul>
             </td>
+            <td className="artifact-refinement-flag"><UnrefinedArtifactMark unrefined={row.artifact.unrefined} /></td>
           </tr>) : <tr>
-            <td className="table-empty-state" colSpan={8}>No artifacts match these filters. Clear a filter to see more.</td>
+            <td className="table-empty-state" colSpan={9}>No artifacts match these filters. Clear a filter to see more.</td>
           </tr>}
       </tbody>
     </DataTablePage>

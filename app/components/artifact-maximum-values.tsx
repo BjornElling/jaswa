@@ -7,10 +7,10 @@ import { calculateArtifactScores } from '../lib/compute/artifact-score-client';
 import { buildArtifactScoreRequestsForMonsterIds } from '../lib/compute/artifact-score-input';
 import { scoreArtifactOnMonster } from '../lib/compute/artifact-score-core';
 import { recordedArtifactPreferenceMonsterIds } from '../lib/artifact-preferences';
-import { artifactCategoryLabel, artifactEquipClass, displaySubProperty } from '../lib/artifact-grid';
+import { artifactCategoryLabel, artifactEquipClassLabel, displaySubProperty } from '../lib/artifact-grid';
 import {
   artifactArchetypes, artifactCategoryLabels, artifactElements, artifactGradeOrder,
-  artifactMainPropertyOrder, artifactProperty,
+  artifactIntangibleLabel, artifactMainPropertyOrder, artifactProperty,
 } from '../lib/artifact-properties';
 import { readArtifacts } from '../lib/artifacts';
 import { formatNumber } from '../lib/formatting';
@@ -24,7 +24,11 @@ import type { GameRecord } from '../lib/game-data';
 import type { ArtifactSettings, GeneralSettings } from '../lib/types';
 
 const categoryOrder: readonly ArtifactCategory[] = ['attribute', 'type'];
-const restrictionOptions = [...Object.values(artifactElements), ...Object.values(artifactArchetypes)];
+/* Intangible joins the named classes so the wildcard artifacts can be filtered
+   for rather than only found by scrolling. */
+const restrictionOptions = [
+  ...Object.values(artifactElements), ...Object.values(artifactArchetypes), artifactIntangibleLabel,
+];
 const artifactLocations = ['inventory', 'equipped'] as const;
 
 type ArtifactLocation = typeof artifactLocations[number];
@@ -153,9 +157,9 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
   });
   const currentCalculation = calculation?.inputKey === inputKey ? calculation : undefined;
   const visibleArtifacts = useMemo(() => artifacts.filter((artifact) => {
-    const restriction = artifactEquipClass(artifact);
+    const restriction = artifactEquipClassLabel(artifact);
     return (!filters.categories.length || filters.categories.includes(artifact.category))
-      && (!filters.restrictions.length || (restriction !== null && filters.restrictions.includes(restriction)))
+      && (!filters.restrictions.length || filters.restrictions.includes(restriction))
       && (!filters.grades.length || filters.grades.includes(artifact.grade))
       && (!filters.mainProperties.length || filters.mainProperties.includes(artifact.mainProperty))
       && (!selectedSubPropertyId || artifact.subProperties.some((property) => String(property.definition.id) === selectedSubPropertyId))
@@ -166,6 +170,14 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
     setFilters((current) => ({ ...current, [key]: (current[key] as string[]).includes(value)
       ? (current[key] as string[]).filter((entry) => entry !== value)
       : [...(current[key] as string[]), value] }));
+  }
+
+  /* Only the results are discarded. The filters describe which rows a user
+     wants to inspect, not what was computed, so clearing keeps them set. */
+  function clear() {
+    setCalculation(undefined);
+    setError(undefined);
+    setState('idle');
   }
 
   async function calculate() {
@@ -213,24 +225,33 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
 
   return <div className="artifact-recommendations">
     <p className="lead">Calculate one recommended Attribute artifact and one Type artifact for each monster in the selected scope. Filters only narrow this table; they never reshuffle the recommendations.</p>
-    <div className="artifact-recommendation-filters">
+    <div className="filter-panel artifact-recommendation-filters">
       {buttonGroup('Type', 'categories', categoryOrder, (category) => artifactCategoryLabels[category], 'artifact-recommendation-filter-type')}
       {buttonGroup('Restriction', 'restrictions', restrictionOptions, (restriction) => restriction, 'artifact-recommendation-filter-restriction')}
       {buttonGroup('Quality', 'grades', artifactGradeOrder, (grade) => grade.slice(0, 3).toUpperCase(), 'artifact-recommendation-filter-quality')}
       <div className="filter-group artifact-recommendation-filter-substat"><label className="filter-label" htmlFor="artifact-recommendation-substat">Substat</label><div className="filter-group-controls"><Dropdown id="artifact-recommendation-substat" value={selectedSubPropertyId} onChange={(event) => setFilters((current) => ({ ...current, subPropertyId: event.target.value }))} aria-label="Filter recommendations by artifact substat" placeholder="All substats">{subPropertyOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}</Dropdown></div></div>
       {buttonGroup('Main stat', 'mainProperties', artifactMainPropertyOrder, (property) => property, 'artifact-recommendation-filter-main')}
       {buttonGroup('Location', 'locations', artifactLocations, (location) => location === 'inventory' ? 'Inventory' : 'Equipped', 'artifact-recommendation-filter-location')}
-      <button type="button" className="button important-action artifact-recommendation-calculate" onClick={() => void calculate()} disabled={state === 'calculating'}>{state === 'calculating' ? 'Calculating…' : 'Calculate recommendations'}</button>
+      <div className="artifact-recommendation-actions">
+        {/* Both labels are always in the layout and the inactive one is hidden
+            with visibility, so the button is as wide as its widest wording and
+            never resizes when the work starts or finishes. */}
+        <button type="button" className="button important-action artifact-recommendation-calculate" onClick={() => void calculate()} disabled={state === 'calculating'} data-state={state === 'calculating' ? 'busy' : 'idle'}>
+          <span className="artifact-recommendation-calculate-label" data-label="idle">Calculate recommendations</span>
+          <span className="artifact-recommendation-calculate-label" data-label="busy">Calculating…</span>
+        </button>
+        <button type="button" className="button artifact-recommendation-clear" onClick={() => clear()} disabled={!calculation || state === 'calculating'}>Clear results</button>
+      </div>
     </div>
     {state === 'error' && <p className="notice warning" role="status">{error}</p>}
     {calculation && !currentCalculation && <p className="notice warning" role="status">Settings or imported data changed. Calculate again to refresh these recommendations.</p>}
     {currentCalculation && <>
       <p className="artifact-recommendation-meta" role="status">{formatNumber(currentCalculation.evaluatedPairs, general)} pairs checked in {formatNumber(Math.round(currentCalculation.durationMs), general)} ms · {currentCalculation.backend === 'webgpu' ? 'Graphics card' : 'Processor'}</p>
       {settings.conversionStoneMode === 'owned' && currentCalculation.ownedConversionCount === 0 && <p className="notice warning">This import has no readable engraved conversion stones, so the results keep every artifact as it is.</p>}
-      {visibleArtifacts.length ? <div className="artifact-recommendation-table-wrap"><table className="artifact-recommendation-table"><thead><tr><th scope="col">#</th><th scope="col">Type</th><th scope="col">Restriction</th><th scope="col">Main stat</th><th scope="col">Substats</th><th scope="col">Location</th><th scope="col">Value on mon</th><th scope="col">Recommendation</th><th scope="col">New value</th><th scope="col">Best conversion</th></tr></thead><tbody>{visibleArtifacts.map((artifact) => {
+      {visibleArtifacts.length ? <div className="artifact-recommendation-table-wrap"><table className="artifact-recommendation-table"><thead><tr><th scope="col">#</th><th scope="col">Type</th><th scope="col">Restriction</th><th scope="col">Main stat</th><th scope="col">Substats</th><th scope="col">Location</th><th scope="col">Value on mon</th><th scope="col">Recommendation</th><th scope="col">New value</th><th scope="col">Best conversion</th><th scope="col"><span className="visually-hidden">Refinement</span></th></tr></thead><tbody>{visibleArtifacts.map((artifact) => {
         const wearer = artifact.occupiedId === null ? undefined : wearerByUnitId.get(artifact.occupiedId);
         const allocation = currentCalculation.allocations.get(artifact.id);
-        return <tr key={artifact.id}><td><UnrefinedArtifactMark unrefined={artifact.unrefined} />#{String(artifactNumbers.get(artifact.id) ?? artifact.id)}</td><td>{artifactCategoryLabel(artifact.category)}</td><td>{artifactEquipClass(artifact) ?? 'Unknown'}</td><td>{artifact.mainProperty} +{formatNumber(artifact.mainValue, general)}</td><td><ul className="artifact-subs">{artifact.subProperties.map((property) => <li key={property.definition.id}>{displaySubProperty(property, (value) => formatNumber(value, general))}</li>)}</ul></td><td>{artifact.occupiedId === null ? 'Inventory' : wearer?.name ?? 'Missing monster'}</td><td><Score value={scoreForWearer(artifact)} general={general} /></td><td className={allocation ? '' : 'artifact-recommendation-sell'}>{allocation ? allocation.monster.name : 'Sell'}</td><td><Score value={allocation?.value} general={general} /></td><td className={allocation ? '' : 'muted'}>{allocation ? conversionLabel(allocation.conversion) : '—'}</td></tr>;
+        return <tr key={artifact.id}><td>#{String(artifactNumbers.get(artifact.id) ?? artifact.id)}</td><td>{artifactCategoryLabel(artifact.category)}</td><td>{artifactEquipClassLabel(artifact)}</td><td>{artifact.mainProperty} +{formatNumber(artifact.mainValue, general)}</td><td><ul className="artifact-subs">{artifact.subProperties.map((property) => <li key={property.definition.id}>{displaySubProperty(property, (value) => formatNumber(value, general))}</li>)}</ul></td><td>{artifact.occupiedId === null ? 'Inventory' : wearer?.name ?? 'Missing monster'}</td><td><Score value={scoreForWearer(artifact)} general={general} /></td><td className={allocation ? '' : 'artifact-recommendation-sell'}>{allocation ? allocation.monster.name : 'Sell'}</td><td><Score value={allocation?.value} general={general} /></td><td className={allocation ? '' : 'muted'}>{allocation ? conversionLabel(allocation.conversion) : '—'}</td><td className="artifact-recommendation-flag"><UnrefinedArtifactMark unrefined={artifact.unrefined} /></td></tr>;
       })}</tbody></table></div> : <p className="artifact-recommendation-empty">No artifacts match these filters.</p>}
     </>}
   </div>;

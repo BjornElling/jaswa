@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { calculateArtifactScores } from '../lib/compute/artifact-score-client';
 import { buildArtifactScoreRequests, buildArtifactScoreRequestsForMonsterIds } from '../lib/compute/artifact-score-input';
 import { readArtifacts } from '../lib/artifacts';
-import { artifactCategoryLabel, artifactEquipClass } from '../lib/artifact-grid';
+import { artifactCategoryLabel, artifactEquipClassLabel } from '../lib/artifact-grid';
 import { artifactCategoryLabels, artifactProperty } from '../lib/artifact-properties';
 import { Dropdown } from './dropdown';
 import { UnrefinedArtifactMark } from './unrefined-artifact-mark';
@@ -115,12 +115,12 @@ function ArtifactResults({ title, description, rows, general, selectedMonster }:
       <table>
         <thead><tr><th scope="col">Artifact</th><th scope="col">On {selectedMonster.name}</th><th scope="col">Location</th><th scope="col">Best</th></tr></thead>
         <tbody>{rows.map((row) => {
-          const restriction = artifactEquipClass(row.artifact);
+          const restriction = artifactEquipClassLabel(row.artifact);
           const targetConversion = conversionLabel(row.target);
           return <tr key={row.artifact.id}>
             <td>
               <b><UnrefinedArtifactMark unrefined={row.artifact.unrefined} />#{String(row.index + 1).padStart(2, '0')}</b>
-              <span>{artifactCategoryLabel(row.artifact.category)}{restriction ? ` · ${restriction}` : ''}</span>
+              <span>{artifactCategoryLabel(row.artifact.category)} · {restriction}</span>
             </td>
             <td>
               <b><Score score={row.target} general={general} /></b>
@@ -258,7 +258,7 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
 
   return <div className="best-artifact-for-monster">
     <p className="lead">Filter your roster, choose a monster, then compare every compatible artifact using the active optimization settings.</p>
-    <div className="best-artifact-filters">
+    <div className="filter-panel best-artifact-filters">
       <div className="filter-group best-artifact-filter-element" role="group" aria-label="Filter monsters by element">
         <span className="filter-label">Element</span>
         <div className="filter-group-controls">

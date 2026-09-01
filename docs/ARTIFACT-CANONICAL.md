@@ -14,7 +14,7 @@ by an observed export — from **pending verification**, which is neither an
 assumption nor a permitted default in code. Pending items are marked inline.
 
 **The export encoding is settled** as of August 30, 2026, against 1,785 real
-artifact records. §15 records it, and three narrow fields remain pending there.
+artifact records. §15 records it, and two narrow fields remain pending there.
 
 > **The single most important caveat.** Most artifact guides and tables still
 > circulating describe the system **before v8.0.0**. Roll ranges, property
@@ -36,6 +36,15 @@ A monster carries **exactly two artifacts**, one of each category:
 A Wind/Attack Teshar takes one Wind artifact and one Attack artifact. It cannot
 equip a Water, HP, or Support artifact. This is the fundamental equip rule, and
 it is the first thing validation checks.
+
+**Intangible is the one exception, and only to the inner class.** An *Intangible*
+artifact — the game's own name, shown in the artifact panel — still belongs to
+one category and still fills only that category's slot, but matches **any**
+element (attribute category) or **any** monster type (type category). So the
+Teshar above can also take an Intangible attribute artifact in its attribute
+slot, or an Intangible type artifact in its type slot; it can never take an
+attribute artifact in the type slot. §15.1 records the encoding and the
+evidence.
 
 Each artifact has:
 
@@ -988,9 +997,43 @@ a second statement of the same fact rather than an independent one.
 build a level or upgrade path; there is nothing to model. `extra` was empty on
 every record, and `natural_rank` never fell below 3.
 
-**The value 98** appears in both `attribute` (21 records) and `unit_style` (6).
-It is not an element or a monster type. Treat it as its own case rather than a
-number to compare against 1–5 — **pending verification** of what it names.
+**The value 98 is the Intangible equip class — settled September 1, 2026.**
+It appears in `attribute` (25 records) and `unit_style` (6) across the 1,862
+artifacts of the user's account. The game names it in the artifact panel:
+**"Intangible Type Artifact"**. It is the same wildcard concept
+`RUNE-CANONICAL.md` §10 records for the Intangible rune, applied to the equip
+restriction rather than to the set.
+
+**An Intangible artifact fills its category slot but matches every class inside
+it.** The category still binds, and the export proves it rather than merely
+suggesting it:
+
+- `type` is unchanged on all 31 records — 25 are `type: 1`, 6 are `type: 2`.
+- A `type: 1` Intangible carries `3xx` **attribute-only** properties (35 lines
+  observed) and a `type: 2` one carries `4xx` **type-only** properties (11).
+  §5's category split holds, so the category is a real restriction on these.
+- Every other field is indistinguishable from an ordinary artifact: the same
+  `source` codes (50001 and 50009, both present on restricted artifacts too),
+  the same grades, the same `rank: 5` / `level: 15` constants.
+
+So an attribute Intangible fits any of the five elements and a type Intangible
+any of the four monster types — never the other category's slot.
+
+**Both compute backends encode the wildcard as one shared constant.**
+`intangibleRestrictionCode` in `app/lib/compute/artifact-score-protocol.ts` is
+`0`, chosen because it lies outside both class numberings (elements 1–5,
+archetypes 1–4) so no restricted artifact can collide with it. `fits` in
+`artifact-score-core.ts` and the matching test in the WebGPU shader must accept
+it identically; a disagreement there would make the two backends return
+different candidate sets for the same account.
+
+**An equip class JASWA cannot name is rejected, not imported.** `readArtifact`
+refuses a record whose class is neither a named element/type nor Intangible.
+Under `AGENTS.md` §0.1 the loud failure is the point: accepting one would import
+an artifact the user owns and then hide it from every recommendation, because no
+comparison could ever match it. That invisibility is precisely the defect the
+Intangible investigation uncovered — 31 owned artifacts, imported and unusable,
+for want of one lookup.
 
 ### 15.2 `pri_effect` — main property
 
@@ -1118,11 +1161,12 @@ Step 2 of the sprint — modelling and reading artifacts — is unblocked. Roll
 quality (§13's first evaluation axis) is computable today: the property, its
 power-up count, its value, and the grade invariant are all present and verified.
 
-Two fields carry a **pending verification** marker (`attribute`/`unit_style`
-value 98, and `sec_effects` position 4) and one carries a partial (position 3's
-magnitude). Under §14's revision rule none of them may receive a silent fallback:
-store them, surface them where they matter, and do not compute anything from a
-meaning nobody has established.
+One field carries a **pending verification** marker (`sec_effects` position 4)
+and one carries a partial (position 3's magnitude). `attribute`/`unit_style`
+value 98 was the third and is now **settled** as the Intangible equip class
+(§15.1). Under §14's revision rule the remaining two may not receive a silent
+fallback: store them, surface them where they matter, and do not compute
+anything from a meaning nobody has established.
 
 ### 15.9 Corrections from building the reader — August 30, 2026
 

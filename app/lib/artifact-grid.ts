@@ -1,7 +1,7 @@
 import type { Artifact, ArtifactSubProperty } from './artifacts';
 import type { ArtifactPropertyPreference } from './artifact-optimal-value';
 import type { ArtifactCategory, ArtifactGrade } from './artifact-properties';
-import { artifactCategoryLabels, artifactGradeOrder } from './artifact-properties';
+import { artifactCategoryLabels, artifactGradeOrder, artifactIntangibleLabel } from './artifact-properties';
 import { monsterNameCollator } from './monster-grid';
 
 export type ArtifactSortKey = 'index' | 'location' | 'value' | 'category' | 'equipClass' | 'grade' | 'mainProperty' | 'subProperties';
@@ -28,8 +28,25 @@ export const defaultArtifactSortDirections: Record<ArtifactSortKey, boolean> = {
 /** Grade sorts by rarity rather than alphabetically: Legend outranks Rare. */
 const gradeRank = new Map<ArtifactGrade, number>(artifactGradeOrder.map((grade, index) => [grade, index]));
 
+/**
+ * The single class this artifact restricts to, or `null` when it restricts to
+ * none. Use `artifactEquipClassLabel` for display: `null` means Intangible, not
+ * unknown, and every reader must have already rejected a class it cannot name.
+ */
 export function artifactEquipClass(artifact: Artifact): string | null {
   return artifact.category === 'attribute' ? artifact.element : artifact.archetype;
+}
+
+/**
+ * The equip class as the interface names it — an element, a monster type, or
+ * `Intangible` for the wildcard the game calls an "Intangible Type Artifact".
+ *
+ * Always returns a name. An artifact whose class JASWA cannot name never
+ * reaches the interface, because `readArtifact` rejects it under `AGENTS.md`
+ * §0.1 rather than importing a piece it would then hide.
+ */
+export function artifactEquipClassLabel(artifact: Artifact): string {
+  return artifactEquipClass(artifact) ?? artifactIntangibleLabel;
 }
 
 export function artifactCategoryLabel(category: ArtifactCategory): string {
@@ -71,7 +88,9 @@ export function compareArtifactRows(
   const text = (row: ArtifactRow): string | null => {
     if (key === 'location') return row.location;
     if (key === 'category') return artifactCategoryLabel(row.artifact.category);
-    if (key === 'equipClass') return artifactEquipClass(row.artifact);
+    /* Intangible sorts under its own name rather than as a missing value: it is
+       a class the user can look for, not an absence. */
+    if (key === 'equipClass') return artifactEquipClassLabel(row.artifact);
     if (key === 'mainProperty') return row.artifact.mainProperty;
     /* Sorted on the property names alone: the column groups artifacts that
        carry the same properties, and folding the rolled values in would order

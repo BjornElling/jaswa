@@ -32,6 +32,48 @@ file is corrected.
 
 ---
 
+## 0.1 Import parity — a fundamental principle
+
+**What the user owns in the game, JASWA imports, counts, and shows. There is no
+acceptable gap.** This outranks convenience, schedule, and tidiness of code. It
+applies to artifacts, runes, monsters, relics, craft items — every entity the
+export carries.
+
+The rule has three parts, and the third is the one that gets violated:
+
+1. **Never silently exclude.** An entity the export carries and a reader drops
+   must fail loudly, not quietly. A record JASWA cannot read is a defect in
+   JASWA, to be diagnosed and fixed — never a record to skip past.
+2. **Never import more than is shown.** A count in the interface must be the
+   count the user can actually reach and act on. Importing 1,862 artifacts and
+   ranking 1,831 of them is a parity break even though nothing was rejected.
+3. **Never accept an entity you cannot use.** This is the subtle one. A record
+   that passes the reader, is counted, and then cannot appear in any
+   calculation — because a field did not resolve and no comparison can ever
+   match it — is *invisible*, and invisible is worse than rejected: nothing
+   surfaces it. Either the program understands the field well enough to act on
+   it, or the reader rejects the record so the gap is visible. Never in between.
+
+**When a deviation is found, the cause is always found and always fixed.** A
+value the vocabulary does not cover is not a licence to shrug: it is evidence
+about a game mechanic JASWA does not model yet. Find out what the game means by
+it — the in-game panel names things the export only numbers — and model it.
+`ARTIFACT-CANONICAL.md` §15.1's equip class `98` was exactly this: 31 artifacts
+imported and hidden for want of one lookup, and the game itself called them
+Intangible on screen.
+
+**Guessing is still forbidden.** Parity does not licence inventing a meaning to
+make a record usable; that is `ARTIFACT-CANONICAL.md` §14's prohibition and it
+stands. The two rules meet at rejection: while the meaning is unknown the record
+must fail loudly, so the unknown is visible and someone can go and find out.
+
+**`npm run audit:import-parity` is the check.** It reconciles a real captured
+account against what the readers accept, entity by entity, and reports the
+field behind every shortfall. Run it after any change to a reader, a
+vocabulary table, or an eligibility rule.
+
+---
+
 ## 1. Source control
 
 **Commit to `main`. This project does not use branches.**
