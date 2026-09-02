@@ -1,0 +1,44 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "JASWA Helper",
+  "version": "1.0.0",
+  "identifier": "dk.jaswa.helper",
+  "build": {
+    "beforeDevCommand": "npm run frontend:dev",
+    "beforeBuildCommand": "npm run build:frontend",
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "JASWA Helper",
+        "width": 520,
+        "height": 552,
+        "resizable": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "publisher": "JASWA",
+    "shortDescription": "Local Steam companion for JASWA.",
+    "longDescription": "Captures your local Summoners War Steam snapshot for JASWA.",
+    "icon": ["../../public/favicon.ico"],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      },
+      "signCommand": "node sign.cjs %1",
+      "nsis": {
+        "installMode": "perMachine",
+        "installerHooks": "./windows/hooks.nsh"
+      }
+    }
+  }
+}

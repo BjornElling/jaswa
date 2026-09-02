@@ -1,0 +1,38 @@
+:root {
+  color: #241f16;
+  background: #f4f0e7;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body { margin: 0; min-width: 420px; }
+
+button { font: inherit; }
+
+main { display: grid; gap: 16px; padding: 28px; }
+
+header { align-items: center; display: flex; justify-content: space-between; }
+
+h1, p { margin: 0; }
+
+h1 { font-size: 28px; letter-spacing: -0.04em; }
+
+.eyebrow { color: #756e61; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
+
+.signal { background: #a7a095; border-radius: 999px; height: 12px; width: 12px; }
+.signal.ready { background: #b17a18; }
+.signal.problem { background: #8f3f35; }
+
+.status, .log-status { background: #fffdf8; border: 1px solid #ddd5c7; border-radius: 8px; display: grid; gap: 8px; padding: 16px; }
+.status-text { font-size: 18px; font-weight: 600; }
+.detail, .message { color: #756e61; font-size: 14px; line-height: 1.4; }
+
+.actions { display: grid; gap: 8px; grid-template-columns: 1fr 1fr; }
+
+button { background: #fffdf8; border: 1px solid #a89e8d; border-radius: 6px; color: #241f16; min-height: 42px; padding: 8px 12px; }
+button:hover:not(:disabled), button:focus-visible { border-color: #8a5d10; outline: 2px solid #d6b260; outline-offset: 2px; }
+button[aria-pressed='true'] { background: #b17a18; border-color: #b17a18; color: #fffdf8; }
+button:disabled { color: #9b9386; cursor: not-allowed; }
+
+.message { min-height: 20px; }

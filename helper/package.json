@@ -1,12 +1,29 @@
 {
   "name": "jaswa-helper",
   "private": true,
+  "type": "module",
   "author": "JASWA",
   "description": "Local Steam companion for JASWA.",
   "scripts": {
-    "start": "cargo run --release --manifest-path native/Cargo.toml",
-    "test": "cargo test --manifest-path native/Cargo.toml",
+    "start": "tauri dev",
+    "frontend:dev": "vite --host localhost --port 1420 --strictPort",
+    "test": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "build:frontend": "vite build",
+    "build": "tauri build --bundles nsis",
     "package": "node scripts/package.cjs"
   },
-  "engines": { "node": ">=22.13.0" }
+  "engines": { "node": ">=22.13.0" },
+  "dependencies": {
+    "@tauri-apps/api": "2.11.1",
+    "@tauri-apps/cli": "2.11.4",
+    "react": "19.2.6",
+    "react-dom": "19.2.6"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.0.2",
+    "typescript": "5.9.3",
+    "vite": "8.2.2"
+  }
 }

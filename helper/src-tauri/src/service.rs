@@ -10,13 +10,11 @@ use rustls::{
     pki_types::{CertificateDer, ServerName},
 };
 use serde_json::{Value, json};
-use std::os::windows::process::CommandExt;
 use std::{
     fs,
     io::{self, Read, Write},
     net::{TcpListener, TcpStream},
     path::{Path, PathBuf},
-    process::Command,
     sync::{
         Arc, Mutex,
         atomic::{AtomicBool, Ordering},
@@ -105,9 +103,7 @@ pub fn cleanup(remove_certificate: bool) -> Result<(), String> {
     remove_hosts()?;
     if remove_certificate {
         let directory = data_directory().join("certificates");
-        let _ = hidden_command("certutil.exe")
-            .args(["-silent", "-delstore", "Root", "JASWA Helper Local Root"])
-            .status();
+        let _ = crate::windows::remove_root_certificate("JASWA Helper Local Root");
         if directory.exists() {
             fs::remove_dir_all(directory).map_err(|error| error.to_string())?;
         }
@@ -159,6 +155,11 @@ fn start_api(shared: Arc<Shared>) -> Result<(), String> {
         while shared.running.load(Ordering::Acquire) {
             match listener.accept() {
                 Ok((stream, _)) => {
+                    if let Err(error) = stream.set_nonblocking(false) {
+                        *shared.last_error.lock().expect("error lock poisoned") =
+                            Some(format!("Local API could not prepare a connection: {error}"));
+                        continue;
+                    }
                     let shared = Arc::clone(&shared);
                     thread::spawn(move || {
                         let _ = respond_api(stream, shared);
@@ -293,15 +294,7 @@ fn start_game_monitor(shared: Arc<Shared>) {
 }
 
 fn summoners_war_running() -> bool {
-    hidden_command("tasklist.exe")
-        .args(["/FI", "IMAGENAME eq SummonersWar.exe", "/FO", "CSV", "/NH"])
-        .output()
-        .map(|output| {
-            String::from_utf8_lossy(&output.stdout)
-                .lines()
-                .any(|line| line.trim_start().starts_with("\"SummonersWar.exe\","))
-        })
-        .unwrap_or(false)
+    crate::windows::process_running("SummonersWar.exe")
 }
 
 fn start_bridge(
@@ -319,6 +312,12 @@ fn start_bridge(
         while shared.running.load(Ordering::Acquire) {
             match listener.accept() {
                 Ok((stream, _)) => {
+                    if let Err(error) = stream.set_nonblocking(false) {
+                        *shared.last_error.lock().expect("error lock poisoned") = Some(format!(
+                            "Gateway bridge for {hostname} could not prepare a connection: {error}"
+                        ));
+                        continue;
+                    }
                     let shared = Arc::clone(&shared);
                     let server = Arc::clone(&server);
                     thread::spawn(move || relay(stream, server, hostname, upstream, shared));
@@ -350,9 +349,7 @@ fn relay(
             socket,
         );
         let request = read_http_message(&mut incoming)?;
-        if !String::from_utf8_lossy(&request).contains(GATEWAY_PATH) {
-            return Err("Unexpected request reached the gateway bridge.".into());
-        }
+        let captures_gateway = String::from_utf8_lossy(&request).contains(GATEWAY_PATH);
         let roots = RootCertStore::from_iter(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
         let client = ClientConfig::builder()
             .with_root_certificates(roots)
@@ -369,7 +366,9 @@ fn relay(
             .map_err(|error| error.to_string())?;
         outgoing.flush().map_err(|error| error.to_string())?;
         let response = read_http_message(&mut outgoing)?;
-        capture(&request, &response, &shared);
+        if captures_gateway {
+            capture(&request, &response, &shared);
+        }
         incoming
             .write_all(&response)
             .map_err(|error| error.to_string())?;
@@ -517,15 +516,13 @@ fn certificate_config(directory: &Path) -> Result<Arc<ServerConfig>, String> {
 }
 
 fn install_certificate(path: &Path) -> Result<(), String> {
-    let output = hidden_command("certutil.exe")
-        .args(["-addstore", "-f", "Root", &path.display().to_string()])
-        .output()
-        .map_err(|error| error.to_string())?;
-    if output.status.success() {
-        Ok(())
-    } else {
-        Err(String::from_utf8_lossy(&output.stderr).to_string())
-    }
+    let mut reader = io::BufReader::new(fs::File::open(path).map_err(|error| error.to_string())?);
+    let certificate = rustls_pemfile::certs(&mut reader)
+        .next()
+        .transpose()
+        .map_err(|error| error.to_string())?
+        .ok_or("The local helper certificate is missing.")?;
+    crate::windows::install_root_certificate(certificate.as_ref())
 }
 fn hosts_path() -> PathBuf {
     std::env::var_os("SystemRoot")
@@ -565,7 +562,6 @@ fn install_hosts() -> Result<(), String> {
         ),
     )
     .map_err(|error| error.to_string())?;
-    let _ = hidden_command("ipconfig.exe").arg("/flushdns").status();
     Ok(())
 }
 fn remove_hosts() -> Result<(), String> {
@@ -576,13 +572,5 @@ fn remove_hosts() -> Result<(), String> {
         format!("{}\r\n", without_hosts_entries(&current).trim_end()),
     )
     .map_err(|error| error.to_string())?;
-    let _ = hidden_command("ipconfig.exe").arg("/flushdns").status();
     Ok(())
-}
-
-fn hidden_command(program: &str) -> Command {
-    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-    let mut command = Command::new(program);
-    command.creation_flags(CREATE_NO_WINDOW);
-    command
 }

@@ -1,4 +1,4 @@
-//! Platform-independent rules for the native helper.
+//! Platform-independent rules for the Tauri helper backend.
 //!
 //! Keeping the game protocol and snapshot rules outside the Windows shell makes
 //! the risky part of the helper executable directly testable without a tray,
@@ -9,3 +9,4 @@ pub mod profile;
 pub mod protocol;
 pub mod service;
 pub mod traffic;
+pub mod windows;
