@@ -12,6 +12,9 @@ export type MonsterRow = {
   unitId: string;
   name: string;
   secondaryName?: string;
+  /* Names the row answers to in search but never shows — the twin release's
+     name, or a former name after a rename. See `monster-catalog.ts`. */
+  searchAliases?: string[];
   element?: string;
   archetype?: MonsterArchetype;
   imageFilename?: string;

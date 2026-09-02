@@ -113,7 +113,10 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
       return {
         unitId,
         name: preference?.label || defaultNames[unitId],
-        secondaryName: preference?.label ? defaultNames[unitId] : display.secondaryName,
+        /* Only a user's own label earns a second line, and it shows the game's
+           name beneath it. A collaboration copy shows one name — its own. */
+        secondaryName: preference?.label ? defaultNames[unitId] : undefined,
+        searchAliases: display.searchAliases,
         element: elementName(monster.attribute),
         archetype: display.archetype,
         imageFilename: display.imageFilename,
@@ -150,6 +153,7 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
       if (!term) return true;
       return row.name.toLowerCase().includes(term)
         || row.secondaryName?.toLowerCase().includes(term)
+        || row.searchAliases?.some((alias) => alias.toLowerCase().includes(term))
         || row.sets.some((set) => set.name.toLowerCase().includes(term));
     });
     const { key, ascending } = sort;
