@@ -5,7 +5,7 @@ import { calculateArtifactScores } from '../lib/compute/artifact-score-client';
 import { buildArtifactScoreRequests, buildArtifactScoreRequestsForMonsterIds } from '../lib/compute/artifact-score-input';
 import { readArtifacts } from '../lib/artifacts';
 import { artifactCategoryLabel, artifactEquipClassLabel } from '../lib/artifact-grid';
-import { artifactCategoryLabels, artifactProperty } from '../lib/artifact-properties';
+import { artifactCategoryLabels, artifactIntangibleLabel, artifactProperty } from '../lib/artifact-properties';
 import { Dropdown } from './dropdown';
 import { UnrefinedArtifactMark } from './unrefined-artifact-mark';
 import { formatNumber } from '../lib/formatting';
@@ -154,6 +154,11 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
   const [selectedElements, setSelectedElements] = useState<string[]>([]);
   const [selectedArchetypes, setSelectedArchetypes] = useState<MonsterArchetype[]>([]);
   const [selectedLocations, setSelectedLocations] = useState<ArtifactLocation[]>([]);
+  /* On by default: an Intangible fits the chosen monster like any other artifact,
+     so hiding it would understate what the account can actually equip. The
+     toggle exists for the opposite question — which of the class-bound artifacts
+     is best — because a wildcard the user would rather not spend crowds it out. */
+  const [includeIntangible, setIncludeIntangible] = useState(true);
   const [selectedUnitId, setSelectedUnitId] = useState('');
   const [calculation, setCalculation] = useState<ArtifactScoreMaps | undefined>();
   const [state, setState] = useState<'idle' | 'calculating' | 'error'>('idle');
@@ -193,9 +198,12 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
     }).sort((left, right) => right.target.value - left.target.value || left.index - right.index);
   }, [artifacts, artifactNumbers, currentCalculation, selectedMonster, wearers]);
 
-  const locationRows = rows.filter((row) => !selectedLocations.length
-    || selectedLocations.includes(row.artifact.occupiedId === null ? 'inventory' : 'equipped'));
-  const categoryRows = (category: ArtifactCategory) => locationRows
+  /* Both filters narrow the ranking that was already calculated, so switching
+     either one answers immediately instead of asking for the scores again. */
+  const visibleRows = rows.filter((row) => (!selectedLocations.length
+    || selectedLocations.includes(row.artifact.occupiedId === null ? 'inventory' : 'equipped'))
+    && (includeIntangible || !row.artifact.intangible));
+  const categoryRows = (category: ArtifactCategory) => visibleRows
     .filter((row) => row.artifact.category === category)
     .slice(0, 10);
 
@@ -285,6 +293,15 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
             className={selectedLocations.includes(location) ? 'filter-button active' : 'filter-button'}
             onClick={() => toggleLocation(location)} aria-pressed={selectedLocations.includes(location)}
           >{location === 'inventory' ? 'Inventory' : 'Equipped'}</button>)}
+        </div>
+      </div>
+      <div className="filter-group best-artifact-filter-include" role="group" aria-label="Include artifacts by equip class">
+        <span className="filter-label">Include</span>
+        <div className="filter-group-controls">
+          <button type="button"
+            className={includeIntangible ? 'filter-button active' : 'filter-button'}
+            onClick={() => setIncludeIntangible((current) => !current)} aria-pressed={includeIntangible}
+          >{artifactIntangibleLabel}</button>
         </div>
       </div>
       <div className="filter-group best-artifact-monster-select">
