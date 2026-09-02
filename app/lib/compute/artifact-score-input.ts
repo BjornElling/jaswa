@@ -110,6 +110,13 @@ const engravedConversionStoneCraftType = 6;
 const engravedConversionStoneEffectOffset = 600;
 const engravedConversionStoneEffectDigits = 10_000;
 
+function integerValue(value: unknown): number | undefined {
+  if (typeof value === 'number') return Number.isSafeInteger(value) ? value : undefined;
+  if (typeof value !== 'string' || value.trim() === '') return undefined;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? parsed : undefined;
+}
+
 /** Reads the current artifact properties named by owned engraved stones. */
 export function readOwnedEngravedConversionPropertyIndexes(data: GameRecord | undefined): number[] {
   const records = data?.rune_craft_item_list;
@@ -118,10 +125,11 @@ export function readOwnedEngravedConversionPropertyIndexes(data: GameRecord | un
   for (const record of records) {
     if (!record || typeof record !== 'object' || Array.isArray(record)) continue;
     const craft = record as GameRecord;
-    if (craft.craft_type !== engravedConversionStoneCraftType || typeof craft.craft_type_id !== 'number'
-      || !Number.isInteger(craft.craft_type_id)) continue;
+    if (integerValue(craft.craft_type) !== engravedConversionStoneCraftType) continue;
+    const craftTypeId = integerValue(craft.craft_type_id);
+    if (craftTypeId === undefined) continue;
     const definition = artifactProperty(
-      (craft.craft_type_id % engravedConversionStoneEffectDigits) - engravedConversionStoneEffectOffset,
+      (craftTypeId % engravedConversionStoneEffectDigits) - engravedConversionStoneEffectOffset,
     );
     if (!definition || definition.status !== 'current') continue;
     const propertyIndex = artifactPropertyIndex.get(definition.id);
