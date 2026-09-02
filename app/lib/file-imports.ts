@@ -7,7 +7,9 @@ import type { GameRecord } from './game-data';
 import { defaultRunePotentialPresets, isCurrentRunePotentialPresets } from './rune-potential-presets';
 import { blankGeneralSettings, isGeneralSettings } from './regional-settings';
 
-const expectedSections = ['unit_list', 'runes', 'artifacts', 'relics', 'rune_craft_item_list'] as const;
+const expectedSections = [
+  'unit_list', 'runes', 'artifacts', 'relics', 'rune_craft_item_list', 'artifact_crafts', 'inventory_info',
+] as const;
 const excludedKeys = new Set(['session_key', 'session_key_node']);
 const runePotentialSortOrders: RunePotentialSortOrder[] = [
   'Grade', 'Sub Property', 'Sub Property Before Grinding', 'Power-up Lv.',
@@ -170,7 +172,7 @@ function completeEquipmentCollections(data: GameRecord): GameRecord {
         return true;
       });
   };
-  return {
+  const prepared: GameRecord = {
     ...data,
     unit_list: units,
     runes: complete('runes'),
@@ -178,6 +180,17 @@ function completeEquipmentCollections(data: GameRecord): GameRecord {
     relics: complete('relics'),
     rune_craft_item_list: recordCollection(data.rune_craft_item_list),
   };
+  /* These two account collections are not yet separate workspaces, but live
+     import still keeps them current so a later workspace never starts from a
+     stale snapshot. Missing stays missing; an explicitly empty collection
+     remains the user's empty answer. */
+  if (hasCollection(data.artifact_crafts)) {
+    prepared.artifact_crafts = recordCollection(data.artifact_crafts);
+  }
+  if (hasCollection(data.inventory_info)) {
+    prepared.inventory_info = recordCollection(data.inventory_info);
+  }
+  return prepared;
 }
 
 function removeExcludedKeys(value: unknown): unknown {
