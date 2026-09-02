@@ -36,7 +36,8 @@ export type MonsterRow = {
   ehp: number | null;
   ehpD: number | null;
   dmg: number | null;
-  isRainbowmon: boolean;
+  /** Rainbowmons and Devilmons: fed to other monsters rather than played. */
+  isFodderMonster: boolean;
 };
 
 export const monsterArchetypeLabels: Record<MonsterArchetype, string> = {

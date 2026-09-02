@@ -26,7 +26,8 @@ type MonsterFilterState = {
   selectedElements: string[];
   selectedArchetypes: MonsterArchetype[];
   showStorage: boolean;
-  showRainbowmons: boolean;
+  showFodderMonsters: boolean;
+  showBelowMaxLevel: boolean;
 };
 
 const defaultMonsterFilters: MonsterFilterState = {
@@ -34,9 +35,15 @@ const defaultMonsterFilters: MonsterFilterState = {
   selectedElements: [],
   selectedArchetypes: [],
   showStorage: true,
-  showRainbowmons: false,
+  showFodderMonsters: false,
+  showBelowMaxLevel: false,
 };
 const monsterElementOptions = ['Water', 'Fire', 'Wind', 'Light', 'Dark'] as const;
+/* Feeding material rather than a roster monster, so one toggle covers both. */
+const fodderMonsterNames = ['Rainbowmon', 'Devilmon'];
+/* The game caps monsters at 40 today, so a level below that is not maxed. Treating
+   it as a floor rather than an exact match keeps the filter right if the cap rises. */
+const maxMonsterLevel = 40;
 
 function isMonsterFilterState(value: unknown): value is MonsterFilterState {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
@@ -47,7 +54,8 @@ function isMonsterFilterState(value: unknown): value is MonsterFilterState {
     && Array.isArray(candidate.selectedArchetypes)
     && candidate.selectedArchetypes.every((entry) => monsterFilterArchetypes.includes(entry as MonsterArchetype))
     && typeof candidate.showStorage === 'boolean'
-    && typeof candidate.showRainbowmons === 'boolean';
+    && typeof candidate.showFodderMonsters === 'boolean'
+    && typeof candidate.showBelowMaxLevel === 'boolean';
 }
 
 function MonsterColumnGroup({ columns }: { columns: MonsterGridColumn[] }) {
@@ -88,7 +96,9 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
   const [filters, setFilters] = useLocalStorageState(
     'jaswa.filters.monsters', defaultMonsterFilters, isMonsterFilterState,
   );
-  const { search, selectedElements, selectedArchetypes, showStorage, showRainbowmons } = filters;
+  const {
+    search, selectedElements, selectedArchetypes, showStorage, showFodderMonsters, showBelowMaxLevel,
+  } = filters;
   const rows = useMemo<MonsterRow[]>(() => {
     const defaultNames = numberedMonsterNames(monsters);
     return monsters.map((monster, index) => {
@@ -133,7 +143,7 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
         ehp: hp === null || def === null ? null : displayRunePotentialMetric(metrics.ehp),
         ehpD: hp === null || def === null ? null : displayRunePotentialMetric(metrics.ehpD),
         dmg: atk === null || criticalRate === null || criticalDamage === null ? null : displayRunePotentialMetric(metrics.dmg),
-        isRainbowmon: display.name === 'Rainbowmon',
+        isFodderMonster: fodderMonsterNames.includes(display.name),
       };
     });
   }, [monsters, preferences]);
@@ -147,7 +157,8 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
     const term = search.trim().toLowerCase();
     const filtered = rows.filter((row) => {
       if (!showStorage && row.inStorage) return false;
-      if (!showRainbowmons && row.isRainbowmon) return false;
+      if (!showFodderMonsters && row.isFodderMonster) return false;
+      if (!showBelowMaxLevel && (row.level === null || row.level < maxMonsterLevel)) return false;
       if (selectedElements.length && (!row.element || !selectedElements.includes(row.element))) return false;
       if (selectedArchetypes.length && (!row.archetype || !selectedArchetypes.includes(row.archetype))) return false;
       if (!term) return true;
@@ -171,7 +182,7 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
       }
       return compareNumbersWithBlanks(left[key], right[key], direction) || left.index - right.index;
     });
-  }, [rows, search, selectedElements, selectedArchetypes, showStorage, showRainbowmons, sort]);
+  }, [rows, search, selectedElements, selectedArchetypes, showStorage, showFodderMonsters, showBelowMaxLevel, sort]);
 
   function toggleSort(key: SortKey) {
     setSort((current) => current.key === key
@@ -267,9 +278,14 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
           <button type="button" className={showStorage ? 'filter-button active' : 'filter-button'}
             onClick={() => setFilters((current) => ({ ...current, showStorage: !current.showStorage }))} aria-pressed={showStorage}
           >Storage</button>
-          <button type="button" className={showRainbowmons ? 'filter-button active' : 'filter-button'}
-            onClick={() => setFilters((current) => ({ ...current, showRainbowmons: !current.showRainbowmons }))} aria-pressed={showRainbowmons}
-          >Rainbowmons</button>
+          <button type="button" className={showFodderMonsters ? 'filter-button active' : 'filter-button'}
+            onClick={() => setFilters((current) => ({ ...current, showFodderMonsters: !current.showFodderMonsters }))} aria-pressed={showFodderMonsters}
+            title="Rainbowmons and Devilmons" aria-label="Rainbowmons and Devilmons"
+          >Fodder</button>
+          <button type="button" className={showBelowMaxLevel ? 'filter-button active' : 'filter-button'}
+            onClick={() => setFilters((current) => ({ ...current, showBelowMaxLevel: !showBelowMaxLevel }))}
+            aria-pressed={showBelowMaxLevel}
+          >Lvl. &lt; {maxMonsterLevel}</button>
         </div>
       </div>
       <output className="filter-summary" aria-label={`${visible.length} of ${rows.length} monsters shown`}>

@@ -7,7 +7,9 @@
   "scripts": {
     "start": "tauri dev",
     "frontend:dev": "vite --host localhost --port 1420 --strictPort",
-    "test": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "test": "npm run verify:command-contract && cargo test --manifest-path src-tauri/Cargo.toml",
+    "verify:command-contract": "node scripts/verify-command-contract.mjs",
+    "verify:dashboard-flow": "node scripts/verify-dashboard-flow.mjs",
     "build:frontend": "vite build",
     "build": "tauri build --bundles nsis",
     "package": "node scripts/package.cjs"

@@ -47,8 +47,10 @@ export function App() {
 
   const call = useCallback(async (command: string, args?: Record<string, unknown>) => {
     try {
-      const result = await invoke<string | undefined>(command, args);
-      if (result) setMessage(result);
+      const result = await invoke<unknown>(command, args);
+      // Only a command's own words belong in the message line. Anything else a
+      // command returns is state the next refresh reads, not text to show.
+      if (typeof result === 'string' && result) setMessage(result);
       await refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));

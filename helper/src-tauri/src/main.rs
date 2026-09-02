@@ -21,10 +21,12 @@ fn helper_status(state: State<'_, HelperState>) -> Value {
     dashboard(&state.service)
 }
 
+/// Returns nothing: the dashboard the caller needs arrives through
+/// `helper_status`, and handing back a status object here would put a value the
+/// caller treats as a status message into its message line.
 #[tauri::command]
-fn set_traffic_logging(enabled: bool, state: State<'_, HelperState>) -> Value {
+fn set_traffic_logging(enabled: bool, state: State<'_, HelperState>) {
     state.service.traffic().set_enabled(enabled);
-    dashboard(&state.service)
 }
 
 #[tauri::command]

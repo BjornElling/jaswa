@@ -344,85 +344,158 @@ fn relay(
     shared: Arc<Shared>,
 ) {
     let result = (|| -> Result<(), String> {
-        let mut incoming = StreamOwned::new(
+        let mut incoming = Connection::new(StreamOwned::new(
             ServerConnection::new(server).map_err(|error| error.to_string())?,
             socket,
-        );
-        let request = read_http_message(&mut incoming)?;
-        let captures_gateway = String::from_utf8_lossy(&request).contains(GATEWAY_PATH);
+        ));
         let roots = RootCertStore::from_iter(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-        let client = ClientConfig::builder()
-            .with_root_certificates(roots)
-            .with_no_client_auth();
         let name = ServerName::try_from(hostname.to_owned()).map_err(|error| error.to_string())?;
-        let stream = TcpStream::connect((upstream, 443))
-            .map_err(|error| format!("Could not connect to {hostname}: {error}"))?;
-        let mut outgoing = StreamOwned::new(
-            ClientConnection::new(Arc::new(client), name).map_err(|error| error.to_string())?,
-            stream,
-        );
-        outgoing
-            .write_all(&request)
-            .map_err(|error| error.to_string())?;
-        outgoing.flush().map_err(|error| error.to_string())?;
-        let response = read_http_message(&mut outgoing)?;
-        if captures_gateway {
-            capture(&request, &response, &shared);
+        // The game keeps its gateway connection open and sends its next command
+        // on it. Serving one exchange and hanging up cost every request after the
+        // first, which the game reports as "Network connection delayed (M:238)".
+        // Keep that client-side connection alive, but retain one upstream
+        // connection per exchange: retrying a POST after an ambiguous failure
+        // could execute a game mutation twice.
+        loop {
+            let Some(request) = incoming.read_message()? else {
+                return Ok(());
+            };
+            let captures_gateway = String::from_utf8_lossy(&request).contains(GATEWAY_PATH);
+            let mut outgoing = connect_upstream(hostname, upstream, &roots, &name)?;
+            let response = exchange_once(&mut outgoing, &request)?;
+            if captures_gateway {
+                capture(&request, &response, &shared);
+            }
+            incoming.write_message(&response)?;
         }
-        incoming
-            .write_all(&response)
-            .map_err(|error| error.to_string())?;
-        incoming.flush().map_err(|error| error.to_string())?;
-        Ok(())
     })();
     if let Err(error) = result {
         *shared.last_error.lock().expect("error lock poisoned") = Some(error);
     }
 }
 
-fn read_http_message(stream: &mut (impl Read + Write)) -> Result<Vec<u8>, String> {
-    let mut message = Vec::new();
-    let mut buffer = [0; 16 * 1024];
-    let header_end;
-    loop {
-        let read = stream
-            .read(&mut buffer)
-            .map_err(|error| error.to_string())?;
-        if read == 0 {
-            return Err("The gateway closed before sending an HTTP header.".into());
+/// Opens a fresh TLS connection to the real gateway.
+fn connect_upstream(
+    hostname: &str,
+    upstream: &str,
+    roots: &RootCertStore,
+    name: &ServerName<'static>,
+) -> Result<Connection<StreamOwned<ClientConnection, TcpStream>>, String> {
+    let client = ClientConfig::builder()
+        .with_root_certificates(roots.clone())
+        .with_no_client_auth();
+    let stream = TcpStream::connect((upstream, 443))
+        .map_err(|error| format!("Could not connect to {hostname}: {error}"))?;
+    Ok(Connection::new(StreamOwned::new(
+        ClientConnection::new(Arc::new(client), name.clone()).map_err(|error| error.to_string())?,
+        stream,
+    )))
+}
+
+/// Sends one request and insists on an answer, for a connection just opened.
+fn exchange_once(
+    connection: &mut Connection<StreamOwned<ClientConnection, TcpStream>>,
+    request: &[u8],
+) -> Result<Vec<u8>, String> {
+    connection.write_message(request)?;
+    connection
+        .read_message()?
+        .ok_or_else(|| "The gateway closed without answering.".into())
+}
+
+/// One end of a kept-alive connection, holding whatever was read past the
+/// message it was asked for.
+///
+/// A single read can arrive carrying the end of one message and the start of the
+/// next. Those extra bytes belong to the following message, so they are kept
+/// here rather than discarded — dropping them loses the game's next command.
+struct Connection<S> {
+    stream: S,
+    pending: Vec<u8>,
+}
+
+impl<S: Read + Write> Connection<S> {
+    fn new(stream: S) -> Self {
+        Self {
+            stream,
+            pending: Vec::new(),
         }
-        message.extend_from_slice(&buffer[..read]);
-        if message.len() > MAXIMUM_INTERCEPTED_BODY_BYTES + 64 * 1024 {
+    }
+
+    /// Reads one HTTP message, or `None` when the peer closed cleanly between
+    /// messages. On a keep-alive connection that close is how a session ends, so
+    /// it must not be reported as a failure the dashboard shows.
+    fn read_message(&mut self) -> Result<Option<Vec<u8>>, String> {
+        let mut buffer = [0; 16 * 1024];
+        let header_end = loop {
+            if let Some(end) = self
+                .pending
+                .windows(4)
+                .position(|window| window == b"\r\n\r\n")
+            {
+                break end + 4;
+            }
+            if self.pending.len() > MAXIMUM_INTERCEPTED_BODY_BYTES + 64 * 1024 {
+                return Err("The game response was too large to import safely.".into());
+            }
+            match self.fill(&mut buffer)? {
+                0 if self.pending.is_empty() => return Ok(None),
+                0 => return Err("The gateway closed before sending an HTTP header.".into()),
+                _ => {}
+            }
+        };
+        let header = String::from_utf8_lossy(&self.pending[..header_end]);
+        let length = header
+            .lines()
+            .find_map(|line| {
+                line.split_once(':')
+                    .filter(|(name, _)| name.eq_ignore_ascii_case("content-length"))
+                    .and_then(|(_, value)| value.trim().parse::<usize>().ok())
+            })
+            .unwrap_or(0);
+        if length > MAXIMUM_INTERCEPTED_BODY_BYTES {
             return Err("The game response was too large to import safely.".into());
         }
-        if let Some(end) = message.windows(4).position(|window| window == b"\r\n\r\n") {
-            header_end = end + 4;
-            break;
+        while self.pending.len() < header_end + length {
+            if self.fill(&mut buffer)? == 0 {
+                return Err("The gateway closed before sending its complete HTTP body.".into());
+            }
+        }
+        // Anything past this message is the next one, so it stays buffered.
+        let remainder = self.pending.split_off(header_end + length);
+        let message = std::mem::replace(&mut self.pending, remainder);
+        Ok(Some(message))
+    }
+
+    /// Appends one read to the buffer, reporting a dropped reused connection as
+    /// a clean end rather than a failure.
+    fn fill(&mut self, buffer: &mut [u8]) -> Result<usize, String> {
+        match self.stream.read(buffer) {
+            Ok(read) => {
+                self.pending.extend_from_slice(&buffer[..read]);
+                Ok(read)
+            }
+            Err(error)
+                if self.pending.is_empty()
+                    && matches!(
+                        error.kind(),
+                        io::ErrorKind::ConnectionReset
+                            | io::ErrorKind::ConnectionAborted
+                            | io::ErrorKind::UnexpectedEof
+                    ) =>
+            {
+                Ok(0)
+            }
+            Err(error) => Err(error.to_string()),
         }
     }
-    let header = String::from_utf8_lossy(&message[..header_end]);
-    let length = header
-        .lines()
-        .find_map(|line| {
-            line.split_once(':')
-                .filter(|(name, _)| name.eq_ignore_ascii_case("content-length"))
-                .and_then(|(_, value)| value.trim().parse::<usize>().ok())
-        })
-        .unwrap_or(0);
-    if length > MAXIMUM_INTERCEPTED_BODY_BYTES {
-        return Err("The game response was too large to import safely.".into());
-    }
-    while message.len() < header_end + length {
-        let read = stream
-            .read(&mut buffer)
+
+    fn write_message(&mut self, message: &[u8]) -> Result<(), String> {
+        self.stream
+            .write_all(message)
             .map_err(|error| error.to_string())?;
-        if read == 0 {
-            return Err("The gateway closed before sending its complete HTTP body.".into());
-        }
-        message.extend_from_slice(&buffer[..read]);
+        self.stream.flush().map_err(|error| error.to_string())
     }
-    message.truncate(header_end + length);
-    Ok(message)
 }
 
 fn capture(request: &[u8], response: &[u8], shared: &Shared) {
@@ -573,4 +646,120 @@ fn remove_hosts() -> Result<(), String> {
     )
     .map_err(|error| error.to_string())?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A pair of HTTP messages on one connection, as the game sends them.
+    struct Conversation {
+        incoming: io::Cursor<Vec<u8>>,
+    }
+
+    impl Read for Conversation {
+        fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+            self.incoming.read(buffer)
+        }
+    }
+    impl Write for Conversation {
+        fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+            Ok(buffer.len())
+        }
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    fn message(body: &str) -> String {
+        format!(
+            "POST /api/gateway_c2.php HTTP/1.1\r\nHost: gateway\r\nContent-Length: {}\r\n\r\n{body}",
+            body.len()
+        )
+    }
+
+    /// The keep-alive failure this reader exists for: the game sends its next
+    /// command on the same connection, so one call must stop at the end of the
+    /// first message and leave the second for the call after it. Reading both as
+    /// one message, or stopping after one, cost every request but the first and
+    /// the game reported "Network connection delayed (M:238)".
+    #[test]
+    fn reads_each_message_of_a_reused_connection_in_turn() {
+        let mut connection = Connection::new(Conversation {
+            incoming: io::Cursor::new(
+                format!("{}{}", message("first"), message("second")).into_bytes(),
+            ),
+        });
+        let first = connection.read_message().unwrap().unwrap();
+        assert!(String::from_utf8_lossy(&first).ends_with("first"));
+        let second = connection.read_message().unwrap().unwrap();
+        assert!(String::from_utf8_lossy(&second).ends_with("second"));
+        assert!(
+            connection.read_message().unwrap().is_none(),
+            "a spent connection reports its end rather than an error"
+        );
+    }
+
+    /// Both messages arriving in one read is the case that loses data: the
+    /// bytes past the first message are the second one and must be kept.
+    #[test]
+    fn keeps_the_next_message_when_one_read_carries_both() {
+        let both = format!("{}{}", message("one"), message("two")).into_bytes();
+        let mut connection = Connection::new(Conversation {
+            incoming: io::Cursor::new(both.clone()),
+        });
+        let first = connection.read_message().unwrap().unwrap();
+        assert_eq!(first.len(), message("one").len());
+        assert!(
+            !connection.pending.is_empty(),
+            "the over-read bytes are the next message and must be buffered"
+        );
+        let second = connection.read_message().unwrap().unwrap();
+        assert!(String::from_utf8_lossy(&second).ends_with("two"));
+    }
+
+    /// A close between messages is how a keep-alive session ends. Reporting it
+    /// as an error would put a failure on the dashboard for ordinary shutdown.
+    #[test]
+    fn reports_a_clean_close_between_messages_as_the_end() {
+        let mut connection = Connection::new(Conversation {
+            incoming: io::Cursor::new(Vec::new()),
+        });
+        assert!(connection.read_message().unwrap().is_none());
+    }
+
+    /// A message that stops mid-body is a real failure and must stay one, so a
+    /// truncated capture is never mistaken for a complete exchange.
+    #[test]
+    fn rejects_a_message_that_ends_inside_its_body() {
+        let mut connection = Connection::new(Conversation {
+            incoming: io::Cursor::new(
+                "POST /api/gateway_c2.php HTTP/1.1\r\nContent-Length: 99\r\n\r\nshort"
+                    .as_bytes()
+                    .to_vec(),
+            ),
+        });
+        assert!(connection.read_message().is_err());
+    }
+
+    /// A header with no body is complete at its blank line; waiting for a body
+    /// the sender will never send would stall the connection.
+    #[test]
+    fn reads_a_message_that_carries_no_body() {
+        let mut connection = Connection::new(Conversation {
+            incoming: io::Cursor::new(b"GET /health HTTP/1.1\r\nHost: gateway\r\n\r\n".to_vec()),
+        });
+        let read = connection.read_message().unwrap().unwrap();
+        assert!(String::from_utf8_lossy(&read).ends_with("\r\n\r\n"));
+    }
+
+    #[test]
+    fn keeps_only_this_helpers_hosts_entries_out_of_the_file() {
+        let existing = "127.0.0.1\tlocalhost\r\n";
+        let installed = format!("{existing}\r\n{}\r\n", helper_block());
+        let cleaned = without_hosts_entries(&installed);
+        assert!(cleaned.contains("127.0.0.1\tlocalhost"));
+        assert!(!cleaned.contains("qpyou.cn"));
+        assert!(!cleaned.contains(HOSTS_MARKER));
+    }
 }

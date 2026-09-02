@@ -82,10 +82,8 @@ impl TrafficLog {
             "{}\n",
             json!({"at": now(), "command": command.filter(|command| !command.is_empty()), "request": request, "response": response})
         );
-        self.bytes += line.len() as u64;
-        self.entries += 1;
-        self.recorded = true;
-        let full = self.bytes >= self.maximum_bytes;
+        let bytes = self.bytes.saturating_add(line.len() as u64);
+        let full = bytes >= self.maximum_bytes;
         let result = (|| -> io::Result<()> {
             fs::create_dir_all(&self.directory)?;
             let mut file = fs::OpenOptions::new()
@@ -105,8 +103,20 @@ impl TrafficLog {
             }
             Ok(())
         })();
-        if let Err(error) = result {
-            self.last_error = Some(error.to_string());
+        match result {
+            Ok(()) => {
+                self.bytes = bytes;
+                self.entries += 1;
+                self.recorded = true;
+                if full {
+                    /* A full file is a completed recording, not an ongoing one. */
+                    self.enabled = false;
+                }
+            }
+            Err(error) => {
+                /* Do not claim an exchange that never reached the file. */
+                self.last_error = Some(error.to_string());
+            }
         }
     }
 
@@ -153,6 +163,105 @@ mod tests {
         assert!(fs::read_to_string(log.file()).unwrap().contains("Captured"));
     }
 
+    /// The dashboard reports what it reads back from `status`, so turning the
+    /// log on has to be visible there immediately — before any traffic arrives.
+    /// A helper enabled against a silent game must not still read "Off".
+    #[test]
+    fn reports_recording_before_the_game_sends_anything() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut log = TrafficLog::new(Some(directory.path().to_owned()));
+        assert!(!log.status().enabled);
+        log.set_enabled(true);
+        let status = log.status();
+        assert!(status.enabled);
+        assert_eq!(status.entries, 0);
+        assert!(!status.recorded);
+        assert!(status.last_error.is_none());
+        assert!(log.file().exists(), "enabling starts the file it promises");
+    }
+
+    /// Enabling twice is the double-click case. The second call must not wipe
+    /// entries already recorded, which resetting the counters would do.
+    #[test]
+    fn enabling_an_already_recording_log_keeps_what_it_captured() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut log = TrafficLog::new(Some(directory.path().to_owned()));
+        log.set_enabled(true);
+        log.record(Some("First"), &json!({}), &json!({"unit_id": 1}));
+        log.set_enabled(true);
+        assert_eq!(log.status().entries, 1);
+        assert!(fs::read_to_string(log.file()).unwrap().contains("First"));
+    }
+
+    /// Off then on is a new recording, deliberately: the file is the one thing
+    /// the user opens, and mixing two sessions into it would misreport which
+    /// exchange belonged to which run. The old entries go, the counters with
+    /// them.
+    #[test]
+    fn restarting_the_log_replaces_the_previous_recording() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut log = TrafficLog::new(Some(directory.path().to_owned()));
+        log.set_enabled(true);
+        log.record(Some("Earlier"), &json!({}), &json!({"unit_id": 1}));
+        log.set_enabled(false);
+        log.set_enabled(true);
+        assert_eq!(log.status().entries, 0);
+        log.record(Some("Later"), &json!({}), &json!({"unit_id": 2}));
+        let written = fs::read_to_string(log.file()).unwrap();
+        assert!(written.contains("Later"));
+        assert!(!written.contains("Earlier"));
+    }
+
+    /// Disabling stops recording. Traffic arriving afterwards belongs to no
+    /// session the user asked for and must not reach the file.
+    #[test]
+    fn ignores_traffic_once_the_log_is_switched_off() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut log = TrafficLog::new(Some(directory.path().to_owned()));
+        log.set_enabled(true);
+        log.record(Some("Kept"), &json!({}), &json!({"unit_id": 1}));
+        log.set_enabled(false);
+        log.record(Some("Dropped"), &json!({}), &json!({"unit_id": 2}));
+        assert_eq!(log.status().entries, 1);
+        let written = fs::read_to_string(log.file()).unwrap();
+        assert!(written.contains("Kept"));
+        assert!(!written.contains("Dropped"));
+    }
+
+    /// An unwritable directory must cost the log and nothing else: the status
+    /// carries the reason so the dashboard can say it, and the process lives.
+    #[test]
+    fn reports_a_write_failure_without_losing_the_helper() {
+        let directory = tempfile::tempdir().unwrap();
+        let occupied = directory.path().join("occupied");
+        fs::write(&occupied, "not a directory").unwrap();
+        let mut log = TrafficLog::new(Some(occupied));
+        log.set_enabled(true);
+        assert!(log.status().enabled);
+        log.record(Some("Lost"), &json!({}), &json!({}));
+        assert_eq!(log.status().entries, 0);
+        assert!(!log.status().recorded);
+        assert!(
+            log.status().last_error.is_some(),
+            "the dashboard needs a reason to show"
+        );
+    }
+
+    /// A command name the game omits must not become the empty string in the
+    /// log, where it would read as an exchange with a command called "".
+    #[test]
+    fn records_a_missing_command_as_absent_rather_than_empty() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut log = TrafficLog::new(Some(directory.path().to_owned()));
+        log.set_enabled(true);
+        log.record(Some(""), &json!({}), &json!({"unit_id": 1}));
+        log.record(None, &json!({}), &json!({"unit_id": 2}));
+        let written = fs::read_to_string(log.file()).unwrap();
+        assert_eq!(written.lines().count(), 2);
+        assert!(!written.contains("\"command\":\"\""));
+        assert!(written.contains("\"command\":null"));
+    }
+
     #[test]
     fn writes_a_limit_notice_after_the_last_whole_entry() {
         let directory = tempfile::tempdir().unwrap();
@@ -169,5 +278,6 @@ mod tests {
                 .unwrap()
                 .contains("Log limit reached")
         );
+        assert!(!log.status().enabled, "a full log is no longer recording");
     }
 }
