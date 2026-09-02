@@ -91,23 +91,28 @@ vocabulary table, or an eligibility rule.
 
 ## 1.1 Local preview and publishing
 
-**The user reviews JASWA through their own, manually started `npm run dev`
-server.**
+**Visual verification always happens against a local server on
+`http://localhost:3000/` — the user's if one is running, otherwise one the agent
+starts itself.**
 
-- Do not start, stop, replace, or take ownership of the development server
-  unless the user explicitly asks.
-- Use the already running local server for focused visual verification whenever
-  it would materially test a changed interface, layout, interaction, or a
-  visual defect reported by the user.
+The point of this rule is to avoid a *second* server, not to avoid verifying. A
+competing server on another port splits the state the user is looking at from
+the state being tested, which is why the check below comes first:
+
+- Before browser automation, probe that exact URL with
+  `Invoke-WebRequest -UseBasicParsing http://localhost:3000/`.
+- **It responds:** it is the user's server. Use it as it is. Do not stop,
+  restart, replace, or take ownership of it, and do not start a second one.
+- **It does not respond:** start one with `npm run dev`, verify against it, and
+  say in the report that the server was started for the check. Never report a
+  visual change as unverified merely because the user had no server running,
+  and never substitute a hosted preview or a different port for the missing one.
 - **VS Code visual-verification rule:** The ChatGPT Browser/in-app browser is
   not available from the Codex IDE extension or Codex CLI. Do not try to find a
-  browser bridge in this environment and do not treat a missing browser
-  session as a server failure. For JASWA, use the installed project Playwright
-  dependency against the user's existing `http://localhost:3000/` server.
-- Before browser automation, verify that exact URL directly with
-  `Invoke-WebRequest -UseBasicParsing http://localhost:3000/`. If it does not
-  respond successfully, report the server as unavailable; never start a
-  competing server, substitute a hosted preview, or claim visual verification.
+  browser bridge in this environment and do not treat a missing browser session
+  as a server failure. Drive the page with the installed project Playwright
+  dependency instead — that is the browser for this environment, and it is
+  available for any verification where driving the real page helps.
 - For a visual or interactive change, run Playwright at a stable viewport,
   drive the real affected flow, and take screenshots before and after the
   relevant interaction. Check both the empty state and the fully populated
@@ -119,7 +124,7 @@ server.**
   after a documentation, data-only, or non-visual change. Do inspect the
   affected flow when a change could alter rendering, behaviour, layout, focus,
   state, or user-visible error handling.
-- Work only against the existing local URL. For a reported visual bug,
+- Work only against `http://localhost:3000/`. For a reported visual bug,
   reproduce it first, make the fix, then repeat the same steps and confirm the
   result.
 - Do not use Sites, a hosted preview, deployment tooling, or any workflow that
@@ -127,8 +132,10 @@ server.**
 - Do not deploy, publish, save a hosted build, obtain hosting credentials,
   or push to a hosting remote unless the user explicitly asks to publish or
   deploy. The presence of `.openai/hosting.json` is not publication approval.
-- If the local server is unavailable, say so plainly. Do not substitute a
-  hosted preview or start a competing server without the user's direction.
+- Report which server was used: the user's already-running one, or one started
+  for the check. If verification could not happen at all — Playwright would not
+  launch, `npm run dev` would not come up — say so plainly rather than
+  substituting a hosted preview or code inspection for it.
 
 ## 2. Layout must not move under the user
 

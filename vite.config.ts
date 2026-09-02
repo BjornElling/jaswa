@@ -49,7 +49,14 @@ export default defineConfig(async () => {
     server: {
       // Vite opens the system-default browser once the development server is ready.
       open: true,
-      ...(isCodexSeatbeltSandbox ? { watch: { useFsEvents: false, usePolling: true } } : {}),
+      watch: {
+        /* The helper's Rust build output is not application source, and Windows
+           keeps its intermediate executables locked while Cargo runs. Watching
+           them raises EBUSY, which the watcher reports as a fatal error and
+           takes the whole development server down mid-session. */
+        ignored: ['**/helper/src-tauri/target/**'],
+        ...(isCodexSeatbeltSandbox ? { useFsEvents: false, usePolling: true } : {}),
+      },
     },
     plugins: [
       vinext(),
