@@ -1,7 +1,12 @@
 #![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 
 use jaswa_helper::service::Service;
-use std::{os::windows::process::CommandExt, process::Command, time::Duration};
+use std::{
+    os::windows::process::CommandExt,
+    process::Command,
+    thread,
+    time::{Duration, Instant},
+};
 use tray_icon::{
     Icon, TrayIconBuilder,
     menu::{Menu, MenuEvent, MenuItem},
@@ -74,7 +79,7 @@ fn main() {
     ] {
         menu.append(item).expect("valid tray menu");
     }
-    let icon = Icon::from_rgba(tray_pixels(), 16, 16).expect("valid tray icon");
+    let icon = Icon::from_rgba(tray_pixels(), 32, 32).expect("valid tray icon");
     let tray = TrayIconBuilder::new()
         .with_tooltip("JASWA Helper")
         .with_menu(Box::new(menu))
@@ -82,39 +87,63 @@ fn main() {
         .build()
         .expect("tray notification icon");
     let events = MenuEvent::receiver();
+    let mut next_refresh = Instant::now();
     loop {
-        refresh(&service, &detail, &download, &log, &traffic, &tray);
-        match events.recv_timeout(Duration::from_millis(500)) {
-            Ok(event) if event.id == OPEN_JASWA => open_path("http://localhost:3000"),
-            Ok(event) if event.id == DOWNLOAD_JSON => {
-                if let Some(profile) = service.profile() {
-                    let path =
-                        jaswa_helper::config::data_directory().join("SummonersWar-export.json");
-                    if let Some(content) = jaswa_helper::profile::serialize_export(&profile["data"])
-                    {
-                        let _ = std::fs::write(&path, content);
-                        open_path(&path.display().to_string());
-                    }
-                }
-            }
-            Ok(event) if event.id == OPEN_DIAGNOSTICS => open_path(
-                &jaswa_helper::config::data_directory()
-                    .join("diagnostics.log")
-                    .display()
-                    .to_string(),
-            ),
-            Ok(event) if event.id == TOGGLE_LOG => {
-                let enabled = service.traffic().status().enabled;
-                service.traffic().set_enabled(!enabled);
-            }
-            Ok(event) if event.id == OPEN_TRAFFIC => {
-                open_path(&service.traffic().file().display().to_string())
-            }
-            Ok(event) if event.id == QUIT => break,
-            Ok(_) | Err(_) => {}
+        pump_windows_messages();
+        if Instant::now() >= next_refresh {
+            refresh(&service, &detail, &download, &log, &traffic, &tray);
+            next_refresh = Instant::now() + Duration::from_millis(500);
         }
+        while let Ok(event) = events.try_recv() {
+            let quit_requested = match event.id.as_ref() {
+                OPEN_JASWA => {
+                    open_path("http://localhost:3000");
+                    false
+                }
+                DOWNLOAD_JSON => {
+                    if let Some(profile) = service.profile() {
+                        let path =
+                            jaswa_helper::config::data_directory().join("SummonersWar-export.json");
+                        if let Some(content) =
+                            jaswa_helper::profile::serialize_export(&profile["data"])
+                        {
+                            let _ = std::fs::write(&path, content);
+                            open_path(&path.display().to_string());
+                        }
+                    }
+                    false
+                }
+                OPEN_DIAGNOSTICS => {
+                    open_path(
+                        &jaswa_helper::config::data_directory()
+                            .join("diagnostics.log")
+                            .display()
+                            .to_string(),
+                    );
+                    false
+                }
+                TOGGLE_LOG => {
+                    let enabled = service.traffic().status().enabled;
+                    service.traffic().set_enabled(!enabled);
+                    false
+                }
+                OPEN_TRAFFIC => {
+                    open_path(&service.traffic().file().display().to_string());
+                    false
+                }
+                QUIT => true,
+                _ => false,
+            };
+            if quit_requested {
+                service.stop();
+                return;
+            }
+        }
+        thread::sleep(Duration::from_millis(16));
+        /* Menu events arrive only after the Win32 queue is dispatched above.
+        Waiting on the channel instead blocks that queue and leaves a tray
+        icon that looks alive but never answers a right-click. */
     }
-    service.stop();
 }
 
 fn refresh(
@@ -212,17 +241,65 @@ fn hidden_command(program: &str) -> Command {
     command
 }
 fn tray_pixels() -> Vec<u8> {
-    let mut pixels = vec![0; 16 * 16 * 4];
-    for y in 2..14 {
-        for x in 2..14 {
-            let index = (y * 16 + x) * 4;
-            let edge = x == 2 || x == 13 || y == 2 || y == 13;
-            pixels[index..index + 4].copy_from_slice(if edge {
-                &[191, 145, 54, 255]
-            } else {
-                &[30, 30, 27, 255]
-            });
+    const SIZE: usize = 32;
+    const STONE: [(f32, f32); 5] = [
+        (-4.4, -9.74),
+        (4.4, -9.74),
+        (8.8, -17.36),
+        (0.0, -28.95),
+        (-8.8, -17.36),
+    ];
+    let mut pixels = vec![0; SIZE * SIZE * 4];
+    for y in 0..SIZE {
+        for x in 0..SIZE {
+            let point = (
+                (x as f32 + 0.5) * 64.0 / SIZE as f32 - 32.0,
+                (y as f32 + 0.5) * 64.0 / SIZE as f32 - 32.0,
+            );
+            for rotation in 0..6 {
+                if contains_stone(point, rotation, &STONE) {
+                    let index = (y * SIZE + x) * 4;
+                    pixels[index..index + 4].copy_from_slice(if rotation % 2 == 0 {
+                        &[120, 89, 26, 255]
+                    } else {
+                        &[168, 127, 38, 255]
+                    });
+                }
+            }
         }
     }
     pixels
+}
+
+fn contains_stone(point: (f32, f32), rotation: usize, stone: &[(f32, f32); 5]) -> bool {
+    let angle = -(rotation as f32) * std::f32::consts::PI / 3.0;
+    let (sin, cos) = angle.sin_cos();
+    let local = (point.0 * cos - point.1 * sin, point.0 * sin + point.1 * cos);
+    let mut sign = 0.0;
+    for index in 0..stone.len() {
+        let first = stone[index];
+        let second = stone[(index + 1) % stone.len()];
+        let cross =
+            (second.0 - first.0) * (local.1 - first.1) - (second.1 - first.1) * (local.0 - first.0);
+        if cross != 0.0 {
+            if sign != 0.0 && cross.signum() != sign {
+                return false;
+            }
+            sign = cross.signum();
+        }
+    }
+    true
+}
+
+fn pump_windows_messages() {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        DispatchMessageW, MSG, PM_REMOVE, PeekMessageW, TranslateMessage,
+    };
+    unsafe {
+        let mut message: MSG = std::mem::zeroed();
+        while PeekMessageW(&mut message, std::ptr::null_mut(), 0, 0, PM_REMOVE) != 0 {
+            TranslateMessage(&message);
+            DispatchMessageW(&message);
+        }
+    }
 }
