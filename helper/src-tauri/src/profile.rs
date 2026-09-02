@@ -54,6 +54,21 @@ const ENTITIES: [Entity; 7] = [
     },
 ];
 
+/* SWEX writes the whole login response, but JASWA's file route only consumes
+   these account collections. Keeping this boundary explicit prevents game
+   menus, shops, arena state and other unrelated response sections from
+   becoming part of a JASWA data file. */
+const DOWNLOAD_KEYS: &[&str] = &[
+    "wizard_id",
+    "unit_list",
+    "runes",
+    "artifacts",
+    "relics",
+    "rune_craft_item_list",
+    "artifact_crafts",
+    "inventory_info",
+];
+
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Status {
@@ -351,15 +366,21 @@ impl ProfileStore {
     }
 }
 
-/// The downloadable file is intentionally the game payload, never the helper
-/// envelope, and it must not turn a locally captured session secret into a
-/// shareable file. Compact JSON keeps the complete payload practical to move
-/// around without dropping any game-owned records.
+/// The downloadable file is intentionally the JASWA data payload, never the
+/// helper envelope, and it must not turn a locally captured session secret into
+/// a shareable file. The selected collections keep every account entity JASWA
+/// imports while omitting unrelated login-response state.
 pub fn serialize_export(profile: &Value) -> Option<String> {
-    profile.as_object()?;
+    let source = profile.as_object()?;
+    let mut payload = Map::new();
+    for key in DOWNLOAD_KEYS {
+        if let Some(value) = source.get(*key) {
+            payload.insert((*key).into(), remove_session_keys(value));
+        }
+    }
     Some(format!(
         "{}\n",
-        serde_json::to_string(&remove_session_keys(profile)).ok()?
+        serde_json::to_string(&Value::Object(payload)).ok()?
     ))
 }
 
@@ -1450,10 +1471,28 @@ mod tests {
 
     #[test]
     fn export_omits_session_secrets_at_every_depth() {
-        let exported = serialize_export(&json!({"session_key": "root", "unit_list": [{"session_key_node": "nested", "unit_id": 1}]})).unwrap();
+        let exported = serialize_export(&json!({
+            "session_key": "root",
+            "wizard_id": 7,
+            "unit_list": [{"session_key_node": "nested", "unit_id": 1}],
+            "runes": [],
+            "artifacts": [],
+            "relics": [],
+            "rune_craft_item_list": [],
+            "artifact_crafts": [{"rid": 4, "session_key": "craft-secret"}],
+            "inventory_info": [{"rid": 5}],
+            "building_list": [],
+            "account_info": {"device_name": "private"}
+        }))
+        .unwrap();
+        let document: Value = serde_json::from_str(&exported).unwrap();
         assert!(!exported.contains("session_key"));
         assert!(exported.contains("unit_id"));
         assert_eq!(exported.matches('\n').count(), 1);
+        assert!(document.get("building_list").is_none());
+        assert!(document.get("account_info").is_none());
+        assert_eq!(document["artifact_crafts"][0]["rid"], 4);
+        assert_eq!(document["inventory_info"][0]["rid"], 5);
     }
 
     #[test]
