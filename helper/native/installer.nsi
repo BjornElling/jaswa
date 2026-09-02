@@ -17,6 +17,17 @@ Section "Install"
   CreateShortcut "$SMPROGRAMS\JASWA Helper\JASWA Helper.lnk" "$INSTDIR\jaswa-helper.exe"
   CreateShortcut "$SMPROGRAMS\JASWA Helper\Uninstall JASWA Helper.lnk" "$INSTDIR\Uninstall JASWA Helper.exe"
   WriteUninstaller "$INSTDIR\Uninstall JASWA Helper.exe"
+  /* Windows Settings and the Start-menu uninstall command both read this
+     registry record. A shortcut alone can launch an uninstaller, but leaves
+     the application invisible in Installed apps. */
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\JASWA Helper" "DisplayName" "JASWA Helper"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\JASWA Helper" "DisplayVersion" "1.0.0"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\JASWA Helper" "Publisher" "JASWA"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\JASWA Helper" "InstallLocation" "$INSTDIR"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\JASWA Helper" "DisplayIcon" "$INSTDIR\jaswa-helper.exe"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\JASWA Helper" "UninstallString" "$\"$INSTDIR\Uninstall JASWA Helper.exe$\""
+  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\JASWA Helper" "NoModify" 1
+  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\JASWA Helper" "NoRepair" 1
   ExecShell "open" "$INSTDIR\jaswa-helper.exe" "--jaswa-installed"
 SectionEnd
 
@@ -27,6 +38,7 @@ Section "Uninstall"
 removeCertificate:
   ExecWait '"$INSTDIR\jaswa-helper.exe" --jaswa-cleanup --jaswa-remove-certificate'
 cleanupComplete:
+  DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\JASWA Helper"
   Delete "$INSTDIR\jaswa-helper.exe"
   Delete "$INSTDIR\Uninstall JASWA Helper.exe"
   Delete "$SMPROGRAMS\JASWA Helper\JASWA Helper.lnk"
