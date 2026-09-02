@@ -48,7 +48,10 @@ fn download_json(state: State<'_, HelperState>) -> Result<String, String> {
     let path = config::data_directory().join("SummonersWar-export.json");
     fs::create_dir_all(config::data_directory()).map_err(|error| error.to_string())?;
     fs::write(&path, content).map_err(|error| error.to_string())?;
-    windows::open(&path.display().to_string());
+    // Opening the payload itself sends a multi-megabyte JSON document to the
+    // user's editor and triggers its large-file safeguards. The containing
+    // folder still makes the generated file immediately easy to find.
+    windows::open(&config::data_directory().display().to_string());
     Ok(format!("Saved JSON to {}", path.display()))
 }
 

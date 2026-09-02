@@ -353,12 +353,13 @@ impl ProfileStore {
 
 /// The downloadable file is intentionally the game payload, never the helper
 /// envelope, and it must not turn a locally captured session secret into a
-/// shareable file.
+/// shareable file. Compact JSON keeps the complete payload practical to move
+/// around without dropping any game-owned records.
 pub fn serialize_export(profile: &Value) -> Option<String> {
     profile.as_object()?;
     Some(format!(
         "{}\n",
-        serde_json::to_string_pretty(&remove_session_keys(profile)).ok()?
+        serde_json::to_string(&remove_session_keys(profile)).ok()?
     ))
 }
 
@@ -1452,6 +1453,7 @@ mod tests {
         let exported = serialize_export(&json!({"session_key": "root", "unit_list": [{"session_key_node": "nested", "unit_id": 1}]})).unwrap();
         assert!(!exported.contains("session_key"));
         assert!(exported.contains("unit_id"));
+        assert_eq!(exported.matches('\n').count(), 1);
     }
 
     #[test]
