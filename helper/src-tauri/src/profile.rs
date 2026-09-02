@@ -173,10 +173,13 @@ impl ProfileStore {
                 continue;
             }
             let current = collection(&profile, entity.collection).to_vec();
-            let next = merge_collection(current.clone(), vec![item], entity.identifier);
+            let next = merge_collection(current.clone(), vec![item.clone()], entity.identifier);
             if next != current {
                 set_collection(&mut profile, entity.collection, next);
                 changed = true;
+                if entity.collection == "unit_list" {
+                    changed |= sync_unit_equipment(&mut profile, &item);
+                }
             }
         }
         let command = request
@@ -204,6 +207,23 @@ impl ProfileStore {
                 changed = true;
             }
         }
+        if command.contains("movestoragefromto") {
+            let unit_ids = request_identifiers(request, "unit_id");
+            let building_id = match (
+                identifier(request, "from").as_deref(),
+                identifier(request, "to").as_deref(),
+            ) {
+                /* `3` is the game's monster-storage side. The actual building
+                id is account-specific, so read it from the captured account
+                instead of treating the side number as a building id. */
+                (_, Some("3")) => monster_storage_building_id(&profile),
+                (Some("3"), _) => Some(Value::from(0)),
+                _ => None,
+            };
+            if let Some(building_id) = building_id {
+                changed |= update_unit_building(&mut profile, &unit_ids, &building_id);
+            }
+        }
         for entity in [ENTITIES[1], ENTITIES[2], ENTITIES[3]] {
             if command.contains("equip")
                 || command.contains("occupation")
@@ -214,6 +234,18 @@ impl ProfileStore {
                         move_equipment(&mut profile, entity, &item_id, destination.as_deref());
                 }
             }
+        }
+        if !command.contains("movestoragefromto") {
+            let mut removed_unit_ids =
+                identifiers_in_fields(response, "unit_id", &["remove_unit_id_list"]);
+            if command.contains("sacrifice") {
+                removed_unit_ids.extend(identifiers_in_fields(
+                    request,
+                    "unit_id",
+                    &["source_unit_list"],
+                ));
+            }
+            changed |= remove_everywhere(&mut profile, ENTITIES[0], &unique(removed_unit_ids));
         }
         if command.contains("sell") {
             for entity in ENTITIES {
@@ -342,6 +374,49 @@ fn set_collection(profile: &mut Value, key: &str, value: Vec<Value>) {
     if let Some(object) = profile.as_object_mut() {
         object.insert(key.into(), Value::Array(value));
     }
+}
+fn sync_unit_equipment(profile: &mut Value, unit: &Value) -> bool {
+    let mut changed = false;
+    for entity in [ENTITIES[1], ENTITIES[2], ENTITIES[3]] {
+        let current = collection(profile, entity.collection).to_vec();
+        let incoming = collection(unit, entity.collection).to_vec();
+        let next = merge_collection(current.clone(), incoming, entity.identifier);
+        if next != current {
+            set_collection(profile, entity.collection, next);
+            changed = true;
+        }
+    }
+    changed
+}
+fn monster_storage_building_id(profile: &Value) -> Option<Value> {
+    collection(profile, "building_list")
+        .iter()
+        .find(|building| identifier(building, "building_master_id").as_deref() == Some("25"))
+        .and_then(|building| building.get("building_id"))
+        .cloned()
+}
+fn update_unit_building(profile: &mut Value, ids: &[String], building_id: &Value) -> bool {
+    if ids.is_empty() {
+        return false;
+    }
+    let mut changed = false;
+    let mut units = collection(profile, "unit_list").to_vec();
+    for unit in &mut units {
+        if !identifier(unit, "unit_id").is_some_and(|id| ids.contains(&id)) {
+            continue;
+        }
+        if unit.get("building_id") == Some(building_id) {
+            continue;
+        }
+        if let Some(object) = unit.as_object_mut() {
+            object.insert("building_id".into(), building_id.clone());
+            changed = true;
+        }
+    }
+    if changed {
+        set_collection(profile, "unit_list", units);
+    }
+    changed
 }
 fn candidate(value: &Value, entity: Entity) -> bool {
     let Some(value) = object(value) else {
@@ -502,39 +577,74 @@ fn request_identifiers(value: &Value, key: &str) -> Vec<String> {
                 }
             }
             Value::Object(values) => {
-                for (name, value) in values {
-                    let aliases: &[&str] = if key == "craft_item_id" {
-                        &["craft_id", "craft_id_list", "craft_ids"]
-                    } else {
-                        &[]
-                    };
-                    if name == key
-                        || name == &format!("{key}s")
-                        || name == &format!("{key}_list")
-                        || name == &format!("{}_ids", key.trim_end_matches("_id"))
-                        || aliases.contains(&name.as_str())
-                    {
-                        match value {
-                            Value::Array(values) => ids.extend(values.iter().filter_map(|value| {
-                                identifier(&serde_json::json!({"id": value}), "id")
-                            })),
-                            _ => {
-                                if let Some(id) =
-                                    identifier(&serde_json::json!({"id": value}), "id")
-                                {
-                                    ids.push(id);
-                                }
-                            }
-                        }
+                for (name, entry) in values {
+                    if is_identifier_field(name, key) {
+                        collect_identifier_values(entry, key, ids);
                     }
-                    visit(value, key, ids);
+                    visit(entry, key, ids);
                 }
             }
             _ => {}
         }
     }
     visit(value, key, &mut ids);
-    ids
+    unique(ids)
+}
+fn is_identifier_field(name: &str, key: &str) -> bool {
+    name == key
+        || name == format!("{key}s")
+        || name == format!("{key}_list")
+        || name == format!("{}_ids", key.trim_end_matches("_id"))
+        || (key == "unit_id" && name == "source_unit_list")
+        || (key == "rid" && matches!(name, "artifact_ids" | "relic_ids"))
+        || (key == "craft_item_id" && matches!(name, "craft_id" | "craft_id_list" | "craft_ids"))
+}
+fn collect_identifier_values(value: &Value, key: &str, ids: &mut Vec<String>) {
+    match value {
+        Value::Array(values) => {
+            for value in values {
+                collect_identifier_values(value, key, ids);
+            }
+        }
+        Value::Object(_) => {
+            if let Some(id) = identifier(value, key) {
+                ids.push(id);
+            }
+        }
+        Value::String(value) => ids.push(value.clone()),
+        Value::Number(value) => ids.push(value.to_string()),
+        _ => {}
+    }
+}
+fn identifiers_in_fields(value: &Value, key: &str, fields: &[&str]) -> Vec<String> {
+    let mut ids = Vec::new();
+    fn visit(value: &Value, key: &str, fields: &[&str], ids: &mut Vec<String>) {
+        let Value::Object(values) = value else {
+            if let Value::Array(entries) = value {
+                for entry in entries {
+                    visit(entry, key, fields, ids);
+                }
+            }
+            return;
+        };
+        for (name, entry) in values {
+            if fields.contains(&name.as_str()) {
+                collect_identifier_values(entry, key, ids);
+            }
+            visit(entry, key, fields, ids);
+        }
+    }
+    visit(value, key, fields, &mut ids);
+    unique(ids)
+}
+fn unique(values: Vec<String>) -> Vec<String> {
+    let mut unique = Vec::new();
+    for value in values {
+        if !unique.contains(&value) {
+            unique.push(value);
+        }
+    }
+    unique
 }
 fn occupation_updates(request: &Value, key: &str) -> Vec<(String, Option<String>)> {
     let mut updates = Vec::new();
@@ -619,6 +729,117 @@ mod tests {
         assert_eq!(
             store.read().unwrap().data["unit_list"][0]["runes"],
             json!([])
+        );
+    }
+
+    #[test]
+    fn applies_storage_moves_in_both_directions() {
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({
+            "building_list": [{"building_id": 99, "building_master_id": 25}],
+            "unit_list": [
+                {"unit_id": 1, "building_id": 0},
+                {"unit_id": 2, "building_id": 0}
+            ],
+            "runes": []
+        })));
+
+        assert!(store.apply_update(
+            &json!({"result_to": {"unit_storage_list": [{"unit_master_id": 10101}]} }),
+            &json!({"command": "MoveStorageFromTo", "from": 1, "to": 3, "unit_id_list": [{"unit_id": 1}, {"unit_id": 2}]})
+        ));
+        let data = &store.read().unwrap().data;
+        assert_eq!(data["unit_list"][0]["building_id"], 99);
+        assert_eq!(data["unit_list"][1]["building_id"], 99);
+
+        assert!(store.apply_update(
+            &json!({"result_from": {"unit_storage_list": []}}),
+            &json!({"command": "MoveStorageFromTo", "from": 3, "to": 1, "unit_id_list": [{"unit_id": 1}]})
+        ));
+        assert_eq!(store.read().unwrap().data["unit_list"][0]["building_id"], 0);
+    }
+
+    #[test]
+    fn removes_converted_and_sacrificed_units() {
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({
+            "unit_list": [
+                {"unit_id": 1},
+                {"unit_id": 2},
+                {"unit_id": 3}
+            ],
+            "runes": []
+        })));
+
+        assert!(store.apply_update(
+            &json!({"remove_unit_id_list": [{"unit_id": 1}], "inventory_item_list": []}),
+            &json!({"command": "ConvertUnitToItem", "unit_id_list": [{"unit_id": 1}]})
+        ));
+        assert!(
+            store.read().unwrap().data["unit_list"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|unit| unit["unit_id"] != 1)
+        );
+
+        assert!(store.apply_update(
+            &json!({"target_unit": {"unit_id": 2, "unit_level": 40}}),
+            &json!({"command": "SacrificeUnit_V4", "source_unit_list": [{"unit_id": 3}], "target_unit_id": 2})
+        ));
+        let units = store.read().unwrap().data["unit_list"]
+            .as_array()
+            .unwrap()
+            .clone();
+        assert!(units.iter().all(|unit| unit["unit_id"] != 3));
+        assert_eq!(
+            units.iter().find(|unit| unit["unit_id"] == 2).unwrap()["unit_level"],
+            40
+        );
+    }
+
+    #[test]
+    fn keeps_account_equipment_in_step_with_a_unit_update() {
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({
+            "unit_list": [{
+                "unit_id": 1,
+                "runes": [{"rune_id": 5, "upgrade_curr": 9}],
+                "artifacts": [{"rid": 7, "upgrade_curr": 0}]
+            }],
+            "runes": [{"rune_id": 5, "upgrade_curr": 9}],
+            "artifacts": [{"rid": 7, "upgrade_curr": 0}]
+        })));
+        assert!(store.apply_update(
+            &json!({"unit_info": {
+                "unit_id": 1,
+                "runes": [{"rune_id": 5, "upgrade_curr": 12}],
+                "artifacts": [{"rid": 7, "upgrade_curr": 1}]
+            }}),
+            &json!({"command": "EquipRuneList"})
+        ));
+        let data = &store.read().unwrap().data;
+        assert_eq!(data["runes"][0]["upgrade_curr"], 12);
+        assert_eq!(data["artifacts"][0]["upgrade_curr"], 1);
+    }
+
+    #[test]
+    fn removes_artifacts_from_the_game_artifact_id_field() {
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({
+            "unit_list": [],
+            "runes": [],
+            "artifacts": [{"rid": 7, "set_id": 1}]
+        })));
+        assert!(store.apply_update(
+            &json!({}),
+            &json!({"command": "SellArtifacts", "artifact_ids": [7]})
+        ));
+        assert!(
+            store.read().unwrap().data["artifacts"]
+                .as_array()
+                .unwrap()
+                .is_empty()
         );
     }
 
