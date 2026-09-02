@@ -6,6 +6,7 @@
 /helper/dist/
 /helper/out/
 /helper/src-tauri/target/
+/helper/src-tauri/gen/
 /helper/native/target/
 /public/win-unpacked/
 /public/win-unpacked.tmp/
