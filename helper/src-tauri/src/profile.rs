@@ -55,9 +55,9 @@ const ENTITIES: [Entity; 7] = [
 ];
 
 /* SWEX writes the whole login response, but JASWA's file route only consumes
-   these account collections. Keeping this boundary explicit prevents game
-   menus, shops, arena state and other unrelated response sections from
-   becoming part of a JASWA data file. */
+these account collections. Keeping this boundary explicit prevents game
+menus, shops, arena state and other unrelated response sections from
+becoming part of a JASWA data file. */
 const DOWNLOAD_KEYS: &[&str] = &[
     "wizard_id",
     "unit_list",
@@ -147,6 +147,9 @@ impl ProfileStore {
             return false;
         };
         if !is_array(object.get("unit_list")) || !is_array(object.get("runes")) {
+            return false;
+        }
+        if !valid_snapshot_collections(object) {
             return false;
         }
         let wizard = identifier(&snapshot, "wizard_id");
@@ -438,7 +441,8 @@ fn merge_record(current: Option<&Value>, incoming: Value) -> Value {
 fn merge_collection(current: Vec<Value>, incoming: Vec<Value>, key: &str) -> Vec<Value> {
     let mut result = Vec::new();
     for item in current {
-        if let Some(id) = identifier(&item, key) {
+        if valid_identifier(&item, key) {
+            let id = identifier(&item, key).expect("validated identifier");
             if let Some(index) = result
                 .iter()
                 .position(|current| identifier(current, key).as_deref() == Some(&id))
@@ -450,7 +454,8 @@ fn merge_collection(current: Vec<Value>, incoming: Vec<Value>, key: &str) -> Vec
         }
     }
     for item in incoming {
-        if let Some(id) = identifier(&item, key) {
+        if valid_identifier(&item, key) {
+            let id = identifier(&item, key).expect("validated identifier");
             if let Some(index) = result
                 .iter()
                 .position(|current| identifier(current, key).as_deref() == Some(&id))
@@ -463,6 +468,99 @@ fn merge_collection(current: Vec<Value>, incoming: Vec<Value>, key: &str) -> Vec
     }
     result
 }
+
+/* Zero and missing ids belong to reward definitions and previews, not to an
+owned account collection. Treating them as entities is how five pass-reward
+previews collapsed into one phantom rune in the live profile. */
+fn valid_identifier(value: &Value, key: &str) -> bool {
+    match value.get(key) {
+        Some(Value::Number(number)) => number
+            .as_u64()
+            .is_some_and(|id| (1..=9_007_199_254_740_991).contains(&id)),
+        Some(Value::String(string)) => string
+            .parse::<u64>()
+            .is_ok_and(|id| (1..=9_007_199_254_740_991).contains(&id)),
+        _ => false,
+    }
+}
+
+fn valid_identifier_collection(value: Option<&Value>, key: &str) -> bool {
+    let Some(value) = value else {
+        return true;
+    };
+    let Some(items) = value.as_array() else {
+        return false;
+    };
+    let mut identifiers = Vec::with_capacity(items.len());
+    for item in items {
+        let Some(id) = identifier(item, key).filter(|_| valid_identifier(item, key)) else {
+            return false;
+        };
+        if identifiers.contains(&id) {
+            return false;
+        }
+        identifiers.push(id);
+    }
+    true
+}
+
+fn valid_craft_collection(value: Option<&Value>) -> bool {
+    let Some(value) = value else {
+        return true;
+    };
+    let Some(items) = value.as_array() else {
+        return false;
+    };
+    let mut identifiers = Vec::with_capacity(items.len());
+    for item in items {
+        let Some(id) =
+            identifier(item, "craft_item_id").filter(|_| valid_identifier(item, "craft_item_id"))
+        else {
+            return false;
+        };
+        let valid_amount = item
+            .get("amount")
+            .and_then(Value::as_u64)
+            .is_some_and(|amount| amount <= 9_007_199_254_740_991);
+        if !valid_amount || identifiers.contains(&id) {
+            return false;
+        }
+        identifiers.push(id);
+    }
+    true
+}
+
+/* A full snapshot is the baseline for every visible account total. Rejecting
+malformed or duplicate entities here keeps the helper from quietly
+producing a smaller profile by normalizing them away. */
+fn valid_snapshot_collections(object: &Map<String, Value>) -> bool {
+    if !valid_identifier_collection(object.get("unit_list"), "unit_id")
+        || !valid_identifier_collection(object.get("runes"), "rune_id")
+        || !valid_identifier_collection(object.get("artifacts"), "rid")
+        || !valid_identifier_collection(object.get("relics"), "rid")
+        || !valid_craft_collection(object.get("rune_craft_item_list"))
+        || !valid_identifier_collection(object.get("artifact_crafts"), "rid")
+        || !valid_identifier_collection(object.get("inventory_info"), "rid")
+    {
+        return false;
+    }
+    let Some(units) = object.get("unit_list").and_then(Value::as_array) else {
+        return false;
+    };
+    for unit in units {
+        let Some(unit) = unit.as_object() else {
+            return false;
+        };
+        if !valid_identifier_collection(unit.get("runes"), "rune_id")
+            || !valid_identifier_collection(unit.get("artifacts"), "rid")
+            || !valid_identifier_collection(unit.get("relics"), "rid")
+        {
+            return false;
+        }
+    }
+    true
+}
+
 fn normalize(items: Vec<Value>, key: &str) -> Vec<Value> {
     merge_collection(Vec::new(), items, key)
 }
@@ -624,7 +722,7 @@ fn response_entities(
                 identifier(value, "wizard_id").as_deref() == Some(wizard_id)
             });
             if !inside_unit
-                && identifier(value, entity.identifier).is_some()
+                && valid_identifier(value, entity.identifier)
                 && candidate_at(value, entity, parent)
                 && !blocked_context
                 && (entity.direct.contains(&parent)
@@ -724,6 +822,7 @@ fn non_account_container(parent: &str) -> bool {
             | "shop_item_list"
             | "shop_info"
             | "reward_item_list"
+            | "pass_reward_rune_info"
             | "event_list"
             | "webevent_list"
             | "mail_list"
@@ -750,12 +849,18 @@ fn changed_item_entity(value: &Value) -> Option<(Entity, Value)> {
         /* These are the stable item categories used by the game's V2 dungeon
         reward payload. The shape fallback keeps relics and future equipment
         categories readable without inventing a numeric type code. */
-        Some("8") => Some((ENTITIES[1], info)),
-        Some("73") => Some((ENTITIES[2], info)),
-        _ if info.get("sec_effect").is_some() && info.get("pri_effect").is_some() => {
+        Some("8") if valid_identifier(&info, ENTITIES[1].identifier) => Some((ENTITIES[1], info)),
+        Some("73") if valid_identifier(&info, ENTITIES[2].identifier) => Some((ENTITIES[2], info)),
+        _ if valid_identifier(&info, ENTITIES[3].identifier)
+            && info.get("sec_effect").is_some()
+            && info.get("pri_effect").is_some() =>
+        {
             Some((ENTITIES[3], info))
         }
-        _ if info.get("sec_effects").is_some() && info.get("pri_effect").is_some() => {
+        _ if valid_identifier(&info, ENTITIES[2].identifier)
+            && info.get("sec_effects").is_some()
+            && info.get("pri_effect").is_some() =>
+        {
             Some((ENTITIES[2], info))
         }
         _ => None,
@@ -778,7 +883,7 @@ fn known_account_entity(profile: &Value, entity: Entity, item: &Value) -> bool {
         .is_some()
 }
 fn trusted_account_entity(profile: &Value, entity: Entity, item: &Value, trusted: bool) -> bool {
-    if !trusted || !candidate(item, entity) {
+    if !trusted || !valid_identifier(item, entity.identifier) || !candidate(item, entity) {
         return false;
     }
     let Some(account_wizard_id) = identifier(profile, "wizard_id") else {
@@ -1329,6 +1434,16 @@ mod tests {
     }
 
     #[test]
+    fn rejects_snapshots_that_cannot_preserve_account_counts() {
+        let mut store = ProfileStore::default();
+        assert!(!store.accept_snapshot(json!({
+            "unit_list": [{"unit_id": 0}],
+            "runes": []
+        })));
+        assert!(store.read().is_none());
+    }
+
+    #[test]
     fn moves_and_sells_every_owned_equipment_copy() {
         let mut store = ProfileStore::default();
         store.accept_snapshot(json!({"unit_list": [{"unit_id": 1, "runes": []}], "runes": [{"rune_id": 5}], "artifacts": [], "relics": [], "rune_craft_item_list": []}));
@@ -1652,6 +1767,50 @@ mod tests {
 
         let data = &store.read().unwrap().data;
         assert_eq!(data["runes"].as_array().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn rejects_reward_preview_items_with_placeholder_ids() {
+        let mut store = ProfileStore::default();
+        store.accept_snapshot(json!({
+            "wizard_id": 7,
+            "unit_list": [],
+            "runes": [],
+            "artifacts": [],
+            "relics": []
+        }));
+
+        assert!(!store.apply_update(
+            &json!({
+                "pass_info_list": [{
+                    "pass_reward_rune_info": [
+                        {
+                            "rune_id": 0,
+                            "wizard_id": 7,
+                            "set_id": 22,
+                            "slot_no": 2,
+                            "pri_eff": [8, 7],
+                            "sec_eff": []
+                        },
+                        {
+                            "rune_id": 123,
+                            "wizard_id": 7,
+                            "set_id": 22,
+                            "slot_no": 3,
+                            "pri_eff": [8, 7],
+                            "sec_eff": []
+                        }
+                    ]
+                }]
+            }),
+            &json!({"command": "getPlayPassInfo"})
+        ));
+        assert!(
+            store.read().unwrap().data["runes"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
     }
 
     #[test]

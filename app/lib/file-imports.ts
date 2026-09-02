@@ -2,10 +2,12 @@ import type {
   ArtifactConversionStoneMode, ArtifactSettings, DirectImportMode, HelperSession, ImportReport, ImportRoute, ImportedGame, ItemGrade,
   MonsterPreference, Preferences, RunePotentialSettings, RunePotentialSortOrder,
 } from './types';
+import { readArtifact } from './artifacts';
 import { hasMonsterCatalogEntry } from './monster-catalog';
 import type { GameRecord } from './game-data';
 import { defaultRunePotentialPresets, isCurrentRunePotentialPresets } from './rune-potential-presets';
 import { blankGeneralSettings, isGeneralSettings } from './regional-settings';
+import { runeSetName } from './rune-sets';
 
 const expectedSections = [
   'unit_list', 'runes', 'artifacts', 'relics', 'rune_craft_item_list', 'artifact_crafts', 'inventory_info',
@@ -145,6 +147,68 @@ function hasCollection(value: unknown): boolean {
   return Array.isArray(value);
 }
 
+function isPositiveIdentifier(value: unknown): boolean {
+  if (typeof value === 'number') return Number.isSafeInteger(value) && value > 0;
+  if (typeof value !== 'string' || value.trim() === '') return false;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0;
+}
+
+/* A collection is a count of owned entities, not a bag of values that happen
+   to look like them. Requiring a positive id and one occurrence per collection
+   keeps malformed records from becoming a count that no table can honour. */
+function isValidIdentifiedCollection(
+  value: unknown,
+  identifier: string,
+  recordCheck: (record: GameRecord) => boolean = () => true,
+): value is GameRecord[] {
+  if (!Array.isArray(value)) return false;
+  const records = value.filter(isRecord);
+  if (records.length !== value.length) return false;
+  if (!records.every((record) => isPositiveIdentifier(record[identifier]) && recordCheck(record))) return false;
+  return new Set(records.map((record) => String(record[identifier]))).size === records.length;
+}
+
+function isValidCraftRecord(record: GameRecord): boolean {
+  return typeof record.amount === 'number'
+    && Number.isSafeInteger(record.amount)
+    && record.amount >= 0;
+}
+
+function validateAccountCollections(value: GameRecord): string | undefined {
+  if (!isValidIdentifiedCollection(value.unit_list, 'unit_id')) {
+    return 'This file contains an invalid monster collection.';
+  }
+  if (!isValidIdentifiedCollection(value.runes, 'rune_id', (rune) => runeSetName(rune.set_id) !== undefined)) {
+    return 'This file contains a rune JASWA cannot read.';
+  }
+
+  const units = recordCollection(value.unit_list);
+  for (const unit of units) {
+    if (unit.runes !== undefined && !isValidIdentifiedCollection(unit.runes, 'rune_id', (rune) => runeSetName(rune.set_id) !== undefined)) {
+      return 'This file contains an equipped rune JASWA cannot read.';
+    }
+    if (unit.artifacts !== undefined && !isValidIdentifiedCollection(unit.artifacts, 'rid', (artifact) => readArtifact(artifact) !== null)) {
+      return 'This file contains an equipped artifact JASWA cannot read.';
+    }
+    if (unit.relics !== undefined && !isValidIdentifiedCollection(unit.relics, 'rid')) {
+      return 'This file contains an equipped relic JASWA cannot read.';
+    }
+  }
+
+  if (value.artifacts !== undefined && !isValidIdentifiedCollection(value.artifacts, 'rid', (artifact) => readArtifact(artifact) !== null)) {
+    return 'This file contains an artifact JASWA cannot read.';
+  }
+  if (value.relics !== undefined && !isValidIdentifiedCollection(value.relics, 'rid')) {
+    return 'This file contains a relic JASWA cannot read.';
+  }
+  if (value.rune_craft_item_list !== undefined
+    && !isValidIdentifiedCollection(value.rune_craft_item_list, 'craft_item_id', isValidCraftRecord)) {
+    return 'This file contains an invalid craft-item collection.';
+  }
+  return undefined;
+}
+
 /* Artifacts and relics both carry their own id as `rid`, not `artifact_id` or
    `relic_id`: no record in the export has either, so keying on them silently
    de-duplicated nothing and would let an equipped item appear twice once the
@@ -228,6 +292,8 @@ export function validateGameFile(value: unknown): ImportReport {
   if (!hasCollection(value.unit_list) || !hasCollection(value.runes)) {
     return { valid: false, message: 'This file does not contain the monster and rune lists needed by JASWA.', knownSections, unknownMonsterIds: [] };
   }
+  const collectionError = validateAccountCollections(value);
+  if (collectionError) return { valid: false, message: collectionError, knownSections, unknownMonsterIds: [] };
   const unknownMonsterIds = [...new Set(recordCollection(value.unit_list)
     .map((monster) => String(monster.unit_master_id))
     .filter((id) => id !== 'undefined' && !hasMonsterCatalogEntry(id)))];

@@ -3,6 +3,12 @@
 **Status:** Binding coverage for the direct-import live route  
 **Reviewed:** September 2, 2026
 
+The route is also bound by [Import and Count Parity Contract](./IMPORT-PARITY-CONTRACT.md):
+the prepared profile must have the same account counts as the game for
+monsters, runes, craft items, artifacts, and relics. A response record with a
+zero, missing, or placeholder identifier is not an owned record and must not
+enter a counted collection.
+
 JASWA treats a successful game response as an account mutation when it carries
 an owned record. The live route is deliberately broader than a command allow
 list: it recognises the stable record shapes and the account's `wizard_id`, so
@@ -38,7 +44,9 @@ new reward wrapper names do not silently lose a record.
 - A non-zero top-level `ret_code` is ignored, so a failed action cannot erase
   or overwrite account data.
 - New records must either be in an account-owned response container or carry
-  the current account's `wizard_id`.
+  the current account's `wizard_id` with a positive entity identifier and an
+  owned-record shape. The `wizard_id` alone never turns a preview into
+  inventory.
 - Opponent, helper, arena, market, event-definition and unclaimed-mail
   containers are excluded. Mail becomes eligible only through the claim
   response, not merely because it appears in the inbox list.

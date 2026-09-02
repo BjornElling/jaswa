@@ -1,7 +1,11 @@
 # Local Persistence Contract
 
 **Status:** Binding product contract  
-**Reviewed:** August 31, 2026
+**Reviewed:** September 2, 2026
+
+Imported account data also follows the [Import and Count Parity Contract](./IMPORT-PARITY-CONTRACT.md):
+the durable snapshot preserves the exact prepared account collections used for
+the visible monster, rune, craft-item, artifact, and relic totals.
 
 ## Promise
 

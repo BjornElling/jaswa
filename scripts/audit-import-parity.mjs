@@ -50,6 +50,51 @@ function countBy(records, describe) {
   return [...counts.entries()].sort((left, right) => right[1] - left[1]);
 }
 
+function isRecord(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isPositiveIdentifier(value) {
+  if (typeof value === 'number') return Number.isSafeInteger(value) && value > 0;
+  if (typeof value !== 'string' || value.trim() === '') return false;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0;
+}
+
+function identifiedRecords(records, identifier) {
+  const ids = new Set();
+  let invalid = 0;
+  for (const record of records) {
+    if (!isRecord(record) || !isPositiveIdentifier(record[identifier])) {
+      invalid += 1;
+      continue;
+    }
+    ids.add(String(record[identifier]));
+  }
+  return { ids, invalid };
+}
+
+function accountRecords(snapshot, section) {
+  const units = Array.isArray(snapshot.unit_list) ? snapshot.unit_list : [];
+  return [
+    ...(Array.isArray(snapshot[section]) ? snapshot[section] : []),
+    ...units.flatMap((unit) => Array.isArray(unit?.[section]) ? unit[section] : []),
+  ];
+}
+
+function craftAmount(records) {
+  let total = 0;
+  let invalid = 0;
+  for (const record of records) {
+    if (!isRecord(record) || !Number.isSafeInteger(record.amount) || record.amount < 0) {
+      invalid += 1;
+      continue;
+    }
+    total += record.amount;
+  }
+  return { total, invalid };
+}
+
 const server = await createServer({ configFile: false, appType: 'custom', server: { middlewareMode: true } });
 let failures = 0;
 function report(ok, message) {
@@ -69,6 +114,7 @@ try {
   const { readArtifact } = await server.ssrLoadModule('/app/lib/artifacts.ts');
   const { artifactEquipClass } = await server.ssrLoadModule('/app/lib/artifact-grid.ts');
   const { createImportedGame, validateGameFile } = await server.ssrLoadModule('/app/lib/file-imports.ts');
+  const { accountCounts } = await server.ssrLoadModule('/app/lib/account-counts.ts');
 
   /* Import the account through the real entry point, so the audit measures the
      pipeline the user actually gets rather than a convenient subset of it. */
@@ -76,18 +122,47 @@ try {
   report(validation.valid, `snapshot validates as an importable game (${validation.message})`);
   const data = createImportedGame('traffic.log', snapshot, validation).data;
 
+  /* These are the game's account counts at the snapshot boundary. The helper
+     and file routes must both arrive at these same numbers after they merge
+     account-level and equipped copies. */
+  const rawUnits = Array.isArray(snapshot.unit_list) ? snapshot.unit_list : [];
+  const rawRunes = accountRecords(snapshot, 'runes');
+  const rawArtifacts = accountRecords(snapshot, 'artifacts');
+  const rawRelics = accountRecords(snapshot, 'relics');
+  const expectedCounts = {
+    monsters: identifiedRecords(rawUnits, 'unit_id'),
+    runes: identifiedRecords(rawRunes, 'rune_id'),
+    artifacts: identifiedRecords(rawArtifacts, 'rid'),
+    relics: identifiedRecords(rawRelics, 'rid'),
+    craft: craftAmount(Array.isArray(snapshot.rune_craft_item_list) ? snapshot.rune_craft_item_list : []),
+  };
+  const counts = accountCounts(data);
+  console.log('Account counts at snapshot boundary:');
+  console.log(`  monsters: ${expectedCounts.monsters.ids.size}`);
+  console.log(`  runes: ${expectedCounts.runes.ids.size}`);
+  console.log(`  gems/grinds: ${expectedCounts.craft.total}`);
+  console.log(`  artifacts: ${expectedCounts.artifacts.ids.size}`);
+  console.log(`  relics: ${expectedCounts.relics.ids.size}`);
+  report(expectedCounts.monsters.invalid === 0, `every monster has a positive unit_id (${expectedCounts.monsters.invalid} invalid)`);
+  report(expectedCounts.runes.invalid === 0, `every rune has a positive rune_id (${expectedCounts.runes.invalid} invalid)`);
+  report(expectedCounts.artifacts.invalid === 0, `every artifact has a positive rid (${expectedCounts.artifacts.invalid} invalid)`);
+  report(expectedCounts.relics.invalid === 0, `every relic has a positive rid (${expectedCounts.relics.invalid} invalid)`);
+  report(expectedCounts.craft.invalid === 0, `every craft stack has a non-negative amount (${expectedCounts.craft.invalid} invalid)`);
+  const preparedCountRows = [
+    ['monsters', expectedCounts.monsters.ids.size, counts.monsters],
+    ['runes', expectedCounts.runes.ids.size, counts.runes],
+    ['gems/grinds', expectedCounts.craft.total, counts.gemsAndGrinds],
+    ['artifacts', expectedCounts.artifacts.ids.size, counts.artifacts],
+    ['relics', expectedCounts.relics.ids.size, counts.relics],
+  ];
+  for (const [label, expected, actual] of preparedCountRows) {
+    report(expected === actual, `${label} count survives the import unchanged (${expected} game / ${actual} JASWA)`);
+  }
+
   /* An equipped item lives below its owner in the export as well as in the
      account list. Parity is measured after that merge, against the union of
      both places, so an item present only under its owner still has to arrive. */
-  const rawArtifactIds = new Set();
-  for (const record of Array.isArray(snapshot.artifacts) ? snapshot.artifacts : []) {
-    if (record && typeof record === 'object' && record.rid !== undefined) rawArtifactIds.add(String(record.rid));
-  }
-  for (const unit of Array.isArray(snapshot.unit_list) ? snapshot.unit_list : []) {
-    for (const record of Array.isArray(unit?.artifacts) ? unit.artifacts : []) {
-      if (record && typeof record === 'object' && record.rid !== undefined) rawArtifactIds.add(String(record.rid));
-    }
-  }
+  const rawArtifactIds = expectedCounts.artifacts.ids;
 
   // ---- Artifacts -----------------------------------------------------------
   const artifactRecords = Array.isArray(data.artifacts) ? data.artifacts : [];

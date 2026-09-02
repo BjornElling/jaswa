@@ -288,7 +288,7 @@ export default function Home() {
     <AppRail page={page} onNavigate={setPage} onReport={() => openReport()} />
 
     <section className="workspace">
-      {game && <ImportBadge game={game} monsterCount={monsters.length} general={preferences.general} />}
+      {game && <ImportBadge game={game} general={preferences.general} />}
 
       {page === 'home' && <HomeSection
         game={game}

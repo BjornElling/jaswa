@@ -108,8 +108,7 @@ try {
 
   await page.getByRole('button', { name: 'Artifact Optimization', exact: true }).click();
   await page.getByText('Settings', { exact: true }).click();
-  await assert.doesNotReject(() => page.locator('#conversion-stone-grade').waitFor());
-  await assert.doesNotReject(() => page.locator('#conversion-stone-max-value').waitFor());
+  await assert.doesNotReject(() => page.locator('#conversion-stone-value').waitFor());
 
   console.log('Verified empty and imported library states, shared table measure, fixed filter interaction, and artifact settings.');
 } finally {
