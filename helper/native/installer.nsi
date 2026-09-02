@@ -9,6 +9,8 @@ ShowUninstDetails nevershow
 Section "Install"
   IfFileExists "$INSTDIR\jaswa-helper.exe" 0 +2
     ExecWait '"$INSTDIR\jaswa-helper.exe" --jaswa-cleanup'
+  nsExec::ExecToLog 'taskkill /f /im jaswa-helper.exe'
+  Pop $0
   SetOutPath "$INSTDIR"
   File "target\release\jaswa-helper.exe"
   CreateDirectory "$SMPROGRAMS\JASWA Helper"

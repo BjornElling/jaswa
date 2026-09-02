@@ -1,7 +1,7 @@
 #![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 
 use jaswa_helper::service::Service;
-use std::{process::Command, time::Duration};
+use std::{os::windows::process::CommandExt, process::Command, time::Duration};
 use tray_icon::{
     Icon, TrayIconBuilder,
     menu::{Menu, MenuEvent, MenuItem},
@@ -41,6 +41,9 @@ fn main() {
                 "Windows did not grant JASWA Helper administrator permission: {error}"
             ));
         }
+        return;
+    }
+    if !certificate_installation_approved() {
         return;
     }
     let service = match Service::start() {
@@ -149,16 +152,16 @@ fn refresh(
 }
 
 fn open_path(path: &str) {
-    let _ = Command::new("rundll32.exe")
+    let _ = hidden_command("rundll32.exe")
         .args(["url.dll,FileProtocolHandler", path])
         .spawn();
 }
 fn notify_failure(message: &str) {
-    let _ = Command::new("powershell.exe").args(["-NoProfile", "-Command", &format!("Add-Type -AssemblyName PresentationFramework; [System.Windows.MessageBox]::Show('{}', 'JASWA Helper')", message.replace('\'', "''"))]).spawn();
+    let _ = hidden_command("powershell.exe").args(["-NoProfile", "-Command", &format!("Add-Type -AssemblyName PresentationFramework; [System.Windows.MessageBox]::Show('{}', 'JASWA Helper')", message.replace('\'', "''"))]).spawn();
 }
 
 fn is_administrator() -> bool {
-    Command::new("net.exe")
+    hidden_command("net.exe")
         .arg("session")
         .status()
         .map(|status| status.success())
@@ -171,7 +174,7 @@ fn restart_as_administrator() -> Result<(), String> {
     let command = format!(
         "Start-Process -FilePath '{escaped}' -ArgumentList '--jaswa-elevated' -Verb RunAs -WindowStyle Hidden"
     );
-    let status = Command::new("powershell.exe")
+    let status = hidden_command("powershell.exe")
         .args(["-NoProfile", "-Command", &command])
         .status()
         .map_err(|error| error.to_string())?;
@@ -180,6 +183,33 @@ fn restart_as_administrator() -> Result<(), String> {
     } else {
         Err("The Windows elevation request was declined.".into())
     }
+}
+
+fn certificate_installation_approved() -> bool {
+    let marker = jaswa_helper::config::data_directory()
+        .join("certificates")
+        .join("approved");
+    if marker.exists() {
+        return true;
+    }
+    let script = "Add-Type -AssemblyName PresentationFramework; $answer = [System.Windows.MessageBox]::Show('JASWA Helper needs to install its local certificate. This lets it read Summoners War safely on this computer. The helper cannot run without it.', 'Install the JASWA Helper certificate', 'YesNo', 'Warning'); if ($answer -eq 'Yes') { exit 0 } else { exit 1 }";
+    let approved = hidden_command("powershell.exe")
+        .args(["-NoProfile", "-Command", script])
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false);
+    if approved {
+        let _ = std::fs::create_dir_all(marker.parent().expect("certificate marker parent"));
+        let _ = std::fs::write(marker, "approved");
+    }
+    approved
+}
+
+fn hidden_command(program: &str) -> Command {
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let mut command = Command::new(program);
+    command.creation_flags(CREATE_NO_WINDOW);
+    command
 }
 fn tray_pixels() -> Vec<u8> {
     let mut pixels = vec![0; 16 * 16 * 4];

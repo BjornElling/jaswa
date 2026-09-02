@@ -10,6 +10,7 @@ use rustls::{
     pki_types::{CertificateDer, ServerName},
 };
 use serde_json::{Value, json};
+use std::os::windows::process::CommandExt;
 use std::{
     fs,
     io::{self, Read, Write},
@@ -104,7 +105,7 @@ pub fn cleanup(remove_certificate: bool) -> Result<(), String> {
     remove_hosts()?;
     if remove_certificate {
         let directory = data_directory().join("certificates");
-        let _ = Command::new("certutil.exe")
+        let _ = hidden_command("certutil.exe")
             .args(["-silent", "-delstore", "Root", "JASWA Helper Local Root"])
             .status();
         if directory.exists() {
@@ -292,7 +293,7 @@ fn start_game_monitor(shared: Arc<Shared>) {
 }
 
 fn summoners_war_running() -> bool {
-    Command::new("tasklist.exe")
+    hidden_command("tasklist.exe")
         .args(["/FI", "IMAGENAME eq SummonersWar.exe", "/FO", "CSV", "/NH"])
         .output()
         .map(|output| {
@@ -516,7 +517,7 @@ fn certificate_config(directory: &Path) -> Result<Arc<ServerConfig>, String> {
 }
 
 fn install_certificate(path: &Path) -> Result<(), String> {
-    let output = Command::new("certutil.exe")
+    let output = hidden_command("certutil.exe")
         .args(["-addstore", "-f", "Root", &path.display().to_string()])
         .output()
         .map_err(|error| error.to_string())?;
@@ -564,7 +565,7 @@ fn install_hosts() -> Result<(), String> {
         ),
     )
     .map_err(|error| error.to_string())?;
-    let _ = Command::new("ipconfig.exe").arg("/flushdns").status();
+    let _ = hidden_command("ipconfig.exe").arg("/flushdns").status();
     Ok(())
 }
 fn remove_hosts() -> Result<(), String> {
@@ -575,6 +576,13 @@ fn remove_hosts() -> Result<(), String> {
         format!("{}\r\n", without_hosts_entries(&current).trim_end()),
     )
     .map_err(|error| error.to_string())?;
-    let _ = Command::new("ipconfig.exe").arg("/flushdns").status();
+    let _ = hidden_command("ipconfig.exe").arg("/flushdns").status();
     Ok(())
+}
+
+fn hidden_command(program: &str) -> Command {
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let mut command = Command::new(program);
+    command.creation_flags(CREATE_NO_WINDOW);
+    command
 }
