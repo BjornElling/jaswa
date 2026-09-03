@@ -27,6 +27,10 @@ type WebGpu = { requestAdapter(options?: { powerPreference: 'high-performance' }
 
 const bufferUsage = { mapRead: 1, copySource: 4, copyDestination: 8, uniform: 64, storage: 128 } as const;
 
+/* Class codes run 0 (Intangible) through 5 (Dark), the widest of the two
+   numberings, so one table shape serves both categories. */
+const equipClassRows = 6;
+
 function alignedByteLength(byteLength: number): number {
   return Math.max(4, Math.ceil(byteLength / 4) * 4);
 }
@@ -66,12 +70,25 @@ export class WebGpuArtifactScoreBackend implements ArtifactScoreBackend {
     const artifactData = floatBuffer(request.artifacts.flatMap((artifact) => [
       artifact.category, artifact.restriction, artifact.mainProperty, artifact.convertedPropertyIndex,
       ...artifact.subPropertyIndexes, ...artifact.subPropertyFractions,
+      artifact.conversionCeilingFraction, artifact.convertedSlotConversionFraction,
     ]));
     const monsterData = floatBuffer(request.monsters.flatMap((monster) => [
       monster.element, monster.archetype, ...monster.mainPreferences, ...monster.subPropertyPreferences,
     ]));
-    const owned = new Int32Array(scoredArtifactProperties.length);
-    for (const propertyIndex of request.ownedConversionPropertyIndexes) if (propertyIndex >= 0 && propertyIndex < owned.length) owned[propertyIndex] = 1;
+    /* One row of flags per equip class, indexed by the class code the artifacts
+       carry, because a stone converts only the class it was engraved for. Row 0
+       is the Intangible union, which is why the table is sized to the highest
+       class code rather than to the number of classes. */
+    const owned = new Int32Array(equipClassRows * scoredArtifactProperties.length);
+    for (const [classCode, indexes] of Object.entries(request.ownedConversionPropertyIndexesByClass)) {
+      const row = Number(classCode);
+      if (!Number.isInteger(row) || row < 0 || row >= equipClassRows) continue;
+      for (const propertyIndex of indexes) {
+        if (propertyIndex >= 0 && propertyIndex < scoredArtifactProperties.length) {
+          owned[row * scoredArtifactProperties.length + propertyIndex] = 1;
+        }
+      }
+    }
     const parameters = new ArrayBuffer(24);
     const parameterView = new DataView(parameters);
     parameterView.setUint32(0, request.artifacts.length, true);

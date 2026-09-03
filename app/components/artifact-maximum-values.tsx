@@ -3,14 +3,18 @@
 import { useMemo, useState } from 'react';
 import { Dropdown } from './dropdown';
 import { UnrefinedArtifactMark } from './unrefined-artifact-mark';
+import { SortableHeader, useSortedRows } from './sortable-table';
 import { calculateArtifactScores } from '../lib/compute/artifact-score-client';
 import { buildArtifactScoreRequestsForMonsterIds } from '../lib/compute/artifact-score-input';
 import { scoreArtifactOnMonster } from '../lib/compute/artifact-score-core';
+import { ConversionList } from './conversion-list';
+import { engravedStonesFor, isWorthwhileGain } from '../lib/artifact-recommendations';
+import type { SortableColumn } from './sortable-table';
 import { recordedArtifactPreferenceMonsterIds } from '../lib/artifact-preferences';
 import { artifactCategoryLabel, artifactEquipClassLabel, displaySubProperty } from '../lib/artifact-grid';
 import {
   artifactArchetypes, artifactCategoryLabels, artifactElements, artifactGradeOrder,
-  artifactIntangibleLabel, artifactMainPropertyOrder, artifactProperty,
+  artifactIntangibleLabel, artifactMainPropertyOrder,
 } from '../lib/artifact-properties';
 import { readArtifacts } from '../lib/artifacts';
 import { formatNumber } from '../lib/formatting';
@@ -36,7 +40,7 @@ type ArtifactLocation = typeof artifactLocations[number];
 type ArtifactFilters = { categories: ArtifactCategory[]; restrictions: string[]; grades: ArtifactGrade[]; mainProperties: ArtifactMainProperty[]; subPropertyId: string; locations: ArtifactLocation[] };
 type OwnedMonster = { unitId: string; masterId: string; name: string };
 type CategoryCalculation = { request: ArtifactScoreRequest; result: ArtifactScoreResult };
-type Allocation = { monster: OwnedMonster; value: number; conversion: ArtifactConversion | undefined };
+type Allocation = { monster: OwnedMonster; value: number; conversions: readonly ArtifactConversion[] };
 type Calculation = { inputKey: string; backend: 'cpu' | 'webgpu'; durationMs: number; evaluatedPairs: number; ownedConversionCount: number; categories: CategoryCalculation[]; allocations: Map<string, Allocation> };
 
 const defaultFilters: ArtifactFilters = { categories: [], restrictions: [], grades: [], mainProperties: [], subPropertyId: '', locations: [] };
@@ -81,58 +85,61 @@ function scoreAt(calculation: CategoryCalculation, artifactId: string, masterId:
   return value < 0 ? undefined : value;
 }
 
-function conversionAt(calculation: CategoryCalculation, artifactId: string, masterId: string): ArtifactConversion | undefined {
+function conversionAt(calculation: CategoryCalculation, artifactId: string, masterId: string): readonly ArtifactConversion[] {
   const artifact = calculation.request.artifacts.find((entry) => entry.id === artifactId);
   const monster = calculation.request.monsters.find((entry) => entry.id === monsterSpeciesId(masterId));
-  return artifact && monster ? scoreArtifactOnMonster(artifact, monster, calculation.request)?.conversion : undefined;
+  return artifact && monster ? scoreArtifactOnMonster(artifact, monster, calculation.request)?.conversions ?? [] : [];
 }
 
-function conversionLabel(conversion: ArtifactConversion | undefined): string {
-  if (!conversion) return 'No conversion';
-  const property = artifactProperty(conversion.propertyId);
-  return property ? `Convert sub ${conversion.sourceIndex + 1} to ${property.name}` : 'No conversion';
-}
-
-/* The allocation follows the stated lock order rather than repeatedly picking
-   a new best monster per row: an artifact and one category slot on one monster
-   leave the pool together, so no later row can make the same recommendation. */
+/**
+ * Where each artifact does most good, and what it is worth there
+ * (`ARTIFACT-CANONICAL.md` §17.2).
+ *
+ * The monster chosen is the artifact's **own** best, not the result of an
+ * exclusive allocation. The workspace answers "where does this artifact belong"
+ * rather than "how do I fill every slot at once": an allocation that hands a
+ * monster to some other artifact says something about that artifact and nothing
+ * about whether this one is already where it helps most. The user farms
+ * continuously and is aiming at a best placement per artifact, so two artifacts
+ * naming the same monster is a true answer about both, not a collision to be
+ * broken.
+ */
 function allocateArtifacts(categories: readonly CategoryCalculation[], ownedMonsters: readonly OwnedMonster[]): Map<string, Allocation> {
   const allocations = new Map<string, Allocation>();
   for (const calculation of categories) {
-    const candidates: Array<{ artifactId: string; monster: OwnedMonster; value: number }> = [];
     const matrix = calculation.result.scoreMatrix;
     if (!matrix) continue;
     const monsterIndexes = new Map(calculation.request.monsters.map((monster, index) => [monster.id, index]));
     for (let artifactIndex = 0; artifactIndex < calculation.request.artifacts.length; artifactIndex += 1) {
       const artifact = calculation.request.artifacts[artifactIndex];
+      let best: { monster: OwnedMonster; value: number } | undefined;
       for (const monster of ownedMonsters) {
-        const monsterIndex = monsterIndexes.get(monster.masterId);
+        const monsterIndex = monsterIndexes.get(monsterSpeciesId(monster.masterId));
         if (monsterIndex === undefined) continue;
         const value = matrix[artifactIndex * calculation.request.monsters.length + monsterIndex];
         /* A zero only says this piece is legal, not that it helps the monster.
            Leaving it unassigned makes the sell recommendation honest. */
-        if (value > 0) candidates.push({ artifactId: artifact.id, monster, value });
+        if (value <= 0) continue;
+        /* Ties keep the monster already chosen, and the roster is in name order,
+           so an equal-scoring pair resolves to a stated answer rather than to
+           whichever row the loop reached first. */
+        if (!best || value > best.value) best = { monster, value };
       }
-    }
-    candidates.sort((left, right) => right.value - left.value || left.artifactId.localeCompare(right.artifactId) || left.monster.unitId.localeCompare(right.monster.unitId));
-    const usedArtifacts = new Set<string>();
-    const usedMonsterSlots = new Set<string>();
-    for (const candidate of candidates) {
-      if (usedArtifacts.has(candidate.artifactId) || usedMonsterSlots.has(candidate.monster.unitId)) continue;
-      usedArtifacts.add(candidate.artifactId);
-      usedMonsterSlots.add(candidate.monster.unitId);
-      allocations.set(candidate.artifactId, {
-        monster: candidate.monster,
-        value: candidate.value,
-        conversion: conversionAt(calculation, candidate.artifactId, candidate.monster.masterId),
+      if (!best) continue;
+      allocations.set(artifact.id, {
+        monster: best.monster,
+        value: best.value,
+        conversions: conversionAt(calculation, artifact.id, best.monster.masterId),
       });
     }
   }
   return allocations;
 }
 
+/* Scores arrive as whole percentage points (§17.1), so nothing is rounded here:
+   the number shown is the number every comparison used. */
 function Score({ value, general }: { value: number | undefined; general: GeneralSettings }) {
-  return value === undefined ? '—' : `${formatNumber(Math.round(value * 100), general)} %`;
+  return value === undefined ? '—' : `${formatNumber(value, general)} %`;
 }
 
 export function ArtifactMaximumValues({ data, monsters, settings, general, hardwareAcceleration }: {
@@ -148,6 +155,7 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
   const [error, setError] = useState<string | undefined>();
   const artifacts = useMemo(() => readArtifacts(data), [data]);
   const artifactNumbers = useMemo(() => new Map(artifacts.map((artifact, index) => [artifact.id, index + 1])), [artifacts]);
+  const stones = useMemo(() => engravedStonesFor(data), [data]);
   const ownedMonsters = useMemo(() => readOwnedMonsters(monsters), [monsters]);
   const scopedMonsters = useMemo(() => recommendationMonsters(monsters, settings.onlyFactorInOwnedMonsters), [monsters, settings.onlyFactorInOwnedMonsters]);
   const wearerByUnitId = useMemo(() => new Map(ownedMonsters.map((monster) => [monster.unitId, monster])), [ownedMonsters]);
@@ -229,6 +237,57 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
     return wearer && category ? scoreAt(category, artifact.id, wearer.masterId) : undefined;
   };
 
+  /* §17.2: a row that recommends what is already true is noise. An artifact
+     sitting on the monster where it scores highest has nothing to be told, and
+     a destination that does not beat its current home by more than the stated
+     band (§17.3) is not an improvement either. An unequipped artifact always
+     has something to say, because anywhere is better than a drawer. */
+  const rows = useMemo(() => visibleArtifacts.flatMap((artifact) => {
+    const allocation = currentCalculation?.allocations.get(artifact.id);
+    const wearer = artifact.occupiedId === null ? undefined : wearerByUnitId.get(artifact.occupiedId);
+    const current = scoreForWearer(artifact);
+    if (currentCalculation && artifact.occupiedId !== null && allocation) {
+      if (allocation.monster.unitId === artifact.occupiedId) return [];
+      if (current !== undefined && !isWorthwhileGain(allocation.value, current, settings)) return [];
+    }
+    return [{
+      artifact,
+      number: artifactNumbers.get(artifact.id) ?? 0,
+      wearerName: artifact.occupiedId === null ? 'Inventory' : wearer?.name ?? 'Missing monster',
+      current,
+      allocation,
+    }];
+    /* `scoreForWearer` reads only the calculation and the wearer map, both of
+       which are dependencies here, so it does not need to be one itself. */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [visibleArtifacts, currentCalculation, wearerByUnitId, artifactNumbers, settings]);
+
+  type RecommendationRow = typeof rows[number];
+
+  const columns: SortableColumn<RecommendationRow>[] = useMemo(() => [
+    { key: 'number', label: '#', compare: (left, right) => left.number - right.number },
+    { key: 'category', label: 'Type', compare: (left, right) => artifactCategoryLabel(left.artifact.category).localeCompare(artifactCategoryLabel(right.artifact.category)) },
+    { key: 'restriction', label: 'Restriction', compare: (left, right) => artifactEquipClassLabel(left.artifact).localeCompare(artifactEquipClassLabel(right.artifact)) },
+    { key: 'main', label: 'Main stat', compare: (left, right) => left.artifact.mainProperty.localeCompare(right.artifact.mainProperty) },
+    /* Substats order by the artifact's own grade and then its first line, which
+       is the closest thing to "how good is this piece" the column shows. */
+    { key: 'subs', label: 'Substats', compare: (left, right) => artifactGradeOrder.indexOf(left.artifact.grade) - artifactGradeOrder.indexOf(right.artifact.grade) || monsterNameCollator.compare(left.artifact.subProperties[0]?.definition.name ?? '', right.artifact.subProperties[0]?.definition.name ?? ''), initialDirection: 'descending' },
+    { key: 'location', label: 'Location', compare: (left, right) => monsterNameCollator.compare(left.wearerName, right.wearerName) },
+    { key: 'current', label: 'Value on mon', compare: (left, right) => (left.current ?? -1) - (right.current ?? -1), initialDirection: 'descending' },
+    { key: 'recommendation', label: 'Recommendation', compare: (left, right) => monsterNameCollator.compare(left.allocation?.monster.name ?? '', right.allocation?.monster.name ?? '') },
+    { key: 'value', label: 'New value', compare: (left, right) => (left.allocation?.value ?? -1) - (right.allocation?.value ?? -1), initialDirection: 'descending' },
+    { key: 'conversion', label: 'Best conversions', compare: (left, right) => (left.allocation?.conversions[0]?.gain ?? -1) - (right.allocation?.conversions[0]?.gain ?? -1), initialDirection: 'descending' },
+    { key: 'refinement', label: '', accessibleLabel: 'Refinement', compare: (left, right) => Number(left.artifact.unrefined) - Number(right.artifact.unrefined), initialDirection: 'descending' },
+  ], []);
+
+  const { sorted, sort, toggle: toggleSort } = useSortedRows(
+    rows, columns,
+    { key: 'value', direction: 'descending' },
+    /* Scores tie constantly once they are whole points, so the artifact's own
+       number settles equal rows rather than the sort's internals. */
+    (left, right) => left.number - right.number,
+  );
+
   return <div className="artifact-recommendations">
     <p className="lead">Calculate one recommended Attribute artifact and one Type artifact for each monster in the selected scope. Filters only narrow this table; they never reshuffle the recommendations.</p>
     <div className="filter-panel artifact-recommendation-filters">
@@ -254,11 +313,29 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
     {currentCalculation && <>
       <p className="artifact-recommendation-meta" role="status">{formatNumber(currentCalculation.evaluatedPairs, general)} pairs checked in {formatNumber(Math.round(currentCalculation.durationMs), general)} ms · {currentCalculation.backend === 'webgpu' ? 'Graphics card' : 'Processor'}</p>
       {settings.conversionStoneMode === 'owned' && currentCalculation.ownedConversionCount === 0 && <p className="notice warning">This import has no readable engraved conversion stones, so the results keep every artifact as it is.</p>}
-      {visibleArtifacts.length ? <div className="artifact-recommendation-table-wrap"><table className="artifact-recommendation-table"><thead><tr><th scope="col">#</th><th scope="col">Type</th><th scope="col">Restriction</th><th scope="col">Main stat</th><th scope="col">Substats</th><th scope="col">Location</th><th scope="col">Value on mon</th><th scope="col">Recommendation</th><th scope="col">New value</th><th scope="col">Best conversion</th><th scope="col"><span className="visually-hidden">Refinement</span></th></tr></thead><tbody>{visibleArtifacts.map((artifact) => {
-        const wearer = artifact.occupiedId === null ? undefined : wearerByUnitId.get(artifact.occupiedId);
-        const allocation = currentCalculation.allocations.get(artifact.id);
-        return <tr key={artifact.id}><td>#{String(artifactNumbers.get(artifact.id) ?? artifact.id)}</td><td>{artifactCategoryLabel(artifact.category)}</td><td>{artifactEquipClassLabel(artifact)}</td><td>{artifact.mainProperty}</td><td><ul className="artifact-subs">{artifact.subProperties.map((property) => <li key={property.definition.id}>{displaySubProperty(property, (value) => formatNumber(value, general))}</li>)}</ul></td><td>{artifact.occupiedId === null ? 'Inventory' : wearer?.name ?? 'Missing monster'}</td><td><Score value={scoreForWearer(artifact)} general={general} /></td><td className={allocation ? '' : 'artifact-recommendation-sell'}>{allocation ? allocation.monster.name : 'Sell'}</td><td><Score value={allocation?.value} general={general} /></td><td className={allocation ? '' : 'muted'}>{allocation ? conversionLabel(allocation.conversion) : '—'}</td><td className="artifact-recommendation-flag"><UnrefinedArtifactMark unrefined={artifact.unrefined} /></td></tr>;
-      })}</tbody></table></div> : <p className="artifact-recommendation-empty">No artifacts match these filters.</p>}
+      {sorted.length ? <div className="artifact-recommendation-table-wrap"><table className="artifact-recommendation-table">
+        <SortableHeader columns={columns} sort={sort} onToggle={toggleSort} />
+        <tbody>{sorted.map((row) => <tr key={row.artifact.id}>
+          <td>#{String(row.number)}</td>
+          <td>{artifactCategoryLabel(row.artifact.category)}</td>
+          <td>{artifactEquipClassLabel(row.artifact)}</td>
+          <td>{row.artifact.mainProperty}</td>
+          <td><ul className="artifact-subs">{row.artifact.subProperties.map((property) => <li key={property.definition.id}>{displaySubProperty(property, (value) => formatNumber(value, general))}</li>)}</ul></td>
+          <td>{row.wearerName}</td>
+          <td><Score value={row.current} general={general} /></td>
+          <td className={row.allocation ? '' : 'artifact-recommendation-sell'}>{row.allocation ? row.allocation.monster.name : 'Sell'}</td>
+          <td><Score value={row.allocation?.value} general={general} /></td>
+          <td className={row.allocation?.conversions.length ? '' : 'muted'}>
+            {row.allocation ? <ConversionList conversions={row.allocation.conversions} artifact={row.artifact}
+              stones={stones} mode={settings.conversionStoneMode} /> : '—'}
+          </td>
+          <td className="artifact-recommendation-flag"><UnrefinedArtifactMark unrefined={row.artifact.unrefined} /></td>
+        </tr>)}</tbody>
+      </table></div> : <p className="artifact-recommendation-empty">
+        {visibleArtifacts.length
+          ? 'Every artifact matching these filters is already where it does most good.'
+          : 'No artifacts match these filters.'}
+      </p>}
     </>}
   </div>;
 }

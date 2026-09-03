@@ -71,6 +71,24 @@ export type ArtifactSettings = {
   onlyFactorInOwnedMonsters: boolean;
   conversionStoneMode: ArtifactConversionStoneMode;
   conversionStoneValue: number;
+  /**
+   * Whether a gain must clear `insignificantDifference` before it counts as an
+   * improvement worth recommending (`ARTIFACT-CANONICAL.md` §17.3).
+   */
+  ignoreInsignificantDifferences: boolean;
+  /**
+   * The band, in whole percentage points of the score, inside which two results
+   * count as the same. Held even while the switch above is off, so a user who
+   * turns the rule off and on again finds the value they chose rather than a
+   * reset one — the same reason `manualTimeZone` is kept.
+   */
+  insignificantDifference: number;
+  /**
+   * Whether Intangible artifacts take part in every judgement
+   * (`ARTIFACT-CANONICAL.md` §17.7). Asked once here rather than per view, so
+   * the three recommendation pages cannot disagree about the same account.
+   */
+  includeIntangibleArtifacts: boolean;
 };
 /**
  * The presets are part of the user's own preferences rather than of the

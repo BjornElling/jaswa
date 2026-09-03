@@ -227,3 +227,28 @@ export function artifactPropertyMaximum(property: ArtifactPropertyDefinition, gr
   if (property.maxRoll === null) return null;
   return property.maxRoll * artifactGrades[grade].maxContributions;
 }
+
+/**
+ * The contributions a converted line receives, whatever the artifact's grade.
+ *
+ * This is an observation, not a rule inherited from a guide. Across the 137
+ * converted lines in the captured account every one carries zero power-ups,
+ * 66 hold a value no single roll can produce, and **none** requires a third
+ * contribution — so a conversion lands on exactly two. `ARTIFACT-CANONICAL.md`
+ * §10 records the count and the evidence.
+ *
+ * It matters because it is the ceiling a conversion is judged against. A
+ * Legend line collects five contributions, so scoring a conversion against
+ * that ceiling claims a value the game cannot produce, and overstates the case
+ * for converting precisely on the best artifacts.
+ */
+export const artifactConversionContributions = 2;
+
+/**
+ * The most a conversion to this property could reach. Independent of the
+ * artifact's grade, because the conversion's own contribution count is.
+ */
+export function artifactConversionMaximum(property: ArtifactPropertyDefinition): number | null {
+  if (property.maxRoll === null) return null;
+  return property.maxRoll * artifactConversionContributions;
+}

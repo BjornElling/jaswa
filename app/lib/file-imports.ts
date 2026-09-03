@@ -46,13 +46,27 @@ export const artifactConversionStoneModes: ArtifactConversionStoneMode[] = ['non
    silently carrying fields the current settings page no longer offers. */
 const artifactSettingKeys = [
   'acceptableWorth', 'onlyFactorInOwnedMonsters', 'conversionStoneMode', 'conversionStoneValue',
+  'ignoreInsignificantDifferences', 'insignificantDifference', 'includeIntangibleArtifacts',
 ] as const;
+
+/* The band the significance rule uses, in whole percentage points of the score
+   (`ARTIFACT-CANONICAL.md` §17.3). One point is the smallest difference the
+   integer scores can express, so the range starts there rather than at zero:
+   a zero band is the rule switched off, which is what the checkbox says. */
+export const artifactInsignificantDifferenceRange = { minimum: 1, maximum: 5 } as const;
 
 export const defaultArtifactSettings: ArtifactSettings = {
   acceptableWorth: 50,
   onlyFactorInOwnedMonsters: true,
   conversionStoneMode: 'owned',
   conversionStoneValue: 3,
+  /* Off by default: suppressing a difference is the user's judgement about what
+     is worth acting on, and JASWA should not make it on their behalf. */
+  ignoreInsignificantDifferences: false,
+  insignificantDifference: 2,
+  /* On: an Intangible fits the chosen monster like any other artifact, so
+     excluding it would understate what the account can actually equip. */
+  includeIntangibleArtifacts: true,
 };
 
 function isRecord(value: unknown): value is GameRecord {
@@ -92,7 +106,13 @@ function isArtifactSettings(value: unknown): value is ArtifactSettings {
     && artifactAcceptableWorthChoices.includes(value.acceptableWorth as typeof artifactAcceptableWorthChoices[number])
     && typeof value.onlyFactorInOwnedMonsters === 'boolean'
     && artifactConversionStoneModes.includes(value.conversionStoneMode as ArtifactConversionStoneMode)
-    && isScale(value.conversionStoneValue, 4);
+    && isScale(value.conversionStoneValue, 4)
+    && typeof value.ignoreInsignificantDifferences === 'boolean'
+    && typeof value.insignificantDifference === 'number'
+    && Number.isInteger(value.insignificantDifference)
+    && value.insignificantDifference >= artifactInsignificantDifferenceRange.minimum
+    && value.insignificantDifference <= artifactInsignificantDifferenceRange.maximum
+    && typeof value.includeIntangibleArtifacts === 'boolean';
 }
 
 function isScale(value: unknown, maximum: number): value is number {

@@ -23,6 +23,27 @@ export type PackedArtifactScoreInput = {
   subPropertyIndexes: readonly [number, number, number, number];
   /** Each line's actual fraction of its own ceiling. */
   subPropertyFractions: readonly [number, number, number, number];
+  /**
+   * What the permanently converted slot already holds, as a fraction of the
+   * ceiling a *conversion* can reach (`ARTIFACT-CANONICAL.md` §10: two
+   * contributions). `-1` when the artifact has no converted slot.
+   *
+   * It is a separate number from that line's `subPropertyFractions` entry
+   * because the two are fractions of different ceilings. §17.4 compares this
+   * against a projected conversion, and comparing a five-contribution fraction
+   * with a two-contribution one would refuse conversions that plainly help.
+   */
+  convertedSlotConversionFraction: number;
+  /**
+   * How much of a *line's* ceiling a conversion can reach on this artifact.
+   *
+   * A conversion collects two contributions whatever the grade granted (§10),
+   * while the line it replaces is measured against the grade's own maximum
+   * (§16) — so on a Legend a conversion reaches 2/5 of that line, and on a
+   * Rare 2/3. It belongs to the artifact rather than the request because it is
+   * a fact about the grade, and one request carries every grade.
+   */
+  conversionCeilingFraction: number;
 };
 
 export type PackedMonsterScoreInput = {
@@ -52,8 +73,20 @@ export type ArtifactScoreRequest = {
   acceptableWorth: number;
   conversionMode: 0 | 1 | 2;
   conversionValue: number;
-  /** The compact property indexes named by engraved stones in this import. */
+  /**
+   * The compact property indexes named by engraved stones in this import, for
+   * the whole category. Used to report how many stones an import yielded; the
+   * per-artifact rule below is what eligibility actually reads.
+   */
   ownedConversionPropertyIndexes: readonly number[];
+  /**
+   * The stones usable on one equip class, keyed by that class's code — a stone
+   * is engraved for one class and converts nothing else
+   * (`ARTIFACT-CANONICAL.md` §15.12). `intangibleRestrictionCode` holds the
+   * union, because an Intangible artifact names no class and every stone of the
+   * category applies to it.
+   */
+  ownedConversionPropertyIndexesByClass: Readonly<Record<number, readonly number[]>>;
   /** When supplied, report the score on this artifact's actual wearer as well as the category maximum. */
   targetMonsterIdByArtifact?: Readonly<Record<string, string>>;
   /** Return every eligible artifact-to-monster score for a focused comparison. */
@@ -65,14 +98,30 @@ export type ArtifactScoreRequest = {
 export type ArtifactConversion = {
   sourceIndex: number;
   propertyId: number;
+  /**
+   * The score this conversion produces, as whole percentage points — the same
+   * integer scale every other score uses (`ARTIFACT-CANONICAL.md` §17.1).
+   */
+  value: number;
+  /** What it adds over the artifact as it stands, in percentage points. */
+  gain: number;
+  /** Whether the monster prefers this property or merely accepts it. */
+  preference: 'preferred' | 'acceptable';
 };
 
 export type ArtifactMaximumScore = {
   artifactId: string;
   monsterId: string;
   monsterName: string;
+  /** Whole percentage points (`ARTIFACT-CANONICAL.md` §17.1). */
   value: number;
+  /** The best conversion, or `undefined` when none improves on §17.4's tests. */
   conversion: ArtifactConversion | undefined;
+  /**
+   * Every conversion worth taking, best first — all preferred ones when any
+   * exist, otherwise all accepted ones (§17.5). Empty when none qualifies.
+   */
+  conversions: readonly ArtifactConversion[];
 };
 
 export type ArtifactScoreResult = {

@@ -1,6 +1,9 @@
 import { defaultPropertyPreferences, recordedArtifactPreferenceMonsterIds } from '../artifact-preferences';
 import { readArtifacts } from '../artifacts';
-import { artifactProperty } from '../artifact-properties';
+import { readEngravedConversionStones } from '../artifact-conversion-stones';
+import {
+  artifactConversionContributions, artifactConversionMaximum, artifactGrades,
+} from '../artifact-properties';
 import type { Artifact, ArtifactSubProperty } from '../artifacts';
 import type { ArtifactCategory, ArtifactMainProperty } from '../artifact-properties';
 import type { GameRecord } from '../game-data';
@@ -36,7 +39,7 @@ function masterIdElement(masterId: string): number {
  * so there is no third case to encode here: every artifact that reaches this
  * point is either restricted to one named class or deliberately unrestricted.
  */
-function artifactRestriction(artifact: Artifact): number {
+export function artifactRestriction(artifact: Artifact): number {
   if (artifact.intangible) return intangibleRestrictionCode;
   const code = artifact.category === 'attribute'
     ? elementCodes[artifact.element ?? '']
@@ -52,6 +55,28 @@ function fraction(subProperty: ArtifactSubProperty): number {
   return subProperty.valueHundredths / subProperty.maximumHundredths;
 }
 
+/**
+ * What the converted slot already holds, measured against the ceiling a
+ * *conversion* can reach (§10's two contributions) rather than against the
+ * grade's. `-1` when the artifact has no converted slot, or when the line's
+ * range is unknown and no honest comparison exists.
+ *
+ * §17.4 compares this with the projected conversion, and both sides must be on
+ * this scale: a slot holding a max conversion sits at 1, so no projection can
+ * beat it, which is exactly the outcome the rule wants.
+ */
+function convertedSlotConversionFraction(artifact: Artifact): number {
+  const index = artifact.convertedPropertyIndex;
+  if (index === null) return -1;
+  const line = artifact.subProperties[index];
+  const maximum = line ? artifactConversionMaximum(line.definition) : null;
+  if (!line || maximum === null || maximum <= 0) return -1;
+  /* `artifactConversionMaximum` is in percentage points and the stored value in
+     hundredths of one, so the ceiling is scaled rather than the value rounded —
+     §9's rule that these are never compared as floats. */
+  return line.valueHundredths / Math.round(maximum * 100);
+}
+
 function packArtifact(artifact: Artifact): PackedArtifactScoreInput {
   const indexes = artifact.subProperties.map((subProperty) => artifactPropertyIndex.get(subProperty.definition.id) ?? -1);
   const fractions = artifact.subProperties.map(fraction);
@@ -63,8 +88,13 @@ function packArtifact(artifact: Artifact): PackedArtifactScoreInput {
     convertedPropertyIndex: artifact.convertedPropertyIndex ?? -1,
     subPropertyIndexes: [indexes[0], indexes[1], indexes[2], indexes[3]],
     subPropertyFractions: [fractions[0], fractions[1], fractions[2], fractions[3]],
+    convertedSlotConversionFraction: convertedSlotConversionFraction(artifact),
+    conversionCeilingFraction: Math.min(
+      1, artifactConversionContributions / artifactGrades[artifact.grade].maxContributions,
+    ),
   };
 }
+
 
 /* Scores describe a monster, not a copy of one, so both callers below pass a
    species id and the name shown is the species name — a collaboration pair
@@ -101,38 +131,56 @@ function ownMonsterSpeciesIds(monsters: readonly GameRecord[]): string[] {
   return [...ids];
 }
 
-/* Engraved conversion stones use craft type 6. Their `craft_type_id` is the
-   game's item id, not the artifact effect id: the final four digits hold the
-   effect plus 600, so both 140814 and 220815 name effects 214 and 215. The
-   prefix varies with the stone, while the suffix makes the usable property
-   explicit and keeps ordinary rune craft items out of this calculation. */
-const engravedConversionStoneCraftType = 6;
-const engravedConversionStoneEffectOffset = 600;
-const engravedConversionStoneEffectDigits = 10_000;
+/* The equip class as the score protocol codes it. Attribute stones name an
+   element and type stones an archetype, on the same numbering the artifacts
+   themselves use, so a stone and an artifact are compared on one scale. */
+const stoneClassCodes: Record<ArtifactCategory, Record<number, number>> = {
+  attribute: { 1: elementCodes.Water, 2: elementCodes.Fire, 3: elementCodes.Wind, 4: elementCodes.Light, 5: elementCodes.Dark },
+  type: { 1: archetypeCodes.Attack, 2: archetypeCodes.Defense, 3: archetypeCodes.HP, 4: archetypeCodes.Support },
+};
 
-function integerValue(value: unknown): number | undefined {
-  if (typeof value === 'number') return Number.isSafeInteger(value) ? value : undefined;
-  if (typeof value !== 'string' || value.trim() === '') return undefined;
-  const parsed = Number(value);
-  return Number.isSafeInteger(parsed) ? parsed : undefined;
+/**
+ * The engraved stones usable on each equip class of one category, as compact
+ * property indexes.
+ *
+ * A stone is engraved for a single class and converts nothing else
+ * (`ARTIFACT-CANONICAL.md` §15.12), so the map is keyed by class rather than
+ * pooled. `intangibleRestrictionCode` carries the union: an Intangible artifact
+ * names no class, and every stone of its category applies to it.
+ */
+export function ownedConversionPropertyIndexesByClass(
+  data: GameRecord | undefined,
+  category: ArtifactCategory,
+): Record<number, number[]> {
+  const byClass: Record<number, Set<number>> = { [intangibleRestrictionCode]: new Set() };
+  for (const stone of readEngravedConversionStones(data)) {
+    if (stone.category !== category) continue;
+    const classCode = stoneClassCodes[category][stone.equipClassCode];
+    const propertyIndex = artifactPropertyIndex.get(stone.propertyId);
+    if (classCode === undefined || propertyIndex === undefined) continue;
+    (byClass[classCode] ??= new Set()).add(propertyIndex);
+    byClass[intangibleRestrictionCode].add(propertyIndex);
+  }
+  return Object.fromEntries(Object.entries(byClass).map(([code, indexes]) => [Number(code), [...indexes]]));
 }
 
-/** Reads the current artifact properties named by owned engraved stones. */
+/**
+ * The stones usable on one equip class, for the verification script and for
+ * anything asking the question about a single artifact rather than a matrix.
+ */
+export function ownedConversionPropertyIndexesFor(
+  data: GameRecord | undefined,
+  category: ArtifactCategory,
+  equipClassCode: number,
+): number[] {
+  return ownedConversionPropertyIndexesByClass(data, category)[equipClassCode] ?? [];
+}
+
+/** Every current property any owned engraved stone names, for reporting a count. */
 export function readOwnedEngravedConversionPropertyIndexes(data: GameRecord | undefined): number[] {
-  const records = data?.rune_craft_item_list;
-  if (!Array.isArray(records)) return [];
   const propertyIndexes = new Set<number>();
-  for (const record of records) {
-    if (!record || typeof record !== 'object' || Array.isArray(record)) continue;
-    const craft = record as GameRecord;
-    if (integerValue(craft.craft_type) !== engravedConversionStoneCraftType) continue;
-    const craftTypeId = integerValue(craft.craft_type_id);
-    if (craftTypeId === undefined) continue;
-    const definition = artifactProperty(
-      (craftTypeId % engravedConversionStoneEffectDigits) - engravedConversionStoneEffectOffset,
-    );
-    if (!definition || definition.status !== 'current') continue;
-    const propertyIndex = artifactPropertyIndex.get(definition.id);
+  for (const stone of readEngravedConversionStones(data)) {
+    const propertyIndex = artifactPropertyIndex.get(stone.propertyId);
     if (propertyIndex !== undefined) propertyIndexes.add(propertyIndex);
   }
   return [...propertyIndexes];
@@ -154,14 +202,26 @@ export function buildArtifactScoreRequestsForMonsterIds(
   const ownedConversionPropertyIndexes = readOwnedEngravedConversionPropertyIndexes(data);
   const conversionMode: 0 | 1 | 2 = settings.conversionStoneMode === 'none' ? 0
     : settings.conversionStoneMode === 'theoretical' ? 1 : 2;
-  const conversionValue = [0, 0.5, 0.75, 1][settings.conversionStoneValue - 1] ?? 0;
+  /* Fractions of what a conversion roll can reach. The first stop was 0, which
+     valued a conversion at nothing and so made the mode inert rather than
+     cautious: a conversion always lands somewhere inside its range, and the
+     pessimistic answer is that range's floor. Across the 33 current properties
+     `minRoll / maxRoll` averages 0.61 and never falls below 0.25, so the low
+     stop is the honest floor rather than zero. */
+  const conversionValue = [0.6, 0.7, 0.8, 1][settings.conversionStoneValue - 1] ?? 0.6;
   return (['attribute', 'type'] as const).map((category) => ({
-    artifacts: artifacts.filter((artifact) => artifact.category === category).map(packArtifact),
+    artifacts: artifacts
+      .filter((artifact) => artifact.category === category)
+      /* §17.7: one Intangible choice, made in Settings and honoured by every
+         view, rather than a filter each page answers for itself. */
+      .filter((artifact) => settings.includeIntangibleArtifacts || !artifact.intangible)
+      .map(packArtifact),
     monsters: sourceIds.map((id) => packMonster(id, category)).filter((monster): monster is PackedMonsterScoreInput => monster !== undefined),
     acceptableWorth: settings.acceptableWorth,
     conversionMode,
     conversionValue,
     ownedConversionPropertyIndexes,
+    ownedConversionPropertyIndexesByClass: ownedConversionPropertyIndexesByClass(data, category),
   })).filter((request) => request.artifacts.length > 0 && request.monsters.length > 0);
 }
 

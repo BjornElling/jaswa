@@ -3,10 +3,14 @@
 import { type ReactNode, useMemo, useState } from 'react';
 import { Dropdown } from './dropdown';
 import { UnrefinedArtifactMark } from './unrefined-artifact-mark';
+import { SortableHeader, useSortedRows } from './sortable-table';
 import { calculateArtifactScores } from '../lib/compute/artifact-score-client';
 import { buildArtifactScoreRequests, buildArtifactScoreRequestsForMonsterIds } from '../lib/compute/artifact-score-input';
+import { ConversionList } from './conversion-list';
+import { engravedStonesFor, isWorthwhileGain } from '../lib/artifact-recommendations';
+import type { SortableColumn } from './sortable-table';
 import { artifactCategoryLabel, artifactEquipClassLabel, displaySubProperty } from '../lib/artifact-grid';
-import { artifactArchetypes, artifactCategoryLabels, artifactElements, artifactGradeOrder, artifactIntangibleLabel, artifactMainPropertyOrder, artifactProperty } from '../lib/artifact-properties';
+import { artifactArchetypes, artifactCategoryLabels, artifactElements, artifactGradeOrder, artifactIntangibleLabel, artifactMainPropertyOrder } from '../lib/artifact-properties';
 import { readArtifacts } from '../lib/artifacts';
 import { formatNumber } from '../lib/formatting';
 import { monsterPresentation } from '../lib/monster-catalog';
@@ -75,12 +79,6 @@ function scoreMap(scores: readonly ArtifactMaximumScore[]): Map<string, Artifact
   return new Map(scores.map((score) => [score.monsterId, score]));
 }
 
-function conversionLabel(score: ArtifactMaximumScore): string | undefined {
-  if (!score.conversion) return undefined;
-  const property = artifactProperty(score.conversion.propertyId);
-  return property ? `Convert sub ${score.conversion.sourceIndex + 1} to ${property.name}` : undefined;
-}
-
 function ownMonsterOptions(monsters: readonly GameRecord[]): MonsterOption[] {
   const names = numberedMonsterNames([...monsters]);
   const seen = new Set<string>();
@@ -97,8 +95,10 @@ function ownMonsterOptions(monsters: readonly GameRecord[]): MonsterOption[] {
     || monsterNameCollator.compare(left.unitId, right.unitId));
 }
 
+/* Scores are already whole percentage points (§17.1), so the figure shown is
+   the figure every comparison used. */
 function Score({ score, general }: { score: ArtifactMaximumScore | undefined; general: GeneralSettings }) {
-  return score ? `${formatNumber(Math.round(score.value * 100), general)} %` : '—';
+  return score ? `${formatNumber(score.value, general)} %` : '—';
 }
 
 function ResultCard({ title, description, children, empty }: {
@@ -129,6 +129,7 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
   const [state, setState] = useState<'idle' | 'calculating' | 'error'>('idle');
   const artifacts = useMemo(() => readArtifacts(data), [data]);
   const artifactNumbers = useMemo(() => new Map(artifacts.map((artifact, index) => [artifact.id, index])), [artifacts]);
+  const stones = useMemo(() => engravedStonesFor(data), [data]);
   const subPropertyOptions = useMemo(() => {
     const definitions = new Map<number, { id: number; name: string }>();
     for (const artifact of artifacts) {
@@ -175,13 +176,41 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
     .map((monster) => ({ monster, score: currentCalculation?.ownedScores.get(monster.speciesId) }))
     .sort((left, right) => (right.score?.value ?? -1) - (left.score?.value ?? -1) || left.monster.name.localeCompare(right.monster.name))
     .slice(0, 10);
+  /* §17.2 and §17.3: only a destination that genuinely beats the artifact's
+     current home, by more than the band the user called meaningful. */
   const improvementRows = ownMonsters.map((monster) => ({ monster, score: currentCalculation?.ownedScores.get(monster.speciesId) }))
-    .filter((row) => currentScore !== undefined && row.score !== undefined && row.score.value > currentScore.value)
+    .filter((row) => currentScore !== undefined && row.score !== undefined
+      && isWorthwhileGain(row.score.value, currentScore.value, settings))
     .sort((left, right) => (right.score?.value ?? 0) - (left.score?.value ?? 0) || left.monster.name.localeCompare(right.monster.name))
     .slice(0, 10);
   const rawRows = currentCalculation?.scopeScores.slice()
     .sort((left, right) => right.value - left.value || left.monsterName.localeCompare(right.monsterName))
     .slice(0, 10) ?? [];
+
+  type MonsterRow = { monster: MonsterOption; score: ArtifactMaximumScore | undefined };
+  const monsterColumns = useMemo<SortableColumn<MonsterRow>[]>(() => [
+    { key: 'monster', label: 'Monster', compare: (left, right) => monsterNameCollator.compare(left.monster.name, right.monster.name) },
+    { key: 'score', label: 'Score', compare: (left, right) => (left.score?.value ?? -1) - (right.score?.value ?? -1), initialDirection: 'descending' },
+    { key: 'conversion', label: 'Conversions', compare: (left, right) => (left.score?.conversions[0]?.gain ?? -1) - (right.score?.conversions[0]?.gain ?? -1), initialDirection: 'descending' },
+  ], []);
+  const improvementColumns = useMemo<SortableColumn<MonsterRow>[]>(() => [
+    { key: 'monster', label: 'Monster', compare: (left, right) => monsterNameCollator.compare(left.monster.name, right.monster.name) },
+    { key: 'here', label: 'Here', compare: (left, right) => (left.score?.value ?? -1) - (right.score?.value ?? -1), initialDirection: 'descending' },
+    { key: 'current', label: 'Current' },
+    { key: 'gain', label: 'Gain', compare: (left, right) => (left.score?.value ?? 0) - (right.score?.value ?? 0), initialDirection: 'descending' },
+  ], []);
+  type ScopeRow = { score: ArtifactMaximumScore };
+  const scopeColumns = useMemo<SortableColumn<ScopeRow>[]>(() => [
+    { key: 'monster', label: 'Monster', compare: (left, right) => monsterNameCollator.compare(left.score.monsterName, right.score.monsterName) },
+    { key: 'score', label: 'Score', compare: (left, right) => left.score.value - right.score.value, initialDirection: 'descending' },
+    { key: 'conversion', label: 'Conversions', compare: (left, right) => (left.score.conversions[0]?.gain ?? -1) - (right.score.conversions[0]?.gain ?? -1), initialDirection: 'descending' },
+  ], []);
+
+  const byName = (left: MonsterRow, right: MonsterRow) => monsterNameCollator.compare(left.monster.name, right.monster.name);
+  const slotless = useSortedRows(slotlessRows, monsterColumns, { key: 'score', direction: 'descending' }, byName);
+  const improvements = useSortedRows(improvementRows, improvementColumns, { key: 'here', direction: 'descending' }, byName);
+  const scope = useSortedRows(rawRows.map((score) => ({ score })), scopeColumns, { key: 'score', direction: 'descending' },
+    (left, right) => monsterNameCollator.compare(left.score.monsterName, right.score.monsterName));
 
   function toggle(key: keyof ArtifactFilters, value: string) {
     setFilters((current) => ({
@@ -305,21 +334,37 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
       <div className="best-monster-results">
         <ResultCard title="No artifact in this slot" description="The ten strongest eligible monsters with no artifact in this category equipped yet."
           empty={slotlessRows.length ? undefined : 'Every monster already has an artifact in this slot.'}>
-          <table className="best-monster-table"><thead><tr><th scope="col">Monster</th><th scope="col">Score</th><th scope="col">Conversion</th></tr></thead><tbody>
-            {slotlessRows.map(({ monster, score }) => <tr key={monster.unitId}><td>{monster.name}</td><td><b><Score score={score} general={general} /></b></td><td>{score ? conversionLabel(score) ?? 'No conversion' : 'Not judged'}</td></tr>)}
-          </tbody></table>
+          <table className="best-monster-table">
+            <SortableHeader columns={monsterColumns} sort={slotless.sort} onToggle={slotless.toggle} />
+            <tbody>{slotless.sorted.map(({ monster, score }) => <tr key={monster.unitId}>
+              <td>{monster.name}</td>
+              <td><b><Score score={score} general={general} /></b></td>
+              <td>{score ? <ConversionList conversions={score.conversions} artifact={selectedArtifact} stones={stones} mode={settings.conversionStoneMode} /> : <span className="muted">Not judged</span>}</td>
+            </tr>)}</tbody>
+          </table>
         </ResultCard>
-        <ResultCard title="Improves on current" description={owner ? `The ten strongest monsters that score higher than this artifact's ${owner.name} score.` : 'Equip this inventory artifact first to establish a current score.'}
-          empty={owner === undefined ? 'This artifact is in inventory, so it has no current score to improve.' : improvementRows.length ? undefined : 'No monster scores higher than its current wearer.'}>
-          <table className="best-monster-table"><thead><tr><th scope="col">Monster</th><th scope="col">Here</th><th scope="col">Current</th><th scope="col">Gain</th></tr></thead><tbody>
-            {improvementRows.map(({ monster, score }) => <tr key={monster.unitId}><td>{monster.name}</td><td><b><Score score={score} general={general} /></b></td><td><Score score={currentScore} general={general} /></td><td><b>{formatNumber(Math.round(((score?.value ?? 0) - (currentScore?.value ?? 0)) * 100), general)} pp</b></td></tr>)}
-          </tbody></table>
+        <ResultCard title="Improves on current" description={owner ? `The ten strongest monsters that beat this artifact's ${owner.name} score.` : 'Equip this inventory artifact first to establish a current score.'}
+          empty={owner === undefined ? 'This artifact is in inventory, so it has no current score to improve.' : improvementRows.length ? undefined : 'No monster beats its current wearer by enough to be worth the move.'}>
+          <table className="best-monster-table">
+            <SortableHeader columns={improvementColumns} sort={improvements.sort} onToggle={improvements.toggle} />
+            <tbody>{improvements.sorted.map(({ monster, score }) => <tr key={monster.unitId}>
+              <td>{monster.name}</td>
+              <td><b><Score score={score} general={general} /></b></td>
+              <td><Score score={currentScore} general={general} /></td>
+              <td><b>{formatNumber((score?.value ?? 0) - (currentScore?.value ?? 0), general)} pp</b></td>
+            </tr>)}</tbody>
+          </table>
         </ResultCard>
         <ResultCard title="Raw score ranking" description="The ten highest-scoring eligible monsters in the active scope."
           empty={rawRows.length ? undefined : 'No monster in the active scope can be judged for this artifact.'}>
-          <table className="best-monster-table"><thead><tr><th scope="col">Monster</th><th scope="col">Score</th><th scope="col">Conversion</th></tr></thead><tbody>
-            {rawRows.map((score) => <tr key={score.monsterId}><td>{score.monsterName}</td><td><b><Score score={score} general={general} /></b></td><td>{conversionLabel(score) ?? 'No conversion'}</td></tr>)}
-          </tbody></table>
+          <table className="best-monster-table">
+            <SortableHeader columns={scopeColumns} sort={scope.sort} onToggle={scope.toggle} />
+            <tbody>{scope.sorted.map(({ score }) => <tr key={score.monsterId}>
+              <td>{score.monsterName}</td>
+              <td><b><Score score={score} general={general} /></b></td>
+              <td>{score ? <ConversionList conversions={score.conversions} artifact={selectedArtifact} stones={stones} mode={settings.conversionStoneMode} /> : <span className="muted">Not judged</span>}</td>
+            </tr>)}</tbody>
+          </table>
         </ResultCard>
       </div>
     </>}

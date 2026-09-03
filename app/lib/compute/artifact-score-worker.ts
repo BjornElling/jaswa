@@ -51,6 +51,7 @@ function maximaFromScores(request: ArtifactScoreRequest, scores: Float32Array): 
       monsterName: monster.name,
       value: bestValue,
       conversion: detail?.conversion,
+      conversions: detail?.conversions ?? [],
     });
   }
   return maxima;
@@ -75,6 +76,7 @@ function targetScoresFromScores(request: ArtifactScoreRequest, scores: Float32Ar
       monsterName: monster.name,
       value,
       conversion: detail?.conversion,
+      conversions: detail?.conversions ?? [],
     });
   }
   return targetScores;
@@ -96,6 +98,7 @@ function allScoresFromScores(request: ArtifactScoreRequest, scores: Float32Array
         monsterName: monster.name,
         value,
         conversion: detail?.conversion,
+        conversions: detail?.conversions ?? [],
       });
     }
   }

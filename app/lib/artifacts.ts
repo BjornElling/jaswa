@@ -115,16 +115,18 @@ function readSubProperty(
     definition,
     valueHundredths,
     powerUps,
-    /* The ceiling is what this line could hold given the contributions it
-       actually collected, not the grade's best case: a line that received one
-       roll cannot reach the four-roll maximum, and judging it against that
-       would call every ordinary line a poor one. The grade still bounds it —
-       `artifactPropertyMaximum` is the same arithmetic at the grade's limit. */
+    /* The ceiling is the grade's best case, not what this line happened to
+       collect (§16). Dividing by the line's own contributions measures how
+       luckily it rolled, and scores a max-rolled one-roll line exactly like a
+       max-rolled five-roll line; the optimizer asks instead how much the
+       artifact contributes, and a line that received one roll genuinely holds
+       less. The range check above still uses the line's own contributions,
+       because that is a question about legality rather than about worth. */
     maximumHundredths: rollModel === 'historical'
       ? historicalMaximumHundredths
       : definition.maxRoll === null
         ? historicalMaximumHundredths
-      : toHundredths(definition.maxRoll * lineContributions),
+      : toHundredths(definition.maxRoll * artifactGrades[grade].maxContributions),
   };
 }
 

@@ -932,6 +932,41 @@ button { cursor: pointer; }
   gap: var(--s5);
   align-items: start;
 }
+
+/* Four controls answering one question — which conversions to assume, and how
+   well they roll — inside one frame, so the slider reads as part of the choice
+   above it rather than as an unrelated setting. */
+.artifact-conversion-box {
+  padding: var(--s4);
+  border: 1px solid var(--line-strong);
+  border-left: 2px solid var(--gold);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--sunk);
+}
+.artifact-conversion-title {
+  margin: 0;
+  font-size: var(--t-lead); font-weight: 600;
+  line-height: 1.3;
+  color: var(--ink);
+}
+.artifact-conversion-intro {
+  margin: calc(var(--s5) * -1 + var(--s2)) 0 0;
+  color: var(--dim);
+  font-size: var(--t-body); line-height: 1.5;
+}
+
+/* A disabled control dims and keeps every box it occupies, so switching the
+   rule on and off never moves the content beside or beneath it (rule 2). */
+.slider[data-disabled='true'] .slider-label,
+.slider[data-disabled='true'] .slider-note,
+.slider[data-disabled='true'] .slider-choice,
+.slider[data-disabled='true'] .checkbox-row {
+  color: var(--faint);
+}
+.slider input[type='range']:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
 .artifact-conversion-layout > .slider-grid { min-width: 0; }
 
 /* Artifact conversion has one additional choice beyond the two-route import
@@ -1323,7 +1358,7 @@ button { cursor: pointer; }
    column plus 11 × 2 × var(--s3) of padding. Editing one width means taking
    those px from another column, or the sum stops matching the container and
    the scrollbar returns. */
-.artifact-recommendation-table-wrap > .artifact-recommendation-table { width: 1364px; max-width: 1364px; min-width: 1364px; border-collapse: collapse; table-layout: fixed; font-size: var(--t-small); }
+.artifact-recommendation-table-wrap > .artifact-recommendation-table { width: 1542px; max-width: 1542px; min-width: 1542px; border-collapse: collapse; table-layout: fixed; font-size: var(--t-small); }
 .artifact-recommendation-table th, .artifact-recommendation-table td { padding: var(--s3); border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
 .artifact-recommendation-table th { color: var(--faint); font-size: var(--t-micro); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .artifact-recommendation-table tr:last-child td { border-bottom: 0; }
@@ -1339,10 +1374,12 @@ button { cursor: pointer; }
 /* Monster names, which have to stay on one line to be scannable. */
 .artifact-recommendation-table th:nth-child(6), .artifact-recommendation-table th:nth-child(8) { width: 126px; }
 .artifact-recommendation-table th:nth-child(7), .artifact-recommendation-table th:nth-child(9), .artifact-recommendation-table td:nth-child(7), .artifact-recommendation-table td:nth-child(9) { width: 80px; font-family: var(--mono); font-variant-numeric: tabular-nums; }
-/* The conversion is a whole sentence and the only column allowed to run to
-   several lines: it gives its width up to the substats and the two monster
-   name columns rather than holding a single long line of its own. */
-.artifact-recommendation-table th:nth-child(10) { width: 142px; }
+/* Each conversion is a whole sentence naming a property and the stone it would
+   spend, and the column now lists several of them (§17.5). At 142px every entry
+   wrapped onto three lines and a three-entry cell ran past 250px tall, so the
+   column is given the room to keep most entries on two lines instead — the
+   table scrolls horizontally, and row height is the scarcer resource. */
+.artifact-recommendation-table th:nth-child(10) { width: 320px; }
 .artifact-recommendation-table td:nth-child(10) { overflow-wrap: break-word; }
 /* .artifact-subs ellipsises its lines, which suits the library's wider column.
    Here the value sits at the end of the line, so an ellipsis eats exactly the
@@ -3170,3 +3207,75 @@ button { cursor: pointer; }
   .setting-line, .radio-line { grid-template-columns: minmax(0, 1fr); gap: var(--s2); }
   .zone-select .jaswa-select { width: 100%; }
 }
+
+/* ------------------------------------------------- sortable table headers */
+
+/* Every table in the artifact workspace sorts on every column
+   (docs/ARTIFACT-CANONICAL.md §17.8). The header becomes a button, and the
+   sort mark occupies its space in all three states — unsorted, ascending,
+   descending — so clicking a header never changes the column's width and
+   re-wraps the row (AGENTS.md rule 2). */
+.sortable-column { padding: 0; }
+.sort-button {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  width: 100%;
+  padding: inherit;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+/* Gold marks the column the table is actually ordered by — the one piece of
+   state the user can act on here. */
+.sort-button.active { color: var(--gold); }
+.sort-button:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+.sort-button-label { min-width: 0; }
+/* Reserved rather than conditional: the mark is always in the flow and only
+   its arrows change opacity, so no column resizes as the sort moves. */
+.sort-mark { flex: none; display: inline-flex; line-height: 0; }
+.sort-mark path { fill: currentColor; opacity: .25; }
+.sort-mark[data-direction='ascending'] .sort-mark-up,
+.sort-mark[data-direction='descending'] .sort-mark-down { opacity: 1; }
+
+/* Every conversion worth taking, listed under one another (§17.5). The gain
+   sits in its own fixed column so a two-digit figure does not push the name
+   about as the list changes. */
+.artifact-conversion-options { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--s1); }
+/* The gain leads rather than trails. It is the number the user is comparing
+   entries on, and at the end of a wrapping sentence it was the first thing to
+   fall off the edge of a horizontally scrolling table. */
+.artifact-conversion-options li {
+  display: grid;
+  grid-template-columns: 4ch minmax(0, 1fr);
+  gap: var(--s2);
+  align-items: baseline;
+}
+.artifact-conversion-option-name { min-width: 0; }
+.artifact-conversion-option-gain {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--dim);
+}
+
+
+/* The "+ n more" control is gold because it is something to act on, and it
+   keeps its own line so expanding a row grows only that row's own cell. */
+.artifact-conversion-list { display: grid; gap: var(--s2); justify-items: start; }
+.artifact-conversion-more {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--gold);
+  font: inherit;
+  font-size: var(--t-small);
+  cursor: pointer;
+}
+.artifact-conversion-more:hover { text-decoration: underline; }
+.artifact-conversion-more:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }

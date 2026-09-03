@@ -1,7 +1,10 @@
 import { scoredArtifactProperties } from '../artifact-score-schema';
 import { intangibleRestrictionCode } from '../artifact-score-protocol';
 
-const artifactStride = 12;
+/* Twelve values described the artifact before the conversion model gained a
+   ceiling and a converted-slot guard; both belong to the artifact rather than
+   the request, because both follow from its grade and its own lines. */
+const artifactStride = 14;
 const monsterStride = 5 + scoredArtifactProperties.length;
 
 /**
@@ -27,6 +30,8 @@ struct Parameters {
 @group(0) @binding(0) var<storage, read> artifacts: array<f32>;
 @group(0) @binding(1) var<storage, read> monsters: array<f32>;
 @group(0) @binding(2) var<storage, read> propertyAvailability: array<i32>;
+// One row of PROPERTY_COUNT flags per equip class, because a stone is engraved
+// for one class and converts nothing else. Row 0 is the Intangible union.
 @group(0) @binding(3) var<storage, read> ownedProperties: array<i32>;
 @group(0) @binding(4) var<uniform> parameters: Parameters;
 @group(0) @binding(5) var<storage, read_write> output: array<f32>;
@@ -37,8 +42,15 @@ fn preferenceWeight(preference: i32) -> f32 {
   return 0.0;
 }
 
-fn ownsProperty(index: u32) -> bool {
-  return ownedProperties[index] != 0;
+fn ownsProperty(restriction: i32, index: u32) -> bool {
+  return ownedProperties[u32(restriction) * PROPERTY_COUNT + index] != 0;
+}
+
+// Whole percentage points, the one scale every score is compared on. It must
+// match scorePercent() in artifact-score-core.ts exactly, or the two backends
+// disagree about which of two artifacts is better.
+fn scorePercent(value: f32) -> f32 {
+  return round(value * 100.0);
 }
 
 @compute @workgroup_size(64)
@@ -87,27 +99,42 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
   }
 
   let benchmark = 1.0 + 3.0 * parameters.acceptableWorth;
-  var best = mainWeight * weighted / benchmark;
+  let currentPercent = scorePercent(mainWeight * weighted / benchmark);
+  var best = currentPercent;
   if (parameters.conversionMode == 0u) {
     output[pairIndex] = best;
     return;
   }
 
+  let conversionCeiling = artifacts[artifactOffset + 12u];
+  let convertedSlotFraction = artifacts[artifactOffset + 13u];
+  // A converted slot already holding at least what a conversion would produce
+  // keeps what it has: the permanent lock means a further stone overwrites that
+  // same line, so proposing one proposes destroying the better roll.
+  let convertedSlotIsBetter = convertedSlotFraction >= 0.0
+    && convertedSlotFraction >= parameters.conversionValue;
+
   for (var source: u32 = 0u; source < 4u; source = source + 1u) {
     if (convertedIndex >= 0 && i32(source) != convertedIndex) { continue; }
+    if (convertedIndex >= 0 && i32(source) == convertedIndex && convertedSlotIsBetter) { continue; }
     for (var candidate: u32 = 0u; candidate < PROPERTY_COUNT; candidate = candidate + 1u) {
       let availability = propertyAvailability[candidate];
       if (availability != 0 && availability != category) { continue; }
-      if (parameters.conversionMode == 2u && !ownsProperty(candidate)) { continue; }
+      if (parameters.conversionMode == 2u && !ownsProperty(restriction, candidate)) { continue; }
       var exists = false;
       for (var line: u32 = 0u; line < 4u; line = line + 1u) {
         if (i32(candidate) == i32(artifacts[artifactOffset + 4u + line])) { exists = true; }
       }
       if (exists) { continue; }
-      let candidateWeight = preferenceWeight(i32(monsters[monsterOffset + 5u + candidate]));
-      let converted = mainWeight * (weighted - sourceContribution[source]
-        + candidateWeight * parameters.conversionValue) / benchmark;
-      best = max(best, converted);
+      let band = i32(monsters[monsterOffset + 5u + candidate]);
+      // A property the monster neither prefers nor accepts is never suggested.
+      if (band == 0) { continue; }
+      let candidateWeight = preferenceWeight(band);
+      // A conversion collects two contributions whatever the grade allows, so
+      // it reaches only this fraction of the line it replaces.
+      let converted = scorePercent(mainWeight * (weighted - sourceContribution[source]
+        + candidateWeight * parameters.conversionValue * conversionCeiling) / benchmark);
+      if (converted > currentPercent) { best = max(best, converted); }
     }
   }
   output[pairIndex] = best;

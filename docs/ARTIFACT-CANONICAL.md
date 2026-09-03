@@ -644,6 +644,40 @@ property name is permanently retained.
 28 %. There is no artifact equivalent of a permanent additive grind on an
 existing property. This is a fundamental difference from runes.
 
+### A conversion lands on exactly two contributions
+
+**Settled September 3, 2026** against the 137 converted lines in the captured
+account, and it is the number every conversion projection must use.
+
+Every converted line stores `powerUpCount: 0`, so the naive reading is that a
+conversion produces a single roll. The values refuse that reading: **66 of the
+101 converted lines whose range is known hold a value no single roll can
+produce** — effect 300 (3–5 per roll) reaches 8, effect 223 (8–12) reaches 17,
+effect 219 (2–4) reaches 6. The complementary check is what settles the count:
+**no converted line in the account requires a third contribution.** The
+observed fractions of a two-contribution ceiling run 0.300 to 0.833, and none
+exceeds 1.
+
+```text
+conversionMaximum = maxRoll × 2      // independent of the artifact's grade
+```
+
+This is §15.9's position-4 rule seen from the other side: the newest-line flag
+is set on the converted line, and counting it as one extra contribution is what
+makes the arithmetic close.
+
+**It does not scale with the artifact's grade**, and that is the trap. A Legend
+line collects five contributions, so judging a conversion against *that*
+ceiling claims a value the game cannot produce, and overstates the case for
+converting exactly on the artifacts worth the most care. A conversion on a
+Legend artifact reaches at best `maxRoll × 2` where the line it replaces could
+have held `maxRoll × 5`.
+
+**The stone's grade does not raise the ceiling.** Grade governs which stones
+the player owns and spends (§15.12), not how high the resulting line can roll.
+Nothing in the account links a stone to the line it produced, so no code may
+claim otherwise.
+
 ---
 
 ## 11. Reappraisal — v9.0.0, November 2025
@@ -1271,6 +1305,51 @@ predate v6.2.0, plus pre-v8 lines whose value is not a whole multiple of any
 per-roll figure, the old upgrade mechanic not having worked that way. §12's
 rule governs: a range that would reject a legal artifact is worse than none.
 
+### 15.12 Engraved conversion stones live in `artifact_crafts`
+
+**Settled September 3, 2026.** The account's engraved conversion stones are the
+`artifact_crafts` collection — 271 records holding 463 stones. They are *not*
+in `rune_craft_item_list`, and the distinction is not academic: craft types 5
+and 6 of that collection are rune enchanted gems and grindstones, whose ids
+read `<set><stat><grade>`. Decoding those as artifact properties resolves two
+of the account's forty owned property/class pairs and invents ids such as −487
+for the rest.
+
+The 12-digit `master_id` reads `CCC EEE AAG PPP`:
+
+| Segment | Meaning |
+| --- | --- |
+| `CCC` | `101` attribute stone, `102` type stone |
+| `EEE` | element × 10 on an attribute stone; `000` on a type stone |
+| `AAG` | archetype × 100 plus the natural grade — `3` Rare, `4` Hero, `5` Legend |
+| `PPP` | the artifact property the stone engraves |
+
+```text
+101 010 005 301   Legend Water attribute stone, Damage Dealt on Water
+102 000 103 407   Rare Attack type stone, [Skill 1] Accuracy
+```
+
+**The two class fields are mutually exclusive**, on all 271 records: an
+attribute stone always carries an element and archetype `0`, a type stone
+always the reverse. That is what lets one code carry the class unambiguously,
+and a record filling both is malformed rather than merely unusual.
+
+**A stone is engraved for one equip class, and the class binds.** A Water stone
+converts a Water attribute artifact and no other. Any model that treats an
+owned stone as usable on every artifact of its category overstates what the
+account can actually do — for this account, 21 properties available to a Water
+artifact against 40 across all elements. An Intangible artifact names no class,
+so every stone of its category applies to it.
+
+**The category split of §5 holds on stones too.** Attribute stones carry only
+`2xx`/`3xx` properties and type stones only `2xx`/`4xx`, with no crossover.
+
+**Stones naming a legacy property are refused, not offered.** 174 of the 463
+name one, and §12 forbids computing a roll for a property whose range is
+unknown — so a conversion to one could not be valued. They are genuinely
+unusable for a recommendation rather than merely unread, which is the
+distinction `AGENTS.md` §0.1 part 3 turns on.
+
 ---
 
 ## 16. JASWA optimal value
@@ -1291,7 +1370,28 @@ w(unwanted)   = 0
 
 For the main property, `m = w(main preference)`. For each of the artifact's four
 sub properties, let `rᵢ = rolled valueᵢ / maximum valueᵢ`, with its maximum
-derived from the property definition and the artifact's natural grade (§3).
+derived from the property definition and the artifact's natural grade (§3):
+
+```text
+maximum valueᵢ = maxRollᵢ × grade.maxContributions
+```
+
+**The ceiling is the grade's, not the line's own.** A line that collected one
+contribution is measured against what a line on this grade *could* have held,
+so a Legend line holding one roll scores low — which is the truth about it.
+
+This was corrected on September 3, 2026. The measure previously divided by the
+contributions each line actually collected, which made a max-rolled one-roll
+line score 1.0 exactly like a max-rolled five-roll line. That answers "did this
+line roll luckily?" and the optimizer asks "how much does this artifact
+contribute?" (§17). On the captured account the difference is large and
+systematic: across 1,085 Legend lines the mean was 0.800 under the old measure
+and 0.325 under this one.
+
+The consequence worth stating plainly: a Rare artifact no longer scores like a
+Legend merely for having rolled well within its smaller allowance, and a
+conversion — capped at two contributions by §10 — is worth `2/5` of a Legend
+line rather than appearing to match one.
 The sub-property benchmark is one preferred line and three acceptable lines:
 
 ```text
@@ -1328,3 +1428,125 @@ A monster category with no property preferences is **not judged** and returns
 `undefined`; a judged category whose artifact matches no chosen sub property
 returns the real value `0`. Invalid roll data is rejected as `undefined`, never
 clamped or repaired.
+
+---
+
+## 17. The optimizer's purpose, and the rules that follow from it
+
+The workspace answers **one** question: *which artifact, wearing which
+conversion, belongs on which monster so that it does the most good there?*
+
+It deliberately does **not** maximise the sum of every equipped artifact. The
+user farms continuously and is aiming at a top score for each artifact on each
+monster, so the target is per-artifact placement quality, not a portfolio
+total. The two objectives genuinely disagree — a global sum will happily move a
+superb artifact onto a monster it merely suits in order to free a slot — and
+where they disagree, this section governs.
+
+Five rules follow, and each is a place the interface has been wrong.
+
+### 17.1 A score shown is a score used
+
+Scores are computed and compared as **whole percentage points**, not merely
+rounded for display. Two artifacts both reading 88 % are equal everywhere: in
+sorting, in a threshold test, in a recommendation. Rounding only at the point
+of display makes the interface disagree with itself — two identical numbers on
+screen order themselves by a hidden decimal the user cannot see and cannot act
+on.
+
+Rounding is therefore applied once, where the score leaves the calculation, and
+every consumer reads the same integer. Ties are then broken by a **stated**
+rule — the artifact's own order — never by residual floating-point noise.
+
+### 17.2 A recommendation must be an improvement
+
+A row that recommends what is already true is noise. The recommendation views
+show an artifact against a monster only when moving it there **improves on
+where it is now**:
+
+- an artifact already on the monster where it scores highest is not
+  recommended anywhere;
+- a monster scoring lower than, or equal to, the artifact's current wearer is
+  never offered.
+
+"Highest" means the artifact's own maximum across the eligible monsters, not
+the result of an exclusive allocation. An allocation that hands the monster to
+a different artifact says something about that other artifact; it says nothing
+about whether this one is already where it does most good.
+
+### 17.3 Differences below the stated threshold are not differences
+
+The user may declare a band — 1 % to 5 % — inside which two scores count as the
+same. A gain no larger than the band is not an improvement, and a recommendation
+resting on one is suppressed on every page. The band is expressed in percentage
+points of the score, which is the number the interface actually shows.
+
+The band is a *user's* judgement about what is worth acting on, so it never
+alters a computed score: it decides what is offered, not what is true.
+
+### 17.4 A conversion is proposed only when it beats what is there
+
+Two conditions, and the second is the one that is easy to miss.
+
+1. The conversion must raise the artifact's score on that monster. A conversion
+   that leaves the score unchanged is not recommended.
+2. **An artifact whose converted slot already holds more value than the
+   proposed conversion would produce keeps what it has.** §10's permanent lock
+   means a further stone overwrites that same slot, so proposing one is
+   proposing to *destroy* the better line. The comparison is between the value
+   now on the converted slot and the value the projection assigns — and both
+   sides must be measured against the same ceiling, which §10 fixes at two
+   contributions for a conversion.
+
+Neither a projection nor a recommendation is computed once condition 2 fails.
+
+**The converse holds and is the common case.** An artifact whose converted slot
+holds *less* than the projection is still recommended for conversion: the lock
+does not protect a weak line, it only names which line a stone may touch. Where
+a recommendation would overwrite an existing conversion, the wording says so —
+*re-convert* rather than *convert* — because the line being spent is one the
+user already paid a stone for, and "convert" would read as though the artifact
+still had its free slot.
+
+### 17.5 Every conversion worth taking is shown, in order
+
+Where a view names conversions it shows **all** of them, ranked by what each
+adds to that monster, descending:
+
+- if any **preferred** conversion is available, every preferred one is listed
+  and no accepted one is;
+- otherwise every available **accepted** conversion is listed;
+- a conversion that is neither preferred nor accepted is never suggested.
+
+Preferred outranking accepted is absolute rather than a tiebreak: a preferred
+property is what the monster actually wants, and an accepted one is a
+concession. Listing a strong accepted conversion above a weak preferred one
+would invite the user to spend a stone on the concession.
+
+### 17.6 A recommendation names the stone it would spend
+
+Where a recommendation depends on an engraved conversion stone, it says **which
+stone** — its grade and equip class, as the game names them, in the shortest
+form that still identifies the item the user has to go and find:
+`Legend Water stone`, `Rare Attack stone`. The property is already named by the
+conversion itself, so the stone label does not repeat it.
+
+The stone named is the best-graded one the account owns for that property and
+class, because that is the one the user would sensibly spend. Where the mode is
+the theoretical one, no stone is named: nothing is being spent.
+
+### 17.7 One Intangible choice, in Settings
+
+Whether Intangible artifacts take part is asked **once**, in Settings, and every
+view in the workspace respects the answer. It is a statement about how the user
+wants their account judged, not a per-table filter, and asking it separately on
+each page invites the three views to disagree about the same account.
+
+### 17.8 Every table sorts on every column
+
+Any table in the workspace sorts by any of its columns, ascending and
+descending. A ranking the user cannot re-ask is a ranking they have to trust;
+the point of showing the numbers is that they can interrogate them. Columns
+that are not numbers sort too — by name, by location, by monster — because
+"show me every artifact currently in inventory, best first" is the ordinary way
+this data gets read.

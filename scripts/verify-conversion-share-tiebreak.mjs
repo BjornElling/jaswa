@@ -28,8 +28,11 @@ try {
   const { scoredArtifactProperties, artifactPropertyIndex } = await server.ssrLoadModule('/app/lib/compute/artifact-score-schema.ts');
   const { defaultPropertyPreferences } = await server.ssrLoadModule('/app/lib/artifact-preferences.ts');
 
+  /* Conversion at full reach against a Legend-shaped ceiling, so the fixtures
+     below test the ordering rules rather than the conversion ceiling. */
   const request = {
-    acceptableWorth: 50, conversionMode: 1, conversionValue: 1, ownedConversionPropertyIndexes: [],
+    acceptableWorth: 50, conversionMode: 1, conversionValue: 1,
+    ownedConversionPropertyIndexes: [], ownedConversionPropertyIndexesByClass: {},
   };
 
   // ---- Fixture: equal band, unequal share ---------------------------------
@@ -52,6 +55,7 @@ try {
   const artifact = {
     id: 'a', category: 2, restriction: 4, mainProperty: 0, convertedPropertyIndex: -1,
     subPropertyIndexes: [0, 1, 2, 3], subPropertyFractions: [0.2, 0.2, 0.2, 0.2],
+    convertedSlotConversionFraction: -1, conversionCeilingFraction: 1,
   };
   const monster = {
     id: 'm', name: 'M', element: 4, archetype: 4,
@@ -105,6 +109,7 @@ try {
   const withRolls = (fractions) => ({
     id: 'a', category: 2, restriction: 4, mainProperty: 0, convertedPropertyIndex: -1,
     subPropertyIndexes: [0, 1, 2, 3], subPropertyFractions: fractions,
+    convertedSlotConversionFraction: -1, conversionCeilingFraction: 1,
   });
   const chosenSource = (fractions, bands, lineShares) => scoreArtifactOnMonster(
     withRolls(fractions), sourceMonster(bands, lineShares), request)?.conversion?.sourceIndex;
@@ -178,6 +183,7 @@ try {
     id: '1553', category: 2, restriction: 4, mainProperty: 0, convertedPropertyIndex: -1,
     subPropertyIndexes: [line(218), line(405), line(214), line(221)],
     subPropertyFractions: [0.85, 0.6, 0.667, 0.9],
+    convertedSlotConversionFraction: -1, conversionCeilingFraction: 1,
   };
   const trianaMonster = {
     id: triana, name: 'Triana', element: 4, archetype: 4,
@@ -196,7 +202,61 @@ try {
   assert.equal(recommended.conversion.sourceIndex, 0,
     'the unwanted line must remain the one converted away');
 
-  console.log('Conversion sources and targets rank by band, then by observed share.');
+  // ---- §17.4: a better existing conversion is never overwritten -----------
+  /* The permanent lock means a further stone replaces the line already
+     converted, so a slot holding more than the projection would produce keeps
+     what it has. Both sides are fractions of the conversion ceiling. */
+  /* Line 0 is the converted slot and holds a property the monster does not want,
+     so converting it away costs nothing and only the stored value decides. */
+  const convertedBands = [0, 2, 2, 2];
+  const convertedShares = [0.01, 0.2, 0.2, 0.2];
+  const convertedWell = {
+    ...withRolls([0.9, 0.9, 0.9, 0.9]),
+    convertedPropertyIndex: 0, convertedSlotConversionFraction: 0.95,
+  };
+  const halfReach = { ...request, conversionValue: 0.6 };
+  assert.deepEqual(
+    scoreArtifactOnMonster(convertedWell, sourceMonster(convertedBands, convertedShares), halfReach)?.conversions,
+    [], 'a converted slot worth more than the projection is left alone');
+  /* The converse, and the common case: a weak conversion is still worth
+     replacing, and the recommendation must survive. */
+  const convertedBadly = { ...convertedWell, convertedSlotConversionFraction: 0.2 };
+  assert.ok(
+    scoreArtifactOnMonster(convertedBadly, sourceMonster(convertedBands, convertedShares), halfReach)?.conversions.length,
+    'a converted slot worth less than the projection is still recommended for re-conversion');
+
+  // ---- §17.5: one band, fully listed, in falling order --------------------
+  const mixedBands = new Array(scoredArtifactProperties.length).fill(0);
+  const typeLegal = scoredArtifactProperties
+    .map((property, index) => ({ property, index }))
+    .filter(({ property, index }) => property.availability !== 'attribute' && index > 3);
+  assert.ok(typeLegal.length >= 3, 'the fixture needs three type-legal candidates');
+  mixedBands[typeLegal[0].index] = 1;
+  mixedBands[typeLegal[1].index] = 2;
+  mixedBands[typeLegal[2].index] = 1;
+  const listed = scoreArtifactOnMonster(
+    withRolls([0.2, 0.2, 0.2, 0.2]),
+    { id: 'm', name: 'M', element: 4, archetype: 4, mainPreferences: [2, 0, 0],
+      subPropertyPreferences: mixedBands,
+      subPropertyShares: new Array(scoredArtifactProperties.length).fill(0.1) },
+    request,
+  );
+  assert.ok(listed?.conversions.length, 'a mixed-band monster must still offer conversions');
+  assert.ok(listed.conversions.every((entry) => entry.preference === 'preferred'),
+    'a preferred conversion displaces every accepted one rather than competing with it');
+  for (let index = 1; index < listed.conversions.length; index += 1) {
+    assert.ok(listed.conversions[index - 1].value >= listed.conversions[index].value,
+      'conversions are listed in falling order of what they contribute');
+  }
+  /* An unwanted property is never suggested, whatever the arithmetic says. */
+  assert.ok(listed.conversions.every((entry) => entry.preference !== 'unwanted'),
+    'a property the monster neither prefers nor accepts is never offered');
+
+  // ---- §17.1: every score is a whole percentage point ---------------------
+  assert.ok(Number.isInteger(listed.conversions[0].value), 'a conversion value is whole percentage points');
+  assert.ok(Number.isInteger(listed.conversions[0].gain), 'a conversion gain is whole percentage points');
+
+  console.log('Conversion sources, targets, ceilings and lists follow the stated rules.');
 } finally {
   await server.close();
 }

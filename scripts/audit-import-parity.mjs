@@ -201,9 +201,13 @@ try {
   const { buildArtifactScoreRequestsForMonsterIds } = await server.ssrLoadModule('/app/lib/compute/artifact-score-input.ts');
   const { calculateArtifactScoresCpu } = await server.ssrLoadModule('/app/lib/compute/artifact-score-core.ts');
   const { recordedArtifactPreferenceMonsterIds } = await server.ssrLoadModule('/app/lib/artifact-preferences.ts');
-  const defaultSettings = {
-    acceptableWorth: 50, conversionStoneMode: 'none', conversionStoneValue: 1, onlyFactorInOwnedMonsters: false,
-  };
+  /* The shipped defaults, not a hand-written copy: a settings field this audit
+     forgets reads as `undefined` and can silently exclude the very artifacts it
+     exists to prove are visible. `includeIntangibleArtifacts` did exactly that.
+     The scope is widened to every captured monster because parity asks what
+     JASWA *can* judge, not what this account happens to own. */
+  const { defaultArtifactSettings } = await server.ssrLoadModule('/app/lib/file-imports.ts');
+  const defaultSettings = { ...defaultArtifactSettings, onlyFactorInOwnedMonsters: false };
   const unscorable = [];
   for (const entry of accepted) {
     const requests = buildArtifactScoreRequestsForMonsterIds(

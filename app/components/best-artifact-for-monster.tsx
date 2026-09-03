@@ -5,7 +5,13 @@ import { calculateArtifactScores } from '../lib/compute/artifact-score-client';
 import { buildArtifactScoreRequests, buildArtifactScoreRequestsForMonsterIds } from '../lib/compute/artifact-score-input';
 import { readArtifacts } from '../lib/artifacts';
 import { artifactCategoryLabel, artifactEquipClassLabel } from '../lib/artifact-grid';
-import { artifactCategoryLabels, artifactIntangibleLabel, artifactProperty } from '../lib/artifact-properties';
+import { artifactCategoryLabels, artifactGradeOrder } from '../lib/artifact-properties';
+import { SortableHeader, useSortedRows } from './sortable-table';
+import { ConversionList } from './conversion-list';
+import { engravedStonesFor } from '../lib/artifact-recommendations';
+import { monsterNameCollator } from '../lib/monster-grid';
+import type { EngravedConversionStone } from '../lib/artifact-conversion-stones';
+import type { SortableColumn } from './sortable-table';
 import { Dropdown } from './dropdown';
 import { UnrefinedArtifactMark } from './unrefined-artifact-mark';
 import { formatNumber } from '../lib/formatting';
@@ -16,7 +22,6 @@ import type { MonsterArchetype } from '../lib/monster-catalog';
 import { monsterPresentation } from '../lib/monster-catalog';
 import { monsterSpeciesId } from '../lib/monster-species';
 import { numberedMonsterNames } from '../lib/monster-names';
-import { monsterNameCollator } from '../lib/monster-grid';
 import { elementName } from '../lib/rune-sets';
 import type { ArtifactSettings, GeneralSettings } from '../lib/types';
 import type { ArtifactCategory } from '../lib/artifact-properties';
@@ -79,12 +84,6 @@ function monsterOptions(monsters: readonly GameRecord[]): MonsterOption[] {
     || monsterNameCollator.compare(left.unitId, right.unitId));
 }
 
-function conversionLabel(score: ArtifactMaximumScore): string | undefined {
-  if (!score.conversion) return undefined;
-  const property = artifactProperty(score.conversion.propertyId);
-  return property ? `Convert sub ${score.conversion.sourceIndex + 1} to ${property.name}` : undefined;
-}
-
 function scoreMap(scores: ArtifactMaximumScore[]): Map<string, ArtifactMaximumScore> {
   return new Map(scores.map((score) => [score.artifactId, score]));
 }
@@ -96,17 +95,30 @@ async function calculateRequests(
   return Promise.all(requests.map((request) => calculateArtifactScores(request, hardwareAcceleration)));
 }
 
+/* Whole percentage points already (§17.1): the figure shown is the figure every
+   comparison used. */
 function Score({ score, general, fallback = '—' }: { score: ArtifactMaximumScore | undefined; general: GeneralSettings; fallback?: string }) {
-  return <>{score ? `${formatNumber(Math.round(score.value * 100), general)} %` : fallback}</>;
+  return <>{score ? `${formatNumber(score.value, general)} %` : fallback}</>;
 }
 
-function ArtifactResults({ title, description, rows, general, selectedMonster }: {
+function ArtifactResults({ title, description, rows, general, selectedMonster, stones, mode }: {
   title: string;
   description: string;
   rows: readonly ResultRow[];
   general: GeneralSettings;
   selectedMonster: MonsterOption;
+  stones: readonly EngravedConversionStone[];
+  mode: ArtifactSettings['conversionStoneMode'];
 }) {
+  const columns = useMemo<SortableColumn<ResultRow>[]>(() => [
+    { key: 'artifact', label: 'Artifact', compare: (left, right) => artifactGradeOrder.indexOf(left.artifact.grade) - artifactGradeOrder.indexOf(right.artifact.grade) || left.index - right.index, initialDirection: 'descending' },
+    { key: 'target', label: `On ${selectedMonster.name}`, compare: (left, right) => left.target.value - right.target.value, initialDirection: 'descending' },
+    { key: 'location', label: 'Location', compare: (left, right) => monsterNameCollator.compare(left.currentMonsterName ?? 'Inventory', right.currentMonsterName ?? 'Inventory') },
+    { key: 'maximum', label: 'Best', compare: (left, right) => (left.maximum?.value ?? -1) - (right.maximum?.value ?? -1), initialDirection: 'descending' },
+  ], [selectedMonster.name]);
+  const { sorted, sort, toggle } = useSortedRows(rows, columns, { key: 'target', direction: 'descending' },
+    (left, right) => left.index - right.index);
+
   return <section className="best-artifact-result" aria-labelledby={`${title}-title`}>
     <header>
       <h3 id={`${title}-title`}>{title}</h3>
@@ -114,31 +126,27 @@ function ArtifactResults({ title, description, rows, general, selectedMonster }:
     </header>
     {rows.length ? <div className="best-artifact-result-scroll">
       <table>
-        <thead><tr><th scope="col">Artifact</th><th scope="col">On {selectedMonster.name}</th><th scope="col">Location</th><th scope="col">Best</th></tr></thead>
-        <tbody>{rows.map((row) => {
-          const restriction = artifactEquipClassLabel(row.artifact);
-          const targetConversion = conversionLabel(row.target);
-          return <tr key={row.artifact.id}>
-            <td>
-              <b><UnrefinedArtifactMark unrefined={row.artifact.unrefined} />#{String(row.index + 1).padStart(2, '0')}</b>
-              <span>{artifactCategoryLabel(row.artifact.category)} · {restriction}</span>
-            </td>
-            <td>
-              <b><Score score={row.target} general={general} /></b>
-              <span className={targetConversion ? '' : 'muted'}>{targetConversion ?? 'No conversion'}</span>
-            </td>
-            <td>
-              {row.artifact.occupiedId === null ? <span className="muted">Inventory</span> : <>
-                <b><Score score={row.current} general={general} fallback="Not judged" /></b>
-                <span>{row.currentMonsterName ?? 'Unknown monster'}</span>
-              </>}
-            </td>
-            <td>
-              <b><Score score={row.maximum} general={general} fallback="Not judged" /></b>
-              <span>{row.maximum?.monsterName ?? '—'}</span>
-            </td>
-          </tr>;
-        })}</tbody>
+        <SortableHeader columns={columns} sort={sort} onToggle={toggle} />
+        <tbody>{sorted.map((row) => <tr key={row.artifact.id}>
+          <td>
+            <b><UnrefinedArtifactMark unrefined={row.artifact.unrefined} />#{String(row.index + 1).padStart(2, '0')}</b>
+            <span>{artifactCategoryLabel(row.artifact.category)} · {artifactEquipClassLabel(row.artifact)}</span>
+          </td>
+          <td>
+            <b><Score score={row.target} general={general} /></b>
+            <ConversionList conversions={row.target.conversions} artifact={row.artifact} stones={stones} mode={mode} />
+          </td>
+          <td>
+            {row.artifact.occupiedId === null ? <span className="muted">Inventory</span> : <>
+              <b><Score score={row.current} general={general} fallback="Not judged" /></b>
+              <span>{row.currentMonsterName ?? 'Unknown monster'}</span>
+            </>}
+          </td>
+          <td>
+            <b><Score score={row.maximum} general={general} fallback="Not judged" /></b>
+            <span>{row.maximum?.monsterName ?? '—'}</span>
+          </td>
+        </tr>)}</tbody>
       </table>
     </div> : <p className="best-artifact-empty">No artifacts belong in this view yet.</p>}
   </section>;
@@ -154,11 +162,6 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
   const [selectedElements, setSelectedElements] = useState<string[]>([]);
   const [selectedArchetypes, setSelectedArchetypes] = useState<MonsterArchetype[]>([]);
   const [selectedLocations, setSelectedLocations] = useState<ArtifactLocation[]>([]);
-  /* On by default: an Intangible fits the chosen monster like any other artifact,
-     so hiding it would understate what the account can actually equip. The
-     toggle exists for the opposite question — which of the class-bound artifacts
-     is best — because a wildcard the user would rather not spend crowds it out. */
-  const [includeIntangible, setIncludeIntangible] = useState(true);
   const [selectedUnitId, setSelectedUnitId] = useState('');
   const [calculation, setCalculation] = useState<ArtifactScoreMaps | undefined>();
   const [state, setState] = useState<'idle' | 'calculating' | 'error'>('idle');
@@ -171,6 +174,7 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
   const selectedMonster = filteredMonsters.find((monster) => monster.unitId === selectedUnitId);
   const artifacts = useMemo(() => readArtifacts(data), [data]);
   const artifactNumbers = useMemo(() => new Map(artifacts.map((artifact, index) => [artifact.id, index])), [artifacts]);
+  const stones = useMemo(() => engravedStonesFor(data), [data]);
   const wearers = useMemo(() => new Map(allMonsters.map((monster) => [monster.unitId, monster])), [allMonsters]);
   const inputKey = JSON.stringify({
     artifacts: artifacts.map((artifact) => [artifact.id, artifact.occupiedId, artifact.mainProperty, artifact.convertedPropertyIndex,
@@ -198,11 +202,12 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
     }).sort((left, right) => right.target.value - left.target.value || left.index - right.index);
   }, [artifacts, artifactNumbers, currentCalculation, selectedMonster, wearers]);
 
-  /* Both filters narrow the ranking that was already calculated, so switching
-     either one answers immediately instead of asking for the scores again. */
-  const visibleRows = rows.filter((row) => (!selectedLocations.length
-    || selectedLocations.includes(row.artifact.occupiedId === null ? 'inventory' : 'equipped'))
-    && (includeIntangible || !row.artifact.intangible));
+  /* The location filter narrows the ranking that was already calculated, so
+     switching it answers immediately instead of asking for the scores again.
+     Intangible is no longer asked here: §17.7 puts that one question in
+     Settings, where every view reads the same answer. */
+  const visibleRows = rows.filter((row) => !selectedLocations.length
+    || selectedLocations.includes(row.artifact.occupiedId === null ? 'inventory' : 'equipped'));
   const categoryRows = (category: ArtifactCategory) => visibleRows
     .filter((row) => row.artifact.category === category)
     .slice(0, 10);
@@ -295,15 +300,6 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
           >{location === 'inventory' ? 'Inventory' : 'Equipped'}</button>)}
         </div>
       </div>
-      <div className="filter-group best-artifact-filter-include" role="group" aria-label="Include artifacts by equip class">
-        <span className="filter-label">Include</span>
-        <div className="filter-group-controls">
-          <button type="button"
-            className={includeIntangible ? 'filter-button active' : 'filter-button'}
-            onClick={() => setIncludeIntangible((current) => !current)} aria-pressed={includeIntangible}
-          >{artifactIntangibleLabel}</button>
-        </div>
-      </div>
       <div className="filter-group best-artifact-monster-select">
         <label className="filter-label" htmlFor="best-artifact-monster">Monster</label>
         <div className="filter-group-controls">
@@ -330,7 +326,8 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
         {(['attribute', 'type'] as const).map((category) => <ArtifactResults key={category}
           title={artifactCategoryLabels[category]}
           description={`The ten highest-scoring compatible ${artifactCategoryLabels[category].toLowerCase()} artifacts for this monster.`}
-          rows={categoryRows(category)} general={general} selectedMonster={selectedMonster} />)}
+          rows={categoryRows(category)} general={general} selectedMonster={selectedMonster}
+          stones={stones} mode={settings.conversionStoneMode} />)}
       </div>
     </>}
   </div>;
