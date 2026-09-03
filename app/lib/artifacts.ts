@@ -3,6 +3,7 @@ import type { MonsterArchetype } from './monster-catalog';
 import {
   artifactArchetypes, artifactCategoryFromType, artifactElements, artifactGradeFromRank,
   artifactGrades, artifactIntangibleEquipClass, artifactMainProperties, artifactProperty,
+  bestArtifactLineContributions,
 } from './artifact-properties';
 import type {
   ArtifactCategory, ArtifactGrade, ArtifactMainProperty, ArtifactPropertyDefinition,
@@ -115,18 +116,21 @@ function readSubProperty(
     definition,
     valueHundredths,
     powerUps,
-    /* The ceiling is the grade's best case, not what this line happened to
-       collect (§16). Dividing by the line's own contributions measures how
-       luckily it rolled, and scores a max-rolled one-roll line exactly like a
-       max-rolled five-roll line; the optimizer asks instead how much the
-       artifact contributes, and a line that received one roll genuinely holds
-       less. The range check above still uses the line's own contributions,
-       because that is a question about legality rather than about worth. */
+    /* The ceiling is the best line the game can produce — not what this line
+       happened to collect, and not what its grade allowed (§16). Dividing by
+       the line's own contributions measures how luckily it rolled and scores a
+       max-rolled one-roll line exactly like a max-rolled five-roll line;
+       dividing by the grade's ceiling makes every grade's four lines look
+       equally full and so rewards low grades. The optimizer asks how much the
+       artifact contributes, and one scale is what makes that answer
+       comparable. The range check above still uses the line's own
+       contributions, because that is a question about legality rather than
+       about worth. */
     maximumHundredths: rollModel === 'historical'
       ? historicalMaximumHundredths
       : definition.maxRoll === null
         ? historicalMaximumHundredths
-      : toHundredths(definition.maxRoll * artifactGrades[grade].maxContributions),
+      : toHundredths(definition.maxRoll * bestArtifactLineContributions),
   };
 }
 

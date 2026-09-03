@@ -1,4 +1,56 @@
+import { bestArtifactLineContributions } from './artifact-properties';
+
 export type ArtifactPropertyPreference = 'preferred' | 'acceptable' | 'unwanted';
+
+/**
+ * The number of acceptable lines the benchmark artifact carries beside its
+ * preferred one. It is 1 because that is what the monsters actually ask for:
+ * across the 902 monster types the statistics cover, 830 have exactly **one**
+ * preferred sub property out of 23, and the best profile any of them offers a
+ * real artifact is `1 preferred + 1 acceptable` or `1 preferred + 2 acceptable`
+ * — 1,161 of the account's 1,555 artifacts. Benchmarking against three
+ * acceptable lines would measure every artifact against a monster that does not
+ * exist.
+ */
+export const benchmarkAcceptableLines = 1;
+
+/**
+ * The denominator every artifact score is measured against: the best artifact
+ * the game can actually produce, on the profile a monster actually offers — one
+ * preferred sub property that took every power-up, plus one acceptable line, at
+ * maximum rolls.
+ *
+ * Its preferred line therefore holds all five contributions and the rest hold
+ * one each, because a finished artifact has only eight to spend (§3) and every
+ * line must keep at least its own. Measured on `bestArtifactLineContributions`,
+ * that is a preferred line at `5/5` and an acceptable line at `1/5`:
+ *
+ * ```text
+ * benchmark = (5 + a) / 5 = 1 + 0.2a
+ * ```
+ *
+ * **It must stay a fixed denominator**, not the weights of the properties this
+ * artifact happened to roll: deriving it from the artifact lets one max
+ * preferred line and three irrelevant lines score like four desired ones. Nor
+ * may it be derived from the monster, which would let a monster wanting one
+ * property be perfectly served by an artifact carrying only that one.
+ *
+ * **And it must stay reachable.** Two earlier versions were not. `1 + 3a`
+ * assumed four lines that had each collected five contributions — twenty,
+ * against the eight that exist — so it sat 2.5× above anything the game could
+ * produce and capped a perfect Legend at 64 %. `1 + 0.6a` fixed the arithmetic
+ * but kept three acceptable lines, a profile the defaults almost never grant,
+ * and topped the real account out at 90 %.
+ *
+ * Scores above 100 % are intended and mean an artifact beats this profile — a
+ * second preferred line, or an acceptable line that took power-ups of its own.
+ * The best artifact in the captured account reaches 106 %.
+ */
+export function artifactScoreBenchmark(acceptableWorth: number): number {
+  const acceptableWeight = acceptableWorth / 100;
+  return (bestArtifactLineContributions + benchmarkAcceptableLines * acceptableWeight)
+    / bestArtifactLineContributions;
+}
 
 export type ArtifactOptimalValueInput = {
   acceptableWorth: number;
@@ -31,10 +83,11 @@ function isRollFraction(value: number, maximum: number): boolean {
  * decide which properties matter, and the calculation says how well this
  * artifact rolled on those choices.
  *
- * One is the benchmark: a preferred main property plus max rolls on one
- * preferred and three acceptable sub properties. More preferred max rolls can
- * exceed it, which lets the recommendation distinguish a broad match from a
- * narrow one without calling an exceptional artifact mediocre.
+ * One is the benchmark: a preferred main property on the best artifact the game
+ * can build with one preferred and three acceptable sub properties — see
+ * `artifactScoreBenchmark`. More preferred lines can exceed it, which lets the
+ * recommendation distinguish a broad match from a narrow one without calling an
+ * exceptional artifact mediocre.
  *
  * `undefined` means the monster category has no property preferences and is
  * therefore not judged. Zero is a real result for a judged monster whose
@@ -48,8 +101,7 @@ export function calculateArtifactOptimalValue(input: ArtifactOptimalValueInput):
     || input.subProperties.length !== 4) return undefined;
 
   const mainWeight = preferenceWeight(input.mainPreference, input.acceptableWorth);
-  const acceptableWeight = input.acceptableWorth / 100;
-  const benchmark = 1 + 3 * acceptableWeight;
+  const benchmark = artifactScoreBenchmark(input.acceptableWorth);
   let weightedRolls = 0;
 
   for (const subProperty of input.subProperties) {

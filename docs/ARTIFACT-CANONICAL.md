@@ -148,8 +148,40 @@ Maximum contributions on one line, by grade:
 | Hero | 4 | 24 | 16 | 160 |
 | Legend | 5 | 30 | 20 | 200 |
 
-This is the correct way to compute "maximum possible value for this property on
-this artifact" — from the roll structure, never from a hard-coded ceiling.
+This is the correct way to compute "the most one line of this property could
+ever hold" — from the roll structure, never from a hard-coded ceiling. Note what
+it is *not*: §16 measures every line against the Legend column, because a
+lower-grade line genuinely holds less and the score is about contribution.
+
+### The contribution budget — four lines share eight rolls
+
+The table above is the ceiling for **one** line. The ceiling for the artifact is
+a separate and more binding fact, and §16 depends on it:
+
+```text
+total contributions = initialProperties + 4 = maxContributions + 3
+```
+
+Every grade gets the same four power-up milestones (+3/+6/+9/+12); each one
+either creates a missing line or upgrades an existing one, so it is a
+contribution either way.
+
+| Grade | Initial lines | Milestones | Total contributions | Most on one line |
+| --- | ---: | ---: | ---: | ---: |
+| Normal | 0 | 4 | 4 | 1 |
+| Magic | 1 | 4 | 5 | 2 |
+| Rare | 2 | 4 | 6 | 3 |
+| Hero | 3 | 4 | 7 | 4 |
+| Legend | 4 | 4 | 8 | 5 |
+
+**Four lines can never all be full.** A Legend holds eight contributions, and
+four lines each holding the maximum five would need twenty. Every line also
+keeps at least its own contribution, so the best any Legend can do is one line
+at 5 and three at 1 — or any other split of the same eight.
+
+This is the fact that makes an "all four lines maxed" benchmark unreachable, and
+scoring against one understates every artifact by the same 2.5×. Any future
+change to the scoring denominator has to be checked against this table.
 
 **Carry the contribution count as data, not as a lookup.** The middle column is
 `initialProperties + powerUpRolls` for grades that start with a line, and the
@@ -166,6 +198,13 @@ interface ArtifactGradeDefinition {
 Then `maxValue = definition.maxRoll × grade.maxContributions`, and a balance
 patch that changes a roll range is a table edit rather than a code change. The
 per-grade ceilings above become a test fixture, never a second source.
+
+**This is a legality ceiling, not a scoring one.** It answers "could this line
+legally hold this value on this grade", which is what `readSubProperty` checks.
+§16 divides by the Legend column instead, for every grade, because it asks a
+different question — how much the line contributes — and a Normal line holding
+its single roll contributes a fifth of a full Legend line, not all of one. Using
+this ceiling there made the score fall as the grade rose.
 
 **The Normal case is not `0`.** A Normal artifact has no *initial* lines and no
 power-up rolls in the historical structure, yet a finished one still carries four
@@ -1370,48 +1409,130 @@ w(unwanted)   = 0
 
 For the main property, `m = w(main preference)`. For each of the artifact's four
 sub properties, let `rᵢ = rolled valueᵢ / maximum valueᵢ`, with its maximum
-derived from the property definition and the artifact's natural grade (§3):
+derived from the property definition and the best line the game can produce:
 
 ```text
-maximum valueᵢ = maxRollᵢ × grade.maxContributions
+maximum valueᵢ = maxRollᵢ × 5        // bestArtifactLineContributions
 ```
 
-**The ceiling is the grade's, not the line's own.** A line that collected one
-contribution is measured against what a line on this grade *could* have held,
-so a Legend line holding one roll scores low — which is the truth about it.
+**The ceiling is absolute, not the line's own and not its grade's.** One scale
+measures every line on every artifact, so a Legend line holding one roll scores
+low and a Normal line holding its only roll scores lower still — which is the
+truth about both. `Σ rᵢ` is then proportional to the stat the artifact actually
+delivers.
 
-This was corrected on September 3, 2026. The measure previously divided by the
-contributions each line actually collected, which made a max-rolled one-roll
-line score 1.0 exactly like a max-rolled five-roll line. That answers "did this
-line roll luckily?" and the optimizer asks "how much does this artifact
-contribute?" (§17). On the captured account the difference is large and
-systematic: across 1,085 Legend lines the mean was 0.800 under the old measure
-and 0.325 under this one.
+This took two corrections, and both are worth keeping written down because each
+failure was invisible — every artifact still got a number, and the number was
+wrong.
 
-The consequence worth stating plainly: a Rare artifact no longer scores like a
+**September 3, 2026: not the line's own contributions.** The measure originally
+divided by the contributions each line actually collected, which made a
+max-rolled one-roll line score 1.0 exactly like a max-rolled five-roll line.
+That answers "did this line roll luckily?" and the optimizer asks "how much does
+this artifact contribute?" (§17). Across 1,085 Legend lines in the captured
+account the mean was 0.800 under the old measure and 0.325 under the next one.
+
+**September 3, 2026: not the grade's ceiling either.** Dividing by the
+artifact's *own* grade replaced one error with its mirror. A finished artifact
+holds `maxContributions + 3` contributions across its four lines (§3), so that
+denominator caps `Σ rᵢ` at `(M + 3) / M` — which **falls** as the grade rises:
+
+| Grade | Contributions held | Old cap on `Σ rᵢ` | Old score ceiling |
+| --- | ---: | ---: | ---: |
+| Normal | 4 | 4.00 | 160 % |
+| Magic | 5 | 2.50 | 100 % |
+| Rare | 6 | 2.00 | 80 % |
+| Hero | 7 | 1.75 | 70 % |
+| Legend | 8 | 1.60 | 64 % |
+
+A max-rolled Normal artifact scored 2.5× a perfect Legend while delivering half
+the stat, and `conversionCeilingFraction` reached 1.0 on Normal and Magic, so a
+conversion scored as a full line exactly where it helps least.
+
+The consequence worth stating plainly: a Rare artifact does not score like a
 Legend merely for having rolled well within its smaller allowance, and a
-conversion — capped at two contributions by §10 — is worth `2/5` of a Legend
-line rather than appearing to match one.
-The sub-property benchmark is one preferred line and three acceptable lines:
+conversion — capped at two contributions by §10 — is worth `2/5` of a full line
+on every grade.
+
+### The benchmark must be an artifact that can exist, on a monster that exists
+
+The sub-property benchmark is **the best artifact the game can build on the
+profile the monsters actually offer**: a Legend that spent all four power-ups on
+its one preferred line, plus one acceptable line, at maximum rolls. Its lines
+hold 5, 1, 1 and 1 contributions, because eight is all there are and every line
+keeps its own.
 
 ```text
-benchmark = 1 + 3a
+benchmark = (5 + a) / 5 = 1 + 0.2a
 subValue = Σ(wᵢ × rᵢ) / benchmark
 optimalValue = m × subValue
 ```
 
-This is a fixed denominator. It must not be replaced with the weights of the
-properties the artifact happened to roll: doing that lets one max preferred line
-and three irrelevant lines score the same as four desired max lines. The chosen
-benchmark instead gives ordinary profiles an intuitive reference point while
-preserving the extra value of every additional preferred line.
+**One acceptable line, not three, because that is what the defaults grant.**
+Across the 902 monster types the statistics cover, **830 have exactly one
+preferred sub property** out of 23, and the mean is 0.94 with about four
+acceptable. Measured against the captured account, the best profile any monster
+offers a given artifact is `1 preferred + 1 acceptable` or `1 preferred + 2
+acceptable` for 1,161 of its 1,555 artifacts; four preferred lines occur for
+three. A benchmark of `1 preferred + 3 acceptable` therefore measures every
+artifact against a monster that does not exist, and it showed: the account's
+best artifact reached 90 % and nothing else came near it.
 
-At the default `a = 0.5`, with a preferred main and max rolls, the benchmark
-profile `1 preferred + 3 acceptable` is 100 %; `2 preferred + 2 acceptable` is
-120 %; four preferred lines are 160 %; and one preferred plus one acceptable
-line is 60 %. A score above 100 % is intentional: 100 % is the benchmark, not
-the ceiling. It says an artifact is exceptional without making a max-rolled
-`2 preferred + 2 acceptable` artifact look merely three-quarters complete.
+This is a fixed denominator, and it is fixed twice over.
+
+**It is not derived from the artifact.** Using the weights of the properties
+this artifact happened to roll lets one max preferred line and three irrelevant
+lines score the same as four desired max lines.
+
+**It is not derived from the monster.** A monster wanting exactly one property
+would otherwise be perfectly served by an artifact carrying only that property,
+while a monster wanting the same property plus three acceptable ones scored
+lower for having said more. The score answers *how much of what this monster
+wants does this artifact deliver*, which is the question §17 needs, because
+allocating one pool of artifacts across many monsters requires numbers that are
+comparable between monsters. A monster with one preferred property and nothing
+else therefore tops out near 77 %, and that is the honest answer: the best
+artifact in the world can only give it one line of what it wants.
+
+**And it must be reachable.** The original `1 + 3a` assumed four lines that had
+each collected five contributions — twenty, against the eight that exist. It sat
+2.5× above anything the game could produce, so the profile the document called
+100 % actually scored 52 % and a perfect Legend capped at 64 %.
+
+At the default `a = 0.5`, with a preferred main and max rolls:
+
+| Profile (Legend, max rolls) | Score |
+| --- | ---: |
+| 1 preferred (5 contributions) + 1 acceptable — the benchmark | 100 % |
+| 1 preferred (5) + 2 acceptable | 109 % |
+| 1 preferred (4) + 1 preferred (2) | 109 % |
+| 1 preferred (5) + 3 unwanted | 91 % |
+| 4 preferred | 145 % |
+| 1 preferred (2) + 3 unwanted | 36 % |
+
+The grade ceilings run 73 % (Normal), 91 %, 109 %, 127 % and 145 % (Legend) —
+rising with the grade, as the contribution each delivers does.
+
+**Measured against the captured account**, taking each artifact's best score
+over every catalogued monster: median 43 %, p90 63 %, p99 77 %, best 106 %. That
+best is a Legend carrying `[Skill 1] Recovery` at 27 of 30 on all five
+contributions, for a monster that prefers it — an artifact that deserves to read
+as exceptional. Twelve artifacts pass 80 %.
+
+A score above 100 % is intentional: 100 % is the benchmark, not the ceiling. It
+means an artifact beat the profile — a second preferred line, or an acceptable
+line that took power-ups of its own.
+
+**Recalibrating this is a deliberate act, not a tuning knob.** The benchmark's
+shape follows from the contribution budget (§3) and its acceptable-line count
+from the observed preference breadth. Should the defaults' thresholds change
+(sprint decision 29), that breadth changes with them and this figure has to be
+re-measured rather than left standing.
+
+`npm run verify:artifact-score-scale` holds all of this: that the benchmark
+profile is exactly 100 % at every acceptable worth, that each grade's ceiling is
+reachable and higher than the grade below it, and that the WGSL backend divides
+by the same number as the TypeScript one.
 
 The main property remains a separate multiplier. A preferred main preserves the
 sub-property value; an acceptable main multiplies it by `a`; an unwanted main

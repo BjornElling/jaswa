@@ -1,4 +1,5 @@
 import { artifactPropertyAvailability, scoredArtifactProperties } from './artifact-score-schema';
+import { artifactScoreBenchmark } from '../artifact-optimal-value';
 import { intangibleRestrictionCode } from './artifact-score-protocol';
 import type {
   ArtifactConversion, ArtifactScoreRequest, PackedArtifactScoreInput, PackedMonsterScoreInput,
@@ -164,7 +165,7 @@ export function scoreArtifactOnMonster(
   const main = weight(monster.mainPreferences[artifact.mainProperty] ?? 0, request.acceptableWorth);
   if (main === 0) return { value: 0, conversion: undefined, conversions: [] };
 
-  const benchmark = 1 + 3 * (request.acceptableWorth / 100);
+  const benchmark = artifactScoreBenchmark(request.acceptableWorth);
   let weightedSubProperties = 0;
   for (let index = 0; index < 4; index += 1) {
     const fraction = artifact.subPropertyFractions[index];

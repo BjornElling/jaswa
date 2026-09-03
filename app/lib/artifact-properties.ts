@@ -36,6 +36,35 @@ export const artifactGrades: Record<ArtifactGrade, { naturalRank: number; maxCon
   Legend: { naturalRank: 5, maxContributions: 5 },
 };
 
+/**
+ * The contributions the game's best line can collect — Legend's five (§3). It
+ * is the ceiling **every** line is measured against, whatever grade carries it,
+ * because the optimizer asks how much an artifact contributes and a Normal line
+ * holding one roll genuinely contributes a fifth of what a full Legend line
+ * does.
+ *
+ * Measuring each line against its own grade instead makes the score reward low
+ * grades: the contributions a finished artifact holds are `maxContributions + 3`
+ * — 4 on Normal up to 8 on Legend — so dividing by the grade's own ceiling caps
+ * `Σ fractions` at `(M + 3) / M`, which *falls* from 4 on Normal to 1.6 on
+ * Legend. A max-rolled Normal artifact then outscores a perfect Legend by 2.5×
+ * while delivering half the stat.
+ */
+export const bestArtifactLineContributions = artifactGrades.Legend.maxContributions;
+
+/**
+ * The contributions a finished artifact of this grade holds across all four
+ * lines: the lines it starts with plus the four power-up milestones, every one
+ * of which either creates a missing line or upgrades an existing one (§3).
+ *
+ * This is the budget the scoring benchmark has to respect. Four lines that each
+ * reached the per-line ceiling would need `4 × 5 = 20` contributions, and no
+ * artifact has ever held more than eight.
+ */
+export function artifactTotalContributions(grade: ArtifactGrade): number {
+  return artifactGrades[grade].maxContributions + 3;
+}
+
 const gradesByRank = new Map<number, ArtifactGrade>(
   (Object.keys(artifactGrades) as ArtifactGrade[]).map((grade) => [artifactGrades[grade].naturalRank, grade]),
 );
@@ -218,14 +247,20 @@ export function artifactPropertiesFor(category: ArtifactCategory): ArtifactPrope
 }
 
 /**
- * The most this property could reach on this grade — the per-roll maximum times
- * the contributions one line can collect (§3). `null` where the range is
- * unknown, which is every legacy property, so a caller must decide what an
- * unjudgeable line means rather than receiving a number that looks answered.
+ * The most this property could reach on any artifact — the per-roll maximum
+ * times the contributions the game's best line can collect (§3). `null` where
+ * the range is unknown, which is every legacy property, so a caller must decide
+ * what an unjudgeable line means rather than receiving a number that looks
+ * answered.
+ *
+ * Deliberately independent of the artifact's grade, so that one scale measures
+ * every line and a lower grade scores as the smaller contribution it is. The
+ * pre-v8 ceilings in `artifacts.ts` are already absolute five-roll figures, so
+ * this makes the two eras agree rather than measuring them differently.
  */
-export function artifactPropertyMaximum(property: ArtifactPropertyDefinition, grade: ArtifactGrade): number | null {
+export function artifactPropertyMaximum(property: ArtifactPropertyDefinition): number | null {
   if (property.maxRoll === null) return null;
-  return property.maxRoll * artifactGrades[grade].maxContributions;
+  return property.maxRoll * bestArtifactLineContributions;
 }
 
 /**

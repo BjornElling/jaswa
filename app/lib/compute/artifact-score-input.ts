@@ -2,7 +2,7 @@ import { defaultPropertyPreferences, recordedArtifactPreferenceMonsterIds } from
 import { readArtifacts } from '../artifacts';
 import { readEngravedConversionStones } from '../artifact-conversion-stones';
 import {
-  artifactConversionContributions, artifactConversionMaximum, artifactGrades,
+  artifactConversionContributions, artifactConversionMaximum, bestArtifactLineContributions,
 } from '../artifact-properties';
 import type { Artifact, ArtifactSubProperty } from '../artifacts';
 import type { ArtifactCategory, ArtifactMainProperty } from '../artifact-properties';
@@ -89,9 +89,12 @@ function packArtifact(artifact: Artifact): PackedArtifactScoreInput {
     subPropertyIndexes: [indexes[0], indexes[1], indexes[2], indexes[3]],
     subPropertyFractions: [fractions[0], fractions[1], fractions[2], fractions[3]],
     convertedSlotConversionFraction: convertedSlotConversionFraction(artifact),
-    conversionCeilingFraction: Math.min(
-      1, artifactConversionContributions / artifactGrades[artifact.grade].maxContributions,
-    ),
+    /* A conversion collects two contributions on every grade (§10) and every
+       line is now measured against the game's best line, so this is one figure
+       rather than a per-grade one. Dividing by the artifact's own grade made it
+       reach 1 on a Normal or Magic artifact — a conversion scoring as a full
+       line — which overstated conversions precisely where they help least. */
+    conversionCeilingFraction: artifactConversionContributions / bestArtifactLineContributions,
   };
 }
 

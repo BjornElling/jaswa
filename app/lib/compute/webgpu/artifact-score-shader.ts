@@ -1,4 +1,6 @@
 import { scoredArtifactProperties } from '../artifact-score-schema';
+import { benchmarkAcceptableLines } from '../../artifact-optimal-value';
+import { bestArtifactLineContributions } from '../../artifact-properties';
 import { intangibleRestrictionCode } from '../artifact-score-protocol';
 
 /* Twelve values described the artifact before the conversion model gained a
@@ -17,6 +19,10 @@ const ARTIFACT_STRIDE: u32 = ${artifactStride}u;
 const MONSTER_STRIDE: u32 = ${monsterStride}u;
 const PROPERTY_COUNT: u32 = ${scoredArtifactProperties.length}u;
 const INTANGIBLE_RESTRICTION: i32 = ${intangibleRestrictionCode};
+// Interpolated from the same constants artifactScoreBenchmark() uses, so the
+// two backends cannot drift apart on the denominator every score is divided by.
+const BEST_LINE_CONTRIBUTIONS: f32 = ${bestArtifactLineContributions}.0;
+const BENCHMARK_ACCEPTABLE_LINES: f32 = ${benchmarkAcceptableLines}.0;
 
 struct Parameters {
   artifactCount: u32,
@@ -98,7 +104,12 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
     weighted = weighted + contribution;
   }
 
-  let benchmark = 1.0 + 3.0 * parameters.acceptableWorth;
+  // The benchmark artifact: a preferred line holding all five contributions and
+  // one acceptable line holding its own, which is the best the game can build
+  // on the profile the monsters actually offer. Must match
+  // artifactScoreBenchmark() exactly.
+  let benchmark = (BEST_LINE_CONTRIBUTIONS + BENCHMARK_ACCEPTABLE_LINES * parameters.acceptableWorth)
+    / BEST_LINE_CONTRIBUTIONS;
   let currentPercent = scorePercent(mainWeight * weighted / benchmark);
   var best = currentPercent;
   if (parameters.conversionMode == 0u) {
