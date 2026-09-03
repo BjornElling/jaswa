@@ -1868,3 +1868,73 @@ mod tests {
         assert_eq!(data["unit_list"][1]["relics"][0]["rid"], 9);
     }
 }
+
+#[cfg(test)]
+mod phantom_rune_regression {
+    use super::*;
+    use serde_json::json;
+
+    /* The real getPlayPassInfo payload shape: five Play Pass reward previews,
+       every one carrying rune_id 0. They describe runes the account does not
+       own, and five of them collapsing into one phantom rune is what made a
+       whole export unreadable. Reproduced from the user's own traffic log,
+       2026-09-02. */
+    #[test]
+    fn pass_reward_previews_never_enter_the_profile() {
+        let preview = || {
+            json!({
+                "base_value": 760800, "class": 16, "extra": 15, "occupied_id": 0,
+                "occupied_type": 2, "prefix_eff": [0, 0], "pri_eff": [8, 7], "rank": 15,
+                "rune_id": 0, "sec_eff": [[2, 10, 0, 0]], "sell_value": 40738,
+                "set_id": 22, "slot_no": 2, "upgrade_curr": 0, "upgrade_limit": 15,
+                "wizard_id": 21822407
+            })
+        };
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({
+            "wizard_id": 21822407,
+            "unit_list": [{"unit_id": 1, "wizard_id": 21822407, "building_id": 0}],
+            "runes": [{"rune_id": 5, "set_id": 22}],
+            "artifacts": [], "relics": [], "rune_craft_item_list": []
+        })));
+        let before = collection(&store.read().unwrap().data, "runes").len();
+        store.apply_update(
+            &json!({
+                "command": "getPlayPassInfo", "ret_code": 0,
+                "pass_info_list": [
+                    {},
+                    {"pass_reward_rune_info": [
+                        preview(), preview(), preview(), preview(), preview()
+                    ]}
+                ]
+            }),
+            &json!({"command": "getPlayPassInfo"}),
+        );
+        let profile = store.read().unwrap();
+        let runes = collection(&profile.data, "runes");
+        assert_eq!(
+            runes.len(),
+            before,
+            "a reward preview must not become an owned rune"
+        );
+        assert!(
+            runes
+                .iter()
+                .all(|rune| rune.get("rune_id").and_then(Value::as_u64) != Some(0)),
+            "no zero-id rune may reach the profile"
+        );
+    }
+
+    /* A snapshot carrying one is refused outright rather than normalized into a
+       smaller profile, which is the other way the record could arrive. */
+    #[test]
+    fn a_snapshot_carrying_a_zero_id_rune_is_refused() {
+        let mut store = ProfileStore::default();
+        assert!(!store.accept_snapshot(json!({
+            "wizard_id": 21822407,
+            "unit_list": [{"unit_id": 1, "wizard_id": 21822407, "building_id": 0}],
+            "runes": [{"rune_id": 0, "set_id": 22}],
+            "artifacts": [], "relics": [], "rune_craft_item_list": []
+        })));
+    }
+}
