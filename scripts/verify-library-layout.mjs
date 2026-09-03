@@ -49,13 +49,16 @@ try {
         && nearlyEqual(summary.x + summary.width, strip.x + strip.width),
       `${pageName} result summary is not aligned with the filter headings at ${width}px.`);
       if (pageName === 'Artifacts' && width === 2000) {
-        const mainStatShowsValue = await page.locator('.artifact-grid tbody td:nth-child(7)')
+        const mainStatShowsValue = await page.locator('.artifact-grid tbody td:nth-child(6)')
           .evaluateAll((cells) => cells.some((cell) => cell.textContent?.includes('+')));
         assert(!mainStatShowsValue, 'Artifact main-stat cells must show the stat name without its numeric value.');
         const headers = await page.locator('.artifact-grid thead th').evaluateAll((cells) =>
           cells.map((cell) => cell.textContent?.replace(/\s+/g, ' ').trim()));
-        assert(headers[1] === 'Location' && headers[2] === 'Value onmon',
-          'Artifact location and value must follow the row number.');
+        /* The table opens on Location: an artifact's position in the export is
+           not shown, so there is no row number ahead of it. */
+        assert(headers[0] === 'Location' && headers[1] === 'Value onmon',
+          'Artifact location and value must open the table.');
+        assert(!headers.includes('#'), 'The artifact table must not show a row number.');
         const positions = await page.locator(
           '.artifact-filter-search, .artifact-filter-quality, .artifact-filter-main-stat, .artifact-filter-location, .artifact-filter-type, .artifact-filter-element, .artifact-filter-archetype',
         ).evaluateAll((elements) => Object.fromEntries(elements.map((element) => [
@@ -110,7 +113,29 @@ try {
   await page.getByText('Settings', { exact: true }).click();
   await assert.doesNotReject(() => page.locator('#conversion-stone-value').waitFor());
 
-  console.log('Verified empty and imported library states, shared table measure, fixed filter interaction, and artifact settings.');
+  /* The recommendation table has to hold its content inside the page at every
+     width. It was previously pinned to a px width computed against
+     var(--workspace-max), which is only the container's width at the very top
+     of the range — at 1600px a 1542px table sat in a 1301px wrap and scrolled
+     sideways. The columns are shares of 100% now, and this holds them there. */
+  await page.getByText('Recommendations', { exact: true }).click();
+  await page.getByRole('button', { name: /Calculate recommendations/ }).click();
+  await page.locator('.artifact-recommendation-table').waitFor({ timeout: 180000 });
+  for (const width of [2000, 1600, 1480, 1400, 1200, 1100]) {
+    await page.setViewportSize({ width, height: 900 });
+    const wrap = await page.locator('.artifact-recommendation-table-wrap').evaluate((element) => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+    }));
+    assert(wrap.scrollWidth <= wrap.clientWidth,
+      `The recommendation table scrolls horizontally at ${width}px: ${wrap.scrollWidth} in ${wrap.clientWidth}.`);
+  }
+  const recommendationHeaders = await page.locator('.artifact-recommendation-table thead th')
+    .evaluateAll((cells) => cells.map((cell) => cell.textContent.replace(/\s+/g, ' ').trim()));
+  assert(!recommendationHeaders.includes('#'),
+    'The recommendation table must not show an artifact number.');
+
+  console.log('Verified empty and imported library states, shared table measure, fixed filter interaction, artifact settings, and the recommendation table fitting its container.');
 } finally {
   await browser.close();
 }

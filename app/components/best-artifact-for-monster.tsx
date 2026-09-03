@@ -129,7 +129,7 @@ function ArtifactResults({ title, description, rows, general, selectedMonster, s
         <SortableHeader columns={columns} sort={sort} onToggle={toggle} />
         <tbody>{sorted.map((row) => <tr key={row.artifact.id}>
           <td>
-            <b><UnrefinedArtifactMark unrefined={row.artifact.unrefined} />#{String(row.index + 1).padStart(2, '0')}</b>
+            <b><UnrefinedArtifactMark unrefined={row.artifact.unrefined} />{row.artifact.grade} {row.artifact.mainProperty}</b>
             <span>{artifactCategoryLabel(row.artifact.category)} · {artifactEquipClassLabel(row.artifact)}</span>
           </td>
           <td>

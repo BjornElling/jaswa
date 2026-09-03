@@ -106,7 +106,6 @@ function PowerUpMark() {
 
 function ArtifactColumnGroup() {
   return <colgroup>
-    <col className="artifact-col-index" />
     <col className="artifact-col-location" />
     <col className="artifact-col-value" />
     <col className="artifact-col-category" />
@@ -123,11 +122,10 @@ function ArtifactTableHeader({ sortHeader }: {
 }) {
   return <thead>
     <tr>
-      {sortHeader('index', '#', true)}
       {sortHeader('location', 'Location', true)}
       {sortHeader('value', <span className="table-heading-two-line" aria-label="Value on mon">Value on<br />mon</span>, true)}
       {sortHeader('category', 'Type', true)}
-      {sortHeader('equipClass', 'Restriction', true)}
+      {sortHeader('equipClass', 'Fits', true)}
       {sortHeader('grade', 'Quality', true)}
       {sortHeader('mainProperty', 'Main stat', true)}
       {sortHeader('subProperties', 'Substats', true)}
@@ -404,7 +402,6 @@ export function ArtifactList({ game, monsters, preferences }: {
     >
       <tbody>
           {visible.length ? visible.map((row) => <tr key={row.artifact.id}>
-            <td className="align-left row-index">{String(row.index + 1).padStart(2, '0')}</td>
             <td className={row.location ? 'align-left' : 'align-left muted'}
               title={row.location === null ? 'Worn by a monster this import does not contain' : undefined}>
               {row.location ?? 'Unknown monster'}

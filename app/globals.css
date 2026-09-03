@@ -530,8 +530,9 @@ button { cursor: pointer; }
 /* Artifact rows are allowed to grow for their four sub-property lines; the
    shell still supplies their width and column-heading behaviour. */
 .artifact-grid { width: 100%; min-width: 0; table-layout: fixed; }
-.artifact-grid .artifact-col-index { width: 4.1284%; }
-.artifact-grid .artifact-col-location { width: 13.7615%; }
+/* The freed index column went here: monster names are the longest thing in the
+   row that has to stay on one line. */
+.artifact-grid .artifact-col-location { width: 17.8899%; }
 .artifact-grid .artifact-col-value { width: 7.7982%; }
 .artifact-grid .artifact-col-category { width: 7.3394%; }
 .artifact-grid .artifact-col-equipClass { width: 7.7982%; }
@@ -1343,44 +1344,42 @@ button { cursor: pointer; }
 .button.artifact-recommendation-clear:disabled:hover { color: var(--ghost); border-color: var(--line); background: transparent; }
 .artifact-recommendation-meta { color: var(--dim); font-family: var(--mono); font-size: var(--t-small); font-variant-numeric: tabular-nums; }
 .artifact-recommendation-table-wrap { width: 100%; overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); }
-/* The table is pinned to a fixed width so that `table-layout: fixed` reads the
-   column widths below as widths rather than as ratios: unpinned, every column
-   stretches with the window and no declared width means what it says. That
-   width is 1364px, which is what the page can actually give it. That number is
-   the whole chain, not an estimate: a .workspace-page is
-   min(100%, var(--workspace-max)) with a var(--gutter) either side, the .bar
-   around this section spends 1px per side on its border, its .bar-body spends
-   var(--s5) per side on padding, and this table's own wrap spends a further
-   1px per side — 1480 − 2×32 − 2 − 2×24 − 2. At 1370px the table was six
-   pixels wider than that, which is a horizontal scrollbar at every viewport
-   rather than only on narrow ones.
-   The columns are therefore declared in px and sum to exactly 1364: 1100px of
-   column plus 11 × 2 × var(--s3) of padding. Editing one width means taking
-   those px from another column, or the sum stops matching the container and
-   the scrollbar returns. */
-.artifact-recommendation-table-wrap > .artifact-recommendation-table { width: 1542px; max-width: 1542px; min-width: 1542px; border-collapse: collapse; table-layout: fixed; font-size: var(--t-small); }
+/* The table always fits its container: it is 100% wide and every column is a
+   share of that, so there is no width at which it can overflow and no
+   horizontal scrollbar to appear.
+
+   It was previously pinned to a px width, on the reasoning that
+   `table-layout: fixed` would then read px column widths as widths rather than
+   as ratios. That pin could only ever be correct at one viewport — it was
+   computed against var(--workspace-max), so at every narrower width the
+   container was smaller than the pin and the scrollbar returned. Measured at
+   1600px: a 1301px container holding a 1542px table. A media query released the
+   pin below 1480px, which left the whole range in between broken. Percentages
+   have no such window, and `table-layout: fixed` reads them the same way at
+   every size.
+
+   The shares total exactly 100 and must continue to: widening one column means
+   taking the share from another. */
+.artifact-recommendation-table-wrap > .artifact-recommendation-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: var(--t-small); }
 .artifact-recommendation-table th, .artifact-recommendation-table td { padding: var(--s3); border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
 .artifact-recommendation-table th { color: var(--faint); font-size: var(--t-micro); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .artifact-recommendation-table tr:last-child td { border-bottom: 0; }
-.artifact-recommendation-table th:nth-child(1), .artifact-recommendation-table td:nth-child(1) { width: 58px; font-family: var(--mono); font-variant-numeric: tabular-nums; }
-.artifact-recommendation-table th:nth-child(2) { width: 66px; }
-.artifact-recommendation-table th:nth-child(3) { width: 73px; }
-.artifact-recommendation-table th:nth-child(4) { width: 60px; }
+.artifact-recommendation-table th:nth-child(1) { width: 5.8719%; }
+.artifact-recommendation-table th:nth-child(2) { width: 6.4947%; }
+.artifact-recommendation-table th:nth-child(3) { width: 5.3381%; }
 /* The widest column, because a substat line is the longest thing in the row.
-   It is also the column that gives ground when the sum has to be brought back
-   under the container: at 250px a long line wraps to a second row rather than
-   ellipsing its value away, which the rule further down allows for. */
-.artifact-recommendation-table th:nth-child(5) { width: 250px; }
+   It is also the column that gives ground when a share has to be found: a long
+   line wraps to a second row rather than ellipsing its value away, which the
+   rule further down allows for. */
+.artifact-recommendation-table th:nth-child(4) { width: 21.3523%; }
 /* Monster names, which have to stay on one line to be scannable. */
-.artifact-recommendation-table th:nth-child(6), .artifact-recommendation-table th:nth-child(8) { width: 126px; }
-.artifact-recommendation-table th:nth-child(7), .artifact-recommendation-table th:nth-child(9), .artifact-recommendation-table td:nth-child(7), .artifact-recommendation-table td:nth-child(9) { width: 80px; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.artifact-recommendation-table th:nth-child(5), .artifact-recommendation-table th:nth-child(7) { width: 11.21%; }
+.artifact-recommendation-table th:nth-child(6), .artifact-recommendation-table th:nth-child(8), .artifact-recommendation-table td:nth-child(6), .artifact-recommendation-table td:nth-child(8) { width: 7.1174%; font-family: var(--mono); font-variant-numeric: tabular-nums; }
 /* Each conversion is a whole sentence naming a property and the stone it would
-   spend, and the column now lists several of them (§17.5). At 142px every entry
-   wrapped onto three lines and a three-entry cell ran past 250px tall, so the
-   column is given the room to keep most entries on two lines instead — the
-   table scrolls horizontally, and row height is the scarcer resource. */
-.artifact-recommendation-table th:nth-child(10) { width: 320px; }
-.artifact-recommendation-table td:nth-child(10) { overflow-wrap: break-word; }
+   spend, and the column lists several of them (§17.5). It carries the rounding
+   remainder, so it is the column to adjust when the shares must total 100. */
+.artifact-recommendation-table th:nth-child(9) { width: 20.8184%; }
+.artifact-recommendation-table td:nth-child(9) { overflow-wrap: break-word; }
 /* .artifact-subs ellipsises its lines, which suits the library's wider column.
    Here the value sits at the end of the line, so an ellipsis eats exactly the
    part worth reading; a long line wraps to a second row instead. Scoped to
@@ -1389,17 +1388,7 @@ button { cursor: pointer; }
 /* The refinement flag ends the row: narrow, unlabelled, and empty on every
    artifact that needs no attention. The marker is the cell's only content, so
    the margin it carries for trailing running text is dropped here. */
-.artifact-recommendation-table th:nth-child(11), .artifact-recommendation-table td:nth-child(11) { width: 39px; text-align: right; }
-/* Below var(--workspace-max) the page is the viewport rather than that maximum,
-   so the 1364px table is once again wider than what holds it. The pin is
-   released here and the table fills its container instead: `table-layout:
-   fixed` goes back to reading the widths above as ratios and compresses every
-   column with the window. That is the price of never showing a horizontal
-   scrollbar, and it is paid only below this width; the columns keep their
-   relative sizes as they shrink because the ratios are those same widths. */
-@media (max-width: 1480px) {
-  .artifact-recommendation-table-wrap > .artifact-recommendation-table { width: 100%; max-width: 100%; min-width: 0; }
-}
+.artifact-recommendation-table th:nth-child(10), .artifact-recommendation-table td:nth-child(10) { width: 3.4698%; text-align: right; }
 .artifact-recommendation-flag > * { margin-left: 0; }
 .artifact-recommendation-sell { color: var(--faint); }
 /* Below about 1240px the action no longer fits beside the filters, so it drops
@@ -3215,13 +3204,18 @@ button { cursor: pointer; }
    sort mark occupies its space in all three states — unsorted, ascending,
    descending — so clicking a header never changes the column's width and
    re-wraps the row (AGENTS.md rule 2). */
-.sortable-column { padding: 0; }
+/* The cell keeps its own padding and the button fills it edge to edge, so a
+   heading starts on the same pixel as the column beneath it. An earlier pairing
+   zeroed the cell and had the button inherit the padding back, but every one of
+   these tables sets its padding through `<table class> th`, which outranks a
+   lone class on the cell — so the cell kept its padding and `inherit` laid the
+   same padding inside it again, indenting every sortable heading by one step. */
 .sort-button {
   display: flex;
   align-items: center;
   gap: var(--s2);
   width: 100%;
-  padding: inherit;
+  padding: 0;
   border: 0;
   background: none;
   color: inherit;

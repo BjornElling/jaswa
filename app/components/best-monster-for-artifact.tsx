@@ -128,7 +128,6 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
   const [calculation, setCalculation] = useState<Calculation | undefined>();
   const [state, setState] = useState<'idle' | 'calculating' | 'error'>('idle');
   const artifacts = useMemo(() => readArtifacts(data), [data]);
-  const artifactNumbers = useMemo(() => new Map(artifacts.map((artifact, index) => [artifact.id, index])), [artifacts]);
   const stones = useMemo(() => engravedStonesFor(data), [data]);
   const subPropertyOptions = useMemo(() => {
     const definitions = new Map<number, { id: number; name: string }>();
@@ -285,7 +284,6 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
           <Dropdown id="best-monster-artifact" value={selectedArtifact?.id ?? ''} onChange={(event) => setSelectedArtifactId(event.target.value)}
             placeholder="Choose an artifact" aria-label="Choose an artifact for monster recommendations">
             {artifactsByFilter.map((artifact) => {
-              const index = artifactNumbers.get(artifact.id) ?? 0;
               const substats = artifact.subProperties.map((property) =>
                 displaySubProperty(property, (value) => formatNumber(value, general))).join(optionSubstatSeparator);
               /* The restriction is always named, readable or not: an option that
@@ -295,7 +293,7 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
                 artifactCategoryLabel(artifact.category), artifactEquipClassLabel(artifact),
               ].join(optionRestrictionSeparator);
               return <option key={artifact.id} value={artifact.id}>{[
-                `#${String(index + 1).padStart(2, '0')}`,
+                artifact.grade,
                 categoryAndRestriction,
                 artifact.mainProperty,
                 substats,
@@ -312,7 +310,7 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
     {selectedArtifact && <section className="best-monster-artifact-details" aria-labelledby="selected-artifact-title">
       <div>
         <p className="filter-label">Selected artifact</p>
-        <h3 id="selected-artifact-title"><UnrefinedArtifactMark unrefined={selectedArtifact.unrefined} />#{String((artifactNumbers.get(selectedArtifact.id) ?? 0) + 1).padStart(2, '0')} · {selectedArtifact.grade} {artifactCategoryLabel(selectedArtifact.category)}</h3>
+        <h3 id="selected-artifact-title"><UnrefinedArtifactMark unrefined={selectedArtifact.unrefined} />{selectedArtifact.grade} {artifactCategoryLabel(selectedArtifact.category)}</h3>
         <p>{artifactEquipClassLabel(selectedArtifact)} · Main stat {selectedArtifact.mainProperty}</p>
         {selectedArtifact.intangible && <p className="best-monster-intangible">
           Intangible: it fits any {selectedArtifact.category === 'attribute' ? 'element' : 'monster type'}, so every

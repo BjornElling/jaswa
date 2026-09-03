@@ -154,7 +154,9 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
   const [state, setState] = useState<'idle' | 'calculating' | 'error'>('idle');
   const [error, setError] = useState<string | undefined>();
   const artifacts = useMemo(() => readArtifacts(data), [data]);
-  const artifactNumbers = useMemo(() => new Map(artifacts.map((artifact, index) => [artifact.id, index + 1])), [artifacts]);
+  /* Import order, kept only as the sort's stable tiebreak. It is never shown:
+     an artifact's position in the export means nothing to the user. */
+  const artifactOrder = useMemo(() => new Map(artifacts.map((artifact, index) => [artifact.id, index])), [artifacts]);
   const stones = useMemo(() => engravedStonesFor(data), [data]);
   const ownedMonsters = useMemo(() => readOwnedMonsters(monsters), [monsters]);
   const scopedMonsters = useMemo(() => recommendationMonsters(monsters, settings.onlyFactorInOwnedMonsters), [monsters, settings.onlyFactorInOwnedMonsters]);
@@ -252,7 +254,7 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
     }
     return [{
       artifact,
-      number: artifactNumbers.get(artifact.id) ?? 0,
+      order: artifactOrder.get(artifact.id) ?? 0,
       wearerName: artifact.occupiedId === null ? 'Inventory' : wearer?.name ?? 'Missing monster',
       current,
       allocation,
@@ -260,21 +262,20 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
     /* `scoreForWearer` reads only the calculation and the wearer map, both of
        which are dependencies here, so it does not need to be one itself. */
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [visibleArtifacts, currentCalculation, wearerByUnitId, artifactNumbers, settings]);
+  }), [visibleArtifacts, currentCalculation, wearerByUnitId, artifactOrder, settings]);
 
   type RecommendationRow = typeof rows[number];
 
   const columns: SortableColumn<RecommendationRow>[] = useMemo(() => [
-    { key: 'number', label: '#', compare: (left, right) => left.number - right.number },
     { key: 'category', label: 'Type', compare: (left, right) => artifactCategoryLabel(left.artifact.category).localeCompare(artifactCategoryLabel(right.artifact.category)) },
-    { key: 'restriction', label: 'Restriction', compare: (left, right) => artifactEquipClassLabel(left.artifact).localeCompare(artifactEquipClassLabel(right.artifact)) },
+    { key: 'restriction', label: 'Fits', compare: (left, right) => artifactEquipClassLabel(left.artifact).localeCompare(artifactEquipClassLabel(right.artifact)) },
     { key: 'main', label: 'Main stat', compare: (left, right) => left.artifact.mainProperty.localeCompare(right.artifact.mainProperty) },
     /* Substats order by the artifact's own grade and then its first line, which
        is the closest thing to "how good is this piece" the column shows. */
     { key: 'subs', label: 'Substats', compare: (left, right) => artifactGradeOrder.indexOf(left.artifact.grade) - artifactGradeOrder.indexOf(right.artifact.grade) || monsterNameCollator.compare(left.artifact.subProperties[0]?.definition.name ?? '', right.artifact.subProperties[0]?.definition.name ?? ''), initialDirection: 'descending' },
     { key: 'location', label: 'Location', compare: (left, right) => monsterNameCollator.compare(left.wearerName, right.wearerName) },
     { key: 'current', label: 'Value on mon', compare: (left, right) => (left.current ?? -1) - (right.current ?? -1), initialDirection: 'descending' },
-    { key: 'recommendation', label: 'Recommendation', compare: (left, right) => monsterNameCollator.compare(left.allocation?.monster.name ?? '', right.allocation?.monster.name ?? '') },
+    { key: 'recommendation', label: 'Move to', compare: (left, right) => monsterNameCollator.compare(left.allocation?.monster.name ?? '', right.allocation?.monster.name ?? '') },
     { key: 'value', label: 'New value', compare: (left, right) => (left.allocation?.value ?? -1) - (right.allocation?.value ?? -1), initialDirection: 'descending' },
     { key: 'conversion', label: 'Best conversions', compare: (left, right) => (left.allocation?.conversions[0]?.gain ?? -1) - (right.allocation?.conversions[0]?.gain ?? -1), initialDirection: 'descending' },
     { key: 'refinement', label: '', accessibleLabel: 'Refinement', compare: (left, right) => Number(left.artifact.unrefined) - Number(right.artifact.unrefined), initialDirection: 'descending' },
@@ -283,9 +284,9 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
   const { sorted, sort, toggle: toggleSort } = useSortedRows(
     rows, columns,
     { key: 'value', direction: 'descending' },
-    /* Scores tie constantly once they are whole points, so the artifact's own
-       number settles equal rows rather than the sort's internals. */
-    (left, right) => left.number - right.number,
+    /* Scores tie constantly once they are whole points, so import order settles
+       equal rows rather than the sort's internals. */
+    (left, right) => left.order - right.order,
   );
 
   return <div className="artifact-recommendations">
@@ -316,7 +317,6 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
       {sorted.length ? <div className="artifact-recommendation-table-wrap"><table className="artifact-recommendation-table">
         <SortableHeader columns={columns} sort={sort} onToggle={toggleSort} />
         <tbody>{sorted.map((row) => <tr key={row.artifact.id}>
-          <td>#{String(row.number)}</td>
           <td>{artifactCategoryLabel(row.artifact.category)}</td>
           <td>{artifactEquipClassLabel(row.artifact)}</td>
           <td>{row.artifact.mainProperty}</td>
