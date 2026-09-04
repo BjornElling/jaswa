@@ -161,6 +161,20 @@ export function isValidPreferences(value: unknown): value is Preferences {
     && isArtifactSettings(value.artifacts);
 }
 
+/**
+ * Preference corruption must not silently change where a valid imported game
+ * came from. The game record itself carries the helper session that produced
+ * it, so a discarded preferences document can safely retain that source while
+ * every other preference returns to the current defaults. A valid explicit
+ * JSON-file choice always wins: this only handles a preference document that
+ * was rejected in full.
+ */
+export function restoredPreferences(value: unknown, game: ImportedGame | null): Preferences {
+  if (isValidPreferences(value)) return value;
+  const preferences = blankPreferences();
+  return game?.helperSession ? { ...preferences, importRoute: 'direct' } : preferences;
+}
+
 function recordCollection(value: unknown): GameRecord[] {
   return Array.isArray(value) ? value.filter(isRecord) : [];
 }

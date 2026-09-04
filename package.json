@@ -19,6 +19,7 @@
     "verify:artifact-level-scope": "node scripts/verify-artifact-level-scope.mjs",
     "verify:intangible-artifacts": "node scripts/verify-intangible-artifacts.mjs",
     "verify:conversion-share-tiebreak": "node scripts/verify-conversion-share-tiebreak.mjs",
+    "verify:helper-import-route": "node scripts/verify-helper-import-route.mjs",
     "verify:collaboration-species": "node scripts/verify-collaboration-species.mjs",
     "verify:statistics-tiers": "node scripts/verify-statistics-tiers.mjs",
     "verify:element-qualified-names": "node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs scripts/verify-element-qualified-names.mjs",

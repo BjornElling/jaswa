@@ -12,7 +12,7 @@ import { DirectImportModeDialog, LoadPreferencesDialog, RemoveGameDataDialog, Re
 import { RunePotentialSection } from './components/rune-potential-section';
 import { UpcomingWorkspace } from './components/upcoming-workspace';
 import { clearImportedGame, loadImportedGame, loadPreferences, saveImportedGame, savePreferences } from './lib/browser-storage';
-import { blankPreferences, createImportedGame, fileToText, importPreferencesFile, isValidImportedGame, isValidPreferences, validateGameFile } from './lib/file-imports';
+import { blankPreferences, createImportedGame, fileToText, importPreferencesFile, isValidImportedGame, restoredPreferences, validateGameFile } from './lib/file-imports';
 import { checkHelperConnection, readHelperProfile } from './lib/helper-client';
 import type { HelperConnection } from './lib/helper-client';
 import { downloadJson, formatDateTime } from './lib/formatting';
@@ -53,7 +53,7 @@ export default function Home() {
       const savedCurrentGame = savedGame && isValidImportedGame(savedGame) ? savedGame : null;
       setGame(savedCurrentGame);
       if (savedCurrentGame?.helperSession) appliedHelperSession.current = `${savedCurrentGame.helperSession.instanceId}:${savedCurrentGame.helperSession.sessionId}`;
-      const savedCurrentPreferences = savedPreferences && isValidPreferences(savedPreferences) ? savedPreferences : blankPreferences();
+      const savedCurrentPreferences = restoredPreferences(savedPreferences, savedCurrentGame);
       preferencesRef.current = savedCurrentPreferences;
       setPreferences(savedCurrentPreferences);
     }).catch(() => {
