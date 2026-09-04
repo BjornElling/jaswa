@@ -390,10 +390,10 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
             {displaySubProperty(property, (value) => formatNumber(value, general))}
             {row.artifact.convertedPropertyIndex === index && <ConvertedArtifactMark position={index} />}
           </li>)}</ul></td>
-          <td>{row.wearerName}</td>
+          <td className={row.artifact.occupiedId === row.allocation?.monster.unitId ? 'artifact-recommendation-keep' : ''}>{row.wearerName}</td>
           <td><Score value={row.current} general={general} /></td>
           <td className={row.action === 'Sell' ? 'artifact-recommendation-sell' : row.action === 'Keep' ? 'artifact-recommendation-keep' : ''}>{row.action}</td>
-          <td className={row.allocation ? '' : 'artifact-recommendation-sell'}>{row.allocation?.monster.name ?? '—'}</td>
+          <td className={row.allocation ? row.artifact.occupiedId === row.allocation.monster.unitId ? 'artifact-recommendation-keep' : '' : 'artifact-recommendation-sell'}>{row.allocation?.monster.name ?? '—'}</td>
           <td><Score value={row.allocation?.value} general={general} /></td>
           <td className={row.allocation?.conversions.length ? '' : row.allocation ? 'artifact-recommendation-no-conversion' : 'muted'}>
             {row.allocation ? <ConversionList conversions={row.allocation.conversions} artifact={row.artifact}
