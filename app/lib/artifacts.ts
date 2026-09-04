@@ -49,6 +49,13 @@ export type Artifact = {
   convertedPropertyIndex: number | null;
   /** The wearer's `unit_id`, or `null` when the artifact sits in the inventory. */
   occupiedId: string | null;
+  /**
+   * When the account obtained it, as a millisecond timestamp, or `null` when the
+   * export carries no readable `date_add`. Kept as a number rather than a date
+   * string because every use is a comparison: the roll-model cutoffs below and
+   * the recommendation table's obtained ordering.
+   */
+  obtainedAt: number | null;
   locked: boolean;
   /** Pre-v8 artifacts below +15 still need the game's one-time Refine action. */
   unrefined: boolean;
@@ -147,9 +154,21 @@ const artifactPowerUpRemoval = Date.UTC(2023, 6, 1);
    cohort are the same 28 records. */
 const artifactPropertyImprovement = Date.UTC(2021, 0, 28);
 
+/* The export writes `date_add` two ways — `2022-06-27 22:13:04` on old records
+   and an ISO instant on newer ones. Both are read for their ordering and their
+   era, never displayed to the second, so the space-separated form is left to
+   the engine's own parse rather than being pinned to a time zone JASWA cannot
+   know. An unreadable value is `null`, not `0`: a missing date must not sort as
+   1970 or pass the pre-v8 cutoff below. */
+function obtainedTimestamp(value: unknown): number | null {
+  if (typeof value !== 'string') return null;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function hasHistoricalRollModel(value: unknown): boolean {
-  return typeof value === 'string' && Number.isFinite(Date.parse(value))
-    && Date.parse(value) < artifactPowerUpRemoval;
+  const obtained = obtainedTimestamp(value);
+  return obtained !== null && obtained < artifactPowerUpRemoval;
 }
 
 /* The v6.0 launch table, the v6.2 improvement notice and the preserved values
@@ -163,8 +182,8 @@ function hasHistoricalRollModel(value: unknown): boolean {
    before, none after) while 226 begins there (none before, 223 after), so 226
    is the merger of those two halves, and 206 spans both eras untouched. */
 function historicalPropertyMaximum(definition: ArtifactPropertyDefinition, dateAdded: unknown): number | null {
-  const timestamp = typeof dateAdded === 'string' ? Date.parse(dateAdded) : Number.NaN;
-  const improved = Number.isFinite(timestamp) && timestamp >= artifactPropertyImprovement;
+  const timestamp = obtainedTimestamp(dateAdded);
+  const improved = timestamp !== null && timestamp >= artifactPropertyImprovement;
   const maxima: Record<number, number> = {
     200: improved ? 70 : 30, 201: improved ? 70 : 30, 202: improved ? 70 : 30,
     203: 30, 204: improved ? 25 : 20, 205: improved ? 25 : 20,
@@ -276,6 +295,7 @@ export function readArtifact(record: unknown): Artifact | null {
     subProperties,
     convertedPropertyIndex,
     occupiedId: occupied === null || occupied === 0 ? null : String(occupied),
+    obtainedAt: obtainedTimestamp(source.date_add),
     locked: Boolean(numberOrNull(source.locked)),
     unrefined: hasHistoricalRollModel(source.date_add)
       && Number.isSafeInteger(numberOrNull(source.level))

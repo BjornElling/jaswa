@@ -1295,6 +1295,10 @@ button { cursor: pointer; }
    nine buttons still set the panel's width. Quality, Main stat and Substat
    gather on the second row, and Location takes a third of its own.
 
+   Ordering sits at the end of the second row, past the last filter, and the
+   rest of that row's width is the Restriction row's overhang rather than a
+   column of its own.
+
    The single 1fr is a deliberately empty spacer column: all surplus width
    collects there, between the filters and the action, instead of leaking into
    the groups. Its minimum keeps the action clear of the filters when the panel
@@ -1306,9 +1310,9 @@ button { cursor: pointer; }
 .artifact-recommendation-filters {
   grid-template-columns: max-content max-content max-content minmax(var(--s4), 1fr) max-content;
   grid-template-areas:
-    "type     restriction restriction .  calculate"
-    "quality  main        substat     .  calculate"
-    "location location    location    .  calculate";
+    "type     restriction restriction .        calculate"
+    "quality  main        substat     obtained calculate"
+    "location location    location    .        calculate";
   align-items: start;
 }
 .artifact-recommendation-filter-type { grid-area: type; }
@@ -1332,6 +1336,17 @@ button { cursor: pointer; }
    the user may well have on an artifact. */
 .artifact-recommendation-filter-substat { grid-area: substat; justify-self: start; }
 .artifact-recommendation-filter-substat .jaswa-select { width: 35ch; min-width: 0; }
+/* Ordering, not filtering. It shares the spacer column on the second row only,
+   packed left so it stays beside Substat and the surplus width still collects
+   to its right rather than stretching the button. The group's own left rule —
+   the panel's single source of indentation — is drawn strong instead of an
+   extra element, because that line is the boundary the user reads: left of it
+   narrows the rows, right of it rearranges them. */
+.artifact-recommendation-filter-obtained {
+  grid-area: obtained;
+  justify-self: start;
+  border-left-color: var(--line-strong);
+}
 /* The panel's actions: calculating is the conclusion of the filters above, and
    clearing is its quiet counterpart, so they stack in one column centred
    against the filter rows. */
@@ -1452,7 +1467,7 @@ button { cursor: pointer; }
     grid-template-areas:
       "type      restriction restriction"
       "quality   main        substat"
-      "location  location    location"
+      "location  location    obtained"
       "calculate calculate   calculate";
   }
   /* Packed left below the filters, and only as wide as the buttons need. */
@@ -1463,7 +1478,10 @@ button { cursor: pointer; }
 @media (min-width: 1921px) and (max-width: 960px) {
   /* Matches .filter-panel.is-stacked; spelled out because this panel also
      needs its own area names for the action. */
-  .artifact-recommendation-filters { grid-template-columns: minmax(0, 1fr); grid-template-areas: "type" "restriction" "quality" "main" "substat" "location" "calculate"; align-items: stretch; }
+  .artifact-recommendation-filters { grid-template-columns: minmax(0, 1fr); grid-template-areas: "type" "restriction" "quality" "main" "substat" "obtained" "location" "calculate"; align-items: stretch; }
+  /* Stacked, the strong rule no longer separates two columns, so ordering
+     stretches like every other block and keeps its label alignment. */
+  .artifact-recommendation-filter-obtained { justify-self: stretch; }
   /* Wrapping is handled by .filter-panel, so nothing to repeat here. */
   .artifact-recommendation-filter-substat { justify-self: stretch; }
   /* Full panel width: below about 360px that is still narrower than the longest

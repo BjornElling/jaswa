@@ -355,6 +355,18 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
     { key: 'value', label: 'New value', compare: (left, right) => (left.allocation?.value ?? -1) - (right.allocation?.value ?? -1), initialDirection: 'descending' },
     { key: 'conversion', label: 'Best conversions', compare: (left, right) => (left.allocation?.conversions[0]?.gain ?? -1) - (right.allocation?.conversions[0]?.gain ?? -1), initialDirection: 'descending' },
     { key: 'refinement', label: '', accessibleLabel: 'Refinement', compare: (left, right) => Number(left.artifact.unrefined) - Number(right.artifact.unrefined), initialDirection: 'descending' },
+    /* No column of its own: the date answers "which of these did I farm
+       first", which is a question about the order of the rows rather than a
+       fact worth a twelfth column. The filter panel's button drives it. An
+       artifact whose export carries no readable date is ordered as later than
+       every dated one, so oldest-first puts the unknowns at the end instead of
+       letting them pose as the oldest artifacts on the account. */
+    { key: 'obtained', label: 'Obtained', header: false, compare: (left, right) => {
+      const leftAt = left.artifact.obtainedAt;
+      const rightAt = right.artifact.obtainedAt;
+      if (leftAt === null || rightAt === null) return leftAt === rightAt ? 0 : leftAt === null ? 1 : -1;
+      return leftAt - rightAt;
+    } },
   ], []);
 
   const { sorted, sort, toggle: toggleSort } = useSortedRows(
@@ -372,6 +384,17 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
       {buttonGroup('Restriction', 'restrictions', restrictionOptions, (restriction) => restriction, 'artifact-recommendation-filter-restriction', [5, 9])}
       {buttonGroup('Quality', 'grades', artifactGradeOrder, (grade) => grade.slice(0, 3).toUpperCase(), 'artifact-recommendation-filter-quality')}
       <div className="filter-group artifact-recommendation-filter-substat"><label className="filter-label" htmlFor="artifact-recommendation-substat">Substat</label><div className="filter-group-controls"><Dropdown id="artifact-recommendation-substat" value={selectedSubPropertyId} onChange={(event) => setFilters((current) => ({ ...current, subPropertyId: event.target.value }))} aria-label="Filter recommendations by artifact substat" placeholder="All substats">{subPropertyOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}</Dropdown></div></div>
+      {/* Ordering, not filtering. It is a filter group like the rest so it
+          keeps the panel's one source of indentation and label alignment, and
+          its own left rule is drawn strong: everything left of that line
+          narrows the rows, this one only rearranges them. */}
+      <div className="filter-group artifact-recommendation-filter-obtained" role="group" aria-label="Order recommendations">
+        <span className="filter-label">Order</span>
+        <div className="filter-group-controls">
+          <button type="button" className={sort.key === 'obtained' ? 'filter-button active' : 'filter-button'}
+            onClick={() => toggleSort('obtained')} aria-pressed={sort.key === 'obtained'}>Sort by obtained</button>
+        </div>
+      </div>
       {buttonGroup('Main stat', 'mainProperties', artifactMainPropertyOrder, (property) => property, 'artifact-recommendation-filter-main')}
       {buttonGroup('Location', 'locations', artifactLocations, (location) => location === 'inventory' ? 'Inventory' : 'Equipped', 'artifact-recommendation-filter-location')}
       <div className="artifact-recommendation-actions">

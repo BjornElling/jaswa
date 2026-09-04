@@ -19,6 +19,14 @@ export type SortableColumn<Row> = {
   compare?: (left: Row, right: Row) => number;
   /** Numeric columns start at their most useful end, which is the largest. */
   initialDirection?: SortDirection;
+  /**
+   * `false` for an ordering the table can sort by but shows no column for,
+   * driven from a control elsewhere on the page. It stays in this list rather
+   * than becoming a second sort state, so the header marks nothing as sorted
+   * while such an ordering is active and one click on any real column takes
+   * ordering back.
+   */
+  header?: false;
 };
 
 export type SortState = { key: string; direction: SortDirection };
@@ -78,7 +86,7 @@ export function SortableHeader<Row>({ columns, sort, onToggle }: {
   sort: SortState;
   onToggle: (key: string) => void;
 }) {
-  return <thead><tr>{columns.map((column) => {
+  return <thead><tr>{columns.filter((column) => column.header !== false).map((column) => {
     const active = sort.key === column.key;
     const sortable = Boolean(column.compare);
     return <th key={column.key} scope="col"
