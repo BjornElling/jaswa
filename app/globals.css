@@ -652,9 +652,9 @@ button { cursor: pointer; }
 }
 .grid-table thead th.sortable { cursor: pointer; }
 .grid-table thead th.sortable:hover { color: var(--ink); }
-.grid-table thead th.sortable.sorted:hover { color: var(--gold); }
+.grid-table thead th.sortable.sorted:hover { color: var(--ink); }
 .grid-table thead th.align-left { text-align: left; }
-.grid-table thead th.sorted { color: var(--gold); }
+.grid-table thead th.sorted { color: var(--ink); }
 /* Every sortable header reserves the arrow's width from the outset and shows
    it only when that column is the sorted one. The fixed-layout grid and the
    fixed-width glyph keep the whole table still when a sort changes. */
@@ -3278,9 +3278,9 @@ button { cursor: pointer; }
   text-transform: inherit;
   cursor: pointer;
 }
-/* Gold marks the column the table is actually ordered by — the one piece of
-   state the user can act on here. */
-.sort-button.active { color: var(--gold); }
+/* Clear ink marks the column the table is actually ordered by, including its
+   direction mark; gold stays reserved for controls and recommendations. */
+.sort-button.active { color: var(--ink); }
 .sort-button:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
 .sort-button-label { min-width: 0; }
 /* Reserved rather than conditional: the mark is always in the flow and only
