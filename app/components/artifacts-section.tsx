@@ -96,11 +96,14 @@ export function ArtifactsSection({ settings, data, monsters, general, hardwareAc
           </div>
 
           <section className="artifact-scope-box" aria-labelledby="artifact-scope-title">
-            <h3 id="artifact-scope-title">Monster scope</h3>
+            <h3 id="artifact-scope-title">Monster</h3>
             <CheckboxRow label="Only factor in mons you own" checked={settings.onlyFactorInOwnedMonsters}
               onChange={(checked) => void onUpdate({ onlyFactorInOwnedMonsters: checked })} />
             <CheckboxRow label="Only factor in Lv. 40 mons" checked={settings.onlyLevel40Monsters}
               onChange={(checked) => void onUpdate({ onlyLevel40Monsters: checked })} />
+            <h3 className="artifact-scope-subheading">Artifacts</h3>
+            <CheckboxRow label="Include Intangible artifacts" checked={settings.includeIntangibleArtifacts}
+              onChange={(checked) => void onUpdate({ includeIntangibleArtifacts: checked })} />
           </section>
         </div>
 
@@ -206,17 +209,6 @@ export function ArtifactsSection({ settings, data, monsters, general, hardwareAc
                 : 'Every difference counts.'}
             </p>
           </div>
-
-          <section className="artifact-scope-box" aria-labelledby="artifact-intangible-title">
-            <h3 id="artifact-intangible-title">Intangible artifacts</h3>
-            <CheckboxRow label="Include Intangible artifacts" checked={settings.includeIntangibleArtifacts}
-              onChange={(checked) => void onUpdate({ includeIntangibleArtifacts: checked })} />
-            <p className="artifact-scope-note">
-              {settings.includeIntangibleArtifacts
-                ? 'Intangible artifacts are judged alongside the class-bound ones everywhere.'
-                : 'Intangible artifacts are left out of every recommendation.'}
-            </p>
-          </section>
         </div>
       </div>
     </Disclosure>
