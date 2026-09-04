@@ -1,6 +1,11 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import type { TableColumn } from '../lib/table-layouts';
+
+export function TableColumnGroup({ columns }: { columns: readonly TableColumn[] }) {
+  return <colgroup>{columns.map((column) => <col key={column.key} style={{ width: column.width }} />)}</colgroup>;
+}
 
 type DataTablePageProps = {
   filters: ReactNode;

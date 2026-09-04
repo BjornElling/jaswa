@@ -2,10 +2,11 @@
 
 import { type ReactNode, useMemo, useState } from 'react';
 import { PageHeader } from './page-chrome';
-import { DataTablePage } from './data-table-page';
+import { DataTablePage, TableColumnGroup } from './data-table-page';
 import { Dropdown } from './dropdown';
 import { ConvertedArtifactMark } from './converted-artifact-mark';
 import { UnrefinedArtifactMark } from './unrefined-artifact-mark';
+import { artifactTableColumns } from '../lib/table-layouts';
 import type { GameRecord } from '../lib/game-data';
 import type { ImportedGame, Preferences } from '../lib/types';
 import { readArtifacts } from '../lib/artifacts';
@@ -93,19 +94,6 @@ function PowerUpMark() {
     <path d="M8 13V3" />
     <path d="m4.5 6.5 3.5-3.5 3.5 3.5" />
   </svg>;
-}
-
-function ArtifactColumnGroup() {
-  return <colgroup>
-    <col className="artifact-col-location" />
-    <col className="artifact-col-value" />
-    <col className="artifact-col-category" />
-    <col className="artifact-col-equipClass" />
-    <col className="artifact-col-grade" />
-    <col className="artifact-col-mainProperty" />
-    <col className="artifact-col-subProperties" />
-    <col className="artifact-col-refinement" />
-  </colgroup>;
 }
 
 function ArtifactTableHeader({ sortHeader }: {
@@ -330,7 +318,7 @@ export function ArtifactList({ game, monsters, preferences }: {
       tableClassName="artifact-grid"
       headerLabel="Artifact library columns"
       tableLabel="Artifact library"
-      columnGroup={<ArtifactColumnGroup />}
+      columnGroup={<TableColumnGroup columns={artifactTableColumns} />}
       header={<ArtifactTableHeader sortHeader={sortHeader} />}
       filters={<>
       <div className="filter-group artifact-filter-search">

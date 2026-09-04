@@ -56,8 +56,13 @@
   --s6: 32px;
   --s7: 48px;
 
+  /* The product has one working canvas. Pages are composed for this desktop
+     measure; a narrower display scales the canvas as a whole in AppViewport. */
+  --canvas-width: 1920px;
+  --canvas-height: 1080px;
+  --rail: 224px;
+  --content-box: 1632px;
   --row: 40px;
-  --rail: 244px;
   --strip: 52px;
   /* One filter group's column in the strip. Wide enough for the widest group —
      the search field, and the five-button Element and Quality rows — so every
@@ -71,9 +76,9 @@
   /* The account libraries use one fixed table measure. Their filters, column
      heading and rows all share it, so a page cannot acquire a second, almost
      identical width as its controls grow. */
-  --measure: 1120px;
-  --workspace-max: 1480px;
-  --measure-grid: 1744px;
+  --measure: var(--content-box);
+  --workspace-max: var(--content-box);
+  --measure-grid: var(--content-box);
   --gutter: var(--s6);
 
   /* type scale */
@@ -97,7 +102,7 @@
 /* Keep a real vertical track from the first paint. `scrollbar-gutter` alone
    still shifts Chromium's root box when a result table first overflows; a
    permanent track keeps controls fixed while a calculation reveals its rows. */
-html { overflow-y: scroll; scrollbar-gutter: auto; }
+html { overflow-y: scroll; overflow-x: hidden; scrollbar-gutter: auto; }
 
 body {
   margin: 0;
@@ -106,6 +111,16 @@ body {
   font-family: var(--sans);
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
+}
+
+/* The viewport owns scaling, not individual pages. `zoom` participates in
+   layout, unlike a transform, so a long workspace still reserves its complete
+   vertical reading track while it is reduced for a narrower display. */
+.app-viewport { width: 100%; min-height: 100vh; }
+.app-canvas {
+  width: max(100%, var(--canvas-width));
+  min-height: var(--canvas-height);
+  zoom: var(--viewport-scale, 1);
 }
 
 button, input, select, textarea { font: inherit; }
@@ -129,7 +144,8 @@ button { cursor: pointer; }
 
 /* ---------------------------------------------------------------- shell */
 .app-shell {
-  min-height: 100vh;
+  min-width: var(--canvas-width);
+  min-height: var(--canvas-height);
   display: grid;
   grid-template-columns: var(--rail) minmax(0, 1fr);
 }
@@ -314,12 +330,12 @@ button { cursor: pointer; }
    that is. Four columns need 1184px of a 1600px window beside the rail; below
    that the strip steps down rather than letting a column overflow. */
 .filter-strip > .filter-group:nth-child(4n + 1) { padding-left: 0; border-left: 0; }
-@media (max-width: 1700px) {
+@media (min-width: 1921px) and (max-width: 1700px) {
   .filter-strip { --filter-columns: 3; }
   .filter-strip > .filter-group:nth-child(4n + 1) { padding-left: var(--s4); border-left: 1px solid var(--line); }
   .filter-strip > .filter-group:nth-child(3n + 1) { padding-left: 0; border-left: 0; }
 }
-@media (max-width: 1120px) {
+@media (min-width: 1921px) and (max-width: 1120px) {
   .filter-strip { --filter-columns: 2; }
   .filter-strip > .filter-group:nth-child(3n + 1) { padding-left: var(--s4); border-left: 1px solid var(--line); }
   .filter-strip > .filter-group:nth-child(2n + 1) { padding-left: 0; border-left: 0; }
@@ -378,7 +394,7 @@ button { cursor: pointer; }
 .artifact-filter-type { grid-area: type; }
 .artifact-filter-element { grid-area: element; }
 .artifact-filter-archetype { grid-area: archetype; }
-@media (max-width: 1700px) {
+@media (min-width: 1921px) and (max-width: 1700px) {
   .artifact-filter-strip {
     grid-template-areas:
       "search quality main"
@@ -386,7 +402,7 @@ button { cursor: pointer; }
       ". location archetype";
   }
 }
-@media (max-width: 1120px) {
+@media (min-width: 1921px) and (max-width: 1120px) {
   .artifact-filter-strip {
     grid-template-areas:
       "search quality"
@@ -397,7 +413,7 @@ button { cursor: pointer; }
       ". archetype";
   }
 }
-@media (max-width: 760px) {
+@media (min-width: 1921px) and (max-width: 760px) {
   .artifact-filter-strip {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
@@ -478,7 +494,7 @@ button { cursor: pointer; }
   padding: var(--s5) 0 var(--s7);
 }
 .artifact-library { width: 100%; }
-@media (max-width: 760px) {
+@media (min-width: 1921px) and (max-width: 760px) {
   .filter-strip { --filter-columns: 1; }
   .filter-strip > .filter-group:nth-child(2n + 1) { padding-left: var(--s4); border-left: 1px solid var(--line); }
   .filter-strip > .filter-group { padding-left: 0; border-left: 0; }
@@ -511,39 +527,9 @@ button { cursor: pointer; }
    lines up with a section heading instead of hugging the rail. */
 .grid-table { width: 100%; border-collapse: collapse; font-size: var(--t-body); }
 .monster-grid { width: 100%; min-width: 0; table-layout: fixed; }
-.monster-grid .monster-col-index { width: 4.1284%; }
-.monster-grid .monster-col-name { width: 13.7615%; }
-.monster-grid .monster-col-sets { width: 7.7982%; }
-.monster-grid .monster-col-level { width: 3.6697%; }
-.monster-grid .monster-col-hp,
-.monster-grid .monster-col-atk,
-.monster-grid .monster-col-def { width: 5.5046%; }
-.monster-grid .monster-col-spd,
-.monster-grid .monster-col-criticalRate,
-.monster-grid .monster-col-criticalDamage,
-.monster-grid .monster-col-resistance,
-.monster-grid .monster-col-accuracy { width: 4.5872%; }
-.monster-grid .monster-col-artifacts { width: 6.422%; }
-.monster-grid .monster-col-relic { width: 4.5872%; }
-.monster-grid .monster-col-ehp,
-.monster-grid .monster-col-ehpD { width: 6.422%; }
-.monster-grid .monster-col-dmg { width: 7.3394%; }
 /* Artifact rows are allowed to grow for their four sub-property lines; the
    shell still supplies their width and column-heading behaviour. */
 .artifact-grid { width: 100%; min-width: 0; table-layout: fixed; }
-/* The freed index column went here: monster names are the longest thing in the
-   row that has to stay on one line. */
-.artifact-grid .artifact-col-location { width: 17.8899%; }
-.artifact-grid .artifact-col-value { width: 7.7982%; }
-.artifact-grid .artifact-col-category { width: 7.3394%; }
-.artifact-grid .artifact-col-equipClass { width: 7.7982%; }
-.artifact-grid .artifact-col-grade { width: 7.3394%; }
-.artifact-grid .artifact-col-mainProperty { width: 8.7156%; }
-/* The substats column funds the refinement flag beside it: the widths are a
-   percentage set that has to keep summing to 100, so the new column's share
-   comes out of the widest one rather than pushing the total over. */
-.artifact-grid .artifact-col-subProperties { width: 39.1193%; }
-.artifact-grid .artifact-col-refinement { width: 4%; }
 .artifact-grid tbody td { height: auto; padding-block: var(--s2); vertical-align: top; }
 /* The marker is the cell's only content, so the margin it carries for
    trailing running text is dropped here. */
@@ -921,7 +907,7 @@ button { cursor: pointer; }
   color: var(--dim);
   font-size: var(--t-body); line-height: 1.5;
 }
-@media (max-width: 1280px) {
+@media (min-width: 1921px) and (max-width: 1280px) {
   .artifact-general-layout { grid-template-columns: minmax(0, 1fr); }
   .artifact-general-layout > .slider { width: 100%; }
 }
@@ -976,7 +962,7 @@ button { cursor: pointer; }
 .artifact-conversion-layout .import-routes {
   grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr) 1px minmax(0, 1fr);
 }
-@media (max-width: 1080px) {
+@media (min-width: 1921px) and (max-width: 1080px) {
   .artifact-conversion-layout .import-routes {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1021,7 +1007,7 @@ button { cursor: pointer; }
    that count them — one select per slider, in the same left-to-right order the
    tracks read. */
 .grade-fields { display: grid; gap: var(--s4); }
-@media (max-width: 1280px) {
+@media (min-width: 1921px) and (max-width: 1280px) {
   /* stacked under the sliders, the two selects have the width to sit abreast */
   .grade-fields { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
 }
@@ -1032,7 +1018,7 @@ button { cursor: pointer; }
   gap: var(--s5);
 }
 
-@media (max-width: 1280px) {
+@media (min-width: 1921px) and (max-width: 1280px) {
   /* the aside drops beneath the sliders */
   .settings-layout { grid-template-columns: minmax(0, 1fr); }
   .settings-rule {
@@ -1040,7 +1026,7 @@ button { cursor: pointer; }
     background: linear-gradient(90deg, transparent, var(--rule) 4%, var(--rule) 96%, transparent);
   }
 }
-@media (max-width: 720px) {
+@media (min-width: 1921px) and (max-width: 720px) {
   .slider-grid { grid-template-columns: minmax(0, 1fr); }
 }
 .slider-label {
@@ -1129,7 +1115,7 @@ button { cursor: pointer; }
    Without this a long row (nine restrictions on a phone) overflows sideways.
    The threshold is the widest point at which any panel stacks, so wrapping is
    always available by the time a row has the full panel width to itself. */
-@media (max-width: 960px) {
+@media (min-width: 1921px) and (max-width: 960px) {
   .filter-panel .filter-group { white-space: normal; }
   .filter-panel .filter-group-controls { flex-wrap: wrap; }
 }
@@ -1214,12 +1200,12 @@ button { cursor: pointer; }
 .best-monster-table th:nth-child(1) { width: 37%; }
 .best-monster-table tr:last-child td { border-bottom: 0; }
 .best-monster-table td b { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 500; }
-@media (max-width: 1420px) {
+@media (min-width: 1921px) and (max-width: 1420px) {
   .best-monster-filters { grid-template-columns: max-content minmax(20ch, 1fr) max-content; }
   .best-artifact-calculate { justify-self: start; }
   .best-monster-calculate { justify-self: start; }
 }
-@media (max-width: 1200px) {
+@media (min-width: 1921px) and (max-width: 1200px) {
   .best-artifact-filters {
     grid-template-columns: max-content minmax(0, 1fr);
     grid-template-areas:
@@ -1229,7 +1215,7 @@ button { cursor: pointer; }
       "calculate calculate";
   }
 }
-@media (max-width: 900px) {
+@media (min-width: 1921px) and (max-width: 900px) {
   .best-artifact-filters { grid-template-columns: minmax(0, 1fr); align-items: stretch; }
   .best-monster-filters { grid-template-columns: minmax(0, 1fr); align-items: stretch; }
   .best-artifact-filters { grid-template-areas: "element" "archetype" "location" "include" "monster" "calculate"; }
@@ -1394,7 +1380,7 @@ button { cursor: pointer; }
 .artifact-recommendation-sell { color: var(--faint); }
 /* Below about 1240px the action no longer fits beside the filters, so it drops
    under them. The three filter rows are unchanged. */
-@media (max-width: 1240px) {
+@media (min-width: 1921px) and (max-width: 1240px) {
   .artifact-recommendation-filters {
     grid-template-columns: max-content max-content max-content;
     grid-template-areas:
@@ -1408,7 +1394,7 @@ button { cursor: pointer; }
 }
 /* Below about 960px the three filter columns no longer fit, so every block
    takes its own row. */
-@media (max-width: 960px) {
+@media (min-width: 1921px) and (max-width: 960px) {
   /* Matches .filter-panel.is-stacked; spelled out because this panel also
      needs its own area names for the action. */
   .artifact-recommendation-filters { grid-template-columns: minmax(0, 1fr); grid-template-areas: "type" "restriction" "quality" "main" "substat" "location" "calculate"; align-items: stretch; }
@@ -1843,10 +1829,10 @@ button { cursor: pointer; }
 
 /* Eleven columns need the full measure. Below it the targets fall to six and
    then four per line — still a grid, so the pairs stay aligned. */
-@media (max-width: 1180px) {
+@media (min-width: 1921px) and (max-width: 1180px) {
   .target-line { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 }
-@media (max-width: 720px) {
+@media (min-width: 1921px) and (max-width: 720px) {
   .preset-card { padding: var(--s4); }
   /* the label moves above its value so neither column is squeezed */
   .preset-row { grid-template-columns: minmax(0, 1fr); gap: var(--s1); }
@@ -2048,7 +2034,7 @@ button { cursor: pointer; }
   opacity: .1;
   pointer-events: none;
 }
-@media (max-width: 1180px) {
+@media (min-width: 1921px) and (max-width: 1180px) {
   .hero-rune { display: none; }
 }
 .hero-rune img { width: 100%; height: 100%; object-fit: contain; display: block; }
@@ -2381,7 +2367,7 @@ button { cursor: pointer; }
   gap: var(--s5);
   align-items: stretch;
 }
-@media (max-width: 1080px) {
+@media (min-width: 1921px) and (max-width: 1080px) {
   /* Below this the two columns are too narrow for the drop zone to read as a
      target, so the routes stack and the rule turns horizontal. */
   .import-routes { grid-template-columns: minmax(0, 1fr); }
@@ -2975,7 +2961,7 @@ button { cursor: pointer; }
 .field-compact input[type='number']::-webkit-outer-spin-button,
 .field-compact input[type='number']::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
-@media (max-width: 820px) {
+@media (min-width: 1921px) and (max-width: 820px) {
   .editor-pair, .editor-slots { grid-template-columns: minmax(0, 1fr); }
   .editor-targets { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dialog.editor { max-height: 92vh; }
@@ -2985,13 +2971,13 @@ button { cursor: pointer; }
 /* ----------------------------------------------------------- responsive */
 
 /* below the measure there is no spare width for a gutter this wide */
-@media (max-width: 1100px) {
+@media (min-width: 1921px) and (max-width: 1100px) {
   :root { --gutter: var(--s5); }
 }
 
 
 /* the rail collapses to a horizontal bar of labelled items */
-@media (max-width: 900px) {
+@media (min-width: 1921px) and (max-width: 900px) {
   :root { --gutter: var(--s4); }
   .app-shell { grid-template-columns: 1fr; }
   .rail {
@@ -3164,7 +3150,7 @@ button { cursor: pointer; }
 /* The parenthetical is a note about the value, not part of it. */
 .value-note { color: var(--faint); }
 
-@media (max-width: 760px) {
+@media (min-width: 1921px) and (max-width: 760px) {
   /* Below the fold of the fixed column the row stacks anyway, so the reserved
      width would only force a horizontal scroll. */
   .folder-name { width: auto; }
@@ -3193,7 +3179,7 @@ button { cursor: pointer; }
 
 /* Narrow: the legend takes its own line above the options rather than
    squeezing them into what is left of the row. */
-@media (max-width: 760px) {
+@media (min-width: 1921px) and (max-width: 760px) {
   .setting-line, .radio-line { grid-template-columns: minmax(0, 1fr); gap: var(--s2); }
   .zone-select .jaswa-select { width: 100%; }
 }

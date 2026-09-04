@@ -2,7 +2,7 @@
 
 import { type ReactNode, useMemo, useState } from 'react';
 import { PageHeader } from './page-chrome';
-import { DataTablePage } from './data-table-page';
+import { DataTablePage, TableColumnGroup } from './data-table-page';
 import { MonsterPortrait } from './monster-portrait';
 import { monsterPresentation } from '../lib/monster-catalog';
 import type { MonsterArchetype } from '../lib/monster-catalog';
@@ -20,6 +20,7 @@ import type { MonsterGridColumn, MonsterRow, SortKey } from '../lib/monster-grid
 import { numberedMonsterNames } from '../lib/monster-names';
 import { formatNumber } from '../lib/formatting';
 import { useLocalStorageState } from '../lib/local-storage-state';
+import { monsterTableColumns } from '../lib/table-layouts';
 
 type MonsterFilterState = {
   search: string;
@@ -56,20 +57,6 @@ function isMonsterFilterState(value: unknown): value is MonsterFilterState {
     && typeof candidate.showStorage === 'boolean'
     && typeof candidate.showFodderMonsters === 'boolean'
     && typeof candidate.showBelowMaxLevel === 'boolean';
-}
-
-function MonsterColumnGroup({ columns }: { columns: MonsterGridColumn[] }) {
-  return <colgroup>
-    <col className="monster-col-index" />
-    <col className="monster-col-name" />
-    <col className="monster-col-sets" />
-    {columns.map((column) => <col key={column.key} className={`monster-col-${column.key}`} />)}
-    <col className="monster-col-artifacts" />
-    <col className="monster-col-relic" />
-    <col className="monster-col-ehp" />
-    <col className="monster-col-ehpD" />
-    <col className="monster-col-dmg" />
-  </colgroup>;
 }
 
 function MonsterTableHeader({ columns, sortHeader }: {
@@ -235,7 +222,7 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
     tableClassName="monster-grid"
     headerLabel="Monster roster columns"
     tableLabel="Monster roster"
-    columnGroup={<MonsterColumnGroup columns={columns} />}
+    columnGroup={<TableColumnGroup columns={monsterTableColumns} />}
     header={<MonsterTableHeader columns={columns} sortHeader={sortHeader} />}
     filters={<>
       <div className="filter-group">
