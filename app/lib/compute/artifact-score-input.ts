@@ -1,4 +1,4 @@
-import { defaultPropertyPreferences, recordedArtifactPreferenceMonsterIds } from '../artifact-preferences';
+import { artifactPreferenceStatus, defaultPropertyPreferences, recordedArtifactPreferenceMonsterIds } from '../artifact-preferences';
 import { readArtifacts } from '../artifacts';
 import { readEngravedConversionStones } from '../artifact-conversion-stones';
 import {
@@ -105,7 +105,7 @@ function packArtifact(artifact: Artifact): PackedArtifactScoreInput {
    appears once, under both of its names, rather than twice under one each. */
 function packMonster(speciesId: string, category: ArtifactCategory): PackedMonsterScoreInput | undefined {
   const preferences = defaultPropertyPreferences(speciesId, category);
-  if (!preferences) return undefined;
+  if (!preferences || artifactPreferenceStatus(speciesId, category) !== 'scorable') return undefined;
   const presentation = monsterSpeciesPresentation(speciesId);
   const masterId = speciesId;
   return {
@@ -200,6 +200,15 @@ function sourceMonsterIds(monsters: readonly GameRecord[], settings: ArtifactSet
     : recordedArtifactPreferenceMonsterIds;
 }
 
+/**
+ * Score matrices are indexed by species, never by an event-exclusive master id.
+ * Keeping this tiny boundary explicit makes every caller — including a future
+ * single-monster view — share the same identity contract.
+ */
+export function canonicalArtifactScoreMonsterIds(monsterIds: readonly string[]): string[] {
+  return [...new Set(monsterIds.map(monsterSpeciesId))];
+}
+
 /** Builds two category-specific matrices so no artifact is compared with an ineligible element or archetype. */
 export function buildArtifactScoreRequestsForMonsterIds(
   data: GameRecord | undefined,
@@ -207,7 +216,11 @@ export function buildArtifactScoreRequestsForMonsterIds(
   settings: ArtifactSettings,
   artifactIds?: ReadonlySet<string>,
 ): ArtifactScoreRequest[] {
-  const sourceIds = [...new Set(monsterIds)];
+  /* This is the public score-input boundary: a caller may hold an owned
+     collaboration id, while every score matrix is a species matrix. Resolving
+     here keeps the matrix ids identical to the ids every result lookup uses,
+     and covers every present and future collaboration table entry at once. */
+  const sourceIds = canonicalArtifactScoreMonsterIds(monsterIds);
   const artifacts = readArtifacts(data).filter((artifact) => artifactIds === undefined || artifactIds.has(artifact.id));
   const ownedConversionPropertyIndexes = readOwnedEngravedConversionPropertyIndexes(data);
   const conversionMode: 0 | 1 | 2 = settings.conversionStoneMode === 'none' ? 0

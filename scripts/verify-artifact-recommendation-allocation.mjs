@@ -16,6 +16,9 @@ const server = await createServer({
 try {
   const { allocateArtifactPlacements, assertArtifactAllocation } =
     await server.ssrLoadModule('/app/lib/artifact-recommendation-allocation.ts');
+  const { canonicalArtifactScoreMonsterIds } =
+    await server.ssrLoadModule('/app/lib/compute/artifact-score-input.ts');
+  const { collaborationSpecies } = await server.ssrLoadModule('/app/lib/monster-species.ts');
 
   const slots = [
     { monsterId: 'one', category: 'attribute' },
@@ -72,7 +75,20 @@ try {
   ], slots), /same artifact\/monster pair twice/,
   'duplicate score-matrix input must fail loudly instead of silently changing advice');
 
-  console.log('Artifact recommendation allocation keeps ranked, exclusive category slots.');
+  /* Every matrix lookup resolves a roster copy through `monsterSpeciesId`, so
+     the input boundary has to normalise every collaboration member first. The
+     table verifier proves the mappings; this covers their use in artifacts. */
+  const everyCollaborationMasterId = Object.entries(collaborationSpecies)
+    .flatMap(([speciesId, entry]) => [speciesId, ...entry.members]);
+  assert.deepEqual(
+    canonicalArtifactScoreMonsterIds(everyCollaborationMasterId),
+    Object.keys(collaborationSpecies),
+    'every collaboration master id must collapse to its score-matrix species id',
+  );
+  assert.deepEqual(canonicalArtifactScoreMonsterIds(['1000111', '99999']), ['1000111', '99999'],
+    'ordinary and atypically long master ids must remain their own score species');
+
+  console.log('Artifact recommendations keep ranked slots and canonical monster species.');
 } finally {
   await server.close();
 }

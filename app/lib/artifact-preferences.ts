@@ -59,6 +59,11 @@ export type ArtifactPropertyPreferences = {
   subShares: Map<number, number>;
 };
 
+/** A category can only produce a useful score when both its main and sub-property
+ * distributions express at least one preference. A partial panel is not a
+ * licence to invent the missing half of the judgement. */
+export type ArtifactPreferenceStatus = 'scorable' | 'missing' | 'empty';
+
 function classify(share: number, limits: { preferred: number; acceptable: number }): ArtifactPropertyPreference {
   if (share >= limits.preferred) return 'preferred';
   if (share >= limits.acceptable) return 'acceptable';
@@ -118,4 +123,19 @@ export function defaultPropertyPreferences(
   }
 
   return { main, sub, subShares };
+}
+
+/**
+ * Keeps the two honest non-score answers distinct in every caller: statistics
+ * may be absent altogether, or they may exist but express no usable property.
+ */
+export function artifactPreferenceStatus(
+  masterId: unknown,
+  category: ArtifactCategory,
+): ArtifactPreferenceStatus {
+  const preferences = defaultPropertyPreferences(masterId, category);
+  if (!preferences) return 'missing';
+  const hasMain = Object.values(preferences.main).some((preference) => preference !== 'unwanted');
+  const hasSub = [...preferences.sub.values()].some((preference) => preference !== 'unwanted');
+  return hasMain && hasSub ? 'scorable' : 'empty';
 }

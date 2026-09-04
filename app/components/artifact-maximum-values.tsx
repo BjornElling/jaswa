@@ -12,7 +12,7 @@ import { ConversionList } from './conversion-list';
 import { engravedStonesFor, isWorthwhileGain } from '../lib/artifact-recommendations';
 import { allocateArtifactPlacements } from '../lib/artifact-recommendation-allocation';
 import type { SortableColumn } from './sortable-table';
-import { recordedArtifactPreferenceMonsterIds } from '../lib/artifact-preferences';
+import { artifactPreferenceStatus, recordedArtifactPreferenceMonsterIds } from '../lib/artifact-preferences';
 import { artifactCategoryLabel, artifactEquipClassLabel, displaySubProperty } from '../lib/artifact-grid';
 import {
   artifactArchetypes, artifactCategoryLabels, artifactElements, artifactGradeOrder,
@@ -44,7 +44,8 @@ type ArtifactFilters = { categories: ArtifactCategory[]; restrictions: string[];
 type OwnedMonster = { unitId: string; masterId: string; name: string };
 type CategoryCalculation = { request: ArtifactScoreRequest; result: ArtifactScoreResult };
 type Allocation = { monster: OwnedMonster; value: number; conversions: readonly ArtifactConversion[] };
-type Calculation = { inputKey: string; backend: 'cpu' | 'webgpu'; durationMs: number; evaluatedPairs: number; ownedConversionCount: number; categories: CategoryCalculation[]; allocations: Map<string, Allocation>; unfilledSlots: number; slotCount: number };
+type UnscoredSlot = { monster: OwnedMonster; category: ArtifactCategory; status: 'missing' | 'empty' };
+type Calculation = { inputKey: string; backend: 'cpu' | 'webgpu'; durationMs: number; evaluatedPairs: number; ownedConversionCount: number; categories: CategoryCalculation[]; allocations: Map<string, Allocation>; unfilledSlots: number; slotCount: number; unscoredSlots: readonly UnscoredSlot[] };
 
 const defaultFilters: ArtifactFilters = { categories: [], restrictions: [], grades: [], mainProperties: [], subPropertyId: '', locations: [] };
 
@@ -155,7 +156,13 @@ function allocateArtifacts(
       }
     }
   }
-  const slots = scopedMonsters.flatMap((monster) => categoryOrder.map((category) => ({ monsterId: monster.unitId, category })));
+  /* A missing preference is a visible data gap, not an allocation failure. It
+     must therefore stay out of the allocator's slot count and be reported by
+     the caller separately. In contrast, a valid preference with no owned
+     artifacts remains a real unfilled slot. */
+  const slots = scopedMonsters.flatMap((monster) => categoryOrder
+    .filter((category) => artifactPreferenceStatus(monster.masterId, category) === 'scorable')
+    .map((category) => ({ monsterId: monster.unitId, category })));
   const selected = allocateArtifactPlacements(candidates, slots);
   const allocations = new Map<string, Allocation>();
   const candidateByPair = new Map(candidates.map((candidate) => [
@@ -167,6 +174,25 @@ function allocateArtifacts(
     allocations.set(placement.artifactId, candidate.allocation);
   }
   return { allocations, unfilledSlots: selected.unfilledSlots.length, slotCount: slots.length };
+}
+
+function unscoredArtifactSlots(monsters: readonly OwnedMonster[]): UnscoredSlot[] {
+  return monsters.flatMap((monster) => categoryOrder.flatMap((category) => {
+    const status = artifactPreferenceStatus(monster.masterId, category);
+    return status === 'scorable' ? [] : [{ monster, category, status }];
+  }));
+}
+
+function describeUnscoredMonsters(slots: readonly UnscoredSlot[]): string {
+  const categoriesByMonster = new Map<string, { name: string; categories: ArtifactCategory[] }>();
+  for (const slot of slots) {
+    const current = categoriesByMonster.get(slot.monster.unitId) ?? { name: slot.monster.name, categories: [] };
+    current.categories.push(slot.category);
+    categoriesByMonster.set(slot.monster.unitId, current);
+  }
+  return [...categoriesByMonster.values()]
+    .map(({ name, categories }) => `${name} (${categories.map((category) => artifactCategoryLabel(category)).join(' and ')})`)
+    .join(', ');
 }
 
 /* Scores arrive as whole percentage points (§17.1), so nothing is rounded here:
@@ -253,6 +279,7 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
         ownedConversionCount: Math.max(...results.map((result) => result.ownedConversionCount)),
         categories,
         ...allocateArtifacts(categories, scopedMonsters, artifactOrder, artifactsById, wearerByUnitId, scopedMonsterIds, settings),
+        unscoredSlots: unscoredArtifactSlots(scopedMonsters),
       });
       setState('idle');
     } catch {
@@ -294,6 +321,9 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
        which are dependencies here, so it does not need to be one itself. */
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [visibleArtifacts, currentCalculation, wearerByUnitId, artifactOrder]);
+
+  const missingPreferenceSlots = useMemo(() => currentCalculation?.unscoredSlots.filter((slot) => slot.status === 'missing') ?? [], [currentCalculation]);
+  const emptyPreferenceSlots = useMemo(() => currentCalculation?.unscoredSlots.filter((slot) => slot.status === 'empty') ?? [], [currentCalculation]);
 
   type RecommendationRow = typeof rows[number];
 
@@ -344,8 +374,10 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
     {state === 'error' && <p className="notice warning" role="status">{error}</p>}
     {calculation && !currentCalculation && <p className="notice warning" role="status">Settings or imported data changed. Calculate again to refresh these recommendations.</p>}
     {currentCalculation && <>
-      <p className="artifact-recommendation-meta" role="status">{formatNumber(currentCalculation.evaluatedPairs, general)} pairs checked · {formatNumber(currentCalculation.slotCount - currentCalculation.unfilledSlots, general)} of {formatNumber(currentCalculation.slotCount, general)} slots filled · {formatNumber(Math.round(currentCalculation.durationMs), general)} ms · {currentCalculation.backend === 'webgpu' ? 'Graphics card' : 'Processor'}</p>
+      <p className="artifact-recommendation-meta" role="status">{formatNumber(currentCalculation.evaluatedPairs, general)} pairs checked · {formatNumber(currentCalculation.slotCount - currentCalculation.unfilledSlots, general)} of {formatNumber(currentCalculation.slotCount, general)} scored slots filled · {formatNumber(Math.round(currentCalculation.durationMs), general)} ms · {currentCalculation.backend === 'webgpu' ? 'Graphics card' : 'Processor'}</p>
       {currentCalculation.unfilledSlots > 0 && <p className="notice warning" role="status">After the ranked placements, no artifact scoring above 0 % remained for {formatNumber(currentCalculation.unfilledSlots, general)} slots. JASWA never fills them with a zero-score match.</p>}
+      {missingPreferenceSlots.length > 0 && <p className="notice warning" role="status">Artifact preferences are not yet recorded for {describeUnscoredMonsters(missingPreferenceSlots)}. Those {formatNumber(missingPreferenceSlots.length, general)} slots await data and are not counted as unfilled.</p>}
+      {emptyPreferenceSlots.length > 0 && <p className="notice warning" role="status">No preferred or acceptable artifact properties are recorded for {describeUnscoredMonsters(emptyPreferenceSlots)}. Those {formatNumber(emptyPreferenceSlots.length, general)} slots await preferences and are not counted as unfilled.</p>}
       {settings.conversionStoneMode === 'owned' && currentCalculation.ownedConversionCount === 0 && <p className="notice warning">This import has no readable engraved conversion stones, so the results keep every artifact as it is.</p>}
       {sorted.length ? <div className="artifact-recommendation-table-wrap"><table className="artifact-recommendation-table">
         <SortableHeader columns={columns} sort={sort} onToggle={toggleSort} />
