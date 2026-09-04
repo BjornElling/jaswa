@@ -50,12 +50,21 @@ export type Artifact = {
   /** The wearer's `unit_id`, or `null` when the artifact sits in the inventory. */
   occupiedId: string | null;
   /**
-   * When the account obtained it, as a millisecond timestamp, or `null` when the
-   * export carries no readable `date_add`. Kept as a number rather than a date
-   * string because every use is a comparison: the roll-model cutoffs below and
-   * the recommendation table's obtained ordering.
+   * The account's acquisition sequence, which is what the game's own "Obtained"
+   * sort follows. It is `rid` read as a number: the export issues them in
+   * ascending order of acquisition, and across this account's 1,862 artifacts
+   * sorting by it never puts a later `date_add` before an earlier one. Unique
+   * per artifact, so ordering by it needs no tiebreak.
+   *
+   * `date_add` is deliberately not the ordering key and is not carried on this
+   * model at all. It resolves only to the second while the game grants
+   * artifacts in bulk — one dungeon run put 139 of this account's artifacts on
+   * a single timestamp, and 546 of 1,862 share a second with something — so
+   * inside a batch the date decides nothing and cannot reproduce the game's
+   * order. The reader still reads it for the roll-model era cutoffs, which are
+   * months-scale and untroubled by ties.
    */
-  obtainedAt: number | null;
+  obtainedOrder: number;
   locked: boolean;
   /** Pre-v8 artifacts below +15 still need the game's one-time Refine action. */
   unrefined: boolean;
@@ -155,19 +164,20 @@ const artifactPowerUpRemoval = Date.UTC(2023, 6, 1);
 const artifactPropertyImprovement = Date.UTC(2021, 0, 28);
 
 /* The export writes `date_add` two ways — `2022-06-27 22:13:04` on old records
-   and an ISO instant on newer ones. Both are read for their ordering and their
-   era, never displayed to the second, so the space-separated form is left to
-   the engine's own parse rather than being pinned to a time zone JASWA cannot
-   know. An unreadable value is `null`, not `0`: a missing date must not sort as
-   1970 or pass the pre-v8 cutoff below. */
-function obtainedTimestamp(value: unknown): number | null {
+   and an ISO instant on newer ones. Only the era cutoffs above read it, and
+   those are months apart, so the space-separated form is left to the engine's
+   own parse rather than being pinned to the account's `tzone`: a few hours
+   either way cannot move a record across a cutoff. An unreadable value is
+   `null`, not `0`, so a missing date cannot pass the pre-v8 cutoff by posing
+   as 1970. */
+function artifactEraTimestamp(value: unknown): number | null {
   if (typeof value !== 'string') return null;
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
 
 function hasHistoricalRollModel(value: unknown): boolean {
-  const obtained = obtainedTimestamp(value);
+  const obtained = artifactEraTimestamp(value);
   return obtained !== null && obtained < artifactPowerUpRemoval;
 }
 
@@ -182,7 +192,7 @@ function hasHistoricalRollModel(value: unknown): boolean {
    before, none after) while 226 begins there (none before, 223 after), so 226
    is the merger of those two halves, and 206 spans both eras untouched. */
 function historicalPropertyMaximum(definition: ArtifactPropertyDefinition, dateAdded: unknown): number | null {
-  const timestamp = obtainedTimestamp(dateAdded);
+  const timestamp = artifactEraTimestamp(dateAdded);
   const improved = timestamp !== null && timestamp >= artifactPropertyImprovement;
   const maxima: Record<number, number> = {
     200: improved ? 70 : 30, 201: improved ? 70 : 30, 202: improved ? 70 : 30,
@@ -215,8 +225,12 @@ export function readArtifact(record: unknown): Artifact | null {
 
   const category = artifactCategoryFromType[numberOrNull(source.type) ?? -1];
   const grade = artifactGradeFromRank(source.natural_rank);
+  /* `rid` is both the identity and the obtained order, so a value that cannot
+     carry either — a float, or a magnitude past exact integer arithmetic —
+     makes the record unusable rather than merely odd, and is rejected under
+     `AGENTS.md` §0.1's third rule instead of ordering the table wrongly. */
   const id = numberOrNull(source.rid);
-  if (!category || !grade || id === null) return null;
+  if (!category || !grade || id === null || !Number.isSafeInteger(id)) return null;
 
   const primary = source.pri_effect;
   if (!Array.isArray(primary)) return null;
@@ -295,7 +309,7 @@ export function readArtifact(record: unknown): Artifact | null {
     subProperties,
     convertedPropertyIndex,
     occupiedId: occupied === null || occupied === 0 ? null : String(occupied),
-    obtainedAt: obtainedTimestamp(source.date_add),
+    obtainedOrder: id,
     locked: Boolean(numberOrNull(source.locked)),
     unrefined: hasHistoricalRollModel(source.date_add)
       && Number.isSafeInteger(numberOrNull(source.level))

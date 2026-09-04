@@ -1386,6 +1386,41 @@ unknown — so a conversion to one could not be valued. They are genuinely
 unusable for a recommendation rather than merely unread, which is the
 distinction `AGENTS.md` §0.1 part 3 turns on.
 
+### 15.13 `rid` is the obtained order; `date_add` is not
+
+**Settled September 4, 2026.** The game's own "Obtained" sort is the account's
+acquisition sequence, and `rid` carries it. `date_add` is the field that looks
+right and is not.
+
+**`date_add` resolves only to the second, and the game grants artifacts in
+bulk.** In a 2,089-artifact snapshot, 548 artifacts — better than a quarter of
+the account — share a `date_add` with at least one other, in 13 groups; the
+largest three hold 139, 139 and 135 records, each one a single dungeon run or
+shop purchase landing in the same second. Inside such a batch the date
+distinguishes nothing, so any order built on it alone falls back to whatever
+order the records happen to arrive in, which is not the order the game shows.
+
+**`rid` is a strict refinement of the date, never a contradiction of it.**
+Sorting the same 2,089 artifacts by `rid` puts an earlier `date_add` after a
+later one exactly zero times in 2,088 adjacent pairs. It is also unique per
+artifact, so ordering by it needs no tiebreak, and it requires no reading of
+the account's `tzone` — the export's space-separated timestamps name no zone,
+and the account's is `America/Los_Angeles`, so a date parsed locally is hours
+adrift of the one the game displayed.
+
+**`rid` must therefore be a safe integer.** It is both the identity and the
+ordering key, so a fractional or out-of-range value can carry neither and the
+reader rejects the record under `AGENTS.md` §0.1 part 3 rather than sorting it
+somewhere arbitrary.
+
+`npm run verify:artifact-obtained-order` is the check. It asserts both
+properties against the live snapshot when the helper log is present, and
+against synthetic same-second batches when it is not.
+
+**`date_add` keeps one job**: the roll-model era cutoffs of §15.10 and §15.11.
+Those boundaries are months apart, so neither the ties nor the time zone can
+move a record across one.
+
 ---
 
 ## 16. JASWA optimal value
