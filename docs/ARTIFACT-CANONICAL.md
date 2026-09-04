@@ -1624,6 +1624,15 @@ Two conditions, and the second is the one that is easy to miss.
 
 Neither a projection nor a recommendation is computed once condition 2 fails.
 
+**Only the weakest source line is considered.** On an artifact with no prior
+conversion, JASWA proposes changes only to the sub property contributing the
+least to the particular monster's score. It does not offer a second-best source
+as an alternative just because that alternative would also improve the result.
+If two or more lines contribute zero, the one with the lowest roll is chosen.
+An exact remaining tie preserves the artifact's stored line order. Once a line
+has been converted, the game's permanent lock overrides this rule: only that
+specific line can be converted again.
+
 **The converse holds and is the common case.** An artifact whose converted slot
 holds *less* than the projection is still recommended for conversion: the lock
 does not protect a weak line, it only names which line a stone may touch. Where

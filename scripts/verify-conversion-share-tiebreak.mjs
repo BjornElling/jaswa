@@ -1,14 +1,14 @@
 /**
- * Conversion recommendations rank by preference band, then by observed share.
+ * Conversion targets rank by preference band, then by observed share.
  *
  * The rule it defends, on both halves of a conversion: the band is what the
  * score weighs, so everything inside one band is worth exactly the same, and
  * the tie must be settled by how many players actually engrave the property —
  * never by the order the lines or the property vocabulary happen to be in.
  *
- * The line given up is the least wanted (unwanted before acceptable before
- * preferred), then the least engraved, then the weaker roll. The property
- * converted to is the most wanted and, among equals, the most engraved.
+ * The one line given up is the least score-contributing one. When several
+ * lines contribute zero, the weaker roll goes first. The property converted to
+ * is the most wanted and, among equals, the most engraved.
  *
  * Both fixtures and the real Triana capture that exposed the bug: her Type slot
  * has [Skill 1] Accuracy at 6.98% and [Skill 1] CRIT DMG at 5.06%, both
@@ -96,10 +96,9 @@ try {
     scoreArtifactOnMonster(artifact, { ...monster, subPropertyPreferences: banded }, request)?.conversion?.propertyId,
     early.property.id, 'a preferred candidate must outrank a better supported acceptable one');
 
-  // ---- The source line: least wanted goes first ---------------------------
-  /* The band decides which line is given up, ahead of how well it rolled: a
-     preferred line at a poor roll must survive while an unwanted line at a
-     perfect roll is converted away. */
+  // ---- The source line: only the lowest contribution goes -----------------
+  /* Only the line losing the least score may be converted. An unwanted line
+     contributes zero, so it is still given up before any wanted line. */
   const sourceShares = new Array(scoredArtifactProperties.length).fill(0);
   const sourceBands = new Array(scoredArtifactProperties.length).fill(0);
   const target = scoredArtifactProperties.findIndex(
@@ -133,41 +132,40 @@ try {
     chosenSource([0.9, 1, 0.05, 0.9], [1, 0, 2, 2], [0.06, 0.01, 0.2, 0.2]), 1,
     'the unwanted line is found wherever it sits, not by position');
   assert.equal(
-    chosenSource([0.9, 0.9, 0.9, 0.9], [0, 0, 2, 2], [0.04, 0.01, 0.2, 0.2]), 1,
-    'among unwanted lines at equal rolls, the least engraved is given up');
+    chosenSource([0.9, 0.9, 0.9, 0.9], [0, 0, 2, 2], [0.04, 0.01, 0.2, 0.2]), 0,
+    'an exact zero-contribution tie keeps artifact order, not observed share');
 
-  /* A wanted line is judged on what it contributes, not on its share: score is
-     a real difference the player can measure, and the share only stands in
-     where score cannot tell two lines apart. */
+  /* Preference bands do not choose the source. A smaller acceptable
+     contribution goes before a larger preferred one. */
+  assert.equal(
+    chosenSource([0.1, 0.15, 0.9, 0.9], [2, 1, 2, 2], [0.2, 0.01, 0.2, 0.2]), 1,
+    'the least-contributing line is chosen even when a preferred line rolled lower');
   assert.equal(
     chosenSource([0.9, 0.9, 0.2, 0.9], [2, 2, 1, 1], [0.2, 0.2, 0.070, 0.055]), 2,
     'among acceptables, the smallest contribution is given up despite a larger share');
   assert.equal(
     chosenSource([0.2, 0.9, 0.9, 0.9], [2, 2, 2, 2], [0.30, 0.11, 0.25, 0.20]), 0,
     'among preferred lines, the smallest contribution is given up despite the largest share');
-  /* Equal contribution inside a wanted band: the share must NOT break this tie,
-     or a well engraved line would be sacrificed to keep a rare one of equal
-     worth. Line order keeps it stable instead. */
+  /* Equal nonzero contributions retain artifact order; observed share is never
+     a source tiebreak. */
   assert.equal(
     chosenSource([0.9, 0.9, 0.9, 0.9], [2, 2, 1, 1], [0.2, 0.2, 0.070, 0.055]), 2,
     'equal contributions in a wanted band are not reordered by share');
 
-  /* Equal band and equal share: the weaker roll is the smaller loss, so it goes
-     first. Two unwanted lines are where this genuinely decides the outcome —
-     both weigh zero, so the score is identical however either one rolled, and
-     without the roll the answer would fall to line order. */
+  /* The lower roll breaks a zero-contribution tie, regardless of observed
+     shares: neither line otherwise costs score to replace. */
   assert.equal(
     chosenSource([0.9, 0.9, 1.0, 0.1], [2, 2, 0, 0], [0.2, 0.2, 0.04, 0.04]), 3,
-    'among equally engraved unwanted lines, the weaker roll is given up');
+    'among zero-contribution lines, the weaker roll is given up');
   assert.equal(
     chosenSource([0.9, 0.9, 0.1, 1.0], [2, 2, 0, 0], [0.2, 0.2, 0.04, 0.04]), 2,
     'the weaker roll is found wherever it sits, not by position');
 
-  /* The band survives any difference in roll: an unwanted line weighs nothing,
-     so giving up even a perfect one costs no score at all. */
+  /* A zero-contribution line stays the sole source even when it rolled better
+     than another line, because replacing it still costs no score. */
   assert.equal(
     chosenSource([0.9, 0.9, 1.0, 0.1], [2, 2, 0, 1], [0.2, 0.2, 0.01, 0.070]), 2,
-    'a perfectly rolled unwanted line still goes before a barely rolled acceptable one');
+    'a perfectly rolled zero-contribution line still goes before an acceptable one');
 
   /* A permanently converted slot is the only line a further stone may touch,
      so it stays the source even when a readier line sits beside it. */
@@ -277,6 +275,8 @@ try {
     request,
   );
   assert.ok(listed?.conversions.length, 'a mixed-band monster must still offer conversions');
+  assert.ok(listed.conversions.every((entry) => entry.sourceIndex === 0),
+    'every offered target must replace the one worst source line, never a second-best alternative');
   assert.ok(listed.conversions.every((entry) => entry.preference === 'preferred'),
     'a preferred conversion displaces every accepted one rather than competing with it');
   for (let index = 1; index < listed.conversions.length; index += 1) {

@@ -44,45 +44,11 @@ function sourceContribution(
 }
 
 /**
- * How willingly a line is given up, lower being sooner. The preference band
- * decides it outright — an unwanted line goes before any acceptable one, and an
- * acceptable one before any preferred one — so a line the monster wants is never
- * sacrificed while a line it does not want survives, however each of them
- * rolled.
- *
- * Inside a band the question changes with the band. A wanted line contributes
- * real score, so the one contributing least is the smallest loss and goes
- * first. An unwanted line contributes nothing whatever it rolled, so score
- * cannot separate two of them at all; there the observed share decides, and the
- * weaker roll settles a tie between two equally engraved ones.
- *
- * Ordering the sources explicitly rather than inferring it from the resulting
- * score matters for exactly those ties: removing either of two lines that
- * contribute the same leaves the same score, so the arithmetic alone would
- * settle it on whichever line the loop happened to reach first.
+ * Orders two source lines by the score lost when each is replaced. A conversion
+ * recommendation changes only the one worst line, not every line that could
+ * improve. When several lines contribute zero, their score cannot settle the
+ * choice, so the lower roll goes first. A remaining tie keeps artifact order.
  */
-function sourceSacrificeRank(
-  artifact: PackedArtifactScoreInput,
-  monster: PackedMonsterScoreInput,
-  index: number,
-  acceptableWorth: number,
-): { band: number; contribution: number; share: number; roll: number } {
-  const propertyIndex = artifact.subPropertyIndexes[index];
-  const roll = artifact.subPropertyFractions[index];
-  /* A legacy line names no property the statistics describe. It is unwanted by
-     definition and the readiest thing to convert away. Its roll is measured
-     against an unknown ceiling, so it cannot be compared with the others and
-     is ranked lowest outright rather than on a number that means nothing. */
-  if (propertyIndex < 0) return { band: 0, contribution: 0, share: -1, roll: -1 };
-  return {
-    band: monster.subPropertyPreferences[propertyIndex] ?? 0,
-    contribution: sourceContribution(artifact, monster, index, acceptableWorth),
-    share: monster.subPropertyShares[propertyIndex] ?? 0,
-    roll,
-  };
-}
-
-/** Orders two lines by how readily each is given up, readiest first. */
 function compareSacrifice(
   artifact: PackedArtifactScoreInput,
   monster: PackedMonsterScoreInput,
@@ -90,21 +56,14 @@ function compareSacrifice(
   right: number,
   acceptableWorth: number,
 ): number {
-  const first = sourceSacrificeRank(artifact, monster, left, acceptableWorth);
-  const second = sourceSacrificeRank(artifact, monster, right, acceptableWorth);
-  if (first.band !== second.band) return first.band - second.band;
-  /* A wanted line is judged on what it actually adds, so a poorly rolled
-     popular property is given up before a well rolled rare one. */
-  if (first.band > 0) {
-    if (first.contribution !== second.contribution) return first.contribution - second.contribution;
-    return left - right;
+  const firstContribution = sourceContribution(artifact, monster, left, acceptableWorth);
+  const secondContribution = sourceContribution(artifact, monster, right, acceptableWorth);
+  if (firstContribution !== secondContribution) return firstContribution - secondContribution;
+  if (firstContribution === 0) {
+    const firstRoll = artifact.subPropertyFractions[left];
+    const secondRoll = artifact.subPropertyFractions[right];
+    if (firstRoll !== secondRoll) return firstRoll - secondRoll;
   }
-  /* Unwanted lines all contribute nothing, so the share is the only thing that
-     distinguishes them, and the roll only where the share ties too. */
-  if (first.share !== second.share) return first.share - second.share;
-  if (first.roll !== second.roll) return first.roll - second.roll;
-  /* Genuinely indistinguishable lines: keep the artifact's own order so the
-     recommendation is stable rather than dependent on the sort's internals. */
   return left - right;
 }
 
@@ -140,16 +99,13 @@ function ownedPropertiesFor(
 
 /**
  * The conversion model is deliberately phrased in score space. It chooses the
- * least useful legal source line (or the permanent converted slot), then the
+ * single least-contributing source line (or the permanent converted slot), then
  * best missing legal property.
  *
- * Both halves are decided by the preference band first. The line given up is
- * the least wanted — unwanted before acceptable before preferred — and within
- * the band by what it contributes, except among unwanted lines, which all
- * contribute nothing and are ordered by the observed share instead. The
+ * The line given up is the one contributing least to this monster; multiple
+ * zero-contribution lines are separated by their roll, weakest first. The
  * property converted to is the most wanted and, among equals, the one most
- * players engrave. Neither tie falls to the order the lines or the property
- * vocabulary happen to be in.
+ * players engrave. Neither tie falls accidentally to vocabulary order.
  *
  * The current result always wins over a lower calculated roll, which is what
  * the settings promise means by keeping a better roll already present on the
@@ -177,12 +133,13 @@ export function scoreArtifactOnMonster(
   if (request.conversionMode === 0) return { value: currentValue, conversion: undefined, conversions: [] };
 
   /* A permanently converted slot is the only line the game will let a further
-     stone touch, so it is the source whatever it holds. Otherwise the four
-     lines are tried in sacrifice order, which decides the ties below: equal
-     scores keep the source already chosen, and that is now the readiest one. */
+     stone touch, so it is the source whatever it holds. Otherwise one and only
+     one source is considered: the lowest-contributing sub property. */
   const sources = artifact.convertedPropertyIndex >= 0
     ? [artifact.convertedPropertyIndex]
-    : [0, 1, 2, 3].sort((left, right) => compareSacrifice(artifact, monster, left, right, request.acceptableWorth));
+    : [[0, 1, 2, 3].reduce((worst, candidate) => (
+      compareSacrifice(artifact, monster, candidate, worst, request.acceptableWorth) < 0 ? candidate : worst
+    ))];
   const owned = ownedPropertiesFor(artifact, request);
   const candidates: Array<ArtifactConversion & { share: number }> = [];
 
