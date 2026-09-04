@@ -92,21 +92,26 @@ vocabulary table, or an eligibility rule.
 ## 1.1 Local preview and publishing
 
 **Visual verification always happens against a local server on
-`http://localhost:3000/` — the user's if one is running, otherwise one the agent
-starts itself.**
+`http://localhost:3000/`. Reuse an existing working server; otherwise do what
+is relevant to make that server work.**
 
-The point of this rule is to avoid a *second* server, not to avoid verifying. A
-competing server on another port splits the state the user is looking at from
-the state being tested, which is why the check below comes first:
+The point of this rule is to avoid an unnecessary *second* server, not to
+preserve a broken one. A competing server on another port splits the state the
+user is looking at from the state being tested, which is why the check below
+comes first:
 
 - Before browser automation, probe that exact URL with
-  `Invoke-WebRequest -UseBasicParsing http://localhost:3000/`.
-- **It responds:** it is the user's server. Use it as it is. Do not stop,
-  restart, replace, or take ownership of it, and do not start a second one.
-- **It does not respond:** start one with `npm run dev`, verify against it, and
-  say in the report that the server was started for the check. Never report a
-  visual change as unverified merely because the user had no server running,
-  and never substitute a hosted preview or a different port for the missing one.
+  `Invoke-WebRequest -UseBasicParsing http://localhost:3000/` and drive the
+  route far enough to establish that the application actually renders.
+- **It responds and works:** reuse it. Do not start another dev server merely
+  because one already exists.
+- **It does not respond or does not work:** take the smallest relevant
+  corrective action — for example clear a stale local build cache, stop and
+  restart the server, or start `npm run dev` when none is running — then verify
+  against `http://localhost:3000/`. A stale dependency cache, failed HMR, or a
+  route that returns an error is a reason to repair the local server, not a
+  reason to report the visual change as unverified. Say in the report when the
+  server was started or repaired for the check.
 - **VS Code visual-verification rule:** The ChatGPT Browser/in-app browser is
   not available from the Codex IDE extension or Codex CLI. Do not try to find a
   browser bridge in this environment and do not treat a missing browser session
