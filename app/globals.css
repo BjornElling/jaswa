@@ -1204,7 +1204,6 @@ button { cursor: pointer; }
 .best-monster-artifact-details h3 + p { margin-top: var(--s2); color: var(--dim); }
 .best-monster-artifact-details .artifact-subs { align-self: center; columns: 2; column-gap: var(--s5); }
 .best-monster-artifact-details .artifact-subs li { break-inside: avoid; }
-.best-monster-converted { display: inline; margin-left: var(--s2); color: var(--gold); font-size: var(--t-micro); letter-spacing: .06em; text-transform: uppercase; }
 /* A statement of fact about the artifact, not a warning: Intangible widens the
    candidate list rather than signalling anything wrong. */
 .best-monster-intangible { margin-top: var(--s2); color: var(--gold); font-size: var(--t-small); }

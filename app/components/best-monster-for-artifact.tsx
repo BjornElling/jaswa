@@ -2,6 +2,7 @@
 
 import { type ReactNode, useMemo, useState } from 'react';
 import { Dropdown } from './dropdown';
+import { ConvertedArtifactMark } from './converted-artifact-mark';
 import { UnrefinedArtifactMark } from './unrefined-artifact-mark';
 import { SortableHeader, useSortedRows } from './sortable-table';
 import { calculateArtifactScores } from '../lib/compute/artifact-score-client';
@@ -320,7 +321,7 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
       <ul className="artifact-subs">
         {selectedArtifact.subProperties.map((property, index) => <li key={property.definition.id}>
           {displaySubProperty(property, (value) => formatNumber(value, general))}
-          {selectedArtifact.convertedPropertyIndex === index && <span className="best-monster-converted">Converted</span>}
+          {selectedArtifact.convertedPropertyIndex === index && <ConvertedArtifactMark position={index} />}
         </li>)}
       </ul>
     </section>}

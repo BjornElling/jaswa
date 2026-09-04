@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Dropdown } from './dropdown';
+import { ConvertedArtifactMark } from './converted-artifact-mark';
 import { UnrefinedArtifactMark } from './unrefined-artifact-mark';
 import { SortableHeader, useSortedRows } from './sortable-table';
 import { calculateArtifactScores } from '../lib/compute/artifact-score-client';
@@ -344,7 +345,10 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
           <td>{artifactCategoryLabel(row.artifact.category)}</td>
           <td>{artifactEquipClassLabel(row.artifact)}</td>
           <td>{row.artifact.mainProperty}</td>
-          <td><ul className="artifact-subs">{row.artifact.subProperties.map((property) => <li key={property.definition.id}>{displaySubProperty(property, (value) => formatNumber(value, general))}</li>)}</ul></td>
+          <td><ul className="artifact-subs">{row.artifact.subProperties.map((property, index) => <li key={property.definition.id}>
+            {displaySubProperty(property, (value) => formatNumber(value, general))}
+            {row.artifact.convertedPropertyIndex === index && <ConvertedArtifactMark position={index} />}
+          </li>)}</ul></td>
           <td>{row.wearerName}</td>
           <td><Score value={row.current} general={general} /></td>
           <td className={row.action === 'Sell' ? 'artifact-recommendation-sell' : ''}>{row.action}</td>
