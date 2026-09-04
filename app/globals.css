@@ -1288,8 +1288,9 @@ button { cursor: pointer; }
 .artifact-recommendations { display: grid; gap: var(--s4); }
 .artifact-recommendations > .lead, .artifact-recommendation-meta, .artifact-recommendation-empty { margin: 0; }
 /* Every filter column sizes to its own content, so no group is ever stretched
-   and the gap between two adjacent choices is always the 4px that
-   .filter-group-controls sets — never a share of the panel's leftover width.
+   and the gap between adjacent choices is always the 4px that
+   .filter-group-controls sets — except for the two deliberate category breaks
+   in Restriction — never a share of the panel's leftover width.
    Restriction shares the first row with Type and spans the rest of it, so its
    nine buttons still set the panel's width. Quality, Main stat and Substat
    gather on the second row, and Location takes a third of its own.
@@ -1312,6 +1313,16 @@ button { cursor: pointer; }
 }
 .artifact-recommendation-filter-type { grid-area: type; }
 .artifact-recommendation-filter-restriction { grid-area: restriction; }
+/* Attribute and type restrictions read as two groups, with Intangible as the
+   wildcard tail. The divider is presentation-only, so it cannot change a
+   button's fixed box or become an extra filter choice. */
+.artifact-restriction-divider {
+  width: 1px;
+  height: 1.5em;
+  margin-inline: var(--s1);
+  background: var(--line-strong);
+  flex: 0 0 1px;
+}
 .artifact-recommendation-filter-quality { grid-area: quality; }
 .artifact-recommendation-filter-main { grid-area: main; }
 .artifact-recommendation-filter-location { grid-area: location; }

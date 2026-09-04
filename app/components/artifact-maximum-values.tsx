@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { Dropdown } from './dropdown';
 import { ConvertedArtifactMark } from './converted-artifact-mark';
 import { UnrefinedArtifactMark } from './unrefined-artifact-mark';
@@ -262,9 +262,12 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
     }
   }
 
-  const buttonGroup = <T extends string>(label: string, key: keyof ArtifactFilters, values: readonly T[], display: (value: T) => string, className: string) => <div className={`filter-group ${className}`} role="group" aria-label={label}>
+  const buttonGroup = <T extends string>(label: string, key: keyof ArtifactFilters, values: readonly T[], display: (value: T) => string, className: string, dividerIndexes: readonly number[] = []) => <div className={`filter-group ${className}`} role="group" aria-label={label}>
     <span className="filter-label">{label}</span>
-    <div className="filter-group-controls">{values.map((value) => <button key={value} type="button" className={(filters[key] as string[]).includes(value) ? 'filter-button active' : 'filter-button'} onClick={() => toggle(key, value)} aria-pressed={(filters[key] as string[]).includes(value)}>{display(value)}</button>)}</div>
+    <div className="filter-group-controls">{values.map((value, index) => <Fragment key={value}>
+      {dividerIndexes.includes(index) && <span className="artifact-restriction-divider" role="presentation" aria-hidden="true" />}
+      <button type="button" className={(filters[key] as string[]).includes(value) ? 'filter-button active' : 'filter-button'} onClick={() => toggle(key, value)} aria-pressed={(filters[key] as string[]).includes(value)}>{display(value)}</button>
+    </Fragment>)}</div>
   </div>;
 
   const scoreForWearer = (artifact: Artifact): number | undefined => {
@@ -322,7 +325,7 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
     <p className="lead">Rank every useful fit, then lock one Attribute and one Type artifact per monster. Filters only narrow this complete plan; they never reshuffle it.</p>
     <div className="filter-panel artifact-recommendation-filters">
       {buttonGroup('Type', 'categories', categoryOrder, (category) => artifactCategoryLabels[category], 'artifact-recommendation-filter-type')}
-      {buttonGroup('Restriction', 'restrictions', restrictionOptions, (restriction) => restriction, 'artifact-recommendation-filter-restriction')}
+      {buttonGroup('Restriction', 'restrictions', restrictionOptions, (restriction) => restriction, 'artifact-recommendation-filter-restriction', [5, 9])}
       {buttonGroup('Quality', 'grades', artifactGradeOrder, (grade) => grade.slice(0, 3).toUpperCase(), 'artifact-recommendation-filter-quality')}
       <div className="filter-group artifact-recommendation-filter-substat"><label className="filter-label" htmlFor="artifact-recommendation-substat">Substat</label><div className="filter-group-controls"><Dropdown id="artifact-recommendation-substat" value={selectedSubPropertyId} onChange={(event) => setFilters((current) => ({ ...current, subPropertyId: event.target.value }))} aria-label="Filter recommendations by artifact substat" placeholder="All substats">{subPropertyOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}</Dropdown></div></div>
       {buttonGroup('Main stat', 'mainProperties', artifactMainPropertyOrder, (property) => property, 'artifact-recommendation-filter-main')}
