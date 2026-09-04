@@ -12,8 +12,7 @@ export const metadata: Metadata = {
     apple: '/apple-touch-icon-180x180.png',
   },
 };
-/* The manifest carries this for the installed app; the meta tag is what a
-   plain mobile browser tab reads. Both are the app's own ground, so the
-   chrome around the page does not flash a colour the page never uses. */
-export const viewport: Viewport = { width: 1920, initialScale: 1, themeColor: '#0b0d12' };
+/* Handheld browsers need their native viewport for the device-only notice;
+   desktop canvas scaling is owned by AppViewport rather than this meta tag. */
+export const viewport: Viewport = { width: 'device-width', initialScale: 1, themeColor: '#0b0d12' };
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) { return <html lang="en"><body><PwaServiceWorker /><AppViewport>{children}</AppViewport></body></html>; }

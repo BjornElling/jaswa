@@ -122,6 +122,84 @@ body {
   min-height: var(--canvas-height);
   zoom: var(--viewport-scale, 1);
 }
+.device-check { min-height: 100vh; background: var(--bg); }
+
+/* A phone or tablet is deliberately a different destination, not a squeezed
+   workspace. It borrows Home's quiet rune and closing line while leaving the
+   desktop application's fixed geometry entirely unmounted. */
+.handheld-notice {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-rows: minmax(240px, 46dvh) minmax(0, 1fr);
+  overflow: hidden;
+  background: var(--bg);
+}
+.handheld-hero {
+  position: relative;
+  overflow: hidden;
+  padding: var(--s6) var(--s5);
+  border-bottom: 1px solid var(--line-strong);
+  background: radial-gradient(64% 116% at 0% 0%, rgba(217, 173, 82, .12), transparent 72%);
+}
+.handheld-rune {
+  position: absolute;
+  top: 50%; right: calc(var(--s4) * -1);
+  width: min(64vw, 392px); height: auto;
+  translate: 0 -50%;
+  opacity: .11;
+}
+.handheld-brand {
+  position: relative;
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--t-title);
+  font-weight: 600;
+  letter-spacing: -.025em;
+}
+.handheld-brand span { color: var(--gold); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.handheld-kicker {
+  position: relative;
+  max-width: 11ch;
+  margin: var(--s7) 0 0;
+  color: var(--ink);
+  font-size: clamp(28px, 10vw, 54px);
+  font-weight: 700;
+  letter-spacing: -.045em;
+  line-height: .94;
+}
+.handheld-quote {
+  position: absolute;
+  right: var(--s5); bottom: var(--s5);
+  margin: 0;
+  color: var(--faint);
+  font-family: 'Great Vibes', 'Apple Chancery', cursive;
+  font-size: clamp(32px, 10vw, 52px);
+  line-height: 1;
+  opacity: .84;
+}
+.handheld-quote span { color: color-mix(in srgb, var(--gold) 52%, var(--faint)); }
+.handheld-message {
+  align-self: center;
+  max-width: 46rem;
+  padding: var(--s7) var(--s5);
+}
+.handheld-message .eyebrow { margin: 0 0 var(--s3); }
+.handheld-message h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(26px, 8vw, 44px);
+  font-weight: 700;
+  letter-spacing: -.035em;
+  line-height: 1.04;
+  text-wrap: balance;
+}
+.handheld-message > p:not(.eyebrow) {
+  margin: var(--s4) 0 0;
+  color: var(--dim);
+  font-size: clamp(15px, 4.4vw, 20px);
+  line-height: 1.6;
+}
+.handheld-message .handheld-footnote { color: var(--faint); font-size: var(--t-body); }
 
 button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
