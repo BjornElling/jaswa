@@ -1128,7 +1128,7 @@ distribution is near-even: 424 HP, 408 ATK, 419 DEF.
 Four tuples, always, on all 1,785 records (§4 confirmed). Each is:
 
 ```text
-[ effectId, value, powerUpCount, conversionFlag, newestLineFlag ]
+[ effectId, value, powerUpCount, unknownFlag, conversionFlag ]
 ```
 
 **Position 2 is the power-up count, and the grade invariant holds exactly.**
@@ -1200,33 +1200,31 @@ Keep the legacy list explicit, and let the statistics inform it rather than
 determine it. §12's rule stands unchanged — accept these on import, refuse to
 generate them, and compute no maximum for them until their ranges are known.
 
-### 15.6 Position 3 — the conversion flag
+### 15.6 Position 3 — still unmodelled
 
-Non-zero on **at most one line per artifact**, on all 1,785 records. That is
-exactly §10's permanent slot lock: once a line has been chosen for conversion,
-only that position can be converted again. `convertedPropertyIndex` is therefore
-a faithful model, and validation rule 13 is checkable. The index is the line's
-position in `sec_effects`, not the current property's id or name; a later
-conversion may replace that property's type and value without moving the lock.
+The fourth tuple field is numeric, but no established game behaviour ties it to
+the line it marks. Its non-zero values must not decide scoring or conversion
+eligibility.
 
-Values above 1 occur (2, 3, 4 on 17 lines), so it is not a boolean. **Pending
-verification** of what the magnitude counts — plausibly how many times that slot
-has been converted, but nothing here proves it.
+### 15.7 Position 4 — the conversion lock
 
-### 15.7 Position 4 — the one field still unexplained
+The fifth tuple field is the permanent Conversion lock from §10. The direct
+import record for artifact `284184132` settles it: the game shows its third
+sub-property as converted and its tuple is `[221, 31, 0, 0, 1]`. The lock is
+therefore the line's position in `sec_effects`, not its current property name;
+a later conversion may replace that property and value without moving the lock.
 
-Set on exactly one line of 452 of the 534 equipped artifacts, and — the useful
-constraint — **only ever on a line whose power-up count is zero**:
+It is set on at most one line per artifact and only on a line whose power-up
+count is zero:
 
 ```text
 rolls 0:  761 unset, 451 set
 rolls 1+:  923 unset,   0 set
 ```
 
-So it marks an un-upgraded line, one per artifact. A reappraisal trace (§11) is
-the obvious guess and it is **not confirmed**; nothing in this data proves the
-semantics. Read it, keep it, and let nothing depend on it until an observation
-settles what it means.
+The zero power-up count is explained by §10: a converted line is freshly rolled
+rather than upgraded. It also supplies the extra contribution used in the roll
+model; see §15.9.
 
 ### 15.8 What this unblocks, and what it does not
 
@@ -1234,12 +1232,11 @@ Step 2 of the sprint — modelling and reading artifacts — is unblocked. Roll
 quality (§13's first evaluation axis) is computable today: the property, its
 power-up count, its value, and the grade invariant are all present and verified.
 
-One field carries a **pending verification** marker (`sec_effects` position 4)
-and one carries a partial (position 3's magnitude). `attribute`/`unit_style`
-value 98 was the third and is now **settled** as the Intangible equip class
-(§15.1). Under §14's revision rule the remaining two may not receive a silent
-fallback: store them, surface them where they matter, and do not compute
-anything from a meaning nobody has established.
+One field carries a **pending verification** marker (`sec_effects` position 3).
+`attribute`/`unit_style` value 98 was the other uncertainty and is now settled
+as the Intangible equip class (§15.1). Under §14's revision rule the remaining
+field may not receive a silent fallback: store it, surface it where it matters,
+and do not compute anything from a meaning nobody has established.
 
 ### 15.9 Corrections from building the reader — August 30, 2026
 
@@ -1283,12 +1280,12 @@ alternative is a ceiling a real artifact provably exceeds, and a roll fraction
 above 1 empties the benchmark of meaning. The general rule it illustrates:
 **compute a maximum from the observed range, never from a guide's table.**
 
-**Position 4 is a contribution, whatever else it means.** §15.7 leaves the
-field unexplained and forbids computing from it. Counting a set flag as one
-extra contribution repairs the grade invariant on **43 of the 44 records that
-otherwise break it**, leaving one. That is strong evidence about the roll
-structure and none at all about the field's semantics, so the reader uses it for
-the contribution count and for nothing else — §15.7's prohibition stands.
+**The conversion lock is a contribution.** Counting the fifth field's set flag
+as one extra contribution repairs the grade invariant on **43 of the 44 records
+that otherwise break it**, leaving one. That is consistent with §10: a
+conversion lands on two contributions even though the stored power-up count is
+zero, so the reader uses the lock for the roll structure as well as conversion
+eligibility.
 
 ### 15.10 Pre-v8 artifacts can remain unrefined
 

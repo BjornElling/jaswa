@@ -215,10 +215,10 @@ export function readArtifact(record: unknown): Artifact | null {
   const currentSubProperties: ArtifactSubProperty[] = [];
   let convertedPropertyIndex: number | null = null;
   for (const [index, entry] of secondary.entries()) {
-    /* The conversion flag identifies the line's permanent conversion slot.
-       Its magnitude is not part of the model yet, but a malformed flag must
-       not quietly become an unconverted artifact. */
-    const conversionFlag = numberOrNull(Array.isArray(entry) ? entry[3] : null);
+    /* The fifth tuple field is the conversion lock. The game marks the
+       converted line itself — not the property it used to hold — so the
+       position remains the one future conversions must overwrite. */
+    const conversionFlag = numberOrNull(Array.isArray(entry) ? entry[4] : null);
     if (conversionFlag === null || !Number.isInteger(conversionFlag) || conversionFlag < 0) return null;
     if (conversionFlag > 0) {
       if (convertedPropertyIndex !== null) return null;
