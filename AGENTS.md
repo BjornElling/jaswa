@@ -232,6 +232,24 @@ parts an agent must not quietly break:
   interactive state — the sorted column, the active filter, the current
   section, a chosen option. Data is never coloured for decoration. A fact on
   screen is expressed through weight, position, or form.
+
+  Two narrow exceptions, each a vocabulary the user already reads elsewhere
+  rather than one invented here. Do not add a third without the same
+  justification:
+  - The verdict colours (`--state-*`), for a machine reporting its own state.
+  - **An artifact's score, in three bands** (`docs/ARTIFACT-CANONICAL.md`
+    §18) — the one place a fact wears the accent, because at the top band the
+    number *is* the invitation to act. `artifactValueBands` is the single set
+    of boundaries, and no table may carry its own.
+
+  A grade is **not** an exception. Tinting artifact quality in the game's own
+  five hues was tried and removed: five colours competing across a dense table
+  read as decoration rather than information, whatever their provenance. Grade
+  is expressed as text, in its own column.
+
+  Where colour names a fact, the fact stays in the text too, and only the
+  colour changes — never the weight, size, or a mark, each of which resizes the
+  text and moves what sits beside it under rule 2.
 - **Two-tone emphasis.** Where something is primary-versus-secondary — a
   preferred set against an acceptable one — full ink (`--ink`) against dimmed
   (`--faint`) is the established device. Reuse it rather than inventing a

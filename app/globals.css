@@ -10,6 +10,12 @@
    interactive state — the sorted column, active filters, the current
    section. Everything else is form, position or weight. Rune sets are
    plain monospaced text; status is text weight and a dotted rule.
+
+   Two exceptions, each one a vocabulary the user already reads
+   elsewhere rather than a decoration invented here: the verdict colours
+   below, for a machine reporting its own state; and an artifact's score
+   in three bands, where the top band's gold marks a number that is
+   itself the invitation to act.
    ===================================================================== */
 
 :root {
@@ -436,17 +442,44 @@ button { cursor: pointer; }
   white-space: nowrap;
 }
 .filter-summary b { color: var(--dim); font-weight: 500; }
+/* Include ends the first row, beside Location: the two ask the same shape of
+   question — which artifacts belong in the list at all — while the second row
+   is the narrowing filters.
+
+   Include's column is sized to its content rather than taking the shared
+   --filter-column: it holds one button, and five full columns would overrun
+   the content box. The four measured columns stay, so every label in the two
+   rows still lines up on the same grid as every other filter strip. */
 .artifact-filter-strip {
+  grid-template-columns: repeat(4, var(--filter-column)) max-content;
   grid-template-areas:
-    "search quality main location"
-    "sort type element archetype";
+    "search quality main    location  include"
+    "sort   type    element archetype .";
 }
-.artifact-filter-strip > .filter-group { padding-left: var(--s4); border-left: 1px solid var(--line); }
+/* Every group carries the rule that indents it, and only the two that begin a
+   visual row drop it — Search and Sort by, named right below.
+
+   Named rather than counted. The shared strip drops the rule with
+   `nth-child(<n> + 1)` per breakpoint, which reads DOM order, and this strip's
+   DOM order is no longer its visual order: Location and Include come last in
+   the markup but sit on the first row. Counting therefore took the rule off
+   whichever group happened to land on that index — Archetype and Include,
+   both mid-row — and butted them against their neighbours. Every count is
+   undone here, at each breakpoint's own specificity, so the two named
+   row-starters below are the only groups without a rule at any width. */
+.artifact-filter-strip > .filter-group,
+.artifact-filter-strip > .filter-group:nth-child(2n + 1),
+.artifact-filter-strip > .filter-group:nth-child(3n + 1),
+.artifact-filter-strip > .filter-group:nth-child(4n + 1) {
+  padding-left: var(--s4);
+  border-left: 1px solid var(--line);
+}
 .artifact-filter-search { grid-area: search; padding-left: 0 !important; border-left: 0 !important; }
 .artifact-filter-sort-by { grid-area: sort; padding-left: 0 !important; border-left: 0 !important; }
 .artifact-filter-quality { grid-area: quality; }
 .artifact-filter-main-stat { grid-area: main; }
 .artifact-filter-location { grid-area: location; }
+.artifact-filter-include { grid-area: include; }
 .artifact-filter-type { grid-area: type; }
 .artifact-filter-element { grid-area: element; }
 .artifact-filter-archetype { grid-area: archetype; }
@@ -455,7 +488,8 @@ button { cursor: pointer; }
     grid-template-areas:
       "search quality main"
       "sort type element"
-      ". location archetype";
+      ". location archetype"
+      ". include .";
   }
 }
 @media (min-width: 1921px) and (max-width: 1120px) {
@@ -466,6 +500,7 @@ button { cursor: pointer; }
       ". main"
       ". element"
       ". location"
+      ". include"
       ". archetype";
   }
 }
@@ -480,6 +515,7 @@ button { cursor: pointer; }
       "main"
       "element"
       "location"
+      "include"
       "archetype";
   }
 }
@@ -608,6 +644,28 @@ button { cursor: pointer; }
   height: 32px;
   font-size: var(--t-small);
 }
+/* The three bands an artifact's score reads in — the one colour vocabulary in
+   JASWA that names a fact rather than an action. Gold at the top band earns the
+   accent: at that band the number is itself the invitation to act. Full ink for
+   a respectable score, the established dim where the score argues against the
+   slot. The boundaries live in `app/lib/artifact-grid.ts`, so no table can
+   carry its own idea of a good score, and `.muted` stays separate, meaning
+   unjudged — which is not a low score.
+
+   It travels as `data-tint` rather than a class because the tables it appears
+   in each set a colour on every `td`, and one of them on every `span` inside a
+   cell. Those are reasonable defaults that a class would lose to on
+   specificity, and the alternative was restating the list at each table's
+   specificity — the shape that rots the moment a new table appears. This is a
+   deliberate single-rule override of them, and the only `!important` here.
+
+   Colour is the whole signal: no weight, no size, no mark, any of which would
+   change a cell's width and move the row beside it (rule 2). */
+[data-tint] { color: var(--tint) !important; }
+[data-tint='score-strong'] { --tint: var(--gold); }
+[data-tint='score-fair'] { --tint: var(--ink); }
+[data-tint='score-weak'] { --tint: var(--dim); }
+
 /* The requested artifact-fit palette makes preferred lines gold, keeps
    acceptable lines in full ink, and leaves every other line faint. */
 .artifact-subs li.artifact-sub-preferred { color: var(--gold); }
@@ -1457,7 +1515,6 @@ button { cursor: pointer; }
 .artifact-recommendation-flag > * { margin-left: 0; }
 .artifact-recommendation-sell { color: var(--faint); }
 .artifact-recommendation-keep,
-.artifact-recommendation-score-good,
 .artifact-recommendation-no-conversion { color: var(--gold); }
 /* Below about 1240px the action no longer fits beside the filters, so it drops
    under them. The three filter rows are unchanged. */

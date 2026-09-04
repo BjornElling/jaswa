@@ -60,7 +60,7 @@ try {
           'Artifact location and value must open the table.');
         assert(!headers.includes('#'), 'The artifact table must not show a row number.');
         const positions = await page.locator(
-          '.artifact-filter-search, .artifact-filter-quality, .artifact-filter-main-stat, .artifact-filter-location, .artifact-filter-type, .artifact-filter-element, .artifact-filter-archetype',
+          '.artifact-filter-search, .artifact-filter-quality, .artifact-filter-main-stat, .artifact-filter-location, .artifact-filter-include, .artifact-filter-type, .artifact-filter-element, .artifact-filter-archetype',
         ).evaluateAll((elements) => Object.fromEntries(elements.map((element) => [
           [...element.classList].find((name) => name.startsWith('artifact-filter-')),
           element.getBoundingClientRect().toJSON(),
@@ -69,18 +69,33 @@ try {
         const quality = positions['artifact-filter-quality'];
         const main = positions['artifact-filter-main-stat'];
         const location = positions['artifact-filter-location'];
+        const include = positions['artifact-filter-include'];
         const type = positions['artifact-filter-type'];
         const element = positions['artifact-filter-element'];
         const archetype = positions['artifact-filter-archetype'];
-        const [qualityLabel, typeLabel] = await Promise.all([
+        const [qualityLabel, typeLabel, includeLabel] = await Promise.all([
           page.locator('.artifact-filter-quality .filter-label').boundingBox(),
           page.locator('.artifact-filter-type .filter-label').boundingBox(),
+          page.locator('.artifact-filter-include .filter-label').boundingBox(),
         ]);
         assert(nearlyEqual(search.y, quality.y) && nearlyEqual(quality.y, main.y) && nearlyEqual(main.y, location.y)
           && search.x < quality.x && quality.x < main.x && main.x < location.x
           && type.y > quality.y && nearlyEqual(type.x, quality.x) && nearlyEqual(element.x, main.x)
           && nearlyEqual(archetype.x, location.x) && qualityLabel && typeLabel && nearlyEqual(qualityLabel.x, typeLabel.x),
         'Artifact filters do not follow the requested two-row arrangement.');
+        /* Include ends the first row, past Location: it asks which artifacts
+           belong in the list rather than which class to narrow to. */
+        assert(include && nearlyEqual(include.y, location.y, 2)
+          && include.x >= location.x + location.width - 2
+          && includeLabel && nearlyEqual(includeLabel.y, qualityLabel.y, 2),
+        'Include must sit to the right of Location, on the same row.');
+        const includeButton = await page.locator('.artifact-filter-include .filter-button').evaluate((button) => ({
+          text: button.textContent.trim(), pressed: button.getAttribute('aria-pressed'),
+        }));
+        assert.equal(includeButton.text, 'Intangible',
+          'The wildcard option is named in full, not abbreviated.');
+        assert.equal(includeButton.pressed, 'true',
+          'Intangible artifacts are included by default: they are artifacts the account owns.');
       }
 
       const overflow = await page.locator('.data-table-filter-panel, .data-table-scroll, .grid-table')
@@ -135,7 +150,7 @@ try {
   assert(!recommendationHeaders.includes('#'),
     'The recommendation table must not show an artifact number.');
 
-  console.log('Verified empty and imported library states, shared table measure, fixed filter interaction, artifact settings, and the recommendation table fitting its container.');
+  console.log('Verified empty and imported library states, shared table measure, fixed filter interaction, the Include group beside Location, artifact settings, and the recommendation table fitting its container.');
 } finally {
   await browser.close();
 }

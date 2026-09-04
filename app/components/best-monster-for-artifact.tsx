@@ -10,7 +10,7 @@ import { buildArtifactScoreRequests, buildArtifactScoreRequestsForMonsterIds } f
 import { ConversionList } from './conversion-list';
 import { engravedStonesFor, isWorthwhileGain } from '../lib/artifact-recommendations';
 import type { SortableColumn } from './sortable-table';
-import { artifactCategoryLabel, artifactEquipClassLabel, displaySubProperty } from '../lib/artifact-grid';
+import { artifactCategoryLabel, artifactEquipClassLabel, artifactValueTint, displaySubProperty } from '../lib/artifact-grid';
 import { artifactArchetypes, artifactCategoryLabels, artifactElements, artifactGradeOrder, artifactIntangibleLabel, artifactMainPropertyOrder } from '../lib/artifact-properties';
 import { readArtifacts } from '../lib/artifacts';
 import { formatNumber } from '../lib/formatting';
@@ -98,9 +98,12 @@ function ownMonsterOptions(monsters: readonly GameRecord[]): MonsterOption[] {
 }
 
 /* Scores are already whole percentage points (§17.1), so the figure shown is
-   the figure every comparison used. */
+   the figure every comparison used, banded by the app's one set of score
+   boundaries. */
 function Score({ score, general }: { score: ArtifactMaximumScore | undefined; general: GeneralSettings }) {
-  return score ? `${formatNumber(score.value, general)} %` : '—';
+  return score
+    ? <span {...artifactValueTint(score.value)}>{formatNumber(score.value, general)} %</span>
+    : '—';
 }
 
 function ResultCard({ title, description, children, empty }: {

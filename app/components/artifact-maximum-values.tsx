@@ -13,7 +13,7 @@ import { engravedStonesFor, isWorthwhileGain } from '../lib/artifact-recommendat
 import { allocateArtifactPlacements } from '../lib/artifact-recommendation-allocation';
 import type { SortableColumn } from './sortable-table';
 import { artifactPreferenceStatus, recordedArtifactPreferenceMonsterIds } from '../lib/artifact-preferences';
-import { artifactCategoryLabel, artifactEquipClassLabel, displaySubProperty } from '../lib/artifact-grid';
+import { artifactCategoryLabel, artifactEquipClassLabel, artifactValueTint, displaySubProperty } from '../lib/artifact-grid';
 import {
   artifactArchetypes, artifactCategoryLabels, artifactElements, artifactGradeOrder,
   artifactIntangibleLabel, artifactMainPropertyOrder,
@@ -46,8 +46,6 @@ type CategoryCalculation = { request: ArtifactScoreRequest; result: ArtifactScor
 type Allocation = { monster: OwnedMonster; value: number; conversions: readonly ArtifactConversion[] };
 type UnscoredSlot = { monster: OwnedMonster; category: ArtifactCategory; status: 'missing' | 'empty' };
 type Calculation = { inputKey: string; backend: 'cpu' | 'webgpu'; durationMs: number; evaluatedPairs: number; ownedConversionCount: number; categories: CategoryCalculation[]; allocations: Map<string, Allocation>; unfilledSlots: number; slotCount: number; unscoredSlots: readonly UnscoredSlot[] };
-const recommendedScoreThreshold = 75;
-
 const defaultFilters: ArtifactFilters = { categories: [], restrictions: [], grades: [], mainProperties: [], subPropertyId: '', locations: [] };
 
 function readOwnedMonsters(monsters: readonly GameRecord[]): OwnedMonster[] {
@@ -210,9 +208,11 @@ function describeUnscoredMonsters(slots: readonly UnscoredSlot[]): string {
 }
 
 /* Scores arrive as whole percentage points (§17.1), so nothing is rounded here:
-   the number shown is the number every comparison used. */
+   the number shown is the number every comparison used. The bands are the
+   library's, from `artifact-grid.ts`: two tables judging the same number must
+   not disagree about what counts as a good score. */
 function Score({ value, general }: { value: number | undefined; general: GeneralSettings }) {
-  return value === undefined ? '—' : <span className={value >= recommendedScoreThreshold ? 'artifact-recommendation-score-good' : undefined}>{formatNumber(value, general)} %</span>;
+  return value === undefined ? '—' : <span {...artifactValueTint(value)}>{formatNumber(value, general)} %</span>;
 }
 
 export function ArtifactMaximumValues({ data, monsters, settings, general, hardwareAcceleration }: {

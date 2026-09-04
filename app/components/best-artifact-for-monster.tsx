@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { calculateArtifactScores } from '../lib/compute/artifact-score-client';
 import { buildArtifactScoreRequests, buildArtifactScoreRequestsForMonsterIds } from '../lib/compute/artifact-score-input';
 import { readArtifacts } from '../lib/artifacts';
-import { artifactCategoryLabel, artifactEquipClassLabel } from '../lib/artifact-grid';
+import { artifactCategoryLabel, artifactEquipClassLabel, artifactValueTint } from '../lib/artifact-grid';
 import { artifactCategoryLabels, artifactGradeOrder } from '../lib/artifact-properties';
 import { SortableHeader, useSortedRows } from './sortable-table';
 import { ConversionList } from './conversion-list';
@@ -99,7 +99,12 @@ async function calculateRequests(
 /* Whole percentage points already (§17.1): the figure shown is the figure every
    comparison used. */
 function Score({ score, general, fallback = '—' }: { score: ArtifactMaximumScore | undefined; general: GeneralSettings; fallback?: string }) {
-  return <>{score ? `${formatNumber(score.value, general)} %` : fallback}</>;
+  /* Banded like every other score in the app: one set of boundaries, so a
+     figure does not change meaning between two tables. A missing score keeps
+     the fallback's own plain reading — it is unjudged, not low. */
+  return score
+    ? <span {...artifactValueTint(score.value)}>{formatNumber(score.value, general)} %</span>
+    : <>{fallback}</>;
 }
 
 function ArtifactResults({ title, description, rows, general, selectedMonster, stones, mode }: {

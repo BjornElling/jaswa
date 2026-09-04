@@ -11,7 +11,15 @@ export type ArtifactRow = {
   index: number;
   /** The wearer's display name, or `null` while the artifact sits in the inventory. */
   location: string | null;
-  value: number | undefined;
+  /**
+   * How well the artifact scores on its current wearer, in whole percentage
+   * points, or `undefined` when nothing judged it — an artifact in the
+   * inventory, or a wearer with no recorded preferences. Whole points because
+   * that is what a score *is* (`ARTIFACT-CANONICAL.md` §17.1), so the row
+   * carries the number the column shows and the band is read from the same
+   * value the user sees rather than from an unrounded one behind it.
+   */
+  valuePercent: number | undefined;
   mainPropertyPreference: ArtifactPropertyPreference;
   subProperties: ArtifactSubProperty[];
   /** `null` means this artifact is not currently worn by a judged monster. */
@@ -54,6 +62,34 @@ export function artifactCategoryLabel(category: ArtifactCategory): string {
 }
 
 /**
+ * How well an artifact scores, in the three bands the interface reads it in:
+ * worth acting on, respectable, and not worth the slot. The boundaries are
+ * whole percentage points because scores are (`ARTIFACT-CANONICAL.md` §17.1).
+ *
+ * They live here rather than in each view because the recommendation table and
+ * the library judge the same number, and two tables disagreeing about what
+ * counts as a good score would be worse than either boundary being wrong.
+ */
+export const artifactValueBands = { strong: 75, fair: 50 } as const;
+
+/**
+ * The `data-tint` value that paints a score, for spreading onto an element:
+ * `<td {...artifactValueTint(percent)}>`. Gold at the top band — the one place
+ * a *fact* wears the accent, and it earns it by being the fact the user acts
+ * on; full ink in the middle; the established dim for a score that argues
+ * against using the artifact at all.
+ *
+ * An absent score is not a low one but an unjudged one, and keeps the separate
+ * `muted` reading its callers already give it — so this takes a number, and a
+ * caller with nothing to show does not call it.
+ */
+export function artifactValueTint(percent: number): { 'data-tint': string } {
+  if (percent >= artifactValueBands.strong) return { 'data-tint': 'score-strong' };
+  if (percent >= artifactValueBands.fair) return { 'data-tint': 'score-fair' };
+  return { 'data-tint': 'score-weak' };
+}
+
+/**
  * The text portion of a sub property. The number goes through the caller's
  * formatter so the list follows the user's regional settings the way every
  * other figure in the app does — `formatNumber` needs the settings, which a
@@ -76,11 +112,11 @@ export function compareArtifactRows(
   if (key === 'value') {
     /* An unjudged artifact has no place in the ranking either way round, so it
        sorts last in both directions rather than leading the ascending pass. */
-    if (left.value === undefined || right.value === undefined) {
-      if (left.value === right.value) return 0;
-      return left.value === undefined ? 1 : -1;
+    if (left.valuePercent === undefined || right.valuePercent === undefined) {
+      if (left.valuePercent === right.valuePercent) return 0;
+      return left.valuePercent === undefined ? 1 : -1;
     }
-    return (left.value - right.value) * direction;
+    return (left.valuePercent - right.valuePercent) * direction;
   }
   if (key === 'grade') {
     return ((gradeRank.get(left.artifact.grade) ?? 0) - (gradeRank.get(right.artifact.grade) ?? 0)) * direction;

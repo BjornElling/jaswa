@@ -1707,6 +1707,16 @@ view in the workspace respects the answer. It is a statement about how the user
 wants their account judged, not a per-table filter, and asking it separately on
 each page invites the three views to disagree about the same account.
 
+The library's own `Include` toggle is not an exception to this, because it is
+not the same question. Settings asks whether these artifacts should be *judged*;
+the library's toggle asks only whether they are *listed*, the way its Location
+buttons ask whether equipped ones are. The library is deliberately separate from
+the workspace — it answers what the account owns, not what to change — so a
+view filter there decides nothing about a recommendation. It defaults to on:
+these are artifacts the account holds, and a library that omitted them by
+default would break §0.1 parity on the one page whose whole job is to show
+everything.
+
 ### 17.8 Every table sorts on every column
 
 Any table in the workspace sorts by any of its columns, ascending and
@@ -1715,3 +1725,57 @@ the point of showing the numbers is that they can interrogate them. Columns
 that are not numbers sort too — by name, by location, by monster — because
 "show me every artifact currently in inventory, best first" is the ordinary way
 this data gets read.
+
+---
+
+## 18. Quality is text; a score is colour
+
+The game's five quality tiers — Normal, Magic, Rare, Hero, Legend — are one
+vocabulary shared across the game: an artifact's grade and a rune's quality use
+the same five names in the same order. `app/lib/quality-tiers.ts` owns the
+list, `ArtifactGrade` aliases it rather than restating it, and runes read the
+same list when they gain a quality of their own.
+
+**A grade is shown as text, never as colour.** *Tried and removed, September 4,
+2026.* The game paints each tier in a hue — white, green, blue, purple, orange
+— and JASWA reproduced them faithfully, from SWARFARM's rune stylesheet
+(`herders/static/herders/css/runes.css` in `github.com/swarfarm/swarfarm`), the
+community's standard rendering. Every value cleared 4.5:1 against `--bg` and
+each tier was named in text beside its colour.
+
+It still read wrong. Five hues competing down a dense table are decoration
+rather than information: the eye is pulled to whichever row is orange, which
+tells the user nothing about what to do, and the accent that means "you can act
+on this" loses its force by sitting among four rivals. Provenance was not the
+problem, and a better-sourced palette would not fix it — the density is the
+problem. Grade keeps its own column, in plain text.
+
+Worth knowing if this is ever revisited: there is **no published datamined
+palette** to be more faithful to. The game draws each tier as a radial glow,
+white-hot at the centre fading to a coloured rim, so there is no flat colour to
+extract and sampling yields a different value at every radius. The art is not
+even self-consistent between systems — the Legend rune sprite reads red-orange
+where the Legend artifact sprite reads a warmer orange. And the game's Legend
+orange lands within 4° of hue of `--gold`, a contrast ratio of 1.04, so a
+Legend artifact and an active control were the same colour.
+
+### 18.1 A score reads in three bands
+
+Colour on data survives in exactly one place, and it is the number rather than
+the grade. `artifactValueBands` in `app/lib/artifact-grid.ts` is the one set of
+boundaries, and every table that prints a percentage uses it:
+
+| Band | Score | Colour |
+| --- | --- | --- |
+| Strong | 75 % and above | `--gold` |
+| Fair | 50–74 % | `--ink` |
+| Weak | below 50 % | `--dim` |
+
+Gold at the top band is the one place in JASWA where a *fact* wears the accent,
+and it earns it: at that band the number is itself the invitation to act. The
+boundaries live in one module because two tables judging the same number must
+not disagree about what counts as a good score — which they did, the
+recommendation table having carried its own private threshold of 75.
+
+An absent score is **unjudged, not low**, and keeps its own separate muted
+reading. `—` never enters a band.

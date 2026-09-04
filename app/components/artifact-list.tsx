@@ -13,7 +13,7 @@ import { readArtifacts } from '../lib/artifacts';
 import { artifactValueOnMonster } from '../lib/artifact-value-on-monster';
 import { defaultPropertyPreferences } from '../lib/artifact-preferences';
 import {
-  artifactCategoryLabel, artifactEquipClassLabel, compareArtifactRows,
+  artifactCategoryLabel, artifactEquipClassLabel, artifactValueTint, compareArtifactRows,
   defaultArtifactSortDirections, displaySubProperty,
 } from '../lib/artifact-grid';
 import type { ArtifactRow, ArtifactSortKey } from '../lib/artifact-grid';
@@ -29,12 +29,12 @@ import { useLocalStorageState } from '../lib/local-storage-state';
 const categoryOrder: readonly ArtifactCategory[] = ['attribute', 'type'];
 const elementOrder = Object.values(artifactElements);
 const archetypeOrder = Object.values(artifactArchetypes);
-/* Intangible is one option rather than one per group: it is a single class that
-   belongs to neither the elements nor the archetypes, and the Type filter
-   already separates an Intangible attribute artifact from an Intangible type
-   one when the user wants only one of them. */
-const intangibleOption: readonly string[] = [artifactIntangibleLabel];
-const artifactClassOptions = [...elementOrder, ...archetypeOrder, ...intangibleOption];
+/* Intangible is not one of the element or archetype buttons. It belongs to
+   neither group — it is the absence of a restriction — so narrowing *to* it
+   sat oddly beside nine classes that narrow to one. Include answers the
+   question the user actually has about it: whether these wildcards belong in
+   the list at all. */
+const artifactClassOptions = [...elementOrder, ...archetypeOrder];
 
 type ArtifactFilterState = {
   search: string;
@@ -45,6 +45,12 @@ type ArtifactFilterState = {
   sortBySubProperty: number | null;
   showEquipped: boolean;
   showInventory: boolean;
+  /**
+   * Whether Intangible artifacts appear at all. On by default: they are real
+   * artifacts the account owns, and a library that quietly omitted 35 of them
+   * would break the parity rule the page exists to honour (`AGENTS.md` §0.1).
+   */
+  includeIntangible: boolean;
 };
 
 const defaultArtifactFilters: ArtifactFilterState = {
@@ -56,6 +62,7 @@ const defaultArtifactFilters: ArtifactFilterState = {
   sortBySubProperty: null,
   showEquipped: true,
   showInventory: true,
+  includeIntangible: true,
 };
 
 function isArtifactFilterState(value: unknown): value is ArtifactFilterState {
@@ -75,7 +82,8 @@ function isArtifactFilterState(value: unknown): value is ArtifactFilterState {
         && Number.isSafeInteger(candidate.sortBySubProperty)
         && candidate.sortBySubProperty >= 0))
     && typeof candidate.showEquipped === 'boolean'
-    && typeof candidate.showInventory === 'boolean';
+    && typeof candidate.showInventory === 'boolean'
+    && typeof candidate.includeIntangible === 'boolean';
 }
 
 function subPropertyMagnitude(row: ArtifactRow, propertyId: number): number | null {
@@ -125,7 +133,7 @@ export function ArtifactList({ game, monsters, preferences }: {
     'jaswa.filters.artifacts', defaultArtifactFilters, isArtifactFilterState,
   );
   const { search, selectedCategories, selectedClasses, selectedGrades, selectedMainProperties,
-    sortBySubProperty, showEquipped, showInventory } = filters;
+    sortBySubProperty, showEquipped, showInventory, includeIntangible } = filters;
   const artifacts = useMemo(() => readArtifacts(game?.data), [game]);
 
   const rows = useMemo<ArtifactRow[]>(() => {
@@ -141,6 +149,9 @@ export function ArtifactList({ game, monsters, preferences }: {
       const propertyPreferences = wearer
         ? defaultPropertyPreferences(wearer.unit_master_id, artifact.category)
         : undefined;
+      const value = wearer
+        ? artifactValueOnMonster(artifact, wearer.unit_master_id, preferences.artifacts.acceptableWorth)
+        : undefined;
       return {
         artifact,
         index,
@@ -151,7 +162,9 @@ export function ArtifactList({ game, monsters, preferences }: {
         location: artifact.occupiedId === null
           ? 'Inventory'
           : unitId === null ? null : preference?.label || names[unitId] || null,
-        value: wearer ? artifactValueOnMonster(artifact, wearer.unit_master_id, preferences.artifacts.acceptableWorth) : undefined,
+        /* Rounded once, here, so the column, its colour band and the sort all
+           read the same whole-point score the user sees. */
+        valuePercent: value === undefined ? undefined : Math.round(value * 100),
         mainPropertyPreference: propertyPreferences?.main[artifact.mainProperty] ?? 'unwanted',
         subProperties: artifact.subProperties,
         subPropertyPreferences: propertyPreferences?.sub ?? null,
@@ -193,6 +206,10 @@ export function ArtifactList({ game, monsters, preferences }: {
       const equipped = row.artifact.occupiedId !== null;
       if (!showEquipped && equipped) return false;
       if (!showInventory && !equipped) return false;
+      /* Include, not narrow-to: switched off, the wildcards leave the list;
+         switched on, they sit among the rest and the class buttons still
+         choose between elements and archetypes as before. */
+      if (!includeIntangible && row.artifact.intangible) return false;
       if (selectedCategories.length && !selectedCategories.includes(row.artifact.category)) return false;
       if (selectedGrades.length && !selectedGrades.includes(row.artifact.grade)) return false;
       if (selectedMainProperties.length && !selectedMainProperties.includes(row.artifact.mainProperty)) return false;
@@ -220,7 +237,7 @@ export function ArtifactList({ game, monsters, preferences }: {
     return [...filtered].sort((left, right) =>
       compareArtifactRows(left, right, key, direction) || left.index - right.index);
   }, [rows, search, selectedCategories, selectedClasses, selectedGrades, selectedMainProperties,
-    showEquipped, showInventory, sort, activeSortBySubProperty]);
+    showEquipped, showInventory, includeIntangible, sort, activeSortBySubProperty]);
 
   function toggleSort(key: ArtifactSortKey) {
     /* A table-header click hands ordering back to the table and clears the
@@ -268,6 +285,10 @@ export function ArtifactList({ game, monsters, preferences }: {
 
   function setShowInventory(update: (current: boolean) => boolean) {
     setFilters((current) => ({ ...current, showInventory: update(current.showInventory) }));
+  }
+
+  function setIncludeIntangible(update: (current: boolean) => boolean) {
+    setFilters((current) => ({ ...current, includeIntangible: update(current.includeIntangible) }));
   }
 
   if (!artifacts.length) return <div className="section-body">
@@ -355,10 +376,6 @@ export function ArtifactList({ game, monsters, preferences }: {
         selectedClasses, setSelectedClasses, abbreviate, 'artifact-filter-element')}
       {toggleGroup('Archetype', 'Filter by monster type', classOptions.type,
         selectedClasses, setSelectedClasses, abbreviate, 'artifact-filter-archetype')}
-      {/* Its own group because it belongs to neither list: an Intangible
-          artifact restricts to no element and no monster type. */}
-      {toggleGroup('Wildcard', 'Filter by unrestricted equip class', intangibleOption,
-        selectedClasses, setSelectedClasses, abbreviate, 'artifact-filter-intangible')}
       {toggleGroup('Quality', 'Filter by quality', artifactGradeOrder,
         selectedGrades, setSelectedGrades, abbreviate, 'artifact-filter-quality')}
       {toggleGroup('Main stat', 'Filter by main stat', artifactMainPropertyOrder,
@@ -374,6 +391,17 @@ export function ArtifactList({ game, monsters, preferences }: {
           >Inventory</button>
         </div>
       </div>
+      {/* Beside Location because the two ask the same shape of question — which
+          artifacts belong in this list at all — rather than which single class
+          to narrow to. */}
+      <div className="filter-group artifact-filter-include" role="group" aria-label="Choose which artifacts to include">
+        <span className="filter-label">Include</span>
+        <div className="filter-group-controls">
+          <button type="button" className={includeIntangible ? 'filter-button active' : 'filter-button'}
+            onClick={() => setIncludeIntangible((current) => !current)} aria-pressed={includeIntangible}
+          >{artifactIntangibleLabel}</button>
+        </div>
+      </div>
       <output className="filter-summary" aria-label={`${visible.length} of ${rows.length} artifacts shown`}>
         <b>{visible.length}</b> of {rows.length} shown
       </output>
@@ -385,14 +413,22 @@ export function ArtifactList({ game, monsters, preferences }: {
               title={row.location === null ? 'Worn by a monster this import does not contain' : undefined}>
               {row.location ?? 'Unknown monster'}
             </td>
-            <td className={row.value === undefined ? 'align-left muted' : 'align-left'}
-              title={row.value === undefined && row.artifact.occupiedId !== null
+            {/* The score bands itself: gold once the artifact is worth acting
+                on, full ink where it is respectable, dim where it argues
+                against the slot. An unjudged value is not a low score and
+                keeps its own muted reading. */}
+            <td className={row.valuePercent === undefined ? 'align-left muted' : 'align-left'}
+              {...(row.valuePercent === undefined ? {} : artifactValueTint(row.valuePercent))}
+              title={row.valuePercent === undefined && row.artifact.occupiedId !== null
                 ? 'Not judged: nothing recorded for this monster type'
                 : undefined}>
-              {row.value === undefined ? '—' : `${formatNumber(Math.round(row.value * 100), preferences.general)} %`}
+              {row.valuePercent === undefined ? '—' : `${formatNumber(row.valuePercent, preferences.general)} %`}
             </td>
             <td className="align-left dim">{artifactCategoryLabel(row.artifact.category)}</td>
-            <td className="align-left">{artifactEquipClassLabel(row.artifact)}</td>
+            {/* Type and Fits are both plain description of the artifact, so
+                they read at one weight: full ink here made the equip class
+                look like the more important of the two. */}
+            <td className="align-left dim">{artifactEquipClassLabel(row.artifact)}</td>
             <td className="align-left dim">{row.artifact.grade}</td>
             <td className={`align-left artifact-main-${row.mainPropertyPreference}`}>
               {row.artifact.mainProperty}

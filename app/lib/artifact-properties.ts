@@ -1,8 +1,16 @@
 import type { MonsterArchetype } from './monster-catalog';
+import { qualityTiers } from './quality-tiers';
+import type { QualityTier } from './quality-tiers';
 
 export type ArtifactCategory = 'attribute' | 'type';
 export type ArtifactMainProperty = 'HP' | 'ATK' | 'DEF';
-export type ArtifactGrade = 'Normal' | 'Magic' | 'Rare' | 'Hero' | 'Legend';
+/**
+ * An artifact's grade. This is the artifact-side name for the game's five
+ * quality tiers, which runes share — `QualityTier` is the same five values, and
+ * aliasing rather than restating them is what keeps one list from drifting from
+ * the other. `app/lib/quality-tiers.ts` owns the vocabulary.
+ */
+export type ArtifactGrade = QualityTier;
 
 /**
  * A sub property as the game names it, with the per-roll range needed to say
@@ -73,7 +81,10 @@ export function artifactGradeFromRank(rank: unknown): ArtifactGrade | null {
   return typeof rank === 'number' ? gradesByRank.get(rank) ?? null : null;
 }
 
-export const artifactGradeOrder: readonly ArtifactGrade[] = ['Normal', 'Magic', 'Rare', 'Hero', 'Legend'];
+/* Weakest first, which is the game's own tier order — taken from the shared
+   vocabulary rather than restated, so a filter row and a colour table can never
+   list the grades differently. */
+export const artifactGradeOrder: readonly ArtifactGrade[] = qualityTiers;
 
 /* The export keys the main property numerically, and only these three pairs
    occur. `app/lib/monster-grid.ts` reads the same ids for the roster's
