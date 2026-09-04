@@ -7,7 +7,7 @@ import { UnrefinedArtifactMark } from './unrefined-artifact-mark';
 import { SortableHeader, useSortedRows } from './sortable-table';
 import { calculateArtifactScores } from '../lib/compute/artifact-score-client';
 import { buildArtifactScoreRequestsForMonsterIds } from '../lib/compute/artifact-score-input';
-import { scoreArtifactOnMonster } from '../lib/compute/artifact-score-core';
+import { scoreArtifactOnMonster, scorePercent } from '../lib/compute/artifact-score-core';
 import { ConversionList } from './conversion-list';
 import { engravedStonesFor, isWorthwhileGain } from '../lib/artifact-recommendations';
 import { allocateArtifactPlacements } from '../lib/artifact-recommendation-allocation';
@@ -89,6 +89,19 @@ function scoreAt(calculation: CategoryCalculation, artifactId: string, masterId:
   if (artifactIndex < 0 || monsterIndex < 0 || !matrix) return undefined;
   const value = matrix[artifactIndex * calculation.request.monsters.length + monsterIndex];
   return value < 0 ? undefined : value;
+}
+
+/* The allocation matrix includes the best projected conversion: that is the
+   right figure for choosing a future plan. The row's current-value column,
+   however, describes the artifact as it is now, before spending a stone.
+   Keeping the two readings separate makes a listed conversion prove its own
+   gain instead of appearing to reproduce the value already on screen. */
+function currentScoreAt(calculation: CategoryCalculation, artifactId: string, masterId: string): number | undefined {
+  const artifact = calculation.request.artifacts.find((entry) => entry.id === artifactId);
+  const monster = calculation.request.monsters.find((entry) => entry.id === monsterSpeciesId(masterId));
+  if (!artifact || !monster) return undefined;
+  const score = scoreArtifactOnMonster(artifact, monster, { ...calculation.request, conversionMode: 0 });
+  return score === undefined ? undefined : scorePercent(score.value);
 }
 
 function conversionAt(calculation: CategoryCalculation, artifactId: string, masterId: string): readonly ArtifactConversion[] {
@@ -303,7 +316,7 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
     if (!scopedMonsterIds.has(artifact.occupiedId)) return undefined;
     const wearer = wearerByUnitId.get(artifact.occupiedId);
     const category = currentCalculation.categories.find((entry) => entry.request.artifacts[0]?.category === (artifact.category === 'attribute' ? 1 : 2));
-    return wearer && category ? scoreAt(category, artifact.id, wearer.masterId) : undefined;
+    return wearer && category ? currentScoreAt(category, artifact.id, wearer.masterId) : undefined;
   };
 
   const rows = useMemo(() => !currentCalculation ? [] : visibleArtifacts.map((artifact) => {
