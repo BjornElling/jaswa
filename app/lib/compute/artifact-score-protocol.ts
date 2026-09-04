@@ -72,7 +72,10 @@ export type ArtifactScoreRequest = {
   monsters: readonly PackedMonsterScoreInput[];
   acceptableWorth: number;
   conversionMode: 0 | 1 | 2;
-  conversionValue: number;
+  /** One assumed roll fraction for each current artifact property. */
+  conversionRollFractions: readonly number[];
+  /** A recommendation must improve by more than this many whole score points. */
+  insignificantDifference: number;
   /**
    * The compact property indexes named by engraved stones in this import, for
    * the whole category. Used to report how many stones an import yielded; the

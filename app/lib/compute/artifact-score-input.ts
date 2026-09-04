@@ -2,7 +2,7 @@ import { defaultPropertyPreferences, recordedArtifactPreferenceMonsterIds } from
 import { readArtifacts } from '../artifacts';
 import { readEngravedConversionStones } from '../artifact-conversion-stones';
 import {
-  artifactConversionContributions, artifactConversionMaximum, bestArtifactLineContributions,
+  artifactConversionContributions, artifactConversionMaximum, artifactConversionRollFraction, bestArtifactLineContributions,
 } from '../artifact-properties';
 import type { Artifact, ArtifactSubProperty } from '../artifacts';
 import type { ArtifactCategory, ArtifactMainProperty } from '../artifact-properties';
@@ -205,13 +205,11 @@ export function buildArtifactScoreRequestsForMonsterIds(
   const ownedConversionPropertyIndexes = readOwnedEngravedConversionPropertyIndexes(data);
   const conversionMode: 0 | 1 | 2 = settings.conversionStoneMode === 'none' ? 0
     : settings.conversionStoneMode === 'theoretical' ? 1 : 2;
-  /* Fractions of what a conversion roll can reach. The first stop was 0, which
-     valued a conversion at nothing and so made the mode inert rather than
-     cautious: a conversion always lands somewhere inside its range, and the
-     pessimistic answer is that range's floor. Across the 33 current properties
-     `minRoll / maxRoll` averages 0.61 and never falls below 0.25, so the low
-     stop is the honest floor rather than zero. */
-  const conversionValue = [0.6, 0.7, 0.8, 1][settings.conversionStoneValue - 1] ?? 0.6;
+  const conversionRollFractions = scoredArtifactProperties.map((property) =>
+    artifactConversionRollFraction(property, settings.conversionStoneValue) ?? 0);
+  const insignificantDifference = settings.ignoreInsignificantDifferences
+    ? settings.insignificantDifference
+    : 0;
   return (['attribute', 'type'] as const).map((category) => ({
     artifacts: artifacts
       .filter((artifact) => artifact.category === category)
@@ -222,7 +220,8 @@ export function buildArtifactScoreRequestsForMonsterIds(
     monsters: sourceIds.map((id) => packMonster(id, category)).filter((monster): monster is PackedMonsterScoreInput => monster !== undefined),
     acceptableWorth: settings.acceptableWorth,
     conversionMode,
-    conversionValue,
+    conversionRollFractions,
+    insignificantDifference,
     ownedConversionPropertyIndexes,
     ownedConversionPropertyIndexesByClass: ownedConversionPropertyIndexesByClass(data, category),
   })).filter((request) => request.artifacts.length > 0 && request.monsters.length > 0);

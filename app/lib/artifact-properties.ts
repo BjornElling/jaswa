@@ -287,3 +287,22 @@ export function artifactConversionMaximum(property: ArtifactPropertyDefinition):
   if (property.maxRoll === null) return null;
   return property.maxRoll * artifactConversionContributions;
 }
+
+/**
+ * The share of a conversion's own maximum which one roll-value choice assumes.
+ *
+ * A conversion contains two contributions. Its floor is consequently two
+ * minimum rolls and its ordinary result is the midpoint between that floor and
+ * its two-maximum-roll ceiling. "Three quarters" is deliberately three
+ * quarters of the ceiling itself: it is the value the control names, rather
+ * than a nearby hand-picked estimate.
+ */
+export function artifactConversionRollFraction(
+  property: ArtifactPropertyDefinition,
+  choice: number,
+): number | null {
+  if (property.minRoll === null || property.maxRoll === null || property.maxRoll <= 0) return null;
+  const floor = property.minRoll / property.maxRoll;
+  const average = (property.minRoll + property.maxRoll) / (2 * property.maxRoll);
+  return [floor, average, 0.75, 1][choice - 1] ?? null;
+}

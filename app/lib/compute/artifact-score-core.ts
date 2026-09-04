@@ -159,7 +159,7 @@ export function scoreArtifactOnMonster(
   artifact: PackedArtifactScoreInput,
   monster: PackedMonsterScoreInput,
   request: Pick<ArtifactScoreRequest,
-    'acceptableWorth' | 'conversionMode' | 'conversionValue' | 'ownedConversionPropertyIndexesByClass'>,
+    'acceptableWorth' | 'conversionMode' | 'conversionRollFractions' | 'insignificantDifference' | 'ownedConversionPropertyIndexesByClass'>,
 ): { value: number; conversion: ArtifactConversion | undefined; conversions: ArtifactConversion[] } | undefined {
   if (!fits(artifact, monster)) return undefined;
   const main = weight(monster.mainPreferences[artifact.mainProperty] ?? 0, request.acceptableWorth);
@@ -197,12 +197,14 @@ export function scoreArtifactOnMonster(
          suggested, however much arithmetic it would add. */
       if (band === 0) continue;
       const convertedWeight = weight(band, request.acceptableWorth);
+      const conversionFraction = request.conversionRollFractions[propertyIndex];
+      if (!Number.isFinite(conversionFraction) || conversionFraction < 0 || conversionFraction > 1) continue;
       /* The conversion reaches a fraction of the *line's* ceiling, because a
          conversion collects two contributions whatever the grade allows (§10).
-         Using `conversionValue` directly would let a converted line score like
-         a perfectly rolled one and overstate every conversion on a good
-         artifact. */
-      const reach = request.conversionValue * artifact.conversionCeilingFraction;
+         Using the fraction without that ceiling would let a converted line
+         score like a perfectly rolled one and overstate every conversion on a
+         good artifact. */
+      const reach = conversionFraction * artifact.conversionCeilingFraction;
       /* §17.4 condition 2: a converted slot already holding more than the
          projection would produce keeps what it has. The lock means a further
          stone overwrites that same line, so proposing one proposes destroying
@@ -210,13 +212,13 @@ export function scoreArtifactOnMonster(
          which is what makes them comparable. */
       if (sourceIndex === artifact.convertedPropertyIndex
         && artifact.convertedSlotConversionFraction >= 0
-        && artifact.convertedSlotConversionFraction >= request.conversionValue) continue;
+        && artifact.convertedSlotConversionFraction >= conversionFraction) continue;
       const convertedValue = main * ((withoutSource + convertedWeight * reach) / benchmark);
       const value = scorePercent(convertedValue);
       /* §17.4 condition 1: a conversion that does not raise the score is not a
          recommendation. Compared as whole points, so a conversion the interface
          would show as no change is not offered as one. */
-      if (value <= currentPercent) continue;
+      if (value - currentPercent <= request.insignificantDifference) continue;
       candidates.push({
         sourceIndex,
         propertyId: scoredArtifactProperties[propertyIndex].id,

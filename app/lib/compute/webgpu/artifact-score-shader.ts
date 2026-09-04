@@ -28,9 +28,9 @@ struct Parameters {
   artifactCount: u32,
   monsterCount: u32,
   conversionMode: u32,
-  _padding: u32,
-  conversionValue: f32,
+  insignificantDifference: f32,
   acceptableWorth: f32,
+  _padding: f32,
 };
 
 @group(0) @binding(0) var<storage, read> artifacts: array<f32>;
@@ -39,8 +39,12 @@ struct Parameters {
 // One row of PROPERTY_COUNT flags per equip class, because a stone is engraved
 // for one class and converts nothing else. Row 0 is the Intangible union.
 @group(0) @binding(3) var<storage, read> ownedProperties: array<i32>;
-@group(0) @binding(4) var<uniform> parameters: Parameters;
-@group(0) @binding(5) var<storage, read_write> output: array<f32>;
+// Each setting choice resolves to a fraction of that property's own conversion
+// ceiling. This keeps "three quarters" at exactly 75 %, even when two effects
+// have different regular roll ranges.
+@group(0) @binding(4) var<storage, read> conversionRollFractions: array<f32>;
+@group(0) @binding(5) var<uniform> parameters: Parameters;
+@group(0) @binding(6) var<storage, read_write> output: array<f32>;
 
 fn preferenceWeight(preference: i32) -> f32 {
   if (preference == 2) { return 1.0; }
@@ -119,15 +123,8 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
 
   let conversionCeiling = artifacts[artifactOffset + 12u];
   let convertedSlotFraction = artifacts[artifactOffset + 13u];
-  // A converted slot already holding at least what a conversion would produce
-  // keeps what it has: the permanent lock means a further stone overwrites that
-  // same line, so proposing one proposes destroying the better roll.
-  let convertedSlotIsBetter = convertedSlotFraction >= 0.0
-    && convertedSlotFraction >= parameters.conversionValue;
-
   for (var source: u32 = 0u; source < 4u; source = source + 1u) {
     if (convertedIndex >= 0 && i32(source) != convertedIndex) { continue; }
-    if (convertedIndex >= 0 && i32(source) == convertedIndex && convertedSlotIsBetter) { continue; }
     for (var candidate: u32 = 0u; candidate < PROPERTY_COUNT; candidate = candidate + 1u) {
       let availability = propertyAvailability[candidate];
       if (availability != 0 && availability != category) { continue; }
@@ -141,11 +138,17 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
       // A property the monster neither prefers nor accepts is never suggested.
       if (band == 0) { continue; }
       let candidateWeight = preferenceWeight(band);
+      let conversionFraction = conversionRollFractions[candidate];
+      // A converted slot already holding at least what this candidate would
+      // produce keeps what it has: another stone overwrites that same line.
+      if (convertedIndex >= 0 && i32(source) == convertedIndex
+        && convertedSlotFraction >= 0.0
+        && convertedSlotFraction >= conversionFraction) { continue; }
       // A conversion collects two contributions whatever the grade allows, so
       // it reaches only this fraction of the line it replaces.
       let converted = scorePercent(mainWeight * (weighted - sourceContribution[source]
-        + candidateWeight * parameters.conversionValue * conversionCeiling) / benchmark);
-      if (converted > currentPercent) { best = max(best, converted); }
+        + candidateWeight * conversionFraction * conversionCeiling) / benchmark);
+      if (converted - currentPercent > parameters.insignificantDifference) { best = max(best, converted); }
     }
   }
   output[pairIndex] = best;

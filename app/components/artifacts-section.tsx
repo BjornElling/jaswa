@@ -26,9 +26,9 @@ const acceptableWorthLabels = [
    (`ARTIFACT-CANONICAL.md` §10), so "maximum" is the best a conversion can
    produce rather than the best the artifact could ever have carried. */
 const conversionStoneValueLabels = [
-  'Minimum — assume a conversion rolls its floor',
-  'Average — an ordinary conversion roll',
-  'Three quarters — a good conversion roll, short of perfect',
+  'Minimum — the conversion’s two-roll floor',
+  'Average — the midpoint of its possible range',
+  'Three quarters — 75 % of the conversion maximum',
   'Maximum — the best a conversion can roll',
 ] as const;
 
@@ -170,8 +170,8 @@ export function ArtifactsSection({ settings, data, monsters, general, hardwareAc
             <div className="slider" data-disabled={conversionsOff ? 'true' : undefined}>
               <label className="slider-label" htmlFor="conversion-stone-value">Conversion roll value</label>
               <p className="slider-note">
-                How well should a conversion roll be assumed to land? A conversion reaches two roll
-                steps, whatever the artifact’s grade allows.
+                How well should a conversion roll be assumed to land? Every choice is measured against
+                that property’s own two-roll maximum, whatever the artifact or stone grade.
               </p>
               <input id="conversion-stone-value" type="range" min={1} max={conversionStoneValueLabels.length} step={1}
                 value={settings.conversionStoneValue} disabled={conversionsOff}

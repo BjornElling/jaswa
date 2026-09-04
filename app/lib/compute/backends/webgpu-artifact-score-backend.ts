@@ -94,13 +94,14 @@ export class WebGpuArtifactScoreBackend implements ArtifactScoreBackend {
     parameterView.setUint32(0, request.artifacts.length, true);
     parameterView.setUint32(4, request.monsters.length, true);
     parameterView.setUint32(8, request.conversionMode, true);
-    parameterView.setFloat32(16, request.conversionValue, true);
-    parameterView.setFloat32(20, request.acceptableWorth / 100, true);
+    parameterView.setFloat32(12, request.insignificantDifference, true);
+    parameterView.setFloat32(16, request.acceptableWorth / 100, true);
     const resultByteLength = alignedByteLength(request.artifacts.length * request.monsters.length * Float32Array.BYTES_PER_ELEMENT);
     const artifacts = this.createUploadBuffer(device, artifactData, bufferUsage.storage);
     const monsters = this.createUploadBuffer(device, monsterData, bufferUsage.storage);
     const availability = this.createUploadBuffer(device, new Int32Array(artifactPropertyAvailability), bufferUsage.storage);
     const ownedProperties = this.createUploadBuffer(device, owned, bufferUsage.storage);
+    const conversionRollFractions = this.createUploadBuffer(device, new Float32Array(request.conversionRollFractions), bufferUsage.storage);
     const parameterBuffer = this.createUploadBuffer(device, new Uint8Array(parameters), bufferUsage.uniform);
     const output = device.createBuffer({ size: resultByteLength, usage: bufferUsage.storage | bufferUsage.copySource });
     const readback = device.createBuffer({ size: resultByteLength, usage: bufferUsage.mapRead | bufferUsage.copyDestination });
@@ -110,7 +111,8 @@ export class WebGpuArtifactScoreBackend implements ArtifactScoreBackend {
         entries: [
           { binding: 0, resource: { buffer: artifacts } }, { binding: 1, resource: { buffer: monsters } },
           { binding: 2, resource: { buffer: availability } }, { binding: 3, resource: { buffer: ownedProperties } },
-          { binding: 4, resource: { buffer: parameterBuffer } }, { binding: 5, resource: { buffer: output } },
+          { binding: 4, resource: { buffer: conversionRollFractions } }, { binding: 5, resource: { buffer: parameterBuffer } },
+          { binding: 6, resource: { buffer: output } },
         ],
       });
       const encoder = device.createCommandEncoder();
@@ -126,7 +128,7 @@ export class WebGpuArtifactScoreBackend implements ArtifactScoreBackend {
       return new Float32Array(readback.getMappedRange().slice(0, pairCount * Float32Array.BYTES_PER_ELEMENT));
     } finally {
       readback.unmap();
-      artifacts.destroy(); monsters.destroy(); availability.destroy(); ownedProperties.destroy(); parameterBuffer.destroy();
+      artifacts.destroy(); monsters.destroy(); availability.destroy(); ownedProperties.destroy(); conversionRollFractions.destroy(); parameterBuffer.destroy();
       output.destroy(); readback.destroy();
     }
   }

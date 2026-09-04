@@ -26,12 +26,24 @@ const server = await createServer({
 try {
   const { scoreArtifactOnMonster } = await server.ssrLoadModule('/app/lib/compute/artifact-score-core.ts');
   const { scoredArtifactProperties, artifactPropertyIndex } = await server.ssrLoadModule('/app/lib/compute/artifact-score-schema.ts');
+  const { artifactConversionRollFraction, artifactProperty } = await server.ssrLoadModule('/app/lib/artifact-properties.ts');
   const { defaultPropertyPreferences } = await server.ssrLoadModule('/app/lib/artifact-preferences.ts');
+
+  /* Slider words resolve against the target property's conversion maximum.
+     The two-roll floor and average are property-specific; "three quarters" is
+     exactly 75 % for every property. */
+  const bombDamage = artifactProperty(210);
+  const dealtOnFire = artifactProperty(300);
+  assert.equal(artifactConversionRollFraction(bombDamage, 1), 0.25, 'minimum uses Bomb Damage’s own two-roll floor');
+  assert.equal(artifactConversionRollFraction(dealtOnFire, 1), 0.6, 'minimum is not a shared 60 % estimate');
+  assert.equal(artifactConversionRollFraction(dealtOnFire, 2), 0.8, 'average is the midpoint of the actual range');
+  assert.equal(artifactConversionRollFraction(dealtOnFire, 3), 0.75, 'three quarters is exactly 75 % of the maximum');
+  assert.equal(artifactConversionRollFraction(dealtOnFire, 4), 1, 'maximum is the conversion maximum');
 
   /* Conversion at full reach against a Legend-shaped ceiling, so the fixtures
      below test the ordering rules rather than the conversion ceiling. */
   const request = {
-    acceptableWorth: 50, conversionMode: 1, conversionValue: 1,
+    acceptableWorth: 50, conversionMode: 1, conversionRollFractions: new Array(scoredArtifactProperties.length).fill(1), insignificantDifference: 0,
     ownedConversionPropertyIndexes: [], ownedConversionPropertyIndexesByClass: {},
   };
 
@@ -214,7 +226,7 @@ try {
     ...withRolls([0.9, 0.9, 0.9, 0.9]),
     convertedPropertyIndex: 0, convertedSlotConversionFraction: 0.95,
   };
-  const halfReach = { ...request, conversionValue: 0.6 };
+  const halfReach = { ...request, conversionRollFractions: new Array(scoredArtifactProperties.length).fill(0.6) };
   assert.deepEqual(
     scoreArtifactOnMonster(convertedWell, sourceMonster(convertedBands, convertedShares), halfReach)?.conversions,
     [], 'a converted slot worth more than the projection is left alone');
@@ -224,6 +236,29 @@ try {
   assert.ok(
     scoreArtifactOnMonster(convertedBadly, sourceMonster(convertedBands, convertedShares), halfReach)?.conversions.length,
     'a converted slot worth less than the projection is still recommended for re-conversion');
+
+  // ---- §17.3: the significance band applies to conversions too -----------
+  const lowGainPreferences = new Array(scoredArtifactProperties.length).fill(0);
+  const bombDamageIndex = artifactPropertyIndex.get(210);
+  assert.notEqual(bombDamageIndex, undefined, 'Bomb Damage must be a scored property');
+  lowGainPreferences[bombDamageIndex] = 1;
+  const lowGainArtifact = {
+    id: 'threshold', category: 2, restriction: 4, mainProperty: 0, convertedPropertyIndex: -1,
+    subPropertyIndexes: [-1, -1, -1, -1], subPropertyFractions: [0, 0, 0, 0],
+    convertedSlotConversionFraction: -1, conversionCeilingFraction: 0.4,
+  };
+  const lowGainMonster = {
+    id: 'threshold', name: 'Threshold', element: 4, archetype: 4,
+    mainPreferences: [2, 0, 0], subPropertyPreferences: lowGainPreferences,
+    subPropertyShares: new Array(scoredArtifactProperties.length).fill(0),
+  };
+  const floorFractions = scoredArtifactProperties.map((property) => artifactConversionRollFraction(property, 1));
+  assert.equal(scoreArtifactOnMonster(lowGainArtifact, lowGainMonster, {
+    ...request, conversionRollFractions: floorFractions, insignificantDifference: 0,
+  })?.conversions[0]?.gain, 5, 'the fixture must offer a five-point conversion without a band');
+  assert.deepEqual(scoreArtifactOnMonster(lowGainArtifact, lowGainMonster, {
+    ...request, conversionRollFractions: floorFractions, insignificantDifference: 5,
+  })?.conversions, [], 'a conversion inside the selected band is not recommended');
 
   // ---- §17.5: one band, fully listed, in falling order --------------------
   const mixedBands = new Array(scoredArtifactProperties.length).fill(0);

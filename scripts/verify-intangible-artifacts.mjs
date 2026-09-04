@@ -72,7 +72,10 @@ try {
     'a missing equip class is a rejection, not an Intangible');
 
   // ---- Scoring: the wildcard fits every class in its category -------------
-  const request = { acceptableWorth: 50, conversionMode: 0, conversionValue: 0, ownedConversionPropertyIndexes: [] };
+  const request = {
+    acceptableWorth: 50, conversionMode: 0, conversionRollFractions: [], insignificantDifference: 0,
+    ownedConversionPropertyIndexes: [], ownedConversionPropertyIndexesByClass: {},
+  };
   const packed = (category, restriction) => ({
     id: 'a', category, restriction, mainProperty: 1, convertedPropertyIndex: -1,
     subPropertyIndexes: [0, 1, 2, 3], subPropertyFractions: [0.5, 0.5, 0.5, 0.5],
