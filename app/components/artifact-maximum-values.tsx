@@ -336,7 +336,7 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
     {calculation && !currentCalculation && <p className="notice warning" role="status">Settings or imported data changed. Calculate again to refresh these recommendations.</p>}
     {currentCalculation && <>
       <p className="artifact-recommendation-meta" role="status">{formatNumber(currentCalculation.evaluatedPairs, general)} pairs checked · {formatNumber(currentCalculation.slotCount - currentCalculation.unfilledSlots, general)} of {formatNumber(currentCalculation.slotCount, general)} slots filled · {formatNumber(Math.round(currentCalculation.durationMs), general)} ms · {currentCalculation.backend === 'webgpu' ? 'Graphics card' : 'Processor'}</p>
-      {currentCalculation.unfilledSlots > 0 && <p className="notice warning" role="status">After the ranked placements, no artifact scoring above 0 % remained for {formatNumber(currentCalculation.unfilledSlots, general)} slots. JASWA never fills them with a zero-score match or assigns one artifact twice.</p>}
+      {currentCalculation.unfilledSlots > 0 && <p className="notice warning" role="status">After the ranked placements, no artifact scoring above 0 % remained for {formatNumber(currentCalculation.unfilledSlots, general)} slots. JASWA never fills them with a zero-score match.</p>}
       {settings.conversionStoneMode === 'owned' && currentCalculation.ownedConversionCount === 0 && <p className="notice warning">This import has no readable engraved conversion stones, so the results keep every artifact as it is.</p>}
       {sorted.length ? <div className="artifact-recommendation-table-wrap"><table className="artifact-recommendation-table">
         <SortableHeader columns={columns} sort={sort} onToggle={toggleSort} />
