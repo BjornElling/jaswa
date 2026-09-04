@@ -355,16 +355,17 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
     { key: 'value', label: 'New value', compare: (left, right) => (left.allocation?.value ?? -1) - (right.allocation?.value ?? -1), initialDirection: 'descending' },
     { key: 'conversion', label: 'Best conversions', compare: (left, right) => (left.allocation?.conversions[0]?.gain ?? -1) - (right.allocation?.conversions[0]?.gain ?? -1), initialDirection: 'descending' },
     { key: 'refinement', label: '', accessibleLabel: 'Refinement', compare: (left, right) => Number(left.artifact.unrefined) - Number(right.artifact.unrefined), initialDirection: 'descending' },
-    /* No column of its own: the date answers "which of these did I farm
-       first", which is a question about the order of the rows rather than a
-       fact worth a twelfth column. The filter panel's button drives it. An
-       artifact whose export carries no readable date is ordered as later than
-       every dated one, so oldest-first puts the unknowns at the end instead of
-       letting them pose as the oldest artifacts on the account. */
-    { key: 'obtained', label: 'Obtained', header: false, compare: (left, right) => {
+    /* No column of its own: the date answers "what have I picked up lately",
+       which is a question about the order of the rows rather than a fact worth
+       a twelfth column. The filter panel's button drives it, newest first,
+       because the recent arrivals are the ones whose plan the user has not
+       seen yet. An artifact whose export carries no readable date is ordered
+       as earlier than every dated one, so newest-first puts the unknowns at
+       the end instead of letting them pose as the latest pickups. */
+    { key: 'obtained', label: 'Obtained', header: false, initialDirection: 'descending', compare: (left, right) => {
       const leftAt = left.artifact.obtainedAt;
       const rightAt = right.artifact.obtainedAt;
-      if (leftAt === null || rightAt === null) return leftAt === rightAt ? 0 : leftAt === null ? 1 : -1;
+      if (leftAt === null || rightAt === null) return leftAt === rightAt ? 0 : leftAt === null ? -1 : 1;
       return leftAt - rightAt;
     } },
   ], []);
