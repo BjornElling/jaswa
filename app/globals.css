@@ -3253,6 +3253,8 @@ button { cursor: pointer; }
   align-items: baseline;
 }
 .artifact-conversion-option-name { min-width: 0; }
+.artifact-conversion-option-action,
+.artifact-conversion-option-stone { color: var(--dim); }
 .artifact-conversion-option-gain {
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;

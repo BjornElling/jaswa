@@ -28,6 +28,13 @@ try {
   const { scoredArtifactProperties, artifactPropertyIndex } = await server.ssrLoadModule('/app/lib/compute/artifact-score-schema.ts');
   const { artifactConversionRollFraction, artifactProperty } = await server.ssrLoadModule('/app/lib/artifact-properties.ts');
   const { defaultPropertyPreferences } = await server.ssrLoadModule('/app/lib/artifact-preferences.ts');
+  const { conversionDescription } = await server.ssrLoadModule('/app/lib/artifact-recommendations.ts');
+
+  assert.deepEqual(
+    conversionDescription({ sourceIndex: 0, propertyId: 300, value: 0, gain: 0, preference: 'acceptable' },
+      { category: 'attribute', equipClassCode: 1, grade: 'Rare', propertyId: 300, quantity: 1 }),
+    { verb: 'Convert', source: 'sub 1', target: 'Damage Dealt on Fire', stone: 'Rare Water stone' },
+    'a recommendation exposes its action, source, target and stone for distinct presentation');
 
   /* Slider words resolve against the target property's conversion maximum.
      The two-roll floor and average are property-specific; "three quarters" is

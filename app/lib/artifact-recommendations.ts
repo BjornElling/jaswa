@@ -70,17 +70,13 @@ const stoneEquipClassNames: Record<ArtifactCategory, Record<number, string>> = {
   type: artifactArchetypes,
 };
 
-/**
- * A conversion as one line of text: what it converts, to what, and — where a
- * stone would be spent — which stone (§17.6). The stone is named by grade and
- * class only, because the conversion itself already names the property.
- */
-export function conversionLabel(
+/** The semantic pieces of one conversion recommendation (§17.6). */
+export function conversionDescription(
   conversion: ArtifactConversion,
   stone?: EngravedConversionStone,
   /** The artifact's permanently converted line, where it has one (§10). */
   convertedPropertyIndex?: number | null,
-): string {
+): { verb: 'Convert' | 'Re-convert'; source: string; target: string; stone?: string } {
   const property = artifactProperty(conversion.propertyId);
   const target = property ? property.name : `property ${conversion.propertyId}`;
   /* The lock means a further stone overwrites the line already converted, so
@@ -88,8 +84,8 @@ export function conversionLabel(
      artifact's one free slot. A user reading "convert" would not know the
      existing line is what pays for it. */
   const verb = convertedPropertyIndex === conversion.sourceIndex ? 'Re-convert' : 'Convert';
-  const source = `${verb} sub ${conversion.sourceIndex + 1} to ${target}`;
-  if (!stone) return source;
+  const source = `sub ${conversion.sourceIndex + 1}`;
+  if (!stone) return { verb, source, target };
   const equipClass = stoneEquipClassNames[stone.category][stone.equipClassCode] ?? '';
-  return `${source} · ${stone.grade} ${equipClass} stone`.replace('  ', ' ');
+  return { verb, source, target, stone: `${stone.grade} ${equipClass} stone`.replace('  ', ' ') };
 }

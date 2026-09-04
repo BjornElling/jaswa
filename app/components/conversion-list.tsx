@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { conversionLabel, engravedStoneFor } from '../lib/artifact-recommendations';
+import { conversionDescription, engravedStoneFor } from '../lib/artifact-recommendations';
 import { artifactRestriction } from '../lib/compute/artifact-score-input';
 import type { EngravedConversionStone } from '../lib/artifact-conversion-stones';
 import type { Artifact } from '../lib/artifacts';
@@ -40,10 +40,14 @@ export function ConversionList({ conversions, artifact, stones, mode }: {
       const stone = mode === 'owned' && artifact
         ? engravedStoneFor(stones, artifact.category, artifactRestriction(artifact), conversion.propertyId)
         : undefined;
+      const description = conversionDescription(conversion, stone, artifact?.convertedPropertyIndex);
       return <li key={`${conversion.sourceIndex}-${conversion.propertyId}`}>
         <span className="artifact-conversion-option-gain">+{conversion.gain}</span>
         <span className="artifact-conversion-option-name">
-          {conversionLabel(conversion, stone, artifact?.convertedPropertyIndex)}
+          <span className="artifact-conversion-option-action">{description.verb}</span>{' '}
+          {description.source} <span className="artifact-conversion-option-action">to</span>{' '}
+          {description.target}
+          {description.stone && <span className="artifact-conversion-option-stone"> ({description.stone})</span>}
         </span>
       </li>;
     })}</ul>
