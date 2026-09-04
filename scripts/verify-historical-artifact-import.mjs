@@ -46,7 +46,7 @@ try {
   const requests = buildArtifactScoreRequestsForMonsterIds(
     { artifacts: [currentRecord, historicalRecord] },
     [recordedArtifactPreferenceMonsterIds[0]],
-    { acceptableWorth: 50, onlyFactorInOwnedMonsters: true, conversionStoneMode: 'none', conversionStoneValue: 1 },
+    { acceptableWorth: 50, onlyFactorInOwnedMonsters: true, onlyLevel40Monsters: false, conversionStoneMode: 'none', conversionStoneValue: 1 },
   );
   assert.deepEqual(requests.flatMap((request) => request.artifacts.map((entry) => entry.id)), ['1', '2']);
   console.log('Verified historical artifacts import, scoring and unrefined state.');

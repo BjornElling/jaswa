@@ -45,7 +45,7 @@ export const artifactConversionStoneModes: ArtifactConversionStoneMode[] = ['non
 /* The exact key set rejects the retired grade-specific source shape instead of
    silently carrying fields the current settings page no longer offers. */
 const artifactSettingKeys = [
-  'acceptableWorth', 'onlyFactorInOwnedMonsters', 'conversionStoneMode', 'conversionStoneValue',
+  'acceptableWorth', 'onlyFactorInOwnedMonsters', 'onlyLevel40Monsters', 'conversionStoneMode', 'conversionStoneValue',
   'ignoreInsignificantDifferences', 'insignificantDifference', 'includeIntangibleArtifacts',
 ] as const;
 
@@ -58,6 +58,7 @@ export const artifactInsignificantDifferenceRange = { minimum: 1, maximum: 5 } a
 export const defaultArtifactSettings: ArtifactSettings = {
   acceptableWorth: 50,
   onlyFactorInOwnedMonsters: true,
+  onlyLevel40Monsters: false,
   conversionStoneMode: 'owned',
   conversionStoneValue: 3,
   /* Off by default: suppressing a difference is the user's judgement about what
@@ -105,6 +106,7 @@ function isArtifactSettings(value: unknown): value is ArtifactSettings {
     && Object.keys(value).every((key) => artifactSettingKeys.includes(key as typeof artifactSettingKeys[number]))
     && artifactAcceptableWorthChoices.includes(value.acceptableWorth as typeof artifactAcceptableWorthChoices[number])
     && typeof value.onlyFactorInOwnedMonsters === 'boolean'
+    && typeof value.onlyLevel40Monsters === 'boolean'
     && artifactConversionStoneModes.includes(value.conversionStoneMode as ArtifactConversionStoneMode)
     && isScale(value.conversionStoneValue, 4)
     && typeof value.ignoreInsignificantDifferences === 'boolean'

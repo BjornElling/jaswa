@@ -25,6 +25,7 @@ import { numberedMonsterNames } from '../lib/monster-names';
 import { elementName } from '../lib/rune-sets';
 import type { ArtifactSettings, GeneralSettings } from '../lib/types';
 import type { ArtifactCategory } from '../lib/artifact-properties';
+import { artifactOptimizationMonsters } from '../lib/artifact-optimization-monsters';
 
 const monsterElements = ['Water', 'Fire', 'Wind', 'Light', 'Dark'] as const;
 const monsterArchetypes = ['Attack', 'Defense', 'HP', 'Support'] as const;
@@ -167,10 +168,14 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
   const [state, setState] = useState<'idle' | 'calculating' | 'error'>('idle');
 
   const allMonsters = useMemo(() => monsterOptions(monsters), [monsters]);
-  const filteredMonsters = useMemo(() => allMonsters.filter((monster) =>
+  const eligibleMonsters = useMemo(
+    () => monsterOptions(artifactOptimizationMonsters(monsters, settings)),
+    [monsters, settings],
+  );
+  const filteredMonsters = useMemo(() => eligibleMonsters.filter((monster) =>
     (!selectedElements.length || (monster.element !== undefined && selectedElements.includes(monster.element)))
     && (!selectedArchetypes.length || (monster.archetype !== undefined && selectedArchetypes.includes(monster.archetype)))),
-  [allMonsters, selectedArchetypes, selectedElements]);
+  [eligibleMonsters, selectedArchetypes, selectedElements]);
   const selectedMonster = filteredMonsters.find((monster) => monster.unitId === selectedUnitId);
   const artifacts = useMemo(() => readArtifacts(data), [data]);
   const artifactNumbers = useMemo(() => new Map(artifacts.map((artifact, index) => [artifact.id, index])), [artifacts]);
@@ -179,7 +184,7 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
   const inputKey = JSON.stringify({
     artifacts: artifacts.map((artifact) => [artifact.id, artifact.occupiedId, artifact.mainProperty, artifact.convertedPropertyIndex,
       ...artifact.subProperties.map((subProperty) => [subProperty.definition.id, subProperty.valueHundredths, subProperty.maximumHundredths])]),
-    monsterIds: allMonsters.map((monster) => [monster.unitId, monster.masterId]),
+    monsterIds: eligibleMonsters.map((monster) => [monster.unitId, monster.masterId]),
     selectedUnitId,
     settings,
   });
@@ -236,7 +241,9 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
     for (const artifact of artifacts) {
       if (artifact.occupiedId === null) continue;
       const wearer = wearers.get(artifact.occupiedId);
-      if (wearer) currentMonsterIds.set(artifact.id, monsterSpeciesId(wearer.masterId));
+      if (wearer && eligibleMonsters.some((monster) => monster.unitId === wearer.unitId)) {
+        currentMonsterIds.set(artifact.id, monsterSpeciesId(wearer.masterId));
+      }
     }
     const allRequests = buildArtifactScoreRequests(data, monsters, settings);
     const targetRequests = buildArtifactScoreRequestsForMonsterIds(data, [monsterSpeciesId(selectedMonster.masterId)], settings);

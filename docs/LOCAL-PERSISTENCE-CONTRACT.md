@@ -22,8 +22,8 @@ The durable workspace contains:
 - all preferences: import route and mode, graphics preference, formats and
   time zone, monster preferences, Rune Potential settings, Rune Potential
   presets, and Artifact Optimization settings (whether to factor in only owned
-  monsters, how conversion stones are sourced, the assumed stone value, and the
-  acceptable-property factor);
+  monsters or only Lv. 40 monsters, how conversion stones are sourced, the
+  assumed stone value, and the acceptable-property factor);
 - the chosen export-folder handle when the browser supports it.
 
 The first two records live in IndexedDB under the local `jaswa-local`

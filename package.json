@@ -16,6 +16,7 @@
     "verify:artifact-conversion-lock": "node scripts/verify-artifact-conversion-lock.mjs",
     "verify:artifact-score-scale": "node scripts/verify-artifact-score-scale.mjs",
     "verify:artifact-recommendation-allocation": "node scripts/verify-artifact-recommendation-allocation.mjs",
+    "verify:artifact-level-scope": "node scripts/verify-artifact-level-scope.mjs",
     "verify:intangible-artifacts": "node scripts/verify-intangible-artifacts.mjs",
     "verify:conversion-share-tiebreak": "node scripts/verify-conversion-share-tiebreak.mjs",
     "verify:collaboration-species": "node scripts/verify-collaboration-species.mjs",

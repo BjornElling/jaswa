@@ -69,6 +69,8 @@ export type GeneralSettings = { numberFormat: NumberFormatChoice; dateOrder: Dat
 export type ArtifactSettings = {
   acceptableWorth: number;
   onlyFactorInOwnedMonsters: boolean;
+  /** Limit every artifact recommendation destination to an owned Lv. 40 monster. */
+  onlyLevel40Monsters: boolean;
   conversionStoneMode: ArtifactConversionStoneMode;
   conversionStoneValue: number;
   /**

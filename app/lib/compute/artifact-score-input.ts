@@ -14,6 +14,7 @@ import { artifactPropertyIndex, categoryCode, scoredArtifactProperties } from '.
 import { intangibleRestrictionCode } from './artifact-score-protocol';
 import type { ArtifactScoreRequest, PackedArtifactScoreInput, PackedMonsterScoreInput } from './artifact-score-protocol';
 import type { ArtifactSettings } from '../types';
+import { artifactOptimizationMonsters } from '../artifact-optimization-monsters';
 
 const mainPropertyIndexes: Record<ArtifactMainProperty, 0 | 1 | 2> = { HP: 0, ATK: 1, DEF: 2 };
 const archetypeCodes: Record<string, number> = { Attack: 1, Defense: 2, HP: 3, Support: 4 };
@@ -189,8 +190,14 @@ export function readOwnedEngravedConversionPropertyIndexes(data: GameRecord | un
   return [...propertyIndexes];
 }
 
-function sourceMonsterIds(monsters: readonly GameRecord[], ownOnly: boolean): readonly string[] {
-  return ownOnly ? ownMonsterSpeciesIds(monsters) : recordedArtifactPreferenceMonsterIds;
+function sourceMonsterIds(monsters: readonly GameRecord[], settings: ArtifactSettings): readonly string[] {
+  const candidates = artifactOptimizationMonsters(monsters, settings);
+  /* The catalogue has no account level to inspect. A Lv. 40 restriction is
+     therefore necessarily an owned-roster calculation, even if the broader
+     scope setting would otherwise use every species in the game. */
+  return settings.onlyFactorInOwnedMonsters || settings.onlyLevel40Monsters
+    ? ownMonsterSpeciesIds(candidates)
+    : recordedArtifactPreferenceMonsterIds;
 }
 
 /** Builds two category-specific matrices so no artifact is compared with an ineligible element or archetype. */
@@ -234,5 +241,5 @@ export function buildArtifactScoreRequests(
   settings: ArtifactSettings,
   artifactIds?: ReadonlySet<string>,
 ): ArtifactScoreRequest[] {
-  return buildArtifactScoreRequestsForMonsterIds(data, sourceMonsterIds(monsters, settings.onlyFactorInOwnedMonsters), settings, artifactIds);
+  return buildArtifactScoreRequestsForMonsterIds(data, sourceMonsterIds(monsters, settings), settings, artifactIds);
 }

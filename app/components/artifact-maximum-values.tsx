@@ -29,6 +29,7 @@ import type { ArtifactCategory, ArtifactGrade, ArtifactMainProperty } from '../l
 import type { ArtifactConversion, ArtifactScoreRequest, ArtifactScoreResult } from '../lib/compute/artifact-score-protocol';
 import type { GameRecord } from '../lib/game-data';
 import type { ArtifactSettings, GeneralSettings } from '../lib/types';
+import { artifactOptimizationMonsters } from '../lib/artifact-optimization-monsters';
 
 const categoryOrder: readonly ArtifactCategory[] = ['attribute', 'type'];
 /* Intangible joins the named classes so the wildcard artifacts can be filtered
@@ -64,8 +65,9 @@ function readOwnedMonsters(monsters: readonly GameRecord[]): OwnedMonster[] {
   return owned.sort((left, right) => monsterNameCollator.compare(left.name, right.name) || monsterNameCollator.compare(left.unitId, right.unitId));
 }
 
-function recommendationMonsters(monsters: readonly GameRecord[], onlyOwned: boolean): OwnedMonster[] {
-  if (onlyOwned) return readOwnedMonsters(monsters);
+function recommendationMonsters(monsters: readonly GameRecord[], settings: ArtifactSettings): OwnedMonster[] {
+  const candidates = artifactOptimizationMonsters(monsters, settings);
+  if (settings.onlyFactorInOwnedMonsters || settings.onlyLevel40Monsters) return readOwnedMonsters(candidates);
   /* Not owned copies but monsters in the abstract, so each is named as a species
      and a collaboration pair is listed once under both of its names. */
   return recordedArtifactPreferenceMonsterIds.map((speciesId) => ({
@@ -105,6 +107,7 @@ function allocateArtifacts(
   artifactOrder: ReadonlyMap<string, number>,
   artifactsById: ReadonlyMap<string, Artifact>,
   wearerByUnitId: ReadonlyMap<string, OwnedMonster>,
+  scopedMonsterIds: ReadonlySet<string>,
   settings: ArtifactSettings,
 ): { allocations: Map<string, Allocation>; unfilledSlots: number; slotCount: number } {
   const candidates: Array<{
@@ -136,7 +139,7 @@ function allocateArtifacts(
            than a physical current wearer. In the owned scope, however, the
            user's stated action threshold removes a marginal move before it can
            claim a slot; keeping the current artifact remains a candidate. */
-        if (currentWearer && !monster.unitId.startsWith('species-') && monster.unitId !== currentWearer.unitId) {
+        if (currentWearer && scopedMonsterIds.has(currentWearer.unitId) && !monster.unitId.startsWith('species-') && monster.unitId !== currentWearer.unitId) {
           const current = scoreAt(calculation, artifact.id, currentWearer.masterId);
           if (current !== undefined && !isWorthwhileGain(value, current, settings)) continue;
         }
@@ -190,8 +193,9 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
   const artifactsById = useMemo(() => new Map(artifacts.map((artifact) => [artifact.id, artifact])), [artifacts]);
   const stones = useMemo(() => engravedStonesFor(data), [data]);
   const ownedMonsters = useMemo(() => readOwnedMonsters(monsters), [monsters]);
-  const scopedMonsters = useMemo(() => recommendationMonsters(monsters, settings.onlyFactorInOwnedMonsters), [monsters, settings.onlyFactorInOwnedMonsters]);
+  const scopedMonsters = useMemo(() => recommendationMonsters(monsters, settings), [monsters, settings]);
   const wearerByUnitId = useMemo(() => new Map(ownedMonsters.map((monster) => [monster.unitId, monster])), [ownedMonsters]);
+  const scopedMonsterIds = useMemo(() => new Set(scopedMonsters.map((monster) => monster.unitId)), [scopedMonsters]);
   const subPropertyOptions = useMemo(() => {
     const definitions = new Map<number, { id: number; name: string }>();
     for (const artifact of artifacts) for (const property of artifact.subProperties) definitions.set(property.definition.id, { id: property.definition.id, name: property.definition.name });
@@ -248,7 +252,7 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
         evaluatedPairs: results.reduce((total, result) => total + result.evaluatedPairs, 0),
         ownedConversionCount: Math.max(...results.map((result) => result.ownedConversionCount)),
         categories,
-        ...allocateArtifacts(categories, scopedMonsters, artifactOrder, artifactsById, wearerByUnitId, settings),
+        ...allocateArtifacts(categories, scopedMonsters, artifactOrder, artifactsById, wearerByUnitId, scopedMonsterIds, settings),
       });
       setState('idle');
     } catch {
@@ -265,6 +269,7 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
 
   const scoreForWearer = (artifact: Artifact): number | undefined => {
     if (!currentCalculation || artifact.occupiedId === null) return undefined;
+    if (!scopedMonsterIds.has(artifact.occupiedId)) return undefined;
     const wearer = wearerByUnitId.get(artifact.occupiedId);
     const category = currentCalculation.categories.find((entry) => entry.request.artifacts[0]?.category === (artifact.category === 'attribute' ? 1 : 2));
     return wearer && category ? scoreAt(category, artifact.id, wearer.masterId) : undefined;

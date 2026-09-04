@@ -23,6 +23,7 @@ import type { ArtifactMaximumScore } from '../lib/compute/artifact-score-protoco
 import type { GameRecord } from '../lib/game-data';
 import type { MonsterArchetype } from '../lib/monster-catalog';
 import type { ArtifactSettings, GeneralSettings } from '../lib/types';
+import { artifactOptimizationMonsters } from '../lib/artifact-optimization-monsters';
 
 const categoryOrder: readonly ArtifactCategory[] = ['attribute', 'type'];
 /* Intangible is offered alongside the named classes so the wildcard artifacts
@@ -140,7 +141,10 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
     return [...definitions.values()].sort((left, right) => monsterNameCollator.compare(left.name, right.name)
       || monsterNameCollator.compare(String(left.id), String(right.id)));
   }, [artifacts]);
-  const ownMonsters = useMemo(() => ownMonsterOptions(monsters), [monsters]);
+  const ownMonsters = useMemo(
+    () => ownMonsterOptions(artifactOptimizationMonsters(monsters, settings)),
+    [monsters, settings],
+  );
   const selectedSubPropertyId = subPropertyOptions.some((option) => String(option.id) === filters.subPropertyId)
     ? filters.subPropertyId : '';
   const artifactsByFilter = useMemo(() => artifacts.filter((artifact) => {
