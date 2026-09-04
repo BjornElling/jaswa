@@ -1441,6 +1441,9 @@ button { cursor: pointer; }
 .artifact-recommendation-table th:nth-child(11), .artifact-recommendation-table td:nth-child(11) { width: 3%; text-align: right; }
 .artifact-recommendation-flag > * { margin-left: 0; }
 .artifact-recommendation-sell { color: var(--faint); }
+.artifact-recommendation-keep,
+.artifact-recommendation-score-good,
+.artifact-recommendation-no-conversion { color: var(--gold); }
 /* Below about 1240px the action no longer fits beside the filters, so it drops
    under them. The three filter rows are unchanged. */
 @media (min-width: 1921px) and (max-width: 1240px) {

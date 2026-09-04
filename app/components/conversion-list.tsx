@@ -22,15 +22,18 @@ const visibleConversions = 3;
  * band by the scorer, so this only names the entries and decides how many of
  * them to show at once.
  */
-export function ConversionList({ conversions, artifact, stones, mode }: {
+export function ConversionList({ conversions, artifact, stones, mode, emptyClassName }: {
   conversions: readonly ArtifactConversion[];
   artifact: Artifact | undefined;
   stones: readonly EngravedConversionStone[];
   mode: ArtifactSettings['conversionStoneMode'];
+  /** A caller may give its own reading of a no-op conversion without styling
+   * conversion options on the other artifact views. */
+  emptyClassName?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
 
-  if (!conversions.length) return <span className="muted">No conversion</span>;
+  if (!conversions.length) return <span className={emptyClassName ?? 'muted'}>No conversion</span>;
   const shown = expanded ? conversions : conversions.slice(0, visibleConversions);
   const hidden = conversions.length - shown.length;
 

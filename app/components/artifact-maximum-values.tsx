@@ -46,6 +46,7 @@ type CategoryCalculation = { request: ArtifactScoreRequest; result: ArtifactScor
 type Allocation = { monster: OwnedMonster; value: number; conversions: readonly ArtifactConversion[] };
 type UnscoredSlot = { monster: OwnedMonster; category: ArtifactCategory; status: 'missing' | 'empty' };
 type Calculation = { inputKey: string; backend: 'cpu' | 'webgpu'; durationMs: number; evaluatedPairs: number; ownedConversionCount: number; categories: CategoryCalculation[]; allocations: Map<string, Allocation>; unfilledSlots: number; slotCount: number; unscoredSlots: readonly UnscoredSlot[] };
+const recommendedScoreThreshold = 75;
 
 const defaultFilters: ArtifactFilters = { categories: [], restrictions: [], grades: [], mainProperties: [], subPropertyId: '', locations: [] };
 
@@ -198,7 +199,7 @@ function describeUnscoredMonsters(slots: readonly UnscoredSlot[]): string {
 /* Scores arrive as whole percentage points (§17.1), so nothing is rounded here:
    the number shown is the number every comparison used. */
 function Score({ value, general }: { value: number | undefined; general: GeneralSettings }) {
-  return value === undefined ? '—' : `${formatNumber(value, general)} %`;
+  return value === undefined ? '—' : <span className={value >= recommendedScoreThreshold ? 'artifact-recommendation-score-good' : undefined}>{formatNumber(value, general)} %</span>;
 }
 
 export function ArtifactMaximumValues({ data, monsters, settings, general, hardwareAcceleration }: {
@@ -391,12 +392,12 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
           </li>)}</ul></td>
           <td>{row.wearerName}</td>
           <td><Score value={row.current} general={general} /></td>
-          <td className={row.action === 'Sell' ? 'artifact-recommendation-sell' : ''}>{row.action}</td>
+          <td className={row.action === 'Sell' ? 'artifact-recommendation-sell' : row.action === 'Keep' ? 'artifact-recommendation-keep' : ''}>{row.action}</td>
           <td className={row.allocation ? '' : 'artifact-recommendation-sell'}>{row.allocation?.monster.name ?? '—'}</td>
           <td><Score value={row.allocation?.value} general={general} /></td>
-          <td className={row.allocation?.conversions.length ? '' : 'muted'}>
+          <td className={row.allocation?.conversions.length ? '' : row.allocation ? 'artifact-recommendation-no-conversion' : 'muted'}>
             {row.allocation ? <ConversionList conversions={row.allocation.conversions} artifact={row.artifact}
-              stones={stones} mode={settings.conversionStoneMode} /> : '—'}
+              stones={stones} mode={settings.conversionStoneMode} emptyClassName="artifact-recommendation-no-conversion" /> : '—'}
           </td>
           <td className="artifact-recommendation-flag"><UnrefinedArtifactMark unrefined={row.artifact.unrefined} /></td>
         </tr>)}</tbody>
