@@ -99,11 +99,8 @@ export function ArtifactsSection({ settings, data, monsters, general, hardwareAc
             <h3 id="artifact-scope-title">Monster scope</h3>
             <CheckboxRow label="Only factor in mons you own" checked={settings.onlyFactorInOwnedMonsters}
               onChange={(checked) => void onUpdate({ onlyFactorInOwnedMonsters: checked })} />
-            <CheckboxRow label="Only Lv. 40" checked={settings.onlyLevel40Monsters}
+            <CheckboxRow label="Only factor in Lv. 40 mons" checked={settings.onlyLevel40Monsters}
               onChange={(checked) => void onUpdate({ onlyLevel40Monsters: checked })} />
-            <p className="artifact-scope-note">
-              Lv. 40 limits every optimizer destination to your max-level mons. Artifacts equipped on lower-level mons stay in the pool.
-            </p>
           </section>
         </div>
 
