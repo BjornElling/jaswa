@@ -1555,14 +1555,14 @@ clamped or repaired.
 ## 17. The optimizer's purpose, and the rules that follow from it
 
 The workspace answers **one** question: *which artifact, wearing which
-conversion, belongs on which monster so that it does the most good there?*
+conversion, belongs in each monster's Attribute and Type slots?*
 
-It deliberately does **not** maximise the sum of every equipped artifact. The
-user farms continuously and is aiming at a top score for each artifact on each
-monster, so the target is per-artifact placement quality, not a portfolio
-total. The two objectives genuinely disagree — a global sum will happily move a
-superb artifact onto a monster it merely suits in order to free a slot — and
-where they disagree, this section governs.
+It ranks every positive artifact/monster score together, locks the highest pair
+first, and continues down the ranking. A lock consumes that physical artifact
+and exactly one slot: Attribute or Type on one monster. This is deliberately
+not a maximum-sum matching algorithm. The user farms replacements continuously,
+so an outstanding individual fit must win even where a portfolio optimiser
+would trade it away for a larger total.
 
 Five rules follow, and each is a place the interface has been wrong.
 
@@ -1579,21 +1579,24 @@ Rounding is therefore applied once, where the score leaves the calculation, and
 every consumer reads the same integer. Ties are then broken by a **stated**
 rule — the artifact's own order — never by residual floating-point noise.
 
-### 17.2 A recommendation must be an improvement
+### 17.2 A placement owns one artifact and one slot
 
-A row that recommends what is already true is noise. The recommendation views
-show an artifact against a monster only when moving it there **improves on
-where it is now**:
+Each monster has exactly two distinct slots: one Attribute and one Type. A
+placement may fill only the matching category slot, and an artifact may occur
+in only one placement. The allocator checks both claims after every pass; a
+duplicate artifact or a third artifact for a monster fails loudly rather than
+silently becoming advice.
 
-- an artifact already on the monster where it scores highest is not
-  recommended anywhere;
-- a monster scoring lower than, or equal to, the artifact's current wearer is
-  never offered.
+The table shows the complete result, not only moves: **Keep** is a selected
+artifact already on its locked monster, **Equip** is a selected artifact that
+belongs elsewhere, and every unselected artifact says **Sell**. This preserves
+the one-to-one plan and prevents an equipped artifact from disappearing merely
+because no move is required.
 
-"Highest" means the artifact's own maximum across the eligible monsters, not
-the result of an exclusive allocation. An allocation that hands the monster to
-a different artifact says something about that other artifact; it says nothing
-about whether this one is already where it does most good.
+A score of zero means that an artifact is legal but contributes nothing. It is
+not allowed to fill a slot. A slot may therefore remain empty when no positive
+artifact remains after stronger locks; the result reports every such shortfall
+explicitly rather than duplicating an artifact or pretending a zero is useful.
 
 ### 17.3 Differences below the stated threshold are not differences
 

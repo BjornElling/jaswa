@@ -94,9 +94,10 @@
 
 * { box-sizing: border-box; }
 
-/* The scrollbar's track is reserved whether or not it is needed, so centred
-   content does not shift sideways when a page grows past one screen. */
-html { scrollbar-gutter: stable; }
+/* Keep a real vertical track from the first paint. `scrollbar-gutter` alone
+   still shifts Chromium's root box when a result table first overflows; a
+   permanent track keeps controls fixed while a calculation reveals its rows. */
+html { overflow-y: scroll; scrollbar-gutter: auto; }
 
 body {
   margin: 0;
@@ -1364,22 +1365,23 @@ button { cursor: pointer; }
 .artifact-recommendation-table th, .artifact-recommendation-table td { padding: var(--s3); border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
 .artifact-recommendation-table th { color: var(--faint); font-size: var(--t-micro); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .artifact-recommendation-table tr:last-child td { border-bottom: 0; }
-.artifact-recommendation-table th:nth-child(1) { width: 5.8719%; }
-.artifact-recommendation-table th:nth-child(2) { width: 6.4947%; }
-.artifact-recommendation-table th:nth-child(3) { width: 5.3381%; }
+.artifact-recommendation-table th:nth-child(1) { width: 5%; }
+.artifact-recommendation-table th:nth-child(2) { width: 7%; }
+.artifact-recommendation-table th:nth-child(3) { width: 5%; }
 /* The widest column, because a substat line is the longest thing in the row.
    It is also the column that gives ground when a share has to be found: a long
    line wraps to a second row rather than ellipsing its value away, which the
    rule further down allows for. */
-.artifact-recommendation-table th:nth-child(4) { width: 21.3523%; }
+.artifact-recommendation-table th:nth-child(4) { width: 20%; }
 /* Monster names, which have to stay on one line to be scannable. */
-.artifact-recommendation-table th:nth-child(5), .artifact-recommendation-table th:nth-child(7) { width: 11.21%; }
-.artifact-recommendation-table th:nth-child(6), .artifact-recommendation-table th:nth-child(8), .artifact-recommendation-table td:nth-child(6), .artifact-recommendation-table td:nth-child(8) { width: 7.1174%; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.artifact-recommendation-table th:nth-child(5), .artifact-recommendation-table th:nth-child(8) { width: 10%; }
+.artifact-recommendation-table th:nth-child(6), .artifact-recommendation-table th:nth-child(9), .artifact-recommendation-table td:nth-child(6), .artifact-recommendation-table td:nth-child(9) { width: 7%; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.artifact-recommendation-table th:nth-child(7) { width: 6%; }
 /* Each conversion is a whole sentence naming a property and the stone it would
    spend, and the column lists several of them (§17.5). It carries the rounding
    remainder, so it is the column to adjust when the shares must total 100. */
-.artifact-recommendation-table th:nth-child(9) { width: 20.8184%; }
-.artifact-recommendation-table td:nth-child(9) { overflow-wrap: break-word; }
+.artifact-recommendation-table th:nth-child(10) { width: 20%; }
+.artifact-recommendation-table td:nth-child(10) { overflow-wrap: break-word; }
 /* .artifact-subs ellipsises its lines, which suits the library's wider column.
    Here the value sits at the end of the line, so an ellipsis eats exactly the
    part worth reading; a long line wraps to a second row instead. Scoped to
@@ -1388,7 +1390,7 @@ button { cursor: pointer; }
 /* The refinement flag ends the row: narrow, unlabelled, and empty on every
    artifact that needs no attention. The marker is the cell's only content, so
    the margin it carries for trailing running text is dropped here. */
-.artifact-recommendation-table th:nth-child(10), .artifact-recommendation-table td:nth-child(10) { width: 3.4698%; text-align: right; }
+.artifact-recommendation-table th:nth-child(11), .artifact-recommendation-table td:nth-child(11) { width: 3%; text-align: right; }
 .artifact-recommendation-flag > * { margin-left: 0; }
 .artifact-recommendation-sell { color: var(--faint); }
 /* Below about 1240px the action no longer fits beside the filters, so it drops
