@@ -123,33 +123,46 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
 
   let conversionCeiling = artifacts[artifactOffset + 12u];
   let convertedSlotFraction = artifacts[artifactOffset + 13u];
-  for (var source: u32 = 0u; source < 4u; source = source + 1u) {
-    if (convertedIndex >= 0 && i32(source) != convertedIndex) { continue; }
-    for (var candidate: u32 = 0u; candidate < PROPERTY_COUNT; candidate = candidate + 1u) {
-      let availability = propertyAvailability[candidate];
-      if (availability != 0 && availability != category) { continue; }
-      if (parameters.conversionMode == 2u && !ownsProperty(restriction, candidate)) { continue; }
-      var exists = false;
-      for (var line: u32 = 0u; line < 4u; line = line + 1u) {
-        if (i32(candidate) == i32(artifacts[artifactOffset + 4u + line])) { exists = true; }
+  // The CPU reference offers targets for one source only: the permanently
+  // converted slot, or the weakest-contributing slot. At zero contribution the
+  // smaller roll is the tiebreak; an exact tie keeps the earlier artifact line.
+  var source: u32 = 0u;
+  if (convertedIndex >= 0) {
+    source = u32(convertedIndex);
+  } else {
+    for (var line: u32 = 1u; line < 4u; line = line + 1u) {
+      let candidateContribution = sourceContribution[line];
+      let sourceValue = sourceContribution[source];
+      if (candidateContribution < sourceValue
+        || (candidateContribution == 0.0 && sourceValue == 0.0
+          && artifacts[artifactOffset + 8u + line] < artifacts[artifactOffset + 8u + source])) {
+        source = line;
       }
-      if (exists) { continue; }
-      let band = i32(monsters[monsterOffset + 5u + candidate]);
-      // A property the monster neither prefers nor accepts is never suggested.
-      if (band == 0) { continue; }
-      let candidateWeight = preferenceWeight(band);
-      let conversionFraction = conversionRollFractions[candidate];
-      // A converted slot already holding at least what this candidate would
-      // produce keeps what it has: another stone overwrites that same line.
-      if (convertedIndex >= 0 && i32(source) == convertedIndex
-        && convertedSlotFraction >= 0.0
-        && convertedSlotFraction >= conversionFraction) { continue; }
-      // A conversion collects two contributions whatever the grade allows, so
-      // it reaches only this fraction of the line it replaces.
-      let converted = scorePercent(mainWeight * (weighted - sourceContribution[source]
-        + candidateWeight * conversionFraction * conversionCeiling) / benchmark);
-      if (converted - currentPercent > parameters.insignificantDifference) { best = max(best, converted); }
     }
+  }
+  for (var candidate: u32 = 0u; candidate < PROPERTY_COUNT; candidate = candidate + 1u) {
+    let availability = propertyAvailability[candidate];
+    if (availability != 0 && availability != category) { continue; }
+    if (parameters.conversionMode == 2u && !ownsProperty(restriction, candidate)) { continue; }
+    var exists = false;
+    for (var line: u32 = 0u; line < 4u; line = line + 1u) {
+      if (i32(candidate) == i32(artifacts[artifactOffset + 4u + line])) { exists = true; }
+    }
+    if (exists) { continue; }
+    let band = i32(monsters[monsterOffset + 5u + candidate]);
+    // A property the monster neither prefers nor accepts is never suggested.
+    if (band == 0) { continue; }
+    let candidateWeight = preferenceWeight(band);
+    let conversionFraction = conversionRollFractions[candidate];
+    // A converted slot already holding at least what this candidate would
+    // produce keeps what it has: another stone overwrites that same line.
+    if (convertedIndex >= 0 && convertedSlotFraction >= 0.0
+      && convertedSlotFraction >= conversionFraction) { continue; }
+    // A conversion collects two contributions whatever the grade allows, so
+    // it reaches only this fraction of the line it replaces.
+    let converted = scorePercent(mainWeight * (weighted - sourceContribution[source]
+      + candidateWeight * conversionFraction * conversionCeiling) / benchmark);
+    if (converted - currentPercent > parameters.insignificantDifference) { best = max(best, converted); }
   }
   output[pairIndex] = best;
 }`;

@@ -25,10 +25,21 @@ const server = await createServer({
 
 try {
   const { scoreArtifactOnMonster } = await server.ssrLoadModule('/app/lib/compute/artifact-score-core.ts');
+  const { artifactScoreShader } = await server.ssrLoadModule('/app/lib/compute/webgpu/artifact-score-shader.ts');
   const { scoredArtifactProperties, artifactPropertyIndex } = await server.ssrLoadModule('/app/lib/compute/artifact-score-schema.ts');
   const { artifactConversionRollFraction, artifactProperty } = await server.ssrLoadModule('/app/lib/artifact-properties.ts');
   const { defaultPropertyPreferences } = await server.ssrLoadModule('/app/lib/artifact-preferences.ts');
   const { conversionDescription } = await server.ssrLoadModule('/app/lib/artifact-recommendations.ts');
+
+  /* The GPU uses the same single-source conversion contract as the CPU.
+     WebGPU is optional in the test runner, so keep this small structural guard
+     beside the CPU behaviour fixtures. */
+  assert.ok(artifactScoreShader.includes('var source: u32 = 0u;'),
+    'the GPU scorer must choose one conversion source before evaluating candidates');
+  assert.ok(artifactScoreShader.includes('source = u32(convertedIndex);'),
+    'the GPU scorer must lock a permanent conversion to its own source line');
+  assert.ok(!artifactScoreShader.includes('for (var source: u32 = 0u; source < 4u;'),
+    'the GPU scorer must not offer conversions from every source line');
 
   assert.deepEqual(
     conversionDescription({ sourceIndex: 0, propertyId: 300, value: 0, gain: 0, preference: 'acceptable' },
