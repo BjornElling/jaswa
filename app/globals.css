@@ -125,26 +125,25 @@ body {
 .device-check { min-height: 100vh; background: var(--bg); }
 
 /* A phone or tablet is deliberately a different destination, not a squeezed
-   workspace. It borrows Home's quiet rune and closing line while leaving the
-   desktop application's fixed geometry entirely unmounted. */
+   workspace. It borrows Home's quiet rune while leaving the desktop
+   application's fixed geometry entirely unmounted. */
 .handheld-notice {
   min-height: 100dvh;
   display: grid;
-  grid-template-rows: minmax(240px, 46dvh) minmax(0, 1fr);
+  grid-template-rows: 172px minmax(0, 1fr);
   overflow: hidden;
   background: var(--bg);
 }
 .handheld-hero {
   position: relative;
   overflow: hidden;
-  padding: var(--s6) var(--s5);
-  border-bottom: 1px solid var(--line-strong);
+  padding: var(--s5);
   background: radial-gradient(64% 116% at 0% 0%, rgba(217, 173, 82, .12), transparent 72%);
 }
 .handheld-rune {
   position: absolute;
   top: 50%; right: calc(var(--s4) * -1);
-  width: min(64vw, 392px); height: auto;
+  width: min(52vw, 320px); height: auto;
   translate: 0 -50%;
   opacity: .11;
 }
@@ -157,31 +156,10 @@ body {
   letter-spacing: -.025em;
 }
 .handheld-brand span { color: var(--gold); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
-.handheld-kicker {
-  position: relative;
-  max-width: 11ch;
-  margin: var(--s7) 0 0;
-  color: var(--ink);
-  font-size: clamp(28px, 10vw, 54px);
-  font-weight: 700;
-  letter-spacing: -.045em;
-  line-height: .94;
-}
-.handheld-quote {
-  position: absolute;
-  right: var(--s5); bottom: var(--s5);
-  margin: 0;
-  color: var(--faint);
-  font-family: 'Great Vibes', 'Apple Chancery', cursive;
-  font-size: clamp(32px, 10vw, 52px);
-  line-height: 1;
-  opacity: .84;
-}
-.handheld-quote span { color: color-mix(in srgb, var(--gold) 52%, var(--faint)); }
 .handheld-message {
-  align-self: center;
+  align-self: start;
   max-width: 46rem;
-  padding: var(--s7) var(--s5);
+  padding: var(--s5);
 }
 .handheld-message .eyebrow { margin: 0 0 var(--s3); }
 .handheld-message h1 {

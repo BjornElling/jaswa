@@ -28,8 +28,6 @@ function HandheldNotice() {
     <header className="handheld-hero">
       <Image className="handheld-rune" src="/favicon.svg" alt="" aria-hidden="true" width={520} height={520} priority />
       <p className="handheld-brand">ja<span>sw</span>a</p>
-      <p className="handheld-kicker">Just Another Summoners War App</p>
-      <p className="handheld-quote">Roll. Sell. <span>Return.</span></p>
     </header>
     <section className="handheld-message" aria-labelledby="handheld-title">
       <p className="eyebrow">Desktop required</p>
