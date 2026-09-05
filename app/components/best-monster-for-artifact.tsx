@@ -8,7 +8,8 @@ import { SortableHeader, useSortedRows } from './sortable-table';
 import { calculateArtifactScores } from '../lib/compute/artifact-score-client';
 import { buildArtifactScoreRequests, buildArtifactScoreRequestsForMonsterIds } from '../lib/compute/artifact-score-input';
 import { ConversionList } from './conversion-list';
-import { engravedStonesFor, isWorthwhileGain } from '../lib/artifact-recommendations';
+import { engravedStonesFor, isWorthwhileGain, scoringSettings } from '../lib/artifact-recommendations';
+import { useAutoRecalculate } from './use-auto-recalculate';
 import type { SortableColumn } from './sortable-table';
 import { artifactCategoryLabel, artifactEquipClassLabel, artifactValueTint, displaySubProperty } from '../lib/artifact-grid';
 import { artifactArchetypes, artifactCategoryLabels, artifactElements, artifactGradeOrder, artifactIntangibleLabel, artifactMainPropertyOrder } from '../lib/artifact-properties';
@@ -173,7 +174,7 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
   }, [artifacts]);
   const artifactInput = artifacts.map((artifact) => [artifact.id, artifact.occupiedId, artifact.mainProperty, artifact.convertedPropertyIndex,
     ...artifact.subProperties.map((subProperty) => [subProperty.definition.id, subProperty.valueHundredths, subProperty.maximumHundredths])]);
-  const inputKey = JSON.stringify({ artifactInput, monsterIds: ownMonsters.map((monster) => [monster.unitId, monster.speciesId]), selectedArtifactId, settings });
+  const inputKey = JSON.stringify({ artifactInput, monsterIds: ownMonsters.map((monster) => [monster.unitId, monster.speciesId]), selectedArtifactId, settings: scoringSettings(settings) });
   const currentCalculation = calculation?.inputKey === inputKey ? calculation : undefined;
   const owner = selectedArtifact?.occupiedId === null || selectedArtifact === undefined
     ? undefined : ownMonsters.find((monster) => monster.unitId === selectedArtifact.occupiedId);
@@ -260,7 +261,14 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
     }
   }
 
-  const buttonGroup = <T extends string>(label: string, key: keyof ArtifactFilters, values: readonly T[], display: (value: T) => string, className: string) => <div className={`filter-group ${className}`} role="group" aria-label={label}>
+  useAutoRecalculate({
+    mode: settings.recalculate,
+    stale: calculation !== undefined && currentCalculation === undefined,
+    calculating: state === 'calculating',
+    calculate: () => void calculate(),
+  });
+
+  const buttonGroup =<T extends string>(label: string, key: keyof ArtifactFilters, values: readonly T[], display: (value: T) => string, className: string) => <div className={`filter-group ${className}`} role="group" aria-label={label}>
     <span className="filter-label">{label}</span>
     <div className="filter-group-controls">
       {values.map((value) => <button key={value} type="button" className={(filters[key] as string[]).includes(value) ? 'filter-button active' : 'filter-button'}
@@ -334,6 +342,12 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
     </section>}
 
     {state === 'error' && <p className="notice warning" role="status">JASWA could not calculate monster fits for this artifact from the imported data.</p>}
+
+    {/* As in the other two views (§17.11): a held result that no longer answers
+        the current settings says so instead of disappearing. */}
+    {calculation && !currentCalculation && <p className="notice warning" role="status">{settings.recalculate === 'on-change'
+      ? 'Settings or imported data changed. Refreshing these results…'
+      : 'Settings or imported data changed. Calculate again to refresh these results.'}</p>}
 
     {currentCalculation && selectedArtifact && <>
       <p className="best-artifact-meta" role="status">{formatNumber(currentCalculation.evaluatedPairs, general)} pairs checked · {currentCalculation.backend === 'webgpu' ? 'Graphics card' : 'Processor'}</p>

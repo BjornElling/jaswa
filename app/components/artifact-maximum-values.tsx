@@ -10,7 +10,8 @@ import { buildArtifactScoreRequestsForMonsterIds } from '../lib/compute/artifact
 import { scoreArtifactOnMonster, scorePercent } from '../lib/compute/artifact-score-core';
 import { ConversionList } from './conversion-list';
 import { QualityRule, qualityRuleHost } from './quality-rule';
-import { engravedStonesFor, isWorthwhileGain } from '../lib/artifact-recommendations';
+import { useAutoRecalculate } from './use-auto-recalculate';
+import { engravedStonesFor, isWorthwhileGain, scoringSettings } from '../lib/artifact-recommendations';
 import { allocateArtifactPlacements } from '../lib/artifact-recommendation-allocation';
 import type { SortableColumn } from './sortable-table';
 import { artifactPreferenceStatus, recordedArtifactPreferenceMonsterIds } from '../lib/artifact-preferences';
@@ -262,7 +263,7 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
   const selectedSubPropertyId = subPropertyOptions.some((option) => String(option.id) === filters.subPropertyId) ? filters.subPropertyId : '';
   const inputKey = JSON.stringify({
     artifacts: artifacts.map((artifact) => [artifact.id, artifact.category, artifact.occupiedId, artifact.mainProperty, artifact.convertedPropertyIndex, ...artifact.subProperties.map((property) => [property.definition.id, property.valueHundredths, property.maximumHundredths])]),
-    monsters: scopedMonsters.map((monster) => [monster.unitId, monster.masterId]), settings,
+    monsters: scopedMonsters.map((monster) => [monster.unitId, monster.masterId]), settings: scoringSettings(settings),
   });
   const currentCalculation = calculation?.inputKey === inputKey ? calculation : undefined;
   const visibleArtifacts = useMemo(() => artifacts.filter((artifact) => {
@@ -321,7 +322,14 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
     }
   }
 
-  const buttonGroup = <T extends string>(label: string, key: keyof ArtifactFilters, values: readonly T[], display: (value: T) => string, className: string, dividerIndexes: readonly number[] = []) => <div className={`filter-group ${className}`} role="group" aria-label={label}>
+  useAutoRecalculate({
+    mode: settings.recalculate,
+    stale: calculation !== undefined && currentCalculation === undefined,
+    calculating: state === 'calculating',
+    calculate: () => void calculate(),
+  });
+
+  const buttonGroup =<T extends string>(label: string, key: keyof ArtifactFilters, values: readonly T[], display: (value: T) => string, className: string, dividerIndexes: readonly number[] = []) => <div className={`filter-group ${className}`} role="group" aria-label={label}>
     <span className="filter-label">{label}</span>
     <div className="filter-group-controls">{values.map((value, index) => <Fragment key={value}>
       {dividerIndexes.includes(index) && <span className="artifact-restriction-divider" role="presentation" aria-hidden="true" />}
@@ -466,7 +474,12 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
       </div>
     </div>
     {state === 'error' && <p className="notice warning" role="status">{error}</p>}
-    {calculation && !currentCalculation && <p className="notice warning" role="status">Settings or imported data changed. Calculate again to refresh these recommendations.</p>}
+    {/* In the on-change mode the recalculation is already under way, so the
+        notice reports it rather than asking for a button the user has told
+        JASWA not to make them press. */}
+    {calculation && !currentCalculation && <p className="notice warning" role="status">{settings.recalculate === 'on-change'
+      ? 'Settings or imported data changed. Refreshing these recommendations…'
+      : 'Settings or imported data changed. Calculate again to refresh these recommendations.'}</p>}
     {currentCalculation && <>
       {/* The slot figures have to add up on the page. Reporting "558 of 558
           filled" and then warning about 2 more slots left the user with three

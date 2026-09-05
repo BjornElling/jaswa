@@ -8,7 +8,8 @@ import { artifactCategoryLabel, artifactEquipClassLabel, artifactValueTint } fro
 import { artifactCategoryLabels, artifactGradeOrder } from '../lib/artifact-properties';
 import { SortableHeader, useSortedRows } from './sortable-table';
 import { ConversionList } from './conversion-list';
-import { engravedStonesFor } from '../lib/artifact-recommendations';
+import { engravedStonesFor, scoringSettings } from '../lib/artifact-recommendations';
+import { useAutoRecalculate } from './use-auto-recalculate';
 import { monsterNameCollator } from '../lib/monster-grid';
 import type { EngravedConversionStone } from '../lib/artifact-conversion-stones';
 import type { SortableColumn } from './sortable-table';
@@ -191,7 +192,7 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
       ...artifact.subProperties.map((subProperty) => [subProperty.definition.id, subProperty.valueHundredths, subProperty.maximumHundredths])]),
     monsterIds: eligibleMonsters.map((monster) => [monster.unitId, monster.masterId]),
     selectedUnitId,
-    settings,
+    settings: scoringSettings(settings),
   });
   const currentCalculation = calculation?.inputKey === inputKey ? calculation : undefined;
 
@@ -282,6 +283,13 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
     }
   }
 
+  useAutoRecalculate({
+    mode: settings.recalculate,
+    stale: calculation !== undefined && currentCalculation === undefined,
+    calculating: state === 'calculating',
+    calculate: () => void calculate(),
+  });
+
   return <div className="best-artifact-for-monster">
     <p className="lead">Filter your roster, choose a monster, then compare every compatible artifact using the active optimization settings.</p>
     <div className="filter-panel best-artifact-filters">
@@ -329,6 +337,13 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
     </div>
 
     {state === 'error' && <p className="notice warning" role="status">JASWA could not calculate this monster’s artifact fits from the imported data.</p>}
+
+    {/* Without this the table simply vanished on a settings change and the page
+        looked as though nothing had ever been calculated. §17.11: a result that
+        stops being current says so. */}
+    {calculation && !currentCalculation && <p className="notice warning" role="status">{settings.recalculate === 'on-change'
+      ? 'Settings or imported data changed. Refreshing these results…'
+      : 'Settings or imported data changed. Calculate again to refresh these results.'}</p>}
 
     {currentCalculation && selectedMonster && <>
       <p className="best-artifact-meta" role="status">

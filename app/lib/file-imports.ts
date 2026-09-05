@@ -1,5 +1,5 @@
 import type {
-  ArtifactConversionStoneMode, ArtifactSettings, DirectImportMode, HelperSession, ImportReport, ImportRoute, ImportedGame, ItemGrade,
+  ArtifactConversionStoneMode, ArtifactRecalculateMode, ArtifactSettings, DirectImportMode, HelperSession, ImportReport, ImportRoute, ImportedGame, ItemGrade,
   MonsterPreference, Preferences, RunePotentialSettings, RunePotentialSortOrder,
 } from './types';
 import { readArtifact } from './artifacts';
@@ -42,12 +42,20 @@ export const defaultRunePotentialSettings: RunePotentialSettings = {
    preferred/acceptable distinction stops meaning anything. */
 export const artifactAcceptableWorthChoices = [0, 25, 50, 75, 100] as const;
 export const artifactConversionStoneModes: ArtifactConversionStoneMode[] = ['none', 'owned', 'theoretical'];
+export const artifactRecalculateModes: ArtifactRecalculateMode[] = ['manual', 'on-change'];
 /* The exact key set rejects the retired grade-specific source shape instead of
    silently carrying fields the current settings page no longer offers. */
 const artifactSettingKeys = [
   'acceptableWorth', 'onlyFactorInOwnedMonsters', 'onlyLevel40Monsters', 'conversionStoneMode', 'conversionStoneValue',
-  'ignoreInsignificantDifferences', 'insignificantDifference', 'includeIntangibleArtifacts',
+  'ignoreInsignificantDifferences', 'insignificantDifference', 'includeIntangibleArtifacts', 'recalculate',
 ] as const;
+/* `recalculate` arrived after the shape was already in the wild, and it decides
+   only *when* a table re-runs. A file written before it existed is a complete
+   answer to every question JASWA was asking at the time, so it is filled in
+   with the default rather than costing the user every other artifact setting —
+   which is what rejecting the document whole would do. Keys that predate this
+   one stay mandatory: absent, they would change a judgement. */
+const optionalArtifactSettingKeys = new Set<typeof artifactSettingKeys[number]>(['recalculate']);
 
 /* The band the significance rule uses, in whole percentage points of the score
    (`ARTIFACT-CANONICAL.md` §17.3). One point is the smallest difference the
@@ -68,6 +76,11 @@ export const defaultArtifactSettings: ArtifactSettings = {
   /* On: an Intangible fits the chosen monster like any other artifact, so
      excluding it would understate what the account can actually equip. */
   includeIntangibleArtifacts: true,
+  /* Manual: a calculation over the whole library is work the user asked for,
+     and re-running it on every slider nudge would spend it without being
+     asked. The stale notice says the table is out of date; the button remains
+     the way to pay for a fresh one. */
+  recalculate: 'manual',
 };
 
 function isRecord(value: unknown): value is GameRecord {
@@ -102,8 +115,9 @@ export function blankPreferences(): Preferences {
    somewhere other than this slider and is not a contract JASWA honours. */
 function isArtifactSettings(value: unknown): value is ArtifactSettings {
   return isRecord(value)
-    && Object.keys(value).length === artifactSettingKeys.length
+    && artifactSettingKeys.every((key) => key in value || optionalArtifactSettingKeys.has(key))
     && Object.keys(value).every((key) => artifactSettingKeys.includes(key as typeof artifactSettingKeys[number]))
+    && (value.recalculate === undefined || artifactRecalculateModes.includes(value.recalculate as ArtifactRecalculateMode))
     && artifactAcceptableWorthChoices.includes(value.acceptableWorth as typeof artifactAcceptableWorthChoices[number])
     && typeof value.onlyFactorInOwnedMonsters === 'boolean'
     && typeof value.onlyLevel40Monsters === 'boolean'
@@ -170,7 +184,14 @@ export function isValidPreferences(value: unknown): value is Preferences {
  * was rejected in full.
  */
 export function restoredPreferences(value: unknown, game: ImportedGame | null): Preferences {
-  if (isValidPreferences(value)) return value;
+  /* A document accepted without `recalculate` predates the setting. Filling it
+     here means the rest of the app reads a complete `ArtifactSettings` and no
+     view has to defend against a missing mode. */
+  if (isValidPreferences(value)) {
+    return value.artifacts.recalculate === undefined
+      ? { ...value, artifacts: { ...value.artifacts, recalculate: defaultArtifactSettings.recalculate } }
+      : value;
+  }
   const preferences = blankPreferences();
   return game?.helperSession ? { ...preferences, importRoute: 'direct' } : preferences;
 }

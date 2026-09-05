@@ -2,12 +2,12 @@
 
 import { WorkspacePage } from './workspace-page';
 import { Disclosure, PageHeader } from './page-chrome';
-import { CheckboxRow, OptionCard } from './form-controls';
+import { CheckboxRow, OptionCard, RadioLine } from './form-controls';
 import { ArtifactMaximumValues } from './artifact-maximum-values';
 import { BestArtifactForMonster } from './best-artifact-for-monster';
 import { BestMonsterForArtifact } from './best-monster-for-artifact';
 import { artifactAcceptableWorthChoices, artifactInsignificantDifferenceRange } from '../lib/file-imports';
-import type { ArtifactConversionStoneMode, ArtifactSettings, GeneralSettings } from '../lib/types';
+import type { ArtifactConversionStoneMode, ArtifactRecalculateMode, ArtifactSettings, GeneralSettings } from '../lib/types';
 import type { GameRecord } from '../lib/game-data';
 
 /* The slider's stops are the stored percentages themselves (decision 11), so
@@ -31,6 +31,14 @@ const conversionStoneValueLabels = [
   'Three quarters — 75 % of the conversion maximum',
   'Maximum — the best a conversion can roll',
 ] as const;
+
+/* Named for what the user does, not for what the program does: "On change" is
+   the event they can point at, and "Manually" is the answer they are choosing
+   between. The default sits second because it is the quieter of the two. */
+const recalculateOptions: Array<{ value: ArtifactRecalculateMode; label: string }> = [
+  { value: 'on-change', label: 'On change' },
+  { value: 'manual', label: 'Manually' },
+];
 
 /* The library is deliberately separate from this workspace: it answers what
    the account owns, while this page will answer what to change. Keeping those
@@ -210,6 +218,24 @@ export function ArtifactsSection({ settings, data, monsters, general, hardwareAc
             </p>
           </div>
         </div>
+
+        <div className="bar-divide" />
+
+        {/* Last, and on its own: every setting above states what a score means,
+            while this one only decides when the tables go and fetch it. */}
+        <section className="artifact-scope-box" aria-labelledby="artifact-recalculate-title">
+          <h3 id="artifact-recalculate-title">Results</h3>
+          <RadioLine<ArtifactRecalculateMode>
+            name="artifact-recalculate" legend="Re-calculate"
+            options={recalculateOptions}
+            current={settings.recalculate}
+            onChange={(value) => void onUpdate({ recalculate: value })} />
+          <p className="slider-note">
+            {settings.recalculate === 'on-change'
+              ? 'A calculated table re-runs itself whenever your settings or imported data change, so what you see is always current.'
+              : 'A calculated table is kept as it was and marked out of date when something changes, until you ask for it again.'}
+          </p>
+        </section>
       </div>
     </Disclosure>
   </WorkspacePage>;

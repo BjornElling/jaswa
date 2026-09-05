@@ -1926,6 +1926,49 @@ calculation is paired with the row. They narrow the rows shown and nothing
 else. The allocation is still computed over the whole library, so §17's
 guarantee holds — a filter never changes the advice in the rows that remain.
 
+### 17.11 A stale result says so, and the user chooses who refreshes it
+
+*September 5, 2026.* A calculated table answers the settings and the import it
+was calculated from. When either moves, that answer is no longer the answer to
+the question on screen — and the table must never quietly present it as though
+it were. What happens next is the user's choice, asked once in Settings as
+**Re-calculate**, with two options and always exactly one of them chosen:
+
+- **Manually** — the default. The result is kept and marked out of date, and
+  the Calculate button remains the way to a fresh one. A calculation over the
+  whole library is real work the user asked for; spending it again on every
+  slider nudge is not JASWA's call to make on their behalf.
+- **On change** — the calculation re-runs itself, so the table on screen always
+  answers the current settings and import.
+
+Manual is the default because the quieter behaviour is the one that cannot
+surprise: a user who wants the tables to keep up can say so, while a user who
+does not can never be charged for a calculation they did not request.
+
+Two consequences the code has to honour:
+
+**The mode is not scoring input.** It decides *when* a calculation happens and
+never what it produces, so it is excluded from the key each view compares its
+held result against — `scoringSettings()` in `artifact-recommendations.ts`, one
+function for all three views rather than three spreads that could drift. Were
+it left in, choosing a mode would itself mark every result stale, and in the
+on-change mode that reads as the setting recalculating the page merely by being
+selected. The function lists its fields rather than spreading and removing one,
+so a setting added later has to be classified deliberately.
+
+**Stale is visible in every view.** The recommendation table already said so;
+the two single-subject views simply dropped their tables, which left the page
+looking as though nothing had ever been calculated — indistinguishable from a
+fresh visit, and no explanation of where the results went. All three now carry
+the notice, and in the on-change mode it reports the refresh that is already
+under way instead of asking for a button the user has told JASWA not to make
+them press.
+
+Auto-refresh never starts a *first* calculation — an empty view filling itself
+on arrival is the same uninvited work manual mode exists to prevent — never
+runs while one is in flight, and never retries a failed one: an error clears the
+held result, so nothing is stale and there is nothing to chase.
+
 ---
 
 ## 18. Quality is text; a score is colour

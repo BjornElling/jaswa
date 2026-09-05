@@ -7,6 +7,34 @@ import type { GameRecord } from './game-data';
 import type { ArtifactSettings } from './types';
 
 /**
+ * The settings that decide what a calculation *produces*, for the key each
+ * recommendation view compares a held result against (`ARTIFACT-CANONICAL.md`
+ * §17.11).
+ *
+ * `recalculate` is dropped because it only decides *when* a table re-runs. Left
+ * in, switching the mode would mark every held result stale — and in the
+ * on-change mode that reads as the setting recalculating the page merely by
+ * being chosen. One function rather than three spreads, so a setting added
+ * later cannot be scoring input in one view and not in another.
+ */
+export function scoringSettings(settings: ArtifactSettings): Omit<ArtifactSettings, 'recalculate'> {
+  /* Listed rather than spread-minus-one, so the compiler makes a setting added
+     later be classified on purpose: `Omit` fails the return type until the new
+     field is either named here as scoring input or excluded like `recalculate`.
+     A rest spread would have quietly swept it in. */
+  return {
+    acceptableWorth: settings.acceptableWorth,
+    onlyFactorInOwnedMonsters: settings.onlyFactorInOwnedMonsters,
+    onlyLevel40Monsters: settings.onlyLevel40Monsters,
+    conversionStoneMode: settings.conversionStoneMode,
+    conversionStoneValue: settings.conversionStoneValue,
+    ignoreInsignificantDifferences: settings.ignoreInsignificantDifferences,
+    insignificantDifference: settings.insignificantDifference,
+    includeIntangibleArtifacts: settings.includeIntangibleArtifacts,
+  };
+}
+
+/**
  * The band inside which two scores count as the same, in whole percentage
  * points (`ARTIFACT-CANONICAL.md` §17.3). Zero when the user has not asked for
  * one, which is the rule switched off rather than a band of nothing.
