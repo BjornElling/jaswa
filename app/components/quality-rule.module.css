@@ -1,0 +1,57 @@
+/* A quality tier read as a colour, in the margin rather than in the text.
+   `ARTIFACT-CANONICAL.md` §18 records why the tiers are not painted onto the
+   grade *word*: five hues competing down a dense table is decoration, the eye
+   goes to whichever row is orange, and the accent that means "you can act on
+   this" loses its force among four rivals. This is the shape that survives
+   that objection:
+
+   - It lives in the cell's left margin, outside the reading line, so it never
+     colours a word the user is reading and never competes with `--gold` on a
+     figure or a control.
+   - It is the same 2px in the same place in every row, so the tiers compare
+     against each other down the column instead of one of them shouting. Colour
+     is the only variable; nothing about the rule's size or position changes
+     with the tier, and it occupies the same box on every row, so a row's
+     substats never shift (rule 2).
+   - It is desaturated well below the accent. These are muted readings of the
+     game's hues, not reproductions — §18 notes there is no flat palette to be
+     faithful to anyway, the game drawing each tier as a radial glow.
+
+   Legend is the one that needs care. The game's Legend orange lands within 4°
+   of hue of `--gold` at a contrast ratio of 1.04, so a faithful Legend rule
+   and an active filter button were the same colour. This Legend is pulled
+   distinctly redder — far enough that the rule reads as a tier and not as an
+   invitation to click.
+
+   Normal has no colour of its own in the game (it is white) and would read as
+   the loudest tier if drawn in ink, exactly inverting the ranking. It gets the
+   ground's own line colour: present, so every row still has a rule and the
+   column has an edge, but reading as an absence. */
+.rule {
+  display: block;
+  position: absolute;
+  left: 0;
+  top: var(--s1);
+  bottom: var(--s1);
+  width: 2px;
+  border-radius: 1px;
+  background: var(--quality);
+}
+
+.normal { --quality: var(--line-strong); }
+.magic { --quality: #4e8f63; }
+.rare { --quality: #4a7fb5; }
+.hero { --quality: #8a6bb0; }
+.legend { --quality: #c8663c; }
+
+/* The cell the rule hangs in. The rule is absolutely positioned so it cannot
+   add to the row's height or push the substats' first character off the grid
+   the other columns line up on.
+
+   Only the positioning context lives here. The gap the rule sits in is the
+   cell's left padding, and each table sets its own cell padding in
+   `globals.css` at this same specificity — a padding here would lose to it on
+   source order, so the hosting table widens its own cell instead. */
+.host {
+  position: relative;
+}

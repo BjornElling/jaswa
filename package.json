@@ -19,6 +19,7 @@
     "diagnose:unreadable-artifacts": "node scripts/diagnose-unreadable-artifacts.mjs",
     "verify:artifact-score-scale": "node scripts/verify-artifact-score-scale.mjs",
     "verify:artifact-recommendation-allocation": "node scripts/verify-artifact-recommendation-allocation.mjs",
+    "verify:recommendation-filters": "node scripts/verify-recommendation-filters.mjs",
     "verify:artifact-level-scope": "node scripts/verify-artifact-level-scope.mjs",
     "verify:artifact-obtained-order": "node scripts/verify-artifact-obtained-order.mjs",
     "verify:intangible-artifacts": "node scripts/verify-intangible-artifacts.mjs",

@@ -9,6 +9,7 @@ import { calculateArtifactScores } from '../lib/compute/artifact-score-client';
 import { buildArtifactScoreRequestsForMonsterIds } from '../lib/compute/artifact-score-input';
 import { scoreArtifactOnMonster, scorePercent } from '../lib/compute/artifact-score-core';
 import { ConversionList } from './conversion-list';
+import { QualityRule, qualityRuleHost } from './quality-rule';
 import { engravedStonesFor, isWorthwhileGain } from '../lib/artifact-recommendations';
 import { allocateArtifactPlacements } from '../lib/artifact-recommendation-allocation';
 import type { SortableColumn } from './sortable-table';
@@ -40,13 +41,30 @@ const restrictionOptions = [
 const artifactLocations = ['inventory', 'equipped'] as const;
 
 type ArtifactLocation = typeof artifactLocations[number];
-type ArtifactFilters = { categories: ArtifactCategory[]; restrictions: string[]; grades: ArtifactGrade[]; mainProperties: ArtifactMainProperty[]; subPropertyId: string; locations: ArtifactLocation[] };
+/* The one option under "Already matching". It is a list like every other
+   filter group so it toggles, labels and clears by the same code, rather than
+   a lone boolean with its own handling. */
+const matchingFilters = ['hide'] as const;
+type MatchingFilter = typeof matchingFilters[number];
+type ArtifactFilters = {
+  categories: ArtifactCategory[];
+  restrictions: string[];
+  grades: ArtifactGrade[];
+  mainProperties: ArtifactMainProperty[];
+  subPropertyId: string;
+  /** Where the artifact sits in the imported data, before any advice. */
+  locations: ArtifactLocation[];
+  /** Where following the plan would put it: equipped if a monster was
+   * allocated one, inventory if the advice is to sell it. */
+  plannedLocations: ArtifactLocation[];
+  matching: MatchingFilter[];
+};
 type OwnedMonster = { unitId: string; masterId: string; name: string };
 type CategoryCalculation = { request: ArtifactScoreRequest; result: ArtifactScoreResult };
 type Allocation = { monster: OwnedMonster; value: number; conversions: readonly ArtifactConversion[] };
 type UnscoredSlot = { monster: OwnedMonster; category: ArtifactCategory; status: 'missing' | 'empty' };
 type Calculation = { inputKey: string; backend: 'cpu' | 'webgpu'; durationMs: number; evaluatedPairs: number; ownedConversionCount: number; categories: CategoryCalculation[]; allocations: Map<string, Allocation>; unfilledSlots: number; slotCount: number; unscoredSlots: readonly UnscoredSlot[] };
-const defaultFilters: ArtifactFilters = { categories: [], restrictions: [], grades: [], mainProperties: [], subPropertyId: '', locations: [] };
+const defaultFilters: ArtifactFilters = { categories: [], restrictions: [], grades: [], mainProperties: [], subPropertyId: '', locations: [], plannedLocations: [], matching: [] };
 
 function readOwnedMonsters(monsters: readonly GameRecord[]): OwnedMonster[] {
   const names = numberedMonsterNames([...monsters]);
@@ -336,6 +354,33 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [visibleArtifacts, currentCalculation, wearerByUnitId, artifactOrder]);
 
+  /* Two of the filters ask about the advice rather than the artifact, so they
+     cannot run in `visibleArtifacts` with the rest: the allocation is not known
+     until the calculation has been paired with the row. They narrow which rows
+     are shown and nothing else — the allocation itself is computed over the
+     whole library, exactly as before, so a filter still never changes the
+     advice in the rows that remain. */
+  const plannedRows = useMemo(() => rows.filter((row) => {
+    const plannedLocation: ArtifactLocation = row.allocation ? 'equipped' : 'inventory';
+    const alreadyMatching = row.allocation !== undefined
+      && row.artifact.occupiedId === row.allocation.monster.unitId;
+    return (!filters.plannedLocations.length || filters.plannedLocations.includes(plannedLocation))
+      && !(filters.matching.includes('hide') && alreadyMatching);
+  }), [rows, filters.plannedLocations, filters.matching]);
+
+  /* Every slot in the scope, split into the three states it can be in. They
+     are derived from one total here rather than reported independently, which
+     is what guarantees the figures on the page reconcile: `slotCount` counts
+     only the scorable slots, so the unscored ones have to be added back in to
+     get the number a user would arrive at by counting monsters. */
+  const awaitingSlots = currentCalculation?.unscoredSlots.length ?? 0;
+  const totalSlots = (currentCalculation?.slotCount ?? 0) + awaitingSlots;
+  const filledSlots = (currentCalculation?.slotCount ?? 0) - (currentCalculation?.unfilledSlots ?? 0);
+  const slotRemainder = [
+    ...(currentCalculation?.unfilledSlots ? [`${formatNumber(currentCalculation.unfilledSlots, general)} unfilled`] : []),
+    ...(awaitingSlots ? [`${formatNumber(awaitingSlots, general)} awaiting preferences`] : []),
+  ];
+
   const missingPreferenceSlots = useMemo(() => currentCalculation?.unscoredSlots.filter((slot) => slot.status === 'missing') ?? [], [currentCalculation]);
   const emptyPreferenceSlots = useMemo(() => currentCalculation?.unscoredSlots.filter((slot) => slot.status === 'empty') ?? [], [currentCalculation]);
 
@@ -373,7 +418,7 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
   ], []);
 
   const { sorted, sort, toggle: toggleSort } = useSortedRows(
-    rows, columns,
+    plannedRows, columns,
     { key: 'value', direction: 'descending' },
     /* Scores tie constantly once they are whole points, so import order settles
        equal rows rather than the sort's internals. */
@@ -399,7 +444,16 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
         </div>
       </div>
       {buttonGroup('Main stat', 'mainProperties', artifactMainPropertyOrder, (property) => property, 'artifact-recommendation-filter-main')}
-      {buttonGroup('Location', 'locations', artifactLocations, (location) => location === 'inventory' ? 'Inventory' : 'Equipped', 'artifact-recommendation-filter-location')}
+      {/* Two questions about one artifact, and they are different questions:
+          where it sits in the import, and where following this plan would put
+          it. Naming them "before" and "after" is what keeps them from reading
+          as one filter shown twice. */}
+      {buttonGroup('Location before', 'locations', artifactLocations, (location) => location === 'inventory' ? 'Inventory' : 'Equipped', 'artifact-recommendation-filter-location')}
+      {buttonGroup('Location after', 'plannedLocations', artifactLocations, (location) => location === 'inventory' ? 'Inventory' : 'Equipped', 'artifact-recommendation-filter-planned-location')}
+      {/* Off by default: the rows where the plan agrees with reality are still
+          part of the plan, and hiding them is a thing the user asks for when
+          they want the work list rather than the whole allocation. */}
+      {buttonGroup('Already matching', 'matching', matchingFilters, () => 'Hide', 'artifact-recommendation-filter-matching')}
       <div className="artifact-recommendation-actions">
         {/* Both labels are always in the layout and the inactive one is hidden
             with visibility, so the button is as wide as its widest wording and
@@ -414,15 +468,28 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
     {state === 'error' && <p className="notice warning" role="status">{error}</p>}
     {calculation && !currentCalculation && <p className="notice warning" role="status">Settings or imported data changed. Calculate again to refresh these recommendations.</p>}
     {currentCalculation && <>
-      <p className="artifact-recommendation-meta" role="status">{formatNumber(currentCalculation.evaluatedPairs, general)} pairs checked · {formatNumber(currentCalculation.slotCount - currentCalculation.unfilledSlots, general)} of {formatNumber(currentCalculation.slotCount, general)} scored slots filled · {formatNumber(Math.round(currentCalculation.durationMs), general)} ms · {currentCalculation.backend === 'webgpu' ? 'Graphics card' : 'Processor'}</p>
+      {/* The slot figures have to add up on the page. Reporting "558 of 558
+          filled" and then warning about 2 more slots left the user with three
+          numbers and no way to see how they relate: the 558 counted only the
+          scorable slots, so the unscored two were nowhere in the arithmetic.
+
+          The total is now every slot the scope has, and the parts that are not
+          filled are named beside it, so filled + unfilled + awaiting always
+          equals the total. Each part is only named when it is non-zero, so an
+          account with complete preferences still reads as a plain
+          "560 of 560 slots filled". */}
+      <p className="artifact-recommendation-meta" role="status">{formatNumber(currentCalculation.evaluatedPairs, general)} pairs checked · {formatNumber(filledSlots, general)} of {formatNumber(totalSlots, general)} slots filled{slotRemainder.length > 0 && <> ({slotRemainder.join(', ')})</>} · {formatNumber(Math.round(currentCalculation.durationMs), general)} ms · {currentCalculation.backend === 'webgpu' ? 'Graphics card' : 'Processor'}</p>
       {currentCalculation.unfilledSlots > 0 && <p className="notice warning" role="status">After the ranked placements, no artifact scoring above 0 % remained for {formatNumber(currentCalculation.unfilledSlots, general)} slots. JASWA never fills them with a zero-score match.</p>}
-      {missingPreferenceSlots.length > 0 && <p className="notice warning" role="status">Artifact preferences are not yet recorded for {describeUnscoredMonsters(missingPreferenceSlots)}. Those {formatNumber(missingPreferenceSlots.length, general)} slots await data and are not counted as unfilled.</p>}
-      {emptyPreferenceSlots.length > 0 && <p className="notice warning" role="status">No preferred or acceptable artifact properties are recorded for {describeUnscoredMonsters(emptyPreferenceSlots)}. Those {formatNumber(emptyPreferenceSlots.length, general)} slots await preferences and are not counted as unfilled.</p>}
+      {missingPreferenceSlots.length > 0 && <p className="notice warning" role="status">Artifact preferences are not yet recorded for {describeUnscoredMonsters(missingPreferenceSlots)}. Those {formatNumber(missingPreferenceSlots.length, general)} slots await data and could not be scored.</p>}
+      {emptyPreferenceSlots.length > 0 && <p className="notice warning" role="status">No preferred or acceptable artifact properties are recorded for {describeUnscoredMonsters(emptyPreferenceSlots)}. Those {formatNumber(emptyPreferenceSlots.length, general)} slots await preferences and could not be scored.</p>}
       {settings.conversionStoneMode === 'owned' && currentCalculation.ownedConversionCount === 0 && <p className="notice warning">This import has no readable engraved conversion stones, so the results keep every artifact as it is.</p>}
       {sorted.length ? <div className="artifact-recommendation-table-wrap"><table className="artifact-recommendation-table">
         <SortableHeader columns={columns} sort={sort} onToggle={toggleSort} />
         <tbody>{sorted.map((row) => <tr key={row.artifact.id}>
-          <td>{artifactCategoryLabel(row.artifact.category)}</td>
+          {/* The artifact's quality reads as the coloured rule down the row's
+              leading edge, where it is a margin mark rather than a stripe
+              inside the row. */}
+          <td className={qualityRuleHost}><QualityRule tier={row.artifact.grade} />{artifactCategoryLabel(row.artifact.category)}</td>
           <td>{artifactEquipClassLabel(row.artifact)}</td>
           <td>{row.artifact.mainProperty}</td>
           <td><ul className="artifact-subs">{row.artifact.subProperties.map((property, index) => <li key={property.definition.id}>
@@ -441,9 +508,15 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
           <td className="artifact-recommendation-flag"><UnrefinedArtifactMark unrefined={row.artifact.unrefined} /></td>
         </tr>)}</tbody>
       </table></div> : <p className="artifact-recommendation-empty">
-        {visibleArtifacts.length
-          ? 'Every artifact matching these filters is already where it does most good.'
-          : 'No artifacts match these filters.'}
+        {/* Three ways to end up with no rows, and they are worth telling
+            apart: nothing survived the artifact filters, nothing survived the
+            filters that ask about the plan, or the plan itself had nothing to
+            say about what did survive. */}
+        {!visibleArtifacts.length
+          ? 'No artifacts match these filters.'
+          : rows.length
+            ? 'No artifact matches these filters once the plan is taken into account.'
+            : 'Every artifact matching these filters is already where it does most good.'}
       </p>}
     </>}
   </div>;

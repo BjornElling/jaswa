@@ -1351,7 +1351,11 @@ button { cursor: pointer; }
    in Restriction — never a share of the panel's leftover width.
    Restriction shares the first row with Type and spans the rest of it, so its
    nine buttons still set the panel's width. Quality, Main stat and Substat
-   gather on the second row, and Location takes a third of its own.
+   gather on the second row, and the third holds the three groups that ask
+   where an artifact is: its location in the import, its location under the
+   plan, and whether the two already agree. They read left to right in that
+   order because that is the sequence of the question — before, after, and the
+   rows where nothing changes.
 
    Ordering sits at the end of the second row, past the last filter, and the
    rest of that row's width is the Restriction row's overhang rather than a
@@ -1370,7 +1374,7 @@ button { cursor: pointer; }
   grid-template-areas:
     "type     restriction restriction .        calculate"
     "quality  main        substat     obtained calculate"
-    "location location    location    .        calculate";
+    "location planned     matching    .        calculate";
   align-items: start;
 }
 .artifact-recommendation-filter-type { grid-area: type; }
@@ -1388,6 +1392,8 @@ button { cursor: pointer; }
 .artifact-recommendation-filter-quality { grid-area: quality; }
 .artifact-recommendation-filter-main { grid-area: main; }
 .artifact-recommendation-filter-location { grid-area: location; }
+.artifact-recommendation-filter-planned-location { grid-area: planned; }
+.artifact-recommendation-filter-matching { grid-area: matching; }
 /* Sized to the longest option the list can hold — the legacy "ATK Increased
    Proportional to Lost HP" family, which needs about 270px including the
    padding and the chevron's reserved space. Anything narrower clips a name
@@ -1508,6 +1514,14 @@ button { cursor: pointer; }
    part worth reading; a long line wraps to a second row instead. Scoped to
    this table, leaving every other view's substats as they are. */
 .artifact-recommendation-table .artifact-subs li { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: break-word; }
+/* The first cell carries the artifact's quality as a rule down its left edge
+   (`quality-rule.module.css`), where it sits on the row's leading edge and
+   reads as a margin mark rather than a stripe inside the row. This is the
+   clearance that keeps the rule off the text — the module cannot set it,
+   because the cell padding above is written at the same specificity and later
+   in the file. The extra 8px comes out of this column's own share, so no other
+   column moves and the header above it stays put. */
+.artifact-recommendation-table td:nth-child(1) { padding-left: var(--s4); }
 /* The refinement flag ends the row: narrow, unlabelled, and empty on every
    artifact that needs no attention. The marker is the cell's only content, so
    the margin it carries for trailing running text is dropped here. */
@@ -1524,9 +1538,14 @@ button { cursor: pointer; }
     grid-template-areas:
       "type      restriction restriction"
       "quality   main        substat"
-      "location  location    obtained"
+      "location  planned     matching"
+      "obtained  obtained    obtained"
       "calculate calculate   calculate";
   }
+  /* Ordering has a row to itself here rather than sharing one with a filter,
+     so the strong rule no longer divides two columns and would read as a
+     stray mark. It takes the ordinary indent and stays packed left. */
+  .artifact-recommendation-filter-obtained { justify-self: start; border-left-color: var(--line); }
   /* Packed left below the filters, and only as wide as the buttons need. */
   .artifact-recommendation-actions { align-self: stretch; justify-self: start; justify-items: start; }
 }
@@ -1535,7 +1554,7 @@ button { cursor: pointer; }
 @media (min-width: 1921px) and (max-width: 960px) {
   /* Matches .filter-panel.is-stacked; spelled out because this panel also
      needs its own area names for the action. */
-  .artifact-recommendation-filters { grid-template-columns: minmax(0, 1fr); grid-template-areas: "type" "restriction" "quality" "main" "substat" "obtained" "location" "calculate"; align-items: stretch; }
+  .artifact-recommendation-filters { grid-template-columns: minmax(0, 1fr); grid-template-areas: "type" "restriction" "quality" "main" "substat" "obtained" "location" "planned" "matching" "calculate"; align-items: stretch; }
   /* Stacked, the strong rule no longer separates two columns, so ordering
      stretches like every other block and keeps its label alignment. */
   .artifact-recommendation-filter-obtained { justify-self: stretch; }
