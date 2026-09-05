@@ -490,7 +490,17 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
             {displaySubProperty(property, (value) => formatNumber(value, general))}
             {row.artifact.convertedPropertyIndex === index && <ConvertedArtifactMark position={index} />}
           </li>)}</ul></td>
-          <td className={row.artifact.occupiedId === row.allocation?.monster.unitId ? 'artifact-recommendation-keep' : ''}>{row.wearerName}</td>
+          {/* Three readings, in order of what the user needs from the cell.
+              Gold where the artifact is already on the monster the plan names,
+              which is the one case the column reports as settled. Otherwise
+              "Inventory" keeps full ink: it says the piece is free to move,
+              which is what makes a row actionable. A monster name is dimmed —
+              it is the address the artifact has to be taken off, secondary to
+              the plan's own column beside it, and dimming it stops a table of
+              names from reading as loudly as the advice. */}
+          <td className={row.artifact.occupiedId === row.allocation?.monster.unitId
+            ? 'artifact-recommendation-keep'
+            : row.artifact.occupiedId === null ? '' : 'artifact-recommendation-wearer'}>{row.wearerName}</td>
           <td><Score value={row.current} general={general} /></td>
           <td className={row.action === 'Sell' ? 'artifact-recommendation-sell' : row.action === 'Keep' ? 'artifact-recommendation-keep' : ''}>{row.action}</td>
           <td className={row.allocation ? row.artifact.occupiedId === row.allocation.monster.unitId ? 'artifact-recommendation-keep' : '' : 'artifact-recommendation-sell'}>{row.allocation?.monster.name ?? '—'}</td>

@@ -1589,6 +1589,13 @@ button { cursor: pointer; }
 .artifact-recommendation-table th:nth-child(10), .artifact-recommendation-table td:nth-child(10) { width: 3%; padding-left: var(--s2); text-align: right; }
 .artifact-recommendation-flag > * { margin-left: 0; }
 .artifact-recommendation-sell { color: var(--faint); }
+/* The monster an artifact sits on now, where that is not the monster the plan
+   names. It is context rather than advice — the address the piece has to be
+   collected from — so it takes the same `--dim` the conversion column gives
+   its connective words, one step down from full ink and one step up from the
+   `--faint` a sold row is written in. "Inventory" is deliberately not dimmed:
+   a piece that is free to move is the readiest row in the table. */
+.artifact-recommendation-wearer { color: var(--dim); }
 .artifact-recommendation-keep,
 .artifact-recommendation-no-conversion { color: var(--gold); }
 /* Below about 1240px the action no longer fits beside the filters, so it drops
