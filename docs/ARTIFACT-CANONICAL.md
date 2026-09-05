@@ -1852,6 +1852,29 @@ a recommendation would overwrite an existing conversion, the wording says so —
 user already paid a stone for, and "convert" would read as though the artifact
 still had its free slot.
 
+**One line is converted; several may be offered.** The rule above chooses the
+line the score is computed from, and that choice is arithmetic — it has to
+settle on one line, so it separates equals by roll and then by stored order. But
+where the monster ranks several lines in the *same preference band* as the
+chosen one, those tiebreaks are describing a difference the monster does not
+feel: replacing any line it ranks unwanted costs it nothing it wanted, and the
+same holds within the accepted and preferred bands. A recommendation therefore
+**names every line in the chosen line's band**, in numeric order — `Sub 1/2/4`
+— while still being scored on the single line the rule picked.
+
+The distinction is between a decision JASWA is entitled to make and one it is
+not. Which property to convert *to* is a judgement about the monster, and JASWA
+makes it. Which of several equally worthless lines to spend is not: the user may
+be holding one back for a monster this plan has not reached, or reading a line
+the preferences do not capture, and naming only the arithmetic winner presented
+their choice as forced. The band is what decides the grouping, not the
+contribution — two unwanted lines with different rolls are still both unwanted.
+An empty slot ranks as unwanted, which it is, and groups with them.
+
+A permanently converted slot is the exception, and follows from the lock rather
+than from any rule here: a further stone can touch that line and no other, so
+there is no choice to offer and the recommendation names it alone.
+
 ### 17.5 Every conversion worth taking is shown, in order
 
 Where a view names conversions it shows **all** of them, ranked by what each
@@ -1945,13 +1968,33 @@ and **Location after**. Before reads the import; after reads the allocation:
 equipped if a monster was allocated the artifact, inventory if the advice is to
 sell it. The two partition the rows identically and independently, so
 `after: Equipped` always yields exactly as many rows as the summary reports
-filled slots — a cross-check the user can perform by eye.
+filled slots — a cross-check the user can perform by eye, once **Already
+matching** is off. With it on, as the view opens, the difference between the
+two figures is precisely the rows it hides: 558 filled slots, 19 already
+matching, 539 shown.
 
 **Already matching / Hide** removes the rows where the two agree — where the
 artifact already sits on the monster the plan names, which is the `Keep`
-action. It is off by default: those rows are part of the plan, and hiding them
-is something the user asks for when they want the work list rather than the
-whole allocation.
+action.
+
+**The view opens on the work list.** Two of these filters start applied:
+`Location after: Equipped` and `Already matching: Hide`. What remains is the
+plan's *unfinished* part — the artifacts it would equip, minus the ones already
+where it wants them — because that is the list the user acts from, and it is a
+fraction of the whole: 539 rows of the captured account's 1,862.
+
+The rows this hides are not lesser rows; they are answered ones. A `Sell` row
+asks nothing beyond the decision the column already states, and a `Keep` row
+asks nothing at all. Opening on all 1,862 made the user's first act a filtering
+task they would perform every time, and the two filters that perform it are the
+first two they would reach for.
+
+This is a default, not a restriction, and the distinction is what makes it
+acceptable: the buttons carry their pressed state on arrival, one click on
+either restores what it hides, and the underlying plan is unchanged — the
+allocation is still computed over the whole library (§17). The opening view is
+exactly these two filters applied to the complete plan, never a separate
+reading of it.
 
 These three filter on the *advice*, so they cannot run alongside the filters
 that ask about the artifact itself: the allocation is not known until the

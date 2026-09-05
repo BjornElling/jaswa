@@ -2,12 +2,17 @@
  * The recommendation view's filters and its slot summary, checked against a
  * real import (`ARTIFACT-CANONICAL.md` §17.9 and §17.10).
  *
- * Three properties, each of which the user can verify by eye and would
+ * Four properties, each of which the user can verify by eye and would
  * therefore notice breaking:
  *
+ * - The view opens on the work list — the artifacts the plan would equip, minus
+ *   those already on the monster it names — and that opening is exactly its two
+ *   default filters applied to the complete plan, not a separate reading of it.
  * - Location before reads the import; Location after reads the plan. Each
  *   partitions the rows, so the two halves sum to the whole.
  * - Already matching / Hide removes exactly the Keep rows, and restores them.
+ * - An Intangible row names the §10.1 rule in the conversion column, in gold,
+ *   rather than reporting a judgement JASWA never made.
  * - The slot figures reconcile: filled plus the named remainder is the total.
  *   This one existed as a bug — the summary reported "558 of 558 filled" while
  *   warning about 2 further slots — so it is asserted rather than assumed.
@@ -23,6 +28,32 @@ const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
 const rowCount = () => page.locator('.artifact-recommendation-table tbody tr').count();
 const group = (label) => page.locator(`.filter-group[aria-label="${label}"]`);
 
+/* Set a filter button to a state rather than toggling it blind. The view opens
+   with some filters already on — it lands on the work list, not the whole plan
+   — so a bare click means "on" only if the button happened to be off. Reading
+   `aria-pressed` first makes each step below say what it wants, and keeps this
+   test measuring the filters rather than the defaults. */
+const setFilter = async (label, name, on) => {
+  const button = group(label).getByRole('button', { name });
+  if (await button.getAttribute('aria-pressed') !== String(on)) await button.click();
+};
+
+/* The cells of one column, found by its heading rather than by a hard-coded
+   position. Columns come and go from this table — the restriction column was
+   dropped once already, silently shifting every index below it and breaking
+   these assertions in a way that read as a filter bug. Naming the column makes
+   such a change fail loudly here, or not at all. */
+const columnCells = async (heading) => {
+  /* The label sits in its own span: the cell also carries the sort mark and,
+     on the unlabelled columns, a visually hidden name. */
+  const index = await page.locator('.artifact-recommendation-table thead th')
+    .evaluateAll((cells, name) => cells.findIndex((cell) => (
+      cell.querySelector('.sort-button-label') ?? cell
+    ).textContent.trim().toLowerCase() === name.toLowerCase()), heading);
+  assert.notEqual(index, -1, `The recommendation table has no "${heading}" column.`);
+  return page.locator(`.artifact-recommendation-table tbody tr td:nth-child(${index + 1})`);
+};
+
 try {
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
   await page.setInputFiles('input[type=file][accept*="json"]', importPath);
@@ -35,47 +66,100 @@ try {
   await page.getByRole('button', { name: /Calculate recommendations/ }).click();
   await page.locator('.artifact-recommendation-table').waitFor({ timeout: 180000 });
 
+  /* The view opens on the work list: "Location after / Equipped" and
+     "Already matching / Hide" are on by default, because a row the plan would
+     sell or has already placed asks nothing of the user. Assert that first —
+     it is what a user sees on arriving — then clear both to measure the
+     filters against the complete plan. */
+  const opening = await rowCount();
+  const openingSell = await (await columnCells('Plan'))
+    .evaluateAll((cells) => cells.filter((cell) => cell.textContent.trim() === 'Sell').length);
+  const openingKeep = await (await columnCells('Plan'))
+    .evaluateAll((cells) => cells.filter((cell) => cell.textContent.trim() === 'Keep').length);
+  assert.equal(openingSell, 0, 'The view does not open on the plan’s equipped rows.');
+  assert.equal(openingKeep, 0, 'The view opens showing rows already on their recommended monster.');
+
+  await setFilter('Location after', 'Equipped', false);
+  await setFilter('Already matching', 'Hide', false);
   const all = await rowCount();
+  assert.ok(all > opening,
+    `Clearing the opening filters must restore rows: ${opening} of ${all}.`);
 
   /* "Location after" splits the rows in two: a row is either allocated to a
      monster (equipped) or it is not (inventory, the Sell advice). */
-  await group('Location after').getByRole('button', { name: 'Equipped' }).click();
+  await setFilter('Location after', 'Equipped', true);
   const plannedEquipped = await rowCount();
-  const sellShown = await page.locator('.artifact-recommendation-table tbody tr td:nth-child(7)')
+  const sellShown = await (await columnCells('Plan'))
     .evaluateAll((cells) => cells.filter((cell) => cell.textContent.trim() === 'Sell').length);
   assert.equal(sellShown, 0, 'Location after / Equipped still shows rows the plan would not equip.');
 
-  await group('Location after').getByRole('button', { name: 'Equipped' }).click();
-  await group('Location after').getByRole('button', { name: 'Inventory' }).click();
+  await setFilter('Location after', 'Equipped', false);
+  await setFilter('Location after', 'Inventory', true);
   const plannedInventory = await rowCount();
-  const nonSell = await page.locator('.artifact-recommendation-table tbody tr td:nth-child(7)')
+  const nonSell = await (await columnCells('Plan'))
     .evaluateAll((cells) => cells.filter((cell) => cell.textContent.trim() !== 'Sell').length);
   assert.equal(nonSell, 0, 'Location after / Inventory shows rows the plan would equip.');
   assert.equal(plannedEquipped + plannedInventory, all,
     `Location after does not partition the rows: ${plannedEquipped} + ${plannedInventory} != ${all}.`);
-  await group('Location after').getByRole('button', { name: 'Inventory' }).click();
+  await setFilter('Location after', 'Inventory', false);
 
   /* "Already matching / Hide" removes exactly the Keep rows — the ones whose
      current wearer is the monster the plan names. */
-  const keepRows = await page.locator('.artifact-recommendation-table tbody tr td:nth-child(7)')
+  const keepRows = await (await columnCells('Plan'))
     .evaluateAll((cells) => cells.filter((cell) => cell.textContent.trim() === 'Keep').length);
-  await group('Already matching').getByRole('button', { name: 'Hide' }).click();
+  await setFilter('Already matching', 'Hide', true);
   const hidden = await rowCount();
   assert.equal(hidden, all - keepRows,
     `Already matching / Hide removed ${all - hidden} rows, expected the ${keepRows} Keep rows.`);
-  const keepLeft = await page.locator('.artifact-recommendation-table tbody tr td:nth-child(7)')
+  const keepLeft = await (await columnCells('Plan'))
     .evaluateAll((cells) => cells.filter((cell) => cell.textContent.trim() === 'Keep').length);
   assert.equal(keepLeft, 0, 'Already matching / Hide left a row that is already on its recommended monster.');
-  await group('Already matching').getByRole('button', { name: 'Hide' }).click();
+  await setFilter('Already matching', 'Hide', false);
   assert.equal(await rowCount(), all, 'Turning Already matching off did not restore every row.');
 
+  /* The opening view is exactly the two filters applied together, which is
+     what makes it a view of the plan rather than a separate reading of it. */
+  await setFilter('Location after', 'Equipped', true);
+  await setFilter('Already matching', 'Hide', true);
+  assert.equal(await rowCount(), opening,
+    'Applying both opening filters by hand does not reproduce the opening view.');
+  await setFilter('Location after', 'Equipped', false);
+  await setFilter('Already matching', 'Hide', false);
+
   /* "Location before" keeps its old meaning: the imported location. */
-  await group('Location before').getByRole('button', { name: 'Inventory' }).click();
-  const beforeInventory = await page.locator('.artifact-recommendation-table tbody tr td:nth-child(5)')
+  await setFilter('Location before', 'Inventory', true);
+  const beforeInventory = await (await columnCells('Location'))
     .evaluateAll((cells) => cells.map((cell) => cell.textContent.trim()));
   assert(beforeInventory.every((name) => name === 'Inventory'),
     'Location before / Inventory shows an artifact that was equipped at import.');
-  await group('Location before').getByRole('button', { name: 'Inventory' }).click();
+  await setFilter('Location before', 'Inventory', false);
+
+  /* An Intangible cannot be converted at all (§10.1), and the conversion
+     column says so rather than reading "No conversion" — which would state a
+     judgement about the piece instead of the rule that forbids it. The rows
+     the plan sells show a dash, having no allocation to describe. */
+  await setFilter('Restriction', 'Intangible', true);
+  const intangibleRows = await page.locator('.artifact-recommendation-table tbody tr').count();
+  assert.ok(intangibleRows > 0, 'the import must hold Intangible artifacts for this check');
+  const intangibleConversions = await (await columnCells('Best conversions'))
+    .evaluateAll((cells) => cells.map((cell) => cell.textContent.trim()));
+  const unexplained = intangibleConversions.filter((text) => text !== 'Intangible' && text !== '—');
+  assert.deepEqual(unexplained, [],
+    'an Intangible row must read "Intangible", or a dash where the plan sells it.');
+  const goldMarks = await page.locator('.artifact-conversion-intangible').evaluateAll(
+    (marks) => marks.map((mark) => getComputedStyle(mark).color));
+  const gold = await page.evaluate(() => {
+    const probe = document.createElement('span');
+    probe.style.color = 'var(--gold)';
+    document.body.append(probe);
+    const colour = getComputedStyle(probe).color;
+    probe.remove();
+    return colour;
+  });
+  assert.ok(goldMarks.length > 0, 'at least one Intangible row must name the rule');
+  assert.deepEqual([...new Set(goldMarks)], [gold],
+    `the Intangible reading must be gold (${gold}).`);
+  await setFilter('Restriction', 'Intangible', false);
 
   /* The slot figures reconcile: filled + the named remainder = the total. */
   const meta = (await page.locator('.artifact-recommendation-meta').textContent()).replace(/\s+/g, ' ');
@@ -87,7 +171,7 @@ try {
   assert.equal(number(slots[1]) + remainder, number(slots[2]),
     `The slot figures do not add up: ${slots[0]}`);
 
-  console.log(`Verified Location after partitions ${all} rows into ${plannedEquipped} equipped and ${plannedInventory} inventory, Already matching hides the ${keepRows} Keep rows, Location before still reads the import, and "${slots[0]}" reconciles.`);
+  console.log(`Verified the view opens on ${opening} rows of work, Location after partitions ${all} rows into ${plannedEquipped} equipped and ${plannedInventory} inventory, Already matching hides the ${keepRows} Keep rows, Location before still reads the import, ${goldMarks.length} of ${intangibleRows} Intangible rows name the rule in gold, and "${slots[0]}" reconciles.`);
 } finally {
   await browser.close();
 }
