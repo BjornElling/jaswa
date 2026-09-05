@@ -28,6 +28,7 @@ try {
   assert.ok(hero, 'a converted artifact whose power-up encoding changed must import');
   assert.ok(rare, 'a converted artifact outside the ordinary roll range must import');
   assert.equal(hero.convertedPropertyIndex, 2, 'the documented conversion-lock field still informs planning');
+  assert.equal(rare.convertedPropertyIndex, 3, 'the current conversion marker locks the game-marked fourth sub-property');
   assert.equal(rare.subProperties[3].valueHundredths, 800, 'the game-issued conversion value remains exact');
   assert.equal(readArtifact({ ...convertedHero, sec_effects: convertedHero.sec_effects.slice(0, 3) }), null,
     'the structural four-line contract still protects rendering');

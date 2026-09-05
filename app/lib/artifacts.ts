@@ -216,24 +216,29 @@ export function readArtifact(record: unknown): Artifact | null {
     ? historicalPropertyMaximum(definition, source.date_add)
     : null;
   const subProperties: ArtifactSubProperty[] = [];
-  let convertedPropertyIndex: number | null = null;
+  const currentConversionLocks: number[] = [];
+  const legacyConversionLocks: number[] = [];
   for (const [index, entry] of secondary.entries()) {
-    /* The fifth tuple field is the conversion lock. The game marks the
-       converted line itself — not the property it used to hold — so the
-       position remains the one future conversions must overwrite. */
-    const conversionFlag = numberOrNull(Array.isArray(entry) ? entry[4] : null);
-    if (conversionFlag === null || !Number.isInteger(conversionFlag) || conversionFlag < 0) return null;
-    if (conversionFlag > 0) {
-      /* The game currently allows one conversion lock. Keep the first one for
-         the planner if that ever changes, but never make an owned artifact
-         disappear merely because its wire shape grew a second marker. */
-      convertedPropertyIndex ??= index;
-    }
+    /* The current client marks the converted line in tuple position 3. The
+       earlier capture used position 4, so it remains a fallback for records
+       without the current marker. Both describe the line to overwrite, not
+       the property that was replaced. */
+    const currentConversionFlag = numberOrNull(Array.isArray(entry) ? entry[3] : null);
+    const legacyConversionFlag = numberOrNull(Array.isArray(entry) ? entry[4] : null);
+    if (currentConversionFlag === null || !Number.isInteger(currentConversionFlag) || currentConversionFlag < 0
+      || legacyConversionFlag === null || !Number.isInteger(legacyConversionFlag) || legacyConversionFlag < 0) return null;
+    if (currentConversionFlag > 0) currentConversionLocks.push(index);
+    if (legacyConversionFlag > 0) legacyConversionLocks.push(index);
     const definition = artifactProperty(Array.isArray(entry) ? entry[0] : null);
     const subProperty = readSubProperty(entry, definition ? historicalMaximum(definition) : null);
     if (!subProperty) return null;
     subProperties.push(subProperty);
   }
+  /* Prefer the flag confirmed by the current game panel. The old position is
+     only a compatibility fallback, never evidence that can override it. */
+  const convertedPropertyIndex = (currentConversionLocks.length > 0
+    ? currentConversionLocks
+    : legacyConversionLocks)[0] ?? null;
 
   const occupied = numberOrNull(source.occupied_id);
   /* §15.1: `type` decides which of the two fields carries the equip class, and

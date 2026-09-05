@@ -1225,7 +1225,7 @@ distribution is near-even: 424 HP, 408 ATK, 419 DEF.
 Four tuples, always, on all 1,785 records (§4 confirmed). Each is:
 
 ```text
-[ effectId, value, powerUpCount, unknownFlag, conversionFlag ]
+[ effectId, value, powerUpCount, currentConversionFlag, legacyConversionMarker ]
 ```
 
 **Position 2 is the power-up count, and the original captured cohort followed
@@ -1299,31 +1299,25 @@ Keep the legacy list explicit, and let the statistics inform it rather than
 determine it. §12's rule stands unchanged — accept these on import, refuse to
 generate them, and compute no maximum for them until their ranges are known.
 
-### 15.6 Position 3 — still unmodelled
+### 15.6 Position 3 — the current conversion lock
 
-The fourth tuple field is numeric, but no established game behaviour ties it to
-the line it marks. Its non-zero values must not decide scoring or conversion
-eligibility.
+The fourth tuple field marks the permanent Conversion lock in the current game
+client. The in-game panel for direct-import artifact `1221299508` shows the
+gold Convert mark on its fourth sub-property, `[Skill 3] Accuracy +8`; that
+line's tuple is `[409, 8, 0, 1, 0]`. The lock is therefore the line's position
+in `sec_effects`, not its current property name; a later conversion may replace
+that property and value without moving the lock.
 
-### 15.7 Position 4 — the conversion lock
+### 15.7 Position 4 — legacy conversion marker
 
-The fifth tuple field is the permanent Conversion lock from §10. The direct
-import record for artifact `284184132` settles it: the game shows its third
-sub-property as converted and its tuple is `[221, 31, 0, 0, 1]`. The lock is
-therefore the line's position in `sec_effects`, not its current property name;
-a later conversion may replace that property and value without moving the lock.
+Older captures encode the same lock in the fifth tuple field: artifact
+`284184132` has `[221, 31, 0, 0, 1]` on its game-marked third line. The reader
+uses this position only when no current (fourth-field) lock exists. Its numeric
+magnitude is not modelled and it must never override the current marker.
 
-It is set on at most one line per artifact and only on a line whose power-up
-count is zero:
-
-```text
-rolls 0:  761 unset, 451 set
-rolls 1+:  923 unset,   0 set
-```
-
-The zero power-up count is explained by §10: a converted line is freshly rolled
-rather than upgraded. It also supplies the extra contribution used in the roll
-model; see §15.9.
+Both encodings are import metadata, not validation rules. A converted line may
+have any game-issued value or power-up count; those values remain authoritative
+input, while the roll model merely estimates future conversions.
 
 ### 15.8 What this unblocks, and what it does not
 
@@ -1331,11 +1325,11 @@ Step 2 of the sprint — modelling and reading artifacts — is unblocked. Roll
 quality (§13's first evaluation axis) is computable today: the property, its
 power-up count, its value, and the grade invariant are all present and verified.
 
-One field carries a **pending verification** marker (`sec_effects` position 3).
+The conversion position is now settled by the game panel (§15.6). The fifth
+field's broader numeric meaning remains unmodelled: it is retained solely as a
+legacy lock fallback, and its magnitude does not enter any calculation.
 `attribute`/`unit_style` value 98 was the other uncertainty and is now settled
-as the Intangible equip class (§15.1). Under §14's revision rule the remaining
-field may not receive a silent fallback: store it, surface it where it matters,
-and do not compute anything from a meaning nobody has established.
+as the Intangible equip class (§15.1).
 
 ### 15.9 Corrections from building the reader — August 30, 2026
 
@@ -1379,11 +1373,11 @@ alternative is a ceiling a real artifact provably exceeds, and a roll fraction
 above 1 empties the benchmark of meaning. The general rule it illustrates:
 **compute a maximum from the observed range, never from a guide's table.**
 
-**The conversion lock is evidence about a contribution.** Counting the fifth
-field's set flag as one extra contribution repairs the grade invariant on **43
-of the 44 records that otherwise break it**, leaving one. That is a useful
-planning model, not a parser rule: a later conversion encoding may carry the
-same value differently, and the account must still import intact.
+**The legacy conversion marker is evidence about a contribution.** Counting a
+set historical fifth field as one extra contribution repairs the grade invariant
+on **43 of the 44 records that otherwise break it**, leaving one. That is a
+useful planning model, not a parser rule: a later conversion encoding may carry
+the same value differently, and the account must still import intact.
 
 **The extra contribution raises the ceiling only** — and the floor half of this
 finding was confirmed independently the same day by the Repeat Convert dialog,
