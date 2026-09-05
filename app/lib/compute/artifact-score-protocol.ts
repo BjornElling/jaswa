@@ -100,6 +100,24 @@ export type ArtifactScoreRequest = {
 
 export type ArtifactConversion = {
   sourceIndex: number;
+  /**
+   * Every line the same choice could be made on: the source above together with
+   * any other sub property the monster ranks in the same preference band, in
+   * numeric order and always including `sourceIndex` itself.
+   *
+   * The scorer converts exactly one line and picks the one that costs least, so
+   * `sourceIndex` remains *the* recommendation and every score is computed from
+   * it alone. But a monster that ranks three of the four lines as unwanted is
+   * indifferent between them: replacing any one costs it nothing it wanted, and
+   * naming only the arithmetic winner told the user a choice was forced when it
+   * was theirs. This lists the lines the recommendation is genuinely indifferent
+   * between, so the interface can offer them rather than a single line the user
+   * may have a reason of their own to keep.
+   *
+   * A permanently converted slot (§10) is the only line a further stone can
+   * touch, so it is alone here whatever the other lines are ranked.
+   */
+  equivalentSourceIndexes: readonly number[];
   propertyId: number;
   /**
    * The score this conversion produces, as whole percentage points — the same

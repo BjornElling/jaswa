@@ -42,10 +42,26 @@ try {
     'the GPU scorer must not offer conversions from every source line');
 
   assert.deepEqual(
-    conversionDescription({ sourceIndex: 0, propertyId: 300, value: 0, gain: 0, preference: 'acceptable' },
+    conversionDescription({ sourceIndex: 0, equivalentSourceIndexes: [0], propertyId: 300, value: 0, gain: 0, preference: 'acceptable' },
       { category: 'attribute', equipClassCode: 1, grade: 'Rare', propertyId: 300, quantity: 1 }),
-    { verb: 'Convert', source: 'sub 1', target: 'Damage Dealt on Fire', stone: 'Rare Water stone' },
+    { verb: 'Convert', source: 'Sub 1', target: 'Damage Dealt on Fire', stone: 'Rare Water stone' },
     'a recommendation exposes its action, source, target and stone for distinct presentation');
+
+  /* Lines the monster ranks alike are named together and in numeric order,
+     whatever order they reach the description in: the recommendation is
+     indifferent between them, so it offers the choice rather than making it. */
+  assert.equal(
+    conversionDescription({ sourceIndex: 3, equivalentSourceIndexes: [3, 0, 1], propertyId: 300, value: 0, gain: 0, preference: 'acceptable' }).source,
+    'Sub 1/2/4',
+    'equally ranked source lines are all named, in numeric order');
+
+  /* A permanently converted slot offers no such choice: the scorer sends its
+     own line alone, and that line is the one re-converted. */
+  assert.deepEqual(
+    conversionDescription({ sourceIndex: 2, equivalentSourceIndexes: [2], propertyId: 300, value: 0, gain: 0, preference: 'acceptable' },
+      undefined, 2),
+    { verb: 'Re-convert', source: 'Sub 3', target: 'Damage Dealt on Fire' },
+    'a locked slot re-converts its own line and names no other');
 
   /* Slider words resolve against the target property’s normal-conversion
      maximum — `ceil(maxRoll × 1.5)`, the ceiling the game’s own Repeat
@@ -197,6 +213,45 @@ try {
   assert.equal(
     scoreArtifactOnMonster(pinned, sourceMonster([0, 0, 2, 2], [0.01, 0.01, 0.2, 0.2]), request)?.conversion?.sourceIndex,
     2, 'an already converted slot remains the source, whatever the other lines are');
+
+  // ---- The lines the recommendation is indifferent between -----------------
+  /* One line is converted, but the user chooses which when the monster ranks
+     several the same: replacing any of them costs it nothing it wanted. The
+     equivalents are reported beside the source, always including it. */
+  const equivalents = (fractions, bands, lineShares) => scoreArtifactOnMonster(
+    withRolls(fractions), sourceMonster(bands, lineShares), request)?.conversion?.equivalentSourceIndexes;
+
+  assert.deepEqual(
+    equivalents([0.2, 0.9, 0.5, 0.7], [0, 2, 0, 0], [0.01, 0.2, 0.01, 0.01]), [0, 2, 3],
+    'every unwanted line is offered, in numeric order, whatever it rolled');
+  assert.deepEqual(
+    equivalents([0.9, 0.9, 0.9, 0.9], [1, 2, 2, 1], [0.06, 0.2, 0.2, 0.06]), [0, 3],
+    'the band groups the lines, so two acceptables are offered together');
+  assert.deepEqual(
+    equivalents([0.2, 0.9, 0.9, 0.9], [0, 2, 2, 2], [0.01, 0.2, 0.2, 0.2]), [0],
+    'a line alone in its band is offered alone');
+
+  /* The roll separates the lines the scorer converts but must not narrow what
+     it offers: both are unwanted, so both remain the user's to choose. */
+  const rolledApart = equivalents([0.9, 0.9, 1.0, 0.1], [2, 2, 0, 0], [0.2, 0.2, 0.04, 0.04]);
+  assert.deepEqual(rolledApart, [2, 3],
+    'unequal rolls in one band are still offered together');
+
+  /* An empty slot is nothing the monster wanted either, so it joins the
+     unwanted lines rather than forming a band of its own. */
+  const withEmptyLine = {
+    ...withRolls([0.9, 0.9, 0.9, 0.9]),
+    subPropertyIndexes: [0, 1, 2, -1],
+  };
+  assert.deepEqual(
+    scoreArtifactOnMonster(withEmptyLine, sourceMonster([0, 2, 2, 0], [0.01, 0.2, 0.2, 0.01]), request)?.conversion?.equivalentSourceIndexes,
+    [0, 3], 'an empty slot is grouped with the unwanted lines');
+
+  /* A locked slot offers no choice at all: a further stone overwrites that one
+     line and no other, however the rest are ranked. */
+  assert.deepEqual(
+    scoreArtifactOnMonster(pinned, sourceMonster([0, 0, 2, 2], [0.01, 0.01, 0.2, 0.2]), request)?.conversion?.equivalentSourceIndexes,
+    [2], 'a converted slot is offered alone, never grouped with the unwanted lines');
 
   // ---- The real capture that exposed this ---------------------------------
   const triana = '21413';
