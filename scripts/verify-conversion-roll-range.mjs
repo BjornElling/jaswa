@@ -1,12 +1,7 @@
 /**
- * A converted line's extra contribution raises its ceiling and not its floor
- * (`ARTIFACT-CANONICAL.md` §15.9).
- *
- * Doubling both ends of the range rejected ordinary converted lines, and
- * because one unreadable artifact fails the entire account under §0.1, a single
- * such line stopped the import with a message that could not name it. The
- * account settles the shape: no converted line exceeds `maxRoll × 2`, 142 of
- * 265 hold less than `minRoll × 2`, and none falls below a single roll.
+ * Roll ranges steer conversion projections; they do not reject game-issued
+ * data. The game is authoritative when it sends a converted artifact, while
+ * the planner keeps its own range model for suggesting future conversions.
  */
 import assert from 'node:assert/strict';
 import { createServer } from 'vite';
@@ -35,8 +30,7 @@ try {
   assert.ok(artifact, 'a conversion below twice the minimum roll is a valid line, not a corrupt record');
   assert.equal(artifact.convertedPropertyIndex, 2, 'the conversion stays on the line the export marks');
 
-  /* The ceiling is the half of §10 that the account does confirm, so it has to
-     keep rejecting: two contributions is the most a conversion can reach. */
+  /* A received value beyond the local planning ceiling remains readable. */
   const aboveCeiling = {
     ...record,
     sec_effects: [
@@ -44,11 +38,10 @@ try {
       [221, 81, 0, 0, 5], [218, 0.8999999999999999, 2, 0, 0],
     ],
   };
-  assert.equal(readArtifact(aboveCeiling), null,
-    'a converted line past maxRoll × 2 is still corrupt');
+  assert.ok(readArtifact(aboveCeiling),
+    'a converted line past the local planning ceiling remains authoritative input');
 
-  /* Below a single roll stays corrupt too: the floor moved from two rolls to
-     one, it did not disappear. */
+  /* The same holds below the local planning floor. */
   const belowSingleRoll = {
     ...record,
     sec_effects: [
@@ -56,11 +49,10 @@ try {
       [221, 12, 0, 0, 5], [218, 0.8999999999999999, 2, 0, 0],
     ],
   };
-  assert.equal(readArtifact(belowSingleRoll), null,
-    'a converted line under one roll of its property is still corrupt');
+  assert.ok(readArtifact(belowSingleRoll),
+    'a converted line below the local planning floor remains authoritative input');
 
-  /* An unconverted line keeps the symmetric range its power-ups earned, so the
-     relaxation cannot leak into lines that never had a conversion. */
+  /* Ordinary lines follow the same import principle. */
   const unconvertedTooLow = {
     ...record,
     sec_effects: [
@@ -68,10 +60,10 @@ try {
       [221, 37, 0, 0, 5], [218, 0.8999999999999999, 2, 0, 0],
     ],
   };
-  assert.equal(readArtifact(unconvertedTooLow), null,
-    'an unconverted line below minRoll × its own contributions is still corrupt');
+  assert.ok(readArtifact(unconvertedTooLow),
+    'an ordinary line below the local planning floor remains authoritative input');
 
-  console.log('Converted lines are judged against an asymmetric roll range.');
+  console.log('Conversion ranges guide planning without refusing game-issued artifacts.');
 } finally {
   await server.close();
 }

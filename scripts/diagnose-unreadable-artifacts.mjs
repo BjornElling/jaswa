@@ -1,11 +1,9 @@
 /**
- * Names the artifacts the reader rejects, and why.
+ * Names artifact records whose wire shape the reader cannot render, and why.
  *
- * A single unreadable artifact fails the whole import with one sentence and no
- * subject — "This file contains an equipped artifact JASWA cannot read." That
- * message is right to be loud (`AGENTS.md` §0.1) but it cannot say which record
- * or which field, so finding the offender means running the real reader over a
- * real account and reporting what it refused.
+ * Roll ranges never belong here: game-issued values are authoritative, even
+ * when a conversion changes an encoding JASWA has not observed before. This
+ * utility is only for the structural boundary needed to render safely.
  *
  * Usage:
  *   node scripts/diagnose-unreadable-artifacts.mjs <account.json>
@@ -38,7 +36,7 @@ const server = await createServer({ configFile: false, appType: 'custom', server
 const { readArtifact } = await server.ssrLoadModule('/app/lib/artifacts.ts');
 const {
   artifactCategoryFromType, artifactGradeFromRank, artifactMainProperties,
-  artifactProperty, artifactGrades, artifactElements, artifactArchetypes,
+  artifactProperty, artifactElements, artifactArchetypes,
   artifactIntangibleEquipClass,
 } = await server.ssrLoadModule('/app/lib/artifact-properties.ts');
 
@@ -51,8 +49,7 @@ function explain(record) {
   const type = number(record.type);
   const category = artifactCategoryFromType[type ?? -1];
   if (!category) return `unknown type ${JSON.stringify(record.type)} (expected a value mapping to attribute/type)`;
-  const grade = artifactGradeFromRank(record.natural_rank);
-  if (!grade) return `unknown natural_rank ${JSON.stringify(record.natural_rank)}`;
+  if (!artifactGradeFromRank(record.natural_rank)) return `unknown natural_rank ${JSON.stringify(record.natural_rank)}`;
   const id = number(record.rid);
   if (id === null || !Number.isSafeInteger(id)) return `unusable rid ${JSON.stringify(record.rid)}`;
   if (!Array.isArray(record.pri_effect)) return `pri_effect is not an array: ${JSON.stringify(record.pri_effect)}`;
@@ -61,18 +58,11 @@ function explain(record) {
   const secondary = record.sec_effects;
   if (!Array.isArray(secondary)) return `sec_effects is not an array: ${JSON.stringify(secondary)}`;
   if (secondary.length !== 4) return `sec_effects has ${secondary.length} lines, expected 4`;
-  let converted = null;
   for (const [index, entry] of secondary.entries()) {
     const flag = number(Array.isArray(entry) ? entry[4] : null);
     if (flag === null || !Number.isInteger(flag) || flag < 0) return `sec_effects[${index}] conversion flag ${JSON.stringify(Array.isArray(entry) ? entry[4] : entry)} is not a non-negative integer`;
-    if (flag > 0) {
-      if (converted !== null) return `sec_effects marks two converted lines (${converted} and ${index})`;
-      converted = index;
-    }
     if (!artifactProperty(Array.isArray(entry) ? entry[0] : null)) return `sec_effects[${index}] unknown property id ${JSON.stringify(Array.isArray(entry) ? entry[0] : entry)}`;
   }
-  const powerUps = secondary.reduce((total, entry) => total + (number(entry?.[2]) ?? 0), 0);
-  const expected = artifactGrades[grade].naturalRank - 1;
   const equipClassCode = number(category === 'attribute' ? record.attribute : record.unit_style);
   const named = category === 'attribute'
     ? artifactElements[equipClassCode ?? -1] !== undefined
@@ -80,8 +70,7 @@ function explain(record) {
   if (!named && equipClassCode !== artifactIntangibleEquipClass) {
     return `unnamed ${category === 'attribute' ? 'element' : 'archetype'} code ${JSON.stringify(equipClassCode)} (${category === 'attribute' ? 'attribute' : 'unit_style'} field)`;
   }
-  if (powerUps !== expected) return `power-ups total ${powerUps} but ${grade} expects ${expected} (date_add ${JSON.stringify(record.date_add)})`;
-  return `rejected by a roll-range or duplicate-property rule (date_add ${JSON.stringify(record.date_add)})`;
+  return `unrecognised structural shape (date_add ${JSON.stringify(record.date_add)})`;
 }
 
 const rows = [];
@@ -98,7 +87,7 @@ for (const artifact of Array.isArray(account.artifacts) ? account.artifacts : []
 if (rows.length === 0) {
   console.log('Every artifact in this account reads cleanly.');
 } else {
-  console.log(`${rows.length} artifact${rows.length === 1 ? '' : 's'} the reader refuses:\n`);
+  console.log(`${rows.length} artifact${rows.length === 1 ? '' : 's'} with an unreadable structural shape:\n`);
   for (const { where, artifact } of rows) {
     console.log(`  rid ${artifact.rid} — ${where}`);
     console.log(`    why: ${explain(artifact)}`);

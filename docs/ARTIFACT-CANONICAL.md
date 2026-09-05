@@ -9,6 +9,15 @@ This document is the canonical description of the game rules the Artifacts
 workspace may build on. Where code, interface, or a secondary guide contradicts
 it, this document governs until it is corrected with documented evidence.
 
+**Import boundary.** A game response is authoritative about an artifact the
+account owns. JASWA validates the wire shape it needs to render safely — ids,
+numeric values, four sub-property entries and known vocabulary — but never
+refuses an owned artifact because a local roll or conversion model says its
+value is implausible. Roll tables are planning references: they set score and
+projection ceilings, not an admission test for data the game already accepted.
+This keeps a newly changed conversion or reappraisal encoding from freezing the
+entire live import.
+
 It deliberately separates **verified rule** — supported by the sources in §14 or
 by an observed export — from **pending verification**, which is neither an
 assumption nor a permitted default in code. Pending items are marked inline.
@@ -761,19 +770,17 @@ one line of 6,881 in the account holds **7**, and §12 forbids a ceiling a real
 artifact exceeds. The definition keeps 7, so its conversion ceiling sits one step
 above the dialog's. That errs toward admitting, never toward rejecting.
 
-**Validation and scoring are now separate numbers**, because they fail in
-opposite directions. `artifactConversionMaximum` stays at `maxRoll × 2` as the
-*import* bound: a rejected line fails the whole account under §0.1, engraved
-conversion stones are a separate system whose ceiling nothing here establishes
-(§15.12), and the export never records which kind of stone produced a line, so
-the validator must clear both. `artifactNormalConversionMaximum` is the figure a
-*proposed* conversion is scored against.
+**Received values and planning values are separate.** `maxRoll × 2` remains an
+observed conversion envelope and `artifactNormalConversionMaximum` is the figure
+a *proposed* normal conversion is scored against. Neither is an import bound:
+the game has already established the received value, and a new conversion or
+engraved-stone encoding must not make the account stale.
 
 ### The account's own count: two contributions, never reached
 
 **Settled September 3, 2026** against the 137 converted lines in the captured
-account. This is the bound the import validator still uses; the dialog above
-governs what a normal conversion actually produces.
+account. This is an observed envelope; the dialog above governs what a normal
+conversion actually produces.
 
 Every converted line stores `powerUpCount: 0`, so the naive reading is that a
 conversion produces a single roll. The values refuse that reading: **66 of the
@@ -785,7 +792,7 @@ observed fractions of a two-contribution ceiling run 0.300 to 0.833, and none
 exceeds 1.
 
 ```text
-conversionMaximum = maxRoll × 2      // the import bound, independent of grade
+conversionEnvelope = maxRoll × 2      // an observed planning envelope, independent of grade
 ```
 
 This is §15.9's position-4 rule seen from the other side: the newest-line flag
@@ -957,7 +964,7 @@ critFactor = 1 + CD_monster + CD_skillArtifact + CD_hpCondition
 `damageModifier` holds `Damage Dealt on X`, counter/co-op, and skill or passive
 multipliers. These are three **separate buckets** and must not be collapsed.
 
-### Validation rules
+### Structural import rules
 
 A complete validation layer checks at least:
 
@@ -966,18 +973,14 @@ A complete validation layer checks at least:
 3. At most one artifact per category.
 4. Main stat ∈ {HP, ATK, DEF}.
 5. Exactly four finished sub properties.
-6. No type-only property on a newly generated Attribute artifact.
-7. No attribute-only property on a newly generated Type artifact.
-8. No identical property twice.
-9. Every property value is reachable by legal rolls (§3).
-10. The sum of power-up levels matches the natural grade.
-11. A legacy property is accepted on an existing artifact.
-12. A current-generation generator never produces a legacy property.
-13. Conversion affects only the permanent conversion slot; repeated Conversion
-    Stones may change that same slot again, but cannot target another slot or
-    undo the lock.
-14. Reappraisal preserves the total power-up count.
-15. Locked reappraisal lines keep both type and power-up level.
+6. A known property id and main-property id resolve to JASWA's vocabulary.
+7. A legacy property is preserved on an existing artifact.
+
+Category membership, duplicate properties, power-up totals, roll reachability,
+conversion limits and reappraisal invariants remain useful **diagnostics and
+planning assumptions**. They are not import rejection criteria: they describe
+what the game normally creates, while the game remains the source of truth for
+what it did create.
 
 ### Property definitions as metadata, not switch statements
 
@@ -1225,7 +1228,8 @@ Four tuples, always, on all 1,785 records (§4 confirmed). Each is:
 [ effectId, value, powerUpCount, unknownFlag, conversionFlag ]
 ```
 
-**Position 2 is the power-up count, and the grade invariant holds exactly.**
+**Position 2 is the power-up count, and the original captured cohort followed
+the grade invariant.**
 Summed across an artifact's four lines it equals `natural_rank − 1`, in every
 single record:
 
@@ -1235,9 +1239,10 @@ single record:
 | 4 (Hero) | 3 | 747 |
 | 5 (Legend) | 4 | 170 |
 
-That is §3's table, observed rather than assumed. The natural grade is stored
-directly *and* derivable from the lines, so the two are a mutual check — a
-record where they disagree is corrupt and should be rejected, not repaired.
+That is §3's table, observed rather than assumed. The natural grade and line
+counts are useful evidence for the roll model, but they are not a reason to
+discard a game-issued artifact: conversions and later mechanics may encode the
+same finished result differently.
 
 **Values confirm the §5 roll ranges and the contribution arithmetic.** Grouping
 each property's values by its power-up count reproduces `initial + n rolls`:
@@ -1374,25 +1379,24 @@ alternative is a ceiling a real artifact provably exceeds, and a roll fraction
 above 1 empties the benchmark of meaning. The general rule it illustrates:
 **compute a maximum from the observed range, never from a guide's table.**
 
-**The conversion lock is a contribution.** Counting the fifth field's set flag
-as one extra contribution repairs the grade invariant on **43 of the 44 records
-that otherwise break it**, leaving one. That is consistent with §10: a
-conversion lands on two contributions even though the stored power-up count is
-zero, so the reader uses the lock for the roll structure as well as conversion
-eligibility.
+**The conversion lock is evidence about a contribution.** Counting the fifth
+field's set flag as one extra contribution repairs the grade invariant on **43
+of the 44 records that otherwise break it**, leaving one. That is a useful
+planning model, not a parser rule: a later conversion encoding may carry the
+same value differently, and the account must still import intact.
 
 **The extra contribution raises the ceiling only** — and the floor half of this
 finding was confirmed independently the same day by the Repeat Convert dialog,
 whose lowest selectable threshold is exactly `minRoll` on all 25 properties
-(§10). The ceiling half was superseded: `maxRoll × 2` survives here as the
-import bound, but a normal conversion actually reaches `ceil(maxRoll × 1.5)`.
+(§10). The ceiling half was superseded: `maxRoll × 2` survives here as an
+observed envelope, but a normal conversion actually reaches `ceil(maxRoll × 1.5)`.
 *Settled September 5, 2026*
 against the 265 converted lines with a known range in the captured account:
 **none exceeds `maxRoll × 2`** — which reads as confirmation but is merely
 consistency, since none reaches `ceil(maxRoll × 1.5)` either — while **142 hold
 less than `minRoll × 2`**, and **none falls below a single roll's minimum**. A
 conversion re-rolls the line from nothing, so two contributions are what it may
-*reach*, never a floor it must clear. The validity range for a converted line is
+*reach*, never a floor it must clear. The planning range for a converted line is
 therefore asymmetric:
 
 ```text
@@ -1400,10 +1404,10 @@ minimum = minRoll × (powerUpCount + 1)   // the lock adds nothing here
 maximum = maxRoll × (powerUpCount + 2)   // the lock adds one contribution
 ```
 
-Doubling both ends is the trap, and it is not a scoring inaccuracy but an import
-failure: effect 221 converted to 37 against a 25–40 roll is an ordinary line,
-and rejecting it failed the account's whole import under §0.1's loud-failure
-rule with no way to see which record caused it.
+Doubling both ends is the trap for estimating a conversion. Effect 221
+converted to 37 against a 25–40 roll is an ordinary line; in every case the
+received value remains authoritative, even when a later observation revises
+this model.
 
 ### 15.10 Pre-v8 artifacts can remain unrefined
 
@@ -1418,9 +1422,9 @@ Their values are evaluated against the documented historical +15 ceilings: the
 launch table, the v6.2 property improvement, and the current export together
 cover both old range families. An artifact whose stored `level` is below 15 is
 unrefined and must carry a visible Refine marker, but it remains in every
-recommendation and calculation. A current-dated record with the same broken
-invariant remains malformed and is rejected; historical date alone does not
-turn corrupt new data into a legacy record.
+recommendation and calculation. A current-dated record with the same unfamiliar
+invariant remains authoritative input; historical date only decides whether
+JASWA has a historical ceiling for judging it.
 
 ### 15.11 Three generations, and the v6.2.0 boundary is visible in the data
 
@@ -1453,11 +1457,10 @@ lines from artifacts acquired after the increase:
 | 205 | 2–4 | 402 | 4–6 |
 
 Each agrees with the published v8 merge table. **They are still not stored as
-ranges**, because `readSubProperty` uses a range as a rejection test: filling
-these in refuses 55 artifacts this account legitimately holds — the 28 that
-predate v6.2.0, plus pre-v8 lines whose value is not a whole multiple of any
-per-roll figure, the old upgrade mechanic not having worked that way. §12's
-rule governs: a range that would reject a legal artifact is worse than none.
+ranges**, because no local range can honestly judge every preserved artifact:
+55 artifacts in this account predate v6.2.0 or have values the old upgrade
+mechanic did not express as a whole multiple of a current roll. §12's rule
+governs: a range that cannot explain a legal artifact is worse than none.
 
 ### 15.12 Engraved conversion stones live in `artifact_crafts`
 

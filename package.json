@@ -15,6 +15,7 @@
     "verify:historical-artifact-import": "node scripts/verify-historical-artifact-import.mjs",
     "verify:artifact-conversion-lock": "node scripts/verify-artifact-conversion-lock.mjs",
     "verify:conversion-roll-range": "node scripts/verify-conversion-roll-range.mjs",
+    "verify:authoritative-artifact-import": "node scripts/verify-authoritative-artifact-import.mjs",
     "verify:normal-conversion-maximum": "node scripts/verify-normal-conversion-maximum.mjs",
     "diagnose:unreadable-artifacts": "node scripts/diagnose-unreadable-artifacts.mjs",
     "verify:artifact-score-scale": "node scripts/verify-artifact-score-scale.mjs",

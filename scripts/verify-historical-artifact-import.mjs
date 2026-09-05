@@ -40,7 +40,8 @@ try {
   assert.equal(historical.unrefined, true);
   assert.deepEqual(historical.subProperties.map((property) => property.maximumHundredths), [2500, 2500, 2500, 2500]);
 
-  assert.equal(readArtifact(artifact(3, '2026-08-30T00:00:00Z', [0, 0, 0, 0])), null);
+  assert.ok(readArtifact(artifact(3, '2026-08-30T00:00:00Z', [0, 0, 0, 0])),
+    'a game-issued current artifact with an unfamiliar roll distribution remains importable');
   assert.equal(readArtifacts({ artifacts: [currentRecord, historicalRecord] }).length, 2);
 
   const requests = buildArtifactScoreRequestsForMonsterIds(
