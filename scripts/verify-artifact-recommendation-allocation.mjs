@@ -45,6 +45,31 @@ try {
   assert.equal(result.unfilledSlots.length, 0, 'a usable artifact must fill every available category slot');
   assertArtifactAllocation(result.placements, slots);
 
+  /* The reported Talia shape: a 35 % pair cannot take Talia's slot while its
+     37 % competitor remains available. It may do so only after that physical
+     artifact has genuinely been locked to a stronger pair, which must appear
+     as its own recommendation. */
+  const taliaSlots = [
+    { monsterId: 'talia', category: 'attribute' },
+    { monsterId: 'other', category: 'attribute' },
+  ];
+  const keepsTaliaBest = allocateArtifactPlacements([
+    candidate('thirty-seven', 'attribute', 'talia', 37, 0, 0),
+    candidate('thirty-seven', 'attribute', 'other', 36, 0, 1),
+    candidate('thirty-five', 'attribute', 'talia', 35, 1, 0),
+    candidate('thirty-five', 'attribute', 'other', 34, 1, 1),
+  ], taliaSlots);
+  assert.equal(keepsTaliaBest.placements.find((placement) => placement.monsterId === 'talia')?.artifactId, 'thirty-seven',
+    'a 35 % artifact must not lock Talia while the 37 % artifact remains available');
+  const movesTaliaBest = allocateArtifactPlacements([
+    candidate('thirty-seven', 'attribute', 'talia', 37, 0, 0),
+    candidate('thirty-seven', 'attribute', 'other', 38, 0, 1),
+    candidate('thirty-five', 'attribute', 'talia', 35, 1, 0),
+  ], taliaSlots);
+  assert.deepEqual(movesTaliaBest.placements.map((placement) => [placement.monsterId, placement.artifactId]), [
+    ['other', 'thirty-seven'], ['talia', 'thirty-five'],
+  ], 'a lower Talia score is legal only when the higher artifact is visibly locked to a stronger pair');
+
   /* The score tie has one stated answer: artifact import order, then roster
      order. Repeating the calculation must not depend on sort implementation. */
   const tieCandidates = [

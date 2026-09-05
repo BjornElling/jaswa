@@ -3,6 +3,7 @@ import type { ArtifactPropertyPreference } from './artifact-optimal-value';
 import type { ArtifactCategory, ArtifactMainProperty } from './artifact-properties';
 import { artifactMainProperties } from './artifact-properties';
 import { monsterSpeciesId } from './monster-species';
+import { highestAwakeningMasterId } from './monster-catalog';
 
 type EffectCount = { effectId: number; count: number; slotId?: number };
 type MonsterStatistics = { artifacts?: { observedAt?: string; primaryEffect?: EffectCount[]; secondaryEffect?: EffectCount[] } };
@@ -92,7 +93,9 @@ export function defaultPropertyPreferences(
   masterId: unknown,
   category: ArtifactCategory,
 ): ArtifactPropertyPreferences | undefined {
-  const key = typeof masterId === 'number' || typeof masterId === 'string' ? monsterSpeciesId(masterId) : null;
+  const key = typeof masterId === 'number' || typeof masterId === 'string'
+    ? monsterSpeciesId(highestAwakeningMasterId(masterId))
+    : null;
   const artifacts = key === null ? undefined : monsterStatistics[key]?.artifacts;
   if (!artifacts) return undefined;
 
