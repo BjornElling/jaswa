@@ -2,7 +2,8 @@ import { artifactPreferenceStatus, defaultPropertyPreferences, recordedArtifactP
 import { readArtifacts } from '../artifacts';
 import { readEngravedConversionStones } from '../artifact-conversion-stones';
 import {
-  artifactConversionContributions, artifactConversionMaximum, artifactConversionRollFraction, bestArtifactLineContributions,
+  artifactConversionRollFraction, artifactNormalConversionContributions, artifactNormalConversionMaximum,
+  bestArtifactLineContributions,
 } from '../artifact-properties';
 import type { Artifact, ArtifactSubProperty } from '../artifacts';
 import type { ArtifactCategory, ArtifactMainProperty } from '../artifact-properties';
@@ -70,11 +71,16 @@ function convertedSlotConversionFraction(artifact: Artifact): number {
   const index = artifact.convertedPropertyIndex;
   if (index === null) return -1;
   const line = artifact.subProperties[index];
-  const maximum = line ? artifactConversionMaximum(line.definition) : null;
+  const maximum = line ? artifactNormalConversionMaximum(line.definition) : null;
   if (!line || maximum === null || maximum <= 0) return -1;
-  /* `artifactConversionMaximum` is in percentage points and the stored value in
-     hundredths of one, so the ceiling is scaled rather than the value rounded —
-     §9's rule that these are never compared as floats. */
+  /* `artifactNormalConversionMaximum` is in percentage points and the stored
+     value in hundredths of one, so the ceiling is scaled rather than the value
+     rounded — §9's rule that these are never compared as floats.
+
+     An engraved conversion cannot exceed this — grade raises the floor a stone
+     rolls from, not its ceiling (§15.12) — so a fraction above 1 means a line
+     the roll table does not explain, and it stays unclamped so the scale
+     reports that honestly rather than hiding it at 1. */
   return line.valueHundredths / Math.round(maximum * 100);
 }
 
@@ -90,12 +96,13 @@ function packArtifact(artifact: Artifact): PackedArtifactScoreInput {
     subPropertyIndexes: [indexes[0], indexes[1], indexes[2], indexes[3]],
     subPropertyFractions: [fractions[0], fractions[1], fractions[2], fractions[3]],
     convertedSlotConversionFraction: convertedSlotConversionFraction(artifact),
-    /* A conversion collects two contributions on every grade (§10) and every
-       line is now measured against the game's best line, so this is one figure
-       rather than a per-grade one. Dividing by the artifact's own grade made it
-       reach 1 on a Normal or Magic artifact — a conversion scoring as a full
-       line — which overstated conversions precisely where they help least. */
-    conversionCeilingFraction: artifactConversionContributions / bestArtifactLineContributions,
+    /* A conversion reaches one and a half rolls on every grade (§10, settled
+       against the game's Repeat Convert dialog) and every line is measured
+       against the game's best line, so this is one figure rather than a
+       per-grade one. Dividing by the artifact's own grade made it reach 1 on a
+       Normal or Magic artifact — a conversion scoring as a full line — which
+       overstated conversions precisely where they help least. */
+    conversionCeilingFraction: artifactNormalConversionContributions / bestArtifactLineContributions,
   };
 }
 

@@ -683,10 +683,64 @@ property name is permanently retained.
 28 %. There is no artifact equivalent of a permanent additive grind on an
 existing property. This is a fundamental difference from runes.
 
-### A conversion lands on exactly two contributions
+### A normal conversion reaches one and a half rolls
+
+**Settled September 5, 2026** against the game's own **Repeat Convert** dialog,
+which names the lowest and highest selectable threshold for every property a
+normal conversion may roll. That is a first-party statement of the range, so
+under §14 it outranks both the account's converted lines and any published
+table:
+
+```text
+conversionMinimum = minRoll                  // exactly, on all 25 properties
+conversionMaximum = ceil(maxRoll × 1.5)      // rounded up to the display step
+```
+
+| Property | Roll | Converts to |
+| --- | --- | --- |
+| DMG dealt on element, ATK/DEF UP Effect | 3–5 | 3–**8** |
+| DMG taken from element, SPD UP Effect, CD+ enemy HP more, every Skill line | 4–6 | 4–**9** |
+| Bomb DMG, CRIT DMG Taken, Add'l DMG by ATK/DEF, Own turn 1-target, Counter/Co-op | 2–4 | 2–**6** |
+| Life Drain | 5–8 | 5–**12** |
+| CD+ enemy HP less | 8–12 | 8–**18** |
+| Add'l DMG by SPD | 25–40 | 25–**60** |
+| Add'l DMG by HP | 0.20–0.30 | 0.20–**0.50** |
+
+`scripts/verify-normal-conversion-maximum.mjs` transcribes the dialog and locks
+every figure.
+
+**Two rules this replaces, and why each fails.** `maxRoll × 2` — the previous
+model here — overstates every property by about a third: it would put Life Drain
+at 16 where the game stops at 12. The community rule `minRoll + maxRoll` agrees
+only where `minRoll` happens to be half of `maxRoll` (2–4, and 3–5 once rounded);
+it fails 4–6, 5–8, 8–12 and 25–40. Both survived the account data only because
+**no observed line ever came close to either ceiling** — which is itself the
+clue, since a two-roll ceiling should have been reached occasionally in 265
+lines.
+
+**The rounding is real, not a fitting artefact.** The two properties whose 1.5×
+lands off the display step are the proof it rounds *up*: 5 → 7.5 → **8**, and
+0.3 → 0.45 → **0.5**.
+
+**One property conflicts, and the conflict is kept.** The dialog lists `[Skill 2]
+CRIT DMG` (401) at 4–9 like every other skill line, implying `maxRoll` 6 — but
+one line of 6,881 in the account holds **7**, and §12 forbids a ceiling a real
+artifact exceeds. The definition keeps 7, so its conversion ceiling sits one step
+above the dialog's. That errs toward admitting, never toward rejecting.
+
+**Validation and scoring are now separate numbers**, because they fail in
+opposite directions. `artifactConversionMaximum` stays at `maxRoll × 2` as the
+*import* bound: a rejected line fails the whole account under §0.1, engraved
+conversion stones are a separate system whose ceiling nothing here establishes
+(§15.12), and the export never records which kind of stone produced a line, so
+the validator must clear both. `artifactNormalConversionMaximum` is the figure a
+*proposed* conversion is scored against.
+
+### The account's own count: two contributions, never reached
 
 **Settled September 3, 2026** against the 137 converted lines in the captured
-account, and it is the number every conversion projection must use.
+account. This is the bound the import validator still uses; the dialog above
+governs what a normal conversion actually produces.
 
 Every converted line stores `powerUpCount: 0`, so the naive reading is that a
 conversion produces a single roll. The values refuse that reading: **66 of the
@@ -698,19 +752,26 @@ observed fractions of a two-contribution ceiling run 0.300 to 0.833, and none
 exceeds 1.
 
 ```text
-conversionMaximum = maxRoll × 2      // independent of the artifact's grade
+conversionMaximum = maxRoll × 2      // the import bound, independent of grade
 ```
 
 This is §15.9's position-4 rule seen from the other side: the newest-line flag
 is set on the converted line, and counting it as one extra contribution is what
 makes the arithmetic close.
 
+**The observed ceiling fraction corroborates the dialog.** Those fractions top
+out at **0.833 and never approach 1** — and `1.5 / 2 = 0.75`, with the rounding
+on odd maxima explaining the rest. A genuine two-roll ceiling should have been
+touched at least once across 265 lines. It never was, because it was never
+reachable: the account was measuring a 1.5× ceiling against a 2× yardstick all
+along.
+
 **It does not scale with the artifact's grade**, and that is the trap. A Legend
 line collects five contributions, so judging a conversion against *that*
 ceiling claims a value the game cannot produce, and overstates the case for
 converting exactly on the artifacts worth the most care. A conversion on a
-Legend artifact reaches at best `maxRoll × 2` where the line it replaces could
-have held `maxRoll × 5`.
+Legend artifact reaches at best `ceil(maxRoll × 1.5)` where the line it replaces
+could have held `maxRoll × 5`.
 
 **The stone's grade does not raise the ceiling.** Grade governs which stones
 the player owns and spends (§15.12), not how high the resulting line can roll.
@@ -1287,6 +1348,30 @@ conversion lands on two contributions even though the stored power-up count is
 zero, so the reader uses the lock for the roll structure as well as conversion
 eligibility.
 
+**The extra contribution raises the ceiling only** — and the floor half of this
+finding was confirmed independently the same day by the Repeat Convert dialog,
+whose lowest selectable threshold is exactly `minRoll` on all 25 properties
+(§10). The ceiling half was superseded: `maxRoll × 2` survives here as the
+import bound, but a normal conversion actually reaches `ceil(maxRoll × 1.5)`.
+*Settled September 5, 2026*
+against the 265 converted lines with a known range in the captured account:
+**none exceeds `maxRoll × 2`** — which reads as confirmation but is merely
+consistency, since none reaches `ceil(maxRoll × 1.5)` either — while **142 hold
+less than `minRoll × 2`**, and **none falls below a single roll's minimum**. A
+conversion re-rolls the line from nothing, so two contributions are what it may
+*reach*, never a floor it must clear. The validity range for a converted line is
+therefore asymmetric:
+
+```text
+minimum = minRoll × (powerUpCount + 1)   // the lock adds nothing here
+maximum = maxRoll × (powerUpCount + 2)   // the lock adds one contribution
+```
+
+Doubling both ends is the trap, and it is not a scoring inaccuracy but an import
+failure: effect 221 converted to 37 against a 25–40 roll is an ordinary line,
+and rejecting it failed the account's whole import under §0.1's loud-failure
+rule with no way to see which record caused it.
+
 ### 15.10 Pre-v8 artifacts can remain unrefined
 
 The September 1 import audit found 202 readable artifacts added in 2020–2022
@@ -1379,6 +1464,67 @@ so every stone of its category applies to it.
 
 **The category split of §5 holds on stones too.** Attribute stones carry only
 `2xx`/`3xx` properties and type stones only `2xx`/`4xx`, with no crossover.
+
+#### The stone's grade raises the floor, never the ceiling
+
+**Settled September 5, 2026** against the stones' own tooltips, which state the
+range each stone will roll. This answers the question §10 had to leave open, and
+it answers it in the *opposite* direction to the usual assumption:
+
+| Stone | Property | Roll | Stone's range | Normal conversion |
+| --- | --- | --- | --- | --- |
+| Legend | Life Drain | 5–8 | **8~12** | 5–12 |
+| Legend | CD+ as less enemy HP | 8–12 | **12~18** | 8–18 |
+| Legend | Bomb DMG | 2–4 | **4~6** | 2–6 |
+| Legend | [S1] Accuracy, [S3] Recovery, [S4] CRIT DMG | 4–6 | **7~9** | 4–9 |
+| Rare | Add'l DMG by ATK | 2–4 | **2~6** | 2–6 |
+
+Every stone's **maximum is exactly the normal-conversion ceiling** of §10 —
+`ceil(maxRoll × 1.5)`, with no exception across grades. What grade buys is the
+**floor**: a Rare stone spans the whole normal range, while a Legend stone
+starts around two thirds of the way up it. An Engraved conversion is therefore a
+*safer* conversion, not a stronger one.
+
+**The practical consequence, and it is the one that matters here: no engraved
+conversion can produce a line a normal conversion could not.** An unexplained
+high value in the account cannot be blamed on an engraved stone. This removes
+the reservation §10 records for the import bound — the two systems share one
+ceiling — though the bound stays where it is, because widening never rejects a
+legal artifact and this evidence covers grades and properties sampled, not all
+of them.
+
+**The 4–6 skill properties are the one irregularity.** Their Legend floor is 7
+where the two-thirds pattern of the others predicts 6. Recorded as observed
+rather than smoothed: five stones is too thin a sample to derive the floor rule,
+and only the ceiling — which is uniform — is used by any calculation.
+
+**The evidence is post-v8 by construction, unlike the account's lines.** A
+converted artifact line is a historical record — it preserves whatever table was
+in force when it rolled, which is why §15.11's eras matter for reading them. A
+stone's tooltip is the opposite: the client renders it from the *current* table
+to state what the stone will roll if used now, whatever date the stone was
+obtained. Nine stones across two grades agree with the Repeat Convert dialog on
+every overlapping property, so two independent live sources give one ceiling.
+
+**A stone can name a property the artifact tables call legacy**, and both such
+properties resolve cleanly:
+
+| id | Property | Stone | Implied roll |
+| ---: | --- | --- | --- |
+| 216 | HP when Revived | Rare **4~9** | 4–6 |
+| 217 | Attack Bar when Revived | Legend **7~9** | 4–6 |
+
+For 216 that is exactly what §15.11 recovered from pre-v6.2 lines, now confirmed
+from a second, independent direction; 217 follows the same 4–6 shape, including
+the Legend floor of 7 that every other 4–6 property shows.
+
+**This does not make them current.** Neither appears anywhere in the Repeat
+Convert dialog's target list, so they are retired from the *random* pool while
+remaining reachable by a *targeted* engraved stone. `status: 'legacy'` therefore
+still describes them correctly for normal conversion, and their ranges stay
+`null` under §12 — but the account's 174 stones naming a legacy property are not
+all unusable, and a future session may want to value the 216/217 ones now that
+their ranges are known. Recorded, deliberately not acted on.
 
 **Stones naming a legacy property are refused, not offered.** 174 of the 463
 name one, and §12 forbids computing a roll for a property whose range is
@@ -1483,8 +1629,8 @@ conversion scored as a full line exactly where it helps least.
 
 The consequence worth stating plainly: a Rare artifact does not score like a
 Legend merely for having rolled well within its smaller allowance, and a
-conversion — capped at two contributions by §10 — is worth `2/5` of a full line
-on every grade.
+conversion — reaching one and a half rolls by §10 — is worth `1.5/5` of a full
+line on every grade.
 
 ### The benchmark must be an artifact that can exist, on a monster that exists
 
@@ -1726,6 +1872,60 @@ that are not numbers sort too — by name, by location, by monster — because
 "show me every artifact currently in inventory, best first" is the ordinary way
 this data gets read.
 
+### 17.9 The figures on the page add up
+
+*September 5, 2026.* Every count the recommendation view prints has to
+reconcile with the others **on the page**, without the user reconstructing how
+the code partitions its work.
+
+The slot summary did not. It read `558 of 558 scored slots filled` and was
+immediately followed by a warning naming 2 more slots awaiting preferences.
+Both statements were true — `slotCount` deliberately counts only the *scorable*
+slots, an unscored one being a data gap rather than an allocation failure — but
+between them they gave the user three numbers with no visible relationship, and
+the only reading available was that the app had contradicted itself.
+
+The total is now **every slot in the scope**, with the parts that are not
+filled named beside it:
+
+```
+552 of 560 slots filled (8 awaiting preferences)
+```
+
+so `filled + unfilled + awaiting = total`, always, and each part is named only
+when it is non-zero — a complete account still reads plainly as `560 of 560
+slots filled`. The three figures are derived from one total in
+`artifact-maximum-values.tsx` rather than reported independently, which is what
+makes the arithmetic a property of the code rather than of the wording. The
+warnings below the line no longer claim the slots are "not counted as
+unfilled", because they are now counted, in a part of their own.
+
+The general rule: an internal distinction that makes a total exclude something
+must not surface as a total the user cannot verify. Either the excluded rows
+are in the figure, or the figure is not the one to print.
+
+### 17.10 Before and after are two different questions
+
+The recommendation table answers both "where is this artifact now" and "where
+would the plan put it", and those are separate filters — **Location before**
+and **Location after**. Before reads the import; after reads the allocation:
+equipped if a monster was allocated the artifact, inventory if the advice is to
+sell it. The two partition the rows identically and independently, so
+`after: Equipped` always yields exactly as many rows as the summary reports
+filled slots — a cross-check the user can perform by eye.
+
+**Already matching / Hide** removes the rows where the two agree — where the
+artifact already sits on the monster the plan names, which is the `Keep`
+action. It is off by default: those rows are part of the plan, and hiding them
+is something the user asks for when they want the work list rather than the
+whole allocation.
+
+These three filter on the *advice*, so they cannot run alongside the filters
+that ask about the artifact itself: the allocation is not known until the
+calculation is paired with the row. They narrow the rows shown and nothing
+else. The allocation is still computed over the whole library, so §17's
+guarantee holds — a filter never changes the advice in the rows that remain.
+
 ---
 
 ## 18. Quality is text; a score is colour
@@ -1759,7 +1959,44 @@ where the Legend artifact sprite reads a warmer orange. And the game's Legend
 orange lands within 4° of hue of `--gold`, a contrast ratio of 1.04, so a
 Legend artifact and an active control were the same colour.
 
-### 18.1 A score reads in three bands
+### 18.1 The one exception: a rule in the margin
+
+*Added September 5, 2026.* Quality **is** shown as colour in exactly one place:
+a 2px rule down the left edge of the recommendation table's first cell
+(`app/components/quality-rule.tsx`), where it lands on the row's leading edge.
+Colouring the grade *word* stays removed — this is a different shape, and it
+survives the objection above rather than ignoring it:
+
+- **It is outside the reading line.** The rule sits on the row's leading edge,
+  so it never paints a word the user is reading and never competes with
+  `--gold` on a figure or a control. It was first tried against the substat
+  column, where it read as a stripe *inside* the row; on the row's edge it
+  reads as a margin mark, which is what makes it recede.
+- **It is identical in every row but its hue.** Same width, same position, same
+  vertical extent, whatever the tier. Nothing about a Legend row is *bigger*
+  than a Normal one, so the tiers compare down the column instead of one of
+  them shouting. It occupies the same box on every row, so no row shifts
+  (rule 2).
+- **It is desaturated well below the accent.** These are muted readings of the
+  game's hues, not reproductions. §18 already established there is no flat
+  palette to be faithful to, which frees the colours to be chosen for how they
+  read here.
+- **Legend is pulled deliberately off the accent.** The game's Legend orange is
+  within 4° of hue of `--gold` at a contrast ratio of 1.04. This Legend is
+  distinctly redder, so a Legend rule and an active filter button are not the
+  same colour.
+- **Normal reads as an absence.** The game's Normal is white, which drawn in
+  ink would make the weakest tier the loudest, inverting the ranking. It takes
+  `--line-strong`: present, so every row has a rule and the column has an edge,
+  but reading as no colour at all.
+
+The rule carries no text, so it names its tier in `aria-label` and `title`. A
+colour nobody can name is decoration; this one answers "which tier?" when the
+user asks it directly. Grade also remains sortable in the Substats column and
+filterable in the panel, so the rule is a scanning aid rather than the only way
+to reach the fact.
+
+### 18.2 A score reads in three bands
 
 Colour on data survives in exactly one place, and it is the number rather than
 the grade. `artifactValueBands` in `app/lib/artifact-grid.ts` is the one set of

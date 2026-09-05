@@ -47,14 +47,20 @@ try {
     { verb: 'Convert', source: 'sub 1', target: 'Damage Dealt on Fire', stone: 'Rare Water stone' },
     'a recommendation exposes its action, source, target and stone for distinct presentation');
 
-  /* Slider words resolve against the target property's conversion maximum.
+  /* Slider words resolve against the target property’s normal-conversion
+     maximum — `ceil(maxRoll × 1.5)`, the ceiling the game’s own Repeat
+     Convert dialog names. The floor is a single minimum roll, not two, so it
+     is a smaller share of that ceiling than the old two-roll model claimed;
      The two-roll floor and average are property-specific; "three quarters" is
      exactly 75 % for every property. */
   const bombDamage = artifactProperty(210);
   const dealtOnFire = artifactProperty(300);
-  assert.equal(artifactConversionRollFraction(bombDamage, 1), 0.25, 'minimum uses Bomb Damage’s own two-roll floor');
-  assert.equal(artifactConversionRollFraction(dealtOnFire, 1), 0.6, 'minimum is not a shared 60 % estimate');
-  assert.equal(artifactConversionRollFraction(dealtOnFire, 2), 0.8, 'average is the midpoint of the actual range');
+  assert.equal(artifactConversionRollFraction(bombDamage, 1), 1 / 6,
+    'minimum uses Bomb Damage’s own single-roll floor against its 6 % ceiling');
+  assert.equal(artifactConversionRollFraction(dealtOnFire, 1), 0.375,
+    'minimum is one 3 % roll of an 8 % ceiling, not a shared estimate');
+  assert.equal(artifactConversionRollFraction(dealtOnFire, 2), 0.6875,
+    'average is the midpoint between the single-roll floor and the ceiling');
   assert.equal(artifactConversionRollFraction(dealtOnFire, 3), 0.75, 'three quarters is exactly 75 % of the maximum');
   assert.equal(artifactConversionRollFraction(dealtOnFire, 4), 1, 'maximum is the conversion maximum');
 
@@ -268,12 +274,15 @@ try {
     mainPreferences: [2, 0, 0], subPropertyPreferences: lowGainPreferences,
     subPropertyShares: new Array(scoredArtifactProperties.length).fill(0),
   };
+  /* Three points, not the five this fixture once asserted: Bomb Damage’s
+     floor is one minimum roll of a 6 % ceiling (1/6) where the old two-roll
+     model claimed 2/8, so a floor conversion is worth correspondingly less. */
   const floorFractions = scoredArtifactProperties.map((property) => artifactConversionRollFraction(property, 1));
   assert.equal(scoreArtifactOnMonster(lowGainArtifact, lowGainMonster, {
     ...request, conversionRollFractions: floorFractions, insignificantDifference: 0,
-  })?.conversions[0]?.gain, 5, 'the fixture must offer a five-point conversion without a band');
+  })?.conversions[0]?.gain, 3, 'the fixture must offer a three-point conversion without a band');
   assert.deepEqual(scoreArtifactOnMonster(lowGainArtifact, lowGainMonster, {
-    ...request, conversionRollFractions: floorFractions, insignificantDifference: 5,
+    ...request, conversionRollFractions: floorFractions, insignificantDifference: 3,
   })?.conversions, [], 'a conversion inside the selected band is not recommended');
 
   // ---- §17.5: one band, fully listed, in falling order --------------------

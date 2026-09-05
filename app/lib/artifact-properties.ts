@@ -275,24 +275,72 @@ export function artifactPropertyMaximum(property: ArtifactPropertyDefinition): n
 }
 
 /**
- * The contributions a converted line receives, whatever the artifact's grade.
+ * The contributions a converted line may reach, whatever the artifact's grade.
  *
- * This is an observation, not a rule inherited from a guide. Across the 137
- * converted lines in the captured account every one carries zero power-ups,
- * 66 hold a value no single roll can produce, and **none** requires a third
- * contribution — so a conversion lands on exactly two. `ARTIFACT-CANONICAL.md`
- * §10 records the count and the evidence.
+ * This is the *import* bound, and it is deliberately looser than the real one
+ * below. `readSubProperty` uses it as a rejection test, and under §0.1 a single
+ * rejected line fails the whole account, so the cost of the two errors is not
+ * symmetric: too high merely admits a value the game cannot produce, while too
+ * low refuses an artifact the player legitimately holds.
  *
- * It matters because it is the ceiling a conversion is judged against. A
- * Legend line collects five contributions, so scoring a conversion against
- * that ceiling claims a value the game cannot produce, and overstates the case
- * for converting precisely on the best artifacts.
+ * Engraved conversion stones share the normal ceiling rather than exceeding it
+ * — their grade raises the floor they roll from, not the maximum (§15.12) — so
+ * the margin here is no longer covering a second system. It is kept because the
+ * stone evidence samples some grades and properties rather than all of them,
+ * and because nothing is gained by tightening a bound whose only job is to
+ * refuse corrupt records.
  */
 export const artifactConversionContributions = 2;
 
 /**
- * The most a conversion to this property could reach. Independent of the
- * artifact's grade, because the conversion's own contribution count is.
+ * The contributions a normal conversion is actually worth, as a share of one
+ * roll: the Repeat Convert dialog puts its ceiling at `maxRoll × 1.5`, so a
+ * conversion buys one and a half rolls where a power-up buys one.
+ *
+ * Used to place a conversion on the same scale as a full line, which the
+ * benchmark gives five contributions (§13). The rounding that makes the
+ * per-property ceiling land on the game's display step is deliberately not
+ * folded in here: this is the underlying rate, not one property's figure.
+ */
+export const artifactNormalConversionContributions = 1.5;
+
+/**
+ * The most a *normal* conversion to this property can reach.
+ *
+ * **Settled September 5, 2026** against the game's own Repeat Convert dialog,
+ * which states the selectable threshold range for every property it may roll.
+ * Across 25 properties on both categories the minimum is exactly `minRoll` and
+ * the maximum is exactly `maxRoll × 1.5`, rounded up to the property's display
+ * step. A conversion is therefore worth one and a half rolls, not two:
+ *
+ * ```text
+ * Life Drain        5–8   → 5–12   (not 13, and not 16)
+ * Addl DMG by SPD  25–40  → 25–60  (not 65, and not 80)
+ * ATK/DEF UP        3–5   → 3–8    where ceil() rounds 7.5 up
+ * ```
+ *
+ * The two candidate rules this replaces both fail the dialog: `maxRoll × 2`
+ * overstates every property by about a third, and `minRoll + maxRoll` happens
+ * to agree only where `minRoll` is half of `maxRoll`. §10 records the table.
+ *
+ * This is the figure to score a *proposed* conversion against. Judging a
+ * captured line's validity is the other question, and it uses the looser
+ * `artifactConversionContributions` above.
+ */
+export function artifactNormalConversionMaximum(property: ArtifactPropertyDefinition): number | null {
+  if (property.minRoll === null || property.maxRoll === null) return null;
+  /* The display step is the property's own granularity: `Additional Damage by
+     HP` is the one current property the game shows in tenths, and it is also
+     the one whose 1.5× lands off the step (0.45 → 0.5). */
+  const step = property.minRoll < 1 ? 0.1 : 1;
+  const raw = property.maxRoll * 1.5;
+  return Math.round(Math.ceil(Math.round(raw / step * 1e6) / 1e6) * step * 100) / 100;
+}
+
+/**
+ * The bound a captured converted line is judged against on import. See
+ * `artifactConversionContributions` for why this stays wider than the value a
+ * normal conversion can actually produce.
  */
 export function artifactConversionMaximum(property: ArtifactPropertyDefinition): number | null {
   if (property.maxRoll === null) return null;
@@ -302,18 +350,22 @@ export function artifactConversionMaximum(property: ArtifactPropertyDefinition):
 /**
  * The share of a conversion's own maximum which one roll-value choice assumes.
  *
- * A conversion contains two contributions. Its floor is consequently two
- * minimum rolls and its ordinary result is the midpoint between that floor and
- * its two-maximum-roll ceiling. "Three quarters" is deliberately three
- * quarters of the ceiling itself: it is the value the control names, rather
- * than a nearby hand-picked estimate.
+ * The fractions are of the conversion's own ceiling, so 1 is the best a
+ * conversion can produce rather than the best the line could ever hold. The
+ * floor is `minRoll` — the Repeat Convert dialog's lowest selectable threshold
+ * on all 25 properties — and *not* two minimum rolls: a conversion re-rolls the
+ * line from nothing, so its two contributions are what it may reach, never a
+ * floor it must clear (§10). "Three quarters" is deliberately three quarters of
+ * that ceiling: it is the value the control names, rather than a nearby
+ * hand-picked estimate.
  */
 export function artifactConversionRollFraction(
   property: ArtifactPropertyDefinition,
   choice: number,
 ): number | null {
-  if (property.minRoll === null || property.maxRoll === null || property.maxRoll <= 0) return null;
-  const floor = property.minRoll / property.maxRoll;
-  const average = (property.minRoll + property.maxRoll) / (2 * property.maxRoll);
+  const ceiling = artifactNormalConversionMaximum(property);
+  if (property.minRoll === null || ceiling === null || ceiling <= 0) return null;
+  const floor = property.minRoll / ceiling;
+  const average = (floor + 1) / 2;
   return [floor, average, 0.75, 1][choice - 1] ?? null;
 }
