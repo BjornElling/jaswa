@@ -48,13 +48,41 @@ export async function checkHelperConnection(): Promise<HelperConnection> {
   }
 }
 
-export async function readHelperProfile(): Promise<HelperProfile | null> {
+/**
+ * A snapshot the helper served, or why it could not be used.
+ *
+ * The rejection carries its reason rather than collapsing to `null`, because
+ * the two failures need opposite treatment: an envelope JASWA cannot parse is a
+ * transient nothing to wait out, while an account JASWA cannot read is the one
+ * the user must be told about — the same sentence the file route shows. Silently
+ * returning `null` for both is what let a single unreadable artifact stop direct
+ * import with the dashboard still reading "Connected".
+ */
+export type HelperProfileResult =
+  | { state: 'ready'; profile: HelperProfile }
+  | { state: 'unreadable'; reason: string; identity: HelperSessionIdentity }
+  | { state: 'unavailable' };
+
+/** Which snapshot a rejection belongs to, so it is reported once and not every poll. */
+export type HelperSessionIdentity = { instanceId: string; sessionId: number; revision: number };
+
+/**
+ * Classifies one `/profile` answer. Split from the request so the decision that
+ * failed silently — an account JASWA cannot read, told apart from a helper with
+ * nothing to serve — is testable without a socket on the helper's fixed port.
+ */
+export function classifyHelperProfile(value: unknown): HelperProfileResult {
+  if (!isRecord(value) || typeof value.updatedAt !== 'string' || typeof value.instanceId !== 'string' || value.instanceId.length === 0 || typeof value.revision !== 'number' || !Number.isSafeInteger(value.revision) || value.revision < 0 || typeof value.sessionId !== 'number' || !Number.isSafeInteger(value.sessionId) || value.sessionId < 1 || (value.source !== 'game-start' && value.source !== 'live') || !isRecord(value.data)) return { state: 'unavailable' };
+  const report = validateGameFile(value.data);
+  return report.valid
+    ? { state: 'ready', profile: { updatedAt: value.updatedAt, instanceId: value.instanceId, revision: value.revision, sessionId: value.sessionId, source: value.source, data: value.data } }
+    : { state: 'unreadable', reason: report.message, identity: { instanceId: value.instanceId, sessionId: value.sessionId, revision: value.revision } };
+}
+
+export async function readHelperProfile(): Promise<HelperProfileResult> {
   try {
     const response = await localFetch('/profile');
-    if (!response.ok) return null;
-    const value = await response.json() as unknown;
-    if (!isRecord(value) || typeof value.updatedAt !== 'string' || typeof value.instanceId !== 'string' || value.instanceId.length === 0 || typeof value.revision !== 'number' || !Number.isSafeInteger(value.revision) || value.revision < 0 || typeof value.sessionId !== 'number' || !Number.isSafeInteger(value.sessionId) || value.sessionId < 1 || (value.source !== 'game-start' && value.source !== 'live') || !isRecord(value.data)) return null;
-    const report = validateGameFile(value.data);
-    return report.valid ? { updatedAt: value.updatedAt, instanceId: value.instanceId, revision: value.revision, sessionId: value.sessionId, source: value.source, data: value.data } : null;
-  } catch { return null; }
+    if (!response.ok) return { state: 'unavailable' };
+    return classifyHelperProfile(await response.json() as unknown);
+  } catch { return { state: 'unavailable' }; }
 }

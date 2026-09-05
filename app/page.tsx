@@ -47,6 +47,14 @@ export default function Home() {
   const settingsInput = useRef<HTMLInputElement>(null);
   const appliedHelperRevision = useRef<number | null>(null);
   const appliedHelperSession = useRef<string | null>(null);
+  /* Which helper snapshot JASWA has already refused, so a two-second poll
+     reports an unreadable account once rather than on every pass. */
+  const reportedHelperRejection = useRef<string | null>(null);
+  /* The current import, readable from the polling interval's callback. That
+     callback outlives the render that created it, so `game` inside it is
+     whatever was loaded when the interval started. */
+  const gameRef = useRef(game);
+  gameRef.current = game;
 
   useEffect(() => {
     Promise.all([loadImportedGame(), loadPreferences()]).then(([savedGame, savedPreferences]) => {
@@ -82,11 +90,31 @@ export default function Home() {
           ? appliedHelperRevision.current !== connection.revision
           : appliedHelperSession.current !== `${connection.instanceId}:${connection.sessionId}`;
         if (!needsImport) return;
-        const profile = await readHelperProfile();
-        if (disposed || !profile) return;
+        const result = await readHelperProfile();
+        if (disposed || result.state === 'unavailable') return;
+        if (result.state === 'unreadable') {
+          /* The helper is connected and sending, and JASWA cannot read what it
+             sent. Say so in the same words the file route uses — but once per
+             snapshot, because the poll would otherwise repeat it every two
+             seconds, and never re-import the same rejected revision. */
+          const { instanceId, sessionId, revision } = result.identity;
+          const rejected = `${instanceId}:${sessionId}:${revision}`;
+          if (reportedHelperRejection.current !== rejected) {
+            reportedHelperRejection.current = rejected;
+            /* What the user loses differs, and guessing wrong is worse than
+               saying less: with an earlier import the workspace is merely
+               stale, without one there is nothing to work from at all. The ref
+               carries it because `game` in this closure belongs to the render
+               that started the interval. */
+            setMessage(`${result.reason}${gameRef.current ? ' JASWA is still showing your last good import.' : ' JASWA has not loaded this account.'}`);
+          }
+          return;
+        }
+        const { profile } = result;
         const validation = validateGameFile(profile.data);
         if (!validation.valid) return;
         if (!await applyImport(createImportedGame('JASWA Helper — Steam', profile.data, validation, { instanceId: profile.instanceId, sessionId: profile.sessionId }))) return;
+        reportedHelperRejection.current = null;
         appliedHelperRevision.current = profile.revision;
         appliedHelperSession.current = `${profile.instanceId}:${profile.sessionId}`;
       } catch {
