@@ -113,7 +113,16 @@ export function conversionDescription(
      artifact's one free slot. A user reading "convert" would not know the
      existing line is what pays for it. */
   const verb = convertedPropertyIndex === conversion.sourceIndex ? 'Re-convert' : 'Convert';
-  const source = `sub ${conversion.sourceIndex + 1}`;
+  /* The line the stone would be spent on leads the recommendation, so it is
+     named as the subject of the sentence rather than as an object inside it.
+     Where the monster ranks several lines the same, all of them are named —
+     "Sub 1/2/4" — because the recommendation is indifferent between them and
+     the user may have a reason of their own to keep one. The scorer's own
+     choice is still in the list, so a single-line reading stays exact. */
+  const sourceIndexes = conversion.equivalentSourceIndexes?.length
+    ? [...conversion.equivalentSourceIndexes].sort((left, right) => left - right)
+    : [conversion.sourceIndex];
+  const source = `Sub ${sourceIndexes.map((index) => index + 1).join('/')}`;
   if (!stone) return { verb, source, target };
   const equipClass = stoneEquipClassNames[stone.category][stone.equipClassCode] ?? '';
   return { verb, source, target, stone: `${stone.grade} ${equipClass} stone`.replace('  ', ' ') };

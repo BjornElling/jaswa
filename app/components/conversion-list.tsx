@@ -33,6 +33,14 @@ export function ConversionList({ conversions, artifact, stones, mode, emptyClass
 }) {
   const [expanded, setExpanded] = useState(false);
 
+  /* An Intangible has no conversions for a different reason than an artifact
+     that simply has none worth taking: the game forbids converting it at all
+     (§10.1), so "No conversion" read as a judgement JASWA had made about this
+     piece rather than a rule it could never escape. Naming the reason answers
+     the question the empty cell otherwise raises, and it is set in the same
+     gold as the other empty readings — it reports a settled state, not a
+     missing one. */
+  if (artifact?.intangible) return <span className="artifact-conversion-intangible">Intangible</span>;
   if (!conversions.length) return <span className={emptyClassName ?? 'muted'}>No conversion</span>;
   const shown = expanded ? conversions : conversions.slice(0, visibleConversions);
   const hidden = conversions.length - shown.length;
@@ -45,10 +53,15 @@ export function ConversionList({ conversions, artifact, stones, mode, emptyClass
         : undefined;
       const description = conversionDescription(conversion, stone, artifact?.convertedPropertyIndex);
       return <li key={`${conversion.sourceIndex}-${conversion.propertyId}`}>
-        <span className="artifact-conversion-option-gain">+{conversion.gain}</span>
+        {/* The source line leads, because it is what the user acts on: which
+            of the four substats this recommendation would spend. The verb and
+            "to" are the dim connective tissue between it and the property it
+            would become. The gain each conversion is worth is not shown: the
+            list already arrives ordered by it (§17.5), so the order carries
+            that comparison and the line stays a plain instruction. */}
         <span className="artifact-conversion-option-name">
-          <span className="artifact-conversion-option-action">{description.verb}</span>{' '}
-          {description.source} <span className="artifact-conversion-option-action">to</span>{' '}
+          <span className="artifact-conversion-option-source">{description.source}:</span>{' '}
+          <span className="artifact-conversion-option-action">{description.verb} to</span>{' '}
           {description.target}
           {description.stone && <span className="artifact-conversion-option-stone"> ({description.stone})</span>}
         </span>

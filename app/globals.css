@@ -1489,26 +1489,80 @@ button { cursor: pointer; }
    The shares total exactly 100 and must continue to: widening one column means
    taking the share from another. */
 .artifact-recommendation-table-wrap > .artifact-recommendation-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: var(--t-small); }
-.artifact-recommendation-table th, .artifact-recommendation-table td { padding: var(--s3); border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
-.artifact-recommendation-table th { color: var(--faint); font-size: var(--t-micro); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+/* The horizontal padding is the gutter between columns and is set wider than
+   the vertical: with ten columns of running text abutting one another, 16px a
+   side is what keeps a long substat line from reading into its neighbour. It
+   comes out of each column's own share, so the shares below are content plus
+   this gutter. */
+.artifact-recommendation-table th, .artifact-recommendation-table td { padding: var(--s3) var(--s4); border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+/* The headings are the one place two lines are expected rather than tolerated:
+   "Value on mon" and "Best conversions" wrap, and the short columns are only
+   as wide as their cells need. `line-height` gives those two lines air instead
+   of letting the uppercase tracking mash them together, and aligning to the
+   bottom sits every heading on the rule above the rows, so a wrapped one grows
+   upward instead of leaving its neighbours floating. */
+.artifact-recommendation-table th { color: var(--faint); font-size: var(--t-micro); font-weight: 700; letter-spacing: .06em; line-height: 1.45; text-transform: uppercase; vertical-align: bottom; }
 .artifact-recommendation-table tr:last-child td { border-bottom: 0; }
-.artifact-recommendation-table th:nth-child(1) { width: 5%; }
-.artifact-recommendation-table th:nth-child(2) { width: 7%; }
-.artifact-recommendation-table th:nth-child(3) { width: 5%; }
-/* The widest column, because a substat line is the longest thing in the row.
-   It is also the column that gives ground when a share has to be found: a long
-   line wraps to a second row rather than ellipsing its value away, which the
+/* The shares are set from what each column actually has to hold, longest
+   content first, and the short ones divide what is left.
+
+   Substats bind the layout. The longest property name in the game is 39
+   characters ("Damage Received Under Inability Effects") and a substat line
+   adds its value on the end, which is what 24% buys: the longest line the game
+   can produce, fitting outright.
+
+   The conversion column is the other prose column but not the other claim on
+   width. Its entries wrap to two or three lines each at any share it could
+   plausibly get — there is no width at which "Sub 3: Convert to …" plus a
+   stone name fits one line, and it lists several entries besides — so extra
+   width there only buys slightly shorter wraps. That makes it the column to
+   take from when another needs room, and 20% is where it stops crowding the
+   rest of the table.
+
+   The monster columns come next: a name has to stay on one line to be
+   scannable. Everything remaining goes to the short columns, whose cells hold
+   a word or a percentage and would fit in far less than they get — their
+   width is set by the headings above them instead. Two heading lines is the
+   band the header is designed around (see the `th` rule above); a column
+   narrow enough to force a third stacks deeper than its neighbours and drags
+   the whole band down, so the short columns are sized to keep their headings
+   within two.
+
+   The shares total exactly 100 and must continue to: widening one column means
+   taking the share from another. */
+/* The leading column holds "Attribute", the longest word among the short
+   columns, and it carries the quality rule in its left padding on top of that.
+   The extra point over its neighbour is what puts daylight between the two
+   rather than letting "Attribute" run up against the main stat beside it. */
+.artifact-recommendation-table th:nth-child(1) { width: 7%; }
+.artifact-recommendation-table th:nth-child(2) { width: 5%; }
+/* Substats: sized to fit the longest line the game can produce, because this
+   is the column a user reads word by word to judge the piece. A line longer
+   than the fit still wraps rather than ellipsing its value away, which the
    rule further down allows for. */
-.artifact-recommendation-table th:nth-child(4) { width: 20%; }
-/* Monster names, which have to stay on one line to be scannable. */
-.artifact-recommendation-table th:nth-child(5), .artifact-recommendation-table th:nth-child(8) { width: 10%; }
-.artifact-recommendation-table th:nth-child(6), .artifact-recommendation-table th:nth-child(9), .artifact-recommendation-table td:nth-child(6), .artifact-recommendation-table td:nth-child(9) { width: 7%; font-family: var(--mono); font-variant-numeric: tabular-nums; }
-.artifact-recommendation-table th:nth-child(7) { width: 6%; }
+.artifact-recommendation-table th:nth-child(3) { width: 24%; }
+/* Monster names, which have to stay on one line to be scannable. The two are
+   not the same width: the Location column also holds "Inventory" for every
+   unequipped piece and is the wider of the two, while the recommended monster
+   is a name and nothing else. */
+.artifact-recommendation-table th:nth-child(4) { width: 11%; }
+.artifact-recommendation-table th:nth-child(7) { width: 10%; }
+/* The two score columns are read against each other — the value now and the
+   value the plan would give — so they are set in the same tabular mono and
+   kept the same width. Their cells hold a percentage and would fit in far
+   less, but the width is set by the headings above them: below this, "Value on
+   mon" breaks to a third line, and a heading stacked deeper than the two lines
+   the rest of the row allows for drags the whole header band down with it. */
+.artifact-recommendation-table th:nth-child(5), .artifact-recommendation-table th:nth-child(8), .artifact-recommendation-table td:nth-child(5), .artifact-recommendation-table td:nth-child(8) { width: 7%; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.artifact-recommendation-table th:nth-child(6) { width: 6%; }
 /* Each conversion is a whole sentence naming a property and the stone it would
    spend, and the column lists several of them (§17.5). It carries the rounding
-   remainder, so it is the column to adjust when the shares must total 100. */
-.artifact-recommendation-table th:nth-child(10) { width: 20%; }
-.artifact-recommendation-table td:nth-child(10) { overflow-wrap: break-word; }
+   remainder, so it is the column to adjust when the shares must total 100 —
+   and it is the one to take from first, because it wraps to several lines per
+   entry at any width and so gives up room without losing anything the narrower
+   columns would lose. */
+.artifact-recommendation-table th:nth-child(9) { width: 20%; }
+.artifact-recommendation-table td:nth-child(9) { overflow-wrap: break-word; }
 /* .artifact-subs ellipsises its lines, which suits the library's wider column.
    Here the value sits at the end of the line, so an ellipsis eats exactly the
    part worth reading; a long line wraps to a second row instead. Scoped to
@@ -1519,13 +1573,20 @@ button { cursor: pointer; }
    reads as a margin mark rather than a stripe inside the row. This is the
    clearance that keeps the rule off the text — the module cannot set it,
    because the cell padding above is written at the same specificity and later
-   in the file. The extra 8px comes out of this column's own share, so no other
-   column moves and the header above it stays put. */
-.artifact-recommendation-table td:nth-child(1) { padding-left: var(--s4); }
+   in the file. It is the column gutter plus the 2px rule and its own breathing
+   room, so widening the gutter carries this along with it rather than quietly
+   closing the gap the rule hangs in. The extra comes out of this column's own
+   share, so no other column moves and the header above it stays put. */
+.artifact-recommendation-table td:nth-child(1) { padding-left: calc(var(--s4) + var(--s1)); }
 /* The refinement flag ends the row: narrow, unlabelled, and empty on every
    artifact that needs no attention. The marker is the cell's only content, so
-   the margin it carries for trailing running text is dropped here. */
-.artifact-recommendation-table th:nth-child(11), .artifact-recommendation-table td:nth-child(11) { width: 3%; text-align: right; }
+   the margin it carries for trailing running text is dropped here.
+
+   It keeps the narrower gutter on its left. The wide gutter is there to hold
+   two columns of running text apart, and this column has no text of its own —
+   at 3% the full gutter on both sides would leave the marker no room to sit
+   in. Its right side keeps the wide padding, which is the table's own edge. */
+.artifact-recommendation-table th:nth-child(10), .artifact-recommendation-table td:nth-child(10) { width: 3%; padding-left: var(--s2); text-align: right; }
 .artifact-recommendation-flag > * { margin-left: 0; }
 .artifact-recommendation-sell { color: var(--faint); }
 .artifact-recommendation-keep,
@@ -3384,28 +3445,24 @@ button { cursor: pointer; }
 .sort-mark[data-direction='ascending'] .sort-mark-up,
 .sort-mark[data-direction='descending'] .sort-mark-down { opacity: 1; }
 
-/* Every conversion worth taking, listed under one another (§17.5). The gain
-   sits in its own fixed column so a two-digit figure does not push the name
-   about as the list changes. */
+/* Every conversion worth taking, listed under one another, best first (§17.5).
+   The order is what ranks them, so each line is just the instruction and the
+   full width belongs to it. */
 .artifact-conversion-options { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--s1); }
-/* The gain leads rather than trails. It is the number the user is comparing
-   entries on, and at the end of a wrapping sentence it was the first thing to
-   fall off the edge of a horizontally scrolling table. */
-.artifact-conversion-options li {
-  display: grid;
-  grid-template-columns: 4ch minmax(0, 1fr);
-  gap: var(--s2);
-  align-items: baseline;
-}
+.artifact-conversion-options li { min-width: 0; }
 .artifact-conversion-option-name { min-width: 0; }
+/* The substat the recommendation acts on opens the line, so it is set as a
+   label rather than as running text. */
+.artifact-conversion-option-source { font-weight: 600; }
+/* An Intangible cannot be converted at all (§10.1). It is gold rather than
+   muted because it is a settled fact about the artifact, the same reading the
+   recommendation table gives its other empty conversion cells — a dimmed word
+   would suggest a value that failed to arrive. It carries the colour itself
+   rather than borrowing the table's class, so the two focused artifact views
+   read the same as the recommendation table. */
+.artifact-conversion-intangible { color: var(--gold); }
 .artifact-conversion-option-action,
 .artifact-conversion-option-stone { color: var(--dim); }
-.artifact-conversion-option-gain {
-  font-family: var(--mono);
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-  color: var(--dim);
-}
 
 
 /* The "+ n more" control is gold because it is something to act on, and it

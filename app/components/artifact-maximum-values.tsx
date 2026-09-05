@@ -65,7 +65,13 @@ type CategoryCalculation = { request: ArtifactScoreRequest; result: ArtifactScor
 type Allocation = { monster: OwnedMonster; value: number; conversions: readonly ArtifactConversion[] };
 type UnscoredSlot = { monster: OwnedMonster; category: ArtifactCategory; status: 'missing' | 'empty' };
 type Calculation = { inputKey: string; backend: 'cpu' | 'webgpu'; durationMs: number; evaluatedPairs: number; ownedConversionCount: number; categories: CategoryCalculation[]; allocations: Map<string, Allocation>; unfilledSlots: number; slotCount: number; unscoredSlots: readonly UnscoredSlot[] };
-const defaultFilters: ArtifactFilters = { categories: [], restrictions: [], grades: [], mainProperties: [], subPropertyId: '', locations: [], plannedLocations: [], matching: [] };
+/* The view opens on the work the plan asks for: the artifacts it would equip,
+   minus the ones already on the monster it names. Everything else — the pieces
+   to sell, and the placements that are already right — stays one click away in
+   the panel rather than filling the first screen with rows carrying no action.
+   Both are ordinary filters, so "Clear results" and the buttons themselves
+   return the complete plan. */
+const defaultFilters: ArtifactFilters = { categories: [], restrictions: [], grades: [], mainProperties: [], subPropertyId: '', locations: [], plannedLocations: ['equipped'], matching: ['hide'] };
 
 function readOwnedMonsters(monsters: readonly GameRecord[]): OwnedMonster[] {
   const names = numberedMonsterNames([...monsters]);
@@ -368,7 +374,10 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
 
   const columns: SortableColumn<RecommendationRow>[] = useMemo(() => [
     { key: 'category', label: 'Type', compare: (left, right) => artifactCategoryLabel(left.artifact.category).localeCompare(artifactCategoryLabel(right.artifact.category)) },
-    { key: 'restriction', label: 'Fits', compare: (left, right) => artifactEquipClassLabel(left.artifact).localeCompare(artifactEquipClassLabel(right.artifact)) },
+    /* The restriction stays a filter and loses its column. It is the one fact
+       in the row the user has usually already fixed from the panel above, so
+       repeating it in every row spent a column on an answer they had just
+       given. */
     { key: 'main', label: 'Main stat', compare: (left, right) => left.artifact.mainProperty.localeCompare(right.artifact.mainProperty) },
     /* Substats order by the artifact's own grade and then its first line, which
        is the closest thing to "how good is this piece" the column shows. */
@@ -430,9 +439,10 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
           as one filter shown twice. */}
       {buttonGroup('Location before', 'locations', artifactLocations, (location) => location === 'inventory' ? 'Inventory' : 'Equipped', 'artifact-recommendation-filter-location')}
       {buttonGroup('Location after', 'plannedLocations', artifactLocations, (location) => location === 'inventory' ? 'Inventory' : 'Equipped', 'artifact-recommendation-filter-planned-location')}
-      {/* Off by default: the rows where the plan agrees with reality are still
-          part of the plan, and hiding them is a thing the user asks for when
-          they want the work list rather than the whole allocation. */}
+      {/* On by default (`defaultFilters`): a row where the plan agrees with
+          reality is still part of the plan, but it asks nothing of the user, so
+          the view opens on the work list and the button restores the whole
+          allocation. */}
       {buttonGroup('Already matching', 'matching', matchingFilters, () => 'Hide', 'artifact-recommendation-filter-matching')}
       <div className="artifact-recommendation-actions">
         {/* Both labels are always in the layout and the inactive one is hidden
@@ -475,7 +485,6 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
               leading edge, where it is a margin mark rather than a stripe
               inside the row. */}
           <td className={qualityRuleHost}><QualityRule tier={row.artifact.grade} />{artifactCategoryLabel(row.artifact.category)}</td>
-          <td>{artifactEquipClassLabel(row.artifact)}</td>
           <td>{row.artifact.mainProperty}</td>
           <td><ul className="artifact-subs">{row.artifact.subProperties.map((property, index) => <li key={property.definition.id}>
             {displaySubProperty(property, (value) => formatNumber(value, general))}
