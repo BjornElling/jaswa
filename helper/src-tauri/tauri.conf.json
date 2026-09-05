@@ -27,6 +27,7 @@
     "active": true,
     "targets": ["nsis"],
     "publisher": "JASWA",
+    "copyright": "© 2026 JASWA",
     "shortDescription": "Local Steam companion for JASWA.",
     "longDescription": "Captures your local Summoners War Steam snapshot for JASWA.",
     "icon": ["../../public/favicon.ico"],

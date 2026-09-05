@@ -5,9 +5,20 @@ game connection and its React dashboard runs on Windows' WebView2 runtime.
 The installer uses WebView2's `downloadBootstrapper`, so it does not bundle a
 second browser runtime when Windows already provides one.
 
-The helper needs elevation to add its local certificate and temporary
-loopback gateway entries. Tauri reduces installer size; Authenticode signing
-is still essential for Windows trust and reputation.
+The helper installs its local certificate into the current user's certificate
+store, which needs no elevation and stays out of the machine-wide root store
+that antivirus treats as an interception dropper's fingerprint. The root is
+name-constrained to `*.qpyou.cn`, so it can only ever vouch for the Summoners
+War gateway and never for any other site. Elevation is still required for the
+one machine-wide change the helper makes: the temporary loopback gateway
+entries in the Windows hosts file. Tauri reduces installer size; Authenticode
+signing is still essential for Windows trust and reputation.
+
+Because the per-user store follows whichever profile is active, the helper asks
+for consent and installs that root *before* it relaunches as administrator.
+Elevating first would write the root into the administrator's store, leaving
+the game — still running as the real user — with nothing to trust. Keep those
+two steps ahead of `restart_as_administrator` in `main`.
 
 ## Running it locally
 

@@ -4,7 +4,9 @@ use crate::{
     protocol::{decode_request, decode_response},
     traffic::TrafficLog,
 };
-use rcgen::{BasicConstraints, CertificateParams, DnType, IsCa, KeyPair};
+use rcgen::{
+    BasicConstraints, CertificateParams, DnType, GeneralSubtree, IsCa, KeyPair, NameConstraints,
+};
 use rustls::{
     ClientConfig, ClientConnection, RootCertStore, ServerConfig, ServerConnection, StreamOwned,
     pki_types::{CertificateDer, ServerName},
@@ -17,14 +19,19 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 const GATEWAY_PATH: &str = "/api/gateway_c2.php";
 const MAXIMUM_INTERCEPTED_BODY_BYTES: usize = 16 * 1024 * 1024;
+/// How the helper keeps working while the game is running is by watching its
+/// live gateway connection. A game that has closed every connection and sent
+/// nothing for this long is treated as gone, and its snapshot is dropped.
+const GAME_QUIET_GRACE: Duration = Duration::from_secs(60);
+const WATCHDOG_INTERVAL: Duration = Duration::from_secs(3);
 
 pub struct Service {
     shared: Arc<Shared>,
@@ -35,35 +42,68 @@ struct Shared {
     profile: Mutex<ProfileStore>,
     traffic: Mutex<TrafficLog>,
     game_running: Mutex<bool>,
-    observed_game: Mutex<bool>,
     waiting_for_fresh_start: Mutex<bool>,
+    /// Number of gateway connections the game currently holds open. A live
+    /// connection is the plainest evidence the game is running and reaching the
+    /// redirect, and needs no scan of the system's other processes.
+    open_connections: AtomicUsize,
+    /// When the game last connected or sent anything, so a brief reconnect does
+    /// not read as the game having closed.
+    last_contact: Mutex<Option<Instant>>,
     last_error: Mutex<Option<String>>,
+}
+
+/// Creates the local identity and puts its root in the current user's trust
+/// store, without touching anything that needs elevation.
+///
+/// This must run as the *real* user, before any relaunch as administrator.
+/// Elevating switches to the administrator's profile, and the per-user ROOT
+/// store follows the profile — so a certificate installed after elevation lands
+/// in the administrator's store while Summoners War, still running as the real
+/// user, reads its own and finds nothing to trust.
+pub fn provision_certificate() -> Result<(), String> {
+    let directory = data_directory();
+    fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
+    certificate_config(&directory).map(|_| ())
 }
 
 impl Service {
     pub fn start() -> Result<Self, String> {
         let directory = data_directory();
         fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
+        // Re-reads the identity provisioned before elevation. Installing the
+        // root again from here is harmless when the user is unelevated, and a
+        // no-op the game never depends on when they are.
         let server = certificate_config(&directory)?;
+        // Resolve each gateway to its real address *before* installing the hosts
+        // redirect, so resolution reads public DNS rather than the loopback
+        // entry we are about to add. This follows the gateway's load-balancer
+        // address when it changes, which a hardcoded upstream cannot; the
+        // shipped address stays as a fallback.
+        let upstreams: Vec<String> = GATEWAYS
+            .iter()
+            .map(|(hostname, _, fallback)| resolve_upstream(hostname, fallback))
+            .collect();
         install_hosts()?;
         let shared = Arc::new(Shared {
             running: AtomicBool::new(true),
             profile: Mutex::new(ProfileStore::default()),
             traffic: Mutex::new(TrafficLog::new(None)),
             game_running: Mutex::new(false),
-            observed_game: Mutex::new(false),
             waiting_for_fresh_start: Mutex::new(false),
+            open_connections: AtomicUsize::new(0),
+            last_contact: Mutex::new(None),
             last_error: Mutex::new(None),
         });
         start_api(Arc::clone(&shared))?;
-        start_game_monitor(Arc::clone(&shared));
-        for (hostname, local_address, fallback) in GATEWAYS {
+        start_watchdog(Arc::clone(&shared));
+        for ((hostname, local_address, _), upstream) in GATEWAYS.iter().zip(upstreams) {
             start_bridge(
                 Arc::clone(&shared),
                 Arc::clone(&server),
                 hostname,
                 local_address,
-                fallback,
+                upstream,
             )?;
         }
         Ok(Self { shared })
@@ -247,54 +287,101 @@ fn respond_api(mut stream: TcpStream, shared: Arc<Shared>) -> io::Result<()> {
     )
 }
 
-fn start_game_monitor(shared: Arc<Shared>) {
+/// Watches two things the helper cannot serve fresh data without: that the game
+/// still holds a live connection to the redirect, and that the redirect itself
+/// is still in place. The second is the failure that leaves the dashboard
+/// "connected" while the account quietly ages — antivirus reverting the hosts
+/// file — so the watchdog restores it and says what happened.
+fn start_watchdog(shared: Arc<Shared>) {
     thread::spawn(move || {
         while shared.running.load(Ordering::Acquire) {
-            let running = summoners_war_running();
+            ensure_hosts_redirect(&shared);
+
+            let connected = game_connected(&shared);
+            let has_profile = shared
+                .profile
+                .lock()
+                .expect("profile lock poisoned")
+                .status()
+                .has_profile;
+
             let mut prior = shared
                 .game_running
                 .lock()
                 .expect("game state lock poisoned");
-            let mut observed = shared
-                .observed_game
+            let mut waiting = shared
+                .waiting_for_fresh_start
                 .lock()
                 .expect("game state lock poisoned");
-            if !*observed
-                && running
-                && !shared
-                    .profile
-                    .lock()
-                    .expect("profile lock poisoned")
-                    .status()
-                    .has_profile
-            {
-                *shared
-                    .waiting_for_fresh_start
-                    .lock()
-                    .expect("game state lock poisoned") = true;
+            if connected && !has_profile {
+                // The game is reaching the redirect but no snapshot exists: the
+                // helper came up after the game had already logged in, so the
+                // login exchange that carries the account was missed. A restart
+                // replays it.
+                *waiting = true;
             }
-            if *prior && !running {
+            if *prior && !connected {
+                // The game has gone: its snapshot belongs to a session that is
+                // over, so drop it rather than keep serving a stale account.
                 shared
                     .profile
                     .lock()
                     .expect("profile lock poisoned")
                     .clear();
-                *shared
-                    .waiting_for_fresh_start
-                    .lock()
-                    .expect("game state lock poisoned") = false;
+                *waiting = false;
             }
-            *prior = running;
-            *observed = true;
-            drop(observed);
+            *prior = connected;
+            drop(waiting);
             drop(prior);
-            thread::sleep(Duration::from_secs(2));
+            thread::sleep(WATCHDOG_INTERVAL);
         }
     });
 }
 
-fn summoners_war_running() -> bool {
-    crate::windows::process_running("SummonersWar.exe")
+/// The game counts as running while it holds a gateway connection open, or has
+/// used one within the grace window. The grace covers a brief reconnect so a
+/// dropped-and-remade connection does not read as the game closing.
+fn game_connected(shared: &Shared) -> bool {
+    if shared.open_connections.load(Ordering::Acquire) > 0 {
+        return true;
+    }
+    shared
+        .last_contact
+        .lock()
+        .expect("contact lock poisoned")
+        .is_some_and(|at| at.elapsed() < GAME_QUIET_GRACE)
+}
+
+fn mark_contact(shared: &Shared) {
+    *shared
+        .last_contact
+        .lock()
+        .expect("contact lock poisoned") = Some(Instant::now());
+}
+
+/// Restores the hosts redirect if it has been removed while the helper runs, and
+/// reports the removal so the dashboard can explain why data had stopped
+/// arriving. Reads on every pass but writes only when the entry is gone, so an
+/// intact file is left untouched.
+fn ensure_hosts_redirect(shared: &Shared) {
+    // Never re-add the redirect once the helper is stopping: `stop` removes it
+    // exactly so a game left running can reach its server directly again.
+    if !shared.running.load(Ordering::Acquire) {
+        return;
+    }
+    let intact = fs::read_to_string(hosts_path())
+        .map(|contents| contents.contains(HOSTS_MARKER))
+        .unwrap_or(false);
+    if intact {
+        return;
+    }
+    let message = match install_hosts() {
+        Ok(()) => "Summoners War's local redirect was removed while the helper was running, so the game stopped sending fresh data. The helper restored it — this is usually antivirus reverting the hosts file. If your account keeps showing old data, allow JASWA Helper in your antivirus.".to_owned(),
+        Err(error) => format!(
+            "JASWA Helper could not restore Summoners War's local redirect, so the game cannot send fresh data. Another program, usually antivirus, is blocking the hosts file: {error}"
+        ),
+    };
+    *shared.last_error.lock().expect("error lock poisoned") = Some(message);
 }
 
 fn start_bridge(
@@ -302,7 +389,7 @@ fn start_bridge(
     server: Arc<ServerConfig>,
     hostname: &'static str,
     local_address: &'static str,
-    upstream: &'static str,
+    upstream: String,
 ) -> Result<(), String> {
     let listener = TcpListener::bind(format!("{local_address}:443")).map_err(|error| format!("Another program is using port 443 on this computer, so JASWA Helper could not open its local link for {hostname}: {error}"))?;
     listener
@@ -312,6 +399,9 @@ fn start_bridge(
         while shared.running.load(Ordering::Acquire) {
             match listener.accept() {
                 Ok((stream, _)) => {
+                    // A connection on the gateway port is the game reaching the
+                    // redirect: the freshest sign it is running.
+                    mark_contact(&shared);
                     if let Err(error) = stream.set_nonblocking(false) {
                         *shared.last_error.lock().expect("error lock poisoned") = Some(format!(
                             "Gateway bridge for {hostname} could not prepare a connection: {error}"
@@ -320,7 +410,8 @@ fn start_bridge(
                     }
                     let shared = Arc::clone(&shared);
                     let server = Arc::clone(&server);
-                    thread::spawn(move || relay(stream, server, hostname, upstream, shared));
+                    let upstream = upstream.clone();
+                    thread::spawn(move || relay(stream, server, hostname, &upstream, shared));
                 }
                 Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
                     thread::sleep(Duration::from_millis(50))
@@ -343,6 +434,7 @@ fn relay(
     upstream: &str,
     shared: Arc<Shared>,
 ) {
+    shared.open_connections.fetch_add(1, Ordering::AcqRel);
     let result = (|| -> Result<(), String> {
         let mut incoming = Connection::new(StreamOwned::new(
             ServerConnection::new(server).map_err(|error| error.to_string())?,
@@ -360,6 +452,9 @@ fn relay(
             let Some(request) = incoming.read_message()? else {
                 return Ok(());
             };
+            // Every exchange on a live connection renews the contact time, so a
+            // long, idle-but-open session is never mistaken for the game closing.
+            mark_contact(&shared);
             let captures_gateway = String::from_utf8_lossy(&request).contains(GATEWAY_PATH);
             let mut outgoing = connect_upstream(hostname, upstream, &roots, &name)?;
             let response = exchange_once(&mut outgoing, &request)?;
@@ -369,9 +464,25 @@ fn relay(
             incoming.write_message(&response)?;
         }
     })();
+    shared.open_connections.fetch_sub(1, Ordering::AcqRel);
     if let Err(error) = result {
         *shared.last_error.lock().expect("error lock poisoned") = Some(error);
     }
+}
+
+/// Finds the gateway's real address by DNS, ignoring any loopback answer left by
+/// a redirect from an earlier run, and falls back to the shipped address when
+/// resolution yields nothing usable.
+fn resolve_upstream(hostname: &str, fallback: &str) -> String {
+    use std::net::ToSocketAddrs;
+    (hostname, 443u16)
+        .to_socket_addrs()
+        .into_iter()
+        .flatten()
+        .map(|address| address.ip())
+        .find(|ip| ip.is_ipv4() && !ip.is_loopback())
+        .map(|ip| ip.to_string())
+        .unwrap_or_else(|| fallback.to_owned())
 }
 
 /// Opens a fresh TLS connection to the real gateway.
@@ -548,6 +659,14 @@ fn certificate_config(directory: &Path) -> Result<Arc<ServerConfig>, String> {
         let mut ca_params =
             CertificateParams::new(Vec::<String>::new()).map_err(|error| error.to_string())?;
         ca_params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
+        // Constrain the local root to the Summoners War gateway domain. A rogue
+        // root that can vouch for any site is the dangerous, adware-like case;
+        // this one can only ever certify *.qpyou.cn, so a copy of it cannot be
+        // turned against the user's banking or mail.
+        ca_params.name_constraints = Some(NameConstraints {
+            permitted_subtrees: vec![GeneralSubtree::DnsName(".qpyou.cn".to_owned())],
+            excluded_subtrees: Vec::new(),
+        });
         ca_params
             .distinguished_name
             .push(DnType::CommonName, "JASWA Helper Local Root");
@@ -761,5 +880,53 @@ mod tests {
         assert!(cleaned.contains("127.0.0.1\tlocalhost"));
         assert!(!cleaned.contains("qpyou.cn"));
         assert!(!cleaned.contains(HOSTS_MARKER));
+    }
+
+    fn shared_for_test() -> Shared {
+        Shared {
+            running: AtomicBool::new(true),
+            profile: Mutex::new(ProfileStore::default()),
+            traffic: Mutex::new(TrafficLog::new(None)),
+            game_running: Mutex::new(false),
+            waiting_for_fresh_start: Mutex::new(false),
+            open_connections: AtomicUsize::new(0),
+            last_contact: Mutex::new(None),
+            last_error: Mutex::new(None),
+        }
+    }
+
+    /// A game that has never connected is not running — the state the helper
+    /// starts in and returns to after the game closes.
+    #[test]
+    fn a_game_that_never_connected_is_not_running() {
+        assert!(!game_connected(&shared_for_test()));
+    }
+
+    /// An open gateway connection is the plain signal the game is running, which
+    /// replaces scanning the system's process list.
+    #[test]
+    fn an_open_connection_means_the_game_is_running() {
+        let shared = shared_for_test();
+        shared.open_connections.fetch_add(1, Ordering::AcqRel);
+        assert!(game_connected(&shared));
+        shared.open_connections.fetch_sub(1, Ordering::AcqRel);
+    }
+
+    /// A connection that has just closed still counts within the grace window,
+    /// so a brief reconnect is not read as the game closing and does not drop
+    /// the captured account.
+    #[test]
+    fn a_recent_connection_survives_the_grace_window() {
+        let shared = shared_for_test();
+        mark_contact(&shared);
+        assert!(game_connected(&shared), "just-closed connection still counts");
+
+        if let Some(stale) = Instant::now().checked_sub(GAME_QUIET_GRACE + Duration::from_secs(5)) {
+            *shared.last_contact.lock().unwrap() = Some(stale);
+            assert!(
+                !game_connected(&shared),
+                "a game silent past the grace window is gone"
+            );
+        }
     }
 }

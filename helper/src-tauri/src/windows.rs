@@ -1,21 +1,18 @@
 //! The small, explicit Windows boundary for the helper.
 //!
-//! The helper needs elevation for its documented local certificate and
-//! loopback routing.  Calling command interpreters for those operations made
-//! that ordinary behaviour indistinguishable from a dropper, so this module
-//! uses the Windows APIs directly instead.
+//! The helper needs elevation for its documented loopback routing; its local
+//! certificate goes into the current user's store and needs none.  Calling
+//! command interpreters for those operations made that ordinary behaviour
+//! indistinguishable from a dropper, so this module uses the Windows APIs
+//! directly instead.
 
 use std::{ffi::c_void, io, ptr};
 use windows_sys::Win32::{
-    Foundation::{CloseHandle, INVALID_HANDLE_VALUE},
     Security::Cryptography::{
-        CERT_FIND_SUBJECT_STR_W, CERT_STORE_ADD_REPLACE_EXISTING, CERT_SYSTEM_STORE_LOCAL_MACHINE,
-        CertAddEncodedCertificateToStore, CertCloseStore, CertDeleteCertificateFromStore,
-        CertFindCertificateInStore, CertOpenStore, PKCS_7_ASN_ENCODING, X509_ASN_ENCODING,
-    },
-    System::Diagnostics::ToolHelp::{
-        CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW,
-        TH32CS_SNAPPROCESS,
+        CERT_FIND_SUBJECT_STR_W, CERT_STORE_ADD_REPLACE_EXISTING, CERT_SYSTEM_STORE_CURRENT_USER,
+        CERT_SYSTEM_STORE_LOCAL_MACHINE, CertAddEncodedCertificateToStore, CertCloseStore,
+        CertDeleteCertificateFromStore, CertFindCertificateInStore, CertOpenStore,
+        PKCS_7_ASN_ENCODING, X509_ASN_ENCODING,
     },
     UI::{
         Shell::{IsUserAnAdmin, ShellExecuteW},
@@ -86,8 +83,13 @@ fn message_box(message: &str, title: &str, style: u32) -> i32 {
     unsafe { MessageBoxW(ptr::null_mut(), message.as_ptr(), title.as_ptr(), style) }
 }
 
+/// Installs the local root into the *current user's* ROOT store, not the
+/// machine-wide one. The game runs as this user and trusts the per-user store,
+/// so it needs no elevation for the certificate; and a per-user root avoids the
+/// machine-wide-root-store write that antivirus heuristics treat as the
+/// defining action of a TLS-intercepting dropper.
 pub fn install_root_certificate(encoded: &[u8]) -> Result<(), String> {
-    let store = open_root_store()?;
+    let store = open_root_store(CERT_SYSTEM_STORE_CURRENT_USER)?;
     let result = unsafe {
         CertAddEncodedCertificateToStore(
             store,
@@ -108,8 +110,18 @@ pub fn install_root_certificate(encoded: &[u8]) -> Result<(), String> {
     }
 }
 
+/// Removes the local root from the current-user store, and best-effort from the
+/// machine store so a machine root left by an earlier build is cleaned up too.
 pub fn remove_root_certificate(subject: &str) -> Result<(), String> {
-    let store = open_root_store()?;
+    remove_from_store(subject, CERT_SYSTEM_STORE_CURRENT_USER)?;
+    // The machine store only holds a root from an older build and its removal
+    // needs elevation, so a failure here is not the caller's concern.
+    let _ = remove_from_store(subject, CERT_SYSTEM_STORE_LOCAL_MACHINE);
+    Ok(())
+}
+
+fn remove_from_store(subject: &str, store_id: u32) -> Result<(), String> {
+    let store = open_root_store(store_id)?;
     let subject = wide(subject);
     let certificate = unsafe {
         CertFindCertificateInStore(
@@ -138,42 +150,13 @@ pub fn remove_root_certificate(subject: &str) -> Result<(), String> {
     }
 }
 
-pub fn process_running(executable: &str) -> bool {
-    let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
-    if snapshot == INVALID_HANDLE_VALUE {
-        return false;
-    }
-    let mut entry = PROCESSENTRY32W {
-        dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32,
-        ..Default::default()
-    };
-    let mut found = false;
-    let mut next = unsafe { Process32FirstW(snapshot, &mut entry) };
-    while next != 0 {
-        let length = entry
-            .szExeFile
-            .iter()
-            .position(|character| *character == 0)
-            .unwrap_or(entry.szExeFile.len());
-        if String::from_utf16_lossy(&entry.szExeFile[..length]).eq_ignore_ascii_case(executable) {
-            found = true;
-            break;
-        }
-        next = unsafe { Process32NextW(snapshot, &mut entry) };
-    }
-    unsafe {
-        CloseHandle(snapshot);
-    }
-    found
-}
-
-fn open_root_store() -> Result<*mut c_void, String> {
+fn open_root_store(store_id: u32) -> Result<*mut c_void, String> {
     let store = unsafe {
         CertOpenStore(
             SYSTEM_STORE_PROVIDER.as_ptr(),
             0,
             0,
-            CERT_SYSTEM_STORE_LOCAL_MACHINE,
+            store_id,
             ROOT_STORE.as_ptr().cast::<c_void>(),
         )
     };

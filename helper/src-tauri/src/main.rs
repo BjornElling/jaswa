@@ -98,19 +98,36 @@ fn main() {
             },
         );
     }
-    if !arguments
+    // Ask for consent and install the local root *before* elevating. Both belong
+    // to the real user: the prompt has to appear in their session, and the
+    // per-user ROOT store follows whichever profile is active — after elevation
+    // that is the administrator's, whose store the game never reads.
+    let already_elevated = arguments
         .iter()
-        .any(|argument| argument == "--jaswa-elevated")
-        && !windows::is_administrator()
-    {
+        .any(|argument| argument == "--jaswa-elevated");
+    if !already_elevated {
+        if !certificate_installation_approved() {
+            return;
+        }
+        if let Err(error) = jaswa_helper::service::provision_certificate() {
+            windows::show_error(&format!(
+                "JASWA Helper could not install its local certificate: {error}"
+            ));
+            return;
+        }
+    }
+    // The elevated relaunch inherits consent from the pass that spawned it; a
+    // missing marker there means the process was started with the flag by hand,
+    // so it still has to ask rather than proceed unasked.
+    if already_elevated && !certificate_installation_approved() {
+        return;
+    }
+    if !already_elevated && !windows::is_administrator() {
         if let Err(error) = restart_as_administrator() {
             windows::show_error(&format!(
                 "Windows did not grant JASWA Helper administrator permission: {error}"
             ));
         }
-        return;
-    }
-    if !certificate_installation_approved() {
         return;
     }
     let service = match Service::start() {
@@ -157,7 +174,7 @@ fn main() {
                             ..
                         }
                     ) {
-                        show_window(&tray.app_handle());
+                        show_window(tray.app_handle());
                     }
                 })
                 .build(app)?;
