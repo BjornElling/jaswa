@@ -90,13 +90,12 @@ export class WebGpuArtifactScoreBackend implements ArtifactScoreBackend {
         }
       }
     }
-    const parameters = new ArrayBuffer(24);
+    const parameters = new ArrayBuffer(16);
     const parameterView = new DataView(parameters);
     parameterView.setUint32(0, request.artifacts.length, true);
     parameterView.setUint32(4, request.monsters.length, true);
     parameterView.setUint32(8, request.conversionMode, true);
-    parameterView.setFloat32(12, request.insignificantDifference, true);
-    parameterView.setFloat32(16, request.acceptableWorth / 100, true);
+    parameterView.setFloat32(12, request.acceptableWorth / 100, true);
     const resultByteLength = alignedByteLength(request.artifacts.length * request.monsters.length * Float32Array.BYTES_PER_ELEMENT);
     const artifacts = this.createUploadBuffer(device, artifactData, bufferUsage.storage);
     const monsters = this.createUploadBuffer(device, monsterData, bufferUsage.storage);

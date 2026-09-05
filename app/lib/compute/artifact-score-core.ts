@@ -225,9 +225,9 @@ export function scoreArtifactOnMonster(
       const convertedValue = main * ((withoutSource + convertedWeight * reach) / benchmark);
       const value = scorePercent(convertedValue);
       /* §17.4 condition 1: a conversion that does not raise the score is not a
-         recommendation. Compared as whole points, so a conversion the interface
+         projection. Compared as whole points, so a conversion the interface
          would show as no change is not offered as one. */
-      if (value - currentPercent <= request.insignificantDifference) continue;
+      if (value <= currentPercent) continue;
       candidates.push({
         sourceIndex,
         equivalentSourceIndexes,
@@ -240,12 +240,19 @@ export function scoreArtifactOnMonster(
     }
   }
 
+  /* §17.3's band decides what the user is asked to act on, never the score
+     used to compare this artifact on this monster with its other placements.
+     A small conversion here can still be the real potential that makes another
+     monster the better wearer; suppressing it from the matrix would make a
+     presentation preference change the allocation. */
+  const projectedValue = candidates.reduce((best, candidate) => Math.max(best, candidate.value), currentPercent);
+  const worthwhile = candidates.filter((candidate) => candidate.gain > request.insignificantDifference);
   /* §17.5: preferred conversions displace accepted ones outright rather than
      competing with them on value. A preferred property is what the monster
      wants; an accepted one is a concession, and listing a strong concession
      above a weak preference would invite spending a stone on the wrong line. */
-  const preferred = candidates.filter((candidate) => candidate.preference === 'preferred');
-  const offered = preferred.length ? preferred : candidates;
+  const preferred = worthwhile.filter((candidate) => candidate.preference === 'preferred');
+  const offered = preferred.length ? preferred : worthwhile;
   offered.sort((left, right) => right.value - left.value
     /* Equal scores mean the band is all the weight read, so the property more
        players engrave is recommended ahead of whichever the vocabulary lists
@@ -264,7 +271,7 @@ export function scoreArtifactOnMonster(
   }));
   const best = conversions[0];
   return {
-    value: best ? best.value / 100 : currentValue,
+    value: projectedValue / 100,
     conversion: best,
     conversions,
   };

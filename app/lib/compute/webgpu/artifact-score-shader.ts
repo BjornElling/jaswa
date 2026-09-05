@@ -28,9 +28,7 @@ struct Parameters {
   artifactCount: u32,
   monsterCount: u32,
   conversionMode: u32,
-  insignificantDifference: f32,
   acceptableWorth: f32,
-  _padding: f32,
 };
 
 @group(0) @binding(0) var<storage, read> artifacts: array<f32>;
@@ -169,7 +167,9 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
     // it reaches only this fraction of the line it replaces.
     let converted = scorePercent(mainWeight * (weighted - sourceContribution[source]
       + candidateWeight * conversionFraction * conversionCeiling) / benchmark);
-    if (converted - currentPercent > parameters.insignificantDifference) { best = max(best, converted); }
+    // §17.3 filters recommendations in the CPU detail pass, never this score:
+    // the matrix must retain every real conversion potential for allocation.
+    if (converted > currentPercent) { best = max(best, converted); }
   }
   output[pairIndex] = best;
 }`;

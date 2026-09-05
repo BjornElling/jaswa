@@ -74,7 +74,7 @@ export type ArtifactScoreRequest = {
   conversionMode: 0 | 1 | 2;
   /** One assumed roll fraction for each current artifact property. */
   conversionRollFractions: readonly number[];
-  /** A recommendation must improve by more than this many whole score points. */
+  /** A conversion recommendation must improve by more than this many whole score points. */
   insignificantDifference: number;
   /**
    * The compact property indexes named by engraved stones in this import, for
@@ -136,7 +136,7 @@ export type ArtifactMaximumScore = {
   monsterName: string;
   /** Whole percentage points (`ARTIFACT-CANONICAL.md` §17.1). */
   value: number;
-  /** The best conversion, or `undefined` when none improves on §17.4's tests. */
+  /** The best conversion to recommend, or `undefined` when none clears the configured band. */
   conversion: ArtifactConversion | undefined;
   /**
    * Every conversion worth taking, best first — all preferred ones when any

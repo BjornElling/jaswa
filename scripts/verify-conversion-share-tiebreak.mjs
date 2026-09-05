@@ -339,6 +339,9 @@ try {
   assert.deepEqual(scoreArtifactOnMonster(lowGainArtifact, lowGainMonster, {
     ...request, conversionRollFractions: floorFractions, insignificantDifference: 3,
   })?.conversions, [], 'a conversion inside the selected band is not recommended');
+  assert.equal(scoreArtifactOnMonster(lowGainArtifact, lowGainMonster, {
+    ...request, conversionRollFractions: floorFractions, insignificantDifference: 3,
+  })?.value, 0.03, 'the recommendation band never removes a monster’s conversion potential from allocation');
 
   // ---- §17.5: one band, fully listed, in falling order --------------------
   const mixedBands = new Array(scoredArtifactProperties.length).fill(0);
