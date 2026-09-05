@@ -104,7 +104,51 @@ try {
   assert.equal(scoreArtifactOnMonster(packed(2, 1), monster(1, 0), request), undefined,
     'a restricted artifact must not fit a monster whose own class is unresolved');
 
-  console.log('Verified Intangible artifact import, naming, rejection and eligibility.');
+  // ---- §10.1: an Intangible artifact cannot be converted ------------------
+  /* The wildcard that makes it fit every monster is the same fact that leaves
+     it no class for a stone to match, so no conversion may ever be projected
+     for one — in any conversion mode. Scoring it otherwise would rank these
+     above artifacts that can genuinely be improved, on a gain the game will
+     never let the user collect. */
+  const convertible = (restriction) => ({
+    ...packed(1, restriction),
+    /* Room for a conversion to land: one weak line, and a preference profile
+       below that leaves properties the artifact does not already hold. */
+    subPropertyFractions: [0.5, 0.5, 0.5, 0.1],
+    convertedSlotConversionFraction: -1,
+    conversionCeilingFraction: 2 / 5,
+  });
+  const conversionRequest = (mode) => ({
+    ...request,
+    conversionMode: mode,
+    conversionRollFractions: new Array(64).fill(1),
+  });
+
+  for (const mode of [1, 2]) {
+    const wildcard = scoreArtifactOnMonster(
+      convertible(intangibleRestrictionCode), monster(1, 1), conversionRequest(mode));
+    assert.ok(wildcard, 'an Intangible artifact must still be scored');
+    assert.deepEqual(wildcard.conversions, [],
+      `an Intangible artifact must be offered no conversion in mode ${mode} (§10.1)`);
+    assert.equal(wildcard.conversion, undefined,
+      `an Intangible artifact must name no best conversion in mode ${mode}`);
+
+    /* And the value it reports is the value of the lines it holds — the rule
+       removes the projection, it does not merely hide the recommendation. */
+    const unconverted = scoreArtifactOnMonster(
+      convertible(intangibleRestrictionCode), monster(1, 1), { ...conversionRequest(mode), conversionMode: 0 });
+    assert.equal(wildcard.value, unconverted.value,
+      `an Intangible artifact must score as unconverted in mode ${mode}`);
+  }
+
+  /* The rule is about the wildcard, not about conversion generally: a
+     restricted artifact on the same lines is still offered its conversion, so
+     the guard above cannot pass by disabling the feature. */
+  const restricted = scoreArtifactOnMonster(convertible(1), monster(1, 1), conversionRequest(1));
+  assert.ok(restricted.conversions.length > 0,
+    'a restricted artifact must still be offered conversions');
+
+  console.log('Verified Intangible artifact import, naming, rejection, eligibility and the §10.1 conversion ban.');
 } finally {
   await server.close();
 }

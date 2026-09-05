@@ -76,9 +76,10 @@ export class WebGpuArtifactScoreBackend implements ArtifactScoreBackend {
       monster.element, monster.archetype, ...monster.mainPreferences, ...monster.subPropertyPreferences,
     ]));
     /* One row of flags per equip class, indexed by the class code the artifacts
-       carry, because a stone converts only the class it was engraved for. Row 0
-       is the Intangible union, which is why the table is sized to the highest
-       class code rather than to the number of classes. */
+       carry, because a stone converts only the class it was engraved for. The
+       table is sized to the highest class code rather than to the number of
+       classes, so row 0 — the Intangible code — is simply never written and
+       never read: an Intangible cannot be converted (§10.1). */
     const owned = new Int32Array(equipClassRows * scoredArtifactProperties.length);
     for (const [classCode, indexes] of Object.entries(request.ownedConversionPropertyIndexesByClass)) {
       const row = Number(classCode);

@@ -683,6 +683,39 @@ property name is permanently retained.
 28 %. There is no artifact equivalent of a permanent additive grind on an
 existing property. This is a fundamental difference from runes.
 
+### 10.1 An Intangible artifact cannot be converted
+
+**Observed in the client, September 5, 2026.** Conversion is unavailable on an
+Intangible artifact: neither a Conversion Stone nor an Engraved Conversion Stone
+can be applied to one. An Intangible therefore holds the four sub properties it
+dropped with for as long as it exists, and `convertedPropertyIndex` is `null` on
+every one of them.
+
+This follows the shape of the mechanic rather than contradicting it. §15.12
+records that a stone is engraved for **one equip class** and converts nothing
+else, and §15.1 records that an Intangible names no class at all. There is no
+class for a stone to match, so there is no stone the artifact can accept — the
+wildcard that makes an Intangible fit every monster is the same fact that leaves
+it nothing to convert with.
+
+**The scoring consequence, and it is not cosmetic.** No projection, no
+recommendation, and no conversion gain may be computed for an Intangible. It is
+scored on the lines it holds and nothing more, in every conversion mode. Doing
+otherwise ranks these artifacts above ones that can genuinely be improved, on a
+gain the game will never let the user collect — and it does so precisely where
+the user is least able to check it, because the Intangible artifacts are the
+scarce ones worth the most attention.
+
+Both compute backends must apply this identically, as they must for `fits`
+(§15.1): `scoreArtifactOnMonster` in `artifact-score-core.ts` and the same test
+in the WebGPU shader. A disagreement there would give the two backends different
+candidate sets for one account.
+
+It also means no code should ask which engraved stones apply to an Intangible.
+`ownedConversionPropertyIndexesByClass` deliberately files no entry under
+`intangibleRestrictionCode`: a category-wide union there would be an answer to a
+question the rules do not permit.
+
 ### A normal conversion reaches one and a half rolls
 
 **Settled September 5, 2026** against the game's own **Repeat Convert** dialog,

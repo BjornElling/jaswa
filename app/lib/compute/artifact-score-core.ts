@@ -87,8 +87,8 @@ export function scorePercent(value: number): number {
 /**
  * The stones usable on this artifact. A stone is engraved for one equip class
  * and converts nothing else (§15.12), so the artifact's own class selects the
- * set; an Intangible artifact names no class and reads the category-wide union
- * filed under `intangibleRestrictionCode`.
+ * set. Only restricted artifacts reach here: §10.1 stops an Intangible before
+ * any conversion is projected, so there is no classless case to answer.
  */
 function ownedPropertiesFor(
   artifact: PackedArtifactScoreInput,
@@ -131,6 +131,13 @@ export function scoreArtifactOnMonster(
   const currentValue = main * (weightedSubProperties / benchmark);
   const currentPercent = scorePercent(currentValue);
   if (request.conversionMode === 0) return { value: currentValue, conversion: undefined, conversions: [] };
+  /* §10.1: an Intangible artifact cannot be converted at all, so it is scored
+     on what it holds and nothing more. Projecting a conversion here would rank
+     these above artifacts that can genuinely be improved, on a gain the game
+     will never let the user collect. */
+  if (artifact.restriction === intangibleRestrictionCode) {
+    return { value: currentValue, conversion: undefined, conversions: [] };
+  }
 
   /* A permanently converted slot is the only line the game will let a further
      stone touch, so it is the source whatever it holds. Otherwise one and only

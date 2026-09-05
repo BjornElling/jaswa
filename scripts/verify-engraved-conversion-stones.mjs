@@ -55,8 +55,8 @@ try {
   assert.equal(readEngravedConversionStone({ master_id: 101010005407, quantity: 1 }), undefined);
   assert.equal(readEngravedConversionStone({ master_id: 102000103301, quantity: 1 }), undefined);
 
-  /* The class binds: a Water stone is available to a Water artifact and to an
-     Intangible one, and to nothing else. */
+  /* The class binds: a Water stone is available to a Water artifact and to
+     nothing else. */
   const crafts = [
     { master_id: 101010005301, quantity: 1 },
     { master_id: 101020004302, quantity: 1 },
@@ -66,12 +66,12 @@ try {
   assert.deepEqual(water, [artifactPropertyIndex.get(301)]);
   const fire = ownedConversionPropertyIndexesFor({ artifact_crafts: crafts }, 'attribute', 2);
   assert.deepEqual(fire, [artifactPropertyIndex.get(302)]);
-  /* Intangible names no class, so every stone of its category is usable. */
-  const intangible = ownedConversionPropertyIndexesFor({ artifact_crafts: crafts }, 'attribute', 0);
-  assert.deepEqual(
-    [...intangible].sort((left, right) => left - right),
-    [artifactPropertyIndex.get(301), artifactPropertyIndex.get(302)].sort((left, right) => left - right),
-  );
+  /* §10.1: an Intangible artifact cannot be converted at all, so no stone is
+     usable on one. The wildcard that makes it fit every monster is the same
+     fact that leaves it no class for a stone to match — this used to report the
+     category-wide union, which was an answer to a question the rules forbid. */
+  assert.deepEqual(ownedConversionPropertyIndexesFor({ artifact_crafts: crafts }, 'attribute', 0), []);
+  assert.deepEqual(ownedConversionPropertyIndexesFor({ artifact_crafts: crafts }, 'type', 0), []);
   const attack = ownedConversionPropertyIndexesFor({ artifact_crafts: crafts }, 'type', 1);
   assert.deepEqual(attack, [artifactPropertyIndex.get(407)]);
   /* A category with no stone at all reports none rather than borrowing the

@@ -156,21 +156,21 @@ const stoneClassCodes: Record<ArtifactCategory, Record<number, number>> = {
  *
  * A stone is engraved for a single class and converts nothing else
  * (`ARTIFACT-CANONICAL.md` §15.12), so the map is keyed by class rather than
- * pooled. `intangibleRestrictionCode` carries the union: an Intangible artifact
- * names no class, and every stone of its category applies to it.
+ * pooled. There is deliberately no entry for `intangibleRestrictionCode`: an
+ * Intangible artifact cannot be converted at all (§10.1), so it never asks
+ * which stones would fit it.
  */
 export function ownedConversionPropertyIndexesByClass(
   data: GameRecord | undefined,
   category: ArtifactCategory,
 ): Record<number, number[]> {
-  const byClass: Record<number, Set<number>> = { [intangibleRestrictionCode]: new Set() };
+  const byClass: Record<number, Set<number>> = {};
   for (const stone of readEngravedConversionStones(data)) {
     if (stone.category !== category) continue;
     const classCode = stoneClassCodes[category][stone.equipClassCode];
     const propertyIndex = artifactPropertyIndex.get(stone.propertyId);
     if (classCode === undefined || propertyIndex === undefined) continue;
     (byClass[classCode] ??= new Set()).add(propertyIndex);
-    byClass[intangibleRestrictionCode].add(propertyIndex);
   }
   return Object.fromEntries(Object.entries(byClass).map(([code, indexes]) => [Number(code), [...indexes]]));
 }

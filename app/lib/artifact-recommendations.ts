@@ -59,6 +59,9 @@ export function isWorthwhileGain(candidate: number, current: number, settings: A
  * The stone a recommendation would spend: the best grade owned for this
  * property and equip class (§17.6). `undefined` when the account owns none,
  * which is the ordinary case in the theoretical mode where nothing is spent.
+ *
+ * Only restricted artifacts ever reach this: an Intangible cannot be converted
+ * (§10.1), so no recommendation names a stone for one.
  */
 export function engravedStoneFor(
   stones: readonly EngravedConversionStone[],
@@ -69,9 +72,7 @@ export function engravedStoneFor(
   let best: EngravedConversionStone | undefined;
   for (const stone of stones) {
     if (stone.category !== category || stone.propertyId !== propertyId) continue;
-    /* An Intangible artifact carries no class of its own, so every stone of the
-       category fits it and the grade alone decides. */
-    if (equipClassCode !== 0 && stone.equipClassCode !== equipClassCode) continue;
+    if (stone.equipClassCode !== equipClassCode) continue;
     if (!best || gradeRank(stone.grade) > gradeRank(best.grade)) best = stone;
   }
   return best;

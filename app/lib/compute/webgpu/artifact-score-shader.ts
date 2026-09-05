@@ -120,6 +120,13 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
     output[pairIndex] = best;
     return;
   }
+  // An Intangible artifact cannot be converted at all, so it scores on what it
+  // holds and nothing more. Must match scoreArtifactOnMonster() exactly, or the
+  // two backends would return different candidate sets for one account.
+  if (restriction == INTANGIBLE_RESTRICTION) {
+    output[pairIndex] = best;
+    return;
+  }
 
   let conversionCeiling = artifacts[artifactOffset + 12u];
   let convertedSlotFraction = artifacts[artifactOffset + 13u];
