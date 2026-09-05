@@ -1,5 +1,6 @@
 use crate::{
     config::{GATEWAYS, HELPER_PORT, HOSTS_MARKER, allowed_origin, data_directory},
+    diagnostics,
     profile::ProfileStore,
     protocol::{decode_request, decode_response},
     traffic::TrafficLog,
@@ -84,7 +85,21 @@ impl Service {
             .iter()
             .map(|(hostname, _, fallback)| resolve_upstream(hostname, fallback))
             .collect();
+        for ((hostname, _, fallback), upstream) in GATEWAYS.iter().zip(&upstreams) {
+            diagnostics::record(
+                "helper",
+                &format!(
+                    "{hostname} resolves to {upstream}{}",
+                    if upstream == fallback {
+                        " (shipped fallback — DNS gave nothing usable)"
+                    } else {
+                        ""
+                    }
+                ),
+            );
+        }
         install_hosts()?;
+        diagnostics::record("hosts", "Local gateway redirect installed");
         let shared = Arc::new(Shared {
             running: AtomicBool::new(true),
             profile: Mutex::new(ProfileStore::default()),
@@ -240,6 +255,16 @@ fn respond_api(mut stream: TcpStream, shared: Arc<Shared>) -> io::Result<()> {
             Some(json!({"error": "Only reading your local import is supported."})),
         )
     } else if !permitted {
+        // A refused origin answers every poll with 403, which the dashboard can
+        // only show as "not connected" — indistinguishable from a helper that is
+        // not running, unless the reason is written down.
+        diagnostics::record(
+            "jaswa",
+            &format!(
+                "Refused a request for {route} from origin {} — only JASWA's own address may read the snapshot",
+                origin.unwrap_or("(none sent)")
+            ),
+        );
         (
             403,
             Some(json!({"error": "This page is not allowed to read JASWA Helper."})),
@@ -248,14 +273,32 @@ fn respond_api(mut stream: TcpStream, shared: Arc<Shared>) -> io::Result<()> {
         (200, Some(status(&shared)))
     } else if route == "/profile" {
         match shared.profile.lock().expect("profile lock poisoned").read() {
-            Some(profile) => (
-                200,
-                Some(serde_json::to_value(profile).expect("serializable profile")),
-            ),
-            None => (
-                404,
-                Some(json!({"error": "Start Summoners War to capture an account snapshot."})),
-            ),
+            Some(profile) => {
+                // The half of the round trip nothing recorded before. A user
+                // whose account is stale needs to know whether JASWA collected
+                // the snapshot at all, and which one it got.
+                diagnostics::record(
+                    "jaswa",
+                    &format!(
+                        "Served the snapshot to JASWA (session {}, revision {}, captured {})",
+                        profile.session_id, profile.revision, profile.updated_at
+                    ),
+                );
+                (
+                    200,
+                    Some(serde_json::to_value(profile).expect("serializable profile")),
+                )
+            }
+            None => {
+                diagnostics::record(
+                    "jaswa",
+                    "JASWA asked for the snapshot and there is none — start Summoners War",
+                );
+                (
+                    404,
+                    Some(json!({"error": "Start Summoners War to capture an account snapshot."})),
+                )
+            }
         }
     } else {
         (
@@ -318,7 +361,16 @@ fn start_watchdog(shared: Arc<Shared>) {
                 // helper came up after the game had already logged in, so the
                 // login exchange that carries the account was missed. A restart
                 // replays it.
+                if !*waiting {
+                    diagnostics::record(
+                        "game",
+                        "Connected, but no login exchange was seen — the helper started after the game had logged in. Restarting Summoners War replays it.",
+                    );
+                }
                 *waiting = true;
+            }
+            if !*prior && connected {
+                diagnostics::record("game", "Summoners War connected to the local redirect");
             }
             if *prior && !connected {
                 // The game has gone: its snapshot belongs to a session that is
@@ -329,6 +381,10 @@ fn start_watchdog(shared: Arc<Shared>) {
                     .expect("profile lock poisoned")
                     .clear();
                 *waiting = false;
+                diagnostics::record(
+                    "game",
+                    "Summoners War closed — the captured snapshot was dropped, so JASWA keeps the last import it saved",
+                );
             }
             *prior = connected;
             drop(waiting);
@@ -381,6 +437,7 @@ fn ensure_hosts_redirect(shared: &Shared) {
             "JASWA Helper could not restore Summoners War's local redirect, so the game cannot send fresh data. Another program, usually antivirus, is blocking the hosts file: {error}"
         ),
     };
+    diagnostics::record("hosts", &message);
     *shared.last_error.lock().expect("error lock poisoned") = Some(message);
 }
 
@@ -611,16 +668,37 @@ impl<S: Read + Write> Connection<S> {
 
 fn capture(request: &[u8], response: &[u8], shared: &Shared) {
     let Ok(request_text) = std::str::from_utf8(http_body(request)) else {
+        diagnostics::record("capture", "Skipped an exchange whose request body was not text");
         return;
     };
-    let Ok(request) = decode_request(request_text) else {
-        return;
+    let request = match decode_request(request_text) {
+        Ok(request) => request,
+        Err(error) => {
+            diagnostics::record("capture", &format!("Could not decode a game request: {error}"));
+            return;
+        }
     };
+    let command_name = request
+        .get("command")
+        .and_then(Value::as_str)
+        .unwrap_or("(unnamed)")
+        .to_owned();
     let Ok(response_text) = std::str::from_utf8(http_body(response)) else {
+        diagnostics::record(
+            "capture",
+            &format!("Skipped {command_name}: its response body was not text"),
+        );
         return;
     };
-    let Ok(response) = decode_response(response_text) else {
-        return;
+    let response = match decode_response(response_text) {
+        Ok(response) => response,
+        Err(error) => {
+            diagnostics::record(
+                "capture",
+                &format!("Could not decode the response to {command_name}: {error}"),
+            );
+            return;
+        }
     };
     let command = request.get("command").and_then(Value::as_str);
     shared
@@ -630,13 +708,33 @@ fn capture(request: &[u8], response: &[u8], shared: &Shared) {
         .record(command, &request, &response);
     let mut profile = shared.profile.lock().expect("profile lock poisoned");
     if matches!(command, Some("HubUserLogin") | Some("GuestLogin")) {
-        profile.accept_snapshot(response);
+        let accepted = profile.accept_snapshot(response);
+        let status = profile.status();
+        diagnostics::record(
+            "capture",
+            &if accepted {
+                format!(
+                    "{command_name} captured a full account snapshot (session {}, revision {})",
+                    status.session_id, status.revision
+                )
+            } else {
+                format!(
+                    "{command_name} was rejected: it carried no usable monster and rune lists, so the previous snapshot stands"
+                )
+            },
+        );
         *shared
             .waiting_for_fresh_start
             .lock()
             .expect("game state lock poisoned") = false;
-    } else {
-        profile.apply_update(&response, &request);
+    } else if profile.apply_update(&response, &request) {
+        diagnostics::record(
+            "capture",
+            &format!(
+                "{command_name} changed the snapshot (revision {})",
+                profile.status().revision
+            ),
+        );
     }
     *shared.last_error.lock().expect("error lock poisoned") = None;
 }

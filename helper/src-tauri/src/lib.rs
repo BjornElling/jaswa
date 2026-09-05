@@ -5,6 +5,7 @@
 //! an elevated process, or a live Summoners War account.
 
 pub mod config;
+pub mod diagnostics;
 pub mod profile;
 pub mod protocol;
 pub mod service;

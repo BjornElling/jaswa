@@ -45,6 +45,34 @@ loopback gateway entries in the Windows hosts file. A running game then has
 nowhere to reach until a helper takes those ports back, so quit it from its
 tray icon and start the replacement promptly.
 
+## The diagnostic log
+
+`%LOCALAPPDATA%\JASWA Helper\diagnostics.log` records what the helper did, in
+order, and is the first thing to read when the dashboard says "Connected" while
+the account stays stale. It is always on, holds no account data — only counts,
+command names and outcomes — and so can go into a bug report unedited.
+
+Each run replaces the file. An entry has no meaning without the run it belongs
+to, and keeping the previous run's lines is how a stack trace from the retired
+Electron implementation survived in there long enough to look like a current
+fault.
+
+Entries are `timestamp [category] message`, where the category is one of
+`helper` (the run), `game` (the Summoners War connection), `capture` (what a
+gateway exchange produced), `jaswa` (what the browser asked for) and `hosts`
+(the redirect). The pairing that answers most questions is `capture` against
+`jaswa`: a capture with no matching `jaswa` line means the browser never
+collected the snapshot.
+
+This is not the traffic log. That one is opt-in, unbounded and full of decoded
+account data, and it exists to inspect the protocol rather than the helper.
+
+A snapshot JASWA cannot read is reported in JASWA itself, not only here: the
+direct route shows the same sentence the file route shows, once per rejected
+snapshot. The helper is working in that case — it captured the account and
+served it — so the log records a `capture` and a `jaswa` line as usual, and the
+reason the import stopped belongs on the page the user is looking at.
+
 ## Tests
 
 ```powershell

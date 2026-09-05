@@ -1,6 +1,6 @@
 #![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 
-use jaswa_helper::{config, profile, service::Service, windows};
+use jaswa_helper::{config, diagnostics, profile, service::Service, windows};
 use serde_json::{Value, json};
 use std::fs;
 use tauri::{
@@ -57,7 +57,7 @@ fn download_json(state: State<'_, HelperState>) -> Result<String, String> {
 
 #[tauri::command]
 fn open_diagnostics() -> Result<(), String> {
-    let path = config::data_directory().join("diagnostics.log");
+    let path = diagnostics::path();
     fs::create_dir_all(config::data_directory()).map_err(|error| error.to_string())?;
     if !path.exists() {
         fs::write(&path, "").map_err(|error| error.to_string())?;
@@ -105,6 +105,12 @@ fn main() {
     let already_elevated = arguments
         .iter()
         .any(|argument| argument == "--jaswa-elevated");
+    // The elevated pass is the one that goes on to run the service, so it owns
+    // the log. Starting it in the first pass too would truncate the elevated
+    // run's file moments after it began.
+    if already_elevated {
+        diagnostics::start(env!("CARGO_PKG_VERSION"));
+    }
     if !already_elevated {
         if !certificate_installation_approved() {
             return;
@@ -133,10 +139,15 @@ fn main() {
     let service = match Service::start() {
         Ok(service) => service,
         Err(error) => {
+            diagnostics::record("helper", &format!("Could not start: {error}"));
             windows::show_error(&error);
             return;
         }
     };
+    diagnostics::record(
+        "helper",
+        "Listening for Summoners War. Open the game to capture your account.",
+    );
     tauri::Builder::default()
         .manage(HelperState { service })
         .invoke_handler(tauri::generate_handler![
@@ -190,6 +201,10 @@ fn main() {
         .expect("valid JASWA Helper application")
         .run(|app, event| {
             if matches!(event, RunEvent::Exit) {
+                // Quitting from the tray removes the redirect; being killed from
+                // Task Manager does not, and the absence of this line is how the
+                // log says which of the two happened.
+                diagnostics::record("helper", "Quit from the tray — removing the local redirect");
                 app.state::<HelperState>().service.stop();
             }
         });
