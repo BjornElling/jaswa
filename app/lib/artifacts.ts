@@ -123,8 +123,15 @@ function readSubProperty(
      such as 0.251 % as 0.25 % would quietly repair malformed user data. */
   const valueHundredths = toHundredths(value);
   if (Math.abs(value * 100 - valueHundredths) > 0.000001) return null;
+  /* The conversion flag raises the ceiling but never the floor. A conversion
+     re-rolls the line from nothing, so its two contributions (§10) are what it
+     may *reach*, not what it must clear — 142 of the 265 converted lines in the
+     captured account hold less than `minRoll × 2`, while none exceeds
+     `maxRoll × 2` and none falls under a single roll. Doubling both ends
+     rejected an ordinary conversion such as effect 221 at 37 against a 25–40
+     roll, and one such line failed the whole import. */
   if (rollModel === 'current' && definition.minRoll !== null && definition.maxRoll !== null) {
-    const minimumHundredths = toHundredths(definition.minRoll * lineContributions);
+    const minimumHundredths = toHundredths(definition.minRoll * (powerUps + 1));
     const maximumHundredths = toHundredths(definition.maxRoll * lineContributions);
     if (valueHundredths < minimumHundredths || valueHundredths > maximumHundredths) return null;
   }
