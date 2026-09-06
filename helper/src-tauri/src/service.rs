@@ -1,6 +1,7 @@
 use crate::{
     config::{GATEWAYS, HELPER_PORT, HOSTS_MARKER, allowed_origin, data_directory},
     diagnostics,
+    incidents::Incidents,
     profile::ProfileStore,
     protocol::{decode_request, decode_response},
     traffic::TrafficLog,
@@ -36,6 +37,7 @@ const WATCHDOG_INTERVAL: Duration = Duration::from_secs(3);
 
 pub struct Service {
     shared: Arc<Shared>,
+    owns_hosts: AtomicBool,
 }
 
 struct Shared {
@@ -52,6 +54,8 @@ struct Shared {
     /// not read as the game having closed.
     last_contact: Mutex<Option<Instant>>,
     last_error: Mutex<Option<String>>,
+    incidents: Mutex<Incidents>,
+    api_connections: AtomicUsize,
 }
 
 /// Creates the local identity and puts its root in the current user's trust
@@ -65,17 +69,15 @@ struct Shared {
 pub fn provision_certificate() -> Result<(), String> {
     let directory = data_directory();
     fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
-    certificate_config(&directory).map(|_| ())
+    certificate_config(&directory, true).map(|_| ())
 }
 
 impl Service {
     pub fn start() -> Result<Self, String> {
         let directory = data_directory();
         fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
-        // Re-reads the identity provisioned before elevation. Installing the
-        // root again from here is harmless when the user is unelevated, and a
-        // no-op the game never depends on when they are.
-        let server = certificate_config(&directory)?;
+        // Elevation must not generate or trust a different identity under another user.
+        let server = certificate_config(&directory, false)?;
         // Resolve each gateway to its real address *before* installing the hosts
         // redirect, so resolution reads public DNS rather than the loopback
         // entry we are about to add. This follows the gateway's load-balancer
@@ -98,8 +100,6 @@ impl Service {
                 ),
             );
         }
-        install_hosts()?;
-        diagnostics::record("hosts", "Local gateway redirect installed");
         let shared = Arc::new(Shared {
             running: AtomicBool::new(true),
             profile: Mutex::new(ProfileStore::default()),
@@ -109,9 +109,14 @@ impl Service {
             open_connections: AtomicUsize::new(0),
             last_contact: Mutex::new(None),
             last_error: Mutex::new(None),
+            incidents: Mutex::new(Incidents::default()),
+            api_connections: AtomicUsize::new(0),
         });
+        let service = Self {
+            shared: Arc::clone(&shared),
+            owns_hosts: AtomicBool::new(false),
+        };
         start_api(Arc::clone(&shared))?;
-        start_watchdog(Arc::clone(&shared));
         for ((hostname, local_address, _), upstream) in GATEWAYS.iter().zip(upstreams) {
             start_bridge(
                 Arc::clone(&shared),
@@ -121,12 +126,40 @@ impl Service {
                 upstream,
             )?;
         }
-        Ok(Self { shared })
+        service.owns_hosts.store(true, Ordering::Release);
+        install_hosts()?;
+        diagnostics::record("hosts", "Local gateway redirect installed");
+        start_watchdog(Arc::clone(&shared));
+        Ok(service)
     }
 
     pub fn stop(&self) {
-        self.shared.running.store(false, Ordering::Release);
-        let _ = remove_hosts();
+        if self.shared.running.swap(false, Ordering::AcqRel)
+            && self.owns_hosts.swap(false, Ordering::AcqRel)
+        {
+            if let Err(error) = remove_hosts() {
+                diagnostics::record("hosts", &error);
+                crate::windows::show_error(&format!(
+                    "Could not remove the local game redirect: {error}. Run the helper cleanup before starting the game again."
+                ));
+            }
+        }
+    }
+
+    pub fn report(&self) -> Value {
+        let incidents = self
+            .shared
+            .incidents
+            .lock()
+            .expect("incident lock poisoned")
+            .report();
+        json!({
+            "status": self.status(),
+            "incidents": incidents,
+            "currentProfile": self.profile(),
+            "platform": std::env::consts::OS,
+            "architecture": std::env::consts::ARCH,
+        })
     }
 
     pub fn profile(&self) -> Option<Value> {
@@ -158,7 +191,7 @@ pub fn cleanup(remove_certificate: bool) -> Result<(), String> {
     remove_hosts()?;
     if remove_certificate {
         let directory = data_directory().join("certificates");
-        let _ = crate::windows::remove_root_certificate("JASWA Helper Local Root");
+        crate::windows::remove_root_certificate("JASWA Helper Local Root")?;
         if directory.exists() {
             fs::remove_dir_all(directory).map_err(|error| error.to_string())?;
         }
@@ -185,6 +218,12 @@ fn status(shared: &Shared) -> Value {
         .lock()
         .expect("error lock poisoned")
         .clone();
+    let capture_gap = shared
+        .incidents
+        .lock()
+        .expect("incident lock poisoned")
+        .active();
+    let last_error = last_error.or_else(diagnostics::last_error).or_else(|| capture_gap.then(|| "An exchange could not be imported. Save an error report, then restart Summoners War to capture a fresh account. Live import is paused.".to_owned()));
     json!({
         "running": shared.running.load(Ordering::Acquire),
         "hasProfile": snapshot.has_profile,
@@ -215,9 +254,16 @@ fn start_api(shared: Arc<Shared>) -> Result<(), String> {
                             Some(format!("Local API could not prepare a connection: {error}"));
                         continue;
                     }
+                    if shared.api_connections.fetch_add(1, Ordering::AcqRel) >= 16 {
+                        shared.api_connections.fetch_sub(1, Ordering::AcqRel);
+                        continue;
+                    }
                     let shared = Arc::clone(&shared);
                     thread::spawn(move || {
-                        let _ = respond_api(stream, shared);
+                        if let Err(error) = respond_api(stream, Arc::clone(&shared)) {
+                            diagnostics::record("jaswa", &format!("Local request failed: {error}"));
+                        }
+                        shared.api_connections.fetch_sub(1, Ordering::AcqRel);
                     });
                 }
                 Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
@@ -235,14 +281,20 @@ fn start_api(shared: Arc<Shared>) -> Result<(), String> {
 }
 
 fn respond_api(mut stream: TcpStream, shared: Arc<Shared>) -> io::Result<()> {
-    let mut request = [0; 16 * 1024];
-    let read = stream.read(&mut request)?;
-    let request = String::from_utf8_lossy(&request[..read]);
+    stream.set_read_timeout(Some(Duration::from_secs(5)))?;
+    stream.set_write_timeout(Some(Duration::from_secs(5)))?;
+    let mut connection = Connection::new(&mut stream);
+    let request = connection
+        .read_message()
+        .map_err(io::Error::other)?
+        .ok_or_else(|| io::Error::other("Empty local request"))?;
+    let request = String::from_utf8_lossy(&request);
     let mut lines = request.split("\r\n");
     let first = lines.next().unwrap_or_default();
     let origin = lines.find_map(|line| {
-        line.strip_prefix("Origin: ")
-            .or_else(|| line.strip_prefix("origin: "))
+        line.split_once(':')
+            .filter(|(name, _)| name.eq_ignore_ascii_case("origin"))
+            .map(|(_, value)| value.trim())
     });
     let permitted = origin.is_some_and(allowed_origin);
     let route = first.split_whitespace().nth(1).unwrap_or_default();
@@ -271,6 +323,13 @@ fn respond_api(mut stream: TcpStream, shared: Arc<Shared>) -> io::Result<()> {
         )
     } else if route == "/health" {
         (200, Some(status(&shared)))
+    } else if route == "/profile" && status(&shared)["profileReady"] != true {
+        (
+            409,
+            Some(
+                json!({"error": "The capture is not ready. Check helper status and save an error report."}),
+            ),
+        )
     } else if route == "/profile" {
         match shared.profile.lock().expect("profile lock poisoned").read() {
             Some(profile) => {
@@ -409,36 +468,25 @@ fn game_connected(shared: &Shared) -> bool {
 }
 
 fn mark_contact(shared: &Shared) {
-    *shared
-        .last_contact
-        .lock()
-        .expect("contact lock poisoned") = Some(Instant::now());
+    *shared.last_contact.lock().expect("contact lock poisoned") = Some(Instant::now());
 }
 
-/// Restores the hosts redirect if it has been removed while the helper runs, and
-/// reports the removal so the dashboard can explain why data had stopped
-/// arriving. Reads on every pass but writes only when the entry is gone, so an
-/// intact file is left untouched.
+/// Observe external changes without fighting the user's security software.
 fn ensure_hosts_redirect(shared: &Shared) {
-    // Never re-add the redirect once the helper is stopping: `stop` removes it
-    // exactly so a game left running can reach its server directly again.
     if !shared.running.load(Ordering::Acquire) {
         return;
     }
-    let intact = fs::read_to_string(hosts_path())
-        .map(|contents| contents.contains(HOSTS_MARKER))
-        .unwrap_or(false);
-    if intact {
-        return;
-    }
-    let message = match install_hosts() {
-        Ok(()) => "Summoners War's local redirect was removed while the helper was running, so the game stopped sending fresh data. The helper restored it — this is usually antivirus reverting the hosts file. If your account keeps showing old data, allow JASWA Helper in your antivirus.".to_owned(),
-        Err(error) => format!(
-            "JASWA Helper could not restore Summoners War's local redirect, so the game cannot send fresh data. Another program, usually antivirus, is blocking the hosts file: {error}"
-        ),
+    let result = fs::read_to_string(hosts_path());
+    let message = match result {
+        Ok(contents) if helper_block().lines().all(|expected| contents.lines().any(|line| line == expected)) => return,
+        Ok(_) => "The local game redirect was changed or removed. Live import is paused. Save an error report and inspect the change before restarting the helper.".to_owned(),
+        Err(error) => format!("Could not check the local game redirect: {error}. Save an error report."),
     };
-    diagnostics::record("hosts", &message);
-    *shared.last_error.lock().expect("error lock poisoned") = Some(message);
+    let mut previous = shared.last_error.lock().expect("error lock poisoned");
+    if previous.as_ref() != Some(&message) {
+        diagnostics::record("hosts", &message);
+    }
+    *previous = Some(message);
 }
 
 fn start_bridge(
@@ -463,6 +511,11 @@ fn start_bridge(
                         *shared.last_error.lock().expect("error lock poisoned") = Some(format!(
                             "Gateway bridge for {hostname} could not prepare a connection: {error}"
                         ));
+                        continue;
+                    }
+                    if shared.open_connections.fetch_add(1, Ordering::AcqRel) >= 32 {
+                        shared.open_connections.fetch_sub(1, Ordering::AcqRel);
+                        *shared.last_error.lock().expect("error lock poisoned") = Some("Too many local gateway connections. Restart the helper and save an error report if this repeats.".into());
                         continue;
                     }
                     let shared = Arc::clone(&shared);
@@ -491,8 +544,15 @@ fn relay(
     upstream: &str,
     shared: Arc<Shared>,
 ) {
-    shared.open_connections.fetch_add(1, Ordering::AcqRel);
+    let mut last_request = Vec::new();
+    let mut last_response = Vec::new();
     let result = (|| -> Result<(), String> {
+        socket
+            .set_read_timeout(Some(Duration::from_secs(120)))
+            .map_err(|error| error.to_string())?;
+        socket
+            .set_write_timeout(Some(Duration::from_secs(30)))
+            .map_err(|error| error.to_string())?;
         let mut incoming = Connection::new(StreamOwned::new(
             ServerConnection::new(server).map_err(|error| error.to_string())?,
             socket,
@@ -512,9 +572,16 @@ fn relay(
             // Every exchange on a live connection renews the contact time, so a
             // long, idle-but-open session is never mistaken for the game closing.
             mark_contact(&shared);
-            let captures_gateway = String::from_utf8_lossy(&request).contains(GATEWAY_PATH);
+            let captures_gateway = String::from_utf8_lossy(&request)
+                .lines()
+                .next()
+                .and_then(|line| line.split_whitespace().nth(1))
+                .is_some_and(|path| path.split('?').next() == Some(GATEWAY_PATH));
+            last_request = request.clone();
+            last_response.clear();
             let mut outgoing = connect_upstream(hostname, upstream, &roots, &name)?;
             let response = exchange_once(&mut outgoing, &request)?;
+            last_response = response.clone();
             if captures_gateway {
                 capture(&request, &response, &shared);
             }
@@ -523,7 +590,21 @@ fn relay(
     })();
     shared.open_connections.fetch_sub(1, Ordering::AcqRel);
     if let Err(error) = result {
-        *shared.last_error.lock().expect("error lock poisoned") = Some(error);
+        diagnostics::record("capture", &error);
+        let profile = shared
+            .profile
+            .lock()
+            .expect("profile lock poisoned")
+            .read()
+            .and_then(|value| serde_json::to_value(value).ok());
+        shared
+            .incidents
+            .lock()
+            .expect("incident lock poisoned")
+            .record(&error, &last_request, &last_response, profile);
+        *shared.last_error.lock().expect("error lock poisoned") = Some(format!(
+            "Gateway exchange failed: {error}. Save an error report, then restart the helper and game."
+        ));
     }
 }
 
@@ -552,8 +633,17 @@ fn connect_upstream(
     let client = ClientConfig::builder()
         .with_root_certificates(roots.clone())
         .with_no_client_auth();
-    let stream = TcpStream::connect((upstream, 443))
+    let address = format!("{upstream}:443")
+        .parse()
+        .map_err(|error| format!("Invalid gateway address: {error}"))?;
+    let stream = TcpStream::connect_timeout(&address, Duration::from_secs(15))
         .map_err(|error| format!("Could not connect to {hostname}: {error}"))?;
+    stream
+        .set_read_timeout(Some(Duration::from_secs(30)))
+        .map_err(|error| error.to_string())?;
+    stream
+        .set_write_timeout(Some(Duration::from_secs(30)))
+        .map_err(|error| error.to_string())?;
     Ok(Connection::new(StreamOwned::new(
         ClientConnection::new(Arc::new(client), name.clone()).map_err(|error| error.to_string())?,
         stream,
@@ -603,7 +693,7 @@ impl<S: Read + Write> Connection<S> {
             {
                 break end + 4;
             }
-            if self.pending.len() > MAXIMUM_INTERCEPTED_BODY_BYTES + 64 * 1024 {
+            if self.pending.len() > 64 * 1024 {
                 return Err("The game response was too large to import safely.".into());
             }
             match self.fill(&mut buffer)? {
@@ -612,15 +702,42 @@ impl<S: Read + Write> Connection<S> {
                 _ => {}
             }
         };
-        let header = String::from_utf8_lossy(&self.pending[..header_end]);
-        let length = header
-            .lines()
-            .find_map(|line| {
-                line.split_once(':')
-                    .filter(|(name, _)| name.eq_ignore_ascii_case("content-length"))
-                    .and_then(|(_, value)| value.trim().parse::<usize>().ok())
-            })
-            .unwrap_or(0);
+        if header_end > 64 * 1024 {
+            return Err("The HTTP header was too large.".into());
+        }
+        let header = std::str::from_utf8(&self.pending[..header_end])
+            .map_err(|_| "The HTTP header was not text.")?;
+        let mut length = None;
+        for line in header.lines().skip(1).filter(|line| !line.is_empty()) {
+            let (name, value) = line.split_once(':').ok_or("Malformed HTTP header.")?;
+            if name.eq_ignore_ascii_case("transfer-encoding") {
+                return Err("Unsupported HTTP transfer encoding. Save an error report.".into());
+            }
+            if name.eq_ignore_ascii_case("content-length") {
+                let value = value.trim();
+                if value.is_empty()
+                    || !value.bytes().all(|byte| byte.is_ascii_digit())
+                    || length.is_some()
+                {
+                    return Err("Invalid or repeated HTTP Content-Length.".into());
+                }
+                length = Some(
+                    value
+                        .parse::<usize>()
+                        .map_err(|_| "Invalid HTTP Content-Length.")?,
+                );
+            }
+        }
+        if length.is_none() && header.starts_with("HTTP/") {
+            let status = header.split_whitespace().nth(1).unwrap_or_default();
+            if !matches!(status, "204" | "304") && !status.starts_with('1') {
+                return Err(
+                    "The gateway response has no explicit body length. Save an error report."
+                        .into(),
+                );
+            }
+        }
+        let length = length.unwrap_or(0);
         if length > MAXIMUM_INTERCEPTED_BODY_BYTES {
             return Err("The game response was too large to import safely.".into());
         }
@@ -650,6 +767,8 @@ impl<S: Read + Write> Connection<S> {
                         io::ErrorKind::ConnectionReset
                             | io::ErrorKind::ConnectionAborted
                             | io::ErrorKind::UnexpectedEof
+                            | io::ErrorKind::TimedOut
+                            | io::ErrorKind::WouldBlock
                     ) =>
             {
                 Ok(0)
@@ -667,14 +786,28 @@ impl<S: Read + Write> Connection<S> {
 }
 
 fn capture(request: &[u8], response: &[u8], shared: &Shared) {
+    let fail = |reason: String| {
+        diagnostics::record("capture", &reason);
+        let profile = shared
+            .profile
+            .lock()
+            .expect("profile lock poisoned")
+            .read()
+            .and_then(|value| serde_json::to_value(value).ok());
+        shared
+            .incidents
+            .lock()
+            .expect("incident lock poisoned")
+            .record(&reason, request, response, profile);
+    };
     let Ok(request_text) = std::str::from_utf8(http_body(request)) else {
-        diagnostics::record("capture", "Skipped an exchange whose request body was not text");
+        fail("The game request body was not text.".into());
         return;
     };
     let request = match decode_request(request_text) {
         Ok(request) => request,
         Err(error) => {
-            diagnostics::record("capture", &format!("Could not decode a game request: {error}"));
+            fail(format!("Could not decode a game request: {error}"));
             return;
         }
     };
@@ -684,23 +817,23 @@ fn capture(request: &[u8], response: &[u8], shared: &Shared) {
         .unwrap_or("(unnamed)")
         .to_owned();
     let Ok(response_text) = std::str::from_utf8(http_body(response)) else {
-        diagnostics::record(
-            "capture",
-            &format!("Skipped {command_name}: its response body was not text"),
-        );
+        fail(format!("The response to {command_name} was not text."));
         return;
     };
     let response = match decode_response(response_text) {
         Ok(response) => response,
         Err(error) => {
-            diagnostics::record(
-                "capture",
-                &format!("Could not decode the response to {command_name}: {error}"),
-            );
+            fail(format!(
+                "Could not decode the response to {command_name}: {error}"
+            ));
             return;
         }
     };
     let command = request.get("command").and_then(Value::as_str);
+    if command.is_none_or(|value| value.is_empty()) || !response.is_object() {
+        fail("The exchange has no command or response object.".into());
+        return;
+    }
     shared
         .traffic
         .lock()
@@ -709,25 +842,39 @@ fn capture(request: &[u8], response: &[u8], shared: &Shared) {
     let mut profile = shared.profile.lock().expect("profile lock poisoned");
     if matches!(command, Some("HubUserLogin") | Some("GuestLogin")) {
         let accepted = profile.accept_snapshot(response);
+        if !accepted {
+            profile.clear();
+            drop(profile);
+            fail(format!(
+                "{command_name} did not contain a valid account snapshot. The old account was discarded."
+            ));
+            return;
+        }
+        shared
+            .incidents
+            .lock()
+            .expect("incident lock poisoned")
+            .recover();
         let status = profile.status();
         diagnostics::record(
             "capture",
-            &if accepted {
-                format!(
-                    "{command_name} captured a full account snapshot (session {}, revision {})",
-                    status.session_id, status.revision
-                )
-            } else {
-                format!(
-                    "{command_name} was rejected: it carried no usable monster and rune lists, so the previous snapshot stands"
-                )
-            },
+            &format!(
+                "{command_name} captured a full account snapshot (session {}, revision {})",
+                status.session_id, status.revision
+            ),
         );
+        drop(profile);
         *shared
             .waiting_for_fresh_start
             .lock()
             .expect("game state lock poisoned") = false;
-    } else if profile.apply_update(&response, &request) {
+    } else if !shared
+        .incidents
+        .lock()
+        .expect("incident lock poisoned")
+        .active()
+        && profile.apply_update(&response, &request)
+    {
         diagnostics::record(
             "capture",
             &format!(
@@ -736,7 +883,6 @@ fn capture(request: &[u8], response: &[u8], shared: &Shared) {
             ),
         );
     }
-    *shared.last_error.lock().expect("error lock poisoned") = None;
 }
 
 fn http_body(message: &[u8]) -> &[u8] {
@@ -747,12 +893,15 @@ fn http_body(message: &[u8]) -> &[u8] {
         .unwrap_or_default()
 }
 
-fn certificate_config(directory: &Path) -> Result<Arc<ServerConfig>, String> {
+fn certificate_config(directory: &Path, provision: bool) -> Result<Arc<ServerConfig>, String> {
     let certificates = directory.join("certificates");
     let ca_path = certificates.join("ca.pem");
     let leaf_path = certificates.join("gateway.pem");
     let key_path = certificates.join("gateway.key");
     if !leaf_path.exists() || !key_path.exists() || !ca_path.exists() {
+        if !provision {
+            return Err("The certificate provisioned before elevation is unavailable. Start the helper normally under the same Windows account used for the game; elevating as a different user cannot reuse its local certificate.".into());
+        }
         fs::create_dir_all(&certificates).map_err(|error| error.to_string())?;
         let mut ca_params =
             CertificateParams::new(Vec::<String>::new()).map_err(|error| error.to_string())?;
@@ -787,7 +936,9 @@ fn certificate_config(directory: &Path) -> Result<Arc<ServerConfig>, String> {
     }
     // Re-adding the same root is idempotent and restores trust if it was
     // removed from Windows while the local identity was intentionally kept.
-    install_certificate(&ca_path)?;
+    if provision {
+        install_certificate(&ca_path)?;
+    }
     let mut certificate_reader =
         io::BufReader::new(fs::File::open(leaf_path).map_err(|error| error.to_string())?);
     let certificates: Vec<CertificateDer<'static>> = rustls_pemfile::certs(&mut certificate_reader)
@@ -843,6 +994,14 @@ fn without_hosts_entries(contents: &str) -> String {
 fn install_hosts() -> Result<(), String> {
     let path = hosts_path();
     let current = fs::read_to_string(&path).map_err(|error| error.to_string())?;
+    if current
+        .lines()
+        .collect::<Vec<_>>()
+        .windows(helper_block().lines().count())
+        .any(|lines| lines == helper_block().lines().collect::<Vec<_>>())
+    {
+        return Ok(());
+    }
     fs::write(
         &path,
         format!(
@@ -857,6 +1016,9 @@ fn install_hosts() -> Result<(), String> {
 fn remove_hosts() -> Result<(), String> {
     let path = hosts_path();
     let current = fs::read_to_string(&path).map_err(|error| error.to_string())?;
+    if !current.contains(HOSTS_MARKER) {
+        return Ok(());
+    }
     fs::write(
         &path,
         format!("{}\r\n", without_hosts_entries(&current).trim_end()),
@@ -868,6 +1030,96 @@ fn remove_hosts() -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn encoded(value: &Value, compressed: bool) -> String {
+        use base64::{Engine as _, engine::general_purpose::STANDARD};
+        use cipher::{BlockEncryptMut, KeyIvInit, block_padding::Pkcs7};
+        let mut plain = serde_json::to_vec(value).unwrap();
+        if compressed {
+            let mut encoder =
+                flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::default());
+            encoder.write_all(&plain).unwrap();
+            plain = encoder.finish().unwrap();
+        }
+        let length = plain.len();
+        plain.resize(length + 16, 0);
+        let bytes = cbc::Encryptor::<aes::Aes128>::new_from_slices(b"Gr4S2eiNl7zq5MrU", &[0; 16])
+            .unwrap()
+            .encrypt_padded_mut::<Pkcs7>(&mut plain, length)
+            .unwrap();
+        STANDARD.encode(bytes)
+    }
+
+    #[test]
+    fn capture_failure_stays_visible_until_a_complete_login() {
+        let shared = shared_for_test();
+        let bad = message("broken envelope");
+        capture(bad.as_bytes(), bad.as_bytes(), &shared);
+        assert!(
+            status(&shared)["lastError"]
+                .as_str()
+                .unwrap()
+                .contains("Save an error report")
+        );
+        let request = message(&encoded(&json!({"command": "GetSomething"}), false));
+        let response = message(&encoded(&json!({"ret_code": 0}), true));
+        capture(request.as_bytes(), response.as_bytes(), &shared);
+        assert!(
+            !status(&shared)["lastError"].is_null(),
+            "an unrelated success cannot repair missing data"
+        );
+        let login = message(&encoded(&json!({"command": "HubUserLogin"}), false));
+        let account = message(&encoded(
+            &json!({"ret_code": 0, "unit_list": [], "runes": []}),
+            true,
+        ));
+        capture(login.as_bytes(), account.as_bytes(), &shared);
+        assert!(status(&shared)["lastError"].is_null());
+        assert!(shared.incidents.lock().unwrap().report()["firstFailure"].is_object());
+        capture(login.as_bytes(), response.as_bytes(), &shared);
+        assert_eq!(
+            status(&shared)["hasProfile"],
+            false,
+            "a rejected login must not retain another account"
+        );
+        assert!(!status(&shared)["lastError"].is_null());
+    }
+
+    #[test]
+    fn rejects_ambiguous_http_framing_instead_of_dropping_the_body() {
+        for headers in [
+            "Content-Length: nope",
+            "Content-Length: 1\r\nContent-Length: 2",
+            "Transfer-Encoding: chunked",
+            "Content-Length: 999999999999999999999999",
+            "Content-Length: -1",
+        ] {
+            let mut connection = Connection::new(Conversation {
+                incoming: io::Cursor::new(
+                    format!("POST / HTTP/1.1\r\n{headers}\r\n\r\nx").into_bytes(),
+                ),
+            });
+            assert!(connection.read_message().is_err(), "{headers}");
+        }
+    }
+
+    #[test]
+    fn local_api_reads_fragmented_case_insensitive_origin_and_refuses_stale_profiles() {
+        let shared = Arc::new(shared_for_test());
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let mut client = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let worker =
+            thread::spawn(move || respond_api(listener.accept().unwrap().0, shared).unwrap());
+        client.write_all(b"GET /profile HTTP/1.1\r\nOr").unwrap();
+        client
+            .write_all(b"IgIn: http://localhost:3000\r\n\r\n")
+            .unwrap();
+        let mut response = String::new();
+        client.read_to_string(&mut response).unwrap();
+        assert!(response.starts_with("HTTP/1.1 409"));
+        assert!(response.contains("Access-Control-Allow-Origin: http://localhost:3000"));
+        worker.join().unwrap();
+    }
 
     /// A pair of HTTP messages on one connection, as the game sends them.
     struct Conversation {
@@ -990,6 +1242,8 @@ mod tests {
             open_connections: AtomicUsize::new(0),
             last_contact: Mutex::new(None),
             last_error: Mutex::new(None),
+            incidents: Mutex::new(Incidents::default()),
+            api_connections: AtomicUsize::new(0),
         }
     }
 
@@ -1017,7 +1271,10 @@ mod tests {
     fn a_recent_connection_survives_the_grace_window() {
         let shared = shared_for_test();
         mark_contact(&shared);
-        assert!(game_connected(&shared), "just-closed connection still counts");
+        assert!(
+            game_connected(&shared),
+            "just-closed connection still counts"
+        );
 
         if let Some(stale) = Instant::now().checked_sub(GAME_QUIET_GRACE + Duration::from_secs(5)) {
             *shared.last_contact.lock().unwrap() = Some(stale);

@@ -31,9 +31,23 @@ use std::{
 /// text editor and to attach to a report.
 const MAXIMUM_BYTES: u64 = 4 * 1024 * 1024;
 
+static LAST_ERROR: Mutex<Option<String>> = Mutex::new(None);
+
+pub fn last_error() -> Option<String> {
+    LAST_ERROR
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .clone()
+}
+
+fn failed(error: std::io::Error) {
+    *LAST_ERROR.lock().unwrap_or_else(|error| error.into_inner()) = Some(format!(
+        "The diagnostic log could not be written: {error}. Save an error report to preserve the in-memory evidence."
+    ));
+}
+
 static FILE: OnceLock<Mutex<Option<fs::File>>> = OnceLock::new();
 static WRITTEN: AtomicU64 = AtomicU64::new(0);
-static TRUNCATED: AtomicU64 = AtomicU64::new(0);
 
 pub fn path() -> PathBuf {
     data_directory().join("diagnostics.log")
@@ -52,10 +66,10 @@ pub fn start(version: &str) {
             .truncate(true)
             .open(path())
     })()
+    .map_err(failed)
     .ok();
     let _ = FILE.set(Mutex::new(file));
     WRITTEN.store(0, Ordering::Release);
-    TRUNCATED.store(0, Ordering::Release);
     record(
         "helper",
         &format!(
@@ -83,23 +97,21 @@ pub fn record(category: &str, message: &str) {
     let line = format!("{} [{category}] {message}\n", now());
     let written = WRITTEN.load(Ordering::Acquire);
     if written >= MAXIMUM_BYTES {
-        // Say once that the rest was dropped, so a truncated log cannot be read
-        // as a helper that simply stopped doing anything.
-        if TRUNCATED.fetch_add(1, Ordering::AcqRel) == 0 {
-            let _ = file.write_all(
-                format!("{} [helper] Log limit reached. Later entries are not recorded.\n", now())
-                    .as_bytes(),
-            );
-            let _ = file.flush();
-        }
         return;
     }
-    if file.write_all(line.as_bytes()).is_ok() {
-        // Flushed per entry: the entries worth having are the ones written just
-        // before something hung or was killed from Task Manager, and a buffered
-        // line is exactly the one that would be lost.
-        let _ = file.flush();
-        WRITTEN.store(written + line.len() as u64, Ordering::Release);
+    if line.len() as u64 > MAXIMUM_BYTES.saturating_sub(written) {
+        let notice = "[helper] Log limit reached. Later entries are not recorded.\n";
+        if notice.len() as u64 <= MAXIMUM_BYTES.saturating_sub(written) {
+            if let Err(error) = file.write_all(notice.as_bytes()).and_then(|_| file.flush()) {
+                failed(error);
+            }
+        }
+        WRITTEN.store(MAXIMUM_BYTES, Ordering::Release);
+        return;
+    }
+    match file.write_all(line.as_bytes()).and_then(|_| file.flush()) {
+        Ok(()) => WRITTEN.store(written + line.len() as u64, Ordering::Release),
+        Err(error) => failed(error),
     }
 }
 
@@ -119,6 +131,9 @@ mod tests {
     fn formats_an_entry_with_its_category_and_a_timestamp() {
         let line = format!("{} [game] connected", now());
         assert!(line.contains("[game] connected"));
-        assert!(line.starts_with("20"), "entries lead with an RFC 3339 instant");
+        assert!(
+            line.starts_with("20"),
+            "entries lead with an RFC 3339 instant"
+        );
     }
 }

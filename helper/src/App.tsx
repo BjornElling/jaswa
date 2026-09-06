@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 type Status = {
   hasProfile: boolean;
@@ -20,6 +20,26 @@ type Traffic = {
 
 type Dashboard = { status: Status; traffic: Traffic };
 
+function validDashboard(value: unknown): value is Dashboard {
+  if (!value || typeof value !== 'object') return false;
+  const { status, traffic } = value as Partial<Dashboard>;
+  const text = (entry: unknown) => entry === null || typeof entry === 'string';
+  return Boolean(status && traffic
+    && [status.hasProfile, status.profileReady, status.restartRequired, traffic.enabled, traffic.recorded, traffic.full].every((entry) => typeof entry === 'boolean')
+    && [status.lastError, status.source, status.updatedAt, traffic.lastError].every(text)
+    && Number.isSafeInteger(traffic.entries) && traffic.entries >= 0);
+}
+
+async function readStatus(): Promise<unknown> {
+  let timer: number | undefined;
+  try {
+    return await Promise.race([
+      invoke<unknown>('helper_status'),
+      new Promise<never>((_, reject) => { timer = window.setTimeout(() => reject(new Error('The helper status request timed out. Save an error report, then restart the helper.')), 10_000); }),
+    ]);
+  } finally { window.clearTimeout(timer); }
+}
+
 function statusText(status: Status) {
   if (status.lastError) return 'Connection needs attention';
   if (status.profileReady) return status.source === 'live' ? 'Snapshot ready · live sync' : 'Snapshot ready';
@@ -29,14 +49,21 @@ function statusText(status: Status) {
 
 export function App() {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
+  const busy = useRef(false);
+  const polling = useRef(false);
   const [message, setMessage] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
+    if (polling.current) return;
+    polling.current = true;
     try {
-      setDashboard(await invoke<Dashboard>('helper_status'));
+      const value = await readStatus();
+      if (!validDashboard(value)) throw new Error('The helper returned an invalid status. Save an error report.');
+      setDashboard(value);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'JASWA Helper could not read its status.');
-    }
+      setDashboard(null);
+      setMessage(error instanceof Error ? error.message : String(error));
+    } finally { polling.current = false; }
   }, []);
 
   useEffect(() => {
@@ -46,6 +73,8 @@ export function App() {
   }, [refresh]);
 
   const call = useCallback(async (command: string, args?: Record<string, unknown>) => {
+    if (busy.current) return;
+    busy.current = true;
     try {
       const result = await invoke<unknown>(command, args);
       // Only a command's own words belong in the message line. Anything else a
@@ -54,7 +83,7 @@ export function App() {
       await refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
-    }
+    } finally { busy.current = false; }
   }, [refresh]);
 
   const traffic = dashboard?.traffic;
@@ -79,13 +108,15 @@ export function App() {
       <section className="status" aria-live="polite">
         <p className="eyebrow">Capture status</p>
         <p className="status-text">{status ? statusText(status) : 'Starting helper'}</p>
-        {status?.lastError && <p className="detail">{status.lastError}</p>}
-        {!status?.lastError && <p className="detail">Open Summoners War on Steam. The helper keeps your snapshot on this computer.</p>}
+        <p className="detail">{status?.lastError ?? 'Open Summoners War on Steam. The helper keeps your snapshot on this computer.'}</p>
       </section>
 
       <section className="actions" aria-label="Helper actions">
         <button type="button" onClick={() => void call('open_jaswa')}>Open JASWA</button>
         <button type="button" disabled={!status?.hasProfile} onClick={() => void call('download_json')}>Download JSON</button>
+        <button type="button" onClick={() => {
+          if (window.confirm('Save a private error report? It may contain account and session data, the failed exchange and your snapshot. Nothing is uploaded. Send the file only to your developer through a private channel.')) void call('save_error_report');
+        }}>Save error report</button>
         <button type="button" onClick={() => void call('open_diagnostics')}>Open diagnostic log</button>
         <button type="button" aria-pressed={recording} onClick={() => void toggleTraffic()}>
           {recording ? 'Stop traffic log' : 'Log all traffic'}
@@ -96,11 +127,10 @@ export function App() {
       <section className="log-status" aria-live="polite">
         <p className="eyebrow">Traffic log</p>
         <p>{traffic?.enabled ? `Recording ${traffic.entries} exchange${traffic.entries === 1 ? '' : 's'}` : traffic?.recorded ? 'A local recording is ready to inspect' : 'Off'}</p>
-        {traffic?.full && <p className="detail">The local log limit was reached.</p>}
-        {traffic?.lastError && <p className="detail">{traffic.lastError}</p>}
+        <p className="detail">{traffic?.lastError ?? (traffic?.full ? 'The local log limit was reached.' : 'Record traffic only when needed for troubleshooting.')}</p>
       </section>
 
-      {message && <p className="message" role="status">{message}</p>}
+      <p className="message" role="status">{message}</p>
     </main>
   );
 }

@@ -146,6 +146,9 @@ impl ProfileStore {
         let Some(object) = snapshot.as_object() else {
             return false;
         };
+        if !successful_response(&snapshot) {
+            return false;
+        }
         if !is_array(object.get("unit_list")) || !is_array(object.get("runes")) {
             return false;
         }
@@ -1875,10 +1878,10 @@ mod phantom_rune_regression {
     use serde_json::json;
 
     /* The real getPlayPassInfo payload shape: five Play Pass reward previews,
-       every one carrying rune_id 0. They describe runes the account does not
-       own, and five of them collapsing into one phantom rune is what made a
-       whole export unreadable. Reproduced from the user's own traffic log,
-       2026-09-02. */
+    every one carrying rune_id 0. They describe runes the account does not
+    own, and five of them collapsing into one phantom rune is what made a
+    whole export unreadable. Reproduced from the user's own traffic log,
+    2026-09-02. */
     #[test]
     fn pass_reward_previews_never_enter_the_profile() {
         let preview = || {
@@ -1926,7 +1929,7 @@ mod phantom_rune_regression {
     }
 
     /* A snapshot carrying one is refused outright rather than normalized into a
-       smaller profile, which is the other way the record could arrive. */
+    smaller profile, which is the other way the record could arrive. */
     #[test]
     fn a_snapshot_carrying_a_zero_id_rune_is_refused() {
         let mut store = ProfileStore::default();

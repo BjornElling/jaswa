@@ -50,6 +50,7 @@ export default function Home() {
   /* Which helper snapshot JASWA has already refused, so a two-second poll
      reports an unreadable account once rather than on every pass. */
   const reportedHelperRejection = useRef<string | null>(null);
+  const helperReport = useRef<unknown>(null);
   /* The current import, readable from the polling interval's callback. That
      callback outlives the render that created it, so `game` inside it is
      whatever was loaded when the interval started. */
@@ -87,12 +88,20 @@ export default function Home() {
         setHelperConnection(connection);
         if (!connection.profileReady) return;
         const needsImport = preferences.directImportMode === 'live'
-          ? appliedHelperRevision.current !== connection.revision
+          ? appliedHelperRevision.current !== connection.revision || appliedHelperSession.current !== `${connection.instanceId}:${connection.sessionId}`
           : appliedHelperSession.current !== `${connection.instanceId}:${connection.sessionId}`;
         if (!needsImport) return;
         const result = await readHelperProfile();
-        if (disposed || result.state === 'unavailable') return;
+        if (disposed) return;
+        if (result.state === 'unavailable') {
+          helperReport.current = result;
+          setMessage(`${result.reason} JASWA is keeping the last saved import.`);
+          setHelperConnection({ ...connection, state: 'unavailable', profileReady: false, detail: result.reason });
+          return;
+        }
         if (result.state === 'unreadable') {
+          helperReport.current = result;
+          setHelperConnection({ ...connection, state: 'unavailable', profileReady: false, detail: result.reason });
           /* The helper is connected and sending, and JASWA cannot read what it
              sent. Say so in the same words the file route uses — but once per
              snapshot, because the poll would otherwise repeat it every two
@@ -106,7 +115,7 @@ export default function Home() {
                stale, without one there is nothing to work from at all. The ref
                carries it because `game` in this closure belongs to the render
                that started the interval. */
-            setMessage(`${result.reason}${gameRef.current ? ' JASWA is still showing your last good import.' : ' JASWA has not loaded this account.'}`);
+            setMessage(`${result.reason} Save an import report below and an error report in the helper.${gameRef.current ? ' JASWA is still showing your last good import.' : ' JASWA has not loaded this account.'}`);
           }
           return;
         }
@@ -298,6 +307,18 @@ export default function Home() {
     }
   }
 
+  function saveHelperReport() {
+    if (!window.confirm('Save a private import report? It may include the rejected account snapshot. Nothing is uploaded. Send it only to your developer through a private channel.')) return;
+    downloadJson('JASWA-import-error.json', JSON.stringify({
+      capturedAt: new Date().toISOString(),
+      reason: message,
+      connection: helperConnection,
+      rejectedSnapshot: helperReport.current,
+      browser: navigator.userAgent,
+      instructions: 'Attach this report privately to the developer with the steps that caused the error. For capture failures, also save an error report in the helper.',
+    }, null, 2));
+  }
+
   function openReport(category: ReportCategory = 'Other', details = '') {
     setReport({ category, details });
   }
@@ -335,6 +356,7 @@ export default function Home() {
         importRoute={preferences.importRoute}
         onImportRoute={updateImportRoute}
         helperConnection={helperConnection}
+        onSaveHelperReport={saveHelperReport}
         general={preferences.general}
       />}
 

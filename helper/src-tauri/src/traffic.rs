@@ -18,6 +18,7 @@ pub struct TrafficLog {
     entries: u64,
     bytes: u64,
     recorded: bool,
+    full: bool,
     last_error: Option<String>,
 }
 
@@ -42,6 +43,7 @@ impl TrafficLog {
             entries: 0,
             bytes: 0,
             recorded: false,
+            full: false,
             last_error: None,
         }
     }
@@ -63,15 +65,17 @@ impl TrafficLog {
             self.entries = 0;
             self.bytes = 0;
             self.recorded = false;
+            self.full = false;
             self.last_error = None;
             if let Err(error) = (|| -> io::Result<()> {
                 fs::create_dir_all(&self.directory)?;
                 fs::write(self.file(), "")
             })() {
+                self.enabled = false;
                 self.last_error = Some(error.to_string());
             }
         }
-        enabled
+        self.enabled
     }
 
     pub fn record(&mut self, command: Option<&str>, request: &Value, response: &Value) {
@@ -83,7 +87,12 @@ impl TrafficLog {
             json!({"at": now(), "command": command.filter(|command| !command.is_empty()), "request": request, "response": response})
         );
         let bytes = self.bytes.saturating_add(line.len() as u64);
-        let full = bytes >= self.maximum_bytes;
+        if bytes > self.maximum_bytes {
+            self.full = true;
+            self.enabled = false;
+            return;
+        }
+        let full = bytes == self.maximum_bytes;
         let result = (|| -> io::Result<()> {
             fs::create_dir_all(&self.directory)?;
             let mut file = fs::OpenOptions::new()
@@ -92,15 +101,6 @@ impl TrafficLog {
                 .open(self.file())?;
             use std::io::Write;
             file.write_all(line.as_bytes())?;
-            if full {
-                file.write_all(
-                    format!(
-                        "{}\n",
-                        json!({"at": now(), "note": "Log limit reached. Recording stopped."})
-                    )
-                    .as_bytes(),
-                )?;
-            }
             Ok(())
         })();
         match result {
@@ -110,11 +110,13 @@ impl TrafficLog {
                 self.recorded = true;
                 if full {
                     /* A full file is a completed recording, not an ongoing one. */
+                    self.full = true;
                     self.enabled = false;
                 }
             }
             Err(error) => {
                 /* Do not claim an exchange that never reached the file. */
+                self.enabled = false;
                 self.last_error = Some(error.to_string());
             }
         }
@@ -129,7 +131,7 @@ impl TrafficLog {
             entries: self.entries,
             recorded: self.recorded,
             bytes: self.bytes,
-            full: self.bytes >= self.maximum_bytes,
+            full: self.full,
             file: self.file().display().to_string(),
             last_error: self.last_error.clone(),
         }
@@ -237,7 +239,7 @@ mod tests {
         fs::write(&occupied, "not a directory").unwrap();
         let mut log = TrafficLog::new(Some(occupied));
         log.set_enabled(true);
-        assert!(log.status().enabled);
+        assert!(!log.status().enabled);
         log.record(Some("Lost"), &json!({}), &json!({}));
         assert_eq!(log.status().entries, 0);
         assert!(!log.status().recorded);
@@ -263,7 +265,7 @@ mod tests {
     }
 
     #[test]
-    fn writes_a_limit_notice_after_the_last_whole_entry() {
+    fn stops_before_an_entry_would_exceed_the_limit() {
         let directory = tempfile::tempdir().unwrap();
         let mut log = TrafficLog::limited(directory.path().to_owned(), 100);
         log.set_enabled(true);
@@ -273,11 +275,8 @@ mod tests {
             &json!({"padding": "x".repeat(200)}),
         );
         assert!(log.status().full);
-        assert!(
-            fs::read_to_string(log.file())
-                .unwrap()
-                .contains("Log limit reached")
-        );
+        assert!(fs::metadata(log.file()).unwrap().len() <= 100);
+        assert_eq!(log.status().entries, 0);
         assert!(!log.status().enabled, "a full log is no longer recording");
     }
 }

@@ -1,172 +1,82 @@
-#!/usr/bin/env node
-
-/**
- * Drives the real dashboard in a browser and proves the traffic toggle keeps
- * the window intact — the failure that shipped: accepting the traffic warning
- * left an empty helper window, because `set_traffic_logging` answered with the
- * status object and the message line rendered it as a React child.
- *
- * The Tauri IPC is stubbed rather than mocked away, because the boundary is the
- * thing under test: what a command returns and what `call()` does with it. Both
- * halves are exercised — a command that answers with an object and one that
- * answers with nothing — so the check proves the dashboard now survives either,
- * not merely that today's backend happens to return the right thing.
- *
- * Requires the dev server (`npm run frontend:dev`), which serves the same React
- * code the release build embeds. Playwright comes from the repository root.
- *
- * Usage: node scripts/verify-dashboard-flow.mjs
- */
+import assert from 'node:assert/strict';
+import { readFile, mkdir } from 'node:fs/promises';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
-const url = 'http://localhost:1420/';
-
-/** A connected, capturing helper: the state the traffic toggle is used from. */
-const dashboard = {
-  status: {
-    hasProfile: true,
-    profileReady: true,
-    restartRequired: false,
-    lastError: null,
-    source: 'live',
-    updatedAt: '2026-09-02T10:16:55Z',
-  },
-  traffic: {
-    enabled: false,
-    entries: 0,
-    recorded: false,
-    bytes: 0,
-    full: false,
-    file: 'C:\\Users\\example\\traffic.log',
-    lastError: null,
-  },
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+const origin = 'http://localhost:3000';
+assert.equal((await fetch(origin)).status, 200, 'Start the project server on localhost:3000');
+const output = resolve(root, 'outputs/helper-hardening');
+await mkdir(output, { recursive: true });
+const browser = await chromium.launch();
+const initial = {
+  status: { hasProfile: false, profileReady: false, restartRequired: false, lastError: null, source: null, updatedAt: null },
+  traffic: { enabled: false, entries: 0, recorded: false, full: false, lastError: null },
 };
-
-/**
- * Opens the dashboard with a stubbed IPC. `reply` decides what
- * `set_traffic_logging` answers: the status object, or nothing.
- */
-async function openDashboard(browser, reply) {
-  const page = await browser.newPage({ viewport: { width: 520, height: 552 } });
+try {
+  const page = await browser.newPage({ viewport: { width: 520, height: 656 } });
   const errors = [];
-  page.on('pageerror', (error) => errors.push(String(error)));
-  await page.addInitScript(
-    ([answer, initial]) => {
-      let enabled = false;
-      window.__TAURI_INTERNALS__ = {
-        transformCallback: (callback) => callback,
-        invoke: (command) => {
-          if (command === 'set_traffic_logging') {
-            enabled = true;
-            return Promise.resolve(
-              answer === 'object'
-                ? { ...initial, traffic: { ...initial.traffic, enabled: true } }
-                : null,
-            );
-          }
-          if (command === 'helper_status') {
-            return Promise.resolve({ ...initial, traffic: { ...initial.traffic, enabled } });
-          }
-          return Promise.resolve(null);
-        },
-      };
-      /* The warning is the user's decision, not this check's subject. */
-      window.confirm = () => true;
-    },
-    [reply, dashboard],
-  );
-  await page.goto(url, { waitUntil: 'networkidle' });
-  await page.waitForSelector('button:has-text("Log all traffic")', { timeout: 15_000 });
-  return { page, errors };
-}
-
-/** Accepts the warning, then reports what the window still holds. */
-async function toggleTraffic(browser, reply) {
-  const { page, errors } = await openDashboard(browser, reply);
-  await page.click('button:has-text("Log all traffic")');
-  await page.waitForTimeout(1_200);
-  const result = {
-    buttons: await page.locator('main button').count(),
-    headings: await page.locator('h1').count(),
-    pressed: await page.locator('button[aria-pressed="true"]').count(),
-    trafficLine: await page
-      .locator('.log-status p')
-      .nth(1)
-      .textContent()
-      .catch(() => null),
-    errors,
-  };
-  await page.close();
-  return result;
-}
-
-async function main() {
-  let browser;
-  try {
-    browser = await chromium.launch();
-  } catch (error) {
-    console.error('Playwright could not launch a browser, so the dashboard was not driven.');
-    console.error(error instanceof Error ? error.message : error);
-    process.exitCode = 1;
-    return;
-  }
-
-  let objectReply;
-  let emptyReply;
-  try {
-    objectReply = await toggleTraffic(browser, 'object');
-    emptyReply = await toggleTraffic(browser, 'nothing');
-  } catch (error) {
-    await browser.close();
-    console.error('The dashboard did not load. Start the dev server with `npm run frontend:dev`.');
-    console.error(error instanceof Error ? error.message : error);
-    process.exitCode = 1;
-    return;
-  }
-  await browser.close();
-
-  const failures = [];
-
-  /* The regression itself: a command answering with an object must no longer
-     cost the window, whatever else it costs. */
-  if (objectReply.buttons === 0 || objectReply.headings === 0) {
-    failures.push(
-      'A command that answers with an object empties the dashboard. call() must ignore a non-string result.',
-    );
-  }
-  if (objectReply.errors.length) {
-    failures.push(`An object result raised: ${objectReply.errors[0].split('\n')[0]}`);
-  }
-
-  /* The path the helper actually takes, which must simply work. */
-  if (emptyReply.buttons !== 5 || emptyReply.headings !== 1) {
-    failures.push(
-      `Enabling the traffic log left ${emptyReply.buttons} button(s) and ${emptyReply.headings} heading(s); expected 5 and 1.`,
-    );
-  }
-  if (emptyReply.pressed !== 1) {
-    failures.push('The traffic button did not report itself pressed, so its state is colour only.');
-  }
-  if (!/^Recording /.test(emptyReply.trafficLine ?? '')) {
-    failures.push(`The traffic log line read "${emptyReply.trafficLine}"; expected it to report recording.`);
-  }
-  if (emptyReply.errors.length) {
-    failures.push(`Enabling the traffic log raised: ${emptyReply.errors[0].split('\n')[0]}`);
-  }
-
-  if (failures.length) {
-    console.error('The dashboard flow failed:');
-    for (const failure of failures) console.error(`  ${failure}`);
-    process.exitCode = 1;
-    return;
-  }
-
-  console.log('Accepting the traffic warning keeps the dashboard: 5 buttons, the heading, and');
-  console.log(`a pressed toggle reading "${emptyReply.trafficLine}".`);
-  console.log('A command answering with an object no longer empties the window either.');
-}
-
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exitCode = 1;
-});
+  page.on('pageerror', (error) => errors.push(error.message));
+  // Serve the release dashboard through the one local origin; no second server.
+  await page.route(`${origin}/helper-check/**`, async (route) => {
+    const path = new URL(route.request().url()).pathname.replace('/helper-check/', '');
+    const file = resolve(root, 'helper/dist', path || 'index.html');
+    assert.ok(file.startsWith(resolve(root, 'helper/dist')));
+    let body = await readFile(file);
+    if (!path) body = Buffer.from(body.toString().replaceAll('/assets/', '/helper-check/assets/'));
+    await route.fulfill({ body, contentType: !path ? 'text/html' : path.endsWith('.js') ? 'text/javascript' : 'text/css' });
+  });
+  await page.addInitScript((initial) => {
+    window.dashboard = initial;
+    window.commands = [];
+    window.__TAURI_INTERNALS__ = {
+      invoke: async (command, args) => {
+        window.commands.push(command);
+        if (command === 'helper_status') {
+          if (window.statusFailure) throw 'Backend status failed';
+          return structuredClone(window.dashboard);
+        }
+        if (command === 'set_traffic_logging') {
+          window.dashboard.traffic.enabled = args.enabled;
+          return { deliberately: 'not a text result' };
+        }
+        if (command === 'save_error_report') return 'Saved a private error report. Send it to the developer.';
+        return null;
+      },
+    };
+  }, initial);
+  await page.goto(`${origin}/helper-check/`);
+  await page.getByText('Waiting for Summoners War', { exact: true }).waitFor();
+  const boxes = () => page.locator('.actions button').evaluateAll((buttons) => buttons.map((button) => {
+    const { x, y, width, height } = button.getBoundingClientRect(); return { x, y, width, height };
+  }));
+  const before = await boxes();
+  await page.screenshot({ path: resolve(output, 'helper-empty.png'), fullPage: true });
+  assert.equal(await page.getByRole('button', { name: 'Download JSON' }).isDisabled(), true);
+  page.once('dialog', (dialog) => dialog.dismiss());
+  await page.getByRole('button', { name: 'Save error report' }).click();
+  assert.equal(await page.evaluate(() => window.commands.includes('save_error_report')), false);
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: 'Save error report' }).click();
+  await page.getByRole('status').filter({ hasText: 'Saved a private error report' }).waitFor();
+  assert.deepEqual(await boxes(), before);
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: 'Log all traffic' }).click();
+  await page.getByRole('button', { name: 'Stop traffic log', pressed: true }).waitFor();
+  assert.deepEqual(await boxes(), before);
+  await page.screenshot({ path: resolve(output, 'helper-recording.png'), fullPage: true });
+  await page.evaluate(() => {
+    window.dashboard.status = { hasProfile: true, profileReady: false, restartRequired: false, lastError: 'Capture failed. '.repeat(60), source: 'live', updatedAt: '2026-09-06T12:00:00Z' };
+    window.dashboard.traffic = { enabled: true, entries: 999999999, recorded: true, full: false, lastError: 'Disk write failed. '.repeat(60) };
+  });
+  await page.getByText('Connection needs attention', { exact: true }).waitFor();
+  assert.deepEqual(await boxes(), before);
+  await page.screenshot({ path: resolve(output, 'helper-full-errors.png'), fullPage: true });
+  await page.evaluate(() => { window.statusFailure = true; });
+  await page.getByRole('status').filter({ hasText: 'Backend status failed' }).waitFor();
+  assert.deepEqual(await boxes(), before);
+  await page.screenshot({ path: resolve(output, 'helper-status-failure.png'), fullPage: true });
+  assert.deepEqual(errors, []);
+  console.log('Helper release dashboard: empty/full states, report consent, traffic toggle, long errors and rejected IPC passed. Six controls keep identical bounds. Screenshots: outputs/helper-hardening.');
+} finally { await browser.close(); }

@@ -8,12 +8,13 @@
 
 use std::{ffi::c_void, io, ptr};
 use windows_sys::Win32::{
+    Foundation::{CloseHandle, ERROR_ALREADY_EXISTS, GetLastError, HANDLE},
     Security::Cryptography::{
         CERT_FIND_SUBJECT_STR_W, CERT_STORE_ADD_REPLACE_EXISTING, CERT_SYSTEM_STORE_CURRENT_USER,
-        CERT_SYSTEM_STORE_LOCAL_MACHINE, CertAddEncodedCertificateToStore, CertCloseStore,
-        CertDeleteCertificateFromStore, CertFindCertificateInStore, CertOpenStore,
-        PKCS_7_ASN_ENCODING, X509_ASN_ENCODING,
+        CertAddEncodedCertificateToStore, CertCloseStore, CertDeleteCertificateFromStore,
+        CertFindCertificateInStore, CertOpenStore, PKCS_7_ASN_ENCODING, X509_ASN_ENCODING,
     },
+    System::Threading::CreateMutexW,
     UI::{
         Shell::{IsUserAnAdmin, ShellExecuteW},
         WindowsAndMessaging::{
@@ -24,6 +25,30 @@ use windows_sys::Win32::{
 
 const ROOT_STORE: &[u16] = &[b'R' as u16, b'O' as u16, b'O' as u16, b'T' as u16, 0];
 const SYSTEM_STORE_PROVIDER: &[u8] = b"System\0";
+
+pub struct InstanceGuard(HANDLE);
+impl Drop for InstanceGuard {
+    fn drop(&mut self) {
+        unsafe {
+            CloseHandle(self.0);
+        }
+    }
+}
+
+/// A second launch must not truncate the active log or undo its redirect.
+pub fn claim_instance() -> Result<InstanceGuard, String> {
+    let name = wide("Local\\JASWAHelper");
+    let handle = unsafe { CreateMutexW(ptr::null(), 0, name.as_ptr()) };
+    if handle.is_null() {
+        return Err(io::Error::last_os_error().to_string());
+    }
+    let existing = unsafe { GetLastError() } == ERROR_ALREADY_EXISTS;
+    let guard = InstanceGuard(handle);
+    if existing {
+        return Err("JASWA Helper is already running. Open it from the system tray.".into());
+    }
+    Ok(guard)
+}
 
 pub fn is_administrator() -> bool {
     unsafe { IsUserAnAdmin() != 0 }
@@ -50,10 +75,10 @@ pub fn restart_elevated(executable: &str) -> Result<(), String> {
     }
 }
 
-pub fn open(path: &str) {
+pub fn open(path: &str) -> Result<(), String> {
     let verb = wide("open");
     let file = wide(path);
-    unsafe {
+    let result = unsafe {
         ShellExecuteW(
             ptr::null_mut(),
             verb.as_ptr(),
@@ -61,7 +86,15 @@ pub fn open(path: &str) {
             ptr::null(),
             ptr::null(),
             SW_SHOWNORMAL,
-        );
+        )
+    };
+    if result as isize > 32 {
+        Ok(())
+    } else {
+        Err(format!(
+            "Windows could not open {path} (shell error {}).",
+            result as isize
+        ))
     }
 }
 
@@ -110,14 +143,9 @@ pub fn install_root_certificate(encoded: &[u8]) -> Result<(), String> {
     }
 }
 
-/// Removes the local root from the current-user store, and best-effort from the
-/// machine store so a machine root left by an earlier build is cleaned up too.
+/// Remove only the current user's helper root.
 pub fn remove_root_certificate(subject: &str) -> Result<(), String> {
-    remove_from_store(subject, CERT_SYSTEM_STORE_CURRENT_USER)?;
-    // The machine store only holds a root from an older build and its removal
-    // needs elevation, so a failure here is not the caller's concern.
-    let _ = remove_from_store(subject, CERT_SYSTEM_STORE_LOCAL_MACHINE);
-    Ok(())
+    remove_from_store(subject, CERT_SYSTEM_STORE_CURRENT_USER)
 }
 
 fn remove_from_store(subject: &str, store_id: u32) -> Result<(), String> {

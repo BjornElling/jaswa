@@ -44,7 +44,7 @@ function WindowsMark() {
   </svg>;
 }
 
-export function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLeave, onDrop, onRemove, onReport, hardwareAcceleration, onHardwareAcceleration, directImportMode, onDirectImportMode, importRoute, onImportRoute, helperConnection, general }: {
+export function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLeave, onDrop, onRemove, onReport, hardwareAcceleration, onHardwareAcceleration, directImportMode, onDirectImportMode, importRoute, onImportRoute, helperConnection, onSaveHelperReport, general }: {
   game: ImportedGame | null;
   general: GeneralSettings;
   message: string;
@@ -62,6 +62,7 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
   importRoute: ImportRoute;
   onImportRoute: (route: ImportRoute) => void;
   helperConnection: HelperConnection;
+  onSaveHelperReport: () => void;
 }) {
   const unknownMonsterIds = game?.report.unknownMonsterIds ?? [];
   /* What the card answered, kept apart from the setting: switching the setting
@@ -139,7 +140,7 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
           <button className="notice-link" onClick={() => onReport('Monster', `JASWA could not find name information for monster type(s): ${unknownMonsterIds.join(', ')}.`)}>Report this</button>
         </p>}
 
-        {message && <p className="notice" role="status">{message}</p>}
+        <p className="notice import-message" role="status">{message}</p>
 
         <p className="lead">
           Two ways to get your game data in here: Either let a small helper
@@ -164,6 +165,7 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
 
             <div className="route-download">
               <a className="button important-action" href="/JASWA-Helper-Setup.exe" download><WindowsMark />Download helper</a>
+              <button className="button" onClick={onSaveHelperReport}>Save import report</button>
             </div>
 
             <section className={`statistics acceleration ${helperState} route-link`} role="status" aria-label="Helper program connection">

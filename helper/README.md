@@ -64,7 +64,7 @@ gateway exchange produced), `jaswa` (what the browser asked for) and `hosts`
 `jaswa`: a capture with no matching `jaswa` line means the browser never
 collected the snapshot.
 
-This is not the traffic log. That one is opt-in, unbounded and full of decoded
+This is not the traffic log. That one is opt-in, bounded to 64 MiB and full of decoded
 account data, and it exists to inspect the protocol rather than the helper.
 
 A snapshot JASWA cannot read is reported in JASWA itself, not only here: the
@@ -85,9 +85,11 @@ command returns as text, so a command answering with an object unmounts the
 dashboard and empties the window.
 
 `npm run verify:dashboard-flow` drives that flow in a real browser — it accepts
-the traffic warning and checks the window still holds its controls. It needs
-`npm run frontend:dev` running and Playwright from the repository root, so it
-stays out of `npm test` and is run when the dashboard changes.
+the traffic warning and checks the window still holds its controls. Run `npm run build:frontend` first and start the root project server on
+`http://localhost:3000/`. The check serves the built dashboard through that
+origin using Playwright routing and stubs Tauri IPC; it starts no second server.
+It exercises empty and full states, report consent, long errors and failed IPC,
+and compares control bounds and saves screenshots in `outputs/helper-hardening`.
 
 Its installer is deliberately not produced unless both the helper executable
 and installer receive a valid, timestamped Authenticode signature from a
@@ -108,3 +110,77 @@ installer, verifies the installer, then writes it to
 `public/JASWA-Helper-Setup.exe`. Never distribute a manually built, unsigned
 installer. A new signed release must also be scanned by Microsoft Defender and
 submitted to Microsoft as a false positive if Defender blocks it.
+
+The root command `node scripts/verify-helper-browser.mjs` drives the real JASWA
+page at localhost:3000, using the most recent local traffic-log account as its
+full fixture and intercepted helper HTTP responses. It checks malformed replies,
+rejected snapshots and their downloaded reports, preserved imports, and a helper
+restart at the same revision in live mode. The fixture is never uploaded.
+
+## Failure handling and private reports
+
+A decode failure pauses live import. An unrelated successful command cannot
+repair a missing update: only a complete new login releases that capture gap.
+An invalid login discards the previous account. Infrastructure failures remain
+visible until the helper restarts. `/health` exposes the reason and `/profile`
+refuses a snapshot that is not ready. JASWA keeps its last good saved import.
+
+**Save error report** in the helper writes a uniquely named local JSON file.
+The report contains status, diagnostic entries, the current profile, and the
+first failed exchange plus its preceding profile when available. Exact wire
+messages are base64 encoded, not anonymized. Evidence is held in memory until
+saving; quitting loses unsaved evidence. Later failures in the same gap are
+counted without retaining an unbounded traffic history. A new gap after a
+successful login gets new evidence.
+
+**Save import report** in JASWA preserves the exact rejected snapshot, reason,
+helper identity and browser information. This matters when the helper keeps
+capturing after JASWA rejects a particular snapshot. Both save actions explain
+that reports may contain private account/session data. Nothing is uploaded.
+Send the report privately to the developer with the action, expected result,
+and failure time. Do not post these reports in a public issue.
+
+Startup acquires a Windows instance guard, opens listeners before installing
+the hosts redirect, and stops already opened listeners if startup fails. The
+watchdog checks every expected hosts entry but never restores entries removed
+by another program. It reports the change and pauses import instead of repeatedly
+writing against security software. Cleanup failures are visible; installer
+hooks abort rather than reporting success after failed cleanup.
+
+API connections have read/write deadlines and a concurrency limit. Gateway
+connections have separate limits and upstream connect/read/write deadlines.
+HTTP framing rejects malformed/repeated lengths and unsupported transfer
+encodings explicitly. No ambiguous game POST is retried. Diagnostic disk
+failures reach status; traffic logging stops on disk failure or before an entry
+would exceed its size limit. Windows file-opening failures return to the UI.
+
+## Architecture boundaries and remaining validation
+
+The Rust protocol/profile core, Windows API boundary and React dashboard remain
+separate. `incidents.rs` owns capture-gap evidence and recovery; it does not
+write private payloads to the always-on diagnostic log. A rewrite would not
+remove the underlying TLS/hosts interception requirement, and would discard
+useful tested account-mutation rules.
+
+This still uses an elevated process for hosts changes and a per-user gateway
+certificate. A future privilege split should isolate hosts management in a
+small broker while keeping capture and WebView2 unelevated. Credential-based
+UAC under a different Windows account needs separate integration testing:
+per-user certificate and data directories follow that account. The elevated
+process now only loads the provisioned identity and reports missing files; it
+does not silently generate and trust a replacement identity. Same-user UAC,
+certificate trust, hosts restoration after forced termination, the actual
+Steam TLS connection, and installer/uninstaller behaviour must be tested on a
+Windows game session before distribution. Browser IPC tests are not those tests.
+
+The HTTP reader currently requires an explicit response length and does not
+implement chunked transfer encoding. Those unsupported responses fail visibly;
+they are not accepted as empty captures. Reports on framing failures can carry
+the last complete request/response, but cannot promise bytes that never arrived.
+
+Authenticode signing remains mandatory for distributable packages. No antivirus
+exclusion, security-setting change or obfuscation is introduced. Signatures do
+not guarantee that a security product will accept a build. See Microsoft's
+[developer guidance](https://learn.microsoft.com/en-us/defender-xdr/developer-faq)
+and [false-positive submission service](https://www.microsoft.com/en-us/wdsi/filesubmission).
+No game data should be submitted with a binary malware-analysis sample.

@@ -36,3 +36,11 @@ button[aria-pressed='true'] { background: #b17a18; border-color: #b17a18; color:
 button:disabled { color: #9b9386; cursor: not-allowed; }
 
 .message { min-height: 20px; }
+
+/* Reserve every changing text area so toggles and long errors keep controls still. */
+.status { height: 156px; grid-template-rows: 16px 24px 1fr; }
+.status .detail { overflow: auto; overflow-wrap: anywhere; }
+.log-status { height: 112px; grid-template-rows: 16px 20px 1fr; }
+.log-status .detail { overflow: auto; overflow-wrap: anywhere; }
+.message { height: 64px; overflow: auto; overflow-wrap: anywhere; }
+button { height: 44px; min-width: 0; }

@@ -3486,3 +3486,7 @@ button { cursor: pointer; }
 }
 .artifact-conversion-more:hover { text-decoration: underline; }
 .artifact-conversion-more:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* An import failure must not move the controls used to diagnose it. */
+.import-message { height: 96px; overflow: auto; overflow-wrap: anywhere; }
+.import-message:empty { opacity: 0; }

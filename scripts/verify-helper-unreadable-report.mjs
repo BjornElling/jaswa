@@ -20,7 +20,7 @@ import { createServer } from 'vite';
 const server = await createServer({ configFile: false, appType: 'custom', server: { middlewareMode: true } });
 
 try {
-  const { classifyHelperProfile } = await server.ssrLoadModule('/app/lib/helper-client.ts');
+  const { classifyHelperProfile, checkHelperConnection, readHelperProfile } = await server.ssrLoadModule('/app/lib/helper-client.ts');
 
   /** A minimal account the reader accepts, so a test can spoil one field at a time. */
   const account = (artifacts) => ({
@@ -38,12 +38,8 @@ try {
     sec_effects: [[215, 7, 0, 0, 0], [222, 13, 2, 0, 0], [221, 37, 0, 0, 5], [218, 0.9, 2, 0, 0]],
     occupied_id: 10, locked: 0, source: 50001, extra: [], date_add: '2026-08-28 17:22:22',
   };
-  /* Effect 221 rolls 25-40 and this line claims 400 with no power-ups: past any
-     reachable ceiling, so the reader refuses it as it refuses real corruption. */
-  const unreadable = {
-    ...readable,
-    sec_effects: [[215, 7, 0, 0, 0], [222, 13, 2, 0, 0], [221, 400, 0, 0, 5], [218, 0.9, 2, 0, 0]],
-  };
+  /* An unknown equip attribute cannot match any monster, so it must be rejected. */
+  const unreadable = { ...readable, attribute: 999 };
 
   const envelope = (data) => ({
     updatedAt: '2026-09-05T09:00:08Z', instanceId: 'helper-1', revision: 4, sessionId: 1,
@@ -65,9 +61,27 @@ try {
   /* A malformed envelope is the helper misbehaving rather than the account being
      unreadable, and there is nothing the user can act on — it stays silent. */
   assert.equal(classifyHelperProfile({ instanceId: '', revision: -1 }).state, 'unavailable',
-    'an envelope that is not a snapshot stays silent');
+    'an invalid envelope is unavailable');
   assert.equal(classifyHelperProfile(null).state, 'unavailable',
-    'an absent snapshot stays silent');
+    'an absent snapshot is unavailable');
+
+  assert.match(classifyHelperProfile(null).reason, /error report/);
+  assert.match(classifyHelperProfile({ ...envelope(account([readable])), updatedAt: 'invalid' }).reason, /invalid snapshot/);
+
+  assert.equal(bad.data.unit_list[0].artifacts[0].attribute, 999, 'a report retains the exact rejected record');
+  const oldWindow = globalThis.window;
+  const oldFetch = globalThis.fetch;
+  globalThis.window = { setTimeout, clearTimeout };
+  try {
+    const health = { running: true, profileReady: false, restartRequired: false, instanceId: 'one', sessionId: 1, revision: 1, lastError: 'Capture failed. Save an error report.' };
+    globalThis.fetch = async () => new Response(JSON.stringify(health));
+    assert.match((await checkHelperConnection()).detail, /Capture failed/);
+    globalThis.fetch = async () => new Response('{invalid');
+    assert.match((await checkHelperConnection()).detail, /could not read helper status/);
+    assert.match((await readHelperProfile()).reason, /could not read the helper snapshot/);
+    globalThis.fetch = async () => new Response('{}', { status: 503 });
+    assert.match((await readHelperProfile()).reason, /HTTP 503/);
+  } finally { globalThis.window = oldWindow; globalThis.fetch = oldFetch; }
 
   console.log('Direct import reports an unreadable account with the reason the file route gives.');
 } finally {

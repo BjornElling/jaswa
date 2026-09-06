@@ -30,8 +30,8 @@ fn set_traffic_logging(enabled: bool, state: State<'_, HelperState>) {
 }
 
 #[tauri::command]
-fn open_jaswa() {
-    windows::open("http://localhost:3000");
+fn open_jaswa() -> Result<(), String> {
+    windows::open("http://localhost:3000")
 }
 
 #[tauri::command]
@@ -51,8 +51,34 @@ fn download_json(state: State<'_, HelperState>) -> Result<String, String> {
     // Opening the payload itself sends a multi-megabyte JSON document to the
     // user's editor and triggers its large-file safeguards. The containing
     // folder still makes the generated file immediately easy to find.
-    windows::open(&config::data_directory().display().to_string());
+    windows::open(&config::data_directory().display().to_string())?;
     Ok(format!("Saved JSON to {}", path.display()))
+}
+
+#[tauri::command]
+fn save_error_report(state: State<'_, HelperState>) -> Result<String, String> {
+    let mut report = state.service.report();
+    report["diagnostics"] = match fs::read_to_string(diagnostics::path()) {
+        Ok(log) => Value::String(log),
+        Err(error) => json!({"readError": error.to_string()}),
+    };
+    report["instructions"] = json!(
+        "Private report: may contain account and session data. Send only to your developer through a private channel. Include what you clicked, expected behaviour, and the time of the failure. Nothing was uploaded automatically."
+    );
+    let path =
+        config::data_directory().join(format!("JASWA-error-report-{}.json", uuid::Uuid::new_v4()));
+    fs::write(
+        &path,
+        serde_json::to_vec_pretty(&report).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| format!("Could not save the error report: {error}"))?;
+    match windows::open(&config::data_directory().display().to_string()) {
+        Ok(()) => Ok(format!(
+            "Saved {}. Send it privately to the developer with the steps that caused the error.",
+            path.display()
+        )),
+        Err(error) => Ok(format!("Saved {}. {error}", path.display())),
+    }
 }
 
 #[tauri::command]
@@ -60,9 +86,9 @@ fn open_diagnostics() -> Result<(), String> {
     let path = diagnostics::path();
     fs::create_dir_all(config::data_directory()).map_err(|error| error.to_string())?;
     if !path.exists() {
-        fs::write(&path, "").map_err(|error| error.to_string())?;
+        return Err("The diagnostic log is unavailable. Save an error report to preserve the in-memory evidence.".into());
     }
-    windows::open(&path.display().to_string());
+    windows::open(&path.display().to_string())?;
     Ok(())
 }
 
@@ -72,7 +98,7 @@ fn open_traffic_log(state: State<'_, HelperState>) -> Result<(), String> {
     if !path.exists() {
         return Err("There is no traffic log yet.".into());
     }
-    windows::open(&path.display().to_string());
+    windows::open(&path.display().to_string())?;
     Ok(())
 }
 
@@ -82,11 +108,23 @@ fn dashboard(service: &Service) -> Value {
 }
 
 fn main() {
+    std::panic::set_hook(Box::new(|information| {
+        windows::show_error(&format!(
+            "JASWA Helper stopped an operation unexpectedly: {information}. Quit and restart the helper before reopening Summoners War. Keep diagnostics.log for the developer."
+        ));
+    }));
     let arguments: Vec<String> = std::env::args().collect();
     if arguments
         .iter()
         .any(|argument| argument == "--jaswa-cleanup")
     {
+        let _instance = match windows::claim_instance() {
+            Ok(guard) => guard,
+            Err(error) => {
+                windows::show_error(&error);
+                std::process::exit(1);
+            }
+        };
         let remove_certificate = arguments
             .iter()
             .any(|argument| argument == "--jaswa-remove-certificate");
@@ -105,12 +143,6 @@ fn main() {
     let already_elevated = arguments
         .iter()
         .any(|argument| argument == "--jaswa-elevated");
-    // The elevated pass is the one that goes on to run the service, so it owns
-    // the log. Starting it in the first pass too would truncate the elevated
-    // run's file moments after it began.
-    if already_elevated {
-        diagnostics::start(env!("CARGO_PKG_VERSION"));
-    }
     if !already_elevated {
         if !certificate_installation_approved() {
             return;
@@ -136,6 +168,14 @@ fn main() {
         }
         return;
     }
+    let _instance = match windows::claim_instance() {
+        Ok(guard) => guard,
+        Err(error) => {
+            windows::show_error(&error);
+            return;
+        }
+    };
+    diagnostics::start(env!("CARGO_PKG_VERSION"));
     let service = match Service::start() {
         Ok(service) => service,
         Err(error) => {
@@ -157,6 +197,7 @@ fn main() {
             download_json,
             open_diagnostics,
             open_traffic_log,
+            save_error_report,
         ])
         .setup(|app| {
             let show = MenuItemBuilder::with_id(SHOW_WINDOW, "Show JASWA Helper").build(app)?;
@@ -231,8 +272,12 @@ fn certificate_installation_approved() -> bool {
     }
     let approved = windows::confirm_certificate_installation();
     if approved {
-        let _ = fs::create_dir_all(marker.parent().expect("certificate marker parent"));
-        let _ = fs::write(marker, "approved");
+        if let Err(error) = fs::create_dir_all(marker.parent().expect("certificate marker parent"))
+            .and_then(|_| fs::write(marker, "approved"))
+        {
+            windows::show_error(&format!("Could not save certificate consent: {error}"));
+            return false;
+        }
     }
     approved
 }

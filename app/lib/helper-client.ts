@@ -23,8 +23,12 @@ export type HelperProfile = {
 
 async function localFetch(path: string) {
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), 1500);
-  try { return await fetch(`${helperOrigin}${path}`, { cache: 'no-store', signal: controller.signal }); }
+  const timeout = window.setTimeout(() => controller.abort(), 10_000);
+  try {
+    const response = await fetch(`${helperOrigin}${path}`, { cache: 'no-store', signal: controller.signal });
+    const body = await response.text();
+    return { ok: response.ok, status: response.status, json: () => JSON.parse(body) as unknown };
+  }
   finally { window.clearTimeout(timeout); }
 }
 
@@ -35,16 +39,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export async function checkHelperConnection(): Promise<HelperConnection> {
   try {
     const response = await localFetch('/health');
-    if (!response.ok) return { state: 'unavailable', detail: 'The helper did not answer.', profileReady: false, restartRequired: false, instanceId: '', revision: 0, sessionId: 0 };
+    if (!response.ok) return { state: 'unavailable', detail: `The helper returned HTTP ${response.status}. Open the helper and save an error report.`, profileReady: false, restartRequired: false, instanceId: '', revision: 0, sessionId: 0 };
     const value = await response.json() as unknown;
-    if (!isRecord(value) || value.running !== true || typeof value.instanceId !== 'string' || value.instanceId.length === 0 || typeof value.revision !== 'number' || !Number.isSafeInteger(value.revision) || value.revision < 0 || typeof value.sessionId !== 'number' || !Number.isSafeInteger(value.sessionId) || value.sessionId < 0 || typeof value.restartRequired !== 'boolean') return { state: 'unavailable', detail: 'The helper is not ready.', profileReady: false, restartRequired: false, instanceId: '', revision: 0, sessionId: 0 };
+    if (!isRecord(value) || value.running !== true || typeof value.instanceId !== 'string' || value.instanceId.length === 0 || typeof value.revision !== 'number' || !Number.isSafeInteger(value.revision) || value.revision < 0 || typeof value.sessionId !== 'number' || !Number.isSafeInteger(value.sessionId) || value.sessionId < 0 || typeof value.restartRequired !== 'boolean') return { state: 'unavailable', detail: 'The helper returned an invalid status. Open the helper and save an error report.', profileReady: false, restartRequired: false, instanceId: '', revision: 0, sessionId: 0 };
+    if (typeof value.profileReady !== 'boolean' || (value.lastError !== null && typeof value.lastError !== 'string')) throw new Error('The helper returned an invalid status. Open the helper and save an error report.');
+    if (typeof value.lastError === 'string' && value.lastError) return { state: 'unavailable', detail: value.lastError, profileReady: false, restartRequired: false, instanceId: value.instanceId, revision: value.revision, sessionId: value.sessionId };
     return value.profileReady === true
       ? { state: 'ready', detail: 'Mindflayer is active and successfully sucking your brain.', profileReady: true, restartRequired: false, instanceId: value.instanceId, revision: value.revision, sessionId: value.sessionId }
       : value.restartRequired
         ? { state: 'checking', detail: 'Helper was late to the party. Restart Summoners War and then all will be fine.', profileReady: false, restartRequired: true, instanceId: value.instanceId, revision: value.revision, sessionId: value.sessionId }
         : { state: 'checking', detail: 'Helper goblin is awake and waiting in ambush for you to run Summoners War.', profileReady: false, restartRequired: false, instanceId: value.instanceId, revision: value.revision, sessionId: value.sessionId };
-  } catch {
-    return { state: 'unavailable', detail: 'Run the helper. Then roll for initiative.', profileReady: false, restartRequired: false, instanceId: '', revision: 0, sessionId: 0 };
+  } catch (error) {
+    return { state: 'unavailable', detail: `JASWA could not read helper status: ${error instanceof Error ? error.message : String(error)}. Start the helper, or save an error report if it is already running.`, profileReady: false, restartRequired: false, instanceId: '', revision: 0, sessionId: 0 };
   }
 }
 
@@ -53,15 +59,15 @@ export async function checkHelperConnection(): Promise<HelperConnection> {
  *
  * The rejection carries its reason rather than collapsing to `null`, because
  * the two failures need opposite treatment: an envelope JASWA cannot parse is a
- * transient nothing to wait out, while an account JASWA cannot read is the one
+ * helper contract failure to report, while an account JASWA cannot read is the one
  * the user must be told about — the same sentence the file route shows. Silently
  * returning `null` for both is what let a single unreadable artifact stop direct
  * import with the dashboard still reading "Connected".
  */
 export type HelperProfileResult =
   | { state: 'ready'; profile: HelperProfile }
-  | { state: 'unreadable'; reason: string; identity: HelperSessionIdentity }
-  | { state: 'unavailable' };
+  | { state: 'unreadable'; reason: string; identity: HelperSessionIdentity; data: Record<string, unknown> }
+  | { state: 'unavailable'; reason: string; evidence?: unknown };
 
 /** Which snapshot a rejection belongs to, so it is reported once and not every poll. */
 export type HelperSessionIdentity = { instanceId: string; sessionId: number; revision: number };
@@ -72,17 +78,17 @@ export type HelperSessionIdentity = { instanceId: string; sessionId: number; rev
  * nothing to serve — is testable without a socket on the helper's fixed port.
  */
 export function classifyHelperProfile(value: unknown): HelperProfileResult {
-  if (!isRecord(value) || typeof value.updatedAt !== 'string' || typeof value.instanceId !== 'string' || value.instanceId.length === 0 || typeof value.revision !== 'number' || !Number.isSafeInteger(value.revision) || value.revision < 0 || typeof value.sessionId !== 'number' || !Number.isSafeInteger(value.sessionId) || value.sessionId < 1 || (value.source !== 'game-start' && value.source !== 'live') || !isRecord(value.data)) return { state: 'unavailable' };
+  if (!isRecord(value) || typeof value.updatedAt !== 'string' || !Number.isFinite(Date.parse(value.updatedAt)) || typeof value.instanceId !== 'string' || value.instanceId.length === 0 || typeof value.revision !== 'number' || !Number.isSafeInteger(value.revision) || value.revision < 0 || typeof value.sessionId !== 'number' || !Number.isSafeInteger(value.sessionId) || value.sessionId < 1 || (value.source !== 'game-start' && value.source !== 'live') || !isRecord(value.data)) return { state: 'unavailable', reason: 'The helper returned an invalid snapshot envelope. Save an import report below and an error report in the helper.', evidence: value };
   const report = validateGameFile(value.data);
   return report.valid
     ? { state: 'ready', profile: { updatedAt: value.updatedAt, instanceId: value.instanceId, revision: value.revision, sessionId: value.sessionId, source: value.source, data: value.data } }
-    : { state: 'unreadable', reason: report.message, identity: { instanceId: value.instanceId, sessionId: value.sessionId, revision: value.revision } };
+    : { state: 'unreadable', reason: report.message, data: value.data, identity: { instanceId: value.instanceId, sessionId: value.sessionId, revision: value.revision } };
 }
 
 export async function readHelperProfile(): Promise<HelperProfileResult> {
   try {
     const response = await localFetch('/profile');
-    if (!response.ok) return { state: 'unavailable' };
+    if (!response.ok) return { state: 'unavailable', reason: `The helper could not serve its snapshot (HTTP ${response.status}). Open the helper and save an error report.` };
     return classifyHelperProfile(await response.json() as unknown);
-  } catch { return { state: 'unavailable' }; }
+  } catch (error) { return { state: 'unavailable', reason: `JASWA could not read the helper snapshot: ${error instanceof Error ? error.message : String(error)}. Open the helper and save an error report.` }; }
 }
