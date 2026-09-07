@@ -4,7 +4,7 @@ import { type ReactNode, useMemo, useState } from 'react';
 import { Dropdown } from './dropdown';
 import { ConvertedArtifactMark } from './converted-artifact-mark';
 import { UnrefinedArtifactMark } from './unrefined-artifact-mark';
-import { SortableHeader, useSortedRows } from './sortable-table';
+import { SortableHeader, columnClasses, useSortedRows } from './sortable-table';
 import { calculateArtifactScores } from '../lib/compute/artifact-score-client';
 import { buildArtifactScoreRequests, buildArtifactScoreRequestsForMonsterIds } from '../lib/compute/artifact-score-input';
 import { ConversionList } from './conversion-list';
@@ -196,23 +196,31 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
     .slice(0, 10) ?? [];
 
   type MonsterRow = { monster: MonsterOption; score: ArtifactMaximumScore | undefined };
+  /* A score, a percentage and a point gain are quantities, so they take the
+     right edge and their digits line up down the column; a name reads left. */
   const monsterColumns = useMemo<SortableColumn<MonsterRow>[]>(() => [
-    { key: 'monster', label: 'Monster', compare: (left, right) => monsterNameCollator.compare(left.monster.name, right.monster.name) },
-    { key: 'score', label: 'Score', compare: (left, right) => (left.score?.value ?? -1) - (right.score?.value ?? -1), initialDirection: 'descending' },
-    { key: 'conversion', label: 'Conversions', compare: (left, right) => (left.score?.conversions[0]?.gain ?? -1) - (right.score?.conversions[0]?.gain ?? -1), initialDirection: 'descending' },
+    { key: 'monster', label: 'Monster', align: 'left', compare: (left, right) => monsterNameCollator.compare(left.monster.name, right.monster.name) },
+    { key: 'score', label: 'Score', align: 'right', compare: (left, right) => (left.score?.value ?? -1) - (right.score?.value ?? -1), initialDirection: 'descending' },
+    { key: 'conversion', label: 'Conversions', align: 'left', compare: (left, right) => (left.score?.conversions[0]?.gain ?? -1) - (right.score?.conversions[0]?.gain ?? -1), initialDirection: 'descending' },
   ], []);
   const improvementColumns = useMemo<SortableColumn<MonsterRow>[]>(() => [
-    { key: 'monster', label: 'Monster', compare: (left, right) => monsterNameCollator.compare(left.monster.name, right.monster.name) },
-    { key: 'here', label: 'Here', compare: (left, right) => (left.score?.value ?? -1) - (right.score?.value ?? -1), initialDirection: 'descending' },
-    { key: 'current', label: 'Current' },
-    { key: 'gain', label: 'Gain', compare: (left, right) => (left.score?.value ?? 0) - (right.score?.value ?? 0), initialDirection: 'descending' },
+    { key: 'monster', label: 'Monster', align: 'left', compare: (left, right) => monsterNameCollator.compare(left.monster.name, right.monster.name) },
+    { key: 'here', label: 'Here', align: 'right', compare: (left, right) => (left.score?.value ?? -1) - (right.score?.value ?? -1), initialDirection: 'descending' },
+    { key: 'current', label: 'Current', align: 'right' },
+    { key: 'gain', label: 'Gain', align: 'right', compare: (left, right) => (left.score?.value ?? 0) - (right.score?.value ?? 0), initialDirection: 'descending' },
   ], []);
   type ScopeRow = { score: ArtifactMaximumScore };
   const scopeColumns = useMemo<SortableColumn<ScopeRow>[]>(() => [
-    { key: 'monster', label: 'Monster', compare: (left, right) => monsterNameCollator.compare(left.score.monsterName, right.score.monsterName) },
-    { key: 'score', label: 'Score', compare: (left, right) => left.score.value - right.score.value, initialDirection: 'descending' },
-    { key: 'conversion', label: 'Conversions', compare: (left, right) => (left.score.conversions[0]?.gain ?? -1) - (right.score.conversions[0]?.gain ?? -1), initialDirection: 'descending' },
+    { key: 'monster', label: 'Monster', align: 'left', compare: (left, right) => monsterNameCollator.compare(left.score.monsterName, right.score.monsterName) },
+    { key: 'score', label: 'Score', align: 'right', compare: (left, right) => left.score.value - right.score.value, initialDirection: 'descending' },
+    { key: 'conversion', label: 'Conversions', align: 'left', compare: (left, right) => (left.score.conversions[0]?.gain ?? -1) - (right.score.conversions[0]?.gain ?? -1), initialDirection: 'descending' },
   ], []);
+
+  /* Each table's cells take their alignment from that table's own column list,
+     so a heading and the figures under it cannot disagree. */
+  const monsterCell = columnClasses(monsterColumns);
+  const improvementCell = columnClasses(improvementColumns);
+  const scopeCell = columnClasses(scopeColumns);
 
   const byName = (left: MonsterRow, right: MonsterRow) => monsterNameCollator.compare(left.monster.name, right.monster.name);
   const slotless = useSortedRows(slotlessRows, monsterColumns, { key: 'score', direction: 'descending' }, byName);
@@ -357,9 +365,9 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
           <table className="best-monster-table">
             <SortableHeader columns={monsterColumns} sort={slotless.sort} onToggle={slotless.toggle} />
             <tbody>{slotless.sorted.map(({ monster, score }) => <tr key={monster.unitId}>
-              <td>{monster.name}</td>
-              <td><b><Score score={score} general={general} /></b></td>
-              <td>{score ? <ConversionList conversions={score.conversions} artifact={selectedArtifact} stones={stones} mode={settings.conversionStoneMode} /> : <span className="muted">Not judged</span>}</td>
+              <td className={monsterCell('monster')}>{monster.name}</td>
+              <td className={monsterCell('score')}><b><Score score={score} general={general} /></b></td>
+              <td className={monsterCell('conversion')}>{score ? <ConversionList conversions={score.conversions} artifact={selectedArtifact} stones={stones} mode={settings.conversionStoneMode} /> : <span className="muted">Not judged</span>}</td>
             </tr>)}</tbody>
           </table>
         </ResultCard>
@@ -368,10 +376,10 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
           <table className="best-monster-table">
             <SortableHeader columns={improvementColumns} sort={improvements.sort} onToggle={improvements.toggle} />
             <tbody>{improvements.sorted.map(({ monster, score }) => <tr key={monster.unitId}>
-              <td>{monster.name}</td>
-              <td><b><Score score={score} general={general} /></b></td>
-              <td><Score score={currentScore} general={general} /></td>
-              <td><b>{formatNumber((score?.value ?? 0) - (currentScore?.value ?? 0), general)} pp</b></td>
+              <td className={improvementCell('monster')}>{monster.name}</td>
+              <td className={improvementCell('here')}><b><Score score={score} general={general} /></b></td>
+              <td className={improvementCell('current')}><Score score={currentScore} general={general} /></td>
+              <td className={improvementCell('gain')}><b>{formatNumber((score?.value ?? 0) - (currentScore?.value ?? 0), general)} pp</b></td>
             </tr>)}</tbody>
           </table>
         </ResultCard>
@@ -380,9 +388,9 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
           <table className="best-monster-table">
             <SortableHeader columns={scopeColumns} sort={scope.sort} onToggle={scope.toggle} />
             <tbody>{scope.sorted.map(({ score }) => <tr key={score.monsterId}>
-              <td>{score.monsterName}</td>
-              <td><b><Score score={score} general={general} /></b></td>
-              <td>{score ? <ConversionList conversions={score.conversions} artifact={selectedArtifact} stones={stones} mode={settings.conversionStoneMode} /> : <span className="muted">Not judged</span>}</td>
+              <td className={scopeCell('monster')}>{score.monsterName}</td>
+              <td className={scopeCell('score')}><b><Score score={score} general={general} /></b></td>
+              <td className={scopeCell('conversion')}>{score ? <ConversionList conversions={score.conversions} artifact={selectedArtifact} stones={stones} mode={settings.conversionStoneMode} /> : <span className="muted">Not judged</span>}</td>
             </tr>)}</tbody>
           </table>
         </ResultCard>

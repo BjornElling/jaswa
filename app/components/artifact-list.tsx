@@ -6,7 +6,7 @@ import { DataTablePage, TableColumnGroup } from './data-table-page';
 import { Dropdown } from './dropdown';
 import { ConvertedArtifactMark } from './converted-artifact-mark';
 import { UnrefinedArtifactMark } from './unrefined-artifact-mark';
-import { artifactTableColumns } from '../lib/table-layouts';
+import { alignmentClass, artifactTableColumns } from '../lib/table-layouts';
 import type { GameRecord } from '../lib/game-data';
 import type { ImportedGame, Preferences } from '../lib/types';
 import { readArtifacts } from '../lib/artifacts';
@@ -104,21 +104,31 @@ function PowerUpMark() {
   </svg>;
 }
 
+/**
+ * One artifact-table cell's classes, header or body: the alignment declared for
+ * that column in `table-layouts.ts`, then whatever the row itself needs. The
+ * heading and the cells read the same declaration, so they cannot drift apart.
+ */
+function artifactCell(key: string, ...extra: Array<string | false | undefined>): string {
+  const align = artifactTableColumns.find((column) => column.key === key)?.align;
+  return [alignmentClass(align), ...extra].filter(Boolean).join(' ');
+}
+
 function ArtifactTableHeader({ sortHeader }: {
-  sortHeader: (key: ArtifactSortKey, label: ReactNode, alignLeft?: boolean) => ReactNode;
+  sortHeader: (key: ArtifactSortKey, label: ReactNode) => ReactNode;
 }) {
   return <thead>
     <tr>
-      {sortHeader('location', 'Location', true)}
-      {sortHeader('value', <span className="table-heading-two-line" aria-label="Value on mon">Value on<br />mon</span>, true)}
-      {sortHeader('category', 'Type', true)}
-      {sortHeader('equipClass', 'Fits', true)}
-      {sortHeader('grade', 'Quality', true)}
-      {sortHeader('mainProperty', 'Main stat', true)}
-      {sortHeader('subProperties', 'Substats', true)}
+      {sortHeader('location', 'Location')}
+      {sortHeader('value', <span className="table-heading-two-line" aria-label="Value on mon">Value on<br />mon</span>)}
+      {sortHeader('category', 'Type')}
+      {sortHeader('equipClass', 'Fits')}
+      {sortHeader('grade', 'Quality')}
+      {sortHeader('mainProperty', 'Main stat')}
+      {sortHeader('subProperties', 'Substats')}
       {/* Not sortable: the flag marks a handful of rows and reads as an
           annotation on the row rather than a column to order by. */}
-      <th scope="col"><span className="visually-hidden">Refinement</span></th>
+      <th scope="col" className={artifactCell('refinement')}><span className="visually-hidden">Refinement</span></th>
     </tr>
   </thead>;
 }
@@ -305,10 +315,9 @@ export function ArtifactList({ game, monsters, preferences }: {
     </section>
   </div>;
 
-  const sortHeader = (key: ArtifactSortKey, label: ReactNode, alignLeft = false) => {
+  const sortHeader = (key: ArtifactSortKey, label: ReactNode) => {
     const sorted = activeSortBySubProperty === null && sort.key === key;
-    const className = [alignLeft ? 'align-left' : '', 'sortable', sorted ? 'sorted' : '', sorted && sort.ascending ? 'ascending' : '']
-      .filter(Boolean).join(' ');
+    const className = artifactCell(key, 'sortable', sorted && 'sorted', sorted && sort.ascending && 'ascending');
     return <th key={key} scope="col" aria-sort={sorted ? (sort.ascending ? 'ascending' : 'descending') : 'none'} className={className}>
       <button type="button" className="table-sort-button" onClick={() => toggleSort(key)}>{label}</button>
     </th>;
@@ -409,7 +418,7 @@ export function ArtifactList({ game, monsters, preferences }: {
     >
       <tbody>
           {visible.length ? visible.map((row) => <tr key={row.artifact.id}>
-            <td className={row.location ? 'align-left' : 'align-left muted'}
+            <td className={artifactCell('location', !row.location && 'muted')}
               title={row.location === null ? 'Worn by a monster this import does not contain' : undefined}>
               {row.location ?? 'Unknown monster'}
             </td>
@@ -417,23 +426,23 @@ export function ArtifactList({ game, monsters, preferences }: {
                 on, full ink where it is respectable, dim where it argues
                 against the slot. An unjudged value is not a low score and
                 keeps its own muted reading. */}
-            <td className={row.valuePercent === undefined ? 'align-left muted' : 'align-left'}
+            <td className={artifactCell('value', row.valuePercent === undefined && 'muted')}
               {...(row.valuePercent === undefined ? {} : artifactValueTint(row.valuePercent))}
               title={row.valuePercent === undefined && row.artifact.occupiedId !== null
                 ? 'Not judged: nothing recorded for this monster type'
                 : undefined}>
               {row.valuePercent === undefined ? '—' : `${formatNumber(row.valuePercent, preferences.general)} %`}
             </td>
-            <td className="align-left dim">{artifactCategoryLabel(row.artifact.category)}</td>
+            <td className={artifactCell('category', 'dim')}>{artifactCategoryLabel(row.artifact.category)}</td>
             {/* Type and Fits are both plain description of the artifact, so
                 they read at one weight: full ink here made the equip class
                 look like the more important of the two. */}
-            <td className="align-left dim">{artifactEquipClassLabel(row.artifact)}</td>
-            <td className="align-left dim">{row.artifact.grade}</td>
-            <td className={`align-left artifact-main-${row.mainPropertyPreference}`}>
+            <td className={artifactCell('equipClass', 'dim')}>{artifactEquipClassLabel(row.artifact)}</td>
+            <td className={artifactCell('grade', 'dim')}>{row.artifact.grade}</td>
+            <td className={artifactCell('mainProperty', `artifact-main-${row.mainPropertyPreference}`)}>
               {row.artifact.mainProperty}
             </td>
-            <td className="align-left">
+            <td className={artifactCell('subProperties')}>
               <ul className="artifact-subs">
                 {row.subProperties.map((subProperty, index) => {
                   const preference = row.subPropertyPreferences?.get(subProperty.definition.id) ?? 'unwanted';
@@ -451,7 +460,7 @@ export function ArtifactList({ game, monsters, preferences }: {
                 })}
               </ul>
             </td>
-            <td className="artifact-refinement-flag"><UnrefinedArtifactMark unrefined={row.artifact.unrefined} /></td>
+            <td className={artifactCell('refinement', 'artifact-refinement-flag')}><UnrefinedArtifactMark unrefined={row.artifact.unrefined} /></td>
           </tr>) : <tr>
             <td className="table-empty-state" colSpan={9}>No artifacts match these filters. Clear a filter to see more.</td>
           </tr>}

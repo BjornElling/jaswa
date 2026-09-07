@@ -23,6 +23,7 @@ export type MonsterRow = {
   artifactTypes: EquipmentPrimaryTypeSlot[];
   relicTypes: EquipmentPrimaryTypeSlot[];
   index: number;
+  /** In Monster Storage; its complement is the roster the game calls Inventory. */
   inStorage: boolean;
   level: number | null;
   hp: number | null;
@@ -36,8 +37,6 @@ export type MonsterRow = {
   ehp: number | null;
   ehpD: number | null;
   dmg: number | null;
-  /** Rainbowmons and Devilmons: fed to other monsters rather than played. */
-  isFodderMonster: boolean;
 };
 
 export const monsterArchetypeLabels: Record<MonsterArchetype, string> = {

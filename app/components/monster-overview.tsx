@@ -20,14 +20,14 @@ import type { MonsterGridColumn, MonsterRow, SortKey } from '../lib/monster-grid
 import { numberedMonsterNames } from '../lib/monster-names';
 import { formatNumber } from '../lib/formatting';
 import { useLocalStorageState } from '../lib/local-storage-state';
-import { monsterTableColumns } from '../lib/table-layouts';
+import { alignmentClass, monsterTableColumns } from '../lib/table-layouts';
 
 type MonsterFilterState = {
   search: string;
   selectedElements: string[];
   selectedArchetypes: MonsterArchetype[];
   showStorage: boolean;
-  showFodderMonsters: boolean;
+  showInventory: boolean;
   showBelowMaxLevel: boolean;
 };
 
@@ -36,12 +36,29 @@ const defaultMonsterFilters: MonsterFilterState = {
   selectedElements: [],
   selectedArchetypes: [],
   showStorage: true,
-  showFodderMonsters: false,
+  showInventory: true,
   showBelowMaxLevel: false,
 };
 const monsterElementOptions = ['Water', 'Fire', 'Wind', 'Light', 'Dark'] as const;
-/* Feeding material rather than a roster monster, so one toggle covers both. */
-const fodderMonsterNames = ['Rainbowmon', 'Devilmon'];
+
+/* Two columns sort under a different name than they are laid out under, so the
+   sort key is mapped to the layout column before its alignment is read. */
+const monsterLayoutKeys: Partial<Record<SortKey, string>> = { artifactTypes: 'artifacts', relicTypes: 'relic' };
+
+/**
+ * The alignment class for one column of the monster table, header and cell
+ * alike, taken from the column plan in `table-layouts.ts` so the two agree by
+ * construction rather than by both call sites remembering the same answer.
+ */
+function monsterColumnAlignment(key: SortKey): string {
+  const layoutKey = monsterLayoutKeys[key] ?? key;
+  return alignmentClass(monsterTableColumns.find((column) => column.key === layoutKey)?.align);
+}
+
+/** One body cell's classes: the column's alignment, then the row's own state. */
+function cell(key: SortKey, ...extra: Array<string | false | undefined>): string {
+  return [monsterColumnAlignment(key), ...extra].filter(Boolean).join(' ');
+}
 /* The game caps monsters at 40 today, so a level below that is not maxed. Treating
    it as a floor rather than an exact match keeps the filter right if the cap rises. */
 const maxMonsterLevel = 40;
@@ -55,21 +72,24 @@ function isMonsterFilterState(value: unknown): value is MonsterFilterState {
     && Array.isArray(candidate.selectedArchetypes)
     && candidate.selectedArchetypes.every((entry) => monsterFilterArchetypes.includes(entry as MonsterArchetype))
     && typeof candidate.showStorage === 'boolean'
-    && typeof candidate.showFodderMonsters === 'boolean'
+    /* A stored filter set from before Inventory replaced the fodder toggle has
+       no `showInventory`, so it fails here and the defaults are used. Carrying
+       it over as `false` would open the page with the roster hidden. */
+    && typeof candidate.showInventory === 'boolean'
     && typeof candidate.showBelowMaxLevel === 'boolean';
 }
 
 function MonsterTableHeader({ columns, sortHeader }: {
   columns: MonsterGridColumn[];
-  sortHeader: (key: SortKey, label: string, alignLeft?: boolean, extraClassName?: string) => ReactNode;
+  sortHeader: (key: SortKey, label: string, extraClassName?: string) => ReactNode;
 }) {
   return <thead>
     <tr>
-      {sortHeader('index', '#', true)}
-      {sortHeader('name', 'Monster', true)}
-      {sortHeader('sets', 'Runes', true)}
+      {sortHeader('index', '#')}
+      {sortHeader('name', 'Monster')}
+      {sortHeader('sets', 'Runes')}
       {columns.map((column) => sortHeader(column.key, column.label))}
-      {sortHeader('artifactTypes', 'Artifacts', false, 'equipment-start')}
+      {sortHeader('artifactTypes', 'Artifacts', 'equipment-start')}
       {sortHeader('relicTypes', 'Relic')}
       {sortHeader('ehp', 'E.HP')}
       {sortHeader('ehpD', 'E.HP D')}
@@ -84,7 +104,7 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
     'jaswa.filters.monsters', defaultMonsterFilters, isMonsterFilterState,
   );
   const {
-    search, selectedElements, selectedArchetypes, showStorage, showFodderMonsters, showBelowMaxLevel,
+    search, selectedElements, selectedArchetypes, showStorage, showInventory, showBelowMaxLevel,
   } = filters;
   const rows = useMemo<MonsterRow[]>(() => {
     const defaultNames = numberedMonsterNames(monsters);
@@ -130,7 +150,6 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
         ehp: hp === null || def === null ? null : displayRunePotentialMetric(metrics.ehp),
         ehpD: hp === null || def === null ? null : displayRunePotentialMetric(metrics.ehpD),
         dmg: atk === null || criticalRate === null || criticalDamage === null ? null : displayRunePotentialMetric(metrics.dmg),
-        isFodderMonster: fodderMonsterNames.includes(display.name),
       };
     });
   }, [monsters, preferences]);
@@ -143,8 +162,10 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
     const filtered = rows.filter((row) => {
+      /* Storage and Inventory are the game's two places a monster can be, so
+         the pair is exhaustive: turning both off is a request for nothing. */
       if (!showStorage && row.inStorage) return false;
-      if (!showFodderMonsters && row.isFodderMonster) return false;
+      if (!showInventory && !row.inStorage) return false;
       if (!showBelowMaxLevel && (row.level === null || row.level < maxMonsterLevel)) return false;
       if (selectedElements.length && (!row.element || !selectedElements.includes(row.element))) return false;
       if (selectedArchetypes.length && (!row.archetype || !selectedArchetypes.includes(row.archetype))) return false;
@@ -169,7 +190,7 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
       }
       return compareNumbersWithBlanks(left[key], right[key], direction) || left.index - right.index;
     });
-  }, [rows, search, selectedElements, selectedArchetypes, showStorage, showFodderMonsters, showBelowMaxLevel, sort]);
+  }, [rows, search, selectedElements, selectedArchetypes, showStorage, showInventory, showBelowMaxLevel, sort]);
 
   function toggleSort(key: SortKey) {
     setSort((current) => current.key === key
@@ -210,9 +231,9 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
     { key: 'def', label: 'DEF' }, { key: 'spd', label: 'SPD' }, { key: 'criticalRate', label: 'CR%' },
     { key: 'criticalDamage', label: 'CD%' }, { key: 'resistance', label: 'RES%' }, { key: 'accuracy', label: 'ACC%' },
   ];
-  const sortHeader = (key: SortKey, label: string, alignLeft = false, extraClassName = '') => {
+  const sortHeader = (key: SortKey, label: string, extraClassName = '') => {
     const sorted = sort.key === key;
-    const className = [alignLeft ? 'align-left' : '', 'sortable', sorted ? 'sorted' : '', sorted && sort.ascending ? 'ascending' : '', extraClassName]
+    const className = [monsterColumnAlignment(key), 'sortable', sorted ? 'sorted' : '', sorted && sort.ascending ? 'ascending' : '', extraClassName]
       .filter(Boolean).join(' ');
     return <th key={key} scope="col" aria-sort={sorted ? (sort.ascending ? 'ascending' : 'descending') : 'none'} className={className}>
       <button type="button" className="table-sort-button" onClick={() => toggleSort(key)}>{label}</button>
@@ -262,13 +283,14 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
       <div className="filter-group" role="group" aria-label="Choose which monsters to include">
         <span className="filter-label">Include</span>
         <div className="filter-group-controls">
+          <button type="button" className={showInventory ? 'filter-button active' : 'filter-button'}
+            onClick={() => setFilters((current) => ({ ...current, showInventory: !current.showInventory }))} aria-pressed={showInventory}
+            title="Monsters on your island rather than in Monster Storage"
+            aria-label="Monsters outside Monster Storage"
+          >Inventory</button>
           <button type="button" className={showStorage ? 'filter-button active' : 'filter-button'}
             onClick={() => setFilters((current) => ({ ...current, showStorage: !current.showStorage }))} aria-pressed={showStorage}
           >Storage</button>
-          <button type="button" className={showFodderMonsters ? 'filter-button active' : 'filter-button'}
-            onClick={() => setFilters((current) => ({ ...current, showFodderMonsters: !current.showFodderMonsters }))} aria-pressed={showFodderMonsters}
-            title="Rainbowmons and Devilmons" aria-label="Rainbowmons and Devilmons"
-          >Fodder</button>
           <button type="button" className={showBelowMaxLevel ? 'filter-button active' : 'filter-button'}
             onClick={() => setFilters((current) => ({ ...current, showBelowMaxLevel: !showBelowMaxLevel }))}
             aria-pressed={showBelowMaxLevel}
@@ -282,8 +304,8 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
   >
     <tbody>
           {visible.map((row) => <tr key={row.unitId}>
-            <td className="align-left row-index">{String(row.index + 1).padStart(2, '0')}</td>
-            <td className="align-left">
+            <td className={cell('index', 'row-index')}>{String(row.index + 1).padStart(2, '0')}</td>
+            <td className={cell('name')}>
               <div className="monster-cell">
                 <MonsterPortrait imageFilename={row.imageFilename} initial={row.initial} name={row.name} />
                 <span className="monster-name">
@@ -292,29 +314,29 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
                 </span>
               </div>
             </td>
-            <td className="align-left">
+            <td className={cell('sets')}>
               {row.sets.length
                 ? <span className="set-mark" title={row.sets.map((set) => set.name).join(' / ')}>{row.sets.map((set) => set.abbreviation).join('/')}</span>
                 : <span className="set-none">—</span>}
             </td>
-            <td className={row.level === null ? 'dim muted' : 'dim'}>{formatNumber(row.level, preferences.general)}</td>
-            <td className={row.hp === null ? 'muted' : undefined}>{formatNumber(row.hp, preferences.general)}</td>
-            <td className={row.atk === null ? 'muted' : undefined}>{formatNumber(row.atk, preferences.general)}</td>
-            <td className={row.def === null ? 'muted' : undefined}>{formatNumber(row.def, preferences.general)}</td>
-            <td className={row.spd === null ? 'muted' : undefined}>{formatNumber(row.spd, preferences.general)}</td>
-            <td className={row.criticalRate === null ? 'muted' : undefined}>{formatNumber(row.criticalRate, preferences.general)}</td>
-            <td className={row.criticalDamage === null ? 'muted' : undefined}>{formatNumber(row.criticalDamage, preferences.general)}</td>
-            <td className={row.resistance === null ? 'muted' : undefined}>{formatNumber(row.resistance, preferences.general)}</td>
-            <td className={row.accuracy === null ? 'muted' : undefined}>{formatNumber(row.accuracy, preferences.general)}</td>
-            <td className={row.artifactTypes.some((type) => type !== null) ? 'equipment-start equipment-types' : 'equipment-start muted'}>
+            <td className={cell('level', row.level === null ? 'dim muted' : 'dim')}>{formatNumber(row.level, preferences.general)}</td>
+            <td className={cell('hp', row.hp === null && 'muted')}>{formatNumber(row.hp, preferences.general)}</td>
+            <td className={cell('atk', row.atk === null && 'muted')}>{formatNumber(row.atk, preferences.general)}</td>
+            <td className={cell('def', row.def === null && 'muted')}>{formatNumber(row.def, preferences.general)}</td>
+            <td className={cell('spd', row.spd === null && 'muted')}>{formatNumber(row.spd, preferences.general)}</td>
+            <td className={cell('criticalRate', row.criticalRate === null && 'muted')}>{formatNumber(row.criticalRate, preferences.general)}</td>
+            <td className={cell('criticalDamage', row.criticalDamage === null && 'muted')}>{formatNumber(row.criticalDamage, preferences.general)}</td>
+            <td className={cell('resistance', row.resistance === null && 'muted')}>{formatNumber(row.resistance, preferences.general)}</td>
+            <td className={cell('accuracy', row.accuracy === null && 'muted')}>{formatNumber(row.accuracy, preferences.general)}</td>
+            <td className={cell('artifactTypes', 'equipment-start', row.artifactTypes.some((type) => type !== null) ? 'equipment-types' : 'muted')}>
               {displayArtifactTypes(row.artifactTypes)}
             </td>
-            <td className={row.relicTypes.some((type) => type !== null) ? 'equipment-types' : 'muted'}>
+            <td className={cell('relicTypes', row.relicTypes.some((type) => type !== null) ? 'equipment-types' : 'muted')}>
               {displayRelicType(row.relicTypes)}
             </td>
-            <td className={row.ehp === null ? 'muted' : undefined}>{formatNumber(row.ehp, preferences.general)}</td>
-            <td className={row.ehpD === null ? 'muted' : undefined}>{formatNumber(row.ehpD, preferences.general)}</td>
-            <td className={row.dmg === null ? 'muted' : undefined}>{formatNumber(row.dmg, preferences.general)}</td>
+            <td className={cell('ehp', row.ehp === null && 'muted')}>{formatNumber(row.ehp, preferences.general)}</td>
+            <td className={cell('ehpD', row.ehpD === null && 'muted')}>{formatNumber(row.ehpD, preferences.general)}</td>
+            <td className={cell('dmg', row.dmg === null && 'muted')}>{formatNumber(row.dmg, preferences.general)}</td>
           </tr>)}
     </tbody>
   </DataTablePage>;

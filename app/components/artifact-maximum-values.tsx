@@ -4,7 +4,7 @@ import { Fragment, useMemo, useState } from 'react';
 import { Dropdown } from './dropdown';
 import { ConvertedArtifactMark } from './converted-artifact-mark';
 import { UnrefinedArtifactMark } from './unrefined-artifact-mark';
-import { SortableHeader, useSortedRows } from './sortable-table';
+import { SortableHeader, columnClasses, useSortedRows } from './sortable-table';
 import { calculateArtifactScores } from '../lib/compute/artifact-score-client';
 import { buildArtifactScoreRequestsForMonsterIds } from '../lib/compute/artifact-score-input';
 import { scoreArtifactOnMonster, scorePercent } from '../lib/compute/artifact-score-core';
@@ -373,22 +373,24 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
   type RecommendationRow = typeof rows[number];
 
   const columns: SortableColumn<RecommendationRow>[] = useMemo(() => [
-    { key: 'category', label: 'Type', compare: (left, right) => artifactCategoryLabel(left.artifact.category).localeCompare(artifactCategoryLabel(right.artifact.category)) },
+    /* Scores and percentages take the right edge so their digits line up down
+       the column; every descriptive column reads from the left. */
+    { key: 'category', label: 'Type', align: 'left', compare: (left, right) => artifactCategoryLabel(left.artifact.category).localeCompare(artifactCategoryLabel(right.artifact.category)) },
     /* The restriction stays a filter and loses its column. It is the one fact
        in the row the user has usually already fixed from the panel above, so
        repeating it in every row spent a column on an answer they had just
        given. */
-    { key: 'main', label: 'Main stat', compare: (left, right) => left.artifact.mainProperty.localeCompare(right.artifact.mainProperty) },
+    { key: 'main', label: 'Main stat', align: 'left', compare: (left, right) => left.artifact.mainProperty.localeCompare(right.artifact.mainProperty) },
     /* Substats order by the artifact's own grade and then its first line, which
        is the closest thing to "how good is this piece" the column shows. */
-    { key: 'subs', label: 'Substats', compare: (left, right) => artifactGradeOrder.indexOf(left.artifact.grade) - artifactGradeOrder.indexOf(right.artifact.grade) || monsterNameCollator.compare(left.artifact.subProperties[0]?.definition.name ?? '', right.artifact.subProperties[0]?.definition.name ?? ''), initialDirection: 'descending' },
-    { key: 'location', label: 'Location', compare: (left, right) => monsterNameCollator.compare(left.wearerName, right.wearerName) },
-    { key: 'current', label: 'Value on mon', compare: (left, right) => (left.current ?? -1) - (right.current ?? -1), initialDirection: 'descending' },
-    { key: 'action', label: 'Plan', compare: (left, right) => left.action.localeCompare(right.action) },
-    { key: 'recommendation', label: 'Monster', compare: (left, right) => monsterNameCollator.compare(left.allocation?.monster.name ?? '', right.allocation?.monster.name ?? '') },
-    { key: 'value', label: 'New value', compare: (left, right) => (left.allocation?.value ?? -1) - (right.allocation?.value ?? -1), initialDirection: 'descending' },
-    { key: 'conversion', label: 'Best conversions', compare: (left, right) => (left.allocation?.conversions[0]?.gain ?? -1) - (right.allocation?.conversions[0]?.gain ?? -1), initialDirection: 'descending' },
-    { key: 'refinement', label: '', accessibleLabel: 'Refinement', compare: (left, right) => Number(left.artifact.unrefined) - Number(right.artifact.unrefined), initialDirection: 'descending' },
+    { key: 'subs', label: 'Substats', align: 'left', compare: (left, right) => artifactGradeOrder.indexOf(left.artifact.grade) - artifactGradeOrder.indexOf(right.artifact.grade) || monsterNameCollator.compare(left.artifact.subProperties[0]?.definition.name ?? '', right.artifact.subProperties[0]?.definition.name ?? ''), initialDirection: 'descending' },
+    { key: 'location', label: 'Location', align: 'left', compare: (left, right) => monsterNameCollator.compare(left.wearerName, right.wearerName) },
+    { key: 'current', label: 'Value on mon', align: 'right', compare: (left, right) => (left.current ?? -1) - (right.current ?? -1), initialDirection: 'descending' },
+    { key: 'action', label: 'Plan', align: 'left', compare: (left, right) => left.action.localeCompare(right.action) },
+    { key: 'recommendation', label: 'Monster', align: 'left', compare: (left, right) => monsterNameCollator.compare(left.allocation?.monster.name ?? '', right.allocation?.monster.name ?? '') },
+    { key: 'value', label: 'New value', align: 'right', compare: (left, right) => (left.allocation?.value ?? -1) - (right.allocation?.value ?? -1), initialDirection: 'descending' },
+    { key: 'conversion', label: 'Best conversions', align: 'left', compare: (left, right) => (left.allocation?.conversions[0]?.gain ?? -1) - (right.allocation?.conversions[0]?.gain ?? -1), initialDirection: 'descending' },
+    { key: 'refinement', label: '', accessibleLabel: 'Refinement', align: 'right', compare: (left, right) => Number(left.artifact.unrefined) - Number(right.artifact.unrefined), initialDirection: 'descending' },
     /* No column of its own: this answers "what have I picked up lately", which
        is a question about the order of the rows rather than a fact worth a
        twelfth column. The filter panel's button drives it, newest first,
@@ -405,6 +407,8 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
     { key: 'obtained', label: 'Obtained', header: false, initialDirection: 'descending',
       compare: (left, right) => left.artifact.obtainedOrder - right.artifact.obtainedOrder },
   ], []);
+
+  const cellClass = columnClasses(columns);
 
   const { sorted, sort, toggle: toggleSort } = useSortedRows(
     plannedRows, columns,
@@ -484,9 +488,9 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
           {/* The artifact's quality reads as the coloured rule down the row's
               leading edge, where it is a margin mark rather than a stripe
               inside the row. */}
-          <td className={qualityRuleHost}><QualityRule tier={row.artifact.grade} />{artifactCategoryLabel(row.artifact.category)}</td>
-          <td>{row.artifact.mainProperty}</td>
-          <td><ul className="artifact-subs">{row.artifact.subProperties.map((property, index) => <li key={property.definition.id}>
+          <td className={cellClass('category', qualityRuleHost)}><QualityRule tier={row.artifact.grade} />{artifactCategoryLabel(row.artifact.category)}</td>
+          <td className={cellClass('main')}>{row.artifact.mainProperty}</td>
+          <td className={cellClass('subs')}><ul className="artifact-subs">{row.artifact.subProperties.map((property, index) => <li key={property.definition.id}>
             {displaySubProperty(property, (value) => formatNumber(value, general))}
             {row.artifact.convertedPropertyIndex === index && <ConvertedArtifactMark position={index} />}
           </li>)}</ul></td>
@@ -498,18 +502,18 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
               it is the address the artifact has to be taken off, secondary to
               the plan's own column beside it, and dimming it stops a table of
               names from reading as loudly as the advice. */}
-          <td className={row.artifact.occupiedId === row.allocation?.monster.unitId
+          <td className={cellClass('location', row.artifact.occupiedId === row.allocation?.monster.unitId
             ? 'artifact-recommendation-keep'
-            : row.artifact.occupiedId === null ? '' : 'artifact-recommendation-wearer'}>{row.wearerName}</td>
-          <td><Score value={row.current} general={general} /></td>
-          <td className={row.action === 'Sell' ? 'artifact-recommendation-sell' : row.action === 'Keep' ? 'artifact-recommendation-keep' : ''}>{row.action}</td>
-          <td className={row.allocation ? row.artifact.occupiedId === row.allocation.monster.unitId ? 'artifact-recommendation-keep' : '' : 'artifact-recommendation-sell'}>{row.allocation?.monster.name ?? '—'}</td>
-          <td><Score value={row.allocation?.value} general={general} /></td>
-          <td className={row.allocation?.conversions.length ? '' : row.allocation ? 'artifact-recommendation-no-conversion' : 'muted'}>
+            : row.artifact.occupiedId === null ? '' : 'artifact-recommendation-wearer')}>{row.wearerName}</td>
+          <td className={cellClass('current')}><Score value={row.current} general={general} /></td>
+          <td className={cellClass('action', row.action === 'Sell' ? 'artifact-recommendation-sell' : row.action === 'Keep' ? 'artifact-recommendation-keep' : '')}>{row.action}</td>
+          <td className={cellClass('recommendation', row.allocation ? row.artifact.occupiedId === row.allocation.monster.unitId ? 'artifact-recommendation-keep' : '' : 'artifact-recommendation-sell')}>{row.allocation?.monster.name ?? '—'}</td>
+          <td className={cellClass('value')}><Score value={row.allocation?.value} general={general} /></td>
+          <td className={cellClass('conversion', row.allocation?.conversions.length ? '' : row.allocation ? 'artifact-recommendation-no-conversion' : 'muted')}>
             {row.allocation ? <ConversionList conversions={row.allocation.conversions} artifact={row.artifact}
               stones={stones} mode={settings.conversionStoneMode} emptyClassName="artifact-recommendation-no-conversion" /> : '—'}
           </td>
-          <td className="artifact-recommendation-flag"><UnrefinedArtifactMark unrefined={row.artifact.unrefined} /></td>
+          <td className={cellClass('refinement', 'artifact-recommendation-flag')}><UnrefinedArtifactMark unrefined={row.artifact.unrefined} /></td>
         </tr>)}</tbody>
       </table></div> : <p className="artifact-recommendation-empty">
         {/* Three ways to end up with no rows, and they are worth telling

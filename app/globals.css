@@ -625,7 +625,6 @@ button { cursor: pointer; }
 .artifact-grid tbody td { height: auto; padding-block: var(--s2); vertical-align: top; }
 /* The marker is the cell's only content, so the margin it carries for
    trailing running text is dropped here. */
-.artifact-refinement-flag { text-align: right; }
 .artifact-refinement-flag > * { margin-left: 0; }
 .artifact-subs { margin: 0; padding: 0; list-style: none; }
 .artifact-subs li {
@@ -712,6 +711,7 @@ button { cursor: pointer; }
 .grid-table thead th.sortable:hover { color: var(--ink); }
 .grid-table thead th.sortable.sorted:hover { color: var(--ink); }
 .grid-table thead th.align-left { text-align: left; }
+.grid-table thead th.align-right { text-align: right; }
 .grid-table thead th.sorted { color: var(--ink); }
 /* Every sortable header reserves the arrow's width from the outset and shows
    it only when that column is the sorted one. The fixed-layout grid and the
@@ -755,6 +755,7 @@ button { cursor: pointer; }
   color: var(--ink);
 }
 .grid-table tbody td.align-left { text-align: left; font-family: var(--sans); }
+.grid-table tbody td.align-right { text-align: right; }
 .grid-table tbody tr:hover td { background: var(--hover); }
 .grid-table tbody td.muted { color: var(--faint); }
 .grid-table tbody td.dim { color: var(--dim); }
@@ -1285,7 +1286,9 @@ button { cursor: pointer; }
 .best-artifact-result header p { margin-top: var(--s2); color: var(--dim); font-size: var(--t-small); line-height: 1.45; }
 .best-artifact-result-scroll { overflow: visible; }
 .best-artifact-result table { width: 100%; min-width: 0; border-collapse: collapse; table-layout: fixed; font-size: var(--t-small); }
-.best-artifact-result th, .best-artifact-result td { padding: var(--s3); border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+/* No text-align here: alignment is the column's own declaration, applied to the
+   heading and the cell alike. A rule at this specificity would override it. */
+.best-artifact-result th, .best-artifact-result td { padding: var(--s3); border-bottom: 1px solid var(--line); vertical-align: top; }
 .best-artifact-result th { color: var(--faint); font-size: var(--t-micro); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .best-artifact-result th:nth-child(1) { width: 30%; }
 .best-artifact-result th:nth-child(2), .best-artifact-result th:nth-child(3), .best-artifact-result th:nth-child(4) { width: 23.333%; }
@@ -1305,7 +1308,8 @@ button { cursor: pointer; }
 .best-monster-intangible { margin-top: var(--s2); color: var(--gold); font-size: var(--t-small); }
 .best-monster-result-scroll { overflow: visible; }
 .best-monster-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: var(--t-small); }
-.best-monster-table th, .best-monster-table td { padding: var(--s3); border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+/* Alignment comes from the column declaration; see .best-artifact-result. */
+.best-monster-table th, .best-monster-table td { padding: var(--s3); border-bottom: 1px solid var(--line); vertical-align: top; }
 .best-monster-table th { color: var(--faint); font-size: var(--t-micro); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .best-monster-table th:nth-child(1) { width: 37%; }
 .best-monster-table tr:last-child td { border-bottom: 0; }
@@ -1494,7 +1498,8 @@ button { cursor: pointer; }
    side is what keeps a long substat line from reading into its neighbour. It
    comes out of each column's own share, so the shares below are content plus
    this gutter. */
-.artifact-recommendation-table th, .artifact-recommendation-table td { padding: var(--s3) var(--s4); border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+/* Alignment comes from the column declaration; see .best-artifact-result. */
+.artifact-recommendation-table th, .artifact-recommendation-table td { padding: var(--s3) var(--s4); border-bottom: 1px solid var(--line); vertical-align: top; }
 /* The headings are the one place two lines are expected rather than tolerated:
    "Value on mon" and "Best conversions" wrap, and the short columns are only
    as wide as their cells need. `line-height` gives those two lines air instead
@@ -1586,7 +1591,7 @@ button { cursor: pointer; }
    two columns of running text apart, and this column has no text of its own —
    at 3% the full gutter on both sides would leave the marker no room to sit
    in. Its right side keeps the wide padding, which is the table's own edge. */
-.artifact-recommendation-table th:nth-child(10), .artifact-recommendation-table td:nth-child(10) { width: 3%; padding-left: var(--s2); text-align: right; }
+.artifact-recommendation-table th:nth-child(10), .artifact-recommendation-table td:nth-child(10) { width: 3%; padding-left: var(--s2); }
 .artifact-recommendation-flag > * { margin-left: 0; }
 .artifact-recommendation-sell { color: var(--faint); }
 /* The monster an artifact sits on now, where that is not the monster the plan
@@ -2865,6 +2870,15 @@ button { cursor: pointer; }
    lower still, so the two lines have breathing room without growing the card. */
 .statistics.acceleration.route-link .acceleration-verdict { transform: translateY(var(--s1)); }
 .statistics.acceleration.route-link .acceleration-adapter { transform: translateY(var(--s3)); }
+/* The helper's detail is a sentence, not an adapter name: it must use both lines
+   the box already reserves rather than being clipped to one by the nowrap that
+   keeps "NVIDIA GeForce RTX 4070 Laptop GPU" on a single line. Two lines is
+   still the budget, so the card does not change height between states — a
+   longer reason keeps its full text in `title` and for assistive tech. */
+.statistics.acceleration.route-link .acceleration-adapter b {
+  white-space: normal;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+}
 /* Same reason the drop zone is raised inside a chosen card: --sunk on --sunk
    leaves the box with only its border to stand on. */
 .import-route.chosen .statistics.acceleration.route-link { background: var(--raise); }
@@ -3440,6 +3454,19 @@ button { cursor: pointer; }
   text-transform: inherit;
   cursor: pointer;
 }
+/* One column, one alignment, in the heading and in the cells alike — declared
+   per column in `table-layouts.ts` and applied to both the `th` and the `td`.
+   The workspace tables default every column to left, so a numeric column has to
+   say `align-right` explicitly; these rules are what make that declaration
+   authoritative rather than advisory.
+
+   The sort button is a flex row, so `text-align` alone would leave a
+   right-aligned heading sitting on the left: its justification has to follow the
+   column too. */
+.align-right { text-align: right; }
+.align-left { text-align: left; }
+th.align-right .sort-button { justify-content: flex-end; }
+th.align-left .sort-button { justify-content: flex-start; }
 /* Clear ink marks the column the table is actually ordered by, including its
    direction mark; gold stays reserved for controls and recommendations. */
 .sort-button.active { color: var(--ink); }
@@ -3487,6 +3514,10 @@ button { cursor: pointer; }
 .artifact-conversion-more:hover { text-decoration: underline; }
 .artifact-conversion-more:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
-/* An import failure must not move the controls used to diagnose it. */
-.import-message { height: 96px; overflow: auto; overflow-wrap: anywhere; }
-.import-message:empty { opacity: 0; }
+/* An import failure must not move the controls used to diagnose it: once a
+   message is showing, the box holds the same height whether the next one is one
+   line or ten. With nothing to say it takes no room at all — reserving the
+   height while empty pushed the whole import section down a box's worth. */
+.import-message { max-height: 96px; overflow: auto; overflow-wrap: anywhere; }
+.import-message:not(:empty) { height: 96px; }
+.import-message:empty { display: none; }

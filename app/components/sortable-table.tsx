@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
+import { alignmentClass } from '../lib/table-layouts';
+import type { ColumnAlignment } from '../lib/table-layouts';
 
 export type SortDirection = 'ascending' | 'descending';
 
@@ -15,6 +17,11 @@ export type SortableColumn<Row> = {
   label: ReactNode;
   /** Screen-reader name where the visible label is an icon or is empty. */
   accessibleLabel?: string;
+  /**
+   * How this column sits against its box, in the heading and in every cell.
+   * Declared once here so the two cannot disagree; see `table-layouts.ts`.
+   */
+  align?: ColumnAlignment;
   /** Ascending comparison; the hook reverses it for the other direction. */
   compare?: (left: Row, right: Row) => number;
   /** Numeric columns start at their most useful end, which is the largest. */
@@ -30,6 +37,18 @@ export type SortableColumn<Row> = {
 };
 
 export type SortState = { key: string; direction: SortDirection };
+
+/**
+ * The body-cell classes for one table, keyed by column, taken from the same
+ * column list the header is built from. A cell asks for its column by key
+ * rather than restating an alignment, which is what keeps the two in step when
+ * a column's alignment changes or the columns are reordered.
+ */
+export function columnClasses<Row>(columns: readonly SortableColumn<Row>[]) {
+  const byKey = new Map(columns.map((column) => [column.key, column.align]));
+  return (key: string, ...extra: Array<string | false | undefined>) =>
+    [alignmentClass(byKey.get(key)), ...extra].filter(Boolean).join(' ');
+}
 
 /**
  * Sorting for one table (`ARTIFACT-CANONICAL.md` §17.8: every table sorts on
@@ -91,7 +110,7 @@ export function SortableHeader<Row>({ columns, sort, onToggle }: {
     const sortable = Boolean(column.compare);
     return <th key={column.key} scope="col"
       aria-sort={active && sortable ? sort.direction : undefined}
-      className={sortable ? 'sortable-column' : undefined}>
+      className={[alignmentClass(column.align), sortable ? 'sortable-column' : ''].filter(Boolean).join(' ')}>
       {sortable ? <button type="button" className={active ? 'sort-button active' : 'sort-button'}
         onClick={() => onToggle(column.key)}>
         <span className="sort-button-label">{column.label}</span>

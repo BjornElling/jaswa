@@ -6,7 +6,7 @@ import { buildArtifactScoreRequests, buildArtifactScoreRequestsForMonsterIds } f
 import { readArtifacts } from '../lib/artifacts';
 import { artifactCategoryLabel, artifactEquipClassLabel, artifactValueTint } from '../lib/artifact-grid';
 import { artifactCategoryLabels, artifactGradeOrder } from '../lib/artifact-properties';
-import { SortableHeader, useSortedRows } from './sortable-table';
+import { SortableHeader, columnClasses, useSortedRows } from './sortable-table';
 import { ConversionList } from './conversion-list';
 import { engravedStonesFor, scoringSettings } from '../lib/artifact-recommendations';
 import { useAutoRecalculate } from './use-auto-recalculate';
@@ -117,14 +117,17 @@ function ArtifactResults({ title, description, rows, general, selectedMonster, s
   stones: readonly EngravedConversionStone[];
   mode: ArtifactSettings['conversionStoneMode'];
 }) {
+  /* Scores take the right edge so their digits line up down the column; the
+     artifact and its location read from the left. */
   const columns = useMemo<SortableColumn<ResultRow>[]>(() => [
-    { key: 'artifact', label: 'Artifact', compare: (left, right) => artifactGradeOrder.indexOf(left.artifact.grade) - artifactGradeOrder.indexOf(right.artifact.grade) || left.index - right.index, initialDirection: 'descending' },
-    { key: 'target', label: `On ${selectedMonster.name}`, compare: (left, right) => left.target.value - right.target.value, initialDirection: 'descending' },
-    { key: 'location', label: 'Location', compare: (left, right) => monsterNameCollator.compare(left.currentMonsterName ?? 'Inventory', right.currentMonsterName ?? 'Inventory') },
-    { key: 'maximum', label: 'Best', compare: (left, right) => (left.maximum?.value ?? -1) - (right.maximum?.value ?? -1), initialDirection: 'descending' },
+    { key: 'artifact', label: 'Artifact', align: 'left', compare: (left, right) => artifactGradeOrder.indexOf(left.artifact.grade) - artifactGradeOrder.indexOf(right.artifact.grade) || left.index - right.index, initialDirection: 'descending' },
+    { key: 'target', label: `On ${selectedMonster.name}`, align: 'right', compare: (left, right) => left.target.value - right.target.value, initialDirection: 'descending' },
+    { key: 'location', label: 'Location', align: 'left', compare: (left, right) => monsterNameCollator.compare(left.currentMonsterName ?? 'Inventory', right.currentMonsterName ?? 'Inventory') },
+    { key: 'maximum', label: 'Best', align: 'right', compare: (left, right) => (left.maximum?.value ?? -1) - (right.maximum?.value ?? -1), initialDirection: 'descending' },
   ], [selectedMonster.name]);
   const { sorted, sort, toggle } = useSortedRows(rows, columns, { key: 'target', direction: 'descending' },
     (left, right) => left.index - right.index);
+  const cellClass = columnClasses(columns);
 
   return <section className="best-artifact-result" aria-labelledby={`${title}-title`}>
     <header>
@@ -135,21 +138,21 @@ function ArtifactResults({ title, description, rows, general, selectedMonster, s
       <table>
         <SortableHeader columns={columns} sort={sort} onToggle={toggle} />
         <tbody>{sorted.map((row) => <tr key={row.artifact.id}>
-          <td>
+          <td className={cellClass('artifact')}>
             <b><UnrefinedArtifactMark unrefined={row.artifact.unrefined} />{row.artifact.grade} {row.artifact.mainProperty}</b>
             <span>{artifactCategoryLabel(row.artifact.category)} · {artifactEquipClassLabel(row.artifact)}</span>
           </td>
-          <td>
+          <td className={cellClass('target')}>
             <b><Score score={row.target} general={general} /></b>
             <ConversionList conversions={row.target.conversions} artifact={row.artifact} stones={stones} mode={mode} />
           </td>
-          <td>
+          <td className={cellClass('location')}>
             {row.artifact.occupiedId === null ? <span className="muted">Inventory</span> : <>
               <b><Score score={row.current} general={general} fallback="Not judged" /></b>
               <span>{row.currentMonsterName ?? 'Unknown monster'}</span>
             </>}
           </td>
-          <td>
+          <td className={cellClass('maximum')}>
             <b><Score score={row.maximum} general={general} fallback="Not judged" /></b>
             <span>{row.maximum?.monsterName ?? '—'}</span>
           </td>

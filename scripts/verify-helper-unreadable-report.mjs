@@ -77,7 +77,10 @@ try {
     globalThis.fetch = async () => new Response(JSON.stringify(health));
     assert.match((await checkHelperConnection()).detail, /Capture failed/);
     globalThis.fetch = async () => new Response('{invalid');
-    assert.match((await checkHelperConnection()).detail, /could not read helper status/);
+    /* A helper that cannot be reached still has to say so in a sentence the user
+       can act on, and carry the raw reason an error report is made of. */
+    assert.match((await checkHelperConnection()).detail, /ambush spot is empty/);
+    assert.match((await checkHelperConnection()).detail, /Launch the helper/);
     assert.match((await readHelperProfile()).reason, /could not read the helper snapshot/);
     globalThis.fetch = async () => new Response('{}', { status: 503 });
     assert.match((await readHelperProfile()).reason, /HTTP 503/);
