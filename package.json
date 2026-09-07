@@ -28,6 +28,7 @@
     "verify:conversion-share-tiebreak": "node scripts/verify-conversion-share-tiebreak.mjs",
     "verify:helper-import-route": "node scripts/verify-helper-import-route.mjs",
     "verify:helper-unreadable-report": "node scripts/verify-helper-unreadable-report.mjs",
+    "verify:monster-import-ownership": "node scripts/verify-monster-import-ownership.mjs",
     "verify:collaboration-species": "node scripts/verify-collaboration-species.mjs",
     "verify:statistics-tiers": "node scripts/verify-statistics-tiers.mjs",
     "verify:artifact-preference-awakening": "node scripts/verify-artifact-preference-awakening.mjs",

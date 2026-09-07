@@ -241,6 +241,19 @@ function validateAccountCollections(value: GameRecord): string | undefined {
   }
 
   const units = recordCollection(value.unit_list);
+  /* A full export carries the account wizard id on every owned unit. Without
+     this boundary, a battle response can look like a valid monster record and
+     add an opponent's LD5 to the account simply because it has a positive
+     unit_id and a level. The helper uses the same rule for live additions. */
+  if (value.wizard_id !== undefined) {
+    if (!isPositiveIdentifier(value.wizard_id)) {
+      return 'This file contains an invalid account identity.';
+    }
+    const accountWizardId = String(value.wizard_id);
+    if (units.some((unit) => String(unit.wizard_id) !== accountWizardId)) {
+      return 'This file contains a monster JASWA cannot verify as belonging to this account.';
+    }
+  }
   for (const unit of units) {
     if (unit.runes !== undefined && !isValidIdentifiedCollection(unit.runes, 'rune_id', (rune) => runeSetName(rune.set_id) !== undefined)) {
       return 'This file contains an equipped rune JASWA cannot read.';

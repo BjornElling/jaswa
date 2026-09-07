@@ -892,6 +892,16 @@ fn trusted_account_entity(profile: &Value, entity: Entity, item: &Value, trusted
     let Some(account_wizard_id) = identifier(profile, "wizard_id") else {
         return true;
     };
+    /* A unit is the one entity that can look perfectly valid while describing
+    somebody else's battle roster. Equipment already proves ownership by
+    being in an account reward or carrying the wizard id; a new unit must
+    do the same. Known units still follow the merge path above, so partial
+    updates to a monster already in the account remain valid. */
+    if entity.collection == "unit_list"
+        && identifier(item, "wizard_id").as_deref() != Some(account_wizard_id.as_str())
+    {
+        return false;
+    }
     identifier(item, "wizard_id").is_none_or(|wizard_id| wizard_id == account_wizard_id)
 }
 fn successful_response(response: &Value) -> bool {
@@ -1770,6 +1780,63 @@ mod tests {
 
         let data = &store.read().unwrap().data;
         assert_eq!(data["runes"].as_array().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn rejects_new_monsters_without_this_accounts_wizard_id() {
+        let mut store = ProfileStore::default();
+        store.accept_snapshot(json!({
+            "wizard_id": 7,
+            "unit_list": [{
+                "unit_id": 1,
+                "wizard_id": 7,
+                "unit_master_id": 10101,
+                "unit_level": 40,
+                "building_id": 0
+            }],
+            "runes": [],
+            "artifacts": [],
+            "relics": []
+        }));
+
+        assert!(!store.apply_update(
+            &json!({
+                "unit_list": [{
+                    "unit_id": 2,
+                    "unit_master_id": 13815,
+                    "unit_level": 40
+                }]
+            }),
+            &json!({"command": "ArenaBattleResult"})
+        ));
+        assert_eq!(
+            store.read().unwrap().data["unit_list"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1,
+            "a battle unit without the account wizard id is not owned inventory"
+        );
+
+        assert!(!store.apply_update(
+            &json!({
+                "unit_list": [{
+                    "unit_id": 3,
+                    "wizard_id": 99,
+                    "unit_master_id": 13815,
+                    "unit_level": 40
+                }]
+            }),
+            &json!({"command": "ArenaBattleResult"})
+        ));
+        assert_eq!(
+            store.read().unwrap().data["unit_list"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1,
+            "a unit from another wizard is not owned inventory"
+        );
     }
 
     #[test]
