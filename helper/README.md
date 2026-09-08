@@ -14,6 +14,15 @@ one machine-wide change the helper makes: the temporary loopback gateway
 entries in the Windows hosts file. Tauri reduces installer size; Authenticode
 signing is still essential for Windows trust and reputation.
 
+## Versioning
+
+Every helper change gets a semantic patch version. Keep the version in
+`src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`, `package.json` and the
+app's `app/lib/helper-version.ts` aligned; `npm run verify:helper-version`
+fails when one is stale. JASWA compares the connected helper's reported
+version with that contract and calls out an upgrade on the home page before a
+compatibility problem can look like bad game data.
+
 Because the per-user store follows whichever profile is active, the helper asks
 for consent and installs that root *before* it relaunches as administrator.
 Elevating first would write the root into the administrator's store, leaving
@@ -133,12 +142,10 @@ saving; quitting loses unsaved evidence. Later failures in the same gap are
 counted without retaining an unbounded traffic history. A new gap after a
 successful login gets new evidence.
 
-**Save import report** in JASWA preserves the exact rejected snapshot, reason,
-helper identity and browser information. This matters when the helper keeps
-capturing after JASWA rejects a particular snapshot. Both save actions explain
-that reports may contain private account/session data. Nothing is uploaded.
-Send the report privately to the developer with the action, expected result,
-and failure time. Do not post these reports in a public issue.
+**Report Issue** in JASWA opens one support e-mail with the relevant technical
+diagnostics, account counts and issue description. It never includes the full
+game data unless the user adds it themselves. Nothing is uploaded
+automatically; the user chooses whether to send the e-mail to the developer.
 
 Startup acquires a Windows instance guard, opens listeners before installing
 the hosts redirect, and stops already opened listeners if startup fails. The

@@ -3,8 +3,9 @@ import { WorkspacePage } from './workspace-page';
 import { CheckboxRow, ImportRouteCard, RadioRow } from './form-controls';
 import { detectGraphicsCard, disabledStatus } from '../lib/hardware-acceleration';
 import type { AccelerationState, AccelerationStatus } from '../lib/hardware-acceleration';
-import { accelerationLabels, helperLabels, type ReportCategory } from '../lib/workspace-config';
+import { accelerationLabels, helperLabels } from '../lib/workspace-config';
 import { formatDateTime } from '../lib/formatting';
+import { recommendedHelperVersion } from '../lib/helper-version';
 import type { HelperConnection } from '../lib/helper-client';
 import type { DirectImportMode, GeneralSettings, ImportRoute, ImportedGame } from '../lib/types';
 
@@ -41,7 +42,7 @@ function WindowsMark() {
   </svg>;
 }
 
-export function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLeave, onDrop, onRemove, onReport, hardwareAcceleration, onHardwareAcceleration, directImportMode, onDirectImportMode, importRoute, onImportRoute, helperConnection, onSaveHelperReport, general }: {
+export function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLeave, onDrop, onRemove, hardwareAcceleration, onHardwareAcceleration, directImportMode, onDirectImportMode, importRoute, onImportRoute, helperConnection, general }: {
   game: ImportedGame | null;
   general: GeneralSettings;
   message: string;
@@ -51,7 +52,6 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
   onDragLeave: () => void;
   onDrop: (event: DragEvent<HTMLDivElement>) => void;
   onRemove: () => void;
-  onReport: (category: ReportCategory, details: string) => void;
   hardwareAcceleration: boolean;
   onHardwareAcceleration: (enabled: boolean) => void;
   directImportMode: DirectImportMode;
@@ -59,7 +59,6 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
   importRoute: ImportRoute;
   onImportRoute: (route: ImportRoute) => void;
   helperConnection: HelperConnection;
-  onSaveHelperReport: () => void;
 }) {
   const unknownMonsterIds = game?.report.unknownMonsterIds ?? [];
   /* What the card answered, kept apart from the setting: switching the setting
@@ -134,7 +133,7 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
 
         {game && unknownMonsterIds.length > 0 && <p className="notice warning">
           Name information is missing for monster type{unknownMonsterIds.length === 1 ? '' : 's'} {unknownMonsterIds.join(', ')}.{' '}
-          <button className="notice-link" onClick={() => onReport('Monster', `JASWA could not find name information for monster type(s): ${unknownMonsterIds.join(', ')}.`)}>Report this</button>
+          Use <b>Report Issue</b> in the left rail to tell the developer.
         </p>}
 
         <p className="notice import-message" role="status">{message}</p>
@@ -161,11 +160,18 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
             </p>
 
             <div className="route-download">
-              <a className="button important-action" href="/JASWA-Helper-Setup.exe" download><WindowsMark />Download helper</a>
-              <button className="button" onClick={onSaveHelperReport}>Save import report</button>
+              <a className="button important-action" href="/JASWA-Helper-Setup.exe" download><WindowsMark />Download latest helper</a>
             </div>
 
+            {helperConnection.updateAvailable && <section className="helper-version update-available" role="status" aria-live="polite" aria-label="Helper update available">
+              <h4>Helper is tired, boss</h4>
+              <p>You should let it rest and download the latest update. Version {recommendedHelperVersion} is now available.</p>
+            </section>}
+
             <section className={`statistics acceleration ${helperState} route-link`} role="status" aria-label="Helper program connection">
+              <span className="helper-current-version" title="Running helper version">
+                {helperConnection.version ? `v${helperConnection.version}` : '—'}
+              </span>
               <div className="acceleration-verdict">
                 <AccelerationMark state={helperState} />
                 <p className="acceleration-word">{helperLabel}</p>

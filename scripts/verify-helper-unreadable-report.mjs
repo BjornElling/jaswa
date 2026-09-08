@@ -65,7 +65,7 @@ try {
   assert.equal(classifyHelperProfile(null).state, 'unavailable',
     'an absent snapshot is unavailable');
 
-  assert.match(classifyHelperProfile(null).reason, /error report/);
+  assert.match(classifyHelperProfile(null).reason, /Report Issue/);
   assert.match(classifyHelperProfile({ ...envelope(account([readable])), updatedAt: 'invalid' }).reason, /invalid snapshot/);
 
   assert.equal(bad.data.unit_list[0].artifacts[0].attribute, 999, 'a report retains the exact rejected record');

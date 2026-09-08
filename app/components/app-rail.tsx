@@ -24,9 +24,9 @@ export function AppRail({ page, onNavigate, onReport }: {
       </button>)}
     </div>)}
     <div className="rail-spacer" />
-    <button className="rail-item" onClick={onReport}>
+    <button className="rail-item report-issue" onClick={onReport}>
       <span className="glyph" aria-hidden="true">!</span>
-      Report missing data
+      Report Issue
     </button>
   </nav>;
 }

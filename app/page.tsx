@@ -8,6 +8,7 @@ import { blankPreferences, createImportedGame, fileToText, importPreferencesFile
 import { checkHelperConnection, readHelperProfile } from './lib/helper-client';
 import type { HelperConnection } from './lib/helper-client';
 import { downloadJson, formatDateTime } from './lib/formatting';
+import { accountCounts } from './lib/account-counts';
 import { canChooseSaveFolder, chooseSaveFolder, forgetSaveFolder, loadSaveFolder, writeToSaveFolder } from './lib/save-location';
 import type { DirectoryHandle } from './lib/save-location';
 import type { GameRecord } from './lib/game-data';
@@ -42,7 +43,7 @@ export default function Home() {
   const [loadPreferencesPrompt, setLoadPreferencesPrompt] = useState(false);
   const [pendingDirectImportMode, setPendingDirectImportMode] = useState<DirectImportMode | null>(null);
   const [pendingImportRoute, setPendingImportRoute] = useState<ImportRoute | null>(null);
-  const [helperConnection, setHelperConnection] = useState<HelperConnection>({ state: 'checking', detail: 'Run the helper. Then roll for initiative.', profileReady: false, restartRequired: false, instanceId: '', revision: 0, sessionId: 0 });
+  const [helperConnection, setHelperConnection] = useState<HelperConnection>({ state: 'checking', detail: 'Run the helper. Then roll for initiative.', version: null, updateAvailable: false, profileReady: false, restartRequired: false, instanceId: '', revision: 0, sessionId: 0 });
   const [saveFolder, setSaveFolder] = useState<DirectoryHandle | null>(null);
   const preferencesRef = useRef(preferences);
   const gameInput = useRef<HTMLInputElement>(null);
@@ -52,7 +53,6 @@ export default function Home() {
   /* Which helper snapshot JASWA has already refused, so a two-second poll
      reports an unreadable account once rather than on every pass. */
   const reportedHelperRejection = useRef<string | null>(null);
-  const helperReport = useRef<unknown>(null);
   /* The current import, readable from the polling interval's callback. That
      callback outlives the render that created it, so `game` inside it is
      whatever was loaded when the interval started. */
@@ -96,13 +96,11 @@ export default function Home() {
         const result = await readHelperProfile();
         if (disposed) return;
         if (result.state === 'unavailable') {
-          helperReport.current = result;
           setMessage(`${result.reason} JASWA is keeping the last saved import.`);
           setHelperConnection({ ...connection, state: 'unavailable', profileReady: false, detail: result.reason });
           return;
         }
         if (result.state === 'unreadable') {
-          helperReport.current = result;
           setHelperConnection({ ...connection, state: 'unavailable', profileReady: false, detail: result.reason });
           /* The helper is connected and sending, and JASWA cannot read what it
              sent. Say so in the same words the file route uses — but once per
@@ -117,7 +115,7 @@ export default function Home() {
                stale, without one there is nothing to work from at all. The ref
                carries it because `game` in this closure belongs to the render
                that started the interval. */
-            setMessage(`${result.reason} Save an import report below and an error report in the helper.${gameRef.current ? ' JASWA is still showing your last good import.' : ' JASWA has not loaded this account.'}`);
+            setMessage(`${result.reason} Use Report Issue to send the details.${gameRef.current ? ' JASWA is still showing your last good import.' : ' JASWA has not loaded this account.'}`);
           }
           return;
         }
@@ -309,27 +307,31 @@ export default function Home() {
     }
   }
 
-  function saveHelperReport() {
-    if (!window.confirm('Save a private import report? It may include the rejected account snapshot. Nothing is uploaded. Send it only to your developer through a private channel.')) return;
-    downloadJson('JASWA-import-error.json', JSON.stringify({
-      capturedAt: new Date().toISOString(),
-      reason: message,
-      connection: helperConnection,
-      rejectedSnapshot: helperReport.current,
-      browser: navigator.userAgent,
-      instructions: 'Attach this report privately to the developer with the steps that caused the error. For capture failures, also save an error report in the helper.',
-    }, null, 2));
-  }
-
   function openReport(category: ReportCategory = 'Other', details = '') {
     setReport({ category, details });
   }
 
   function sendReport() {
     if (!report) return;
-    const importDetails = game ? `\n\nActive import: ${game.fileName}\nImported: ${formatDateTime(game.importedAt, preferences.general)}` : '';
-    const body = `Hello,\n\nI found missing or unrecognized data in JASWA.\n\nCategory: ${report.category}\n\nDetails:\n${report.details || 'Please describe what JASWA could not recognize.'}${importDetails}\n\nPlease do not attach your full game JSON file.`;
-    window.location.href = `mailto:bj.elling@gmail.com?subject=${encodeURIComponent(`JASWA missing data: ${report.category}`)}&body=${encodeURIComponent(body)}`;
+    const counts = game ? accountCounts(game.data) : null;
+    const diagnostics = [
+      `Page: ${page}`,
+      `Import route: ${preferences.importRoute}`,
+      `Direct import mode: ${preferences.directImportMode}`,
+      `Hardware acceleration: ${preferences.hardwareAcceleration ? 'enabled' : 'disabled'}`,
+      `Helper state: ${helperConnection.state}`,
+      `Helper version: ${helperConnection.version ?? 'unknown'}`,
+      `Helper update available: ${helperConnection.updateAvailable ? 'yes' : 'no'}`,
+      `Helper session: ${helperConnection.instanceId || 'none'} / ${helperConnection.sessionId}`,
+      `Helper detail: ${helperConnection.detail}`,
+      `Browser: ${navigator.userAgent}`,
+      game ? `Active import: ${game.fileName} (imported ${formatDateTime(game.importedAt, preferences.general)})` : 'Active import: none',
+      counts ? `Account counts: monsters ${counts.monsters}, runes ${counts.runes}, gems and grinds ${counts.gemsAndGrinds}, artifacts ${counts.artifacts}, relics ${counts.relics}` : 'Account counts: none',
+      game ? `Unknown monster types: ${game.report.unknownMonsterIds.length ? game.report.unknownMonsterIds.join(', ') : 'none'}` : 'Unknown monster types: none',
+      message ? `Latest app message: ${message}` : 'Latest app message: none',
+    ].join('\n');
+    const body = `Hello,\n\nI found an issue in JASWA.\n\nIssue type: ${report.category}\n\nWhat happened:\n${report.details || 'Please describe what JASWA did and what you expected.'}\n\nJASWA diagnostics:\n${diagnostics}\n\nJASWA does not attach the full game data to this e-mail.`;
+    window.location.href = `mailto:bj.elling@gmail.com?subject=${encodeURIComponent(`JASWA issue: ${report.category}`)}&body=${encodeURIComponent(body)}`;
     setReport(null);
   }
 
@@ -350,7 +352,6 @@ export default function Home() {
         onDragLeave={() => setDragging(false)}
         onDrop={handleDrop}
         onRemove={() => setRemoveGameDataPrompt(true)}
-        onReport={openReport}
         hardwareAcceleration={preferences.hardwareAcceleration}
         onHardwareAcceleration={updateHardwareAcceleration}
         directImportMode={preferences.directImportMode}
@@ -358,7 +359,6 @@ export default function Home() {
         importRoute={preferences.importRoute}
         onImportRoute={updateImportRoute}
         helperConnection={helperConnection}
-        onSaveHelperReport={saveHelperReport}
         general={preferences.general}
       />}
 
@@ -408,7 +408,6 @@ export default function Home() {
       pendingGame={pendingGame}
       onCancel={() => setPendingGame(null)}
       onReplace={() => void applyImport(pendingGame)}
-      onReport={openReport}
     />}
 
     {pendingDirectImportMode && <DirectImportModeDialog

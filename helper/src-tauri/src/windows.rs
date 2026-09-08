@@ -11,8 +11,9 @@ use windows_sys::Win32::{
     Foundation::{CloseHandle, ERROR_ALREADY_EXISTS, GetLastError, HANDLE},
     Security::Cryptography::{
         CERT_FIND_SUBJECT_STR_W, CERT_STORE_ADD_REPLACE_EXISTING, CERT_SYSTEM_STORE_CURRENT_USER,
-        CertAddEncodedCertificateToStore, CertCloseStore, CertDeleteCertificateFromStore,
-        CertFindCertificateInStore, CertOpenStore, PKCS_7_ASN_ENCODING, X509_ASN_ENCODING,
+        CERT_SYSTEM_STORE_LOCAL_MACHINE, CertAddEncodedCertificateToStore, CertCloseStore,
+        CertDeleteCertificateFromStore, CertFindCertificateInStore, CertFreeCertificateContext,
+        CertOpenStore, PKCS_7_ASN_ENCODING, X509_ASN_ENCODING,
     },
     System::Threading::CreateMutexW,
     UI::{
@@ -25,6 +26,7 @@ use windows_sys::Win32::{
 
 const ROOT_STORE: &[u16] = &[b'R' as u16, b'O' as u16, b'O' as u16, b'T' as u16, 0];
 const SYSTEM_STORE_PROVIDER: &[u8] = b"System\0";
+const ROOT_SUBJECT: &str = "JASWA Helper Local Root";
 
 pub struct InstanceGuard(HANDLE);
 impl Drop for InstanceGuard {
@@ -122,6 +124,17 @@ fn message_box(message: &str, title: &str, style: u32) -> i32 {
 /// machine-wide-root-store write that antivirus heuristics treat as the
 /// defining action of a TLS-intercepting dropper.
 pub fn install_root_certificate(encoded: &[u8]) -> Result<(), String> {
+    /* A helper from the earlier installer put this exact certificate in the
+       machine store. Reusing it is safe and avoids asking Windows to rewrite a
+       root-store entry during an upgrade, which can be denied even though the
+       certificate is already trusted and the new helper needs no new trust. */
+    let already_in_user_store =
+        has_matching_certificate(encoded, CERT_SYSTEM_STORE_CURRENT_USER).unwrap_or(false);
+    let already_in_machine_store =
+        has_matching_certificate(encoded, CERT_SYSTEM_STORE_LOCAL_MACHINE).unwrap_or(false);
+    if already_in_user_store || already_in_machine_store {
+        return Ok(());
+    }
     let store = open_root_store(CERT_SYSTEM_STORE_CURRENT_USER)?;
     let result = unsafe {
         CertAddEncodedCertificateToStore(
@@ -143,9 +156,47 @@ pub fn install_root_certificate(encoded: &[u8]) -> Result<(), String> {
     }
 }
 
-/// Remove only the current user's helper root.
+/// Remove the current-user root and, when permitted, the machine root left by
+/// the older installer. The machine-store removal is best effort because an
+/// explicit uninstall should not fail merely because an obsolete root is
+/// already gone or protected by policy.
 pub fn remove_root_certificate(subject: &str) -> Result<(), String> {
-    remove_from_store(subject, CERT_SYSTEM_STORE_CURRENT_USER)
+    remove_from_store(subject, CERT_SYSTEM_STORE_CURRENT_USER)?;
+    let _ = remove_from_store(subject, CERT_SYSTEM_STORE_LOCAL_MACHINE);
+    Ok(())
+}
+
+fn has_matching_certificate(encoded: &[u8], store_id: u32) -> Result<bool, String> {
+    let store = open_root_store(store_id)?;
+    let subject = wide(ROOT_SUBJECT);
+    let certificate = unsafe {
+        CertFindCertificateInStore(
+            store,
+            X509_ASN_ENCODING | PKCS_7_ASN_ENCODING,
+            0,
+            CERT_FIND_SUBJECT_STR_W,
+            subject.as_ptr().cast::<c_void>(),
+            ptr::null(),
+        )
+    };
+    if certificate.is_null() {
+        unsafe {
+            CertCloseStore(store, 0);
+        }
+        return Ok(false);
+    }
+    let matching = unsafe {
+        let context = &*certificate;
+        context.cbCertEncoded as usize == encoded.len()
+            && !context.pbCertEncoded.is_null()
+            && std::slice::from_raw_parts(context.pbCertEncoded, context.cbCertEncoded as usize)
+                == encoded
+    };
+    unsafe {
+        CertFreeCertificateContext(certificate);
+        CertCloseStore(store, 0);
+    }
+    Ok(matching)
 }
 
 fn remove_from_store(subject: &str, store_id: u32) -> Result<(), String> {

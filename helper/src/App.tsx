@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 type Status = {
+  version: string;
   hasProfile: boolean;
   profileReady: boolean;
   restartRequired: boolean;
@@ -25,6 +26,7 @@ function validDashboard(value: unknown): value is Dashboard {
   const { status, traffic } = value as Partial<Dashboard>;
   const text = (entry: unknown) => entry === null || typeof entry === 'string';
   return Boolean(status && traffic
+    && typeof status.version === 'string' && status.version.length > 0
     && [status.hasProfile, status.profileReady, status.restartRequired, traffic.enabled, traffic.recorded, traffic.full].every((entry) => typeof entry === 'boolean')
     && [status.lastError, status.source, status.updatedAt, traffic.lastError].every(text)
     && Number.isSafeInteger(traffic.entries) && traffic.entries >= 0);
@@ -102,7 +104,8 @@ export function App() {
           <p className="eyebrow">Local companion</p>
           <h1>JASWA Helper</h1>
         </div>
-        <span className={`signal ${status?.lastError ? 'problem' : status?.profileReady ? 'ready' : ''}`} aria-label={statusText(status ?? { hasProfile: false, profileReady: false, restartRequired: false, lastError: null, source: null, updatedAt: null })} />
+        <span className="version" aria-label={`Helper version ${status?.version ?? 'unknown'}`}>v{status?.version ?? '—'}</span>
+        <span className={`signal ${status?.lastError ? 'problem' : status?.profileReady ? 'ready' : ''}`} aria-label={statusText(status ?? { version: '', hasProfile: false, profileReady: false, restartRequired: false, lastError: null, source: null, updatedAt: null })} />
       </header>
 
       <section className="status" aria-live="polite">

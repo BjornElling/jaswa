@@ -14,14 +14,15 @@ async function main() {
     throw new Error('JASWA_SIGNING_THUMBPRINT must name a trusted 40-character Authenticode certificate. Refusing to create an unsigned installer.');
   }
   const tauriDirectory = path.join(__dirname, '..', 'src-tauri');
+  const helperVersion = require('../package.json').version;
   const publicDirectory = path.join(__dirname, '..', '..', 'public');
   const bundleDirectory = path.join(tauriDirectory, 'target', 'release', 'bundle', 'nsis');
   const publishedInstaller = path.join(publicDirectory, 'JASWA-Helper-Setup.exe');
   await run(process.execPath, [require.resolve('@tauri-apps/cli/tauri.js'), 'build', '--bundles', 'nsis'], { cwd: path.join(__dirname, '..'), stdio: 'inherit' });
   const installers = (await readdir(bundleDirectory))
-    .filter((file) => file.endsWith('-setup.exe'));
+    .filter((file) => file.endsWith(`_${helperVersion}_x64-setup.exe`));
   if (installers.length !== 1) {
-    throw new Error(`Expected one Tauri NSIS installer in ${bundleDirectory}, found ${installers.length}.`);
+    throw new Error(`Expected one Tauri NSIS installer for helper v${helperVersion} in ${bundleDirectory}, found ${installers.length}.`);
   }
   const stagedInstaller = path.join(bundleDirectory, installers[0]);
   await run(signTool(), ['verify', '/pa', '/tw', stagedInstaller], { stdio: 'inherit' });

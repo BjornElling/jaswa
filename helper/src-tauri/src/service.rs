@@ -226,6 +226,7 @@ fn status(shared: &Shared) -> Value {
     let last_error = last_error.or_else(diagnostics::last_error).or_else(|| capture_gap.then(|| "An exchange could not be imported. Save an error report, then restart Summoners War to capture a fresh account. Live import is paused.".to_owned()));
     json!({
         "running": shared.running.load(Ordering::Acquire),
+        "version": env!("CARGO_PKG_VERSION"),
         "hasProfile": snapshot.has_profile,
         "updatedAt": snapshot.updated_at,
         "source": snapshot.source,

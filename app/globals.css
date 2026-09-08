@@ -291,6 +291,12 @@ button { cursor: pointer; }
 }
 .rail-item:hover { background: var(--hover); color: var(--ink); }
 .rail-item:hover .glyph { color: var(--dim); }
+.rail-item.report-issue {
+  border: 1px solid var(--gold-edge);
+  color: var(--gold);
+}
+.rail-item.report-issue .glyph { color: var(--gold); }
+.rail-item.report-issue:hover { border-color: var(--gold); background: var(--hover); }
 .rail-item.active {
   background: #181c24;
   color: var(--gold);
@@ -2974,9 +2980,49 @@ button { cursor: pointer; }
   display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap;
 }
 
+/* The warning is deliberately absent when the connected helper is current: a
+   healthy version check should leave no extra box behind on the home page. */
+.helper-version {
+  display: grid;
+  gap: var(--s2);
+  padding: var(--s3) var(--s4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--sunk);
+}
+.helper-version.update-available {
+  border-color: var(--gold);
+  background:
+    linear-gradient(180deg, rgba(217, 173, 82, .12), transparent 85%),
+    var(--sunk);
+}
+.helper-version h4 {
+  margin: 0;
+  color: var(--gold);
+  font-size: var(--t-body);
+  font-weight: 600;
+}
+.helper-version p {
+  margin: 0;
+  min-height: 2.8em;
+  overflow: hidden;
+  color: var(--dim);
+  font-size: var(--t-small);
+  line-height: 1.4;
+}
+.helper-version.update-available p { color: var(--ink); }
+
 /* The verdict card is a full-width block in the aside it was written for; here
    it sits in a column of its own content and takes the column's width. */
-.statistics.acceleration.route-link { width: 100%; }
+.statistics.acceleration.route-link { width: 100%; position: relative; }
+.helper-current-version {
+  position: absolute; top: var(--s4); right: var(--s4);
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: var(--t-small);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
 /* Both helper rows sit a little lower inside the existing card; the detail sits
    lower still, so the two lines have breathing room without growing the card. */
 .statistics.acceleration.route-link .acceleration-verdict { transform: translateY(var(--s1)); }
@@ -3625,10 +3671,8 @@ th.align-left .sort-button { justify-content: flex-start; }
 .artifact-conversion-more:hover { text-decoration: underline; }
 .artifact-conversion-more:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
-/* An import failure must not move the controls used to diagnose it: once a
-   message is showing, the box holds the same height whether the next one is one
-   line or ten. With nothing to say it takes no room at all — reserving the
-   height while empty pushed the whole import section down a box's worth. */
+/* An import failure gets room for a longer diagnostic without leaving an empty
+   hole in the ordinary loaded-data view. */
 .import-message { max-height: 96px; overflow: auto; overflow-wrap: anywhere; }
 .import-message:not(:empty) { height: 96px; }
 .import-message:empty { display: none; }

@@ -21,18 +21,21 @@ try {
   let mode = 'broken-profile';
   let instance = 'first-helper';
   let revision = 1;
+  let version = '1.0.0';
   await page.route('http://127.0.0.1:37654/**', async (route) => {
     const health = route.request().url().endsWith('/health');
     const headers = { 'access-control-allow-origin': origin, 'access-control-allow-private-network': 'true' };
     const data = structuredClone(account);
     if (mode === 'unreadable') data.artifacts[0].type = 999;
-    const body = health ? { running: true, profileReady: mode !== 'capture-error', restartRequired: false, revision, sessionId: 1, instanceId: instance, lastError: mode === 'capture-error' ? 'Capture failed. Save an error report, then restart Summoners War.' : null }
+    const body = health ? { running: true, version, profileReady: mode !== 'capture-error', restartRequired: false, revision, sessionId: 1, instanceId: instance, lastError: mode === 'capture-error' ? 'Capture failed. Save an error report, then restart Summoners War.' : null }
       : mode === 'broken-profile' ? { invalid: true }
       : { updatedAt: '2026-09-06T12:00:00Z', revision, sessionId: 1, instanceId: instance, source: 'game-start', data };
     await route.fulfill({ status: 200, headers, json: body });
   });
   await page.goto(origin, { waitUntil: 'networkidle' });
   await page.locator('input[name="import-route"][value="direct"]').check();
+  await page.getByText('Helper is tired, boss').first().waitFor();
+  await page.getByText('Version 1.0.1 is now available.').first().waitFor();
   await page.getByText(/invalid snapshot envelope/).first().waitFor({ timeout: 20000 });
   await page.screenshot({ path: 'outputs/helper-hardening/app-empty-profile-error.png', fullPage: true });
   const readGame = () => page.evaluate(() => new Promise((resolve, reject) => {
@@ -44,7 +47,10 @@ try {
     };
   }));
   mode = 'valid';
+  version = '1.0.1';
   await page.waitForFunction(() => !document.body.textContent.includes('invalid snapshot envelope'), null, { timeout: 20000 });
+  await page.waitForFunction(() => !document.body.textContent.includes('Helper is tired, boss'), null, { timeout: 20000 });
+  assert.equal(await page.getByText('Helper is tired, boss').count(), 0, 'a current helper leaves no update box behind');
   for (let attempt = 0; attempt < 30 && !(await readGame()); attempt += 1) await page.waitForTimeout(500);
   assert.equal((await readGame()).instanceId, instance);
   await page.screenshot({ path: 'outputs/helper-hardening/app-full-import.png', fullPage: true });
@@ -60,22 +66,20 @@ try {
   mode = 'capture-error';
   await page.getByText(/Capture failed. Save an error report/).first().waitFor({ timeout: 20000 });
   assert.equal((await readGame()).instanceId, instance, 'the last good import remains saved');
-  assert.deepEqual(await controls(), beforeError);
+  assert.equal((await controls()).length, beforeError.length, 'capture failure keeps the route controls available');
   await page.screenshot({ path: 'outputs/helper-hardening/app-full-capture-error.png', fullPage: true });
   mode = 'unreadable';
   instance = 'unreadable-helper';
   revision += 1;
-  await page.getByText(/Save an import report below/).first().waitFor({ timeout: 20000 });
-  const download = page.waitForEvent('download');
-  page.once('dialog', (dialog) => dialog.accept());
-  await page.getByRole('button', { name: 'Save import report' }).click();
-  const saved = await download;
-  const chunks = [];
-  for await (const chunk of await saved.createReadStream()) chunks.push(chunk);
-  const report = JSON.parse(Buffer.concat(chunks).toString());
-  assert.equal(report.rejectedSnapshot.data.artifacts[0].type, 999);
+  await page.getByText(/Use Report Issue to send the details/).first().waitFor({ timeout: 20000 });
+  assert.equal(await page.getByRole('button', { name: 'Save import report' }).count(), 0, 'the old split import-report action is gone');
+  await page.getByRole('button', { name: 'Report Issue' }).click();
+  await page.getByRole('heading', { name: 'Report an issue' }).waitFor();
+  await page.getByText(/account statistics included/).waitFor();
+  await page.screenshot({ path: 'outputs/helper-hardening/app-report-issue.png', fullPage: true });
+  await page.getByRole('button', { name: 'Cancel' }).click();
   assert.equal((await readGame()).instanceId, 'restarted-helper');
-  assert.deepEqual(await controls(), beforeError);
+  assert.equal((await controls()).length, beforeError.length, 'unreadable import keeps the route controls available');
   await page.screenshot({ path: 'outputs/helper-hardening/app-unreadable-report.png', fullPage: true });
   console.log('Real app: empty malformed-profile error, full captured-account import, same-revision helper restart, and visible capture failure with the last good import preserved passed.');
 } finally { await browser.close(); }

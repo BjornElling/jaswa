@@ -11,7 +11,7 @@ const output = resolve(root, 'outputs/helper-hardening');
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch();
 const initial = {
-  status: { hasProfile: false, profileReady: false, restartRequired: false, lastError: null, source: null, updatedAt: null },
+  status: { version: '1.0.1', hasProfile: false, profileReady: false, restartRequired: false, lastError: null, source: null, updatedAt: null },
   traffic: { enabled: false, entries: 0, recorded: false, full: false, lastError: null },
 };
 try {
@@ -67,7 +67,7 @@ try {
   assert.deepEqual(await boxes(), before);
   await page.screenshot({ path: resolve(output, 'helper-recording.png'), fullPage: true });
   await page.evaluate(() => {
-    window.dashboard.status = { hasProfile: true, profileReady: false, restartRequired: false, lastError: 'Capture failed. '.repeat(60), source: 'live', updatedAt: '2026-09-06T12:00:00Z' };
+    window.dashboard.status = { version: '1.0.1', hasProfile: true, profileReady: false, restartRequired: false, lastError: 'Capture failed. '.repeat(60), source: 'live', updatedAt: '2026-09-06T12:00:00Z' };
     window.dashboard.traffic = { enabled: true, entries: 999999999, recorded: true, full: false, lastError: 'Disk write failed. '.repeat(60) };
   });
   await page.getByText('Connection needs attention', { exact: true }).waitFor();
