@@ -73,7 +73,8 @@ const panels = {
 };
 
 /* `favorite_type` names a game mode, not a favourite monster: 0 is PvE, 1 is
-   RTA. Decision 22 takes PvE, so an RTA row is rejected rather than blended
+   RTA. ENGRAVING-STATISTICS.md §3 takes PvE, so an RTA row is rejected rather
+   than blended
    into a dataset that would then mean neither thing. Relics are exempt because
    the game offers one model and never sends the field. */
 const pveMode = 0;
@@ -166,7 +167,8 @@ function readObservation(entry) {
   const secondary = readCounts(response.secondary_effect, { requireSlot: false });
   if (!secondary) return { rejected: 'secondary_effect was missing or malformed' };
 
-  /* Decision 40: a panel the game answers with nothing is not evidence.
+  /* ENGRAVING-STATISTICS.md §5: a panel the game answers with nothing is not
+     evidence.
      The game returns `ret_code 0` and two empty lists for monsters too little
      played to have a distribution — every 1★ monster does this, and so does the
      occasional relic panel for a monster nobody puts relics on. Storing it would
@@ -220,7 +222,8 @@ async function readJson(path, fallback) {
 /**
  * The set of monster types the dataset is meant to cover.
  *
- * One row per type at its highest awakening (decision 23): every 2A, plus each
+ * One row per type at its highest awakening (ENGRAVING-STATISTICS.md §4):
+ * every 2A, plus each
  * awakened form that has no 2A.
  */
 function captureList(catalog) {
@@ -435,7 +438,8 @@ async function main() {
   let unchanged = 0;
   const touched = new Set();
 
-  /* Decision 39: where one session captured the same monster at two awakening
+  /* ENGRAVING-STATISTICS.md §4: where one session captured the same monster at
+     two awakening
      tiers, only the highest is kept.
 
      The game makes this all but impossible on its own — asked for statistics it
@@ -458,7 +462,7 @@ async function main() {
   }
 
   for (const { unitMasterId, panel, observation } of seen.values()) {
-    /* Decision 23: awakened forms only. An un-awakened monster's statistics
+    /* Awakened forms only (§4). An un-awakened monster's statistics
        describe where players park spare runes, not what the monster is for. */
     const tier = awakeningTier(unitMasterId);
     if (tier !== 1 && tier !== 3) {
@@ -511,7 +515,7 @@ async function main() {
     if (Object.keys(dataset.monsters[stale.id]).length === 0) delete dataset.monsters[stale.id];
   }
 
-  /* Decision 40 again, for what an earlier run already stored. The rule now
+  /* §5 again, for what an earlier run already stored. The rule now
      rejects an empty distribution on the way in, but a panel merged before it
      existed is still on disk claiming to be a capture. */
   const emptyPanels = [];

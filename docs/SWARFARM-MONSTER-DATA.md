@@ -103,7 +103,7 @@ fordi den ikke følger af ID'et — enighed på tværs af et par er dermed reelt
 bevis for, at parringen er rigtig. Kommandoen melder også, når et *pending* par
 kan opløses, fordi kataloget nu bærer modparten.
 
-Beslutning 37 i `ARTIFACT-SPRINT.md` er den bindende regel for, hvad der
+`docs/MONSTER-SPECIES-DECISION.md` er den bindende regel for, hvad der
 navngives efter master-ID og hvad efter art.
 
 ## Kilder

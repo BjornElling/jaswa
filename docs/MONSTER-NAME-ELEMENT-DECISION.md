@@ -2,7 +2,7 @@
 
 **Status:** Binding project rule — a single, deliberate exception to how JASWA
 names things
-**Decided:** September 1, 2026 — decision 38 in `docs/ARTIFACT-SPRINT.md`
+**Decided:** September 1, 2026
 **Enforced by:** `npm run verify:element-qualified-names`
 **Implemented in:** `app/lib/monster-catalog.ts`
 
@@ -70,7 +70,7 @@ The set is computed once, at module load, from `swarfarm-monsters.json`.
 
 Ambiguity is judged within one **family and awakening tier** — that is, all
 digits of the `unit_master_id` except the last, which is the element
-(`ARTIFACT-SPRINT.md` §494: an id is `<family><tier><element>`).
+(`ENGRAVING-STATISTICS.md` §4: an id is `<family><tier><element>`).
 
 This matters because unrelated monsters occasionally share a name. `Theomars`
 exists at `17111` and at `19211` — two different monsters, both Water. Keying on
@@ -119,7 +119,7 @@ confident refactor:
 
 1. **This document**, referenced by name from the code that implements it.
 2. **A comment at the implementation** in `app/lib/monster-catalog.ts` marked
-   `DECISION 38`, pointing here and saying plainly not to remove the qualifier.
+   `BINDING RULE`, pointing here and saying plainly not to remove the qualifier.
 3. **`npm run verify:element-qualified-names`**, which fails the moment an
    ambiguous name is rendered without its element. It checks the real
    `monsterPresentation` output against the catalogue, so it breaks whether the

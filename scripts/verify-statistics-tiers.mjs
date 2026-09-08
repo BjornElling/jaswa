@@ -2,8 +2,8 @@
 
 /**
  * Proves `app/data/engraving-statistics.json` holds each monster at one
- * awakening tier only (decision 39), and that no panel is an empty answer
- * (decision 40).
+ * awakening tier only, and that no panel is an empty answer
+ * (`docs/ENGRAVING-STATISTICS.md` §4 and §5).
  *
  * The game makes a two-tier capture all but impossible: asked for statistics it
  * normalises upward, serving the awakened panel for an un-awakened monster and
@@ -69,14 +69,14 @@ async function main() {
   }
   const collisions = [...perLineage].filter(([, seen]) => seen.length > 1);
 
-  /* Tier 0 must never appear: decision 23 excludes it and the game never serves
+  /* Tier 0 must never appear: §4 excludes it and the game never serves
      it, so one here means an assumption broke rather than a preference lapsed. */
   const unawakened = Object.keys(rows).filter((id) => awakeningTier(id) === 0);
 
   /* A row the catalogue does not know is a record nothing can name or reach. */
   const unknown = Object.keys(rows).filter((id) => !known.has(id));
 
-  /* Decision 40: a panel with no distribution at all is not a capture. The game
+  /* §5: a panel with no distribution at all is not a capture. The game
      answers this way for monsters too little played to have one — every 1★ does
      — and storing it would count the monster as covered while holding nothing. */
   const emptyPanels = [];
@@ -105,7 +105,7 @@ async function main() {
 
   if (unawakened.length) {
     failed = true;
-    console.error(`\n${unawakened.length} row(s) are un-awakened (tier 0), which decision 23 excludes:`);
+    console.error(`\n${unawakened.length} row(s) are un-awakened (tier 0), which §4 excludes:`);
     for (const id of unawakened.slice(0, 20)) console.error(`  ${id} ${known.get(id)?.name ?? '(not in catalogue)'}`);
   }
 
@@ -123,11 +123,11 @@ async function main() {
       console.error(`  ${entry.id} ${known.get(entry.id)?.name ?? '?'} — ${entry.panel}`);
     }
     if (emptyPanels.length > 20) console.error(`  … and ${emptyPanels.length - 20} more.`);
-    console.error('  Decision 40: an empty answer is not a capture. Re-run the collector, which drops these.');
+    console.error('  An empty answer is not a capture. Re-run the collector, which drops these.');
   }
 
   if (failed) {
-    console.error('\nSee decisions 39 and 40 in docs/ARTIFACT-SPRINT.md.');
+    console.error('\nSee docs/ENGRAVING-STATISTICS.md §4 and §5.');
     process.exitCode = 1;
     return;
   }

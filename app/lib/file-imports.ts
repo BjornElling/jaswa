@@ -36,7 +36,7 @@ export const defaultRunePotentialSettings: RunePotentialSettings = {
   sortOrder: 'Power-up Lv.',
 };
 
-/* Half credit is the honest midpoint of decision 11's question, and it reads as
+/* Half credit is the honest midpoint of §19.6's question, and it reads as
    a deliberate answer rather than a disabled feature the way 0 % or 100 % would:
    at 0 % an acceptable property may as well be unwanted, and at 100 % the
    preferred/acceptable distinction stops meaning anything. */

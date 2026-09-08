@@ -58,7 +58,7 @@ export type TimeZoneChoice = 'system' | 'manual';
 export type GeneralSettings = { numberFormat: NumberFormatChoice; dateOrder: DateOrderChoice; hourCycle: HourCycleChoice; timeZone: TimeZoneChoice; manualTimeZone: string };
 /**
  * What an *acceptable* artifact property is worth against a *preferred* one,
- * as a percentage — `ARTIFACT-SPRINT.md` decision 11.
+ * as a percentage — `ARTIFACT-CANONICAL.md` §19.6.
  *
  * It is stored as the percentage itself rather than as a 1–5 step, because the
  * judgement multiplies by it: a step index would have to be translated into a

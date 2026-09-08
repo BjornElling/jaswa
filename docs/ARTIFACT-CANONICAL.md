@@ -1321,7 +1321,7 @@ input, while the roll model merely estimates future conversions.
 
 ### 15.8 What this unblocks, and what it does not
 
-Step 2 of the sprint — modelling and reading artifacts — is unblocked. Roll
+Modelling and reading artifacts is unblocked. Roll
 quality (§13's first evaluation axis) is computable today: the property, its
 power-up count, its value, and the grade invariant are all present and verified.
 
@@ -1736,7 +1736,7 @@ line that took power-ups of its own.
 **Recalibrating this is a deliberate act, not a tuning knob.** The benchmark's
 shape follows from the contribution budget (§3) and its acceptable-line count
 from the observed preference breadth. Should the defaults' thresholds change
-(sprint decision 29), that breadth changes with them and this figure has to be
+(§19.3), that breadth changes with them and this figure has to be
 re-measured rather than left standing.
 
 `npm run verify:artifact-score-scale` holds all of this: that the benchmark
@@ -2166,3 +2166,131 @@ recommendation table having carried its own private threshold of 75.
 
 An absent score is **unjudged, not low**, and keeps its own separate muted
 reading. `—` never enters a band.
+
+---
+
+## 19. Where a monster's property preferences come from
+
+Every score in §16 and every recommendation in §17 rests on one statement: which
+artifact properties this monster wants. This section owns that statement — who
+makes it, how it is stored, and what happens where nobody has made it.
+
+### 19.1 The user declares what matters; JASWA measures only the roll
+
+**Artifact value is never derived from what a property *does* in combat.** Per
+monster, the user marks each property **preferred** or **acceptable**, and the
+artifact's value is how well it rolled on exactly those.
+
+This removes the dependency on skill data entirely — JASWA has none, and judging
+`[Skill 2] Recovery` would otherwise require knowing whether Skill 2 heals — and
+it puts the judgement where the knowledge actually is: the player knows what
+their monster is for.
+
+It follows that **JASWA never checks whether a preference is sensible.**
+Validating one against the monster's kit would reintroduce the skill dependency
+and would put the program in the position of overruling the user about their own
+monster. A preference the user regrets is theirs to change.
+
+### 19.2 Preferences are held per monster species, keyed by `(category, property)`
+
+Preferences are held **per monster species**, never per owned copy: two copies of
+one monster cannot carry different preferences, and the interface offers no way
+to try. A property preference says what this *kind* of monster is for. A
+collaboration pair is one species — `docs/MONSTER-SPECIES-DECISION.md`.
+
+A preference is keyed by **`(category, property)`**, not by property alone. A
+monster wears one artifact of each category, so "which property do I want here"
+is genuinely two questions: a `Life Drain` roll on the Attribute artifact is a
+different opportunity from one on the Type artifact and competes against a
+different set of alternatives. The fourteen properties available on both
+categories therefore appear in both lists and are set independently, and
+**anything keyed on the property alone — a lookup, a default, a validation, a
+saved preference — is wrong by construction.**
+
+Every property is its own independent choice. The ten elemental properties get
+no separate mechanic: `Damage Dealt on X` and `Damage Taken from X` point in
+opposite directions, so collapsing them into one "element" choice would lose the
+distinction that matters.
+
+Nothing is shared between species, and preferences are not copyable from one to
+another. The defaults below are what spare the user a roster of empty forms.
+
+### 19.3 The statistics supply the defaults, by fixed shares
+
+The engraving statistics (`docs/ENGRAVING-STATISTICS.md`) supply the **default**
+preferences, classified from the raw counts of one `(species, category, view)`
+distribution — never from rounded display percentages:
+
+```text
+share = property count / sum of all property counts in that distribution
+```
+
+| View | Preferred | Acceptable | Neither |
+| --- | --- | --- | --- |
+| Main Property (HP, ATK, DEF) | share ≥ 40 % | ≥ 10 % and < 40 % | < 10 % |
+| Sub Property (Attribute or Type) | share ≥ 10 % | ≥ 5 % and < 10 % | < 5 % |
+
+The two thresholds differ deliberately. Main Property has three possible values,
+so 40 % is a meaningful choice over an even split while 10 % preserves a real
+minority option. Each sub-property distribution has 23 values, making an even
+share about 4.3 %; 10 % is a clear preference and 5 % is worth accepting. **No
+category is forced to have a preferred default** where its statistics make
+nothing stand out.
+
+These thresholds decide the preference breadth the §16 benchmark is measured
+against. Changing them means re-measuring that benchmark, not merely retuning a
+knob.
+
+### 19.4 A user's statement always wins, and "cleared" is not "unset"
+
+**A user-entered preference always takes precedence. The statistics are
+consulted only where the user has stated nothing.** The two are never blended,
+averaged or reconciled: for a given `(species, category, property)` the answer
+comes from the user if they have stated one, and from the dataset otherwise.
+
+This removes a whole class of problem rather than solving it — because a
+recapture cannot touch anything the user has stated, the dataset needs no merge
+policy against preferences, and there is no "your default changed" case to
+design. What it does require is three states, and they are three:
+
+| State | Stored | The answer comes from |
+| --- | --- | --- |
+| The user stated preferred or acceptable | The value | The user |
+| The user stated *nothing* | Nothing | The statistics, where the dataset covers the species |
+| The user deliberately cleared it | An explicit "neither" | The user — **not** the default |
+
+The third row is the one that gets got wrong. Seeding the stored preferences
+from the defaults at first view collapses rows one and two; treating a cleared
+preference as absent collapses rows two and three, and the default silently
+overrules the user. This is `AGENTS.md` rule 3's absent-versus-zero distinction
+in the place it costs most: **store only what the user actually stated.**
+
+### 19.5 A species with no preferences is not judged
+
+A monster species the dataset has not captured and the user has not filled in is
+**not yet judged**: it is kept out of score-sorted views and given no fallback
+score derived from archetype or anything else.
+
+Every artifact would score zero against such a species, and a zero renders and
+sorts as though it were an answer. The dataset will never cover every species —
+each capture costs the user a visit to three panels, and new monsters keep
+arriving — so this is the ordinary case, not an edge case. An honest gap beats a
+guess that looks like a judgement.
+
+### 19.6 One global factor says what "acceptable" is worth
+
+How much an *acceptable* property is worth against a *preferred* one is a single
+global factor, not one per monster: the user is stating a general tolerance,
+rather than tuning each row.
+
+**It is stored as the percentage itself** — one of 0, 25, 50, 75 or 100 — in
+`ArtifactSettings.acceptableWorth`, so the value the user reads and the value
+the calculation multiplies by are one thing. A step index would need translating
+into a factor somewhere, and that translation is a second source of truth. The
+five stops are a validated set rather than a range: a `.sw` file claiming 37 %
+did not come from this slider.
+
+The default is 50 %, the honest midpoint. Both endpoints read as the feature
+switched off — at 0 % an acceptable property may as well be unwanted, and at
+100 % the distinction stops meaning anything — and §16 records what each does to
+the benchmark.

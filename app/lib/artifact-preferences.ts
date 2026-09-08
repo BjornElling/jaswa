@@ -43,7 +43,8 @@ export const recordedArtifactPreferenceMonsterIds = Object.keys(monsterStatistic
 const categorySlots: Record<ArtifactCategory, number> = { attribute: 1, type: 2 };
 
 /**
- * Decision 29's thresholds, as shares of the property's own distribution.
+ * `ARTIFACT-CANONICAL.md` §19.3's thresholds, as shares of the property's own
+ * distribution.
  * Main Property has three values against each sub-property list's 23, so one
  * threshold would either discard useful main alternatives or call most sub
  * properties desirable.
@@ -77,17 +78,17 @@ function totalCount(rows: EffectCount[]): number {
 
 /**
  * What the community equips on this monster species, in this artifact category,
- * turned into preferences by decision 29's fixed shares. A master id resolves to
- * its species first, so a collaboration monster and its generic twin answer
- * alike whichever name the player's copy carries.
+ * turned into preferences by `ARTIFACT-CANONICAL.md` §19.3's fixed shares. A
+ * master id resolves to its species first, so a collaboration monster and its
+ * generic twin answer alike whichever name the player's copy carries.
  *
  * `undefined` where the dataset has not captured this species — most are not, so
- * an uncaptured one is the ordinary case rather than an edge one, and decision 18
+ * an uncaptured one is the ordinary case rather than an edge one, and §19.5
  * requires it to read as *not judged* rather than as a score of zero.
  *
  * These are defaults only. When the user's own per-type preferences arrive they
  * take precedence wherever they are stated, and are consulted nowhere else
- * (decision 28).
+ * (§19.4).
  */
 export function defaultPropertyPreferences(
   masterId: unknown,

@@ -9,7 +9,7 @@ import type { Artifact } from './artifacts';
  *
  * `undefined` means the question does not apply — the artifact is unequipped,
  * the wearer is unknown, the monster type has no recorded preferences, or a
- * legacy line makes the artifact unjudgeable. Under decision 18 that is shown
+ * legacy line makes the artifact unjudgeable. Under §19.5 that is shown
  * as *not judged*, never as a zero: every artifact would score zero against an
  * unjudged type, and a zero sorts and reads as an answer.
  */

@@ -8,7 +8,8 @@ import { artifactAcceptableWorthChoices, artifactInsignificantDifferenceRange } 
 import type { ArtifactConversionStoneMode, ArtifactRecalculateMode, ArtifactSettings, GeneralSettings } from '../lib/types';
 import type { GameRecord } from '../lib/game-data';
 
-/* The slider's stops are the stored percentages themselves (decision 11), so
+/* The slider's stops are the stored percentages themselves
+   (`ARTIFACT-CANONICAL.md` §19.6), so
    the label a user reads and the factor the judgement multiplies by are one
    value. Indexed by position in `artifactAcceptableWorthChoices`. */
 const acceptableWorthLabels = [
