@@ -6,7 +6,7 @@
 //! indistinguishable from a dropper, so this module uses the Windows APIs
 //! directly instead.
 
-use std::{ffi::c_void, io, ptr};
+use std::{ffi::c_void, io, path::PathBuf, ptr, slice};
 use windows_sys::Win32::{
     Foundation::{CloseHandle, ERROR_ALREADY_EXISTS, GetLastError, HANDLE},
     Security::Cryptography::{
@@ -15,9 +15,9 @@ use windows_sys::Win32::{
         CertDeleteCertificateFromStore, CertFindCertificateInStore, CertFreeCertificateContext,
         CertOpenStore, PKCS_7_ASN_ENCODING, X509_ASN_ENCODING,
     },
-    System::Threading::CreateMutexW,
+    System::{Com::CoTaskMemFree, Threading::CreateMutexW},
     UI::{
-        Shell::{IsUserAnAdmin, ShellExecuteW},
+        Shell::{FOLDERID_Downloads, IsUserAnAdmin, SHGetKnownFolderPath, ShellExecuteW},
         WindowsAndMessaging::{
             IDYES, MB_ICONERROR, MB_ICONWARNING, MB_OK, MB_YESNO, MessageBoxW, SW_SHOWNORMAL,
         },
@@ -100,6 +100,28 @@ pub fn open(path: &str) -> Result<(), String> {
     }
 }
 
+/// Resolves the user's configured Downloads known folder, including a folder
+/// that Windows or the user has moved away from the profile default.
+pub fn downloads_directory() -> Result<PathBuf, String> {
+    let mut path = ptr::null_mut();
+    let result =
+        unsafe { SHGetKnownFolderPath(&FOLDERID_Downloads, 0, ptr::null_mut(), &mut path) };
+    if result < 0 || path.is_null() {
+        return Err("Windows could not find your Downloads folder.".into());
+    }
+    let mut length = 0;
+    unsafe {
+        while *path.add(length) != 0 {
+            length += 1;
+        }
+    }
+    let value = String::from_utf16(unsafe { slice::from_raw_parts(path, length) });
+    unsafe { CoTaskMemFree(path.cast()) };
+    value
+        .map(PathBuf::from)
+        .map_err(|_| "Windows returned an invalid Downloads folder path.".into())
+}
+
 pub fn show_error(message: &str) {
     message_box(message, "JASWA Helper", MB_OK | MB_ICONERROR);
 }
@@ -125,9 +147,9 @@ fn message_box(message: &str, title: &str, style: u32) -> i32 {
 /// defining action of a TLS-intercepting dropper.
 pub fn install_root_certificate(encoded: &[u8]) -> Result<(), String> {
     /* A helper from the earlier installer put this exact certificate in the
-       machine store. Reusing it is safe and avoids asking Windows to rewrite a
-       root-store entry during an upgrade, which can be denied even though the
-       certificate is already trusted and the new helper needs no new trust. */
+    machine store. Reusing it is safe and avoids asking Windows to rewrite a
+    root-store entry during an upgrade, which can be denied even though the
+    certificate is already trusted and the new helper needs no new trust. */
     let already_in_user_store =
         has_matching_certificate(encoded, CERT_SYSTEM_STORE_CURRENT_USER).unwrap_or(false);
     let already_in_machine_store =
@@ -248,4 +270,14 @@ fn open_root_store(store_id: u32) -> Result<*mut c_void, String> {
 
 fn wide(value: &str) -> Vec<u16> {
     value.encode_utf16().chain(std::iter::once(0)).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolves_the_users_configured_downloads_folder() {
+        assert!(downloads_directory().unwrap().is_absolute());
+    }
 }

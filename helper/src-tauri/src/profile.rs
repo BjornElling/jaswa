@@ -54,23 +54,6 @@ const ENTITIES: [Entity; 7] = [
     },
 ];
 
-/* SWEX writes the whole login response, but JASWA's file route only consumes
-these account collections. Keeping this boundary explicit prevents game
-menus, shops, arena state and other unrelated response sections from
-becoming part of a JASWA data file. */
-const DOWNLOAD_KEYS: &[&str] = &[
-    "wizard_id",
-    "unit_list",
-    "unit_storage_list",
-    "unit_storage_normal_list",
-    "runes",
-    "artifacts",
-    "relics",
-    "rune_craft_item_list",
-    "artifact_crafts",
-    "inventory_info",
-];
-
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Status {
@@ -93,8 +76,14 @@ pub struct PublishedProfile {
     pub data: Value,
 }
 
+pub struct SwexExport {
+    pub filename: String,
+    pub content: String,
+}
+
 pub struct ProfileStore {
     profile: Option<Value>,
+    swex_snapshot: Option<Value>,
     updated_at: Option<String>,
     source: Option<String>,
     revision: u64,
@@ -106,6 +95,7 @@ impl Default for ProfileStore {
     fn default() -> Self {
         Self {
             profile: None,
+            swex_snapshot: None,
             updated_at: None,
             source: None,
             revision: 0,
@@ -118,6 +108,7 @@ impl Default for ProfileStore {
 impl ProfileStore {
     pub fn clear(&mut self) {
         self.profile = None;
+        self.swex_snapshot = None;
         self.updated_at = None;
         self.source = None;
     }
@@ -142,6 +133,13 @@ impl ProfileStore {
             instance_id: self.instance_id.clone(),
             data: self.profile.clone()?,
         })
+    }
+
+    /// Keeps the untouched login response separate from JASWA's live model.
+    /// SWOP consumes the former wire shape, while the latter deliberately
+    /// changes as game actions arrive after login.
+    pub fn swex_snapshot(&self) -> Option<Value> {
+        self.swex_snapshot.clone()
     }
 
     pub fn accept_snapshot(&mut self, snapshot: Value) -> bool {
@@ -217,6 +215,7 @@ impl ProfileStore {
             )),
         );
         self.profile = Some(Value::Object(normalized));
+        self.swex_snapshot = Some(snapshot);
         self.updated_at = Some(now());
         self.source = Some("game-start".into());
         self.session_id += 1;
@@ -431,38 +430,50 @@ impl ProfileStore {
     }
 }
 
-/// The downloadable file is intentionally the JASWA data payload, never the
-/// helper envelope, and it must not turn a locally captured session secret into
-/// a shareable file. The selected collections keep every account entity JASWA
-/// imports while omitting unrelated login-response state.
-pub fn serialize_export(profile: &Value) -> Option<String> {
-    let source = profile.as_object()?;
-    let mut payload = Map::new();
-    for key in DOWNLOAD_KEYS {
-        if let Some(value) = source.get(*key) {
-            payload.insert((*key).into(), remove_session_keys(value));
-        }
+/// Produces the wire-compatible login file that SWEX and SWOP exchange. The
+/// explicit download is kept local, but it must retain every response field:
+/// a smaller JASWA import payload is not a valid SWOP profile.
+pub fn serialize_swex_export(snapshot: &Value) -> Option<SwexExport> {
+    let source = snapshot.as_object()?;
+    if !is_array(source.get("building_list")) {
+        return None;
     }
-    Some(format!(
-        "{}\n",
-        serde_json::to_string(&Value::Object(payload)).ok()?
-    ))
+    let wizard = source.get("wizard_info")?.as_object()?;
+    let name = wizard.get("wizard_name")?.as_str()?;
+    let wizard_id = identifier(&Value::Object(wizard.clone()), "wizard_id")?;
+    let filename = sanitize_filename(&format!("{name}-{wizard_id}"));
+    if filename.is_empty() {
+        return None;
+    }
+    Some(SwexExport {
+        filename: format!("{filename}.json"),
+        content: format!("{}\n", serde_json::to_string_pretty(snapshot).ok()?),
+    })
 }
 
-fn remove_session_keys(value: &Value) -> Value {
-    match value {
-        Value::Array(values) => Value::Array(values.iter().map(remove_session_keys).collect()),
-        Value::Object(values) => Value::Object(
-            values
-                .iter()
-                .filter(|(key, _)| {
-                    key.as_str() != "session_key" && key.as_str() != "session_key_node"
-                })
-                .map(|(key, value)| (key.clone(), remove_session_keys(value)))
-                .collect(),
-        ),
-        value => value.clone(),
+/// Matches the Windows-safe basename SWEX derives before adding `.json`.
+fn sanitize_filename(name: &str) -> String {
+    let sanitized = name
+        .chars()
+        .filter(|character| {
+            !character.is_control()
+                && !('\u{0080}'..='\u{009f}').contains(character)
+                && !matches!(
+                    character,
+                    '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*'
+                )
+        })
+        .collect::<String>()
+        .trim_end_matches([' ', '.'])
+        .to_owned();
+    let mut result = String::new();
+    for character in sanitized.chars() {
+        if result.len() + character.len_utf8() > 255 {
+            break;
+        }
+        result.push(character);
     }
+    result
 }
 
 fn now() -> String {
@@ -1772,10 +1783,11 @@ mod tests {
     }
 
     #[test]
-    fn export_omits_session_secrets_at_every_depth() {
-        let exported = serialize_export(&json!({
+    fn swex_export_keeps_the_complete_login_snapshot_and_uses_its_account_name() {
+        let snapshot = json!({
             "session_key": "root",
             "wizard_id": 7,
+            "wizard_info": {"wizard_name": "Culpa", "wizard_id": 21822407},
             "unit_list": [{"session_key_node": "nested", "unit_id": 1}],
             "unit_storage_normal_list": [{"unit_id": 8, "wizard_id": 7}],
             "runes": [],
@@ -1785,18 +1797,53 @@ mod tests {
             "artifact_crafts": [{"rid": 4, "session_key": "craft-secret"}],
             "inventory_info": [{"rid": 5}],
             "building_list": [],
-            "account_info": {"device_name": "private"}
-        }))
-        .unwrap();
-        let document: Value = serde_json::from_str(&exported).unwrap();
-        assert!(!exported.contains("session_key"));
-        assert!(exported.contains("unit_id"));
-        assert_eq!(document["unit_storage_normal_list"][0]["unit_id"], 8);
-        assert_eq!(exported.matches('\n').count(), 1);
-        assert!(document.get("building_list").is_none());
-        assert!(document.get("account_info").is_none());
-        assert_eq!(document["artifact_crafts"][0]["rid"], 4);
-        assert_eq!(document["inventory_info"][0]["rid"], 5);
+            "account_info": {"device_name": "private"},
+            "swop_required_field": {"kept": true}
+        });
+        let export = serialize_swex_export(&snapshot).unwrap();
+        let document: Value = serde_json::from_str(&export.content).unwrap();
+        assert_eq!(export.filename, "Culpa-21822407.json");
+        assert_eq!(document, snapshot);
+        assert!(export.content.contains("\n  \"building_list\": []"));
+    }
+
+    #[test]
+    fn swex_export_requires_the_profile_section_swex_uses_to_identify_a_login() {
+        assert!(
+            serialize_swex_export(&json!({
+                "wizard_info": {"wizard_name": "Culpa", "wizard_id": 21822407}
+            }))
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn swex_export_sanitizes_only_the_filename_not_the_profile_data() {
+        let snapshot = json!({
+            "wizard_info": {"wizard_name": "Cul:pa?", "wizard_id": 21822407},
+            "building_list": []
+        });
+        let export = serialize_swex_export(&snapshot).unwrap();
+        assert_eq!(export.filename, "Culpa-21822407.json");
+        assert_eq!(
+            serde_json::from_str::<Value>(&export.content).unwrap(),
+            snapshot
+        );
+    }
+
+    #[test]
+    fn accepted_login_keeps_the_untouched_snapshot_for_swex_export() {
+        let snapshot = json!({
+            "wizard_id": 7,
+            "wizard_info": {"wizard_name": "Culpa", "wizard_id": 21822407},
+            "building_list": [],
+            "unit_list": [],
+            "runes": [],
+            "unrelated_login_section": {"swop_needs_this": true}
+        });
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(snapshot.clone()));
+        assert_eq!(store.swex_snapshot(), Some(snapshot));
     }
 
     #[test]

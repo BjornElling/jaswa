@@ -1,5 +1,5 @@
 use crate::{
-    config::{allowed_origin, data_directory, GATEWAYS, HELPER_PORT, HOSTS_MARKER},
+    config::{GATEWAYS, HELPER_PORT, HOSTS_MARKER, allowed_origin, data_directory},
     diagnostics,
     incidents::Incidents,
     profile::ProfileStore,
@@ -10,18 +10,18 @@ use rcgen::{
     BasicConstraints, CertificateParams, DnType, GeneralSubtree, IsCa, KeyPair, NameConstraints,
 };
 use rustls::{
-    pki_types::{CertificateDer, ServerName},
     ClientConfig, ClientConnection, RootCertStore, ServerConfig, ServerConnection, StreamOwned,
+    pki_types::{CertificateDer, ServerName},
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::{
     fs,
     io::{self, Read, Write},
     net::{TcpListener, TcpStream},
     path::{Path, PathBuf},
     sync::{
-        atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc, Mutex,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
     thread,
     time::{Duration, Instant},
@@ -176,6 +176,9 @@ impl Service {
             .ok()?
             .read()
             .and_then(|profile| serde_json::to_value(profile).ok())
+    }
+    pub fn swex_snapshot(&self) -> Option<Value> {
+        self.shared.profile.lock().ok()?.swex_snapshot()
     }
     pub fn traffic(&self) -> std::sync::MutexGuard<'_, TrafficLog> {
         self.shared.traffic.lock().expect("traffic lock poisoned")
@@ -889,7 +892,9 @@ fn capture(request: &[u8], response: &[u8], shared: &Shared) {
                 // must not invalidate a login snapshot that was already read.
                 diagnostics::record(
                     "capture",
-                    &format!("Skipped {command_name}: its auxiliary response is outside the account capture protocol ({error})"),
+                    &format!(
+                        "Skipped {command_name}: its auxiliary response is outside the account capture protocol ({error})"
+                    ),
                 );
             }
             return;
@@ -1108,8 +1113,8 @@ mod tests {
     use super::*;
 
     fn encoded(value: &Value, compressed: bool) -> String {
-        use base64::{engine::general_purpose::STANDARD, Engine as _};
-        use cipher::{block_padding::Pkcs7, BlockEncryptMut, KeyIvInit};
+        use base64::{Engine as _, engine::general_purpose::STANDARD};
+        use cipher::{BlockEncryptMut, KeyIvInit, block_padding::Pkcs7};
         let mut plain = serde_json::to_vec(value).unwrap();
         if compressed {
             let mut encoder =
@@ -1132,10 +1137,12 @@ mod tests {
         let login = message(&encoded(&json!({"command": "HubUserLogin"}), false));
         let bad = message("broken envelope");
         capture(login.as_bytes(), bad.as_bytes(), &shared);
-        assert!(status(&shared)["lastError"]
-            .as_str()
-            .unwrap()
-            .contains("Save an error report"));
+        assert!(
+            status(&shared)["lastError"]
+                .as_str()
+                .unwrap()
+                .contains("Save an error report")
+        );
         let request = message(&encoded(&json!({"command": "GetSomething"}), false));
         let response = message(&encoded(&json!({"ret_code": 0}), true));
         capture(request.as_bytes(), response.as_bytes(), &shared);

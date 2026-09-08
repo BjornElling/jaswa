@@ -36,23 +36,20 @@ fn open_jaswa() -> Result<(), String> {
 
 #[tauri::command]
 fn download_json(state: State<'_, HelperState>) -> Result<String, String> {
-    let profile = state
+    let snapshot = state
         .service
-        .profile()
+        .swex_snapshot()
         .ok_or("Start Summoners War to capture an account snapshot.")?;
-    let data = profile
-        .get("data")
-        .ok_or("The captured snapshot is incomplete.")?;
-    let content =
-        profile::serialize_export(data).ok_or("The captured snapshot is not valid JSON.")?;
-    let path = config::data_directory().join("SummonersWar-export.json");
-    fs::create_dir_all(config::data_directory()).map_err(|error| error.to_string())?;
-    fs::write(&path, content).map_err(|error| error.to_string())?;
-    // Opening the payload itself sends a multi-megabyte JSON document to the
-    // user's editor and triggers its large-file safeguards. The containing
-    // folder still makes the generated file immediately easy to find.
-    windows::open(&config::data_directory().display().to_string())?;
-    Ok(format!("Saved JSON to {}", path.display()))
+    let export = profile::serialize_swex_export(&snapshot)
+        .ok_or("The captured account cannot be exported as an SWEX-compatible profile.")?;
+    let directory = windows::downloads_directory()?;
+    fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
+    let path = directory.join(&export.filename);
+    fs::write(&path, export.content).map_err(|error| error.to_string())?;
+    Ok(format!(
+        "Saved {} to your Downloads folder.",
+        export.filename
+    ))
 }
 
 #[tauri::command]

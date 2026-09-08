@@ -173,6 +173,15 @@ full fixture and intercepted helper HTTP responses. It checks malformed replies,
 rejected snapshots and their downloaded reports, preserved imports, and a helper
 restart at the same revision in live mode. The fixture is never uploaded.
 
+## SWEX-compatible profile download
+
+**Download JSON** writes the captured login response to the Windows Downloads
+folder that the user has configured, named `<wizard_name>-<wizard_id>.json` —
+for example `Culpa-21822407.json`. It retains the complete login-response shape
+that SWEX writes so the file can be opened directly in SWOP. The file remains
+on this computer, but it is private account data: share it only where you
+would share an SWEX export.
+
 ## Failure handling and private reports
 
 An unreadable account-login response pauses live import. Auxiliary gateway

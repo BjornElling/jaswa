@@ -127,6 +127,10 @@ try {
     { hasProfile: true, profileReady: true, restartRequired: false, lastError: null, source: 'game-start' },
     'Account captured', 'read your account when the game logged in');
   await page.screenshot({ path: resolve(output, 'helper-captured.png'), fullPage: true });
+  await page.getByRole('button', { name: 'Download JSON' }).click();
+  assert.ok(await page.evaluate(() => window.commands.includes('download_json')),
+    'the captured-account action must reach the SWEX-compatible download command');
+  assert.deepEqual(await boxes(), before);
   await state(
     { hasProfile: true, profileReady: true, restartRequired: false, lastError: null, source: 'live' },
     'Following your account', 'keeps up with what you do in the game');
