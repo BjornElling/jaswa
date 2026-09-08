@@ -160,7 +160,7 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
             </p>
 
             <div className="route-download">
-              <a className="button important-action" href="/JASWA-Helper-Setup.exe" download><WindowsMark />Download latest helper</a>
+              <a className="button important-action" href="/JASWA-Helper-Setup.exe" download><WindowsMark />Download helper</a>
             </div>
 
             {helperConnection.updateAvailable && <section className="helper-version update-available" role="status" aria-live="polite" aria-label="Helper update available">
