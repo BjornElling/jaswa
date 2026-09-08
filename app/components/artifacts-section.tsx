@@ -1,5 +1,3 @@
-'use client';
-
 import { WorkspacePage } from './workspace-page';
 import { Disclosure, PageHeader } from './page-chrome';
 import { CheckboxRow, OptionCard, RadioLine } from './form-controls';

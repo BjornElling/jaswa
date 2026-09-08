@@ -1,5 +1,3 @@
-'use client';
-
 import { type ReactNode, useMemo, useState } from 'react';
 import { Disclosure, PageHeader } from './page-chrome';
 import { DataTablePage, TableColumnGroup } from './data-table-page';

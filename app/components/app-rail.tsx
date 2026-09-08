@@ -1,4 +1,3 @@
-import Image from 'next/image';
 import type { Page } from '../lib/workspace-config';
 import { navigationGroups } from '../lib/workspace-config';
 
@@ -9,7 +8,7 @@ export function AppRail({ page, onNavigate, onReport }: {
 }) {
   return <nav className="rail" aria-label="jaswa sections">
     <div className="rail-brand">
-      <Image className="rail-mark" src="/favicon.svg" alt="" aria-hidden="true" width={34} height={34} priority />
+      <img className="rail-mark" src="/favicon.svg" alt="" aria-hidden="true" width={34} height={34} />
       <b>ja<span className="brand-sw">sw</span>a</b>
     </div>
     {navigationGroups.map((group) => <div className="rail-group" key={group.heading}>

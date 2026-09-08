@@ -1,11 +1,21 @@
+import js from '@eslint/js';
 import { defineConfig, globalIgnores } from 'eslint/config';
-import nextVitals from 'eslint-config-next/core-web-vitals';
-import nextTs from 'eslint-config-next/typescript';
+import reactHooks from 'eslint-plugin-react-hooks';
+import globals from 'globals';
+import tseslint from 'typescript-eslint';
 
 const eslintConfig = defineConfig([
-  ...nextVitals,
-  ...nextTs,
-  globalIgnores(['.next/**', '.next-verify/**', 'out/**', 'build/**', 'client/**', 'helper/**', 'next-env.d.ts']),
+  globalIgnores(['.next/**', '.next-verify/**', 'out/**', 'build/**', 'client/**', 'dist/**', 'helper/**', 'public/**', 'scripts/**', 'work/**']),
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
+  {
+    files: ['app/**/*.{ts,tsx}'],
+    languageOptions: { globals: globals.browser },
+    plugins: { 'react-hooks': reactHooks },
+    rules: {
+      ...reactHooks.configs.recommended.rules,
+    },
+  },
   {
     files: ['**/*.{jsx,tsx}'],
     rules: {

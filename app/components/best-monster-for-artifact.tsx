@@ -1,5 +1,3 @@
-'use client';
-
 import { type ReactNode, useMemo, useState } from 'react';
 import { Dropdown } from './dropdown';
 import { ConvertedArtifactMark } from './converted-artifact-mark';

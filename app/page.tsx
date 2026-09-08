@@ -1,16 +1,8 @@
-'use client';
-
-import { type ChangeEvent, type DragEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, type ChangeEvent, type DragEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { AppRail } from './components/app-rail';
-import { ArtifactList } from './components/artifact-list';
-import { ArtifactsSection } from './components/artifacts-section';
 import { HomeSection } from './components/home-section';
 import { ImportBadge } from './components/import-badge';
-import { MonsterOverview } from './components/monster-overview';
-import { SettingsSection } from './components/settings-section';
 import { DirectImportModeDialog, LoadPreferencesDialog, RemoveGameDataDialog, ReplaceImportDialog, ReportDialog } from './components/import-dialogs';
-import { RunePotentialSection } from './components/rune-potential-section';
-import { UpcomingWorkspace } from './components/upcoming-workspace';
 import { clearImportedGame, loadImportedGame, loadPreferences, saveImportedGame, savePreferences } from './lib/browser-storage';
 import { blankPreferences, createImportedGame, fileToText, importPreferencesFile, isValidImportedGame, restoredPreferences, validateGameFile } from './lib/file-imports';
 import { checkHelperConnection, readHelperProfile } from './lib/helper-client';
@@ -26,6 +18,16 @@ import { type Page, type ReportCategory, upcomingWorkspaces } from './lib/worksp
 
 const pageChoices: readonly Page[] = ['home', 'monsters', 'artifact-list', 'optimizer', 'speed', 'potential', 'artifacts', 'gems', 'relics', 'settings'];
 const isPage = (value: unknown): value is Page => typeof value === 'string' && pageChoices.includes(value as Page);
+const ArtifactList = lazy(() => import('./components/artifact-list').then(({ ArtifactList: component }) => ({ default: component })));
+const ArtifactsSection = lazy(() => import('./components/artifacts-section').then(({ ArtifactsSection: component }) => ({ default: component })));
+const MonsterOverview = lazy(() => import('./components/monster-overview').then(({ MonsterOverview: component }) => ({ default: component })));
+const RunePotentialSection = lazy(() => import('./components/rune-potential-section').then(({ RunePotentialSection: component }) => ({ default: component })));
+const SettingsSection = lazy(() => import('./components/settings-section').then(({ SettingsSection: component }) => ({ default: component })));
+const UpcomingWorkspace = lazy(() => import('./components/upcoming-workspace').then(({ UpcomingWorkspace: component }) => ({ default: component })));
+
+function WorkspaceLoading() {
+  return <section className="panel" aria-busy="true"><p className="lead">Opening workspace…</p></section>;
+}
 
 export default function Home() {
   const [page, setPage] = useLocalStorageState<Page>('jaswa.navigation.page', 'home', isPage);
@@ -360,27 +362,27 @@ export default function Home() {
         general={preferences.general}
       />}
 
-      {page === 'monsters' && <MonsterOverview monsters={monsters} gameData={game?.data ?? {}} preferences={preferences} />}
+      {page === 'monsters' && <Suspense fallback={<WorkspaceLoading />}><MonsterOverview monsters={monsters} gameData={game?.data ?? {}} preferences={preferences} /></Suspense>}
 
-      {page === 'artifact-list' && <ArtifactList game={game} monsters={monsters} preferences={preferences} />}
+      {page === 'artifact-list' && <Suspense fallback={<WorkspaceLoading />}><ArtifactList game={game} monsters={monsters} preferences={preferences} /></Suspense>}
 
-      {page === 'potential' && <RunePotentialSection
+      {page === 'potential' && <Suspense fallback={<WorkspaceLoading />}><RunePotentialSection
         settings={preferences.runePotential}
         presets={preferences.runePotentialPresets}
         onUpdate={updateRunePotentialSettings}
         onWritePresets={writePresets}
-      />}
+      /></Suspense>}
 
-      {page === 'artifacts' && <ArtifactsSection
+      {page === 'artifacts' && <Suspense fallback={<WorkspaceLoading />}><ArtifactsSection
         settings={preferences.artifacts}
         data={game?.data}
         monsters={monsters}
         general={preferences.general}
         hardwareAcceleration={preferences.hardwareAcceleration}
         onUpdate={updateArtifactSettings}
-      />}
+      /></Suspense>}
 
-      {page === 'settings' && <SettingsSection
+      {page === 'settings' && <Suspense fallback={<WorkspaceLoading />}><SettingsSection
         general={preferences.general}
         saveFolder={saveFolder?.name ?? null}
         canChooseFolder={canChooseSaveFolder()}
@@ -389,12 +391,12 @@ export default function Home() {
         onForgetFolder={() => void dropSaveFolder()}
         onExport={() => void saveFile('jaswa-preferences.sw', JSON.stringify(preferences, null, 2))}
         onImport={() => setLoadPreferencesPrompt(true)}
-      />}
+      /></Suspense>}
 
-      {(page === 'optimizer' || page === 'speed' || page === 'gems' || page === 'relics') && <UpcomingWorkspace
+      {(page === 'optimizer' || page === 'speed' || page === 'gems' || page === 'relics') && <Suspense fallback={<WorkspaceLoading />}><UpcomingWorkspace
         {...upcomingWorkspaces[page]}
         hasGame={Boolean(game)}
-      />}
+      /></Suspense>}
     </section>
 
     <input ref={gameInput} type="file" accept="application/json,.json" hidden

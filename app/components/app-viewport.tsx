@@ -1,6 +1,3 @@
-'use client';
-
-import Image from 'next/image';
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 
 const canvasWidth = 1920;
@@ -26,7 +23,7 @@ function isHandheldDevice() {
 function HandheldNotice() {
   return <main className="handheld-notice">
     <header className="handheld-hero">
-      <Image className="handheld-rune" src="/favicon.svg" alt="" aria-hidden="true" width={520} height={520} priority />
+      <img className="handheld-rune" src="/favicon.svg" alt="" aria-hidden="true" width={520} height={520} />
       <p className="handheld-brand">ja<span>sw</span>a</p>
     </header>
     <section className="handheld-message" aria-labelledby="handheld-title">

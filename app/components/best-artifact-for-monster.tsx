@@ -1,5 +1,3 @@
-'use client';
-
 import { useMemo, useState } from 'react';
 import { calculateArtifactScores } from '../lib/compute/artifact-score-client';
 import { buildArtifactScoreRequests, buildArtifactScoreRequestsForMonsterIds } from '../lib/compute/artifact-score-input';

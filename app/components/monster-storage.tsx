@@ -1,5 +1,3 @@
-'use client';
-
 import { useMemo } from 'react';
 import { DataTablePage } from './data-table-page';
 import { MonsterPortrait } from './monster-portrait';

@@ -1,7 +1,4 @@
-'use client';
-
 import { type DragEvent, useEffect, useState } from 'react';
-import Image from 'next/image';
 import { WorkspacePage } from './workspace-page';
 import { CheckboxRow, ImportRouteCard, RadioRow } from './form-controls';
 import { detectGraphicsCard, disabledStatus } from '../lib/hardware-acceleration';
@@ -84,7 +81,7 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
   return <WorkspacePage
     header={<header className="hero">
       <div className="hero-rune" aria-hidden="true">
-        <Image src="/favicon.svg" alt="" width={520} height={520} priority />
+        <img src="/favicon.svg" alt="" width={520} height={520} />
       </div>
       <h2 className="hero-name" aria-label="Just Another Summoners War App">
         <span aria-hidden="true" className="hero-line one">Just Another</span>

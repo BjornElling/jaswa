@@ -1,0 +1,5 @@
+# The unpacked executable is a local build by-product. The signed setup
+# installer is the only helper artifact linked from the application.
+JASWA-Helper.exe
+JASWA-Helper-Setup.exe.blockmap
+win-unpacked.tmp/

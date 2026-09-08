@@ -1,5 +1,3 @@
-'use client';
-
 import { type FormEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { WorkspacePage } from './workspace-page';
 import { Disclosure, PageHeader } from './page-chrome';

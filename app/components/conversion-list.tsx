@@ -1,5 +1,3 @@
-'use client';
-
 import { useState } from 'react';
 import { conversionDescription, engravedStoneFor } from '../lib/artifact-recommendations';
 import { artifactRestriction } from '../lib/compute/artifact-score-input';
