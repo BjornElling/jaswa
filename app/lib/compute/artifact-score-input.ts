@@ -2,7 +2,7 @@ import { artifactPreferenceStatus, defaultPropertyPreferences, recordedArtifactP
 import { readArtifacts } from '../artifacts';
 import { readEngravedConversionStones } from '../artifact-conversion-stones';
 import {
-  artifactConversionRollFraction, artifactNormalConversionContributions, artifactNormalConversionMaximum,
+  artifactConversionRollFraction,
   bestArtifactLineContributions,
 } from '../artifact-properties';
 import type { Artifact, ArtifactSubProperty } from '../artifacts';
@@ -52,41 +52,14 @@ export function artifactRestriction(artifact: Artifact): number {
   return code ?? intangibleRestrictionCode;
 }
 
-function fraction(subProperty: ArtifactSubProperty): number {
+function rollPoints(subProperty: ArtifactSubProperty): number {
   if (subProperty.maximumHundredths === null || subProperty.maximumHundredths <= 0) return 0;
-  return subProperty.valueHundredths / subProperty.maximumHundredths;
-}
-
-/**
- * What the converted slot already holds, measured against the ceiling a
- * *conversion* can reach (§10's two contributions) rather than against the
- * grade's. `-1` when the artifact has no converted slot, or when the line's
- * range is unknown and no honest comparison exists.
- *
- * §17.4 compares this with the projected conversion, and both sides must be on
- * this scale: a slot holding a max conversion sits at 1, so no projection can
- * beat it, which is exactly the outcome the rule wants.
- */
-function convertedSlotConversionFraction(artifact: Artifact): number {
-  const index = artifact.convertedPropertyIndex;
-  if (index === null) return -1;
-  const line = artifact.subProperties[index];
-  const maximum = line ? artifactNormalConversionMaximum(line.definition) : null;
-  if (!line || maximum === null || maximum <= 0) return -1;
-  /* `artifactNormalConversionMaximum` is in percentage points and the stored
-     value in hundredths of one, so the ceiling is scaled rather than the value
-     rounded — §9's rule that these are never compared as floats.
-
-     An engraved conversion cannot exceed this — grade raises the floor a stone
-     rolls from, not its ceiling (§15.12) — so a fraction above 1 means a line
-     the roll table does not explain, and it stays unclamped so the scale
-     reports that honestly rather than hiding it at 1. */
-  return line.valueHundredths / Math.round(maximum * 100);
+  return subProperty.valueHundredths * bestArtifactLineContributions / subProperty.maximumHundredths;
 }
 
 function packArtifact(artifact: Artifact): PackedArtifactScoreInput {
   const indexes = artifact.subProperties.map((subProperty) => artifactPropertyIndex.get(subProperty.definition.id) ?? -1);
-  const fractions = artifact.subProperties.map(fraction);
+  const points = artifact.subProperties.map(rollPoints);
   return {
     id: artifact.id,
     category: categoryCode(artifact.category),
@@ -94,15 +67,7 @@ function packArtifact(artifact: Artifact): PackedArtifactScoreInput {
     mainProperty: mainPropertyIndexes[artifact.mainProperty],
     convertedPropertyIndex: artifact.convertedPropertyIndex ?? -1,
     subPropertyIndexes: [indexes[0], indexes[1], indexes[2], indexes[3]],
-    subPropertyFractions: [fractions[0], fractions[1], fractions[2], fractions[3]],
-    convertedSlotConversionFraction: convertedSlotConversionFraction(artifact),
-    /* A conversion reaches one and a half rolls on every grade (§10, settled
-       against the game's Repeat Convert dialog) and every line is measured
-       against the game's best line, so this is one figure rather than a
-       per-grade one. Dividing by the artifact's own grade made it reach 1 on a
-       Normal or Magic artifact — a conversion scoring as a full line — which
-       overstated conversions precisely where they help least. */
-    conversionCeilingFraction: artifactNormalConversionContributions / bestArtifactLineContributions,
+    subPropertyRollPoints: [points[0], points[1], points[2], points[3]],
   };
 }
 

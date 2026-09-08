@@ -1,12 +1,10 @@
 import { scoredArtifactProperties } from '../artifact-score-schema';
 import { benchmarkAcceptableLines } from '../../artifact-optimal-value';
-import { bestArtifactLineContributions } from '../../artifact-properties';
+import { artifactNormalConversionContributions, bestArtifactLineContributions } from '../../artifact-properties';
 import { intangibleRestrictionCode } from '../artifact-score-protocol';
 
-/* Twelve values described the artifact before the conversion model gained a
-   ceiling and a converted-slot guard; both belong to the artifact rather than
-   the request, because both follow from its grade and its own lines. */
-const artifactStride = 14;
+/* Four artifact facts, four property indexes and four max-roll-point values. */
+const artifactStride = 12;
 const monsterStride = 5 + scoredArtifactProperties.length;
 
 /**
@@ -19,7 +17,7 @@ const ARTIFACT_STRIDE: u32 = ${artifactStride}u;
 const MONSTER_STRIDE: u32 = ${monsterStride}u;
 const PROPERTY_COUNT: u32 = ${scoredArtifactProperties.length}u;
 const INTANGIBLE_RESTRICTION: i32 = ${intangibleRestrictionCode};
-// Interpolated from the same constants artifactScoreBenchmark() uses, so the
+// Interpolated from the same constants artifactScorePointBenchmark() uses, so the
 // two backends cannot drift apart on the denominator every score is divided by.
 const BEST_LINE_CONTRIBUTIONS: f32 = ${bestArtifactLineContributions}.0;
 const BENCHMARK_ACCEPTABLE_LINES: f32 = ${benchmarkAcceptableLines}.0;
@@ -29,6 +27,8 @@ struct Parameters {
   monsterCount: u32,
   conversionMode: u32,
   acceptableWorth: f32,
+  insignificantDifference: f32,
+  padding: vec3<f32>,
 };
 
 @group(0) @binding(0) var<storage, read> artifacts: array<f32>;
@@ -106,12 +106,9 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
     weighted = weighted + contribution;
   }
 
-  // The benchmark artifact: a preferred line holding all five contributions and
-  // one acceptable line holding its own, which is the best the game can build
-  // on the profile the monsters actually offer. Must match
-  // artifactScoreBenchmark() exactly.
-  let benchmark = (BEST_LINE_CONTRIBUTIONS + BENCHMARK_ACCEPTABLE_LINES * parameters.acceptableWorth)
-    / BEST_LINE_CONTRIBUTIONS;
+  // The benchmark holds five preferred max-roll points plus one acceptable
+  // point. Must match artifactScorePointBenchmark() exactly.
+  let benchmark = BEST_LINE_CONTRIBUTIONS + BENCHMARK_ACCEPTABLE_LINES * parameters.acceptableWorth;
   let currentPercent = scorePercent(mainWeight * weighted / benchmark);
   var best = currentPercent;
   if (parameters.conversionMode == 0u) {
@@ -126,11 +123,9 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
     return;
   }
 
-  let conversionCeiling = artifacts[artifactOffset + 12u];
-  let convertedSlotFraction = artifacts[artifactOffset + 13u];
   // The CPU reference offers targets for one source only: the permanently
-  // converted slot, or the weakest-contributing slot. At zero contribution the
-  // smaller roll is the tiebreak; an exact tie keeps the earlier artifact line.
+  // converted slot, or the weakest-contributing slot. Equal contributions use
+  // the lower natural-roll percentage; an exact tie keeps artifact order.
   var source: u32 = 0u;
   if (convertedIndex >= 0) {
     source = u32(convertedIndex);
@@ -139,11 +134,31 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
       let candidateContribution = sourceContribution[line];
       let sourceValue = sourceContribution[source];
       if (candidateContribution < sourceValue
-        || (candidateContribution == 0.0 && sourceValue == 0.0
+        || (candidateContribution == sourceValue
           && artifacts[artifactOffset + 8u + line] < artifacts[artifactOffset + 8u + source])) {
         source = line;
       }
     }
+  }
+  // Potential is a recommended action, not a hidden theoretical maximum. A
+  // qualifying preferred target therefore excludes acceptable targets before
+  // the best score is selected.
+  var hasWorthwhilePreferred = false;
+  for (var candidate: u32 = 0u; candidate < PROPERTY_COUNT; candidate = candidate + 1u) {
+    let availability = propertyAvailability[candidate];
+    if (availability != 0 && availability != category) { continue; }
+    if (parameters.conversionMode == 2u && !ownsProperty(restriction, candidate)) { continue; }
+    var exists = false;
+    for (var line: u32 = 0u; line < 4u; line = line + 1u) {
+      if (i32(candidate) == i32(artifacts[artifactOffset + 4u + line])) { exists = true; }
+    }
+    let isSourceProperty = i32(candidate) == i32(artifacts[artifactOffset + 4u + source]);
+    if (exists && !isSourceProperty) { continue; }
+    let band = i32(monsters[monsterOffset + 5u + candidate]);
+    if (band != 2) { continue; }
+    let converted = scorePercent(mainWeight * (weighted - sourceContribution[source]
+      + preferenceWeight(band) * conversionRollFractions[candidate] * ${artifactNormalConversionContributions}) / benchmark);
+    if (converted > currentPercent + parameters.insignificantDifference) { hasWorthwhilePreferred = true; }
   }
   for (var candidate: u32 = 0u; candidate < PROPERTY_COUNT; candidate = candidate + 1u) {
     let availability = propertyAvailability[candidate];
@@ -156,21 +171,15 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
     let isSourceProperty = i32(candidate) == i32(artifacts[artifactOffset + 4u + source]);
     if (exists && !isSourceProperty) { continue; }
     let band = i32(monsters[monsterOffset + 5u + candidate]);
-    // A property the monster neither prefers nor accepts is never suggested.
-    if (band == 0) { continue; }
+    // A preferred target is always chosen ahead of an acceptable target.
+    if (band == 0 || (hasWorthwhilePreferred && band != 2) || (!hasWorthwhilePreferred && band != 1)) { continue; }
     let candidateWeight = preferenceWeight(band);
     let conversionFraction = conversionRollFractions[candidate];
-    // A converted slot already holding at least what this candidate would
-    // produce keeps what it has: another stone overwrites that same line.
-    if (convertedIndex >= 0 && convertedSlotFraction >= 0.0
-      && convertedSlotFraction >= conversionFraction) { continue; }
-    // A conversion collects two contributions whatever the grade allows, so
-    // it reaches only this fraction of the line it replaces.
+    // A perfect conversion is one and a half max-roll points. That is the
+    // game's underlying rate, not a property-specific display rounding.
     let converted = scorePercent(mainWeight * (weighted - sourceContribution[source]
-      + candidateWeight * conversionFraction * conversionCeiling) / benchmark);
-    // §17.3 filters recommendations in the CPU detail pass, never this score:
-    // the matrix must retain every real conversion potential for allocation.
-    if (converted > currentPercent) { best = max(best, converted); }
+      + candidateWeight * conversionFraction * ${artifactNormalConversionContributions}) / benchmark);
+    if (converted > currentPercent + parameters.insignificantDifference) { best = max(best, converted); }
   }
   output[pairIndex] = best;
 }`;

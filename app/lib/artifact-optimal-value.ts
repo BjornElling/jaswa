@@ -15,10 +15,9 @@ export type ArtifactPropertyPreference = 'preferred' | 'acceptable' | 'unwanted'
 export const benchmarkAcceptableLines = 1;
 
 /**
- * The denominator every artifact score is measured against: the best artifact
- * the game can actually produce, on the profile a monster actually offers — one
- * preferred sub property that took every power-up, plus one acceptable line, at
- * maximum rolls.
+ * The number of weighted max-roll points the benchmark artifact holds: one
+ * preferred sub property that took every power-up, plus one acceptable line,
+ * both at their maximum rolls.
  *
  * Its preferred line therefore holds all five contributions and the rest hold
  * one each, because a finished artifact has only eight to spend (§3) and every
@@ -26,7 +25,7 @@ export const benchmarkAcceptableLines = 1;
  * that is a preferred line at `5/5` and an acceptable line at `1/5`:
  *
  * ```text
- * benchmark = (5 + a) / 5 = 1 + 0.2a
+ * benchmark points = 5 + a
  * ```
  *
  * **It must stay a fixed denominator**, not the weights of the properties this
@@ -46,10 +45,9 @@ export const benchmarkAcceptableLines = 1;
  * second preferred line, or an acceptable line that took power-ups of its own.
  * The best artifact in the captured account reaches 106 %.
  */
-export function artifactScoreBenchmark(acceptableWorth: number): number {
+export function artifactScorePointBenchmark(acceptableWorth: number): number {
   const acceptableWeight = acceptableWorth / 100;
-  return (bestArtifactLineContributions + benchmarkAcceptableLines * acceptableWeight)
-    / bestArtifactLineContributions;
+  return bestArtifactLineContributions + benchmarkAcceptableLines * acceptableWeight;
 }
 
 export type ArtifactOptimalValueInput = {
@@ -84,8 +82,8 @@ function isRollFraction(value: number, maximum: number): boolean {
  * artifact rolled on those choices.
  *
  * One is the benchmark: a preferred main property on the best artifact the game
- * can build with one preferred and three acceptable sub properties — see
- * `artifactScoreBenchmark`. More preferred lines can exceed it, which lets the
+ * can build with one preferred and one acceptable sub property — see
+ * `artifactScorePointBenchmark`. More preferred lines can exceed it, which lets the
  * recommendation distinguish a broad match from a narrow one without calling an
  * exceptional artifact mediocre.
  *
@@ -101,14 +99,18 @@ export function calculateArtifactOptimalValue(input: ArtifactOptimalValueInput):
     || input.subProperties.length !== 4) return undefined;
 
   const mainWeight = preferenceWeight(input.mainPreference, input.acceptableWorth);
-  const benchmark = artifactScoreBenchmark(input.acceptableWorth);
-  let weightedRolls = 0;
+  const benchmark = artifactScorePointBenchmark(input.acceptableWorth);
+  let weightedRollPoints = 0;
 
   for (const subProperty of input.subProperties) {
     if (!isRollFraction(subProperty.value, subProperty.maximum)) return undefined;
     const weight = preferenceWeight(subProperty.preference, input.acceptableWorth);
-    weightedRolls += weight * (subProperty.value / subProperty.maximum);
+    /* One maximum natural roll is one point. The stored maximum is a full
+       five-roll line, so converting here keeps grades comparable without
+       hiding a Legend line's extra contributions. */
+    const rollPoints = subProperty.value * bestArtifactLineContributions / subProperty.maximum;
+    weightedRollPoints += weight * rollPoints;
   }
 
-  return mainWeight * (weightedRolls / benchmark);
+  return mainWeight * (weightedRollPoints / benchmark);
 }

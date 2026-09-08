@@ -78,7 +78,7 @@ try {
   };
   const packed = (category, restriction) => ({
     id: 'a', category, restriction, mainProperty: 1, convertedPropertyIndex: -1,
-    subPropertyIndexes: [0, 1, 2, 3], subPropertyFractions: [0.5, 0.5, 0.5, 0.5],
+    subPropertyIndexes: [0, 1, 2, 3], subPropertyRollPoints: [2.5, 2.5, 2.5, 2.5],
   });
   const monster = (element, archetype) => ({
     id: 'm', name: 'M', element, archetype,
@@ -114,9 +114,7 @@ try {
     ...packed(1, restriction),
     /* Room for a conversion to land: one weak line, and a preference profile
        below that leaves properties the artifact does not already hold. */
-    subPropertyFractions: [0.5, 0.5, 0.5, 0.1],
-    convertedSlotConversionFraction: -1,
-    conversionCeilingFraction: 2 / 5,
+    subPropertyRollPoints: [2.5, 2.5, 2.5, 0.5],
   });
   const conversionRequest = (mode) => ({
     ...request,

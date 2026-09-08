@@ -69,8 +69,7 @@ export class WebGpuArtifactScoreBackend implements ArtifactScoreBackend {
     const device = this.device;
     const artifactData = floatBuffer(request.artifacts.flatMap((artifact) => [
       artifact.category, artifact.restriction, artifact.mainProperty, artifact.convertedPropertyIndex,
-      ...artifact.subPropertyIndexes, ...artifact.subPropertyFractions,
-      artifact.conversionCeilingFraction, artifact.convertedSlotConversionFraction,
+      ...artifact.subPropertyIndexes, ...artifact.subPropertyRollPoints,
     ]));
     const monsterData = floatBuffer(request.monsters.flatMap((monster) => [
       monster.element, monster.archetype, ...monster.mainPreferences, ...monster.subPropertyPreferences,
@@ -90,12 +89,13 @@ export class WebGpuArtifactScoreBackend implements ArtifactScoreBackend {
         }
       }
     }
-    const parameters = new ArrayBuffer(16);
+    const parameters = new ArrayBuffer(32);
     const parameterView = new DataView(parameters);
     parameterView.setUint32(0, request.artifacts.length, true);
     parameterView.setUint32(4, request.monsters.length, true);
     parameterView.setUint32(8, request.conversionMode, true);
     parameterView.setFloat32(12, request.acceptableWorth / 100, true);
+    parameterView.setFloat32(16, request.insignificantDifference, true);
     const resultByteLength = alignedByteLength(request.artifacts.length * request.monsters.length * Float32Array.BYTES_PER_ELEMENT);
     const artifacts = this.createUploadBuffer(device, artifactData, bufferUsage.storage);
     const monsters = this.createUploadBuffer(device, monsterData, bufferUsage.storage);

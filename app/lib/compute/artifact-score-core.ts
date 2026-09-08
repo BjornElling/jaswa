@@ -1,5 +1,6 @@
 import { artifactPropertyAvailability, scoredArtifactProperties } from './artifact-score-schema';
-import { artifactScoreBenchmark } from '../artifact-optimal-value';
+import { artifactScorePointBenchmark } from '../artifact-optimal-value';
+import { artifactNormalConversionContributions, bestArtifactLineContributions } from '../artifact-properties';
 import { intangibleRestrictionCode } from './artifact-score-protocol';
 import type {
   ArtifactConversion, ArtifactScoreRequest, PackedArtifactScoreInput, PackedMonsterScoreInput,
@@ -40,14 +41,14 @@ function sourceContribution(
   const propertyIndex = artifact.subPropertyIndexes[index];
   if (propertyIndex < 0) return 0;
   return weight(monster.subPropertyPreferences[propertyIndex] ?? 0, acceptableWorth)
-    * artifact.subPropertyFractions[index];
+    * artifact.subPropertyRollPoints[index];
 }
 
 /**
  * Orders two source lines by the score lost when each is replaced. A conversion
  * recommendation changes only the one worst line, not every line that could
- * improve. When several lines contribute zero, their score cannot settle the
- * choice, so the lower roll goes first. A remaining tie keeps artifact order.
+ * improve. When lines contribute the same score, the lower natural-roll
+ * percentage goes first. A remaining tie keeps artifact order.
  */
 function compareSacrifice(
   artifact: PackedArtifactScoreInput,
@@ -59,11 +60,9 @@ function compareSacrifice(
   const firstContribution = sourceContribution(artifact, monster, left, acceptableWorth);
   const secondContribution = sourceContribution(artifact, monster, right, acceptableWorth);
   if (firstContribution !== secondContribution) return firstContribution - secondContribution;
-  if (firstContribution === 0) {
-    const firstRoll = artifact.subPropertyFractions[left];
-    const secondRoll = artifact.subPropertyFractions[right];
-    if (firstRoll !== secondRoll) return firstRoll - secondRoll;
-  }
+  const firstRoll = artifact.subPropertyRollPoints[left];
+  const secondRoll = artifact.subPropertyRollPoints[right];
+  if (firstRoll !== secondRoll) return firstRoll - secondRoll;
   return left - right;
 }
 
@@ -147,18 +146,19 @@ function ownedPropertiesFor(
 }
 
 /**
- * The conversion model is deliberately phrased in score space. It chooses the
- * single least-contributing source line (or the permanent converted slot), then
- * best legal property, including a higher-roll reroll of the source property.
+ * The conversion model is deliberately phrased in weighted max-roll points. It
+ * chooses the single least-contributing source line (or the permanent converted
+ * slot), then the best legal property, including a higher-roll reroll of the
+ * source property.
  *
- * The line given up is the one contributing least to this monster; multiple
- * zero-contribution lines are separated by their roll, weakest first. The
+ * The line given up is the one contributing least to this monster; equal lines
+ * are separated by their natural-roll percentage, weakest first. The
  * property converted to is the most wanted and, among equals, the one most
  * players engrave. Neither tie falls accidentally to vocabulary order.
  *
- * The current result always wins over a lower calculated roll, which is what
- * the settings promise means by keeping a better roll already present on the
- * artifact.
+ * A re-conversion is judged by the total artifact score it would produce. The
+ * permanent lock names the only line it may replace; it does not preserve a
+ * high but unwanted roll when a lower, wanted replacement helps the monster.
  */
 export function scoreArtifactOnMonster(
   artifact: PackedArtifactScoreInput,
@@ -170,11 +170,11 @@ export function scoreArtifactOnMonster(
   const main = weight(monster.mainPreferences[artifact.mainProperty] ?? 0, request.acceptableWorth);
   if (main === 0) return { value: 0, conversion: undefined, conversions: [] };
 
-  const benchmark = artifactScoreBenchmark(request.acceptableWorth);
+  const benchmark = artifactScorePointBenchmark(request.acceptableWorth);
   let weightedSubProperties = 0;
   for (let index = 0; index < 4; index += 1) {
-    const fraction = artifact.subPropertyFractions[index];
-    if (!Number.isFinite(fraction) || fraction < 0 || fraction > 1) return undefined;
+    const points = artifact.subPropertyRollPoints[index];
+    if (!Number.isFinite(points) || points < 0 || points > bestArtifactLineContributions) return undefined;
     weightedSubProperties += sourceContribution(artifact, monster, index, request.acceptableWorth);
   }
   const currentValue = main * (weightedSubProperties / benchmark);
@@ -215,21 +215,11 @@ export function scoreArtifactOnMonster(
       const convertedWeight = weight(band, request.acceptableWorth);
       const conversionFraction = request.conversionRollFractions[propertyIndex];
       if (!Number.isFinite(conversionFraction) || conversionFraction < 0 || conversionFraction > 1) continue;
-      /* The conversion reaches a fraction of the *line's* ceiling, because a
-         conversion collects two contributions whatever the grade allows (§10).
-         Using the fraction without that ceiling would let a converted line
-         score like a perfectly rolled one and overstate every conversion on a
-         good artifact. */
-      const reach = conversionFraction * artifact.conversionCeilingFraction;
-      /* §17.4 condition 2: a converted slot already holding more than the
-         projection would produce keeps what it has. The lock means a further
-         stone overwrites that same line, so proposing one proposes destroying
-         the better roll. Both sides are fractions of the conversion ceiling,
-         which is what makes them comparable. */
-      if (sourceIndex === artifact.convertedPropertyIndex
-        && artifact.convertedSlotConversionFraction >= 0
-        && artifact.convertedSlotConversionFraction >= conversionFraction) continue;
-      const convertedValue = main * ((withoutSource + convertedWeight * reach) / benchmark);
+      /* A perfect conversion counts as one and a half maximum natural rolls.
+         This is deliberately the underlying game rate, rather than a
+         property-specific display rounding such as 5 → 8. */
+      const conversionPoints = conversionFraction * artifactNormalConversionContributions;
+      const convertedValue = main * ((withoutSource + convertedWeight * conversionPoints) / benchmark);
       const value = scorePercent(convertedValue);
       /* §17.4 condition 1: a conversion that does not raise the score is not a
          projection. Compared as whole points, so a conversion the interface
@@ -251,12 +241,6 @@ export function scoreArtifactOnMonster(
     }
   }
 
-  /* §17.3's band decides what the user is asked to act on, never the score
-     used to compare this artifact on this monster with its other placements.
-     A small conversion here can still be the real potential that makes another
-     monster the better wearer; suppressing it from the matrix would make a
-     presentation preference change the allocation. */
-  const projectedValue = candidates.reduce((best, candidate) => Math.max(best, candidate.value), currentPercent);
   const worthwhile = candidates.filter((candidate) => candidate.gain > request.insignificantDifference);
   /* §17.5: preferred conversions displace accepted ones outright rather than
      competing with them on value. A preferred property is what the monster
@@ -282,7 +266,10 @@ export function scoreArtifactOnMonster(
   }));
   const best = conversions[0];
   return {
-    value: projectedValue / 100,
+    /* Potential means a conversion the player would actually be asked to take:
+       it clears the configured band and, when possible, is preferred rather
+       than merely acceptable. */
+    value: (conversions[0]?.value ?? currentPercent) / 100,
     conversion: best,
     conversions,
   };

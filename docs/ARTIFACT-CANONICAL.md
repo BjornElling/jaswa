@@ -1616,22 +1616,24 @@ w(unwanted)   = 0
 ```
 
 For the main property, `m = w(main preference)`. For each of the artifact's four
-sub properties, let `rᵢ = rolled valueᵢ / maximum valueᵢ`, with its maximum
-derived from the property definition and the best line the game can produce:
+sub properties, let `pᵢ = rolled valueᵢ / maxRollᵢ`. `pᵢ` is the property's
+**max-roll points**: one maximum natural roll is one point, so a line that took
+five maximum rolls is worth five points.
 
 ```text
-maximum valueᵢ = maxRollᵢ × 5        // bestArtifactLineContributions
+max-roll pointsᵢ = rolled valueᵢ / maxRollᵢ
 ```
 
-**The ceiling is absolute, not the line's own and not its grade's.** One scale
-measures every line on every artifact, so a Legend line holding one roll scores
-low and a Normal line holding its only roll scores lower still — which is the
-truth about both. `Σ rᵢ` is then proportional to the stat the artifact actually
-delivers.
+**The point is natural, not grade-relative.** One maximum natural roll is one
+point on every artifact, so a Legend line holding one roll scores low and a
+Normal line holding its only roll scores lower still — which is the truth about
+both. `Σ pᵢ` is then proportional to the stat the artifact actually delivers.
 
 This took two corrections, and both are worth keeping written down because each
 failure was invisible — every artifact still got a number, and the number was
-wrong.
+wrong. The current point presentation is algebraically the same final measure,
+but makes the contributions visible instead of burying a factor of five in every
+line.
 
 **September 3, 2026: not the line's own contributions.** The measure originally
 divided by the contributions each line actually collected, which made a
@@ -1671,8 +1673,8 @@ hold 5, 1, 1 and 1 contributions, because eight is all there are and every line
 keeps its own.
 
 ```text
-benchmark = (5 + a) / 5 = 1 + 0.2a
-subValue = Σ(wᵢ × rᵢ) / benchmark
+benchmark points = 5 + a
+subValue = Σ(wᵢ × pᵢ) / benchmark points
 optimalValue = m × subValue
 ```
 
@@ -1813,41 +1815,37 @@ same. A gain no larger than the band is not an improvement, and a recommendation
 resting on one is suppressed on every page. The band is expressed in percentage
 points of the score, which is the number the interface actually shows.
 
-The band is a *user's* judgement about what is worth acting on, so it never
-alters a computed score: it decides what is offered, not what is true.
+The band is a *user's* judgement about what is worth acting on. Potential means
+an action JASWA would actually recommend, so a conversion inside the band is not
+part of an artifact's potential score, its allocation, or its recommendation.
+The current artifact score remains true; the band says the proposed action is
+not worth spending a stone on.
 
 ### 17.4 A conversion is proposed only when it beats what is there
 
-Two conditions, and the second is the one that is easy to miss.
+The conversion must raise the artifact's **total score** on that monster by more
+than the selected significance band. A conversion that leaves the total score
+unchanged is not recommended.
 
-1. The conversion must raise the artifact's score on that monster. A conversion
-   that leaves the score unchanged is not recommended.
-2. **An artifact whose converted slot already holds more value than the
-   proposed conversion would produce keeps what it has.** §10's permanent lock
-   means a further stone overwrites that same slot, so proposing one is
-   proposing to *destroy* the better line. The comparison is between the value
-   now on the converted slot and the value the projection assigns — and both
-   sides must be measured against the same ceiling, which §10 fixes at two
-   contributions for a conversion.
-
-Neither a projection nor a recommendation is computed once condition 2 fails.
+An existing conversion is not protected merely because its raw roll is high.
+The permanent lock means that only that line can be changed again; it does not
+make an unwanted high roll more valuable than a lower preferred replacement.
+If re-converting the locked line makes the complete artifact better for its
+monster, JASWA recommends it.
 
 **Only the weakest source line is considered.** On an artifact with no prior
 conversion, JASWA proposes changes only to the sub property contributing the
 least to the particular monster's score. It does not offer a second-best source
 as an alternative just because that alternative would also improve the result.
-If two or more lines contribute zero, the one with the lowest roll is chosen.
-An exact remaining tie preserves the artifact's stored line order. Once a line
-has been converted, the game's permanent lock overrides this rule: only that
-specific line can be converted again.
+If two or more lines contribute the same score, the one with the lowest natural
+roll percentage is chosen. An exact remaining tie preserves the artifact's
+stored line order. Once a line has been converted, the game's permanent lock
+overrides this rule: only that specific line can be converted again.
 
-**The converse holds and is the common case.** An artifact whose converted slot
-holds *less* than the projection is still recommended for conversion: the lock
-does not protect a weak line, it only names which line a stone may touch. Where
-a recommendation would overwrite an existing conversion, the wording says so —
-*re-convert* rather than *convert* — because the line being spent is one the
-user already paid a stone for, and "convert" would read as though the artifact
-still had its free slot.
+**The lock still holds.** It names which line a further stone can touch; it does
+not protect that line's present roll. Where a recommendation overwrites an
+existing conversion, the wording says *re-convert* rather than *convert*,
+because the line being spent is one the user already paid a stone for.
 
 **One line is converted; several may be offered.** The rule above chooses the
 line the score is computed from, and that choice is arithmetic — it has to
@@ -1881,7 +1879,9 @@ the interface calls it **Improve roll in** so the action is clear.
 ### 17.5 Every conversion worth taking is shown, in order
 
 Where a view names conversions it shows **all** of them, ranked by what each
-adds to that monster, descending:
+adds to that monster, descending. The same set defines the artifact's potential
+score — a hidden accepted conversion is not allowed to make an artifact look
+better when a preferred conversion is available:
 
 - if any **preferred** conversion is available, every preferred one is listed
   and no accepted one is;

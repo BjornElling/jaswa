@@ -21,29 +21,8 @@ export type PackedArtifactScoreInput = {
   convertedPropertyIndex: number;
   /** Four indexes into `scoredArtifactProperties`, or -1 for legacy lines. */
   subPropertyIndexes: readonly [number, number, number, number];
-  /** Each line's actual fraction of its own ceiling. */
-  subPropertyFractions: readonly [number, number, number, number];
-  /**
-   * What the permanently converted slot already holds, as a fraction of the
-   * ceiling a *conversion* can reach (`ARTIFACT-CANONICAL.md` §10: two
-   * contributions). `-1` when the artifact has no converted slot.
-   *
-   * It is a separate number from that line's `subPropertyFractions` entry
-   * because the two are fractions of different ceilings. §17.4 compares this
-   * against a projected conversion, and comparing a five-contribution fraction
-   * with a two-contribution one would refuse conversions that plainly help.
-   */
-  convertedSlotConversionFraction: number;
-  /**
-   * How much of a *line's* ceiling a conversion can reach on this artifact.
-   *
-   * A conversion collects two contributions whatever the grade granted (§10),
-   * while the line it replaces is measured against the grade's own maximum
-   * (§16) — so on a Legend a conversion reaches 2/5 of that line, and on a
-   * Rare 2/3. It belongs to the artifact rather than the request because it is
-   * a fact about the grade, and one request carries every grade.
-   */
-  conversionCeilingFraction: number;
+  /** Each line's value in max-roll points: one maximum natural roll is one point. */
+  subPropertyRollPoints: readonly [number, number, number, number];
 };
 
 export type PackedMonsterScoreInput = {

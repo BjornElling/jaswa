@@ -6,8 +6,8 @@
  * the tie must be settled by how many players actually engrave the property —
  * never by the order the lines or the property vocabulary happen to be in.
  *
- * The one line given up is the least score-contributing one. When several
- * lines contribute zero, the weaker roll goes first. The property converted to
+ * The one line given up is the least score-contributing one. When two lines
+ * contribute the same score, the weaker natural roll goes first. The property converted to
  * is the most wanted and, among equals, the most engraved.
  *
  * Both fixtures and the real Triana capture that exposed the bug: her Type slot
@@ -120,8 +120,7 @@ try {
 
   const artifact = {
     id: 'a', category: 2, restriction: 4, mainProperty: 0, convertedPropertyIndex: -1,
-    subPropertyIndexes: [0, 1, 2, 3], subPropertyFractions: [0.2, 0.2, 0.2, 0.2],
-    convertedSlotConversionFraction: -1, conversionCeilingFraction: 1,
+    subPropertyIndexes: [0, 1, 2, 3], subPropertyRollPoints: [1, 1, 1, 1],
   };
   const monster = {
     id: 'm', name: 'M', element: 4, archetype: 4,
@@ -150,6 +149,20 @@ try {
     scoreArtifactOnMonster(artifact, { ...monster, subPropertyPreferences: banded }, request)?.conversion?.propertyId,
     early.property.id, 'a preferred candidate must outrank a better supported acceptable one');
 
+  /* Potential follows the action JASWA would actually recommend. Even if an
+     acceptable candidate would score more highly, it cannot inflate potential
+     while a preferred candidate clears the selected band. */
+  const preferenceFirstFractions = new Array(scoredArtifactProperties.length).fill(1);
+  preferenceFirstFractions[early.index] = 0.2;
+  const preferredPotential = scoreArtifactOnMonster(artifact, {
+    ...monster,
+    subPropertyPreferences: banded,
+  }, { ...request, conversionRollFractions: preferenceFirstFractions });
+  assert.equal(preferredPotential?.conversion?.propertyId, early.property.id,
+    'the preferred target remains the recommended action when an acceptable target has a stronger roll');
+  assert.equal(preferredPotential?.value, (preferredPotential?.conversion?.value ?? 0) / 100,
+    'potential is the recommended preferred action, not the hidden accepted maximum');
+
   // ---- The source line: only the lowest contribution goes -----------------
   /* Only the line losing the least score may be converted. An unwanted line
      contributes zero, so it is still given up before any wanted line. */
@@ -173,8 +186,9 @@ try {
   };
   const withRolls = (fractions) => ({
     id: 'a', category: 2, restriction: 4, mainProperty: 0, convertedPropertyIndex: -1,
-    subPropertyIndexes: [0, 1, 2, 3], subPropertyFractions: fractions,
-    convertedSlotConversionFraction: -1, conversionCeilingFraction: 1,
+    /* Keep the source rolls below a perfect conversion so these fixtures test
+       source choice rather than manufacture an impossible improvement. */
+    subPropertyIndexes: [0, 1, 2, 3], subPropertyRollPoints: fractions.map((fraction) => fraction * 1.5),
   });
   const samePropertyMonster = {
     id: 'm', name: 'M', element: 4, archetype: 4, mainPreferences: [2, 0, 0],
@@ -191,7 +205,7 @@ try {
   assert.ok((sameProperty?.conversion?.gain ?? 0) > 0,
     'the same-property reroll must actually improve the score');
   const convertedSameProperty = scoreArtifactOnMonster(
-    { ...withRolls([0.2, 0.9, 0.9, 0.9]), convertedPropertyIndex: 0, convertedSlotConversionFraction: 0.2 },
+    { ...withRolls([0.2, 0.9, 0.9, 0.9]), convertedPropertyIndex: 0 },
     samePropertyMonster, request,
   );
   assert.equal(convertedSameProperty?.conversion?.propertyId, scoredArtifactProperties[0].id,
@@ -207,7 +221,7 @@ try {
     'the unwanted line is found wherever it sits, not by position');
   assert.equal(
     chosenSource([0.9, 0.9, 0.9, 0.9], [0, 0, 2, 2], [0.04, 0.01, 0.2, 0.2]), 0,
-    'an exact zero-contribution tie keeps artifact order, not observed share');
+    'equal zero-contribution rolls keep artifact order, not observed share');
 
   /* Preference bands do not choose the source. A smaller acceptable
      contribution goes before a larger preferred one. */
@@ -220,11 +234,14 @@ try {
   assert.equal(
     chosenSource([0.2, 0.9, 0.9, 0.9], [2, 2, 2, 2], [0.30, 0.11, 0.25, 0.20]), 0,
     'among preferred lines, the smallest contribution is given up despite the largest share');
-  /* Equal nonzero contributions retain artifact order; observed share is never
-     a source tiebreak. */
+  /* Equal nonzero contributions use the lower natural roll, then artifact
+     order; observed share is never a source tiebreak. */
   assert.equal(
     chosenSource([0.9, 0.9, 0.9, 0.9], [2, 2, 1, 1], [0.2, 0.2, 0.070, 0.055]), 2,
     'equal contributions in a wanted band are not reordered by share');
+  assert.equal(
+    chosenSource([0.5, 1, 0.9, 0.9], [2, 1, 2, 2], [0.2, 0.2, 0.2, 0.2]), 0,
+    'an equal weighted contribution gives up the lower natural roll');
 
   /* The lower roll breaks a zero-contribution tie, regardless of observed
      shares: neither line otherwise costs score to replace. */
@@ -305,8 +322,7 @@ try {
   const reported = {
     id: '1553', category: 2, restriction: 4, mainProperty: 0, convertedPropertyIndex: -1,
     subPropertyIndexes: [line(218), line(405), line(214), line(221)],
-    subPropertyFractions: [0.85, 0.6, 0.667, 0.9],
-    convertedSlotConversionFraction: -1, conversionCeilingFraction: 1,
+    subPropertyRollPoints: [4.25, 3, 3.335, 4.5],
   };
   const trianaMonster = {
     id: triana, name: 'Triana', element: 4, archetype: 4,
@@ -325,28 +341,20 @@ try {
   assert.equal(recommended.conversion.sourceIndex, 0,
     'the unwanted line must remain the one converted away');
 
-  // ---- §17.4: a better existing conversion is never overwritten -----------
-  /* The permanent lock means a further stone replaces the line already
-     converted, so a slot holding more than the projection would produce keeps
-     what it has. Both sides are fractions of the conversion ceiling. */
-  /* Line 0 is the converted slot and holds a property the monster does not want,
-     so converting it away costs nothing and only the stored value decides. */
+  // ---- §17.4: re-conversion improves the whole artifact -------------------
+  /* Line 0 is the converted slot and holds a property the monster does not want.
+     Its high roll does not protect it from a conversion that raises the whole
+     artifact's score for this monster. */
   const convertedBands = [0, 2, 2, 2];
   const convertedShares = [0.01, 0.2, 0.2, 0.2];
   const convertedWell = {
     ...withRolls([0.9, 0.9, 0.9, 0.9]),
-    convertedPropertyIndex: 0, convertedSlotConversionFraction: 0.95,
+    convertedPropertyIndex: 0,
   };
   const halfReach = { ...request, conversionRollFractions: new Array(scoredArtifactProperties.length).fill(0.6) };
-  assert.deepEqual(
-    scoreArtifactOnMonster(convertedWell, sourceMonster(convertedBands, convertedShares), halfReach)?.conversions,
-    [], 'a converted slot worth more than the projection is left alone');
-  /* The converse, and the common case: a weak conversion is still worth
-     replacing, and the recommendation must survive. */
-  const convertedBadly = { ...convertedWell, convertedSlotConversionFraction: 0.2 };
   assert.ok(
-    scoreArtifactOnMonster(convertedBadly, sourceMonster(convertedBands, convertedShares), halfReach)?.conversions.length,
-    'a converted slot worth less than the projection is still recommended for re-conversion');
+    scoreArtifactOnMonster(convertedWell, sourceMonster(convertedBands, convertedShares), halfReach)?.conversions.length,
+    'a high but unwanted converted line is replaced when the artifact score improves');
 
   // ---- §17.3: the significance band applies to conversions too -----------
   const lowGainPreferences = new Array(scoredArtifactProperties.length).fill(0);
@@ -355,27 +363,27 @@ try {
   lowGainPreferences[bombDamageIndex] = 1;
   const lowGainArtifact = {
     id: 'threshold', category: 2, restriction: 4, mainProperty: 0, convertedPropertyIndex: -1,
-    subPropertyIndexes: [-1, -1, -1, -1], subPropertyFractions: [0, 0, 0, 0],
-    convertedSlotConversionFraction: -1, conversionCeilingFraction: 0.4,
+    subPropertyIndexes: [-1, -1, -1, -1], subPropertyRollPoints: [0, 0, 0, 0],
   };
   const lowGainMonster = {
     id: 'threshold', name: 'Threshold', element: 4, archetype: 4,
     mainPreferences: [2, 0, 0], subPropertyPreferences: lowGainPreferences,
     subPropertyShares: new Array(scoredArtifactProperties.length).fill(0),
   };
-  /* Three points, not the five this fixture once asserted: Bomb Damage’s
+  /* Two points: Bomb Damage’s
      floor is one minimum roll of a 6 % ceiling (1/6) where the old two-roll
-     model claimed 2/8, so a floor conversion is worth correspondingly less. */
+     model claimed 2/8. A conversion is worth one and a half max-roll points,
+     so an acceptable floor roll remains below the three-point band. */
   const floorFractions = scoredArtifactProperties.map((property) => artifactConversionRollFraction(property, 1));
   assert.equal(scoreArtifactOnMonster(lowGainArtifact, lowGainMonster, {
     ...request, conversionRollFractions: floorFractions, insignificantDifference: 0,
-  })?.conversions[0]?.gain, 3, 'the fixture must offer a three-point conversion without a band');
+  })?.conversions[0]?.gain, 2, 'the fixture must offer a two-point conversion without a band');
   assert.deepEqual(scoreArtifactOnMonster(lowGainArtifact, lowGainMonster, {
-    ...request, conversionRollFractions: floorFractions, insignificantDifference: 3,
+    ...request, conversionRollFractions: floorFractions, insignificantDifference: 2,
   })?.conversions, [], 'a conversion inside the selected band is not recommended');
   assert.equal(scoreArtifactOnMonster(lowGainArtifact, lowGainMonster, {
-    ...request, conversionRollFractions: floorFractions, insignificantDifference: 3,
-  })?.value, 0.03, 'the recommendation band never removes a monster’s conversion potential from allocation');
+    ...request, conversionRollFractions: floorFractions, insignificantDifference: 2,
+  })?.value, 0, 'the recommendation band removes an action the player would not take from potential');
 
   // ---- §17.5: one band, fully listed, in falling order --------------------
   const mixedBands = new Array(scoredArtifactProperties.length).fill(0);

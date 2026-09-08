@@ -22,11 +22,11 @@ const BEST_LINE_CONTRIBUTIONS = 5;
 const BENCHMARK_ACCEPTABLE_LINES = 1;
 const gradeMaxContributions = { Normal: 1, Magic: 2, Rare: 3, Hero: 4, Legend: 5 };
 
-/* The benchmark as `artifactScoreBenchmark` computes it. Kept as an independent
+/* The benchmark as `artifactScorePointBenchmark` computes it. Kept as an independent
    expression rather than an import, so a change to the source has to be made
    deliberately here too. */
 const benchmark = (acceptableWorth) =>
-  (BEST_LINE_CONTRIBUTIONS + BENCHMARK_ACCEPTABLE_LINES * (acceptableWorth / 100)) / BEST_LINE_CONTRIBUTIONS;
+  BEST_LINE_CONTRIBUTIONS + BENCHMARK_ACCEPTABLE_LINES * (acceptableWorth / 100);
 
 /** The best allocation of a grade's contribution budget across four lines. */
 function bestAllocation(grade) {
@@ -42,12 +42,12 @@ function bestAllocation(grade) {
   return lines;
 }
 
-/** Score with every line max-rolled, on the absolute per-line ceiling. */
+/** Score with every line expressed in max-roll points. */
 function score(acceptableWorth, lines, mainWeight = 1) {
   const acceptable = acceptableWorth / 100;
   const weights = { preferred: 1, acceptable, unwanted: 0 };
   const weighted = lines.reduce(
-    (total, [band, contributions]) => total + weights[band] * (contributions / BEST_LINE_CONTRIBUTIONS), 0,
+    (total, [band, contributions]) => total + weights[band] * contributions, 0,
   );
   return mainWeight * weighted / benchmark(acceptableWorth);
 }
@@ -101,12 +101,11 @@ assert.ok(shader.includes('const BEST_LINE_CONTRIBUTIONS: f32 = ${bestArtifactLi
 assert.ok(shader.includes('const BENCHMARK_ACCEPTABLE_LINES: f32 = ${benchmarkAcceptableLines}.0;'),
   'the shader must interpolate benchmarkAcceptableLines rather than hard-coding it');
 assert.ok(shader.includes(
-  'let benchmark = (BEST_LINE_CONTRIBUTIONS + BENCHMARK_ACCEPTABLE_LINES * parameters.acceptableWorth)'),
-'the shader benchmark must match artifactScoreBenchmark()');
+  'let benchmark = BEST_LINE_CONTRIBUTIONS + BENCHMARK_ACCEPTABLE_LINES * parameters.acceptableWorth;'),
+'the shader benchmark must match artifactScorePointBenchmark()');
 /* The shader is handed the worth as a fraction, the TypeScript as 0-100. */
 for (const acceptableWorth of [0, 25, 50, 100]) {
-  const shaderBenchmark = (BEST_LINE_CONTRIBUTIONS + BENCHMARK_ACCEPTABLE_LINES * (acceptableWorth / 100))
-    / BEST_LINE_CONTRIBUTIONS;
+  const shaderBenchmark = BEST_LINE_CONTRIBUTIONS + BENCHMARK_ACCEPTABLE_LINES * (acceptableWorth / 100);
   assert.equal(shaderBenchmark, benchmark(acceptableWorth),
     `the backends must agree on the benchmark at ${acceptableWorth}`);
 }
@@ -121,7 +120,7 @@ assert.ok(conversionCeiling < 1, 'a conversion must never score as a full line, 
       fails here rather than passing a check written against itself. */
 const server = await createServer({ configFile: false, appType: 'custom', server: { middlewareMode: true } });
 try {
-  const { artifactScoreBenchmark, calculateArtifactOptimalValue } =
+  const { artifactScorePointBenchmark, calculateArtifactOptimalValue } =
     await server.ssrLoadModule('/app/lib/artifact-optimal-value.ts');
   const { artifactPropertyMaximum, artifactProperty, bestArtifactLineContributions, artifactTotalContributions } =
     await server.ssrLoadModule('/app/lib/artifact-properties.ts');
@@ -132,8 +131,8 @@ try {
     assert.equal(artifactTotalContributions(grade), max + 3, `${grade}'s contribution budget`);
   }
   for (const acceptableWorth of [0, 25, 50, 75, 100]) {
-    assert.equal(artifactScoreBenchmark(acceptableWorth), benchmark(acceptableWorth),
-      `artifactScoreBenchmark disagrees at ${acceptableWorth}`);
+    assert.equal(artifactScorePointBenchmark(acceptableWorth), benchmark(acceptableWorth),
+      `artifactScorePointBenchmark disagrees at ${acceptableWorth}`);
   }
 
   /* The ceiling is one number for every grade, so a property reads the same
