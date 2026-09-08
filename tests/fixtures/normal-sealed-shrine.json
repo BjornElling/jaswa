@@ -1,0 +1,9 @@
+{
+  "wizard_id": 7,
+  "unit_list": [],
+  "unit_storage_normal_list": [
+    { "unit_id": 501, "unit_master_id": 10111, "unit_level": 40, "attribute": 1, "class": 5 },
+    { "unit_id": 502, "unit_master_id": 10112, "unit_level": 1, "attribute": 2, "class": 3 }
+  ],
+  "runes": []
+}

@@ -172,11 +172,20 @@ impl ProfileStore {
             .get("unit_storage_normal_list")
             .and_then(Value::as_array)
         {
-            let normal_storage = normal_storage
-                .iter()
-                .filter(|unit| wizard.is_none() || identifier(unit, "wizard_id") == wizard)
-                .cloned()
-                .collect();
+            /* Normal-shrine records are account-level records in the login
+            snapshot, and some game responses omit the per-unit wizard id.
+            An explicit different id is still a foreign record and rejects
+            the snapshot; an absent id is not evidence that the account
+            record should be discarded. */
+            if wizard.is_some()
+                && normal_storage.iter().any(|unit| {
+                    identifier(unit, "wizard_id")
+                        .is_some_and(|unit_wizard| Some(unit_wizard) != wizard)
+                })
+            {
+                return false;
+            }
+            let normal_storage = normal_storage.to_vec();
             normalized.insert(
                 "unit_storage_normal_list".into(),
                 Value::Array(normalize(normal_storage, "unit_id")),
@@ -270,6 +279,30 @@ impl ProfileStore {
             let next = normalize(storage_list.unwrap_or_default(), "unit_master_id");
             if collection(&profile, "unit_storage_list") != next.as_slice() {
                 set_collection(&mut profile, "unit_storage_list", next);
+                changed = true;
+            }
+        }
+        let normal_storage_list = response
+            .get("unit_storage_normal_list")
+            .and_then(Value::as_array)
+            .or_else(|| {
+                response
+                    .get("GetWizardDataPart1")
+                    .and_then(|value| value.get("unit_storage_normal_list"))
+                    .and_then(Value::as_array)
+            })
+            .or_else(|| {
+                response
+                    .get("GetUnitStorageList")
+                    .and_then(|value| value.get("unit_storage_normal_list"))
+                    .and_then(Value::as_array)
+            });
+        if (command.contains("getwizarddatapart1") || command.contains("getunitstoragelist"))
+            && normal_storage_list.is_some()
+        {
+            let next = normalize(normal_storage_list.cloned().unwrap_or_default(), "unit_id");
+            if collection(&profile, "unit_storage_normal_list") != next.as_slice() {
+                set_collection(&mut profile, "unit_storage_normal_list", next);
                 changed = true;
             }
         }
@@ -1558,6 +1591,53 @@ mod tests {
             &json!({"command": "MoveStorageFromTo", "from": 3, "to": 1, "unit_id_list": [{"unit_id": 1}]})
         ));
         assert_eq!(store.read().unwrap().data["unit_list"][0]["building_id"], 0);
+    }
+
+    #[test]
+    fn keeps_normal_shrine_records_without_per_unit_wizard_ids() {
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({
+            "wizard_id": 7,
+            "unit_list": [{"unit_id": 1, "wizard_id": 7}],
+            "unit_storage_normal_list": [{"unit_id": 8, "unit_master_id": 10101}],
+            "runes": []
+        })));
+        assert_eq!(
+            store.read().unwrap().data["unit_storage_normal_list"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn captures_normal_shrine_records_from_a_late_storage_response() {
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({
+            "wizard_id": 7,
+            "unit_list": [{"unit_id": 1, "wizard_id": 7}],
+            "runes": []
+        })));
+        assert!(store.apply_update(
+            &json!({
+                "ret_code": 0,
+                "GetWizardDataPart1": {
+                    "unit_storage_normal_list": [
+                        {"unit_id": 8, "unit_master_id": 10101},
+                        {"unit_id": 9, "unit_master_id": 10102}
+                    ]
+                }
+            }),
+            &json!({"command": "GetWizardDataPart1"})
+        ));
+        assert_eq!(
+            store.read().unwrap().data["unit_storage_normal_list"]
+                .as_array()
+                .unwrap()
+                .len(),
+            2
+        );
     }
 
     #[test]

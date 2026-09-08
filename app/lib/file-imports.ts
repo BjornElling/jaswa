@@ -260,16 +260,20 @@ function validateAccountCollections(value: GameRecord): string | undefined {
 
   const units = recordCollection(value.unit_list);
   const normalStorageUnits = recordCollection(value.unit_storage_normal_list);
-  /* A full export carries the account wizard id on every owned unit. Without
-     this boundary, a battle response can look like a valid monster record and
-     add an opponent's LD5 to the account simply because it has a positive
-     unit_id and a level. The helper uses the same rule for live additions. */
+  /* A full export normally carries the account wizard id on every owned unit.
+     Without this boundary, a battle response can look like a valid monster
+     record and add an opponent's LD5 to the account simply because it has a
+     positive unit_id and a level. Normal-shrine records are an account-level
+     collection, and the game may omit that optional field on those records;
+     an explicit different id is still rejected. */
   if (value.wizard_id !== undefined) {
     if (!isPositiveIdentifier(value.wizard_id)) {
       return 'This file contains an invalid account identity.';
     }
     const accountWizardId = String(value.wizard_id);
-    if ([...units, ...normalStorageUnits].some((unit) => String(unit.wizard_id) !== accountWizardId)) {
+    if (units.some((unit) => String(unit.wizard_id) !== accountWizardId)
+      || normalStorageUnits.some((unit) => unit.wizard_id !== undefined
+        && String(unit.wizard_id) !== accountWizardId)) {
       return 'This file contains a monster JASWA cannot verify as belonging to this account.';
     }
   }
