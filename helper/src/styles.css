@@ -1,48 +1,364 @@
+/* =====================================================================
+   JASWA Helper — the Obsidian Grid, at window scale.
+
+   The helper used to be a cream card with system-blue conventions: its own
+   palette, its own type, its own idea of a button. Standing next to the
+   application it feeds, it read as a different product. It now borrows the
+   application's ground, its single gold accent, its 4px rhythm and its
+   verdict colours, so the two are recognisably one thing.
+
+   The tokens are copied rather than imported: this window is a separate Tauri
+   bundle with its own stylesheet and no build-time link to `app/globals.css`.
+   Only the handful the helper actually uses are here — the rest of the grid
+   has nothing to describe in a 520px window.
+
+   Fonts are the platform's own. `app/globals.css` fetches IBM Plex Sans and
+   JetBrains Mono from Google, and this window's CSP is `default-src 'self'`
+   with no font source at all, so a remote face here would silently fall back.
+   The stacks below name Segoe UI and Cascadia Mono first — present on every
+   Windows 11 the helper installs on, which is its only platform.
+   ===================================================================== */
+
 :root {
-  color: #241f16;
-  background: #f4f0e7;
-  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  --bg: #0b0d12;
+  --sunk: #080a0e;
+  --raise: #12161d;
+  --line: #222731;
+  --line-strong: #313846;
+  --hover: #161b23;
+
+  --ink: #f0eee9;
+  --dim: #a8adb8;
+  --faint: #757b87;
+  --ghost: #565c68;
+
+  --gold: #d9ad52;
+  --gold-deep: #33280f;
+  --gold-edge: #5c4820;
+
+  /* A machine reporting its own state — the exception the house style names,
+     and exactly what a capture light is. */
+  --state-good: #5fbf82;
+  --state-warn: #d9ad52;
+  --state-bad: #e0705f;
+
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+
+  --t-micro: 11px;
+  --t-small: 12px;
+  --t-body: 13px;
+  --t-base: 14px;
+  --t-lead: 15px;
+  --t-title: 18px;
+
+  --radius: 8px;
+  --radius-sm: 6px;
+
+  --sans: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  --mono: 'Cascadia Mono', Consolas, ui-monospace, monospace;
+
+  color: var(--ink);
+  background: var(--bg);
+  font-family: var(--sans);
+  font-size: var(--t-base);
 }
 
 * { box-sizing: border-box; }
 
-body { margin: 0; min-width: 420px; }
+body {
+  margin: 0;
+  /* The window is fixed at 520×656 and cannot be resized, so the layout is
+     composed for exactly that measure rather than made fluid for widths that
+     can never occur. */
+  min-width: 420px;
+  -webkit-font-smoothing: antialiased;
+  /* Nothing in the window is a text document; a stray drag-select across the
+     status card only ever looks like a glitch. */
+  user-select: none;
+}
 
-button { font: inherit; }
-
-main { display: grid; gap: 16px; padding: 28px; }
-
-header { align-items: center; display: flex; gap: 12px; justify-content: space-between; }
-
-.version { color: #756e61; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; min-width: 5ch; text-align: right; }
-
+button { font: inherit; cursor: pointer; }
 h1, p { margin: 0; }
 
-h1 { font-size: 28px; letter-spacing: -0.04em; }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
-.eyebrow { color: #756e61; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
 
-.signal { background: #a7a095; border-radius: 999px; height: 12px; width: 12px; }
-.signal.ready { background: #b17a18; }
-.signal.problem { background: #8f3f35; }
+main {
+  display: grid;
+  gap: var(--s4);
+  padding: var(--s5);
+  /* A faint gold wash from the top-left corner, the same device the
+     application's hero and handheld notice use. */
+  background: radial-gradient(88% 62% at 0% 0%, rgba(217, 173, 82, .07), transparent 68%);
+  min-height: 100vh;
+  align-content: start;
+}
 
-.status, .log-status { background: #fffdf8; border: 1px solid #ddd5c7; border-radius: 8px; display: grid; gap: 8px; padding: 16px; }
-.status-text { font-size: 18px; font-weight: 600; }
-.detail, .message { color: #756e61; font-size: 14px; line-height: 1.4; }
+/* ------------------------------------------------------------- header
+   The old header carried an eyebrow reading "Local companion" over the name.
+   It was a category label for an audience of one who already knows what the
+   window is, and it pushed the wordmark down a line to say nothing. The
+   wordmark now stands alone with the version beside it, and the fact the
+   eyebrow was reaching for — that this runs on your own computer — is said
+   where it matters, in the status card's own words. */
+header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s3);
+  padding-bottom: var(--s1);
+}
 
-.actions { display: grid; gap: 8px; grid-template-columns: 1fr 1fr; }
+.brand {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -.02em;
+  color: var(--ink);
+}
+/* The same underlined W the application's own wordmark marks. */
+.brand-sw {
+  color: var(--gold);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
 
-button { background: #fffdf8; border: 1px solid #a89e8d; border-radius: 6px; color: #241f16; min-height: 42px; padding: 8px 12px; }
-button:hover:not(:disabled), button:focus-visible { border-color: #8a5d10; outline: 2px solid #d6b260; outline-offset: 2px; }
-button[aria-pressed='true'] { background: #b17a18; border-color: #b17a18; color: #fffdf8; }
-button:disabled { color: #9b9386; cursor: not-allowed; }
+.version {
+  font-family: var(--mono);
+  font-size: var(--t-small);
+  font-variant-numeric: tabular-nums;
+  color: var(--ghost);
+  /* Reserved so a two-digit version cannot pull the wordmark sideways. */
+  min-width: 6ch;
+  text-align: right;
+}
 
-.message { min-height: 20px; }
+.eyebrow {
+  font-size: var(--t-micro);
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
 
-/* Reserve every changing text area so toggles and long errors keep controls still. */
-.status { height: 156px; grid-template-rows: 16px 24px 1fr; }
-.status .detail { overflow: auto; overflow-wrap: anywhere; }
-.log-status { height: 112px; grid-template-rows: 16px 20px 1fr; }
-.log-status .detail { overflow: auto; overflow-wrap: anywhere; }
-.message { height: 64px; overflow: auto; overflow-wrap: anywhere; }
-button { height: 44px; min-width: 0; }
+/* ------------------------------------------------------- capture card
+   The window's one headline. It is the reason the helper is open, so it gets
+   the weight, a left edge in its own state colour, and room for three lines
+   of explanation — long backend errors included, which is why the card's
+   height is reserved rather than fitted. */
+.capture {
+  display: grid;
+  gap: var(--s2);
+  padding: var(--s4);
+  border: 1px solid var(--line-strong);
+  border-left: 2px solid var(--state);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--state) 7%, transparent), transparent 72%),
+    var(--sunk);
+  /* Reserved: eyebrow row, headline, then the detail's own scrolling box. A
+     one-line state and a 900-character backend error must leave every control
+     below at the same coordinates (rule 2). */
+  height: 188px;
+  grid-template-rows: 20px auto 1fr;
+}
+.capture.state-good { --state: var(--state-good); }
+.capture.state-warn { --state: var(--state-warn); }
+.capture.state-bad { --state: var(--state-bad); }
+.capture.state-idle { --state: var(--line-strong); }
+
+.capture-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+
+.capture-headline {
+  font-size: var(--t-title);
+  font-weight: 600;
+  letter-spacing: -.02em;
+  line-height: 1.25;
+  color: var(--ink);
+  text-wrap: balance;
+}
+
+.detail {
+  color: var(--dim);
+  font-size: var(--t-body);
+  line-height: 1.5;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  /* The row is taller than most states need, because one state is a
+     900-character backend error. Short copy sits at the top of that reserve
+     rather than being centred in it, so a two-line explanation reads as text
+     under a headline instead of floating in the middle of a box. */
+  align-self: start;
+  /* The reserve is the row's, not the text's: a long error scrolls within it
+     while the rows below stay put. */
+  max-height: 100%;
+}
+
+/* --------------------------------------------------------- the light
+   A 12px dot was the whole signal before, and its ready colour was the gold
+   `#b17a18` — which on the cream ground read as an unexplained brown smudge,
+   and under the house style claimed "you can act on this" for something the
+   user cannot act on at all. It is now a verdict colour with its own name
+   beside it, so the state survives being small, being colour-blind, and being
+   glanced at: the word carries the meaning and the colour only reinforces it. */
+.signal {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  height: 20px;
+  padding: 0 var(--s2) 0 var(--s1);
+  border: 1px solid color-mix(in srgb, var(--state) 34%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--state) 12%, transparent);
+  color: var(--state);
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.signal-idle { color: var(--dim); }
+
+.signal-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--state);
+  /* A halo, so the dot reads as lit rather than printed. */
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--state) 20%, transparent);
+}
+.signal-idle .signal-dot { background: var(--faint); box-shadow: none; }
+
+/* While the helper is following the account, the light breathes. It is the one
+   moving thing in the window, it means "this is live", and it stops dead under
+   `prefers-reduced-motion` via the global rule above. */
+.signal-good .signal-dot { animation: pulse 2.4s ease-in-out infinite; }
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--state) 22%, transparent); }
+  50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--state) 6%, transparent); }
+}
+
+/* ------------------------------------------------------------ buttons */
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s2);
+  /* Every control keeps this box in every state it can be in, pressed and
+     disabled included (rule 2). */
+  height: 40px;
+  min-width: 0;
+  padding: 0 var(--s3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--raise);
+  color: var(--dim);
+  font-size: var(--t-body);
+  text-align: center;
+  white-space: nowrap;
+  transition: color .12s, background .12s, border-color .12s;
+}
+button:hover:not(:disabled) { background: var(--hover); border-color: var(--gold-edge); color: var(--ink); }
+button:disabled { color: var(--ghost); border-color: var(--line); background: var(--sunk); cursor: not-allowed; }
+
+/* The glyph tracks its label's colour, so a disabled control dims as one
+   object rather than keeping a bright icon. */
+.glyph {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Opening JASWA is what the helper is for; it is the one control wearing the
+   accent, and gold here means exactly what it means everywhere else. */
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s2); }
+.actions button { height: 44px; font-size: var(--t-base); }
+.primary {
+  border-color: var(--gold-edge);
+  background: linear-gradient(180deg, var(--gold-deep), color-mix(in srgb, var(--gold-deep) 45%, var(--raise)));
+  color: var(--gold);
+  font-weight: 600;
+}
+.primary:hover:not(:disabled) { border-color: var(--gold); background: var(--gold-deep); color: var(--gold); }
+
+/* ---------------------------------------------------------- the tools
+   Four controls that only matter when something is wrong. They were peers of
+   "Open JASWA" in one six-button grid, which gave chasing a bug the same
+   standing as the window's whole purpose. They now sit in their own titled
+   block, quieter, with the traffic log's state written underneath them. */
+.tools {
+  display: grid;
+  gap: var(--s3);
+  padding: var(--s4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--raise);
+  /* Reserved for the same reason as the capture card: the traffic line runs
+     from "Off." to a full disk-write error without moving anything. The last
+     row is a whole number of 18px lines, so a long error scrolls between
+     lines instead of being cut through the middle of one. */
+  height: 198px;
+  grid-template-rows: 16px auto 54px;
+}
+.tool-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s2); }
+/* 18px lines against the 54px reserved above: exactly three, so the box never
+   shows half a line of a long error. */
+.tools .detail { font-size: var(--t-small); line-height: 18px; color: var(--faint); }
+
+/* Recording is a state to be aware of, not an invitation.
+
+   It wears the caution verdict — but in this palette the caution amber and the
+   accent are the same yellow, as `app/globals.css` says outright, so colour
+   alone made this button a twin of "Open JASWA" and blurred "you can act on
+   this" into "something is running". The border is therefore dashed: a form
+   difference, not a fourth colour, and it reads as temporary — which is what a
+   recording is. The box is unchanged in either state (rule 2), since a dash
+   pattern costs no width.
+
+   Selected on the attribute the button already sets for assistive technology,
+   rather than on a class: `.recording` alone lost to `button:hover` on source
+   order. One selector now carries both the accessible state and its
+   appearance, so they cannot come apart. */
+.tool-grid button[aria-pressed='true'] {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--state-warn) 52%, transparent);
+  background: color-mix(in srgb, var(--state-warn) 9%, var(--raise));
+  color: var(--state-warn);
+}
+.tool-grid button[aria-pressed='true']:hover:not(:disabled) {
+  border-color: var(--state-warn);
+  background: color-mix(in srgb, var(--state-warn) 16%, var(--raise));
+  color: var(--state-warn);
+}
+
+/* ------------------------------------------------------ message line
+   Whatever a command last said. Its box is permanent so a reply cannot push
+   the window's contents around, and it stays quiet until there is something
+   in it. */
+.message {
+  height: 56px;
+  padding: 0 var(--s1);
+  color: var(--faint);
+  font-size: var(--t-small);
+  line-height: 1.5;
+  overflow: auto;
+  overflow-wrap: anywhere;
+}

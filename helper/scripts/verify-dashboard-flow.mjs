@@ -48,7 +48,10 @@ try {
   }, initial);
   await page.goto(`${origin}/helper-check/`);
   await page.getByText('Waiting for Summoners War', { exact: true }).waitFor();
-  const boxes = () => page.locator('.actions button').evaluateAll((buttons) => buttons.map((button) => {
+  /* Every control in the window, not just the two primary ones: the
+     troubleshooting block reserves its own height for the traffic line, and a
+     long error there must not move the four buttons above it either. */
+  const boxes = () => page.locator('button').evaluateAll((buttons) => buttons.map((button) => {
     const { x, y, width, height } = button.getBoundingClientRect(); return { x, y, width, height };
   }));
   const before = await boxes();
@@ -66,11 +69,39 @@ try {
   await page.getByRole('button', { name: 'Stop traffic log', pressed: true }).waitFor();
   assert.deepEqual(await boxes(), before);
   await page.screenshot({ path: resolve(output, 'helper-recording.png'), fullPage: true });
+  /* The four healthy and waiting states the old check never drove. This is
+     where the misleading copy lived: a connected, capturing helper still read
+     "Open Summoners War on Steam", because the headline was derived from the
+     status and the explanation beneath it was a constant. Each state now
+     asserts its own explanation, so the two cannot drift apart again. */
+  const state = async (status, headline, detail) => {
+    await page.evaluate((value) => { window.dashboard.status = value; }, { version: '1.0.1', updatedAt: '2026-09-06T12:00:00Z', ...status });
+    await page.getByText(headline, { exact: true }).waitFor();
+    await page.locator('.capture .detail').filter({ hasText: detail }).waitFor();
+    assert.deepEqual(await boxes(), before);
+  };
+  await state(
+    { hasProfile: true, profileReady: true, restartRequired: false, lastError: null, source: 'game-start' },
+    'Account captured', 'read your account when the game logged in');
+  await page.screenshot({ path: resolve(output, 'helper-captured.png'), fullPage: true });
+  await state(
+    { hasProfile: true, profileReady: true, restartRequired: false, lastError: null, source: 'live' },
+    'Following your account', 'keeps up with what you do in the game');
+  await page.screenshot({ path: resolve(output, 'helper-live.png'), fullPage: true });
+  await state(
+    { hasProfile: false, profileReady: false, restartRequired: true, lastError: null, source: null },
+    'Summoners War logged in too early', 'Quit Summoners War and open it again');
+  await page.screenshot({ path: resolve(output, 'helper-restart.png'), fullPage: true });
+  await state(
+    { hasProfile: true, profileReady: false, restartRequired: false, lastError: null, source: 'live' },
+    'Summoners War is not running', 'Open the game to capture a fresh one');
+  await page.screenshot({ path: resolve(output, 'helper-game-closed.png'), fullPage: true });
+
   await page.evaluate(() => {
     window.dashboard.status = { version: '1.0.1', hasProfile: true, profileReady: false, restartRequired: false, lastError: 'Capture failed. '.repeat(60), source: 'live', updatedAt: '2026-09-06T12:00:00Z' };
     window.dashboard.traffic = { enabled: true, entries: 999999999, recorded: true, full: false, lastError: 'Disk write failed. '.repeat(60) };
   });
-  await page.getByText('Connection needs attention', { exact: true }).waitFor();
+  await page.getByText('Capture stopped', { exact: true }).waitFor();
   assert.deepEqual(await boxes(), before);
   await page.screenshot({ path: resolve(output, 'helper-full-errors.png'), fullPage: true });
   await page.evaluate(() => { window.statusFailure = true; });
@@ -78,5 +109,5 @@ try {
   assert.deepEqual(await boxes(), before);
   await page.screenshot({ path: resolve(output, 'helper-status-failure.png'), fullPage: true });
   assert.deepEqual(errors, []);
-  console.log('Helper release dashboard: empty/full states, report consent, traffic toggle, long errors and rejected IPC passed. Six controls keep identical bounds. Screenshots: outputs/helper-hardening.');
+  console.log('Helper release dashboard: waiting, captured, live, restart-required, game-closed, long errors, report consent, traffic toggle and rejected IPC passed. Each state states its own explanation, and all six controls keep identical bounds throughout. Screenshots: outputs/helper-hardening.');
 } finally { await browser.close(); }
