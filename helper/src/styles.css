@@ -76,10 +76,26 @@ body {
      composed for exactly that measure rather than made fluid for widths that
      can never occur. */
   min-width: 420px;
+  height: 100vh;
+  overflow: hidden;
   -webkit-font-smoothing: antialiased;
   /* Nothing in the window is a text document; a stray drag-select across the
      status card only ever looks like a glitch. */
   user-select: none;
+}
+
+/* The window is undecorated, so the page is the whole window: the title bar is
+   a fixed row and the dashboard below it takes the rest, with no scroll of its
+   own — every box inside reserves its own height instead.
+
+   This lives on React's mount rather than on `body`, because `body`'s only
+   child is that mount: putting the rows on `body` gave the grid one item, and
+   the title bar and the dashboard sized themselves inside a collapsed div. */
+#root {
+  height: 100%;
+  display: grid;
+  grid-template-rows: 36px 1fr;
+  min-height: 0;
 }
 
 button { font: inherit; cursor: pointer; }
@@ -91,39 +107,49 @@ h1, p { margin: 0; }
   * { transition: none !important; animation: none !important; }
 }
 
-main {
-  display: grid;
-  gap: var(--s4);
-  padding: var(--s5);
-  /* A faint gold wash from the top-left corner, the same device the
-     application's hero and handheld notice use. */
-  background: radial-gradient(88% 62% at 0% 0%, rgba(217, 173, 82, .07), transparent 68%);
-  min-height: 100vh;
-  align-content: start;
-}
+/* ---------------------------------------------------------- title bar
+   Windows' own caption bar is a light-grey plate with the system's own
+   controls, and nothing below it could reconcile with it: the helper looked
+   like this window wearing somebody else's hat. The window is therefore
+   undecorated, and this is the replacement — the same ground, the same accent,
+   the same hover language as every other control here.
 
-/* ------------------------------------------------------------- header
-   The old header carried an eyebrow reading "Local companion" over the name.
-   It was a category label for an audience of one who already knows what the
-   window is, and it pushed the wordmark down a line to say nothing. The
-   wordmark now stands alone with the version beside it, and the fact the
-   eyebrow was reaching for — that this runs on your own computer — is said
-   where it matters, in the status card's own words. */
-header {
+   It carries the wordmark and the version, which is why the page no longer has
+   a header row of its own: the same two facts twice in a 520px window is once
+   too many, and the row's height is what the activity box needed.
+
+   Whatever is not a button here is drag surface, marked in the markup with
+   `data-tauri-drag-region`. */
+.titlebar {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  align-items: center;
   gap: var(--s3);
-  padding-bottom: var(--s1);
+  padding-left: var(--s4);
+  border-bottom: 1px solid var(--line);
+  background: var(--sunk);
+  /* Nothing about a caption bar should invite a text cursor. */
+  cursor: default;
 }
 
-.brand {
-  font-size: 22px;
+.titlebar-brand {
+  font-size: var(--t-base);
   font-weight: 600;
-  letter-spacing: -.02em;
+  letter-spacing: -.01em;
   color: var(--ink);
+  /* The drag region must be the bar, not just the glyphs in the text: a flex
+     child sized to its content leaves a dead strip beside it that looks
+     draggable and is not. */
+  flex: 1;
+  /* The gold underline sits below the text baseline, and a 36px bar has no
+     room to spare — nudged up so the descender of the rule stays inside. */
+  padding-bottom: 1px;
 }
-/* The same underlined W the application's own wordmark marks. */
+
+/* --------------------------------------------------------- the wordmark
+   Set exactly as `app/components/app-rail.tsx` sets it: lowercase, with `sw`
+   — the pun the name is built on — carrying the gold underline. The helper
+   used to render `JASWA` with only the `W` marked, which is a different mark
+   for what is meant to be the same product. */
 .brand-sw {
   color: var(--gold);
   text-decoration: underline;
@@ -136,9 +162,58 @@ header {
   font-size: var(--t-small);
   font-variant-numeric: tabular-nums;
   color: var(--ghost);
-  /* Reserved so a two-digit version cannot pull the wordmark sideways. */
+  /* Reserved so a two-digit version cannot pull the caption controls sideways. */
   min-width: 6ch;
   text-align: right;
+}
+
+.titlebar-controls { display: flex; height: 100%; }
+
+/* The system's caption buttons, in this window's own terms: the same 46px
+   hit-box Windows 11 uses, so the muscle memory survives, but drawn in the
+   helper's palette. Close hides to the tray rather than quitting — the backend
+   intercepts `CloseRequested` — so it gets Windows' red only on hover, where
+   it reads as "this closes the window", not as a destructive warning at rest. */
+.caption {
+  width: 46px;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--dim);
+  transition: background .12s, color .12s;
+}
+.caption svg {
+  width: 10px;
+  height: 10px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.1;
+}
+.caption:hover { background: var(--hover); color: var(--ink); }
+.caption-close:hover { background: #c42b1c; color: #fff; }
+/* The outline would be clipped by the bar's edge; an inset ring is the same
+   signal with room to draw. */
+.caption:focus-visible { outline: 0; box-shadow: inset 0 0 0 2px var(--gold); }
+
+main {
+  display: grid;
+  gap: var(--s4);
+  padding: var(--s4) var(--s5) var(--s5);
+  /* A faint gold wash from the top-left corner, the same device the
+     application's hero and handheld notice use. */
+  background: radial-gradient(88% 62% at 0% 0%, rgba(217, 173, 82, .07), transparent 68%);
+  /* The three fixed boxes keep their reserved heights and the activity box
+     takes whatever is left, so the window has no empty tail at the bottom
+     whatever its content — which is what the old 56px message strip left. */
+  grid-template-rows: auto auto auto 1fr;
+  /* Both directions of the same rule: `min-height: 0` lets the row shrink to
+     the window rather than overflowing it, and `height: 100%` makes it fill
+     the window rather than stopping at its content. Without the second, the
+     activity box ended wherever its text did and left the tail this change
+     exists to remove. */
+  height: 100%;
+  min-height: 0;
 }
 
 .eyebrow {
@@ -166,8 +241,14 @@ header {
     var(--sunk);
   /* Reserved: eyebrow row, headline, then the detail's own scrolling box. A
      one-line state and a 900-character backend error must leave every control
-     below at the same coordinates (rule 2). */
-  height: 188px;
+     below at the same coordinates (rule 2).
+
+     The reserve was 188px, sized when this card was the only thing that could
+     absorb a long error and the window's slack collected in a dead strip at
+     the bottom. The activity box now holds that slack and scrolls the error
+     too, so the card is cut to four lines of detail — enough for every state's
+     own words, with the long ones scrolling as they always did. */
+  height: 148px;
   grid-template-rows: 20px auto 1fr;
 }
 .capture.state-good { --state: var(--state-good); }
@@ -311,17 +392,12 @@ button:disabled { color: var(--ghost); border-color: var(--line); background: va
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--raise);
-  /* Reserved for the same reason as the capture card: the traffic line runs
-     from "Off." to a full disk-write error without moving anything. The last
-     row is a whole number of 18px lines, so a long error scrolls between
-     lines instead of being cut through the middle of one. */
-  height: 198px;
-  grid-template-rows: 16px auto 54px;
+  /* The traffic line that used to hang under these buttons — unlabelled, with
+     nothing to say what it described — is now an entry in the activity box.
+     The block is therefore only its title and its four controls, and needs no
+     reserved height: nothing in it changes size. */
 }
 .tool-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s2); }
-/* 18px lines against the 54px reserved above: exactly three, so the box never
-   shows half a line of a long error. */
-.tools .detail { font-size: var(--t-small); line-height: 18px; color: var(--faint); }
 
 /* Recording is a state to be aware of, not an invitation.
 
@@ -349,16 +425,82 @@ button:disabled { color: var(--ghost); border-color: var(--line); background: va
   color: var(--state-warn);
 }
 
-/* ------------------------------------------------------ message line
-   Whatever a command last said. Its box is permanent so a reply cannot push
-   the window's contents around, and it stays quiet until there is something
-   in it. */
-.message {
-  height: 56px;
-  padding: 0 var(--s1);
-  color: var(--faint);
+/* --------------------------------------------------------- the activity
+   What replaced two homeless pieces of text.
+
+   The traffic log's state was a bare line under the troubleshooting buttons
+   with no label to say what it described — the user read "Off. Record traffic
+   only when a problem needs chasing down" with no way to know what was off.
+   And a command's reply landed in an unlabelled 56px strip at the very bottom,
+   above a stretch of empty window that made the layout look unfinished.
+
+   Both are records of something the helper did, so both are entries in one
+   titled list. It takes the last row of the grid, which is what closes the
+   gap: the box grows to the window's floor whether it holds one line or forty,
+   and its own list scrolls inside it rather than the window doing so. */
+.activity {
+  display: grid;
+  gap: var(--s3);
+  padding: var(--s4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--sunk);
+  grid-template-rows: 16px 1fr;
+  /* A grid item's default `min-height: auto` would let a long list push the
+     box past the window instead of scrolling inside it. */
+  min-height: 0;
+}
+
+.activity-list {
+  display: grid;
+  align-content: start;
+  gap: var(--s2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* This is the one place in the window whose text is worth copying out —
+     an error to paste to the developer — so the global `user-select: none`
+     is lifted here. */
+  user-select: text;
+}
+
+.activity-list li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--s3);
   font-size: var(--t-small);
-  line-height: 1.5;
-  overflow: auto;
+  line-height: 17px;
   overflow-wrap: anywhere;
 }
+/* The newest entry is the one being reported; the rest are the trail behind
+   it. One step of contrast separates them — no second accent, no rule. */
+.activity-list li:first-child .activity-text { color: var(--dim); }
+.activity-text { color: var(--faint); }
+
+.activity-time {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--ghost);
+  /* Fixed, so every line of text starts on the same column. */
+  min-width: 8ch;
+}
+
+.activity-empty {
+  color: var(--ghost);
+  font-size: var(--t-small);
+  line-height: 1.5;
+  max-width: 44ch;
+}
+
+/* A thin scrollbar in the window's own colours; the platform default is a
+   light plate for the same reason the caption bar was. */
+.activity-list::-webkit-scrollbar { width: 8px; }
+.activity-list::-webkit-scrollbar-track { background: transparent; }
+.activity-list::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--line-strong) content-box;
+}
+.activity-list::-webkit-scrollbar-thumb:hover { background: var(--ghost) content-box; }

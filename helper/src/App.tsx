@@ -142,6 +142,73 @@ function Glyph({ name }: { name: 'jaswa' | 'download' | 'report' | 'log' | 'reco
   );
 }
 
+/* The wordmark, exactly as `app/components/app-rail.tsx` sets it: lowercase,
+   with the SW the name puns on carrying the gold underline. The helper used to
+   set it uppercase with only the W marked, which made the two windows look like
+   two products with similar names. */
+function Wordmark() {
+  return <>ja<span className="brand-sw">sw</span>a</>;
+}
+
+/* ------------------------------------------------------------- title bar
+   The window is undecorated (`decorations: false` in tauri.conf.json), because
+   Windows' own caption bar is a light-grey plate that no amount of styling
+   below it can reconcile with this palette — it read as the helper wearing
+   somebody else's hat. This is its replacement: the same ground, the same
+   accent, the same hover language as every other control here.
+
+   Losing the system bar means re-supplying what it did. Dragging is the
+   webview's `data-tauri-drag-region`, and minimise and close are ordinary
+   buttons calling the window commands — close hides rather than quits,
+   matching the `CloseRequested` handler the decorated window had, so the
+   helper keeps capturing from the tray.
+
+   The commands go through `invoke` rather than `getCurrentWindow()`, which
+   reads a `currentWindow` off Tauri's injected metadata. The whole window is
+   already reachable by name, and depending on that metadata would make the
+   frame the one part of the dashboard the release check cannot drive — it
+   stubs `invoke`, not the runtime's internals. */
+function caption(command: 'minimize' | 'close') {
+  return invoke(`plugin:window|${command}`, { label: 'main' });
+}
+
+function TitleBar({ version }: { version: string | null }) {
+  return (
+    <div className="titlebar" data-tauri-drag-region>
+      <p className="titlebar-brand" data-tauri-drag-region>
+        <Wordmark /> helper
+      </p>
+      <span className="version" aria-label={`Helper version ${version ?? 'unknown'}`}>v{version ?? '—'}</span>
+      <div className="titlebar-controls">
+        <button type="button" className="caption" aria-label="Minimise" onClick={() => void caption('minimize')}>
+          <svg viewBox="0 0 10 10" aria-hidden="true" focusable="false"><path d="M0 5h10" /></svg>
+        </button>
+        <button type="button" className="caption caption-close" aria-label="Close to the system tray" onClick={() => void caption('close')}>
+          <svg viewBox="0 0 10 10" aria-hidden="true" focusable="false"><path d="M0 0l10 10M10 0L0 10" /></svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------- the activity
+   Everything the helper has to say that is not its capture state. Two things
+   used to say it, and neither had a home: the traffic log's state was a bare
+   line of text hanging under the troubleshooting buttons with no label to say
+   what it described, and a command's reply landed in an unlabelled 56px strip
+   at the very bottom with an empty stretch of window above it. Both are
+   records of something happening, so both belong in one titled, timestamped
+   list — which also fills the space the strip left. */
+type Entry = { id: number; at: string; text: string };
+
+/** Newest first, capped: this is a running window's recent activity, not a
+    file. The diagnostic log is the file, and it has its own button. */
+function remember(entries: Entry[], text: string): Entry[] {
+  if (entries[0]?.text === text) return entries;
+  const at = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  return [{ id: (entries[0]?.id ?? 0) + 1, at, text }, ...entries].slice(0, 50);
+}
+
 /** The capture light: a ring that reads as a state, with its name beside it. */
 function Signal({ state, label }: { state: Reading['state']; label: string }) {
   return (
@@ -156,7 +223,8 @@ export function App() {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const busy = useRef(false);
   const polling = useRef(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [activity, setActivity] = useState<Entry[]>([]);
+  const note = useCallback((text: string) => setActivity((entries) => remember(entries, text)), []);
 
   const refresh = useCallback(async () => {
     if (polling.current) return;
@@ -167,9 +235,9 @@ export function App() {
       setDashboard(value);
     } catch (error) {
       setDashboard(null);
-      setMessage(error instanceof Error ? error.message : String(error));
+      note(error instanceof Error ? error.message : String(error));
     } finally { polling.current = false; }
-  }, []);
+  }, [note]);
 
   useEffect(() => {
     void refresh();
@@ -182,32 +250,58 @@ export function App() {
     busy.current = true;
     try {
       const result = await invoke<unknown>(command, args);
-      // Only a command's own words belong in the message line. Anything else a
+      // Only a command's own words belong in the activity list. Anything else a
       // command returns is state the next refresh reads, not text to show.
-      if (typeof result === 'string' && result) setMessage(result);
+      if (typeof result === 'string' && result) note(result);
       await refresh();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error));
+      note(error instanceof Error ? error.message : String(error));
     } finally { busy.current = false; }
-  }, [refresh]);
+  }, [refresh, note]);
 
   const traffic = dashboard?.traffic;
   const status = dashboard?.status ?? null;
   const recording = traffic?.enabled ?? false;
   const now = reading(status);
 
+  /* The traffic log's own words, unchanged from when they sat unlabelled under
+     the buttons — only where they are said has moved. The count is deliberately
+     not in this string: it changes every second while recording, and an entry
+     per second would bury everything else in the list. The running total is on
+     the "Stop traffic log" button instead, where a changing number belongs. */
+  const trafficNote = traffic && (traffic.lastError
+    ?? (traffic.enabled
+      ? `Recording traffic to a local file.${traffic.full ? ' The local log is full and has stopped growing.' : ''}`
+      : traffic.recorded
+        ? 'Traffic recording stopped. A recording is saved on this computer, ready to inspect.'
+        : null));
+
+  /* Every distinct thing the helper has said, in order, without the poll
+     re-saying it: `remember` drops a repeat of the newest entry, so a state
+     that holds for an hour is one line, and the line only reappears if
+     something else was said in between.
+
+     A capture state enters as its headline alone — the card above is already
+     showing the explanation in full, and repeating it here made one state
+     change fill the box. An error is the exception: it is the one detail the
+     card may have to scroll to show, and the one worth copying out. */
+  useEffect(() => { if (trafficNote) note(trafficNote); }, [trafficNote, note]);
+  useEffect(() => {
+    note(now.state === 'bad' ? `${now.headline} — ${now.detail}` : now.headline);
+  }, [now.state, now.headline, now.detail, note]);
+
   async function toggleTraffic() {
     if (!recording && !window.confirm('Record everything Summoners War sends to this computer? This writes decoded account data to a local file and never uploads it.')) return;
     await call('set_traffic_logging', { enabled: !recording });
   }
 
+  /* The wordmark and the version live in the title bar now. A separate header
+     row repeating them under it would be the same two facts twice in a 520px
+     window, and the space it cost is exactly what the activity box needed. */
   return (
-    <main>
-      <header>
-        <p className="brand">JAS<span className="brand-sw">W</span>A Helper</p>
-        <span className="version" aria-label={`Helper version ${status?.version ?? 'unknown'}`}>v{status?.version ?? '—'}</span>
-      </header>
-
+    <>
+      <TitleBar version={status?.version ?? null} />
+      <main>
       <section className={`capture state-${now.state}`} aria-live="polite">
         <div className="capture-head">
           <p className="eyebrow">Capture</p>
@@ -237,24 +331,33 @@ export function App() {
           <button type="button" onClick={() => void call('open_diagnostics')}>
             <Glyph name="log" />Open diagnostic log
           </button>
+          {/* The running count rides on the button because it changes every
+              second; the activity list below records the state changes only. */}
           <button type="button" aria-pressed={recording} onClick={() => void toggleTraffic()}>
-            <Glyph name="record" />{recording ? 'Stop traffic log' : 'Log all traffic'}
+            <Glyph name="record" />{recording
+              ? `Stop traffic log (${(traffic?.entries ?? 0).toLocaleString('en-GB')})`
+              : 'Log all traffic'}
           </button>
           <button type="button" disabled={!traffic?.recorded} onClick={() => void call('open_traffic_log')}>
             <Glyph name="open" />Open traffic log
           </button>
         </div>
-        <p className="detail" aria-live="polite">
-          {traffic?.lastError
-            ?? (traffic?.enabled
-              ? `Recording — ${traffic.entries.toLocaleString('en-GB')} exchange${traffic.entries === 1 ? '' : 's'} written so far.${traffic.full ? ' The local log is full and has stopped growing.' : ''}`
-              : traffic?.recorded
-                ? 'A recording is saved on this computer, ready to inspect.'
-                : 'Off. Record traffic only when a problem needs chasing down.')}
-        </p>
       </section>
 
-      <p className="message" role="status">{message}</p>
+      <section className="activity" aria-label="Activity">
+        <p className="eyebrow">Activity</p>
+        <ol className="activity-list" role="status">
+          {activity.length === 0
+            ? <li className="activity-empty">Nothing to report yet. What the helper does — and anything it saves for you — is listed here.</li>
+            : activity.map((entry) => (
+              <li key={entry.id}>
+                <span className="activity-time">{entry.at}</span>
+                <span className="activity-text">{entry.text}</span>
+              </li>
+            ))}
+        </ol>
+      </section>
     </main>
+    </>
   );
 }

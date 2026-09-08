@@ -34,6 +34,11 @@ try {
     window.commands = [];
     window.__TAURI_INTERNALS__ = {
       invoke: async (command, args) => {
+        /* The window is undecorated, so its own title bar drives minimise and
+           close through the core window API — which arrives here as an
+           `invoke` like any other. Record them and answer, so the caption
+           buttons are exercised by this check rather than throwing. */
+        if (command.startsWith('plugin:window|')) { window.commands.push(command); return null; }
         window.commands.push(command);
         if (command === 'helper_status') {
           if (window.statusFailure) throw 'Backend status failed';
@@ -49,14 +54,41 @@ try {
     };
   }, initial);
   await page.goto(`${origin}/helper-check/`);
-  await page.getByText('Waiting for Summoners War', { exact: true }).waitFor();
-  /* Every control in the window, not just the two primary ones: the
-     troubleshooting block reserves its own height for the traffic line, and a
-     long error there must not move the four buttons above it either. */
-  const boxes = () => page.locator('button').evaluateAll((buttons) => buttons.map((button) => {
+  /* Scoped to the card: a capture state is also an activity entry now, so an
+     unscoped match for a headline finds both. */
+  const headline = (text) => page.locator('.capture-headline').filter({ hasText: text });
+  await headline('Waiting for Summoners War').waitFor();
+
+  /* The window is its own frame now: the wordmark is the application's, set
+     lowercase with `sw` marked, and the caption buttons are the helper's own
+     rather than the system's light-grey plate. */
+  assert.equal(await page.locator('.titlebar-brand').textContent(), 'jaswa helper');
+  assert.equal(await page.locator('.titlebar-brand .brand-sw').textContent(), 'sw');
+  assert.equal(await page.locator('.titlebar .version').textContent(), `v${version}`);
+  assert.equal(await page.locator('header').count(), 0, 'the wordmark is not repeated below the title bar');
+
+  /* Every control in the window, not just the two primary ones: the capture
+     card and the activity box each absorb their own long text, and neither may
+     move a button when they do. The caption buttons are excluded — they belong
+     to the frame, and are checked separately below. */
+  const boxes = () => page.locator('main button').evaluateAll((buttons) => buttons.map((button) => {
     const { x, y, width, height } = button.getBoundingClientRect(); return { x, y, width, height };
   }));
   const before = await boxes();
+
+  /* The activity box reaches the window's floor: the old layout ended with a
+     56px strip and left the rest of the window empty below it. */
+  const filled = await page.locator('.activity').evaluate((box) => {
+    const { bottom } = box.getBoundingClientRect();
+    return window.innerHeight - bottom;
+  });
+  assert.ok(filled <= 25, `the activity box must reach the window floor, not stop ${filled}px short`);
+  /* The capture state is itself an entry, so the list is never empty for long
+     — but every entry carries a time and its own words, which is exactly what
+     the homeless traffic line and message strip did not. */
+  await page.locator('.activity-list li').first().waitFor();
+  assert.match(await page.locator('.activity-time').first().textContent(), /^\d{2}:\d{2}:\d{2}$/);
+  await page.locator('.activity-text').filter({ hasText: 'Waiting for Summoners War' }).waitFor();
   await page.screenshot({ path: resolve(output, 'helper-empty.png'), fullPage: true });
   assert.equal(await page.getByRole('button', { name: 'Download JSON' }).isDisabled(), true);
   page.once('dialog', (dialog) => dialog.dismiss());
@@ -68,7 +100,10 @@ try {
   assert.deepEqual(await boxes(), before);
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: 'Log all traffic' }).click();
-  await page.getByRole('button', { name: 'Stop traffic log', pressed: true }).waitFor();
+  /* The running count rides on the button, where a number that changes every
+     second belongs; the activity box records only that recording started. */
+  await page.getByRole('button', { name: /^Stop traffic log \(\d/, pressed: true }).waitFor();
+  await page.locator('.activity-text').filter({ hasText: 'Recording traffic to a local file' }).waitFor();
   assert.deepEqual(await boxes(), before);
   await page.screenshot({ path: resolve(output, 'helper-recording.png'), fullPage: true });
   /* The four healthy and waiting states the old check never drove. This is
@@ -76,10 +111,16 @@ try {
      "Open Summoners War on Steam", because the headline was derived from the
      status and the explanation beneath it was a constant. Each state now
      asserts its own explanation, so the two cannot drift apart again. */
-  const state = async (status, headline, detail) => {
+  const state = async (status, title, detail) => {
     await page.evaluate((value) => { window.dashboard.status = value; }, { version, updatedAt: '2026-09-06T12:00:00Z', ...status });
-    await page.getByText(headline, { exact: true }).waitFor();
+    await headline(title).waitFor();
     await page.locator('.capture .detail').filter({ hasText: detail }).waitFor();
+    /* A healthy state enters the activity list as its headline alone — the
+       card beside it is already showing the explanation, and repeating it made
+       one state change fill the box. */
+    await page.locator('.activity-text').filter({ hasText: title }).first().waitFor();
+    assert.equal(await page.locator('.activity-text').filter({ hasText: detail }).count(), 0,
+      'a healthy state logs its headline, not the card\'s whole explanation');
     assert.deepEqual(await boxes(), before);
   };
   await state(
@@ -103,13 +144,29 @@ try {
     window.dashboard.status = { version, hasProfile: true, profileReady: false, restartRequired: false, lastError: 'Capture failed. '.repeat(60), source: 'live', updatedAt: '2026-09-06T12:00:00Z' };
     window.dashboard.traffic = { enabled: true, entries: 999999999, recorded: true, full: false, lastError: 'Disk write failed. '.repeat(60) };
   }, version);
-  await page.getByText('Capture stopped', { exact: true }).waitFor();
+  await headline('Capture stopped').waitFor();
+  /* Two 1,200-character errors at once — one in the capture card, one in the
+     activity list. Each scrolls inside its own box, so no button moves and
+     nothing overflows the window. */
+  await page.locator('.activity-text').filter({ hasText: 'Disk write failed.' }).first().waitFor();
   assert.deepEqual(await boxes(), before);
+  assert.equal(
+    await page.evaluate(() => document.body.scrollHeight > window.innerHeight || document.body.scrollWidth > window.innerWidth),
+    false, 'long errors scroll inside their own boxes, never the window');
   await page.screenshot({ path: resolve(output, 'helper-full-errors.png'), fullPage: true });
   await page.evaluate(() => { window.statusFailure = true; });
   await page.getByRole('status').filter({ hasText: 'Backend status failed' }).waitFor();
   assert.deepEqual(await boxes(), before);
   await page.screenshot({ path: resolve(output, 'helper-status-failure.png'), fullPage: true });
+
+  /* The frame's own controls: close hides to the tray, exactly as the
+     decorated window's `CloseRequested` handler did. */
+  await page.getByRole('button', { name: 'Minimise' }).click();
+  await page.getByRole('button', { name: 'Close to the system tray' }).click();
+  const caption = await page.evaluate(() => window.commands.filter((entry) => entry.startsWith('plugin:window|')));
+  assert.ok(caption.some((entry) => entry.includes('minimize')), `expected a minimize call, saw ${caption}`);
+  assert.ok(caption.some((entry) => entry.includes('close')), `expected a close call, saw ${caption}`);
+
   assert.deepEqual(errors, []);
-  console.log('Helper release dashboard: waiting, captured, live, restart-required, game-closed, long errors, report consent, traffic toggle and rejected IPC passed. Each state states its own explanation, and all six controls keep identical bounds throughout. Screenshots: outputs/helper-hardening.');
+  console.log('Helper release dashboard: waiting, captured, live, restart-required, game-closed, long errors, report consent, traffic toggle, caption buttons and rejected IPC passed. The frame is the helper\'s own, the wordmark matches the application\'s, every state states its own explanation, the activity box reaches the window floor, and all six controls keep identical bounds throughout. Screenshots: outputs/helper-hardening.');
 } finally { await browser.close(); }
