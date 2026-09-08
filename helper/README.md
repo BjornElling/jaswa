@@ -103,7 +103,7 @@ tray icon and start the replacement promptly.
 
 ## The diagnostic log
 
-`%LOCALAPPDATA%\JASWA Helper\diagnostics.log` records what the helper did, in
+`Downloads\JASWA Helper diagnostics.log` records what the helper did, in
 order, and is the first thing to read when the dashboard says "Connected" while
 the account stays stale. It is always on, holds no account data — only counts,
 command names and outcomes — and so can go into a bug report unedited.
@@ -168,8 +168,8 @@ installer. A new signed release must also be scanned by Microsoft Defender and
 submitted to Microsoft as a false positive if Defender blocks it.
 
 The root command `node scripts/verify-helper-browser.mjs` drives the real JASWA
-page at localhost:3000, using the most recent local traffic-log account as its
-full fixture and intercepted helper HTTP responses. It checks malformed replies,
+page at localhost:3000, using the complete synthetic account fixture and
+intercepted helper HTTP responses. It checks malformed replies,
 rejected snapshots and their downloaded reports, preserved imports, and a helper
 restart at the same revision in live mode. The fixture is never uploaded.
 
@@ -191,13 +191,16 @@ An invalid login discards the previous account. Infrastructure failures remain
 visible until the helper restarts. `/health` exposes the reason and `/profile`
 refuses a snapshot that is not ready. JASWA keeps its last good saved import.
 
-**Save error report** in the helper writes a uniquely named local JSON file.
-The report contains status, diagnostic entries, the current profile, and the
-first failed exchange plus its preceding profile when available. Exact wire
-messages are base64 encoded, not anonymized. Evidence is held in memory until
-saving; quitting loses unsaved evidence. Later failures in the same gap are
-counted without retaining an unbounded traffic history. A new gap after a
-successful login gets new evidence.
+**Save error report** writes a uniquely named JSON file to Downloads. It begins
+with a plain-language finding and next step, then includes the full status,
+traffic state, a structured diagnostic timeline plus its original text, the
+current profile, and the first failed exchange plus its preceding profile when
+available. Exact wire messages are base64 encoded, not anonymized. Evidence is
+held in memory until saving; quitting loses unsaved evidence. Later failures
+in the same gap are counted without retaining an unbounded traffic history. A
+new gap after a successful login gets new evidence. User-facing helper files —
+exports, diagnostic logs, traffic logs and reports — all live in Downloads;
+the private certificate and consent marker remain in the application store.
 
 **Report Issue** in JASWA opens one support e-mail with the relevant technical
 diagnostics, account counts and issue description. It never includes the full

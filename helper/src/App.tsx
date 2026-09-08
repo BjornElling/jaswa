@@ -6,6 +6,8 @@ type Status = {
   hasProfile: boolean;
   profileReady: boolean;
   restartRequired: boolean;
+  gameStartedBeforeHelper: boolean;
+  gameLoginPending: boolean;
   lastError: string | null;
   source: string | null;
   updatedAt: string | null;
@@ -27,7 +29,7 @@ function validDashboard(value: unknown): value is Dashboard {
   const text = (entry: unknown) => entry === null || typeof entry === 'string';
   return Boolean(status && traffic
     && typeof status.version === 'string' && status.version.length > 0
-    && [status.hasProfile, status.profileReady, status.restartRequired, traffic.enabled, traffic.recorded, traffic.full].every((entry) => typeof entry === 'boolean')
+    && [status.hasProfile, status.profileReady, status.restartRequired, status.gameStartedBeforeHelper, status.gameLoginPending, traffic.enabled, traffic.recorded, traffic.full].every((entry) => typeof entry === 'boolean')
     && [status.lastError, status.source, status.updatedAt, traffic.lastError].every(text)
     && Number.isSafeInteger(traffic.entries) && traffic.entries >= 0);
 }
@@ -61,6 +63,16 @@ type Reading = {
   detail: string;
 };
 
+/* The card is a status, not a second scrolling log. Routine explanations fit
+   in its fixed four-line reserve; exceptionally long backend errors stay
+   complete in Activity, where they can be copied into an error report. */
+function captureDetail(detail: string): string {
+  const compact = detail.replace(/\s+/g, ' ').trim();
+  return compact.length <= 220
+    ? compact
+    : `${compact.slice(0, 176).trimEnd()}… See Activity for the full report.`;
+}
+
 function reading(status: Status | null): Reading {
   if (!status) {
     return {
@@ -78,12 +90,20 @@ function reading(status: Status | null): Reading {
       detail: status.lastError,
     };
   }
-  if (status.restartRequired) {
+  if (status.gameStartedBeforeHelper) {
     return {
       state: 'warn',
       label: 'Restart game',
-      headline: 'Summoners War logged in too early',
-      detail: 'The helper is connected, but it started after the game had already logged in, so it missed the exchange that carries your account. Quit Summoners War and open it again — that replays it.',
+      headline: 'Summoners War was already open',
+      detail: 'The helper found Summoners War running as it started, so it missed the login exchange that carries your account. Quit the game and open it again — the next launch is captured normally.',
+    };
+  }
+  if (status.gameLoginPending) {
+    return {
+      state: 'idle',
+      label: 'Waiting',
+      headline: 'Summoners War is connected',
+      detail: 'The helper has not received an account login from this connection yet. It keeps waiting; if you are already in-game and this remains, save an error report.',
     };
   }
   if (status.profileReady) {
@@ -271,9 +291,9 @@ export function App() {
      the "Stop traffic log" button instead, where a changing number belongs. */
   const trafficNote = traffic && (traffic.lastError
     ?? (traffic.enabled
-      ? `Recording traffic to a local file.${traffic.full ? ' The local log is full and has stopped growing.' : ''}`
+      ? `Recording traffic to your Downloads folder.${traffic.full ? ' The log is full and has stopped growing.' : ''}`
       : traffic.recorded
-        ? 'Traffic recording stopped. A recording is saved on this computer, ready to inspect.'
+        ? 'Traffic recording stopped. A recording is saved in your Downloads folder, ready to inspect.'
         : null));
 
   /* Every distinct thing the helper has said, in order, without the poll
@@ -291,7 +311,7 @@ export function App() {
   }, [now.state, now.headline, now.detail, note]);
 
   async function toggleTraffic() {
-    if (!recording && !window.confirm('Record everything Summoners War sends to this computer? This writes decoded account data to a local file and never uploads it.')) return;
+    if (!recording && !window.confirm('Record everything Summoners War sends to your Downloads folder? This writes decoded account data to a local file and never uploads it.')) return;
     await call('set_traffic_logging', { enabled: !recording });
   }
 
@@ -308,7 +328,7 @@ export function App() {
           <Signal state={now.state} label={now.label} />
         </div>
         <p className="capture-headline">{now.headline}</p>
-        <p className="detail">{now.detail}</p>
+        <p className="detail">{captureDetail(now.detail)}</p>
       </section>
 
       <section className="actions" aria-label="Helper actions">

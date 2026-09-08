@@ -48,7 +48,14 @@ struct Shared {
     profile: Mutex<ProfileStore>,
     traffic: Mutex<TrafficLog>,
     game_running: Mutex<bool>,
-    waiting_for_fresh_start: Mutex<bool>,
+    /// A gateway connection stayed up past the normal login window without an
+    /// account snapshot. This is useful evidence to report, but not proof the
+    /// helper started late: the game may have reconnected long after startup.
+    waiting_for_login: Mutex<bool>,
+    /// Set only by the process-list observation immediately before the helper
+    /// installs its redirect. It identifies the one case where the login
+    /// exchange cannot have passed through this helper.
+    game_started_before_helper: AtomicBool,
     /// The first gateway contact in this game session. It gives login capture
     /// a bounded startup window without guessing from one open socket.
     game_started_at: Mutex<Option<Instant>>,
@@ -111,7 +118,8 @@ impl Service {
             profile: Mutex::new(ProfileStore::default()),
             traffic: Mutex::new(TrafficLog::new(None)),
             game_running: Mutex::new(false),
-            waiting_for_fresh_start: Mutex::new(false),
+            waiting_for_login: Mutex::new(false),
+            game_started_before_helper: AtomicBool::new(false),
             game_started_at: Mutex::new(None),
             open_connections: AtomicUsize::new(0),
             last_contact: Mutex::new(None),
@@ -132,6 +140,22 @@ impl Service {
                 local_address,
                 upstream,
             )?;
+        }
+        match crate::windows::summoners_war_is_running() {
+            Ok(true) => {
+                shared
+                    .game_started_before_helper
+                    .store(true, Ordering::Release);
+                diagnostics::record(
+                    "game",
+                    "Summoners War was already running when the helper installed its redirect. Restarting the game lets the helper capture its login.",
+                );
+            }
+            Ok(false) => {}
+            Err(error) => diagnostics::record(
+                "game",
+                &format!("Could not check whether Summoners War was already running: {error}"),
+            ),
         }
         service.owns_hosts.store(true, Ordering::Release);
         install_hosts()?;
@@ -219,10 +243,11 @@ fn status(shared: &Shared) -> Value {
         .game_running
         .lock()
         .expect("game state lock poisoned");
-    let waiting = *shared
-        .waiting_for_fresh_start
+    let login_pending = *shared
+        .waiting_for_login
         .lock()
         .expect("game state lock poisoned");
+    let game_started_before_helper = shared.game_started_before_helper.load(Ordering::Acquire);
     let last_error = shared
         .last_error
         .lock()
@@ -244,7 +269,9 @@ fn status(shared: &Shared) -> Value {
         "sessionId": snapshot.session_id,
         "instanceId": snapshot.instance_id,
         "profileReady": snapshot.has_profile && game_running && last_error.is_none(),
-        "restartRequired": game_running && waiting && !snapshot.has_profile,
+        "gameStartedBeforeHelper": game_started_before_helper && !snapshot.has_profile,
+        "gameLoginPending": game_running && login_pending && !snapshot.has_profile,
+        "restartRequired": game_started_before_helper && !snapshot.has_profile,
         "lastError": last_error,
     })
 }
@@ -410,6 +437,22 @@ fn start_watchdog(shared: Arc<Shared>) {
         while shared.running.load(Ordering::Acquire) {
             ensure_hosts_redirect(&shared);
 
+            /* The initial observation is the evidence for this warning. Once
+            that same process has gone, discard it; subsequent game starts
+            are normal starts behind the redirect and must never inherit the
+            warning. */
+            if shared.game_started_before_helper.load(Ordering::Acquire)
+                && matches!(crate::windows::summoners_war_is_running(), Ok(false))
+            {
+                shared
+                    .game_started_before_helper
+                    .store(false, Ordering::Release);
+                diagnostics::record(
+                    "game",
+                    "The Summoners War session that predated the helper has closed. The next launch can be captured normally.",
+                );
+            }
+
             let connected = game_connected(&shared);
             let has_profile = shared
                 .profile
@@ -422,22 +465,21 @@ fn start_watchdog(shared: Arc<Shared>) {
                 .game_running
                 .lock()
                 .expect("game state lock poisoned");
-            let mut waiting = shared
-                .waiting_for_fresh_start
+            let mut login_pending = shared
+                .waiting_for_login
                 .lock()
                 .expect("game state lock poisoned");
             if login_capture_overdue(&shared, connected, has_profile) {
-                // The game is reaching the redirect but no snapshot exists: the
-                // full startup window passed without its login exchange. This is
-                // the evidence that the helper missed it; an open socket alone
-                // is not.
-                if !*waiting {
+                // A game can reconnect long after its original login, so this
+                // cannot diagnose a late helper. It only says that the current
+                // connection has not yet supplied the account snapshot.
+                if !*login_pending {
                     diagnostics::record(
                         "game",
-                        "Connected, but no login exchange was seen — the helper started after the game had logged in. Restarting Summoners War replays it.",
+                        "Summoners War is connected, but no account login arrived within 45 seconds. Continuing to wait; this does not establish that the helper started after the game.",
                     );
                 }
-                *waiting = true;
+                *login_pending = true;
             }
             if !*prior && connected {
                 diagnostics::record("game", "Summoners War connected to the local redirect");
@@ -450,7 +492,7 @@ fn start_watchdog(shared: Arc<Shared>) {
                     .lock()
                     .expect("profile lock poisoned")
                     .clear();
-                *waiting = false;
+                *login_pending = false;
                 *shared
                     .game_started_at
                     .lock()
@@ -461,7 +503,7 @@ fn start_watchdog(shared: Arc<Shared>) {
                 );
             }
             *prior = connected;
-            drop(waiting);
+            drop(login_pending);
             drop(prior);
             thread::sleep(WATCHDOG_INTERVAL);
         }
@@ -942,9 +984,12 @@ fn capture(request: &[u8], response: &[u8], shared: &Shared) {
         );
         drop(profile);
         *shared
-            .waiting_for_fresh_start
+            .waiting_for_login
             .lock()
             .expect("game state lock poisoned") = false;
+        shared
+            .game_started_before_helper
+            .store(false, Ordering::Release);
     } else if !shared
         .incidents
         .lock()
@@ -1342,7 +1387,8 @@ mod tests {
             profile: Mutex::new(ProfileStore::default()),
             traffic: Mutex::new(TrafficLog::new(None)),
             game_running: Mutex::new(false),
-            waiting_for_fresh_start: Mutex::new(false),
+            waiting_for_login: Mutex::new(false),
+            game_started_before_helper: AtomicBool::new(false),
             game_started_at: Mutex::new(None),
             open_connections: AtomicUsize::new(0),
             last_contact: Mutex::new(None),
@@ -1357,6 +1403,26 @@ mod tests {
     #[test]
     fn a_game_that_never_connected_is_not_running() {
         assert!(!game_connected(&shared_for_test()));
+    }
+
+    #[test]
+    fn tells_jaswa_when_the_game_predated_the_helper() {
+        let shared = shared_for_test();
+        shared
+            .game_started_before_helper
+            .store(true, Ordering::Release);
+
+        let report = status(&shared);
+        assert_eq!(report["gameStartedBeforeHelper"], true);
+        assert_eq!(report["restartRequired"], true);
+        assert_eq!(report["profileReady"], false);
+
+        /* A normal later launch has no startup marker, so this warning cannot
+        reappear merely because the helper sees the game's process again. */
+        shared
+            .game_started_before_helper
+            .store(false, Ordering::Release);
+        assert_eq!(status(&shared)["restartRequired"], false);
     }
 
     /// An open gateway connection is the plain signal the game is running, which

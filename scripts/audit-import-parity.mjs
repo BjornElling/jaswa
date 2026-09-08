@@ -20,8 +20,7 @@ import { createServer } from 'vite';
 
 function defaultTrafficLogPath() {
   if (process.platform === 'win32') {
-    const base = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
-    return path.join(base, 'JASWA Helper', 'traffic.log');
+    return path.join(process.env.USERPROFILE || os.homedir(), 'Downloads', 'JASWA Helper traffic.log');
   }
   return path.join(os.homedir(), '.jaswa-helper', 'traffic.log');
 }

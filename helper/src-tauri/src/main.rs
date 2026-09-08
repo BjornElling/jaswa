@@ -55,33 +55,92 @@ fn download_json(state: State<'_, HelperState>) -> Result<String, String> {
 #[tauri::command]
 fn save_error_report(state: State<'_, HelperState>) -> Result<String, String> {
     let mut report = state.service.report();
+    let traffic = state.service.traffic().status();
+    report["savedAt"] = json!(
+        time::OffsetDateTime::now_utc()
+            .format(&time::format_description::well_known::Rfc3339)
+            .unwrap_or_default()
+    );
+    report["summary"] = report_summary(&report["status"]);
+    report["traffic"] = serde_json::to_value(&traffic).expect("serializable traffic status");
     report["diagnostics"] = match fs::read_to_string(diagnostics::path()) {
-        Ok(log) => Value::String(log),
+        Ok(log) => json!({"entries": diagnostic_entries(&log), "raw": log}),
         Err(error) => json!({"readError": error.to_string()}),
     };
     report["instructions"] = json!(
         "Private report: may contain account and session data. Send only to your developer through a private channel. Include what you clicked, expected behaviour, and the time of the failure. Nothing was uploaded automatically."
     );
-    let path =
-        config::data_directory().join(format!("JASWA-error-report-{}.json", uuid::Uuid::new_v4()));
+    let directory = windows::downloads_directory()?;
+    fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
+    let path = directory.join(format!("JASWA-error-report-{}.json", uuid::Uuid::new_v4()));
     fs::write(
         &path,
         serde_json::to_vec_pretty(&report).map_err(|error| error.to_string())?,
     )
     .map_err(|error| format!("Could not save the error report: {error}"))?;
-    match windows::open(&config::data_directory().display().to_string()) {
+    match windows::open(&directory.display().to_string()) {
         Ok(()) => Ok(format!(
-            "Saved {}. Send it privately to the developer with the steps that caused the error.",
-            path.display()
+            "Saved {} to your Downloads folder. Send it privately to the developer with the steps that caused the error.",
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("the error report")
         )),
         Err(error) => Ok(format!("Saved {}. {error}", path.display())),
     }
 }
 
+fn report_summary(status: &Value) -> Value {
+    let has_error = status["lastError"]
+        .as_str()
+        .filter(|message| !message.is_empty());
+    let (finding, next_step) = if let Some(error) = has_error {
+        (
+            format!("Capture stopped: {error}"),
+            "Keep this report and restart the helper before reopening Summoners War.",
+        )
+    } else if status["gameStartedBeforeHelper"] == true {
+        (
+            "Summoners War was already open when the helper installed its redirect.".to_owned(),
+            "Quit the game and open it again so its login can pass through the helper.",
+        )
+    } else if status["gameLoginPending"] == true {
+        ("A gateway connection arrived without an account login within 45 seconds. This does not prove that the helper started after the game; a later reconnect produces the same observation.".to_owned(), "The helper is still waiting. If the game is already open and no account appears, include this report with the steps that led here.")
+    } else if status["profileReady"] == true {
+        (
+            "A current account snapshot is available.".to_owned(),
+            "No capture fault is active.",
+        )
+    } else {
+        (
+            "The helper has not captured an account snapshot yet.".to_owned(),
+            "Open Summoners War after the helper is ready, then save another report only if capture does not begin.",
+        )
+    };
+    json!({"finding": finding, "nextStep": next_step})
+}
+
+fn diagnostic_entries(log: &str) -> Vec<Value> {
+    log.lines()
+        .filter(|line| !line.trim().is_empty())
+        .map(|line| {
+            match line.split_once(" [").and_then(|(at, rest)| {
+                rest.split_once("] ")
+                    .map(|(category, message)| (at, category, message))
+            }) {
+                Some((at, category, message)) => {
+                    json!({"at": at, "category": category, "message": message})
+                }
+                None => json!({"unparsed": line}),
+            }
+        })
+        .collect()
+}
+
 #[tauri::command]
 fn open_diagnostics() -> Result<(), String> {
     let path = diagnostics::path();
-    fs::create_dir_all(config::data_directory()).map_err(|error| error.to_string())?;
+    fs::create_dir_all(path.parent().expect("diagnostic file parent"))
+        .map_err(|error| error.to_string())?;
     if !path.exists() {
         return Err("The diagnostic log is unavailable. Save an error report to preserve the in-memory evidence.".into());
     }
@@ -277,4 +336,35 @@ fn certificate_installation_approved() -> bool {
         }
     }
     approved
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn report_explains_a_delayed_login_without_blaming_helper_startup() {
+        let summary = report_summary(&json!({
+            "lastError": null,
+            "gameStartedBeforeHelper": false,
+            "gameLoginPending": true,
+            "profileReady": false,
+        }));
+        assert!(
+            summary["finding"]
+                .as_str()
+                .unwrap()
+                .contains("does not prove that the helper started after the game")
+        );
+    }
+
+    #[test]
+    fn report_turns_diagnostics_into_a_readable_timeline() {
+        let entries = diagnostic_entries("2026-09-08T17:39:01Z [game] connected\nbroken");
+        assert_eq!(
+            entries[0],
+            json!({"at": "2026-09-08T17:39:01Z", "category": "game", "message": "connected"})
+        );
+        assert_eq!(entries[1], json!({"unparsed": "broken"}));
+    }
 }

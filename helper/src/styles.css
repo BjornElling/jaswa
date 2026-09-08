@@ -72,7 +72,7 @@
 
 body {
   margin: 0;
-  /* The window is fixed at 520×656 and cannot be resized, so the layout is
+  /* The window is fixed at 520×704 and cannot be resized, so the layout is
      composed for exactly that measure rather than made fluid for widths that
      can never occur. */
   min-width: 420px;
@@ -227,8 +227,8 @@ main {
 /* ------------------------------------------------------- capture card
    The window's one headline. It is the reason the helper is open, so it gets
    the weight, a left edge in its own state colour, and room for three lines
-   of explanation — long backend errors included, which is why the card's
-   height is reserved rather than fitted. */
+   of explanation. Its fixed height leaves all controls below in exactly the
+   same place across every capture state. */
 .capture {
   display: grid;
   gap: var(--s2);
@@ -239,16 +239,9 @@ main {
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--state) 7%, transparent), transparent 72%),
     var(--sunk);
-  /* Reserved: eyebrow row, headline, then the detail's own scrolling box. A
-     one-line state and a 900-character backend error must leave every control
-     below at the same coordinates (rule 2).
-
-     The reserve was 188px, sized when this card was the only thing that could
-     absorb a long error and the window's slack collected in a dead strip at
-     the bottom. The activity box now holds that slack and scrolls the error
-     too, so the card is cut to four lines of detail — enough for every state's
-     own words, with the long ones scrolling as they always did. */
-  height: 148px;
+  /* Four complete lines have room here. The previous reserve was three lines,
+     which made the most useful restart advice hide behind a scrollbar. */
+  height: 180px;
   grid-template-rows: 20px auto 1fr;
 }
 .capture.state-good { --state: var(--state-good); }
@@ -276,16 +269,10 @@ main {
   color: var(--dim);
   font-size: var(--t-body);
   line-height: 1.5;
-  overflow: auto;
+  overflow: visible;
   overflow-wrap: anywhere;
-  /* The row is taller than most states need, because one state is a
-     900-character backend error. Short copy sits at the top of that reserve
-     rather than being centred in it, so a two-line explanation reads as text
-     under a headline instead of floating in the middle of a box. */
   align-self: start;
-  /* The reserve is the row's, not the text's: a long error scrolls within it
-     while the rows below stay put. */
-  max-height: 100%;
+  max-height: none;
 }
 
 /* --------------------------------------------------------- the light

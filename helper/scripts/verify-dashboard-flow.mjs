@@ -13,11 +13,11 @@ const output = resolve(root, 'outputs/helper-hardening');
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch();
 const initial = {
-  status: { version, hasProfile: false, profileReady: false, restartRequired: false, lastError: null, source: null, updatedAt: null },
+  status: { version, hasProfile: false, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: null, source: null, updatedAt: null },
   traffic: { enabled: false, entries: 0, recorded: false, full: false, lastError: null },
 };
 try {
-  const page = await browser.newPage({ viewport: { width: 520, height: 656 } });
+  const page = await browser.newPage({ viewport: { width: 520, height: 704 } });
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   // Serve the release dashboard through the one local origin; no second server.
@@ -103,7 +103,7 @@ try {
   /* The running count rides on the button, where a number that changes every
      second belongs; the activity box records only that recording started. */
   await page.getByRole('button', { name: /^Stop traffic log \(\d/, pressed: true }).waitFor();
-  await page.locator('.activity-text').filter({ hasText: 'Recording traffic to a local file' }).waitFor();
+  await page.locator('.activity-text').filter({ hasText: 'Recording traffic to your Downloads folder' }).waitFor();
   assert.deepEqual(await boxes(), before);
   await page.screenshot({ path: resolve(output, 'helper-recording.png'), fullPage: true });
   /* The four healthy and waiting states the old check never drove. This is
@@ -115,6 +115,14 @@ try {
     await page.evaluate((value) => { window.dashboard.status = value; }, { version, updatedAt: '2026-09-06T12:00:00Z', ...status });
     await headline(title).waitFor();
     await page.locator('.capture .detail').filter({ hasText: detail }).waitFor();
+    const detailBox = await page.locator('.capture .detail').evaluate((node) => ({
+      clientHeight: node.clientHeight,
+      scrollHeight: node.scrollHeight,
+      overflowY: getComputedStyle(node).overflowY,
+    }));
+    assert.equal(detailBox.overflowY, 'visible', 'the capture explanation must not become a scroll box');
+    assert.ok(detailBox.scrollHeight <= detailBox.clientHeight,
+      'every normal capture explanation must fit in the reserved card height');
     /* A healthy state enters the activity list as its headline alone — the
        card beside it is already showing the explanation, and repeating it made
        one state change fill the box. */
@@ -124,7 +132,7 @@ try {
     assert.deepEqual(await boxes(), before);
   };
   await state(
-    { hasProfile: true, profileReady: true, restartRequired: false, lastError: null, source: 'game-start' },
+    { hasProfile: true, profileReady: true, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: null, source: 'game-start' },
     'Account captured', 'read your account when the game logged in');
   await page.screenshot({ path: resolve(output, 'helper-captured.png'), fullPage: true });
   await page.getByRole('button', { name: 'Download JSON' }).click();
@@ -132,20 +140,24 @@ try {
     'the captured-account action must reach the SWEX-compatible download command');
   assert.deepEqual(await boxes(), before);
   await state(
-    { hasProfile: true, profileReady: true, restartRequired: false, lastError: null, source: 'live' },
+    { hasProfile: true, profileReady: true, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: null, source: 'live' },
     'Following your account', 'keeps up with what you do in the game');
   await page.screenshot({ path: resolve(output, 'helper-live.png'), fullPage: true });
   await state(
-    { hasProfile: false, profileReady: false, restartRequired: true, lastError: null, source: null },
-    'Summoners War logged in too early', 'Quit Summoners War and open it again');
+    { hasProfile: false, profileReady: false, restartRequired: true, gameStartedBeforeHelper: true, gameLoginPending: false, lastError: null, source: null },
+    'Summoners War was already open', 'found Summoners War running as it started');
   await page.screenshot({ path: resolve(output, 'helper-restart.png'), fullPage: true });
   await state(
-    { hasProfile: true, profileReady: false, restartRequired: false, lastError: null, source: 'live' },
+    { hasProfile: false, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: true, lastError: null, source: null },
+    'Summoners War is connected', 'has not received an account login');
+  await page.screenshot({ path: resolve(output, 'helper-login-pending.png'), fullPage: true });
+  await state(
+    { hasProfile: true, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: null, source: 'live' },
     'Summoners War is not running', 'Open the game to capture a fresh one');
   await page.screenshot({ path: resolve(output, 'helper-game-closed.png'), fullPage: true });
 
   await page.evaluate((version) => {
-    window.dashboard.status = { version, hasProfile: true, profileReady: false, restartRequired: false, lastError: 'Capture failed. '.repeat(60), source: 'live', updatedAt: '2026-09-06T12:00:00Z' };
+    window.dashboard.status = { version, hasProfile: true, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: 'Capture failed. '.repeat(60), source: 'live', updatedAt: '2026-09-06T12:00:00Z' };
     window.dashboard.traffic = { enabled: true, entries: 999999999, recorded: true, full: false, lastError: 'Disk write failed. '.repeat(60) };
   }, version);
   await headline('Capture stopped').waitFor();

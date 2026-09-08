@@ -30,13 +30,11 @@ const outputPath = resolve(repositoryRoot, 'app/data/engraving-statistics.json')
 const catalogPath = resolve(repositoryRoot, 'app/data/swarfarm-monsters.json');
 const collaborationSpeciesPath = resolve(repositoryRoot, 'app/data/collaboration-species.json');
 
-/* The helper writes here; `helper/src/config.cjs` `dataDirectory()` is the
-   authority on the location, and this mirrors it for a read-only consumer. */
+/* The helper writes user-facing captures to Downloads; this is the matching
+   default for the read-only collector. */
 function defaultLogPath() {
-  const base = process.env.LOCALAPPDATA
-    ?? (process.env.APPDATA ? join(process.env.APPDATA, '..', 'Local') : null);
-  if (!base) return null;
-  return join(base, 'JASWA Helper', 'traffic.log');
+  const profile = process.env.USERPROFILE;
+  return profile ? join(profile, 'Downloads', 'JASWA Helper traffic.log') : null;
 }
 
 /* A collaboration monster and its generic re-release are one monster with two

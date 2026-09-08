@@ -1,11 +1,13 @@
-use crate::config::data_directory;
+use crate::{config::data_directory, windows};
 use serde_json::{Value, json};
 use std::{fs, io, path::PathBuf};
 
 pub const MAXIMUM_LOG_BYTES: u64 = 64 * 1024 * 1024;
 
 pub fn traffic_log_path(directory: Option<PathBuf>) -> PathBuf {
-    directory.unwrap_or_else(data_directory).join("traffic.log")
+    directory
+        .unwrap_or_else(|| windows::downloads_directory().unwrap_or_else(|_| data_directory()))
+        .join("JASWA Helper traffic.log")
 }
 
 /// A bounded, newline-delimited local diagnostic recording. It deliberately
@@ -37,7 +39,9 @@ pub struct TrafficStatus {
 impl TrafficLog {
     pub fn new(directory: Option<PathBuf>) -> Self {
         Self {
-            directory: directory.unwrap_or_else(data_directory),
+            directory: directory.unwrap_or_else(|| {
+                windows::downloads_directory().unwrap_or_else(|_| data_directory())
+            }),
             maximum_bytes: MAXIMUM_LOG_BYTES,
             enabled: false,
             entries: 0,

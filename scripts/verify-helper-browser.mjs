@@ -1,8 +1,5 @@
 import assert from 'node:assert/strict';
-import { createReadStream } from 'node:fs';
-import { createInterface } from 'node:readline';
 import { mkdir, readFile } from 'node:fs/promises';
-import path from 'node:path';
 import { chromium } from 'playwright';
 
 /* Read the recommended version rather than restating it. A literal here is one
@@ -17,13 +14,10 @@ const outdated = '0.0.1';
 
 const origin = 'http://localhost:3000';
 assert.equal((await fetch(origin)).status, 200);
-let account;
-for await (const line of createInterface({ input: createReadStream(path.join(process.env.LOCALAPPDATA, 'JASWA Helper/traffic.log')), crlfDelay: Infinity })) {
-  if (!line.trim()) continue;
-  const entry = JSON.parse(line);
-  if (['HubUserLogin', 'GuestLogin'].includes(entry.command)) account = entry.response;
-}
-assert.ok(account, 'A real captured account is required for the full state');
+/* The helper contract is exercised with the same complete, local fixture as
+   the ordinary import flow. Requiring a personal traffic log made this
+   regression check unavailable exactly when the helper had not captured yet. */
+const account = JSON.parse(await readFile('tests/fixtures/synthetic-account.json', 'utf8'));
 await mkdir('outputs/helper-hardening', { recursive: true });
 const browser = await chromium.launch();
 try {
@@ -37,7 +31,18 @@ try {
     const headers = { 'access-control-allow-origin': origin, 'access-control-allow-private-network': 'true' };
     const data = structuredClone(account);
     if (mode === 'unreadable') data.artifacts[0].type = 999;
-    const body = health ? { running: true, version, profileReady: mode !== 'capture-error', restartRequired: false, revision, sessionId: 1, instanceId: instance, lastError: mode === 'capture-error' ? 'Capture failed. Save an error report, then restart Summoners War.' : null }
+    const body = health ? {
+      running: true,
+      version,
+      profileReady: !['capture-error', 'game-already-running', 'game-login-pending'].includes(mode),
+      restartRequired: mode === 'game-already-running',
+      gameStartedBeforeHelper: mode === 'game-already-running',
+      gameLoginPending: mode === 'game-login-pending',
+      revision,
+      sessionId: 1,
+      instanceId: instance,
+      lastError: mode === 'capture-error' ? 'Capture failed. Save an error report, then restart Summoners War.' : null,
+    }
       : mode === 'broken-profile' ? { invalid: true }
       : { updatedAt: '2026-09-06T12:00:00Z', revision, sessionId: 1, instanceId: instance, source: 'game-start', data };
     await route.fulfill({ status: 200, headers, json: body });
@@ -76,6 +81,20 @@ try {
     const { x, y, width, height } = element.getBoundingClientRect(); return { x, y, width, height };
   }));
   const beforeError = await controls();
+  mode = 'game-already-running';
+  await page.getByText(/already running when the helper started/).first().waitFor({ timeout: 20000 });
+  assert.equal((await readGame()).instanceId, instance, 'the restart advice preserves the last good import');
+  assert.deepEqual(await controls(), beforeError, 'the restart advice leaves the route controls in place');
+  await page.screenshot({ path: 'outputs/helper-hardening/app-game-already-running.png', fullPage: true });
+  mode = 'valid';
+  await page.waitForFunction(() => !document.body.textContent.includes('already running when the helper started'), null, { timeout: 20000 });
+  mode = 'game-login-pending';
+  await page.getByText(/seen a Summoners War connection but no account login yet/).first().waitFor({ timeout: 20000 });
+  assert.equal((await readGame()).instanceId, instance, 'waiting for a login preserves the last good import');
+  assert.deepEqual(await controls(), beforeError, 'waiting for a login leaves the route controls in place');
+  await page.screenshot({ path: 'outputs/helper-hardening/app-game-login-pending.png', fullPage: true });
+  mode = 'valid';
+  await page.waitForFunction(() => !document.body.textContent.includes('seen a Summoners War connection but no account login yet'), null, { timeout: 20000 });
   mode = 'capture-error';
   await page.getByText(/Capture failed. Save an error report/).first().waitFor({ timeout: 20000 });
   assert.equal((await readGame()).instanceId, instance, 'the last good import remains saved');
@@ -94,5 +113,5 @@ try {
   assert.equal((await readGame()).instanceId, 'restarted-helper');
   assert.equal((await controls()).length, beforeError.length, 'unreadable import keeps the route controls available');
   await page.screenshot({ path: 'outputs/helper-hardening/app-unreadable-report.png', fullPage: true });
-  console.log('Real app: empty malformed-profile error, full captured-account import, same-revision helper restart, and visible capture failure with the last good import preserved passed.');
+  console.log('Real app: empty malformed-profile error, full captured-account import, explicit already-running and login-pending advice, same-revision helper restart, and visible capture failure with the last good import preserved passed.');
 } finally { await browser.close(); }

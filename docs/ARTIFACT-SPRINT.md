@@ -438,7 +438,7 @@ bytes are compressed, so verify a feature reached it by grepping the packaged
 `win-unpacked/resources/app.asar` in electron-builder's output — grepping the
 `.exe` gives a false negative.
 
-**What it writes.** `%LOCALAPPDATA%\JASWA Helper\traffic.log` — one JSON object
+**What it writes.** `Downloads\JASWA Helper traffic.log` — one JSON object
 per line: `{ at, command, request, response }`. Line-per-entry rather than one
 array, so the file stays readable if the helper stops mid-session. Switching it
 on starts a fresh file; it stops at 64 MB and says so on the menu label.

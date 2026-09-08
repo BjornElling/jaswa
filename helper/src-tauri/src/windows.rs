@@ -6,7 +6,7 @@
 //! indistinguishable from a dropper, so this module uses the Windows APIs
 //! directly instead.
 
-use std::{ffi::c_void, io, path::PathBuf, ptr, slice};
+use std::{ffi::c_void, io, mem::size_of, path::PathBuf, ptr, slice};
 use windows_sys::Win32::{
     Foundation::{CloseHandle, ERROR_ALREADY_EXISTS, GetLastError, HANDLE},
     Security::Cryptography::{
@@ -15,7 +15,14 @@ use windows_sys::Win32::{
         CertDeleteCertificateFromStore, CertFindCertificateInStore, CertFreeCertificateContext,
         CertOpenStore, PKCS_7_ASN_ENCODING, X509_ASN_ENCODING,
     },
-    System::{Com::CoTaskMemFree, Threading::CreateMutexW},
+    System::{
+        Com::CoTaskMemFree,
+        Diagnostics::ToolHelp::{
+            CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW,
+            TH32CS_SNAPPROCESS,
+        },
+        Threading::CreateMutexW,
+    },
     UI::{
         Shell::{FOLDERID_Downloads, IsUserAnAdmin, SHGetKnownFolderPath, ShellExecuteW},
         WindowsAndMessaging::{
@@ -54,6 +61,42 @@ pub fn claim_instance() -> Result<InstanceGuard, String> {
 
 pub fn is_administrator() -> bool {
     unsafe { IsUserAnAdmin() != 0 }
+}
+
+/// This is deliberately an observation made only while the helper starts.
+/// Watching the process list continuously would blur "the game was already
+/// open" with a normal game launch after the redirect is ready, and used to
+/// make the restart advice appear at exactly the wrong time.
+pub fn summoners_war_is_running() -> Result<bool, String> {
+    let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
+    if snapshot == -1isize as HANDLE {
+        return Err(io::Error::last_os_error().to_string());
+    }
+    let mut entry = PROCESSENTRY32W {
+        dwSize: size_of::<PROCESSENTRY32W>() as u32,
+        ..Default::default()
+    };
+    let found = unsafe {
+        let mut present = Process32FirstW(snapshot, &mut entry) != 0;
+        while present {
+            if process_is_summoners_war(&entry) {
+                break;
+            }
+            present = Process32NextW(snapshot, &mut entry) != 0;
+        }
+        present
+    };
+    unsafe { CloseHandle(snapshot) };
+    Ok(found)
+}
+
+fn process_is_summoners_war(entry: &PROCESSENTRY32W) -> bool {
+    let length = entry
+        .szExeFile
+        .iter()
+        .position(|character| *character == 0)
+        .unwrap_or(entry.szExeFile.len());
+    String::from_utf16_lossy(&entry.szExeFile[..length]).eq_ignore_ascii_case("SummonersWar.exe")
 }
 
 pub fn restart_elevated(executable: &str) -> Result<(), String> {
@@ -279,5 +322,32 @@ mod tests {
     #[test]
     fn resolves_the_users_configured_downloads_folder() {
         assert!(downloads_directory().unwrap().is_absolute());
+    }
+
+    #[test]
+    fn recognises_only_the_steam_games_process_name() {
+        let mut game = PROCESSENTRY32W {
+            dwSize: size_of::<PROCESSENTRY32W>() as u32,
+            ..Default::default()
+        };
+        for (slot, character) in game
+            .szExeFile
+            .iter_mut()
+            .zip("SummonersWar.exe".encode_utf16())
+        {
+            *slot = character;
+        }
+        assert!(process_is_summoners_war(&game));
+
+        let mut browser = game;
+        browser.szExeFile.fill(0);
+        for (slot, character) in browser
+            .szExeFile
+            .iter_mut()
+            .zip("chrome.exe".encode_utf16())
+        {
+            *slot = character;
+        }
+        assert!(!process_is_summoners_war(&browser));
     }
 }

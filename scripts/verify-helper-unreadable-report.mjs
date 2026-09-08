@@ -73,9 +73,24 @@ try {
   const oldFetch = globalThis.fetch;
   globalThis.window = { setTimeout, clearTimeout };
   try {
-    const health = { running: true, profileReady: false, restartRequired: false, instanceId: 'one', sessionId: 1, revision: 1, lastError: 'Capture failed. Save an error report.' };
+    const health = { running: true, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, instanceId: 'one', sessionId: 1, revision: 1, lastError: 'Capture failed. Save an error report.' };
     globalThis.fetch = async () => new Response(JSON.stringify(health));
     assert.match((await checkHelperConnection()).detail, /Capture failed/);
+    globalThis.fetch = async () => new Response(JSON.stringify({
+      ...health, lastError: null, restartRequired: true, gameStartedBeforeHelper: true,
+    }));
+    const startedTooSoon = await checkHelperConnection();
+    assert.equal(startedTooSoon.restartRequired, true);
+    assert.equal(startedTooSoon.gameStartedBeforeHelper, true);
+    assert.match(startedTooSoon.detail, /already running when the helper started/,
+      'JASWA distinguishes a game that predates the helper from ordinary waiting');
+    globalThis.fetch = async () => new Response(JSON.stringify({
+      ...health, lastError: null, gameLoginPending: true,
+    }));
+    const pendingLogin = await checkHelperConnection();
+    assert.equal(pendingLogin.restartRequired, false);
+    assert.match(pendingLogin.detail, /seen a Summoners War connection but no account login yet/,
+      'a delayed connection never claims that the helper started too late');
     globalThis.fetch = async () => new Response('{invalid');
     /* A helper that cannot be reached still has to say so in a sentence the user
        can act on, and carry the raw reason an error report is made of. */

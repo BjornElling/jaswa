@@ -16,7 +16,7 @@
 //! interpreted, and keeping the previous run's entries is how the stale
 //! `.cjs` stack trace outlived the implementation that wrote it.
 
-use crate::config::data_directory;
+use crate::{config::data_directory, windows};
 use std::{
     fs,
     io::Write,
@@ -50,7 +50,12 @@ static FILE: OnceLock<Mutex<Option<fs::File>>> = OnceLock::new();
 static WRITTEN: AtomicU64 = AtomicU64::new(0);
 
 pub fn path() -> PathBuf {
-    data_directory().join("diagnostics.log")
+    /* Diagnostic output belongs beside the exports a user may need to attach.
+    The private data directory remains only for the local certificate and
+    consent marker, neither of which is a user-facing file. */
+    windows::downloads_directory()
+        .unwrap_or_else(|_| data_directory())
+        .join("JASWA Helper diagnostics.log")
 }
 
 /// Replaces any previous run's log and writes the header. Failing to open the
@@ -59,7 +64,7 @@ pub fn path() -> PathBuf {
 /// diagnostic at all.
 pub fn start(version: &str) {
     let file = (|| -> std::io::Result<fs::File> {
-        fs::create_dir_all(data_directory())?;
+        fs::create_dir_all(path().parent().expect("diagnostic file parent"))?;
         fs::OpenOptions::new()
             .create(true)
             .write(true)
