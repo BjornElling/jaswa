@@ -1,9 +1,18 @@
 import assert from 'node:assert/strict';
 import { createReadStream } from 'node:fs';
 import { createInterface } from 'node:readline';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium } from 'playwright';
+
+/* Read the recommended version rather than restating it. A literal here is one
+   more copy to bump, and the copy nobody remembers — it would fail the next
+   release for no reason other than its own staleness. */
+const recommended = (await readFile('app/lib/helper-version.ts', 'utf8')).match(/recommendedHelperVersion = '(\d+\.\d+\.\d+)'/)[1];
+/* A helper older than any release, so the update box must appear for it
+   whatever the current version is, and then disappear once the helper reports
+   the recommended one. */
+const outdated = '0.0.1';
 
 const origin = 'http://localhost:3000';
 assert.equal((await fetch(origin)).status, 200);
@@ -21,7 +30,7 @@ try {
   let mode = 'broken-profile';
   let instance = 'first-helper';
   let revision = 1;
-  let version = '1.0.0';
+  let version = outdated;
   await page.route('http://127.0.0.1:37654/**', async (route) => {
     const health = route.request().url().endsWith('/health');
     const headers = { 'access-control-allow-origin': origin, 'access-control-allow-private-network': 'true' };
@@ -35,7 +44,7 @@ try {
   await page.goto(origin, { waitUntil: 'networkidle' });
   await page.locator('input[name="import-route"][value="direct"]').check();
   await page.getByText('Helper is tired, boss').first().waitFor();
-  await page.getByText('Version 1.0.1 is now available.').first().waitFor();
+  await page.getByText(`Version ${recommended} is now available.`).first().waitFor();
   await page.getByText(/invalid snapshot envelope/).first().waitFor({ timeout: 20000 });
   await page.screenshot({ path: 'outputs/helper-hardening/app-empty-profile-error.png', fullPage: true });
   const readGame = () => page.evaluate(() => new Promise((resolve, reject) => {
@@ -47,7 +56,7 @@ try {
     };
   }));
   mode = 'valid';
-  version = '1.0.1';
+  version = recommended;
   await page.waitForFunction(() => !document.body.textContent.includes('invalid snapshot envelope'), null, { timeout: 20000 });
   await page.waitForFunction(() => !document.body.textContent.includes('Helper is tired, boss'), null, { timeout: 20000 });
   assert.equal(await page.getByText('Helper is tired, boss').count(), 0, 'a current helper leaves no update box behind');

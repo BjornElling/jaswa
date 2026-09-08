@@ -5,13 +5,15 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+/* The version the helper actually declares, not a literal to bump by hand. */
+const version = JSON.parse(await readFile(resolve(root, 'helper/package.json'), 'utf8')).version;
 const origin = 'http://localhost:3000';
 assert.equal((await fetch(origin)).status, 200, 'Start the project server on localhost:3000');
 const output = resolve(root, 'outputs/helper-hardening');
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch();
 const initial = {
-  status: { version: '1.0.1', hasProfile: false, profileReady: false, restartRequired: false, lastError: null, source: null, updatedAt: null },
+  status: { version, hasProfile: false, profileReady: false, restartRequired: false, lastError: null, source: null, updatedAt: null },
   traffic: { enabled: false, entries: 0, recorded: false, full: false, lastError: null },
 };
 try {
@@ -75,7 +77,7 @@ try {
      status and the explanation beneath it was a constant. Each state now
      asserts its own explanation, so the two cannot drift apart again. */
   const state = async (status, headline, detail) => {
-    await page.evaluate((value) => { window.dashboard.status = value; }, { version: '1.0.1', updatedAt: '2026-09-06T12:00:00Z', ...status });
+    await page.evaluate((value) => { window.dashboard.status = value; }, { version, updatedAt: '2026-09-06T12:00:00Z', ...status });
     await page.getByText(headline, { exact: true }).waitFor();
     await page.locator('.capture .detail').filter({ hasText: detail }).waitFor();
     assert.deepEqual(await boxes(), before);
@@ -97,10 +99,10 @@ try {
     'Summoners War is not running', 'Open the game to capture a fresh one');
   await page.screenshot({ path: resolve(output, 'helper-game-closed.png'), fullPage: true });
 
-  await page.evaluate(() => {
-    window.dashboard.status = { version: '1.0.1', hasProfile: true, profileReady: false, restartRequired: false, lastError: 'Capture failed. '.repeat(60), source: 'live', updatedAt: '2026-09-06T12:00:00Z' };
+  await page.evaluate((version) => {
+    window.dashboard.status = { version, hasProfile: true, profileReady: false, restartRequired: false, lastError: 'Capture failed. '.repeat(60), source: 'live', updatedAt: '2026-09-06T12:00:00Z' };
     window.dashboard.traffic = { enabled: true, entries: 999999999, recorded: true, full: false, lastError: 'Disk write failed. '.repeat(60) };
-  });
+  }, version);
   await page.getByText('Capture stopped', { exact: true }).waitFor();
   assert.deepEqual(await boxes(), before);
   await page.screenshot({ path: resolve(output, 'helper-full-errors.png'), fullPage: true });

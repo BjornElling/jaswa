@@ -16,11 +16,42 @@ signing is still essential for Windows trust and reputation.
 
 ## Versioning
 
-Every helper change gets a semantic patch version. Keep the version in
-`src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`, `package.json` and the
-app's `app/lib/helper-version.ts` aligned; `npm run verify:helper-version`
-fails when one is stale. JASWA compares the connected helper's reported
-version with that contract and calls out an upgrade on the home page before a
+**Every change to the helper gets a new version, and the version is not
+believed on its own — it is checked against the source it claims to describe.**
+
+The number lives in six places: `package.json` (+ `package-lock.json`),
+`src-tauri/Cargo.toml` (+ `Cargo.lock`), `src-tauri/tauri.conf.json` and the
+app's `app/lib/helper-version.ts`. Do not edit them by hand:
+
+```
+npm run bump:helper            # patch by default; also minor, major, or x.y.z
+cd helper && npm run package   # build, sign, publish, and record the release
+```
+
+`helper/release.json` is what makes the version honest. Packaging writes the
+version it shipped, a SHA-256 fingerprint of the helper's source, and the
+installer's own hash. `npm run verify:helper-version` — part of
+`npm run test:domain` — then refuses three separate lies:
+
+| The mistake | How it is caught |
+| --- | --- |
+| The helper was changed and the version was not | the fingerprint moved while the version stood still |
+| The version was raised but no installer was built | `release.json` still records the previously packaged version |
+| The version was raised with no change behind it | the source is byte-for-byte a release already packaged |
+
+The fingerprint covers every tracked file that reaches the installer, listed in
+`scripts/helper-fingerprint.mjs` — the Rust sources, the dashboard's React and
+CSS, both lockfiles, the Tauri and NSIS configuration. The check reconciles
+that list against `git ls-files helper` on every run, so a new source file
+cannot quietly land outside the fingerprint; add it to the list, or to the
+check's `notShipped` set if it genuinely does not reach the installer.
+
+This exists because the previous check only compared the version strings with
+each other. They agreed, so it passed — while the dashboard was rewritten
+underneath them and the app went on offering the same version for download.
+
+JASWA compares the connected helper's reported version with
+`recommendedHelperVersion` and calls out an upgrade on the home page before a
 compatibility problem can look like bad game data.
 
 Because the per-user store follows whichever profile is active, the helper asks
