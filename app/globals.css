@@ -410,9 +410,20 @@ button { cursor: pointer; }
 /* The divider sits on a group's left and is dropped where a column starts a
    row, so a rule never hangs at the end of a row with nothing beyond it. Which
    groups start a row depends on how many columns fit, so the count is set per
-   breakpoint below alongside the columns themselves. */
+   breakpoint below alongside the columns themselves.
+
+   A group is also only as tall as its own controls. Grid items stretch to
+   the tallest item on their row by default, which let one tall group —
+   Storage's three stacked Location checkboxes — set the height of every
+   group beside it: Search, Element and Type each grew a block of empty
+   space under their controls, and their dividers ran the full height of
+   the tallest neighbour. Aligning to the start keeps each group at its own
+   measure, so a tall group grows downwards on its own instead of pushing
+   its neighbours' content around. The row still reserves the tall group's
+   height; only the short groups stop being stretched into it. */
 .filter-group {
   display: flex; flex-direction: column; gap: var(--s1);
+  align-self: start;
   padding-left: var(--s4);
   border-left: 1px solid var(--line);
   white-space: nowrap;
@@ -1179,12 +1190,19 @@ button { cursor: pointer; }
   font-size: var(--t-small);
   font-variant-numeric: tabular-nums;
 }
+/* The value is centred on its handle by shifting it half its own width, so
+   that width has to be the one the text actually occupies. A fixed 3ch box
+   is wider than a one-digit value and, at the ends of a short track, hangs
+   past the row's edge — the shift is then measured against a box that is
+   not the one the reader sees. Sizing to the content keeps the shift honest
+   at every track width; nowrap stops a two-digit value wrapping once the
+   box is left to find its own measure. */
 .range-slider-value {
   position: absolute;
   bottom: 0;
-  width: 3ch;
-  min-width: 3ch;
+  width: max-content;
   text-align: center;
+  white-space: nowrap;
   transform: translateX(-50%);
 }
 .range-slider-track {
@@ -2234,7 +2252,33 @@ button { cursor: pointer; }
 .storage-location-options { flex-direction: column; align-items: flex-start; }
 .storage-special-options { display: grid; gap: var(--s2); }
 .storage-special-options .checkbox-row { min-height: 30px; }
-.storage-quantity-filter { display: grid; gap: var(--s1); }
+/* "Have ≥" and the amount it compares against are one sentence, so the
+   slider reads on the label's own line rather than under it.
+
+   The slider carries a row of values above its rail, making its box taller
+   than the label beside it. Centring the two would sit the text against
+   that value row rather than against the rail it belongs to, so both align
+   to the bottom: the label lands on the track, and the value floats clear
+   above the handle it names. A narrow window wraps the pair rather than
+   squeezing the track away. */
+.storage-quantity-filter {
+  display: flex;
+  align-items: end;
+  gap: var(--s3);
+}
+.storage-quantity-filter .checkbox-row {
+  flex: 0 0 auto;
+  min-height: 20px;
+}
+.storage-quantity-filter .range-slider {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+}
+@media (min-width: 1921px) and (max-width: 960px) {
+  .storage-quantity-filter { flex-wrap: wrap; }
+  .storage-quantity-filter .range-slider { flex-basis: 100%; }
+}
 
 .field-narrow { max-width: 320px; }
 

@@ -205,21 +205,34 @@ function displaySkillProgress(row: StorageMonsterRow): string {
   return `${row.currentSkillUps ?? '—'} / ${row.maximumSkillUps}`;
 }
 
+/* A range input's thumb never reaches the very end of its track: the browser
+   insets it by half its own width at each end, so a handle at the maximum has
+   its centre half a thumb short of 100%. A value placed at a flat percentage of
+   the track therefore drifts up to half a thumb away from the handle it names,
+   worst at the two ends. Positions are expressed against the travel the thumb
+   actually has, offset by half a thumb, so a value sits over its handle at
+   every point of the range — including both ends. */
+const sliderThumb = 16;
+function handlePosition(fraction: number) {
+  return `calc(${sliderThumb / 2}px + ${fraction} * (100% - ${sliderThumb}px))`;
+}
+
 function RangeSlider({ minimum, maximum, onMinimumChange, onMaximumChange }: {
   minimum: number;
   maximum: number;
   onMinimumChange: (value: number) => void;
   onMaximumChange: (value: number) => void;
 }) {
-  const minimumPosition = ((minimum - storageMinimumLevel) / (storageMaximumLevel - storageMinimumLevel)) * 100;
-  const maximumPosition = ((maximum - storageMinimumLevel) / (storageMaximumLevel - storageMinimumLevel)) * 100;
+  const span = storageMaximumLevel - storageMinimumLevel;
+  const minimumPosition = handlePosition((minimum - storageMinimumLevel) / span);
+  const maximumPosition = handlePosition((maximum - storageMinimumLevel) / span);
   return <div className="range-slider" aria-label="Monster level range">
     <div className="range-slider-values" aria-hidden="true">
-      <output className="range-slider-value" style={{ left: `${minimumPosition}%` }}>{minimum}</output>
-      <output className="range-slider-value" style={{ left: `${maximumPosition}%` }}>{maximum}</output>
+      <output className="range-slider-value" style={{ left: minimumPosition }}>{minimum}</output>
+      <output className="range-slider-value" style={{ left: maximumPosition }}>{maximum}</output>
     </div>
     <div className="range-slider-track">
-      <span className="range-slider-fill" style={{ left: `${minimumPosition}%`, right: `${100 - maximumPosition}%` }} />
+      <span className="range-slider-fill" style={{ left: minimumPosition, right: `calc(100% - ${maximumPosition})` }} />
       <input className="range-slider-input range-slider-input-minimum" type="range"
         min={storageMinimumLevel} max={storageMaximumLevel} step={1} value={minimum}
         onChange={(event) => onMinimumChange(Math.min(Number(event.target.value), maximum))}
@@ -237,10 +250,10 @@ function QuantitySlider({ value, onChange, disabled }: {
   onChange: (value: number) => void;
   disabled: boolean;
 }) {
-  const position = ((value - 1) / 9) * 100;
+  const position = handlePosition((value - 1) / 9);
   return <div className="range-slider range-slider-single" data-disabled={disabled ? 'true' : undefined}>
     <div className="range-slider-values" aria-hidden="true">
-      <output className="range-slider-value" style={{ left: `${position}%` }}>{value}</output>
+      <output className="range-slider-value" style={{ left: position }}>{value}</output>
     </div>
     <div className="range-slider-track">
       <input className="range-slider-input" type="range" min={1} max={10} step={1} value={value} disabled={disabled}
@@ -447,7 +460,7 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
             <label className="checkbox-row">
               <input type="checkbox" checked={minimumQuantityEnabled}
                 onChange={(event) => setFilters((current) => ({ ...current, minimumQuantityEnabled: event.target.checked }))} />
-              <span>Have &gt;= than</span>
+              <span>Have ≥</span>
             </label>
             <QuantitySlider value={minimumQuantity} disabled={!minimumQuantityEnabled}
               onChange={(value) => setFilters((current) => ({ ...current, minimumQuantity: value }))} />
