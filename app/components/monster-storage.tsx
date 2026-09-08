@@ -9,11 +9,12 @@ import {
   isStoredMonster, monsterArchetypeLabels, monsterFilterArchetypes, monsterNameCollator, numericOrNull,
 } from '../lib/monster-grid';
 import { elementName } from '../lib/rune-sets';
+import { summonedShrineRecords } from '../lib/sealed-shrine-storage';
 import type { Preferences } from '../lib/types';
 import { useLocalStorageState } from '../lib/local-storage-state';
 
 const storageElementOptions = ['Water', 'Fire', 'Light', 'Wind', 'Dark'] as const;
-const storageGradeOptions = [1, 2, 3, 4, 5] as const;
+const storageGradeOptions = [1, 2, 3, 4, 5, 6] as const;
 const storageLocationOptions = ['storage', 'sealed-summoned', 'sealed-normal'] as const;
 const storageMinimumLevel = 1;
 const storageMaximumLevel = 40;
@@ -29,6 +30,8 @@ type StorageFilterState = {
   selectedGrades: number[];
   alreadyHaveLevel40: boolean;
   familyFullySkilled: boolean;
+  minimumQuantityEnabled: boolean;
+  minimumQuantity: number;
 };
 
 const defaultStorageFilters: StorageFilterState = {
@@ -41,6 +44,8 @@ const defaultStorageFilters: StorageFilterState = {
   selectedGrades: [],
   alreadyHaveLevel40: false,
   familyFullySkilled: false,
+  minimumQuantityEnabled: false,
+  minimumQuantity: 1,
 };
 
 function isStorageFilterState(value: unknown): value is StorageFilterState {
@@ -65,7 +70,12 @@ function isStorageFilterState(value: unknown): value is StorageFilterState {
     && Array.isArray(candidate.selectedGrades)
     && candidate.selectedGrades.every((entry) => storageGradeOptions.includes(entry as typeof storageGradeOptions[number]))
     && typeof candidate.alreadyHaveLevel40 === 'boolean'
-    && typeof candidate.familyFullySkilled === 'boolean';
+    && typeof candidate.familyFullySkilled === 'boolean'
+    && typeof candidate.minimumQuantityEnabled === 'boolean'
+    && typeof candidate.minimumQuantity === 'number'
+    && Number.isSafeInteger(candidate.minimumQuantity)
+    && candidate.minimumQuantity >= 1
+    && candidate.minimumQuantity <= 10;
 }
 
 type StorageMonsterRow = {
@@ -137,7 +147,7 @@ function storageEntries(gameData: GameRecord): Array<{ record: GameRecord; locat
     entries.push({ record, location: location === 'sealed-normal' || location === 'sealed-summoned' ? location : fallback, index: entries.length });
   });
 
-  const mergedShrineList = storageList(gameData.unit_storage_list);
+  const mergedShrineList = summonedShrineRecords(gameData);
   mergedShrineList.forEach((record) => {
     const location = explicitStorageLocation(record);
     entries.push({
@@ -219,7 +229,24 @@ function RangeSlider({ minimum, maximum, onMinimumChange, onMaximumChange }: {
         onChange={(event) => onMaximumChange(Math.max(Number(event.target.value), minimum))}
         aria-label="Maximum monster level" aria-valuetext={`Maximum level ${maximum}`} />
     </div>
-    <div className="range-slider-limits" aria-hidden="true"><span>1</span><span>40</span></div>
+  </div>;
+}
+
+function QuantitySlider({ value, onChange, disabled }: {
+  value: number;
+  onChange: (value: number) => void;
+  disabled: boolean;
+}) {
+  const position = ((value - 1) / 9) * 100;
+  return <div className="range-slider range-slider-single" data-disabled={disabled ? 'true' : undefined}>
+    <div className="range-slider-values" aria-hidden="true">
+      <output className="range-slider-value" style={{ left: `${position}%` }}>{value}</output>
+    </div>
+    <div className="range-slider-track">
+      <input className="range-slider-input" type="range" min={1} max={10} step={1} value={value} disabled={disabled}
+        onChange={(event) => onChange(Number(event.target.value))}
+        aria-label="Minimum monster quantity" aria-valuetext={`Have at least ${value}`} />
+    </div>
   </div>;
 }
 
@@ -233,7 +260,7 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
   );
   const {
     search, selectedElements, selectedArchetypes, selectedLocations, minimumLevel, maximumLevel, selectedGrades,
-    alreadyHaveLevel40, familyFullySkilled,
+    alreadyHaveLevel40, familyFullySkilled, minimumQuantityEnabled, minimumQuantity,
   } = filters;
 
   const shrineEntries = useMemo(() => storageEntries(gameData), [gameData]);
@@ -292,11 +319,12 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
       if (selectedArchetypes.length && (!row.archetype || !selectedArchetypes.includes(row.archetype))) return false;
       if (selectedGrades.length && (row.grade === null || !selectedGrades.includes(row.grade))) return false;
       if (!monsterSelection.matches(row.masterId, { alreadyHaveLevel40, familyFullySkilled })) return false;
+      if (minimumQuantityEnabled && row.quantity < minimumQuantity) return false;
       if (!term) return true;
       return row.name.toLowerCase().includes(term)
         || row.searchAliases.some((alias) => alias.toLowerCase().includes(term));
     });
-  }, [alreadyHaveLevel40, familyFullySkilled, maximumLevel, minimumLevel, monsterSelection, rows, search, selectedArchetypes, selectedElements, selectedGrades, selectedLocations]);
+  }, [alreadyHaveLevel40, familyFullySkilled, maximumLevel, minimumLevel, minimumQuantity, minimumQuantityEnabled, monsterSelection, rows, search, selectedArchetypes, selectedElements, selectedGrades, selectedLocations]);
 
   const toggleElement = (name: string) => setFilters((current) => ({
     ...current,
@@ -398,7 +426,7 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
           {storageGradeOptions.map((grade) => <label className="filter-checkbox-label" key={grade}>
             <input className="filter-checkbox" type="checkbox" checked={selectedGrades.includes(grade)}
               onChange={() => toggleGrade(grade)} />
-            <span>{grade}-star</span>
+            <span>{grade}★</span>
           </label>)}
         </div>
       </div>
@@ -415,6 +443,15 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
               onChange={(event) => setFilters((current) => ({ ...current, familyFullySkilled: event.target.checked }))} />
             <span>All lvl 40 of this family max skilled</span>
           </label>
+          <div className="storage-quantity-filter">
+            <label className="checkbox-row">
+              <input type="checkbox" checked={minimumQuantityEnabled}
+                onChange={(event) => setFilters((current) => ({ ...current, minimumQuantityEnabled: event.target.checked }))} />
+              <span>Have &gt;= than</span>
+            </label>
+            <QuantitySlider value={minimumQuantity} disabled={!minimumQuantityEnabled}
+              onChange={(value) => setFilters((current) => ({ ...current, minimumQuantity: value }))} />
+          </div>
         </div>
       </div>
       <output className="filter-summary" aria-label={`${visible.length} of ${rows.length} Storage monsters shown`}>

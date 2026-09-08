@@ -1161,15 +1161,13 @@ button { cursor: pointer; }
   height: 20px;
 }
 
-/* Two handles, one question: the Storage view needs a bounded level interval
-   while the single-ended settings sliders keep their existing native shape.
-   The handles share a track and the two value labels follow their own points,
-   so the selected interval is legible without making the user guess. */
+/* Storage keeps its one- and two-handle sliders in the same component shape:
+   gold values follow the active handles, while the rail stays a quiet outline
+   until a two-handle range names an interval. */
 .range-slider { width: 260px; max-width: 100%; }
 .range-slider-values {
   position: relative;
   height: var(--s5);
-  margin: 0 var(--s2);
   color: var(--gold);
   font-family: var(--mono);
   font-size: var(--t-small);
@@ -1186,12 +1184,24 @@ button { cursor: pointer; }
 .range-slider-track {
   position: relative;
   height: 20px;
-  margin: 0 var(--s2);
+}
+.range-slider-track::before {
+  position: absolute;
+  z-index: 0;
+  top: var(--s2);
+  right: 0;
+  left: 0;
+  height: var(--s1);
+  border-radius: var(--s1);
+  background: var(--line-strong);
+  content: '';
 }
 .range-slider-fill {
   position: absolute;
+  z-index: 1;
   top: var(--s2);
   height: var(--s1);
+  border-radius: var(--s1);
   background: var(--gold);
   pointer-events: none;
 }
@@ -1211,12 +1221,12 @@ button { cursor: pointer; }
 .range-slider-input::-webkit-slider-runnable-track {
   height: var(--s1);
   border-radius: var(--s1);
-  background: var(--line-strong);
+  background: transparent;
 }
 .range-slider-input::-moz-range-track {
   height: var(--s1);
   border-radius: var(--s1);
-  background: var(--line-strong);
+  background: transparent;
 }
 .range-slider-input::-webkit-slider-thumb {
   width: 16px;
@@ -1239,15 +1249,9 @@ button { cursor: pointer; }
   pointer-events: auto;
 }
 .range-slider-input:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
-.range-slider-limits {
-  display: flex;
-  justify-content: space-between;
-  margin: 0 var(--s2);
-  color: var(--faint);
-  font-family: var(--mono);
-  font-size: var(--t-micro);
-  font-variant-numeric: tabular-nums;
-}
+.range-slider-single { width: 180px; }
+.range-slider-single .range-slider-input { pointer-events: auto; }
+.range-slider[data-disabled='true'] { opacity: .4; }
 .slider .jaswa-select {
   width: 100%;
   min-height: 32px;
@@ -2207,7 +2211,7 @@ button { cursor: pointer; }
 .filter-checkbox { margin-left: var(--s3); }
 
 /* Storage grades are real checkboxes, but keep the same compact filter rhythm
-   as the button groups around them. All five boxes stay mounted, so choosing
+   as the button groups around them. All six boxes stay mounted, so choosing
    one never changes the group's measure or moves a neighbouring group. */
 .filter-checkbox-label {
   display: inline-flex;
@@ -2221,9 +2225,10 @@ button { cursor: pointer; }
 .filter-checkbox-label .filter-checkbox { margin-left: 0; }
 .filter-checkbox-label:hover { color: var(--ink); }
 .storage-grade-options { flex-wrap: wrap; row-gap: var(--s1); }
-.storage-location-options { flex-wrap: wrap; row-gap: var(--s1); }
+.storage-location-options { flex-direction: column; align-items: flex-start; }
 .storage-special-options { display: grid; gap: var(--s2); }
 .storage-special-options .checkbox-row { min-height: 30px; }
+.storage-quantity-filter { display: grid; gap: var(--s1); }
 
 .field-narrow { max-width: 320px; }
 

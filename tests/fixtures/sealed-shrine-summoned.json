@@ -1,0 +1,13 @@
+{
+  "wizard_id": 7,
+  "unit_list": [],
+  "runes": [],
+  "GetWizardDataPart1": {
+    "GetUnitStorageList": {
+      "unit_storage_list": [
+        { "unit_master_id": 10101, "quantity": 8, "class": 3 },
+        { "unit_master_id": 10102, "quantity": 12, "class": 6 }
+      ]
+    }
+  }
+}

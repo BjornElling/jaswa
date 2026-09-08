@@ -1,6 +1,7 @@
 import { readArtifacts } from './artifacts';
 import type { GameRecord } from './game-data';
 import { count, craftItemCount } from './formatting';
+import { summonedShrineRecords } from './sealed-shrine-storage';
 
 export type AccountCounts = {
   monsters: number;
@@ -17,13 +18,12 @@ export function accountCounts(data: GameRecord | undefined): AccountCounts {
   const normalStorageMonsterCount = Array.isArray(data?.unit_storage_normal_list)
     ? data.unit_storage_normal_list.length
     : 0;
-  const shrineMonsterCount = Array.isArray(data?.unit_storage_list)
-    ? data.unit_storage_list.reduce((total, record) => {
+  const shrineMonsterCount = summonedShrineRecords(data)
+    .reduce((total, record) => {
       if (!record || typeof record !== 'object' || Array.isArray(record)) return total;
       const quantity = (record as GameRecord).quantity;
       return typeof quantity === 'number' && Number.isSafeInteger(quantity) && quantity > 0 ? total + quantity : total;
-    }, 0)
-    : 0;
+    }, 0);
   return {
     monsters: count(data?.unit_list) + normalStorageMonsterCount + shrineMonsterCount,
     runes: count(data?.runes),
