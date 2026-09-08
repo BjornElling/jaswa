@@ -1,9 +1,11 @@
 'use client';
 
 import { type ReactNode, useMemo, useState } from 'react';
-import { PageHeader } from './page-chrome';
+import { Disclosure, PageHeader } from './page-chrome';
 import { DataTablePage, TableColumnGroup } from './data-table-page';
+import { MonsterStorage } from './monster-storage';
 import { MonsterPortrait } from './monster-portrait';
+import { WorkspacePage } from './workspace-page';
 import { monsterPresentation } from '../lib/monster-catalog';
 import type { MonsterArchetype } from '../lib/monster-catalog';
 import type { GameRecord } from '../lib/game-data';
@@ -216,16 +218,6 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
     }));
   }
 
-  if (!monsters.length) return <div className="section-body">
-    <PageHeader
-      title="Your roster, told straight"
-      tagline="Every monster you own, with the stats it actually has on right now — runes included." />
-    <section className="empty-state">
-      <h2>Nothing to show until a game file is imported.</h2>
-      <p className="next-step">Go to Home and drop in the JSON file exported from Summoners War.</p>
-    </section>
-  </div>;
-
   const columns: MonsterGridColumn[] = [
     { key: 'level', label: 'LVL' }, { key: 'hp', label: 'HP' }, { key: 'atk', label: 'ATK' },
     { key: 'def', label: 'DEF' }, { key: 'spd', label: 'SPD' }, { key: 'criticalRate', label: 'CR%' },
@@ -239,13 +231,22 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
       <button type="button" className="table-sort-button" onClick={() => toggleSort(key)}>{label}</button>
     </th>;
   };
-  return <DataTablePage
-    tableClassName="monster-grid"
-    headerLabel="Monster roster columns"
-    tableLabel="Monster roster"
-    columnGroup={<TableColumnGroup columns={monsterTableColumns} />}
-    header={<MonsterTableHeader columns={columns} sortHeader={sortHeader} />}
-    filters={<>
+  return <WorkspacePage
+    header={<PageHeader
+      title="Monsters"
+      tagline="A menagerie of statistics, storage, and questionable life choices." />}
+  >
+    <Disclosure title="Monster roster" storageKey="monsters.roster">
+      {!monsters.length ? <section className="empty-state">
+        <h2>Nothing to show until a game file is imported.</h2>
+        <p className="next-step">Go to Home and drop in the JSON file exported from Summoners War.</p>
+      </section> : <DataTablePage
+        tableClassName="monster-grid"
+        headerLabel="Monster roster columns"
+        tableLabel="Monster roster"
+        columnGroup={<TableColumnGroup columns={monsterTableColumns} />}
+        header={<MonsterTableHeader columns={columns} sortHeader={sortHeader} />}
+        filters={<>
       <div className="filter-group">
         <span className="filter-label">Search</span>
         <div className="filter-group-controls">
@@ -300,9 +301,9 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
       <output className="filter-summary" aria-label={`${visible.length} of ${rows.length} monsters shown`}>
         <b>{visible.length}</b> of {rows.length} shown
       </output>
-    </>}
-  >
-    <tbody>
+        </>}
+      >
+        <tbody>
           {visible.map((row) => <tr key={row.unitId}>
             <td className={cell('index', 'row-index')}>{String(row.index + 1).padStart(2, '0')}</td>
             <td className={cell('name')}>
@@ -338,6 +339,12 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
             <td className={cell('ehpD', row.ehpD === null && 'muted')}>{formatNumber(row.ehpD, preferences.general)}</td>
             <td className={cell('dmg', row.dmg === null && 'muted')}>{formatNumber(row.dmg, preferences.general)}</td>
           </tr>)}
-    </tbody>
-  </DataTablePage>;
+        </tbody>
+      </DataTablePage>}
+    </Disclosure>
+
+    <Disclosure title="Storage" storageKey="monsters.storage">
+      <MonsterStorage monsters={monsters} preferences={preferences} />
+    </Disclosure>
+  </WorkspacePage>;
 }

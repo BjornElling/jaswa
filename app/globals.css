@@ -828,8 +828,8 @@ button { cursor: pointer; }
 
 /* Standard pages share one frame: the header starts at the workspace top,
    and its outside edge is the same edge every panel and content block uses.
-   Only the Monsters view opts out because its dense table is deliberately a
-   full-workspace surface. */
+   Dense tables live inside that frame rather than inventing a second page
+   opening of their own. */
 .workspace-page {
   width: min(100%, var(--workspace-max));
   margin: 0 auto;
@@ -1160,6 +1160,94 @@ button { cursor: pointer; }
   margin: var(--s4) 0 0;
   accent-color: var(--gold);
   height: 20px;
+}
+
+/* Two handles, one question: the Storage view needs a bounded level interval
+   while the single-ended settings sliders keep their existing native shape.
+   The handles share a track and the two value labels follow their own points,
+   so the selected interval is legible without making the user guess. */
+.range-slider { width: 260px; max-width: 100%; }
+.range-slider-values {
+  position: relative;
+  height: var(--s5);
+  margin: 0 var(--s2);
+  color: var(--gold);
+  font-family: var(--mono);
+  font-size: var(--t-small);
+  font-variant-numeric: tabular-nums;
+}
+.range-slider-value {
+  position: absolute;
+  bottom: 0;
+  width: 3ch;
+  min-width: 3ch;
+  text-align: center;
+  transform: translateX(-50%);
+}
+.range-slider-track {
+  position: relative;
+  height: 20px;
+  margin: 0 var(--s2);
+}
+.range-slider-fill {
+  position: absolute;
+  top: var(--s2);
+  height: var(--s1);
+  background: var(--gold);
+  pointer-events: none;
+}
+.range-slider-input {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 20px;
+  margin: 0;
+  appearance: none;
+  background: transparent;
+  accent-color: var(--gold);
+  pointer-events: none;
+}
+.range-slider-input-maximum { z-index: 3; }
+.range-slider-input::-webkit-slider-runnable-track {
+  height: var(--s1);
+  border-radius: var(--s1);
+  background: var(--line-strong);
+}
+.range-slider-input::-moz-range-track {
+  height: var(--s1);
+  border-radius: var(--s1);
+  background: var(--line-strong);
+}
+.range-slider-input::-webkit-slider-thumb {
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
+  appearance: none;
+  border: 2px solid var(--gold);
+  border-radius: 50%;
+  background: var(--raise);
+  cursor: pointer;
+  pointer-events: auto;
+}
+.range-slider-input::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--gold);
+  border-radius: 50%;
+  background: var(--raise);
+  cursor: pointer;
+  pointer-events: auto;
+}
+.range-slider-input:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.range-slider-limits {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 var(--s2);
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  font-variant-numeric: tabular-nums;
 }
 .slider .jaswa-select {
   width: 100%;
@@ -2118,6 +2206,24 @@ button { cursor: pointer; }
    group's gap. The box has no such padding of its own, and takes the same step
    as a margin to stand off its label by the same distance. */
 .filter-checkbox { margin-left: var(--s3); }
+
+/* Storage grades are real checkboxes, but keep the same compact filter rhythm
+   as the button groups around them. All five boxes stay mounted, so choosing
+   one never changes the group's measure or moves a neighbouring group. */
+.filter-checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  min-height: 30px;
+  color: var(--dim);
+  font-size: var(--t-small);
+  cursor: pointer;
+}
+.filter-checkbox-label .filter-checkbox { margin-left: 0; }
+.filter-checkbox-label:hover { color: var(--ink); }
+.storage-grade-options { flex-wrap: wrap; row-gap: var(--s1); }
+.storage-special-options { display: grid; gap: var(--s2); }
+.storage-special-options .checkbox-row { min-height: 30px; }
 
 .field-narrow { max-width: 320px; }
 

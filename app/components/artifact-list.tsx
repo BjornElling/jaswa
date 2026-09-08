@@ -25,6 +25,7 @@ import type { ArtifactCategory, ArtifactGrade, ArtifactMainProperty } from '../l
 import { numberedMonsterNames } from '../lib/monster-names';
 import { formatNumber } from '../lib/formatting';
 import { useLocalStorageState } from '../lib/local-storage-state';
+import { WorkspacePage } from './workspace-page';
 
 const categoryOrder: readonly ArtifactCategory[] = ['attribute', 'type'];
 const elementOrder = Object.values(artifactElements);
@@ -301,20 +302,6 @@ export function ArtifactList({ game, monsters, preferences }: {
     setFilters((current) => ({ ...current, includeIntangible: update(current.includeIntangible) }));
   }
 
-  if (!artifacts.length) return <div className="section-body">
-    <PageHeader
-      title="Every artifact you own"
-      tagline="The library the recommendations are read against — what you actually have, in one list." />
-    <section className="empty-state">
-      <h2>{game
-        ? 'This import holds no artifacts JASWA can read.'
-        : 'Nothing to show until a game file is imported.'}</h2>
-      <p className="next-step">{game
-        ? 'Report it from the rail if your account does have artifacts.'
-        : 'Go to Home and drop in the JSON file exported from Summoners War.'}</p>
-    </section>
-  </div>;
-
   const sortHeader = (key: ArtifactSortKey, label: ReactNode) => {
     const sorted = activeSortBySubProperty === null && sort.key === key;
     const className = artifactCell(key, 'sortable', sorted && 'sorted', sorted && sort.ascending && 'ascending');
@@ -342,8 +329,20 @@ export function ArtifactList({ game, monsters, preferences }: {
   </div>;
   const abbreviate = (option: string) => option.slice(0, 3).toUpperCase();
 
-  return <div className="artifact-library">
-    <DataTablePage
+  return <WorkspacePage
+    header={<PageHeader
+      title="Artifacts"
+      tagline="A museum of tiny stat sticks. Some are priceless. Most are taking up space." />}
+  >
+    {!artifacts.length ? <section className="empty-state">
+      <h2>{game
+        ? 'This import holds no artifacts JASWA can read.'
+        : 'Nothing to show until a game file is imported.'}</h2>
+      <p className="next-step">{game
+        ? 'Report it from the rail if your account does have artifacts.'
+        : 'Go to Home and drop in the JSON file exported from Summoners War.'}</p>
+    </section> : <div className="artifact-library">
+      <DataTablePage
       filterClassName="artifact-filter-strip"
       tableClassName="artifact-grid"
       headerLabel="Artifact library columns"
@@ -465,6 +464,7 @@ export function ArtifactList({ game, monsters, preferences }: {
             <td className="table-empty-state" colSpan={9}>No artifacts match these filters. Clear a filter to see more.</td>
           </tr>}
       </tbody>
-    </DataTablePage>
-  </div>;
+      </DataTablePage>
+    </div>}
+  </WorkspacePage>;
 }
