@@ -1808,6 +1808,13 @@ not allowed to fill a slot. A slot may therefore remain empty when no positive
 artifact remains after stronger locks; the result reports every such shortfall
 explicitly rather than duplicating an artifact or pretending a zero is useful.
 
+**And the report says where they went.** An empty slot almost never means the
+account holds nothing that suits that monster — the artifacts exist, and the
+ranked pass gave each of them to a monster scoring at least as well. Wording
+that stopped at "no artifact scoring above 0 % remained" was read as the
+stronger, wrong claim, which turns the plan's own answer into an apparent fault
+in it. Name the reason, and count in the singular when the count is one.
+
 ### 17.3 Differences below the stated threshold are not differences
 
 The user may declare a band — 1 % to 5 % — inside which two scores count as the
@@ -2055,7 +2062,8 @@ held result, so nothing is stale and there is nothing to chase.
 layer can produce. A matrix of zeros is not read as a failure anywhere: it is
 read as an account whose 1,300 artifacts suit none of its monsters, reported in
 the interface's own calm words as *"no artifact scoring above 0 % remained for
-560 slots"*.
+560 slots"* — a sentence since rewritten, because the ordinary one-slot case was
+being read the same way.
 
 WebGPU produces that value willingly. It does not throw when it rejects a
 binding or a pass; it drops the work and leaves the output buffer as it was

@@ -191,6 +191,13 @@ function unscoredArtifactSlots(monsters: readonly OwnedMonster[]): UnscoredSlot[
   }));
 }
 
+/* "1 slots" read as a defect in the arithmetic rather than in the sentence, and
+   it appeared in the one notice a user reaches while already wondering whether
+   the plan is wrong. Every notice counting slots goes through here. */
+function countedSlots(count: number, general: GeneralSettings): string {
+  return `${formatNumber(count, general)} ${count === 1 ? 'slot' : 'slots'}`;
+}
+
 function describeUnscoredMonsters(slots: readonly UnscoredSlot[]): string {
   const categoriesByMonster = new Map<string, { name: string; categories: ArtifactCategory[] }>();
   for (const slot of slots) {
@@ -476,9 +483,14 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
           account with complete preferences still reads as a plain
           "560 of 560 slots filled". */}
       <p className="artifact-recommendation-meta" role="status">{formatNumber(currentCalculation.evaluatedPairs, general)} pairs checked · {formatNumber(filledSlots, general)} of {formatNumber(totalSlots, general)} slots filled{slotRemainder.length > 0 && <> ({slotRemainder.join(', ')})</>} · {formatNumber(Math.round(currentCalculation.durationMs), general)} ms · {currentCalculation.backend === 'webgpu' ? 'Graphics card' : 'Processor'}</p>
-      {currentCalculation.unfilledSlots > 0 && <p className="notice warning" role="status">After the ranked placements, no artifact scoring above 0 % remained for {formatNumber(currentCalculation.unfilledSlots, general)} slots. JASWA never fills them with a zero-score match.</p>}
-      {missingPreferenceSlots.length > 0 && <p className="notice warning" role="status">Artifact preferences are not yet recorded for {describeUnscoredMonsters(missingPreferenceSlots)}. Those {formatNumber(missingPreferenceSlots.length, general)} slots await data and could not be scored.</p>}
-      {emptyPreferenceSlots.length > 0 && <p className="notice warning" role="status">No preferred or acceptable artifact properties are recorded for {describeUnscoredMonsters(emptyPreferenceSlots)}. Those {formatNumber(emptyPreferenceSlots.length, general)} slots await preferences and could not be scored.</p>}
+      {/* Not "no artifact scores above 0 % here", which is what the old wording
+          was read as and is almost never true: the artifacts that would suit
+          this slot exist, and the ranked pass gave every one of them to a
+          monster that scores at least as well. Saying where they went makes the
+          empty slot the plan's answer rather than a fault in it. */}
+      {currentCalculation.unfilledSlots > 0 && <p className="notice warning" role="status">The plan leaves {countedSlots(currentCalculation.unfilledSlots, general)} empty: every artifact that scores above 0 % there was claimed by a monster it suits at least as well. JASWA never fills a slot with a zero-score match.</p>}
+      {missingPreferenceSlots.length > 0 && <p className="notice warning" role="status">Artifact preferences are not yet recorded for {describeUnscoredMonsters(missingPreferenceSlots)}. That leaves {countedSlots(missingPreferenceSlots.length, general)} awaiting data, and out of the scoring.</p>}
+      {emptyPreferenceSlots.length > 0 && <p className="notice warning" role="status">No preferred or acceptable artifact properties are recorded for {describeUnscoredMonsters(emptyPreferenceSlots)}. That leaves {countedSlots(emptyPreferenceSlots.length, general)} awaiting preferences, and out of the scoring.</p>}
       {settings.conversionStoneMode === 'owned' && currentCalculation.ownedConversionCount === 0 && <p className="notice warning">This import has no readable engraved conversion stones, so the results keep every artifact as it is.</p>}
       {sorted.length ? <div className="artifact-recommendation-table-wrap"><table className="artifact-recommendation-table">
         <SortableHeader columns={columns} sort={sort} onToggle={toggleSort} />
