@@ -30,6 +30,7 @@ function defaultTrafficLogPath() {
 async function readLatestSnapshot(logPath) {
   const stream = createInterface({ input: createReadStream(logPath), crlfDelay: Infinity });
   let snapshot;
+  let latestStorageList;
   for await (const line of stream) {
     if (!line.trim()) continue;
     let entry;
@@ -37,8 +38,11 @@ async function readLatestSnapshot(logPath) {
     const response = entry?.response;
     if (!response || typeof response !== 'object') continue;
     if (entry.command === 'HubUserLogin' || entry.command === 'GuestLogin') snapshot = response;
+    if (entry.command === 'GetWizardDataPart1' && Array.isArray(response.GetUnitStorageList?.unit_storage_list)) {
+      latestStorageList = response.GetUnitStorageList.unit_storage_list;
+    }
   }
-  return snapshot;
+  return snapshot && latestStorageList ? { ...snapshot, unit_storage_list: latestStorageList } : snapshot;
 }
 
 function countBy(records, describe) {
@@ -95,7 +99,21 @@ function craftAmount(records) {
   return { total, invalid };
 }
 
-const server = await createServer({ configFile: false, appType: 'custom', server: { middlewareMode: true } });
+function storageAmount(records) {
+  let total = 0;
+  let invalid = 0;
+  for (const record of records) {
+    if (!isRecord(record) || !isPositiveIdentifier(record.unit_master_id)
+      || !Number.isSafeInteger(record.quantity) || record.quantity < 1) {
+      invalid += 1;
+      continue;
+    }
+    total += record.quantity;
+  }
+  return { total, invalid };
+}
+
+const server = await createServer({ configFile: false, appType: 'custom', server: { middlewareMode: true, hmr: false } });
 let failures = 0;
 function report(ok, message) {
   if (!ok) failures += 1;
@@ -126,11 +144,15 @@ try {
      and file routes must both arrive at these same numbers after they merge
      account-level and equipped copies. */
   const rawUnits = Array.isArray(snapshot.unit_list) ? snapshot.unit_list : [];
+  const rawNormalStorage = Array.isArray(snapshot.unit_storage_normal_list) ? snapshot.unit_storage_normal_list : [];
+  const rawStorage = Array.isArray(snapshot.unit_storage_list) ? snapshot.unit_storage_list : [];
   const rawRunes = accountRecords(snapshot, 'runes');
   const rawArtifacts = accountRecords(snapshot, 'artifacts');
   const rawRelics = accountRecords(snapshot, 'relics');
   const expectedCounts = {
     monsters: identifiedRecords(rawUnits, 'unit_id'),
+    normalStorage: identifiedRecords(rawNormalStorage, 'unit_id'),
+    storage: storageAmount(rawStorage),
     runes: identifiedRecords(rawRunes, 'rune_id'),
     artifacts: identifiedRecords(rawArtifacts, 'rid'),
     relics: identifiedRecords(rawRelics, 'rid'),
@@ -138,18 +160,20 @@ try {
   };
   const counts = accountCounts(data);
   console.log('Account counts at snapshot boundary:');
-  console.log(`  monsters: ${expectedCounts.monsters.ids.size}`);
+  console.log(`  monsters: ${expectedCounts.monsters.ids.size + expectedCounts.normalStorage.ids.size + expectedCounts.storage.total}`);
   console.log(`  runes: ${expectedCounts.runes.ids.size}`);
   console.log(`  gems/grinds: ${expectedCounts.craft.total}`);
   console.log(`  artifacts: ${expectedCounts.artifacts.ids.size}`);
   console.log(`  relics: ${expectedCounts.relics.ids.size}`);
   report(expectedCounts.monsters.invalid === 0, `every monster has a positive unit_id (${expectedCounts.monsters.invalid} invalid)`);
+  report(expectedCounts.normalStorage.invalid === 0, `every normal shrine monster has a positive unit_id (${expectedCounts.normalStorage.invalid} invalid)`);
+  report(expectedCounts.storage.invalid === 0, `every sealed-shrine monster has a positive master id and quantity (${expectedCounts.storage.invalid} invalid)`);
   report(expectedCounts.runes.invalid === 0, `every rune has a positive rune_id (${expectedCounts.runes.invalid} invalid)`);
   report(expectedCounts.artifacts.invalid === 0, `every artifact has a positive rid (${expectedCounts.artifacts.invalid} invalid)`);
   report(expectedCounts.relics.invalid === 0, `every relic has a positive rid (${expectedCounts.relics.invalid} invalid)`);
   report(expectedCounts.craft.invalid === 0, `every craft stack has a non-negative amount (${expectedCounts.craft.invalid} invalid)`);
   const preparedCountRows = [
-    ['monsters', expectedCounts.monsters.ids.size, counts.monsters],
+    ['monsters', expectedCounts.monsters.ids.size + expectedCounts.normalStorage.ids.size + expectedCounts.storage.total, counts.monsters],
     ['runes', expectedCounts.runes.ids.size, counts.runes],
     ['gems/grinds', expectedCounts.craft.total, counts.gemsAndGrinds],
     ['artifacts', expectedCounts.artifacts.ids.size, counts.artifacts],
@@ -261,7 +285,11 @@ try {
   /* A monster the catalogue does not describe scores as archetype 0, so it is
      the monster-side parity gap and belongs in the same report. */
   const { hasMonsterCatalogEntry } = await server.ssrLoadModule('/app/lib/monster-catalog.ts');
-  const monsterRecords = Array.isArray(data.unit_list) ? data.unit_list : [];
+  const monsterRecords = [
+    ...(Array.isArray(data.unit_list) ? data.unit_list : []),
+    ...(Array.isArray(data.unit_storage_normal_list) ? data.unit_storage_normal_list : []),
+    ...(Array.isArray(data.unit_storage_list) ? data.unit_storage_list : []),
+  ];
   const uncatalogued = [...new Set(monsterRecords
     .map((monster) => String(monster?.unit_master_id))
     .filter((id) => id !== 'undefined' && !hasMonsterCatalogEntry(id)))];

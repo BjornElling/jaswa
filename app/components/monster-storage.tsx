@@ -15,14 +15,17 @@ import { useLocalStorageState } from '../lib/local-storage-state';
 
 const storageElementOptions = ['Water', 'Fire', 'Light', 'Wind', 'Dark'] as const;
 const storageGradeOptions = [1, 2, 3, 4, 5] as const;
+const storageLocationOptions = ['storage', 'sealed-summoned', 'sealed-normal'] as const;
 const storageMinimumLevel = 1;
 const storageMaximumLevel = 40;
 const maxMonsterLevel = 40;
+type StorageLocation = typeof storageLocationOptions[number];
 
 type StorageFilterState = {
   search: string;
   selectedElements: string[];
   selectedArchetypes: typeof monsterFilterArchetypes[number][];
+  selectedLocations: StorageLocation[];
   minimumLevel: number;
   maximumLevel: number;
   selectedGrades: number[];
@@ -34,6 +37,7 @@ const defaultStorageFilters: StorageFilterState = {
   search: '',
   selectedElements: [],
   selectedArchetypes: [],
+  selectedLocations: [...storageLocationOptions],
   minimumLevel: storageMinimumLevel,
   maximumLevel: storageMaximumLevel,
   selectedGrades: [],
@@ -49,6 +53,8 @@ function isStorageFilterState(value: unknown): value is StorageFilterState {
     && candidate.selectedElements.every((entry) => storageElementOptions.includes(entry as typeof storageElementOptions[number]))
     && Array.isArray(candidate.selectedArchetypes)
     && candidate.selectedArchetypes.every((entry) => monsterFilterArchetypes.includes(entry as typeof monsterFilterArchetypes[number]))
+    && Array.isArray(candidate.selectedLocations)
+    && candidate.selectedLocations.every((entry) => storageLocationOptions.includes(entry as StorageLocation))
     && typeof candidate.minimumLevel === 'number'
     && Number.isSafeInteger(candidate.minimumLevel)
     && candidate.minimumLevel >= storageMinimumLevel
@@ -67,6 +73,8 @@ function isStorageFilterState(value: unknown): value is StorageFilterState {
 type StorageMonsterRow = {
   unitId: string;
   masterId: string;
+  location: StorageLocation;
+  quantity: number;
   familyId?: number;
   name: string;
   searchAliases: string[];
@@ -80,6 +88,91 @@ type StorageMonsterRow = {
   maximumSkillUps?: number;
   maxSkilled: boolean;
 };
+
+const storageLocationLabels: Record<StorageLocation, string> = {
+  storage: 'Storage',
+  'sealed-summoned': 'Sealed Shrine · Summoned',
+  'sealed-normal': 'Sealed Shrine · Normal',
+};
+
+/* SWEX's original merged export calls the summoned shrine list
+   `unit_storage_list`. Newer captures may keep the two shrine tabs in named
+   containers instead. The resolver accepts those explicit containers while
+   keeping ordinary Monster Storage on the game's `building_id` marker. */
+const storageListKeys: Record<Exclude<StorageLocation, 'storage'>, string[]> = {
+  'sealed-summoned': [
+    'summoned_unit_storage_list', 'unit_summoned_storage_list', 'unit_storage_list_summoned', 'summoned_storage_list',
+    'summoned_monster_storage_list', 'sealed_shrine_summoned', 'sealedShrineSummoned',
+  ],
+  'sealed-normal': [
+    'unit_storage_normal_list', 'normal_unit_storage_list', 'unit_normal_storage_list', 'unit_storage_list_normal', 'normal_storage_list',
+    'normal_monster_storage_list', 'sealed_shrine_normal', 'sealedShrineNormal',
+  ],
+};
+
+const sealedShrineContainerKeys = ['sealed_shrine', 'sealedShrine', 'sealed_monster_storage', 'sealedMonsterStorage'];
+
+function storageLocationValue(value: unknown): StorageLocation | undefined {
+  if (typeof value !== 'string') return undefined;
+  const normalized = value.toLowerCase().replace(/[^a-z]/g, '');
+  if (normalized === 'storage' || normalized === 'monsterstorage' || normalized === 'ordinary') return 'storage';
+  if (normalized.includes('summoned')) return 'sealed-summoned';
+  if (normalized.includes('normal')) return 'sealed-normal';
+  return undefined;
+}
+
+function explicitStorageLocation(record: GameRecord): StorageLocation | undefined {
+  for (const key of ['storage_location', 'storageLocation', 'storage_type', 'storageType', 'location', 'source', 'type']) {
+    const location = storageLocationValue(record[key]);
+    if (location) return location;
+  }
+  return undefined;
+}
+
+function storageList(value: unknown): GameRecord[] {
+  return Array.isArray(value) ? value.filter((entry): entry is GameRecord => Boolean(entry) && typeof entry === 'object' && !Array.isArray(entry)) : [];
+}
+
+function storageEntries(gameData: GameRecord): Array<{ record: GameRecord; location: Exclude<StorageLocation, 'storage'>; index: number }> {
+  const entries: Array<{ record: GameRecord; location: Exclude<StorageLocation, 'storage'>; index: number }> = [];
+  const add = (value: unknown, fallback: Exclude<StorageLocation, 'storage'>) => storageList(value).forEach((record) => {
+    const location = explicitStorageLocation(record);
+    entries.push({ record, location: location === 'sealed-normal' || location === 'sealed-summoned' ? location : fallback, index: entries.length });
+  });
+
+  const mergedShrineList = storageList(gameData.unit_storage_list);
+  mergedShrineList.forEach((record) => {
+    const location = explicitStorageLocation(record);
+    entries.push({
+      record,
+      location: location === 'sealed-normal' || location === 'sealed-summoned' ? location : 'sealed-summoned',
+      index: entries.length,
+    });
+  });
+  for (const location of ['sealed-summoned', 'sealed-normal'] as const) {
+    for (const key of storageListKeys[location]) add(gameData[key], location);
+  }
+  for (const containerKey of sealedShrineContainerKeys) {
+    const container = gameData[containerKey];
+    if (!container || typeof container !== 'object' || Array.isArray(container)) continue;
+    const source = container as GameRecord;
+    add(source.summoned ?? source.Summoned ?? source.summoned_storage ?? source.summonedStorage, 'sealed-summoned');
+    add(source.normal ?? source.Normal ?? source.normal_storage ?? source.normalStorage, 'sealed-normal');
+  }
+  return entries;
+}
+
+function storageEntryQuantity(record: GameRecord): number {
+  const quantity = numericOrNull(record.quantity);
+  return quantity !== null && Number.isSafeInteger(quantity) && quantity > 0 ? quantity : 1;
+}
+
+function storageEntryElement(record: GameRecord, masterId: string): string | undefined {
+  const explicit = elementName(record.attribute);
+  if (explicit) return explicit;
+  const encoded = Number(masterId.at(-1));
+  return Number.isSafeInteger(encoded) ? elementName(encoded) : undefined;
+}
 
 function currentSkillUps(monster: GameRecord): number | null {
   if (!Array.isArray(monster.skills)) return null;
@@ -138,29 +231,39 @@ function RangeSlider({ minimum, maximum, onMinimumChange, onMaximumChange }: {
   </div>;
 }
 
-export function MonsterStorage({ monsters, preferences }: { monsters: GameRecord[]; preferences: Preferences }) {
+export function MonsterStorage({ monsters, gameData, preferences }: {
+  monsters: GameRecord[];
+  gameData: GameRecord;
+  preferences: Preferences;
+}) {
   const [filters, setFilters] = useLocalStorageState(
     'jaswa.filters.monster-storage', defaultStorageFilters, isStorageFilterState,
   );
   const {
-    search, selectedElements, selectedArchetypes, minimumLevel, maximumLevel, selectedGrades,
+    search, selectedElements, selectedArchetypes, selectedLocations, minimumLevel, maximumLevel, selectedGrades,
     alreadyHaveLevel40, familyFullySkilled,
   } = filters;
 
-  const rows = useMemo<StorageMonsterRow[]>(() => monsters
-    .filter(isStoredMonster)
-    .map((monster, index) => {
+  const shrineEntries = useMemo(() => storageEntries(gameData), [gameData]);
+  const rows = useMemo<StorageMonsterRow[]>(() => [
+    ...monsters
+      .filter(isStoredMonster)
+      .map((monster, index) => ({ monster, location: 'storage' as const, index })),
+    ...shrineEntries.map(({ record, location, index }) => ({ monster: record, location, index })),
+  ].map(({ monster, location, index }) => {
       const masterId = String(monster.unit_master_id ?? `unknown-${index}`);
       const presentation = monsterPresentation(monster.unit_master_id);
       const maximumSkillUps = monsterSkillUpsToMax(monster.unit_master_id);
       const current = currentSkillUps(monster);
       return {
-        unitId: String(monster.unit_id ?? `unknown-${index}`),
+        unitId: String(monster.unit_id ?? `${location}-${masterId}-${index}`),
         masterId,
+        location,
+        quantity: storageEntryQuantity(monster),
         familyId: monsterFamilyId(monster.unit_master_id),
         name: presentation.name,
         searchAliases: presentation.searchAliases,
-        element: elementName(monster.attribute),
+        element: storageEntryElement(monster, masterId),
         archetype: presentation.archetype && monsterFilterArchetypes.includes(presentation.archetype)
           ? presentation.archetype : undefined,
         imageFilename: presentation.imageFilename,
@@ -173,14 +276,19 @@ export function MonsterStorage({ monsters, preferences }: { monsters: GameRecord
       };
     })
     .sort((left, right) => monsterNameCollator.compare(left.name, right.name) || left.unitId.localeCompare(right.unitId)),
-  [monsters]);
+  [monsters, shrineEntries]);
+
+  const allMonsterRecords = useMemo(() => [
+    ...monsters,
+    ...shrineEntries.map(({ record }) => record),
+  ], [monsters, shrineEntries]);
 
   const level40ByMasterId = useMemo(() => new Set(
-    monsters.filter(isLevel40).map((monster) => String(monster.unit_master_id ?? '')),
-  ), [monsters]);
+    allMonsterRecords.filter(isLevel40).map((monster) => String(monster.unit_master_id ?? '')),
+  ), [allMonsterRecords]);
   const allLevel40ByFamily = useMemo(() => {
     const familyStates = new Map<number, { count: number; fullySkilled: number }>();
-    for (const monster of monsters) {
+    for (const monster of allMonsterRecords) {
       if (!isLevel40(monster)) continue;
       const familyId = monsterFamilyId(monster.unit_master_id);
       if (familyId === undefined) continue;
@@ -192,12 +300,16 @@ export function MonsterStorage({ monsters, preferences }: { monsters: GameRecord
     return new Set([...familyStates.entries()]
       .filter(([, state]) => state.count > 0 && state.count === state.fullySkilled)
       .map(([familyId]) => familyId));
-  }, [monsters]);
+  }, [allMonsterRecords]);
 
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
     return rows.filter((row) => {
-      if (row.level === null || row.level < minimumLevel || row.level > maximumLevel) return false;
+      /* Shrine summary records do not carry a level in the SWEX export. They
+         are visible for the complete 1–40 range, but cannot honestly match a
+         narrower interval until the export supplies a level for that copy. */
+      if (row.level === null ? minimumLevel !== storageMinimumLevel || maximumLevel !== storageMaximumLevel : row.level < minimumLevel || row.level > maximumLevel) return false;
+      if (!selectedLocations.includes(row.location)) return false;
       if (selectedElements.length && (!row.element || !selectedElements.includes(row.element))) return false;
       if (selectedArchetypes.length && (!row.archetype || !selectedArchetypes.includes(row.archetype))) return false;
       if (selectedGrades.length && (row.grade === null || !selectedGrades.includes(row.grade))) return false;
@@ -207,7 +319,7 @@ export function MonsterStorage({ monsters, preferences }: { monsters: GameRecord
       return row.name.toLowerCase().includes(term)
         || row.searchAliases.some((alias) => alias.toLowerCase().includes(term));
     });
-  }, [allLevel40ByFamily, alreadyHaveLevel40, familyFullySkilled, level40ByMasterId, maximumLevel, minimumLevel, rows, search, selectedArchetypes, selectedElements, selectedGrades]);
+  }, [allLevel40ByFamily, alreadyHaveLevel40, familyFullySkilled, level40ByMasterId, maximumLevel, minimumLevel, rows, search, selectedArchetypes, selectedElements, selectedGrades, selectedLocations]);
 
   const toggleElement = (name: string) => setFilters((current) => ({
     ...current,
@@ -227,6 +339,12 @@ export function MonsterStorage({ monsters, preferences }: { monsters: GameRecord
       ? current.selectedGrades.filter((entry) => entry !== grade)
       : [...current.selectedGrades, grade],
   }));
+  const toggleLocation = (location: StorageLocation) => setFilters((current) => ({
+    ...current,
+    selectedLocations: current.selectedLocations.includes(location)
+      ? current.selectedLocations.filter((entry) => entry !== location)
+      : [...current.selectedLocations, location],
+  }));
 
   return <DataTablePage
     filterClassName="storage-filter-strip"
@@ -234,17 +352,19 @@ export function MonsterStorage({ monsters, preferences }: { monsters: GameRecord
     headerLabel="Storage columns"
     tableLabel="Monsters in Storage"
     columnGroup={<colgroup>
-      <col style={{ width: '5%' }} /><col style={{ width: '35%' }} /><col style={{ width: '12%' }} />
-      <col style={{ width: '12%' }} /><col style={{ width: '12%' }} /><col style={{ width: '12%' }} /><col style={{ width: '12%' }} />
+      <col style={{ width: '4%' }} /><col style={{ width: '24%' }} /><col style={{ width: '13%' }} />
+      <col style={{ width: '10%' }} /><col style={{ width: '10%' }} /><col style={{ width: '9%' }} /><col style={{ width: '10%' }} /><col style={{ width: '10%' }} /><col style={{ width: '10%' }} />
     </colgroup>}
     header={<thead><tr>
       <th scope="col" className="align-left">#</th>
       <th scope="col" className="align-left">Monster</th>
+      <th scope="col" className="align-left">Location</th>
       <th scope="col" className="align-left">Element</th>
       <th scope="col" className="align-left">Type</th>
       <th scope="col" className="align-right">Grade</th>
       <th scope="col" className="align-right">Level</th>
       <th scope="col" className="align-right">Skills</th>
+      <th scope="col" className="align-right">Quantity</th>
     </tr></thead>}
     filters={<>
       <div className="filter-group">
@@ -275,6 +395,16 @@ export function MonsterStorage({ monsters, preferences }: { monsters: GameRecord
             className={selectedArchetypes.includes(archetype) ? 'filter-button active' : 'filter-button'}
             onClick={() => toggleArchetype(archetype)} aria-pressed={selectedArchetypes.includes(archetype)}
           >{monsterArchetypeLabels[archetype]}</button>)}
+        </div>
+      </div>
+      <div className="filter-group storage-filter-location" role="group" aria-label="Choose Storage locations">
+        <span className="filter-label">Location</span>
+        <div className="filter-group-controls storage-location-options">
+          {storageLocationOptions.map((location) => <label className="filter-checkbox-label" key={location}>
+            <input className="filter-checkbox" type="checkbox" checked={selectedLocations.includes(location)}
+              onChange={() => toggleLocation(location)} />
+            <span>{storageLocationLabels[location]}</span>
+          </label>)}
         </div>
       </div>
       <div className="filter-group storage-filter-level">
@@ -316,7 +446,7 @@ export function MonsterStorage({ monsters, preferences }: { monsters: GameRecord
     </>}
   >
     <tbody>
-      {!monsters.length ? <tr><td className="table-empty-state" colSpan={7}>
+      {!monsters.length && !shrineEntries.length ? <tr><td className="table-empty-state" colSpan={9}>
         Import your game data first. Monster Storage will appear here when JASWA has an account to inspect.
       </td></tr> : visible.length ? visible.map((row, index) => <tr key={row.unitId}>
         <td className="align-left row-index">{String(index + 1).padStart(2, '0')}</td>
@@ -324,12 +454,14 @@ export function MonsterStorage({ monsters, preferences }: { monsters: GameRecord
           <MonsterPortrait imageFilename={row.imageFilename} initial={row.initial} name={row.name} />
           <span className="monster-name">{row.name}</span>
         </div></td>
+        <td className="align-left dim">{storageLocationLabels[row.location]}</td>
         <td className="align-left dim">{row.element ?? '—'}</td>
         <td className="align-left dim">{row.archetype ? monsterArchetypeLabels[row.archetype] : '—'}</td>
         <td className="align-right dim">{row.grade === null ? '—' : `${row.grade}★`}</td>
         <td className="align-right dim">{formatNumber(row.level, preferences.general)}</td>
         <td className="align-right dim">{displaySkillProgress(row)}</td>
-      </tr>) : <tr><td className="table-empty-state" colSpan={7}>
+        <td className="align-right dim">×{row.quantity}</td>
+      </tr>) : <tr><td className="table-empty-state" colSpan={9}>
         No Storage monsters match these filters. Clear a filter to see more.
       </td></tr>}
     </tbody>

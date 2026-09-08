@@ -360,7 +360,7 @@ export default function Home() {
         general={preferences.general}
       />}
 
-      {page === 'monsters' && <MonsterOverview monsters={monsters} preferences={preferences} />}
+      {page === 'monsters' && <MonsterOverview monsters={monsters} gameData={game?.data ?? {}} preferences={preferences} />}
 
       {page === 'artifact-list' && <ArtifactList game={game} monsters={monsters} preferences={preferences} />}
 

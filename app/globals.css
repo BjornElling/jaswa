@@ -2222,6 +2222,7 @@ button { cursor: pointer; }
 .filter-checkbox-label .filter-checkbox { margin-left: 0; }
 .filter-checkbox-label:hover { color: var(--ink); }
 .storage-grade-options { flex-wrap: wrap; row-gap: var(--s1); }
+.storage-location-options { flex-wrap: wrap; row-gap: var(--s1); }
 .storage-special-options { display: grid; gap: var(--s2); }
 .storage-special-options .checkbox-row { min-height: 30px; }
 

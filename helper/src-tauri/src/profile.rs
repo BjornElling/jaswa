@@ -61,6 +61,8 @@ becoming part of a JASWA data file. */
 const DOWNLOAD_KEYS: &[&str] = &[
     "wizard_id",
     "unit_list",
+    "unit_storage_list",
+    "unit_storage_normal_list",
     "runes",
     "artifacts",
     "relics",
@@ -166,6 +168,20 @@ impl ProfileStore {
             "unit_list".into(),
             Value::Array(normalize(units, "unit_id")),
         );
+        if let Some(normal_storage) = snapshot
+            .get("unit_storage_normal_list")
+            .and_then(Value::as_array)
+        {
+            let normal_storage = normal_storage
+                .iter()
+                .filter(|unit| wizard.is_none() || identifier(unit, "wizard_id") == wizard)
+                .cloned()
+                .collect();
+            normalized.insert(
+                "unit_storage_normal_list".into(),
+                Value::Array(normalize(normal_storage, "unit_id")),
+            );
+        }
         normalized.insert(
             "runes".into(),
             Value::Array(normalize(
@@ -247,6 +263,24 @@ impl ProfileStore {
             .and_then(Value::as_str)
             .unwrap_or("")
             .to_ascii_lowercase();
+        let storage_list = response
+            .get("unit_storage_list")
+            .and_then(Value::as_array)
+            .or_else(|| {
+                response
+                    .get("GetUnitStorageList")
+                    .and_then(|value| value.get("unit_storage_list"))
+                    .and_then(Value::as_array)
+            });
+        if (command.contains("getunitstoragelist") || command.contains("getwizarddatapart1"))
+            && storage_list.is_some()
+        {
+            let next = normalize(storage_list.cloned().unwrap_or_default(), "unit_master_id");
+            if collection(&profile, "unit_storage_list") != next.as_slice() {
+                set_collection(&mut profile, "unit_storage_list", next);
+                changed = true;
+            }
+        }
         let unit_id = identifier(request, "unit_id");
         if let (Some(unit_id), Some(_)) = (
             unit_id,
@@ -538,6 +572,7 @@ malformed or duplicate entities here keeps the helper from quietly
 producing a smaller profile by normalizing them away. */
 fn valid_snapshot_collections(object: &Map<String, Value>) -> bool {
     if !valid_identifier_collection(object.get("unit_list"), "unit_id")
+        || !valid_identifier_collection(object.get("unit_storage_normal_list"), "unit_id")
         || !valid_identifier_collection(object.get("runes"), "rune_id")
         || !valid_identifier_collection(object.get("artifacts"), "rid")
         || !valid_identifier_collection(object.get("relics"), "rid")
@@ -1603,6 +1638,7 @@ mod tests {
             "session_key": "root",
             "wizard_id": 7,
             "unit_list": [{"session_key_node": "nested", "unit_id": 1}],
+            "unit_storage_normal_list": [{"unit_id": 8, "wizard_id": 7}],
             "runes": [],
             "artifacts": [],
             "relics": [],
@@ -1616,6 +1652,7 @@ mod tests {
         let document: Value = serde_json::from_str(&exported).unwrap();
         assert!(!exported.contains("session_key"));
         assert!(exported.contains("unit_id"));
+        assert_eq!(document["unit_storage_normal_list"][0]["unit_id"], 8);
         assert_eq!(exported.matches('\n').count(), 1);
         assert!(document.get("building_list").is_none());
         assert!(document.get("account_info").is_none());

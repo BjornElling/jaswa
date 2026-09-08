@@ -16,7 +16,14 @@ try {
 
   for (const pageName of ['Monsters', 'Artifacts']) {
     await page.getByRole('button', { name: pageName, exact: true }).click();
-    await assert.doesNotReject(() => page.getByText('Nothing to show until a game file is imported.').waitFor());
+    await page.getByRole('heading', { name: pageName, exact: true }).waitFor();
+    if (pageName === 'Monsters') {
+      const roster = page.locator('summary').filter({ hasText: 'Monster roster' });
+      if (!(await roster.locator('..').getAttribute('open'))) await roster.click();
+      await assert.doesNotReject(() => page.getByText('Nothing to show until a game file is imported.').waitFor());
+    } else {
+      await assert.doesNotReject(() => page.getByText('Nothing to show until a game file is imported.').waitFor());
+    }
   }
 
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
@@ -29,21 +36,22 @@ try {
     await page.setViewportSize({ width, height: 900 });
     for (const [pageName, toggleName] of [['Monsters', 'Storage'], ['Artifacts', 'Equipped']]) {
       await page.getByRole('button', { name: pageName, exact: true }).click();
-      await page.locator('.data-table-page').waitFor();
+      const tablePage = page.locator('.data-table-page').first();
+      await tablePage.waitFor();
       await page.evaluate(() => window.scrollTo(0, 0));
 
       const [filter, header, table] = await Promise.all([
-        page.locator('.data-table-filter-panel').boundingBox(),
-        page.locator('.data-table-header-wrap table').boundingBox(),
-        page.locator('.data-table-scroll table').boundingBox(),
+        tablePage.locator('.data-table-filter-panel').boundingBox(),
+        tablePage.locator('.data-table-header-wrap table').boundingBox(),
+        tablePage.locator('.data-table-scroll table').boundingBox(),
       ]);
       assert(filter && header && table, `${pageName} did not render its shared table surfaces.`);
       assert(nearlyEqual(filter.width, header.width) && nearlyEqual(header.width, table.width),
         `${pageName} filters, heading and rows do not share one width at ${width}px.`);
       const [summary, firstLabel, strip] = await Promise.all([
-        page.locator('.filter-summary').boundingBox(),
-        page.locator('.filter-label').first().boundingBox(),
-        page.locator('.filter-strip').boundingBox(),
+        tablePage.locator('.filter-summary').boundingBox(),
+        tablePage.locator('.filter-label').first().boundingBox(),
+        tablePage.locator('.filter-strip').boundingBox(),
       ]);
       assert(summary && firstLabel && strip && nearlyEqual(summary.y, firstLabel.y)
         && nearlyEqual(summary.x + summary.width, strip.x + strip.width),
@@ -98,7 +106,7 @@ try {
           'Intangible artifacts are included by default: they are artifacts the account owns.');
       }
 
-      const overflow = await page.locator('.data-table-filter-panel, .data-table-scroll, .grid-table')
+      const overflow = await tablePage.locator('.data-table-filter-panel, .data-table-scroll, .grid-table')
         .evaluateAll((elements) => elements.map((element) => ({
           label: element.className,
           clientWidth: element.clientWidth,
@@ -115,9 +123,9 @@ try {
       assert(documentWidth.scrollWidth <= documentWidth.clientWidth,
         `${pageName} makes the page horizontally scroll at ${width}px.`);
 
-      const before = await page.locator('.data-table-header-wrap').boundingBox();
+      const before = await tablePage.locator('.data-table-header-wrap').boundingBox();
       await page.getByRole('button', { name: toggleName, exact: true }).click();
-      const after = await page.locator('.data-table-header-wrap').boundingBox();
+      const after = await tablePage.locator('.data-table-header-wrap').boundingBox();
       assert(before && after && nearlyEqual(before.x, after.x) && nearlyEqual(before.y, after.y)
         && nearlyEqual(before.width, after.width) && nearlyEqual(before.height, after.height),
       `${pageName} changed the table header's layout when ${toggleName} was selected.`);

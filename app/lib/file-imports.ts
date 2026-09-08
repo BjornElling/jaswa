@@ -10,7 +10,7 @@ import { blankGeneralSettings, isGeneralSettings } from './regional-settings';
 import { runeSetName } from './rune-sets';
 
 const expectedSections = [
-  'unit_list', 'runes', 'artifacts', 'relics', 'rune_craft_item_list', 'artifact_crafts', 'inventory_info',
+  'unit_list', 'unit_storage_list', 'unit_storage_normal_list', 'runes', 'artifacts', 'relics', 'rune_craft_item_list', 'artifact_crafts', 'inventory_info',
 ] as const;
 const excludedKeys = new Set(['session_key', 'session_key_node']);
 const runePotentialSortOrders: RunePotentialSortOrder[] = [
@@ -232,6 +232,18 @@ function isValidCraftRecord(record: GameRecord): boolean {
     && record.amount >= 0;
 }
 
+function isValidStorageRecord(record: GameRecord): boolean {
+  const masterId = record.unit_master_id;
+  const quantity = record.quantity;
+  const validMasterId = isPositiveIdentifier(masterId);
+  const validQuantity = typeof quantity === 'number'
+    && Number.isSafeInteger(quantity)
+    && quantity > 0;
+  const validGrade = record.class === undefined
+    || (typeof record.class === 'number' && Number.isSafeInteger(record.class) && record.class >= 1 && record.class <= 5);
+  return validMasterId && validQuantity && validGrade;
+}
+
 function validateAccountCollections(value: GameRecord): string | undefined {
   if (!isValidIdentifiedCollection(value.unit_list, 'unit_id')) {
     return 'This file contains an invalid monster collection.';
@@ -239,8 +251,15 @@ function validateAccountCollections(value: GameRecord): string | undefined {
   if (!isValidIdentifiedCollection(value.runes, 'rune_id', (rune) => runeSetName(rune.set_id) !== undefined)) {
     return 'This file contains a rune JASWA cannot read.';
   }
+  if (value.unit_storage_list !== undefined && !isValidIdentifiedCollection(value.unit_storage_list, 'unit_master_id', isValidStorageRecord)) {
+    return 'This file contains a sealed-shrine monster JASWA cannot read.';
+  }
+  if (value.unit_storage_normal_list !== undefined && !isValidIdentifiedCollection(value.unit_storage_normal_list, 'unit_id')) {
+    return 'This file contains a sealed-shrine monster JASWA cannot read.';
+  }
 
   const units = recordCollection(value.unit_list);
+  const normalStorageUnits = recordCollection(value.unit_storage_normal_list);
   /* A full export carries the account wizard id on every owned unit. Without
      this boundary, a battle response can look like a valid monster record and
      add an opponent's LD5 to the account simply because it has a positive
@@ -250,7 +269,7 @@ function validateAccountCollections(value: GameRecord): string | undefined {
       return 'This file contains an invalid account identity.';
     }
     const accountWizardId = String(value.wizard_id);
-    if (units.some((unit) => String(unit.wizard_id) !== accountWizardId)) {
+    if ([...units, ...normalStorageUnits].some((unit) => String(unit.wizard_id) !== accountWizardId)) {
       return 'This file contains a monster JASWA cannot verify as belonging to this account.';
     }
   }
@@ -364,7 +383,11 @@ export function validateGameFile(value: unknown): ImportReport {
   }
   const collectionError = validateAccountCollections(value);
   if (collectionError) return { valid: false, message: collectionError, knownSections, unknownMonsterIds: [] };
-  const unknownMonsterIds = [...new Set(recordCollection(value.unit_list)
+  const unknownMonsterIds = [...new Set([
+    ...recordCollection(value.unit_list),
+    ...recordCollection(value.unit_storage_list),
+    ...recordCollection(value.unit_storage_normal_list),
+  ]
     .map((monster) => String(monster.unit_master_id))
     .filter((id) => id !== 'undefined' && !hasMonsterCatalogEntry(id)))];
   return { valid: true, message: 'Ready to import.', knownSections, unknownMonsterIds };

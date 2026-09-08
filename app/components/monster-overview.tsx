@@ -100,7 +100,11 @@ function MonsterTableHeader({ columns, sortHeader }: {
   </thead>;
 }
 
-export function MonsterOverview({ monsters, preferences }: { monsters: GameRecord[]; preferences: Preferences }) {
+export function MonsterOverview({ monsters, gameData, preferences }: {
+  monsters: GameRecord[];
+  gameData: GameRecord;
+  preferences: Preferences;
+}) {
   const [sort, setSort] = useState<{ key: SortKey; ascending: boolean }>({ key: 'index', ascending: true });
   const [filters, setFilters] = useLocalStorageState(
     'jaswa.filters.monsters', defaultMonsterFilters, isMonsterFilterState,
@@ -344,7 +348,7 @@ export function MonsterOverview({ monsters, preferences }: { monsters: GameRecor
     </Disclosure>
 
     <Disclosure title="Storage" storageKey="monsters.storage">
-      <MonsterStorage monsters={monsters} preferences={preferences} />
+      <MonsterStorage monsters={monsters} gameData={gameData} preferences={preferences} />
     </Disclosure>
   </WorkspacePage>;
 }
