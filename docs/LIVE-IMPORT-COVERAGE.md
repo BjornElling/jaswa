@@ -55,6 +55,16 @@ yet", and the second is the one a stale dashboard is made of.
 
 - A non-zero top-level `ret_code` is ignored, so a failed action cannot erase
   or overwrite account data.
+- **A `before_*` record is history, never account state.** Several commands
+  answer with both the record they just changed and the record as it stood
+  before: `UpgradeArtifact_v2` returns `artifact` at the new level *and*
+  `before_artifact` at the old one. The previous state is this account's own
+  record, which is what makes it dangerous — same identifier, same `wizard_id`,
+  complete valid shape, so every ownership test passes — and its key sorts
+  after the new one, so it was written last and won. A refined artifact kept
+  its old level in the snapshot and JASWA went on marking it unrefined, while
+  the command itself reported having changed the snapshot, because the material
+  it consumed had genuinely changed.
 - New records must either be in an account-owned response container or carry
   the current account's `wizard_id` with a positive entity identifier and an
   owned-record shape. The `wizard_id` alone never turns a preview into

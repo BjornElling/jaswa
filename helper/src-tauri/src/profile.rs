@@ -818,7 +818,8 @@ fn response_entities(
         let Some(map) = value.as_object() else {
             return;
         };
-        let blocked_context = blocked_context || non_account_container(parent);
+        let blocked_context =
+            blocked_context || non_account_container(parent) || superseded_record(parent);
         let account_context = account_context || account_container(parent);
         for entity in ENTITIES {
             let account_identity = account_wizard_id.is_some_and(|wizard_id| {
@@ -900,6 +901,18 @@ fn account_container(parent: &str) -> bool {
         parent,
         "changed_item_list" | "item_list" | "inventory_item_list" | "reward" | "crate"
     )
+}
+
+/* The record as it was *before* the action the response is answering. It is
+this account's own record, which is exactly what makes it dangerous: it carries
+the same identifier, the same wizard id and a complete valid shape, so every
+ownership test passes and the merge writes it — after the new state, because the
+key sorts later. `UpgradeArtifact_v2` proved it: the response holds `artifact`
+at level 15 and `before_artifact` at level 12, and the account kept 12, so a
+refined artifact stayed marked unrefined however many times the snapshot
+refreshed. A "before" record is history, never account state. */
+fn superseded_record(parent: &str) -> bool {
+    parent.starts_with("before_")
 }
 
 /* These containers describe somebody else's account, a shop preview, or an
@@ -1838,6 +1851,35 @@ mod tests {
         let data = &store.read().unwrap().data;
         assert_eq!(data["runes"][0]["upgrade_curr"], 12);
         assert_eq!(data["artifacts"][0]["upgrade_curr"], 1);
+    }
+
+    /* `UpgradeArtifact_v2` answers with the artifact it just refined *and* the
+    record as it stood before. Both are this account's, both are complete and
+    both carry the wizard id, so the previous state passes every ownership test
+    and — sorting after `artifact` — used to be written last. The refined
+    artifact kept its old level in the snapshot, and JASWA went on marking it
+    unrefined however often it refreshed. */
+    #[test]
+    fn ignores_the_record_a_response_kept_from_before_the_action() {
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({
+            "wizard_id": 21822407,
+            "unit_list": [{"unit_id": 1, "wizard_id": 21822407, "artifacts": [{"rid": 7, "slot": 1, "level": 12}]}],
+            "runes": [],
+            "artifacts": [],
+            "relics": []
+        })));
+        assert!(store.apply_update(
+            &json!({
+                "artifact": {"rid": 7, "wizard_id": 21822407, "slot": 1, "level": 15},
+                "before_artifact": {"rid": 7, "wizard_id": 21822407, "slot": 1, "level": 12},
+                "ret_code": 0
+            }),
+            &json!({"command": "UpgradeArtifact_v2", "artifact_id": 7})
+        ));
+        let data = &store.read().unwrap().data;
+        assert_eq!(data["artifacts"][0]["level"], 15);
+        assert_eq!(data["unit_list"][0]["artifacts"][0]["level"], 15);
     }
 
     #[test]
