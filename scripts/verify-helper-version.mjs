@@ -76,10 +76,16 @@ const tracked = (await run('git', ['ls-files', 'helper'], { cwd: repositoryRoot 
   .split('\n')
   .map((line) => line.trim().replaceAll('\\', '/'))
   .filter(Boolean);
-/* Documentation and the helper's own verifiers do not go into the installer.
-   Everything else that is tracked under `helper/` does. */
+/* Documentation, the helper's own verifiers and the release record itself do
+   not go into the installer. Everything else that is tracked under `helper/`
+   does.
+
+   `release.json` in particular must stay out: it holds the fingerprint, so
+   including it would make every packaging run change the value it was trying
+   to record. */
 const notShipped = new Set([
   'helper/README.md',
+  'helper/release.json',
   'helper/scripts/package.cjs',
   'helper/scripts/signing.cjs',
   'helper/scripts/verify-command-contract.mjs',
