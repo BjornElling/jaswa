@@ -1,5 +1,5 @@
 use crate::{
-    config::{GATEWAYS, HELPER_PORT, HOSTS_MARKER, allowed_origin, data_directory},
+    config::{allowed_origin, data_directory, GATEWAYS, HELPER_PORT, HOSTS_MARKER},
     diagnostics,
     incidents::Incidents,
     profile::ProfileStore,
@@ -10,18 +10,18 @@ use rcgen::{
     BasicConstraints, CertificateParams, DnType, GeneralSubtree, IsCa, KeyPair, NameConstraints,
 };
 use rustls::{
-    ClientConfig, ClientConnection, RootCertStore, ServerConfig, ServerConnection, StreamOwned,
     pki_types::{CertificateDer, ServerName},
+    ClientConfig, ClientConnection, RootCertStore, ServerConfig, ServerConnection, StreamOwned,
 };
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use std::{
     fs,
     io::{self, Read, Write},
     net::{TcpListener, TcpStream},
     path::{Path, PathBuf},
     sync::{
-        Arc, Mutex,
         atomic::{AtomicBool, AtomicUsize, Ordering},
+        Arc, Mutex,
     },
     thread,
     time::{Duration, Instant},
@@ -33,6 +33,9 @@ const MAXIMUM_INTERCEPTED_BODY_BYTES: usize = 16 * 1024 * 1024;
 /// live gateway connection. A game that has closed every connection and sent
 /// nothing for this long is treated as gone, and its snapshot is dropped.
 const GAME_QUIET_GRACE: Duration = Duration::from_secs(60);
+/// A gateway socket opens before the game sends its login. The watchdog must
+/// never mistake that normal startup interval for a helper that missed login.
+const LOGIN_CAPTURE_GRACE: Duration = Duration::from_secs(45);
 const WATCHDOG_INTERVAL: Duration = Duration::from_secs(3);
 
 pub struct Service {
@@ -46,6 +49,9 @@ struct Shared {
     traffic: Mutex<TrafficLog>,
     game_running: Mutex<bool>,
     waiting_for_fresh_start: Mutex<bool>,
+    /// The first gateway contact in this game session. It gives login capture
+    /// a bounded startup window without guessing from one open socket.
+    game_started_at: Mutex<Option<Instant>>,
     /// Number of gateway connections the game currently holds open. A live
     /// connection is the plainest evidence the game is running and reaching the
     /// redirect, and needs no scan of the system's other processes.
@@ -106,6 +112,7 @@ impl Service {
             traffic: Mutex::new(TrafficLog::new(None)),
             game_running: Mutex::new(false),
             waiting_for_fresh_start: Mutex::new(false),
+            game_started_at: Mutex::new(None),
             open_connections: AtomicUsize::new(0),
             last_contact: Mutex::new(None),
             last_error: Mutex::new(None),
@@ -416,11 +423,11 @@ fn start_watchdog(shared: Arc<Shared>) {
                 .waiting_for_fresh_start
                 .lock()
                 .expect("game state lock poisoned");
-            if connected && !has_profile {
+            if login_capture_overdue(&shared, connected, has_profile) {
                 // The game is reaching the redirect but no snapshot exists: the
-                // helper came up after the game had already logged in, so the
-                // login exchange that carries the account was missed. A restart
-                // replays it.
+                // full startup window passed without its login exchange. This is
+                // the evidence that the helper missed it; an open socket alone
+                // is not.
                 if !*waiting {
                     diagnostics::record(
                         "game",
@@ -441,6 +448,10 @@ fn start_watchdog(shared: Arc<Shared>) {
                     .expect("profile lock poisoned")
                     .clear();
                 *waiting = false;
+                *shared
+                    .game_started_at
+                    .lock()
+                    .expect("game start lock poisoned") = None;
                 diagnostics::record(
                     "game",
                     "Summoners War closed — the captured snapshot was dropped, so JASWA keeps the last import it saved",
@@ -470,6 +481,26 @@ fn game_connected(shared: &Shared) -> bool {
 
 fn mark_contact(shared: &Shared) {
     *shared.last_contact.lock().expect("contact lock poisoned") = Some(Instant::now());
+}
+
+fn mark_game_start(shared: &Shared) {
+    let mut started = shared
+        .game_started_at
+        .lock()
+        .expect("game start lock poisoned");
+    if started.is_none() {
+        *started = Some(Instant::now());
+    }
+}
+
+fn login_capture_overdue(shared: &Shared, connected: bool, has_profile: bool) -> bool {
+    connected
+        && !has_profile
+        && shared
+            .game_started_at
+            .lock()
+            .expect("game start lock poisoned")
+            .is_some_and(|started| started.elapsed() >= LOGIN_CAPTURE_GRACE)
 }
 
 /// Observe external changes without fighting the user's security software.
@@ -508,6 +539,7 @@ fn start_bridge(
                     // A connection on the gateway port is the game reaching the
                     // redirect: the freshest sign it is running.
                     mark_contact(&shared);
+                    mark_game_start(&shared);
                     if let Err(error) = stream.set_nonblocking(false) {
                         *shared.last_error.lock().expect("error lock poisoned") = Some(format!(
                             "Gateway bridge for {hostname} could not prepare a connection: {error}"
@@ -802,46 +834,85 @@ fn capture(request: &[u8], response: &[u8], shared: &Shared) {
             .record(&reason, request, response, profile);
     };
     let Ok(request_text) = std::str::from_utf8(http_body(request)) else {
-        fail("The game request body was not text.".into());
+        diagnostics::record(
+            "capture",
+            "Skipped an auxiliary exchange whose request body was not text",
+        );
         return;
     };
     let request = match decode_request(request_text) {
         Ok(request) => request,
         Err(error) => {
-            fail(format!("Could not decode a game request: {error}"));
+            diagnostics::record(
+                "capture",
+                &format!(
+                    "Skipped an auxiliary exchange whose request could not be decoded: {error}"
+                ),
+            );
             return;
         }
     };
-    let command_name = request
+    let Some(command) = request
         .get("command")
         .and_then(Value::as_str)
-        .unwrap_or("(unnamed)")
-        .to_owned();
+        .filter(|command| !command.is_empty())
+    else {
+        diagnostics::record(
+            "capture",
+            "Skipped an auxiliary exchange without a command name",
+        );
+        return;
+    };
+    let command_name = command.to_owned();
+    let required_snapshot = is_snapshot_command(command);
     let Ok(response_text) = std::str::from_utf8(http_body(response)) else {
-        fail(format!("The response to {command_name} was not text."));
+        if required_snapshot {
+            fail(format!("The response to {command_name} was not text."));
+        } else {
+            diagnostics::record(
+                "capture",
+                &format!("Skipped {command_name}: its auxiliary response was not text"),
+            );
+        }
         return;
     };
     let response = match decode_response(response_text) {
         Ok(response) => response,
         Err(error) => {
-            fail(format!(
-                "Could not decode the response to {command_name}: {error}"
-            ));
+            if required_snapshot {
+                fail(format!(
+                    "Could not decode the response to {command_name}: {error}"
+                ));
+            } else {
+                // The game routes chat and service lookups through this gateway
+                // too. They are not account data, so their separate envelope
+                // must not invalidate a login snapshot that was already read.
+                diagnostics::record(
+                    "capture",
+                    &format!("Skipped {command_name}: its auxiliary response is outside the account capture protocol ({error})"),
+                );
+            }
             return;
         }
     };
-    let command = request.get("command").and_then(Value::as_str);
-    if command.is_none_or(|value| value.is_empty()) || !response.is_object() {
-        fail("The exchange has no command or response object.".into());
+    if !response.is_object() {
+        if required_snapshot {
+            fail(format!("{command_name} has no response object."));
+        } else {
+            diagnostics::record(
+                "capture",
+                &format!("Skipped {command_name}: its auxiliary response is not an object"),
+            );
+        }
         return;
     }
     shared
         .traffic
         .lock()
         .expect("traffic lock poisoned")
-        .record(command, &request, &response);
+        .record(Some(command), &request, &response);
     let mut profile = shared.profile.lock().expect("profile lock poisoned");
-    if matches!(command, Some("HubUserLogin") | Some("GuestLogin")) {
+    if required_snapshot {
         let accepted = profile.accept_snapshot(response);
         if !accepted {
             profile.clear();
@@ -884,6 +955,10 @@ fn capture(request: &[u8], response: &[u8], shared: &Shared) {
             ),
         );
     }
+}
+
+fn is_snapshot_command(command: &str) -> bool {
+    matches!(command, "HubUserLogin" | "GuestLogin")
 }
 
 fn http_body(message: &[u8]) -> &[u8] {
@@ -1033,8 +1108,8 @@ mod tests {
     use super::*;
 
     fn encoded(value: &Value, compressed: bool) -> String {
-        use base64::{Engine as _, engine::general_purpose::STANDARD};
-        use cipher::{BlockEncryptMut, KeyIvInit, block_padding::Pkcs7};
+        use base64::{engine::general_purpose::STANDARD, Engine as _};
+        use cipher::{block_padding::Pkcs7, BlockEncryptMut, KeyIvInit};
         let mut plain = serde_json::to_vec(value).unwrap();
         if compressed {
             let mut encoder =
@@ -1052,16 +1127,15 @@ mod tests {
     }
 
     #[test]
-    fn capture_failure_stays_visible_until_a_complete_login() {
+    fn a_failed_login_stays_visible_until_a_complete_login() {
         let shared = shared_for_test();
+        let login = message(&encoded(&json!({"command": "HubUserLogin"}), false));
         let bad = message("broken envelope");
-        capture(bad.as_bytes(), bad.as_bytes(), &shared);
-        assert!(
-            status(&shared)["lastError"]
-                .as_str()
-                .unwrap()
-                .contains("Save an error report")
-        );
+        capture(login.as_bytes(), bad.as_bytes(), &shared);
+        assert!(status(&shared)["lastError"]
+            .as_str()
+            .unwrap()
+            .contains("Save an error report"));
         let request = message(&encoded(&json!({"command": "GetSomething"}), false));
         let response = message(&encoded(&json!({"ret_code": 0}), true));
         capture(request.as_bytes(), response.as_bytes(), &shared);
@@ -1069,7 +1143,6 @@ mod tests {
             !status(&shared)["lastError"].is_null(),
             "an unrelated success cannot repair missing data"
         );
-        let login = message(&encoded(&json!({"command": "HubUserLogin"}), false));
         let account = message(&encoded(
             &json!({"ret_code": 0, "unit_list": [], "runes": []}),
             true,
@@ -1084,6 +1157,29 @@ mod tests {
             "a rejected login must not retain another account"
         );
         assert!(!status(&shared)["lastError"].is_null());
+    }
+
+    #[test]
+    fn an_unreadable_auxiliary_exchange_cannot_stop_a_captured_account() {
+        let shared = shared_for_test();
+        *shared.game_running.lock().unwrap() = true;
+        let login = message(&encoded(&json!({"command": "HubUserLogin"}), false));
+        let account = message(&encoded(
+            &json!({"ret_code": 0, "unit_list": [], "runes": []}),
+            true,
+        ));
+        capture(login.as_bytes(), account.as_bytes(), &shared);
+
+        let chat = message(&encoded(&json!({"command": "GetChatServerInfo"}), false));
+        let auxiliary_response = message("not an account envelope");
+        capture(chat.as_bytes(), auxiliary_response.as_bytes(), &shared);
+
+        assert!(status(&shared)["profileReady"].as_bool().unwrap());
+        assert!(status(&shared)["lastError"].is_null());
+        assert!(
+            !shared.incidents.lock().unwrap().active(),
+            "chat-service traffic must not turn a healthy account capture into an incident"
+        );
     }
 
     #[test]
@@ -1240,6 +1336,7 @@ mod tests {
             traffic: Mutex::new(TrafficLog::new(None)),
             game_running: Mutex::new(false),
             waiting_for_fresh_start: Mutex::new(false),
+            game_started_at: Mutex::new(None),
             open_connections: AtomicUsize::new(0),
             last_contact: Mutex::new(None),
             last_error: Mutex::new(None),
@@ -1284,5 +1381,22 @@ mod tests {
                 "a game silent past the grace window is gone"
             );
         }
+    }
+
+    #[test]
+    fn a_new_game_connection_gets_time_to_send_its_login() {
+        let shared = shared_for_test();
+        shared.open_connections.fetch_add(1, Ordering::AcqRel);
+        mark_game_start(&shared);
+        assert!(
+            !login_capture_overdue(&shared, true, false),
+            "an open connection alone is normal game startup, not proof of a missed login"
+        );
+        *shared.game_started_at.lock().unwrap() =
+            Instant::now().checked_sub(LOGIN_CAPTURE_GRACE + Duration::from_secs(1));
+        assert!(
+            login_capture_overdue(&shared, true, false),
+            "only a full startup window without a snapshot asks for a restart"
+        );
     }
 }

@@ -1,6 +1,6 @@
 {
   "name": "jaswa-helper",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "private": true,
   "type": "module",
   "author": "JASWA",
@@ -8,8 +8,9 @@
   "scripts": {
     "start": "tauri dev",
     "frontend:dev": "vite --host localhost --port 1420 --strictPort",
-    "test": "npm run verify:command-contract && cargo test --manifest-path src-tauri/Cargo.toml",
+    "test": "npm run verify:command-contract && npm run verify:installer-upgrade && cargo test --manifest-path src-tauri/Cargo.toml",
     "verify:command-contract": "node scripts/verify-command-contract.mjs",
+    "verify:installer-upgrade": "node scripts/verify-installer-upgrade.mjs",
     "verify:dashboard-flow": "node scripts/verify-dashboard-flow.mjs",
     "build:frontend": "vite build",
     "build": "tauri build --bundles nsis",
