@@ -12,6 +12,8 @@ type GpuBuffer = {
 type GpuDevice = {
   queue: { writeBuffer(buffer: GpuBuffer, offset: number, data: AllowSharedBufferSource): void; submit(commands: unknown[]): void };
   lost: Promise<unknown>;
+  pushErrorScope(filter: 'validation'): void;
+  popErrorScope(): Promise<{ message: string } | null>;
   createBuffer(descriptor: { size: number; usage: number }): GpuBuffer;
   createShaderModule(descriptor: { code: string }): unknown;
   createComputePipelineAsync(descriptor: unknown): Promise<unknown>;
@@ -105,6 +107,15 @@ export class WebGpuArtifactScoreBackend implements ArtifactScoreBackend {
     const parameterBuffer = this.createUploadBuffer(device, new Uint8Array(parameters), bufferUsage.uniform);
     const output = device.createBuffer({ size: resultByteLength, usage: bufferUsage.storage | bufferUsage.copySource });
     const readback = device.createBuffer({ size: resultByteLength, usage: bufferUsage.mapRead | bufferUsage.copyDestination });
+    /* WebGPU does not throw when it rejects a binding or a pass: it drops the
+       commands and leaves the output buffer as it was created, so a mismatch
+       between this upload and the shader's own layout reads back as a matrix of
+       zeros — a silent "no artifact fits any monster" that the interface has no
+       way to tell from an answer. The scope turns that into a rejection, which
+       the worker answers by falling back to the CPU reference. */
+    device.pushErrorScope('validation');
+    let scopeOpen = true;
+    let mapped = false;
     try {
       const bindGroup = device.createBindGroup({
         layout: (this.pipeline as { getBindGroupLayout(index: number): unknown }).getBindGroupLayout(0),
@@ -124,10 +135,15 @@ export class WebGpuArtifactScoreBackend implements ArtifactScoreBackend {
       pass.end();
       encoder.copyBufferToBuffer(output, 0, readback, 0, resultByteLength);
       device.queue.submit([encoder.finish()]);
+      scopeOpen = false;
+      const failure = await device.popErrorScope();
+      if (failure) throw new Error(`WebGPU rejected the artifact scoring pass: ${failure.message}`);
       await readback.mapAsync(bufferUsage.mapRead);
+      mapped = true;
       return new Float32Array(readback.getMappedRange().slice(0, pairCount * Float32Array.BYTES_PER_ELEMENT));
     } finally {
-      readback.unmap();
+      if (scopeOpen) void device.popErrorScope();
+      if (mapped) readback.unmap();
       artifacts.destroy(); monsters.destroy(); availability.destroy(); ownedProperties.destroy(); conversionRollFractions.destroy(); parameterBuffer.destroy();
       output.destroy(); readback.destroy();
     }

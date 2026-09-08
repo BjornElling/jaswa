@@ -2048,6 +2048,34 @@ on arrival is the same uninvited work manual mode exists to prevent — never
 runs while one is in flight, and never retries a failed one: an error clears the
 held result, so nothing is stale and there is nothing to chase.
 
+### 17.12 A backend that could not answer must never answer zero
+
+*September 8, 2026.* §17.2 says a zero score may not fill a slot, which is right
+— and it is exactly why a silent zero is the most dangerous value the compute
+layer can produce. A matrix of zeros is not read as a failure anywhere: it is
+read as an account whose 1,300 artifacts suit none of its monsters, reported in
+the interface's own calm words as *"no artifact scoring above 0 % remained for
+560 slots"*.
+
+WebGPU produces that value willingly. It does not throw when it rejects a
+binding or a pass; it drops the work and leaves the output buffer as it was
+created. A uniform block whose declared size outgrew the bytes the backend
+uploads — a `padding: vec3<f32>` member, which aligns to 16 and pushed a 32-byte
+block to 48 — was enough to switch the whole graphics-card path off while every
+CPU-side column on the same page stayed correct.
+
+Two rules follow, and the second is the one that generalises:
+
+- **The upload and the shader's own layout are checked, not assumed.**
+  `npm run verify:webgpu-parameter-layout` computes the block's WGSL uniform
+  layout from the shader source and holds the backend's buffer to it. Nothing
+  else can: the shader compiles either way, and the browsers Playwright drives
+  here expose no WebGPU at all, so every other check runs the CPU reference.
+- **A rejected pass becomes a rejected promise.** The backend wraps its work in
+  a validation error scope, so the worker falls back to the CPU reference — the
+  fallback it already has for a missing device — instead of publishing zeros
+  that look like an answer.
+
 ---
 
 ## 18. Quality is text; a score is colour

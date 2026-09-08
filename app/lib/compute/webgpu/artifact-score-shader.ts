@@ -22,13 +22,17 @@ const INTANGIBLE_RESTRICTION: i32 = ${intangibleRestrictionCode};
 const BEST_LINE_CONTRIBUTIONS: f32 = ${bestArtifactLineContributions}.0;
 const BENCHMARK_ACCEPTABLE_LINES: f32 = ${benchmarkAcceptableLines}.0;
 
+// Five scalars, and no padding member: a uniform struct is already rounded up
+// to a multiple of 16 bytes, so this occupies exactly the 32 bytes the backend
+// uploads. A vec3<f32> written in to "pad" it instead demanded 48 — vec3 aligns
+// to 16, so it lands at offset 32 — and the whole bind group was then rejected
+// as too small, which reads back as a matrix of zeros rather than as an error.
 struct Parameters {
   artifactCount: u32,
   monsterCount: u32,
   conversionMode: u32,
   acceptableWorth: f32,
   insignificantDifference: f32,
-  padding: vec3<f32>,
 };
 
 @group(0) @binding(0) var<storage, read> artifacts: array<f32>;
