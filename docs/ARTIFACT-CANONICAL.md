@@ -669,7 +669,7 @@ Artifacts cannot take rune Enchanted Gems. They have **Conversion** instead.
 
 | Mechanism | What it does | Requires |
 | --- | --- | --- |
-| **Normal Conversion** | Replaces one chosen sub property with a random other legal property | Conversion Stones, Mana |
+| **Normal Conversion** | Replaces one chosen sub property with a random legal property, including a reroll of that property's value | Conversion Stones, Mana |
 | **Engraved Conversion** | Replaces one chosen sub property with the property named by the stone | Engraved Conversion Stone, Mana |
 
 **The permanent slot lock.** A Conversion Stone can change one sub property on
@@ -1871,6 +1871,12 @@ An empty slot ranks as unwanted, which it is, and groups with them.
 A permanently converted slot is the exception, and follows from the lock rather
 than from any rule here: a further stone can touch that line and no other, so
 there is no choice to offer and the recommendation names it alone.
+
+When the projected property is already on the source line, the recommendation is
+a same-property reroll rather than a new property. This can apply to a line the
+artifact dropped with as well as to a line previously changed by Conversion. It
+does not create a duplicate property; it replaces the source line's value, and
+the interface calls it **Improve roll in** so the action is clear.
 
 ### 17.5 Every conversion worth taking is shown, in order
 

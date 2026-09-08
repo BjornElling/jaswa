@@ -116,6 +116,9 @@ export type ArtifactConversion = {
    *
    * A permanently converted slot (§10) is the only line a further stone can
    * touch, so it is alone here whatever the other lines are ranked.
+   *
+   * A same-property reroll is also alone here: applying that target to another
+   * source line would create a duplicate property rather than improve the line.
    */
   equivalentSourceIndexes: readonly number[];
   propertyId: number;

@@ -49,17 +49,18 @@ export function ConversionList({ conversions, artifact, stones, mode, emptyClass
       const stone = mode === 'owned' && artifact
         ? engravedStoneFor(stones, artifact.category, artifactRestriction(artifact), conversion.propertyId)
         : undefined;
-      const description = conversionDescription(conversion, stone, artifact?.convertedPropertyIndex);
+      const description = conversionDescription(conversion, stone, artifact?.convertedPropertyIndex,
+        artifact?.subProperties[conversion.sourceIndex]?.definition.id);
       return <li key={`${conversion.sourceIndex}-${conversion.propertyId}`}>
         {/* The source line leads, because it is what the user acts on: which
-            of the four substats this recommendation would spend. The verb and
-            "to" are the dim connective tissue between it and the property it
-            would become. The gain each conversion is worth is not shown: the
-            list already arrives ordered by it (§17.5), so the order carries
-            that comparison and the line stays a plain instruction. */}
+            of the four substats this recommendation would spend. The action is
+            the dim connective tissue between it and the property it would
+            become. The gain each conversion is not shown: the list already
+            arrives ordered by it (§17.5), so the order carries that comparison
+            and the line stays a plain instruction. */}
         <span className="artifact-conversion-option-name">
           <span className="artifact-conversion-option-source">{description.source}:</span>{' '}
-          <span className="artifact-conversion-option-action">{description.verb} to</span>{' '}
+          <span className="artifact-conversion-option-action">{description.action}</span>{' '}
           {description.target}
           {description.stone && <span className="artifact-conversion-option-stone"> ({description.stone})</span>}
         </span>

@@ -105,14 +105,17 @@ export function conversionDescription(
   stone?: EngravedConversionStone,
   /** The artifact's permanently converted line, where it has one (§10). */
   convertedPropertyIndex?: number | null,
-): { verb: 'Convert' | 'Re-convert'; source: string; target: string; stone?: string } {
+  /** The current property on the line being converted, when known. */
+  sourcePropertyId?: number,
+): { action: 'Convert to' | 'Re-convert to' | 'Improve roll in'; source: string; target: string; stone?: string } {
   const property = artifactProperty(conversion.propertyId);
   const target = property ? property.name : `property ${conversion.propertyId}`;
   /* The lock means a further stone overwrites the line already converted, so
-     the wording says so: this replaces a conversion rather than spending the
-     artifact's one free slot. A user reading "convert" would not know the
-     existing line is what pays for it. */
-  const verb = convertedPropertyIndex === conversion.sourceIndex ? 'Re-convert' : 'Convert';
+     the wording says so: it either replaces the property's roll or replaces
+     the property itself, rather than spending the artifact's one free slot. */
+  const action = sourcePropertyId === conversion.propertyId
+    ? 'Improve roll in'
+    : convertedPropertyIndex === conversion.sourceIndex ? 'Re-convert to' : 'Convert to';
   /* The line the stone would be spent on leads the recommendation, so it is
      named as the subject of the sentence rather than as an object inside it.
      Where the monster ranks several lines the same, all of them are named —
@@ -123,7 +126,7 @@ export function conversionDescription(
     ? [...conversion.equivalentSourceIndexes].sort((left, right) => left - right)
     : [conversion.sourceIndex];
   const source = `Sub ${sourceIndexes.map((index) => index + 1).join('/')}`;
-  if (!stone) return { verb, source, target };
+  if (!stone) return { action, source, target };
   const equipClass = stoneEquipClassNames[stone.category][stone.equipClassCode] ?? '';
-  return { verb, source, target, stone: `${stone.grade} ${equipClass} stone`.replace('  ', ' ') };
+  return { action, source, target, stone: `${stone.grade} ${equipClass} stone`.replace('  ', ' ') };
 }

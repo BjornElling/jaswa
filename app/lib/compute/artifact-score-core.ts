@@ -88,7 +88,9 @@ function preferenceBand(
 
 /**
  * The lines the recommendation is indifferent between: every sub property the
- * monster ranks in the same band as the chosen source, in numeric order.
+ * monster ranks in the same band as the chosen source, in numeric order. A
+ * same-property target narrows that choice back to its own source at the point
+ * the candidate is recorded.
  *
  * Band rather than contribution, because that is the question the user is
  * asking. Two unwanted lines contribute differently — the roll differs — but
@@ -114,10 +116,15 @@ function candidateAllowed(
   propertyIndex: number,
   owned: ReadonlySet<number>,
   mode: number,
+  sourceIndex: number,
 ): boolean {
   const availability = artifactPropertyAvailability[propertyIndex];
   if (availability !== 0 && availability !== artifact.category) return false;
-  if (artifact.subPropertyIndexes.includes(propertyIndex)) return false;
+  /* A conversion may reroll the source line into the same property. It still
+     leaves the artifact with one copy of that property; other properties
+     already present remain unavailable targets. */
+  if (artifact.subPropertyIndexes.includes(propertyIndex)
+    && artifact.subPropertyIndexes[sourceIndex] !== propertyIndex) return false;
   return mode !== 2 || owned.has(propertyIndex);
 }
 
@@ -142,7 +149,7 @@ function ownedPropertiesFor(
 /**
  * The conversion model is deliberately phrased in score space. It chooses the
  * single least-contributing source line (or the permanent converted slot), then
- * best missing legal property.
+ * best legal property, including a higher-roll reroll of the source property.
  *
  * The line given up is the one contributing least to this monster; multiple
  * zero-contribution lines are separated by their roll, weakest first. The
@@ -200,7 +207,7 @@ export function scoreArtifactOnMonster(
     const withoutSource = weightedSubProperties
       - sourceContribution(artifact, monster, sourceIndex, request.acceptableWorth);
     for (let propertyIndex = 0; propertyIndex < scoredArtifactProperties.length; propertyIndex += 1) {
-      if (!candidateAllowed(artifact, propertyIndex, owned, request.conversionMode)) continue;
+      if (!candidateAllowed(artifact, propertyIndex, owned, request.conversionMode, sourceIndex)) continue;
       const band = monster.subPropertyPreferences[propertyIndex] ?? 0;
       /* §17.5: a property the monster neither prefers nor accepts is never
          suggested, however much arithmetic it would add. */
@@ -230,7 +237,11 @@ export function scoreArtifactOnMonster(
       if (value <= currentPercent) continue;
       candidates.push({
         sourceIndex,
-        equivalentSourceIndexes,
+        /* A same-property reroll is only valid on the line that already holds
+           that property; the other equivalent source lines would create a
+           duplicate. */
+        equivalentSourceIndexes: propertyIndex === artifact.subPropertyIndexes[sourceIndex]
+          ? [sourceIndex] : equivalentSourceIndexes,
         propertyId: scoredArtifactProperties[propertyIndex].id,
         value,
         gain: value - currentPercent,

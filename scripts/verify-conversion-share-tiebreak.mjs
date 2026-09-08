@@ -38,13 +38,15 @@ try {
     'the GPU scorer must choose one conversion source before evaluating candidates');
   assert.ok(artifactScoreShader.includes('source = u32(convertedIndex);'),
     'the GPU scorer must lock a permanent conversion to its own source line');
+  assert.ok(artifactScoreShader.includes('if (exists && !isSourceProperty) { continue; }'),
+    'the GPU scorer must allow a source property to be rerolled in place');
   assert.ok(!artifactScoreShader.includes('for (var source: u32 = 0u; source < 4u;'),
     'the GPU scorer must not offer conversions from every source line');
 
   assert.deepEqual(
     conversionDescription({ sourceIndex: 0, equivalentSourceIndexes: [0], propertyId: 300, value: 0, gain: 0, preference: 'acceptable' },
       { category: 'attribute', equipClassCode: 1, grade: 'Rare', propertyId: 300, quantity: 1 }),
-    { verb: 'Convert', source: 'Sub 1', target: 'Damage Dealt on Fire', stone: 'Rare Water stone' },
+    { action: 'Convert to', source: 'Sub 1', target: 'Damage Dealt on Fire', stone: 'Rare Water stone' },
     'a recommendation exposes its action, source, target and stone for distinct presentation');
 
   /* Lines the monster ranks alike are named together and in numeric order,
@@ -60,8 +62,20 @@ try {
   assert.deepEqual(
     conversionDescription({ sourceIndex: 2, equivalentSourceIndexes: [2], propertyId: 300, value: 0, gain: 0, preference: 'acceptable' },
       undefined, 2),
-    { verb: 'Re-convert', source: 'Sub 3', target: 'Damage Dealt on Fire' },
+    { action: 'Re-convert to', source: 'Sub 3', target: 'Damage Dealt on Fire' },
     'a locked slot re-converts its own line and names no other');
+
+  assert.deepEqual(
+    conversionDescription({ sourceIndex: 2, equivalentSourceIndexes: [2], propertyId: 300, value: 0, gain: 0, preference: 'acceptable' },
+      undefined, 2, 300),
+    { action: 'Improve roll in', source: 'Sub 3', target: 'Damage Dealt on Fire' },
+    'a locked slot improving the same property names the higher roll rather than a new conversion');
+
+  assert.deepEqual(
+    conversionDescription({ sourceIndex: 2, equivalentSourceIndexes: [2], propertyId: 300, value: 0, gain: 0, preference: 'acceptable' },
+      undefined, undefined, 300),
+    { action: 'Improve roll in', source: 'Sub 3', target: 'Damage Dealt on Fire' },
+    'a natural same-property reroll names the higher roll rather than a new conversion');
 
   /* Slider words resolve against the target property’s normal-conversion
      maximum — `ceil(maxRoll × 1.5)`, the ceiling the game’s own Repeat
@@ -162,6 +176,26 @@ try {
     subPropertyIndexes: [0, 1, 2, 3], subPropertyFractions: fractions,
     convertedSlotConversionFraction: -1, conversionCeilingFraction: 1,
   });
+  const samePropertyMonster = {
+    id: 'm', name: 'M', element: 4, archetype: 4, mainPreferences: [2, 0, 0],
+    subPropertyPreferences: new Array(scoredArtifactProperties.length).fill(0).map((_, index) => index < 4 ? 2 : 0),
+    subPropertyShares: new Array(scoredArtifactProperties.length).fill(0),
+  };
+  const sameProperty = scoreArtifactOnMonster(
+    withRolls([0.2, 0.9, 0.9, 0.9]), samePropertyMonster, request,
+  );
+  assert.equal(sameProperty?.conversion?.propertyId, scoredArtifactProperties[0].id,
+    'a low source roll may be rerolled into the same property');
+  assert.deepEqual(sameProperty?.conversion?.equivalentSourceIndexes, [0],
+    'a same-property reroll stays attached to its specific source line');
+  assert.ok((sameProperty?.conversion?.gain ?? 0) > 0,
+    'the same-property reroll must actually improve the score');
+  const convertedSameProperty = scoreArtifactOnMonster(
+    { ...withRolls([0.2, 0.9, 0.9, 0.9]), convertedPropertyIndex: 0, convertedSlotConversionFraction: 0.2 },
+    samePropertyMonster, request,
+  );
+  assert.equal(convertedSameProperty?.conversion?.propertyId, scoredArtifactProperties[0].id,
+    'a weak converted source may also be rerolled into the same property');
   const chosenSource = (fractions, bands, lineShares) => scoreArtifactOnMonster(
     withRolls(fractions), sourceMonster(bands, lineShares), request)?.conversion?.sourceIndex;
 

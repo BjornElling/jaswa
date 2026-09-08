@@ -153,7 +153,8 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
     for (var line: u32 = 0u; line < 4u; line = line + 1u) {
       if (i32(candidate) == i32(artifacts[artifactOffset + 4u + line])) { exists = true; }
     }
-    if (exists) { continue; }
+    let isSourceProperty = i32(candidate) == i32(artifacts[artifactOffset + 4u + source]);
+    if (exists && !isSourceProperty) { continue; }
     let band = i32(monsters[monsterOffset + 5u + candidate]);
     // A property the monster neither prefers nor accepts is never suggested.
     if (band == 0) { continue; }
