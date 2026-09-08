@@ -1032,19 +1032,33 @@ fn capture(request: &[u8], response: &[u8], shared: &Shared) {
         shared
             .game_started_before_helper
             .store(false, Ordering::Release);
-    } else if !shared
+    } else if shared
         .incidents
         .lock()
         .expect("incident lock poisoned")
         .active()
-        && profile.apply_update(&response, &request)
     {
+        diagnostics::record(
+            "capture",
+            &format!("Held back {command_name}: the capture gap stands until the next login"),
+        );
+    } else if profile.apply_update(&response, &request) {
         diagnostics::record(
             "capture",
             &format!(
                 "{command_name} changed the snapshot (revision {})",
                 profile.status().revision
             ),
+        );
+    } else {
+        /* The silent case is the one that brings a user here: the dashboard
+        says Connected, the account is yesterday's, and the log said nothing
+        because nothing happened. A command the account model does not act on
+        names itself instead, so the game's own word for what the user just
+        did can be looked up rather than guessed at. */
+        diagnostics::record(
+            "capture",
+            &format!("{command_name} changed nothing in the snapshot"),
         );
     }
 }

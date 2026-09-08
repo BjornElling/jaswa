@@ -271,10 +271,17 @@ impl ProfileStore {
             .and_then(Value::as_str)
             .unwrap_or("")
             .to_ascii_lowercase();
+        /* Any response that carries a shrine list carries this account's shrine
+        list, so the list itself is the signal — not the command that happened
+        to bring it. Gating on `GetUnitStorageList` and `GetWizardDataPart1`
+        left the shrine frozen at whatever the last full read said: sealing a
+        monster answers under the command that sealed it, and the sealed copy
+        stayed on screen until the next login. The response is already known to
+        belong to this account — an RTA command and a failed response never
+        reach here — and the list it carries is the whole list, so replacing
+        the collection with it cannot lose a stack the game still holds. */
         let storage_list = summoned_storage_list(response);
-        if (command.contains("getunitstoragelist") || command.contains("getwizarddatapart1"))
-            && storage_list.is_some()
-        {
+        if storage_list.is_some() {
             let next = normalize(storage_list.unwrap_or_default(), "unit_master_id");
             if collection(&profile, "unit_storage_list") != next.as_slice() {
                 set_collection(&mut profile, "unit_storage_list", next);
@@ -296,34 +303,28 @@ impl ProfileStore {
                     .and_then(|value| value.get("unit_storage_normal_list"))
                     .and_then(Value::as_array)
             });
-        if (command.contains("getwizarddatapart1") || command.contains("getunitstoragelist"))
-            && normal_storage_list.is_some()
-        {
+        if normal_storage_list.is_some() {
             let next = normalize(normal_storage_list.cloned().unwrap_or_default(), "unit_id");
             if collection(&profile, "unit_storage_normal_list") != next.as_slice() {
                 set_collection(&mut profile, "unit_storage_normal_list", next);
                 changed = true;
             }
         }
-        let unit_id = identifier(request, "unit_id");
-        if let (Some(unit_id), Some(_)) = (
-            unit_id,
-            request
-                .get("building_id")
-                .filter(|value| value.is_number() || value.is_string()),
-        ) {
-            let current = collection(&profile, "unit_list").to_vec();
-            let next = merge_collection(
-                current.clone(),
-                vec![
-                    serde_json::json!({"unit_id": unit_id, "building_id": request["building_id"]}),
-                ],
-                "unit_id",
+        /* A request that names a building and the monsters going into it says
+        the same thing whether it carries one `unit_id` or a `unit_id_list`.
+        Reading only the singular field left a batched move — the game's own
+        way of putting several monsters away at once — changing nothing at
+        all, and changing nothing is silent. */
+        if let Some(building_id) = request
+            .get("building_id")
+            .filter(|value| value.is_number() || value.is_string())
+        {
+            let building_id = building_id.clone();
+            changed |= update_unit_building(
+                &mut profile,
+                &request_identifiers(request, "unit_id"),
+                &building_id,
             );
-            if next != current {
-                set_collection(&mut profile, "unit_list", next);
-                changed = true;
-            }
         }
         if command.contains("movestoragefromto") {
             let unit_ids = request_identifiers(request, "unit_id");
@@ -1687,6 +1688,91 @@ mod tests {
             .unwrap()
             .len(),
             1
+        );
+    }
+
+    /* One monster or several, the request says the same thing: these units now
+    live in that building. Only the singular field was read, so a batched move
+    left the roster showing monsters the game had already put away. */
+    #[test]
+    fn applies_a_building_move_that_names_several_units() {
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({
+            "building_list": [{"building_id": 99, "building_master_id": 25}],
+            "unit_list": [
+                {"unit_id": 1, "building_id": 0},
+                {"unit_id": 2, "building_id": 0},
+                {"unit_id": 3, "building_id": 0}
+            ],
+            "runes": []
+        })));
+        assert!(store.apply_update(
+            &json!({"ret_code": 0}),
+            &json!({"command": "MoveUnitBuilding", "building_id": 99, "unit_id_list": [1, 2]})
+        ));
+        let data = &store.read().unwrap().data;
+        assert_eq!(data["unit_list"][0]["building_id"], 99);
+        assert_eq!(data["unit_list"][1]["building_id"], 99);
+        assert_eq!(data["unit_list"][2]["building_id"], 0);
+    }
+
+    /* A building move names units the account already has. A request naming an
+    unknown unit must not invent one: a record with no master id is a monster
+    no table can show and no count can honour. */
+    #[test]
+    fn a_building_move_never_invents_a_unit() {
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({
+            "unit_list": [{"unit_id": 1, "building_id": 0}],
+            "runes": []
+        })));
+        assert!(!store.apply_update(
+            &json!({"ret_code": 0}),
+            &json!({"command": "MoveUnitBuilding", "building_id": 99, "unit_id": 404})
+        ));
+        assert_eq!(
+            store.read().unwrap().data["unit_list"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+    }
+
+    /* Sealing a monster answers under the command that sealed it, and the game
+    sends the whole shrine list back with it. Reading the list only under the
+    two full-account commands left the shrine showing yesterday's stacks until
+    the next login. */
+    #[test]
+    fn captures_shrine_lists_from_any_command_that_carries_them() {
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({
+            "wizard_id": 7,
+            "unit_list": [{"unit_id": 1, "wizard_id": 7}],
+            "unit_storage_list": [{"unit_master_id": 10101, "quantity": 1}],
+            "unit_storage_normal_list": [{"unit_id": 8, "unit_master_id": 10101}],
+            "runes": []
+        })));
+        assert!(store.apply_update(
+            &json!({
+                "ret_code": 0,
+                "unit_storage_list": [{"unit_master_id": 10101, "quantity": 2}]
+            }),
+            &json!({"command": "SealUnit", "unit_id": 1})
+        ));
+        assert_eq!(
+            store.read().unwrap().data["unit_storage_list"][0]["quantity"],
+            2
+        );
+        assert!(store.apply_update(
+            &json!({"ret_code": 0, "unit_storage_normal_list": []}),
+            &json!({"command": "SummonUnitFromStorage"})
+        ));
+        assert!(
+            store.read().unwrap().data["unit_storage_normal_list"]
+                .as_array()
+                .unwrap()
+                .is_empty()
         );
     }
 

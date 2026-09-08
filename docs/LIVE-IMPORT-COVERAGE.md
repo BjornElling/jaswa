@@ -18,7 +18,8 @@ new reward wrapper names do not silently lose a record.
 
 | Account data | Direct records | Reward records | Removal or movement |
 | --- | --- | --- | --- |
-| Monsters | `unit`, `unit_info`, `target_unit`, `unit_list` | Full unit records in a reward payload | `MoveStorageFromTo`, `remove_unit_id_list`, sacrifice sources, sell/convert requests |
+| Monsters | `unit`, `unit_info`, `target_unit`, `unit_list` | Full unit records in a reward payload | `MoveStorageFromTo`, any request naming a `building_id` and the units moving into it, `remove_unit_id_list`, sacrifice sources, sell/convert requests |
+| Sealed Shrine stacks | `unit_storage_list`, `unit_storage_normal_list`, wherever a response carries them | — | The list in the response replaces the collection, so a sealed or summoned copy is counted the moment the game answers |
 | Runes | `rune`, `rune_info`, `runes` | V2 `changed_item_list` type `8`; legacy `reward.crate.rune(s)`; shop and black-market responses | Upgrade, reappraisal, refine/convert, equip/unequip, sell and remove lists |
 | Artifacts | `artifact`, `artifact_info`, `artifacts` | V2 `changed_item_list` type `73`; legacy reward crates and quest/mail claims | Upgrade, occupation changes, sell and remove lists |
 | Relics | `relic`, `relic_info`, `relics` | Relic-shaped `changed_item_list` records and reward crates | Power-up, occupation changes, breakdown/sell and remove lists; the root relic stays present because one relic can be engraved on many monsters |
@@ -37,7 +38,18 @@ new reward wrapper names do not silently lose a record.
 - Relic crafting, relic power-ups and relic breakdown rewards.
 - Monster summons, fusion/evolution/awakening/skill changes and feeding when
   the response returns a full or partial account unit.
-- Monster roster/storage moves and equipment occupation changes.
+- Monster roster/storage moves, one monster or a batch, and equipment
+  occupation changes.
+- Sealing a monster into the Sealed Shrine and summoning one back out, from the
+  shrine list the game returns with its own answer rather than only from a full
+  account read.
+
+## What the diagnostic log says
+
+A command that reaches the account model and changes nothing now records that
+it changed nothing. Silence used to be the answer for both "the game said
+nothing about the account" and "the account model does not know this command
+yet", and the second is the one a stale dashboard is made of.
 
 ## Safety rules
 
