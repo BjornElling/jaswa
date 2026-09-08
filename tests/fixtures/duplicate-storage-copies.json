@@ -1,0 +1,13 @@
+{
+  "wizard_id": 7,
+  "unit_list": [
+    { "unit_id": 701, "wizard_id": 7, "unit_master_id": 24804, "unit_level": 40, "attribute": 4, "class": 4, "building_id": 0 }
+  ],
+  "unit_storage_normal_list": [
+    { "unit_id": 601, "unit_master_id": 24802, "unit_level": 1, "attribute": 2, "class": 4 },
+    { "unit_id": 602, "unit_master_id": 24802, "unit_level": 1, "attribute": 2, "class": 4 },
+    { "unit_id": 603, "unit_master_id": 24804, "unit_level": 1, "attribute": 4, "class": 4 },
+    { "unit_id": 604, "unit_master_id": 24803, "unit_level": 1, "attribute": 3, "class": 4 }
+  ],
+  "runes": []
+}

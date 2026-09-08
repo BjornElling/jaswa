@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { DataTablePage } from './data-table-page';
 import { MonsterPortrait } from './monster-portrait';
 import { monsterPresentation, monsterSkillUpsToMax } from '../lib/monster-catalog';
-import { createMonsterSelectionIndex } from '../lib/monster-selection';
+import { createMonsterCopyIndex, createMonsterSelectionIndex } from '../lib/monster-selection';
 import type { GameRecord } from '../lib/game-data';
 import { formatNumber } from '../lib/formatting';
 import {
@@ -251,14 +251,18 @@ function QuantitySlider({ value, onChange, disabled }: {
   disabled: boolean;
 }) {
   const position = handlePosition((value - 1) / 9);
+  /* The value reads under the rail rather than over it: above, it stood between
+     "Have ≥" and the checkbox line before it, and that reserved row opened a gap
+     the other two conditions did not have. Under the rail it sits in space the
+     row's own line already occupies. */
   return <div className="range-slider range-slider-single" data-disabled={disabled ? 'true' : undefined}>
-    <div className="range-slider-values" aria-hidden="true">
-      <output className="range-slider-value" style={{ left: position }}>{value}</output>
-    </div>
     <div className="range-slider-track">
       <input className="range-slider-input" type="range" min={1} max={10} step={1} value={value} disabled={disabled}
         onChange={(event) => onChange(Number(event.target.value))}
         aria-label="Minimum monster quantity" aria-valuetext={`Have at least ${value}`} />
+    </div>
+    <div className="range-slider-values" aria-hidden="true">
+      <output className="range-slider-value" style={{ left: position }}>{value}</output>
     </div>
   </div>;
 }
@@ -320,6 +324,14 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
     maxSkilled: isMaxSkilled(monster),
   }))), [allMonsterRecords]);
 
+  /* Counted over the rows Storage lists, not the account: the two conditions
+     above ask what the player owns anywhere, but "Have ≥" is read against this
+     table, and a copy standing in the active roster would mark a monster the
+     table shows one of. */
+  const storageCopies = useMemo(() => createMonsterCopyIndex(
+    rows.map((row) => ({ masterId: row.masterId, copies: row.quantity })),
+  ), [rows]);
+
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
     return rows.filter((row) => {
@@ -332,12 +344,15 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
       if (selectedArchetypes.length && (!row.archetype || !selectedArchetypes.includes(row.archetype))) return false;
       if (selectedGrades.length && (row.grade === null || !selectedGrades.includes(row.grade))) return false;
       if (!monsterSelection.matches(row.masterId, { alreadyHaveLevel40, familyFullySkilled })) return false;
-      if (minimumQuantityEnabled && row.quantity < minimumQuantity) return false;
+      /* "Have ≥" asks about the monster, not about this one entry: a row's own
+         quantity counted a stack but missed a player holding the same monster
+         as several single entries. */
+      if (minimumQuantityEnabled && storageCopies.copies(row.masterId) < minimumQuantity) return false;
       if (!term) return true;
       return row.name.toLowerCase().includes(term)
         || row.searchAliases.some((alias) => alias.toLowerCase().includes(term));
     });
-  }, [alreadyHaveLevel40, familyFullySkilled, maximumLevel, minimumLevel, minimumQuantity, minimumQuantityEnabled, monsterSelection, rows, search, selectedArchetypes, selectedElements, selectedGrades, selectedLocations]);
+  }, [alreadyHaveLevel40, familyFullySkilled, maximumLevel, minimumLevel, minimumQuantity, minimumQuantityEnabled, monsterSelection, rows, search, selectedArchetypes, selectedElements, selectedGrades, selectedLocations, storageCopies]);
 
   const toggleElement = (name: string) => setFilters((current) => ({
     ...current,
@@ -385,7 +400,7 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
       <th scope="col" className="align-right">Quantity</th>
     </tr></thead>}
     filters={<>
-      <div className="filter-group">
+      <div className="filter-group storage-filter-search">
         <span className="filter-label">Search</span>
         <div className="filter-group-controls">
           <div className="search-field">
@@ -397,7 +412,7 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
           </div>
         </div>
       </div>
-      <div className="filter-group" role="group" aria-label="Filter Storage monsters by element">
+      <div className="filter-group storage-filter-element" role="group" aria-label="Filter Storage monsters by element">
         <span className="filter-label">Element</span>
         <div className="filter-group-controls">
           {storageElementOptions.map((element) => <button type="button" key={element}
@@ -406,7 +421,7 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
           >{element.slice(0, 3).toUpperCase()}</button>)}
         </div>
       </div>
-      <div className="filter-group" role="group" aria-label="Filter Storage monsters by type">
+      <div className="filter-group storage-filter-type" role="group" aria-label="Filter Storage monsters by type">
         <span className="filter-label">Type</span>
         <div className="filter-group-controls">
           {monsterFilterArchetypes.map((archetype) => <button type="button" key={archetype}

@@ -6,7 +6,7 @@ import { createServer } from 'vite';
 const server = await createServer({ configFile: false, appType: 'custom', server: { middlewareMode: true } });
 
 try {
-  const { createMonsterSelectionIndex, monsterIdentityId } = await server.ssrLoadModule('/app/lib/monster-selection.ts');
+  const { createMonsterCopyIndex, createMonsterSelectionIndex, monsterIdentityId } = await server.ssrLoadModule('/app/lib/monster-selection.ts');
   const haveLevel40 = { alreadyHaveLevel40: true, familyFullySkilled: false };
   const familyMaxSkilled = { alreadyHaveLevel40: false, familyFullySkilled: true };
   const both = { alreadyHaveLevel40: true, familyFullySkilled: true };
@@ -37,7 +37,33 @@ try {
   assert.equal(noLevel40.matches(20002, familyMaxSkilled), false,
     'a family with no Lv. 40 monster must not pass merely because it is empty');
 
-  console.log('Monster selection canonicalizes awakenings, second awakenings, and collaboration releases.');
+  /* Copies are counted per monster, not per entry: separate single entries
+     count together, a stack counts its quantity, and neither may leave a
+     monster the list demonstrably holds twice out of a "have two" list. */
+  assert.equal(createMonsterCopyIndex([{ masterId: 10101, copies: 1 }]).copies(10101), 1,
+    'one entry of one copy is one copy');
+  assert.equal(createMonsterCopyIndex([
+    { masterId: 10101, copies: 1 },
+    { masterId: 10101, copies: 1 },
+  ]).copies(10101), 2, 'two separate single entries of one monster are two copies');
+  assert.equal(createMonsterCopyIndex([{ masterId: 10101, copies: 2 }]).copies(10101), 2,
+    'a shrine stack of two is two copies');
+  assert.equal(createMonsterCopyIndex([
+    { masterId: 10101, copies: 1 },
+    { masterId: 10131, copies: 1 },
+  ]).copies(10101), 2, 'an awakening is a copy of the same monster');
+  assert.equal(createMonsterCopyIndex([
+    { masterId: 10101, copies: 1 },
+    { masterId: 10102, copies: 1 },
+  ]).copies(10101), 1, 'a sibling of another element is a different monster');
+  assert.equal(createMonsterCopyIndex([
+    { masterId: 99999999, copies: 1 },
+    { masterId: 99999999, copies: 1 },
+  ]).copies(99999999), 2, 'a monster the catalogue does not carry still counts its own copies');
+  assert.equal(createMonsterCopyIndex([{ masterId: 10101, copies: 1 }]).copies(10102), 0,
+    'a monster the list does not hold has no copies');
+
+  console.log('Monster selection canonicalizes awakenings, second awakenings, collaboration releases, and counts copies per monster.');
 } finally {
   await server.close();
 }

@@ -535,6 +535,24 @@ button { cursor: pointer; }
       "archetype";
   }
 }
+/* Location is the one Storage group that stacks its choices, so on a shared row
+   it set the row's height and left a band of empty space above Level, Grade and
+   Only show if — a group deciding how far down its neighbours' neighbours
+   start. Giving it a column of its own across both rows takes it out of that
+   measurement entirely: it grows downwards beside the two rows instead of
+   pushing the second one away from the first. */
+.storage-filter-strip {
+  grid-template-areas:
+    "search element type    location"
+    "level  grade   special location";
+}
+.storage-filter-search { grid-area: search; }
+.storage-filter-element { grid-area: element; }
+.storage-filter-type { grid-area: type; }
+.storage-filter-location { grid-area: location; }
+.storage-filter-level { grid-area: level; }
+.storage-filter-grade { grid-area: grade; }
+.storage-filter-special { grid-area: special; }
 .filter-label {
   font-size: var(--t-micro); letter-spacing: .1em; text-transform: uppercase;
   color: var(--faint); font-weight: 700;
@@ -1273,8 +1291,13 @@ button { cursor: pointer; }
   pointer-events: auto;
 }
 .range-slider-input:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+/* The single-handle slider names one value and stands beside its own label, so
+   the value reads under the rail: above it, the reserved row lifted the label
+   off the line its neighbours sit on. */
 .range-slider-single { width: 180px; }
 .range-slider-single .range-slider-input { pointer-events: auto; }
+.range-slider-single .range-slider-values { height: var(--s4); }
+.range-slider-single .range-slider-value { top: 0; bottom: auto; }
 .range-slider[data-disabled='true'] { opacity: .4; }
 .slider .jaswa-select {
   width: 100%;
@@ -2248,32 +2271,47 @@ button { cursor: pointer; }
 }
 .filter-checkbox-label .filter-checkbox { margin-left: 0; }
 .filter-checkbox-label:hover { color: var(--ink); }
-.storage-grade-options { flex-wrap: wrap; row-gap: var(--s1); }
+/* Six grades on one line make a group half again as wide as its column and read
+   as a strip of stars to be scanned. Three and three is the shape the game
+   itself uses — the grades a monster is farmed at over the grades it is built
+   to — and it fits the column exactly. A grid rather than a wrapping row, so the
+   second line starts under the first grade instead of wherever the first line
+   happened to run out. */
+/* The column gap is the group's own --s1 plus the padding a filter button
+   carries on each side: a checkbox has no such padding, so the same 4px leaves
+   the stars crowding each other where the element buttons breathe. --s6 puts
+   the same air between "1★" and "2★" as there is between WAT and FIR. */
+.storage-grade-options {
+  display: grid;
+  grid-template-columns: repeat(3, max-content);
+  gap: var(--s1) var(--s6);
+}
 .storage-location-options { flex-direction: column; align-items: flex-start; }
 .storage-special-options { display: grid; gap: var(--s2); }
 .storage-special-options .checkbox-row { min-height: 30px; }
 /* "Have ≥" and the amount it compares against are one sentence, so the
    slider reads on the label's own line rather than under it.
 
-   The slider carries a row of values above its rail, making its box taller
-   than the label beside it. Centring the two would sit the text against
-   that value row rather than against the rail it belongs to, so both align
-   to the bottom: the label lands on the track, and the value floats clear
-   above the handle it names. A narrow window wraps the pair rather than
-   squeezing the track away. */
+   Both sit at the top of the row and keep the same 30px line box as the two
+   conditions above them, so all three conditions are one step apart. The
+   slider's value hangs below its rail rather than above it, where it would
+   push the whole line down and break that step. The 4px lift is what puts the
+   rail on the label's own centre line: the rail sits 10px into the slider's
+   box and the text 15px into its own. A narrow window wraps the pair rather
+   than squeezing the track away. */
 .storage-quantity-filter {
   display: flex;
-  align-items: end;
+  align-items: start;
   gap: var(--s3);
 }
 .storage-quantity-filter .checkbox-row {
   flex: 0 0 auto;
-  min-height: 20px;
 }
 .storage-quantity-filter .range-slider {
   flex: 1 1 auto;
   width: auto;
   min-width: 0;
+  margin-top: var(--s1);
 }
 @media (min-width: 1921px) and (max-width: 960px) {
   .storage-quantity-filter { flex-wrap: wrap; }

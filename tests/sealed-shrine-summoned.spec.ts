@@ -23,7 +23,7 @@ test('shows summoned sealed-shrine stacks and filters them by grade and quantity
   await expect(page.locator('.storage-filter-strip .filter-summary')).toContainText('1 of 2 shown');
   await page.getByRole('checkbox', { name: '6★' }).uncheck();
 
-  await page.getByRole('checkbox', { name: 'Have >= than' }).check();
+  await page.getByRole('checkbox', { name: 'Have ≥' }).check();
   await page.getByRole('slider', { name: 'Minimum monster quantity' }).press('End');
   await expect(page.locator('.storage-filter-strip .filter-summary')).toContainText('1 of 2 shown');
   await expect(storage).toContainText('×12');

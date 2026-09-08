@@ -90,6 +90,39 @@ export type MonsterSelectionIndex = {
   matches: (masterId: unknown, requirements: MonsterSelectionRequirements) => boolean;
 };
 
+export type MonsterCopyRecord = {
+  masterId: unknown;
+  /* How many copies this record stands for: one for a monster, the export's
+     quantity for a shrine stack. */
+  copies: number;
+};
+
+export type MonsterCopyIndex = {
+  copies: (masterId: unknown) => number;
+};
+
+/**
+ * How many copies of one monster a set of records holds, under the same
+ * identity rules as the conditions above: awakenings and a collaboration twin
+ * are the same monster, an element sibling is not.
+ *
+ * Which records are counted is the caller's question, and Storage's answer is
+ * the monsters Storage lists. "Have ≥ 2" is read against the table it stands
+ * beside, so counting a copy on the active roster would mark a row the user can
+ * see only one of. Identity is taken raw rather than through
+ * `knownMonsterIdentity`: a monster the catalogue does not carry still counts
+ * its own copies rather than being unreachable by the filter.
+ */
+export function createMonsterCopyIndex(records: readonly MonsterCopyRecord[]): MonsterCopyIndex {
+  const copiesByIdentity = new Map<string, number>();
+  for (const record of records) {
+    const copies = Number.isSafeInteger(record.copies) && record.copies > 0 ? record.copies : 1;
+    const identity = monsterIdentityId(record.masterId);
+    copiesByIdentity.set(identity, (copiesByIdentity.get(identity) ?? 0) + copies);
+  }
+  return { copies: (masterId) => copiesByIdentity.get(monsterIdentityId(masterId)) ?? 0 };
+}
+
 /**
  * Index the account once, then answer every Storage filter against the same
  * identity rules. A family must contain at least one Lv. 40 monster: without
