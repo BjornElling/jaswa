@@ -1,0 +1,10 @@
+{
+  "wizard_id": 7,
+  "unit_list": [
+    { "unit_id": 1, "wizard_id": 7, "unit_master_id": 20012, "unit_level": 40, "building_id": 0, "skills": [[1, 9]] },
+    { "unit_id": 2, "wizard_id": 7, "unit_master_id": 24012, "unit_level": 40, "building_id": 0, "skills": [[1, 10]] },
+    { "unit_id": 3, "wizard_id": 7, "unit_master_id": 20002, "unit_level": 1, "building_id": 1 },
+    { "unit_id": 4, "wizard_id": 7, "unit_master_id": 24502, "unit_level": 1, "building_id": 1 }
+  ],
+  "runes": []
+}

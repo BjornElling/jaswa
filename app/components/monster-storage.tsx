@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import { DataTablePage } from './data-table-page';
 import { MonsterPortrait } from './monster-portrait';
-import { monsterFamilyId, monsterPresentation, monsterSkillUpsToMax } from '../lib/monster-catalog';
+import { monsterPresentation, monsterSkillUpsToMax } from '../lib/monster-catalog';
+import { createMonsterSelectionIndex } from '../lib/monster-selection';
 import type { GameRecord } from '../lib/game-data';
 import { formatNumber } from '../lib/formatting';
 import {
@@ -16,7 +17,6 @@ const storageGradeOptions = [1, 2, 3, 4, 5] as const;
 const storageLocationOptions = ['storage', 'sealed-summoned', 'sealed-normal'] as const;
 const storageMinimumLevel = 1;
 const storageMaximumLevel = 40;
-const maxMonsterLevel = 40;
 type StorageLocation = typeof storageLocationOptions[number];
 
 type StorageFilterState = {
@@ -73,7 +73,6 @@ type StorageMonsterRow = {
   masterId: string;
   location: StorageLocation;
   quantity: number;
-  familyId?: number;
   name: string;
   searchAliases: string[];
   element?: string;
@@ -190,11 +189,6 @@ function isMaxSkilled(monster: GameRecord): boolean {
   return current !== null && current >= maximum;
 }
 
-function isLevel40(monster: GameRecord): boolean {
-  const level = numericOrNull(monster.unit_level);
-  return level !== null && level >= maxMonsterLevel;
-}
-
 function displaySkillProgress(row: StorageMonsterRow): string {
   if (row.maximumSkillUps === undefined) return '—';
   if (row.maxSkilled) return 'MAX';
@@ -258,7 +252,6 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
         masterId,
         location,
         quantity: storageEntryQuantity(monster),
-        familyId: monsterFamilyId(monster.unit_master_id),
         name: presentation.name,
         searchAliases: presentation.searchAliases,
         element: storageEntryElement(monster, masterId),
@@ -281,24 +274,11 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
     ...shrineEntries.map(({ record }) => record),
   ], [monsters, shrineEntries]);
 
-  const level40ByMasterId = useMemo(() => new Set(
-    allMonsterRecords.filter(isLevel40).map((monster) => String(monster.unit_master_id ?? '')),
-  ), [allMonsterRecords]);
-  const allLevel40ByFamily = useMemo(() => {
-    const familyStates = new Map<number, { count: number; fullySkilled: number }>();
-    for (const monster of allMonsterRecords) {
-      if (!isLevel40(monster)) continue;
-      const familyId = monsterFamilyId(monster.unit_master_id);
-      if (familyId === undefined) continue;
-      const state = familyStates.get(familyId) ?? { count: 0, fullySkilled: 0 };
-      state.count += 1;
-      if (isMaxSkilled(monster)) state.fullySkilled += 1;
-      familyStates.set(familyId, state);
-    }
-    return new Set([...familyStates.entries()]
-      .filter(([, state]) => state.count > 0 && state.count === state.fullySkilled)
-      .map(([familyId]) => familyId));
-  }, [allMonsterRecords]);
+  const monsterSelection = useMemo(() => createMonsterSelectionIndex(allMonsterRecords.map((monster) => ({
+    masterId: monster.unit_master_id,
+    level: numericOrNull(monster.unit_level),
+    maxSkilled: isMaxSkilled(monster),
+  }))), [allMonsterRecords]);
 
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -311,13 +291,12 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
       if (selectedElements.length && (!row.element || !selectedElements.includes(row.element))) return false;
       if (selectedArchetypes.length && (!row.archetype || !selectedArchetypes.includes(row.archetype))) return false;
       if (selectedGrades.length && (row.grade === null || !selectedGrades.includes(row.grade))) return false;
-      if (alreadyHaveLevel40 && !level40ByMasterId.has(row.masterId)) return false;
-      if (familyFullySkilled && (row.familyId === undefined || !allLevel40ByFamily.has(row.familyId))) return false;
+      if (!monsterSelection.matches(row.masterId, { alreadyHaveLevel40, familyFullySkilled })) return false;
       if (!term) return true;
       return row.name.toLowerCase().includes(term)
         || row.searchAliases.some((alias) => alias.toLowerCase().includes(term));
     });
-  }, [allLevel40ByFamily, alreadyHaveLevel40, familyFullySkilled, level40ByMasterId, maximumLevel, minimumLevel, rows, search, selectedArchetypes, selectedElements, selectedGrades, selectedLocations]);
+  }, [alreadyHaveLevel40, familyFullySkilled, maximumLevel, minimumLevel, monsterSelection, rows, search, selectedArchetypes, selectedElements, selectedGrades, selectedLocations]);
 
   const toggleElement = (name: string) => setFilters((current) => ({
     ...current,
@@ -423,8 +402,8 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
           </label>)}
         </div>
       </div>
-      <div className="filter-group storage-filter-special" role="group" aria-label="Special Storage filters">
-        <span className="filter-label">Special</span>
+      <div className="filter-group storage-filter-special" role="group" aria-label="Only show Storage monsters if">
+        <span className="filter-label">Only show if</span>
         <div className="storage-special-options">
           <label className="checkbox-row">
             <input type="checkbox" checked={alreadyHaveLevel40}
