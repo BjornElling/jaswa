@@ -1,8 +1,13 @@
 name: Deploy JASWA
 
+# Slået fra indtil Cloudflare Pages/Workers er sat op og hemmelighederne
+# CLOUDFLARE_API_TOKEN og CLOUDFLARE_ACCOUNT_ID findes i repoet.
+# Kør den manuelt fra Actions-fanen for at teste, og sæt push-udløseren
+# nedenfor tilbage, når deployet virker.
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
+  # push:
+  #   branches: [main]
 
 permissions:
   contents: read
