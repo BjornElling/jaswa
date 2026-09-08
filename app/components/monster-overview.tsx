@@ -19,7 +19,7 @@ import {
 import type { MonsterGridColumn, MonsterRow, SortKey } from '../lib/monster-grid';
 import { numberedMonsterNames } from '../lib/monster-names';
 import { formatNumber } from '../lib/formatting';
-import { useLocalStorageState } from '../lib/local-storage-state';
+import { useSessionStorageState } from '../lib/session-storage-state';
 import { alignmentClass, monsterTableColumns } from '../lib/table-layouts';
 
 type MonsterFilterState = {
@@ -104,7 +104,7 @@ export function MonsterOverview({ monsters, gameData, preferences }: {
   preferences: Preferences;
 }) {
   const [sort, setSort] = useState<{ key: SortKey; ascending: boolean }>({ key: 'index', ascending: true });
-  const [filters, setFilters] = useLocalStorageState(
+  const [filters, setFilters] = useSessionStorageState(
     'jaswa.filters.monsters', defaultMonsterFilters, isMonsterFilterState,
   );
   const {
@@ -238,7 +238,7 @@ export function MonsterOverview({ monsters, gameData, preferences }: {
       title="Monsters"
       tagline="A menagerie of statistics, storage, and questionable life choices." />}
   >
-    <Disclosure title="Monster roster" storageKey="monsters.roster">
+    <Disclosure title="Monster roster" sessionKey="monsters.roster">
       {!monsters.length ? <section className="empty-state">
         <h2>Nothing to show until a game file is imported.</h2>
         <p className="next-step">Go to Home and drop in the JSON file exported from Summoners War.</p>
@@ -345,7 +345,7 @@ export function MonsterOverview({ monsters, gameData, preferences }: {
       </DataTablePage>}
     </Disclosure>
 
-    <Disclosure title="Storage" storageKey="monsters.storage">
+    <Disclosure title="Storage" sessionKey="monsters.storage">
       <MonsterStorage monsters={monsters} gameData={gameData} preferences={preferences} />
     </Disclosure>
   </WorkspacePage>;

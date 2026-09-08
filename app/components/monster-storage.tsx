@@ -11,7 +11,7 @@ import {
 import { elementName } from '../lib/rune-sets';
 import { summonedShrineRecords } from '../lib/sealed-shrine-storage';
 import type { Preferences } from '../lib/types';
-import { useLocalStorageState } from '../lib/local-storage-state';
+import { useSessionStorageState } from '../lib/session-storage-state';
 
 const storageElementOptions = ['Water', 'Fire', 'Light', 'Wind', 'Dark'] as const;
 const storageGradeOptions = [1, 2, 3, 4, 5, 6] as const;
@@ -268,7 +268,7 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
   gameData: GameRecord;
   preferences: Preferences;
 }) {
-  const [filters, setFilters] = useLocalStorageState(
+  const [filters, setFilters] = useSessionStorageState(
     'jaswa.filters.monster-storage', defaultStorageFilters, isStorageFilterState,
   );
   const {

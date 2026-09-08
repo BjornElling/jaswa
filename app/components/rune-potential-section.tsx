@@ -92,7 +92,7 @@ export function RunePotentialSection({ settings, presets, onUpdate, onWritePrese
       title="Rune Potential"
       tagline="Which runes deserve your mana. Set your tolerance for disappointment below." />}
   >
-    <Disclosure title="Settings" storageKey="rune-potential.settings" defaultOpen>
+    <Disclosure title="Settings" sessionKey="rune-potential.settings">
       <div className="stack">
         <div className="settings-layout">
           <div className="slider-grid">
@@ -199,7 +199,7 @@ export function RunePotentialSection({ settings, presets, onUpdate, onWritePrese
       </div>
     </Disclosure>
 
-    <Disclosure title="Presets" storageKey="rune-potential.presets">
+    <Disclosure title="Presets" sessionKey="rune-potential.presets">
       <div className="stack">
         <div className="list-actions">
           <p className="list-count"><b>{presets.length}</b> presets</p>

@@ -14,7 +14,7 @@ import type { DirectoryHandle } from './lib/save-location';
 import type { GameRecord } from './lib/game-data';
 import type { ArtifactSettings, DirectImportMode, GeneralSettings, ImportRoute, ImportedGame, Preferences, RunePotentialSettings } from './lib/types';
 import type { RunePotentialPreset } from './lib/rune-potential-presets';
-import { useLocalStorageState } from './lib/local-storage-state';
+import { useSessionStorageState } from './lib/session-storage-state';
 import { type Page, type ReportCategory, upcomingWorkspaces } from './lib/workspace-config';
 
 const pageChoices: readonly Page[] = ['home', 'monsters', 'artifact-list', 'optimizer', 'speed', 'potential', 'artifacts', 'gems', 'relics', 'settings'];
@@ -31,7 +31,7 @@ function WorkspaceLoading() {
 }
 
 export default function Home() {
-  const [page, setPage] = useLocalStorageState<Page>('jaswa.navigation.page', 'home', isPage);
+  const [page, setPage] = useSessionStorageState<Page>('jaswa.navigation.page', 'home', isPage);
   const [game, setGame] = useState<ImportedGame | null>(null);
   const [preferences, setPreferences] = useState<Preferences>(blankPreferences());
   const [pendingGame, setPendingGame] = useState<ImportedGame | null>(null);

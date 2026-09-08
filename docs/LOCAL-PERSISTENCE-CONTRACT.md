@@ -39,7 +39,8 @@ The current navigation page, which disclosure bars are open or closed, and
 table filters are stored in `sessionStorage`. They survive page navigation and
 reloads in the same tab, but are not part of the durable workspace and are not
 shared with another tab. Invalid stored values are ignored and the interface
-returns to its current default.
+returns to its current default; a fresh tab starts on Home with all disclosure
+bars closed.
 
 ## What is not a saved choice
 
