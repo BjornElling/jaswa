@@ -29,9 +29,10 @@ use std::{
 
 const GATEWAY_PATH: &str = "/api/gateway_c2.php";
 const MAXIMUM_INTERCEPTED_BODY_BYTES: usize = 16 * 1024 * 1024;
-/// How the helper keeps working while the game is running is by watching its
-/// live gateway connection. A game that has closed every connection and sent
-/// nothing for this long is treated as gone, and its snapshot is dropped.
+/// How long a closed, silent gateway still counts as the game reaching the
+/// redirect. Ordinary play goes quiet for minutes at a time — the game hangs up
+/// its keep-alive socket and opens a new one for its next command — so this
+/// window ends only the *connection* evidence, never the game session itself.
 const GAME_QUIET_GRACE: Duration = Duration::from_secs(60);
 /// A gateway socket opens before the game sends its login. The watchdog must
 /// never mistake that normal startup interval for a helper that missed login.
@@ -437,13 +438,29 @@ fn start_watchdog(shared: Arc<Shared>) {
         while shared.running.load(Ordering::Acquire) {
             ensure_hosts_redirect(&shared);
 
+            let reaching_redirect = game_reaching_redirect(&shared);
+            let predates_helper = shared.game_started_before_helper.load(Ordering::Acquire);
+            let session_under_way = shared
+                .game_started_at
+                .lock()
+                .expect("game start lock poisoned")
+                .is_some();
+            /* The process list answers the one question live gateway traffic
+            cannot: whether a quiet game is still open. It is read only when
+            that cheaper evidence is missing and there is a session for it to
+            decide about, so neither active play nor an idle helper pays for
+            it. */
+            let process_alive = if predates_helper || (!reaching_redirect && session_under_way) {
+                crate::windows::summoners_war_is_running().ok()
+            } else {
+                None
+            };
+
             /* The initial observation is the evidence for this warning. Once
             that same process has gone, discard it; subsequent game starts
             are normal starts behind the redirect and must never inherit the
             warning. */
-            if shared.game_started_before_helper.load(Ordering::Acquire)
-                && matches!(crate::windows::summoners_war_is_running(), Ok(false))
-            {
+            if predates_helper && process_alive == Some(false) {
                 shared
                     .game_started_before_helper
                     .store(false, Ordering::Release);
@@ -453,7 +470,7 @@ fn start_watchdog(shared: Arc<Shared>) {
                 );
             }
 
-            let connected = game_connected(&shared);
+            let running = game_is_running(reaching_redirect, process_alive);
             let has_profile = shared
                 .profile
                 .lock()
@@ -469,7 +486,7 @@ fn start_watchdog(shared: Arc<Shared>) {
                 .waiting_for_login
                 .lock()
                 .expect("game state lock poisoned");
-            if login_capture_overdue(&shared, connected, has_profile) {
+            if login_capture_overdue(&shared, reaching_redirect, has_profile) {
                 // A game can reconnect long after its original login, so this
                 // cannot diagnose a late helper. It only says that the current
                 // connection has not yet supplied the account snapshot.
@@ -481,10 +498,7 @@ fn start_watchdog(shared: Arc<Shared>) {
                 }
                 *login_pending = true;
             }
-            if !*prior && connected {
-                diagnostics::record("game", "Summoners War connected to the local redirect");
-            }
-            if *prior && !connected {
+            if *prior && !running {
                 // The game has gone: its snapshot belongs to a session that is
                 // over, so drop it rather than keep serving a stale account.
                 shared
@@ -499,10 +513,14 @@ fn start_watchdog(shared: Arc<Shared>) {
                     .expect("game start lock poisoned") = None;
                 diagnostics::record(
                     "game",
-                    "Summoners War closed — the captured snapshot was dropped, so JASWA keeps the last import it saved",
+                    if has_profile {
+                        "Summoners War closed — the captured snapshot was dropped, so JASWA keeps the last import it saved"
+                    } else {
+                        "Summoners War closed"
+                    },
                 );
             }
-            *prior = connected;
+            *prior = running;
             drop(login_pending);
             drop(prior);
             thread::sleep(WATCHDOG_INTERVAL);
@@ -510,10 +528,10 @@ fn start_watchdog(shared: Arc<Shared>) {
     });
 }
 
-/// The game counts as running while it holds a gateway connection open, or has
-/// used one within the grace window. The grace covers a brief reconnect so a
-/// dropped-and-remade connection does not read as the game closing.
-fn game_connected(shared: &Shared) -> bool {
+/// Whether the game is currently reaching the redirect: it holds a gateway
+/// connection open, or used one within the grace window. The grace covers a
+/// brief reconnect so a dropped-and-remade connection reads as one session.
+fn game_reaching_redirect(shared: &Shared) -> bool {
     if shared.open_connections.load(Ordering::Acquire) > 0 {
         return true;
     }
@@ -524,10 +542,30 @@ fn game_connected(shared: &Shared) -> bool {
         .is_some_and(|at| at.elapsed() < GAME_QUIET_GRACE)
 }
 
+/// Whether the game session is still open.
+///
+/// Live gateway traffic settles it outright. But the game talks to the gateway
+/// only when it has something to ask, and normal play — a long battle, a
+/// dungeon run, a menu — leaves it silent with no socket open for minutes.
+/// Reading that silence as the game closing dropped the account snapshot in the
+/// middle of a session, and nothing could bring it back: the login exchange
+/// that carries the account is sent once per launch, so every later reconnect
+/// arrived with no account to capture and the helper waited forever. The
+/// process list is what actually distinguishes a quiet game from a closed one,
+/// so it decides here; when it cannot be read, the connection evidence stands
+/// alone as before.
+fn game_is_running(reaching_redirect: bool, process_alive: Option<bool>) -> bool {
+    reaching_redirect || process_alive.unwrap_or(false)
+}
+
 fn mark_contact(shared: &Shared) {
     *shared.last_contact.lock().expect("contact lock poisoned") = Some(Instant::now());
 }
 
+/// Records the first gateway contact of a game session, which is also the one
+/// point where announcing the connection is meaningful: the game reopens its
+/// socket constantly during play, and a line per reconnect would read as the
+/// game restarting over and over.
 fn mark_game_start(shared: &Shared) {
     let mut started = shared
         .game_started_at
@@ -535,11 +573,15 @@ fn mark_game_start(shared: &Shared) {
         .expect("game start lock poisoned");
     if started.is_none() {
         *started = Some(Instant::now());
+        diagnostics::record("game", "Summoners War connected to the local redirect");
     }
 }
 
-fn login_capture_overdue(shared: &Shared, connected: bool, has_profile: bool) -> bool {
-    connected
+/// A connection that has been reaching the redirect past the startup window
+/// without supplying an account. Only live connection evidence counts: a quiet
+/// game that the process list says is still open has nothing to send.
+fn login_capture_overdue(shared: &Shared, reaching_redirect: bool, has_profile: bool) -> bool {
+    reaching_redirect
         && !has_profile
         && shared
             .game_started_at
@@ -1402,7 +1444,12 @@ mod tests {
     /// starts in and returns to after the game closes.
     #[test]
     fn a_game_that_never_connected_is_not_running() {
-        assert!(!game_connected(&shared_for_test()));
+        let shared = shared_for_test();
+        assert!(!game_reaching_redirect(&shared));
+        assert!(!game_is_running(
+            game_reaching_redirect(&shared),
+            Some(false)
+        ));
     }
 
     #[test]
@@ -1425,13 +1472,14 @@ mod tests {
         assert_eq!(status(&shared)["restartRequired"], false);
     }
 
-    /// An open gateway connection is the plain signal the game is running, which
-    /// replaces scanning the system's process list.
+    /// An open gateway connection is the plain signal the game is running, and
+    /// needs no scan of the system's process list.
     #[test]
     fn an_open_connection_means_the_game_is_running() {
         let shared = shared_for_test();
         shared.open_connections.fetch_add(1, Ordering::AcqRel);
-        assert!(game_connected(&shared));
+        assert!(game_reaching_redirect(&shared));
+        assert!(game_is_running(true, None));
         shared.open_connections.fetch_sub(1, Ordering::AcqRel);
     }
 
@@ -1443,17 +1491,64 @@ mod tests {
         let shared = shared_for_test();
         mark_contact(&shared);
         assert!(
-            game_connected(&shared),
+            game_reaching_redirect(&shared),
             "just-closed connection still counts"
         );
 
         if let Some(stale) = Instant::now().checked_sub(GAME_QUIET_GRACE + Duration::from_secs(5)) {
             *shared.last_contact.lock().unwrap() = Some(stale);
             assert!(
-                !game_connected(&shared),
-                "a game silent past the grace window is gone"
+                !game_reaching_redirect(&shared),
+                "a game silent past the grace window has no live connection"
             );
         }
+    }
+
+    /// The failure this guards: ordinary play goes quiet for minutes with no
+    /// gateway socket at all, and the login that carries the account is sent
+    /// once per launch. Dropping the snapshot on that silence left the helper
+    /// waiting for a login the running game would never send again.
+    #[test]
+    fn a_quiet_but_running_game_keeps_its_snapshot() {
+        let shared = shared_for_test();
+        *shared.game_running.lock().unwrap() = true;
+        let login = message(&encoded(&json!({"command": "HubUserLogin"}), false));
+        let account = message(&encoded(
+            &json!({"ret_code": 0, "unit_list": [], "runes": []}),
+            true,
+        ));
+        capture(login.as_bytes(), account.as_bytes(), &shared);
+        if let Some(stale) = Instant::now().checked_sub(GAME_QUIET_GRACE + Duration::from_secs(5)) {
+            *shared.last_contact.lock().unwrap() = Some(stale);
+        }
+
+        assert!(
+            game_is_running(game_reaching_redirect(&shared), Some(true)),
+            "the process list, not gateway silence, says whether the game closed"
+        );
+        assert!(
+            !game_is_running(game_reaching_redirect(&shared), Some(false)),
+            "a game whose process is gone has genuinely closed"
+        );
+        assert!(
+            !game_is_running(game_reaching_redirect(&shared), None),
+            "an unreadable process list falls back to the connection evidence"
+        );
+        assert!(status(&shared)["profileReady"].as_bool().unwrap());
+    }
+
+    /// A quiet game has nothing to send, so its silence must not be reported as
+    /// a login the helper is still missing.
+    #[test]
+    fn a_quiet_game_is_not_reported_as_a_pending_login() {
+        let shared = shared_for_test();
+        mark_game_start(&shared);
+        *shared.game_started_at.lock().unwrap() =
+            Instant::now().checked_sub(LOGIN_CAPTURE_GRACE + Duration::from_secs(1));
+        assert!(
+            !login_capture_overdue(&shared, false, false),
+            "no live connection means no connection to blame for a missing login"
+        );
     }
 
     #[test]
@@ -1470,6 +1565,21 @@ mod tests {
         assert!(
             login_capture_overdue(&shared, true, false),
             "only a full startup window without a snapshot asks for a restart"
+        );
+    }
+
+    /// The game reopens its gateway socket constantly during play. One line per
+    /// reconnect read as the game restarting over and over.
+    #[test]
+    fn the_redirect_connection_is_announced_once_per_session() {
+        let shared = shared_for_test();
+        mark_game_start(&shared);
+        let first = *shared.game_started_at.lock().unwrap();
+        mark_game_start(&shared);
+        assert_eq!(
+            first,
+            *shared.game_started_at.lock().unwrap(),
+            "a reconnect joins the session already under way"
         );
     }
 }

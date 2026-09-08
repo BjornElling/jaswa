@@ -63,10 +63,13 @@ pub fn is_administrator() -> bool {
     unsafe { IsUserAnAdmin() != 0 }
 }
 
-/// This is deliberately an observation made only while the helper starts.
-/// Watching the process list continuously would blur "the game was already
-/// open" with a normal game launch after the redirect is ready, and used to
-/// make the restart advice appear at exactly the wrong time.
+/// Answers whether the game is open right now.
+///
+/// The helper reads this at startup, where it is the only way to know the game
+/// predated the redirect, and afterwards to tell a quiet game from a closed
+/// one. Those two must stay separate: "the game was already open" is a single
+/// observation taken before the redirect exists, and is recorded once — this
+/// answer on its own never revives that restart advice.
 pub fn summoners_war_is_running() -> Result<bool, String> {
     let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
     if snapshot == -1isize as HANDLE {
