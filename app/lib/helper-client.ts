@@ -53,7 +53,7 @@ export async function checkHelperConnection(): Promise<HelperConnection> {
     const version = typeof value.version === 'string' ? value.version : null;
     const updateAvailable = helperUpdateAvailable(version);
     /* Returned, not thrown: the catch below is for a helper that could not be
-       reached at all, and its "the ambush spot is empty" reading is wrong for a
+       reached at all, and its "helper is not running" reading is wrong for a
        helper that answered with a status JASWA cannot read. */
     if (typeof value.profileReady !== 'boolean' || (value.lastError !== null && typeof value.lastError !== 'string')) return { state: 'unavailable', detail: 'The helper goblin said something, but not in any known language. Open the helper and save an error report.', version, updateAvailable, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, instanceId: '', revision: 0, sessionId: 0 };
     if (typeof value.lastError === 'string' && value.lastError) return { state: 'unavailable', detail: value.lastError, version, updateAvailable, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, instanceId: value.instanceId, revision: value.revision, sessionId: value.sessionId };
@@ -70,7 +70,7 @@ export async function checkHelperConnection(): Promise<HelperConnection> {
        "TypeError: Failed to fetch" tells nobody that the fix is to start the
        helper. */
     const reason = error instanceof Error ? error.message : String(error);
-    return { state: 'unavailable', detail: `The ambush spot is empty — the helper goblin has not started its shift, or cannot be reached. Launch the helper and JASWA will keep watching. (${reason})`, version: null, updateAvailable: false, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, instanceId: '', revision: 0, sessionId: 0 };
+    return { state: 'unavailable', detail: `Helper is not running. We wants it, we needs it. Must have the precious! (${reason})`, version: null, updateAvailable: false, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, instanceId: '', revision: 0, sessionId: 0 };
   }
 }
 
