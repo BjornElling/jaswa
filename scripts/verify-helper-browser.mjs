@@ -9,6 +9,7 @@ import { chromium } from 'playwright';
    more copy to bump, and the copy nobody remembers — it would fail the next
    release for no reason other than its own staleness. */
 const recommended = (await readFile('app/lib/helper-version.ts', 'utf8')).match(/recommendedHelperVersion = '(\d+\.\d+\.\d+)'/)[1];
+const installerName = `JASWA-Helper-Setup-${recommended}.exe`;
 /* A helper older than any release, so the update box must appear for it
    whatever the current version is, and then disappear once the helper reports
    the recommended one. */
@@ -43,6 +44,9 @@ try {
   });
   await page.goto(origin, { waitUntil: 'networkidle' });
   await page.locator('input[name="import-route"][value="direct"]').check();
+  const downloadLink = page.getByRole('link', { name: 'Download helper' });
+  assert.equal(await downloadLink.getAttribute('href'), `/${installerName}`);
+  assert.equal(await downloadLink.getAttribute('download'), installerName);
   await page.getByText('Helper is tired, boss').first().waitFor();
   await page.getByText(`Version ${recommended} is now available.`).first().waitFor();
   await page.getByText(/invalid snapshot envelope/).first().waitFor({ timeout: 20000 });

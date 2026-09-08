@@ -163,7 +163,7 @@ The packager finds the x64 `signtool.exe` from an installed Windows SDK. Set
 
 The command asks Tauri to sign the helper executable, uninstaller and generated
 installer, verifies the installer, then writes it to
-`public/JASWA-Helper-Setup.exe`. Never distribute a manually built, unsigned
+`public/JASWA-Helper-Setup-<version>.exe`. Never distribute a manually built, unsigned
 installer. A new signed release must also be scanned by Microsoft Defender and
 submitted to Microsoft as a false positive if Defender blocks it.
 
@@ -175,8 +175,9 @@ restart at the same revision in live mode. The fixture is never uploaded.
 
 ## Failure handling and private reports
 
-A decode failure pauses live import. An unrelated successful command cannot
-repair a missing update: only a complete new login releases that capture gap.
+An unreadable account-login response pauses live import. Auxiliary gateway
+traffic, such as chat-service discovery, cannot invalidate a captured account.
+An unrelated successful command cannot repair a missing update: only a complete new login releases that capture gap.
 An invalid login discards the previous account. Infrastructure failures remain
 visible until the helper restarts. `/health` exposes the reason and `/profile`
 refuses a snapshot that is not ready. JASWA keeps its last good saved import.

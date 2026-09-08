@@ -43,12 +43,14 @@ function versionFromApp(source) {
   return match[1];
 }
 
-const [cargo, tauri, packageJson, lock, app] = await Promise.all([
+const [cargo, tauri, packageJson, lock, app, home, packager] = await Promise.all([
   readFile(path.join(repositoryRoot, 'helper/src-tauri/Cargo.toml'), 'utf8'),
   readFile(path.join(repositoryRoot, 'helper/src-tauri/tauri.conf.json'), 'utf8').then(JSON.parse),
   readFile(path.join(repositoryRoot, 'helper/package.json'), 'utf8').then(JSON.parse),
   readFile(path.join(repositoryRoot, 'helper/package-lock.json'), 'utf8').then(JSON.parse),
   readFile(path.join(repositoryRoot, 'app/lib/helper-version.ts'), 'utf8'),
+  readFile(path.join(repositoryRoot, 'app/components/home-section.tsx'), 'utf8'),
+  readFile(path.join(repositoryRoot, 'helper/scripts/package.cjs'), 'utf8'),
 ]);
 
 /* ---------------------------------------------------------------- (3) agreement
@@ -66,6 +68,21 @@ for (const [source, version] of Object.entries(versions)) {
 }
 assert.equal(new Set(Object.values(versions)).size, 1, `Helper versions disagree: ${JSON.stringify(versions)}`);
 const version = versions.app;
+
+/* The download name is part of the release contract: a user must be able to
+identify the exact installer after the browser has saved it. The app and the
+packager derive it from the one version value rather than maintaining a sixth
+literal that can drift. */
+assert.match(
+  home,
+  /JASWA-Helper-Setup-\$\{recommendedHelperVersion\}\.exe/,
+  'The helper download link must include the recommended version',
+);
+assert.match(
+  packager,
+  /JASWA-Helper-Setup-\$\{helperVersion\}\.exe/,
+  'The packager must publish the installer under its versioned filename',
+);
 
 /* ------------------------------------------------------------- the file list
    A source file that changes the installed helper but is missing from
@@ -90,6 +107,7 @@ const notShipped = new Set([
   'helper/scripts/signing.cjs',
   'helper/scripts/verify-command-contract.mjs',
   'helper/scripts/verify-dashboard-flow.mjs',
+  'helper/scripts/verify-installer-upgrade.mjs',
 ]);
 const shouldFingerprint = tracked.filter((file) => !notShipped.has(file));
 const fingerprinted = new Set(fingerprintedFiles);
@@ -121,7 +139,7 @@ if (!manifest) {
     /* (2) The version moved, so the intent is clear — but nothing has built the
        installer the user would download, and the published .exe is still the
        old one. */
-    fail(`Helper v${version} has never been packaged: helper/release.json still records v${manifest.version}.\n  The app offers v${version} for download while public/JASWA-Helper-Setup.exe contains v${manifest.version}.\n  Run \`npm run release:helper -- --package-only\` to build, sign and record v${version} without bumping again.`);
+    fail(`Helper v${version} has never been packaged: helper/release.json still records v${manifest.version}.\n  The app offers public/JASWA-Helper-Setup-${version}.exe while the release record names v${manifest.version}.\n  Run \`npm run release:helper -- --package-only\` to build, sign and record v${version} without bumping again.`);
   } else if (manifest.version !== version) {
     /* The source matches a packaged release, but the declarations name a
        different one — a bump with no change behind it. */

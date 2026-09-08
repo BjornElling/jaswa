@@ -18,7 +18,7 @@ async function main() {
   const helperVersion = require('../package.json').version;
   const publicDirectory = path.join(__dirname, '..', '..', 'public');
   const bundleDirectory = path.join(tauriDirectory, 'target', 'release', 'bundle', 'nsis');
-  const publishedInstaller = path.join(publicDirectory, 'JASWA-Helper-Setup.exe');
+  const publishedInstaller = path.join(publicDirectory, `JASWA-Helper-Setup-${helperVersion}.exe`);
   await run(process.execPath, [require.resolve('@tauri-apps/cli/tauri.js'), 'build', '--bundles', 'nsis'], { cwd: path.join(__dirname, '..'), stdio: 'inherit' });
   const installers = (await readdir(bundleDirectory))
     .filter((file) => file.endsWith(`_${helperVersion}_x64-setup.exe`));
