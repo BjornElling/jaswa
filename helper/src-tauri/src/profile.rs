@@ -263,19 +263,11 @@ impl ProfileStore {
             .and_then(Value::as_str)
             .unwrap_or("")
             .to_ascii_lowercase();
-        let storage_list = response
-            .get("unit_storage_list")
-            .and_then(Value::as_array)
-            .or_else(|| {
-                response
-                    .get("GetUnitStorageList")
-                    .and_then(|value| value.get("unit_storage_list"))
-                    .and_then(Value::as_array)
-            });
+        let storage_list = summoned_storage_list(response);
         if (command.contains("getunitstoragelist") || command.contains("getwizarddatapart1"))
             && storage_list.is_some()
         {
-            let next = normalize(storage_list.cloned().unwrap_or_default(), "unit_master_id");
+            let next = normalize(storage_list.unwrap_or_default(), "unit_master_id");
             if collection(&profile, "unit_storage_list") != next.as_slice() {
                 set_collection(&mut profile, "unit_storage_list", next);
                 changed = true;
@@ -454,6 +446,34 @@ fn collection<'a>(profile: &'a Value, key: &str) -> &'a [Value] {
         .and_then(Value::as_array)
         .map(Vec::as_slice)
         .unwrap_or(&[])
+}
+/* The game has returned this complete list in more than one envelope over
+time. Keep the wire-shape knowledge at the helper boundary so the profile
+never depends on whichever response wrapper happened to carry it. */
+fn summoned_storage_list(response: &Value) -> Option<Vec<Value>> {
+    response
+        .get("unit_storage_list")
+        .and_then(Value::as_array)
+        .or_else(|| {
+            response
+                .get("GetUnitStorageList")
+                .and_then(|value| value.get("unit_storage_list"))
+                .and_then(Value::as_array)
+        })
+        .or_else(|| {
+            response
+                .get("GetWizardDataPart1")
+                .and_then(|value| value.get("unit_storage_list"))
+                .and_then(Value::as_array)
+        })
+        .or_else(|| {
+            response
+                .get("GetWizardDataPart1")
+                .and_then(|value| value.get("GetUnitStorageList"))
+                .and_then(|value| value.get("unit_storage_list"))
+                .and_then(Value::as_array)
+        })
+        .cloned()
 }
 fn identifier(value: &Value, key: &str) -> Option<String> {
     value.get(key).and_then(|value| match value {
@@ -1538,6 +1558,45 @@ mod tests {
             &json!({"command": "MoveStorageFromTo", "from": 3, "to": 1, "unit_id_list": [{"unit_id": 1}]})
         ));
         assert_eq!(store.read().unwrap().data["unit_list"][0]["building_id"], 0);
+    }
+
+    #[test]
+    fn captures_summoned_shrine_records_from_the_game_response_envelope() {
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({
+            "wizard_id": 7,
+            "unit_list": [{"unit_id": 1, "wizard_id": 7}],
+            "runes": []
+        })));
+        assert!(store.apply_update(
+            &json!({
+                "ret_code": 0,
+                "GetUnitStorageList": {
+                    "unit_storage_list": [
+                        {"unit_master_id": 10101, "quantity": 8, "class": 3},
+                        {"unit_master_id": 10102, "quantity": 12, "class": 3}
+                    ]
+                }
+            }
+            ),
+            &json!({"command": "GetWizardDataPart1"})
+        ));
+        let storage = &store.read().unwrap().data["unit_storage_list"];
+        assert_eq!(storage.as_array().unwrap().len(), 2);
+        assert_eq!(storage[0]["quantity"], 8);
+        assert_eq!(storage[1]["quantity"], 12);
+        assert_eq!(
+            summoned_storage_list(&json!({
+                "GetWizardDataPart1": {
+                    "GetUnitStorageList": {
+                        "unit_storage_list": [{"unit_master_id": 10103}]
+                    }
+                }
+            }))
+            .unwrap()
+            .len(),
+            1
+        );
     }
 
     #[test]

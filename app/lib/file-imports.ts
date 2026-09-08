@@ -240,7 +240,7 @@ function isValidStorageRecord(record: GameRecord): boolean {
     && Number.isSafeInteger(quantity)
     && quantity > 0;
   const validGrade = record.class === undefined
-    || (typeof record.class === 'number' && Number.isSafeInteger(record.class) && record.class >= 1 && record.class <= 5);
+    || (typeof record.class === 'number' && Number.isSafeInteger(record.class) && record.class >= 1 && record.class <= 6);
   return validMasterId && validQuantity && validGrade;
 }
 
