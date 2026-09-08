@@ -24,9 +24,25 @@ The number lives in six places: `package.json` (+ `package-lock.json`),
 app's `app/lib/helper-version.ts`. Do not edit them by hand:
 
 ```
-npm run bump:helper            # patch by default; also minor, major, or x.y.z
-cd helper && npm run package   # build, sign, publish, and record the release
+npm run release:helper         # bump, build, sign, publish and record — one step
 ```
+
+Raising the version and building the installer are halves of the same act, and
+splitting them across two commands reliably produced the second failure in the
+table below: five declarations naming a release that was never built, with the
+app offering a download that is still the previous one. `release:helper` does
+both from the repository root, then runs the verifier as its own definition of
+done. It refuses to start when the source is unchanged, so a bump with nothing
+behind it fails before the Rust build rather than after it.
+
+Pass `-- --package-only` when the bump has already happened and only the
+installer is missing, and `-- minor`, `-- major` or `-- x.y.z` to raise
+something other than the patch digit. The two halves are still available on
+their own as `npm run bump:helper` and, in `helper/`, `npm run package`.
+
+Packaging is not automatic on commit or on test: it runs a release Rust build
+and touches the Authenticode key, which is neither something to do on every
+save nor something to do without meaning to.
 
 `helper/release.json` is what makes the version honest. Packaging writes the
 version it shipped, a SHA-256 fingerprint of the helper's source, and the

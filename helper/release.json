@@ -2,8 +2,8 @@
   "version": "1.0.3",
   "fingerprint": "13b5ace8c3cd32bfa5f85ef1361bc8b930e7e07566aacf1036fd301dffd6a21b",
   "installer": {
-    "bytes": 1904368,
-    "sha256": "96224060c018f190af0ac6803e04d00459ed2e6b3ada406f19095186c8ca9e54"
+    "bytes": 1904696,
+    "sha256": "9c55993e49eaad095a52528cf7142895393a50d77fc65edaafba0037a5609504"
   },
-  "packagedAt": "2026-09-08T16:55:40.638Z"
+  "packagedAt": "2026-09-08T16:58:30.003Z"
 }

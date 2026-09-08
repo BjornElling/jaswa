@@ -107,7 +107,7 @@ const current = await fingerprint();
 const manifest = await readManifest();
 
 if (!manifest) {
-  fail('helper/release.json is missing, so nothing records which helper the published installer contains.\n  Run `npm run package` in helper/ to build and record a release.');
+  fail('helper/release.json is missing, so nothing records which helper the published installer contains.\n  Run `npm run release:helper -- --package-only` to build and record a release.');
 } else {
   assert.match(String(manifest.version ?? ''), /^\d+\.\d+\.\d+$/, 'helper/release.json must record a semantic version');
   assert.ok(typeof manifest.fingerprint === 'string' && /^[a-f0-9]{64}$/.test(manifest.fingerprint), 'helper/release.json must record a sha256 fingerprint');
@@ -116,12 +116,12 @@ if (!manifest) {
   if (changed && manifest.version === version) {
     /* (1) The failure that started this: the helper was edited and the number
        stayed put, so the app cannot tell the user anything has changed. */
-    fail(`The helper's source has changed since v${version} was packaged, but the version is unchanged.\n  recorded fingerprint ${manifest.fingerprint}\n  current fingerprint  ${current}\n  Every change to the helper needs a new version. Run \`npm run bump:helper\` to raise all five declarations, then \`npm run package\` in helper/ to build and record the installer.`);
+    fail(`The helper's source has changed since v${version} was packaged, but the version is unchanged.\n  recorded fingerprint ${manifest.fingerprint}\n  current fingerprint  ${current}\n  Every change to the helper needs a new version. Run \`npm run release:helper\` to raise all five declarations, then build, sign and record the installer.`);
   } else if (changed) {
     /* (2) The version moved, so the intent is clear — but nothing has built the
        installer the user would download, and the published .exe is still the
        old one. */
-    fail(`Helper v${version} has never been packaged: helper/release.json still records v${manifest.version}.\n  The app offers v${version} for download while public/JASWA-Helper-Setup.exe contains v${manifest.version}.\n  Run \`npm run package\` in helper/ to build, sign and record v${version}.`);
+    fail(`Helper v${version} has never been packaged: helper/release.json still records v${manifest.version}.\n  The app offers v${version} for download while public/JASWA-Helper-Setup.exe contains v${manifest.version}.\n  Run \`npm run release:helper -- --package-only\` to build, sign and record v${version} without bumping again.`);
   } else if (manifest.version !== version) {
     /* The source matches a packaged release, but the declarations name a
        different one — a bump with no change behind it. */
