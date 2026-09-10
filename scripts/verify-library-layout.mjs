@@ -11,14 +11,19 @@ function nearlyEqual(left, right, allowance = 1) {
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 2000, height: 900 }, deviceScaleFactor: 1 });
 
+/* Scoped to the rail rather than the whole page: a sortable column heading is
+   a button too, and the Stats table has one named "Artifacts", so an unscoped
+   lookup for the Artifacts page matched both. */
+const railButton = (name) => page.getByRole('navigation').getByRole('button', { name, exact: true });
+
 try {
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
 
   for (const pageName of ['Monsters', 'Artifacts']) {
-    await page.getByRole('button', { name: pageName, exact: true }).click();
+    await railButton(pageName).click();
     await page.getByRole('heading', { name: pageName, exact: true }).waitFor();
     if (pageName === 'Monsters') {
-      const roster = page.locator('summary').filter({ hasText: 'Monster roster' });
+      const roster = page.locator('summary').filter({ hasText: 'Stats' });
       if (!(await roster.locator('..').getAttribute('open'))) await roster.click();
       await assert.doesNotReject(() => page.getByText('Nothing to show until a game file is imported.').waitFor());
     } else {
@@ -35,7 +40,7 @@ try {
   for (const width of [2000, 1400, 1100]) {
     await page.setViewportSize({ width, height: 900 });
     for (const [pageName, toggleName] of [['Monsters', 'Storage'], ['Artifacts', 'Equipped']]) {
-      await page.getByRole('button', { name: pageName, exact: true }).click();
+      await railButton(pageName).click();
       const tablePage = page.locator('.data-table-page').first();
       await tablePage.waitFor();
       await page.evaluate(() => window.scrollTo(0, 0));
@@ -132,7 +137,7 @@ try {
     }
   }
 
-  await page.getByRole('button', { name: 'Artifact Optimization', exact: true }).click();
+  await railButton('Artifact Optimization').click();
   await page.getByText('Settings', { exact: true }).click();
   await assert.doesNotReject(() => page.locator('#conversion-stone-value').waitFor());
 

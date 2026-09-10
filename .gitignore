@@ -28,7 +28,9 @@
 /coverage
 /test-results/
 
-# next.js
+# Build output from the bundler, and the caches JASWA's own Next.js era left
+# behind. The app builds with Vite (`npm run build` → /dist/); these stay
+# ignored so a stale cache from that era, or a stray `out/`, cannot be committed.
 /.next/
 /.next-verify/
 /.vinext/

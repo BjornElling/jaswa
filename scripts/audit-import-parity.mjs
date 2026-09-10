@@ -10,6 +10,11 @@
  *
  * Usage: node scripts/audit-import-parity.mjs [path-to-traffic.log]
  * Defaults to the helper's own log location on this platform.
+ *
+ * The capture is personal and no checkout carries one, so with no log to read
+ * this reports a skip and exits zero rather than a parity failure it never
+ * measured — §0.1's shortfalls must be impossible to miss, and a check that is
+ * red on every machine but one is a check nobody reads.
  */
 import { createReadStream } from 'node:fs';
 import { createInterface } from 'node:readline';
@@ -25,9 +30,31 @@ function defaultTrafficLogPath() {
   return path.join(os.homedir(), '.jaswa-helper', 'traffic.log');
 }
 
-/** The last full-account snapshot in the log: the most recent truth about the account. */
+/**
+ * The last full-account snapshot in the log: the most recent truth about the
+ * account.
+ *
+ * An absent log is a normal state, not a crash: this audit reads a personal
+ * traffic capture that only exists on a machine where the helper has run, and
+ * a checkout without one used to end in an ENOENT stack trace that read as a
+ * broken script rather than as a missing input. `undefined` here reaches the
+ * caller's own "no snapshot" message, which says what to do about it.
+ */
 async function readLatestSnapshot(logPath) {
-  const stream = createInterface({ input: createReadStream(logPath), crlfDelay: Infinity });
+  const input = createReadStream(logPath);
+  /* Attached before the first read, because the open error arrives on the
+     stream rather than from `createInterface`, and an unhandled 'error' on a
+     stream is what produced the stack trace. */
+  const opened = new Promise((resolve, reject) => {
+    input.once('error', reject);
+    input.once('open', resolve);
+  });
+  try {
+    await opened;
+  } catch {
+    return undefined;
+  }
+  const stream = createInterface({ input, crlfDelay: Infinity });
   let snapshot;
   let latestStorageList;
   for await (const line of stream) {
@@ -114,6 +141,9 @@ function storageAmount(records) {
 
 const server = await createServer({ configFile: false, appType: 'custom', server: { middlewareMode: true, hmr: false } });
 let failures = 0;
+/* Set when there is no capture to read, so the audit reports a skip and exits
+   zero rather than a shortfall it never actually measured. */
+let skipped = false;
 function report(ok, message) {
   if (!ok) failures += 1;
   console.log(`${ok ? '  ok  ' : ' FAIL '} ${message}`);
@@ -123,9 +153,23 @@ try {
   const logPath = process.argv[2] ?? defaultTrafficLogPath();
   const snapshot = await readLatestSnapshot(logPath);
   if (!snapshot) {
-    console.error(`No HubUserLogin/GuestLogin snapshot found in ${logPath}`);
-    process.exit(1);
+    /* Says which of the two it is, because the remedies differ: a log that is
+       not there has to be captured, while a log with no login response in it
+       means the game was never re-entered while the helper watched.
+
+       Reported as a skip rather than a parity failure. This audit needs a
+       personal capture that no checkout carries, so treating its absence as a
+       red check would make the suite permanently red on any machine but one —
+       and §0.1's point is that a *real* shortfall must be impossible to miss,
+       which a routinely-failing check defeats. It ends with a message and a
+       zero exit; `finally` still closes the Vite server below. */
+    console.error(`No account snapshot to audit.\n`
+      + `  looked in ${logPath}\n`
+      + `  Pass a log explicitly with \`node scripts/audit-import-parity.mjs <path-to-traffic.log>\`,\n`
+      + `  or run the helper, enter the game once so it captures a login, and try again.`);
+    skipped = true;
   }
+  if (!skipped) {
   console.log(`Snapshot from ${logPath}\n`);
 
   const { readArtifact } = await server.ssrLoadModule('/app/lib/artifacts.ts');
@@ -302,6 +346,7 @@ try {
   console.log(`\nRelics after import merge: ${relicRecords.length}`);
 
   console.log(`\n${failures === 0 ? 'Import parity holds.' : `${failures} parity failure(s).`}`);
+  }
 } finally {
   await server.close();
 }

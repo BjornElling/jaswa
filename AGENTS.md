@@ -72,6 +72,14 @@ account against what the readers accept, entity by entity, and reports the
 field behind every shortfall. Run it after any change to a reader, a
 vocabulary table, or an eligibility rule.
 
+It needs a traffic log the helper captured, which is personal data that no
+checkout carries. Without one it says so and exits zero — a skip, not a pass:
+it has measured nothing. A log elsewhere can be named directly
+(`node scripts/audit-import-parity.mjs <path>`), and a plain account export
+works as a one-line stand-in — a single `{"command":"HubUserLogin","response":
+<the export>}` is the shape it reads. When a reader changed and no capture was
+available, say the audit was skipped rather than reporting parity as holding.
+
 ---
 
 ## 1. Source control
@@ -316,18 +324,49 @@ Before reporting a change complete, all of these hold:
 
 1. `npx tsc --noEmit` is clean.
 2. `npm run lint` is clean — no new warnings, not just no errors.
-3. `npx next build` succeeds.
-4. For a visual or interactive change, the app was **run** and the changed flow
+3. `npm run build` succeeds. **This is a Vite application**; `next` is not a
+   dependency and `npx next build` cannot work. Anything still describing this
+   as a Next.js app is a remnant to correct, not an instruction to follow.
+4. `npm run test:e2e` passes. The Playwright suite is the only check that holds
+   the interface's own contracts — sorting, filters, session state, the search
+   scope — so a change to a component is not done until it has run.
+5. For a visual or interactive change, the app was **run** and the changed flow
    driven, including the empty case and the full case from rule 3. For a
    non-visual change, the relevant automated or structural check was run.
-5. For a layout or interaction change, layout was checked against rule 2 by
+6. For a layout or interaction change, layout was checked against rule 2 by
    interacting and comparing.
-6. Every added string, comment, and identifier was reviewed against the
+7. Every added string, comment, and identifier was reviewed against the
    language contract.
-7. After a change to monster naming, the catalogue, or the collaboration species
+8. After a change to monster naming, the catalogue, or the collaboration species
    table, `npm run verify:element-qualified-names` passes.
-8. After a statistics capture or a change to the collector,
+9. After a statistics capture or a change to the collector,
    `npm run verify:statistics-tiers` passes.
-9. The work is committed to `main`.
+10. After a change under `helper/`, the helper is **released**, not merely
+    edited: `npm run verify:helper-version` fails until the version is raised
+    and an installer is built and recorded (`npm run release:helper`). The app
+    tells every user which helper is newest, so an unreleased change leaves
+    that statement false. Packaging needs the Rust toolchain and
+    `JASWA_SIGNING_THUMBPRINT`; if neither is at hand, say the helper is
+    unreleased rather than reporting the change complete.
+11. **Renaming a user-visible label is a repository-wide rename.** The
+    Playwright suite, the `scripts/verify-*.mjs` checks and `docs/` all address
+    the interface by its accessible names, and a check under `scripts/` is not
+    run by `npm test`, so a missed one stays silent until someone runs it. Grep
+    the whole repository for the old string — every one of `tests/`, `scripts/`
+    and `docs/` — before reporting the rename done.
+12. The work is committed to `main`.
+
+Two caveats worth knowing before trusting a green run:
+
+- **`npm test` stops at the first failure.** It is one `&&` chain, so a failure
+  early on hides every check behind it. When something fails, fix it and run the
+  chain again rather than reading a truncated pass as a pass.
+- **`npm test` does not run every check that exists.** `verify:library-layout`,
+  `verify:recommendation-filters` and `verify:artifact-obtained-order` are
+  deliberately outside it — they drive a real browser against a real imported
+  account on `http://localhost:3000/`, which needs a running server and a local
+  export. Run the relevant one by hand after a change to the surface it covers;
+  `verify:library-layout` in particular is what holds the account tables'
+  shared measure and their freedom from horizontal overflow.
 
 Report faithfully. If a step was skipped or a check failed, say which and why.
