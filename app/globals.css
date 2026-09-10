@@ -848,16 +848,27 @@ button { cursor: pointer; }
 .workspace-page-content { min-width: 0; }
 
 /* The header's box reaches the same width as the content below. Its text
-   reserves the status card's corner, while the rule and wash stay whole. */
+   reserves the status card's corner, while the wash and the crown stay
+   whole. */
 .workspace-page .page-header,
 .workspace-page .hero {
   margin: 0 0 var(--s6);
   padding: var(--s5) min(40%, calc(var(--badge-width) + var(--s4))) var(--s5) var(--s5);
 }
+/* The band before the first panel belongs to the header's box here — see
+   --page-header-skirt — so the box reaches the panel and the crown can be cut
+   off against it. */
+.workspace-page .page-header {
+  margin-bottom: 0;
+  padding-bottom: calc(var(--s5) + var(--page-header-skirt));
+}
+/* The wash and the title stay on the height the header actually reads as,
+   rather than stretching into the skirt below it. */
 .workspace-page .page-header::before {
   left: 0;
   right: 0;
   top: 0;
+  bottom: var(--page-header-skirt);
 }
 .workspace-page .hero {
   min-height: 352px;
@@ -2340,13 +2351,40 @@ button { cursor: pointer; }
   position: relative;
   margin: 0 0 var(--s6);
   padding: var(--s2) var(--s5) 0;
-  border-bottom: 1px solid var(--line-strong);
 }
 
-/* --line-strong on the shared rule above rather than --line: it closes the
-   whole header and has to read as a division, not as the hairlines between
-   table rows. */
-.page-header { padding-bottom: var(--s5); }
+/* The header stands on its own height rather than on a closing rule. A
+   hairline under it repeated the very device the tables below use between
+   rows, so on the page it opened it read as one more row division instead of
+   as the end of the title. Height, the wash, and the crown do that work now,
+   and the first panel below starts against clear ground. */
+.page-header {
+  /* Half again the depth the title and tagline occupy on their own, so the
+     name of a section opens the page the way the home hero opens the app —
+     at a smaller scale, since this is a section and not the app itself. It is
+     a named number because the crown solves its own size from it: change this
+     and the mark is re-cropped to suit, which is the point. */
+  --page-header-height: 168px;
+  /* The clear band between the title and the first panel. It is padding
+     inside the header rather than the margin below it so the crown, which the
+     header clips, has that ground to fade out over instead of being cut at
+     the title's own lower edge with a strip of empty page beneath it. The gap
+     on the page is unchanged — it moved from outside the box to inside it. */
+  --page-header-skirt: var(--s6);
+  padding-bottom: var(--s5);
+  /* --page-header-height is the height the header reads as; the skirt is
+     clear ground below that, so the box has to hold both. */
+  min-height: calc(var(--page-header-height) + var(--page-header-skirt));
+  display: flex;
+  flex-direction: column;
+  /* The skirt is part of padding-bottom, so centring inside the content box
+     centres the title on the header's own height and leaves the skirt as
+     clear ground beneath it. */
+  justify-content: center;
+  /* the crown bleeds past the header's box; clip rather than let it open a
+     scrollbar or spill onto the panels below */
+  overflow: clip;
+}
 .page-header .eyebrow { margin-bottom: var(--s3); }
 /* the wash sits behind the text but inside the header's own stacking
    context, so it never slips underneath the page background */
@@ -2359,6 +2397,79 @@ button { cursor: pointer; }
   top: calc(var(--s6) * -1);
   bottom: 0;
   background: radial-gradient(52% 120% at 4% 24%, rgba(217, 173, 82, .11), transparent 66%);
+  pointer-events: none;
+}
+
+/* The crown: the top of the app's mark in the header's right side, fading out
+   below so only its upper points read. The home page spells the mark out in
+   full behind its name; a section header gets this much of it — enough to be
+   recognised, not a second copy.
+
+   Placed by absolute lengths rather than percentages of the header, because
+   what has to be exact is where features of the artwork fall relative to the
+   header's edges and to the status card, and a percentage of a box whose
+   height depends on its own contents cannot promise that.
+
+   Vertically, --crown-size is the mark's own scale and --crown-apex is how
+   far below the header's top edge its point lands; the box offset follows,
+   since in this viewBox the apex sits 4.8% down the mark's own square. The
+   size is stated rather than solved from the header's depth: at the scale
+   that made the star span the full way down to the content it was simply too
+   big for a section title to carry, and once the ending is a fade rather than
+   a cut, nothing requires it to reach that far.
+
+   The apex is set low in the header, not tucked just under its top edge. It
+   has to sit far enough down that the mark's fading tail reaches the first
+   panel — see the mask below — and the ceiling on it is the status card,
+   whose lower edge the point must stay clear of. The value is the compromise
+   between the two, and both of them, not the header's top edge, are what
+   constrain it.
+
+   What ends the mark is that fade, not the clip. A hard edge has to land on
+   something — a full-width panel cuts it cleanly, but a workspace whose first
+   element is a narrow card leaves it against bare ground, hanging in mid-air.
+   Fading out works against either, and it is the device the header's own wash
+   already uses: this is ground, and ground has no edge. The stops are given
+   as shares of the box, so the fade always covers the same part of the mark
+   and scales with it.
+
+   Horizontally the status card decides everything. It holds the top-right
+   corner on every one of these pages, and centring the mark under it hid the
+   apex completely — leaving two cropped shoulders that read as the anonymous
+   blocks favicon.svg warns a cut stone becomes. So the axis is set by the
+   corner the card reserves and then pushed back toward it by --crown-tuck:
+   far enough right that the mark belongs to the corner rather than floating
+   in the middle of the header, but not so far that the card's lower edge
+   crosses the point. The right-hand shoulder does pass behind the card, which
+   is opaque and simply covers it. */
+.page-crown {
+  --crown-size: 268px;
+  --crown-apex: 54px;
+  --crown-tuck: 150px;
+  position: absolute;
+  z-index: 0;
+  top: calc(var(--crown-apex) - .048 * var(--crown-size));
+  height: var(--crown-size);
+  width: auto;
+  /* Measured from the same reserve the header's text keeps for the card, so
+     the two move together instead of the mark drifting under it at some
+     widths. */
+  right: calc(min(40%, var(--badge-width) + var(--s4)) - var(--crown-size) / 2 - var(--crown-tuck));
+  color: var(--gold);
+  /* Fainter than the hero's rune: there the mark is the subject of the page,
+     here it is the quietest thing in the corner and the title has to stay the
+     brightest gold on screen. */
+  opacity: .12;
+  /* Solid across the crown, gone by the waist: the top stone and the upper
+     reach of its shoulders keep their weight, and the mark dissolves before
+     the three lower stones would have started to read as a whole star.
+
+     The span is set so the first panel's top edge falls inside it rather than
+     below it. With the fade finishing clear of the panel the mark ended in
+     mid-air above it again — the same fault as a hard cut, just softer. Cut
+     through while it is still dissolving, the edge reads as passing in front
+     of something that continues behind it. */
+  mask-image: linear-gradient(180deg, #000 42%, transparent 72%);
   pointer-events: none;
 }
 .page-title {
@@ -2395,9 +2506,13 @@ button { cursor: pointer; }
 /* The home page's own header. It replaces the shared .page-header here
    because this one page introduces the app rather than a section: the name
    is spelled out in full, stepped to the right, with the rune behind it. */
-/* Position, margin, top padding and the closing rule all come from the rule
-   it shares with .page-header. Only the depth below the name and the clip
-   are its own. */
+/* Position, margin and top padding come from the rule it shares with
+   .page-header. Only the depth below the name and the clip are its own. */
+/* No closing rule here either. The hairline was the last of the device the
+   section headers dropped, and on the one page that is a title screen it was
+   the most out of place: the name, the quote and the rune already fill the
+   opening, and a line under them only put a lid on it. The panels below start
+   on clear ground, as they do on every other page. */
 .hero {
   padding-bottom: var(--s6);
   /* the rune bleeds past the gutter; clip rather than open a scrollbar */
