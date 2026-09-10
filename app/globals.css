@@ -816,9 +816,10 @@ button { cursor: pointer; }
   font-family: var(--sans);
 }
 
-/* Artifacts and relics are equipment alongside the rune sheet. The reserved
-   inset separates that compact pair without drawing a hard rule through the
-   table or changing its measured columns. */
+/* Artifacts and relics are equipment alongside the rune sheet, and now sit
+   directly after it. The reserved inset separates that compact pair from the
+   sets without drawing a hard rule through the table or changing its measured
+   columns. */
 .monster-grid .equipment-start { padding-left: var(--s5); }
 .monster-grid .equipment-types { white-space: nowrap; }
 

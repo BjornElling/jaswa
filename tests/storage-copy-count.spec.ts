@@ -15,10 +15,10 @@ test('counts separate entries of one monster as copies of it', async ({ page }) 
   await page.getByRole('button', { name: 'Home', exact: true }).click();
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(duplicateCopies);
   await page.getByRole('button', { name: 'Monsters', exact: true }).click();
-  await page.locator('summary').filter({ hasText: 'Storage' }).click();
+  await page.locator('summary').filter({ hasText: 'Numbers' }).click();
 
   const summary = page.locator('.storage-filter-strip .filter-summary');
-  const storage = page.getByRole('table', { name: 'Monsters in Storage' });
+  const storage = page.getByRole('table', { name: 'Monster numbers' });
   /* Four shrine entries, plus the copy on the active roster the Inventory
      location now lists. */
   await expect(summary).toContainText('5 of 5 shown');
@@ -41,5 +41,5 @@ test('counts separate entries of one monster as copies of it', async ({ page }) 
 
   await page.getByRole('slider', { name: 'Minimum monster quantity' }).press('ArrowRight');
   await expect(summary).toContainText('0 of 5 shown');
-  await expect(page.getByText('No Storage monsters match these filters. Clear a filter to see more.')).toBeVisible();
+  await expect(page.getByText('No monsters match these filters. Clear a filter to see more.')).toBeVisible();
 });

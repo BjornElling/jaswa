@@ -17,11 +17,11 @@ test('keeps navigation, disclosures, and table filters in the current tab only',
   await expect(page.getByText('synthetic-account.json')).toBeVisible();
 
   await page.getByRole('navigation').getByRole('button', { name: 'Monsters', exact: true }).click();
-  await page.locator('summary').filter({ hasText: 'Monster roster' }).click();
+  await page.locator('summary').filter({ hasText: 'Stats' }).click();
   await expect(page.getByRole('heading', { name: 'Monsters', exact: true })).toBeVisible();
   await page.getByRole('textbox', { name: 'Filter monsters by name or set' }).fill('water');
-  await page.locator('summary').filter({ hasText: 'Storage' }).click();
-  await page.getByRole('textbox', { name: 'Filter Storage monsters by name' }).fill('fairy');
+  await page.locator('summary').filter({ hasText: 'Numbers' }).click();
+  await page.getByRole('textbox', { name: 'Filter Numbers monsters by name' }).fill('fairy');
   await page.getByRole('navigation').getByRole('button', { name: 'Artifacts', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Artifacts', exact: true })).toBeVisible();
   await page.getByRole('textbox', { name: 'Filter artifacts by monster or property' }).fill('hp');
@@ -29,12 +29,12 @@ test('keeps navigation, disclosures, and table filters in the current tab only',
 
   await expect.poll(() => page.evaluate(() => ({
     localPage: window.localStorage.getItem('jaswa.navigation.page'),
-    localDisclosure: window.localStorage.getItem('jaswa.disclosures.monsters.roster'),
+    localDisclosure: window.localStorage.getItem('jaswa.disclosures.monsters.stats'),
     localFilters: window.localStorage.getItem('jaswa.filters.monsters'),
     localStorageFilters: window.localStorage.getItem('jaswa.filters.monster-storage'),
     localArtifactFilters: window.localStorage.getItem('jaswa.filters.artifacts'),
     sessionPage: window.sessionStorage.getItem('jaswa.navigation.page'),
-    sessionDisclosure: window.sessionStorage.getItem('jaswa.disclosures.monsters.roster'),
+    sessionDisclosure: window.sessionStorage.getItem('jaswa.disclosures.monsters.stats'),
     sessionFilters: window.sessionStorage.getItem('jaswa.filters.monsters'),
     sessionStorageFilters: window.sessionStorage.getItem('jaswa.filters.monster-storage'),
     sessionArtifactFilters: window.sessionStorage.getItem('jaswa.filters.artifacts'),
@@ -63,9 +63,9 @@ test('keeps navigation, disclosures, and table filters in the current tab only',
 
   await page.getByRole('navigation').getByRole('button', { name: 'Monsters', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Monsters', exact: true })).toBeVisible();
-  await expect(page.locator('summary').filter({ hasText: 'Monster roster' }).locator('..')).toHaveAttribute('open', '');
+  await expect(page.locator('summary').filter({ hasText: 'Stats' }).locator('..')).toHaveAttribute('open', '');
   await expect(page.getByRole('textbox', { name: 'Filter monsters by name or set' })).toHaveValue('water');
-  await expect(page.getByRole('textbox', { name: 'Filter Storage monsters by name' })).toHaveValue('fairy');
+  await expect(page.getByRole('textbox', { name: 'Filter Numbers monsters by name' })).toHaveValue('fairy');
 
   const newTab = await page.context().newPage();
   try {
@@ -77,10 +77,10 @@ test('keeps navigation, disclosures, and table filters in the current tab only',
     await newTab.getByRole('navigation').getByRole('button', { name: 'Monsters', exact: true }).click();
     await expect(newTab.getByRole('heading', { name: 'Monsters', exact: true })).toBeVisible();
     await expect(newTab.locator('details[open]')).toHaveCount(0);
-    await newTab.locator('summary').filter({ hasText: 'Monster roster' }).click();
+    await newTab.locator('summary').filter({ hasText: 'Stats' }).click();
     await expect(newTab.getByRole('textbox', { name: 'Filter monsters by name or set' })).toHaveValue('');
-    await newTab.locator('summary').filter({ hasText: 'Storage' }).click();
-    await expect(newTab.getByRole('textbox', { name: 'Filter Storage monsters by name' })).toHaveValue('');
+    await newTab.locator('summary').filter({ hasText: 'Numbers' }).click();
+    await expect(newTab.getByRole('textbox', { name: 'Filter Numbers monsters by name' })).toHaveValue('');
     await newTab.getByRole('navigation').getByRole('button', { name: 'Artifacts', exact: true }).click();
     await expect(newTab.getByRole('heading', { name: 'Artifacts', exact: true })).toBeVisible();
     await expect(newTab.getByRole('textbox', { name: 'Filter artifacts by monster or property' })).toHaveValue('');

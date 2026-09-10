@@ -6,8 +6,8 @@ const normalShrineAccount = fileURLToPath(new URL('./fixtures/normal-sealed-shri
 test('shows normal sealed-shrine monsters when the source is selected', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Monsters', exact: true }).click();
-  await page.locator('summary').filter({ hasText: 'Storage' }).click();
-  await expect(page.getByText('Import your game data first. Monster Storage will appear here when JASWA has an account to inspect.')).toBeVisible();
+  await page.locator('summary').filter({ hasText: 'Numbers' }).click();
+  await expect(page.getByText('Import your game data first. Your monsters will appear here when JASWA has an account to inspect.')).toBeVisible();
 
   await page.getByRole('button', { name: 'Home', exact: true }).click();
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(normalShrineAccount);

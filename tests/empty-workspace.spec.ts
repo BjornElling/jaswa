@@ -11,7 +11,7 @@ test('opens an empty local workspace and preserves navigation layout', async ({ 
 
   await page.getByRole('button', { name: 'Monsters', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Monsters', exact: true })).toBeVisible();
-  await page.locator('summary').filter({ hasText: 'Monster roster' }).click();
+  await page.locator('summary').filter({ hasText: 'Stats' }).click();
   await expect(page.getByText('Nothing to show until a game file is imported.')).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('empty-monsters.png') });
 

@@ -15,7 +15,7 @@ test('"Needs skill-ups" hides only the max-skilled copies', async ({ page }) => 
   await page.getByRole('button', { name: 'Home', exact: true }).click();
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(selectionAccount);
   await page.getByRole('button', { name: 'Monsters', exact: true }).click();
-  await page.locator('summary').filter({ hasText: 'Storage' }).click();
+  await page.locator('summary').filter({ hasText: 'Numbers' }).click();
 
   const summary = page.locator('.storage-filter-strip .filter-summary');
   const storage = page.locator('.storage-grid tbody');

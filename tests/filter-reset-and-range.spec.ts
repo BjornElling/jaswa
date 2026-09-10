@@ -50,7 +50,7 @@ async function dragHandle(page: Page, handle: Locator, track: Locator, fraction:
 
 async function openStorage(page: Page) {
   await page.getByRole('button', { name: 'Monsters', exact: true }).click();
-  await page.locator('summary').filter({ hasText: 'Storage' }).click();
+  await page.locator('summary').filter({ hasText: 'Numbers' }).click();
 }
 
 /* The two-handle range used to strand itself: with both handles clamped
@@ -118,7 +118,7 @@ test('a level handle dragged past its partner takes the other end', async ({ pag
 test('Reset filters puts one page’s filters back and leaves the other alone', async ({ page }) => {
   await importAccount(page, monsterAccount);
   await page.getByRole('button', { name: 'Monsters', exact: true }).click();
-  await page.locator('summary').filter({ hasText: 'Monster roster' }).click();
+  await page.locator('summary').filter({ hasText: 'Stats' }).click();
 
   const roster = page.locator('.filter-strip:not(.storage-filter-strip)');
   const rosterSummary = roster.locator('.filter-summary');
@@ -136,7 +136,7 @@ test('Reset filters puts one page’s filters back and leaves the other alone', 
   await expect(rosterSummary).not.toHaveText(String(opening));
 
   /* Narrow Storage too, so the reset can be shown to belong to one page. */
-  await page.locator('summary').filter({ hasText: 'Storage' }).click();
+  await page.locator('summary').filter({ hasText: 'Numbers' }).click();
   await page.getByRole('checkbox', { name: 'Inventory' }).uncheck();
   const storageNarrowed = await page.locator('.storage-filter-strip .filter-summary').textContent();
 
@@ -152,7 +152,7 @@ test('Reset filters puts one page’s filters back and leaves the other alone', 
   const lower = page.getByRole('slider', { name: 'Minimum monster level' });
   await dragHandle(page, lower, page.locator('.storage-filter-level .range-slider-track'), 0.6);
   expect(await lower.inputValue()).not.toBe('1');
-  await page.getByRole('button', { name: 'Reset Storage monsters filters' }).click();
+  await page.getByRole('button', { name: 'Reset Numbers monsters filters' }).click();
   await expect(lower).toHaveValue('1');
   await expect(page.getByRole('slider', { name: 'Maximum monster level' })).toHaveValue('40');
   await expect(page.getByRole('checkbox', { name: 'Inventory' })).toBeChecked();

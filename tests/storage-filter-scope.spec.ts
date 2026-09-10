@@ -22,19 +22,19 @@ async function openStorage(page: Page) {
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
   await expect(page.getByText('storage-location-account.json')).toBeVisible();
   await page.getByRole('button', { name: 'Monsters', exact: true }).click();
-  await page.locator('summary').filter({ hasText: 'Storage' }).click();
+  await page.locator('summary').filter({ hasText: 'Numbers' }).click();
 }
 
 function storage(page: Page) {
-  const locations = page.getByRole('group', { name: 'Choose Storage locations' });
-  const table = page.getByRole('table', { name: 'Monsters in Storage' });
+  const locations = page.getByRole('group', { name: 'Choose which locations to include' });
+  const table = page.getByRole('table', { name: 'Monster numbers' });
   return {
     locations,
     table,
     location: (name: string | RegExp) => locations.locator('label').filter({ hasText: name }).locator('input'),
     /** The monster names the table currently lists, in row order. */
     names: () => table.locator('tbody tr .monster-name').allTextContents(),
-    haveAtLeast: page.getByRole('group', { name: 'Only show Storage monsters if' })
+    haveAtLeast: page.getByRole('group', { name: 'Only show Numbers monsters if' })
       .locator('label').filter({ hasText: 'Have ≥' }).locator('input'),
     quantity: page.getByRole('slider', { name: 'Minimum monster quantity' }),
     level40: page.getByText('Already have lvl 40 of this mon'),

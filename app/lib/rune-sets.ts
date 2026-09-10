@@ -27,6 +27,16 @@ const elementNames: Record<number, string> = {
   1: 'Water', 2: 'Fire', 3: 'Wind', 4: 'Light', 5: 'Dark',
 };
 
+/**
+ * The five elements in the game's own order, which every element control reads
+ * so that no page arranges them its own way. Taken from the attribute numbering
+ * above rather than restated, because that numbering *is* the game's order.
+ */
+export const elementNameList: readonly string[] = Object.keys(elementNames)
+  .map(Number)
+  .sort((left, right) => left - right)
+  .map((attribute) => elementNames[attribute]);
+
 /** Every set name the game has, alphabetically. */
 const runeSetNameList: readonly string[] = Object.values(runeSetNames).sort((left, right) => left.localeCompare(right));
 

@@ -15,12 +15,15 @@ import {
   monsterFilterArchetypes, monsterNameCollator, numericOrNull,
 } from '../lib/monster-grid';
 import { storageTableColumns } from '../lib/table-layouts';
-import { elementName } from '../lib/rune-sets';
+import { elementName, elementNameList } from '../lib/rune-sets';
 import { summonedShrineRecords } from '../lib/sealed-shrine-storage';
 import type { Preferences } from '../lib/types';
 import { useSessionStorageState } from '../lib/session-storage-state';
 
-const storageElementOptions = ['Water', 'Fire', 'Light', 'Wind', 'Dark'] as const;
+/* The game's five elements, in the game's order — the same list the Stats page
+   offers, so the two element rows read alike. This page had Light and Wind the
+   other way round, which made the pair disagree for no reason. */
+const storageElementOptions = elementNameList;
 const storageGradeOptions = [1, 2, 3, 4, 5, 6] as const;
 const storageLocationOptions = ['inventory', 'storage', 'sealed-summoned', 'sealed-normal'] as const;
 const storageMinimumLevel = 1;
@@ -70,7 +73,7 @@ function isStorageFilterState(value: unknown): value is StorageFilterState {
   const candidate = value as Record<string, unknown>;
   return typeof candidate.search === 'string'
     && Array.isArray(candidate.selectedElements)
-    && candidate.selectedElements.every((entry) => storageElementOptions.includes(entry as typeof storageElementOptions[number]))
+    && candidate.selectedElements.every((entry) => typeof entry === 'string' && storageElementOptions.includes(entry))
     && Array.isArray(candidate.selectedArchetypes)
     && candidate.selectedArchetypes.every((entry) => monsterFilterArchetypes.includes(entry as typeof monsterFilterArchetypes[number]))
     && Array.isArray(candidate.selectedLocations)
@@ -469,8 +472,8 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
   return <DataTablePage
     filterClassName="storage-filter-strip"
     tableClassName="storage-grid"
-    headerLabel="Storage columns"
-    tableLabel="Monsters in Storage"
+    headerLabel="Numbers columns"
+    tableLabel="Monster numbers"
     columnGroup={<TableColumnGroup columns={storageTableColumns} />}
     header={<SortableHeader columns={storageColumns} sort={sort} onToggle={toggle} />}
     filters={<>
@@ -480,13 +483,13 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
           <div className="search-field">
             <span aria-hidden="true">⌕</span>
             <input value={search} onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
-              placeholder="Filter monsters" aria-label="Filter Storage monsters by name" />
+              placeholder="Filter monsters" aria-label="Filter Numbers monsters by name" />
             <button className="filter-button" onClick={() => setFilters((current) => ({ ...current, search: '' }))}
-              hidden={!search} disabled={!search} aria-label="Clear Storage filter">✕</button>
+              hidden={!search} disabled={!search} aria-label="Clear Numbers filter">✕</button>
           </div>
         </div>
       </div>
-      <div className="filter-group storage-filter-element" role="group" aria-label="Filter Storage monsters by element">
+      <div className="filter-group storage-filter-element" role="group" aria-label="Filter Numbers monsters by element">
         <span className="filter-label">Element</span>
         <div className="filter-group-controls">
           {storageElementOptions.map((element) => <button type="button" key={element}
@@ -495,7 +498,7 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
           >{element.slice(0, 3).toUpperCase()}</button>)}
         </div>
       </div>
-      <div className="filter-group storage-filter-type" role="group" aria-label="Filter Storage monsters by type">
+      <div className="filter-group storage-filter-type" role="group" aria-label="Filter Numbers monsters by type">
         <span className="filter-label">Type</span>
         <div className="filter-group-controls">
           {monsterFilterArchetypes.map((archetype) => <button type="button" key={archetype}
@@ -504,7 +507,7 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
           >{monsterArchetypeLabels[archetype]}</button>)}
         </div>
       </div>
-      <div className="filter-group storage-filter-location" role="group" aria-label="Choose Storage locations">
+      <div className="filter-group storage-filter-location" role="group" aria-label="Choose which locations to include">
         <span className="filter-label">Location</span>
         <div className="filter-group-controls storage-location-options">
           {storageLocationOptions.map((location) => <label className="filter-checkbox-label" key={location}>
@@ -528,7 +531,7 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
             }))} />
         </div>
       </div>
-      <div className="filter-group storage-filter-grade" role="group" aria-label="Filter Storage monsters by grade">
+      <div className="filter-group storage-filter-grade" role="group" aria-label="Filter Numbers monsters by grade">
         <span className="filter-label">Grade</span>
         <div className="filter-group-controls storage-grade-options">
           {storageGradeOptions.map((grade) => <label className="filter-checkbox-label" key={grade}>
@@ -538,7 +541,7 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
           </label>)}
         </div>
       </div>
-      <div className="filter-group storage-filter-special" role="group" aria-label="Only show Storage monsters if">
+      <div className="filter-group storage-filter-special" role="group" aria-label="Only show Numbers monsters if">
         <span className="filter-label">Only show if</span>
         <div className="storage-special-options">
           <label className="checkbox-row">
@@ -571,13 +574,13 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
           </div>
         </div>
       </div>
-      <FilterSummary visible={visible.length} total={rows.length} noun="Storage monsters"
+      <FilterSummary visible={visible.length} total={rows.length} noun="Numbers monsters"
         onReset={() => setFilters(defaultStorageFilters)} />
     </>}
   >
     <tbody>
       {!monsters.length && !shrineEntries.length ? <tr><td className="table-empty-state" colSpan={9}>
-        Import your game data first. Monster Storage will appear here when JASWA has an account to inspect.
+        Import your game data first. Your monsters will appear here when JASWA has an account to inspect.
       </td></tr> : sorted.length ? sorted.map((row) => <tr key={row.unitId}>
         {/* The row's own number, not its position in the current view, so
             sorting by `#` visibly restores the table's default order rather
@@ -595,7 +598,7 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
         <td className={storageCell('skills', 'dim')}>{displaySkillProgress(row)}</td>
         <td className={storageCell('quantity', 'dim')}>×{row.quantity}</td>
       </tr>) : <tr><td className="table-empty-state" colSpan={9}>
-        No Storage monsters match these filters. Clear a filter to see more.
+        No monsters match these filters. Clear a filter to see more.
       </td></tr>}
     </tbody>
   </DataTablePage>;

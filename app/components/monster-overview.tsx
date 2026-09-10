@@ -9,10 +9,11 @@ import { MonsterPortrait } from './monster-portrait';
 import { WorkspacePage } from './workspace-page';
 import { monsterPresentation } from '../lib/monster-catalog';
 import type { MonsterArchetype } from '../lib/monster-catalog';
+import { withHigherAwakenings } from '../lib/monster-awakening-scope';
 import type { GameRecord } from '../lib/game-data';
 import { calculateMonsterTotals } from '../lib/monster-stats';
 import { calculateRunePotentialMetrics, displayRunePotentialMetric } from '../lib/rune-potential-metrics';
-import { activeRuneSets, elementName } from '../lib/rune-sets';
+import { activeRuneSets, elementName, elementNameList } from '../lib/rune-sets';
 import type { Preferences } from '../lib/types';
 import {
   compareNumbersWithBlanks, compareTextWithBlanks, defaultMonsterSortDirections,
@@ -43,9 +44,13 @@ const defaultMonsterFilters: MonsterFilterState = {
   showInventory: true,
   showBelowMaxLevel: false,
 };
-const monsterElementOptions = ['Water', 'Fire', 'Wind', 'Light', 'Dark'] as const;
+/* The game's five elements, in the game's order, shown whether or not the
+   account holds one of each: a row of controls that gained and lost buttons
+   with the import would move every control after it (`AGENTS.md` §2), and an
+   element the user cannot find is itself worth seeing. */
+const monsterElementOptions = elementNameList;
 
-/** The stat columns between Runes and Artifacts, in the order they are read. */
+/** The stat columns between the gear block and E.HP, in the order they are read. */
 const monsterStatColumns: readonly MonsterGridColumn[] = [
   { key: 'level', label: 'LVL' }, { key: 'hp', label: 'HP' }, { key: 'atk', label: 'ATK' },
   { key: 'def', label: 'DEF' }, { key: 'spd', label: 'SPD' }, { key: 'criticalRate', label: 'CR%' },
@@ -119,9 +124,9 @@ function monsterSortableColumns(statColumns: readonly MonsterGridColumn[]): read
     column('index', '#', 'Row number'),
     column('name', 'Monster'),
     column('sets', 'Runes'),
-    ...statColumns.map((entry) => column(entry.key, entry.label)),
     column('artifactTypes', 'Artifacts'),
     column('relicTypes', 'Relic'),
+    ...statColumns.map((entry) => column(entry.key, entry.label)),
     column('ehp', 'E.HP'),
     column('ehpD', 'E.HP D'),
     column('dmg', 'DMG'),
@@ -138,7 +143,7 @@ function isMonsterFilterState(value: unknown): value is MonsterFilterState {
   const candidate = value as Record<string, unknown>;
   return typeof candidate.search === 'string'
     && Array.isArray(candidate.selectedElements)
-    && candidate.selectedElements.every((entry) => monsterElementOptions.includes(entry as typeof monsterElementOptions[number]))
+    && candidate.selectedElements.every((entry) => typeof entry === 'string' && monsterElementOptions.includes(entry))
     && Array.isArray(candidate.selectedArchetypes)
     && candidate.selectedArchetypes.every((entry) => monsterFilterArchetypes.includes(entry as MonsterArchetype))
     && typeof candidate.showStorage === 'boolean'
@@ -183,6 +188,7 @@ export function MonsterOverview({ monsters, gameData, preferences }: {
       });
       return {
         unitId,
+        masterId: String(monster.unit_master_id ?? `unknown-${index}`),
         name: preference?.label || defaultNames[unitId],
         /* Only a user's own label earns a second line, and it shows the game's
            name beneath it. A collaboration copy shows one name — its own. */
@@ -208,10 +214,28 @@ export function MonsterOverview({ monsters, gameData, preferences }: {
     });
   }, [monsters, preferences]);
 
-  const elements = useMemo(
-    () => [...new Set(rows.map((row) => row.element).filter((value): value is string => Boolean(value)))],
-    [rows],
-  );
+  /* A search names a monster, and awakening it does not change which monster it
+     is, so the term reaches the forms above what it matched and never the forms
+     below (§17.15) — the same rule the Numbers page reads, from the same module.
+
+     The widening is drawn from every row the table can list, before any filter
+     runs: which rows are *shown* must not decide what the account is understood
+     to hold, or unchecking Inventory would change whether a search finds an
+     awakened copy standing in Storage.
+
+     A row's own name, its aliases and its rune sets are matched here too, and a
+     set match seeds no widening: `fight` names equipment this copy is wearing,
+     not a monster whose awakened form is also wanted. */
+  const searchedMasterIds = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return undefined;
+    const named = rows
+      .filter((row) => row.name.toLowerCase().includes(term)
+        || row.secondaryName?.toLowerCase().includes(term)
+        || row.searchAliases?.some((alias) => alias.toLowerCase().includes(term)))
+      .map((row) => row.masterId);
+    return withHigherAwakenings(named, rows.map((row) => row.masterId));
+  }, [rows, search]);
 
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -223,13 +247,11 @@ export function MonsterOverview({ monsters, gameData, preferences }: {
       if (!showBelowMaxLevel && (row.level === null || row.level < maxMonsterLevel)) return false;
       if (selectedElements.length && (!row.element || !selectedElements.includes(row.element))) return false;
       if (selectedArchetypes.length && (!row.archetype || !selectedArchetypes.includes(row.archetype))) return false;
-      if (!term) return true;
-      return row.name.toLowerCase().includes(term)
-        || row.secondaryName?.toLowerCase().includes(term)
-        || row.searchAliases?.some((alias) => alias.toLowerCase().includes(term))
+      if (searchedMasterIds === undefined) return true;
+      return searchedMasterIds.has(row.masterId)
         || row.sets.some((set) => set.name.toLowerCase().includes(term));
     });
-  }, [rows, search, selectedElements, selectedArchetypes, showStorage, showInventory, showBelowMaxLevel]);
+  }, [rows, search, searchedMasterIds, selectedElements, selectedArchetypes, showStorage, showInventory, showBelowMaxLevel]);
 
   const { sorted, sort, toggle } = useSortedRows(
     visible, monsterColumns, { key: 'index', direction: 'ascending' },
@@ -258,14 +280,14 @@ export function MonsterOverview({ monsters, gameData, preferences }: {
       title="Monsters"
       tagline="A menagerie of statistics, storage, and questionable life choices." />}
   >
-    <Disclosure title="Monster roster" sessionKey="monsters.roster">
+    <Disclosure title="Stats" sessionKey="monsters.stats">
       {!monsters.length ? <section className="empty-state">
         <h2>Nothing to show until a game file is imported.</h2>
         <p className="next-step">Go to Home and drop in the JSON file exported from Summoners War.</p>
       </section> : <DataTablePage
         tableClassName="monster-grid"
-        headerLabel="Monster roster columns"
-        tableLabel="Monster roster"
+        headerLabel="Stats columns"
+        tableLabel="Monster stats"
         columnGroup={<TableColumnGroup columns={monsterTableColumns} />}
         header={<SortableHeader columns={monsterColumns} sort={sort} onToggle={toggle} />}
         filters={<>
@@ -284,7 +306,8 @@ export function MonsterOverview({ monsters, gameData, preferences }: {
       <div className="filter-group" role="group" aria-label="Filter by element">
         <span className="filter-label">Element</span>
         <div className="filter-group-controls">
-          {elements.map((name) => <button
+          {monsterElementOptions.map((name) => <button
+            type="button"
             key={name}
             className={selectedElements.includes(name) ? 'filter-button active' : 'filter-button'}
             onClick={() => toggleElement(name)}
@@ -341,6 +364,12 @@ export function MonsterOverview({ monsters, gameData, preferences }: {
                 ? <span className="set-mark" title={row.sets.map((set) => set.name).join(' / ')}>{row.sets.map((set) => set.abbreviation).join('/')}</span>
                 : <span className="set-none">—</span>}
             </td>
+            <td className={cell('artifactTypes', 'equipment-start', row.artifactTypes.some((type) => type !== null) ? 'equipment-types' : 'muted')}>
+              {displayArtifactTypes(row.artifactTypes)}
+            </td>
+            <td className={cell('relicTypes', row.relicTypes.some((type) => type !== null) ? 'equipment-types' : 'muted')}>
+              {displayRelicType(row.relicTypes)}
+            </td>
             <td className={cell('level', row.level === null ? 'dim muted' : 'dim')}>{formatNumber(row.level, preferences.general)}</td>
             <td className={cell('hp', row.hp === null && 'muted')}>{formatNumber(row.hp, preferences.general)}</td>
             <td className={cell('atk', row.atk === null && 'muted')}>{formatNumber(row.atk, preferences.general)}</td>
@@ -350,21 +379,18 @@ export function MonsterOverview({ monsters, gameData, preferences }: {
             <td className={cell('criticalDamage', row.criticalDamage === null && 'muted')}>{formatNumber(row.criticalDamage, preferences.general)}</td>
             <td className={cell('resistance', row.resistance === null && 'muted')}>{formatNumber(row.resistance, preferences.general)}</td>
             <td className={cell('accuracy', row.accuracy === null && 'muted')}>{formatNumber(row.accuracy, preferences.general)}</td>
-            <td className={cell('artifactTypes', 'equipment-start', row.artifactTypes.some((type) => type !== null) ? 'equipment-types' : 'muted')}>
-              {displayArtifactTypes(row.artifactTypes)}
-            </td>
-            <td className={cell('relicTypes', row.relicTypes.some((type) => type !== null) ? 'equipment-types' : 'muted')}>
-              {displayRelicType(row.relicTypes)}
-            </td>
-            <td className={cell('ehp', row.ehp === null && 'muted')}>{formatNumber(row.ehp, preferences.general)}</td>
-            <td className={cell('ehpD', row.ehpD === null && 'muted')}>{formatNumber(row.ehpD, preferences.general)}</td>
-            <td className={cell('dmg', row.dmg === null && 'muted')}>{formatNumber(row.dmg, preferences.general)}</td>
+            {/* The three composites are derived readings rather than the game's
+                own figures, so they sit a step back from the stats they are
+                computed from — the same `dim` the level column takes. */}
+            <td className={cell('ehp', row.ehp === null ? 'dim muted' : 'dim')}>{formatNumber(row.ehp, preferences.general)}</td>
+            <td className={cell('ehpD', row.ehpD === null ? 'dim muted' : 'dim')}>{formatNumber(row.ehpD, preferences.general)}</td>
+            <td className={cell('dmg', row.dmg === null ? 'dim muted' : 'dim')}>{formatNumber(row.dmg, preferences.general)}</td>
           </tr>)}
         </tbody>
       </DataTablePage>}
     </Disclosure>
 
-    <Disclosure title="Storage" sessionKey="monsters.storage">
+    <Disclosure title="Numbers" sessionKey="monsters.numbers">
       <MonsterStorage monsters={monsters} gameData={gameData} preferences={preferences} />
     </Disclosure>
   </WorkspacePage>;

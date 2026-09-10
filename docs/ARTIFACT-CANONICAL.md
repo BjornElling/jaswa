@@ -2143,6 +2143,17 @@ Scope is one element's chain, not the family. `Kyle` never answers a search for
 that merely awaken alike, and element decides which artifacts a monster may even
 wear.
 
+**Both monster tables answer this way.** *September 10, 2026.* Stats and Numbers
+each present a search box, and two controls that look alike must behave alike:
+the widening was on Numbers only, so the same term found an awakened copy on one
+page and missed it on the other. Both now read `withHigherAwakenings`, and
+`tests/awakening-search.spec.ts` runs one set of expectations against each, so
+the pair cannot drift again.
+
+Stats also matches a monster's rune sets, which Numbers has no column for. That
+match seeds no widening: `fight` names the equipment a particular copy is
+wearing, not a monster whose awakened form is also wanted.
+
 `monster-awakening-scope.ts` is where this lives, deliberately apart from
 `monsterIdentityId` in `monster-selection.ts`. The two look similar and mean
 opposite things: identity **folds** a lineage into one key, which is right for
@@ -2152,6 +2163,31 @@ enough along. Anything phrased "…or better" belongs here; anything phrased "ho
 many" belongs there. `npm run verify:monster-awakening-scope` holds the
 direction, the element boundary, and the rule that a form the account does not
 hold is never conjured into a result.
+
+### 17.16 Stats and Numbers, and what each column is worth
+
+*September 10, 2026.* The two monster sections were called **Monster roster** and
+**Storage**, and both names were wrong about their contents. "Storage" named a
+tab that lists Inventory and both Sealed Shrine tabs alongside Monster Storage —
+and *Storage* is also one of the four values in its own Location filter, so the
+page and one of its rows shared a name. "Monster roster" said which records the
+table holds rather than what it shows, which is the stat sheet. They are **Stats**
+and **Numbers**. Location keeps `Storage` as a value, because that is the place
+the game means.
+
+Two consequences for the Stats table, both about reading order:
+
+- **Gear reads as one block.** Artifacts and Relic sat at the far right, past
+  nine stat columns, though they answer the same question the rune sheet does:
+  what is this monster *wearing*. They now follow Runes directly, and the run of
+  stats is unbroken by them. The `.equipment-start` inset moves with them and
+  still does its old job — separating the compact pair from the sets without a
+  rule drawn through the table.
+- **A derived figure sits a step back.** `E.HP`, `E.HP D` and `DMG` are computed
+  from the stats beside them rather than read off the export, so they take the
+  same `dim` the level column has always worn. Full ink is for what the game
+  itself states. This is the two-tone device of `AGENTS.md` §5 and not a new
+  colour: nothing is tinted, and the figures keep their own column and width.
 
 ---
 

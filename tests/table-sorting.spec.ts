@@ -45,8 +45,8 @@ async function headings(headerTable: Locator) {
 
 /** Each table's own header half, which `DataTablePage` renders separately. */
 const headerTables = {
-  roster: 'Monster roster columns',
-  storage: 'Storage columns',
+  roster: 'Stats columns',
+  storage: 'Numbers columns',
   artifacts: 'Artifact library columns',
 };
 
@@ -57,18 +57,18 @@ test('every column of every account table sorts, in both directions', async ({ p
     {
       open: async () => {
         await page.getByRole('navigation').getByRole('button', { name: 'Monsters', exact: true }).click();
-        await page.locator('summary').filter({ hasText: 'Monster roster' }).click();
+        await page.locator('summary').filter({ hasText: 'Stats' }).click();
         await page.getByRole('button', { name: 'Lvl. < 40' }).click();
       },
       header: headerTables.roster,
-      body: 'Monster roster',
+      body: 'Monster stats',
     },
     {
       open: async () => {
-        await page.locator('summary').filter({ hasText: 'Storage' }).click();
+        await page.locator('summary').filter({ hasText: 'Numbers' }).click();
       },
       header: headerTables.storage,
-      body: 'Monsters in Storage',
+      body: 'Monster numbers',
     },
     {
       open: async () => {
@@ -110,8 +110,8 @@ test('every column of every account table sorts, in both directions', async ({ p
 test('the sort arrow sits on the outside of the heading text', async ({ page }) => {
   await importAccount(page);
   await page.getByRole('navigation').getByRole('button', { name: 'Monsters', exact: true }).click();
-  await page.locator('summary').filter({ hasText: 'Monster roster' }).click();
-  await page.locator('summary').filter({ hasText: 'Storage' }).click();
+  await page.locator('summary').filter({ hasText: 'Stats' }).click();
+  await page.locator('summary').filter({ hasText: 'Numbers' }).click();
   await page.getByRole('navigation').getByRole('button', { name: 'Artifacts', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Artifacts', exact: true })).toBeVisible();
   await page.getByRole('navigation').getByRole('button', { name: 'Monsters', exact: true }).click();

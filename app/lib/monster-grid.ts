@@ -10,6 +10,10 @@ export type MonsterGridColumn = { key: SortKey; label: string };
 
 export type MonsterRow = {
   unitId: string;
+  /* The monster this row *is*, as opposed to the copy it is. Awakening carries
+     on this id and not on the name — every stage has a different name — so it
+     is what a search compares to reach a row's awakened forms (§17.15). */
+  masterId: string;
   name: string;
   secondaryName?: string;
   /* Names the row answers to in search but never shows — the twin release's
