@@ -45,12 +45,12 @@ export const monsterTableColumns: readonly TableColumn[] = [
   { key: 'index', width: '4.1284%', align: 'left' },
   { key: 'name', width: '13.7615%', align: 'left' },
   { key: 'sets', width: '7.7982%', align: 'left' },
-  /* Equipment slots read as a pair of codes rather than a quantity, but they
-     sit in the run of numeric columns and keep its right edge. They follow the
-     rune sheet directly: all three say what the monster is *wearing*, so the
-     gear reads as one block and the stats that follow are unbroken by it. */
-  { key: 'artifacts', width: '6.422%', align: 'right' },
-  { key: 'relic', width: '4.5872%', align: 'right' },
+  /* Equipment slots read as codes rather than quantities, so they take the text
+     side of the convention along with the rune sheet they follow: all three say
+     what the monster is *wearing*, and the gear reads as one left-aligned block
+     before the run of figures begins. */
+  { key: 'artifacts', width: '6.422%', align: 'left' },
+  { key: 'relic', width: '4.5872%', align: 'left' },
   { key: 'level', width: '3.6697%', align: 'right' },
   { key: 'hp', width: '5.5046%', align: 'right' },
   { key: 'atk', width: '5.5046%', align: 'right' },

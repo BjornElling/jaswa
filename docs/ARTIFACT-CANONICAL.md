@@ -2182,7 +2182,10 @@ Two consequences for the Stats table, both about reading order:
   what is this monster *wearing*. They now follow Runes directly, and the run of
   stats is unbroken by them. The `.equipment-start` inset moves with them and
   still does its old job — separating the compact pair from the sets without a
-  rule drawn through the table.
+  rule drawn through the table. Having left the numeric run, the pair is
+  **left-aligned**: `HP/ATK` and `DEF` are codes, not quantities, so there are no
+  units to line up on, and the block now begins where Runes does instead of
+  reaching for a right edge it no longer shares with anything.
 - **A derived figure sits a step back.** `E.HP`, `E.HP D` and `DMG` are computed
   from the stats beside them rather than read off the export, so they take the
   same `dim` the level column has always worn. Full ink is for what the game
