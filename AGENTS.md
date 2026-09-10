@@ -299,6 +299,16 @@ parts an agent must not quietly break:
   overlays get `role="dialog"` and `aria-modal`, Escape closes them, focus goes
   where the user is looking, and state is exposed with `aria-pressed` or
   `aria-current` rather than by colour alone.
+- **A control character in source is written as an escape, never typed.** Use
+  `'\0'`, `'\t'`, `'\x1b'`; do not put the byte itself in the file. A literal
+  one makes git classify the whole file as **binary** — `git diff` prints
+  `Bin 11975 -> 13394 bytes` instead of the change, `git blame` and PR review
+  stop working, and grep reports "binary file matches" without the line. It is
+  also invisible in an editor, so `` `${name}\0${id}` `` typed raw reads as a
+  concatenation with nothing between the halves, which looks like a bug and
+  invites someone to "fix" it into one. `monster-catalog.ts` and
+  `verify-element-qualified-names.mjs` both carried a raw NUL as a key
+  separator for this reason and were converted to `'\0'` constants.
 
 ## 7. Definition of done
 

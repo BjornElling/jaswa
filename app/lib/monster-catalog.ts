@@ -155,6 +155,18 @@ function twinName(masterId: string, ownCatalogueName: string): string | undefine
 // two elements is qualified, a unique one is left alone. So `Elucia` stays
 // `Elucia`, and the next collaboration is covered the day the catalogue lands,
 // with nobody having to remember to add it.
+/* The key below joins a name to a catalogue id, and the name is read back off
+   the front of it, so the join needs a character no monster name contains. A
+   space will not do: names have spaces in them, and "Poison Master" would be
+   read back as "Poison".
+
+   Written as an escape rather than as the character itself. A literal NUL in
+   the source makes git treat this whole file as binary — no reviewable diff, no
+   `git blame`, and grep reports a match without showing it — and it is
+   invisible in an editor, so the template above reads as a concatenation with
+   nothing between the two halves. */
+const nameKeySeparator = '\0';
+
 const ambiguousNames: Set<string> = (() => {
   const elementsByName = new Map<string, Set<string>>();
   for (const monster of swarfarmMonsterData.monsters as SwarfarmMonster[]) {
@@ -164,14 +176,14 @@ const ambiguousNames: Set<string> = (() => {
     /* Keyed on name plus everything but the element digit, so two unrelated
        monsters that happen to share a name — the Ifrit at 171xx and the one at
        192xx — are not mistaken for one monster's elemental family. */
-    const key = `${monster.name} ${id.slice(0, -1)}`;
+    const key = `${monster.name}${nameKeySeparator}${id.slice(0, -1)}`;
     const seen = elementsByName.get(key) ?? new Set<string>();
     seen.add(element);
     elementsByName.set(key, seen);
   }
   const ambiguous = new Set<string>();
   for (const [key, elements] of elementsByName) {
-    if (elements.size > 1) ambiguous.add(key.split(' ')[0]);
+    if (elements.size > 1) ambiguous.add(key.split(nameKeySeparator)[0]);
   }
   return ambiguous;
 })();
