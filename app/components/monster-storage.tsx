@@ -38,6 +38,7 @@ type StorageFilterState = {
   selectedGrades: number[];
   alreadyHaveLevel40: boolean;
   familyFullySkilled: boolean;
+  needsSkillUps: boolean;
   minimumQuantityEnabled: boolean;
   minimumQuantity: number;
 };
@@ -52,6 +53,7 @@ const defaultStorageFilters: StorageFilterState = {
   selectedGrades: [],
   alreadyHaveLevel40: false,
   familyFullySkilled: false,
+  needsSkillUps: false,
   minimumQuantityEnabled: false,
   minimumQuantity: 1,
 };
@@ -79,6 +81,10 @@ function isStorageFilterState(value: unknown): value is StorageFilterState {
     && candidate.selectedGrades.every((entry) => storageGradeOptions.includes(entry as typeof storageGradeOptions[number]))
     && typeof candidate.alreadyHaveLevel40 === 'boolean'
     && typeof candidate.familyFullySkilled === 'boolean'
+    /* Added after the other conditions, so a session stored before it exists
+       carries no such key. Absent reads as unchecked rather than as an invalid
+       state, which would discard every other filter the tab had set. */
+    && (candidate.needsSkillUps === undefined || typeof candidate.needsSkillUps === 'boolean')
     && typeof candidate.minimumQuantityEnabled === 'boolean'
     && typeof candidate.minimumQuantity === 'number'
     && Number.isSafeInteger(candidate.minimumQuantity)
@@ -350,7 +356,7 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
   );
   const {
     search, selectedElements, selectedArchetypes, selectedLocations, minimumLevel, maximumLevel, selectedGrades,
-    alreadyHaveLevel40, familyFullySkilled, minimumQuantityEnabled, minimumQuantity,
+    alreadyHaveLevel40, familyFullySkilled, needsSkillUps = false, minimumQuantityEnabled, minimumQuantity,
   } = filters;
 
   const shrineEntries = useMemo(() => storageEntries(gameData), [gameData]);
@@ -448,13 +454,17 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
       if (selectedArchetypes.length && (!row.archetype || !selectedArchetypes.includes(row.archetype))) return false;
       if (selectedGrades.length && (row.grade === null || !selectedGrades.includes(row.grade))) return false;
       if (!monsterSelection.matches(row.masterId, { alreadyHaveLevel40, familyFullySkilled })) return false;
+      /* Unlike the two conditions above, this one asks about the row itself
+         rather than about the account: a max-skilled copy is done, whatever
+         other copies of the same monster still need. */
+      if (needsSkillUps && row.maxSkilled) return false;
       /* "Have ≥" asks about the monster, not about this one entry: a row's own
          quantity counted a stack but missed a player holding the same monster
          as several single entries. */
       if (minimumQuantityEnabled && storageCopies.copies(row.masterId) < minimumQuantity) return false;
       return searchedMasterIds === undefined || searchedMasterIds.has(row.masterId);
     }),
-  [alreadyHaveLevel40, familyFullySkilled, maximumLevel, minimumLevel, minimumQuantity, minimumQuantityEnabled, monsterSelection, rows, searchedMasterIds, selectedArchetypes, selectedElements, selectedGrades, selectedLocations, storageCopies]);
+  [alreadyHaveLevel40, familyFullySkilled, maximumLevel, minimumLevel, minimumQuantity, minimumQuantityEnabled, monsterSelection, needsSkillUps, rows, searchedMasterIds, selectedArchetypes, selectedElements, selectedGrades, selectedLocations, storageCopies]);
 
   /* The table opens in its default order, which `#` also sorts back to. The
      tiebreak keeps equal rows in that same order rather than letting them
@@ -567,6 +577,11 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
             <input type="checkbox" checked={familyFullySkilled}
               onChange={(event) => setFilters((current) => ({ ...current, familyFullySkilled: event.target.checked }))} />
             <span>All lvl 40 of this family max skilled</span>
+          </label>
+          <label className="checkbox-row">
+            <input type="checkbox" checked={needsSkillUps}
+              onChange={(event) => setFilters((current) => ({ ...current, needsSkillUps: event.target.checked }))} />
+            <span>Needs skill-ups</span>
           </label>
           <div className="storage-quantity-filter">
             <label className="checkbox-row">
