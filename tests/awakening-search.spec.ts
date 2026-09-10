@@ -75,8 +75,19 @@ for (const entry of pages) {
       'Kyle', 'Poison Master (Fire)', 'Poison Master (Water)', 'Todd',
     ]);
 
-    /* All three stages of one chain, from the name only the first stage carries. */
-    expect(await search('fairy')).toEqual(['Elucia', 'Elucia (2A)', 'Fairy (Water)']);
+    /* Every stage the page can list, from the name only the first stage carries.
+       Both chains answer: the Water one is held as units throughout, while the
+       Fire one is held the way accounts usually hold a finished monster — the
+       unawakened Fairy sealed in the shrine, only Iselia (2A) left as a unit.
+
+       The two pages differ in the rows they list, not in the monsters the term
+       reaches: Numbers carries the shrine tabs and so shows the sealed Fairy
+       itself, while Stats is a stat sheet for units and shows what it became.
+       Iselia (2A) is the assertion that matters — its own name holds no "fairy",
+       so it is there only because the sealed stack seeded the lineage. */
+    expect(await search('fairy')).toEqual(entry.section === 'Numbers'
+      ? ['Elucia', 'Elucia (2A)', 'Fairy (Fire)', 'Fairy (Water)', 'Iselia (2A)']
+      : ['Elucia', 'Elucia (2A)', 'Fairy (Water)', 'Iselia (2A)']);
   });
 
   test(`${entry.section}: a search does not reach back to less awakened forms`, async ({ page }) => {

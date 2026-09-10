@@ -8,6 +8,13 @@
     "Searching 'poison master' must reach Kyle and Todd; searching 'kyle' must show only",
     "Kyle -- not Poison Master below it, and not Todd beside it.",
     "",
+    "A fourth chain is held the way a real account usually holds one, with the",
+    "unawakened form sealed away and only the 2A kept as a unit:",
+    "  10102 Fairy (Water/Fire) in the Summoned Shrine, 10132 Iselia (2A) as a unit.",
+    "Stats lists units only, so it has no Fairy row of its own -- and must still",
+    "answer 'fairy' with Iselia (2A), because sealing the last Fairy is not",
+    "un-owning what it became.",
+    "",
     "The two artifacts are here only so the Artifact library table renders at all:",
     "table-sorting.spec.ts checks every column of every account table, and that table is",
     "replaced by an empty state when the account holds none."
@@ -20,7 +27,11 @@
     { "unit_id": 4, "wizard_id": 7, "unit_master_id": 24812, "attribute": 2, "unit_level": 40, "class": 5 },
     { "unit_id": 5, "wizard_id": 7, "unit_master_id": 10101, "attribute": 1, "unit_level": 20, "class": 3 },
     { "unit_id": 6, "wizard_id": 7, "unit_master_id": 10111, "attribute": 1, "unit_level": 35, "class": 4 },
-    { "unit_id": 7, "wizard_id": 7, "unit_master_id": 10131, "attribute": 1, "unit_level": 40, "class": 6 }
+    { "unit_id": 7, "wizard_id": 7, "unit_master_id": 10131, "attribute": 1, "unit_level": 40, "class": 6 },
+    { "unit_id": 8, "wizard_id": 7, "unit_master_id": 10132, "attribute": 2, "unit_level": 40, "class": 6 }
+  ],
+  "unit_storage_list": [
+    { "unit_master_id": 10102, "quantity": 3, "class": 3 }
   ],
   "runes": [],
   "artifacts": [

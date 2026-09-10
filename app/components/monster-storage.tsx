@@ -16,7 +16,9 @@ import {
 } from '../lib/monster-grid';
 import { storageTableColumns } from '../lib/table-layouts';
 import { elementName, elementNameList } from '../lib/rune-sets';
-import { summonedShrineRecords } from '../lib/sealed-shrine-storage';
+import {
+  shrineContainerKeys, shrineContainerListKeys, shrineListKeys, summonedShrineRecords,
+} from '../lib/sealed-shrine-storage';
 import type { Preferences } from '../lib/types';
 import { useSessionStorageState } from '../lib/session-storage-state';
 
@@ -129,22 +131,10 @@ const storageLocationLabels: Record<StorageLocation, string> = {
   'sealed-normal': 'Sealed Shrine · Normal',
 };
 
-/* SWEX's original merged export calls the summoned shrine list
-   `unit_storage_list`. Newer captures may keep the two shrine tabs in named
-   containers instead. The resolver accepts those explicit containers while
-   keeping ordinary Monster Storage on the game's `building_id` marker. */
-const storageListKeys: Record<ShrineLocation, string[]> = {
-  'sealed-summoned': [
-    'summoned_unit_storage_list', 'unit_summoned_storage_list', 'unit_storage_list_summoned', 'summoned_storage_list',
-    'summoned_monster_storage_list', 'sealed_shrine_summoned', 'sealedShrineSummoned',
-  ],
-  'sealed-normal': [
-    'unit_storage_normal_list', 'normal_unit_storage_list', 'unit_normal_storage_list', 'unit_storage_list_normal', 'normal_storage_list',
-    'normal_monster_storage_list', 'sealed_shrine_normal', 'sealedShrineNormal',
-  ],
-};
-
-const sealedShrineContainerKeys = ['sealed_shrine', 'sealedShrine', 'sealed_monster_storage', 'sealedMonsterStorage'];
+/* Where either shrine tab's list may be found, read from the same declaration
+   the search's view of the account uses. Ordinary Monster Storage stays on the
+   game's `building_id` marker rather than on a key. */
+const storageListKeys: Record<ShrineLocation, readonly string[]> = shrineListKeys;
 
 function storageLocationValue(value: unknown): StorageLocation | undefined {
   if (typeof value !== 'string') return undefined;
@@ -186,12 +176,16 @@ function storageEntries(gameData: GameRecord): Array<{ record: GameRecord; locat
   for (const location of ['sealed-summoned', 'sealed-normal'] as const) {
     for (const key of storageListKeys[location]) add(gameData[key], location);
   }
-  for (const containerKey of sealedShrineContainerKeys) {
+  for (const containerKey of shrineContainerKeys) {
     const container = gameData[containerKey];
     if (!container || typeof container !== 'object' || Array.isArray(container)) continue;
     const source = container as GameRecord;
-    add(source.summoned ?? source.Summoned ?? source.summoned_storage ?? source.summonedStorage, 'sealed-summoned');
-    add(source.normal ?? source.Normal ?? source.normal_storage ?? source.normalStorage, 'sealed-normal');
+    for (const location of ['sealed-summoned', 'sealed-normal'] as const) {
+      /* The first name the container actually uses wins, so a tab is added once
+         rather than once per accepted spelling. */
+      const key = shrineContainerListKeys[location].find((name) => source[name] !== undefined);
+      if (key !== undefined) add(source[key], location);
+    }
   }
   return entries;
 }

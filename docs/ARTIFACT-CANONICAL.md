@@ -2154,6 +2154,26 @@ Stats also matches a monster's rune sets, which Numbers has no column for. That
 match seeds no widening: `fight` names the equipment a particular copy is
 wearing, not a monster whose awakened form is also wanted.
 
+**The seed is the whole account; the result is the page's own rows.**
+*September 10, 2026.* Reading both from the rows a table lists left Stats still
+answering differently, and the account that showed it is the ordinary one: the
+unawakened Fairy sealed in the Shrine, only Iselia (2A) kept as a unit. Numbers
+carries the shrine tabs, so it matched `fairy` by name and widened from there;
+Stats lists units only, had no Fairy row to match, and so found nothing to widen
+from — `fairy` returned empty on a page showing what Fairy became.
+
+The two halves answer different questions and so read different sets. What the
+account **holds** seeds the lineage floor and is drawn from every location, the
+shrine included, before any filter runs. What the search **returns** is bounded
+by the rows that page can list — widening towards ids a table has no rows for
+would accept nothing. Sealing the last Fairy is not un-owning Elucia, and no
+filter may decide what the account is understood to contain: not the Location
+boxes, and not the `Lvl. < 40` default, which would otherwise hide the very
+unawakened form a term was typed against. `shrineMonsterRecords` in
+`sealed-shrine-storage.ts` is the shared view of the account, and the shrine key
+lists live beside it so the Numbers table and this seed cannot accept a
+different set of keys.
+
 `monster-awakening-scope.ts` is where this lives, deliberately apart from
 `monsterIdentityId` in `monster-selection.ts`. The two look similar and mean
 opposite things: identity **folds** a lineage into one key, which is right for

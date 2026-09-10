@@ -10,6 +10,7 @@ import { WorkspacePage } from './workspace-page';
 import { monsterPresentation } from '../lib/monster-catalog';
 import type { MonsterArchetype } from '../lib/monster-catalog';
 import { withHigherAwakenings } from '../lib/monster-awakening-scope';
+import { shrineMonsterRecords } from '../lib/sealed-shrine-storage';
 import type { GameRecord } from '../lib/game-data';
 import { calculateMonsterTotals } from '../lib/monster-stats';
 import { calculateRunePotentialMetrics, displayRunePotentialMetric } from '../lib/rune-potential-metrics';
@@ -214,14 +215,36 @@ export function MonsterOverview({ monsters, gameData, preferences }: {
     });
   }, [monsters, preferences]);
 
+  /* Every monster the account holds anywhere, as the name a search would match
+     it by. This table lists units only — a shrine stack has no stats to show —
+     but a *seed* must not be limited to what the table lists, or a term would
+     reach an awakened form only when the account still keeps the unawakened one
+     as a unit. Sealing the last Fairy is not un-owning Elucia.
+
+     Named forms below the table's own rows are what this adds: it seeds the
+     lineage floor without ever putting a shrine row in the stat sheet. */
+  const heldNames = useMemo(() => [
+    ...monsters,
+    ...shrineMonsterRecords(gameData),
+  ].map((monster: GameRecord) => {
+    const presentation = monsterPresentation(monster.unit_master_id);
+    return {
+      masterId: String(monster.unit_master_id ?? ''),
+      names: [presentation.name, ...presentation.searchAliases],
+    };
+  }), [monsters, gameData]);
+
   /* A search names a monster, and awakening it does not change which monster it
      is, so the term reaches the forms above what it matched and never the forms
      below (§17.15) — the same rule the Numbers page reads, from the same module.
 
-     The widening is drawn from every row the table can list, before any filter
-     runs: which rows are *shown* must not decide what the account is understood
-     to hold, or unchecking Inventory would change whether a search finds an
-     awakened copy standing in Storage.
+     Which rows are *shown* must not decide what the account is understood to
+     hold: the seed is taken before any filter runs, so unchecking Inventory
+     cannot change whether a search finds an awakened copy standing in Storage,
+     and the level cap cannot hide the unawakened form a term was typed against.
+
+     `available` stays the table's own rows, because that is the set being
+     filtered — widening towards ids this table cannot list would accept nothing.
 
      A row's own name, its aliases and its rune sets are matched here too, and a
      set match seeds no widening: `fight` names equipment this copy is wearing,
@@ -229,13 +252,17 @@ export function MonsterOverview({ monsters, gameData, preferences }: {
   const searchedMasterIds = useMemo(() => {
     const term = search.trim().toLowerCase();
     if (!term) return undefined;
-    const named = rows
+    const named = heldNames
+      .filter((held) => held.names.some((name) => name.toLowerCase().includes(term)))
+      .map((held) => held.masterId);
+    /* A user's own label is on the row rather than in the catalogue, so it is
+       matched from the rows themselves and seeds the widening alongside. */
+    const labelled = rows
       .filter((row) => row.name.toLowerCase().includes(term)
-        || row.secondaryName?.toLowerCase().includes(term)
-        || row.searchAliases?.some((alias) => alias.toLowerCase().includes(term)))
+        || row.secondaryName?.toLowerCase().includes(term))
       .map((row) => row.masterId);
-    return withHigherAwakenings(named, rows.map((row) => row.masterId));
-  }, [rows, search]);
+    return withHigherAwakenings([...named, ...labelled], rows.map((row) => row.masterId));
+  }, [heldNames, rows, search]);
 
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
