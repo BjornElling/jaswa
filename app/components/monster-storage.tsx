@@ -198,6 +198,26 @@ function storageEntryElement(record: GameRecord, masterId: string): string | und
   return Number.isSafeInteger(encoded) ? elementName(encoded) : undefined;
 }
 
+/**
+ * A summoned-shrine stack is the one record the game states by omission. It
+ * carries `unit_master_id`, `quantity` and `class` and nothing else — no level
+ * and no skills — because sealing produces a fresh copy, and a fresh copy is
+ * always Lv. 1 with every skill at level 1. The fields are absent for being
+ * invariant, not for being unknown.
+ *
+ * Reading that omission as "unknown" printed a whole tab of "—", which told the
+ * user less than the game itself does. The two values are derived here, at the
+ * boundary that knows the record's shape, so the rest of the table — the Level
+ * and Skills columns, their sorting, and "Needs skill-ups" — reads one kind of
+ * row and needs no cases of its own.
+ *
+ * Only the summoned stack is treated this way. A normal-shrine record is a real
+ * unit that carries its own level and skills, and keeps them.
+ */
+function sealedStackDefaults(location: StorageLocation): { level: number | null; skills: number | null } {
+  return location === 'sealed-summoned' ? { level: 1, skills: 0 } : { level: null, skills: null };
+}
+
 function currentSkillUps(monster: GameRecord): number | null {
   if (!Array.isArray(monster.skills)) return null;
   let total = 0;
@@ -372,7 +392,8 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
       const masterId = String(monster.unit_master_id ?? `unknown-${index}`);
       const presentation = monsterPresentation(monster.unit_master_id);
       const maximumSkillUps = monsterSkillUpsToMax(monster.unit_master_id);
-      const current = currentSkillUps(monster);
+      const implied = sealedStackDefaults(location);
+      const current = currentSkillUps(monster) ?? implied.skills;
       return {
         unitId: String(monster.unit_id ?? `${location}-${masterId}-${index}`),
         masterId,
@@ -387,7 +408,7 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
         imageFilename: presentation.imageFilename,
         initial: presentation.shortName,
         grade: numericOrNull(monster.class),
-        level: numericOrNull(monster.unit_level),
+        level: numericOrNull(monster.unit_level) ?? implied.level,
         currentSkillUps: current,
         maximumSkillUps,
         maxSkilled: isMaxSkilled(monster),
@@ -445,9 +466,10 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
   }, [rows, search]);
 
   const visible = useMemo(() => rows.filter((row) => {
-      /* Shrine summary records do not carry a level in the SWEX export. They
-         are visible for the complete 1–40 range, but cannot honestly match a
-         narrower interval until the export supplies a level for that copy. */
+      /* A row whose level the export never states is visible for the complete
+         1–40 range, but cannot honestly match a narrower interval. Summoned
+         stacks are no longer such a row: `sealedStackDefaults` gives them the
+         Lv. 1 the game guarantees, so they filter like any other level. */
       if (row.level === null ? minimumLevel !== storageMinimumLevel || maximumLevel !== storageMaximumLevel : row.level < minimumLevel || row.level > maximumLevel) return false;
       if (!selectedLocations.includes(row.location)) return false;
       if (selectedElements.length && (!row.element || !selectedElements.includes(row.element))) return false;
