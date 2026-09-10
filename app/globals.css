@@ -73,6 +73,11 @@
      the search field, and the five-button Element and Quality rows — so every
      group occupies exactly one column and the rows align. */
   --filter-column: 296px;
+  /* The count box, its gap, and the reset button under it: what the status
+     block reserves in the strip's top-right corner. Named because the strip
+     itself has to be at least this tall — the block is out of flow, so a
+     strip holding one row of filters would let it hang past the bottom. */
+  --filter-status-height: 62px;
   /* what the import badge takes out of the top-right corner. Content that
      opens there measures its clearance from these rather than guessing. */
   --badge-width: 440px;
@@ -388,7 +393,10 @@ button { cursor: pointer; }
   align-content: start;
   justify-content: start;
   gap: var(--s3) 0;
-  min-height: var(--strip);
+  /* Tall enough for the status block in the corner, which is out of flow and
+     would otherwise hang past a strip holding only one row of filters. Stated
+     from the block's own parts so the two cannot drift. */
+  min-height: max(var(--strip), var(--filter-status-height));
   background: transparent;
   padding: 0;
 }
@@ -434,18 +442,27 @@ button { cursor: pointer; }
    wrapping: a group whose right edge is the strip's own content edge ends its
    row, wherever that falls at the current width. */
 .filter-group:last-of-type { border-right: 0; }
-.filter-summary {
-  /* The count is account status, not another filter. It occupies a reserved
-     box in the strip's empty top-right corner, so a shorter result never adds
-     a row or moves a control the user did not act on. */
+/* The count and the control that clears the filters, stacked. They occupy a
+   reserved block in the strip's empty top-right corner, so neither a shorter
+   result nor the reset button adds a row or moves a control the user did not
+   act on. */
+.filter-status {
   position: absolute;
   top: 0;
   right: 0;
   display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--s1);
+  width: 20ch;
+  height: var(--filter-status-height);
+}
+.filter-summary {
+  display: flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
   gap: var(--s1);
-  width: 20ch;
   height: 32px;
   padding: 0 var(--s2);
   border: 1px solid var(--line);
@@ -458,6 +475,29 @@ button { cursor: pointer; }
   white-space: nowrap;
 }
 .filter-summary b { color: var(--dim); font-weight: 500; }
+/* Reset puts the filters back rather than taking the table somewhere new, so
+   it does not wear the accent at rest: gold in this interface says "you can
+   act on this", and a way back that shouted as loudly as the active filters
+   themselves would read as one of them. It carries the count box's own
+   outline instead, and takes the gold only under the pointer — the same
+   promotion .filter-button makes on hover, one step further because this
+   control undoes work rather than adding to it. */
+.filter-reset {
+  flex: 0 0 26px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: var(--t-small);
+  transition: color .12s, background .12s, border-color .12s;
+}
+.filter-reset:hover {
+  border-color: var(--gold-edge);
+  background: var(--gold-deep);
+  color: var(--gold);
+}
+.filter-reset:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 /* Include ends the first row, beside Location: the two ask the same shape of
    question — which artifacts belong in the list at all — while the second row
    is the narrowing filters.
@@ -1245,7 +1285,11 @@ button { cursor: pointer; }
   accent-color: var(--gold);
   pointer-events: none;
 }
-.range-slider-input-maximum { z-index: 3; }
+/* Which of the two stacked inputs is hittable, decided in the component by
+   which handle still has somewhere to go — with both handles on the same
+   value only the top one can be grabbed, and pinning that role to one end is
+   what used to strand the range on a single value. */
+.range-slider-input-top { z-index: 3; }
 .range-slider-input::-webkit-slider-runnable-track {
   height: var(--s1);
   border-radius: var(--s1);

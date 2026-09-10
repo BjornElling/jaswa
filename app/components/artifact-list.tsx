@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useMemo } from 'react';
 import { PageHeader } from './page-chrome';
 import { DataTablePage, TableColumnGroup } from './data-table-page';
+import { FilterSummary } from './filter-summary';
 import { SortableHeader, useSortedRows } from './sortable-table';
 import type { SortableColumn } from './sortable-table';
 import { Dropdown } from './dropdown';
@@ -436,9 +437,8 @@ export function ArtifactList({ game, monsters, preferences }: {
           >{artifactIntangibleLabel}</button>
         </div>
       </div>
-      <output className="filter-summary" aria-label={`${visible.length} of ${rows.length} artifacts shown`}>
-        <b>{visible.length}</b> of {rows.length} shown
-      </output>
+      <FilterSummary visible={visible.length} total={rows.length} noun="artifacts"
+        onReset={() => setFilters(defaultArtifactFilters)} />
       </>}
     >
       <tbody>

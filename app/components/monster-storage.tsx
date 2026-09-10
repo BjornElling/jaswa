@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import { DataTablePage, TableColumnGroup } from './data-table-page';
+import { FilterSummary } from './filter-summary';
 import { MonsterPortrait } from './monster-portrait';
+import { RangeSlider, ValueSlider } from './range-slider';
 import { SortableHeader, columnClasses, useSortedRows } from './sortable-table';
 import type { SortableColumn } from './sortable-table';
 import { monsterPresentation, monsterSkillUpsToMax } from '../lib/monster-catalog';
@@ -23,6 +25,11 @@ const storageGradeOptions = [1, 2, 3, 4, 5, 6] as const;
 const storageLocationOptions = ['inventory', 'storage', 'sealed-summoned', 'sealed-normal'] as const;
 const storageMinimumLevel = 1;
 const storageMaximumLevel = 40;
+/* The "Have ≥" slider's own bounds, named because both the control and the
+   check on a stored session read them: a session carrying a quantity the
+   slider cannot reach is not a session this tab wrote. */
+const storageMinimumQuantity = 1;
+const storageMaximumQuantity = 10;
 type StorageLocation = typeof storageLocationOptions[number];
 /* The two Sealed Shrine tabs come from their own export lists; `inventory` and
    `storage` are both read off the account's monster list instead. */
@@ -55,7 +62,7 @@ const defaultStorageFilters: StorageFilterState = {
   familyFullySkilled: false,
   needsSkillUps: false,
   minimumQuantityEnabled: false,
-  minimumQuantity: 1,
+  minimumQuantity: storageMinimumQuantity,
 };
 
 function isStorageFilterState(value: unknown): value is StorageFilterState {
@@ -88,8 +95,8 @@ function isStorageFilterState(value: unknown): value is StorageFilterState {
     && typeof candidate.minimumQuantityEnabled === 'boolean'
     && typeof candidate.minimumQuantity === 'number'
     && Number.isSafeInteger(candidate.minimumQuantity)
-    && candidate.minimumQuantity >= 1
-    && candidate.minimumQuantity <= 10;
+    && candidate.minimumQuantity >= storageMinimumQuantity
+    && candidate.minimumQuantity <= storageMaximumQuantity;
 }
 
 type StorageMonsterRow = {
@@ -240,68 +247,6 @@ function displaySkillProgress(row: StorageMonsterRow): string {
   if (row.maximumSkillUps === undefined) return '—';
   if (row.maxSkilled) return 'MAX';
   return `${row.currentSkillUps ?? '—'} / ${row.maximumSkillUps}`;
-}
-
-/* A range input's thumb never reaches the very end of its track: the browser
-   insets it by half its own width at each end, so a handle at the maximum has
-   its centre half a thumb short of 100%. A value placed at a flat percentage of
-   the track therefore drifts up to half a thumb away from the handle it names,
-   worst at the two ends. Positions are expressed against the travel the thumb
-   actually has, offset by half a thumb, so a value sits over its handle at
-   every point of the range — including both ends. */
-const sliderThumb = 16;
-function handlePosition(fraction: number) {
-  return `calc(${sliderThumb / 2}px + ${fraction} * (100% - ${sliderThumb}px))`;
-}
-
-function RangeSlider({ minimum, maximum, onMinimumChange, onMaximumChange }: {
-  minimum: number;
-  maximum: number;
-  onMinimumChange: (value: number) => void;
-  onMaximumChange: (value: number) => void;
-}) {
-  const span = storageMaximumLevel - storageMinimumLevel;
-  const minimumPosition = handlePosition((minimum - storageMinimumLevel) / span);
-  const maximumPosition = handlePosition((maximum - storageMinimumLevel) / span);
-  return <div className="range-slider" aria-label="Monster level range">
-    <div className="range-slider-values" aria-hidden="true">
-      <output className="range-slider-value" style={{ left: minimumPosition }}>{minimum}</output>
-      <output className="range-slider-value" style={{ left: maximumPosition }}>{maximum}</output>
-    </div>
-    <div className="range-slider-track">
-      <span className="range-slider-fill" style={{ left: minimumPosition, right: `calc(100% - ${maximumPosition})` }} />
-      <input className="range-slider-input range-slider-input-minimum" type="range"
-        min={storageMinimumLevel} max={storageMaximumLevel} step={1} value={minimum}
-        onChange={(event) => onMinimumChange(Math.min(Number(event.target.value), maximum))}
-        aria-label="Minimum monster level" aria-valuetext={`Minimum level ${minimum}`} />
-      <input className="range-slider-input range-slider-input-maximum" type="range"
-        min={storageMinimumLevel} max={storageMaximumLevel} step={1} value={maximum}
-        onChange={(event) => onMaximumChange(Math.max(Number(event.target.value), minimum))}
-        aria-label="Maximum monster level" aria-valuetext={`Maximum level ${maximum}`} />
-    </div>
-  </div>;
-}
-
-function QuantitySlider({ value, onChange, disabled }: {
-  value: number;
-  onChange: (value: number) => void;
-  disabled: boolean;
-}) {
-  const position = handlePosition((value - 1) / 9);
-  /* The value reads under the rail rather than over it: above, it stood between
-     "Have ≥" and the checkbox line before it, and that reserved row opened a gap
-     the other two conditions did not have. Under the rail it sits in space the
-     row's own line already occupies. */
-  return <div className="range-slider range-slider-single" data-disabled={disabled ? 'true' : undefined}>
-    <div className="range-slider-track">
-      <input className="range-slider-input" type="range" min={1} max={10} step={1} value={value} disabled={disabled}
-        onChange={(event) => onChange(Number(event.target.value))}
-        aria-label="Minimum monster quantity" aria-valuetext={`Have at least ${value}`} />
-    </div>
-    <div className="range-slider-values" aria-hidden="true">
-      <output className="range-slider-value" style={{ left: position }}>{value}</output>
-    </div>
-  </div>;
 }
 
 /**
@@ -572,9 +517,15 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
       <div className="filter-group storage-filter-level">
         <span className="filter-label">Level</span>
         <div className="filter-group-controls">
-          <RangeSlider minimum={minimumLevel} maximum={maximumLevel}
-            onMinimumChange={(value) => setFilters((current) => ({ ...current, minimumLevel: value }))}
-            onMaximumChange={(value) => setFilters((current) => ({ ...current, maximumLevel: value }))} />
+          <RangeSlider
+            minimum={storageMinimumLevel} maximum={storageMaximumLevel}
+            lowerValue={minimumLevel} upperValue={maximumLevel}
+            label="Monster level range"
+            lowerLabel="Minimum monster level" upperLabel="Maximum monster level"
+            valueText={(value, end) => `${end === 'lower' ? 'Minimum' : 'Maximum'} level ${value}`}
+            onChange={(lower, upper) => setFilters((current) => ({
+              ...current, minimumLevel: lower, maximumLevel: upper,
+            }))} />
         </div>
       </div>
       <div className="filter-group storage-filter-grade" role="group" aria-label="Filter Storage monsters by grade">
@@ -611,14 +562,17 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
                 onChange={(event) => setFilters((current) => ({ ...current, minimumQuantityEnabled: event.target.checked }))} />
               <span>Have ≥</span>
             </label>
-            <QuantitySlider value={minimumQuantity} disabled={!minimumQuantityEnabled}
+            <ValueSlider
+              minimum={storageMinimumQuantity} maximum={storageMaximumQuantity}
+              value={minimumQuantity} disabled={!minimumQuantityEnabled}
+              label="Minimum monster quantity"
+              valueText={(value) => `Have at least ${value}`}
               onChange={(value) => setFilters((current) => ({ ...current, minimumQuantity: value }))} />
           </div>
         </div>
       </div>
-      <output className="filter-summary" aria-label={`${visible.length} of ${rows.length} Storage monsters shown`}>
-        <b>{visible.length}</b> of {rows.length} shown
-      </output>
+      <FilterSummary visible={visible.length} total={rows.length} noun="Storage monsters"
+        onReset={() => setFilters(defaultStorageFilters)} />
     </>}
   >
     <tbody>

@@ -1,6 +1,7 @@
 import { type ReactNode, useMemo } from 'react';
 import { Disclosure, PageHeader } from './page-chrome';
 import { DataTablePage, TableColumnGroup } from './data-table-page';
+import { FilterSummary } from './filter-summary';
 import { SortableHeader, useSortedRows } from './sortable-table';
 import type { SortableColumn } from './sortable-table';
 import { MonsterStorage } from './monster-storage';
@@ -319,9 +320,8 @@ export function MonsterOverview({ monsters, gameData, preferences }: {
           >Lvl. &lt; {maxMonsterLevel}</button>
         </div>
       </div>
-      <output className="filter-summary" aria-label={`${visible.length} of ${rows.length} monsters shown`}>
-        <b>{visible.length}</b> of {rows.length} shown
-      </output>
+      <FilterSummary visible={visible.length} total={rows.length} noun="monsters"
+        onReset={() => setFilters(defaultMonsterFilters)} />
         </>}
       >
         <tbody>
