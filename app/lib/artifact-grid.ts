@@ -4,7 +4,17 @@ import type { ArtifactCategory, ArtifactGrade } from './artifact-properties';
 import { artifactCategoryLabels, artifactGradeOrder, artifactIntangibleLabel } from './artifact-properties';
 import { monsterNameCollator } from './monster-grid';
 
-export type ArtifactSortKey = 'index' | 'location' | 'value' | 'category' | 'equipClass' | 'grade' | 'mainProperty' | 'subProperties';
+/**
+ * The orderings the artifact table offers. Every rendered column is here
+ * (§17.8), plus `subProperty` for the substat-specific ranking the filter
+ * dropdown drives, which has no column of its own.
+ *
+ * `refinement` and `subProperty` are ordered by the table component itself
+ * rather than by `compareArtifactRows`: the first reads a flag off the artifact
+ * and the second needs the chosen property, which is not a property of the two
+ * rows being compared.
+ */
+export type ArtifactSortKey = 'index' | 'location' | 'value' | 'category' | 'equipClass' | 'grade' | 'mainProperty' | 'subProperties' | 'refinement' | 'subProperty';
 
 export type ArtifactRow = {
   artifact: Artifact;
@@ -31,6 +41,9 @@ export type ArtifactRow = {
 export const defaultArtifactSortDirections: Record<ArtifactSortKey, boolean> = {
   index: true, location: true, value: false, category: true,
   equipClass: true, grade: false, mainProperty: true, subProperties: true,
+  /* Both gather their interesting rows at the descending end: the unrefined
+     flag marks work to do, and a substat ranking leads with the best roll. */
+  refinement: false, subProperty: false,
 };
 
 /** Grade sorts by rarity rather than alphabetically: Legend outranks Rare. */
@@ -121,6 +134,10 @@ export function compareArtifactRows(
   if (key === 'grade') {
     return ((gradeRank.get(left.artifact.grade) ?? 0) - (gradeRank.get(right.artifact.grade) ?? 0)) * direction;
   }
+  /* Named here rather than left to the text fallback, which would compare these
+     two on their substat names and quietly return a plausible wrong order. Both
+     are ordered where they are declared — see `ArtifactSortKey`. */
+  if (key === 'index' || key === 'refinement' || key === 'subProperty') return 0;
   const text = (row: ArtifactRow): string | null => {
     if (key === 'location') return row.location;
     if (key === 'category') return artifactCategoryLabel(row.artifact.category);

@@ -1,6 +1,8 @@
-import { type ReactNode, useMemo, useState } from 'react';
+import { type ReactNode, useMemo } from 'react';
 import { Disclosure, PageHeader } from './page-chrome';
 import { DataTablePage, TableColumnGroup } from './data-table-page';
+import { SortableHeader, useSortedRows } from './sortable-table';
+import type { SortableColumn } from './sortable-table';
 import { MonsterStorage } from './monster-storage';
 import { MonsterPortrait } from './monster-portrait';
 import { WorkspacePage } from './workspace-page';
@@ -14,13 +16,14 @@ import type { Preferences } from '../lib/types';
 import {
   compareNumbersWithBlanks, compareTextWithBlanks, defaultMonsterSortDirections,
   displayArtifactTypes, displayRelicType, equippedEquipmentTypes, isStoredMonster,
-  monsterArchetypeLabels, monsterFilterArchetypes, monsterNameCollator, numericOrNull,
+  monsterArchetypeLabels, monsterFilterArchetypes, numericOrNull,
 } from '../lib/monster-grid';
 import type { MonsterGridColumn, MonsterRow, SortKey } from '../lib/monster-grid';
 import { numberedMonsterNames } from '../lib/monster-names';
 import { formatNumber } from '../lib/formatting';
 import { useSessionStorageState } from '../lib/session-storage-state';
 import { alignmentClass, monsterTableColumns } from '../lib/table-layouts';
+import type { ColumnAlignment } from '../lib/table-layouts';
 
 type MonsterFilterState = {
   search: string;
@@ -41,24 +44,90 @@ const defaultMonsterFilters: MonsterFilterState = {
 };
 const monsterElementOptions = ['Water', 'Fire', 'Wind', 'Light', 'Dark'] as const;
 
+/** The stat columns between Runes and Artifacts, in the order they are read. */
+const monsterStatColumns: readonly MonsterGridColumn[] = [
+  { key: 'level', label: 'LVL' }, { key: 'hp', label: 'HP' }, { key: 'atk', label: 'ATK' },
+  { key: 'def', label: 'DEF' }, { key: 'spd', label: 'SPD' }, { key: 'criticalRate', label: 'CR%' },
+  { key: 'criticalDamage', label: 'CD%' }, { key: 'resistance', label: 'RES%' }, { key: 'accuracy', label: 'ACC%' },
+];
+
 /* Two columns sort under a different name than they are laid out under, so the
    sort key is mapped to the layout column before its alignment is read. */
 const monsterLayoutKeys: Partial<Record<SortKey, string>> = { artifactTypes: 'artifacts', relicTypes: 'relic' };
 
 /**
- * The alignment class for one column of the monster table, header and cell
- * alike, taken from the column plan in `table-layouts.ts` so the two agree by
- * construction rather than by both call sites remembering the same answer.
+ * The alignment for one column of the monster table, taken from the column plan
+ * in `table-layouts.ts` so the heading, the cells and the sort control all read
+ * one declaration rather than each remembering the same answer.
  */
-function monsterColumnAlignment(key: SortKey): string {
+function monsterColumnAlignment(key: SortKey): ColumnAlignment | undefined {
   const layoutKey = monsterLayoutKeys[key] ?? key;
-  return alignmentClass(monsterTableColumns.find((column) => column.key === layoutKey)?.align);
+  return monsterTableColumns.find((column) => column.key === layoutKey)?.align;
 }
 
 /** One body cell's classes: the column's alignment, then the row's own state. */
 function cell(key: SortKey, ...extra: Array<string | false | undefined>): string {
-  return [monsterColumnAlignment(key), ...extra].filter(Boolean).join(' ');
+  return [alignmentClass(monsterColumnAlignment(key)), ...extra].filter(Boolean).join(' ');
 }
+
+/** A numeric column's value, or null where the row has none to compare. */
+function monsterSortNumber(row: MonsterRow, key: SortKey): number | null {
+  const value = row[key as keyof MonsterRow];
+  return typeof value === 'number' ? value : null;
+}
+
+/** The text a text-ordered column compares on, or null where it has none. */
+const monsterSortText: Partial<Record<SortKey, (row: MonsterRow) => string | null>> = {
+  name: (row) => row.name,
+  sets: (row) => row.sets.length ? row.sets.map((set) => set.name).join('/') : null,
+  artifactTypes: (row) => row.artifactTypes.some((type) => type !== null) ? displayArtifactTypes(row.artifactTypes) : null,
+  relicTypes: (row) => row.relicTypes.some((type) => type !== null) ? displayRelicType(row.relicTypes) : null,
+};
+
+/**
+ * Every column of the roster table with the comparison that orders it (§17.8).
+ * Built from the same key list the layout and the cells use, so a column cannot
+ * be added to the table without an ordering coming with it.
+ *
+ * `index` is the import order the table opens in; the rest compare their own
+ * value and fall back to that order, which is what keeps equal rows still.
+ */
+function monsterSortableColumns(statColumns: readonly MonsterGridColumn[]): readonly SortableColumn<MonsterRow>[] {
+  const column = (key: SortKey, label: ReactNode, accessibleLabel?: string): SortableColumn<MonsterRow> => {
+    const align = monsterColumnAlignment(key);
+    const text = monsterSortText[key];
+    return {
+      key,
+      label,
+      accessibleLabel,
+      align,
+      /* Numbers open at their largest, where the interesting rows are; text and
+         the row number open at their natural start. */
+      initialDirection: defaultMonsterSortDirections[key] ? 'ascending' : 'descending',
+      compare: key === 'index'
+        ? (left, right) => left.index - right.index
+        : text
+          ? (left, right) => compareTextWithBlanks(text(left), text(right), 1) || left.index - right.index
+          /* Everything not named in `monsterSortText` is one of the numeric
+             columns, whose `MonsterRow` fields are all `number | null`. */
+          : (left, right) => compareNumbersWithBlanks(
+            monsterSortNumber(left, key), monsterSortNumber(right, key), 1) || left.index - right.index,
+    };
+  };
+  return [
+    column('index', '#', 'Row number'),
+    column('name', 'Monster'),
+    column('sets', 'Runes'),
+    ...statColumns.map((entry) => column(entry.key, entry.label)),
+    column('artifactTypes', 'Artifacts'),
+    column('relicTypes', 'Relic'),
+    column('ehp', 'E.HP'),
+    column('ehpD', 'E.HP D'),
+    column('dmg', 'DMG'),
+  ];
+}
+
+const monsterColumns = monsterSortableColumns(monsterStatColumns);
 /* The game caps monsters at 40 today, so a level below that is not maxed. Treating
    it as a floor rather than an exact match keeps the filter right if the cap rises. */
 const maxMonsterLevel = 40;
@@ -79,31 +148,11 @@ function isMonsterFilterState(value: unknown): value is MonsterFilterState {
     && typeof candidate.showBelowMaxLevel === 'boolean';
 }
 
-function MonsterTableHeader({ columns, sortHeader }: {
-  columns: MonsterGridColumn[];
-  sortHeader: (key: SortKey, label: string, extraClassName?: string) => ReactNode;
-}) {
-  return <thead>
-    <tr>
-      {sortHeader('index', '#')}
-      {sortHeader('name', 'Monster')}
-      {sortHeader('sets', 'Runes')}
-      {columns.map((column) => sortHeader(column.key, column.label))}
-      {sortHeader('artifactTypes', 'Artifacts', 'equipment-start')}
-      {sortHeader('relicTypes', 'Relic')}
-      {sortHeader('ehp', 'E.HP')}
-      {sortHeader('ehpD', 'E.HP D')}
-      {sortHeader('dmg', 'DMG')}
-    </tr>
-  </thead>;
-}
-
 export function MonsterOverview({ monsters, gameData, preferences }: {
   monsters: GameRecord[];
   gameData: GameRecord;
   preferences: Preferences;
 }) {
-  const [sort, setSort] = useState<{ key: SortKey; ascending: boolean }>({ key: 'index', ascending: true });
   const [filters, setFilters] = useSessionStorageState(
     'jaswa.filters.monsters', defaultMonsterFilters, isMonsterFilterState,
   );
@@ -165,7 +214,7 @@ export function MonsterOverview({ monsters, gameData, preferences }: {
 
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
-    const filtered = rows.filter((row) => {
+    return rows.filter((row) => {
       /* Storage and Inventory are the game's two places a monster can be, so
          the pair is exhaustive: turning both off is a request for nothing. */
       if (!showStorage && row.inStorage) return false;
@@ -179,28 +228,11 @@ export function MonsterOverview({ monsters, gameData, preferences }: {
         || row.searchAliases?.some((alias) => alias.toLowerCase().includes(term))
         || row.sets.some((set) => set.name.toLowerCase().includes(term));
     });
-    const { key, ascending } = sort;
-    if (key === 'index') return ascending ? filtered : [...filtered].reverse();
-    const direction = ascending ? 1 : -1;
-    return [...filtered].sort((left, right) => {
-      if (key === 'name') return monsterNameCollator.compare(left.name, right.name) * direction || left.index - right.index;
-      if (key === 'sets' || key === 'artifactTypes' || key === 'relicTypes') {
-        const values = key === 'sets'
-          ? (row: MonsterRow) => row.sets.length ? row.sets.map((set) => set.name).join('/') : null
-          : key === 'artifactTypes'
-            ? (row: MonsterRow) => row.artifactTypes.some((type) => type !== null) ? displayArtifactTypes(row.artifactTypes) : null
-            : (row: MonsterRow) => row.relicTypes.some((type) => type !== null) ? displayRelicType(row.relicTypes) : null;
-        return compareTextWithBlanks(values(left), values(right), direction) || left.index - right.index;
-      }
-      return compareNumbersWithBlanks(left[key], right[key], direction) || left.index - right.index;
-    });
-  }, [rows, search, selectedElements, selectedArchetypes, showStorage, showInventory, showBelowMaxLevel, sort]);
+  }, [rows, search, selectedElements, selectedArchetypes, showStorage, showInventory, showBelowMaxLevel]);
 
-  function toggleSort(key: SortKey) {
-    setSort((current) => current.key === key
-      ? { key, ascending: !current.ascending }
-      : { key, ascending: defaultMonsterSortDirections[key] });
-  }
+  const { sorted, sort, toggle } = useSortedRows(
+    visible, monsterColumns, { key: 'index', direction: 'ascending' },
+  );
 
   function toggleElement(name: string) {
     setFilters((current) => ({
@@ -220,19 +252,6 @@ export function MonsterOverview({ monsters, gameData, preferences }: {
     }));
   }
 
-  const columns: MonsterGridColumn[] = [
-    { key: 'level', label: 'LVL' }, { key: 'hp', label: 'HP' }, { key: 'atk', label: 'ATK' },
-    { key: 'def', label: 'DEF' }, { key: 'spd', label: 'SPD' }, { key: 'criticalRate', label: 'CR%' },
-    { key: 'criticalDamage', label: 'CD%' }, { key: 'resistance', label: 'RES%' }, { key: 'accuracy', label: 'ACC%' },
-  ];
-  const sortHeader = (key: SortKey, label: string, extraClassName = '') => {
-    const sorted = sort.key === key;
-    const className = [monsterColumnAlignment(key), 'sortable', sorted ? 'sorted' : '', sorted && sort.ascending ? 'ascending' : '', extraClassName]
-      .filter(Boolean).join(' ');
-    return <th key={key} scope="col" aria-sort={sorted ? (sort.ascending ? 'ascending' : 'descending') : 'none'} className={className}>
-      <button type="button" className="table-sort-button" onClick={() => toggleSort(key)}>{label}</button>
-    </th>;
-  };
   return <WorkspacePage
     header={<PageHeader
       title="Monsters"
@@ -247,7 +266,7 @@ export function MonsterOverview({ monsters, gameData, preferences }: {
         headerLabel="Monster roster columns"
         tableLabel="Monster roster"
         columnGroup={<TableColumnGroup columns={monsterTableColumns} />}
-        header={<MonsterTableHeader columns={columns} sortHeader={sortHeader} />}
+        header={<SortableHeader columns={monsterColumns} sort={sort} onToggle={toggle} />}
         filters={<>
       <div className="filter-group">
         <span className="filter-label">Search</span>
@@ -306,7 +325,7 @@ export function MonsterOverview({ monsters, gameData, preferences }: {
         </>}
       >
         <tbody>
-          {visible.map((row) => <tr key={row.unitId}>
+          {sorted.map((row) => <tr key={row.unitId}>
             <td className={cell('index', 'row-index')}>{String(row.index + 1).padStart(2, '0')}</td>
             <td className={cell('name')}>
               <div className="monster-cell">

@@ -741,42 +741,17 @@ button { cursor: pointer; }
   white-space: nowrap;
   user-select: none;
 }
-.grid-table thead th.sortable { cursor: pointer; }
-.grid-table thead th.sortable:hover { color: var(--ink); }
-.grid-table thead th.sortable.sorted:hover { color: var(--ink); }
+/* Sorting is one mechanism for every table in the app: `sortable-table.tsx`
+   renders each heading and `.sort-button` below styles it. The account
+   libraries used to carry a second, arrow-through-`::after` implementation of
+   their own here; it went when they moved onto the shared header, so that the
+   two could not drift apart in look or in behaviour. */
+.grid-table thead th.sortable-column { cursor: pointer; }
+.grid-table thead th.sortable-column:hover { color: var(--ink); }
 .grid-table thead th.align-left { text-align: left; }
 .grid-table thead th.align-right { text-align: right; }
-.grid-table thead th.sorted { color: var(--ink); }
-/* Every sortable header reserves the arrow's width from the outset and shows
-   it only when that column is the sorted one. The fixed-layout grid and the
-   fixed-width glyph keep the whole table still when a sort changes. */
-.table-sort-button {
-  width: 100%; height: 100%;
-  display: flex; align-items: center; justify-content: flex-end;
-  gap: var(--s1);
-  border: 0; padding: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  letter-spacing: inherit;
-  text-transform: inherit;
-  text-align: inherit;
-}
+.grid-table thead th.align-center { text-align: center; }
 .table-heading-two-line { display: block; line-height: 1.2; white-space: normal; }
-.grid-table thead th.align-left .table-sort-button { justify-content: flex-start; }
-.table-sort-button::after {
-  content: '↓';
-  display: inline-block;
-  width: 1em;
-  flex: 0 0 1em;
-  margin-left: var(--s1);
-  text-align: center;
-  opacity: 0;
-}
-.grid-table thead th.sortable:hover .table-sort-button::after { opacity: .35; }
-.grid-table thead th.sorted .table-sort-button::after { opacity: 1; }
-.grid-table thead th.sortable.sorted:hover .table-sort-button::after { opacity: 1; }
-.grid-table thead th.sorted.ascending .table-sort-button::after { content: '↑'; }
 .grid-table thead th.reserved { color: var(--faint); font-style: italic; }
 
 .grid-table tbody td {
@@ -3683,6 +3658,10 @@ button { cursor: pointer; }
   align-items: center;
   gap: var(--s2);
   width: 100%;
+  /* The whole heading cell is the target, not just its text: these rows are one
+     line tall and a click landing beside a short label would otherwise do
+     nothing. */
+  height: 100%;
   padding: 0;
   border: 0;
   background: none;
@@ -3704,8 +3683,10 @@ button { cursor: pointer; }
    column too. */
 .align-right { text-align: right; }
 .align-left { text-align: left; }
+.align-center { text-align: center; }
 th.align-right .sort-button { justify-content: flex-end; }
 th.align-left .sort-button { justify-content: flex-start; }
+th.align-center .sort-button { justify-content: center; }
 /* Clear ink marks the column the table is actually ordered by, including its
    direction mark; gold stays reserved for controls and recommendations. */
 .sort-button.active { color: var(--ink); }

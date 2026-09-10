@@ -16,13 +16,13 @@ test('keeps navigation, disclosures, and table filters in the current tab only',
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(syntheticAccount);
   await expect(page.getByText('synthetic-account.json')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Monsters', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Monsters', exact: true }).click();
   await page.locator('summary').filter({ hasText: 'Monster roster' }).click();
   await expect(page.getByRole('heading', { name: 'Monsters', exact: true })).toBeVisible();
   await page.getByRole('textbox', { name: 'Filter monsters by name or set' }).fill('water');
   await page.locator('summary').filter({ hasText: 'Storage' }).click();
   await page.getByRole('textbox', { name: 'Filter Storage monsters by name' }).fill('fairy');
-  await page.getByRole('button', { name: 'Artifacts', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Artifacts', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Artifacts', exact: true })).toBeVisible();
   await page.getByRole('textbox', { name: 'Filter artifacts by monster or property' }).fill('hp');
   await page.screenshot({ path: testInfo.outputPath('session-state-after-interaction.png') });
@@ -61,7 +61,7 @@ test('keeps navigation, disclosures, and table filters in the current tab only',
   await expect(page.getByRole('heading', { name: 'Artifacts', exact: true })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Filter artifacts by monster or property' })).toHaveValue('hp');
 
-  await page.getByRole('button', { name: 'Monsters', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Monsters', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Monsters', exact: true })).toBeVisible();
   await expect(page.locator('summary').filter({ hasText: 'Monster roster' }).locator('..')).toHaveAttribute('open', '');
   await expect(page.getByRole('textbox', { name: 'Filter monsters by name or set' })).toHaveValue('water');
@@ -74,14 +74,14 @@ test('keeps navigation, disclosures, and table filters in the current tab only',
     await expect(newTab.getByRole('heading', { name: 'Just Another Summoners War App' })).toBeVisible();
     await expect(newTab.getByRole('button', { name: 'Home', exact: true })).toHaveAttribute('aria-current', 'page');
     await expect(newTab.locator('details[open]')).toHaveCount(0);
-    await newTab.getByRole('button', { name: 'Monsters', exact: true }).click();
+    await newTab.getByRole('navigation').getByRole('button', { name: 'Monsters', exact: true }).click();
     await expect(newTab.getByRole('heading', { name: 'Monsters', exact: true })).toBeVisible();
     await expect(newTab.locator('details[open]')).toHaveCount(0);
     await newTab.locator('summary').filter({ hasText: 'Monster roster' }).click();
     await expect(newTab.getByRole('textbox', { name: 'Filter monsters by name or set' })).toHaveValue('');
     await newTab.locator('summary').filter({ hasText: 'Storage' }).click();
     await expect(newTab.getByRole('textbox', { name: 'Filter Storage monsters by name' })).toHaveValue('');
-    await newTab.getByRole('button', { name: 'Artifacts', exact: true }).click();
+    await newTab.getByRole('navigation').getByRole('button', { name: 'Artifacts', exact: true }).click();
     await expect(newTab.getByRole('heading', { name: 'Artifacts', exact: true })).toBeVisible();
     await expect(newTab.getByRole('textbox', { name: 'Filter artifacts by monster or property' })).toHaveValue('');
     await newTab.getByRole('button', { name: 'Rune Potential', exact: true }).click();

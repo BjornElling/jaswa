@@ -1,6 +1,8 @@
-import { type ReactNode, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo } from 'react';
 import { PageHeader } from './page-chrome';
 import { DataTablePage, TableColumnGroup } from './data-table-page';
+import { SortableHeader, useSortedRows } from './sortable-table';
+import type { SortableColumn } from './sortable-table';
 import { Dropdown } from './dropdown';
 import { ConvertedArtifactMark } from './converted-artifact-mark';
 import { UnrefinedArtifactMark } from './unrefined-artifact-mark';
@@ -113,31 +115,71 @@ function artifactCell(key: string, ...extra: Array<string | false | undefined>):
   return [alignmentClass(align), ...extra].filter(Boolean).join(' ');
 }
 
-function ArtifactTableHeader({ sortHeader }: {
-  sortHeader: (key: ArtifactSortKey, label: ReactNode) => ReactNode;
-}) {
-  return <thead>
-    <tr>
-      {sortHeader('location', 'Location')}
-      {sortHeader('value', <span className="table-heading-two-line" aria-label="Value on mon">Value on<br />mon</span>)}
-      {sortHeader('category', 'Type')}
-      {sortHeader('equipClass', 'Fits')}
-      {sortHeader('grade', 'Quality')}
-      {sortHeader('mainProperty', 'Main stat')}
-      {sortHeader('subProperties', 'Substats')}
-      {/* Not sortable: the flag marks a handful of rows and reads as an
-          annotation on the row rather than a column to order by. */}
-      <th scope="col" className={artifactCell('refinement')}><span className="visually-hidden">Refinement</span></th>
-    </tr>
-  </thead>;
-}
+/**
+ * Every column of the artifact table with the comparison that orders it
+ * (§17.8), including the marks column — a flag is still something the user may
+ * want to gather together, and "every column" admits no quiet exceptions.
+ *
+ * `subProperty` carries the substat-specific ordering the dropdown drives. It
+ * is declared here with `header: false` so it is one sort state rather than
+ * two: while it is active no column heading claims to be the sorted one, and a
+ * click on any heading hands ordering back to the table.
+ */
+const artifactColumns = (subPropertyId: number | null): readonly SortableColumn<ArtifactRow>[] => {
+  const column = (
+    key: ArtifactSortKey, label: ReactNode, accessibleLabel?: string,
+  ): SortableColumn<ArtifactRow> => ({
+    key,
+    label,
+    accessibleLabel,
+    align: artifactTableColumns.find((entry) => entry.key === key)?.align,
+    initialDirection: defaultArtifactSortDirections[key] ? 'ascending' : 'descending',
+    compare: (left, right) => compareArtifactRows(left, right, key, 1) || left.index - right.index,
+  });
+  return [
+    column('location', 'Location'),
+    column('value', <span className="table-heading-two-line" aria-label="Value on mon">Value on<br />mon</span>),
+    column('category', 'Type'),
+    column('equipClass', 'Fits'),
+    column('grade', 'Quality'),
+    column('mainProperty', 'Main stat'),
+    column('subProperties', 'Substats'),
+    {
+      key: 'refinement',
+      label: '',
+      accessibleLabel: 'Refinement',
+      align: artifactTableColumns.find((entry) => entry.key === 'refinement')?.align,
+      /* Unrefined rows first: the mark flags work still to do, so the useful
+         end of this ordering is the one that gathers those together. */
+      initialDirection: 'descending',
+      compare: (left, right) =>
+        Number(Boolean(left.artifact.unrefined)) - Number(Boolean(right.artifact.unrefined))
+        || left.index - right.index,
+    },
+    {
+      key: 'subProperty',
+      label: '',
+      header: false,
+      compare: subPropertyId === null ? undefined : (left, right) => {
+        const leftMagnitude = subPropertyMagnitude(left, subPropertyId);
+        const rightMagnitude = subPropertyMagnitude(right, subPropertyId);
+        /* An artifact without the property has no place in its ranking either
+           way round, so it sorts last in both directions. */
+        if (leftMagnitude === null || rightMagnitude === null) {
+          if (leftMagnitude === rightMagnitude) return left.index - right.index;
+          return leftMagnitude === null ? 1 : -1;
+        }
+        return rightMagnitude - leftMagnitude || left.index - right.index;
+      },
+    },
+  ];
+};
 
 export function ArtifactList({ game, monsters, preferences }: {
   game: ImportedGame | null;
   monsters: GameRecord[];
   preferences: Preferences;
 }) {
-  const [sort, setSort] = useState<{ key: ArtifactSortKey; ascending: boolean }>({ key: 'index', ascending: true });
   const [filters, setFilters] = useSessionStorageState(
     'jaswa.filters.artifacts', defaultArtifactFilters, isArtifactFilterState,
   );
@@ -229,33 +271,27 @@ export function ArtifactList({ game, monsters, preferences }: {
       return row.location?.toLowerCase().includes(term)
         || row.subProperties.some((property) => property.definition.name.toLowerCase().includes(term));
     });
-    if (activeSortBySubProperty !== null) {
-      return [...filtered].sort((left, right) => {
-        const leftMagnitude = subPropertyMagnitude(left, activeSortBySubProperty);
-        const rightMagnitude = subPropertyMagnitude(right, activeSortBySubProperty);
-        if (leftMagnitude === null || rightMagnitude === null) {
-          if (leftMagnitude === rightMagnitude) return left.index - right.index;
-          return leftMagnitude === null ? 1 : -1;
-        }
-        return rightMagnitude - leftMagnitude || left.index - right.index;
-      });
-    }
-    const { key, ascending } = sort;
-    if (key === 'index') return ascending ? filtered : [...filtered].reverse();
-    const direction = ascending ? 1 : -1;
-    return [...filtered].sort((left, right) =>
-      compareArtifactRows(left, right, key, direction) || left.index - right.index);
+    return filtered;
   }, [rows, search, selectedCategories, selectedClasses, selectedGrades, selectedMainProperties,
-    showEquipped, showInventory, includeIntangible, sort, activeSortBySubProperty]);
+    showEquipped, showInventory, includeIntangible, activeSortBySubProperty]);
 
-  function toggleSort(key: ArtifactSortKey) {
-    /* A table-header click hands ordering back to the table and clears the
-       property-specific ordering, while the dropdown remains the compact way
-       to both filter and rank one substat. */
+  const columns = useMemo(() => artifactColumns(activeSortBySubProperty), [activeSortBySubProperty]);
+  const { sorted, sort, toggle: toggleColumnSort, setSort } = useSortedRows(
+    visible, columns, { key: 'index', direction: 'ascending' },
+  );
+
+  /* Choosing a substat in the dropdown ranks by it, and clicking any column
+     heading hands ordering back to the table. One sort state throughout, so the
+     two controls cannot both claim to be ordering the list. */
+  const sortingBySubProperty = sort.key === 'subProperty';
+  useEffect(() => {
+    if (activeSortBySubProperty !== null) setSort({ key: 'subProperty', direction: 'descending' });
+    else if (sortingBySubProperty) setSort({ key: 'index', direction: 'ascending' });
+  }, [activeSortBySubProperty, setSort, sortingBySubProperty]);
+
+  function toggleSort(key: string) {
     setSortBySubProperty(null);
-    setSort((current) => current.key === key
-      ? { key, ascending: !current.ascending }
-      : { key, ascending: defaultArtifactSortDirections[key] });
+    toggleColumnSort(key);
   }
 
   function toggle<T>(value: T, set: (update: (current: T[]) => T[]) => void) {
@@ -300,14 +336,6 @@ export function ArtifactList({ game, monsters, preferences }: {
     setFilters((current) => ({ ...current, includeIntangible: update(current.includeIntangible) }));
   }
 
-  const sortHeader = (key: ArtifactSortKey, label: ReactNode) => {
-    const sorted = activeSortBySubProperty === null && sort.key === key;
-    const className = artifactCell(key, 'sortable', sorted && 'sorted', sorted && sort.ascending && 'ascending');
-    return <th key={key} scope="col" aria-sort={sorted ? (sort.ascending ? 'ascending' : 'descending') : 'none'} className={className}>
-      <button type="button" className="table-sort-button" onClick={() => toggleSort(key)}>{label}</button>
-    </th>;
-  };
-
   /* Five of the seven groups are the same shape — a heading, then one toggle
      per option — so they are written once and given their options. */
   const toggleGroup = <T extends string>(
@@ -346,7 +374,7 @@ export function ArtifactList({ game, monsters, preferences }: {
       headerLabel="Artifact library columns"
       tableLabel="Artifact library"
       columnGroup={<TableColumnGroup columns={artifactTableColumns} />}
-      header={<ArtifactTableHeader sortHeader={sortHeader} />}
+      header={<SortableHeader columns={columns} sort={sort} onToggle={toggleSort} />}
       filters={<>
       <div className="filter-group artifact-filter-search">
         <span className="filter-label">Search</span>
@@ -414,7 +442,7 @@ export function ArtifactList({ game, monsters, preferences }: {
       </>}
     >
       <tbody>
-          {visible.length ? visible.map((row) => <tr key={row.artifact.id}>
+          {sorted.length ? sorted.map((row) => <tr key={row.artifact.id}>
             <td className={artifactCell('location', !row.location && 'muted')}
               title={row.location === null ? 'Worn by a monster this import does not contain' : undefined}>
               {row.location ?? 'Unknown monster'}

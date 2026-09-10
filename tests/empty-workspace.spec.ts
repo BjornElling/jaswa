@@ -17,7 +17,7 @@ test('opens an empty local workspace and preserves navigation layout', async ({ 
 
   const rail = page.locator('.rail');
   const before = await rail.boundingBox();
-  await page.getByRole('button', { name: 'Artifacts', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Artifacts', exact: true }).click();
   const after = await rail.boundingBox();
   expect(before).not.toBeNull();
   expect(after).not.toBeNull();
@@ -33,7 +33,7 @@ test('imports a complete synthetic account into the artifact library', async ({ 
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(syntheticAccount);
   await expect(page.getByText('synthetic-account.json')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Artifacts', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Artifacts', exact: true }).click();
   await expect(page.locator('.artifact-grid tbody tr')).toHaveCount(4);
   await page.screenshot({ path: testInfo.outputPath('imported-artifacts.png') });
 });

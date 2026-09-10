@@ -52,6 +52,21 @@ try {
     { masterId: 10101, copies: 1 },
     { masterId: 10131, copies: 1 },
   ]).copies(10101), 2, 'an awakening is a copy of the same monster');
+  /* All three stages of one monster at once — unawakened, awakened and second
+     awakened — count as three copies, and the tally reads the same whichever
+     stage asks for it. */
+  const threeStages = createMonsterCopyIndex([
+    { masterId: 10101, copies: 1 },
+    { masterId: 10111, copies: 1 },
+    { masterId: 10131, copies: 1 },
+  ]);
+  for (const stage of [10101, 10111, 10131]) {
+    assert.equal(threeStages.copies(stage), 3,
+      `an unawakened, an awakened and a second awakened copy are three of the same monster, asked via ${stage}`);
+  }
+  const awakened = createMonsterSelectionIndex([{ masterId: 10111, level: 40, maxSkilled: true }]);
+  assert.equal(awakened.matches(10101, both), true,
+    'a Lv. 40 awakened copy must satisfy both conditions for its unawakened form');
   assert.equal(createMonsterCopyIndex([
     { masterId: 10101, copies: 1 },
     { masterId: 10102, copies: 1 },

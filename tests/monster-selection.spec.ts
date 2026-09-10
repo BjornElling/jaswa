@@ -19,7 +19,17 @@ test('filters Storage through awakened and collaboration monster identities', as
   await expect(storage).toContainText('Striker (Fire)');
 
   await page.getByRole('checkbox', { name: 'All lvl 40 of this family max skilled' }).check();
-  await expect(page.locator('.storage-filter-strip .filter-summary')).toContainText('2 of 2 shown');
+  /* Four rows: the two stored monsters this test is about, and the two Lv. 40
+     copies satisfying the conditions, which the Inventory location lists. Both
+     conditions hold for all four, so none is filtered away. */
+  await expect(page.locator('.storage-filter-strip .filter-summary')).toContainText('4 of 4 shown');
+  await expect(storage).toContainText('Neostone Fighter (Fire)');
+  await expect(storage).toContainText('Striker (Fire)');
+
+  /* The evidence sits in Inventory. Hiding that location must not withdraw it:
+     the two stored monsters still pass both conditions. */
+  await page.getByRole('checkbox', { name: 'Inventory' }).uncheck();
+  await expect(page.locator('.storage-filter-strip .filter-summary')).toContainText('2 of 4 shown');
   await expect(storage).toContainText('Neostone Fighter (Fire)');
   await expect(storage).toContainText('Striker (Fire)');
 });

@@ -1,13 +1,18 @@
 import { useMemo } from 'react';
-import { DataTablePage } from './data-table-page';
+import { DataTablePage, TableColumnGroup } from './data-table-page';
 import { MonsterPortrait } from './monster-portrait';
+import { SortableHeader, columnClasses, useSortedRows } from './sortable-table';
+import type { SortableColumn } from './sortable-table';
 import { monsterPresentation, monsterSkillUpsToMax } from '../lib/monster-catalog';
+import { withHigherAwakenings } from '../lib/monster-awakening-scope';
 import { createMonsterCopyIndex, createMonsterSelectionIndex } from '../lib/monster-selection';
 import type { GameRecord } from '../lib/game-data';
 import { formatNumber } from '../lib/formatting';
 import {
-  isStoredMonster, monsterArchetypeLabels, monsterFilterArchetypes, monsterNameCollator, numericOrNull,
+  compareNumbersWithBlanks, compareTextWithBlanks, isStoredMonster, monsterArchetypeLabels,
+  monsterFilterArchetypes, monsterNameCollator, numericOrNull,
 } from '../lib/monster-grid';
+import { storageTableColumns } from '../lib/table-layouts';
 import { elementName } from '../lib/rune-sets';
 import { summonedShrineRecords } from '../lib/sealed-shrine-storage';
 import type { Preferences } from '../lib/types';
@@ -15,10 +20,13 @@ import { useSessionStorageState } from '../lib/session-storage-state';
 
 const storageElementOptions = ['Water', 'Fire', 'Light', 'Wind', 'Dark'] as const;
 const storageGradeOptions = [1, 2, 3, 4, 5, 6] as const;
-const storageLocationOptions = ['storage', 'sealed-summoned', 'sealed-normal'] as const;
+const storageLocationOptions = ['inventory', 'storage', 'sealed-summoned', 'sealed-normal'] as const;
 const storageMinimumLevel = 1;
 const storageMaximumLevel = 40;
 type StorageLocation = typeof storageLocationOptions[number];
+/* The two Sealed Shrine tabs come from their own export lists; `inventory` and
+   `storage` are both read off the account's monster list instead. */
+type ShrineLocation = Extract<StorageLocation, 'sealed-summoned' | 'sealed-normal'>;
 
 type StorageFilterState = {
   search: string;
@@ -82,6 +90,8 @@ type StorageMonsterRow = {
   unitId: string;
   masterId: string;
   location: StorageLocation;
+  /** Position in the table's own default order, so `#` can sort back to it. */
+  ordinal: number;
   quantity: number;
   name: string;
   searchAliases: string[];
@@ -97,6 +107,7 @@ type StorageMonsterRow = {
 };
 
 const storageLocationLabels: Record<StorageLocation, string> = {
+  inventory: 'Inventory',
   storage: 'Storage',
   'sealed-summoned': 'Sealed Shrine · Summoned',
   'sealed-normal': 'Sealed Shrine · Normal',
@@ -106,7 +117,7 @@ const storageLocationLabels: Record<StorageLocation, string> = {
    `unit_storage_list`. Newer captures may keep the two shrine tabs in named
    containers instead. The resolver accepts those explicit containers while
    keeping ordinary Monster Storage on the game's `building_id` marker. */
-const storageListKeys: Record<Exclude<StorageLocation, 'storage'>, string[]> = {
+const storageListKeys: Record<ShrineLocation, string[]> = {
   'sealed-summoned': [
     'summoned_unit_storage_list', 'unit_summoned_storage_list', 'unit_storage_list_summoned', 'summoned_storage_list',
     'summoned_monster_storage_list', 'sealed_shrine_summoned', 'sealedShrineSummoned',
@@ -140,9 +151,9 @@ function storageList(value: unknown): GameRecord[] {
   return Array.isArray(value) ? value.filter((entry): entry is GameRecord => Boolean(entry) && typeof entry === 'object' && !Array.isArray(entry)) : [];
 }
 
-function storageEntries(gameData: GameRecord): Array<{ record: GameRecord; location: Exclude<StorageLocation, 'storage'>; index: number }> {
-  const entries: Array<{ record: GameRecord; location: Exclude<StorageLocation, 'storage'>; index: number }> = [];
-  const add = (value: unknown, fallback: Exclude<StorageLocation, 'storage'>) => storageList(value).forEach((record) => {
+function storageEntries(gameData: GameRecord): Array<{ record: GameRecord; location: ShrineLocation; index: number }> {
+  const entries: Array<{ record: GameRecord; location: ShrineLocation; index: number }> = [];
+  const add = (value: unknown, fallback: ShrineLocation) => storageList(value).forEach((record) => {
     const location = explicitStorageLocation(record);
     entries.push({ record, location: location === 'sealed-normal' || location === 'sealed-summoned' ? location : fallback, index: entries.length });
   });
@@ -267,6 +278,68 @@ function QuantitySlider({ value, onChange, disabled }: {
   </div>;
 }
 
+/**
+ * Every column of the Storage table, each with the comparison that orders it
+ * (§17.8). Blanks sort to the end in both directions via
+ * `compareNumbersWithBlanks`/`compareTextWithBlanks`, so a missing level never
+ * masquerades as a low one.
+ */
+const storageColumns: readonly SortableColumn<StorageMonsterRow>[] = [
+  {
+    key: 'index', label: '#', accessibleLabel: 'Row number', align: 'left',
+    compare: (left, right) => left.ordinal - right.ordinal,
+  },
+  {
+    key: 'name', label: 'Monster', align: 'left',
+    compare: (left, right) => monsterNameCollator.compare(left.name, right.name),
+  },
+  {
+    key: 'location', label: 'Location', align: 'left',
+    /* Ordered by the Location filter's own listing rather than alphabetically,
+       so sorting groups the table the way the filter above it is arranged. */
+    compare: (left, right) => storageLocationOptions.indexOf(left.location) - storageLocationOptions.indexOf(right.location),
+  },
+  {
+    key: 'element', label: 'Element', align: 'left',
+    compare: (left, right) => compareTextWithBlanks(left.element ?? null, right.element ?? null, 1),
+  },
+  {
+    key: 'archetype', label: 'Type', align: 'left',
+    compare: (left, right) => compareTextWithBlanks(
+      left.archetype ? monsterArchetypeLabels[left.archetype] : null,
+      right.archetype ? monsterArchetypeLabels[right.archetype] : null, 1),
+  },
+  {
+    key: 'grade', label: 'Grade', align: 'right', initialDirection: 'descending',
+    compare: (left, right) => compareNumbersWithBlanks(left.grade, right.grade, 1),
+  },
+  {
+    key: 'level', label: 'Level', align: 'right', initialDirection: 'descending',
+    compare: (left, right) => compareNumbersWithBlanks(left.level, right.level, 1),
+  },
+  {
+    key: 'skills', label: 'Skills', align: 'right', initialDirection: 'descending',
+    /* Ordered by how far along the skill-ups are, not by the printed text:
+       "MAX" and "3 / 5" would otherwise sort as words. A monster whose maximum
+       the catalogue does not know has no progress to compare. */
+    compare: (left, right) => compareNumbersWithBlanks(storageSkillProgress(left), storageSkillProgress(right), 1),
+  },
+  {
+    key: 'quantity', label: 'Quantity', align: 'right', initialDirection: 'descending',
+    compare: (left, right) => left.quantity - right.quantity,
+  },
+];
+
+/** How complete this row's skill-ups are, as a fraction, for ordering. */
+function storageSkillProgress(row: StorageMonsterRow): number | null {
+  if (row.maximumSkillUps === undefined) return null;
+  if (row.maxSkilled) return 1;
+  if (row.maximumSkillUps === 0) return 1;
+  return row.currentSkillUps === null ? null : row.currentSkillUps / row.maximumSkillUps;
+}
+
+const storageCell = columnClasses(storageColumns);
+
 export function MonsterStorage({ monsters, gameData, preferences }: {
   monsters: GameRecord[];
   gameData: GameRecord;
@@ -282,9 +355,12 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
 
   const shrineEntries = useMemo(() => storageEntries(gameData), [gameData]);
   const rows = useMemo<StorageMonsterRow[]>(() => [
-    ...monsters
-      .filter(isStoredMonster)
-      .map((monster, index) => ({ monster, location: 'storage' as const, index })),
+    /* Storage and Inventory are the game's two places a monster on the account
+       can be, so the same list yields both: the `building_id` marker decides
+       which, and every monster lands in exactly one of the two. */
+    ...monsters.map((monster, index) => ({
+      monster, location: isStoredMonster(monster) ? 'storage' as const : 'inventory' as const, index,
+    })),
     ...shrineEntries.map(({ record, location, index }) => ({ monster: record, location, index })),
   ].map(({ monster, location, index }) => {
       const masterId = String(monster.unit_master_id ?? `unknown-${index}`);
@@ -295,6 +371,7 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
         unitId: String(monster.unit_id ?? `${location}-${masterId}-${index}`),
         masterId,
         location,
+        ordinal: 0,
         quantity: storageEntryQuantity(monster),
         name: presentation.name,
         searchAliases: presentation.searchAliases,
@@ -310,9 +387,19 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
         maxSkilled: isMaxSkilled(monster),
       };
     })
-    .sort((left, right) => monsterNameCollator.compare(left.name, right.name) || left.unitId.localeCompare(right.unitId)),
+    .sort((left, right) => monsterNameCollator.compare(left.name, right.name) || left.unitId.localeCompare(right.unitId))
+    /* Numbered after the default sort, so `#` names the order the table opens
+       in and sorting by it returns to that order rather than to import order. */
+    .map((row, position) => ({ ...row, ordinal: position + 1 })),
   [monsters, shrineEntries]);
 
+  /* Both indexes below are built from every monster the account holds — every
+     location, before any filter runs. A filter decides which rows are *shown*;
+     it must not change what the account *contains*. Unchecking Inventory
+     narrows the list, but a copy standing there still counts towards "Have ≥"
+     and still answers the two "Only show if" conditions, so the same row keeps
+     the same verdict however the Location boxes are set. Build either index
+     from `visible` and that stops being true. */
   const allMonsterRecords = useMemo(() => [
     ...monsters,
     ...shrineEntries.map(({ record }) => record),
@@ -324,17 +411,34 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
     maxSkilled: isMaxSkilled(monster),
   }))), [allMonsterRecords]);
 
-  /* Counted over the rows Storage lists, not the account: the two conditions
-     above ask what the player owns anywhere, but "Have ≥" is read against this
-     table, and a copy standing in the active roster would mark a monster the
-     table shows one of. */
+  /* `rows` is the unfiltered set, so the tally spans all four locations.
+     Awakening stages pool into it: `createMonsterCopyIndex` keys on the
+     monster's identity, so an unawakened, an awakened and a second awakened
+     copy count as three of the same monster. */
   const storageCopies = useMemo(() => createMonsterCopyIndex(
     rows.map((row) => ({ masterId: row.masterId, copies: row.quantity })),
   ), [rows]);
 
-  const visible = useMemo(() => {
+  /* A search names a monster, and awakening it does not change which monster it
+     is: `poison master` is a request to see what became of it, so the awakened
+     Kyle belongs in the results (§17.15). The widening is drawn from every row
+     the table can list, for the same reason the two indexes above are — a
+     hidden location must not decide what the account is understood to hold.
+
+     Master ids are the unit of comparison rather than names, because that is
+     what carries the awakening step; the names differ at every stage, which is
+     exactly why a name match alone cannot find the higher form. */
+  const searchedMasterIds = useMemo(() => {
     const term = search.trim().toLowerCase();
-    return rows.filter((row) => {
+    if (!term) return undefined;
+    const named = rows
+      .filter((row) => row.name.toLowerCase().includes(term)
+        || row.searchAliases.some((alias) => alias.toLowerCase().includes(term)))
+      .map((row) => row.masterId);
+    return withHigherAwakenings(named, rows.map((row) => row.masterId));
+  }, [rows, search]);
+
+  const visible = useMemo(() => rows.filter((row) => {
       /* Shrine summary records do not carry a level in the SWEX export. They
          are visible for the complete 1–40 range, but cannot honestly match a
          narrower interval until the export supplies a level for that copy. */
@@ -348,11 +452,17 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
          quantity counted a stack but missed a player holding the same monster
          as several single entries. */
       if (minimumQuantityEnabled && storageCopies.copies(row.masterId) < minimumQuantity) return false;
-      if (!term) return true;
-      return row.name.toLowerCase().includes(term)
-        || row.searchAliases.some((alias) => alias.toLowerCase().includes(term));
-    });
-  }, [alreadyHaveLevel40, familyFullySkilled, maximumLevel, minimumLevel, minimumQuantity, minimumQuantityEnabled, monsterSelection, rows, search, selectedArchetypes, selectedElements, selectedGrades, selectedLocations, storageCopies]);
+      return searchedMasterIds === undefined || searchedMasterIds.has(row.masterId);
+    }),
+  [alreadyHaveLevel40, familyFullySkilled, maximumLevel, minimumLevel, minimumQuantity, minimumQuantityEnabled, monsterSelection, rows, searchedMasterIds, selectedArchetypes, selectedElements, selectedGrades, selectedLocations, storageCopies]);
+
+  /* The table opens in its default order, which `#` also sorts back to. The
+     tiebreak keeps equal rows in that same order rather than letting them
+     reshuffle between renders. */
+  const { sorted, sort, toggle } = useSortedRows(
+    visible, storageColumns, { key: 'index', direction: 'ascending' },
+    (left, right) => left.ordinal - right.ordinal,
+  );
 
   const toggleElement = (name: string) => setFilters((current) => ({
     ...current,
@@ -384,21 +494,8 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
     tableClassName="storage-grid"
     headerLabel="Storage columns"
     tableLabel="Monsters in Storage"
-    columnGroup={<colgroup>
-      <col style={{ width: '4%' }} /><col style={{ width: '24%' }} /><col style={{ width: '13%' }} />
-      <col style={{ width: '10%' }} /><col style={{ width: '10%' }} /><col style={{ width: '9%' }} /><col style={{ width: '10%' }} /><col style={{ width: '10%' }} /><col style={{ width: '10%' }} />
-    </colgroup>}
-    header={<thead><tr>
-      <th scope="col" className="align-left">#</th>
-      <th scope="col" className="align-left">Monster</th>
-      <th scope="col" className="align-left">Location</th>
-      <th scope="col" className="align-left">Element</th>
-      <th scope="col" className="align-left">Type</th>
-      <th scope="col" className="align-right">Grade</th>
-      <th scope="col" className="align-right">Level</th>
-      <th scope="col" className="align-right">Skills</th>
-      <th scope="col" className="align-right">Quantity</th>
-    </tr></thead>}
+    columnGroup={<TableColumnGroup columns={storageTableColumns} />}
+    header={<SortableHeader columns={storageColumns} sort={sort} onToggle={toggle} />}
     filters={<>
       <div className="filter-group storage-filter-search">
         <span className="filter-label">Search</span>
@@ -490,19 +587,22 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
     <tbody>
       {!monsters.length && !shrineEntries.length ? <tr><td className="table-empty-state" colSpan={9}>
         Import your game data first. Monster Storage will appear here when JASWA has an account to inspect.
-      </td></tr> : visible.length ? visible.map((row, index) => <tr key={row.unitId}>
-        <td className="align-left row-index">{String(index + 1).padStart(2, '0')}</td>
-        <td className="align-left"><div className="monster-cell">
+      </td></tr> : sorted.length ? sorted.map((row) => <tr key={row.unitId}>
+        {/* The row's own number, not its position in the current view, so
+            sorting by `#` visibly restores the table's default order rather
+            than renumbering whatever order is already on screen. */}
+        <td className={storageCell('index', 'row-index')}>{String(row.ordinal).padStart(2, '0')}</td>
+        <td className={storageCell('name')}><div className="monster-cell">
           <MonsterPortrait imageFilename={row.imageFilename} initial={row.initial} name={row.name} />
           <span className="monster-name">{row.name}</span>
         </div></td>
-        <td className="align-left dim">{storageLocationLabels[row.location]}</td>
-        <td className="align-left dim">{row.element ?? '—'}</td>
-        <td className="align-left dim">{row.archetype ? monsterArchetypeLabels[row.archetype] : '—'}</td>
-        <td className="align-right dim">{row.grade === null ? '—' : `${row.grade}★`}</td>
-        <td className="align-right dim">{formatNumber(row.level, preferences.general)}</td>
-        <td className="align-right dim">{displaySkillProgress(row)}</td>
-        <td className="align-right dim">×{row.quantity}</td>
+        <td className={storageCell('location', 'dim')}>{storageLocationLabels[row.location]}</td>
+        <td className={storageCell('element', 'dim')}>{row.element ?? '—'}</td>
+        <td className={storageCell('archetype', 'dim')}>{row.archetype ? monsterArchetypeLabels[row.archetype] : '—'}</td>
+        <td className={storageCell('grade', 'dim')}>{row.grade === null ? '—' : `${row.grade}★`}</td>
+        <td className={storageCell('level', 'dim')}>{formatNumber(row.level, preferences.general)}</td>
+        <td className={storageCell('skills', 'dim')}>{displaySkillProgress(row)}</td>
+        <td className={storageCell('quantity', 'dim')}>×{row.quantity}</td>
       </tr>) : <tr><td className="table-empty-state" colSpan={9}>
         No Storage monsters match these filters. Clear a filter to see more.
       </td></tr>}

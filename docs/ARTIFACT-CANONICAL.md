@@ -2084,6 +2084,75 @@ Two rules follow, and the second is the one that generalises:
   fallback it already has for a missing device — instead of publishing zeros
   that look like an answer.
 
+### 17.13 Sorting belongs to the table frame, not to each table
+
+*September 10, 2026.* §17.8 says every table sorts on every column. It was true
+of the three workspace tables, which shared `sortable-table.tsx`, and only
+partly true of the account libraries: the monster roster and the artifact
+library had each grown a **second** sorting implementation of their own — their
+own header markup, their own `{ key, ascending }` state, their own arrow drawn
+through a CSS `::after` — and Monster Storage had none at all, so nine columns
+of real data could not be ordered.
+
+Three implementations of one behaviour is three chances to disagree, and they
+did: two arrow glyphs, two hover treatments, two ideas of what an unsorted
+column looks like. So sorting is now a property of the shared frame. Every
+account table declares `SortableColumn`s and renders `SortableHeader`; the
+duplicate CSS is gone.
+
+The consequence worth stating: **a column with no comparison is now a defect,
+not a decision.** The artifact library's marks column was deliberately left
+unsortable, on the reasoning that a flag "reads as an annotation rather than a
+column to order by". That reasoning is not wrong about the flag, but gathering
+the unrefined artifacts together is exactly the kind of question §17.8 exists to
+allow, and a heading that silently does nothing when clicked is worse than one
+whose ordering is merely seldom useful. It sorts.
+
+`tests/table-sorting.spec.ts` holds the rule for every account table at once: it
+asserts that no heading is inert and that each reverses on a second click, so a
+new column cannot arrive without an ordering.
+
+### 17.14 The sort arrow sits outside the heading text
+
+The arrow goes on the side of the label **away** from the column's own edge:
+after the text in a left-aligned column, before it in a right-aligned one, and
+after it in a centred one.
+
+The reason is the alignment itself. A right-aligned column exists so its digits
+line up on their units, and its heading hugs that same right edge; an arrow
+after the text would sit between the heading and the figures it names, pushing
+them apart. Put it on the outside and the heading stays against its column while
+the mark reads as a control on the column, not as part of the value.
+
+`sortMarkSide` in `table-layouts.ts` is the single statement of this, taken from
+the same `align` declaration that positions the heading and every cell under it,
+so the three cannot disagree. The mark keeps its footprint in every state,
+including unsorted, so clicking never re-lays out the row (`AGENTS.md` rule 2).
+
+### 17.15 A search reaches a monster's awakened forms, never its lesser ones
+
+*September 10, 2026.* Awakening is one-way: Poison Master becomes Kyle, and Kyle
+is the same monster further along. So searching `poison master` shows Kyle too —
+the user is asking after a monster, and the copy they own is the awakened one,
+which no name search could find, because every stage carries a different name.
+Searching `kyle` does **not** show Poison Master: that is a form this lineage has
+already left behind, and offering it back is offering a different monster.
+
+Scope is one element's chain, not the family. `Kyle` never answers a search for
+`Todd`: they are the Water and Fire awakenings of one release, separate monsters
+that merely awaken alike, and element decides which artifacts a monster may even
+wear.
+
+`monster-awakening-scope.ts` is where this lives, deliberately apart from
+`monsterIdentityId` in `monster-selection.ts`. The two look similar and mean
+opposite things: identity **folds** a lineage into one key, which is right for
+counting copies — three awakening stages are three copies of one monster — while
+scope keeps the stages **ordered**, because the question is which of them is far
+enough along. Anything phrased "…or better" belongs here; anything phrased "how
+many" belongs there. `npm run verify:monster-awakening-scope` holds the
+direction, the element boundary, and the rule that a form the account does not
+hold is never conjured into a result.
+
 ---
 
 ## 18. Quality is text; a score is colour

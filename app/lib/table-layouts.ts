@@ -6,7 +6,7 @@
  * The convention the app reads by: text left, numbers right, so digits line up
  * on their units and columns of figures can be compared down the page.
  */
-export type ColumnAlignment = 'left' | 'right';
+export type ColumnAlignment = 'left' | 'right' | 'center';
 
 export type TableColumn = {
   key: string;
@@ -17,7 +17,23 @@ export type TableColumn = {
 
 /** The class both a `th` and a `td` take for one column, so the pair agrees. */
 export function alignmentClass(align: ColumnAlignment | undefined): string {
-  return align === 'right' ? 'align-right' : 'align-left';
+  if (align === 'right') return 'align-right';
+  if (align === 'center') return 'align-center';
+  return 'align-left';
+}
+
+/**
+ * Which side of the heading text the sort arrow sits on.
+ *
+ * The mark belongs on the outside of the label — away from the figures the
+ * column is read against. A right-aligned column's text hugs the column's right
+ * edge, where the digits line up, so an arrow after the text would drive a
+ * wedge between the heading and the numbers under it; the arrow goes before the
+ * text instead. A left-aligned column is the mirror image, and a centred one has
+ * no edge to defend, so its arrow trails the text as reading order expects.
+ */
+export function sortMarkSide(align: ColumnAlignment | undefined): 'before' | 'after' {
+  return align === 'right' ? 'before' : 'after';
 }
 
 /**
@@ -45,6 +61,18 @@ export const monsterTableColumns: readonly TableColumn[] = [
   { key: 'ehp', width: '6.422%', align: 'right' },
   { key: 'ehpD', width: '6.422%', align: 'right' },
   { key: 'dmg', width: '7.3394%', align: 'right' },
+];
+
+export const storageTableColumns: readonly TableColumn[] = [
+  { key: 'index', width: '4%', align: 'left' },
+  { key: 'name', width: '24%', align: 'left' },
+  { key: 'location', width: '13%', align: 'left' },
+  { key: 'element', width: '10%', align: 'left' },
+  { key: 'archetype', width: '10%', align: 'left' },
+  { key: 'grade', width: '9%', align: 'right' },
+  { key: 'level', width: '10%', align: 'right' },
+  { key: 'skills', width: '10%', align: 'right' },
+  { key: 'quantity', width: '10%', align: 'right' },
 ];
 
 export const artifactTableColumns: readonly TableColumn[] = [

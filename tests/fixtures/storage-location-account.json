@@ -1,0 +1,25 @@
+{
+  "_comment": [
+    "Three awakening stages of one monster (Fairy 10101 / Elucia 10111 / Elucia 2A 10131),",
+    "deliberately split across locations: one in Inventory, one in Monster Storage, one in",
+    "the Sealed Shrine. The Location filter must be able to hide any of them while",
+    "'Have >=' still counts all three as copies of the same monster, and while the two",
+    "'Only show if' conditions still see the Lv. 40 max-skilled copy that sits in Storage.",
+    "10132 is a Fire sibling: a different monster, so it must never join that tally.",
+    "It is Lv. 40 and max-skilled on purpose. 'All lvl 40 of this family max skilled' is a",
+    "family-wide question, and an element sibling is in the family, so one unskilled Lv. 40",
+    "copy anywhere would fail the condition for all of them and hide what the test is about."
+  ],
+  "unit_list": [
+    { "unit_id": 1, "unit_master_id": 10101, "attribute": 1, "unit_level": 25, "class": 3, "skills": [[1, 1], [2, 1]] },
+    { "unit_id": 2, "unit_master_id": 10111, "attribute": 1, "unit_level": 40, "class": 5, "building_id": 3, "skills": [[1, 5], [2, 5], [3, 5], [4, 5]] },
+    { "unit_id": 3, "unit_master_id": 10132, "attribute": 2, "unit_level": 40, "class": 5, "skills": [[1, 6]] }
+  ],
+  "unit_storage_list": [
+    { "unit_id": 4, "unit_master_id": 10131, "attribute": 1, "quantity": 1 }
+  ],
+  "runes": [],
+  "artifacts": [],
+  "relics": [],
+  "rune_craft_item_list": []
+}
