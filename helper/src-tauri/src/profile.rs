@@ -142,6 +142,23 @@ impl ProfileStore {
         self.swex_snapshot.clone()
     }
 
+    /* The login response is the snapshot's shape, but it is not always the
+    whole login: the game answers `GetUnitStorageList` separately, so both
+    Sealed Shrine lists arrive after the snapshot has been taken. Leaving them
+    out made the export disagree with the account it was exported from — a
+    shrine holding 140 stacks downloaded as a file holding none, and JASWA
+    then read that file as an empty shrine.
+
+    Only sections the game itself sent are written back, in the wire shape it
+    sent them, so the snapshot stays the untouched login document SWOP expects
+    rather than becoming a copy of JASWA's live model. */
+    fn record_snapshot_section(&mut self, key: &str, records: &[Value]) {
+        let Some(Value::Object(snapshot)) = self.swex_snapshot.as_mut() else {
+            return;
+        };
+        snapshot.insert(key.to_owned(), Value::Array(records.to_vec()));
+    }
+
     pub fn accept_snapshot(&mut self, snapshot: Value) -> bool {
         let Some(object) = snapshot.as_object() else {
             return false;
@@ -283,6 +300,7 @@ impl ProfileStore {
         let storage_list = summoned_storage_list(response);
         if storage_list.is_some() {
             let next = normalize(storage_list.unwrap_or_default(), "unit_master_id");
+            self.record_snapshot_section("unit_storage_list", &next);
             if collection(&profile, "unit_storage_list") != next.as_slice() {
                 set_collection(&mut profile, "unit_storage_list", next);
                 changed = true;
@@ -305,6 +323,7 @@ impl ProfileStore {
             });
         if normal_storage_list.is_some() {
             let next = normalize(normal_storage_list.cloned().unwrap_or_default(), "unit_id");
+            self.record_snapshot_section("unit_storage_normal_list", &next);
             if collection(&profile, "unit_storage_normal_list") != next.as_slice() {
                 set_collection(&mut profile, "unit_storage_normal_list", next);
                 changed = true;
@@ -1933,6 +1952,53 @@ mod tests {
         assert_eq!(export.filename, "Culpa-21822407.json");
         assert_eq!(document, snapshot);
         assert!(export.content.contains("\n  \"building_list\": []"));
+    }
+
+    /* The account this reproduces held 140 summoned stacks and 153 normal
+    shrine records, and downloaded an export containing the normal list and no
+    summoned list at all: the game sends `GetUnitStorageList` after the login
+    response the snapshot is taken from. Re-importing that file showed an empty
+    Sealed Shrine · Summoned tab. */
+    #[test]
+    fn swex_export_carries_shrine_lists_that_arrive_after_the_login_response() {
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({
+            "wizard_id": 7,
+            "wizard_info": {"wizard_name": "Culpa", "wizard_id": 21822407},
+            "building_list": [],
+            "unit_list": [{"unit_id": 1, "wizard_id": 7}],
+            "runes": []
+        })));
+        assert!(
+            store
+                .swex_snapshot()
+                .unwrap()
+                .get("unit_storage_list")
+                .is_none()
+        );
+
+        assert!(store.apply_update(
+            &json!({
+                "ret_code": 0,
+                "GetUnitStorageList": {
+                    "unit_storage_list": [
+                        {"unit_master_id": 10101, "quantity": 8, "class": 3}
+                    ],
+                    "unit_storage_normal_list": [
+                        {"unit_id": 8, "unit_master_id": 10111, "unit_level": 40}
+                    ]
+                }
+            }),
+            &json!({"command": "GetUnitStorageList"})
+        ));
+
+        let export = serialize_swex_export(&store.swex_snapshot().unwrap()).unwrap();
+        let document: Value = serde_json::from_str(&export.content).unwrap();
+        assert_eq!(document["unit_storage_list"][0]["quantity"], 8);
+        assert_eq!(document["unit_storage_normal_list"][0]["unit_level"], 40);
+        /* The snapshot stays the login document: the shrine sections are added
+        without the live model's other collections being written over it. */
+        assert_eq!(document["unit_list"][0]["unit_id"], 1);
     }
 
     #[test]
