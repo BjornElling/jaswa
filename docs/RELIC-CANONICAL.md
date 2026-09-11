@@ -19,8 +19,9 @@ every judgement around it.
 
 - A good relic is not a good slot; it is a good *account*. Its value is the
   number of monsters in the metagame that want exactly it.
-- A second copy of a relic is worth nothing. One copy already covers more
-  monsters than most accounts field, so the second is inventory, not a spare.
+- A lower duplicate has little marginal value. One copy already covers more
+  monsters than most accounts field, so a lower copy is kept only while its
+  exact chance of passing the higher one clears the selected stone threshold.
 - A power-up is not cheap and not repeatable. Relics come with three
   durability, a failed attempt spends one, and at zero the relic's level is
   final for ever. There is no second chance and no re-roll.
@@ -166,78 +167,71 @@ vocabulary cannot be collected the way `ENGRAVING-STATISTICS.md` collects the
 statistics panels, and reading it off screen is not a shortcut — it is the only
 route there is.
 
-## 5. Synergy is a table
+## 5. Synergy is one table
 
-**The question.** A relic has a main property and a unique property. The unique
-property sizes itself from one of the monster's stats and grants another. When
-the main property raises the stat the unique property *reads*, the relic pays
-twice — the main stat helps directly, and it makes the relic's own effect
-bigger. When it does not, the two halves are strangers sharing a slot. That is
-what "synergy" means here, and it is worth a great deal on an item a hundred
-monsters will wear.
+**The question.** A relic has a main property and a unique property, but the
+player needs one answer: how attractive is this pair as an account-wide
+investment? Synergy therefore combines the property's practical effect, the
+natural fit of its two stats, and the breadth of relevant monsters. It is not a
+separate "double-dip" score plus a hidden coverage score.
 
 **The answer is forty-eight cells in `relic-synergy.ts`, written down.** Nothing
 derives them, nothing regenerates them, and every one can be edited on its own
 line when a better judgement is to hand. `npm run verify:relic-synergy` checks
 only that the table stays whole — every property has a row, every row has all
-three mains, every value is one of the five bands, no band has fallen out of use
-and no property grades the same against all three mains.
+three mains, every value is one of the five bands, and no band has fallen out
+of use. A row may deliberately grade all mains alike when practical coverage,
+rather than a mechanical source-stat interaction, is the judgement.
 
-### 5.1 What each cell was first filled in from
+### 5.1 What each cell was judged from
 
-Three questions about the pair, in this order of weight:
+Three inputs inform the one band:
 
-1. **Does the main property raise the stat the unique property reads?** If it
-   does, the main *multiplies* the relic: a bigger ATK both hits harder and buys
-   a bigger `DMG dealt per ATK` bonus. This is the only real double-dip a relic
-   has.
-2. **Does the main property raise the stat the relic grants?** Then the two
-   merely *add* — an HP main and a relic granting MAX HP both push one number,
-   which is worth having but is not a multiplication.
-3. **Do the relic and the main point the same way?** ATK main is on a damage
-   dealer; HP and DEF mains are on something that has to survive. A relic that
-   grants `DMG dealt` or `ATK` is offensive and everything else is defensive.
+1. **Effect strength.** Does the property make a meaningfully useful outcome?
+2. **Natural stat fit.** Does the main suit the monsters that want that outcome?
+   A main feeding the property's source stat is evidence here, not an automatic
+   upgrade: `ATK → DEF` can be mechanically neat yet too narrow to merit stones.
+3. **Account coverage.** How broadly do relevant monsters want the finished
+   profile? `SPD → MAX HP` is strong precisely because fast supports, control
+   units and bruisers commonly want more HP even though no main property feeds
+   SPD.
 
-Which gives:
+The table is an expert-informed judgement, not a claimed empirical measurement.
+It was revised against a current specialist guide's matrix where its practical
+coverage signal consistently contradicted a mechanical-only reading. That guide
+is useful evidence, not an authority: its property names contain an error, and
+the game vocabulary in §4 remains the source of technical names and effects.
 
-| Case | Band |
+| Band | Meaning |
 | --- | --- |
-| The main multiplies the relic, and both push one way | Exceptional |
-| Nothing can feed SPD, and main and relic stack on one stat | Exceptional |
-| Main and relic stack, but another main would have multiplied it | Strong |
-| The main multiplies the relic, but they pull apart | Strong |
-| Right direction, no multiplication | Neutral |
-| Wrong direction, on a relic no main could have fed | Weak |
-| Wrong direction, and another main would have fed it | Poor |
-
-The SPD line is the one worth stating twice. **No main property can raise SPD**,
-so a Nimble relic can never be multiplied by anything, and its best possible
-partner is the main that stacks with what it grants. HP main on Nimble Primal is
-therefore the top band not despite reading SPD but because nothing better is
-available to it — which is also where the community lands.
+| Exceptional | A top pair: high effect and very broad relevant use. Primary stone target. |
+| Strong | Clearly valuable, with broad use or exceptional value for a substantial archetype. |
+| Neutral | Useful, but situational or plainly behind the best alternatives. |
+| Weak | Plausible only for a narrow need; not a general stone target. |
+| Poor | Very rarely a rational use of scarce stones. |
 
 ### 5.1.1 The whole table
 
 | id | Unique property | Grants | Reads | HP main | ATK main | DEF main |
 | ---: | --- | --- | --- | --- | --- | --- |
-| 1 | Sharp Conquest | DMG dealt | ATK | ✕✕ Poor | ★★ Exceptional | ✕✕ Poor |
-| 2 | Solid Conquest | DMG dealt | DEF | ✕✕ Poor | ◇ Neutral | ★ Strong |
-| 3 | Hearty Conquest | DMG dealt | MAX HP | ★ Strong | ◇ Neutral | ✕✕ Poor |
-| 4 | Sharp Resolute | DMG taken | ATK | ◇ Neutral | ★ Strong | ◇ Neutral |
-| 5 | Solid Resolute | DMG taken | DEF | ◇ Neutral | ✕✕ Poor | ★★ Exceptional |
-| 6 | Hearty Resolute | DMG taken | MAX HP | ★★ Exceptional | ✕✕ Poor | ◇ Neutral |
-| 7 | Nimble Valiant | ATK | SPD | ✕ Weak | ★★ Exceptional | ✕ Weak |
-| 8 | Solid Valiant | ATK | DEF | ✕✕ Poor | ★ Strong | ★ Strong |
-| 9 | Hearty Valiant | ATK | MAX HP | ★ Strong | ★ Strong | ✕✕ Poor |
-| 10 | Sharp Timeless | DEF | ATK | ◇ Neutral | ★ Strong | ★ Strong |
-| 11 | Nimble Timeless | DEF | SPD | ◇ Neutral | ✕ Weak | ★★ Exceptional |
-| 12 | Hearty Timeless | DEF | MAX HP | ★★ Exceptional | ✕✕ Poor | ★ Strong |
-| 13 | Sharp Primal | MAX HP | ATK | ★ Strong | ★ Strong | ◇ Neutral |
-| 14 | Nimble Primal | MAX HP | SPD | ★★ Exceptional | ✕ Weak | ◇ Neutral |
-| 15 | Solid Primal | MAX HP | DEF | ★ Strong | ✕✕ Poor | ★★ Exceptional |
-| 16 | Hearty Restore | Recovery & Shield | MAX HP | ★★ Exceptional | ✕✕ Poor | ◇ Neutral |
+| 1 | Sharp Conquest | DMG dealt | ATK | ★ Strong | ★★ Exceptional | ◇ Neutral |
+| 2 | Solid Conquest | DMG dealt | DEF | ✕✕ Poor | ✕✕ Poor | ◇ Neutral |
+| 3 | Hearty Conquest | DMG dealt | MAX HP | ★ Strong | ✕ Weak | ✕ Weak |
+| 4 | Sharp Resolute | DMG taken | ATK | ✕✕ Poor | ✕ Weak | ✕✕ Poor |
+| 5 | Solid Resolute | DMG taken | DEF | ✕✕ Poor | ✕✕ Poor | ✕ Weak |
+| 6 | Hearty Resolute | DMG taken | MAX HP | ★ Strong | ✕✕ Poor | ◇ Neutral |
+| 7 | Nimble Valiant | ATK | SPD | ★ Strong | ★★ Exceptional | ◇ Neutral |
+| 8 | Solid Valiant | ATK | DEF | ✕ Weak | ◇ Neutral | ◇ Neutral |
+| 9 | Hearty Valiant | ATK | MAX HP | ◇ Neutral | ◇ Neutral | ✕ Weak |
+| 10 | Sharp Timeless | DEF | ATK | ✕ Weak | ✕ Weak | ✕ Weak |
+| 11 | Nimble Timeless | DEF | SPD | ◇ Neutral | ✕ Weak | ★ Strong |
+| 12 | Hearty Timeless | DEF | MAX HP | ★ Strong | ✕ Weak | ★ Strong |
+| 13 | Sharp Primal | MAX HP | ATK | ◇ Neutral | ◇ Neutral | ✕ Weak |
+| 14 | Nimble Primal | MAX HP | SPD | ★★ Exceptional | ★ Strong | ★ Strong |
+| 15 | Solid Primal | MAX HP | DEF | ★ Strong | ✕ Weak | ★ Strong |
+| 16 | Hearty Restore | Recovery & Shield | MAX HP | ◇ Neutral | ✕✕ Poor | ✕✕ Poor |
 
-9 Exceptional · 13 Strong · 11 Neutral · 4 Weak · 11 Poor.
+3 Exceptional · 11 Strong · 12 Neutral · 13 Weak · 9 Poor.
 
 **The five bands**, and how they read on the page:
 
@@ -413,10 +407,11 @@ both in the cell's tooltip for anyone who wants them.
    reaches it about **once in eleven thousand times**. That is why §8 does not
    decide anything on `P(l, d)`: weighted or not, a number that is `0.009 %` for
    one relic and `0.002 %` for another is not separating them.
-3. **Stones are worth about eleven times more on a `+0` relic than on a `+12`
-   one.** The expected gain from a full three durability is 7.2 levels at `+0`
-   and 0.7 at `+12`. Any rule that spent stones on the relics closest to the
-   ceiling would have it exactly backwards.
+3. **Stones buy far more future strength on a `+0` relic than on a `+12` one.**
+   The expected gain from a full three durability is 7.2 levels at `+0` and 0.7
+   at `+12`. The *Likely end* column makes that opportunity cost visible; the
+   power-up verdict itself intentionally answers the narrower next-attempt
+   question defined in §8.
 
 ### 7.5 The thresholds: what a power-up actually moves
 
@@ -441,9 +436,10 @@ property multiplies by 6, a unique property reading ATK, DEF or MAX HP by 5, and
 one reading SPD by only **3**. So a Nimble relic arrives closer to its own
 ceiling than any other and has correspondingly less to win from being levelled
 — which is precisely what an index built on the main property alone could not
-say. `relicStrengthIndex` weighs the two halves equally and
-`verify:relic-maths` re-decides the whole table at every weighting from
-all-main to all-unique to show that the verdicts do not turn on that choice.
+say. `relicStrengthIndex` weighs the two halves equally for the *Likely end*
+context. `verify:relic-maths` checks that lower relics retain more expected
+future strength at every weighting from all-main to all-unique; this context
+does not secretly alter the explicit recommendation formula in §8.
 
 **Every figure in that table is read, not inferred.** The MAX HP value at `+15`
 was the one that needed reading twice — it was illegible in the first capture
@@ -479,79 +475,67 @@ spans.
 
 ## 8. The verdict is one multiplication
 
-**A relic's fit multiplies both numbers, on a halving ladder:**
+**A relic's one synergy band multiplies the exact chance of its next attempt:**
 
 | Fit | Weight |
 | --- | ---: |
-| Exceptional | × 10 |
-| Strong | × 5 |
+| Exceptional | × 4 |
+| Strong | × 2 |
 | Neutral | × 1 |
-| Weak | × ⅕ |
-| Poor | × ⅒ |
+| Weak | × ½ |
+| Poor | × ¼ |
 
-The ladder mirrors itself about Neutral — every band is the exact reciprocal of
-its opposite number — so it reads the same from either end: an exceptional fit
-is worth ten neutral ones, and a poor fit a tenth of one. The spread is wide on
-purpose. A relic rides a hundred monsters, so the gap between the right pairing
-and the wrong one is not a matter of degree, and a narrower ladder would let a
-poor fit out-argue a good one on level alone.
+For an open relic at level `l`, the chance of reaching the *next* level is
+exactly `p(l)`: one successful attempt reaches `l + 1`; durability only decides
+whether an attempt exists. JASWA therefore calculates
 
-From that, two quantities, each read against a bar the risk slider sets:
+```
+investment score = 100 × synergy multiplier × p(l)
+```
 
-- **Stones** — `weight × (V(l, d) − V(l, 0))`. Is this relic worth power-up
-  stones? The second factor is what having durability left is worth: the
-  expected finished strength, less what the relic would be worth if it could
-  never be touched again. It is `E[levels gained] / 18`; the expected gain
-  itself travels in the *Likely end* column's title, because the advice cell
-  already prints the whole multiplication and a column for each factor would
-  have said the same thing three times.
-- **Merit** — `weight × V(l, d)`, on a 0–10 scale. Is this relic worth a slot at
-  all? It is not a column — the *Likely end* column says the same thing in
-  levels, which is the unit a player thinks in — but every verdict that turns on
-  it prints it, so the judgement is still arguable.
+This is deliberately a **decision score, not a probability**. A 140 % score
+means that a 35 % game chance is being prioritised by an Exceptional ×4 fit;
+it does not claim a 140 % chance of success. The smaller, symmetric ladder is a
+transparent prioritisation rule, not a claim that ordinal bands have measured
+cardinal utility.
 
-`P(l, d)` is no longer one of them, and §7.4 says why: the published rates make
-it near zero for everything that is not already finished.
+The final-level distribution and strength index in §7 remain on the page as
+context: they describe where a relic is likely to end. They do not disguise a
+different recommendation formula.
 
 The rules, in the order they outrank each other:
 
-1. **An unjudged fit keeps.** Nothing to multiply.
-2. **A second copy of the same pair** is settled before anything that could keep
-   it: no fit makes an account want two of one relic, because one already covers
-   a hundred monsters. It earns stones on the same bar, measured against passing
-   the copy in front of it — `weight × P(l, d, that copy's level + 1)`, the same
-   recursion with a nearer target. Below the bar, it sells.
-3. **Merit below the holding bar sells.** No band is special-cased: a poor fit
-   sells because a quarter of its finished strength cannot clear the bar, not
-   because a rule says poor fits sell.
-4. **A finished relic keeps** — at `+15`, or out of durability. There is nothing
-   to spend stones on, whatever `P` says.
-5. **Stones above the bar powers up.**
-6. **Anything else keeps.**
+1. **Free levels power up.** `+0` through `+3` cannot spend stones.
+2. **No durability keeps** unless a same-pair relic is already at a strictly
+   higher level. It cannot be powered up, so its reason says exactly that.
+3. **A lower open copy is a replacement bet.** Its chance is `P(l, d, h + 1)`,
+   the exact chance of passing the higher copy at `+h`. Its decision score uses
+   the same synergy multiplier. Below the selected threshold it sells;
+   otherwise it powers up.
+4. **Every other open relic compares its next-attempt investment score with the
+   selected threshold.** At or above it powers up; otherwise it keeps.
 
-**The working is kept, but not printed.** Every verdict carries the arithmetic
-that produced it — `5.0 × 28 % left to win = 1.4`, `Merit 0.05 under 0.26` — in
-its cell's title, so a verdict can still be checked rather than trusted. It is
-not a second line under the verdict any more: with the columns beside it already
-saying where the relic ends up, a line of working on every row read as noise
-rather than as evidence.
+Every advice cell prints the compact calculation below its verdict — for
+example `Next +1: 35%×2=70%`. The score and threshold have percent signs so
+they can be compared at a glance, while the text above prevents score from being
+mistaken for a chance.
 
-## 9. The risk slider
+## 9. The power-up threshold
 
-One appetite, two bars:
+One selectivity choice, expressed in the same score unit the advice shows:
 
-| Risk | Stones bar (§8) | Holding bar (§8.3) |
-| ---: | ---: | ---: |
-| 1 | 2.50 | 0.40 |
-| 2 | 1.60 | 0.33 |
-| 3 | 1.00 | 0.26 |
-| 4 | 0.50 | 0.19 |
-| 5 | 0.25 | 0.12 |
+| Setting | Score threshold |
+| ---: | ---: |
+| 1 | 180 % |
+| 2 | 120 % |
+| 3 | 80 % |
+| 4 | 50 % |
+| 5 | 20 % |
 
-At risk 1 only a barely-touched exceptional relic earns stones; at risk 5 a
-neutral fit with a full three attempts does. The holding bar stays below what a
-neutral fit is worth at every setting, which is deliberate: Neutral is not a
-sell (§8.3), and only the two negative bands are ever let go.
+The former name “risk” was imprecise: the game chance already describes risk.
+The slider instead chooses how high the adjusted score must be before scarce
+stones are recommended. It lives in the filter strip because it changes verdicts
+rather than rows, is session state, and Reset returns it to 3.
 
 It sits in the filter strip because it belongs to the same question the filters
 answer — what should this table be telling me — even though it changes the

@@ -847,10 +847,24 @@ button { cursor: pointer; }
 .relic-verdict[data-verdict='power-up'] { color: var(--state-good); }
 .relic-verdict[data-verdict='keep'] { color: var(--ink); }
 .relic-verdict[data-verdict='sell'] { color: var(--state-bad); }
-
+/* Always present and one line high. A slider move can replace one calculation
+   with another, but it cannot make the advice row change height under the
+   reader. The compact notation is intentional: chance × fit = decision score. */
+.relic-advice-reason {
+  display: block;
+  min-height: 16px;
+  overflow: hidden;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 /* Two rows: what the relic is, then what can still happen to it. Search leads
-   the first and the risk slider the second, so the two row-starters are the
+   the first and the score threshold the second, so the two row-starters are the
    only groups without an indent rule — the same arrangement, and the same
    reason, as the artifact strip above. */
 .relic-filter-strip {
@@ -866,7 +880,7 @@ button { cursor: pointer; }
   border-left: 1px solid var(--line);
 }
 .relic-filter-search { grid-area: search; padding-left: 0 !important; border-left: 0 !important; }
-.relic-filter-risk { grid-area: risk; padding-left: 0 !important; border-left: 0 !important; }
+.relic-filter-threshold { grid-area: risk; padding-left: 0 !important; border-left: 0 !important; }
 .relic-filter-main { grid-area: main; }
 .relic-filter-synergy { grid-area: synergy; }
 .relic-filter-advice { grid-area: advice; }

@@ -17,8 +17,10 @@ import {
 import type { RelicMainProperty } from '../lib/relic-properties';
 import { relicSynergy, relicSynergyBandOrder } from '../lib/relic-synergy';
 import type { RelicSynergyBand } from '../lib/relic-synergy';
-import { isRelicRisk, relicAdvice, relicVerdictLabels, relicVerdictOrder } from '../lib/relic-advice';
-import type { RelicRisk, RelicVerdict } from '../lib/relic-advice';
+import {
+  isRelicInvestmentSelectivity, relicAdvice, relicInvestmentThresholds, relicVerdictLabels, relicVerdictOrder,
+} from '../lib/relic-advice';
+import type { RelicInvestmentSelectivity, RelicVerdict } from '../lib/relic-advice';
 import {
   compareRelicRows, defaultRelicSortDirections, relicEffectText, relicLevelState, relicSearchText,
 } from '../lib/relic-grid';
@@ -44,7 +46,7 @@ type RelicFilterState = {
    * this table should be telling me — even though it changes the verdicts
    * rather than which rows survive.
    */
-  risk: RelicRisk;
+  selectivity: RelicInvestmentSelectivity;
 };
 
 const defaultRelicFilters: RelicFilterState = {
@@ -57,7 +59,7 @@ const defaultRelicFilters: RelicFilterState = {
   highestLevel: relicMaximumLevel,
   showEngraved: true,
   showUnused: true,
-  risk: 3,
+  selectivity: 3,
 };
 
 function isRelicFilterState(value: unknown): value is RelicFilterState {
@@ -78,7 +80,7 @@ function isRelicFilterState(value: unknown): value is RelicFilterState {
     && (candidate.lowestLevel as number) <= (candidate.highestLevel as number)
     && typeof candidate.showEngraved === 'boolean'
     && typeof candidate.showUnused === 'boolean'
-    && isRelicRisk(candidate.risk);
+    && isRelicInvestmentSelectivity(candidate.selectivity);
 }
 
 function relicCell(key: string, ...extra: Array<string | false | undefined>): string {
@@ -116,11 +118,11 @@ export function RelicList({ game, monsters, preferences }: {
     'jaswa.filters.relics', defaultRelicFilters, isRelicFilterState,
   );
   const { search, selectedMains, selectedBands, selectedVerdicts, selectedDurability,
-    lowestLevel, highestLevel, showEngraved, showUnused, risk } = filters;
+    lowestLevel, highestLevel, showEngraved, showUnused, selectivity } = filters;
 
   const relics = useMemo(() => readRelics(game?.data), [game]);
   const engravings = useMemo(() => relicEngravingCounts(monsters), [monsters]);
-  const advice = useMemo(() => relicAdvice(relics, risk), [relics, risk]);
+  const advice = useMemo(() => relicAdvice(relics, selectivity), [relics, selectivity]);
   const format = useMemo(() => (value: number) => formatNumber(value, preferences.general), [preferences.general]);
 
   const rows = useMemo<RelicRow[]>(() => relics.map((relic, index) => ({
@@ -131,7 +133,7 @@ export function RelicList({ game, monsters, preferences }: {
        the fallback exists because a `Map` lookup is optional, not because a
        relic could be missing. */
     advice: advice.get(relic.id) ?? {
-      verdict: 'keep', reason: '', reachChance: 0, expectedGain: 0, merit: 0,
+      verdict: 'keep', reason: '', reachChance: 0, nextChance: 0, investmentScore: 0, expectedGain: 0,
       expectedLevel: relic.level,
       landing: { level: relic.level, chance: 1, likeliest: { level: relic.level, chance: 1 } },
       supersededBy: null, overtakeChance: null,
@@ -229,14 +231,14 @@ export function RelicList({ game, monsters, preferences }: {
             'selectedBands', (band) => band.slice(0, 3).toUpperCase(), 'relic-filter-synergy')}
           {toggleGroup('Advice', 'Filter by advice', relicVerdictOrder, selectedVerdicts,
             'selectedVerdicts', (verdict) => relicVerdictLabels[verdict], 'relic-filter-advice')}
-          <div className="filter-group relic-filter-risk" role="group" aria-label="Power-up risk appetite">
-            <span className="filter-label">Power-up risk</span>
+          <div className="filter-group relic-filter-threshold" role="group" aria-label="Power-up score threshold">
+            <span className="filter-label">Power-up threshold</span>
             <div className="filter-group-controls">
-              <ValueSlider minimum={1} maximum={5} value={risk}
-                label="Power-up risk appetite, 1 cautious to 5 bold"
-                valueText={(value) => `Risk ${value} of 5`}
+              <ValueSlider minimum={1} maximum={5} value={selectivity}
+                label="Power-up score threshold, 1 cautious to 5 bold"
+                valueText={(value) => `${relicInvestmentThresholds[value as RelicInvestmentSelectivity]}% threshold`}
                 onChange={(value) => setFilters((current) => ({
-                  ...current, risk: isRelicRisk(value) ? value : current.risk,
+                  ...current, selectivity: isRelicInvestmentSelectivity(value) ? value : current.selectivity,
                 }))} />
             </div>
           </div>
@@ -302,7 +304,7 @@ export function RelicList({ game, monsters, preferences }: {
                   + `likeliest single outcome +${row.advice.landing.likeliest.level} at `
                   + `${Math.round(row.advice.landing.likeliest.chance * 100)} %; `
                   + `mean +${row.advice.expectedLevel.toFixed(1)}; `
-                  + `merit ${row.advice.merit.toFixed(2)} of a possible 10`}>
+                  + `next-attempt score ${Math.round(row.advice.investmentScore)} %`}>
                 <span className="relic-landing-level">+{format(row.advice.landing.level)}</span>
                 <span className="relic-landing-chance">
                   <span className="visually-hidden">at least </span>
@@ -312,15 +314,14 @@ export function RelicList({ game, monsters, preferences }: {
               <td className={relicCell('engraved', row.engraved === 0 && 'muted')}>
                 {row.engraved === 0 ? '—' : format(row.engraved)}
               </td>
-              {/* The verdict alone. The arithmetic behind it is still one
-                  hover away rather than gone — a verdict nobody can check is a
-                  verdict nobody can argue with — but a line of working under
-                  every row was reading as noise once the columns beside it
-                  already showed where the relic ends up. */}
-              <td className={relicCell('advice')} title={row.advice.reason}>
+              {/* A verdict without its one-line calculation asks the user to
+                  take the page on trust. Every row reserves the same second
+                  line, so changing the threshold does not move its neighbours. */}
+              <td className={relicCell('advice')}>
                 <span className="relic-verdict" data-verdict={row.advice.verdict}>
                   {relicVerdictLabels[row.advice.verdict]}
                 </span>
+                <span className="relic-advice-reason">{row.advice.reason}</span>
               </td>
             </tr>;
           }) : <tr>

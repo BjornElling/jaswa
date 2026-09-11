@@ -96,7 +96,7 @@ export const artifactTableColumns: readonly TableColumn[] = [
  * turn a verdict back into a puzzle.
  */
 export const relicTableColumns: readonly TableColumn[] = [
-  { key: 'unique', width: '25%', align: 'left' },
+  { key: 'unique', width: '23%', align: 'left' },
   { key: 'main', width: '7%', align: 'left' },
   { key: 'synergy', width: '15%', align: 'left' },
   { key: 'level', width: '8%', align: 'right' },
@@ -107,9 +107,10 @@ export const relicTableColumns: readonly TableColumn[] = [
      makes the advice arguable rather than something to be taken on trust. */
   { key: 'landing', width: '11%', align: 'right' },
   { key: 'engraved', width: '11%', align: 'right' },
-  /* One word, so it takes a word's worth of the measure. The arithmetic that
-     decided it lives in the cell's title. */
-  { key: 'advice', width: '13%', align: 'left' },
+  /* A verdict and its compact calculation share this column. Its width is
+     reserved for the longest explanation, so a threshold move cannot crop it
+     or reflow the rest of the table. */
+  { key: 'advice', width: '15%', align: 'left' },
 ];
 
 /**

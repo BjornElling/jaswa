@@ -8,8 +8,8 @@ import type { RelicSynergyBand } from './relic-synergy';
  * What to do with each relic, and the arithmetic behind it.
  *
  * `docs/RELIC-CANONICAL.md` §7 and §8 own this. One recursion answers every
- * question the page asks, run three times with different boundaries, and one
- * ladder of synergy weights turns its answers into a verdict.
+ * question the page asks. The verdict itself uses the next attempt's exact
+ * game chance, adjusted by the one account-wide synergy judgement.
  */
 
 /**
@@ -225,51 +225,37 @@ export function relicLanding(chances: readonly number[]): RelicLanding {
 /**
  * What a band of fit is worth, as a multiplier.
  *
- * A ladder that mirrors itself about Neutral: ten times and five times above,
- * a fifth and a tenth below. Every band is the exact reciprocal of its opposite
- * number, so the scale says the same thing read from either end — an
- * exceptional fit is worth ten neutral ones, and a poor fit is worth a tenth of
- * one. It is the same ladder on both numbers the verdict reads.
- *
- * The spread is deliberately wide. A relic rides a hundred monsters, so the
- * difference between the right pairing and the wrong one is not a matter of
- * degree, and a ladder narrow enough to let a poor fit out-argue a good one on
- * level alone would be describing a different game.
+ * The multiplier makes the one synergy judgement matter without pretending
+ * that the ordinal bands are measured utilities. Applied to a chance it creates
+ * a decision score, not another probability — scores above 100 % are expected.
  */
 export const relicSynergyWeights: Record<RelicSynergyBand, number> = {
-  exceptional: 10,
-  strong: 5,
+  exceptional: 4,
+  strong: 2,
   neutral: 1,
-  weak: 1 / 5,
-  poor: 1 / 10,
+  weak: 1 / 2,
+  poor: 1 / 4,
 };
 
-/** The user's appetite for spending power-up stones, `1` cautious to `5` bold. */
-export type RelicRisk = 1 | 2 | 3 | 4 | 5;
+/** The user's stone selectivity, `1` cautious to `5` bold. */
+export type RelicInvestmentSelectivity = 1 | 2 | 3 | 4 | 5;
 
-export const relicRiskLevels: readonly RelicRisk[] = [1, 2, 3, 4, 5];
+export const relicInvestmentSelectivityLevels: readonly RelicInvestmentSelectivity[] = [1, 2, 3, 4, 5];
 
-export const isRelicRisk = (value: unknown): value is RelicRisk =>
-  typeof value === 'number' && relicRiskLevels.includes(value as RelicRisk);
+export const isRelicInvestmentSelectivity = (value: unknown): value is RelicInvestmentSelectivity =>
+  typeof value === 'number' && relicInvestmentSelectivityLevels.includes(value as RelicInvestmentSelectivity);
 
 /**
- * The two bars the slider moves. Both are read against a weighted number on the
- * same 0–4 scale, so one appetite governs both questions:
- *
- * - `stones` is what `weight × (V(l, d) − V(l, 0))` must clear before a relic is
- *   worth power-up stones — the fit times what there is left to win.
- * - `hold` is what `weight × V(l, d)` must clear before a relic is worth a slot
- *   at all.
- *
- * At risk 1 only a barely-touched exceptional relic earns stones; at risk 5 a
- * weak fit with a full three attempts does.
+ * The score threshold the slider chooses, as a percentage. It controls how
+ * selective the player is about stones; it is not a measure of statistical
+ * risk, which is already the game's success chance.
  */
-const riskBars: Record<RelicRisk, { stones: number; hold: number }> = {
-  1: { stones: 2.50, hold: 0.40 },
-  2: { stones: 1.60, hold: 0.33 },
-  3: { stones: 1.00, hold: 0.26 },
-  4: { stones: 0.50, hold: 0.19 },
-  5: { stones: 0.25, hold: 0.12 },
+export const relicInvestmentThresholds: Record<RelicInvestmentSelectivity, number> = {
+  1: 180,
+  2: 120,
+  3: 80,
+  4: 50,
+  5: 20,
 };
 
 export type RelicVerdict = 'power-up' | 'keep' | 'sell';
@@ -282,50 +268,43 @@ export type RelicAdvice = {
   reachChance: number;
   /** Levels the relic is expected to gain before its durability runs out. */
   expectedGain: number;
-  /** `weight × V(l, d)` — what the relic is worth holding, on a 0–10 scale. */
-  merit: number;
+  /** The chance of the next level-up attempt succeeding. */
+  nextChance: number;
+  /** `100 × synergy multiplier × chance`: a decision score, not a probability. */
+  investmentScore: number;
   /** The level the relic is expected to stop at, as a mean. */
   expectedLevel: number;
   /** Where the relic comes to rest: the median level, and the mode beside it. */
   landing: RelicLanding;
-  /**
-   * The better copy of the same pair this relic stands behind, or `null` when
-   * it is the copy to keep. Two identical relics cannot both be used — one
-   * relic already covers a hundred monsters — so the second is only worth
-   * holding while it can still overtake the first.
-   */
+  /** A strictly higher same-pair copy this relic must pass, or `null`. */
   supersededBy: Relic | null;
-  /** `P(l, d, that copy's level + 1)`, or `null` when there is no such copy. */
+  /** `P(l, d, higher copy's level + 1)`, or `null` when there is no such copy. */
   overtakeChance: number | null;
 };
 
 const pairKey = (relic: Relic) => `${relic.mainProperty}:${relic.unique.definition.id}`;
 
-/**
- * Which copy of a pair is the one to keep: the highest level, then the one with
- * the most attempts left, then the one held longest. Every step is a fact about
- * the relic rather than about the list, so the choice does not move when the
- * table is sorted.
- */
-function comparePairStanding(left: Relic, right: Relic): number {
-  return right.level - left.level
-    || right.durability - left.durability
-    || left.obtainedOrder - right.obtainedOrder;
-}
-
-const percent = (fraction: number) => `${Math.round(fraction * 100)} %`;
-/* Two places below one, whole numbers above it: the weights now span a factor
-   of a hundred, and four significant digits on a merit of 8 is noise. */
-const score = (value: number) => value >= 1 ? value.toFixed(1) : value.toFixed(2);
+const percent = (fraction: number) => {
+  const value = fraction * 100;
+  if (value >= 10 || Number.isInteger(value)) return `${Math.round(value)}%`;
+  if (value >= 1) return `${value.toFixed(1).replace(/\.0$/, '')}%`;
+  return `${value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')}%`;
+};
+const multiplier = (weight: number) => Number.isInteger(weight)
+  ? String(weight)
+  : weight.toFixed(2).replace(/0+$/, '').replace(/^0/, '');
+const investmentScore = (chance: number, weight: number) => 100 * chance * weight;
+const nextChance = (relic: Relic, rates: RelicSuccessRates) =>
+  relic.level >= relicMaximumLevel || relic.durability === 0 ? 0 : (rates[relic.level] ?? 0);
 
 /**
  * The whole account's advice at once, because a verdict on one relic depends on
  * which other relics the account holds.
  */
 export function relicAdvice(
-  relics: readonly Relic[], risk: RelicRisk, rates: RelicSuccessRates = relicPowerUpRates,
+  relics: readonly Relic[], selectivity: RelicInvestmentSelectivity, rates: RelicSuccessRates = relicPowerUpRates,
 ): Map<string, RelicAdvice> {
-  const bars = riskBars[risk];
+  const threshold = relicInvestmentThresholds[selectivity];
   const pairs = new Map<string, Relic[]>();
   for (const relic of relics) {
     const key = pairKey(relic);
@@ -333,39 +312,31 @@ export function relicAdvice(
     if (group) group.push(relic);
     else pairs.set(key, [relic]);
   }
-  for (const group of pairs.values()) group.sort(comparePairStanding);
-
   const advice = new Map<string, RelicAdvice>();
   for (const relic of relics) {
     const weight = relicSynergyWeights[relicSynergy(relic.mainProperty, relic.unique.definition.id)];
-    const source = relic.unique.definition.per;
     const reachChance = relicReachChance(relic.level, relic.durability, relicMaximumLevel, rates);
     const chances = relicFinalLevelChances(relic.level, relic.durability, rates);
-    const strength = relicExpectedStrength(relic.level, relic.durability, source, rates);
-    /* What having durability left is worth: the expected finished strength of
-       this relic, less what it would be worth if it could never be touched
-       again. On the same 0–1 scale as the strength beside it, so the merit and
-       the power-up bar are read off one ruler. */
-    const upside = strength - relicStrengthIndex(relic.level, source);
-    const kept = pairs.get(pairKey(relic))?.[0] ?? relic;
-    const superseded = kept.id === relic.id ? null : kept;
+    const higher = (pairs.get(pairKey(relic)) ?? []).find((candidate) => candidate.level > relic.level) ?? null;
     /* Measured against the standing copy's *present* level rather than its own
        projection. The question is whether to spend stones on the challenger at
        all, and holding it to a level the incumbent has not reached yet would
        answer a different one. */
-    const overtakeChance = superseded === null
+    const overtakeChance = higher === null
       ? null
-      : relicReachChance(relic.level, relic.durability, superseded.level + 1, rates);
+      : relicReachChance(relic.level, relic.durability, higher.level + 1, rates);
 
-    const merit = weight * strength;
+    const chance = nextChance(relic, rates);
+    const score = investmentScore(chance, weight);
     advice.set(relic.id, {
-      ...decide({ weight, merit, upside, overtakeChance, superseded, relic, bars }),
+      ...decide({ weight, chance, score, overtakeChance, higher, relic, threshold }),
       reachChance,
       expectedGain: relicExpectedLevel(chances) - relic.level,
-      merit,
+      nextChance: chance,
+      investmentScore: score,
       expectedLevel: relicExpectedLevel(chances),
       landing: relicLanding(chances),
-      supersededBy: superseded,
+      supersededBy: higher,
       overtakeChance,
     });
   }
@@ -375,46 +346,37 @@ export function relicAdvice(
 /**
  * The decision, in the order the rules outrank each other.
  *
- * Everything below is `weight × a probability` or `weight × a strength`, read
- * against a bar on the same scale. Nothing else enters, and no band is special
- * cased: a poor fit sells because a quarter of its finished strength cannot
- * clear the holding bar, not because a rule says poor fits sell.
+ * The next-attempt chance is exact: with durability left, reaching `+l + 1` is
+ * precisely the game's published rate at `l`. The synergy multiplier turns it
+ * into a score for choosing where scarce stones go; it must not be described as
+ * a probability after that multiplication.
  */
-function decide({ weight, merit, upside, overtakeChance, superseded, relic, bars }: {
+function decide({ weight, chance, score, overtakeChance, higher, relic, threshold }: {
   weight: number;
-  merit: number;
-  upside: number;
+  chance: number;
+  score: number;
   overtakeChance: number | null;
-  superseded: Relic | null;
+  higher: Relic | null;
   relic: Relic;
-  bars: { stones: number; hold: number };
+  threshold: number;
 }): { verdict: RelicVerdict; reason: string } {
-  /* A second copy is settled before anything else that could keep it, because
-     no fit is good enough to make an account want two of the same relic: one
-     already covers a hundred monsters. It earns stones on the same bar every
-     other relic does, measured against passing the copy in front of it. */
-  if (superseded !== null) {
-    const weighted = weight * (overtakeChance ?? 0);
-    if (weighted >= bars.stones) {
-      return {
-        verdict: 'power-up',
-        reason: `${score(weight)} × ${percent(overtakeChance ?? 0)} past +${superseded.level} = ${score(weighted)}`,
-      };
-    }
-    return { verdict: 'sell', reason: `Second copy; ${score(weighted)} under ${score(bars.stones)}` };
+  if (relic.level >= relicMaximumLevel) return { verdict: 'keep', reason: 'Cannot power up.' };
+  if (relic.durability === 0) {
+    if (higher !== null) return { verdict: 'sell', reason: `No power-up; +${higher.level} higher.` };
+    return { verdict: 'keep', reason: 'Cannot power up.' };
+  }
+  if (relic.level < 3) return { verdict: 'power-up', reason: `Free +1: ${percent(chance)}` };
+
+  if (higher !== null) {
+    const overtakeScore = investmentScore(overtakeChance ?? 0, weight);
+    const working = `Beat +${higher.level}: ${percent(overtakeChance ?? 0)}×${multiplier(weight)}=${Math.round(overtakeScore)}%`;
+    if (overtakeScore >= threshold) return { verdict: 'power-up', reason: working };
+    return { verdict: 'sell', reason: `${working} < ${threshold}%` };
   }
 
-  if (merit < bars.hold) {
-    return { verdict: 'sell', reason: `Merit ${score(merit)} under ${score(bars.hold)}` };
-  }
-  if (relic.level >= relicMaximumLevel) return { verdict: 'keep', reason: 'Finished; nothing to spend' };
-  if (relic.durability === 0) return { verdict: 'keep', reason: 'No attempts left; nothing to spend' };
-
-  const weighted = weight * upside;
-  if (weighted >= bars.stones) {
-    return { verdict: 'power-up', reason: `${score(weight)} × ${percent(upside)} left to win = ${score(weighted)}` };
-  }
-  return { verdict: 'keep', reason: `${score(weighted)} left to win, bar is ${score(bars.stones)}` };
+  const working = `Next +1: ${percent(chance)}×${multiplier(weight)}=${Math.round(score)}%`;
+  if (score >= threshold) return { verdict: 'power-up', reason: working };
+  return { verdict: 'keep', reason: `${working} < ${threshold}%` };
 }
 
 export const relicVerdictOrder: readonly RelicVerdict[] = ['power-up', 'keep', 'sell'];
