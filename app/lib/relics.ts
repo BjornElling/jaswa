@@ -60,8 +60,9 @@ function wholeInRange(value: unknown, lowest: number, highest: number): number |
  * current contract.
  *
  * Every rejection here is a loud one by design (`AGENTS.md` §0.1): a relic is
- * engraved on up to a hundred monsters, so a half-read one would carry a wrong
- * judgement across the whole roster rather than spoiling a single slot.
+ * engraved on up to `relicEngravingLimit` monsters, so a half-read one would
+ * carry a wrong judgement across the whole roster rather than spoiling a single
+ * slot.
  *
  * The unique property is the field worth naming. The export states its family
  * twice — once as the record's `type` and once as the first member of

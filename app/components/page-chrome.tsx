@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { useSessionStorageState } from '../lib/session-storage-state';
 
@@ -44,11 +45,21 @@ export function PageHeader({ eyebrow, title, tagline }: { eyebrow?: string; titl
 /** A native disclosure keeps keyboard behaviour and find-in-page support in
     the browser, while the shared bar gives every workspace the same frame.
     The explicit key lets a workspace leave and return without losing its
-    current reading position during this browser tab. */
-export function Disclosure({ title, sessionKey, defaultOpen = false, children }: {
+    current reading position during this browser tab.
+
+    `deferContent` withholds the body until the bar is opened for the first
+    time, and then keeps it for the rest of the session. It is for a section
+    whose *code* is expensive rather than its markup: `details` renders its
+    children whether or not it is open, so a closed bar holding a lazily
+    imported component would still fetch and evaluate it. Nothing the user can
+    see moves — a closed bar shows no body either way — and the content stays
+    mounted afterwards, so collapsing and re-opening does not rebuild it or
+    lose its scroll position. */
+export function Disclosure({ title, sessionKey, defaultOpen = false, deferContent = false, children }: {
   title: string;
   sessionKey: string;
   defaultOpen?: boolean;
+  deferContent?: boolean;
   children: ReactNode;
 }) {
   const [open, setOpen] = useSessionStorageState<boolean>(
@@ -56,15 +67,17 @@ export function Disclosure({ title, sessionKey, defaultOpen = false, children }:
     defaultOpen,
     isBoolean,
   );
+  const [opened, setOpened] = useState(open);
 
   return <details className="bar" open={open} onToggle={(event) => {
     const nextOpen = event.currentTarget.open;
+    if (nextOpen) setOpened(true);
     setOpen((current) => current === nextOpen ? current : nextOpen);
   }}>
     <summary className="bar-head">
       <span className="bar-chevron" aria-hidden="true">›</span>
       <b>{title}</b>
     </summary>
-    <div className="bar-body">{children}</div>
+    <div className="bar-body">{deferContent && !opened ? null : children}</div>
   </details>;
 }

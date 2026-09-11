@@ -1,7 +1,7 @@
 import { monsterPresentation } from './monster-catalog';
 import type { GameRecord } from './game-data';
 
-export function numberedMonsterNames(monsters: GameRecord[]): Record<string, string> {
+export function numberedMonsterNames(monsters: readonly GameRecord[]): Record<string, string> {
   const entries = monsters.map((monster, index) => ({
     unitId: String(monster.unit_id ?? `unknown-${index}`),
     name: monsterPresentation(monster.unit_master_id).name,

@@ -147,6 +147,30 @@ export const relicPowerUpRates: readonly number[] = [
 ];
 /** Every relic is crafted with three durability, and a failed power-up spends one. */
 export const relicMaximumDurability = 3;
+
+/**
+ * How many monsters one relic can be engraved on at once.
+ *
+ * **This is the mechanic that makes a relic unlike every other piece of
+ * equipment JASWA judges.** A rune belongs to one monster and an artifact to one
+ * monster, so recommending one is a private matter between that monster and that
+ * item. A relic is shared, and shared a finite number of times: once this many
+ * monsters carry it, the game refuses the next engraving until it is unengraved
+ * from one of them. `RELIC-CANONICAL.md` §11.5 sets out the consequence — a
+ * recommendation per monster is a division of a scarce resource across the whole
+ * roster, not a judgement about one monster.
+ *
+ * **It was 100 until August 27, 2026.** Com2uS raised it to 150 in v9.3.0, in
+ * so many words, two weeks before this was written. The older figure is not a
+ * misreading to be corrected but a different version of the game, which is why
+ * §3.1 keeps the dates: a value that moved once can move again, and every
+ * figure in this file taken from the launch announcement — §7.4's power-up
+ * rates above all — carries the same exposure.
+ *
+ * Nothing can confirm it in traffic (§4.3): this figure, like the property list
+ * and the rates, never leaves the client.
+ */
+export const relicEngravingLimit = 150;
 /**
  * A relic's main property is `3 %` at `+0` and gains a point per level, which
  * the account's own records confirm at `+0`, `+6` and `+9`.

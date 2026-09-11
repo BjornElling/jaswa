@@ -3,7 +3,7 @@ import { DataTablePage, TableColumnGroup } from './data-table-page';
 import { FilterSummary } from './filter-summary';
 import { MonsterPortrait } from './monster-portrait';
 import { RangeSlider, ValueSlider } from './range-slider';
-import { SortableHeader, columnClasses, useSortedRows } from './sortable-table';
+import { SortableHeader, useSortedRows } from './sortable-table';
 import type { SortableColumn } from './sortable-table';
 import { monsterPresentation, monsterSkillUpsToMax } from '../lib/monster-catalog';
 import { withHigherAwakenings } from '../lib/monster-awakening-scope';
@@ -14,7 +14,7 @@ import {
   compareNumbersWithBlanks, compareTextWithBlanks, isStoredMonster, monsterArchetypeLabels,
   monsterFilterArchetypes, monsterNameCollator, numericOrNull,
 } from '../lib/monster-grid';
-import { storageTableColumns } from '../lib/table-layouts';
+import { columnClasses, storageTableColumns } from '../lib/table-layouts';
 import { elementName, elementNameList } from '../lib/rune-sets';
 import {
   shrineContainerKeys, shrineContainerListKeys, shrineListKeys, summonedShrineRecords,

@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
+import { lazy, Suspense, useMemo } from 'react';
 import type { ReactNode } from 'react';
-import { PageHeader } from './page-chrome';
+import { Disclosure, PageHeader } from './page-chrome';
 import { DataTablePage, TableColumnGroup } from './data-table-page';
 import { FilterSummary } from './filter-summary';
 import { SortableHeader, useSortedRows } from './sortable-table';
@@ -13,7 +13,8 @@ import type { GameRecord } from '../lib/game-data';
 import type { ImportedGame, Preferences } from '../lib/types';
 import { readRelics, relicEngravingCounts, relicPowerUpStoneCount } from '../lib/relics';
 import {
-  relicMainPropertyOrder, relicMaximumDurability, relicMaximumLevel, relicPropertyLabel,
+  relicEngravingLimit, relicMainPropertyOrder, relicMaximumDurability, relicMaximumLevel,
+  relicPropertyLabel,
 } from '../lib/relic-properties';
 import type { RelicMainProperty } from '../lib/relic-properties';
 import { relicSynergy, relicSynergyBandLabels, relicSynergyBandOrder } from '../lib/relic-synergy';
@@ -29,6 +30,16 @@ import {
 import type { RelicRow, RelicSortKey } from '../lib/relic-grid';
 import { formatNumber } from '../lib/formatting';
 import { useSessionStorageState } from '../lib/session-storage-state';
+
+/* Split out on its own, because it reads the 6.6 MB engraving-statistics
+   dataset and the library above it does not. Loaded eagerly, the page could
+   not show the verdict table — the question it has always answered — until the
+   whole player-base distribution had been fetched and parsed. `deferContent`
+   on the disclosure below is the other half of that: `details` renders its
+   children whether or not it is open, so without it this chunk would be
+   requested immediately and the split would buy nothing. */
+const RelicMonsterList = lazy(() => import('./relic-monster-list')
+  .then(({ RelicMonsterList: component }) => ({ default: component })));
 
 const durabilityOptions = Array.from({ length: relicMaximumDurability + 1 }, (_, value) => value);
 
@@ -194,19 +205,28 @@ export function RelicList({ game, monsters, preferences }: {
     </div>
   </div>;
 
+  const noRelics = <section className="empty-state">
+    <h2>{game
+      ? 'This import holds no relics JASWA can read.'
+      : 'Nothing to show until a game file is imported.'}</h2>
+    <p className="next-step">{game
+      ? 'Report it from the rail if your account does have relics.'
+      : 'Go to Home and drop in the JSON file exported from Summoners War.'}</p>
+  </section>;
+
+  /* Two questions, two menus. The library asks what a relic is worth to the
+     account and answers keep, power up, or sell; the roster asks which relic
+     each monster should be wearing. They share the relics and nothing else —
+     different rows, different filters, different arithmetic — so they are
+     separate disclosures rather than one table with a mode switch. */
   return <WorkspacePage
     header={<PageHeader
       title="Relics"
-      tagline="One relic rides a hundred monsters. Picking the wrong one is a hundred small regrets." />}
+      tagline={`One relic rides ${relicEngravingLimit} monsters. Picking the wrong one is `
+        + `${relicEngravingLimit} small regrets.`} />}
   >
-    {!relics.length ? <section className="empty-state">
-      <h2>{game
-        ? 'This import holds no relics JASWA can read.'
-        : 'Nothing to show until a game file is imported.'}</h2>
-      <p className="next-step">{game
-        ? 'Report it from the rail if your account does have relics.'
-        : 'Go to Home and drop in the JSON file exported from Summoners War.'}</p>
-    </section> : <div className="relic-library">
+    <Disclosure title="Power up/Keep/Sell" sessionKey="relics.library" defaultOpen>
+      {!relics.length ? noRelics : <div className="relic-library">
       <DataTablePage
         filterClassName="relic-filter-strip"
         tableClassName="relic-grid"
@@ -344,6 +364,14 @@ export function RelicList({ game, monsters, preferences }: {
           </tr>}
         </tbody>
       </DataTablePage>
-    </div>}
+      </div>}
+    </Disclosure>
+
+    <Disclosure title="Use for mons" sessionKey="relics.monsters" deferContent>
+      {!relics.length ? noRelics
+        : <Suspense fallback={<p className="lead">Reading what the player base engraves…</p>}>
+          <RelicMonsterList relics={relics} monsters={monsters} preferences={preferences} />
+        </Suspense>}
+    </Disclosure>
   </WorkspacePage>;
 }

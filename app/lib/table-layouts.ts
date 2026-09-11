@@ -23,6 +23,26 @@ export function alignmentClass(align: ColumnAlignment | undefined): string {
 }
 
 /**
+ * The body-cell classes for one table, keyed by column, taken from the same
+ * column list the header is built from. A cell asks for its column by key
+ * rather than restating an alignment, which is what keeps the two in step when
+ * a column's alignment changes or the columns are reordered.
+ *
+ * It lives here rather than beside `SortableHeader`, where it was, because a
+ * module that exports a React component may export *only* components: React
+ * Fast Refresh cannot reason about a mixed module and disables itself for the
+ * whole file, which cost `sortable-table.tsx` its hot reloading and printed a
+ * warning on every edit. It only ever needed a column's key and alignment, so
+ * it takes that shape rather than `SortableColumn` and no import runs back the
+ * other way.
+ */
+export function columnClasses(columns: readonly { key: string; align?: ColumnAlignment }[]) {
+  const byKey = new Map(columns.map((column) => [column.key, column.align]));
+  return (key: string, ...extra: Array<string | false | undefined>) =>
+    [alignmentClass(byKey.get(key)), ...extra].filter(Boolean).join(' ');
+}
+
+/**
  * Which side of the heading text the sort arrow sits on.
  *
  * The mark belongs on the outside of the label — away from the figures the
@@ -111,6 +131,36 @@ export const relicTableColumns: readonly TableColumn[] = [
      reserved for the longest explanation, so a threshold move cannot crop it
      or reflow the rest of the table. */
   { key: 'advice', width: '15%', align: 'left' },
+];
+
+/**
+ * The roster, read as relic destinations. The monster's identity leads, because
+ * that is what the user sorts and searches by, and the three columns that carry
+ * the judgement sit together on the right: what it wears, what the plan gives
+ * it, and why.
+ *
+ * The two relic columns take equal width deliberately — they are read against
+ * each other, and a narrower "Current" would make a replacement look like a
+ * smaller change than it is. Fit and Score are the only figures, so they are
+ * the only right-aligned columns.
+ */
+export const relicMonsterTableColumns: readonly TableColumn[] = [
+  { key: 'index', width: '4%', align: 'left' },
+  { key: 'name', width: '17%', align: 'left' },
+  { key: 'element', width: '6%', align: 'left' },
+  { key: 'archetype', width: '5%', align: 'left' },
+  { key: 'level', width: '5%', align: 'right' },
+  { key: 'current', width: '15%', align: 'left' },
+  { key: 'recommended', width: '15%', align: 'left' },
+  /* The recommended relic's two halves, each as a share of the best that half
+     could be on this monster. Two readings rather than one composite, because
+     a reader can check either against the game's own Statistics panel and a
+     blended figure they cannot check is a figure they have to trust. */
+  { key: 'mainStat', width: '8%', align: 'right' },
+  { key: 'uniqueStat', width: '8%', align: 'right' },
+  /* A verdict and its one-line reason share this column, and its width is
+     reserved for the longest reason so no row can crop or re-wrap the table. */
+  { key: 'advice', width: '17%', align: 'left' },
 ];
 
 /**

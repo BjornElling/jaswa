@@ -4,7 +4,8 @@ import { buildArtifactScoreRequests, buildArtifactScoreRequestsForMonsterIds } f
 import { readArtifacts } from '../lib/artifacts';
 import { artifactCategoryLabel, artifactEquipClassLabel, artifactValueTint } from '../lib/artifact-grid';
 import { artifactCategoryLabels, artifactGradeOrder } from '../lib/artifact-properties';
-import { SortableHeader, columnClasses, useSortedRows } from './sortable-table';
+import { SortableHeader, useSortedRows } from './sortable-table';
+import { columnClasses } from '../lib/table-layouts';
 import { ConversionList } from './conversion-list';
 import { engravedStonesFor, scoringSettings } from '../lib/artifact-recommendations';
 import { useAutoRecalculate } from './use-auto-recalculate';

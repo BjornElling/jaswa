@@ -346,9 +346,9 @@ export function relicAdvice(
     const band = relicSynergy(relic.mainProperty, relic.unique.definition.id);
     const reachChance = relicReachChance(relic.level, relic.durability, relicMaximumLevel, rates);
     const chances = relicFinalLevelChances(relic.level, relic.durability, rates);
-    /* One same-level copy has to be the incumbent too: a relic covers one
-       hundred monsters, so equal permanent copies have no separate account
-       value. The lower rid is the stable, oldest tie-breaker. */
+    /* One same-level copy has to be the incumbent too: a relic covers 150
+       monsters, so equal permanent copies have no separate account value. The
+       lower rid is the stable, oldest tie-breaker. */
     const incumbent = (pairs.get(pairKey(relic)) ?? []).reduce<Relic | null>((best, candidate) => {
       const canSupersede = candidate.id !== relic.id
         && (candidate.level > relic.level

@@ -974,6 +974,93 @@ button { cursor: pointer; }
   }
 }
 
+/* ------------------------------------------------ relics on the roster
+   The same two-line cell the relic library uses, now three times over: what
+   the monster wears, what the plan gives it, and the verdict with its reason.
+   Rows centre against those rather than hanging from the top, for the reason
+   the library states — a lone figure level with a two-line neighbour reads as
+   part of the same row instead of a footnote to it. */
+.relic-monster-library { width: 100%; }
+.relic-monster-grid { width: 100%; min-width: 0; table-layout: fixed; }
+.relic-monster-grid tbody td { height: auto; padding-block: var(--s2); vertical-align: middle; }
+/* An absent relic is a fact about the monster, not an unjudged cell, so it
+   takes the established dim rather than `.muted`. */
+.relic-monster-none { color: var(--dim); font-family: var(--mono); }
+.relic-monster-grid td.align-right { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+/* Four verdicts on one ladder: a bare monster gaining a relic is a clean win,
+   a swap says the relic it wears is the wrong one, nothing to do stays in full
+   ink, and a monster the limit has locked out is the page reporting that it
+   cannot act. `--state-*` is the verdict vocabulary `AGENTS.md` §5 allows for
+   exactly this, and the band's name is written beside the colour, so the
+   column reads identically with the colour taken away. */
+.relic-verdict[data-verdict='engrave'] { color: var(--state-good); }
+.relic-verdict[data-verdict='replace'] { color: var(--state-warn); }
+.relic-verdict[data-verdict='none'] { color: var(--state-bad); }
+
+/* Two rows: what the monster is, then what to leave out. Search leads the first
+   and "Hide if" the second, so those two are the only groups without an indent
+   rule — the same arrangement, and the same reason, as the strips above. */
+.relic-monster-filter-strip {
+  grid-template-areas:
+    "search element type include"
+    "hide   .       .    .";
+}
+.relic-monster-filter-strip > .filter-group,
+.relic-monster-filter-strip > .filter-group:nth-child(2n + 1),
+.relic-monster-filter-strip > .filter-group:nth-child(3n + 1),
+.relic-monster-filter-strip > .filter-group:nth-child(4n + 1) {
+  padding-left: var(--s4);
+  border-left: 1px solid var(--line);
+}
+.relic-monster-filter-search { grid-area: search; padding-left: 0 !important; border-left: 0 !important; }
+.relic-monster-filter-hide { grid-area: hide; padding-left: 0 !important; border-left: 0 !important; }
+.relic-monster-filter-element { grid-area: element; }
+.relic-monster-filter-type { grid-area: type; }
+.relic-monster-filter-include { grid-area: include; }
+.relic-monster-filter-status { bottom: 0; height: auto; }
+/* "Same" stands where a two-line relic would, so it takes the dimmed half of
+   the two-tone pair: the row has nothing to act on, and the cell should read
+   that way at a glance rather than competing with the rows that do. */
+.relic-monster-same { color: var(--faint); font-style: italic; }
+/* The step-downs state `--filter-columns` alongside the areas, because the
+   base strip sizes its columns from that count and areas alone would leave two
+   empty tracks past the last group. The three strips above carry the same
+   step-downs behind a `min-width: 1921px` that can never be true at the same
+   time as their own `max-width`, so none of them fires; these are written
+   without it rather than copied broken. */
+@media (max-width: 1120px) {
+  .relic-monster-filter-strip {
+    --filter-columns: 2;
+    grid-template-areas:
+      "search element"
+      "type   include"
+      "hide   .";
+  }
+  /* Two columns, so children 1 and 3 start a row and are the two that drop
+     their divider — a rule must never hang at the end of a row. */
+  .relic-monster-filter-strip > .filter-group:nth-child(2n + 1) {
+    padding-left: 0;
+    border-left: 0;
+  }
+}
+@media (max-width: 760px) {
+  .relic-monster-filter-strip {
+    --filter-columns: 1;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "search"
+      "element"
+      "type"
+      "include"
+      "hide";
+  }
+  .relic-monster-filter-strip > .filter-group {
+    padding-left: 0;
+    border-left: 0;
+  }
+}
+
 .grid-table thead th:first-child,
 .grid-table tbody td:first-child { padding-left: var(--gutter); }
 .grid-table thead th:last-child,

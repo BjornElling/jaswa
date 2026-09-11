@@ -37,18 +37,6 @@ export type SortableColumn<Row> = {
 export type SortState = { key: string; direction: SortDirection };
 
 /**
- * The body-cell classes for one table, keyed by column, taken from the same
- * column list the header is built from. A cell asks for its column by key
- * rather than restating an alignment, which is what keeps the two in step when
- * a column's alignment changes or the columns are reordered.
- */
-export function columnClasses<Row>(columns: readonly SortableColumn<Row>[]) {
-  const byKey = new Map(columns.map((column) => [column.key, column.align]));
-  return (key: string, ...extra: Array<string | false | undefined>) =>
-    [alignmentClass(byKey.get(key)), ...extra].filter(Boolean).join(' ');
-}
-
-/**
  * Sorting for one table (`ARTIFACT-CANONICAL.md` §17.8: every table sorts on
  * every column).
  *

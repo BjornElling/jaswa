@@ -6,15 +6,18 @@
 out in readable form in §5.1.1
 **Read by:** `app/lib/relics.ts`, `app/lib/relic-properties.ts`,
 `app/lib/relic-synergy.ts`, `app/lib/relic-advice.ts`,
-`app/components/relic-list.tsx`
-**Enforced by:** `npm run verify:relic-synergy`, `npm run verify:relic-maths`
+`app/lib/relic-monster-statistics.ts`, `app/lib/relic-monster-fit.ts`,
+`app/lib/relic-monster-grid.ts`, `app/components/relic-list.tsx`,
+`app/components/relic-monster-list.tsx`
+**Enforced by:** `npm run verify:relic-synergy`, `npm run verify:relic-maths`,
+`npm run verify:relic-monster-plan`
 
 ---
 
 ## 1. Why relics need their own document
 
 A rune belongs to one monster. An artifact belongs to one monster. **A relic is
-engraved on up to a hundred monsters at once**, and that single fact rewrites
+engraved on up to 150 monsters at once**, and that single fact rewrites
 every judgement around it.
 
 - A good relic is not a good slot; it is a good *account*. Its value is the
@@ -80,17 +83,58 @@ measures a relic against; its unique-property threshold is the other half.
 | Sixteen unique properties, in six functional groups | Com2uS relic announcement |
 | A unique property is fixed at crafting; a power-up changes only its value | Com2uS relic announcement |
 | Power-up ceiling is `+15`; every relic starts at 3 durability; a failure spends one; at 0 no further attempt is possible | Com2uS relic announcement |
-| One relic engraves on up to **100** monsters | Com2uS relic announcement |
+| One relic engraves on up to **150** monsters | Com2uS patch notes, v9.3.0, August 27 2026 — raised from 100; §3.1 |
 | Effects read "*X* +N % per *T* *stat* at the start of battle" | Com2uS relic announcement, and the shape of `sec_effect` |
 | Power-up success rates per level, `100 %` to `+3` then `80 %` down to `10 %` | Com2uS's published table — §7.4 |
 | Primary effect ids `100`/`101`/`102` are HP/ATK/DEF | `ENGRAVING-STATISTICS.md` §1, on captured traffic |
 | The unique-property id space is exactly `1`–`16` | The game's own Select Unique Property panel — §4 |
 
-**The engraving limit is recorded as 100 and not 150.** The official wording
-says a hundred. Nothing in JASWA depends on the exact number — the argument in
-§1 is that one relic covers far more monsters than an account fields, and that
-holds at either figure — but the number is written down here so a later
-correction has somewhere to land rather than being quietly assumed.
+### 3.1 The engraving limit is 150, and it used to be 100
+
+**Both figures were right, two weeks apart.** The limit is not a disputed
+reading; it is a value Com2uS changed, and the patch notes say so in one
+sentence:
+
+| Date | Version | Limit |
+| --- | --- | ---: |
+| April 13, 2026 | v9.1.8 | Relics arrive, engravable on **100** monsters |
+| August 27, 2026 | v9.3.0 | *"The maximum number of Monsters that can have the same Relic engraved at once has been increased from 100 to 150."* |
+
+v9.3.0 reached Europe at 09:45 CEST on August 27, 2026. **JASWA obeys 150**, the
+current figure, and keeps the history because a number that moved once can move
+again — and because it explains the older one rather than leaving it looking
+like a mistake somebody made.
+
+**This is why the earlier reasoning in this section was wrong, and the lesson is
+worth more than the number.** An earlier draft treated the two figures as a
+disagreement between the relic announcement and the game's own Manage Relic
+panel, and resolved it by ranking the sources: the client enforces the limit, so
+the client wins. That reached the right answer for the wrong reason. The
+announcement was not mistaken and the panel did not overrule it — the game
+changed underneath both, and **a launch announcement is a statement about a
+date, not a standing fact**. Every other figure in this document read from a
+pre-release announcement carries the same exposure, and §7.4's power-up rates
+most of all.
+
+**Nothing can confirm it in traffic.** §4.3 is why: a capture taken while the
+relic screens are open holds nothing about relics, because the property list,
+the names, the power-up rates and this limit are all client-side. The patch
+notes and the panel are the only routes there are.
+
+**`relicEngravingLimit` in `app/lib/relic-properties.ts` is the only place the
+number is written.** It sits with the power-up ceiling, the durability a relic
+starts with and the published success rates, because it is the same kind of
+fact: a constant of the game's own mechanic rather than a parameter of any
+judgement JASWA makes. The page's tagline, the plan, the reason lines and the
+verifier all read it from there, so a correction is one line and this section.
+
+**Until §11 there was nothing to correct.** The old note here said that nothing
+in JASWA depended on the exact number, and that was true: §1's argument is that
+one relic covers far more monsters than an account fields, and that holds at
+either figure. §11 changes it. The limit is now a **hard capacity constraint on
+a shared resource**, and the plan it produces is different at 100 than at 150 —
+fifty monsters' worth of different, per relic. The figure has stopped being
+context and become arithmetic, which is why it now has a section of its own.
 
 **The per-level power-up success rates are published**, and §7.4 carries them.
 They are the single most consequential thing on this page: the first three
@@ -597,6 +641,446 @@ structural check on `rid` and then cannot be judged is counted, invisible, and
 worse than rejected. Before this page existed, that was exactly the state the
 import was in.
 
-A rejection is therefore a loud one, and is meant to be. A relic rides a hundred
+A rejection is therefore a loud one, and is meant to be. A relic rides 150
 monsters; a half-read one would carry a wrong judgement across the whole roster
 rather than spoiling a single slot.
+
+---
+
+## 11. Use for mons — which relic each monster should wear
+
+§8 answers what a relic is worth to the **account**: keep it, spend stones on
+it, or sell it. This section answers a different question, monster by monster:
+
+> Of the relics this account already owns, which one should this monster be
+> wearing right now?
+
+They share the relics and nothing else. Different rows, different filters,
+different arithmetic — which is why they are two menus on one page rather than
+one table with a mode switch.
+
+### 11.1 Exactly one recommendation per monster
+
+**Every monster gets one relic named, and never two.** A relic occupies the
+monster's relic slot, so a page offering a shortlist would be handing back the
+decision it exists to make.
+
+That promise is load-bearing on the arithmetic below. It is the reason the
+bottom usage tier is worth `0.10` rather than `0` (§11.2), and the reason a
+monster with no statistics falls back to synergy instead of dropping out
+(§11.3): a monster can only always have a best relic if no relic can ever score
+zero.
+
+**The one exception is capacity, and it is the game's exception, not JASWA's.**
+An account can own relics, own monsters, and still have monsters the plan can
+put nothing on, because every relic that would reach them is already carrying
+its full 150. That row reads `No capacity` — a real state of the account, not a
+missing answer.
+
+### 11.2 Usage is three hard tiers, and the bottom one is punitive
+
+The game's **Relic Engraving Statistics** panel reports, for one monster type,
+how often each main property and each unique property appears on it across the
+player base. Let `p_M` be the relic's main property's share of that monster's
+engravings and `p_U` its unique property's share.
+
+| Main property usage | Credit `M` | | Unique property usage | Credit `U` |
+| --- | ---: | --- | --- | ---: |
+| ≥ 40 % | 1.00 | | ≥ 20 % | 1.00 |
+| 20 % – 40 % | 0.50 | | 10 % – 20 % | 0.50 |
+| < 20 % | 0.10 | | < 10 % | 0.10 |
+
+**The unique cuts are the main cuts halved, because sixteen values compete for a
+unique property and only three for a main.** Chance alone puts 33 % on a main
+and 6.25 % on a unique, so 20 % is a real bar for a unique where for a main it
+would be a low one. This is `ARTIFACT-CANONICAL.md` §19.3's reasoning and its
+same halving, for the same reason: one threshold across two differently sized
+vocabularies either discards useful mains or calls most uniques desirable.
+
+**The bottom tier is 0.10 and not proportional, on purpose.** A profile almost
+nobody engraves on this monster is evidence that it is the *wrong* profile, not
+a slightly less popular right one. A proportional floor would hand a quarter of
+the credit to a property with 5 % uptake for no better reason than that it
+exists.
+
+**Hard steps beat a ramp here, and that is measured rather than assumed.** A
+continuous `min(1, p_M / 0.40)` was the first proposal and it fails on this
+data: across the 1,017 captured panels **every single monster has a main
+property above 40 %**, the leading share running from 43 % to 100 % with a
+median of 72 %. So the ramp awards 1.00 to the leading main on every monster in
+the game, and then cannot separate HP at 52 % from ATK at 39 % — it scores them
+1.00 and 0.98. The steps score the same pair 1.00 and 0.50, which is the
+distinction a reader is actually looking at.
+
+**What the steps cost is resolution inside a tier, and what they risk is the
+boundary.** A share at 39.9 % and one at 40.1 % differ by a factor of two in
+credit. Measured, that is a smaller problem than it sounds: only **8.3 %** of
+main shares and **4.0 %** of unique shares in the whole dataset have a 95 %
+confidence interval that straddles a tier boundary at all. Inside a tier, the
+observed share breaks ties and never scores (§11.5).
+
+### 11.3 What the statistics can and cannot be asked
+
+**§5.2 rejected this same panel as the basis for the synergy table, and that
+rejection stands.** The reasoning there is that relics are new, most accounts
+engrave whatever they happened to craft, so the *global level* of any share is
+contaminated by the drop table and the crafting rate.
+
+**The per-monster question survives that objection, and the reason is simple:
+drops are monster-independent.** A distribution that varies between monsters
+cannot be describing the drop table. It varies a great deal on the main
+property — HP leads on 546 captured types, ATK on 422, DEF on 49 — and that
+spread is a record of what players chose, not of what fell out of the game.
+
+**The unique half is a weaker signal and this document says so.** Nimble Primal
+leads on **923 of the 1,017** captured types, holding 34.9 % of all engravings
+against a 6.25 % uniform share, while the other fifteen sit between 2.7 % and
+8.7 %. Whatever that measures, it says nearly the same thing about nearly every
+monster. It is not useless — it does corroborate Nimble Primal — but it carries
+far less monster-specific information than the main property does, and the
+weights in §11.4 are set with that in mind.
+
+**A lift over the global share was considered and refused.** Dividing a
+monster's share by that property's global share is the statistically cleanest
+separation of choice from popularity, and it answers the wrong question: lift
+measures what is *distinctive* about a monster, so it would prefer an odd relic
+precisely because it is unusually common there. The page is asked what is good
+for the monster, not what is peculiar to it.
+
+**A captured panel is used, whatever its size.** `relic-monster-statistics.ts`
+reports `missing` only where the dataset has never captured the type.
+
+#### 11.3.1 A monster with no panel is judged against the population, not against synergy
+
+**The obvious fallback is wrong, and the dataset says so plainly.** Give the two
+usage terms the synergy band's own credit and `F` reduces to `Y` — so an
+unmeasured monster reaches `F = 1.00` on any Exceptional pair, the ceiling of
+the measured scale. Measured, that inverts the page:
+
+| The same `+15` ATK / Sharp Conquest relic | Fit | Score |
+| --- | ---: | ---: |
+| on Beth, whose players put ATK main on it 69 % of the time | 0.825 | 0.825 |
+| on a monster with no panel at all | **1.000** | **1.000** |
+
+**Evidence made the score go down.** A measured monster has to clear both top
+tiers to reach 1.00, while an unmeasured one gets there for free — so the
+monsters JASWA knew least about were the ones it rated highest, and the relics
+it named for them were chosen on a fit it had not measured.
+
+**The fix is a prior, and a prior is what the population already is.** With no
+monster-specific evidence, the honest expectation for a property's credit is
+what that property earns *across every panel large enough to read*:
+
+| Main | Prior credit | | Unique | Prior credit |
+| --- | ---: | --- | --- | ---: |
+| HP | 0.777 | | Nimble Primal | 0.91 |
+| ATK | 0.553 | | Sharp Conquest | 0.26 |
+| DEF | 0.163 | | Nimble Valiant | 0.16 |
+| | | | the other thirteen | 0.10 – 0.11 |
+
+The same relic now reads 0.605 on the unmeasured monster against Beth's 0.825,
+which is the right order. The prior is neither optimistic nor pessimistic on
+average — that is what makes it a prior rather than a guess — and ranking within
+one unmeasured monster still reduces to strength and synergy, because the two
+prior terms are constants there.
+
+**Per property, and computed rather than written down.** "Expect an average
+main" and "expect an average *DEF* main" are different claims and only the
+second is true: DEF leads on 49 of 1,017 captured types, which is why its prior
+is 0.163 and HP's is 0.777. `relicUsagePriors` derives all nineteen figures from
+the dataset on first use, so a capture session moves them and no constant can go
+stale. The table above is therefore illustrative of the current dataset, not a
+specification.
+
+**This deliberately uses the global level §5.2 distrusts**, and the distrust is
+not withdrawn: for a monster *with* a panel JASWA reads that monster's own
+distribution and never touches the prior. For a monster without one there is
+nothing else, and a labelled prior beats a flat guess, a synergy ceiling, or no
+answer at all. The row says which it got — `No statistics; using averages.`
+
+#### 11.3.2 There is no sample-size gate, and there was one
+
+**An earlier version refused any panel under 100 observations.** The arithmetic
+behind it was sound — a share carries a standard error of `√(p(1−p)/n)`, so at
+`n = 100` a share on the 40 % boundary has a 95 % interval of about ±9.6 points,
+wide enough to span two tiers. The rule was still wrong, and **Camules is the
+case that showed it**:
+
+| Camules, 88 engravings | Share | Distance from its tier boundary |
+| --- | ---: | --- |
+| HP | 52.5 % | 2.4 standard errors clear of 40 % |
+| ATK | 38.6 % | 0.3 — genuinely uncertain |
+| DEF | 8.9 % | not in doubt |
+
+**Tier reliability is a property of a cell, not of a panel.** Two of those three
+are decided and the gate threw away all three because the middle one is close.
+And the game shows the player exactly those percentages with no caveat, so a
+page answering "no statistics" about a monster whose panel is open on the next
+screen is reporting on itself rather than on the game.
+
+**`ENGRAVING-STATISTICS.md` §5 already owns this question**: an empty panel is
+not a capture, and anything else is. That rule is binding, it is what
+`artifact-preferences.ts` follows, and a second competing rule here made the two
+pages disagree about one dataset. It is gone.
+
+**The sample size is shown instead of gated on.** Every Main stat and Unique
+prop. cell's title ends with the number of engravings its percentages were drawn
+from, because §1 of that document is right that a percentage discards the sample
+size — 30 % of 88 and 30 % of 69,590 are not the same evidence, and the reader
+is the one who should weigh that.
+
+**A half-empty panel is still refused outright.** Both distributions must be present.
+Judging a relic on its main while inventing the unique half would be
+`AGENTS.md` §0.1's third failure — a row counted, scored, and wrong. The two
+totals are also counted separately: the capture stores counts and never
+percentages (`ENGRAVING-STATISTICS.md` §1), and on 290 captured types the two
+totals differ slightly, so neither may be normalised against the other's sum.
+
+### 11.4 Suitability scales strength; it is not added to it
+
+**A relic's power-up level says how much it delivers. The three suitability
+signals say how much of that delivery this monster can use.** Those are not two
+substitutable kinds of value, so they multiply:
+
+```
+Score(m, r) = relicStrengthIndex(level, source) × F(m, r)
+
+F(m, r) = 0.30·M + 0.35·U + 0.35·Y
+```
+
+with `M` and `U` from §11.2 and `Y` the synergy band as suitability:
+
+| Band | `Y` |
+| --- | ---: |
+| Exceptional | 1.00 |
+| Strong | 0.75 |
+| Neutral | 0.50 |
+| Weak | 0.25 |
+| Poor | 0.10 |
+
+**This ladder is steeper than §8's stone multipliers, deliberately.** There the
+question is which relic deserves a scarce power-up stone, and a Weak relic that
+is cheap to finish is still worth ranking. Here the question is whether to put
+the relic on the monster, and §5.1 defines Weak as plausible only for a narrow
+need and Poor as very rarely rational. A band that means "rarely rational"
+should not read as a fifth of the way to exceptional.
+
+**`F` runs from 0.10 to 1.00, so the floor is structural rather than bolted
+on.** All three terms bottom out at 0.10, so no relic can score zero and §11.1's
+promise holds by construction.
+
+**Main takes the smallest weight although it is the sharpest signal, and that is
+considered.** The synergy table is *indexed by* main property, so a main already
+speaks twice — once through `M` and once through `Y`. Weighting it 0.30 rather
+than a third keeps the two mentions roughly balanced against the unique
+property, which §11.3 shows the statistics describe far less sharply. The
+consequence is that a wrong main is punished twice, through both terms; that is
+the intended behaviour and not a bug in the weights.
+
+#### 11.4.1 The case that settled multiplication
+
+An additive `0.50·S + 0.30·F + 0.20·Y` was proposed first and abandoned on a
+case it decides wrongly. **A `+15` relic banks 0.50 from its level alone,
+whatever pair it carries** — over half of a perfect relic's score for a profile
+the monster has no use for.
+
+Take an ordinary ATK monster, around 2,700 ATK and 900 DEF, and two relics:
+
+| | Relic A | Relic B |
+| --- | --- | --- |
+| Main | ATK | DEF |
+| Unique | Sharp Conquest — DMG dealt per ATK | Solid Conquest — DMG dealt per DEF |
+| Level | `+6` | `+15` |
+| `S` | 0.417 | 1.000 |
+| Synergy | Exceptional | Neutral |
+| Usage | both halves in the top tier | main < 20 %, unique 10–20 % |
+
+A is the relic that feeds the stat the monster builds. B is fully levelled and
+points most of its size at a stat the build is not about.
+
+```
+additive        A: 0.50(0.417) + 0.30(1.00) + 0.20(1.00) = 0.708
+                B: 0.50(1.000) + 0.30(0.375) + 0.20(0.50) = 0.733   → B wins
+
+multiplicative  A: 0.417 × [0.30(1.0) + 0.35(1.0) + 0.35(1.0)]  = 0.417
+                B: 1.000 × [0.30(0.1) + 0.35(0.5) + 0.35(0.5)]  = 0.380   → A wins
+```
+
+**The additive form recommends B, and B is the wrong answer.** An 18 % DEF main
+on a pure attacker is a large number pointed at nothing; addition lets that
+number buy a win because it treats size and relevance as interchangeable.
+
+**Multiplication still respects a finished relic, which was the reason
+addition was attractive.** Break-even against that same mediocre `+15` sits
+between `+3` and `+6`: a perfectly suited `+3` relic scores 0.292 and loses to
+it, and by `+6` the suited relic takes over at 0.417. An almost undeveloped
+"perfect" relic does not automatically outrank a relic that is actually
+delivering — it has to be levelled far enough to mean something first.
+
+**What this model deliberately does not do.** JASWA holds each monster's real
+stats, so Sharp Conquest at `+6` on 2,700 ATK is exactly computable — `+1.8 %`
+damage dealt. Scoring the effect directly would be more principled than scoring
+the population's habits, and it is not what this page does: it would need a role
+model per monster to weigh `+1.8 % DMG` against `+9 % ATK` against
+`MAX HP +2 % per 125 SPD`, and §7.2 already records that JASWA does not model
+relic value per monster. The usage statistics are a proxy for that judgement,
+and §11.3 bounds how far the proxy can be trusted.
+
+### 11.5 The engraving limit is a gate, not a queue
+
+A rune or an artifact belongs to one monster, so recommending one is a private
+matter between that monster and that piece of equipment. **A relic is shared, and
+shared a finite number of times**: once 150 monsters carry it the game refuses
+the next engraving until it is unengraved from one of them.
+
+**Every monster is nevertheless told its own best relic.** The gate is the
+engraving count the import actually carries, so a relic is withheld only when
+the game would refuse the engraving *today* — never because other monsters also
+want it. Then, and only then, the row falls to the monster's next best and says
+why: `Best one is at its 150 limit.`
+
+**A monster already wearing a relic spends no capacity on it.** Re-recommending
+what a monster is already carrying costs no new engraving, so a relic sitting on
+150 monsters stays available to exactly those monsters and is unavailable to
+everyone else. That is the game's own behaviour, and it is why the gate cannot
+simply be "is this relic full".
+
+#### 11.5.1 What this gives up, stated plainly
+
+**The column is a set of answers, not a single feasible plan.** §11.3's
+measurement makes that bite rather than being theoretical: one unique property
+leads on 90.8 % of monster types, so on a large roster the account's best relic
+is the right answer for far more than 150 monsters. Follow the column down and
+the 151st will be refused by the game.
+
+**A reserving pass was built first and then removed**, so the choice is on
+record. It was greedy over every `(monster, relic)` pair in score order — the
+same shape as `allocateArtifactPlacements` — and it produced a plan that was
+feasible as a whole: the best relic went to its 150 best homes and the rest were
+sent elsewhere. Two things were wrong with it as *advice*.
+
+1. **A row could not be understood on its own.** A monster was told to wear a
+   second-rate relic because of a queue it could not see, and the row's only
+   explanation was that something better had been taken by monsters elsewhere in
+   a table the user might well be filtering away.
+2. **A row was not stable.** Because the pass ranked the whole roster, importing
+   one monster, or awakening one, could change a different monster's
+   recommendation. A page whose answer for Beth depends on what happened to
+   Bulldozer is hard to trust and harder to act on in pieces.
+
+**Answering each monster with its own best relic is the more useful of the
+two**, and the cost is the paragraph above rather than a hidden defect. The
+account's own counts still bind: as soon as a relic really is full, every
+monster that does not wear it is routed to its next best and told so.
+
+**Ties are broken deterministically, and hard tiers make that necessary.** Three
+steps of usage credit and five of synergy put a great many relics on exactly the
+same score for one monster. `rankRelicsForMonster` orders by score and then by
+the relic's acquisition order (`rid`, the same rule §8.1 uses to choose between
+equal copies), so two runs of the same import cannot disagree.
+
+**`npm run verify:relic-monster-plan` holds the pass to its promises:** exactly
+one answer per monster, never a relic the game would refuse today, and a row
+that is identical whether it is computed alone or beside the whole roster.
+
+### 11.5.1 Material monsters are outside the plan
+
+**A Material monster wears no equipment**, which is the reason
+`ENGRAVING-STATISTICS.md` §4 leaves all twelve of them out of the capture list.
+Here that is not a cosmetic matter. Engraving capacity is finite and an account
+holds fodder by the dozen, so a Rainbowmon given a place on the account's best
+relic takes that place from a monster that could have used it. They are
+therefore excluded before the plan is built — the one narrowing of the roster
+that is not a display filter.
+
+**Only what the catalogue positively calls Material.** An archetype of `none` is
+an unmapped monster and not a fodder one, so a monster JASWA cannot classify
+stays in the plan: hiding a row on a guess is the failure `AGENTS.md` §0.1 is
+about, while over-including one costs a place at worst.
+
+### 11.6 Display filters never enter the calculation
+
+**A row is computed from that monster, the relics, and the engraving counts in
+the import — and from nothing else.** Search, Element, Type, Inventory, Storage,
+the level filter and **Hide if → Already optimal** change which finished rows
+the user is looking at, and can never change what any of them says.
+
+The last of those is the one worth naming, because it filters on the page's own
+verdict. `Already optimal` drops every row whose verdict is `Keep` — precisely
+the monsters already wearing the relic this page would give them. On an account
+whose relics are mostly placed that is the commonest verdict by a wide margin,
+so the control turns the table into a worklist. It removes rows *after* the
+verdict is decided and never feeds back into it.
+
+Under §11.5's gate this is close to free: each answer is already independent of
+every other monster, so there is nothing a filter *could* reach. It was not free
+under the reserving pass that came first, and it is written down because the
+guarantee has to survive whichever pass is in place. **The order is the rule:**
+
+```
+every monster + every relic  →  score  →  gate on the import's own counts  →  filter the view
+```
+
+`verify:relic-monster-plan` holds it directly: the recommendation, fit and score
+for a monster computed on its own must equal the ones computed with the whole
+roster present. The page's own Playwright suite checks the same thing through
+the interface, by reading every visible row, applying a filter, and requiring
+the survivors to be untouched.
+
+### 11.7 What the table shows
+
+| Column | What it says |
+| --- | --- |
+| `#`, Monster, Elem, Type, LVL | The monster, as the roster table names it |
+| Current relic | What it wears today — every relic the export gives it, never only the first |
+| Use this | The relic to engrave, or `Same` where that is what it already wears |
+| Main stat | The recommended relic's main property, as a share of this monster's most-engraved main |
+| Unique prop. | The same reading for its unique property |
+| Advice | The verdict, and a reason line only where there is one to give |
+
+**The two percentage columns are readings, not the score.** `Score` and `Fit`
+stood here first and were replaced, because a composite is the one number on a
+table nobody can check. Each of these can be checked against the game's own
+Statistics panel in one glance: the leading option on a monster always reads
+100 %, and everything else reads its share of that. A main at 39 % on a monster
+whose leader has 40 % and one at 21 % on the same monster fall in the same tier
+(§11.2) and are plainly not the same relic — the tiers are the right shape for
+deciding and the wrong shape for showing.
+
+They rate the relic in **Use this**, not the one in **Current relic**, so the
+columns describe what the page is proposing. The incumbent's own two figures are
+in each cell's title, because without them the size of a proposed change cannot
+be read off the row. Where the panel is missing or too thin there is nothing to
+divide by and the cell reads `—`; a `0 %` would claim the population had
+rejected the property rather than that nobody had counted it.
+
+**`S × F` still decides which relic is named** — §11.4 is unchanged. It is
+simply no longer printed: the player needs the relic and the reason, and a
+composite in a column costs width and invites the reader to take it on trust.
+The three terms behind it remain in the titles.
+
+**A relic reads `Nimble Primal` over `HP (lvl. 12)`.** The level is spelled out
+rather than written `+12` because it sits directly beside a main property, and
+`HP +12` reads as twelve points of HP — the quantity `AGENTS.md` §5 says a main
+property never states. The library table's `+12` column has no stat beside it
+and keeps the short form.
+
+**Four verdicts.** `Engrave` for a bare monster gaining a relic, `Replace` where
+the relic it wears is the wrong one, `Keep` where it already wears the
+recommendation, and `No capacity` where the limit has locked it out. They carry
+the `--state-*` verdict colours `AGENTS.md` §5 allows for a machine reporting
+its own state, and the verdict's name is written beside the colour, so the
+column reads identically with the colour taken away.
+
+**The reason line is usually empty, and that is the point.** Only two facts earn
+one. **Capacity**, because it is the sole reason a row shows anything but the
+monster's best relic and nothing else on the page reveals that. And **the state
+of the statistics**, because a fit assembled from population averages is a
+different claim from one measured on this monster and the number alone cannot
+tell them apart.
+
+The usage tiers deliberately get no line. A row reading "Both halves are
+favoured here" beside two columns already reading 100 % is one fact written
+twice, and the sentence is the vaguer of the two. The tiers and the shares
+behind them live in those cells' own titles, where they explain the numbers
+instead of competing with them.
