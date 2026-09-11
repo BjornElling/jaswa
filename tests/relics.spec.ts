@@ -62,14 +62,14 @@ test('the unique property carries the threshold its level and stat call for', as
   await expect(rowFor(page, 'per 125 SPD')).toContainText('+12');
 });
 
-test('the page states the rates it projects from, and claims nothing else', async ({ page }) => {
+test('the page claims nothing it cannot show', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
-  await expect(page.getByText('Power-up rates are the game')).toContainText('free to +3');
-  await expect(page.getByText('Power-up rates are the game')).toContainText('10 % at +14');
-  /* Synergy is a table, not a measurement, and the page no longer says
-     otherwise underneath it. */
+  /* Synergy is a table, not a measurement, and the power-up rates are the
+     game's own — neither needs a paragraph on the page saying so. Both belong
+     to `docs/RELIC-CANONICAL.md`, where they can be argued with. */
   await expect(page.getByText('Synergy is measured')).toHaveCount(0);
+  await expect(page.getByText('Power-up rates are the game')).toHaveCount(0);
 });
 
 test('the table opens on synergy, best fit first', async ({ page }) => {

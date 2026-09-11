@@ -239,13 +239,6 @@ export function RelicList({ game, monsters, preferences }: {
                   ...current, risk: isRelicRisk(value) ? value : current.risk,
                 }))} />
             </div>
-            {/* What the projections rest on: the game's own published rates,
-                not an estimate. Their shape is the whole economics of a relic,
-                so it is stated rather than buried in a document. */}
-            <p className="relic-chance-note">
-              Power-up rates are the game&rsquo;s own: free to +3, then 80 % falling to 10 % at +14.
-              Stones are worth most on a low relic.
-            </p>
           </div>
           <div className="filter-group relic-filter-level" role="group" aria-label="Filter by power-up level">
             <span className="filter-label">Level</span>

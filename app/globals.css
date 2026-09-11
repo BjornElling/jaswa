@@ -848,15 +848,6 @@ button { cursor: pointer; }
 .relic-verdict[data-verdict='keep'] { color: var(--ink); }
 .relic-verdict[data-verdict='sell'] { color: var(--state-bad); }
 
-/* What the projections rest on, said where the control that uses them is. It
-   is constant for an import, so it cannot grow or shrink under a click. */
-.relic-chance-note {
-  margin: var(--s1) 0 0;
-  max-width: var(--filter-column);
-  font-size: var(--t-micro);
-  color: var(--faint);
-  white-space: normal;
-}
 
 /* Two rows: what the relic is, then what can still happen to it. Search leads
    the first and the risk slider the second, so the two row-starters are the
