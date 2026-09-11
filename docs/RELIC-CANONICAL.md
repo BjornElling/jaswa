@@ -19,9 +19,10 @@ every judgement around it.
 
 - A good relic is not a good slot; it is a good *account*. Its value is the
   number of monsters in the metagame that want exactly it.
-- A lower duplicate has little marginal value. One copy already covers more
-  monsters than most accounts field, so a lower copy is kept only while its
-  exact chance of passing the higher one clears the selected stone threshold.
+- A duplicate has little marginal value. One copy already covers more monsters
+  than most accounts field, so a duplicate is kept only while its expected
+  final strength beyond the account's incumbent clears the selected stone
+  threshold.
 - A power-up is not cheap and not repeatable. Relics come with three
   durability, a failed attempt spends one, and at zero the relic's level is
   final for ever. There is no second chance and no re-roll.
@@ -93,7 +94,8 @@ correction has somewhere to land rather than being quietly assumed.
 
 **The per-level power-up success rates are published**, and §7.4 carries them.
 They are the single most consequential thing on this page: the first three
-levels are free, and from `+3` the rate falls to a tenth.
+levels are free, and from `+3` onward the rates fall progressively, ultimately
+to 10 %.
 
 ## 4. The sixteen unique properties, and how they were pinned down
 
@@ -279,9 +281,10 @@ can be corrected in the place where the mistake is.** That is worth more here
 than any amount of agreement between halves of a population that was not
 deciding anything.
 
-What the measurement got right is kept in §5.1 as reasoning rather than as
-evidence: main and unique must point the same way, and which way depends on
-what the property reads and what it grants.
+What the measurement got right is kept in §5.1 as qualitative reasoning rather
+than as evidence: alignment among the main stat, the property's source and its
+granted outcome can matter. It is one input to the account-wide judgement, not
+a necessary condition.
 
 ## 6. Level, durability and the difference between them
 
@@ -348,13 +351,15 @@ V(l, d)  = p(l)·V(l + 1, d) + (1 − p(l))·V(l, d − 1)
 **Why a second run is necessary.** `P` asks whether a relic will *finish*, and
 answers `0` for anything that runs out of durability on the way. An exceptional
 `+12` with no durability left has `P = 0` and is one of the best things an
-account can own. `V` measures its realised, normalised strength: the main
-property and the unique-property threshold are equal halves of
-`relicStrengthIndex`. An ATK-, DEF- or HP-reading `+12` is therefore 75 % of a
+account can own. `V` measures its realised, normalised **strength proxy**: the
+main property and the unique-property threshold are equal halves of
+`relicStrengthIndex`. An ATK-, DEF- or HP-reading `+12` has a proxy of 75 % of a
 finished relic (main: 15/18; unique: 500/750); an SPD-reading one is about
-81.7 % (main: 15/18; unique: 100/125). **A model that judged on `P` alone would
-sell either.** Once the published rates arrived (§7.4), `P` turned out to be
-unfit for the other question too — it is near zero for everything — and `V` now
+81.7 % (main: 15/18; unique: 100/125). The threshold half normalises threshold
+efficiency; it deliberately does not claim to model a particular monster's
+integer effect breakpoints. **A model that judged on `P` alone would sell
+either.** Once the published rates arrived (§7.4), `P` turned out to be unfit
+for the other question too — it is near zero for everything — and `V` now
 carries expected strength instead.
 
 `V` also never falls when a level or an attempt is added, which `P` alone does
@@ -458,11 +463,13 @@ and stood for a while on the strength of the 18× ratio holding at the other fiv
 anchors. It came back `9,000`, which is what the ratio predicted, and the ratio
 is now confirmed at all six tiers rather than five.
 
-**One thing is still inference.** The tiers step at `+0`, `+3`, `+6`, `+9`,
-`+12` and `+15`, which is how the table is labelled — but no relic on this
-account has ever sat at an intermediate level, so whether `+1` and `+2` hold the
-`+0` value is unconfirmed. A relic at `+4` or `+7` would settle it in one
-glance.
+**One thing is still inference, and the investment score depends on it.** The
+anchors are observed at `+0`, `+3`, `+6`, `+9`, `+12` and `+15`, but no relic on
+this account has ever sat at an intermediate level. Until one is observed,
+JASWA assumes each published threshold remains constant through its three-level
+tier: `+0` through `+2`, then `+3` through `+5`, and so on. A relic at `+4` or
+`+7` would settle the assumption in one glance; `verify:relic-maths` makes the
+assumed steps explicit so they cannot become accidental.
 
 ### 7.6 What this replaced, and why the replacement matters
 
@@ -484,7 +491,7 @@ pooling. What it did not say was that **the sample covered only the cheap half
 of the curve**, and a projection is only as good as the range its evidence
 spans.
 
-## 8. The verdict is chance times the strength it buys
+## 8. The verdict accounts for the strength an investment buys
 
 **A relic's one synergy band multiplies the exact expected strength of its next
 attempt:**
@@ -526,19 +533,35 @@ gain above; neither hides a different recommendation formula.
 
 The rules, in the order they outrank each other:
 
-1. **Free levels power up.** At `+0`, `+1` and `+2`, the next level cannot
-   spend stones.
-2. **No durability keeps** unless a same-pair relic is already at a strictly
-   higher level. It cannot be powered up, so its reason says exactly that.
-3. **A lower open copy is a replacement bet.** Its chance is `P(l, d, h + 1)`,
-   the exact chance of passing the higher copy at `+h`; its score uses the
-   strength gained by passing that copy. A higher copy already at `+15` cannot
-   be passed, so the challenger sells. Below the selected threshold every other
-   challenger sells; otherwise it powers up.
-4. **The threshold also sets a hard minimum synergy band.** Setting 1 accepts
+1. **A relic that cannot be powered up keeps only when it is the account's best
+   same-pair copy.** It sells when another same-pair relic is at an equal or
+   higher level. Equal levels keep the lower `rid`, so one deterministic copy
+   remains. Its reason says exactly that.
+2. **Free levels power up.** At `+0`, `+1` and `+2`, the next level cannot
+   spend stones. This applies to every relic that is still open for an attempt.
+3. **The hard synergy gate comes before return on investment.** The threshold
+   also sets a minimum synergy band: setting 1 accepts
    only Exceptional, setting 2 also accepts Strong, setting 3 also accepts
    Neutral, setting 4 also accepts Weak, and setting 5 accepts every band.
-   An open relic below that band is sold with `Synergy < threshold.`
+   An open relic below that band is sold with `Synergy < threshold.` This is a
+   deliberate lexicographic rule: the score ranks stone investments only among
+   profiles the player is willing to own.
+4. **A lower or newer equal open copy is a replacement plan.** Let `h` be its
+   incumbent's current level and let `D_c(k)` be the challenger's final-level
+   distribution. Its expected marginal account strength is
+
+   ```
+   Δduplicate = Σₖ D_c(k) × max(0, S(k) − S(h))
+   duplicate score = 100 × synergy multiplier × Δduplicate / [S(1) − S(0)]
+   ```
+
+   It credits neither a result below the incumbent nor an equal result, and
+   credits every overshoot by exactly its excess. It deliberately measures
+   expected marginal account value across the challenger's whole remaining
+   plan, not stones spent to achieve it. The visible chance remains
+   `P(l, d, h + 1)`, the exact chance to pass the incumbent. An incumbent at
+   `+15` cannot be passed, so the challenger sells. Below the selected threshold
+   every other challenger sells; otherwise it powers up.
 5. **Every other open relic compares its next-attempt investment score with the
    selected threshold.** At or above it powers up; otherwise it keeps.
 
@@ -565,11 +588,6 @@ The former name “risk” was imprecise: the game chance already describes risk
 The slider instead chooses how high the adjusted score must be before scarce
 stones are recommended. It lives in the filter strip because it changes verdicts
 rather than rows, is session state, and Reset returns it to 3.
-
-It sits in the filter strip because it belongs to the same question the filters
-answer — what should this table be telling me — even though it changes the
-verdicts rather than which rows survive. It is session state like every other
-filter, and Reset puts it back to 3.
 
 ## 10. Parity
 

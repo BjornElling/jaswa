@@ -25,7 +25,7 @@
  * Usage: node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs scripts/verify-relic-maths.mjs
  */
 import {
-  relicAdvice, relicExpectedLevel, relicExpectedStrength, relicFinalLevelChances, relicLanding, relicReachChance,
+  relicAdvice, relicDuplicateMarginalStrength, relicExpectedLevel, relicExpectedStrength, relicFinalLevelChances, relicLanding, relicReachChance,
 } from '../app/lib/relic-advice.ts';
 import {
   relicMaximumDurability, relicMaximumLevel, relicNextLevelStrengthGain, relicOrdinaryLevelStrengthGain,
@@ -127,6 +127,21 @@ const beforeTier = tierAdvice.get('7')?.investmentScore ?? 0;
 const onTier = tierAdvice.get('8')?.investmentScore ?? 0;
 check(onTier > beforeTier,
   `an Exceptional +8 → +9 tier scores ${Math.round(onTier)} % above the ${Math.round(beforeTier)} % +7 → +8 step despite its lower chance`);
+
+/* A duplicate is valuable only for the final strength it exceeds beyond the
+   incumbent. This deliberately counts an overshoot and nothing below or equal. */
+const duplicateChances = [0, 0, 0.2, 0.3, 0.5];
+const duplicateGain = relicDuplicateMarginalStrength(duplicateChances, 3, 'ATK');
+const expectedDuplicateGain = 0.5 * (relicStrengthIndex(4, 'ATK') - relicStrengthIndex(3, 'ATK'));
+check(Math.abs(duplicateGain - expectedDuplicateGain) < 1e-12,
+  'a duplicate gains only the final strength above its incumbent, including overshoot');
+const equalOlder = relicAt(9, '9');
+const equalNewer = relicAt(9, '10');
+equalOlder.durability = 0;
+equalNewer.durability = 0;
+const equalAdvice = relicAdvice([equalOlder, equalNewer], 5);
+check(equalAdvice.get('9')?.verdict === 'keep' && equalAdvice.get('10')?.verdict === 'sell',
+  'equal spent duplicates keep only the lower-rid incumbent');
 
 /* The one modelling choice in the strength index is how the two halves are
    weighted. It is only a defensible choice if the answers do not turn on it, so

@@ -177,6 +177,19 @@ export function relicFinalLevelChances(
   return rows[level];
 }
 
+/**
+ * The expected account-wide strength a duplicate can add beyond the copy the
+ * account already owns. Landing below or level with that incumbent adds
+ * nothing; every higher landing adds only its excess.
+ */
+export function relicDuplicateMarginalStrength(
+  chances: readonly number[], incumbentLevel: number, source: RelicSourceStat,
+): number {
+  const incumbent = relicStrengthIndex(incumbentLevel, source);
+  return chances.reduce((gain, chance, level) =>
+    gain + chance * Math.max(0, relicStrengthIndex(level, source) - incumbent), 0);
+}
+
 export type RelicLanding = {
   /** The level the relic lands on or above at least half the time. */
   level: number;
@@ -292,9 +305,9 @@ export type RelicAdvice = {
   expectedLevel: number;
   /** Where the relic comes to rest: the median level, and the mode beside it. */
   landing: RelicLanding;
-  /** A strictly higher same-pair copy this relic must pass, or `null`. */
+  /** An equal-or-higher same-pair copy this relic must improve on, or `null`. */
   supersededBy: Relic | null;
-  /** `P(l, d, higher copy's level + 1)`, or `null` when there is no such copy. */
+  /** `P(l, d, incumbent's level + 1)`, or `null` when there is no incumbent. */
   overtakeChance: number | null;
 };
 
@@ -333,26 +346,36 @@ export function relicAdvice(
     const band = relicSynergy(relic.mainProperty, relic.unique.definition.id);
     const reachChance = relicReachChance(relic.level, relic.durability, relicMaximumLevel, rates);
     const chances = relicFinalLevelChances(relic.level, relic.durability, rates);
-    const higher = (pairs.get(pairKey(relic)) ?? []).find((candidate) => candidate.level > relic.level) ?? null;
-    /* Measured against the standing copy's *present* level rather than its own
-       projection. The question is whether to spend stones on the challenger at
-       all, and holding it to a level the incumbent has not reached yet would
-       answer a different one. */
-    const overtakeChance = higher === null
+    /* One same-level copy has to be the incumbent too: a relic covers one
+       hundred monsters, so equal permanent copies have no separate account
+       value. The lower rid is the stable, oldest tie-breaker. */
+    const incumbent = (pairs.get(pairKey(relic)) ?? []).reduce<Relic | null>((best, candidate) => {
+      const canSupersede = candidate.id !== relic.id
+        && (candidate.level > relic.level
+          || (candidate.level === relic.level && candidate.obtainedOrder < relic.obtainedOrder));
+      if (!canSupersede || best === null) return canSupersede ? candidate : best;
+      if (candidate.level > best.level
+        || (candidate.level === best.level && candidate.obtainedOrder < best.obtainedOrder)) return candidate;
+      return best;
+    }, null);
+    /* Measured against the incumbent's present level. The duplicate score below
+       uses the complete landing distribution, but the displayed chance remains
+       the concrete chance to pass the copy the account already has. */
+    const overtakeChance = incumbent === null
       ? null
-      : relicReachChance(relic.level, relic.durability, higher.level + 1, rates);
+      : relicReachChance(relic.level, relic.durability, incumbent.level + 1, rates);
 
     const chance = nextChance(relic, rates);
     const score = investmentScore(chance, weight, relicNextLevelStrengthGain(relic.level, relic.unique.definition.per));
     advice.set(relic.id, {
-      ...decide({ weight, chance, score, overtakeChance, higher, relic, threshold, band, minimumBand }),
+      ...decide({ weight, chance, score, chances, overtakeChance, incumbent, relic, threshold, band, minimumBand }),
       reachChance,
       expectedGain: relicExpectedLevel(chances) - relic.level,
       nextChance: chance,
       investmentScore: score,
       expectedLevel: relicExpectedLevel(chances),
       landing: relicLanding(chances),
-      supersededBy: higher,
+      supersededBy: incumbent,
       overtakeChance,
     });
   }
@@ -368,34 +391,33 @@ export function relicAdvice(
  * synergy multiplier turns that expected gain into a score for choosing where
  * scarce stones go; it must not be described as a probability.
  */
-function decide({ weight, chance, score, overtakeChance, higher, relic, threshold, band, minimumBand }: {
+function decide({ weight, chance, score, chances, overtakeChance, incumbent, relic, threshold, band, minimumBand }: {
   weight: number;
   chance: number;
   score: number;
+  chances: readonly number[];
   overtakeChance: number | null;
-  higher: Relic | null;
+  incumbent: Relic | null;
   relic: Relic;
   threshold: number;
   band: RelicSynergyBand;
   minimumBand: RelicSynergyBand;
 }): { verdict: RelicVerdict; reason: string } {
-  if (relic.level >= relicMaximumLevel) return { verdict: 'keep', reason: 'Cannot power up.' };
-  if (relic.durability === 0) {
-    if (higher !== null) return { verdict: 'sell', reason: `No power-up; +${higher.level} higher.` };
+  if (relic.level >= relicMaximumLevel || relic.durability === 0) {
+    if (incumbent !== null) return { verdict: 'sell', reason: `No power-up; +${incumbent.level} kept.` };
     return { verdict: 'keep', reason: 'Cannot power up.' };
   }
+  if (relic.level < 3) return { verdict: 'power-up', reason: `Free +1: ${percent(chance)}` };
   if (relicSynergyBandOrder.indexOf(band) > relicSynergyBandOrder.indexOf(minimumBand)) {
     return { verdict: 'sell', reason: 'Synergy < threshold.' };
   }
-  if (relic.level < 3) return { verdict: 'power-up', reason: `Free +1: ${percent(chance)}` };
 
-  if (higher !== null) {
-    if (higher.level >= relicMaximumLevel) return { verdict: 'sell', reason: 'Cannot beat +15.' };
-    const overtakeScore = investmentScore(
-      overtakeChance ?? 0, weight, relicNextLevelStrengthGain(higher.level, relic.unique.definition.per),
-    );
-    const working = `Beat +${higher.level}: ${percent(overtakeChance ?? 0)}`;
-    if (overtakeScore >= threshold) return { verdict: 'power-up', reason: working };
+  if (incumbent !== null) {
+    if (incumbent.level >= relicMaximumLevel) return { verdict: 'sell', reason: 'Cannot beat +15.' };
+    const marginalStrength = relicDuplicateMarginalStrength(chances, incumbent.level, relic.unique.definition.per);
+    const duplicateScore = investmentScore(1, weight, marginalStrength);
+    const working = `Beat +${incumbent.level}: ${percent(overtakeChance ?? 0)}`;
+    if (duplicateScore >= threshold) return { verdict: 'power-up', reason: working };
     return { verdict: 'sell', reason: working };
   }
 

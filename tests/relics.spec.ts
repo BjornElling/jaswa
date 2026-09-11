@@ -188,15 +188,16 @@ test('the score threshold decides whether a second copy is worth the stones', as
   const challenger = rowFor(page, 'per 150 SPD');
   const threshold = page.getByRole('slider', { name: 'Power-up threshold, 1 cautious to 5 bold' });
 
-  /* An exceptional challenger has a 4.8 % chance to pass +12. The internal
-     score remains thresholded, but the player only needs the game chance. */
+  /* An exceptional challenger has a 4.8 % chance to pass +12. Its full landing
+     distribution carries enough marginal account value at the boldest setting,
+     while the player still sees the concrete game chance. */
   const advice = adviceFor(page, 'per 150 SPD');
   await expect(challenger).toContainText('Sell');
   await expect(advice).toHaveText('SellBeat +12: 4.8%');
 
   await threshold.fill('5');
-  await expect(challenger).toContainText('Sell');
-  await expect(advice).toHaveText('SellBeat +12: 4.8%');
+  await expect(challenger).toContainText('Power up');
+  await expect(advice).toHaveText('Power upBeat +12: 4.8%');
 
   await threshold.fill('1');
   await expect(challenger).toContainText('Sell');
