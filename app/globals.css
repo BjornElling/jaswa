@@ -874,8 +874,7 @@ button { cursor: pointer; }
 .relic-filter-strip {
   grid-template-areas:
     "search main  synergy    advice"
-    "risk   level durability usage"
-    "stones .     .          .";
+    "risk   level durability usage";
 }
 .relic-filter-strip > .filter-group,
 .relic-filter-strip > .filter-group:nth-child(2n + 1),
@@ -905,34 +904,33 @@ button { cursor: pointer; }
 .relic-filter-level { grid-area: level; }
 .relic-filter-durability { grid-area: durability; }
 .relic-filter-usage { grid-area: usage; }
-/* The stone balance is deliberately a fixed card, not a live-width number: a
-   power-up changes the account's resource, not the surrounding controls. Gold
-   marks the scarce resource the page asks the player to spend. */
+.relic-filter-status { height: calc(var(--filter-status-height) + var(--s1) + 26px); }
+/* The stone balance follows Reset because it is account context rather than a
+   filter. Its fixed control measure leaves the rest of the page untouched when
+   the balance changes; the gold edge is a quiet cue that this is the resource
+   the page will spend. */
 .relic-stone-balance {
-  grid-area: stones;
   box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--s3);
-  align-self: start;
-  width: var(--filter-column);
+  flex: 0 0 26px;
+  gap: var(--s1);
   min-width: 0;
-  height: 54px;
-  padding: var(--s2) var(--s3);
+  height: 26px;
+  padding: 0 var(--s2);
   border: 1px solid var(--gold-edge);
-  border-radius: var(--radius);
-  background: var(--gold-deep);
+  border-radius: var(--radius-sm);
+  background: transparent;
 }
 .relic-stone-balance-label {
   min-width: 0;
-  color: var(--ink);
+  overflow: hidden;
+  color: var(--dim);
   font-size: var(--t-micro);
-  font-weight: 700;
-  letter-spacing: .08em;
-  line-height: 1.3;
-  text-transform: uppercase;
-  white-space: normal;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .relic-stone-balance-value {
   flex: 0 0 auto;
@@ -946,7 +944,7 @@ button { cursor: pointer; }
     grid-template-areas:
       "search main       synergy"
       "risk   level      advice"
-      "stones durability usage";
+      ".      durability usage";
   }
 }
 @media (min-width: 1921px) and (max-width: 1120px) {
@@ -954,7 +952,7 @@ button { cursor: pointer; }
     grid-template-areas:
       "search main"
       "risk   synergy"
-      "stones advice"
+      ".      advice"
       ".      level"
       ".      durability"
       ".      usage";
@@ -966,7 +964,6 @@ button { cursor: pointer; }
     grid-template-areas:
       "search"
       "risk"
-      "stones"
       "main"
       "synergy"
       "advice"

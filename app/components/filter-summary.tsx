@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 /**
  * How much of a table the current filters leave, with the control that puts
  * them all back. The two belong together: the count is the only thing on screen
@@ -15,18 +17,22 @@
  * click away from being made again, so a confirmation would cost more than the
  * mistake it guards against.
  */
-export function FilterSummary({ visible, total, noun, onReset }: {
+export function FilterSummary({ visible, total, noun, onReset, className, below }: {
   visible: number;
   total: number;
   /** What the rows are, for the reading of the count and of the button. */
   noun: string;
   onReset: () => void;
+  /** A page-specific, fixed-size account status directly below Reset. */
+  className?: string;
+  below?: ReactNode;
 }) {
-  return <div className="filter-status">
+  return <div className={className ? `filter-status ${className}` : 'filter-status'}>
     <output className="filter-summary" aria-label={`${visible} of ${total} ${noun} shown`}>
       <b>{visible}</b> of {total} shown
     </output>
     <button type="button" className="filter-reset" onClick={onReset}
       aria-label={`Reset ${noun} filters`}>Reset filters</button>
+    {below}
   </div>;
 }

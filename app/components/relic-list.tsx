@@ -248,13 +248,6 @@ export function RelicList({ game, monsters, preferences }: {
                 }))} />
             </div>
           </div>
-          <aside className="relic-stone-balance"
-            aria-label={powerUpStones === undefined
-              ? 'Relic Power-up stones unavailable from this import'
-              : `Relic Power-up stones: ${format(powerUpStones)}`}>
-            <span className="relic-stone-balance-label">Relic Power-up stones</span>
-            <span className="relic-stone-balance-value">{powerUpStones === undefined ? '—' : format(powerUpStones)}</span>
-          </aside>
           <div className="filter-group relic-filter-level" role="group" aria-label="Filter by power-up level">
             <span className="filter-label">Level</span>
             <div className="filter-group-controls">
@@ -282,7 +275,14 @@ export function RelicList({ game, monsters, preferences }: {
             </div>
           </div>
           <FilterSummary visible={visible.length} total={rows.length} noun="relics"
-            onReset={() => setFilters(defaultRelicFilters)} />
+            onReset={() => setFilters(defaultRelicFilters)} className="relic-filter-status"
+            below={<aside className="relic-stone-balance"
+              aria-label={powerUpStones === undefined
+                ? 'Relic Power-up stones unavailable from this import'
+                : `Relic Power-up stones: ${format(powerUpStones)}`}>
+              <span className="relic-stone-balance-label">Power-up stones</span>
+              <span className="relic-stone-balance-value">{powerUpStones === undefined ? '—' : format(powerUpStones)}</span>
+            </aside>} />
         </>}
       >
         <tbody>
