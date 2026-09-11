@@ -1,6 +1,6 @@
 import {
-  relicMaximumLevel, relicNextLevelStrengthGain, relicOrdinaryLevelStrengthGain,
-  relicPowerUpRates, relicStrengthIndex,
+  relicEngravingLimit, relicMaximumLevel, relicNextLevelStrengthGain,
+  relicOrdinaryLevelStrengthGain, relicPowerUpRates, relicStrengthIndex,
 } from './relic-properties';
 import type { RelicSourceStat } from './relic-properties';
 import type { Relic } from './relics';
@@ -326,10 +326,18 @@ const nextChance = (relic: Relic, rates: RelicSuccessRates) =>
 
 /**
  * The whole account's advice at once, because a verdict on one relic depends on
- * which other relics the account holds.
+ * which other relics the account holds — and, since the engraving limit became
+ * a real constraint, on how far the copy it is measured against has already
+ * spread.
+ *
+ * `engravings` is the account's own count per relic id, as
+ * `relicEngravingCounts` walks it off the roster. Omitting it reads every relic
+ * as having room, which is the right answer for a check driving the recursions
+ * with stated relics and the wrong one for the page.
  */
 export function relicAdvice(
   relics: readonly Relic[], selectivity: RelicInvestmentSelectivity, rates: RelicSuccessRates = relicPowerUpRates,
+  engravings?: ReadonlyMap<string, number>,
 ): Map<string, RelicAdvice> {
   const threshold = relicInvestmentThresholds[selectivity];
   const minimumBand = relicMinimumSynergyBands[selectivity];
@@ -367,8 +375,17 @@ export function relicAdvice(
 
     const chance = nextChance(relic, rates);
     const score = investmentScore(chance, weight, relicNextLevelStrengthGain(relic.level, relic.unique.definition.per));
+    /* A copy that has run out of places is no longer an incumbent this relic can
+       be redundant against — §8.1's premise is that one copy already reaches more
+       monsters than the account fields, and a saturated copy has stopped doing
+       so. See the note on `decide`. */
+    const incumbentIsFull = incumbent !== null
+      && (engravings?.get(incumbent.id) ?? 0) >= relicEngravingLimit;
     advice.set(relic.id, {
-      ...decide({ weight, chance, score, chances, overtakeChance, incumbent, relic, threshold, band, minimumBand }),
+      ...decide({
+        weight, chance, score, chances, overtakeChance, incumbent, incumbentIsFull,
+        relic, threshold, band, minimumBand,
+      }),
       reachChance,
       expectedGain: relicExpectedLevel(chances) - relic.level,
       nextChance: chance,
@@ -390,20 +407,37 @@ export function relicAdvice(
  * distinguishes an ordinary main-stat level from a unique-property tier. The
  * synergy multiplier turns that expected gain into a score for choosing where
  * scarce stones go; it must not be described as a probability.
+ *
+ * **The duplicate rule has one exception, and the 150-monster limit is what
+ * created it.** §8.1 sells a same-pair copy that cannot expect to pass the one
+ * the account already holds, and the premise underneath that — §1's, that one
+ * relic already covers more monsters than an account fields — stopped being true
+ * the moment §11 made capacity a constraint the page computes with. A copy
+ * engraved on its full 150 cannot take a 151st monster whatever its level, so a
+ * weaker duplicate of it is not redundant: it is the only way the account can
+ * put that pair on another monster at all. Such a relic is judged on its own
+ * next attempt, exactly as a relic with no incumbent is.
  */
-function decide({ weight, chance, score, chances, overtakeChance, incumbent, relic, threshold, band, minimumBand }: {
+function decide({
+  weight, chance, score, chances, overtakeChance, incumbent, incumbentIsFull,
+  relic, threshold, band, minimumBand,
+}: {
   weight: number;
   chance: number;
   score: number;
   chances: readonly number[];
   overtakeChance: number | null;
   incumbent: Relic | null;
+  incumbentIsFull: boolean;
   relic: Relic;
   threshold: number;
   band: RelicSynergyBand;
   minimumBand: RelicSynergyBand;
 }): { verdict: RelicVerdict; reason: string } {
   if (relic.level >= relicMaximumLevel || relic.durability === 0) {
+    if (incumbent !== null && incumbentIsFull) {
+      return { verdict: 'keep', reason: `Other copy is on ${relicEngravingLimit}.` };
+    }
     if (incumbent !== null) return { verdict: 'sell', reason: `No power-up; +${incumbent.level} kept.` };
     return { verdict: 'keep', reason: 'Cannot power up.' };
   }
@@ -412,7 +446,7 @@ function decide({ weight, chance, score, chances, overtakeChance, incumbent, rel
     return { verdict: 'sell', reason: 'Synergy < threshold.' };
   }
 
-  if (incumbent !== null) {
+  if (incumbent !== null && !incumbentIsFull) {
     if (incumbent.level >= relicMaximumLevel) return { verdict: 'sell', reason: 'Cannot beat +15.' };
     const marginalStrength = relicDuplicateMarginalStrength(chances, incumbent.level, relic.unique.definition.per);
     const duplicateScore = investmentScore(1, weight, marginalStrength);

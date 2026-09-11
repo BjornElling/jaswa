@@ -137,7 +137,12 @@ export function RelicList({ game, monsters, preferences }: {
   const relics = useMemo(() => readRelics(game?.data), [game]);
   const engravings = useMemo(() => relicEngravingCounts(monsters), [monsters]);
   const powerUpStones = useMemo(() => relicPowerUpStoneCount(game?.data), [game]);
-  const advice = useMemo(() => relicAdvice(relics, selectivity), [relics, selectivity]);
+  /* The counts reach the advice because a same-pair copy that has run out of
+     places can no longer make a duplicate redundant (§8.1's exception). */
+  const advice = useMemo(
+    () => relicAdvice(relics, selectivity, undefined, engravings),
+    [relics, selectivity, engravings],
+  );
   const format = useMemo(() => (value: number) => formatNumber(value, preferences.general), [preferences.general]);
 
   const rows = useMemo<RelicRow[]>(() => relics.map((relic, index) => ({

@@ -3,7 +3,7 @@ import type { MonsterArchetype } from './monster-catalog';
 import { compareNumbersWithBlanks, compareTextWithBlanks } from './monster-grid';
 import { relicPropertyLabel } from './relic-properties';
 import type { Relic } from './relics';
-import { relicEngravingLimit } from './relic-monster-fit';
+import { relicEngravingLimit, relicReplacementMargin } from './relic-monster-fit';
 import type { RelicCandidate, RelicRecommendation } from './relic-monster-fit';
 import type { RelicUsageStatistics } from './relic-monster-statistics';
 
@@ -94,18 +94,28 @@ export function relicMonsterVerdict(recommendation: RelicRecommendation, worn: r
  * The one line under the verdict, and it stays empty unless there is something
  * the columns cannot already say.
  *
- * **Only two facts earn a line.** Capacity, because it is the sole reason the
- * row is showing anything but the monster's best relic and nothing else on the
- * page reveals that. And the state of the statistics, because it says how far
- * the Fit beside it can be trusted — a fit assembled from population averages
- * is a different claim from one measured on this monster, and the number alone
- * cannot tell them apart.
+ * **Three facts earn a line, and each is one the row cannot otherwise show.**
  *
- * **The tiers deliberately get no line.** A row saying "Both halves are
- * favoured here" next to a Fit of 100 % is the same fact written twice, and the
- * one in the Advice column is the vaguer of the two. The tiers and their
- * observed shares are in the Fit cell's own title, where they explain the
- * number rather than competing with it.
+ * **Capacity**, because it is the sole reason the row is showing anything but
+ * the monster's best relic. Where the blocked relic is worn today by monsters
+ * that fit it worse, the line counts them instead of stopping at "it is full":
+ * the first wording named a dead end, and the second names the move — unengrave
+ * one of them. That count is the only figure on the row drawn from the rest of
+ * the roster, which is why it lives in the sentence rather than in a column.
+ *
+ * **Retention**, because a `Keep` that is not the monster's best relic looks
+ * identical to one that is. The page is not saying this is the best relic; it is
+ * saying the difference is too small to spend an engraving on.
+ *
+ * And **the state of the statistics**, because a fit assembled from population
+ * averages is a different claim from one measured on this monster and the
+ * columns beside it cannot tell them apart.
+ *
+ * **The usage credits deliberately get no line.** A row saying "Both halves are
+ * favoured here" next to two columns already reading 100 % is one fact written
+ * twice, and the sentence is the vaguer of the two. The shares behind them live
+ * in those cells' own titles, where they explain the numbers rather than
+ * competing with them.
  *
  * The order is a priority and not a list: a row has one binding reason.
  */
@@ -117,7 +127,15 @@ export function relicMonsterReason(row: {
   if (verdict === 'none') return 'Every fit relic is full.';
   const chosen = recommendation.chosen;
   if (!chosen) return '';
-  if (recommendation.limit === 'capacity') return `Best one is at its ${relicEngravingLimit} limit.`;
+  if (recommendation.limit === 'capacity') {
+    const displaceable = recommendation.displaceableWearers;
+    return displaceable > 0
+      ? `Best one is full; ${displaceable} wear it worse.`
+      : `Best one is at its ${relicEngravingLimit} limit.`;
+  }
+  if (recommendation.retained) {
+    return `Next best gains under ${Math.round(relicReplacementMargin * 100)} %.`;
+  }
   if (chosen.suitability.status === 'missing') return 'No statistics; using averages.';
   return '';
 }

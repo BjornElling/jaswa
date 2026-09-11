@@ -1,67 +1,82 @@
 import {
-  relicEngravingLimit, relicMainPropertyOrder, relicProperties, relicStrengthIndex,
+  relicEngravingLimit, relicMainPropertyOrder, relicStrengthIndex,
 } from './relic-properties';
-import type { RelicMainProperty } from './relic-properties';
 import type { Relic } from './relics';
 import { relicSynergy } from './relic-synergy';
 import type { RelicSynergyBand } from './relic-synergy';
-import { leadingRelicMain, measuredRelicUsagePanels, relicUsageStatus } from './relic-monster-statistics';
+import { relicShrunkShares, relicUsageStatus } from './relic-monster-statistics';
 import type { RelicUsageStatistics, RelicUsageStatus } from './relic-monster-statistics';
 
 export { relicEngravingLimit };
 
 /**
- * The share of a monster's engravings a main property needs before the
- * population counts as preferring it, and the share below which it counts as
- * the wrong profile.
+ * The credit a property earns when this monster's players never choose it.
  *
- * Three values compete for a main property, so chance alone puts one third of
- * the engravings on each. A cut at 40 % is therefore only just above chance —
- * and measured across the 1,017 captured panels, *every* monster has a main
- * above it. That is why these are three hard steps and not a ramp to 40 %: a
- * ramp gives the leading main full credit on every monster in the game and then
- * cannot separate HP at 52 % from ATK at 39 %, scoring them 1.00 and 0.98. The
- * steps score the same pair 1.00 and 0.50, which is the distinction the reader
- * is actually looking at.
+ * **It is not zero, and the reason is not the one this file used to give.** The
+ * old note claimed a floor was what let the page promise exactly one
+ * recommendation per monster (§11.1). That was wrong twice over: `argmax` over a
+ * finite, non-empty list of relics exists whatever the scores are, and the
+ * stated tie-break already decides it — and the synergy term has a floor of its
+ * own, so the fit could never have reached zero even with both usage terms at
+ * nothing.
+ *
+ * The floor earns its place on a different argument. Without it, a monster whose
+ * players reject every profile the account owns would score every relic at
+ * `0.35·Y` and nothing else, and among relics sharing a band the strength index
+ * would stop mattering — the page would answer such a monster with its oldest
+ * relic rather than its best. The floor is a model assumption, stated as one: a
+ * relic nobody engraves here is worth little, not literally nothing.
  */
-export const relicMainUsageTiers = { preferred: 0.40, plausible: 0.20 } as const;
+export const relicUsageCreditFloor = 0.10;
 
 /**
- * The same two cuts for a unique property, halved, because sixteen values
- * compete for it rather than three — chance alone is 6.25 %, so 20 % is a real
- * bar where for a main it would be a low one. This is the same reasoning
- * `ARTIFACT-CANONICAL.md` §19.3 uses to give a Main Property and a
- * sub-property list different thresholds, and the same halving.
+ * How sharply credit falls away from the monster's own leading choice.
+ *
+ * **This is calibrated, not chosen.** It replaces three hard steps — 1.00, 0.50,
+ * 0.10 at fixed shares — and the exponent is the one that keeps the continuous
+ * curve closest to the steps it replaces across all 1,017 captured panels
+ * (RMSE 0.081 at `2`, against 0.138 at `1` and 0.088 at `3`). So the change here
+ * is continuity, and deliberately not a change of policy.
+ *
+ * The steps were not defended as a shape; they were defended against one
+ * particular ramp, `min(1, share / 0.40)`, which gives full credit to the
+ * leading main on every monster in the game. This curve does not, because it is
+ * measured against the leader rather than against a constant.
  */
-export const relicUniqueUsageTiers = { preferred: 0.20, plausible: 0.10 } as const;
+export const relicUsageCreditExponent = 2;
 
 /**
- * What each tier is worth. The bottom tier is deliberately punitive rather than
- * proportional: a profile almost nobody engraves on this monster is evidence
- * that it is the wrong profile, not merely a less popular right one. A
- * proportional floor would hand a quarter of the credit to a property with 5 %
- * uptake simply for existing.
+ * How much of what this relic delivers this monster's players actually want,
+ * `0.10`–`1`.
  *
- * It is `0.10` and not `0` so that a monster always has a best relic. The page
- * makes exactly one recommendation per monster (§11.1), which it can only do if
- * no relic can score zero.
+ * ```
+ * credit = floor + (1 − floor) · (share / leading share) ^ exponent
+ * ```
+ *
+ * **The comparison is against the monster's own leading option, not a fixed
+ * share, and that is what makes one function serve both halves.** Three values
+ * compete for a main property and sixteen for a unique, so a cut that is a real
+ * bar for one is a low bar for the other — which is why the steps needed two
+ * threshold pairs, the unique's being the main's halved. A ratio normalises that
+ * away: the leader reads `1.00` on either half by construction, and the halving
+ * stops being an assertion and becomes arithmetic.
+ *
+ * **It also separates the pair the steps could not.** The case for hard steps
+ * was HP at 52 % against ATK at 39 %, which a ramp to 40 % scores 1.00 and 0.98.
+ * The steps score them 1.00 and 0.50 — but only because 39 % happens to fall
+ * below the cut. On the real monster nearest that description the shares are
+ * 50.7 % and 40.2 %, and the steps score *both* 1.00, because both clear 40 %.
+ * This curve reads 1.00 and 0.62, and goes on separating them wherever they sit.
+ *
+ * The exponent is what keeps the bottom punitive, which §11.2's own reasoning
+ * asks for: a property chosen a fifth as often as the leader earns 0.14, not the
+ * 0.28 a straight line would hand it.
  */
-export const relicUsageTierCredits = { preferred: 1, plausible: 0.5, unwanted: 0.1 } as const;
-
-export type RelicUsageTier = keyof typeof relicUsageTierCredits;
-
-function usageTier(share: number, tiers: { preferred: number; plausible: number }): RelicUsageTier {
-  if (share >= tiers.preferred) return 'preferred';
-  if (share >= tiers.plausible) return 'plausible';
-  return 'unwanted';
-}
-
-export function relicMainUsageTier(share: number): RelicUsageTier {
-  return usageTier(share, relicMainUsageTiers);
-}
-
-export function relicUniqueUsageTier(share: number): RelicUsageTier {
-  return usageTier(share, relicUniqueUsageTiers);
+export function relicUsageCredit(share: number, leading: number): number {
+  if (!(leading > 0)) return relicUsageCreditFloor;
+  const ratio = Math.min(1, Math.max(0, share / leading));
+  return relicUsageCreditFloor
+    + (1 - relicUsageCreditFloor) * ratio ** relicUsageCreditExponent;
 }
 
 /**
@@ -86,86 +101,36 @@ export const relicSynergySuitability: Record<RelicSynergyBand, number> = {
 /**
  * How the three suitability signals divide the judgement.
  *
- * Main takes the smallest share of the three even though it is the signal with
- * the most monster-specific information, and that is a considered choice rather
- * than an oversight: the synergy table is *indexed by* main property, so the
- * main already speaks twice — once here and once through `synergy`. Giving it
- * 0.30 rather than a third leaves the two mentions roughly balanced against the
- * unique property, which the statistics describe far less sharply.
+ * **The unique property's own weight was 0.35 and is now 0.20, because the
+ * statistic behind it turned out to be mostly a fact about the game rather than
+ * about the monster.** Decomposing the credit's variance across the 1,017
+ * captured panels: **81.7 % of the unique term's variation is explained by which
+ * property it is, and only 18.3 % by which monster it is on.** The main property
+ * is the other way round — 37.1 % against 62.9 %. Nimble Primal is the only
+ * unique to reach the old top tier on 855 of the 1,017 panels, and the mean
+ * number of uniques reaching it per monster is 0.88, so the term was close to a
+ * restatement of "is this Nimble Primal".
  *
- * The three weights matter much less than the fact that they multiply strength
- * rather than adding to it. `RELIC-CANONICAL.md` §11.4 works the case that
- * settled it.
+ * That matters because the synergy table already says so, at Exceptional on an
+ * HP main and Strong on the other two. The same global preference was being paid
+ * for twice — once as expert judgement and once as population habit — and the
+ * fit had no term that could tell the two apart.
+ *
+ * **The weight moved to synergy and not to the main property, which is the part
+ * measurement settled rather than argument.** Raising the main term looks
+ * reasonable — it is the signal with real monster-specific content — and is
+ * wrong: the synergy table is the *only* term that judges the unique property at
+ * all once its own statistic is discounted, so taking weight off `unique` and
+ * putting it on `main` leaves the unique half of a relic nearly unrepresented.
+ * Tried against the dataset over random relic pools, `0.50 / 0.15 / 0.35` raises
+ * the share of recommendations carrying a Weak or Poor pair from 15.4 % to
+ * 25.4 %. `0.30 / 0.20 / 0.50` lowers it to 10.0 %.
+ *
+ * Main therefore stays at 0.30, where §11.4's argument left it: the synergy
+ * table is indexed by main property, so the main already speaks twice and does
+ * not need a third voice.
  */
-export const relicSuitabilityWeights = { main: 0.30, unique: 0.35, synergy: 0.35 } as const;
-
-/**
- * What a property's usage credit is worth on an *average* monster, taken across
- * every panel large enough to read.
- *
- * **This is what a monster with no panel is judged against, and it replaced a
- * worse answer.** The first fallback gave the two usage terms the synergy band's
- * own credit, which meant an unmeasured monster reached `F = 1.00` on any
- * exceptional pair — the ceiling of the measured scale. Measured against the
- * dataset that is perverse: the same `+15` ATK/Sharp Conquest relic scored
- * **1.000 on a monster with no panel and 0.825 on Beth**, whose players put ATK
- * main on it 69 % of the time. Evidence made the score go down, and since the
- * Score column orders the table, every unmeasured monster floated to the top.
- *
- * A prior fixes it in the right direction. With no monster-specific evidence,
- * the honest expectation for a property's credit is what that property earns
- * across the player base — high for HP main and Nimble Primal, low for DEF main
- * and the properties nobody engraves. It is neither optimistic nor pessimistic
- * on average, which is exactly what a prior should be.
- *
- * It is computed from the dataset rather than written down, so a capture session
- * moves it and no constant can go stale. Per property and not one global
- * number, because "expect an average main" and "expect an average *DEF* main"
- * are different claims and the second is the one that is true.
- *
- * **This deliberately uses the global level that §5.2 distrusts.** For a monster
- * with a panel, JASWA reads the monster's own distribution and never this; for
- * a monster without one there is nothing else, and a clearly labelled prior
- * beats both a flat guess and no answer at all.
- */
-export type RelicUsagePriors = {
-  main: Record<RelicMainProperty, number>;
-  unique: Map<number, number>;
-};
-
-let cachedPriors: RelicUsagePriors | null = null;
-
-export function relicUsagePriors(): RelicUsagePriors {
-  if (cachedPriors) return cachedPriors;
-  const panels = measuredRelicUsagePanels();
-  const main: Record<RelicMainProperty, number> = { HP: 0, ATK: 0, DEF: 0 };
-  const uniqueTotals = new Map<number, number>();
-  for (const panel of panels) {
-    for (const property of relicMainPropertyOrder) {
-      main[property] += relicUsageTierCredits[relicMainUsageTier(panel.mainShares[property])];
-    }
-    for (const definition of relicProperties) {
-      const share = panel.uniqueShares.get(definition.id) ?? 0;
-      uniqueTotals.set(definition.id,
-        (uniqueTotals.get(definition.id) ?? 0) + relicUsageTierCredits[relicUniqueUsageTier(share)]);
-    }
-  }
-  /* No captured panel at all leaves the bottom credit standing for every
-     property. That is the same answer the tiers give a property nobody
-     engraves, and it keeps the fallback defined on a fresh checkout rather
-     than dividing by zero. */
-  const divide = (total: number) => panels.length ? total / panels.length : relicUsageTierCredits.unwanted;
-  cachedPriors = {
-    main: {
-      HP: divide(main.HP),
-      ATK: divide(main.ATK),
-      DEF: divide(main.DEF),
-    },
-    unique: new Map(relicProperties.map((definition) =>
-      [definition.id, divide(uniqueTotals.get(definition.id) ?? 0)])),
-  };
-  return cachedPriors;
-}
+export const relicSuitabilityWeights = { main: 0.30, unique: 0.20, synergy: 0.50 } as const;
 
 export type RelicSuitability = {
   /** `0.10`–`1`, the weighted blend of the three signals below. */
@@ -173,12 +138,10 @@ export type RelicSuitability = {
   main: number;
   unique: number;
   synergy: number;
-  mainTier: RelicUsageTier;
-  uniqueTier: RelicUsageTier;
   band: RelicSynergyBand;
-  /** Whether the two usage terms came from the statistics or fell back to synergy. */
+  /** Whether the two usage terms rest on this monster's own panel. */
   status: RelicUsageStatus;
-  /** The observed shares behind the two tiers, or `null` where none were used. */
+  /** The observed shares behind the two credits, or `null` where none were seen. */
   mainShare: number | null;
   uniqueShare: number | null;
 };
@@ -186,15 +149,22 @@ export type RelicSuitability = {
 /**
  * How suitable one relic is for one monster.
  *
- * **A monster with no usable panel keeps its synergy term and takes the
- * population's prior for the other two** (`relicUsagePriors`). That keeps the
- * page's promise of exactly one recommendation per monster without inventing a
- * tier out of an absent or eleven-observation distribution, and without letting
- * an unmeasured monster outscore a measured one.
+ * **There is one path through this function, and there used to be two.** A
+ * monster with no captured panel took a separate branch that read a table of
+ * per-property average *credits*; a monster with one read hard tiers. Two models
+ * disagree eventually, and `RELIC-CANONICAL.md` §11.3.1 records how these two
+ * did — an unmeasured monster reaching `F = 1.00` on any exceptional pair while
+ * a measured monster whose players favoured the same relic 69 % of the time
+ * reached only 0.825. Evidence made the score go down.
  *
- * The two shares stay `null` rather than becoming the prior's value, because
- * `undefined` and a number are different answers: nothing was observed here,
- * and a reader shown `50 % observed` would think something had been.
+ * `relicShrunkShares` removes the branch rather than patching it. A monster with
+ * no panel is the `n = 0` case of a monster with one: its counts are absent, so
+ * the shrinkage returns the population's own distribution and the same curve
+ * scores it. A thin panel lands in between, in proportion to how thin it is.
+ *
+ * The two shares stay `null` for an unmeasured monster rather than reporting the
+ * population's: `undefined` and a number are different answers, and a reader
+ * shown `50 % observed` would think something had been.
  */
 export function relicSuitability(
   relic: Relic,
@@ -204,32 +174,13 @@ export function relicSuitability(
   const synergy = relicSynergySuitability[band];
   const status = relicUsageStatus(usage);
 
-  if (!usage || status !== 'measured') {
-    const priors = relicUsagePriors();
-    const main = priors.main[relic.mainProperty];
-    const unique = priors.unique.get(relic.unique.definition.id) ?? relicUsageTierCredits.unwanted;
-    return {
-      fit: relicSuitabilityWeights.main * main
-        + relicSuitabilityWeights.unique * unique
-        + relicSuitabilityWeights.synergy * synergy,
-      main,
-      unique,
-      synergy,
-      mainTier: 'unwanted',
-      uniqueTier: 'unwanted',
-      band,
-      status,
-      mainShare: null,
-      uniqueShare: null,
-    };
-  }
-
-  const mainShare = usage.mainShares[relic.mainProperty];
-  const uniqueShare = usage.uniqueShares.get(relic.unique.definition.id) ?? 0;
-  const mainTier = relicMainUsageTier(mainShare);
-  const uniqueTier = relicUniqueUsageTier(uniqueShare);
-  const main = relicUsageTierCredits[mainTier];
-  const unique = relicUsageTierCredits[uniqueTier];
+  const shares = relicShrunkShares(usage);
+  const leadingMain = Math.max(...relicMainPropertyOrder.map((property) => shares.main[property]));
+  const leadingUnique = Math.max(0, ...shares.unique.values());
+  const main = relicUsageCredit(shares.main[relic.mainProperty], leadingMain);
+  const unique = relicUsageCredit(
+    shares.unique.get(relic.unique.definition.id) ?? 0, leadingUnique,
+  );
 
   return {
     fit: relicSuitabilityWeights.main * main
@@ -238,12 +189,10 @@ export function relicSuitability(
     main,
     unique,
     synergy,
-    mainTier,
-    uniqueTier,
     band,
     status,
-    mainShare,
-    uniqueShare,
+    mainShare: usage ? usage.mainShares[relic.mainProperty] : null,
+    uniqueShare: usage ? usage.uniqueShares.get(relic.unique.definition.id) ?? 0 : null,
   };
 }
 
@@ -259,10 +208,17 @@ export function relicSuitability(
  * An additive form was tried first and rejected on a case it decides wrongly.
  * At `0.50·S + 0.30·F + 0.20·Y` a `+15` relic banks 0.50 from its level alone,
  * whatever pair it carries, and a fully levelled DEF/Solid Conquest relic then
- * outscores a `+6` ATK/Sharp Conquest relic on an ATK monster — 0.73 to 0.71 —
- * although the second is the relic that feeds the stat the monster builds.
- * Multiplying answers the same case 0.38 to 0.42, and `RELIC-CANONICAL.md`
- * §11.4 keeps the arithmetic.
+ * outscores a `+6` ATK/Sharp Conquest relic on an ATK monster although the
+ * second is the relic that feeds the stat the monster builds.
+ * `RELIC-CANONICAL.md` §11.4.1 keeps the arithmetic.
+ *
+ * **What it still does not do is model the effect.** JASWA holds the monster's
+ * real stats, so the relic's actual contribution is computable; weighing
+ * `+1.8 % DMG dealt` against `+9 % ATK` is what it cannot do without a role
+ * model per monster. `relicStrengthIndex` is a development proxy — how far this
+ * relic is from its own `+15` — and asking it to compare *different* relics on
+ * one monster asks more of it than §7.2 claims. It is the model's largest
+ * remaining approximation and `RELIC-CANONICAL.md` §11.8 states it as one.
  */
 export function relicMonsterScore(relic: Relic, suitability: RelicSuitability): number {
   return relicStrengthIndex(relic.level, relic.unique.definition.per) * suitability.fit;
@@ -277,15 +233,17 @@ export type RelicCandidate = {
 /**
  * Every owned relic scored for one monster, best first.
  *
- * Ties are broken on acquisition order, the same deterministic rule §8.1 uses
- * to decide which of two equal copies an account keeps. Hard tiers make exact
- * ties common by design — two relics whose tiers and level agree score
- * identically — so a stated fallback is what stops two runs of the same data
- * ranking them differently.
+ * **A relic the monster already wears wins a tie, and acquisition order only
+ * decides the rest.** Ordering equal scores on `rid` alone is deterministic and
+ * still wrong here: it can name a relic that scores exactly what the incumbent
+ * scores, and the row then asks for an engraving that buys nothing. The natural
+ * order for this question is score, then what is already in place, then the
+ * stable fallback §8.1 uses to choose between equal copies.
  */
 export function rankRelicsForMonster(
   relics: readonly Relic[],
   usage: RelicUsageStatistics | undefined,
+  worn: ReadonlySet<string> = new Set(),
 ): RelicCandidate[] {
   return relics
     .map((relic) => {
@@ -293,8 +251,26 @@ export function rankRelicsForMonster(
       return { relic, suitability, score: relicMonsterScore(relic, suitability) };
     })
     .sort((left, right) => right.score - left.score
+      || Number(worn.has(right.relic.id)) - Number(worn.has(left.relic.id))
       || left.relic.obtainedOrder - right.relic.obtainedOrder);
 }
+
+/**
+ * How much better a relic must score before the page asks for the engraving to
+ * be changed.
+ *
+ * **A recommendation is work, and the score is not precise enough to ask for it
+ * over nothing.** Two relics separated by a thousandth are separated by a
+ * rounding in a population share, a hand-set synergy band, or the exponent in
+ * the credit curve — none of which is evidence that moving the engraving would
+ * help. Below this margin the monster keeps what it wears.
+ *
+ * Five per cent is smaller than one synergy band at any level, so a real
+ * upgrade is never suppressed; measured over random relic pools across every
+ * captured panel it retires **1.1 %** of the changes the page would otherwise
+ * ask for, which is the size of a churn correction rather than a policy.
+ */
+export const relicReplacementMargin = 0.05;
 
 /** Why a monster did not get the relic it scored highest against. */
 export type RelicRecommendationLimit = 'none' | 'capacity';
@@ -308,6 +284,28 @@ export type RelicRecommendation = {
   /** Whether the monster already wears `chosen`, so no new engraving is spent. */
   alreadyEngraved: boolean;
   limit: RelicRecommendationLimit;
+  /**
+   * Whether the monster keeps what it wears because nothing available beat it by
+   * `relicReplacementMargin`.
+   */
+  retained: boolean;
+  /**
+   * How many monsters wearing the blocked ideal relic today fit it *worse* than
+   * this monster does.
+   *
+   * **This is the one figure on the row that reads the rest of the roster**, and
+   * it is an annotation rather than part of the judgement, which is why it is
+   * named apart from everything above it. §11.6's guarantee is that the
+   * recommendation, the fit and the score are computed from this monster alone;
+   * `verify:relic-monster-plan` holds those three and not this.
+   *
+   * It exists because the gate on the import's own counts otherwise treats the
+   * account's history as correct. A relic full of 150 poor wearers is refused to
+   * a monster that would use it far better, and until this figure the row's only
+   * explanation was that the relic was full — a dead end rather than an action.
+   * `0` where nothing is blocked, and where every current wearer fits it better.
+   */
+  displaceableWearers: number;
 };
 
 export type RelicAllocationSubject = {
@@ -326,6 +324,18 @@ export type RelicAllocation = {
   /** Relics the plan fills to `relicEngravingLimit`. */
   saturated: ReadonlySet<string>;
 };
+
+/** How many of a sorted ascending list fall strictly below a value. */
+function countBelow(sorted: readonly number[], value: number): number {
+  let low = 0;
+  let high = sorted.length;
+  while (low < high) {
+    const middle = (low + high) >> 1;
+    if (sorted[middle] < value) low = middle + 1;
+    else high = middle;
+  }
+  return low;
+}
 
 /**
  * One relic for every monster: each monster's best, and the next best only once
@@ -349,7 +359,16 @@ export type RelicAllocation = {
  * what it gives up: follow the column down a large roster and the 151st monster
  * wanting one relic will be refused by the game.
  *
- * Nothing here reads a display filter, and now nothing could: every row is
+ * **What the gate must not do is defend the account's history**, and until
+ * `displaceableWearers` it did. Reading today's counts as a hard constraint
+ * optimises inside the existing distribution rather than over the account: a
+ * relic full of monsters that fit it badly stays full, and the monster that
+ * would use it best is sent away with no way to see that unengraving one of them
+ * is the actual move. The plan still will not reshuffle the roster on the user's
+ * behalf — that is the reserving pass, with all of its costs — but the row now
+ * counts the wearers it would beat.
+ *
+ * Nothing here reads a display filter, and nothing could: every row's verdict is
  * computed from that monster, the relics, and the counts in the import.
  */
 export function allocateRelicEngravings(
@@ -362,13 +381,39 @@ export function allocateRelicEngravings(
   const engravings = new Map<string, number>();
   for (const relic of relics) engravings.set(relic.id, currentEngravings.get(relic.id) ?? 0);
 
+  /* One scoring pass, kept, because the second pass needs both this monster's
+     own ranking and — for the capacity annotation alone — how well the monsters
+     already wearing a full relic score on it. */
+  const ranked = new Map<string, RelicCandidate[]>();
+  const wearerScores = new Map<string, number[]>();
+  for (const subject of subjects) {
+    const worn = new Set(subject.wornRelicIds);
+    const candidates = rankRelicsForMonster(relics, usageFor(subject.masterId), worn);
+    ranked.set(subject.monsterId, candidates);
+    for (const candidate of candidates) {
+      if (!worn.has(candidate.relic.id)) continue;
+      const scores = wearerScores.get(candidate.relic.id);
+      if (scores) scores.push(candidate.score);
+      else wearerScores.set(candidate.relic.id, [candidate.score]);
+    }
+  }
+  for (const scores of wearerScores.values()) scores.sort((left, right) => left - right);
+
   const recommendations = new Map<string, RelicRecommendation>();
   for (const subject of subjects) {
     const worn = new Set(subject.wornRelicIds);
-    const candidates = rankRelicsForMonster(relics, usageFor(subject.masterId));
+    const candidates = ranked.get(subject.monsterId) ?? [];
     const ideal = candidates[0] ?? null;
-    const chosen = candidates.find((candidate) => worn.has(candidate.relic.id)
+    const available = candidates.find((candidate) => worn.has(candidate.relic.id)
       || (engravings.get(candidate.relic.id) ?? 0) < limit) ?? null;
+    /* The best-scoring relic the monster already wears — the list is sorted, so
+       the first match is it. */
+    const incumbent = candidates.find((candidate) => worn.has(candidate.relic.id)) ?? null;
+    const retained = Boolean(available && incumbent && incumbent.relic.id !== available.relic.id
+      && incumbent.score * (1 + relicReplacementMargin) >= available.score);
+    const chosen = retained ? incumbent : available;
+    const blocked = Boolean(available && ideal && available.relic.id !== ideal.relic.id);
+
     recommendations.set(subject.monsterId, {
       monsterId: subject.monsterId,
       chosen,
@@ -376,7 +421,11 @@ export function allocateRelicEngravings(
       alreadyEngraved: chosen ? worn.has(chosen.relic.id) : false,
       /* An account with no relics at all is not a capacity failure, so the two
          reasons a row can differ from its ideal stay apart. */
-      limit: chosen && ideal && chosen.relic.id !== ideal.relic.id ? 'capacity' : 'none',
+      limit: blocked ? 'capacity' : 'none',
+      retained,
+      displaceableWearers: blocked && ideal
+        ? countBelow(wearerScores.get(ideal.relic.id) ?? [], ideal.score)
+        : 0,
     });
   }
 
@@ -413,32 +462,24 @@ export function assertRelicAllocation(
 }
 
 /**
- * The leading main property on this monster, as the reason line words it. Kept
- * here rather than in the component so the sentence a user reads and the tier
- * that produced it come from one place.
- */
-export function relicUsageLeadingMain(usage: RelicUsageStatistics): RelicMainProperty {
-  return leadingRelicMain(usage);
-}
-
-/**
  * How close each half of a relic comes to the best that half could be on this
  * monster, as a share of the most-engraved option, `0`–`1`.
  *
- * **This is a reading, not a score.** The judgement uses the fixed tiers in
- * §11.2, which are the right shape for deciding but the wrong shape for showing:
- * a tier tells the user which of three boxes a property fell into, while this
- * says how far it is from the best available. A main with 39 % on a monster
- * whose leader has 40 % and one with 21 % on the same monster share a tier and
- * are plainly not the same relic.
+ * **This is the reading, and it is deliberately the raw one.** The credit behind
+ * the judgement shrinks the same share toward the population by the panel's own
+ * size and then curves it (`relicUsageCredit`); this divides the counts the game
+ * itself shows. The two are monotonically related and answer the same question,
+ * and only this one can be checked against the game's own Statistics panel in a
+ * glance — the leading option always reads 100 %, everything else reads its share
+ * of that. A column the reader cannot check is a column the reader must trust.
  *
- * It is scale-free by construction — the leading option always reads 100 % —
- * which is what makes two different monsters' columns comparable down the page.
+ * It is scale-free by construction, which is what makes two different monsters'
+ * columns comparable down the page.
  *
- * `null` where there is nothing to measure against: no relic, or a panel that
- * is missing or too thin to read. A share of the population average would be
- * an answer to a different question, and `0` would claim the population had
- * rejected the property rather than that nobody had counted.
+ * `null` where there is nothing to measure against: no relic, or no captured
+ * panel. A share of the population average would answer a different question,
+ * and `0` would claim the population had rejected the property rather than that
+ * nobody had counted.
  */
 export function relicHalvesAgainstOptimum(
   relic: Relic | undefined,

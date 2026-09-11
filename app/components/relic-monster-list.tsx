@@ -265,7 +265,13 @@ export function RelicMonsterList({ relics, monsters: roster, preferences }: {
       const preference = preferences.monsterPreferences[unitId];
       const worn = wornByMonster.get(unitId) ?? [];
       const recommendation = allocation.recommendations.get(unitId) ?? {
-        monsterId: unitId, chosen: null, ideal: null, alreadyEngraved: false, limit: 'none' as const,
+        monsterId: unitId,
+        chosen: null,
+        ideal: null,
+        alreadyEngraved: false,
+        limit: 'none' as const,
+        retained: false,
+        displaceableWearers: 0,
       };
       const verdict = relicMonsterVerdict(recommendation, worn);
       const usage = relicUsageStatistics(monster.unit_master_id);

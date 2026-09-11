@@ -62,23 +62,28 @@ export type RelicUsageStatistics = {
  *
  * **There is no sample-size gate, and there was one.** An earlier version
  * refused any panel under 100 observations on the grounds that a share sitting
- * on the 40 % tier boundary carries a 95 % interval of ±9.6 points there. The
+ * on a tier boundary carries a 95 % interval of ±9.6 points there. The
  * arithmetic was right and the rule was wrong, for two reasons.
  *
- * First, tier reliability is a property of a *cell*, not of a panel. Camules
+ * First, reliability is a property of a *cell*, not of a panel. Camules
  * carries 88 observations and reads HP 52.5 %, ATK 38.6 %, DEF 8.9 %: the HP
- * tier sits 2.4 standard errors clear of the boundary and DEF is not in doubt
- * at all, so refusing the panel threw away two decided cells because a third
- * was close. Second, the game shows the player those percentages with no
+ * reading sits 2.4 standard errors clear of the old boundary and DEF is not in
+ * doubt at all, so refusing the panel threw away two decided cells because a
+ * third was close. Second, the game shows the player those percentages with no
  * caveat, so a page that answers "no statistics" for a monster whose panel is
  * open on the next screen is reporting on itself, not on the game.
  *
  * `ENGRAVING-STATISTICS.md` §5 already owns this question and answers it: an
  * empty panel is not a capture, and anything else is. That rule is binding, it
  * is what `artifact-preferences.ts` follows, and a second competing rule here
- * made the two pages disagree about the same dataset. The sample size is
- * carried on every reading instead, so a caller can show it — which is the
- * point §1 of that document makes about counts against percentages.
+ * made the two pages disagree about the same dataset.
+ *
+ * **Neither is the size ignored, and that is the newer half of the answer.**
+ * Showing `n` to the reader solved the reader's problem and left the model's
+ * untouched: 30 % of 30 engravings and 30 % of 60,000 produced exactly the same
+ * credit. `relicShrunkShares` now weighs every panel against the population by
+ * its own size, so this status says which *kind* of reading a row rests on
+ * rather than whether the reading was allowed at all.
  */
 export type RelicUsageStatus = 'measured' | 'missing';
 
@@ -159,12 +164,117 @@ export function measuredRelicUsagePanels(): RelicUsageStatistics[] {
   return panels;
 }
 
+export type RelicPopulationShares = {
+  main: Record<RelicMainProperty, number>;
+  unique: Map<number, number>;
+};
+
+let cachedPopulation: RelicPopulationShares | null = null;
+
 /**
- * The leading main property on this monster, for the reason line. It is the one
- * figure a reader can check against the game's own panel in one glance, which
- * is what makes the fit column arguable rather than something to take on trust.
+ * What the average captured monster's two distributions look like.
+ *
+ * **This is a prior over shares, and it used to be a prior over credits.** The
+ * difference matters: a credit is already a judgement, so averaging credits
+ * baked the old tier cuts into the fallback and left the fallback unable to
+ * serve any other purpose. Shares compose — they can be mixed with a monster's
+ * own counts in proportion to how many of them there are, which is what
+ * `relicShrunkShares` does and what makes the unmeasured monster the `n = 0`
+ * case of the measured one rather than a second code path.
+ *
+ * Computed from the dataset on first use, so a capture session moves it and no
+ * constant here can go stale. On the current capture the mains read HP 54.3 %,
+ * ATK 35.7 %, DEF 10.0 %, and the uniques are led by Nimble Primal at 38.9 %
+ * against a 6.25 % uniform share — a fact `RELIC-CANONICAL.md` §11.3 treats as
+ * a finding about the population rather than as information about any one
+ * monster.
+ *
+ * A fresh checkout with no captures at all falls back to a flat distribution,
+ * which keeps every share positive and the credit curve defined rather than
+ * dividing by a zero leader.
  */
-export function leadingRelicMain(usage: RelicUsageStatistics): RelicMainProperty {
-  return relicMainPropertyOrder.reduce((best, property) =>
-    usage.mainShares[property] > usage.mainShares[best] ? property : best);
+export function relicPopulationShares(): RelicPopulationShares {
+  if (cachedPopulation) return cachedPopulation;
+  const panels = measuredRelicUsagePanels();
+  const main: Record<RelicMainProperty, number> = { HP: 0, ATK: 0, DEF: 0 };
+  const unique = new Map<number, number>();
+  for (const panel of panels) {
+    for (const property of relicMainPropertyOrder) main[property] += panel.mainShares[property];
+    for (const [id, share] of panel.uniqueShares) unique.set(id, (unique.get(id) ?? 0) + share);
+  }
+  const uniqueIds = [...new Set([...unique.keys(), ...Array.from({ length: 16 }, (_, at) => at + 1)])];
+  cachedPopulation = panels.length
+    ? {
+      main: {
+        HP: main.HP / panels.length,
+        ATK: main.ATK / panels.length,
+        DEF: main.DEF / panels.length,
+      },
+      unique: new Map(uniqueIds.map((id) => [id, (unique.get(id) ?? 0) / panels.length])),
+    }
+    : {
+      main: { HP: 1 / 3, ATK: 1 / 3, DEF: 1 / 3 },
+      unique: new Map(uniqueIds.map((id) => [id, 1 / uniqueIds.length])),
+    };
+  return cachedPopulation;
 }
+
+/**
+ * How many observations a panel must carry before it outweighs the population
+ * it is drawn from.
+ *
+ * **It is the sample size the abandoned gate named**, and deliberately so. That
+ * gate was right that a panel of about a hundred engravings is roughly as
+ * informative as knowing nothing in particular about the monster, and wrong only
+ * in what it did about it: refusing the panel discards the cells that panel
+ * decides, while weighing it half against the population keeps them and moves
+ * the undecided ones toward the average. A panel of 88 engravings reading HP
+ * 52.5 % comes out at 53.2 %; a panel of 69,590 does not move at all.
+ */
+export const relicUsageShrinkage = 100;
+
+/**
+ * A monster's two distributions, each pulled toward the population by an amount
+ * that depends only on how much the panel actually saw.
+ *
+ * ```
+ * p̂(x | m) = (count(x, m) + λ·p₀(x)) / (n(m) + λ)
+ * ```
+ *
+ * **The unmeasured monster is `n = 0` and needs no rule of its own.** That is
+ * the whole reason the fallback is written here rather than beside the fit: a
+ * separate branch for "no panel" is a second model, and two models disagree
+ * eventually. `RELIC-CANONICAL.md` §11.3.1 records the disagreement the old one
+ * produced — an unmeasured monster outscoring a measured one that favoured the
+ * same relic.
+ *
+ * Counts are reconstructed from the stored shares and totals rather than read
+ * again, because the two halves are counted over their own totals and must stay
+ * that way (`ENGRAVING-STATISTICS.md` §1).
+ */
+export function relicShrunkShares(
+  usage: RelicUsageStatistics | undefined,
+  lambda = relicUsageShrinkage,
+): RelicPopulationShares {
+  const population = relicPopulationShares();
+  if (!usage) return population;
+  const mainTotal = usage.mainObservations + lambda;
+  const uniqueTotal = usage.uniqueObservations + lambda;
+  const main = {} as Record<RelicMainProperty, number>;
+  for (const property of relicMainPropertyOrder) {
+    main[property] = (usage.mainShares[property] * usage.mainObservations
+      + lambda * population.main[property]) / mainTotal;
+  }
+  const unique = new Map<number, number>();
+  for (const [id, prior] of population.unique) {
+    unique.set(id, ((usage.uniqueShares.get(id) ?? 0) * usage.uniqueObservations
+      + lambda * prior) / uniqueTotal);
+  }
+  /* A property the population has never recorded but this monster has still
+     carries its own evidence, and nothing to shrink it toward but zero. */
+  for (const [id, share] of usage.uniqueShares) {
+    if (!unique.has(id)) unique.set(id, share * usage.uniqueObservations / uniqueTotal);
+  }
+  return { main, unique };
+}
+
