@@ -1,11 +1,11 @@
 import { relicMaximumLevel, relicPowerUpRates, relicStrengthIndex } from './relic-properties';
 import type { RelicSourceStat } from './relic-properties';
 import type { Relic } from './relics';
-import { relicSynergy } from './relic-synergy';
+import { relicSynergy, relicSynergyBandOrder } from './relic-synergy';
 import type { RelicSynergyBand } from './relic-synergy';
 
 /**
- * What to do with each relic, and the arithmetic behind it.
+ * What to do with each relic, and the values behind that verdict.
  *
  * `docs/RELIC-CANONICAL.md` §7 and §8 own this. One recursion answers every
  * question the page asks. The verdict itself uses the next attempt's exact
@@ -258,11 +258,20 @@ export const relicInvestmentThresholds: Record<RelicInvestmentSelectivity, numbe
   5: 20,
 };
 
+/** The same control also gates the minimum synergy band that may be invested. */
+export const relicMinimumSynergyBands: Record<RelicInvestmentSelectivity, RelicSynergyBand> = {
+  1: 'exceptional',
+  2: 'strong',
+  3: 'neutral',
+  4: 'weak',
+  5: 'poor',
+};
+
 export type RelicVerdict = 'power-up' | 'keep' | 'sell';
 
 export type RelicAdvice = {
   verdict: RelicVerdict;
-  /** The arithmetic that decided it, short enough for a table cell. */
+  /** The short chance or status shown below the verdict in the table. */
   reason: string;
   /** `P(l, d)` — the chance this relic ever reaches `+15`. Near zero for most. */
   reachChance: number;
@@ -290,9 +299,6 @@ const percent = (fraction: number) => {
   if (value >= 1) return `${value.toFixed(1).replace(/\.0$/, '')}%`;
   return `${value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')}%`;
 };
-const multiplier = (weight: number) => Number.isInteger(weight)
-  ? String(weight)
-  : weight.toFixed(2).replace(/0+$/, '').replace(/^0/, '');
 const investmentScore = (chance: number, weight: number) => 100 * chance * weight;
 const nextChance = (relic: Relic, rates: RelicSuccessRates) =>
   relic.level >= relicMaximumLevel || relic.durability === 0 ? 0 : (rates[relic.level] ?? 0);
@@ -305,6 +311,7 @@ export function relicAdvice(
   relics: readonly Relic[], selectivity: RelicInvestmentSelectivity, rates: RelicSuccessRates = relicPowerUpRates,
 ): Map<string, RelicAdvice> {
   const threshold = relicInvestmentThresholds[selectivity];
+  const minimumBand = relicMinimumSynergyBands[selectivity];
   const pairs = new Map<string, Relic[]>();
   for (const relic of relics) {
     const key = pairKey(relic);
@@ -315,6 +322,7 @@ export function relicAdvice(
   const advice = new Map<string, RelicAdvice>();
   for (const relic of relics) {
     const weight = relicSynergyWeights[relicSynergy(relic.mainProperty, relic.unique.definition.id)];
+    const band = relicSynergy(relic.mainProperty, relic.unique.definition.id);
     const reachChance = relicReachChance(relic.level, relic.durability, relicMaximumLevel, rates);
     const chances = relicFinalLevelChances(relic.level, relic.durability, rates);
     const higher = (pairs.get(pairKey(relic)) ?? []).find((candidate) => candidate.level > relic.level) ?? null;
@@ -329,7 +337,7 @@ export function relicAdvice(
     const chance = nextChance(relic, rates);
     const score = investmentScore(chance, weight);
     advice.set(relic.id, {
-      ...decide({ weight, chance, score, overtakeChance, higher, relic, threshold }),
+      ...decide({ weight, chance, score, overtakeChance, higher, relic, threshold, band, minimumBand }),
       reachChance,
       expectedGain: relicExpectedLevel(chances) - relic.level,
       nextChance: chance,
@@ -351,7 +359,7 @@ export function relicAdvice(
  * into a score for choosing where scarce stones go; it must not be described as
  * a probability after that multiplication.
  */
-function decide({ weight, chance, score, overtakeChance, higher, relic, threshold }: {
+function decide({ weight, chance, score, overtakeChance, higher, relic, threshold, band, minimumBand }: {
   weight: number;
   chance: number;
   score: number;
@@ -359,24 +367,29 @@ function decide({ weight, chance, score, overtakeChance, higher, relic, threshol
   higher: Relic | null;
   relic: Relic;
   threshold: number;
+  band: RelicSynergyBand;
+  minimumBand: RelicSynergyBand;
 }): { verdict: RelicVerdict; reason: string } {
   if (relic.level >= relicMaximumLevel) return { verdict: 'keep', reason: 'Cannot power up.' };
   if (relic.durability === 0) {
     if (higher !== null) return { verdict: 'sell', reason: `No power-up; +${higher.level} higher.` };
     return { verdict: 'keep', reason: 'Cannot power up.' };
   }
+  if (relicSynergyBandOrder.indexOf(band) > relicSynergyBandOrder.indexOf(minimumBand)) {
+    return { verdict: 'sell', reason: 'Synergy < threshold.' };
+  }
   if (relic.level < 3) return { verdict: 'power-up', reason: `Free +1: ${percent(chance)}` };
 
   if (higher !== null) {
     const overtakeScore = investmentScore(overtakeChance ?? 0, weight);
-    const working = `Beat +${higher.level}: ${percent(overtakeChance ?? 0)}×${multiplier(weight)}=${Math.round(overtakeScore)}%`;
+    const working = `Beat +${higher.level}: ${percent(overtakeChance ?? 0)}`;
     if (overtakeScore >= threshold) return { verdict: 'power-up', reason: working };
-    return { verdict: 'sell', reason: `${working} < ${threshold}%` };
+    return { verdict: 'sell', reason: working };
   }
 
-  const working = `Next +1: ${percent(chance)}×${multiplier(weight)}=${Math.round(score)}%`;
+  const working = `Next +1: ${percent(chance)}`;
   if (score >= threshold) return { verdict: 'power-up', reason: working };
-  return { verdict: 'keep', reason: `${working} < ${threshold}%` };
+  return { verdict: 'keep', reason: working };
 }
 
 export const relicVerdictOrder: readonly RelicVerdict[] = ['power-up', 'keep', 'sell'];

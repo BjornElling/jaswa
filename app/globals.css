@@ -808,6 +808,10 @@ button { cursor: pointer; }
    by a second shade, and the band's name is written beside them so the column
    still reads with the colour taken away. */
 .relic-synergy { display: inline-flex; align-items: center; gap: var(--s2); }
+/* The active mark belongs against the band name. A spare slot grows outward
+   to the left, so one-star and two-star labels share the same measure without
+   leaving a misleading gap before the text. */
+.relic-synergy .relic-mark-slots { flex-direction: row-reverse; }
 .relic-synergy-label { font-size: var(--t-body); }
 .relic-synergy[data-band='exceptional'],
 .relic-synergy[data-band='strong'] { color: var(--gold); }
@@ -847,9 +851,9 @@ button { cursor: pointer; }
 .relic-verdict[data-verdict='power-up'] { color: var(--state-good); }
 .relic-verdict[data-verdict='keep'] { color: var(--ink); }
 .relic-verdict[data-verdict='sell'] { color: var(--state-bad); }
-/* Always present and one line high. A slider move can replace one calculation
+/* Always present and one line high. A slider move can replace one explanation
    with another, but it cannot make the advice row change height under the
-   reader. The compact notation is intentional: chance × fit = decision score. */
+   reader. The compact notation keeps the relevant game chance visible. */
 .relic-advice-reason {
   display: block;
   min-height: 16px;

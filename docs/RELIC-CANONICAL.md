@@ -512,25 +512,31 @@ The rules, in the order they outrank each other:
    the exact chance of passing the higher copy at `+h`. Its decision score uses
    the same synergy multiplier. Below the selected threshold it sells;
    otherwise it powers up.
-4. **Every other open relic compares its next-attempt investment score with the
+4. **The threshold also sets a hard minimum synergy band.** Setting 1 accepts
+   only Exceptional, setting 2 also accepts Strong, setting 3 also accepts
+   Neutral, setting 4 also accepts Weak, and setting 5 accepts every band.
+   An open relic below that band is sold with `Synergy < threshold.`
+5. **Every other open relic compares its next-attempt investment score with the
    selected threshold.** At or above it powers up; otherwise it keeps.
 
-Every advice cell prints the compact calculation below its verdict — for
-example `Next +1: 35%×2=70%`. The score and threshold have percent signs so
-they can be compared at a glance, while the text above prevents score from being
-mistaken for a chance.
+Every advice cell prints the relevant game chance below its verdict — for
+example `Next +1: 35%`. The internal score and threshold decide the verdict but
+are deliberately not printed: the player needs the chance of the action, not
+the conversion used to rank it. A relic rejected by the hard synergy gate says
+`Synergy < threshold.` instead.
 
 ## 9. The power-up threshold
 
-One selectivity choice, expressed in the same score unit the advice shows:
+One selectivity choice controls both the internal score threshold and the hard
+minimum synergy band:
 
-| Setting | Score threshold |
-| ---: | ---: |
-| 1 | 180 % |
-| 2 | 120 % |
-| 3 | 80 % |
-| 4 | 50 % |
-| 5 | 20 % |
+| Setting | Score threshold | Minimum synergy |
+| ---: | ---: | --- |
+| 1 | 180 % | Exceptional |
+| 2 | 120 % | Strong |
+| 3 | 80 % | Neutral |
+| 4 | 50 % | Weak |
+| 5 | 20 % | Poor |
 
 The former name “risk” was imprecise: the game chance already describes risk.
 The slider instead chooses how high the adjusted score must be before scarce

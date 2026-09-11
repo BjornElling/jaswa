@@ -107,7 +107,7 @@ export const relicTableColumns: readonly TableColumn[] = [
      makes the advice arguable rather than something to be taken on trust. */
   { key: 'landing', width: '11%', align: 'right' },
   { key: 'engraved', width: '11%', align: 'right' },
-  /* A verdict and its compact calculation share this column. Its width is
+  /* A verdict and its compact explanation share this column. Its width is
      reserved for the longest explanation, so a threshold move cannot crop it
      or reflow the rest of the table. */
   { key: 'advice', width: '15%', align: 'left' },

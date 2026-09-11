@@ -19,6 +19,7 @@ import { relicSynergy, relicSynergyBandOrder } from '../lib/relic-synergy';
 import type { RelicSynergyBand } from '../lib/relic-synergy';
 import {
   isRelicInvestmentSelectivity, relicAdvice, relicInvestmentThresholds, relicVerdictLabels, relicVerdictOrder,
+  relicMinimumSynergyBands,
 } from '../lib/relic-advice';
 import type { RelicInvestmentSelectivity, RelicVerdict } from '../lib/relic-advice';
 import {
@@ -231,12 +232,13 @@ export function RelicList({ game, monsters, preferences }: {
             'selectedBands', (band) => band.slice(0, 3).toUpperCase(), 'relic-filter-synergy')}
           {toggleGroup('Advice', 'Filter by advice', relicVerdictOrder, selectedVerdicts,
             'selectedVerdicts', (verdict) => relicVerdictLabels[verdict], 'relic-filter-advice')}
-          <div className="filter-group relic-filter-threshold" role="group" aria-label="Power-up score threshold">
+          <div className="filter-group relic-filter-threshold" role="group" aria-label="Power-up threshold">
             <span className="filter-label">Power-up threshold</span>
             <div className="filter-group-controls">
               <ValueSlider minimum={1} maximum={5} value={selectivity}
-                label="Power-up score threshold, 1 cautious to 5 bold"
-                valueText={(value) => `${relicInvestmentThresholds[value as RelicInvestmentSelectivity]}% threshold`}
+                label="Power-up threshold, 1 cautious to 5 bold"
+                valueText={(value) => `${relicInvestmentThresholds[value as RelicInvestmentSelectivity]}% threshold; `
+                  + `${relicMinimumSynergyBands[value as RelicInvestmentSelectivity]} or better`}
                 onChange={(value) => setFilters((current) => ({
                   ...current, selectivity: isRelicInvestmentSelectivity(value) ? value : current.selectivity,
                 }))} />
@@ -298,7 +300,7 @@ export function RelicList({ game, monsters, preferences }: {
                   own tail under it: a median is a statement about a tail, and
                   the tail is never exactly a half. The readings the verdict is
                   actually made of travel in the title rather than in columns of
-                  their own — the advice cell already prints the arithmetic. */}
+                  their own — the advice cell prints the relevant chance. */}
               <td className={relicCell('landing')}
                 title={`Expected to gain +${row.advice.expectedGain.toFixed(1)} more; `
                   + `likeliest single outcome +${row.advice.landing.likeliest.level} at `
@@ -314,7 +316,7 @@ export function RelicList({ game, monsters, preferences }: {
               <td className={relicCell('engraved', row.engraved === 0 && 'muted')}>
                 {row.engraved === 0 ? '—' : format(row.engraved)}
               </td>
-              {/* A verdict without its one-line calculation asks the user to
+              {/* A verdict without its one-line explanation asks the user to
                   take the page on trust. Every row reserves the same second
                   line, so changing the threshold does not move its neighbours. */}
               <td className={relicCell('advice')}>

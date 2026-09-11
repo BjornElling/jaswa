@@ -80,6 +80,25 @@ test('the table opens on synergy, best fit first', async ({ page }) => {
   await expect(rows(page).last()).toContainText('Weak');
 });
 
+test('synergy marks grow outward from the band name', async ({ page }) => {
+  await importAccount(page, relicAccount);
+  await openRelics(page);
+  const strong = rowFor(page, 'per 1,000 ATK').locator('.relic-synergy[data-band="strong"]');
+  const active = strong.locator('.relic-mark-slot:not(.relic-mark-spare)');
+  const slots = strong.locator('.relic-mark-slots');
+  const label = strong.locator('.relic-synergy-label');
+  const markBox = await active.boundingBox();
+  const slotBox = await slots.boundingBox();
+  const labelBox = await label.boundingBox();
+  expect(markBox).not.toBeNull();
+  expect(slotBox).not.toBeNull();
+  expect(labelBox).not.toBeNull();
+  /* The sole active mark must be the slot nearest the name, not the left slot
+     separated from it by the reserved spare. */
+  expect(Math.abs((markBox?.x ?? 0) + (markBox?.width ?? 0) - (slotBox?.x ?? 0) - (slotBox?.width ?? 0))).toBeLessThan(1);
+  expect((slotBox?.x ?? 0) + (slotBox?.width ?? 0)).toBeLessThan(labelBox?.x ?? 0);
+});
+
 test('a level says why it is where it is', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
@@ -122,48 +141,64 @@ test('the landing column names a level the relic can realistically reach', async
   await expect(halfway.locator('td').nth(5)).toContainText('+7');
 });
 
-/** The advice cell, whose visible second line carries the arithmetic. */
+/** The advice cell, whose visible second line carries the chance or status. */
 const adviceFor = (page: Page, effect: string) => rowFor(page, effect).locator('td').nth(7);
 
-test('the advice shows a verdict with its short calculation', async ({ page }) => {
+test('the advice shows a verdict with its short chance', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
   await expect(adviceFor(page, 'per 2,500 ATK')).toHaveText('Power upFree +1: 100%');
   await expect(adviceFor(page, 'per 500 ATK')).toHaveText('KeepCannot power up.');
 });
 
-test('the visible calculation distinguishes a score from a chance', async ({ page }) => {
+test('the visible advice shows the game chance, not the ranking conversion', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
-  await expect(adviceFor(page, 'per 150 SPD')).toHaveText('SellBeat +12: 4.8%×4=19% < 80%');
+  await expect(adviceFor(page, 'per 150 SPD')).toHaveText('SellBeat +12: 4.8%');
 });
 
 test('the score threshold decides whether a second copy is worth the stones', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
   const challenger = rowFor(page, 'per 150 SPD');
-  const threshold = page.getByRole('slider', { name: 'Power-up score threshold, 1 cautious to 5 bold' });
+  const threshold = page.getByRole('slider', { name: 'Power-up threshold, 1 cautious to 5 bold' });
 
-  /* An exceptional challenger has a 4.8 % chance to pass +12. Its ×4 fit
-     creates a 19 % score, still below even the bold 20 % threshold. */
+  /* An exceptional challenger has a 4.8 % chance to pass +12. The internal
+     score remains thresholded, but the player only needs the game chance. */
   const advice = adviceFor(page, 'per 150 SPD');
   await expect(challenger).toContainText('Sell');
-  await expect(advice).toHaveText('SellBeat +12: 4.8%×4=19% < 80%');
+  await expect(advice).toHaveText('SellBeat +12: 4.8%');
 
   await threshold.fill('5');
   await expect(challenger).toContainText('Sell');
-  await expect(advice).toHaveText('SellBeat +12: 4.8%×4=19% < 20%');
+  await expect(advice).toHaveText('SellBeat +12: 4.8%');
 
   await threshold.fill('1');
   await expect(challenger).toContainText('Sell');
-  await expect(advice).toHaveText('SellBeat +12: 4.8%×4=19% < 180%');
+  await expect(advice).toHaveText('SellBeat +12: 4.8%');
+});
+
+test('the score threshold also gates the minimum synergy band', async ({ page }) => {
+  await importAccount(page, relicAccount);
+  await openRelics(page);
+  const threshold = page.getByRole('slider', { name: 'Power-up threshold, 1 cautious to 5 bold' });
+  const weak = rowFor(page, 'per 2,000 ATK');
+  await expect(weak).toContainText('Sell');
+  await expect(adviceFor(page, 'per 2,000 ATK')).toHaveText('SellSynergy < threshold.');
+  await threshold.fill('4');
+  await expect(weak).toContainText('Keep');
+  await threshold.fill('1');
+  await expect(weak).toContainText('Sell');
+  await expect(adviceFor(page, 'per 2,000 ATK')).toHaveText('SellSynergy < threshold.');
+  await threshold.fill('5');
+  await expect(weak).toContainText('Power up');
 });
 
 test('changing the score threshold leaves the table geometry fixed', async ({ page }, testInfo) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
   const table = page.getByRole('table', { name: 'Relic library', exact: true });
-  const threshold = page.getByRole('slider', { name: 'Power-up score threshold, 1 cautious to 5 bold' });
+  const threshold = page.getByRole('slider', { name: 'Power-up threshold, 1 cautious to 5 bold' });
   const before = await table.locator('tbody tr').evaluateAll((cells) => cells.map((cell) => {
     const { x, y, width, height } = cell.getBoundingClientRect();
     return { x, y, width, height };
@@ -171,7 +206,7 @@ test('changing the score threshold leaves the table geometry fixed', async ({ pa
   await page.screenshot({ path: testInfo.outputPath('relic-threshold-before.png') });
 
   await threshold.fill('5');
-  await expect(adviceFor(page, 'per 2,000 ATK')).toHaveText('Power upNext +1: 60%×.5=30%');
+  await expect(adviceFor(page, 'per 2,000 ATK')).toHaveText('Power upNext +1: 60%');
   await page.screenshot({ path: testInfo.outputPath('relic-threshold-after.png') });
 
   const after = await table.locator('tbody tr').evaluateAll((cells) => cells.map((cell) => {
@@ -201,10 +236,10 @@ test('a relic engraved on monsters counts them, and an unused one says so', asyn
 test('filters narrow the table and Reset puts every one of them back', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
-  const threshold = page.getByRole('slider', { name: 'Power-up score threshold, 1 cautious to 5 bold' });
+  const threshold = page.getByRole('slider', { name: 'Power-up threshold, 1 cautious to 5 bold' });
 
   await page.getByRole('group', { name: 'Filter by advice' }).getByRole('button', { name: 'Sell' }).click();
-  await expect(rows(page)).toHaveCount(1);
+  await expect(rows(page)).toHaveCount(2);
   await page.getByRole('group', { name: 'Filter by main stat' }).getByRole('button', { name: 'HP' }).click();
   await expect(rows(page)).toHaveCount(1);
   await threshold.fill('5');
