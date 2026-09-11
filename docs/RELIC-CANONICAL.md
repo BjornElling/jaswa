@@ -73,6 +73,7 @@ indexes a relic's whole strength against its level, which is why
 | Power-up ceiling is `+15`; every relic starts at 3 durability; a failure spends one; at 0 no further attempt is possible | Com2uS relic announcement |
 | One relic engraves on up to **100** monsters | Com2uS relic announcement |
 | Effects read "*X* +N % per *T* *stat* at the start of battle" | Com2uS relic announcement, and the shape of `sec_effect` |
+| Power-up success rates per level, `100 %` to `+3` then `80 %` down to `10 %` | Com2uS's published table — §7.4 |
 | Primary effect ids `100`/`101`/`102` are HP/ATK/DEF | `ENGRAVING-STATISTICS.md` §1, on captured traffic |
 | The unique-property id space is exactly `1`–`16` | The captured statistics, across 893 monster types — held by `verify:relic-synergy` |
 
@@ -82,43 +83,87 @@ says a hundred. Nothing in JASWA depends on the exact number — the argument in
 holds at either figure — but the number is written down here so a later
 correction has somewhere to land rather than being quietly assumed.
 
-**The per-level power-up success rates are not known.** The game shows a rate on
-the button and publishes no table. §7 says what JASWA does instead of inventing
-one.
+**The per-level power-up success rates are published**, and §7.4 carries them.
+They are the single most consequential thing on this page: the first three
+levels are free, and from `+3` the rate falls to a tenth.
 
-## 4. The unique-property vocabulary is incomplete, and says so
+## 4. The sixteen unique properties, and how they were pinned down
 
-Five of the sixteen families carry a reading in `relic-properties.ts`:
-
-| id | Family | Effect |
+| id | Name | Effect |
 | ---: | --- | --- |
-| 6 | Resolute | DMG taken −N % per T MAX HP |
-| 12 | Timeless | DEF +N % per T MAX HP |
-| 13 | Primal | MAX HP +N % per T ATK |
-| 14 | Valiant (DEF) | ATK +N % per T DEF |
-| 16 | Valiant (SPD) | ATK +N % per T SPD |
+| 1 | Sharp Conquest | DMG dealt +N % per T ATK |
+| 2 | Solid Conquest | DMG dealt +N % per T DEF |
+| 3 | Hearty Conquest | DMG dealt +N % per T MAX HP |
+| 4 | Sharp Resolute | DMG taken −N % per T ATK |
+| 5 | Solid Resolute | DMG taken −N % per T DEF |
+| 6 | Hearty Resolute | DMG taken −N % per T MAX HP |
+| 7 | Nimble Valiant | ATK +N % per T SPD |
+| 8 | Solid Valiant | ATK +N % per T DEF |
+| 9 | Hearty Valiant | ATK +N % per T MAX HP |
+| 10 | Sharp Timeless | DEF +N % per T ATK |
+| 11 | Nimble Timeless | DEF +N % per T SPD |
+| 12 | Hearty Timeless | DEF +N % per T MAX HP |
+| 13 | Sharp Primal | MAX HP +N % per T ATK |
+| 14 | Nimble Primal | MAX HP +N % per T SPD |
+| 15 | Solid Primal | MAX HP +N % per T DEF |
+| 16 | Hearty Restore | Recovery & Shield +N % per T MAX HP |
 
-These are **reported, not verified here**. They come from the community
-sw-forge project, which records only mappings a player confirmed against the
-in-game panel; this account has shown just one of the five on screen. Two
-families share the name *Valiant* and are separated by the stat they read, the
-device `MONSTER-NAME-ELEMENT-DECISION.md` settles for monsters the game ships
-under one name.
+**The names are two rules, not sixteen facts.** The family is what the property
+grants — Conquest gives damage dealt, Resolute takes damage away, Valiant gives
+ATK, Timeless DEF, Primal MAX HP, Restore recovery and shielding. The prefix is
+the stat it reads: Hearty from MAX HP, Sharp from ATK, Solid from DEF, Nimble
+from SPD. Every one of the sixteen is therefore a different pair, and no two can
+share a name.
 
-The other eleven are a number and nothing more, and the interface says
-`Property 5` rather than inventing a word for it —
-`ARTIFACT-CANONICAL.md` §14's prohibition, which is not suspended because a
-blank looks untidy.
+### 4.1 Why the order of that list is the order of the ids
 
-**This is a gap in what JASWA can *say*, not in what it can *do*.** Every
-judgement on the page — synergy, outlook, duplicate, verdict — is computed from
-the property's identity and the numbers in its own record. None of it needs the
-wording. That is the deliberate consequence of the method in §5, and it is why a
-partly-read vocabulary is a working state rather than a broken one.
+The effects come from the game's own **Manage Relic → Select Unique Property**
+panel, read off screen. Nothing on that panel states an id, so the claim that
+its order is the export's `type` order needs evidence. It has five kinds:
 
-**To close the gap**, open a relic in the game, read the line above its effect
-and the effect itself, and add the pair to `relicProperties`. Nothing else has
-to change.
+1. **This account's own relic, on screen and in the export at once.** The relic
+   on Beth reads `DMG dealt +1 % per 1500 ATK at the start of battle` and shows
+   `+6`. Its export record is
+   `{ type: 1, upgrade_curr: 6, pri_effect: [101, 9], sec_effect: [1, 1500, 1] }`.
+   Position 1 of the panel is *DMG dealt per ATK*. The wording, the threshold
+   `1500`, the percentage `1` and the level all agree.
+2. **Three community-confirmed mappings land where this order puts them.** The
+   sw-forge project records only readings a player confirmed against the panel,
+   and has id 6 as *DMG taken per MAX HP*, id 12 as *DEF per MAX HP*, id 13 as
+   *MAX HP per ATK*. All three match positions 6, 12 and 13 exactly.
+3. **The list has the shape Com2uS announced**: sixteen properties in six
+   functional groups. It is three Conquest, three Resolute, three Valiant, three
+   Timeless, three Primal and one Restore — 16 in 6, with no self-referential
+   pair and no SPD variant in the two damage groups.
+4. **The thresholds agree once grouped by the stat this mapping says each
+   property reads.** Both of the account's DEF-reading properties carry `2500`
+   at `+0` (ids 5 and 8), and both of its SPD-reading ones carry `300` — id 11
+   at `+0`, and id 14 at `+9` carrying exactly half of it. A wrong mapping would
+   have to produce that coincidence by accident.
+5. **The panel's own ordering rule is consistent**: within a family, the sources
+   run ATK, SPD, DEF, MAX HP with the granted stat omitted. Valiant skips ATK
+   and reads SPD, DEF, MAX HP; Timeless skips DEF; Primal skips MAX HP; the two
+   damage families have no SPD variant at all.
+
+### 4.2 The two mappings this table corrects
+
+sw-forge has id 14 and id 16 both as *Valiant*. Under the naming rule in §4
+that cannot happen — a family plus a source stat is unique — and the panel
+order puts 14 at *MAX HP per SPD* (**Nimble Primal**) and 16 at *Recovery &
+Shield per MAX HP* (**Hearty Restore**). The three mappings they confirmed
+against the panel are right; these two were not confirmed and are wrong.
+
+The correction matters, because id 14 is **35 % of every relic engraving in the
+game** — by far the most-used property — and §5 had drawn a conclusion from its
+mislabelling. That conclusion is withdrawn there.
+
+### 4.3 The relic panel sends no traffic
+
+A capture taken while opening the relic screens holds nothing about relics: the
+property list, the names and the power-up rates are all client-side. So the
+vocabulary cannot be collected the way `ENGRAVING-STATISTICS.md` collects the
+statistics panels, and reading it off screen is not a shortcut — it is the only
+route there is.
 
 ## 5. Synergy is measured, not asserted
 
@@ -129,13 +174,19 @@ effect — and when it does not, the two halves are strangers sharing a slot. Th
 is what "synergy" means here, and it is worth a great deal on an item a hundred
 monsters will wear.
 
-**Why not a table of opinions.** Community tier lists for relics exist and
-disagree, most of them reasoning from a rule of thumb — *same stat is good
-synergy* — rather than from evidence. Worse, the rule is not reliably true: the
-measurement below finds that the player base puts **HP** mains on the two
-ATK-granting families far more often than ATK mains, which the rule of thumb
-calls a mismatch and the metagame calls a bruiser. A hand-written table would
-have shipped the rule and the error with it.
+**Why not a table of opinions.** Community tier lists exist, disagree, and are
+mostly reasoned from the rule of thumb rather than from evidence. A measurement
+can be checked; a list cannot. It also does not need to know what a property
+*does* — which is what let this table work for months while eleven of the
+sixteen properties were still unnamed, and what makes it immune to the
+mislabelling §4.2 corrects.
+
+**An earlier version of this section claimed the measurement refuted the rule of
+thumb.** It said the player base put HP mains on the ATK-granting families. That
+was an artefact of the two wrong mappings in §4.2: the property in question
+grants MAX HP, not ATK, so HP main was never a mismatch. **The claim is
+withdrawn**, and §5.1 states what the measurement actually finds — which is far
+closer to the rule of thumb than that.
 
 **The measurement.** The game's own **Relic Engraving Statistics** panel reports,
 per monster, how often each main property and each unique property is engraved
@@ -201,7 +252,41 @@ reads identically with the colour taken away — `AGENTS.md` rule 5.
 **A pair the statistics say nothing about is `null`, never a low grade.** The
 band buttons never gather it and the advice column says `Fit not judged`.
 
-### 5.1 The evidence that this is a measurement
+### 5.1 What the measurement actually finds
+
+Read with the right names, the 48 cells resolve into one sentence:
+
+> **For every one of the sixteen properties, the main stat the metagame prefers
+> is one of that property's own two stats — the one it reads or the one it
+> grants. Never a third.**
+
+Sixteen out of sixteen, with no exceptions. Which of the two wins is almost as
+tidy: **where the property reads a stat a main property can raise, the read stat
+wins 11 times out of 13.** The two that do not are Solid and Hearty Valiant,
+and the whole Valiant family grants ATK — the stat a damage dealer is built
+around, so it takes the main. The remaining three read SPD, which no main
+property can raise at all, and they fall back to the stat they grant.
+
+So the rule of thumb — *main and unique should point the same way* — is not
+merely supported, it is the only pattern in the data. What the measurement adds
+is **which** way, for each of the sixteen, and by how much.
+
+The five strongest pairs, and the five weakest:
+
+| | Pair | z |
+| --- | --- | ---: |
+| ★★ | HP + Nimble Primal | +1.64 |
+| ★★ | ATK + Sharp Conquest | +1.61 |
+| ★★ | DEF + Solid Conquest | +1.58 |
+| ★★ | DEF + Solid Resolute | +1.49 |
+| ★★ | HP + Hearty Resolute | +1.31 |
+| ✕✕ | ATK + Hearty Resolute | −1.23 |
+| ✕✕ | DEF + Nimble Valiant | −1.36 |
+| ✕✕ | ATK + Nimble Primal | −1.65 |
+| ✕✕ | DEF + Sharp Conquest | −1.81 |
+| ✕✕ | HP + Sharp Conquest | −1.91 |
+
+### 5.2 The evidence that this is a measurement
 
 `npm run verify:relic-synergy` re-derives the table independently, compares it
 cell for cell to the one the app ships, and then splits the 893 monster types in
@@ -211,7 +296,15 @@ moves nothing either (`r = 0.992`): this is a property of the metagame, not of a
 handful of popular monsters.
 
 The account's own two engraved relics both land in the top band — the two the
-user actually chose to use, out of six.
+user actually chose to use, out of six. They are HP + Nimble Primal and
+ATK + Sharp Conquest: the first and second cells of the whole table.
+
+A published community tier list agrees where it can be read against this. On
+Seiishizo's relic chart the cells marked God Tier include HP main on Nimble
+Primal and ATK main on Sharp Conquest — the two highest cells here — and the
+cells marked *Don't Use* include HP main on Sharp Conquest, which is the single
+lowest cell in the table. That is an expert's hand-made judgement and 5.5
+million engravings arriving at the same answer by different routes.
 
 ## 6. Level, durability and the difference between them
 
@@ -276,13 +369,13 @@ V(l, d)  = p(l)·V(l + 1, d) + (1 − p(l))·V(l, d − 1)
 ```
 
 **Why a second run is necessary.** `P` asks whether a relic will *finish*, and
-answers `0` for anything that runs out of durability on the way. That is the
-right question for spending stones and the wrong one for keeping a relic: an
-exceptional `+12` with no durability left has `P = 0` and is one of the best
-things an account can own. `V` says it is worth 83 % of a finished relic,
-because that is what `15/18` of the main property is. **A model that judged both
-questions on `P` alone would sell it**, and that is the single correction JASWA
-makes to the formula as it was put.
+answers `0` for anything that runs out of durability on the way. An exceptional
+`+12` with no durability left has `P = 0` and is one of the best things an
+account can own; `V` says it is worth 83 % of a finished relic, because that is
+what `15/18` of the main property is. **A model that judged on `P` alone would
+sell it.** Once the published rates arrived (§7.4), `P` turned out to be unfit
+for the other question too — it is near zero for everything — and `V` now
+carries both, as a level and as a difference.
 
 `V` also never falls when a level or an attempt is added, which `P` alone does
 not guarantee across the two branches. The verifier holds it to both.
@@ -319,22 +412,55 @@ The size of its own tail is printed under it, because a median is a statement
 about a tail and the tail is never exactly a half. The mode and the mean are
 both in the cell's tooltip for anyone who wants them.
 
-### 7.4 `p(l)` is a table, and it is measured, not invented
+### 7.4 `p(l)` is the game's own published table
 
-The game shows a success rate on its own power-up button and publishes no table,
-so `flatSuccessRates` fills all fifteen entries with one estimate — **taken from
-the account's own relics**. Every relic is a complete record of its own
-attempts: its level is the number that succeeded, the durability it has spent is
-the number that failed. The estimate is a Beta posterior mean on a uniform
-prior, `(successes + 1) / (successes + failures + 2)`, so an account with no
-history reads an even chance instead of dividing by zero. The page states the
-figure and the sample size beside the risk slider.
+| From | Rate | | From | Rate |
+| --- | ---: | --- | --- | ---: |
+| `+0 → +1` | 100 % | | `+7 → +8` | 45 % |
+| `+1 → +2` | 100 % | | `+8 → +9` | 40 % |
+| `+2 → +3` | 100 % | | `+9 → +10` | 35 % |
+| `+3 → +4` | 80 % | | `+10 → +11` | 30 % |
+| `+4 → +5` | 70 % | | `+11 → +12` | 25 % |
+| `+5 → +6` | 60 % | | `+12 → +13` | 20 % |
+| `+6 → +7` | 50 % | | `+13 → +14` | 15 % |
+| | | | `+14 → +15` | 10 % |
 
-The rates are a **table of fifteen** rather than one number because the real
-curve certainly is not flat — `+14` cannot be as easy as `+0`. Reading the
-game's own figures off the button replaces `flatSuccessRates` and nothing else:
-both recursions already take a per-level curve, and the verifier already tests
-them on one.
+`relicPowerUpRates` in `relic-properties.ts`, and
+`npm run verify:relic-maths` fails if the shipped table stops matching it.
+
+**Three consequences, and they run the page.**
+
+1. **Every relic is free to `+3`.** Nothing is ever advised against the first
+   three levels, and a `+0` relic is not a worse relic than a `+3` one — it is
+   the same relic three free steps earlier.
+2. **`+15` is a lottery, not a target.** A fresh relic with all three durability
+   reaches it about **once in eleven thousand times**. That is why §8 does not
+   decide anything on `P(l, d)`: weighted or not, a number that is `0.009 %` for
+   one relic and `0.002 %` for another is not separating them.
+3. **Stones are worth about eleven times more on a `+0` relic than on a `+12`
+   one.** The expected gain from a full three durability is 7.2 levels at `+0`
+   and 0.7 at `+12`. Any rule that spent stones on the relics closest to the
+   ceiling would have it exactly backwards.
+
+### 7.5 What this replaced, and why the replacement matters
+
+Before the table was to hand, JASWA estimated **one** rate for all fifteen
+levels from the account's own relics: a level gained is a success, a durability
+spent is a failure. On this account that read **76 %**.
+
+That estimate was not wrong about what it measured. The account's nineteen
+attempts were all made at `+0` to `+9`, three of those levels are free, and the
+true average across that range is close to it. **It was wrong about everywhere
+else.** Applied to `+10 → +15`, where the real rates are 30 % down to 10 %, it
+overstated the chance of finishing a relic by more than three orders of
+magnitude — `19 %` against `0.009 %`.
+
+The lesson is recorded here rather than quietly fixed, because the failure was
+not arithmetic. Every step was defensible: the estimator was unbiased for its
+own sample, the sample was real, and the model said out loud that it was
+pooling. What it did not say was that **the sample covered only the cheap half
+of the curve**, and a projection is only as good as the range its evidence
+spans.
 
 ## 8. The verdict is one multiplication
 
@@ -342,21 +468,33 @@ them on one.
 
 | Fit | Weight |
 | --- | ---: |
-| Exceptional | × 4 |
-| Strong | × 2 |
+| Exceptional | × 10 |
+| Strong | × 5 |
 | Neutral | × 1 |
-| Weak | × 0.5 |
-| Poor | × 0.25 |
+| Weak | × ⅕ |
+| Poor | × ⅒ |
+
+The ladder mirrors itself about Neutral — every band is the exact reciprocal of
+its opposite number — so it reads the same from either end: an exceptional fit
+is worth ten neutral ones, and a poor fit a tenth of one. The spread is wide on
+purpose. A relic rides a hundred monsters, so the gap between the right pairing
+and the wrong one is not a matter of degree, and a narrower ladder would let a
+poor fit out-argue a good one on level alone.
 
 From that, two quantities, each read against a bar the risk slider sets:
 
-- **Stones** — `weight × P(l, d)`. Is this relic worth power-up stones? At risk 3
-  the bar is `1.00`, which reads exactly as *an even chance on an exceptional
-  fit, or a certainty on a neutral one*.
-- **Merit** — `weight × V(l, d)`, on a 0–4 scale. Is this relic worth a slot at
+- **Stones** — `weight × (V(l, d) − V(l, 0))`. Is this relic worth power-up
+  stones? The second factor is what having durability left is worth: the
+  expected finished strength, less what the relic would be worth if it could
+  never be touched again. It is `E[levels gained] / 18`, and the *To gain*
+  column prints the numerator.
+- **Merit** — `weight × V(l, d)`, on a 0–10 scale. Is this relic worth a slot at
   all? It is not a column — the *Lands on* column says the same thing in levels,
   which is the unit a player thinks in — but every verdict that turns on it
   prints it, so the judgement is still arguable.
+
+`P(l, d)` is no longer one of them, and §7.4 says why: the published rates make
+it near zero for everything that is not already finished.
 
 The rules, in the order they outrank each other:
 
@@ -384,17 +522,16 @@ One appetite, two bars:
 
 | Risk | Stones bar (§8) | Holding bar (§8.3) |
 | ---: | ---: | ---: |
-| 1 | 2.00 | 0.60 |
-| 2 | 1.40 | 0.52 |
-| 3 | 1.00 | 0.45 |
-| 4 | 0.65 | 0.38 |
-| 5 | 0.35 | 0.30 |
+| 1 | 2.50 | 0.40 |
+| 2 | 1.60 | 0.33 |
+| 3 | 1.00 | 0.26 |
+| 4 | 0.50 | 0.19 |
+| 5 | 0.25 | 0.12 |
 
-At risk 1 only a near-certain exceptional relic earns stones; at risk 5 a neutral
-fit with a one-in-three chance does. The holding bar moves with it because the
-two are one disposition — a player willing to gamble on a power-up is the same
-player who holds on to a maybe — but it moves far less, so the slider's visible
-effect stays where its label says it is.
+At risk 1 only a barely-touched exceptional relic earns stones; at risk 5 a
+neutral fit with a full three attempts does. The holding bar stays below what a
+neutral fit is worth at every setting, which is deliberate: Neutral is not a
+sell (§8.3), and only the two negative bands are ever let go.
 
 It sits in the filter strip because it belongs to the same question the filters
 answer — what should this table be telling me — even though it changes the

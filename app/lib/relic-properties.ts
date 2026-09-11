@@ -26,80 +26,125 @@ export const relicMainPropertyOrder: readonly RelicMainProperty[] = ['HP', 'ATK'
  */
 export type RelicSourceStat = 'HP' | 'ATK' | 'DEF' | 'SPD';
 
+/**
+ * What a unique property grants. These are the game's own six functional
+ * groups, and the family name is simply which of them a relic belongs to.
+ */
+export type RelicGrant = 'DMG dealt' | 'DMG taken' | 'ATK' | 'DEF' | 'MAX HP' | 'Recovery & Shield';
+
+/** The family a relic belongs to, which is decided entirely by what it grants. */
+const familyByGrant: Record<RelicGrant, string> = {
+  'DMG dealt': 'Conquest',
+  'DMG taken': 'Resolute',
+  ATK: 'Valiant',
+  DEF: 'Timeless',
+  'MAX HP': 'Primal',
+  'Recovery & Shield': 'Restore',
+};
+
+/** The prefix, which is decided entirely by the stat the property reads. */
+const scalingBySource: Record<RelicSourceStat, string> = {
+  HP: 'Hearty',
+  ATK: 'Sharp',
+  DEF: 'Solid',
+  SPD: 'Nimble',
+};
+
 export type RelicPropertyDefinition = {
   id: number;
-  /**
-   * The family the game prints above the effect, where it has been read off
-   * the panel. `null` while nobody has looked, and the interface then names the
-   * property by its number rather than inventing a word for it.
-   */
-  name: string | null;
-  /**
-   * What the property grants, which stat it reads, and whether the grant is a
-   * reduction — `null` while unread. A reduction is still a gain to its owner;
-   * the flag only decides the sign the line is written with.
-   */
-  effect: { grants: string; per: RelicSourceStat; reduces?: true } | null;
+  /** What it grants; `DMG taken` is the one that goes down rather than up. */
+  grants: RelicGrant;
+  /** The stat it reads to size the grant. */
+  per: RelicSourceStat;
+  /** The game's own name, `<scaling> <family>` — e.g. `Nimble Primal`. */
+  name: string;
 };
 
 /**
- * The sixteen unique properties.
+ * The sixteen unique properties, in the order the game's own **Manage Relic →
+ * Select Unique Property** panel lists them, which is the order of the `type`
+ * ids in the export.
  *
- * Five carry a reading; eleven are still only a number. That asymmetry is
- * deliberate and is not a gap in what JASWA can *do* — every judgement on this
- * page is computed from the property's identity and needs no wording at all
- * (`RELIC-CANONICAL.md` §5). It is a gap in what JASWA can *say*, and the
- * program says so rather than guessing, which `ARTIFACT-CANONICAL.md` §14
- * forbids for exactly this kind of field.
+ * That ordering is not assumed; `RELIC-CANONICAL.md` §4 sets out the evidence.
+ * The short version is four independent confirmations — this account's own `+6`
+ * relic reads `DMG dealt +1 % per 1500 ATK` on screen and carries
+ * `sec_effect [1, 1500, 1]` in the export, and three community-confirmed
+ * mappings land on ids 6, 12 and 13 — plus the list's own shape: sixteen
+ * entries in exactly the six functional groups Com2uS announced, and threshold
+ * values that agree with each other once grouped by the stat this mapping says
+ * each property reads.
  *
- * The five readings are reported by the sw-forge project, which records only
- * mappings a player confirmed against the in-game panel. They are marked in
- * `RELIC-CANONICAL.md` §4 as reported rather than verified here, because this
- * account has never shown four of the five on screen.
- *
- * Two families share the name Valiant and are separated by the stat they read,
- * the same device `MONSTER-NAME-ELEMENT-DECISION.md` settles for monsters the
- * game ships under one name.
+ * The names follow one rule each. **The family is what the property grants**
+ * and **the prefix is the stat it reads**, so every one of the sixteen has a
+ * name no other can share — which is also how the two mappings this table
+ * corrects were spotted: they gave one name to two different properties.
  */
+function property(id: number, grants: RelicGrant, per: RelicSourceStat): RelicPropertyDefinition {
+  return { id, grants, per, name: `${scalingBySource[per]} ${familyByGrant[grants]}` };
+}
+
 export const relicProperties: readonly RelicPropertyDefinition[] = [
-  { id: 1, name: null, effect: null },
-  { id: 2, name: null, effect: null },
-  { id: 3, name: null, effect: null },
-  { id: 4, name: null, effect: null },
-  { id: 5, name: null, effect: null },
-  { id: 6, name: 'Resolute', effect: { grants: 'DMG taken', per: 'HP', reduces: true } },
-  { id: 7, name: null, effect: null },
-  { id: 8, name: null, effect: null },
-  { id: 9, name: null, effect: null },
-  { id: 10, name: null, effect: null },
-  { id: 11, name: null, effect: null },
-  { id: 12, name: 'Timeless', effect: { grants: 'DEF', per: 'HP' } },
-  { id: 13, name: 'Primal', effect: { grants: 'MAX HP', per: 'ATK' } },
-  { id: 14, name: 'Valiant', effect: { grants: 'ATK', per: 'DEF' } },
-  { id: 15, name: null, effect: null },
-  { id: 16, name: 'Valiant', effect: { grants: 'ATK', per: 'SPD' } },
+  property(1, 'DMG dealt', 'ATK'),
+  property(2, 'DMG dealt', 'DEF'),
+  property(3, 'DMG dealt', 'HP'),
+  property(4, 'DMG taken', 'ATK'),
+  property(5, 'DMG taken', 'DEF'),
+  property(6, 'DMG taken', 'HP'),
+  property(7, 'ATK', 'SPD'),
+  property(8, 'ATK', 'DEF'),
+  property(9, 'ATK', 'HP'),
+  property(10, 'DEF', 'ATK'),
+  property(11, 'DEF', 'SPD'),
+  property(12, 'DEF', 'HP'),
+  property(13, 'MAX HP', 'ATK'),
+  property(14, 'MAX HP', 'SPD'),
+  property(15, 'MAX HP', 'DEF'),
+  property(16, 'Recovery & Shield', 'HP'),
 ];
 
-const propertiesById = new Map(relicProperties.map((property) => [property.id, property]));
+const propertiesById = new Map(relicProperties.map((definition) => [definition.id, definition]));
 
 export function relicProperty(id: unknown): RelicPropertyDefinition | undefined {
   return typeof id === 'number' ? propertiesById.get(id) : undefined;
 }
 
-/**
- * What to call a unique property in a column. A family the game has named reads
- * as that name, disambiguated by the stat it reads where two families share
- * one; an unnamed family reads as its number, which is the only true thing
- * JASWA can say about it.
- */
+/** What to call a unique property in a column. */
 export function relicPropertyLabel(definition: RelicPropertyDefinition): string {
-  if (!definition.name) return `Property ${definition.id}`;
-  const shared = relicProperties.some((other) => other.id !== definition.id && other.name === definition.name);
-  return shared && definition.effect ? `${definition.name} (${definition.effect.per})` : definition.name;
+  return definition.name;
+}
+
+/** A reduction is still a gain to its owner; this only decides the sign. */
+export function relicPropertyReduces(definition: RelicPropertyDefinition): boolean {
+  return definition.grants === 'DMG taken';
+}
+
+/** How the game writes the source stat in the effect line. */
+export function relicSourceLabel(source: RelicSourceStat): string {
+  return source === 'HP' ? 'MAX HP' : source;
 }
 
 /** The three main properties, and the level a relic reaches at most. */
 export const relicMaximumLevel = 15;
+
+/**
+ * The game's published power-up success rates, indexed by the level being left:
+ * `relicPowerUpRates[0]` is `+0 → +1`.
+ *
+ * The first three levels are free, and from `+3` the rate halves twice over on
+ * the way up, ending at one attempt in ten. That shape is the whole economics
+ * of a relic: **stones are worth most on a low relic and least on a high one**,
+ * and `+15` is a lottery rather than a target — a fresh relic with all three
+ * durability reaches it about once in eleven thousand times
+ * (`RELIC-CANONICAL.md` §7.4).
+ *
+ * These are the game's own figures, not an estimate. An earlier version of this
+ * file had no table and stood a single rate measured from the account's own
+ * relics in its place; that estimate read 76 %, which is defensible for the
+ * levels it was drawn from and catastrophic above them.
+ */
+export const relicPowerUpRates: readonly number[] = [
+  1, 1, 1, 0.8, 0.7, 0.6, 0.5, 0.45, 0.4, 0.35, 0.3, 0.25, 0.2, 0.15, 0.1,
+];
 /** Every relic is crafted with three durability, and a failed power-up spends one. */
 export const relicMaximumDurability = 3;
 /**

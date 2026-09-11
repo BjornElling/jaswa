@@ -1,4 +1,6 @@
-import { relicMaximumLevel, relicPropertyLabel } from './relic-properties';
+import {
+  relicMaximumLevel, relicPropertyLabel, relicPropertyReduces, relicSourceLabel,
+} from './relic-properties';
 import type { Relic } from './relics';
 import type { RelicSynergy } from './relic-synergy';
 import { compareRelicSynergy } from './relic-synergy';
@@ -6,7 +8,7 @@ import type { RelicAdvice, RelicVerdict } from './relic-advice';
 import { relicVerdictOrder } from './relic-advice';
 
 export type RelicSortKey =
-  | 'index' | 'unique' | 'main' | 'synergy' | 'level' | 'durability' | 'reach' | 'landing'
+  | 'index' | 'unique' | 'main' | 'synergy' | 'level' | 'durability' | 'togain' | 'landing'
   | 'engraved' | 'advice';
 
 /**
@@ -35,19 +37,17 @@ export type RelicRow = {
 };
 
 /**
- * The unique property as one readable line.
+ * The unique property as one readable line, in the game's own wording.
  *
- * The two numbers come from the relic's own record and are always true. The
- * words around them come from the vocabulary and appear only for a family
- * somebody has read off the game panel, so an unnamed family states what it
- * grants per threshold and stops there rather than inventing a stat to name
- * (`ARTIFACT-CANONICAL.md` §14).
+ * The two numbers come from the relic's own record; the words around them come
+ * from the vocabulary. The game prints the same sentence on the relic panel —
+ * `DMG dealt +1 % per 1500 ATK at the start of battle` — less the trailing
+ * clause, which is true of all sixteen and so says nothing about any of them.
  */
 export function relicEffectText(relic: Relic, format: (value: number) => string): string {
   const { definition, threshold, percent } = relic.unique;
-  const amount = `${definition.effect?.reduces ? '−' : '+'}${format(percent)} %`;
-  if (!definition.effect) return `${amount} per ${format(threshold)}`;
-  return `${definition.effect.grants} ${amount} per ${format(threshold)} ${definition.effect.per}`;
+  const amount = `${relicPropertyReduces(definition) ? '−' : '+'}${format(percent)} %`;
+  return `${definition.grants} ${amount} per ${format(threshold)} ${relicSourceLabel(definition.per)}`;
 }
 
 /** Highest verdict first: Power up, then Keep, then Sell. */
@@ -63,7 +63,7 @@ function verdictRank(verdict: RelicVerdict): number {
  */
 export const defaultRelicSortDirections: Record<RelicSortKey, boolean> = {
   index: true, unique: true, main: true,
-  synergy: false, level: false, durability: false, reach: false, landing: false,
+  synergy: false, level: false, durability: false, togain: false, landing: false,
   engraved: false, advice: true,
 };
 
@@ -95,8 +95,8 @@ export function compareRelicRows(left: RelicRow, right: RelicRow, key: RelicSort
       return left.relic.level - right.relic.level;
     case 'durability':
       return left.relic.durability - right.relic.durability;
-    case 'reach':
-      return left.advice.reachChance - right.advice.reachChance;
+    case 'togain':
+      return left.advice.expectedGain - right.advice.expectedGain;
     case 'landing':
       /* By the level first, then by how far past a half its tail runs: two
          relics that both land on +14 are not equally sure of it. */

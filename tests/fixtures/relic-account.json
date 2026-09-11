@@ -5,7 +5,22 @@
       "unit_master_id": 10131,
       "attribute": 1,
       "relics": [
-        { "rid": 9002, "type": 14, "upgrade_curr": 12, "durability": 0, "locked": 0, "pri_effect": [100, 15], "sec_effect": [14, 150, 3] }
+        {
+          "rid": 9002,
+          "type": 14,
+          "upgrade_curr": 12,
+          "durability": 0,
+          "locked": 0,
+          "pri_effect": [
+            100,
+            15
+          ],
+          "sec_effect": [
+            14,
+            150,
+            3
+          ]
+        }
       ]
     },
     {
@@ -13,8 +28,38 @@
       "unit_master_id": 14314,
       "attribute": 4,
       "relics": [
-        { "rid": 9002, "type": 14, "upgrade_curr": 12, "durability": 0, "locked": 0, "pri_effect": [100, 15], "sec_effect": [14, 150, 3] },
-        { "rid": 9003, "type": 1, "upgrade_curr": 15, "durability": 1, "locked": 1, "pri_effect": [101, 18], "sec_effect": [1, 1500, 3] }
+        {
+          "rid": 9002,
+          "type": 14,
+          "upgrade_curr": 12,
+          "durability": 0,
+          "locked": 0,
+          "pri_effect": [
+            100,
+            15
+          ],
+          "sec_effect": [
+            14,
+            150,
+            3
+          ]
+        },
+        {
+          "rid": 9003,
+          "type": 1,
+          "upgrade_curr": 15,
+          "durability": 1,
+          "locked": 1,
+          "pri_effect": [
+            101,
+            18
+          ],
+          "sec_effect": [
+            1,
+            1500,
+            3
+          ]
+        }
       ]
     }
   ],
@@ -22,11 +67,101 @@
   "artifacts": [],
   "rune_craft_item_list": [],
   "relics": [
-    { "rid": 9001, "type": 14, "upgrade_curr": 0, "durability": 2, "locked": 0, "pri_effect": [100, 3], "sec_effect": [14, 240, 1] },
-    { "rid": 9002, "type": 14, "upgrade_curr": 12, "durability": 0, "locked": 0, "pri_effect": [100, 15], "sec_effect": [14, 150, 3] },
-    { "rid": 9003, "type": 1, "upgrade_curr": 15, "durability": 1, "locked": 1, "pri_effect": [101, 18], "sec_effect": [1, 1500, 3] },
-    { "rid": 9004, "type": 14, "upgrade_curr": 0, "durability": 3, "locked": 0, "pri_effect": [101, 3], "sec_effect": [14, 300, 1] },
-    { "rid": 9005, "type": 11, "upgrade_curr": 5, "durability": 2, "locked": 0, "pri_effect": [101, 8], "sec_effect": [11, 260, 2] },
-    { "rid": 9006, "type": 1, "upgrade_curr": 9, "durability": 0, "locked": 0, "pri_effect": [100, 12], "sec_effect": [1, 1200, 2] }
+    {
+      "rid": 9001,
+      "type": 14,
+      "upgrade_curr": 9,
+      "durability": 3,
+      "locked": 0,
+      "pri_effect": [
+        100,
+        12
+      ],
+      "sec_effect": [
+        14,
+        240,
+        2
+      ]
+    },
+    {
+      "rid": 9002,
+      "type": 14,
+      "upgrade_curr": 12,
+      "durability": 0,
+      "locked": 0,
+      "pri_effect": [
+        100,
+        15
+      ],
+      "sec_effect": [
+        14,
+        150,
+        3
+      ]
+    },
+    {
+      "rid": 9003,
+      "type": 1,
+      "upgrade_curr": 15,
+      "durability": 1,
+      "locked": 1,
+      "pri_effect": [
+        101,
+        18
+      ],
+      "sec_effect": [
+        1,
+        1500,
+        3
+      ]
+    },
+    {
+      "rid": 9004,
+      "type": 14,
+      "upgrade_curr": 0,
+      "durability": 3,
+      "locked": 0,
+      "pri_effect": [
+        101,
+        3
+      ],
+      "sec_effect": [
+        14,
+        300,
+        1
+      ]
+    },
+    {
+      "rid": 9005,
+      "type": 11,
+      "upgrade_curr": 5,
+      "durability": 2,
+      "locked": 0,
+      "pri_effect": [
+        101,
+        8
+      ],
+      "sec_effect": [
+        11,
+        260,
+        2
+      ]
+    },
+    {
+      "rid": 9006,
+      "type": 1,
+      "upgrade_curr": 9,
+      "durability": 0,
+      "locked": 0,
+      "pri_effect": [
+        100,
+        12
+      ],
+      "sec_effect": [
+        1,
+        1200,
+        2
+      ]
+    }
   ]
 }

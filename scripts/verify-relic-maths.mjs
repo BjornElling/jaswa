@@ -27,7 +27,9 @@
 import {
   relicExpectedLevel, relicExpectedStrength, relicFinalLevelChances, relicLanding, relicReachChance,
 } from '../app/lib/relic-advice.ts';
-import { relicMainPercent, relicMaximumDurability, relicMaximumLevel } from '../app/lib/relic-properties.ts';
+import {
+  relicMainPercent, relicMaximumDurability, relicMaximumLevel, relicPowerUpRates,
+} from '../app/lib/relic-properties.ts';
 
 let failures = 0;
 function check(ok, message) {
@@ -54,6 +56,22 @@ function closedForm(rates, level, durability) {
   const squares = q.reduce((sum, value) => sum + value * value, 0);
   return clean * (1 + once + squares + pairs);
 }
+
+/* The published table, written out here so a change to the shipped one has to
+   be a deliberate change to this check as well. */
+const published = [1, 1, 1, 0.8, 0.7, 0.6, 0.5, 0.45, 0.4, 0.35, 0.3, 0.25, 0.2, 0.15, 0.1];
+check(relicPowerUpRates.length === relicMaximumLevel
+  && relicPowerUpRates.every((rate, at) => rate === published[at]),
+  'the shipped power-up rates are the game’s published table');
+
+/* The shape of that table is the whole economics of a relic, so the two facts
+   that follow from it are held here rather than left to a comment. */
+check(relicReachChance(0, relicMaximumDurability, relicMaximumLevel, relicPowerUpRates) < 0.0005,
+  `a fresh relic reaches +15 about once in ${Math.round(1 / relicReachChance(0, 3, 15, relicPowerUpRates)).toLocaleString('en')} tries`);
+const fresh = relicExpectedStrength(0, 3, relicPowerUpRates) - relicExpectedStrength(0, 0, relicPowerUpRates);
+const high = relicExpectedStrength(12, 3, relicPowerUpRates) - relicExpectedStrength(12, 0, relicPowerUpRates);
+check(fresh > high * 5,
+  `power-up stones buy ${(fresh / high).toFixed(0)}× more on a +0 relic than on a +12 one`);
 
 /* A stated seed, so a failure is reproducible and a pass is not one lucky draw. */
 let state = 20260911;

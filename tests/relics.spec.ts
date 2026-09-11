@@ -36,6 +36,25 @@ test('every relic in the import reaches the table', async ({ page }) => {
   await expect(page.getByLabel('6 of 6 relics shown')).toBeVisible();
 });
 
+test('the unique property reads in the game’s own words', async ({ page }) => {
+  await importAccount(page, relicAccount);
+  await openRelics(page);
+  /* The name is two rules — the family is what it grants, the prefix the stat
+     it reads — so every one of the sixteen is a different pair. */
+  const primal = rowFor(page, 'per 150 SPD');
+  await expect(primal).toContainText('Nimble Primal');
+  await expect(primal).toContainText('MAX HP +3 % per 150 SPD');
+  await expect(rowFor(page, 'per 1,500 ATK')).toContainText('Sharp Conquest');
+  await expect(rowFor(page, 'per 1,500 ATK')).toContainText('DMG dealt +3 % per 1,500 ATK');
+});
+
+test('the page states the rates it projects from', async ({ page }) => {
+  await importAccount(page, relicAccount);
+  await openRelics(page);
+  await expect(page.getByText('Power-up rates are the game')).toContainText('free to +3');
+  await expect(page.getByText('Power-up rates are the game')).toContainText('10 % at +14');
+});
+
 test('the table opens on synergy, best fit first', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
@@ -49,18 +68,18 @@ test('a level says why it is where it is', async ({ page }) => {
   await openRelics(page);
   /* +15 and a spent relic are both dead ends, and the page has to tell them
      apart: one is finished, the other merely stopped. */
-  await expect(rowFor(page, '+3 % per 1,500')).toContainText('+15');
-  await expect(rowFor(page, '+3 % per 1,500').getByText('At the maximum level')).toBeAttached();
-  await expect(rowFor(page, '+2 % per 1,200').getByText('No power-up attempts left')).toBeAttached();
-  await expect(rowFor(page, '+1 % per 240').getByText('Can still be powered up')).toBeAttached();
+  await expect(rowFor(page, 'per 1,500 ATK')).toContainText('+15');
+  await expect(rowFor(page, 'per 1,500 ATK').getByText('At the maximum level')).toBeAttached();
+  await expect(rowFor(page, 'per 1,200 ATK').getByText('No power-up attempts left')).toBeAttached();
+  await expect(rowFor(page, 'per 240 SPD').getByText('Can still be powered up')).toBeAttached();
 });
 
 test('durability is stated as attempts left, all three pips present', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
-  await expect(rowFor(page, '+1 % per 300').getByText('3 of 3 attempts left')).toBeAttached();
-  await expect(rowFor(page, '+1 % per 240').getByText('2 of 3 attempts left')).toBeAttached();
-  await expect(rowFor(page, '+3 % per 150').getByText('0 of 3 attempts left')).toBeAttached();
+  await expect(rowFor(page, 'per 300 SPD').getByText('3 of 3 attempts left')).toBeAttached();
+  await expect(rowFor(page, 'per 260 SPD').getByText('2 of 3 attempts left')).toBeAttached();
+  await expect(rowFor(page, 'per 150 SPD').getByText('0 of 3 attempts left')).toBeAttached();
 });
 
 test('a finished relic is kept even though it can never reach +15', async ({ page }) => {
@@ -69,8 +88,8 @@ test('a finished relic is kept even though it can never reach +15', async ({ pag
   /* The case that forces two recursions rather than one: P(+15) is 0 because
      the durability is gone, and the relic is still one of the best on the
      account. Judging it on P alone would have sold it. */
-  const spent = rowFor(page, '+3 % per 150');
-  await expect(spent.locator('td').nth(5)).toHaveText('0 %');
+  const spent = rowFor(page, 'per 150 SPD');
+  await expect(spent.locator('td').nth(5)).toHaveText('—');
   await expect(spent.locator('td').nth(6)).toContainText('+12');
   await expect(spent.locator('td').nth(6)).toContainText('at least');
   await expect(spent).toContainText('Keep');
@@ -79,15 +98,13 @@ test('a finished relic is kept even though it can never reach +15', async ({ pag
 test('the landing column names a level the relic can realistically reach', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
-  /* The median, not the mode. The single likeliest outcome is +15 for every
-     relic with an attempt left — it collects every path that gets there while
-     the fourteen levels below split what is left — so a mode column would read
-     "+15" down the page and repeat the To +15 column beside it. */
-  const fresh = rowFor(page, '+1 % per 300');
-  await expect(fresh.locator('td').nth(5)).toHaveText('28 %');
-  await expect(fresh.locator('td').nth(6)).toContainText('+10');
-  const halfway = rowFor(page, '+2 % per 260');
-  await expect(halfway.locator('td').nth(6)).toContainText('+11');
+  /* A fresh relic is free to +3 and then fights a falling rate, so it lands
+     around +7 — not at +15, which the published rates make a lottery. */
+  const fresh = rowFor(page, 'per 300 SPD');
+  await expect(fresh.locator('td').nth(5)).toHaveText('+7.2');
+  await expect(fresh.locator('td').nth(6)).toContainText('+7');
+  const halfway = rowFor(page, 'per 260 SPD');
+  await expect(halfway.locator('td').nth(5)).toHaveText('+2.0');
 });
 
 test('the advice states the multiplication it was made from', async ({ page }) => {
@@ -95,28 +112,29 @@ test('the advice states the multiplication it was made from', async ({ page }) =
   await openRelics(page);
   /* A verdict nobody can check is a verdict nobody can argue with, so every
      reason is the arithmetic itself. */
-  await expect(rowFor(page, '+1 % per 300')).toContainText('Merit 0.18 under 0.45');
-  await expect(rowFor(page, '+1 % per 240')).toContainText('Second copy; 0.72 under 1.00');
+  await expect(rowFor(page, 'per 300 SPD')).toContainText('Merit 0.06 under 0.26');
+  await expect(rowFor(page, 'per 240 SPD')).toContainText('Second copy; 0.48 under 1.0');
 });
 
 test('the risk slider decides whether a second copy is worth the stones', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
-  const challenger = rowFor(page, '+1 % per 240');
+  const challenger = rowFor(page, 'per 240 SPD');
   const risk = page.getByRole('slider', { name: 'Power-up risk appetite, 1 cautious to 5 bold' });
 
-  /* An exceptional fit four levels' worth of luck behind the copy in front of
-     it: 4 × 18 % = 0.72, which clears the bold bar and nothing above it. */
+  /* An exceptional fit three levels behind the copy in front of it, at rates
+     of 35 % and worse: 10 × 5 % = 0.48, which clears the bold bar and nothing
+     above it. */
   await expect(challenger).toContainText('Sell');
-  await expect(challenger).toContainText('Second copy; 0.72 under 1.00');
+  await expect(challenger).toContainText('Second copy; 0.48 under 1.0');
 
   await risk.fill('5');
   await expect(challenger).toContainText('Power up');
-  await expect(challenger).toContainText('4 × 18 % past +12 = 0.72');
+  await expect(challenger).toContainText('10.0 × 5 % past +12 = 0.48');
 
   await risk.fill('1');
   await expect(challenger).toContainText('Sell');
-  await expect(challenger).toContainText('Second copy; 0.72 under 2.00');
+  await expect(challenger).toContainText('Second copy; 0.48 under 2.5');
 });
 
 test('a poor fit sells whatever room it has left', async ({ page }) => {
@@ -125,18 +143,18 @@ test('a poor fit sells whatever room it has left', async ({ page }) => {
   /* Full durability and fifteen levels of headroom, and still a sell: a quarter
      of a finished relic's strength cannot clear the holding bar, however much
      room is left. No rule says poor fits sell; the multiplication does. */
-  const mismatched = rowFor(page, '+1 % per 300');
+  const mismatched = rowFor(page, 'per 300 SPD');
   await expect(mismatched).toContainText('Poor');
   await expect(mismatched).toContainText('Sell');
-  await expect(mismatched).toContainText('Merit 0.18 under 0.45');
+  await expect(mismatched).toContainText('Merit 0.06 under 0.26');
 });
 
 test('a relic engraved on monsters counts them, and an unused one says so', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
-  const engraved = rowFor(page, '+3 % per 150');
+  const engraved = rowFor(page, 'per 150 SPD');
   await expect(engraved.locator('td').nth(7)).toHaveText('2');
-  await expect(rowFor(page, '+1 % per 240').locator('td').nth(7)).toHaveText('—');
+  await expect(rowFor(page, 'per 240 SPD').locator('td').nth(7)).toHaveText('—');
 });
 
 test('filters narrow the table and Reset puts every one of them back', async ({ page }) => {

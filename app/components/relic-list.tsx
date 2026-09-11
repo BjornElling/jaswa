@@ -19,9 +19,7 @@ import {
   relicSynergy, relicSynergyBandOrder, relicSynergyEngravingCount, relicSynergyMonsterCount,
 } from '../lib/relic-synergy';
 import type { RelicSynergyBand } from '../lib/relic-synergy';
-import {
-  flatSuccessRates, isRelicRisk, relicAdvice, relicPowerUpChance, relicVerdictLabels, relicVerdictOrder,
-} from '../lib/relic-advice';
+import { isRelicRisk, relicAdvice, relicVerdictLabels, relicVerdictOrder } from '../lib/relic-advice';
 import type { RelicRisk, RelicVerdict } from '../lib/relic-advice';
 import {
   compareRelicRows, defaultRelicSortDirections, relicEffectText, relicLevelState, relicSearchText,
@@ -105,7 +103,7 @@ const relicColumns: readonly SortableColumn<RelicRow>[] = (() => {
     column('synergy', 'Synergy'),
     column('level', 'Level'),
     column('durability', 'Durability'),
-    column('reach', <span className="table-heading-two-line" aria-label="Chance of reaching +15">To +15</span>),
+    column('togain', <span className="table-heading-two-line" aria-label="Levels still expected to be gained">To<br />gain</span>),
     column('landing', <span className="table-heading-two-line" aria-label="Level it lands on or above half the time">Lands<br />on</span>),
     column('engraved', 'Engraved'),
     column('advice', 'Advice'),
@@ -125,9 +123,7 @@ export function RelicList({ game, monsters, preferences }: {
 
   const relics = useMemo(() => readRelics(game?.data), [game]);
   const engravings = useMemo(() => relicEngravingCounts(monsters), [monsters]);
-  const chance = useMemo(() => relicPowerUpChance(relics), [relics]);
-  const rates = useMemo(() => flatSuccessRates(chance.chance), [chance]);
-  const advice = useMemo(() => relicAdvice(relics, risk, rates), [relics, risk, rates]);
+  const advice = useMemo(() => relicAdvice(relics, risk), [relics, risk]);
   const format = useMemo(() => (value: number) => formatNumber(value, preferences.general), [preferences.general]);
 
   const rows = useMemo<RelicRow[]>(() => relics.map((relic, index) => ({
@@ -138,7 +134,7 @@ export function RelicList({ game, monsters, preferences }: {
        the fallback exists because a `Map` lookup is optional, not because a
        relic could be missing. */
     advice: advice.get(relic.id) ?? {
-      verdict: 'keep', reason: 'Fit not judged', reachChance: 0, merit: 0,
+      verdict: 'keep', reason: 'Fit not judged', reachChance: 0, expectedGain: 0, merit: 0,
       expectedLevel: relic.level,
       landing: { level: relic.level, chance: 1, likeliest: { level: relic.level, chance: 1 } },
       supersededBy: null, overtakeChance: null,
@@ -248,13 +244,12 @@ export function RelicList({ game, monsters, preferences }: {
                   ...current, risk: isRelicRisk(value) ? value : current.risk,
                 }))} />
             </div>
-            {/* What the projections are actually built on. It is the account's
-                own record rather than a published table, so the page says so
-                and says how much of it there is. */}
+            {/* What the projections rest on: the game's own published rates,
+                not an estimate. Their shape is the whole economics of a relic,
+                so it is stated rather than buried in a document. */}
             <p className="relic-chance-note">
-              {chance.successes + chance.failures > 0
-                ? `${Math.round(chance.chance * 100)} % of your own ${chance.successes + chance.failures} power-up attempts succeeded.`
-                : 'No power-up history yet, so an even chance is assumed.'}
+              Power-up rates are the game&rsquo;s own: free to +3, then 80 % falling to 10 % at +14.
+              Stones are worth most on a low relic.
             </p>
           </div>
           <div className="filter-group relic-filter-level" role="group" aria-label="Filter by power-up level">
@@ -308,12 +303,13 @@ export function RelicList({ game, monsters, preferences }: {
               <td className={relicCell('durability')}>
                 <RelicDurabilityMark durability={row.relic.durability} />
               </td>
-              {/* The chance of ever finishing, and what the relic is worth if
-                  it stops wherever it stops. Both are dimmed when the relic can
-                  no longer move, because neither is a projection any more. */}
-              <td className={relicCell('reach', row.levelState === 'spent' && 'dim')}
-                title={`P(+15) with ${row.relic.durability} attempt${row.relic.durability === 1 ? '' : 's'} left`}>
-                {format(Math.round(row.advice.reachChance * 100))} %
+              {/* What the durability left is still expected to buy. It is the
+                  number the power-up bar is read from, so the advice beside it
+                  can be checked rather than trusted. */}
+              <td className={relicCell('togain', row.advice.expectedGain < 0.05 && 'muted')}
+                title={`Expected levels gained before the durability runs out; `
+                  + `reaching +15 from here is ${(100 * row.advice.reachChance).toFixed(2)} %`}>
+                {row.advice.expectedGain < 0.05 ? '—' : `+${row.advice.expectedGain.toFixed(1)}`}
               </td>
               {/* The median of the landing distribution, with the size of its
                   own tail under it: a median is a statement about a tail, and
@@ -322,7 +318,7 @@ export function RelicList({ game, monsters, preferences }: {
                 title={`Likeliest single outcome +${row.advice.landing.likeliest.level} at `
                   + `${Math.round(row.advice.landing.likeliest.chance * 100)} %; `
                   + `mean +${row.advice.expectedLevel.toFixed(1)}; `
-                  + `merit ${row.advice.merit.toFixed(2)} of a possible 4`}>
+                  + `merit ${row.advice.merit.toFixed(2)} of a possible 10`}>
                 <span className="relic-landing-level">+{format(row.advice.landing.level)}</span>
                 <span className="relic-landing-chance">
                   <span className="visually-hidden">at least </span>
