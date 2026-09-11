@@ -937,7 +937,7 @@ button { cursor: pointer; }
   flex: 0 0 auto;
   color: var(--dim);
   font-family: var(--mono);
-  font-size: var(--t-lead);
+  font-size: var(--t-micro);
   font-variant-numeric: tabular-nums;
 }
 @media (min-width: 1921px) and (max-width: 1700px) {

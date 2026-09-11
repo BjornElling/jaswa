@@ -280,7 +280,7 @@ export function RelicList({ game, monsters, preferences }: {
               aria-label={powerUpStones === undefined
                 ? 'Relic Power-up stones unavailable from this import'
                 : `Relic Power-up stones: ${format(powerUpStones)}`}>
-              <span className="relic-stone-balance-label">Pwr up stones</span>
+              <span className="relic-stone-balance-label">Power up stones</span>
               <span className="relic-stone-balance-value">{powerUpStones === undefined ? '—' : format(powerUpStones)}</span>
             </aside>} />
         </>}
