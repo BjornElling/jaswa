@@ -25,10 +25,11 @@
  * Usage: node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs scripts/verify-relic-maths.mjs
  */
 import {
-  relicExpectedLevel, relicExpectedStrength, relicFinalLevelChances, relicLanding, relicReachChance,
+  relicAdvice, relicExpectedLevel, relicExpectedStrength, relicFinalLevelChances, relicLanding, relicReachChance,
 } from '../app/lib/relic-advice.ts';
 import {
-  relicMaximumDurability, relicMaximumLevel, relicPowerUpRates, relicStrengthIndex, relicThreshold,
+  relicMaximumDurability, relicMaximumLevel, relicNextLevelStrengthGain, relicOrdinaryLevelStrengthGain,
+  relicPowerUpRates, relicStrengthIndex, relicThreshold,
 } from '../app/lib/relic-properties.ts';
 import { relicProperties } from '../app/lib/relic-properties.ts';
 import { relicSynergy } from '../app/lib/relic-synergy.ts';
@@ -98,6 +99,34 @@ check(relicThreshold(0, 'HP') === 18 * relicThreshold(0, 'ATK')
 const growth = (source) => relicStrengthIndex(relicMaximumLevel, source, 0) / relicStrengthIndex(0, source, 0);
 check(Math.abs(growth('ATK') - 5) < 1e-9 && Math.abs(growth('SPD') - 3) < 1e-9,
   `a unique property grows ×${growth('ATK')} on ATK/DEF/MAX HP and ×${growth('SPD')} on SPD, against the main property's ×6`);
+
+/* A tier attempt buys the main level and the unique-property step together.
+   The advice score is normalised against an ordinary level, so these ratios are
+   the precise extra incentive rather than an arbitrary tier bonus. */
+const ordinaryGain = relicNextLevelStrengthGain(7, 'ATK');
+const atkTierGain = relicNextLevelStrengthGain(8, 'ATK');
+const spdTierGain = relicNextLevelStrengthGain(8, 'SPD');
+check(Math.abs(relicOrdinaryLevelStrengthGain - ordinaryGain) < 1e-12,
+  'an ordinary level is the unit used by the investment score');
+check(atkTierGain > ordinaryGain * 2 && spdTierGain > ordinaryGain * 2,
+  `a successful tier crossing is worth ${Math.min(atkTierGain, spdTierGain) / ordinaryGain}× an ordinary level or more`);
+const sharpConquest = relicProperties.find((property) => property.id === 1);
+if (!sharpConquest) throw new Error('Sharp Conquest must exist for the tier-score check.');
+const relicAt = (level, id) => ({
+  id,
+  mainProperty: 'ATK',
+  mainPercent: 3 + level,
+  unique: { definition: sharpConquest, threshold: relicThreshold(level, sharpConquest.per), percent: 1 },
+  level,
+  durability: 3,
+  locked: false,
+  obtainedOrder: Number(id),
+});
+const tierAdvice = relicAdvice([relicAt(7, '7'), relicAt(8, '8')], 1);
+const beforeTier = tierAdvice.get('7')?.investmentScore ?? 0;
+const onTier = tierAdvice.get('8')?.investmentScore ?? 0;
+check(onTier > beforeTier,
+  `an Exceptional +8 → +9 tier scores ${Math.round(onTier)} % above the ${Math.round(beforeTier)} % +7 → +8 step despite its lower chance`);
 
 /* The one modelling choice in the strength index is how the two halves are
    weighted. It is only a defensible choice if the answers do not turn on it, so

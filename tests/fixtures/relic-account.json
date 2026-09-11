@@ -66,6 +66,14 @@
   "runes": [],
   "artifacts": [],
   "rune_craft_item_list": [],
+  "inventory_info": [
+    {
+      "rid": 9007,
+      "item_master_id": 1,
+      "item_master_type": 114,
+      "item_quantity": 37
+    }
+  ],
   "relics": [
     {
       "rid": 9001,

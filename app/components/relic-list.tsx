@@ -1,21 +1,22 @@
 import { useMemo } from 'react';
+import type { ReactNode } from 'react';
 import { PageHeader } from './page-chrome';
 import { DataTablePage, TableColumnGroup } from './data-table-page';
 import { FilterSummary } from './filter-summary';
 import { SortableHeader, useSortedRows } from './sortable-table';
 import type { SortableColumn } from './sortable-table';
 import { ValueSlider, RangeSlider } from './range-slider';
-import { RelicDurabilityMark, RelicLevelMark, RelicSynergyMark } from './relic-marks';
+import { RelicDurabilityMark, RelicLevelMark, RelicSynergyFilterMark, RelicSynergyMark } from './relic-marks';
 import { WorkspacePage } from './workspace-page';
 import { alignmentClass, relicTableColumns } from '../lib/table-layouts';
 import type { GameRecord } from '../lib/game-data';
 import type { ImportedGame, Preferences } from '../lib/types';
-import { readRelics, relicEngravingCounts } from '../lib/relics';
+import { readRelics, relicEngravingCounts, relicPowerUpStoneCount } from '../lib/relics';
 import {
   relicMainPropertyOrder, relicMaximumDurability, relicMaximumLevel, relicPropertyLabel,
 } from '../lib/relic-properties';
 import type { RelicMainProperty } from '../lib/relic-properties';
-import { relicSynergy, relicSynergyBandOrder } from '../lib/relic-synergy';
+import { relicSynergy, relicSynergyBandLabels, relicSynergyBandOrder } from '../lib/relic-synergy';
 import type { RelicSynergyBand } from '../lib/relic-synergy';
 import {
   isRelicInvestmentSelectivity, relicAdvice, relicInvestmentThresholds, relicVerdictLabels, relicVerdictOrder,
@@ -123,6 +124,7 @@ export function RelicList({ game, monsters, preferences }: {
 
   const relics = useMemo(() => readRelics(game?.data), [game]);
   const engravings = useMemo(() => relicEngravingCounts(monsters), [monsters]);
+  const powerUpStones = useMemo(() => relicPowerUpStoneCount(game?.data), [game]);
   const advice = useMemo(() => relicAdvice(relics, selectivity), [relics, selectivity]);
   const format = useMemo(() => (value: number) => formatNumber(value, preferences.general), [preferences.general]);
 
@@ -177,7 +179,8 @@ export function RelicList({ game, monsters, preferences }: {
 
   const toggleGroup = <T extends string | number>(
     label: string, description: string, options: readonly T[], selected: readonly T[],
-    key: keyof RelicFilterState, display: (option: T) => string, className: string,
+    key: keyof RelicFilterState, display: (option: T) => ReactNode, className: string,
+    accessibleName?: (option: T) => string,
   ) => <div className={`filter-group ${className}`} role="group" aria-label={description}>
     <span className="filter-label">{label}</span>
     <div className="filter-group-controls">
@@ -186,7 +189,7 @@ export function RelicList({ game, monsters, preferences }: {
         type="button"
         className={selected.includes(option) ? 'filter-button active' : 'filter-button'}
         onClick={() => toggleValue(option, key)}
-        aria-pressed={selected.includes(option)}
+        aria-pressed={selected.includes(option)} aria-label={accessibleName?.(option)}
       >{display(option)}</button>)}
     </div>
   </div>;
@@ -229,7 +232,8 @@ export function RelicList({ game, monsters, preferences }: {
           {toggleGroup('Main stat', 'Filter by main stat', relicMainPropertyOrder, selectedMains,
             'selectedMains', (main) => main, 'relic-filter-main')}
           {toggleGroup('Synergy', 'Filter by synergy', relicSynergyBandOrder, selectedBands,
-            'selectedBands', (band) => band.slice(0, 3).toUpperCase(), 'relic-filter-synergy')}
+            'selectedBands', (band) => <RelicSynergyFilterMark band={band} />, 'relic-filter-synergy',
+            (band) => relicSynergyBandLabels[band])}
           {toggleGroup('Advice', 'Filter by advice', relicVerdictOrder, selectedVerdicts,
             'selectedVerdicts', (verdict) => relicVerdictLabels[verdict], 'relic-filter-advice')}
           <div className="filter-group relic-filter-threshold" role="group" aria-label="Power-up threshold">
@@ -244,6 +248,13 @@ export function RelicList({ game, monsters, preferences }: {
                 }))} />
             </div>
           </div>
+          <aside className="relic-stone-balance"
+            aria-label={powerUpStones === undefined
+              ? 'Relic Power-up stones unavailable from this import'
+              : `Relic Power-up stones: ${format(powerUpStones)}`}>
+            <span className="relic-stone-balance-label">Relic Power-up stones</span>
+            <span className="relic-stone-balance-value">{powerUpStones === undefined ? '—' : format(powerUpStones)}</span>
+          </aside>
           <div className="filter-group relic-filter-level" role="group" aria-label="Filter by power-up level">
             <span className="filter-label">Level</span>
             <div className="filter-group-controls">

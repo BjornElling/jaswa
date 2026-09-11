@@ -40,6 +40,20 @@ const bandMarks: Record<RelicSynergyBand, { mark: 'star' | 'cross' | 'diamond'; 
   poor: { mark: 'cross', count: 2 },
 };
 
+function SynergyGlyph({ band, reserveSecondSlot = true }: {
+  band: RelicSynergyBand;
+  reserveSecondSlot?: boolean;
+}) {
+  const { mark, count } = bandMarks[band];
+  const glyph = mark === 'star' ? <Star /> : mark === 'cross' ? <Cross /> : <Diamond />;
+  return <span className="relic-mark-slots" aria-hidden="true">
+    <span className="relic-mark-slot">{glyph}</span>
+    {(count === 2 || reserveSecondSlot) && <span
+      className={count === 2 ? 'relic-mark-slot' : 'relic-mark-slot relic-mark-spare'}
+    >{glyph}</span>}
+  </span>;
+}
+
 /**
  * A relic's fit, as two reserved slots and the band's name.
  *
@@ -49,14 +63,16 @@ const bandMarks: Record<RelicSynergyBand, { mark: 'star' | 'cross' | 'diamond'; 
  * colours removed.
  */
 export function RelicSynergyMark({ band }: { band: RelicSynergyBand }) {
-  const { mark, count } = bandMarks[band];
-  const glyph = mark === 'star' ? <Star /> : mark === 'cross' ? <Cross /> : <Diamond />;
   return <span className="relic-synergy" data-band={band}>
-    <span className="relic-mark-slots" aria-hidden="true">
-      <span className="relic-mark-slot">{glyph}</span>
-      <span className={count === 2 ? 'relic-mark-slot' : 'relic-mark-slot relic-mark-spare'}>{glyph}</span>
-    </span>
+    <SynergyGlyph band={band} />
     <span className="relic-synergy-label">{relicSynergyBandLabels[band]}</span>
+  </span>;
+}
+
+/** The same mark vocabulary, without the table's band colour or text label. */
+export function RelicSynergyFilterMark({ band }: { band: RelicSynergyBand }) {
+  return <span className="relic-synergy-filter-mark" data-band={band}>
+    <SynergyGlyph band={band} reserveSecondSlot={false} />
   </span>;
 }
 

@@ -49,6 +49,12 @@ them on `rid`, exactly as it does for artifacts.
 | `pri_effect` | `[100 \| 101 \| 102, percent]` — HP, ATK or DEF as a percentage |
 | `sec_effect` | `[type, threshold, percent]` — the unique property at this level |
 
+**Relic Power-up Stones live in account inventory, not in rune craft items.**
+The current export records their stack as
+`inventory_info[item_master_type = 114, item_master_id = 1].item_quantity`.
+The Relics filter strip shows that exact quantity; when an import does not carry
+`inventory_info`, it says so rather than treating an unknown balance as zero.
+
 **There is no `occupied_id`.** A relic record names no wearer, because it has
 many. Engraving counts are derived by walking the roster
 (`relicEngravingCounts`), and a relic nobody wears is simply absent from that
@@ -62,7 +68,8 @@ had misread.
 **The main property is `3 + level` percentage points.** The account confirms it
 at `+0` (3), `+6` (9) and `+9` (12), so `+15` is 18. It is the one figure that
 indexes a relic's whole strength against its level, which is why
-`relicMainPercent` is what `V(l, d)` in §7.2 measures a relic against.
+`relicMainPercent` is one half of the strength index that `V(l, d)` in §7.2
+measures a relic against; its unique-property threshold is the other half.
 
 ## 3. What is known about the mechanic, and from where
 
@@ -334,18 +341,21 @@ The same recursion, with one boundary changed:
 
 ```
 V(15, d) = 1
-V(l, 0)  = (3 + l) / 18                                 what it actually became
+V(l, 0)  = relicStrengthIndex(l, source)                 what it actually became
 V(l, d)  = p(l)·V(l + 1, d) + (1 − p(l))·V(l, d − 1)
 ```
 
 **Why a second run is necessary.** `P` asks whether a relic will *finish*, and
 answers `0` for anything that runs out of durability on the way. An exceptional
 `+12` with no durability left has `P = 0` and is one of the best things an
-account can own; `V` says it is worth 75 % of a finished relic — three quarters of the main
-property and two thirds of the unique. **A model that judged on `P` alone would
-sell it.** Once the published rates arrived (§7.4), `P` turned out to be unfit
-for the other question too — it is near zero for everything — and `V` now
-carries both, as a level and as a difference.
+account can own. `V` measures its realised, normalised strength: the main
+property and the unique-property threshold are equal halves of
+`relicStrengthIndex`. An ATK-, DEF- or HP-reading `+12` is therefore 75 % of a
+finished relic (main: 15/18; unique: 500/750); an SPD-reading one is about
+81.7 % (main: 15/18; unique: 100/125). **A model that judged on `P` alone would
+sell either.** Once the published rates arrived (§7.4), `P` turned out to be
+unfit for the other question too — it is near zero for everything — and `V` now
+carries expected strength instead.
 
 `V` also never falls when a level or an attempt is added, which `P` alone does
 not guarantee across the two branches. The verifier holds it to both.
@@ -363,9 +373,10 @@ D(l, d)  = p(l)·D(l + 1, d) + (1 − p(l))·D(l, d − 1)
 ```
 
 `P` and `V` are both readings of this one distribution — `P` is its mass on
-`+15`, `V` its mean — and the verifier holds all three to each other to machine
-precision. They are still written separately, because three recursions built
-from three different boundaries agreeing is a check worth having.
+`+15`, and `V` is its expected normalised strength — and the verifier holds all
+three to each other to machine precision. They are still written separately,
+because three recursions built from three different boundaries agreeing is a
+check worth having.
 
 **The table prints the median, not the mode.** The mode is the literal answer to
 "which single level is it most likely to land on", and it is a bad column: for
@@ -436,10 +447,10 @@ property multiplies by 6, a unique property reading ATK, DEF or MAX HP by 5, and
 one reading SPD by only **3**. So a Nimble relic arrives closer to its own
 ceiling than any other and has correspondingly less to win from being levelled
 — which is precisely what an index built on the main property alone could not
-say. `relicStrengthIndex` weighs the two halves equally for the *Likely end*
-context. `verify:relic-maths` checks that lower relics retain more expected
-future strength at every weighting from all-main to all-unique; this context
-does not secretly alter the explicit recommendation formula in §8.
+say. `relicStrengthIndex` weighs the two halves equally for both the *Likely
+end* context and the measured strength gain used in §8. `verify:relic-maths`
+checks that lower relics retain more expected future strength at every weighting
+from all-main to all-unique.
 
 **Every figure in that table is read, not inferred.** The MAX HP value at `+15`
 was the one that needed reading twice — it was illegible in the first capture
@@ -473,9 +484,10 @@ pooling. What it did not say was that **the sample covered only the cheap half
 of the curve**, and a projection is only as good as the range its evidence
 spans.
 
-## 8. The verdict is one multiplication
+## 8. The verdict is chance times the strength it buys
 
-**A relic's one synergy band multiplies the exact chance of its next attempt:**
+**A relic's one synergy band multiplies the exact expected strength of its next
+attempt:**
 
 | Fit | Weight |
 | --- | ---: |
@@ -487,31 +499,42 @@ spans.
 
 For an open relic at level `l`, the chance of reaching the *next* level is
 exactly `p(l)`: one successful attempt reaches `l + 1`; durability only decides
-whether an attempt exists. JASWA therefore calculates
+whether an attempt exists. A success is not always worth the same amount,
+though. Every level raises the main property, and reaching `+3`, `+6`, `+9`,
+`+12` or `+15` also lowers the unique-property threshold.
+
+Let `S(l)` be `relicStrengthIndex(l, source)`, and let one ordinary
+non-tier-level gain be the unit. JASWA calculates
 
 ```
 investment score = 100 × synergy multiplier × p(l)
+                 × [S(l + 1) − S(l)] / [S(1) − S(0)]
 ```
 
-This is deliberately a **decision score, not a probability**. A 140 % score
-means that a 35 % game chance is being prioritised by an Exceptional ×4 fit;
-it does not claim a 140 % chance of success. The smaller, symmetric ladder is a
+An ordinary level therefore keeps the previous scale, while a success that
+crosses a unique-property tier earns its measured multiple. This makes `+8 → +9`,
+`+11 → +12` and `+14 → +15` materially more attractive than the equally
+probable main-stat-only steps beside them. The score is deliberately a
+**decision score, not a probability**. A score above 100 % is a priority signal,
+not a claimed game chance. The smaller, symmetric synergy ladder is a
 transparent prioritisation rule, not a claim that ordinal bands have measured
 cardinal utility.
 
-The final-level distribution and strength index in §7 remain on the page as
-context: they describe where a relic is likely to end. They do not disguise a
-different recommendation formula.
+The final-level distribution remains on the page as context: it describes where
+a relic is likely to end. The strength index supplies the explicit one-step
+gain above; neither hides a different recommendation formula.
 
 The rules, in the order they outrank each other:
 
-1. **Free levels power up.** `+0` through `+3` cannot spend stones.
+1. **Free levels power up.** At `+0`, `+1` and `+2`, the next level cannot
+   spend stones.
 2. **No durability keeps** unless a same-pair relic is already at a strictly
    higher level. It cannot be powered up, so its reason says exactly that.
 3. **A lower open copy is a replacement bet.** Its chance is `P(l, d, h + 1)`,
-   the exact chance of passing the higher copy at `+h`. Its decision score uses
-   the same synergy multiplier. Below the selected threshold it sells;
-   otherwise it powers up.
+   the exact chance of passing the higher copy at `+h`; its score uses the
+   strength gained by passing that copy. A higher copy already at `+15` cannot
+   be passed, so the challenger sells. Below the selected threshold every other
+   challenger sells; otherwise it powers up.
 4. **The threshold also sets a hard minimum synergy band.** Setting 1 accepts
    only Exceptional, setting 2 also accepts Strong, setting 3 also accepts
    Neutral, setting 4 also accepts Weak, and setting 5 accepts every band.

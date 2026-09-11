@@ -1,4 +1,7 @@
-import { relicMaximumLevel, relicPowerUpRates, relicStrengthIndex } from './relic-properties';
+import {
+  relicMaximumLevel, relicNextLevelStrengthGain, relicOrdinaryLevelStrengthGain,
+  relicPowerUpRates, relicStrengthIndex,
+} from './relic-properties';
 import type { RelicSourceStat } from './relic-properties';
 import type { Relic } from './relics';
 import { relicSynergy, relicSynergyBandOrder } from './relic-synergy';
@@ -9,7 +12,8 @@ import type { RelicSynergyBand } from './relic-synergy';
  *
  * `docs/RELIC-CANONICAL.md` §7 and §8 own this. One recursion answers every
  * question the page asks. The verdict itself uses the next attempt's exact
- * game chance, adjusted by the one account-wide synergy judgement.
+ * game chance and realised strength gain, adjusted by the one account-wide
+ * synergy judgement.
  */
 
 /**
@@ -91,10 +95,11 @@ export function relicReachChance(
  * That difference is the whole reason two runs are needed. `P` answers `0` for
  * any relic that runs out of durability on the way, and an exceptional `+12`
  * with nothing left to spend is one of the best things an account can own — so
- * a model that judged on `P` alone would sell it. `V` reads it at 75 % of a
- * finished relic instead, and `V(l, d) − V(l, 0)` is what the power-up bar is
- * read from: the published rates (`RELIC-CANONICAL.md` §7.4) leave `P` near
- * zero for everything, so it separates nothing.
+ * a model that judged on `P` alone would sell it. `V` instead reads its realised
+ * two-part strength (75 % for an ATK/DEF/HP-reading +12; about 81.7 % for SPD),
+ * and `V(l, d) − V(l, 0)` is what the power-up bar is read from: the published
+ * rates (`RELIC-CANONICAL.md` §7.4) leave `P` near zero for everything, so it
+ * separates nothing.
  */
 export function relicExpectedStrength(
   level: number, durability: number, source: RelicSourceStat,
@@ -141,7 +146,8 @@ export function relicExpectedLevel(chances: readonly number[]): number {
  * ```
  *
  * `P` and `V` are both readings of this distribution — `P` is its mass on `+15`
- * and `V` its mean — and `verify:relic-maths` holds all three to each other.
+ * and `V` its expected normalised strength — and `verify:relic-maths` holds all
+ * three to each other.
  * They are still computed separately because each is a scalar recursion and
  * cheaper, and because two recursions written from different boundaries
  * agreeing is a check worth having.
@@ -226,8 +232,9 @@ export function relicLanding(chances: readonly number[]): RelicLanding {
  * What a band of fit is worth, as a multiplier.
  *
  * The multiplier makes the one synergy judgement matter without pretending
- * that the ordinal bands are measured utilities. Applied to a chance it creates
- * a decision score, not another probability — scores above 100 % are expected.
+ * that the ordinal bands are measured utilities. Applied to an expected gain it
+ * creates a decision score, not another probability — scores above 100 % are
+ * expected.
  */
 export const relicSynergyWeights: Record<RelicSynergyBand, number> = {
   exceptional: 4,
@@ -279,7 +286,7 @@ export type RelicAdvice = {
   expectedGain: number;
   /** The chance of the next level-up attempt succeeding. */
   nextChance: number;
-  /** `100 × synergy multiplier × chance`: a decision score, not a probability. */
+  /** Expected next-attempt gain adjusted for synergy, not a probability. */
   investmentScore: number;
   /** The level the relic is expected to stop at, as a mean. */
   expectedLevel: number;
@@ -299,7 +306,8 @@ const percent = (fraction: number) => {
   if (value >= 1) return `${value.toFixed(1).replace(/\.0$/, '')}%`;
   return `${value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')}%`;
 };
-const investmentScore = (chance: number, weight: number) => 100 * chance * weight;
+const investmentScore = (chance: number, weight: number, strengthGain: number) =>
+  100 * chance * weight * strengthGain / relicOrdinaryLevelStrengthGain;
 const nextChance = (relic: Relic, rates: RelicSuccessRates) =>
   relic.level >= relicMaximumLevel || relic.durability === 0 ? 0 : (rates[relic.level] ?? 0);
 
@@ -335,7 +343,7 @@ export function relicAdvice(
       : relicReachChance(relic.level, relic.durability, higher.level + 1, rates);
 
     const chance = nextChance(relic, rates);
-    const score = investmentScore(chance, weight);
+    const score = investmentScore(chance, weight, relicNextLevelStrengthGain(relic.level, relic.unique.definition.per));
     advice.set(relic.id, {
       ...decide({ weight, chance, score, overtakeChance, higher, relic, threshold, band, minimumBand }),
       reachChance,
@@ -355,9 +363,10 @@ export function relicAdvice(
  * The decision, in the order the rules outrank each other.
  *
  * The next-attempt chance is exact: with durability left, reaching `+l + 1` is
- * precisely the game's published rate at `l`. The synergy multiplier turns it
- * into a score for choosing where scarce stones go; it must not be described as
- * a probability after that multiplication.
+ * precisely the game's published rate at `l`. Its realised strength gain
+ * distinguishes an ordinary main-stat level from a unique-property tier. The
+ * synergy multiplier turns that expected gain into a score for choosing where
+ * scarce stones go; it must not be described as a probability.
  */
 function decide({ weight, chance, score, overtakeChance, higher, relic, threshold, band, minimumBand }: {
   weight: number;
@@ -381,7 +390,10 @@ function decide({ weight, chance, score, overtakeChance, higher, relic, threshol
   if (relic.level < 3) return { verdict: 'power-up', reason: `Free +1: ${percent(chance)}` };
 
   if (higher !== null) {
-    const overtakeScore = investmentScore(overtakeChance ?? 0, weight);
+    if (higher.level >= relicMaximumLevel) return { verdict: 'sell', reason: 'Cannot beat +15.' };
+    const overtakeScore = investmentScore(
+      overtakeChance ?? 0, weight, relicNextLevelStrengthGain(higher.level, relic.unique.definition.per),
+    );
     const working = `Beat +${higher.level}: ${percent(overtakeChance ?? 0)}`;
     if (overtakeScore >= threshold) return { verdict: 'power-up', reason: working };
     return { verdict: 'sell', reason: working };

@@ -874,7 +874,8 @@ button { cursor: pointer; }
 .relic-filter-strip {
   grid-template-areas:
     "search main  synergy    advice"
-    "risk   level durability usage";
+    "risk   level durability usage"
+    "stones .     .          .";
 }
 .relic-filter-strip > .filter-group,
 .relic-filter-strip > .filter-group:nth-child(2n + 1),
@@ -887,16 +888,65 @@ button { cursor: pointer; }
 .relic-filter-threshold { grid-area: risk; padding-left: 0 !important; border-left: 0 !important; }
 .relic-filter-main { grid-area: main; }
 .relic-filter-synergy { grid-area: synergy; }
+.relic-filter-synergy .filter-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.relic-filter-synergy .filter-group-controls { gap: var(--s6); }
+/* The filter repeats the table's shapes but inherits the chip's colour. A
+   band is a filter value here, not a verdict, so it does not carry the table's
+   gold or red vocabulary. A chip is only as wide as its visible marks, so the
+   shared control gap is the actual gap between every adjacent mark. */
+.relic-synergy-filter-mark { display: inline-flex; color: currentColor; }
+.relic-synergy-filter-mark .relic-mark-slots { gap: var(--s1); }
 .relic-filter-advice { grid-area: advice; }
 .relic-filter-level { grid-area: level; }
 .relic-filter-durability { grid-area: durability; }
 .relic-filter-usage { grid-area: usage; }
+/* The stone balance is deliberately a fixed card, not a live-width number: a
+   power-up changes the account's resource, not the surrounding controls. Gold
+   marks the scarce resource the page asks the player to spend. */
+.relic-stone-balance {
+  grid-area: stones;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+  align-self: start;
+  width: var(--filter-column);
+  min-width: 0;
+  height: 54px;
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--gold-edge);
+  border-radius: var(--radius);
+  background: var(--gold-deep);
+}
+.relic-stone-balance-label {
+  min-width: 0;
+  color: var(--ink);
+  font-size: var(--t-micro);
+  font-weight: 700;
+  letter-spacing: .08em;
+  line-height: 1.3;
+  text-transform: uppercase;
+  white-space: normal;
+}
+.relic-stone-balance-value {
+  flex: 0 0 auto;
+  color: var(--gold);
+  font-family: var(--mono);
+  font-size: var(--t-lead);
+  font-variant-numeric: tabular-nums;
+}
 @media (min-width: 1921px) and (max-width: 1700px) {
   .relic-filter-strip {
     grid-template-areas:
       "search main       synergy"
       "risk   level      advice"
-      ".      durability usage";
+      "stones durability usage";
   }
 }
 @media (min-width: 1921px) and (max-width: 1120px) {
@@ -904,7 +954,7 @@ button { cursor: pointer; }
     grid-template-areas:
       "search main"
       "risk   synergy"
-      ".      advice"
+      "stones advice"
       ".      level"
       ".      durability"
       ".      usage";
@@ -916,6 +966,7 @@ button { cursor: pointer; }
     grid-template-areas:
       "search"
       "risk"
+      "stones"
       "main"
       "synergy"
       "advice"

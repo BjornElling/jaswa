@@ -219,3 +219,22 @@ export function relicStrengthIndex(level: number, source: RelicSourceStat, mainS
   const unique = relicThreshold(relicMaximumLevel, source) / relicThreshold(level, source);
   return mainShare * main + (1 - mainShare) * unique;
 }
+
+/**
+ * The realised strength a successful next attempt adds. A level is not always
+ * the same investment: crossing `+3`, `+6`, `+9`, `+12` or `+15` also moves
+ * the unique-property threshold, while every other level moves only the main
+ * property.
+ */
+export function relicNextLevelStrengthGain(level: number, source: RelicSourceStat): number {
+  if (level < 0 || level >= relicMaximumLevel) return 0;
+  return relicStrengthIndex(level + 1, source) - relicStrengthIndex(level, source);
+}
+
+/**
+ * One non-tier level's strength gain. Investment scores use this as their unit
+ * so the existing selectivity thresholds retain their meaning: an ordinary
+ * level is worth one unit, and a unique-property tier is worth its measured
+ * multiple.
+ */
+export const relicOrdinaryLevelStrengthGain = relicNextLevelStrengthGain(0, 'ATK');

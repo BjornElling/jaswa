@@ -125,6 +125,32 @@ export function readRelics(data: GameRecord | undefined): Relic[] {
 }
 
 /**
+ * The one inventory record the game uses for Relic Power-up Stones. It is kept
+ * separate from rune craft items: a stone is an account material, not a gem or
+ * grindstone stack.
+ */
+const relicPowerUpStoneInventoryItem = { masterType: 114, masterId: 1 } as const;
+
+/**
+ * The current number of Relic Power-up Stones, or `undefined` when this import
+ * did not carry the account-inventory collection. An explicitly present list
+ * without the record is an exact zero; a malformed or duplicated record stays
+ * unknown rather than being repaired into a number.
+ */
+export function relicPowerUpStoneCount(data: GameRecord | undefined): number | undefined {
+  const inventory = data?.inventory_info;
+  if (!Array.isArray(inventory)) return undefined;
+  const stones = inventory.filter((entry): entry is GameRecord => Boolean(entry)
+    && typeof entry === 'object' && !Array.isArray(entry)
+    && entry.item_master_type === relicPowerUpStoneInventoryItem.masterType
+    && entry.item_master_id === relicPowerUpStoneInventoryItem.masterId);
+  if (stones.length === 0) return 0;
+  if (stones.length !== 1) return undefined;
+  const quantity = stones[0].item_quantity;
+  return typeof quantity === 'number' && Number.isSafeInteger(quantity) && quantity >= 0 ? quantity : undefined;
+}
+
+/**
  * How many monsters wear each relic, keyed by relic id.
  *
  * A relic is not equipment the way a rune is. The game engraves one relic on

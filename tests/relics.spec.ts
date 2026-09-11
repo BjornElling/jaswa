@@ -99,6 +99,31 @@ test('synergy marks grow outward from the band name', async ({ page }) => {
   expect((slotBox?.x ?? 0) + (slotBox?.width ?? 0)).toBeLessThan(labelBox?.x ?? 0);
 });
 
+test('synergy filters use neutral mark-only chips with accessible names', async ({ page }) => {
+  await importAccount(page, relicAccount);
+  await openRelics(page);
+  const group = page.getByRole('group', { name: 'Filter by synergy' });
+  const exceptional = group.getByRole('button', { name: 'Exceptional' });
+  await expect(exceptional).toHaveText('');
+  await expect(exceptional.locator('.relic-mark-star')).toHaveCount(2);
+  await expect(group.getByRole('button', { name: 'Neutral' })
+    .locator('.relic-mark-slot:not(.relic-mark-spare) .relic-mark-diamond')).toHaveCount(1);
+  await expect(group.getByRole('button', { name: 'Weak' })
+    .locator('.relic-mark-slot:not(.relic-mark-spare) .relic-mark-cross')).toHaveCount(1);
+  const buttons = await group.getByRole('button').evaluateAll((entries) => entries.map((entry) => {
+    const { x, width } = entry.getBoundingClientRect();
+    return { x, width };
+  }));
+  expect(buttons[0].width).toBeGreaterThan(buttons[1].width);
+  const gaps = buttons.slice(1).map((entry, index) => entry.x - (buttons[index].x + buttons[index].width));
+  gaps.forEach((gap) => expect(gap).toBeCloseTo(gaps[0], 3));
+  const colours = await exceptional.locator('.relic-synergy-filter-mark').evaluate((mark) => [
+    getComputedStyle(mark).color,
+    getComputedStyle(mark.parentElement as HTMLElement).color,
+  ]);
+  expect(colours[0]).toBe(colours[1]);
+});
+
 test('a level says why it is where it is', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
@@ -178,7 +203,13 @@ test('the score threshold decides whether a second copy is worth the stones', as
   await expect(advice).toHaveText('SellBeat +12: 4.8%');
 });
 
-test('the score threshold also gates the minimum synergy band', async ({ page }) => {
+test('the filter strip shows the account’s Relic Power-up Stone balance', async ({ page }) => {
+  await importAccount(page, relicAccount);
+  await openRelics(page);
+  await expect(page.getByLabel('Relic Power-up stones: 37')).toHaveText('Relic Power-up stones37');
+});
+
+test('the score threshold gates the minimum synergy band without wasting a tier', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
   const threshold = page.getByRole('slider', { name: 'Power-up threshold, 1 cautious to 5 bold' });
@@ -186,7 +217,10 @@ test('the score threshold also gates the minimum synergy band', async ({ page })
   await expect(weak).toContainText('Sell');
   await expect(adviceFor(page, 'per 2,000 ATK')).toHaveText('SellSynergy < threshold.');
   await threshold.fill('4');
-  await expect(weak).toContainText('Keep');
+  /* Weak is admitted at setting 4, and this +5 → +6 success also improves its
+     unique property. The hard gate still rejects it at the stricter settings;
+     once admitted, JASWA must not stop one level before the tier it is buying. */
+  await expect(adviceFor(page, 'per 2,000 ATK')).toHaveText('Power upNext +1: 60%');
   await threshold.fill('1');
   await expect(weak).toContainText('Sell');
   await expect(adviceFor(page, 'per 2,000 ATK')).toHaveText('SellSynergy < threshold.');
