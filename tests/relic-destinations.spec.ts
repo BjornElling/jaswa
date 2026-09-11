@@ -236,7 +236,7 @@ test('Hide if → Already optimal leaves only the rows asking for something', as
   const optimal = destinations(page).filter({ hasText: 'Same' });
   await expect(optimal).toHaveCount(2);
 
-  await page.getByRole('group', { name: 'Hide monsters with nothing to change' })
+  await page.getByRole('group', { name: 'Choose which monsters to leave out' })
     .getByRole('button', { name: 'Already optimal' }).click();
   await expect(destinations(page)).toHaveCount(2);
   await expect(destinations(page).filter({ hasText: 'Same' })).toHaveCount(0);
@@ -244,6 +244,26 @@ test('Hide if → Already optimal leaves only the rows asking for something', as
      against is untouched and every surviving row still says what it said. */
   await expect(page.getByLabel('2 of 5 monsters shown')).toBeVisible();
   await expect(advice(monsterRow(page, 'Beth'))).toHaveText('Engrave');
+
+  await page.getByRole('button', { name: 'Reset monsters filters' }).click();
+  await expect(destinations(page)).toHaveCount(4);
+});
+
+test('Hide if → Already engraved leaves the monsters still free to take one', async ({ page }) => {
+  await importAccount(page);
+  await openUseForMons(page);
+  /* Three of the four visible monsters already carry a relic, Kaimann two of
+     them. Beth is the only one at the level cap wearing nothing. */
+  await page.getByRole('group', { name: 'Choose which monsters to leave out' })
+    .getByRole('button', { name: 'Already engraved' }).click();
+  await expect(destinations(page)).toHaveCount(1);
+  await expect(current(monsterRow(page, 'Beth'))).toHaveText('—');
+  await expect(page.getByLabel('1 of 5 monsters shown')).toBeVisible();
+
+  /* It hides on what the monster wears, not on the verdict: Bulldozer is asked
+     to change relic and still goes, because acting on it means undoing an
+     engraving first. */
+  await expect(monsterRow(page, 'Bulldozer')).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Reset monsters filters' }).click();
   await expect(destinations(page)).toHaveCount(4);

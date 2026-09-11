@@ -90,6 +90,11 @@
   --workspace-max: var(--content-box);
   --measure-grid: var(--content-box);
   --gutter: var(--s6);
+  /* The air between two groups of columns that are not read together. Wider
+     than any step on the scale above on purpose: it has to clear the run of
+     figures beside it and still read as a break, and the table's own column
+     spacing is already 60–108px wide where a column carries slack. */
+  --seam: 76px;
 
   /* type scale */
   --t-micro: 11px;
@@ -1065,6 +1070,13 @@ button { cursor: pointer; }
 .grid-table tbody td:first-child { padding-left: var(--gutter); }
 .grid-table thead th:last-child,
 .grid-table tbody td:last-child { padding-right: var(--gutter); }
+
+/* The seam between two groups of columns — a run of figures and the text that
+   follows it, say. The column plan declares which column opens one; see
+   `ColumnGutter` in `table-layouts.ts`. A first column keeps the table's own
+   edge gutter instead, so the rule above still wins there. */
+.grid-table thead th.column-gutter-left:not(:first-child),
+.grid-table tbody td.column-gutter-left:not(:first-child) { padding-left: var(--seam); }
 
 .grid-table thead th {
   position: sticky; top: 0; z-index: 10;

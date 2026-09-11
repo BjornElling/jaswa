@@ -4,7 +4,7 @@ import { FilterSummary } from './filter-summary';
 import { MonsterPortrait } from './monster-portrait';
 import { SortableHeader, useSortedRows } from './sortable-table';
 import type { SortableColumn } from './sortable-table';
-import { alignmentClass, relicMonsterTableColumns } from '../lib/table-layouts';
+import { columnClasses, relicMonsterTableColumns } from '../lib/table-layouts';
 import type { GameRecord } from '../lib/game-data';
 import type { Preferences } from '../lib/types';
 import { monsterPresentation } from '../lib/monster-catalog';
@@ -48,6 +48,16 @@ type RelicMonsterFilterState = {
   showStorage: boolean;
   showBelowMaxLevel: boolean;
   /**
+   * Drops every monster already carrying a relic, whichever relic it is and
+   * whatever the page thinks of it. Engraving a bare monster costs nothing but
+   * the relic's own places, while moving one already engraved means undoing an
+   * engraving first — so this leaves the monsters that can be acted on today.
+   *
+   * Not `recommendation.alreadyEngraved`, which is the narrower claim that the
+   * relic it wears is the one this page would give it.
+   */
+  hideAlreadyEngraved: boolean;
+  /**
    * Drops the rows with nothing to do. On an account whose relics are mostly
    * placed, `Keep` is the commonest verdict by a wide margin, and the rows worth
    * reading are the ones asking for a change — so this turns the table into a
@@ -63,6 +73,7 @@ const defaultRelicMonsterFilters: RelicMonsterFilterState = {
   showInventory: true,
   showStorage: true,
   showBelowMaxLevel: false,
+  hideAlreadyEngraved: false,
   hideAlreadyOptimal: false,
 };
 
@@ -77,24 +88,31 @@ function isRelicMonsterFilterState(value: unknown): value is RelicMonsterFilterS
     && typeof candidate.showInventory === 'boolean'
     && typeof candidate.showStorage === 'boolean'
     && typeof candidate.showBelowMaxLevel === 'boolean'
+    && typeof candidate.hideAlreadyEngraved === 'boolean'
     && typeof candidate.hideAlreadyOptimal === 'boolean';
 }
 
-function relicMonsterCell(key: string, ...extra: Array<string | false | undefined>): string {
-  const align = relicMonsterTableColumns.find((column) => column.key === key)?.align;
-  return [alignmentClass(align), ...extra].filter(Boolean).join(' ');
-}
+/* One implementation, shared with every other table: a second one here read the
+   column plan for its alignment and quietly ignored everything else the plan
+   declares, so the gutters opened in the heading and not in the rows under it. */
+const relicMonsterCell = columnClasses(relicMonsterTableColumns);
 
 const relicMonsterColumns: readonly SortableColumn<RelicMonsterRow>[] = (() => {
-  const column = (key: RelicMonsterSortKey, label: SortableColumn<RelicMonsterRow>['label'], accessibleLabel?: string) => ({
-    key,
-    label,
-    accessibleLabel,
-    align: relicMonsterTableColumns.find((entry) => entry.key === key)?.align,
-    initialDirection: defaultRelicMonsterSortDirections[key] ? 'ascending' as const : 'descending' as const,
-    compare: (left: RelicMonsterRow, right: RelicMonsterRow) =>
-      compareRelicMonsterRows(left, right, key) || left.index - right.index,
-  });
+  const column = (key: RelicMonsterSortKey, label: SortableColumn<RelicMonsterRow>['label'], accessibleLabel?: string) => {
+    /* The plan is the single source for how a column sits in its box, so the
+       heading takes both of its declarations from the same entry the rows do. */
+    const planned = relicMonsterTableColumns.find((entry) => entry.key === key);
+    return {
+      key,
+      label,
+      accessibleLabel,
+      align: planned?.align,
+      gutter: planned?.gutter,
+      initialDirection: defaultRelicMonsterSortDirections[key] ? 'ascending' as const : 'descending' as const,
+      compare: (left: RelicMonsterRow, right: RelicMonsterRow) =>
+        compareRelicMonsterRows(left, right, key) || left.index - right.index,
+    };
+  };
   return [
     column('index', '#', 'Row number'),
     column('name', 'Monster'),
@@ -102,13 +120,17 @@ const relicMonsterColumns: readonly SortableColumn<RelicMonsterRow>[] = (() => {
     column('archetype', 'Type'),
     column('level', 'LVL'),
     column('current', <span className="table-heading-two-line" aria-label="The relic this monster wears today">Current<br />relic</span>),
-    column('recommended', <span className="table-heading-two-line" aria-label="The relic to engrave on this monster">Use<br />this</span>),
+    column('recommended', <span className="table-heading-two-line" aria-label="The relic to engrave on this monster">Recommended<br />relic</span>),
     /* Two readings of the recommended relic, each against the best that half
        could be on this monster. Named for the halves themselves rather than for
        a composite, because a reader can check either one against the game's own
-       Statistics panel. */
-    column('mainStat', <span className="table-heading-two-line" aria-label="The recommended main property, as a share of this monster's most-engraved main">Main<br />stat</span>),
-    column('uniqueStat', <span className="table-heading-two-line" aria-label="The recommended unique property, as a share of this monster's most-engraved unique property">Unique<br />prop.</span>),
+       Statistics panel.
+       Both headings carry `Recc.` because both rate the relic in the column two
+       to their left and not the one the monster wears today. Unqualified, they
+       sat beside `Current relic` reading as though they described it — the
+       distinction the cell titles spell out belongs in the heading too. */
+    column('mainStat', <span className="table-heading-two-line" aria-label="The recommended main property, as a share of this monster's most-engraved main">Recc. main<br />stat</span>),
+    column('uniqueStat', <span className="table-heading-two-line" aria-label="The recommended unique property, as a share of this monster's most-engraved unique property">Recc. unique<br />prop.</span>),
     column('advice', 'Advice'),
   ];
 })();
@@ -180,7 +202,7 @@ export function RelicMonsterList({ relics, monsters: roster, preferences }: {
   );
   const {
     search, selectedElements, selectedArchetypes, showInventory, showStorage, showBelowMaxLevel,
-    hideAlreadyOptimal,
+    hideAlreadyEngraved, hideAlreadyOptimal,
   } = filters;
 
   const relicsById = useMemo(() => new Map(relics.map((relic) => [relic.id, relic])), [relics]);
@@ -290,6 +312,10 @@ export function RelicMonsterList({ relics, monsters: roster, preferences }: {
          hiding it leaves the rows that ask for something — and, like every
          other control here, it drops rows rather than touching a judgement. */
       if (hideAlreadyOptimal && row.verdict === 'keep') return false;
+      /* The relics the monster wears, as the account's own relic list gave them
+         — so a row hidden here is one the export really does show engraved, not
+         one whose record merely mentions a relic the library rejected. */
+      if (hideAlreadyEngraved && row.worn.length) return false;
       /* Storage and Inventory are the game's two places a monster can be, so
          the pair is exhaustive: turning both off is a request for nothing. */
       if (!showStorage && row.inStorage) return false;
@@ -301,7 +327,7 @@ export function RelicMonsterList({ relics, monsters: roster, preferences }: {
       return searchedMasterIds?.has(row.masterId) || relicMonsterSearchText(row).includes(term);
     });
   }, [rows, search, searchedMasterIds, selectedElements, selectedArchetypes,
-    showInventory, showStorage, showBelowMaxLevel, hideAlreadyOptimal]);
+    showInventory, showStorage, showBelowMaxLevel, hideAlreadyEngraved, hideAlreadyOptimal]);
 
   /* The page exists to answer "what should this monster be wearing", so it opens
      on the rows that want something done rather than on the import's own order:
@@ -406,9 +432,20 @@ export function RelicMonsterList({ relics, monsters: roster, preferences }: {
               aria-pressed={showBelowMaxLevel}>Lvl. &lt; {maxMonsterLevel}</button>
           </div>
         </div>
-        <div className="filter-group relic-monster-filter-hide" role="group" aria-label="Hide monsters with nothing to change">
+        {/* The group used to be named for the one control in it. It now holds
+            two that leave out different monsters — one the rows with nothing to
+            change, the other every monster already carrying a relic — so it is
+            named for what the pair does. */}
+        <div className="filter-group relic-monster-filter-hide" role="group" aria-label="Choose which monsters to leave out">
           <span className="filter-label">Hide if</span>
           <div className="filter-group-controls">
+            <button type="button" className={hideAlreadyEngraved ? 'filter-button active' : 'filter-button'}
+              onClick={() => setFilters((current) => ({
+                ...current, hideAlreadyEngraved: !current.hideAlreadyEngraved,
+              }))}
+              aria-pressed={hideAlreadyEngraved}
+              title="Monsters already wearing a relic, whichever relic it is"
+            >Already engraved</button>
             <button type="button" className={hideAlreadyOptimal ? 'filter-button active' : 'filter-button'}
               onClick={() => setFilters((current) => ({
                 ...current, hideAlreadyOptimal: !current.hideAlreadyOptimal,

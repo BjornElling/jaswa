@@ -823,11 +823,11 @@ not a capture, and anything else is. That rule is binding, it is what
 `artifact-preferences.ts` follows, and a second competing rule here made the two
 pages disagree about one dataset. It is gone.
 
-**The sample size is shown instead of gated on.** Every Main stat and Unique
-prop. cell's title ends with the number of engravings its percentages were drawn
-from, because §1 of that document is right that a percentage discards the sample
-size — 30 % of 88 and 30 % of 69,590 are not the same evidence, and the reader
-is the one who should weigh that.
+**The sample size is shown instead of gated on.** Every Recc. main stat and
+Recc. unique prop. cell's title ends with the number of engravings its
+percentages were drawn from, because §1 of that document is right that a
+percentage discards the sample size — 30 % of 88 and 30 % of 69,590 are not the
+same evidence, and the reader is the one who should weigh that.
 
 **A half-empty panel is still refused outright.** Both distributions must be present.
 Judging a relic on its main while inventing the unique half would be
@@ -1002,15 +1002,20 @@ about, while over-including one costs a place at worst.
 
 **A row is computed from that monster, the relics, and the engraving counts in
 the import — and from nothing else.** Search, Element, Type, Inventory, Storage,
-the level filter and **Hide if → Already optimal** change which finished rows
-the user is looking at, and can never change what any of them says.
+the level filter and the two **Hide if** controls change which finished rows the
+user is looking at, and can never change what any of them says.
 
-The last of those is the one worth naming, because it filters on the page's own
-verdict. `Already optimal` drops every row whose verdict is `Keep` — precisely
-the monsters already wearing the relic this page would give them. On an account
+The last two are the ones worth naming, because they read the finished row.
+`Already optimal` drops every row whose verdict is `Keep` — precisely the
+monsters already wearing the relic this page would give them. On an account
 whose relics are mostly placed that is the commonest verdict by a wide margin,
-so the control turns the table into a worklist. It removes rows *after* the
-verdict is decided and never feeds back into it.
+so the control turns the table into a worklist. `Already engraved` drops every
+monster carrying a relic at all, whichever relic it is and whatever the page
+thinks of it: engraving a bare monster costs only the relic's own places, while
+moving an engraved one means undoing an engraving first, so this leaves the
+monsters that can be acted on today. Note that the two are not nested —
+`Already engraved` also hides the `Replace` rows, which `Already optimal` keeps.
+Both remove rows *after* the verdict is decided and never feed back into it.
 
 Under §11.5's gate this is close to free: each answer is already independent of
 every other monster, so there is nothing a filter *could* reach. It was not free
@@ -1033,10 +1038,44 @@ the survivors to be untouched.
 | --- | --- |
 | `#`, Monster, Elem, Type, LVL | The monster, as the roster table names it |
 | Current relic | What it wears today — every relic the export gives it, never only the first |
-| Use this | The relic to engrave, or `Same` where that is what it already wears |
-| Main stat | The recommended relic's main property, as a share of this monster's most-engraved main |
-| Unique prop. | The same reading for its unique property |
+| Recommended relic | The relic to engrave, or `Same` where that is what it already wears |
+| Recc. main stat | The recommended relic's main property, as a share of this monster's most-engraved main |
+| Recc. unique prop. | The same reading for its unique property |
 | Advice | The verdict, and a reason line only where there is one to give |
+
+**Three headings say `Recommended` or `Recc.`, and that repetition is the
+point.** The two percentage columns rate the relic the page is proposing, not
+the one beside them in **Current relic**; unqualified, `Main stat` sat two
+columns from `Current relic` and read as though it described it. The subject of
+a column belongs in its heading, where a reader meets it, and not only in the
+cell titles a reader has to hover to find.
+
+**The column widths are measured, not chosen by eye.** What a reader sees
+between two columns is the padding plus whatever width each column carries past
+its own content, and the alignment decides which end that slack lands on. A
+left-aligned column followed by a right-aligned one contributes *both* columns'
+slack to the seam between them — `Recommended relic` into `Recc. main stat` was
+a 207px hole on that account alone. A right-aligned column followed by a
+left-aligned one contributes none and shuts to bare padding, which is what
+happened at `LVL` and again at `Advice`, at 24px.
+
+So the widths are solved rather than chosen. Each column gets its content plus
+whatever slack the seam beside it needs to match the rest, and the two seams
+that would otherwise close up are opened with a `gutter` (`ColumnGutter` in
+`table-layouts.ts`). Every seam then measures 82–100px, against 27–108px before,
+and the row fills its width with no spare band at either end.
+
+**Two seams sit at the top of that range and cannot come down.** A column can
+never be narrower than its own heading, and `Recc. main stat` and `Recc. unique
+prop.` are both far wider than the percentage under them. Any width a heading
+forces past its content becomes seam, so shortening those two headings is the
+only thing that would even them out further — which is the trade this table
+made knowingly, because a reader who cannot tell which relic a percentage rates
+is worse off than one looking at a seam 14px wider than its neighbours.
+
+Changing a heading on this table changes its column's minimum width, so the
+widths are checked by measuring the rendered rows again, not by adjusting one
+percentage until the screenshot looks right.
 
 **The two percentage columns are readings, not the score.** `Score` and `Fit`
 stood here first and were replaced, because a composite is the one number on a
@@ -1047,8 +1086,8 @@ whose leader has 40 % and one at 21 % on the same monster fall in the same tier
 (§11.2) and are plainly not the same relic — the tiers are the right shape for
 deciding and the wrong shape for showing.
 
-They rate the relic in **Use this**, not the one in **Current relic**, so the
-columns describe what the page is proposing. The incumbent's own two figures are
+They rate the relic in **Recommended relic**, not the one in **Current relic**,
+so the columns describe what the page is proposing. The incumbent's figures are
 in each cell's title, because without them the size of a proposed change cannot
 be read off the row. Where the panel is missing or too thin there is nothing to
 divide by and the cell reads `—`; a `0 %` would claim the population had

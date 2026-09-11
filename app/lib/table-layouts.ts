@@ -8,11 +8,25 @@
  */
 export type ColumnAlignment = 'left' | 'right' | 'center';
 
+/**
+ * Extra room before a column, for the seam between two groups of columns that
+ * happen to sit next to each other but are not read together. A right-aligned
+ * figure and the left-aligned text after it otherwise meet at one shared pad
+ * and read as one block.
+ *
+ * It is declared on the column plan beside the width rather than written as a
+ * CSS rule, for the same reason the widths are: a rule keyed on position would
+ * follow the position and not the column when the plan is reordered.
+ */
+export type ColumnGutter = 'left';
+
 export type TableColumn = {
   key: string;
   width: string;
   /** Omitted means 'left'; only a numeric column states 'right'. */
   align?: ColumnAlignment;
+  /** Omitted means the table's ordinary cell padding on both sides. */
+  gutter?: ColumnGutter;
 };
 
 /** The class both a `th` and a `td` take for one column, so the pair agrees. */
@@ -20,6 +34,11 @@ export function alignmentClass(align: ColumnAlignment | undefined): string {
   if (align === 'right') return 'align-right';
   if (align === 'center') return 'align-center';
   return 'align-left';
+}
+
+/** The gutter's class, on the same terms: one declaration, both halves. */
+export function gutterClass(gutter: ColumnGutter | undefined): string | undefined {
+  return gutter === 'left' ? 'column-gutter-left' : undefined;
 }
 
 /**
@@ -36,10 +55,15 @@ export function alignmentClass(align: ColumnAlignment | undefined): string {
  * it takes that shape rather than `SortableColumn` and no import runs back the
  * other way.
  */
-export function columnClasses(columns: readonly { key: string; align?: ColumnAlignment }[]) {
-  const byKey = new Map(columns.map((column) => [column.key, column.align]));
-  return (key: string, ...extra: Array<string | false | undefined>) =>
-    [alignmentClass(byKey.get(key)), ...extra].filter(Boolean).join(' ');
+export function columnClasses(
+  columns: readonly { key: string; align?: ColumnAlignment; gutter?: ColumnGutter }[],
+) {
+  const byKey = new Map(columns.map((column) => [column.key, column]));
+  return (key: string, ...extra: Array<string | false | undefined>) => {
+    const column = byKey.get(key);
+    return [alignmentClass(column?.align), gutterClass(column?.gutter), ...extra]
+      .filter(Boolean).join(' ');
+  };
 }
 
 /**
@@ -139,28 +163,61 @@ export const relicTableColumns: readonly TableColumn[] = [
  * the judgement sit together on the right: what it wears, what the plan gives
  * it, and why.
  *
- * The two relic columns take equal width deliberately — they are read against
- * each other, and a narrower "Current" would make a replacement look like a
- * smaller change than it is. Fit and Score are the only figures, so they are
- * the only right-aligned columns.
+ * The widths are set from one measurement of the rendered table rather than by
+ * eye, because the space a reader sees between two columns is not the padding
+ * between them: it is the padding *plus* whatever width each column carries
+ * beyond its own content, and which end that slack lands on depends on the
+ * alignment. Two left-aligned columns push their slack into the seam after them.
+ * A left column followed by a right one puts *both* columns' slack into the same
+ * seam, which is why the widest hole on this table — 207px — sat between the
+ * recommended relic and the first percentage that rates it. A right column
+ * followed by a left one has no slack in the seam at all and closes up to bare
+ * padding, which is what happened at the level and again at the advice.
+ *
+ * So the widths below are solved rather than chosen: each column is given its
+ * content, plus whatever slack the seam beside it needs to match the rest, and
+ * the two seams that would otherwise close up are opened with a `gutter`. Every
+ * seam then measures 82–100px, against 27–108px before, and the row fills its
+ * width with no spare band at either end.
+ *
+ * Two of them sit at the top of that range and cannot come down: a column can
+ * never be narrower than its own heading, and `Recc. main stat` and `Recc.
+ * unique prop.` are both headings far wider than the percentage under them. Any
+ * width a heading forces past its content becomes seam, so shortening those two
+ * headings is the only thing that would even them out further.
+ *
+ * `npx playwright test` has no assertion on any of this — the numbers come from
+ * measuring the rendered rows, and they have to be re-measured after a heading,
+ * a font or a canvas width changes, not nudged one percent at a time.
  */
 export const relicMonsterTableColumns: readonly TableColumn[] = [
-  { key: 'index', width: '4%', align: 'left' },
-  { key: 'name', width: '17%', align: 'left' },
-  { key: 'element', width: '6%', align: 'left' },
-  { key: 'archetype', width: '5%', align: 'left' },
-  { key: 'level', width: '5%', align: 'right' },
-  { key: 'current', width: '15%', align: 'left' },
-  { key: 'recommended', width: '15%', align: 'left' },
+  { key: 'index', width: '7.65%', align: 'left' },
+  { key: 'name', width: '12.26%', align: 'left' },
+  { key: 'element', width: '7.25%', align: 'left' },
+  { key: 'archetype', width: '5.41%', align: 'left' },
+  { key: 'level', width: '4.61%', align: 'right' },
+  /* The roster facts end at the level, and the plan for this monster starts
+     here. The level's digits sit at their column's right edge and the relic's
+     name at this one's left, so without the gutter the two meet at bare padding
+     and the groups run together — the tightest seam on the row was here. */
+  { key: 'current', width: '16.55%', align: 'left', gutter: 'left' },
+  { key: 'recommended', width: '9.16%', align: 'left' },
   /* The recommended relic's two halves, each as a share of the best that half
      could be on this monster. Two readings rather than one composite, because
      a reader can check either against the game's own Statistics panel and a
-     blended figure they cannot check is a figure they have to trust. */
-  { key: 'mainStat', width: '8%', align: 'right' },
-  { key: 'uniqueStat', width: '8%', align: 'right' },
+     blended figure they cannot check is a figure they have to trust.
+     Both are cut to their headings and no wider. A right-aligned column parks
+     its figure at its far edge, so every pixel of width past the heading turns
+     into a hole in *front* of the number, between it and the relic name it
+     rates. These two were 10 % each and opened a 207px gap doing it. */
+  { key: 'mainStat', width: '7.78%', align: 'right' },
+  { key: 'uniqueStat', width: '8.77%', align: 'right' },
   /* A verdict and its one-line reason share this column, and its width is
-     reserved for the longest reason so no row can crop or re-wrap the table. */
-  { key: 'advice', width: '17%', align: 'left' },
+     reserved for the longest reason so no row can crop or re-wrap the table.
+     The gutter closes the run of percentages as the one above opens it, and the
+     slack past the longest reason sits at the table's own edge — the one place
+     on the row where spare width opens no hole between two things. */
+  { key: 'advice', width: '20.56%', align: 'left', gutter: 'left' },
 ];
 
 /**
