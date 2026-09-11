@@ -3,7 +3,8 @@
 **Status:** Binding project rules for the Relics page
 **Settled:** September 11, 2026
 **Derived data:** `app/data/relic-synergy.json`, written by
-`scripts/build-relic-synergy.mjs`
+`scripts/build-relic-synergy.mjs` — the whole 48-cell matrix is written out in
+readable form in §5.1.1
 **Read by:** `app/lib/relics.ts`, `app/lib/relic-properties.ts`,
 `app/lib/relic-synergy.ts`, `app/lib/relic-advice.ts`,
 `app/components/relic-list.tsx`
@@ -271,20 +272,43 @@ So the rule of thumb — *main and unique should point the same way* — is not
 merely supported, it is the only pattern in the data. What the measurement adds
 is **which** way, for each of the sixteen, and by how much.
 
-The five strongest pairs, and the five weakest:
+### 5.1.1 The whole matrix
 
-| | Pair | z |
-| --- | --- | ---: |
-| ★★ | HP + Nimble Primal | +1.64 |
-| ★★ | ATK + Sharp Conquest | +1.61 |
-| ★★ | DEF + Solid Conquest | +1.58 |
-| ★★ | DEF + Solid Resolute | +1.49 |
-| ★★ | HP + Hearty Resolute | +1.31 |
-| ✕✕ | ATK + Hearty Resolute | −1.23 |
-| ✕✕ | DEF + Nimble Valiant | −1.36 |
-| ✕✕ | ATK + Nimble Primal | −1.65 |
-| ✕✕ | DEF + Sharp Conquest | −1.81 |
-| ✕✕ | HP + Sharp Conquest | −1.91 |
+All 48 cells, with the standardised score beside each grade. This is the same
+table `app/data/relic-synergy.json` carries — that file is keyed by id and holds
+no grades, because the bands are applied on read in `relic-synergy.ts`, so this
+is the one place the two halves are written out together.
+
+| id | Unique property | Grants | Reads | HP main | ATK main | DEF main |
+| ---: | --- | --- | --- | --- | --- | --- |
+| 1 | Sharp Conquest | DMG dealt | ATK | ✕✕ −1.91 | ★★ +1.61 | ✕✕ −1.81 |
+| 2 | Solid Conquest | DMG dealt | DEF | ◇ −0.23 | ◇ −0.12 | ★★ +1.58 |
+| 3 | Hearty Conquest | DMG dealt | MAX HP | ★ +0.44 | ◇ −0.07 | ◇ −0.32 |
+| 4 | Sharp Resolute | DMG taken | ATK | ✕ −0.92 | ★★ +1.02 | ✕ −0.92 |
+| 5 | Solid Resolute | DMG taken | DEF | ★ +0.55 | ✕ −0.83 | ★★ +1.49 |
+| 6 | Hearty Resolute | DMG taken | MAX HP | ★★ +1.31 | ✕✕ −1.23 | ◇ +0.26 |
+| 7 | Nimble Valiant | ATK | SPD | ✕✕ −1.15 | ★★ +1.21 | ✕✕ −1.36 |
+| 8 | Solid Valiant | ATK | DEF | ✕ −0.68 | ★ +0.67 | ◇ +0.14 |
+| 9 | Hearty Valiant | ATK | MAX HP | ✕ −0.46 | ★ +0.75 | ✕ −0.91 |
+| 10 | Sharp Timeless | DEF | ATK | ✕ −0.83 | ★ +0.87 | ◇ −0.32 |
+| 11 | Nimble Timeless | DEF | SPD | ◇ +0.31 | ◇ −0.30 | ★ +0.85 |
+| 12 | Hearty Timeless | DEF | MAX HP | ★★ +1.03 | ✕✕ −1.09 | ★ +0.84 |
+| 13 | Sharp Primal | MAX HP | ATK | ✕ −0.92 | ★★ +1.04 | ✕✕ −1.04 |
+| 14 | Nimble Primal | MAX HP | SPD | ★★ +1.64 | ✕✕ −1.65 | ◇ +0.07 |
+| 15 | Solid Primal | MAX HP | DEF | ★ +0.57 | ✕ −0.74 | ★★ +1.28 |
+| 16 | Hearty Restore | Recovery & Shield | MAX HP | ★★ +1.25 | ✕✕ −1.13 | ◇ +0.19 |
+
+★★ Exceptional · ★ Strong · ◇ Neutral · ✕ Weak · ✕✕ Poor — 11 / 8 / 11 / 9 / 9
+across the 48.
+
+Read down a column and the pattern in §5.1 is visible as shape: every ★★ sits on
+a row whose *Reads* or *Grants* column names that main stat, and every ✕✕ sits on
+a row where it names neither.
+
+**The table is not hand-written and must not be hand-edited.** It is derived by
+`scripts/build-relic-synergy.mjs` from the engraving statistics, and
+`npm run verify:relic-synergy` re-derives it and fails on any drift. If a
+recapture moves a figure, run the builder and paste the new numbers here.
 
 ### 5.2 The evidence that this is a measurement
 
