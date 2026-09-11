@@ -69,9 +69,15 @@
   "inventory_info": [
     {
       "rid": 9007,
+      "item_master_id": 19,
+      "item_master_type": 6,
+      "item_quantity": 37
+    },
+    {
+      "rid": 9008,
       "item_master_id": 10002,
       "item_master_type": 29,
-      "item_quantity": 37
+      "item_quantity": 58
     }
   ],
   "relics": [
