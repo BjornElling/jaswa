@@ -22,6 +22,14 @@ try {
   assert.equal(validateGameFile(account([owned])).valid, true,
     'a snapshot containing this account\'s monster remains importable');
 
+  const twoLocations = validateGameFile({
+    ...account([owned]),
+    unit_storage_normal_list: [{ unit_id: 10, unit_master_id: 14314, unit_level: 1 }],
+  });
+  assert.equal(twoLocations.valid, false,
+    'one unit id cannot describe both Inventory and the normal Sealed Shrine');
+  assert.match(twoLocations.message, /Inventory and Sealed Shrine at once/);
+
   const foreign = validateGameFile(account([
     owned,
     { unit_id: 11, wizard_id: 99, unit_master_id: 13815, unit_level: 40 },

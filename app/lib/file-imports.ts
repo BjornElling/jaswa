@@ -261,6 +261,13 @@ function validateAccountCollections(value: GameRecord): string | undefined {
 
   const units = recordCollection(value.unit_list);
   const normalStorageUnits = recordCollection(value.unit_storage_normal_list);
+  /* Normal Shrine is a location for a unit, not another collection of units.
+     A repeated id is contradictory source data: choosing a row to hide would
+     make the account total look plausible while leaving its location false. */
+  const liveUnitIds = new Set(units.map((unit) => String(unit.unit_id)));
+  if (normalStorageUnits.some((unit) => liveUnitIds.has(String(unit.unit_id)))) {
+    return 'This file places a monster in Inventory and Sealed Shrine at once.';
+  }
   /* A full export normally carries the account wizard id on every owned unit.
      Without this boundary, a battle response can look like a valid monster
      record and add an opponent's LD5 to the account simply because it has a

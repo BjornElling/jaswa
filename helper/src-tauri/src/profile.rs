@@ -259,11 +259,22 @@ impl ProfileStore {
             false,
             account_wizard_id.as_deref(),
         );
+        /* A normal-shrine record and a live unit have the same identity. The
+        game moves that one record between the two collections; it never owns
+        two copies under one unit id. Keep the ids that a response establishes
+        as live units, so an unseal reply which omits the complete shrine list
+        cannot leave yesterday's shrine record beside today's inventory unit. */
+        let mut received_unit_ids = Vec::new();
         for (entity, item, trusted) in &response_items {
             if !known_account_entity(&profile, *entity, item)
                 && !trusted_account_entity(&profile, *entity, item, *trusted)
             {
                 continue;
+            }
+            if entity.collection == "unit_list" {
+                if let Some(id) = identifier(item, entity.identifier) {
+                    received_unit_ids.push(id);
+                }
             }
             let current = collection(&profile, entity.collection).to_vec();
             let next = merge_collection(current.clone(), vec![item.clone()], entity.identifier);
@@ -328,6 +339,25 @@ impl ProfileStore {
                 set_collection(&mut profile, "unit_storage_normal_list", next);
                 changed = true;
             }
+            /* A list from the game is the complete, authoritative shrine
+            location. It wins over a partial unit record elsewhere in this
+            response, and evicts any stale live copy with the same id. */
+            let shrine_unit_ids = collection(&profile, "unit_storage_normal_list")
+                .iter()
+                .filter_map(|unit| identifier(unit, "unit_id"))
+                .collect::<Vec<_>>();
+            changed |=
+                remove_collection_items(&mut profile, "unit_list", "unit_id", &shrine_unit_ids);
+        } else {
+            /* The unseal replies observed in the wild provide the released
+            unit but not a replacement shrine list. That direct unit is the
+            authoritative location update for its own id. */
+            changed |= remove_collection_items(
+                &mut profile,
+                "unit_storage_normal_list",
+                "unit_id",
+                &unique(received_unit_ids),
+            );
         }
         /* A request that names a building and the monsters going into it says
         the same thing whether it carries one `unit_id` or a `unit_id_list`.
@@ -669,6 +699,23 @@ fn valid_snapshot_collections(object: &Map<String, Value>) -> bool {
     let Some(units) = object.get("unit_list").and_then(Value::as_array) else {
         return false;
     };
+    let normal_storage = object
+        .get("unit_storage_normal_list")
+        .and_then(Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or(&[]);
+    /* These lists describe locations, not separate inventories. A repeated
+    id is a contradictory snapshot; reject it rather than arbitrarily making
+    one location invisible. */
+    if units.iter().any(|unit| {
+        identifier(unit, "unit_id").is_some_and(|unit_id| {
+            normal_storage
+                .iter()
+                .any(|stored| identifier(stored, "unit_id").as_deref() == Some(unit_id.as_str()))
+        })
+    }) {
+        return false;
+    }
     for unit in units {
         let Some(unit) = unit.as_object() else {
             return false;
@@ -690,6 +737,25 @@ fn set_collection(profile: &mut Value, key: &str, value: Vec<Value>) {
     if let Some(object) = profile.as_object_mut() {
         object.insert(key.into(), Value::Array(value));
     }
+}
+/* A location transition removes records only from the collection it leaves;
+`remove_everywhere` is for destruction and would erase the new owner too. */
+fn remove_collection_items(
+    profile: &mut Value,
+    collection_key: &str,
+    identifier_key: &str,
+    ids: &[String],
+) -> bool {
+    if ids.is_empty() {
+        return false;
+    }
+    let current = collection(profile, collection_key).to_vec();
+    let next = remove_items(&current, ids, identifier_key);
+    if next == current {
+        return false;
+    }
+    set_collection(profile, collection_key, next);
+    true
 }
 fn sync_unit_equipment(profile: &mut Value, unit: &Value) -> bool {
     let mut changed = false;
@@ -1682,6 +1748,72 @@ mod tests {
                 .len(),
             2
         );
+    }
+
+    #[test]
+    fn unsealing_a_normal_shrine_unit_evicts_its_stale_shrine_record() {
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({
+            "wizard_id": 7,
+            "unit_list": [{"unit_id": 1, "wizard_id": 7}],
+            "unit_storage_normal_list": [{"unit_id": 8, "unit_master_id": 10101}],
+            "runes": []
+        })));
+
+        /* The unseal reply gives the released unit, but no complete normal
+        storage list. The same id must now have precisely one location. */
+        assert!(store.apply_update(
+            &json!({
+                "ret_code": 0,
+                "unit": {"unit_id": 8, "wizard_id": 7, "unit_master_id": 10101, "unit_level": 1}
+            }),
+            &json!({"command": "UnsealNormalStorage"})
+        ));
+        let data = &store.read().unwrap().data;
+        assert!(
+            collection(data, "unit_list")
+                .iter()
+                .any(|unit| identifier(unit, "unit_id").as_deref() == Some("8"))
+        );
+        assert!(collection(data, "unit_storage_normal_list").is_empty());
+    }
+
+    #[test]
+    fn a_complete_normal_shrine_list_evicts_a_stale_live_record() {
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({
+            "wizard_id": 7,
+            "unit_list": [
+                {"unit_id": 1, "wizard_id": 7},
+                {"unit_id": 8, "wizard_id": 7, "unit_master_id": 10101}
+            ],
+            "runes": []
+        })));
+
+        assert!(store.apply_update(
+            &json!({
+                "ret_code": 0,
+                "unit_storage_normal_list": [{"unit_id": 8, "unit_master_id": 10101}]
+            }),
+            &json!({"command": "SealNormalStorage"})
+        ));
+        let data = &store.read().unwrap().data;
+        assert!(
+            !collection(data, "unit_list")
+                .iter()
+                .any(|unit| identifier(unit, "unit_id").as_deref() == Some("8"))
+        );
+        assert_eq!(collection(data, "unit_storage_normal_list").len(), 1);
+    }
+
+    #[test]
+    fn rejects_a_snapshot_that_places_a_unit_in_two_locations() {
+        let mut store = ProfileStore::default();
+        assert!(!store.accept_snapshot(json!({
+            "unit_list": [{"unit_id": 8, "unit_master_id": 10101}],
+            "unit_storage_normal_list": [{"unit_id": 8, "unit_master_id": 10101}],
+            "runes": []
+        })));
     }
 
     #[test]
