@@ -206,7 +206,7 @@ test('the score threshold decides whether a second copy is worth the stones', as
 test('the filter strip shows the account’s Relic Power-up Stone balance', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
-  await expect(page.getByLabel('Relic Power-up stones: 37')).toHaveText('Power-up stones37');
+  await expect(page.getByLabel('Relic Power-up stones: 37')).toHaveText('Pwr up stones37');
 });
 
 test('the score threshold gates the minimum synergy band without wasting a tier', async ({ page }) => {

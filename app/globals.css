@@ -904,7 +904,7 @@ button { cursor: pointer; }
 .relic-filter-level { grid-area: level; }
 .relic-filter-durability { grid-area: durability; }
 .relic-filter-usage { grid-area: usage; }
-.relic-filter-status { height: calc(var(--filter-status-height) + var(--s1) + 26px); }
+.relic-filter-status { bottom: 0; height: auto; }
 /* The stone balance follows Reset because it is account context rather than a
    filter. Its fixed control measure leaves the rest of the page untouched when
    the balance changes; the gold edge is a quiet cue that this is the resource
@@ -915,6 +915,7 @@ button { cursor: pointer; }
   align-items: center;
   justify-content: space-between;
   flex: 0 0 26px;
+  margin-top: auto;
   gap: var(--s1);
   min-width: 0;
   height: 26px;
@@ -934,7 +935,7 @@ button { cursor: pointer; }
 }
 .relic-stone-balance-value {
   flex: 0 0 auto;
-  color: var(--gold);
+  color: var(--dim);
   font-family: var(--mono);
   font-size: var(--t-lead);
   font-variant-numeric: tabular-nums;

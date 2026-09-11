@@ -51,7 +51,7 @@ them on `rid`, exactly as it does for artifacts.
 
 **Relic Power-up Stones live in account inventory, not in rune craft items.**
 The current export records their stack as
-`inventory_info[item_master_type = 114, item_master_id = 1].item_quantity`.
+`inventory_info[item_master_type = 29, item_master_id = 10002].item_quantity`.
 The Relics filter strip shows that exact quantity; when an import does not carry
 `inventory_info`, it says so rather than treating an unknown balance as zero.
 

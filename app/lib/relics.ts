@@ -129,7 +129,7 @@ export function readRelics(data: GameRecord | undefined): Relic[] {
  * separate from rune craft items: a stone is an account material, not a gem or
  * grindstone stack.
  */
-const relicPowerUpStoneInventoryItem = { masterType: 114, masterId: 1 } as const;
+const relicPowerUpStoneInventoryItem = { masterType: 29, masterId: 10002 } as const;
 
 /**
  * The current number of Relic Power-up Stones, or `undefined` when this import
