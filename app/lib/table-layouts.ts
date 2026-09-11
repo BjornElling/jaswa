@@ -53,7 +53,8 @@ export function gutterClass(gutter: ColumnGutter | undefined): string | undefine
  * whole file, which cost `sortable-table.tsx` its hot reloading and printed a
  * warning on every edit. It only ever needed a column's key and alignment, so
  * it takes that shape rather than `SortableColumn` and no import runs back the
- * other way.
+ * other way. `useSortedRows` left the same file for the same reason and sits in
+ * `use-sorted-rows.ts`, which is where `SortableColumn` itself now lives.
  */
 export function columnClasses(
   columns: readonly { key: string; align?: ColumnAlignment; gutter?: ColumnGutter }[],

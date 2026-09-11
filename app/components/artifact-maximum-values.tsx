@@ -2,7 +2,8 @@ import { Fragment, useMemo, useState } from 'react';
 import { Dropdown } from './dropdown';
 import { ConvertedArtifactMark } from './converted-artifact-mark';
 import { UnrefinedArtifactMark } from './unrefined-artifact-mark';
-import { SortableHeader, useSortedRows } from './sortable-table';
+import { SortableHeader } from './sortable-table';
+import { useSortedRows } from './use-sorted-rows';
 import { columnClasses } from '../lib/table-layouts';
 import { calculateArtifactScores } from '../lib/compute/artifact-score-client';
 import { buildArtifactScoreRequestsForMonsterIds } from '../lib/compute/artifact-score-input';
@@ -12,7 +13,7 @@ import { QualityRule, qualityRuleHost } from './quality-rule';
 import { useAutoRecalculate } from './use-auto-recalculate';
 import { engravedStonesFor, scoringSettings } from '../lib/artifact-recommendations';
 import { allocateArtifactPlacements } from '../lib/artifact-recommendation-allocation';
-import type { SortableColumn } from './sortable-table';
+import type { SortableColumn } from './use-sorted-rows';
 import { artifactPreferenceStatus, recordedArtifactPreferenceMonsterIds } from '../lib/artifact-preferences';
 import { artifactCategoryLabel, artifactEquipClassLabel, artifactValueTint, displaySubProperty } from '../lib/artifact-grid';
 import {

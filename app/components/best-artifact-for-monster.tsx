@@ -4,14 +4,15 @@ import { buildArtifactScoreRequests, buildArtifactScoreRequestsForMonsterIds } f
 import { readArtifacts } from '../lib/artifacts';
 import { artifactCategoryLabel, artifactEquipClassLabel, artifactValueTint } from '../lib/artifact-grid';
 import { artifactCategoryLabels, artifactGradeOrder } from '../lib/artifact-properties';
-import { SortableHeader, useSortedRows } from './sortable-table';
+import { SortableHeader } from './sortable-table';
+import { useSortedRows } from './use-sorted-rows';
 import { columnClasses } from '../lib/table-layouts';
 import { ConversionList } from './conversion-list';
 import { engravedStonesFor, scoringSettings } from '../lib/artifact-recommendations';
 import { useAutoRecalculate } from './use-auto-recalculate';
 import { monsterNameCollator } from '../lib/monster-grid';
 import type { EngravedConversionStone } from '../lib/artifact-conversion-stones';
-import type { SortableColumn } from './sortable-table';
+import type { SortableColumn } from './use-sorted-rows';
 import { Dropdown } from './dropdown';
 import { UnrefinedArtifactMark } from './unrefined-artifact-mark';
 import { formatNumber } from '../lib/formatting';
