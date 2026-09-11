@@ -149,10 +149,72 @@ export const relicPowerUpRates: readonly number[] = [
 export const relicMaximumDurability = 3;
 /**
  * A relic's main property is `3 %` at `+0` and gains a point per level, which
- * the account's own records confirm at `+0`, `+6` and `+9`. The unique property
- * scales on its own table, so this is the one figure that indexes a relic's
- * whole strength against its level.
+ * the account's own records confirm at `+0`, `+6` and `+9`.
  */
 export function relicMainPercent(level: number): number {
   return 3 + level;
+}
+
+/**
+ * How much of the source stat one step of the unique property costs, at each of
+ * the six power-up tiers.
+ *
+ * **The threshold is what a power-up actually moves on the unique half.** The
+ * percentage never changes — it is fixed by what the property grants, 1 % for
+ * the two damage families and 2 % for the rest — so a relic grows stronger only
+ * by needing less of the source stat to buy the same step.
+ *
+ * All six of this account's relics carry exactly the threshold this table gives
+ * for their level and source stat, which is both a confirmation of the table
+ * and the sixth independent confirmation of the id mapping in §4.1: read the
+ * source stat wrongly and none of them would land.
+ *
+ * MAX HP is exactly eighteen times ATK/DEF at every tier. That holds at five of
+ * the six anchors as read, and `9000` at `+15` is the sixth — inferred from the
+ * ratio rather than read, because the figure was not legible.
+ * `RELIC-CANONICAL.md` §7.5 records that as the one value here that wants
+ * confirming.
+ */
+const thresholdTiers: Record<'atkDef' | 'hp' | 'spd', readonly number[]> = {
+  atkDef: [2500, 2000, 1500, 1000, 750, 500],
+  hp: [45000, 36000, 27000, 18000, 13500, 9000],
+  spd: [300, 250, 200, 150, 125, 100],
+};
+
+/** Levels per tier: the table steps at `+0`, `+3`, `+6`, `+9`, `+12` and `+15`. */
+const relicThresholdTierSize = 3;
+
+function thresholdTier(level: number): number {
+  const tier = Math.floor(level / relicThresholdTierSize);
+  return Math.min(Math.max(tier, 0), thresholdTiers.atkDef.length - 1);
+}
+
+export function relicThreshold(level: number, source: RelicSourceStat): number {
+  const tiers = source === 'HP' ? thresholdTiers.hp : source === 'SPD' ? thresholdTiers.spd : thresholdTiers.atkDef;
+  return tiers[thresholdTier(level)];
+}
+
+/**
+ * What a relic at this level is worth as a share of the same relic finished.
+ *
+ * Its two halves do **not** grow together, which is the whole reason this is a
+ * function and not `(3 + level) / 18`. Over the fifteen levels the main
+ * property multiplies by 6, a unique property reading ATK, DEF or MAX HP by 5,
+ * and one reading SPD by only 3. A model that indexed the relic on its main
+ * property alone would overstate what every power-up buys, and overstate it
+ * most on the Nimble properties.
+ *
+ * **The halves are weighted equally, and that is a stated choice.** Which one
+ * matters more depends on the monster wearing the relic — a unique property is
+ * worth what the monster's own SPD or ATK makes it worth — and JASWA does not
+ * model relic value per monster. Two equal halves is the same premise the whole
+ * page rests on: a relic is its main property and its unique property, and
+ * neither is the relic on its own. `verify:relic-maths` checks that the verdicts
+ * do not turn on the choice, by re-deciding the table at every weighting from
+ * all-main to all-unique.
+ */
+export function relicStrengthIndex(level: number, source: RelicSourceStat, mainShare = 0.5): number {
+  const main = relicMainPercent(level) / relicMainPercent(relicMaximumLevel);
+  const unique = relicThreshold(relicMaximumLevel, source) / relicThreshold(level, source);
+  return mainShare * main + (1 - mainShare) * unique;
 }

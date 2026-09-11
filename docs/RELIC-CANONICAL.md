@@ -371,8 +371,8 @@ V(l, d)  = p(l)·V(l + 1, d) + (1 − p(l))·V(l, d − 1)
 **Why a second run is necessary.** `P` asks whether a relic will *finish*, and
 answers `0` for anything that runs out of durability on the way. An exceptional
 `+12` with no durability left has `P = 0` and is one of the best things an
-account can own; `V` says it is worth 83 % of a finished relic, because that is
-what `15/18` of the main property is. **A model that judged on `P` alone would
+account can own; `V` says it is worth 75 % of a finished relic — three quarters of the main
+property and two thirds of the unique. **A model that judged on `P` alone would
 sell it.** Once the published rates arrived (§7.4), `P` turned out to be unfit
 for the other question too — it is near zero for everything — and `V` now
 carries both, as a level and as a difference.
@@ -442,7 +442,41 @@ both in the cell's tooltip for anyone who wants them.
    and 0.7 at `+12`. Any rule that spent stones on the relics closest to the
    ceiling would have it exactly backwards.
 
-### 7.5 What this replaced, and why the replacement matters
+### 7.5 The thresholds: what a power-up actually moves
+
+The unique property has two numbers and only one of them moves. **The percentage
+is fixed by what the property grants** — 1 % for the two damage families, 2 % for
+everything else — and never changes. **The threshold falls**, in six tiers, so a
+relic grows stronger by needing less of the source stat to buy the same step.
+
+| Reads | `+0` | `+3` | `+6` | `+9` | `+12` | `+15` |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| ATK or DEF | 2,500 | 2,000 | 1,500 | 1,000 | 750 | 500 |
+| MAX HP | 45,000 | 36,000 | 27,000 | 18,000 | 13,500 | 9,000 |
+| SPD | 300 | 250 | 200 | 150 | 125 | 100 |
+
+**All six of this account's relics carry exactly the threshold this table gives
+for their level and source stat.** That is a confirmation of the table, and the
+sixth independent confirmation of the id mapping in §4.1 — read the source stat
+wrongly for any of them and the number would not land.
+
+**The two halves do not grow together.** Over the fifteen levels the main
+property multiplies by 6, a unique property reading ATK, DEF or MAX HP by 5, and
+one reading SPD by only **3**. So a Nimble relic arrives closer to its own
+ceiling than any other and has correspondingly less to win from being levelled
+— which is precisely what an index built on the main property alone could not
+say. `relicStrengthIndex` weighs the two halves equally and
+`verify:relic-maths` re-decides the whole table at every weighting from
+all-main to all-unique to show that the verdicts do not turn on that choice.
+
+**Two things here are inference rather than reading.** The tiers step at `+0`,
+`+3`, `+6`, `+9`, `+12` and `+15`, which is how the table is labelled, but no
+relic on this account has ever sat at an intermediate level, so whether `+1` and
+`+2` hold the `+0` value is unconfirmed — a relic at `+4` or `+7` would settle
+it. And the MAX HP figure at `+15` was not legible; `9,000` is taken from the
+ratio, which is exactly 18× the ATK/DEF row at all five anchors that were.
+
+### 7.6 What this replaced, and why the replacement matters
 
 Before the table was to hand, JASWA estimated **one** rate for all fifteen
 levels from the account's own relics: a level gained is a success, a durability

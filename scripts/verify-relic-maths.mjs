@@ -28,8 +28,11 @@ import {
   relicExpectedLevel, relicExpectedStrength, relicFinalLevelChances, relicLanding, relicReachChance,
 } from '../app/lib/relic-advice.ts';
 import {
-  relicMainPercent, relicMaximumDurability, relicMaximumLevel, relicPowerUpRates,
+  relicMaximumDurability, relicMaximumLevel, relicPowerUpRates, relicStrengthIndex, relicThreshold,
 } from '../app/lib/relic-properties.ts';
+import { relicProperties } from '../app/lib/relic-properties.ts';
+import { relicSynergy } from '../app/lib/relic-synergy.ts';
+import { relicSynergyWeights } from '../app/lib/relic-advice.ts';
 
 let failures = 0;
 function check(ok, message) {
@@ -68,10 +71,58 @@ check(relicPowerUpRates.length === relicMaximumLevel
    that follow from it are held here rather than left to a comment. */
 check(relicReachChance(0, relicMaximumDurability, relicMaximumLevel, relicPowerUpRates) < 0.0005,
   `a fresh relic reaches +15 about once in ${Math.round(1 / relicReachChance(0, 3, 15, relicPowerUpRates)).toLocaleString('en')} tries`);
-const fresh = relicExpectedStrength(0, 3, relicPowerUpRates) - relicExpectedStrength(0, 0, relicPowerUpRates);
-const high = relicExpectedStrength(12, 3, relicPowerUpRates) - relicExpectedStrength(12, 0, relicPowerUpRates);
+const fresh = relicExpectedStrength(0, 3, 'ATK') - relicStrengthIndex(0, 'ATK');
+const high = relicExpectedStrength(12, 3, 'ATK') - relicStrengthIndex(12, 'ATK');
 check(fresh > high * 5,
   `power-up stones buy ${(fresh / high).toFixed(0)}× more on a +0 relic than on a +12 one`);
+
+/* The threshold tiers. A power-up moves the unique half by cutting the
+   threshold, never by raising the percentage, and the three source stats do not
+   move together: over the fifteen levels ATK, DEF and MAX HP multiply by 5 and
+   SPD by only 3, against the main property's 6. */
+let tiersSound = true;
+for (const source of ['ATK', 'DEF', 'HP', 'SPD']) {
+  for (let level = 1; level <= relicMaximumLevel; level += 1) {
+    if (relicThreshold(level, source) > relicThreshold(level - 1, source)) tiersSound = false;
+  }
+  /* Steps every three levels and nowhere else. */
+  for (let level = 0; level < relicMaximumLevel; level += 1) {
+    const stepped = relicThreshold(level, source) !== relicThreshold(level + 1, source);
+    if (stepped !== ((level + 1) % 3 === 0)) tiersSound = false;
+  }
+}
+check(tiersSound, 'the threshold falls, and only at +3, +6, +9, +12 and +15');
+check(relicThreshold(0, 'HP') === 18 * relicThreshold(0, 'ATK')
+  && relicThreshold(relicMaximumLevel, 'HP') === 18 * relicThreshold(relicMaximumLevel, 'ATK'),
+  'the MAX HP thresholds are exactly 18× the ATK/DEF ones');
+const growth = (source) => relicStrengthIndex(relicMaximumLevel, source, 0) / relicStrengthIndex(0, source, 0);
+check(Math.abs(growth('ATK') - 5) < 1e-9 && Math.abs(growth('SPD') - 3) < 1e-9,
+  `a unique property grows ×${growth('ATK')} on ATK/DEF/MAX HP and ×${growth('SPD')} on SPD, against the main property's ×6`);
+
+/* The one modelling choice in the strength index is how the two halves are
+   weighted. It is only a defensible choice if the answers do not turn on it, so
+   every pair is re-decided at every weighting from all-main to all-unique and
+   the power-up ordering has to survive. */
+let orderingStable = true;
+for (const property of relicProperties) {
+  for (const main of ['HP', 'ATK', 'DEF']) {
+    const weight = relicSynergyWeights[relicSynergy(main, property.id).band];
+    const at = (share) => [0, 3, 6, 9, 12].map((level) =>
+      weight * (relicExpectedStrength(level, 3, property.per, relicPowerUpRates, share)
+        - relicStrengthIndex(level, property.per, share)));
+    const reference = at(0.5);
+    for (const share of [0, 0.25, 0.75, 1]) {
+      const other = at(share);
+      for (let i = 1; i < reference.length; i += 1) {
+        /* Stones must always be worth more on the lower relic, whatever the
+           weighting. That is the ordering every verdict rests on. */
+        if (other[i] > other[i - 1] || reference[i] > reference[i - 1]) orderingStable = false;
+      }
+    }
+  }
+}
+check(orderingStable,
+  'the power-up ordering holds at every weighting of the two halves, from all-main to all-unique');
 
 /* A stated seed, so a failure is reproducible and a pass is not one lucky draw. */
 let state = 20260911;
@@ -103,25 +154,27 @@ check(Math.abs(relicReachChance(13, 2, relicMaximumLevel, example) - byHand) < 1
 const flat = Array.from({ length: relicMaximumLevel }, () => 0.762);
 let boundaries = true;
 let monotone = true;
-for (let level = 0; level <= relicMaximumLevel; level += 1) {
-  const stopped = relicExpectedStrength(level, 0, flat);
-  if (Math.abs(stopped - relicMainPercent(level) / relicMainPercent(relicMaximumLevel)) > 1e-12) boundaries = false;
-  for (let durability = 1; durability <= relicMaximumDurability; durability += 1) {
-    if (relicExpectedStrength(level, durability, flat)
-      < relicExpectedStrength(level, durability - 1, flat) - 1e-12) monotone = false;
+for (const source of ['ATK', 'SPD']) {
+  for (let level = 0; level <= relicMaximumLevel; level += 1) {
+    const stopped = relicExpectedStrength(level, 0, source, flat);
+    if (Math.abs(stopped - relicStrengthIndex(level, source)) > 1e-12) boundaries = false;
+    for (let durability = 1; durability <= relicMaximumDurability; durability += 1) {
+      if (relicExpectedStrength(level, durability, source, flat)
+        < relicExpectedStrength(level, durability - 1, source, flat) - 1e-12) monotone = false;
+    }
+    if (level < relicMaximumLevel && relicExpectedStrength(level, relicMaximumDurability, source, flat)
+      > relicExpectedStrength(level + 1, relicMaximumDurability, source, flat) + 1e-12) monotone = false;
   }
-  if (level < relicMaximumLevel && relicExpectedStrength(level, relicMaximumDurability, flat)
-    > relicExpectedStrength(level + 1, relicMaximumDurability, flat) + 1e-12) monotone = false;
 }
-check(boundaries, 'V(l,0) is the relic’s realised strength, (3 + l) / 18');
+check(boundaries, 'V(l,0) is the relic’s realised strength on both halves');
 check(monotone, 'V never falls when a level or an attempt is added');
 
 /* The case that makes two recursions necessary rather than one. */
-const spentHigh = relicExpectedStrength(12, 0, flat);
-check(relicReachChance(12, 0, relicMaximumLevel, flat) === 0 && spentHigh > 0.8,
+const spentHigh = relicExpectedStrength(12, 0, 'ATK', flat);
+check(relicReachChance(12, 0, relicMaximumLevel, flat) === 0 && spentHigh > 0.7,
   `a +12 with no durability is worth ${(100 * spentHigh).toFixed(0)} % of a finished relic while its P(+15) is 0`);
 
-check(Math.abs(relicExpectedLevel(relicExpectedStrength(15, 0, flat)) - relicMaximumLevel) < 1e-12,
+check(Math.abs(relicExpectedLevel(relicFinalLevelChances(15, 0, flat)) - relicMaximumLevel) < 1e-12,
   'a finished relic reads back as exactly +15');
 
 /* The third recursion carries the whole landing distribution, and the other two
@@ -139,11 +192,9 @@ for (const rates of [flat, Array.from({ length: relicMaximumLevel }, (_, at) => 
       worstMass = Math.max(worstMass, Math.abs(chances.reduce((sum, value) => sum + value, 0) - 1));
       worstAgainstReach = Math.max(worstAgainstReach,
         Math.abs(chances[relicMaximumLevel] - relicReachChance(level, durability, relicMaximumLevel, rates)));
-      const mean = chances.reduce(
-        (sum, value, at) => sum + value * relicMainPercent(at) / relicMainPercent(relicMaximumLevel), 0,
-      );
+      const mean = chances.reduce((sum, value, at) => sum + value * relicStrengthIndex(at, 'ATK'), 0);
       worstAgainstStrength = Math.max(worstAgainstStrength,
-        Math.abs(mean - relicExpectedStrength(level, durability, rates)));
+        Math.abs(mean - relicExpectedStrength(level, durability, 'ATK', rates)));
       const landing = relicLanding(chances);
       /* A median never reports a level the relic cannot reach, and its tail is
          the first one to cross a half. */

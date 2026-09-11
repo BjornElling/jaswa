@@ -1,4 +1,5 @@
-import { relicMainPercent, relicMaximumLevel, relicPowerUpRates } from './relic-properties';
+import { relicMaximumLevel, relicPowerUpRates, relicStrengthIndex } from './relic-properties';
+import type { RelicSourceStat } from './relic-properties';
 import type { Relic } from './relics';
 import { relicSynergy } from './relic-synergy';
 import type { RelicSynergy, RelicSynergyBand } from './relic-synergy';
@@ -77,24 +78,30 @@ export function relicReachChance(
  *
  * ```
  * V(15, d) = 1
- * V(l, 0)  = (3 + l) / 18
+ * V(l, 0)  = relicStrengthIndex(l, source)
  * V(l, d)  = p(l)·V(l + 1, d) + (1 − p(l))·V(l, d − 1)
  * ```
+ *
+ * The stopped-relic boundary is where the source stat enters. A relic's two
+ * halves grow at different rates — the main property by 6 over the fifteen
+ * levels, a unique property reading ATK, DEF or MAX HP by 5, one reading SPD by
+ * only 3 — so what a stopped relic is worth depends on which stat its unique
+ * property reads. `relic-properties.ts` owns that index.
  *
  * That difference is the whole reason two runs are needed. `P` answers `0` for
  * any relic that runs out of durability on the way, and an exceptional `+12`
  * with nothing left to spend is one of the best things an account can own — so
- * a model that judged on `P` alone would sell it. `V` reads it at 83 % of a
+ * a model that judged on `P` alone would sell it. `V` reads it at 75 % of a
  * finished relic instead, and `V(l, d) − V(l, 0)` is what the power-up bar is
  * read from: the published rates (`RELIC-CANONICAL.md` §7.4) leave `P` near
  * zero for everything, so it separates nothing.
  */
 export function relicExpectedStrength(
-  level: number, durability: number, rates: RelicSuccessRates = relicPowerUpRates,
+  level: number, durability: number, source: RelicSourceStat,
+  rates: RelicSuccessRates = relicPowerUpRates, mainShare?: number,
 ): number {
-  const finished = relicMainPercent(relicMaximumLevel);
   let spent: number[] = Array.from(
-    { length: relicMaximumLevel + 1 }, (_, at) => relicMainPercent(at) / finished,
+    { length: relicMaximumLevel + 1 }, (_, at) => relicStrengthIndex(at, source, mainShare),
   );
   let row = spent;
   for (let left = 1; left <= durability; left += 1) {
@@ -109,9 +116,14 @@ export function relicExpectedStrength(
   return row[level];
 }
 
-/** The level the relic is expected to stop at, read back off `V`. */
-export function relicExpectedLevel(strength: number): number {
-  return strength * relicMainPercent(relicMaximumLevel) - 3;
+/**
+ * The level the relic is expected to stop at, as the mean of the landing
+ * distribution. It cannot be read back off `V` any more: the strength index is
+ * no longer linear in the level, so inverting it would answer a different
+ * question.
+ */
+export function relicExpectedLevel(chances: readonly number[]): number {
+  return chances.reduce((mean, chance, at) => mean + chance * at, 0);
 }
 
 /**
@@ -329,13 +341,15 @@ export function relicAdvice(
     /* An unjudged pair is neither good nor bad, so it counts once — the same
        weight a neutral fit carries — rather than being scored as a failure. */
     const weight = synergy === null ? relicSynergyWeights.neutral : relicSynergyWeights[synergy.band];
+    const source = relic.unique.definition.per;
     const reachChance = relicReachChance(relic.level, relic.durability, relicMaximumLevel, rates);
-    const strength = relicExpectedStrength(relic.level, relic.durability, rates);
+    const chances = relicFinalLevelChances(relic.level, relic.durability, rates);
+    const strength = relicExpectedStrength(relic.level, relic.durability, source, rates);
     /* What having durability left is worth: the expected finished strength of
        this relic, less what it would be worth if it could never be touched
-       again. It is `E[levels gained] / 18` written as a fraction of a maxed
-       relic, which puts it on the same scale as the merit beside it. */
-    const upside = strength - relicExpectedStrength(relic.level, 0, rates);
+       again. On the same 0–1 scale as the strength beside it, so the merit and
+       the power-up bar are read off one ruler. */
+    const upside = strength - relicStrengthIndex(relic.level, source);
     const kept = pairs.get(pairKey(relic))?.[0] ?? relic;
     const superseded = kept.id === relic.id ? null : kept;
     /* Measured against the standing copy's *present* level rather than its own
@@ -350,10 +364,10 @@ export function relicAdvice(
     advice.set(relic.id, {
       ...decide({ synergy, weight, merit, upside, overtakeChance, superseded, relic, bars }),
       reachChance,
-      expectedGain: upside * relicMainPercent(relicMaximumLevel),
+      expectedGain: relicExpectedLevel(chances) - relic.level,
       merit,
-      expectedLevel: relicExpectedLevel(strength),
-      landing: relicLanding(relicFinalLevelChances(relic.level, relic.durability, rates)),
+      expectedLevel: relicExpectedLevel(chances),
+      landing: relicLanding(chances),
       supersededBy: superseded,
       overtakeChance,
     });

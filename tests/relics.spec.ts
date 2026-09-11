@@ -41,11 +41,21 @@ test('the unique property reads in the game’s own words', async ({ page }) => 
   await openRelics(page);
   /* The name is two rules — the family is what it grants, the prefix the stat
      it reads — so every one of the sixteen is a different pair. */
-  const primal = rowFor(page, 'per 150 SPD');
+  const primal = rowFor(page, 'per 125 SPD');
   await expect(primal).toContainText('Nimble Primal');
-  await expect(primal).toContainText('MAX HP +3 % per 150 SPD');
-  await expect(rowFor(page, 'per 1,500 ATK')).toContainText('Sharp Conquest');
-  await expect(rowFor(page, 'per 1,500 ATK')).toContainText('DMG dealt +3 % per 1,500 ATK');
+  await expect(primal).toContainText('MAX HP +2 % per 125 SPD');
+  await expect(rowFor(page, 'per 500 ATK')).toContainText('Sharp Conquest');
+  await expect(rowFor(page, 'per 500 ATK')).toContainText('DMG dealt +1 % per 500 ATK');
+});
+
+test('the unique property carries the threshold its level and stat call for', async ({ page }) => {
+  await importAccount(page, relicAccount);
+  await openRelics(page);
+  /* The threshold is what a power-up moves, and it steps every three levels:
+     a SPD-reading property is 300 at +0, 150 at +9 and 125 at +12. */
+  await expect(rowFor(page, 'per 300 SPD')).toContainText('+0');
+  await expect(rowFor(page, 'per 150 SPD')).toContainText('+9');
+  await expect(rowFor(page, 'per 125 SPD')).toContainText('+12');
 });
 
 test('the page states the rates it projects from', async ({ page }) => {
@@ -68,18 +78,18 @@ test('a level says why it is where it is', async ({ page }) => {
   await openRelics(page);
   /* +15 and a spent relic are both dead ends, and the page has to tell them
      apart: one is finished, the other merely stopped. */
-  await expect(rowFor(page, 'per 1,500 ATK')).toContainText('+15');
-  await expect(rowFor(page, 'per 1,500 ATK').getByText('At the maximum level')).toBeAttached();
-  await expect(rowFor(page, 'per 1,200 ATK').getByText('No power-up attempts left')).toBeAttached();
-  await expect(rowFor(page, 'per 240 SPD').getByText('Can still be powered up')).toBeAttached();
+  await expect(rowFor(page, 'per 500 ATK')).toContainText('+15');
+  await expect(rowFor(page, 'per 500 ATK').getByText('At the maximum level')).toBeAttached();
+  await expect(rowFor(page, 'per 1,000 ATK').getByText('No power-up attempts left')).toBeAttached();
+  await expect(rowFor(page, 'per 150 SPD').getByText('Can still be powered up')).toBeAttached();
 });
 
 test('durability is stated as attempts left, all three pips present', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
   await expect(rowFor(page, 'per 300 SPD').getByText('3 of 3 attempts left')).toBeAttached();
-  await expect(rowFor(page, 'per 260 SPD').getByText('2 of 3 attempts left')).toBeAttached();
-  await expect(rowFor(page, 'per 150 SPD').getByText('0 of 3 attempts left')).toBeAttached();
+  await expect(rowFor(page, 'per 250 SPD').getByText('2 of 3 attempts left')).toBeAttached();
+  await expect(rowFor(page, 'per 125 SPD').getByText('0 of 3 attempts left')).toBeAttached();
 });
 
 test('a finished relic is kept even though it can never reach +15', async ({ page }) => {
@@ -88,7 +98,7 @@ test('a finished relic is kept even though it can never reach +15', async ({ pag
   /* The case that forces two recursions rather than one: P(+15) is 0 because
      the durability is gone, and the relic is still one of the best on the
      account. Judging it on P alone would have sold it. */
-  const spent = rowFor(page, 'per 150 SPD');
+  const spent = rowFor(page, 'per 125 SPD');
   await expect(spent.locator('td').nth(5)).toHaveText('—');
   await expect(spent.locator('td').nth(6)).toContainText('+12');
   await expect(spent.locator('td').nth(6)).toContainText('at least');
@@ -103,7 +113,7 @@ test('the landing column names a level the relic can realistically reach', async
   const fresh = rowFor(page, 'per 300 SPD');
   await expect(fresh.locator('td').nth(5)).toHaveText('+7.2');
   await expect(fresh.locator('td').nth(6)).toContainText('+7');
-  const halfway = rowFor(page, 'per 260 SPD');
+  const halfway = rowFor(page, 'per 250 SPD');
   await expect(halfway.locator('td').nth(5)).toHaveText('+2.0');
 });
 
@@ -112,14 +122,14 @@ test('the advice states the multiplication it was made from', async ({ page }) =
   await openRelics(page);
   /* A verdict nobody can check is a verdict nobody can argue with, so every
      reason is the arithmetic itself. */
-  await expect(rowFor(page, 'per 300 SPD')).toContainText('Merit 0.06 under 0.26');
-  await expect(rowFor(page, 'per 240 SPD')).toContainText('Second copy; 0.48 under 1.0');
+  await expect(rowFor(page, 'per 300 SPD')).toContainText('Merit 0.05 under 0.26');
+  await expect(rowFor(page, 'per 150 SPD')).toContainText('Second copy; 0.48 under 1.0');
 });
 
 test('the risk slider decides whether a second copy is worth the stones', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
-  const challenger = rowFor(page, 'per 240 SPD');
+  const challenger = rowFor(page, 'per 150 SPD');
   const risk = page.getByRole('slider', { name: 'Power-up risk appetite, 1 cautious to 5 bold' });
 
   /* An exceptional fit three levels behind the copy in front of it, at rates
@@ -146,15 +156,15 @@ test('a poor fit sells whatever room it has left', async ({ page }) => {
   const mismatched = rowFor(page, 'per 300 SPD');
   await expect(mismatched).toContainText('Poor');
   await expect(mismatched).toContainText('Sell');
-  await expect(mismatched).toContainText('Merit 0.06 under 0.26');
+  await expect(mismatched).toContainText('Merit 0.05 under 0.26');
 });
 
 test('a relic engraved on monsters counts them, and an unused one says so', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
-  const engraved = rowFor(page, 'per 150 SPD');
+  const engraved = rowFor(page, 'per 125 SPD');
   await expect(engraved.locator('td').nth(7)).toHaveText('2');
-  await expect(rowFor(page, 'per 240 SPD').locator('td').nth(7)).toHaveText('—');
+  await expect(rowFor(page, 'per 150 SPD').locator('td').nth(7)).toHaveText('—');
 });
 
 test('filters narrow the table and Reset puts every one of them back', async ({ page }) => {
