@@ -469,12 +469,17 @@ say. `relicStrengthIndex` weighs the two halves equally and
 `verify:relic-maths` re-decides the whole table at every weighting from
 all-main to all-unique to show that the verdicts do not turn on that choice.
 
-**Two things here are inference rather than reading.** The tiers step at `+0`,
-`+3`, `+6`, `+9`, `+12` and `+15`, which is how the table is labelled, but no
-relic on this account has ever sat at an intermediate level, so whether `+1` and
-`+2` hold the `+0` value is unconfirmed — a relic at `+4` or `+7` would settle
-it. And the MAX HP figure at `+15` was not legible; `9,000` is taken from the
-ratio, which is exactly 18× the ATK/DEF row at all five anchors that were.
+**Every figure in that table is read, not inferred.** The MAX HP value at `+15`
+was the one that needed reading twice — it was illegible in the first capture
+and stood for a while on the strength of the 18× ratio holding at the other five
+anchors. It came back `9,000`, which is what the ratio predicted, and the ratio
+is now confirmed at all six tiers rather than five.
+
+**One thing is still inference.** The tiers step at `+0`, `+3`, `+6`, `+9`,
+`+12` and `+15`, which is how the table is labelled — but no relic on this
+account has ever sat at an intermediate level, so whether `+1` and `+2` hold the
+`+0` value is unconfirmed. A relic at `+4` or `+7` would settle it in one
+glance.
 
 ### 7.6 What this replaced, and why the replacement matters
 

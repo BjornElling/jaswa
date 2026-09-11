@@ -169,11 +169,12 @@ export function relicMainPercent(level: number): number {
  * and the sixth independent confirmation of the id mapping in §4.1: read the
  * source stat wrongly and none of them would land.
  *
- * MAX HP is exactly eighteen times ATK/DEF at every tier. That holds at five of
- * the six anchors as read, and `9000` at `+15` is the sixth — inferred from the
- * ratio rather than read, because the figure was not legible.
- * `RELIC-CANONICAL.md` §7.5 records that as the one value here that wants
- * confirming.
+ * MAX HP is exactly eighteen times ATK/DEF at every tier — all six of them,
+ * confirmed against the game. The `+15` figure was the one that had to be read
+ * twice: it was illegible in the first capture and was carried for a while as
+ * the only inferred number in this file, on the strength of the ratio holding
+ * at the other five. The reading came back `9000`, which is what the ratio
+ * said.
  */
 const thresholdTiers: Record<'atkDef' | 'hp' | 'spd', readonly number[]> = {
   atkDef: [2500, 2000, 1500, 1000, 750, 500],
