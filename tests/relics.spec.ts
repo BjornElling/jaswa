@@ -99,9 +99,8 @@ test('a finished relic is kept even though it can never reach +15', async ({ pag
      the durability is gone, and the relic is still one of the best on the
      account. Judging it on P alone would have sold it. */
   const spent = rowFor(page, 'per 125 SPD');
-  await expect(spent.locator('td').nth(5)).toHaveText('—');
-  await expect(spent.locator('td').nth(6)).toContainText('+12');
-  await expect(spent.locator('td').nth(6)).toContainText('at least');
+  await expect(spent.locator('td').nth(5)).toContainText('+12');
+  await expect(spent.locator('td').nth(5)).toContainText('at least');
   await expect(spent).toContainText('Keep');
 });
 
@@ -111,10 +110,9 @@ test('the landing column names a level the relic can realistically reach', async
   /* A fresh relic is free to +3 and then fights a falling rate, so it lands
      around +7 — not at +15, which the published rates make a lottery. */
   const fresh = rowFor(page, 'per 300 SPD');
-  await expect(fresh.locator('td').nth(5)).toHaveText('+7.2');
-  await expect(fresh.locator('td').nth(6)).toContainText('+7');
+  await expect(fresh.locator('td').nth(5)).toContainText('+7');
   const halfway = rowFor(page, 'per 250 SPD');
-  await expect(halfway.locator('td').nth(5)).toHaveText('+2.0');
+  await expect(halfway.locator('td').nth(5)).toContainText('+7');
 });
 
 test('the advice states the multiplication it was made from', async ({ page }) => {
@@ -163,8 +161,8 @@ test('a relic engraved on monsters counts them, and an unused one says so', asyn
   await importAccount(page, relicAccount);
   await openRelics(page);
   const engraved = rowFor(page, 'per 125 SPD');
-  await expect(engraved.locator('td').nth(7)).toHaveText('2');
-  await expect(rowFor(page, 'per 150 SPD').locator('td').nth(7)).toHaveText('—');
+  await expect(engraved.locator('td').nth(6)).toHaveText('2');
+  await expect(rowFor(page, 'per 150 SPD').locator('td').nth(6)).toHaveText('—');
 });
 
 test('filters narrow the table and Reset puts every one of them back', async ({ page }) => {
@@ -181,6 +179,15 @@ test('filters narrow the table and Reset puts every one of them back', async ({ 
   await page.getByRole('button', { name: 'Reset relics filters' }).click();
   await expect(rows(page)).toHaveCount(6);
   await expect(risk).toHaveValue('3');
+});
+
+test('the headings say what their column holds', async ({ page }) => {
+  await importAccount(page, relicAccount);
+  await openRelics(page);
+  const heading = page.getByRole('table', { name: 'Relic library columns' });
+  await expect(heading.getByRole('button', { name: 'Level it lands on or above half the time' })).toBeVisible();
+  await expect(heading.getByRole('button', { name: 'Monsters it is engraved on' })).toBeVisible();
+  await expect(heading.locator('th')).toHaveCount(8);
 });
 
 test('a filter click never moves the columns under the user', async ({ page }) => {

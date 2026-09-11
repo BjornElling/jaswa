@@ -103,9 +103,8 @@ const relicColumns: readonly SortableColumn<RelicRow>[] = (() => {
     column('synergy', 'Synergy'),
     column('level', 'Level'),
     column('durability', 'Durability'),
-    column('togain', <span className="table-heading-two-line" aria-label="Levels still expected to be gained">To<br />gain</span>),
-    column('landing', <span className="table-heading-two-line" aria-label="Level it lands on or above half the time">Lands<br />on</span>),
-    column('engraved', 'Engraved'),
+    column('landing', <span className="table-heading-two-line" aria-label="Level it lands on or above half the time">Likely<br />end</span>),
+    column('engraved', <span className="table-heading-two-line" aria-label="Monsters it is engraved on">Engraved<br />on #</span>),
     column('advice', 'Advice'),
   ];
 })();
@@ -303,19 +302,14 @@ export function RelicList({ game, monsters, preferences }: {
               <td className={relicCell('durability')}>
                 <RelicDurabilityMark durability={row.relic.durability} />
               </td>
-              {/* What the durability left is still expected to buy. It is the
-                  number the power-up bar is read from, so the advice beside it
-                  can be checked rather than trusted. */}
-              <td className={relicCell('togain', row.advice.expectedGain < 0.05 && 'muted')}
-                title={`Expected levels gained before the durability runs out; `
-                  + `reaching +15 from here is ${(100 * row.advice.reachChance).toFixed(2)} %`}>
-                {row.advice.expectedGain < 0.05 ? '—' : `+${row.advice.expectedGain.toFixed(1)}`}
-              </td>
               {/* The median of the landing distribution, with the size of its
                   own tail under it: a median is a statement about a tail, and
-                  the tail is never exactly a half. */}
+                  the tail is never exactly a half. The readings the verdict is
+                  actually made of travel in the title rather than in columns of
+                  their own — the advice cell already prints the arithmetic. */}
               <td className={relicCell('landing')}
-                title={`Likeliest single outcome +${row.advice.landing.likeliest.level} at `
+                title={`Expected to gain +${row.advice.expectedGain.toFixed(1)} more; `
+                  + `likeliest single outcome +${row.advice.landing.likeliest.level} at `
                   + `${Math.round(row.advice.landing.likeliest.chance * 100)} %; `
                   + `mean +${row.advice.expectedLevel.toFixed(1)}; `
                   + `merit ${row.advice.merit.toFixed(2)} of a possible 10`}>

@@ -549,12 +549,14 @@ From that, two quantities, each read against a bar the risk slider sets:
 - **Stones** — `weight × (V(l, d) − V(l, 0))`. Is this relic worth power-up
   stones? The second factor is what having durability left is worth: the
   expected finished strength, less what the relic would be worth if it could
-  never be touched again. It is `E[levels gained] / 18`, and the *To gain*
-  column prints the numerator.
+  never be touched again. It is `E[levels gained] / 18`; the expected gain
+  itself travels in the *Likely end* column's title, because the advice cell
+  already prints the whole multiplication and a column for each factor would
+  have said the same thing three times.
 - **Merit** — `weight × V(l, d)`, on a 0–10 scale. Is this relic worth a slot at
-  all? It is not a column — the *Lands on* column says the same thing in levels,
-  which is the unit a player thinks in — but every verdict that turns on it
-  prints it, so the judgement is still arguable.
+  all? It is not a column — the *Likely end* column says the same thing in
+  levels, which is the unit a player thinks in — but every verdict that turns on
+  it prints it, so the judgement is still arguable.
 
 `P(l, d)` is no longer one of them, and §7.4 says why: the published rates make
 it near zero for everything that is not already finished.
@@ -575,8 +577,8 @@ The rules, in the order they outrank each other:
 5. **Stones above the bar powers up.**
 6. **Anything else keeps.**
 
-Every reason printed in the table is the arithmetic itself — `4 × 48 % to +15 =
-1.90`, `Merit 0.32 under 0.45` — so a verdict can be checked rather than
+Every reason printed in the table is the arithmetic itself — `5.0 × 28 % left to
+win = 1.4`, `Merit 0.05 under 0.26` — so a verdict can be checked rather than
 trusted.
 
 ## 9. The risk slider

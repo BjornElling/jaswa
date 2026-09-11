@@ -8,7 +8,7 @@ import type { RelicAdvice, RelicVerdict } from './relic-advice';
 import { relicVerdictOrder } from './relic-advice';
 
 export type RelicSortKey =
-  | 'index' | 'unique' | 'main' | 'synergy' | 'level' | 'durability' | 'togain' | 'landing'
+  | 'index' | 'unique' | 'main' | 'synergy' | 'level' | 'durability' | 'landing'
   | 'engraved' | 'advice';
 
 /**
@@ -63,7 +63,7 @@ function verdictRank(verdict: RelicVerdict): number {
  */
 export const defaultRelicSortDirections: Record<RelicSortKey, boolean> = {
   index: true, unique: true, main: true,
-  synergy: false, level: false, durability: false, togain: false, landing: false,
+  synergy: false, level: false, durability: false, landing: false,
   engraved: false, advice: true,
 };
 
@@ -95,8 +95,6 @@ export function compareRelicRows(left: RelicRow, right: RelicRow, key: RelicSort
       return left.relic.level - right.relic.level;
     case 'durability':
       return left.relic.durability - right.relic.durability;
-    case 'togain':
-      return left.advice.expectedGain - right.advice.expectedGain;
     case 'landing':
       /* By the level first, then by how far past a half its tail runs: two
          relics that both land on +14 are not equally sure of it. */
