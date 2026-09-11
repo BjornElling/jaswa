@@ -669,6 +669,7 @@ button { cursor: pointer; }
    Artifacts keep a wrapper around that frame, so the clearance belongs on the
    nested page rather than adding an extra offset to the wrapper. */
 .import-badge + .data-table-page,
+.import-badge + .relic-library > .data-table-page,
 .import-badge + .artifact-library > .data-table-page {
   padding-top: calc(var(--s4) + var(--badge-height) + var(--s3));
 }
@@ -763,6 +764,154 @@ button { cursor: pointer; }
 }
 .artifact-sub-power-ups { color: inherit; }
 .artifact-sub-power-up-arrow { margin-left: 0; }
+
+/* ---------------------------------------------------------------- relics
+   The relic table carries two two-line cells — the unique property over its
+   effect, and the verdict over its reason — so its rows grow the way the
+   artifact table's do. Everything else in the row centres against them rather
+   than hanging from the top: a single figure sitting level with a two-line
+   neighbour reads as part of the same row, where top alignment made every
+   number look like a footnote to the property beside it. */
+.relic-library { width: 100%; }
+.relic-grid { width: 100%; min-width: 0; table-layout: fixed; }
+.relic-grid tbody td { height: auto; padding-block: var(--s2); vertical-align: middle; }
+.relic-property { display: block; font-size: var(--t-body); }
+.relic-effect {
+  display: block;
+  font-family: var(--mono);
+  font-size: var(--t-small);
+  color: var(--faint);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.relic-grid td.relic-main { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+/* One mark's box, drawn or not. A slot keeps its width in every state, so a
+   band with one star measures the same as a band with two and the column
+   beside it cannot shift (rule 2). */
+.relic-mark-slots { display: inline-flex; align-items: center; gap: var(--s1); }
+.relic-mark-slot { display: inline-flex; width: 14px; height: 14px; }
+.relic-mark-spare { visibility: hidden; }
+.relic-mark-empty { visibility: hidden; }
+.relic-mark { width: 14px; height: 14px; }
+.relic-mark-star { fill: currentColor; stroke: none; }
+.relic-mark-cross,
+.relic-mark-diamond,
+.relic-mark-line {
+  fill: none; stroke: currentColor; stroke-width: 1.6;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+
+/* The fit, in the same three-way vocabulary the rest of the app already reads:
+   the accent where the grade is itself the invitation to act — the artifact
+   score's exception, for the same reason — the verdict red where JASWA is
+   reporting that its own measurement came out against the relic, and the
+   established dim in between. Degree is carried by the number of marks, never
+   by a second shade, and the band's name is written beside them so the column
+   still reads with the colour taken away. */
+.relic-synergy { display: inline-flex; align-items: center; gap: var(--s2); }
+.relic-synergy-label { font-size: var(--t-body); }
+.relic-synergy[data-band='exceptional'],
+.relic-synergy[data-band='strong'] { color: var(--gold); }
+.relic-synergy[data-band='neutral'] { color: var(--dim); }
+.relic-synergy[data-band='weak'],
+.relic-synergy[data-band='poor'] { color: var(--state-bad); }
+.relic-synergy[data-band='unjudged'] { color: var(--faint); }
+
+/* Durability is three pips and always three: the spent ones are the reason a
+   level will never move again, so they stay on the page as hollow rings. */
+.relic-durability .relic-pip { fill: none; stroke: currentColor; stroke-width: 1.4; }
+.relic-durability .relic-pip-left { fill: var(--ink); stroke: var(--ink); }
+.relic-durability .relic-pip-spent { stroke: var(--ghost); }
+
+.relic-grid td.relic-level { white-space: nowrap; }
+.relic-level-value { font-variant-numeric: tabular-nums; }
+.relic-level-mark { display: inline-flex; margin-left: var(--s1); vertical-align: -.18em; }
+
+.relic-verdict { display: block; font-size: var(--t-body); font-weight: 500; }
+.relic-verdict[data-verdict='power-up'] { color: var(--state-good); }
+.relic-verdict[data-verdict='keep'] { color: var(--ink); }
+.relic-verdict[data-verdict='sell'] { color: var(--state-bad); }
+.relic-reason {
+  display: block;
+  font-family: var(--mono);
+  font-size: var(--t-small);
+  color: var(--faint);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* What the projections rest on, said where the control that uses them is. It
+   is constant for an import, so it cannot grow or shrink under a click. */
+.relic-chance-note {
+  margin: var(--s1) 0 0;
+  max-width: var(--filter-column);
+  font-size: var(--t-micro);
+  color: var(--faint);
+  white-space: normal;
+}
+.relic-footnote {
+  margin: var(--s4) 0 0;
+  font-size: var(--t-small);
+  color: var(--faint);
+}
+.relic-footnote code { font-family: var(--mono); font-size: var(--t-small); }
+
+/* Two rows: what the relic is, then what can still happen to it. Search leads
+   the first and the risk slider the second, so the two row-starters are the
+   only groups without an indent rule — the same arrangement, and the same
+   reason, as the artifact strip above. */
+.relic-filter-strip {
+  grid-template-areas:
+    "search main  synergy    advice"
+    "risk   level durability usage";
+}
+.relic-filter-strip > .filter-group,
+.relic-filter-strip > .filter-group:nth-child(2n + 1),
+.relic-filter-strip > .filter-group:nth-child(3n + 1),
+.relic-filter-strip > .filter-group:nth-child(4n + 1) {
+  padding-left: var(--s4);
+  border-left: 1px solid var(--line);
+}
+.relic-filter-search { grid-area: search; padding-left: 0 !important; border-left: 0 !important; }
+.relic-filter-risk { grid-area: risk; padding-left: 0 !important; border-left: 0 !important; }
+.relic-filter-main { grid-area: main; }
+.relic-filter-synergy { grid-area: synergy; }
+.relic-filter-advice { grid-area: advice; }
+.relic-filter-level { grid-area: level; }
+.relic-filter-durability { grid-area: durability; }
+.relic-filter-usage { grid-area: usage; }
+@media (min-width: 1921px) and (max-width: 1700px) {
+  .relic-filter-strip {
+    grid-template-areas:
+      "search main       synergy"
+      "risk   level      advice"
+      ".      durability usage";
+  }
+}
+@media (min-width: 1921px) and (max-width: 1120px) {
+  .relic-filter-strip {
+    grid-template-areas:
+      "search main"
+      "risk   synergy"
+      ".      advice"
+      ".      level"
+      ".      durability"
+      ".      usage";
+  }
+}
+@media (min-width: 1921px) and (max-width: 760px) {
+  .relic-filter-strip {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "search"
+      "risk"
+      "main"
+      "synergy"
+      "advice"
+      "level"
+      "durability"
+      "usage";
+  }
+}
 
 .grid-table thead th:first-child,
 .grid-table tbody td:first-child { padding-left: var(--gutter); }

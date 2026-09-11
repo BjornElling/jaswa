@@ -39,7 +39,7 @@ export const navigationGroups: Array<{ heading: string; items: NavigationItem[] 
   },
 ];
 
-export const upcomingWorkspaces: Record<'optimizer' | 'speed' | 'gems' | 'relics', { title: string; tagline: string; text: string }> = {
+export const upcomingWorkspaces: Record<'optimizer' | 'speed' | 'gems', { title: string; tagline: string; text: string }> = {
   optimizer: {
     title: 'Rune Optimizer',
     tagline: 'Six slots, thousands of runes, one answer. Let your computer do the arithmetic so you can go back to pretending it was intuition.',
@@ -54,11 +54,6 @@ export const upcomingWorkspaces: Record<'optimizer' | 'speed' | 'gems' | 'relics
     title: 'Gems & Grinds',
     tagline: 'You have a box full of upgrades and a shortage of patience. One of those is fixable.',
     text: 'Ranks the gem and grindstone upgrades that move your account furthest.',
-  },
-  relics: {
-    title: 'Relics',
-    tagline: 'Judged against the goals you actually saved, not the ones you meant to.',
-    text: 'Evaluates relic choices against the goals you have saved.',
   },
 };
 

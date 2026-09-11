@@ -89,6 +89,26 @@ export const artifactTableColumns: readonly TableColumn[] = [
 ];
 
 /**
+ * The relic library. An account holds a handful of relics rather than hundreds,
+ * so the columns are wide enough to say what they mean in words: the two that
+ * carry a judgement — Synergy and Advice — take a third of the measure between
+ * them, because they are the reason the page exists and abbreviating them would
+ * turn a verdict back into a puzzle.
+ */
+export const relicTableColumns: readonly TableColumn[] = [
+  { key: 'unique', width: '22%', align: 'left' },
+  { key: 'main', width: '7%', align: 'left' },
+  { key: 'synergy', width: '14%', align: 'left' },
+  { key: 'level', width: '9%', align: 'right' },
+  /* Durability is three marks rather than a quantity, so it centres under its
+     heading instead of taking the numeric column's right edge. */
+  { key: 'durability', width: '10%', align: 'center' },
+  { key: 'outlook', width: '9%', align: 'right' },
+  { key: 'engraved', width: '9%', align: 'right' },
+  { key: 'advice', width: '20%', align: 'left' },
+];
+
+/**
  * The workspace result tables build their columns from a `SortableColumn` list
  * instead of a colgroup, so each declares its own `align` there beside the
  * column's label and comparison. `columnClasses` in `sortable-table.tsx` is what

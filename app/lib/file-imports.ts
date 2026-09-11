@@ -3,6 +3,7 @@ import type {
   MonsterPreference, Preferences, RunePotentialSettings, RunePotentialSortOrder,
 } from './types';
 import { readArtifact } from './artifacts';
+import { readRelic } from './relics';
 import { hasMonsterCatalogEntry } from './monster-catalog';
 import type { GameRecord } from './game-data';
 import { defaultRunePotentialPresets, isCurrentRunePotentialPresets } from './rune-potential-presets';
@@ -284,15 +285,18 @@ function validateAccountCollections(value: GameRecord): string | undefined {
     if (unit.artifacts !== undefined && !isValidIdentifiedCollection(unit.artifacts, 'rid', (artifact) => readArtifact(artifact) !== null)) {
       return 'This file contains an equipped artifact JASWA cannot read.';
     }
-    if (unit.relics !== undefined && !isValidIdentifiedCollection(unit.relics, 'rid')) {
-      return 'This file contains an equipped relic JASWA cannot read.';
+    if (unit.relics !== undefined && !isValidIdentifiedCollection(unit.relics, 'rid', (relic) => readRelic(relic) !== null)) {
+      return 'This file contains an engraved relic JASWA cannot read.';
     }
   }
 
   if (value.artifacts !== undefined && !isValidIdentifiedCollection(value.artifacts, 'rid', (artifact) => readArtifact(artifact) !== null)) {
     return 'This file contains an artifact JASWA cannot read.';
   }
-  if (value.relics !== undefined && !isValidIdentifiedCollection(value.relics, 'rid')) {
+  /* Relics are read through the same reader the workspace uses, for the reason
+     `AGENTS.md` §0.1 gives: a relic that passes a structural check and then
+     cannot be judged is counted, invisible, and worse than rejected. */
+  if (value.relics !== undefined && !isValidIdentifiedCollection(value.relics, 'rid', (relic) => readRelic(relic) !== null)) {
     return 'This file contains a relic JASWA cannot read.';
   }
   if (value.rune_craft_item_list !== undefined
