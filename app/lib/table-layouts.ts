@@ -96,16 +96,20 @@ export const artifactTableColumns: readonly TableColumn[] = [
  * turn a verdict back into a puzzle.
  */
 export const relicTableColumns: readonly TableColumn[] = [
-  { key: 'unique', width: '22%', align: 'left' },
+  { key: 'unique', width: '19%', align: 'left' },
   { key: 'main', width: '7%', align: 'left' },
-  { key: 'synergy', width: '14%', align: 'left' },
-  { key: 'level', width: '9%', align: 'right' },
+  { key: 'synergy', width: '13%', align: 'left' },
+  { key: 'level', width: '8%', align: 'right' },
   /* Durability is three marks rather than a quantity, so it centres under its
      heading instead of taking the numeric column's right edge. */
-  { key: 'durability', width: '10%', align: 'center' },
-  { key: 'outlook', width: '9%', align: 'right' },
-  { key: 'engraved', width: '9%', align: 'right' },
-  { key: 'advice', width: '20%', align: 'left' },
+  { key: 'durability', width: '9%', align: 'center' },
+  /* The two readings of where the relic ends up, side by side: the chance it
+     finishes at all, then the single level it is likeliest to come to rest on.
+     Seeing them beside the advice is what makes the advice arguable. */
+  { key: 'reach', width: '8%', align: 'right' },
+  { key: 'landing', width: '9%', align: 'right' },
+  { key: 'engraved', width: '8%', align: 'right' },
+  { key: 'advice', width: '19%', align: 'left' },
 ];
 
 /**

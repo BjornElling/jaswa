@@ -1,16 +1,33 @@
 import { relicMainPercent, relicMaximumDurability, relicMaximumLevel } from './relic-properties';
 import type { Relic } from './relics';
 import { relicSynergy } from './relic-synergy';
-import type { RelicSynergy } from './relic-synergy';
+import type { RelicSynergy, RelicSynergyBand } from './relic-synergy';
 
 /**
  * What to do with each relic, and the arithmetic behind it.
  *
- * `docs/RELIC-CANONICAL.md` §6 and §7 own this. Three facts drive every verdict
- * and nothing else does: how well the relic's two halves fit each other, how
- * much strength it can still gain before its durability runs out, and whether
- * the account already holds a better copy of the same pair.
+ * `docs/RELIC-CANONICAL.md` §7 and §8 own this. One recursion answers every
+ * question the page asks, run three times with different boundaries, and one
+ * ladder of synergy weights turns its answers into a verdict.
  */
+
+/**
+ * The chance a power-up succeeds at each level, `+0` through `+14`.
+ *
+ * A table rather than one number, because the game's own rate is surely not
+ * flat — pushing `+14` cannot be as easy as pushing `+0`. JASWA does not know
+ * the curve and will not invent one, so today every entry holds the same
+ * estimate; the shape is here so that reading the real figures off the game's
+ * power-up button changes this one table and nothing that depends on it.
+ */
+export type RelicSuccessRates = readonly number[];
+
+export function flatSuccessRates(chance: number): RelicSuccessRates {
+  /* Clamped off both ends: a certainty would make the recursion below answer 1
+     or 0 for every relic, which is not a projection but a stuck model. */
+  const bounded = Math.min(Math.max(chance, 1e-6), 1 - 1e-6);
+  return Array.from({ length: relicMaximumLevel }, () => bounded);
+}
 
 /**
  * How often a power-up succeeds, estimated from the account's own relics.
@@ -22,10 +39,7 @@ import type { RelicSynergy } from './relic-synergy';
  *
  * The estimate is the mean of a Beta posterior on a uniform prior, so an
  * account with no history reads an even chance rather than a division by zero,
- * and one attempt does not move the answer to certainty. It pools every level,
- * which the game almost certainly does not — a relic near the ceiling is surely
- * harder to push than one at `+0` — and `RELIC-CANONICAL.md` §7 records that
- * simplification and what would replace it.
+ * and one attempt does not move the answer to certainty.
  */
 export type RelicPowerUpChance = {
   /** Levels gained across the account. */
@@ -47,45 +61,207 @@ export function relicPowerUpChance(relics: readonly Relic[]): RelicPowerUpChance
 }
 
 /**
- * The chance of gaining at least `levels` more before durability runs out.
+ * The chance a relic ever reaches `target`.
  *
- * A power-up either raises the level or spends a durability, so the number of
- * successes a relic still has in it is the number of successes before its
- * `durability`-th failure: a negative binomial. With at most three failures and
- * fifteen levels the sum is short enough to take directly, which keeps the
- * arithmetic exact and readable instead of hiding it in an incomplete beta.
+ * An attempt has two outcomes and only two: it succeeds and the level goes up,
+ * or it fails and a durability goes down. So with `p(l)` the success chance at
+ * level `l`,
+ *
+ * ```
+ * P(target, d) = 1                                  already there
+ * P(l, 0)      = 0            for l < target        no attempts left, ever
+ * P(l, d)      = p(l)·P(l + 1, d) + (1 − p(l))·P(l, d − 1)
+ * ```
+ *
+ * That recursion is the whole calculation, and it is exact — not an
+ * approximation of one. The closed form is a sum over every way to distribute
+ * at most `d − 1` failures across the remaining levels, which agrees with it
+ * term for term and is far easier to get wrong; the table below is also the
+ * form that keeps working if the game ever changes the ceiling or the
+ * durability a relic starts with.
+ *
+ * Filled in ascending durability, and within a durability from `target`
+ * downwards, so every cell it reads has already been written.
  */
-export function relicGainChance(levels: number, durability: number, chance: number): number {
-  if (levels <= 0) return 1;
+export function relicReachChance(
+  level: number, durability: number, target: number, rates: RelicSuccessRates,
+): number {
+  if (level >= target) return 1;
   if (durability <= 0) return 0;
-  /* Certainty at either end would otherwise divide by zero or loop forever. */
-  if (chance >= 1) return 1;
-  if (chance <= 0) return 0;
-  /* P(X = j) = C(j + d - 1, j) q^j (1 - q)^d, accumulated by its own ratio so
-     no binomial coefficient is ever built. */
-  let term = (1 - chance) ** durability;
-  let below = term;
-  for (let gained = 1; gained < levels; gained += 1) {
-    term *= chance * (gained + durability - 1) / gained;
-    below += term;
+  let spent: number[] = new Array(target + 1).fill(0);
+  spent[target] = 1;
+  let row = spent;
+  for (let left = 1; left <= durability; left += 1) {
+    row = new Array(target + 1).fill(0);
+    row[target] = 1;
+    for (let from = target - 1; from >= level; from -= 1) {
+      const success = rates[from] ?? 0;
+      row[from] = success * row[from + 1] + (1 - success) * spent[from];
+    }
+    spent = row;
   }
-  return Math.max(0, Math.min(1, 1 - below));
+  return row[level];
 }
 
 /**
- * How many more levels the relic is expected to gain, counting the ceiling.
+ * What the relic is expected to be worth when it finally stops, as a fraction of
+ * a finished one.
  *
- * `E[min(X, headroom)]` as the sum of its tail probabilities, which is both the
- * shortest way to write it and the one that never overshoots `+15`.
+ * The same recursion, with the one boundary that `relicReachChance` gets wrong
+ * for this question changed. There, a relic that runs out of durability below
+ * the ceiling is worth nothing, because it never reached the target. Here it is
+ * worth exactly what it became: `3 + level` of a finished relic's 18 points of
+ * main property.
+ *
+ * ```
+ * V(15, d) = 1
+ * V(l, 0)  = (3 + l) / 18
+ * V(l, d)  = p(l)·V(l + 1, d) + (1 − p(l))·V(l, d − 1)
+ * ```
+ *
+ * That difference is the whole reason two runs are needed. `P` measures whether
+ * a relic is worth *stones*; a relic that will probably die at `+13` is a poor
+ * bet however good it is. `V` measures whether a relic is worth *keeping*; a
+ * `+12` with no durability left has `P = 0` and is still one of the best things
+ * an account can own. A model that judged both on `P` alone would sell it.
  */
-export function relicExpectedGain(relic: Relic, chance: number): number {
-  const headroom = relicMaximumLevel - relic.level;
-  let expected = 0;
-  for (let levels = 1; levels <= headroom; levels += 1) {
-    expected += relicGainChance(levels, relic.durability, chance);
+export function relicExpectedStrength(
+  level: number, durability: number, rates: RelicSuccessRates,
+): number {
+  const finished = relicMainPercent(relicMaximumLevel);
+  let spent: number[] = Array.from(
+    { length: relicMaximumLevel + 1 }, (_, at) => relicMainPercent(at) / finished,
+  );
+  let row = spent;
+  for (let left = 1; left <= durability; left += 1) {
+    row = new Array(relicMaximumLevel + 1).fill(0);
+    row[relicMaximumLevel] = 1;
+    for (let from = relicMaximumLevel - 1; from >= 0; from -= 1) {
+      const success = rates[from] ?? 0;
+      row[from] = success * row[from + 1] + (1 - success) * spent[from];
+    }
+    spent = row;
   }
-  return expected;
+  return row[level];
 }
+
+/** The level the relic is expected to stop at, read back off `V`. */
+export function relicExpectedLevel(strength: number): number {
+  return strength * relicMainPercent(relicMaximumLevel) - 3;
+}
+
+/**
+ * Where the relic ends up, level by level: the chance it comes to rest at each
+ * of `+0` through `+15`.
+ *
+ * The same recursion a third time, now carrying a whole distribution instead of
+ * a single number. A relic stops in exactly one of two ways, which are the two
+ * boundaries:
+ *
+ * ```
+ * D(15, d) = all of the mass on +15                    finished
+ * D(l, 0)  = all of the mass on +l                     stopped where it stands
+ * D(l, d)  = p(l)·D(l + 1, d) + (1 − p(l))·D(l, d − 1)
+ * ```
+ *
+ * `P` and `V` are both readings of this distribution — `P` is its mass on `+15`
+ * and `V` its mean — and `verify:relic-maths` holds all three to each other.
+ * They are still computed separately because each is a scalar recursion and
+ * cheaper, and because two recursions written from different boundaries
+ * agreeing is a check worth having.
+ */
+export function relicFinalLevelChances(
+  level: number, durability: number, rates: RelicSuccessRates,
+): readonly number[] {
+  const size = relicMaximumLevel + 1;
+  const restingOn = (at: number) => {
+    const mass = new Array<number>(size).fill(0);
+    mass[at] = 1;
+    return mass;
+  };
+  let spent: number[][] = Array.from({ length: size }, (_, at) => restingOn(at));
+  let rows = spent;
+  for (let left = 1; left <= durability; left += 1) {
+    rows = new Array<number[]>(size);
+    rows[relicMaximumLevel] = restingOn(relicMaximumLevel);
+    for (let from = relicMaximumLevel - 1; from >= 0; from -= 1) {
+      const success = rates[from] ?? 0;
+      const climbed = rows[from + 1];
+      const stalled = spent[from];
+      rows[from] = climbed.map((chance, at) => success * chance + (1 - success) * stalled[at]);
+    }
+    spent = rows;
+  }
+  return rows[level];
+}
+
+export type RelicLanding = {
+  /** The level the relic lands on or above at least half the time. */
+  level: number;
+  /** The chance of landing at least there — at least a half, by construction. */
+  chance: number;
+  /** The single likeliest landing level, and its own chance. */
+  likeliest: { level: number; chance: number };
+};
+
+/**
+ * Where the relic comes to rest, read two ways.
+ *
+ * `likeliest` is the distribution's **mode** — the single outcome with the most
+ * mass on it. It is the literal answer to "which level is it most likely to
+ * land on", and it is a poor column on its own: for any relic with durability
+ * left it is `+15`, because `+15` absorbs every path that gets there while the
+ * fourteen intermediate levels split what is left between them. Its probability
+ * is then exactly `P(l, d)`, which the table already shows one column earlier.
+ *
+ * `level` is the **median**, and it is what the table prints: the level the
+ * relic reaches or beats half the time. It answers the same question without
+ * collapsing — a `+9` with two attempts reads `+14`, a fresh relic with three
+ * reads `+10`, a spent one reads where it stands — and it stays a whole level,
+ * which a mean does not. `chance` travels with it because a median is a
+ * statement about a tail, and the tail is never exactly a half.
+ */
+export function relicLanding(chances: readonly number[]): RelicLanding {
+  let likeliestLevel = 0;
+  let likeliestChance = -1;
+  for (let at = 0; at < chances.length; at += 1) {
+    /* A tie goes to the lower level: two equally likely outcomes are not a
+       reason to report the more flattering one. */
+    if (chances[at] > likeliestChance) {
+      likeliestChance = chances[at];
+      likeliestLevel = at;
+    }
+  }
+  /* Accumulated from the top down, so the first level whose tail reaches a half
+     is the highest level the relic meets or beats half the time. */
+  let tail = 0;
+  let level = 0;
+  let chance = 1;
+  for (let at = chances.length - 1; at >= 0; at -= 1) {
+    tail += chances[at];
+    level = at;
+    chance = tail;
+    if (tail >= 0.5) break;
+  }
+  return { level, chance, likeliest: { level: likeliestLevel, chance: Math.max(likeliestChance, 0) } };
+}
+
+/**
+ * What a band of fit is worth, as a multiplier.
+ *
+ * A halving ladder around Neutral: an exceptional fit counts four times, a
+ * strong one twice, a neutral one once, and the two negative bands count a half
+ * and a quarter. It is the same ladder on both numbers the verdict reads, so
+ * "four times the chance" and "four times the finished strength" mean the same
+ * thing by the same scale.
+ */
+export const relicSynergyWeights: Record<RelicSynergyBand, number> = {
+  exceptional: 4,
+  strong: 2,
+  neutral: 1,
+  weak: 0.5,
+  poor: 0.25,
+};
 
 /** The user's appetite for spending power-up stones, `1` cautious to `5` bold. */
 export type RelicRisk = 1 | 2 | 3 | 4 | 5;
@@ -96,29 +272,37 @@ export const isRelicRisk = (value: unknown): value is RelicRisk =>
   typeof value === 'number' && relicRiskLevels.includes(value as RelicRisk);
 
 /**
- * The two bars the slider moves, stated together because they are one appetite
- * read two ways: how much upside a relic must still hold before it is worth
- * stones, and how likely a second copy must be to overtake the first before it
- * is worth keeping instead of selling.
+ * The two bars the slider moves. Both are read against a weighted number on the
+ * same 0–4 scale, so one appetite governs both questions:
+ *
+ * - `stones` is what `weight × chance of finishing` must clear before a relic is
+ *   worth power-up stones. At risk 3 it is 1.00, which is exactly the reading
+ *   "an even chance on an exceptional fit, or a certainty on a neutral one".
+ * - `hold` is what `weight × expected finished strength` must clear before a
+ *   relic is worth a slot at all.
  */
-const riskBars: Record<RelicRisk, { upside: number; confidence: number }> = {
-  1: { upside: 0.40, confidence: 0.60 },
-  2: { upside: 0.28, confidence: 0.45 },
-  3: { upside: 0.18, confidence: 0.30 },
-  4: { upside: 0.10, confidence: 0.20 },
-  5: { upside: 0.04, confidence: 0.10 },
+const riskBars: Record<RelicRisk, { stones: number; hold: number }> = {
+  1: { stones: 2.00, hold: 0.60 },
+  2: { stones: 1.40, hold: 0.52 },
+  3: { stones: 1.00, hold: 0.45 },
+  4: { stones: 0.65, hold: 0.38 },
+  5: { stones: 0.35, hold: 0.30 },
 };
 
 export type RelicVerdict = 'power-up' | 'keep' | 'sell';
 
 export type RelicAdvice = {
   verdict: RelicVerdict;
-  /** One short clause saying which of the rules decided it. */
+  /** The arithmetic that decided it, short enough for a table cell. */
   reason: string;
-  /** Expected level once durability is spent, never above `+15`. */
+  /** `P(l, d)` — the chance this relic ever reaches `+15`. */
+  reachChance: number;
+  /** `weight × V(l, d)` — what the relic is worth holding, on a 0–4 scale. */
+  merit: number;
+  /** The level the relic is expected to stop at, as a mean. */
   expectedLevel: number;
-  /** Expected gain as a fraction of the relic's present strength. */
-  upside: number;
+  /** Where the relic comes to rest: the median level, and the mode beside it. */
+  landing: RelicLanding;
   /**
    * The better copy of the same pair this relic stands behind, or `null` when
    * it is the copy to keep. Two identical relics cannot both be used — one
@@ -126,7 +310,7 @@ export type RelicAdvice = {
    * holding while it can still overtake the first.
    */
   supersededBy: Relic | null;
-  /** The chance this relic ends above `supersededBy`'s present level. */
+  /** `P(l, d, that copy's level + 1)`, or `null` when there is no such copy. */
   overtakeChance: number | null;
 };
 
@@ -144,16 +328,15 @@ function comparePairStanding(left: Relic, right: Relic): number {
     || left.obtainedOrder - right.obtainedOrder;
 }
 
-function formatPercent(fraction: number): string {
-  return `${Math.round(fraction * 100)} %`;
-}
+const percent = (fraction: number) => `${Math.round(fraction * 100)} %`;
+const score = (value: number) => value.toFixed(2);
 
 /**
  * The whole account's advice at once, because a verdict on one relic depends on
  * which other relics the account holds.
  */
 export function relicAdvice(
-  relics: readonly Relic[], risk: RelicRisk, chance: number,
+  relics: readonly Relic[], risk: RelicRisk, rates: RelicSuccessRates,
 ): Map<string, RelicAdvice> {
   const bars = riskBars[risk];
   const pairs = new Map<string, Relic[]>();
@@ -167,24 +350,29 @@ export function relicAdvice(
 
   const advice = new Map<string, RelicAdvice>();
   for (const relic of relics) {
-    const expectedGain = relicExpectedGain(relic, chance);
-    const expectedLevel = relic.level + expectedGain;
-    const upside = expectedGain / relicMainPercent(relic.level);
     const synergy = relicSynergy(relic.mainProperty, relic.unique.definition.id);
+    /* An unjudged pair is neither good nor bad, so it counts once — the same
+       weight a neutral fit carries — rather than being scored as a failure. */
+    const weight = synergy === null ? relicSynergyWeights.neutral : relicSynergyWeights[synergy.band];
+    const reachChance = relicReachChance(relic.level, relic.durability, relicMaximumLevel, rates);
+    const strength = relicExpectedStrength(relic.level, relic.durability, rates);
     const kept = pairs.get(pairKey(relic))?.[0] ?? relic;
     const superseded = kept.id === relic.id ? null : kept;
+    /* Measured against the standing copy's *present* level rather than its own
+       projection. The question is whether to spend stones on the challenger at
+       all, and holding it to a level the incumbent has not reached yet would
+       answer a different one. */
     const overtakeChance = superseded === null
       ? null
-      /* Measured against the standing copy's *present* level rather than its
-         own projection. The question the user is asking is whether to spend
-         stones on the challenger at all, and holding it to a level the
-         incumbent has not reached yet would answer a different one. */
-      : relicGainChance(superseded.level - relic.level + 1, relic.durability, chance);
+      : relicReachChance(relic.level, relic.durability, superseded.level + 1, rates);
 
+    const merit = weight * strength;
     advice.set(relic.id, {
-      ...decide({ synergy, superseded, overtakeChance, upside, relic, bars }),
-      expectedLevel,
-      upside,
+      ...decide({ synergy, weight, merit, reachChance, overtakeChance, superseded, relic, bars }),
+      reachChance,
+      merit,
+      expectedLevel: relicExpectedLevel(strength),
+      landing: relicLanding(relicFinalLevelChances(relic.level, relic.durability, rates)),
       supersededBy: superseded,
       overtakeChance,
     });
@@ -193,43 +381,51 @@ export function relicAdvice(
 }
 
 /**
- * The decision itself, in the order the rules outrank each other.
+ * The decision, in the order the rules outrank each other.
  *
- * A poor fit is settled first, because no amount of room left makes a relic
- * whose halves pull apart worth stones — and that verdict has to reach both
- * copies of a poor pair, not just the second one. Then the second copy, because
- * no fit is good enough to make an account want two of the same relic: one
- * relic already covers a hundred monsters. What survives both is judged on how
- * much it can still gain, and only a relic that already fits well is ever sent
- * to the power-up bench, which is the rule the durability mechanic makes
- * expensive to break.
+ * Everything below is `weight × a probability` or `weight × a strength`, read
+ * against a bar on the same scale. Nothing else enters, and no band is special
+ * cased: a poor fit sells because a quarter of its finished strength cannot
+ * clear the holding bar, not because a rule says poor fits sell.
  */
-function decide({ synergy, superseded, overtakeChance, upside, relic, bars }: {
+function decide({ synergy, weight, merit, reachChance, overtakeChance, superseded, relic, bars }: {
   synergy: RelicSynergy | null;
-  superseded: Relic | null;
+  weight: number;
+  merit: number;
+  reachChance: number;
   overtakeChance: number | null;
-  upside: number;
+  superseded: Relic | null;
   relic: Relic;
-  bars: { upside: number; confidence: number };
+  bars: { stones: number; hold: number };
 }): { verdict: RelicVerdict; reason: string } {
-  if (synergy !== null && (synergy.band === 'poor' || synergy.band === 'weak')) {
-    return { verdict: 'sell', reason: 'Main and unique pull apart' };
-  }
+  if (synergy === null) return { verdict: 'keep', reason: 'Fit not judged' };
+
+  /* A second copy is settled before anything else that could keep it, because
+     no fit is good enough to make an account want two of the same relic: one
+     already covers a hundred monsters. It earns stones on the same bar every
+     other relic does, measured against passing the copy in front of it. */
   if (superseded !== null) {
-    if (overtakeChance !== null && overtakeChance >= bars.confidence) {
+    const weighted = weight * (overtakeChance ?? 0);
+    if (weighted >= bars.stones) {
       return {
         verdict: 'power-up',
-        reason: `${formatPercent(overtakeChance)} to pass the +${superseded.level} copy`,
+        reason: `${weight} × ${percent(overtakeChance ?? 0)} past +${superseded.level} = ${score(weighted)}`,
       };
     }
-    return { verdict: 'sell', reason: `Second copy behind a +${superseded.level}` };
+    return { verdict: 'sell', reason: `Second copy; ${score(weighted)} under ${score(bars.stones)}` };
   }
-  if (synergy === null) return { verdict: 'keep', reason: 'Fit not judged' };
-  if (synergy.band === 'neutral') return { verdict: 'keep', reason: 'Fits some monsters, not many' };
-  if (relic.durability === 0) return { verdict: 'keep', reason: 'Good fit, no attempts left' };
-  if (relic.level >= relicMaximumLevel) return { verdict: 'keep', reason: 'Good fit, already finished' };
-  if (upside >= bars.upside) return { verdict: 'power-up', reason: `Good fit, ${formatPercent(upside)} still to gain` };
-  return { verdict: 'keep', reason: 'Good fit, little left to gain' };
+
+  if (merit < bars.hold) {
+    return { verdict: 'sell', reason: `Merit ${score(merit)} under ${score(bars.hold)}` };
+  }
+  if (relic.level >= relicMaximumLevel) return { verdict: 'keep', reason: 'Finished; nothing to spend' };
+  if (relic.durability === 0) return { verdict: 'keep', reason: 'No attempts left; nothing to spend' };
+
+  const weighted = weight * reachChance;
+  if (weighted >= bars.stones) {
+    return { verdict: 'power-up', reason: `${weight} × ${percent(reachChance)} to +15 = ${score(weighted)}` };
+  }
+  return { verdict: 'keep', reason: `${score(weighted)} to +15, bar is ${score(bars.stones)}` };
 }
 
 export const relicVerdictOrder: readonly RelicVerdict[] = ['power-up', 'keep', 'sell'];

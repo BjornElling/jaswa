@@ -6,7 +6,8 @@ import type { RelicAdvice, RelicVerdict } from './relic-advice';
 import { relicVerdictOrder } from './relic-advice';
 
 export type RelicSortKey =
-  | 'index' | 'unique' | 'main' | 'synergy' | 'level' | 'durability' | 'outlook' | 'engraved' | 'advice';
+  | 'index' | 'unique' | 'main' | 'synergy' | 'level' | 'durability' | 'reach' | 'landing'
+  | 'engraved' | 'advice';
 
 /**
  * Whether a relic's level can still move, and why not when it cannot.
@@ -62,7 +63,8 @@ function verdictRank(verdict: RelicVerdict): number {
  */
 export const defaultRelicSortDirections: Record<RelicSortKey, boolean> = {
   index: true, unique: true, main: true,
-  synergy: false, level: false, durability: false, outlook: false, engraved: false, advice: true,
+  synergy: false, level: false, durability: false, reach: false, landing: false,
+  engraved: false, advice: true,
 };
 
 const mainOrder = { HP: 0, ATK: 1, DEF: 2 } as const;
@@ -93,8 +95,13 @@ export function compareRelicRows(left: RelicRow, right: RelicRow, key: RelicSort
       return left.relic.level - right.relic.level;
     case 'durability':
       return left.relic.durability - right.relic.durability;
-    case 'outlook':
-      return left.advice.expectedLevel - right.advice.expectedLevel;
+    case 'reach':
+      return left.advice.reachChance - right.advice.reachChance;
+    case 'landing':
+      /* By the level first, then by how far past a half its tail runs: two
+         relics that both land on +14 are not equally sure of it. */
+      return left.advice.landing.level - right.advice.landing.level
+        || left.advice.landing.chance - right.advice.landing.chance;
     case 'engraved':
       return left.engraved - right.engraved;
     case 'advice':

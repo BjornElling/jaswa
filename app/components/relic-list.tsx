@@ -20,7 +20,7 @@ import {
 } from '../lib/relic-synergy';
 import type { RelicSynergyBand } from '../lib/relic-synergy';
 import {
-  isRelicRisk, relicAdvice, relicPowerUpChance, relicVerdictLabels, relicVerdictOrder,
+  flatSuccessRates, isRelicRisk, relicAdvice, relicPowerUpChance, relicVerdictLabels, relicVerdictOrder,
 } from '../lib/relic-advice';
 import type { RelicRisk, RelicVerdict } from '../lib/relic-advice';
 import {
@@ -105,7 +105,8 @@ const relicColumns: readonly SortableColumn<RelicRow>[] = (() => {
     column('synergy', 'Synergy'),
     column('level', 'Level'),
     column('durability', 'Durability'),
-    column('outlook', <span className="table-heading-two-line" aria-label="Likely end">Likely<br />end</span>),
+    column('reach', <span className="table-heading-two-line" aria-label="Chance of reaching +15">To +15</span>),
+    column('landing', <span className="table-heading-two-line" aria-label="Level it lands on or above half the time">Lands<br />on</span>),
     column('engraved', 'Engraved'),
     column('advice', 'Advice'),
   ];
@@ -125,7 +126,8 @@ export function RelicList({ game, monsters, preferences }: {
   const relics = useMemo(() => readRelics(game?.data), [game]);
   const engravings = useMemo(() => relicEngravingCounts(monsters), [monsters]);
   const chance = useMemo(() => relicPowerUpChance(relics), [relics]);
-  const advice = useMemo(() => relicAdvice(relics, risk, chance.chance), [relics, risk, chance]);
+  const rates = useMemo(() => flatSuccessRates(chance.chance), [chance]);
+  const advice = useMemo(() => relicAdvice(relics, risk, rates), [relics, risk, rates]);
   const format = useMemo(() => (value: number) => formatNumber(value, preferences.general), [preferences.general]);
 
   const rows = useMemo<RelicRow[]>(() => relics.map((relic, index) => ({
@@ -136,8 +138,10 @@ export function RelicList({ game, monsters, preferences }: {
        the fallback exists because a `Map` lookup is optional, not because a
        relic could be missing. */
     advice: advice.get(relic.id) ?? {
-      verdict: 'keep', reason: 'Fit not judged', expectedLevel: relic.level,
-      upside: 0, supersededBy: null, overtakeChance: null,
+      verdict: 'keep', reason: 'Fit not judged', reachChance: 0, merit: 0,
+      expectedLevel: relic.level,
+      landing: { level: relic.level, chance: 1, likeliest: { level: relic.level, chance: 1 } },
+      supersededBy: null, overtakeChance: null,
     },
     levelState: relicLevelState(relic),
     engraved: engravings.get(relic.id) ?? 0,
@@ -285,7 +289,6 @@ export function RelicList({ game, monsters, preferences }: {
       >
         <tbody>
           {sorted.length ? sorted.map((row) => {
-            const likelyEnd = Math.round(row.advice.expectedLevel);
             return <tr key={row.relic.id}>
               <td className={relicCell('unique')}>
                 <span className="relic-property">{relicPropertyLabel(row.relic.unique.definition)}</span>
@@ -305,9 +308,26 @@ export function RelicList({ game, monsters, preferences }: {
               <td className={relicCell('durability')}>
                 <RelicDurabilityMark durability={row.relic.durability} />
               </td>
-              <td className={relicCell('outlook', likelyEnd <= row.relic.level && 'dim')}
-                title={`Expected to finish at +${row.advice.expectedLevel.toFixed(1)}`}>
-                +{format(likelyEnd)}
+              {/* The chance of ever finishing, and what the relic is worth if
+                  it stops wherever it stops. Both are dimmed when the relic can
+                  no longer move, because neither is a projection any more. */}
+              <td className={relicCell('reach', row.levelState === 'spent' && 'dim')}
+                title={`P(+15) with ${row.relic.durability} attempt${row.relic.durability === 1 ? '' : 's'} left`}>
+                {format(Math.round(row.advice.reachChance * 100))} %
+              </td>
+              {/* The median of the landing distribution, with the size of its
+                  own tail under it: a median is a statement about a tail, and
+                  the tail is never exactly a half. */}
+              <td className={relicCell('landing')}
+                title={`Likeliest single outcome +${row.advice.landing.likeliest.level} at `
+                  + `${Math.round(row.advice.landing.likeliest.chance * 100)} %; `
+                  + `mean +${row.advice.expectedLevel.toFixed(1)}; `
+                  + `merit ${row.advice.merit.toFixed(2)} of a possible 4`}>
+                <span className="relic-landing-level">+{format(row.advice.landing.level)}</span>
+                <span className="relic-landing-chance">
+                  <span className="visually-hidden">at least </span>
+                  &ge;&thinsp;{format(Math.round(row.advice.landing.chance * 100))} %
+                </span>
               </td>
               <td className={relicCell('engraved', row.engraved === 0 && 'muted')}>
                 {row.engraved === 0 ? '—' : format(row.engraved)}

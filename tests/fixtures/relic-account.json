@@ -22,7 +22,7 @@
   "artifacts": [],
   "rune_craft_item_list": [],
   "relics": [
-    { "rid": 9001, "type": 14, "upgrade_curr": 2, "durability": 3, "locked": 0, "pri_effect": [100, 5], "sec_effect": [14, 220, 1] },
+    { "rid": 9001, "type": 14, "upgrade_curr": 0, "durability": 2, "locked": 0, "pri_effect": [100, 3], "sec_effect": [14, 240, 1] },
     { "rid": 9002, "type": 14, "upgrade_curr": 12, "durability": 0, "locked": 0, "pri_effect": [100, 15], "sec_effect": [14, 150, 3] },
     { "rid": 9003, "type": 1, "upgrade_curr": 15, "durability": 1, "locked": 1, "pri_effect": [101, 18], "sec_effect": [1, 1500, 3] },
     { "rid": 9004, "type": 14, "upgrade_curr": 0, "durability": 3, "locked": 0, "pri_effect": [101, 3], "sec_effect": [14, 300, 1] },

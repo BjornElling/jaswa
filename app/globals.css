@@ -823,6 +823,24 @@ button { cursor: pointer; }
 .relic-durability .relic-pip-left { fill: var(--ink); stroke: var(--ink); }
 .relic-durability .relic-pip-spent { stroke: var(--ghost); }
 
+/* The likeliest landing level over its own probability. Two lines, so the
+   level keeps the table's figure size and the confidence reads as the footnote
+   it is — never the other way round. */
+.relic-landing-level { display: block; font-variant-numeric: tabular-nums; }
+.relic-landing-chance {
+  display: block;
+  font-size: var(--t-small);
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  /* A median is a tail, so the figure is written as a bound rather than as a
+     second probability that could be mistaken for the column beside it. It is
+     also short enough to stay inside a fixed column, which "or better" was
+     not. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .relic-grid td.relic-level { white-space: nowrap; }
 .relic-level-value { font-variant-numeric: tabular-nums; }
 .relic-level-mark { display: inline-flex; margin-left: var(--s1); vertical-align: -.18em; }

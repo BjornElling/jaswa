@@ -7,7 +7,7 @@
 **Read by:** `app/lib/relics.ts`, `app/lib/relic-properties.ts`,
 `app/lib/relic-synergy.ts`, `app/lib/relic-advice.ts`,
 `app/components/relic-list.tsx`
-**Enforced by:** `npm run verify:relic-synergy`
+**Enforced by:** `npm run verify:relic-synergy`, `npm run verify:relic-maths`
 
 ---
 
@@ -61,7 +61,7 @@ had misread.
 **The main property is `3 + level` percentage points.** The account confirms it
 at `+0` (3), `+6` (9) and `+9` (12), so `+15` is 18. It is the one figure that
 indexes a relic's whole strength against its level, which is why
-`relicMainPercent` is the denominator of the upside in §7.
+`relicMainPercent` is what `V(l, d)` in §7.2 measures a relic against.
 
 ## 3. What is known about the mechanic, and from where
 
@@ -229,80 +229,172 @@ Durability is three pips and always three: the spent ones are the reason a
 level will never move again, so they stay on the page as hollow rings rather
 than disappearing.
 
-## 7. The outlook, and the one number JASWA had to estimate
+## 7. Three recursions, and the arithmetic is exact
 
-**How often a power-up succeeds is estimated from the account's own relics.**
-The game publishes no table and JASWA will not invent one. It does not have to:
-every relic is a complete record of its own attempts — its level is the number
-that succeeded, and the durability it has spent is the number that failed.
+Everything the page decides and everything it shows comes out of one one-line
+recursion, run three times with three sets of boundaries. **A power-up has two
+outcomes and only two**: it succeeds and the level goes up, or it fails and a
+durability goes down. Write `p(l)` for the chance of success at level `l`, and
+everything else follows.
 
-The estimate is the mean of a Beta posterior on a uniform prior,
-`(successes + 1) / (successes + failures + 2)`, so an account with no history
-reads an even chance rather than dividing by zero, and a single attempt does not
-move the answer to certainty. The page states the figure and the sample size it
-rests on, because a projection whose basis is invisible is a projection nobody
-can argue with.
-
-**It pools every level, which the game almost certainly does not.** A relic near
-the ceiling is surely harder to push than one at `+0`. The pooled rate is the
-honest simplification available from the evidence at hand; the per-level curve
-the game shows on its own button would replace it, and would change only
-`relicPowerUpChance` and nothing that reads it.
-
-**How many levels are left in a relic.** A power-up either raises the level or
-spends a durability, so the number of successes still in a relic is the number
-of successes before its `durability`-th failure — a negative binomial. With at
-most three failures and fifteen levels the tail sums directly, which keeps the
-arithmetic exact and visible:
+### 7.1 `P(l, d)` — the chance of ever reaching `+15`
 
 ```
-P(gain ≥ k)  = 1 − Σ_{j<k} C(j + d − 1, j) · q^j · (1 − q)^d
-E[gain]      = Σ_{k=1..15−level} P(gain ≥ k)
+P(15, d) = 1                                           already there
+P(l, 0)  = 0                    for l < 15             no attempts left, ever
+P(l, d)  = p(l)·P(l + 1, d) + (1 − p(l))·P(l, d − 1)
 ```
 
-**Upside is a ratio, not a count of levels.** A relic's strength scales with
-`3 + level`, so three levels double a fresh relic and add a twentieth to a
-nearly finished one. The table states the expected finishing level; the verdict
-uses `E[gain] / (3 + level)`, which is what makes `+0` and `+12` comparable.
+That is the whole calculation, and it is exact rather than an approximation.
+The closed form — a sum over every way to spread at most `d − 1` failures across
+the remaining levels — agrees with it term for term:
 
-## 8. The verdict
+```
+P(l, 1) = Π pᵢ
+P(l, 2) = (Π pᵢ)·[1 + Σ qⱼ]
+P(l, 3) = (Π pᵢ)·[1 + Σ qᵢ + Σ qᵢ² + Σᵢ<ⱼ qᵢqⱼ]          qᵢ = 1 − pᵢ
+```
 
-Three verdicts — **Power up**, **Keep**, **Sell** — decided in this order. The
-order is the rule; each step only sees what the steps above let through.
+The `qᵢ²` term is the one a hand-written version drops: two failures can land on
+the *same* level, so the sum runs over multisets, not pairs. JASWA uses the
+recursion and not the expansion — it is shorter, it is far harder to get subtly
+wrong, and it keeps working unchanged if Com2uS ever moves the ceiling or the
+durability a relic starts with.
 
-1. **A weak or poor fit sells.** No amount of room left makes a relic whose
-   halves pull apart worth power-up stones, and this verdict has to reach both
-   copies of a poor pair rather than only the second one.
-2. **A second copy of the same pair sells**, unless it can still overtake the
-   first. Two identical relics cannot both be used. The challenger is kept and
-   powered up only when
-   `P(final level > the kept copy's present level) ≥ the risk bar`.
-   The comparison is against the incumbent's *present* level, not its
-   projection: the question being asked is whether to spend stones on the
-   challenger at all.
-   The copy to keep is the highest level, then the one with the most attempts
-   left, then the one held longest — all facts about the relic, so sorting the
-   table cannot change which copy is the incumbent.
-3. **An unjudged or neutral fit keeps.** Neutral is explicitly not a sell: it is
-   a relic that suits fewer monsters, and the best copy of one is still worth
-   holding.
-4. **A good fit with no attempts left, or already at `+15`, keeps.**
-5. **A good fit with upside above the risk bar powers up.** Only a relic that
-   already fits well is ever sent to the bench — the rule the durability
-   mechanic makes expensive to break.
+`npm run verify:relic-maths` checks the recursion against those closed forms
+over 200 randomly drawn, deliberately **uneven** rate curves. The worst
+disagreement is 3·10⁻¹⁶ — machine precision.
+
+### 7.2 `V(l, d)` — what the relic is expected to be worth in the end
+
+The same recursion, with one boundary changed:
+
+```
+V(15, d) = 1
+V(l, 0)  = (3 + l) / 18                                 what it actually became
+V(l, d)  = p(l)·V(l + 1, d) + (1 − p(l))·V(l, d − 1)
+```
+
+**Why a second run is necessary.** `P` asks whether a relic will *finish*, and
+answers `0` for anything that runs out of durability on the way. That is the
+right question for spending stones and the wrong one for keeping a relic: an
+exceptional `+12` with no durability left has `P = 0` and is one of the best
+things an account can own. `V` says it is worth 83 % of a finished relic,
+because that is what `15/18` of the main property is. **A model that judged both
+questions on `P` alone would sell it**, and that is the single correction JASWA
+makes to the formula as it was put.
+
+`V` also never falls when a level or an attempt is added, which `P` alone does
+not guarantee across the two branches. The verifier holds it to both.
+
+### 7.3 `D(l, d)` — where the relic actually lands
+
+The same recursion a third time, carrying a whole distribution instead of a
+single number. A relic stops in exactly one of two ways, and those are the two
+boundaries:
+
+```
+D(15, d) = all of the mass on +15                       finished
+D(l, 0)  = all of the mass on +l                        stopped where it stands
+D(l, d)  = p(l)·D(l + 1, d) + (1 − p(l))·D(l, d − 1)
+```
+
+`P` and `V` are both readings of this one distribution — `P` is its mass on
+`+15`, `V` its mean — and the verifier holds all three to each other to machine
+precision. They are still written separately, because three recursions built
+from three different boundaries agreeing is a check worth having.
+
+**The table prints the median, not the mode.** The mode is the literal answer to
+"which single level is it most likely to land on", and it is a bad column: for
+*any* relic with an attempt left it is `+15`, because `+15` absorbs every path
+that gets there while the fourteen levels below split what is left between them.
+Its probability is then exactly `P(l, d)` — the column immediately to its left.
+Measured on this account, every open relic's mode was `+15`, at anywhere from
+13 % to 48 %.
+
+The median answers the same question and does not collapse: the level the relic
+reaches or beats half the time. On the same relics it reads `+14`, `+11`, `+10`,
+`+8`, `+6` — a real spread — and it stays a whole level, which a mean does not.
+The size of its own tail is printed under it, because a median is a statement
+about a tail and the tail is never exactly a half. The mode and the mean are
+both in the cell's tooltip for anyone who wants them.
+
+### 7.4 `p(l)` is a table, and it is measured, not invented
+
+The game shows a success rate on its own power-up button and publishes no table,
+so `flatSuccessRates` fills all fifteen entries with one estimate — **taken from
+the account's own relics**. Every relic is a complete record of its own
+attempts: its level is the number that succeeded, the durability it has spent is
+the number that failed. The estimate is a Beta posterior mean on a uniform
+prior, `(successes + 1) / (successes + failures + 2)`, so an account with no
+history reads an even chance instead of dividing by zero. The page states the
+figure and the sample size beside the risk slider.
+
+The rates are a **table of fifteen** rather than one number because the real
+curve certainly is not flat — `+14` cannot be as easy as `+0`. Reading the
+game's own figures off the button replaces `flatSuccessRates` and nothing else:
+both recursions already take a per-level curve, and the verifier already tests
+them on one.
+
+## 8. The verdict is one multiplication
+
+**A relic's fit multiplies both numbers, on a halving ladder:**
+
+| Fit | Weight |
+| --- | ---: |
+| Exceptional | × 4 |
+| Strong | × 2 |
+| Neutral | × 1 |
+| Weak | × 0.5 |
+| Poor | × 0.25 |
+
+From that, two quantities, each read against a bar the risk slider sets:
+
+- **Stones** — `weight × P(l, d)`. Is this relic worth power-up stones? At risk 3
+  the bar is `1.00`, which reads exactly as *an even chance on an exceptional
+  fit, or a certainty on a neutral one*.
+- **Merit** — `weight × V(l, d)`, on a 0–4 scale. Is this relic worth a slot at
+  all? It is not a column — the *Lands on* column says the same thing in levels,
+  which is the unit a player thinks in — but every verdict that turns on it
+  prints it, so the judgement is still arguable.
+
+The rules, in the order they outrank each other:
+
+1. **An unjudged fit keeps.** Nothing to multiply.
+2. **A second copy of the same pair** is settled before anything that could keep
+   it: no fit makes an account want two of one relic, because one already covers
+   a hundred monsters. It earns stones on the same bar, measured against passing
+   the copy in front of it — `weight × P(l, d, that copy's level + 1)`, the same
+   recursion with a nearer target. Below the bar, it sells.
+3. **Merit below the holding bar sells.** No band is special-cased: a poor fit
+   sells because a quarter of its finished strength cannot clear the bar, not
+   because a rule says poor fits sell.
+4. **A finished relic keeps** — at `+15`, or out of durability. There is nothing
+   to spend stones on, whatever `P` says.
+5. **Stones above the bar powers up.**
 6. **Anything else keeps.**
+
+Every reason printed in the table is the arithmetic itself — `4 × 48 % to +15 =
+1.90`, `Merit 0.32 under 0.45` — so a verdict can be checked rather than
+trusted.
 
 ## 9. The risk slider
 
-One appetite, read two ways, set once from 1 (cautious) to 5 (bold):
+One appetite, two bars:
 
-| Risk | Upside a relic must still hold (§8.5) | Chance a second copy must have (§8.2) |
+| Risk | Stones bar (§8) | Holding bar (§8.3) |
 | ---: | ---: | ---: |
-| 1 | 40 % | 60 % |
-| 2 | 28 % | 45 % |
-| 3 | 18 % | 30 % |
-| 4 | 10 % | 20 % |
-| 5 | 4 % | 10 % |
+| 1 | 2.00 | 0.60 |
+| 2 | 1.40 | 0.52 |
+| 3 | 1.00 | 0.45 |
+| 4 | 0.65 | 0.38 |
+| 5 | 0.35 | 0.30 |
+
+At risk 1 only a near-certain exceptional relic earns stones; at risk 5 a neutral
+fit with a one-in-three chance does. The holding bar moves with it because the
+two are one disposition — a player willing to gamble on a power-up is the same
+player who holds on to a maybe — but it moves far less, so the slider's visible
+effect stays where its label says it is.
 
 It sits in the filter strip because it belongs to the same question the filters
 answer — what should this table be telling me — even though it changes the
