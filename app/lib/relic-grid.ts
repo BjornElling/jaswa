@@ -2,10 +2,10 @@ import {
   relicMaximumLevel, relicPropertyLabel, relicPropertyReduces, relicSourceLabel,
 } from './relic-properties';
 import type { Relic } from './relics';
-import type { RelicSynergy } from './relic-synergy';
+import type { RelicSynergyBand } from './relic-synergy';
 import { compareRelicSynergy } from './relic-synergy';
 import type { RelicAdvice, RelicVerdict } from './relic-advice';
-import { relicVerdictOrder } from './relic-advice';
+import { relicVerdictLabels, relicVerdictOrder } from './relic-advice';
 
 export type RelicSortKey =
   | 'index' | 'unique' | 'main' | 'synergy' | 'level' | 'durability' | 'landing'
@@ -29,7 +29,7 @@ export function relicLevelState(relic: Relic): RelicLevelState {
 export type RelicRow = {
   relic: Relic;
   index: number;
-  synergy: RelicSynergy | null;
+  synergy: RelicSynergyBand;
   advice: RelicAdvice;
   levelState: RelicLevelState;
   /** How many monsters the relic is engraved on. */
@@ -111,12 +111,17 @@ export function compareRelicRows(left: RelicRow, right: RelicRow, key: RelicSort
   }
 }
 
-/** What a row answers to in the search field. */
+/**
+ * What a row answers to in the search field: everything the row actually shows,
+ * and nothing it does not. The advice reason moved into a title when the verdict
+ * column lost its second line, and a search that matched text nobody can see
+ * would return rows for no visible reason.
+ */
 export function relicSearchText(row: RelicRow, format: (value: number) => string): string {
   return [
     relicPropertyLabel(row.relic.unique.definition),
     row.relic.mainProperty,
     relicEffectText(row.relic, format),
-    row.advice.reason,
+    relicVerdictLabels[row.advice.verdict],
   ].join(' ').toLowerCase();
 }

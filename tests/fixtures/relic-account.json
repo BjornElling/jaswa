@@ -49,7 +49,7 @@
           "type": 1,
           "upgrade_curr": 15,
           "durability": 1,
-          "locked": 1,
+          "locked": 0,
           "pri_effect": [
             101,
             18
@@ -104,7 +104,7 @@
       "type": 1,
       "upgrade_curr": 15,
       "durability": 1,
-      "locked": 1,
+      "locked": 0,
       "pri_effect": [
         101,
         18
@@ -117,33 +117,33 @@
     },
     {
       "rid": 9004,
-      "type": 14,
+      "type": 1,
       "upgrade_curr": 0,
       "durability": 3,
       "locked": 0,
       "pri_effect": [
-        101,
+        102,
         3
       ],
       "sec_effect": [
-        14,
-        300,
-        2
+        1,
+        2500,
+        1
       ]
     },
     {
       "rid": 9005,
-      "type": 11,
+      "type": 10,
       "upgrade_curr": 5,
       "durability": 2,
       "locked": 0,
       "pri_effect": [
-        101,
+        102,
         8
       ],
       "sec_effect": [
-        11,
-        250,
+        10,
+        2000,
         2
       ]
     },

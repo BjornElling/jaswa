@@ -46,23 +46,30 @@ test('the unique property reads in the game’s own words', async ({ page }) => 
   await expect(primal).toContainText('MAX HP +2 % per 125 SPD');
   await expect(rowFor(page, 'per 500 ATK')).toContainText('Sharp Conquest');
   await expect(rowFor(page, 'per 500 ATK')).toContainText('DMG dealt +1 % per 500 ATK');
+  /* Named, never quantified: the main column is the stat and nothing else. */
+  await expect(primal.locator('td').nth(1)).toHaveText('HP');
 });
 
 test('the unique property carries the threshold its level and stat call for', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
   /* The threshold is what a power-up moves, and it steps every three levels:
-     a SPD-reading property is 300 at +0, 150 at +9 and 125 at +12. */
-  await expect(rowFor(page, 'per 300 SPD')).toContainText('+0');
-  await expect(rowFor(page, 'per 150 SPD')).toContainText('+9');
+     an ATK-reading property is 2,500 at +0, 2,000 at +5 and 1,000 at +9, and a
+     SPD-reading one is 150 at +9 and 125 at +12. */
+  await expect(rowFor(page, 'per 2,500 ATK')).toContainText('+0');
+  await expect(rowFor(page, 'per 2,000 ATK')).toContainText('+5');
+  await expect(rowFor(page, 'per 1,000 ATK')).toContainText('+9');
   await expect(rowFor(page, 'per 125 SPD')).toContainText('+12');
 });
 
-test('the page states the rates it projects from', async ({ page }) => {
+test('the page states the rates it projects from, and claims nothing else', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
   await expect(page.getByText('Power-up rates are the game')).toContainText('free to +3');
   await expect(page.getByText('Power-up rates are the game')).toContainText('10 % at +14');
+  /* Synergy is a table, not a measurement, and the page no longer says
+     otherwise underneath it. */
+  await expect(page.getByText('Synergy is measured')).toHaveCount(0);
 });
 
 test('the table opens on synergy, best fit first', async ({ page }) => {
@@ -87,8 +94,8 @@ test('a level says why it is where it is', async ({ page }) => {
 test('durability is stated as attempts left, all three pips present', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
-  await expect(rowFor(page, 'per 300 SPD').getByText('3 of 3 attempts left')).toBeAttached();
-  await expect(rowFor(page, 'per 250 SPD').getByText('2 of 3 attempts left')).toBeAttached();
+  await expect(rowFor(page, 'per 2,500 ATK').getByText('3 of 3 attempts left')).toBeAttached();
+  await expect(rowFor(page, 'per 2,000 ATK').getByText('2 of 3 attempts left')).toBeAttached();
   await expect(rowFor(page, 'per 125 SPD').getByText('0 of 3 attempts left')).toBeAttached();
 });
 
@@ -109,19 +116,29 @@ test('the landing column names a level the relic can realistically reach', async
   await openRelics(page);
   /* A fresh relic is free to +3 and then fights a falling rate, so it lands
      around +7 — not at +15, which the published rates make a lottery. */
-  const fresh = rowFor(page, 'per 300 SPD');
+  const fresh = rowFor(page, 'per 2,500 ATK');
   await expect(fresh.locator('td').nth(5)).toContainText('+7');
-  const halfway = rowFor(page, 'per 250 SPD');
+  const halfway = rowFor(page, 'per 2,000 ATK');
   await expect(halfway.locator('td').nth(5)).toContainText('+7');
 });
 
-test('the advice states the multiplication it was made from', async ({ page }) => {
+/** The advice cell, whose title carries the arithmetic behind the verdict. */
+const adviceFor = (page: Page, effect: string) => rowFor(page, effect).locator('td').nth(7);
+
+test('the advice shows the verdict and nothing else', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
-  /* A verdict nobody can check is a verdict nobody can argue with, so every
-     reason is the arithmetic itself. */
-  await expect(rowFor(page, 'per 300 SPD')).toContainText('Merit 0.05 under 0.26');
-  await expect(rowFor(page, 'per 150 SPD')).toContainText('Second copy; 0.48 under 1.0');
+  await expect(adviceFor(page, 'per 2,500 ATK')).toHaveText('Sell');
+  await expect(adviceFor(page, 'per 500 ATK')).toHaveText('Keep');
+});
+
+test('the arithmetic behind a verdict is still there to be checked', async ({ page }) => {
+  await importAccount(page, relicAccount);
+  await openRelics(page);
+  /* A verdict nobody can check is a verdict nobody can argue with, so the
+     working moved into the cell's title rather than off the page. */
+  await expect(adviceFor(page, 'per 2,500 ATK')).toHaveAttribute('title', 'Merit 0.05 under 0.26');
+  await expect(adviceFor(page, 'per 150 SPD')).toHaveAttribute('title', 'Second copy; 0.48 under 1.0');
 });
 
 test('the risk slider decides whether a second copy is worth the stones', async ({ page }) => {
@@ -133,28 +150,29 @@ test('the risk slider decides whether a second copy is worth the stones', async 
   /* An exceptional fit three levels behind the copy in front of it, at rates
      of 35 % and worse: 10 × 5 % = 0.48, which clears the bold bar and nothing
      above it. */
+  const advice = adviceFor(page, 'per 150 SPD');
   await expect(challenger).toContainText('Sell');
-  await expect(challenger).toContainText('Second copy; 0.48 under 1.0');
+  await expect(advice).toHaveAttribute('title', 'Second copy; 0.48 under 1.0');
 
   await risk.fill('5');
   await expect(challenger).toContainText('Power up');
-  await expect(challenger).toContainText('10.0 × 5 % past +12 = 0.48');
+  await expect(advice).toHaveAttribute('title', '10.0 × 5 % past +12 = 0.48');
 
   await risk.fill('1');
   await expect(challenger).toContainText('Sell');
-  await expect(challenger).toContainText('Second copy; 0.48 under 2.5');
+  await expect(advice).toHaveAttribute('title', 'Second copy; 0.48 under 2.5');
 });
 
 test('a poor fit sells whatever room it has left', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
-  /* Full durability and fifteen levels of headroom, and still a sell: a quarter
+  /* Full durability and fifteen levels of headroom, and still a sell: a tenth
      of a finished relic's strength cannot clear the holding bar, however much
      room is left. No rule says poor fits sell; the multiplication does. */
-  const mismatched = rowFor(page, 'per 300 SPD');
+  const mismatched = rowFor(page, 'per 2,500 ATK');
   await expect(mismatched).toContainText('Poor');
   await expect(mismatched).toContainText('Sell');
-  await expect(mismatched).toContainText('Merit 0.05 under 0.26');
+  await expect(adviceFor(page, 'per 2,500 ATK')).toHaveAttribute('title', 'Merit 0.05 under 0.26');
 });
 
 test('a relic engraved on monsters counts them, and an unused one says so', async ({ page }) => {

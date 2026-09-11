@@ -2,9 +2,8 @@
 
 **Status:** Binding project rules for the Relics page
 **Settled:** September 11, 2026
-**Derived data:** `app/data/relic-synergy.json`, written by
-`scripts/build-relic-synergy.mjs` — the whole 48-cell matrix is written out in
-readable form in §5.1.1
+**The synergy table:** 48 hand-written cells in `app/lib/relic-synergy.ts`, set
+out in readable form in §5.1.1
 **Read by:** `app/lib/relics.ts`, `app/lib/relic-properties.ts`,
 `app/lib/relic-synergy.ts`, `app/lib/relic-advice.ts`,
 `app/components/relic-list.tsx`
@@ -76,7 +75,7 @@ indexes a relic's whole strength against its level, which is why
 | Effects read "*X* +N % per *T* *stat* at the start of battle" | Com2uS relic announcement, and the shape of `sec_effect` |
 | Power-up success rates per level, `100 %` to `+3` then `80 %` down to `10 %` | Com2uS's published table — §7.4 |
 | Primary effect ids `100`/`101`/`102` are HP/ATK/DEF | `ENGRAVING-STATISTICS.md` §1, on captured traffic |
-| The unique-property id space is exactly `1`–`16` | The captured statistics, across 893 monster types — held by `verify:relic-synergy` |
+| The unique-property id space is exactly `1`–`16` | The game's own Select Unique Property panel — §4 |
 
 **The engraving limit is recorded as 100 and not 150.** The official wording
 says a hundred. Nothing in JASWA depends on the exact number — the argument in
@@ -154,9 +153,10 @@ order puts 14 at *MAX HP per SPD* (**Nimble Primal**) and 16 at *Recovery &
 Shield per MAX HP* (**Hearty Restore**). The three mappings they confirmed
 against the panel are right; these two were not confirmed and are wrong.
 
-The correction matters, because id 14 is **35 % of every relic engraving in the
-game** — by far the most-used property — and §5 had drawn a conclusion from its
-mislabelling. That conclusion is withdrawn there.
+The correction matters. Under sw-forge's reading, id 14 grants ATK; under the
+panel's own order it grants MAX HP. Every judgement about the most-used property
+in the game turns on which of those is true, and §5's table would have graded
+all three of its cells backwards.
 
 ### 4.3 The relic panel sends no traffic
 
@@ -166,169 +166,121 @@ vocabulary cannot be collected the way `ENGRAVING-STATISTICS.md` collects the
 statistics panels, and reading it off screen is not a shortcut — it is the only
 route there is.
 
-## 5. Synergy is measured, not asserted
+## 5. Synergy is a table
 
 **The question.** A relic has a main property and a unique property. The unique
-property sizes itself from one of the monster's stats. When the main property
-feeds that stat, the relic pays twice — once directly, once through its own
-effect — and when it does not, the two halves are strangers sharing a slot. That
-is what "synergy" means here, and it is worth a great deal on an item a hundred
+property sizes itself from one of the monster's stats and grants another. When
+the main property raises the stat the unique property *reads*, the relic pays
+twice — the main stat helps directly, and it makes the relic's own effect
+bigger. When it does not, the two halves are strangers sharing a slot. That is
+what "synergy" means here, and it is worth a great deal on an item a hundred
 monsters will wear.
 
-**Why not a table of opinions.** Community tier lists exist, disagree, and are
-mostly reasoned from the rule of thumb rather than from evidence. A measurement
-can be checked; a list cannot. It also does not need to know what a property
-*does* — which is what let this table work for months while eleven of the
-sixteen properties were still unnamed, and what makes it immune to the
-mislabelling §4.2 corrects.
+**The answer is forty-eight cells in `relic-synergy.ts`, written down.** Nothing
+derives them, nothing regenerates them, and every one can be edited on its own
+line when a better judgement is to hand. `npm run verify:relic-synergy` checks
+only that the table stays whole — every property has a row, every row has all
+three mains, every value is one of the five bands, no band has fallen out of use
+and no property grades the same against all three mains.
 
-**An earlier version of this section claimed the measurement refuted the rule of
-thumb.** It said the player base put HP mains on the ATK-granting families. That
-was an artefact of the two wrong mappings in §4.2: the property in question
-grants MAX HP, not ATK, so HP main was never a mismatch. **The claim is
-withdrawn**, and §5.1 states what the measurement actually finds — which is far
-closer to the rule of thumb than that.
+### 5.1 What each cell was first filled in from
 
-**The measurement.** The game's own **Relic Engraving Statistics** panel reports,
-per monster, how often each main property and each unique property is engraved
-on it. JASWA already holds that capture — `app/data/engraving-statistics.json`, see
-`ENGRAVING-STATISTICS.md`. Pooled by species, it covers **893 monster types and
-5,563,894 engravings**.
+Three questions about the pair, in this order of weight:
 
-Monsters differ in what they want. So if a main property and a unique property
-suit the same monsters, they turn up together more often than two drawn
-independently would, and that excess is measurable:
+1. **Does the main property raise the stat the unique property reads?** If it
+   does, the main *multiplies* the relic: a bigger ATK both hits harder and buys
+   a bigger `DMG dealt per ATK` bonus. This is the only real double-dip a relic
+   has.
+2. **Does the main property raise the stat the relic grants?** Then the two
+   merely *add* — an HP main and a relic granting MAX HP both push one number,
+   which is worth having but is not a multiplication.
+3. **Do the relic and the main point the same way?** ATK main is on a damage
+   dealer; HP and DEF mains are on something that has to survive. A relic that
+   grants `DMG dealt` or `ATK` is offensive and everything else is defensive.
 
-1. For each monster, take its two distributions. Its weight is the midpoint of
-   the two totals, which disagree only by the panel's own rounding.
-2. Accumulate the joint mass of every (main, unique) pair as the product of the
-   two shares within that monster, summed over monsters.
-3. Divide by the mass expected if the two were independent across the whole
-   population. That ratio is the **lift**: `1` is chance.
-4. Standardise the log lift within each main property, across its own sixteen
-   partners, giving a **score** in standard deviations.
+Which gives:
 
-**Step 2 is a floor, not a claim.** The panel never reports the pairs
-themselves, so a monster's own joint is unobserved and is taken as the product
-of its margins. That cannot manufacture an association — everything measured is
-variation *between* monsters, which is real — it can only understate one.
+| Case | Band |
+| --- | --- |
+| The main multiplies the relic, and both push one way | Exceptional |
+| Nothing can feed SPD, and main and relic stack on one stat | Exceptional |
+| Main and relic stack, but another main would have multiplied it | Strong |
+| The main multiplies the relic, but they pull apart | Strong |
+| Right direction, no multiplication | Neutral |
+| Wrong direction, on a relic no main could have fed | Weak |
+| Wrong direction, and another main would have fed it | Poor |
 
-**Step 4 is what makes the three mains comparable.** HP is 52 % of all mains and
-DEF is 9 %, and a dominant margin cannot deviate as far from chance as a rare
-one can; comparing raw lifts would grade every DEF relic on a longer ruler. The
-relic's main property is fixed and cannot be changed, so the question that
-matters is which partners *this* main favours, and that is what the
-standardised score answers.
+The SPD line is the one worth stating twice. **No main property can raise SPD**,
+so a Nimble relic can never be multiplied by anything, and its best possible
+partner is the main that stacks with what it grants. HP main on Nimble Primal is
+therefore the top band not despite reading SPD but because nothing better is
+available to it — which is also where the community lands.
 
-**The table is derived once, not read live.** The capture is 6.5 MB and the
-answer is 48 numbers, so `scripts/build-relic-synergy.mjs` reduces one to the
-other and the app ships `app/data/relic-synergy.json`. A page that imported the
-archive to read 48 numbers would make every visitor download it. That is a
-derived value written down, which `AGENTS.md` §6 is right to be wary of, and it
-is kept honest the way the capture itself is: the verifier below re-derives the
-table from the statistics and fails if the committed file has drifted. **Re-run
-the builder after any capture session that adds relic panels.**
+### 5.1.1 The whole table
 
-**The five bands**, on the score:
+| id | Unique property | Grants | Reads | HP main | ATK main | DEF main |
+| ---: | --- | --- | --- | --- | --- | --- |
+| 1 | Sharp Conquest | DMG dealt | ATK | ✕✕ Poor | ★★ Exceptional | ✕✕ Poor |
+| 2 | Solid Conquest | DMG dealt | DEF | ✕✕ Poor | ◇ Neutral | ★ Strong |
+| 3 | Hearty Conquest | DMG dealt | MAX HP | ★ Strong | ◇ Neutral | ✕✕ Poor |
+| 4 | Sharp Resolute | DMG taken | ATK | ◇ Neutral | ★ Strong | ◇ Neutral |
+| 5 | Solid Resolute | DMG taken | DEF | ◇ Neutral | ✕✕ Poor | ★★ Exceptional |
+| 6 | Hearty Resolute | DMG taken | MAX HP | ★★ Exceptional | ✕✕ Poor | ◇ Neutral |
+| 7 | Nimble Valiant | ATK | SPD | ✕ Weak | ★★ Exceptional | ✕ Weak |
+| 8 | Solid Valiant | ATK | DEF | ✕✕ Poor | ★ Strong | ★ Strong |
+| 9 | Hearty Valiant | ATK | MAX HP | ★ Strong | ★ Strong | ✕✕ Poor |
+| 10 | Sharp Timeless | DEF | ATK | ◇ Neutral | ★ Strong | ★ Strong |
+| 11 | Nimble Timeless | DEF | SPD | ◇ Neutral | ✕ Weak | ★★ Exceptional |
+| 12 | Hearty Timeless | DEF | MAX HP | ★★ Exceptional | ✕✕ Poor | ★ Strong |
+| 13 | Sharp Primal | MAX HP | ATK | ★ Strong | ★ Strong | ◇ Neutral |
+| 14 | Nimble Primal | MAX HP | SPD | ★★ Exceptional | ✕ Weak | ◇ Neutral |
+| 15 | Solid Primal | MAX HP | DEF | ★ Strong | ✕✕ Poor | ★★ Exceptional |
+| 16 | Hearty Restore | Recovery & Shield | MAX HP | ★★ Exceptional | ✕✕ Poor | ◇ Neutral |
 
-| Band | Score | Mark |
-| --- | --- | --- |
-| Exceptional | ≥ +1.00 | Two gold stars |
-| Strong | +0.35 to +1.00 | One gold star |
-| Neutral | −0.35 to +0.35 | One hollow diamond |
-| Weak | −1.00 to −0.35 | One red cross |
-| Poor | < −1.00 | Two red crosses |
+9 Exceptional · 13 Strong · 11 Neutral · 4 Weak · 11 Poor.
 
-The boundaries are symmetric statements about the evidence rather than a quota,
-and across the 48 pairs they fall out at **11 / 8 / 11 / 9 / 9**.
+**The five bands**, and how they read on the page:
+
+| Band | Mark |
+| --- | --- |
+| Exceptional | Two gold stars |
+| Strong | One gold star |
+| Neutral | One hollow diamond |
+| Weak | One red cross |
+| Poor | Two red crosses |
 
 **The colours.** Gold at the top two bands is the `ARTIFACT-CANONICAL.md` §18
 exception applied for the same reason it was granted there: at those bands the
 grade *is* the invitation to act. The red is the verdict vocabulary
-(`--state-bad`), for a machine reporting that its own measurement came out
-against the relic. Degree is carried by the number of marks and never by a
-second shade, and the band's name is written beside the marks, so the column
-reads identically with the colour taken away — `AGENTS.md` rule 5.
+(`--state-bad`), for a machine reporting that its own judgement came out against
+the relic. Degree is carried by the number of marks and never by a second shade,
+and the band's name is written beside the marks, so the column reads identically
+with the colour taken away — `AGENTS.md` rule 5.
 
-**A pair the statistics say nothing about is `null`, never a low grade.** The
-band buttons never gather it and the advice column says `Fit not judged`.
+### 5.2 Why this is not measured from the player base
 
-### 5.1 What the measurement actually finds
+An earlier version of this page derived all 48 cells from the game's **Relic
+Engraving Statistics** panel: 893 monster types and 5.5 million engravings,
+scored by how much more often each main and each unique turned up together than
+chance would put them. It was internally sound — two halves of the population
+agreed at `r ≈ 0.99` — and it was **the wrong measurement**, for a reason no
+amount of sample size fixes.
 
-Read with the right names, the 48 cells resolve into one sentence:
+**Relics are new, and almost nobody is choosing.** An account engraves the
+relics it happened to craft. What the panel records is therefore mostly the drop
+table and the crafting rate, with whatever deliberate pairing exists buried
+underneath. A statistic drawn from that measures luck, and a strong correlation
+in it is a strong correlation in luck.
 
-> **For every one of the sixteen properties, the main stat the metagame prefers
-> is one of that property's own two stats — the one it reads or the one it
-> grants. Never a third.**
+It also cannot be argued with. A cell that looks wrong has no line to change —
+only a pipeline to re-run, which will produce the same number again. **A table
+can be corrected in the place where the mistake is.** That is worth more here
+than any amount of agreement between halves of a population that was not
+deciding anything.
 
-Sixteen out of sixteen, with no exceptions. Which of the two wins is almost as
-tidy: **where the property reads a stat a main property can raise, the read stat
-wins 11 times out of 13.** The two that do not are Solid and Hearty Valiant,
-and the whole Valiant family grants ATK — the stat a damage dealer is built
-around, so it takes the main. The remaining three read SPD, which no main
-property can raise at all, and they fall back to the stat they grant.
-
-So the rule of thumb — *main and unique should point the same way* — is not
-merely supported, it is the only pattern in the data. What the measurement adds
-is **which** way, for each of the sixteen, and by how much.
-
-### 5.1.1 The whole matrix
-
-All 48 cells, with the standardised score beside each grade. This is the same
-table `app/data/relic-synergy.json` carries — that file is keyed by id and holds
-no grades, because the bands are applied on read in `relic-synergy.ts`, so this
-is the one place the two halves are written out together.
-
-| id | Unique property | Grants | Reads | HP main | ATK main | DEF main |
-| ---: | --- | --- | --- | --- | --- | --- |
-| 1 | Sharp Conquest | DMG dealt | ATK | ✕✕ −1.91 | ★★ +1.61 | ✕✕ −1.81 |
-| 2 | Solid Conquest | DMG dealt | DEF | ◇ −0.23 | ◇ −0.12 | ★★ +1.58 |
-| 3 | Hearty Conquest | DMG dealt | MAX HP | ★ +0.44 | ◇ −0.07 | ◇ −0.32 |
-| 4 | Sharp Resolute | DMG taken | ATK | ✕ −0.92 | ★★ +1.02 | ✕ −0.92 |
-| 5 | Solid Resolute | DMG taken | DEF | ★ +0.55 | ✕ −0.83 | ★★ +1.49 |
-| 6 | Hearty Resolute | DMG taken | MAX HP | ★★ +1.31 | ✕✕ −1.23 | ◇ +0.26 |
-| 7 | Nimble Valiant | ATK | SPD | ✕✕ −1.15 | ★★ +1.21 | ✕✕ −1.36 |
-| 8 | Solid Valiant | ATK | DEF | ✕ −0.68 | ★ +0.67 | ◇ +0.14 |
-| 9 | Hearty Valiant | ATK | MAX HP | ✕ −0.46 | ★ +0.75 | ✕ −0.91 |
-| 10 | Sharp Timeless | DEF | ATK | ✕ −0.83 | ★ +0.87 | ◇ −0.32 |
-| 11 | Nimble Timeless | DEF | SPD | ◇ +0.31 | ◇ −0.30 | ★ +0.85 |
-| 12 | Hearty Timeless | DEF | MAX HP | ★★ +1.03 | ✕✕ −1.09 | ★ +0.84 |
-| 13 | Sharp Primal | MAX HP | ATK | ✕ −0.92 | ★★ +1.04 | ✕✕ −1.04 |
-| 14 | Nimble Primal | MAX HP | SPD | ★★ +1.64 | ✕✕ −1.65 | ◇ +0.07 |
-| 15 | Solid Primal | MAX HP | DEF | ★ +0.57 | ✕ −0.74 | ★★ +1.28 |
-| 16 | Hearty Restore | Recovery & Shield | MAX HP | ★★ +1.25 | ✕✕ −1.13 | ◇ +0.19 |
-
-★★ Exceptional · ★ Strong · ◇ Neutral · ✕ Weak · ✕✕ Poor — 11 / 8 / 11 / 9 / 9
-across the 48.
-
-Read down a column and the pattern in §5.1 is visible as shape: every ★★ sits on
-a row whose *Reads* or *Grants* column names that main stat, and every ✕✕ sits on
-a row where it names neither.
-
-**The table is not hand-written and must not be hand-edited.** It is derived by
-`scripts/build-relic-synergy.mjs` from the engraving statistics, and
-`npm run verify:relic-synergy` re-derives it and fails on any drift. If a
-recapture moves a figure, run the builder and paste the new numbers here.
-
-### 5.2 The evidence that this is a measurement
-
-`npm run verify:relic-synergy` re-derives the table independently, compares it
-cell for cell to the one the app ships, and then splits the 893 monster types in
-half at three stated seeds and correlates the two halves' scores. They agree at
-**r ≈ 0.99**. Weighting every monster equally instead of by its engraving count
-moves nothing either (`r = 0.992`): this is a property of the metagame, not of a
-handful of popular monsters.
-
-The account's own two engraved relics both land in the top band — the two the
-user actually chose to use, out of six. They are HP + Nimble Primal and
-ATK + Sharp Conquest: the first and second cells of the whole table.
-
-A published community tier list agrees where it can be read against this. On
-Seiishizo's relic chart the cells marked God Tier include HP main on Nimble
-Primal and ATK main on Sharp Conquest — the two highest cells here — and the
-cells marked *Don't Use* include HP main on Sharp Conquest, which is the single
-lowest cell in the table. That is an expert's hand-made judgement and 5.5
-million engravings arriving at the same answer by different routes.
+What the measurement got right is kept in §5.1 as reasoning rather than as
+evidence: main and unique must point the same way, and which way depends on
+what the property reads and what it grants.
 
 ## 6. Level, durability and the difference between them
 
@@ -577,9 +529,12 @@ The rules, in the order they outrank each other:
 5. **Stones above the bar powers up.**
 6. **Anything else keeps.**
 
-Every reason printed in the table is the arithmetic itself — `5.0 × 28 % left to
-win = 1.4`, `Merit 0.05 under 0.26` — so a verdict can be checked rather than
-trusted.
+**The working is kept, but not printed.** Every verdict carries the arithmetic
+that produced it — `5.0 × 28 % left to win = 1.4`, `Merit 0.05 under 0.26` — in
+its cell's title, so a verdict can still be checked rather than trusted. It is
+not a second line under the verdict any more: with the columns beside it already
+saying where the relic ends up, a line of working on every row read as noise
+rather than as evidence.
 
 ## 9. The risk slider
 

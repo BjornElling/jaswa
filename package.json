@@ -44,7 +44,6 @@
     "verify:artifact-preference-awakening": "node scripts/verify-artifact-preference-awakening.mjs",
     "verify:relic-synergy": "node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs scripts/verify-relic-synergy.mjs",
     "verify:relic-maths": "node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs scripts/verify-relic-maths.mjs",
-    "build:relic-synergy": "node scripts/build-relic-synergy.mjs",
     "verify:element-qualified-names": "node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs scripts/verify-element-qualified-names.mjs",
     "audit:import-parity": "node scripts/audit-import-parity.mjs",
     "generate:pwa-assets": "pwa-assets-generator",

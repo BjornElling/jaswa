@@ -2,7 +2,7 @@ import { relicMaximumLevel, relicPowerUpRates, relicStrengthIndex } from './reli
 import type { RelicSourceStat } from './relic-properties';
 import type { Relic } from './relics';
 import { relicSynergy } from './relic-synergy';
-import type { RelicSynergy, RelicSynergyBand } from './relic-synergy';
+import type { RelicSynergyBand } from './relic-synergy';
 
 /**
  * What to do with each relic, and the arithmetic behind it.
@@ -337,10 +337,7 @@ export function relicAdvice(
 
   const advice = new Map<string, RelicAdvice>();
   for (const relic of relics) {
-    const synergy = relicSynergy(relic.mainProperty, relic.unique.definition.id);
-    /* An unjudged pair is neither good nor bad, so it counts once — the same
-       weight a neutral fit carries — rather than being scored as a failure. */
-    const weight = synergy === null ? relicSynergyWeights.neutral : relicSynergyWeights[synergy.band];
+    const weight = relicSynergyWeights[relicSynergy(relic.mainProperty, relic.unique.definition.id)];
     const source = relic.unique.definition.per;
     const reachChance = relicReachChance(relic.level, relic.durability, relicMaximumLevel, rates);
     const chances = relicFinalLevelChances(relic.level, relic.durability, rates);
@@ -362,7 +359,7 @@ export function relicAdvice(
 
     const merit = weight * strength;
     advice.set(relic.id, {
-      ...decide({ synergy, weight, merit, upside, overtakeChance, superseded, relic, bars }),
+      ...decide({ weight, merit, upside, overtakeChance, superseded, relic, bars }),
       reachChance,
       expectedGain: relicExpectedLevel(chances) - relic.level,
       merit,
@@ -383,8 +380,7 @@ export function relicAdvice(
  * cased: a poor fit sells because a quarter of its finished strength cannot
  * clear the holding bar, not because a rule says poor fits sell.
  */
-function decide({ synergy, weight, merit, upside, overtakeChance, superseded, relic, bars }: {
-  synergy: RelicSynergy | null;
+function decide({ weight, merit, upside, overtakeChance, superseded, relic, bars }: {
   weight: number;
   merit: number;
   upside: number;
@@ -393,8 +389,6 @@ function decide({ synergy, weight, merit, upside, overtakeChance, superseded, re
   relic: Relic;
   bars: { stones: number; hold: number };
 }): { verdict: RelicVerdict; reason: string } {
-  if (synergy === null) return { verdict: 'keep', reason: 'Fit not judged' };
-
   /* A second copy is settled before anything else that could keep it, because
      no fit is good enough to make an account want two of the same relic: one
      already covers a hundred monsters. It earns stones on the same bar every

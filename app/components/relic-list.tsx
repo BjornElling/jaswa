@@ -15,9 +15,7 @@ import {
   relicMainPropertyOrder, relicMaximumDurability, relicMaximumLevel, relicPropertyLabel,
 } from '../lib/relic-properties';
 import type { RelicMainProperty } from '../lib/relic-properties';
-import {
-  relicSynergy, relicSynergyBandOrder, relicSynergyEngravingCount, relicSynergyMonsterCount,
-} from '../lib/relic-synergy';
+import { relicSynergy, relicSynergyBandOrder } from '../lib/relic-synergy';
 import type { RelicSynergyBand } from '../lib/relic-synergy';
 import { isRelicRisk, relicAdvice, relicVerdictLabels, relicVerdictOrder } from '../lib/relic-advice';
 import type { RelicRisk, RelicVerdict } from '../lib/relic-advice';
@@ -133,7 +131,7 @@ export function RelicList({ game, monsters, preferences }: {
        the fallback exists because a `Map` lookup is optional, not because a
        relic could be missing. */
     advice: advice.get(relic.id) ?? {
-      verdict: 'keep', reason: 'Fit not judged', reachChance: 0, expectedGain: 0, merit: 0,
+      verdict: 'keep', reason: '', reachChance: 0, expectedGain: 0, merit: 0,
       expectedLevel: relic.level,
       landing: { level: relic.level, chance: 1, likeliest: { level: relic.level, chance: 1 } },
       supersededBy: null, overtakeChance: null,
@@ -148,9 +146,7 @@ export function RelicList({ game, monsters, preferences }: {
       if (!showEngraved && row.engraved > 0) return false;
       if (!showUnused && row.engraved === 0) return false;
       if (selectedMains.length && !selectedMains.includes(row.relic.mainProperty)) return false;
-      /* A relic whose pair the statistics say nothing about is never gathered
-         by a band button: unjudged is not a low grade. */
-      if (selectedBands.length && (row.synergy === null || !selectedBands.includes(row.synergy.band))) return false;
+      if (selectedBands.length && !selectedBands.includes(row.synergy)) return false;
       if (selectedVerdicts.length && !selectedVerdicts.includes(row.advice.verdict)) return false;
       if (selectedDurability.length && !selectedDurability.includes(row.relic.durability)) return false;
       if (row.relic.level < lowestLevel || row.relic.level > highestLevel) return false;
@@ -288,12 +284,13 @@ export function RelicList({ game, monsters, preferences }: {
                 <span className="relic-property">{relicPropertyLabel(row.relic.unique.definition)}</span>
                 <span className="relic-effect">{relicEffectText(row.relic, format)}</span>
               </td>
-              <td className={relicCell('main', 'relic-main')}>{row.relic.mainProperty} +{format(row.relic.mainPercent)} %</td>
-              <td className={relicCell('synergy')}
-                title={row.synergy === null
-                  ? 'Nothing recorded for this main stat and unique property'
-                  : `Engraved together ${row.synergy.lift.toFixed(2)}× as often as chance would put them`}>
-                <RelicSynergyMark band={row.synergy?.band ?? null} />
+              {/* Named, never quantified — the same rule an artifact's main
+                  stat follows (`AGENTS.md` §5). How much it grants is fixed by
+                  the level, which the column beside it already states, so the
+                  number here only costs width. */}
+              <td className={relicCell('main', 'relic-main')}>{row.relic.mainProperty}</td>
+              <td className={relicCell('synergy')}>
+                <RelicSynergyMark band={row.synergy} />
               </td>
               <td className={relicCell('level', 'relic-level', row.levelState !== 'open' && 'dim')}>
                 <span className="relic-level-value">+{format(row.relic.level)}</span>
@@ -322,11 +319,15 @@ export function RelicList({ game, monsters, preferences }: {
               <td className={relicCell('engraved', row.engraved === 0 && 'muted')}>
                 {row.engraved === 0 ? '—' : format(row.engraved)}
               </td>
-              <td className={relicCell('advice')}>
+              {/* The verdict alone. The arithmetic behind it is still one
+                  hover away rather than gone — a verdict nobody can check is a
+                  verdict nobody can argue with — but a line of working under
+                  every row was reading as noise once the columns beside it
+                  already showed where the relic ends up. */}
+              <td className={relicCell('advice')} title={row.advice.reason}>
                 <span className="relic-verdict" data-verdict={row.advice.verdict}>
                   {relicVerdictLabels[row.advice.verdict]}
                 </span>
-                <span className="relic-reason">{row.advice.reason}</span>
               </td>
             </tr>;
           }) : <tr>
@@ -336,10 +337,6 @@ export function RelicList({ game, monsters, preferences }: {
           </tr>}
         </tbody>
       </DataTablePage>
-      <p className="relic-footnote">
-        Synergy is measured, not asserted: {format(relicSynergyEngravingCount)} relic engravings across {format(relicSynergyMonsterCount)} monster
-        types, from the game&rsquo;s own statistics panel. See <code>docs/RELIC-CANONICAL.md</code>.
-      </p>
     </div>}
   </WorkspacePage>;
 }

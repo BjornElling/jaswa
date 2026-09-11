@@ -48,16 +48,7 @@ const bandMarks: Record<RelicSynergyBand, { mark: 'star' | 'cross' | 'diamond'; 
  * fact the fact is written out too — so the column reads the same with the
  * colours removed.
  */
-export function RelicSynergyMark({ band }: { band: RelicSynergyBand | null }) {
-  if (band === null) {
-    return <span className="relic-synergy" data-band="unjudged">
-      <span className="relic-mark-slots" aria-hidden="true">
-        <span className="relic-mark-slot relic-mark-empty" />
-        <span className="relic-mark-slot relic-mark-empty" />
-      </span>
-      <span className="relic-synergy-label">Not judged</span>
-    </span>;
-  }
+export function RelicSynergyMark({ band }: { band: RelicSynergyBand }) {
   const { mark, count } = bandMarks[band];
   const glyph = mark === 'star' ? <Star /> : mark === 'cross' ? <Cross /> : <Diamond />;
   return <span className="relic-synergy" data-band={band}>

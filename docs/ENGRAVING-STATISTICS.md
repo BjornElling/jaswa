@@ -36,6 +36,14 @@ percentage exactly, which is how the shape was verified.
 presentation only; the response carries the full distribution — 46 artifact
 secondary rows, 23 per slot.
 
+**Nothing reads the relic panel.** It is captured, stored and verified along
+with the other two, because a capture is cheap and a panel nobody collects is a
+panel nobody can start from. But relic synergy is a hand-written table
+(`RELIC-CANONICAL.md` §5), and §5.2 there says why: relics are new, an account
+engraves what it happened to craft, and a statistic drawn from that measures the
+drop rate rather than a judgement. The artifact panels do not have that problem
+— artifacts have been chosen deliberately for years.
+
 **Keyed on `unit_master_id`, never `unit_id`.** The dataset holds one row per
 monster *type*, so the defaults it produces seed a per-type preference with no
 mapping, and two owned copies can never report different statistics.

@@ -1,90 +1,78 @@
-import table from '../data/relic-synergy.json';
+import { relicProperty } from './relic-properties';
 import type { RelicMainProperty } from './relic-properties';
 
 /**
- * How well a relic's main property and its unique property go together, taken
- * from what the wider player base actually engraves.
+ * How well a relic's main property and its unique property go together.
  *
- * `docs/RELIC-CANONICAL.md` §5 states the method and why it is this one rather
- * than a hand-written table of opinions. The short version: the game's own
- * Relic Engraving Statistics panel reports, per monster, which main properties
- * and which unique properties are engraved on it. Monsters differ in what they
- * want, so a main property and a unique property that suit the same monsters
- * appear together more often than two drawn independently would. That excess is
- * the measurement — and it is a measurement, over millions of engravings, not a
- * ranking somebody wrote down.
- *
- * It needs nothing to be known about what a unique property *does*, which is
- * what makes it usable across all sixteen families while only five have been
- * read off the panel.
- *
- * **The table is derived, not read live.** `scripts/build-relic-synergy.mjs`
- * reduces the 6.5 MB capture to these 48 numbers, because a page that imported
- * the capture would make every visitor download the whole archive to be told
- * that HP and Valiant go together. `npm run verify:relic-synergy` re-derives it
- * from the statistics and fails if the committed file has drifted, which is
- * what keeps one derived value from becoming a second source of truth.
+ * **This is a table, and nothing but a table.** Forty-eight cells, written
+ * down, hand-editable one at a time. `docs/RELIC-CANONICAL.md` §5 states the
+ * reasoning each cell was first filled in from, and §5.2 records why an earlier
+ * version measured this from the player base instead and why that was wrong:
+ * relics are new, most accounts engrave whatever they happened to craft, so
+ * what the engraving statistics describe is the drop rate and not a judgement.
+ * A table can be argued with and corrected; a measurement of luck cannot.
  */
 
 export type RelicSynergyBand = 'exceptional' | 'strong' | 'neutral' | 'weak' | 'poor';
 
-export type RelicSynergy = {
-  band: RelicSynergyBand;
-  /**
-   * The association in standard deviations, within this main property's own
-   * sixteen. Positive means the pair is engraved together more than chance.
-   */
-  score: number;
-  /** Observed pairings over expected-under-independence; `1` is chance. */
-  lift: number;
-  /** The pair's share of every relic engraving observed, as a fraction. */
-  reach: number;
-};
-
-type SynergyFile = {
-  monsterTypes: number;
-  engravings: number;
-  cells: Record<string, { score: number; lift: number; reach: number }>;
-};
-
-const file = table as SynergyFile;
-
 /**
- * The five bands, on the standardised score.
+ * The table, by unique-property id, in the order
+ * `docs/RELIC-CANONICAL.md` §4 numbers them.
  *
- * Symmetric by construction, so a band is a statement about the evidence rather
- * than a quota: the outer pair name an association a standard deviation clear
- * of this main property's average partner, the inner pair a third of one, and
- * the middle band is the range in which the evidence does not separate the pair
- * from an ordinary one. Across the 48 cells they come out at 11 / 8 / 11 / 9 /
- * 9, which is what `npm run verify:relic-synergy` holds them to.
+ * The reasoning behind a row is always the same three questions, and §5.1 sets
+ * them out: does the main property raise the stat the unique property *reads*
+ * (which multiplies the relic's own output), does it raise the stat the relic
+ * *grants* (which merely adds to it), and does the relic push the monster the
+ * way its main property already points.
+ *
+ * **Edit a cell here when a better judgement is to hand.** Nothing derives this
+ * and nothing regenerates it; `npm run verify:relic-synergy` only checks that
+ * it stays complete and that no band falls out of use.
  */
-const bandBoundaries: ReadonlyArray<{ band: RelicSynergyBand; atLeast: number }> = [
-  { band: 'exceptional', atLeast: 1 },
-  { band: 'strong', atLeast: 0.35 },
-  { band: 'neutral', atLeast: -0.35 },
-  { band: 'weak', atLeast: -1 },
-  { band: 'poor', atLeast: Number.NEGATIVE_INFINITY },
-];
-
-function bandFor(score: number): RelicSynergyBand {
-  for (const boundary of bandBoundaries) if (score >= boundary.atLeast) return boundary.band;
-  return 'poor';
-}
-
-/* Banded once, on read of the module, so no view can arrive at a different
-   grade for the same score. */
-const synergyTable = new Map<string, RelicSynergy>(
-  Object.entries(file.cells).map(([key, cell]) => [key, { ...cell, band: bandFor(cell.score) }]),
-);
+const synergyTable: Record<number, Record<RelicMainProperty, RelicSynergyBand>> = {
+  /* Sharp Conquest — DMG dealt per ATK */
+  1: { HP: 'poor', ATK: 'exceptional', DEF: 'poor' },
+  /* Solid Conquest — DMG dealt per DEF */
+  2: { HP: 'poor', ATK: 'neutral', DEF: 'strong' },
+  /* Hearty Conquest — DMG dealt per MAX HP */
+  3: { HP: 'strong', ATK: 'neutral', DEF: 'poor' },
+  /* Sharp Resolute — DMG taken per ATK */
+  4: { HP: 'neutral', ATK: 'strong', DEF: 'neutral' },
+  /* Solid Resolute — DMG taken per DEF */
+  5: { HP: 'neutral', ATK: 'poor', DEF: 'exceptional' },
+  /* Hearty Resolute — DMG taken per MAX HP */
+  6: { HP: 'exceptional', ATK: 'poor', DEF: 'neutral' },
+  /* Nimble Valiant — ATK per SPD */
+  7: { HP: 'weak', ATK: 'exceptional', DEF: 'weak' },
+  /* Solid Valiant — ATK per DEF */
+  8: { HP: 'poor', ATK: 'strong', DEF: 'strong' },
+  /* Hearty Valiant — ATK per MAX HP */
+  9: { HP: 'strong', ATK: 'strong', DEF: 'poor' },
+  /* Sharp Timeless — DEF per ATK */
+  10: { HP: 'neutral', ATK: 'strong', DEF: 'strong' },
+  /* Nimble Timeless — DEF per SPD */
+  11: { HP: 'neutral', ATK: 'weak', DEF: 'exceptional' },
+  /* Hearty Timeless — DEF per MAX HP */
+  12: { HP: 'exceptional', ATK: 'poor', DEF: 'strong' },
+  /* Sharp Primal — MAX HP per ATK */
+  13: { HP: 'strong', ATK: 'strong', DEF: 'neutral' },
+  /* Nimble Primal — MAX HP per SPD */
+  14: { HP: 'exceptional', ATK: 'weak', DEF: 'neutral' },
+  /* Solid Primal — MAX HP per DEF */
+  15: { HP: 'strong', ATK: 'poor', DEF: 'exceptional' },
+  /* Hearty Restore — Recovery & Shield per MAX HP */
+  16: { HP: 'exceptional', ATK: 'poor', DEF: 'neutral' },
+};
 
 /**
- * The synergy of one main property with one unique property, or `null` when the
- * statistics hold nothing about the pair. `null` is not a low grade: it means
- * unjudged, and every view has to keep the two apart.
+ * The fit of one main property with one unique property.
+ *
+ * Always answers, because the table covers every pair the game can produce and
+ * the verifier holds it to that. An id the vocabulary does not know is not a
+ * relic JASWA can read at all, and `readRelic` has already rejected it.
  */
-export function relicSynergy(main: RelicMainProperty, propertyId: number): RelicSynergy | null {
-  return synergyTable.get(`${main}:${propertyId}`) ?? null;
+export function relicSynergy(main: RelicMainProperty, propertyId: number): RelicSynergyBand {
+  return synergyTable[propertyId]?.[main] ?? 'neutral';
 }
 
 export const relicSynergyBandOrder: readonly RelicSynergyBand[] = [
@@ -102,18 +90,26 @@ export const relicSynergyBandLabels: Record<RelicSynergyBand, string> = {
 /**
  * Ascending, weakest fit first, which is the direction `useSortedRows` expects
  * a comparison to be written in — the table reverses it for the descending pass
- * the column opens on. An unjudged pair has no place in the ranking and sorts
- * to the end of the ascending pass.
+ * the column opens on.
  */
-export function compareRelicSynergy(left: RelicSynergy | null, right: RelicSynergy | null): number {
-  if (left === null || right === null) {
-    if (left === right) return 0;
-    return left === null ? 1 : -1;
-  }
-  return left.score - right.score;
+export function compareRelicSynergy(left: RelicSynergyBand, right: RelicSynergyBand): number {
+  return relicSynergyBandOrder.indexOf(right) - relicSynergyBandOrder.indexOf(left);
 }
 
-/** How many monster types the panels behind this table were captured from. */
-export const relicSynergyMonsterCount = file.monsterTypes;
-/** How many relic engravings those panels report. */
-export const relicSynergyEngravingCount = file.engravings;
+/** Every cell, for the verifier and for anything that wants to print the table. */
+export function relicSynergyTable(): ReadonlyArray<{
+  propertyId: number; main: RelicMainProperty; band: RelicSynergyBand;
+}> {
+  const cells = [];
+  for (const [id, row] of Object.entries(synergyTable)) {
+    for (const [main, band] of Object.entries(row)) {
+      cells.push({ propertyId: Number(id), main: main as RelicMainProperty, band });
+    }
+  }
+  return cells;
+}
+
+/** Whether the table holds a row for a property the vocabulary declares. */
+export function hasRelicSynergyRow(propertyId: number): boolean {
+  return relicProperty(propertyId) !== undefined && synergyTable[propertyId] !== undefined;
+}

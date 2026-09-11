@@ -791,7 +791,6 @@ button { cursor: pointer; }
 .relic-mark-slots { display: inline-flex; align-items: center; gap: var(--s1); }
 .relic-mark-slot { display: inline-flex; width: 14px; height: 14px; }
 .relic-mark-spare { visibility: hidden; }
-.relic-mark-empty { visibility: hidden; }
 .relic-mark { width: 14px; height: 14px; }
 .relic-mark-star { fill: currentColor; stroke: none; }
 .relic-mark-cross,
@@ -815,7 +814,6 @@ button { cursor: pointer; }
 .relic-synergy[data-band='neutral'] { color: var(--dim); }
 .relic-synergy[data-band='weak'],
 .relic-synergy[data-band='poor'] { color: var(--state-bad); }
-.relic-synergy[data-band='unjudged'] { color: var(--faint); }
 
 /* Durability is three pips and always three: the spent ones are the reason a
    level will never move again, so they stay on the page as hollow rings. */
@@ -849,13 +847,6 @@ button { cursor: pointer; }
 .relic-verdict[data-verdict='power-up'] { color: var(--state-good); }
 .relic-verdict[data-verdict='keep'] { color: var(--ink); }
 .relic-verdict[data-verdict='sell'] { color: var(--state-bad); }
-.relic-reason {
-  display: block;
-  font-family: var(--mono);
-  font-size: var(--t-small);
-  color: var(--faint);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
 
 /* What the projections rest on, said where the control that uses them is. It
    is constant for an import, so it cannot grow or shrink under a click. */
@@ -866,12 +857,6 @@ button { cursor: pointer; }
   color: var(--faint);
   white-space: normal;
 }
-.relic-footnote {
-  margin: var(--s4) 0 0;
-  font-size: var(--t-small);
-  color: var(--faint);
-}
-.relic-footnote code { font-family: var(--mono); font-size: var(--t-small); }
 
 /* Two rows: what the relic is, then what can still happen to it. Search leads
    the first and the risk slider the second, so the two row-starters are the
