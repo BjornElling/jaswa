@@ -216,6 +216,31 @@ body {
 button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
 
+/* A `<label for>` hands its whole box to the control it names: the browser
+   gives that control `:hover` while the pointer is anywhere inside the label,
+   and forwards a click there to it as well. A label that *wraps* its control —
+   a checkbox row, an option card — wants exactly that, and is left alone.
+   These do not wrap anything, so every pixel of the box beside their words is
+   a target for a control somewhere else on the page.
+
+   That box is easy to grow by accident. A caption label is a flex or grid item
+   in almost every panel here, and both layouts stretch their items, so
+   `<label for="best-artifact-monster">Monster</label>` measured 58px of text
+   inside a 1,467px box: the whole width of the panel. Hovering an empty patch
+   under Reset filters lit the dropdown 650px away, and clicking there focused
+   it — which for a slider means the next arrow key changes a setting the user
+   never aimed at.
+
+   So a label that names a control elsewhere is never wider than its words.
+   Written once, against every such label, rather than in the fourteen places
+   that had grown one. */
+label[for] {
+  width: fit-content;
+  max-width: 100%;
+  align-self: start;
+  justify-self: start;
+}
+
 :focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
 
 /* =====================================================================
