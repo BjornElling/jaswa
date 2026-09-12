@@ -12,7 +12,7 @@ import { monsterSpeciesPresentation } from '../monster-catalog';
 import { monsterSpeciesId } from '../monster-species';
 import { elementName } from '../rune-sets';
 import { artifactPropertyIndex, categoryCode, scoredArtifactProperties } from './artifact-score-schema';
-import { intangibleRestrictionCode } from './artifact-score-protocol';
+import { artifactFitsClassCodes, intangibleRestrictionCode } from './artifact-score-protocol';
 import type { ArtifactScoreRequest, PackedArtifactScoreInput, PackedMonsterScoreInput } from './artifact-score-protocol';
 import type { ArtifactSettings } from '../types';
 import { artifactOptimizationMonsters } from '../artifact-optimization-monsters';
@@ -50,6 +50,22 @@ export function artifactRestriction(artifact: Artifact): number {
      rather than a silent mismatch so a future reader change cannot make an
      artifact vanish from the rankings without anyone noticing. */
   return code ?? intangibleRestrictionCode;
+}
+
+/**
+ * The equip rule (§1) for an artifact and one monster species, named rather
+ * than packed. The rule itself is `artifactFitsClassCodes`; this reads the four
+ * codes out of an artifact object and a species id, so a caller holding those
+ * rather than packed inputs asks the same question the scorer asks.
+ */
+export function artifactFitsMonster(artifact: Artifact, speciesId: string): boolean {
+  const presentation = monsterSpeciesPresentation(speciesId);
+  return artifactFitsClassCodes(
+    categoryCode(artifact.category),
+    artifactRestriction(artifact),
+    masterIdElement(speciesId),
+    presentation.archetype ? archetypeCodes[presentation.archetype] ?? 0 : 0,
+  );
 }
 
 function rollPoints(subProperty: ArtifactSubProperty): number {

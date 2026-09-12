@@ -9,6 +9,34 @@ export type ArtifactComputeBackend = 'cpu' | 'webgpu';
  */
 export const intangibleRestrictionCode = 0;
 
+/**
+ * The equip rule (`ARTIFACT-CANONICAL.md` §1), on the class codes the protocol
+ * carries: an attribute artifact goes on a monster of its element, a type
+ * artifact on a monster of its archetype, and an Intangible on any monster its
+ * category allows.
+ *
+ * A monster whose own class the catalogue does not describe carries `0`, and a
+ * *restricted* artifact demands an exact class — which `0` is not — so such a
+ * monster is refused rather than matched by accident. The wildcard accepts it,
+ * which is correct: an Intangible genuinely fits any monster.
+ *
+ * Declared here, next to the code it tests, because it is a rule two different
+ * readers have to reach. The packed scorer applies it to rank; the artifact
+ * library applies it before putting a number beside a wearer. It lived only in
+ * the scorer, and the library scored every pair it was handed — so an artifact
+ * the equip rule forbids read as a number on one page and "not judged" on the
+ * other.
+ */
+export function artifactFitsClassCodes(
+  category: 1 | 2,
+  restriction: number,
+  monsterElement: number,
+  monsterArchetype: number,
+): boolean {
+  if (restriction === intangibleRestrictionCode) return true;
+  return category === 1 ? monsterElement === restriction : monsterArchetype === restriction;
+}
+
 export type PackedArtifactScoreInput = {
   id: string;
   category: 1 | 2;

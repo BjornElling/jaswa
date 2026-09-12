@@ -84,10 +84,52 @@ export type ArtifactOptimalValueInput = {
   }[];
 };
 
-function preferenceWeight(preference: ArtifactPropertyPreference, acceptableWorth: number): number {
-  if (preference === 'preferred') return 1;
-  if (preference === 'acceptable') return acceptableWorth / 100;
-  return 0;
+/**
+ * The preference codes the packed score protocol carries. They are declared
+ * here, beside the weights they resolve to, because a code and its weight are
+ * one decision: the scorer used to hold its own copy of both, and two copies of
+ * "what is an acceptable line worth" is exactly the kind of pair that agrees
+ * until the day somebody changes one.
+ */
+export const artifactPreferenceCodes = { unwanted: 0, acceptable: 1, preferred: 2 } as const;
+
+/**
+ * What one line counts for, given how the monster ranks its property.
+ *
+ * A preferred line counts fully, an acceptable one counts for whatever the user
+ * said second choice is worth (`ARTIFACT-CANONICAL.md` §19.6), and an unwanted
+ * line counts for nothing. Both readers go through this — the library's
+ * per-artifact reader by name, the packed scorer by code — so the setting has
+ * one meaning wherever a score appears.
+ */
+export function artifactPreferenceWeight(
+  preference: ArtifactPropertyPreference | number | undefined,
+  acceptableWorth: number,
+): number {
+  const code = typeof preference === 'number'
+    ? preference
+    : artifactPreferenceCodes[preference ?? 'unwanted'];
+  if (code === artifactPreferenceCodes.preferred) return 1;
+  return code === artifactPreferenceCodes.acceptable ? acceptableWorth / 100 : 0;
+}
+
+/**
+ * The score itself, out of the two sums that make it: what the main property
+ * contributed and what the four rolled lines contributed, both already in
+ * weighted max-roll points.
+ *
+ * It is three symbols of arithmetic and it still belongs here rather than at
+ * each reader, because it is *the* definition — the benchmark in the
+ * denominator is what fixes the scale every view compares on, and a reader that
+ * composed its own could put a different scale on screen without anything
+ * failing.
+ */
+export function artifactScoreFromPoints(
+  mainPoints: number,
+  weightedSubPoints: number,
+  acceptableWorth: number,
+): number {
+  return (mainPoints + weightedSubPoints) / artifactScorePointBenchmark(acceptableWorth);
 }
 
 function isRollFraction(value: number, maximum: number): boolean {
@@ -127,14 +169,13 @@ export function calculateArtifactOptimalValue(input: ArtifactOptimalValueInput):
 
   /* The main property is one flat stat, so it is worth a fixed number of
      max-roll points rather than a factor on the four rolled lines. */
-  const mainPoints = preferenceWeight(input.mainPreference, input.acceptableWorth)
+  const mainPoints = artifactPreferenceWeight(input.mainPreference, input.acceptableWorth)
     * artifactMainPropertyPoints;
-  const benchmark = artifactScorePointBenchmark(input.acceptableWorth);
   let weightedRollPoints = 0;
 
   for (const subProperty of input.subProperties) {
     if (!isRollFraction(subProperty.value, subProperty.maximum)) return undefined;
-    const weight = preferenceWeight(subProperty.preference, input.acceptableWorth);
+    const weight = artifactPreferenceWeight(subProperty.preference, input.acceptableWorth);
     /* One maximum natural roll is one point. The stored maximum is a full
        five-roll line, so converting here keeps grades comparable without
        hiding a Legend line's extra contributions. */
@@ -142,5 +183,5 @@ export function calculateArtifactOptimalValue(input: ArtifactOptimalValueInput):
     weightedRollPoints += weight * rollPoints;
   }
 
-  return (mainPoints + weightedRollPoints) / benchmark;
+  return artifactScoreFromPoints(mainPoints, weightedRollPoints, input.acceptableWorth);
 }

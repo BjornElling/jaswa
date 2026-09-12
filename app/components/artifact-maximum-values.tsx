@@ -8,11 +8,10 @@ import { useSortedRows } from './use-sorted-rows';
 import { columnClasses } from '../lib/table-layouts';
 import { calculateArtifactScores } from '../lib/compute/artifact-score-client';
 import { buildArtifactScoreRequestsForMonsterIds } from '../lib/compute/artifact-score-input';
-import { scoreArtifactOnMonster, scorePercent } from '../lib/compute/artifact-score-core';
 import { ConversionList } from './conversion-list';
 import { QualityRule, qualityRuleHost } from './quality-rule';
 import { useAutoRecalculate } from './use-auto-recalculate';
-import { engravedStonesFor, scoringSettings } from '../lib/artifact-recommendations';
+import { artifactPairScore, engravedStonesFor, scoringSettings } from '../lib/artifact-recommendations';
 import { allocateArtifactPlacements } from '../lib/artifact-recommendation-allocation';
 import type { SortableColumn } from './use-sorted-rows';
 import { artifactPreferenceStatus, recordedArtifactPreferenceMonsterIds } from '../lib/artifact-preferences';
@@ -107,19 +106,18 @@ function recommendationMonsters(monsters: readonly GameRecord[], settings: Artif
    right figure for choosing a future plan. The row's current-value column,
    however, describes the artifact as it is now, before spending a stone.
    Keeping the two readings separate makes a listed conversion prove its own
-   gain instead of appearing to reproduce the value already on screen. */
+   gain instead of appearing to reproduce the value already on screen.
+
+   Both readings come from `artifactPairScore`, which every artifact view uses,
+   so a figure here cannot disagree with the same pair shown on another page. */
 function currentScoreAt(calculation: CategoryCalculation, artifactId: string, masterId: string): number | undefined {
-  const artifact = calculation.request.artifacts.find((entry) => entry.id === artifactId);
-  const monster = calculation.request.monsters.find((entry) => entry.id === monsterSpeciesId(masterId));
-  if (!artifact || !monster) return undefined;
-  const score = scoreArtifactOnMonster(artifact, monster, { ...calculation.request, conversionMode: 0 });
-  return score === undefined ? undefined : scorePercent(score.value);
+  return artifactPairScore([calculation.request], artifactId, monsterSpeciesId(masterId),
+    { conversions: false })?.value;
 }
 
 function conversionAt(calculation: CategoryCalculation, artifactId: string, masterId: string): readonly ArtifactConversion[] {
-  const artifact = calculation.request.artifacts.find((entry) => entry.id === artifactId);
-  const monster = calculation.request.monsters.find((entry) => entry.id === monsterSpeciesId(masterId));
-  return artifact && monster ? scoreArtifactOnMonster(artifact, monster, calculation.request)?.conversions ?? [] : [];
+  return artifactPairScore([calculation.request], artifactId, monsterSpeciesId(masterId),
+    { conversions: true })?.conversions ?? [];
 }
 
 /**

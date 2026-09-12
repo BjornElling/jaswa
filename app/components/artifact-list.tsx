@@ -204,7 +204,7 @@ export function ArtifactList({ game, monsters, preferences }: {
         ? defaultPropertyPreferences(wearer.unit_master_id, artifact.category)
         : undefined;
       const value = wearer
-        ? artifactValueOnMonster(artifact, wearer.unit_master_id, preferences.artifacts.acceptableWorth)
+        ? artifactValueOnMonster(artifact, wearer.unit_master_id, preferences.artifacts)
         : undefined;
       return {
         artifact,

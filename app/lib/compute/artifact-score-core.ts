@@ -1,35 +1,30 @@
 import { artifactPropertyAvailability, scoredArtifactProperties } from './artifact-score-schema';
-import { artifactMainPropertyPoints, artifactScorePointBenchmark } from '../artifact-optimal-value';
+import {
+  artifactMainPropertyPoints, artifactPreferenceWeight, artifactScoreFromPoints,
+} from '../artifact-optimal-value';
 import { artifactNormalConversionContributions, bestArtifactLineContributions } from '../artifact-properties';
-import { intangibleRestrictionCode } from './artifact-score-protocol';
+import { artifactFitsClassCodes, intangibleRestrictionCode } from './artifact-score-protocol';
 import type {
   ArtifactConversion, ArtifactScoreRequest, PackedArtifactScoreInput, PackedMonsterScoreInput,
 } from './artifact-score-protocol';
 
-function weight(preference: number, acceptableWorth: number): number {
-  if (preference === 2) return 1;
-  return preference === 1 ? acceptableWorth / 100 : 0;
-}
+/* The packed inputs carry preferences as codes and the per-artifact reader
+   carries them as names, but they mean the same three things and are worth the
+   same three amounts. `artifactPreferenceWeight` takes either, so this file no
+   longer holds a second opinion about what an acceptable line counts for. */
+const weight = artifactPreferenceWeight;
 
 /**
- * Whether the equip rule (§1) permits this pair.
+ * Whether the equip rule (§1) permits this pair. The rule itself is
+ * `artifactFitsClassCodes`, shared with the artifact library's own reader; this
+ * only unpacks the two inputs into the four codes it tests.
  *
- * The restriction code `0` means **Intangible**: the artifact fills its category
- * slot but names no class, so it fits every monster the category allows. The
- * category itself still binds, and that is the only reason this can be a
- * wildcard safely — an attribute Intangible is still compared only against the
+ * The category still binds either way, and that is what makes the Intangible
+ * wildcard safe: an attribute Intangible is only ever compared against the
  * attribute matrix.
- *
- * A monster whose own class the catalogue does not describe also carries `0`,
- * and a *restricted* artifact still demands an exact class — which `0` is not —
- * so such a monster is refused rather than matched by accident. The wildcard
- * accepts it, which is correct: an Intangible genuinely fits any monster.
  */
 function fits(artifact: PackedArtifactScoreInput, monster: PackedMonsterScoreInput): boolean {
-  if (artifact.restriction === intangibleRestrictionCode) return true;
-  return artifact.category === 1
-    ? monster.element === artifact.restriction
-    : monster.archetype === artifact.restriction;
+  return artifactFitsClassCodes(artifact.category, artifact.restriction, monster.element, monster.archetype);
 }
 
 function sourceContribution(
@@ -174,14 +169,13 @@ export function scoreArtifactOnMonster(
   const mainPoints = weight(monster.mainPreferences[artifact.mainProperty] ?? 0, request.acceptableWorth)
     * artifactMainPropertyPoints;
 
-  const benchmark = artifactScorePointBenchmark(request.acceptableWorth);
   let weightedSubProperties = 0;
   for (let index = 0; index < 4; index += 1) {
     const points = artifact.subPropertyRollPoints[index];
     if (!Number.isFinite(points) || points < 0 || points > bestArtifactLineContributions) return undefined;
     weightedSubProperties += sourceContribution(artifact, monster, index, request.acceptableWorth);
   }
-  const currentValue = (mainPoints + weightedSubProperties) / benchmark;
+  const currentValue = artifactScoreFromPoints(mainPoints, weightedSubProperties, request.acceptableWorth);
   const currentPercent = scorePercent(currentValue);
   if (request.conversionMode === 0) return { value: currentValue, conversion: undefined, conversions: [] };
   /* §10.1: an Intangible artifact cannot be converted at all, so it is scored
@@ -223,7 +217,8 @@ export function scoreArtifactOnMonster(
          This is deliberately the underlying game rate, rather than a
          property-specific display rounding such as 5 → 8. */
       const conversionPoints = conversionFraction * artifactNormalConversionContributions;
-      const convertedValue = (mainPoints + withoutSource + convertedWeight * conversionPoints) / benchmark;
+      const convertedValue = artifactScoreFromPoints(
+        mainPoints, withoutSource + convertedWeight * conversionPoints, request.acceptableWorth);
       const value = scorePercent(convertedValue);
       /* §17.4 condition 1: a conversion that does not raise the score is not a
          projection. Compared as whole points, so a conversion the interface

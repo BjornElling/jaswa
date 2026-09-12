@@ -322,6 +322,28 @@ parts an agent must not quietly break:
   `E.HP D` are computed from a preset's own stats on every save, so a preset
   cannot carry a stale composite. Any figure that follows from another follows
   it in one place.
+- **One artifact calculation, however many views read it.** Every page under
+  Artifacts answers from the same engine and the same settings. Concretely:
+  - The **rules** live in `app/lib/artifact-optimal-value.ts` (what a preferred
+    or acceptable line is worth, what the main property adds, the benchmark in
+    the denominator) and in `artifact-score-protocol.ts` (the equip rule). Both
+    readers — the packed scorer for rankings, `artifact-value-on-monster.ts`
+    for a single artifact — call those rather than restating them.
+  - The **settings** come through `scoringSettings()`, which is the one
+    classification of what defines a calculation. A view takes the settings
+    object, never a loose field plucked out of it; that is how the library
+    column came to read one setting where every other view read eight.
+  - A view reads a pair with `artifactPairScore()`. It does not reach for
+    `scoreArtifactOnMonster` and compose its own reading.
+  - **A filter may narrow what a page shows; it may never change what a page
+    computes.** Per-page filter controls are expected and fine. A figure must
+    not depend on which page it is read from.
+
+  `npm run verify:artifact-score-agreement` is the check. It runs both readers
+  over every equipped artifact at every acceptable-worth setting and fails on
+  any disagreement, including a disagreement about which pairs are judged at
+  all. It runs inside `npm run test:domain` against the repository fixture, and
+  takes a real export as an argument for a wider sweep.
 - **Validate everything read back.** Preferences are user-editable files.
   Anything loaded from IndexedDB or a `.sw` file must satisfy the complete
   current contract before it reaches the interface. Discard malformed or
