@@ -370,20 +370,31 @@ try {
     mainPreferences: [2, 0, 0], subPropertyPreferences: lowGainPreferences,
     subPropertyShares: new Array(scoredArtifactProperties.length).fill(0),
   };
-  /* Two points: Bomb Damage’s
-     floor is one minimum roll of a 6 % ceiling (1/6) where the old two-roll
-     model claimed 2/8. A conversion is worth one and a half max-roll points,
-     so an acceptable floor roll remains below the three-point band. */
+  /* One point: Bomb Damage's floor is one minimum roll of a 6 % ceiling (1/6),
+     an acceptable band halves it and a conversion is worth one and a half
+     max-roll points — 0.125 points against the `2 + 5 + a` benchmark, which
+     moves the artifact from 27 % to 28 %. Small enough for the band to swallow,
+     which is what this fixture is for. */
   const floorFractions = scoredArtifactProperties.map((property) => artifactConversionRollFraction(property, 1));
-  assert.equal(scoreArtifactOnMonster(lowGainArtifact, lowGainMonster, {
-    ...request, conversionRollFractions: floorFractions, insignificantDifference: 0,
-  })?.conversions[0]?.gain, 2, 'the fixture must offer a two-point conversion without a band');
-  assert.deepEqual(scoreArtifactOnMonster(lowGainArtifact, lowGainMonster, {
-    ...request, conversionRollFractions: floorFractions, insignificantDifference: 2,
-  })?.conversions, [], 'a conversion inside the selected band is not recommended');
-  assert.equal(scoreArtifactOnMonster(lowGainArtifact, lowGainMonster, {
-    ...request, conversionRollFractions: floorFractions, insignificantDifference: 2,
-  })?.value, 0, 'the recommendation band removes an action the player would not take from potential');
+  const lowGainBanded = (insignificantDifference) => scoreArtifactOnMonster(lowGainArtifact, lowGainMonster, {
+    ...request, conversionRollFractions: floorFractions, insignificantDifference,
+  });
+  assert.equal(lowGainBanded(0)?.conversions[0]?.gain, 1, 'the fixture must offer a one-point conversion without a band');
+  assert.deepEqual(lowGainBanded(1)?.conversions, [], 'a conversion inside the selected band is not recommended');
+  /* The artifact carries no sub property this monster wants, so once the band
+     removes the conversion its potential falls back to what it already holds:
+     the preferred main property and nothing else. Since the main is a term
+     rather than a factor (§16.1) that is a real score, not zero. */
+  const lowGainCurrent = scoreArtifactOnMonster(lowGainArtifact, lowGainMonster, {
+    ...request, conversionMode: 0, conversionRollFractions: floorFractions,
+  })?.value;
+  /* The conversion path reports potential in whole percentage points (§17.1)
+     where `conversionMode: 0` returns the raw ratio, so the fall-back is
+     compared on the scale the interface shows. */
+  assert.equal(lowGainBanded(1)?.value, Math.round(lowGainCurrent * 100) / 100,
+    'the recommendation band removes an action the player would not take from potential');
+  assert.ok(lowGainCurrent > 0,
+    'an artifact on a preferred main scores on that main even when no sub property matches');
 
   // ---- §17.5: one band, fully listed, in falling order --------------------
   const mixedBands = new Array(scoredArtifactProperties.length).fill(0);

@@ -3,6 +3,25 @@ import { bestArtifactLineContributions } from './artifact-properties';
 export type ArtifactPropertyPreference = 'preferred' | 'acceptable' | 'unwanted';
 
 /**
+ * What the main property is worth, in the same max-roll points the sub
+ * properties are measured in: **two maximum rolls of a preferred sub property**.
+ *
+ * *Changed September 12, 2026.* The main was previously a multiplier on the
+ * whole sub-property value, and that was wrong in a way no artifact could
+ * escape: a perfectly rolled set of preferred sub properties scored **zero** on
+ * an unwanted main, and every artifact with an acceptable main was halved
+ * however it rolled. The main property is one flat stat (§2) — +1,500 HP, +100
+ * ATK or +100 DEF — so it is one addition to the artifact's worth, not a gate on
+ * the other four lines.
+ *
+ * As an addition it also cannot be a veto: an artifact whose main the monster
+ * does not want still delivers whatever its sub properties deliver, and now
+ * scores as such. What the wrong main costs is exactly these two points, no
+ * more.
+ */
+export const artifactMainPropertyPoints = 2;
+
+/**
  * The number of acceptable lines the benchmark artifact carries beside its
  * preferred one. It is 1 because that is what the monsters actually ask for:
  * across the 902 monster types the statistics cover, 830 have exactly **one**
@@ -15,18 +34,21 @@ export type ArtifactPropertyPreference = 'preferred' | 'acceptable' | 'unwanted'
 export const benchmarkAcceptableLines = 1;
 
 /**
- * The number of weighted max-roll points the benchmark artifact holds: one
- * preferred sub property that took every power-up, plus one acceptable line,
- * both at their maximum rolls.
- *
- * Its preferred line therefore holds all five contributions and the rest hold
- * one each, because a finished artifact has only eight to spend (§3) and every
- * line must keep at least its own. Measured on `bestArtifactLineContributions`,
- * that is a preferred line at `5/5` and an acceptable line at `1/5`:
+ * The weighted max-roll points the benchmark artifact holds. It is the best
+ * artifact the game can build on the profile the monsters actually offer,
+ * **wearing the main property that monster wants**:
  *
  * ```text
- * benchmark points = 5 + a
+ * benchmark points = 2 + 5 + a
  * ```
+ *
+ * — the main property (`artifactMainPropertyPoints`), one preferred sub property
+ * that took every power-up, and one acceptable line, all at maximum rolls.
+ *
+ * **The profile is reachable**, which every benchmark here has had to be. Its
+ * preferred line holds all five contributions and the other three hold one each,
+ * because a finished artifact has only eight to spend (§3) and every line must
+ * keep at least its own.
  *
  * **It must stay a fixed denominator**, not the weights of the properties this
  * artifact happened to roll: deriving it from the artifact lets one max
@@ -34,20 +56,21 @@ export const benchmarkAcceptableLines = 1;
  * may it be derived from the monster, which would let a monster wanting one
  * property be perfectly served by an artifact carrying only that one.
  *
- * **And it must stay reachable.** Two earlier versions were not. `1 + 3a`
- * assumed four lines that had each collected five contributions — twenty,
- * against the eight that exist — so it sat 2.5× above anything the game could
- * produce and capped a perfect Legend at 64 %. `1 + 0.6a` fixed the arithmetic
- * but kept three acceptable lines, a profile the defaults almost never grant,
- * and topped the real account out at 90 %.
+ * **The main's worth appears here and in the numerator, from this one
+ * constant.** The benchmark carries a *preferred* main, so an artifact that has
+ * one neither gains nor loses against it on that term, and the two places the
+ * figure is used cannot drift apart. Adding the main to both is also what keeps
+ * the scale where it was before the main became a term: a perfect artifact still
+ * reads about 100 %, and the grade ceilings still run 80 % to 133 %.
  *
  * Scores above 100 % are intended and mean an artifact beats this profile — a
  * second preferred line, or an acceptable line that took power-ups of its own.
- * The best artifact in the captured account reaches 106 %.
  */
 export function artifactScorePointBenchmark(acceptableWorth: number): number {
   const acceptableWeight = acceptableWorth / 100;
-  return bestArtifactLineContributions + benchmarkAcceptableLines * acceptableWeight;
+  return artifactMainPropertyPoints
+    + bestArtifactLineContributions
+    + benchmarkAcceptableLines * acceptableWeight;
 }
 
 export type ArtifactOptimalValueInput = {
@@ -83,13 +106,17 @@ function isRollFraction(value: number, maximum: number): boolean {
  *
  * One is the benchmark: a preferred main property on the best artifact the game
  * can build with one preferred and one acceptable sub property — see
- * `artifactScorePointBenchmark`. More preferred lines can exceed it, which lets the
- * recommendation distinguish a broad match from a narrow one without calling an
- * exceptional artifact mediocre.
+ * `artifactScorePointBenchmark`. More preferred lines can exceed it, which lets
+ * the recommendation distinguish a broad match from a narrow one without
+ * calling an exceptional artifact mediocre.
+ *
+ * **The main property is added, not multiplied** (`artifactMainPropertyPoints`).
+ * An artifact carrying a main the monster does not want keeps every point its
+ * sub properties earned and forfeits only the main's own two.
  *
  * `undefined` means the monster category has no property preferences and is
  * therefore not judged. Zero is a real result for a judged monster whose
- * artifact matches none of its choices.
+ * artifact matches none of its choices — main property included.
  */
 export function calculateArtifactOptimalValue(input: ArtifactOptimalValueInput): number | undefined {
   if (!input.hasPropertyPreferences) return undefined;
@@ -98,7 +125,10 @@ export function calculateArtifactOptimalValue(input: ArtifactOptimalValueInput):
     || input.acceptableWorth > 100
     || input.subProperties.length !== 4) return undefined;
 
-  const mainWeight = preferenceWeight(input.mainPreference, input.acceptableWorth);
+  /* The main property is one flat stat, so it is worth a fixed number of
+     max-roll points rather than a factor on the four rolled lines. */
+  const mainPoints = preferenceWeight(input.mainPreference, input.acceptableWorth)
+    * artifactMainPropertyPoints;
   const benchmark = artifactScorePointBenchmark(input.acceptableWorth);
   let weightedRollPoints = 0;
 
@@ -112,5 +142,5 @@ export function calculateArtifactOptimalValue(input: ArtifactOptimalValueInput):
     weightedRollPoints += weight * rollPoints;
   }
 
-  return mainWeight * (weightedRollPoints / benchmark);
+  return (mainPoints + weightedRollPoints) / benchmark;
 }

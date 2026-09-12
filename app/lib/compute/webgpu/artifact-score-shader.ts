@@ -1,5 +1,5 @@
 import { scoredArtifactProperties } from '../artifact-score-schema';
-import { benchmarkAcceptableLines } from '../../artifact-optimal-value';
+import { artifactMainPropertyPoints, benchmarkAcceptableLines } from '../../artifact-optimal-value';
 import { artifactNormalConversionContributions, bestArtifactLineContributions } from '../../artifact-properties';
 import { intangibleRestrictionCode } from '../artifact-score-protocol';
 
@@ -19,6 +19,9 @@ const PROPERTY_COUNT: u32 = ${scoredArtifactProperties.length}u;
 const INTANGIBLE_RESTRICTION: i32 = ${intangibleRestrictionCode};
 // Interpolated from the same constants artifactScorePointBenchmark() uses, so the
 // two backends cannot drift apart on the denominator every score is divided by.
+// ARTIFACT_MAIN_POINTS is also what a preferred main adds to the numerator, from
+// this one constant, exactly as the TypeScript does it.
+const ARTIFACT_MAIN_POINTS: f32 = ${artifactMainPropertyPoints}.0;
 const BEST_LINE_CONTRIBUTIONS: f32 = ${bestArtifactLineContributions}.0;
 const BENCHMARK_ACCEPTABLE_LINES: f32 = ${benchmarkAcceptableLines}.0;
 
@@ -91,11 +94,11 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
     return;
   }
 
-  let mainWeight = preferenceWeight(i32(monsters[monsterOffset + 2u + mainProperty]));
-  if (mainWeight == 0.0) {
-    output[pairIndex] = 0.0;
-    return;
-  }
+  // The main property adds its own max-roll points rather than gating the four
+  // rolled lines, so an unwanted main is not an early exit: the artifact still
+  // scores, and is still worth converting, on what its sub properties deliver.
+  // Must match scoreArtifactOnMonster() in artifact-score-core.ts exactly.
+  let mainPoints = preferenceWeight(i32(monsters[monsterOffset + 2u + mainProperty])) * ARTIFACT_MAIN_POINTS;
 
   var weighted: f32 = 0.0;
   var sourceContribution: array<f32, 4>;
@@ -110,10 +113,11 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
     weighted = weighted + contribution;
   }
 
-  // The benchmark holds five preferred max-roll points plus one acceptable
-  // point. Must match artifactScorePointBenchmark() exactly.
-  let benchmark = BEST_LINE_CONTRIBUTIONS + BENCHMARK_ACCEPTABLE_LINES * parameters.acceptableWorth;
-  let currentPercent = scorePercent(mainWeight * weighted / benchmark);
+  // The benchmark holds a preferred main, five preferred max-roll points and one
+  // acceptable point. Must match artifactScorePointBenchmark() exactly.
+  let benchmark = ARTIFACT_MAIN_POINTS + BEST_LINE_CONTRIBUTIONS
+    + BENCHMARK_ACCEPTABLE_LINES * parameters.acceptableWorth;
+  let currentPercent = scorePercent((mainPoints + weighted) / benchmark);
   var best = currentPercent;
   if (parameters.conversionMode == 0u) {
     output[pairIndex] = best;
@@ -160,7 +164,7 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
     if (exists && !isSourceProperty) { continue; }
     let band = i32(monsters[monsterOffset + 5u + candidate]);
     if (band != 2) { continue; }
-    let converted = scorePercent(mainWeight * (weighted - sourceContribution[source]
+    let converted = scorePercent((mainPoints + weighted - sourceContribution[source]
       + preferenceWeight(band) * conversionRollFractions[candidate] * ${artifactNormalConversionContributions}) / benchmark);
     if (converted > currentPercent + parameters.insignificantDifference) { hasWorthwhilePreferred = true; }
   }
@@ -181,7 +185,7 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
     let conversionFraction = conversionRollFractions[candidate];
     // A perfect conversion is one and a half max-roll points. That is the
     // game's underlying rate, not a property-specific display rounding.
-    let converted = scorePercent(mainWeight * (weighted - sourceContribution[source]
+    let converted = scorePercent((mainPoints + weighted - sourceContribution[source]
       + candidateWeight * conversionFraction * ${artifactNormalConversionContributions}) / benchmark);
     if (converted > currentPercent + parameters.insignificantDifference) { best = max(best, converted); }
   }

@@ -1615,14 +1615,17 @@ w(acceptable) = a
 w(unwanted)   = 0
 ```
 
-For the main property, `m = w(main preference)`. For each of the artifact's four
-sub properties, let `pᵢ = rolled valueᵢ / maxRollᵢ`. `pᵢ` is the property's
-**max-roll points**: one maximum natural roll is one point, so a line that took
-five maximum rolls is worth five points.
+For each of the artifact's four sub properties, let `pᵢ = rolled valueᵢ /
+maxRollᵢ`. `pᵢ` is the property's **max-roll points**: one maximum natural roll
+is one point, so a line that took five maximum rolls is worth five points.
 
 ```text
 max-roll pointsᵢ = rolled valueᵢ / maxRollᵢ
 ```
+
+The main property is measured in the same points and **added**, never
+multiplied: `mainPoints = w(main preference) × 2`. §16.1 is why the figure is 2
+and why it is a term rather than a factor.
 
 **The point is natural, not grade-relative.** One maximum natural roll is one
 point on every artifact, so a Legend line holding one roll scores low and a
@@ -1664,19 +1667,60 @@ Legend merely for having rolled well within its smaller allowance, and a
 conversion — reaching one and a half rolls by §10 — is worth `1.5/5` of a full
 line on every grade.
 
-### The benchmark must be an artifact that can exist, on a monster that exists
+### 16.1 The main property is a term, not a factor
 
-The sub-property benchmark is **the best artifact the game can build on the
-profile the monsters actually offer**: a Legend that spent all four power-ups on
-its one preferred line, plus one acceptable line, at maximum rolls. Its lines
-hold 5, 1, 1 and 1 contributions, because eight is all there are and every line
-keeps its own.
+*Changed September 12, 2026.* The main property was previously a multiplier on
+the whole sub-property value — `optimalValue = m × subValue` — and that was wrong
+in a way no artifact could escape:
 
 ```text
-benchmark points = 5 + a
-subValue = Σ(wᵢ × pᵢ) / benchmark points
-optimalValue = m × subValue
+perfect preferred sub properties × unwanted main   =   0
 ```
+
+A quad-rolled preferred line and three more the monster wanted scored **zero**
+for carrying the wrong flat stat, and every artifact with a merely acceptable
+main was halved however it rolled. Nothing in the game works that way. The main
+property is **one flat addition** (§2) — +1,500 HP, +100 ATK or +100 DEF, applied
+to the monster's stat like any other flat term (§7.5) — so it is one contribution
+among five, not a gate on the other four. A wrong main costs what a wrong main
+costs; it does not delete four lines of real stat.
+
+**The main property is worth two maximum rolls of a preferred sub property.**
+
+```text
+mainPoints = w(main preference) × 2
+```
+
+So a preferred main adds 2 points, an acceptable main `2a`, and an unwanted main
+0 — and an artifact whose main the monster does not want still scores everything
+its sub properties earned. That is the whole change, and the one it repairs is
+`if (main === 0) return 0`, which also skipped the conversion search: an artifact
+on the wrong main was not merely scored at zero, it was never offered a
+conversion that would have made it worth equipping elsewhere.
+
+### The benchmark must be an artifact that can exist, on a monster that exists
+
+The benchmark is **the best artifact the game can build on the profile the
+monsters actually offer, wearing the main property that monster wants**: a
+preferred main, a Legend that spent all four power-ups on its one preferred
+line, plus one acceptable line, at maximum rolls. Its lines hold 5, 1, 1 and 1
+contributions, because eight is all there are and every line keeps its own.
+
+```text
+benchmark points = 2 + 5 + a
+optimalValue = (mainPoints + Σ(wᵢ × pᵢ)) / benchmark points
+```
+
+In one sentence, which is the form to give a player: **100 % is the right main
+stat, one preferred property that took every power-up, and one more line the
+monster accepts.**
+
+**The main property joins both sides of the fraction, and that is what holds the
+scale still.** It is two points in the numerator and two in the denominator, so
+the change from factor to term moved the top of the scale by about four
+percentage points rather than rescaling it: the grade ceilings run 80 % to 133 %
+where the multiplier model gave 73 % to 145 %. A denominator that left the main
+out would have declared every artifact half again as good as it was.
 
 **One acceptable line, not three, because that is what the defaults grant.**
 Across the 902 monster types the statistics cover, **830 have exactly one
@@ -1685,8 +1729,7 @@ acceptable. Measured against the captured account, the best profile any monster
 offers a given artifact is `1 preferred + 1 acceptable` or `1 preferred + 2
 acceptable` for 1,161 of its 1,555 artifacts; four preferred lines occur for
 three. A benchmark of `1 preferred + 3 acceptable` therefore measures every
-artifact against a monster that does not exist, and it showed: the account's
-best artifact reached 90 % and nothing else came near it.
+artifact against a monster that does not exist.
 
 This is a fixed denominator, and it is fixed twice over.
 
@@ -1701,53 +1744,59 @@ lower for having said more. The score answers *how much of what this monster
 wants does this artifact deliver*, which is the question §17 needs, because
 allocating one pool of artifacts across many monsters requires numbers that are
 comparable between monsters. A monster with one preferred property and nothing
-else therefore tops out near 77 %, and that is the honest answer: the best
-artifact in the world can only give it one line of what it wants.
+else therefore tops out at 93 %, and that is the honest answer: the best artifact
+in the world can only give it one line of what it wants.
 
 **And it must be reachable.** The original `1 + 3a` assumed four lines that had
 each collected five contributions — twenty, against the eight that exist. It sat
 2.5× above anything the game could produce, so the profile the document called
 100 % actually scored 52 % and a perfect Legend capped at 64 %.
 
-At the default `a = 0.5`, with a preferred main and max rolls:
+At the default `a = 0.5`, with max rolls throughout:
 
-| Profile (Legend, max rolls) | Score |
-| --- | ---: |
-| 1 preferred (5 contributions) + 1 acceptable — the benchmark | 100 % |
-| 1 preferred (5) + 2 acceptable | 109 % |
-| 1 preferred (4) + 1 preferred (2) | 109 % |
-| 1 preferred (5) + 3 unwanted | 91 % |
-| 4 preferred | 145 % |
-| 1 preferred (2) + 3 unwanted | 36 % |
+| Profile (Legend unless stated) | Main | Score |
+| --- | --- | ---: |
+| 1 preferred (5 contributions) + 1 acceptable — **the benchmark** | preferred | 100 % |
+| 1 preferred (5) + 2 acceptable | preferred | 107 % |
+| 1 preferred (4) + 1 preferred (2) | preferred | 107 % |
+| 1 preferred (5) + 3 unwanted | preferred | 93 % |
+| 4 preferred | preferred | 133 % |
+| 1 preferred (2) + 3 unwanted | preferred | 53 % |
+| the benchmark's own lines | **unwanted** | 73 % |
+| 4 preferred | **unwanted** | 107 % |
 
-The grade ceilings run 73 % (Normal), 91 %, 109 %, 127 % and 145 % (Legend) —
+The grade ceilings run 80 % (Normal), 93 %, 107 %, 120 % and 133 % (Legend) —
 rising with the grade, as the contribution each delivers does.
 
-**Measured against the captured account**, taking each artifact's best score
-over every catalogued monster: median 43 %, p90 63 %, p99 77 %, best 106 %. That
-best is a Legend carrying `[Skill 1] Recovery` at 27 of 30 on all five
-contributions, for a monster that prefers it — an artifact that deserves to read
-as exceptional. Twelve artifacts pass 80 %.
+The last two rows are the point of §16.1: both scored **0 %** before September
+12, 2026, and the second is a flawless artifact.
+
+**The captured account has not been re-measured since §16.1.** The figures that
+stood here — median 43 %, p90 63 %, p99 77 %, best 106 % — were measured on the
+multiplier model. The top of that distribution is undisturbed, since the
+benchmark gained the main property on both sides of the fraction: the same best
+artifact reads about 104 %. The middle rises, because a preferred main is now a
+floor of `2 / (7 + a)` — about 27 % — that every artifact wearing one keeps
+whatever its lines rolled. That lift is the repair working, not drift, but it is
+an arithmetic projection rather than a measurement: re-measure before quoting a
+distribution, and before cutting any threshold that reads one (§18.2).
 
 A score above 100 % is intentional: 100 % is the benchmark, not the ceiling. It
 means an artifact beat the profile — a second preferred line, or an acceptable
 line that took power-ups of its own.
 
 **Recalibrating this is a deliberate act, not a tuning knob.** The benchmark's
-shape follows from the contribution budget (§3) and its acceptable-line count
-from the observed preference breadth. Should the defaults' thresholds change
-(§19.3), that breadth changes with them and this figure has to be
-re-measured rather than left standing.
+shape follows from the contribution budget (§3), its acceptable-line count from
+the observed preference breadth, and the main's two points from §16.1. Should
+the defaults' thresholds change (§19.3), that breadth changes with them and
+these figures have to be re-measured rather than left standing.
 
 `npm run verify:artifact-score-scale` holds all of this: that the benchmark
 profile is exactly 100 % at every acceptable worth, that each grade's ceiling is
-reachable and higher than the grade below it, and that the WGSL backend divides
-by the same number as the TypeScript one.
-
-The main property remains a separate multiplier. A preferred main preserves the
-sub-property value; an acceptable main multiplies it by `a`; an unwanted main
-sets it to zero. The main is fixed rather than rolled, so it does not belong in
-the four-line benchmark.
+reachable and higher than the grade below it, that a wrong main costs exactly
+the main property's own points and never zeroes an artifact, and that the WGSL
+backend computes the same numerator and divides by the same denominator as the
+TypeScript one.
 
 At `a = 0`, acceptable means unwanted; at `a = 1`, acceptable and preferred
 mean the same thing. Those endpoints deliberately change what can reach the
@@ -1756,9 +1805,11 @@ has removed the distinction. The function returns the score as a ratio, so
 `1.2` is displayed as 120 %.
 
 A monster category with no property preferences is **not judged** and returns
-`undefined`; a judged category whose artifact matches no chosen sub property
-returns the real value `0`. Invalid roll data is rejected as `undefined`, never
-clamped or repaired.
+`undefined`; a judged category whose artifact matches nothing it chose — main
+property included — returns the real value `0`. Since §16.1 that takes all five
+terms, so a zero now means the artifact is genuinely useless to this monster
+rather than merely wearing the wrong flat stat. Invalid roll data is rejected as
+`undefined`, never clamped or repaired.
 
 ---
 
@@ -2293,6 +2344,17 @@ boundaries, and every table that prints a percentage uses it:
 | Strong | 75 % and above | `--gold` |
 | Fair | 50–74 % | `--ink` |
 | Weak | below 50 % | `--dim` |
+
+> **Unchanged by §16.1, but not re-measured either.** The main property becoming
+> a term rather than a factor left the top of the scale where it was — the
+> benchmark is still 100 % and a perfect Legend still reads 133 % — so these
+> boundaries still describe the same artifacts at the top. What moved is the
+> bottom: a preferred main is now a floor of about 27 %, and a wrong main no
+> longer collapses a score to zero, so fewer artifacts fall in the weak band and
+> more sit in the fair one. The bands still separate, and the accent still lands
+> on artifacts worth acting on. Whether 50 % remains the right weak boundary is a
+> question for the account measured on the current model, which has not been
+> done; the figures here are projections from §16.
 
 Gold at the top band is the one place in JASWA where a *fact* wears the accent,
 and it earns it: at that band the number is itself the invitation to act. The

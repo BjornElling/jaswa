@@ -1,5 +1,5 @@
 import { artifactPropertyAvailability, scoredArtifactProperties } from './artifact-score-schema';
-import { artifactScorePointBenchmark } from '../artifact-optimal-value';
+import { artifactMainPropertyPoints, artifactScorePointBenchmark } from '../artifact-optimal-value';
 import { artifactNormalConversionContributions, bestArtifactLineContributions } from '../artifact-properties';
 import { intangibleRestrictionCode } from './artifact-score-protocol';
 import type {
@@ -167,8 +167,12 @@ export function scoreArtifactOnMonster(
     'acceptableWorth' | 'conversionMode' | 'conversionRollFractions' | 'insignificantDifference' | 'ownedConversionPropertyIndexesByClass'>,
 ): { value: number; conversion: ArtifactConversion | undefined; conversions: ArtifactConversion[] } | undefined {
   if (!fits(artifact, monster)) return undefined;
-  const main = weight(monster.mainPreferences[artifact.mainProperty] ?? 0, request.acceptableWorth);
-  if (main === 0) return { value: 0, conversion: undefined, conversions: [] };
+  /* The main property adds its own max-roll points; it does not gate the four
+     rolled lines. An unwanted main therefore forfeits these points and nothing
+     else, so the artifact is still scored — and still worth converting — on what
+     its sub properties deliver. */
+  const mainPoints = weight(monster.mainPreferences[artifact.mainProperty] ?? 0, request.acceptableWorth)
+    * artifactMainPropertyPoints;
 
   const benchmark = artifactScorePointBenchmark(request.acceptableWorth);
   let weightedSubProperties = 0;
@@ -177,7 +181,7 @@ export function scoreArtifactOnMonster(
     if (!Number.isFinite(points) || points < 0 || points > bestArtifactLineContributions) return undefined;
     weightedSubProperties += sourceContribution(artifact, monster, index, request.acceptableWorth);
   }
-  const currentValue = main * (weightedSubProperties / benchmark);
+  const currentValue = (mainPoints + weightedSubProperties) / benchmark;
   const currentPercent = scorePercent(currentValue);
   if (request.conversionMode === 0) return { value: currentValue, conversion: undefined, conversions: [] };
   /* §10.1: an Intangible artifact cannot be converted at all, so it is scored
@@ -219,7 +223,7 @@ export function scoreArtifactOnMonster(
          This is deliberately the underlying game rate, rather than a
          property-specific display rounding such as 5 → 8. */
       const conversionPoints = conversionFraction * artifactNormalConversionContributions;
-      const convertedValue = main * ((withoutSource + convertedWeight * conversionPoints) / benchmark);
+      const convertedValue = (mainPoints + withoutSource + convertedWeight * conversionPoints) / benchmark;
       const value = scorePercent(convertedValue);
       /* §17.4 condition 1: a conversion that does not raise the score is not a
          projection. Compared as whole points, so a conversion the interface
