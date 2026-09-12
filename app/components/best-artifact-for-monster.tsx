@@ -192,16 +192,16 @@ function Improvements({ label, score, conversions, artifact, context }: {
   context: ScoreContext;
 }) {
   return <div className="best-artifact-improvements">
-    <h5 className="best-artifact-improvements-title">Improvements</h5>
-    {artifact.intangible || !conversions.length
-      ? <p className="best-artifact-improvements-none">None</p>
-      : <>
-        <dl className="best-artifact-facts">
-          <ScoreFact label={label} value={score} general={context.general} />
-        </dl>
-        <ConversionList conversions={conversions} artifact={artifact}
-          stones={context.stones} mode={context.mode} />
-      </>}
+    <div className="best-artifact-improvements-copy">
+      <h5 className="best-artifact-improvements-title">Improvements</h5>
+      {artifact.intangible || !conversions.length
+        ? <p className="best-artifact-improvements-none">None</p>
+        : <ConversionList conversions={conversions} artifact={artifact}
+          stones={context.stones} mode={context.mode} />}
+    </div>
+    {!artifact.intangible && Boolean(conversions.length) && <dl className="best-artifact-facts">
+      <ScoreFact label={label} value={score} general={context.general} />
+    </dl>}
   </div>;
 }
 
@@ -256,11 +256,11 @@ function CurrentArtifact({ category, artifact, context }: {
 }
 
 /**
- * One recommendation. The facts sit on the left, the lines the artifact holds
- * sit in the middle, and the conversions that could improve it get a dedicated
- * right-hand column. The score on this monster remains with the facts, where it
- * can be read against the current score without making the card's columns fight
- * over two separate conclusions.
+ * One recommendation. The artifact name leads the left column, its facts and
+ * held lines start together beneath it, and the conversions that could improve
+ * it get a dedicated right-hand column. The score on this monster remains with
+ * the facts, where it can be read against the current score without making the
+ * card's columns fight over two separate conclusions.
  */
 function Recommendation({ row, context }: { row: ResultRow; context: ScoreContext }) {
   const { artifact, target, wearer } = row;
@@ -271,8 +271,8 @@ function Recommendation({ row, context }: { row: ResultRow; context: ScoreContex
 
   return <li className={`best-artifact-entry ${qualityRuleHost}`}>
     <QualityRule tier={artifact.grade} />
+    <ArtifactName artifact={artifact} />
     <div className="best-artifact-entry-facts">
-      <ArtifactName artifact={artifact} />
       <dl className="best-artifact-facts">
         <Fact label="Main stat">{artifact.mainProperty}</Fact>
         <Fact label="Current location" group>{wearer?.name ?? 'Inventory'}</Fact>

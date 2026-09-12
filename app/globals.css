@@ -2000,17 +2000,28 @@ label[for] {
 .best-artifact-entry {
   display: grid;
   grid-template-columns: 300px minmax(360px, 1fr) minmax(520px, 1.15fr);
+  grid-template-rows: auto auto;
   gap: var(--s3) var(--s5);
   padding: var(--s3) var(--s4);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--sunk);
 }
+.best-artifact-entry > .best-artifact-entry-name {
+  grid-column: 1;
+  grid-row: 1;
+}
 .best-artifact-entry-facts {
   display: grid;
   align-content: start;
   gap: var(--s3);
   min-width: 0;
+  grid-column: 1;
+  grid-row: 2;
+}
+.best-artifact-entry > .artifact-subs {
+  grid-column: 2;
+  grid-row: 2;
 }
 .best-artifact-entry .artifact-subs { align-self: start; min-width: 0; }
 .best-artifact-entry-name { margin: 0; color: var(--text); }
@@ -2051,16 +2062,38 @@ label[for] {
   min-width: 0;
   color: var(--text);
 }
+.best-artifact-improvements-copy { display: contents; }
 .best-artifact-improvements-title { margin: 0; color: var(--text-muted); }
 .best-artifact-improvements-none { margin: 0; color: var(--text-muted); }
-/* Recommendations give conversions their own third column. The current-slot
-   cards have only two columns and keep the shared block below them instead. */
+/* Recommendations give conversions their own third column. The block spans the
+   name and facts rows so its heading starts beside the artifact name. Its score
+   is assigned to the facts row and therefore ends beside Score on this mon;
+   the current-slot cards have only two columns and keep the shared block below
+   them instead. */
 .best-artifact-entry > .best-artifact-improvements {
   grid-column: 3;
-  grid-row: 1;
-  align-self: start;
+  grid-row: 1 / span 2;
+  align-self: stretch;
+  grid-template-rows: subgrid;
   padding-top: 0;
   border-top: 0;
+}
+.best-artifact-entry > .best-artifact-improvements .best-artifact-improvements-copy {
+  display: grid;
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  align-content: start;
+  gap: var(--s2);
+  min-width: 0;
+}
+.best-artifact-entry > .best-artifact-improvements .best-artifact-facts {
+  grid-column: 1;
+  grid-row: 2;
+  align-self: end;
+}
+.best-artifact-entry > .best-artifact-improvements .artifact-conversion-option-name {
+  color: var(--text-muted);
+  font-weight: 400;
 }
 .best-monster-results { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s4); }
 /* Named for the panel that first had it; it now dresses the three result cards
@@ -2121,7 +2154,14 @@ label[for] {
   .best-artifact-filters { grid-template-areas: "location" "main" "quality" "include" "substat" "count" "categories"; }
   .best-artifact-monster-panel { grid-template-columns: minmax(0, 1fr); grid-template-areas: "monster" "calculate"; }
   .best-artifact-current-slots { grid-template-columns: minmax(0, 1fr); }
-  .best-artifact-current-slot, .best-artifact-entry { grid-template-columns: minmax(0, 1fr); }
+  .best-artifact-current-slot, .best-artifact-entry { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; }
+  .best-artifact-entry > .best-artifact-entry-name,
+  .best-artifact-entry > .best-artifact-entry-facts,
+  .best-artifact-entry > .artifact-subs,
+  .best-artifact-entry > .best-artifact-improvements {
+    grid-column: 1;
+    grid-row: auto;
+  }
   .best-monster-filters { grid-template-areas: "type" "restriction" "quality" "substat" "main" "location" "artifact" "calculate"; }
   .best-artifact-monster-select .filter-group-controls { width: 100%; }
   .best-artifact-monster-select .jaswa-select { min-width: 0; }

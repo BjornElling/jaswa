@@ -165,3 +165,47 @@ test('artifact entries name an empty improvements result', async ({ page }) => {
   expect(improvements.filter(({ hasConversions }) => !hasConversions).every(({ text }) => text.includes('None')))
     .toBe(true);
 });
+
+test('artifact recommendation columns share their intended baselines', async ({ page }) => {
+  await importAccount(page, artifactAccount);
+  await openArtifactOptimization(page);
+
+  await page.locator('summary').filter({ hasText: 'Settings' }).click();
+  await page.locator('input[name="artifact-conversion-stone-mode"][value="theoretical"]').check();
+
+  const panel = page.locator('.best-artifact-for-monster');
+  await page.getByRole('combobox', { name: 'Choose a monster for artifact recommendations' }).selectOption({ index: 1 });
+  await panel.getByRole('button', { name: 'Calculate artifacts' }).click();
+  const entry = panel.locator('.best-artifact-entry').first();
+  await expect(entry.locator('.artifact-conversion-list')).toBeVisible();
+
+  const alignment = await entry.evaluate((element) => {
+    const box = (selector: string) => element.querySelector(selector)?.getBoundingClientRect();
+    const name = box(':scope > .best-artifact-entry-name');
+    const mainStat = box('.best-artifact-entry-facts .best-artifact-fact');
+    const substats = box(':scope > .artifact-subs');
+    const improvementsTitle = box('.best-artifact-improvements-title');
+    const conversions = box('.artifact-conversion-list');
+    const score = box('.best-artifact-entry-facts .best-artifact-fact-score');
+    const convertedScore = box('.best-artifact-improvements .best-artifact-fact-score');
+    const conversionText = element.querySelector('.artifact-conversion-option-name');
+    const substatText = element.querySelector('.artifact-subs li');
+    return {
+      nameTop: name?.top,
+      improvementsTitleTop: improvementsTitle?.top,
+      mainStatTop: mainStat?.top,
+      substatsTop: substats?.top,
+      conversionsBottom: conversions?.bottom,
+      scoreBottom: score?.bottom,
+      convertedScoreBottom: convertedScore?.bottom,
+      conversionColor: conversionText ? getComputedStyle(conversionText).color : undefined,
+      substatColor: substatText ? getComputedStyle(substatText).color : undefined,
+    };
+  });
+
+  expect(Math.abs((alignment.improvementsTitleTop ?? 0) - (alignment.nameTop ?? 0))).toBeLessThanOrEqual(1);
+  expect(Math.abs((alignment.substatsTop ?? 0) - (alignment.mainStatTop ?? 0))).toBeLessThanOrEqual(1);
+  expect((alignment.conversionsBottom ?? 0)).toBeLessThanOrEqual((alignment.convertedScoreBottom ?? 0));
+  expect(Math.abs((alignment.convertedScoreBottom ?? 0) - (alignment.scoreBottom ?? 0))).toBeLessThanOrEqual(1);
+  expect(alignment.conversionColor).toBe(alignment.substatColor);
+});
