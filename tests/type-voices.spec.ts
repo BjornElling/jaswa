@@ -166,6 +166,31 @@ test('artifact entries name an empty improvements result', async ({ page }) => {
     .toBe(true);
 });
 
+test('current artifact conversions use the muted substat voice', async ({ page }) => {
+  await importAccount(page, artifactAccount);
+  await openArtifactOptimization(page);
+
+  await page.locator('summary').filter({ hasText: 'Settings' }).click();
+  await page.locator('input[name="artifact-conversion-stone-mode"][value="theoretical"]').check();
+
+  const panel = page.locator('.best-artifact-for-monster');
+  await page.getByRole('combobox', { name: 'Choose a monster for artifact recommendations' }).selectOption({ index: 1 });
+  await panel.getByRole('button', { name: 'Calculate artifacts' }).click();
+  const current = panel.locator('.best-artifact-current-slot').first();
+  await expect(current.locator('.artifact-conversion-list')).toBeVisible();
+
+  const colors = await current.evaluate((element) => {
+    const substat = element.querySelector('.artifact-subs li');
+    const conversionParts = [...element.querySelectorAll('.artifact-conversion-option-name, .artifact-conversion-option-name *')];
+    return {
+      substatColor: substat ? getComputedStyle(substat).color : undefined,
+      conversionColors: conversionParts.map((part) => getComputedStyle(part).color),
+    };
+  });
+
+  expect(colors.conversionColors.every((color) => color === colors.substatColor)).toBe(true);
+});
+
 test('artifact recommendation columns share their intended baselines', async ({ page }) => {
   await importAccount(page, artifactAccount);
   await openArtifactOptimization(page);
@@ -213,4 +238,15 @@ test('artifact recommendation columns share their intended baselines', async ({ 
   expect(Math.abs((alignment.convertedScoreBottom ?? 0) - (alignment.scoreBottom ?? 0))).toBeLessThanOrEqual(1);
   expect(alignment.conversionColors.every((color) => color === alignment.substatColor)).toBe(true);
   expect(alignment.improvementsTitleColor).toBe(alignment.standardTextColor);
+
+  const entryWithMore = panel.locator('.best-artifact-entry').filter({ has: page.locator('.artifact-conversion-more') }).first();
+  await expect(entryWithMore.locator('.artifact-conversion-more')).toBeVisible();
+  const moreWeight = await entryWithMore.locator('.artifact-conversion-more').evaluate((element) =>
+    getComputedStyle(element).fontWeight);
+  const scoreWeight = await entryWithMore.locator('.best-artifact-entry-facts .best-artifact-fact-score dd').evaluate((element) =>
+    getComputedStyle(element).fontWeight);
+  expect(moreWeight).toBe(scoreWeight);
+  const faceLefts = await entryWithMore.locator('.artifact-conversion-more .label-swap-face').evaluateAll((elements) =>
+    elements.map((element) => element.getBoundingClientRect().left));
+  expect(Math.max(...faceLefts) - Math.min(...faceLefts)).toBeLessThanOrEqual(1);
 });

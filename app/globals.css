@@ -2101,6 +2101,13 @@ label[for] {
   color: var(--text-muted);
   font-weight: 400;
 }
+.best-artifact-current-slot .artifact-conversion-option-name,
+.best-artifact-current-slot .artifact-conversion-option-source,
+.best-artifact-current-slot .artifact-conversion-option-action,
+.best-artifact-current-slot .artifact-conversion-option-stone {
+  color: var(--text-muted);
+  font-weight: 400;
+}
 .best-monster-results { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s4); }
 /* Named for the panel that first had it; it now dresses the three result cards
    of "Best monster for this artifact" alone — that panel's own table sits
@@ -4529,8 +4536,11 @@ th.align-center .sort-button { justify-content: center; }
   background: none;
   color: var(--text-accent);
   font: inherit;
+  font-weight: 400;
   cursor: pointer;
 }
+.best-artifact-improvements .artifact-conversion-more { font-weight: 400; }
+.artifact-conversion-more .label-swap { justify-items: start; }
 .artifact-conversion-more:hover { text-decoration: underline; }
 .artifact-conversion-more:focus-visible { outline: 2px solid var(--text-accent); outline-offset: 2px; }
 
