@@ -1,6 +1,6 @@
-# Rune Potential — beregningskontrakt
+# Rune Clean-up — beregningskontrakt
 
-**Status:** Bindende arbejdsdokument for Rune Potential  
+**Status:** Bindende arbejdsdokument for Rune Clean-up  
 **Afhængighed:** `docs/RUNE-CANONICAL.md`  
 **Kontrolleret:** 23. august 2026
 
@@ -10,7 +10,7 @@ SWEX-eksport.
 
 ## 1. Formål
 
-Rune Potential er et beslutningsværktøj før spilleren bruger Mana. Det svarer
+Rune Clean-up er et beslutningsværktøj før spilleren bruger Mana. Det svarer
 på tre adskilte spørgsmål:
 
 1. Hvad er runens aktuelle, sikre bidrag?
@@ -41,7 +41,7 @@ ikke tælles to gange. Main Property og Prefix Property er aktuelle stats, men
 de er ikke Sub Property-rolls. `gemMarker` medfører, at den importerede
 Sub Property er Gem-konverteret; det er inputfakta, ikke en beregnet antagelse.
 
-Rune Potential accepterer kun 6★ almindelige runer (`class = 6`) med `rank` 1–5 og
+Rune Clean-up accepterer kun 6★ almindelige runer (`class = 6`) med `rank` 1–5 og
 `upgrade_curr` 0–15. Alt andet vises med kendte aktuelle data, men uden
 numerisk potentiale. Det gælder især Ancient Runes (`class = 16`), indtil deres
 komplette intervaltabel er verificeret.
@@ -170,7 +170,7 @@ team = {
 }
 ```
 
-Mangler team eller baseStats, må Rune Potential vise teamseteffekten som
+Mangler team eller baseStats, må Rune Clean-up vise teamseteffekten som
 *kontekstafhængig* i stedet for at gætte en personlig statgevinst. Multi-party
 mode er ikke dækket af `scope: "same-battle-team"`.
 

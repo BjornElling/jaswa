@@ -1,10 +1,10 @@
 # Rune-regler — kanonisk specifikation
 
-**Status:** Bindende regelgrundlag for JASWA Rune Potential  
+**Status:** Bindende regelgrundlag for JASWA Rune Clean-up  
 **Kontrolleret:** 23. august 2026
 **Spil:** *Summoners War: Sky Arena* (ikke *Chronicles* eller *Lost Centuria*)
 
-Dette dokument er den kanoniske beskrivelse af spilregler, som Rune Potential
+Dette dokument er den kanoniske beskrivelse af spilregler, som Rune Clean-up
 må bygge på. Hvis kode, UI eller en sekundær guide modsiger dokumentet, er
 dokumentet styrende, indtil det er rettet med dokumenteret belæg.
 
@@ -155,7 +155,7 @@ Property-roll til.
 
 ## 7. 6★ almindelige runer: Sub Property-intervaller
 
-Rune Potential behandler kun 6★ almindelige runer. Disse
+Rune Clean-up behandler kun 6★ almindelige runer. Disse
 intervaller for én almindelig 6★ Sub Property-værdi er bekræftet mod
 kildetabellen og støttet af +0-runer i den leverede eksport. De gælder både
 for start-roll og for en senere almindelig power-up-roll.
@@ -184,7 +184,7 @@ almindelige modstykker.
 
 **Afventende verificering:** Der er ikke fundet et komplet,
 officiel-/primærkildeverificeret intervalskema for hver Ancient-start-roll.
-Rune Potential må derfor ikke vise en numerisk Ancient-ceiling eller
+Rune Clean-up må derfor ikke vise en numerisk Ancient-ceiling eller
 sammenligne Ancient og almindelige runer på gættede maksimumværdier. Det må
 vise kendte aktuelle stats og markere projektionen som ikke tilgængelig.
 
@@ -272,7 +272,7 @@ Et set aktiveres ved antallet i kolonnen **Set**. To-set-effekter kan normalt
 stakkes op til tre gange på samme monster; et fire-set kan kombineres med ét
 to-set. Intangible er undtagelsen og er beskrevet særskilt nedenfor.
 
-| `set_id` | Rune Set | Set | Effekt | Type for Rune Potential |
+| `set_id` | Rune Set | Set | Effekt | Type for Rune Clean-up |
 | ---: | --- | ---: | --- | --- |
 | 1 | Energy | 2 | HP +15 % | konstant stat |
 | 2 | Guard | 2 | DEF +15 % | konstant stat |
@@ -327,7 +327,7 @@ omfortolkes til multiplikative kampbuffs.
 ### Bekræftede kampdetaljer med relevans for setværdi
 
 Disse fakta skal vises som setegenskaber, men indgår ikke i den første
-numeriske Rune Potential-score eller -ceiling:
+numeriske Rune Clean-up-score eller -ceiling:
 
 - **Shield:** Hvert færdigt set giver hele holdet et aftageligt Shield i 3
   turns på 15 % af bærerens base HP. Flere Shield-sets på samme eller flere
@@ -374,7 +374,7 @@ numeriske Rune Potential-score eller -ceiling:
 
 ## 11. Afgrænsede eller fortsat uafklarede kampregler
 
-Følgende må ikke få en stiltiende formel i Rune Potential. De er registreret
+Følgende må ikke få en stiltiende formel i Rune Clean-up. De er registreret
 for at undgå, at fravær i den numeriske model bliver forvekslet med en
 spilregel:
 

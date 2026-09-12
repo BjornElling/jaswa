@@ -84,8 +84,8 @@ test('keeps navigation, disclosures, and table filters in the current tab only',
     await newTab.getByRole('navigation').getByRole('button', { name: 'Artifacts', exact: true }).click();
     await expect(newTab.getByRole('heading', { name: 'Artifacts', exact: true })).toBeVisible();
     await expect(newTab.getByRole('textbox', { name: 'Filter artifacts by monster or property' })).toHaveValue('');
-    await newTab.getByRole('button', { name: 'Rune Potential', exact: true }).click();
-    await expect(newTab.getByRole('heading', { name: 'Rune Potential', exact: true })).toBeVisible();
+    await newTab.getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
+    await expect(newTab.getByRole('heading', { name: 'Rune Clean-up', exact: true })).toBeVisible();
     await expect(newTab.locator('details[open]')).toHaveCount(0);
   } finally {
     await newTab.close();

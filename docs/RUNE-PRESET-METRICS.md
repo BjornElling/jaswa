@@ -1,13 +1,13 @@
-# Rune Potential — preset-metrikker
+# Rune Clean-up — preset-metrikker
 
 **Status:** Kanonisk beregningskontrakt for `DMG`, `E.HP`, `E.HP D` og `Eff. %`
-i Rune Potential-presets
+i Rune Clean-up-presets
 **Afhængighed:** `docs/RUNE-POTENTIAL-MATH.md` og `docs/RUNE-CANONICAL.md`  
 **Kontrolleret:** 23. august 2026
 
 Dette er det eneste dokument, der fastlægger disse fire metrikker. De bruges
 til at vægte, hvilke stats og Rune Sets en preset finder ønskværdige, når
-Rune Potential senere vurderer, om en rune bør rulles eller sælges. De er ikke
+Rune Clean-up senere vurderer, om en rune bør rulles eller sælges. De er ikke
 en universel kamp-simulator og erstatter aldrig en monsters specifikke skill.
 
 ## 1. Input og notation
@@ -141,7 +141,7 @@ Hver låste arbejds-preset har en heltalsvægt `0–5` for hver metriks betydnin
 | 4 | Høj prioritet. |
 | 5 | Primært vurderingsgrundlag. |
 
-Vægtene er produktvalg, ikke spilregler. Når Rune Potential får sin egentlige
+Vægtene er produktvalg, ikke spilregler. Når Rune Clean-up får sin egentlige
 rulle-/sælg-algoritme, skal den beregne en runs lovlige Current/Ceiling-udfald
 først (som beskrevet i `RUNE-POTENTIAL-MATH.md`) og derefter anvende den valgte
 presets set- og metrikvægte. En manglende metric eller vægt må aldrig få en

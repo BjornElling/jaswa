@@ -30,7 +30,7 @@ async function importAccount(page: Page) {
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(relicAccount);
   await expect(page.getByText(basename(relicAccount))).toBeVisible();
-  await page.getByRole('button', { name: 'Relics', exact: true }).click();
+  await page.getByRole('button', { name: 'Relic Optimization', exact: true }).click();
   await expect(page.getByRole('table', { name: 'Relic library', exact: true })).toBeVisible();
 }
 

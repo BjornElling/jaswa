@@ -20,7 +20,7 @@ The durable workspace contains:
 
 - the current imported game, including its prepared account data;
 - all preferences: import route and mode, graphics preference, formats and
-  time zone, monster preferences, Rune Potential settings, Rune Potential
+  time zone, monster preferences, Rune Clean-up settings, Rune Clean-up
   presets, and Artifact Optimization settings (whether to factor in only owned
   monsters or only Lv. 40 monsters, how conversion stones are sourced, the
   assumed stone value, and the acceptable-property factor);

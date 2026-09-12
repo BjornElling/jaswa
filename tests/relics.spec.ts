@@ -20,7 +20,7 @@ async function importAccount(page: Page, file: string) {
 }
 
 async function openRelics(page: Page) {
-  await page.getByRole('button', { name: 'Relics', exact: true }).click();
+  await page.getByRole('button', { name: 'Relic Optimization', exact: true }).click();
   await expect(page.getByRole('table', { name: 'Relic library', exact: true })).toBeVisible();
 }
 

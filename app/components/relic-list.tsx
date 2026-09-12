@@ -227,7 +227,7 @@ export function RelicList({ game, monsters, preferences }: {
      separate disclosures rather than one table with a mode switch. */
   return <WorkspacePage
     header={<PageHeader
-      title="Relics"
+      title="Relic Optimization"
       tagline={`One relic rides ${relicEngravingLimit} monsters. Picking the wrong one is `
         + `${relicEngravingLimit} small regrets.`} />}
   >

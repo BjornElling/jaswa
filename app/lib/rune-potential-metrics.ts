@@ -1,5 +1,5 @@
 /**
- * Role-neutral build metrics used by Rune Potential presets.
+ * Role-neutral build metrics used by Rune Clean-up presets.
  *
  * These are comparison metrics, not a replacement for a skill's actual damage
  * calculation. See docs/RUNE-PRESET-METRICS.md for the canonical contract.

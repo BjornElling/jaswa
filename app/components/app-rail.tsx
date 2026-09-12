@@ -18,6 +18,11 @@ export function AppRail({ page, onNavigate, onReport }: {
         className={page === item.id ? 'rail-item active' : 'rail-item'}
         onClick={() => onNavigate(item.id)}
         aria-current={page === item.id ? 'page' : undefined}
+        /* The visible label leans on the heading above it, which a screen
+           reader reading one control at a time does not carry along. Three
+           entries are called "Optimization" and two "Overview", so without
+           this the announced name would not say which. */
+        aria-label={item.name === item.label ? undefined : item.name}
       >
         <span className="glyph" aria-hidden="true">{item.glyph}</span>
         {item.label}

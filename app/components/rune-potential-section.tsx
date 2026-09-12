@@ -89,7 +89,7 @@ export function RunePotentialSection({ settings, presets, onUpdate, onWritePrese
 
   return <WorkspacePage
     header={<PageHeader
-      title="Rune Potential"
+      title="Rune Clean-up"
       tagline="Which runes deserve your mana. Set your tolerance for disappointment below." />}
   >
     <Disclosure title="Settings" sessionKey="rune-potential.settings">
