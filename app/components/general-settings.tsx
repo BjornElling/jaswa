@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { Button } from './button';
 import { RadioLine } from './form-controls';
 import { Dropdown } from './dropdown';
 import { availableTimeZones, clockSample, dateSample, numberSample } from '../lib/regional-settings';
@@ -65,7 +66,7 @@ function SaveLocation({ saveFolder, canChooseFolder, onChooseFolder, onForgetFol
     <p className="setting-line">
       <span className="radio-line-legend" />
       <span className="radio-line-options">
-        <button className="button" onClick={onChooseFolder}>Choose folder…</button>
+        <Button size="compact" onClick={onChooseFolder}>Choose folder…</Button>
       </span>
     </p>
   </div>;
@@ -147,8 +148,8 @@ export function GeneralSettings({ settings, saveFolder, canChooseFolder, onChang
           this is where the magic happens.
         </p>
         <div className="button-row">
-          <button className="button" onClick={onExport}>Download .sw file</button>
-          <button className="button" onClick={onImport}>Load .sw file</button>
+          <Button onClick={onExport}>Download .sw file</Button>
+          <Button onClick={onImport}>Load .sw file</Button>
         </div>
       </div>
     </section>

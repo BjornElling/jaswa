@@ -1,4 +1,5 @@
 import { type DragEvent, useEffect, useState } from 'react';
+import { Button } from './button';
 import { WorkspacePage } from './workspace-page';
 import { CheckboxRow, ImportRouteCard, RadioRow } from './form-controls';
 import { detectGraphicsCard, disabledStatus } from '../lib/hardware-acceleration';
@@ -128,7 +129,7 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
             <p className="eyebrow">Currently loaded</p>
             <p className="meta-line">{game.fileName} · imported {formatDateTime(game.importedAt, general)}</p>
           </div>
-          <button className="button danger" onClick={onRemove}>Remove game data</button>
+          <Button tone="danger" onClick={onRemove}>Remove game data</Button>
         </div>}
 
         {game && unknownMonsterIds.length > 0 && <p className="notice warning">

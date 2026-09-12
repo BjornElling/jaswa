@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Button, FilterButton } from './button';
 import { calculateArtifactScores } from '../lib/compute/artifact-score-client';
 import { buildArtifactScoreRequests, buildArtifactScoreRequestsForMonsterIds } from '../lib/compute/artifact-score-input';
 import { readArtifacts } from '../lib/artifacts';
@@ -300,28 +301,28 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
       <div className="filter-group best-artifact-filter-element" role="group" aria-label="Filter monsters by element">
         <span className="filter-label">Element</span>
         <div className="filter-group-controls">
-          {monsterElements.map((element) => <button key={element} type="button"
-            className={filters.elements.includes(element) ? 'filter-button active' : 'filter-button'}
-            onClick={() => toggle('elements', element)} aria-pressed={filters.elements.includes(element)}
-          >{element}</button>)}
+          {monsterElements.map((element) => <FilterButton key={element}
+            active={filters.elements.includes(element)}
+            onClick={() => toggle('elements', element)}
+          >{element}</FilterButton>)}
         </div>
       </div>
       <div className="filter-group best-artifact-filter-archetype" role="group" aria-label="Filter monsters by archetype">
         <span className="filter-label">Archetype</span>
         <div className="filter-group-controls">
-          {monsterArchetypes.map((archetype) => <button key={archetype} type="button"
-            className={filters.archetypes.includes(archetype) ? 'filter-button active' : 'filter-button'}
-            onClick={() => toggle('archetypes', archetype)} aria-pressed={filters.archetypes.includes(archetype)}
-          >{archetype}</button>)}
+          {monsterArchetypes.map((archetype) => <FilterButton key={archetype}
+            active={filters.archetypes.includes(archetype)}
+            onClick={() => toggle('archetypes', archetype)}
+          >{archetype}</FilterButton>)}
         </div>
       </div>
       <div className="filter-group best-artifact-filter-location" role="group" aria-label="Filter artifacts by location">
         <span className="filter-label">Location</span>
         <div className="filter-group-controls">
-          {artifactLocations.map((location) => <button key={location} type="button"
-            className={filters.locations.includes(location) ? 'filter-button active' : 'filter-button'}
-            onClick={() => toggle('locations', location)} aria-pressed={filters.locations.includes(location)}
-          >{location === 'inventory' ? 'Inventory' : 'Equipped'}</button>)}
+          {artifactLocations.map((location) => <FilterButton key={location}
+            active={filters.locations.includes(location)}
+            onClick={() => toggle('locations', location)}
+          >{location === 'inventory' ? 'Inventory' : 'Equipped'}</FilterButton>)}
         </div>
       </div>
       <div className="filter-group best-artifact-monster-select">
@@ -335,10 +336,8 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
         </div>
       </div>
       <div className="filter-panel-actions best-artifact-actions">
-        <button type="button" className="button important-action best-artifact-calculate" onClick={() => void calculate()}
-          disabled={!selectedMonster || state === 'calculating'}>
-          {state === 'calculating' ? 'Calculating…' : 'Calculate artifacts'}
-        </button>
+        <Button tone="important" size="prominent" busy={state === 'calculating'} busyLabel="Calculating…"
+          onClick={() => void calculate()} disabled={!selectedMonster}>Calculate artifacts</Button>
         {/* The chosen monster goes with the filters: it was picked out of the
             narrowed roster, so leaving it behind would name a monster the
             restored roster no longer points at. */}

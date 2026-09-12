@@ -1,4 +1,5 @@
 import { type FormEvent, type ReactNode, useEffect, useRef, useState } from 'react';
+import { Button } from './button';
 import { WorkspacePage } from './workspace-page';
 import { Disclosure, PageHeader } from './page-chrome';
 import { Dropdown } from './dropdown';
@@ -203,10 +204,10 @@ export function RunePotentialSection({ settings, presets, onUpdate, onWritePrese
       <div className="stack">
         <div className="list-actions">
           <p className="list-count"><b>{presets.length}</b> presets</p>
-          <button className="button primary" onClick={() => setEditing({ draft: createRunePotentialPreset(), isNew: true })}>
+          <Button tone="primary" onClick={() => setEditing({ draft: createRunePotentialPreset(), isNew: true })}>
             <span className="button-glyph" aria-hidden="true">+</span>
             Add preset
-          </button>
+          </Button>
         </div>
 
         {presets.length === 0
@@ -236,8 +237,8 @@ export function RunePotentialSection({ settings, presets, onUpdate, onWritePrese
         <h2 id="delete-preset-title">Delete “{deleting.name}”?</h2>
         <p>This preset is removed from this computer. Runes stop being judged against it, and nothing else changes.</p>
         <div className="dialog-actions">
-          <button className="button" onClick={() => setDeleting(null)}>Keep it</button>
-          <button className="button danger" onClick={() => deletePreset(deleting.id)}>Delete preset</button>
+          <Button onClick={() => setDeleting(null)}>Keep it</Button>
+          <Button tone="danger" onClick={() => deletePreset(deleting.id)}>Delete preset</Button>
         </div>
       </section>
     </div>}
@@ -459,10 +460,10 @@ function PresetEditor({ draft, isNew, onCancel, onSave }: {
       </div>
 
       <div className="dialog-actions">
-        <button type="button" className="button" onClick={onCancel}>Cancel</button>
-        <button type="submit" className="button primary" disabled={!named}>
+        <Button onClick={onCancel}>Cancel</Button>
+        <Button type="submit" tone="primary" disabled={!named}>
           {isNew ? 'Add preset' : 'Save changes'}
-        </button>
+        </Button>
       </div>
     </form>
   </div>;

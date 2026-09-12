@@ -1,5 +1,6 @@
 import { lazy, Suspense, useMemo } from 'react';
 import type { ReactNode } from 'react';
+import { FilterButton } from './button';
 import { Disclosure, PageHeader } from './page-chrome';
 import { DataTablePage, TableColumnGroup } from './data-table-page';
 import { FilterSummary } from './filter-summary';
@@ -201,13 +202,12 @@ export function RelicList({ game, monsters, preferences }: {
   ) => <div className={`filter-group ${className}`} role="group" aria-label={description}>
     <span className="filter-label">{label}</span>
     <div className="filter-group-controls">
-      {options.map((option) => <button
+      {options.map((option) => <FilterButton
         key={option}
-        type="button"
-        className={selected.includes(option) ? 'filter-button active' : 'filter-button'}
+        active={selected.includes(option)}
         onClick={() => toggleValue(option, key)}
-        aria-pressed={selected.includes(option)} aria-label={accessibleName?.(option)}
-      >{display(option)}</button>)}
+        aria-label={accessibleName?.(option)}
+      >{display(option)}</FilterButton>)}
     </div>
   </div>;
 
@@ -249,9 +249,9 @@ export function RelicList({ game, monsters, preferences }: {
                 <input value={search}
                   onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
                   placeholder="Filter relics" aria-label="Filter relics by property, main stat or advice" />
-                <button className="filter-button"
+                <FilterButton
                   onClick={() => setFilters((current) => ({ ...current, search: '' }))}
-                  hidden={!search} disabled={!search} aria-label="Clear filter">✕</button>
+                  hidden={!search} disabled={!search} aria-label="Clear filter">✕</FilterButton>
               </div>
             </div>
           </div>
@@ -292,12 +292,12 @@ export function RelicList({ game, monsters, preferences }: {
           <div className="filter-group relic-filter-usage" role="group" aria-label="Choose which relics to include">
             <span className="filter-label">Use</span>
             <div className="filter-group-controls">
-              <button type="button" className={showEngraved ? 'filter-button active' : 'filter-button'}
+              <FilterButton active={showEngraved}
                 onClick={() => setFilters((current) => ({ ...current, showEngraved: !current.showEngraved }))}
-                aria-pressed={showEngraved}>Engraved</button>
-              <button type="button" className={showUnused ? 'filter-button active' : 'filter-button'}
+              >Engraved</FilterButton>
+              <FilterButton active={showUnused}
                 onClick={() => setFilters((current) => ({ ...current, showUnused: !current.showUnused }))}
-                aria-pressed={showUnused}>Unused</button>
+              >Unused</FilterButton>
             </div>
           </div>
           <FilterSummary visible={visible.length} total={rows.length} noun="relics"

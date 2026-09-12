@@ -1,4 +1,5 @@
 import { type ReactNode, useMemo, useState } from 'react';
+import { Button, FilterButton } from './button';
 import { Dropdown } from './dropdown';
 import { ConvertedArtifactMark } from './converted-artifact-mark';
 import { UnrefinedArtifactMark } from './unrefined-artifact-mark';
@@ -279,8 +280,8 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
   const buttonGroup =<T extends string>(label: string, key: keyof ArtifactFilters, values: readonly T[], display: (value: T) => string, className: string) => <div className={`filter-group ${className}`} role="group" aria-label={label}>
     <span className="filter-label">{label}</span>
     <div className="filter-group-controls">
-      {values.map((value) => <button key={value} type="button" className={(filters[key] as string[]).includes(value) ? 'filter-button active' : 'filter-button'}
-        onClick={() => toggle(key, value)} aria-pressed={(filters[key] as string[]).includes(value)}>{display(value)}</button>)}
+      {values.map((value) => <FilterButton key={value} active={(filters[key] as string[]).includes(value)}
+        onClick={() => toggle(key, value)}>{display(value)}</FilterButton>)}
     </div>
   </div>;
 
@@ -327,9 +328,8 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
         </div>
       </div>
       <div className="filter-panel-actions best-monster-actions">
-        <button type="button" className="button important-action best-monster-calculate" onClick={() => void calculate()} disabled={!selectedArtifact || state === 'calculating'}>
-          {state === 'calculating' ? 'Calculating…' : 'Calculate monsters'}
-        </button>
+        <Button tone="important" size="prominent" busy={state === 'calculating'} busyLabel="Calculating…"
+          onClick={() => void calculate()} disabled={!selectedArtifact}>Calculate monsters</Button>
         {/* The chosen artifact goes with the filters: it was picked out of the
             narrowed list, so leaving it behind would name a piece the restored
             list no longer points at. */}

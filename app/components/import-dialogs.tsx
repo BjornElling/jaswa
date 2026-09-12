@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { RefObject } from 'react';
+import { Button } from './button';
 import { Dropdown } from './dropdown';
 import type { ReportCategory } from '../lib/workspace-config';
 import type { DirectImportMode, ImportedGame } from '../lib/types';
@@ -47,8 +48,8 @@ export function RemoveGameDataDialog({ onCancel, onConfirm }: {
       <h2 id="remove-game-data-title">Remove the current game data?</h2>
       <p id="remove-game-data-description">You probably have already deducted this, but this action will remove the imported game data from JASWA.</p>
       <div className="dialog-actions">
-        <button ref={cancelRef} className="button" onClick={onCancel}>Cancel</button>
-        <button className="button danger" onClick={onConfirm}>Remove game data</button>
+        <Button ref={cancelRef} onClick={onCancel}>Cancel</Button>
+        <Button tone="danger" onClick={onConfirm}>Remove game data</Button>
       </div>
     </section>
   </div>;
@@ -73,8 +74,8 @@ export function DirectImportModeDialog({ mode, onCancel, onConfirm }: {
           : 'Warning: this will overwrite any changes you may have made to the current game data.'}
       </p>
       <div className="dialog-actions">
-        <button ref={cancelRef} className="button" onClick={onCancel}>Cancel</button>
-        <button className="button primary" onClick={onConfirm}>Switch mode</button>
+        <Button ref={cancelRef} onClick={onCancel}>Cancel</Button>
+        <Button tone="primary" onClick={onConfirm}>Switch mode</Button>
       </div>
     </section>
   </div>;
@@ -102,8 +103,8 @@ export function LoadPreferencesDialog({ onCancel, onConfirm }: {
         you choose next. Your imported game data is not affected.
       </p>
       <div className="dialog-actions">
-        <button ref={cancelRef} className="button" onClick={onCancel}>Cancel</button>
-        <button className="button primary" onClick={onConfirm}>Choose file…</button>
+        <Button ref={cancelRef} onClick={onCancel}>Cancel</Button>
+        <Button tone="primary" onClick={onConfirm}>Choose file…</Button>
       </div>
     </section>
   </div>;
@@ -124,8 +125,8 @@ export function ReplaceImportDialog({ pendingGame, onCancel, onReplace }: {
         {unknownMonsterIds.length} monster type{unknownMonsterIds.length === 1 ? '' : 's'} {unknownMonsterIds.length === 1 ? 'is' : 'are'} newer than JASWA’s name list. {unknownMonsterIds.join(', ')} will still be imported, shown by game ID until the list is updated. Use <b>Report Issue</b> in the left rail to tell the developer.
       </p>}
       <div className="dialog-actions">
-        <button className="button" onClick={onCancel}>Cancel</button>
-        <button className="button primary" onClick={onReplace}>Replace data</button>
+        <Button onClick={onCancel}>Cancel</Button>
+        <Button tone="primary" onClick={onReplace}>Replace data</Button>
       </div>
     </section>
   </div>;
@@ -154,8 +155,8 @@ export function ReportDialog({ report, onChange, onCancel, onSend }: {
       </label>
       <p className="notice">The e-mail includes helper status, browser details and account counts, but never your full game data.</p>
       <div className="dialog-actions">
-        <button className="button" onClick={onCancel}>Cancel</button>
-        <button className="button primary" onClick={onSend}>Open e-mail</button>
+        <Button onClick={onCancel}>Cancel</Button>
+        <Button tone="primary" onClick={onSend}>Open e-mail</Button>
       </div>
     </section>
   </div>;

@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useMemo } from 'react';
+import { FilterButton } from './button';
 import { PageHeader } from './page-chrome';
 import { DataTablePage, TableColumnGroup } from './data-table-page';
 import { FilterSummary } from './filter-summary';
@@ -347,12 +348,11 @@ export function ArtifactList({ game, monsters, preferences }: {
   ) => <div className={`filter-group ${className}`} role="group" aria-label={description}>
     <span className="filter-label">{label}</span>
     <div className="filter-group-controls">
-      {options.map((option) => <button
+      {options.map((option) => <FilterButton
         key={option}
-        className={selected.includes(option) ? 'filter-button active' : 'filter-button'}
+        active={selected.includes(option)}
         onClick={() => toggle(option, set)}
-        aria-pressed={selected.includes(option)}
-      >{display(option)}</button>)}
+      >{display(option)}</FilterButton>)}
     </div>
   </div>;
   const abbreviate = (option: string) => option.slice(0, 3).toUpperCase();
@@ -385,8 +385,8 @@ export function ArtifactList({ game, monsters, preferences }: {
             <span aria-hidden="true">⌕</span>
             <input value={search} onChange={(event) => setSearch(event.target.value)}
               placeholder="Filter artifacts" aria-label="Filter artifacts by monster or property" />
-            <button className="filter-button" onClick={() => setSearch('')}
-              hidden={!search} disabled={!search} aria-label="Clear filter">✕</button>
+            <FilterButton onClick={() => setSearch('')}
+              hidden={!search} disabled={!search} aria-label="Clear filter">✕</FilterButton>
           </div>
         </div>
       </div>
@@ -419,12 +419,12 @@ export function ArtifactList({ game, monsters, preferences }: {
       <div className="filter-group artifact-filter-location" role="group" aria-label="Choose artifact locations">
         <span className="filter-label">Location</span>
         <div className="filter-group-controls">
-          <button type="button" className={showEquipped ? 'filter-button active' : 'filter-button'}
-            onClick={() => setShowEquipped((current) => !current)} aria-pressed={showEquipped}
-          >Equipped</button>
-          <button type="button" className={showInventory ? 'filter-button active' : 'filter-button'}
-            onClick={() => setShowInventory((current) => !current)} aria-pressed={showInventory}
-          >Inventory</button>
+          <FilterButton active={showEquipped}
+            onClick={() => setShowEquipped((current) => !current)}
+          >Equipped</FilterButton>
+          <FilterButton active={showInventory}
+            onClick={() => setShowInventory((current) => !current)}
+          >Inventory</FilterButton>
         </div>
       </div>
       {/* Beside Location because the two ask the same shape of question — which
@@ -433,9 +433,9 @@ export function ArtifactList({ game, monsters, preferences }: {
       <div className="filter-group artifact-filter-include" role="group" aria-label="Choose which artifacts to include">
         <span className="filter-label">Include</span>
         <div className="filter-group-controls">
-          <button type="button" className={includeIntangible ? 'filter-button active' : 'filter-button'}
-            onClick={() => setIncludeIntangible((current) => !current)} aria-pressed={includeIntangible}
-          >{artifactIntangibleLabel}</button>
+          <FilterButton active={includeIntangible}
+            onClick={() => setIncludeIntangible((current) => !current)}
+          >{artifactIntangibleLabel}</FilterButton>
         </div>
       </div>
       <FilterSummary visible={visible.length} total={rows.length} noun="artifacts"

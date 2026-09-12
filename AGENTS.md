@@ -269,6 +269,14 @@ parts an agent must not quietly break:
   change width as digits change.
 - **Icons are stroked SVG paths**, sized to the type, using `currentColor`. Not
   emoji — they render at a different weight in every browser.
+- **Buttons come from `app/components/button.tsx`.** `Button` and
+  `FilterButton` own the box, the tones, the sizes and the disabled look;
+  choose a `tone` and a `size` rather than writing `className="button …"` or
+  giving one call site a height of its own. A button that reports its own work
+  passes `busyLabel` instead of swapping its text — `LabelSwap` keeps every
+  wording in the layout so the control cannot resize under the click that
+  started the work, which is rule 2 applied to a control's own label.
+  `tests/button-box.spec.ts` holds both halves of that.
 - **An artifact's main stat is named, never quantified.** Every view says `HP`,
   `ATK` or `DEF` and stops there — no `+1,500`, no roll, no bar. The magnitude
   is fixed by grade and adds nothing to the judgement the user is making, so a

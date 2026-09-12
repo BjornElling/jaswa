@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { LabelSwap } from './button';
 import { conversionDescription, engravedStoneFor } from '../lib/artifact-recommendations';
 import { artifactRestriction } from '../lib/compute/artifact-score-input';
 import type { EngravedConversionStone } from '../lib/artifact-conversion-stones';
@@ -66,9 +67,13 @@ export function ConversionList({ conversions, artifact, stones, mode, emptyClass
         </span>
       </li>;
     })}</ul>
+    {/* The count is baked into the closed wording, so the two wordings differ in
+        width. Stacked rather than swapped, the control keeps the width of the
+        longer one and the row below it does not shift as the list opens. */}
     {(hidden > 0 || expanded) && <button type="button" className="artifact-conversion-more"
       onClick={() => setExpanded((current) => !current)} aria-expanded={expanded}>
-      {expanded ? 'Show fewer' : `+ ${hidden} more`}
+      <LabelSwap showing={expanded ? 'fewer' : 'more'}
+        faces={{ more: `+ ${hidden} more`, fewer: 'Show fewer' }} />
     </button>}
   </div>;
 }

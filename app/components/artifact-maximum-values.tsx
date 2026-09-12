@@ -1,4 +1,5 @@
 import { Fragment, useMemo, useState } from 'react';
+import { Button, FilterButton } from './button';
 import { Dropdown } from './dropdown';
 import { ConvertedArtifactMark } from './converted-artifact-mark';
 import { UnrefinedArtifactMark } from './unrefined-artifact-mark';
@@ -318,7 +319,7 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
     <span className="filter-label">{label}</span>
     <div className="filter-group-controls">{values.map((value, index) => <Fragment key={value}>
       {dividerIndexes.includes(index) && <span className="artifact-restriction-divider" role="presentation" aria-hidden="true" />}
-      <button type="button" className={(filters[key] as string[]).includes(value) ? 'filter-button active' : 'filter-button'} onClick={() => toggle(key, value)} aria-pressed={(filters[key] as string[]).includes(value)}>{display(value)}</button>
+      <FilterButton active={(filters[key] as string[]).includes(value)} onClick={() => toggle(key, value)}>{display(value)}</FilterButton>
     </Fragment>)}</div>
   </div>;
 
@@ -439,8 +440,8 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
       <div className="filter-group artifact-recommendation-filter-obtained" role="group" aria-label="Order recommendations">
         <span className="filter-label">Order</span>
         <div className="filter-group-controls">
-          <button type="button" className={sort.key === 'obtained' ? 'filter-button active' : 'filter-button'}
-            onClick={() => toggleSort('obtained')} aria-pressed={sort.key === 'obtained'}>Sort by obtained</button>
+          <FilterButton active={sort.key === 'obtained'}
+            onClick={() => toggleSort('obtained')}>Sort by obtained</FilterButton>
         </div>
       </div>
       {buttonGroup('Main stat', 'mainProperties', artifactMainPropertyOrder, (property) => property, 'artifact-recommendation-filter-main')}
@@ -456,14 +457,10 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
           allocation. */}
       {buttonGroup('Already matching', 'matching', matchingFilters, () => 'Hide', 'artifact-recommendation-filter-matching')}
       <div className="filter-panel-actions artifact-recommendation-actions">
-        {/* Both labels are always in the layout and the inactive one is hidden
-            with visibility, so the button is as wide as its widest wording and
-            never resizes when the work starts or finishes. */}
-        <button type="button" className="button important-action artifact-recommendation-calculate" onClick={() => void calculate()} disabled={state === 'calculating'} data-state={state === 'calculating' ? 'busy' : 'idle'}>
-          <span className="artifact-recommendation-calculate-label" data-label="idle">Calculate recommendations</span>
-          <span className="artifact-recommendation-calculate-label" data-label="busy">Calculating…</span>
-        </button>
-        <button type="button" className="button artifact-recommendation-clear" onClick={() => clear()} disabled={!calculation || state === 'calculating'}>Clear results</button>
+        <Button tone="important" size="prominent" busy={state === 'calculating'} busyLabel="Calculating…"
+          onClick={() => void calculate()}>Calculate recommendations</Button>
+        <Button tone="danger" size="compact" className="artifact-recommendation-clear"
+          onClick={() => clear()} disabled={!calculation || state === 'calculating'}>Clear results</Button>
         {/* Two different undos, and the panel keeps them apart: Clear results
             discards the calculation, this one only puts the filters back. It
             is always available, because narrowing the view is possible before

@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { FilterButton } from './button';
 import { DataTablePage, TableColumnGroup } from './data-table-page';
 import { FilterSummary } from './filter-summary';
 import { MonsterPortrait } from './monster-portrait';
@@ -479,27 +480,27 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
             <span aria-hidden="true">⌕</span>
             <input value={search} onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
               placeholder="Filter monsters" aria-label="Filter Numbers monsters by name" />
-            <button className="filter-button" onClick={() => setFilters((current) => ({ ...current, search: '' }))}
-              hidden={!search} disabled={!search} aria-label="Clear Numbers filter">✕</button>
+            <FilterButton onClick={() => setFilters((current) => ({ ...current, search: '' }))}
+              hidden={!search} disabled={!search} aria-label="Clear Numbers filter">✕</FilterButton>
           </div>
         </div>
       </div>
       <div className="filter-group storage-filter-element" role="group" aria-label="Filter Numbers monsters by element">
         <span className="filter-label">Element</span>
         <div className="filter-group-controls">
-          {storageElementOptions.map((element) => <button type="button" key={element}
-            className={selectedElements.includes(element) ? 'filter-button active' : 'filter-button'}
-            onClick={() => toggleElement(element)} aria-pressed={selectedElements.includes(element)}
-          >{element.slice(0, 3).toUpperCase()}</button>)}
+          {storageElementOptions.map((element) => <FilterButton key={element}
+            active={selectedElements.includes(element)}
+            onClick={() => toggleElement(element)}
+          >{element.slice(0, 3).toUpperCase()}</FilterButton>)}
         </div>
       </div>
       <div className="filter-group storage-filter-type" role="group" aria-label="Filter Numbers monsters by type">
         <span className="filter-label">Type</span>
         <div className="filter-group-controls">
-          {monsterFilterArchetypes.map((archetype) => <button type="button" key={archetype}
-            className={selectedArchetypes.includes(archetype) ? 'filter-button active' : 'filter-button'}
-            onClick={() => toggleArchetype(archetype)} aria-pressed={selectedArchetypes.includes(archetype)}
-          >{monsterArchetypeLabels[archetype]}</button>)}
+          {monsterFilterArchetypes.map((archetype) => <FilterButton key={archetype}
+            active={selectedArchetypes.includes(archetype)}
+            onClick={() => toggleArchetype(archetype)}
+          >{monsterArchetypeLabels[archetype]}</FilterButton>)}
         </div>
       </div>
       <div className="filter-group storage-filter-location" role="group" aria-label="Choose which locations to include">

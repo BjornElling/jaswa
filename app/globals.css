@@ -1810,9 +1810,7 @@ button { cursor: pointer; }
 .best-monster-artifact-select .jaswa-select { width: 100%; min-width: 0; }
 .best-artifact-monster-select .filter-group-controls { width: 50%; }
 .best-artifact-monster-select .jaswa-select { width: 100%; min-width: 30ch; }
-.best-artifact-calculate { height: 32px; white-space: nowrap; }
 .best-monster-actions { grid-area: calculate; justify-self: start; }
-.best-monster-calculate { height: 32px; white-space: nowrap; }
 .best-artifact-meta { color: var(--dim); font-family: var(--mono); font-size: var(--t-small); font-variant-numeric: tabular-nums; }
 .best-artifact-results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s4); }
 .best-monster-results { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s4); }
@@ -1955,52 +1953,14 @@ button { cursor: pointer; }
    from their top. Everything else — the stacking and the gap that keeps
    calculate clear of its undos — comes from .filter-panel-actions. */
 .artifact-recommendation-actions { grid-area: calculate; align-self: center; }
-/* The primary action: the same gold frame as every other important-action in
-   JASWA, enlarged so it reads as the panel's conclusion rather than one more
-   control in the flow.
-
-   Written against .button so it carries that rule's specificity: the shared
-   button sizing is defined later in this file, and a single class here would
-   lose the height and font size to it on source order alone. */
-.button.artifact-recommendation-calculate {
-  display: grid;
-  height: 44px;
-  padding: 0 var(--s5);
-  font-size: 14px;
-  white-space: nowrap;
-}
-/* Both labels occupy the same cell, so the button's width is the wider of the
-   two and its height is one line — whichever label is showing. `visibility`
-   rather than `display` keeps the hidden one contributing that width, which is
-   the whole point: the button must not resize when the work starts. */
-.artifact-recommendation-calculate-label {
-  grid-area: 1 / 1;
-  align-self: center;
-  justify-self: center;
-}
-.artifact-recommendation-calculate[data-state="idle"] .artifact-recommendation-calculate-label[data-label="busy"],
-.artifact-recommendation-calculate[data-state="busy"] .artifact-recommendation-calculate-label[data-label="idle"] { visibility: hidden; }
-/* Subordinate to the calculate button: no gold, and the quieter of the two
-   neutral borders, so it reads as the undo beside the action rather than a
-   second thing to decide between. It only names itself as destructive on
-   hover, in the same red .button.danger uses, so the warning arrives when the
-   pointer is on it rather than colouring the panel at rest. */
-.button.artifact-recommendation-clear {
-  height: 32px;
-  padding: 0 var(--s4);
-  font-size: var(--t-small);
+/* Subordinate to the calculate button beside it: it starts quieter than a
+   resting button, so it reads as the undo next to the action rather than a
+   second thing to decide between. Everything else — its compact box, and the
+   red it turns on hover — it shares with every other destructive button. */
+.button.artifact-recommendation-clear:not(:disabled) {
   color: var(--faint);
   border-color: var(--line);
-  white-space: nowrap;
 }
-.button.artifact-recommendation-clear:hover:not(:disabled) {
-  color: #d08a7a;
-  border-color: #6a4038;
-  background: #1c1210;
-}
-.button.artifact-recommendation-clear:focus-visible:not(:disabled) { color: #d08a7a; border-color: #6a4038; }
-.button.artifact-recommendation-clear:disabled { color: var(--ghost); border-color: var(--line); cursor: not-allowed; }
-.button.artifact-recommendation-clear:disabled:hover { color: var(--ghost); border-color: var(--line); background: transparent; }
 .artifact-recommendation-meta { color: var(--dim); font-family: var(--mono); font-size: var(--t-small); font-variant-numeric: tabular-nums; }
 .artifact-recommendation-table-wrap { width: 100%; overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); }
 /* The table always fits its container: it is 100% wide and every column is a
@@ -3105,6 +3065,26 @@ button { cursor: pointer; }
 }
 
 /* ---------------------------------------------------------------- forms */
+
+/* A control whose wording changes while it is on screen. Every wording is
+   mounted and stacked in the one cell; the ones not showing keep their width
+   but are invisible, so the box is as wide as its widest wording in every
+   state and cannot resize under the click that changed it (rule 2).
+   `components/button.tsx` explains what this replaced. */
+.label-swap { display: inline-grid; align-items: center; justify-items: center; }
+.label-swap-face { grid-area: 1 / 1; }
+/* `visibility` rather than `display`, which would take the box out of the flow
+   and surrender the width this exists to hold. The matching `aria-hidden` is
+   set in `components/button.tsx`. */
+.label-swap-face[data-showing="false"] { visibility: hidden; }
+
+/* Every button in the app, from `components/button.tsx`. Tone and size are the
+   only two axes; nothing below sets a height, a disabled look, or a hover of
+   its own for one call site.
+
+   The one element wearing this class that the component does not render is the
+   helper download on Home. It is a link — it fetches a file rather than acting
+   on the page — so it stays an anchor and borrows the chrome. */
 .button {
   display: inline-flex; align-items: center; justify-content: center;
   height: 36px;
@@ -3117,7 +3097,13 @@ button { cursor: pointer; }
   color: var(--dim);
   transition: color .12s, border-color .12s, background .12s;
 }
-.button:hover { color: var(--ink); border-color: var(--faint); }
+/* A line of settings, not a call to action: the button is part of the sentence
+   it sits in, so it matches the fields beside it rather than out-weighing them. */
+.button.compact { height: 32px; padding: 0 var(--s4); font-size: var(--t-small); }
+/* The action a whole panel builds up to. Enlarged so it reads as the panel's
+   conclusion rather than one more control in the flow. */
+.button.prominent { height: 44px; padding: 0 var(--s5); font-size: 14px; }
+.button:hover:not(:disabled) { color: var(--ink); border-color: var(--faint); }
 /* A platform mark before the label. Sized off the cap height rather than the
    line box, so it sits as a badge beside the word instead of out-measuring it,
    and `flex: none` keeps it from being squeezed when the row runs short. */
@@ -3127,8 +3113,13 @@ button { cursor: pointer; }
   border-color: var(--gold);
   color: var(--gold-ink);
 }
-.button.primary:hover { background: #dcb45f; color: var(--gold-ink); }
-.button.danger:hover { color: #d08a7a; border-color: #6a4038; }
+.button.primary:hover:not(:disabled) { background: #dcb45f; color: var(--gold-ink); }
+/* Destructive buttons name themselves in red on hover and focus rather than at
+   rest, so the warning arrives when the pointer is on them instead of
+   colouring the panel they sit in. */
+.button.danger:hover:not(:disabled),
+.button.danger:focus-visible:not(:disabled) { color: #d08a7a; border-color: #6a4038; }
+.button.danger:hover:not(:disabled) { background: #1c1210; }
 /* Important actions use a gold frame, not a filled slab, so they stand out
    without competing with the filter state or the surrounding section title. */
 .button.important-action { border-color: var(--gold); }
@@ -3137,16 +3128,21 @@ button { cursor: pointer; }
   border-color: #dcb45f;
   color: var(--ink);
 }
-.button.important-action:disabled {
+/* One answer to "what does an unavailable button look like", for every tone
+   and every place a button appears. The outline tones dash their border; a
+   filled primary cannot, so it dims its fill instead. */
+.button:disabled {
   color: var(--ghost);
   border-color: var(--line);
   border-style: dashed;
+  background: transparent;
   cursor: not-allowed;
 }
-.button.important-action:disabled:hover {
-  background: transparent;
-  color: var(--ghost);
-  border-color: var(--line);
+.button.primary:disabled {
+  background: var(--gold-deep);
+  border-color: var(--gold-edge);
+  border-style: solid;
+  color: var(--faint);
 }
 
 .button-row { display: flex; flex-wrap: wrap; gap: var(--s2); }
@@ -3812,11 +3808,6 @@ button { cursor: pointer; }
 .dialog p { color: var(--dim); font-size: var(--t-body); line-height: 1.6; }
 .dialog .field { margin-top: var(--s4); }
 .dialog-actions { display: flex; justify-content: flex-end; gap: var(--s2); margin-top: var(--s5); }
-.dialog-actions .button:disabled {
-  color: var(--ghost); border-color: var(--line);
-  background: transparent; cursor: not-allowed;
-}
-.dialog-actions .button.primary:disabled { background: var(--gold-deep); border-color: var(--gold-edge); color: var(--faint); }
 
 /* ------------------------------------------------------- preset editor */
 
@@ -4157,17 +4148,6 @@ button { cursor: pointer; }
   cursor: not-allowed;
 }
 .jaswa-select:disabled:hover { background-color: var(--sunk); }
-
-/* The save row's buttons are shorter than the page's standard control: this is
-   a line of settings, not a call to action. */
-.setting-line .button { height: 32px; }
-.setting-line .button:disabled {
-  color: var(--ghost);
-  border-color: var(--line);
-  border-style: dashed;
-  cursor: not-allowed;
-}
-.setting-line .button:disabled:hover { color: var(--ghost); border-color: var(--line); }
 
 /* .text-link is written for an anchor, which carries no chrome of its own. As
    a button it needs the browser's default box taken back off before the link

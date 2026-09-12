@@ -1,4 +1,5 @@
 import { type ReactNode, useMemo } from 'react';
+import { FilterButton } from './button';
 import { Disclosure, PageHeader } from './page-chrome';
 import { DataTablePage, TableColumnGroup } from './data-table-page';
 import { FilterSummary } from './filter-summary';
@@ -326,49 +327,45 @@ export function MonsterOverview({ monsters, gameData, preferences }: {
             <span aria-hidden="true">⌕</span>
             <input value={search} onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
               placeholder="Filter monsters" aria-label="Filter monsters by name or set" />
-            <button className="filter-button" onClick={() => setFilters((current) => ({ ...current, search: '' }))}
-              hidden={!search} disabled={!search} aria-label="Clear filter">✕</button>
+            <FilterButton onClick={() => setFilters((current) => ({ ...current, search: '' }))}
+              hidden={!search} disabled={!search} aria-label="Clear filter">✕</FilterButton>
           </div>
         </div>
       </div>
       <div className="filter-group" role="group" aria-label="Filter by element">
         <span className="filter-label">Element</span>
         <div className="filter-group-controls">
-          {monsterElementOptions.map((name) => <button
-            type="button"
+          {monsterElementOptions.map((name) => <FilterButton
             key={name}
-            className={selectedElements.includes(name) ? 'filter-button active' : 'filter-button'}
+            active={selectedElements.includes(name)}
             onClick={() => toggleElement(name)}
-            aria-pressed={selectedElements.includes(name)}
-          >{name.slice(0, 3).toUpperCase()}</button>)}
+          >{name.slice(0, 3).toUpperCase()}</FilterButton>)}
         </div>
       </div>
       <div className="filter-group" role="group" aria-label="Filter by monster type">
         <span className="filter-label">Type</span>
         <div className="filter-group-controls">
-          {monsterFilterArchetypes.map((archetype) => <button
+          {monsterFilterArchetypes.map((archetype) => <FilterButton
             key={archetype}
-            className={selectedArchetypes.includes(archetype) ? 'filter-button active' : 'filter-button'}
+            active={selectedArchetypes.includes(archetype)}
             onClick={() => toggleArchetype(archetype)}
-            aria-pressed={selectedArchetypes.includes(archetype)}
-          >{monsterArchetypeLabels[archetype]}</button>)}
+          >{monsterArchetypeLabels[archetype]}</FilterButton>)}
         </div>
       </div>
       <div className="filter-group" role="group" aria-label="Choose which monsters to include">
         <span className="filter-label">Include</span>
         <div className="filter-group-controls">
-          <button type="button" className={showInventory ? 'filter-button active' : 'filter-button'}
-            onClick={() => setFilters((current) => ({ ...current, showInventory: !current.showInventory }))} aria-pressed={showInventory}
+          <FilterButton active={showInventory}
+            onClick={() => setFilters((current) => ({ ...current, showInventory: !current.showInventory }))}
             title="Monsters on your island rather than in Monster Storage"
             aria-label="Monsters outside Monster Storage"
-          >Inventory</button>
-          <button type="button" className={showStorage ? 'filter-button active' : 'filter-button'}
-            onClick={() => setFilters((current) => ({ ...current, showStorage: !current.showStorage }))} aria-pressed={showStorage}
-          >Storage</button>
-          <button type="button" className={showBelowMaxLevel ? 'filter-button active' : 'filter-button'}
+          >Inventory</FilterButton>
+          <FilterButton active={showStorage}
+            onClick={() => setFilters((current) => ({ ...current, showStorage: !current.showStorage }))}
+          >Storage</FilterButton>
+          <FilterButton active={showBelowMaxLevel}
             onClick={() => setFilters((current) => ({ ...current, showBelowMaxLevel: !showBelowMaxLevel }))}
-            aria-pressed={showBelowMaxLevel}
-          >Lvl. &lt; {maxMonsterLevel}</button>
+          >Lvl. &lt; {maxMonsterLevel}</FilterButton>
         </div>
       </div>
       <FilterSummary visible={visible.length} total={rows.length} noun="monsters"

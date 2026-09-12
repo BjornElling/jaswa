@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { FilterButton } from './button';
 import { DataTablePage, TableColumnGroup } from './data-table-page';
 import { FilterSummary } from './filter-summary';
 import { MonsterPortrait } from './monster-portrait';
@@ -392,51 +393,46 @@ export function RelicMonsterList({ relics, monsters: roster, preferences }: {
               <input value={search}
                 onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
                 placeholder="Filter monsters" aria-label="Filter monsters by name, relic or advice" />
-              <button className="filter-button"
+              <FilterButton
                 onClick={() => setFilters((current) => ({ ...current, search: '' }))}
-                hidden={!search} disabled={!search} aria-label="Clear filter">✕</button>
+                hidden={!search} disabled={!search} aria-label="Clear filter">✕</FilterButton>
             </div>
           </div>
         </div>
         <div className="filter-group relic-monster-filter-element" role="group" aria-label="Filter by element">
           <span className="filter-label">Element</span>
           <div className="filter-group-controls">
-            {elementNameList.map((name) => <button
-              type="button"
+            {elementNameList.map((name) => <FilterButton
               key={name}
-              className={selectedElements.includes(name) ? 'filter-button active' : 'filter-button'}
+              active={selectedElements.includes(name)}
               onClick={() => toggleElement(name)}
-              aria-pressed={selectedElements.includes(name)}
-            >{name.slice(0, 3).toUpperCase()}</button>)}
+            >{name.slice(0, 3).toUpperCase()}</FilterButton>)}
           </div>
         </div>
         <div className="filter-group relic-monster-filter-type" role="group" aria-label="Filter by monster type">
           <span className="filter-label">Type</span>
           <div className="filter-group-controls">
-            {monsterFilterArchetypes.map((archetype) => <button
-              type="button"
+            {monsterFilterArchetypes.map((archetype) => <FilterButton
               key={archetype}
-              className={selectedArchetypes.includes(archetype) ? 'filter-button active' : 'filter-button'}
+              active={selectedArchetypes.includes(archetype)}
               onClick={() => toggleArchetype(archetype)}
-              aria-pressed={selectedArchetypes.includes(archetype)}
-            >{monsterArchetypeLabels[archetype]}</button>)}
+            >{monsterArchetypeLabels[archetype]}</FilterButton>)}
           </div>
         </div>
         <div className="filter-group relic-monster-filter-include" role="group" aria-label="Choose which monsters to include">
           <span className="filter-label">Include</span>
           <div className="filter-group-controls">
-            <button type="button" className={showInventory ? 'filter-button active' : 'filter-button'}
+            <FilterButton active={showInventory}
               onClick={() => setFilters((current) => ({ ...current, showInventory: !current.showInventory }))}
-              aria-pressed={showInventory}
               title="Monsters on your island rather than in Monster Storage"
               aria-label="Monsters outside Monster Storage"
-            >Inventory</button>
-            <button type="button" className={showStorage ? 'filter-button active' : 'filter-button'}
+            >Inventory</FilterButton>
+            <FilterButton active={showStorage}
               onClick={() => setFilters((current) => ({ ...current, showStorage: !current.showStorage }))}
-              aria-pressed={showStorage}>Storage</button>
-            <button type="button" className={showBelowMaxLevel ? 'filter-button active' : 'filter-button'}
+            >Storage</FilterButton>
+            <FilterButton active={showBelowMaxLevel}
               onClick={() => setFilters((current) => ({ ...current, showBelowMaxLevel: !current.showBelowMaxLevel }))}
-              aria-pressed={showBelowMaxLevel}>Lvl. &lt; {maxMonsterLevel}</button>
+            >Lvl. &lt; {maxMonsterLevel}</FilterButton>
           </div>
         </div>
         {/* The group used to be named for the one control in it. It now holds
@@ -446,20 +442,18 @@ export function RelicMonsterList({ relics, monsters: roster, preferences }: {
         <div className="filter-group relic-monster-filter-hide" role="group" aria-label="Choose which monsters to leave out">
           <span className="filter-label">Hide if</span>
           <div className="filter-group-controls">
-            <button type="button" className={hideAlreadyEngraved ? 'filter-button active' : 'filter-button'}
+            <FilterButton active={hideAlreadyEngraved}
               onClick={() => setFilters((current) => ({
                 ...current, hideAlreadyEngraved: !current.hideAlreadyEngraved,
               }))}
-              aria-pressed={hideAlreadyEngraved}
               title="Monsters already wearing a relic, whichever relic it is"
-            >Already engraved</button>
-            <button type="button" className={hideAlreadyOptimal ? 'filter-button active' : 'filter-button'}
+            >Already engraved</FilterButton>
+            <FilterButton active={hideAlreadyOptimal}
               onClick={() => setFilters((current) => ({
                 ...current, hideAlreadyOptimal: !current.hideAlreadyOptimal,
               }))}
-              aria-pressed={hideAlreadyOptimal}
               title="Monsters already wearing the relic this page would give them"
-            >Already optimal</button>
+            >Already optimal</FilterButton>
           </div>
         </div>
         <FilterSummary visible={visible.length} total={rows.length} noun="monsters"
