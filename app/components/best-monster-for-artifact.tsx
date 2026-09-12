@@ -326,9 +326,16 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
           </Dropdown>
         </div>
       </div>
-      <button type="button" className="button important-action best-monster-calculate" onClick={() => void calculate()} disabled={!selectedArtifact || state === 'calculating'}>
-        {state === 'calculating' ? 'Calculating…' : 'Calculate monsters'}
-      </button>
+      <div className="filter-panel-actions best-monster-actions">
+        <button type="button" className="button important-action best-monster-calculate" onClick={() => void calculate()} disabled={!selectedArtifact || state === 'calculating'}>
+          {state === 'calculating' ? 'Calculating…' : 'Calculate monsters'}
+        </button>
+        {/* The chosen artifact goes with the filters: it was picked out of the
+            narrowed list, so leaving it behind would name a piece the restored
+            list no longer points at. */}
+        <button type="button" className="filter-reset" aria-label="Reset artifact filters"
+          onClick={() => { setFilters(defaultFilters); setSelectedArtifactId(''); }}>Reset filters</button>
+      </div>
     </div>
 
     {selectedArtifact && <section className="best-monster-artifact-details" aria-labelledby="selected-artifact-title">

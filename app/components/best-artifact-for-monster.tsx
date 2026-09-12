@@ -34,6 +34,17 @@ const artifactLocations = ['inventory', 'equipped'] as const;
 
 type ArtifactLocation = typeof artifactLocations[number];
 
+/* One object rather than three lists, so the panel has a single named starting
+   point for Reset to put back — the same shape the other two chooser panels
+   keep their filters in. */
+type MonsterFilters = {
+  elements: string[];
+  archetypes: MonsterArchetype[];
+  locations: ArtifactLocation[];
+};
+
+const defaultFilters: MonsterFilters = { elements: [], archetypes: [], locations: [] };
+
 type MonsterOption = {
   unitId: string;
   masterId: string;
@@ -169,9 +180,7 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
   general: GeneralSettings;
   hardwareAcceleration: boolean;
 }) {
-  const [selectedElements, setSelectedElements] = useState<string[]>([]);
-  const [selectedArchetypes, setSelectedArchetypes] = useState<MonsterArchetype[]>([]);
-  const [selectedLocations, setSelectedLocations] = useState<ArtifactLocation[]>([]);
+  const [filters, setFilters] = useState<MonsterFilters>(defaultFilters);
   const [selectedUnitId, setSelectedUnitId] = useState('');
   const [calculation, setCalculation] = useState<ArtifactScoreMaps | undefined>();
   const [state, setState] = useState<'idle' | 'calculating' | 'error'>('idle');
@@ -182,9 +191,9 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
     [monsters, settings],
   );
   const filteredMonsters = useMemo(() => eligibleMonsters.filter((monster) =>
-    (!selectedElements.length || (monster.element !== undefined && selectedElements.includes(monster.element)))
-    && (!selectedArchetypes.length || (monster.archetype !== undefined && selectedArchetypes.includes(monster.archetype)))),
-  [eligibleMonsters, selectedArchetypes, selectedElements]);
+    (!filters.elements.length || (monster.element !== undefined && filters.elements.includes(monster.element)))
+    && (!filters.archetypes.length || (monster.archetype !== undefined && filters.archetypes.includes(monster.archetype)))),
+  [eligibleMonsters, filters.archetypes, filters.elements]);
   const selectedMonster = filteredMonsters.find((monster) => monster.unitId === selectedUnitId);
   const artifacts = useMemo(() => readArtifacts(data), [data]);
   const artifactNumbers = useMemo(() => new Map(artifacts.map((artifact, index) => [artifact.id, index])), [artifacts]);
@@ -220,28 +229,20 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
      switching it answers immediately instead of asking for the scores again.
      Intangible is no longer asked here: §17.7 puts that one question in
      Settings, where every view reads the same answer. */
-  const visibleRows = rows.filter((row) => !selectedLocations.length
-    || selectedLocations.includes(row.artifact.occupiedId === null ? 'inventory' : 'equipped'));
+  const visibleRows = rows.filter((row) => !filters.locations.length
+    || filters.locations.includes(row.artifact.occupiedId === null ? 'inventory' : 'equipped'));
   const categoryRows = (category: ArtifactCategory) => visibleRows
     .filter((row) => row.artifact.category === category)
     .slice(0, 10);
 
-  function toggleElement(element: string) {
-    setSelectedElements((current) => current.includes(element)
-      ? current.filter((entry) => entry !== element)
-      : [...current, element]);
-  }
-
-  function toggleArchetype(archetype: MonsterArchetype) {
-    setSelectedArchetypes((current) => current.includes(archetype)
-      ? current.filter((entry) => entry !== archetype)
-      : [...current, archetype]);
-  }
-
-  function toggleLocation(location: ArtifactLocation) {
-    setSelectedLocations((current) => current.includes(location)
-      ? current.filter((entry) => entry !== location)
-      : [...current, location]);
+  function toggle<K extends keyof MonsterFilters>(key: K, value: MonsterFilters[K][number]) {
+    setFilters((current) => {
+      const chosen = current[key] as MonsterFilters[K][number][];
+      return {
+        ...current,
+        [key]: chosen.includes(value) ? chosen.filter((entry) => entry !== value) : [...chosen, value],
+      };
+    });
   }
 
   async function calculate() {
@@ -300,8 +301,8 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
         <span className="filter-label">Element</span>
         <div className="filter-group-controls">
           {monsterElements.map((element) => <button key={element} type="button"
-            className={selectedElements.includes(element) ? 'filter-button active' : 'filter-button'}
-            onClick={() => toggleElement(element)} aria-pressed={selectedElements.includes(element)}
+            className={filters.elements.includes(element) ? 'filter-button active' : 'filter-button'}
+            onClick={() => toggle('elements', element)} aria-pressed={filters.elements.includes(element)}
           >{element}</button>)}
         </div>
       </div>
@@ -309,8 +310,8 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
         <span className="filter-label">Archetype</span>
         <div className="filter-group-controls">
           {monsterArchetypes.map((archetype) => <button key={archetype} type="button"
-            className={selectedArchetypes.includes(archetype) ? 'filter-button active' : 'filter-button'}
-            onClick={() => toggleArchetype(archetype)} aria-pressed={selectedArchetypes.includes(archetype)}
+            className={filters.archetypes.includes(archetype) ? 'filter-button active' : 'filter-button'}
+            onClick={() => toggle('archetypes', archetype)} aria-pressed={filters.archetypes.includes(archetype)}
           >{archetype}</button>)}
         </div>
       </div>
@@ -318,8 +319,8 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
         <span className="filter-label">Location</span>
         <div className="filter-group-controls">
           {artifactLocations.map((location) => <button key={location} type="button"
-            className={selectedLocations.includes(location) ? 'filter-button active' : 'filter-button'}
-            onClick={() => toggleLocation(location)} aria-pressed={selectedLocations.includes(location)}
+            className={filters.locations.includes(location) ? 'filter-button active' : 'filter-button'}
+            onClick={() => toggle('locations', location)} aria-pressed={filters.locations.includes(location)}
           >{location === 'inventory' ? 'Inventory' : 'Equipped'}</button>)}
         </div>
       </div>
@@ -333,10 +334,17 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
           </Dropdown>
         </div>
       </div>
-      <button type="button" className="button important-action best-artifact-calculate" onClick={() => void calculate()}
-        disabled={!selectedMonster || state === 'calculating'}>
-        {state === 'calculating' ? 'Calculating…' : 'Calculate artifacts'}
-      </button>
+      <div className="filter-panel-actions best-artifact-actions">
+        <button type="button" className="button important-action best-artifact-calculate" onClick={() => void calculate()}
+          disabled={!selectedMonster || state === 'calculating'}>
+          {state === 'calculating' ? 'Calculating…' : 'Calculate artifacts'}
+        </button>
+        {/* The chosen monster goes with the filters: it was picked out of the
+            narrowed roster, so leaving it behind would name a monster the
+            restored roster no longer points at. */}
+        <button type="button" className="filter-reset" aria-label="Reset monster filters"
+          onClick={() => { setFilters(defaultFilters); setSelectedUnitId(''); }}>Reset filters</button>
+      </div>
     </div>
 
     {state === 'error' && <p className="notice warning" role="status">JASWA could not calculate this monster’s artifact fits from the imported data.</p>}

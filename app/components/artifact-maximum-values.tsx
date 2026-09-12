@@ -455,7 +455,7 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
           the view opens on the work list and the button restores the whole
           allocation. */}
       {buttonGroup('Already matching', 'matching', matchingFilters, () => 'Hide', 'artifact-recommendation-filter-matching')}
-      <div className="artifact-recommendation-actions">
+      <div className="filter-panel-actions artifact-recommendation-actions">
         {/* Both labels are always in the layout and the inactive one is hidden
             with visibility, so the button is as wide as its widest wording and
             never resizes when the work starts or finishes. */}
@@ -464,6 +464,12 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
           <span className="artifact-recommendation-calculate-label" data-label="busy">Calculating…</span>
         </button>
         <button type="button" className="button artifact-recommendation-clear" onClick={() => clear()} disabled={!calculation || state === 'calculating'}>Clear results</button>
+        {/* Two different undos, and the panel keeps them apart: Clear results
+            discards the calculation, this one only puts the filters back. It
+            is always available, because narrowing the view is possible before
+            there is anything to narrow. */}
+        <button type="button" className="filter-reset" aria-label="Reset recommendation filters"
+          onClick={() => setFilters(defaultFilters)}>Reset filters</button>
       </div>
     </div>
     {state === 'error' && <p className="notice warning" role="status">{error}</p>}

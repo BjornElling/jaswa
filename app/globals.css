@@ -1710,6 +1710,20 @@ button { cursor: pointer; }
 }
 /* Stacked, every block sits on its own row and stretches to the panel. */
 .filter-panel.is-stacked { grid-template-columns: minmax(0, 1fr); align-items: stretch; }
+/* A panel's conclusion and its way back, stacked in that order. Reset sits
+   under Calculate in every panel that has one, so the control is in the same
+   place whichever chooser the user is on, and the gap is wide enough that
+   undoing the filters is never a slip of the hand while reaching for the
+   action above it. */
+.filter-panel-actions {
+  display: grid;
+  justify-items: stretch;
+  align-content: start;
+  gap: var(--s5);
+}
+/* Matches the reset in the library strips: same 26px box, same quiet outline,
+   so the two read as one control wherever it appears. */
+.filter-panel-actions .filter-reset { height: 26px; padding: 0 var(--s4); }
 
 /* The chooser keeps all its filter controls mounted. A narrower roster changes
    only the dropdown options and result rows, never the controls around them. */
@@ -1729,7 +1743,7 @@ button { cursor: pointer; }
 .best-artifact-filter-location { grid-area: location; }
 .best-artifact-filter-include { grid-area: include; }
 .best-artifact-monster-select { grid-area: monster; }
-.best-artifact-calculate { grid-area: calculate; justify-self: end; }
+.best-artifact-actions { grid-area: calculate; justify-self: end; }
 /* Layout only — every shared measurement comes from .filter-panel. */
 .best-monster-filters {
   grid-template-columns: max-content minmax(24ch, 1fr) max-content;
@@ -1753,7 +1767,8 @@ button { cursor: pointer; }
 .best-artifact-monster-select .filter-group-controls { width: 50%; }
 .best-artifact-monster-select .jaswa-select { width: 100%; min-width: 30ch; }
 .best-artifact-calculate { height: 32px; white-space: nowrap; }
-.best-monster-calculate { grid-area: calculate; justify-self: start; height: 32px; white-space: nowrap; }
+.best-monster-actions { grid-area: calculate; justify-self: start; }
+.best-monster-calculate { height: 32px; white-space: nowrap; }
 .best-artifact-meta { color: var(--dim); font-family: var(--mono); font-size: var(--t-small); font-variant-numeric: tabular-nums; }
 .best-artifact-results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s4); }
 .best-monster-results { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s4); }
@@ -1794,8 +1809,8 @@ button { cursor: pointer; }
 .best-monster-table td b { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 500; }
 @media (min-width: 1921px) and (max-width: 1420px) {
   .best-monster-filters { grid-template-columns: max-content minmax(20ch, 1fr) max-content; }
-  .best-artifact-calculate { justify-self: start; }
-  .best-monster-calculate { justify-self: start; }
+  .best-artifact-actions { justify-self: start; }
+  .best-monster-actions { justify-self: start; }
 }
 @media (min-width: 1921px) and (max-width: 1200px) {
   .best-artifact-filters {
@@ -1815,8 +1830,7 @@ button { cursor: pointer; }
   .best-artifact-monster-select .filter-group-controls { width: 100%; }
   .best-artifact-monster-select .jaswa-select { min-width: 0; }
   .best-monster-artifact-select .jaswa-select { min-width: 0; }
-  .best-artifact-calculate { width: 100%; }
-  .best-monster-calculate { width: 100%; }
+  .best-artifact-actions, .best-monster-actions { justify-self: stretch; }
   .best-artifact-results { grid-template-columns: minmax(0, 1fr); }
   .best-monster-artifact-details { grid-template-columns: minmax(0, 1fr); }
   .best-monster-artifact-details .artifact-subs { columns: 1; }
@@ -1893,19 +1907,10 @@ button { cursor: pointer; }
   justify-self: start;
   border-left-color: var(--line-strong);
 }
-/* The panel's actions: calculating is the conclusion of the filters above, and
-   clearing is its quiet counterpart, so they stack in one column centred
-   against the filter rows. */
-.artifact-recommendation-actions {
-  grid-area: calculate;
-  align-self: center;
-  display: grid;
-  justify-items: stretch;
-  /* Wide enough that clearing is never a slip of the hand while reaching for
-     calculate — the two do opposite things, so they should not sit as a pair
-     of adjacent choices. */
-  gap: var(--s5);
-}
+/* The panel's actions, centred against the three filter rows rather than hung
+   from their top. Everything else — the stacking and the gap that keeps
+   calculate clear of its undos — comes from .filter-panel-actions. */
+.artifact-recommendation-actions { grid-area: calculate; align-self: center; }
 /* The primary action: the same gold frame as every other important-action in
    JASWA, enlarged so it reads as the panel's conclusion rather than one more
    control in the flow.
