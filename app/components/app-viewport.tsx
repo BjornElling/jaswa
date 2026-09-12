@@ -1,4 +1,5 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { ScrollToTop } from './scroll-to-top';
 
 const canvasWidth = 1920;
 
@@ -64,9 +65,14 @@ export function AppViewport({ children }: { children: ReactNode }) {
   if (device === 'checking') return <div className="device-check" aria-busy="true" />;
   if (device === 'handheld') return <HandheldNotice />;
 
+  /* The button is a sibling of the canvas rather than a child of it. `zoom`
+     scales fixed descendants along with everything else, so inside the canvas
+     the control would shrink with the composition it is there to help the user
+     leave. */
   return <div className="app-viewport">
     <div className="app-canvas" style={{ '--viewport-scale': scale } as CSSProperties}>
       {children}
     </div>
+    <ScrollToTop />
   </div>;
 }
