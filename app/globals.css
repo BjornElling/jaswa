@@ -284,7 +284,8 @@ label[for] {
    question, the title over a result table. Below a title, above prose. */
 .field-legend, .slider-label, .editor-block-title, .artifact-conversion-title,
 .artifact-scope-box h3, .artifact-scope-subheading, .drop-zone strong,
-.best-artifact-result h3, .best-monster-artifact-details h3, .empty-state h2,
+.best-artifact-result h3, .best-artifact-current h3, .best-artifact-category h3,
+.best-monster-artifact-details h3, .empty-state h2,
 .field-lead > span, .helper-version h4 {
   font-family: var(--sans);
   font-size: var(--t-lead);
@@ -303,6 +304,7 @@ label[for] {
 /* Body — every sentence the app says to the user. */
 .lead, .notice, .dialog p, .slider-note, .radio-note, .checkbox-row,
 .editor-note, .route-links, .artifact-conversion-intro, .statistics-lead,
+.best-artifact-ranking,
 .statistics dt, .empty-state p, .empty-state .next-step, .section-intro p,
 .relic-property, .relic-synergy-label, .helper-version p, .route-qualifier {
   font-family: var(--sans);
@@ -351,7 +353,7 @@ label[for] {
    stay quieter than the value; a bold caption competes with the figure it
    introduces. Casing is left to each use: `.target dt` distinguishes CtR from
    CtD by its own capitals, which uppercasing would flatten. */
-.slot-label, .editor-slot-label, .target dt, .choice-legend,
+.slot-label, .editor-slot-label, .target dt, .choice-legend, .best-artifact-fact dt,
 .field-compact > span, .relic-stone-balance-label, .preset-type {
   font-family: var(--sans);
   font-size: var(--t-micro);
@@ -366,6 +368,7 @@ label[for] {
 .filter-button, .filter-summary, .list-count, .grid-footer, .choice,
 .choice-none, .choice-chip, .flag, .set-mark, .set-none, .artifact-subs li,
 .relic-effect, .best-artifact-meta, .best-monster-intangible,
+.best-artifact-fact dd, .best-artifact-entry-name,
 .artifact-recommendation-meta, .range-slider-values, .optimizer-draft-columns,
 .helper-current-version, .import-badge-count, .best-artifact-result table,
 .best-monster-table, .artifact-recommendation-table-wrap > .artifact-recommendation-table {
@@ -378,7 +381,8 @@ label[for] {
 /* Data, one step up — the account libraries, where a row is the page's
    primary content rather than a supporting figure, and the meta lines that
    sit at the same reading weight. */
-.grid-table, .meta-line, .sample-value, .target dd, .relic-monster-none {
+.grid-table, .meta-line, .sample-value, .target dd, .relic-monster-none,
+.best-artifact-fact-lead dd {
   font-family: var(--mono);
   font-size: var(--t-body);
   font-weight: 400;
@@ -1927,17 +1931,33 @@ label[for] {
 .best-monster-for-artifact { display: grid; gap: var(--s4); }
 .best-artifact-for-monster > .lead, .best-artifact-meta { margin: 0; }
 .best-monster-for-artifact > .lead { margin: 0; }
-/* Layout only — every shared measurement comes from .filter-panel. */
-.best-artifact-filters {
-  grid-template-columns: max-content max-content max-content max-content minmax(0, 1fr);
-  grid-template-areas:
-    "element archetype location include calculate"
-    "monster monster monster monster monster";
+/* Two panels rather than one, and the split is the whole point of the view: the
+   monster is its subject and leads, while every filter below narrows the
+   *recommendations* made for that monster. Element and archetype are gone —
+   they only ever narrowed the dropdown, which now simply lists every eligible
+   monster, and a filter that changes the question is worse than no filter.
+   Layout only, as always; every shared measurement comes from .filter-panel. */
+.best-artifact-monster-panel {
+  grid-template-columns: minmax(0, 1fr) max-content;
+  grid-template-areas: "monster calculate";
 }
-.best-artifact-filter-element { grid-area: element; }
-.best-artifact-filter-archetype { grid-area: archetype; }
+.best-artifact-filters {
+  grid-template-columns: repeat(4, max-content) minmax(0, 1fr);
+  grid-template-areas:
+    "location main    quality  include    ."
+    "substat  substat count    categories .";
+}
 .best-artifact-filter-location { grid-area: location; }
+.best-artifact-filter-main { grid-area: main; }
+.best-artifact-filter-quality { grid-area: quality; }
 .best-artifact-filter-include { grid-area: include; }
+.best-artifact-filter-substat { grid-area: substat; }
+.best-artifact-filter-count { grid-area: count; }
+.best-artifact-filter-categories { grid-area: categories; }
+/* Fixed rather than content-sized: the substat names run from "Bomb Damage" to
+   "Counterattack/Co-op Attack DMG", and a control that resized with the chosen
+   option would drag the whole filter row about under the choice (rule 2). */
+.best-artifact-filter-substat .jaswa-select { width: 28ch; min-width: 0; }
 .best-artifact-monster-select { grid-area: monster; }
 .best-artifact-actions { grid-area: calculate; justify-self: end; }
 /* Layout only — every shared measurement comes from .filter-panel. */
@@ -1964,13 +1984,95 @@ label[for] {
 .best-artifact-monster-select .jaswa-select { width: 100%; min-width: 30ch; }
 .best-monster-actions { grid-area: calculate; justify-self: start; }
 .best-artifact-meta { color: var(--dim); font-variant-numeric: tabular-nums; }
-.best-artifact-results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s4); }
+
+/* What the monster wears today, before any advice: the comparison every
+   recommendation below is measured against, so it sits between the choice and
+   the filters rather than at the end of the page. Two boxes, one per slot,
+   because a monster carries exactly one artifact of each category (§1). */
+.best-artifact-current { display: grid; gap: var(--s3); }
+.best-artifact-current h3 { margin: 0; }
+.best-artifact-current-slots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s4); }
+/* The facts column is the same fixed measure the recommendations below use, so
+   an artifact's lines start at the same offset whether it is the one worn now
+   or one of the candidates. */
+.best-artifact-current-slot {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  align-content: start;
+  gap: var(--s3) var(--s5);
+  padding: var(--s3) var(--s4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--sunk);
+}
+.best-artifact-current-slot > .filter-label { grid-column: 1 / -1; color: var(--faint); }
+.best-artifact-current-facts, .best-artifact-current-detail {
+  display: grid;
+  align-content: start;
+  gap: var(--s3);
+}
+/* The slot keeps its own padding whether it holds an artifact or a sentence
+   about not holding one, so the two boxes stay the same box. */
+.best-artifact-current-slot .best-artifact-empty { grid-column: 1 / -1; padding: 0; }
+
+/* One ranking per category, each led by its own full-width heading, because
+   the two are separate decisions: a monster equips one of each and never
+   chooses between them. */
+.best-artifact-results { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s5); }
+.best-artifact-category { display: grid; gap: var(--s3); }
+.best-artifact-category h3 { margin: 0; padding-bottom: var(--s2); border-bottom: 1px solid var(--line-strong); }
+.best-artifact-ranking { margin: 0; color: var(--dim); }
+.best-artifact-entries { display: grid; gap: var(--s2); margin: 0; padding: 0; list-style: none; }
+/* Three columns, in the order the decision is made: what the artifact is and
+   what it is worth here, the lines it actually holds, and what a stone could
+   still do to them. The first column is a fixed measure so a long monster name
+   cannot push the substats of one entry out of line with the next. */
+.best-artifact-entry {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--s3) var(--s5);
+  padding: var(--s3) var(--s4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--sunk);
+}
+.best-artifact-entry-facts, .best-artifact-entry-conversions {
+  display: grid;
+  align-content: start;
+  gap: var(--s3);
+}
+.best-artifact-entry .artifact-subs { align-self: start; }
+.best-artifact-entry-name { margin: 0; color: var(--dim); }
+.best-artifact-facts { display: grid; gap: var(--s1); margin: 0; }
+.best-artifact-fact {
+  display: grid;
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--s2);
+}
+.best-artifact-fact dt, .best-artifact-fact dd { margin: 0; }
+/* In the mark-up the label is just its own words, so nothing reads "Main stat
+   colon" aloud; the colon is the written convention, not part of the name. */
+.best-artifact-fact dt::after { content: ':'; }
+.best-artifact-fact dt { color: var(--faint); }
+.best-artifact-fact dd { color: var(--dim); font-variant-numeric: tabular-nums; }
+/* The blank line the facts are grouped by: what the artifact is, where it is
+   now, and what it would be worth here. */
+.best-artifact-fact-group { margin-top: var(--s2); }
+/* The one figure this whole panel exists to produce. It leads on ink and size
+   rather than on colour: the score bands would put a second signal on the very
+   number the layout has already made first, and the two would compete. */
+.best-artifact-fact-lead dt { color: var(--dim); }
+.best-artifact-fact-lead dd { color: var(--ink); }
 .best-monster-results { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s4); }
+/* Named for the panel that first had it; it now dresses the three result cards
+   of "Best monster for this artifact" alone — that panel's own table sits
+   inside one, which is why the `th`/`td` rules below still reach it. The best
+   *artifact* panel stopped being a pair of tables and reads as entries. */
 .best-artifact-result { min-width: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
 .best-artifact-result > header { min-height: 126px; padding: var(--s4); border-bottom: 1px solid var(--line); background: var(--sunk); }
 .best-artifact-result h3, .best-artifact-result p { margin: 0; }
 .best-artifact-result header p { margin-top: var(--s2); color: var(--dim); font-size: var(--t-small); line-height: 1.45; }
-.best-artifact-result-scroll { overflow: visible; }
 .best-artifact-result table { width: 100%; min-width: 0; border-collapse: collapse; table-layout: fixed; }
 /* No text-align here: alignment is the column's own declaration, applied to the
    heading and the cell alike. A rule at this specificity would override it. */
@@ -2009,16 +2111,19 @@ label[for] {
   .best-artifact-filters {
     grid-template-columns: max-content minmax(0, 1fr);
     grid-template-areas:
-      "element archetype"
-      "location include"
-      "monster monster"
-      "calculate calculate";
+      "location main"
+      "quality include"
+      "substat count"
+      "categories categories";
   }
 }
 @media (min-width: 1921px) and (max-width: 900px) {
   .best-artifact-filters { grid-template-columns: minmax(0, 1fr); align-items: stretch; }
   .best-monster-filters { grid-template-columns: minmax(0, 1fr); align-items: stretch; }
-  .best-artifact-filters { grid-template-areas: "element" "archetype" "location" "include" "monster" "calculate"; }
+  .best-artifact-filters { grid-template-areas: "location" "main" "quality" "include" "substat" "count" "categories"; }
+  .best-artifact-monster-panel { grid-template-columns: minmax(0, 1fr); grid-template-areas: "monster" "calculate"; }
+  .best-artifact-current-slots { grid-template-columns: minmax(0, 1fr); }
+  .best-artifact-current-slot, .best-artifact-entry { grid-template-columns: minmax(0, 1fr); }
   .best-monster-filters { grid-template-areas: "type" "restriction" "quality" "substat" "main" "location" "artifact" "calculate"; }
   .best-artifact-monster-select .filter-group-controls { width: 100%; }
   .best-artifact-monster-select .jaswa-select { min-width: 0; }

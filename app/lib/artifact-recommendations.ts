@@ -1,8 +1,9 @@
 import { artifactArchetypes, artifactElements, artifactProperty } from './artifact-properties';
 import { readEngravedConversionStones } from './artifact-conversion-stones';
+import { scoreArtifactOnMonster, scorePercent } from './compute/artifact-score-core';
 import type { EngravedConversionStone } from './artifact-conversion-stones';
 import type { ArtifactCategory } from './artifact-properties';
-import type { ArtifactConversion } from './compute/artifact-score-protocol';
+import type { ArtifactConversion, ArtifactScoreRequest } from './compute/artifact-score-protocol';
 import type { GameRecord } from './game-data';
 import type { ArtifactSettings } from './types';
 
@@ -32,6 +33,41 @@ export function scoringSettings(settings: ArtifactSettings): Omit<ArtifactSettin
     insignificantDifference: settings.insignificantDifference,
     includeIntangibleArtifacts: settings.includeIntangibleArtifacts,
   };
+}
+
+/**
+ * One artifact's score on one monster, read out of the packed requests the
+ * compute backends are given.
+ *
+ * A view that shows an artifact beside its ranking needs two readings of the
+ * same pair — what it is worth as it stands, and what it would be worth after
+ * the conversion the settings allow — and both must come from the scorer that
+ * built the ranking, or a row would disagree with the list it sits in. So this
+ * is the whole boundary between a packed request and a figure on screen:
+ * `conversions: false` forces the no-conversion mode, everything else follows
+ * the request, and the value comes back in the whole percentage points every
+ * score is compared on (§17.1).
+ *
+ * `undefined` means the pair was never scorable — an ineligible equip class, a
+ * monster with no recorded preferences, an artifact the settings excluded — and
+ * is deliberately not zero, which would read as a judgement.
+ */
+export function artifactPairScore(
+  requests: readonly ArtifactScoreRequest[],
+  artifactId: string,
+  /** The monster's species id: score matrices are indexed by species. */
+  monsterId: string,
+  options: { conversions: boolean },
+): { value: number; conversions: readonly ArtifactConversion[] } | undefined {
+  for (const request of requests) {
+    const artifact = request.artifacts.find((entry) => entry.id === artifactId);
+    const monster = request.monsters.find((entry) => entry.id === monsterId);
+    if (!artifact || !monster) continue;
+    const score = scoreArtifactOnMonster(artifact, monster,
+      options.conversions ? request : { ...request, conversionMode: 0 });
+    return score === undefined ? undefined : { value: scorePercent(score.value), conversions: score.conversions };
+  }
+  return undefined;
 }
 
 /**

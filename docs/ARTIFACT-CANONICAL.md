@@ -1980,6 +1980,15 @@ these are artifacts the account holds, and a library that omitted them by
 default would break §0.1 parity on the one page whose whole job is to show
 everything.
 
+*September 12, 2026.* The monster chooser carries the same **listing** toggle,
+on the same terms and for the same reason its Location and Quality buttons are
+there: it narrows a ranking that has already been calculated, so the scores in
+the rows that remain are the ones Settings produced, and hiding a row changes no
+judgement about it. The rule stands where it matters — no view in the workspace
+asks whether an Intangible should be *scored*; only Settings does, and the score
+request is still built from that one answer. A filter that reached the request
+instead of the rendered rows would be the violation.
+
 ### 17.8 Every table sorts on every column
 
 Any table in the workspace sorts by any of its columns, ascending and
@@ -1988,6 +1997,15 @@ the point of showing the numbers is that they can interrogate them. Columns
 that are not numbers sort too — by name, by location, by monster — because
 "show me every artifact currently in inventory, best first" is the ordinary way
 this data gets read.
+
+*September 12, 2026.* A view that shows **entries rather than a table** has no
+columns to offer, and the monster chooser is now one: each recommendation is a
+small block of facts rather than a row. The obligation the rule above protects
+survives in the only form left to it — such a view **names the figure it ranks
+by**, in a line under its heading, so an order that is not the order of the
+figure set in ink is a stated fact rather than a puzzle. Turning a ranked list
+round is then a question for the filters beside it, not for a heading that is
+no longer there.
 
 ### 17.9 The figures on the page add up
 
