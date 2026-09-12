@@ -376,6 +376,49 @@ button { cursor: pointer; }
 .import-badge.live .import-badge-count + .import-badge-when { border-top-color: var(--gold-edge); }
 .import-badge.live .import-badge-when { color: var(--gold); }
 
+/* Import success overlays the durable badge in the same corner. It is a
+   machine verdict, hence the established green rather than an action accent;
+   absolute positioning keeps every Home control exactly where it was. */
+.import-confirmation {
+  position: absolute;
+  top: var(--s4);
+  right: var(--gutter);
+  z-index: 21;
+  margin: 0;
+  padding: var(--s2) var(--s3);
+  border: 1px solid color-mix(in srgb, var(--state-good) 55%, var(--line-strong));
+  border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--state-good) 16%, transparent), transparent 78%),
+    color-mix(in srgb, var(--raise) 94%, transparent);
+  box-shadow: 0 var(--s3) var(--s6) color-mix(in srgb, var(--state-good) 12%, transparent);
+  text-align: right;
+  pointer-events: none;
+  animation: import-confirmation-leave 400ms ease 3.6s forwards;
+}
+.import-confirmation p { margin: 0; white-space: nowrap; }
+.import-confirmation-title {
+  display: flex;
+  align-items: center;
+  justify-content: end;
+  gap: var(--s2);
+  color: var(--state-good);
+  font-family: var(--sans);
+  font-size: var(--t-small);
+  font-weight: 600;
+}
+.import-confirmation-title svg { flex: 0 0 auto; }
+.import-confirmation-count {
+  margin-top: var(--s1) !important;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  font-variant-numeric: tabular-nums;
+}
+@keyframes import-confirmation-leave {
+  to { opacity: 0; translate: 0 calc(var(--s2) * -1); }
+}
+
 /* --------------------------------------------------------- filter strip
    The strip is a grid, not a wrapping row. There are more filters than fit one
    line on an ordinary window — Artifacts has eight groups — and a single
@@ -4020,6 +4063,10 @@ button { cursor: pointer; }
     position: static;
     justify-self: end;
     margin: var(--s3) var(--gutter) 0;
+  }
+  .import-confirmation {
+    top: var(--s3);
+    right: var(--gutter);
   }
   .import-badge + .filter-strip {
     height: var(--strip);

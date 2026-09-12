@@ -1,7 +1,7 @@
 import { lazy, Suspense, type ChangeEvent, type DragEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { AppRail } from './components/app-rail';
 import { HomeSection } from './components/home-section';
-import { ImportBadge } from './components/import-badge';
+import { ImportBadge, ImportConfirmation } from './components/import-badge';
 import { DirectImportModeDialog, LoadPreferencesDialog, RemoveGameDataDialog, ReplaceImportDialog, ReportDialog } from './components/import-dialogs';
 import { clearImportedGame, loadImportedGame, loadPreferences, saveImportedGame, savePreferences } from './lib/browser-storage';
 import { blankPreferences, createImportedGame, fileToText, importPreferencesFile, isValidImportedGame, restoredPreferences, validateGameFile } from './lib/file-imports';
@@ -36,6 +36,7 @@ export default function Home() {
   const [game, setGame] = useState<ImportedGame | null>(null);
   const [preferences, setPreferences] = useState<Preferences>(blankPreferences());
   const [pendingGame, setPendingGame] = useState<ImportedGame | null>(null);
+  const [importConfirmation, setImportConfirmation] = useState<ImportedGame | null>(null);
   const [message, setMessage] = useState('');
   const [report, setReport] = useState<{ category: ReportCategory; details: string } | null>(null);
   const [ready, setReady] = useState(false);
@@ -77,6 +78,12 @@ export default function Home() {
        own record instead of travelling in the preferences document. */
     void loadSaveFolder().then(setSaveFolder);
   }, []);
+
+  useEffect(() => {
+    if (!importConfirmation) return undefined;
+    const timeout = window.setTimeout(() => setImportConfirmation(null), 4_100);
+    return () => window.clearTimeout(timeout);
+  }, [importConfirmation]);
 
   useEffect(() => {
     if (!ready || preferences.importRoute !== 'direct') return;
@@ -168,6 +175,7 @@ export default function Home() {
       return false;
     }
     setGame(imported);
+    setImportConfirmation(imported);
     setPendingGame(null);
     setMessage('');
     return true;
@@ -343,6 +351,7 @@ export default function Home() {
 
     <section className="workspace">
       {game && <ImportBadge game={game} general={preferences.general} />}
+      {page === 'home' && importConfirmation && <ImportConfirmation game={importConfirmation} general={preferences.general} />}
 
       {page === 'home' && <HomeSection
         game={game}

@@ -17,6 +17,7 @@
  * red on every machine but one is a check nobody reads.
  */
 import { createReadStream } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import { createInterface } from 'node:readline';
 import os from 'node:os';
 import path from 'node:path';
@@ -41,6 +42,17 @@ function defaultTrafficLogPath() {
  * caller's own "no snapshot" message, which says what to do about it.
  */
 async function readLatestSnapshot(logPath) {
+  /* A downloaded SWEX-shaped profile is already the snapshot this audit needs.
+     Read it as one document before treating the path as a newline-delimited
+     traffic log: JSON formatting makes a complete profile span many lines,
+     and scanning those lines individually used to report a misleading
+     "no snapshot" skip for the most useful manual audit input. */
+  try {
+    const document = JSON.parse(await readFile(logPath, 'utf8'));
+    if (isRecord(document) && Array.isArray(document.unit_list) && Array.isArray(document.runes)) {
+      return document;
+    }
+  } catch { /* The normal traffic log path is newline-delimited, not one JSON document. */ }
   const input = createReadStream(logPath);
   /* Attached before the first read, because the open error arrives on the
      stream rather than from `createInterface`, and an unhandled 'error' on a

@@ -135,11 +135,56 @@ impl ProfileStore {
         })
     }
 
-    /// Keeps the untouched login response separate from JASWA's live model.
-    /// SWOP consumes the former wire shape, while the latter deliberately
-    /// changes as game actions arrive after login.
+    /// Rebuilds the SWEX wire document from the original login envelope and
+    /// the current account collections. The envelope retains every field the
+    /// game sent, while the ownership collections reflect actions since login.
+    ///
+    /// SWEX places equipped runes and artifacts below their monster and keeps
+    /// only free copies in the top-level collections. `ProfileStore` keeps an
+    /// account-wide index as well, so exporting that index verbatim would make
+    /// SWOP see the same item in two locations. Reconstruct those two lists
+    /// from their live owners; the remaining collections have the same wire
+    /// ownership shape as the live profile.
     pub fn swex_snapshot(&self) -> Option<Value> {
-        self.swex_snapshot.clone()
+        let mut snapshot = self.swex_snapshot.clone()?;
+        let profile = self.profile.as_ref()?;
+        let snapshot = snapshot.as_object_mut()?;
+
+        for key in [
+            "unit_list",
+            "unit_storage_list",
+            "unit_storage_normal_list",
+            "relics",
+            "rune_craft_item_list",
+            "artifact_crafts",
+            "inventory_info",
+        ] {
+            let records = collection(profile, key);
+            if snapshot.contains_key(key) || !records.is_empty() {
+                snapshot.insert(key.to_owned(), Value::Array(records.to_vec()));
+            }
+        }
+
+        for entity in [ENTITIES[1], ENTITIES[2]] {
+            let equipped = collection(profile, "unit_list")
+                .iter()
+                .flat_map(|unit| collection(unit, entity.collection))
+                .filter_map(|item| identifier(item, entity.identifier))
+                .collect::<Vec<_>>();
+            let inventory = collection(profile, entity.collection)
+                .iter()
+                .filter(|item| {
+                    identifier(item, entity.identifier)
+                        .is_none_or(|id| !equipped.contains(&id))
+                })
+                .cloned()
+                .collect::<Vec<_>>();
+            if snapshot.contains_key(entity.collection) || !inventory.is_empty() {
+                snapshot.insert(entity.collection.to_owned(), Value::Array(inventory));
+            }
+        }
+
+        Some(Value::Object(snapshot.clone()))
     }
 
     /* The login response is the snapshot's shape, but it is not always the
@@ -174,11 +219,14 @@ impl ProfileStore {
         }
         let wizard = identifier(&snapshot, "wizard_id");
         let mut normalized = object.clone();
-        let units: Vec<Value> = collection(&snapshot, "unit_list")
-            .iter()
-            .filter(|unit| wizard.is_none() || identifier(unit, "wizard_id") == wizard)
-            .cloned()
-            .collect();
+        if wizard.is_some()
+            && collection(&snapshot, "unit_list")
+                .iter()
+                .any(|unit| identifier(unit, "wizard_id") != wizard)
+        {
+            return false;
+        }
+        let units = collection(&snapshot, "unit_list").to_vec();
         normalized.insert(
             "unit_list".into(),
             Value::Array(normalize(units, "unit_id")),
@@ -2131,6 +2179,53 @@ mod tests {
         /* The snapshot stays the login document: the shrine sections are added
         without the live model's other collections being written over it. */
         assert_eq!(document["unit_list"][0]["unit_id"], 1);
+    }
+
+    #[test]
+    fn swex_export_uses_current_owned_content_without_duplication() {
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({
+            "wizard_id": 7,
+            "wizard_info": {"wizard_name": "Culpa", "wizard_id": 21822407},
+            "building_list": [],
+            "unit_list": [{"unit_id": 1, "wizard_id": 7, "unit_master_id": 10101, "unit_level": 40, "runes": []}],
+            "runes": [{"rune_id": 5, "occupied_id": 0, "set_id": 1, "slot_no": 1}],
+            "artifacts": [{"rid": 6, "occupied_id": 0, "type": 1, "attribute": 1, "sec_effects": []}],
+            "relics": [{"rid": 7, "pri_effect": [100, 12], "sec_effect": [14, 150, 2]}],
+            "rune_craft_item_list": [{"craft_item_id": 20, "craft_type": 6, "amount": 1}],
+            "artifact_crafts": [{"rid": 30, "master_id": 1, "quantity": 1}],
+            "inventory_info": [{"rid": 40, "item_master_id": 61, "item_master_type": 61, "item_quantity": 1}]
+        })));
+
+        assert!(store.apply_update(
+            &json!({
+                "unit_list": [{"unit_id": 2, "wizard_id": 7, "unit_master_id": 34911, "unit_level": 40, "building_id": 0}],
+                "runes": [{"rune_id": 11, "wizard_id": 7, "set_id": 13, "slot_no": 1}],
+                "artifacts": [{"rid": 12, "wizard_id": 7, "type": 1, "attribute": 1, "sec_effects": []}],
+                "relics": [{"rid": 13, "wizard_id": 7, "pri_effect": [100, 12], "sec_effect": [14, 150, 2]}],
+                "rune_craft_item_list": [{"craft_item_id": 21, "wizard_id": 7, "craft_type": 6, "amount": 2}],
+                "artifact_crafts": [{"rid": 31, "wizard_id": 7, "master_id": 2, "quantity": 1}],
+                "inventory_info": [{"rid": 41, "wizard_id": 7, "item_master_id": 62, "item_master_type": 62, "item_quantity": 3}]
+            }),
+            &json!({"command": "ReceiveMail"})
+        ));
+        assert!(store.apply_update(
+            &json!({}),
+            &json!({"command": "EquipRune", "rune_id": 5, "unit_id": 1})
+        ));
+
+        let document = store.swex_snapshot().unwrap();
+        let export = serialize_swex_export(&document).unwrap();
+        let document: Value = serde_json::from_str(&export.content).unwrap();
+        assert_eq!(document["unit_list"].as_array().unwrap().len(), 2);
+        assert!(document["unit_list"].as_array().unwrap().iter().any(|unit| unit["unit_master_id"] == 34911));
+        assert_eq!(document["unit_list"][0]["runes"][0]["rune_id"], 5);
+        assert_eq!(document["runes"], json!([{"rune_id": 11, "wizard_id": 7, "set_id": 13, "slot_no": 1}]));
+        assert_eq!(document["artifacts"].as_array().unwrap().len(), 2);
+        assert_eq!(document["relics"].as_array().unwrap().len(), 2);
+        assert_eq!(document["rune_craft_item_list"].as_array().unwrap().len(), 2);
+        assert_eq!(document["artifact_crafts"].as_array().unwrap().len(), 2);
+        assert_eq!(document["inventory_info"].as_array().unwrap().len(), 2);
     }
 
     #[test]
