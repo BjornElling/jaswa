@@ -376,13 +376,14 @@ button { cursor: pointer; }
 .import-badge.live .import-badge-count + .import-badge-when { border-top-color: var(--gold-edge); }
 .import-badge.live .import-badge-when { color: var(--gold); }
 
-/* Import success overlays the durable badge in the same corner. It is a
-   machine verdict, hence the established green rather than an action accent;
-   absolute positioning keeps every Home control exactly where it was. */
+/* Import success is fixed to the viewport rather than the page: the JSON
+   target sits below the fold, so confirmation at the document's top would be
+   a correct answer the person who imported the file could not see. It remains
+   outside layout, so nothing beneath it moves. */
 .import-confirmation {
-  position: absolute;
+  position: fixed;
   top: var(--s4);
-  right: var(--gutter);
+  right: var(--s4);
   z-index: 21;
   margin: 0;
   padding: var(--s2) var(--s3);
@@ -4063,10 +4064,6 @@ button { cursor: pointer; }
     position: static;
     justify-self: end;
     margin: var(--s3) var(--gutter) 0;
-  }
-  .import-confirmation {
-    top: var(--s3);
-    right: var(--gutter);
   }
   .import-badge + .filter-strip {
     height: var(--strip);
