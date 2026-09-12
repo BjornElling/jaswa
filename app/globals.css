@@ -3684,12 +3684,30 @@ button { cursor: pointer; }
   z-index: 40;
   display: grid;
   place-items: center;
-  /* Sized to be found without looking on a 3440px display, and no larger:
-     this is a way out of a table, not a thing to be looked at. Stated on the
-     canvas' own 1920px measure, so a narrower display reduces it along with
-     everything else it sits beside. */
-  width: 76px;
-  height: 76px;
+  /* Measured against the window, not the canvas.
+
+     The canvas' own scale stops growing at 1920px, so a control stated in
+     canvas units reached full size on a laptop and then stayed there: the same
+     76px circle on a 1920px screen as on a 3440px one, which is twice the share
+     of the display. This grows the whole way instead — 48px at 1200, 57px at
+     1920, 76px at 3440 — because how obtrusive a corner control is depends on
+     the window it sits in, and that is the one measure the canvas deliberately
+     stops tracking.
+
+     Two ceilings, and the lower one wins. `76px` is what the canvas would have
+     drawn unaided, and below about 1300px that is already the smaller of the
+     two — a window that narrow reduces everything, and this goes with it. The
+     clamp takes over above that, where the canvas has stopped reducing anything
+     and only the window is still changing.
+
+     `vw` computes before `zoom` and renders after it, so dividing by the scale
+     leaves the clamp's result in true screen pixels wherever it is read. The
+     control stays inside the canvas all the same: a canvas drawn at less than
+     full size is its own stacking context, and a sibling of it would paint over
+     the dialog backdrop rather than under it. */
+  --scroll-top-size: min(76px, calc(clamp(40px, 33px + 1.25vw, 76px) / var(--viewport-scale, 1)));
+  width: var(--scroll-top-size);
+  height: var(--scroll-top-size);
   padding: 0;
   border: 1px solid var(--line-strong);
   border-radius: 50%;
@@ -3721,6 +3739,9 @@ button { cursor: pointer; }
   box-shadow: inset 0 2px 11px rgba(0, 0, 0, .55);
 }
 .scroll-to-top:focus-visible { outline-offset: 3px; }
+/* A share of the circle rather than a size of its own, so the mark and the
+   ground it sits on cannot drift apart as the window changes. */
+.scroll-to-top svg { width: 42%; height: 42%; }
 
 /* ---------------------------------------------------------------- modal */
 .modal-backdrop {

@@ -48,6 +48,28 @@ test('it returns the page to the top and stands down again', async ({ page }) =>
   await expect(control).toBeHidden();
 });
 
+test('it is measured against the window, not against the canvas', async ({ page }) => {
+  await openWorkspace(page);
+  const circle = page.locator(button);
+  /* Hidden still has a box, so the size can be read without scrolling first. */
+  const sizeAt = async (width: number) => {
+    await page.setViewportSize({ width, height: 420 });
+    return circle.evaluate((el) => el.getBoundingClientRect().width);
+  };
+
+  /* The canvas' own scale stops growing at 1920px. A control stated in canvas
+     units therefore reached full size on a laptop and stayed there, giving an
+     ultrawide display and a laptop the same circle — which is what this range
+     exists to catch. */
+  const ultrawide = await sizeAt(3440);
+  const laptop = await sizeAt(1920);
+  const narrow = await sizeAt(1280);
+  expect(ultrawide).toBeGreaterThan(laptop);
+  expect(laptop).toBeGreaterThan(narrow);
+  /* And it stops at the stated ceiling rather than running away with the width. */
+  expect(ultrawide).toBeLessThanOrEqual(76);
+});
+
 test('it is chrome: hovering it moves nothing on the page', async ({ page }) => {
   await openWorkspace(page);
   await page.getByRole('navigation').getByRole('button', { name: 'Monsters', exact: true }).click();

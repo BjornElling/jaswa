@@ -11,6 +11,8 @@ const revealFraction = 0.75;
    be read before the direction is understood, and the direction is the whole
    message. */
 function ChevronUp() {
+  /* The stated size is a floor for the moment before the stylesheet lands; the
+     rendered one is a share of the circle, set in globals.css. */
   return <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor"
     strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
     <path d="M5 15.5 12 8.5l7 7" />
