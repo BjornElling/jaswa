@@ -2063,7 +2063,7 @@ label[for] {
   color: var(--text);
 }
 .best-artifact-improvements-copy { display: contents; }
-.best-artifact-improvements-title { margin: 0; color: var(--text-muted); }
+.best-artifact-improvements-title { margin: 0; color: var(--text); }
 .best-artifact-improvements-none { margin: 0; color: var(--text-muted); }
 /* Recommendations give conversions their own third column. The block spans the
    name and facts rows so its heading starts beside the artifact name. Its score
@@ -2092,6 +2092,12 @@ label[for] {
   align-self: end;
 }
 .best-artifact-entry > .best-artifact-improvements .artifact-conversion-option-name {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+.best-artifact-entry > .best-artifact-improvements .artifact-conversion-option-source,
+.best-artifact-entry > .best-artifact-improvements .artifact-conversion-option-action,
+.best-artifact-entry > .best-artifact-improvements .artifact-conversion-option-stone {
   color: var(--text-muted);
   font-weight: 400;
 }

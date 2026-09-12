@@ -188,8 +188,10 @@ test('artifact recommendation columns share their intended baselines', async ({ 
     const conversions = box('.artifact-conversion-list');
     const score = box('.best-artifact-entry-facts .best-artifact-fact-score');
     const convertedScore = box('.best-artifact-improvements .best-artifact-fact-score');
-    const conversionText = element.querySelector('.artifact-conversion-option-name');
     const substatText = element.querySelector('.artifact-subs li');
+    const conversionColors = [...element.querySelectorAll('.artifact-conversion-option-name, .artifact-conversion-option-name *')]
+      .map((part) => getComputedStyle(part).color);
+    const improvementsTitleElement = element.querySelector('.best-artifact-improvements-title');
     return {
       nameTop: name?.top,
       improvementsTitleTop: improvementsTitle?.top,
@@ -198,8 +200,10 @@ test('artifact recommendation columns share their intended baselines', async ({ 
       conversionsBottom: conversions?.bottom,
       scoreBottom: score?.bottom,
       convertedScoreBottom: convertedScore?.bottom,
-      conversionColor: conversionText ? getComputedStyle(conversionText).color : undefined,
+      conversionColors,
       substatColor: substatText ? getComputedStyle(substatText).color : undefined,
+      improvementsTitleColor: improvementsTitleElement ? getComputedStyle(improvementsTitleElement).color : undefined,
+      standardTextColor: getComputedStyle(element.querySelector(':scope > .best-artifact-entry-name') ?? element).color,
     };
   });
 
@@ -207,5 +211,6 @@ test('artifact recommendation columns share their intended baselines', async ({ 
   expect(Math.abs((alignment.substatsTop ?? 0) - (alignment.mainStatTop ?? 0))).toBeLessThanOrEqual(1);
   expect((alignment.conversionsBottom ?? 0)).toBeLessThanOrEqual((alignment.convertedScoreBottom ?? 0));
   expect(Math.abs((alignment.convertedScoreBottom ?? 0) - (alignment.scoreBottom ?? 0))).toBeLessThanOrEqual(1);
-  expect(alignment.conversionColor).toBe(alignment.substatColor);
+  expect(alignment.conversionColors.every((color) => color === alignment.substatColor)).toBe(true);
+  expect(alignment.improvementsTitleColor).toBe(alignment.standardTextColor);
 });
