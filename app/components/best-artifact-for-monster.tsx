@@ -10,7 +10,7 @@ import { UnrefinedArtifactMark } from './unrefined-artifact-mark';
 import { useAutoRecalculate } from './use-auto-recalculate';
 import { calculateArtifactScores } from '../lib/compute/artifact-score-client';
 import { buildArtifactScoreRequestsForMonsterIds } from '../lib/compute/artifact-score-input';
-import { artifactEquipClassLabel, displaySubProperty } from '../lib/artifact-grid';
+import { artifactEquipClassLabel, artifactValueTint, displaySubProperty } from '../lib/artifact-grid';
 import { artifactCategoryLabels, artifactGradeOrder, artifactMainPropertyOrder } from '../lib/artifact-properties';
 import { artifactOptimizationMonsters } from '../lib/artifact-optimization-monsters';
 import { artifactPairScore, engravedStonesFor, scoringSettings } from '../lib/artifact-recommendations';
@@ -22,7 +22,7 @@ import { monsterSpeciesId } from '../lib/monster-species';
 import { numberedMonsterNames } from '../lib/monster-names';
 import type { Artifact } from '../lib/artifacts';
 import type { ArtifactCategory, ArtifactGrade, ArtifactMainProperty } from '../lib/artifact-properties';
-import type { ArtifactMaximumScore, ArtifactScoreRequest } from '../lib/compute/artifact-score-protocol';
+import type { ArtifactConversion, ArtifactMaximumScore, ArtifactScoreRequest } from '../lib/compute/artifact-score-protocol';
 import type { EngravedConversionStone } from '../lib/artifact-conversion-stones';
 import type { GameRecord } from '../lib/game-data';
 import type { ArtifactSettings, GeneralSettings } from '../lib/types';
@@ -111,9 +111,7 @@ function scoreMap(scores: ArtifactMaximumScore[]): Map<string, ArtifactMaximumSc
 }
 
 /* Whole percentage points already (§17.1): the figure shown is the figure every
-   comparison used. No band colour here — this panel gives one figure per entry
-   the ink and the size, and a second colour signal on the figures beside it
-   would compete with the reading order the layout establishes. */
+   comparison used. */
 function Percent({ value, general, fallback = '—' }: {
   value: number | undefined;
   general: GeneralSettings;
@@ -125,20 +123,80 @@ function Percent({ value, general, fallback = '—' }: {
 /**
  * One label-and-value pair inside a facts list.
  *
- * `group` opens the blank line above a pair that begins a new group, and `lead`
- * marks the one figure an entry is read for. Both are classes on a box that is
- * always there, so no fact can appear or disappear and move the lines under it.
+ * `group` opens the blank line above a pair that begins a new group. It is a
+ * class on a box that is always there, so no fact can appear or disappear and
+ * move the lines under it.
  */
-function Fact({ label, children, lead = false, group = false }: {
+function Fact({ label, children, group = false }: {
   label: string;
   children: ReactNode;
-  lead?: boolean;
   group?: boolean;
 }) {
-  const classes = ['best-artifact-fact', lead ? 'best-artifact-fact-lead' : '', group ? 'best-artifact-fact-group' : ''];
+  const classes = ['best-artifact-fact', group ? 'best-artifact-fact-group' : ''];
   return <div className={classes.filter(Boolean).join(' ')}>
     <dt>{label}</dt>
     <dd>{children}</dd>
+  </div>;
+}
+
+/**
+ * A figure about the chosen monster: what an artifact is worth on it, and what
+ * it would be worth once converted. Every one of them is set the same way
+ * wherever it appears in this panel, so the box the user is reading and the
+ * ranking below it answer in one voice.
+ *
+ * The label takes full ink so the pair is findable from the other side of the
+ * box, and the figure wears its band (`ARTIFACT-CANONICAL.md` §18.2) — the one
+ * place in JASWA where a fact takes the accent, because at the top band the
+ * number is itself the invitation to act. `artifactValueTint` is asked for the
+ * colour rather than a rule of this panel's own, so this view cannot acquire a
+ * private idea of what a good score is; the recommendation table and the
+ * library read the same boundaries. A score that could not be judged wears no
+ * band at all: absent is unjudged, not low (§18.2).
+ */
+function ScoreFact({ label, value, general, group = false }: {
+  label: string;
+  value: number | undefined;
+  general: GeneralSettings;
+  group?: boolean;
+}) {
+  const classes = ['best-artifact-fact', 'best-artifact-fact-score', group ? 'best-artifact-fact-group' : ''];
+  return <div className={classes.filter(Boolean).join(' ')}>
+    <dt>{label}</dt>
+    <dd {...(value === undefined ? {} : artifactValueTint(value))}>
+      <Percent value={value} general={general} fallback="Not judged" />
+    </dd>
+  </div>;
+}
+
+/**
+ * What a conversion stone could still do to an artifact, gathered under one
+ * sub-heading and given the full width of the box it sits in.
+ *
+ * The score it would reach leads, because it is what the lines below it add up
+ * to. The block is absent rather than empty when there is nothing to suggest:
+ * an Intangible can never be converted at all (§10.1) and an ordinary artifact
+ * may simply have no conversion worth taking, and in both cases the converted
+ * score is the score already shown above. A sub-heading standing over a
+ * repeated figure reads as an answer that failed to arrive. Nothing is lost by
+ * dropping it — an Intangible says so on its own name line.
+ */
+function Improvements({ label, score, conversions, artifact, context }: {
+  /** What the converted score is called where this block appears. */
+  label: string;
+  score: number | undefined;
+  conversions: readonly ArtifactConversion[];
+  artifact: Artifact;
+  context: ScoreContext;
+}) {
+  if (artifact.intangible || !conversions.length) return null;
+  return <div className="best-artifact-improvements">
+    <h5 className="best-artifact-improvements-title">Improvements</h5>
+    <dl className="best-artifact-facts">
+      <ScoreFact label={label} value={score} general={context.general} />
+    </dl>
+    <ConversionList conversions={conversions} artifact={artifact}
+      stones={context.stones} mode={context.mode} />
   </div>;
 }
 
@@ -176,29 +234,28 @@ function CurrentArtifact({ category, artifact, context }: {
   return <article className={`best-artifact-current-slot ${artifact ? qualityRuleHost : ''}`}
     aria-label={`Current ${label.toLowerCase()} artifact`}>
     {artifact && <QualityRule tier={artifact.grade} />}
-    <p className="filter-label">{label}</p>
+    <h4 className="best-artifact-current-slot-title">{label}</h4>
     {artifact ? <>
       <div className="best-artifact-current-facts">
         <ArtifactName artifact={artifact} />
         <dl className="best-artifact-facts">
           <Fact label="Main stat">{artifact.mainProperty}</Fact>
-          <Fact label="Value on mon" lead><Percent value={asIs?.value} general={context.general} fallback="Not judged" /></Fact>
-          <Fact label="Potential value on mon"><Percent value={potential?.value} general={context.general} fallback="Not judged" /></Fact>
+          <ScoreFact label="Value on mon" value={asIs?.value} general={context.general} />
         </dl>
       </div>
-      <div className="best-artifact-current-detail">
-        <SubProperties artifact={artifact} general={context.general} />
-        <ConversionList conversions={potential?.conversions ?? []} artifact={artifact}
-          stones={context.stones} mode={context.mode} />
-      </div>
-    </> : <p className="best-artifact-empty">Nothing in this slot. Any recommendation below would be its first.</p>}
+      <SubProperties artifact={artifact} general={context.general} />
+      <Improvements label="Potential value on mon" score={potential?.value}
+        conversions={potential?.conversions ?? []} artifact={artifact} context={context} />
+    </> : <p className="best-artifact-empty">No artifact equipped</p>}
   </article>;
 }
 
 /**
- * One recommendation. Facts read down the left, the artifact's own lines and
- * the conversions they invite sit to the right, and "Score on this mon" is the
- * one figure set in full ink — it is what the whole panel is for.
+ * One recommendation. The facts sit on the left, the lines the artifact holds
+ * sit in the middle, and the conversions that could improve it get a dedicated
+ * right-hand column. The score on this monster remains with the facts, where it
+ * can be read against the current score without making the card's columns fight
+ * over two separate conclusions.
  */
 function Recommendation({ row, context }: { row: ResultRow; context: ScoreContext }) {
   const { artifact, target, wearer } = row;
@@ -214,25 +271,20 @@ function Recommendation({ row, context }: { row: ResultRow; context: ScoreContex
       <dl className="best-artifact-facts">
         <Fact label="Main stat">{artifact.mainProperty}</Fact>
         <Fact label="Current location" group>{wearer?.name ?? 'Inventory'}</Fact>
+        {/* Where it is worth something today, so a move can be weighed against
+            what it costs the monster wearing it. Deliberately quiet: it is
+            context for the score above, not the decision. */}
         <Fact label="Score on current mon">
           <Percent value={onCurrentMon?.value} general={context.general}
             fallback={wearer ? 'Not judged' : '—'} />
         </Fact>
-        <Fact label="Score on this mon" lead group>
-          <Percent value={onThisMon?.value} general={context.general} fallback="Not judged" />
-        </Fact>
+        <ScoreFact label="Score on this mon" value={onThisMon?.value}
+          general={context.general} group />
       </dl>
     </div>
     <SubProperties artifact={artifact} general={context.general} />
-    <div className="best-artifact-entry-conversions">
-      <ConversionList conversions={target.conversions} artifact={artifact}
-        stones={context.stones} mode={context.mode} />
-      <dl className="best-artifact-facts">
-        <Fact label="Score on this mon with conversions">
-          <Percent value={target.value} general={context.general} />
-        </Fact>
-      </dl>
-    </div>
+    <Improvements label="Score on this mon with conversions" score={target.value}
+      conversions={target.conversions} artifact={artifact} context={context} />
   </li>;
 }
 

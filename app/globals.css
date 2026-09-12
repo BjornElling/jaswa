@@ -285,6 +285,7 @@ label[for] {
 .field-legend, .slider-label, .editor-block-title, .artifact-conversion-title,
 .artifact-scope-box h3, .artifact-scope-subheading, .drop-zone strong,
 .best-artifact-result h3, .best-artifact-current h3, .best-artifact-category h3,
+.best-artifact-current-slot-title,
 .best-monster-artifact-details h3, .empty-state h2,
 .field-lead > span, .helper-version h4 {
   font-family: var(--sans);
@@ -304,7 +305,7 @@ label[for] {
 /* Body — every sentence the app says to the user. */
 .lead, .notice, .dialog p, .slider-note, .radio-note, .checkbox-row,
 .editor-note, .route-links, .artifact-conversion-intro, .statistics-lead,
-.best-artifact-ranking,
+.best-artifact-ranking, .best-artifact-empty, .best-artifact-fact dt,
 .statistics dt, .empty-state p, .empty-state .next-step, .section-intro p,
 .relic-property, .relic-synergy-label, .helper-version p, .route-qualifier {
   font-family: var(--sans);
@@ -329,7 +330,8 @@ label[for] {
    never its type, so Calculate, Clear results and Reset filters read as three
    weights of the same thing rather than as three unrelated controls. */
 .button, .filter-reset, .text-link, .radio-line-legend, .preset-row-label,
-.artifact-conversion-more, .notice-link, .field > span {
+.artifact-conversion-more, .best-artifact-improvements .artifact-conversion-more,
+.notice-link, .field > span {
   font-family: var(--sans);
   font-size: var(--t-body);
   font-weight: 600;
@@ -340,6 +342,7 @@ label[for] {
    below it. Structural chrome: it is read before the thing it names, so it is
    set bold and loose and stays out of the way at 11px. */
 .rail-heading, .filter-label, .eyebrow, .route-option, .grid-table thead th,
+.best-artifact-improvements-title,
 .best-artifact-result th, .best-monster-table th, .artifact-recommendation-table th {
   font-family: var(--sans);
   font-size: var(--t-micro);
@@ -353,7 +356,7 @@ label[for] {
    stay quieter than the value; a bold caption competes with the figure it
    introduces. Casing is left to each use: `.target dt` distinguishes CtR from
    CtD by its own capitals, which uppercasing would flatten. */
-.slot-label, .editor-slot-label, .target dt, .choice-legend, .best-artifact-fact dt,
+.slot-label, .editor-slot-label, .target dt, .choice-legend,
 .field-compact > span, .relic-stone-balance-label, .preset-type {
   font-family: var(--sans);
   font-size: var(--t-micro);
@@ -367,8 +370,7 @@ label[for] {
    it is a button. */
 .filter-button, .filter-summary, .list-count, .grid-footer, .choice,
 .choice-none, .choice-chip, .flag, .set-mark, .set-none, .artifact-subs li,
-.relic-effect, .best-artifact-meta, .best-monster-intangible,
-.best-artifact-fact dd, .best-artifact-entry-name,
+.relic-effect, .best-monster-intangible,
 .artifact-recommendation-meta, .range-slider-values, .optimizer-draft-columns,
 .helper-current-version, .import-badge-count, .best-artifact-result table,
 .best-monster-table, .artifact-recommendation-table-wrap > .artifact-recommendation-table {
@@ -380,9 +382,20 @@ label[for] {
 
 /* Data, one step up — the account libraries, where a row is the page's
    primary content rather than a supporting figure, and the meta lines that
-   sit at the same reading weight. */
+   sit at the same reading weight.
+
+   Every run of content in "Best artifact for this monster" joins it too. Those
+   boxes had grown four sizes between them — an 11px caption over a 12px figure
+   beside a 13px lead under a 14px conversion line — and a box in four sizes
+   reads as an accident rather than as a decision. One size for the content,
+   with the heading above it and the uppercase sub-heading inside it as the only
+   two departures, is what makes the card scannable. The caption voice cannot be
+   used for the labels there for the same reason: it is 11px by definition, so
+   those labels stay quiet on colour alone and take the prose voice. */
 .grid-table, .meta-line, .sample-value, .target dd, .relic-monster-none,
-.best-artifact-fact-lead dd {
+.best-artifact-meta, .best-artifact-entry-name, .best-artifact-fact dd,
+.best-artifact-improvements,
+.best-artifact-current-slot .artifact-subs li, .best-artifact-entry .artifact-subs li {
   font-family: var(--mono);
   font-size: var(--t-body);
   font-weight: 400;
@@ -2005,12 +2018,17 @@ label[for] {
   border-radius: var(--radius);
   background: var(--sunk);
 }
-.best-artifact-current-slot > .filter-label { grid-column: 1 / -1; color: var(--faint); }
-.best-artifact-current-facts, .best-artifact-current-detail {
+/* The card is named in the same voice and the same ink as the ranking for that
+   slot further down the page: "Attribute" here and "Attribute" there are one
+   subject. At label size and faint it read as chrome printed on the box rather
+   than as the box's name. */
+.best-artifact-current-slot-title { grid-column: 1 / -1; margin: 0; color: var(--ink); }
+.best-artifact-current-facts {
   display: grid;
   align-content: start;
   gap: var(--s3);
 }
+.best-artifact-current-slot .artifact-subs { align-self: start; }
 /* The slot keeps its own padding whether it holds an artifact or a sentence
    about not holding one, so the two boxes stay the same box. */
 .best-artifact-current-slot .best-artifact-empty { grid-column: 1 / -1; padding: 0; }
@@ -2023,25 +2041,28 @@ label[for] {
 .best-artifact-category h3 { margin: 0; padding-bottom: var(--s2); border-bottom: 1px solid var(--line-strong); }
 .best-artifact-ranking { margin: 0; color: var(--dim); }
 .best-artifact-entries { display: grid; gap: var(--s2); margin: 0; padding: 0; list-style: none; }
-/* Three columns, in the order the decision is made: what the artifact is and
-   what it is worth here, the lines it actually holds, and what a stone could
-   still do to them. The first column is a fixed measure so a long monster name
-   cannot push the substats of one entry out of line with the next. */
+/* Three columns, in the order the decision is made: what the artifact is, the
+   lines it actually holds, and what a stone could still do to them. The first
+   column is a fixed measure so a long monster name cannot push the substats of
+   one entry out of line with the next. The right column has a real minimum
+   measure because its conversion sentences are the useful action, not a note
+   to be squeezed into the leftover width. */
 .best-artifact-entry {
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: 300px minmax(360px, 1fr) minmax(520px, 1.15fr);
   gap: var(--s3) var(--s5);
   padding: var(--s3) var(--s4);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--sunk);
 }
-.best-artifact-entry-facts, .best-artifact-entry-conversions {
+.best-artifact-entry-facts {
   display: grid;
   align-content: start;
   gap: var(--s3);
+  min-width: 0;
 }
-.best-artifact-entry .artifact-subs { align-self: start; }
+.best-artifact-entry .artifact-subs { align-self: start; min-width: 0; }
 .best-artifact-entry-name { margin: 0; color: var(--dim); }
 .best-artifact-facts { display: grid; gap: var(--s1); margin: 0; }
 .best-artifact-fact {
@@ -2059,11 +2080,37 @@ label[for] {
 /* The blank line the facts are grouped by: what the artifact is, where it is
    now, and what it would be worth here. */
 .best-artifact-fact-group { margin-top: var(--s2); }
-/* The one figure this whole panel exists to produce. It leads on ink and size
-   rather than on colour: the score bands would put a second signal on the very
-   number the layout has already made first, and the two would compete. */
-.best-artifact-fact-lead dt { color: var(--dim); }
-.best-artifact-fact-lead dd { color: var(--ink); }
+/* A score the user is here to act on. The label takes full ink so the pair is
+   findable from the other side of the entry, and the figure takes its band
+   (§18.2, `data-tint`), which is the one colour vocabulary JASWA gives a fact.
+   Colour and position carry it: the size is the box's one size, because a
+   figure that grew would shift the lines beside it. */
+.best-artifact-fact-score dt { color: var(--ink); }
+/* What a stone could still do to this artifact, across the full width of the
+   box. A conversion is a sentence and it wrapped three times over in a column
+   sized for labels; the score it would reach leads, because it is what the
+   lines below add up to — which is why it left the facts above. The rule is
+   what tells the eye the columned reading has ended. */
+.best-artifact-improvements {
+  grid-column: 1 / -1;
+  display: grid;
+  justify-items: start;
+  gap: var(--s2);
+  padding-top: var(--s3);
+  border-top: 1px solid var(--line);
+  min-width: 0;
+  color: var(--dim);
+}
+.best-artifact-improvements-title { margin: 0; color: var(--faint); }
+/* Recommendations give conversions their own third column. The current-slot
+   cards have only two columns and keep the shared block below them instead. */
+.best-artifact-entry > .best-artifact-improvements {
+  grid-column: 3;
+  grid-row: 1;
+  align-self: start;
+  padding-top: 0;
+  border-top: 0;
+}
 .best-monster-results { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s4); }
 /* Named for the panel that first had it; it now dresses the three result cards
    of "Best monster for this artifact" alone — that panel's own table sits
