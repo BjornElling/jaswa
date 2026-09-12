@@ -1,5 +1,6 @@
 import { Fragment, useMemo, useState } from 'react';
 import { Button, FilterButton } from './button';
+import { CalculationStatus } from './calculation-status';
 import { Dropdown } from './dropdown';
 import { ConvertedArtifactMark } from './converted-artifact-mark';
 import { UnrefinedArtifactMark } from './unrefined-artifact-mark';
@@ -485,7 +486,9 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
           equals the total. Each part is only named when it is non-zero, so an
           account with complete preferences still reads as a plain
           "560 of 560 slots filled". */}
-      <p className="artifact-recommendation-meta" role="status">{formatNumber(currentCalculation.evaluatedPairs, general)} pairs checked · {formatNumber(filledSlots, general)} of {formatNumber(totalSlots, general)} slots filled{slotRemainder.length > 0 && <> ({slotRemainder.join(', ')})</>} · {formatNumber(Math.round(currentCalculation.durationMs), general)} ms · {currentCalculation.backend === 'webgpu' ? 'Graphics card' : 'Processor'}</p>
+      <CalculationStatus evaluatedPairs={currentCalculation.evaluatedPairs} durationMs={currentCalculation.durationMs}
+        backend={currentCalculation.backend} general={general}
+        detail={<>{formatNumber(filledSlots, general)} of {formatNumber(totalSlots, general)} slots filled{slotRemainder.length > 0 && <> ({slotRemainder.join(', ')})</>}</>} />
       {/* Not "no artifact scores above 0 % here", which is what the old wording
           was read as and is almost never true: the artifacts that would suit
           this slot exist, and the ranked pass gave every one of them to a

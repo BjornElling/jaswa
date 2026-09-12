@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Button, FilterButton } from './button';
+import { CalculationStatus } from './calculation-status';
 import { ConversionList } from './conversion-list';
 import { ConvertedArtifactMark } from './converted-artifact-mark';
 import { Dropdown } from './dropdown';
@@ -29,7 +30,7 @@ import type { ArtifactSettings, GeneralSettings } from '../lib/types';
 
 const artifactLocations = ['inventory', 'equipped'] as const;
 const categoryOrder: readonly ArtifactCategory[] = ['attribute', 'type'];
-const recommendationRange = { minimum: 1, maximum: 10 } as const;
+const recommendationRange = { minimum: 1, maximum: 10, default: 3 } as const;
 
 type ArtifactLocation = typeof artifactLocations[number];
 
@@ -51,11 +52,13 @@ type RecommendationFilters = {
   count: number;
   /** Which of the two result sections are shown at all. */
   categories: ArtifactCategory[];
+  /** The chooser belongs to this state so Reset filters clears it as well. */
+  selectedUnitId: string;
 };
 
 const defaultFilters: RecommendationFilters = {
   locations: [], mainProperties: [], grades: [], includeIntangible: true,
-  subPropertyId: '', count: recommendationRange.maximum, categories: [...categoryOrder],
+  subPropertyId: '', count: recommendationRange.default, categories: [...categoryOrder], selectedUnitId: '',
 };
 
 type MonsterOption = { unitId: string; masterId: string; name: string };
@@ -66,6 +69,7 @@ type Calculation = {
   target: Map<string, ArtifactMaximumScore>;
   backend: 'cpu' | 'webgpu';
   evaluatedPairs: number;
+  durationMs: number;
 };
 
 type ResultRow = {
@@ -296,7 +300,6 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
   hardwareAcceleration: boolean;
 }) {
   const [filters, setFilters] = useState<RecommendationFilters>(defaultFilters);
-  const [selectedUnitId, setSelectedUnitId] = useState('');
   const [calculation, setCalculation] = useState<Calculation | undefined>();
   const [state, setState] = useState<'idle' | 'calculating' | 'error'>('idle');
 
@@ -305,7 +308,7 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
     () => monsterOptions(artifactOptimizationMonsters(monsters, settings)),
     [monsters, settings],
   );
-  const selectedMonster = eligibleMonsters.find((monster) => monster.unitId === selectedUnitId);
+  const selectedMonster = eligibleMonsters.find((monster) => monster.unitId === filters.selectedUnitId);
   const artifacts = useMemo(() => readArtifacts(data), [data]);
   const artifactNumbers = useMemo(() => new Map(artifacts.map((artifact, index) => [artifact.id, index])), [artifacts]);
   const stones = useMemo(() => engravedStonesFor(data), [data]);
@@ -342,7 +345,7 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
   const inputKey = JSON.stringify({
     artifacts: artifacts.map((artifact) => [artifact.id, artifact.occupiedId, artifact.mainProperty, artifact.convertedPropertyIndex,
       ...artifact.subProperties.map((subProperty) => [subProperty.definition.id, subProperty.valueHundredths, subProperty.maximumHundredths])]),
-    selectedUnitId,
+    selectedUnitId: filters.selectedUnitId,
     settings: scoringSettings(settings),
   });
   const currentCalculation = calculation?.inputKey === inputKey ? calculation : undefined;
@@ -399,6 +402,14 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
     });
   }
 
+  function resetFilters() {
+    setFilters(defaultFilters);
+    /* The selected monster is part of the calculation key. Once Reset clears
+       it, the old result no longer answers the panel's question either. */
+    setCalculation(undefined);
+    setState('idle');
+  }
+
   async function calculate() {
     if (!selectedMonster) return;
     /* The same packed requests the boxes above already read their figures from,
@@ -419,6 +430,7 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
         target: scoreMap(results.flatMap((result) => result.maxima)),
         backend: results.every((result) => result.backend === 'webgpu') ? 'webgpu' : 'cpu',
         evaluatedPairs: results.reduce((total, result) => total + result.evaluatedPairs, 0),
+        durationMs: results.reduce((total, result) => total + result.durationMs, 0),
       });
       setState('idle');
     } catch {
@@ -453,8 +465,8 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
       <div className="filter-group best-artifact-monster-select">
         <label className="filter-label" htmlFor="best-artifact-monster">Monster</label>
         <div className="filter-group-controls">
-          <Dropdown id="best-artifact-monster" value={selectedMonster?.unitId ?? ''}
-            onChange={(event) => setSelectedUnitId(event.target.value)} placeholder="Choose a monster"
+          <Dropdown id="best-artifact-monster" value={filters.selectedUnitId}
+            onChange={(event) => setFilters((current) => ({ ...current, selectedUnitId: event.target.value }))} placeholder="Choose a monster"
             aria-label="Choose a monster for artifact recommendations">
             {eligibleMonsters.map((monster) => <option key={monster.unitId} value={monster.unitId}>{monster.name}</option>)}
           </Dropdown>
@@ -463,21 +475,12 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
       <div className="filter-panel-actions best-artifact-actions">
         <Button tone="important" size="prominent" busy={state === 'calculating'} busyLabel="Calculating…"
           onClick={() => void calculate()} disabled={!selectedMonster}>Calculate artifacts</Button>
-        {/* Only the filters go back. The monster is the panel's subject rather
-            than one of its filters, and it is no longer narrowed by any of
-            them, so resetting them leaves the choice standing. */}
+        {/* The chooser belongs to the same state as the filters, so this one
+            reset restores every control in the panel to its default. */}
         <button type="button" className="filter-reset" aria-label="Reset filters for this monster"
-          onClick={() => setFilters(defaultFilters)}>Reset filters</button>
+          onClick={resetFilters}>Reset filters</button>
       </div>
     </div>
-
-    {selectedMonster && context && <section className="best-artifact-current" aria-labelledby="best-artifact-current-title">
-      <h3 id="best-artifact-current-title">Current artifacts</h3>
-      <div className="best-artifact-current-slots">
-        {categoryOrder.map((category) => <CurrentArtifact key={category} category={category}
-          artifact={wornArtifacts.get(category)} context={context} />)}
-      </div>
-    </section>}
 
     <div className="filter-panel best-artifact-filters">
       {buttonGroup('Location', 'locations', artifactLocations,
@@ -519,6 +522,14 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
         (category) => artifactCategoryLabels[category], 'best-artifact-filter-categories')}
     </div>
 
+    {selectedMonster && context && <section className="best-artifact-current" aria-labelledby="best-artifact-current-title">
+      <h3 id="best-artifact-current-title">Current artifacts</h3>
+      <div className="best-artifact-current-slots">
+        {categoryOrder.map((category) => <CurrentArtifact key={category} category={category}
+          artifact={wornArtifacts.get(category)} context={context} />)}
+      </div>
+    </section>}
+
     {state === 'error' && <p className="notice warning" role="status">JASWA could not calculate this monster’s artifact fits from the imported data.</p>}
 
     {/* Without this the results simply vanished on a settings change and the
@@ -529,9 +540,8 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
       : 'Settings or imported data changed. Calculate again to refresh these results.'}</p>}
 
     {currentCalculation && selectedMonster && context && <>
-      <p className="best-artifact-meta" role="status">
-        {formatNumber(currentCalculation.evaluatedPairs, general)} pairs checked · {currentCalculation.backend === 'webgpu' ? 'Graphics card' : 'Processor'}
-      </p>
+      <CalculationStatus evaluatedPairs={currentCalculation.evaluatedPairs} durationMs={currentCalculation.durationMs}
+        backend={currentCalculation.backend} general={general} />
       <div className="best-artifact-results">
         {filters.categories.length ? categoryOrder.filter((category) => filters.categories.includes(category))
           .map((category) => {

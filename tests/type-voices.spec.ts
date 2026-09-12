@@ -26,8 +26,7 @@ async function openArtifactOptimization(page: Page) {
 /** What a run of text is set in, as one comparable string. */
 const voiceOf = `(el) => {
   const style = getComputedStyle(el);
-  const family = style.fontFamily.includes('JetBrains') ? 'mono'
-    : style.fontFamily.includes('Plex') ? 'sans' : style.fontFamily.split(',')[0];
+  const family = style.fontFamily.includes('Plex') ? 'sans' : style.fontFamily.split(',')[0];
   return [family, style.fontSize, style.fontWeight, style.letterSpacing, style.textTransform].join(' ');
 }`;
 
@@ -55,14 +54,12 @@ test('every control that names an action speaks in one voice', async ({ page }) 
 });
 
 /**
- * A filter chip is a button too, and it deliberately does *not* join the voice
- * above: it names a value out of the game's own vocabulary — "Water", "LEG",
- * "Equipped" — rather than an action, and values are monospaced here
- * (AGENTS.md §5). That distinction is the whole reason the panel can hold two
- * voices without looking careless, so it is worth a test of its own: one voice
- * for the chips, and a different one from the actions beside them.
+ * A filter chip is a button too, but it names a value rather than an action.
+ * It keeps the same body family and measure as the action controls; only the
+ * box tone and pressed state distinguish it. This is the guard against the
+ * old data/prose split returning through a new filter component.
  */
-test('a control that names a value speaks in the data voice', async ({ page }) => {
+test('a control that names a value speaks in the body voice', async ({ page }) => {
   await importAccount(page, artifactAccount);
   await openArtifactOptimization(page);
 
@@ -73,7 +70,7 @@ test('a control that names a value speaks in the data voice', async ({ page }) =
     [...new Set(els.map((el) => (eval(read) as (e: Element) => string)(el)))], voiceOf);
 
   expect(voices, 'filter chips disagree about how they are set').toHaveLength(1);
-  expect(voices[0]).toBe('mono 12px 400 normal none');
+  expect(voices[0]).toBe('sans 13px 400 normal none');
 });
 
 /**
@@ -94,4 +91,54 @@ test('the uppercase label is one voice wherever it appears', async ({ page }) =>
 
   expect(voices, 'labels disagree about how they are set').toHaveLength(1);
   expect(voices[0]).toBe('sans 11px 700 0.88px uppercase');
+});
+
+/**
+ * The page may use different sizes and weights for headings, labels and body
+ * text, but it must not reintroduce a second visible font family for ordinary
+ * content. This samples the rendered page rather than trusting selector names:
+ * a local declaration that escapes the fixed roles is exactly what this holds.
+ */
+test('visible copy uses one font family', async ({ page }) => {
+  await importAccount(page, artifactAccount);
+  await openArtifactOptimization(page);
+
+  const families = await page.locator('body *').evaluateAll((elements) => [...new Set(
+    elements
+      .filter((element) => element.textContent?.trim() && !['SCRIPT', 'STYLE'].includes(element.tagName))
+      .map((element) => getComputedStyle(element).fontFamily),
+  )]);
+
+  expect(families, 'ordinary visible copy has drifted into another font family').toEqual([
+    '"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif',
+  ]);
+});
+
+test('every calculation uses the same right-aligned status report', async ({ page }) => {
+  await importAccount(page, artifactAccount);
+  await openArtifactOptimization(page);
+
+  const recommendations = page.locator('.artifact-recommendations');
+  await recommendations.getByRole('button', { name: 'Calculate recommendations' }).click();
+  await expect(recommendations.locator('.calculation-status')).toBeVisible();
+
+  const bestMonster = page.locator('.best-monster-for-artifact');
+  await page.getByRole('combobox', { name: 'Choose an artifact for monster recommendations' }).selectOption({ index: 1 });
+  await bestMonster.getByRole('button', { name: 'Calculate monsters' }).click();
+  await expect(bestMonster.locator('.calculation-status')).toBeVisible();
+
+  const bestArtifact = page.locator('.best-artifact-for-monster');
+  await page.getByRole('combobox', { name: 'Choose a monster for artifact recommendations' }).selectOption({ index: 1 });
+  await bestArtifact.getByRole('button', { name: 'Calculate artifacts' }).click();
+  await expect(bestArtifact.locator('.calculation-status')).toBeVisible();
+
+  const statuses = page.locator('.calculation-status');
+  await expect(statuses).toHaveCount(3);
+  const reports = await statuses.evaluateAll((elements) => elements.map((element) => ({
+    text: element.textContent?.trim() ?? '',
+    textAlign: getComputedStyle(element).textAlign,
+  })));
+  expect(reports.every(({ text }) => /pairs checked · .* ms · (Graphics card|Processor)$/.test(text)))
+    .toBe(true);
+  expect(reports.every(({ textAlign }) => textAlign === 'right')).toBe(true);
 });

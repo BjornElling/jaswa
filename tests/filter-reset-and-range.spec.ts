@@ -204,7 +204,7 @@ test('Reset filters restores the recommendation panel’s defaults', async ({ pa
   await expect(attribute).toHaveAttribute('aria-pressed', 'false');
 });
 
-test('Reset filters clears the chooser panels and keeps the monster', async ({ page }) => {
+test('Reset filters clears every chooser in both recommendation panels', async ({ page }) => {
   await importAccount(page, artifactAccount);
   await page.getByRole('button', { name: 'Artifact Optimization' }).click();
 
@@ -224,16 +224,17 @@ test('Reset filters clears the chooser panels and keeps the monster', async ({ p
   await expect(quality).toHaveAttribute('aria-pressed', 'false');
   await expect(artifactChoice).toHaveValue('');
 
-  /* The monster panel is the exception, and deliberately so: its filters narrow
-     the recommendations, not the dropdown, so the monster is the panel's
-     subject rather than one of its filters and survives the reset. One filter
-     that starts off and one that starts on, so the reset is shown restoring a
-     value rather than only clearing. */
+  /* The monster chooser is part of the same reset contract as its filters. One
+     filter that starts off and one that starts on, so the reset is shown
+     restoring values rather than merely clearing. */
   await page.locator('summary').filter({ hasText: 'Best artifact for this monster' }).click();
   const artifactPanel = page.locator('.best-artifact-filters');
   const location = artifactPanel.locator('.best-artifact-filter-location').getByRole('button').first();
   const intangible = artifactPanel.locator('.best-artifact-filter-include').getByRole('button', { name: 'Include' });
   const monsterChoice = page.getByRole('combobox', { name: 'Choose a monster for artifact recommendations' });
+  const recommendationCount = artifactPanel.getByRole('slider', { name: 'Number of recommendations per category' });
+
+  await expect(recommendationCount).toHaveValue('3');
 
   await monsterChoice.selectOption({ index: 1 });
   await expect(monsterChoice).not.toHaveValue('');
@@ -245,5 +246,5 @@ test('Reset filters clears the chooser panels and keeps the monster', async ({ p
   await page.getByRole('button', { name: 'Reset filters for this monster' }).click();
   await expect(location).toHaveAttribute('aria-pressed', 'false');
   await expect(intangible).toHaveAttribute('aria-pressed', 'true');
-  await expect(monsterChoice).not.toHaveValue('');
+  await expect(monsterChoice).toHaveValue('');
 });

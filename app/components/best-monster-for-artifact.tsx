@@ -1,5 +1,6 @@
 import { type ReactNode, useMemo, useState } from 'react';
 import { Button, FilterButton } from './button';
+import { CalculationStatus } from './calculation-status';
 import { Dropdown } from './dropdown';
 import { ConvertedArtifactMark } from './converted-artifact-mark';
 import { UnrefinedArtifactMark } from './unrefined-artifact-mark';
@@ -44,6 +45,8 @@ type ArtifactFilters = {
   mainProperties: ArtifactMainProperty[];
   subPropertyId: string;
   locations: ArtifactLocation[];
+  /** The chooser belongs to this state so Reset filters clears it as well. */
+  selectedArtifactId: string;
 };
 
 type MonsterOption = {
@@ -62,10 +65,11 @@ type Calculation = {
   ownedScores: Map<string, ArtifactMaximumScore>;
   backend: 'cpu' | 'webgpu';
   evaluatedPairs: number;
+  durationMs: number;
 };
 
 const defaultFilters: ArtifactFilters = {
-  categories: [], restrictions: [], grades: [], mainProperties: [], subPropertyId: '', locations: [],
+  categories: [], restrictions: [], grades: [], mainProperties: [], subPropertyId: '', locations: [], selectedArtifactId: '',
 };
 
 const optionPartSeparator = '\u2002·\u2002';
@@ -131,7 +135,6 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
   hardwareAcceleration: boolean;
 }) {
   const [filters, setFilters] = useState<ArtifactFilters>(defaultFilters);
-  const [selectedArtifactId, setSelectedArtifactId] = useState('');
   const [calculation, setCalculation] = useState<Calculation | undefined>();
   const [state, setState] = useState<'idle' | 'calculating' | 'error'>('idle');
   const artifacts = useMemo(() => readArtifacts(data), [data]);
@@ -162,7 +165,7 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
       && (!filters.locations.length || filters.locations.includes(artifact.occupiedId === null ? 'inventory' : 'equipped'));
   }).sort((left, right) => monsterNameCollator.compare(artifactSortKey(left), artifactSortKey(right))
     || monsterNameCollator.compare(left.id, right.id)), [artifacts, filters, selectedSubPropertyId]);
-  const selectedArtifact = artifactsByFilter.find((artifact) => artifact.id === selectedArtifactId);
+  const selectedArtifact = artifactsByFilter.find((artifact) => artifact.id === filters.selectedArtifactId);
   const equippedSlots = useMemo(() => {
     const slots = new Map<string, Set<ArtifactCategory>>();
     for (const artifact of artifacts) {
@@ -175,7 +178,7 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
   }, [artifacts]);
   const artifactInput = artifacts.map((artifact) => [artifact.id, artifact.occupiedId, artifact.mainProperty, artifact.convertedPropertyIndex,
     ...artifact.subProperties.map((subProperty) => [subProperty.definition.id, subProperty.valueHundredths, subProperty.maximumHundredths])]);
-  const inputKey = JSON.stringify({ artifactInput, monsterIds: ownMonsters.map((monster) => [monster.unitId, monster.speciesId]), selectedArtifactId, settings: scoringSettings(settings) });
+  const inputKey = JSON.stringify({ artifactInput, monsterIds: ownMonsters.map((monster) => [monster.unitId, monster.speciesId]), selectedArtifactId: filters.selectedArtifactId, settings: scoringSettings(settings) });
   const currentCalculation = calculation?.inputKey === inputKey ? calculation : undefined;
   const owner = selectedArtifact?.occupiedId === null || selectedArtifact === undefined
     ? undefined : ownMonsters.find((monster) => monster.unitId === selectedArtifact.occupiedId);
@@ -238,6 +241,14 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
     }));
   }
 
+  function resetFilters() {
+    setFilters(defaultFilters);
+    /* The selected artifact is part of the calculation key. Once Reset clears
+       it, the old result no longer answers the panel's question either. */
+    setCalculation(undefined);
+    setState('idle');
+  }
+
   async function calculate() {
     if (!selectedArtifact) return;
     const selected = new Set([selectedArtifact.id]);
@@ -262,6 +273,7 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
         ownedScores: scoreMap(ownedResults.flatMap((result) => result.allScores)),
         backend: [...scopeResults, ...ownedResults].every((result) => result.backend === 'webgpu') ? 'webgpu' : 'cpu',
         evaluatedPairs: [...scopeResults, ...ownedResults].reduce((total, result) => total + result.evaluatedPairs, 0),
+        durationMs: [...scopeResults, ...ownedResults].reduce((total, result) => total + result.durationMs, 0),
       });
       setState('idle');
     } catch {
@@ -306,7 +318,7 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
       <div className="filter-group best-monster-artifact-select">
         <label className="filter-label" htmlFor="best-monster-artifact">Artifact</label>
         <div className="filter-group-controls">
-          <Dropdown id="best-monster-artifact" value={selectedArtifact?.id ?? ''} onChange={(event) => setSelectedArtifactId(event.target.value)}
+          <Dropdown id="best-monster-artifact" value={filters.selectedArtifactId} onChange={(event) => setFilters((current) => ({ ...current, selectedArtifactId: event.target.value }))}
             placeholder="Choose an artifact" aria-label="Choose an artifact for monster recommendations">
             {artifactsByFilter.map((artifact) => {
               const substats = artifact.subProperties.map((property) =>
@@ -334,7 +346,7 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
             narrowed list, so leaving it behind would name a piece the restored
             list no longer points at. */}
         <button type="button" className="filter-reset" aria-label="Reset artifact filters"
-          onClick={() => { setFilters(defaultFilters); setSelectedArtifactId(''); }}>Reset filters</button>
+          onClick={resetFilters}>Reset filters</button>
       </div>
     </div>
 
@@ -365,7 +377,8 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
       : 'Settings or imported data changed. Calculate again to refresh these results.'}</p>}
 
     {currentCalculation && selectedArtifact && <>
-      <p className="best-artifact-meta" role="status">{formatNumber(currentCalculation.evaluatedPairs, general)} pairs checked · {currentCalculation.backend === 'webgpu' ? 'Graphics card' : 'Processor'}</p>
+      <CalculationStatus evaluatedPairs={currentCalculation.evaluatedPairs} durationMs={currentCalculation.durationMs}
+        backend={currentCalculation.backend} general={general} />
       <div className="best-monster-results">
         <ResultCard title="No artifact in this slot" description="The ten strongest eligible monsters with no artifact in this category equipped yet."
           empty={slotlessRows.length ? undefined : 'Every monster already has an artifact in this slot.'}>

@@ -12,7 +12,7 @@
   height: 13px;
   margin-left: var(--s2);
   vertical-align: -.15em;
-  color: var(--gold);
+  color: var(--text-accent);
 }
 
 .mark svg {

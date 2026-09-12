@@ -1,14 +1,15 @@
 /* The italic axis is requested explicitly: without it the browser synthesises
-   one by shearing the upright, which shows badly at display sizes. Great Vibes
-   is the home hero's one display face and is used nowhere else. */
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=JetBrains+Mono:wght@400;500;700&family=Great+Vibes&display=swap');
+   one by shearing the upright, which shows badly at display sizes. JASWA uses
+   one visible family for all copy; its two semantic tokens are kept separate
+   so headings and body text can be changed deliberately without call-site
+   invention. */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap');
 
 /* =====================================================================
    JASWA — Obsidian Grid
-   Colour carries exactly one meaning: "you can act on this". Gold marks
-   interactive state — the sorted column, active filters, the current
-   section. Everything else is form, position or weight. Rune sets are
-   plain monospaced text; status is text weight and a dotted rule.
+   Text has four intentional tones: muted context, normal content, strong
+   content, and the gold accent for something worth acting on. Surface, rule
+   and status colours are separate structural vocabularies.
 
    Two exceptions, each one a vocabulary the user already reads
    elsewhere rather than a decoration invented here: the verdict colours
@@ -26,16 +27,15 @@
   --line-strong: #313846;
   --hover: #161b23;
 
-  /* ink — raised across the board so small text stays legible on the
-     dark ground. --dim is the workhorse for secondary text and must
-     clear 4.5:1 against --bg. */
-  --ink: #f0eee9;
-  --dim: #a8adb8;
-  --faint: #757b87;
-  --ghost: #565c68;
+  /* text — every visible string chooses one of these four tones. The former
+     ghost tier now shares muted text, so an empty or disabled value does not
+     introduce a fifth reading colour. */
+  --text-muted: #757b87;
+  --text: #a8adb8;
+  --text-strong: #f0eee9;
+  --text-accent: #d9ad52;
 
   /* the single accent */
-  --gold: #d9ad52;
   --gold-deep: #33280f;
   --gold-edge: #5c4820;
   --gold-ink: #1a1206;
@@ -48,7 +48,7 @@
      nothing else: not data, not emphasis, not decoration. Each clears 4.5:1
      against --sunk. */
   --state-good: #5fbf82;
-  --state-warn: #d9ad52;
+  --state-warn: var(--text-accent);
   --state-bad: #e0705f;
 
   /* rhythm — one 4px scale. Every gap, pad and inset below is a step on it,
@@ -96,17 +96,13 @@
      spacing is already 60–108px wide where a column carries slack. */
   --seam: 76px;
 
-  /* type scale */
-  --t-micro: 11px;
-  --t-small: 12px;
-  --t-body: 13px;
-  --t-base: 14px;
-  --t-lead: 15px;
-  --t-title: 18px;
-  --t-display: 24px;
-  /* The one figure size: a number that is itself the answer, on Home's
-     statistics. Nothing else in the app is set this large. */
-  --t-figure: 32px;
+  /* type scale — five fixed reading roles, with no component-owned sizes. */
+  --type-label: 11px;
+  --type-body: 13px;
+  --type-heading: 15px;
+  --type-title: 18px;
+  --type-display: 24px;
+  --type-figure: 32px;
 
   /* Marks, not type. A stroked glyph is sized to the thing it sits beside
      rather than to the type scale, so these are named separately — but they
@@ -130,8 +126,8 @@
   --radius: 8px;
   --radius-sm: 6px;
 
-  --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-  --sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-heading: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-body: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -144,9 +140,9 @@ html { overflow-y: scroll; overflow-x: hidden; scrollbar-gutter: auto; }
 body {
   margin: 0;
   background: var(--bg);
-  color: var(--ink);
-  font-family: var(--sans);
-  font-size: var(--t-base);
+  color: var(--text-strong);
+  font-family: var(--font-body);
+  font-size: var(--type-body);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -187,9 +183,9 @@ body {
 .handheld-brand {
   position: relative;
   margin: 0;
-  color: var(--ink);
+  color: var(--text-strong);
   }
-.handheld-brand span { color: var(--gold); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.handheld-brand span { color: var(--text-accent); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
 .handheld-message {
   align-self: start;
   max-width: 46rem;
@@ -198,7 +194,7 @@ body {
 .handheld-message .eyebrow { margin: 0 0 var(--s3); }
 .handheld-message h1 {
   margin: 0;
-  color: var(--ink);
+  color: var(--text-strong);
   font-size: clamp(26px, 8vw, 44px);
   font-weight: 700;
   letter-spacing: -.035em;
@@ -207,11 +203,11 @@ body {
 }
 .handheld-message > p:not(.eyebrow) {
   margin: var(--s4) 0 0;
-  color: var(--dim);
+  color: var(--text);
   font-size: clamp(15px, 4.4vw, 20px);
   line-height: 1.6;
 }
-.handheld-message .handheld-footnote { color: var(--faint); font-size: var(--t-body); }
+.handheld-message .handheld-footnote { color: var(--text-muted); font-size: var(--type-body); }
 
 button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
@@ -241,174 +237,121 @@ label[for] {
   justify-self: start;
 }
 
-:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+:focus-visible { outline: 2px solid var(--text-accent); outline-offset: 1px; }
 
 /* =====================================================================
-   Type — nine voices, and every rule in this file picks one.
+   Type — five fixed roles, one visible family.
 
-   The house rule is the one in AGENTS.md §5: monospace for data, sans for
-   prose. What was missing was the rest of the sentence — how many sizes each
-   of those two gets, and which one a given piece of text is. Without it every
-   new component answered for itself, and the answers drifted: a heading could
-   be 15px at three trackings, an uppercase caption could be 11px or 14px at
-   four, and three buttons stacked in one column spoke in three voices.
+   Every visible string uses `--font-body` and one of the type tokens below.
+   Headings use the separate `--font-heading` token so changing the heading
+   family later is one deliberate decision. The two tokens currently resolve
+   to the same IBM Plex Sans family: the product should not make prose and
+   values look as if they came from different systems.
 
-   So the voices are declared once, here, as the roles they play rather than
-   the sizes they are. A rule below joins a list; it does not set type of its
-   own. If a new component needs a voice this list does not hold, that is a
-   decision worth making deliberately — add the voice here and say what it is
-   for, rather than tuning a font-size at the call site.
-
-   The two mono voices carry an emphasis of their own: weight 500 against 400
-   is the "preferred against acceptable" device, and it is static, never a
-   state, because 500 is wider than 400 and a control must not resize.
+   New components join one of these role selectors. A local font-family or
+   font-size is a defect except for a decorative mark or a responsive hero
+   display that is explicitly named as such.
    ===================================================================== */
 
-/* Display — the page's own name, and the home hero. One per screen. */
-.page-title {
-  font-family: var(--sans);
+/* Display — the page's own name and the home hero. */
+.type-display, .page-title {
+  font-family: var(--font-heading);
   font-weight: 700;
   letter-spacing: var(--track-display);
 }
 
 /* Title — what a panel, card, dialog or disclosure is called. */
-.block-title, .bar-head b, .dialog h2, .preset-name, .route-name,
+.type-title, .block-title, .bar-head b, .dialog h2, .preset-name, .route-name,
 .route-body-title, .statistics h4, .acceleration-word, .handheld-brand {
-  font-family: var(--sans);
-  font-size: var(--t-title);
+  font-family: var(--font-heading);
+  font-size: var(--type-title);
   font-weight: 600;
   letter-spacing: var(--track-title);
 }
 
-/* Heading — a named block inside a panel: a fieldset's legend, a slider's
-   question, the title over a result table. Below a title, above prose. */
-.field-legend, .slider-label, .editor-block-title, .artifact-conversion-title,
-.artifact-scope-box h3, .artifact-scope-subheading, .drop-zone strong,
-.best-artifact-result h3, .best-artifact-current h3, .best-artifact-category h3,
-.best-artifact-current-slot-title,
-.best-monster-artifact-details h3, .empty-state h2,
-.field-lead > span, .helper-version h4 {
-  font-family: var(--sans);
-  font-size: var(--t-lead);
+/* Heading — a named block inside a panel, one step below a title. */
+.type-heading, .field-legend, .slider-label, .editor-block-title,
+.artifact-conversion-title, .artifact-scope-box h3, .artifact-scope-subheading,
+.drop-zone strong, .best-artifact-result h3, .best-artifact-current h3,
+.best-artifact-category h3, .best-artifact-current-slot-title,
+.best-monster-artifact-details h3, .empty-state h2, .field-lead > span,
+.helper-version h4 {
+  font-family: var(--font-heading);
+  font-size: var(--type-heading);
   font-weight: 600;
   letter-spacing: var(--track-heading);
 }
 
-/* Lead — read at a glance from a distance: the rail's entries and the line
-   under a page title. The only sans voice at reading size that is not bold. */
-.rail-item, .page-tagline {
-  font-family: var(--sans);
-  font-size: var(--t-lead);
+/* Body — every sentence, label and value that is not a heading. */
+.type-body, .lead, .notice, .dialog p, .slider-note, .radio-note,
+.checkbox-row, .editor-note, .route-links, .artifact-conversion-intro,
+.statistics-lead, .best-artifact-ranking, .best-artifact-empty,
+.best-artifact-fact dt, .statistics dt, .empty-state p,
+.empty-state .next-step, .section-intro p, .relic-property,
+.relic-synergy-label, .helper-version p, .route-qualifier, .rail-item,
+.page-tagline, .filter-button, .filter-summary, .list-count, .grid-footer,
+.choice, .choice-none, .choice-chip, .flag, .set-mark, .set-none,
+.artifact-subs li, .relic-effect, .best-monster-intangible,
+.calculation-status, .range-slider-values, .optimizer-draft-columns,
+.helper-current-version, .import-badge-count, .best-artifact-result table,
+.best-monster-table, .artifact-recommendation-table-wrap > .artifact-recommendation-table,
+.grid-table, .meta-line, .sample-value, .target dd, .relic-monster-none,
+.best-artifact-entry-name, .best-artifact-fact dd,
+.best-artifact-improvements, .best-artifact-current-slot .artifact-subs li,
+.best-artifact-entry .artifact-subs li {
+  font-family: var(--font-body);
+  font-size: var(--type-body);
   font-weight: 400;
+  letter-spacing: normal;
 }
 
-/* Body — every sentence the app says to the user. */
-.lead, .notice, .dialog p, .slider-note, .radio-note, .checkbox-row,
-.editor-note, .route-links, .artifact-conversion-intro, .statistics-lead,
-.best-artifact-ranking, .best-artifact-empty, .best-artifact-fact dt,
-.statistics dt, .empty-state p, .empty-state .next-step, .section-intro p,
-.relic-property, .relic-synergy-label, .helper-version p, .route-qualifier {
-  font-family: var(--sans);
-  font-size: var(--t-body);
-  font-weight: 400;
-}
-
-/* Body, emphasised — a value written in the prose voice that has to stand out
-   from the prose around it: a monster's name in a row of figures, the choice a
-   slider has landed on. 500 rather than 600, because these sit inside running
-   text and the control voice would read as something to click. */
-.monster-name, .slider-choice, .relic-verdict, .drop-zone.settled strong,
-.acceleration-adapter b {
-  font-family: var(--sans);
-  font-size: var(--t-body);
+/* Body emphasis — weight carries priority without changing the family or size. */
+.type-body-emphasis, .monster-name, .slider-choice, .relic-verdict,
+.drop-zone.settled strong, .acceleration-adapter b {
+  font-family: var(--font-body);
+  font-size: var(--type-body);
   font-weight: 500;
   letter-spacing: normal;
 }
 
-/* Control — anything the user acts on that names an *action*. One voice for
-   every button, whatever its box: the size prop changes the button's height,
-   never its type, so Calculate, Clear results and Reset filters read as three
-   weights of the same thing rather than as three unrelated controls. */
-.button, .filter-reset, .text-link, .radio-line-legend, .preset-row-label,
-.artifact-conversion-more, .best-artifact-improvements .artifact-conversion-more,
-.notice-link, .field > span {
-  font-family: var(--sans);
-  font-size: var(--t-body);
+/* Controls name actions, but keep the same body family and measure. */
+.type-control, .button, .filter-reset, .text-link, .radio-line-legend,
+.preset-row-label, .artifact-conversion-more,
+.best-artifact-improvements .artifact-conversion-more, .notice-link,
+.field > span {
+  font-family: var(--font-body);
+  font-size: var(--type-body);
   font-weight: 600;
   letter-spacing: normal;
 }
 
-/* Label — the small uppercase caption naming a group, a column or a card
-   below it. Structural chrome: it is read before the thing it names, so it is
-   set bold and loose and stays out of the way at 11px. */
-.rail-heading, .filter-label, .eyebrow, .route-option, .grid-table thead th,
-.best-artifact-improvements-title,
-.best-artifact-result th, .best-monster-table th, .artifact-recommendation-table th {
-  font-family: var(--sans);
-  font-size: var(--t-micro);
+/* Labels name a group or column; captions name a nearby value. They share the
+   one label size so only weight and casing distinguish the two. */
+.type-label, .rail-heading, .filter-label, .eyebrow, .route-option,
+.grid-table thead th, .best-artifact-improvements-title,
+.best-artifact-result th, .best-monster-table th,
+.artifact-recommendation-table th {
+  font-family: var(--font-body);
+  font-size: var(--type-label);
   font-weight: 700;
   letter-spacing: var(--track-label);
   text-transform: uppercase;
 }
-
-/* Caption — the same size as a label and deliberately not the same weight.
-   This one names a value sitting right beside it inside a card, so it must
-   stay quieter than the value; a bold caption competes with the figure it
-   introduces. Casing is left to each use: `.target dt` distinguishes CtR from
-   CtD by its own capitals, which uppercasing would flatten. */
-.slot-label, .editor-slot-label, .target dt, .choice-legend,
+.type-caption, .slot-label, .editor-slot-label, .target dt, .choice-legend,
 .field-compact > span, .relic-stone-balance-label, .preset-type {
-  font-family: var(--sans);
-  font-size: var(--t-micro);
+  font-family: var(--font-body);
+  font-size: var(--type-label);
   font-weight: 400;
   letter-spacing: var(--track-caption);
 }
 
-/* Data — the workhorse monospace voice: every value the account holds, and
-   every control that names one rather than naming an action. A filter chip
-   reading "Water" or "LEG" is a value, so it stays in this voice even though
-   it is a button. */
-.filter-button, .filter-summary, .list-count, .grid-footer, .choice,
-.choice-none, .choice-chip, .flag, .set-mark, .set-none, .artifact-subs li,
-.relic-effect, .best-monster-intangible,
-.artifact-recommendation-meta, .range-slider-values, .optimizer-draft-columns,
-.helper-current-version, .import-badge-count, .best-artifact-result table,
-.best-monster-table, .artifact-recommendation-table-wrap > .artifact-recommendation-table {
-  font-family: var(--mono);
-  font-size: var(--t-small);
-  font-weight: 400;
-  letter-spacing: normal;
-}
-
-/* Data, one step up — the account libraries, where a row is the page's
-   primary content rather than a supporting figure, and the meta lines that
-   sit at the same reading weight.
-
-   Every run of content in "Best artifact for this monster" joins it too. Those
-   boxes had grown four sizes between them — an 11px caption over a 12px figure
-   beside a 13px lead under a 14px conversion line — and a box in four sizes
-   reads as an accident rather than as a decision. One size for the content,
-   with the heading above it and the uppercase sub-heading inside it as the only
-   two departures, is what makes the card scannable. The caption voice cannot be
-   used for the labels there for the same reason: it is 11px by definition, so
-   those labels stay quiet on colour alone and take the prose voice. */
-.grid-table, .meta-line, .sample-value, .target dd, .relic-monster-none,
-.best-artifact-meta, .best-artifact-entry-name, .best-artifact-fact dd,
-.best-artifact-improvements,
-.best-artifact-current-slot .artifact-subs li, .best-artifact-entry .artifact-subs li {
-  font-family: var(--mono);
-  font-size: var(--t-body);
-  font-weight: 400;
-}
-
-/* Figure — the one place a number is the whole point. */
-.statistics dd {
-  font-family: var(--mono);
-  font-size: var(--t-figure);
+/* Figure — a number that is the answer, not a second body voice. */
+.type-figure, .statistics dd {
+  font-family: var(--font-body);
+  font-size: var(--type-figure);
   font-weight: 700;
   letter-spacing: var(--track-title);
 }
-
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
@@ -417,9 +360,9 @@ label[for] {
   min-height: 100vh;
   display: grid;
   place-items: center;
-  color: var(--faint);
-  font-family: var(--mono);
-  font-size: var(--t-small);
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: var(--type-body);
   letter-spacing: var(--track-caption);
 }
 
@@ -469,7 +412,7 @@ label[for] {
    the baseline, and the thickness is fixed so it stays a hairline rather
    than scaling up with the wordmark's type. */
 .brand-sw {
-  color: var(--gold);
+  color: var(--text-accent);
   text-decoration: underline;
   text-decoration-thickness: 2px;
   text-underline-offset: 3px;
@@ -479,7 +422,7 @@ label[for] {
    rather than on the heading — the first group then starts flush. */
 .rail-group + .rail-group { margin-top: var(--s5); }
 .rail-heading {
-  color: var(--ghost); padding: 0 var(--s3);
+  color: var(--text-muted); padding: 0 var(--s3);
   margin: 0 0 var(--s2);
 }
 
@@ -490,7 +433,7 @@ label[for] {
   width: 100%; height: 48px;
   padding: 0 var(--s3);
   border: 0; background: transparent;
-  color: var(--dim);
+  color: var(--text);
   border-radius: var(--radius-sm);
   text-align: left;
   transition: color .12s, background .12s;
@@ -504,22 +447,22 @@ label[for] {
   text-align: center;
   font-size: var(--glyph);
   line-height: 1;
-  color: var(--faint);
+  color: var(--text-muted);
 }
-.rail-item:hover { background: var(--hover); color: var(--ink); }
-.rail-item:hover .glyph { color: var(--dim); }
+.rail-item:hover { background: var(--hover); color: var(--text-strong); }
+.rail-item:hover .glyph { color: var(--text); }
 .rail-item.report-issue {
   border: 1px solid var(--gold-edge);
-  color: var(--gold);
+  color: var(--text-accent);
 }
-.rail-item.report-issue .glyph { color: var(--gold); }
-.rail-item.report-issue:hover { border-color: var(--gold); background: var(--hover); }
+.rail-item.report-issue .glyph { color: var(--text-accent); }
+.rail-item.report-issue:hover { border-color: var(--text-accent); background: var(--hover); }
 .rail-item.active {
   background: #181c24;
-  color: var(--gold);
-  box-shadow: inset 2px 0 0 var(--gold);
+  color: var(--text-accent);
+  box-shadow: inset 2px 0 0 var(--text-accent);
 }
-.rail-item.active .glyph { color: var(--gold); }
+.rail-item.active .glyph { color: var(--text-accent); }
 .rail-spacer { flex: 1; min-height: var(--s4); }
 
 .workspace { min-width: 0; position: relative; display: grid; grid-template-rows: auto; grid-auto-rows: auto; align-content: start; }
@@ -554,21 +497,21 @@ label[for] {
     linear-gradient(180deg, color-mix(in srgb, var(--gold-deep) 62%, transparent), transparent 78%),
     color-mix(in srgb, var(--raise) 90%, transparent);
 }
-.import-badge p { margin: 0; white-space: nowrap; font-family: var(--mono); }
+.import-badge p { margin: 0; white-space: nowrap; font-family: var(--font-body); }
 .import-badge-count {
   font-variant-numeric: tabular-nums;
-  color: var(--ink);
+  color: var(--text-strong);
 }
 /* the collections still waiting on their workspaces: the same line of figures,
    read a step quieter than the two that are already in use */
 .import-badge-count.secondary {
   margin-top: 2px;
-  font-size: var(--t-micro);
-  color: var(--dim);
+  font-size: var(--type-label);
+  color: var(--text);
 }
 .import-badge-when {
-  font-size: var(--t-micro);
-  color: var(--faint);
+  font-size: var(--type-label);
+  color: var(--text-muted);
 }
 /* only when figures stand above it: with no import the date is the whole card
    and has nothing to be divided from */
@@ -578,7 +521,7 @@ label[for] {
   border-top: 1px solid var(--line);
 }
 .import-badge.live .import-badge-count + .import-badge-when { border-top-color: var(--gold-edge); }
-.import-badge.live .import-badge-when { color: var(--gold); }
+.import-badge.live .import-badge-when { color: var(--text-accent); }
 
 /* Import success is fixed to the viewport rather than the page: the JSON
    target sits below the fold, so confirmation at the document's top would be
@@ -608,16 +551,16 @@ label[for] {
   justify-content: end;
   gap: var(--s2);
   color: var(--state-good);
-  font-family: var(--sans);
-  font-size: var(--t-small);
+  font-family: var(--font-body);
+  font-size: var(--type-body);
   font-weight: 600;
 }
 .import-confirmation-title svg { flex: 0 0 auto; }
 .import-confirmation-count {
   margin-top: var(--s1) !important;
-  color: var(--dim);
-  font-family: var(--mono);
-  font-size: var(--t-micro);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--type-label);
   font-variant-numeric: tabular-nums;
 }
 @keyframes import-confirmation-leave {
@@ -721,11 +664,11 @@ label[for] {
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--sunk);
-  color: var(--faint);
+  color: var(--text-muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.filter-summary b { color: var(--dim); font-weight: 500; }
+.filter-summary b { color: var(--text); font-weight: 500; }
 /* Reset puts the filters back rather than taking the table somewhere new, so
    it does not wear the accent at rest: gold in this interface says "you can
    act on this", and a way back that shouted as loudly as the active filters
@@ -738,15 +681,15 @@ label[for] {
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--faint);
+  color: var(--text-muted);
   transition: color .12s, background .12s, border-color .12s;
 }
 .filter-reset:hover {
   border-color: var(--gold-edge);
   background: var(--gold-deep);
-  color: var(--gold);
+  color: var(--text-accent);
 }
-.filter-reset:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.filter-reset:focus-visible { outline: 2px solid var(--text-accent); outline-offset: 2px; }
 /* Include ends the first row, beside Location: the two ask the same shape of
    question — which artifacts belong in the list at all — while the second row
    is the narrowing filters.
@@ -843,20 +786,20 @@ label[for] {
 .storage-filter-grade { grid-area: grade; }
 .storage-filter-special { grid-area: special; }
 .filter-label {
-  color: var(--faint); }
+  color: var(--text-muted); }
 .filter-button {
   border: 1px solid transparent;
   background: transparent;
-  color: var(--dim);
+  color: var(--text);
   height: 30px;
   padding: 0 var(--s3);
   border-radius: var(--radius-sm);
   transition: color .12s, background .12s, border-color .12s;
 }
-.filter-button:hover { background: var(--hover); color: var(--ink); }
+.filter-button:hover { background: var(--hover); color: var(--text-strong); }
 .filter-button.active {
   background: var(--gold-deep);
-  color: var(--gold);
+  color: var(--text-accent);
   border-color: var(--gold-edge);
 }
 
@@ -868,14 +811,14 @@ label[for] {
   padding: 0 var(--s3);
   height: 32px;
   width: 260px;
-  color: var(--dim);
+  color: var(--text);
 }
-.search-field:focus-within { border-color: var(--gold); }
+.search-field:focus-within { border-color: var(--text-accent); }
 .search-field input {
-  border: 0; background: transparent; color: var(--ink);
-  font-size: var(--t-body); width: 100%; min-width: 0; padding: 0; outline: none;
+  border: 0; background: transparent; color: var(--text-strong);
+  font-size: var(--type-body); width: 100%; min-width: 0; padding: 0; outline: none;
 }
-.search-field input::placeholder { color: var(--faint); }
+.search-field input::placeholder { color: var(--text-muted); }
 /* The clear button keeps its slot whether or not there is anything to clear.
    Mounting it on the first keystroke used to take ~42px out of a fixed-width
    field, so the text the user had just typed jumped left under the caret. */
@@ -887,10 +830,10 @@ label[for] {
   }
 .search-field .filter-button[hidden] { display: block; visibility: hidden; }
 .search-field kbd {
-  font-family: var(--mono); font-size: var(--t-micro);
+  font-family: var(--font-body); font-size: var(--type-label);
   border: 1px solid var(--line-strong);
   border-radius: 3px; padding: 1px 5px;
-  color: var(--faint);
+  color: var(--text-muted);
 }
 
 /* ---------------------------------------------------------------- table
@@ -951,14 +894,14 @@ label[for] {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--faint);
+  color: var(--text-muted);
 }
 .jaswa-select.artifact-sort-select {
   flex: 0 1 260px;
   width: 260px;
   max-width: 100%;
   height: 32px;
-  font-size: var(--t-small);
+  font-size: var(--type-body);
 }
 /* The three bands an artifact's score reads in — the one colour vocabulary in
    JASWA that names a fact rather than an action. Gold at the top band earns the
@@ -978,20 +921,20 @@ label[for] {
    Colour is the whole signal: no weight, no size, no mark, any of which would
    change a cell's width and move the row beside it (rule 2). */
 [data-tint] { color: var(--tint) !important; }
-[data-tint='score-strong'] { --tint: var(--gold); }
-[data-tint='score-fair'] { --tint: var(--ink); }
-[data-tint='score-weak'] { --tint: var(--dim); }
+[data-tint='score-strong'] { --tint: var(--text-accent); }
+[data-tint='score-fair'] { --tint: var(--text-strong); }
+[data-tint='score-weak'] { --tint: var(--text); }
 
 /* The requested artifact-fit palette makes preferred lines gold, keeps
    acceptable lines in full ink, and leaves every other line faint. */
-.artifact-subs li.artifact-sub-preferred { color: var(--gold); }
-.artifact-subs li.artifact-sub-acceptable { color: var(--ink); }
-.artifact-grid td.artifact-main-unwanted { color: var(--faint); }
-.artifact-grid td.artifact-main-preferred { color: var(--gold); }
-.artifact-grid td.artifact-main-acceptable { color: var(--ink); }
+.artifact-subs li.artifact-sub-preferred { color: var(--text-accent); }
+.artifact-subs li.artifact-sub-acceptable { color: var(--text-strong); }
+.artifact-grid td.artifact-main-unwanted { color: var(--text-muted); }
+.artifact-grid td.artifact-main-preferred { color: var(--text-accent); }
+.artifact-grid td.artifact-main-acceptable { color: var(--text-strong); }
 /* A property the game no longer drops still shows its value, dimmed: it is a
    real line on a real artifact, but nothing here can judge how well it rolled. */
-.artifact-subs li.legacy { color: var(--faint); }
+.artifact-subs li.legacy { color: var(--text-muted); }
 .artifact-sub-mark {
   display: inline-block;
   width: 1em;
@@ -1020,10 +963,10 @@ label[for] {
 .relic-property { display: block; }
 .relic-effect {
   display: block;
-  color: var(--faint);
+  color: var(--text-muted);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.relic-grid td.relic-main { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.relic-grid td.relic-main { font-family: var(--font-body); font-variant-numeric: tabular-nums; }
 
 /* One mark's box, drawn or not. A slot keeps its width in every state, so a
    band with one star measures the same as a band with two and the column
@@ -1053,16 +996,16 @@ label[for] {
    leaving a misleading gap before the text. */
 .relic-synergy .relic-mark-slots { flex-direction: row-reverse; }
 .relic-synergy[data-band='exceptional'],
-.relic-synergy[data-band='strong'] { color: var(--gold); }
-.relic-synergy[data-band='neutral'] { color: var(--dim); }
+.relic-synergy[data-band='strong'] { color: var(--text-accent); }
+.relic-synergy[data-band='neutral'] { color: var(--text); }
 .relic-synergy[data-band='weak'],
 .relic-synergy[data-band='poor'] { color: var(--state-bad); }
 
 /* Durability is three pips and always three: the spent ones are the reason a
    level will never move again, so they stay on the page as hollow rings. */
 .relic-durability .relic-pip { fill: none; stroke: currentColor; stroke-width: 1.4; }
-.relic-durability .relic-pip-left { fill: var(--ink); stroke: var(--ink); }
-.relic-durability .relic-pip-spent { stroke: var(--ghost); }
+.relic-durability .relic-pip-left { fill: var(--text-strong); stroke: var(--text-strong); }
+.relic-durability .relic-pip-spent { stroke: var(--text-muted); }
 
 /* The likeliest landing level over its own probability. Two lines, so the
    level keeps the table's figure size and the confidence reads as the footnote
@@ -1070,8 +1013,8 @@ label[for] {
 .relic-landing-level { display: block; font-variant-numeric: tabular-nums; }
 .relic-landing-chance {
   display: block;
-  font-size: var(--t-small);
-  color: var(--faint);
+  font-size: var(--type-body);
+  color: var(--text-muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   /* A median is a tail, so the figure is written as a bound rather than as a
@@ -1088,7 +1031,7 @@ label[for] {
 
 .relic-verdict { display: block; }
 .relic-verdict[data-verdict='power-up'] { color: var(--state-good); }
-.relic-verdict[data-verdict='keep'] { color: var(--ink); }
+.relic-verdict[data-verdict='keep'] { color: var(--text-strong); }
 .relic-verdict[data-verdict='sell'] { color: var(--state-bad); }
 /* Always present and one line high. A slider move can replace one explanation
    with another, but it cannot make the advice row change height under the
@@ -1097,9 +1040,9 @@ label[for] {
   display: block;
   min-height: 16px;
   overflow: hidden;
-  color: var(--faint);
-  font-family: var(--mono);
-  font-size: var(--t-micro);
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: var(--type-label);
   line-height: 16px;
   font-variant-numeric: tabular-nums;
   text-overflow: ellipsis;
@@ -1166,15 +1109,15 @@ label[for] {
 .relic-stone-balance-label {
   min-width: 0;
   overflow: hidden;
-  color: var(--dim);
+  color: var(--text);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .relic-stone-balance-value {
   flex: 0 0 auto;
-  color: var(--dim);
-  font-family: var(--mono);
-  font-size: var(--t-micro);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--type-label);
   font-variant-numeric: tabular-nums;
 }
 @media (min-width: 1921px) and (max-width: 1700px) {
@@ -1222,8 +1165,8 @@ label[for] {
 .relic-monster-grid tbody td { height: auto; padding-block: var(--s2); vertical-align: middle; }
 /* An absent relic is a fact about the monster, not an unjudged cell, so it
    takes the established dim rather than `.muted`. */
-.relic-monster-none { color: var(--dim); }
-.relic-monster-grid td.align-right { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.relic-monster-none { color: var(--text); }
+.relic-monster-grid td.align-right { font-family: var(--font-body); font-variant-numeric: tabular-nums; }
 
 /* Four verdicts on one ladder: a bare monster gaining a relic is a clean win,
    a swap says the relic it wears is the wrong one, nothing to do stays in full
@@ -1259,7 +1202,7 @@ label[for] {
 /* "Same" stands where a two-line relic would, so it takes the dimmed half of
    the two-tone pair: the row has nothing to act on, and the cell should read
    that way at a glance rather than competing with the rows that do. */
-.relic-monster-same { color: var(--faint); font-style: italic; }
+.relic-monster-same { color: var(--text-muted); font-style: italic; }
 /* The step-downs state `--filter-columns` alongside the areas, because the
    base strip sizes its columns from that count and areas alone would leave two
    empty tracks past the last group. The three strips above carry the same
@@ -1314,7 +1257,7 @@ label[for] {
   position: sticky; top: 0; z-index: 10;
   background: var(--raise);
   text-align: right;
-  color: var(--dim); height: var(--strip);
+  color: var(--text); height: var(--strip);
   padding: 0 var(--s3);
   border-bottom: 1px solid var(--line-strong);
   white-space: nowrap;
@@ -1326,12 +1269,12 @@ label[for] {
    their own here; it went when they moved onto the shared header, so that the
    two could not drift apart in look or in behaviour. */
 .grid-table thead th.sortable-column { cursor: pointer; }
-.grid-table thead th.sortable-column:hover { color: var(--ink); }
+.grid-table thead th.sortable-column:hover { color: var(--text-strong); }
 .grid-table thead th.align-left { text-align: left; }
 .grid-table thead th.align-right { text-align: right; }
 .grid-table thead th.align-center { text-align: center; }
 .table-heading-two-line { display: block; line-height: 1.2; white-space: normal; }
-.grid-table thead th.reserved { color: var(--faint); font-style: italic; }
+.grid-table thead th.reserved { color: var(--text-muted); font-style: italic; }
 
 .grid-table tbody td {
   padding: 0 var(--s3);
@@ -1339,19 +1282,19 @@ label[for] {
   border-bottom: 1px solid var(--line);
   text-align: right;
   font-variant-numeric: tabular-nums;
-  color: var(--ink);
+  color: var(--text-strong);
 }
-.grid-table tbody td.align-left { text-align: left; font-family: var(--sans); }
+.grid-table tbody td.align-left { text-align: left; font-family: var(--font-body); }
 .grid-table tbody td.align-right { text-align: right; }
 .grid-table tbody tr:hover td { background: var(--hover); }
-.grid-table tbody td.muted { color: var(--faint); }
-.grid-table tbody td.dim { color: var(--dim); }
-.grid-table tbody td.pending { color: var(--faint); font-style: italic; }
+.grid-table tbody td.muted { color: var(--text-muted); }
+.grid-table tbody td.dim { color: var(--text); }
+.grid-table tbody td.pending { color: var(--text-muted); font-style: italic; }
 .grid-table tbody td.table-empty-state {
   height: 56px;
-  color: var(--dim);
+  color: var(--text);
   text-align: left;
-  font-family: var(--sans);
+  font-family: var(--font-body);
 }
 
 /* Artifacts and relics are equipment alongside the rune sheet, and now sit
@@ -1361,7 +1304,7 @@ label[for] {
 .monster-grid .equipment-start { padding-left: var(--s5); }
 .monster-grid .equipment-types { white-space: nowrap; }
 
-.row-index { color: var(--ghost); font-family: var(--mono); font-size: var(--t-micro); width: 64px; }
+.row-index { color: var(--text-muted); font-family: var(--font-body); font-size: var(--type-label); width: 64px; }
 
 .monster-cell { display: flex; align-items: center; gap: var(--s3); min-width: 0; }
 .monster-name {
@@ -1369,8 +1312,8 @@ label[for] {
 }
 .monster-name small {
   display: block;
-  font-size: var(--t-micro);
-  color: var(--faint);
+  font-size: var(--type-label);
+  color: var(--text-muted);
   font-weight: 400;
   margin-top: 1px;
 }
@@ -1388,23 +1331,23 @@ label[for] {
 }
 .monster-portrait.placeholder {
   display: grid; place-items: center;
-  color: var(--dim);
-  font-family: var(--mono);
-  font-size: var(--t-micro); font-weight: 700;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--type-label); font-weight: 700;
 }
 
-/* rune sets: plain monospaced text, second set dimmed */
+/* rune sets: plain body text, second set dimmed */
 .set-mark {
-  color: var(--ink);
+  color: var(--text-strong);
   white-space: nowrap;
 }
-.set-none { color: var(--faint); }
+.set-none { color: var(--text-muted); }
 
 /* an empty cell that is waiting on a calculation, not missing data */
 .awaiting {
   display: inline-block;
   width: 16px;
-  border-bottom: 1px solid var(--faint);
+  border-bottom: 1px solid var(--text-muted);
   vertical-align: 4px;
 }
 
@@ -1523,25 +1466,25 @@ label[for] {
 }
 .bar-head::-webkit-details-marker { display: none; }
 .bar-head:hover { background: var(--hover); }
-.bar-head:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+.bar-head:focus-visible { outline: 2px solid var(--text-accent); outline-offset: -2px; }
 
 .bar-chevron {
   flex: 0 0 auto;
   width: 20px;
   font-size: var(--glyph-small); line-height: 1;
-  color: var(--faint);
+  color: var(--text-muted);
   text-align: center;
   transition: transform .16s ease, color .12s;
 }
-.bar[open] .bar-chevron { transform: rotate(90deg); color: var(--gold); }
-.bar-head:hover .bar-chevron { color: var(--dim); }
+.bar[open] .bar-chevron { transform: rotate(90deg); color: var(--text-accent); }
+.bar-head:hover .bar-chevron { color: var(--text); }
 
 .bar-head b {
   flex: 1;
   min-width: 0;
-  color: var(--ink);
+  color: var(--text-strong);
 }
-.bar[open] .bar-head b { color: var(--gold); }
+.bar[open] .bar-head b { color: var(--text-accent); }
 
 .bar-body {
   padding: var(--s5);
@@ -1562,7 +1505,7 @@ label[for] {
 .field-legend {
   margin: 0 0 var(--s2);
   line-height: 1.3;
-  color: var(--ink);
+  color: var(--text-strong);
 }
 
 /* a bordered table that sits inside a panel rather than bleeding to the edge */
@@ -1597,17 +1540,17 @@ label[for] {
   min-width: 0;
   padding: var(--s4);
   border: 1px solid var(--line-strong);
-  border-left: 2px solid var(--gold);
+  border-left: 2px solid var(--text-accent);
   border-radius: 0 var(--radius) var(--radius) 0;
   background: var(--sunk);
 }
 .artifact-scope-box h3 {
   margin: 0 0 var(--s3);
   line-height: 1.3;
-  color: var(--ink);
+  color: var(--text-strong);
 }
 .artifact-scope-box .artifact-scope-subheading { margin-top: var(--s5); }
-.artifact-scope-box .checkbox-row { color: var(--ink); }
+.artifact-scope-box .checkbox-row { color: var(--text-strong); }
 @media (min-width: 1921px) and (max-width: 1280px) {
   .artifact-general-layout { grid-template-columns: minmax(0, 1fr); }
   .artifact-general-layout > .slider { width: 100%; }
@@ -1628,18 +1571,18 @@ label[for] {
 .artifact-conversion-box {
   padding: var(--s4);
   border: 1px solid var(--line-strong);
-  border-left: 2px solid var(--gold);
+  border-left: 2px solid var(--text-accent);
   border-radius: 0 var(--radius) var(--radius) 0;
   background: var(--sunk);
 }
 .artifact-conversion-title {
   margin: 0;
   line-height: 1.3;
-  color: var(--ink);
+  color: var(--text-strong);
 }
 .artifact-conversion-intro {
   margin: calc(var(--s5) * -1 + var(--s2)) 0 0;
-  color: var(--dim);
+  color: var(--text);
   line-height: 1.5;
 }
 
@@ -1649,7 +1592,7 @@ label[for] {
 .slider[data-disabled='true'] .slider-note,
 .slider[data-disabled='true'] .slider-choice,
 .slider[data-disabled='true'] .checkbox-row {
-  color: var(--faint);
+  color: var(--text-muted);
 }
 .slider input[type='range']:disabled {
   opacity: .4;
@@ -1681,7 +1624,7 @@ label[for] {
   gap: var(--s5);
   align-items: start;
 }
-/* Contrast against the panel: --line measured 1.21:1 and vanished, --ghost
+/* Contrast against the panel: --line measured 1.21:1 and vanished, --text-muted
    2.70:1 and read as a hard border. This sits between them at 2.03:1 —
    present, but quieter than the content it separates. */
 .settings-rule {
@@ -1739,13 +1682,13 @@ label[for] {
 .slider-note {
   margin: var(--s1) 0 0;
   min-height: calc(2 * 1.5em);
-  color: var(--dim);
+  color: var(--text);
   line-height: 1.5;
 }
 .slider input[type='range'] {
   display: block; width: 100%;
   margin: var(--s4) 0 0;
-  accent-color: var(--gold);
+  accent-color: var(--text-accent);
   height: 20px;
 }
 
@@ -1756,7 +1699,7 @@ label[for] {
 .range-slider-values {
   position: relative;
   height: var(--s5);
-  color: var(--gold);
+  color: var(--text-accent);
   font-variant-numeric: tabular-nums;
 }
 /* The value is centred on its handle by shifting it half its own width, so
@@ -1795,7 +1738,7 @@ label[for] {
   top: var(--s2);
   height: var(--s1);
   border-radius: var(--s1);
-  background: var(--gold);
+  background: var(--text-accent);
   pointer-events: none;
 }
 .range-slider-input {
@@ -1807,7 +1750,7 @@ label[for] {
   margin: 0;
   appearance: none;
   background: transparent;
-  accent-color: var(--gold);
+  accent-color: var(--text-accent);
   pointer-events: none;
 }
 /* Which of the two stacked inputs is hittable, decided in the component by
@@ -1830,7 +1773,7 @@ label[for] {
   height: 16px;
   margin-top: -6px;
   appearance: none;
-  border: 2px solid var(--gold);
+  border: 2px solid var(--text-accent);
   border-radius: 50%;
   background: var(--raise);
   cursor: pointer;
@@ -1839,13 +1782,13 @@ label[for] {
 .range-slider-input::-moz-range-thumb {
   width: 12px;
   height: 12px;
-  border: 2px solid var(--gold);
+  border: 2px solid var(--text-accent);
   border-radius: 50%;
   background: var(--raise);
   cursor: pointer;
   pointer-events: auto;
 }
-.range-slider-input:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.range-slider-input:focus-visible { outline: 2px solid var(--text-accent); outline-offset: 2px; }
 /* The single-handle slider names one value and stands beside its own label, so
    the value reads under the rail: above it, the reserved row lifted the label
    off the line its neighbours sit on. */
@@ -1862,7 +1805,7 @@ label[for] {
 }
 .optimizer-draft { display: grid; gap: var(--s3); }
 .optimizer-draft .lead, .optimizer-draft-note { margin: 0; }
-.optimizer-draft-note { color: var(--dim); }
+.optimizer-draft-note { color: var(--text); }
 .optimizer-draft-columns {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 10ch;
@@ -1871,7 +1814,7 @@ label[for] {
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--sunk);
-  color: var(--faint);
+  color: var(--text-muted);
   }
 
 /* ================================================================ filter panel
@@ -1942,7 +1885,7 @@ label[for] {
    only the dropdown options and result rows, never the controls around them. */
 .best-artifact-for-monster { display: grid; gap: var(--s4); }
 .best-monster-for-artifact { display: grid; gap: var(--s4); }
-.best-artifact-for-monster > .lead, .best-artifact-meta { margin: 0; }
+.best-artifact-for-monster > .lead { margin: 0; }
 .best-monster-for-artifact > .lead { margin: 0; }
 /* Two panels rather than one, and the split is the whole point of the view: the
    monster is its subject and leads, while every filter below narrows the
@@ -1996,7 +1939,14 @@ label[for] {
 .best-artifact-monster-select .filter-group-controls { width: 50%; }
 .best-artifact-monster-select .jaswa-select { width: 100%; min-width: 30ch; }
 .best-monster-actions { grid-area: calculate; justify-self: start; }
-.best-artifact-meta { color: var(--dim); font-variant-numeric: tabular-nums; }
+.calculation-status {
+  margin: 0;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--type-body);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
 
 /* What the monster wears today, before any advice: the comparison every
    recommendation below is measured against, so it sits between the choice and
@@ -2022,7 +1972,7 @@ label[for] {
    slot further down the page: "Attribute" here and "Attribute" there are one
    subject. At label size and faint it read as chrome printed on the box rather
    than as the box's name. */
-.best-artifact-current-slot-title { grid-column: 1 / -1; margin: 0; color: var(--ink); }
+.best-artifact-current-slot-title { grid-column: 1 / -1; margin: 0; color: var(--text-strong); }
 .best-artifact-current-facts {
   display: grid;
   align-content: start;
@@ -2039,7 +1989,7 @@ label[for] {
 .best-artifact-results { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s5); }
 .best-artifact-category { display: grid; gap: var(--s3); }
 .best-artifact-category h3 { margin: 0; padding-bottom: var(--s2); border-bottom: 1px solid var(--line-strong); }
-.best-artifact-ranking { margin: 0; color: var(--dim); }
+.best-artifact-ranking { margin: 0; color: var(--text); }
 .best-artifact-entries { display: grid; gap: var(--s2); margin: 0; padding: 0; list-style: none; }
 /* Three columns, in the order the decision is made: what the artifact is, the
    lines it actually holds, and what a stone could still do to them. The first
@@ -2063,7 +2013,7 @@ label[for] {
   min-width: 0;
 }
 .best-artifact-entry .artifact-subs { align-self: start; min-width: 0; }
-.best-artifact-entry-name { margin: 0; color: var(--dim); }
+.best-artifact-entry-name { margin: 0; color: var(--text); }
 .best-artifact-facts { display: grid; gap: var(--s1); margin: 0; }
 .best-artifact-fact {
   display: grid;
@@ -2075,8 +2025,8 @@ label[for] {
 /* In the mark-up the label is just its own words, so nothing reads "Main stat
    colon" aloud; the colon is the written convention, not part of the name. */
 .best-artifact-fact dt::after { content: ':'; }
-.best-artifact-fact dt { color: var(--faint); }
-.best-artifact-fact dd { color: var(--dim); font-variant-numeric: tabular-nums; }
+.best-artifact-fact dt { color: var(--text-muted); }
+.best-artifact-fact dd { color: var(--text); font-variant-numeric: tabular-nums; }
 /* The blank line the facts are grouped by: what the artifact is, where it is
    now, and what it would be worth here. */
 .best-artifact-fact-group { margin-top: var(--s2); }
@@ -2085,7 +2035,7 @@ label[for] {
    (§18.2, `data-tint`), which is the one colour vocabulary JASWA gives a fact.
    Colour and position carry it: the size is the box's one size, because a
    figure that grew would shift the lines beside it. */
-.best-artifact-fact-score dt { color: var(--ink); }
+.best-artifact-fact-score dt { color: var(--text-strong); }
 /* What a stone could still do to this artifact, across the full width of the
    box. A conversion is a sentence and it wrapped three times over in a column
    sized for labels; the score it would reach leads, because it is what the
@@ -2099,9 +2049,9 @@ label[for] {
   padding-top: var(--s3);
   border-top: 1px solid var(--line);
   min-width: 0;
-  color: var(--dim);
+  color: var(--text);
 }
-.best-artifact-improvements-title { margin: 0; color: var(--faint); }
+.best-artifact-improvements-title { margin: 0; color: var(--text-muted); }
 /* Recommendations give conversions their own third column. The current-slot
    cards have only two columns and keep the shared block below them instead. */
 .best-artifact-entry > .best-artifact-improvements {
@@ -2119,36 +2069,36 @@ label[for] {
 .best-artifact-result { min-width: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
 .best-artifact-result > header { min-height: 126px; padding: var(--s4); border-bottom: 1px solid var(--line); background: var(--sunk); }
 .best-artifact-result h3, .best-artifact-result p { margin: 0; }
-.best-artifact-result header p { margin-top: var(--s2); color: var(--dim); font-size: var(--t-small); line-height: 1.45; }
+.best-artifact-result header p { margin-top: var(--s2); color: var(--text); font-size: var(--type-body); line-height: 1.45; }
 .best-artifact-result table { width: 100%; min-width: 0; border-collapse: collapse; table-layout: fixed; }
 /* No text-align here: alignment is the column's own declaration, applied to the
    heading and the cell alike. A rule at this specificity would override it. */
 .best-artifact-result th, .best-artifact-result td { padding: var(--s3); border-bottom: 1px solid var(--line); vertical-align: top; }
-.best-artifact-result th { color: var(--faint); }
+.best-artifact-result th { color: var(--text-muted); }
 .best-artifact-result th:nth-child(1) { width: 30%; }
 .best-artifact-result th:nth-child(2), .best-artifact-result th:nth-child(3), .best-artifact-result th:nth-child(4) { width: 23.333%; }
 .best-artifact-result tr:last-child td { border-bottom: 0; }
 .best-artifact-result td b, .best-artifact-result td span { display: block; }
-.best-artifact-result td b { min-height: 1.45em; font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 500; }
-.best-artifact-result td span { margin-top: var(--s1); color: var(--dim); line-height: 1.35; }
-.best-artifact-empty { padding: var(--s4); color: var(--dim); }
+.best-artifact-result td b { min-height: 1.45em; font-family: var(--font-body); font-variant-numeric: tabular-nums; font-weight: 500; }
+.best-artifact-result td span { margin-top: var(--s1); color: var(--text); line-height: 1.35; }
+.best-artifact-empty { padding: var(--s4); color: var(--text); }
 .best-monster-artifact-details { display: grid; grid-template-columns: minmax(22ch, .8fr) minmax(0, 1.2fr); gap: var(--s5); padding: var(--s4); border: 1px solid var(--line); border-radius: var(--radius); background: var(--sunk); }
 .best-monster-artifact-details p, .best-monster-artifact-details h3 { margin: 0; }
 .best-monster-artifact-details h3 { margin-top: var(--s1); }
-.best-monster-artifact-details h3 + p { margin-top: var(--s2); color: var(--dim); }
+.best-monster-artifact-details h3 + p { margin-top: var(--s2); color: var(--text); }
 .best-monster-artifact-details .artifact-subs { align-self: center; columns: 2; column-gap: var(--s5); }
 .best-monster-artifact-details .artifact-subs li { break-inside: avoid; }
 /* A statement of fact about the artifact, not a warning: Intangible widens the
    candidate list rather than signalling anything wrong. */
-.best-monster-intangible { margin-top: var(--s2); color: var(--gold); }
+.best-monster-intangible { margin-top: var(--s2); color: var(--text-accent); }
 .best-monster-result-scroll { overflow: visible; }
 .best-monster-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 /* Alignment comes from the column declaration; see .best-artifact-result. */
 .best-monster-table th, .best-monster-table td { padding: var(--s3); border-bottom: 1px solid var(--line); vertical-align: top; }
-.best-monster-table th { color: var(--faint); }
+.best-monster-table th { color: var(--text-muted); }
 .best-monster-table th:nth-child(1) { width: 37%; }
 .best-monster-table tr:last-child td { border-bottom: 0; }
-.best-monster-table td b { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 500; }
+.best-monster-table td b { font-family: var(--font-body); font-variant-numeric: tabular-nums; font-weight: 500; }
 @media (min-width: 1921px) and (max-width: 1420px) {
   .best-monster-filters { grid-template-columns: max-content minmax(20ch, 1fr) max-content; }
   .best-artifact-actions { justify-self: start; }
@@ -2185,7 +2135,7 @@ label[for] {
    rows to inspect. That keeps a click on a filter from silently changing the
    advice in every remaining row. */
 .artifact-recommendations { display: grid; gap: var(--s4); }
-.artifact-recommendations > .lead, .artifact-recommendation-meta, .artifact-recommendation-empty { margin: 0; }
+.artifact-recommendations > .lead, .artifact-recommendation-empty { margin: 0; }
 /* Every filter column sizes to its own content, so no group is ever stretched
    and the gap between adjacent choices is always the 4px that
    .filter-group-controls sets — except for the two deliberate category breaks
@@ -2261,10 +2211,9 @@ label[for] {
    second thing to decide between. Everything else — its compact box, and the
    red it turns on hover — it shares with every other destructive button. */
 .button.artifact-recommendation-clear:not(:disabled) {
-  color: var(--faint);
+  color: var(--text-muted);
   border-color: var(--line);
 }
-.artifact-recommendation-meta { color: var(--dim); font-variant-numeric: tabular-nums; }
 .artifact-recommendation-table-wrap { width: 100%; overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); }
 /* The table always fits its container: it is 100% wide and every column is a
    share of that, so there is no width at which it can overflow and no
@@ -2296,7 +2245,7 @@ label[for] {
    of letting the uppercase tracking mash them together, and aligning to the
    bottom sits every heading on the rule above the rows, so a wrapped one grows
    upward instead of leaving its neighbours floating. */
-.artifact-recommendation-table th { color: var(--faint); line-height: 1.45; vertical-align: bottom; }
+.artifact-recommendation-table th { color: var(--text-muted); line-height: 1.45; vertical-align: bottom; }
 .artifact-recommendation-table tr:last-child td { border-bottom: 0; }
 /* The shares are set from what each column actually has to hold, longest
    content first, and the short ones divide what is left.
@@ -2348,7 +2297,7 @@ label[for] {
    less, but the width is set by the headings above them: below this, "Value on
    mon" breaks to a third line, and a heading stacked deeper than the two lines
    the rest of the row allows for drags the whole header band down with it. */
-.artifact-recommendation-table th:nth-child(5), .artifact-recommendation-table th:nth-child(8), .artifact-recommendation-table td:nth-child(5), .artifact-recommendation-table td:nth-child(8) { width: 7%; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.artifact-recommendation-table th:nth-child(5), .artifact-recommendation-table th:nth-child(8), .artifact-recommendation-table td:nth-child(5), .artifact-recommendation-table td:nth-child(8) { width: 7%; font-family: var(--font-body); font-variant-numeric: tabular-nums; }
 .artifact-recommendation-table th:nth-child(6) { width: 6%; }
 /* Each conversion is a whole sentence naming a property and the stone it would
    spend, and the column lists several of them (§17.5). It carries the rounding
@@ -2383,16 +2332,16 @@ label[for] {
    in. Its right side keeps the wide padding, which is the table's own edge. */
 .artifact-recommendation-table th:nth-child(10), .artifact-recommendation-table td:nth-child(10) { width: 3%; padding-left: var(--s2); }
 .artifact-recommendation-flag > * { margin-left: 0; }
-.artifact-recommendation-sell { color: var(--faint); }
+.artifact-recommendation-sell { color: var(--text-muted); }
 /* The monster an artifact sits on now, where that is not the monster the plan
    names. It is context rather than advice — the address the piece has to be
-   collected from — so it takes the same `--dim` the conversion column gives
+   collected from — so it takes the same `--text` the conversion column gives
    its connective words, one step down from full ink and one step up from the
-   `--faint` a sold row is written in. "Inventory" is deliberately not dimmed:
+   `--text-muted` a sold row is written in. "Inventory" is deliberately not dimmed:
    a piece that is free to move is the readiest row in the table. */
-.artifact-recommendation-wearer { color: var(--dim); }
+.artifact-recommendation-wearer { color: var(--text); }
 .artifact-recommendation-keep,
-.artifact-recommendation-no-conversion { color: var(--gold); }
+.artifact-recommendation-no-conversion { color: var(--text-accent); }
 /* Below about 1240px the action no longer fits beside the filters, so it drops
    under them. The three filter rows are unchanged. */
 @media (min-width: 1921px) and (max-width: 1240px) {
@@ -2441,7 +2390,7 @@ label[for] {
 .slider-choice {
   margin: var(--s3) 0 0;
   min-height: calc(3 * 1.45em);
-  color: var(--gold);
+  color: var(--text-accent);
   line-height: 1.45;
   text-wrap: pretty;
 }
@@ -2480,11 +2429,11 @@ label[for] {
    sits in are the same size and cut — a peer, not a caption. */
 .statistics h4 {
   margin: 0;
-  color: var(--gold);
+  color: var(--text-accent);
 }
 .statistics-lead {
   margin: var(--s1) 0 var(--s4);
-  color: var(--dim);
+  color: var(--text);
   line-height: 1.45;
 }
 .statistics dl { margin: 0; display: grid; gap: var(--s3); }
@@ -2499,17 +2448,17 @@ label[for] {
 }
 .statistics dl > div:first-child { padding-top: 0; border-top: 0; }
 .statistics dt {
-  color: var(--dim);
+  color: var(--text);
 }
 .statistics dd {
   margin: 0;
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
-  color: var(--gold);
+  color: var(--text-accent);
   white-space: nowrap;
 }
 .statistics dd .unit {
-  font-size: var(--t-title); font-weight: 700;
+  font-size: var(--type-title); font-weight: 700;
   margin-left: var(--s1);
   opacity: .75;
 }
@@ -2517,7 +2466,7 @@ label[for] {
    figure that means something; a dash here means neither yet. The block keeps
    its full height so the aside does not resize when the figures arrive. */
 .statistics.pending { border-color: var(--line); background: var(--sunk); }
-.statistics.pending dd { color: var(--ghost); font-weight: 400; }
+.statistics.pending dd { color: var(--text-muted); font-weight: 400; }
 
 /* ------------------------------------------- hardware acceleration status */
 
@@ -2534,7 +2483,7 @@ label[for] {
    so the box neither grows nor shrinks as the browser answers, and nothing
    beside it is pushed by the reader's own click. */
 .statistics.acceleration {
-  --state: var(--faint);
+  --state: var(--text-muted);
   border-color: var(--line);
   background: var(--sunk);
   box-shadow: none;
@@ -2570,7 +2519,7 @@ label[for] {
 }
 /* Nothing has been decided yet, so the empty ring is quieted rather than
    coloured — a ring in the accent would read as an answer. */
-.acceleration-mark.checking { color: var(--ghost); }
+.acceleration-mark.checking { color: var(--text-muted); }
 .acceleration-word {
   margin: 0;
   min-width: 0;
@@ -2599,7 +2548,7 @@ label[for] {
   margin: 0;
   height: calc(2 * 1.45em);
   overflow: hidden;
-  font-size: var(--t-body);
+  font-size: var(--type-body);
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
@@ -2613,8 +2562,8 @@ label[for] {
 }
 /* The two-tone device the house style already uses for primary against
    secondary: the label dimmed, the answer in full ink. */
-.acceleration-adapter span { color: var(--dim); font-weight: 400; }
-.acceleration-adapter b { color: var(--ink); }
+.acceleration-adapter span { color: var(--text); font-weight: 400; }
+.acceleration-adapter b { color: var(--text-strong); }
 
 /* --------------------------------------------------------------- presets */
 
@@ -2638,14 +2587,14 @@ label[for] {
   margin: 0;
   min-width: 11ch;
   font-variant-numeric: tabular-nums;
-  color: var(--faint);
+  color: var(--text-muted);
 }
-.list-count b { color: var(--dim); font-weight: 500; }
+.list-count b { color: var(--text); font-weight: 500; }
 /* The plus sits with the label rather than replacing it — a bare glyph made
    the one creating action the least legible thing in the bar. */
 .button-glyph {
-  font-family: var(--mono);
-  font-size: var(--t-base); line-height: 1;
+  font-family: var(--font-body);
+  font-size: var(--type-body); line-height: 1;
   margin-right: var(--s2);
 }
 
@@ -2678,22 +2627,22 @@ label[for] {
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--ghost);
+  color: var(--text-muted);
   transition: color .12s, border-color .12s, background .12s;
 }
-.preset-card:hover .icon-button { color: var(--faint); }
+.preset-card:hover .icon-button { color: var(--text-muted); }
 .icon-button:hover {
-  color: var(--gold);
+  color: var(--text-accent);
   border-color: var(--line-strong);
   background: var(--hover);
 }
-.icon-button.danger:hover { color: #d08a7a; border-color: #6a4038; }
-.icon-button:focus-visible { color: var(--gold); }
+.icon-button.danger:hover { color: var(--state-bad); border-color: var(--state-bad); }
+.icon-button:focus-visible { color: var(--text-accent); }
 /* A long name wraps rather than pushing the actions off the line, and stops at
    three lines so one preset cannot take a screen to itself. */
 .preset-name {
   margin: 0;
-  color: var(--gold);
+  color: var(--text-accent);
   overflow-wrap: anywhere;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3;
   overflow: hidden;
@@ -2703,7 +2652,7 @@ label[for] {
    gold above it. */
 .preset-type {
   margin: 2px 0 0;
-  color: var(--faint);
+  color: var(--text-muted);
 }
 
 .preset-rows { display: grid; gap: var(--s1); }
@@ -2722,7 +2671,7 @@ label[for] {
    are named in the same voice as the settings above rather than in the
    table-header voice of the grid. */
 .preset-row-label {
-  color: var(--dim);
+  color: var(--text);
 }
 .preset-row-value { min-width: 0; }
 
@@ -2737,9 +2686,9 @@ label[for] {
 .choice {
   white-space: nowrap;
 }
-.choice.preferred { color: var(--ink); font-weight: 500; }
-.choice.acceptable { color: var(--faint); }
-.choice-none { color: var(--ghost); }
+.choice.preferred { color: var(--text-strong); font-weight: 500; }
+.choice.acceptable { color: var(--text-muted); }
+.choice-none { color: var(--text-muted); }
 
 /* The three slots side by side in equal columns, each named above its own
    choices. Equal thirds rather than content width so the slot names sit on the
@@ -2751,7 +2700,7 @@ label[for] {
 }
 .slot { display: grid; gap: var(--s1); align-content: start; min-width: 0; }
 .slot-label {
-  color: var(--faint);
+  color: var(--text-muted);
 }
 /* Every gap between two adjacent stats is the same measured distance — end of
    one word to start of the next — whatever the words run to. The wider
@@ -2778,15 +2727,15 @@ label[for] {
   display: inline-flex; align-items: baseline; gap: var(--s2);
   justify-self: start;
   white-space: nowrap;
-  color: var(--faint);
+  color: var(--text-muted);
 }
 /* Wide enough for "Yes" in both states, so toggling a primary does not change
    the ink extent inside its start-justified box. */
 .flag b { font-weight: 500; letter-spacing: 0; display: inline-block; min-width: 3ch; }
-.flag.yes { color: var(--dim); }
-.flag.yes b { color: var(--ink); }
-.flag.no { color: var(--ghost); }
-.flag.no b { color: var(--faint); }
+.flag.yes { color: var(--text); }
+.flag.yes b { color: var(--text-strong); }
+.flag.no { color: var(--text-muted); }
+.flag.no b { color: var(--text-muted); }
 
 /* Label above, figure below, in eleven equal columns. Read across, the targets
    stay a list of labelled pairs rather than an unlabelled row of numbers the
@@ -2803,23 +2752,23 @@ label[for] {
 /* Cased as written rather than uppercased: the labels distinguish CtR from CtD
    by their own capitals, which a text-transform would flatten away. */
 .target dt {
-  color: var(--faint);
+  color: var(--text-muted);
   white-space: nowrap;
 }
 .target dd {
   margin: 0;
   font-variant-numeric: tabular-nums;
   font-weight: 500;
-  color: var(--ink);
+  color: var(--text-strong);
   white-space: nowrap;
 }
 /* A thin space before the sign, so the figure and its unit read as two things
    rather than one long token. */
-.target dd .unit { font-size: var(--t-micro); color: var(--faint); margin-left: .2em; }
+.target dd .unit { font-size: var(--type-label); color: var(--text-muted); margin-left: .2em; }
 /* Colour only. The weight stays at 500 in both states: a lighter dash and a
    heavier number are different widths, so setting a target would have nudged
    its neighbours along the row. */
-.target.empty dd { color: var(--ghost); }
+.target.empty dd { color: var(--text-muted); }
 
 /* Eleven columns need the full measure. Below it the targets fall to six and
    then four per line — still a grid, so the pairs stay aligned. */
@@ -2838,7 +2787,7 @@ label[for] {
 .checkbox-row {
   display: flex; align-items: center; gap: var(--s3);
   min-height: 28px;
-  color: var(--dim);
+  color: var(--text);
   cursor: pointer;
 }
 /* `accent-color` only paints the tick and its fill; an unchecked box keeps the
@@ -2849,20 +2798,20 @@ label[for] {
    A text field can sit on --sunk and still be found, because it is wide and
    ringed all the way round. At 16px square that reads as a smudge, so the box
    is raised above the page ground rather than cut into it, and takes the
-   --ghost border that marks the edge of something empty but present. */
+   --text-muted border that marks the edge of something empty but present. */
 .checkbox-row input, .filter-checkbox {
   appearance: none; -webkit-appearance: none;
   width: 16px; height: 16px; margin: 0;
   flex: 0 0 auto;
   background: var(--raise);
-  border: 1px solid var(--ghost);
+  border: 1px solid var(--text-muted);
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background .12s, border-color .12s;
 }
 .checkbox-row input:hover, .filter-checkbox:hover {
   background: var(--hover);
-  border-color: var(--gold);
+  border-color: var(--text-accent);
 }
 /* The tick is a background image rather than a pseudo-element: `input` is a
    replaced element and cannot carry ::after in every browser. */
@@ -2871,7 +2820,7 @@ label[for] {
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23d9ad52' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5 6.5 11.5 12.5 4.5'/%3E%3C/svg%3E")
     center / 14px 14px no-repeat,
     var(--gold-deep);
-  border-color: var(--gold);
+  border-color: var(--text-accent);
 }
 /* A checkbox standing on its own in the filter strip, named by the group's
    label rather than by text of its own. A filter button pads its text by --s3
@@ -2888,12 +2837,12 @@ label[for] {
   align-items: center;
   gap: var(--s2);
   min-height: 30px;
-  color: var(--dim);
-  font-size: var(--t-small);
+  color: var(--text);
+  font-size: var(--type-body);
   cursor: pointer;
 }
 .filter-checkbox-label .filter-checkbox { margin-left: 0; }
-.filter-checkbox-label:hover { color: var(--ink); }
+.filter-checkbox-label:hover { color: var(--text-strong); }
 /* Six grades on one line make a group half again as wide as its column and read
    as a strip of stars to be scanned. Three and three is the shape the game
    itself uses — the grades a monster is farmed at over the grades it is built
@@ -2947,7 +2896,7 @@ label[for] {
    that stands beside a legend as its own heading rather than under one. */
 .field-lead > span {
   line-height: 1.3;
-  color: var(--ink);
+  color: var(--text-strong);
 }
 
 /* an editable table cell: invisible until it is hovered or focused, so a
@@ -2956,18 +2905,18 @@ label[for] {
   width: 100%;
   height: 28px;
   background: transparent;
-  color: var(--ink);
+  color: var(--text-strong);
   border: 1px solid transparent;
   border-radius: var(--s1);
   padding: 0 var(--s2);
-  font-size: var(--t-body);
+  font-size: var(--type-body);
   transition: border-color .12s, background .12s;
 }
-.cell-input::placeholder { color: var(--ghost); }
+.cell-input::placeholder { color: var(--text-muted); }
 .cell-input:hover { border-color: var(--line); }
 .cell-input:focus {
   outline: none;
-  border-color: var(--gold);
+  border-color: var(--text-accent);
   background: var(--sunk);
 }
 
@@ -3090,7 +3039,7 @@ label[for] {
      the two move together instead of the mark drifting under it at some
      widths. */
   right: calc(min(40%, var(--badge-width) + var(--s4)) - var(--crown-size) / 2 - var(--crown-tuck));
-  color: var(--gold);
+  color: var(--text-accent);
   /* Fainter than the hero's rune: there the mark is the subject of the page,
      here it is the quietest thing in the corner and the title has to stay the
      brightest gold on screen. */
@@ -3112,14 +3061,14 @@ label[for] {
   font-size: clamp(30px, 3.2vw, 42px);
   line-height: 1.05;
   text-wrap: balance;
-  color: var(--ink);
+  color: var(--text-strong);
 }
 /* The gradient is applied only where it can actually be clipped to the
    glyphs; without the guard an unsupporting engine keeps `transparent` and
    the title disappears entirely. */
 @supports (background-clip: text) or (-webkit-background-clip: text) {
   .page-title {
-    background: linear-gradient(96deg, var(--ink) 34%, var(--gold) 128%);
+    background: linear-gradient(96deg, var(--text-strong) 34%, var(--text-accent) 128%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -3128,7 +3077,7 @@ label[for] {
 .page-tagline {
   margin: var(--s3) 0 0;
   max-width: 62ch;
-  color: var(--dim);
+  color: var(--text);
   line-height: 1.6;
   text-wrap: pretty;
 }
@@ -3211,7 +3160,7 @@ label[for] {
 .hero-line { display: block; }
 .hero-line.one {
   font-size: clamp(24px, 3.2vw, 42px);
-  color: var(--ink);
+  color: var(--text-strong);
 }
 /* The initials the app is named after, so this line takes the accent and
    the size. It is the one place gold is used at scale rather than as a
@@ -3222,14 +3171,14 @@ label[for] {
    one name while the accent line stays clearly the subject. */
 .hero-line.two {
   font-size: clamp(38px, 4.6vw, 64px);
-  color: var(--gold);
+  color: var(--text-accent);
   margin-left: clamp(var(--s4), 3.4vw, var(--s7));
   margin-top: .06em;
   margin-bottom: .06em;
 }
 .hero-line.three {
   font-size: clamp(24px, 3.2vw, 42px);
-  color: var(--ink);
+  color: var(--text-strong);
   margin-left: clamp(var(--s6), 8vw, 148px);
 }
 /* The line under the name — the loop the game actually runs on. It carries
@@ -3242,16 +3191,14 @@ label[for] {
   margin: var(--s6) var(--s7) 0 auto;
   transform: translateY(var(--s2));
   width: fit-content;
-  /* Great Vibes has a small x-height for its point size and its joins close
-     up below about 40px, so it is set far larger than the sans it replaced
-     while occupying much the same optical weight. */
-  font-family: 'Great Vibes', 'Apple Chancery', cursive;
+  /* The quote keeps the heading family so the home introduction has one typographic voice; its size and italic tilt carry the distinction instead of a new font while occupying much the same optical weight. */
+  font-family: var(--font-heading);
   font-size: clamp(38px, 3.6vw, 52px);
   font-weight: 400;
   font-style: normal;
   line-height: 1.15;
   letter-spacing: .01em;
-  color: var(--faint);
+  color: var(--text-muted);
   /* Now that the line crosses the rune, a little transparency is what is
      wanted: the two settle into each other rather than the text sitting on
      top as a hard plate. */
@@ -3261,18 +3208,18 @@ label[for] {
    it stays a shift in temperature rather than a second accent competing
    with the wordmark above. */
 .hero-quote span {
-  color: color-mix(in srgb, var(--gold) 52%, var(--faint));
+  color: color-mix(in srgb, var(--text-accent) 52%, var(--text-muted));
 }
 
 .section-intro { margin: 0 0 var(--s5); max-width: 68ch; }
 .section-intro h2 {
   margin: 0;
-  font-size: var(--t-display); font-weight: 600; letter-spacing: -.025em;
+  font-size: var(--type-display); font-weight: 600; letter-spacing: -.025em;
   text-wrap: balance;
 }
 .section-intro p {
   margin: var(--s2) 0 0;
-  color: var(--dim);
+  color: var(--text);
   line-height: 1.6;
 }
 
@@ -3280,10 +3227,10 @@ label[for] {
 .stack { display: grid; gap: var(--s4); }
 .stack.tight { gap: var(--s2); }
 
-.lead { margin: 0; color: var(--dim); line-height: 1.6; max-width: 68ch; }
+.lead { margin: 0; color: var(--text); line-height: 1.6; max-width: 68ch; }
 .meta-line {
   margin: 0;
-  color: var(--faint);
+  color: var(--text-muted);
 }
 
 /* a heading for a block inside a section — one step below section-intro */
@@ -3294,7 +3241,7 @@ label[for] {
 
 .eyebrow {
   margin: 0 0 var(--s2);
-  color: var(--gold);
+  color: var(--text-accent);
 }
 
 /* empty state — the honest form of a section with no data yet */
@@ -3310,21 +3257,21 @@ label[for] {
 .empty-state h2 {
   margin: 0;
   line-height: 1.55;
-  color: var(--ink);
+  color: var(--text-strong);
 }
 .empty-state p {
   margin: var(--s2) 0 0;
-  color: var(--dim);
+  color: var(--text);
   line-height: 1.6;
 }
 .empty-state .next-step {
   margin-top: var(--s5);
   padding: var(--s3) var(--s4);
   border: 1px solid var(--line);
-  border-left: 2px solid var(--gold);
+  border-left: 2px solid var(--text-accent);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   background: var(--sunk);
-  color: var(--dim);
+  color: var(--text);
   line-height: 1.55;
 }
 
@@ -3357,7 +3304,7 @@ label[for] {
   white-space: nowrap;
   border: 1px solid var(--line-strong);
   background: transparent;
-  color: var(--dim);
+  color: var(--text);
   transition: color .12s, border-color .12s, background .12s;
 }
 /* A line of settings, not a call to action: the button is part of the sentence
@@ -3366,14 +3313,14 @@ label[for] {
 /* The action a whole panel builds up to. Enlarged so it reads as the panel's
    conclusion rather than one more control in the flow. */
 .button.prominent { height: 44px; padding: 0 var(--s5); }
-.button:hover:not(:disabled) { color: var(--ink); border-color: var(--faint); }
+.button:hover:not(:disabled) { color: var(--text-strong); border-color: var(--text-muted); }
 /* A platform mark before the label. Sized off the cap height rather than the
    line box, so it sits as a badge beside the word instead of out-measuring it,
    and `flex: none` keeps it from being squeezed when the row runs short. */
 .button-mark { flex: none; margin-right: var(--s2); }
 .button.primary {
-  background: var(--gold);
-  border-color: var(--gold);
+  background: var(--text-accent);
+  border-color: var(--text-accent);
   color: var(--gold-ink);
 }
 .button.primary:hover:not(:disabled) { background: #dcb45f; color: var(--gold-ink); }
@@ -3381,21 +3328,21 @@ label[for] {
    rest, so the warning arrives when the pointer is on them instead of
    colouring the panel they sit in. */
 .button.danger:hover:not(:disabled),
-.button.danger:focus-visible:not(:disabled) { color: #d08a7a; border-color: #6a4038; }
+.button.danger:focus-visible:not(:disabled) { color: var(--state-bad); border-color: var(--state-bad); }
 .button.danger:hover:not(:disabled) { background: #1c1210; }
 /* Important actions use a gold frame, not a filled slab, so they stand out
    without competing with the filter state or the surrounding section title. */
-.button.important-action { border-color: var(--gold); }
+.button.important-action { border-color: var(--text-accent); }
 .button.important-action:hover:not(:disabled) {
   background: var(--hover);
   border-color: #dcb45f;
-  color: var(--ink);
+  color: var(--text-strong);
 }
 /* One answer to "what does an unavailable button look like", for every tone
    and every place a button appears. The outline tones dash their border; a
    filled primary cannot, so it dims its fill instead. */
 .button:disabled {
-  color: var(--ghost);
+  color: var(--text-muted);
   border-color: var(--line);
   border-style: dashed;
   background: transparent;
@@ -3405,7 +3352,7 @@ label[for] {
   background: var(--gold-deep);
   border-color: var(--gold-edge);
   border-style: solid;
-  color: var(--faint);
+  color: var(--text-muted);
 }
 
 .button-row { display: flex; flex-wrap: wrap; gap: var(--s2); }
@@ -3415,17 +3362,17 @@ label[for] {
    caps — at 10px the uppercase tracking was costing legibility. */
 .field > span {
   display: block;
-  color: var(--dim); margin-bottom: var(--s2);
+  color: var(--text); margin-bottom: var(--s2);
 }
 .field input, .field textarea {
   display: block; width: 100%;
   height: 36px;
   background: var(--sunk);
-  color: var(--ink);
+  color: var(--text-strong);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
   padding: 0 var(--s3);
-  font-size: var(--t-body);
+  font-size: var(--type-body);
   color-scheme: dark;
 }
 .jaswa-select {
@@ -3433,11 +3380,11 @@ label[for] {
   width: 100%;
   height: 36px;
   background: var(--sunk);
-  color: var(--ink);
+  color: var(--text-strong);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
   padding: 0 var(--s6) 0 var(--s3);
-  font-size: var(--t-body);
+  font-size: var(--type-body);
   color-scheme: dark;
   appearance: none;
   -webkit-appearance: none;
@@ -3449,19 +3396,19 @@ label[for] {
   background-repeat: no-repeat;
 }
 .jaswa-select:hover { background-color: var(--hover); }
-.jaswa-select[data-placeholder] { color: var(--faint); }
-.jaswa-select option { background: var(--raise); color: var(--ink); }
+.jaswa-select[data-placeholder] { color: var(--text-muted); }
+.jaswa-select option { background: var(--raise); color: var(--text-strong); }
 /* Native select rendering can use the selected option's color instead of the
    control's inherited color, so the empty placeholder needs its own rule. */
-.jaswa-select[data-placeholder] option[value=''] { color: var(--faint); }
+.jaswa-select[data-placeholder] option[value=''] { color: var(--text-muted); }
 
 .field textarea {
   height: auto; min-height: 120px; resize: vertical;
   padding: var(--s3);
-  font-family: var(--sans); line-height: 1.55;
+  font-family: var(--font-body); line-height: 1.55;
 }
 .field input:focus, .jaswa-select:focus, .field textarea:focus {
-  outline: none; border-color: var(--gold);
+  outline: none; border-color: var(--text-accent);
 }
 
 /* drop target — the one action the home page is asking for, so it carries a
@@ -3477,24 +3424,24 @@ label[for] {
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   gap: var(--s2);
-  color: var(--dim);
+  color: var(--text);
   transition: border-color .14s, background .14s, box-shadow .14s;
   cursor: pointer;
 }
 .drop-zone:hover, .drop-zone.dragging {
-  border-color: var(--gold);
+  border-color: var(--text-accent);
   border-style: solid;
   background:
     radial-gradient(80% 140% at 50% 0%, rgba(217, 173, 82, .11), transparent 70%),
     var(--hover);
   box-shadow: 0 0 0 1px var(--gold-edge), 0 12px 32px -18px rgba(217, 173, 82, .5);
 }
-.drop-zone strong { color: var(--ink); }
-.drop-zone span { font-size: var(--t-body); }
+.drop-zone strong { color: var(--text-strong); }
+.drop-zone span { font-size: var(--type-body); }
 /* the arrow eases down on approach — the only motion on the page, and it
    points at the thing the pointer is already over */
 .drop-zone .glyph {
-  color: var(--gold); font-size: var(--glyph-large); font-family: var(--mono);
+  color: var(--text-accent); font-size: var(--glyph-large); font-family: var(--font-body);
   transition: translate .14s;
 }
 .drop-zone:hover .glyph, .drop-zone.dragging .glyph { translate: 0 3px; }
@@ -3509,9 +3456,9 @@ label[for] {
   min-height: 96px;
   background: var(--sunk);
 }
-.drop-zone.settled .glyph { font-size: var(--t-title); }
-.drop-zone.settled strong { color: var(--dim); }
-.drop-zone.settled:hover strong { color: var(--ink); }
+.drop-zone.settled .glyph { font-size: var(--type-title); }
+.drop-zone.settled strong { color: var(--text); }
+.drop-zone.settled:hover strong { color: var(--text-strong); }
 
 /* ------------------------------------------------------ loaded game data */
 
@@ -3597,7 +3544,7 @@ label[for] {
 .route-body-title {
   margin: 0;
   line-height: 1.25;
-  color: var(--ink);
+  color: var(--text-strong);
 }
 /* The drop zone takes whatever height the other column has left over, so two
    routes of unequal content still end level. It is the only part of either
@@ -3648,11 +3595,11 @@ label[for] {
    and it gives the resting state somewhere to move from.
 
    Names only. The number keeps the colour it has in each state — gold on the
-   chosen card, --faint on the other — because that pair is what says which
+   chosen card, --text-muted on the other — because that pair is what says which
    route is live, and a hover that touched it would be answering a question the
    pointer did not ask. */
-.import-route:not(.chosen) .route-name { color: var(--dim); }
-.import-route:not(.chosen) .route-head:hover .route-name { color: var(--ink); }
+.import-route:not(.chosen) .route-name { color: var(--text); }
+.import-route:not(.chosen) .route-head:hover .route-name { color: var(--text-strong); }
 /* Bigger than the settings radios: this is the page's primary fork, not a
    detail inside one of its answers. */
 .route-head input {
@@ -3660,34 +3607,34 @@ label[for] {
   width: 18px; height: 18px; margin: 0;
   margin-top: 3px;
   background: var(--raise);
-  border: 1px solid var(--ghost);
+  border: 1px solid var(--text-muted);
   border-radius: 50%;
   cursor: pointer;
   transition: background .12s, border-color .12s;
 }
 .route-head.route-head-body-title input { margin-top: 0; }
-.route-head:hover input { border-color: var(--gold); }
+.route-head:hover input { border-color: var(--text-accent); }
 .route-head input:checked {
   background:
-    radial-gradient(circle at 50% 50%, var(--gold) 3.6px, transparent 3.8px),
+    radial-gradient(circle at 50% 50%, var(--text-accent) 3.6px, transparent 3.8px),
     var(--gold-deep);
-  border-color: var(--gold);
+  border-color: var(--text-accent);
 }
-.route-head input:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.route-head input:focus-visible { outline: 2px solid var(--text-accent); outline-offset: 2px; }
 
 .route-head-text { display: block; min-width: 0; }
 /* The number, at the size the choice deserves. Tracked caps rather than the
-   --t-micro eyebrow used elsewhere: this one is a heading to be chosen between,
+   --type-label eyebrow used elsewhere: this one is a heading to be chosen between,
    not a label over a box. */
 .route-option {
   display: block;
   line-height: 1.2;
-  /* --dim, not --faint: on the unchosen card this sits on the panel's own
-     ground, where --faint measures 4.26:1 and misses the 4.5:1 the house style
+  /* --text, not --text-muted: on the unchosen card this sits on the panel's own
+     ground, where --text-muted measures 4.26:1 and misses the 4.5:1 the house style
      asks. The head is a live control on both cards and its number is a real
      heading, so it clears the bar in both states. The gold on the chosen card
      is what marks the difference; this is only the other half of that pair. */
-  color: var(--dim);
+  color: var(--text);
   transition: color .12s;
 }
 /* The name of the route, immediately under its number. */
@@ -3695,7 +3642,7 @@ label[for] {
   display: block;
   margin-top: var(--s1);
   line-height: 1.25;
-  color: var(--ink);
+  color: var(--text-strong);
   transition: color .12s;
 }
 /* The condition, carried by the heading but not competing with it: a step down
@@ -3709,13 +3656,13 @@ label[for] {
      line. `inline-block` so the margin survives a line wrap collapsing it. */
   margin-left: var(--s2);
   display: inline-block;
-  color: var(--faint);
+  color: var(--text-muted);
 }
-.import-route:not(.chosen) .route-qualifier { color: var(--ghost); }
-.import-route:not(.chosen) .route-head:hover .route-qualifier { color: var(--faint); }
+.import-route:not(.chosen) .route-qualifier { color: var(--text-muted); }
+.import-route:not(.chosen) .route-head:hover .route-qualifier { color: var(--text-muted); }
 /* Gold on the chosen one, and only there: the accent's single meaning on this
    page is "this is the one that is live". */
-.import-route.chosen .route-option { color: var(--gold); }
+.import-route.chosen .route-option { color: var(--text-accent); }
 
 /* The unchosen column, put well back. Nothing is removed and nothing moves, so
    the two columns keep their positions; the route that is not running simply
@@ -3779,7 +3726,7 @@ label[for] {
   padding: 0;
   list-style: none;
   display: grid; gap: var(--s2);
-  color: var(--dim);
+  color: var(--text);
   line-height: 1.5;
 }
 /* The URLs are long enough to overflow a narrow column on their own, and the
@@ -3790,12 +3737,12 @@ label[for] {
    link is the definition of "you can act on this", and an underline because
    colour alone must not be what marks it. */
 .text-link {
-  color: var(--gold);
+  color: var(--text-accent);
   text-decoration: underline; text-underline-offset: 2px;
   transition: color .12s;
 }
 .text-link:hover { color: #dcb45f; }
-.text-link:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 2px; }
+.text-link:focus-visible { outline: 2px solid var(--text-accent); outline-offset: 2px; border-radius: 2px; }
 
 /* The download row. The reason the route may not apply is carried by the
    heading's qualifier, so this row holds the button alone. */
@@ -3814,30 +3761,30 @@ label[for] {
   background: var(--sunk);
 }
 .helper-version.update-available {
-  border-color: var(--gold);
+  border-color: var(--text-accent);
   background:
     linear-gradient(180deg, rgba(217, 173, 82, .12), transparent 85%),
     var(--sunk);
 }
 .helper-version h4 {
   margin: 0;
-  color: var(--gold);
+  color: var(--text-accent);
   }
 .helper-version p {
   margin: 0;
   min-height: 2.8em;
   overflow: hidden;
-  color: var(--dim);
+  color: var(--text);
   line-height: 1.4;
 }
-.helper-version.update-available p { color: var(--ink); }
+.helper-version.update-available p { color: var(--text-strong); }
 
 /* The verdict card is a full-width block in the aside it was written for; here
    it sits in a column of its own content and takes the column's width. */
 .statistics.acceleration.route-link { width: 100%; position: relative; }
 .helper-current-version {
   position: absolute; top: var(--s4); right: var(--s4);
-  color: var(--faint);
+  color: var(--text-muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -3894,50 +3841,50 @@ label[for] {
   margin-top: calc((1.4em - 16px) / 2);
   flex: 0 0 auto;
   background: var(--raise);
-  border: 1px solid var(--ghost);
+  border: 1px solid var(--text-muted);
   border-radius: 50%;
   cursor: pointer;
   transition: background .12s, border-color .12s;
 }
-.radio-row input:hover { background: var(--hover); border-color: var(--gold); }
+.radio-row input:hover { background: var(--hover); border-color: var(--text-accent); }
 /* The dot is a background image for the same reason the tick is: `input` is a
    replaced element and cannot carry a pseudo-element in every browser. */
 .radio-row input:checked {
   background:
-    radial-gradient(circle at 50% 50%, var(--gold) 3.2px, transparent 3.4px),
+    radial-gradient(circle at 50% 50%, var(--text-accent) 3.2px, transparent 3.4px),
     var(--gold-deep);
-  border-color: var(--gold);
+  border-color: var(--text-accent);
 }
-.radio-row input:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.radio-row input:focus-visible { outline: 2px solid var(--text-accent); outline-offset: 2px; }
 
 .radio-text { display: block; min-width: 0; }
 .radio-text b {
   display: block;
-  font-size: var(--t-body); font-weight: 600; line-height: 1.4;
-  color: var(--ink);
+  font-size: var(--type-body); font-weight: 600; line-height: 1.4;
+  color: var(--text-strong);
 }
 .radio-note {
   display: block;
   margin-top: var(--s1);
-  color: var(--dim);
+  color: var(--text);
   line-height: 1.5;
 }
 
 /* notices */
 .notice {
   border: 1px solid var(--line);
-  border-left: 2px solid var(--gold);
+  border-left: 2px solid var(--text-accent);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   background: var(--sunk);
   padding: var(--s3) var(--s4);
-  color: var(--dim);
+  color: var(--text);
   line-height: 1.55;
   max-width: 68ch;
 }
-.notice.warning { border-left-color: var(--faint); }
+.notice.warning { border-left-color: var(--text-muted); }
 .notice-link {
   padding: 0; border: 0; background: transparent;
-  color: var(--gold);
+  color: var(--text-accent);
   text-decoration: underline; text-underline-offset: 2px;
 }
 
@@ -3948,10 +3895,10 @@ label[for] {
   padding: 0 var(--gutter);
   border-top: 1px solid var(--line);
   background: var(--raise);
-  color: var(--faint);
+  color: var(--text-muted);
   position: sticky; bottom: 0;
 }
-.grid-footer b { color: var(--dim); font-weight: 500; }
+.grid-footer b { color: var(--text); font-weight: 500; }
 .grid-footer .spacer { flex: 1; }
 
 /* --------------------------------------------------------- back to top
@@ -4001,8 +3948,8 @@ label[for] {
   border: 1px solid var(--line-strong);
   border-radius: 50%;
   background:
-    radial-gradient(120% 120% at 50% 0%, color-mix(in srgb, var(--ink) 6%, var(--raise)), var(--raise) 72%);
-  color: var(--dim);
+    radial-gradient(120% 120% at 50% 0%, color-mix(in srgb, var(--text-strong) 6%, var(--raise)), var(--raise) 72%);
+  color: var(--text);
   box-shadow: 0 12px 30px rgba(0, 0, 0, .45);
   backdrop-filter: blur(6px);
   /* Hidden rather than unmounted: `visibility` takes it out of the tab order
@@ -4015,13 +3962,13 @@ label[for] {
 }
 .scroll-to-top.visible { opacity: 1; visibility: visible; }
 .scroll-to-top:hover {
-  border-color: var(--gold);
+  border-color: var(--text-accent);
   background: linear-gradient(180deg, var(--gold-deep), color-mix(in srgb, var(--gold-deep) 45%, var(--raise)));
-  color: var(--gold);
+  color: var(--text-accent);
   /* The ring is drawn outside the border, where nothing else stands. */
   box-shadow:
     0 12px 30px rgba(0, 0, 0, .5),
-    0 0 0 5px color-mix(in srgb, var(--gold) 13%, transparent);
+    0 0 0 5px color-mix(in srgb, var(--text-accent) 13%, transparent);
 }
 .scroll-to-top:active {
   background: var(--gold-deep);
@@ -4049,7 +3996,7 @@ label[for] {
   box-shadow: 0 24px 70px rgba(0, 0, 0, .5);
 }
 .dialog h2 { margin: 0; }
-.dialog p { color: var(--dim); line-height: 1.6; }
+.dialog p { color: var(--text); line-height: 1.6; }
 .dialog .field { margin-top: var(--s4); }
 .dialog-actions { display: flex; justify-content: flex-end; gap: var(--s2); margin-top: var(--s5); }
 
@@ -4072,7 +4019,7 @@ label[for] {
 /* One line only. The head is a fixed row above the scrolling body, so a
    heading that wrapped would take that height out of the body. */
 .editor-head h2 {
-  color: var(--gold);
+  color: var(--text-accent);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 /* The head and the actions are fixed, so a scrolled body can cut a row of
@@ -4114,13 +4061,13 @@ label[for] {
 }
 .editor-block-title {
   margin: 0;
-  color: var(--ink);
+  color: var(--text-strong);
 }
 
 .choice-legend {
   margin: 0;
   display: flex; align-items: center; gap: var(--s4);
-  color: var(--faint);
+  color: var(--text-muted);
 }
 .choice-legend-item { display: inline-flex; align-items: center; gap: var(--s2); }
 /* The same two grounds the chips carry, at the size of a word's cap height. */
@@ -4129,13 +4076,13 @@ label[for] {
   border-radius: 3px;
   border: 1px solid var(--gold-edge);
 }
-.choice-key.preferred { background: var(--gold); border-color: var(--gold); }
+.choice-key.preferred { background: var(--text-accent); border-color: var(--text-accent); }
 .choice-key.acceptable { background: var(--gold-deep); }
-.choice-legend-hint { color: var(--ghost); }
+.choice-legend-hint { color: var(--text-muted); }
 .editor-note {
   margin: 0 0 var(--s1);
   line-height: 1.5;
-  color: var(--faint);
+  color: var(--text-muted);
   max-width: 72ch;
 }
 
@@ -4165,11 +4112,11 @@ label[for] {
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
   background: var(--sunk);
-  color: var(--faint);
+  color: var(--text-muted);
   text-align: left;
   transition: color .12s, border-color .12s, background .12s;
 }
-.choice-chip:hover { border-color: var(--faint); color: var(--dim); }
+.choice-chip:hover { border-color: var(--text-muted); color: var(--text); }
 
 /* The mark is a fixed 8px circle in every state — only its fill and edge
    change, so it never resizes its own chip. It repeats what the colour already
@@ -4178,7 +4125,7 @@ label[for] {
   flex: 0 0 auto;
   width: 8px; height: 8px;
   border-radius: 50%;
-  border: 1px solid var(--ghost);
+  border: 1px solid var(--text-muted);
   background: transparent;
   transition: background .12s, border-color .12s, box-shadow .12s;
 }
@@ -4187,8 +4134,8 @@ label[for] {
    around. Gold ground, gold edge, dark ink on top — the same treatment the
    primary button carries, because both are "this is the chosen one". */
 .choice-chip.preferred {
-  background: var(--gold);
-  border-color: var(--gold);
+  background: var(--text-accent);
+  border-color: var(--text-accent);
   color: var(--gold-ink);
 }
 .choice-chip.preferred:hover { background: #dcb45f; border-color: #dcb45f; color: var(--gold-ink); }
@@ -4200,10 +4147,10 @@ label[for] {
 .choice-chip.acceptable {
   background: var(--gold-deep);
   border-color: var(--gold-edge);
-  color: var(--ink);
+  color: var(--text-strong);
 }
-.choice-chip.acceptable:hover { border-color: var(--gold); }
-.choice-chip.acceptable .choice-chip-mark { background: transparent; border-color: var(--gold); }
+.choice-chip.acceptable:hover { border-color: var(--text-accent); }
+.choice-chip.acceptable .choice-chip-mark { background: transparent; border-color: var(--text-accent); }
 
 .editor-slots {
   display: grid;
@@ -4213,7 +4160,7 @@ label[for] {
 .editor-slot { display: grid; gap: var(--s2); align-content: start; min-width: 0; }
 .editor-slot-label {
   margin: 0;
-  color: var(--faint);
+  color: var(--text-muted);
 }
 .editor-slot .choice-editor { gap: var(--s1); }
 
@@ -4226,10 +4173,10 @@ label[for] {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--s3) var(--s4);
 }
-.field-compact > span { margin-bottom: var(--s1); color: var(--faint); }
+.field-compact > span { margin-bottom: var(--s1); color: var(--text-muted); }
 .field-compact input {
   height: 32px;
-  font-family: var(--mono);
+  font-family: var(--font-body);
   font-variant-numeric: tabular-nums;
 }
 /* The native spinners cover the last digit of a five-figure HP target and put
@@ -4275,7 +4222,7 @@ label[for] {
   .bar-body { padding: var(--s4); }
   .rail-item { width: auto; height: 32px; padding: 0 var(--s3); }
   .rail-item .glyph { display: none; }
-  .rail-item.active { box-shadow: inset 0 2px 0 var(--gold); }
+  .rail-item.active { box-shadow: inset 0 2px 0 var(--text-accent); }
   .rail-spacer { display: none; }
   .search-field { width: 180px; }
   .section-body { padding-top: var(--s5); }
@@ -4318,7 +4265,7 @@ label[for] {
      flow by the browser and does not accept a grid cell in every engine. */
   float: left;
   padding: 0;
-  color: var(--dim);
+  color: var(--text);
 }
 .radio-line-options {
   display: flex; align-items: center; flex-wrap: wrap;
@@ -4331,14 +4278,14 @@ label[for] {
 .radio-chip {
   display: inline-flex; align-items: center; gap: var(--s2);
   cursor: pointer;
-  font-size: var(--t-body);
-  color: var(--dim);
+  font-size: var(--type-body);
+  color: var(--text);
   white-space: nowrap;
 }
-.radio-chip:hover { color: var(--ink); }
+.radio-chip:hover { color: var(--text-strong); }
 /* Colour marks the chosen option; the weight stays put, because bold is wider
    than regular and would re-wrap every option after it on this row. */
-.radio-chip:has(input:checked) { color: var(--ink); }
+.radio-chip:has(input:checked) { color: var(--text-strong); }
 /* The numeric options are the number they produce, so they are set in the
    figure face the rest of the app uses for data. */
 .radio-chip span { font-variant-numeric: tabular-nums; }
@@ -4348,19 +4295,19 @@ label[for] {
   width: 16px; height: 16px; margin: 0;
   flex: 0 0 auto;
   background: var(--raise);
-  border: 1px solid var(--ghost);
+  border: 1px solid var(--text-muted);
   border-radius: 50%;
   cursor: pointer;
   transition: background .12s, border-color .12s;
 }
-.radio-chip input:hover { background: var(--hover); border-color: var(--gold); }
+.radio-chip input:hover { background: var(--hover); border-color: var(--text-accent); }
 .radio-chip input:checked {
   background:
-    radial-gradient(circle at 50% 50%, var(--gold) 3.2px, transparent 3.4px),
+    radial-gradient(circle at 50% 50%, var(--text-accent) 3.2px, transparent 3.4px),
     var(--gold-deep);
-  border-color: var(--gold);
+  border-color: var(--text-accent);
 }
-.radio-chip input:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.radio-chip input:focus-visible { outline: 2px solid var(--text-accent); outline-offset: 2px; }
 
 /* Sits on the row with the options it belongs to. The width holds the common
    run of names with their offset — the longest, America/Argentina/Rio_Gallegos
@@ -4375,7 +4322,7 @@ label[for] {
 /* A control that cannot be used keeps its full box and says so by weight, so
    nothing moves on the day it starts working. */
 .jaswa-select:disabled {
-  color: var(--faint);
+  color: var(--text-muted);
   border-color: var(--line);
   border-style: dashed;
   cursor: not-allowed;
@@ -4389,17 +4336,17 @@ label[for] {
   background: none;
   border: 0;
   padding: 0;
-  font-size: var(--t-body);
+  font-size: var(--type-body);
   cursor: pointer;
 }
 /* Nothing to reset to: the control keeps its box and says so by weight, so the
    row does not resize when a folder is chosen. */
 .setting-line .text-link:disabled {
-  color: var(--ghost);
-  text-decoration-color: var(--ghost);
+  color: var(--text-muted);
+  text-decoration-color: var(--text-muted);
   cursor: not-allowed;
 }
-.setting-line .text-link:disabled:hover { color: var(--ghost); }
+.setting-line .text-link:disabled:hover { color: var(--text-muted); }
 /* A reserved column, not a content-sized box: the name changes with every
    folder the user picks and gains "(default)" when there is none, and anything
    after it on the row would otherwise sit in a different place each time. Wide
@@ -4410,10 +4357,10 @@ label[for] {
   width: 30ch;
   min-width: 0;
   overflow-wrap: anywhere;
-  color: var(--dim);
+  color: var(--text);
 }
 /* The parenthetical is a note about the value, not part of it. */
-.value-note { color: var(--faint); }
+.value-note { color: var(--text-muted); }
 
 @media (min-width: 1921px) and (max-width: 760px) {
   /* Below the fold of the fixed column the row stacks anyway, so the reserved
@@ -4424,7 +4371,7 @@ label[for] {
 /* The value a setting currently holds, set in the figure face the rest of the
    app uses for data. */
 .sample-value {
-  color: var(--ink);
+  color: var(--text-strong);
   font-variant-numeric: tabular-nums;
 }
 
@@ -4496,8 +4443,8 @@ th.align-left .sort-button { justify-content: flex-start; }
 th.align-center .sort-button { justify-content: center; }
 /* Clear ink marks the column the table is actually ordered by, including its
    direction mark; gold stays reserved for controls and recommendations. */
-.sort-button.active { color: var(--ink); }
-.sort-button:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+.sort-button.active { color: var(--text-strong); }
+.sort-button:focus-visible { outline: 2px solid var(--text-accent); outline-offset: -2px; }
 .sort-button-label { min-width: 0; }
 /* Reserved rather than conditional: the mark is always in the flow and only
    its arrows change opacity, so no column resizes as the sort moves. */
@@ -4521,9 +4468,9 @@ th.align-center .sort-button { justify-content: center; }
    would suggest a value that failed to arrive. It carries the colour itself
    rather than borrowing the table's class, so the two focused artifact views
    read the same as the recommendation table. */
-.artifact-conversion-intangible { color: var(--gold); }
+.artifact-conversion-intangible { color: var(--text-accent); }
 .artifact-conversion-option-action,
-.artifact-conversion-option-stone { color: var(--dim); }
+.artifact-conversion-option-stone { color: var(--text); }
 
 
 /* The "+ n more" control is gold because it is something to act on, and it
@@ -4533,12 +4480,12 @@ th.align-center .sort-button { justify-content: center; }
   padding: 0;
   border: 0;
   background: none;
-  color: var(--gold);
+  color: var(--text-accent);
   font: inherit;
   cursor: pointer;
 }
 .artifact-conversion-more:hover { text-decoration: underline; }
-.artifact-conversion-more:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.artifact-conversion-more:focus-visible { outline: 2px solid var(--text-accent); outline-offset: 2px; }
 
 /* An import failure gets room for a longer diagnostic without leaving an empty
    hole in the ordinary loaded-data view. */
