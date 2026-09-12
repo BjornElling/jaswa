@@ -2052,6 +2052,7 @@ label[for] {
   color: var(--text);
 }
 .best-artifact-improvements-title { margin: 0; color: var(--text-muted); }
+.best-artifact-improvements-none { margin: 0; color: var(--text-muted); }
 /* Recommendations give conversions their own third column. The current-slot
    cards have only two columns and keep the shared block below them instead. */
 .best-artifact-entry > .best-artifact-improvements {

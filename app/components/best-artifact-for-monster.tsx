@@ -178,12 +178,10 @@ function ScoreFact({ label, value, general, group = false }: {
  * sub-heading and given the full width of the box it sits in.
  *
  * The score it would reach leads, because it is what the lines below it add up
- * to. The block is absent rather than empty when there is nothing to suggest:
- * an Intangible can never be converted at all (§10.1) and an ordinary artifact
- * may simply have no conversion worth taking, and in both cases the converted
- * score is the score already shown above. A sub-heading standing over a
- * repeated figure reads as an answer that failed to arrive. Nothing is lost by
- * dropping it — an Intangible says so on its own name line.
+ * to. The block remains visible even when there is nothing to suggest: an
+ * Intangible can never be converted at all (§10.1), and an ordinary artifact
+ * may simply have no conversion worth taking. In both cases, `None` answers
+ * the question that an empty right-hand column would otherwise leave behind.
  */
 function Improvements({ label, score, conversions, artifact, context }: {
   /** What the converted score is called where this block appears. */
@@ -193,14 +191,17 @@ function Improvements({ label, score, conversions, artifact, context }: {
   artifact: Artifact;
   context: ScoreContext;
 }) {
-  if (artifact.intangible || !conversions.length) return null;
   return <div className="best-artifact-improvements">
     <h5 className="best-artifact-improvements-title">Improvements</h5>
-    <dl className="best-artifact-facts">
-      <ScoreFact label={label} value={score} general={context.general} />
-    </dl>
-    <ConversionList conversions={conversions} artifact={artifact}
-      stones={context.stones} mode={context.mode} />
+    {artifact.intangible || !conversions.length
+      ? <p className="best-artifact-improvements-none">None</p>
+      : <>
+        <dl className="best-artifact-facts">
+          <ScoreFact label={label} value={score} general={context.general} />
+        </dl>
+        <ConversionList conversions={conversions} artifact={artifact}
+          stones={context.stones} mode={context.mode} />
+      </>}
   </div>;
 }
 

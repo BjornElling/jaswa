@@ -142,3 +142,26 @@ test('every calculation uses the same right-aligned status report', async ({ pag
     .toBe(true);
   expect(reports.every(({ textAlign }) => textAlign === 'right')).toBe(true);
 });
+
+test('artifact entries name an empty improvements result', async ({ page }) => {
+  await importAccount(page, artifactAccount);
+  await openArtifactOptimization(page);
+
+  const panel = page.locator('.best-artifact-for-monster');
+  await page.getByRole('combobox', { name: 'Choose a monster for artifact recommendations' }).selectOption({ index: 1 });
+  await panel.getByRole('button', { name: 'Calculate artifacts' }).click();
+  const entries = panel.locator('.best-artifact-entry');
+  await expect(entries.first()).toBeVisible();
+
+  const improvements = await entries.evaluateAll((elements) => elements.map((element) => {
+    const block = element.querySelector('.best-artifact-improvements');
+    return {
+      hasHeading: block?.querySelector('.best-artifact-improvements-title')?.textContent === 'Improvements',
+      hasConversions: Boolean(block?.querySelector('.artifact-conversion-list')),
+      text: block?.textContent?.trim() ?? '',
+    };
+  }));
+  expect(improvements.every(({ hasHeading }) => hasHeading)).toBe(true);
+  expect(improvements.filter(({ hasConversions }) => !hasConversions).every(({ text }) => text.includes('None')))
+    .toBe(true);
+});
