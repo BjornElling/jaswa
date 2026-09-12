@@ -267,6 +267,27 @@ parts an agent must not quietly break:
 - **Monospace for data, sans for prose.** Numbers use `--mono` with
   `font-variant-numeric: tabular-nums`, so columns of figures align and do not
   change width as digits change.
+- **Type comes from a voice, never from a call site.** The top of
+  `globals.css` declares the voices — display, title, heading, lead, body,
+  body-emphasised, control, label, caption, data, data-lead, figure — each as
+  one family, size, weight and tracking. A rule joins a voice's selector list;
+  it does not set `font-size`, `font-weight` or `letter-spacing` of its own.
+  Where a size is genuinely local it is still a step on `--t-micro`…
+  `--t-display`, and tracking is a step on `--track-*`. Two distinctions carry
+  meaning and are worth keeping straight:
+  - **A control naming an *action* is sans; a control naming a *value* is
+    mono.** Calculate, Clear results and Reset filters are actions and read
+    alike; a filter chip saying `Water` or `LEG` is a value out of the game's
+    vocabulary and stays in the data voice. This is why one filter panel can
+    hold two voices without looking careless.
+  - **Label and caption are the same size and deliberately not the same
+    weight.** A label (700, uppercase) names a group or column and is read
+    before it; a caption (400) names a value sitting beside it and must stay
+    quieter than the value.
+
+  `tests/type-voices.spec.ts` holds the three that drifted worst. Adding a
+  thirteenth voice is a decision to make in `globals.css`, with a note saying
+  what it is for — not a `font-size` added to one component.
 - **Icons are stroked SVG paths**, sized to the type, using `currentColor`. Not
   emoji — they render at a different weight in every browser.
 - **Buttons come from `app/components/button.tsx`.** `Button` and

@@ -104,6 +104,28 @@
   --t-lead: 15px;
   --t-title: 18px;
   --t-display: 24px;
+  /* The one figure size: a number that is itself the answer, on Home's
+     statistics. Nothing else in the app is set this large. */
+  --t-figure: 32px;
+
+  /* Marks, not type. A stroked glyph is sized to the thing it sits beside
+     rather than to the type scale, so these are named separately — but they
+     are named, because three unexplained pixel values in three components is
+     how the type scale drifted in the first place. */
+  --glyph-small: 20px;
+  --glyph: 24px;
+  --glyph-large: 30px;
+
+  /* Tracking, on a scale rather than tuned per rule. Large type is set tight
+     so a heading reads as one word-shape; small uppercase type is set loose
+     because capitals at 11px close up without it. There were nineteen
+     different values here once, most of them a tenth of an em apart and none
+     of them a decision anyone could restate. */
+  --track-display: -.035em;
+  --track-title: -.02em;
+  --track-heading: -.01em;
+  --track-label: .08em;
+  --track-caption: .06em;
 
   --radius: 8px;
   --radius-sm: 6px;
@@ -124,7 +146,7 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: var(--sans);
-  font-size: 14px;
+  font-size: var(--t-base);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -166,10 +188,7 @@ body {
   position: relative;
   margin: 0;
   color: var(--ink);
-  font-size: var(--t-title);
-  font-weight: 600;
-  letter-spacing: -.025em;
-}
+  }
 .handheld-brand span { color: var(--gold); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
 .handheld-message {
   align-self: start;
@@ -199,6 +218,155 @@ button { cursor: pointer; }
 
 :focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
 
+/* =====================================================================
+   Type — nine voices, and every rule in this file picks one.
+
+   The house rule is the one in AGENTS.md §5: monospace for data, sans for
+   prose. What was missing was the rest of the sentence — how many sizes each
+   of those two gets, and which one a given piece of text is. Without it every
+   new component answered for itself, and the answers drifted: a heading could
+   be 15px at three trackings, an uppercase caption could be 11px or 14px at
+   four, and three buttons stacked in one column spoke in three voices.
+
+   So the voices are declared once, here, as the roles they play rather than
+   the sizes they are. A rule below joins a list; it does not set type of its
+   own. If a new component needs a voice this list does not hold, that is a
+   decision worth making deliberately — add the voice here and say what it is
+   for, rather than tuning a font-size at the call site.
+
+   The two mono voices carry an emphasis of their own: weight 500 against 400
+   is the "preferred against acceptable" device, and it is static, never a
+   state, because 500 is wider than 400 and a control must not resize.
+   ===================================================================== */
+
+/* Display — the page's own name, and the home hero. One per screen. */
+.page-title {
+  font-family: var(--sans);
+  font-weight: 700;
+  letter-spacing: var(--track-display);
+}
+
+/* Title — what a panel, card, dialog or disclosure is called. */
+.block-title, .bar-head b, .dialog h2, .preset-name, .route-name,
+.route-body-title, .statistics h4, .acceleration-word, .handheld-brand {
+  font-family: var(--sans);
+  font-size: var(--t-title);
+  font-weight: 600;
+  letter-spacing: var(--track-title);
+}
+
+/* Heading — a named block inside a panel: a fieldset's legend, a slider's
+   question, the title over a result table. Below a title, above prose. */
+.field-legend, .slider-label, .editor-block-title, .artifact-conversion-title,
+.artifact-scope-box h3, .artifact-scope-subheading, .drop-zone strong,
+.best-artifact-result h3, .best-monster-artifact-details h3, .empty-state h2,
+.field-lead > span, .helper-version h4 {
+  font-family: var(--sans);
+  font-size: var(--t-lead);
+  font-weight: 600;
+  letter-spacing: var(--track-heading);
+}
+
+/* Lead — read at a glance from a distance: the rail's entries and the line
+   under a page title. The only sans voice at reading size that is not bold. */
+.rail-item, .page-tagline {
+  font-family: var(--sans);
+  font-size: var(--t-lead);
+  font-weight: 400;
+}
+
+/* Body — every sentence the app says to the user. */
+.lead, .notice, .dialog p, .slider-note, .radio-note, .checkbox-row,
+.editor-note, .route-links, .artifact-conversion-intro, .statistics-lead,
+.statistics dt, .empty-state p, .empty-state .next-step, .section-intro p,
+.relic-property, .relic-synergy-label, .helper-version p, .route-qualifier {
+  font-family: var(--sans);
+  font-size: var(--t-body);
+  font-weight: 400;
+}
+
+/* Body, emphasised — a value written in the prose voice that has to stand out
+   from the prose around it: a monster's name in a row of figures, the choice a
+   slider has landed on. 500 rather than 600, because these sit inside running
+   text and the control voice would read as something to click. */
+.monster-name, .slider-choice, .relic-verdict, .drop-zone.settled strong,
+.acceleration-adapter b {
+  font-family: var(--sans);
+  font-size: var(--t-body);
+  font-weight: 500;
+  letter-spacing: normal;
+}
+
+/* Control — anything the user acts on that names an *action*. One voice for
+   every button, whatever its box: the size prop changes the button's height,
+   never its type, so Calculate, Clear results and Reset filters read as three
+   weights of the same thing rather than as three unrelated controls. */
+.button, .filter-reset, .text-link, .radio-line-legend, .preset-row-label,
+.artifact-conversion-more, .notice-link, .field > span {
+  font-family: var(--sans);
+  font-size: var(--t-body);
+  font-weight: 600;
+  letter-spacing: normal;
+}
+
+/* Label — the small uppercase caption naming a group, a column or a card
+   below it. Structural chrome: it is read before the thing it names, so it is
+   set bold and loose and stays out of the way at 11px. */
+.rail-heading, .filter-label, .eyebrow, .route-option, .grid-table thead th,
+.best-artifact-result th, .best-monster-table th, .artifact-recommendation-table th {
+  font-family: var(--sans);
+  font-size: var(--t-micro);
+  font-weight: 700;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+}
+
+/* Caption — the same size as a label and deliberately not the same weight.
+   This one names a value sitting right beside it inside a card, so it must
+   stay quieter than the value; a bold caption competes with the figure it
+   introduces. Casing is left to each use: `.target dt` distinguishes CtR from
+   CtD by its own capitals, which uppercasing would flatten. */
+.slot-label, .editor-slot-label, .target dt, .choice-legend,
+.field-compact > span, .relic-stone-balance-label, .preset-type {
+  font-family: var(--sans);
+  font-size: var(--t-micro);
+  font-weight: 400;
+  letter-spacing: var(--track-caption);
+}
+
+/* Data — the workhorse monospace voice: every value the account holds, and
+   every control that names one rather than naming an action. A filter chip
+   reading "Water" or "LEG" is a value, so it stays in this voice even though
+   it is a button. */
+.filter-button, .filter-summary, .list-count, .grid-footer, .choice,
+.choice-none, .choice-chip, .flag, .set-mark, .set-none, .artifact-subs li,
+.relic-effect, .best-artifact-meta, .best-monster-intangible,
+.artifact-recommendation-meta, .range-slider-values, .optimizer-draft-columns,
+.helper-current-version, .import-badge-count, .best-artifact-result table,
+.best-monster-table, .artifact-recommendation-table-wrap > .artifact-recommendation-table {
+  font-family: var(--mono);
+  font-size: var(--t-small);
+  font-weight: 400;
+  letter-spacing: normal;
+}
+
+/* Data, one step up — the account libraries, where a row is the page's
+   primary content rather than a supporting figure, and the meta lines that
+   sit at the same reading weight. */
+.grid-table, .meta-line, .sample-value, .target dd, .relic-monster-none {
+  font-family: var(--mono);
+  font-size: var(--t-body);
+  font-weight: 400;
+}
+
+/* Figure — the one place a number is the whole point. */
+.statistics dd {
+  font-family: var(--mono);
+  font-size: var(--t-figure);
+  font-weight: 700;
+  letter-spacing: var(--track-title);
+}
+
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
@@ -209,8 +377,8 @@ button { cursor: pointer; }
   place-items: center;
   color: var(--faint);
   font-family: var(--mono);
-  font-size: 12px;
-  letter-spacing: .04em;
+  font-size: var(--t-small);
+  letter-spacing: var(--track-caption);
 }
 
 /* ---------------------------------------------------------------- shell */
@@ -269,9 +437,7 @@ button { cursor: pointer; }
    rather than on the heading — the first group then starts flush. */
 .rail-group + .rail-group { margin-top: var(--s5); }
 .rail-heading {
-  font-size: var(--t-micro); letter-spacing: .1em; text-transform: uppercase;
-  color: var(--ghost); font-weight: 700;
-  padding: 0 var(--s3);
+  color: var(--ghost); padding: 0 var(--s3);
   margin: 0 0 var(--s2);
 }
 
@@ -284,7 +450,6 @@ button { cursor: pointer; }
   border: 0; background: transparent;
   color: var(--dim);
   border-radius: var(--radius-sm);
-  font-size: var(--t-lead);
   text-align: left;
   transition: color .12s, background .12s;
 }
@@ -295,7 +460,7 @@ button { cursor: pointer; }
   width: 28px;
   flex: 0 0 auto;
   text-align: center;
-  font-size: 24px;
+  font-size: var(--glyph);
   line-height: 1;
   color: var(--faint);
 }
@@ -310,7 +475,6 @@ button { cursor: pointer; }
 .rail-item.active {
   background: #181c24;
   color: var(--gold);
-  font-weight: 600;
   box-shadow: inset 2px 0 0 var(--gold);
 }
 .rail-item.active .glyph { color: var(--gold); }
@@ -350,7 +514,6 @@ button { cursor: pointer; }
 }
 .import-badge p { margin: 0; white-space: nowrap; font-family: var(--mono); }
 .import-badge-count {
-  font-size: var(--t-small);
   font-variant-numeric: tabular-nums;
   color: var(--ink);
 }
@@ -363,7 +526,6 @@ button { cursor: pointer; }
 }
 .import-badge-when {
   font-size: var(--t-micro);
-  letter-spacing: .02em;
   color: var(--faint);
 }
 /* only when figures stand above it: with no import the date is the whole card
@@ -518,8 +680,6 @@ button { cursor: pointer; }
   border-radius: var(--radius-sm);
   background: var(--sunk);
   color: var(--faint);
-  font-family: var(--mono);
-  font-size: var(--t-small);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -537,8 +697,6 @@ button { cursor: pointer; }
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--faint);
-  font-family: var(--mono);
-  font-size: var(--t-small);
   transition: color .12s, background .12s, border-color .12s;
 }
 .filter-reset:hover {
@@ -643,12 +801,8 @@ button { cursor: pointer; }
 .storage-filter-grade { grid-area: grade; }
 .storage-filter-special { grid-area: special; }
 .filter-label {
-  font-size: var(--t-micro); letter-spacing: .1em; text-transform: uppercase;
-  color: var(--faint); font-weight: 700;
-}
+  color: var(--faint); }
 .filter-button {
-  font-family: var(--mono);
-  font-size: var(--t-small);
   border: 1px solid transparent;
   background: transparent;
   color: var(--dim);
@@ -688,11 +842,10 @@ button { cursor: pointer; }
   width: 22px; height: 22px;
   padding: 0;
   border-color: transparent;
-  font-size: var(--t-small);
-}
+  }
 .search-field .filter-button[hidden] { display: block; visibility: hidden; }
 .search-field kbd {
-  font-family: var(--mono); font-size: 10px;
+  font-family: var(--mono); font-size: var(--t-micro);
   border: 1px solid var(--line-strong);
   border-radius: 3px; padding: 1px 5px;
   color: var(--faint);
@@ -741,7 +894,7 @@ button { cursor: pointer; }
 
 /* the grid gets the same left gutter as prose, so a row's first character
    lines up with a section heading instead of hugging the rail. */
-.grid-table { width: 100%; border-collapse: collapse; font-size: var(--t-body); }
+.grid-table { width: 100%; border-collapse: collapse; }
 .monster-grid { width: 100%; min-width: 0; table-layout: fixed; }
 /* Artifact rows are allowed to grow for their four sub-property lines; the
    shell still supplies their width and column-heading behaviour. */
@@ -752,8 +905,6 @@ button { cursor: pointer; }
 .artifact-refinement-flag > * { margin-left: 0; }
 .artifact-subs { margin: 0; padding: 0; list-style: none; }
 .artifact-subs li {
-  font-family: var(--mono);
-  font-size: var(--t-small);
   line-height: 1.5;
   white-space: nowrap;
   overflow: hidden;
@@ -824,11 +975,9 @@ button { cursor: pointer; }
 .relic-library { width: 100%; }
 .relic-grid { width: 100%; min-width: 0; table-layout: fixed; }
 .relic-grid tbody td { height: auto; padding-block: var(--s2); vertical-align: middle; }
-.relic-property { display: block; font-size: var(--t-body); }
+.relic-property { display: block; }
 .relic-effect {
   display: block;
-  font-family: var(--mono);
-  font-size: var(--t-small);
   color: var(--faint);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
@@ -861,7 +1010,6 @@ button { cursor: pointer; }
    to the left, so one-star and two-star labels share the same measure without
    leaving a misleading gap before the text. */
 .relic-synergy .relic-mark-slots { flex-direction: row-reverse; }
-.relic-synergy-label { font-size: var(--t-body); }
 .relic-synergy[data-band='exceptional'],
 .relic-synergy[data-band='strong'] { color: var(--gold); }
 .relic-synergy[data-band='neutral'] { color: var(--dim); }
@@ -896,7 +1044,7 @@ button { cursor: pointer; }
 .relic-level-value { font-variant-numeric: tabular-nums; }
 .relic-level-mark { display: inline-flex; margin-left: var(--s1); vertical-align: -.18em; }
 
-.relic-verdict { display: block; font-size: var(--t-body); font-weight: 500; }
+.relic-verdict { display: block; }
 .relic-verdict[data-verdict='power-up'] { color: var(--state-good); }
 .relic-verdict[data-verdict='keep'] { color: var(--ink); }
 .relic-verdict[data-verdict='sell'] { color: var(--state-bad); }
@@ -977,8 +1125,6 @@ button { cursor: pointer; }
   min-width: 0;
   overflow: hidden;
   color: var(--dim);
-  font-size: var(--t-micro);
-  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1034,7 +1180,7 @@ button { cursor: pointer; }
 .relic-monster-grid tbody td { height: auto; padding-block: var(--s2); vertical-align: middle; }
 /* An absent relic is a fact about the monster, not an unjudged cell, so it
    takes the established dim rather than `.muted`. */
-.relic-monster-none { color: var(--dim); font-family: var(--mono); }
+.relic-monster-none { color: var(--dim); }
 .relic-monster-grid td.align-right { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 
 /* Four verdicts on one ladder: a bare monster gaining a relic is a clean win,
@@ -1126,9 +1272,7 @@ button { cursor: pointer; }
   position: sticky; top: 0; z-index: 10;
   background: var(--raise);
   text-align: right;
-  font-size: var(--t-micro); letter-spacing: .08em; text-transform: uppercase;
-  color: var(--dim); font-weight: 700;
-  height: var(--strip);
+  color: var(--dim); height: var(--strip);
   padding: 0 var(--s3);
   border-bottom: 1px solid var(--line-strong);
   white-space: nowrap;
@@ -1152,7 +1296,6 @@ button { cursor: pointer; }
   height: var(--row);
   border-bottom: 1px solid var(--line);
   text-align: right;
-  font-family: var(--mono);
   font-variant-numeric: tabular-nums;
   color: var(--ink);
 }
@@ -1176,12 +1319,11 @@ button { cursor: pointer; }
 .monster-grid .equipment-start { padding-left: var(--s5); }
 .monster-grid .equipment-types { white-space: nowrap; }
 
-.row-index { color: var(--ghost); font-size: var(--t-micro); width: 64px; }
+.row-index { color: var(--ghost); font-family: var(--mono); font-size: var(--t-micro); width: 64px; }
 
 .monster-cell { display: flex; align-items: center; gap: var(--s3); min-width: 0; }
 .monster-name {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-weight: 500; font-size: var(--t-body);
 }
 .monster-name small {
   display: block;
@@ -1206,18 +1348,15 @@ button { cursor: pointer; }
   display: grid; place-items: center;
   color: var(--dim);
   font-family: var(--mono);
-  font-size: 11px; font-weight: 700;
+  font-size: var(--t-micro); font-weight: 700;
 }
 
 /* rune sets: plain monospaced text, second set dimmed */
 .set-mark {
-  font-family: var(--mono);
-  font-size: var(--t-small);
   color: var(--ink);
-  letter-spacing: .03em;
   white-space: nowrap;
 }
-.set-none { font-family: var(--mono); font-size: var(--t-small); color: var(--faint); }
+.set-none { color: var(--faint); }
 
 /* an empty cell that is waiting on a calculation, not missing data */
 .awaiting {
@@ -1347,7 +1486,7 @@ button { cursor: pointer; }
 .bar-chevron {
   flex: 0 0 auto;
   width: 20px;
-  font-size: 20px; line-height: 1;
+  font-size: var(--glyph-small); line-height: 1;
   color: var(--faint);
   text-align: center;
   transition: transform .16s ease, color .12s;
@@ -1358,8 +1497,6 @@ button { cursor: pointer; }
 .bar-head b {
   flex: 1;
   min-width: 0;
-  font-size: var(--t-title); font-weight: 600;
-  letter-spacing: -.02em;
   color: var(--ink);
 }
 .bar[open] .bar-head b { color: var(--gold); }
@@ -1382,9 +1519,7 @@ button { cursor: pointer; }
    settings above it rather than as a caption. */
 .field-legend {
   margin: 0 0 var(--s2);
-  font-size: var(--t-lead); font-weight: 600;
   line-height: 1.3;
-  letter-spacing: -.01em;
   color: var(--ink);
 }
 
@@ -1426,7 +1561,6 @@ button { cursor: pointer; }
 }
 .artifact-scope-box h3 {
   margin: 0 0 var(--s3);
-  font-size: var(--t-lead); font-weight: 600;
   line-height: 1.3;
   color: var(--ink);
 }
@@ -1458,14 +1592,13 @@ button { cursor: pointer; }
 }
 .artifact-conversion-title {
   margin: 0;
-  font-size: var(--t-lead); font-weight: 600;
   line-height: 1.3;
   color: var(--ink);
 }
 .artifact-conversion-intro {
   margin: calc(var(--s5) * -1 + var(--s2)) 0 0;
   color: var(--dim);
-  font-size: var(--t-body); line-height: 1.5;
+  line-height: 1.5;
 }
 
 /* A disabled control dims and keeps every box it occupies, so switching the
@@ -1557,17 +1690,15 @@ button { cursor: pointer; }
 .slider-label {
   display: block;
   min-height: 1.3em;
-  font-size: var(--t-lead); font-weight: 600;
   line-height: 1.3;
-  letter-spacing: -.01em;
-}
+  }
 /* Two lines are reserved so the four descriptions, which differ in length,
    still put their tracks on one line. */
 .slider-note {
   margin: var(--s1) 0 0;
   min-height: calc(2 * 1.5em);
   color: var(--dim);
-  font-size: var(--t-body); line-height: 1.5;
+  line-height: 1.5;
 }
 .slider input[type='range'] {
   display: block; width: 100%;
@@ -1584,8 +1715,6 @@ button { cursor: pointer; }
   position: relative;
   height: var(--s5);
   color: var(--gold);
-  font-family: var(--mono);
-  font-size: var(--t-small);
   font-variant-numeric: tabular-nums;
 }
 /* The value is centred on its handle by shifting it half its own width, so
@@ -1701,9 +1830,7 @@ button { cursor: pointer; }
   border-radius: var(--radius-sm);
   background: var(--sunk);
   color: var(--faint);
-  font-family: var(--mono);
-  font-size: var(--t-small);
-}
+  }
 
 /* ================================================================ filter panel
    THE AUTHORITATIVE SKELETON for every boxed filter panel.
@@ -1811,20 +1938,19 @@ button { cursor: pointer; }
 .best-artifact-monster-select .filter-group-controls { width: 50%; }
 .best-artifact-monster-select .jaswa-select { width: 100%; min-width: 30ch; }
 .best-monster-actions { grid-area: calculate; justify-self: start; }
-.best-artifact-meta { color: var(--dim); font-family: var(--mono); font-size: var(--t-small); font-variant-numeric: tabular-nums; }
+.best-artifact-meta { color: var(--dim); font-variant-numeric: tabular-nums; }
 .best-artifact-results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s4); }
 .best-monster-results { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s4); }
 .best-artifact-result { min-width: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
 .best-artifact-result > header { min-height: 126px; padding: var(--s4); border-bottom: 1px solid var(--line); background: var(--sunk); }
 .best-artifact-result h3, .best-artifact-result p { margin: 0; }
-.best-artifact-result h3 { font-size: var(--t-lead); }
 .best-artifact-result header p { margin-top: var(--s2); color: var(--dim); font-size: var(--t-small); line-height: 1.45; }
 .best-artifact-result-scroll { overflow: visible; }
-.best-artifact-result table { width: 100%; min-width: 0; border-collapse: collapse; table-layout: fixed; font-size: var(--t-small); }
+.best-artifact-result table { width: 100%; min-width: 0; border-collapse: collapse; table-layout: fixed; }
 /* No text-align here: alignment is the column's own declaration, applied to the
    heading and the cell alike. A rule at this specificity would override it. */
 .best-artifact-result th, .best-artifact-result td { padding: var(--s3); border-bottom: 1px solid var(--line); vertical-align: top; }
-.best-artifact-result th { color: var(--faint); font-size: var(--t-micro); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.best-artifact-result th { color: var(--faint); }
 .best-artifact-result th:nth-child(1) { width: 30%; }
 .best-artifact-result th:nth-child(2), .best-artifact-result th:nth-child(3), .best-artifact-result th:nth-child(4) { width: 23.333%; }
 .best-artifact-result tr:last-child td { border-bottom: 0; }
@@ -1834,18 +1960,18 @@ button { cursor: pointer; }
 .best-artifact-empty { padding: var(--s4); color: var(--dim); }
 .best-monster-artifact-details { display: grid; grid-template-columns: minmax(22ch, .8fr) minmax(0, 1.2fr); gap: var(--s5); padding: var(--s4); border: 1px solid var(--line); border-radius: var(--radius); background: var(--sunk); }
 .best-monster-artifact-details p, .best-monster-artifact-details h3 { margin: 0; }
-.best-monster-artifact-details h3 { margin-top: var(--s1); font-size: var(--t-lead); }
+.best-monster-artifact-details h3 { margin-top: var(--s1); }
 .best-monster-artifact-details h3 + p { margin-top: var(--s2); color: var(--dim); }
 .best-monster-artifact-details .artifact-subs { align-self: center; columns: 2; column-gap: var(--s5); }
 .best-monster-artifact-details .artifact-subs li { break-inside: avoid; }
 /* A statement of fact about the artifact, not a warning: Intangible widens the
    candidate list rather than signalling anything wrong. */
-.best-monster-intangible { margin-top: var(--s2); color: var(--gold); font-size: var(--t-small); }
+.best-monster-intangible { margin-top: var(--s2); color: var(--gold); }
 .best-monster-result-scroll { overflow: visible; }
-.best-monster-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: var(--t-small); }
+.best-monster-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 /* Alignment comes from the column declaration; see .best-artifact-result. */
 .best-monster-table th, .best-monster-table td { padding: var(--s3); border-bottom: 1px solid var(--line); vertical-align: top; }
-.best-monster-table th { color: var(--faint); font-size: var(--t-micro); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.best-monster-table th { color: var(--faint); }
 .best-monster-table th:nth-child(1) { width: 37%; }
 .best-monster-table tr:last-child td { border-bottom: 0; }
 .best-monster-table td b { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 500; }
@@ -1961,7 +2087,7 @@ button { cursor: pointer; }
   color: var(--faint);
   border-color: var(--line);
 }
-.artifact-recommendation-meta { color: var(--dim); font-family: var(--mono); font-size: var(--t-small); font-variant-numeric: tabular-nums; }
+.artifact-recommendation-meta { color: var(--dim); font-variant-numeric: tabular-nums; }
 .artifact-recommendation-table-wrap { width: 100%; overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); }
 /* The table always fits its container: it is 100% wide and every column is a
    share of that, so there is no width at which it can overflow and no
@@ -1979,7 +2105,7 @@ button { cursor: pointer; }
 
    The shares total exactly 100 and must continue to: widening one column means
    taking the share from another. */
-.artifact-recommendation-table-wrap > .artifact-recommendation-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: var(--t-small); }
+.artifact-recommendation-table-wrap > .artifact-recommendation-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 /* The horizontal padding is the gutter between columns and is set wider than
    the vertical: with ten columns of running text abutting one another, 16px a
    side is what keeps a long substat line from reading into its neighbour. It
@@ -1993,7 +2119,7 @@ button { cursor: pointer; }
    of letting the uppercase tracking mash them together, and aligning to the
    bottom sits every heading on the rule above the rows, so a wrapped one grows
    upward instead of leaving its neighbours floating. */
-.artifact-recommendation-table th { color: var(--faint); font-size: var(--t-micro); font-weight: 700; letter-spacing: .06em; line-height: 1.45; text-transform: uppercase; vertical-align: bottom; }
+.artifact-recommendation-table th { color: var(--faint); line-height: 1.45; vertical-align: bottom; }
 .artifact-recommendation-table tr:last-child td { border-bottom: 0; }
 /* The shares are set from what each column actually has to hold, longest
    content first, and the short ones divide what is left.
@@ -2139,8 +2265,6 @@ button { cursor: pointer; }
   margin: var(--s3) 0 0;
   min-height: calc(3 * 1.45em);
   color: var(--gold);
-  font-size: var(--t-body);
-  font-weight: 500;
   line-height: 1.45;
   text-wrap: pretty;
 }
@@ -2179,14 +2303,12 @@ button { cursor: pointer; }
    sits in are the same size and cut — a peer, not a caption. */
 .statistics h4 {
   margin: 0;
-  font-size: var(--t-title); font-weight: 600;
-  letter-spacing: -.02em;
   color: var(--gold);
 }
 .statistics-lead {
   margin: var(--s1) 0 var(--s4);
   color: var(--dim);
-  font-size: var(--t-body); line-height: 1.45;
+  line-height: 1.45;
 }
 .statistics dl { margin: 0; display: grid; gap: var(--s3); }
 
@@ -2200,21 +2322,17 @@ button { cursor: pointer; }
 }
 .statistics dl > div:first-child { padding-top: 0; border-top: 0; }
 .statistics dt {
-  font-size: var(--t-body);
   color: var(--dim);
 }
 .statistics dd {
   margin: 0;
-  font-family: var(--mono);
   font-variant-numeric: tabular-nums;
-  font-size: 32px; font-weight: 700;
   line-height: 1.1;
-  letter-spacing: -.03em;
   color: var(--gold);
   white-space: nowrap;
 }
 .statistics dd .unit {
-  font-size: 17px; font-weight: 700;
+  font-size: var(--t-title); font-weight: 700;
   margin-left: var(--s1);
   opacity: .75;
 }
@@ -2279,8 +2397,6 @@ button { cursor: pointer; }
 .acceleration-word {
   margin: 0;
   min-width: 0;
-  font-size: var(--t-title); font-weight: 600;
-  letter-spacing: -.02em;
   color: var(--state);
 }
 /* The label on its own line and the name under it, with no rule between them and
@@ -2321,7 +2437,7 @@ button { cursor: pointer; }
 /* The two-tone device the house style already uses for primary against
    secondary: the label dimmed, the answer in full ink. */
 .acceleration-adapter span { color: var(--dim); font-weight: 400; }
-.acceleration-adapter b { color: var(--ink); font-weight: 700; }
+.acceleration-adapter b { color: var(--ink); }
 
 /* --------------------------------------------------------------- presets */
 
@@ -2344,9 +2460,7 @@ button { cursor: pointer; }
 .list-count {
   margin: 0;
   min-width: 11ch;
-  font-family: var(--mono);
   font-variant-numeric: tabular-nums;
-  font-size: var(--t-small);
   color: var(--faint);
 }
 .list-count b { color: var(--dim); font-weight: 500; }
@@ -2402,8 +2516,6 @@ button { cursor: pointer; }
    three lines so one preset cannot take a screen to itself. */
 .preset-name {
   margin: 0;
-  font-size: var(--t-title); font-weight: 600;
-  letter-spacing: -.02em;
   color: var(--gold);
   overflow-wrap: anywhere;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3;
@@ -2414,7 +2526,6 @@ button { cursor: pointer; }
    gold above it. */
 .preset-type {
   margin: 2px 0 0;
-  font-size: var(--t-small);
   color: var(--faint);
 }
 
@@ -2434,9 +2545,6 @@ button { cursor: pointer; }
    are named in the same voice as the settings above rather than in the
    table-header voice of the grid. */
 .preset-row-label {
-  font-size: var(--t-body);
-  font-weight: 600;
-  letter-spacing: -.01em;
   color: var(--dim);
 }
 .preset-row-value { min-width: 0; }
@@ -2450,14 +2558,11 @@ button { cursor: pointer; }
 .choice-line { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); align-items: baseline; }
 .choice-none { display: inline-block; }
 .choice {
-  font-family: var(--mono);
-  font-size: var(--t-small);
-  letter-spacing: .02em;
   white-space: nowrap;
 }
 .choice.preferred { color: var(--ink); font-weight: 500; }
 .choice.acceptable { color: var(--faint); }
-.choice-none { font-family: var(--mono); font-size: var(--t-small); color: var(--ghost); }
+.choice-none { color: var(--ghost); }
 
 /* The three slots side by side in equal columns, each named above its own
    choices. Equal thirds rather than content width so the slot names sit on the
@@ -2469,8 +2574,6 @@ button { cursor: pointer; }
 }
 .slot { display: grid; gap: var(--s1); align-content: start; min-width: 0; }
 .slot-label {
-  font-size: var(--t-micro);
-  letter-spacing: .06em; text-transform: uppercase;
   color: var(--faint);
 }
 /* Every gap between two adjacent stats is the same measured distance — end of
@@ -2497,9 +2600,6 @@ button { cursor: pointer; }
 .flag {
   display: inline-flex; align-items: baseline; gap: var(--s2);
   justify-self: start;
-  font-family: var(--mono);
-  font-size: var(--t-small);
-  letter-spacing: .02em;
   white-space: nowrap;
   color: var(--faint);
 }
@@ -2526,16 +2626,13 @@ button { cursor: pointer; }
 /* Cased as written rather than uppercased: the labels distinguish CtR from CtD
    by their own capitals, which a text-transform would flatten away. */
 .target dt {
-  font-size: var(--t-micro);
-  letter-spacing: .06em;
   color: var(--faint);
   white-space: nowrap;
 }
 .target dd {
   margin: 0;
-  font-family: var(--mono);
   font-variant-numeric: tabular-nums;
-  font-size: var(--t-body); font-weight: 500;
+  font-weight: 500;
   color: var(--ink);
   white-space: nowrap;
 }
@@ -2564,7 +2661,7 @@ button { cursor: pointer; }
 .checkbox-row {
   display: flex; align-items: center; gap: var(--s3);
   min-height: 28px;
-  font-size: var(--t-body); color: var(--dim);
+  color: var(--dim);
   cursor: pointer;
 }
 /* `accent-color` only paints the tick and its fill; an unchecked box keeps the
@@ -2672,9 +2769,7 @@ button { cursor: pointer; }
 /* Raises a single field's label to the weight of a .field-legend, for a field
    that stands beside a legend as its own heading rather than under one. */
 .field-lead > span {
-  font-size: var(--t-lead);
   line-height: 1.3;
-  letter-spacing: -.01em;
   color: var(--ink);
 }
 
@@ -2838,8 +2933,6 @@ button { cursor: pointer; }
 .page-title {
   margin: 0;
   font-size: clamp(30px, 3.2vw, 42px);
-  font-weight: 700;
-  letter-spacing: -.035em;
   line-height: 1.05;
   text-wrap: balance;
   color: var(--ink);
@@ -2859,7 +2952,6 @@ button { cursor: pointer; }
   margin: var(--s3) 0 0;
   max-width: 62ch;
   color: var(--dim);
-  font-size: var(--t-lead);
   line-height: 1.6;
   text-wrap: pretty;
 }
@@ -3004,32 +3096,28 @@ button { cursor: pointer; }
 .section-intro p {
   margin: var(--s2) 0 0;
   color: var(--dim);
-  font-size: var(--t-base); line-height: 1.6;
+  line-height: 1.6;
 }
 
 /* vertical rhythm inside a panel: one gap, applied between siblings only */
 .stack { display: grid; gap: var(--s4); }
 .stack.tight { gap: var(--s2); }
 
-.lead { margin: 0; color: var(--dim); font-size: var(--t-body); line-height: 1.6; max-width: 68ch; }
+.lead { margin: 0; color: var(--dim); line-height: 1.6; max-width: 68ch; }
 .meta-line {
   margin: 0;
-  font-family: var(--mono);
-  font-size: var(--t-body);
   color: var(--faint);
 }
 
 /* a heading for a block inside a section — one step below section-intro */
 .block-title {
   margin: 0 0 var(--s4);
-  font-size: var(--t-title); font-weight: 600; letter-spacing: -.02em;
-}
+  }
 .block-title + p { margin-top: calc(var(--s4) * -1 + var(--s2)); }
 
 .eyebrow {
   margin: 0 0 var(--s2);
-  font-size: var(--t-micro); letter-spacing: .12em; text-transform: uppercase;
-  font-weight: 700; color: var(--gold);
+  color: var(--gold);
 }
 
 /* empty state — the honest form of a section with no data yet */
@@ -3044,14 +3132,13 @@ button { cursor: pointer; }
    the workspace will do — a lead, not a second headline. */
 .empty-state h2 {
   margin: 0;
-  font-size: var(--t-lead); font-weight: 500; line-height: 1.55;
-  letter-spacing: -.005em;
+  line-height: 1.55;
   color: var(--ink);
 }
 .empty-state p {
   margin: var(--s2) 0 0;
   color: var(--dim);
-  font-size: var(--t-base); line-height: 1.6;
+  line-height: 1.6;
 }
 .empty-state .next-step {
   margin-top: var(--s5);
@@ -3061,7 +3148,7 @@ button { cursor: pointer; }
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   background: var(--sunk);
   color: var(--dim);
-  font-size: var(--t-body); line-height: 1.55;
+  line-height: 1.55;
 }
 
 /* ---------------------------------------------------------------- forms */
@@ -3090,7 +3177,6 @@ button { cursor: pointer; }
   height: 36px;
   border-radius: var(--radius-sm);
   padding: 0 var(--s4);
-  font-size: var(--t-body); font-weight: 600;
   white-space: nowrap;
   border: 1px solid var(--line-strong);
   background: transparent;
@@ -3099,10 +3185,10 @@ button { cursor: pointer; }
 }
 /* A line of settings, not a call to action: the button is part of the sentence
    it sits in, so it matches the fields beside it rather than out-weighing them. */
-.button.compact { height: 32px; padding: 0 var(--s4); font-size: var(--t-small); }
+.button.compact { height: 32px; padding: 0 var(--s4); }
 /* The action a whole panel builds up to. Enlarged so it reads as the panel's
    conclusion rather than one more control in the flow. */
-.button.prominent { height: 44px; padding: 0 var(--s5); font-size: 14px; }
+.button.prominent { height: 44px; padding: 0 var(--s5); }
 .button:hover:not(:disabled) { color: var(--ink); border-color: var(--faint); }
 /* A platform mark before the label. Sized off the cap height rather than the
    line box, so it sits as a badge beside the word instead of out-measuring it,
@@ -3152,9 +3238,7 @@ button { cursor: pointer; }
    caps — at 10px the uppercase tracking was costing legibility. */
 .field > span {
   display: block;
-  font-size: var(--t-body);
-  color: var(--dim); font-weight: 600;
-  margin-bottom: var(--s2);
+  color: var(--dim); margin-bottom: var(--s2);
 }
 .field input, .field textarea {
   display: block; width: 100%;
@@ -3228,12 +3312,12 @@ button { cursor: pointer; }
     var(--hover);
   box-shadow: 0 0 0 1px var(--gold-edge), 0 12px 32px -18px rgba(217, 173, 82, .5);
 }
-.drop-zone strong { color: var(--ink); font-size: var(--t-lead); font-weight: 600; }
+.drop-zone strong { color: var(--ink); }
 .drop-zone span { font-size: var(--t-body); }
 /* the arrow eases down on approach — the only motion on the page, and it
    points at the thing the pointer is already over */
 .drop-zone .glyph {
-  color: var(--gold); font-size: 30px; font-family: var(--mono);
+  color: var(--gold); font-size: var(--glyph-large); font-family: var(--mono);
   transition: translate .14s;
 }
 .drop-zone:hover .glyph, .drop-zone.dragging .glyph { translate: 0 3px; }
@@ -3249,7 +3333,7 @@ button { cursor: pointer; }
   background: var(--sunk);
 }
 .drop-zone.settled .glyph { font-size: var(--t-title); }
-.drop-zone.settled strong { font-size: var(--t-body); font-weight: 500; color: var(--dim); }
+.drop-zone.settled strong { color: var(--dim); }
 .drop-zone.settled:hover strong { color: var(--ink); }
 
 /* ------------------------------------------------------ loaded game data */
@@ -3335,8 +3419,6 @@ button { cursor: pointer; }
 .route-body-with-title { gap: var(--s2); }
 .route-body-title {
   margin: 0;
-  font-size: var(--t-title); font-weight: 600;
-  letter-spacing: -.02em;
   line-height: 1.25;
   color: var(--ink);
 }
@@ -3422,8 +3504,6 @@ button { cursor: pointer; }
    not a label over a box. */
 .route-option {
   display: block;
-  font-size: var(--t-base); font-weight: 700;
-  letter-spacing: .14em; text-transform: uppercase;
   line-height: 1.2;
   /* --dim, not --faint: on the unchosen card this sits on the panel's own
      ground, where --faint measures 4.26:1 and misses the 4.5:1 the house style
@@ -3437,8 +3517,6 @@ button { cursor: pointer; }
 .route-name {
   display: block;
   margin-top: var(--s1);
-  font-size: var(--t-title); font-weight: 600;
-  letter-spacing: -.02em;
   line-height: 1.25;
   color: var(--ink);
   transition: color .12s;
@@ -3454,8 +3532,6 @@ button { cursor: pointer; }
      line. `inline-block` so the margin survives a line wrap collapsing it. */
   margin-left: var(--s2);
   display: inline-block;
-  font-size: var(--t-base); font-weight: 400;
-  letter-spacing: 0;
   color: var(--faint);
 }
 .import-route:not(.chosen) .route-qualifier { color: var(--ghost); }
@@ -3527,7 +3603,7 @@ button { cursor: pointer; }
   list-style: none;
   display: grid; gap: var(--s2);
   color: var(--dim);
-  font-size: var(--t-body); line-height: 1.5;
+  line-height: 1.5;
 }
 /* The URLs are long enough to overflow a narrow column on their own, and the
    link text stands in for them, so nothing here needs to break mid-word. */
@@ -3538,7 +3614,6 @@ button { cursor: pointer; }
    colour alone must not be what marks it. */
 .text-link {
   color: var(--gold);
-  font-weight: 600;
   text-decoration: underline; text-underline-offset: 2px;
   transition: color .12s;
 }
@@ -3570,15 +3645,12 @@ button { cursor: pointer; }
 .helper-version h4 {
   margin: 0;
   color: var(--gold);
-  font-size: var(--t-body);
-  font-weight: 600;
-}
+  }
 .helper-version p {
   margin: 0;
   min-height: 2.8em;
   overflow: hidden;
   color: var(--dim);
-  font-size: var(--t-small);
   line-height: 1.4;
 }
 .helper-version.update-available p { color: var(--ink); }
@@ -3589,8 +3661,6 @@ button { cursor: pointer; }
 .helper-current-version {
   position: absolute; top: var(--s4); right: var(--s4);
   color: var(--faint);
-  font-family: var(--mono);
-  font-size: var(--t-small);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -3673,7 +3743,7 @@ button { cursor: pointer; }
   display: block;
   margin-top: var(--s1);
   color: var(--dim);
-  font-size: var(--t-body); line-height: 1.5;
+  line-height: 1.5;
 }
 
 /* notices */
@@ -3684,14 +3754,13 @@ button { cursor: pointer; }
   background: var(--sunk);
   padding: var(--s3) var(--s4);
   color: var(--dim);
-  font-size: var(--t-body); line-height: 1.55;
+  line-height: 1.55;
   max-width: 68ch;
 }
 .notice.warning { border-left-color: var(--faint); }
 .notice-link {
   padding: 0; border: 0; background: transparent;
   color: var(--gold);
-  font-weight: 600; font-size: inherit;
   text-decoration: underline; text-underline-offset: 2px;
 }
 
@@ -3702,8 +3771,6 @@ button { cursor: pointer; }
   padding: 0 var(--gutter);
   border-top: 1px solid var(--line);
   background: var(--raise);
-  font-family: var(--mono);
-  font-size: var(--t-small);
   color: var(--faint);
   position: sticky; bottom: 0;
 }
@@ -3804,8 +3871,8 @@ button { cursor: pointer; }
   padding: var(--s5);
   box-shadow: 0 24px 70px rgba(0, 0, 0, .5);
 }
-.dialog h2 { margin: 0; font-size: var(--t-title); font-weight: 600; letter-spacing: -.02em; }
-.dialog p { color: var(--dim); font-size: var(--t-body); line-height: 1.6; }
+.dialog h2 { margin: 0; }
+.dialog p { color: var(--dim); line-height: 1.6; }
 .dialog .field { margin-top: var(--s4); }
 .dialog-actions { display: flex; justify-content: flex-end; gap: var(--s2); margin-top: var(--s5); }
 
@@ -3870,16 +3937,12 @@ button { cursor: pointer; }
 }
 .editor-block-title {
   margin: 0;
-  font-size: var(--t-lead); font-weight: 600;
-  letter-spacing: -.01em;
   color: var(--ink);
 }
 
 .choice-legend {
   margin: 0;
   display: flex; align-items: center; gap: var(--s4);
-  font-size: var(--t-micro);
-  letter-spacing: .04em;
   color: var(--faint);
 }
 .choice-legend-item { display: inline-flex; align-items: center; gap: var(--s2); }
@@ -3894,7 +3957,7 @@ button { cursor: pointer; }
 .choice-legend-hint { color: var(--ghost); }
 .editor-note {
   margin: 0 0 var(--s1);
-  font-size: var(--t-body); line-height: 1.5;
+  line-height: 1.5;
   color: var(--faint);
   max-width: 72ch;
 }
@@ -3926,9 +3989,6 @@ button { cursor: pointer; }
   border-radius: var(--radius-sm);
   background: var(--sunk);
   color: var(--faint);
-  font-family: var(--mono);
-  font-size: var(--t-small);
-  letter-spacing: .02em;
   text-align: left;
   transition: color .12s, border-color .12s, background .12s;
 }
@@ -3976,8 +4036,6 @@ button { cursor: pointer; }
 .editor-slot { display: grid; gap: var(--s2); align-content: start; min-width: 0; }
 .editor-slot-label {
   margin: 0;
-  font-size: var(--t-micro);
-  letter-spacing: .06em; text-transform: uppercase;
   color: var(--faint);
 }
 .editor-slot .choice-editor { gap: var(--s1); }
@@ -3991,7 +4049,7 @@ button { cursor: pointer; }
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--s3) var(--s4);
 }
-.field-compact > span { margin-bottom: var(--s1); font-size: var(--t-micro); letter-spacing: .04em; color: var(--faint); }
+.field-compact > span { margin-bottom: var(--s1); color: var(--faint); }
 .field-compact input {
   height: 32px;
   font-family: var(--mono);
@@ -4034,11 +4092,10 @@ button { cursor: pointer; }
   .rail-heading { display: none; }
   .rail-group { display: flex; gap: var(--s1); }
   .rail-group + .rail-group { margin-top: 0; }
-  .rail-item { height: 38px; font-size: var(--t-body); }
+  .rail-item { height: 38px; }
 
   .bar-head { padding: var(--s3) var(--s4); }
   .bar-body { padding: var(--s4); }
-  .bar-head b { font-size: var(--t-lead); }
   .rail-item { width: auto; height: 32px; padding: 0 var(--s3); }
   .rail-item .glyph { display: none; }
   .rail-item.active { box-shadow: inset 0 2px 0 var(--gold); }
@@ -4084,7 +4141,6 @@ button { cursor: pointer; }
      flow by the browser and does not accept a grid cell in every engine. */
   float: left;
   padding: 0;
-  font-size: var(--t-body); font-weight: 600;
   color: var(--dim);
 }
 .radio-line-options {
@@ -4191,8 +4247,6 @@ button { cursor: pointer; }
 /* The value a setting currently holds, set in the figure face the rest of the
    app uses for data. */
 .sample-value {
-  font-family: var(--mono);
-  font-size: var(--t-body);
   color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
@@ -4304,7 +4358,6 @@ th.align-center .sort-button { justify-content: center; }
   background: none;
   color: var(--gold);
   font: inherit;
-  font-size: var(--t-small);
   cursor: pointer;
 }
 .artifact-conversion-more:hover { text-decoration: underline; }
