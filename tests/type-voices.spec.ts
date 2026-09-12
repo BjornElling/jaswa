@@ -143,7 +143,7 @@ test('every calculation uses the same right-aligned status report', async ({ pag
   expect(reports.every(({ textAlign }) => textAlign === 'right')).toBe(true);
 });
 
-test('artifact entries name an empty improvements result', async ({ page }) => {
+test('artifact entries name an empty improvements result', async ({ page }, testInfo) => {
   await importAccount(page, artifactAccount);
   await openArtifactOptimization(page);
 
@@ -164,6 +164,9 @@ test('artifact entries name an empty improvements result', async ({ page }) => {
   expect(improvements.every(({ hasHeading }) => hasHeading)).toBe(true);
   expect(improvements.filter(({ hasConversions }) => !hasConversions).every(({ text }) => text.includes('None')))
     .toBe(true);
+  const emptyEntry = entries.filter({ has: page.getByText('None', { exact: true }) }).first();
+  await expect(emptyEntry).toBeVisible();
+  await emptyEntry.screenshot({ path: testInfo.outputPath('empty-improvements.png') });
 });
 
 test('current artifact conversions use the muted substat voice', async ({ page }) => {
@@ -239,14 +242,65 @@ test('artifact recommendation columns share their intended baselines', async ({ 
   expect(alignment.conversionColors.every((color) => color === alignment.substatColor)).toBe(true);
   expect(alignment.improvementsTitleColor).toBe(alignment.standardTextColor);
 
-  const entryWithMore = panel.locator('.best-artifact-entry').filter({ has: page.locator('.artifact-conversion-more') }).first();
-  await expect(entryWithMore.locator('.artifact-conversion-more')).toBeVisible();
-  const moreWeight = await entryWithMore.locator('.artifact-conversion-more').evaluate((element) =>
+  const entryWithMore = panel.locator('.best-artifact-entry').filter({ has: page.locator('.expandable-list-toggle') }).first();
+  await expect(entryWithMore.locator('.expandable-list-toggle')).toBeVisible();
+  const moreWeight = await entryWithMore.locator('.expandable-list-toggle').evaluate((element) =>
     getComputedStyle(element).fontWeight);
   const scoreWeight = await entryWithMore.locator('.best-artifact-entry-facts .best-artifact-fact-score dd').evaluate((element) =>
     getComputedStyle(element).fontWeight);
   expect(moreWeight).toBe(scoreWeight);
-  const faceLefts = await entryWithMore.locator('.artifact-conversion-more .label-swap-face').evaluateAll((elements) =>
+  const faceLefts = await entryWithMore.locator('.expandable-list-toggle .label-swap-face').evaluateAll((elements) =>
     elements.map((element) => element.getBoundingClientRect().left));
   expect(Math.max(...faceLefts) - Math.min(...faceLefts)).toBeLessThanOrEqual(1);
+});
+
+test('expanding conversions keeps the toggle clear of the score and evenly spaced', async ({ page }, testInfo) => {
+  await importAccount(page, artifactAccount);
+  await openArtifactOptimization(page);
+
+  await page.locator('summary').filter({ hasText: 'Settings' }).click();
+  await page.locator('input[name="artifact-conversion-stone-mode"][value="theoretical"]').check();
+
+  const panel = page.locator('.best-artifact-for-monster');
+  await page.getByRole('combobox', { name: 'Choose a monster for artifact recommendations' }).selectOption({ index: 1 });
+  await panel.getByRole('button', { name: 'Calculate artifacts' }).click();
+  const entry = panel.locator('.best-artifact-entry').filter({ has: page.locator('.expandable-list-toggle') }).first();
+  const toggle = entry.locator('.expandable-list-toggle');
+  await expect(toggle).toBeVisible();
+
+  const measure = async () => await entry.evaluate((element) => {
+    const options = [...element.querySelectorAll('.expandable-list-items > li')];
+    const lastOption = options.at(-1);
+    const button = element.querySelector('.expandable-list-toggle');
+    const score = element.querySelector('.best-artifact-improvements .best-artifact-fact-score');
+    const leftScore = element.querySelector('.best-artifact-entry-facts .best-artifact-fact-score');
+    if (!lastOption || !button || !score || !leftScore) throw new Error('Expanded recommendation geometry is incomplete.');
+    const rect = (node: Element) => node.getBoundingClientRect();
+    return {
+      optionCount: options.length,
+      optionGaps: options.slice(1).map((option, index) => rect(option).top - rect(options[index]).bottom),
+      lastOptionToToggle: rect(button).top - rect(lastOption).bottom,
+      toggleToScore: rect(score).top - rect(button).bottom,
+      scoreToLeftScore: Math.abs(rect(score).bottom - rect(leftScore).bottom),
+    };
+  });
+
+  const before = await measure();
+  await entry.screenshot({ path: testInfo.outputPath('conversions-collapsed.png') });
+  await toggle.click();
+  await expect(entry.locator('.expandable-list-items > li')).toHaveCount(4);
+  await expect(entry.getByRole('button', { name: 'Show fewer' })).toBeVisible();
+  const after = await measure();
+  await entry.screenshot({ path: testInfo.outputPath('conversions-expanded.png') });
+
+  expect(before.optionCount).toBe(3);
+  expect(after.optionCount).toBe(4);
+  expect(after.optionGaps.every((gap) => Math.abs(gap - after.optionGaps[0]) <= 1)).toBe(true);
+  expect(Math.abs(after.lastOptionToToggle - after.optionGaps[0])).toBeLessThanOrEqual(1);
+  expect(after.toggleToScore).toBeGreaterThan(after.lastOptionToToggle);
+  expect(after.scoreToLeftScore).toBeLessThanOrEqual(1);
+
+  await entry.getByRole('button', { name: 'Show fewer' }).click();
+  await expect(entry.locator('.expandable-list-items > li')).toHaveCount(3);
+  await expect(entry.getByRole('button', { name: /\+ 1 more/ })).toBeVisible();
 });

@@ -316,8 +316,7 @@ label[for] {
 
 /* Controls name actions, but keep the same body family and measure. */
 .type-control, .button, .filter-reset, .text-link, .radio-line-legend,
-.preset-row-label, .artifact-conversion-more,
-.best-artifact-improvements .artifact-conversion-more, .notice-link,
+.preset-row-label, .expandable-list-toggle, .notice-link,
 .field > span {
   font-family: var(--font-body);
   font-size: var(--type-body);
@@ -2062,12 +2061,18 @@ label[for] {
   min-width: 0;
   color: var(--text);
 }
-.best-artifact-improvements-copy { display: contents; }
 .best-artifact-improvements-title { margin: 0; color: var(--text); }
 .best-artifact-improvements-none { margin: 0; color: var(--text-muted); }
+.best-artifact-improvements-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  min-width: 0;
+}
 /* Recommendations give conversions their own third column. The block spans the
    name and facts rows so its heading starts beside the artifact name. Its score
-   is assigned to the facts row and therefore ends beside Score on this mon;
+   lives beneath the conversions in the facts row and therefore ends beside
+   Score on this mon;
    the current-slot cards have only two columns and keep the shared block below
    them instead. */
 .best-artifact-entry > .best-artifact-improvements {
@@ -2078,18 +2083,16 @@ label[for] {
   padding-top: 0;
   border-top: 0;
 }
-.best-artifact-entry > .best-artifact-improvements .best-artifact-improvements-copy {
-  display: grid;
+.best-artifact-entry > .best-artifact-improvements > .best-artifact-improvements-title {
   grid-column: 1;
-  grid-row: 1 / span 2;
-  align-content: start;
-  gap: var(--s2);
-  min-width: 0;
+  grid-row: 1;
 }
-.best-artifact-entry > .best-artifact-improvements .best-artifact-facts {
+.best-artifact-entry > .best-artifact-improvements > .best-artifact-improvements-content {
   grid-column: 1;
   grid-row: 2;
-  align-self: end;
+}
+.best-artifact-entry > .best-artifact-improvements .best-artifact-facts {
+  margin-top: auto;
 }
 .best-artifact-entry > .best-artifact-improvements .artifact-conversion-option-name {
   color: var(--text-muted);
@@ -2101,6 +2104,13 @@ label[for] {
   color: var(--text-muted);
   font-weight: 400;
 }
+.best-artifact-entry-facts { align-content: stretch; }
+.best-artifact-entry-facts .best-artifact-facts {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.best-artifact-entry-facts .best-artifact-fact-score { margin-top: auto; }
 .best-artifact-current-slot .artifact-conversion-option-name,
 .best-artifact-current-slot .artifact-conversion-option-source,
 .best-artifact-current-slot .artifact-conversion-option-action,
@@ -4509,9 +4519,11 @@ th.align-center .sort-button { justify-content: center; }
 
 /* Every conversion worth taking, listed under one another, best first (§17.5).
    The order is what ranks them, so each line is just the instruction and the
-   full width belongs to it. */
-.artifact-conversion-options { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--s1); }
-.artifact-conversion-options li { min-width: 0; }
+   full width belongs to it. The toggle gets the same gap as the entries; the
+   containing improvement content supplies the larger gap before its score. */
+.expandable-list { display: grid; gap: var(--s1); justify-items: start; }
+.expandable-list-items { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--s1); }
+.expandable-list-items li { min-width: 0; }
 .artifact-conversion-option-name { min-width: 0; }
 /* The substat the recommendation acts on opens the line, so it is set as a
    label rather than as running text. */
@@ -4527,10 +4539,10 @@ th.align-center .sort-button { justify-content: center; }
 .artifact-conversion-option-stone { color: var(--text); }
 
 
-/* The "+ n more" control is gold because it is something to act on, and it
-   keeps its own line so expanding a row grows only that row's own cell. */
-.artifact-conversion-list { display: grid; gap: var(--s2); justify-items: start; }
-.artifact-conversion-more {
+/* The "+ n more" control is gold because it is something to act on. Its box is
+   owned by the shared expandable list, so every disclosure keeps the same
+   wording, focus treatment and fixed-width label swap. */
+.expandable-list-toggle {
   padding: 0;
   border: 0;
   background: none;
@@ -4539,10 +4551,9 @@ th.align-center .sort-button { justify-content: center; }
   font-weight: 400;
   cursor: pointer;
 }
-.best-artifact-improvements .artifact-conversion-more { font-weight: 400; }
-.artifact-conversion-more .label-swap { justify-items: start; }
-.artifact-conversion-more:hover { text-decoration: underline; }
-.artifact-conversion-more:focus-visible { outline: 2px solid var(--text-accent); outline-offset: 2px; }
+.expandable-list-toggle .label-swap { justify-items: start; }
+.expandable-list-toggle:hover { text-decoration: underline; }
+.expandable-list-toggle:focus-visible { outline: 2px solid var(--text-accent); outline-offset: 2px; }
 
 /* An import failure gets room for a longer diagnostic without leaving an empty
    hole in the ordinary loaded-data view. */

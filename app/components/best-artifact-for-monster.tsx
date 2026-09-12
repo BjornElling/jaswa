@@ -192,16 +192,16 @@ function Improvements({ label, score, conversions, artifact, context }: {
   context: ScoreContext;
 }) {
   return <div className="best-artifact-improvements">
-    <div className="best-artifact-improvements-copy">
-      <h5 className="best-artifact-improvements-title">Improvements</h5>
+    <h5 className="best-artifact-improvements-title">Improvements</h5>
+    <div className="best-artifact-improvements-content">
       {artifact.intangible || !conversions.length
         ? <p className="best-artifact-improvements-none">None</p>
         : <ConversionList conversions={conversions} artifact={artifact}
           stones={context.stones} mode={context.mode} />}
+      {!artifact.intangible && Boolean(conversions.length) && <dl className="best-artifact-facts">
+        <ScoreFact label={label} value={score} general={context.general} />
+      </dl>}
     </div>
-    {!artifact.intangible && Boolean(conversions.length) && <dl className="best-artifact-facts">
-      <ScoreFact label={label} value={score} general={context.general} />
-    </dl>}
   </div>;
 }
 
