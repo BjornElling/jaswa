@@ -65,14 +65,14 @@ export function AppViewport({ children }: { children: ReactNode }) {
   if (device === 'checking') return <div className="device-check" aria-busy="true" />;
   if (device === 'handheld') return <HandheldNotice />;
 
-  /* The button is a sibling of the canvas rather than a child of it. `zoom`
-     scales fixed descendants along with everything else, so inside the canvas
-     the control would shrink with the composition it is there to help the user
-     leave. */
+  /* Inside the canvas, so the control is measured in the same units as the
+     workspace it belongs to: `zoom` reaches fixed descendants, and a narrowed
+     display reduces this with everything else rather than leaving one element
+     growing against a shrinking composition. */
   return <div className="app-viewport">
     <div className="app-canvas" style={{ '--viewport-scale': scale } as CSSProperties}>
       {children}
+      <ScrollToTop />
     </div>
-    <ScrollToTop />
   </div>;
 }

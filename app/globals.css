@@ -3672,9 +3672,11 @@ button { cursor: pointer; }
    pointer, the same promotion .filter-reset makes — gold here says "you can
    act on this", not "something is happening".
 
-   Its box is one size in every state. The pressed and hovered states change
-   colour, ring and shadow only, none of which take space, and the arrow moves
-   inside the circle rather than moving the circle. */
+   Nothing moves in any state. The circle is one size throughout and the
+   chevron holds still inside it: this control sits in the corner of every
+   reading, so a mark that jumped as the pointer crossed it would pull the eye
+   off the table it is meant to be leaving. Hover changes colour, ring and
+   shadow, none of which take space. */
 .scroll-to-top {
   position: fixed;
   right: var(--s5);
@@ -3682,8 +3684,12 @@ button { cursor: pointer; }
   z-index: 40;
   display: grid;
   place-items: center;
-  width: 56px;
-  height: 56px;
+  /* Sized to be found without looking on a 3440px display, and no larger:
+     this is a way out of a table, not a thing to be looked at. Stated on the
+     canvas' own 1920px measure, so a narrower display reduces it along with
+     everything else it sits beside. */
+  width: 76px;
+  height: 76px;
   padding: 0;
   border: 1px solid var(--line-strong);
   border-radius: 50%;
@@ -3712,13 +3718,9 @@ button { cursor: pointer; }
 }
 .scroll-to-top:active {
   background: var(--gold-deep);
-  box-shadow: inset 0 2px 10px rgba(0, 0, 0, .55);
+  box-shadow: inset 0 2px 11px rgba(0, 0, 0, .55);
 }
 .scroll-to-top:focus-visible { outline-offset: 3px; }
-/* The shaft and the chevron rise together into the fixed rule above them. */
-.scroll-to-top-arrow { transition: transform .16s; }
-.scroll-to-top:hover .scroll-to-top-arrow { transform: translateY(-2px); }
-.scroll-to-top:active .scroll-to-top-arrow { transform: translateY(-3px); }
 
 /* ---------------------------------------------------------------- modal */
 .modal-backdrop {

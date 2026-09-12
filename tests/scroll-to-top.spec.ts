@@ -57,11 +57,18 @@ test('it is chrome: hovering it moves nothing on the page', async ({ page }) => 
   const control = page.getByRole('button', { name: 'Back to top' });
   await expect(control).toBeVisible();
   const rail = page.locator('.rail');
-  const before = { control: await control.boundingBox(), rail: await rail.boundingBox() };
+  const chevron = control.locator('svg');
+  const before = {
+    control: await control.boundingBox(),
+    chevron: await chevron.boundingBox(),
+    rail: await rail.boundingBox(),
+  };
 
   await control.hover();
-  /* The hover is colour, ring and an arrow moving inside its own circle. The
-     control's own box is the same size it was, and nothing beside it shifted. */
+  /* The hover is colour, ring and shadow, and nothing else: the control sits
+     in the corner of every reading, so neither it nor the mark inside it may
+     twitch as the pointer crosses. Its box is exactly where it was. */
   expect(await control.boundingBox()).toEqual(before.control);
+  expect(await chevron.boundingBox()).toEqual(before.chevron);
   expect(await rail.boundingBox()).toEqual(before.rail);
 });

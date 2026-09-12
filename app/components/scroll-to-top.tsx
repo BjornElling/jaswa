@@ -7,24 +7,20 @@ import { useEffect, useState } from 'react';
    one flick away, and an offer to go there is noise. */
 const revealFraction = 0.75;
 
-function ArrowToTop() {
-  return <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"
+/* One stroke. A shaft, a rule or a second chevron each added a part that has to
+   be read before the direction is understood, and the direction is the whole
+   message. */
+function ChevronUp() {
+  return <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor"
     strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
-    {/* The ceiling stays put and the arrow rises into it on hover, so the
-        gesture the button performs is the one it shows. */}
-    <path d="M6 5.5h12" />
-    <g className="scroll-to-top-arrow">
-      <path d="M12 19.5V10" />
-      <path d="M7.5 14 12 9.5l4.5 4.5" />
-    </g>
+    <path d="M5 15.5 12 8.5l7 7" />
   </svg>;
 }
 
 /**
- * The way back to the top of a long library. It is chrome rather than page
- * content: it lives outside the scaled canvas, so it keeps one true size on
- * every display, and it stays mounted at all times — hidden by visibility, not
- * by unmounting, which keeps it out of the tab order while it is out of sight.
+ * The way back to the top of a long library. It stays mounted at all times —
+ * hidden by visibility, not by unmounting, which keeps it out of the tab order
+ * while it is out of sight and off the page's measurements when it returns.
  */
 export function ScrollToTop() {
   const [visible, setVisible] = useState(false);
@@ -54,6 +50,6 @@ export function ScrollToTop() {
     title="Back to top"
     onClick={returnToTop}
   >
-    <ArrowToTop />
+    <ChevronUp />
   </button>;
 }
