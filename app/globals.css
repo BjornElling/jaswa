@@ -274,8 +274,8 @@ label[for] {
 .artifact-conversion-title, .artifact-scope-box h3, .artifact-scope-subheading,
 .drop-zone strong, .best-artifact-result h3, .best-artifact-current h3,
 .best-artifact-category h3, .best-artifact-current-slot-title,
-.best-monster-artifact-details h3, .empty-state h2, .field-lead > span,
-.helper-version h4 {
+.best-monster-artifact-details h3, .craft-best-use-item h3, .empty-state h2,
+.field-lead > span, .helper-version h4 {
   font-family: var(--font-heading);
   font-size: var(--type-heading);
   font-weight: 600;
@@ -298,7 +298,8 @@ label[for] {
 .grid-table, .meta-line, .sample-value, .target dd, .relic-monster-none,
 .best-artifact-entry-name, .best-artifact-fact dd,
 .best-artifact-improvements, .best-artifact-current-slot .artifact-subs li,
-.best-artifact-entry .artifact-subs li {
+.best-artifact-entry .artifact-subs li, .craft-best-use-facts dt,
+.craft-best-use-facts dd, .craft-rune-detail {
   font-family: var(--font-body);
   font-size: var(--type-body);
   font-weight: 400;
@@ -337,7 +338,8 @@ label[for] {
   text-transform: uppercase;
 }
 .type-caption, .slot-label, .editor-slot-label, .target dt, .choice-legend,
-.field-compact > span, .relic-stone-balance-label, .preset-type {
+.field-compact > span, .relic-stone-balance-label, .craft-held-balance-label,
+.preset-type {
   font-family: var(--font-body);
   font-size: var(--type-label);
   font-weight: 400;
@@ -1090,7 +1092,7 @@ label[for] {
    filter. Its fixed control measure leaves the rest of the page untouched when
    the balance changes; the gold edge is a quiet cue that this is the resource
    the page will spend. */
-.relic-stone-balance {
+.relic-stone-balance, .craft-held-balance {
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -1105,14 +1107,14 @@ label[for] {
   border-radius: var(--radius-sm);
   background: transparent;
 }
-.relic-stone-balance-label {
+.relic-stone-balance-label, .craft-held-balance-label {
   min-width: 0;
   overflow: hidden;
   color: var(--text);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.relic-stone-balance-value {
+.relic-stone-balance-value, .craft-held-balance-value {
   flex: 0 0 auto;
   color: var(--text);
   font-family: var(--font-body);
@@ -1239,6 +1241,107 @@ label[for] {
     border-left: 0;
   }
 }
+
+/* ------------------------------------------------------ gems and grinds
+   The box list. Its strip needs no `grid-template-areas` of its own: the two
+   rows it wants — what an item *is*, then what it is *for* — are already the
+   order the markup declares them in, so the shared four-column grid places
+   them and the shared `nth-child(4n + 1)` rule takes the divider off Search
+   and Stat. Areas are what the relic and artifact strips need because their
+   markup order stopped matching their reading order; this one has no such
+   debt and should not take one on.
+
+   No step-downs either, for the reason `AppViewport` gives: JASWA is drawn on
+   one 1920px canvas and a narrow display reduces that canvas whole. A viewport
+   media query would fire while the strip was still 1920px wide, which is why
+   the ones written above it never do anything. */
+.craft-library { width: 100%; }
+.craft-grid { width: 100%; min-width: 0; table-layout: fixed; }
+.craft-filter-status { bottom: 0; height: auto; }
+
+/* Two lines in one cell, as the relic tables read: what the thing is, then the
+   quieter detail that identifies which one. */
+.craft-rune-name { display: block; }
+.craft-rune-detail {
+  display: block;
+  color: var(--text-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* One panel, four regular columns. Every group states one question and the
+   chooser takes a row of its own in the middle, because everything above it
+   narrows the chooser and everything below it shapes the answer. Layout only;
+   every shared measurement comes from .filter-panel. */
+.craft-best-use { display: grid; gap: var(--s4); }
+.craft-best-use > .lead { margin: 0; }
+.craft-best-use-filters {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-areas:
+    "kind  family grade stat"
+    "item  item   item  item"
+    "role  roll   grind runes"
+    "count count  .     actions";
+}
+.craft-best-use-kind { grid-area: kind; }
+.craft-best-use-lineage { grid-area: family; }
+.craft-best-use-grade { grid-area: grade; }
+.craft-best-use-stat { grid-area: stat; }
+.craft-best-use-select { grid-area: item; }
+.craft-best-use-role { grid-area: role; }
+.craft-best-use-roll { grid-area: roll; }
+.craft-best-use-grind { grid-area: grind; }
+.craft-best-use-runes { grid-area: runes; }
+.craft-best-use-count { grid-area: count; }
+.craft-best-use-actions { grid-area: actions; justify-self: end; }
+.craft-best-use-select .filter-group-controls,
+.craft-best-use-role .filter-group-controls,
+.craft-best-use-roll .filter-group-controls,
+.craft-best-use-stat .filter-group-controls,
+.craft-best-use-count .filter-group-controls { width: 100%; }
+/* The follow-up grindstone is one question in two controls: the toggle keeps
+   its own measure and the grade select takes whatever is left, so neither is
+   cut to half a track it does not need. */
+.craft-best-use-grind .filter-group-controls { width: 100%; }
+.craft-best-use-grind .jaswa-select { min-width: 0; }
+
+.craft-best-use-item {
+  display: grid;
+  grid-template-columns: minmax(22ch, .8fr) minmax(0, 1.2fr);
+  gap: var(--s5);
+  padding: var(--s4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--sunk);
+}
+.craft-best-use-item p, .craft-best-use-item h3 { margin: 0; }
+.craft-best-use-item h3 { margin-top: var(--s1); }
+.craft-best-use-item h3 + p { margin-top: var(--s2); color: var(--text); }
+.craft-best-use-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s2) var(--s5); margin: 0; }
+.craft-best-use-facts > div { display: grid; grid-template-columns: 12ch minmax(0, 1fr); gap: var(--s3); }
+.craft-best-use-facts dt, .craft-best-use-facts dd { margin: 0; }
+.craft-best-use-facts dt { color: var(--text); }
+.craft-best-use-facts dd { color: var(--text-strong); font-variant-numeric: tabular-nums; }
+
+.craft-best-use-results { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s4); }
+/* Six columns, so the four-column widths the shared result card declares are
+   restated here rather than letting the last two fall past the edge. */
+.best-artifact-result .craft-best-use-table th:nth-child(1) { width: 24%; }
+.best-artifact-result .craft-best-use-table th:nth-child(2) { width: 18%; }
+.best-artifact-result .craft-best-use-table th:nth-child(3) { width: 20%; }
+.best-artifact-result .craft-best-use-table th:nth-child(4),
+.best-artifact-result .craft-best-use-table th:nth-child(5),
+.best-artifact-result .craft-best-use-table th:nth-child(6) { width: 12.666%; }
+/* The card gives every `span` in a cell the second line's offset. The first
+   line of a two-line cell is not a second line, so it takes it back. */
+.best-artifact-result .craft-best-use-table td .craft-rune-name {
+  margin-top: 0;
+  color: var(--text-strong);
+}
+.best-artifact-result .craft-best-use-table td .craft-rune-detail { color: var(--text-muted); }
+/* What the rune is worth today sits in the same box as what it would be worth,
+   so the three figures share one baseline — it is the two-tone pair, not a
+   second size or weight, that says which of them is the conclusion. */
+.craft-best-use-table td b.craft-score-quiet { color: var(--text); font-weight: 400; }
 
 .grid-table thead th:first-child,
 .grid-table tbody td:first-child { padding-left: var(--gutter); }

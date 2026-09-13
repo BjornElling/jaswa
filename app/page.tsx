@@ -21,6 +21,7 @@ const pageChoices: readonly Page[] = ['home', 'monsters', 'artifact-list', 'opti
 const isPage = (value: unknown): value is Page => typeof value === 'string' && pageChoices.includes(value as Page);
 const ArtifactList = lazy(() => import('./components/artifact-list').then(({ ArtifactList: component }) => ({ default: component })));
 const ArtifactsSection = lazy(() => import('./components/artifacts-section').then(({ ArtifactsSection: component }) => ({ default: component })));
+const GemsSection = lazy(() => import('./components/gems-section').then(({ GemsSection: component }) => ({ default: component })));
 const MonsterOverview = lazy(() => import('./components/monster-overview').then(({ MonsterOverview: component }) => ({ default: component })));
 const RelicList = lazy(() => import('./components/relic-list').then(({ RelicList: component }) => ({ default: component })));
 const RunePotentialSection = lazy(() => import('./components/rune-potential-section').then(({ RunePotentialSection: component }) => ({ default: component })));
@@ -405,7 +406,13 @@ export default function Home() {
 
       {page === 'relics' && <Suspense fallback={<WorkspaceLoading />}><RelicList game={game} monsters={monsters} preferences={preferences} /></Suspense>}
 
-      {(page === 'optimizer' || page === 'speed' || page === 'gems') && <Suspense fallback={<WorkspaceLoading />}><UpcomingWorkspace
+      {page === 'gems' && <Suspense fallback={<WorkspaceLoading />}><GemsSection
+        game={game}
+        presets={preferences.runePotentialPresets}
+        preferences={preferences}
+      /></Suspense>}
+
+      {(page === 'optimizer' || page === 'speed') && <Suspense fallback={<WorkspaceLoading />}><UpcomingWorkspace
         {...upcomingWorkspaces[page]}
         hasGame={Boolean(game)}
       /></Suspense>}

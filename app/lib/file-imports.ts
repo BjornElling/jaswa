@@ -4,11 +4,12 @@ import type {
 } from './types';
 import { readArtifact } from './artifacts';
 import { readRelic } from './relics';
+import { itemGrades, readCraftItem } from './rune-craft-items';
+import { readRune } from './runes';
 import { hasMonsterCatalogEntry } from './monster-catalog';
 import type { GameRecord } from './game-data';
 import { defaultRunePotentialPresets, isCurrentRunePotentialPresets } from './rune-potential-presets';
 import { blankGeneralSettings, isGeneralSettings } from './regional-settings';
-import { runeSetName } from './rune-sets';
 
 const expectedSections = [
   'unit_list', 'unit_storage_list', 'unit_storage_normal_list', 'runes', 'artifacts', 'relics', 'rune_craft_item_list', 'artifact_crafts', 'inventory_info',
@@ -18,8 +19,6 @@ const runePotentialSortOrders: RunePotentialSortOrder[] = [
   'Grade', 'Sub Property', 'Sub Property Before Grinding', 'Power-up Lv.',
   'Obtained', 'Sub Property Sum', 'Score',
 ];
-
-export const itemGrades: ItemGrade[] = ['Normal', 'Magic', 'Rare', 'Hero', 'Legend'];
 
 export const defaultRunePotentialSettings: RunePotentialSettings = {
   powerUpPolicy: 4,
@@ -227,10 +226,16 @@ function isValidIdentifiedCollection(
   return new Set(records.map((record) => String(record[identifier]))).size === records.length;
 }
 
+/* Read through the workspace's own reader, for the reason `AGENTS.md` §0.1
+   gives: a stack that passes a structural check and then cannot be decoded into
+   a kind, a set, a stat and a grade is counted in the account total and absent
+   from the box list — invisible, which is worse than rejected. */
 function isValidCraftRecord(record: GameRecord): boolean {
-  return typeof record.amount === 'number'
-    && Number.isSafeInteger(record.amount)
-    && record.amount >= 0;
+  return readCraftItem(record) !== null;
+}
+
+function isValidRuneRecord(record: GameRecord): boolean {
+  return readRune(record) !== null;
 }
 
 function isValidStorageRecord(record: GameRecord): boolean {
@@ -249,7 +254,7 @@ function validateAccountCollections(value: GameRecord): string | undefined {
   if (!isValidIdentifiedCollection(value.unit_list, 'unit_id')) {
     return 'This file contains an invalid monster collection.';
   }
-  if (!isValidIdentifiedCollection(value.runes, 'rune_id', (rune) => runeSetName(rune.set_id) !== undefined)) {
+  if (!isValidIdentifiedCollection(value.runes, 'rune_id', isValidRuneRecord)) {
     return 'This file contains a rune JASWA cannot read.';
   }
   if (value.unit_storage_list !== undefined && !isValidIdentifiedCollection(value.unit_storage_list, 'unit_master_id', isValidStorageRecord)) {
@@ -286,7 +291,7 @@ function validateAccountCollections(value: GameRecord): string | undefined {
     }
   }
   for (const unit of units) {
-    if (unit.runes !== undefined && !isValidIdentifiedCollection(unit.runes, 'rune_id', (rune) => runeSetName(rune.set_id) !== undefined)) {
+    if (unit.runes !== undefined && !isValidIdentifiedCollection(unit.runes, 'rune_id', isValidRuneRecord)) {
       return 'This file contains an equipped rune JASWA cannot read.';
     }
     if (unit.artifacts !== undefined && !isValidIdentifiedCollection(unit.artifacts, 'rid', (artifact) => readArtifact(artifact) !== null)) {

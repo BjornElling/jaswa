@@ -63,6 +63,24 @@ export function formatNumber(value: number | null, settings: GeneralSettings): s
   }
 }
 
+/**
+ * A figure with a fixed number of decimals, in the user's own notation.
+ *
+ * Fixed rather than trimmed: a column of scores where `72.4` sits above `72`
+ * changes width as the rows change, which is the movement rule 2 forbids of
+ * anything that varies. The guards are `formatNumber`'s, for its reasons.
+ */
+export function formatDecimal(value: number | null, settings: GeneralSettings, digits = 1): string {
+  if (value === null || !Number.isFinite(value)) return '—';
+  try {
+    return value.toLocaleString(numberLocale(settings), {
+      minimumFractionDigits: digits, maximumFractionDigits: digits,
+    });
+  } catch {
+    return value.toFixed(digits);
+  }
+}
+
 export function downloadJson(filename: string, content: string): void {
   const url = URL.createObjectURL(new Blob([content], { type: 'application/json' }));
   const anchor = document.createElement('a');

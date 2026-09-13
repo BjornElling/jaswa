@@ -159,6 +159,30 @@ export const relicTableColumns: readonly TableColumn[] = [
 ];
 
 /**
+ * The gem and grindstone box. An account holds hundreds of stacks of a dozen
+ * repeating shapes, so the five columns that say *what* an item is are cut to
+ * their own words and the width is spent on the two that say what it is worth
+ * keeping: how far it reaches into the rune box, and what it is looking for.
+ *
+ * The gutter sits on the last column rather than on `Fits`: that is where the
+ * run of figures ends and prose begins, and a right-aligned number followed by
+ * left-aligned text otherwise meets at bare padding and the two read as one
+ * block. Put on `Fits` instead, the seam ate two thirds of a column whose
+ * heading is already wider than the figure under it.
+ */
+export const craftItemTableColumns: readonly TableColumn[] = [
+  { key: 'item', width: '8%', align: 'left' },
+  { key: 'lineage', width: '10%', align: 'left' },
+  { key: 'set', width: '12%', align: 'left' },
+  { key: 'stat', width: '10%', align: 'left' },
+  { key: 'grade', width: '9%', align: 'left' },
+  { key: 'range', width: '10%', align: 'right' },
+  { key: 'held', width: '8%', align: 'right' },
+  { key: 'fits', width: '8%', align: 'right' },
+  { key: 'scope', width: '25%', align: 'left', gutter: 'left' },
+];
+
+/**
  * The roster, read as relic destinations. The monster's identity leads, because
  * that is what the user sorts and searches by, and the three columns that carry
  * the judgement sit together on the right: what it wears, what the plan gives

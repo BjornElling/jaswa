@@ -1,0 +1,86 @@
+{
+ "_comment": "Six craft stacks against four runes, chosen so every placement rule in docs/RUNE-CRAFT-ITEMS.md has exactly one row that exercises it.",
+ "unit_list": [
+  {
+   "unit_id": 1,
+   "unit_master_id": 10131,
+   "attribute": 1,
+   "unit_level": 40,
+   "building_id": 0,
+   "runes": [
+    {
+     "rune_id": 103,
+     "set_id": 8,
+     "slot_no": 4,
+     "class": 6,
+     "rank": 5,
+     "upgrade_curr": 15,
+     "occupied_type": 1,
+     "occupied_id": 1,
+     "pri_eff": [10, 80],
+     "prefix_eff": [0, 0],
+     "sec_eff": [[2, 8, 0, 0], [4, 10, 0, 0], [8, 6, 0, 0], [11, 5, 0, 0]]
+    }
+   ]
+  },
+  {
+   "unit_id": 2,
+   "unit_master_id": 11111,
+   "attribute": 4,
+   "unit_level": 40,
+   "building_id": 0,
+   "runes": []
+  }
+ ],
+ "runes": [
+  {
+   "rune_id": 101,
+   "set_id": 13,
+   "slot_no": 2,
+   "class": 6,
+   "rank": 5,
+   "upgrade_curr": 12,
+   "occupied_type": 2,
+   "occupied_id": 0,
+   "pri_eff": [4, 63],
+   "prefix_eff": [0, 0],
+   "sec_eff": [[2, 8, 0, 0], [9, 6, 0, 0], [10, 5, 0, 0]]
+  },
+  {
+   "rune_id": 102,
+   "set_id": 13,
+   "slot_no": 2,
+   "class": 6,
+   "rank": 5,
+   "upgrade_curr": 9,
+   "occupied_type": 2,
+   "occupied_id": 0,
+   "pri_eff": [4, 51],
+   "prefix_eff": [0, 0],
+   "sec_eff": [[2, 8, 0, 0], [8, 5, 0, 0]]
+  },
+  {
+   "rune_id": 104,
+   "set_id": 13,
+   "slot_no": 6,
+   "class": 16,
+   "rank": 5,
+   "upgrade_curr": 12,
+   "occupied_type": 2,
+   "occupied_id": 0,
+   "pri_eff": [2, 63],
+   "prefix_eff": [0, 0],
+   "sec_eff": [[4, 10, 0, 0], [9, 6, 0, 0]]
+  }
+ ],
+ "artifacts": [],
+ "relics": [],
+ "rune_craft_item_list": [
+  { "craft_item_id": 9001, "craft_type": 1, "craft_type_id": 130805, "amount": 3, "sell_value": 37000 },
+  { "craft_item_id": 9002, "craft_type": 2, "craft_type_id": 130804, "amount": 2, "sell_value": 25000 },
+  { "craft_item_id": 9003, "craft_type": 1, "craft_type_id": 80805, "amount": 1, "sell_value": 37000 },
+  { "craft_item_id": 9004, "craft_type": 5, "craft_type_id": 130815, "amount": 1, "sell_value": 44400 },
+  { "craft_item_id": 9005, "craft_type": 3, "craft_type_id": 991105, "amount": 1, "sell_value": 37000 },
+  { "craft_item_id": 9006, "craft_type": 1, "craft_type_id": 50805, "amount": 1, "sell_value": 37000 }
+ ]
+}

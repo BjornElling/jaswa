@@ -4,7 +4,7 @@ import { WorkspacePage } from './workspace-page';
 import { Disclosure, PageHeader } from './page-chrome';
 import { Dropdown } from './dropdown';
 import { CheckboxRow } from './form-controls';
-import { itemGrades } from '../lib/file-imports';
+import { itemGrades } from '../lib/rune-craft-items';
 import {
   createRunePotentialPreset, presetNameMaximum, presetStatTargetKeys, presetTargetColumns,
   presetTargetMaximum, presetTypes, runeMainStats, withRefreshedMetrics,

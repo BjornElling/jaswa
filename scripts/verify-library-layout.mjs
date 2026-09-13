@@ -19,16 +19,14 @@ const railButton = (name) => page.getByRole('navigation').getByRole('button', { 
 try {
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
 
-  for (const pageName of ['Monsters', 'Artifacts']) {
+  for (const pageName of ['Monsters', 'Artifacts', 'Gems & Grinds']) {
     await railButton(pageName).click();
     await page.getByRole('heading', { name: pageName, exact: true }).waitFor();
     if (pageName === 'Monsters') {
       const roster = page.locator('summary').filter({ hasText: 'Stats' });
       if (!(await roster.locator('..').getAttribute('open'))) await roster.click();
-      await assert.doesNotReject(() => page.getByText('Nothing to show until a game file is imported.').waitFor());
-    } else {
-      await assert.doesNotReject(() => page.getByText('Nothing to show until a game file is imported.').waitFor());
     }
+    await assert.doesNotReject(() => page.getByText('Nothing to show until a game file is imported.').first().waitFor());
   }
 
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
@@ -39,7 +37,9 @@ try {
 
   for (const width of [2000, 1400, 1100]) {
     await page.setViewportSize({ width, height: 900 });
-    for (const [pageName, toggleName] of [['Monsters', 'Storage'], ['Artifacts', 'Equipped']]) {
+    /* The toggle is whichever filter chip that page keeps in its strip: every
+       library must be able to take a click on one without its heading moving. */
+    for (const [pageName, toggleName] of [['Monsters', 'Storage'], ['Artifacts', 'Equipped'], ['Gems & Grinds', 'Usable']]) {
       await railButton(pageName).click();
       const tablePage = page.locator('.data-table-page').first();
       await tablePage.waitFor();
@@ -163,7 +163,7 @@ try {
   assert(!recommendationHeaders.includes('#'),
     'The recommendation table must not show an artifact number.');
 
-  console.log('Verified empty and imported library states, shared table measure, fixed filter interaction, the Include group beside Location, artifact settings, and the recommendation table fitting its container.');
+  console.log('Verified empty and imported library states across Monsters, Artifacts and Gems & Grinds, shared table measure, fixed filter interaction, the Include group beside Location, artifact settings, and the recommendation table fitting its container.');
 } finally {
   await browser.close();
 }

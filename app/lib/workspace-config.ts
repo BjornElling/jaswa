@@ -59,7 +59,7 @@ export const navigationGroups: Array<{ heading: string; items: NavigationItem[] 
   },
 ];
 
-export const upcomingWorkspaces: Record<'optimizer' | 'speed' | 'gems', { title: string; tagline: string; text: string }> = {
+export const upcomingWorkspaces: Record<'optimizer' | 'speed', { title: string; tagline: string; text: string }> = {
   optimizer: {
     title: 'Rune Optimization',
     tagline: 'Six slots, thousands of runes, one answer. Let your computer do the arithmetic so you can go back to pretending it was intuition.',
@@ -69,11 +69,6 @@ export const upcomingWorkspaces: Record<'optimizer' | 'speed' | 'gems', { title:
     title: 'Speed Tuning',
     tagline: 'Turn order is a solved problem. Getting your own team to respect it is the hard part.',
     text: 'Works out the rune speeds your team needs to take turns in the order you intend.',
-  },
-  gems: {
-    title: 'Gems & Grinds',
-    tagline: 'You have a box full of upgrades and a shortage of patience. One of those is fixable.',
-    text: 'Ranks the gem and grindstone upgrades that move your account furthest.',
   },
 };
 

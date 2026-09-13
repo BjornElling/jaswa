@@ -12,7 +12,7 @@ try {
   const account = (unit_list) => ({
     wizard_id: 7,
     unit_list,
-    runes: [{ rune_id: 20, set_id: 1 }],
+    runes: [{ rune_id: 20, set_id: 1, slot_no: 1, class: 6, upgrade_curr: 0, occupied_type: 2, occupied_id: 0, pri_eff: [3, 22], prefix_eff: [0, 0], sec_eff: [] }],
     artifacts: [],
     relics: [],
     rune_craft_item_list: [],
