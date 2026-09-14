@@ -14,19 +14,16 @@ try {
   assert.equal(defaultArtifactSettings.recalculate, 'manual',
     'a whole-library calculation is work the user asks for, so manual is the default');
 
-  /* The setting arrived after the .sw shape was already in the wild. A file
-     written before it must not cost the user every other artifact setting,
-     which is what rejecting the document whole would do. */
+  /* A settings block missing the mode is not a complete answer to the contract
+     JASWA asks today, and there is no earlier form of the document to honour
+     (`AGENTS.md` §0). It is rejected whole rather than filled in, which is what
+     keeps every view reading a complete `ArtifactSettings`. */
   const stored = restoredPreferences(null, null);
-  const legacyArtifacts = { ...defaultArtifactSettings, acceptableWorth: 25, onlyLevel40Monsters: true };
-  delete legacyArtifacts.recalculate;
-  const legacy = restoredPreferences({ ...stored, artifacts: legacyArtifacts }, null);
-  assert.equal(legacy.artifacts.acceptableWorth, 25,
-    'a file predating the mode must keep the artifact settings it does carry');
-  assert.equal(legacy.artifacts.onlyLevel40Monsters, true,
-    'a file predating the mode must keep the artifact settings it does carry');
-  assert.equal(legacy.artifacts.recalculate, 'manual',
-    'an absent mode is filled with the default, so no view reads undefined');
+  const incompleteArtifacts = { ...defaultArtifactSettings, acceptableWorth: 25 };
+  delete incompleteArtifacts.recalculate;
+  const incomplete = restoredPreferences({ ...stored, artifacts: incompleteArtifacts }, null);
+  assert.equal(incomplete.artifacts.acceptableWorth, defaultArtifactSettings.acceptableWorth,
+    'a settings block without the mode is not the current contract and must be discarded whole');
 
   const chosen = restoredPreferences({ ...stored, artifacts: { ...defaultArtifactSettings, recalculate: 'on-change' } }, null);
   assert.equal(chosen.artifacts.recalculate, 'on-change', 'a stored choice must survive a round trip');
@@ -51,7 +48,7 @@ try {
     assert.deepEqual(manual[key], value, `${key} must be carried through unchanged`);
   }
 
-  console.log('Re-calculate mode: manual by default, older files keep their settings, and the mode never invalidates a result.');
+  console.log('Re-calculate mode: manual by default, an incomplete settings block is discarded whole, and the mode never invalidates a result.');
 } finally {
   await server.close();
 }
