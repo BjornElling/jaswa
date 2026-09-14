@@ -7,7 +7,8 @@ import { SortableHeader } from './sortable-table';
 import { useSortedRows } from './use-sorted-rows';
 import type { SortableColumn } from './use-sorted-rows';
 import { MonsterStorage } from './monster-storage';
-import { MonsterPortrait } from './monster-portrait';
+import { MonsterLink } from './monster-link';
+import type { OpenMonsterOverlay } from './monster-link';
 import { WorkspacePage } from './workspace-page';
 import { monsterPresentation } from '../lib/monster-catalog';
 import type { MonsterArchetype } from '../lib/monster-catalog';
@@ -157,10 +158,11 @@ function isMonsterFilterState(value: unknown): value is MonsterFilterState {
     && typeof candidate.showBelowMaxLevel === 'boolean';
 }
 
-export function MonsterOverview({ monsters, gameData, preferences }: {
+export function MonsterOverview({ monsters, gameData, preferences, onOpenMonster }: {
   monsters: GameRecord[];
   gameData: GameRecord;
   preferences: Preferences;
+  onOpenMonster: OpenMonsterOverlay;
 }) {
   const [filters, setFilters] = useSessionStorageState(
     'jaswa.filters.monsters', defaultMonsterFilters, isMonsterFilterState,
@@ -376,13 +378,13 @@ export function MonsterOverview({ monsters, gameData, preferences }: {
           {sorted.map((row) => <tr key={row.unitId}>
             <td className={cell('index', 'row-index')}>{String(row.index + 1).padStart(2, '0')}</td>
             <td className={cell('name')}>
-              <div className="monster-cell">
-                <MonsterPortrait imageFilename={row.imageFilename} initial={row.initial} name={row.name} />
-                <span className="monster-name">
-                  {row.name}
-                  {row.secondaryName && <small>{row.secondaryName}</small>}
-                </span>
-              </div>
+              <MonsterLink
+                target={{ kind: 'copy', unitId: row.unitId, masterId: row.masterId }}
+                name={row.name}
+                secondaryName={row.secondaryName}
+                portrait={{ imageFilename: row.imageFilename, initial: row.initial }}
+                onOpen={onOpenMonster}
+              />
             </td>
             <td className={cell('sets')}>
               {row.sets.length

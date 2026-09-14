@@ -14,6 +14,9 @@ import type { DirectoryHandle } from './lib/save-location';
 import type { GameRecord } from './lib/game-data';
 import type { ArtifactSettings, DirectImportMode, GeneralSettings, ImportRoute, ImportedGame, Preferences, RunePotentialSettings } from './lib/types';
 import type { RunePotentialPreset } from './lib/rune-potential-presets';
+import type { MonsterCopyPreferences } from './lib/monster-preferences';
+import { statesSomething } from './lib/monster-preferences';
+import type { MonsterReference } from './components/monster-link';
 import { useSessionStorageState } from './lib/session-storage-state';
 import { type Page, type ReportCategory, upcomingWorkspaces } from './lib/workspace-config';
 
@@ -27,6 +30,7 @@ const RelicList = lazy(() => import('./components/relic-list').then(({ RelicList
 const RunePotentialSection = lazy(() => import('./components/rune-potential-section').then(({ RunePotentialSection: component }) => ({ default: component })));
 const SettingsSection = lazy(() => import('./components/settings-section').then(({ SettingsSection: component }) => ({ default: component })));
 const UpcomingWorkspace = lazy(() => import('./components/upcoming-workspace').then(({ UpcomingWorkspace: component }) => ({ default: component })));
+const MonsterOverlay = lazy(() => import('./components/monster-overlay').then(({ MonsterOverlay: component }) => ({ default: component })));
 
 function WorkspaceLoading() {
   return <section className="panel" aria-busy="true"><p className="lead">Opening workspace…</p></section>;
@@ -48,6 +52,11 @@ export default function Home() {
   const [pendingImportRoute, setPendingImportRoute] = useState<ImportRoute | null>(null);
   const [helperConnection, setHelperConnection] = useState<HelperConnection>({ state: 'checking', detail: 'Run the helper. Then roll for initiative.', version: null, updateAvailable: false, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, instanceId: '', revision: 0, sessionId: 0 });
   const [saveFolder, setSaveFolder] = useState<DirectoryHandle | null>(null);
+  const [monsterOverlay, setMonsterOverlay] = useState<MonsterReference | null>(null);
+  /* The control that opened the overlay, so focus returns to the exact row the
+     reader came from. It is held here rather than in the overlay because it has
+     to outlive the overlay's own unmount. */
+  const overlayOpener = useRef<HTMLElement | null>(null);
   const preferencesRef = useRef(preferences);
   const gameInput = useRef<HTMLInputElement>(null);
   const settingsInput = useRef<HTMLInputElement>(null);
@@ -204,6 +213,39 @@ export default function Home() {
     setPreferences(next);
     void writing.catch(() => {
       setMessage('JASWA could not save your preferences. Your latest choice is still on screen.');
+    });
+  }
+
+  /**
+   * The one route from a monster overlay's choice to storage — a named wrapper
+   * over `changePreferences`, never a second route.
+   *
+   * A record that ends up saying nothing is removed rather than kept as a husk,
+   * so the map holds copies the user has actually decided something about and a
+   * count of records is a count of decisions. A record holding only cleared
+   * preferences still says something and stays.
+   */
+  function openMonsterOverlay(target: MonsterReference, opener: HTMLElement) {
+    overlayOpener.current = opener;
+    setMonsterOverlay(target);
+  }
+
+  function closeMonsterOverlay() {
+    setMonsterOverlay(null);
+    /* The row may have been filtered away while the overlay was open, in which
+       case there is nothing to return to and the browser's own fallback is
+       better than focusing something the reader is not looking at. */
+    const opener = overlayOpener.current;
+    overlayOpener.current = null;
+    if (opener?.isConnected) opener.focus();
+  }
+
+  function updateMonsterPreferences(unitId: string, next: MonsterCopyPreferences) {
+    changePreferences((current) => {
+      const monsterPreferences = { ...current.monsterPreferences };
+      if (statesSomething(next)) monsterPreferences[unitId] = { ...next, unitId };
+      else delete monsterPreferences[unitId];
+      return { ...current, monsterPreferences };
     });
   }
 
@@ -373,7 +415,7 @@ export default function Home() {
         general={preferences.general}
       />}
 
-      {page === 'monsters' && <Suspense fallback={<WorkspaceLoading />}><MonsterOverview monsters={monsters} gameData={game?.data ?? {}} preferences={preferences} /></Suspense>}
+      {page === 'monsters' && <Suspense fallback={<WorkspaceLoading />}><MonsterOverview monsters={monsters} gameData={game?.data ?? {}} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
 
       {page === 'artifact-list' && <Suspense fallback={<WorkspaceLoading />}><ArtifactList game={game} monsters={monsters} preferences={preferences} /></Suspense>}
 
@@ -450,6 +492,15 @@ export default function Home() {
       onCancel={() => setRemoveGameDataPrompt(false)}
       onConfirm={() => { setRemoveGameDataPrompt(false); void removeImport(); }}
     />}
+
+    {monsterOverlay && <Suspense fallback={null}><MonsterOverlay
+      target={monsterOverlay}
+      game={game?.data}
+      general={preferences.general}
+      preferences={monsterOverlay.kind === 'copy' ? preferences.monsterPreferences[monsterOverlay.unitId] : undefined}
+      onSave={updateMonsterPreferences}
+      onClose={closeMonsterOverlay}
+    /></Suspense>}
 
     {report && <ReportDialog
       report={report}

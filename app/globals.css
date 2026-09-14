@@ -254,7 +254,7 @@ label[for] {
    ===================================================================== */
 
 /* Display — the page's own name and the home hero. */
-.type-display, .page-title {
+.type-display, .page-title, .overlay-hero-name {
   font-family: var(--font-heading);
   font-weight: 700;
   letter-spacing: var(--track-display);
@@ -275,7 +275,7 @@ label[for] {
 .drop-zone strong, .best-artifact-result h3, .best-artifact-current h3,
 .best-artifact-category h3, .best-artifact-current-slot-title,
 .best-monster-artifact-details h3, .craft-best-use-item h3, .empty-state h2,
-.field-lead > span, .helper-version h4 {
+.field-lead > span, .helper-version h4, .overlay-block-title {
   font-family: var(--font-heading);
   font-size: var(--type-heading);
   font-weight: 600;
@@ -284,6 +284,8 @@ label[for] {
 
 /* Body — every sentence, label and value that is not a heading. */
 .type-body, .lead, .notice, .dialog p, .slider-note, .radio-note,
+.overlay-current-value, .overlay-empty, .usage-entry, .overlay-stat-value,
+.overlay-target-current, .overlay-shortfalls,
 .checkbox-row, .editor-note, .route-links, .artifact-conversion-intro,
 .statistics-lead, .best-artifact-ranking, .best-artifact-empty,
 .best-artifact-fact dt, .statistics dt, .empty-state p,
@@ -330,7 +332,7 @@ label[for] {
 .type-label, .rail-heading, .filter-label, .eyebrow, .route-option,
 .grid-table thead th, .best-artifact-improvements-title,
 .best-artifact-result th, .best-monster-table th,
-.artifact-recommendation-table th {
+.artifact-recommendation-table th, .overlay-row-label, .overlay-stat-head {
   font-family: var(--font-body);
   font-size: var(--type-label);
   font-weight: 700;
@@ -339,7 +341,8 @@ label[for] {
 }
 .type-caption, .slot-label, .editor-slot-label, .target dt, .choice-legend,
 .field-compact > span, .relic-stone-balance-label, .craft-held-balance-label,
-.preset-type {
+.preset-type, .overlay-hero-facts, .overlay-provenance, .usage-share, .usage-sample,
+.overlay-substat-floor > span {
   font-family: var(--font-body);
   font-size: var(--type-label);
   font-weight: 400;
@@ -1409,6 +1412,41 @@ label[for] {
 .row-index { color: var(--text-muted); font-family: var(--font-body); font-size: var(--type-label); width: 64px; }
 
 .monster-cell { display: flex; align-items: center; gap: var(--s3); min-width: 0; }
+
+/* A monster's name as the way into its overlay.
+
+   It inherits the cell's box entirely, so a name that becomes a link measures
+   exactly as it did before. Hover and focus change colour and reveal an
+   underline that is already there in transparent — declared rather than added,
+   so no descender box appears and nothing beside it moves (`AGENTS.md` §2).
+
+   The resting state is deliberately the plain name: a table of four hundred
+   gold names would leave gold meaning nothing, where §5 gives it one meaning. */
+.monster-link {
+  border: 0;
+  background: none;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  min-width: 0;
+  cursor: pointer;
+}
+.monster-link .monster-name {
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  transition: color .12s, text-decoration-color .12s;
+}
+.monster-link:hover .monster-name,
+.monster-link:focus-visible .monster-name {
+  color: var(--text-accent);
+  text-decoration-color: var(--text-accent);
+}
+
 .monster-name {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
@@ -4358,6 +4396,178 @@ label[for] {
   .editor-targets { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dialog.editor { max-height: 92vh; }
   .editor-head, .editor-body, .dialog.editor .dialog-actions { padding-inline: var(--s4); }
+}
+
+/* ------------------------------------------------------ monster overlay */
+
+/* Wider than the preset editor and capped at the viewport, for the same
+   reason: this states far more than a preset does, so the body scrolls while
+   the identity above it and the two actions below it stay put and the reader
+   always knows how to leave. The backdrop is left visible at the sides on
+   purpose — the overlay is brought up over the table the user was reading, not
+   put in its place. */
+.dialog.overlay {
+  width: min(1360px, 100%);
+  max-height: min(92vh, 1000px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  padding: 0;
+}
+
+.overlay-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s5);
+  padding: var(--s5);
+  border-bottom: 1px solid var(--line);
+}
+/* A mark rather than type, so its size is stated here the way --glyph-* is:
+   large enough that the monster is recognised before its name is read. */
+.overlay-head .monster-portrait {
+  width: 108px;
+  height: 108px;
+  border-radius: var(--radius);
+}
+.overlay-identity { min-width: 0; display: grid; gap: var(--s1); }
+/* The dialog's own title, which is where the accent already belongs
+   (`.editor-head h2`). One line only: the head is a fixed row above the
+   scrolling body, so a heading that wrapped would take that height out of it. */
+.overlay-hero-name {
+  margin: 0;
+  color: var(--text-accent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.overlay-hero-facts { margin: 0; color: var(--text-muted); }
+.overlay-label-field { width: 240px; }
+
+/* The same four-layer edge fade the preset editor uses. With six blocks a cut
+   mid-block is certain, and the fade is what makes it read as more to come
+   rather than as a clipped row. */
+.overlay-body {
+  overflow-y: auto;
+  padding: var(--s5);
+  display: grid;
+  gap: var(--s5);
+  align-content: start;
+  background:
+    linear-gradient(var(--raise) 30%, rgba(18, 22, 29, 0)) top / 100% 24px no-repeat,
+    linear-gradient(rgba(18, 22, 29, 0), var(--raise) 70%) bottom / 100% 24px no-repeat,
+    radial-gradient(farthest-side at 50% 0, rgba(0, 0, 0, .5), rgba(0, 0, 0, 0)) top / 100% 10px no-repeat,
+    radial-gradient(farthest-side at 50% 100%, rgba(0, 0, 0, .5), rgba(0, 0, 0, 0)) bottom / 100% 10px no-repeat;
+  background-attachment: local, local, scroll, scroll;
+}
+
+.overlay-block { display: grid; gap: var(--s3); }
+.overlay-block-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s4);
+  border-bottom: 1px solid var(--line);
+  padding-bottom: var(--s2);
+}
+.overlay-block-title { margin: 0; }
+/* Always rendered, whatever it says: the three wordings sit on one line of a
+   height, so a block cannot resize when its provenance changes. */
+.overlay-provenance { margin: 0; color: var(--text-muted); min-height: 1lh; }
+
+/* A fixed label column, so Current, Desired and Most common start their values
+   on one vertical line and the comparison is a single downward glance. */
+.overlay-lines {
+  display: grid;
+  grid-template-columns: 116px minmax(0, 1fr);
+  gap: var(--s3) var(--s4);
+  align-items: baseline;
+}
+.overlay-row-label { margin: 0; color: var(--text-muted); }
+.overlay-row-value { min-width: 0; }
+.overlay-current-value { color: var(--text); }
+.overlay-empty { color: var(--text-muted); }
+
+/* Eight stat columns, each reserving the mark slot below it whether or not
+   anything falls short. */
+/* Eight fixed columns rather than eight equal fractions: a stat's figure is
+   four or five digits and its heading four characters, so an equal share of a
+   1,300px panel leaves each one stranded in white space. `max-content` sizes
+   each to its own content and the row stays left-aligned as one block. */
+.overlay-stats {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(88px, max-content));
+  gap: var(--s3) var(--s5);
+  justify-content: start;
+}
+.overlay-stat { display: grid; gap: var(--s1); justify-items: start; }
+.overlay-stat-head { margin: 0; color: var(--text-muted); }
+.overlay-stat-value {
+  margin: 0;
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.overlay-artifact-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--seam);
+}
+
+.overlay-mains { display: flex; flex-wrap: wrap; gap: var(--s2); }
+
+/* The preset editor's 158px column suits its 880px dialog; here it strands
+   twenty-three set names over five rows and pushes the artifact blocks out of
+   view. A set name is one or two short words, so the chips size to their own
+   content and wrap as a paragraph does. */
+.overlay-lines .choice-editor.columns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+/* A default standing in dashes the border it already has, so the box does not
+   change size. The chip's accessible name says the same thing in words. */
+.choice-chip[data-source='statistics'] { border-style: dashed; }
+
+.overlay-substats { display: grid; gap: var(--s2); }
+.overlay-substat { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
+.overlay-substat-floor { display: inline-flex; align-items: center; gap: var(--s2); color: var(--text-muted); }
+.overlay-substat-floor input {
+  width: 7ch;
+  font-variant-numeric: tabular-nums;
+}
+
+.overlay-targets {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: var(--s3);
+}
+.overlay-target { display: grid; gap: var(--s1); justify-items: start; }
+.overlay-target input { width: 100%; font-variant-numeric: tabular-nums; }
+/* The current figure sits under the field that states the target, dimmed
+   against it: what is wanted leads, what is there qualifies it. */
+.overlay-target-current {
+  margin: 0;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s3); }
+.usage-entry { color: var(--text); }
+/* The name leads and the number qualifies it — no bars, which would be
+   decoration and would resize with their value. */
+.usage-share {
+  margin-left: var(--s2);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.usage-sample { color: var(--text-muted); min-height: 1lh; }
+
+.overlay-shortfalls {
+  margin: 0;
+  padding-left: var(--s4);
+  display: grid;
+  gap: var(--s1);
+  color: var(--text);
 }
 
 /* ----------------------------------------------------------- responsive */
