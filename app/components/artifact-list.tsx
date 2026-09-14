@@ -8,6 +8,8 @@ import { useSortedRows } from './use-sorted-rows';
 import type { SortableColumn } from './use-sorted-rows';
 import { Dropdown } from './dropdown';
 import { ConvertedArtifactMark } from './converted-artifact-mark';
+import { MonsterLink } from './monster-link';
+import type { OpenMonsterOverlay } from './monster-link';
 import { UnrefinedArtifactMark } from './unrefined-artifact-mark';
 import { alignmentClass, artifactTableColumns } from '../lib/table-layouts';
 import type { GameRecord } from '../lib/game-data';
@@ -178,10 +180,11 @@ const artifactColumns = (subPropertyId: number | null): readonly SortableColumn<
   ];
 };
 
-export function ArtifactList({ game, monsters, preferences }: {
+export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
   game: ImportedGame | null;
   monsters: GameRecord[];
   preferences: Preferences;
+  onOpenMonster: OpenMonsterOverlay;
 }) {
   const [filters, setFilters] = useSessionStorageState(
     'jaswa.filters.artifacts', defaultArtifactFilters, isArtifactFilterState,
@@ -216,6 +219,9 @@ export function ArtifactList({ game, monsters, preferences }: {
         location: artifact.occupiedId === null
           ? 'Inventory'
           : unitId === null ? null : preference?.label || names[unitId] || null,
+        wearer: unitId === null || wearer?.unit_master_id === undefined
+          ? undefined
+          : { unitId, masterId: String(wearer.unit_master_id) },
         /* Rounded once, here, so the column, its colour band and the sort all
            read the same whole-point score the user sees. */
         valuePercent: value === undefined ? undefined : Math.round(value * 100),
@@ -446,7 +452,15 @@ export function ArtifactList({ game, monsters, preferences }: {
           {sorted.length ? sorted.map((row) => <tr key={row.artifact.id}>
             <td className={artifactCell('location', !row.location && 'muted')}
               title={row.location === null ? 'Worn by a monster this import does not contain' : undefined}>
-              {row.location ?? 'Unknown monster'}
+              {/* `Inventory` and an absent wearer are locations rather than
+                  monsters, so they stay the plain text they always were. */}
+              {row.wearer === undefined || row.location === null
+                ? row.location ?? 'Unknown monster'
+                : <MonsterLink
+                  target={{ kind: 'copy', unitId: row.wearer.unitId, masterId: row.wearer.masterId }}
+                  name={row.location}
+                  onOpen={onOpenMonster}
+                />}
             </td>
             {/* The score bands itself: gold once the artifact is worth acting
                 on, full ink where it is respectable, dim where it argues

@@ -21,6 +21,11 @@ export type ArtifactRow = {
   index: number;
   /** The wearer's display name, or `null` while the artifact sits in the inventory. */
   location: string | null;
+  /* The wearer this row names, where the roster has it. Carried so the Location
+     cell can open that monster's overlay: the row already resolves the wearer to
+     print its name, and throwing the identity away made the cell the one place
+     naming a monster it could not point at. */
+  wearer?: { unitId: string; masterId: string };
   /**
    * How well the artifact scores on its current wearer, in whole percentage
    * points, or `undefined` when nothing judged it — an artifact in the

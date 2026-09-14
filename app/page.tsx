@@ -417,7 +417,7 @@ export default function Home() {
 
       {page === 'monsters' && <Suspense fallback={<WorkspaceLoading />}><MonsterOverview monsters={monsters} gameData={game?.data ?? {}} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
 
-      {page === 'artifact-list' && <Suspense fallback={<WorkspaceLoading />}><ArtifactList game={game} monsters={monsters} preferences={preferences} /></Suspense>}
+      {page === 'artifact-list' && <Suspense fallback={<WorkspaceLoading />}><ArtifactList game={game} monsters={monsters} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
 
       {page === 'potential' && <Suspense fallback={<WorkspaceLoading />}><RunePotentialSection
         settings={preferences.runePotential}
@@ -446,7 +446,7 @@ export default function Home() {
         onImport={() => setLoadPreferencesPrompt(true)}
       /></Suspense>}
 
-      {page === 'relics' && <Suspense fallback={<WorkspaceLoading />}><RelicList game={game} monsters={monsters} preferences={preferences} /></Suspense>}
+      {page === 'relics' && <Suspense fallback={<WorkspaceLoading />}><RelicList game={game} monsters={monsters} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
 
       {page === 'gems' && <Suspense fallback={<WorkspaceLoading />}><GemsSection
         game={game}

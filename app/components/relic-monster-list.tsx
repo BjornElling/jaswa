@@ -2,7 +2,8 @@ import { useMemo } from 'react';
 import { FilterButton } from './button';
 import { DataTablePage, TableColumnGroup } from './data-table-page';
 import { FilterSummary } from './filter-summary';
-import { MonsterPortrait } from './monster-portrait';
+import { MonsterLink } from './monster-link';
+import type { OpenMonsterOverlay } from './monster-link';
 import { SortableHeader } from './sortable-table';
 import { useSortedRows } from './use-sorted-rows';
 import type { SortableColumn } from './use-sorted-rows';
@@ -185,10 +186,11 @@ function RelicCell({ relic }: { relic: Relic | undefined }) {
   </>;
 }
 
-export function RelicMonsterList({ relics, monsters: roster, preferences }: {
+export function RelicMonsterList({ relics, monsters: roster, preferences, onOpenMonster }: {
   relics: readonly Relic[];
   monsters: readonly GameRecord[];
   preferences: Preferences;
+  onOpenMonster: OpenMonsterOverlay;
 }) {
   const [filters, setFilters] = useSessionStorageState(
     'jaswa.filters.relic-monsters', defaultRelicMonsterFilters, isRelicMonsterFilterState,
@@ -466,13 +468,13 @@ export function RelicMonsterList({ relics, monsters: roster, preferences }: {
           return <tr key={row.unitId}>
             <td className={relicMonsterCell('index', 'row-index')}>{String(row.index + 1).padStart(2, '0')}</td>
             <td className={relicMonsterCell('name')}>
-              <div className="monster-cell">
-                <MonsterPortrait imageFilename={row.imageFilename} initial={row.initial} name={row.name} />
-                <span className="monster-name">
-                  {row.name}
-                  {row.secondaryName && <small>{row.secondaryName}</small>}
-                </span>
-              </div>
+              <MonsterLink
+                target={{ kind: 'copy', unitId: row.unitId, masterId: row.masterId }}
+                name={row.name}
+                secondaryName={row.secondaryName}
+                portrait={{ imageFilename: row.imageFilename, initial: row.initial }}
+                onOpen={onOpenMonster}
+              />
             </td>
             <td className={relicMonsterCell('element', !row.element && 'muted')}>
               {row.element ? row.element.slice(0, 3).toUpperCase() : '—'}

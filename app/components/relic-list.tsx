@@ -1,6 +1,7 @@
 import { lazy, Suspense, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { FilterButton } from './button';
+import type { OpenMonsterOverlay } from './monster-link';
 import { Disclosure, PageHeader } from './page-chrome';
 import { DataTablePage, TableColumnGroup } from './data-table-page';
 import { FilterSummary } from './filter-summary';
@@ -124,10 +125,11 @@ const relicColumns: readonly SortableColumn<RelicRow>[] = (() => {
   ];
 })();
 
-export function RelicList({ game, monsters, preferences }: {
+export function RelicList({ game, monsters, preferences, onOpenMonster }: {
   game: ImportedGame | null;
   monsters: GameRecord[];
   preferences: Preferences;
+  onOpenMonster: OpenMonsterOverlay;
 }) {
   const [filters, setFilters] = useSessionStorageState(
     'jaswa.filters.relics', defaultRelicFilters, isRelicFilterState,
@@ -376,7 +378,7 @@ export function RelicList({ game, monsters, preferences }: {
     <Disclosure title="Use for mons" sessionKey="relics.monsters" deferContent>
       {!relics.length ? noRelics
         : <Suspense fallback={<p className="lead">Reading what the player base engraves…</p>}>
-          <RelicMonsterList relics={relics} monsters={monsters} preferences={preferences} />
+          <RelicMonsterList relics={relics} monsters={monsters} preferences={preferences} onOpenMonster={onOpenMonster} />
         </Suspense>}
     </Disclosure>
   </WorkspacePage>;

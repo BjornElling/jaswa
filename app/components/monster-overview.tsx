@@ -418,7 +418,7 @@ export function MonsterOverview({ monsters, gameData, preferences, onOpenMonster
     </Disclosure>
 
     <Disclosure title="Numbers" sessionKey="monsters.numbers">
-      <MonsterStorage monsters={monsters} gameData={gameData} preferences={preferences} />
+      <MonsterStorage monsters={monsters} gameData={gameData} preferences={preferences} onOpenMonster={onOpenMonster} />
     </Disclosure>
   </WorkspacePage>;
 }

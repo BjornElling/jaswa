@@ -2,7 +2,8 @@ import { useMemo } from 'react';
 import { FilterButton } from './button';
 import { DataTablePage, TableColumnGroup } from './data-table-page';
 import { FilterSummary } from './filter-summary';
-import { MonsterPortrait } from './monster-portrait';
+import { MonsterLink } from './monster-link';
+import type { OpenMonsterOverlay } from './monster-link';
 import { RangeSlider, ValueSlider } from './range-slider';
 import { SortableHeader } from './sortable-table';
 import { useSortedRows } from './use-sorted-rows';
@@ -109,6 +110,15 @@ function isStorageFilterState(value: unknown): value is StorageFilterState {
 type StorageMonsterRow = {
   unitId: string;
   masterId: string;
+  /**
+   * Whether `unitId` is the game's own `unit_id` or a key this table made up.
+   *
+   * A sealed-shrine stack is a count of monsters rather than one of them, so it
+   * has no copy id and gets a synthesised key. That key is not stable across
+   * imports and names no copy, so it must never reach a per-copy preference:
+   * such a row opens its overlay by species instead.
+   */
+  owned: boolean;
   location: StorageLocation;
   /** Position in the table's own default order, so `#` can sort back to it. */
   ordinal: number;
@@ -310,10 +320,11 @@ function storageSkillProgress(row: StorageMonsterRow): number | null {
 
 const storageCell = columnClasses(storageColumns);
 
-export function MonsterStorage({ monsters, gameData, preferences }: {
+export function MonsterStorage({ monsters, gameData, preferences, onOpenMonster }: {
   monsters: GameRecord[];
   gameData: GameRecord;
   preferences: Preferences;
+  onOpenMonster: OpenMonsterOverlay;
 }) {
   const [filters, setFilters] = useSessionStorageState(
     'jaswa.filters.monster-storage', defaultStorageFilters, isStorageFilterState,
@@ -341,6 +352,7 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
       return {
         unitId: String(monster.unit_id ?? `${location}-${masterId}-${index}`),
         masterId,
+        owned: monster.unit_id !== undefined && monster.unit_id !== null,
         location,
         ordinal: 0,
         quantity: storageEntryQuantity(monster),
@@ -582,10 +594,16 @@ export function MonsterStorage({ monsters, gameData, preferences }: {
             sorting by `#` visibly restores the table's default order rather
             than renumbering whatever order is already on screen. */}
         <td className={storageCell('index', 'row-index')}>{String(row.ordinal).padStart(2, '0')}</td>
-        <td className={storageCell('name')}><div className="monster-cell">
-          <MonsterPortrait imageFilename={row.imageFilename} initial={row.initial} name={row.name} />
-          <span className="monster-name">{row.name}</span>
-        </div></td>
+        <td className={storageCell('name')}>
+          <MonsterLink
+            target={row.owned
+              ? { kind: 'copy', unitId: row.unitId, masterId: row.masterId }
+              : { kind: 'species', speciesId: row.masterId }}
+            name={row.name}
+            portrait={{ imageFilename: row.imageFilename, initial: row.initial }}
+            onOpen={onOpenMonster}
+          />
+        </td>
         <td className={storageCell('location', 'dim')}>{storageLocationLabels[row.location]}</td>
         <td className={storageCell('element', 'dim')}>{row.element ?? '—'}</td>
         <td className={storageCell('archetype', 'dim')}>{row.archetype ? monsterArchetypeLabels[row.archetype] : '—'}</td>
