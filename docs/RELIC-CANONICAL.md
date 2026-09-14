@@ -308,7 +308,14 @@ the relic. Degree is carried by the number of marks and never by a second shade,
 and the band's name is written beside the marks, so the column reads identically
 with the colour taken away — `AGENTS.md` rule 5.
 
-### 5.2 Why this is not measured from the player base
+### 5.2 Why this table is not measured from the player base — and where the same panel *is* a legitimate default
+
+This section says two things, and they are not in tension. **The synergy table
+above is hand-written and stays hand-written.** The same panel nevertheless
+supplies the **starting values** a monster's own relic preferences begin from,
+in the monster overlay. The difference is what the number is asked to do.
+
+#### The table: still hand-written
 
 An earlier version of this page derived all 48 cells from the game's **Relic
 Engraving Statistics** panel: 893 monster types and 5.5 million engravings,
@@ -333,6 +340,38 @@ What the measurement got right is kept in §5.1 as qualitative reasoning rather
 than as evidence: alignment among the main stat, the property's source and its
 granted outcome can matter. It is one input to the account-wide judgement, not
 a necessary condition.
+
+#### The defaults: the same panel, a different job
+
+The monster overlay asks a different question of the same numbers: *before this
+user says anything, what should this monster's relic preferences show?* Here the
+panel is a legitimate source, and `app/lib/monster-defaults.ts` reads it.
+
+Three things make that sound where the synergy table's use of it was not:
+
+- **The objection above is about the global level, not the per-monster
+  variation.** Drops are monster-independent, so a distribution that varies
+  *between* monsters cannot be describing the drop table — and it varies a great
+  deal, as §11.3 measures. The synergy table asked the panel an account-wide
+  question, which is exactly where the drop rate contaminates the answer.
+- **A default is not a judgement.** It is a provisional value the user sees
+  immediately and overwrites with one click, and §19.4 of
+  `ARTIFACT-CANONICAL.md` guarantees their statement always wins. The
+  "cannot be argued with" objection does not apply to a number whose whole
+  purpose is to be argued with.
+- **Nothing is scored against it.** The overlay states preferences and reports
+  where the account does not meet them. The relic *fit* engine is untouched and
+  still reads `relicShrunkShares`; the defaults read raw shares, and the two must
+  not be merged — that would reintroduce §11.3's double count.
+
+**The caveat stands and is worth stating plainly: a relic share still partly
+reflects what fell out of the game.** The main half carries real monster-specific
+signal — HP leads on 546 types, ATK on 422, DEF on 49, with the leader's share
+running 43 % to 100 %. The unique half carries far less: Nimble Primal leads on
+974 of the 1,017 captured panels, so a user who accepts that default has accepted
+population habit rather than knowledge about their monster. That is an acceptable
+starting value and a poor conclusion, which is precisely why it is offered as the
+former only.
 
 ## 6. Level, durability and the difference between them
 

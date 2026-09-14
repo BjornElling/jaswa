@@ -20,7 +20,12 @@ The durable workspace contains:
 
 - the current imported game, including its prepared account data;
 - all preferences: import route and mode, graphics preference, formats and
-  time zone, monster preferences, Rune Clean-up settings, Rune Clean-up
+  time zone, per-copy monster preferences (the user's own name for a copy, its
+  chosen rune sets and slot main stats, the one artifact main stat wanted in
+  each category, the substats wanted and the minimum roll asked of each, the one
+  relic main stat and its unique properties, and the stat targets the copy is
+  built toward — keyed by the game's `unit_id`, so two copies of one monster can
+  be built for different jobs), Rune Clean-up settings, Rune Clean-up
   presets, and Artifact Optimization settings (whether to factor in only owned
   monsters or only Lv. 40 monsters, how conversion stones are sourced, the
   assumed stone value, and the acceptable-property factor);
@@ -58,6 +63,14 @@ new value reaches the interface, and queues an IndexedDB write after the
 earlier preference writes. Imported game data and folder choices wait for their
 IndexedDB transaction to complete before appearing as saved state.
 
+A monster-overlay choice goes through `updateMonsterPreferences` in
+`app/page.tsx`, which is a named wrapper over `changePreferences` and not a
+second route. A record that no longer states anything is removed rather than
+stored empty, so a count of records is a count of decisions — but an explicitly
+cleared preference *is* a statement and is stored (`ARTIFACT-CANONICAL.md`
+§19.4), so "the record is gone" and "every choice in it is unwanted" stay two
+different saved states.
+
 New durable data must have one named, central write route, a complete
 validator for data read back from the browser or a file, and an entry in this
 contract. Session-scoped interface state uses the shared
@@ -85,3 +98,10 @@ two consecutive changes before the first write settles, then reload and verify
 the last value. For session-scoped state, also verify page navigation, reload,
 and a fresh browser tab, and confirm that changing the temporary states listed
 above does not accidentally create durable data.
+
+For monster preferences, verify all three of `ARTIFACT-CANONICAL.md` §19.4's
+states survive a reload: a stated choice, an untouched one still reading its
+statistics default, and a **deliberately cleared** one that must not revert to
+that default. Check a substat's minimum roll the same way — an empty floor and a
+floor of `0` are different saved answers — and confirm that a record whose every
+choice has been undone is removed rather than stored empty.

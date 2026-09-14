@@ -4,7 +4,10 @@
 **Settled:** August 30 – September 1, 2026, against live captures
 **Collected by:** `scripts/collect-engraving-statistics.mjs`
 **Enforced by:** `npm run verify:statistics-tiers`
-**Read by:** `app/lib/artifact-preferences.ts`
+**Read by:** `app/lib/monster-defaults.ts` (all three panels, as the preference
+defaults), `app/lib/artifact-preferences.ts` and
+`app/lib/relic-monster-statistics.ts`
+**Held by:** `npm run verify:statistics-tiers`, `npm run verify:monster-defaults`
 
 ---
 
@@ -32,17 +35,38 @@ the sample size: a 30 % share drawn from 83,549 uses is not the same evidence as
 30 % drawn from 12. Every stored count reproduces the game's own displayed
 percentage exactly, which is how the shape was verified.
 
-**Nothing is truncated.** The panel's *Others* row and its scroll limit are
-presentation only; the response carries the full distribution — 46 artifact
-secondary rows, 23 per slot.
+**Nothing is truncated — except `runeset`.** The panel's *Others* row and its
+scroll limit are presentation only for the effect distributions; the response
+carries the full distribution — 46 artifact secondary rows, 23 per slot.
 
-**Nothing reads the relic panel.** It is captured, stored and verified along
-with the other two, because a capture is cheap and a panel nobody collects is a
-panel nobody can start from. But relic synergy is a hand-written table
-(`RELIC-CANONICAL.md` §5), and §5.2 there says why: relics are new, an account
-engraves what it happened to craft, and a statistic drawn from that measures the
-drop rate rather than a judgement. The artifact panels do not have that problem
-— artifacts have been chosen deliberately for years.
+**The rune-set list is the one exception, and the game truncates it.** Across all
+1,044 captured monsters `runeset` never exceeds **ten rows** (mean 9.795), and
+those rows sum to a median **74 %** of the same monster's slot-2 main total. The
+collector copies the response verbatim, so this is the game's limit rather than
+JASWA's. A share computed from it is therefore a share *of the builds that
+reached the top ten* — which is what the game's own panel shows the player, and
+the only honest denominator available: normalising against the main-stat total
+instead would divide one population's counts by another's.
+`RuneSetShareBasis` in `app/lib/monster-defaults.ts` names that basis in the type
+so it cannot be forgotten at a call site.
+
+**One vocabulary gap, excluded and reported.** The rune primary distributions
+include flat `HP +`, `ATK +` and `DEF +` mains (effect ids 1, 3 and 5), which
+`RuneMainStat` has no member for. They are excluded from the denominator and the
+excluded share is carried on every slot rather than swallowed, because a default
+no view can express is the invisible record `AGENTS.md` §0.1 forbids. It averages
+1.6 % of mains and peaks at 11.2 %; if it stops being negligible the fix is to
+grow `RuneMainStat`.
+
+**All three panels are now read.** They supply the provisional preferences a
+monster starts from in the monster overlay (`app/lib/monster-defaults.ts`).
+
+Relic synergy remains a hand-written table (`RELIC-CANONICAL.md` §5), and §5.2
+there now says why both are true at once: the panel is the wrong basis for an
+account-wide *judgement*, because relics are new and an account engraves what it
+happened to craft — but it is a legitimate basis for a per-monster *starting
+value* the user overwrites, since drops are monster-independent and a
+distribution that varies between monsters is not describing the drop table.
 
 **Keyed on `unit_master_id`, never `unit_id`.** The dataset holds one row per
 monster *type*, so the defaults it produces seed a per-type preference with no

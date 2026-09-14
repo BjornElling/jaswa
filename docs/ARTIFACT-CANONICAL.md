@@ -2407,12 +2407,37 @@ Validating one against the monster's kit would reintroduce the skill dependency
 and would put the program in the position of overruling the user about their own
 monster. A preference the user regrets is theirs to change.
 
-### 19.2 Preferences are held per monster species, keyed by `(category, property)`
+### 19.2 Preferences are held per owned copy, keyed by `(category, property)`
 
-Preferences are held **per monster species**, never per owned copy: two copies of
-one monster cannot carry different preferences, and the interface offers no way
-to try. A property preference says what this *kind* of monster is for. A
-collaboration pair is one species — `docs/MONSTER-SPECIES-DECISION.md`.
+Preferences are held **per owned copy**, keyed by the game's own `unit_id`. A
+player runs two Lushens — one built for speed in arena, one for damage in a
+dungeon — and a model that cannot say so is describing the game rather than the
+account.
+
+`unit_id` is the right key because the game already treats it as the copy's
+permanent name: an artifact records its wearer by it, so a record survives
+re-importing the same account and ends only when the copy is sold.
+
+**This reverses an earlier decision**, which held preferences per species on the
+grounds that a preference says what a *kind* of monster is for. That is true of
+the defaults and false of the statement: what the player base equips is a fact
+about the species, and what this copy is being built for is a fact about the
+copy.
+
+So the two are keyed differently and meet in exactly one place. **The defaults
+stay per species** — the game's three Statistics panels are keyed on
+`unit_master_id` and cannot be otherwise, and a collaboration pair is one species
+(`docs/MONSTER-SPECIES-DECISION.md`). `resolveMonsterPreferences` in
+`app/lib/monster-preference-resolution.ts` is the only place a per-copy statement
+is laid over a per-species default, and nothing else needs to know that the two
+keyings differ.
+
+**The monster overlay feeds no score matrix.** It states preferences and reports
+where the account does not meet them; it does not rank monsters, score gear, or
+recommend a swap. The artifact optimization pages keep their own species-level
+calculation exactly as §16 and §17 describe — `packMonster` still scores a
+species so a collaboration pair ranks once rather than twice — and
+`npm run verify:artifact-score-agreement` still holds both readers to one answer.
 
 A preference is keyed by **`(category, property)`**, not by property alone. A
 monster wears one artifact of each category, so "which property do I want here"
@@ -2428,8 +2453,16 @@ no separate mechanic: `Damage Dealt on X` and `Damage Taken from X` point in
 opposite directions, so collapsing them into one "element" choice would lose the
 distinction that matters.
 
-Nothing is shared between species, and preferences are not copyable from one to
+Nothing is shared between copies, and preferences are not copyable from one to
 another. The defaults below are what spare the user a roster of empty forms.
+
+**A main stat is one choice, not a set of bands.** A piece carries a single main
+property, so the overlay asks which one rather than which are acceptable, and the
+default that stands in is the single leading entry rather than everything above a
+cut. Sub properties are the opposite: several are wanted at once, and each may
+carry a **minimum roll** — `Damage Taken from Wind at 15 % or better` is one
+preference, and a 6.8 % line answers half of it. The floor is stored in the same
+hundredths of a point the import uses, so the comparison is exact.
 
 ### 19.3 The statistics supply the defaults, by fixed shares
 
@@ -2444,7 +2477,81 @@ share = property count / sum of all property counts in that distribution
 | View | Preferred | Acceptable | Neither |
 | --- | --- | --- | --- |
 | Main Property (HP, ATK, DEF) | share ≥ 40 % | ≥ 10 % and < 40 % | < 10 % |
-| Sub Property (Attribute or Type) | share ≥ 10 % | ≥ 5 % and < 10 % | < 5 % |
+| Sub Property, **for scoring** | share ≥ 10 % | ≥ 5 % and < 10 % | < 5 % |
+| Sub Property, **for the overlay** | share ≥ 6 % | — | < 6 % |
+
+**The two sub-property cuts answer different questions, and both are correct.**
+The scorer asks *how much is this roll worth*, where a narrow preferred band is
+what keeps the §16 benchmark meaningful — that 10 % is measured into the
+benchmark and does not move. The overlay asks *what should this monster's
+substats be*, and 10 % answers that with one property for 93 % of monsters and
+**none at all** for 7 %, which is a single guess rather than a set of choices. At
+6 % the same fixed share yields 3.6 properties on average, the largest group gets
+exactly four, and no captured monster gets none. It stays one fixed percentage
+rather than a fixed count, so a monster whose player base really does use only
+two substats still shows two.
+
+Only the overlay's cut has a single band: the user states substats as a list of
+what they want with a minimum roll, not as two tiers, and a second band here
+would hold fourteen of twenty-three properties and distinguish nothing.
+
+#### The other two panels
+
+`app/lib/monster-defaults.ts` folds all three captured panels, and its cuts were
+chosen the same way — relative to the size of the distribution, then measured
+across all 1,044 captured monsters. No panel leaves a captured monster with
+nothing.
+
+| Panel | Values | Preferred | Acceptable | Yields |
+| --- | ---: | --- | --- | --- |
+| Rune slot main (2, 4, 6) | 7–8 | ≥ 40 % | ≥ 10 % | ~1.0 preferred per slot |
+| Rune set | ~7 | ≥ 35 % | ≥ 12 % | ~2.0 preferred |
+| Relic main | 3 | ≥ 40 % | ≥ 10 % | ~1.2 preferred |
+| Relic unique | 16 | ≥ 15 % | ≥ 6.25 % | ~1.2 preferred |
+
+**Rune slot main** keeps the artifact main's cuts although its slots hold seven
+or eight values. The measurement is why: a slot holds one rune, and at 40 % each
+slot averages almost exactly one preferred main. These distributions are far from
+even — a slot's leader routinely takes half of it — so 40 % discriminates here
+despite the value count.
+
+**Rune set** could not inherit any of them, for two reasons. Its shares are
+*participation rates* rather than a partition: a build wearing two sets votes for
+both, so they sum to about 1.7, and a cut has to sit higher to mean "a clear
+leader". And a monster wears two sets at once, so the right answer is about two
+preferred sets: 35 % yields 1.96, where 40 % undershoots at 1.67 and 30 %
+overshoots at 2.30.
+
+**Rune-set shares are also measured against a truncated denominator.** The game's
+`runeset` response is a top-ten list — never more than ten rows across all 1,044
+monsters, summing to a median 74 % of that monster's builds — so a share here is
+of the builds that reached the top ten, which is what the game's own panel shows.
+Normalising against the main-stat total instead would divide one population's
+counts by another's. The 35 % cut absorbs the resulting inflation, and
+`RuneSetShareBasis` names the limitation in the type rather than in a footnote.
+
+**Relic main** is identical to artifact main by construction: two three-value
+distributions asking the same question cannot carry two sets of cuts.
+
+**Relic unique** has sixteen values, so chance is exactly 6.25 % — and that *is*
+the acceptable cut, since a property at or above chance is worth accepting.
+Preferred at 15 % is 2.4× chance, the same multiple the artifact sub cut uses.
+Artifact sub's 10 %/5 % was measured here and is too loose: it yields 3.24
+acceptable per monster, at which point the second band stops distinguishing
+anything.
+
+**Two honest caveats.** Relic uniques carry far less monster-specific information
+than the other panels — Nimble Primal leads on 974 of the 1,017 captured ones, so
+a user who accepts that default has, on almost every monster, accepted population
+habit rather than knowledge about their monster. And the rune panel reports flat
+`HP +`, `ATK +` and `DEF +` mains that `RuneMainStat` cannot express; they are
+excluded from the denominator and the excluded share is *reported* per slot,
+because a default no view can show is the invisible record `AGENTS.md` §0.1
+forbids. It averages 1.6 % of mains and peaks at 11.2 %. If it stops being
+negligible the fix is to grow `RuneMainStat`, not to widen the exclusion.
+
+`npm run verify:monster-defaults` holds every figure above, so a recapture
+cannot quietly move what a threshold means.
 
 The two thresholds differ deliberately. Main Property has three possible values,
 so 40 % is a meaningful choice over an even split while 10 % preserves a real
@@ -2461,8 +2568,11 @@ knob.
 
 **A user-entered preference always takes precedence. The statistics are
 consulted only where the user has stated nothing.** The two are never blended,
-averaged or reconciled: for a given `(species, category, property)` the answer
-comes from the user if they have stated one, and from the dataset otherwise.
+averaged or reconciled: for a given `(copy, panel, key)` the answer comes from
+the user if they have stated one, and from the dataset otherwise. The rule is the
+same for all four panels — rune sets, rune slot mains, artifact properties and
+relic properties — and for a stat target, which has no statistics default at all
+because no panel reports what the player base *aims at*.
 
 This removes a whole class of problem rather than solving it — because a
 recapture cannot touch anything the user has stated, the dataset needs no merge
@@ -2481,6 +2591,18 @@ preference as absent collapses rows two and three, and the default silently
 overrules the user. This is `AGENTS.md` rule 3's absent-versus-zero distinction
 in the place it costs most: **store only what the user actually stated.**
 
+How that is encoded matters, because JSON cannot hold the distinction by
+accident: a stated band is one of three strings, *never stated* is **an absent
+key**, and *cleared* is an explicit `unwanted`. `undefined` does not survive
+`JSON.stringify`, so a key that is present must always carry a real band, and the
+validator in `app/lib/monster-preferences.ts` rejects any key holding nothing. A
+substat's minimum roll follows the same rule: no floor means the property is
+wanted at any roll, and a floor of `0` is a stated floor of nothing.
+
+The interface has to offer both endings, or the third state is unreachable:
+**Reset to defaults** returns a choice to absent, so the statistics stand in
+again, where clearing a chip writes `unwanted`.
+
 ### 19.5 A species with no preferences is not judged
 
 A monster species the dataset has not captured and the user has not filled in is
@@ -2492,6 +2614,12 @@ sorts as though it were an answer. The dataset will never cover every species �
 each capture costs the user a visit to three panels, and new monsters keep
 arriving — so this is the ordinary case, not an edge case. An honest gap beats a
 guess that looks like a judgement.
+
+The same rule now covers runes and relics, and it decides what the monster
+overlay may mark. A panel neither the user nor the dataset says anything about is
+unjudged, so it produces **no shortfall** rather than a shortfall of zero — and
+"this copy meets every wish" and "there is nothing to measure it against" are
+kept apart on screen, because they are different answers.
 
 ### 19.6 One global factor says what "acceptable" is worth
 
