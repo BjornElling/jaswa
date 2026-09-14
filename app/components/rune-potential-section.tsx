@@ -4,6 +4,7 @@ import { WorkspacePage } from './workspace-page';
 import { Disclosure, PageHeader } from './page-chrome';
 import { Dropdown } from './dropdown';
 import { CheckboxRow } from './form-controls';
+import { ChoiceEditor, ChoiceLegend } from './choice-editor';
 import { itemGrades } from '../lib/rune-craft-items';
 import {
   createRunePotentialPreset, presetNameMaximum, presetStatTargetKeys, presetTargetColumns,
@@ -482,53 +483,3 @@ function EditorBlock({ title, note, legend = false, children }: {
   </section>;
 }
 
-function ChoiceLegend() {
-  return <p className="choice-legend">
-    <span className="choice-legend-item"><span className="choice-key preferred" aria-hidden="true" />Preferred</span>
-    <span className="choice-legend-item"><span className="choice-key acceptable" aria-hidden="true" />Acceptable</span>
-    <span className="choice-legend-hint">click to cycle</span>
-  </p>;
-}
-
-function ChoiceEditor<T extends string>({ choice, options, columns = false, onChange }: {
-  choice: PresetChoice<T>;
-  options: readonly T[];
-  columns?: boolean;
-  onChange: (choice: PresetChoice<T>) => void;
-}) {
-  function state(option: T): 'preferred' | 'acceptable' | 'none' {
-    if (choice.preferred.includes(option)) return 'preferred';
-    if (choice.acceptable.includes(option)) return 'acceptable';
-    return 'none';
-  }
-  function cycle(option: T) {
-    const without = {
-      preferred: choice.preferred.filter((entry) => entry !== option),
-      acceptable: choice.acceptable.filter((entry) => entry !== option),
-    };
-    if (state(option) === 'none') return onChange({ ...without, preferred: [...without.preferred, option] });
-    if (state(option) === 'preferred') return onChange({ ...without, acceptable: [...without.acceptable, option] });
-    onChange(without);
-  }
-
-  const described = { none: 'not wanted', preferred: 'preferred', acceptable: 'acceptable' } as const;
-  const nextStep = { none: 'prefer it', preferred: 'accept it', acceptable: 'clear it' } as const;
-
-  return <div className={columns ? 'choice-editor columns' : 'choice-editor'}>
-    {options.map((option) => {
-      const current = state(option);
-      return <button
-        type="button"
-        key={option}
-        className={`choice-chip ${current}`}
-        onClick={() => cycle(option)}
-        aria-pressed={current !== 'none'}
-        aria-label={`${option}: ${described[current]}`}
-        title={`${option}: ${described[current]} — click to ${nextStep[current]}`}
-      >
-        <span className="choice-chip-mark" aria-hidden="true" />
-        {option}
-      </button>;
-    })}
-  </div>;
-}
