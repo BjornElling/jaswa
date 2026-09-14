@@ -1,0 +1,426 @@
+{
+ "unit_list": [
+  {
+   "unit_id": 1,
+   "unit_master_id": 10131,
+   "attribute": 1,
+   "unit_level": 40,
+   "building_id": 0,
+   "class": 6,
+   "con": 1400,
+   "atk": 700,
+   "def": 500,
+   "spd": 103,
+   "critical_rate": 15,
+   "critical_damage": 50,
+   "resist": 15,
+   "accuracy": 0,
+   "runes": [
+    {
+     "rune_id": 101,
+     "set_id": 13,
+     "slot_no": 1,
+     "class": 6,
+     "rank": 5,
+     "upgrade_curr": 15,
+     "occupied_type": 1,
+     "occupied_id": 1,
+     "pri_eff": [
+      1,
+      2088
+     ],
+     "prefix_eff": [
+      0,
+      0
+     ],
+     "sec_eff": [
+      [
+       2,
+       8,
+       0,
+       0
+      ],
+      [
+       9,
+       6,
+       0,
+       0
+      ],
+      [
+       10,
+       5,
+       0,
+       0
+      ],
+      [
+       8,
+       4,
+       0,
+       0
+      ]
+     ]
+    },
+    {
+     "rune_id": 102,
+     "set_id": 13,
+     "slot_no": 2,
+     "class": 6,
+     "rank": 5,
+     "upgrade_curr": 15,
+     "occupied_type": 1,
+     "occupied_id": 1,
+     "pri_eff": [
+      4,
+      63
+     ],
+     "prefix_eff": [
+      0,
+      0
+     ],
+     "sec_eff": [
+      [
+       2,
+       8,
+       0,
+       0
+      ],
+      [
+       9,
+       6,
+       0,
+       0
+      ],
+      [
+       10,
+       5,
+       0,
+       0
+      ],
+      [
+       8,
+       4,
+       0,
+       0
+      ]
+     ]
+    },
+    {
+     "rune_id": 103,
+     "set_id": 13,
+     "slot_no": 3,
+     "class": 6,
+     "rank": 5,
+     "upgrade_curr": 15,
+     "occupied_type": 1,
+     "occupied_id": 1,
+     "pri_eff": [
+      3,
+      160
+     ],
+     "prefix_eff": [
+      0,
+      0
+     ],
+     "sec_eff": [
+      [
+       2,
+       8,
+       0,
+       0
+      ],
+      [
+       9,
+       6,
+       0,
+       0
+      ],
+      [
+       10,
+       5,
+       0,
+       0
+      ],
+      [
+       8,
+       4,
+       0,
+       0
+      ]
+     ]
+    },
+    {
+     "rune_id": 104,
+     "set_id": 13,
+     "slot_no": 4,
+     "class": 6,
+     "rank": 5,
+     "upgrade_curr": 15,
+     "occupied_type": 1,
+     "occupied_id": 1,
+     "pri_eff": [
+      10,
+      80
+     ],
+     "prefix_eff": [
+      0,
+      0
+     ],
+     "sec_eff": [
+      [
+       2,
+       8,
+       0,
+       0
+      ],
+      [
+       9,
+       6,
+       0,
+       0
+      ],
+      [
+       10,
+       5,
+       0,
+       0
+      ],
+      [
+       8,
+       4,
+       0,
+       0
+      ]
+     ]
+    },
+    {
+     "rune_id": 105,
+     "set_id": 17,
+     "slot_no": 5,
+     "class": 6,
+     "rank": 5,
+     "upgrade_curr": 15,
+     "occupied_type": 1,
+     "occupied_id": 1,
+     "pri_eff": [
+      5,
+      160
+     ],
+     "prefix_eff": [
+      0,
+      0
+     ],
+     "sec_eff": [
+      [
+       2,
+       8,
+       0,
+       0
+      ],
+      [
+       9,
+       6,
+       0,
+       0
+      ],
+      [
+       10,
+       5,
+       0,
+       0
+      ],
+      [
+       8,
+       4,
+       0,
+       0
+      ]
+     ]
+    },
+    {
+     "rune_id": 106,
+     "set_id": 17,
+     "slot_no": 6,
+     "class": 6,
+     "rank": 5,
+     "upgrade_curr": 15,
+     "occupied_type": 1,
+     "occupied_id": 1,
+     "pri_eff": [
+      8,
+      30
+     ],
+     "prefix_eff": [
+      0,
+      0
+     ],
+     "sec_eff": [
+      [
+       2,
+       8,
+       0,
+       0
+      ],
+      [
+       9,
+       6,
+       0,
+       0
+      ],
+      [
+       10,
+       5,
+       0,
+       0
+      ],
+      [
+       8,
+       4,
+       0,
+       0
+      ]
+     ]
+    }
+   ],
+   "relics": [
+    {
+     "rid": 9001,
+     "type": 14,
+     "upgrade_curr": 12,
+     "durability": 3,
+     "locked": 0,
+     "pri_effect": [
+      100,
+      15
+     ],
+     "sec_effect": [
+      14,
+      150,
+      2
+     ]
+    }
+   ]
+  },
+  {
+   "unit_id": 2,
+   "unit_master_id": 10132,
+   "attribute": 2,
+   "unit_level": 40,
+   "building_id": 0,
+   "class": 5,
+   "con": 1100,
+   "atk": 600,
+   "def": 450,
+   "spd": 99,
+   "critical_rate": 15,
+   "critical_damage": 50,
+   "resist": 15,
+   "accuracy": 0,
+   "runes": [],
+   "relics": []
+  }
+ ],
+ "runes": [],
+ "artifacts": [
+  {
+   "rid": 1001,
+   "type": 1,
+   "attribute": 1,
+   "natural_rank": 5,
+   "pri_effect": [
+    100,
+    160
+   ],
+   "sec_effects": [
+    [
+     307,
+     7,
+     1,
+     0,
+     0
+    ],
+    [
+     221,
+     4,
+     1,
+     0,
+     0
+    ],
+    [
+     306,
+     3,
+     1,
+     0,
+     0
+    ],
+    [
+     308,
+     2,
+     1,
+     0,
+     0
+    ]
+   ],
+   "occupied_id": 1
+  },
+  {
+   "rid": 1002,
+   "type": 2,
+   "unit_style": 1,
+   "natural_rank": 5,
+   "pri_effect": [
+    101,
+    160
+   ],
+   "sec_effects": [
+    [
+     400,
+     7,
+     1,
+     0,
+     0
+    ],
+    [
+     401,
+     4,
+     1,
+     0,
+     0
+    ],
+    [
+     402,
+     3,
+     1,
+     0,
+     0
+    ],
+    [
+     403,
+     2,
+     1,
+     0,
+     0
+    ]
+   ],
+   "occupied_id": 1
+  }
+ ],
+ "relics": [
+  {
+   "rid": 9001,
+   "type": 14,
+   "upgrade_curr": 12,
+   "durability": 3,
+   "locked": 0,
+   "pri_effect": [
+    100,
+    15
+   ],
+   "sec_effect": [
+    14,
+    150,
+    2
+   ]
+  }
+ ],
+ "rune_craft_item_list": []
+}
