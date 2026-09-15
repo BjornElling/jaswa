@@ -1667,6 +1667,22 @@ Legend merely for having rolled well within its smaller allowance, and a
 conversion — reaching one and a half rolls by §10 — is worth `1.5/5` of a full
 line on every grade.
 
+**September 15, 2026: the code now says what this section always said.** The
+formula above is unchanged — `pᵢ = rolled valueᵢ / maxRollᵢ` — but the three
+readers each computed it as `value × 5 / lineMaximum`, where `lineMaximum` is
+itself `maxRoll × 5`. The two fives cancel, so every score was already correct;
+what they cost was legibility. A reader asking why a 12 % line on a 4 % roll is
+worth 3 points was told it earned "60 % of its 5 points" rather than the plain
+answer: 12 % is three maximum rolls.
+
+`artifactLineMaxRolls` is now the single definition, and both readers call it.
+Values are unchanged to the last decimal — `verify:artifact-score-scale` still
+prints the same five grade ceilings and the same 100 % benchmark, and
+`verify:artifact-score-agreement` still finds both readers in agreement. A
+change that moves no number is worth making only for what it lets the next
+person see, which is why the artifact page's own worked example can now show a
+substat's max roll beside the rolls it amounts to.
+
 ### 16.1 The main property is a term, not a factor
 
 *Changed September 12, 2026.* The main property was previously a multiplier on
@@ -1702,18 +1718,32 @@ conversion that would have made it worth equipping elsewhere.
 
 The benchmark is **the best artifact the game can build on the profile the
 monsters actually offer, wearing the main property that monster wants**: a
-preferred main, a Legend that spent all four power-ups on its one preferred
-line, plus one acceptable line, at maximum rolls. Its lines hold 5, 1, 1 and 1
-contributions, because eight is all there are and every line keeps its own.
+preferred main, a Legend whose preferred line holds four maximum rolls, and
+three acceptable lines of one maximum roll each. Its lines hold 4, 1, 1 and 1
+contributions — seven of the eight a finished Legend has, so it is buildable
+with a power-up to spare.
 
 ```text
-benchmark points = 2 + 5 + a
+benchmark points = 2 + 4 + 3a
 optimalValue = (mainPoints + Σ(wᵢ × pᵢ)) / benchmark points
 ```
 
 In one sentence, which is the form to give a player: **100 % is the right main
-stat, one preferred property that took every power-up, and one more line the
-monster accepts.**
+stat, one preferred property that took most of the power-ups, and three more
+lines the monster accepts.**
+
+*Changed September 15, 2026, from `2 + 5 + a`.* The old profile described an
+artifact with two empty lines: one preferred line that had taken every power-up,
+one acceptable line, and nothing in the other two. An artifact has four lines
+and a monster typically ranks about four properties acceptable (below), so the
+lines beside the preferred one are acceptable in practice rather than empty, and
+the denominator now says so. **At the default 50 % tolerance the total is
+unchanged** — `2 + 5 + 0.5` and `2 + 4 + 3 × 0.5` are both 7.5 — so the scale
+most users see did not move, and every published figure below still holds: the
+grade ceilings run 80 % to 133 %, a perfect Legend on an unwanted main reads
+107 %, and a max-rolled Normal reads 80 %. Away from the default the denominator
+now ranges 6 to 9 across the tolerance settings where it ranged 7 to 8, which is
+the intended consequence of charging for three acceptable lines instead of one.
 
 **The main property joins both sides of the fraction, and that is what holds the
 scale still.** It is two points in the numerator and two in the denominator, so
@@ -1722,14 +1752,20 @@ percentage points rather than rescaling it: the grade ceilings run 80 % to 133 %
 where the multiplier model gave 73 % to 145 %. A denominator that left the main
 out would have declared every artifact half again as good as it was.
 
-**One acceptable line, not three, because that is what the defaults grant.**
-Across the 902 monster types the statistics cover, **830 have exactly one
-preferred sub property** out of 23, and the mean is 0.94 with about four
-acceptable. Measured against the captured account, the best profile any monster
-offers a given artifact is `1 preferred + 1 acceptable` or `1 preferred + 2
-acceptable` for 1,161 of its 1,555 artifacts; four preferred lines occur for
-three. A benchmark of `1 preferred + 3 acceptable` therefore measures every
-artifact against a monster that does not exist.
+**One preferred line, and the rest acceptable, because that is what the monsters
+grant.** Across the 902 monster types the statistics cover, **830 have exactly
+one preferred sub property** out of 23, and the mean is 0.94 — with about four
+acceptable. So a benchmark asking for two preferred lines would measure every
+artifact against a monster that does not exist, while the three lines beside the
+preferred one are ones the monster accepts rather than ones it wants. Measured
+against the captured account, the best profile any monster offers a given
+artifact is `1 preferred + 1 acceptable` or `1 preferred + 2 acceptable` for
+1,161 of its 1,555 artifacts; four preferred lines occur for three.
+
+That last figure is why the benchmark sets the bar at `1 preferred + 3
+acceptable` rather than at what the median artifact achieves: the denominator is
+the *best* profile available, not the common one, so a merely typical artifact
+should read well below 100 %.
 
 This is a fixed denominator, and it is fixed twice over.
 

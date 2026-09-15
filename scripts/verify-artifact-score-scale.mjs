@@ -23,14 +23,15 @@ import { createServer } from 'vite';
 
 const BEST_LINE_CONTRIBUTIONS = 5;
 const ARTIFACT_MAIN_POINTS = 2;
-const BENCHMARK_ACCEPTABLE_LINES = 1;
+const BENCHMARK_ACCEPTABLE_LINES = 3;
+const BENCHMARK_PREFERRED_MAX_ROLLS = 4;
 const NORMAL_CONVERSION_CONTRIBUTIONS = 1.5;
 const gradeMaxContributions = { Normal: 1, Magic: 2, Rare: 3, Hero: 4, Legend: 5 };
 
 /* The benchmark as `artifactScorePointBenchmark` computes it. Kept as an independent
    expression rather than an import, so a change to the source has to be made
    deliberately here too. */
-const benchmark = (acceptableWorth) => ARTIFACT_MAIN_POINTS + BEST_LINE_CONTRIBUTIONS
+const benchmark = (acceptableWorth) => ARTIFACT_MAIN_POINTS + BENCHMARK_PREFERRED_MAX_ROLLS
   + BENCHMARK_ACCEPTABLE_LINES * (acceptableWorth / 100);
 
 /** The best allocation of a grade's contribution budget across four lines. */
@@ -68,13 +69,20 @@ const agrees = (actual, expected, message) =>
   assert.ok(Math.abs(actual - expected) < 1e-12, `${message}: ${actual} against ${expected}`);
 
 /* 1. The benchmark profile is exactly 100 %, and it is an artifact that exists:
-      a preferred main property on a Legend whose preferred line holds all five
-      contributions, one acceptable line and two the monster does not want, each
-      holding the one the budget leaves. */
+      a preferred main property on a Legend whose preferred line holds four
+      maximum rolls and whose three other lines are each one maximum roll of a
+      property the monster accepts. That spends 7 of the Legend's 8
+      contributions — a benchmark must be buildable, and this one leaves a
+      power-up unspent rather than demanding more than the game grants. */
 for (const acceptableWorth of [0, 25, 50, 75, 100]) {
-  const profile = [['preferred', 5], ['acceptable', 1], ['unwanted', 1], ['unwanted', 1]];
-  assert.equal(profile.reduce((total, [, c]) => total + c, 0), gradeMaxContributions.Legend + 3,
-    'the benchmark profile must spend exactly the Legend budget');
+  const profile = [
+    ['preferred', BENCHMARK_PREFERRED_MAX_ROLLS],
+    ['acceptable', 1], ['acceptable', 1], ['acceptable', 1],
+  ];
+  assert.ok(profile.reduce((total, [, c]) => total + c, 0) <= gradeMaxContributions.Legend + 3,
+    'the benchmark profile must fit inside the Legend budget');
+  assert.equal(profile.filter(([band]) => band === 'acceptable').length, BENCHMARK_ACCEPTABLE_LINES,
+    'the benchmark profile carries the acceptable lines the denominator charges for');
   assert.equal(percent(score(acceptableWorth, profile)), 100,
     `the benchmark profile is 100 % at every acceptable worth (${acceptableWorth})`);
 }
@@ -146,13 +154,13 @@ assert.ok(score(50, [['preferred', 5], ['acceptable', 1], ['unwanted', 1], ['unw
 const shader = readFileSync(new URL('../app/lib/compute/webgpu/artifact-score-shader.ts', import.meta.url), 'utf8');
 for (const constant of [
   'const ARTIFACT_MAIN_POINTS: f32 = ${artifactMainPropertyPoints}.0;',
-  'const BEST_LINE_CONTRIBUTIONS: f32 = ${bestArtifactLineContributions}.0;',
+  'const BENCHMARK_PREFERRED_MAX_ROLLS: f32 = ${benchmarkPreferredMaxRolls}.0;',
   'const BENCHMARK_ACCEPTABLE_LINES: f32 = ${benchmarkAcceptableLines}.0;',
 ]) {
   assert.ok(shader.includes(constant), `the shader must interpolate rather than hard-code: ${constant}`);
 }
 assert.ok(shader.includes(
-  'let benchmark = ARTIFACT_MAIN_POINTS + BEST_LINE_CONTRIBUTIONS\n'
+  'let benchmark = ARTIFACT_MAIN_POINTS + BENCHMARK_PREFERRED_MAX_ROLLS\n'
   + '    + BENCHMARK_ACCEPTABLE_LINES * parameters.acceptableWorth;'),
 'the shader benchmark must match artifactScorePointBenchmark()');
 /* The main must be added in the shader too. A multiplication here would give the
@@ -166,7 +174,7 @@ assert.ok(shader.includes('scorePercent((mainPoints + weighted) / benchmark)'),
   'the shader must add the main points to the numerator');
 /* The shader is handed the worth as a fraction, the TypeScript as 0-100. */
 for (const acceptableWorth of [0, 25, 50, 100]) {
-  const shaderBenchmark = ARTIFACT_MAIN_POINTS + BEST_LINE_CONTRIBUTIONS
+  const shaderBenchmark = ARTIFACT_MAIN_POINTS + BENCHMARK_PREFERRED_MAX_ROLLS
     + BENCHMARK_ACCEPTABLE_LINES * (acceptableWorth / 100);
   assert.equal(shaderBenchmark, benchmark(acceptableWorth),
     `the backends must agree on the benchmark at ${acceptableWorth}`);
@@ -185,7 +193,7 @@ const server = await createServer({ configFile: false, appType: 'custom', server
 try {
   const {
     artifactMainPropertyPoints, artifactScorePointBenchmark, benchmarkAcceptableLines,
-    calculateArtifactOptimalValue,
+    benchmarkPreferredMaxRolls, calculateArtifactOptimalValue,
   } = await server.ssrLoadModule('/app/lib/artifact-optimal-value.ts');
   const {
     artifactPropertyMaximum, artifactProperty, bestArtifactLineContributions,
@@ -197,6 +205,8 @@ try {
   assert.equal(artifactMainPropertyPoints, ARTIFACT_MAIN_POINTS,
     'the main property is worth two maximum rolls of a preferred sub property');
   assert.equal(benchmarkAcceptableLines, BENCHMARK_ACCEPTABLE_LINES);
+  assert.equal(benchmarkPreferredMaxRolls, BENCHMARK_PREFERRED_MAX_ROLLS,
+    'the benchmark preferred line holds four maximum rolls, not a full five-roll line');
   assert.equal(artifactNormalConversionContributions, NORMAL_CONVERSION_CONTRIBUTIONS);
   for (const [grade, max] of Object.entries(gradeMaxContributions)) {
     assert.equal(artifactTotalContributions(grade), max + 3, `${grade}'s contribution budget`);
@@ -211,9 +221,11 @@ try {
   const property300 = artifactProperty(300);
   assert.equal(artifactPropertyMaximum(property300), 25, 'the per-line ceiling is absolute');
 
-  /* The benchmark profile, built as a record the reader accepts: a Legend whose
-     preferred line took all four power-ups at maximum and whose three others
-     hold one maximum roll each, under the main property the monster wants. */
+  /* A Legend whose preferred line took all four power-ups at maximum and whose
+     three others hold one maximum roll each, under the main property the monster
+     wants. This is no longer the benchmark profile itself — that one spends a
+     power-up fewer on its preferred line (see `benchmarkLegend` below) — but it
+     is the record the grade-ceiling and wrong-main checks are stated against. */
   const legend = readArtifact({
     rid: 1, type: 1, attribute: 1, natural_rank: 5, level: 15,
     pri_effect: [100, 1500, 15, 0, 0],
@@ -223,6 +235,18 @@ try {
   assert.ok(legend, 'the benchmark artifact must be a legal record');
   assert.deepEqual(legend.subProperties.map((line) => line.maximumHundredths), [2500, 2500, 2500, 2500],
     'every line is measured against the same absolute ceiling, whatever it collected');
+
+  /* The benchmark profile itself (§16): a preferred line of four maximum rolls
+     and three acceptable lines of one each. It spends 7 of the 8 contributions a
+     finished Legend holds, so — unlike a four-full-line denominator — it is an
+     artifact the game can actually produce. */
+  const benchmarkLegend = readArtifact({
+    rid: 3, type: 1, attribute: 1, natural_rank: 5, level: 15,
+    pri_effect: [100, 1500, 15, 0, 0],
+    sec_effects: [[300, 20, 3, 0, 0], [301, 5, 0, 0, 0], [302, 5, 0, 0, 0], [303, 5, 0, 0, 0]],
+    date_add: '2026-08-30T00:00:00Z',
+  });
+  assert.ok(benchmarkLegend, 'the benchmark artifact must be a legal record');
 
   /** Scores a read record against a band per line, through the shipped function. */
   const shippedScore = (artifact, bands, mainPreference = 'preferred') => calculateArtifactOptimalValue({
@@ -234,7 +258,8 @@ try {
     })),
   });
 
-  const benchmarkScore = shippedScore(legend, ['preferred', 'acceptable', 'unwanted', 'unwanted']);
+  const benchmarkScore = shippedScore(benchmarkLegend,
+    ['preferred', 'acceptable', 'acceptable', 'acceptable']);
   assert.equal(percent(benchmarkScore), 100,
     'the shipped calculation must put the benchmark artifact at 100 %');
 
@@ -271,7 +296,7 @@ try {
   /* And the benchmark artifact itself on a wrong main: a real score, clearly
      reduced, nowhere near the zero the multiplier model returned. */
   assert.equal(percent(shippedScore(legend, ['preferred', 'acceptable', 'unwanted', 'unwanted'], 'unwanted')), 73,
-    'the benchmark artifact on a wrong main is 73 %, not 0 %');
+    'an ordinary good artifact on a wrong main is 73 %, not 0 %');
 } finally {
   await server.close();
 }

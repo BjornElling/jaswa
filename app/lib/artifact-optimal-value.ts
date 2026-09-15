@@ -23,15 +23,37 @@ export const artifactMainPropertyPoints = 2;
 
 /**
  * The number of acceptable lines the benchmark artifact carries beside its
- * preferred one. It is 1 because that is what the monsters actually ask for:
- * across the 902 monster types the statistics cover, 830 have exactly **one**
- * preferred sub property out of 23, and the best profile any of them offers a
- * real artifact is `1 preferred + 1 acceptable` or `1 preferred + 2 acceptable`
- * — 1,161 of the account's 1,555 artifacts. Benchmarking against three
- * acceptable lines would measure every artifact against a monster that does not
- * exist.
+ * preferred one, and the maximum rolls that preferred line holds.
+ *
+ * *Changed September 15, 2026, from `1` acceptable line and a 5-roll preferred
+ * line.* An artifact has four lines, and the old benchmark left two of them
+ * empty: it described one preferred line that had taken every power-up, one
+ * acceptable line, and nothing else. The profile here fills all four — a
+ * preferred line of four maximum rolls and three acceptable lines — which is
+ * both what a real artifact looks like and what the monsters ask for. Across the
+ * 902 monster types the statistics cover, 830 have exactly **one** preferred sub
+ * property out of 23, with a mean of about four acceptable ones, so the lines
+ * beside the preferred one are overwhelmingly acceptable rather than empty.
+ *
+ * **The profile is reachable**, which every benchmark here has had to be: a
+ * Legend holds `maxContributions + 3` = 8 contributions across its four lines
+ * (§3), and this spends 4 + 1 + 1 + 1 = 7 of them.
+ *
+ * At the default 50 % tolerance the total is unchanged — `2 + 5 + 0.5` and
+ * `2 + 4 + 3 × 0.5` are both 7.5 — so the scale a user sees by default did not
+ * move. Away from the default it does: the acceptable term now carries three
+ * times the weight, so the denominator ranges 6 to 9 across the tolerance
+ * settings where it used to range 7 to 8.
  */
-export const benchmarkAcceptableLines = 1;
+export const benchmarkAcceptableLines = 3;
+
+/**
+ * The maximum rolls the benchmark's preferred line holds. Four rather than the
+ * five a line can reach, because this benchmark spends the artifact's other
+ * three lines on acceptable properties rather than leaving them empty, and the
+ * eight contributions a finished Legend holds have to cover all four.
+ */
+export const benchmarkPreferredMaxRolls = 4;
 
 /**
  * The weighted max-roll points the benchmark artifact holds. It is the best
@@ -39,16 +61,15 @@ export const benchmarkAcceptableLines = 1;
  * **wearing the main property that monster wants**:
  *
  * ```text
- * benchmark points = 2 + 5 + a
+ * benchmark points = 2 + 4 + 3a
  * ```
  *
  * — the main property (`artifactMainPropertyPoints`), one preferred sub property
- * that took every power-up, and one acceptable line, all at maximum rolls.
+ * holding four maximum rolls, and three acceptable lines, all at maximum rolls.
  *
- * **The profile is reachable**, which every benchmark here has had to be. Its
- * preferred line holds all five contributions and the other three hold one each,
- * because a finished artifact has only eight to spend (§3) and every line must
- * keep at least its own.
+ * **The profile is reachable**, which every benchmark here has had to be: its
+ * four lines hold 4 + 1 + 1 + 1 = 7 of the eight contributions a finished Legend
+ * has to spend (§3), every line keeping at least its own.
  *
  * **It must stay a fixed denominator**, not the weights of the properties this
  * artifact happened to roll: deriving it from the artifact lets one max
@@ -69,8 +90,30 @@ export const benchmarkAcceptableLines = 1;
 export function artifactScorePointBenchmark(acceptableWorth: number): number {
   const acceptableWeight = acceptableWorth / 100;
   return artifactMainPropertyPoints
-    + bestArtifactLineContributions
+    + benchmarkPreferredMaxRolls
     + benchmarkAcceptableLines * acceptableWeight;
+}
+
+/**
+ * What one rolled line is worth, in points: **the number of maximum natural
+ * rolls it amounts to** (`ARTIFACT-CANONICAL.md` §16, `pᵢ = rolled valueᵢ /
+ * maxRollᵢ`). One maximum roll is one point, so *Additional Damage by ATK* —
+ * whose maximum roll is 4 % — scores 3 points at 12 %, because 12 % is three
+ * maximum rolls.
+ *
+ * The caller holds `lineMaximum`, the ceiling of a **full** line: the per-roll
+ * maximum times the five contributions the game's best line can collect (§3).
+ * Dividing by it and multiplying by five is the same arithmetic, which is what
+ * this used to do — and it buried the factor of five in every line, so a reader
+ * could not see that 12 % of a 4 % roll is simply three rolls. Same score, one
+ * fewer round trip through a number nobody wanted.
+ *
+ * Deliberately measured against the *property's* roll, never the line's own
+ * contributions or its grade's ceiling: §16 records both of those as corrections
+ * already made, each of which gave every artifact a number and the wrong one.
+ */
+export function artifactLineMaxRolls(value: number, lineMaximum: number): number {
+  return value * bestArtifactLineContributions / lineMaximum;
 }
 
 export type ArtifactOptimalValueInput = {
@@ -176,11 +219,7 @@ export function calculateArtifactOptimalValue(input: ArtifactOptimalValueInput):
   for (const subProperty of input.subProperties) {
     if (!isRollFraction(subProperty.value, subProperty.maximum)) return undefined;
     const weight = artifactPreferenceWeight(subProperty.preference, input.acceptableWorth);
-    /* One maximum natural roll is one point. The stored maximum is a full
-       five-roll line, so converting here keeps grades comparable without
-       hiding a Legend line's extra contributions. */
-    const rollPoints = subProperty.value * bestArtifactLineContributions / subProperty.maximum;
-    weightedRollPoints += weight * rollPoints;
+    weightedRollPoints += weight * artifactLineMaxRolls(subProperty.value, subProperty.maximum);
   }
 
   return artifactScoreFromPoints(mainPoints, weightedRollPoints, input.acceptableWorth);

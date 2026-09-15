@@ -1,6 +1,8 @@
 import { scoredArtifactProperties } from '../artifact-score-schema';
-import { artifactMainPropertyPoints, benchmarkAcceptableLines } from '../../artifact-optimal-value';
-import { artifactNormalConversionContributions, bestArtifactLineContributions } from '../../artifact-properties';
+import {
+  artifactMainPropertyPoints, benchmarkAcceptableLines, benchmarkPreferredMaxRolls,
+} from '../../artifact-optimal-value';
+import { artifactNormalConversionContributions } from '../../artifact-properties';
 import { intangibleRestrictionCode } from '../artifact-score-protocol';
 
 /* Four artifact facts, four property indexes, four max-roll-point values and
@@ -27,7 +29,7 @@ const INTANGIBLE_RESTRICTION: i32 = ${intangibleRestrictionCode};
 // ARTIFACT_MAIN_POINTS is also what a preferred main adds to the numerator, from
 // this one constant, exactly as the TypeScript does it.
 const ARTIFACT_MAIN_POINTS: f32 = ${artifactMainPropertyPoints}.0;
-const BEST_LINE_CONTRIBUTIONS: f32 = ${bestArtifactLineContributions}.0;
+const BENCHMARK_PREFERRED_MAX_ROLLS: f32 = ${benchmarkPreferredMaxRolls}.0;
 const BENCHMARK_ACCEPTABLE_LINES: f32 = ${benchmarkAcceptableLines}.0;
 
 // Five scalars, and no padding member: a uniform struct is already rounded up
@@ -126,9 +128,9 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
     weighted = weighted + contribution;
   }
 
-  // The benchmark holds a preferred main, five preferred max-roll points and one
-  // acceptable point. Must match artifactScorePointBenchmark() exactly.
-  let benchmark = ARTIFACT_MAIN_POINTS + BEST_LINE_CONTRIBUTIONS
+  // The benchmark holds a preferred main, four preferred max-roll points and
+  // three acceptable lines. Must match artifactScorePointBenchmark() exactly.
+  let benchmark = ARTIFACT_MAIN_POINTS + BENCHMARK_PREFERRED_MAX_ROLLS
     + BENCHMARK_ACCEPTABLE_LINES * parameters.acceptableWorth;
   let currentPercent = scorePercent((mainPoints + weighted) / benchmark);
   var best = currentPercent;

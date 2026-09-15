@@ -1,10 +1,8 @@
 import { artifactPreferenceStatus, defaultPropertyPreferences, recordedArtifactPreferenceMonsterIds } from '../artifact-preferences';
 import { readArtifacts } from '../artifacts';
 import { readEngravedConversionStones } from '../artifact-conversion-stones';
-import {
-  artifactConversionRollFraction,
-  bestArtifactLineContributions,
-} from '../artifact-properties';
+import { artifactConversionRollFraction } from '../artifact-properties';
+import { artifactLineMaxRolls } from '../artifact-optimal-value';
 import type { Artifact, ArtifactSubProperty } from '../artifacts';
 import type { ArtifactCategory, ArtifactMainProperty } from '../artifact-properties';
 import type { GameRecord } from '../game-data';
@@ -69,9 +67,12 @@ export function artifactFitsMonster(artifact: Artifact, speciesId: string): bool
   );
 }
 
+/* The line's worth in max-roll points, from the one definition of that in
+   `artifactLineMaxRolls`, so the packed scorer and the per-artifact reader
+   cannot come to different numbers for the same line. */
 function rollPoints(subProperty: ArtifactSubProperty): number {
   if (subProperty.maximumHundredths === null || subProperty.maximumHundredths <= 0) return 0;
-  return subProperty.valueHundredths * bestArtifactLineContributions / subProperty.maximumHundredths;
+  return artifactLineMaxRolls(subProperty.valueHundredths, subProperty.maximumHundredths);
 }
 
 /* A legacy line whose value cannot be read is `-1` rather than `0`: zero is a
