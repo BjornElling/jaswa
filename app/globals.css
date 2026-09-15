@@ -2863,6 +2863,31 @@ label[for] {
   color: var(--text-muted);
 }
 
+/* The type and the share share a line, on the same two-column measure the rows
+   below use: the share starts where a row's value starts, so it reads down the
+   card with the runes and the slots rather than trailing the type. Below the
+   width that measure survives, the two stack and the share keeps its label. */
+.preset-subhead {
+  display: grid;
+  grid-template-columns: 124px minmax(0, 1fr);
+  gap: var(--s5);
+  align-items: baseline;
+}
+.preset-share {
+  margin: 2px 0 0;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+/* The figure is the part worth reading twice, so it carries the ink the label
+   does not. */
+.preset-share b {
+  margin-left: var(--s2);
+  color: var(--text);
+}
+@media (max-width: 640px) {
+  .preset-subhead { grid-template-columns: minmax(0, 1fr); gap: 0; }
+}
+
 .preset-rows { display: grid; gap: var(--s1); }
 
 /* One shared label column, so the six rows line up down the card and the
