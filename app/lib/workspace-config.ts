@@ -60,7 +60,12 @@ export const navigationGroups: Array<{ heading: string; items: NavigationItem[] 
     heading: 'Technical',
     items: [
       { id: 'settings', label: 'Settings', name: 'Settings', glyph: '⚙' },
-      { id: 'the-math', label: 'The Math', name: 'The Math', glyph: '∑' },
+      /* A geometric mark rather than a maths operator. ∑ ƒ ∫ are set on the
+         maths axis with extenders below the baseline, so beside the rail's
+         centred glyphs one entry hung low and read a size larger than the
+         rest. ※ is the reference mark — the note the figures are worked out
+         in — and it sits in the same box as ✦ and ◈. */
+      { id: 'the-math', label: 'The Math', name: 'The Math', glyph: '※' },
     ],
   },
 ];
