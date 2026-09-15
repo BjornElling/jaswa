@@ -69,7 +69,7 @@ export function ArtifactsSection({ settings, data, monsters, general, hardwareAc
       <p className="next-step">Import your game data first. Your preferences can be prepared at any time.</p>
     </section>}
 
-    <Disclosure title="Recommendations" sessionKey="artifacts.recommendations">
+    <Disclosure title="This is the way" sessionKey="artifacts.recommendations">
       {data ? <ArtifactMaximumValues data={data} monsters={monsters} settings={settings} general={general}
         hardwareAcceleration={hardwareAcceleration} /> : <p className="lead">Import your game data first, then ask every artifact where it can shine.</p>}
     </Disclosure>

@@ -158,17 +158,19 @@ function Fact({ label, children, group = false }: {
  * library read the same boundaries. A score that could not be judged wears no
  * band at all: absent is unjudged, not low (§18.2).
  */
-function ScoreFact({ label, value, general, group = false }: {
+function ScoreFact({ label, value, general, group = false, mark }: {
   label: string;
   value: number | undefined;
   general: GeneralSettings;
   group?: boolean;
+  /** A marker trailing the figure, for a fact that carries one. */
+  mark?: ReactNode;
 }) {
   const classes = ['best-artifact-fact', 'best-artifact-fact-score', group ? 'best-artifact-fact-group' : ''];
   return <div className={classes.filter(Boolean).join(' ')}>
     <dt>{label}</dt>
     <dd {...(value === undefined ? {} : artifactValueTint(value))}>
-      <Percent value={value} general={general} fallback="Not judged" />
+      <Percent value={value} general={general} fallback="Not judged" />{mark}
     </dd>
   </div>;
 }
@@ -209,7 +211,7 @@ function ArtifactName({ artifact }: { artifact: Artifact }) {
   /* The grade is named in text as well as drawn as the margin rule, because a
      colour nobody can read is not a fact (AGENTS.md §5). */
   return <p className="best-artifact-entry-name">
-    <UnrefinedArtifactMark unrefined={artifact.unrefined} />{artifact.grade} · {artifactEquipClassLabel(artifact)}
+    {artifact.grade} · {artifactEquipClassLabel(artifact)}
   </p>;
 }
 
@@ -245,7 +247,8 @@ function CurrentArtifact({ category, artifact, context }: {
         <ArtifactName artifact={artifact} />
         <dl className="best-artifact-facts">
           <Fact label="Main stat">{artifact.mainProperty}</Fact>
-          <ScoreFact label="Value on mon" value={asIs?.value} general={context.general} />
+          <ScoreFact label="Value on mon" value={asIs?.value} general={context.general}
+            mark={<UnrefinedArtifactMark unrefined={artifact.unrefined} />} />
         </dl>
       </div>
       <SubProperties artifact={artifact} general={context.general} />
@@ -552,7 +555,7 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
               <h3 id={`best-artifact-${category}-title`}>{artifactCategoryLabels[category]}</h3>
               {/* Which figure the order follows, because it is not always the
                   one set in ink: the ranking is the score the active conversion
-                  settings produce, exactly as the Recommendations table ranks
+                  settings produce, exactly as the recommendation table ranks
                   its plan, while the entry leads with what the artifact is
                   worth today. Saying so turns a list that looks unsorted into
                   one that says what it sorted by. */}
