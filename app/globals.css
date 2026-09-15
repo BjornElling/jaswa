@@ -302,7 +302,8 @@ label[for] {
 .best-artifact-entry-name, .best-artifact-fact dd,
 .best-artifact-improvements, .best-artifact-current-slot .artifact-subs li,
 .best-artifact-entry .artifact-subs li, .craft-best-use-facts dt,
-.craft-best-use-facts dd, .craft-rune-detail {
+.craft-best-use-facts dd, .craft-rune-detail, .math-copy > p,
+.math-example p, .math-table {
   font-family: var(--font-body);
   font-size: var(--type-body);
   font-weight: 400;
@@ -1642,7 +1643,10 @@ label[for] {
   display: grid;
   gap: var(--s4);
 }
-.math-copy > p { margin: 0; }
+/* The prose of a Math section reads as body copy, exactly like the `.lead` it
+   follows: the same colour and leading, so a paragraph does not change voice
+   halfway down the page. */
+.math-copy > p { margin: 0; color: var(--text); line-height: 1.6; }
 /* The Artifact section is long enough to need subheadings; the grid already
    supplies the rhythm, so they only give back the leading the gap cannot. */
 .math-copy > h3 { margin: var(--s2) 0 0; }
@@ -1669,6 +1673,23 @@ label[for] {
   color: var(--text-strong);
   font-variant-numeric: tabular-nums;
 }
+/* A word naming the sum is prose, not a term of it: the body colour keeps the
+   equation's own colour for the numbers. The colon comes from here rather than
+   from each label, so every equation is punctuated the same way and a new one
+   cannot arrive without it. */
+.math-equation-label { color: var(--text); }
+.math-equation-label::after { content: ':'; }
+/* The same sum, set inside the sentence that introduces it rather than on its
+   own line: an inline run keeps the spacing between terms without breaking the
+   paragraph in two. */
+.math-equation-inline {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
 /* The worked example's own table. Deliberately not `.grid-table`: that one is
    the data pages' sortable, stickily-headed, gutter-aligned workhorse, and a
    five-row illustration inside prose wants none of it. */
@@ -1677,7 +1698,24 @@ label[for] {
   border-collapse: collapse;
   font-variant-numeric: tabular-nums;
   text-align: right;
+  /* Fixed layout so the five value columns stay equal instead of each taking
+     the width of its own longest cell; the substat names keep the remainder. */
+  table-layout: fixed;
 }
+.math-table th:not(:first-child) { width: 14%; }
+/* The relic example's six value columns hold two digits each, where the artifact
+   example's hold a calculation. They are given only the width that needs, and
+   the relic's own description — the longest text in the table — keeps the rest. */
+.math-table-relics th:not(:first-child) { width: 9%; }
+/* The rolled value belongs to the substat it rolled on, so it reads as part of
+   that name rather than as a column of its own; the stronger colour keeps the
+   number legible against the muted name. */
+.math-table-rolled { color: var(--text-strong); }
+/* A power-up level written into a sentence keeps its digits from changing width
+   with the value, exactly as the relic table's own level column does. It takes
+   no colour and no weight of its own: it is a value being named by the prose,
+   not a fact being emphasised. */
+.math-relic-level { font-variant-numeric: tabular-nums; }
 .math-table th,
 .math-table td {
   padding: var(--s2) var(--s3);

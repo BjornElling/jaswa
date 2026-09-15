@@ -16,10 +16,14 @@ test('The Math sits under Technical and explains the equipment recommendations',
 
   await page.getByRole('navigation').getByRole('button', { name: 'The Math', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'The Math', exact: true })).toBeVisible();
-  await expect(page.locator('summary')).toHaveText(['›Rune Optimization', '›Artifact Optimization', '›Relic Optimization']);
+  await expect(page.locator('summary')).toHaveText(['›Rune Clean-up', '›Artifact Optimization', '›Relic Optimization']);
 
   await page.locator('summary').filter({ hasText: 'Artifact Optimization' }).click();
-  await expect(page.locator('[aria-label="2 plus 4 plus 1.5 equals 7.5 points"]')).toBeVisible();
+  await expect(page.locator('[aria-label="4 plus 1.5 plus 2 equals 7.5 points"]')).toBeVisible();
   await page.locator('summary').filter({ hasText: 'Relic Optimization' }).click();
-  await expect(page.locator('[aria-label="30 percent times 100 percent plus 20 percent times 50 percent plus 50 percent times 75 percent equals 77.5 percent"]')).toBeVisible();
+  await expect(page.locator('[aria-label="0.30 times 0.14 plus 0.20 times 0.90 plus 0.50 times 1.00 equals 0.72 fit"]')).toBeVisible();
+  /* The worked example is held to the realistic power-up range: `+15` is the
+     scale's reference point and may be named as such, but no relic in an
+     illustration is levelled past `+12`. */
+  await expect(page.locator('.math-table-relics .math-relic-level')).toHaveText(['+6', '+12']);
 });
