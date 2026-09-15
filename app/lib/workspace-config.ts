@@ -1,7 +1,7 @@
 import type { AccelerationState } from './hardware-acceleration';
 import type { HelperConnection } from './helper-client';
 
-export type Page = 'home' | 'monsters' | 'artifact-list' | 'optimizer' | 'speed' | 'potential' | 'artifacts' | 'gems' | 'relics' | 'settings';
+export type Page = 'home' | 'monsters' | 'artifact-list' | 'optimizer' | 'speed' | 'potential' | 'artifacts' | 'gems' | 'relics' | 'settings' | 'the-math';
 export type ReportCategory = 'Monster' | 'Rune' | 'Gem' | 'Grindstone' | 'Artifact' | 'Relic' | 'Other';
 
 /* `label` is what the rail shows, under a heading that supplies the subject.
@@ -23,7 +23,6 @@ export const navigationGroups: Array<{ heading: string; items: NavigationItem[] 
     heading: 'General',
     items: [
       { id: 'home', label: 'Home', name: 'Home', glyph: '⌂' },
-      { id: 'settings', label: 'Settings', name: 'Settings', glyph: '⚙' },
     ],
   },
   {
@@ -56,6 +55,13 @@ export const navigationGroups: Array<{ heading: string; items: NavigationItem[] 
        place that already exists rather than reshaping the rail. */
     heading: 'Relics',
     items: [{ id: 'relics', label: 'Optimization', name: 'Relic Optimization', glyph: '▣' }],
+  },
+  {
+    heading: 'Technical',
+    items: [
+      { id: 'settings', label: 'Settings', name: 'Settings', glyph: '⚙' },
+      { id: 'the-math', label: 'The Math', name: 'The Math', glyph: '∑' },
+    ],
   },
 ];
 

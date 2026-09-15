@@ -20,7 +20,7 @@ import type { MonsterReference } from './components/monster-link';
 import { useSessionStorageState } from './lib/session-storage-state';
 import { type Page, type ReportCategory, upcomingWorkspaces } from './lib/workspace-config';
 
-const pageChoices: readonly Page[] = ['home', 'monsters', 'artifact-list', 'optimizer', 'speed', 'potential', 'artifacts', 'gems', 'relics', 'settings'];
+const pageChoices: readonly Page[] = ['home', 'monsters', 'artifact-list', 'optimizer', 'speed', 'potential', 'artifacts', 'gems', 'relics', 'settings', 'the-math'];
 const isPage = (value: unknown): value is Page => typeof value === 'string' && pageChoices.includes(value as Page);
 const ArtifactList = lazy(() => import('./components/artifact-list').then(({ ArtifactList: component }) => ({ default: component })));
 const ArtifactsSection = lazy(() => import('./components/artifacts-section').then(({ ArtifactsSection: component }) => ({ default: component })));
@@ -29,6 +29,7 @@ const MonsterOverview = lazy(() => import('./components/monster-overview').then(
 const RelicList = lazy(() => import('./components/relic-list').then(({ RelicList: component }) => ({ default: component })));
 const RunePotentialSection = lazy(() => import('./components/rune-potential-section').then(({ RunePotentialSection: component }) => ({ default: component })));
 const SettingsSection = lazy(() => import('./components/settings-section').then(({ SettingsSection: component }) => ({ default: component })));
+const TheMathSection = lazy(() => import('./components/the-math-section').then(({ TheMathSection: component }) => ({ default: component })));
 const UpcomingWorkspace = lazy(() => import('./components/upcoming-workspace').then(({ UpcomingWorkspace: component }) => ({ default: component })));
 const MonsterOverlay = lazy(() => import('./components/monster-overlay').then(({ MonsterOverlay: component }) => ({ default: component })));
 
@@ -445,6 +446,8 @@ export default function Home() {
         onExport={() => void saveFile('jaswa-preferences.sw', JSON.stringify(preferences, null, 2))}
         onImport={() => setLoadPreferencesPrompt(true)}
       /></Suspense>}
+
+      {page === 'the-math' && <Suspense fallback={<WorkspaceLoading />}><TheMathSection /></Suspense>}
 
       {page === 'relics' && <Suspense fallback={<WorkspaceLoading />}><RelicList game={game} monsters={monsters} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
 

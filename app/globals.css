@@ -1634,6 +1634,36 @@ label[for] {
   border-top: 1px solid var(--line);
 }
 
+/* The Math keeps its explanations narrow enough to read as prose, while the
+   examples get their own quiet plate so an equation is easy to find without
+   turning the page into a second kind of dashboard. */
+.math-copy {
+  display: grid;
+  gap: var(--s4);
+  max-width: 78ch;
+}
+.math-copy > p { margin: 0; }
+.math-example {
+  display: grid;
+  gap: var(--s3);
+  padding: var(--s4);
+  border: 1px solid var(--line-strong);
+  border-left: 2px solid var(--text-accent);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--sunk);
+}
+.math-example h3,
+.math-example p { margin: 0; }
+.math-example p { color: var(--text); line-height: 1.6; }
+.math-example .math-equation {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
+
 /* a hairline between two groups of controls inside one open bar */
 .bar-divide { height: 1px; background: var(--line); margin: var(--s1) 0; }
 
