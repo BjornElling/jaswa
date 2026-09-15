@@ -243,7 +243,7 @@ const presetSources: readonly PresetSource[] = [
     id: 'support',
     name: 'Support',
     type: 'Support type',
-    runeShare: 6, // x2: support is one of the largest roster families.
+    runeShare: 7, // x3: support is the largest roster family and needs the broadest share.
     sets: {
       preferred: ['Accuracy', 'Despair', 'Focus', 'Fight', 'Seal', 'Swift', 'Violent', 'Will'],
       acceptable: ['Determination', 'Enhance', 'Energy', 'Tolerance', 'Guard'],
