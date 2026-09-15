@@ -2,6 +2,7 @@ import {
   relicEngravingLimit, relicMainPropertyOrder, relicStrengthIndex,
 } from './relic-properties';
 import type { Relic } from './relics';
+import type { MonsterCopyPreferences } from './monster-preferences';
 import { relicSynergy } from './relic-synergy';
 import type { RelicSynergyBand } from './relic-synergy';
 import { relicShrunkShares, relicUsageStatus } from './relic-monster-statistics';
@@ -169,6 +170,23 @@ export type RelicSuitability = {
 export function relicSuitability(
   relic: Relic,
   usage: RelicUsageStatistics | undefined,
+  /**
+   * What the copy this relic is being judged for says it wants, where its owner
+   * has said anything.
+   *
+   * **A statement replaces the population for the term it answers, and only
+   * that term.** A user who named the mains they will accept has answered the
+   * main question outright, so the shares stop speaking to it; if they said
+   * nothing about uniques, the shares still answer that half. The two halves are
+   * kept separate for the same reason the statement and the default are never
+   * blended (`ARTIFACT-CANONICAL.md` §19.4): a merged answer is one neither
+   * party gave.
+   *
+   * The synergy term is deliberately untouched. It is a fact about how a main
+   * and a unique work together, not a preference about a monster, and it stays
+   * the same judgement whoever is asking.
+   */
+  stated?: MonsterCopyPreferences,
 ): RelicSuitability {
   const band = relicSynergy(relic.mainProperty, relic.unique.definition.id);
   const synergy = relicSynergySuitability[band];
@@ -177,10 +195,21 @@ export function relicSuitability(
   const shares = relicShrunkShares(usage);
   const leadingMain = Math.max(...relicMainPropertyOrder.map((property) => shares.main[property]));
   const leadingUnique = Math.max(0, ...shares.unique.values());
-  const main = relicUsageCredit(shares.main[relic.mainProperty], leadingMain);
-  const unique = relicUsageCredit(
-    shares.unique.get(relic.unique.definition.id) ?? 0, leadingUnique,
-  );
+
+  /* A chosen option takes full credit and an unchosen one takes the floor —
+     the same floor an unused property gets from the curve, so a relic the user
+     did not ask for is ranked low rather than excluded outright. It can still
+     be recommended when nothing better is owned, which is the honest answer:
+     the alternative is an empty slot. An empty stated list means none are
+     wanted, and every option then sits at the floor. */
+  const statedMains = stated?.relics?.main;
+  const statedUniques = stated?.relics?.unique;
+  const main = statedMains === undefined
+    ? relicUsageCredit(shares.main[relic.mainProperty], leadingMain)
+    : (statedMains.includes(relic.mainProperty) ? 1 : relicUsageCreditFloor);
+  const unique = statedUniques === undefined
+    ? relicUsageCredit(shares.unique.get(relic.unique.definition.id) ?? 0, leadingUnique)
+    : (statedUniques.includes(relic.unique.definition.id) ? 1 : relicUsageCreditFloor);
 
   return {
     fit: relicSuitabilityWeights.main * main
@@ -244,10 +273,11 @@ export function rankRelicsForMonster(
   relics: readonly Relic[],
   usage: RelicUsageStatistics | undefined,
   worn: ReadonlySet<string> = new Set(),
+  stated?: MonsterCopyPreferences,
 ): RelicCandidate[] {
   return relics
     .map((relic) => {
-      const suitability = relicSuitability(relic, usage);
+      const suitability = relicSuitability(relic, usage, stated);
       return { relic, suitability, score: relicMonsterScore(relic, suitability) };
     })
     .sort((left, right) => right.score - left.score
@@ -315,6 +345,14 @@ export type RelicAllocationSubject = {
   masterId: unknown;
   /** Relic ids this monster wears today. */
   wornRelicIds: readonly string[];
+  /**
+   * What this copy's owner says it wants, where they have said anything.
+   *
+   * It rides on the subject rather than arriving through `usageFor`, because
+   * the two are keyed differently and cannot share a lookup: the statistics are
+   * per species (`masterId`) and a statement is per owned copy (`monsterId`).
+   */
+  preferences?: MonsterCopyPreferences;
 };
 
 export type RelicAllocation = {
@@ -388,7 +426,7 @@ export function allocateRelicEngravings(
   const wearerScores = new Map<string, number[]>();
   for (const subject of subjects) {
     const worn = new Set(subject.wornRelicIds);
-    const candidates = rankRelicsForMonster(relics, usageFor(subject.masterId), worn);
+    const candidates = rankRelicsForMonster(relics, usageFor(subject.masterId), worn, subject.preferences);
     ranked.set(subject.monsterId, candidates);
     for (const candidate of candidates) {
       if (!worn.has(candidate.relic.id)) continue;

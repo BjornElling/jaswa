@@ -23,6 +23,18 @@ const runeSetPieces: Record<number, number> = {
   24: 2, 25: 4,
 };
 
+/**
+ * How many runes a set takes, by the name it is chosen under.
+ *
+ * `RUNE-CANONICAL.md` §10 is the source: a four-set fills four of the six
+ * slots and leaves room for exactly one two-set, while two-sets stack up to
+ * three times. That arithmetic is what makes a *pair* sayable at all, so it is
+ * exported rather than kept private to `activeRuneSets`.
+ */
+export const runeSetPieceCount: Readonly<Record<string, number>> = Object.fromEntries(
+  Object.entries(runeSetNames).map(([setId, name]) => [name, runeSetPieces[Number(setId)] ?? 2]),
+);
+
 const elementNames: Record<number, string> = {
   1: 'Water', 2: 'Fire', 3: 'Wind', 4: 'Light', 5: 'Dark',
 };

@@ -6,13 +6,14 @@ import { fileURLToPath } from 'node:url';
 /**
  * The monster overlay's own contracts.
  *
- * Three of these are the ones that fail silently. A cleared preference that
+ * The ones held here are the ones that fail silently. A cleared preference that
  * quietly reverts to its statistics default looks like nothing at all going
- * wrong — the chip is simply lit again next time, and the user assumes they
- * mis-clicked. A name that grows an underline box on hover re-wraps the row
- * behind the click that opens the overlay. And a record seeded from the
- * defaults at first view makes every default look like a decision, which is
- * `ARTIFACT-CANONICAL.md` §19.4's whole subject.
+ * wrong — the field simply reads its old answer again next time, and the user
+ * assumes they mis-clicked. A name that grows an underline box on hover
+ * re-wraps the row behind the click that opens the overlay. A record seeded
+ * from the defaults at first view makes every default look like a decision.
+ * And the panel is opened over a table it must line up with, so its own box is
+ * measured against that table rather than against the window.
  */
 
 /* One equipped copy and one bare copy: both ends of `AGENTS.md` rule 3 in one
@@ -83,23 +84,63 @@ test('a monster name opens its overlay without moving the row it sits in', async
   await expect(page.locator('.overlay-label-field input')).toBeFocused();
 });
 
-test('closing returns focus to the name that opened it', async ({ page }) => {
+test('the overlay is centred on the table it opens over, not on the window', async ({ page }) => {
   await importAccount(page);
-  const link = await openOverlay(page);
-  await page.getByRole('button', { name: 'Close' }).click();
-  await expect(page.getByRole('dialog')).toBeHidden();
-  await expect(link).toBeFocused();
+  await monsterLinks(page);
+
+  /* The rail takes 224px off the left of the window, so a dialog centred on the
+     viewport sits half the rail's width to the left of the content it belongs
+     to. It looked like a misalignment because it was one. */
+  const table = page.locator('.grid-table').first();
+  const tableBox = await table.boundingBox();
+  await openOverlay(page);
+  const dialogBox = await page.getByRole('dialog').boundingBox();
+  expect(tableBox).not.toBeNull();
+  expect(dialogBox).not.toBeNull();
+  if (!tableBox || !dialogBox) return;
+
+  const tableCentre = tableBox.x + tableBox.width / 2;
+  const dialogCentre = dialogBox.x + dialogBox.width / 2;
+  expect(Math.abs(dialogCentre - tableCentre)).toBeLessThanOrEqual(1);
+  /* And it is not narrower than what it covers: the overlay takes the account
+     tables' own measure so it reads as the same page rather than as a panel
+     floating over it. */
+  expect(dialogBox.width).toBeGreaterThanOrEqual(tableBox.width);
+});
+
+test('the actions stay clear of the edge the body scrolls against', async ({ page }) => {
+  await importAccount(page);
+  await openOverlay(page);
+
+  /* Flush against the corner the buttons read as clipped, and the scrolling
+     body's scrollbar came down on top of the last of them. */
+  const dialogBox = await page.getByRole('dialog').boundingBox();
+  const saveBox = await page.getByRole('button', { name: 'Save changes' }).boundingBox();
+  expect(dialogBox).not.toBeNull();
+  expect(saveBox).not.toBeNull();
+  if (!dialogBox || !saveBox) return;
+
+  const rightGap = (dialogBox.x + dialogBox.width) - (saveBox.x + saveBox.width);
+  const bottomGap = (dialogBox.y + dialogBox.height) - (saveBox.y + saveBox.height);
+  expect(rightGap).toBeGreaterThanOrEqual(12);
+  expect(bottomGap).toBeGreaterThanOrEqual(12);
 });
 
 test('a stated preference is saved, and only what was stated', async ({ page }) => {
   await importAccount(page);
   await openOverlay(page);
 
-  const mains = page.getByRole('radiogroup', { name: 'Attribute artifact main stat' });
+  const mains = page.getByRole('button', { name: /^Attribute artifact main stats:/ });
   await mains.scrollIntoViewIfNeeded();
-  await mains.getByRole('radio', { name: 'DEF' }).click();
+  await mains.click();
+  await page.getByRole('group', { name: 'Attribute artifact main stats' })
+    .getByRole('checkbox', { name: 'DEF' }).check();
+  /* Escape closes the menu without closing the panel behind it: these menus
+     take several answers, so they stay open until the reader leaves them. */
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toBeVisible();
 
-  const spd = page.locator('.overlay-targets input').nth(3);
+  const spd = page.getByRole('spinbutton', { name: 'Desired Spd' });
   await spd.scrollIntoViewIfNeeded();
   await spd.fill('130');
 
@@ -110,34 +151,72 @@ test('a stated preference is saved, and only what was stated', async ({ page }) 
   /* Nothing is seeded from the statistics: a record holds the user's own
      statements and nothing else, or every default would look like a decision. */
   expect(stored).toEqual({
-    1: { unitId: '1', artifacts: { attribute: { main: 'DEF' } }, statTargets: { spd: 130 } },
+    1: { unitId: '1', artifacts: { attribute: { main: ['DEF'] } }, statTargets: { spd: 130 } },
   });
+});
+
+test('a composite target is stated and kept, alongside the stat it is derived from', async ({ page }) => {
+  await importAccount(page);
+  await openOverlay(page);
+
+  /* E.HP follows from HP and DEF, so it is *derived* wherever it is shown — but
+     a target for it is a goal its owner states, and no combination of the eight
+     stat targets expresses it. Both therefore travel. */
+  const ehp = page.getByRole('spinbutton', { name: 'Desired E.HP', exact: true });
+  await ehp.scrollIntoViewIfNeeded();
+  await ehp.fill('60000');
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  await expect(page.getByRole('dialog')).toBeHidden();
+  expect((await storedPreferences(page))?.['1']?.statTargets).toEqual({ ehp: 60000 });
 });
 
 test('a cleared preference stays cleared, and does not fall back to the default', async ({ page }) => {
   await importAccount(page);
   await openOverlay(page);
 
-  /* Violent is a preferred default for this species, so it opens lit. Cycling
-     it twice — preferred, acceptable, not wanted — is the user saying they do
-     not want it, which §19.4 stores as a statement rather than as a silence. */
-  const violent = page.getByRole('button', { name: /^Violent:/ });
-  await violent.scrollIntoViewIfNeeded();
-  await expect(violent).toHaveAttribute('aria-label', /preferred/);
-  await violent.click();
-  await violent.click();
-  await expect(violent).toHaveAttribute('aria-label', 'Violent: not wanted');
+  /* Slot 4 has a statistics default, so it opens standing in from the
+     population. Opening the menu and ticking nothing off is no statement at
+     all; ticking one on and then off again is the user saying they want none,
+     which is stored as an empty list rather than as a silence. An absent key
+     would let the default quietly return the next time the overlay opened. */
+  const slot4 = page.getByRole('button', { name: /^Slot 4 main stat:/ });
+  await slot4.scrollIntoViewIfNeeded();
+  await slot4.click();
+  const options = page.getByRole('group', { name: 'Slot 4 main stat' });
+  await options.getByRole('checkbox', { name: 'HP%' }).check();
+  await options.getByRole('checkbox', { name: 'HP%' }).uncheck();
+  await page.keyboard.press('Escape');
 
   await page.getByRole('button', { name: 'Save changes' }).click();
   await expect(page.getByRole('dialog')).toBeHidden();
-  expect((await storedPreferences(page))?.['1']?.runeSets).toEqual({ Violent: 'unwanted' });
+  expect((await storedPreferences(page))?.['1']?.runeSlots).toEqual({ slot4: [] });
 
   await page.reload();
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await openOverlay(page);
-  const reopened = page.getByRole('button', { name: /^Violent:/ });
+  const reopened = page.getByRole('button', { name: /^Slot 4 main stat:/ });
   await reopened.scrollIntoViewIfNeeded();
-  await expect(reopened).toHaveAttribute('aria-label', 'Violent: not wanted');
+  await expect(reopened).toHaveAttribute('aria-label', 'Slot 4 main stat: Any');
+});
+
+test('a rune build is chosen as a whole pair, never as two loose sets', async ({ page }) => {
+  await importAccount(page);
+  await openOverlay(page);
+
+  /* The point of the change: `Violent / Blade` is one answer. Choosing Violent
+     and Blade separately could not say whether a triple Violent build would
+     do, and the optimizer had to guess. */
+  const builds = page.getByRole('button', { name: /^Desired rune builds:/ });
+  await builds.scrollIntoViewIfNeeded();
+  await builds.click();
+  await page.getByRole('button', { name: /^Violent/ }).click();
+  await page.getByRole('checkbox', { name: 'Violent / Blade' }).check();
+  await page.keyboard.press('Escape');
+
+  await expect(builds).toHaveAttribute('aria-label', 'Desired rune builds: Violent / Blade');
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  await expect(page.getByRole('dialog')).toBeHidden();
+  expect((await storedPreferences(page))?.['1']?.runeSets).toEqual(['Violent / Blade']);
 });
 
 test('a copy with nothing equipped says so in every panel', async ({ page }) => {
@@ -159,4 +238,20 @@ test('a copy with nothing equipped says so in every panel', async ({ page }) => 
   const overflow = await page.evaluate(() =>
     document.documentElement.scrollWidth > window.innerWidth);
   expect(overflow).toBe(false);
+});
+
+test('the panel no longer offers to adopt the statistics, or explains itself as standing in', async ({ page }) => {
+  await importAccount(page);
+  await openOverlay(page);
+
+  /* A statistic the user has not looked at is not a decision they made. The
+     Adopt buttons let one become a decision in a click, and the provenance line
+     said so in words on every panel; both are gone, and the statistics stay as
+     reference beside the answers. */
+  await expect(page.getByRole('button', { name: 'Adopt' })).toHaveCount(0);
+  await expect(page.getByText('Standing in from community statistics')).toHaveCount(0);
+  await expect(page.getByText(/from \d[\d,]* artifacts/)).toHaveCount(0);
+  /* And the separate shortfall list is gone: what falls short is marked beside
+     the field that states it, rather than restated at the foot of the panel. */
+  await expect(page.getByRole('heading', { name: 'Not yet met' })).toHaveCount(0);
 });

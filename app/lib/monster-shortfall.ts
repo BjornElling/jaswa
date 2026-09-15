@@ -3,15 +3,18 @@ import type { ArtifactCategory } from './artifact-properties';
 import { artifactProperty } from './artifact-properties';
 import type { GameRecord } from './game-data';
 import type { MonsterTotals } from './monster-stats';
+import { monsterTargetFigures } from './monster-stats';
 import type { PreferenceSource, ResolvedMonsterPreferences } from './monster-preference-resolution';
+import type { MonsterStatTargets } from './monster-preferences';
 import type { Relic } from './relics';
 import { runeSlotKeys } from './monster-defaults';
 import type { RuneSlotKey } from './monster-defaults';
-import { relicPropertyLabel } from './relic-properties';
-import type { PresetStatTargets, RuneMainStat } from './rune-potential-presets';
+import { relicProperty, relicPropertyLabel } from './relic-properties';
+import type { RuneMainStat } from './rune-potential-presets';
 import { presetTargetColumns } from './rune-potential-presets';
 import { runeStatNames } from './runes';
 import { activeRuneSets } from './rune-sets';
+import { runeSetPair } from './rune-set-pairs';
 
 /**
  * Where an owned copy does not yet match what it is for.
@@ -62,16 +65,11 @@ export type Shortfall = {
   where?: string;
 };
 
-/* The eight stat targets against the totals that answer them. The two
-   vocabularies differ — a preset says `criRate`, a stat sheet says
-   `criticalRate` — so the mapping is written once, here, beside the comparison
-   that needs it. */
-const targetTotals: Record<keyof PresetStatTargets, keyof MonsterTotals> = {
-  hp: 'hp', atk: 'atk', def: 'def', spd: 'spd',
-  criRate: 'criticalRate', criDmg: 'criticalDamage', res: 'resistance', acc: 'accuracy',
-};
-
-const statLabels: Partial<Record<keyof PresetStatTargets, string>> = Object.fromEntries(
+/* The eleven figures a target may name, in the words the user reads them in.
+   `monsterTargetFigures` answers all eleven from one stat sheet, so the two
+   vocabularies — a preset's `criRate` against a stat sheet's `criticalRate` —
+   are reconciled there rather than by a second mapping here. */
+const statLabels: Partial<Record<keyof MonsterStatTargets, string>> = Object.fromEntries(
   presetTargetColumns.map((column) => [column.key, `${column.label}${column.unit ?? ''}`]),
 );
 
@@ -88,38 +86,42 @@ const runeSlotNumbers: Record<RuneSlotKey, number> = { slot2: 2, slot4: 4, slot6
 
 const categoryLabels: Record<ArtifactCategory, string> = { attribute: 'Attribute', type: 'Type' };
 
-/** Every preferred key in a resolved map, with the provenance of each. */
-function preferred<T>(entries: Map<T, { band: string; source: PreferenceSource }>): Array<[T, PreferenceSource]> {
-  const wanted: Array<[T, PreferenceSource]> = [];
-  for (const [key, entry] of entries) if (entry.band === 'preferred') wanted.push([key, entry.source]);
-  return wanted;
+/* Named from the vocabulary rather than from what happens to be engraved: a
+   unique that is wanted and absent is exactly the case being reported, so
+   looking it up among the worn relics would print `Property 14` for the one
+   name the reader most needs. */
+function relicUniqueName(id: number): string {
+  const definition = relicProperty(id);
+  return definition ? relicPropertyLabel(definition) : `Property ${id}`;
 }
 
 function runeShortfalls(monster: GameRecord, resolved: ResolvedMonsterPreferences): Shortfall[] {
   const shortfalls: Shortfall[] = [];
 
-  /* A set wish is met by a *completed* set, not by owning pieces of it:
+  /* A build is met by the *completed* sets, not by owning pieces of them:
      `activeRuneSets` already counts only the sets whose piece requirement is
-     met, which is the same arithmetic the stat sheet applies. */
+     met, which is the same arithmetic the stat sheet applies. A build names
+     every set it wants, so it is met only when all of them are standing. */
   const completed = new Set(activeRuneSets(monster).map((set) => set.name));
-  const wantedSets = preferred(resolved.runes.sets);
-  /* One shortfall for the whole group rather than one per set. A monster wears
-     two sets at most, so a roster of four preferred sets is a list of
-     alternatives, and reporting each as a failure would read as four problems
-     where there is one. */
-  if (wantedSets.length > 0 && !wantedSets.some(([name]) => completed.has(name))) {
+  const wantedBuilds = resolved.runes.sets;
+  /* One shortfall for the whole group rather than one per build. A monster
+     wears one build at a time, so a list of four is a list of alternatives, and
+     reporting each as a failure would read as four problems where there is
+     one. */
+  if (wantedBuilds.chosen.length > 0
+    && !wantedBuilds.chosen.some((id) => runeSetPair(id)?.sets.every((name) => completed.has(name)) ?? false)) {
     shortfalls.push({
       kind: 'rune-set',
-      source: wantedSets.every(([, source]) => source === 'user') ? 'user' : 'default',
-      wanted: wantedSets.map(([name]) => name).join(' or '),
+      source: wantedBuilds.source,
+      wanted: wantedBuilds.chosen.join(' or '),
       present: completed.size > 0 ? [...completed].join(', ') : undefined,
     });
   }
 
   const runes = Array.isArray(monster.runes) ? monster.runes : [];
   for (const key of runeSlotKeys) {
-    const wanted = preferred(resolved.runes.slots[key]);
-    if (wanted.length === 0) continue;
+    const wanted = resolved.runes.slots[key];
+    if (wanted.chosen.length === 0) continue;
     const slot = runeSlotNumbers[key];
     const worn = runes.find((rune) => {
       const record = rune as GameRecord | null;
@@ -128,11 +130,11 @@ function runeShortfalls(monster: GameRecord, resolved: ResolvedMonsterPreference
     const mainId = typeof worn?.pri_eff === 'object' && Array.isArray(worn.pri_eff)
       ? Number(worn.pri_eff[0]) : null;
     const present = mainId === null || !Number.isFinite(mainId) ? undefined : runeMainStatsByEffect[mainId];
-    if (present !== undefined && wanted.some(([stat]) => stat === present)) continue;
+    if (present !== undefined && wanted.chosen.some((stat) => stat === present)) continue;
     shortfalls.push({
       kind: 'rune-slot-main',
-      source: wanted.every(([, source]) => source === 'user') ? 'user' : 'default',
-      wanted: wanted.map(([stat]) => stat).join(' or '),
+      source: wanted.source,
+      wanted: wanted.chosen.join(' or '),
       /* A rune whose main the preference vocabulary cannot express is still
          reported by its own name, so the reader is told what is there rather
          than shown an empty slot that is not empty. */
@@ -160,17 +162,19 @@ function artifactShortfalls(
       shortfalls.push({
         kind: 'artifact-missing',
         source: wishes.main.source,
-        wanted: wishes.main.value ?? 'an artifact',
+        wanted: wishes.main.chosen.join(' or ') || 'an artifact',
         where,
       });
       continue;
     }
 
-    if (wishes.main.value !== undefined && artifact.mainProperty !== wishes.main.value) {
+    /* Any one of the wanted mains answers the wish — the piece carries one, and
+       the user named every one they would accept. */
+    if (wishes.main.chosen.length > 0 && !wishes.main.chosen.includes(artifact.mainProperty)) {
       shortfalls.push({
         kind: 'artifact-main',
         source: wishes.main.source,
-        wanted: wishes.main.value,
+        wanted: wishes.main.chosen.join(' or '),
         present: artifact.mainProperty,
         where,
       });
@@ -214,34 +218,29 @@ function relicShortfalls(resolved: ResolvedMonsterPreferences, worn: readonly Re
     shortfalls.push({
       kind: 'relic-missing',
       source: wishes.main.source,
-      wanted: wishes.main.value ?? 'a relic',
+      wanted: wishes.main.chosen.join(' or ') || 'a relic',
     });
     return shortfalls;
   }
 
   /* A monster wears several relics at once and any of them can answer the wish,
      so the question is whether *none* does — not whether each one does. */
-  if (wishes.main.value !== undefined && !worn.some((relic) => relic.mainProperty === wishes.main.value)) {
+  if (wishes.main.chosen.length > 0 && !worn.some((relic) => wishes.main.chosen.includes(relic.mainProperty))) {
     shortfalls.push({
       kind: 'relic-main',
       source: wishes.main.source,
-      wanted: wishes.main.value,
+      wanted: wishes.main.chosen.join(' or '),
       present: [...new Set(worn.map((relic) => relic.mainProperty))].join(', '),
     });
   }
 
-  const wantedUniques = preferred(wishes.unique);
-  if (wantedUniques.length > 0) {
+  if (wishes.unique.chosen.length > 0) {
     const engraved = new Set(worn.map((relic) => relic.unique.definition.id));
-    if (!wantedUniques.some(([id]) => engraved.has(id))) {
-      const name = (id: number) => {
-        const definition = worn.find((relic) => relic.unique.definition.id === id)?.unique.definition;
-        return definition ? relicPropertyLabel(definition) : `Property ${id}`;
-      };
+    if (!wishes.unique.chosen.some((id) => engraved.has(id))) {
       shortfalls.push({
         kind: 'relic-unique',
-        source: wantedUniques.every(([, source]) => source === 'user') ? 'user' : 'default',
-        wanted: wantedUniques.map(([id]) => name(id)).join(' or '),
+        source: wishes.unique.source,
+        wanted: wishes.unique.chosen.map(relicUniqueName).join(' or '),
         present: [...new Set(worn.map((relic) => relicPropertyLabel(relic.unique.definition)))].join(', '),
       });
     }
@@ -252,19 +251,20 @@ function relicShortfalls(resolved: ResolvedMonsterPreferences, worn: readonly Re
 
 function statShortfalls(resolved: ResolvedMonsterPreferences, totals: MonsterTotals): Shortfall[] {
   const shortfalls: Shortfall[] = [];
+  const current = monsterTargetFigures(totals);
   for (const [key, target] of Object.entries(resolved.statTargets)) {
     if (!target) continue;
-    const statKey = key as keyof PresetStatTargets;
-    const current = totals[targetTotals[statKey]];
+    const statKey = key as keyof MonsterStatTargets;
+    const reached = current[statKey];
     /* A target of `0` is a stated target of nothing and is always met; an absent
        one never reaches this loop at all (`AGENTS.md` §3). */
-    if (current >= target.value) continue;
+    if (reached >= target.value) continue;
     shortfalls.push({
       kind: 'stat',
       source: 'user',
       wanted: statLabels[statKey] ?? statKey,
       target: target.value,
-      current,
+      current: reached,
     });
   }
   return shortfalls;

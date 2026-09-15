@@ -372,6 +372,30 @@ numeriske Rune Clean-up-score eller -ceiling:
   Grindstone-forbedringer og kan ikke bruges på Ancient, Intangible eller
   Gem-konverterede runer.
 
+### 10.1 A user asks for a build, not for a set
+
+**What a monster's owner states is a whole six-slot combination — `Violent /
+Blade`, `Will / Nemesis / Energy` — never a set on its own.**
+
+Stating sets one at a time cannot express the answer. A user who marks Despair
+and Revenge as wanted has not said whether they mean `Despair / Revenge` or
+`Revenge / Revenge / Revenge`, and an optimizer handed that list has to guess:
+someone asking for Revenge could be handed a triple Revenge build they never
+wanted. A combination is the whole answer and leaves nothing to infer.
+
+The arithmetic above fixes which combinations exist. Six slots; a four-set
+leaves room for exactly one two-set; two-sets stack up to three times. Six
+four-sets against sixteen two-sets give **96** four-plus-two combinations, which
+a menu can list under its leading set, and **560** two-set triples, which it
+cannot — so a triple is *composed* in the menu rather than chosen from a list.
+`app/lib/rune-set-pairs.ts` holds the vocabulary; a build's identifier is its set
+names joined by ` / `, leading set first, which is also what the user reads.
+
+Two concessions are asked separately, because each is a real choice and neither
+is one to make on a user's behalf. **Broken pairs** allows a build whose last two
+runes complete no set. **Intangible runes** allows the one Intangible a monster
+may wear to complete a set that is one rune short. Both default to off.
+
 ## 11. Afgrænsede eller fortsat uafklarede kampregler
 
 Følgende må ikke få en stiltiende formel i Rune Clean-up. De er registreret

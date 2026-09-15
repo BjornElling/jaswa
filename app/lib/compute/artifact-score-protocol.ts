@@ -51,11 +51,40 @@ export type PackedArtifactScoreInput = {
   subPropertyIndexes: readonly [number, number, number, number];
   /** Each line's value in max-roll points: one maximum natural roll is one point. */
   subPropertyRollPoints: readonly [number, number, number, number];
+  /**
+   * Each line's value in the hundredths of a point the import stores, or `-1`
+   * for a legacy line whose value cannot be read.
+   *
+   * The roll points above are a *ratio* — how much of a maximum roll this line
+   * carries — and a floor is an absolute: "Damage Taken from Wind at 15 % or
+   * better". The ratio cannot answer it, because the same 15 % is a different
+   * fraction of the maximum on every property. So the absolute travels too.
+   *
+   * Optional only so a caller comparing a single pair can build a row without
+   * it; every packed artifact carries it, and it is required wherever a floor
+   * could apply.
+   */
+  subPropertyValueHundredths?: readonly [number, number, number, number];
 };
 
 export type PackedMonsterScoreInput = {
+  /**
+   * The species id, or an owned copy's `unit_id` where that copy states
+   * preferences of its own.
+   *
+   * **A row is a species until a copy disagrees.** Scores describe a monster
+   * rather than a copy of one, so a collaboration pair ranks once and every
+   * unstated copy of a species shares one row — that is still the rule. But
+   * preferences are keyed per copy (`ARTIFACT-CANONICAL.md` §19.2) precisely so
+   * two Lushens can be built for different things, and a species-keyed matrix
+   * cannot express that: one of the two would have to be scored against the
+   * other's answers. So a copy that has stated anything gets a row of its own,
+   * and `id` is its `unit_id`. `ownerUnitId` says which is which.
+   */
   id: string;
   name: string;
+  /** Set where this row is one owned copy's own, rather than a species'. */
+  ownerUnitId?: string;
   /** The game element codes: Water 1 through Dark 5. */
   element: number;
   /** Attack 1, Defense 2, HP 3, Support 4. */
@@ -64,6 +93,18 @@ export type PackedMonsterScoreInput = {
   mainPreferences: readonly [number, number, number];
   /** One preference entry for every item in `scoredArtifactProperties`. */
   subPropertyPreferences: readonly number[];
+  /**
+   * The minimum roll each property must reach to count, in the hundredths the
+   * import stores, or `0` where any roll will do.
+   *
+   * A line below its floor contributes nothing, exactly as an unwanted one
+   * does: "at 15 % or better" is one preference, and a 6.8 % line does not
+   * answer it. Only a user can state a floor — the statistics record which
+   * properties are chosen and never how high they rolled — so this is all
+   * zeroes on a species row, and may be left out entirely by a caller building
+   * one row to compare a single pair.
+   */
+  subPropertyMinimums?: readonly number[];
   /**
    * Each property's observed share of this slot's distribution, in the same
    * order. The score deliberately does not read these — the preference band is

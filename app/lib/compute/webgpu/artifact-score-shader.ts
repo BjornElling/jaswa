@@ -3,9 +3,14 @@ import { artifactMainPropertyPoints, benchmarkAcceptableLines } from '../../arti
 import { artifactNormalConversionContributions, bestArtifactLineContributions } from '../../artifact-properties';
 import { intangibleRestrictionCode } from '../artifact-score-protocol';
 
-/* Four artifact facts, four property indexes and four max-roll-point values. */
-const artifactStride = 12;
-const monsterStride = 5 + scoredArtifactProperties.length;
+/* Four artifact facts, four property indexes, four max-roll-point values and
+   four absolute line values in hundredths — the last four so a substat floor
+   can be tested here as it is on the CPU. */
+const artifactStride = 16;
+/* Element, archetype, three mains, then one preference *and* one minimum for
+   every scored property. Both backends read this layout, and
+   `verify:artifact-score-agreement` fails if they stop agreeing. */
+const monsterStride = 5 + scoredArtifactProperties.length * 2;
 
 /**
  * One invocation evaluates one artifact/monster pair. The full matrix is read
@@ -107,7 +112,15 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
     let fraction = artifacts[artifactOffset + 8u + line];
     var contribution: f32 = 0.0;
     if (propertyIndex >= 0) {
-      contribution = preferenceWeight(i32(monsters[monsterOffset + 5u + u32(propertyIndex)])) * fraction;
+      // A line below the floor its monster asked for contributes nothing, as an
+      // unwanted property does. Must match clearsMinimum() in
+      // artifact-score-core.ts exactly. A floor of 0 admits every roll; a legacy
+      // line carries -1 and clears no real floor.
+      let minimum = monsters[monsterOffset + 5u + PROPERTY_COUNT + u32(propertyIndex)];
+      let lineValue = artifacts[artifactOffset + 12u + line];
+      if (minimum <= 0.0 || lineValue >= minimum) {
+        contribution = preferenceWeight(i32(monsters[monsterOffset + 5u + u32(propertyIndex)])) * fraction;
+      }
     }
     sourceContribution[line] = contribution;
     weighted = weighted + contribution;

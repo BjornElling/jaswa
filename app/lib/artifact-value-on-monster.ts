@@ -4,6 +4,8 @@ import { scoringSettings } from './artifact-recommendations';
 import { artifactFitsMonster } from './compute/artifact-score-input';
 import { monsterSpeciesId } from './monster-species';
 import type { Artifact } from './artifacts';
+import type { ArtifactPropertyPreference } from './artifact-optimal-value';
+import type { MonsterCopyPreferences } from './monster-preferences';
 import type { ArtifactSettings } from './types';
 
 /**
@@ -38,6 +40,11 @@ export function artifactValueOnMonster(
      precisely how one view came to read one setting where the others read
      eight. */
   settings: ArtifactSettings,
+  /* What the copy wearing this artifact says it is for, where its owner has
+     said anything. Optional because most callers are asking about a species —
+     "what is this artifact worth on a Lushen" — and only a caller holding one
+     owned copy can answer for that copy. */
+  stated?: MonsterCopyPreferences,
 ): number | undefined {
   const { acceptableWorth } = scoringSettings(settings);
   const preferences = defaultPropertyPreferences(masterId, artifact.category);
@@ -49,9 +56,22 @@ export function artifactValueOnMonster(
      optimization pages, which do apply the rule, called it not judged. */
   if (!artifactFitsMonster(artifact, monsterSpeciesId(masterId))) return undefined;
 
+  /* The user's own answers replace the statistics rather than blending with
+     them (§19.4). A stated list is exhaustive — a property they did not name is
+     one they do not want — and every property they did name is preferred, since
+     they drew no ranking for this reader to invent. */
+  const wishes = stated?.artifacts?.[artifact.category];
+  const statedSubs = wishes?.sub;
+  const statedMains = wishes?.main;
+  const preferenceFor = (id: number): ArtifactPropertyPreference => {
+    if (statedSubs === undefined) return preferences.sub.get(id) ?? 'unwanted';
+    return statedSubs[String(id)] === undefined ? 'unwanted' : 'preferred';
+  };
+
   const subProperties = [];
   for (const subProperty of artifact.subProperties) {
-    const preference = preferences.sub.get(subProperty.definition.id) ?? 'unwanted';
+    const preference = preferenceFor(subProperty.definition.id);
+    const minimum = statedSubs?.[String(subProperty.definition.id)]?.minimumHundredths;
     /* A legacy line has no known range (§12), so how well it rolled cannot be
        computed — but it also cannot matter. The statistics record only what the
        drop pool still produces, so a property absent from them is `unwanted`,
@@ -64,8 +84,14 @@ export function artifactValueOnMonster(
       subProperties.push({ preference, value: 1, maximum: 1 });
       continue;
     }
+    /* A line below the floor its owner asked for contributes nothing, exactly
+       as an unwanted one does: "at 15 % or better" is one preference, and a
+       6.8 % line does not answer it. Expressed as `unwanted` rather than as a
+       zeroed value so the two readers reach the same number through the same
+       weight (`clearsMinimum` in `artifact-score-core.ts`). */
+    const clears = minimum === undefined || minimum <= 0 || subProperty.valueHundredths >= minimum;
     subProperties.push({
-      preference,
+      preference: clears ? preference : ('unwanted' as ArtifactPropertyPreference),
       value: subProperty.valueHundredths,
       maximum: subProperty.maximumHundredths,
     });
@@ -74,7 +100,9 @@ export function artifactValueOnMonster(
   return calculateArtifactOptimalValue({
     acceptableWorth,
     hasPropertyPreferences: true,
-    mainPreference: preferences.main[artifact.mainProperty],
+    mainPreference: statedMains === undefined
+      ? preferences.main[artifact.mainProperty]
+      : (statedMains.includes(artifact.mainProperty) ? 'preferred' : 'unwanted'),
     subProperties,
   });
 }

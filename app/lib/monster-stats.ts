@@ -1,3 +1,5 @@
+import { calculateRunePotentialMetrics, displayRunePotentialMetric } from './rune-potential-metrics';
+
 type RecordLike = Record<string, unknown>;
 
 export type MonsterTotals = {
@@ -144,4 +146,42 @@ export function calculateMonsterTotals(monster: RecordLike, accountModifiers: Ac
 
 export function totalStatValue(totals: MonsterTotals, stat: StatKey): string {
   return totals[stat].toLocaleString('en');
+}
+
+/**
+ * The eleven figures a copy can be measured against: its eight stats under the
+ * names a target is stated in, plus the three composites derived from them.
+ *
+ * It exists so that the overlay's reference column and the shortfall check read
+ * one answer. Two call sites deriving DMG separately is how one screen comes to
+ * say a target is met while the other says it is not — and the composites are
+ * derived here rather than stored precisely so that cannot happen
+ * (`AGENTS.md` §6). The truncation is `RUNE-PRESET-METRICS.md`'s display rule,
+ * so a figure compared here is the figure the user was shown.
+ */
+export function monsterTargetFigures(totals: MonsterTotals): {
+  hp: number; atk: number; def: number; spd: number;
+  criRate: number; criDmg: number; res: number; acc: number;
+  dmg: number; ehp: number; ehpD: number;
+} {
+  const metrics = calculateRunePotentialMetrics({
+    atk: totals.atk,
+    hp: totals.hp,
+    def: totals.def,
+    criticalRate: totals.criticalRate,
+    criticalDamage: totals.criticalDamage,
+  });
+  return {
+    hp: totals.hp,
+    atk: totals.atk,
+    def: totals.def,
+    spd: totals.spd,
+    criRate: totals.criticalRate,
+    criDmg: totals.criticalDamage,
+    res: totals.resistance,
+    acc: totals.accuracy,
+    dmg: displayRunePotentialMetric(metrics.dmg),
+    ehp: displayRunePotentialMetric(metrics.ehp),
+    ehpD: displayRunePotentialMetric(metrics.ehpD),
+  };
 }

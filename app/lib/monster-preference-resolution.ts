@@ -1,66 +1,58 @@
 import type { ArtifactCategory, ArtifactMainProperty } from './artifact-properties';
 import type {
-  DefaultEntry, MonsterDefaults, PreferenceBand, RuneSlotKey,
+  DefaultEntry, MonsterDefaults, RuneSlotKey,
 } from './monster-defaults';
 import { monsterDefaults, runeSlotKeys } from './monster-defaults';
 import type {
-  ArtifactSubPreference, MonsterCopyPreferences, StatedBand,
+  ArtifactSubPreference, MonsterCopyPreferences, MonsterStatTargets,
 } from './monster-preferences';
+import { monsterStatTargetKeys } from './monster-preferences';
 import type { RelicMainProperty } from './relic-properties';
-import type { PresetStatTargets, RuneMainStat } from './rune-potential-presets';
-import { presetStatTargetKeys } from './rune-potential-presets';
+import type { RuneMainStat } from './rune-potential-presets';
 
 /**
  * What one owned copy actually wants, once its owner's statements have been
  * laid over what the wider player base does.
  *
- * **The two are never blended** (`ARTIFACT-CANONICAL.md` §19.4). For each key
- * the answer comes from the user where they stated one and from the dataset
- * otherwise, and a key the user cleared answers from the user without falling
- * back. Keeping the merge to exactly that is what makes a recapture unable to
- * disturb anything the user decided: there is no reconciliation policy to get
- * wrong, because there is no reconciliation.
+ * **The two are never blended** (`ARTIFACT-CANONICAL.md` §19.4). For each
+ * question the answer comes from the user where they stated one and from the
+ * dataset otherwise, and a question the user answered with "none of these"
+ * answers from the user without falling back. Keeping the merge to exactly that
+ * is what makes a recapture unable to disturb anything the user decided: there
+ * is no reconciliation policy to get wrong, because there is no reconciliation.
  *
  * This is the one place a per-copy statement meets a species-level default. The
  * user's statements are keyed on `unit_id`; the game's Statistics panels are
  * keyed on `unit_master_id` and cannot be otherwise. Both are taken here so no
  * other module has to know that.
+ *
+ * **A resolved answer is a list, not a ranking.** The user says which options
+ * they will take; the community share travels beside each one as evidence, and
+ * the overlay shows it as reference. Nothing here ranks an option above another.
  */
 
 /**
  * Where one answer came from.
  *
- * Provenance travels with the value because the overlay has to show which of
- * the settings are the user's own and which are standing in — and a view that
+ * Provenance travels with the value because the optimizer has to know whether
+ * it is honouring a decision or falling back on a statistic — and a caller that
  * reconstructed it would eventually reconstruct it differently.
  */
 export type PreferenceSource = 'user' | 'default';
 
 /**
- * One resolved band, with its provenance and the evidence behind it.
+ * One resolved list, with its provenance and the evidence behind each entry.
  *
- * `share` is the statistic that produced the default, or that *would have*
- * produced one had the user not spoken — kept on a user-sourced entry too, so
- * the overlay can say "you chose ATK; 68 % of players choose HP" without a
- * second lookup. It is absent only where the dataset has nothing to say.
+ * `shares` carries the statistic that produced the default, or that *would
+ * have* had the user not spoken — kept on a user-sourced answer too, so a view
+ * can say "you chose ATK; 68 % of players choose HP" without a second lookup.
+ * An entry is absent from it only where the dataset has nothing to say.
  */
-export type ResolvedEntry = {
-  band: PreferenceBand;
+export type ResolvedChoices<T> = {
+  /** What the user will take, in the dataset's descending order of use. */
+  chosen: readonly T[];
   source: PreferenceSource;
-  share?: number;
-};
-
-/**
- * A single-choice answer — an artifact's or a relic's main stat.
- *
- * An artifact carries one main, so the question is "which one", not "which
- * are acceptable". `value` is absent where neither the user nor the dataset
- * names one, which reads as *not judged* rather than as a main of nothing.
- */
-export type ResolvedChoice<T> = {
-  value?: T;
-  source: PreferenceSource;
-  share?: number;
+  shares: ReadonlyMap<T, number>;
 };
 
 /** A wanted substat: the floor the user asked for, and what the population does. */
@@ -72,22 +64,29 @@ export type ResolvedSubstat = {
 };
 
 export type ResolvedRunes = {
-  sets: Map<string, ResolvedEntry>;
-  slots: Record<RuneSlotKey, Map<RuneMainStat, ResolvedEntry>>;
+  /** The exact builds wanted, as `rune-set-pairs.ts` names them. */
+  sets: ResolvedChoices<string>;
+  slots: Record<RuneSlotKey, ResolvedChoices<RuneMainStat>>;
+  /** Whether a build may leave two runes that complete no set. */
+  allowBroken: boolean;
+  /** Whether an Intangible rune may complete a set that is one short. */
+  allowIntangible: boolean;
   /** `false` where neither the user nor the dataset says anything about runes. */
   judged: boolean;
 };
 
 export type ResolvedArtifactCategory = {
-  main: ResolvedChoice<ArtifactMainProperty>;
+  main: ResolvedChoices<ArtifactMainProperty>;
   /** Wanted substats by property id, in descending community share. */
   sub: Map<number, ResolvedSubstat>;
+  /** Whether the substats are the user's own statement rather than the population's. */
+  subSource: PreferenceSource;
   judged: boolean;
 };
 
 export type ResolvedRelics = {
-  main: ResolvedChoice<RelicMainProperty>;
-  unique: Map<number, ResolvedEntry>;
+  main: ResolvedChoices<RelicMainProperty>;
+  unique: ResolvedChoices<number>;
   judged: boolean;
 };
 
@@ -96,9 +95,7 @@ export type ResolvedRelics = {
  *
  * No panel reports what the player base *aims at*, so there is no statistics
  * default for a stat target: `source` is always `'user'` and the entry is
- * absent where nothing was stated. It carries the same shape as the others so
- * the overlay reads one vocabulary across four panels rather than three plus a
- * special case.
+ * absent where nothing was stated.
  */
 export type ResolvedStatTarget = { value: number; source: 'user' };
 
@@ -109,87 +106,45 @@ export type ResolvedMonsterPreferences = {
   runes: ResolvedRunes;
   artifacts: Record<ArtifactCategory, ResolvedArtifactCategory>;
   relics: ResolvedRelics;
-  statTargets: Partial<Record<keyof PresetStatTargets, ResolvedStatTarget>>;
+  statTargets: Partial<Record<keyof MonsterStatTargets, ResolvedStatTarget>>;
+  /** The figure to maximise once every target is met, where one was named. */
+  runeSuggestionStat?: keyof MonsterStatTargets;
 };
 
-/* A cleared statement and a silence are the same band once resolved — both say
-   the property is not wanted — but they are not the same answer, because only
-   one of them can be overruled by the dataset. That distinction is made before
-   this point, by whether the key is there at all. */
-function statedEntry(band: StatedBand, share: number | undefined): ResolvedEntry {
-  return share === undefined ? { band, source: 'user' } : { band, source: 'user', share };
-}
+const noChoices = <T,>(): ResolvedChoices<T> => ({ chosen: [], source: 'default', shares: new Map<T, number>() });
 
-function defaultedEntry(entry: DefaultEntry): ResolvedEntry {
-  return { band: entry.band, source: 'default', share: entry.share };
+function sharesOf<T>(defaults: Map<T, DefaultEntry> | undefined): Map<T, number> {
+  const shares = new Map<T, number>();
+  if (defaults) for (const [key, entry] of defaults) shares.set(key, entry.share);
+  return shares;
 }
 
 /**
- * One band map resolved against one default map.
+ * One stated list resolved against one default map.
  *
- * Every key either side knows about appears in the answer, so the overlay can
- * offer the union rather than only what the user has already touched. Where
- * both speak, the user wins and keeps the population's share beside their
- * choice.
+ * Where the user has spoken their list is the whole answer — including an empty
+ * one, which says none of these are wanted and is not topped back up from the
+ * population. Where they have not, the options the dataset calls wanted stand
+ * in, most used first. The shares travel either way.
  */
-function resolveBands<T extends string>(
-  stated: Record<string, StatedBand> | undefined,
+function resolveChoices<T>(
+  stated: readonly T[] | undefined,
   defaults: Map<T, DefaultEntry> | undefined,
-  isKnown: (key: string) => key is T,
-): Map<T, ResolvedEntry> {
-  const resolved = new Map<T, ResolvedEntry>();
-  if (defaults) for (const [key, entry] of defaults) resolved.set(key, defaultedEntry(entry));
-  if (stated) {
-    for (const [key, band] of Object.entries(stated)) {
-      if (!isKnown(key)) continue;
-      resolved.set(key, statedEntry(band, defaults?.get(key)?.share));
-    }
-  }
-  return resolved;
-}
-
-function resolveNumericBands(
-  stated: Record<string, StatedBand> | undefined,
-  defaults: Map<number, DefaultEntry> | undefined,
-): Map<number, ResolvedEntry> {
-  const resolved = new Map<number, ResolvedEntry>();
-  if (defaults) for (const [id, entry] of defaults) resolved.set(id, defaultedEntry(entry));
-  if (stated) {
-    for (const [key, band] of Object.entries(stated)) {
-      const id = Number(key);
-      if (!Number.isInteger(id)) continue;
-      resolved.set(id, statedEntry(band, defaults?.get(id)?.share));
-    }
-  }
-  return resolved;
-}
-
-/**
- * The one main a category wants.
- *
- * The user's pick wins outright. Absent one, the default is the *leading*
- * preferred entry rather than every entry above a cut: an artifact carries one
- * main, so offering three would be answering a different question than the one
- * asked.
- */
-function resolveMain<T extends string>(
-  stated: T | undefined,
-  defaults: Map<T, DefaultEntry> | undefined,
-): ResolvedChoice<T> {
+): ResolvedChoices<T> {
+  const shares = sharesOf(defaults);
   if (stated !== undefined) {
-    const share = defaults?.get(stated)?.share;
-    return share === undefined ? { value: stated, source: 'user' } : { value: stated, source: 'user', share };
+    /* The user's own order is not meaningful — they ticked boxes — so the list
+       is read back in the order the population uses them, which is the order
+       every other row in the overlay is in. */
+    const chosen = [...stated].sort((left, right) => (shares.get(right) ?? 0) - (shares.get(left) ?? 0));
+    return { chosen, source: 'user', shares };
   }
-  let leader: { value: T; share: number } | undefined;
+  const chosen: T[] = [];
   if (defaults) {
-    for (const [value, entry] of defaults) {
-      if (entry.band === 'unwanted') continue;
-      if (!leader || entry.share > leader.share) leader = { value, share: entry.share };
-    }
+    for (const [key, entry] of defaults) if (entry.band !== 'unwanted') chosen.push(key);
+    chosen.sort((left, right) => (shares.get(right) ?? 0) - (shares.get(left) ?? 0));
   }
-  return leader === undefined
-    ? { source: 'default' }
-    : { value: leader.value, source: 'default', share: leader.share };
+  return { chosen, source: 'default', shares };
 }
 
 /**
@@ -204,11 +159,12 @@ function resolveMain<T extends string>(
 function resolveSubstats(
   stated: Record<string, ArtifactSubPreference> | undefined,
   defaults: Map<number, DefaultEntry> | undefined,
-): Map<number, ResolvedSubstat> {
+): { sub: Map<number, ResolvedSubstat>; source: PreferenceSource } {
   const shareOf = (id: number) => defaults?.get(id)?.share;
   const entries: Array<[number, ResolvedSubstat]> = [];
+  const source: PreferenceSource = stated !== undefined ? 'user' : 'default';
 
-  if (stated !== undefined && Object.keys(stated).length > 0) {
+  if (stated !== undefined) {
     for (const [key, preference] of Object.entries(stated)) {
       const id = Number(key);
       if (!Number.isInteger(id)) continue;
@@ -227,7 +183,7 @@ function resolveSubstats(
   }
 
   entries.sort(([leftId, left], [rightId, right]) => (right.share ?? 0) - (left.share ?? 0) || leftId - rightId);
-  return new Map(entries);
+  return { sub: new Map(entries), source };
 }
 
 function resolveRunes(
@@ -235,21 +191,31 @@ function resolveRunes(
   defaults: MonsterDefaults | undefined,
 ): ResolvedRunes {
   const runeDefaults = defaults?.runes;
-  const sets = resolveBands(
-    stated?.runeSets,
-    runeDefaults?.sets,
-    (key): key is string => key.length > 0,
-  );
-  const slots = {} as Record<RuneSlotKey, Map<RuneMainStat, ResolvedEntry>>;
+  /*
+   * The dataset counts how often each *set* is equipped and never which sets
+   * were worn together, so it cannot name a build. A user who has stated no
+   * builds therefore gets none rather than a guess assembled from two popular
+   * sets — which is exactly the inference this model exists to stop making.
+   */
+  const sets: ResolvedChoices<string> = stated?.runeSets === undefined
+    ? noChoices<string>()
+    : resolveChoices<string>(stated.runeSets, undefined);
+
+  const slots = {} as Record<RuneSlotKey, ResolvedChoices<RuneMainStat>>;
   for (const key of runeSlotKeys) {
-    slots[key] = resolveBands(
-      stated?.runeSlots?.[key],
-      runeDefaults?.slots[key],
-      (candidate): candidate is RuneMainStat => candidate.length > 0,
-    );
+    slots[key] = resolveChoices(stated?.runeSlots?.[key] as RuneMainStat[] | undefined, runeDefaults?.slots[key]);
   }
-  const judged = sets.size > 0 || runeSlotKeys.some((key) => slots[key].size > 0);
-  return { sets, slots, judged };
+  const judged = sets.chosen.length > 0 || runeSlotKeys.some((key) => slots[key].chosen.length > 0);
+  return {
+    sets,
+    slots,
+    /* Both default to off: a build that leaves a dangling pair or spends the
+       one Intangible rune is a concession, and a concession nobody asked for is
+       not one to make on their behalf. */
+    allowBroken: stated?.allowBrokenRuneSets ?? false,
+    allowIntangible: stated?.allowIntangibleRunes ?? false,
+    judged,
+  };
 }
 
 function resolveArtifactCategory(
@@ -259,9 +225,9 @@ function resolveArtifactCategory(
 ): ResolvedArtifactCategory {
   const categoryDefaults = defaults?.artifacts?.[category];
   const categoryStated = stated?.artifacts?.[category];
-  const main = resolveMain(categoryStated?.main, categoryDefaults?.main);
-  const sub = resolveSubstats(categoryStated?.sub, categoryDefaults?.sub);
-  return { main, sub, judged: main.value !== undefined || sub.size > 0 };
+  const main = resolveChoices(categoryStated?.main, categoryDefaults?.main);
+  const { sub, source } = resolveSubstats(categoryStated?.sub, categoryDefaults?.sub);
+  return { main, sub, subSource: source, judged: main.chosen.length > 0 || sub.size > 0 };
 }
 
 function resolveRelics(
@@ -269,17 +235,17 @@ function resolveRelics(
   defaults: MonsterDefaults | undefined,
 ): ResolvedRelics {
   const relicDefaults = defaults?.relics;
-  const main = resolveMain(stated?.relics?.main, relicDefaults?.main);
-  const unique = resolveNumericBands(stated?.relics?.unique, relicDefaults?.unique);
-  return { main, unique, judged: main.value !== undefined || unique.size > 0 };
+  const main = resolveChoices(stated?.relics?.main, relicDefaults?.main);
+  const unique = resolveChoices(stated?.relics?.unique, relicDefaults?.unique);
+  return { main, unique, judged: main.chosen.length > 0 || unique.chosen.length > 0 };
 }
 
 function resolveStatTargets(
-  stated: PresetStatTargets | undefined,
-): Partial<Record<keyof PresetStatTargets, ResolvedStatTarget>> {
-  const targets: Partial<Record<keyof PresetStatTargets, ResolvedStatTarget>> = {};
+  stated: MonsterStatTargets | undefined,
+): Partial<Record<keyof MonsterStatTargets, ResolvedStatTarget>> {
+  const targets: Partial<Record<keyof MonsterStatTargets, ResolvedStatTarget>> = {};
   if (!stated) return targets;
-  for (const key of presetStatTargetKeys) {
+  for (const key of monsterStatTargetKeys) {
     const value = stated[key];
     /* An absent target is a stat this copy does not aim at; an explicit `0` is a
        stated target of nothing and is a real answer (`AGENTS.md` §3). */
@@ -312,5 +278,6 @@ export function resolveMonsterPreferences(
     },
     relics: resolveRelics(stated, defaults),
     statTargets: resolveStatTargets(stated?.statTargets),
+    ...(stated?.runeSuggestionStat === undefined ? {} : { runeSuggestionStat: stated.runeSuggestionStat }),
   };
 }

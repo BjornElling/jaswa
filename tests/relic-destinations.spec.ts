@@ -187,7 +187,7 @@ test('a small captured panel is read rather than refused', async ({ page }) => {
      Every reading now carries its own sample size instead. */
   const bulldozer = monsterRow(page, 'Bulldozer');
   await expect(advice(bulldozer)).not.toContainText('statistics');
-  await expect(mainStat(bulldozer)).toHaveAttribute('title', /from [\d,]+ engravings/);
+  await expect(mainStat(bulldozer)).toHaveAttribute('title', /[\d,]+ engravings measured/);
 });
 
 test('the current relic cell shows every relic a monster wears', async ({ page }) => {

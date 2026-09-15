@@ -359,10 +359,23 @@ Three things make that sound where the synergy table's use of it was not:
   `ARTIFACT-CANONICAL.md` guarantees their statement always wins. The
   "cannot be argued with" objection does not apply to a number whose whole
   purpose is to be argued with.
-- **Nothing is scored against it.** The overlay states preferences and reports
-  where the account does not meet them. The relic *fit* engine is untouched and
-  still reads `relicShrunkShares`; the defaults read raw shares, and the two must
-  not be merged — that would reintroduce §11.3's double count.
+- **A user's statement is scored against; a default still is not.** This
+  reverses the earlier "nothing is scored against it". Where the user has named
+  the mains or the uniques they will accept, `relicSuitability` takes that
+  statement as the answer for that term — a chosen option scores full credit, an
+  unchosen one drops to `relicUsageCreditFloor` — and the fit engine ranks on it.
+  A statement per copy is worth nothing if nothing reads it per copy, and the
+  statement rides on `RelicAllocationSubject` rather than through `usageFor`,
+  because the statistics are keyed per species and a statement is keyed per
+  owned copy.
+
+  The two halves stay independent: naming mains and saying nothing about uniques
+  leaves the unique term reading `relicShrunkShares` exactly as before. Where the
+  user has said nothing at all, nothing changes. The defaults still read raw
+  shares and the fit still reads shrunk ones, and the two must not be merged —
+  that would reintroduce §11.3's double count. The **synergy** term is untouched
+  by a preference: it is a fact about how a main and a unique work together, not
+  a preference about a monster.
 
 **The caveat stands and is worth stating plainly: a relic share still partly
 reflects what fell out of the game.** The main half carries real monster-specific

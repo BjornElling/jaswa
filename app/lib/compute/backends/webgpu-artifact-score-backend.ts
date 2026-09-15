@@ -69,12 +69,21 @@ export class WebGpuArtifactScoreBackend implements ArtifactScoreBackend {
   async calculate(request: ArtifactScoreRequest): Promise<Float32Array> {
     if (!this.device || !this.pipeline || this.lost) throw new Error('The WebGPU device is not ready.');
     const device = this.device;
+    /* The order here *is* the shader's stride layout — see `artifactStride` and
+       `monsterStride` in artifact-score-shader.ts. A field added to one and not
+       the other misreads every row after it, silently. */
     const artifactData = floatBuffer(request.artifacts.flatMap((artifact) => [
       artifact.category, artifact.restriction, artifact.mainProperty, artifact.convertedPropertyIndex,
       ...artifact.subPropertyIndexes, ...artifact.subPropertyRollPoints,
+      /* A stride is fixed width, so an absent list is written as the zeroes it
+         means rather than omitted — one short row would misalign every row
+         after it, and the scores would be wrong rather than missing. */
+      ...(artifact.subPropertyValueHundredths ?? [-1, -1, -1, -1]),
     ]));
     const monsterData = floatBuffer(request.monsters.flatMap((monster) => [
-      monster.element, monster.archetype, ...monster.mainPreferences, ...monster.subPropertyPreferences,
+      monster.element, monster.archetype, ...monster.mainPreferences,
+      ...monster.subPropertyPreferences,
+      ...(monster.subPropertyMinimums ?? scoredArtifactProperties.map(() => 0)),
     ]));
     /* One row of flags per equip class, indexed by the class code the artifacts
        carry, because a stone converts only the class it was engraved for. The

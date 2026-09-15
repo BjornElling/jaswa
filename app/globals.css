@@ -285,7 +285,8 @@ label[for] {
 /* Body — every sentence, label and value that is not a heading. */
 .type-body, .lead, .notice, .dialog p, .slider-note, .radio-note,
 .overlay-current-value, .overlay-empty, .usage-entry, .overlay-stat-value,
-.overlay-target-current, .overlay-shortfalls,
+.choice-menu-summary, .choice-menu-option-label, .rune-build-leader-name,
+.overlay-substat-name, .overlay-toggle, .choice-menu-empty,
 .checkbox-row, .editor-note, .route-links, .artifact-conversion-intro,
 .statistics-lead, .best-artifact-ranking, .best-artifact-empty,
 .best-artifact-fact dt, .statistics dt, .empty-state p,
@@ -342,7 +343,9 @@ label[for] {
 .type-caption, .slot-label, .editor-slot-label, .target dt, .choice-legend,
 .field-compact > span, .relic-stone-balance-label, .craft-held-balance-label,
 .preset-type, .overlay-hero-facts, .overlay-provenance, .usage-share, .usage-sample,
-.overlay-substat-floor > span {
+.overlay-stat-current, .overlay-substat-unit, .overlay-slot-name,
+.choice-menu-option-note, .rune-build-leader-pieces, .rune-build-leader-count,
+.rune-build-note, .rune-build-composed, .overlay-suggestion-label {
   font-family: var(--font-body);
   font-size: var(--type-label);
   font-weight: 400;
@@ -3569,7 +3572,11 @@ label[for] {
   display: block;
   color: var(--text); margin-bottom: var(--s2);
 }
-.field input, .field textarea {
+/* The overlay's target and floor fields join the shared surface rather than
+   restyling one of their own: they are the same control asking the same kind
+   of question, and a second definition is how two text boxes on one page come
+   to have two different heights. */
+.field input, .field textarea, .overlay-stat-target, .overlay-substat input {
   display: block; width: 100%;
   height: 36px;
   background: var(--sunk);
@@ -3612,7 +3619,8 @@ label[for] {
   padding: var(--s3);
   font-family: var(--font-body); line-height: 1.55;
 }
-.field input:focus, .jaswa-select:focus, .field textarea:focus {
+.field input:focus, .jaswa-select:focus, .field textarea:focus,
+.overlay-stat-target:focus, .overlay-substat input:focus {
   outline: none; border-color: var(--text-accent);
 }
 
@@ -4185,11 +4193,18 @@ label[for] {
 .scroll-to-top svg { width: 42%; height: 42%; }
 
 /* ---------------------------------------------------------------- modal */
+/* The backdrop covers the viewport, but a dialog inside it is centred on the
+   *workspace* — the ground right of the rail, where the table it was opened
+   from lives. Centring on the viewport instead put every dialog half the rail's
+   width to the left of the content it belongs to, which read as a misalignment
+   rather than as a centred panel. The inset is the rail's own width, so the two
+   cannot drift apart. */
 .modal-backdrop {
   position: fixed; inset: 0;
   background: rgba(4, 6, 10, .74);
   display: grid; place-items: center;
   padding: var(--s5);
+  padding-left: calc(var(--rail) + var(--s5));
   z-index: 100;
 }
 .dialog {
@@ -4400,14 +4415,14 @@ label[for] {
 
 /* ------------------------------------------------------ monster overlay */
 
-/* Wider than the preset editor and capped at the viewport, for the same
-   reason: this states far more than a preset does, so the body scrolls while
-   the identity above it and the two actions below it stay put and the reader
-   always knows how to leave. The backdrop is left visible at the sides on
-   purpose — the overlay is brought up over the table the user was reading, not
-   put in its place. */
+/* The overlay takes the account tables' own measure. It is brought up over the
+   table the user was reading, so sharing that width is what makes it read as
+   the same page rather than as a narrower panel floating off to one side — and
+   the panel needs the room besides, since two artifact blocks sit side by side
+   inside it. The body scrolls while the identity above it and the actions below
+   it stay put, so the reader always knows how to leave. */
 .dialog.overlay {
-  width: min(1360px, 100%);
+  width: min(var(--measure), 100%);
   max-height: min(92vh, 1000px);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
@@ -4460,6 +4475,23 @@ label[for] {
   background-attachment: local, local, scroll, scroll;
 }
 
+/* The actions are a fixed footer under the scrolling body, and they get the
+   same inset the body has: flush against the dialog's own corner they read as
+   clipped, and the body's scrollbar came down on top of the last one. The top
+   rule and the sunk ground separate them from the content that scrolls beneath.
+   `space-between` puts Reset at the opposite end from the pair that leaves —
+   the destructive action should not sit under the pointer on its way to Save. */
+.dialog.overlay .dialog-actions {
+  margin: 0;
+  padding: var(--s5);
+  border-top: 1px solid var(--line);
+  background: var(--sunk);
+  border-radius: 0 0 var(--radius) var(--radius);
+  justify-content: space-between;
+}
+/* The two that leave stay together at the right, whatever sits opposite. */
+.overlay-actions-leave { display: flex; gap: var(--s2); margin-left: auto; }
+
 .overlay-block { display: grid; gap: var(--s3); }
 .overlay-block-head {
   display: flex;
@@ -4487,17 +4519,16 @@ label[for] {
 .overlay-current-value { color: var(--text); }
 .overlay-empty { color: var(--text-muted); }
 
-/* Eight stat columns, each reserving the mark slot below it whether or not
-   anything falls short. */
-/* Eight fixed columns rather than eight equal fractions: a stat's figure is
-   four or five digits and its heading four characters, so an equal share of a
-   1,300px panel leaves each one stranded in white space. `max-content` sizes
-   each to its own content and the row stays left-aligned as one block. */
+/* Eleven columns — the eight stats and the three composites — each reserving
+   the mark slot below it whether or not anything falls short.
+   Equal fractions rather than `max-content` now that each column holds a field
+   the user types into: a target box that sized itself to its own digits would
+   grow as the number was typed, moving the ten columns beside it under the
+   cursor (`AGENTS.md` §2). */
 .overlay-stats {
   display: grid;
-  grid-template-columns: repeat(8, minmax(88px, max-content));
-  gap: var(--s3) var(--s5);
-  justify-content: start;
+  grid-template-columns: repeat(11, minmax(0, 1fr));
+  gap: var(--s3) var(--s4);
 }
 .overlay-stat { display: grid; gap: var(--s1); justify-items: start; }
 .overlay-stat-head { margin: 0; color: var(--text-muted); }
@@ -4506,6 +4537,35 @@ label[for] {
   color: var(--text-strong);
   font-variant-numeric: tabular-nums;
 }
+/* The field states the target; the figure under it is what the copy has. The
+   target leads because it is the answer being given, and the current value is
+   dimmed beneath it as the reference it is. */
+.overlay-stat-target {
+  width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+.overlay-stat-current {
+  margin: 0;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The tie-break question sits under the eleven fields it depends on, reading
+   as one sentence with its own answer at the end. */
+.overlay-suggestion {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s3);
+  margin-top: var(--s4);
+  padding-top: var(--s3);
+  border-top: 1px solid var(--line);
+}
+.overlay-suggestion-label { color: var(--text-muted); }
+/* Sized to its longest option rather than to the row: the answer is one short
+   word, and a field spanning the panel reads as the more important half of a
+   sentence whose subject is the question beside it. */
+.overlay-suggestion-select { width: 200px; flex: none; }
 
 .overlay-artifact-pair {
   display: grid;
@@ -4513,43 +4573,189 @@ label[for] {
   gap: var(--seam);
 }
 
-.overlay-mains { display: flex; flex-wrap: wrap; gap: var(--s2); }
+/* ------------------------------------------------- choice menus */
 
-/* The preset editor's 158px column suits its 880px dialog; here it strands
-   twenty-three set names over five rows and pushes the artifact blocks out of
-   view. A set name is one or two short words, so the chips size to their own
-   content and wrap as a paragraph does. */
-.overlay-lines .choice-editor.columns {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s2);
+/* A field that opens its vocabulary rather than printing it. The closed box is
+   the same size whatever was chosen: the summary is one ellipsised line, so a
+   monster wanting five rune builds and one wanting none read at the same
+   height and nothing around them moves (`AGENTS.md` §2). */
+.choice-menu { position: relative; min-width: 0; }
+.choice-menu-field {
+  width: 100%;
+  display: flex; align-items: center; gap: var(--s2);
+  padding: var(--s2) var(--s3);
+  background: var(--sunk);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
 }
-/* A default standing in dashes the border it already has, so the box does not
-   change size. The chip's accessible name says the same thing in words. */
-.choice-chip[data-source='statistics'] { border-style: dashed; }
-
-.overlay-substats { display: grid; gap: var(--s2); }
-.overlay-substat { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
-.overlay-substat-floor { display: inline-flex; align-items: center; gap: var(--s2); color: var(--text-muted); }
-.overlay-substat-floor input {
-  width: 7ch;
-  font-variant-numeric: tabular-nums;
+.choice-menu-field:hover { border-color: var(--gold-edge); }
+.choice-menu-field[aria-expanded='true'] { border-color: var(--text-accent); }
+.choice-menu-field:disabled { cursor: default; opacity: .55; }
+.choice-menu-summary {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+.choice-menu-summary.empty { color: var(--text-muted); }
+/* Rotates in place, so the field cannot change height as the menu opens. */
+.choice-menu-chevron { width: 14px; height: 14px; flex: none; color: var(--text-muted); }
+.choice-menu-field[aria-expanded='true'] .choice-menu-chevron { transform: rotate(180deg); }
 
-.overlay-targets {
+/* Absolutely positioned, so opening moves nothing behind it. */
+.choice-menu-panel {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + var(--s1));
+  left: 0;
+  min-width: 100%;
+  max-height: 340px;
+  overflow: auto;
+  background: var(--raise);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, .55);
+}
+.choice-menu-list { list-style: none; margin: 0; padding: var(--s1); display: grid; }
+.choice-menu-option {
   display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
-  gap: var(--s3);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s2) var(--s2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
 }
-.overlay-target { display: grid; gap: var(--s1); justify-items: start; }
-.overlay-target input { width: 100%; font-variant-numeric: tabular-nums; }
-/* The current figure sits under the field that states the target, dimmed
-   against it: what is wanted leads, what is there qualifies it. */
-.overlay-target-current {
-  margin: 0;
+.choice-menu-option:hover { background: var(--sunk); }
+.choice-menu-option.unavailable { cursor: default; opacity: .5; }
+.choice-menu-option-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* The community share, as reference beside the option — never as a choice
+   already made. Always present so a row without one keeps its height. */
+.choice-menu-option-note {
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
+  min-width: 4ch;
+  text-align: right;
 }
+.choice-menu-empty { padding: var(--s3); color: var(--text-muted); }
+
+/* ------------------------------------------- rune build menu */
+
+/* Two columns, because the vocabulary is two questions deep: which set the
+   build leads with, then what completes it. */
+/* Its own two columns scroll independently, so the panel around it must not
+   scroll as well: an outer scroller would carry the pinned note and the running
+   answer out of view along with the list they describe. */
+.choice-menu-panel:has(.rune-build-menu) { overflow: hidden; }
+.rune-build-menu {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 300px);
+  /* A fixed height rather than a maximum: the two columns are independent
+     scrollers, and a grid row that sizes to its tallest child gives the taller
+     column its full height and then clips it against the panel — which put the
+     instruction above the list out of sight entirely. */
+  height: 340px;
+}
+.rune-build-leaders {
+  list-style: none; margin: 0; padding: var(--s1);
+  overflow-y: auto;
+  border-right: 1px solid var(--line);
+  display: grid;
+  align-content: start;
+}
+.rune-build-leader {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 2ch;
+  align-items: baseline;
+  gap: var(--s2);
+  padding: var(--s2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.rune-build-leader:hover { background: var(--sunk); }
+/* Ground and colour only — never weight, which would reflow the name inside
+   its own box and move the column beside it. */
+.rune-build-leader.current { background: var(--sunk); color: var(--text-accent); }
+.rune-build-leader-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.rune-build-leader-pieces { color: var(--text-muted); }
+.rune-build-leader-count {
+  color: var(--text-accent);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+/* The instruction and the running answer stay put while the sets scroll
+   between them: both describe the list rather than belonging to it, and a
+   reader who has scrolled past the instruction is exactly the one still
+   deciding what to tick. */
+/* The column itself does not scroll; the list inside it does. That is what
+   keeps the instruction above and the running answer below in place while the
+   sets move between them — and it holds for the four-set branch too, where the
+   list is the only row and simply takes the whole column. */
+.rune-build-completions {
+  padding: var(--s1);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  align-content: start;
+  min-height: 0;
+}
+.rune-build-completions .choice-menu-list { overflow-y: auto; min-height: 0; }
+.rune-build-note, .rune-build-composed {
+  margin: 0;
+  padding: var(--s2);
+  color: var(--text-muted);
+  white-space: normal;
+  background: var(--raise);
+}
+.rune-build-composed {
+  border-top: 1px solid var(--line);
+  color: var(--text-accent);
+}
+
+/* The build field and its two concessions read as one row. */
+.overlay-build-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s4);
+}
+.overlay-build-row .choice-menu { flex: 1 1 260px; }
+.overlay-toggle { display: inline-flex; align-items: center; gap: var(--s2); cursor: pointer; }
+
+/* Three slots on one row: each names itself and opens its own mains. */
+.overlay-slot-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s3);
+}
+.overlay-slot { display: grid; gap: var(--s1); min-width: 0; }
+.overlay-slot-name { color: var(--text-muted); }
+
+/* One floor per chosen substat. Only the properties the user asked for appear,
+   so the list is as long as their answer rather than as the vocabulary. */
+.overlay-substats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--s2) var(--s4);
+}
+.overlay-substat {
+  display: grid;
+  /* Wide enough for the word the empty field carries. At 7ch the placeholder
+     truncated to "an", which reads as a typo rather than as "any roll will
+     do". */
+  grid-template-columns: minmax(0, 1fr) 9ch auto auto;
+  align-items: center;
+  gap: var(--s2);
+}
+.overlay-substat-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.overlay-substat input { width: 100%; font-variant-numeric: tabular-nums; }
+.overlay-substat-unit { color: var(--text-muted); }
 
 .usage-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s3); }
 .usage-entry { color: var(--text); }
@@ -4561,14 +4767,6 @@ label[for] {
   font-variant-numeric: tabular-nums;
 }
 .usage-sample { color: var(--text-muted); min-height: 1lh; }
-
-.overlay-shortfalls {
-  margin: 0;
-  padding-left: var(--s4);
-  display: grid;
-  gap: var(--s1);
-  color: var(--text);
-}
 
 /* ----------------------------------------------------------- responsive */
 

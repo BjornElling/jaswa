@@ -173,7 +173,7 @@ function halfExplanation(
     /* The sample size travels with every reading rather than gating it. A
        percentage drawn from 88 engravings and one drawn from 69,590 look
        identical in a column, and only one of them is worth leaning on. */
-    `from ${format(relicUsageObservations(row.usage))} engravings`,
+    `${format(relicUsageObservations(row.usage))} engravings measured`,
   ].filter(Boolean).join('; ');
 }
 
@@ -246,11 +246,16 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
   const allocation = useMemo(() => {
     const subjects: RelicAllocationSubject[] = monsters.map((monster, index) => {
       const unitId = String(monster.unit_id ?? `unknown-${index}`);
+      const stated = preferences.monsterPreferences[unitId];
       return {
         monsterId: unitId,
         monsterOrder: index,
         masterId: monster.unit_master_id,
         wornRelicIds: (wornByMonster.get(unitId) ?? []).map((relic) => relic.id),
+        /* What this copy's owner asked for, where they asked for anything. The
+           plan is theirs to direct; the statistics answer only where they have
+           not. */
+        ...(stated === undefined ? {} : { preferences: stated }),
       };
     });
     const result = allocateRelicEngravings(
@@ -258,7 +263,7 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
     );
     assertRelicAllocation(result, subjects);
     return result;
-  }, [monsters, relics, wornByMonster]);
+  }, [monsters, relics, wornByMonster, preferences.monsterPreferences]);
 
   const rows = useMemo<RelicMonsterRow[]>(() => {
     const defaultNames = numberedMonsterNames(monsters);

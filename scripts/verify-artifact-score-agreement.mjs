@@ -68,7 +68,7 @@ try {
     if (!unit) continue;
     const species = monsterSpeciesId(unit.unit_master_id);
     if (!bySpecies.has(species)) bySpecies.set(species, []);
-    bySpecies.get(species).push({ artifact, masterId: unit.unit_master_id });
+    bySpecies.get(species).push({ artifact, masterId: unit.unit_master_id, unitId: String(unit.unit_id) });
   }
 
   const pairs = [...bySpecies.values()].reduce((total, entries) => total + entries.length, 0);
@@ -76,6 +76,7 @@ try {
     `No equipped artifact in ${exportPath} has a wearer on the roster, so this check measured nothing.`);
 
   let compared = 0;
+  let statedCompared = 0;
   for (const acceptableWorth of acceptableWorthChoices) {
     const settings = {
       acceptableWorth,
@@ -94,7 +95,12 @@ try {
     const requests = buildArtifactScoreRequestsForMonsterIds(game, [...bySpecies.keys()], settings);
 
     for (const [species, entries] of bySpecies) {
-      for (const { artifact, masterId } of entries) {
+      for (const { artifact, masterId, unitId } of entries) {
+        /* A copy that states its own answers is scored on those, under its own
+           row keyed by `unit_id`. Both readers have to reach the same number
+           through the user's statement exactly as they do through the
+           statistics — the floors and the plural mains are the two parts that
+           can silently diverge, so the stated case is exercised below. */
         const library = artifactValueOnMonster(artifact, masterId, settings);
         const engine = artifactPairScore(requests, artifact.id, species, { conversions: false });
         const libraryPercent = library === undefined ? undefined : Math.round(library * 100);
@@ -110,13 +116,52 @@ try {
         assert.equal(libraryPercent, enginePercent,
           `${where}: the library says ${libraryPercent} % and the packed scorer says ${enginePercent} %.`);
         compared += 1;
+
+        /* The same artifact again, against a statement its owner made: both
+           mains wanted, and every property the artifact actually carries wanted
+           at a floor just above the roll it has. Every line therefore falls
+           short, which is the case that distinguishes "below its floor" from
+           "wanted at any roll" — and the two readers must agree on it. */
+        const carried = artifact.subProperties.filter((line) => line.maximumHundredths !== null);
+        if (carried.length === 0) continue;
+        const stated = {
+          unitId,
+          artifacts: {
+            [artifact.category]: {
+              main: ['HP', 'ATK', 'DEF'],
+              sub: Object.fromEntries(carried.map((line) =>
+                [String(line.definition.id), { minimumHundredths: line.valueHundredths + 1 }])),
+            },
+          },
+        };
+        const statedRequests = buildArtifactScoreRequestsForMonsterIds(
+          game, [...bySpecies.keys()], settings, undefined, { [unitId]: stated },
+        );
+        const statedLibrary = artifactValueOnMonster(artifact, masterId, settings, stated);
+        const statedEngine = artifactPairScore(statedRequests, artifact.id, unitId, { conversions: false });
+        const statedLibraryPercent = statedLibrary === undefined ? undefined : Math.round(statedLibrary * 100);
+        const statedEnginePercent = statedEngine === undefined ? undefined : statedEngine.value;
+        const statedWhere = `artifact ${artifact.id} on stated copy ${unitId}`
+          + ` at acceptableWorth ${acceptableWorth} %`;
+        assert.equal(statedLibraryPercent === undefined, statedEnginePercent === undefined,
+          `${statedWhere}: the library ${statedLibraryPercent === undefined ? 'does not judge' : `says ${statedLibraryPercent} %`}`
+          + ` but the packed scorer ${statedEnginePercent === undefined ? 'does not judge' : `says ${statedEnginePercent} %`}.`);
+        if (statedLibraryPercent === undefined) continue;
+        assert.equal(statedLibraryPercent, statedEnginePercent,
+          `${statedWhere}: the library says ${statedLibraryPercent} %`
+          + ` and the packed scorer says ${statedEnginePercent} %.`);
+        compared += 1;
+        statedCompared += 1;
       }
     }
   }
 
+  assert.ok(statedCompared > 0,
+    'No stated-preference reading was compared, so the per-copy path measured nothing.');
   console.log(`Both artifact score readers agree on ${compared} judged readings`
     + ` (${pairs} equipped artifacts across ${bySpecies.size} species,`
-    + ` at each of ${acceptableWorthChoices.length} acceptable-worth settings).`);
+    + ` at each of ${acceptableWorthChoices.length} acceptable-worth settings;`
+    + ` ${statedCompared} of them against a per-copy statement with substat floors).`);
 } finally {
   await server.close();
 }

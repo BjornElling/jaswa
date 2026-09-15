@@ -2432,12 +2432,25 @@ stay per species** — the game's three Statistics panels are keyed on
 is laid over a per-species default, and nothing else needs to know that the two
 keyings differ.
 
-**The monster overlay feeds no score matrix.** It states preferences and reports
-where the account does not meet them; it does not rank monsters, score gear, or
-recommend a swap. The artifact optimization pages keep their own species-level
-calculation exactly as §16 and §17 describe — `packMonster` still scores a
-species so a collaboration pair ranks once rather than twice — and
-`npm run verify:artifact-score-agreement` still holds both readers to one answer.
+**The monster overlay feeds the score matrix, for the copies that speak.** This
+reverses an earlier decision that it fed none — that the overlay stated
+preferences and reported shortfalls while the optimization pages kept a purely
+species-level calculation. The reversal is forced by the keying above: holding
+preferences per copy is pointless if nothing reads them per copy, and a user who
+says this Lushen wants DEF artifacts is entitled to see that answer ranked.
+
+The matrix is therefore **species rows plus the copies that disagree**. A row is
+a species by default, so a collaboration pair still ranks once and every copy
+that has stated nothing still answers to its species; a copy that has stated
+anything about artifacts gets one row of its own, keyed by its `unit_id` and
+carrying `ownerUnitId`. It inherits the species' element and archetype, because
+those are facts about the monster rather than preferences about the copy and the
+equip rule is checked against them.
+
+`npm run verify:artifact-score-agreement` holds both readers to one answer on
+both kinds of row: it compares every equipped artifact against its species and
+then again against a stated copy whose floors every line falls short of, which is
+the case that separates "below its floor" from "wanted at any roll".
 
 A preference is keyed by **`(category, property)`**, not by property alone. A
 monster wears one artifact of each category, so "which property do I want here"
@@ -2456,13 +2469,21 @@ distinction that matters.
 Nothing is shared between copies, and preferences are not copyable from one to
 another. The defaults below are what spare the user a roster of empty forms.
 
-**A main stat is one choice, not a set of bands.** A piece carries a single main
-property, so the overlay asks which one rather than which are acceptable, and the
-default that stands in is the single leading entry rather than everything above a
-cut. Sub properties are the opposite: several are wanted at once, and each may
-carry a **minimum roll** — `Damage Taken from Wind at 15 % or better` is one
-preference, and a 6.8 % line answers half of it. The floor is stored in the same
-hundredths of a point the import uses, so the comparison is exact.
+**A main stat is a list of what the user will take.** This reverses an earlier
+decision that it was one choice, on the grounds that a piece carries a single
+main. That confused what a piece *has* with what its owner will *equip*: someone
+building for bulk is equally glad of HP or DEF, and naming both says so where
+naming one says the other is unwanted. The score matrix has carried a band per
+main all along (`PackedMonsterScoreInput.mainPreferences`), so a list is also the
+shape the optimizer already read. The default that stands in is still the single
+leading entry — the statistics answer "which one do players pick", and inflating
+that into a list would be inventing an answer the dataset did not give.
+
+Sub properties work the same way, and each may carry a **minimum roll** —
+`Damage Taken from Wind at 15 % or better` is one preference, and a 6.8 % line
+answers half of it. The floor is stored in the same hundredths of a point the
+import uses, so the comparison is exact. **A line below its floor scores zero**,
+exactly as an unwanted property does, in both readers.
 
 ### 19.3 The statistics supply the defaults, by fixed shares
 
@@ -2581,9 +2602,9 @@ design. What it does require is three states, and they are three:
 
 | State | Stored | The answer comes from |
 | --- | --- | --- |
-| The user stated preferred or acceptable | The value | The user |
-| The user stated *nothing* | Nothing | The statistics, where the dataset covers the species |
-| The user deliberately cleared it | An explicit "neither" | The user — **not** the default |
+| The user chose some options | The list of them | The user |
+| The user stated *nothing* | **No list at all** | The statistics, where the dataset covers the species |
+| The user deliberately cleared it | **An empty list** | The user — **not** the default |
 
 The third row is the one that gets got wrong. Seeding the stored preferences
 from the defaults at first view collapses rows one and two; treating a cleared
@@ -2592,16 +2613,26 @@ overrules the user. This is `AGENTS.md` rule 3's absent-versus-zero distinction
 in the place it costs most: **store only what the user actually stated.**
 
 How that is encoded matters, because JSON cannot hold the distinction by
-accident: a stated band is one of three strings, *never stated* is **an absent
-key**, and *cleared* is an explicit `unwanted`. `undefined` does not survive
-`JSON.stringify`, so a key that is present must always carry a real band, and the
-validator in `app/lib/monster-preferences.ts` rejects any key holding nothing. A
-substat's minimum roll follows the same rule: no floor means the property is
-wanted at any roll, and a floor of `0` is a stated floor of nothing.
+accident: a stated answer is an array of the options chosen, *never stated* is
+**an absent key**, and *cleared* is **an empty array**. `undefined` does not
+survive `JSON.stringify` where `[]` does, which is what lets the third row keep
+its answer across a reload; the validator in `app/lib/monster-preferences.ts`
+rejects any key holding anything else. A substat's minimum roll follows the same
+rule: no floor means the property is wanted at any roll, and a floor of `0` is a
+stated floor of nothing.
 
 The interface has to offer both endings, or the third state is unreachable:
 **Reset to defaults** returns a choice to absent, so the statistics stand in
-again, where clearing a chip writes `unwanted`.
+again, where clearing every option in a menu leaves the empty list.
+
+**A statement is yes or no, not a band.** This reverses the preferred/acceptable
+/cleared cycle the table above once described. A ranking is only meaningful
+where something weighs it, and the consumers ask one question — may this be
+suggested for this copy or not; meanwhile three states across twenty-three set
+names and eight mains per slot made the overlay a wall of chips answering a
+yes/no question twenty times over. The *global* acceptable-worth factor in §19.6
+is untouched: it grades what the **statistics** call acceptable, which is a
+different question from what the user will take.
 
 ### 19.5 A species with no preferences is not judged
 
