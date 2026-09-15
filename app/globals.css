@@ -1634,15 +1634,18 @@ label[for] {
   border-top: 1px solid var(--line);
 }
 
-/* The Math keeps its explanations narrow enough to read as prose, while the
-   examples get their own quiet plate so an equation is easy to find without
-   turning the page into a second kind of dashboard. */
+/* The examples get their own quiet plate so an equation is easy to find without
+   turning the page into a second kind of dashboard. The copy itself takes the
+   full width of the content box: narrowing it is a per-place decision, never a
+   default, so a page does not silently read as a half-empty column. */
 .math-copy {
   display: grid;
   gap: var(--s4);
-  max-width: 78ch;
 }
 .math-copy > p { margin: 0; }
+/* The Artifact section is long enough to need subheadings; the grid already
+   supplies the rhythm, so they only give back the leading the gap cannot. */
+.math-copy > h3 { margin: var(--s2) 0 0; }
 .math-example {
   display: grid;
   gap: var(--s3);
@@ -1655,7 +1658,10 @@ label[for] {
 .math-example h3,
 .math-example p { margin: 0; }
 .math-example p { color: var(--text); line-height: 1.6; }
-.math-example .math-equation {
+/* Scoped to `.math-copy`, not to `.math-example`: the reference artifact's sum
+   is stated in the prose itself, so the equation had to stop depending on
+   sitting inside the example box to get its spacing. */
+.math-copy .math-equation {
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
@@ -1663,6 +1669,39 @@ label[for] {
   color: var(--text-strong);
   font-variant-numeric: tabular-nums;
 }
+/* The worked example's own table. Deliberately not `.grid-table`: that one is
+   the data pages' sortable, stickily-headed, gutter-aligned workhorse, and a
+   five-row illustration inside prose wants none of it. */
+.math-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.math-table th,
+.math-table td {
+  padding: var(--s2) var(--s3);
+  border-bottom: 1px solid var(--line);
+}
+.math-table thead th {
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 0.85em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.math-table tbody th {
+  color: var(--text);
+  font-weight: 400;
+}
+.math-table tbody td { color: var(--text-strong); }
+/* The main stat is a term of the same sum, not a fifth substat — the heavier
+   rule says so without needing a second table. */
+.math-table .math-table-total > * {
+  border-top: 1px solid var(--line-strong);
+  border-bottom: 0;
+}
+.math-table-scroll { overflow-x: auto; }
 
 /* a hairline between two groups of controls inside one open bar */
 .bar-divide { height: 1px; background: var(--line); margin: var(--s1) 0; }
@@ -2735,12 +2774,9 @@ label[for] {
    them, and that is left alone: prose written to fill a height is written to the
    layout rather than to the reader.
 
-   `.lead`'s 68ch measure is widened here, though. At 68ch the two sentences
-   wrapped into three short lines with a band of empty panel to their right; at
-   the column's full width they ran to two very long ones. 95ch puts the break
-   between the sentences, so each is a line of its own. */
+   The lead here used to be widened back out of `.lead`'s old 68ch cap. That cap
+   is gone — a lead fills its box — so there is nothing left to override. */
 .acceleration-choice { gap: var(--s4); }
-.acceleration-choice .lead { max-width: 95ch; }
 
 /* No heading above it any more, so the mark starts at the top of the box. The
    margin stays at --s3; the extra air under the verdict comes from the card
@@ -3339,7 +3375,6 @@ label[for] {
 }
 .page-tagline {
   margin: var(--s3) 0 0;
-  max-width: 62ch;
   color: var(--text);
   line-height: 1.6;
   text-wrap: pretty;
@@ -3474,7 +3509,7 @@ label[for] {
   color: color-mix(in srgb, var(--text-accent) 52%, var(--text-muted));
 }
 
-.section-intro { margin: 0 0 var(--s5); max-width: 68ch; }
+.section-intro { margin: 0 0 var(--s5); }
 .section-intro h2 {
   margin: 0;
   font-size: var(--type-display); font-weight: 600; letter-spacing: -.025em;
@@ -3490,7 +3525,10 @@ label[for] {
 .stack { display: grid; gap: var(--s4); }
 .stack.tight { gap: var(--s2); }
 
-.lead { margin: 0; color: var(--text); line-height: 1.6; max-width: 68ch; }
+/* No width cap: a lead fills the content box it sits in. Where a particular
+   place wants a narrower measure, it says so itself — `.acceleration-choice
+   .lead` is one — rather than every lead in the app being half a column wide. */
+.lead { margin: 0; color: var(--text); line-height: 1.6; }
 .meta-line {
   margin: 0;
   color: var(--text-muted);
@@ -4147,7 +4185,6 @@ label[for] {
   padding: var(--s3) var(--s4);
   color: var(--text);
   line-height: 1.55;
-  max-width: 68ch;
 }
 .notice.warning { border-left-color: var(--text-muted); }
 .notice-link {
