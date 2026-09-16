@@ -196,5 +196,142 @@ export function TheMathSection() {
         </p>
       </div>
     </Disclosure>
+
+    <Disclosure title="Power up, Keep or Sell" sessionKey="the-math.relic-verdicts">
+      <div className="math-copy">
+        <p className="lead">
+          The section above asks which relic a monster should wear. This one asks a different question about the same relics: of everything in your inventory, which deserve your <b className="type-body-emphasis">Relic Power-up Stones</b>, which are worth keeping as they are, and which should go.
+        </p>
+        <p>
+          Every relic passes through three questions in order, and <b className="type-body-emphasis">the first one it fails is its answer</b>. Nothing further is asked. That order is the whole rule, and it exists so that a relic cannot be recommended for stones on one ground while failing on a more important one.
+        </p>
+
+        <h3 className="type-heading">1. Is this pairing worth owning at all?</h3>
+        <p>
+          A relic’s main stat and unique property are rated from Exceptional down to Poor — the same pairing judgement the section above uses. The <b className="type-body-emphasis">Power-up threshold</b> slider sets the weakest pairing you are willing to keep, and anything below it is sold.
+        </p>
+        <div className="math-table-scroll">
+          <table className="math-table math-table-verdicts">
+            <caption className="visually-hidden">
+              The five slider settings, the weakest pairing each one keeps, and how promising an attempt has to look before it spends stones
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col" className="align-left">Setting</th>
+                <th scope="col" className="align-left">Keeps</th>
+                <th scope="col" className="align-left">Spends stones when</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row" className="align-left">Picky</th>
+                <td className="align-left">Strong and better</td>
+                <td className="align-left">the attempt is worth 1.2 ordinary levels</td>
+              </tr>
+              <tr>
+                <th scope="row" className="align-left">Balanced</th>
+                <td className="align-left">Neutral and better</td>
+                <td className="align-left">it is worth 0.8</td>
+              </tr>
+              <tr>
+                <th scope="row" className="align-left">Optimistic</th>
+                <td className="align-left">Weak and better</td>
+                <td className="align-left">it is worth 0.5</td>
+              </tr>
+              <tr>
+                <th scope="row" className="align-left">Wishful thinking</th>
+                <td className="align-left">everything</td>
+                <td className="align-left">it is worth 0.35</td>
+              </tr>
+              <tr>
+                <th scope="row" className="align-left">Burn it all</th>
+                <td className="align-left">everything</td>
+                <td className="align-left">it is worth 0.2</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          <b className="type-body-emphasis">Balanced is the ordinary setting</b>, and where the slider opens. Only one setting is stricter. The two boldest keep every pairing in the game and differ only in how freely they spend, and <b className="type-body-emphasis">Burn it all</b> is there to give the scale an end rather than because anyone should sit on it.
+        </p>
+        <p>
+          This question is asked <i>first</i>, and that matters more than it sounds. A relic below <span className="math-relic-level">+3</span> is guaranteed to gain a level — but a guaranteed level on a pairing you have already rejected is a guaranteed waste of stones, so the pairing is settled before the guarantee is allowed to argue for itself.
+        </p>
+
+        <h3 className="type-heading">2. Do you already own a better copy of it?</h3>
+        <p>
+          Because one relic covers 150 monsters, a second copy of the same pairing is only worth anything if it can <i>overtake</i> the one you already have. So JASWA asks for the chance it ever passes that copy’s current level — and <b className="type-body-emphasis">the slider has no say here</b>. How freely you spend stones is a matter of taste; whether an attempt is already lost is not.
+        </p>
+        <p>
+          How good that chance has to be depends on the pairing, because the pairing is what the attempt buys:
+        </p>
+        <div className="math-table-scroll">
+          <table className="math-table math-table-verdicts math-table-overtake">
+            <caption className="visually-hidden">
+              For each pairing rating, the chance of overtaking that is required, and the highest level of existing copy a fresh relic will still be rolled against
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col" className="align-left">Pairing</th>
+                <th scope="col">Needs</th>
+                <th scope="col" className="align-left">A fresh relic still tries against</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row" className="align-left">Exceptional</th>
+                <td>5 %</td>
+                <td className="align-left">a <span className="math-relic-level">+9</span>, at 11 %</td>
+              </tr>
+              <tr>
+                <th scope="row" className="align-left">Strong</th>
+                <td>15 %</td>
+                <td className="align-left">a <span className="math-relic-level">+8</span>, at 22 %</td>
+              </tr>
+              <tr>
+                <th scope="row" className="align-left">Neutral</th>
+                <td>30 %</td>
+                <td className="align-left">a <span className="math-relic-level">+7</span>, at 40 %</td>
+              </tr>
+              <tr>
+                <th scope="row" className="align-left">Weak</th>
+                <td>50 %</td>
+                <td className="align-left">a <span className="math-relic-level">+6</span>, at 61 %</td>
+              </tr>
+              <tr>
+                <th scope="row" className="align-left">Poor</th>
+                <td>70 %</td>
+                <td className="align-left">a <span className="math-relic-level">+5</span>, at 82 %</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          In practice this sorts duplicates by how far the copy you own has already climbed. A fresh relic passes a <span className="math-relic-level">+5</span> 82 % of the time, a <span className="math-relic-level">+8</span> 22 %, a <span className="math-relic-level">+10</span> 4.3 % — and a <span className="math-relic-level">+12</span> just 0.4 %, or once in 280 attempts. <b className="type-body-emphasis">Even Exceptional gives up there.</b> No pairing is good enough to make that a plan.
+        </p>
+        <p>
+          One exception: if the copy you own is already engraved on its full 150 monsters, it cannot take a 151st, so the duplicate is not redundant at all — it is the only way to put that pairing on another monster. It is then judged on its own merits, exactly as if you owned no copy.
+        </p>
+
+        <h3 className="type-heading">3. Is this attempt where the next stone should go?</h3>
+        <p>
+          Only relics that are worth owning and are not hopeless duplicates reach this question — and it is the only one the slider’s spending column decides. JASWA weighs what the next attempt is likely to gain against what it costs, measured in ordinary levels, and adjusted for how good the pairing is.
+        </p>
+        <p>
+          The answer is <b className="type-body-emphasis">Power up</b> if it clears the bar and <b className="type-body-emphasis">Keep</b> if it does not. Keep is not a criticism: it means the relic is worth owning but your stones do better elsewhere right now.
+        </p>
+        <p>
+          <b className="type-body-emphasis">Stones are worth far more on a low relic than a high one.</b> The published success rates are 100 % at <span className="math-relic-level">+0</span>, <span className="math-relic-level">+1</span> and <span className="math-relic-level">+2</span>, 80 % at <span className="math-relic-level">+3</span>, and fall to 10 % at <span className="math-relic-level">+14</span>. A fresh relic with all three durability comes to rest at <span className="math-relic-level">+7</span> or better about 61 % of the time, and finishes at <span className="math-relic-level">+15</span> roughly once in eleven thousand tries.
+        </p>
+        <p>
+          Those first three levels are <b className="type-body-emphasis">certain, not free</b>: they cannot fail, so they cost no durability, but the game charges its usual stones and gold for each one.
+        </p>
+
+        <h3 className="type-heading">What the column actually shows</h3>
+        <p>
+          Every verdict prints the real game chance underneath it — <span className="math-table-rolled">Next +1: 60 %</span>, <span className="math-table-rolled">Beat +12: 4.8 %</span>, <span className="math-table-rolled">Sure +1: 100 %</span> — never the internal score. You get the chance of the thing you are about to do, not the arithmetic used to rank it. A relic rejected on its pairing says so by name: <span className="math-table-rolled">Weak fit: below threshold.</span>
+        </p>
+      </div>
+    </Disclosure>
   </WorkspacePage>;
 }

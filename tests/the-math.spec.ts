@@ -16,7 +16,9 @@ test('The Math sits under Technical and explains the equipment recommendations',
 
   await page.getByRole('navigation').getByRole('button', { name: 'The Math', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'The Math', exact: true })).toBeVisible();
-  await expect(page.locator('summary')).toHaveText(['›Rune Clean-up', '›Artifact Optimization', '›Relic Optimization']);
+  await expect(page.locator('summary')).toHaveText([
+    '›Rune Clean-up', '›Artifact Optimization', '›Relic Optimization', '›Power up, Keep or Sell',
+  ]);
 
   await page.locator('summary').filter({ hasText: 'Artifact Optimization' }).click();
   await expect(page.locator('[aria-label="4 plus 1.5 plus 2 equals 7.5 points"]')).toBeVisible();
@@ -26,4 +28,35 @@ test('The Math sits under Technical and explains the equipment recommendations',
      scale's reference point and may be named as such, but no relic in an
      illustration is levelled past `+12`. */
   await expect(page.locator('.math-table-relics .math-relic-level')).toHaveText(['+6', '+12']);
+});
+
+/* The verdict rules are stated in two places — this page and the code that
+   decides them — so the page has to name the same five settings, in the same
+   order, with the same pairing each one keeps. A slider stop renamed in
+   `relic-advice.ts` and not here would leave the explanation quietly wrong. */
+test('Power up, Keep or Sell states the rules the verdicts actually follow', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  await page.getByRole('navigation').getByRole('button', { name: 'The Math', exact: true }).click();
+  await page.locator('summary').filter({ hasText: 'Power up, Keep or Sell' }).click();
+
+  const tables = page.locator('.math-table-verdicts');
+  await expect(tables).toHaveCount(2);
+  await expect(tables.first().locator('tbody th')).toHaveText([
+    'Picky', 'Balanced', 'Optimistic', 'Wishful thinking', 'Burn it all',
+  ]);
+  await expect(tables.first().locator('tbody tr').first()).toContainText('Strong and better');
+  await expect(tables.first().locator('tbody tr').nth(1)).toContainText('Neutral and better');
+
+  /* The overtake gate's five thresholds, which do not move with the slider. */
+  await expect(tables.nth(1).locator('tbody th')).toHaveText([
+    'Exceptional', 'Strong', 'Neutral', 'Weak', 'Poor',
+  ]);
+  await expect(tables.nth(1).locator('tbody tr').first()).toContainText('5 %');
+  await expect(tables.nth(1).locator('tbody tr').last()).toContainText('70 %');
+
+  /* The order of the three questions is the rule, so the page must state it. */
+  await expect(page.getByRole('heading', { name: 'Is this pairing worth owning at all?' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Do you already own a better copy of it?' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Is this attempt where the next stone should go?' })).toBeVisible();
 });
