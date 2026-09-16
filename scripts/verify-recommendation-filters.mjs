@@ -62,7 +62,7 @@ try {
   if (await replaceImport.isVisible().catch(() => false)) await replaceImport.click();
 
   await page.getByRole('button', { name: 'Artifact Optimization', exact: true }).click();
-  await page.getByText('Recommendations', { exact: true }).click();
+  await page.getByText('This is the way', { exact: true }).click();
   await page.getByRole('button', { name: /Calculate recommendations/ }).click();
   await page.locator('.artifact-recommendation-table').waitFor({ timeout: 180000 });
 
@@ -148,9 +148,16 @@ try {
     'an Intangible row must read "Intangible", or a dash where the plan sells it.');
   const goldMarks = await page.locator('.artifact-conversion-intangible').evaluateAll(
     (marks) => marks.map((mark) => getComputedStyle(mark).color));
+  /* Probed from `--text-accent`, which is the token the mark is actually
+     painted with. It read `--gold` until this check was fixed — a name the
+     stylesheet has never defined, so the probe silently inherited the body's
+     own colour and held the mark to that instead. The assertion then failed on
+     a mark that was the right gold all along. A probe naming a token that does
+     not exist cannot fail loudly on its own, so it is worth stating: this is
+     the one variable, and it is the one the rule reads. */
   const gold = await page.evaluate(() => {
     const probe = document.createElement('span');
-    probe.style.color = 'var(--gold)';
+    probe.style.color = 'var(--text-accent)';
     document.body.append(probe);
     const colour = getComputedStyle(probe).color;
     probe.remove();
@@ -162,7 +169,10 @@ try {
   await setFilter('Restriction', 'Intangible', false);
 
   /* The slot figures reconcile: filled + the named remainder = the total. */
-  const meta = (await page.locator('.artifact-recommendation-meta').textContent()).replace(/\s+/g, ' ');
+  /* The slot figures moved into the shared `CalculationStatus` line, which every
+     page's calculation reports through; `.artifact-recommendation-meta` was the
+     box they used to have of their own. */
+  const meta = (await page.locator('.calculation-status').textContent()).replace(/\s+/g, ' ');
   const slots = meta.match(/([\d.,]+) of ([\d.,]+) slots filled(?: \(([^)]+)\))?/);
   assert(slots, `The meta line no longer reports slots: ${meta}`);
   const number = (text) => Number(text.replace(/[.,](?=\d{3}\b)/g, ''));
