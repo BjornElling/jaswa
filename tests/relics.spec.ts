@@ -158,7 +158,7 @@ test('a finished relic is kept even though it can never reach +15', async ({ pag
 test('the landing column names a level the relic can realistically reach', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
-  /* A fresh relic is free to +3 and then fights a falling rate, so it lands
+  /* A fresh relic is certain to +3 and then fights a falling rate, so it lands
      around +7 — not at +15, which the published rates make a lottery. */
   const fresh = rowFor(page, 'per 2,500 ATK');
   await expect(fresh.locator('td').nth(5)).toContainText('+7');
@@ -172,7 +172,7 @@ const adviceFor = (page: Page, effect: string) => rowFor(page, effect).locator('
 test('the advice shows a verdict with its short chance', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
-  await expect(adviceFor(page, 'per 2,500 ATK')).toHaveText('Power upFree +1: 100%');
+  await expect(adviceFor(page, 'per 2,500 ATK')).toHaveText('Power upSure +1: 100%');
   await expect(adviceFor(page, 'per 500 ATK')).toHaveText('KeepCannot power up.');
 });
 
@@ -182,26 +182,23 @@ test('the visible advice shows the game chance, not the ranking conversion', asy
   await expect(adviceFor(page, 'per 150 SPD')).toHaveText('SellBeat +12: 4.8%');
 });
 
-test('the score threshold decides whether a second copy is worth the stones', async ({ page }) => {
+/* The duplicate gate answers a question the player has no taste about, so the
+   slider must not move it. This challenger is Exceptional and has a 4.8 % chance
+   of passing the +12 beside it — just under the 5 % an Exceptional pair is
+   allowed — and no setting, not even Burn it all, buys stones for an attempt
+   that cannot land. */
+test('the duplicate gate ignores the slider at every stop', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
   const challenger = rowFor(page, 'per 150 SPD');
-  const threshold = page.getByRole('slider', { name: 'Power-up threshold, 1 cautious to 5 bold' });
-
-  /* An exceptional challenger has a 4.8 % chance to pass +12. Its full landing
-     distribution carries enough marginal account value at the boldest setting,
-     while the player still sees the concrete game chance. */
+  const threshold = page.getByRole('slider', { name: 'Power-up threshold, picky to burn it all' });
   const advice = adviceFor(page, 'per 150 SPD');
-  await expect(challenger).toContainText('Sell');
-  await expect(advice).toHaveText('SellBeat +12: 4.8%');
+  await expect(challenger).toContainText('Exceptional');
 
-  await threshold.fill('5');
-  await expect(challenger).toContainText('Power up');
-  await expect(advice).toHaveText('Power upBeat +12: 4.8%');
-
-  await threshold.fill('1');
-  await expect(challenger).toContainText('Sell');
-  await expect(advice).toHaveText('SellBeat +12: 4.8%');
+  for (const stop of ['1', '2', '3', '4', '5']) {
+    await threshold.fill(stop);
+    await expect(advice).toHaveText('SellBeat +12: 4.8%');
+  }
 });
 
 test('the filter strip shows the account’s Relic Power-up Stone balance', async ({ page }) => {
@@ -213,18 +210,19 @@ test('the filter strip shows the account’s Relic Power-up Stone balance', asyn
 test('the score threshold gates the minimum synergy band without wasting a tier', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
-  const threshold = page.getByRole('slider', { name: 'Power-up threshold, 1 cautious to 5 bold' });
+  const threshold = page.getByRole('slider', { name: 'Power-up threshold, picky to burn it all' });
   const weak = rowFor(page, 'per 2,000 ATK');
+  await threshold.fill('2');
   await expect(weak).toContainText('Sell');
-  await expect(adviceFor(page, 'per 2,000 ATK')).toHaveText('SellSynergy < threshold.');
-  await threshold.fill('4');
-  /* Weak is admitted at setting 4, and this +5 → +6 success also improves its
+  await expect(adviceFor(page, 'per 2,000 ATK')).toHaveText('SellWeak fit: below threshold.');
+  await threshold.fill('3');
+  /* Weak is admitted at Optimistic, and this +5 → +6 success also improves its
      unique property. The hard gate still rejects it at the stricter settings;
      once admitted, JASWA must not stop one level before the tier it is buying. */
   await expect(adviceFor(page, 'per 2,000 ATK')).toHaveText('Power upNext +1: 60%');
   await threshold.fill('1');
   await expect(weak).toContainText('Sell');
-  await expect(adviceFor(page, 'per 2,000 ATK')).toHaveText('SellSynergy < threshold.');
+  await expect(adviceFor(page, 'per 2,000 ATK')).toHaveText('SellWeak fit: below threshold.');
   await threshold.fill('5');
   await expect(weak).toContainText('Power up');
 });
@@ -233,7 +231,7 @@ test('changing the score threshold leaves the table geometry fixed', async ({ pa
   await importAccount(page, relicAccount);
   await openRelics(page);
   const table = page.getByRole('table', { name: 'Relic library', exact: true });
-  const threshold = page.getByRole('slider', { name: 'Power-up threshold, 1 cautious to 5 bold' });
+  const threshold = page.getByRole('slider', { name: 'Power-up threshold, picky to burn it all' });
   const before = await table.locator('tbody tr').evaluateAll((cells) => cells.map((cell) => {
     const { x, y, width, height } = cell.getBoundingClientRect();
     return { x, y, width, height };
@@ -251,13 +249,44 @@ test('changing the score threshold leaves the table geometry fixed', async ({ pa
   expect(after).toEqual(before);
 });
 
-test('a free level always powers up before a stone decision exists', async ({ page }) => {
+test('a certain level powers up once the pair is one the setting keeps', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
   const fresh = rowFor(page, 'per 2,500 ATK');
   await expect(fresh).toContainText('Neutral');
   await expect(fresh).toContainText('Power up');
-  await expect(adviceFor(page, 'per 2,500 ATK')).toHaveText('Power upFree +1: 100%');
+  await expect(adviceFor(page, 'per 2,500 ATK')).toHaveText('Power upSure +1: 100%');
+});
+
+/* The rule the gate's move exists for. A guaranteed level is guaranteed waste on
+   a pair the account has said it does not want, so the gate is asked first — the
+   same fresh Neutral relic that powers up at Balanced is sold at Picky, which
+   keeps only Strong and better, and its reason names the gate rather than
+   the certain level it would otherwise have taken. */
+test('the synergy gate outranks the certain level below +3', async ({ page }) => {
+  await importAccount(page, relicAccount);
+  await openRelics(page);
+  const threshold = page.getByRole('slider', { name: 'Power-up threshold, picky to burn it all' });
+  const fresh = rowFor(page, 'per 2,500 ATK');
+  await expect(fresh).toContainText('Neutral');
+
+  await threshold.fill('1');
+  await expect(adviceFor(page, 'per 2,500 ATK')).toHaveText('SellNeutral fit: below threshold.');
+  await threshold.fill('2');
+  await expect(adviceFor(page, 'per 2,500 ATK')).toHaveText('Power upSure +1: 100%');
+});
+
+/* The cautious stop keeps the pairs a cautious player wants. It sold everything
+   but Exceptional until the scale was moved down a band, which made it the most
+   destructive setting on the slider rather than the safest. */
+test('the strictest stop keeps a Strong pair rather than selling it', async ({ page }) => {
+  await importAccount(page, relicAccount);
+  await openRelics(page);
+  const threshold = page.getByRole('slider', { name: 'Power-up threshold, picky to burn it all' });
+  await threshold.fill('1');
+  const strong = rowFor(page, 'per 1,000 ATK');
+  await expect(strong).toContainText('Strong');
+  await expect(strong).not.toContainText('Sell');
 });
 
 test('a relic engraved on monsters counts them, and an unused one says so', async ({ page }) => {
@@ -271,11 +300,14 @@ test('a relic engraved on monsters counts them, and an unused one says so', asyn
 test('filters narrow the table and Reset puts every one of them back', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
-  const threshold = page.getByRole('slider', { name: 'Power-up threshold, 1 cautious to 5 bold' });
+  const threshold = page.getByRole('slider', { name: 'Power-up threshold, picky to burn it all' });
 
+  /* Balanced rejects the account's Weak pair, which is what gives the two filters
+     below something to narrow. The default stop keeps it. */
+  await threshold.fill('2');
   await page.getByRole('group', { name: 'Filter by advice' }).getByRole('button', { name: 'Sell' }).click();
   await expect(rows(page)).toHaveCount(2);
-  await page.getByRole('group', { name: 'Filter by main stat' }).getByRole('button', { name: 'HP' }).click();
+  await page.getByRole('group', { name: 'Filter by main stat' }).getByRole('button', { name: 'ATK' }).click();
   await expect(rows(page)).toHaveCount(1);
   await threshold.fill('5');
 

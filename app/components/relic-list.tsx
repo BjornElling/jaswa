@@ -23,7 +23,7 @@ import type { RelicMainProperty } from '../lib/relic-properties';
 import { relicSynergy, relicSynergyBandLabels, relicSynergyBandOrder } from '../lib/relic-synergy';
 import type { RelicSynergyBand } from '../lib/relic-synergy';
 import {
-  isRelicInvestmentSelectivity, relicAdvice, relicInvestmentThresholds, relicVerdictLabels, relicVerdictOrder,
+  isRelicInvestmentSelectivity, relicAdvice, relicInvestmentSelectivityLabels, relicVerdictLabels, relicVerdictOrder,
   relicMinimumSynergyBands,
 } from '../lib/relic-advice';
 import type { RelicInvestmentSelectivity, RelicVerdict } from '../lib/relic-advice';
@@ -268,9 +268,10 @@ export function RelicList({ game, monsters, preferences, onOpenMonster }: {
             <span className="filter-label">Power-up threshold</span>
             <div className="filter-group-controls">
               <ValueSlider minimum={1} maximum={5} value={selectivity}
-                label="Power-up threshold, 1 cautious to 5 bold"
-                valueText={(value) => `${relicInvestmentThresholds[value as RelicInvestmentSelectivity]}% threshold; `
-                  + `${relicMinimumSynergyBands[value as RelicInvestmentSelectivity]} or better`}
+                label="Power-up threshold, picky to burn it all"
+                valueLabel={(value) => relicInvestmentSelectivityLabels[value as RelicInvestmentSelectivity]}
+                valueText={(value) => `${relicInvestmentSelectivityLabels[value as RelicInvestmentSelectivity]}; `
+                  + `${relicMinimumSynergyBands[value as RelicInvestmentSelectivity]} synergy or better`}
                 onChange={(value) => setFilters((current) => ({
                   ...current, selectivity: isRelicInvestmentSelectivity(value) ? value : current.selectivity,
                 }))} />

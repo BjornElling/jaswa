@@ -1707,6 +1707,20 @@ label[for] {
    example's hold a calculation. They are given only the width that needs, and
    the relic's own description — the longest text in the table — keeps the rest. */
 .math-table-relics th:not(:first-child) { width: 9%; }
+/* The verdict tables state rules rather than arithmetic, so their columns hold
+   phrases where the two examples above hold two digits. A fixed 14 % would wrap
+   every one of them, and letting the browser size them leaves the two tables
+   dividing the row differently — they sit a few paragraphs apart and read as a
+   pair, so they are given the same three proportions: what the rule is called,
+   what it admits, and what it then asks for. */
+.math-table-verdicts th:first-child { width: 26%; }
+.math-table-verdicts th:nth-child(2) { width: 26%; }
+.math-table-verdicts th:last-child { width: 48%; }
+/* The overtake table's middle column is a bare percentage where the first
+   table's is a phrase, so it takes only the width a figure needs and hands the
+   rest to the sentence beside it. */
+.math-table-overtake th:nth-child(2) { width: 12%; }
+.math-table-overtake th:last-child { width: 62%; }
 /* The rolled value belongs to the substat it rolled on, so it reads as part of
    that name rather than as a column of its own; the stronger colour keeps the
    number legible against the muted name. */
@@ -2046,6 +2060,14 @@ label[for] {
 .range-slider-single .range-slider-input { pointer-events: auto; }
 .range-slider-single .range-slider-values { height: var(--s4); }
 .range-slider-single .range-slider-value { top: 0; bottom: auto; }
+/* A named stop reads as words, which are far wider than the digit they replace
+   and would hang off the row at either end of a short rail. The name therefore
+   sits centred under the whole control rather than over its handle — it names
+   the setting, and the handle already says where on the scale that setting is.
+   Centring is the static flow's own, so the absolute positioning the numeric
+   value needs is undone here rather than fought with a left of 50%. */
+.range-slider-named { text-align: center; }
+.range-slider-named .range-slider-value { position: static; transform: none; }
 .range-slider[data-disabled='true'] { opacity: .4; }
 .slider .jaswa-select {
   width: 100%;

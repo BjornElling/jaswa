@@ -142,14 +142,24 @@ export function RangeSlider({
  * The value hangs below the rail rather than above it: above, it stood between
  * the control and the line before it and opened a gap its neighbours in the
  * same group did not have.
+ *
+ * `valueLabel` names each stop in words, for a scale whose numbers mean nothing
+ * to the reader. A name is far wider than a digit, so it stays centred under the
+ * rail rather than riding the handle: carried to the ends, a name long enough to
+ * be worth showing hangs off the row it sits in, and shifting it back inside
+ * would put it beside a handle it no longer points at.
  */
-export function ValueSlider({ minimum, maximum, value, step = 1, label, valueText, disabled, onChange }: {
+export function ValueSlider({
+  minimum, maximum, value, step = 1, label, valueText, valueLabel, disabled, onChange,
+}: {
   minimum: number;
   maximum: number;
   value: number;
   step?: number;
   label: string;
   valueText: (value: number) => string;
+  /** The stop's name, shown under the rail in place of the number. */
+  valueLabel?: (value: number) => string;
   disabled?: boolean;
   onChange: (value: number) => void;
 }) {
@@ -162,8 +172,12 @@ export function ValueSlider({ minimum, maximum, value, step = 1, label, valueTex
         onChange={(event) => onChange(Number(event.target.value))}
         aria-label={label} aria-valuetext={valueText(value)} />
     </div>
-    <div className="range-slider-values" aria-hidden="true">
-      <output className="range-slider-value" style={{ left: position }}>{value}</output>
-    </div>
+    {valueLabel
+      ? <div className="range-slider-values range-slider-named" aria-hidden="true">
+        <output className="range-slider-value">{valueLabel(value)}</output>
+      </div>
+      : <div className="range-slider-values" aria-hidden="true">
+        <output className="range-slider-value" style={{ left: position }}>{value}</output>
+      </div>}
   </div>;
 }

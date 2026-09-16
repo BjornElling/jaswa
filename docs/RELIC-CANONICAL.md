@@ -410,6 +410,50 @@ outcomes and only two**: it succeeds and the level goes up, or it fails and a
 durability goes down. Write `p(l)` for the chance of success at level `l`, and
 everything else follows.
 
+### 7.0 One implementation, `app/lib/relic-power-up-model.ts`
+
+**Every probability this page states is computed in that file and nowhere
+else.** Not the chance of the next level, not the chance of reaching a target,
+not where a relic will come to rest, not what it will be worth when it stops.
+A caller that wants one of these numbers imports it; a caller that reaches for
+`relicPowerUpRates` to work one out itself is the failure this rule exists to
+prevent.
+
+The reason is not tidiness. A second implementation would not merely duplicate
+the work — it would drift, and the page would then print two different chances
+for the same relic with neither being obviously the wrong one. The verdict in
+the advice column and the percentage printed beneath it have to come from the
+same arithmetic, or the page is arguing with itself.
+
+The rule is enforced rather than stated: `verify:relic-maths` reads every module
+in `app/lib` and fails if any file other than the model and the properties table
+so much as touches `relicPowerUpRates` outside an import. It was tested against
+subscripting, a `for … of`, a `reduce`, an alias and a spread copy, and catches
+all five.
+
+`scripts/verify-relic-maths.mjs` is the one deliberate exception. It re-derives
+these results from closed forms written independently of the recursions, and
+from a Monte Carlo of the game's own loop, precisely so a disagreement is
+caught. That is a check on the model, not a second copy of it, and it is why the
+functions take the rate curve as an argument.
+
+**The model has been reviewed adversarially**, by two reviewers instructed to
+break it rather than bless it. Neither could produce a wrong number for any
+valid relic: the recursion, its boundaries, its iteration order and its handling
+of durability are correct, and a Monte Carlo of the mechanic agrees with the
+tables to within sampling noise. Both found the same two ways to produce a wrong
+number from an *invalid* input, and both are now closed:
+
+- **A target above `+15`.** §8.2's gate asks for `incumbent + 1`, which is `16`
+  whenever the incumbent is a finished copy — a real call on a real account. It
+  answered `0`, but only because the published table has fifteen entries and the
+  sixteenth read back as absent. A curve one entry longer had the relic climbing
+  to a `+16` the game has no room for. The ceiling is now a stated boundary.
+- **A malformed rate curve.** Driving the recursions with a truncated table used
+  to return a landing distribution that summed to `1`, looked entirely
+  well-formed, and put 99 % of its mass on the wrong level, with nothing raised.
+  A curve that is not fifteen chances in `[0, 1]` is now refused outright.
+
 ### 7.1 `P(l, d)` — the chance of ever reaching `+15`
 
 ```
@@ -516,9 +560,14 @@ both in the cell's tooltip for anyone who wants them.
 
 **Three consequences, and they run the page.**
 
-1. **Every relic is free to `+3`.** Nothing is ever advised against the first
-   three levels, and a `+0` relic is not a worse relic than a `+3` one — it is
-   the same relic three free steps earlier.
+1. **Every relic is certain to `+3` — which is not the same as free.** The first
+   three attempts succeed at 100 %, so they cost no durability, but the game
+   charges its usual stones and gold for each one: the power-up panel prices a
+   roll at `+0` exactly as it prices one at `+14`. Nothing is advised against
+   those levels on a pair worth keeping, and a `+0` relic is not a worse relic
+   than a `+3` one — it is the same relic three certain steps earlier. On a pair
+   the synergy gate has rejected, however, a certain level is a certain waste,
+   which is why §8's gate outranks this rule rather than following it.
 2. **`+15` is a lottery, not a target.** A fresh relic with all three durability
    reaches it about **once in eleven thousand times**. That is why §8 does not
    decide anything on `P(l, d)`: weighted or not, a number that is `0.009 %` for
@@ -578,7 +627,7 @@ levels from the account's own relics: a level gained is a success, a durability
 spent is a failure. On this account that read **76 %**.
 
 That estimate was not wrong about what it measured. The account's nineteen
-attempts were all made at `+0` to `+9`, three of those levels are free, and the
+attempts were all made at `+0` to `+9`, three of those levels are certain, and the
 true average across that range is close to it. **It was wrong about everywhere
 else.** Applied to `+10 → +15`, where the real rates are 30 % down to 10 %, it
 overstated the chance of finishing a relic by more than three orders of
@@ -647,37 +696,93 @@ The rules, in the order they outrank each other:
    This is a **capacity** exception and not a strength one. It says nothing about
    the duplicate being stronger; it says the comparison rule 4 performs has no
    object left to compare against.
-1. **A relic that cannot be powered up keeps only when it is the account's best
+1. **The hard synergy gate is asked first, of every relic.** The slider sets a
+   weakest fit the account is willing to hold: `Picky` keeps Strong and better,
+   `Balanced` also keeps Neutral, `Optimistic` also keeps Weak, and
+   `Wishful thinking` and `Burn it all` keep every band. A relic below that band
+   is sold with, for example, `Weak fit: below threshold.` — whatever its level,
+   its durability, its duplicates or its next attempt.
+
+   **The scale starts at Strong.** It used to start at Exceptional, which sold
+   all but a handful of a real library — Strong pairs included — and so made the
+   most cautious stop the most destructive one. The two boldest stops share the
+   Poor band as a result; §8.5's threshold is what still separates them.
+
+   **`Balanced` is the ordinary setting**, where the slider opens and where most
+   accounts should stay. Only one stop is stricter; the three above it climb from
+   optimistic to indefensible, and `Burn it all` exists to give the scale an end
+   rather than because anyone should sit on it.
+
+   This is a deliberate lexicographic rule, and the gate answers a different
+   question from everything after it. The gate asks whether the pair is worth
+   owning at all; the rules below ask, of a pair that survived, whether it is
+   worth spending stones on. **Nothing outranks the gate.** It sat third until
+   the two rules that outranked it were found to be readmitting relics the
+   setting had already rejected: a relic below `+3` was powered up on the
+   grounds that those levels are free — see §7's correction, they are certain,
+   not free, and the stones are charged — so at the strictest setting the page
+   recommended stones on hopeless relics, the one thing the gate exists to
+   prevent. A relic that could not be powered up at all was kept for the same
+   reason, filling the account with finished relics of a ruled-out pair. Neither
+   exception survives.
+2. **The duplicate gate is asked second, and it does not read the slider.** A
+   relic standing beside a same-pair copy at an equal or higher level is judged
+   on one question: can it ever pass that copy? The chance is `P(l, d, h + 1)`
+   with `h` the incumbent's level — the exact chance to reach one level above it
+   — and it is compared against a threshold set by the challenger's own synergy
+   band:
+
+   | Fit | Passes the gate at | A fresh challenger then tries against an incumbent up to |
+   | --- | ---: | --- |
+   | Exceptional | 5 % | `+9` (10.7 %; a `+10` is 4.3 %) |
+   | Strong | 15 % | `+8` (22.4 %; a `+9` is 10.7 %) |
+   | Neutral | 30 % | `+7` (39.9 %; a `+8` is 22.4 %) |
+   | Weak | 50 % | `+6` (61.3 %; a `+7` is 39.9 %) |
+   | Poor | 70 % | `+5` (82.3 %; a `+6` is 61.3 %) |
+
+   The right-hand column is for a `+0` challenger with all three durability; a
+   challenger that has already climbed reaches further, and one with durability
+   spent does not reach as far.
+
+   **The slider is deliberately not consulted.** It says how wide a net the
+   account keeps, which is a matter of taste; this gate asks whether an attempt
+   is lost, which is not. A challenger with a 2 % chance of passing its incumbent
+   is a bad investment at every setting, and letting a bold stop override that
+   would recommend stones on attempts that cannot land.
+
+   Synergy sets the price of admission because it is what the attempt buys. The
+   figures are calibrated against §8.4's real overtake chances: a
+   full-durability challenger passes a `+5` incumbent 82 % of the time, a `+8`
+   22 %, a `+10` 4.3 % and a `+12` 0.36 %. So in practice these five thresholds
+   sort duplicates by how high the incumbent has climbed.
+
+   **Exceptional is not exempt.** At 5 % it still tries against an incumbent up
+   to `+10` and gives up beyond it: against a `+12` it passes about once in 280
+   attempts, and no pairing is good enough to make that a plan. An incumbent at
+   `+15` cannot be passed at all, so the challenger sells with `Cannot beat +15.`
+
+   This gate outranks rule 4, and for the same reason the synergy gate outranks
+   everything: a `+0` challenger beside a `+12` copy would otherwise be powered
+   up on the strength of a guaranteed level it has no use for.
+
+   The gate replaced a score that weighed the challenger's whole landing
+   distribution against the slider's threshold. That number answered a real
+   question — expected marginal account strength — but in units no player could
+   check, and the page printed a plain chance beside it. `relicDuplicateMarginal`
+   `Strength` survives in `relic-advice.ts` for `verify:relic-maths`; it no
+   longer decides anything.
+3. **A relic that cannot be powered up keeps only when it is the account's best
    same-pair copy.** It sells when another same-pair relic is at an equal or
    higher level. Equal levels keep the lower `rid`, so one deterministic copy
    remains. Its reason says exactly that.
-2. **Free levels power up.** At `+0`, `+1` and `+2`, the next level cannot
-   spend stones. This applies to every relic that is still open for an attempt.
-3. **The hard synergy gate comes before return on investment.** The threshold
-   also sets a minimum synergy band: setting 1 accepts
-   only Exceptional, setting 2 also accepts Strong, setting 3 also accepts
-   Neutral, setting 4 also accepts Weak, and setting 5 accepts every band.
-   An open relic below that band is sold with `Synergy < threshold.` This is a
-   deliberate lexicographic rule: the score ranks stone investments only among
-   profiles the player is willing to own.
-4. **A lower or newer equal open copy is a replacement plan.** Let `h` be its
-   incumbent's current level and let `D_c(k)` be the challenger's final-level
-   distribution. Its expected marginal account strength is
-
-   ```
-   Δduplicate = Σₖ D_c(k) × max(0, S(k) − S(h))
-   duplicate score = 100 × synergy multiplier × Δduplicate / [S(1) − S(0)]
-   ```
-
-   It credits neither a result below the incumbent nor an equal result, and
-   credits every overshoot by exactly its excess. It deliberately measures
-   expected marginal account value across the challenger's whole remaining
-   plan, not stones spent to achieve it. The visible chance remains
-   `P(l, d, h + 1)`, the exact chance to pass the incumbent. An incumbent at
-   `+15` cannot be passed, so the challenger sells. Below the selected threshold
-   every other challenger sells; otherwise it powers up.
+4. **Certain levels power up.** At `+0`, `+1` and `+2` the next attempt succeeds
+   at 100 %, so it cannot spend durability — it does spend the usual stones and
+   gold. A guaranteed level on a pair both gates have admitted is the best stone
+   the account can spend, which is why this outranks the score.
 5. **Every other open relic compares its next-attempt investment score with the
-   selected threshold.** At or above it powers up; otherwise it keeps.
+   selected threshold.** At or above it powers up; otherwise it keeps. This is
+   the only rule the slider's threshold decides, and it is reached only by a
+   relic that is worth owning and is not a hopeless duplicate.
 
 Every advice cell prints the relevant game chance below its verdict — for
 example `Next +1: 35%`. The internal score and threshold decide the verdict but
