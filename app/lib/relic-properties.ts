@@ -130,8 +130,11 @@ export const relicMaximumLevel = 15;
  * The game's published power-up success rates, indexed by the level being left:
  * `relicPowerUpRates[0]` is `+0 → +1`.
  *
- * The first three levels are free, and from `+3` the rate halves twice over on
- * the way up, ending at one attempt in ten. That shape is the whole economics
+ * The first three levels are certain — not free. They succeed at 100 %, so they
+ * cost no durability, but the game charges the same stones and gold for a roll
+ * at `+0` as for one at `+14`; the power-up panel prices every attempt alike.
+ * From `+3` the rate halves twice over on the way up, ending at one attempt in
+ * ten. That shape is the whole economics
  * of a relic: **stones are worth most on a low relic and least on a high one**,
  * and `+15` is a lottery rather than a target — a fresh relic with all three
  * durability reaches it about once in eleven thousand times

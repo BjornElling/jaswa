@@ -24,15 +24,21 @@
  *
  * Usage: node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs scripts/verify-relic-maths.mjs
  */
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { relicAdvice, relicOvertakeThresholds } from '../app/lib/relic-advice.ts';
+/* Imported from the model itself, not through the advice module's re-exports:
+   this file's job is to check that implementation, so it names it directly. */
 import {
-  relicAdvice, relicDuplicateMarginalStrength, relicExpectedLevel, relicExpectedStrength, relicFinalLevelChances, relicLanding, relicReachChance,
-} from '../app/lib/relic-advice.ts';
+  relicDuplicateMarginalStrength, relicExpectedLevel, relicExpectedStrength,
+  relicFinalLevelChances, relicLanding, relicNextAttemptChance, relicReachChance,
+} from '../app/lib/relic-power-up-model.ts';
 import {
   relicMaximumDurability, relicMaximumLevel, relicNextLevelStrengthGain, relicOrdinaryLevelStrengthGain,
   relicPowerUpRates, relicStrengthIndex, relicThreshold,
 } from '../app/lib/relic-properties.ts';
 import { relicProperties } from '../app/lib/relic-properties.ts';
-import { relicSynergy } from '../app/lib/relic-synergy.ts';
+import { relicSynergy, relicSynergyBandOrder } from '../app/lib/relic-synergy.ts';
 import { relicSynergyWeights } from '../app/lib/relic-advice.ts';
 
 let failures = 0;
@@ -142,6 +148,35 @@ equalNewer.durability = 0;
 const equalAdvice = relicAdvice([equalOlder, equalNewer], 5);
 check(equalAdvice.get('9')?.verdict === 'keep' && equalAdvice.get('10')?.verdict === 'sell',
   'equal spent duplicates keep only the lower-rid incumbent');
+
+/* §8.2's duplicate gate. It compares the plain overtake chance against a
+   per-band threshold, so the verdict is decidable from the figure the row
+   already prints — and it must not move with the slider, which is the whole
+   reason it is a separate gate. */
+for (const [band, threshold] of Object.entries(relicOvertakeThresholds)) {
+  let highest = -1;
+  for (let incumbent = 0; incumbent <= 14; incumbent += 1) {
+    if (relicReachChance(0, 3, incumbent + 1) >= threshold) highest = incumbent;
+  }
+  const at = relicReachChance(0, 3, highest + 1);
+  const beyond = relicReachChance(0, 3, highest + 2);
+  check(at >= threshold && beyond < threshold,
+    `a ${band} challenger tries up to a +${highest} incumbent (${(at * 100).toFixed(1)} %) `
+    + `and stops at +${highest + 1} (${(beyond * 100).toFixed(1)} %)`);
+}
+/* The thresholds must be ordered, or a worse pairing would be allowed a longer
+   shot than a better one. */
+const overtakeOrder = relicSynergyBandOrder.map((band) => relicOvertakeThresholds[band]);
+check(overtakeOrder.every((value, at) => at === 0 || value > overtakeOrder[at - 1]),
+  'a weaker fit must be held to a higher overtake chance than a stronger one');
+
+/* The gate is blind to the slider. One challenger, five settings, one verdict. */
+const duplicateIncumbent = relicAt(12, '11');
+const duplicateChallenger = relicAt(0, '12');
+const verdicts = new Set([1, 2, 3, 4, 5].map((stop) =>
+  relicAdvice([duplicateIncumbent, duplicateChallenger], stop).get('12')?.verdict));
+check(verdicts.size === 1 && verdicts.has('sell'),
+  'a hopeless duplicate sells at every slider stop, the boldest included');
 
 /* The one modelling choice in the strength index is how the two halves are
    weighted. It is only a defensible choice if the answers do not turn on it, so
@@ -255,6 +290,174 @@ check(worstMass < 1e-12, `the landing distribution always sums to 1 (worst gap $
 check(worstAgainstReach < 1e-12, 'its mass on +15 is exactly P(l,d)');
 check(worstAgainstStrength < 1e-12, 'its mean strength is exactly V(l,d)');
 check(medianSound, 'the reported landing level is the first whose tail reaches a half');
+
+/* ---- Durability, as its own subject -------------------------------------
+   The recursions are only as good as their handling of the resource that
+   stops them. These hold the three tables to what durability means, rather
+   than to each other: a spent relic has no future, a first attempt is worth
+   more than a later one, and no relic can land below where it stands. */
+let durabilitySound = true;
+let spentIsPresent = true;
+let nextAttemptSound = true;
+for (const rates of [relicPowerUpRates, flat]) {
+  for (let level = 0; level <= relicMaximumLevel; level += 1) {
+    /* d = 0 is the one case with no arithmetic in it at all: the relic is
+       exactly what it is, with certainty, and can reach nothing above it. */
+    const spent = relicFinalLevelChances(level, 0, rates);
+    if (Math.abs(spent[level] - 1) > 1e-12) spentIsPresent = false;
+    if (level < relicMaximumLevel && relicReachChance(level, 0, level + 1, rates) !== 0) spentIsPresent = false;
+    if (relicNextAttemptChance(level, 0, rates) !== 0) nextAttemptSound = false;
+    if (level < relicMaximumLevel
+      && relicNextAttemptChance(level, 1, rates) !== rates[level]) nextAttemptSound = false;
+
+    for (let durability = 0; durability <= 8; durability += 1) {
+      const chances = relicFinalLevelChances(level, durability, rates);
+      /* No mass below where the relic already stands: the level never falls. */
+      for (let at = 0; at < level; at += 1) if (chances[at] > 1e-15) durabilitySound = false;
+      /* An extra attempt is never a loss, and its value never grows. */
+      const here = relicExpectedLevel(chances);
+      const more = relicExpectedLevel(relicFinalLevelChances(level, durability + 1, rates));
+      const evenMore = relicExpectedLevel(relicFinalLevelChances(level, durability + 2, rates));
+      if (more < here - 1e-12) durabilitySound = false;
+      if ((evenMore - more) > (more - here) + 1e-12) durabilitySound = false;
+      if (relicReachChance(level, durability + 1, relicMaximumLevel, rates)
+        < relicReachChance(level, durability, relicMaximumLevel, rates) - 1e-15) durabilitySound = false;
+    }
+  }
+}
+/* A relic at the ceiling is finished whatever durability it has left. */
+if (relicNextAttemptChance(relicMaximumLevel, 3) !== 0) nextAttemptSound = false;
+check(spentIsPresent, 'a relic with no durability is worth exactly what it is, and can reach nothing above it');
+check(nextAttemptSound, 'the next attempt is the published rate, or zero where there is no attempt to make');
+check(durabilitySound,
+  'durability is counted exactly: never a landing below the start, never a loss from one more attempt, '
+  + 'and never an increasing return from it');
+
+/* ---- What an adversarial review found ------------------------------------
+   Two independent reviews were set on this model with instructions to break
+   it. Neither could produce a wrong number on a valid relic. Both found the
+   same two ways to produce one on an invalid input, and these are the checks
+   that keep those shut. */
+
+/* A target above the ceiling. The duplicate gate asks for `incumbent + 1`, so
+   it asks for +16 whenever the incumbent is a finished copy — a real call on a
+   real account. It answered 0 only because the published table has fifteen
+   entries and the sixteenth read back `undefined`; one entry longer and the
+   relic climbed to a +16 the game has no room for. */
+check(relicReachChance(9, 3, relicMaximumLevel + 1) === 0,
+  'a target above +15 is unreachable, and says so from the ceiling rather than from an array length');
+
+/* A malformed curve. The recursions take `rates` precisely so a check can swap
+   it, which makes a truncated or out-of-range table the mistake that will
+   actually be made — and it used to return a well-formed distribution summing
+   to 1 with its mass in the wrong place. */
+const rejects = (what, rates) => {
+  try {
+    relicFinalLevelChances(0, 3, rates);
+    relicReachChance(0, 3, relicMaximumLevel, rates);
+    relicNextAttemptChance(0, 3, rates);
+    return false;
+  } catch {
+    return true;
+  }
+};
+const malformed = [
+  ['truncated', [1, 1, 1, 0.8]],
+  ['empty', []],
+  ['one too long', [...relicPowerUpRates, 0.1]],
+  ['a rate above 1', relicPowerUpRates.map((rate, at) => at === 14 ? 2 : rate)],
+  ['a negative rate', relicPowerUpRates.map((rate, at) => at === 5 ? -0.1 : rate)],
+  ['a NaN rate', relicPowerUpRates.map((rate, at) => at === 5 ? NaN : rate)],
+];
+check(malformed.every(([what, rates]) => rejects(what, rates)),
+  'a malformed power-up curve is refused outright rather than answered plausibly');
+/* And the curves the checks above legitimately drive it with must still pass. */
+check([relicPowerUpRates, flat, new Array(relicMaximumLevel).fill(1), new Array(relicMaximumLevel).fill(0),
+  Array.from({ length: relicMaximumLevel }, (_, at) => 0.45 + at * 0.03)]
+  .every((rates) => !rejects('legitimate', rates)),
+  'every curve these checks drive the model with is still accepted');
+
+/* ---- The mechanic itself, simulated -------------------------------------
+   Every check above compares the recursions with closed forms or with each
+   other, so all of them share the same reading of the game. This one does
+   not: it plays the loop the power-up panel actually runs — roll, and on a
+   failure spend one durability — and asks whether the tables predicted it.
+   A seeded generator keeps the run reproducible, so a failure here is a real
+   disagreement rather than an unlucky afternoon. */
+function seeded(seed) {
+  let state = seed >>> 0;
+  return () => {
+    state = (state * 1664525 + 1013904223) >>> 0;
+    return state / 4294967296;
+  };
+}
+const random = seeded(20260916);
+const runs = 200_000;
+let worstSimulated = 0;
+for (const [level, durability] of [[0, 3], [0, 1], [5, 2], [8, 3], [11, 3], [12, 1], [9, 2]]) {
+  const counts = new Array(relicMaximumLevel + 1).fill(0);
+  for (let run = 0; run < runs; run += 1) {
+    let at = level;
+    let left = durability;
+    while (at < relicMaximumLevel && left > 0) {
+      if (random() < (relicPowerUpRates[at] ?? 0)) at += 1;
+      else left -= 1;
+    }
+    counts[at] += 1;
+  }
+  const predicted = relicFinalLevelChances(level, durability);
+  for (let at = 0; at <= relicMaximumLevel; at += 1) {
+    worstSimulated = Math.max(worstSimulated, Math.abs(predicted[at] - counts[at] / runs));
+  }
+}
+/* Four sampling standard deviations at this run count. A real modelling error
+   — a mis-spent durability, an off-by-one on the ceiling — moves a cell by
+   percentage points, which is orders of magnitude clear of this bar. */
+const simulationBar = 4 * 0.5 / Math.sqrt(runs);
+check(worstSimulated < simulationBar,
+  `playing the game's own loop ${runs.toLocaleString('en-GB')} times per case agrees with the tables `
+  + `(worst cell ${worstSimulated.toExponential(2)}, sampling bar ${simulationBar.toExponential(2)})`);
+
+/* ---- One implementation, and only one -----------------------------------
+   The arithmetic above is worth nothing if a second copy of it grows up
+   somewhere else: the page would then state two chances for one relic, and
+   the wrong one would be whichever the reader happened to be looking at. The
+   model is the single source of truth by rule, and this is the rule. */
+const modelModule = 'relic-power-up-model.ts';
+const allowedToHoldRates = new Set(['relic-properties.ts', modelModule]);
+const libraryDirectory = new URL('../app/lib/', import.meta.url);
+const offenders = [];
+for (const entry of readdirSync(libraryDirectory)) {
+  if (!entry.endsWith('.ts') || allowedToHoldRates.has(entry)) continue;
+  const source = readFileSync(join(libraryDirectory.pathname.slice(1), entry), 'utf8');
+  /* Naming the table in an import says nothing about what a file does with it,
+     and an import list spans lines, so the whole statement goes before the scan
+     rather than being pattern-matched line by line. */
+  const body = source.replace(/^(import|export)\b[\s\S]*?from\s+'[^']*';$/gm, '');
+  /* Reading the table is the tell. Every re-derivation has to start there, and
+     nothing else has a reason to touch it: a caller that wants a chance asks
+     the model for one. Carrying the rates onward is fine — a default parameter
+     and a hand-off to the model are the curve travelling as an argument, not
+     arithmetic being done with it. */
+  body.split('\n').forEach((line, at) => {
+    if (!line.includes('relicPowerUpRates')) return;
+    /* Every mention has to be the whole curve moving somewhere as one value:
+       assigned as a default, or handed to a call. What it must never be is the
+       subject of anything — a subscript, an operator, a `for … of`, a method —
+       because that is the file deriving a probability of its own.
+
+       Stated as what is allowed rather than as what is forbidden, so a form
+       nobody thought of fails the check instead of slipping through it. */
+    const allowed = /=\s*relicPowerUpRates\s*(?=[,)]|$)|[(,]\s*relicPowerUpRates\s*(?=[,)]|$)/g;
+    if (line.replace(allowed, '').includes('relicPowerUpRates')) {
+      offenders.push(`${entry}:${at + 1}`);
+    }
+  });
+}
+check(offenders.length === 0,
+  offenders.length === 0
+    ? `only ${modelModule} derives power-up probabilities; nothing else reads the rate table`
+    : `power-up rates are read outside ${modelModule}: ${offenders.join(', ')}`);
 
 console.log(failures ? `\n${failures} check(s) failed.` : '\nRelic arithmetic holds.');
 process.exitCode = failures ? 1 : 0;

@@ -1,245 +1,38 @@
 import {
   relicEngravingLimit, relicMaximumLevel, relicNextLevelStrengthGain,
-  relicOrdinaryLevelStrengthGain, relicPowerUpRates, relicStrengthIndex,
+  relicOrdinaryLevelStrengthGain, relicPowerUpRates,
 } from './relic-properties';
-import type { RelicSourceStat } from './relic-properties';
 import type { Relic } from './relics';
-import { relicSynergy, relicSynergyBandOrder } from './relic-synergy';
+import {
+  relicExpectedLevel, relicFinalLevelChances, relicLanding, relicNextAttemptChance, relicReachChance,
+} from './relic-power-up-model';
+import type { RelicLanding, RelicSuccessRates } from './relic-power-up-model';
+import { relicSynergy, relicSynergyBandLabels, relicSynergyBandOrder } from './relic-synergy';
 import type { RelicSynergyBand } from './relic-synergy';
 
 /**
- * What to do with each relic, and the values behind that verdict.
+ * What to do with each relic: the policy, and nothing but the policy.
  *
- * `docs/RELIC-CANONICAL.md` §7 and §8 own this. One recursion answers every
- * question the page asks. The verdict itself uses the next attempt's exact
- * game chance and realised strength gain, adjusted by the one account-wide
- * synergy judgement.
+ * `docs/RELIC-CANONICAL.md` §8 owns this. **Every probability it reads comes
+ * from `relic-power-up-model.ts` and is computed there**, so a verdict and the
+ * chance printed beside it can never come from two different calculations. This
+ * file decides what the numbers mean; it does not produce them.
+ *
+ * The three questions it answers in order: is the pair worth owning at all, can
+ * a duplicate ever pass the copy beside it, and is this attempt where the next
+ * stone should go.
  */
 
 /**
- * The chance a power-up succeeds at each level, `+0` through `+14`.
- *
- * `relicPowerUpRates` in `relic-properties.ts` is the game's published table and
- * the default everywhere. The recursions still take the curve as an argument so
- * a check can drive them with a different one — `verify:relic-maths` does — and
- * so a future change to the game's own figures moves fifteen numbers and
- * nothing else.
+ * Re-exported so that `relic-power-up-model.ts` stays the one place these are
+ * defined while existing importers keep working. New code should import them
+ * from the model directly — that is where their documentation lives.
  */
-export type RelicSuccessRates = readonly number[];
-
-/**
- * The chance a relic ever reaches `target`.
- *
- * An attempt has two outcomes and only two: it succeeds and the level goes up,
- * or it fails and a durability goes down. So with `p(l)` the success chance at
- * level `l`,
- *
- * ```
- * P(target, d) = 1                                  already there
- * P(l, 0)      = 0            for l < target        no attempts left, ever
- * P(l, d)      = p(l)·P(l + 1, d) + (1 − p(l))·P(l, d − 1)
- * ```
- *
- * That recursion is the whole calculation, and it is exact — not an
- * approximation of one. The closed form is a sum over every way to distribute
- * at most `d − 1` failures across the remaining levels, which agrees with it
- * term for term and is far easier to get wrong; the table below is also the
- * form that keeps working if the game ever changes the ceiling or the
- * durability a relic starts with.
- *
- * Filled in ascending durability, and within a durability from `target`
- * downwards, so every cell it reads has already been written.
- */
-export function relicReachChance(
-  level: number, durability: number, target: number, rates: RelicSuccessRates = relicPowerUpRates,
-): number {
-  if (level >= target) return 1;
-  if (durability <= 0) return 0;
-  let spent: number[] = new Array(target + 1).fill(0);
-  spent[target] = 1;
-  let row = spent;
-  for (let left = 1; left <= durability; left += 1) {
-    row = new Array(target + 1).fill(0);
-    row[target] = 1;
-    for (let from = target - 1; from >= level; from -= 1) {
-      const success = rates[from] ?? 0;
-      row[from] = success * row[from + 1] + (1 - success) * spent[from];
-    }
-    spent = row;
-  }
-  return row[level];
-}
-
-/**
- * What the relic is expected to be worth when it finally stops, as a fraction of
- * a finished one.
- *
- * The same recursion, with the one boundary that `relicReachChance` gets wrong
- * for this question changed. There, a relic that runs out of durability below
- * the ceiling is worth nothing, because it never reached the target. Here it is
- * worth exactly what it became: `3 + level` of a finished relic's 18 points of
- * main property.
- *
- * ```
- * V(15, d) = 1
- * V(l, 0)  = relicStrengthIndex(l, source)
- * V(l, d)  = p(l)·V(l + 1, d) + (1 − p(l))·V(l, d − 1)
- * ```
- *
- * The stopped-relic boundary is where the source stat enters. A relic's two
- * halves grow at different rates — the main property by 6 over the fifteen
- * levels, a unique property reading ATK, DEF or MAX HP by 5, one reading SPD by
- * only 3 — so what a stopped relic is worth depends on which stat its unique
- * property reads. `relic-properties.ts` owns that index.
- *
- * That difference is the whole reason two runs are needed. `P` answers `0` for
- * any relic that runs out of durability on the way, and an exceptional `+12`
- * with nothing left to spend is one of the best things an account can own — so
- * a model that judged on `P` alone would sell it. `V` instead reads its realised
- * two-part strength (75 % for an ATK/DEF/HP-reading +12; about 81.7 % for SPD),
- * and `V(l, d) − V(l, 0)` is what the power-up bar is read from: the published
- * rates (`RELIC-CANONICAL.md` §7.4) leave `P` near zero for everything, so it
- * separates nothing.
- */
-export function relicExpectedStrength(
-  level: number, durability: number, source: RelicSourceStat,
-  rates: RelicSuccessRates = relicPowerUpRates, mainShare?: number,
-): number {
-  let spent: number[] = Array.from(
-    { length: relicMaximumLevel + 1 }, (_, at) => relicStrengthIndex(at, source, mainShare),
-  );
-  let row = spent;
-  for (let left = 1; left <= durability; left += 1) {
-    row = new Array(relicMaximumLevel + 1).fill(0);
-    row[relicMaximumLevel] = 1;
-    for (let from = relicMaximumLevel - 1; from >= 0; from -= 1) {
-      const success = rates[from] ?? 0;
-      row[from] = success * row[from + 1] + (1 - success) * spent[from];
-    }
-    spent = row;
-  }
-  return row[level];
-}
-
-/**
- * The level the relic is expected to stop at, as the mean of the landing
- * distribution. It cannot be read back off `V` any more: the strength index is
- * no longer linear in the level, so inverting it would answer a different
- * question.
- */
-export function relicExpectedLevel(chances: readonly number[]): number {
-  return chances.reduce((mean, chance, at) => mean + chance * at, 0);
-}
-
-/**
- * Where the relic ends up, level by level: the chance it comes to rest at each
- * of `+0` through `+15`.
- *
- * The same recursion a third time, now carrying a whole distribution instead of
- * a single number. A relic stops in exactly one of two ways, which are the two
- * boundaries:
- *
- * ```
- * D(15, d) = all of the mass on +15                    finished
- * D(l, 0)  = all of the mass on +l                     stopped where it stands
- * D(l, d)  = p(l)·D(l + 1, d) + (1 − p(l))·D(l, d − 1)
- * ```
- *
- * `P` and `V` are both readings of this distribution — `P` is its mass on `+15`
- * and `V` its expected normalised strength — and `verify:relic-maths` holds all
- * three to each other.
- * They are still computed separately because each is a scalar recursion and
- * cheaper, and because two recursions written from different boundaries
- * agreeing is a check worth having.
- */
-export function relicFinalLevelChances(
-  level: number, durability: number, rates: RelicSuccessRates = relicPowerUpRates,
-): readonly number[] {
-  const size = relicMaximumLevel + 1;
-  const restingOn = (at: number) => {
-    const mass = new Array<number>(size).fill(0);
-    mass[at] = 1;
-    return mass;
-  };
-  let spent: number[][] = Array.from({ length: size }, (_, at) => restingOn(at));
-  let rows = spent;
-  for (let left = 1; left <= durability; left += 1) {
-    rows = new Array<number[]>(size);
-    rows[relicMaximumLevel] = restingOn(relicMaximumLevel);
-    for (let from = relicMaximumLevel - 1; from >= 0; from -= 1) {
-      const success = rates[from] ?? 0;
-      const climbed = rows[from + 1];
-      const stalled = spent[from];
-      rows[from] = climbed.map((chance, at) => success * chance + (1 - success) * stalled[at]);
-    }
-    spent = rows;
-  }
-  return rows[level];
-}
-
-/**
- * The expected account-wide strength a duplicate can add beyond the copy the
- * account already owns. Landing below or level with that incumbent adds
- * nothing; every higher landing adds only its excess.
- */
-export function relicDuplicateMarginalStrength(
-  chances: readonly number[], incumbentLevel: number, source: RelicSourceStat,
-): number {
-  const incumbent = relicStrengthIndex(incumbentLevel, source);
-  return chances.reduce((gain, chance, level) =>
-    gain + chance * Math.max(0, relicStrengthIndex(level, source) - incumbent), 0);
-}
-
-export type RelicLanding = {
-  /** The level the relic lands on or above at least half the time. */
-  level: number;
-  /** The chance of landing at least there — at least a half, by construction. */
-  chance: number;
-  /** The single likeliest landing level, and its own chance. */
-  likeliest: { level: number; chance: number };
-};
-
-/**
- * Where the relic comes to rest, read two ways.
- *
- * `likeliest` is the distribution's **mode** — the single outcome with the most
- * mass on it. It is the literal answer to "which level is it most likely to
- * land on", and it is a poor column on its own: for any relic with durability
- * left it is `+15`, because `+15` absorbs every path that gets there while the
- * fourteen intermediate levels split what is left between them. Its probability
- * is then exactly `P(l, d)`, which the table already shows one column earlier.
- *
- * `level` is the **median**, and it is what the table prints: the level the
- * relic reaches or beats half the time. It answers the same question without
- * collapsing — a `+9` with two attempts reads `+14`, a fresh relic with three
- * reads `+10`, a spent one reads where it stands — and it stays a whole level,
- * which a mean does not. `chance` travels with it because a median is a
- * statement about a tail, and the tail is never exactly a half.
- */
-export function relicLanding(chances: readonly number[]): RelicLanding {
-  let likeliestLevel = 0;
-  let likeliestChance = -1;
-  for (let at = 0; at < chances.length; at += 1) {
-    /* A tie goes to the lower level: two equally likely outcomes are not a
-       reason to report the more flattering one. */
-    if (chances[at] > likeliestChance) {
-      likeliestChance = chances[at];
-      likeliestLevel = at;
-    }
-  }
-  /* Accumulated from the top down, so the first level whose tail reaches a half
-     is the highest level the relic meets or beats half the time. */
-  let tail = 0;
-  let level = 0;
-  let chance = 1;
-  for (let at = chances.length - 1; at >= 0; at -= 1) {
-    tail += chances[at];
-    level = at;
-    chance = tail;
-    if (tail >= 0.5) break;
-  }
-  return { level, chance, likeliest: { level: likeliestLevel, chance: Math.max(likeliestChance, 0) } };
-}
+export {
+  relicDuplicateMarginalStrength, relicExpectedLevel, relicExpectedStrength,
+  relicFinalLevelChances, relicLanding, relicNextAttemptChance, relicReachChance,
+} from './relic-power-up-model';
+export type { RelicLanding, RelicSuccessRates } from './relic-power-up-model';
 
 /**
  * What a band of fit is worth, as a multiplier.
@@ -269,22 +62,106 @@ export const isRelicInvestmentSelectivity = (value: unknown): value is RelicInve
  * The score threshold the slider chooses, as a percentage. It controls how
  * selective the player is about stones; it is not a measure of statistical
  * risk, which is already the game's success chance.
+ *
+ * It decides only among relics the synergy gate has already admitted, and at the
+ * top two stops it is the whole difference between them: both keep every band,
+ * so `Wishful thinking` and `Burn it all` are separated by how good an attempt
+ * has to look before the stones are worth it.
+ *
+ * **These move with `relicMinimumSynergyBands`, never apart from it.** A stop
+ * whose threshold outruns its own gate admits a band and then refuses to spend
+ * on any of it — the setting says Weak is worth keeping and then advises against
+ * every Weak power-up, which is a tier gated twice. The two tables were one stop
+ * out of step when the gate moved down a band and left these behind, and a
+ * middling Weak attempt scoring 75 sat just under a threshold of 80.
  */
 export const relicInvestmentThresholds: Record<RelicInvestmentSelectivity, number> = {
-  1: 180,
-  2: 120,
-  3: 80,
-  4: 50,
+  1: 120,
+  2: 80,
+  3: 50,
+  4: 35,
   5: 20,
 };
 
-/** The same control also gates the minimum synergy band that may be invested. */
+/**
+ * What each stop on the slider is called.
+ *
+ * The number is an index into two tables and nothing a reader can act on: `1`
+ * does not say whether it means more power-ups or fewer, and neither does the
+ * `180%` behind it, which is a score threshold rather than a chance. The names
+ * say the one thing the control decides — how wide a net the account keeps — and
+ * they run in the slider's own direction, narrowest on the left.
+ *
+ * Each name sits over the band `relicMinimumSynergyBands` keeps at that stop,
+ * and the two tables are read together or not at all — a name one stop out of
+ * step promises a fit the gate does not keep.
+ *
+ * **`2` is the ordinary setting, and the names are pitched around it.** It is
+ * where the slider opens and what most accounts should stay on, so it is named
+ * for the judgement it makes rather than for a temperament: only `1` is stricter
+ * than ordinary, and the three above it climb from optimistic to indefensible.
+ * `5` keeps every relic in the game and spends stones on pairs nothing can
+ * redeem; it earns its name and exists so the scale has an end, not because
+ * anyone should sit on it.
+ */
+export const relicInvestmentSelectivityLabels: Record<RelicInvestmentSelectivity, string> = {
+  1: 'Picky',
+  2: 'Balanced',
+  3: 'Optimistic',
+  4: 'Wishful thinking',
+  5: 'Burn it all',
+};
+
+/**
+ * The weakest fit each stop is willing to keep. The gate in `decide` sells
+ * anything below it, and this is the first question asked of every relic.
+ *
+ * **The scale starts at Strong, not Exceptional.** An Exceptional-only stop sold
+ * all but a handful of relics in a real library — including Strong pairs a
+ * cautious player plainly wants to keep — so the most cautious setting was also
+ * the most destructive one, which is not what its name promises. Keeping it
+ * would have cost a sixth stop to say something no player asked for. The two
+ * boldest stops therefore share a band: past Weak the gate has nothing left to
+ * reject, and `relicInvestmentThresholds` is what still separates them.
+ */
 export const relicMinimumSynergyBands: Record<RelicInvestmentSelectivity, RelicSynergyBand> = {
-  1: 'exceptional',
-  2: 'strong',
-  3: 'neutral',
-  4: 'weak',
+  1: 'strong',
+  2: 'neutral',
+  3: 'weak',
+  4: 'poor',
   5: 'poor',
+};
+
+/**
+ * How likely a duplicate must be to pass the copy the account already holds
+ * before its stones are worth spending, by how good the pair is.
+ *
+ * **This gate does not read the slider, and that is the point.** The slider says
+ * how wide a net the account keeps; this asks a question the player has no taste
+ * about — can this relic actually overtake the one beside it? A relic with a
+ * 2 % chance of passing its incumbent is a bad investment at every setting, and
+ * a `+0` challenger facing a `+5` is a good one at every setting. Letting the
+ * slider move these would let a bold setting recommend stones on attempts that
+ * are simply lost.
+ *
+ * Synergy sets the price of admission because it is what the attempt buys. An
+ * Exceptional pair is worth a long shot; a Poor one is worth stones only when
+ * passing is close to certain. The figures are read against the real overtake
+ * chances (`RELIC-CANONICAL.md` §8.4), where a full-durability challenger passes
+ * a `+5` incumbent 82 % of the time, a `+8` 22 %, a `+10` 4.3 % and a `+12`
+ * 0.36 % — so these five thresholds sort duplicates by how high the incumbent
+ * has climbed, which is the thing that actually decides the matter.
+ *
+ * **Exceptional is not exempt.** At 5 % a fresh challenger still tries against
+ * an incumbent up to `+9` and gives up beyond it: against a `+12` it passes
+ * about once in 280 attempts, and no pairing is good enough to make that a plan.
+ */
+export const relicOvertakeThresholds: Record<RelicSynergyBand, number> = {
+  exceptional: 0.05,
+  strong: 0.15,
+  neutral: 0.30,
+  weak: 0.50,
+  poor: 0.70,
 };
 
 export type RelicVerdict = 'power-up' | 'keep' | 'sell';
@@ -321,8 +198,6 @@ const percent = (fraction: number) => {
 };
 const investmentScore = (chance: number, weight: number, strengthGain: number) =>
   100 * chance * weight * strengthGain / relicOrdinaryLevelStrengthGain;
-const nextChance = (relic: Relic, rates: RelicSuccessRates) =>
-  relic.level >= relicMaximumLevel || relic.durability === 0 ? 0 : (rates[relic.level] ?? 0);
 
 /**
  * The whole account's advice at once, because a verdict on one relic depends on
@@ -373,7 +248,7 @@ export function relicAdvice(
       ? null
       : relicReachChance(relic.level, relic.durability, incumbent.level + 1, rates);
 
-    const chance = nextChance(relic, rates);
+    const chance = relicNextAttemptChance(relic.level, relic.durability, rates);
     const score = investmentScore(chance, weight, relicNextLevelStrengthGain(relic.level, relic.unique.definition.per));
     /* A copy that has run out of places is no longer an incumbent this relic can
        be redundant against — §8.1's premise is that one copy already reaches more
@@ -383,7 +258,7 @@ export function relicAdvice(
       && (engravings?.get(incumbent.id) ?? 0) >= relicEngravingLimit;
     advice.set(relic.id, {
       ...decide({
-        weight, chance, score, chances, overtakeChance, incumbent, incumbentIsFull,
+        chance, score, overtakeChance, incumbent, incumbentIsFull,
         relic, threshold, band, minimumBand,
       }),
       reachChance,
@@ -402,14 +277,39 @@ export function relicAdvice(
 /**
  * The decision, in the order the rules outrank each other.
  *
+ * **Synergy is the gate, and it is the first thing asked.** The slider names a
+ * weakest fit the account is willing to hold, and a relic below it is sold
+ * whatever else is true of it — before its level, its durability, its duplicates
+ * or its next attempt are looked at at all. Everything after the gate answers a
+ * different question, and only for relics that got past it: this pair is worth
+ * owning, so is it worth spending stones on?
+ *
+ * The gate used to sit third, and the two rules that outranked it each let a
+ * relic through that the setting had already rejected. A relic below `+3` was
+ * powered up on a pair the account had said it did not want, on the grounds that
+ * those levels are free — they are not. They are certain, which is a different
+ * thing: the rate is 100 %, so no durability is spent, but the stones and gold
+ * are charged exactly as at any other level. At the strictest setting the page
+ * was therefore recommending stones on hopeless relics, which is the one thing
+ * the gate exists to prevent. A relic that could not be powered up at all was
+ * kept for the same reason, filling the account with finished relics of a pair
+ * it had ruled out. Neither exception survives: a bad pairing is bad at every
+ * level, and a guaranteed roll on one is a guaranteed waste.
+ *
  * The next-attempt chance is exact: with durability left, reaching `+l + 1` is
  * precisely the game's published rate at `l`. Its realised strength gain
  * distinguishes an ordinary main-stat level from a unique-property tier. The
  * synergy multiplier turns that expected gain into a score for choosing where
  * scarce stones go; it must not be described as a probability.
  *
- * **The duplicate rule has one exception, and the 150-monster limit is what
- * created it.** §8.1 sells a same-pair copy that cannot expect to pass the one
+ * **Two gates run before any of that, and neither reads the slider's score.**
+ * The synergy gate asks whether the pair is worth owning; the duplicate gate
+ * asks whether a second copy of a pair can ever pass the first. Only a relic
+ * that is worth owning and is not a hopeless duplicate reaches the question the
+ * score exists to answer, which is where scarce stones do the most good.
+ *
+ * **The duplicate gate has one exception, and the 150-monster limit is what
+ * created it.** §8.2 sells a same-pair copy that cannot expect to pass the one
  * the account already holds, and the premise underneath that — §1's, that one
  * relic already covers more monsters than an account fields — stopped being true
  * the moment §11 made capacity a constraint the page computes with. A copy
@@ -419,13 +319,11 @@ export function relicAdvice(
  * next attempt, exactly as a relic with no incumbent is.
  */
 function decide({
-  weight, chance, score, chances, overtakeChance, incumbent, incumbentIsFull,
+  chance, score, overtakeChance, incumbent, incumbentIsFull,
   relic, threshold, band, minimumBand,
 }: {
-  weight: number;
   chance: number;
   score: number;
-  chances: readonly number[];
   overtakeChance: number | null;
   incumbent: Relic | null;
   incumbentIsFull: boolean;
@@ -434,6 +332,9 @@ function decide({
   band: RelicSynergyBand;
   minimumBand: RelicSynergyBand;
 }): { verdict: RelicVerdict; reason: string } {
+  if (relicSynergyBandOrder.indexOf(band) > relicSynergyBandOrder.indexOf(minimumBand)) {
+    return { verdict: 'sell', reason: `${relicSynergyBandLabels[band]} fit: below threshold.` };
+  }
   if (relic.level >= relicMaximumLevel || relic.durability === 0) {
     if (incumbent !== null && incumbentIsFull) {
       return { verdict: 'keep', reason: `Other copy is on ${relicEngravingLimit}.` };
@@ -441,19 +342,29 @@ function decide({
     if (incumbent !== null) return { verdict: 'sell', reason: `No power-up; +${incumbent.level} kept.` };
     return { verdict: 'keep', reason: 'Cannot power up.' };
   }
-  if (relic.level < 3) return { verdict: 'power-up', reason: `Free +1: ${percent(chance)}` };
-  if (relicSynergyBandOrder.indexOf(band) > relicSynergyBandOrder.indexOf(minimumBand)) {
-    return { verdict: 'sell', reason: 'Synergy < threshold.' };
-  }
-
+  /* The duplicate gate, and it is asked before the certain level below. A `+0`
+     challenger standing beside a `+12` copy would otherwise be powered up on the
+     strength of a guaranteed level it has no use for: the account already owns
+     that pair three levels higher, and one relic covers more monsters than it
+     fields. The question is not whether this attempt succeeds but whether the
+     relic can ever get past the copy beside it, and the answer does not move
+     with the slider. */
   if (incumbent !== null && !incumbentIsFull) {
     if (incumbent.level >= relicMaximumLevel) return { verdict: 'sell', reason: 'Cannot beat +15.' };
-    const marginalStrength = relicDuplicateMarginalStrength(chances, incumbent.level, relic.unique.definition.per);
-    const duplicateScore = investmentScore(1, weight, marginalStrength);
     const working = `Beat +${incumbent.level}: ${percent(overtakeChance ?? 0)}`;
-    if (duplicateScore >= threshold) return { verdict: 'power-up', reason: working };
+    if ((overtakeChance ?? 0) >= relicOvertakeThresholds[band]) {
+      return { verdict: 'power-up', reason: working };
+    }
     return { verdict: 'sell', reason: working };
   }
+
+  /* Certain, not free. `+0`, `+1` and `+2` each succeed at 100 % and so cost no
+     durability, but the stones and gold are charged at every level — the game's
+     own power-up panel prices a roll the same whether the rate is 100 % or 10 %.
+     A guaranteed level on a pair worth keeping is still the best stone an
+     account can spend, which is why this outranks the score; it is not outside
+     the economy. */
+  if (relic.level < 3) return { verdict: 'power-up', reason: `Sure +1: ${percent(chance)}` };
 
   const working = `Next +1: ${percent(chance)}`;
   if (score >= threshold) return { verdict: 'power-up', reason: working };
