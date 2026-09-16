@@ -13,7 +13,6 @@ export type MonsterTotals = {
   accuracy: number;
 };
 
-type StatKey = keyof MonsterTotals;
 type RuneEffects = {
   hpPercent: number;
   hpFlat: number;
@@ -142,10 +141,6 @@ export function calculateMonsterTotals(monster: RecordLike, accountModifiers: Ac
     resistance: numberValue(monster.resist) + effects.resistance,
     accuracy: numberValue(monster.accuracy) + effects.accuracy,
   };
-}
-
-export function totalStatValue(totals: MonsterTotals, stat: StatKey): string {
-  return totals[stat].toLocaleString('en');
 }
 
 /**

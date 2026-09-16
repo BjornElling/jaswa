@@ -110,9 +110,6 @@ const offered: readonly RuneSetPair[] = buildOfferedPairs();
 /** Every combination a menu offers as a finished row, four-sets first. */
 export const runeSetPairs: readonly RuneSetPair[] = offered;
 
-/** The leading sets a menu opens with: the four-sets, then the two-sets. */
-export const runeSetPairLeaders: readonly string[] = [...fourPieceRuneSets, ...twoPieceRuneSets];
-
 /** The combinations that lead with one set, for the menu's second column. */
 export function runeSetPairsLedBy(leading: string): readonly RuneSetPair[] {
   return offered.filter((entry) => entry.leading === leading);

@@ -43,14 +43,6 @@ const file = collaborationSpeciesData as CollaborationSpeciesFile;
 
 export const collaborationSpecies = file.species;
 
-/**
- * Collaboration monsters whose generic counterpart the game has released but the
- * catalogue does not carry yet, so there is nothing to pair them with. Recorded
- * rather than left unsaid: a catalogue sync that adds them is then noticed by the
- * verifier instead of passing silently.
- */
-export const pendingCollaborationMonsters = file.pending;
-
 const speciesByMember: Record<string, string> = {};
 for (const [speciesId, entry] of Object.entries(file.species)) {
   for (const member of entry.members) speciesByMember[member] = speciesId;

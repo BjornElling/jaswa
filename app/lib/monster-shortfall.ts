@@ -295,22 +295,3 @@ export function monsterShortfalls(
     ...statShortfalls(resolved, totals),
   ];
 }
-
-/**
- * The count per panel, for a summary that must not resize as the numbers change
- * (`AGENTS.md` §2). Always all four keys and always a number: a panel with
- * nothing to check reads `0`, where an absent key would make every caller decide
- * for itself what missing means.
- */
-export function shortfallCounts(shortfalls: readonly Shortfall[]): {
-  runes: number; artifacts: number; relics: number; stats: number;
-} {
-  const counts = { runes: 0, artifacts: 0, relics: 0, stats: 0 };
-  for (const shortfall of shortfalls) {
-    if (shortfall.kind.startsWith('rune')) counts.runes += 1;
-    else if (shortfall.kind.startsWith('artifact')) counts.artifacts += 1;
-    else if (shortfall.kind.startsWith('relic')) counts.relics += 1;
-    else counts.stats += 1;
-  }
-  return counts;
-}

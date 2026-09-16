@@ -19,11 +19,3 @@
 export const qualityTiers = ['Normal', 'Magic', 'Rare', 'Hero', 'Legend'] as const;
 
 export type QualityTier = typeof qualityTiers[number];
-
-/**
- * Whether a value is one of the five tiers. Used where a tier arrives from
- * outside the type system — stored preferences, a parsed file.
- */
-export function isQualityTier(value: unknown): value is QualityTier {
-  return typeof value === 'string' && (qualityTiers as readonly string[]).includes(value);
-}

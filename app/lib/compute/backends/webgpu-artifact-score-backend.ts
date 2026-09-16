@@ -1,6 +1,6 @@
 import { artifactPropertyAvailability, scoredArtifactProperties } from '../artifact-score-schema';
 import type { ArtifactScoreRequest } from '../artifact-score-protocol';
-import { artifactScoreGpuLayout, artifactScoreShader } from '../webgpu/artifact-score-shader';
+import { artifactScoreShader } from '../webgpu/artifact-score-shader';
 import type { ArtifactScoreBackend } from './artifact-score-backend';
 
 type GpuBuffer = {
@@ -166,5 +166,3 @@ export class WebGpuArtifactScoreBackend implements ArtifactScoreBackend {
     return buffer;
   }
 }
-
-export const artifactScoreWebGpuPacking = artifactScoreGpuLayout;

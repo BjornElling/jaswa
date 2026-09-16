@@ -207,8 +207,3 @@ export function readRunes(data: GameRecord | undefined): Rune[] {
   }
   return runes;
 }
-
-/** `Violent · Slot 4`, the short identity every table leads a rune with. */
-export function runeLabel(rune: Rune): string {
-  return `${rune.ancient ? 'Ancient ' : ''}${rune.setName} · Slot ${rune.slot}`;
-}

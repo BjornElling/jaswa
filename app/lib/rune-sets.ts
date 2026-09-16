@@ -80,11 +80,6 @@ export function elementName(attribute: unknown): string | undefined {
   return elementNames[numberValue(attribute)];
 }
 
-/** The single letter shown in the overview's element mark. */
-export function elementMark(attribute: unknown): string {
-  return elementName(attribute)?.slice(0, 1).toUpperCase() ?? '·';
-}
-
 /**
  * The completed sets a monster currently has, most pieces first. Repeating an
  * abbreviation for each completed set keeps a 6-piece Fight build legible as
