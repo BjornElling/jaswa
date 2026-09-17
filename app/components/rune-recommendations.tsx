@@ -13,7 +13,7 @@ import { runeAdvice, runeVerdictLabels, runeVerdictOrder } from '../lib/rune-cle
 import type { RuneVerdict } from '../lib/rune-cleanup-advice';
 import { noReferenceLineMessage, referenceLines } from '../lib/rune-reference-stats';
 import {
-  compareRuneCleanupRows, defaultRuneCleanupSortDirections, runeCleanupSearchText, runeSubText,
+  compareRuneCleanupRows, defaultRuneCleanupSortDirections, runeCleanupSearchText,
 } from '../lib/rune-cleanup-grid';
 import type { RuneCleanupRow, RuneCleanupSortKey } from '../lib/rune-cleanup-grid';
 import type { RunePotentialPreset } from '../lib/rune-potential-presets';
@@ -364,6 +364,3 @@ export function RuneRecommendations({ game, settings, presets }: {
     </p>}
   </div>;
 }
-
-/** Only ordinary six-star runes carry a projection, which the table says outright. */
-export const runeSubSummary = runeSubText;
