@@ -153,6 +153,17 @@ export function TheMathSection() {
           Notice the Accuracy line. The rune rolled far more Accuracy than the role needed, and the surplus earns nothing — which is exactly why a rune stuffed with one good stat does not automatically win.
         </p>
 
+        <h3 className="type-heading">The scale the column prints</h3>
+        <p>
+          That 72 % is the score the verdict is decided on. It is not quite the number in the table, and the reason is worth a paragraph. <b className="type-body-emphasis">The bar a rune actually has to clear is not the slider stop you set.</b> Two corrections further down this page multiply it: how many of that preset&rsquo;s runes you asked for, and the per-slot levelling. At one setting a slot 4 rune is held to 38 % and a slot 3 rune to 80 %.
+        </p>
+        <p>
+          Printing raw fractions against bars you cannot see, and which differ row to row, told you nothing: a slot 3 rune at 75 % was sold while a slot 4 rune at 40 % was kept, and the column offered no explanation. So the figure is stretched onto a scale with two honest fixed points instead — <b className="type-body-emphasis">the quality floor you set is the number you see it sold beneath, and a perfect rune still reads 100 %.</b>
+        </p>
+        <p>
+          <b className="type-body-emphasis">No verdict changes.</b> The stretch only ever moves a number further from or closer to the floor it was already on the right side of. What does change is the order: sorting by Max value now ranks runes by how far past that one floor they got, instead of putting a slot 3 rune above a slot 4 rune that had cleared a much harder bar by more.
+        </p>
+
         <h3 className="type-heading">Chance: will it actually get there?</h3>
         <p>
           A rune below <span className="math-relic-level">+12</span> has upgrades still to come, and where they land is luck. A rune gains a substat roll at <span className="math-relic-level">+3</span>, <span className="math-relic-level">+6</span>, <span className="math-relic-level">+9</span> and <span className="math-relic-level">+12</span> — never at <span className="math-relic-level">+15</span>, which only improves the main stat.
@@ -281,7 +292,7 @@ export function TheMathSection() {
           A rune is checked against <i>every</i> preset and every main-stat combination a preset allows, and the table names the one that suited it best. Crucially, a rune is only sold when <b className="type-body-emphasis">no</b> combination gets it past both gates — so a rune is never rejected because its best-looking match happened to be a long shot.
         </p>
         <p>
-          Only ordinary 6★ runes are judged. Ancient runes roll from a table no source has ever published, so they are listed as <span className="math-table-rolled">Not rated</span> rather than given a number that looks authoritative and is not.
+          Every 6★ rune is judged, Ancient runes included, by the same formula and the same roll table as an ordinary one. There is a caveat you should know, and it runs in your favour: an Ancient rune rolls from a table nobody has published, and it rolls <i>higher</i>. What it already has is read off the export exactly, so its current lines are counted at full value — but the upgrades it has yet to spend are projected at ordinary sizes. <b className="type-body-emphasis">An Ancient rune&rsquo;s Chance is a floor under the real one, never a ceiling over it.</b>
         </p>
       </div>
     </Disclosure>

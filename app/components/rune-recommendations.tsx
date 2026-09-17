@@ -9,11 +9,12 @@ import type { SortableColumn } from './use-sorted-rows';
 import { RangeSlider } from './range-slider';
 import { alignmentClass, runeCleanupTableColumns } from '../lib/table-layouts';
 import { readRunes, runeMaximumLevel, runeStatName, runeSubValue } from '../lib/runes';
+import { numberedMonsterNames } from '../lib/monster-names';
 import { runeAdvice, runeVerdictLabels, runeVerdictOrder } from '../lib/rune-cleanup-advice';
 import type { RuneVerdict } from '../lib/rune-cleanup-advice';
 import { noReferenceLineMessage, referenceLines } from '../lib/rune-reference-stats';
 import {
-  compareRuneCleanupRows, defaultRuneCleanupSortDirections, runeCleanupSearchText,
+  compareRuneCleanupRows, defaultRuneCleanupSortDirections, runeCleanupSearchText, runeSetLabel,
 } from '../lib/rune-cleanup-grid';
 import type { RuneCleanupRow, RuneCleanupSortKey } from '../lib/rune-cleanup-grid';
 import type { RunePotentialPreset } from '../lib/rune-potential-presets';
@@ -83,9 +84,10 @@ const columns: readonly SortableColumn<RuneCleanupRow>[] = (() => {
     column('main', 'Main'),
     column('subs', 'Sub properties'),
     column('level', 'Lv.'),
+    column('location', 'Location'),
     column('preset', 'Best preset'),
-    column('maxValue', <span className="table-heading-two-line" aria-label="Max value: the best end state it can reach">Max<br />value</span>),
-    column('chance', <span className="table-heading-two-line" aria-label="Chance to reach the threshold by +12">Chance</span>),
+    column('maxValue', <span className="table-heading-two-line" aria-label="Max value: the best end state it can reach, where a perfect rune is 100 per cent and the quality floor you set is the bar">Max<br />value</span>),
+    column('chance', <span className="table-heading-two-line" aria-label="Chance to reach the quality floor by +12, or a dash for a rune already at +12">Chance</span>),
     column('advice', 'Advice'),
   ];
 })();
@@ -117,16 +119,12 @@ export function RuneRecommendations({ game, settings, presets }: {
   const [busy, setBusy] = useState(false);
 
   const runes = useMemo(() => readRunes(game?.data), [game]);
+  /* The same names the rest of the workspace uses, numbered where the roster holds
+     more than one of a species, so a Location cell identifies the copy the rune is
+     actually on rather than a species the account owns four of. */
   const monsterNames = useMemo(() => {
-    const names = new Map<string, string>();
     const units = game?.data?.unit_list;
-    if (Array.isArray(units)) {
-      for (const unit of units as GameRecord[]) {
-        const id = unit?.unit_id;
-        if (typeof id === 'number') names.set(String(id), String(unit.unit_master_id ?? id));
-      }
-    }
-    return names;
+    return numberedMonsterNames(Array.isArray(units) ? units as GameRecord[] : []);
   }, [game]);
 
   const base = useMemo(() => {
@@ -149,7 +147,7 @@ export function RuneRecommendations({ game, settings, presets }: {
           advice: advice.get(rune.id) ?? {
             verdict: 'sell', reason: '', maxValue: 0, chance: 0, preset: null, rank: 'broken',
           },
-          wornBy: rune.occupiedId === null ? null : monsterNames.get(rune.occupiedId) ?? rune.occupiedId,
+          location: rune.occupiedId === null ? 'Inventory' : monsterNames[rune.occupiedId] ?? null,
         })),
         at: new Date().toISOString(),
         ms: performance.now() - started,
@@ -171,8 +169,8 @@ export function RuneRecommendations({ game, settings, presets }: {
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
     return rows.filter((row) => {
-      if (!showEquipped && row.wornBy !== null) return false;
-      if (!showStored && row.wornBy === null) return false;
+      if (!showEquipped && row.rune.occupiedId !== null) return false;
+      if (!showStored && row.rune.occupiedId === null) return false;
       if (selectedSets.length && !selectedSets.includes(row.rune.setName)) return false;
       if (selectedSlots.length && !selectedSlots.includes(row.rune.slot)) return false;
       if (selectedVerdicts.length && !selectedVerdicts.includes(row.advice.verdict)) return false;
@@ -312,7 +310,7 @@ export function RuneRecommendations({ game, settings, presets }: {
               >Equipped</FilterButton>
               <FilterButton active={showStored}
                 onClick={() => setFilters((current) => ({ ...current, showStored: !current.showStored }))}
-              >In the box</FilterButton>
+              >Inventory</FilterButton>
             </div>
           </div>
           <FilterSummary visible={visible.length} total={rows.length} noun="runes"
@@ -321,7 +319,7 @@ export function RuneRecommendations({ game, settings, presets }: {
       >
         <tbody>
           {sorted.length ? sorted.map((row) => <tr key={row.rune.id}>
-            <td className={cell('set')}>{row.rune.setName}</td>
+            <td className={cell('set')}>{runeSetLabel(row.rune)}</td>
             <td className={cell('slot')}>{row.rune.slot}</td>
             <td className={cell('main')}>{runeStatName(row.rune.mainStatId) ?? '—'}</td>
             <td className={cell('subs', 'rune-subs')}>
@@ -333,6 +331,10 @@ export function RuneRecommendations({ game, settings, presets }: {
                 </span>)}
             </td>
             <td className={cell('level')}>+{row.rune.level}</td>
+            <td className={cell('location', !row.location && 'muted')}
+              title={row.location === null ? 'Worn by a monster this import does not contain' : undefined}>
+              {row.location ?? 'Unknown monster'}
+            </td>
             <td className={cell('preset', !row.advice.preset && 'muted')}>
               {row.advice.preset?.name ?? '—'}
             </td>
@@ -341,10 +343,16 @@ export function RuneRecommendations({ game, settings, presets }: {
             <td className={cell('maxValue')}>
               {row.advice.preset ? `${Math.round(row.advice.maxValue * 100)} %` : <span className="muted">—</span>}
             </td>
+            {/* A rune at +12 has spent every upgrade it will ever get, so there is
+                nothing left to be uncertain about and no odds to print. A dash says
+                that; "100 %" beside a Keep would invite the reader to compare a
+                settled fact with the gambles in the rows above it. */}
             <td className={cell('chance')}>
-              {row.advice.preset ? `${Math.round(row.advice.chance * 100)} %` : <span className="muted">—</span>}
+              {row.advice.preset && row.rune.level < 12
+                ? `${Math.round(row.advice.chance * 100)} %`
+                : <span className="muted">—</span>}
             </td>
-            <td className={cell('advice')} title={row.wornBy ? `Worn by monster ${row.wornBy}` : 'In the box'}>
+            <td className={cell('advice')}>
               <span className="rune-verdict" data-verdict={row.advice.verdict}>
                 {runeVerdictLabels[row.advice.verdict]}
               </span>

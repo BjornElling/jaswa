@@ -10,6 +10,10 @@
  * which re-derives the chance by Monte Carlo from the game's own loop precisely so
  * that a disagreement is caught.
  *
+ * What this file does *not* decide is the scale the page prints Max value on. That
+ * is `reportedMaxValue()` in `rune-cleanup-advice.ts`, because the anchor it stretches
+ * towards is the user's own quality floor — a policy, and policy lives there.
+ *
  * ## One currency
  *
  * Everything — what a role needs, what a rune brings, what a roll might add — is

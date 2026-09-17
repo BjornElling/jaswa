@@ -147,19 +147,26 @@ export const artifactTableColumns: readonly TableColumn[] = [
  * each other and beside the preset they were measured against, because reading one
  * without the other two says nothing. The sub properties take the widest column:
  * they are what the player is actually judging when they disagree with the verdict.
+ *
+ * Location closes the descriptive half, so the row reads as "this rune, here" before
+ * the judgement begins. It is wide enough for a numbered, element-qualified name
+ * — `DHALSIM (Water) #2` is the shape to fit — because a truncated monster name is
+ * the one thing in that column nobody can act on. Set carries the same obligation in
+ * miniature: it has to fit `Ancient Determination`, not just `Determination`.
  */
 export const runeCleanupTableColumns: readonly TableColumn[] = [
-  { key: 'set', width: '11%', align: 'left' },
+  { key: 'set', width: '12%', align: 'left' },
   { key: 'slot', width: '5%', align: 'center' },
   { key: 'main', width: '8%', align: 'left' },
-  { key: 'subs', width: '24%', align: 'left' },
-  { key: 'level', width: '7%', align: 'right' },
-  { key: 'preset', width: '11%', align: 'left' },
-  { key: 'maxValue', width: '9%', align: 'right' },
-  { key: 'chance', width: '9%', align: 'right' },
+  { key: 'subs', width: '17%', align: 'left' },
+  { key: 'level', width: '6%', align: 'right' },
+  { key: 'location', width: '13%', align: 'left' },
+  { key: 'preset', width: '10%', align: 'left' },
+  { key: 'maxValue', width: '8%', align: 'right' },
+  { key: 'chance', width: '8%', align: 'right' },
   /* A verdict and its chance share this column, and its width is reserved for the
      longest reading so that moving a slider cannot reflow the table. */
-  { key: 'advice', width: '16%', align: 'left' },
+  { key: 'advice', width: '13%', align: 'left' },
 ];
 
 export const relicTableColumns: readonly TableColumn[] = [

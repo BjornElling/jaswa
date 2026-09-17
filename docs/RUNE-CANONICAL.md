@@ -169,7 +169,8 @@ Property-roll til.
 
 ## 7. 6★ almindelige runer: Sub Property-intervaller
 
-Rune Clean-up behandler kun 6★ almindelige runer. Disse
+Rune Clean-up behandler alle 6★-runer, og bruger denne tabel til dem alle —
+også til Ancient-runer, se afsnittet nedenfor om hvorfor og hvad det koster. Disse
 intervaller for én almindelig 6★ Sub Property-værdi er bekræftet mod
 kildetabellen og støttet af +0-runer i den leverede eksport. De gælder både
 for start-roll og for en senere almindelig power-up-roll.
@@ -223,9 +224,26 @@ almindelige modstykker.
 
 **Afventende verificering:** Der er ikke fundet et komplet,
 officiel-/primærkildeverificeret intervalskema for hver Ancient-start-roll.
-Rune Clean-up må derfor ikke vise en numerisk Ancient-ceiling eller
-sammenligne Ancient og almindelige runer på gættede maksimumværdier. Det må
-vise kendte aktuelle stats og markere projektionen som ikke tilgængelig.
+
+**Besluttet 17. september 2026: Rune Clean-up bedømmer alligevel Ancient-runer, og
+gør det med den almindelige 6★-tabel ovenfor — samme formel, samme shares, samme
+ceiling, samme gates.** Den tidligere regel her — at værktøjet ikke måtte vise en
+numerisk Ancient-projektion — efterlod en rune, som importen læste og talte med, men
+som ingen beregning kunne bruge. `AGENTS.md` §0.1 stiller *usynlig* under *afvist*,
+og markeringen `Not rated: Ancient` var i praksis det første.
+
+Beslutningen er en tilnærmelse, og den står navngivet her frem for at blive gemt:
+**runens nuværende linjer er eksakte, dens fremtidige er undervurderede.** Værdierne
+i eksporten tælles som de står, så en Ancient HP %-linje på 10 tæller som 1,25 max
+rolls og prissættes for dét den er. De power-ups, runen endnu ikke har brugt,
+fremskrives derimod med de almindelige intervaller, som er lavere end dem spillet
+ruller med. En Ancient-runes Chance er altså et **gulv under** den sande, aldrig et
+loft over den: fejlen peger mod at beholde en rune, aldrig mod at sælge den.
+
+Dette er ikke en licens til at gætte et Ancient-intervalskema. Findes skemaet, er
+tallene ovenfor stadig dem, der skal erstattes — `craftValueRange` har fortsat ingen
+Ancient-tabel at tilbyde, og gem/grindstone-krediteringen bruger derfor også de
+almindelige intervaller.
 
 ## 8. Enchanted Gems og Grindstones
 

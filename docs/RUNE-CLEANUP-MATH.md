@@ -133,6 +133,54 @@ because each stat's contribution `min(rolls, share)` is concave.
 **`ceiling` is per slot and per build, so Max value is a within-build reading.** §9 is
 careful never to use it to choose between builds without also applying the chance gate.
 
+### Ancient runes
+
+**An Ancient rune goes through all of the above unchanged** — same shares, same
+ceiling, same roll table, same gates. It was listed as *Not rated* until September
+2026, on the ground that no source tabulates the table it rolls from
+(`RUNE-CANONICAL.md` §7). That left a rune the import read, counted and could then use
+in no calculation, which `AGENTS.md` §0.1 puts below rejecting it outright.
+
+The decision taken instead is stated rather than hidden, because it is an
+approximation: **its current lines are exact and its future ones are understated.**
+`supply` reads the values the export states, so a 10 % HP line on an Ancient rune
+simply counts as 1.25 max rolls and is priced at what it is. The projection of the
+upgrades it has not spent yet uses the ordinary ranges, which are lower than the ones
+the game will roll. So an Ancient rune's Max value is right on what it holds, and its
+Chance is a **floor under** the true one rather than a ceiling over it — the error
+runs towards keeping a rune, never towards selling one.
+
+The craft-item ranges are the ordinary ones too, since `craftValueRange` has no Ancient
+table to offer either.
+
+### The scale the column prints
+
+`fill / ceiling` is the score the gates are decided on. It is **not** the number the
+table shows, because the bar a rune faces is not the slider's stop: §8 multiplies that
+stop by the wanted-count factor and by the slot's own balance, so at one setting slot 4
+is asked for 38 % and slot 3 for 80 %. A column of raw fractions read against invisible,
+unequal bars said nothing — a slot-3 rune at 75 % was sold while a slot-4 rune at 40 %
+was kept.
+
+So the reported figure is anchored at two fixed points, `floor` being the slider's own
+stop and `bar` the rune's own:
+
+```
+reported = value / bar × floor                        when value < bar
+reported = floor + (value − bar)/(1 − bar) × (1 − floor)   otherwise
+```
+
+**The floor you set is the floor you see, and a perfect rune still reads 100 %.** The
+map is strictly increasing and `value ≥ bar` exactly when `reported ≥ floor`, so **no
+verdict moves**; 108,000 judgements across three slider stops and three power-up levels
+were compared before and after and none changed.
+
+The table's *order* does move, because two runes facing different bars are stretched
+differently. That is the point: sorting by Max value used to rank a slot-3 rune above a
+slot-4 rune that had got further past its own much harder bar.
+
+A `bar` at or above 1 is a role no rune can satisfy, and only the first branch exists.
+
 ### Reaching the ceiling from where the rune stands
 
 Remaining events are `{3, 6, 9, 12}` above the current level. **Improvements come
@@ -172,7 +220,7 @@ correctly.
 
 | Slider | What it sets |
 | --- | --- |
-| Rune quality floor | the Max value bar — `[0.41, 0.49, 0.55, 0.62, 0.69]` |
+| Rune quality floor | the Max value bar, and the floor the column prints — `[0.41, 0.49, 0.55, 0.62, 0.69]` |
 | Power-up policy | the Chance bar — `[0.02, 0.08, 0.20, 0.40, 0.70]` |
 | Accepted runes | `[1.00, 0.85, 0.70, 0.55, 0.40]` on a rune the preset only accepts |
 | Broken runes | `[0.80, 0.60, 0.40, 0.20, 0]` on one it names neither way |
@@ -226,8 +274,8 @@ Two known limits, recorded rather than hidden:
 
 In order; the first gate a rune fails is its answer.
 
-1. Not an ordinary 6★ rune → **Not rated**, with the reason named. Ancient runes roll
-   from a table no source publishes (`RUNE-CANONICAL.md` §7).
+1. Not a 6★ rune → **Not rated**, with the star class named. **An Ancient rune is a 6★
+   rune and is judged like any other**, by this same formula — see §5's note on it.
 2. Broken and "Broken runes" set to **No** → **Sell**.
 3. Max value below the floor → **Sell**.
 4. Chance below the policy bar → **Sell**.
@@ -238,7 +286,14 @@ Selecting the highest Max value and then testing its chance would sell a rune wh
 best-looking build was a long shot while a slightly weaker one passed both gates. A rune
 is sold only when **no** preset and build get it past both.
 
-The row prints the chance itself, never the internal score.
+Gates 3 and 4 are asked once, where the candidate is chosen, and the answer is carried
+to the verdict. Re-deriving them from the reported scale would let a rounding disagree
+with the choice actually made.
+
+The row prints the chance itself, never the internal score. **At +12 it prints no
+chance at all.** A rune with no upgrades left has odds of 1 or 0, and at +12 those are
+gate 3 restated — nothing can change the fill it already has — so a dash stands where
+the percentage was, and a rune sold there is told it is below the floor.
 
 ## 10. Adversarial test requirements
 

@@ -7,10 +7,12 @@
  * copy would drift, and two screens would then disagree about the same rune
  * without either being obviously wrong.
  *
- * Only ordinary six-star runes are tabulated. Ancient runes roll higher and no
- * verified table exists for them (§7), so they get no numbers here rather than
- * plausible ones — a merely plausible range would be spent, silently, on every
- * projection the app makes.
+ * Only the ordinary six-star ranges are tabulated, because they are the only ones a
+ * source verifies. An Ancient rune rolls higher and no such table exists for it (§7),
+ * and it is nevertheless projected from these — a decision taken in §7 and paid for
+ * there: what an Ancient rune already holds is read exactly, and what it has yet to
+ * roll comes out low. No plausible-looking Ancient range is invented here, which is
+ * the line that stays.
  */
 import { runeStatIds } from './runes';
 

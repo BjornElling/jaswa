@@ -36,6 +36,9 @@ export const runeVerdictLabels: Record<RuneVerdict, string> = {
  * `scripts/verify-rune-cleanup-calibration.mjs` measures and holds. They are
  * percentages of a perfect rune for the role, so `0.55` means "reaches at least
  * 55 % of what the best possible rune for this preset would".
+ *
+ * **The stop is also the number the column prints as the floor**, because
+ * `reportedMaxValue()` puts every rune on a scale anchored to it.
  */
 export const qualityThresholds: readonly number[] = [0.41, 0.49, 0.55, 0.62, 0.69];
 
@@ -137,6 +140,38 @@ export const slotBalance: Readonly<Record<number, number>> = {
   1: 1.249, 2: 0.842, 3: 1.291, 4: 0.620, 5: 1.118, 6: 0.680,
 };
 
+/**
+ * Max value, on the scale the table prints it in.
+ *
+ * The bar a rune actually faces is not the slider's stop. It is that stop times how
+ * many of the preset's runes are wanted and times the slot's own balance, so at one
+ * setting slot 4 is asked for 38 % and slot 3 for 80 %. Printing the raw
+ * `fill / ceiling` beside bars that are invisible and unequal left the column
+ * unreadable: a slot-3 rune at 75 % was sold while a slot-4 rune at 40 % was kept,
+ * and nothing on screen said why.
+ *
+ * So the figure is reported on a scale with two fixed points instead. **The floor
+ * the user set is the floor the user sees**, whatever the multipliers did to this
+ * rune's own bar, and **a perfect rune still reads 100 %** — piecewise-linear below
+ * the floor and above it.
+ *
+ * **No verdict moves.** The map is strictly increasing in `value` and `value ≥ bar`
+ * exactly when `reported ≥ floor`, so every gate answers what it answered before.
+ *
+ * The table's order does move, because two runes facing different bars are stretched
+ * differently — and that is the point. Sorting by Max value used to rank a slot-3
+ * rune above a slot-4 rune that was further past its own, much harder, bar; now it
+ * ranks by how far past the one floor the user set each rune got.
+ */
+export function reportedMaxValue(value: number, bar: number, floor: number): number {
+  /* A bar of zero would divide; it cannot arise from the multipliers, and a rune
+     facing no bar at all has cleared it. A bar at or above 1 is a role no rune can
+     satisfy, and then only the stretch below the floor exists. */
+  if (bar <= 0) return 1;
+  if (bar >= 1 || value < bar) return value / bar * floor;
+  return floor + (value - bar) / (1 - bar) * (1 - floor);
+}
+
 /** The share steps a preset can be set to, as plain multipliers. */
 const shareFactors: readonly number[] = [0.1, 0.2, 1 / 3, 0.5, 1, 2, 3, 5, 10];
 
@@ -147,7 +182,7 @@ export type RuneAdvice = {
   verdict: RuneVerdict;
   /** The chance itself, as the row prints it — never the internal score. */
   reason: string;
-  /** `0`–`1`, after every discount and multiplier. */
+  /** `0`–`1`, after every discount and on `reportedMaxValue()`'s scale. */
   maxValue: number;
   /** `0`–`1`: the chance of reaching the bar by +12. */
   chance: number;
@@ -202,13 +237,21 @@ export function runeAdvice(
 
   const advice = new Map<string, RuneAdvice>();
   for (const rune of runes) {
-    /* Only ordinary six-star runes have a verified roll table. An Ancient rune is a
-       six-star rune the game rolls higher and no source has tabulated (§7), so it
-       gets no projection rather than a plausible one. */
-    if (rune.ancient || rune.stars !== 6) {
+    /* **An Ancient rune is judged exactly as an ordinary six-star rune is**, by the
+       same formula, the same shares and the same roll table. It used to be listed as
+       Not rated, because the game rolls it from a table no source has tabulated
+       (`RUNE-CANONICAL.md` §7) — but a rune that is imported, counted, and can then
+       appear in no calculation is invisible, which `AGENTS.md` §0.1 puts below being
+       rejected outright. Judging it on the ordinary table is the decision taken
+       instead, and it is a *conservative* one in a way worth knowing: its lines are
+       counted at the value the export states, so what it already has is read exactly,
+       while its remaining upgrades are projected from the ordinary ranges and so come
+       out lower than the game will actually roll. An Ancient rune's Chance is a floor
+       under the real one, never a ceiling over it. */
+    if (rune.stars !== 6) {
       advice.set(rune.id, {
         verdict: 'keep', maxValue: 0, chance: 0, preset: null, rank: 'broken',
-        reason: rune.ancient ? 'Not rated: Ancient' : `Not rated: ${rune.stars}★`,
+        reason: `Not rated: ${rune.stars}★`,
       });
       continue;
     }
@@ -248,10 +291,17 @@ export function runeAdvice(
 
     /* Best first, so the strongest candidate that also clears the chance bar wins,
        and so a rune that clears nothing still reports its best showing rather than
-       an arbitrary one. */
+       an arbitrary one.
+
+       On the **raw** value, deliberately, not on `reportedMaxValue`'s scale. Which
+       preset a rune is credited to is what §8's multipliers were solved against, and
+       ranking candidates by distance-above-their-own-bar instead would be a different
+       policy wearing a presentation change's clothes. The scale is applied to the
+       winner, once it has been chosen. */
     candidates.sort((left, right) => right.value - left.value);
-    let chosen: { value: number; chance: number; preset: RunePotentialPreset | null; rank: MatchRank } | null = null;
-    let fallback: { value: number; chance: number; preset: RunePotentialPreset | null; rank: MatchRank } | null = null;
+    type Answer = { value: number; bar: number; chance: number; preset: RunePotentialPreset; rank: MatchRank };
+    let chosen: Answer | null = null;
+    let fallback: Answer | null = null;
     for (const candidate of candidates) {
       const line = base.get(candidate.preset.type);
       if (!line) continue;
@@ -269,20 +319,25 @@ export function runeAdvice(
           gem: creditValue(gemStat, 'gem', settings.gemGrade, settings.enchantedGems), grind: credit.grind,
         }, true);
       if (!outcome) continue;
-      const answer = { value: candidate.value, chance: outcome.chance, preset: candidate.preset, rank: candidate.rank };
+      const answer = {
+        value: candidate.value, bar: candidate.bar, chance: outcome.chance,
+        preset: candidate.preset, rank: candidate.rank,
+      };
       if (fallback === null) fallback = answer;
+      /* §9's gates 3 and 4, and the only place they are asked. `decide` is told the
+         answer rather than re-deriving it, so a rounding in the reported scale can
+         never disagree with the candidate that was actually chosen. */
       if (passesValue && outcome.chance >= chanceBar) { chosen = answer; break; }
     }
 
     const result = chosen ?? fallback;
     advice.set(rune.id, decide({
       rune,
-      value: result?.value ?? 0,
+      value: result === null ? 0 : reportedMaxValue(result.value, result.bar, qualityBar),
       chance: result?.chance ?? 0,
       preset: result?.preset ?? null,
       rank: result?.rank ?? 'broken',
-      qualityBar: chosen ? 0 : (candidates[0]?.bar ?? qualityBar),
-      chanceBar: chosen ? 0 : chanceBar,
+      cleared: chosen !== null,
       brokenRejected: broken === 0,
     }));
   }
@@ -298,13 +353,14 @@ export function runeAdvice(
  * rune nothing wants. Asking about its ceiling first would let quality overturn a
  * choice the user has already made.
  *
- * Then the ceiling, then the chance. The order matters: a rune that cannot reach the
- * bar however lucky it gets should be sold for that reason, not for having a low
- * chance of something it could never do anyway.
+ * The ceiling and the chance — §9's gates 3 and 4, in that order, because a rune
+ * that could never reach the bar should be sold for that rather than for the odds of
+ * something it could not do anyway — are answered in `runeAdvice` where the
+ * candidate is chosen, and arrive here as `cleared`.
  */
-function decide({ rune, value, chance, preset, rank, qualityBar, chanceBar, brokenRejected }: {
+function decide({ rune, value, chance, preset, rank, cleared, brokenRejected }: {
   rune: Rune; value: number; chance: number; preset: RunePotentialPreset | null; rank: MatchRank;
-  qualityBar: number; chanceBar: number; brokenRejected: boolean;
+  cleared: boolean; brokenRejected: boolean;
 }): RuneAdvice {
   const base = { maxValue: value, chance, preset, rank };
   if (preset === null) {
@@ -313,11 +369,12 @@ function decide({ rune, value, chance, preset, rank, qualityBar, chanceBar, brok
   if (rank === 'broken' && brokenRejected) {
     return { ...base, verdict: 'sell', reason: 'Broken: not wanted' };
   }
-  if (value < qualityBar) {
-    return { ...base, verdict: 'sell', reason: percent(chance) };
-  }
-  if (chance < chanceBar) {
-    return { ...base, verdict: 'sell', reason: percent(chance) };
+  /* A rune at +12 has no upgrades left, so it has no odds to quote: its chance is
+     1 or 0, and at +12 that is the ceiling gate restated, since nothing can change
+     the fill it already has. Printing "0 %" there would dress a certainty as a
+     gamble, so the row says what happened instead. */
+  if (!cleared) {
+    return { ...base, verdict: 'sell', reason: rune.level >= 12 ? 'Below the floor' : percent(chance) };
   }
   return {
     ...base,
