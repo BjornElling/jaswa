@@ -2,7 +2,7 @@
 
 **Status:** Kanonisk beregningskontrakt for `DMG`, `E.HP`, `E.HP D` og `Eff. %`
 i Rune Clean-up-presets
-**Afhængighed:** `docs/RUNE-POTENTIAL-MATH.md` og `docs/RUNE-CANONICAL.md`  
+**Afhængighed:** `docs/RUNE-CLEANUP-MATH.md` og `docs/RUNE-CANONICAL.md`  
 **Kontrolleret:** 23. august 2026
 
 Dette er det eneste dokument, der fastlægger disse fire metrikker. De bruges
@@ -141,10 +141,10 @@ Hver låste arbejds-preset har en heltalsvægt `0–5` for hver metriks betydnin
 | 4 | Høj prioritet. |
 | 5 | Primært vurderingsgrundlag. |
 
-Vægtene er produktvalg, ikke spilregler. Når Rune Clean-up får sin egentlige
-rulle-/sælg-algoritme, skal den beregne en runs lovlige Current/Ceiling-udfald
-først (som beskrevet i `RUNE-POTENTIAL-MATH.md`) og derefter anvende den valgte
-presets set- og metrikvægte. En manglende metric eller vægt må aldrig få en
+Vægtene er produktvalg, ikke spilregler. Rune Clean-up's rulle-/sælg-algoritme
+beregner nu runens lovlige Max value og dens sandsynlighed for at nå den, som
+beskrevet i `RUNE-CLEANUP-MATH.md`, og anvender derefter den valgte presets set-
+og slotvalg. En manglende metric eller vægt må aldrig få en
 stiltiende default.
 
 ## 8. Kilder og revisionsregel

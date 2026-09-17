@@ -94,18 +94,32 @@ Prefix gør altså den pågældende type utilgængelig som almindelig Sub Proper
 Det indgår i den tilladte statmængde ved både naturlige rolls, Gem og
 Reappraisal.
 
-For almindelige 6★-runer er Prefix-intervallerne:
+For almindelige 6★-runer er Prefix-intervallerne **de samme som Sub Property-
+intervallerne i afsnit 7**:
 
 | Prefix Property | Min | Maks |
 | --- | ---: | ---: |
-| HP + | 53 | 323 |
-| HP %, ATK %, DEF % | 1 % | 8 % |
-| ATK + | 2 | 16 |
-| DEF + | 2 | 15 |
-| SPD | 1 | 6 |
-| CRI Rate | 1 % | 6 % |
-| CRI Dmg | 1 % | 7 % |
-| Resistance, Accuracy | 1 % | 8 % |
+| HP + | 135 | 375 |
+| HP %, ATK %, DEF % | 5 % | 8 % |
+| ATK +, DEF + | 10 | 20 |
+| SPD | 4 | 6 |
+| CRI Rate | 4 % | 6 % |
+| CRI Dmg | 4 % | 7 % |
+| Resistance, Accuracy | 4 % | 8 % |
+
+**Rettet 17. september 2026.** Tabellen stod tidligere med 53–323 for HP +, 2–16 for
+ATK + og 1–8 % for procentstats. De tal er ikke 6★-rækken: de er
+[Spoklands](https://summonerswar.spokland.com/rune/prefix) stjerneuafhængige tabel,
+og [Fandom](https://summonerswar.fandom.com/wiki/Runes) angiver et tredje sæt (52–355
+for HP +, 2–17 for ATK +). Konflikten er afgjort ved måling: 1.530 prefixes på
+almindelige 6★-runer i `Culpa-21822407.json` ligger nøjagtigt inden for
+Sub Property-intervallerne ovenfor og rammer begge endepunkter — HP + 135–375,
+ATK + 10–20, DEF + 10–20, SPD 4–6, procenter 5–8. Ingen observation falder uden for.
+
+En Prefix Property forekommer på **51 %** af almindelige 6★-runer (1.530 af 2.998), og
+andelen afhænger ikke af default grade: 42,9 % ved Rare, 49,5 % ved Hero, 51,6 % ved
+Legend. Com2uS oplyser ingen rate; tallet er en måling, ikke en spilregel, og skal
+efterprøves ved hver spilopdatering.
 
 ## 5. Lovlige Sub Properties pr. slot
 
@@ -163,12 +177,37 @@ for start-roll og for en senere almindelig power-up-roll.
 | Sub Property | Min | Maks |
 | --- | ---: | ---: |
 | HP + | 135 | 375 |
-| HP %, ATK %, DEF % | 4 % | 8 % |
+| HP %, ATK %, DEF % | 5 % | 8 % |
 | ATK +, DEF + | 10 | 20 |
 | SPD | 4 | 6 |
 | CRI Rate | 4 % | 6 % |
 | CRI Dmg | 4 % | 7 % |
 | Resistance, Accuracy | 4 % | 8 % |
+
+**Rettet 17. september 2026: HP %, ATK % og DEF % ruller 5–8 %, ikke 4–8 %.**
+Tabellen stod tidligere med 4 % som gulv. Målt på `Culpa-21822407.json` giver 489
+rene enkeltrul på +0-runer (212 HP %, 132 ATK %, 145 DEF %) **nul** forekomster af
+4 %; under et 4–8-uniformt rul ville sandsynligheden for det være under 10⁻¹⁵.
+[Spoklands 6★-tabel](https://summonerswar.spokland.com/rune/sub-stat) angiver
+ligeledes 5–8 %. De øvrige rækker blev bekræftet uændret ved samme måling.
+
+### Fordelingen inden for et interval
+
+**Et rul er ligefordelt over intervallets hele tal.** Det er verificeret lokalt, ikke
+antaget: Prefix Property er den eneste egenskab, spillerens eget udvalg ikke rører —
+ingen beholder en rune for dens innate — og på en 6★-rune trækker den fra samme
+interval som en Sub Property. På 1.530 målte prefixes giver et χ²-test mod en
+ligefordeling `χ² = 52,97`, `df = 44`, `p = 0,17`, og HP + er ligefordelt over
+135–375 målt på tiendedele (`p = 0,53`). Afgørende er, at den normaliserede
+middelværdi står stille på 0,481 / 0,488 / 0,492 / 0,523 ved +0 / +9 / +12 / +15:
+en stikprøve, udvalget havde forvrænget, ville flytte sig med udvalgspresset.
+
+**Hvilken stattype et rul rammer, er derimod ikke fastlagt.** Hverken hvilken af de
+fire Sub Properties en power-up forbedrer, eller hvilken type en ny Sub Property får,
+er dokumenteret i en officiel kilde, en datamine eller en kontrolleret stikprøve. Det
+sædvanlige `1/4` er en regnekonvention. Ingen stikprøve fra en spillers egen boks kan
+afgøre det, fordi boksen er dét, der overlevede spillerens egne beslutninger — se
+`docs/RUNE-CLEANUP-MATH.md` §2, hvor antagelsen står navngivet.
 
 ### Ancient Runes
 

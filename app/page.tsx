@@ -421,6 +421,7 @@ export default function Home() {
       {page === 'artifact-list' && <Suspense fallback={<WorkspaceLoading />}><ArtifactList game={game} monsters={monsters} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
 
       {page === 'potential' && <Suspense fallback={<WorkspaceLoading />}><RunePotentialSection
+        game={game}
         settings={preferences.runePotential}
         presets={preferences.runePotentialPresets}
         onUpdate={updateRunePotentialSettings}

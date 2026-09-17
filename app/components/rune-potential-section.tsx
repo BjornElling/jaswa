@@ -12,8 +12,9 @@ import {
   withRefreshedMetrics,
 } from '../lib/rune-potential-presets';
 import type { PresetChoice, PresetStatTargets, PresetType, RuneMainStat, RunePotentialPreset } from '../lib/rune-potential-presets';
-import type { ItemGrade, RunePotentialSettings, RunePotentialSortOrder } from '../lib/types';
+import type { ImportedGame, ItemGrade, RunePotentialSettings } from '../lib/types';
 import { presetRuneSetNameList } from '../lib/rune-sets';
+import { RuneRecommendations } from './rune-recommendations';
 
 const potentialStepLabels = {
   powerUpPolicy: [
@@ -65,13 +66,13 @@ const potentialStepLabels = {
   ],
 } as const;
 
-export function RunePotentialSection({ settings, presets, onUpdate, onWritePresets }: {
+export function RunePotentialSection({ game, settings, presets, onUpdate, onWritePresets }: {
+  game: ImportedGame | null;
   settings: RunePotentialSettings;
   presets: RunePotentialPreset[];
   onUpdate: (update: Partial<RunePotentialSettings>) => void;
   onWritePresets: (change: (current: RunePotentialPreset[]) => RunePotentialPreset[]) => void;
 }) {
-  const sortOrders: RunePotentialSortOrder[] = ['Grade', 'Sub Property', 'Sub Property Before Grinding', 'Power-up Lv.', 'Obtained', 'Sub Property Sum', 'Score'];
   const [editing, setEditing] = useState<{ draft: RunePotentialPreset; isNew: boolean } | null>(null);
   const [deleting, setDeleting] = useState<RunePotentialPreset | null>(null);
 
@@ -95,6 +96,12 @@ export function RunePotentialSection({ settings, presets, onUpdate, onWritePrese
       title="Rune Clean-up"
       tagline="Which runes deserve your mana. Set your tolerance for disappointment below." />}
   >
+    {/* The answer first, the controls that shape it underneath. A user opening
+        this page has come for the verdicts, not for the sliders. */}
+    <Disclosure title="Recommendations" sessionKey="rune-potential.recommendations" defaultOpen>
+      <RuneRecommendations game={game} settings={settings} presets={presets} />
+    </Disclosure>
+
     <Disclosure title="Settings" sessionKey="rune-potential.settings">
       <div className="stack">
         <div className="settings-layout">
@@ -185,19 +192,16 @@ export function RunePotentialSection({ settings, presets, onUpdate, onWritePrese
 
         <div className="bar-divide" />
 
-        <div className="filter-columns">
-          <div className="stack tight">
-            <p className="field-legend">Runes to include</p>
-            <CheckboxRow label="Include runes at Lv. 12 and above" checked={settings.includeLevel12Runes}
-              onChange={(checked) => void onUpdate({ includeLevel12Runes: checked })} />
-            <CheckboxRow label="Include runes equipped on monsters" checked={settings.includeEquippedRunes}
-              onChange={(checked) => void onUpdate({ includeEquippedRunes: checked })} />
-          </div>
-          <label className="field field-narrow field-lead"><span>Sort order</span>
-            <Dropdown value={settings.sortOrder} onChange={(event) => void onUpdate({ sortOrder: event.target.value as RunePotentialSortOrder })}>
-              {sortOrders.map((order) => <option key={order}>{order}</option>)}
-            </Dropdown>
-          </label>
+        {/* There is no sort-order setting here any more. The table's own column
+            headers sort it, the way the Relic and Artifact tables already work, so
+            the order is a click where the user is looking rather than a saved
+            preference two panels away from the rows it governs. */}
+        <div className="stack tight">
+          <p className="field-legend">Runes to include</p>
+          <CheckboxRow label="Include runes at Lv. 12 and above" checked={settings.includeLevel12Runes}
+            onChange={(checked) => void onUpdate({ includeLevel12Runes: checked })} />
+          <CheckboxRow label="Include runes equipped on monsters" checked={settings.includeEquippedRunes}
+            onChange={(checked) => void onUpdate({ includeEquippedRunes: checked })} />
         </div>
       </div>
     </Disclosure>

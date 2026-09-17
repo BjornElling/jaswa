@@ -40,7 +40,11 @@ test('Power up, Keep or Sell states the rules the verdicts actually follow', asy
   await page.getByRole('navigation').getByRole('button', { name: 'The Math', exact: true }).click();
   await page.locator('summary').filter({ hasText: 'Power up, Keep or Sell' }).click();
 
-  const tables = page.locator('.math-table-verdicts');
+  /* Scoped to the relic disclosure. Rune Clean-up states its own verdict order in a
+     table of the same kind, and a page-wide locator would have counted it — which is
+     how this check came to fail on a change that had nothing to do with relics. */
+  const relicVerdicts = page.locator('details').filter({ hasText: 'Power up, Keep or Sell' });
+  const tables = relicVerdicts.locator('.math-table-verdicts');
   await expect(tables).toHaveCount(2);
   await expect(tables.first().locator('tbody th')).toHaveText([
     'Picky', 'Balanced', 'Optimistic', 'Wishful thinking', 'Burn it all',

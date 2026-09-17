@@ -1,6 +1,6 @@
 import type {
   ArtifactConversionStoneMode, ArtifactRecalculateMode, ArtifactSettings, DirectImportMode, HelperSession, ImportReport, ImportRoute, ImportedGame, ItemGrade,
-  Preferences, RunePotentialSettings, RunePotentialSortOrder,
+  Preferences, RunePotentialSettings,
 } from './types';
 import { isCurrentMonsterPreferences } from './monster-preferences';
 import { readArtifact } from './artifacts';
@@ -16,10 +16,6 @@ const expectedSections = [
   'unit_list', 'unit_storage_list', 'unit_storage_normal_list', 'runes', 'artifacts', 'relics', 'rune_craft_item_list', 'artifact_crafts', 'inventory_info',
 ] as const;
 const excludedKeys = new Set(['session_key', 'session_key_node']);
-const runePotentialSortOrders: RunePotentialSortOrder[] = [
-  'Grade', 'Sub Property', 'Sub Property Before Grinding', 'Power-up Lv.',
-  'Obtained', 'Sub Property Sum', 'Score',
-];
 
 export const defaultRunePotentialSettings: RunePotentialSettings = {
   powerUpPolicy: 4,
@@ -34,7 +30,6 @@ export const defaultRunePotentialSettings: RunePotentialSettings = {
   keepMoreForLargerSets: false,
   includeLevel12Runes: false,
   includeEquippedRunes: false,
-  sortOrder: 'Power-up Lv.',
 };
 
 /* Half credit is the honest midpoint of §19.6's question, and it reads as
@@ -141,8 +136,7 @@ function isRunePotentialSettings(value: unknown): value is RunePotentialSettings
     && isScale(value.intangibleRunes, 5)
     && typeof value.keepMoreForLargerSets === 'boolean'
     && typeof value.includeLevel12Runes === 'boolean'
-    && typeof value.includeEquippedRunes === 'boolean'
-    && runePotentialSortOrders.includes(value.sortOrder as RunePotentialSortOrder);
+    && typeof value.includeEquippedRunes === 'boolean';
 }
 
 /** Accept only a complete preferences document. */

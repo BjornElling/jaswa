@@ -140,6 +140,28 @@ export const artifactTableColumns: readonly TableColumn[] = [
  * them, because they are the reason the page exists and abbreviating them would
  * turn a verdict back into a puzzle.
  */
+/**
+ * The Rune Clean-up verdict table.
+ *
+ * The two figures the whole page exists for — Max value and Chance — sit beside
+ * each other and beside the preset they were measured against, because reading one
+ * without the other two says nothing. The sub properties take the widest column:
+ * they are what the player is actually judging when they disagree with the verdict.
+ */
+export const runeCleanupTableColumns: readonly TableColumn[] = [
+  { key: 'set', width: '11%', align: 'left' },
+  { key: 'slot', width: '5%', align: 'center' },
+  { key: 'main', width: '8%', align: 'left' },
+  { key: 'subs', width: '24%', align: 'left' },
+  { key: 'level', width: '7%', align: 'right' },
+  { key: 'preset', width: '11%', align: 'left' },
+  { key: 'maxValue', width: '9%', align: 'right' },
+  { key: 'chance', width: '9%', align: 'right' },
+  /* A verdict and its chance share this column, and its width is reserved for the
+     longest reading so that moving a slider cannot reflow the table. */
+  { key: 'advice', width: '16%', align: 'left' },
+];
+
 export const relicTableColumns: readonly TableColumn[] = [
   { key: 'unique', width: '23%', align: 'left' },
   { key: 'main', width: '7%', align: 'left' },

@@ -311,7 +311,7 @@ label[for] {
 }
 
 /* Body emphasis — weight carries priority without changing the family or size. */
-.type-body-emphasis, .monster-name, .slider-choice, .relic-verdict,
+.type-body-emphasis, .monster-name, .slider-choice, .relic-verdict, .rune-verdict,
 .drop-zone.settled strong, .acceleration-adapter b {
   font-family: var(--font-body);
   font-size: var(--type-body);
@@ -5223,3 +5223,74 @@ th.align-center .sort-button { justify-content: center; }
 .import-message { max-height: 96px; overflow: auto; overflow-wrap: anywhere; }
 .import-message:not(:empty) { height: 96px; }
 .import-message:empty { display: none; }
+
+/* --------------------------------------------------------- rune clean-up */
+
+/* The verdict table shares the relic table's vocabulary on purpose: the two
+   answer the same shape of question about two kinds of thing, and a reader who
+   has learned one should not have to learn the other. Only the columns differ. */
+.rune-cleanup-grid { width: 100%; min-width: 0; table-layout: fixed; }
+.rune-cleanup-grid tbody td { height: auto; padding-block: var(--s2); vertical-align: middle; }
+.rune-cleanup-grid td.rune-subs { white-space: normal; }
+
+/* Each sub property is a name and a number that belong together, so the pair
+   never breaks across a line while the four of them wrap freely. */
+.rune-sub {
+  display: inline-flex;
+  gap: var(--s1);
+  align-items: baseline;
+  margin-right: var(--s3);
+  white-space: nowrap;
+}
+.rune-sub-name { color: var(--text-muted); }
+.rune-sub-value { font-variant-numeric: tabular-nums; }
+
+.rune-verdict { display: block; }
+.rune-verdict[data-verdict='power-up'] { color: var(--state-good); }
+.rune-verdict[data-verdict='keep'] { color: var(--text-strong); }
+.rune-verdict[data-verdict='sell'] { color: var(--state-bad); }
+/* Always present and one line high, so moving a slider can replace one reading
+   with another without changing the row's height under the reader. */
+.rune-advice-reason {
+  display: block;
+  min-height: 16px;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: var(--type-label);
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Two rows: what the rune is, then what the program made of it. Search leads the
+   first and the level range the second, so those two are the only groups without
+   an indent rule — the same arrangement as the relic strip above. */
+.rune-filter-strip {
+  grid-template-areas:
+    "search advice slot   set"
+    "level  main   preset usage";
+}
+.rune-filter-strip > .filter-group,
+.rune-filter-strip > .filter-group:nth-child(2n + 1),
+.rune-filter-strip > .filter-group:nth-child(3n + 1),
+.rune-filter-strip > .filter-group:nth-child(4n + 1) {
+  padding-left: var(--s4);
+  border-left: 1px solid var(--line);
+}
+.rune-filter-search { grid-area: search; padding-left: 0 !important; border-left: 0 !important; }
+.rune-filter-level { grid-area: level; padding-left: 0 !important; border-left: 0 !important; }
+.rune-filter-advice { grid-area: advice; }
+.rune-filter-slot { grid-area: slot; }
+.rune-filter-set { grid-area: set; }
+.rune-filter-main { grid-area: main; }
+.rune-filter-preset { grid-area: preset; }
+.rune-filter-usage { grid-area: usage; }
+.rune-filter-status { grid-area: status; }
+
+/* A box holds twenty-two sets and a dozen main properties, so those two groups
+   wrap rather than pushing the strip wider than the table it filters. */
+.rune-filter-set .filter-group-controls,
+.rune-filter-preset .filter-group-controls,
+.rune-filter-main .filter-group-controls { flex-wrap: wrap; }
