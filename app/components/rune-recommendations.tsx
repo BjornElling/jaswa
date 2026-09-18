@@ -7,6 +7,7 @@ import { SortableHeader } from './sortable-table';
 import { useSortedRows } from './use-sorted-rows';
 import type { SortableColumn } from './use-sorted-rows';
 import { RangeSlider } from './range-slider';
+import { TokenChoiceField } from './token-choice-field';
 import { alignmentClass, runeCleanupTableColumns } from '../lib/table-layouts';
 import { readRunes, runeMaximumLevel, runeStatName, runeSubValue } from '../lib/runes';
 import { numberedMonsterNames } from '../lib/monster-names';
@@ -158,12 +159,18 @@ export function RuneRecommendations({ game, settings, presets }: {
 
   const rows = useMemo(() => result?.rows ?? [], [result]);
   const setOptions = useMemo(
-    () => [...new Set(runes.map((rune) => rune.setName))].sort((a, b) => a.localeCompare(b)),
+    () => [...new Set(runes.map((rune) => rune.setName))].sort((a, b) => a.localeCompare(b))
+      .map((name) => ({ value: name, label: name })),
     [runes],
   );
   const mainOptions = useMemo(
-    () => [...new Set(runes.map((rune) => rune.mainStatId))].sort((a, b) => a - b),
+    () => [...new Set(runes.map((rune) => rune.mainStatId))].sort((a, b) => a - b)
+      .map((statId) => ({ value: statId, label: runeStatName(statId) ?? '?' })),
     [runes],
+  );
+  const presetOptions = useMemo(
+    () => presets.map((preset) => ({ value: preset.name, label: preset.name })),
+    [presets],
   );
 
   const visible = useMemo(() => {
@@ -282,13 +289,18 @@ export function RuneRecommendations({ game, settings, presets }: {
             'selectedVerdicts', (verdict) => runeVerdictLabels[verdict], 'rune-filter-advice')}
           {toggleGroup('Slot', 'Filter by slot', slotOptions, selectedSlots,
             'selectedSlots', (slot) => String(slot), 'rune-filter-slot')}
-          {toggleGroup('Set', 'Filter by rune set', setOptions, selectedSets,
-            'selectedSets', (name) => name, 'rune-filter-set')}
-          {toggleGroup('Main', 'Filter by main property', mainOptions, selectedMains,
-            'selectedMains', (statId) => runeStatName(statId) ?? '?', 'rune-filter-main')}
-          {toggleGroup('Preset', 'Filter by best-matching preset',
-            presets.map((preset) => preset.name), selectedPresets,
-            'selectedPresets', (name) => name, 'rune-filter-preset')}
+          {/* Three long vocabularies — twenty-two sets, a dozen main properties, a
+              preset list that grows with use — each answered on one line rather
+              than spelled out in full across the strip. */}
+          <TokenChoiceField label="Set" description="Filter by rune set" empty="Any set"
+            className="rune-filter-set" options={setOptions} chosen={selectedSets}
+            onChange={(next) => setFilters((current) => ({ ...current, selectedSets: next }))} />
+          <TokenChoiceField label="Main" description="Filter by main property" empty="Any main"
+            className="rune-filter-main" options={mainOptions} chosen={selectedMains}
+            onChange={(next) => setFilters((current) => ({ ...current, selectedMains: next }))} />
+          <TokenChoiceField label="Preset" description="Filter by best-matching preset" empty="Any preset"
+            className="rune-filter-preset" options={presetOptions} chosen={selectedPresets}
+            onChange={(next) => setFilters((current) => ({ ...current, selectedPresets: next }))} />
           <div className="filter-group rune-filter-level" role="group" aria-label="Filter by power-up level">
             <span className="filter-label">Level</span>
             <div className="filter-group-controls">
