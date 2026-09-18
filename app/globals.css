@@ -2236,6 +2236,10 @@ label[for] {
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
+/* A calculation that failed is a machine reporting its own state, which is the
+   `--state-*` vocabulary `AGENTS.md` §5 allows. The sentence says what happened
+   on its own; only the colour changes, so nothing around it moves. */
+.calculation-status[data-failed] { color: var(--state-bad); }
 
 /* What the monster wears today, before any advice: the comparison every
    recommendation below is measured against, so it sits between the choice and
