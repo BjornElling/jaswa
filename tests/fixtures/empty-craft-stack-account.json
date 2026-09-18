@@ -1,0 +1,19 @@
+{
+  "unit_list": [
+    { "unit_id": 1, "unit_master_id": 10131, "attribute": 1 }
+  ],
+  "runes": [],
+  "unit_storage_list": [
+    { "unit_master_id": 10131, "quantity": 0, "class": 3 }
+  ],
+  "artifacts": [],
+  "relics": [],
+  "rune_craft_item_list": [
+    {
+      "craft_item_id": 1934114466,
+      "craft_type": 6,
+      "craft_type_id": 150813,
+      "amount": 0
+    }
+  ]
+}

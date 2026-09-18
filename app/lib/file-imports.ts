@@ -206,8 +206,17 @@ function isValidIdentifiedCollection(
    gives: a stack that passes a structural check and then cannot be decoded into
    a kind, a set, a stat and a grade is counted in the account total and absent
    from the box list — invisible, which is worse than rejected. */
+function isEmptyCraftRecord(record: GameRecord): boolean {
+  /* The game leaves an emptied stack in the account response after its last
+     item is spent. It is not an owned item, so it must disappear at the import
+     boundary; first check the record with a positive amount so a malformed zero
+     record cannot use this cleanup path to bypass the craft reader. */
+  return record.amount === 0
+    && readCraftItem({ ...record, amount: 1 }) !== null;
+}
+
 function isValidCraftRecord(record: GameRecord): boolean {
-  return readCraftItem(record) !== null;
+  return readCraftItem(record) !== null || isEmptyCraftRecord(record);
 }
 
 function isValidRuneRecord(record: GameRecord): boolean {
@@ -226,6 +235,19 @@ function isValidStorageRecord(record: GameRecord): boolean {
   return validMasterId && validQuantity && validGrade;
 }
 
+function isEmptyStorageRecord(record: GameRecord): boolean {
+  /* Summoned Shrine uses the same stack convention as craft inventory: the
+     game can answer with the last stack at zero before it drops the row. It is
+     not an owned monster, but its identity and optional grade still need to be
+     real before the import removes it. */
+  return record.quantity === 0
+    && isValidStorageRecord({ ...record, quantity: 1 });
+}
+
+function isValidImportedStorageRecord(record: GameRecord): boolean {
+  return isValidStorageRecord(record) || isEmptyStorageRecord(record);
+}
+
 function validateAccountCollections(value: GameRecord): string | undefined {
   if (!isValidIdentifiedCollection(value.unit_list, 'unit_id')) {
     return 'This file contains an invalid monster collection.';
@@ -233,7 +255,7 @@ function validateAccountCollections(value: GameRecord): string | undefined {
   if (!isValidIdentifiedCollection(value.runes, 'rune_id', isValidRuneRecord)) {
     return 'This file contains a rune JASWA cannot read.';
   }
-  if (value.unit_storage_list !== undefined && !isValidIdentifiedCollection(value.unit_storage_list, 'unit_master_id', isValidStorageRecord)) {
+  if (value.unit_storage_list !== undefined && !isValidIdentifiedCollection(value.unit_storage_list, 'unit_master_id', isValidImportedStorageRecord)) {
     return 'This file contains a sealed-shrine monster JASWA cannot read.';
   }
   if (value.unit_storage_normal_list !== undefined && !isValidIdentifiedCollection(value.unit_storage_normal_list, 'unit_id')) {
@@ -327,7 +349,8 @@ function completeEquipmentCollections(data: GameRecord): GameRecord {
     runes: complete('runes'),
     artifacts: complete('artifacts'),
     relics: complete('relics'),
-    rune_craft_item_list: recordCollection(data.rune_craft_item_list),
+    rune_craft_item_list: recordCollection(data.rune_craft_item_list)
+      .filter((record) => !isEmptyCraftRecord(record)),
   };
   /* These two account collections are not yet separate workspaces, but live
      import still keeps them current so a later workspace never starts from a
@@ -335,6 +358,10 @@ function completeEquipmentCollections(data: GameRecord): GameRecord {
      remains the user's empty answer. */
   if (hasCollection(data.artifact_crafts)) {
     prepared.artifact_crafts = recordCollection(data.artifact_crafts);
+  }
+  if (hasCollection(data.unit_storage_list)) {
+    prepared.unit_storage_list = recordCollection(data.unit_storage_list)
+      .filter((record) => !isEmptyStorageRecord(record));
   }
   if (hasCollection(data.inventory_info)) {
     prepared.inventory_info = recordCollection(data.inventory_info);

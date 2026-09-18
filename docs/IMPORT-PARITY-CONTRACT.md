@@ -36,6 +36,10 @@ count and makes the filtering explicit.
 
 - An account entity must have a positive stable identifier. Zero, missing, and
   placeholder identifiers are not owned entities.
+- A count-bearing stack with a valid identity and an amount of zero is an empty
+  game remainder, not an owned entity. It may pass the shape check so a live
+  response cannot reject the whole account, but it is removed before storage;
+  malformed zero records still fail the import.
 - Account-level and equipped copies are merged by their stable identifier.
   Runes and artifacts are counted once even when the export carries both copies;
   relics are counted once because the game permits one relic to be referenced by

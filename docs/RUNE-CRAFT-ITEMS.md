@@ -97,12 +97,14 @@ revision rule; a client observation wins if the game changes it.
 
 ## 4. Parity
 
-`validateGameFile` reads every craft record through `readCraftItem` and every
-rune through `readRune`, so the collection the account badge counts and the
-collection the box list shows are the same collection. This is `AGENTS.md` §0.1
-part 3 applied: a stack that passes a structural check and then cannot be
-decoded into a kind, a set, a stat and a grade would be counted and invisible,
-which is worse than rejected. On the delivered export both readers accept
+`validateGameFile` reads every positive craft stack through `readCraftItem` and
+every rune through `readRune`, so the collection the account badge counts and
+the collection the box list shows are the same collection. The game does leave
+an otherwise valid craft record with `amount: 0` after its last item is spent;
+that is an empty stack, not an owned item, and the import removes it before the
+record is stored. Any non-empty record that cannot be decoded into a kind, a
+set, a stat and a grade still fails loudly under `AGENTS.md` §0.1 part 3 rather
+than becoming an invisible row. On the delivered export both readers accept
 everything — 826 of 826 stacks, 3,242 of 3,242 runes.
 
 `npm run verify:rune-craft-items` pins section 1, section 2 and the placement

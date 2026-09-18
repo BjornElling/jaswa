@@ -9,6 +9,11 @@ monsters, runes, craft items, artifacts, and relics. A response record with a
 zero, missing, or placeholder identifier is not an owned record and must not
 enter a counted collection.
 
+The game can briefly leave a valid craft or Summoned Shrine stack at quantity
+zero after its last item is spent. The import validates its identity and shape,
+then removes that empty remainder before the profile is stored; it does not
+turn an otherwise healthy live account into an unreadable one.
+
 JASWA treats a successful game response as an account mutation when it carries
 an owned record. The live route is deliberately broader than a command allow
 list: it recognises the stable record shapes and the account's `wizard_id`, so
