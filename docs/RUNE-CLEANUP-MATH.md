@@ -56,6 +56,14 @@ target stat, the effect id is illegal on the slot, or it duplicates an effect id
 game forbids. Set and main-stat preferences determine preferred, acceptable and broken
 rank; they do not turn a wanted substat off when a local arithmetic target is met.
 
+**A slot the preset names no main stat for accepts every main that slot allows, at
+the broken rank.** This is the canonical reading. Leaving a slot blank means the role
+has no preference there, not that it refuses to judge runes in it — a preset that
+states slots 4 and 6 and leaves slot 2 blank still judges slot-2 runes, and they take
+the broken main rank because nothing was preferred. The opposite reading would make a
+rune the preset wants report "No preset can use it" because of a slot it does not
+mention, which is the invisible failure `AGENTS.md` §0.1 forbids.
+
 ## 4. Value and Max value
 
 For every compatible preset/build, the model sums every current relevant line,

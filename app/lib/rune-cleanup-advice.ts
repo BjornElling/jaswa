@@ -169,7 +169,13 @@ export function runeAdvice(
          to eight times. */
       const build = (builds.get(preset.id) ?? []).find((candidate) => {
         if (rune.slot !== 2 && rune.slot !== 4 && rune.slot !== 6) return true;
-        return candidate.mains[rune.slot] === rune.mainStatId;
+        /* A slot the preset says nothing about accepts every main the slot allows,
+           at the broken rank — `presetBuilds` emits `0` for exactly that, and
+           `judgeAgainstBuild`'s guard honours it. This finder used to demand an
+           exact match and so skipped the preset outright, which made a rune the
+           preset wants report "No preset can use it" purely because the user left
+           a different slot blank. */
+        return candidate.mains[rune.slot] === rune.mainStatId || candidate.mains[rune.slot] === 0;
       });
       if (!build) continue;
       const prepared = prepareRuneCandidate(rune, preset, build, line, credit, scope);
