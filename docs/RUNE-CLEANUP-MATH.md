@@ -132,6 +132,14 @@ verdict, reason, preset, rank and Max value — to bit equality across a change.
 
 ## 7. Verdict and finite preset allocation
 
+The population judged is the one `RunePotentialSettings.includeLevel12Runes` and
+`includeEquippedRunes` define, applied before the engine is entered. Both open
+included. A rune the user excludes is not judged and takes no place in any preset's
+quota, so excluding equipped runes changes the allocation for the runes that remain
+rather than merely hiding rows — the eligible pool and its quotas are global. The
+table's own Equipped/Inventory filter is a separate control applied afterwards and
+changes no figure.
+
 For every build of every preset the engine applies the set/main rank discount, the
 Max-value quality floor, and then the Chance floor. A passing rune is eligible for
 every preset/build it passed. The account is then allocated globally: `runeShare` is

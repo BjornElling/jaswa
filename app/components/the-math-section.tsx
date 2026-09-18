@@ -13,6 +13,9 @@ export function TheMathSection() {
           For every rune you own, JASWA answers one question: <b className="type-body-emphasis">Power up</b>, <b className="type-body-emphasis">Keep</b>, or <b className="type-body-emphasis">Sell</b>. The answer rests on two numbers, and a rune has to satisfy both. <b className="type-body-emphasis">Max value</b> is the best this rune could ever become. <b className="type-body-emphasis">Chance</b> is how likely it is to actually get there.
         </p>
         <p>
+          Every rune you own, unless you say otherwise: <b className="type-body-emphasis">Runes to include</b> in Settings decides the population, and a rune left out of it takes no place in a preset&rsquo;s share either — so excluding your equipped runes does not merely hide them, it hands their places to the runes that remain.
+        </p>
+        <p>
           A rune that could be wonderful but almost certainly will not be is not worth your mana. Neither is a rune that is certain to reach a ceiling that is too low. Both have to clear their bar.
         </p>
 
