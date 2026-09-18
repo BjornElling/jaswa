@@ -190,19 +190,12 @@ export function RunePotentialSection({ game, settings, presets, onUpdate, onWrit
           </aside>
         </div>
 
-        <div className="bar-divide" />
-
-        {/* There is no sort-order setting here any more. The table's own column
-            headers sort it, the way the Relic and Artifact tables already work, so
-            the order is a click where the user is looking rather than a saved
-            preference two panels away from the rows it governs. */}
-        <div className="stack tight">
-          <p className="field-legend">Runes to include</p>
-          <CheckboxRow label="Include runes at Lv. 12 and above" checked={settings.includeLevel12Runes}
-            onChange={(checked) => void onUpdate({ includeLevel12Runes: checked })} />
-          <CheckboxRow label="Include runes equipped on monsters" checked={settings.includeEquippedRunes}
-            onChange={(checked) => void onUpdate({ includeEquippedRunes: checked })} />
-        </div>
+        {/* Neither a sort order nor a population lives here. The table's own
+            column headers sort it and its own filter strip decides which runes
+            are on screen, the way the Relic and Artifact tables already work, so
+            both are a click where the user is looking rather than a saved
+            preference two panels away from the rows it governs. Every rune the
+            import holds is judged; nothing in Settings narrows that. */}
       </div>
     </Disclosure>
 

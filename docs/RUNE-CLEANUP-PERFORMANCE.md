@@ -2605,3 +2605,37 @@ question: not *"does this build agree with the last one"* but *"is the model rig
 needed, and `judgeAgainstBuild` keeps its exported signature — as §11 Stage 5, §13.4 Phase 3
 and §13.4 Phase 5 all require — so the oracle never has to be rewritten in the same commit as
 the model it checks.
+
+### 14.10 The include settings were removed, the same day they were wired up
+
+§9.11 offered two ways to end the contradiction: define the population with the two
+checkboxes, or remove them because they only ever meant presentation. Stage 9 took the
+first. The **second** is what the product wanted, and §9.11's own second option is now
+the answer: `includeLevel12Runes` and `includeEquippedRunes` are gone from
+`RunePotentialSettings`, from the Settings panel and from the page.
+
+What settled it was the first real account to press Calculate after Stage 9. It holds 3,242
+runes — 1,686 equipped and 1,556 in the inventory, 2,088 of them at +12 or above. The table
+answered for 1,147: the inventory runes below +12, and nothing else. The engine was doing
+exactly what the settings said. The settings were the ones §14.7 had just moved to `true`,
+but that account's stored preferences predated the move and still held `false` for both —
+values written while the checkboxes did nothing at all, which is why nobody had ever chosen
+them. Two thirds of a box disappeared from a calculation on the strength of a preference the
+user had never made.
+
+The defaults were not the defect and neither was the wiring. The defect was that scope was a
+saved setting at all. Every rune the import holds is judged now, always; where a rune sits and
+how far it is powered up decide what the table **shows**, through the filter strip that was
+already there and already on. That also removes the trap §9.11 named without weighing: preset
+quotas are global, so a rune held out of the engine hands its place in a preset's share to the
+runes that remain and changes *their* verdicts. A display filter cannot do that. A scope
+setting could, and did.
+
+`RUNE-CLEANUP-MATH.md` §7 now states the population rule rather than the settings, and
+`tests/rune-cleanup-scope.spec.ts` was rewritten against the same fixture to hold the
+distinction: four runes judged including the equipped +15, Settings offering no scope control,
+and hiding the equipped rune changing the rows on screen while the judged count stands.
+
+A stored preference the current form no longer defines is left where it lies rather than
+migrated — `AGENTS.md` §0 — so the dead keys in an existing preferences document are simply
+never read again. Nothing else in that document is disturbed.

@@ -170,13 +170,14 @@ assumed.
 
 ## 7. Verdict and finite preset allocation
 
-The population judged is the one `RunePotentialSettings.includeLevel12Runes` and
-`includeEquippedRunes` define, applied before the engine is entered. Both open
-included. A rune the user excludes is not judged and takes no place in any preset's
-quota, so excluding equipped runes changes the allocation for the runes that remain
-rather than merely hiding rows — the eligible pool and its quotas are global. The
-table's own Equipped/Inventory filter is a separate control applied afterwards and
-changes no figure.
+The population judged is every rune the import holds, and no setting narrows it.
+This is binding, and it follows from the allocation below rather than from
+convenience: the eligible pool and its quotas are global, so a rune withheld from
+the engine would not merely go unanswered — it would hand its place in a preset's
+share to the runes that remain and change their verdicts. A rune equipped on a
+monster and a rune already at +12 are judged like any other. The table's
+Equipped/Inventory buttons and its level range are presentation filters applied
+after the engine has answered, and they change no figure.
 
 For every build of every preset the engine applies the set/main rank discount, the
 Max-value quality floor, and then the Chance floor. A passing rune is eligible for

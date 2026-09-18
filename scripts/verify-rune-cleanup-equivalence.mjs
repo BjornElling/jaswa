@@ -232,8 +232,7 @@ function namedFixtures(random) {
 const baseSettings = {
   powerUpPolicy: 3, runeQuality: 3, enchantedGems: 1, grindstones: 1,
   gemGrade: 'Hero', grindstoneGrade: 'Hero', acceptedRunes: 3, brokenRunes: 3,
-  intangibleRunes: 1, keepMoreForLargerSets: false, includeLevel12Runes: true,
-  includeEquippedRunes: true,
+  intangibleRunes: 1, keepMoreForLargerSets: false,
 };
 
 const shipped = defaultRunePotentialPresets();

@@ -160,28 +160,23 @@ export function RuneRecommendations({ game, settings, presets }: {
   /* The held result, and the settings it answers. A result is kept until the user
      asks for another one, so a slider moved after a calculation leaves the table
      standing and says it is out of date rather than silently changing under them. */
-  const [result, setResult] = useState<
-    { rows: RuneCleanupRow[]; at: string; ms: number; excluded: number } | null>(null);
+  const [result, setResult] = useState<{ rows: RuneCleanupRow[]; at: string; ms: number } | null>(null);
   const [busy, setBusy] = useState(false);
   /* A failed calculation says so and leaves the previous table standing. Clearing
      it would read as "no runes qualify", which is a different and wrong answer. */
   const [failure, setFailure] = useState<string | null>(null);
 
-  const runes = useMemo(() => readRunes(game?.data), [game]);
   /**
-   * The population the user asked to judge.
+   * Every rune the import holds, and the population every calculation judges.
    *
-   * "Runes to include" states the scope of the calculation, not what the table
-   * shows: a rune left out here takes no place in a preset's finite quota, so the
-   * runes that remain are allocated differently — which is the point of excluding
-   * them. The table's own Equipped/Inventory filter is a separate control applied
-   * afterwards, and narrows what is displayed without changing a single figure.
+   * There is no scope setting, and there must not be one: preset quotas are
+   * global, so a rune withheld from the engine does not merely go unanswered, it
+   * hands its place in a preset's share to the runes that remain and changes
+   * their verdicts. Equipped runes and runes at +12 are judged like any other;
+   * whether they are *on screen* is the filter strip's business, and a filter
+   * cannot move a single figure.
    */
-  const judged = useMemo(() => runes.filter((rune) =>
-    (settings.includeLevel12Runes || rune.level < 12)
-    && (settings.includeEquippedRunes || rune.occupiedId === null)),
-  [runes, settings.includeLevel12Runes, settings.includeEquippedRunes]);
-  const excluded = runes.length - judged.length;
+  const runes = useMemo(() => readRunes(game?.data), [game]);
 
   /* The same names the rest of the workspace uses, numbered where the roster holds
      more than one of a species, so a Location cell identifies the copy the rune is
@@ -204,7 +199,7 @@ export function RuneRecommendations({ game, settings, presets }: {
     if (!base) return;
     setBusy(true);
     setFailure(null);
-    const outcome = await calculateRuneAdvice({ runes: judged, presets, settings, base });
+    const outcome = await calculateRuneAdvice({ runes, presets, settings, base });
     /* A newer request has taken over the busy state and the table, so this one
        returns without touching either. */
     if (outcome.status === 'superseded') return;
@@ -212,7 +207,7 @@ export function RuneRecommendations({ game, settings, presets }: {
     if (outcome.status === 'failed') { setFailure(outcome.message); return; }
     const { advice } = outcome;
     setResult({
-      rows: judged.map((rune, index) => ({
+      rows: runes.map((rune, index) => ({
         rune,
         index,
         advice: advice.get(rune.id) ?? {
@@ -222,22 +217,21 @@ export function RuneRecommendations({ game, settings, presets }: {
       })),
       at: new Date().toISOString(),
       ms: outcome.durationMs,
-      excluded,
     });
   }
 
   const rows = useMemo(() => result?.rows ?? [], [result]);
-  /* Offered from the judged population rather than the imported one, so a filter
-     never names a set or a main stat that no row can carry. */
+  /* Offered from the account's own runes, so a filter never names a set or a main
+     stat that no row can carry. */
   const setOptions = useMemo(
-    () => [...new Set(judged.map((rune) => rune.setName))].sort((a, b) => a.localeCompare(b))
+    () => [...new Set(runes.map((rune) => rune.setName))].sort((a, b) => a.localeCompare(b))
       .map((name) => ({ value: name, label: name })),
-    [judged],
+    [runes],
   );
   const mainOptions = useMemo(
-    () => [...new Set(judged.map((rune) => rune.mainStatId))].sort((a, b) => a - b)
+    () => [...new Set(runes.map((rune) => rune.mainStatId))].sort((a, b) => a - b)
       .map((statId) => ({ value: statId, label: runeStatName(statId) ?? '?' })),
-    [judged],
+    [runes],
   );
   const presetOptions = useMemo(
     () => presets.map((preset) => ({ value: preset.name, label: preset.name })),
@@ -343,7 +337,7 @@ export function RuneRecommendations({ game, settings, presets }: {
       <p className="list-count">
         {result
           ? <><b>{visible.length.toLocaleString('en')}</b> of {rows.length.toLocaleString('en')} runes</>
-          : <><b>{judged.length.toLocaleString('en')}</b> runes ready to judge</>}
+          : <><b>{runes.length.toLocaleString('en')}</b> runes ready to judge</>}
       </p>
       <Button tone="primary" onClick={calculate} disabled={busy} busyLabel="Calculating">
         {result ? 'Recalculate' : 'Calculate'}
@@ -354,8 +348,8 @@ export function RuneRecommendations({ game, settings, presets }: {
       ? <section className="empty-state">
         <h2>Nothing calculated yet.</h2>
         <p className="next-step">
-          Press Calculate to judge your runes against every preset. Settings and Presets below decide
-          which runes it judges and what it is looking for.
+          Press Calculate to judge every rune you own against every preset. Settings and Presets below
+          decide what it is looking for.
         </p>
       </section>
       : <DataTablePage
@@ -444,7 +438,10 @@ export function RuneRecommendations({ game, settings, presets }: {
                 }))} />
             </div>
           </div>
-          <div className="filter-group rune-filter-usage" role="group" aria-label="Choose which runes to include">
+          {/* "Where the rune is", not "which runes count": every rune was judged
+              before this strip was reached, and these two buttons decide only
+              which of the answers are on screen. */}
+          <div className="filter-group rune-filter-usage" role="group" aria-label="Filter by where the rune is">
             <span className="filter-label">Where</span>
             <div className="filter-group-controls">
               <FilterButton active={showEquipped}
@@ -520,11 +517,9 @@ export function RuneRecommendations({ game, settings, presets }: {
 
     {(result || failure) && <p className="calculation-status" role="status" data-failed={failure ? '' : undefined}>
       {failure ?? <>
+        {/* Every rune the import holds is judged, so this count is the account's
+            own rune count and nothing can stand between the two. */}
         {rows.length.toLocaleString('en')} runes judged against {presets.length} presets
-        {/* A rune the settings left out is a rune no verdict was reached for, so
-            the count says so rather than letting it go missing quietly. */}
-        {result && result.excluded > 0
-          && <>{' · '}{result.excluded.toLocaleString('en')} not included by your settings</>}
         {' · '}{Math.round(result?.ms ?? 0).toLocaleString('en')} ms
       </>}
     </p>}

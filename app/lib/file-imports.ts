@@ -28,12 +28,6 @@ export const defaultRunePotentialSettings: RunePotentialSettings = {
   brokenRunes: 3,
   intangibleRunes: 1,
   keepMoreForLargerSets: false,
-  /* Both open included, because both narrow what is judged and the page's own
-     promise is to judge the account. They read `false` while nothing read them at
-     all, which meant the defaults had never been exercised; shipping them on is
-     what makes wiring them up change nothing until the user asks for it. */
-  includeLevel12Runes: true,
-  includeEquippedRunes: true,
 };
 
 /* Half credit is the honest midpoint of §19.6's question, and it reads as
@@ -138,9 +132,7 @@ function isRunePotentialSettings(value: unknown): value is RunePotentialSettings
     && isScale(value.acceptedRunes, 5)
     && isScale(value.brokenRunes, 5)
     && isScale(value.intangibleRunes, 5)
-    && typeof value.keepMoreForLargerSets === 'boolean'
-    && typeof value.includeLevel12Runes === 'boolean'
-    && typeof value.includeEquippedRunes === 'boolean';
+    && typeof value.keepMoreForLargerSets === 'boolean';
 }
 
 /** Accept only a complete preferences document. */
