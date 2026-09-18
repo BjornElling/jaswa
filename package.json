@@ -47,6 +47,7 @@
     "verify:monster-defaults": "node scripts/verify-monster-defaults.mjs",
     "verify:rune-cleanup-calibration": "node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs scripts/verify-rune-cleanup-calibration.mjs --quick",
     "verify:rune-cleanup-calibration:large": "node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs scripts/verify-rune-cleanup-calibration.mjs --runes=1000 --share-runes=300 --rollouts=1000 --variant-runes=30",
+    "verify:rune-cleanup-equivalence": "node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs scripts/verify-rune-cleanup-equivalence.mjs",
     "verify:relic-synergy": "node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs scripts/verify-relic-synergy.mjs",
     "verify:relic-maths": "node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs scripts/verify-relic-maths.mjs",
     "verify:relic-monster-plan": "node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs scripts/verify-relic-monster-plan.mjs",
