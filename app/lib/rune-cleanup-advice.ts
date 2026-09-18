@@ -149,6 +149,8 @@ export function runeAdvice(
   type Answer = { value: number; chance: number; priority: number; preset: RunePotentialPreset; rank: MatchRank };
   type Pending = { rune: Rune; fallback: Answer | null; eligible: Answer[] };
   const pending: Pending[] = [];
+  /* Every eligible candidate, by the preset it is eligible for. */
+  const eligibleFor = new Map<string, Array<{ item: Pending; answer: Answer }>>();
   for (const rune of runes) {
     /* Every preset and build this rune could serve, valued but not yet gated.
        Selecting a winner on Max value alone and *then* asking whether its chance
@@ -210,7 +212,18 @@ export function runeAdvice(
         }
       }
     }
-    pending.push({ rune, fallback, eligible: [...eligibleByPreset.values()] });
+    const item: Pending = { rune, fallback, eligible: [...eligibleByPreset.values()] };
+    pending.push(item);
+    /* Indexed as each item is produced rather than rescanned per preset. The
+       allocation below asked `pending` the same question four times over — twice
+       inside a sort comparator, which is where an O(N) scan really does not
+       belong. The index preserves `pending`'s order, and the sorts that read it
+       end in a rune-id tie-break, so nothing about the order can turn on it. */
+    for (const answer of item.eligible) {
+      const list = eligibleFor.get(answer.preset.id);
+      if (list) list.push({ item, answer });
+      else eligibleFor.set(answer.preset.id, [{ item, answer }]);
+    }
   }
 
   /* The rune-share setting is a count preference, not a disguised quality penalty.
@@ -218,7 +231,7 @@ export function runeAdvice(
      presets in those exact relative shares. A rune is assigned only once; roles
      with the smallest candidate pool per requested place go first, so a broad role
      cannot consume the only rune a narrow role could use. */
-  const activePresets = presets.filter((preset) => pending.some((item) => item.eligible.some((answer) => answer.preset.id === preset.id)));
+  const activePresets = presets.filter((preset) => (eligibleFor.get(preset.id)?.length ?? 0) > 0);
   const totalEligible = pending.filter((item) => item.eligible.length > 0).length;
   const requested = new Map(activePresets.map((preset) => [preset.id, shareFactors[preset.runeShare - 1] ?? 1]));
   const totalRequested = [...requested.values()].reduce((sum, value) => sum + value, 0);
@@ -235,16 +248,16 @@ export function runeAdvice(
   for (const item of remainders.slice(0, totalEligible - assignedQuota)) quota.set(item.id, (quota.get(item.id) ?? 0) + 1);
 
   const assignments = new Map<string, Answer>();
-  const allocationOrder = [...activePresets].sort((left, right) => {
-    const leftCapacity = pending.filter((item) => item.eligible.some((answer) => answer.preset.id === left.id)).length / Math.max(1, quota.get(left.id) ?? 0);
-    const rightCapacity = pending.filter((item) => item.eligible.some((answer) => answer.preset.id === right.id)).length / Math.max(1, quota.get(right.id) ?? 0);
-    return leftCapacity - rightCapacity || left.id.localeCompare(right.id);
-  });
+  /* Each preset's candidate pool per requested place, computed once rather than
+     recomputed on every comparison. A key that is a pure function of state the
+     sort cannot change reads the same either way. */
+  const capacity = new Map(activePresets.map((preset) =>
+    [preset.id, (eligibleFor.get(preset.id)?.length ?? 0) / Math.max(1, quota.get(preset.id) ?? 0)]));
+  const allocationOrder = [...activePresets].sort((left, right) =>
+    (capacity.get(left.id) ?? 0) - (capacity.get(right.id) ?? 0) || left.id.localeCompare(right.id));
   for (const preset of allocationOrder) {
-    const candidatesForPreset = pending
-      .filter((item) => !assignments.has(item.rune.id))
-      .map((item) => ({ item, answer: item.eligible.find((answer) => answer.preset.id === preset.id) }))
-      .filter((item): item is { item: Pending; answer: Answer } => item.answer !== undefined)
+    const candidatesForPreset = (eligibleFor.get(preset.id) ?? [])
+      .filter((candidate) => !assignments.has(candidate.item.rune.id))
       .sort((left, right) => right.answer.priority - left.answer.priority || right.answer.chance - left.answer.chance || left.item.rune.id.localeCompare(right.item.rune.id));
     for (const candidate of candidatesForPreset.slice(0, quota.get(preset.id) ?? 0)) assignments.set(candidate.item.rune.id, candidate.answer);
   }
