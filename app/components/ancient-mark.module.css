@@ -1,0 +1,34 @@
+/* The mark that says Ancient. It sits after the name rather than in front of
+   it, so a column of set names still lines up on its first letter and the
+   property is read where a property belongs — after the thing it qualifies.
+
+   It takes the label voice from `globals.css` (700, uppercase, tracking) by
+   joining `type-label` at the call site; only the box is set here. The gold
+   edge is the accent doing what §5 allows it to do — a fact wearing the accent
+   where the fact is itself the thing to act on: an Ancient rune takes Ancient
+   gems and grindstones and no others, so this is the letter that decides
+   whether the stone in your hand can be spent at all.
+
+   The box is fixed at one square on the 4px rhythm. The letter never changes,
+   so nothing here can resize under a re-render (rule 2). */
+.mark {
+  display: inline-block;
+  /* The browser's own dotted rule under an `<abbr title>`, which this box has
+     no use for: the edge already says the letter means something. */
+  text-decoration: none;
+  width: var(--s4);
+  height: var(--s4);
+  margin-left: var(--s2);
+  border: 1px solid var(--text-accent);
+  border-radius: var(--radius-sm);
+  color: var(--text-accent);
+  /* The one-pixel edge is part of the square, so the line box is two short of
+     it; a letter set on the box's own height would sit a pixel low. */
+  line-height: calc(var(--s4) - 2px);
+  text-align: center;
+  /* The label voice's tracking pushes a single centred letter off to the left,
+     because tracking is added after the glyph and never before it. Half of it
+     back on the left edge re-centres the letter without touching the voice. */
+  text-indent: calc(var(--track-label) / 2);
+  vertical-align: baseline;
+}

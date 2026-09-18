@@ -67,8 +67,16 @@ test('every stack says how far it reaches, and a dead one says why', async ({ pa
      gem, which is the difference the last column exists to show. */
   await expect(rows.filter({ hasText: 'Fatal' })).toContainText('1 equipped');
   await expect(rows.filter({ hasText: 'Immemorial' })).toContainText('1 in inventory · 1 equipped');
-  /* Ancient items carry their own verified ranges, not a borrowed ordinary table. */
-  await expect(rows.filter({ hasText: 'Ancient' }).locator('td').nth(5)).not.toHaveText('—');
+  /* Ancient items carry their own verified ranges, not a borrowed ordinary
+     table. The row is found by the mark rather than by the word: the Set column
+     names the set and the mark says Ancient, and there is no Family column. */
+  const ancient = rows.filter({ has: page.getByTitle('Ancient') });
+  await expect(ancient).toHaveCount(1);
+  const ancientSet = ancient.locator('td').nth(1);
+  await expect(ancientSet).toContainText('Violent');
+  await expect(ancientSet).not.toContainText('Ancient');
+  await expect(ancientSet.getByTitle('Ancient')).toHaveText('A');
+  await expect(ancient.locator('td').nth(4)).not.toHaveText('—');
 });
 
 test('filters narrow the box without moving it', async ({ page }) => {
@@ -144,11 +152,21 @@ test('an Ancient item is placed and projected from its own range', async ({ page
   await importCraftAccount(page);
   await page.locator('summary').filter({ hasText: 'Best use for this' }).click();
 
-  await chooseItem(page, 'Ancient Violent', 'Gem', 'SPD');
+  /* An `<optgroup>` holds text and no markup, so the chooser spells the mark
+     out where the tables draw it. */
+  await chooseItem(page, 'Violent A', 'Gem', 'SPD');
+  const chosen = page.locator('.craft-best-use-item h3');
+  await expect(chosen).toContainText('Legend Violent');
+  await expect(chosen.getByTitle('Ancient')).toHaveText('A');
+
   const row = page.locator('.craft-best-use-results .best-artifact-result').first().locator('tbody tr').first();
-  /* The rune is named and its before/after figures are calculated from the
-     Ancient table, never an ordinary fallback. */
-  await expect(row).toContainText('Ancient Violent');
+  /* The rune is named — as its set plus the mark, never as a set of its own —
+     and its before/after figures are calculated from the Ancient table, never
+     an ordinary fallback. */
+  const runeName = row.locator('td').first().locator('.craft-rune-name');
+  await expect(runeName).toContainText('Violent');
+  await expect(runeName).not.toContainText('Ancient');
+  await expect(runeName.getByTitle('Ancient')).toHaveText('A');
   await expect(row.locator('td').nth(4)).not.toHaveText('—');
   await expect(row.locator('td').nth(5)).not.toHaveText('—');
 });

@@ -189,9 +189,15 @@ export const relicTableColumns: readonly TableColumn[] = [
 
 /**
  * The gem and grindstone box. An account holds hundreds of stacks of a dozen
- * repeating shapes, so the five columns that say *what* an item is are cut to
+ * repeating shapes, so the four columns that say *what* an item is are cut to
  * their own words and the width is spent on the two that say what it is worth
  * keeping: how far it reaches into the rune box, and what it is looking for.
+ *
+ * There were five. `Family` printed Standard on most of eight hundred rows to
+ * say nothing, and on the rest repeated what the Set column now carries itself:
+ * an Ancient stack wears the mark after its set name, and an Immemorial one has
+ * no set to name, so that column reads `Immemorial`. The 10 % the family took
+ * went back to the columns that were tightest against their own headings.
  *
  * The gutter sits on the last column rather than on `Fits`: that is where the
  * run of figures ends and prose begins, and a right-aligned number followed by
@@ -200,15 +206,16 @@ export const relicTableColumns: readonly TableColumn[] = [
  * heading is already wider than the figure under it.
  */
 export const craftItemTableColumns: readonly TableColumn[] = [
-  { key: 'item', width: '8%', align: 'left' },
-  { key: 'lineage', width: '10%', align: 'left' },
-  { key: 'set', width: '12%', align: 'left' },
-  { key: 'stat', width: '10%', align: 'left' },
-  { key: 'grade', width: '9%', align: 'left' },
-  { key: 'range', width: '10%', align: 'right' },
-  { key: 'held', width: '8%', align: 'right' },
-  { key: 'fits', width: '8%', align: 'right' },
-  { key: 'scope', width: '25%', align: 'left', gutter: 'left' },
+  { key: 'item', width: '9%', align: 'left' },
+  /* The widest of the four descriptive columns: it now has to hold the longest
+     set name and the mark after it, and `Immemorial` besides. */
+  { key: 'set', width: '15%', align: 'left' },
+  { key: 'stat', width: '11%', align: 'left' },
+  { key: 'grade', width: '10%', align: 'left' },
+  { key: 'range', width: '11%', align: 'right' },
+  { key: 'held', width: '9%', align: 'right' },
+  { key: 'fits', width: '9%', align: 'right' },
+  { key: 'scope', width: '26%', align: 'left', gutter: 'left' },
 ];
 
 /**

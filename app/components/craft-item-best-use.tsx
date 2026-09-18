@@ -1,20 +1,22 @@
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
+import { AncientName } from './ancient-mark';
 import { FilterButton } from './button';
 import { Dropdown } from './dropdown';
 import { ValueSlider } from './range-slider';
 import { SortableHeader } from './sortable-table';
 import { useSortedRows } from './use-sorted-rows';
 import type { SortableColumn } from './use-sorted-rows';
+import { withAncientMark } from '../lib/ancient-mark';
 import { columnClasses } from '../lib/table-layouts';
 import { formatDecimal, formatNumber } from '../lib/formatting';
 import type { GameRecord } from '../lib/game-data';
 import { monsterNameCollator } from '../lib/monster-grid';
 import { numberedMonsterNames } from '../lib/monster-names';
 import {
-  craftGroupLabel, craftItemLabel, craftKindLabels, craftLineageLabels, craftLineageNotes,
-  craftRollDescriptions, craftRollLabels, craftRollAssumptions, craftValueRange, isGrindableStat,
-  itemGrades,
+  craftKindLabels, craftLineageLabels, craftLineageNotes, craftRollDescriptions,
+  craftRollLabels, craftRollAssumptions, craftSetLabel, craftSetName, craftValueRange,
+  isGrindableStat, itemGrades,
 } from '../lib/rune-craft-items';
 import type { CraftItem, CraftKind, CraftLineage, CraftRollAssumption } from '../lib/rune-craft-items';
 import { craftRangeText } from '../lib/rune-craft-grid';
@@ -31,6 +33,8 @@ import { useSessionStorageState } from '../lib/session-storage-state';
 const craftKinds: readonly CraftKind[] = ['gem', 'grindstone'];
 const craftLineages: readonly CraftLineage[] = ['standard', 'immemorial', 'ancient'];
 const optionRange = { minimum: 1, maximum: 10, default: 5 } as const;
+/** What a rune is called in the Rune column, in plain text, for the sort. */
+const runeName = (rune: Rune) => withAncientMark(rune.setName, rune.ancient);
 const optionSeparator = ' · ';
 
 /**
@@ -148,12 +152,19 @@ export function CraftItemBestUse({ items, runes, monsters, presets, general }: {
   /* The ordinary sets first and alphabetically, then the set-less Immemorial
      items, then the Ancient ones — two shelves of specials after the shelf a
      player reaches for every day. Inside a group the gems lead, then the stat,
-     then the best grade of it. */
+     then the best grade of it.
+
+     A box holds hundreds of stacks of a dozen repeating shapes, and the half a
+     player reaches for first is the set — "my Legend Violent SPD gem". Grouping
+     on that turns one flat list of eight hundred into a list of sets, each a
+     handful long, and lets an option drop the words its own group already says.
+     An `<optgroup>` carries text and no markup, so the Ancient mark is spelled
+     out in the heading: `Violent A`. */
   const chooserGroups = useMemo(() => {
     const rank = (item: CraftItem) => item.lineage === 'standard' ? 0 : item.lineage === 'immemorial' ? 1 : 2;
     const groups = new Map<string, { order: number; entries: CraftItem[] }>();
     for (const item of offered) {
-      const label = craftGroupLabel(item);
+      const label = craftSetLabel(item);
       const group = groups.get(label) ?? { order: rank(item), entries: [] };
       group.entries.push(item);
       groups.set(label, group);
@@ -215,7 +226,9 @@ export function CraftItemBestUse({ items, runes, monsters, presets, general }: {
     grindApplied, grindRange, monsterNames]);
 
   const columns = useMemo<SortableColumn<Row>[]>(() => [
-    { key: 'rune', label: 'Rune', align: 'left', compare: (left, right) => monsterNameCollator.compare(left.candidate.rune.setName, right.candidate.rune.setName) || left.candidate.rune.slot - right.candidate.rune.slot },
+    /* Sorted on the name as the column draws it, mark included, so a set's
+       Ancient runes sit beside its ordinary ones instead of tying with them. */
+    { key: 'rune', label: 'Rune', align: 'left', compare: (left, right) => monsterNameCollator.compare(runeName(left.candidate.rune), runeName(right.candidate.rune)) || left.candidate.rune.slot - right.candidate.rune.slot },
     { key: 'where', label: 'Where', align: 'left', compare: (left, right) => monsterNameCollator.compare(left.where, right.where) },
     { key: 'target', label: item?.kind === 'grindstone' ? 'Improves' : 'Replaces', align: 'left', compare: (left, right) => left.candidate.replaced.statId - right.candidate.replaced.statId },
     { key: 'now', label: 'Now', align: 'right', compare: (left, right) => (left.candidate.scoreNow ?? -1) - (right.candidate.scoreNow ?? -1), initialDirection: 'descending' },
@@ -268,7 +281,9 @@ export function CraftItemBestUse({ items, runes, monsters, presets, general }: {
      score columns beside them. A rune is named by what a player would call it. */
   const body = (sorted: readonly Row[]) => <tbody>{sorted.map(({ candidate, where }) => <tr key={candidate.rune.id}>
     <td className={cell('rune')}>
-      <span className="craft-rune-name">{candidate.rune.ancient ? 'Ancient ' : ''}{candidate.rune.setName}</span>
+      <span className="craft-rune-name">
+        <AncientName name={candidate.rune.setName} ancient={candidate.rune.ancient} />
+      </span>
       <span className="craft-rune-detail">
         Slot {candidate.rune.slot}{optionSeparator}+{format(candidate.rune.level)}
         {optionSeparator}{runeStatName(candidate.rune.mainStatId)}
@@ -423,7 +438,14 @@ export function CraftItemBestUse({ items, runes, monsters, presets, general }: {
     {item && <section className="craft-best-use-item" aria-labelledby="craft-best-use-item-title">
       <div>
         <p className="filter-label">Selected item</p>
-        <h3 id="craft-best-use-item-title">{craftItemLabel(item)}</h3>
+        {/* The same words as the chooser's own option, but this one is markup
+            rather than an `<option>`, so it draws the mark instead of spelling
+            it. `craftItemLabel` stays the text form the chooser needs. */}
+        <h3 id="craft-best-use-item-title">
+          {item.grade}{' '}
+          <AncientName name={craftSetName(item)} ancient={item.lineage === 'ancient'} />{' '}
+          {item.statName} {craftKindLabels[item.kind]}
+        </h3>
         <p>{craftLineageNotes[item.lineage]}.</p>
       </div>
       <dl className="craft-best-use-facts">

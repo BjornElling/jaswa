@@ -6,7 +6,7 @@
  * those do: the component decides how a cell looks, and this decides what the
  * cell says and how two of them compare.
  */
-import { itemGrades, craftKindLabels, craftLineageLabels, craftItemSearchText, craftSetLabel } from './rune-craft-items';
+import { itemGrades, craftKindLabels, craftItemSearchText, craftSetLabel } from './rune-craft-items';
 import type { CraftItem } from './rune-craft-items';
 import { craftBlockReason, craftScopeWord } from './rune-craft-plan';
 import type { CraftReach } from './rune-craft-plan';
@@ -20,14 +20,14 @@ export type CraftRow = {
   reach: CraftReach;
 };
 
-export type CraftSortKey = 'item' | 'lineage' | 'set' | 'stat' | 'grade' | 'range' | 'held' | 'fits' | 'scope';
+export type CraftSortKey = 'item' | 'set' | 'stat' | 'grade' | 'range' | 'held' | 'fits' | 'scope';
 
 /**
  * Which way a column opens. A quantity opens at its largest, because that is
  * the end a reader came for; a name opens at A.
  */
 export const defaultCraftSortDirections: Readonly<Record<CraftSortKey, boolean>> = {
-  item: true, lineage: true, set: true, stat: true, grade: false,
+  item: true, set: true, stat: true, grade: false,
   range: false, held: false, fits: false, scope: true,
 };
 
@@ -82,8 +82,8 @@ export function compareCraftRows(left: CraftRow, right: CraftRow, key: CraftSort
   switch (key) {
     case 'item':
       return monsterNameCollator.compare(craftKindLabels[left.item.kind], craftKindLabels[right.item.kind]);
-    case 'lineage':
-      return monsterNameCollator.compare(craftLineageLabels[left.item.lineage], craftLineageLabels[right.item.lineage]);
+    /* The Ancient mark is part of the sort key, so a set's Ancient stacks land
+       beside its ordinary ones rather than under A at the top of the box. */
     case 'set':
       return monsterNameCollator.compare(craftSetLabel(left.item), craftSetLabel(right.item));
     case 'stat':

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
+import { AncientName } from './ancient-mark';
 import { Button, FilterButton } from './button';
 import { DataTablePage, TableColumnGroup } from './data-table-page';
 import { FilterSummary } from './filter-summary';
@@ -15,7 +16,7 @@ import { runeAdvice, runeVerdictLabels, runeVerdictOrder } from '../lib/rune-cle
 import type { RuneVerdict } from '../lib/rune-cleanup-advice';
 import { noReferenceLineMessage, referenceLines } from '../lib/rune-reference-stats';
 import {
-  compareRuneCleanupRows, defaultRuneCleanupSortDirections, runeCleanupSearchText, runeSetLabel,
+  compareRuneCleanupRows, defaultRuneCleanupSortDirections, runeCleanupSearchText,
 } from '../lib/rune-cleanup-grid';
 import type { RuneCleanupRow, RuneCleanupSortKey } from '../lib/rune-cleanup-grid';
 import type { RunePotentialPreset } from '../lib/rune-potential-presets';
@@ -331,7 +332,9 @@ export function RuneRecommendations({ game, settings, presets }: {
       >
         <tbody>
           {sorted.length ? sorted.map((row) => <tr key={row.rune.id}>
-            <td className={cell('set')}>{runeSetLabel(row.rune)}</td>
+            <td className={cell('set')}>
+              <AncientName name={row.rune.setName} ancient={row.rune.ancient} />
+            </td>
             <td className={cell('slot')}>{row.rune.slot}</td>
             <td className={cell('main')}>{runeStatName(row.rune.mainStatId) ?? '—'}</td>
             <td className={cell('subs', 'rune-subs')}>

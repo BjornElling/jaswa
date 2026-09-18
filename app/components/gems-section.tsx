@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { AncientName } from './ancient-mark';
 import { FilterButton } from './button';
 import { CraftItemBestUse } from './craft-item-best-use';
 import { DataTablePage, TableColumnGroup } from './data-table-page';
@@ -14,7 +15,7 @@ import { formatNumber } from '../lib/formatting';
 import type { GameRecord } from '../lib/game-data';
 import { monsterNameCollator } from '../lib/monster-grid';
 import {
-  craftKindLabels, craftLineageLabels, craftSetLabel, craftLineageNotes, itemGrades, readCraftItems,
+  craftKindLabels, craftLineageLabels, craftSetName, craftLineageNotes, itemGrades, readCraftItems,
 } from '../lib/rune-craft-items';
 import type { CraftKind, CraftLineage } from '../lib/rune-craft-items';
 import {
@@ -96,7 +97,6 @@ const craftColumns: readonly SortableColumn<CraftRow>[] = (() => {
   };
   return [
     column('item', 'Item'),
-    column('lineage', 'Family'),
     column('set', 'Set'),
     column('stat', 'Stat'),
     column('grade', 'Grade'),
@@ -325,11 +325,13 @@ export function GemsSection({ game, presets, preferences }: {
           <tbody>
             {sorted.length ? sorted.map((row) => <tr key={row.item.id}>
               <td className={craftCell('item')}>{craftKindLabels[row.item.kind]}</td>
-              <td className={craftCell('lineage', row.item.lineage === 'standard' && 'muted')}
+              {/* The family the Family column used to name is in this cell now:
+                  the mark for Ancient, the game's own word for Immemorial, and
+                  on the title the rule each of the three plays by. */}
+              <td className={craftCell('set', row.item.setName === null && 'muted')}
                 title={craftLineageNotes[row.item.lineage]}>
-                {craftLineageLabels[row.item.lineage]}
+                <AncientName name={craftSetName(row.item)} ancient={row.item.lineage === 'ancient'} />
               </td>
-              <td className={craftCell('set', row.item.setName === null && 'muted')}>{craftSetLabel(row.item)}</td>
               <td className={craftCell('stat')}>{row.item.statName}</td>
               <td className={craftCell('grade')}>{row.item.grade}</td>
               <td className={craftCell('range', !row.item.range && 'muted')}

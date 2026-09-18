@@ -23,6 +23,7 @@
  */
 import type { GameRecord } from './game-data';
 import type { ItemGrade } from './types';
+import { withAncientMark } from './ancient-mark';
 import { runeStatName } from './runes';
 import { runeSetName } from './rune-sets';
 
@@ -287,32 +288,33 @@ export const craftLineageNotes: Readonly<Record<CraftLineage, string>> = {
   ancient: 'Goes on Ancient runes only, and they take nothing else',
 };
 
-/** The set column's reading: a real set, or the word for belonging to none. */
-export const craftSetLabel = (item: CraftItem): string => item.setName ?? 'Any set';
+/**
+ * The set column's reading: a real set, or the family name of the items that
+ * belong to none.
+ *
+ * It used to say `Any set`, which was true and said nothing an account could
+ * act on — the box list carried a Family column beside it that named the three
+ * families in full. That column is gone: Ancient is now the mark after a set
+ * name, and Immemorial has no set name to mark, so this column carries the
+ * game's own word for it instead. Both halves of the old Family column survive
+ * here, and the rule each family plays by stays on the cell's title.
+ */
+export const craftSetName = (item: CraftItem): string => item.setName ?? craftLineageLabels.immemorial;
+
+/** The same reading with the mark spelled out, for a sort key or a search index. */
+export const craftSetLabel = (item: CraftItem): string =>
+  withAncientMark(craftSetName(item), item.lineage === 'ancient');
 
 /**
- * The chooser's group heading: the set the item belongs to, with the Ancient
- * items of that set kept apart from it.
+ * `Legend Violent SPD Gem` — the item said in one breath, for a dropdown.
  *
- * A box holds hundreds of stacks of a dozen repeating shapes, and the half a
- * player reaches for first is the set — "my Legend Violent SPD gem". Grouping
- * on that turns one flat list of eight hundred into a list of sets, each a
- * handful long, and lets an option drop the word its own group already says.
+ * An `<option>` and an `<optgroup>` hold text and nothing else, so the Ancient
+ * mark is written out here rather than rendered: `Legend Violent A SPD Gem`.
+ * The letter is the same one the tables draw, which is the point — a player
+ * who has read one has read the other.
  */
-export function craftGroupLabel(item: CraftItem): string {
-  if (item.lineage === 'immemorial') return 'Immemorial';
-  return item.lineage === 'ancient' ? `Ancient ${item.setName ?? ''}`.trim() : item.setName ?? '';
-}
-
-/** `Legend Violent SPD Gem` — the item said in one breath, for a dropdown. */
 export function craftItemLabel(item: CraftItem): string {
-  return [
-    item.grade,
-    item.lineage === 'ancient' ? 'Ancient' : '',
-    item.setName ?? 'Immemorial',
-    item.statName,
-    craftKindLabels[item.kind],
-  ].filter(Boolean).join(' ');
+  return [item.grade, craftSetLabel(item), item.statName, craftKindLabels[item.kind]].join(' ');
 }
 
 /** Everything a search box should match on one item. */
