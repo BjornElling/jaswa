@@ -274,6 +274,11 @@ export function judgeAgainstBuild(
      main properties. */
   const sixStarMain = mainPropertyMaximum(6, rune.mainStatId);
   const mainScale = sixStarMain > 0 ? mainPropertyMaximum(rune.stars, rune.mainStatId) / sixStarMain : 0;
+  /* `best` is an upper bound over every legal remaining roll, so a threshold
+     above it has an exact zero chance. Most account runes miss the quality floor;
+     short-circuiting here prevents those certain losses from constructing their full
+     addition-and-upgrade probability tree merely to discover that same zero. */
+  const wanted = mainScale > 0 ? threshold * ceiling / mainScale : Number.POSITIVE_INFINITY;
 
   const setRank = rankOf(preset.sets, rune.setName);
   const mainRank: MatchRank = rune.slot === 2 || rune.slot === 4 || rune.slot === 6
@@ -281,8 +286,8 @@ export function judgeAgainstBuild(
 
   return {
     maxValue: Math.min(1, best / ceiling) * mainScale,
-    chance: withChance ? reachChance(rune, supply, slotShares, base,
-      mainScale > 0 ? threshold * ceiling / mainScale : Number.POSITIVE_INFINITY, adds, rolls) : 0,
+    chance: withChance && best + 1e-12 >= wanted
+      ? reachChance(rune, supply, slotShares, base, wanted, adds, rolls) : 0,
     rank: worseRank(setRank, mainRank),
   };
 }
@@ -579,10 +584,24 @@ function reachChance(
       add(statId, upgradeCount, 'upgrade');
     }
 
+    const branchWeight = split.weight / additionChoices.length;
+    /* A branch's roll ranges bound its gain before any distributions are built.
+       In a real account most addition/upgrade splits cannot make the gap, and a
+       few must make it. Those are exact 0 % and 100 % answers respectively, not
+       approximations, so avoid allocating convolution maps for either case. */
+    let minimumGain = 0;
+    let maximumGain = 0;
+    for (const term of terms) {
+      const range = subPropertyRange(rune.stars, term.statId, term.kind);
+      if (!range) continue;
+      minimumGain += term.count * inMaxRolls(term.statId, range.minimum, base);
+      maximumGain += term.count * inMaxRolls(term.statId, range.maximum, base);
+    }
+    if (maximumGain + 1e-12 < gap) continue;
+    if (minimumGain + 1e-12 >= gap) { chance += branchWeight; continue; }
     let branch: Distribution = new Map([[0, 1]]);
     for (const term of terms) branch = convolveDistribution(branch,
       lineDistribution(term.statId, term.count, base, rune.stars, term.kind), gap);
-    const branchWeight = split.weight / additionChoices.length;
     for (const [gain, probability] of branch) if (gain + 1e-12 >= gap) chance += branchWeight * probability;
   }
   return Math.min(1, Math.max(0, chance));
