@@ -489,7 +489,7 @@ regel:
 
 | Sort by | Rækkefølge |
 | --- | --- |
-| Grade | Fire nøgler i denne rækkefølge: **rarity faldende** (Legend → Hero → Rare → Magic → Normal), så **Ancient først** inden for hver rarity, så **`set_id` stigende**, så **power-up-level faldende** |
+| Grade | Fire nøgler i denne rækkefølge: **rarity faldende** (Legend → Hero → Rare → Magic → Normal), så **Ancient først** inden for hver rarity, så **power-up-level faldende**, så **runens eget id stigende** |
 | Power-up Lv. | Power-up-level faldende, +15 → +0 |
 | Obtained | Anskaffelsesrækkefølge, nyeste først |
 
@@ -520,18 +520,15 @@ i* rarityen og ikke over den: en Legend Ancient står før en Legend uden ring, 
 begge står stadig før enhver Hero. Under Power-up Lv. og Obtained sorterer
 Ancient ingenting.
 
-**Sættet afgør de resterende stik** — efter eksportens eget `set_id`, ikke efter
-setnavnet. De fem runer, spillet lægger først i slot 6 under Grade, er alle
-Ancient, 6★ og +15, og læser Blade, Rage, Rage, Despair, Nemesis — `set_id`
-4, 5, 5, 10, 14, altså stigende. Samme fem udelukker begge alternativer: efter
-navn ville rækkefølgen være Blade, Despair, Nemesis, Rage, Rage, og deres
-substat-summer (51, 57, 72, 63, 54) står i ingen rækkefølge.
+**Power-up-level og derefter id afgør resten.** Inden for én rarity-og-Ancient-
+gruppe kommer de højeste levels først, og runens eget id (`rune_id`, samme felt
+som `obtainedOrder`) stigende lukker rækkefølgen. Den fjerde nøgle er det, der
+gør sorteringen total: tre Ancient Legend +15-runer i samme sæt er enige om alt
+ovenfor, og spillet lister dem alligevel i én fast rækkefølge.
 
-**Power-up-level lukker rækkefølgen** — højest først, inden for ét sæt. Uden den
-nøgle sorterer et sæts lavniveau-runer foran dets +15'ere på ren importrækkefølge,
-hvilket lagde en +12 Blade foran den +15 Blade, spillet åbner sættet med. Derfor
-er kontoens fem første slot-6-rækker netop +15'eren i hvert sæt, og sættets egne
-lavere niveauer følger efter den.
+**Sættet sorterer ingenting.** Det lignede et øjeblik, at `set_id` var en nøgle,
+fordi kontoens øverste rækker tilfældigt steg gennem set-id'erne — men det var
+id-nøglen, der viste sig igennem.
 
 **Stjerneklassen sorterer ingenting** i nogen af de tre. Det er derfor, 6★ og 5★
 kan stå blandet ned gennem en rarity-blok.

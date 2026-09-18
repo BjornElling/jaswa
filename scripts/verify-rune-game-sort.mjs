@@ -8,8 +8,8 @@
  * and is not:
  *
  *   Grade         rarity descending — Legend, Hero, Rare, Magic, Normal — then
- *                 the Ancient runes of each rarity first, then the set by its
- *                 export `set_id` ascending, then the power-up level descending
+ *                 the Ancient runes of each rarity first, then the power-up
+ *                 level descending, then the rune's own id ascending
  *   Power-up Lv.  power-up level descending, +15 down to +0
  *   Obtained      acquisition sequence, newest first
  *
@@ -28,11 +28,12 @@
  *     `ATK +160` is the six-star main value (§3) — so it is last on rarity, not
  *     on stars.
  *
- * Grade's four keys, in order: rarity, then Ancient, then set id, then level.
+ * Grade's four keys, in order: rarity, then Ancient, then level, then id.
  * Ancient is held *within* the rarity rather than ranked against it — a Legend
  * Ancient leads a Legend ordinary, and both still lead every Hero — and it
- * enters neither of the other two orderings. The set then breaks what remains,
- * and the level closes it from the top.
+ * enters neither of the other two orderings. The set plays no part; it looked
+ * briefly as though it did, because an account's leading rows happened to climb
+ * through the set ids, but that was the id key showing through.
  *
  * The star class orders nothing at all, under any of the three.
  *
@@ -83,50 +84,56 @@ function order(rows, key, name) {
     'Grade orders by rarity, highest first');
 }
 
-/* The set breaks the remaining ties, in the export's own `set_id` order. The
-   five runes the game puts first in a slot-6 Grade sort are all Ancient, 6★ and
-   +15, and read Blade (4), Rage (5), Rage (5), Despair (10), Nemesis (14).
-
-   The same five rule out both rivals: by name the order would be Blade,
-   Despair, Nemesis, Rage, Rage, and their substat totals (51, 57, 72, 63, 54)
-   are in no order at all. The rows are fed in shuffled so a stable sort cannot
-   pass this by leaving them be. */
+/* Inside a rarity-and-Ancient group the power-up level leads, highest first,
+   and the rune's own id settles what is left. The rows are fed in shuffled so a
+   stable sort cannot pass this by leaving them be. */
 {
-  const rows = [
-    row(0, { setId: 14, setName: 'Nemesis', ancient: true, level: 15 }),
-    row(1, { setId: 5, setName: 'Rage', ancient: true, level: 15 }),
-    row(2, { setId: 10, setName: 'Despair', ancient: true, level: 15 }),
-    row(3, { setId: 4, setName: 'Blade', ancient: true, level: 15 }),
-    row(4, { setId: 5, setName: 'Rage', ancient: true, level: 15 }),
-  ];
-  assert.deepEqual(order(rows, 'gameGrade', (rune) => rune.setName),
-    ['Blade', 'Rage', 'Rage', 'Despair', 'Nemesis'],
-    'the set orders runes that tie on rarity and Ancient, by set id and not by name');
-}
-
-/* The power-up level closes the ordering, highest first, inside one set. These
-   are the account's Ancient slot-6 rows as the game lists them: each set leads
-   with its +15 and its lower levels follow. Import order alone put a +12 Blade
-   in front of the +15 Blade the game opens that set with. */
-{
-  const rune = (index, setId, setName, level) => row(index, {
-    setId, setName, level, ancient: true, defaultGrade: 'Legend',
+  const rune = (index, level, obtainedOrder) => row(index, {
+    level, obtainedOrder, ancient: true, defaultGrade: 'Legend',
   });
   const rows = [
-    rune(0, 4, 'Blade', 12),
-    rune(1, 4, 'Blade', 15),
-    rune(2, 5, 'Rage', 15),
-    rune(3, 10, 'Despair', 12),
-    rune(4, 10, 'Despair', 15),
-    rune(5, 14, 'Nemesis', 9),
-    rune(6, 14, 'Nemesis', 15),
+    rune(0, 12, 300),
+    rune(1, 15, 900),
+    rune(2, 9, 100),
+    rune(3, 15, 200),
+    rune(4, 15, 500),
   ];
-  assert.deepEqual(order(rows, 'gameGrade', (r) => `${r.setName}+${r.level}`), [
-    'Blade+15', 'Blade+12',
-    'Rage+15',
-    'Despair+15', 'Despair+12',
-    'Nemesis+15', 'Nemesis+9',
-  ], 'inside one set the higher power-up level comes first');
+  assert.deepEqual(order(rows, 'gameGrade', (r) => `+${r.level}/${r.obtainedOrder}`),
+    ['+15/200', '+15/500', '+15/900', '+12/300', '+9/100'],
+    'the level leads inside a group, and the id orders what ties on it');
+}
+
+/* The set plays no part. Three Ancient Legend +15 runes of one set are listed
+   in one fixed sequence, and it is their ids that fix it — which is what the
+   account's Rage runes show: the game reads Poseidon then Carcano, while a
+   third Rage +15 of a higher id follows rather than leading them. */
+{
+  const rage = (index, who, obtainedOrder) => ({
+    ...row(index, { setId: 5, setName: 'Rage', ancient: true, level: 15, obtainedOrder }),
+    who,
+  });
+  const rows = [
+    rage(0, 'Lyn #1', 900),
+    rage(1, 'Poseidon', 200),
+    rage(2, 'Carcano #2', 500),
+  ];
+  const sorted = [...rows]
+    .sort((left, right) => compareRuneGameSort(left, right, 'gameGrade') || left.index - right.index)
+    .map((entry) => entry.who);
+  assert.deepEqual(sorted, ['Poseidon', 'Carcano #2', 'Lyn #1'],
+    'runes of one set, rarity, Ancient state and level are ordered by id alone');
+}
+
+/* And a lower set id cannot jump a group: an Energy (1) rune of a lesser rarity
+   still sorts below every Legend, however early its set comes. */
+{
+  const rows = [
+    row(0, { setId: 1, setName: 'Energy', defaultGrade: 'Hero', level: 15 }),
+    row(1, { setId: 25, setName: 'Intangible', defaultGrade: 'Legend', level: 0 }),
+  ];
+  assert.deepEqual(order(rows, 'gameGrade', (rune) => rune.setName),
+    ['Intangible', 'Energy'],
+    'the set never outranks the rarity');
 }
 
 /* Inside one rarity the Ancient runes lead, and the grouping is held within the
@@ -157,18 +164,20 @@ function order(rows, key, name) {
     'a 5-star Legend outranks a 6-star Hero, so Grade is not the star class');
 }
 
-/* Star class orders nothing under Grade: two runes of one rarity and one Ancient
-   state compare equal however their stars differ, and keep the order the table
-   gave them. This is what lets 6★ and 5★ interleave down a rarity block. */
+/* Star class orders nothing under Grade. Held equal on every key the ordering
+   does read — rarity, Ancient, level and id — two runes of different star class
+   compare equal, which is what lets 6★ and 5★ interleave down a rarity block. */
 {
-  const rows = [
-    row(0, { stars: 4, defaultGrade: 'Legend', ancient: false }),
-    row(1, { stars: 6, defaultGrade: 'Legend', ancient: false }),
-  ];
-  assert.equal(compareRuneGameSort(rows[0], rows[1], 'gameGrade'), 0,
-    'two Legends compare equal under Grade whatever their star class');
-  assert.deepEqual(order(rows, 'gameGrade', (rune) => rune.stars), [4, 6],
-    'so their stated order stands rather than being re-ranked by stars');
+  const same = { defaultGrade: 'Legend', ancient: false, level: 12, obtainedOrder: 400 };
+  const four = row(0, { ...same, stars: 4 });
+  const six = row(1, { ...same, stars: 6 });
+  assert.equal(compareRuneGameSort(four, six, 'gameGrade'), 0,
+    'the star class is not read by Grade at all');
+  /* A lower star class with the earlier id still leads, so stars cannot be
+     sneaking in below the id either. */
+  const lateSix = row(2, { ...same, stars: 6, obtainedOrder: 401 });
+  assert.ok(compareRuneGameSort(four, lateSix, 'gameGrade') < 0,
+    'a 4-star with the earlier id leads a 6-star with the later one');
 }
 
 /* Ancient is Grade's own second key and enters nothing else: under Power-up Lv.
@@ -215,5 +224,5 @@ function order(rows, key, name) {
     'rows the ordering cannot separate keep their stated order');
 }
 
-console.log('PASS: Grade orders by rarity, Ancient, set id and level; Power-up Lv.');
-console.log('      by level; Obtained by acquisition — the star class orders nothing.');
+console.log('PASS: Grade orders by rarity, Ancient, level and id; Power-up Lv. by');
+console.log('      level; Obtained by acquisition — the star class orders nothing.');

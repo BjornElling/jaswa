@@ -83,38 +83,33 @@ export const defaultRuneCleanupSortDirections: Readonly<Record<RuneCleanupSortKe
  * the six-star figure (§3) — so its position is owed to its rarity and not to
  * its stars.
  *
- * **Ancient leads inside each rarity**, and only there. It is not one group at
- * either end of the Grade list: a Legend Ancient precedes a Legend ordinary, and
- * both still precede every Hero. So Ancient is the second key under Grade, held
- * within the rarity rather than ranked against it — which is also why the star
- * class can be seen interleaving freely on both sides of it.
+ * So Grade nests four keys, and nothing else enters it:
  *
- * **The set breaks the remaining ties**, by the export's own `set_id` and *not*
- * by the set's name. The five runes the game puts first in a slot-6 Grade sort
- * are all Ancient, 6★ and `+15`, and they read Blade, Rage, Rage, Despair,
- * Nemesis — set ids 4, 5, 5, 10, 14, in ascending order. Both rival readings
- * are ruled out by that same run: by name it would be Blade, Despair, Nemesis,
- * Rage, Rage, and by substat total (51, 57, 72, 63, 54) it would be neither.
- * Their levels and rarities are identical, so nothing above the set separates
- * them.
+ * 1. The rarity, highest first, which clumps all the Legends together.
+ * 2. Inside a rarity, the Ancient runes and then the ordinary ones. The
+ *    grouping sits *within* the rarity rather than above it — a Legend Ancient
+ *    leads a Legend ordinary, and both still lead every Hero.
+ * 3. Inside each of those groups, the power-up level from the top.
+ * 4. Then the rune's own id, ascending, which is `obtainedOrder` here.
  *
- * **The power-up level closes the ordering**, highest first, inside one set.
- * Without it the low-level runes of a set sort in front of its `+15`s on import
- * order alone, which put a `+12` Blade ahead of the `+15` Blade the game leads
- * that set with. So the account's five leading slot-6 rows are the `+15` of each
- * successive set, and each set's own lower levels follow it rather than
- * preceding it.
+ * The fourth key is what makes the ordering total: three Ancient Legend `+15`
+ * runes of one set agree on everything above it, and the game still lists them
+ * in one fixed sequence. The set plays no part — it looked briefly as though it
+ * did, because an account's leading rows happened to climb through the set ids,
+ * but that was the id key showing through.
  *
- * The star class orders nothing at all, under any of the three.
+ * The star class orders nothing at all, under any of the three. That is why 6★
+ * and 5★ runes interleave freely down a rarity block, which is also what ruled
+ * out reading Grade as the star class in the first place.
  */
 function gameSortKey(row: RuneCleanupRow, key: RuneGameSortKey): readonly number[] {
   const rune = row.rune;
   switch (key) {
     /* Rarity descending — Legend, Hero, Rare, Magic, Normal — then the Ancient
-       runes of each rarity, then the set in the export's own order, then the
-       power-up level from the top. */
+       runes of each rarity, then the power-up level, then the rune's own id. */
     case 'gameGrade': return [
-      -runeDefaultGradeOrder(rune.defaultGrade), rune.ancient ? 0 : 1, rune.setId, -rune.level,
+      -runeDefaultGradeOrder(rune.defaultGrade), rune.ancient ? 0 : 1,
+      -rune.level, rune.obtainedOrder,
     ];
     /* Power-up level descending. */
     case 'gameLevel': return [-rune.level];
