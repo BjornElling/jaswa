@@ -111,9 +111,10 @@ const columns: readonly SortableColumn<RuneCleanupRow>[] = (() => {
   return [
     column('set', 'Set'),
     column('slot', 'Slot'),
-    column('main', 'Main'),
-    column('subs', 'Sub properties'),
     column('level', 'Lv.'),
+    column('main', 'Main'),
+    column('innate', 'Innate'),
+    column('subs', 'Sub properties'),
     column('location', 'Location'),
     column('preset', 'Best preset'),
     column('maxValue', <span className="table-heading-two-line" aria-label="Max value: the best end state it can reach, where a perfect rune is 100 per cent and the quality floor you set is the bar">Max<br />value</span>),
@@ -436,7 +437,16 @@ export function RuneRecommendations({ game, settings, presets }: {
               <AncientName name={row.rune.setName} ancient={row.rune.ancient} />
             </td>
             <td className={cell('slot')}>{row.rune.slot}</td>
+            <td className={cell('level')}>+{row.rune.level}</td>
             <td className={cell('main')}>{runeStatName(row.rune.mainStatId) ?? '—'}</td>
+            <td className={cell('innate', row.rune.prefixStatId === null && 'muted')}>
+              {row.rune.prefixStatId === null
+                ? '—'
+                : <span className="rune-sub rune-innate">
+                  <span className="rune-sub-name">{runeStatName(row.rune.prefixStatId) ?? '?'}</span>
+                  <span className="rune-sub-value">{row.rune.prefixValue}</span>
+                </span>}
+            </td>
             <td className={cell('subs', 'rune-subs')}>
               {row.rune.subProperties.length === 0
                 ? <span className="muted">—</span>
@@ -445,7 +455,6 @@ export function RuneRecommendations({ game, settings, presets }: {
                   <span className="rune-sub-value">{runeSubValue(property)}</span>
                 </span>)}
             </td>
-            <td className={cell('level')}>+{row.rune.level}</td>
             <td className={cell('location', !row.location && 'muted')}
               title={row.location === null ? 'Worn by a monster this import does not contain' : undefined}>
               {row.location ?? 'Unknown monster'}

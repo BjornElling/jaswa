@@ -26,7 +26,7 @@ export type RuneCleanupRow = {
 };
 
 export type RuneCleanupSortKey =
-  'set' | 'slot' | 'main' | 'subs' | 'level' | 'location' | 'preset' | 'maxValue' | 'chance' | 'advice';
+  'set' | 'slot' | 'level' | 'main' | 'innate' | 'subs' | 'location' | 'preset' | 'maxValue' | 'chance' | 'advice';
 
 /**
  * The orderings the game's own Manage panel offers, reproduced rather than
@@ -60,7 +60,7 @@ export const runeGameSortLabels: Readonly<Record<RuneGameSortKey, string>> = {
  * the good ones"; the descriptive columns open alphabetically or lowest-first.
  */
 export const defaultRuneCleanupSortDirections: Readonly<Record<RuneCleanupSortKey, boolean>> = {
-  set: true, slot: true, main: true, subs: true, level: true, location: true,
+  set: true, slot: true, level: true, main: true, innate: true, subs: true, location: true,
   preset: true, maxValue: false, chance: false, advice: true,
 };
 
@@ -152,15 +152,23 @@ export function runeSubText(rune: Rune): string {
     .join('  ');
 }
 
+/** The innate is a stat/value pair too, but unlike a sub property it is optional. */
+function runeInnateText(rune: Rune): string {
+  return rune.prefixStatId === null
+    ? ''
+    : `${runeStatName(rune.prefixStatId) ?? '?'} ${rune.prefixValue}`;
+}
+
 export function compareRuneCleanupRows(
   left: RuneCleanupRow, right: RuneCleanupRow, key: RuneCleanupSortKey,
 ): number {
   switch (key) {
     case 'set': return runeSetLabel(left.rune).localeCompare(runeSetLabel(right.rune));
     case 'slot': return left.rune.slot - right.rune.slot;
-    case 'main': return (runeStatName(left.rune.mainStatId) ?? '').localeCompare(runeStatName(right.rune.mainStatId) ?? '');
-    case 'subs': return runeSubText(left.rune).localeCompare(runeSubText(right.rune));
     case 'level': return left.rune.level - right.rune.level;
+    case 'main': return (runeStatName(left.rune.mainStatId) ?? '').localeCompare(runeStatName(right.rune.mainStatId) ?? '');
+    case 'innate': return runeInnateText(left.rune).localeCompare(runeInnateText(right.rune));
+    case 'subs': return runeSubText(left.rune).localeCompare(runeSubText(right.rune));
     case 'location': return (left.location ?? '').localeCompare(right.location ?? '');
     case 'preset': return (left.advice.preset?.name ?? '').localeCompare(right.advice.preset?.name ?? '');
     case 'maxValue': return left.advice.maxValue - right.advice.maxValue;
@@ -180,6 +188,7 @@ export function runeCleanupSearchText(row: RuneCleanupRow): string {
     `slot ${row.rune.slot}`,
     `+${row.rune.level}`,
     runeStatName(row.rune.mainStatId) ?? '',
+    runeInnateText(row.rune),
     runeSubText(row.rune),
     row.advice.preset?.name ?? '',
     runeVerdictLabels[row.advice.verdict],

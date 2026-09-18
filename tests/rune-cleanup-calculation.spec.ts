@@ -16,7 +16,10 @@ test('calculates and shows a verdict for every imported rune', async ({ page }, 
 
   await recommendations.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(page.locator('.calculation-status')).toContainText('4 runes judged against');
-  await expect(page.getByRole('table', { name: 'Rune verdicts' }).locator('tbody tr')).toHaveCount(4);
+  const table = page.getByRole('table', { name: 'Rune verdicts' });
+  await expect(table.locator('tbody tr')).toHaveCount(4);
+  await expect(page.getByRole('table', { name: 'Rune verdict columns' }).locator('thead th'))
+    .toHaveText(['Set', 'Slot', 'Lv.', 'Main', 'Innate', 'Sub properties', 'Location', 'Best preset', 'Maxvalue', 'Chance', 'Advice']);
   await page.screenshot({ path: testInfo.outputPath('rune-cleanup-calculated.png') });
 });
 

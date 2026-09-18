@@ -148,25 +148,29 @@ export const artifactTableColumns: readonly TableColumn[] = [
  * without the other two says nothing. The sub properties take the widest column:
  * they are what the player is actually judging when they disagree with the verdict.
  *
- * Location closes the descriptive half, so the row reads as "this rune, here" before
- * the judgement begins. It is wide enough for a numbered, element-qualified name
- * — `DHALSIM (Water) #2` is the shape to fit — because a truncated monster name is
- * the one thing in that column nobody can act on. Set carries the same obligation in
- * miniature: it has to fit `Ancient Determination`, not just `Determination`.
+ * Level follows Slot because the two small identifying figures belong together.
+ * Main and Innate then sit beside each other, before the wider Sub properties
+ * column. Location closes the descriptive half, so the row reads as "this rune,
+ * here" before the judgement begins. It is wide enough for a numbered,
+ * element-qualified name — `DHALSIM (Water) #2` is the shape to fit — because a
+ * truncated monster name is the one thing in that column nobody can act on. Set
+ * carries the same obligation in miniature: it has to fit `Ancient Determination`,
+ * not just `Determination`.
  */
 export const runeCleanupTableColumns: readonly TableColumn[] = [
   { key: 'set', width: '12%', align: 'left' },
   { key: 'slot', width: '4%', align: 'center' },
-  { key: 'main', width: '7%', align: 'left' },
-  { key: 'subs', width: '25%', align: 'left' },
   { key: 'level', width: '5%', align: 'right' },
+  { key: 'main', width: '7%', align: 'left' },
+  { key: 'innate', width: '8%', align: 'left' },
+  { key: 'subs', width: '21%', align: 'left' },
   { key: 'location', width: '12%', align: 'left' },
-  { key: 'preset', width: '9%', align: 'left' },
+  { key: 'preset', width: '8%', align: 'left' },
   { key: 'maxValue', width: '7%', align: 'right' },
   { key: 'chance', width: '7%', align: 'right' },
   /* A verdict and its chance share this column, and its width is reserved for the
      longest reading so that moving a slider cannot reflow the table. */
-  { key: 'advice', width: '12%', align: 'left' },
+  { key: 'advice', width: '9%', align: 'left' },
 ];
 
 export const relicTableColumns: readonly TableColumn[] = [

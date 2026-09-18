@@ -5416,6 +5416,7 @@ th.align-center .sort-button { justify-content: center; }
 }
 .rune-sub-name { color: var(--text-muted); }
 .rune-sub-value { font-variant-numeric: tabular-nums; }
+.rune-innate { margin-right: 0; }
 
 .rune-verdict { display: block; }
 .rune-verdict[data-verdict='power-up'] { color: var(--state-good); }
