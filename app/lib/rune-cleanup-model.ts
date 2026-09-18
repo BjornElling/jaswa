@@ -473,15 +473,41 @@ type Distribution = Map<number, number>;
    replacing it with a coarse approximation. */
 const lineDistributionCache = new Map<string, Distribution>();
 
-/* Values are discrete game rolls. Rounding only removes IEEE-754 representation
-   noise after arithmetic; unlike the former 0.025 grid it never coarsens a game
-   outcome or moves a threshold. */
-const probabilityKey = (value: number): number => Number(value.toFixed(12));
+/**
+ * A distribution is keyed by whole units of 10⁻¹² max rolls, as an integer.
+ *
+ * The key exists because two arithmetically equal sums must land on one entry,
+ * and a double does not guarantee that. Quantising to an integer does — and it
+ * quantises **once**, where a single roll's contribution is first converted,
+ * rather than at every step of every convolution. A sum of two keys is then
+ * exact, so `convolveDistribution` needs no rounding in its inner loop at all.
+ *
+ * Unlike the former 0.025 grid this never coarsens a game outcome: the smallest
+ * difference two distinct outcomes can have is one flat point of HP, about
+ * 7 × 10⁻⁴ max rolls, nine orders of magnitude above one unit here.
+ *
+ * **The key's precision and the comparison's tolerance used to be a matched
+ * pair** — a key rounded coarser than the old `+ 1e-12` epsilon silently
+ * rejected the very mass the cap was collecting. `targetKey` folds that one unit
+ * of slack into the target instead, once, so the two can no longer drift apart
+ * and every downstream comparison is a plain integer `>=`.
+ *
+ * Keys stay exact while a quantity is under `Number.MAX_SAFE_INTEGER / SCALE`,
+ * about 9,007 max rolls. A slot ceiling is nine — five rolls on the strongest
+ * legal line, three on the next and a prefix — so there are three orders of
+ * magnitude of headroom. `reachChance` asserts it rather than trusting it.
+ */
+const SCALE = 1e12;
+const probabilityKey = (value: number): number => Math.round(value * SCALE);
+/* `gain + 1e-12 >= gap` becomes `gainKey >= targetKey(gap)`: the same one-unit
+   slack, applied to the target once instead of at every comparison. */
+const targetKey = (value: number): number => Math.round(value * SCALE) - 1;
 
 function convolveDistribution(left: Distribution, right: Distribution, cap = Number.POSITIVE_INFINITY): Distribution {
   const out: Distribution = new Map();
   for (const [a, leftWeight] of left) for (const [b, rightWeight] of right) {
-    const key = probabilityKey(Math.min(cap, a + b));
+    const sum = a + b;
+    const key = sum < cap ? sum : cap;
     out.set(key, (out.get(key) ?? 0) + leftWeight * rightWeight);
   }
   return out;
@@ -549,6 +575,13 @@ function reachChance(
   const gap = wanted - have;
   if (gap <= 0) return 1;
   if (adds + rolls === 0) return 0;
+  /* Everything below this line is integer key space. A gap beyond the exact
+     range of the key scale would silently start losing units, so it fails
+     loudly instead — a slot ceiling is three orders of magnitude below it. */
+  const gapKey = targetKey(gap);
+  if (!Number.isSafeInteger(gapKey)) {
+    throw new Error(`Rune Clean-up: a gap of ${gap} max rolls exceeds the exact range of the probability key.`);
+  }
 
   const lines = rune.subProperties.map((property) => property.statId);
   const held = new Set(lines);
@@ -590,15 +623,18 @@ function reachChance(
     for (const term of terms) {
       const range = subPropertyRange(rune.stars, term.statId, term.kind);
       if (!range) continue;
-      minimumGain += term.count * inMaxRolls(term.statId, range.minimum, base);
-      maximumGain += term.count * inMaxRolls(term.statId, range.maximum, base);
+      /* Keyed rather than summed in value space, so the bound is exactly the
+         extreme the convolution can actually produce rather than a double that
+         rounds differently from the keys it is bounding. */
+      minimumGain += term.count * probabilityKey(inMaxRolls(term.statId, range.minimum, base));
+      maximumGain += term.count * probabilityKey(inMaxRolls(term.statId, range.maximum, base));
     }
-    if (maximumGain + 1e-12 < gap) continue;
-    if (minimumGain + 1e-12 >= gap) { chance += branchWeight; continue; }
+    if (maximumGain < gapKey) continue;
+    if (minimumGain >= gapKey) { chance += branchWeight; continue; }
     let branch: Distribution = new Map([[0, 1]]);
     for (const term of terms) branch = convolveDistribution(branch,
-      lineDistribution(term.statId, term.count, base, rune.stars, term.kind), gap);
-    for (const [gain, probability] of branch) if (gain + 1e-12 >= gap) chance += branchWeight * probability;
+      lineDistribution(term.statId, term.count, base, rune.stars, term.kind), gapKey);
+    for (const [gain, probability] of branch) if (gain >= gapKey) chance += branchWeight * probability;
   }
   return Math.min(1, Math.max(0, chance));
 }
