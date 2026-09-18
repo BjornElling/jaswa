@@ -112,6 +112,16 @@ upgrades. All relevant realised value is summed in full: surplus ACC, SPD or HP 
 never discarded. The independent Monte Carlo oracle checks ordinary 4★/5★/6★ and
 Ancient 6★ fixtures.
 
+Chance is computed in whole units of 10⁻¹² max rolls. Summation order is an
+implementation detail and is not part of the contract; two implementations of this
+model agree on chance to within 10⁻⁹. Where a chance falls exactly on a display
+rounding boundary, the printed percentage follows from the computed value and is not
+separately pinned. This states a tolerance that was previously left implicit: the
+probability model is exact, but IEEE-754 addition is not associative, so a
+reassociation that is exact in the model can still move the last bits of a double.
+`npm run verify:rune-cleanup-equivalence` is the check that holds every other field —
+verdict, reason, preset, rank and Max value — to bit equality across a change.
+
 ## 7. Verdict and finite preset allocation
 
 For every build of every preset the engine applies the set/main rank discount, the
@@ -137,6 +147,13 @@ and finite quotas. Its output is an implementation regression check, not proof o
 unverified game-RNG rule. `npm run verify:rune-cleanup-calibration` is the fast
 regression guard; `npm run verify:rune-cleanup-calibration:large` is the 1,000-rune
 statistical run used before release.
+
+`scripts/verify-rune-cleanup-equivalence.mjs` answers the other question, which the
+calibration oracle deliberately cannot: whether this build says what the last one did.
+It records every public field of every row over a fixed population and eight settings
+and preset scenarios, and diffs them against a recorded baseline. The two are
+complementary — the oracle says the model is right, the equivalence gate says a
+refactor did not move it — and a change to the engine runs both.
 
 ## 9. Change procedure
 

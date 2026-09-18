@@ -532,6 +532,46 @@ function convolveDistribution(
   return out;
 }
 
+/**
+ * A distribution read as a tail: sorted support, with the mass at or above each
+ * position.
+ *
+ * `reachChance` reads only the mass at or above the target, so the final and
+ * largest cross product in every branch was built in full and then all but a
+ * sliver of it discarded one line later. `P(X + Y ≥ g) = Σ_x P(X = x)·P(Y ≥ g−x)`
+ * sums the same products in a different order without ever materialising the
+ * joint distribution.
+ *
+ * The view is a pure function of an already-correctly-keyed cache entry, so a
+ * `WeakMap` on the distribution itself needs no invalidation rule of its own.
+ */
+type TailView = { readonly values: readonly number[]; readonly atOrAbove: readonly number[] };
+const tailViews = new WeakMap<Distribution, TailView>();
+
+function tailView(distribution: Distribution): TailView {
+  const cached = tailViews.get(distribution);
+  if (cached) return cached;
+  const values = [...distribution.keys()].sort((left, right) => left - right);
+  const atOrAbove = new Array<number>(values.length + 1).fill(0);
+  for (let at = values.length - 1; at >= 0; at -= 1) {
+    atOrAbove[at] = atOrAbove[at + 1] + (distribution.get(values[at]) ?? 0);
+  }
+  const view: TailView = { values, atOrAbove };
+  tailViews.set(distribution, view);
+  return view;
+}
+
+/** `P(X >= target)`, by binary search on the sorted support. */
+function tailMass(view: TailView, target: number): number {
+  let low = 0;
+  let high = view.values.length;
+  while (low < high) {
+    const middle = (low + high) >> 1;
+    if (view.values[middle] < target) low = middle + 1; else high = middle;
+  }
+  return view.atOrAbove[low];
+}
+
 /** The exact distribution of `n` future rolls of one property. */
 function lineDistribution(
   statId: number, n: number, base: ReferenceStats, stars: number, kind: 'initial' | 'upgrade' = 'upgrade',
@@ -610,14 +650,29 @@ function reachChance(
   const additionChoices = combinations(missing, adds);
   if (additionChoices.length === 0) return 0;
   const splits = compositions(rolls, lines.length + adds);
-  let chance = 0;
 
   /* A branch is identified by the upgrade allocation and the unordered, legal
      set of new properties. A target is never capped: surplus SPD, Accuracy or any
      other wanted stat remains useful because it frees another rune to cover a
-     different need. */
+     different need.
+
+     Many enumerated branches are the same calculation under different labels:
+     `combinations` enumerates every legal set of added effect ids including ones
+     the role has no target for, and `add` filters those out, so two branches with
+     different added sets can reduce to one term list. The contribution is
+     `weight × f(terms)` and `f` depends on nothing but the terms, so summing
+     `w₁·f(t) + w₂·f(t)` as `(w₁ + w₂)·f(t)` is a factorisation and not a change
+     of model — every branch is still enumerated and still carries its own weight.
+
+     **The identity key is not the convolution order.** Terms are keyed on
+     `statId:count:kind` — never on the target stat, because HP flat and HP percent
+     are distinct effect ids with different legal ranges — and the order they are
+     convolved in is chosen separately below, for cost. Convolving in this
+     canonical order made the run three times slower. */
+  type Term = { statId: number; count: number; kind: 'initial' | 'upgrade' };
+  const branches = new Map<string, { terms: Term[]; weight: number }>();
   for (const split of splits) for (const added of additionChoices) {
-    const terms: Array<{ statId: number; count: number; kind: 'initial' | 'upgrade' }> = [];
+    const terms: Term[] = [];
     const add = (statId: number, count: number, kind: 'initial' | 'upgrade') => {
       const stat = subPropertyTargetStat[statId];
       if (!stat || count === 0 || !shares.has(stat)) return;
@@ -631,46 +686,69 @@ function reachChance(
       add(statId, 1, 'initial');
       add(statId, upgradeCount, 'upgrade');
     }
-
+    terms.sort((left, right) => left.statId - right.statId || left.kind.localeCompare(right.kind));
+    const key = terms.map((term) => `${term.statId}:${term.count}:${term.kind}`).join('|');
     const branchWeight = split.weight / additionChoices.length;
+    const group = branches.get(key);
+    if (group) group.weight += branchWeight;
+    else branches.set(key, { terms, weight: branchWeight });
+  }
+
+  let chance = 0;
+  for (const { terms, weight } of branches.values()) {
+    /* Keyed rather than summed in value space, so a bound is exactly the extreme
+       the convolution can produce rather than a double that rounds differently
+       from the keys it is bounding. Each term's own bounds are kept, because the
+       floor below needs them term by term and not only in total.
+
+       Narrowest first, so the widest term is the one answered by tail lookup and
+       never convolved. Addition is commutative and the terms are independent, so
+       the distribution of their sum does not depend on the order; only the size
+       of the intermediates does, and it depends on it enormously. */
+    const ordered = terms.map((term) => {
+      const range = subPropertyRange(rune.stars, term.statId, term.kind);
+      if (!range) return { term, minimum: 0, maximum: 0, width: 0 };
+      return {
+        term,
+        minimum: term.count * probabilityKey(inMaxRolls(term.statId, range.minimum, base)),
+        maximum: term.count * probabilityKey(inMaxRolls(term.statId, range.maximum, base)),
+        width: term.count * (range.maximum - range.minimum),
+      };
+    }).sort((left, right) => left.width - right.width);
+
     /* A branch's roll ranges bound its gain before any distributions are built.
        In a real account most addition/upgrade splits cannot make the gap, and a
        few must make it. Those are exact 0 % and 100 % answers respectively, not
        approximations, so avoid allocating convolution maps for either case. */
-    /* Keyed rather than summed in value space, so a bound is exactly the extreme
-       the convolution can produce rather than a double that rounds differently
-       from the keys it is bounding. Each term's own bounds are kept, because
-       the floor below needs them term by term and not only in total. */
-    const bounds = terms.map((term) => {
-      const range = subPropertyRange(rune.stars, term.statId, term.kind);
-      if (!range) return { minimum: 0, maximum: 0 };
-      return {
-        minimum: term.count * probabilityKey(inMaxRolls(term.statId, range.minimum, base)),
-        maximum: term.count * probabilityKey(inMaxRolls(term.statId, range.maximum, base)),
-      };
-    });
     let minimumGain = 0;
     let maximumGain = 0;
-    for (const bound of bounds) { minimumGain += bound.minimum; maximumGain += bound.maximum; }
+    for (const bound of ordered) { minimumGain += bound.minimum; maximumGain += bound.maximum; }
     if (maximumGain < gapKey) continue;
-    if (minimumGain >= gapKey) { chance += branchWeight; continue; }
+    if (minimumGain >= gapKey) { chance += weight; continue; }
 
     /* How much a partial sum can still gain once term `at` has been convolved.
        It is the same bound the `maximumGain` prune above already trusts, read
        one term at a time, so a state below `gapKey - stillToCome[at]` is exactly
        as certain a zero as a branch the prune skips outright. */
-    const stillToCome = new Array<number>(bounds.length).fill(0);
-    for (let at = bounds.length - 2; at >= 0; at -= 1) {
-      stillToCome[at] = stillToCome[at + 1] + bounds[at + 1].maximum;
+    const stillToCome = new Array<number>(ordered.length).fill(0);
+    for (let at = ordered.length - 2; at >= 0; at -= 1) {
+      stillToCome[at] = stillToCome[at + 1] + ordered[at + 1].maximum;
     }
+    const last = ordered.length - 1;
     let branch: Distribution = new Map([[0, 1]]);
-    for (let at = 0; at < terms.length; at += 1) {
-      const term = terms[at];
+    for (let at = 0; at < last; at += 1) {
+      const { term } = ordered[at];
       branch = convolveDistribution(branch,
         lineDistribution(term.statId, term.count, base, rune.stars, term.kind),
         gapKey, gapKey - stillToCome[at]);
     }
-    for (const [gain, probability] of branch) if (gain >= gapKey) chance += branchWeight * probability;
+    /* The widest term is read rather than convolved. A state already capped at
+       `gapKey` asks for `P(X >= 0)`, which is 1 — the cap's meaning, restated. */
+    const { term } = ordered[last];
+    const view = tailView(lineDistribution(term.statId, term.count, base, rune.stars, term.kind));
+    for (const [gain, probability] of branch) {
+      chance += weight * probability * tailMass(view, gapKey - gain);
+    }
   }
   return Math.min(1, Math.max(0, chance));
 }
