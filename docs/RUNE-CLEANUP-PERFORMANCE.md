@@ -1,36 +1,24 @@
 # Rune Clean-up — why Calculate is slow, and what to do about it
 
-**Status:** Analysis and proposal, **implemented**. All twelve stages of §11 have
-landed; see the implementation note below. **Not** a binding contract, and it changes
-no rule. `docs/RUNE-CLEANUP-MATH.md` remains the calculation contract — which §11
-Stages 4, 8 and 9 amended, in their own commits, as that document's §9 requires.
+**Status:** Analysis, proposal, and **partly implemented**. §13.4's Phases 0–4 have
+landed — ten of §11's twelve stages. Phase 5 (the slot-local model) was not started, and
+of Phase 6 only the allocation indexing was done.
 
-> ### Implementation note — 18 September 2026
->
-> §11 is done. Stage 0's gate is `npm run verify:rune-cleanup-equivalence`; its
-> baselines live in `work/` and are captured deliberately with `--write` before a
-> change. Measured on that gate's fixed population of 582 runes across eight
-> scenarios: **49.7 s → 663 ms**, with verdict, reason, preset, rank and Max value
-> bit-identical throughout and `chance` moving by at most 1.3 × 10⁻¹³ at Stage 3, from
-> summation order alone. The calibration oracle stayed byte-identical at every stage.
-> In a real browser a 3,000-rune box against the eight shipped presets now finishes in
-> about 1.1 s, in a worker, with the page painting throughout.
->
-> Two departures from the plan as written, both deliberate:
->
-> - **Stage 1's "test asserting a slot ceiling stays far below" the key's exact range**
->   is a runtime assertion in `reachChance` instead. It costs one comparison per call
->   rather than per cell, it cannot go stale the way a test can, and the equivalence
->   run exercises it across every fixture.
-> - **Stage 6's memo lifetime** is an explicit `RuneAdviceScope` the caller creates and
->   drops, rather than a module-global cleared per call. §9.6's warning about cache keys
->   is answered by making the lifetime the key rather than by designing one.
->
-> §9.5's slot-local candidate refactor was **not** done. §10.4 is right that it must
-> follow Stage 8 rather than precede it, and Stage 8 has only just landed; the
-> narrowing in Stage 6 already took the measured cost out of it. §9.9's closed-form
-> `bestReachableFill` was not done either, for the reason §10.6 gives.
+**§14 is the implementation record**, and it is the section to read first: what was
+measured on a committed harness, which of §13.3's contract decisions were taken and how,
+where the implementation departed from the approved sequence — including one departure
+with no good justification — and what is still open. Several figures in §0–§13 did not
+reproduce, and one of §5/§10.2's central claims was never exercised.
+
+This document is **not** a binding contract and changes no rule.
+`docs/RUNE-CLEANUP-MATH.md` remains the calculation contract — which §3, §6 and §7 of
+that document were amended to carry, each in its own commit, as its §9 requires.
+
+**Where sections disagree, the later one wins:** §7 is superseded by §11, §11 is
+qualified by §13.4, and §14 reports against §13.4.
+
 **Reviewed:** 18 September 2026
+**Implemented:** 18 September 2026
 **Subject:** `app/lib/rune-cleanup-model.ts`, `app/lib/rune-cleanup-advice.ts`,
 `app/components/rune-recommendations.tsx`
 
@@ -1482,6 +1470,13 @@ document requires it in the same commit as the change. Drafted:
 
 ## 11. Implementation plan
 
+> **Qualified by §13.4, and reported against in §14.** §13.1 states that "**§11 is not
+> approved verbatim**". Two of its instructions were superseded before implementation began:
+> Stage 1's step 6 asks for a *test* where §12.2 and §13.3 both require a **runtime guard**,
+> and Stage 8 presents two alternatives where §13.3 settles on one. Its ordering is also
+> superseded — §13.4 Phase 1 puts Stages 8 and 9 **before** the performance work, not after.
+> §14.1 maps these stages onto §13.4's phases and says which ones landed.
+
 Twelve stages. Each states its files, its acceptance gate, what it is allowed to change and
 what it must not. Stages 1–4 are the ones that fix the reported problem; everything after is
 either architecture or a separate product decision.
@@ -2230,3 +2225,383 @@ With those amendments, the recommended result is an exact, worker-backed calcula
 retains the current policy and allocation semantics, eliminates the measured waste, and
 has an auditable proof boundary for every intentional output change. No implementation is
 authorised by this section; it is the quality-assured plan to implement later.
+
+---
+
+## 14. Implementation record
+
+**Added:** 18 September 2026, by the implementer, after the work landed. §13 approved a
+plan; this section reports what was actually built against it, what was measured, where
+the implementation departed from the approved sequence and why, and what is still open.
+
+**Read this before acting on §0–§13.** Several of their figures did not reproduce, one of
+their central claims was never exercised, and the sequence was not followed in the
+approved order.
+
+### 14.1 Honest scope: what landed and what did not
+
+§11's twelve stages and §13.4's seven phases describe the same work in two groupings.
+Mapped onto §13.4, which is the approved one:
+
+| §13.4 phase | Status | §11 stages |
+| --- | --- | --- |
+| Phase 0 — Freeze the contract, build the gates | **Done**, with two gaps in 14.4.1 | Stage 0 |
+| Phase 1 — Resolve contract changes *before* dependent refactors | **Done, but out of order** — see 14.4.2 | Stages 8, 9 |
+| Phase 2 — Exact hot-path changes | **Done** | Stages 1–4 |
+| Phase 3 — Remove repeated deterministic work | **Done** | Stages 5, 6 |
+| Phase 4 — Worker | **Done** | Stage 7 |
+| Phase 5 — Slot-local architecture | **Not done** — see 14.5 | Stage 10 |
+| Phase 6 — Low-priority exact cleanup | **One of four items done** — see 14.5 | Stage 11 |
+
+So: **ten of §11's twelve stages landed.** Stage 10 was not started, and of Stage 11 only
+the allocation indexing (§4.8a/§9.10) was done. Anyone reading a summary that says "the
+plan is implemented" should read that table first.
+
+### 14.2 What was measured
+
+The figures in §0–§13 come from a synthetic box built for the analysis, and §13.2 rightly
+flags that its harness was never committed — *"a final repository plan should not require a
+future agent to trust a measurement that cannot be rerun."* That gap is now closed: the
+figures below come from `scripts/verify-rune-cleanup-equivalence.mjs`, which **is**
+committed, is deterministic, and is the gate. 582 runes across eight settings-and-preset
+scenarios, one fixed seed, no randomness at run time.
+
+The two populations are not the same, so the per-stage ratios differ from §10's and neither
+set contradicts the other. None of §10's ratios were used as an acceptance requirement;
+acceptance was always field equality, never speed.
+
+| After | `verify:rune-cleanup-equivalence` | Step | Cumulative |
+| --- | ---: | ---: | ---: |
+| Baseline (unmodified tree) | 49,739 ms | — | — |
+| Stage 1 — integer keys | 10,051 ms | 4.9× | 4.9× |
+| Stage 2 — lower-tail floor | 4,563 ms | 2.2× | 10.9× |
+| Stage 3 — tail lookup, ordering, grouping | 916 ms | 5.0× | 54× |
+| Stage 5 — prepared candidate context | 836 ms | 1.10× | 59× |
+| Stage 6 — demand and craft memoisation | 663 ms | 1.26× | **75×** |
+
+Stage 4 is a checkpoint, Stage 7 moves the same arithmetic to another thread, and the
+allocation indexing was not separately measurable at eight presets — exactly what §10.9
+predicted.
+
+**Equivalence, field by field.** Stages 1, 2, 5 and 6 produced **zero differences in every
+field including `chance`**, at a tolerance of zero. Stage 3 reassociates a floating-point
+sum and produced differences on `chance` alone: **296 rows, largest |Δ| 1.336 × 10⁻¹³**.
+§5's figure was 5.7 × 10⁻¹³ on its own population; the order of magnitude agrees. `verdict`,
+`reason`, `preset.id`, `rank` and `maxValue` were bit-identical at every stage.
+
+**The calibration oracle stayed byte-identical at every arithmetic stage**, at
+`--runes=500 --share-runes=300 --rollouts=800 --variant-runes=20`. That is stronger than
+§11 Stage 3 was willing to promise, and it is recorded as an observation, not as a contract.
+§10.11 remains the claim being made.
+
+**In a real browser**, after Stage 7: a 3,000-rune box against the eight shipped presets
+finishes in **1,110 ms**, and the page painted **73 animation frames** while it ran.
+§10.1's projection for 3,000 × 8 was 877 ms in Node, so the browser is within a quarter
+of it.
+
+### 14.3 The §13.3 contract decisions, as actually taken
+
+§13.3 required four questions to be answered explicitly rather than settled by
+implementation. They were answered as follows.
+
+**Unstated preset slot — recommended reading adopted.** The user was asked and chose it.
+`runeAdvice`'s finder now accepts a candidate main of `0`, the `broken` rank and
+broken-worth policy are unchanged, and `RUNE-CLEANUP-MATH.md` §3 makes it binding. The
+fixture went into the gate before the finder changed, as §13.3 requires.
+
+**Include settings — calculation-scope semantics adopted.** The user was asked and chose
+it. The population is filtered before the engine; the ready count, the empty state and the
+status line describe the judged population; the table's Equipped/Inventory filter remains a
+presentation filter and cannot reintroduce an excluded rune. `RUNE-CLEANUP-MATH.md` §7
+states it. It travelled in its own commit, as §13.3 demands.
+
+**Integer probability keys — option 2 adopted, and initially under-specified.** §13.3 offers
+two contracts and says the second requires `RUNE-CLEANUP-MATH.md` §6 to be updated *first*,
+defining the lattice, the one-unit target slack and the maximum safe magnitude.
+
+The lattice was implemented and §6 was updated at Stage 4's checkpoint — but **later than
+§13.3 asks, and at first it stated only the tolerance**, not the representation, the slack
+or the magnitude ceiling. The code comments carried those three; the contract did not, which
+is the wrong way round. That has since been corrected: `RUNE-CLEANUP-MATH.md` **§6.1** is now
+the representation contract and names all three figures, and §6's old sentence *"convolves
+distributions without a rounding grid"* — which the lattice made untrue — has been replaced
+rather than left to contradict the code.
+
+§13.3's wording objection was also right and has been applied to the source: the model's
+comment now says **exact on this lattice**, and says why that is not the same as exact in
+the reals.
+
+**Display boundary — recommended policy adopted, with a stricter gate.** §6.2 of the math
+document now says the printed percentage follows from the computed value and that summation
+order is not a stable cross-version presentation guarantee. The gate is *stricter* than that
+policy on purpose: it treats `reason`, which carries the printed percentage, as an **exact**
+field, so a moved boundary always fails and is adjudicated rather than absorbed into a
+numeric tolerance. §13.5 requires rendered fields to be reported separately from tolerance
+fields; making them exact is the strongest form of that.
+
+**Target magnitudes and `Demand` — left open, as instructed.** §12.4 suggested Stage 6 also
+narrow `shares` to `ReadonlySet<TargetStat>`; §13.3 overrides it and forbids that until the
+preset-match investigation decides whether the numbers become weights. §13.3 wins, and the
+implementation follows it: `Demand` is now a *"semantically named per-slot demand object"*
+— `{ shares: ReadonlyMap<TargetStat, number>; ceiling: number }` — whose representation can
+carry either a relevance set or normalised weights without another rewrite. The dead number
+survives, deliberately, and `RUNE-PRESET-MATCH-INVESTIGATION.md` §5.5 still owns the
+question.
+
+### 14.4 Where the implementation departed from the approved plan
+
+#### 14.4.1 Phase 0's gate: two gaps, and three additions
+
+**Gap — quotas are not serialised.** §13.4 Phase 0 asks for *"every public per-rune field
+plus assignment counts and quotas"*. The gate records every per-rune field and a per-preset
+`(preset, verdict)` assignment count, but not the quota numbers themselves: `runeAdvice`
+does not return them, and exporting internal state purely to diff it would have widened the
+model's surface for the benefit of a test. The assignment counts are downstream of the
+quotas and moved when Stage 8 changed allocation, so the coverage is real — but a quota
+change that happened to leave every count identical would not be caught. Recorded as a known
+limit rather than papered over.
+
+**Gap — no real-account timing run.** §13.4 Phase 0 and §13.5 gate 4 ask for one, outside
+the repository. The browser run used a **synthetic** 3,000-rune account, because no real
+export is present and `AGENTS.md` keeps real exports out of the checkout. The scale figure
+in §14.2 is therefore synthetic-at-real-size, not real. It should be repeated against a real
+account when one is at hand.
+
+**Addition — the display-boundary fixture is detected, not constructed.** §11 Stage 0 asks
+for *"a rune whose chance lands on an exact display boundary"*. Constructing one blind means
+engineering a rune, preset and threshold whose exact chance is a chosen dyadic rational —
+fragile, and pinned to whatever seed produced it. The gate instead scans every scenario for a
+chance within 10⁻⁹ of a `k + 0.5` percent boundary and records them. That catches the ones
+that exist today *and* any a future change introduces. It worked: the population contains
+**six**, including one at exactly **0.875** — §10.2's own value, arrived at independently.
+
+**Addition — the chance tolerance is a flag, defaulting to zero.** §11 asks Stages 1, 2, 5
+and 6 for zero differences *including* `chance`, and allows Stage 3 1 × 10⁻⁹. One constant
+cannot serve both. `--chance-tolerance` defaults to `0`, so a stage must ask for slack
+explicitly, on the command line, where it is visible. Only Stage 3 was run with it.
+
+**Addition — degenerate-input assertions.** No runes; no presets; a preset with no positive
+target; neither. `AGENTS.md` §3 requires both extremes of input, and an empty account has one
+right answer that cannot drift — so it belongs in an assertion, not in a baseline someone
+could re-record.
+
+#### 14.4.2 Phase 1 was done last, not first
+
+**This is the one departure with no good justification, only an explanation.**
+
+§13.4 Phase 1 is explicit: resolve the two contract changes *before* any dependent refactor,
+and *"the new output must become the baseline for later performance stages."* The
+implementation instead followed §11's stage numbering, which puts them at 8 and 9 — after the
+hot path, the context split, the memoisation and the worker. §11 is the superseded ordering;
+§13.4 is the approved one, and it was not read closely enough before starting.
+
+What was at risk, and what actually happened:
+
+- **The risk** is that a performance stage silently absorbs part of a contract change,
+  because the contract change is measured against a baseline that already contains it.
+- **In fact** each contract change still landed in its own commit, was gated on its own, and
+  was re-baselined deliberately with the diff read by hand. Stage 8's diff was confined to
+  the two scenarios containing a blank-slot preset, changed no verdict, and moved no other
+  preset's allocation. Stage 9 does not touch the engine at all — the equivalence gate and
+  the calibration oracle were untouched by it, which is the proof that it absorbed nothing.
+- **The one real consequence** is that the performance baselines were taken against
+  pre-Stage-8 output. They were re-taken after Stage 8, so the tree is now in the state
+  Phase 1 would have produced — but it arrived there by a route that made the hand review of
+  Stage 8's diff load-bearing, where the approved order would have made it routine.
+
+Phase 5 was correctly *not* attempted before Phase 1, which was the dependency §10.4 and
+§13.3 actually cared about. The narrowing that did happen in Stage 6 — six slots to one — is
+explicitly permitted by §13.3 (*"may memoise demand and narrow the loop to one slot"*) and is
+not the slot-local candidate model.
+
+#### 14.4.3 Stage 1's headroom check is a runtime assertion — as §12.2 required
+
+Worth recording because §11 and §12 disagree and §11 is the one people read.
+
+§11 Stage 1 says *"Add a test asserting a slot ceiling stays far below it."* §12.2 says the
+opposite and is right: *"The assertion required by Stage 1 must be written as a runtime
+guard, not only a test. If a future contract change pushes fill values past the safe band,
+that guard is what turns a silent precision loss into a loud failure."* §13.3 repeats it —
+*"a test-only guard is not enough for a future weighting change."*
+
+`reachChance` therefore throws if `gapKey` is not a safe integer. It costs one comparison per
+call rather than per cell, cannot go stale, and fails loudly in the sense `AGENTS.md` §0.1
+requires. It is still exercised: the equivalence run drives it across 582 runes × 8 scenarios.
+
+#### 14.4.4 Stage 6's memo lifetime is an explicit scope, not a module-global
+
+**§11 said:** memoise *"for the call's duration"*. **§13.4 Phase 3 said:** *"Keep cache keys
+local to the call unless a complete invalidation contract is designed; preset ids alone are
+not enough to identify mutable user data."*
+
+**What was built:** `RuneAdviceScope`, created by `runeAdvice` and passed down, holding both
+the demand memo and the craft line-up memo. `prepareRuneCandidate` takes it as an optional
+last parameter and defaults to a fresh one.
+
+**Why.** "The call's duration" has no expression in `rune-cleanup-model.ts`, which does not
+know when a calculation begins or ends. A module-global map needs an exported `reset()` every
+caller must remember, and the failure when one forgets is a stale figure rather than a crash.
+A `WeakMap` on the preset object relies on presets being replaced rather than mutated, which
+is true today and is a rule nobody wrote down. An explicit scope makes **the lifetime the
+key**, which is what §9.6 and §13.4 were both asking for. The default of a fresh scope means
+a lone `judgeAgainstBuild` — from a test, or from the independent oracle — gets no sharing,
+which is right for a caller asking one question.
+
+The memo key also carries the reference base line, which §11's proposed key omits.
+`slotDemand` reads `base` through `slotCeiling`, and the shipped presets span five families
+with five different reference lines, so omitting it would have returned one family's ceiling
+for another family's preset.
+
+#### 14.4.5 Stage 6's craft restructure goes one function further than §11
+
+**§11 said:** *"build the legal gem/grind candidate list once per rune and score it per
+distinct share set."* **§13.4 Phase 3 said:** *"reuse the winning projected supply map and
+take the direct no-credit path."*
+
+**What was built:** the line-ups are **priced into supplies** once per rune, not merely
+enumerated. `craftLineUps` returns the supplies; `projectedSupply` only chooses among them.
+
+**Why.** Enumerating once but calling `supplyOf` per preset leaves the larger half of the cost
+in place — `supplyOf` walks every line and converts each to max rolls, and depends only on the
+rune and the reference base, never on the role. The split the plan identified is real; it
+falls one function later than §11 puts it.
+
+**One detail §11 does not mention and an implementer must not lose:** the winner is taken on a
+**strict** improvement from an initial best, so **the first line-up wins every tie**. The
+flattened list must preserve the original nested iteration order exactly. It does, and the
+equivalence gate would have caught it if it did not.
+
+#### 14.4.6 Phase 4 has three files, and cancellation really cancels
+
+**§11 said:** a client and a worker. **What was built:** those plus
+`rune-advice-protocol.ts`, because the worker cannot import from the client without pulling
+the client's `Worker` construction into the worker bundle. `artifact-score-protocol.ts` exists
+for the same reason, so this follows the established shape. §13.4 Phase 4 asks for the
+protocol to be *"defined separately"*, so this is compliance rather than departure.
+
+Two refinements to §9.12's safeguards:
+
+- **`superseded` is a third outcome, not a rejected promise.** A calculation the user replaced
+  is not a failure, and modelling it as one invites a `catch` that logs an error for something
+  working correctly.
+- **Superseding and cancelling both terminate the worker** rather than ignoring its result.
+  The worker is single-threaded and handles messages in order, so an abandoned calculation
+  would otherwise have to run to completion before the request that matters could start.
+  §9.12 called cancellation *"a responsiveness feature"*; ignoring a result gives the user
+  nothing back, while terminating returns the processor.
+
+**Latest-request-wins lives in the client, not in the page.** §13.4 Phase 4 lists it as a
+property of the client/worker boundary, and that is where it belongs: any second caller would
+otherwise have to reinvent it, and the failure when one forgets is silent. The first
+implementation put it in the component as a ticket `useRef`; that was moved.
+
+#### 14.4.7 Phase 6's allocation indexing was done without a new profile
+
+§13.4 Phase 6 says *"Only after a new profile confirms that the work is worthwhile."* The
+allocation indexing was done anyway. The justification is §10.9's, not a measurement: two
+full `pending` scans inside a sort comparator are a defect of form, the replacement is
+provably order-preserving — the key is a pure function of state the sort does not touch, and
+both sorts that read the index end in a rune-id tie-break — and the equivalence gate showed
+zero differences. It bought nothing measurable at eight presets, which is what §10.9 said it
+would.
+
+### 14.5 What is still open
+
+| Item | Status | Reason |
+| --- | --- | --- |
+| **Phase 5 / Stage 10** — slot-local candidate model | **Not done** | §10.4 and §13.4 both require it to follow the unstated-slot decision, which landed in the same session. Stage 6's narrowing already removed its measured cost, so what remains is an architecture argument, and it should be made against a tree where Phase 1 has settled. `presetBuilds` and `judgeAgainstBuild` are both still exported with their signatures, so nothing blocks it. |
+| **Phase 6** — value-gate precheck (§4.7) | **Not done** | §4.7's own instruction is *"after 4.1–4.5 are in and verified, or not at all"*, and §11 Stage 11 warns it *"must be checked against the fallback rows, not only the assigned ones — that is where its argument is weakest"*. At 663 ms there is nothing left to buy with that risk. |
+| **Phase 6** — broken-worth-zero placeholders (§9.7.4, §10.7) | **Not done** | After Stage 6 the arithmetic it avoids is a memo lookup and a line-up score. Its caveat — the candidate may still be the named fallback, in preset order, which is currently an *emergent* property of a stable sort — is more delicate than the saving is large. §10.7 is right that the order must be pinned by a test first. |
+| **Phase 6** — zero-ceiling preset precomputation (§9.7.3) | **Subsumed** | Stage 6's memo computes a preset's slot demand once per `(preset, slot, main, base)`, so an empty-target preset costs one zero ceiling per slot for the whole account rather than one per rune. A separate flag would save nothing measurable. |
+| §9.9 / §10.6 closed-form `bestReachableFill` | **Not done** | §10.6 prices it at 2.0 % of self time. Unchanged, and §11's *"Not in the plan"* table already rejects it. |
+| §6.3 streaming results | **Open, now possible** | §6.3 says *"worth having once the calculation is in a worker, and not before."* The precondition is now met. Not done because 1.1 s does not need progressive rendering. |
+| §6.4 threshold-independent full distribution | **Not done** | §6.4 recommends against it, and Stages 2 and 3 strengthened the case: both prunes are threshold-dependent and together they are most of the win. |
+| §4.8b bounding `lineDistributionCache` | **Not done, noted** | §4.8b anticipated that §4.3 would add a sorted view per entry. It does, as a `WeakMap` keyed on the distribution object, so the view cannot outlive the entry it derives from and adds no independent growth. The underlying cache is still unbounded over a small key space, which is where §4.8b left it. |
+| Target magnitudes as weights | **Open, another document's** | `RUNE-PRESET-MATCH-INVESTIGATION.md` §8.1. §12.2's warning now has a home in the contract: `RUNE-CLEANUP-MATH.md` §6.1 names the 9,007-max-roll ceiling, and the runtime guard is what turns an unnormalised weighting into a loud failure instead of silent precision loss. |
+
+### 14.6 The one claim that was never exercised
+
+§5 records a printed percentage moving from 87 % to 88 % at an exact 7⁄8; §10.2 settles that
+the new engine prints the correct one; §10.11 lists it under *"Not preserved, and deliberately
+so."*
+
+**In this population it did not happen.** The gate contains six chances sitting on an exact
+display boundary — including one at exactly 0.875 — and **all six printed identically before
+and after Stage 3**. `reason` had zero differences at every stage.
+
+That neither confirms nor refutes §10.2; it means the phenomenon is population-specific, which
+is what one ulp of summation order would predict. §13.2 already grades this matter as *"strong
+evidence … but summation-order agreement is not a formal exact oracle"*, and that grading
+stands. Two consequences:
+
+- `RUNE-CLEANUP-MATH.md` §6.2's display sentence is a **statement of policy**, not a
+  description of something this gate observed. It was right to write it; it is not evidence.
+- The gate treats a `reason` difference as a **failure**. If one ever appears, adjudicate it
+  the way §10.2 was adjudicated — compensated summation on both sides — before assuming
+  either build is right.
+
+### 14.7 One product decision the plan did not notice
+
+§6.2, §9.11, §10.10 and §13.3 all discuss wiring up `includeLevel12Runes` and
+`includeEquippedRunes`, and none of them mentions that both were stored **`false`**.
+
+Honouring `false` would have made a first-time user's calculation silently skip their equipped
+runes and everything at +12 — for a real account, most of the box, and an import-parity break
+under `AGENTS.md` §0.1 on the first press of the button. Both defaults moved to `true`. Nothing
+had ever read them, so no behaviour depended on them, and opening included is what makes the
+wiring a no-op until the user asks for it.
+
+This is the one product judgement in the implementation that no section authorised. It is
+recorded here rather than left in a commit message, because a reader of §6.2 would not
+otherwise know the question had been asked.
+
+Stage 9 also went one step past *"the result count, empty state and calculation status must
+describe the judged population"*: the status line names how many runes were **left out**. A
+rune the settings exclude is a rune no verdict was reached for, and §0.1's third rule is about
+exactly that kind of silence.
+
+### 14.8 Verification actually run, against §13.5
+
+| §13.5 gate | Run |
+| --- | --- |
+| 1 · `verify:rune-cleanup-equivalence` against the phase baseline | Yes, at every stage |
+| 2 · `verify:rune-cleanup-calibration` and the large run | Yes — the quick run at every stage, the byte-comparison at `--runes=500 --share-runes=300 --rollouts=800 --variant-runes=20` at every arithmetic stage, and `:large` at the Stage 4 checkpoint |
+| 3 · Focused Rune Clean-up Playwright tests, empty and populated | Yes — `rune-cleanup-calculation`, `rune-cleanup-worker`, `rune-cleanup-scope` |
+| 4 · A real-account timing run on `http://localhost:3000/` | **Partly** — a synthetic 3,000-rune account in the real browser on the project's own dev server. No real export was available; see 14.4.1 |
+| 5 · `tsc --noEmit`, `lint`, `build`, `test:e2e` before the final commit | Yes, plus `test:domain` |
+
+Three tests were added, and each exists because nothing else could have caught its failure:
+
+- `tests/rune-cleanup-worker.spec.ts` counts animation frames during a 3,000-rune
+  calculation. Every other Rune Clean-up test would pass just as well with the work back on
+  the main thread, because the numbers and the table would be identical.
+- The same file proves a superseded calculation resolves `superseded` and cannot commit,
+  which §13.4 Phase 4 requires. It drives the client directly, because the page cannot
+  currently produce two overlapping requests — the button is disabled while one runs.
+- `tests/rune-cleanup-scope.spec.ts` drives the two include settings against the fixture
+  account, which happens to be built for exactly this: three inventory runes, two of them at
+  +12, and one +15 equipped on a monster.
+
+### 14.9 How to use the gate next time
+
+`npm run verify:rune-cleanup-equivalence` is the check every future change to
+`rune-cleanup-model.ts` or `rune-cleanup-advice.ts` should run. Three things about it are
+easy to get wrong:
+
+1. **Its baseline lives in `work/`, which is not committed.** That is deliberate — a baseline
+   must be captured from a tree you have decided is correct, not inherited from whoever ran
+   it last. Capture one with `--write` **before** changing anything, and read the diff
+   yourself rather than only the exit code.
+2. **A `reason` difference is never a rounding detail.** `reason` carries the printed
+   percentage. See §14.6.
+3. **A change to preset semantics invalidates the baseline, not the script.** §12.3 is right:
+   re-capture rather than adjust an expectation to whatever comes out.
+
+It is deliberately outside `npm test`, because without a baseline it fails, and a check that
+fails on a fresh checkout is a check people learn to skip.
+
+`npm run verify:rune-cleanup-calibration` remains the independent oracle and answers the other
+question: not *"does this build agree with the last one"* but *"is the model right"*. Both are
+needed, and `judgeAgainstBuild` keeps its exported signature — as §11 Stage 5, §13.4 Phase 3
+and §13.4 Phase 5 all require — so the oracle never has to be rewritten in the same commit as
+the model it checks.
