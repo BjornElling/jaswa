@@ -10,8 +10,7 @@ import type { Relic } from './relics';
 import { runeSlotKeys } from './monster-defaults';
 import type { RuneSlotKey } from './monster-defaults';
 import { relicProperty, relicPropertyLabel } from './relic-properties';
-import type { RuneMainStat } from './rune-potential-presets';
-import { presetTargetColumns } from './rune-potential-presets';
+import { presetTargetColumns, runeMainStatByEffect } from './rune-potential-presets';
 import { runeStatNames } from './runes';
 import { activeRuneSets } from './rune-sets';
 import { runeSetPair } from './rune-set-pairs';
@@ -73,15 +72,6 @@ const statLabels: Partial<Record<keyof MonsterStatTargets, string>> = Object.fro
   presetTargetColumns.map((column) => [column.key, `${column.label}${column.unit ?? ''}`]),
 );
 
-/* The rune main stats as the export numbers them, in the vocabulary a
-   preference is stated in. Flat mains are absent for the same reason
-   `monster-defaults.ts` excludes them: `RuneMainStat` cannot express one, so a
-   rune carrying one can be reported as *present* but never matched against a
-   wish. */
-const runeMainStatsByEffect: Record<number, RuneMainStat> = {
-  2: 'HP%', 4: 'Atk%', 6: 'Def%', 8: 'Spd', 9: 'CtR%', 10: 'CtD%', 11: 'Res%', 12: 'Acc%',
-};
-
 const runeSlotNumbers: Record<RuneSlotKey, number> = { slot2: 2, slot4: 4, slot6: 6 };
 
 const categoryLabels: Record<ArtifactCategory, string> = { attribute: 'Attribute', type: 'Type' };
@@ -129,7 +119,7 @@ function runeShortfalls(monster: GameRecord, resolved: ResolvedMonsterPreference
     }) as GameRecord | undefined;
     const mainId = typeof worn?.pri_eff === 'object' && Array.isArray(worn.pri_eff)
       ? Number(worn.pri_eff[0]) : null;
-    const present = mainId === null || !Number.isFinite(mainId) ? undefined : runeMainStatsByEffect[mainId];
+    const present = mainId === null || !Number.isFinite(mainId) ? undefined : runeMainStatByEffect[mainId];
     if (present !== undefined && wanted.chosen.some((stat) => stat === present)) continue;
     shortfalls.push({
       kind: 'rune-slot-main',

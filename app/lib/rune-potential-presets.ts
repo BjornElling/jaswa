@@ -16,6 +16,7 @@
  * are edited and deleted exactly like presets the user typed in themselves.
  */
 import { calculateRunePotentialMetrics, displayRunePotentialMetric } from './rune-potential-metrics';
+import { slotMainProperties } from './rune-properties';
 import { presetRuneSetNameList } from './rune-sets';
 
 /**
@@ -26,6 +27,49 @@ export type RuneMainStat = 'HP%' | 'Atk%' | 'Def%' | 'Spd' | 'CtR%' | 'CtD%' | '
 
 /** Every main stat a choice may name, in the order the editor offers them. */
 export const runeMainStats: readonly RuneMainStat[] = ['HP%', 'Atk%', 'Def%', 'Spd', 'CtR%', 'CtD%', 'Res%', 'Acc%'];
+
+/**
+ * This vocabulary against the export's own effect ids. It lives here, beside the
+ * vocabulary itself, because four modules had grown a private copy of it and a
+ * private copy is how two screens come to disagree about what `Spd` means.
+ */
+export const runeMainStatIds: Readonly<Record<RuneMainStat, number>> = {
+  'HP%': 2, 'Atk%': 4, 'Def%': 6, Spd: 8, 'CtR%': 9, 'CtD%': 10, 'Res%': 11, 'Acc%': 12,
+};
+
+/**
+ * The same map read the other way, for a rune already in hand. The flat mains
+ * (effects 1, 3 and 5) are absent by construction rather than by omission:
+ * `RuneMainStat` has no word for them, so they cannot appear here.
+ */
+export const runeMainStatByEffect: Readonly<Record<number, RuneMainStat>> = Object.fromEntries(
+  runeMainStats.map((stat) => [runeMainStatIds[stat], stat]),
+);
+
+/**
+ * Which of those main stats each choosing slot can actually carry.
+ *
+ * Derived from `slotMainProperties`, which is `RUNE-CANONICAL.md` §3's table and
+ * the only place the rule is written down. Every slot used to be offered the
+ * whole vocabulary, so a preset could ask for CRI Dmg in slot 2 or Speed in slot
+ * 6 — mains no rune has ever carried. Nothing complained: the slot simply
+ * matched no rune, and the preset judged a narrower box than its author thought
+ * they had asked for, which is exactly the invisible failure `AGENTS.md` §0.1
+ * forbids.
+ */
+export const runeMainStatsBySlot: Readonly<Record<keyof PresetSlots, readonly RuneMainStat[]>> = {
+  slot2: mainStatsAllowedIn(2),
+  slot4: mainStatsAllowedIn(4),
+  slot6: mainStatsAllowedIn(6),
+};
+
+/* The flat mains (HP +, ATK +, DEF +) drop out here rather than being listed as
+   exclusions: `RuneMainStat` has no word for them, so a slot offers exactly the
+   intersection of what the game allows and what a preset can say. */
+function mainStatsAllowedIn(slot: number): readonly RuneMainStat[] {
+  const allowed = slotMainProperties[slot] ?? [];
+  return runeMainStats.filter((stat) => allowed.includes(runeMainStatIds[stat]));
+}
 
 /** Preferred first, acceptable second — the same split for sets and main stats. */
 export type PresetChoice<T> = { preferred: readonly T[]; acceptable: readonly T[] };
@@ -405,7 +449,7 @@ function isCurrentRunePotentialPreset(value: unknown): value is RunePotentialPre
     || !presetTypes.includes(value.type as PresetType)
     || (value.runeShare !== undefined && !isRuneShareStep(value.runeShare))
     || !isChoice(value.sets, presetRuneSetNameList)
-    || !isRecord(value.slots) || !isChoice(value.slots.slot2, runeMainStats) || !isChoice(value.slots.slot4, runeMainStats) || !isChoice(value.slots.slot6, runeMainStats)
+    || !isRecord(value.slots) || !isChoice(value.slots.slot2, runeMainStatsBySlot.slot2) || !isChoice(value.slots.slot4, runeMainStatsBySlot.slot4) || !isChoice(value.slots.slot6, runeMainStatsBySlot.slot6)
     || !isRecord(value.artifacts) || typeof value.artifacts.atk !== 'boolean' || typeof value.artifacts.def !== 'boolean' || typeof value.artifacts.hp !== 'boolean'
     || !isTargets(value.targets)) return false;
   const refreshed = withRefreshedMetrics(value as RunePotentialPreset);

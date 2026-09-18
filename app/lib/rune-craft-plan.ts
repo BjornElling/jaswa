@@ -7,7 +7,8 @@
  * `provisionalRuneScore` below, which is the one seam the real scorer replaces.
  */
 import { calculateRuneEfficiency } from './rune-potential-metrics';
-import type { RunePotentialPreset, RuneMainStat } from './rune-potential-presets';
+import type { RunePotentialPreset } from './rune-potential-presets';
+import { runeMainStatIds } from './rune-potential-presets';
 import { craftRollValue, isGrindableStat } from './rune-craft-items';
 import type { CraftItem, CraftRollAssumption } from './rune-craft-items';
 import { gemMinimumLevel, runeSubValue, slotAllowsSubStat } from './runes';
@@ -239,11 +240,6 @@ export function craftCandidate(
 
 /* ------------------------------------------------------------ preset scope */
 
-/** The preset's main-stat vocabulary against the export's effect ids. */
-const mainStatIds: Readonly<Record<RuneMainStat, number>> = {
-  'HP%': 2, 'Atk%': 4, 'Def%': 6, Spd: 8, 'CtR%': 9, 'CtD%': 10, 'Res%': 11, 'Acc%': 12,
-};
-
 const slotChoiceKeys = { 2: 'slot2', 4: 'slot4', 6: 'slot6' } as const;
 
 /**
@@ -267,7 +263,7 @@ export function presetWantsRune(preset: RunePotentialPreset, rune: Rune): boolea
   const choice = preset.slots[key];
   const mains = [...choice.preferred, ...choice.acceptable];
   if (!mains.length) return true;
-  return mains.some((stat) => mainStatIds[stat] === rune.mainStatId);
+  return mains.some((stat) => runeMainStatIds[stat] === rune.mainStatId);
 }
 
 /* -------------------------------------------------------------- inventory */

@@ -5,7 +5,7 @@ import { runeSlotKeys } from './monster-defaults';
 import type { RelicMainProperty } from './relic-properties';
 import { relicMainPropertyOrder, relicProperty } from './relic-properties';
 import type { PresetTargets, RuneMainStat } from './rune-potential-presets';
-import { presetStatTargetKeys, presetTargetMaximum, runeMainStats } from './rune-potential-presets';
+import { presetStatTargetKeys, presetTargetMaximum, runeMainStatsBySlot } from './rune-potential-presets';
 import { isRuneSetPairId } from './rune-set-pairs';
 
 /**
@@ -276,8 +276,12 @@ function isRelicMain(value: unknown): value is RelicMainProperty {
   return typeof value === 'string' && relicMainPropertyOrder.includes(value as RelicMainProperty);
 }
 
-function isRuneMainStat(value: unknown): value is RuneMainStat {
-  return typeof value === 'string' && runeMainStats.includes(value as RuneMainStat);
+/* Per slot, not against the whole vocabulary: a wish for a main the slot cannot
+   roll is one no rune can ever satisfy, and a stored preference carrying one is
+   malformed rather than merely unlucky. */
+function isRuneMainStatIn(slot: RuneSlotKey) {
+  return (value: unknown): value is RuneMainStat =>
+    typeof value === 'string' && runeMainStatsBySlot[slot].includes(value as RuneMainStat);
 }
 
 function isRuneBuildId(value: unknown): value is string {
@@ -348,7 +352,7 @@ export function isCurrentMonsterCopyPreferences(value: unknown): value is Monste
   if (value.runeSlots !== undefined) {
     if (!isRecord(value.runeSlots)) return false;
     if (!Object.keys(value.runeSlots).every((key) => runeSlotKeys.includes(key as RuneSlotKey))) return false;
-    if (!Object.values(value.runeSlots).every((slot) => isChosenList(slot, isRuneMainStat))) return false;
+    if (!Object.entries(value.runeSlots).every(([key, slot]) => isChosenList(slot, isRuneMainStatIn(key as RuneSlotKey)))) return false;
   }
   if (value.artifacts !== undefined) {
     if (!isRecord(value.artifacts)) return false;

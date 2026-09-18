@@ -6,6 +6,7 @@ import { monsterSpeciesId } from './monster-species';
 import type { RelicMainProperty } from './relic-properties';
 import { relicMainProperties } from './relic-properties';
 import type { RuneMainStat } from './rune-potential-presets';
+import { runeMainStatByEffect } from './rune-potential-presets';
 import { runeSetName } from './rune-sets';
 
 /**
@@ -44,24 +45,18 @@ export const runeSlotKeys: readonly RuneSlotKey[] = ['slot2', 'slot4', 'slot6'];
 
 const runeSlotNumbers: Record<RuneSlotKey, number> = { slot2: 2, slot4: 4, slot6: 6 };
 
-/**
- * The rune main stats as the export numbers them, in the vocabulary a preset
- * already speaks.
- *
- * Ids 1, 3 and 5 — flat HP +, ATK + and DEF + — are deliberately absent.
- * `RuneMainStat` has eight members and none of them is a flat main, so a
- * default of `HP +` would be a value no chip can show and no comparison can
- * ever match: the invisible record `AGENTS.md` §0.1 forbids. They are excluded
- * from the denominator and the excluded share is *reported* on every slot, so
- * the gap is visible rather than swallowed. Across the dataset it averages
- * 1.6 % of mains and peaks at 11.2 %; if it ever stops being negligible the fix
- * is to grow `RuneMainStat`, not to special-case it here.
+/*
+ * `runeMainStatByEffect` is the vocabulary a preset already speaks, and ids 1, 3
+ * and 5 — flat HP +, ATK + and DEF + — are absent from it. A default of `HP +`
+ * would be a value no chip can show and no comparison can ever match: the
+ * invisible record `AGENTS.md` §0.1 forbids. They are excluded from the
+ * denominator and the excluded share is *reported* on every slot, so the gap is
+ * visible rather than swallowed. Across the dataset it averages 1.6 % of mains
+ * and peaks at 11.2 %; if it ever stops being negligible the fix is to grow
+ * `RuneMainStat`, not to special-case it here.
  */
-const runeMainStatsByEffect: Record<number, RuneMainStat> = {
-  2: 'HP%', 4: 'Atk%', 6: 'Def%', 8: 'Spd', 9: 'CtR%', 10: 'CtD%', 11: 'Res%', 12: 'Acc%',
-};
 
-/** The flat mains the vocabulary above cannot express, kept named rather than inline. */
+/** The flat mains that vocabulary cannot express, kept named rather than inline. */
 const flatRuneMainEffects: ReadonlySet<number> = new Set([1, 3, 5]);
 
 /**
@@ -303,7 +298,7 @@ function runeDefaults(panel: RunePanelStatistics | undefined): RuneDefaults | un
     const expressible = all.filter((row) => !flatRuneMainEffects.has(row.effectId));
     const total = totalCount(expressible);
     slots[key] = classifyDistribution(
-      expressible, total, (id) => runeMainStatsByEffect[id], defaultThresholds.runeSlotMain,
+      expressible, total, (id) => runeMainStatByEffect[id], defaultThresholds.runeSlotMain,
     );
     slotObservations[key] = total;
     excludedFlatMainShare[key] = rawTotal > 0 ? (rawTotal - total) / rawTotal : 0;

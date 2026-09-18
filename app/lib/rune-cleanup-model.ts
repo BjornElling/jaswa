@@ -36,18 +36,14 @@ import {
 } from './rune-properties';
 import type { TargetStat } from './rune-properties';
 import type { ReferenceStats } from './rune-reference-stats';
-import type { PresetChoice, RuneMainStat, RunePotentialPreset } from './rune-potential-presets';
+import type { PresetChoice, RunePotentialPreset } from './rune-potential-presets';
+import { runeMainStatIds } from './rune-potential-presets';
 import { craftRollValue, craftValueRange } from './rune-craft-items';
 import type { CraftRollAssumption } from './rune-craft-items';
 import type { ItemGrade } from './types';
 
 /** The eight stats a preset can aim at, in the order every table reads them. */
 export const targetStats: readonly TargetStat[] = ['hp', 'atk', 'def', 'spd', 'criRate', 'criDmg', 'res', 'acc'];
-
-/** How a preset's main-stat vocabulary maps onto the game's own effect ids. */
-const mainStatIds: Readonly<Record<RuneMainStat, number>> = {
-  'HP%': 2, 'Atk%': 4, 'Def%': 6, Spd: 8, 'CtR%': 9, 'CtD%': 10, 'Res%': 11, 'Acc%': 12,
-};
 
 /** Whether a rune answers a preset's wish in full, partly, or not at all. */
 export type MatchRank = 'preferred' | 'acceptable' | 'broken';
@@ -91,7 +87,7 @@ export function presetBuilds(preset: RunePotentialPreset): Build[] {
   const builds: Build[] = [];
   for (const two of options[0]) for (const four of options[1]) for (const six of options[2]) {
     builds.push({
-      mains: { 2: two.stat ? mainStatIds[two.stat] : 0, 4: four.stat ? mainStatIds[four.stat] : 0, 6: six.stat ? mainStatIds[six.stat] : 0 },
+      mains: { 2: two.stat ? runeMainStatIds[two.stat] : 0, 4: four.stat ? runeMainStatIds[four.stat] : 0, 6: six.stat ? runeMainStatIds[six.stat] : 0 },
       ranks: { 2: two.rank, 4: four.rank, 6: six.rank },
     });
   }

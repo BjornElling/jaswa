@@ -8,7 +8,7 @@ import { ChoiceEditor, ChoiceLegend } from './choice-editor';
 import { itemGrades } from '../lib/rune-craft-items';
 import {
   createRunePotentialPreset, presetNameMaximum, presetRuneShareSteps, presetStatTargetKeys,
-  presetTargetColumns, presetTargetMaximum, presetTypes, runeMainStats, runeShareLabel,
+  presetTargetColumns, presetTargetMaximum, presetTypes, runeMainStatsBySlot, runeShareLabel,
   withRefreshedMetrics,
 } from '../lib/rune-potential-presets';
 import type { PresetChoice, PresetStatTargets, PresetType, RuneMainStat, RunePotentialPreset } from '../lib/rune-potential-presets';
@@ -380,8 +380,15 @@ function PresetEditor({ draft, isNew, onCancel, onSave }: {
   const [openedAs] = useState(() => draft.name.trim());
   const nameField = useRef<HTMLInputElement>(null);
 
+  /* Opening the editor puts the caret in the name, and nothing after that moves
+     it again. This used to share an effect with the key listener below, whose
+     `onCancel` is a fresh closure on every render of the page — and the helper
+     poll re-renders the page every two seconds, so the effect re-ran and yanked
+     the caret out of whatever field was being typed in. Focus belongs to the
+     mount, not to a listener's dependencies. */
+  useEffect(() => { nameField.current?.focus(); }, []);
+
   useEffect(() => {
-    nameField.current?.focus();
     function onKeyDown(event: KeyboardEvent) { if (event.key === 'Escape') onCancel(); }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -437,11 +444,11 @@ function PresetEditor({ draft, isNew, onCancel, onSave }: {
             onChange={(sets) => update({ sets })} />
         </EditorBlock>
 
-        <EditorBlock title="Rune slots" legend note="Slots 1, 3 and 5 carry a fixed main stat, so only these three are stated.">
+        <EditorBlock title="Rune slots" legend note="Slots 1, 3 and 5 carry a fixed main stat, so only these three are stated. Each of the three offers the mains it can actually roll.">
           <div className="editor-slots">
             {([['slot2', 'Slot 2'], ['slot4', 'Slot 4'], ['slot6', 'Slot 6']] as const).map(([key, label]) => <div className="editor-slot" key={key}>
               <p className="editor-slot-label">{label}</p>
-              <ChoiceEditor choice={preset.slots[key]} options={runeMainStats}
+              <ChoiceEditor choice={preset.slots[key]} options={runeMainStatsBySlot[key]}
                 onChange={(choice) => updateSlot(key, choice)} />
             </div>)}
           </div>

@@ -34,7 +34,7 @@ import type { Relic } from '../lib/relics';
 import { readRelics } from '../lib/relics';
 import { relicMainPropertyOrder, relicProperties, relicPropertyLabel } from '../lib/relic-properties';
 import type { RelicMainProperty } from '../lib/relic-properties';
-import { presetTargetColumns, presetTargetMaximum, runeMainStats } from '../lib/rune-potential-presets';
+import { presetTargetColumns, presetTargetMaximum, runeMainStatsBySlot } from '../lib/rune-potential-presets';
 import type { RuneMainStat } from '../lib/rune-potential-presets';
 import { activeRuneSets, elementName } from '../lib/rune-sets';
 import type { GeneralSettings } from '../lib/types';
@@ -184,8 +184,12 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
     return byStat;
   }, [shortfalls]);
 
+  /* The same reason the preset editor keeps its focus call alone: this effect
+     re-runs whenever `dirty` flips or the page re-renders around it, and a
+     re-run would pull the caret back to the first field mid-edit. */
+  useEffect(() => { firstField.current?.focus(); }, []);
+
   useEffect(() => {
-    firstField.current?.focus();
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         /* An overlay holding unsaved edits does not close on a stray Escape:
@@ -284,7 +288,7 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
     note: shareNote(resolved.relics.unique.shares.get(definition.id)),
   }));
 
-  const slotOptions = (key: RuneSlotKey): ChoiceMenuOption<RuneMainStat>[] => runeMainStats.map((stat) => ({
+  const slotOptions = (key: RuneSlotKey): ChoiceMenuOption<RuneMainStat>[] => runeMainStatsBySlot[key].map((stat) => ({
     value: stat,
     label: stat,
     note: shareNote(resolved.runes.slots[key].shares.get(stat)),
