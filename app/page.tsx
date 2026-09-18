@@ -59,6 +59,9 @@ export default function Home() {
      to outlive the overlay's own unmount. */
   const overlayOpener = useRef<HTMLElement | null>(null);
   const preferencesRef = useRef(preferences);
+  /* The import badge's own box, so the confirmation that opens in the same
+     corner can measure what it has to clear rather than assume a height. */
+  const importBadge = useRef<HTMLElement | null>(null);
   const gameInput = useRef<HTMLInputElement>(null);
   const settingsInput = useRef<HTMLInputElement>(null);
   const appliedHelperRevision = useRef<number | null>(null);
@@ -394,8 +397,9 @@ export default function Home() {
     <AppRail page={page} onNavigate={setPage} onReport={() => openReport()} />
 
     <section className="workspace">
-      {game && <ImportBadge game={game} general={preferences.general} />}
-      {page === 'home' && importConfirmation && <ImportConfirmation game={importConfirmation} general={preferences.general} />}
+      {game && <ImportBadge ref={importBadge} game={game} general={preferences.general} />}
+      {page === 'home' && importConfirmation && <ImportConfirmation
+        game={importConfirmation} general={preferences.general} below={importBadge} />}
 
       {page === 'home' && <HomeSection
         game={game}

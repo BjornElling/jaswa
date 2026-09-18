@@ -536,12 +536,23 @@ label[for] {
 /* Import success is fixed to the viewport rather than the page: the JSON
    target sits below the fold, so confirmation at the document's top would be
    a correct answer the person who imported the file could not see. It remains
-   outside layout, so nothing beneath it moves. */
+   outside layout, so nothing beneath it moves.
+
+   The four values below are the shape it takes with no account badge above it.
+   With one — which is every real import, because a successful import is what
+   puts the badge there — `import-badge.tsx` measures that card and writes this
+   one's top, right, width and height from it, so the two stand as one column
+   of two cards rather than as two cards that nearly agree. That is why the
+   copy inside wraps and is centred rather than setting the width itself: the
+   width is the badge's to decide, and the badge is always the taller card. */
 .import-confirmation {
   position: fixed;
   top: var(--s4);
   right: var(--s4);
   z-index: 21;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   margin: 0;
   padding: var(--s2) var(--s3);
   border: 1px solid color-mix(in srgb, var(--state-good) 55%, var(--line-strong));
@@ -554,7 +565,10 @@ label[for] {
   pointer-events: none;
   animation: import-confirmation-leave 400ms ease 3.6s forwards;
 }
-.import-confirmation p { margin: 0; white-space: nowrap; }
+/* Wrapping, not `nowrap` as the badge does: this card is given the badge's
+   width, so a line it cannot fit has to fold inside the box rather than run out
+   through the edge. The badge's third line is the slack that pays for it. */
+.import-confirmation p { margin: 0; }
 .import-confirmation-title {
   display: flex;
   align-items: center;
