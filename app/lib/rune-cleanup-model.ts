@@ -503,10 +503,29 @@ const probabilityKey = (value: number): number => Math.round(value * SCALE);
    slack, applied to the target once instead of at every comparison. */
 const targetKey = (value: number): number => Math.round(value * SCALE) - 1;
 
-function convolveDistribution(left: Distribution, right: Distribution, cap = Number.POSITIVE_INFINITY): Distribution {
+/**
+ * `cap` and `floor` are the two ends of the only question the caller asks:
+ * whether the total reaches a target.
+ *
+ * Everything at or above the target is one outcome, so `cap` collapses it to one
+ * key. The mirror was missing: a partial sum that cannot reach the target even
+ * if every remaining term rolls its maximum is already a certain zero, and
+ * carrying it at full resolution multiplied the size of every later cross
+ * product. One intermediate distribution reached 51,454 entries that way, mostly
+ * describing outcomes that were hopeless before the first term was drawn.
+ *
+ * Dropping them cannot move the answer, because a zero contribution is what is
+ * being dropped. `floor` is a property of one branch state — it depends on which
+ * terms are still to come — so it is passed in and never cached.
+ */
+function convolveDistribution(
+  left: Distribution, right: Distribution,
+  cap = Number.POSITIVE_INFINITY, floor = Number.NEGATIVE_INFINITY,
+): Distribution {
   const out: Distribution = new Map();
   for (const [a, leftWeight] of left) for (const [b, rightWeight] of right) {
     const sum = a + b;
+    if (sum < floor) continue;
     const key = sum < cap ? sum : cap;
     out.set(key, (out.get(key) ?? 0) + leftWeight * rightWeight);
   }
@@ -618,22 +637,39 @@ function reachChance(
        In a real account most addition/upgrade splits cannot make the gap, and a
        few must make it. Those are exact 0 % and 100 % answers respectively, not
        approximations, so avoid allocating convolution maps for either case. */
+    /* Keyed rather than summed in value space, so a bound is exactly the extreme
+       the convolution can produce rather than a double that rounds differently
+       from the keys it is bounding. Each term's own bounds are kept, because
+       the floor below needs them term by term and not only in total. */
+    const bounds = terms.map((term) => {
+      const range = subPropertyRange(rune.stars, term.statId, term.kind);
+      if (!range) return { minimum: 0, maximum: 0 };
+      return {
+        minimum: term.count * probabilityKey(inMaxRolls(term.statId, range.minimum, base)),
+        maximum: term.count * probabilityKey(inMaxRolls(term.statId, range.maximum, base)),
+      };
+    });
     let minimumGain = 0;
     let maximumGain = 0;
-    for (const term of terms) {
-      const range = subPropertyRange(rune.stars, term.statId, term.kind);
-      if (!range) continue;
-      /* Keyed rather than summed in value space, so the bound is exactly the
-         extreme the convolution can actually produce rather than a double that
-         rounds differently from the keys it is bounding. */
-      minimumGain += term.count * probabilityKey(inMaxRolls(term.statId, range.minimum, base));
-      maximumGain += term.count * probabilityKey(inMaxRolls(term.statId, range.maximum, base));
-    }
+    for (const bound of bounds) { minimumGain += bound.minimum; maximumGain += bound.maximum; }
     if (maximumGain < gapKey) continue;
     if (minimumGain >= gapKey) { chance += branchWeight; continue; }
+
+    /* How much a partial sum can still gain once term `at` has been convolved.
+       It is the same bound the `maximumGain` prune above already trusts, read
+       one term at a time, so a state below `gapKey - stillToCome[at]` is exactly
+       as certain a zero as a branch the prune skips outright. */
+    const stillToCome = new Array<number>(bounds.length).fill(0);
+    for (let at = bounds.length - 2; at >= 0; at -= 1) {
+      stillToCome[at] = stillToCome[at + 1] + bounds[at + 1].maximum;
+    }
     let branch: Distribution = new Map([[0, 1]]);
-    for (const term of terms) branch = convolveDistribution(branch,
-      lineDistribution(term.statId, term.count, base, rune.stars, term.kind), gapKey);
+    for (let at = 0; at < terms.length; at += 1) {
+      const term = terms[at];
+      branch = convolveDistribution(branch,
+        lineDistribution(term.statId, term.count, base, rune.stars, term.kind),
+        gapKey, gapKey - stillToCome[at]);
+    }
     for (const [gain, probability] of branch) if (gain >= gapKey) chance += branchWeight * probability;
   }
   return Math.min(1, Math.max(0, chance));
