@@ -145,15 +145,28 @@ function inMaxRolls(statId: number, value: number, base: ReferenceStats): number
  * another rune in the eventual six-rune build.
  */
 export type Demand = {
-  /** Per slot, the positive target stats whose full contributions are relevant. */
-  shares: ReadonlyMap<number, ReadonlyMap<TargetStat, number>>;
-  /** The best `fill` a legal rune could reach in each slot. */
-  ceilings: ReadonlyMap<number, number>;
+  /** The positive target stats whose full contributions are relevant in this slot. */
+  shares: ReadonlyMap<TargetStat, number>;
+  /** The best `fill` a legal rune could reach in this slot. */
+  ceiling: number;
 };
 
-/** Build-local relevant stats and the legal six-star denominator for each slot. */
-export function buildDemand(
-  preset: RunePotentialPreset, build: Build, base: ReferenceStats,
+/**
+ * The relevant stats and the legal six-star denominator for **one** slot.
+ *
+ * It used to fill all six and every caller read one. Nothing cross-slot is being
+ * decided here: a target selects a direction rather than creating a per-rune
+ * quota, so another slot's main choice cannot cap this rune or change which lines
+ * it may legally carry. The five discarded entries were five sixths of the work,
+ * `slotCeiling`'s filter-map-sort included.
+ *
+ * Narrowing it also gives the memo below its natural key. The answer depends on
+ * the preset, this slot, the main stat this slot carries and the reference line —
+ * never on the rune — so there are a few hundred distinct answers for a whole
+ * account rather than one per rune per preset.
+ */
+function slotDemand(
+  preset: RunePotentialPreset, slot: number, main: number, base: ReferenceStats,
 ): Demand {
   /* The stats this role actually aims at. A stat left unset is one the role does
      not aim at (`rune-potential-presets.ts`), and a stated 0 is a target of
@@ -162,22 +175,14 @@ export function buildDemand(
 
   /* A target belongs to every slot that can legally carry one of its effect ids.
      Its numeric height is deliberately not used as a cap (see Demand above). */
-  const shares = new Map<number, Map<TargetStat, number>>([1, 2, 3, 4, 5, 6].map((slot) => [slot, new Map()]));
-  for (const slot of [1, 2, 3, 4, 5, 6]) {
-    const main = mainOfSlot(build, slot);
-    for (const stat of wanted) {
-      const types = targetStatSubProperties[stat];
-      if ([types.percent, types.flat].some((statId) => statId !== undefined && statId !== main && slotAllowsSubStat(slot, statId))) {
-        shares.get(slot)?.set(stat, preset.targets[stat] ?? 0);
-      }
+  const shares = new Map<TargetStat, number>();
+  for (const stat of wanted) {
+    const types = targetStatSubProperties[stat];
+    if ([types.percent, types.flat].some((statId) => statId !== undefined && statId !== main && slotAllowsSubStat(slot, statId))) {
+      shares.set(stat, preset.targets[stat] ?? 0);
     }
   }
-
-  const ceilings = new Map<number, number>();
-  for (const slot of [1, 2, 3, 4, 5, 6]) {
-    ceilings.set(slot, slotCeiling(shares.get(slot) ?? new Map(), slot, mainOfSlot(build, slot), base));
-  }
-  return { shares, ceilings };
+  return { shares, ceiling: slotCeiling(shares, slot, main, base) };
 }
 
 /**
@@ -263,20 +268,47 @@ export type RuneCandidate = {
   readonly rank: MatchRank;
 };
 
+/**
+ * The scratchpad for one whole calculation.
+ *
+ * Two things are recomputed per rune although they do not depend on the rune —
+ * a slot's demand — or do not depend on the preset — the legal craft line-ups.
+ * Both are memoised here rather than in a module-global cache, because the
+ * lifetime is the thing that makes them safe: presets are user-editable and the
+ * reference lines depend on the imported account, so there is no stable key that
+ * outlives a call and no invalidation rule worth inventing for one.
+ *
+ * A caller that passes no scope gets a fresh one and therefore no sharing, which
+ * is exactly right for a single `judgeAgainstBuild` from a test or the oracle.
+ */
+export type RuneAdviceScope = {
+  demand: Map<string, Demand>;
+  craft: Map<string, ReadonlyArray<ReadonlyMap<TargetStat, number>>>;
+};
+
+export const newRuneAdviceScope = (): RuneAdviceScope => ({ demand: new Map(), craft: new Map() });
+
+/** The reference line, as a key. Only these three stats scale a flat roll. */
+const baseKey = (base: ReferenceStats) => `${base.hp}/${base.atk}/${base.def}`;
+
 /** The deterministic half: everything that does not depend on the threshold. */
 export function prepareRuneCandidate(
   rune: Rune, preset: RunePotentialPreset, build: Build, base: ReferenceStats, credit: CraftCredit,
+  scope: RuneAdviceScope = newRuneAdviceScope(),
 ): RuneCandidate | null {
   /* A rune whose main property is not the one this build asks for is not a rune
      this build can use at all — it is a different build's rune. */
   if (mainOfSlot(build, rune.slot) !== rune.mainStatId && build.mains[rune.slot as 2 | 4 | 6] !== 0) return null;
 
-  const { shares, ceilings } = buildDemand(preset, build, base);
-  const slotShares = shares.get(rune.slot) ?? new Map<TargetStat, number>();
-  const ceiling = ceilings.get(rune.slot) ?? 0;
+  const main = mainOfSlot(build, rune.slot);
+  const demandKey = `${preset.id}/${rune.slot}/${main}/${baseKey(base)}`;
+  let demand = scope.demand.get(demandKey);
+  if (!demand) { demand = slotDemand(preset, rune.slot, main, base); scope.demand.set(demandKey, demand); }
+  const slotShares = demand.shares;
+  const ceiling = demand.ceiling;
   if (ceiling <= 0) return null;
 
-  const supply = projectedSupply(rune, slotShares, base, credit);
+  const supply = projectedSupply(rune, slotShares, base, credit, scope);
 
   const { adds, rolls } = remainingEvents(rune.level, rune.subProperties.length);
   const best = bestReachableFill(rune, supply, slotShares, base, adds, rolls);
@@ -347,19 +379,7 @@ export function judgeAgainstBuild(
   };
 }
 
-/**
- * The gem and grindstone the settings credit a rune with before one is spent.
- *
- * The grind is credited as `max(existing, assumed)` rather than added to what is
- * there: a rune already ground three quarters of the way is worth exactly what an
- * unground one is worth, because the grind can always be topped up. Adding them
- * would pay a rune twice for the same line.
- *
- * The gem is greedy — the weakest line becomes the most wanted stat the rune is
- * missing. The exhaustive search over every line against every legal stat finds the
- * same answer in all but a rounding of cases, because replacing a rune's best line
- * is never right and the wanted stat is never in doubt.
- */
+/** One line-up priced into target stats, the prefix included. */
 function supplyOf(properties: readonly RuneSubProperty[], rune: Rune, base: ReferenceStats): Map<TargetStat, number> {
   const supply = new Map<TargetStat, number>();
   const add = (statId: number, value: number) => {
@@ -372,13 +392,41 @@ function supplyOf(properties: readonly RuneSubProperty[], rune: Rune, base: Refe
 }
 
 /**
- * Evaluate legal craft actions on the rune's actual lines, rather than adding an
- * imaginary number to a target stat. A Gem replaces one line, carries a grind only
- * when it keeps that exact stat, and a Grind can touch only a grindable property.
+ * Every legal craft line-up the credit allows, already priced into supplies.
+ *
+ * Legal Gem and Grindstone actions are evaluated on the rune's actual lines
+ * rather than by adding an imaginary number to a target stat. A Gem replaces one
+ * line, carries a grind only when it keeps that exact stat, and a Grind can touch
+ * only a grindable property. The grind is credited as `max(existing, assumed)`
+ * rather than added to what is there: a rune already ground three quarters of the
+ * way is worth exactly what an unground one is worth, because the grind can always
+ * be topped up. Adding them would pay a rune twice for the same line.
+ *
+ * **Which line-ups exist depends on the rune, the credit and the reference line;
+ * only the choice between them depends on the role.** That split is why this is
+ * separate from `projectedSupply`: the list is built and priced once per rune and
+ * then scored against every preset, where it used to be rebuilt per preset — 21
+ * candidate line-ups evaluated per call, eight times over.
+ *
+ * The order is the order they are compared in, and it is load-bearing: the winner
+ * is taken on a strict improvement, so the first line-up wins every tie.
  */
-function projectedSupply(
-  rune: Rune, shares: ReadonlyMap<TargetStat, number>, base: ReferenceStats, credit: CraftCredit,
-): Map<TargetStat, number> {
+function craftLineUps(
+  rune: Rune, base: ReferenceStats, credit: CraftCredit, scope: RuneAdviceScope,
+): ReadonlyArray<ReadonlyMap<TargetStat, number>> {
+  const cacheKey = `${rune.id}/${baseKey(base)}`;
+  const cached = scope.craft.get(cacheKey);
+  if (cached) return cached;
+
+  const untouched = supplyOf(rune.subProperties, rune, base);
+  /* With neither item credited there is no legal action to enumerate, so the
+     rune's own lines are the whole answer. */
+  if (credit.gem === null && credit.grind === null) {
+    const only = [untouched];
+    scope.craft.set(cacheKey, only);
+    return only;
+  }
+
   const lineage = rune.ancient ? 'ancient' : 'standard';
   const gemOptions: RuneSubProperty[][] = [[...rune.subProperties]];
   if (credit.gem !== null && rune.level >= 12) {
@@ -403,8 +451,7 @@ function projectedSupply(
     }
   }
 
-  let winner = gemOptions[0];
-  let best = fillOf(supplyOf(winner, rune, base), shares);
+  const supplies: Array<ReadonlyMap<TargetStat, number>> = [];
   for (const gemmed of gemOptions) {
     const grindOptions: RuneSubProperty[][] = [gemmed];
     if (credit.grind !== null) for (let at = 0; at < gemmed.length; at += 1) {
@@ -418,11 +465,34 @@ function projectedSupply(
       grindOptions.push(properties);
     }
     for (const option of grindOptions) {
-      const value = fillOf(supplyOf(option, rune, base), shares);
-      if (value > best) { best = value; winner = option; }
+      supplies.push(supplyOf(option, rune, base));
     }
   }
-  return supplyOf(winner, rune, base);
+  scope.craft.set(cacheKey, supplies);
+  return supplies;
+}
+
+/**
+ * The line-up this role would actually choose.
+ *
+ * The greedy Gem — the weakest line becoming the most wanted stat the rune is
+ * missing — is what this is searching for exhaustively. The exhaustive form finds
+ * the same answer in all but a rounding of cases, because replacing a rune's best
+ * line is never right and the wanted stat is never in doubt; it is kept because
+ * "all but a rounding of cases" is not a rule the page can state.
+ */
+function projectedSupply(
+  rune: Rune, shares: ReadonlyMap<TargetStat, number>, base: ReferenceStats,
+  credit: CraftCredit, scope: RuneAdviceScope,
+): ReadonlyMap<TargetStat, number> {
+  const lineUps = craftLineUps(rune, base, credit, scope);
+  let winner = lineUps[0];
+  let best = fillOf(winner, shares);
+  for (const option of lineUps) {
+    const value = fillOf(option, shares);
+    if (value > best) { best = value; winner = option; }
+  }
+  return winner;
 }
 
 /**

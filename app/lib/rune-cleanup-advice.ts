@@ -15,7 +15,8 @@ import type { RunePotentialPreset } from './rune-potential-presets';
 import type { RunePotentialSettings } from './types';
 import type { ReferenceStats } from './rune-reference-stats';
 import {
-  candidateChance, candidateMaxValue, isFourPieceSet, prepareRuneCandidate, presetBuilds,
+  candidateChance, candidateMaxValue, isFourPieceSet, newRuneAdviceScope, prepareRuneCandidate,
+  presetBuilds,
 } from './rune-cleanup-model';
 import type { Build, CraftCredit, MatchRank, RuneCandidate } from './rune-cleanup-model';
 
@@ -140,6 +141,11 @@ export function runeAdvice(
     grind: craftAssumption(settings.grindstones), grindGrade: settings.grindstoneGrade,
   };
 
+  /* Work the model would otherwise repeat per rune or per preset, held for
+     exactly as long as this call. The presets and the reference lines are fixed
+     for its duration, which is what makes the keys inside it sound. */
+  const scope = newRuneAdviceScope();
+
   type Answer = { value: number; chance: number; priority: number; preset: RunePotentialPreset; rank: MatchRank };
   type Pending = { rune: Rune; fallback: Answer | null; eligible: Answer[] };
   const pending: Pending[] = [];
@@ -164,7 +170,7 @@ export function runeAdvice(
         return candidate.mains[rune.slot] === rune.mainStatId;
       });
       if (!build) continue;
-      const prepared = prepareRuneCandidate(rune, preset, build, line, credit);
+      const prepared = prepareRuneCandidate(rune, preset, build, line, credit, scope);
       if (!prepared) continue;
       const worth = prepared.rank === 'preferred' ? 1 : prepared.rank === 'acceptable' ? accepted : broken;
       candidates.push({ preset, prepared, value: candidateMaxValue(prepared) * worth, rank: prepared.rank });
