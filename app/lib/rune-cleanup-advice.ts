@@ -14,8 +14,10 @@ import type { Rune } from './runes';
 import type { RunePotentialPreset } from './rune-potential-presets';
 import type { RunePotentialSettings } from './types';
 import type { ReferenceStats } from './rune-reference-stats';
-import { isFourPieceSet, judgeAgainstBuild, presetBuilds } from './rune-cleanup-model';
-import type { Build, CraftCredit, MatchRank } from './rune-cleanup-model';
+import {
+  candidateChance, candidateMaxValue, isFourPieceSet, prepareRuneCandidate, presetBuilds,
+} from './rune-cleanup-model';
+import type { Build, CraftCredit, MatchRank, RuneCandidate } from './rune-cleanup-model';
 
 export type RuneVerdict = 'power-up' | 'keep' | 'sell';
 
@@ -128,25 +130,27 @@ export function runeAdvice(
      give twenty-four on its own, which is still nothing. */
   const builds = new Map<string, Build[]>(presets.map((preset) => [preset.id, presetBuilds(preset)]));
 
+  /* Every field comes from the settings, so the credit is the account's and not
+     the rune's. Every imported star class enters the same engine: Ancient differs
+     only where the game differs, in that born lines and craft items use Ancient
+     ranges while main stats, later upgrades and added lines use their ordinary
+     six-star ranges. */
+  const credit: CraftCredit = {
+    gem: craftAssumption(settings.enchantedGems), gemGrade: settings.gemGrade,
+    grind: craftAssumption(settings.grindstones), grindGrade: settings.grindstoneGrade,
+  };
+
   type Answer = { value: number; chance: number; priority: number; preset: RunePotentialPreset; rank: MatchRank };
   type Pending = { rune: Rune; fallback: Answer | null; eligible: Answer[] };
   const pending: Pending[] = [];
   for (const rune of runes) {
-    /* Every imported star class enters the same engine. Ancient differs only where
-       the game differs: born lines and craft items use Ancient ranges; main stats,
-       later upgrades and added lines use their ordinary six-star ranges. */
-    const credit: CraftCredit = {
-      gem: craftAssumption(settings.enchantedGems), gemGrade: settings.gemGrade,
-      grind: craftAssumption(settings.grindstones), grindGrade: settings.grindstoneGrade,
-    };
-
     /* Every preset and build this rune could serve, valued but not yet gated.
        Selecting a winner on Max value alone and *then* asking whether its chance
        clears the bar is how a rune gets sold: a build worth 91 % at a 30 % chance
        would beat one worth 90 % at 70 %, and only the second one survives both
        gates. So the gates are applied to each candidate and the verdict is taken
        across all of them. */
-    const candidates: Array<{ preset: RunePotentialPreset; build: Build; value: number; rank: MatchRank }> = [];
+    const candidates: Array<{ preset: RunePotentialPreset; prepared: RuneCandidate; value: number; rank: MatchRank }> = [];
     for (const preset of presets) {
       const line = base.get(preset.type);
       if (!line) continue;
@@ -160,10 +164,10 @@ export function runeAdvice(
         return candidate.mains[rune.slot] === rune.mainStatId;
       });
       if (!build) continue;
-      const outcome = judgeAgainstBuild(rune, preset, build, line, qualityBar, credit, false);
-      if (!outcome) continue;
-      const worth = outcome.rank === 'preferred' ? 1 : outcome.rank === 'acceptable' ? accepted : broken;
-      candidates.push({ preset, build, value: outcome.maxValue * worth, rank: outcome.rank });
+      const prepared = prepareRuneCandidate(rune, preset, build, line, credit);
+      if (!prepared) continue;
+      const worth = prepared.rank === 'preferred' ? 1 : prepared.rank === 'acceptable' ? accepted : broken;
+      candidates.push({ preset, prepared, value: candidateMaxValue(prepared) * worth, rank: prepared.rank });
     }
 
     /* Best first, so the strongest candidate that also clears the chance bar wins,
@@ -176,8 +180,6 @@ export function runeAdvice(
     let fallback: Answer | null = null;
     const eligibleByPreset = new Map<string, Answer>();
     for (const candidate of candidates) {
-      const line = base.get(candidate.preset.type);
-      if (!line) continue;
       const passesValue = candidate.value >= qualityBar;
       if (!passesValue && fallback !== null) continue;
       /* The chance has to be the chance of clearing the *same* bar the value was
@@ -186,17 +188,16 @@ export function runeAdvice(
          otherwise an accepted rune would be discounted once in its score and not at
          all in its odds, and the two halves of the row would disagree. */
       const worth = candidate.rank === 'preferred' ? 1 : candidate.rank === 'acceptable' ? accepted : broken;
-      const outcome = judgeAgainstBuild(rune, candidate.preset, candidate.build, line,
-        worth > 0 ? qualityBar / worth : Number.POSITIVE_INFINITY, credit, true);
-      if (!outcome) continue;
+      const chance = candidateChance(candidate.prepared,
+        worth > 0 ? qualityBar / worth : Number.POSITIVE_INFINITY);
       const answer = {
-        value: candidate.value, chance: outcome.chance,
+        value: candidate.value, chance,
         priority: candidate.value * (settings.keepMoreForLargerSets && isFourPieceSet(rune.setName) ? 2 : 1)
           * (rune.setName === 'Intangible' ? intangible : 1),
         preset: candidate.preset, rank: candidate.rank,
       };
       if (fallback === null) fallback = answer;
-      if (passesValue && outcome.chance >= chanceBar) {
+      if (passesValue && chance >= chanceBar) {
         const prior = eligibleByPreset.get(answer.preset.id);
         if (!prior || answer.priority > prior.priority || (answer.priority === prior.priority && answer.chance > prior.chance)) {
           eligibleByPreset.set(answer.preset.id, answer);

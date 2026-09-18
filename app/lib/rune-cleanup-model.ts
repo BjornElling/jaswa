@@ -236,21 +236,37 @@ export type CraftCredit = {
 };
 
 /**
- * One rune against one build of one preset.
+ * Everything one rune against one build of one preset settles before a threshold
+ * is named.
  *
- * `threshold` is the Max value the rune has to reach, which is what the chance is
- * the chance *of*. It is passed in rather than read from a setting because this
- * module decides nothing about policy — `rune-cleanup-advice.ts` does that.
+ * The page asks two questions of the same pair, and they arrive separately: what
+ * is this rune's ceiling, and — for the few candidates still standing after the
+ * value gate — what are its odds of reaching the bar. Both rest on the same
+ * demand, the same craft projection and the same event count, and answering them
+ * through one function meant computing all of that twice for one extra number.
+ *
+ * So the deterministic state is prepared once and the two answers read it. It
+ * lives for one `runeAdvice` call and no longer: presets are user-editable and
+ * the reference lines depend on the imported account, so no stable longer-lived
+ * key exists without designing one.
  */
-export function judgeAgainstBuild(
-  rune: Rune, preset: RunePotentialPreset, build: Build, base: ReferenceStats,
-  threshold: number, credit: CraftCredit,
-  /* The chance is the expensive half — it enumerates every way the remaining
-     upgrades can fall — and most builds are rejected on their ceiling long before
-     anyone needs it. So it is only worked out when the caller says it will be
-     used, which is what makes checking every build affordable. */
-  withChance = true,
-): RuneOutcome | null {
+export type RuneCandidate = {
+  readonly rune: Rune;
+  readonly base: ReferenceStats;
+  readonly slotShares: ReadonlyMap<TargetStat, number>;
+  readonly supply: ReadonlyMap<TargetStat, number>;
+  readonly ceiling: number;
+  readonly best: number;
+  readonly mainScale: number;
+  readonly adds: number;
+  readonly rolls: number;
+  readonly rank: MatchRank;
+};
+
+/** The deterministic half: everything that does not depend on the threshold. */
+export function prepareRuneCandidate(
+  rune: Rune, preset: RunePotentialPreset, build: Build, base: ReferenceStats, credit: CraftCredit,
+): RuneCandidate | null {
   /* A rune whose main property is not the one this build asks for is not a rune
      this build can use at all — it is a different build's rune. */
   if (mainOfSlot(build, rune.slot) !== rune.mainStatId && build.mains[rune.slot as 2 | 4 | 6] !== 0) return null;
@@ -270,21 +286,64 @@ export function judgeAgainstBuild(
      main properties. */
   const sixStarMain = mainPropertyMaximum(6, rune.mainStatId);
   const mainScale = sixStarMain > 0 ? mainPropertyMaximum(rune.stars, rune.mainStatId) / sixStarMain : 0;
-  /* `best` is an upper bound over every legal remaining roll, so a threshold
-     above it has an exact zero chance. Most account runes miss the quality floor;
-     short-circuiting here prevents those certain losses from constructing their full
-     addition-and-upgrade probability tree merely to discover that same zero. */
-  const wanted = mainScale > 0 ? threshold * ceiling / mainScale : Number.POSITIVE_INFINITY;
 
   const setRank = rankOf(preset.sets, rune.setName);
   const mainRank: MatchRank = rune.slot === 2 || rune.slot === 4 || rune.slot === 6
     ? build.ranks[rune.slot as 2 | 4 | 6] : 'preferred';
 
   return {
-    maxValue: Math.min(1, best / ceiling) * mainScale,
-    chance: withChance && best + 1e-12 >= wanted
-      ? reachChance(rune, supply, slotShares, base, wanted, adds, rolls) : 0,
+    rune, base, slotShares, supply, ceiling, best, mainScale, adds, rolls,
     rank: worseRank(setRank, mainRank),
+  };
+}
+
+/** The best legal end state, against the best a rune in this slot could be. */
+export function candidateMaxValue(candidate: RuneCandidate): number {
+  return Math.min(1, candidate.best / candidate.ceiling) * candidate.mainScale;
+}
+
+/**
+ * The odds of reaching `threshold`, which is the Max value the rune has to reach.
+ *
+ * It is passed in rather than read from a setting because this module decides
+ * nothing about policy — `rune-cleanup-advice.ts` does that.
+ */
+export function candidateChance(candidate: RuneCandidate, threshold: number): number {
+  const wanted = candidate.mainScale > 0
+    ? threshold * candidate.ceiling / candidate.mainScale : Number.POSITIVE_INFINITY;
+  /* `best` is an upper bound over every legal remaining roll, so a threshold
+     above it has an exact zero chance. Most account runes miss the quality floor;
+     short-circuiting here prevents those certain losses from constructing their full
+     addition-and-upgrade probability tree merely to discover that same zero. */
+  if (!(candidate.best + 1e-12 >= wanted)) return 0;
+  return reachChance(candidate.rune, candidate.supply, candidate.slotShares,
+    candidate.base, wanted, candidate.adds, candidate.rolls);
+}
+
+/**
+ * One rune against one build of one preset, both answers at once.
+ *
+ * `rune-cleanup-advice.ts` no longer takes this route — it prepares a candidate
+ * and asks the two questions separately — but `verify-rune-cleanup-calibration.mjs`
+ * calls it directly, and that script is the independent gate on everything in this
+ * file. An oracle rewritten in the same commit as the model it checks has stopped
+ * being independent, so this signature stays.
+ */
+export function judgeAgainstBuild(
+  rune: Rune, preset: RunePotentialPreset, build: Build, base: ReferenceStats,
+  threshold: number, credit: CraftCredit,
+  /* The chance is the expensive half — it enumerates every way the remaining
+     upgrades can fall — and most builds are rejected on their ceiling long before
+     anyone needs it. So it is only worked out when the caller says it will be
+     used, which is what makes checking every build affordable. */
+  withChance = true,
+): RuneOutcome | null {
+  const candidate = prepareRuneCandidate(rune, preset, build, base, credit);
+  if (!candidate) return null;
+  return {
+    maxValue: candidateMaxValue(candidate),
+    chance: withChance ? candidateChance(candidate, threshold) : 0,
+    rank: candidate.rank,
   };
 }
 
