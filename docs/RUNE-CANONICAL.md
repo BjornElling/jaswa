@@ -485,42 +485,64 @@ spilregel:
 
 Spillets Manage-panel tilbyder en **Sort by**-dropdown. JASWA gengiver tre af
 dens valgmuligheder i Rune Clean-up, og de er **observeret**, ikke udledt af en
-regel. Det afgørende fund er, at panelet behandler Ancient som en **gruppe**,
-ikke som en stjerneklasse — og at de to ordner den gruppe i hver sin ende:
+regel:
 
 | Sort by | Rækkefølge |
 | --- | --- |
-| Grade | Almindelige runer efter stjerneklasse faldende (6★ → 1★), derefter **alle** Ancient-runer til sidst |
-| Power-up Lv. | **Alle** Ancient-runer først, derefter power-up-level faldende (+15 → +0) |
+| Grade | **Default grade (rarity) faldende**: Legend → Hero → Rare → Magic → Normal; inden for hver rarity kommer **Ancient først**; derefter **sættets `set_id` stigende** |
+| Power-up Lv. | Power-up-level faldende, +15 → +0 |
 | Obtained | Anskaffelsesrækkefølge, nyeste først |
 
-Belægget, målt på slot 1 i en konto med 313 runer i slottet:
+**Panelets “Grade” betyder rarity, ikke stjerneklasse.** Det er stik imod
+ordlisten i §1, hvor *grade* netop er stjerneklassen (`class`) og rarity hedder
+*default grade* (`rank`). Overskriften inviterer altså til den forkerte læsning.
 
-- Nederst i Grade-listen står en lilla-stjernet `+15 Shield Rune` med
-  `ATK +160`. Det er 6★-værdien i tabellen i §3, så runen *er* 6★ — og den står
-  **under** 5★-runerne. Grade grupperer altså Ancient, den rangerer den ikke
-  efter stjerner.
-- Øverst i samme liste står en guld-stjernet `+12 Rage Rune` markeret **Legend**,
-  nederst en Ancient markeret **Rare**. Alligevel står hver almindelig rune over
-  hver Ancient. **Default grade (`rank`) sorterer altså ingenting under Grade.**
-- Under Power-up Lv. ligger Ancient-runerne først, og de optræder **ikke** igen i
-  toppen af `+12`- eller `+9`-blokkene længere nede. Det er altså én
-  førende gruppe og ikke et tiebreak inden for hvert level.
+Sådan læses en rune-tile korrekt — tre uafhængige markører, som er lette at
+forveksle:
 
-Asymmetrien er spillets egen. Den gengives uændret: formålet er, at en spiller,
-der netop har sorteret sin boks i spillet, kan sortere ens i JASWA og sammenligne
-de to lister række for række. `scripts/verify-rune-game-sort.mjs` fastholder
-begge ender, og `Rune.obtainedOrder` bærer anskaffelsesrækkefølgen (`rune_id`) af
-samme grund som `Artifact.obtainedOrder`: `date_add` opløser kun til sekundet, og
-spillet tildeler runer i bulk.
+- **Stjernerne** er stjerneklassen (1–6★).
+- **Stjernernes farve** markerer `+15` og intet andet: lilla stjerner betyder
+  maxet rune, gyldne betyder ikke-maxet. Et skærmprint fyldt med lilla stjerner
+  viser altså maxede runer — ikke Ancients og ikke Legends.
+- **Ancient** er en **hvid ring om rune-ikonet**, ikke noget på stjernerne.
 
-**Målt kontra udledt.** Ancient-grupperingen og `rank`/`class`-mappingen er
-bekræftet mod en rigtig eksport med 1.556 runer: hver enkelt record bærer
-`rank`, og de 202 Ancient-runer (`class: 16`) er præcis de 202 records med
-Ancient-rank 13–15. Den konto ejer ingen runer under 6★, så rækkefølgen
-6★ → 5★ → 4★ hviler på skærmprintet og på `ATK +160`-læsningen, der identificerer
-den sidste rune som 6★. En senere måling med lavstjernede runer vinder over dette,
-hvis de er uenige.
+To observationer afgør Grade mellem de to kandidater:
+
+- 6★- og 5★-runer står **blandet** i toppen af en Grade-sorteret slot. Det kan
+  ingen sortering på stjerneklasse frembringe, uanset retning eller tiebreak.
+- Detaljepanelet øverst i listen viser **Legend**, nederst **Rare**. Den rune,
+  der afslutter listen, er selv 6★ — dens `ATK +160` er 6★-hovedværdien i §3 —
+  så dens plads skyldes rarity, ikke stjerner.
+
+**Ancient er Grades anden nøgle** — og kun Grades. Inden for én rarity står
+Ancient-runerne først og de almindelige derefter, men grupperingen ligger *inde
+i* rarityen og ikke over den: en Legend Ancient står før en Legend uden ring, og
+begge står stadig før enhver Hero. Under Power-up Lv. og Obtained sorterer
+Ancient ingenting.
+
+**Sættet afgør de resterende stik** — efter eksportens eget `set_id`, ikke efter
+setnavnet. De fem runer, spillet lægger først i slot 6 under Grade, er alle
+Ancient, 6★ og +15, og læser Blade, Rage, Rage, Despair, Nemesis — `set_id`
+4, 5, 5, 10, 14, altså stigende. Samme fem udelukker begge alternativer: efter
+navn ville rækkefølgen være Blade, Despair, Nemesis, Rage, Rage, og deres
+substat-summer (51, 57, 72, 63, 54) står i ingen rækkefølge.
+
+**Stjerneklassen sorterer ingenting** i nogen af de tre. Det er derfor, 6★ og 5★
+kan stå blandet ned gennem en rarity-blok.
+
+Formålet med at gengive rækkefølgerne præcist er, at en spiller, der netop har
+sorteret sin boks i spillet, kan sortere ens i JASWA og sammenligne de to lister
+række for række. `scripts/verify-rune-game-sort.mjs` fastholder reglerne, og
+`Rune.obtainedOrder` bærer anskaffelsesrækkefølgen (`rune_id`) af samme grund
+som `Artifact.obtainedOrder`: `date_add` opløser kun til sekundet, og spillet
+tildeler runer i bulk.
+
+**Målt kontra udledt.** `rank`/`class`-mappingen er bekræftet mod en rigtig
+eksport med 1.556 runer: hver enkelt record bærer `rank`, og de 202
+Ancient-runer (`class: 16`) er præcis de 202 records med Ancient-rank 13–15,
+altså §6's offset-tabel. Selve rækkefølgerne er læst af panelet; den eksport,
+der er ved hånden, er en ældre optagelse af samme konto og indeholder ingen
+runer under 6★, så den kan ikke i sig selv efterprøve rarity-rækkefølgen.
 
 ## 12. Hvad reglerne ikke afgør
 

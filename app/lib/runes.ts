@@ -45,10 +45,8 @@ export const runeMaximumLevel = 15;
  * vocabulary: *grade* is the star class (`class`), *default grade* is this
  * (`rank`). The names here follow the document.
  *
- * It is deliberately *not* what the game's own "Grade" sort orders by — that
- * reads the star class and groups Ancient separately (§11.1). This is read
- * because the export carries it and a record JASWA cannot understand must fail
- * loudly rather than import invisibly.
+ * This is what the game's own "Grade" sort orders by, despite the vocabulary —
+ * the panel's heading names the rarity, not the star class (§11.1).
  */
 export const runeDefaultGrades = ['Normal', 'Magic', 'Rare', 'Hero', 'Legend'] as const;
 
@@ -63,6 +61,14 @@ const defaultGradeByRank: Readonly<Record<number, RuneDefaultGrade>> = {
   1: 'Normal', 2: 'Magic', 3: 'Rare', 4: 'Hero', 5: 'Legend',
   11: 'Normal', 12: 'Magic', 13: 'Rare', 14: 'Hero', 15: 'Legend',
 };
+
+/**
+ * How the five rarities rank against each other, lowest first — the order the
+ * table above is written in, which is the order the game's own Grade sort reads
+ * (`RUNE-CANONICAL.md` §11.1).
+ */
+export const runeDefaultGradeOrder = (grade: RuneDefaultGrade): number =>
+  runeDefaultGrades.indexOf(grade);
 
 /**
  * Sub-property types that can never appear in a slot, over and above the ban on

@@ -7,7 +7,7 @@
  * ordered, which is why a change of sort can never change a number.
  */
 import { ancientSearchWord, withAncientMark } from './ancient-mark';
-import { runeStatName, runeSubValue } from './runes';
+import { runeDefaultGradeOrder, runeStatName, runeSubValue } from './runes';
 import type { Rune } from './runes';
 import type { RuneAdvice } from './rune-cleanup-advice';
 import { runeVerdictLabels } from './rune-cleanup-advice';
@@ -69,33 +69,47 @@ export const defaultRuneCleanupSortDirections: Readonly<Record<RuneCleanupSortKe
  * whole ordering is stated as a key rather than as a chain of `||` comparisons
  * so that the rule is legible as the thing being reproduced.
  *
- * **Ancient is a group, not a star class.** This is the one part of the game's
- * behaviour that cannot be guessed and was read off the panel itself:
+ * **"Grade" in the panel means the rarity, not the star class.** The game's own
+ * vocabulary calls the star class the grade (`RUNE-CANONICAL.md` §1), so the
+ * heading invites exactly the wrong reading, and the tiles do not settle it
+ * either — a tile's stars are its star class, while the *colour* of those stars
+ * marks `+15` and nothing else, and Ancient is drawn as a white ring around the
+ * rune icon rather than on the stars at all.
  *
- * - Under **Grade**, the account's Ancient runes sit *after* every ordinary
- *   rune, including after the 5★ ones. The bottom of the slot-1 Grade list is a
- *   purple-starred `+15 Shield Rune` whose `ATK +160` is the six-star figure
- *   (§3), so it is a 6★ rune placed below 5★ — Ancient is being grouped, not
- *   ranked by stars.
- * - Under **Power-up Lv.** the same runes lead the list, and they do not
- *   reappear at the head of the `+12` or `+9` blocks further down. So Ancient is
- *   one leading group there rather than a tiebreak inside each level.
+ * What settles it is that 6★ and 5★ runes **interleave** at the top of a
+ * Grade-sorted slot, which no star-class ordering can produce, while the two
+ * detail panels read Legend at the top of the list and Rare at the bottom. The
+ * `+15 Shield Rune` closing the slot-1 list is itself a 6★ — its `ATK +160` is
+ * the six-star figure (§3) — so its position is owed to its rarity and not to
+ * its stars.
  *
- * The two orderings therefore put the Ancient group at opposite ends, which is
- * the game's own inconsistency and is reproduced rather than tidied up.
+ * **Ancient leads inside each rarity**, and only there. It is not one group at
+ * either end of the Grade list: a Legend Ancient precedes a Legend ordinary, and
+ * both still precede every Hero. So Ancient is the second key under Grade, held
+ * within the rarity rather than ranked against it — which is also why the star
+ * class can be seen interleaving freely on both sides of it.
  *
- * Rarity (`defaultGrade`) is deliberately *not* part of Grade: the top of the
- * Grade list is a Legend and the bottom is a Rare, but a Rare 6★ ordinary rune
- * still sorts above every Ancient one, so rarity orders nothing here.
+ * **The set breaks the remaining ties**, by the export's own `set_id` and *not*
+ * by the set's name. The five runes the game puts first in a slot-6 Grade sort
+ * are all Ancient, 6★ and `+15`, and they read Blade, Rage, Rage, Despair,
+ * Nemesis — set ids 4, 5, 5, 10, 14, in ascending order. Both rival readings
+ * are ruled out by that same run: by name it would be Blade, Despair, Nemesis,
+ * Rage, Rage, and by substat total (51, 57, 72, 63, 54) it would be neither.
+ * Their levels and rarities are identical, so nothing above the set separates
+ * them.
+ *
+ * The star class orders nothing at all, under any of the three.
  */
 function gameSortKey(row: RuneCleanupRow, key: RuneGameSortKey): readonly number[] {
   const rune = row.rune;
-  const ancient = rune.ancient ? 1 : 0;
   switch (key) {
-    /* Ancient trails, then star class descending. */
-    case 'gameGrade': return [ancient, -rune.stars];
-    /* Ancient leads, then power-up level descending. */
-    case 'gameLevel': return [1 - ancient, -rune.level];
+    /* Rarity descending — Legend, Hero, Rare, Magic, Normal — then the Ancient
+       runes of each rarity, then the set in the export's own order. */
+    case 'gameGrade': return [
+      -runeDefaultGradeOrder(rune.defaultGrade), rune.ancient ? 0 : 1, rune.setId,
+    ];
+    /* Power-up level descending. */
+    case 'gameLevel': return [-rune.level];
     /* Newest first, and unique per rune, so it needs no tiebreak of its own. */
     case 'gameObtained': return [-rune.obtainedOrder];
     default: return [];
