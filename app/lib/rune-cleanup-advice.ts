@@ -14,9 +14,8 @@ import type { Rune } from './runes';
 import type { RunePotentialPreset } from './rune-potential-presets';
 import type { RunePotentialSettings } from './types';
 import type { ReferenceStats } from './rune-reference-stats';
-import { craftRollValue, craftValueRange } from './rune-craft-items';
 import { isFourPieceSet, judgeAgainstBuild, presetBuilds } from './rune-cleanup-model';
-import type { Build, MatchRank } from './rune-cleanup-model';
+import type { Build, CraftCredit, MatchRank } from './rune-cleanup-model';
 
 export type RuneVerdict = 'power-up' | 'keep' | 'sell';
 
@@ -37,8 +36,7 @@ export const runeVerdictLabels: Record<RuneVerdict, string> = {
  * percentages of a perfect rune for the role, so `0.55` means "reaches at least
  * 55 % of what the best possible rune for this preset would".
  *
- * **The stop is also the number the column prints as the floor**, because
- * `reportedMaxValue()` puts every rune on a scale anchored to it.
+ * The stop is the number the column prints and the floor every candidate faces.
  */
 export const qualityThresholds: readonly number[] = [0.41, 0.49, 0.55, 0.62, 0.69];
 
@@ -70,108 +68,6 @@ export const brokenWorth: readonly number[] = [0.80, 0.60, 0.40, 0.20, 0];
 /** Where in a gem's or grindstone's range the credited roll is assumed to land. */
 const creditFractions: readonly (number | null)[] = [null, 0.5, 0.75, 1];
 
-/**
- * How a wanted-count multiplier becomes a score multiplier.
- *
- * A preset's share, the four-set switch and the Intangible slider all say *how many*
- * runes are wanted, not how good one has to be. There is no closed form between the
- * two — the answer depends on how the scores of real runes are distributed — so it
- * is measured rather than derived: `verify:rune-cleanup-calibration` scores a
- * million simulated runes and solves for the multiplier that actually makes the kept
- * count scale by each stated factor. These are the solved values, and regenerating
- * them is a run of that script rather than an edit here.
- *
- * The curve is steep downwards and shallow upwards, which is the part no one would
- * have guessed. Scores thin out fast above the bar and pile up below it, so asking
- * for a tenth as many runes costs only a third more quality, while asking for ten
- * times as many needs the bar cut by 70 % — and even then it saturates, because
- * there are not ten times as many runes to find.
- */
-export const wantedCountMultipliers: ReadonlyArray<{ wanted: number; score: number }> = [
-  { wanted: 0.1, score: 1.36 },
-  { wanted: 0.2, score: 1.27 },
-  { wanted: 1 / 3, score: 1.21 },
-  { wanted: 0.5, score: 1.14 },
-  { wanted: 1, score: 1.00 },
-  { wanted: 2, score: 0.84 },
-  { wanted: 3, score: 0.70 },
-  { wanted: 5, score: 0.50 },
-  { wanted: 10, score: 0.30 },
-];
-
-/** The score multiplier for an arbitrary wanted-count factor, by interpolation. */
-export function scoreMultiplierFor(wanted: number): number {
-  const points = wantedCountMultipliers;
-  if (wanted <= points[0].wanted) return points[0].score;
-  const last = points[points.length - 1];
-  if (wanted >= last.wanted) return last.score;
-  for (let at = 1; at < points.length; at += 1) {
-    const low = points[at - 1];
-    const high = points[at];
-    if (wanted <= high.wanted) {
-      const along = (Math.log(wanted) - Math.log(low.wanted)) / (Math.log(high.wanted) - Math.log(low.wanted));
-      return low.score + along * (high.score - low.score);
-    }
-  }
-  return 1;
-}
-
-/**
- * What each slot's bar is multiplied by so that the six slots survive in equal
- * numbers.
- *
- * Slots 2, 4 and 6 choose their own main property, and a preset names only one or
- * two it will accept — so most of their runes are rejected on the main stat before
- * anything else is asked of them. Without this the account would end up with three
- * times as many slot-1 runes as slot-6 ones and no way to build anything.
- *
- * Measured, not chosen: the calibration run reports how many of each slot survive
- * and solves for the multiplier that levels them. On the simulated farm it takes the
- * spread between the best and worst slot from **10.7× to 1.14×** at the middle
- * setting, with 14.5 % of runes surviving to +12.
- *
- * **It is solved at the middle setting and drifts at the ends.** At the strictest
- * stop the spread opens to about 4×, because the shape of the score distribution is
- * not the same at every bar and one scalar per slot cannot follow it. That is a
- * known limit of a single multiplier rather than a bug, and the honest fix — a
- * multiplier per slot *per stop* — buys little for a setting almost nobody sits on.
- */
-export const slotBalance: Readonly<Record<number, number>> = {
-  1: 1.249, 2: 0.842, 3: 1.291, 4: 0.620, 5: 1.118, 6: 0.680,
-};
-
-/**
- * Max value, on the scale the table prints it in.
- *
- * The bar a rune actually faces is not the slider's stop. It is that stop times how
- * many of the preset's runes are wanted and times the slot's own balance, so at one
- * setting slot 4 is asked for 38 % and slot 3 for 80 %. Printing the raw
- * `fill / ceiling` beside bars that are invisible and unequal left the column
- * unreadable: a slot-3 rune at 75 % was sold while a slot-4 rune at 40 % was kept,
- * and nothing on screen said why.
- *
- * So the figure is reported on a scale with two fixed points instead. **The floor
- * the user set is the floor the user sees**, whatever the multipliers did to this
- * rune's own bar, and **a perfect rune still reads 100 %** — piecewise-linear below
- * the floor and above it.
- *
- * **No verdict moves.** The map is strictly increasing in `value` and `value ≥ bar`
- * exactly when `reported ≥ floor`, so every gate answers what it answered before.
- *
- * The table's order does move, because two runes facing different bars are stretched
- * differently — and that is the point. Sorting by Max value used to rank a slot-3
- * rune above a slot-4 rune that was further past its own, much harder, bar; now it
- * ranks by how far past the one floor the user set each rune got.
- */
-export function reportedMaxValue(value: number, bar: number, floor: number): number {
-  /* A bar of zero would divide; it cannot arise from the multipliers, and a rune
-     facing no bar at all has cleared it. A bar at or above 1 is a role no rune can
-     satisfy, and then only the stretch below the floor exists. */
-  if (bar <= 0) return 1;
-  if (bar >= 1 || value < bar) return value / bar * floor;
-  return floor + (value - bar) / (1 - bar) * (1 - floor);
-}
-
 /** The share steps a preset can be set to, as plain multipliers. */
 const shareFactors: readonly number[] = [0.1, 0.2, 1 / 3, 0.5, 1, 2, 3, 5, 10];
 
@@ -182,7 +78,7 @@ export type RuneAdvice = {
   verdict: RuneVerdict;
   /** The chance itself, as the row prints it — never the internal score. */
   reason: string;
-  /** `0`–`1`, after every discount and on `reportedMaxValue()`'s scale. */
+  /** `0`–`1`, after the preferred/acceptable/broken discount. */
   maxValue: number;
   /** `0`–`1`: the chance of reaching the bar by +12. */
   chance: number;
@@ -199,17 +95,14 @@ const percent = (fraction: number) => {
 };
 
 /**
- * The value a credited gem or grindstone is assumed to roll, in the stat's own
- * units. `0` when the slider says none, or when the item cannot carry that stat.
+ * The crafting policy, expressed as a position in the item's own verified range.
+ * The model chooses a legal target line and reads that line's actual grade and
+ * lineage; this layer must not guess a stat from the first sub property.
  */
-function creditValue(
-  statId: number, kind: 'gem' | 'grindstone', grade: RunePotentialSettings['gemGrade'], step: number,
-): number {
+function craftAssumption(step: number): import('./rune-craft-items').CraftRollAssumption | null {
   const fraction = creditFractions[step - 1];
-  if (fraction === null || fraction === undefined) return 0;
-  const range = craftValueRange(kind, 'standard', statId, grade);
-  if (!range) return 0;
-  return craftRollValue(range, fraction === 0.5 ? 'average' : fraction === 0.75 ? 'three-quarters' : 'maximum');
+  if (fraction === null || fraction === undefined) return null;
+  return fraction === 0.5 ? 'average' : fraction === 0.75 ? 'three-quarters' : 'maximum';
 }
 
 /**
@@ -235,30 +128,16 @@ export function runeAdvice(
      give twenty-four on its own, which is still nothing. */
   const builds = new Map<string, Build[]>(presets.map((preset) => [preset.id, presetBuilds(preset)]));
 
-  const advice = new Map<string, RuneAdvice>();
+  type Answer = { value: number; chance: number; priority: number; preset: RunePotentialPreset; rank: MatchRank };
+  type Pending = { rune: Rune; fallback: Answer | null; eligible: Answer[] };
+  const pending: Pending[] = [];
   for (const rune of runes) {
-    /* **An Ancient rune is judged exactly as an ordinary six-star rune is**, by the
-       same formula, the same shares and the same roll table. It used to be listed as
-       Not rated, because the game rolls it from a table no source has tabulated
-       (`RUNE-CANONICAL.md` §7) — but a rune that is imported, counted, and can then
-       appear in no calculation is invisible, which `AGENTS.md` §0.1 puts below being
-       rejected outright. Judging it on the ordinary table is the decision taken
-       instead, and it is a *conservative* one in a way worth knowing: its lines are
-       counted at the value the export states, so what it already has is read exactly,
-       while its remaining upgrades are projected from the ordinary ranges and so come
-       out lower than the game will actually roll. An Ancient rune's Chance is a floor
-       under the real one, never a ceiling over it. */
-    if (rune.stars !== 6) {
-      advice.set(rune.id, {
-        verdict: 'keep', maxValue: 0, chance: 0, preset: null, rank: 'broken',
-        reason: `Not rated: ${rune.stars}★`,
-      });
-      continue;
-    }
-
-    const credit = {
-      gem: 0,
-      grind: creditValue(rune.subProperties[0]?.statId ?? 0, 'grindstone', settings.grindstoneGrade, settings.grindstones),
+    /* Every imported star class enters the same engine. Ancient differs only where
+       the game differs: born lines and craft items use Ancient ranges; main stats,
+       later upgrades and added lines use their ordinary six-star ranges. */
+    const credit: CraftCredit = {
+      gem: craftAssumption(settings.enchantedGems), gemGrade: settings.gemGrade,
+      grind: craftAssumption(settings.grindstones), grindGrade: settings.grindstoneGrade,
     };
 
     /* Every preset and build this rune could serve, valued but not yet gated.
@@ -267,47 +146,40 @@ export function runeAdvice(
        would beat one worth 90 % at 70 %, and only the second one survives both
        gates. So the gates are applied to each candidate and the verdict is taken
        across all of them. */
-    const candidates: Array<{ preset: RunePotentialPreset; build: Build; value: number; rank: MatchRank; bar: number }> = [];
+    const candidates: Array<{ preset: RunePotentialPreset; build: Build; value: number; rank: MatchRank }> = [];
     for (const preset of presets) {
       const line = base.get(preset.type);
       if (!line) continue;
-      /* The bar this rune faces for this preset: the quality floor, adjusted for how
-         many of this preset's runes are wanted, whether a four-set is wanted twice
-         over, how badly Intangible is wanted, and the slot's own balance. */
-      const wanted = (shareFactors[preset.runeShare - 1] ?? 1)
-        * (settings.keepMoreForLargerSets && isFourPieceSet(rune.setName) ? 2 : 1)
-        * (rune.setName === 'Intangible' ? intangible : 1);
-      const bar = qualityBar * scoreMultiplierFor(wanted) * (slotBalance[rune.slot] ?? 1);
-      const gemStat = rune.subProperties[0]?.statId ?? 0;
-      const gem = creditValue(gemStat, 'gem', settings.gemGrade, settings.enchantedGems);
-
-      for (const build of builds.get(preset.id) ?? []) {
-        const outcome = judgeAgainstBuild(rune, preset, build, line, bar, { gem, grind: credit.grind }, false);
-        if (!outcome) continue;
-        const worth = outcome.rank === 'preferred' ? 1 : outcome.rank === 'acceptable' ? accepted : broken;
-        candidates.push({ preset, build, value: outcome.maxValue * worth, rank: outcome.rank, bar });
-      }
+      /* The model deliberately bases a row only on the rune's own slot. Other
+         slots' main choices cannot cap a wanted stat or change this rune's legal
+         lines, so their Cartesian-product builds are identical work. Keep the one
+         compatible representative rather than calculating the same probability up
+         to eight times. */
+      const build = (builds.get(preset.id) ?? []).find((candidate) => {
+        if (rune.slot !== 2 && rune.slot !== 4 && rune.slot !== 6) return true;
+        return candidate.mains[rune.slot] === rune.mainStatId;
+      });
+      if (!build) continue;
+      const outcome = judgeAgainstBuild(rune, preset, build, line, qualityBar, credit, false);
+      if (!outcome) continue;
+      const worth = outcome.rank === 'preferred' ? 1 : outcome.rank === 'acceptable' ? accepted : broken;
+      candidates.push({ preset, build, value: outcome.maxValue * worth, rank: outcome.rank });
     }
 
     /* Best first, so the strongest candidate that also clears the chance bar wins,
        and so a rune that clears nothing still reports its best showing rather than
        an arbitrary one.
 
-       On the **raw** value, deliberately, not on `reportedMaxValue`'s scale. Which
-       preset a rune is credited to is what §8's multipliers were solved against, and
-       ranking candidates by distance-above-their-own-bar instead would be a different
-       policy wearing a presentation change's clothes. The scale is applied to the
-       winner, once it has been chosen. */
+       On raw discounted value: the quality floor is shared, so no presentation
+       transform or hidden per-preset bar can change which candidate wins. */
     candidates.sort((left, right) => right.value - left.value);
-    type Answer = { value: number; bar: number; chance: number; preset: RunePotentialPreset; rank: MatchRank };
-    let chosen: Answer | null = null;
     let fallback: Answer | null = null;
+    const eligibleByPreset = new Map<string, Answer>();
     for (const candidate of candidates) {
       const line = base.get(candidate.preset.type);
       if (!line) continue;
-      const passesValue = candidate.value >= candidate.bar;
+      const passesValue = candidate.value >= qualityBar;
       if (!passesValue && fallback !== null) continue;
-      const gemStat = rune.subProperties[0]?.statId ?? 0;
       /* The chance has to be the chance of clearing the *same* bar the value was
          judged against. The value carries the accepted/broken discount, so the fill
          the rune actually has to reach is the bar divided by that discount —
@@ -315,31 +187,73 @@ export function runeAdvice(
          all in its odds, and the two halves of the row would disagree. */
       const worth = candidate.rank === 'preferred' ? 1 : candidate.rank === 'acceptable' ? accepted : broken;
       const outcome = judgeAgainstBuild(rune, candidate.preset, candidate.build, line,
-        worth > 0 ? candidate.bar / worth : Number.POSITIVE_INFINITY, {
-          gem: creditValue(gemStat, 'gem', settings.gemGrade, settings.enchantedGems), grind: credit.grind,
-        }, true);
+        worth > 0 ? qualityBar / worth : Number.POSITIVE_INFINITY, credit, true);
       if (!outcome) continue;
       const answer = {
-        value: candidate.value, bar: candidate.bar, chance: outcome.chance,
+        value: candidate.value, chance: outcome.chance,
+        priority: candidate.value * (settings.keepMoreForLargerSets && isFourPieceSet(rune.setName) ? 2 : 1)
+          * (rune.setName === 'Intangible' ? intangible : 1),
         preset: candidate.preset, rank: candidate.rank,
       };
       if (fallback === null) fallback = answer;
-      /* §9's gates 3 and 4, and the only place they are asked. `decide` is told the
-         answer rather than re-deriving it, so a rounding in the reported scale can
-         never disagree with the candidate that was actually chosen. */
-      if (passesValue && outcome.chance >= chanceBar) { chosen = answer; break; }
+      if (passesValue && outcome.chance >= chanceBar) {
+        const prior = eligibleByPreset.get(answer.preset.id);
+        if (!prior || answer.priority > prior.priority || (answer.priority === prior.priority && answer.chance > prior.chance)) {
+          eligibleByPreset.set(answer.preset.id, answer);
+        }
+      }
     }
+    pending.push({ rune, fallback, eligible: [...eligibleByPreset.values()] });
+  }
 
-    const result = chosen ?? fallback;
-    advice.set(rune.id, decide({
-      rune,
-      value: result === null ? 0 : reportedMaxValue(result.value, result.bar, qualityBar),
-      chance: result?.chance ?? 0,
-      preset: result?.preset ?? null,
-      rank: result?.rank ?? 'broken',
-      cleared: chosen !== null,
+  /* The rune-share setting is a count preference, not a disguised quality penalty.
+     First apply the quality/chance gates, then allocate the finite eligible pool to
+     presets in those exact relative shares. A rune is assigned only once; roles
+     with the smallest candidate pool per requested place go first, so a broad role
+     cannot consume the only rune a narrow role could use. */
+  const activePresets = presets.filter((preset) => pending.some((item) => item.eligible.some((answer) => answer.preset.id === preset.id)));
+  const totalEligible = pending.filter((item) => item.eligible.length > 0).length;
+  const requested = new Map(activePresets.map((preset) => [preset.id, shareFactors[preset.runeShare - 1] ?? 1]));
+  const totalRequested = [...requested.values()].reduce((sum, value) => sum + value, 0);
+  const quota = new Map<string, number>();
+  const remainders: Array<{ id: string; fraction: number }> = [];
+  let assignedQuota = 0;
+  for (const preset of activePresets) {
+    const exact = totalRequested > 0 ? totalEligible * (requested.get(preset.id) ?? 0) / totalRequested : 0;
+    const whole = Math.floor(exact);
+    quota.set(preset.id, whole); assignedQuota += whole;
+    remainders.push({ id: preset.id, fraction: exact - whole });
+  }
+  remainders.sort((left, right) => right.fraction - left.fraction || left.id.localeCompare(right.id));
+  for (const item of remainders.slice(0, totalEligible - assignedQuota)) quota.set(item.id, (quota.get(item.id) ?? 0) + 1);
+
+  const assignments = new Map<string, Answer>();
+  const allocationOrder = [...activePresets].sort((left, right) => {
+    const leftCapacity = pending.filter((item) => item.eligible.some((answer) => answer.preset.id === left.id)).length / Math.max(1, quota.get(left.id) ?? 0);
+    const rightCapacity = pending.filter((item) => item.eligible.some((answer) => answer.preset.id === right.id)).length / Math.max(1, quota.get(right.id) ?? 0);
+    return leftCapacity - rightCapacity || left.id.localeCompare(right.id);
+  });
+  for (const preset of allocationOrder) {
+    const candidatesForPreset = pending
+      .filter((item) => !assignments.has(item.rune.id))
+      .map((item) => ({ item, answer: item.eligible.find((answer) => answer.preset.id === preset.id) }))
+      .filter((item): item is { item: Pending; answer: Answer } => item.answer !== undefined)
+      .sort((left, right) => right.answer.priority - left.answer.priority || right.answer.chance - left.answer.chance || left.item.rune.id.localeCompare(right.item.rune.id));
+    for (const candidate of candidatesForPreset.slice(0, quota.get(preset.id) ?? 0)) assignments.set(candidate.item.rune.id, candidate.answer);
+  }
+
+  const advice = new Map<string, RuneAdvice>();
+  for (const item of pending) {
+    const assigned = assignments.get(item.rune.id) ?? null;
+    const result = assigned ?? item.fallback;
+    const verdict = decide({
+      rune: item.rune, value: result?.value ?? 0, chance: result?.chance ?? 0,
+      preset: result?.preset ?? null, rank: result?.rank ?? 'broken', cleared: assigned !== null,
       brokenRejected: broken === 0,
-    }));
+    });
+    advice.set(item.rune.id, assigned === null && item.eligible.length > 0
+      ? { ...verdict, verdict: 'sell', reason: 'Outside requested preset capacity' }
+      : verdict);
   }
   return advice;
 }

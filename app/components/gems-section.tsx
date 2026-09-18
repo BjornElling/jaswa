@@ -332,11 +332,8 @@ export function GemsSection({ game, presets, preferences }: {
               <td className={craftCell('set', row.item.setName === null && 'muted')}>{craftSetLabel(row.item)}</td>
               <td className={craftCell('stat')}>{row.item.statName}</td>
               <td className={craftCell('grade')}>{row.item.grade}</td>
-              {/* An Ancient item has no verified table (§7), and a range that is
-                  merely plausible would be spent on every projection this page
-                  makes. The dash says so, and the title says why. */}
               <td className={craftCell('range', !row.item.range && 'muted')}
-                title={row.item.range ? undefined : 'No verified roll range exists for Ancient items yet.'}>
+                title={row.item.range ? undefined : 'This item has no legal roll range.'}>
                 {craftRangeText(row.item, format)}
               </td>
               <td className={craftCell('held')}>{format(row.item.amount)}</td>

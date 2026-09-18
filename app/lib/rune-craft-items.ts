@@ -61,10 +61,8 @@ export type CraftItem = {
   /**
    * What this item can roll, or `undefined` where no verified range exists.
    *
-   * Ancient items are the `undefined` case and stay that way until a primary
-   * source gives their table. §7 says only that they roll higher than their
-   * ordinary counterparts, and a range that is merely plausible is worse than
-   * none: it would be spent, silently, on every projection this app makes.
+   * The possible result of one use. Ancient uses its own table — it is not an
+   * ordinary item with an optimistic multiplier.
    */
   range: CraftValueRange | undefined;
 };
@@ -124,22 +122,44 @@ const grindstoneRanges: Readonly<Record<string, GradeRow>> = {
   spd: [range(1, 2), range(1, 2), range(2, 3), range(3, 4), range(4, 5)],
 };
 
+/* Ancient items are a separate, measured table rather than normal values plus an
+   arbitrary bonus. The ungrindable groups are intentionally absent from the stone
+   table: a malformed CRI Rate Grindstone must have no range even if it slipped past
+   an importer. `RUNE-CANONICAL.md` §8 holds the source table. */
+const ancientGemRanges: Readonly<Record<string, GradeRow>> = {
+  hpFlat: [range(100, 210), range(130, 280), range(200, 370), range(290, 480), range(400, 640)],
+  percent: [range(2, 6), range(3, 9), range(5, 11), range(7, 13), range(9, 15)],
+  flat: [range(8, 16), range(10, 20), range(15, 27), range(20, 34), range(28, 44)],
+  spd: [range(1, 4), range(2, 5), range(3, 7), range(5, 9), range(7, 11)],
+  criRate: [range(1, 4), range(2, 5), range(3, 6), range(4, 8), range(6, 10)],
+  criDmg: [range(2, 6), range(3, 7), range(4, 8), range(5, 10), range(7, 12)],
+  resAcc: [range(2, 6), range(3, 8), range(5, 10), range(6, 11), range(8, 13)],
+};
+
+const ancientGrindstoneRanges: Readonly<Record<string, GradeRow>> = {
+  hpFlat: [range(80, 180), range(100, 260), range(180, 310), range(230, 510), range(430, 610)],
+  percent: [range(1, 5), range(2, 7), range(3, 8), range(4, 9), range(5, 12)],
+  flat: [range(4, 12), range(6, 16), range(10, 22), range(12, 26), range(18, 34)],
+  spd: [range(1, 3), range(1, 3), range(2, 4), range(3, 5), range(4, 6)],
+};
+
 function statGroupKey(statId: number): string | undefined {
   return statGroups.find((group) => group.statIds.includes(statId))?.key;
 }
 
 /**
  * What an item of this kind, grade and stat can roll — the only place the §8
- * tables are read. `undefined` means no verified range exists, which today is
- * every Ancient item and nothing else.
+ * tables are read. `undefined` means the kind/stat pair does not exist (for
+ * example a CRI Rate Grindstone), never that an Ancient table was omitted.
  */
 export function craftValueRange(
   kind: CraftKind, lineage: CraftLineage, statId: number, grade: ItemGrade,
 ): CraftValueRange | undefined {
-  if (lineage === 'ancient') return undefined;
   const key = statGroupKey(statId);
   if (key === undefined) return undefined;
-  const table = kind === 'gem' ? gemRanges : grindstoneRanges;
+  const table = lineage === 'ancient'
+    ? (kind === 'gem' ? ancientGemRanges : ancientGrindstoneRanges)
+    : (kind === 'gem' ? gemRanges : grindstoneRanges);
   return table[key]?.[itemGrades.indexOf(grade)];
 }
 

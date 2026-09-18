@@ -60,55 +60,55 @@ export function TheMathSection() {
           If you have no level 40 monster of a family, the whole roster stands in. If you have none at all, the page says it cannot judge runes yet rather than inventing a monster.
         </p>
 
-        <h3 className="type-heading">What the runes still have to find</h3>
+        <h3 className="type-heading">Which stats the role values</h3>
         <p>
-          Start with the preset&rsquo;s target. Take away what the monster already has, what the completed rune sets will add, and what the main stats deliver. Whatever is left is what the substats have to supply.
+          A preset&rsquo;s non-zero targets say which stats belong to the role. They are not a private cap on one rune: a fast rune makes the rest of the eventual six-rune build easier, even once its own share of the target would have been met.
         </p>
         <div className="math-table-scroll">
           <table className="math-table">
             <caption className="visually-hidden">
-              For a Support preset, each target with what the monster and its sets supply and what the substats must still find
+              For a Support preset, each target and the sub-property types that contribute to it
             </caption>
             <thead>
               <tr>
                 <th scope="col" className="align-left">Support wants</th>
                 <th scope="col">Target</th>
-                <th scope="col">Monster + sets + mains</th>
-                <th scope="col">Substats must find</th>
-                <th scope="col">Best rolls&rsquo; worth</th>
+                <th scope="col">Sub-property types</th>
+                <th scope="col">Best six-star roll</th>
+                <th scope="col">Why it counts</th>
               </tr>
             </thead>
             <tbody>
               <tr>
                 <th scope="row" className="align-left">SPD</th>
-                <td>275</td><td>104 + 26 (Swift) + 42 (slot 2)</td><td>103</td><td>17.2</td>
+                <td>SPD</td><td>6</td><td>Every extra point frees another rune</td>
               </tr>
               <tr>
                 <th scope="row" className="align-left">Accuracy</th>
-                <td>65 %</td><td>3 % + 20 % (Focus)</td><td>42 %</td><td>5.3</td>
+                <td>Accuracy</td><td>8</td><td>Every extra point still contributes</td>
               </tr>
               <tr>
                 <th scope="row" className="align-left">HP</th>
-                <td>37,500</td><td>10,856 + 63 % (slot 4) + 63 % (slot 6)</td><td>100 %</td><td>12.5</td>
+                <td>HP % and HP flat</td><td>8 % / 375 HP</td><td>Both are converted against base HP</td>
               </tr>
             </tbody>
           </table>
         </div>
         <p>
-          <b className="type-body-emphasis">This is why a Fatal rune is judged more kindly on ATK than an Energy rune is.</b> Keeping a Fatal rune means you intend to build the Fatal set, so its +35 % ATK is taken off the bill before the substats are asked for anything.
+          Set and main-stat choices still decide whether a rune fits a build. They do not make a wanted substat stop being valuable once a local arithmetic target has been reached.
         </p>
 
-        <h3 className="type-heading">Each slot&rsquo;s share</h3>
+        <h3 className="type-heading">One scale across star classes</h3>
         <p>
-          Six runes divide that bill between them — but not evenly, because not every slot can roll every stat. Slot 1 can never roll DEF; slot 3 can never roll ATK; a slot whose main stat is SPD cannot also carry SPD as a substat. So each remaining need is split only between <b className="type-body-emphasis">the slots that are allowed to roll it</b>.
+          A 4★ or 5★ rune is judged in the same currency as a 6★ rune, using its own verified main-stat and substat ranges. Its smaller legal maximum therefore reads below a comparable 6★ maximum; it is neither ignored nor given an artificial 6★ roll.
         </p>
         <p>
-          This is what settles the awkward question of slots 2, 4 and 6. If a preset accepts either SPD or ATK% on slot 2, there is no way to know which one you will eventually equip — and therefore no way to know what the other five runes must carry. Splitting by what each slot is <i>allowed</i> to roll sidesteps it entirely: <b className="type-body-emphasis">no rune&rsquo;s bar ever depends on what another rune turned out to be.</b> It is a planning share, not a promise that the perfect six-rune set exists.
+          Ancient runes use their higher verified <i>initial</i> substat interval. Their later +3/+6/+9/+12 upgrades and their main stats follow the ordinary six-star rules.
         </p>
 
         <h3 className="type-heading">Scoring one rune</h3>
         <p>
-          Now count what the rune brings, in the same yardstick, against its share. A stat only counts until its share is full — <b className="type-body-emphasis">a fifth SPD roll cannot pay for the HP the role also wants.</b>
+          Now count every relevant stat the rune brings, in the same yardstick. <b className="type-body-emphasis">There is no per-stat cap.</b> A fifth SPD roll still helps: it makes it easier for another rune in the completed build to provide HP, Accuracy or another target.
         </p>
         <p>
           Then compare with the best legal rune that slot could possibly hold. That division is what makes <b className="type-body-emphasis">the perfect rune for a preset read 100 %</b>, whatever the preset is asking for.
@@ -116,52 +116,49 @@ export function TheMathSection() {
         <div className="math-table-scroll">
           <table className="math-table">
             <caption className="visually-hidden">
-              A slot 2 rune scored against a Support preset, with each stat capped at its own share
+              A slot 2 rune scored against a Support preset, with all relevant stat value retained
             </caption>
             <thead>
               <tr>
                 <th scope="col" className="align-left">Stat</th>
                 <th scope="col">Rune has</th>
-                <th scope="col">Share asked for</th>
-                <th scope="col">Counted</th>
+                <th scope="col">Role values it</th>
+                <th scope="col">Contribution</th>
               </tr>
             </thead>
             <tbody>
               <tr>
                 <th scope="row" className="align-left">SPD</th>
-                <td>3.40</td><td>3.44</td><td>3.40</td>
+                <td>Yes</td><td>3.40</td>
               </tr>
               <tr>
                 <th scope="row" className="align-left">Accuracy</th>
-                <td>1.75</td><td>1.06</td><td>1.06</td>
+                <td>Yes</td><td>1.75</td>
               </tr>
               <tr>
                 <th scope="row" className="align-left">HP</th>
-                <td>0.88</td><td>2.50</td><td>0.88</td>
+                <td>Yes</td><td>0.88</td>
               </tr>
               <tr className="math-table-total">
                 <th scope="row" className="align-left">Total</th>
-                <td /><td /><td><b className="type-body-emphasis">5.34</b></td>
+                <td /><td /><td><b className="type-body-emphasis">6.03</b></td>
               </tr>
             </tbody>
           </table>
         </div>
-        <p className="math-equation" aria-label="Max value: 5.34 divided by the best possible 7.46 equals 72 percent">
-          <span className="math-equation-label">Max value</span><span>5.34</span><span aria-hidden="true">/</span><span>7.46</span><span aria-hidden="true">=</span><b className="type-body-emphasis">72 %</b>
+        <p className="math-equation" aria-label="Max value: 6.03 divided by the best legal six-star result equals 81 percent">
+          <span className="math-equation-label">Max value</span><span>6.03</span><span aria-hidden="true">/</span><span>7.46</span><span aria-hidden="true">=</span><b className="type-body-emphasis">81 %</b>
         </p>
         <p>
-          Notice the Accuracy line. The rune rolled far more Accuracy than the role needed, and the surplus earns nothing — which is exactly why a rune stuffed with one good stat does not automatically win.
+          Notice the Accuracy line. The rune rolled more Accuracy than a simple even split might suggest, and <b className="type-body-emphasis">all of it counts.</b> A rune still needs several relevant lines to compete, because a legal rune has only four substat lines and every candidate is compared with the best legal six-star result — not because surplus value is discarded.
         </p>
 
-        <h3 className="type-heading">The scale the column prints</h3>
+        <h3 className="type-heading">The number the column prints</h3>
         <p>
-          That 72 % is the score the verdict is decided on. It is not quite the number in the table, and the reason is worth a paragraph. <b className="type-body-emphasis">The bar a rune actually has to clear is not the slider stop you set.</b> Two corrections further down this page multiply it: how many of that preset&rsquo;s runes you asked for, and the per-slot levelling. At one setting a slot 4 rune is held to 38 % and a slot 3 rune to 80 %.
+          The Max value shown is the score the verdict uses. The quality floor is exactly the floor you set, so a number can be read directly without a hidden per-slot or per-preset multiplier.
         </p>
         <p>
-          Printing raw fractions against bars you cannot see, and which differ row to row, told you nothing: a slot 3 rune at 75 % was sold while a slot 4 rune at 40 % was kept, and the column offered no explanation. So the figure is stretched onto a scale with two honest fixed points instead — <b className="type-body-emphasis">the quality floor you set is the number you see it sold beneath, and a perfect rune still reads 100 %.</b>
-        </p>
-        <p>
-          <b className="type-body-emphasis">No verdict changes.</b> The stretch only ever moves a number further from or closer to the floor it was already on the right side of. What does change is the order: sorting by Max value now ranks runes by how far past that one floor they got, instead of putting a slot 3 rune above a slot 4 rune that had cleared a much harder bar by more.
+          The perfect legal six-star rune reads 100 %. Lower-star maxima read lower on that same scale; a selected main stat is included at its deterministic star-specific maximum.
         </p>
 
         <h3 className="type-heading">Chance: will it actually get there?</h3>
@@ -172,7 +169,7 @@ export function TheMathSection() {
           JASWA lists every way those remaining upgrades can fall — which line each one lands on, and how big it rolls — and adds up the chances of the paths that reach the bar. There are at most four upgrades and at most four lines, so this is counted exactly rather than guessed at or simulated. The same rune always prints the same number.
         </p>
         <p>
-          <b className="type-body-emphasis">Two rolls into the same stat do not count twice.</b> If SPD is 0.3 short and an upgrade lands there rolling 0.6, it closes the gap and the extra 0.3 is wasted — and a second SPD upgrade after it is worth nothing at all. That is the whole reason the paths are counted separately instead of averaged.
+          A future line is drawn without replacement from the legal missing effect ids; after all new lines exist, each remaining upgrade is allocated to one of the four lines. Every realised roll contributes in full when its stat is relevant — including surplus SPD or Accuracy. The paths are counted separately because their legal lines and roll ranges differ, not because a stat is locally capped.
         </p>
 
         <h3 className="type-heading">What is measured and what is assumed</h3>
@@ -219,40 +216,7 @@ export function TheMathSection() {
           <b className="type-body-emphasis">Rune quality floor</b> sets the Max value bar. <b className="type-body-emphasis">Power-up policy</b> sets the Chance bar. <b className="type-body-emphasis">Accepted</b> and <b className="type-body-emphasis">Broken runes</b> discount a rune whose set or main stat the preset only tolerates, or never asked for — and at <i>No</i>, a broken rune is rejected outright whatever else is true of it.
         </p>
         <p>
-          A preset&rsquo;s <b className="type-body-emphasis">Desired no. of runes</b>, the four-set switch and the Intangible slider all say how <i>many</i> runes you want, not how good one has to be. There is no formula between the two, so it was measured: a million simulated runes were rolled, scored, and the bar solved for. Asking for a tenth as many runes costs a third more quality; asking for ten times as many needs the bar cut by 70 %, and even then it runs out of runes to find.
-        </p>
-        <p>
-          The same run fixes a problem you would otherwise never spot. Slots 2, 4 and 6 choose their own main stat, and a preset accepts only one or two — so most of their runes are rejected before anything else is asked of them. Left alone, the box fills with slot 1 and slot 3 runes and you cannot build anything. A per-slot correction levels it:
-        </p>
-        <div className="math-table-scroll">
-          <table className="math-table">
-            <caption className="visually-hidden">
-              How many runes of each slot survive to +12, before and after the per-slot correction
-            </caption>
-            <thead>
-              <tr>
-                <th scope="col" className="align-left">Slot</th>
-                <th scope="col">1</th><th scope="col">2</th><th scope="col">3</th>
-                <th scope="col">4</th><th scope="col">5</th><th scope="col">6</th>
-                <th scope="col">Worst gap</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <th scope="row" className="align-left">Uncorrected</th>
-                <td>23.6 %</td><td>11.1 %</td><td>25.2 %</td><td>12.2 %</td><td>25.6 %</td><td>10.9 %</td>
-                <td>10.7×</td>
-              </tr>
-              <tr className="math-table-total">
-                <th scope="row" className="align-left">Corrected</th>
-                <td>13.9 %</td><td>13.8 %</td><td>15.7 %</td><td>14.9 %</td><td>14.9 %</td><td>13.8 %</td>
-                <td><b className="type-body-emphasis">1.14×</b></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <p>
-          At the middle settings, <b className="type-body-emphasis">about 15 % of freshly farmed runes survive to +12</b>. Your own box will read much higher than that — you have already sold the bad ones.
+          A preset&rsquo;s <b className="type-body-emphasis">Desired no. of runes</b> is a real allocation preference. After quality and chance gates, JASWA divides the finite eligible pool between active presets in those relative shares. A broad preset cannot take a narrow preset&rsquo;s allocation merely because more runes happen to match it. The larger-set switch and Intangible slider prioritise those matching runes when a quota is filled.
         </p>
 
         <h3 className="type-heading">The verdict</h3>
@@ -289,10 +253,10 @@ export function TheMathSection() {
           </table>
         </div>
         <p>
-          A rune is checked against <i>every</i> preset and every main-stat combination a preset allows, and the table names the one that suited it best. Crucially, a rune is only sold when <b className="type-body-emphasis">no</b> combination gets it past both gates — so a rune is never rejected because its best-looking match happened to be a long shot.
+          A rune is checked against <i>every</i> preset and every compatible main-stat choice. Passing candidates are then assigned once to the finite preset capacity you asked for. A rune that passed its own quality and Chance gates but is outside that capacity says so plainly instead of masquerading as a weak roll.
         </p>
         <p>
-          Every 6★ rune is judged, Ancient runes included, by the same formula and the same roll table as an ordinary one. There is a caveat you should know, and it runs in your favour: an Ancient rune rolls from a table nobody has published, and it rolls <i>higher</i>. What it already has is read off the export exactly, so its current lines are counted at full value — but the upgrades it has yet to spend are projected at ordinary sizes. <b className="type-body-emphasis">An Ancient rune&rsquo;s Chance is a floor under the real one, never a ceiling over it.</b>
+          Every star class is rated. A 4★ or 5★ rune uses its own main and substat intervals on the shared 6★ scale. An Ancient rune uses its higher verified interval only for substats it had on drop; its main stat, added lines and later upgrades use the ordinary 6★ intervals. Ancient Gems and Grindstones use their own legal tables.
         </p>
       </div>
     </Disclosure>

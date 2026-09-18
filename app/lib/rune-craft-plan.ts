@@ -72,9 +72,8 @@ export function craftItemFit(item: CraftItem, rune: Rune): CraftFit {
       .map((property, index) => ({ index, property }))
       .filter(({ property }) => property.statId === item.statId
         /* §8: a second grindstone is only allowed where it could beat the bonus
-           already applied. An Ancient stone has no verified ceiling, so the
-           comparison cannot be made and the property is offered as a target
-           with the projection withheld rather than dropped from the list. */
+           already applied. `CraftItem` supplies the verified ordinary or Ancient
+           ceiling for that exact item. */
         && (item.range === undefined || property.grind < item.range.maximum));
     return targets.length ? { fits: true, targets } : { fits: false, block: 'target' };
   }
@@ -134,12 +133,11 @@ function withCraftApplied(
        grindstone bonus belongs to the stat it was spent on, so the converted
        property starts from the gem's value alone.
 
-       The one case §8 does not settle is a gem landing on a property that
-       already carries its own stat — a re-roll — where the grindstone bonus
-       might survive. Nothing in the document or the export says it does, so the
-       projection drops it: understating what a gem might do costs the user a
-       spare gem, while overstating it costs them the rune. */
-    return { statId: item.statId, value: rolled, gemmed: true, grind: grindAfter ?? 0 };
+       A re-Gem keeps a Grind only when it keeps the same effect id. A converted
+       line loses its old Grind; `grindAfter` is a separately chosen legal follow-up. */
+    const carriedGrind = item.statId === target.property.statId ? target.property.grind : 0;
+    return { statId: item.statId, value: rolled, gemmed: true,
+      grind: grindAfter === null ? carriedGrind : Math.max(carriedGrind, grindAfter) };
   });
   return { ...rune, subProperties };
 }

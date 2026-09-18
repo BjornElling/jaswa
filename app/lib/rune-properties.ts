@@ -7,12 +7,12 @@
  * copy would drift, and two screens would then disagree about the same rune
  * without either being obviously wrong.
  *
- * Only the ordinary six-star ranges are tabulated, because they are the only ones a
- * source verifies. An Ancient rune rolls higher and no such table exists for it (§7),
- * and it is nevertheless projected from these — a decision taken in §7 and paid for
- * there: what an Ancient rune already holds is read exactly, and what it has yet to
- * roll comes out low. No plausible-looking Ancient range is invented here, which is
- * the line that stays.
+ * The star and Ancient tables deliberately live together. A clean-up projection must
+ * never quietly price a 4★ roll as a 6★ one, and Ancient has one important wrinkle:
+ * its *initial* sub-property uses the Ancient table, while every later +3/+6/+9/+12
+ * improvement uses the ordinary six-star table. Ancient does not mean “every roll is
+ * higher”; the Dimension Hole release calls out the initial sub property specifically.
+ * `RUNE-CANONICAL.md` §7 records the sources and that distinction.
  */
 import { runeStatIds } from './runes';
 
@@ -20,13 +20,49 @@ import { runeStatIds } from './runes';
 export type RollRange = { minimum: number; maximum: number };
 
 /**
- * What one ordinary six-star sub-property roll can be (`RUNE-CANONICAL.md` §7).
+ * What one ordinary sub-property roll can be (`RUNE-CANONICAL.md` §7), by star.
  *
  * The percent stats floor at 5, not at 4. The document carried 4–8 until a count of
  * 489 clean single rolls off a real account turned up no 4 at all, which a 4–8
  * uniform makes a sub-10⁻¹⁵ event; Spokland's own six-star table says 5–8 too.
  */
-export const subPropertyRanges: Readonly<Record<number, RollRange>> = {
+const ordinarySubPropertyRangesByStar: Readonly<Record<number, Readonly<Record<number, RollRange>>>> = {
+  1: {
+    1: { minimum: 15, maximum: 60 }, 2: { minimum: 1, maximum: 2 },
+    3: { minimum: 1, maximum: 4 }, 4: { minimum: 1, maximum: 2 },
+    5: { minimum: 1, maximum: 4 }, 6: { minimum: 1, maximum: 2 },
+    8: { minimum: 1, maximum: 1 }, 9: { minimum: 1, maximum: 1 },
+    10: { minimum: 1, maximum: 2 }, 11: { minimum: 1, maximum: 2 }, 12: { minimum: 1, maximum: 2 },
+  },
+  2: {
+    1: { minimum: 30, maximum: 105 }, 2: { minimum: 1, maximum: 3 },
+    3: { minimum: 2, maximum: 5 }, 4: { minimum: 1, maximum: 3 },
+    5: { minimum: 2, maximum: 5 }, 6: { minimum: 1, maximum: 3 },
+    8: { minimum: 1, maximum: 2 }, 9: { minimum: 1, maximum: 2 },
+    10: { minimum: 1, maximum: 3 }, 11: { minimum: 1, maximum: 3 }, 12: { minimum: 1, maximum: 3 },
+  },
+  3: {
+    1: { minimum: 45, maximum: 165 }, 2: { minimum: 2, maximum: 5 },
+    3: { minimum: 3, maximum: 8 }, 4: { minimum: 2, maximum: 5 },
+    5: { minimum: 3, maximum: 8 }, 6: { minimum: 2, maximum: 5 },
+    8: { minimum: 2, maximum: 3 }, 9: { minimum: 2, maximum: 3 },
+    10: { minimum: 2, maximum: 4 }, 11: { minimum: 2, maximum: 4 }, 12: { minimum: 2, maximum: 4 },
+  },
+  4: {
+    1: { minimum: 60, maximum: 225 }, 2: { minimum: 3, maximum: 6 },
+    3: { minimum: 5, maximum: 10 }, 4: { minimum: 3, maximum: 6 },
+    5: { minimum: 5, maximum: 10 }, 6: { minimum: 3, maximum: 6 },
+    8: { minimum: 2, maximum: 4 }, 9: { minimum: 2, maximum: 4 },
+    10: { minimum: 2, maximum: 5 }, 11: { minimum: 2, maximum: 5 }, 12: { minimum: 2, maximum: 5 },
+  },
+  5: {
+    1: { minimum: 90, maximum: 300 }, 2: { minimum: 4, maximum: 7 },
+    3: { minimum: 7, maximum: 15 }, 4: { minimum: 4, maximum: 7 },
+    5: { minimum: 7, maximum: 15 }, 6: { minimum: 4, maximum: 7 },
+    8: { minimum: 3, maximum: 5 }, 9: { minimum: 3, maximum: 5 },
+    10: { minimum: 3, maximum: 6 }, 11: { minimum: 3, maximum: 7 }, 12: { minimum: 3, maximum: 7 },
+  },
+  6: {
   1: { minimum: 135, maximum: 375 },
   2: { minimum: 5, maximum: 8 },
   3: { minimum: 10, maximum: 20 },
@@ -38,7 +74,46 @@ export const subPropertyRanges: Readonly<Record<number, RollRange>> = {
   10: { minimum: 4, maximum: 7 },
   11: { minimum: 4, maximum: 8 },
   12: { minimum: 4, maximum: 8 },
+  },
 };
+
+/** A Dimension Hole rune has higher *initial* values; later upgrades are normal 6★ rolls. */
+const ancientInitialSubPropertyRanges: Readonly<Record<number, RollRange>> = {
+  1: { minimum: 165, maximum: 435 }, 2: { minimum: 6, maximum: 10 },
+  3: { minimum: 12, maximum: 24 }, 4: { minimum: 6, maximum: 10 },
+  5: { minimum: 12, maximum: 24 }, 6: { minimum: 6, maximum: 10 },
+  8: { minimum: 5, maximum: 7 }, 9: { minimum: 5, maximum: 7 },
+  10: { minimum: 5, maximum: 9 }, 11: { minimum: 6, maximum: 10 }, 12: { minimum: 6, maximum: 10 },
+};
+
+export type SubPropertyRollKind = 'initial' | 'upgrade';
+
+/**
+ * The legal interval for one sub-property draw. `undefined` is an invalid stat/star
+ * combination rather than a zero-value roll, which keeps malformed game data visible.
+ */
+export function subPropertyRange(
+  stars: number, statId: number, kind: SubPropertyRollKind = 'upgrade', ancient = false,
+): RollRange | undefined {
+  if (!Number.isInteger(stars) || stars < 1 || stars > 6) return undefined;
+  if (ancient && stars !== 6) return undefined;
+  if (ancient && stars === 6 && kind === 'initial') return ancientInitialSubPropertyRanges[statId];
+  return ordinarySubPropertyRangesByStar[stars]?.[statId];
+}
+
+/** A readable alias for callers that model the drop separately from its upgrades. */
+export const initialSubPropertyRange = (stars: number, statId: number, ancient = false) =>
+  subPropertyRange(stars, statId, 'initial', ancient);
+
+/** A readable alias for callers modelling a +3/+6/+9/+12 event. */
+export const upgradeSubPropertyRange = (stars: number, statId: number, ancient = false) =>
+  subPropertyRange(stars, statId, 'upgrade', ancient);
+
+/**
+ * Backward-compatible ordinary six-star table. New calculation code must call
+ * `subPropertyRange` so it cannot lose the rune's star class or Ancient phase.
+ */
+export const subPropertyRanges = ordinarySubPropertyRangesByStar[6];
 
 /**
  * A six-star prefix draws from the same range a sub property does (§4).
@@ -52,14 +127,15 @@ export const subPropertyRanges: Readonly<Record<number, RollRange>> = {
 export const prefixRanges = subPropertyRanges;
 
 /** The best a single roll can be — the unit every demand and supply is counted in. */
-export const maximumRoll = (statId: number): number => subPropertyRanges[statId]?.maximum ?? 0;
+export const maximumRoll = (statId: number, stars = 6, ancient = false, kind: SubPropertyRollKind = 'upgrade'): number =>
+  subPropertyRange(stars, statId, kind, ancient)?.maximum ?? 0;
 
 /**
  * How many whole values a roll can take. Used by the chance calculation, which
  * integrates over a uniform draw across exactly these.
  */
-export function rollValueCount(statId: number): number {
-  const range = subPropertyRanges[statId];
+export function rollValueCount(statId: number, stars = 6, ancient = false, kind: SubPropertyRollKind = 'upgrade'): number {
+  const range = subPropertyRange(stars, statId, kind, ancient);
   return range ? range.maximum - range.minimum + 1 : 0;
 }
 
@@ -68,10 +144,24 @@ export function rollValueCount(statId: number): number {
  * (`RUNE-CANONICAL.md` §3). Main properties are deterministic: they grow with the
  * level rather than rolling, so this is a fact about the rune and not a projection.
  */
-export const mainPropertyAtMaximum: Readonly<Record<number, number>> = {
-  1: 2448, 2: 63, 3: 160, 4: 63, 5: 160, 6: 63,
-  8: 42, 9: 58, 10: 80, 11: 64, 12: 64,
+const mainPropertiesAtMaximumByStar: Readonly<Record<number, Readonly<Record<number, number>>>> = {
+  1: { 1: 804, 2: 18, 3: 54, 4: 18, 5: 54, 6: 18, 8: 18, 9: 18, 10: 20, 11: 18, 12: 18 },
+  2: { 1: 1092, 2: 20, 3: 74, 4: 20, 5: 74, 6: 20, 8: 19, 9: 20, 10: 37, 11: 20, 12: 20 },
+  3: { 1: 1380, 2: 38, 3: 93, 4: 38, 5: 93, 6: 38, 8: 25, 9: 37, 10: 43, 11: 38, 12: 38 },
+  4: { 1: 1704, 2: 43, 3: 112, 4: 43, 5: 112, 6: 43, 8: 30, 9: 41, 10: 58, 11: 44, 12: 44 },
+  5: { 1: 2088, 2: 51, 3: 135, 4: 51, 5: 135, 6: 51, 8: 39, 9: 47, 10: 65, 11: 51, 12: 51 },
+  6: { 1: 2448, 2: 63, 3: 160, 4: 63, 5: 160, 6: 63, 8: 42, 9: 58, 10: 80, 11: 64, 12: 64 },
 };
+
+/**
+ * Main properties are deterministic and Ancient changes none of them. The stars
+ * argument is mandatory in new code, unlike the legacy six-star alias below.
+ */
+export const mainPropertyMaximum = (stars: number, statId: number): number =>
+  mainPropertiesAtMaximumByStar[stars]?.[statId] ?? 0;
+
+/** Backward-compatible ordinary six-star alias. */
+export const mainPropertyAtMaximum = mainPropertiesAtMaximumByStar[6];
 
 /** Which main properties each slot may carry (§3). Slots 1, 3 and 5 are fixed. */
 export const slotMainProperties: Readonly<Record<number, readonly number[]>> = {

@@ -67,9 +67,8 @@ test('every stack says how far it reaches, and a dead one says why', async ({ pa
      gem, which is the difference the last column exists to show. */
   await expect(rows.filter({ hasText: 'Fatal' })).toContainText('1 equipped');
   await expect(rows.filter({ hasText: 'Immemorial' })).toContainText('1 in inventory · 1 equipped');
-  /* An Ancient item has no verified roll range (§7), so the column says so
-     instead of quoting an ordinary item's table. */
-  await expect(rows.filter({ hasText: 'Ancient' }).locator('td').nth(5)).toHaveText('—');
+  /* Ancient items carry their own verified ranges, not a borrowed ordinary table. */
+  await expect(rows.filter({ hasText: 'Ancient' }).locator('td').nth(5)).not.toHaveText('—');
 });
 
 test('filters narrow the box without moving it', async ({ page }) => {
@@ -140,20 +139,18 @@ test('a gem can be followed by a grindstone, and only a gem can', async ({ page 
   expect(await row.textContent()).not.toBe(withoutGrind);
 });
 
-test('an Ancient item is placed but not projected', async ({ page }) => {
+test('an Ancient item is placed and projected from its own range', async ({ page }) => {
   await openWorkspace(page);
   await importCraftAccount(page);
   await page.locator('summary').filter({ hasText: 'Best use for this' }).click();
 
   await chooseItem(page, 'Ancient Violent', 'Gem', 'SPD');
-  await expect(page.locator('.craft-best-use .notice.warning'))
-    .toContainText('no verified roll range yet');
   const row = page.locator('.craft-best-use-results .best-artifact-result').first().locator('tbody tr').first();
-  /* The rune it can go on is named; the two columns that would need a range are
-     an em dash rather than a figure nobody can stand behind. */
+  /* The rune is named and its before/after figures are calculated from the
+     Ancient table, never an ordinary fallback. */
   await expect(row).toContainText('Ancient Violent');
-  await expect(row.locator('td').nth(4)).toHaveText('—');
-  await expect(row.locator('td').nth(5)).toHaveText('—');
+  await expect(row.locator('td').nth(4)).not.toHaveText('—');
+  await expect(row.locator('td').nth(5)).not.toHaveText('—');
 });
 
 test('a role narrows which runes are offered', async ({ page }) => {

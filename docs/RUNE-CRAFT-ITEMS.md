@@ -86,19 +86,14 @@ Intangible needs no clause: it is `set_id` 25 like any other set, so an
 Intangible rune is matched by an Intangible item or by an Immemorial one, which
 is exactly the pair §10 allows it.
 
-## 3. What the app may not say
+## 3. Ancient value ranges
 
-**Ancient items have no value range, and one must not be invented.** §7 states
-that Ancient gems and grindstones roll higher than their ordinary counterparts
-and gives no table, and the same section forbids Rune Clean-up from showing a
-numeric Ancient ceiling. `CraftItem.range` is therefore `undefined` for every
-Ancient item, the box list prints an em dash in its Rolls column, and Best use
-places the item without projecting a score — it says so on screen rather than
-quietly ranking by something else.
-
-This is the one gap in the workspace. Closing it needs a verified table for
-Ancient gems and grindstones by grade, added to `RUNE-CANONICAL.md` §8 under its
-own revision rule; nothing else has to change.
+Ancient is not a grade multiplier. Types 5 and 6 use the separate Ancient
+Gem/Grindstone tables in `RUNE-CANONICAL.md` §8, and `CraftItem.range` always
+exposes that exact interval. This lets the box and Rune Clean-up calculate a
+numeric, reproducible projection rather than treating owned Ancient materials
+as visible-but-unusable. The source is named in the canonical document's
+revision rule; a client observation wins if the game changes it.
 
 ## 4. Parity
 

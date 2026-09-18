@@ -47,17 +47,17 @@ try {
   assert.equal(readCraftItem(stack(4, 99_04_04)).kind, 'grindstone');
   assert.equal(readCraftItem(stack(4, 99_04_04)).lineage, 'immemorial');
 
-  /* Ancient items number their grades ten above the ordinary ranks, and have no
-     verified range: §7 says only that they roll higher than their ordinary
-     counterparts, and a range that is merely plausible would be spent on every
-     projection the workspace makes. */
+  /* Ancient items number their grades ten above the ordinary ranks and read
+     their own measured table — not the ordinary range and not a multiplier. */
   const ancientGem = readCraftItem(stack(5, 13_08_14));
   assert.equal(ancientGem.lineage, 'ancient');
   assert.equal(ancientGem.kind, 'gem');
   assert.equal(ancientGem.grade, 'Hero');
-  assert.equal(ancientGem.range, undefined);
-  assert.equal(readCraftItem(stack(6, 13_08_15)).kind, 'grindstone');
-  assert.equal(readCraftItem(stack(6, 13_08_15)).grade, 'Legend');
+  assert.deepEqual(ancientGem.range, { minimum: 5, maximum: 9 });
+  const ancientStone = readCraftItem(stack(6, 13_08_15));
+  assert.equal(ancientStone.kind, 'grindstone');
+  assert.equal(ancientStone.grade, 'Legend');
+  assert.deepEqual(ancientStone.range, { minimum: 4, maximum: 6 });
   /* An ordinary grade code on an Ancient type, or an Ancient one on an ordinary
      type, is a record this encoding does not describe. */
   assert.equal(readCraftItem(stack(5, 13_08_04)), null);
@@ -85,7 +85,10 @@ try {
   assert.deepEqual(craftValueRange('grindstone', 'standard', 8, 'Legend'), { minimum: 4, maximum: 5 });
   assert.deepEqual(craftValueRange('gem', 'standard', 4, 'Hero'), { minimum: 7, maximum: 11 });
   assert.equal(craftValueRange('grindstone', 'standard', 10, 'Legend'), undefined, 'CRI Dmg cannot be ground');
-  assert.equal(craftValueRange('gem', 'ancient', 8, 'Legend'), undefined);
+  assert.deepEqual(craftValueRange('gem', 'ancient', 8, 'Legend'), { minimum: 7, maximum: 11 });
+  assert.deepEqual(craftValueRange('grindstone', 'ancient', 2, 'Legend'), { minimum: 5, maximum: 12 });
+  assert.equal(craftValueRange('grindstone', 'ancient', 10, 'Legend'), undefined,
+    'Ancient does not make an ungrindable stat grindable');
 
   const spd = { minimum: 7, maximum: 10 };
   assert.equal(craftRollValue(spd, 'minimum'), 7);

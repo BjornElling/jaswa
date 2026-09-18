@@ -74,7 +74,7 @@ stat kan kun bruges i de slots, der er tilladt i tabellen ovenfor.
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | HP + | 804 | 1.092 | 1.380 | 1.704 | 2.088 | 2.448 |
 | HP %, ATK %, DEF % | 18 % | 20 % | 38 % | 43 % | 51 % | 63 % |
-| ATK +, DEF + | 54 | 74 | 93 | 113 | 135 | 160 |
+| ATK +, DEF + | 54 | 74 | 93 | 112 | 135 | 160 |
 | SPD | 18 | 19 | 25 | 30 | 39 | 42 |
 | CRI Rate | 18 % | 20 % | 37 % | 41 % | 47 % | 58 % |
 | CRI Dmg | 20 % | 37 % | 43 % | 58 % | 65 % | 80 % |
@@ -167,23 +167,22 @@ spillet én eksisterende Sub Property. Største mulige antal af samme stat efter
 Det er et teoretisk loft, ikke en garanti. +15 lægger aldrig en Sub
 Property-roll til.
 
-## 7. 6★ almindelige runer: Sub Property-intervaller
+## 7. Sub Property-intervaller
 
-Rune Clean-up behandler alle 6★-runer, og bruger denne tabel til dem alle —
-også til Ancient-runer, se afsnittet nedenfor om hvorfor og hvad det koster. Disse
-intervaller for én almindelig 6★ Sub Property-værdi er bekræftet mod
-kildetabellen og støttet af +0-runer i den leverede eksport. De gælder både
-for start-roll og for en senere almindelig power-up-roll.
+Stjerneklassen bestemmer intervallet for hver almindelig Sub Property, både
+ved drop og ved en senere power-up. Rune Clean-up må derfor ikke prissætte en
+4★ eller 5★ som en 6★. Tallene er krydstjekket mod Spoklands tabeller og
+SWEX' dokumenterede maksværdier. Kilderne er uenige om 4★ flat Main Property
+(112/113); den synlige Spokland-tabel og dermed JASWA bruger 112 ved +15.
 
-| Sub Property | Min | Maks |
-| --- | ---: | ---: |
-| HP + | 135 | 375 |
-| HP %, ATK %, DEF % | 5 % | 8 % |
-| ATK +, DEF + | 10 | 20 |
-| SPD | 4 | 6 |
-| CRI Rate | 4 % | 6 % |
-| CRI Dmg | 4 % | 7 % |
-| Resistance, Accuracy | 4 % | 8 % |
+| Sub Property | 1★ | 2★ | 3★ | 4★ | 5★ | 6★ |
+| --- | --- | --- | --- | --- | --- | --- |
+| HP + | 15–60 | 30–105 | 45–165 | 60–225 | 90–300 | 135–375 |
+| HP %, ATK %, DEF % | 1–2 % | 1–3 % | 2–5 % | 3–6 % | 4–7 % | 5–8 % |
+| ATK +, DEF + | 1–4 | 2–5 | 3–8 | 5–10 | 7–15 | 10–20 |
+| SPD, CRI Rate | 1 | 1–2 | 2–3 | 2–4 | 3–5 | 4–6 |
+| CRI Dmg | 1–2 % | 1–3 % | 2–4 % | 2–5 % | 3–6 % | 4–7 % |
+| Resistance, Accuracy | 1–2 % | 1–3 % | 2–4 % | 2–5 % | 3–7 % | 4–8 % |
 
 **Rettet 17. september 2026: HP %, ATK % og DEF % ruller 5–8 %, ikke 4–8 %.**
 Tabellen stod tidligere med 4 % som gulv. Målt på `Culpa-21822407.json` giver 489
@@ -214,7 +213,8 @@ afgøre det, fordi boksen er dét, der overlevede spillerens egne beslutninger �
 
 Ancient Runes kommer fra Dimension Hole. Den leverede eksport markerer dem
 med `class: 16`; almindelige 6★-runer er `class: 6`. De har forbedrede mulige
-startværdier. Eksporten bekræfter eksemplerne HP % 10, SPD 7 og Accuracy 10.
+**startværdier**, ikke forbedrede power-up-rolls. Eksporten bekræfter eksemplerne
+HP % 10, SPD 7 og Accuracy 10.
 
 Ancient Runes bruger deres egne **Ancient Enchanted Gems**, **Ancient
 Grindstones** og **Ancient Reappraisal Stones**. Ancient Gem og Grindstone kan
@@ -222,28 +222,22 @@ kun anvendes på Ancient Runes; almindelige Gem/Grindstone må ikke bruges som
 en fallback. Ancient Grindstones og Gems har højere mulige værdier end de
 almindelige modstykker.
 
-**Afventende verificering:** Der er ikke fundet et komplet,
-officiel-/primærkildeverificeret intervalskema for hver Ancient-start-roll.
+Det målte Ancient-startinterval er:
 
-**Besluttet 17. september 2026: Rune Clean-up bedømmer alligevel Ancient-runer, og
-gør det med den almindelige 6★-tabel ovenfor — samme formel, samme shares, samme
-ceiling, samme gates.** Den tidligere regel her — at værktøjet ikke måtte vise en
-numerisk Ancient-projektion — efterlod en rune, som importen læste og talte med, men
-som ingen beregning kunne bruge. `AGENTS.md` §0.1 stiller *usynlig* under *afvist*,
-og markeringen `Not rated: Ancient` var i praksis det første.
+| Sub Property | Min | Maks |
+| --- | ---: | ---: |
+| HP + | 165 | 435 |
+| HP %, ATK %, DEF % | 6 % | 10 % |
+| ATK +, DEF + | 12 | 24 |
+| SPD, CRI Rate | 5 | 7 |
+| CRI Dmg | 5 % | 9 % |
+| Resistance, Accuracy | 6 % | 10 % |
 
-Beslutningen er en tilnærmelse, og den står navngivet her frem for at blive gemt:
-**runens nuværende linjer er eksakte, dens fremtidige er undervurderede.** Værdierne
-i eksporten tælles som de står, så en Ancient HP %-linje på 10 tæller som 1,25 max
-rolls og prissættes for dét den er. De power-ups, runen endnu ikke har brugt,
-fremskrives derimod med de almindelige intervaller, som er lavere end dem spillet
-ruller med. En Ancient-runes Chance er altså et **gulv under** den sande, aldrig et
-loft over den: fejlen peger mod at beholde en rune, aldrig mod at sælge den.
-
-Dette er ikke en licens til at gætte et Ancient-intervalskema. Findes skemaet, er
-tallene ovenfor stadig dem, der skal erstattes — `craftValueRange` har fortsat ingen
-Ancient-tabel at tilbyde, og gem/grindstone-krediteringen bruger derfor også de
-almindelige intervaller.
+Ved +3/+6/+9/+12 bruger Ancient-runen derimod den almindelige 6★-tabel. En
+Ancient-runes startlinje tælles altså efter Ancient-intervallet, mens dens
+ubrugte forbedringer distribueres efter 6★-intervallet. Det er en vigtig
+skelnen: at bruge Ancient-tabellen for alle fremtidige rolls gør både `Max
+value` og `Chance` kunstigt høje.
 
 ## 8. Enchanted Gems og Grindstones
 
@@ -268,6 +262,16 @@ forbudsregler i afsnit 4 og 5 også ved Gem-konvertering.
 | Hero | 290–420 | 7–11 % | 20–30 | 5–8 | 4–7 % | 5–8 % | 6–9 % |
 | Legend | 400–580 | 9–13 % | 28–40 | 7–10 | 6–9 % | 7–10 % | 8–11 % |
 
+Ancient Gems har deres egen tabel og må kun bruges på Ancient-runer:
+
+| Ancient Gem-grade | HP + | HP %, ATK %, DEF % | ATK +, DEF + | SPD | CRI Rate | CRI Dmg | Resistance, Accuracy |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Normal | 100–210 | 2–6 % | 8–16 | 1–4 | 1–4 % | 2–6 % | 2–6 % |
+| Magic | 130–280 | 3–9 % | 10–20 | 2–5 | 2–5 % | 3–7 % | 3–8 % |
+| Rare | 200–370 | 5–11 % | 15–27 | 3–7 | 3–6 % | 4–8 % | 5–10 % |
+| Hero | 290–480 | 7–13 % | 20–34 | 5–9 | 4–8 % | 5–10 % | 6–11 % |
+| Legend | 400–640 | 9–15 % | 28–44 | 7–11 | 6–10 % | 7–12 % | 8–13 % |
+
 ### Grindstone: tillæg til en mulig Sub Property
 
 En **Grindstone** lægger et separat tillæg på én eksisterende Sub Property.
@@ -286,6 +290,16 @@ nye type er grindbar. Det bekræftes også af den leverede eksport: samme
 | Rare | 180–250 | 3–6 % | 10–18 | 2–3 |
 | Hero | 230–450 | 4–7 % | 12–22 | 3–4 |
 | Legend | 430–550 | 5–10 % | 18–30 | 4–5 |
+
+Ancient Grindstones er tilsvarende separate og kun lovlige på Ancient-runer:
+
+| Ancient Grindstone-grade | HP + | HP %, ATK %, DEF % | ATK +, DEF + | SPD |
+| --- | ---: | ---: | ---: | ---: |
+| Normal | 80–180 | 1–5 % | 4–12 | 1–3 |
+| Magic | 100–260 | 2–7 % | 6–16 | 1–3 |
+| Rare | 180–310 | 3–8 % | 10–22 | 2–4 |
+| Hero | 230–510 | 4–9 % | 12–26 | 3–5 |
+| Legend | 430–610 | 5–12 % | 18–34 | 4–6 |
 
 En senere Grindstone kan bruges på samme stat for at forsøge at opnå en bedre
 værdi, men kun når dens mulige slutværdi kan blive højere end det eksisterende
@@ -483,6 +497,7 @@ produktbeslutninger, ikke spilfakta. De står kun i arbejdsdokumentet.
 6. [SWEX mapping.js](https://github.com/Xzandro/sw-exporter/blob/master/app/mapping.js) — eksportens set-ID-mapping samt Gem- og Grindstone-tabeller.
 7. Brugerleveret `Culpa-21822407.json`, 23. august 2026 — feltformat, `class`/`rank`, stat-ID'er og observerede Prefix-, Gem- og Grindstone-værdier.
 8. Brugerleveret `full_log.txt`, 23. august 2026 — ingen Rune Statistics-forespørgsel forekommer i den konkrete log.
+9. [Xzandros Ancient roll tables](https://www.reddit.com/r/summonerswar/comments/c0dc2h/ancient_grindstone_ancient_enchanted_gems_min_max/) — Ancient-startintervaller samt Ancient Gem- og Grindstone-tabeller. Sekundær, men den komplette tabel er krydstjekket mod observerede eksportværdier; en reproducerbar klientmåling vinder ved konflikt.
 
 Ved hver spilopdatering skal set-tabellen, `class`/`rank`-mapping og
 Sub Property-intervaller revalideres. Et ukendt felt eller Rune Set må aldrig

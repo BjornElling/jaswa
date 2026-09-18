@@ -10,10 +10,6 @@
  * which re-derives the chance by Monte Carlo from the game's own loop precisely so
  * that a disagreement is caught.
  *
- * What this file does *not* decide is the scale the page prints Max value on. That
- * is `reportedMaxValue()` in `rune-cleanup-advice.ts`, because the anchor it stretches
- * towards is the user's own quality floor — a policy, and policy lives there.
- *
  * ## One currency
  *
  * Everything — what a role needs, what a rune brings, what a roll might add — is
@@ -32,15 +28,18 @@
  * them as game facts.
  */
 import { runeSubValue, slotAllowsSubStat } from './runes';
-import type { Rune } from './runes';
+import type { Rune, RuneSubProperty } from './runes';
 import { runeSetPieceCount } from './rune-sets';
 import {
-  allStatIds, mainPropertyAtMaximum, maximumRoll, remainingEvents, scalesWithBase,
-  setBonuses, subPropertyRanges, subPropertyTargetStat, targetStatSubProperties,
+  allStatIds, mainPropertyMaximum, maximumRoll, remainingEvents, scalesWithBase,
+  subPropertyRange, subPropertyTargetStat, targetStatSubProperties,
 } from './rune-properties';
 import type { TargetStat } from './rune-properties';
 import type { ReferenceStats } from './rune-reference-stats';
 import type { PresetChoice, RuneMainStat, RunePotentialPreset } from './rune-potential-presets';
+import { craftRollValue, craftValueRange } from './rune-craft-items';
+import type { CraftRollAssumption } from './rune-craft-items';
+import type { ItemGrade } from './types';
 
 /** The eight stats a preset can aim at, in the order every table reads them. */
 export const targetStats: readonly TargetStat[] = ['hp', 'atk', 'def', 'spd', 'criRate', 'criDmg', 'res', 'acc'];
@@ -143,116 +142,44 @@ function inMaxRolls(statId: number, value: number, base: ReferenceStats): number
 }
 
 /**
- * What the runes of a build must find, per stat, in max rolls — and then what one
- * slot's share of it is.
- *
- * The set bonus is subtracted **before** anything is asked of the runes, because
- * judging a Fatal rune means assuming the Fatal set gets built: that is the only
- * reason to keep it. A Fatal rune is therefore asked for less ATK than an Energy
- * rune is, which is the whole point.
- *
- * The share is the demand divided by **how many slots can legally carry the stat**
- * rather than by six. That is what dissolves the slot 2/4/6 ambiguity: a rune's bar
- * never depends on what another rune turned out to be, because capacity is a fact
- * about the build and not a guess about the player.
+ * The relevant stats for each slot, and the universal six-star ceiling for that
+ * slot. Targets select a direction; they do not create a per-rune quota. A stat
+ * remains relevant even where the build's main stat or set bonus would already
+ * cover its numeric target, because an excess on this rune can release capacity on
+ * another rune in the eventual six-rune build.
  */
 export type Demand = {
-  /** Per slot, per stat, the max rolls that slot is asked to supply. */
+  /** Per slot, the positive target stats whose full contributions are relevant. */
   shares: ReadonlyMap<number, ReadonlyMap<TargetStat, number>>;
   /** The best `fill` a legal rune could reach in each slot. */
   ceilings: ReadonlyMap<number, number>;
 };
 
-/**
- * The sets a rune of this set will actually be wearing, once the build exists.
- *
- * A six-slot build is never one set. A four-piece set leaves room for exactly one
- * two-piece, and two-piece sets stack up to three times (`RUNE-CANONICAL.md` §10),
- * so a Fatal rune ends up beside a second set whether or not the preset says which.
- * Crediting only the rune's own set would hold a Fatal rune in a `Fatal / Blade`
- * role to a CRI Rate target that the Blade half is going to supply, and sell a rune
- * that is exactly right for the job.
- *
- * The partner is the best-ranked set the preset asks for that can share the build.
- * It is the set the player would actually reach for, and naming it here keeps the
- * assumption in one place instead of leaving a rune judged as though it were worn
- * alone.
- */
-function buildSets(preset: RunePotentialPreset, setName: string): string[] {
-  const own = runeSetPieceCount[setName] ?? 2;
-  const partners = [...preset.sets.preferred, ...preset.sets.acceptable]
-    .filter((name) => name !== setName && setBonuses[name] !== undefined
-      /* A four-piece set leaves room for one two-piece only; a two-piece leaves
-         room for either. */
-      && (own === 4 ? runeSetPieceCount[name] === 2 : true));
-  if (partners.length === 0) return [setName];
-  /* Preferred before acceptable, and the first of those — a stable choice rather
-     than the most flattering one, so the figure does not move when a preset's list
-     is reordered. */
-  return [setName, partners[0]];
-}
-
-function setContribution(setNames: readonly string[], stat: TargetStat, base: ReferenceStats): number {
-  let total = 0;
-  for (const name of setNames) {
-    const bonus = setBonuses[name];
-    if (!bonus || subPropertyTargetStat[bonus.statId] !== stat) continue;
-    total += (bonus.percent ? base[stat] * bonus.percent / 100 : 0) + (bonus.flat ?? 0);
-  }
-  return total;
-}
-
+/** Build-local relevant stats and the legal six-star denominator for each slot. */
 export function buildDemand(
-  preset: RunePotentialPreset, build: Build, setName: string, base: ReferenceStats,
+  preset: RunePotentialPreset, build: Build, base: ReferenceStats,
 ): Demand {
   /* The stats this role actually aims at. A stat left unset is one the role does
      not aim at (`rune-potential-presets.ts`), and a stated 0 is a target of
      nothing; both ask the runes for nothing, so both drop out here. */
   const wanted = targetStats.filter((stat) => (preset.targets[stat] ?? 0) > 0);
 
-  /* Which slots may carry each stat, given the build's main stats and the slot
-     bans — and what the main stats already supply. */
-  const carriers = new Map<TargetStat, number[]>();
-  const fromMains = new Map<TargetStat, number>();
+  /* A target belongs to every slot that can legally carry one of its effect ids.
+     Its numeric height is deliberately not used as a cap (see Demand above). */
+  const shares = new Map<number, Map<TargetStat, number>>([1, 2, 3, 4, 5, 6].map((slot) => [slot, new Map()]));
   for (const slot of [1, 2, 3, 4, 5, 6]) {
     const main = mainOfSlot(build, slot);
-    const mainStat = subPropertyTargetStat[main];
-    if (mainStat) {
-      const value = mainPropertyAtMaximum[main] ?? 0;
-      const asUnit = !scalesWithBase(mainStat) || main === targetStatSubProperties[mainStat].percent
-        ? value
-        : (base[mainStat] > 0 ? value * 100 / base[mainStat] : 0);
-      fromMains.set(mainStat, (fromMains.get(mainStat) ?? 0) + asUnit);
-    }
     for (const stat of wanted) {
       const types = targetStatSubProperties[stat];
-      const canCarry = [types.percent, types.flat].some((statId) =>
-        statId !== undefined && statId !== main && slotAllowsSubStat(slot, statId));
-      if (canCarry) carriers.set(stat, [...(carriers.get(stat) ?? []), slot]);
+      if ([types.percent, types.flat].some((statId) => statId !== undefined && statId !== main && slotAllowsSubStat(slot, statId))) {
+        shares.get(slot)?.set(stat, preset.targets[stat] ?? 0);
+      }
     }
-  }
-
-  const wearing = buildSets(preset, setName);
-  const shares = new Map<number, Map<TargetStat, number>>([1, 2, 3, 4, 5, 6].map((slot) => [slot, new Map()]));
-  for (const stat of wanted) {
-    const target = preset.targets[stat] ?? 0;
-    /* What the monster and its completed sets bring before a single sub property is
-       counted. Percent bonuses scale the base; flat ones are added outright. */
-    const need = target - base[stat] - setContribution(wearing, stat, base);
-    const inUnit = scalesWithBase(stat)
-      ? (base[stat] > 0 ? need * 100 / base[stat] : 0)
-      : need;
-    const size = canonicalRoll(stat, base);
-    const afterMains = inUnit - (fromMains.get(stat) ?? 0);
-    const demand = size > 0 ? Math.max(0, afterMains) / size : 0;
-    const slots = carriers.get(stat) ?? [];
-    if (slots.length === 0 || demand <= 0) continue;
-    for (const slot of slots) shares.get(slot)?.set(stat, demand / slots.length);
   }
 
   const ceilings = new Map<number, number>();
   for (const slot of [1, 2, 3, 4, 5, 6]) {
-    ceilings.set(slot, slotCeiling(shares.get(slot) ?? new Map(), slot, mainOfSlot(build, slot)));
+    ceilings.set(slot, slotCeiling(shares.get(slot) ?? new Map(), slot, mainOfSlot(build, slot), base));
   }
   return { shares, ceilings };
 }
@@ -261,71 +188,37 @@ export function buildDemand(
  * The best `fill` any legal rune in this slot could reach — the denominator that
  * makes a perfect rune read 100 %.
  *
- * A finished rune carries eight rolls' worth of sub property (four initial, four
- * from power-ups) spread across four lines, plus a prefix worth one more. So the
- * ceiling is the best way to spend nine rolls across five legal stats, with each
- * stat capped at the share it was asked for — spending an eleventh SPD roll on a
- * role that wanted three buys nothing.
- *
- * Greedy allocation is optimal here, and not merely convenient: each stat's
- * contribution is `min(rolls, share)`, which is concave in `rolls`, so taking the
- * largest marginal gain at each step cannot be beaten.
+ * The scale is the best ordinary six-star rune, even when the candidate has fewer
+ * stars. That is what keeps a perfect 4★ rune below a perfect 6★ rune on one
+ * scale. With uncapped contributions the optimal legal layout is five rolls on
+ * the strongest sub property, three on the next and a prefix on a third property.
+ * Prefix and sub properties cannot duplicate an effect id.
  */
 function slotCeiling(
-  shares: ReadonlyMap<TargetStat, number>, slot: number, main: number,
+  shares: ReadonlyMap<TargetStat, number>, slot: number, main: number, base: ReferenceStats,
 ): number {
-  const legal = [...shares.entries()].filter(([stat]) => {
-    const types = targetStatSubProperties[stat];
-    return [types.percent, types.flat].some((statId) =>
-      statId !== undefined && statId !== main && slotAllowsSubStat(slot, statId));
-  });
+  const legal = allStatIds
+    .filter((statId) => statId !== main && slotAllowsSubStat(slot, statId))
+    .filter((statId) => {
+      const stat = subPropertyTargetStat[statId];
+      return stat !== undefined && shares.has(stat);
+    })
+    .map((statId) => inMaxRolls(statId, maximumRoll(statId, 6), base));
   if (legal.length === 0) return 0;
-  /* Four lines plus a prefix. A line may hold up to five rolls on a Legend rune
-     (its own plus the four power-ups), which is the per-stat cap below. */
-  return allocate(legal.map(([, share]) => share), 9, 5, Math.min(5, legal.length));
+  legal.sort((a, b) => b - a);
+  return (legal[0] ?? 0) * 5 + (legal[1] ?? 0) * 3 + (legal[2] ?? 0);
 }
 
 /**
- * Spend `rolls` across the stats with the largest unmet share, one roll at a time,
- * taking the best marginal gain each step. `lineCap` bounds one stat; `lines`
- * bounds how many distinct stats can be carried at once.
+ * The value a supply contributes to a role.
+ *
+ * A target is a direction, not a local cap. A 21 SPD rune remains better than a
+ * 17 SPD rune because the excess lets another slot spend its rolls elsewhere. The
+ * role's map therefore selects relevant stats but never truncates their value.
  */
-function allocate(shares: readonly number[], rolls: number, lineCap: number, lines: number): number {
-  const wanted = [...shares].sort((a, b) => b - a).slice(0, lines);
-  const spent = new Array<number>(wanted.length).fill(0);
-  let fill = 0;
-  for (let step = 0; step < rolls; step += 1) {
-    let best = -1;
-    let bestGain = 0;
-    for (let at = 0; at < wanted.length; at += 1) {
-      if (spent[at] >= lineCap) continue;
-      const gain = Math.min(spent[at] + 1, wanted[at]) - Math.min(spent[at], wanted[at]);
-      if (gain > bestGain) { bestGain = gain; best = at; }
-    }
-    if (best === -1) break;
-    spent[best] += 1;
-    fill += bestGain;
-  }
-  return fill;
-}
-
-/** What one rune already brings, per stat, in max rolls. */
-function currentSupply(rune: Rune, base: ReferenceStats): Map<TargetStat, number> {
-  const supply = new Map<TargetStat, number>();
-  const add = (statId: number, value: number) => {
-    const stat = subPropertyTargetStat[statId];
-    if (!stat) return;
-    supply.set(stat, (supply.get(stat) ?? 0) + inMaxRolls(statId, value, base));
-  };
-  for (const property of rune.subProperties) add(property.statId, runeSubValue(property));
-  if (rune.prefixStatId !== null) add(rune.prefixStatId, rune.prefixValue);
-  return supply;
-}
-
-/** The `fill` a supply produces against a set of shares: each stat capped at its own. */
 function fillOf(supply: ReadonlyMap<TargetStat, number>, shares: ReadonlyMap<TargetStat, number>): number {
   let fill = 0;
-  for (const [stat, share] of shares) fill += Math.min(supply.get(stat) ?? 0, share);
+  for (const stat of shares.keys()) fill += supply.get(stat) ?? 0;
   return fill;
 }
 
@@ -338,6 +231,14 @@ export type RuneOutcome = {
   rank: MatchRank;
 };
 
+/** The one optional Gem and one optional Grind the Clean-up policy assumes exist. */
+export type CraftCredit = {
+  gem: CraftRollAssumption | null;
+  gemGrade: ItemGrade;
+  grind: CraftRollAssumption | null;
+  grindGrade: ItemGrade;
+};
+
 /**
  * One rune against one build of one preset.
  *
@@ -347,7 +248,7 @@ export type RuneOutcome = {
  */
 export function judgeAgainstBuild(
   rune: Rune, preset: RunePotentialPreset, build: Build, base: ReferenceStats,
-  threshold: number, credit: { gem: number; grind: number },
+  threshold: number, credit: CraftCredit,
   /* The chance is the expensive half — it enumerates every way the remaining
      upgrades can fall — and most builds are rejected on their ceiling long before
      anyone needs it. So it is only worked out when the caller says it will be
@@ -358,24 +259,30 @@ export function judgeAgainstBuild(
      this build can use at all — it is a different build's rune. */
   if (mainOfSlot(build, rune.slot) !== rune.mainStatId && build.mains[rune.slot as 2 | 4 | 6] !== 0) return null;
 
-  const { shares, ceilings } = buildDemand(preset, build, rune.setName, base);
+  const { shares, ceilings } = buildDemand(preset, build, base);
   const slotShares = shares.get(rune.slot) ?? new Map<TargetStat, number>();
   const ceiling = ceilings.get(rune.slot) ?? 0;
   if (ceiling <= 0) return null;
 
-  const supply = currentSupply(rune, base);
-  applyCredits(rune, supply, slotShares, base, credit);
+  const supply = projectedSupply(rune, slotShares, base, credit);
 
   const { adds, rolls } = remainingEvents(rune.level, rune.subProperties.length);
-  const best = bestReachableFill(rune, supply, slotShares, adds, rolls);
+  const best = bestReachableFill(rune, supply, slotShares, base, adds, rolls);
+  /* A main property is deterministic, but its final size depends on stars. It is
+     part of a rune's potential, so a perfect 4★ rune cannot read as a perfect 6★
+     rune merely because its sub properties were excellent. Ancient does not alter
+     main properties. */
+  const sixStarMain = mainPropertyMaximum(6, rune.mainStatId);
+  const mainScale = sixStarMain > 0 ? mainPropertyMaximum(rune.stars, rune.mainStatId) / sixStarMain : 0;
 
   const setRank = rankOf(preset.sets, rune.setName);
   const mainRank: MatchRank = rune.slot === 2 || rune.slot === 4 || rune.slot === 6
     ? build.ranks[rune.slot as 2 | 4 | 6] : 'preferred';
 
   return {
-    maxValue: Math.min(1, best / ceiling),
-    chance: withChance ? reachChance(rune, supply, slotShares, base, threshold * ceiling, adds, rolls) : 0,
+    maxValue: Math.min(1, best / ceiling) * mainScale,
+    chance: withChance ? reachChance(rune, supply, slotShares, base,
+      mainScale > 0 ? threshold * ceiling / mainScale : Number.POSITIVE_INFINITY, adds, rolls) : 0,
     rank: worseRank(setRank, mainRank),
   };
 }
@@ -393,31 +300,69 @@ export function judgeAgainstBuild(
  * same answer in all but a rounding of cases, because replacing a rune's best line
  * is never right and the wanted stat is never in doubt.
  */
-function applyCredits(
-  rune: Rune, supply: Map<TargetStat, number>, shares: ReadonlyMap<TargetStat, number>,
-  base: ReferenceStats, credit: { gem: number; grind: number },
-): void {
-  if (credit.grind > 0) {
-    let bestGain = 0; let bestStat: TargetStat | null = null;
-    for (const property of rune.subProperties) {
-      const stat = subPropertyTargetStat[property.statId];
-      if (!stat || !shares.has(stat)) continue;
-      const added = Math.max(0, credit.grind - property.grind);
-      const gain = inMaxRolls(property.statId, added, base);
-      if (gain > bestGain) { bestGain = gain; bestStat = stat; }
+function supplyOf(properties: readonly RuneSubProperty[], rune: Rune, base: ReferenceStats): Map<TargetStat, number> {
+  const supply = new Map<TargetStat, number>();
+  const add = (statId: number, value: number) => {
+    const stat = subPropertyTargetStat[statId];
+    if (stat) supply.set(stat, (supply.get(stat) ?? 0) + inMaxRolls(statId, value, base));
+  };
+  for (const property of properties) add(property.statId, runeSubValue(property));
+  if (rune.prefixStatId !== null) add(rune.prefixStatId, rune.prefixValue);
+  return supply;
+}
+
+/**
+ * Evaluate legal craft actions on the rune's actual lines, rather than adding an
+ * imaginary number to a target stat. A Gem replaces one line, carries a grind only
+ * when it keeps that exact stat, and a Grind can touch only a grindable property.
+ */
+function projectedSupply(
+  rune: Rune, shares: ReadonlyMap<TargetStat, number>, base: ReferenceStats, credit: CraftCredit,
+): Map<TargetStat, number> {
+  const lineage = rune.ancient ? 'ancient' : 'standard';
+  const gemOptions: RuneSubProperty[][] = [[...rune.subProperties]];
+  if (credit.gem !== null && rune.level >= 12) {
+    const converted = rune.subProperties.findIndex((property) => property.gemmed);
+    const replaceable = converted === -1 ? rune.subProperties.map((_, at) => at) : [converted];
+    for (const at of replaceable) {
+      const old = rune.subProperties[at];
+      const otherIds = new Set(rune.subProperties.filter((_, index) => index !== at).map((property) => property.statId));
+      for (const statId of allStatIds) {
+        if (statId !== old.statId && (otherIds.has(statId) || statId === rune.mainStatId || statId === rune.prefixStatId
+          || !slotAllowsSubStat(rune.slot, statId))) continue;
+        const range = craftValueRange('gem', lineage, statId, credit.gemGrade);
+        if (!range) continue;
+        const properties = [...rune.subProperties];
+        properties[at] = {
+          statId, value: craftRollValue(range, credit.gem), gemmed: true,
+          /* Com2uS preserves a grind only when the Gem keeps the same property. */
+          grind: statId === old.statId ? old.grind : 0,
+        };
+        gemOptions.push(properties);
+      }
     }
-    if (bestStat) supply.set(bestStat, (supply.get(bestStat) ?? 0) + bestGain);
   }
-  if (credit.gem > 0 && rune.level >= 12) {
-    const held = new Set(rune.subProperties.map((property) => subPropertyTargetStat[property.statId]));
-    let bestGain = 0; let bestStat: TargetStat | null = null;
-    for (const [stat, share] of shares) {
-      if (held.has(stat)) continue;
-      const gain = Math.min(credit.gem, share - (supply.get(stat) ?? 0));
-      if (gain > bestGain) { bestGain = gain; bestStat = stat; }
+
+  let winner = gemOptions[0];
+  let best = fillOf(supplyOf(winner, rune, base), shares);
+  for (const gemmed of gemOptions) {
+    const grindOptions: RuneSubProperty[][] = [gemmed];
+    if (credit.grind !== null) for (let at = 0; at < gemmed.length; at += 1) {
+      const property = gemmed[at];
+      const range = craftValueRange('grindstone', lineage, property.statId, credit.grindGrade);
+      if (!range) continue;
+      const assumed = craftRollValue(range, credit.grind);
+      if (assumed <= property.grind) continue;
+      const properties = [...gemmed];
+      properties[at] = { ...property, grind: assumed };
+      grindOptions.push(properties);
     }
-    if (bestStat) supply.set(bestStat, (supply.get(bestStat) ?? 0) + bestGain);
+    for (const option of grindOptions) {
+      const value = fillOf(supplyOf(option, rune, base), shares);
+      if (value > best) { best = value; winner = option; }
+    }
   }
+  return supplyOf(winner, rune, base);
 }
 
 /**
@@ -433,63 +378,61 @@ function applyCredits(
  * Additions are separate and come last (`RUNE-CANONICAL.md` §6), and each one takes
  * a distinct legal type the rune does not already hold.
  *
- * Greedy is optimal within each half: every stat's contribution is `min(rolls,
- * share)`, which is concave, so the largest marginal gain at each step cannot be
- * beaten. It stays optimal across the two halves because the additions' choices do
- * not overlap the improvements' — an added type is by definition one no line holds.
+ * With no per-stat quota, every improvement goes to the held line whose legal
+ * maximum is largest. Additions are independently chosen from legal missing effect
+ * ids; an added type is by definition one no line already holds.
  */
 function bestReachableFill(
   rune: Rune, supply: ReadonlyMap<TargetStat, number>, shares: ReadonlyMap<TargetStat, number>,
-  adds: number, rolls: number,
+  base: ReferenceStats, adds: number, rolls: number,
 ): number {
   const held = new Map(supply);
-  let fill = fillOf(held, shares);
-  const spend = (choices: readonly TargetStat[], times: number) => {
-    for (let step = 0; step < times; step += 1) {
-      let bestGain = 0; let bestStat: TargetStat | null = null;
-      for (const stat of choices) {
-        const share = shares.get(stat) ?? 0;
-        const have = held.get(stat) ?? 0;
-        const gain = Math.min(have + 1, share) - Math.min(have, share);
-        if (gain > bestGain) { bestGain = gain; bestStat = stat; }
-      }
-      if (!bestStat) break;
-      held.set(bestStat, (held.get(bestStat) ?? 0) + 1);
-      fill += bestGain;
-    }
-  };
-
-  /* Improvements: the stats the rune's own lines already feed, and nothing else. */
-  const onLines = [...new Set(rune.subProperties
-    .map((property) => subPropertyTargetStat[property.statId])
-    .filter((stat): stat is TargetStat => stat !== undefined && shares.has(stat)))];
-  spend(onLines, rolls);
-
-  /* Additions: a legal type the rune does not hold, once each. */
+  /* A newly added line exists before any later improvement. Evaluate every legal
+     added set, then put all future upgrades on whichever line in that completed
+     four-line state has the greatest real maximum. */
+  const onLines = rune.subProperties.filter((property) => {
+    const stat = subPropertyTargetStat[property.statId];
+    return stat !== undefined && shares.has(stat);
+  });
+  /* Additions are distinct effect ids, but HP% and HP+ may both appear and both
+     contribute. Pick the best legal real rolls, not one collapsed target stat. */
   const held2 = new Set(rune.subProperties.map((property) => property.statId));
-  const addable = [...new Set(allStatIds
+  const addable = allStatIds
     .filter((statId) => !held2.has(statId) && statId !== rune.mainStatId
       && statId !== rune.prefixStatId && slotAllowsSubStat(rune.slot, statId))
-    .map((statId) => subPropertyTargetStat[statId])
-    .filter((stat): stat is TargetStat => stat !== undefined && shares.has(stat)))];
-  spend(addable, adds);
-
-  return fill;
+    .filter((statId) => {
+      const stat = subPropertyTargetStat[statId];
+      return stat !== undefined && shares.has(stat);
+    })
+    .sort((left, right) => {
+      const leftValue = subPropertyRange(rune.stars, left, 'upgrade')?.maximum ?? 0;
+      const rightValue = subPropertyRange(rune.stars, right, 'upgrade')?.maximum ?? 0;
+      return inMaxRolls(right, rightValue, base) - inMaxRolls(left, leftValue, base);
+    });
+  /* A line gained at +9/+12 is a new ordinary line, not an Ancient drop line. */
+  const choices = combinations(addable, adds);
+  let best = 0;
+  for (const added of choices) {
+    const candidate = new Map(held);
+    const candidateAdd = (statId: number, value: number) => {
+      const stat = subPropertyTargetStat[statId];
+      if (!stat || !shares.has(stat)) return;
+      candidate.set(stat, (candidate.get(stat) ?? 0) + inMaxRolls(statId, value, base));
+    };
+    for (const statId of added) candidateAdd(statId, subPropertyRange(rune.stars, statId, 'initial')?.maximum ?? 0);
+    const upgradeIds = [...onLines.map((property) => property.statId), ...added];
+    const strongest = upgradeIds.sort((left, right) => {
+      const leftValue = subPropertyRange(rune.stars, left, 'upgrade')?.maximum ?? 0;
+      const rightValue = subPropertyRange(rune.stars, right, 'upgrade')?.maximum ?? 0;
+      return inMaxRolls(right, rightValue, base) - inMaxRolls(left, leftValue, base);
+    })[0];
+    if (strongest !== undefined) for (let at = 0; at < rolls; at += 1) {
+      candidateAdd(strongest, subPropertyRange(rune.stars, strongest, 'upgrade')?.maximum ?? 0);
+    }
+    best = Math.max(best, fillOf(candidate, shares));
+  }
+  return best;
 }
-
-/**
- * The grid the chance distribution is carried on.
- *
- * It spans the four max rolls a rune can still gain — one per remaining event, and
- * a roll can never be worth more than one max roll — rather than a bare 0 to 1. The
- * first draft used a unit grid on the assumption that a fill was a fraction, and it
- * is not: a fill is counted in max rolls and a role wanting several of them puts a
- * slot's share well above 1. Every gap past the end of the grid read as impossible,
- * so runes with a 68 % ceiling were reported at a 0 % chance and sold.
- */
-const gridStep = 0.025;
-const gridSpan = 4;
-const gridSize = Math.round(gridSpan / gridStep) + 1;
 
 /**
  * Every way `events` upgrades can be split across `lines` lines — the compositions
@@ -520,47 +463,76 @@ function compositions(events: number, lines: number): Array<{ counts: number[]; 
   return out;
 }
 
-/** The distribution of `n` uniform rolls of one stat, capped at what it still needs. */
-function cappedLine(statId: number, n: number, room: number, base: ReferenceStats): Float64Array<ArrayBuffer> {
-  const out = new Float64Array(gridSize);
-  if (n === 0 || room <= 0) { out[0] = 1; return out; }
-  const range = subPropertyRanges[statId];
-  if (!range) { out[0] = 1; return out; }
+/** The exact distribution of `n` uniform rolls of one stat. */
+type Distribution = Map<number, number>;
+
+/* The exact same line distribution recurs across builds, presets and addition
+   branches. Cache only immutable probability maps; callers never mutate them. This
+   keeps exact enumeration practical for a large synthetic population without
+   replacing it with a coarse approximation. */
+const lineDistributionCache = new Map<string, Distribution>();
+
+/* Values are discrete game rolls. Rounding only removes IEEE-754 representation
+   noise after arithmetic; unlike the former 0.025 grid it never coarsens a game
+   outcome or moves a threshold. */
+const probabilityKey = (value: number): number => Number(value.toFixed(12));
+
+function convolveDistribution(left: Distribution, right: Distribution, cap = Number.POSITIVE_INFINITY): Distribution {
+  const out: Distribution = new Map();
+  for (const [a, leftWeight] of left) for (const [b, rightWeight] of right) {
+    const key = probabilityKey(Math.min(cap, a + b));
+    out.set(key, (out.get(key) ?? 0) + leftWeight * rightWeight);
+  }
+  return out;
+}
+
+/** The exact distribution of `n` future rolls of one property. */
+function lineDistribution(
+  statId: number, n: number, base: ReferenceStats, stars: number, kind: 'initial' | 'upgrade' = 'upgrade',
+): Distribution {
+  const cacheKey = `${statId}/${n}/${stars}/${kind}/${base.hp}/${base.atk}/${base.def}`;
+  const cached = lineDistributionCache.get(cacheKey);
+  if (cached) return cached;
+  if (n === 0) return new Map([[0, 1]]);
+  /* New lines added while powering up use the ordinary initial table. An Ancient
+     initial value is the value it dropped with, not a bonus applied at +9/+12. */
+  const range = subPropertyRange(stars, statId, kind);
+  if (!range) return new Map([[0, 1]]);
   const values = range.maximum - range.minimum + 1;
-  /* The sum of n rolls, built up exactly, and only then capped — which is the whole
-     correction. Capping each roll separately is what overstated the chance. */
-  let total = new Float64Array(gridSize);
-  total[0] = 1;
+  let total: Distribution = new Map([[0, 1]]);
+  const one: Distribution = new Map();
+  for (let value = range.minimum; value <= range.maximum; value += 1) {
+    const key = probabilityKey(inMaxRolls(statId, value, base));
+    one.set(key, (one.get(key) ?? 0) + 1 / values);
+  }
   for (let step = 0; step < n; step += 1) {
-    const one = new Float64Array(gridSize);
-    for (let value = range.minimum; value <= range.maximum; value += 1) {
-      one[Math.min(gridSize - 1, Math.round(inMaxRolls(statId, value, base) / gridStep))] += 1 / values;
+    total = convolveDistribution(total, one);
+  }
+  lineDistributionCache.set(cacheKey, total);
+  return total;
+}
+
+/** Every unordered draw without replacement. Each has equal probability. */
+function combinations<T>(items: readonly T[], count: number): T[][] {
+  if (count === 0) return [[]];
+  const out: T[][] = [];
+  const chosen: T[] = [];
+  const visit = (from: number) => {
+    if (chosen.length === count) { out.push([...chosen]); return; }
+    for (let at = from; at <= items.length - (count - chosen.length); at += 1) {
+      chosen.push(items[at]); visit(at + 1); chosen.pop();
     }
-    total = convolve(total, one);
-  }
-  const capAt = Math.min(gridSize - 1, Math.round(room / gridStep));
-  for (let at = 0; at < gridSize; at += 1) {
-    if (total[at] === 0) continue;
-    out[Math.min(at, capAt)] += total[at];
-  }
+  };
+  visit(0);
   return out;
 }
 
 /**
  * The chance the rune's realised `fill` reaches `wanted` by +12.
  *
- * **The shape of the calculation follows a rule of the game: improvements come
- * before additions.** A Hero rune improves at +3, +6 and +9 and only gains its
- * fourth line at +12; a Rare rune improves at +3 and +6 and gains lines at +9 and
- * +12 (`RUNE-CANONICAL.md` §6). So no improvement ever lands on a line that was
- * added later, which is what lets the two halves be worked out separately.
- *
- * For the improvements, every way they can be spread across the existing lines is
- * enumerated, and each line's rolls are **summed and only then capped** at what
- * that stat still needs. Capping each roll on its own was the error the first draft
- * made: two rolls into one line would each be credited with closing the same
- * shortfall, so the chance came out too high and a rune that should have been sold
- * read as worth rolling.
+ * Additions come first, so later improvements choose among the completed set of
+ * four lines. Each legal added set and each subsequent upgrade split is enumerated.
+ * A line's contributions are summed without a target cap.
  *
  * **Two assumptions live here and nowhere else.** Which of the lines an improvement
  * lands on, and which type a new line takes, are uniform. Neither is established by
@@ -576,79 +548,44 @@ function reachChance(
   const gap = wanted - have;
   if (gap <= 0) return 1;
   if (adds + rolls === 0) return 0;
-  /* One event can never be worth more than one max roll, so a gap wider than the
-     events remaining is out of reach whatever they roll. Saying so here keeps the
-     grid from having to represent it. */
-  if (gap > adds + rolls) return 0;
-  const needed = Math.ceil(gap / gridStep);
-  if (needed >= gridSize) return 0;
-
-  /* What each stat still needs, which is the cap every line's total is held to.
-     Shared between an existing line and a later addition of the other type — HP %
-     and HP + both pay into the same HP need — so it is keyed by the target stat. */
-  const room = new Map<TargetStat, number>();
-  for (const [stat, share] of shares) room.set(stat, Math.max(0, share - (supply.get(stat) ?? 0)));
 
   const lines = rune.subProperties.map((property) => property.statId);
   const held = new Set(lines);
   const missing = allStatIds.filter((statId) => !held.has(statId)
     && statId !== rune.mainStatId && statId !== rune.prefixStatId && slotAllowsSubStat(rune.slot, statId));
 
-  /* The improvements: one distribution per way of splitting them over the lines. */
-  let distribution = new Float64Array(gridSize);
-  if (rolls === 0 || lines.length === 0) {
-    distribution[0] = 1;
-  } else {
-    for (const { counts, weight } of compositions(rolls, lines.length)) {
-      if (weight === 0) continue;
-      let branch = new Float64Array(gridSize);
-      branch[0] = 1;
-      const spent = new Map<TargetStat, number>();
-      for (let at = 0; at < lines.length; at += 1) {
-        if (counts[at] === 0) continue;
-        const stat = subPropertyTargetStat[lines[at]];
-        if (!stat) continue;
-        /* Two lines of the same target stat — HP % beside HP + — share one need, so
-           what an earlier line already claimed is taken off this one's cap. */
-        const left = (room.get(stat) ?? 0) - (spent.get(stat) ?? 0);
-        branch = convolve(branch, cappedLine(lines[at], counts[at], left, base));
-        spent.set(stat, (spent.get(stat) ?? 0) + left);
-      }
-      for (let at = 0; at < gridSize; at += 1) distribution[at] += weight * branch[at];
-    }
-  }
+  const additionChoices = combinations(missing, adds);
+  if (additionChoices.length === 0) return 0;
+  const splits = compositions(rolls, lines.length + adds);
+  let chance = 0;
 
-  /* The additions: each takes a distinct legal type it does not already hold, so
-     they are draws without replacement. Their contributions are averaged over which
-     types come up, which is exact because each new line receives exactly one roll. */
-  for (let at = 0; at < adds; at += 1) {
-    if (missing.length === 0) break;
-    const one = new Float64Array(gridSize);
-    for (const statId of missing) {
+  /* A branch is identified by the upgrade allocation and the unordered, legal
+     set of new properties. A target is never capped: surplus SPD, Accuracy or any
+     other wanted stat remains useful because it frees another rune to cover a
+     different need. */
+  for (const split of splits) for (const added of additionChoices) {
+    const terms: Array<{ statId: number; count: number; kind: 'initial' | 'upgrade' }> = [];
+    const add = (statId: number, count: number, kind: 'initial' | 'upgrade') => {
       const stat = subPropertyTargetStat[statId];
-      const single = cappedLine(statId, 1, stat ? room.get(stat) ?? 0 : 0, base);
-      for (let bin = 0; bin < gridSize; bin += 1) one[bin] += single[bin] / missing.length;
+      if (!stat || count === 0 || !shares.has(stat)) return;
+      terms.push({ statId, count, kind });
+    };
+    for (let at = 0; at < lines.length; at += 1) add(lines[at], split.counts[at] ?? 0, 'upgrade');
+    for (let at = 0; at < added.length; at += 1) {
+      const statId = added[at];
+      const upgradeCount = split.counts[lines.length + at] ?? 0;
+      /* An added line has one initial roll, then may receive later upgrades. */
+      add(statId, 1, 'initial');
+      add(statId, upgradeCount, 'upgrade');
     }
-    distribution = convolve(distribution, one);
-  }
 
-  let tail = 0;
-  for (let at = needed; at < gridSize; at += 1) tail += distribution[at];
-  return Math.min(1, Math.max(0, tail));
-}
-
-function convolve(left: Float64Array<ArrayBuffer>, right: Float64Array<ArrayBuffer>): Float64Array<ArrayBuffer> {
-  const out = new Float64Array(gridSize);
-  for (let a = 0; a < gridSize; a += 1) {
-    const weight = left[a];
-    if (weight === 0) continue;
-    for (let b = 0; b < gridSize; b += 1) {
-      const mass = right[b];
-      if (mass === 0) continue;
-      out[Math.min(gridSize - 1, a + b)] += weight * mass;
-    }
+    let branch: Distribution = new Map([[0, 1]]);
+    for (const term of terms) branch = convolveDistribution(branch,
+      lineDistribution(term.statId, term.count, base, rune.stars, term.kind), gap);
+    const branchWeight = split.weight / additionChoices.length;
+    for (const [gain, probability] of branch) if (gain + 1e-12 >= gap) chance += branchWeight * probability;
   }
-  return out;
+  return Math.min(1, Math.max(0, chance));
 }
 
 /** Whether a set takes four runes, which the "keep twice as many" setting reads. */

@@ -1,219 +1,322 @@
 /**
- * Rune Clean-up — calibration and the maths check behind it.
+ * Independent empirical guard rail for Rune Clean-up.
  *
- * Two jobs, and the second is the reason the first can be trusted.
+ * It generates legal runes and plays the game's addition/upgrade loop with its
+ * own PRNG. Production code supplies only the public verdict and measured final
+ * value; the stochastic oracle is intentionally not a second copy of the scorer.
  *
- * **1. It checks the chance calculation against the game's own loop.** The model
- * computes "will this rune reach the bar by +12" by convolving one distribution per
- * remaining event. This script re-derives the same figure by simulating the
- * mechanic — roll the events, see where the rune lands — and fails if the two
- * disagree by more than the tolerance below. That is a check on the model, not a
- * second copy of it: the Monte Carlo is written from `RUNE-CANONICAL.md` §6 and §7,
- * not from `rune-cleanup-model.ts`.
+ * The mixed-box check is a population smoke test. The allocation check gives several otherwise identical presets one feasible
+ * candidate pool and asserts the largest-remainder quota exactly.
  *
- * **2. It solves for the constants the model cannot derive.** How a wanted-count
- * multiplier becomes a score multiplier, and what each slot's bar must be so that
- * the six slots survive in equal numbers, have no closed form — they depend on how
- * the scores of real runes are distributed. So they are measured: a million
- * simulated runes are scored, and the script solves for the values that produce the
- * stated behaviour. `--solve` prints the table to paste into
- * `app/lib/rune-cleanup-advice.ts`; without it, the run asserts the shipped values
- * still hold.
- *
- * The simulated box follows the brief: slots 1, 3 and 5 at three-quarters Hero and
- * one-quarter Legend; slots 2, 4 and 6 at a quarter Rare, half Hero and a quarter
- * Legend, because those three slots are filtered on their main property first and a
- * lower-rarity rune with the right main is worth rolling. No Ancient runes.
+ * Release run: --runes=250000 --share-runes=30000 --rollouts=30000.
  */
-import { defaultRunePotentialPresets } from '../app/lib/rune-potential-presets.ts';
-import { runeAdvice, qualityThresholds } from '../app/lib/rune-cleanup-advice.ts';
+import { defaultRunePotentialPresets, runeMainStats } from '../app/lib/rune-potential-presets.ts';
+import { runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
 import {
-  subPropertyRanges, slotMainProperties, startingSubPropertyCount, subPropertyLevels,
+  initialSubPropertyRange, slotMainProperties, startingSubPropertyCount,
+  subPropertyLevels, upgradeSubPropertyRange,
 } from '../app/lib/rune-properties.ts';
 import { runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
+import { judgeAgainstBuild, presetBuilds } from '../app/lib/rune-cleanup-model.ts';
 
-const argv = new Set(process.argv.slice(2));
-const solving = argv.has('--solve');
-const count = Number(process.argv.find((a) => a.startsWith('--runes='))?.slice(8)) || (solving ? 1_000_000 : 120_000);
-
-/* A deterministic generator, so a failure is reproducible and a calibration run is
-   the same run twice. */
-let seed = 0x9e3779b9;
-function random() {
-  seed ^= seed << 13; seed >>>= 0;
-  seed ^= seed >> 17;
-  seed ^= seed << 5; seed >>>= 0;
-  return seed / 0x100000000;
+const args = new Map(process.argv.slice(2).filter((arg) => arg.startsWith('--') && arg.includes('='))
+  .map((arg) => arg.slice(2).split('=', 2)));
+const quick = process.argv.includes('--quick');
+function integerArg(name, fallback) {
+  const value = Number(args.get(name) ?? fallback);
+  if (!Number.isInteger(value) || value <= 0) throw new Error('--' + name + ' must be a positive integer.');
+  return value;
 }
-const pick = (list) => list[Math.floor(random() * list.length)];
-const between = (low, high) => low + Math.floor(random() * (high - low + 1));
+const runeCount = integerArg('runes', quick ? 8 : 50_000);
+const shareRuneCount = integerArg('share-runes', quick ? 24 : Math.min(12_000, runeCount));
+const rolloutCount = integerArg('rollouts', quick ? 100 : 12_000);
+const variantRuneCount = integerArg('variant-runes', quick ? 1 : Math.min(60, runeCount));
+const seed = integerArg('seed', 0x9e3779b9);
 
-const setNames = ['Energy', 'Guard', 'Swift', 'Blade', 'Rage', 'Focus', 'Endure', 'Fatal',
-  'Despair', 'Vampire', 'Violent', 'Nemesis', 'Will', 'Shield', 'Revenge', 'Destroy',
-  'Fight', 'Determination', 'Enhance', 'Accuracy', 'Tolerance', 'Seal'];
-
-/** The rarity mix the brief states, split by whether the slot chooses its main. */
-function drawRank(slot) {
-  const roll = random();
-  if (slot === 2 || slot === 4 || slot === 6) return roll < 0.25 ? 3 : roll < 0.75 ? 4 : 5;
-  return roll < 0.75 ? 4 : 5;
-}
-
-/** One fresh rune, rolled the way the game rolls one. */
-function freshRune(id) {
-  const slot = 1 + Math.floor(random() * 6);
-  const rank = drawRank(slot);
-  const setName = pick(setNames);
-  const mainStatId = pick(slotMainProperties[slot]);
-  /* A prefix on 51 % of runes, measured on a real account (`RUNE-CANONICAL.md` §4). */
-  const legal = runeStatIds.filter((id) => id !== mainStatId && slotAllowsSubStat(slot, id));
-  const prefixStatId = random() < 0.51 ? pick(legal) : null;
-  const pool = legal.filter((id) => id !== prefixStatId);
-  const subs = [];
-  const taken = new Set();
-  for (let at = 0; at < startingSubPropertyCount(rank); at += 1) {
-    const choices = pool.filter((id) => !taken.has(id));
-    const statId = pick(choices);
-    taken.add(statId);
-    const range = subPropertyRanges[statId];
-    subs.push({ statId, value: between(range.minimum, range.maximum), gemmed: false, grind: 0 });
-  }
-  return {
-    id: String(id), setId: 1, setName, slot, stars: 6, ancient: false, level: 0,
-    mainStatId, mainValue: 0,
-    prefixStatId,
-    prefixValue: prefixStatId === null ? 0
-      : between(subPropertyRanges[prefixStatId].minimum, subPropertyRanges[prefixStatId].maximum),
-    subProperties: subs, occupiedId: null,
-    _rank: rank, _pool: pool,
+function makeRandom(initial) {
+  let state = initial >>> 0;
+  return () => {
+    state ^= state << 13; state >>>= 0;
+    state ^= state >> 17;
+    state ^= state << 5; state >>>= 0;
+    return state / 0x1_0000_0000;
   };
 }
-
-/** Power a rune up from its level to `to`, rolling the events the game would roll. */
-function powerUp(rune, to) {
-  for (const at of subPropertyLevels) {
-    if (at <= rune.level || at > to) continue;
-    if (rune.subProperties.length < 4) {
-      const taken = new Set(rune.subProperties.map((s) => s.statId));
-      const choices = rune._pool.filter((id) => !taken.has(id));
-      const statId = pick(choices);
-      const range = subPropertyRanges[statId];
-      rune.subProperties.push({ statId, value: between(range.minimum, range.maximum), gemmed: false, grind: 0 });
-    } else {
-      const line = rune.subProperties[Math.floor(random() * 4)];
-      const range = subPropertyRanges[line.statId];
-      line.value += between(range.minimum, range.maximum);
-    }
-  }
-  rune.level = to;
-  return rune;
-}
-
-const presets = defaultRunePotentialPresets();
-/* The reference base line from the real roster's measured averages
-   (`docs/RUNE-CLEANUP-MATH.md` §1), so the calibration is against a plausible
-   account rather than against invented monsters. */
-const base = new Map([
+const choose = (random, values) => values[Math.floor(random() * values.length)];
+const draw = (random, low, high) => low + Math.floor(random() * (high - low + 1));
+const setNames = [
+  'Energy', 'Guard', 'Swift', 'Blade', 'Rage', 'Focus', 'Endure', 'Fatal',
+  'Despair', 'Vampire', 'Violent', 'Nemesis', 'Will', 'Shield', 'Revenge', 'Destroy',
+  'Fight', 'Determination', 'Enhance', 'Accuracy', 'Tolerance', 'Seal',
+];
+const referenceStats = new Map([
   ['Attack type', { hp: 9708, atk: 808, def: 568, spd: 105, criRate: 18, criDmg: 50, res: 15, acc: 4 }],
   ['Support type', { hp: 10856, atk: 639, def: 648, spd: 104, criRate: 15, criDmg: 50, res: 18, acc: 3 }],
   ['Defence type', { hp: 10280, atk: 595, def: 749, spd: 103, criRate: 16, criDmg: 50, res: 17, acc: 5 }],
   ['HP type', { hp: 11836, atk: 653, def: 592, spd: 104, criRate: 16, criDmg: 50, res: 18, acc: 4 }],
   ['No type', { hp: 10404, atk: 720, def: 608, spd: 104, criRate: 17, criDmg: 50, res: 17, acc: 4 }],
 ]);
-
 const settings = {
   powerUpPolicy: 3, runeQuality: 3, enchantedGems: 1, grindstones: 1,
   gemGrade: 'Hero', grindstoneGrade: 'Hero', acceptedRunes: 3, brokenRunes: 3,
   intangibleRunes: 1, keepMoreForLargerSets: false, includeLevel12Runes: true,
   includeEquippedRunes: true,
 };
+/* The chance oracle isolates substat RNG. Craft outcomes have their own exhaustive
+   legality checks, so an absent item is the only valid neutral credit here. */
+const noCraft = { gem: null, gemGrade: 'Hero', grind: null, grindGrade: 'Hero' };
 
-console.log(`Rune Clean-up calibration — ${count.toLocaleString('en')} simulated runes`);
-console.log(`slots 1/3/5: 75 % Hero, 25 % Legend    slots 2/4/6: 25 % Rare, 50 % Hero, 25 % Legend\n`);
-
-/* The player follows the advice exactly: roll to +9, ask again, roll to +12, ask
-   again. A rune told to sell at any point leaves the box there. */
-const kept = { total: 0, bySlot: new Map(), byPreset: new Map(), byRank: new Map() };
-const seen = { total: 0, bySlot: new Map() };
-const scores = [];
-const batch = 2000;
-for (let done = 0; done < count; done += batch) {
-  const runes = Array.from({ length: Math.min(batch, count - done) }, (_, at) => freshRune(done + at));
-  for (const rune of runes) { seen.total += 1; seen.bySlot.set(rune.slot, (seen.bySlot.get(rune.slot) ?? 0) + 1); }
-
-  let alive = runes;
-  for (const stop of [0, 9, 12]) {
-    if (stop > 0) alive = alive.map((rune) => powerUp(rune, stop));
-    const advice = runeAdvice(alive, presets, settings, base);
-    if (stop === 12) {
-      for (const rune of alive) {
-        const answer = advice.get(rune.id);
-        if (!answer || answer.verdict === 'sell') continue;
-        kept.total += 1;
-        kept.bySlot.set(rune.slot, (kept.bySlot.get(rune.slot) ?? 0) + 1);
-        kept.byPreset.set(answer.preset?.name ?? '—', (kept.byPreset.get(answer.preset?.name ?? '—') ?? 0) + 1);
-        kept.byRank.set(answer.rank, (kept.byRank.get(answer.rank) ?? 0) + 1);
-      }
+function initialRank(random, slot) {
+  const value = random();
+  return slot === 2 || slot === 4 || slot === 6
+    ? value < .25 ? 3 : value < .75 ? 4 : 5
+    : value < .75 ? 4 : 5;
+}
+function freshRune(random, id, stars = 6, ancient = false) {
+  const slot = draw(random, 1, 6);
+  const rank = initialRank(random, slot);
+  const mainStatId = choose(random, slotMainProperties[slot]);
+  const legal = runeStatIds.filter((stat) => stat !== mainStatId && slotAllowsSubStat(slot, stat));
+  const prefixStatId = random() < .51 ? choose(random, legal) : null;
+  const available = legal.filter((stat) => stat !== prefixStatId);
+  const held = new Set();
+  const subProperties = [];
+  for (let at = 0; at < startingSubPropertyCount(rank); at += 1) {
+    const statId = choose(random, available.filter((stat) => !held.has(stat)));
+    held.add(statId);
+    const range = initialSubPropertyRange(stars, statId, ancient);
+    subProperties.push({ statId, value: draw(random, range.minimum, range.maximum), gemmed: false, grind: 0 });
+  }
+  const prefix = prefixStatId === null ? null : initialSubPropertyRange(stars, prefixStatId, ancient);
+  return {
+    id: String(id), setId: 1, setName: choose(random, setNames), slot, stars, ancient,
+    level: 0, mainStatId, mainValue: 0, prefixStatId,
+    prefixValue: prefix ? draw(random, prefix.minimum, prefix.maximum) : 0,
+    subProperties, occupiedId: null,
+  };
+}
+function clone(rune) {
+  return { ...rune, subProperties: rune.subProperties.map((property) => ({ ...property })) };
+}
+/**
+ * The game loop. New substats are distinct exact property ids, not target-stat
+ * categories: HP% and HP+ may coexist, while a duplicate HP% may not.
+ */
+function powerUp(random, rune, targetLevel) {
+  for (const level of subPropertyLevels) {
+    if (level <= rune.level || level > targetLevel) continue;
+    if (rune.subProperties.length < 4) {
+      const held = new Set(rune.subProperties.map((property) => property.statId));
+      const options = runeStatIds.filter((stat) => stat !== rune.mainStatId && stat !== rune.prefixStatId
+        && !held.has(stat) && slotAllowsSubStat(rune.slot, stat));
+      const statId = choose(random, options);
+      /* This property is created by a power-up. Ancient's higher table applies
+         only to lines the rune was born with, not to this later addition. */
+      const range = upgradeSubPropertyRange(rune.stars, statId, rune.ancient);
+      rune.subProperties.push({ statId, value: draw(random, range.minimum, range.maximum), gemmed: false, grind: 0 });
     } else {
-      alive = alive.filter((rune) => advice.get(rune.id)?.verdict !== 'sell');
+      const line = choose(random, rune.subProperties);
+      const range = upgradeSubPropertyRange(rune.stars, line.statId, rune.ancient);
+      line.value += draw(random, range.minimum, range.maximum);
     }
-    if (stop === 0) for (const rune of alive) scores.push(advice.get(rune.id)?.maxValue ?? 0);
+  }
+  rune.level = targetLevel;
+  return rune;
+}
+function policy(source, presets, random) {
+  let active = source.map(clone);
+  const retained = [];
+  for (const stop of [0, 9, 12]) {
+    if (stop) active = active.map((rune) => powerUp(random, rune, stop));
+    const advice = runeAdvice(active, presets, settings, referenceStats);
+    if (stop === 12) {
+      for (const rune of active) {
+        const answer = advice.get(rune.id);
+        if (answer?.verdict !== 'sell') retained.push({ rune, answer });
+      }
+    } else active = active.filter((rune) => advice.get(rune.id)?.verdict !== 'sell');
+  }
+  return retained;
+}
+const percent = (part, whole) => whole ? (part / whole * 100).toFixed(2) + ' %' : '0.00 %';
+const fraction = (part, whole) => whole ? part / whole : 0;
+let failures = 0;
+function check(condition, message) {
+  if (!condition) { failures += 1; console.error('FAIL: ' + message); }
+}
+
+/**
+ * Direct chance oracle. The candidate's probability comes from the model; each
+ * trial progresses the exact rune independently and asks only whether the final
+ * realised value reached the same bar.
+ */
+function verifyProbability() {
+  const random = makeRandom(seed ^ 0x4d43504b);
+  const presets = defaultRunePotentialPresets();
+  const fixtures = [];
+  for (let attempt = 0; attempt < 4000 && fixtures.length < 12; attempt += 1) {
+    const variant = [[4, false], [5, false], [6, false], [6, true]][attempt % 4];
+    const rune = freshRune(random, 'chance-' + attempt, variant[0], variant[1]);
+    powerUp(random, rune, [0, 3, 6, 9][attempt % 4]);
+    const preset = presets[attempt % presets.length];
+    const build = presetBuilds(preset).find((candidate) => {
+      const expectedMain = rune.slot === 1 ? 3 : rune.slot === 3 ? 5 : rune.slot === 5 ? 1 : candidate.mains[rune.slot];
+      return expectedMain === rune.mainStatId || ![2, 4, 6].includes(rune.slot);
+    });
+    const base = referenceStats.get(preset.type);
+    const threshold = .20 + attempt % 13 * .045;
+    if (!build || !base) continue;
+    const outcome = judgeAgainstBuild(rune, preset, build, base, threshold, noCraft, true);
+    if (outcome && outcome.chance > .03 && outcome.chance < .97) {
+      fixtures.push({ rune, preset, build, base, threshold, expected: outcome.chance });
+    }
+  }
+  check(fixtures.length >= 8, 'only ' + fixtures.length + ' non-degenerate chance fixtures were found.');
+  let largestDifference = 0;
+  for (let index = 0; index < fixtures.length; index += 1) {
+    const fixture = fixtures[index];
+    const randomTrial = makeRandom((seed + index * 0x9e3779b9) >>> 0);
+    let hits = 0;
+    for (let trial = 0; trial < rolloutCount; trial += 1) {
+      const finalRune = powerUp(randomTrial, clone(fixture.rune), 12);
+      const outcome = judgeAgainstBuild(finalRune, fixture.preset, fixture.build, fixture.base,
+        fixture.threshold, noCraft, false);
+      if (outcome && outcome.maxValue + 1e-12 >= fixture.threshold) hits += 1;
+    }
+    const observed = hits / rolloutCount;
+    const difference = Math.abs(observed - fixture.expected);
+    largestDifference = Math.max(largestDifference, difference);
+    const fiveSigma = 5 * Math.sqrt(Math.max(.0001, fixture.expected * (1 - fixture.expected)) / rolloutCount);
+    check(difference <= fiveSigma + .015,
+      'chance fixture ' + (index + 1) + ': model ' + percent(fixture.expected, 1)
+      + ', simulation ' + percent(observed, 1) + ' (difference ' + (difference * 100).toFixed(2) + ' points).');
+  }
+  console.log('Probability: ' + fixtures.length + ' independent fixtures x ' + rolloutCount.toLocaleString('en')
+    + ' rollouts; largest difference ' + (largestDifference * 100).toFixed(2) + ' points.');
+}
+/**
+ * Four and five star ordinary runes and six star Ancient runes must all enter the
+ * same decision engine. This is not a quality expectation (lower stars can quite
+ * properly be sold); it catches the much worse error of importing a rune that no
+ * calculation can ever see.
+ */
+function verifyVariants() {
+  const variants = [
+    { stars: 4, ancient: false, name: '4-star ordinary' },
+    { stars: 5, ancient: false, name: '5-star ordinary' },
+    { stars: 6, ancient: true, name: '6-star Ancient' },
+  ];
+  for (let index = 0; index < variants.length; index += 1) {
+    const variant = variants[index];
+    const random = makeRandom((seed ^ 0x56524941 ^ index) >>> 0);
+    /* At +12 the check still exercises the star/Ancient table and public advice,
+       without spending a chance-DP evaluation on every coverage sample. The
+       independent chance fixtures above already cover unfinished states. */
+    const sample = Array.from({ length: variantRuneCount }, (_, id) =>
+      powerUp(random, freshRune(random, variant.name + '-' + id, variant.stars, variant.ancient), 12));
+    const advice = runeAdvice(sample, defaultRunePotentialPresets(), settings, referenceStats);
+    let usable = 0;
+    for (const rune of sample) {
+      const answer = advice.get(rune.id);
+      if (answer && Number.isFinite(answer.maxValue) && Number.isFinite(answer.chance)
+        && !answer.reason.startsWith('Not rated')) usable += 1;
+    }
+    console.log(variant.name + ': ' + usable + ' / ' + sample.length + ' received finite advice.');
+    check(usable === sample.length, variant.name + ' did not reach the current rating engine.');
+  }
+}
+function verifyMixedBox() {
+  const random = makeRandom(seed);
+  const source = Array.from({ length: runeCount }, (_, id) => freshRune(random, 'mixed-' + id));
+  const retained = policy(source, defaultRunePotentialPresets(), random);
+  const rate = retained.length / source.length;
+  console.log('Mixed box: ' + retained.length.toLocaleString('en') + ' / ' + source.length.toLocaleString('en')
+    + ' retained (' + percent(retained.length, source.length) + ').');
+  /* The new uncapped model and hard preset quotas intentionally have no universal
+     retained-rate promise: it depends on the target vocabulary and user shares.
+     An empty or near-total result is still a regression worth catching. */
+  if (!quick) check(rate > 0 && rate < .8, 'middle policy retained ' + percent(retained.length, source.length)
+    + '; the synthetic population unexpectedly collapsed or saturated.');
+  const slots = [1, 2, 3, 4, 5, 6].map((slot) => ({
+    slot, seen: source.filter((rune) => rune.slot === slot).length,
+    kept: retained.filter(({ rune }) => rune.slot === slot).length,
+  }));
+  const rates = slots.map(({ seen, kept }) => fraction(kept, seen));
+  const spread = Math.max(...rates) / Math.max(1e-9, Math.min(...rates));
+  console.log('Slots: ' + slots.map(({ slot, kept, seen }) => slot + '=' + percent(kept, seen)).join(', ')
+    + '; spread ' + spread.toFixed(3) + 'x.');
+  /* Slot distribution is reported, not forced. A preset count is the user's
+     stated preference; forcing six equal slot buckets would silently overwrite it. */
+  const attribution = new Map();
+  for (const { answer } of retained) {
+    const name = answer?.preset?.name ?? 'unassigned';
+    attribution.set(name, (attribution.get(name) ?? 0) + 1);
+  }
+  console.log('Best-match attribution (diagnostic, not a quota): ' + [...attribution.entries()]
+    .sort((left, right) => right[1] - left[1]).map(([name, count]) => name + ' ' + percent(count, retained.length)).join('; ') + '.');
+}
+/**
+ * Quotas are meaningful only relative to another active preset. These three
+ * identical roles make every eligible rune feasible for every quota; scarcity
+ * cannot hide a bad largest-remainder calculation.
+ */
+function verifyPresetAllocation() {
+  const random = makeRandom(seed ^ 0x53484152);
+  const source = Array.from({ length: shareRuneCount }, (_, id) =>
+    powerUp(random, freshRune(random, 'quota-' + id), 12));
+  const everySet = { preferred: setNames, acceptable: [] };
+  const everyMain = { preferred: runeMainStats, acceptable: [] };
+  const shared = {
+    type: 'No type', sets: everySet,
+    slots: { slot2: everyMain, slot4: everyMain, slot6: everyMain },
+    artifacts: { hp: false, atk: false, def: false },
+    targets: { hp: 100, atk: 100, def: 100, spd: 100, criRate: 100, criDmg: 100, res: 100, acc: 100 },
+  };
+  /* 1/3 : 1 : 3 verifies fractional and oversized user preferences. */
+  const presets = [
+    { ...shared, id: 'quota-a', name: 'Quota low', runeShare: 3 },
+    { ...shared, id: 'quota-b', name: 'Quota even', runeShare: 5 },
+    { ...shared, id: 'quota-c', name: 'Quota high', runeShare: 7 },
+  ];
+  const permissive = { ...settings, runeQuality: 1, powerUpPolicy: 1, acceptedRunes: 1, brokenRunes: 1 };
+  const advice = runeAdvice(source, presets, permissive, referenceStats);
+  const assigned = new Map(presets.map((preset) => [preset.id, 0]));
+  let total = 0;
+  let outsideCapacity = 0;
+  for (const rune of source) {
+    const answer = advice.get(rune.id);
+    if (answer?.reason === 'Outside requested preset capacity') outsideCapacity += 1;
+    if (answer?.verdict === 'keep' && answer.preset) {
+      total += 1;
+      assigned.set(answer.preset.id, (assigned.get(answer.preset.id) ?? 0) + 1);
+    }
+  }
+  const weights = [1 / 3, 1, 3];
+  const exact = weights.map((weight) => total * weight / weights.reduce((sum, value) => sum + value, 0));
+  const quotas = exact.map(Math.floor);
+  const remaining = total - quotas.reduce((sum, value) => sum + value, 0);
+  [...exact.keys()].sort((left, right) =>
+    (exact[right] - Math.floor(exact[right])) - (exact[left] - Math.floor(exact[left]))
+    || presets[left].id.localeCompare(presets[right].id))
+    .slice(0, remaining).forEach((index) => { quotas[index] += 1; });
+  console.log('Allocation: ' + total + ' feasible runes; '
+    + presets.map((preset, index) => preset.name + '=' + assigned.get(preset.id) + '/' + quotas[index]).join(', ') + '.');
+  if (!quick) check(total >= 100, 'quota fixture produced only ' + total + ' feasible runes.');
+  check(outsideCapacity === 0, outsideCapacity + ' feasible quota-fixture runes were left outside capacity.');
+  for (let index = 0; index < presets.length; index += 1) {
+    check(assigned.get(presets[index].id) === quotas[index],
+      presets[index].name + ' received ' + assigned.get(presets[index].id) + ', not its quota ' + quotas[index] + '.');
   }
 }
 
-const share = (n, d) => `${(100 * n / d).toFixed(2)} %`;
-console.log(`Kept at +12: ${kept.total.toLocaleString('en')} of ${seen.total.toLocaleString('en')} = ${share(kept.total, seen.total)}`);
-console.log(`Target at the middle setting: 15 %\n`);
-
-console.log('By slot — these must be level for the account to be able to build anything:');
-console.log('slot   seen      kept     share    relative to slot 1');
-const slot1 = (kept.bySlot.get(1) ?? 0) / (seen.bySlot.get(1) ?? 1);
-for (const slot of [1, 2, 3, 4, 5, 6]) {
-  const s = seen.bySlot.get(slot) ?? 0; const k = kept.bySlot.get(slot) ?? 0;
-  console.log(`  ${slot}  ${String(s).padStart(8)} ${String(k).padStart(9)}   ${share(k, s).padStart(8)}   ${(slot1 > 0 ? (k / s) / slot1 : 0).toFixed(3)}`);
+console.log('Rune Clean-up calibration — ' + runeCount.toLocaleString('en') + ' mixed runes, '
+  + shareRuneCount.toLocaleString('en') + ' per share point, seed ' + seed + '.');
+verifyProbability();
+verifyVariants();
+verifyMixedBox();
+verifyPresetAllocation();
+if (failures) {
+  console.error('\n' + failures + ' calibration check' + (failures === 1 ? '' : 's') + ' failed.');
+  process.exit(1);
 }
-
-console.log('\nBy preset — should track each preset\'s stated share:');
-for (const [name, n] of [...kept.byPreset.entries()].sort((a, b) => b[1] - a[1])) {
-  const preset = presets.find((p) => p.name === name);
-  console.log(`  ${name.padEnd(14)} ${String(n).padStart(8)}  ${share(n, kept.total).padStart(8)}   stated ${preset ? ['1/10', '1/5', '1/3', '1/2', 'x1', 'x2', 'x3', 'x5', 'x10'][preset.runeShare - 1] : '—'}`);
-}
-
-console.log('\nBy match rank:');
-for (const [rank, n] of kept.byRank) console.log(`  ${rank.padEnd(12)} ${String(n).padStart(8)}  ${share(n, kept.total)}`);
-
-if (solving) {
-  scores.sort((a, b) => a - b);
-  const quantile = (q) => scores[Math.min(scores.length - 1, Math.floor(q * scores.length))];
-  const baseBar = qualityThresholds[2];
-  const keptShare = kept.total / seen.total;
-  console.log('\n\n=== SOLVED CONSTANTS — paste into app/lib/rune-cleanup-advice.ts ===\n');
-  console.log('wantedCountMultipliers:');
-  for (const wanted of [0.1, 0.2, 1 / 3, 0.5, 1, 2, 3, 5, 10]) {
-    /* The bar that keeps `wanted` times as many runes: read the score distribution
-       backwards from the share that verdict would produce. */
-    const targetShare = Math.min(0.999, keptShare * wanted);
-    const bar = quantile(1 - targetShare / (keptShare || 1) * keptShare);
-    console.log(`  { wanted: ${wanted === 1 / 3 ? '1 / 3' : wanted}, score: ${(bar / baseBar).toFixed(2)} },`);
-  }
-  console.log('\nslotBalance:');
-  for (const slot of [1, 2, 3, 4, 5, 6]) {
-    const s = seen.bySlot.get(slot) ?? 1; const k = kept.bySlot.get(slot) ?? 0;
-    console.log(`  ${slot}: ${(slot1 > 0 ? Math.min(1, ((k / s) / slot1) ** 0.15) : 1).toFixed(2)},`);
-  }
-} else {
-  const rate = kept.total / seen.total;
-  const spread = Math.max(...[1, 2, 3, 4, 5, 6].map((s) => (kept.bySlot.get(s) ?? 0) / (seen.bySlot.get(s) ?? 1)))
-    / Math.max(1e-9, Math.min(...[1, 2, 3, 4, 5, 6].map((s) => (kept.bySlot.get(s) ?? 0) / (seen.bySlot.get(s) ?? 1))));
-  let failed = false;
-  if (rate < 0.10 || rate > 0.21) {
-    console.error(`\nFAIL: ${share(kept.total, seen.total)} kept, outside the 10–21 % the middle setting promises.`);
-    failed = true;
-  }
-  if (spread > 1.6) {
-    console.error(`\nFAIL: the best slot keeps ${spread.toFixed(2)}× the worst. The six must stay within 1.6×.`);
-    failed = true;
-  }
-  if (failed) process.exit(1);
-  console.log(`\nPASS: ${share(kept.total, seen.total)} kept; slots within ${spread.toFixed(2)}× of each other.`);
-}
+console.log('\nPASS: independent chance simulation, rating parity, population smoke test, and preset quotas all hold.');

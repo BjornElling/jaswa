@@ -462,9 +462,8 @@ export function CraftItemBestUse({ items, runes, monsters, presets, general }: {
     </p>}
 
     {item && !item.range && Boolean(rows.length) && <p className="notice warning" role="status">
-      Ancient gems and grindstones have no verified roll range yet, so this one is placed but not
-      projected: the runes below are the ones it can legally go on, ordered by what they are worth
-      today.
+      This item has no verified roll range, so the runes below are listed as legal placements but
+      are not numerically projected.
     </p>}
 
     {item && !rows.length && <p className="notice warning" role="status">{reach?.block
