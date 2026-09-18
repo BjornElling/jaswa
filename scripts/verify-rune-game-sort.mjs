@@ -4,7 +4,7 @@
  *   Grade         slot ascending; then six-star before five-star; then rarity —
  *                 Legend, Hero, Rare, Magic, Normal; then Ancient before
  *                 ordinary; then the set by its export `set_id`; then
- *                 power-up level descending; then the rune's own id, oldest
+ *                 power-up level descending; then the rune's own id, newest
  *                 first
  *   Power-up Lv.  power-up level descending, +15 down to +0
  *   Obtained      acquisition sequence, newest first
@@ -163,15 +163,15 @@ assert.equal(ancientLegend?.defaultGrade, 'Legend', 'extra 5 is Legend');
     'power-up level descends only after the set has been grouped');
 }
 
-/* Key 7: the rune's own id, oldest first, after equal visible keys. */
+/* Key 7: the rune's own id, newest first, after equal visible keys. */
 {
   const rows = [
     row(0, { obtainedOrder: 900 }),
     row(1, { obtainedOrder: 200 }),
     row(2, { obtainedOrder: 500 }),
   ];
-  assert.deepEqual(order(rows, 'gameGrade', (rune) => rune.obtainedOrder), [200, 500, 900],
-    'the id closes the ordering with the oldest rune first');
+  assert.deepEqual(order(rows, 'gameGrade', (rune) => rune.obtainedOrder), [900, 500, 200],
+    'the id closes the ordering with the newest rune first');
 }
 
 /* Power-up Lv.: level descending, and nothing else enters it. */
@@ -200,7 +200,11 @@ assert.equal(ancientLegend?.defaultGrade, 'Legend', 'extra 5 is Legend');
 /* An ordering must never reshuffle rows it cannot distinguish: equal rows fall
    through to the caller's tiebreak, which is the table's import order. */
 {
-  const rows = [row(0), row(1), row(2)];
+  const rows = [
+    row(0, { obtainedOrder: 100 }),
+    row(1, { obtainedOrder: 100 }),
+    row(2, { obtainedOrder: 100 }),
+  ];
   assert.deepEqual(order(rows, 'gameGrade', (rune) => rune.id), ['1', '2', '3'],
     'rows the ordering cannot separate keep their stated order');
 }

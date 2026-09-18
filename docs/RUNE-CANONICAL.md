@@ -492,7 +492,7 @@ regel:
 
 | Sort by | Rækkefølge |
 | --- | --- |
-| Grade | Foreløbig observeret rækkefølge: **slot stigende**, så **stjerneklasse faldende** (6★ før 5★), så **rarity faldende** (Legend → Hero → Rare → Magic → Normal), så **Ancient først** inden for hver rarity, så **set-id stigende**, så **power-up-level faldende**, så **runens eget id stigende** |
+| Grade | Foreløbig observeret rækkefølge: **slot stigende**, så **stjerneklasse faldende** (6★ før 5★), så **rarity faldende** (Legend → Hero → Rare → Magic → Normal), så **Ancient først** inden for hver rarity, så **set-id stigende**, så **power-up-level faldende**, så **runens eget id faldende** (nyeste først) |
 | Power-up Lv. | Power-up-level faldende, +15 → +0 |
 | Obtained | Anskaffelsesrækkefølge, nyeste først |
 
@@ -528,7 +528,10 @@ Inden for hvert slot kommer i den samme slot-6-rækkefølge Blade før Rage, Rag
 før Despair, Despair før Nemesis,
 Nemesis før Will og Will før Shield, hvilket følger `set_id` stigende. Inden
 for en set-gruppe kommer de højeste levels først. Runens eget id (`rune_id`,
-samme felt som `obtainedOrder`) lukker foreløbigt rækkefølgen stigende.
+samme felt som `obtainedOrder`) lukker foreløbigt rækkefølgen faldende, altså
+med den nyeste rune først. De tre observerede ombytninger (Vampire, Energy og
+Guard) har samme værdier for alle tidligere nøgler og bekræfter netop denne
+sidste retning.
 
 **Dette er en arbejdsmodel, ikke en afsluttet spilregel.** Den er valgt, fordi
 den passer med de captures, der foreligger nu. Brugeren sammenholder den med

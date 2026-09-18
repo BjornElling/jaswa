@@ -83,7 +83,7 @@ export const defaultRuneCleanupSortDirections: Readonly<Record<RuneCleanupSortKe
  * 4. Ancient before ordinary.
  * 5. The set, by the export's own `set_id`.
  * 6. The power-up level, highest first.
- * 7. The rune's own id, oldest first.
+ * 7. The rune's own id, newest first.
  *
  * The order is intentionally kept as a small tuple: the player is comparing this
  * list against the game's Manage panel, so every newly observed tie-break belongs
@@ -99,7 +99,7 @@ function gameSortKey(row: RuneCleanupRow, key: RuneGameSortKey): readonly number
       rune.ancient ? 0 : 1,
       rune.setId,
       -rune.level,
-      rune.obtainedOrder,
+      -rune.obtainedOrder,
     ];
     /* Power-up level descending. */
     case 'gameLevel': return [-rune.level];
