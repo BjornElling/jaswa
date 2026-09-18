@@ -489,7 +489,7 @@ regel:
 
 | Sort by | Rækkefølge |
 | --- | --- |
-| Grade | Fire nøgler i denne rækkefølge: **rarity faldende** (Legend → Hero → Rare → Magic → Normal), så **Ancient først** inden for hver rarity, så **power-up-level faldende**, så **runens eget id stigende** |
+| Grade | Foreløbig observeret rækkefølge: **slot stigende**, så **stjerneklasse faldende** (6★ før 5★), så **rarity faldende** (Legend → Hero → Rare → Magic → Normal), så **Ancient først** inden for hver rarity, så **set-id stigende**, så **power-up-level faldende**, så **runens eget id stigende** |
 | Power-up Lv. | Power-up-level faldende, +15 → +0 |
 | Obtained | Anskaffelsesrækkefølge, nyeste først |
 
@@ -506,32 +506,31 @@ forveksle:
   viser altså maxede runer — ikke Ancients og ikke Legends.
 - **Ancient** er en **hvid ring om rune-ikonet**, ikke noget på stjernerne.
 
-To observationer afgør Grade mellem de to kandidater:
+De første skærmprints fra den nye sammenligning afgør Grade mellem de to
+kandidater:
 
-- 6★- og 5★-runer står **blandet** i toppen af en Grade-sorteret slot. Det kan
-  ingen sortering på stjerneklasse frembringe, uanset retning eller tiebreak.
-- Detaljepanelet øverst i listen viser **Legend**, nederst **Rare**. Den rune,
-  der afslutter listen, er selv 6★ — dens `ATK +160` er 6★-hovedværdien i §3 —
-  så dens plads skyldes rarity, ikke stjerner.
+- De brugerleverede overgangsskærmprints viser den sidste 6★-rune før den
+  første 5★-rune. Den foreløbige model holder derfor alle 6★-runer foran alle
+  5★-runer.
+- Overgangen mellem Legend, Hero og Rare er også synlig i detaljepanelet, men
+  rækkefølgen mellem de to dimensioner er kun fuldt observeret for 6★-gruppen.
 
-**Ancient er Grades anden nøgle** — og kun Grades. Inden for én rarity står
-Ancient-runerne først og de almindelige derefter, men grupperingen ligger *inde
-i* rarityen og ikke over den: en Legend Ancient står før en Legend uden ring, og
-begge står stadig før enhver Hero. Under Power-up Lv. og Obtained sorterer
-Ancient ingenting.
+**Ancient følger rarity** — og står foran den almindelige rune inden for den
+samme stjerneklasse og rarity. Den brugerleverede rækkefølge for slot 6 viser
+Ancient Legend-runerne samlet før de almindelige Legend-runer. Om Ancient også
+er en nøgle i de lavere stjerneklasser er ikke særskilt målt endnu.
 
-**Power-up-level og derefter id afgør resten.** Inden for én rarity-og-Ancient-
-gruppe kommer de højeste levels først, og runens eget id (`rune_id`, samme felt
-som `obtainedOrder`) stigende lukker rækkefølgen. Den fjerde nøgle er det, der
-gør sorteringen total: tre Ancient Legend +15-runer i samme sæt er enige om alt
-ovenfor, og spillet lister dem alligevel i én fast rækkefølge.
+**Slot kommer først; set, power-up-level og derefter id er den foreløbige rest.**
+Inden for hvert slot kommer i den samme slot-6-rækkefølge Blade før Rage, Rage
+før Despair, Despair før Nemesis,
+Nemesis før Will og Will før Shield, hvilket følger `set_id` stigende. Inden
+for en set-gruppe kommer de højeste levels først. Runens eget id (`rune_id`,
+samme felt som `obtainedOrder`) lukker foreløbigt rækkefølgen stigende.
 
-**Sættet sorterer ingenting.** Det lignede et øjeblik, at `set_id` var en nøgle,
-fordi kontoens øverste rækker tilfældigt steg gennem set-id'erne — men det var
-id-nøglen, der viste sig igennem.
-
-**Stjerneklassen sorterer ingenting** i nogen af de tre. Det er derfor, 6★ og 5★
-kan stå blandet ned gennem en rarity-blok.
+**Dette er en arbejdsmodel, ikke en afsluttet spilregel.** Den er valgt, fordi
+den passer med de captures, der foreligger nu. Brugeren sammenholder den med
+spillet; en observeret afvigelse skal føre til en ny måling og en rettelse af
+denne sektion og `scripts/verify-rune-game-sort.mjs`.
 
 Formålet med at gengive rækkefølgerne præcist er, at en spiller, der netop har
 sorteret sin boks i spillet, kan sortere ens i JASWA og sammenligne de to lister
