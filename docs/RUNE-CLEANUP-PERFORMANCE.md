@@ -222,6 +222,12 @@ So: **keep the 1e-12 scale and leave the epsilons alone.** The key's precision a
 comparison tolerance are a matched pair, and the pairing should be written down beside
 them.
 
+> **Superseded — see §10.3.** §9.8 was right to refuse this as proven identity, and
+> measurement bears it out: the two forms disagree on 0.08 % of values in the operative
+> range, by up to 1.0 × 10⁻¹², which is the epsilon itself. §10.3 replaces this
+> recommendation with an integer key that removes the question instead of bounding it.
+> Implement §10.3, not this.
+
 ---
 
 ### 4.2 Collapse mass that can no longer reach the target
@@ -472,6 +478,12 @@ boundary. A calculation whose displayed output can be moved by an ulp of summati
 at an exact half is a display question, not a correctness one — and if it matters, the
 fix is in `percent()`, not in the engine.
 
+> **Resolved — see §10.2.** This was left as an open question here and challenged in
+> §9.8. It has since been settled by measurement: four independent summation orders,
+> including compensated summation applied to the baseline, place the true value at
+> exactly 0.875. The reordered engine lands on it; the baseline is one ulp below. The
+> tail lookup **removes** this error rather than introducing it.
+
 **The strongest single piece of evidence is not any of mine.**
 `scripts/verify-rune-cleanup-calibration.mjs` generates legal runes, plays the game's
 own addition and upgrade loop with its own PRNG, and checks the model's chance against
@@ -583,6 +595,9 @@ engine is the thing the calibration script exists to protect.
 ---
 
 ## 7. Recommended order of work
+
+> **Superseded by §11.** This ordering predates the independent review in §9 and the
+> resolutions in §10. It is kept for the record; §11 is the plan to implement.
 
 1. **§4.1** — one line. 3.5× on its own. Bit-exact. Write the key-precision/epsilon
    pairing down beside it, because the failure mode when they drift apart is silent.
@@ -1135,3 +1150,1056 @@ hot-path changes, slot-local candidate/context refactor, safe deterministic shor
 then the explicitly separate input-scope correction and lower-priority allocation
 tidying. None of those recommendations requires Monte Carlo or a weaker definition of
 what a Rune Clean-up answer means.
+
+---
+
+## 10. Final conclusion: the contested and uncertain points, settled
+
+**Added:** 18 September 2026, after the independent review in §9.
+
+§9 is a good review. It is right about the two most important things — that the timeout
+has a scheduling cause as well as an arithmetic one, and that "exact in the probability
+model" and "identical in IEEE-754 execution" are not the same claim. It is also right to
+refuse a proof that was not offered.
+
+This section closes every point where §1–8 and §9 disagree, or where either left a
+question open. Each was settled by running something, not by preferring one document's
+judgement to the other's. Three of the eleven resolutions go against §1–8; two go against
+§9; one finds a pre-existing defect that neither document saw and that changes what §9.5
+is allowed to claim.
+
+### 10.1 The worker: §9 is right, and here is the number that decides it
+
+**Disputed:** §0 says the calculation is slow "for one reason". §9.2 calls that too
+narrow and makes the worker P0; §7 had it at step 6.
+
+**Settled by measurement.** The optimised engine, scaled to the largest account this
+product can plausibly meet:
+
+| Box | Presets | Optimised `runeAdvice` |
+| ---: | ---: | ---: |
+| 1,200 | 8 | 514 ms |
+| 3,000 | 8 | 877 ms |
+| 3,000 | 24 | 1,920 ms |
+| 3,000 | 40 | 2,976 ms |
+
+Three seconds of blocked main thread in Node — and a browser on ordinary hardware will be
+slower. That is not a hung page, but it is a frozen one, and it is more than enough to
+justify the worker on its own merits.
+
+**Conclusion: §9 is right that the worker is necessary and that it is not merely another
+optimisation.** I disagree only on sequencing, and only mildly. A worker applied to the
+unoptimised engine converts a 75-second freeze into a 75-second wait; the user is still
+waiting 75 seconds. The arithmetic is what makes the feature usable; the worker is what
+makes it well-behaved. **Do the arithmetic first, the worker immediately after, and treat
+neither as finishing the job alone.** They touch disjoint files, so if two sessions are
+available they can proceed in parallel.
+
+One correction to §0 for the record: "slow for one reason" is accurate about *where the
+CPU time goes* and wrong as a description of the user-visible failure. §9.2's two-cause
+framing is the better one.
+
+### 10.2 The moved display boundary: settled, and it goes the other way
+
+**Disputed:** §5 recorded that one printed percentage moved and called it a display
+question. §9.8 said the tail lookup must not be described as output-identical until the
+project chooses between stating a tolerance or preserving the old summation order.
+
+**Settled by measurement.** Four independent summation orders were run against the same
+population (300 runes, seed 12345), for the one row that moved:
+
+| Summation order | `chance` | Printed |
+| --- | --- | --- |
+| Baseline, plain | `0.8749999999999999` | 87 % |
+| Baseline, compensated (Kahan–Neumaier) | `0.8749999999999999` | 87 % |
+| Reordered engine, float keys | `0.875` | 88 % |
+| Reordered engine, integer keys | `0.875` | 88 % |
+
+Two facts follow. First, the true value is 7⁄8 to within a demonstrated ulp on every
+ordering tried, and the reordered engine lands on it exactly. `Math.round(0.875 × 100)`
+is 88, so **88 % is the correct display and the baseline is the one printing the wrong
+number.** Second, applying compensated summation to the *baseline's* branch accumulation
+does not move it at all — which localises the baseline's missing ulp to the accumulation
+inside `convolveDistribution` itself, precisely the step the tail lookup removes.
+
+**Conclusion: §9.8 is right to demand the choice and wrong to assume which way it falls.
+The tail lookup removes a source of error rather than introducing one.** Of §9.8's two
+options, take the first — state a numerical tolerance in the contract and add a boundary
+test. **Reject the second option explicitly:** preserving the old summation order would
+preserve a known one-ulp error in order to protect a display value that is wrong.
+
+This is not a licence to be careless. The honest statement of what is preserved is in
+§10.11, and it is narrower than "nothing changes".
+
+### 10.3 The key function: §9.8's objection is correct, and both proposals should be dropped
+
+**Disputed:** §4.1 proposed `Math.round(v * 1e12) / 1e12` and called it bit-identical on
+the evidence of ~2,500 runes. §9.8 said that is a measurement, not a proof, because
+decimal and binary rounding differ at ties.
+
+**Settled by measurement.** The two functions were compared over 2 million samples per
+magnitude band:
+
+| Value range | Disagree | Largest disagreement | Against the 1e-12 epsilon |
+| --- | ---: | ---: | --- |
+| [0, 1) | 0.0000 % | 0 | safe |
+| **[0, 8)** | **0.0764 %** | **1.0 × 10⁻¹²** | **equal to it** |
+| [0, 32) | 0.1242 % | 1.0 × 10⁻¹² | equal to it |
+| [0, 1024) | 4.1179 % | 1.0 × 10⁻¹² | equal to it |
+
+A slot ceiling is bounded by nine max rolls, so [0, 8) is the operative band. The two
+forms disagree there on roughly one value in 1,300, by one unit in the twelfth decimal —
+which is exactly the tolerance the engine compares with. **§9.8 is right. §4.1's claim of
+identity was over-stated, and my evidence could not have detected the gap it left.**
+
+**Conclusion: drop both proposals and key on the integer instead.**
+
+```ts
+/** Contributions are held as whole units of 1e-12 max rolls. */
+const SCALE = 1e12;
+const probabilityKey = (value: number): number => Math.round(value * SCALE);
+/* `gain + 1e-12 >= gap` becomes `gainKey >= gapKey`: the same one-unit slack,
+   folded into the target once instead of re-applied at every comparison. */
+const targetKey = (value: number): number => Math.round(value * SCALE) - 1;
+```
+
+This is strictly better than either proposal, for three reasons that are not about speed:
+
+1. **The convolution becomes exact.** Keys are integers, so `a + b` is exact and
+   `convolveDistribution` needs no rounding in its inner loop at all — the cap becomes a
+   plain comparison. Quantisation happens once, when a single roll's contribution is first
+   converted, instead of accumulating at every step.
+2. **The epsilon leaves the hot comparison.** `gain + 1e-12 >= gap` becomes an integer
+   `>=`. The precision of the key and the tolerance of the comparison can no longer drift
+   apart, which was the failure mode §4.1 warned about and could not rule out.
+3. Integer map keys are at least as fast as double keys.
+
+**Measured:** identical speed to the float-key variant (135–248 ms at 300–400 runes
+against a 10–17 s baseline), no verdict or preset differences on any seed, and the
+calibration oracle at `--runes=500 --share-runes=300 --rollouts=800 --variant-runes=20`
+produced **byte-identical output** to the unmodified model. It also lands on the correct
+side of the boundary in §10.2.
+
+The maximum safe magnitude is worth recording beside the constant: at scale 1e12 the
+representable range runs to about 9,007 max rolls before integers stop being exact. A slot
+ceiling is under ten. There are three orders of magnitude of headroom, and an assertion in
+a test costs nothing.
+
+### 10.4 §9.5's slot-local refactor rests on a false premise — and uncovers a real defect
+
+This is the most consequential correction in this section, and it goes against §9.
+
+§9.5 argues that Rune Clean-up does not need `presetBuilds`' Cartesian family, because only
+the rune's own slot is ever read. **That part is correct**, and I verified it:
+`judgeAgainstBuild` reads `mainOfSlot(build, rune.slot)`, `shares.get(rune.slot)`,
+`ceilings.get(rune.slot)` and `build.ranks[rune.slot]`, and nothing else build-dependent.
+`buildDemand` has no other caller in `app/`, `scripts/` or `tests/`.
+
+But §9.5 then concludes that replacing the family "is therefore a projection of the
+existing calculation, not a new scoring rule". **That is false, because the existing
+calculation is not one calculation. Two layers currently disagree about what an unstated
+preset slot means, and the disagreement is user-visible.**
+
+`presetBuilds` emits `mains = 0, rank = 'broken'` for a slot the preset says nothing about,
+and its own comment states the intent plainly:
+
+> *"A slot the preset says nothing about accepts every main the slot allows, at the broken
+> rank. Refusing to build any combination at all would make a preset with one unstated slot
+> judge nothing, which is not what leaving it blank means."*
+
+`judgeAgainstBuild` honours that: its guard carries an explicit
+`&& build.mains[rune.slot] !== 0` so an unstated slot is not refused.
+
+`runeAdvice`'s build finder does not:
+
+```ts
+return candidate.mains[rune.slot] === rune.mainStatId;   // 0 === 4 → false
+```
+
+**Demonstrated.** A preset stating slot 4 and slot 6 and leaving slot 2 blank, against a
+perfect +12 Violent ATK% slot-2 rune:
+
+```text
+presetBuilds      -> 1 build, mains {2:0, 4:10, 6:4}, ranks {2:broken, ...}
+runeAdvice's find -> undefined                 => the preset is skipped entirely
+judgeAgainstBuild -> maxValue 1.0000, chance 1.0000, rank broken
+page reports      -> sell, "No preset can use it", preset null, maxValue 0
+
+same preset with slot 2 stated as Atk%
+page reports      -> keep, "Already there", preset named, maxValue 1, rank preferred
+```
+
+So a rune the preset wants is reported as unusable by any preset, purely because the user
+left one slot blank — which is exactly the outcome `presetBuilds`' comment says must not
+happen, and exactly the invisible failure `AGENTS.md` §0.1 forbids. Two places state the
+intent; one place silently contradicts it, so the build finder is the defect.
+
+**Three conclusions follow, and they change §9.5's plan rather than rejecting it:**
+
+1. **The slot-local refactor is right in principle and must not be done first.** The defect
+   has to be decided and fixed while the two behaviours are still visible side by side. A
+   refactor that collapses them will silently canonise whichever one the author happened to
+   reimplement.
+2. **The refactor cannot be gated by byte-identical calibration output.** Every shipped
+   preset states all three slots, which is why the oracle is silent here. The gate for this
+   change must be a fixture with an unstated slot, written first.
+3. **A hard constraint §9 did not note:** `scripts/verify-rune-cleanup-calibration.mjs`
+   imports `presetBuilds` and calls `judgeAgainstBuild(rune, preset, build, base, threshold,
+   credit, withChance)` directly. Both exports must survive the refactor with their current
+   signatures. If the independent oracle has to be rewritten in the same commit as the model
+   it checks, it has stopped being independent and the project has lost its gate for the
+   whole of §4.
+
+### 10.5 §9.7.1's saving does not exist
+
+**§9.7.1** proposes short-circuiting the chance for maxed runes, on the grounds that the
+code "still enters the second judging call and the chance function, even though no
+probability distribution can be needed."
+
+**Settled by the counters.** Across the instrumented population, `reachEarlyZero` is **0** —
+the `adds + rolls === 0` return is never reached. A rune with no events left has
+`best === have`, so either `judgeAgainstBuild`'s `best + 1e-12 >= wanted` guard rejects it
+before `reachChance` is called at all, or `gap <= 0` and it returns 1 on the first line. No
+distribution is ever built for a maxed rune today.
+
+**Conclusion: the probability saving §9.7.1 describes is already realised.** What remains is
+the *deterministic* recomputation — demand, craft projection, best reachable fill — which is
+§4.6c and §9.6's subject, not a probability short-circuit. Fold §9.7.1 into the
+prepared-context work and do not schedule it separately; implemented on its own it would add
+a branch that can never be taken.
+
+### 10.6 §9.9's closed-form `bestReachableFill`: close it rather than defer it
+
+§9.9 proposes an exact closed form and says not to do it first. Agreed, and I would go
+further so that a future reader does not reopen it without cause.
+
+**Measured:** after §10.3 and §4.2–§4.5, `bestReachableFill` is **2.0 % of self time**. The
+theoretical maximum win is therefore two per cent of a half-second calculation, in exchange
+for a function that §9.9's own fixture list shows is delicate about ties, missing ranges,
+slot legality and the effect-id/target-stat distinction.
+
+**Conclusion: do not implement.** Record the 2.0 % so the trade is visible. Revisit only if
+a future profile shows it above roughly 15 %, which would mean something else changed.
+
+### 10.7 §9.7.4 broken-worth zero: agreed, with one refinement
+
+§9.7.4 is right that a broken candidate at the "No" stop can still be needed as the named
+fallback, and right that the safe form is a zero placeholder rather than dropping it.
+
+Two refinements from reading the row contract:
+
+- The placeholder's displayed Max value is genuinely `0`, not merely unknown. The table
+  prints `advice.maxValue`, which carries the rank discount, and the discount is zero. So a
+  zero placeholder is display-correct and no model call is needed to produce it.
+- "In the original preset order" is right for a reason §9.7.4 does not give:
+  `candidates.sort((l, r) => r.value - l.value)` is stable in every engine this project
+  targets, and candidates are pushed in preset order, so equal values keep preset order
+  today. A placeholder must preserve that, and a test should pin it, because it is currently
+  an emergent property rather than a stated rule.
+
+### 10.8 §9.7.3 empty-target presets: agreed, and safe for allocation too
+
+§9.7.3 is right, and the allocation concern it raises resolves cleanly. A preset with no
+positive target yields a zero ceiling, so `judgeAgainstBuild` returns `null`, so it produces
+no candidates, so it never enters `activePresets` and never takes a quota. Marking it
+inactive once per calculation reaches the same state by a cheaper route.
+
+### 10.9 §9.10 and §4.8a allocation indexing: agreed, and confirmed low priority
+
+No disagreement. The measurement that sets the priority: at 3,000 runes and 40 presets —
+five times the shipped preset count — the *entire* optimised calculation is 2,976 ms.
+Allocation is a fraction of that. Do it for the sake of not having an O(N) scan inside a
+sort comparator, which is a defect of form, not because it is on the critical path.
+
+### 10.10 §9.11 and §6.2, the ignored settings: agreed, with §9's addition accepted
+
+Both documents reach the same conclusion. §9.11 adds one thing §6.2 missed and it is
+important: because quotas are global and largest-remainder, excluding equipped runes changes
+the allocation for the runes that remain, not merely the size of the table. That makes it
+unambiguously a product decision rather than a filter, and confirms it must not travel in
+the same commit as any speed work.
+
+### 10.11 What is actually preserved — the honest statement
+
+§9.15 is right that "exact" has been doing too much work. The precise claim, after
+everything above:
+
+**Preserved exactly, and verified field by field over roughly 2,500 runes across four seeds
+and four craft-credit settings:** every verdict, every chosen preset, every rank, and every
+`maxValue` — bit-identical.
+
+**Preserved to within 5.7 × 10⁻¹³:** `chance`. The difference is floating-point summation
+order. Where it was resolvable, the new value was the more accurate one (§10.2).
+
+**Not preserved, and deliberately so:** one printed percentage in one population, at a value
+of exactly 7⁄8, where the new engine prints the correct 88 % and the current engine prints
+87 %.
+
+**Not claimed at all:** bit-stability against a future refactor. Nothing the product promises
+requires it. The Math page's claim is *"this is counted exactly rather than guessed at or
+simulated. The same rune always prints the same number"* — a promise of exactness and
+determinism within a version, both of which survive. It does not promise that two versions
+of JASWA print the same number, and it should not be read as if it did.
+
+**The contract obligation this creates:** `RUNE-CLEANUP-MATH.md` §6 should gain one sentence
+stating the numerical tolerance on `chance` and the boundary behaviour, and §9 of that
+document requires it in the same commit as the change. Drafted:
+
+> *Chance is computed in whole units of 10⁻¹² max rolls. Summation order is an
+> implementation detail and is not part of the contract; two implementations of this model
+> agree on chance to within 10⁻⁹. Where a chance falls exactly on a display rounding
+> boundary, the printed percentage follows from the computed value and is not separately
+> pinned.*
+
+---
+
+## 11. Implementation plan
+
+Twelve stages. Each states its files, its acceptance gate, what it is allowed to change and
+what it must not. Stages 1–4 are the ones that fix the reported problem; everything after is
+either architecture or a separate product decision.
+
+Two stages require a human decision before any code is written: **Stage 8** and **Stage 9**.
+Neither is a performance question.
+
+### Stage 0 — Build the gate before touching anything
+
+Nothing in §4 or §10 may be committed until this exists, because the existing calibration
+script checks the *model against a simulation* and does not check *this build against the
+previous one*.
+
+**Deliverable:** `scripts/verify-rune-cleanup-equivalence.mjs`, wired as
+`npm run verify:rune-cleanup-equivalence`.
+
+It generates a fixed, seeded population, runs `runeAdvice`, and writes one record per rune
+with every public field: `verdict`, `reason`, `preset?.id`, `rank`, `maxValue`, `chance`,
+plus the per-preset assignment counts and quotas. Given a previously written baseline file it
+diffs the two and reports, per field, the count of differences and the largest numeric delta.
+It should fail on any difference in `verdict`, `reason`, `preset.id`, `rank` or `maxValue`,
+and on a `chance` delta above a stated tolerance.
+
+The population must cover the matrix §9.14 lists. That list is good and is adopted wholesale;
+add two cases it does not name, both of which this analysis needed:
+
+- a preset with **one slot left unstated** (Stage 8's subject — the current build finder and
+  `judgeAgainstBuild` disagree about it, so it must be pinned before anything is refactored);
+- a rune whose chance lands on an **exact display boundary**, to pin §10.2.
+
+**Also capture, as files under `work/`:** the current output of
+
+```
+node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs \
+  scripts/verify-rune-cleanup-calibration.mjs \
+  --runes=500 --share-runes=300 --rollouts=800 --variant-runes=20
+```
+
+This run is byte-reproducible and is the gate for Stages 1–3.
+
+**Acceptance:** the script runs green against an unmodified tree and its own baseline.
+
+---
+
+### Stage 1 — Integer probability keys
+
+**Implements §10.3. Supersedes §4.1 — do not implement §4.1.**
+**File:** `app/lib/rune-cleanup-model.ts` only.
+
+1. Replace `probabilityKey` with `Math.round(value * SCALE)`, `SCALE = 1e12`, and add
+   `targetKey(value) = Math.round(value * SCALE) - 1`.
+2. `convolveDistribution` now sums integer keys: replace `probabilityKey(Math.min(cap, a + b))`
+   with `sum < cap ? sum : cap`. No rounding in the inner loop.
+3. `lineDistribution` keys its single-roll map with `probabilityKey(inMaxRolls(...))` — one
+   quantisation per distinct roll value, as now.
+4. In `reachChance`, keep the value-space `gap` for the `gap <= 0` early return and derive the
+   key-space target once: `const gapKey = targetKey(wanted - have)`. Convert
+   `minimumGain`/`maximumGain` to key space by scaling each term's range ends, and drop the
+   `+ 1e-12` from the two prunes and from the tail comparison — they are integer comparisons
+   now.
+5. `judgeAgainstBuild`'s `best + 1e-12 >= wanted` guard stays in value space and is **not**
+   touched. It is a different comparison against a different quantity.
+6. Write the precision contract in a comment beside `SCALE`: the key scale, the folded
+   one-unit slack in `targetKey`, and the ~9,007 max-roll exactness ceiling. Add a test
+   asserting a slot ceiling stays far below it.
+
+**Must not change:** `lineDistributionCache`'s key (it is correct), any exported signature,
+anything in `rune-cleanup-advice.ts`.
+
+**Acceptance:** Stage 0 equivalence green with zero differences in every field including
+`chance`; calibration output byte-identical to the Stage 0 capture.
+**Measured effect at this point:** roughly 3.5× on its own.
+
+---
+
+### Stage 2 — Lower-tail floor
+
+**Implements §4.2.** **File:** `app/lib/rune-cleanup-model.ts` only.
+
+1. Add a `floor` parameter to `convolveDistribution`, defaulting to
+   `Number.NEGATIVE_INFINITY`, and `continue` on `sum < floor`.
+2. In the branch loop, compute each term's maximum gain in key space, build a suffix array of
+   remaining maxima, and pass `gapKey - remainingMax[at + 1]` as the floor before convolving
+   term `at`.
+
+**The condition §9.8 requires, restated as an implementation rule:** the remaining maximum
+must be derived from the same `statId`, `stars`, roll `kind` and reference base as the
+distribution it bounds. It is a property of one branch state and **must never be stored in
+`lineDistributionCache`**, which is shared across branches, presets and runes.
+
+**Acceptance:** Stage 0 equivalence green, zero differences in every field; calibration
+byte-identical.
+**Measured effect:** roughly 2.5× on its own; largest intermediate distribution 51,454 →
+4,561 entries.
+
+---
+
+### Stage 3 — Tail lookup, term ordering and branch grouping
+
+**Implements §4.3, §4.4 and §4.5. The one substantial piece of surgery.** These three
+interlock and should land together: §4.4 is what makes §4.3 pay, and §4.5 is what gives §4.4
+a place to sort.
+
+**File:** `app/lib/rune-cleanup-model.ts` only.
+
+1. **Group first.** Build each branch's term list, sort it canonically, key it on
+   `statId:count:kind` per term — **not** on target stat, for the reason §9.8 gives: HP flat
+   and HP percent are distinct effect ids with different ranges — and accumulate branch
+   weights into a `Map` before any distribution work.
+2. **Then order.** Inside the per-branch evaluation, order terms by support width ascending
+   (`count × (range.maximum − range.minimum)`), so the widest is last.
+3. **Then look up.** Convolve terms 1…n−1 with the Stage 2 floor. For the last term, take a
+   sorted-values + suffix-mass view and accumulate `Σ P(a) × P(last ≥ gapKey − a)` by binary
+   search.
+4. Cache the sorted view in a `WeakMap` keyed on the `Distribution` object from
+   `lineDistribution`. It needs no invalidation rule of its own because it is derived from an
+   already-correctly-keyed cache entry.
+
+**Two traps, both hit during this analysis:**
+
+- Sorting the terms by `statId` for the grouping key and then convolving in that order made
+  the run **three times slower** than size order. Keep the grouping key and the convolution
+  order separate; the key is for identity, the order is for cost.
+- The one-unit slack must be in `gapKey` (Stage 1), not re-applied inside the tail lookup.
+
+**Acceptance:** Stage 0 equivalence green on `verdict`, `reason`, `preset.id`, `rank` and
+`maxValue` with zero differences; `chance` within 1 × 10⁻⁹; the exact-boundary fixture
+asserting the value from §10.2. Calibration output byte-identical.
+
+**Note on the gate:** the calibration output was byte-identical in every run of this
+combination, but §10.11 is the claim being made, not byte-stability. If a future seed produces
+a printed-percent difference at another exact boundary, check it the way §10.2 was checked —
+compensated summation on both sides — before treating it as a regression.
+
+**Measured effect at the end of Stage 3:** 75,617 ms → ~500 ms at 1,200 runes × 8 presets;
+2,976 ms at 3,000 runes × 40 presets.
+
+---
+
+### Stage 4 — Checkpoint
+
+Run the full suite before going further:
+
+```
+npm run verify:rune-cleanup-equivalence
+npm run verify:rune-cleanup-calibration:large
+npx playwright test tests/rune-cleanup-calculation.spec.ts
+npm run lint
+```
+
+Update `docs/RUNE-CLEANUP-MATH.md` §6 with the tolerance sentence drafted in §10.11, as that
+document's own §9 requires, in this commit. **This is the commit that fixes the reported
+problem.** Everything after it is improvement.
+
+---
+
+### Stage 5 — Prepared candidate context
+
+**Implements §4.6c and §9.6, and absorbs §9.7.1 (see §10.5).**
+**Files:** `app/lib/rune-cleanup-model.ts`, `app/lib/rune-cleanup-advice.ts`.
+
+Split the two questions `judgeAgainstBuild` currently answers twice:
+
+```text
+prepareRuneCandidate(rune, preset, build, base, credit)
+  -> { supply, slotShares, ceiling, best, mainScale, rank, adds, rolls }
+
+candidateMaxValue(context)            -> number
+candidateChance(context, threshold)   -> number
+```
+
+**Keep `judgeAgainstBuild` exported with its present signature**, implemented as the two calls
+in sequence. This is not politeness to old code: §10.4 established that
+`verify-rune-cleanup-calibration.mjs` calls it directly, and if the oracle has to change in
+the same commit as the model it checks, the project loses its gate.
+
+The context lives for one `runeAdvice` call. Do not give it a longer-lived cache: presets are
+user-editable and reference lines depend on the import, so no stable key exists without
+designing one, and §9.6 is right to warn against it.
+
+**Acceptance:** Stage 0 equivalence, zero differences in every field including `chance` — this
+stage removes recomputation only and has no numerical excuse.
+
+---
+
+### Stage 6 — Demand memoisation and slot narrowing
+
+**Implements §4.6a, §4.6b, §4.6d and §4.6e.** **File:** `app/lib/rune-cleanup-model.ts`
+(and one line in `rune-cleanup-advice.ts`).
+
+1. Narrow `buildDemand` to the one slot that is read. It has no other caller (verified).
+2. Memoise it per `(preset.id, the build's main for that slot, slot)` for the call's duration.
+3. In `projectedSupply`, build the legal gem/grind candidate list once per rune and score it
+   per distinct share set; retain the winning supply map instead of recomputing
+   `supplyOf(winner)` at return. When neither credit is present, take the direct path.
+4. Hoist `credit` out of the per-rune loop in `rune-cleanup-advice.ts`.
+
+**Acceptance:** Stage 0 equivalence, zero differences in every field.
+**Measured effect:** ~6.5 % for the slot narrowing alone; roughly 10 % for the stage.
+
+---
+
+### Stage 7 — Move the calculation into a worker
+
+**Implements §6.1 and §9.12.** Independent of Stages 1–6; may run in parallel.
+**Files:** a new `app/lib/compute/rune-advice-client.ts` and
+`app/lib/compute/rune-advice-worker.ts`, plus `app/components/rune-recommendations.tsx`.
+
+Follow `app/lib/compute/artifact-score-client.ts` exactly — one worker, a request id, a
+promise per call. `runeAdvice`'s inputs and outputs are already structurally cloneable.
+
+Adopt §9.12's three safeguards in full; they are correct and this document had not stated
+them:
+
+1. **Request identity.** Commit only the newest request's result. A late result from an
+   earlier settings state must never replace a newer table.
+2. **Explicit error state.** A worker failure leaves the previous result visible or shows a
+   calculation error. It must never fall back to an empty table, which would read as "no runes
+   qualify".
+3. **Cancellation.** Optional, and explicitly not a mathematical shortcut — a cancelled
+   calculation must not be recorded as a completed one.
+
+The existing `window.setTimeout(…, 0)` and the `busy` flag come out. The `ms` figure the page
+prints should become the worker's own measured time.
+
+**Acceptance:** Stage 0 equivalence unchanged (the arithmetic is untouched); the Playwright
+test passes; the table stays interactive during a 3,000-rune calculation.
+
+---
+
+### Stage 8 — Decide what an unstated preset slot means
+
+**Implements §10.4. A product decision, not a performance change. It changes output.**
+
+**The decision to make:** `presetBuilds`' comment and `judgeAgainstBuild`'s guard both say an
+unstated slot accepts every legal main at the broken rank. `runeAdvice`'s build finder says the
+preset judges nothing. Two places against one, and the one is silent about it, so the finder is
+almost certainly the defect — but this is the user's product call and should be made explicitly
+rather than inferred from a comment.
+
+**If the documented behaviour is confirmed:** change the finder in `rune-cleanup-advice.ts` to
+accept `candidate.mains[rune.slot] === 0` as well. Runes in that slot then appear against the
+preset at broken rank with a real Max value, instead of reporting "No preset can use it".
+
+**If the opposite is chosen:** remove the `!== 0` clause from `judgeAgainstBuild`'s guard and
+the `stat: null` branch from `presetBuilds`, and correct that comment. Leaving the
+contradiction in place is the one option that should be rejected outright.
+
+**Acceptance:** the unstated-slot fixture added in Stage 0 asserts the chosen behaviour.
+Stage 0 equivalence *will* show differences for that fixture and must be re-baselined
+deliberately, with the diff reviewed by hand. Note in `RUNE-CLEANUP-MATH.md` §3 which reading
+is canonical.
+
+---
+
+### Stage 9 — Decide what the two "include" settings mean
+
+**Implements §6.2 and §9.11. A product decision. It changes output.**
+
+`includeLevel12Runes` and `includeEquippedRunes` are rendered, stored and validated, and read
+by nothing.
+
+- **If they define calculation scope:** filter the population before `runeAdvice` and make the
+  row count and the status line reflect the judged population, not the imported one.
+- **If they were only ever about table visibility:** remove them from the settings panel and
+  from `RunePotentialSettings`; the table's own Equipped/Inventory filter already does that job.
+
+Either resolves the parity break. **It must not travel with any speed work**, because excluding
+equipped runes changes the global quota allocation for the runes that remain (§10.10) — the
+result legitimately changes, and that must be visible in its own commit.
+
+---
+
+### Stage 10 — Slot-local candidate model
+
+**Implements §9.5, constrained by §10.4. Only after Stage 8.**
+
+Replace the page's use of the Cartesian build family with a precomputed, per-preset list of
+slot-local candidates:
+
+```text
+{ slot, mainStatId, mainRank, relevantShares, legalCeiling }
+```
+
+**Keep `presetBuilds` and `judgeAgainstBuild` exported and working** — Stage 5's reason applies
+unchanged, and the calibration oracle uses both.
+
+**Why the result is preserved:** §9.5's argument is sound *once Stage 8 has removed the
+contradiction*. Only `rune.slot`'s main stat and rank are read, and the current contract's rule
+that a target is a direction rather than a per-rune quota is what guarantees no other slot can
+cap this rune. §9.5's boundary condition is correct and should be copied into the code as a
+comment: **this stops being valid the moment a six-rune budget, cross-slot target allocation or
+set-completion coupling is added**, and such a rule would have to enter
+`RUNE-CLEANUP-MATH.md` first.
+
+**Acceptance:** Stage 0 equivalence, zero differences in every field, against the
+post-Stage-8 baseline.
+
+---
+
+### Stage 11 — Deterministic short-circuits and allocation indexing
+
+**Implements §4.7, §4.8a, §9.7.2, §9.7.3, §9.7.4 and §9.10.** Lowest value; do it for form.
+
+- The `mainScale × worth < qualityBar` pre-gate (§4.7), skipping the chance half only, with the
+  fallback caveat that section states.
+- Zero placeholders for broken-at-zero candidates, preserving the stable preset-order tie
+  break, with a test pinning that order (§10.7).
+- Mark zero-ceiling presets inactive once per calculation (§10.8).
+- Build a `preset id -> eligible items` index once; compute each capacity once; sort on the
+  precomputed key instead of scanning `pending` inside the comparator (§10.9).
+
+**Acceptance:** Stage 0 equivalence, zero differences in every field. §4.7 in particular must be
+checked against the *fallback* rows, not only the assigned ones — that is where its argument is
+weakest and where it is most likely to be wrong.
+
+---
+
+### Not in the plan, and why
+
+| Proposal | Decision |
+| --- | --- |
+| Closed-form `bestReachableFill` (§9.9) | **Do not implement.** 2.0 % of a 0.5 s calculation, against a delicate proof (§10.6). |
+| Threshold-independent full distribution (§6.4) | **Defer.** In tension with the Stage 2 and 3 prunes that produce most of the win. Revisit only if live sliders become a goal. |
+| Coarse integer grid on the currency (§6.5) | **Reject.** Trades a documented contract property for speed the measurements say is not needed. |
+| Monte Carlo or normal approximation (§6.5) | **Reject.** The exact engine is what the calibration oracle exists to protect. |
+| Preserving the baseline's summation order (§9.8 option 2) | **Reject.** It would preserve a known one-ulp error to protect a display value that is wrong (§10.2). |
+
+### Summary of the sequence
+
+| Stage | Subject | Output changes? | Gate |
+| --- | --- | --- | --- |
+| 0 | Equivalence harness | — | Runs green on an unmodified tree |
+| 1 | Integer keys | No | Equivalence + byte-identical calibration |
+| 2 | Lower-tail floor | No | Equivalence + byte-identical calibration |
+| 3 | Tail lookup, ordering, grouping | `chance` ≤ 1e⁻⁹; one boundary percent | Equivalence + calibration + boundary fixture |
+| 4 | Checkpoint and contract update | — | Full suite |
+| 5 | Prepared context | No | Equivalence, zero differences |
+| 6 | Demand memoisation | No | Equivalence, zero differences |
+| 7 | Worker | No | Playwright; table stays interactive |
+| 8 | Unstated slot | **Yes, deliberately** | Fixture; hand-reviewed re-baseline |
+| 9 | Include settings | **Yes, deliberately** | Product decision; own commit |
+| 10 | Slot-local candidates | No, post-Stage 8 | Equivalence, zero differences |
+| 11 | Short-circuits, indexing | No | Equivalence, including fallback rows |
+
+Stages 0–4 turn a 75-second calculation into a half-second one and are the answer to the
+question that started this document. Stage 7 is what stops the browser freezing on the largest
+accounts. Stages 8 and 9 are correctness debts this investigation uncovered and are the user's
+decisions to make.
+
+---
+
+## 12. Interaction with `RUNE-PRESET-MATCH-INVESTIGATION.md`
+
+**Added:** 18 September 2026, after that document appeared in `docs/`.
+
+A separate investigation, `docs/RUNE-PRESET-MATCH-INVESTIGATION.md`, concludes that
+`preset.targets` currently acts as a **relevance switch rather than a weight**, that the
+five damage-dealer presets therefore produce identical Max values, and that
+`RUNE-CLEANUP-MATH.md` §3–§4 has to change before the code can. Its §8.1 asks whether a
+target magnitude should become a weight; its §5.5 asks whether `Demand.shares` should stop
+carrying a number it never uses.
+
+The two documents do not overlap and neither finding affects the other's evidence. But the
+sequencing interaction is real and belongs in this plan.
+
+### 12.1 The two are orthogonal, and this one should go first
+
+Everything in Stages 1–6 operates on whatever `shares` and `gap` it is handed. The key
+scale, the lower-tail floor, the tail lookup, the term ordering and the branch grouping are
+all statements about *how a sum of independent discrete terms is evaluated*, not about what
+the terms mean. Changing `shares` from a set into weighted values changes the numbers fed
+in; it does not change the machinery that consumes them.
+
+So the performance work does not constrain the semantics decision, and the semantics
+decision does not have to wait for it. Do this one first, for the plain reason that the
+other one requires a contract change and a design debate, and this one does not — and
+nobody should have to debate preset weighting while the page takes 75 seconds to answer.
+
+### 12.2 One concrete caveat, and Stage 1 is what catches it
+
+If §8.1 of that document is answered by weighting each relevant stat by its raw stated
+target, contribution magnitudes stop being bounded by "a few max rolls". A preset stating
+`hp: 15042` would, unnormalised, push fill values four orders of magnitude higher.
+
+That matters here specifically because **Stage 1 pins the integer key scale at 1e12, which
+is exact only up to about 9,007 max rolls**. Today a slot ceiling is under ten, so there
+are three orders of magnitude of headroom. A raw-target weighting would consume all of it
+and silently lose precision in the probability keys.
+
+This is not an argument against weighting. It is an argument for two things:
+
+1. **Any weighting must be normalised** — which that document's own §8.1 already identifies
+   as the open question, for an independent reason (comparing `hp: 15042` with
+   `criDmg: 175` is not meaningful without one).
+2. **The assertion required by Stage 1 must be written as a runtime guard, not only a
+   test.** If a future contract change pushes fill values past the safe band, that guard is
+   what turns a silent precision loss into a loud failure. It is cheap: one comparison per
+   `runeAdvice` call against the largest slot ceiling.
+
+### 12.3 What must be re-done if the semantics change
+
+The optimisations survive a semantics change unchanged. The **baselines do not**.
+
+- Stage 0's equivalence baseline and the captured calibration output both encode the
+  current scoring, so both must be re-captured after any change to `shares`. The
+  equivalence script itself needs no change.
+- The boundary fixture from §10.2 is tied to one rune's exact probability. It will move.
+  Re-derive it rather than adjusting the expected value to whatever comes out.
+- §10.4's unstated-slot fixture is unaffected: it is about main-stat legality, not targets.
+
+### 12.4 One point of agreement worth carrying across
+
+That document's §5.5 — `Demand.shares` carries a number that nothing reads — is the same
+observation this document makes from the other side in §4.6a: `buildDemand` computes six
+slots and one is read. Both are symptoms of `Demand` being wider than its only consumer.
+**Stage 6 should narrow the type as well as the loop.** If the weighting question in §8.1
+is later answered "yes", the field comes back deliberately and with a meaning; if it is
+answered "no", `ReadonlySet<TargetStat>` is the honest type and the dead number stops
+looking like an implemented feature.
+
+---
+
+## 13. Final QA conclusion and approved implementation plan
+
+**Added:** 18 September 2026, as the final quality-assurance pass over §§0–12.
+**Purpose:** close the remaining uncertainties and state the implementation plan that this
+review approves. Earlier analysis remains in the file for traceability; where this section
+qualifies an earlier statement, this section is the final position.
+
+### 13.1 Final conclusion
+
+The investigation has reached a sound conclusion about the reported timeout:
+
+1. The exact discrete probability model is the right model for the current contract. It
+   must not be replaced by Monte Carlo, a normal approximation or a coarse currency grid.
+2. The dominant cost is in the implementation of the exact model: float-key formatting,
+   carrying unreachable distribution mass, materialising a final distribution whose tail
+   alone is needed, branch duplication and repeated deterministic setup.
+3. The browser failure is a separate execution problem. The current `setTimeout(..., 0)`
+   yields once and then blocks the main thread for the complete calculation. A worker is
+   required even after the arithmetic has been made fast enough for an ordinary account.
+4. The page-level build Cartesian product is wider than the data dependency of the current
+   page, but the slot-local refactor must follow an explicit resolution of the existing
+   unstated-slot contradiction. It must not be used to hide or accidentally choose between
+   two different behaviours.
+5. The two “include” settings are a correctness debt, not a free optimisation. Their
+   labels say they define calculation scope; if that is confirmed, wiring them will
+   deliberately change the population and the global allocation result.
+6. The separate preset-match investigation exposes a semantic question about whether
+   numeric target magnitudes should influence value. That question is orthogonal to the
+   convolution optimisations, but it is a dependency for any permanent narrowing of the
+   `Demand` type.
+
+The performance plan is therefore approved in principle, but **§11 is not approved
+verbatim**. It needs the amendments in §13.2–§13.6 before implementation begins.
+
+### 13.2 What is evidence, what is proof, and what still needs a gate
+
+The combined document sometimes uses “settled” for three different levels of confidence.
+The implementation plan must keep them separate:
+
+| Matter | Final status | Required treatment |
+| --- | --- | --- |
+| The synchronous main-thread calculation can freeze the page | Directly established by the Calculate handler and the measured timings | Implement the worker independently and test interaction during a large calculation. |
+| The exact model/policy/allocation boundaries | Established by source inspection and the binding math document | Preserve them unless a separate product decision changes the contract. |
+| The hotspots and the reported speed ratios | Strong measured evidence, but the instrumentation scripts are not committed | Reproduce the profile with a committed or explicitly recorded synthetic harness before using a ratio as an acceptance requirement. |
+| Integer key versus decimal-string key | Demonstrated to differ at the 1e-12 unit in the operative range | Treat as a precision/contract decision, not as a proven drop-in replacement. |
+| The 7/8 display boundary | Strong evidence that 0.875 is the intended mathematical value, but summation-order agreement is not a formal exact oracle | Add a fixture and make the display policy explicit before accepting a changed printed percentage. |
+| Unstated preset slots | A real contradiction in the current code; the intended reading is strongly indicated by `presetBuilds()` and `judgeAgainstBuild()` | Add the fixture first, then adopt the recommended canonical behaviour in §13.3. |
+| `includeLevel12Runes` and `includeEquippedRunes` | Directly established as stored/rendered but unused | Resolve as a separate product-contract change. |
+| Target magnitudes as weights | Open product semantics, documented by `RUNE-PRESET-MATCH-INVESTIGATION.md` | Do not silently decide it as part of performance work. |
+
+The reported measurements in §10 remain useful and credible, but the absent profiling
+harness is a reproducibility gap. A final repository plan should not require a future agent
+to trust a measurement that cannot be rerun. The harness may generate synthetic data only;
+real account exports must stay outside the repository and be named as a local input in the
+verification report.
+
+### 13.3 Definitive resolutions for the remaining design questions
+
+#### Unstated preset slot
+
+The recommended canonical behaviour is:
+
+> A slot omitted from a preset accepts every legal main stat at the `broken` rank.
+
+This is the only reading that is consistent with the existing `presetBuilds()` comment,
+the `judgeAgainstBuild()` guard, and the established distinction between “no preference”
+and “a preferred or acceptable choice”. It also obeys import parity: a rune must not become
+invisible merely because a user left one optional slot blank.
+
+Stage 8 should therefore no longer present two equally weighted alternatives in the
+implementation plan. The implementation should:
+
+- add the unstated-slot fixture before changing the finder;
+- make `runeAdvice()` select a candidate when the candidate main is `0` as well as when it
+  equals the rune main;
+- retain the `broken` rank and the existing broken-worth policy;
+- update `RUNE-CLEANUP-MATH.md` §3 to make this behaviour binding;
+- review the intentional output change: the result becomes a named broken candidate with
+  a real Max value instead of “No preset can use it”.
+
+If product intent later rejects this behaviour, the contract must say so and both existing
+implementations must be changed together. Leaving the contradiction is not an acceptable
+state.
+
+#### Include settings
+
+The recommended reading is that the two settings define the population to judge, because
+they are placed under **Runes to include** and are stored as calculation settings. Under
+that reading:
+
+- `includeLevel12Runes = false` excludes maxed runes from the calculation population;
+- `includeEquippedRunes = false` excludes equipped runes from the calculation population;
+- the result count, empty state and calculation status must describe the judged population;
+- post-calculation table filters remain presentation filters and cannot reintroduce excluded
+  runes.
+
+This must be a separate contract change. It changes global quotas and therefore changes
+the verdict of runes that remain in scope. If the product instead wants these controls to
+be presentation-only, the correct action is to remove or rename them, not to leave them
+unused.
+
+#### Integer probability keys
+
+The integer-key design in §10.3 is a promising implementation, but its description is too
+strong. It does not preserve the current floating-point operation exactly: it rounds each
+single-roll contribution once and then adds integer keys, whereas the current engine rounds
+after intermediate floating-point convolutions. Integer addition is exact **on the chosen
+1e-12 lattice**; the lattice itself is still a quantisation of the original values.
+
+Therefore the plan must not say that the convolution becomes exact without qualification,
+and Stage 1 must not claim zero `chance` differences merely because a sample passed. Before
+implementation, choose one of these explicit contracts:
+
+1. **Keep the current no-grid contract.** Do not use a fixed-scale integer key. Use only
+   transformations whose error is bounded and accepted by the existing numeric semantics.
+2. **Adopt the 1e-12 representation contract.** Update `RUNE-CLEANUP-MATH.md` §6 first to
+   say that probability support is represented on that lattice, define the one-unit target
+   slack, define the maximum safe magnitude, and accept a measured `chance` tolerance.
+
+The second option is reasonable because the reported observed differences are far below
+the displayed precision and the current code already removes IEEE-754 noise with a decimal
+canonicalisation step. It is nevertheless a contract amendment, not a proof that no
+outcome can move. The runtime headroom guard belongs in the implementation if this option
+is chosen; a test-only guard is not enough for a future weighting change.
+
+#### Display boundary
+
+The evidence supports `0.875` more strongly than the baseline's
+`0.8749999999999999`, but the fact that several summation orders agree is not, by itself,
+an independent exact proof. The performance plan should make the following distinction:
+
+- the tail identity is mathematically exact;
+- floating-point accumulation can change the last bits;
+- a displayed percentage is a product-visible value.
+
+The boundary fixture must therefore assert the chosen product policy. The recommended
+policy is to use the mathematically supported value and document that summation order is
+not a stable cross-version presentation guarantee. If the team instead requires the
+speed-only change to preserve every existing printed percentage, that is a valid but
+different requirement and the tail implementation must be judged against it. It must not
+be silently decided by whichever accumulation order happens to be fastest.
+
+#### Target magnitudes and `Demand`
+
+The performance work may memoise demand and narrow the loop to one slot, but Stage 6 must
+not permanently change `ReadonlyMap<TargetStat, number>` to `ReadonlySet<TargetStat>` until
+the preset-match investigation has decided whether the numbers become weights. The safe
+intermediate shape is a semantically named per-slot demand object whose representation can
+carry either a relevance set or normalised weights without another architectural rewrite.
+
+### 13.4 Approved implementation sequence
+
+The following sequence is the final plan. It supersedes conflicting ordering language in
+§7 and qualifies §11 where stated.
+
+#### Phase 0 — Freeze the current contract and build the gates
+
+Before changing the calculation, create the equivalence harness described in §11 Stage 0.
+It must:
+
+- generate a deterministic synthetic population with the complete edge-case matrix;
+- include ordinary 4★/5★/6★, Ancient 6★, all relevant levels, sub-property counts,
+  credits, empty targets, incompatible mains and exact display-boundary fixtures;
+- include a preset with one unstated slot;
+- serialise every public per-rune field plus assignment counts and quotas;
+- distinguish `null` preset from a named preset and preserve tie order;
+- compare `verdict`, `reason`, `preset.id`, `rank` and `maxValue` exactly;
+- compare `chance` under an explicitly named tolerance only where the approved contract
+  permits numerical variation;
+- fail with a field-level diff, not only a total pass/fail result.
+
+Also record the current calibration output and one real-account timing run outside the
+repository. The real run is for scale and browser diagnosis, not a source-controlled
+fixture. The synthetic output is the repeatable regression gate.
+
+At this point, add the unstated-slot test and the target-relevance/tie tests from the
+preset-match investigation, but do not change their expected behaviour yet. The baseline
+must capture what the current page actually does and the contract review must then decide
+which differences are intentional.
+
+#### Phase 1 — Resolve contract changes before dependent refactors
+
+Make two short, separately reviewed decisions before any slot-local or type-narrowing
+change:
+
+1. Adopt the recommended unstated-slot behaviour and update the math document and fixture.
+2. Adopt calculation-scope semantics for the two include settings, or explicitly remove
+   them as unused presentation controls.
+
+These changes intentionally alter outputs. They must be isolated from performance commits,
+their result diffs must be reviewed, and the new output must become the baseline for later
+performance stages.
+
+Resolve the target-magnitude question separately. Until it is resolved, retain a demand
+representation that does not falsely promise either weighting or non-weighting.
+
+#### Phase 2 — Implement the exact hot-path changes
+
+Implement the lower-tail floor, branch grouping, support-width ordering and final-term tail
+lookup as independently testable changes, even if the source merge groups the closely
+related tail/ordering/grouping work. The following conditions are mandatory:
+
+- floor bounds must use the exact same stat id, star class, roll kind and reference base as
+  the term distribution they bound;
+- floor/cap state must remain branch-local and never enter the shared line-distribution
+  cache;
+- grouping keys must include `statId`, `count` and `kind`, not only target stat;
+- convolution order must be selected for support width, while canonical key order is used
+  only for identity;
+- tail lookup must apply the approved target slack exactly once;
+- a changed displayed boundary must be covered by the explicit display-policy fixture.
+
+For the key representation, use the contract decision from §13.3. If the 1e-12 integer
+lattice is approved, implement the integer key as its own measured stage with a runtime
+headroom assertion and a chance tolerance. If it is not approved, do not smuggle the
+lattice into the convolution merely because it is faster.
+
+After each stage, run the equivalence harness, the independent calibration oracle and the
+relevant deterministic tests. Capture a profile so the next stage is justified by actual
+remaining cost rather than by the original profile.
+
+#### Phase 3 — Remove repeated deterministic work
+
+Introduce a prepared candidate context that computes the deterministic state once and lets
+the Max-value and Chance questions consume it. Preserve `judgeAgainstBuild()` with its
+current exported signature as an adapter for the independent oracle and direct tests.
+
+Then memoise demand for the duration of one `runeAdvice()` call, hoist the immutable craft
+credit, reuse the winning projected supply map and take the direct no-credit path. Keep
+cache keys local to the call unless a complete invalidation contract is designed; preset
+ids alone are not enough to identify mutable user data.
+
+Acceptance for this phase is zero difference in every public field, including `chance`,
+because the phase removes repeated work but does not intentionally change arithmetic.
+
+#### Phase 4 — Move the calculation to a worker
+
+Use the existing artifact worker pattern, but define the Rune Clean-up protocol separately.
+The client/worker boundary must include:
+
+- request ids and latest-request-wins commit logic;
+- explicit worker error state that cannot look like an empty result;
+- a busy state that survives the asynchronous call without swapping control geometry;
+- optional cancellation that cannot be mistaken for a completed calculation;
+- worker-side timing reported separately from main-thread result assembly.
+
+Add a browser test with a large synthetic calculation or deterministic mocked worker
+fixture that proves the page remains responsive while the calculation is active. The test
+must also prove a late result cannot overwrite a newer request.
+
+The worker phase is arithmetic-neutral. Its acceptance gate is the same result as the
+pre-worker calculation plus interactive-page behaviour.
+
+#### Phase 5 — Apply the slot-local architecture
+
+Only after the unstated-slot contract is fixed, replace the page's use of the full build
+Cartesian product with precomputed slot-local candidates. Preserve `presetBuilds()` and
+`judgeAgainstBuild()` for the independent oracle and generic domain tests until an
+equivalent replacement has its own independent coverage.
+
+The slot-local candidate must carry the slot's main choice, main rank, relevant demand and
+ceiling. The implementation comment must state the proof boundary: this is valid only while
+there is no cross-slot target allocation, six-rune budget, or set-completion coupling in
+Rune Clean-up.
+
+If target magnitudes later become weights, update the candidate type and ceiling proof at
+that time; do not assume a set of relevant stats is still sufficient.
+
+#### Phase 6 — Low-priority exact cleanup
+
+Only after a new profile confirms that the work is worthwhile, implement:
+
+- zero-ceiling preset precomputation;
+- broken-worth-zero placeholders with explicit preset-order tie-breaking;
+- allocation indexing and precomputed capacities;
+- the conservative value-gate precheck, preserving the first fallback candidate's displayed
+  Max/chance/reason data.
+
+These changes must be measured separately. Do not implement the closed-form
+`bestReachableFill` proposal unless a new profile shows it has become material; the current
+evidence places it at about 2 % after the hot-path work.
+
+### 13.5 Verification matrix and release gates
+
+Every implementation phase must pass the smallest relevant checks plus the full definition
+of done. For the calculation itself, the gates are:
+
+1. `npm run verify:rune-cleanup-equivalence` against the phase baseline.
+2. `npm run verify:rune-cleanup-calibration` and the large calibration run.
+3. The focused Rune Clean-up Playwright tests, including empty and populated states.
+4. A real-account timing run against `http://localhost:3000/` when the worker or UI flow
+   changes; no hosted preview or second server.
+5. `npx tsc --noEmit`, `npm run lint`, `npm run build` and `npm run test:e2e` before the
+   final commit.
+
+The equivalence fixture must report separately:
+
+- exact fields: verdict, reason, preset id, rank, Max value and allocation;
+- tolerance fields: internal chance, only if the approved math contract permits it;
+- rendered fields: the printed percentage and status text, which require an explicit
+  boundary policy and may not be hidden inside a numeric tolerance.
+
+The test matrix must include both extremes required by the project rules: an empty account,
+empty presets/targets and no credit, plus all supported options selected, long preset
+lists, large rune populations, maxed and equipped runes, Ancient runes, full craft credit,
+duplicate candidate terms, tied presets and an unstated slot.
+
+### 13.6 Final approval status
+
+The plan is approved subject to these non-negotiable amendments:
+
+- do not describe the fixed-scale integer key as mathematically exact without saying
+  “exact on the chosen lattice”;
+- do not change the binding math contract implicitly;
+- do not make the display-boundary change an accidental consequence of a speed refactor;
+- resolve the unstated-slot contradiction before the slot-local refactor;
+- keep the target-weighting question separate from demand-type narrowing;
+- reproduce or archive the performance evidence before using its numbers as hard gates;
+- preserve the independent oracle's public model exports until a replacement has an
+  independent gate.
+
+With those amendments, the recommended result is an exact, worker-backed calculation that
+retains the current policy and allocation semantics, eliminates the measured waste, and
+has an auditable proof boundary for every intentional output change. No implementation is
+authorised by this section; it is the quality-assured plan to implement later.
