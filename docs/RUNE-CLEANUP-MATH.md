@@ -113,22 +113,60 @@ order: until four substats exist, each event adds a distinct legal id; afterward
 event improves one of the four lines; +15 is never a substat event.
 
 The engine enumerates every unordered legal set of added ids, every multinomial split
-of upgrades across the completed lines, and every legal integer roll value. It
-convolves distributions without a rounding grid. Added lines receive their initial
-draw before upgrades allocated to them, so a Hero rune's fourth line can receive later
-upgrades. All relevant realised value is summed in full: surplus ACC, SPD or HP is
-never discarded. The independent Monte Carlo oracle checks ordinary 4★/5★/6★ and
-Ancient 6★ fixtures.
+of upgrades across the completed lines, and every legal integer roll value. Added
+lines receive their initial draw before upgrades allocated to them, so a Hero rune's
+fourth line can receive later upgrades. All relevant realised value is summed in full:
+surplus ACC, SPD or HP is never discarded. The independent Monte Carlo oracle checks
+ordinary 4★/5★/6★ and Ancient 6★ fixtures.
 
-Chance is computed in whole units of 10⁻¹² max rolls. Summation order is an
-implementation detail and is not part of the contract; two implementations of this
-model agree on chance to within 10⁻⁹. Where a chance falls exactly on a display
-rounding boundary, the printed percentage follows from the computed value and is not
-separately pinned. This states a tolerance that was previously left implicit: the
-probability model is exact, but IEEE-754 addition is not associative, so a
-reassociation that is exact in the model can still move the last bits of a double.
+### 6.1 The representation contract
+
+**Probability support is represented on a lattice of 10⁻¹² max rolls.** A single roll's
+contribution is quantised to a whole number of those units once, where it is first
+converted; sums of those whole numbers are then exact, so the convolution introduces no
+further rounding. "Exact" here means **exact on that lattice** — the lattice itself is a
+quantisation of the underlying value, and this document states it rather than implying
+the engine works in unrounded reals.
+
+This replaces the earlier phrase "convolves distributions without a rounding grid",
+which was written against a *coarse* 0.025 grid that was removed, and which is no
+longer an accurate description. The rule it was protecting still holds, and is the
+reason the lattice is safe: **no grid may ever be coarse enough to merge two outcomes
+the game can distinguish.** The smallest difference two distinct outcomes can have is
+one flat point of a scaled stat — about 7 × 10⁻⁴ max rolls for a realistic reference
+line — which is nine orders of magnitude above one lattice unit.
+
+Three figures are part of this contract and must move together if any of them moves:
+
+- **Scale.** 10⁻¹² max rolls per unit.
+- **Target slack.** A threshold comparison carries exactly **one unit** of slack, folded
+  into the target once rather than applied at each comparison. This is the successor to
+  the former `+ 1e-12` epsilon, and it is what keeps the key's precision and the
+  comparison's tolerance from drifting apart.
+- **Maximum safe magnitude.** Keys stay exact below `Number.MAX_SAFE_INTEGER` divided by
+  the scale — about **9,007 max rolls**. A slot ceiling is nine, so there are three
+  orders of magnitude of headroom. The engine asserts this at run time rather than
+  trusting it, because a future change that made contributions larger — a weighting of
+  preset targets by raw stated magnitude, for instance — would consume that headroom
+  and otherwise lose precision silently.
+
+### 6.2 Numerical tolerance and display
+
+Summation order is an implementation detail and is not part of this contract; two
+implementations of this model agree on chance to within 10⁻⁹. The probability model is
+exact, but IEEE-754 addition is not associative, so a reassociation that is exact in the
+model can still move the last bits of a double.
+
+Where a chance falls exactly on a display rounding boundary, **the printed percentage
+follows from the computed value**, and summation order is not a stable presentation
+guarantee across versions. What this document does promise is exactness and determinism
+*within* a version: the same rune always prints the same number.
+
 `npm run verify:rune-cleanup-equivalence` is the check that holds every other field —
-verdict, reason, preset, rank and Max value — to bit equality across a change.
+verdict, reason, preset, rank and Max value — to bit equality across a change. It treats
+the printed percentage, which `reason` carries, as an exact field rather than absorbing
+it into the numeric tolerance, so a moved boundary is always adjudicated and never
+assumed.
 
 ## 7. Verdict and finite preset allocation
 

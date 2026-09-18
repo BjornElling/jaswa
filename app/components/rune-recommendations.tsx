@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { AncientName } from './ancient-mark';
 import { Dropdown } from './dropdown';
@@ -166,9 +166,6 @@ export function RuneRecommendations({ game, settings, presets }: {
   /* A failed calculation says so and leaves the previous table standing. Clearing
      it would read as "no runes qualify", which is a different and wrong answer. */
   const [failure, setFailure] = useState<string | null>(null);
-  /* Only the newest request may commit. A late answer from an earlier settings
-     state must never replace a newer table. */
-  const latestRequest = useRef(0);
 
   const runes = useMemo(() => readRunes(game?.data), [game]);
   /**
@@ -205,14 +202,13 @@ export function RuneRecommendations({ game, settings, presets }: {
 
   async function calculate() {
     if (!base) return;
-    const ticket = latestRequest.current + 1;
-    latestRequest.current = ticket;
     setBusy(true);
     setFailure(null);
     const outcome = await calculateRuneAdvice({ runes: judged, presets, settings, base });
-    if (latestRequest.current !== ticket) return;
-    setBusy(false);
+    /* A newer request has taken over the busy state and the table, so this one
+       returns without touching either. */
     if (outcome.status === 'superseded') return;
+    setBusy(false);
     if (outcome.status === 'failed') { setFailure(outcome.message); return; }
     const { advice } = outcome;
     setResult({

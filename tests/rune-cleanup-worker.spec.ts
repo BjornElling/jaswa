@@ -63,3 +63,39 @@ test('the page keeps painting while a large box is judged', async ({ page }) => 
   const frames = await page.evaluate(() => (window as unknown as { jaswaFrames: number }).jaswaFrames);
   expect(frames).toBeGreaterThan(10);
 });
+
+/**
+ * A late answer from an earlier request must never be committed.
+ *
+ * The failure this prevents is silent: a result computed against settings the user
+ * has already moved on from, arriving after a newer one and overwriting the table
+ * with figures nothing on screen explains. The page cannot currently produce two
+ * overlapping requests — the Calculate button is disabled while one runs — so this
+ * drives the client directly, which is also where the rule belongs. A second caller
+ * would otherwise have to reinvent it.
+ */
+test('a superseded calculation cannot commit its result', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+
+  const outcomes = await page.evaluate(async () => {
+    const client = await import('/app/lib/compute/rune-advice-client.ts');
+    const request = {
+      runes: [], presets: [], base: new Map(),
+      settings: {
+        powerUpPolicy: 3, runeQuality: 3, enchantedGems: 1, grindstones: 1,
+        gemGrade: 'Hero', grindstoneGrade: 'Hero', acceptedRunes: 3, brokenRunes: 3,
+        intangibleRunes: 1, keepMoreForLargerSets: false,
+        includeLevel12Runes: true, includeEquippedRunes: true,
+      },
+    };
+    /* Both started in one tick, so the second is created before any worker message
+       can be delivered — the first is superseded however fast the worker is. */
+    const first = client.calculateRuneAdvice(request);
+    const second = client.calculateRuneAdvice(request);
+    return { first: (await first).status, second: (await second).status };
+  });
+
+  expect(outcomes.first).toBe('superseded');
+  expect(outcomes.second).toBe('done');
+});

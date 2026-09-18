@@ -611,9 +611,13 @@ const lineDistributionCache = new Map<string, Distribution>();
  * rather than at every step of every convolution. A sum of two keys is then
  * exact, so `convolveDistribution` needs no rounding in its inner loop at all.
  *
- * Unlike the former 0.025 grid this never coarsens a game outcome: the smallest
- * difference two distinct outcomes can have is one flat point of HP, about
- * 7 × 10⁻⁴ max rolls, nine orders of magnitude above one unit here.
+ * **Exact on this lattice**, which is the honest claim and not the same as exact
+ * in the reals: the lattice is itself a quantisation of the underlying value.
+ * `RUNE-CLEANUP-MATH.md` §6.1 is the contract that says so. What makes it safe is
+ * the rule the former 0.025 grid broke — no grid may be coarse enough to merge
+ * two outcomes the game can distinguish. The smallest difference two distinct
+ * outcomes can have is one flat point of HP, about 7 × 10⁻⁴ max rolls, nine
+ * orders of magnitude above one unit here.
  *
  * **The key's precision and the comparison's tolerance used to be a matched
  * pair** — a key rounded coarser than the old `+ 1e-12` epsilon silently

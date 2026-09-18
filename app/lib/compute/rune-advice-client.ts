@@ -44,7 +44,20 @@ export function cancelRuneAdvice(): void {
   for (const settle of pending) settle({ status: 'superseded' });
 }
 
+/**
+ * Ask for a calculation. The newest request is the only one that may be committed.
+ *
+ * Latest-request-wins lives here rather than in the page, because it is a property
+ * of the boundary and not of one caller's bookkeeping: any second caller would
+ * otherwise have to reinvent it, and the failure when one forgets is silent — a
+ * late answer from an earlier settings state overwriting a newer table.
+ *
+ * Superseding also terminates the worker in flight. The worker is single-threaded
+ * and handles messages in order, so an abandoned calculation would otherwise have
+ * to run to completion before the request that matters could start.
+ */
 export function calculateRuneAdvice(request: RuneAdviceRequest): Promise<RuneAdviceOutcome> {
+  if (waiting.size > 0) cancelRuneAdvice();
   const requestId = nextRequestId;
   nextRequestId += 1;
   return new Promise<RuneAdviceOutcome>((resolve) => {
