@@ -489,7 +489,7 @@ regel:
 
 | Sort by | Rækkefølge |
 | --- | --- |
-| Grade | **Default grade (rarity) faldende**: Legend → Hero → Rare → Magic → Normal; inden for hver rarity kommer **Ancient først**; derefter **sættets `set_id` stigende** |
+| Grade | Fire nøgler i denne rækkefølge: **rarity faldende** (Legend → Hero → Rare → Magic → Normal), så **Ancient først** inden for hver rarity, så **`set_id` stigende**, så **power-up-level faldende** |
 | Power-up Lv. | Power-up-level faldende, +15 → +0 |
 | Obtained | Anskaffelsesrækkefølge, nyeste først |
 
@@ -526,6 +526,12 @@ Ancient, 6★ og +15, og læser Blade, Rage, Rage, Despair, Nemesis — `set_id`
 4, 5, 5, 10, 14, altså stigende. Samme fem udelukker begge alternativer: efter
 navn ville rækkefølgen være Blade, Despair, Nemesis, Rage, Rage, og deres
 substat-summer (51, 57, 72, 63, 54) står i ingen rækkefølge.
+
+**Power-up-level lukker rækkefølgen** — højest først, inden for ét sæt. Uden den
+nøgle sorterer et sæts lavniveau-runer foran dets +15'ere på ren importrækkefølge,
+hvilket lagde en +12 Blade foran den +15 Blade, spillet åbner sættet med. Derfor
+er kontoens fem første slot-6-rækker netop +15'eren i hvert sæt, og sættets egne
+lavere niveauer følger efter den.
 
 **Stjerneklassen sorterer ingenting** i nogen af de tre. Det er derfor, 6★ og 5★
 kan stå blandet ned gennem en rarity-blok.

@@ -98,15 +98,23 @@ export const defaultRuneCleanupSortDirections: Readonly<Record<RuneCleanupSortKe
  * Their levels and rarities are identical, so nothing above the set separates
  * them.
  *
+ * **The power-up level closes the ordering**, highest first, inside one set.
+ * Without it the low-level runes of a set sort in front of its `+15`s on import
+ * order alone, which put a `+12` Blade ahead of the `+15` Blade the game leads
+ * that set with. So the account's five leading slot-6 rows are the `+15` of each
+ * successive set, and each set's own lower levels follow it rather than
+ * preceding it.
+ *
  * The star class orders nothing at all, under any of the three.
  */
 function gameSortKey(row: RuneCleanupRow, key: RuneGameSortKey): readonly number[] {
   const rune = row.rune;
   switch (key) {
     /* Rarity descending — Legend, Hero, Rare, Magic, Normal — then the Ancient
-       runes of each rarity, then the set in the export's own order. */
+       runes of each rarity, then the set in the export's own order, then the
+       power-up level from the top. */
     case 'gameGrade': return [
-      -runeDefaultGradeOrder(rune.defaultGrade), rune.ancient ? 0 : 1, rune.setId,
+      -runeDefaultGradeOrder(rune.defaultGrade), rune.ancient ? 0 : 1, rune.setId, -rune.level,
     ];
     /* Power-up level descending. */
     case 'gameLevel': return [-rune.level];
