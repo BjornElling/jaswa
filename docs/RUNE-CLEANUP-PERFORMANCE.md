@@ -1,8 +1,35 @@
 # Rune Clean-up — why Calculate is slow, and what to do about it
 
-**Status:** Analysis and proposal. **Not** a binding contract, and it changes no rule.
-`docs/RUNE-CLEANUP-MATH.md` remains the calculation contract; nothing proposed here
-alters a figure that document defines.
+**Status:** Analysis and proposal, **implemented**. All twelve stages of §11 have
+landed; see the implementation note below. **Not** a binding contract, and it changes
+no rule. `docs/RUNE-CLEANUP-MATH.md` remains the calculation contract — which §11
+Stages 4, 8 and 9 amended, in their own commits, as that document's §9 requires.
+
+> ### Implementation note — 18 September 2026
+>
+> §11 is done. Stage 0's gate is `npm run verify:rune-cleanup-equivalence`; its
+> baselines live in `work/` and are captured deliberately with `--write` before a
+> change. Measured on that gate's fixed population of 582 runes across eight
+> scenarios: **49.7 s → 663 ms**, with verdict, reason, preset, rank and Max value
+> bit-identical throughout and `chance` moving by at most 1.3 × 10⁻¹³ at Stage 3, from
+> summation order alone. The calibration oracle stayed byte-identical at every stage.
+> In a real browser a 3,000-rune box against the eight shipped presets now finishes in
+> about 1.1 s, in a worker, with the page painting throughout.
+>
+> Two departures from the plan as written, both deliberate:
+>
+> - **Stage 1's "test asserting a slot ceiling stays far below" the key's exact range**
+>   is a runtime assertion in `reachChance` instead. It costs one comparison per call
+>   rather than per cell, it cannot go stale the way a test can, and the equivalence
+>   run exercises it across every fixture.
+> - **Stage 6's memo lifetime** is an explicit `RuneAdviceScope` the caller creates and
+>   drops, rather than a module-global cleared per call. §9.6's warning about cache keys
+>   is answered by making the lifetime the key rather than by designing one.
+>
+> §9.5's slot-local candidate refactor was **not** done. §10.4 is right that it must
+> follow Stage 8 rather than precede it, and Stage 8 has only just landed; the
+> narrowing in Stage 6 already took the measured cost out of it. §9.9's closed-form
+> `bestReachableFill` was not done either, for the reason §10.6 gives.
 **Reviewed:** 18 September 2026
 **Subject:** `app/lib/rune-cleanup-model.ts`, `app/lib/rune-cleanup-advice.ts`,
 `app/components/rune-recommendations.tsx`
