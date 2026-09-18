@@ -239,10 +239,11 @@ export const scalesWithBase = (stat: TargetStat): boolean => stat === 'hp' || st
 
 /**
  * How many sub properties a rune of each default grade starts with (§6), by the
- * `rank` the export writes. Ancient ranks (11–15) map to the same counts.
+ * normalized grade value used by the export's `extra` field. Ancient values
+ * (11–15) map to the same counts.
  */
-export function startingSubPropertyCount(rank: number): number | undefined {
-  const ordinary = rank > 10 ? rank - 10 : rank;
+export function startingSubPropertyCount(exportGrade: number): number | undefined {
+  const ordinary = exportGrade > 10 ? exportGrade - 10 : exportGrade;
   return ordinary >= 1 && ordinary <= 5 ? ordinary - 1 : undefined;
 }
 

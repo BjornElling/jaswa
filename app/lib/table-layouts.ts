@@ -156,17 +156,17 @@ export const artifactTableColumns: readonly TableColumn[] = [
  */
 export const runeCleanupTableColumns: readonly TableColumn[] = [
   { key: 'set', width: '12%', align: 'left' },
-  { key: 'slot', width: '5%', align: 'center' },
-  { key: 'main', width: '8%', align: 'left' },
-  { key: 'subs', width: '17%', align: 'left' },
-  { key: 'level', width: '6%', align: 'right' },
-  { key: 'location', width: '13%', align: 'left' },
-  { key: 'preset', width: '10%', align: 'left' },
-  { key: 'maxValue', width: '8%', align: 'right' },
-  { key: 'chance', width: '8%', align: 'right' },
+  { key: 'slot', width: '4%', align: 'center' },
+  { key: 'main', width: '7%', align: 'left' },
+  { key: 'subs', width: '25%', align: 'left' },
+  { key: 'level', width: '5%', align: 'right' },
+  { key: 'location', width: '12%', align: 'left' },
+  { key: 'preset', width: '9%', align: 'left' },
+  { key: 'maxValue', width: '7%', align: 'right' },
+  { key: 'chance', width: '7%', align: 'right' },
   /* A verdict and its chance share this column, and its width is reserved for the
      longest reading so that moving a slider cannot reflow the table. */
-  { key: 'advice', width: '13%', align: 'left' },
+  { key: 'advice', width: '12%', align: 'left' },
 ];
 
 export const relicTableColumns: readonly TableColumn[] = [

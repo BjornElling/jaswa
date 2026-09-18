@@ -26,11 +26,10 @@ try {
   const account = (artifacts) => ({
     wizard_id: 1,
     unit_list: [{ unit_id: 10, wizard_id: 1, unit_master_id: 14314, artifacts }],
-    /* `rank` is the default grade. The reader requires it, because a rune whose
-       rarity the vocabulary does not cover is rejected rather than given a
-       fallback (`AGENTS.md` §0.1) — so a fixture without it is an unreadable
-       account, which is the opposite of what this one is for. */
-    runes: [{ rune_id: 20, set_id: 1, slot_no: 1, class: 6, rank: 5, upgrade_curr: 0, occupied_type: 2, occupied_id: 0, pri_eff: [3, 22], prefix_eff: [0, 0], sec_eff: [] }],
+    /* `extra` is the default grade. The reader requires it, because a rune
+       whose rarity the vocabulary does not cover is rejected rather than
+       given a fallback (`AGENTS.md` §0.1). */
+    runes: [{ rune_id: 20, set_id: 1, slot_no: 1, class: 6, rank: 5, extra: 5, upgrade_curr: 0, occupied_type: 2, occupied_id: 0, pri_eff: [3, 22], prefix_eff: [0, 0], sec_eff: [] }],
     artifacts: [],
     relics: [],
     rune_craft_item_list: [],

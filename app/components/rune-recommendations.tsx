@@ -21,6 +21,7 @@ import {
   runeCleanupSearchText, runeGameSortKeys, runeGameSortLabels,
 } from '../lib/rune-cleanup-grid';
 import type { RuneCleanupRow, RuneCleanupSortKey, RuneGameSortKey } from '../lib/rune-cleanup-grid';
+import type { RuneDefaultGrade } from '../lib/runes';
 import type { RunePotentialPreset } from '../lib/rune-potential-presets';
 import type { GameRecord } from '../lib/game-data';
 import type { ImportedGame, RunePotentialSettings } from '../lib/types';
@@ -30,6 +31,17 @@ import { useSessionStorageState } from '../lib/session-storage-state';
    Listed rather than derived from the import so the filter strip does not change
    shape when a different account is loaded. */
 const slotOptions = [1, 2, 3, 4, 5, 6];
+const starOptions = [1, 2, 3, 4, 5, 6];
+/* The requested quality filter deliberately leaves Magic out of its short row;
+   when no quality is chosen, Magic runes remain included with every other rune. */
+const qualityOptions: readonly RuneDefaultGrade[] = ['Normal', 'Rare', 'Hero', 'Legend'];
+
+function StarIcon() {
+  return <svg className="rune-star-icon" viewBox="0 0 16 16" fill="none"
+    stroke="currentColor" strokeWidth="1.35" strokeLinejoin="round" aria-hidden="true">
+    <path d="M8 1.6 9.9 5.5l4.3.6-3.1 3  .8 4.3L8 11.4l-3.9 2 .8-4.3-3.1-3 4.3-.6L8 1.6Z" />
+  </svg>;
+}
 
 type RuneFilterState = {
   search: string;
@@ -38,18 +50,22 @@ type RuneFilterState = {
   selectedVerdicts: RuneVerdict[];
   selectedPresets: string[];
   selectedMains: number[];
+  selectedStars: number[];
+  selectedQualities: RuneDefaultGrade[];
   lowestLevel: number;
   highestLevel: number;
   showEquipped: boolean;
   showStored: boolean;
+  showOnlyAncient: boolean;
   /** One of the game's own orderings, or `null` while a column heading orders. */
   gameSort: RuneGameSortKey | null;
 };
 
 const defaultRuneFilters: RuneFilterState = {
   search: '', selectedSets: [], selectedSlots: [], selectedVerdicts: [], selectedPresets: [],
-  selectedMains: [], lowestLevel: 0, highestLevel: runeMaximumLevel,
-  showEquipped: true, showStored: true, gameSort: null,
+  selectedMains: [], selectedStars: [], selectedQualities: [], lowestLevel: 0,
+  highestLevel: runeMaximumLevel, showEquipped: true, showStored: true,
+  showOnlyAncient: false, gameSort: null,
 };
 
 function isRuneFilterState(value: unknown): value is RuneFilterState {
@@ -64,9 +80,13 @@ function isRuneFilterState(value: unknown): value is RuneFilterState {
     && candidate.selectedVerdicts.every((e) => runeVerdictOrder.includes(e as RuneVerdict))
     && Array.isArray(candidate.selectedPresets) && candidate.selectedPresets.every((e) => typeof e === 'string')
     && Array.isArray(candidate.selectedMains) && candidate.selectedMains.every((e) => typeof e === 'number')
+    && Array.isArray(candidate.selectedStars) && candidate.selectedStars.every((e) => starOptions.includes(e as number))
+    && Array.isArray(candidate.selectedQualities)
+    && candidate.selectedQualities.every((e) => qualityOptions.includes(e as RuneDefaultGrade))
     && level(candidate.lowestLevel) && level(candidate.highestLevel)
     && (candidate.lowestLevel as number) <= (candidate.highestLevel as number)
     && typeof candidate.showEquipped === 'boolean' && typeof candidate.showStored === 'boolean'
+    && typeof candidate.showOnlyAncient === 'boolean'
     /* `null` is "a column heading is ordering", which is a stated value here and
        not an absent one, so it is accepted and anything else is rejected. */
     && (candidate.gameSort === null
@@ -132,7 +152,8 @@ export function RuneRecommendations({ game, settings, presets }: {
     'jaswa.filters.rune-cleanup', defaultRuneFilters, isRuneFilterState,
   );
   const { search, selectedSets, selectedSlots, selectedVerdicts, selectedPresets, selectedMains,
-    lowestLevel, highestLevel, showEquipped, showStored, gameSort } = filters;
+    selectedStars, selectedQualities, lowestLevel, highestLevel, showEquipped, showStored,
+    showOnlyAncient, gameSort } = filters;
 
   /* The held result, and the settings it answers. A result is kept until the user
      asks for another one, so a slider moved after a calculation leaves the table
@@ -199,8 +220,11 @@ export function RuneRecommendations({ game, settings, presets }: {
     return rows.filter((row) => {
       if (!showEquipped && row.rune.occupiedId !== null) return false;
       if (!showStored && row.rune.occupiedId === null) return false;
+      if (showOnlyAncient && !row.rune.ancient) return false;
       if (selectedSets.length && !selectedSets.includes(row.rune.setName)) return false;
       if (selectedSlots.length && !selectedSlots.includes(row.rune.slot)) return false;
+      if (selectedStars.length && !selectedStars.includes(row.rune.stars)) return false;
+      if (selectedQualities.length && !selectedQualities.includes(row.rune.defaultGrade)) return false;
       if (selectedVerdicts.length && !selectedVerdicts.includes(row.advice.verdict)) return false;
       if (selectedPresets.length && !selectedPresets.includes(row.advice.preset?.name ?? '')) return false;
       if (selectedMains.length && !selectedMains.includes(row.rune.mainStatId)) return false;
@@ -208,8 +232,8 @@ export function RuneRecommendations({ game, settings, presets }: {
       if (!term) return true;
       return runeCleanupSearchText(row).includes(term);
     });
-  }, [rows, search, selectedSets, selectedSlots, selectedVerdicts, selectedPresets, selectedMains,
-    lowestLevel, highestLevel, showEquipped, showStored]);
+  }, [rows, search, selectedSets, selectedSlots, selectedStars, selectedQualities, selectedVerdicts,
+    selectedPresets, selectedMains, lowestLevel, highestLevel, showEquipped, showStored, showOnlyAncient]);
 
   const { sorted, sort, toggle: toggleColumn, setSort } = useSortedRows(
     visible, columns, { key: 'maxValue', direction: 'descending' },
@@ -247,12 +271,14 @@ export function RuneRecommendations({ game, settings, presets }: {
   const toggleGroup = <T extends string | number>(
     label: string, description: string, options: readonly T[], selected: readonly T[],
     key: keyof RuneFilterState, display: (option: T) => ReactNode, className: string,
+    accessibleName?: (option: T) => string,
   ) => <div className={`filter-group ${className}`} role="group" aria-label={description}>
     <span className="filter-label">{label}</span>
     <div className="filter-group-controls">
       {options.map((option) => <FilterButton
         key={option}
         active={selected.includes(option)}
+        aria-label={accessibleName?.(option)}
         onClick={() => toggleValue(option, key)}
       >{display(option)}</FilterButton>)}
     </div>
@@ -348,6 +374,20 @@ export function RuneRecommendations({ game, settings, presets }: {
           </div>
           {toggleGroup('Advice', 'Filter by advice', runeVerdictOrder, selectedVerdicts,
             'selectedVerdicts', (verdict) => runeVerdictLabels[verdict], 'rune-filter-advice')}
+          <div className="filter-group rune-filter-ancient" role="group" aria-label="Show only Ancient runes">
+            <span className="filter-label">Show only</span>
+            <div className="filter-group-controls">
+              <FilterButton active={showOnlyAncient}
+                onClick={() => setFilters((current) => ({ ...current, showOnlyAncient: !current.showOnlyAncient }))}
+              >Ancient</FilterButton>
+            </div>
+          </div>
+            {toggleGroup('Stars', 'Filter by star count', starOptions, selectedStars,
+              'selectedStars', (stars) => <span className="rune-star-choice" aria-hidden="true">
+                <span className="rune-star-count">{stars}</span><StarIcon />
+              </span>, 'rune-filter-stars', (stars) => `${stars} star${stars === 1 ? '' : 's'}`)}
+          {toggleGroup('Quality', 'Filter by rune quality', qualityOptions, selectedQualities,
+            'selectedQualities', (quality) => quality, 'rune-filter-quality')}
           {toggleGroup('Slot', 'Filter by slot', slotOptions, selectedSlots,
             'selectedSlots', (slot) => String(slot), 'rune-filter-slot')}
           {/* Three long vocabularies — twenty-two sets, a dozen main properties, a

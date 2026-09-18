@@ -16,7 +16,7 @@ sidste er hverken en antagelse eller en tilladt standardværdi i kode.
 
 Et monster kan have seks runer, én i hver **slot** 1–6. En rune har et
 **Rune Set** (`set_id`), slot (`slot_no`), stjerneklasse (**grade**, 1–6★;
-`class` i eksporten), sjældenhed (**default grade** / rarity; `rank`),
+`class` i eksporten), sjældenhed (**default grade** / rarity; `extra`),
 **Main Property** (`pri_eff`), eventuelt **Prefix Property** / innate
 (`prefix_eff`) og nul til fire **Sub Properties** (`sec_eff`).
 
@@ -142,11 +142,14 @@ et yderligere forbud oven i denne tabel.
 ## 6. Default grade og power-up-forløb
 
 Default grade afgør antallet af Sub Properties ved +0. Den ændres ikke af
-power-up. I aktuel eksport er labels og `rank`:
+power-up. I SWEX-eksporten er `extra` kvaliteten; `rank` er ikke dens
+quality-felt og kan stå som `5` på mange forskellige 6★-runer. Nogle
+eksportveje skriver Normal som både `0` og `1`, så JASWA læser begge som
+Normal:
 
-| Default grade | Almindelig `rank` | Ancient `rank` | Sub Properties ved +0 | Nye Sub Properties | Forbedringer ved +3/+6/+9/+12 |
+| Default grade | Almindelig `extra` | Ancient `extra` | Sub Properties ved +0 | Nye Sub Properties | Forbedringer ved +3/+6/+9/+12 |
 | --- | ---: | ---: | ---: | --- | ---: |
-| Normal | 1 | 11 | 0 | +3, +6, +9, +12 | 0 |
+| Normal | 0 eller 1 | 11 | 0 | +3, +6, +9, +12 | 0 |
 | Magic | 2 | 12 | 1 | +6, +9, +12 | 1 (+3) |
 | Rare | 3 | 13 | 2 | +9, +12 | 2 (+3, +6) |
 | Hero | 4 | 14 | 3 | +12 | 3 (+3, +6, +9) |
@@ -495,7 +498,7 @@ regel:
 
 **Panelets “Grade” betyder rarity, ikke stjerneklasse.** Det er stik imod
 ordlisten i §1, hvor *grade* netop er stjerneklassen (`class`) og rarity hedder
-*default grade* (`rank`). Overskriften inviterer altså til den forkerte læsning.
+*default grade* (`extra`). Overskriften inviterer altså til den forkerte læsning.
 
 Sådan læses en rune-tile korrekt — tre uafhængige markører, som er lette at
 forveksle:
@@ -539,10 +542,10 @@ række for række. `scripts/verify-rune-game-sort.mjs` fastholder reglerne, og
 som `Artifact.obtainedOrder`: `date_add` opløser kun til sekundet, og spillet
 tildeler runer i bulk.
 
-**Målt kontra udledt.** `rank`/`class`-mappingen er bekræftet mod en rigtig
-eksport med 1.556 runer: hver enkelt record bærer `rank`, og de 202
-Ancient-runer (`class: 16`) er præcis de 202 records med Ancient-rank 13–15,
-altså §6's offset-tabel. Selve rækkefølgerne er læst af panelet; den eksport,
+**Målt kontra udledt.** `class` markerer Ancient (`class: 16`), mens
+`extra` bærer runens quality. Det er vigtigt at holde dem adskilt: den
+Ancient Rage-rune på Lyn med `extra: 3` er Rare, selv om dens `rank` kan være
+`5`. Selve rækkefølgerne er læst af panelet; den eksport,
 der er ved hånden, er en ældre optagelse af samme konto og indeholder ingen
 runer under 6★, så den kan ikke i sig selv efterprøve rarity-rækkefølgen.
 
@@ -560,10 +563,12 @@ produktbeslutninger, ikke spilfakta. De står kun i arbejdsdokumentet.
 4. [Spokland — Rune Sets](https://summonerswar.spokland.com/rune/set), [Prefix Property](https://summonerswar.spokland.com/rune/prefix), [Sub Property](https://summonerswar.spokland.com/rune/sub-stat), [Enchanted Gem](https://summonerswar.spokland.com/rune/enchanted_gem), [Grindstone](https://summonerswar.spokland.com/rune/grindstone), [Reappraisal Stone](https://summonerswar.spokland.com/rune/reappraisal_stone) og [Ancient Rune](https://summonerswar.spokland.com/rune/ancient_rune) — detaljer om stacking og kampvirkning samt intervaltabeller og Ancient-itemadskillelse. Sekundær kilde; aktuel officiel spiltekst eller reproducerbar klientobservation vinder ved konflikt.
 5. [Summoners War: Sky Arena Wiki — Runes](https://summonerswar.fandom.com/wiki/Runes), [Enchanted Gem](https://summonerswar.fandom.com/wiki/Enchanted_Gem) og [Grindstone](https://summonerswar.fandom.com/wiki/Grindstone) — krydstjek af slots, Shield-grundlag, Gem/Grindstone-regler og almindelige set-effekter. Sekundær kilde.
 6. [SWEX mapping.js](https://github.com/Xzandro/sw-exporter/blob/master/app/mapping.js) — eksportens set-ID-mapping samt Gem- og Grindstone-tabeller.
-7. Brugerleveret `Culpa-21822407.json`, 23. august 2026 — feltformat, `class`/`rank`, stat-ID'er og observerede Prefix-, Gem- og Grindstone-værdier.
-8. Brugerleveret `full_log.txt`, 23. august 2026 — ingen Rune Statistics-forespørgsel forekommer i den konkrete log.
-9. [Xzandros Ancient roll tables](https://www.reddit.com/r/summonerswar/comments/c0dc2h/ancient_grindstone_ancient_enchanted_gems_min_max/) — Ancient-startintervaller samt Ancient Gem- og Grindstone-tabeller. Sekundær, men den komplette tabel er krydstjekket mod observerede eksportværdier; en reproducerbar klientmåling vinder ved konflikt.
+7. Brugerleveret `Culpa-21822407.json`, 23. august 2026 — feltformat, `class`/`extra`, stat-ID'er og observerede Prefix-, Gem- og Grindstone-værdier.
+8. [SW Forge rune parser](https://github.com/antajl/sw-forge/blob/main/js/data/parser.js) — `extra` som default grade og `class` som Ancient/star-class input.
+9. [SWEX raw rune records](https://github.com/Xzandro/sw-exporter/issues/316) — real-world records where `rank` stays `5` while `extra` varies with rune quality.
+10. Brugerleveret `full_log.txt`, 23. august 2026 — ingen Rune Statistics-forespørgsel forekommer i den konkrete log.
+11. [Xzandros Ancient roll tables](https://www.reddit.com/r/summonerswar/comments/c0dc2h/ancient_grindstone_ancient_enchanted_gems_min_max/) — Ancient-startintervaller samt Ancient Gem- og Grindstone-tabeller. Sekundær, men den komplette tabel er krydstjekket mod observerede eksportværdier; en reproducerbar klientmåling vinder ved konflikt.
 
-Ved hver spilopdatering skal set-tabellen, `class`/`rank`-mapping og
+Ved hver spilopdatering skal set-tabellen, `class`/`extra`-mapping og
 Sub Property-intervaller revalideres. Et ukendt felt eller Rune Set må aldrig
 få en stiltiende fallback-regel.

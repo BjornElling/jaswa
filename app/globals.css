@@ -1411,6 +1411,7 @@ label[for] {
 }
 .grid-table tbody td.align-left { text-align: left; font-family: var(--font-body); }
 .grid-table tbody td.align-right { text-align: right; }
+.grid-table tbody td.align-center { text-align: center; }
 .grid-table tbody tr:hover td { background: var(--hover); }
 .grid-table tbody td.muted { color: var(--text-muted); }
 .grid-table tbody td.dim { color: var(--text); }
@@ -5398,7 +5399,11 @@ th.align-center .sort-button { justify-content: center; }
    has learned one should not have to learn the other. Only the columns differ. */
 .rune-cleanup-grid { width: 100%; min-width: 0; table-layout: fixed; }
 .rune-cleanup-grid tbody td { height: auto; padding-block: var(--s2); vertical-align: middle; }
-.rune-cleanup-grid td.rune-subs { white-space: normal; }
+/* The wider Sub properties column is deliberate: four complete stat/value
+   pairs are one fact and should be read as one line, not as four staggered
+   fragments. The column plan gives them the room; this prevents a long row
+   from quietly reintroducing wrapping. */
+.rune-cleanup-grid td.rune-subs { white-space: nowrap; }
 
 /* Each sub property is a name and a number that belong together, so the pair
    never breaks across a line while the four of them wrap freely. */
@@ -5432,18 +5437,18 @@ th.align-center .sort-button { justify-content: center; }
 }
 
 /* Three rows: what the rune is, then what the program made of it, then the one
-   control that only rearranges. Search leads the first row and the level range
-   the second, so those two are the only groups without an indent rule — the same
-   arrangement as the relic strip above.
+   control that only rearranges. The Ancient, Stars and Quality groups sit beside
+   the existing filters so the narrowing questions are answered before the
+   ordering control.
 
-   Sort by starts the third row rather than joining the first two. Everything
-   above it narrows the rows; it alone reorders them, and a row of its own is what
-   keeps that distinction readable without a second kind of divider. */
+   Sort by ends the third row rather than joining the first two. Everything
+   above it narrows the rows; it alone reorders them, and keeping it on the last
+   row preserves that distinction without a second kind of divider. */
 .rune-filter-strip {
   grid-template-areas:
-    "search  advice slot   set"
-    "level   main   preset usage"
-    "sort-by .      .      .";
+    "search  advice ancient stars"
+    "level   main   quality usage"
+    "slot    set    preset  sort-by";
 }
 .rune-filter-strip > .filter-group,
 .rune-filter-strip > .filter-group:nth-child(2n + 1),
@@ -5454,15 +5459,26 @@ th.align-center .sort-button { justify-content: center; }
 }
 .rune-filter-search { grid-area: search; padding-left: 0 !important; border-left: 0 !important; }
 .rune-filter-level { grid-area: level; padding-left: 0 !important; border-left: 0 !important; }
-/* A row-starter, so it drops the indent rule exactly as Search and Level do. */
-.rune-filter-sort-by { grid-area: sort-by; padding-left: 0 !important; border-left: 0 !important; }
+.rune-filter-sort-by { grid-area: sort-by; }
 .rune-filter-advice { grid-area: advice; }
-.rune-filter-slot { grid-area: slot; }
+.rune-filter-ancient { grid-area: ancient; }
+.rune-filter-stars { grid-area: stars; }
+.rune-filter-quality { grid-area: quality; }
+.rune-filter-slot { grid-area: slot; padding-left: 0 !important; border-left: 0 !important; }
 .rune-filter-set { grid-area: set; }
 .rune-filter-main { grid-area: main; }
 .rune-filter-preset { grid-area: preset; }
 .rune-filter-usage { grid-area: usage; }
 .rune-filter-status { grid-area: status; }
+
+/* Six star choices share one fixed group measure. Small stroked glyphs keep
+   the full vocabulary on one row, and the aria-label on each button carries
+   the count for a reader that cannot see the repeated marks. */
+.rune-filter-stars .filter-group-controls { gap: var(--s1); }
+.rune-filter-stars .filter-button { padding-inline: var(--s2); }
+.rune-star-choice { display: inline-flex; align-items: center; gap: var(--s1); }
+.rune-star-count { font-variant-numeric: tabular-nums; }
+.rune-star-icon { width: 9px; height: 9px; flex: 0 0 9px; }
 
 /* Set, Main and Preset are token lines rather than chip rows: their vocabularies
    run to twenty-two sets, a dozen main properties and however many presets the

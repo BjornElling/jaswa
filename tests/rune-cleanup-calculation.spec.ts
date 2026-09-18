@@ -77,3 +77,60 @@ test('the game orderings take the table over and hand it back to the headings', 
   await expect(sortBy).toHaveValue('');
   await expect(sortedHeading).toHaveCount(1);
 });
+
+test('filters by Ancient, star count and rune quality', async ({ page }, testInfo) => {
+  await page.goto('/');
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
+  await expect(page.getByText('craft-account.json')).toBeVisible();
+
+  await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
+  const recommendations = page.locator('details').filter({ has: page.locator('summary', { hasText: 'Recommendations' }) });
+  await recommendations.getByRole('button', { name: 'Calculate', exact: true }).click();
+
+  const table = page.getByRole('table', { name: 'Rune verdicts' });
+  const dataRows = () => table.locator('tbody tr').filter({ hasNot: page.locator('.table-empty-state') });
+  await expect(dataRows()).toHaveCount(4);
+  await expect(dataRows().first().locator('td').nth(1)).toHaveCSS('text-align', 'center');
+  const subCells = dataRows().locator('td.rune-subs');
+  for (let at = 0; at < await subCells.count(); at += 1) {
+    await expect(subCells.nth(at)).toHaveCSS('white-space', 'nowrap');
+    const width = await subCells.nth(at).evaluate((element) => ({
+      client: element.clientWidth, scroll: element.scrollWidth,
+    }));
+    expect(width.scroll).toBeLessThanOrEqual(width.client + 1);
+  }
+  await page.screenshot({ path: testInfo.outputPath('rune-filters-before.png') });
+
+  await page.getByRole('group', { name: 'Show only Ancient runes' })
+    .getByRole('button', { name: 'Ancient', exact: true }).click();
+  await expect(dataRows()).toHaveCount(1);
+  await page.screenshot({ path: testInfo.outputPath('rune-filters-after-ancient.png') });
+  await page.getByRole('group', { name: 'Show only Ancient runes' })
+    .getByRole('button', { name: 'Ancient', exact: true }).click();
+  await expect(dataRows()).toHaveCount(4);
+
+  const stars = page.getByRole('group', { name: 'Filter by star count' });
+  await expect(stars.getByRole('button', { name: '1 star', exact: true })).toBeVisible();
+  await expect(stars.getByRole('button', { name: '6 stars', exact: true })).toBeVisible();
+  await stars.getByRole('button', { name: '5 stars', exact: true }).click();
+  await expect(dataRows()).toHaveCount(0);
+  await stars.getByRole('button', { name: '6 stars', exact: true }).click();
+  await expect(dataRows()).toHaveCount(4);
+  await stars.getByRole('button', { name: '5 stars', exact: true }).click();
+  await expect(dataRows()).toHaveCount(4);
+
+  const quality = page.getByRole('group', { name: 'Filter by rune quality' });
+  await expect(quality.getByRole('button', { name: 'Normal', exact: true })).toBeVisible();
+  await expect(quality.getByRole('button', { name: 'Rare', exact: true })).toBeVisible();
+  await expect(quality.getByRole('button', { name: 'Hero', exact: true })).toBeVisible();
+  await expect(quality.getByRole('button', { name: 'Legend', exact: true })).toBeVisible();
+  await quality.getByRole('button', { name: 'Hero', exact: true }).click();
+  await expect(dataRows()).toHaveCount(0);
+  await quality.getByRole('button', { name: 'Hero', exact: true }).click();
+  await quality.getByRole('button', { name: 'Legend', exact: true }).click();
+  await expect(dataRows()).toHaveCount(3);
+  await quality.getByRole('button', { name: 'Legend', exact: true }).click();
+  await quality.getByRole('button', { name: 'Rare', exact: true }).click();
+  await expect(dataRows()).toHaveCount(1);
+});

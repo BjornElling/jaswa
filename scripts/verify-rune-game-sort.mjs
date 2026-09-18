@@ -16,12 +16,14 @@
  * stars marks `+15` and nothing else, and Ancient is a white ring around the
  * rune icon rather than anything on the stars.
  *
- * The `rank`/`class` mapping underneath is confirmed against a real 1,556-rune
- * export: every record carries `rank`, and its 202 Ancient runes are exactly the
- * 202 records at the Ancient ranks 13–15, which is §6's offset table.
+ * The `extra`/`class` mapping underneath follows the SWEX rune record: `class`
+ * marks the star class (16 is Ancient), while `extra` carries the dropped
+ * quality. `rank` is not used for quality; six-star records commonly carry
+ * `rank: 5` regardless of whether the rune is Rare, Hero or Legend.
  */
 import assert from 'node:assert/strict';
 import { compareRuneGameSort } from '../app/lib/rune-cleanup-grid.ts';
+import { readRune } from '../app/lib/runes.ts';
 
 /** A row as the table builds one, with only the facts the orderings read. */
 function row(index, {
@@ -47,6 +49,25 @@ function order(rows, key, name) {
     .sort((left, right) => compareRuneGameSort(left, right, key) || left.index - right.index)
     .map((entry) => name(entry.rune));
 }
+
+/* The Ancient marker and the quality are separate export facts. This is the
+   concrete case behind the user's Lyn rune: class 16 says Ancient, rank 5 is
+   the ordinary six-star marker, and extra 3 says Rare. */
+const ancientRare = readRune({
+  rune_id: 9001, set_id: 5, slot_no: 1, class: 16, rank: 5, extra: 3, upgrade_curr: 15,
+  occupied_type: 1, occupied_id: 77, pri_eff: [3, 160], prefix_eff: [0, 0],
+  sec_eff: [[9, 11, 0, 0], [4, 24, 0, 0], [10, 7, 0, 0], [12, 8, 0, 0]],
+});
+assert.ok(ancientRare, 'the Ancient Rage rune is readable');
+assert.equal(ancientRare?.ancient, true, 'class 16 is the Ancient marker');
+assert.equal(ancientRare?.stars, 6, 'Ancient runes use the six-star calculation');
+assert.equal(ancientRare?.defaultGrade, 'Rare', 'extra 3 is Rare even when rank is 5');
+
+const ancientLegend = readRune({
+  rune_id: 9002, set_id: 5, slot_no: 1, class: 16, rank: 5, extra: 5, upgrade_curr: 15,
+  occupied_type: 2, occupied_id: 0, pri_eff: [3, 160], prefix_eff: [0, 0], sec_eff: [],
+});
+assert.equal(ancientLegend?.defaultGrade, 'Legend', 'extra 5 is Legend');
 
 /* Key 1: slot leads the whole Grade ordering. */
 {

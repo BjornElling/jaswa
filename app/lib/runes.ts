@@ -43,7 +43,7 @@ export const runeMaximumLevel = 15;
  *
  * It is a separate fact from the star class, and §1 keeps the two apart in its
  * vocabulary: *grade* is the star class (`class`), *default grade* is this
- * (`rank`). The names here follow the document.
+ * (`extra`). The names here follow the document.
  *
  * This is what the game's own "Grade" sort orders by, despite the vocabulary —
  * the panel's heading names the rarity, not the star class (§11.1).
@@ -53,12 +53,14 @@ export const runeDefaultGrades = ['Normal', 'Magic', 'Rare', 'Hero', 'Legend'] a
 export type RuneDefaultGrade = typeof runeDefaultGrades[number];
 
 /**
- * `rank` as the export writes it, for an ordinary rune and for an Ancient one
- * (§6). The Ancient row is the same five rarities offset by ten, which is why
- * this is one table read modulo ten rather than two.
+ * `extra` as the export writes it, for an ordinary rune and for an Ancient one
+ * (§6). SWEX uses `0` and `1` for Normal in the wild; the remaining ordinary
+ * values are one step apart. Some export paths use the Ancient values offset
+ * by ten, so both encodings are accepted here. `rank` is deliberately absent:
+ * it is commonly `5` on every six-star rune and is not the rune's rarity.
  */
-const defaultGradeByRank: Readonly<Record<number, RuneDefaultGrade>> = {
-  1: 'Normal', 2: 'Magic', 3: 'Rare', 4: 'Hero', 5: 'Legend',
+const defaultGradeByExportValue: Readonly<Record<number, RuneDefaultGrade>> = {
+  0: 'Normal', 1: 'Normal', 2: 'Magic', 3: 'Rare', 4: 'Hero', 5: 'Legend',
   11: 'Normal', 12: 'Magic', 13: 'Rare', 14: 'Hero', 15: 'Legend',
 };
 
@@ -204,12 +206,14 @@ export function readRune(record: unknown): Rune | null {
   const starClass = numberOrNull(source.class);
   if (starClass === null || (starClass !== 16 && (!Number.isInteger(starClass) || starClass < 1 || starClass > 6))) return null;
 
-  /* The rarity is rejected rather than defaulted when the table does not cover
+  /* The rarity comes from `extra`, not `rank`. The latter is not a quality
+     field in SWEX and is often `5` for every six-star rune. The rarity is
+     rejected rather than defaulted when the table does not cover
      it (`AGENTS.md` §0.1): a rune counted in the account total but carrying an
      invented grade would sort into a position the game never puts it in, and
      nothing on screen would say so. */
-  const rank = numberOrNull(source.rank);
-  const defaultGrade = rank === null ? undefined : defaultGradeByRank[rank];
+  const exportGrade = numberOrNull(source.extra);
+  const defaultGrade = exportGrade === null ? undefined : defaultGradeByExportValue[exportGrade];
   if (!defaultGrade) return null;
 
   const main = readProperty(source.pri_eff);
