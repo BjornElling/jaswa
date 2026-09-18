@@ -5431,13 +5431,19 @@ th.align-center .sort-button { justify-content: center; }
   white-space: nowrap;
 }
 
-/* Two rows: what the rune is, then what the program made of it. Search leads the
-   first and the level range the second, so those two are the only groups without
-   an indent rule — the same arrangement as the relic strip above. */
+/* Three rows: what the rune is, then what the program made of it, then the one
+   control that only rearranges. Search leads the first row and the level range
+   the second, so those two are the only groups without an indent rule — the same
+   arrangement as the relic strip above.
+
+   Sort by starts the third row rather than joining the first two. Everything
+   above it narrows the rows; it alone reorders them, and a row of its own is what
+   keeps that distinction readable without a second kind of divider. */
 .rune-filter-strip {
   grid-template-areas:
-    "search advice slot   set"
-    "level  main   preset usage";
+    "search  advice slot   set"
+    "level   main   preset usage"
+    "sort-by .      .      .";
 }
 .rune-filter-strip > .filter-group,
 .rune-filter-strip > .filter-group:nth-child(2n + 1),
@@ -5448,6 +5454,8 @@ th.align-center .sort-button { justify-content: center; }
 }
 .rune-filter-search { grid-area: search; padding-left: 0 !important; border-left: 0 !important; }
 .rune-filter-level { grid-area: level; padding-left: 0 !important; border-left: 0 !important; }
+/* A row-starter, so it drops the indent rule exactly as Search and Level do. */
+.rune-filter-sort-by { grid-area: sort-by; padding-left: 0 !important; border-left: 0 !important; }
 .rune-filter-advice { grid-area: advice; }
 .rune-filter-slot { grid-area: slot; }
 .rune-filter-set { grid-area: set; }

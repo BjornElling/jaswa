@@ -98,8 +98,11 @@ try {
 
   /* ------------------------------------------------------------- placement */
 
+  /* `rank` is the default grade, which every real export carries and the reader
+     requires: a rune whose rarity the vocabulary does not cover is rejected
+     rather than given a fallback (`AGENTS.md` §0.1). */
   const rune = (overrides = {}) => readRune({
-    rune_id: 1, set_id: 13, slot_no: 2, class: 6, upgrade_curr: 12,
+    rune_id: 1, set_id: 13, slot_no: 2, class: 6, rank: 5, upgrade_curr: 12,
     occupied_type: 2, occupied_id: 0,
     pri_eff: [4, 63], prefix_eff: [0, 0],
     sec_eff: [[2, 8, 0, 0], [9, 6, 0, 0], [10, 5, 0, 0], [8, 5, 0, 3]],
@@ -163,10 +166,10 @@ try {
      which is the difference between spending an item tonight and taking a
      monster's build apart first. */
   const box = [
-    readRune({ rune_id: 1, set_id: 13, slot_no: 2, class: 6, upgrade_curr: 12, occupied_type: 2, occupied_id: 0, pri_eff: [4, 63], prefix_eff: [0, 0], sec_eff: [[2, 8, 0, 0]] }),
-    readRune({ rune_id: 2, set_id: 13, slot_no: 2, class: 6, upgrade_curr: 12, occupied_type: 1, occupied_id: 77, pri_eff: [4, 63], prefix_eff: [0, 0], sec_eff: [[2, 8, 0, 0]] }),
-    readRune({ rune_id: 3, set_id: 13, slot_no: 2, class: 6, upgrade_curr: 9, occupied_type: 2, occupied_id: 0, pri_eff: [4, 63], prefix_eff: [0, 0], sec_eff: [[2, 8, 0, 0]] }),
-    readRune({ rune_id: 4, set_id: 8, slot_no: 2, class: 6, upgrade_curr: 12, occupied_type: 2, occupied_id: 0, pri_eff: [4, 63], prefix_eff: [0, 0], sec_eff: [[2, 8, 0, 0]] }),
+    readRune({ rune_id: 1, set_id: 13, slot_no: 2, class: 6, rank: 5, upgrade_curr: 12, occupied_type: 2, occupied_id: 0, pri_eff: [4, 63], prefix_eff: [0, 0], sec_eff: [[2, 8, 0, 0]] }),
+    readRune({ rune_id: 2, set_id: 13, slot_no: 2, class: 6, rank: 5, upgrade_curr: 12, occupied_type: 1, occupied_id: 77, pri_eff: [4, 63], prefix_eff: [0, 0], sec_eff: [[2, 8, 0, 0]] }),
+    readRune({ rune_id: 3, set_id: 13, slot_no: 2, class: 6, rank: 5, upgrade_curr: 9, occupied_type: 2, occupied_id: 0, pri_eff: [4, 63], prefix_eff: [0, 0], sec_eff: [[2, 8, 0, 0]] }),
+    readRune({ rune_id: 4, set_id: 8, slot_no: 2, class: 6, rank: 5, upgrade_curr: 12, occupied_type: 2, occupied_id: 0, pri_eff: [4, 63], prefix_eff: [0, 0], sec_eff: [[2, 8, 0, 0]] }),
   ];
   assert.equal(box.every(Boolean), true, 'every fixture rune reads');
   const reach = craftReach([violentSpdGem, fatalSpdGem], box);

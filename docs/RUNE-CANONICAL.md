@@ -481,6 +481,47 @@ spilregel:
   Will, Shield og Seal. De er dokumenterede setegenskaber, men kan ikke
   konverteres ansvarligt til én universel rune-score.
 
+## 11.1 Spillets egen sorteringsrækkefølge (Manage-panelet)
+
+Spillets Manage-panel tilbyder en **Sort by**-dropdown. JASWA gengiver tre af
+dens valgmuligheder i Rune Clean-up, og de er **observeret**, ikke udledt af en
+regel. Det afgørende fund er, at panelet behandler Ancient som en **gruppe**,
+ikke som en stjerneklasse — og at de to ordner den gruppe i hver sin ende:
+
+| Sort by | Rækkefølge |
+| --- | --- |
+| Grade | Almindelige runer efter stjerneklasse faldende (6★ → 1★), derefter **alle** Ancient-runer til sidst |
+| Power-up Lv. | **Alle** Ancient-runer først, derefter power-up-level faldende (+15 → +0) |
+| Obtained | Anskaffelsesrækkefølge, nyeste først |
+
+Belægget, målt på slot 1 i en konto med 313 runer i slottet:
+
+- Nederst i Grade-listen står en lilla-stjernet `+15 Shield Rune` med
+  `ATK +160`. Det er 6★-værdien i tabellen i §3, så runen *er* 6★ — og den står
+  **under** 5★-runerne. Grade grupperer altså Ancient, den rangerer den ikke
+  efter stjerner.
+- Øverst i samme liste står en guld-stjernet `+12 Rage Rune` markeret **Legend**,
+  nederst en Ancient markeret **Rare**. Alligevel står hver almindelig rune over
+  hver Ancient. **Default grade (`rank`) sorterer altså ingenting under Grade.**
+- Under Power-up Lv. ligger Ancient-runerne først, og de optræder **ikke** igen i
+  toppen af `+12`- eller `+9`-blokkene længere nede. Det er altså én
+  førende gruppe og ikke et tiebreak inden for hvert level.
+
+Asymmetrien er spillets egen. Den gengives uændret: formålet er, at en spiller,
+der netop har sorteret sin boks i spillet, kan sortere ens i JASWA og sammenligne
+de to lister række for række. `scripts/verify-rune-game-sort.mjs` fastholder
+begge ender, og `Rune.obtainedOrder` bærer anskaffelsesrækkefølgen (`rune_id`) af
+samme grund som `Artifact.obtainedOrder`: `date_add` opløser kun til sekundet, og
+spillet tildeler runer i bulk.
+
+**Målt kontra udledt.** Ancient-grupperingen og `rank`/`class`-mappingen er
+bekræftet mod en rigtig eksport med 1.556 runer: hver enkelt record bærer
+`rank`, og de 202 Ancient-runer (`class: 16`) er præcis de 202 records med
+Ancient-rank 13–15. Den konto ejer ingen runer under 6★, så rækkefølgen
+6★ → 5★ → 4★ hviler på skærmprintet og på `ATK +160`-læsningen, der identificerer
+den sidste rune som 6★. En senere måling med lavstjernede runer vinder over dette,
+hvis de er uenige.
+
 ## 12. Hvad reglerne ikke afgør
 
 Runeværdi for en rolle, SPD kontra HP %, valg af hvilke Gems, Grindstones eller

@@ -37,6 +37,34 @@ export const gemMinimumLevel = 12;
 export const runeMaximumLevel = 15;
 
 /**
+ * Default grade — the game's own word for a rune's rarity, which fixes how many
+ * Sub Properties it dropped with and never changes afterwards
+ * (`RUNE-CANONICAL.md` §6).
+ *
+ * It is a separate fact from the star class, and §1 keeps the two apart in its
+ * vocabulary: *grade* is the star class (`class`), *default grade* is this
+ * (`rank`). The names here follow the document.
+ *
+ * It is deliberately *not* what the game's own "Grade" sort orders by — that
+ * reads the star class and groups Ancient separately (§11.1). This is read
+ * because the export carries it and a record JASWA cannot understand must fail
+ * loudly rather than import invisibly.
+ */
+export const runeDefaultGrades = ['Normal', 'Magic', 'Rare', 'Hero', 'Legend'] as const;
+
+export type RuneDefaultGrade = typeof runeDefaultGrades[number];
+
+/**
+ * `rank` as the export writes it, for an ordinary rune and for an Ancient one
+ * (§6). The Ancient row is the same five rarities offset by ten, which is why
+ * this is one table read modulo ten rather than two.
+ */
+const defaultGradeByRank: Readonly<Record<number, RuneDefaultGrade>> = {
+  1: 'Normal', 2: 'Magic', 3: 'Rare', 4: 'Hero', 5: 'Legend',
+  11: 'Normal', 12: 'Magic', 13: 'Rare', 14: 'Hero', 15: 'Legend',
+};
+
+/**
  * Sub-property types that can never appear in a slot, over and above the ban on
  * repeating the main or prefix property (`RUNE-CANONICAL.md` §5). Slots 2, 4
  * and 6 choose their own main property and so have nothing fixed to forbid.
@@ -84,6 +112,12 @@ export type Rune = {
   stars: number;
   /** From Dimension Hole; takes Ancient craft items and no others (§7). */
   ancient: boolean;
+  /**
+   * Default grade — the rarity it dropped at, which fixed its starting Sub
+   * Property count and never changes (§6). A separate fact from `stars`: a 6★
+   * rune can be any of the five.
+   */
+  defaultGrade: RuneDefaultGrade;
   /** Power-up level, `0`–`15`. */
   level: number;
   mainStatId: number;
@@ -94,6 +128,16 @@ export type Rune = {
   subProperties: RuneSubProperty[];
   /** The `unit_id` wearing it, or `null` while it sits in inventory. */
   occupiedId: string | null;
+  /**
+   * The account's acquisition sequence, read from `rune_id` for the same reason
+   * `Artifact.obtainedOrder` and `Relic.obtainedOrder` are: the export issues
+   * the ids in ascending order of acquisition and no rune record carries
+   * anything better. `date_add` is not it — the game grants runes in bulk and
+   * the field resolves only to the second, so inside one grant it decides
+   * nothing and rows fall back to import order, which is not the order the game
+   * shows.
+   */
+  obtainedOrder: number;
 };
 
 function numberOrNull(value: unknown): number | null {
@@ -154,6 +198,14 @@ export function readRune(record: unknown): Rune | null {
   const starClass = numberOrNull(source.class);
   if (starClass === null || (starClass !== 16 && (!Number.isInteger(starClass) || starClass < 1 || starClass > 6))) return null;
 
+  /* The rarity is rejected rather than defaulted when the table does not cover
+     it (`AGENTS.md` §0.1): a rune counted in the account total but carrying an
+     invented grade would sort into a position the game never puts it in, and
+     nothing on screen would say so. */
+  const rank = numberOrNull(source.rank);
+  const defaultGrade = rank === null ? undefined : defaultGradeByRank[rank];
+  if (!defaultGrade) return null;
+
   const main = readProperty(source.pri_eff);
   if (!main) return null;
 
@@ -186,6 +238,7 @@ export function readRune(record: unknown): Rune | null {
     slot,
     stars: starClass === 16 ? 6 : starClass,
     ancient: starClass === 16,
+    defaultGrade,
     level,
     mainStatId: main.statId,
     mainValue: main.value,
@@ -193,6 +246,7 @@ export function readRune(record: unknown): Rune | null {
     prefixValue: prefix?.value ?? 0,
     subProperties,
     occupiedId: occupiedType === 1 && occupiedId !== null ? String(occupiedId) : null,
+    obtainedOrder: id,
   };
 }
 

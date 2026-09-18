@@ -16,7 +16,7 @@ import {
   initialSubPropertyRange, slotMainProperties, startingSubPropertyCount,
   subPropertyLevels, upgradeSubPropertyRange,
 } from '../app/lib/rune-properties.ts';
-import { runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
+import { runeDefaultGrades, runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
 import { judgeAgainstBuild, presetBuilds } from '../app/lib/rune-cleanup-model.ts';
 
 const args = new Map(process.argv.slice(2).filter((arg) => arg.startsWith('--') && arg.includes('='))
@@ -90,9 +90,10 @@ function freshRune(random, id, stars = 6, ancient = false) {
   const prefix = prefixStatId === null ? null : initialSubPropertyRange(stars, prefixStatId, ancient);
   return {
     id: String(id), setId: 1, setName: choose(random, setNames), slot, stars, ancient,
+    defaultGrade: runeDefaultGrades[rank - 1],
     level: 0, mainStatId, mainValue: 0, prefixStatId,
     prefixValue: prefix ? draw(random, prefix.minimum, prefix.maximum) : 0,
-    subProperties, occupiedId: null,
+    subProperties, occupiedId: null, obtainedOrder: id,
   };
 }
 function clone(rune) {

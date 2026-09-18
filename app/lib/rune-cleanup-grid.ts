@@ -29,6 +29,32 @@ export type RuneCleanupSortKey =
   'set' | 'slot' | 'main' | 'subs' | 'level' | 'location' | 'preset' | 'maxValue' | 'chance' | 'advice';
 
 /**
+ * The orderings the game's own Manage panel offers, reproduced rather than
+ * reinterpreted.
+ *
+ * They are kept apart from the column keys above because they answer a different
+ * question. A column sorts on something the table prints; these three sort the way
+ * the game sorts, so a player who has just arranged their box in Summoners War can
+ * arrange it the same way here and compare the two lists row for row. That is also
+ * why none of them gets a column: the value is the *order*, not a fact worth an
+ * eleventh column on an already wide table.
+ *
+ * Each option is one fixed arrangement rather than a direction to toggle, which
+ * is how the game offers them: best, highest or newest first. `gameSortKey`
+ * below states each one and the evidence behind it.
+ */
+export const runeGameSortKeys = ['gameGrade', 'gameLevel', 'gameObtained'] as const;
+
+export type RuneGameSortKey = typeof runeGameSortKeys[number];
+
+/** The game's own wording for each, as the dropdown prints it. */
+export const runeGameSortLabels: Readonly<Record<RuneGameSortKey, string>> = {
+  gameGrade: 'Grade',
+  gameLevel: 'Power-up Lv.',
+  gameObtained: 'Obtained',
+};
+
+/**
  * Which way a column opens. The two figures the page is for open at their best,
  * because the first question anyone asks a three-thousand-row table is "show me
  * the good ones"; the descriptive columns open alphabetically or lowest-first.
@@ -37,6 +63,60 @@ export const defaultRuneCleanupSortDirections: Readonly<Record<RuneCleanupSortKe
   set: true, slot: true, main: true, subs: true, level: true, location: true,
   preset: true, maxValue: false, chance: false, advice: true,
 };
+
+/**
+ * One row's place in a game ordering, as a tuple compared left to right. The
+ * whole ordering is stated as a key rather than as a chain of `||` comparisons
+ * so that the rule is legible as the thing being reproduced.
+ *
+ * **Ancient is a group, not a star class.** This is the one part of the game's
+ * behaviour that cannot be guessed and was read off the panel itself:
+ *
+ * - Under **Grade**, the account's Ancient runes sit *after* every ordinary
+ *   rune, including after the 5★ ones. The bottom of the slot-1 Grade list is a
+ *   purple-starred `+15 Shield Rune` whose `ATK +160` is the six-star figure
+ *   (§3), so it is a 6★ rune placed below 5★ — Ancient is being grouped, not
+ *   ranked by stars.
+ * - Under **Power-up Lv.** the same runes lead the list, and they do not
+ *   reappear at the head of the `+12` or `+9` blocks further down. So Ancient is
+ *   one leading group there rather than a tiebreak inside each level.
+ *
+ * The two orderings therefore put the Ancient group at opposite ends, which is
+ * the game's own inconsistency and is reproduced rather than tidied up.
+ *
+ * Rarity (`defaultGrade`) is deliberately *not* part of Grade: the top of the
+ * Grade list is a Legend and the bottom is a Rare, but a Rare 6★ ordinary rune
+ * still sorts above every Ancient one, so rarity orders nothing here.
+ */
+function gameSortKey(row: RuneCleanupRow, key: RuneGameSortKey): readonly number[] {
+  const rune = row.rune;
+  const ancient = rune.ancient ? 1 : 0;
+  switch (key) {
+    /* Ancient trails, then star class descending. */
+    case 'gameGrade': return [ancient, -rune.stars];
+    /* Ancient leads, then power-up level descending. */
+    case 'gameLevel': return [1 - ancient, -rune.level];
+    /* Newest first, and unique per rune, so it needs no tiebreak of its own. */
+    case 'gameObtained': return [-rune.obtainedOrder];
+    default: return [];
+  }
+}
+
+/**
+ * Two rows in one of the game's own orderings. Ties fall through to the caller's
+ * tiebreak exactly as a column comparison does.
+ */
+export function compareRuneGameSort(
+  left: RuneCleanupRow, right: RuneCleanupRow, key: RuneGameSortKey,
+): number {
+  const leftKey = gameSortKey(left, key);
+  const rightKey = gameSortKey(right, key);
+  for (let at = 0; at < leftKey.length; at += 1) {
+    const ordered = (leftKey[at] ?? 0) - (rightKey[at] ?? 0);
+    if (ordered !== 0) return ordered;
+  }
+  return 0;
+}
 
 /** The verdicts in the order they rank, so sorting by advice reads as a priority. */
 const verdictRank: Readonly<Record<string, number>> = { 'power-up': 0, keep: 1, sell: 2 };

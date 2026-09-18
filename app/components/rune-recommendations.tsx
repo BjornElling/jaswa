@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { AncientName } from './ancient-mark';
+import { Dropdown } from './dropdown';
 import { Button, FilterButton } from './button';
 import { DataTablePage, TableColumnGroup } from './data-table-page';
 import { FilterSummary } from './filter-summary';
@@ -16,9 +17,10 @@ import { runeAdvice, runeVerdictLabels, runeVerdictOrder } from '../lib/rune-cle
 import type { RuneVerdict } from '../lib/rune-cleanup-advice';
 import { noReferenceLineMessage, referenceLines } from '../lib/rune-reference-stats';
 import {
-  compareRuneCleanupRows, defaultRuneCleanupSortDirections, runeCleanupSearchText,
+  compareRuneCleanupRows, compareRuneGameSort, defaultRuneCleanupSortDirections,
+  runeCleanupSearchText, runeGameSortKeys, runeGameSortLabels,
 } from '../lib/rune-cleanup-grid';
-import type { RuneCleanupRow, RuneCleanupSortKey } from '../lib/rune-cleanup-grid';
+import type { RuneCleanupRow, RuneCleanupSortKey, RuneGameSortKey } from '../lib/rune-cleanup-grid';
 import type { RunePotentialPreset } from '../lib/rune-potential-presets';
 import type { GameRecord } from '../lib/game-data';
 import type { ImportedGame, RunePotentialSettings } from '../lib/types';
@@ -40,12 +42,14 @@ type RuneFilterState = {
   highestLevel: number;
   showEquipped: boolean;
   showStored: boolean;
+  /** One of the game's own orderings, or `null` while a column heading orders. */
+  gameSort: RuneGameSortKey | null;
 };
 
 const defaultRuneFilters: RuneFilterState = {
   search: '', selectedSets: [], selectedSlots: [], selectedVerdicts: [], selectedPresets: [],
   selectedMains: [], lowestLevel: 0, highestLevel: runeMaximumLevel,
-  showEquipped: true, showStored: true,
+  showEquipped: true, showStored: true, gameSort: null,
 };
 
 function isRuneFilterState(value: unknown): value is RuneFilterState {
@@ -62,7 +66,11 @@ function isRuneFilterState(value: unknown): value is RuneFilterState {
     && Array.isArray(candidate.selectedMains) && candidate.selectedMains.every((e) => typeof e === 'number')
     && level(candidate.lowestLevel) && level(candidate.highestLevel)
     && (candidate.lowestLevel as number) <= (candidate.highestLevel as number)
-    && typeof candidate.showEquipped === 'boolean' && typeof candidate.showStored === 'boolean';
+    && typeof candidate.showEquipped === 'boolean' && typeof candidate.showStored === 'boolean'
+    /* `null` is "a column heading is ordering", which is a stated value here and
+       not an absent one, so it is accepted and anything else is rejected. */
+    && (candidate.gameSort === null
+      || runeGameSortKeys.includes(candidate.gameSort as RuneGameSortKey));
 }
 
 function cell(key: string, ...extra: Array<string | false | undefined>): string {
@@ -91,6 +99,18 @@ const columns: readonly SortableColumn<RuneCleanupRow>[] = (() => {
     column('maxValue', <span className="table-heading-two-line" aria-label="Max value: the best end state it can reach, where a perfect rune is 100 per cent and the quality floor you set is the bar">Max<br />value</span>),
     column('chance', <span className="table-heading-two-line" aria-label="Chance to reach the quality floor by +12, or a dash for a rune already at +12">Chance</span>),
     column('advice', 'Advice'),
+    /* The game's own three orderings, driven by the Sort by dropdown. They carry
+       `header: false` for the reason `artifact-list.tsx` does: they stay in this
+       one list so the table has a single sort state, no heading claims to be the
+       sorted one while one of them is active, and a click on any heading hands
+       ordering straight back to the table. */
+    ...runeGameSortKeys.map((key) => ({
+      key,
+      label: runeGameSortLabels[key],
+      header: false as const,
+      compare: (left: RuneCleanupRow, right: RuneCleanupRow) =>
+        compareRuneGameSort(left, right, key) || left.index - right.index,
+    })),
   ];
 })();
 
@@ -112,7 +132,7 @@ export function RuneRecommendations({ game, settings, presets }: {
     'jaswa.filters.rune-cleanup', defaultRuneFilters, isRuneFilterState,
   );
   const { search, selectedSets, selectedSlots, selectedVerdicts, selectedPresets, selectedMains,
-    lowestLevel, highestLevel, showEquipped, showStored } = filters;
+    lowestLevel, highestLevel, showEquipped, showStored, gameSort } = filters;
 
   /* The held result, and the settings it answers. A result is kept until the user
      asks for another one, so a slider moved after a calculation leaves the table
@@ -191,9 +211,28 @@ export function RuneRecommendations({ game, settings, presets }: {
   }, [rows, search, selectedSets, selectedSlots, selectedVerdicts, selectedPresets, selectedMains,
     lowestLevel, highestLevel, showEquipped, showStored]);
 
-  const { sorted, sort, toggle } = useSortedRows(
+  const { sorted, sort, toggle: toggleColumn, setSort } = useSortedRows(
     visible, columns, { key: 'maxValue', direction: 'descending' },
   );
+
+  /* Choosing one of the game's orderings takes the table over; clicking any
+     column heading hands ordering back and clears the dropdown. One sort state
+     throughout, so the two controls can never both claim to be ordering the
+     rows.
+     The direction is always `ascending` because each game ordering already
+     states its own direction, in the sign of its sort key — the game offers one
+     arrangement per option, not a pair to toggle between, so reversing it here
+     would invent an order the panel does not have. */
+  const sortingByGame = runeGameSortKeys.includes(sort.key as RuneGameSortKey);
+  useEffect(() => {
+    if (gameSort !== null) setSort({ key: gameSort, direction: 'ascending' });
+    else if (sortingByGame) setSort({ key: 'maxValue', direction: 'descending' });
+  }, [gameSort, setSort, sortingByGame]);
+
+  function toggle(key: string) {
+    setFilters((current) => ({ ...current, gameSort: null }));
+    toggleColumn(key);
+  }
 
   function toggleValue<T>(value: T, key: keyof RuneFilterState) {
     setFilters((current) => {
@@ -284,6 +323,27 @@ export function RuneRecommendations({ game, settings, presets }: {
                   onClick={() => setFilters((current) => ({ ...current, search: '' }))}
                   hidden={!search} disabled={!search} aria-label="Clear filter">✕</FilterButton>
               </div>
+            </div>
+          </div>
+          {/* Ordering, not filtering: it reproduces the game's own Sort by, so a
+              box just arranged in Summoners War can be arranged the same way
+              here and the two lists compared row for row. */}
+          <div className="filter-group rune-filter-sort-by" role="group" aria-label="Sort runes the way the game does">
+            <label className="filter-label" htmlFor="rune-sort-by">Sort by</label>
+            <div className="filter-group-controls">
+              <Dropdown id="rune-sort-by"
+                value={gameSort ?? ''}
+                onChange={(event) => setFilters((current) => ({
+                  ...current,
+                  gameSort: runeGameSortKeys.includes(event.target.value as RuneGameSortKey)
+                    ? event.target.value as RuneGameSortKey
+                    : null,
+                }))}
+                placeholder="Not sorted">
+                {runeGameSortKeys.map((key) => <option key={key} value={key}>
+                  {runeGameSortLabels[key]}
+                </option>)}
+              </Dropdown>
             </div>
           </div>
           {toggleGroup('Advice', 'Filter by advice', runeVerdictOrder, selectedVerdicts,
