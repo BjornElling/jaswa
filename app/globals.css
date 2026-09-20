@@ -1738,6 +1738,12 @@ label[for] {
    rest to the sentence beside it. */
 .math-table-overtake th:nth-child(2) { width: 12%; }
 .math-table-overtake th:last-child { width: 62%; }
+/* The weight table carries six value columns, two of them four or five digits
+   wide. At the shared 14 % the stat names would take a third of the row for
+   three letters, so the figures take the width they need and the names take the
+   little they need. */
+.math-table-weights th:not(:first-child) { width: 13%; }
+.math-table-weights th:first-child { width: 22%; }
 /* The rolled value belongs to the substat it rolled on, so it reads as part of
    that name rather than as a column of its own; the stronger colour keeps the
    number legible against the muted name. */

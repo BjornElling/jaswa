@@ -14,6 +14,20 @@ This document is **not** a binding contract and changes no rule.
 `docs/RUNE-CLEANUP-MATH.md` remains the calculation contract — which §3, §6 and §7 of
 that document were amended to carry, each in its own commit, as its §9 requires.
 
+> **Superseded in part, 20 September 2026.** The substat weights landed
+> (`RUNE-CLEANUP-MATH.md` §4), and with them `rune-cleanup-model.ts` was restructured:
+> `buildDemand`/`slotDemand`, the `Demand` record, the per-stat supply map,
+> `craftLineUps` and `projectedSupply` no longer exist under those names, and the
+> probability primitives moved to `app/lib/rune-roll-distributions.ts`. **The one
+> finding this reverses is §7/§10's "another slot's main choice cannot change this
+> rune's score", and the single-representative-build optimisation built on it.** That
+> was true while a target merely selected a direction; it stopped being true the
+> moment a build's main properties began to be subtracted from what the role still
+> needs. Every compatible build is enumerated again, and the measured cost of doing
+> so is small — 2,000 runes against the eight shipped presets judge in about 500 ms,
+> which is where the engine already stood. Everything else below stands as a record
+> of the engine as it was profiled, and the function names in it are that engine's.
+
 **Where sections disagree, the later one wins:** §7 is superseded by §11, §11 is
 qualified by §13.4, and §14 reports against §13.4.
 

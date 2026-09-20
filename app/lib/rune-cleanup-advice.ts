@@ -33,15 +33,23 @@ export const runeVerdictLabels: Record<RuneVerdict, string> = {
 /**
  * The Max value a rune must be able to reach, by the Rune quality floor slider.
  *
- * The stops are the calibrated ones: at `3`, the setting the slider opens on, about
- * 15 % of an ordinary box survives, which is the figure
- * `scripts/verify-rune-cleanup-calibration.mjs` measures and holds. They are
- * percentages of a perfect rune for the role, so `0.55` means "reaches at least
- * 55 % of what the best possible rune for this preset would".
+ * The stops are calibrated against a synthetic box of ordinary six-star runes at
+ * `+12`: at `3`, the setting the slider opens on, about **15 %** of that box clears
+ * the value gate, and the ladder runs from roughly a third of the box down to a few
+ * per cent. They are percentages of a perfect rune for the role, so `0.49` means
+ * "reaches at least 49 % of what the best possible rune for this preset would".
+ *
+ * **They moved when the substat weights landed**, and they had to. The old stops —
+ * `0.41` to `0.69` — were calibrated against a model in which every wanted stat
+ * priced alike, so an ordinary rune with four wanted lines sat close to a perfect
+ * one. Now a perfect rune concentrates on the tightest target the role has, an
+ * ordinary rune spreads across whatever it drew, and the same box reads about one
+ * stop lower throughout. Leaving the numbers alone would have silently made the
+ * default setting twice as strict as it says it is.
  *
  * The stop is the number the column prints and the floor every candidate faces.
  */
-export const qualityThresholds: readonly number[] = [0.41, 0.49, 0.55, 0.62, 0.69];
+export const qualityThresholds: readonly number[] = [0.36, 0.43, 0.49, 0.56, 0.63];
 
 /**
  * How likely a rune must be to reach that floor before its mana is worth spending,
@@ -162,26 +170,44 @@ export function runeAdvice(
     for (const preset of presets) {
       const line = base.get(preset.type);
       if (!line) continue;
-      /* The model deliberately bases a row only on the rune's own slot. Other
-         slots' main choices cannot cap a wanted stat or change this rune's legal
-         lines, so their Cartesian-product builds are identical work. Keep the one
-         compatible representative rather than calculating the same probability up
-         to eight times. */
-      const build = (builds.get(preset.id) ?? []).find((candidate) => {
-        if (rune.slot !== 2 && rune.slot !== 4 && rune.slot !== 6) return true;
+      /* **Every compatible build, not one representative.** It used to keep the
+         first build whose own slot matched, on the reasoning that another slot's
+         main choice could not change this rune's legal lines. That reasoning ended
+         when main properties began to be subtracted from what a role still needs:
+         a build with HP % in slots 4 and 6 asks its runes for thousands less HP
+         than one with ATK % there, and the same slot-2 rune is worth different
+         amounts to the two. Keeping whichever build happened to be enumerated
+         first would have picked one of those answers at random. */
+      for (const build of builds.get(preset.id) ?? []) {
         /* A slot the preset says nothing about accepts every main the slot allows,
            at the broken rank — `presetBuilds` emits `0` for exactly that, and
-           `judgeAgainstBuild`'s guard honours it. This finder used to demand an
-           exact match and so skipped the preset outright, which made a rune the
-           preset wants report "No preset can use it" purely because the user left
-           a different slot blank. */
-        return candidate.mains[rune.slot] === rune.mainStatId || candidate.mains[rune.slot] === 0;
-      });
-      if (!build) continue;
-      const prepared = prepareRuneCandidate(rune, preset, build, line, credit, scope);
-      if (!prepared) continue;
-      const worth = prepared.rank === 'preferred' ? 1 : prepared.rank === 'acceptable' ? accepted : broken;
-      candidates.push({ preset, prepared, value: candidateMaxValue(prepared) * worth, rank: prepared.rank });
+           `prepareRuneCandidate`'s guard honours it. Demanding an exact match here
+           would skip the preset outright, which made a rune the preset wants report
+           "No preset can use it" purely because the user left a different slot
+           blank. */
+        if (rune.slot === 2 || rune.slot === 4 || rune.slot === 6) {
+          const wanted = build.mains[rune.slot];
+          if (wanted !== rune.mainStatId && wanted !== 0) continue;
+        }
+        const prepared = prepareRuneCandidate(rune, preset, build, line, credit, scope);
+        if (!prepared) continue;
+        const worth = prepared.rank === 'preferred' ? 1 : prepared.rank === 'acceptable' ? accepted : broken;
+        candidates.push({ preset, prepared, value: candidateMaxValue(prepared) * worth, rank: prepared.rank });
+      }
+    }
+
+    /* **One candidate per preset: the build it scores best in.** A preset's builds
+       are readings of the same role, and the row prints one Max value and one Chance
+       against one preset, so the build those two describe should be the same one —
+       the best. Asking every build for its odds instead is what the chance
+       calculation costs the most of, and the engine used to keep whichever build was
+       enumerated first, so picking the best-valued one is strictly better than what
+       this replaced. Choosing between *presets* on chance as well as value is a
+       different question, and the loop below still does it. */
+    const bestPerPreset = new Map<string, typeof candidates[number]>();
+    for (const candidate of candidates) {
+      const standing = bestPerPreset.get(candidate.preset.id);
+      if (!standing || candidate.value > standing.value) bestPerPreset.set(candidate.preset.id, candidate);
     }
 
     /* Best first, so the strongest candidate that also clears the chance bar wins,
@@ -190,10 +216,10 @@ export function runeAdvice(
 
        On raw discounted value: the quality floor is shared, so no presentation
        transform or hidden per-preset bar can change which candidate wins. */
-    candidates.sort((left, right) => right.value - left.value);
+    const contenders = [...bestPerPreset.values()].sort((left, right) => right.value - left.value);
     let fallback: Answer | null = null;
     const eligibleByPreset = new Map<string, Answer>();
-    for (const candidate of candidates) {
+    for (const candidate of contenders) {
       const passesValue = candidate.value >= qualityBar;
       if (!passesValue && fallback !== null) continue;
       /* The chance has to be the chance of clearing the *same* bar the value was

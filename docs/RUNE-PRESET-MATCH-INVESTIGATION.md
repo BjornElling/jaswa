@@ -1,10 +1,19 @@
 # Rune Clean-up — investigation into "Best preset"
 
-**Status:** Findings only. No code was changed.
+**Status:** Findings only. No code was changed. **Resolved 20 September 2026.**
 **Date:** 18 September 2026
 **Scope:** `app/lib/rune-cleanup-model.ts`, `app/lib/rune-cleanup-advice.ts`,
 `app/lib/rune-potential-presets.ts`, `docs/RUNE-CLEANUP-MATH.md`
 **Prompted by:** three recommendations that looked wrong on the Rune Clean-up page.
+
+> **Resolution.** The defect below is fixed. `app/lib/rune-substat-weights.ts` gives
+> every target its own multiplier, derived from what the build still needs from sub
+> properties once the reference monster, all six main properties and the completed set
+> are subtracted, against what an ordinary rune supplies of that stat anyway.
+> `RUNE-CLEANUP-MATH.md` §4 is the contract, and
+> `npm run verify:rune-substat-weights` holds it. The function names below are the
+> pre-fix engine's and several no longer exist; the document is kept as the record of
+> how the defect was found and what exactly it was.
 
 ---
 
