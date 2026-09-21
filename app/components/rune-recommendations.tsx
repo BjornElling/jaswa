@@ -5,6 +5,7 @@ import { Dropdown } from './dropdown';
 import { Button, FilterButton } from './button';
 import { DataTablePage, TableColumnGroup } from './data-table-page';
 import { FilterSummary } from './filter-summary';
+import { QualityRule, qualityRuleHost } from './quality-rule';
 import { SortableHeader } from './sortable-table';
 import { useSortedRows } from './use-sorted-rows';
 import type { SortableColumn } from './use-sorted-rows';
@@ -458,7 +459,8 @@ export function RuneRecommendations({ game, settings, presets }: {
       >
         <tbody>
           {sorted.length ? sorted.map((row) => <tr key={row.rune.id}>
-            <td className={cell('set')}>
+            <td className={cell('set', qualityRuleHost)}>
+              <QualityRule tier={row.rune.defaultGrade} />
               <AncientName name={row.rune.setName} ancient={row.rune.ancient} />
             </td>
             <td className={cell('slot')}>{row.rune.slot}</td>
