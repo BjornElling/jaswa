@@ -5501,8 +5501,8 @@ th.align-center .sort-button { justify-content: center; }
   grid-template-columns: repeat(4, minmax(0, 1fr));
   grid-template-areas:
     "count set slot stars"
-    "lineage main target gate-zero"
-    "gate-nine gate-twelve actions actions"
+    "lineage main gate-zero gate-nine"
+    "gate-twelve actions actions actions"
     "craft craft craft craft";
 }
 .rune-simulator-count { grid-area: count; }
@@ -5533,7 +5533,6 @@ th.align-center .sort-button { justify-content: center; }
 .rune-simulator-filters .rune-simulator-stars { grid-area: stars; }
 .rune-simulator-lineage { grid-area: lineage; }
 .rune-simulator-filters .rune-simulator-main { grid-area: main; }
-.rune-simulator-filters .rune-simulator-target { grid-area: target; }
 .rune-simulator-gate-zero { grid-area: gate-zero; }
 .rune-simulator-gate-nine { grid-area: gate-nine; }
 .rune-simulator-gate-twelve { grid-area: gate-twelve; }

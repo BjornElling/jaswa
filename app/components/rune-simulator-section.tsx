@@ -10,18 +10,21 @@ import {
   allRuneSetNames,
 } from '../lib/rune-sets';
 import {
-  runeStatIds, runeStatName, runeSubValue,
+  runeStatName, runeSubValue,
 } from '../lib/runes';
 import { slotMainProperties } from '../lib/rune-properties';
 import type {
   RuneSimulationConfig, RuneSimulationResult, SimulationStage,
+  SimulationCheckpointPolicy,
   SimulationSubProperty as SimulatedSubProperty,
 } from '../lib/rune-simulator';
 import {
   defaultRuneSimulationConfig, simulateRunes, simulationSetEffect, simulationStages,
-  simulationStatLabel,
+  simulationNoRuneType, simulationStatLabel,
 } from '../lib/rune-simulator';
-import type { ItemGrade, RunePotentialSettings } from '../lib/types';
+import type { ImportedGame, ItemGrade, RunePotentialSettings } from '../lib/types';
+import type { RunePotentialPreset } from '../lib/rune-potential-presets';
+import { referenceLines, noReferenceLineMessage } from '../lib/rune-reference-stats';
 import {
   craftAssumptionForSetting, craftRollDescriptions, craftRollLabels,
 } from '../lib/rune-craft-items';
@@ -33,7 +36,6 @@ type FormState = {
   stars: string;
   lineage: RuneSimulationConfig['lineage'];
   mainStatId: string;
-  targetStatId: string;
   gateZero: string;
   gateNine: string;
   gateTwelve: string;
@@ -46,18 +48,14 @@ const initialForm: FormState = {
   stars: String(defaultRuneSimulationConfig.stars),
   lineage: defaultRuneSimulationConfig.lineage,
   mainStatId: '',
-  targetStatId: '',
-  gateZero: '0',
-  gateNine: '0',
-  gateTwelve: '0',
+  gateZero: 'keep-all',
+  gateNine: 'keep-all',
+  gateTwelve: 'keep-all',
 };
 
 const gateOptions = [
-  { value: '0', label: 'Keep all' },
-  { value: '1', label: 'Sell below 1 target roll' },
-  { value: '2', label: 'Sell below 2 target rolls' },
-  { value: '3', label: 'Sell below 3 target rolls' },
-  { value: '4', label: 'Sell below 4 target rolls' },
+  { value: 'keep-all', label: 'Keep all' },
+  { value: 'recommendation', label: 'Sell according to recommendation' },
 ] as const;
 
 function numberOrNull(value: string): number | null {
@@ -71,9 +69,8 @@ function positiveCount(value: string): number | null {
   return parsed !== null && parsed >= 1 && parsed <= 1000 ? parsed : null;
 }
 
-function gate(minimum: string, target: string) {
-  const minimumRolls = numberOrNull(minimum) ?? 0;
-  return { minimumRolls, targetStatId: minimumRolls > 0 ? numberOrNull(target) : null };
+function gate(policy: string): { policy: SimulationCheckpointPolicy } {
+  return { policy: policy as SimulationCheckpointPolicy };
 }
 
 function toConfig(form: FormState, count: number, settings: RunePotentialSettings): RuneSimulationConfig {
@@ -87,9 +84,9 @@ function toConfig(form: FormState, count: number, settings: RunePotentialSetting
     lineage: form.lineage,
     mainStatId: numberOrNull(form.mainStatId),
     gates: {
-      0: gate(form.gateZero, form.targetStatId),
-      9: gate(form.gateNine, form.targetStatId),
-      12: gate(form.gateTwelve, form.targetStatId),
+      0: gate(form.gateZero),
+      9: gate(form.gateNine),
+      12: gate(form.gateTwelve),
     },
     craftSettings: {
       enchantedGems: settings.enchantedGems,
@@ -108,20 +105,29 @@ function setFormValue<K extends keyof FormState>(setForm: Dispatch<SetStateActio
   setForm((current) => ({ ...current, [key]: value }));
 }
 
-export function RuneSimulatorSection({ settings }: { settings: RunePotentialSettings }) {
+export function RuneSimulatorSection({ game, settings, presets }: {
+  game: ImportedGame | null;
+  settings: RunePotentialSettings;
+  presets: RunePotentialPreset[];
+}) {
   const [form, setForm] = useState<FormState>(initialForm);
   const [result, setResult] = useState<RuneSimulationResult | null>(null);
   const [stage, setStage] = useState<SimulationStage>(0);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
 
+  const base = useMemo(() => {
+    const lines = referenceLines(game?.data);
+    return lines === null ? null : new Map([...lines].map(([type, line]) => [type, line.stats]));
+  }, [game]);
+
   const selectedSlot = numberOrNull(form.slot);
   const mainOptions = useMemo(() => selectedSlot === null
     ? Object.values(slotMainProperties).flat().filter((value, at, values) => values.indexOf(value) === at)
     : slotMainProperties[selectedSlot] ?? [], [selectedSlot]);
 
-  const requiresTarget = [form.gateZero, form.gateNine, form.gateTwelve]
-    .some((minimum) => (numberOrNull(minimum) ?? 0) > 0);
+  const requiresRecommendation = [form.gateZero, form.gateNine, form.gateTwelve]
+    .some((policy) => policy === 'recommendation');
   const count = positiveCount(form.count);
 
   function reset() {
@@ -135,8 +141,12 @@ export function RuneSimulatorSection({ settings }: { settings: RunePotentialSett
       setMessage('Choose between 1 and 1,000 runes.');
       return;
     }
-    if (requiresTarget && numberOrNull(form.targetStatId) === null) {
-      setMessage('Choose a target substat for the sell rules.');
+    if (requiresRecommendation && base === null) {
+      setMessage(noReferenceLineMessage);
+      return;
+    }
+    if (requiresRecommendation && presets.length === 0) {
+      setMessage('Add a Rune Clean-up preset before using recommendation sell rules.');
       return;
     }
     setBusy(true);
@@ -146,7 +156,7 @@ export function RuneSimulatorSection({ settings }: { settings: RunePotentialSett
        for the supplied random source, which keeps one rule for every caller. */
     window.setTimeout(() => {
       try {
-        const next = simulateRunes(toConfig(form, count, settings));
+        const next = simulateRunes(toConfig(form, count, settings), { presets, settings, base });
         setResult(next);
         setStage(0);
       } catch (error) {
@@ -212,12 +222,6 @@ export function RuneSimulatorSection({ settings }: { settings: RunePotentialSett
         className="rune-simulator-main"
         placeholder="Any legal main" onChange={(value) => setFormValue(setForm, 'mainStatId', value)}>
         {mainOptions.map((statId) => <option key={statId} value={statId}>{runeStatName(statId)}</option>)}
-      </SimulatorSelect>
-
-      <SimulatorSelect id="rune-simulator-target" label="Target substat" value={form.targetStatId}
-        className="rune-simulator-target"
-        placeholder="Choose only for sell rules" onChange={(value) => setFormValue(setForm, 'targetStatId', value)}>
-        {runeStatIds.map((statId) => <option key={statId} value={statId}>{runeStatName(statId)}</option>)}
       </SimulatorSelect>
 
       <GateSelect id="rune-simulator-gate-zero" label="After +0" value={form.gateZero}
@@ -367,7 +371,7 @@ function SimulationRow({ entry }: { entry: RuneSimulationResult['stages'][Simula
   return <tr>
     <td className="rune-simulator-set-cell">
       <span className="rune-simulator-set-name">{rune.setName === null
-        ? 'No rune type'
+        ? simulationNoRuneType
         : <AncientName name={rune.setName} ancient={rune.ancient} />}</span>
       <span className="rune-simulator-set-effect type-caption">{rune.setName === null ? '—' : simulationSetEffect(rune.setName) ?? '—'}</span>
     </td>

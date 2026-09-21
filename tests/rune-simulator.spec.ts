@@ -1,4 +1,7 @@
 import { expect, test } from '@playwright/test';
+import { fileURLToPath } from 'node:url';
+
+const account = fileURLToPath(new URL('./fixtures/craft-account.json', import.meta.url));
 
 test('simulates random runes through +0, +9 and +12 with craft marks', async ({ page }, testInfo) => {
   await page.goto('/');
@@ -27,10 +30,11 @@ test('simulates random runes through +0, +9 and +12 with craft marks', async ({ 
   await page.getByLabel('Slot').selectOption('2');
   await page.getByLabel('Stars').selectOption('6');
   await page.getByLabel('Main stat').selectOption('8');
-  await page.getByLabel('Target substat').selectOption('4');
-  await page.getByLabel('After +0').selectOption('0');
-  await page.getByLabel('After +9').selectOption('0');
-  await page.getByLabel('After +12').selectOption('0');
+  await expect(page.getByLabel('Target substat')).toHaveCount(0);
+  await expect(page.getByLabel('After +0').locator('option')).toHaveText(['Keep all', 'Sell according to recommendation']);
+  await page.getByLabel('After +0').selectOption('keep-all');
+  await page.getByLabel('After +9').selectOption('keep-all');
+  await page.getByLabel('After +12').selectOption('keep-all');
   await page.getByRole('button', { name: 'Generate runes', exact: true }).click();
 
   await expect(page.getByRole('heading', { name: '200 runes, three checkpoints', exact: true })).toBeVisible();
@@ -48,4 +52,26 @@ test('simulates random runes through +0, +9 and +12 with craft marks', async ({ 
   expect(before).not.toBeNull();
   expect(after).not.toBeNull();
   expect(after).toEqual(before);
+});
+
+test('uses Rune Clean-up recommendation as the checkpoint sell policy', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
+  await expect(page.getByText('craft-account.json')).toBeVisible();
+  await page.getByRole('navigation').getByRole('button', { name: 'Rune Simulator', exact: true }).click();
+
+  await page.getByLabel('Quantity').fill('20');
+  await page.getByLabel('Rune set').selectOption('Fatal');
+  await page.getByLabel('Slot').selectOption('2');
+  await page.getByLabel('Stars').selectOption('6');
+  await page.getByLabel('Main stat').selectOption('8');
+  await page.getByLabel('After +0').selectOption('recommendation');
+  await page.getByLabel('After +9').selectOption('recommendation');
+  await page.getByLabel('After +12').selectOption('recommendation');
+  await page.getByRole('button', { name: 'Generate runes', exact: true }).click();
+
+  await expect(page.getByRole('heading', { name: '20 runes, three checkpoints', exact: true })).toBeVisible();
+  await expect(page.locator('.rune-simulator-table tbody tr')).toHaveCount(20);
+  await expect(page.locator('.rune-simulator-table [data-verdict="sell"]').first()).toBeVisible();
 });

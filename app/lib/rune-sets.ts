@@ -49,9 +49,10 @@ export const elementNameList: readonly string[] = Object.keys(elementNames)
   .sort((left, right) => left - right)
   .map((attribute) => elementNames[attribute]);
 
-/** Every set name the game has, alphabetically. */
 /** Every set name the game can put on a rune, including Intangible. */
 export const allRuneSetNames: readonly string[] = Object.values(runeSetNames).sort((left, right) => left.localeCompare(right));
+
+const runeSetIdsByName = new Map(Object.entries(runeSetNames).map(([id, name]) => [name, Number(id)]));
 
 /**
  * The sets a preset may ask for, alphabetically. The preset editor offers these,
@@ -75,6 +76,10 @@ function numberValue(value: unknown): number {
 
 export function runeSetName(setId: unknown): string | undefined {
   return runeSetNames[numberValue(setId)];
+}
+
+export function runeSetId(setName: string): number | undefined {
+  return runeSetIdsByName.get(setName);
 }
 
 export function elementName(attribute: unknown): string | undefined {

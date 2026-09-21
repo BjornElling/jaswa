@@ -455,7 +455,11 @@ export default function Home() {
 
       {page === 'the-math' && <Suspense fallback={<WorkspaceLoading />}><TheMathSection /></Suspense>}
 
-      {page === 'rune-simulator' && <Suspense fallback={<WorkspaceLoading />}><RuneSimulatorSection settings={preferences.runePotential} /></Suspense>}
+      {page === 'rune-simulator' && <Suspense fallback={<WorkspaceLoading />}><RuneSimulatorSection
+        game={game}
+        settings={preferences.runePotential}
+        presets={preferences.runePotentialPresets}
+      /></Suspense>}
 
       {page === 'relics' && <Suspense fallback={<WorkspaceLoading />}><RelicList game={game} monsters={monsters} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
 

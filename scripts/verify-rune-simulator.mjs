@@ -27,6 +27,14 @@ try {
     count: 25,
     slot: 2,
     stars: 6,
+  }, {
+    presets: [],
+    settings: {
+      powerUpPolicy: 3, runeQuality: 3, enchantedGems: 1, grindstones: 1,
+      gemGrade: 'Hero', grindstoneGrade: 'Hero', acceptedRunes: 3,
+      brokenRunes: 3, intangibleRunes: 3, keepMoreForLargerSets: false,
+    },
+    base: null,
   }, () => 0.1);
   assert.equal(result.stages[0].entries.length, 25);
   assert.equal(result.stages[0].entries.every(({ rune }) => rune.setName === null), true,
