@@ -415,12 +415,12 @@ export function TheMathSection() {
           </table>
         </div>
         <p>
-          Ancient runes use their higher verified <i>initial</i> substat interval for the lines they dropped with. Their later <span className="math-relic-level">+3</span>/<span className="math-relic-level">+6</span>/<span className="math-relic-level">+9</span>/<span className="math-relic-level">+12</span> upgrades, their added lines and their main stats follow the ordinary six-star rules, and they take Ancient craft items only.
+          Ancient runes use their higher verified <i>initial</i> substat interval in the Max-value and Chance projections. Their later <span className="math-relic-level">+3</span>/<span className="math-relic-level">+6</span>/<span className="math-relic-level">+9</span>/<span className="math-relic-level">+12</span> upgrades, role valuation, reference box and denominator follow the ordinary six-star rules, and they take Ancient craft items only. Because the denominator stays ordinary, a maximum Ancient result may exceed 100 %.
         </p>
 
         <h3 className="type-heading">Gems and Grindstones</h3>
         <p>
-          If you tell JASWA in Settings which Gems and Grindstones to assume, they are spent on the rune <i>and</i> on the perfect rune it is measured against. Turning a slider up raises the bar as well as the rune, so nothing can read past 100 % because the settings promised it a stone.
+          If you tell JASWA in Settings which Gems and Grindstones to assume, they are spent on the rune <i>and</i> on the perfect ordinary rune it is measured against. Turning a slider up raises the bar as well as the rune. Ordinary runes stay at or below 100 %; an Ancient rune may exceed it when its higher initial interval beats that ordinary reference.
         </p>
         <p>
           A Grindstone is credited on every grindable line, including ones the rune has yet to gain, as <b className="type-body-emphasis">the better of what is already there and what the stone would give</b> — never added on top, which would pay the rune twice for one line.
@@ -594,7 +594,7 @@ export function TheMathSection() {
           A rune is checked against <i>every</i> preset and every compatible main-stat choice. Passing candidates are then assigned once to the finite preset capacity you asked for. A rune that passed its own quality and Chance gates but is outside that capacity says so plainly instead of masquerading as a weak roll.
         </p>
         <p>
-          Every star class is rated. A 4★ or 5★ rune uses its own main and substat intervals on the shared 6★ scale. An Ancient rune uses its higher verified interval only for substats it had on drop; its main stat, added lines and later upgrades use the ordinary 6★ intervals. Ancient Gems and Grindstones use their own legal tables.
+          Every star class is rated. A 4★ or 5★ rune uses its own main and substat intervals on the shared 6★ scale. An Ancient rune uses its higher verified initial-roll interval only in its Max-value and Chance projections; its main stat, role valuation, reference box and denominator use the ordinary 6★ rules. Ancient Gems and Grindstones use their own legal tables.
         </p>
       </div>
     </Disclosure>

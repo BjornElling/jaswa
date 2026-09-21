@@ -20,7 +20,7 @@ stochastic part.
 | --- | --- |
 | Ordinary 1–6★ main and substat intervals | Verified tables in `RUNE-CANONICAL.md` §§3–4. |
 | Ancient main stats and later upgrades | Ordinary 6★ values. |
-| Ancient drop substats | Higher Ancient *initial* table only; see `RUNE-CANONICAL.md` §7. |
+| Ancient rolls in Max value and Chance | Ancient min–max values for initial-roll terms; ordinary six-star values for upgrades. All reference calculations remain ordinary. |
 | Gem and Grindstone legality/ranges | Verified tables and source notes in `RUNE-CRAFT-ITEMS.md`. |
 | A value inside its legal integer interval | Modelled uniformly; the 6★ distribution has a measured check. |
 | Upgrade target and new-line type | Assumed uniform over legal choices; neither is claimed as game fact. |
@@ -259,14 +259,15 @@ no difference while every wanted stat priced alike; with weights it flattered th
 second-best stat by two whole rolls.
 
 ```
-Max value = min(1, score / ceiling) × (candidate main maximum / 6★ main maximum)
+Max value = score / ceiling × (candidate main maximum / 6★ main maximum)
 ```
 
 The main factor puts deterministic lower-star main properties on the same scale as
 their 6★ counterparts. A perfect 4★ or 5★ rune is rated, but cannot masquerade as a
 perfect 6★ rune. Ancient leaves this factor unchanged because Ancient does not alter
-main stats, and the ceiling stays the ordinary six-star one so that Ancient's higher
-initial interval cannot move the bar it is measured against.
+main stats, and the ceiling stays the ordinary six-star one. Ordinary runes are capped
+at that ceiling; Ancient runes are not, so a higher Ancient initial roll can correctly
+print above 100 % rather than being flattened to it.
 
 `npm run verify:rune-substat-weights` builds that rune for every slot of every build
 of every shipped preset and fails unless it reads exactly 100 %.
@@ -308,8 +309,9 @@ Craft sliders set a point in the selected item's legal range: none, average, thr
 quarters, or maximum. The model evaluates legal actions on actual lines, rather than
 adding a generic craft number to a selected stat. Both the rune's own projection and
 the §5 ceiling are computed with the credited items, so turning a slider up raises
-the bar as well as the rune, and no rune can read past 100 % because the settings
-promised it a stone.
+the bar as well as the rune. The ordinary denominator remains the reference; an
+Ancient rune can therefore read past 100 % when its Ancient roll interval takes it
+beyond that ordinary perfect rune.
 
 - A **Grindstone** is credited on every grindable line, the rune's own and the ones it
   has yet to gain, as `max(existing grind, credited grind)` — never added to what is
@@ -336,16 +338,24 @@ state is then a sum of independent lines.
 
 `Chance` is the exact discrete probability that final Max value reaches the quality
 floor by +12, including the deterministic main-stat factor. Events are modelled in
-order: until four substats exist, each event adds a distinct legal id; afterwards each
-event improves one of the four lines; +15 is never a substat event.
+the game's grade-specific order: a Normal rune adds four lines; a Magic rune
+improves its born line and then adds three; a Rare rune improves its two born lines
+and then adds two; a Hero rune improves its three born lines and then adds one; a
+Legend rune improves four times. At every event the choice is uniform over the
+lines or legal new effect ids that exist **at that event**; +15 is never a
+sub-property event.
 
-The engine enumerates every unordered legal set of added ids, every multinomial split
-of upgrades across the completed lines, and every legal integer roll value. Added
-lines receive their initial draw before upgrades allocated to them, so a Hero rune's
-fourth line can receive later upgrades, and they are credited with the same
-Grindstone every other line is. All realised value is summed in full: surplus ACC, SPD
-or HP is never discarded. The independent Monte Carlo oracle checks ordinary 4★/5★/6★
-and Ancient 6★ fixtures.
+For an Ancient candidate, every initial-roll term in this probability uses the
+verified Ancient min–max interval; upgrade terms use the ordinary six-star interval.
+The quality bar, role valuation, ordinary reference box and perfect-rune denominator
+remain ordinary. The same Ancient/ordinary split is used by Max value, so the two
+figures answer the same candidate rather than quietly using different roll tables.
+
+The engine enumerates every legal event sequence and every legal integer roll value.
+An added line receives its initial draw before any later event can improve it, and it
+is credited with the same Grindstone every other line is. All realised value is
+summed in full: surplus ACC, SPD or HP is never discarded. The independent Monte
+Carlo oracle checks ordinary 4★/5★/6★ and Ancient 6★ fixtures.
 
 ### 7.1 The representation contract
 
@@ -410,10 +420,10 @@ its own best legal end state before it is scored.
 
 | The rune | What the projection does |
 | --- | --- |
-| Fewer than four sub properties | `RUNE-CANONICAL.md` §6 fixes how many lines it still gains and how many improvements are left. Every legal set of additions is enumerated and the best kept; an added id must be legal in the slot and may not duplicate the main property, the innate, an existing line or a reserved Gem. |
-| Improvements still to come | They land on lines the rune will actually have. In the best case they concentrate on whichever final line is worth most; the chance calculation, by contrast, spreads them uniformly as the game does. |
+| Fewer than four sub properties | `RUNE-CANONICAL.md` §6 fixes which remaining events improve born lines and which add new lines. Every legal event sequence is enumerated; an added id must be legal in the slot and may not duplicate the main property, the innate, an existing line or a reserved Gem. |
+| Improvements still to come | They land uniformly only on lines that exist when that event occurs. In the best case they concentrate on whichever legal line is worth most; the chance calculation follows the same event order and spreads them as the game does. |
 | Below six stars | Its own star's substat intervals are used for every future roll, and its own star's `+15` main property scales the result. It is neither ignored nor given an artificial six-star roll. |
-| Ancient | Lines it dropped with use the Ancient initial interval. Added lines, later upgrades and the main property use the ordinary six-star tables, and its craft items are the Ancient ones. |
+| Ancient | Initial-roll terms in its Max-value and Chance projections use the Ancient interval; upgrades, role valuation, the reference box, main property and denominator use ordinary six-star rules. Its craft items remain Ancient because that is a legality rule. |
 | Already `+12` or `+15` | Nothing is left to project, so its Max value is what it is, and its chance is 1 or 0. The row says `Already there` or `Below the floor` rather than dressing a certainty as a gamble. |
 
 The denominator never moves with the candidate. A perfect four-star rune therefore

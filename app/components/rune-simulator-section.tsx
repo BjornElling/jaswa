@@ -5,7 +5,6 @@ import { CircularArrowsMark } from './converted-artifact-mark';
 import { Dropdown } from './dropdown';
 import { PageHeader } from './page-chrome';
 import { WorkspacePage } from './workspace-page';
-import { AncientName } from './ancient-mark';
 import {
   allRuneSetNames,
 } from '../lib/rune-sets';
@@ -34,7 +33,6 @@ type FormState = {
   setName: string;
   slot: string;
   stars: string;
-  lineage: RuneSimulationConfig['lineage'];
   mainStatId: string;
   gateZero: string;
   gateNine: string;
@@ -46,7 +44,6 @@ const initialForm: FormState = {
   setName: '',
   slot: '',
   stars: String(defaultRuneSimulationConfig.stars),
-  lineage: defaultRuneSimulationConfig.lineage,
   mainStatId: '',
   gateZero: 'keep-all',
   gateNine: 'keep-all',
@@ -80,8 +77,7 @@ function toConfig(form: FormState, count: number, settings: RunePotentialSetting
     count,
     setName: form.setName || null,
     slot,
-    stars: form.lineage === 'ancient' ? 6 : stars,
-    lineage: form.lineage,
+    stars,
     mainStatId: numberOrNull(form.mainStatId),
     gates: {
       0: gate(form.gateZero),
@@ -204,19 +200,11 @@ export function RuneSimulatorSection({ game, settings, presets }: {
         {[1, 2, 3, 4, 5, 6].map((slot) => <option key={slot} value={slot}>Slot {slot}</option>)}
       </SimulatorSelect>
 
-      <SimulatorSelect id="rune-simulator-stars" label="Stars" value={form.lineage === 'ancient' ? '6' : form.stars}
+      <SimulatorSelect id="rune-simulator-stars" label="Stars" value={form.stars}
         className="rune-simulator-stars"
-        placeholder="Any stars" disabled={form.lineage === 'ancient'} onChange={(value) => setFormValue(setForm, 'stars', value)}>
+        placeholder="Any stars" onChange={(value) => setFormValue(setForm, 'stars', value)}>
         {[1, 2, 3, 4, 5, 6].map((stars) => <option key={stars} value={stars}>{stars}★</option>)}
       </SimulatorSelect>
-
-      <div className="filter-group rune-simulator-lineage" role="group" aria-label="Rune lineage">
-        <span className="filter-label">Lineage</span>
-        <div className="filter-group-controls">
-          <FilterButton active={form.lineage === 'ordinary'} onClick={() => setFormValue(setForm, 'lineage', 'ordinary')}>Standard</FilterButton>
-          <FilterButton active={form.lineage === 'ancient'} onClick={() => setFormValue(setForm, 'lineage', 'ancient')}>Ancient</FilterButton>
-        </div>
-      </div>
 
       <SimulatorSelect id="rune-simulator-main" label="Main stat" value={form.mainStatId}
         className="rune-simulator-main"
@@ -372,7 +360,7 @@ function SimulationRow({ entry }: { entry: RuneSimulationResult['stages'][Simula
     <td className="rune-simulator-set-cell">
       <span className="rune-simulator-set-name">{rune.setName === null
         ? simulationNoRuneType
-        : <AncientName name={rune.setName} ancient={rune.ancient} />}</span>
+        : rune.setName}</span>
       <span className="rune-simulator-set-effect type-caption">{rune.setName === null ? '—' : simulationSetEffect(rune.setName) ?? '—'}</span>
     </td>
     <td>

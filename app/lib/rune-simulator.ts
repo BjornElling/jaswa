@@ -28,7 +28,6 @@ import type { RunePotentialSettings } from './types';
 export const simulationStages = [0, 9, 12] as const;
 export type SimulationStage = typeof simulationStages[number];
 
-export type SimulationLineage = 'ordinary' | 'ancient';
 /** A named set, or null for a generated rune with no rune type. */
 export type SimulationSet = string | null;
 export type SimulationSlot = number | null;
@@ -50,7 +49,6 @@ export type RuneSimulationConfig = {
   setName: SimulationSet;
   slot: SimulationSlot;
   stars: SimulationStars;
-  lineage: SimulationLineage;
   mainStatId: number | null;
   gates: Readonly<Record<SimulationStage, SimulationGate>>;
   /** The only craft policy the engine accepts: the four Rune Clean-up choices. */
@@ -78,7 +76,6 @@ export type SimulatedRune = {
   setBonus: string | null;
   slot: number;
   stars: number;
-  ancient: boolean;
   defaultGrade: RuneDefaultGrade;
   level: number;
   mainStatId: number;
@@ -135,7 +132,6 @@ export const defaultRuneSimulationConfig: RuneSimulationConfig = {
   setName: null,
   slot: null,
   stars: 6,
-  lineage: 'ordinary',
   mainStatId: null,
   gates: {
     0: { policy: 'keep-all' },
@@ -158,9 +154,9 @@ function choose<T>(values: readonly T[], random: RandomSource): T {
 }
 
 function rollValue(
-  stars: number, statId: number, kind: 'initial' | 'upgrade', ancient: boolean, random: RandomSource,
+  stars: number, statId: number, kind: 'initial' | 'upgrade', random: RandomSource,
 ): number {
-  const range = subPropertyRange(stars, statId, kind, ancient);
+  const range = subPropertyRange(stars, statId, kind);
   if (!range) throw new Error(`Rune simulator has no ${kind} range for ${stars}★ stat ${statId}.`);
   return integer(range.minimum, range.maximum, random);
 }
@@ -208,11 +204,11 @@ function cloneRune(rune: SimulatedRune): SimulatedRune {
   };
 }
 
-function addRandomSubProperty(rune: SimulatedRune, random: RandomSource, ancient: boolean): void {
+function addRandomSubProperty(rune: SimulatedRune, random: RandomSource): void {
   const statId = choose(legalStatIds(rune), random);
   rune.subProperties.push({
     statId,
-    value: rollValue(rune.stars, statId, 'initial', ancient, random),
+    value: rollValue(rune.stars, statId, 'initial', random),
     gemmed: false,
     grind: 0,
     rolls: 0,
@@ -223,14 +219,17 @@ function addRandomSubProperty(rune: SimulatedRune, random: RandomSource, ancient
 export function powerUpRune(rune: SimulatedRune, targetLevel: SimulationStage, random: RandomSource = defaultRandom): SimulatedRune {
   if (targetLevel < rune.level) return cloneRune(rune);
   const next = cloneRune(rune);
-  for (const level of [3, 6, 9, 12] as const) {
+  const bornLines = gradeSubPropertyCount[next.defaultGrade];
+  for (const [eventIndex, level] of ([3, 6, 9, 12] as const).entries()) {
     if (level <= next.level || level > targetLevel) continue;
-    if (next.subProperties.length < 4) {
-      addRandomSubProperty(next, random, next.ancient);
+    if (eventIndex >= bornLines) {
+      /* The grade fixes which events add a line; every generated line uses the
+         ordinary interval because the simulator has no Ancient mode. */
+      addRandomSubProperty(next, random);
     } else {
       const target = next.subProperties[integer(0, next.subProperties.length - 1, random)];
       if (!target) throw new Error('Rune simulator chose no existing sub-property to improve.');
-      target.value += rollValue(next.stars, target.statId, 'upgrade', false, random);
+      target.value += rollValue(next.stars, target.statId, 'upgrade', random);
       target.rolls += 1;
     }
     next.level = level;
@@ -246,7 +245,6 @@ function legalEnchantIds(rune: SimulatedRune, lineIndex: number): number[] {
 }
 
 function craftLineageFor(rune: SimulatedRune): CraftLineage {
-  if (rune.ancient) return 'ancient';
   return rune.setName === 'Intangible' ? 'immemorial' : 'standard';
 }
 
@@ -302,7 +300,7 @@ export function simulationRuneToCleanupRune(rune: SimulatedRune, obtainedOrder =
     setName,
     slot: rune.slot,
     stars: rune.stars,
-    ancient: rune.ancient,
+    ancient: false,
     defaultGrade: rune.defaultGrade,
     level: rune.level,
     mainStatId: rune.mainStatId,
@@ -341,8 +339,6 @@ function generateRune(index: number, config: RuneSimulationConfig, random: Rando
   const setName = config.setName;
   const slot = config.slot ?? integer(1, 6, random);
   const stars = config.stars ?? integer(1, 6, random);
-  const ancient = config.lineage === 'ancient';
-  if (ancient && stars !== 6) throw new Error('Ancient runes must be six-star runes.');
   const grade = simulationGradeForSlot(slot, random);
   const legalMains = slotMainProperties[slot] ?? [];
   const mainStatId = config.mainStatId !== null && legalMains.includes(config.mainStatId)
@@ -353,7 +349,6 @@ function generateRune(index: number, config: RuneSimulationConfig, random: Rando
     setBonus: setName === null ? null : setEffectText(setName),
     slot,
     stars,
-    ancient,
     defaultGrade: grade,
     level: 0,
     mainStatId,
@@ -365,9 +360,9 @@ function generateRune(index: number, config: RuneSimulationConfig, random: Rando
   if (random() < prefixFrequency) {
     const prefixStatId = choose(legalStatIds(rune), random);
     rune.prefixStatId = prefixStatId;
-    rune.prefixValue = rollValue(stars, prefixStatId, 'initial', ancient, random);
+    rune.prefixValue = rollValue(stars, prefixStatId, 'initial', random);
   }
-  for (let at = 0; at < gradeSubPropertyCount[grade]; at += 1) addRandomSubProperty(rune, random, ancient);
+  for (let at = 0; at < gradeSubPropertyCount[grade]; at += 1) addRandomSubProperty(rune, random);
   return rune;
 }
 

@@ -91,7 +91,7 @@ export type RuneAdvice = {
   verdict: RuneVerdict;
   /** The chance itself, as the row prints it — never the internal score. */
   reason: string;
-  /** `0`–`1` against a perfect rune, after the preferred/acceptable/broken discount. */
+  /** Against a perfect ordinary rune, after the preferred/acceptable/broken discount; Ancient can exceed 1. */
   maxValue: number;
   /**
    * `0`–`1` from an ordinary rune of this slot to a perfect one, after the same
@@ -141,10 +141,10 @@ export function runeAdvice(
   const builds = new Map<string, Build[]>(presets.map((preset) => [preset.id, presetBuilds(preset)]));
 
   /* Every field comes from the settings, so the credit is the account's and not
-     the rune's. Every imported star class enters the same engine: Ancient differs
-     only where the game differs, in that born lines and craft items use Ancient
-     ranges while main stats, later upgrades and added lines use their ordinary
-     six-star ranges. */
+     the rune's. Every imported star class enters the same engine: Ancient roll
+     intervals are a candidate-only input to Max value and Chance, while role
+     valuation, the ordinary reference box, main stats and later upgrades stay on
+     ordinary six-star rules. Craft legality remains Ancient-specific. */
   const credit: CraftCredit = {
     gem: craftAssumptionForSetting(settings.enchantedGems), gemGrade: settings.gemGrade,
     grind: craftAssumptionForSetting(settings.grindstones), grindGrade: settings.grindstoneGrade,

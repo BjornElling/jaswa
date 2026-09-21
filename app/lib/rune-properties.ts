@@ -253,18 +253,34 @@ export const subPropertyLevels: readonly number[] = [3, 6, 9, 12];
 /** The level past which no sub-property event remains. +15 improves the main only. */
 export const lastSubPropertyLevel = 12;
 
+export type SubPropertyEvent = 'add' | 'roll';
+
 /**
- * The sub-property events a rune has left, split into the ones that add a new
- * property and the ones that improve an existing one.
+ * The sub-property events a rune has left, in the order the game applies them.
  *
- * A rune fills its four lines first and improves them afterwards, so the split
- * follows from how many properties it already carries rather than from its grade —
- * which is what keeps this correct for a rune the user has already part-rolled.
+ * A rune's default grade fixes the schedule at drop: its born lines are improved
+ * first, then the still-missing lines are added. A Magic rune therefore has one
+ * upgrade followed by three additions, while a Legend rune has four upgrades.
+ * Counting only the two totals loses the fact that a future line cannot receive an
+ * earlier upgrade, which changes both the reachable maximum and its probability.
+ * `initialSubCount` is the grade's born-line count, not the number of lines the
+ * imported rune happens to carry now.
  */
-export function remainingEvents(level: number, subCount: number): { adds: number; rolls: number } {
-  const events = subPropertyLevels.filter((at) => at > level).length;
-  const adds = Math.max(0, Math.min(events, 4 - subCount));
-  return { adds, rolls: events - adds };
+export function remainingEvents(
+  level: number, initialSubCount: number,
+): { events: SubPropertyEvent[]; adds: number; rolls: number } {
+  const born = Math.max(0, Math.min(4, Math.trunc(initialSubCount)));
+  const events = subPropertyLevels
+    .map((at, index): SubPropertyEvent | null => {
+      if (at <= level) return null;
+      return index < born ? 'roll' : 'add';
+    })
+    .filter((event): event is SubPropertyEvent => event !== null);
+  return {
+    events,
+    adds: events.filter((event) => event === 'add').length,
+    rolls: events.filter((event) => event === 'roll').length,
+  };
 }
 
 /** Every sub-property type, for iterating a legal set. */

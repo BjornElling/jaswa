@@ -35,7 +35,7 @@ import { runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
 import {
   initialSubPropertyRange, slotMainProperties, subPropertyLevels, upgradeSubPropertyRange,
 } from '../app/lib/rune-properties.ts';
-import { runeDefaultGrades, runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
+import { runeDefaultGradeOrder, runeDefaultGrades, runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -116,9 +116,10 @@ function freshRune(random, id, { slot, stars, ancient, subCount }) {
 
 /** The game's own addition/upgrade loop, so every fixture is a state the game can reach. */
 function powerUp(random, rune, targetLevel) {
-  for (const level of subPropertyLevels) {
+  const bornLines = runeDefaultGradeOrder(rune.defaultGrade);
+  for (const [eventIndex, level] of subPropertyLevels.entries()) {
     if (level <= rune.level || level > targetLevel) continue;
-    if (rune.subProperties.length < 4) {
+    if (eventIndex >= bornLines) {
       const held = new Set(rune.subProperties.map((property) => property.statId));
       const options = runeStatIds.filter((stat) => stat !== rune.mainStatId && stat !== rune.prefixStatId
         && !held.has(stat) && slotAllowsSubStat(rune.slot, stat));

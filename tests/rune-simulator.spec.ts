@@ -13,6 +13,7 @@ test('simulates random runes through +0, +9 and +12 with craft marks', async ({ 
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Simulator', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Rune Simulator', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Nothing generated yet.', exact: true })).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Rune lineage', exact: true })).toHaveCount(0);
   await expect(page.getByText('Best · Hero', { exact: true })).toBeVisible();
   await expect(page.getByText('¾ · Hero', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Rune set')).toHaveValue('');
@@ -39,6 +40,7 @@ test('simulates random runes through +0, +9 and +12 with craft marks', async ({ 
 
   await expect(page.getByRole('heading', { name: '200 runes, three checkpoints', exact: true })).toBeVisible();
   await expect(page.locator('.rune-simulator-table tbody tr')).toHaveCount(200);
+  await expect(page.locator('.rune-simulator-table [title="Ancient"]')).toHaveCount(0);
   await expect(page.getByText('ATK +35 %', { exact: true }).first()).toBeVisible();
   await expect(page.locator('.rune-simulator-rolls')).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('rune-simulator-results-plus-zero.png') });

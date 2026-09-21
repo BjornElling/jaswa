@@ -16,7 +16,7 @@ import {
   initialSubPropertyRange, slotMainProperties, startingSubPropertyCount,
   subPropertyLevels, upgradeSubPropertyRange,
 } from '../app/lib/rune-properties.ts';
-import { runeDefaultGrades, runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
+import { runeDefaultGradeOrder, runeDefaultGrades, runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
 import { judgeAgainstBuild, presetBuilds } from '../app/lib/rune-cleanup-model.ts';
 
 const args = new Map(process.argv.slice(2).filter((arg) => arg.startsWith('--') && arg.includes('='))
@@ -103,9 +103,10 @@ function clone(rune) {
  * categories: HP% and HP+ may coexist, while a duplicate HP% may not.
  */
 function powerUp(random, rune, targetLevel) {
-  for (const level of subPropertyLevels) {
+  const bornLines = runeDefaultGradeOrder(rune.defaultGrade);
+  for (const [eventIndex, level] of subPropertyLevels.entries()) {
     if (level <= rune.level || level > targetLevel) continue;
-    if (rune.subProperties.length < 4) {
+    if (eventIndex >= bornLines) {
       const held = new Set(rune.subProperties.map((property) => property.statId));
       const options = runeStatIds.filter((stat) => stat !== rune.mainStatId && stat !== rune.prefixStatId
         && !held.has(stat) && slotAllowsSubStat(rune.slot, stat));
