@@ -19,7 +19,7 @@ const server = await createServer({
 });
 
 try {
-  const { readCraftItem, readCraftItems, craftValueRange, craftRollValue } =
+  const { readCraftItem, readCraftItems, craftValueRange, craftRollValue, roundAwayFromZero } =
     await server.ssrLoadModule('/app/lib/rune-craft-items.ts');
   const { readRune } = await server.ssrLoadModule('/app/lib/runes.ts');
   const { craftItemFit, craftReach } = await server.ssrLoadModule('/app/lib/rune-craft-plan.ts');
@@ -95,6 +95,8 @@ try {
   assert.equal(craftRollValue(spd, 'average'), 9);
   assert.equal(craftRollValue(spd, 'three-quarters'), 9);
   assert.equal(craftRollValue(spd, 'maximum'), 10);
+  assert.equal(roundAwayFromZero(1.5), 2);
+  assert.equal(roundAwayFromZero(-1.5), -2);
 
   /* ------------------------------------------------------------- placement */
 

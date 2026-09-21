@@ -1,7 +1,7 @@
 import type { AccelerationState } from './hardware-acceleration';
 import type { HelperConnection } from './helper-client';
 
-export type Page = 'home' | 'monsters' | 'artifact-list' | 'optimizer' | 'speed' | 'potential' | 'artifacts' | 'gems' | 'relics' | 'settings' | 'the-math';
+export type Page = 'home' | 'monsters' | 'artifact-list' | 'optimizer' | 'speed' | 'potential' | 'artifacts' | 'gems' | 'relics' | 'settings' | 'the-math' | 'rune-simulator';
 export type ReportCategory = 'Monster' | 'Rune' | 'Gem' | 'Grindstone' | 'Artifact' | 'Relic' | 'Other';
 
 /* `label` is what the rail shows, under a heading that supplies the subject.
@@ -66,6 +66,7 @@ export const navigationGroups: Array<{ heading: string; items: NavigationItem[] 
          rest. ※ is the reference mark — the note the figures are worked out
          in — and it sits in the same box as ✦ and ◈. */
       { id: 'the-math', label: 'The Math', name: 'The Math', glyph: '※' },
+      { id: 'rune-simulator', label: 'Rune Simulator', name: 'Rune Simulator', glyph: '↻' },
     ],
   },
 ];

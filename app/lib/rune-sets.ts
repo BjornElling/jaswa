@@ -50,7 +50,8 @@ export const elementNameList: readonly string[] = Object.keys(elementNames)
   .map((attribute) => elementNames[attribute]);
 
 /** Every set name the game has, alphabetically. */
-const runeSetNameList: readonly string[] = Object.values(runeSetNames).sort((left, right) => left.localeCompare(right));
+/** Every set name the game can put on a rune, including Intangible. */
+export const allRuneSetNames: readonly string[] = Object.values(runeSetNames).sort((left, right) => left.localeCompare(right));
 
 /**
  * The sets a preset may ask for, alphabetically. The preset editor offers these,
@@ -64,7 +65,7 @@ const runeSetNameList: readonly string[] = Object.values(runeSetNames).sort((lef
  * nothing about which runes are worth keeping. How much an Intangible rune is
  * wanted is asked once, on its own slider, not per preset.
  */
-export const presetRuneSetNameList: readonly string[] = runeSetNameList.filter((name) => name !== 'Intangible');
+export const presetRuneSetNameList: readonly string[] = allRuneSetNames.filter((name) => name !== 'Intangible');
 
 export type ActiveRuneSet = { name: string; abbreviation: string; count: number };
 

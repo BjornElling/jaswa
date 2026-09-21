@@ -5491,6 +5491,125 @@ th.align-center .sort-button { justify-content: center; }
 .rune-star-count { font-variant-numeric: tabular-nums; }
 .rune-star-icon { width: 9px; height: 9px; flex: 0 0 9px; }
 
+/* --------------------------------------------------------- rune simulator
+   The generator is a filter-shaped experiment: every condition stays in one
+   fixed grid, so choosing a longer set name or a different gate cannot move
+   the Generate button or its neighbours. The result table is deliberately
+   outside this box; it grows only after the user has asked for that result. */
+.rune-simulator-lead { margin: 0; max-width: 86ch; }
+.rune-simulator-filters {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-areas:
+    "count set slot stars"
+    "lineage main target gate-zero"
+    "gate-nine gate-twelve actions actions"
+    "craft craft craft craft";
+}
+.rune-simulator-count { grid-area: count; }
+.rune-simulator-select-group { min-width: 0; }
+.rune-simulator-select-group .jaswa-select,
+.rune-simulator-gate .jaswa-select { width: 100%; min-width: 0; }
+.rune-simulator-count-input {
+  width: 12ch;
+  height: 36px;
+  padding: 0 var(--s3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--sunk);
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+  color-scheme: dark;
+}
+.rune-simulator-count-input:focus { outline: none; border-color: var(--text-accent); }
+.rune-simulator-note,
+.rune-simulator-results-note,
+.rune-simulator-stage-summary {
+  color: var(--text-muted);
+}
+.rune-simulator-note { white-space: nowrap; }
+.rune-simulator-count { gap: var(--s1); }
+.rune-simulator-filters .rune-simulator-set { grid-area: set; }
+.rune-simulator-filters .rune-simulator-slot { grid-area: slot; }
+.rune-simulator-filters .rune-simulator-stars { grid-area: stars; }
+.rune-simulator-lineage { grid-area: lineage; }
+.rune-simulator-filters .rune-simulator-main { grid-area: main; }
+.rune-simulator-filters .rune-simulator-target { grid-area: target; }
+.rune-simulator-gate-zero { grid-area: gate-zero; }
+.rune-simulator-gate-nine { grid-area: gate-nine; }
+.rune-simulator-gate-twelve { grid-area: gate-twelve; }
+.rune-simulator-craft-readout {
+  grid-area: craft;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s3);
+  padding-top: var(--s2);
+  border-top: 1px solid var(--line);
+}
+.rune-simulator-readout { display: grid; gap: var(--s1); min-width: 0; }
+.rune-simulator-readout-value {
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
+.rune-simulator-craft-note { grid-column: 1 / -1; margin: 0; }
+.rune-simulator-actions { grid-area: actions; }
+.rune-simulator-actions .button { width: 100%; }
+.rune-simulator-actions .filter-reset { width: 100%; }
+.rune-simulator-empty { margin-top: var(--s4); }
+.rune-simulator-results { display: grid; gap: var(--s3); margin-top: var(--s5); }
+.rune-simulator-results-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  gap: var(--s5);
+  align-items: end;
+}
+.rune-simulator-results-head h2 {
+  margin: 0;
+  color: var(--text-strong);
+}
+.rune-simulator-results-head .filter-label { margin: 0 0 var(--s1); }
+.rune-simulator-results-note { margin: var(--s1) 0 0; font-variant-numeric: tabular-nums; }
+.rune-simulator-stage-tabs { display: flex; gap: var(--s1); align-items: center; }
+.rune-simulator-stage-summary { margin: 0; font-variant-numeric: tabular-nums; }
+.rune-simulator-table-wrap { overflow: clip; }
+.rune-simulator-table { table-layout: fixed; }
+.rune-simulator-table th:nth-child(1) { width: 13%; }
+.rune-simulator-table th:nth-child(2) { width: 13%; }
+.rune-simulator-table th:nth-child(3) { width: 12%; }
+.rune-simulator-table th:nth-child(4) { width: 14%; }
+.rune-simulator-table th:nth-child(5) { width: 38%; }
+.rune-simulator-table th:nth-child(6) { width: 10%; }
+.rune-simulator-table tbody td { vertical-align: top; padding-block: var(--s2); }
+.rune-simulator-set-cell,
+.rune-simulator-table td:nth-child(2),
+.rune-simulator-table td:nth-child(3),
+.rune-simulator-table td:nth-child(4),
+.rune-simulator-table td:nth-child(6) { white-space: nowrap; }
+.rune-simulator-set-name,
+.rune-simulator-rune-name,
+.rune-simulator-set-effect,
+.rune-simulator-rune-detail { display: block; overflow: hidden; text-overflow: ellipsis; }
+.rune-simulator-set-name,
+.rune-simulator-rune-name { color: var(--text-strong); }
+.rune-simulator-set-effect,
+.rune-simulator-rune-detail { color: var(--text-muted); }
+.rune-simulator-subs ul { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--s1); }
+.rune-simulator-subs li { display: flex; align-items: baseline; gap: var(--s1); min-height: 18px; white-space: nowrap; }
+.rune-simulator-sub-name { color: var(--text-muted); }
+.rune-simulator-sub-value { min-width: 4ch; font-variant-numeric: tabular-nums; }
+.rune-simulator-rolls {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--text-accent);
+  font-variant-numeric: tabular-nums;
+}
+.rune-simulator-roll-arrow { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.rune-simulator-enchanted-mark { color: var(--text-accent); width: 1em; height: 1em; margin-left: var(--s1); }
+.rune-simulator-grind { color: var(--text-accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rune-simulator-decision-power-up { color: var(--state-good); }
+.rune-simulator-decision-keep { color: var(--text-strong); }
+.rune-simulator-decision-sell { color: var(--state-bad); }
+
 /* Set, Main and Preset are token lines rather than chip rows: their vocabularies
    run to twenty-two sets, a dozen main properties and however many presets the
    user has written, which as chips took six rows of the strip to state options

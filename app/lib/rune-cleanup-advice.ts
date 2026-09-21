@@ -19,6 +19,7 @@ import {
   ordinaryBox, prepareRuneCandidate, presetBuilds, standingIn,
 } from './rune-cleanup-model';
 import type { Build, CraftCredit, MatchRank, OrdinaryBox, RuneCandidate } from './rune-cleanup-model';
+import { craftAssumptionForSetting } from './rune-craft-items';
 
 export type RuneVerdict = 'power-up' | 'keep' | 'sell';
 
@@ -80,9 +81,6 @@ export const acceptedWorth: readonly number[] = [1.00, 0.85, 0.70, 0.55, 0.40];
  */
 export const brokenWorth: readonly number[] = [0.80, 0.60, 0.40, 0.20, 0];
 
-/** Where in a gem's or grindstone's range the credited roll is assumed to land. */
-const creditFractions: readonly (number | null)[] = [null, 0.5, 0.75, 1];
-
 /** The share steps a preset can be set to, as plain multipliers. */
 const shareFactors: readonly number[] = [0.1, 0.2, 1 / 3, 0.5, 1, 2, 3, 5, 10];
 
@@ -120,17 +118,6 @@ const percent = (fraction: number) => {
 };
 
 /**
- * The crafting policy, expressed as a position in the item's own verified range.
- * The model chooses a legal target line and reads that line's actual grade and
- * lineage; this layer must not guess a stat from the first sub property.
- */
-function craftAssumption(step: number): import('./rune-craft-items').CraftRollAssumption | null {
-  const fraction = creditFractions[step - 1];
-  if (fraction === null || fraction === undefined) return null;
-  return fraction === 0.5 ? 'average' : fraction === 0.75 ? 'three-quarters' : 'maximum';
-}
-
-/**
  * Every rune's advice at once.
  *
  * Whole-account rather than per-rune because the thresholds a rune is held to are
@@ -159,8 +146,8 @@ export function runeAdvice(
      ranges while main stats, later upgrades and added lines use their ordinary
      six-star ranges. */
   const credit: CraftCredit = {
-    gem: craftAssumption(settings.enchantedGems), gemGrade: settings.gemGrade,
-    grind: craftAssumption(settings.grindstones), grindGrade: settings.grindstoneGrade,
+    gem: craftAssumptionForSetting(settings.enchantedGems), gemGrade: settings.gemGrade,
+    grind: craftAssumptionForSetting(settings.grindstones), grindGrade: settings.grindstoneGrade,
   };
 
   /* Work the model would otherwise repeat per rune or per preset, held for

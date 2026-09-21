@@ -187,13 +187,27 @@ export const craftRollDescriptions: Readonly<Record<CraftRollAssumption, string>
   maximum: 'the best its grade allows',
 };
 
+/** The four Rune Clean-up stops, in the order used by its sliders. */
+export const craftSettingAssumptions: readonly (CraftRollAssumption | null)[] = [
+  null, 'average', 'three-quarters', 'maximum',
+];
+
+export function craftAssumptionForSetting(step: number): CraftRollAssumption | null {
+  return craftSettingAssumptions[step - 1] ?? null;
+}
+
+/** Round a craft value to a whole number without biasing negative halves inward. */
+export function roundAwayFromZero(value: number): number {
+  return value < 0 ? -Math.round(-value) : Math.round(value);
+}
+
 /** The value a roll is assumed to land on. Whole, as every rune value is. */
 export function craftRollValue(bounds: CraftValueRange, assumption: CraftRollAssumption): number {
   const span = bounds.maximum - bounds.minimum;
   if (assumption === 'minimum') return bounds.minimum;
   if (assumption === 'maximum') return bounds.maximum;
   const fraction = assumption === 'average' ? 0.5 : 0.75;
-  return Math.round(bounds.minimum + span * fraction);
+  return roundAwayFromZero(bounds.minimum + span * fraction);
 }
 
 function numberOrNull(value: unknown): number | null {
