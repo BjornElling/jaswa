@@ -2,15 +2,17 @@
 
 **Status:** Binding contract for Rune Clean-up verdicts
 **Depends on:** `docs/RUNE-CANONICAL.md` and `docs/RUNE-PRESET-METRICS.md`
-**Reviewed:** 20 September 2026
+**Reviewed:** 21 September 2026
 
 This document describes the calculation, not the game rules. Game facts and their
 sources belong in `RUNE-CANONICAL.md`; where the two differ on a game fact, the
 canonical document wins. `app/lib/rune-substat-weights.ts` decides what one substat
 is worth to one role, `app/lib/rune-cleanup-model.ts` is the one arithmetic
 implementation of everything else, `app/lib/rune-cleanup-advice.ts` applies policy,
-`npm run verify:rune-substat-weights` holds the weights deterministically, and
-`npm run verify:rune-cleanup-calibration` independently checks the stochastic part.
+`npm run verify:rune-substat-weights` holds the weights deterministically,
+`npm run verify:rune-slot-neutrality` holds the quality floor to the same share of
+every slot, and `npm run verify:rune-cleanup-calibration` independently checks the
+stochastic part.
 
 ## 1. Evidence and explicit assumptions
 
@@ -22,7 +24,9 @@ implementation of everything else, `app/lib/rune-cleanup-advice.ts` applies poli
 | Gem and Grindstone legality/ranges | Verified tables and source notes in `RUNE-CRAFT-ITEMS.md`. |
 | A value inside its legal integer interval | Modelled uniformly; the 6★ distribution has a measured check. |
 | Upgrade target and new-line type | Assumed uniform over legal choices; neither is claimed as game fact. |
-| A build completes the candidate's own rune set, once | Stated assumption (§4.3). |
+| Artifact main properties | Verified table in `ARTIFACT-CANONICAL.md` §2; confirmed against 262 real artifacts. |
+| How a preset's artifact choice fills two slots | Stated assumption: evenly over the stats it named (§4.1). |
+| The set a build completes | **Not modelled.** A preset states no set combination, and guessing one from the candidate is what §4.3 forbids. |
 | What a substat is *worth* to a role | A product decision, as `RUNE-CANONICAL.md` §12 requires. §4 states it in full. |
 
 The stochastic assumptions are isolated in the exact probability engine and checked
@@ -81,13 +85,13 @@ identically for Fast DD, because both stats had a positive target; a 215 SPD tar
 and a 25 Accuracy target asked the runes for the same thing. They do not.
 
 Each target gets a **multiplier between 0 and 1**, and every max roll of that stat is
-scored with it. The multiplier is derived in four steps, for one preset, one build
-and one rune set.
+scored with it. The multiplier is derived in four steps, for one preset and one build.
+Nothing in it reads the rune being judged, which is §4.3's whole subject.
 
 ### 4.1 Subtract what the build already brings
 
 ```
-needed = max(0, target − reference base − every main property in the build − the completed set)
+needed = max(0, target − reference base − the build's main properties − the role's artifacts)
 ```
 
 - **Reference base** is the family average of §2.
@@ -95,7 +99,19 @@ needed = max(0, target − reference base − every main property in the build �
   slots — slots 1, 3 and 5 fixed, slots 2, 4 and 6 from the build being evaluated. A
   percent main is applied to the reference base; a flat one is added outright. A slot
   the preset leaves blank contributes nothing, because it has promised nothing.
-- **The completed set** is §4.3.
+- **Artifacts.** A monster carries exactly two, one of each category, and each has one
+  flat main property: **HP +1,500, ATK +100 or DEF +100** (`ARTIFACT-CANONICAL.md` §2,
+  confirmed against 262 real artifacts, which carry those values at every natural grade
+  with no spread at all). A preset states which of the three its role wants and nothing
+  narrower, so the two slots are **spread evenly over the stats it named** — two of one
+  where it names one, one of each where it names two, two thirds of each where it names
+  all three. Two artifacts' worth comes off, never more, and a preset that names none
+  has none credited.
+- **No completed set is subtracted.** §4.3 is why, and it is the one true statement
+  about the game this model deliberately declines to use.
+
+Every term here is a fact about the **role**, not about the rune being judged. That is
+what §4.3 is protecting.
 
 ### 4.2 Convert to max rolls, spread it, and divide by what runes give anyway
 
@@ -140,37 +156,81 @@ there is no tightest target to normalise against. Every stat the role names is t
 scored alike. The alternative — every weight zero — would leave the preset unable to
 judge any rune, which is the invisible failure §3 already rules out.
 
-### 4.3 The set the rune belongs to
+### 4.3 Why a rune's own set is kept out of it
 
-A rune is judged for the build it would go into, and that build completes **the set
-the rune itself belongs to, once**. That is the least a build containing it can do,
-and it is the only set fact a single rune establishes. A Fatal rune is asking to be
-part of a Fatal build, so the role's ATK requirement is 35 % of base lighter for it
-than for a Violent rune — and its own ATK lines are worth correspondingly less.
+**A completed set's stat bonus does not reduce the requirement, and this is the one
+place where a true statement about the game is deliberately not used.**
 
-Only sets whose effect `RUNE-CANONICAL.md` §10 records as a constant stat contribute.
-Battle and chance effects contribute nothing, because §11 of that document forbids
-converting one into a stat.
+It was used, briefly. A rune is judged for the build it would join; that build
+completes the rune's own set; Fatal is +35 % ATK, so a Fatal rune met 283 of Fast DD's
+missing 514 ATK before a single sub property was read. Every clause of that is true.
+
+It is still the wrong input, because **the weights are the yardstick a rune is measured
+against, and a recommendation is a comparison across sets.** Give each set its own
+yardstick and the comparison stops meaning anything. Measured on 1,500 identical rune
+bodies relabelled set by set, against presets that preferred every set equally, the
+same runes were retained **431 to 520 times** on the strength of the label alone:
+
+| Set | Retained, against Violent |
+| --- | ---: |
+| Swift | +11.1 % |
+| Enhance | +2.6 % |
+| Fatal | +1.5 % |
+| Blade | −2.4 % |
+| Guard | −4.3 % |
+| Accuracy | −4.9 % |
+| Focus | −6.8 % |
+| Rage | −7.9 % |
+
+Note that it runs both ways. A set that relieves a target the role was *not* short of
+lowers the ceiling and flatters every rune wearing it; a set that relieves the tightest
+target lowers that target's tightness, the normalisation lifts every other weight, and
+the ceiling rises instead. Neither ordering is one a player asked for or could predict.
+
+**No choice of denominator repairs it.** Max value is a ratio, so it is invariant under
+scaling the weights, and the damage is not a scaling — it is a change in the *shape* of
+the weight vector, which moves each rune's ratio by an amount that depends on what that
+rune happens to have rolled. Equal treatment across sets therefore requires that the
+weights not depend on the candidate's set at all. That is arithmetic, not preference.
+
+A set still decides a great deal, in the three places where the **user** has said what
+they think of it: the preset's preferred/acceptable/broken ranking, the "keep twice as
+many of a four-piece set" switch, and the Intangible slider. What it no longer does is
+decide anything by arithmetic inference.
+
+**The way back.** If the requirement should count set bonuses again, a preset has to
+state the set *combination* its builds use. `RUNE-CANONICAL.md` §10.1 already argues
+that a build is a combination rather than a list of sets, and `app/lib/rune-set-pairs.ts`
+already holds that vocabulary for monsters. A combination the preset states is the same
+for every candidate, so it can shape the requirement without tilting the comparison; a
+combination inferred from the one rune under judgement cannot. Until a preset says it,
+this model does not guess it.
+
+`npm run verify:rune-set-neutrality` is the check, and it holds both halves: identical
+rune bodies must receive identical answers under every set label, and a preset that
+does rank sets must still be obeyed.
 
 ### 4.4 A worked example
 
 Fast DD, against a reference attack-type monster of 9,708 HP, 808 ATK, 568 DEF,
 105 SPD, 18 CRI Rate, 50 CRI Dmg and 4 ACC; the build is ATK % / CRI Dmg % / ATK %
-in slots 2, 4 and 6; the rune is Violent, which contributes no stat.
+in slots 2, 4 and 6, and the preset names ATK artifacts and no others, so both
+artifact slots are ATK. The candidate's set is not an input, so this one table is the
+answer for every rune in that slot of that build (§4.3).
 
-| Target | Wants | Base | Mains | Needed | One roll | Rolls | Carriers | Per rune | Ordinary | Tightness | **Weight** |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| SPD | 215 | 105 | 0 | 110 | 6 | 18.33 | 6 | 3.06 | 0.72 | 4.23 | **1.000** |
-| ATK | 2,500 | 808 | 1,178 | 514 | 64.6 | 7.95 | 5 | 1.59 | 0.57 | 2.78 | **0.658** |
-| CRI Rate | 90 | 18 | 0 | 72 | 6 | 12.00 | 6 | 2.00 | 0.72 | 2.77 | **0.655** |
-| CRI Dmg | 175 | 50 | 80 | 45 | 7 | 6.43 | 5 | 1.29 | 0.69 | 1.86 | **0.440** |
-| Accuracy | 25 | 4 | 0 | 21 | 8 | 2.63 | 6 | 0.44 | 0.65 | 0.67 | **0.159** |
-| HP | 15,042 | 9,708 | 2,448 | 2,886 | 776.6 | 3.72 | 6 | 0.62 | 0.94 | 0.66 | **0.155** |
-| DEF | 814 | 568 | 160 | 86 | 45.4 | 1.89 | 5 | 0.38 | 0.89 | 0.42 | **0.100** |
+| Target | Wants | Base | Mains | Artifacts | Needed | One roll | Rolls | Carriers | Per rune | Ordinary | Tightness | **Weight** |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| SPD | 215 | 105 | 0 | 0 | 110 | 6 | 18.33 | 6 | 3.06 | 0.72 | 4.23 | **1.000** |
+| CRI Rate | 90 | 18 | 0 | 0 | 72 | 6 | 12.00 | 6 | 2.00 | 0.72 | 2.77 | **0.655** |
+| CRI Dmg | 175 | 50 | 80 | 0 | 45 | 7 | 6.43 | 5 | 1.29 | 0.69 | 1.86 | **0.440** |
+| ATK | 2,500 | 808 | 1,178 | 200 | 314 | 64.6 | 4.86 | 5 | 0.97 | 0.57 | 1.70 | **0.402** |
+| Accuracy | 25 | 4 | 0 | 0 | 21 | 8 | 2.63 | 6 | 0.44 | 0.65 | 0.67 | **0.159** |
+| HP | 15,042 | 9,708 | 2,448 | 0 | 2,886 | 776.6 | 3.72 | 6 | 0.62 | 0.94 | 0.66 | **0.155** |
+| DEF | 814 | 568 | 160 | 0 | 86 | 45.4 | 1.89 | 5 | 0.38 | 0.89 | 0.42 | **0.100** |
 
 A maximum CRI Dmg roll is worth 2.8 maximum Accuracy rolls to this role, and a
-maximum SPD roll 6.3 of them. On a Fatal rune the ATK weight falls from 0.658 to
-0.296, because the set has already found 283 of the 514 ATK.
+maximum SPD roll 6.3 of them. The two ATK artifacts move ATK from 0.658 to 0.402 —
+below CRI Dmg, where before they were counted it sat above it.
 
 ## 5. Value, Max value and the perfect rune
 
@@ -210,6 +270,12 @@ initial interval cannot move the bar it is measured against.
 
 `npm run verify:rune-substat-weights` builds that rune for every slot of every build
 of every shipped preset and fails unless it reads exactly 100 %.
+
+**Max value is what the row prints and is not what the gates read.** A ratio against
+the perfect rune of a slot is an honest description of one rune, and it is not
+comparable between slots, because the perfect runes of two slots are not equally far
+above what those slots ordinarily produce. §9.1 states the second anchor the gates
+use and why the two numbers have to stay apart.
 
 ### 5.1 Every build of a preset is now evaluated
 
@@ -377,24 +443,142 @@ and Intangible preferences break allocation ties; they do not alter the quality 
 Assigned runes below +12 are **Power up**; assigned runes at +12 are **Keep**. The
 rest are **Sell** with the first applicable reason.
 
-**The quality floor's five stops are calibrated, and they moved when §4 landed.** They
-are measured against a synthetic box of ordinary six-star runes at `+12`: the default
-stop passes about 15 % of that box, and the ladder runs from roughly a third of the
-box down to a few per cent. The old stops were calibrated against a model in which
-every wanted stat priced alike, so an ordinary rune with four wanted lines sat close
-to a perfect one; now a perfect rune concentrates on the tightest target the role has
-and the same box reads about one stop lower throughout. Leaving the numbers alone
-would have made the default setting silently twice as strict as it says it is.
+**The quality floor's five stops state a share of an ordinary box** — a third of it
+at stop 1, 15 % at the default stop 3, a few per cent at stop 5 — and §9.1 is how a
+share becomes a Max value. The box is the synthetic one this document has always
+named: ordinary six-star runes at `+12` for the role in question. What changed is
+that the ladder now says the share and the model works out the Max value, rather
+than the ladder being a Max value calibrated to produce the share.
+
+## 9.1 The floor is a share of each slot's own box
+
+**A quality floor stated as one Max value does not mean the same thing in two
+different slots, and the difference is not small.** Slot 1 may never carry DEF, slot
+3 may never carry ATK, slot 5 may never carry flat HP, and a chosen main property
+bars its own effect id wherever it sits (`RUNE-CANONICAL.md` §5). So a role built
+around DEF asks slot 3 for a stat it can draw and slot 1 for one it cannot, and the
+two slots' ordinary runes end up in entirely different places on their own scales.
+Dividing by the perfect rune of each slot (§5) lines the six scales up at the *top*
+and says nothing about the body — and the body is where the verdicts are made.
+
+What one Max-value floor kept, measured by `verify:rune-slot-neutrality` against the
+engine before this section existed — 2,000 ordinary six-star `+12` runes per slot,
+every one carrying a main the preset asked for, at the default setting:
+
+| Preset | 1 | 2 | 3 | 4 | 5 | 6 | Spread |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Def DD | 28.2 % | 22.1 % | 29.6 % | **8.8 %** | 16.8 % | 22.0 % | 3.4x |
+| Bruiser | **62.1 %** | 27.6 % | 52.1 % | 34.4 % | 43.5 % | 34.9 % | 2.3x |
+| PvP def | 26.8 % | 13.4 % | **41.9 %** | 19.1 % | 24.6 % | 18.8 % | 3.1x |
+| A role built mostly on DEF | **51.0 %** | 22.2 % | 11.8 % | 21.6 % | **9.3 %** | 22.3 % | 5.5x |
+| A role built mostly on ATK | 12.1 % | 57.0 % | **87.4 %** | 57.1 % | **11.1 %** | 55.6 % | 7.9x |
+
+A player following that kept four slot-3 runes for every slot-4 rune of a Def DD
+account, and needed one of each. **It runs both ways**, which is why no rule of
+thumb repairs it: a slot that cannot draw the wanted stat has a *lower* ceiling, so
+an ordinary rune reads higher against it and the slot over-fills; a slot that can
+draw it has a high ceiling that ordinary runes fall far short of, and the slot
+starves. Which of the two happens to which slot depends on the preset, and the two
+DEF rows above show the same preset family doing each.
+
+**So the floor is read from each slot's own box.** `ordinaryBox` in
+`rune-cleanup-model.ts` states a second concrete rune beside §5's perfect one:
+
+- four sub-property lines drawn uniformly without replacement from the effect ids the
+  slot allows, one initial roll each, four upgrades spread uniformly over the four;
+- an innate on the measured **51 %** of runes (`RUNE-CANONICAL.md` §4), one roll from
+  the same interval, with neither Gem nor Grindstone on it;
+- every roll worth the midpoint of its ordinary six-star interval, which is exact
+  rather than simulated because a valuation is linear in the roll count;
+- the credited Gem and Grindstone of §6 spent on it, so turning a slider up raises
+  the bar as well as the rune;
+- ordinary six-star throughout, Ancient included, for §5's reason — both ends of the
+  scale must stay still while the candidate moves.
+
+A rune's **standing** is then where its Max value falls in that box, `0`–`1`, and the
+floor is a share of it. Standing is what every gate, every comparison between presets
+and every quota place is settled on; Max value is what the row prints, because "42 %
+of a perfect rune" is the honest description of the rune itself and a percentile is
+not. They are deliberately different numbers, and a slot-4 rune kept beside a
+slot-3 rune that reads higher is the system working.
+
+Three things about that box had to be right, and each one was measured still wrong
+after the one before it had been fixed:
+
+1. **The middle.** §4.2's yardstick drops the innate because every target's ratio
+   moves by the same factor when it goes and the normalisation removes it. Nothing
+   removes it here, so the box carries it.
+2. **The family of builds.** §5.1 lets a rune keep its best build. A slot-1 rune fits
+   *every* build of a preset because its main is fixed; a slot-2 rune fits only those
+   naming its own main — 24 against 6 for Bruiser — and a maximum over more draws is
+   simply larger. The ordinary rune is therefore offered the same choice: each drawn
+   line-up is priced in every build of the family and keeps its best, and only then
+   is the average taken.
+3. **The shape.** Matching middles leaves 16 % against 6 %; matching middles and
+   widths leaves 20.0 % against 13.7 %, because a maximum Gem credited to a DEF role
+   hands *every* rune the wanted stat in the two slots that may draw it and crushes
+   the top of their distributions while the other four keep a long tail. So the box
+   is kept as a distribution over a `0`–`1` grid rather than as two moments. The one
+   Gaussian left is the smear *within* a single line-up, where a sum of eight uniform
+   rolls genuinely is one.
+
+`npm run verify:rune-slot-neutrality` is the gate. It puts a synthetic box of every
+slot against all eight shipped presets and seven adversarial ones — roles built
+almost entirely on DEF, on ATK, on HP, on SPD, on ACC, on crit, and one that wants
+everything — holding the main property fixed so that only the slot can move a
+verdict, and tests the six shares with Pearson's χ² on five degrees of freedom. It
+also checks that the ladder delivers the share it names, that a slot which can carry
+*nothing* the role wants is an honest zero rather than a scale, and that the standing
+still ranks runes within a slot. Against the engine before this, seventeen of its
+eighteen scenarios scored between 139 and 3,898 and the eighteenth scored 32; it now
+scores at most 31 against a limit of 45.
+
+**The stops have now been restated twice, and for the same reason both times.** They
+ran `0.41`–`0.69` as Max values before the substat weights of §4 and `0.36`–`0.63`
+after, and both ladders were this ladder: the shares were always what the numbers
+were chosen to produce. A calibrated number left alone through a change of scale
+silently stops meaning what it says, and that is how the default setting once became
+twice as strict as it read.
+
+**What it cost in retained runes.** The old ladder was looser than it read: measured
+against the same synthetic box, its five stops admitted 49.5 %, 34.6 % and 23.5 % of
+it where they said a third, 23 % and 15 %. The new ones deliver 32.8 %, 23.2 % and
+15.6 %. On a box of ordinary six-star `+12` runes drawn across all six slots at the
+default floor, the engine retained 20.4 % before and 13.4 % after; almost all of the
+difference is the over-admission above being removed, with slots 1, 3 and 5 falling
+from 41.5 %, 39.5 % and 27.3 % to a common 22–23 %. What is now delivered is the
+15 % this section has claimed all along.
 
 ## 10. Calibration and adversarial checks
 
 `scripts/verify-rune-substat-weights.mjs` is the deterministic gate on §§4–5. It holds
 the thing a simulation cannot: a Monte Carlo of the model's own score agrees with the
 model whatever the score *means*. It checks that a stated target is no longer a
-switch, that main properties and a completed set come off the requirement, that a met
-target asks for nothing, that surplus is never penalised, that lower star classes stay
-on one scale, that credited craft items move both ends, and that the §5 rune reads
-exactly 100 % in every slot of every build of every shipped preset.
+switch, that main properties and the role's artifacts come off the requirement while a
+rune's own set does not, that a met target asks for nothing, that surplus is never
+penalised, that lower star classes stay on one scale, that credited craft items move
+both ends, and that the §5 rune reads exactly 100 % in every slot of every build of
+every shipped preset.
+
+`scripts/verify-rune-set-neutrality.mjs` is the fairness gate on §4.3, and it is paired
+by construction: one synthetic population of rune *bodies* is generated once, every set
+is judged on exactly those bodies, and every field of every answer must match. It then
+puts all fifteen sets in one account so the preset quotas make them compete, and
+finally checks the mirror image — that a preset which *does* rank sets is still obeyed,
+because a gate that only demanded neutrality would pass just as happily on an engine
+that had stopped reading the set at all.
+
+`scripts/verify-rune-slot-neutrality.mjs` is the fairness gate on §9.1, and it is
+built the same way: a synthetic box of ordinary six-star `+12` runes is generated for
+every slot, every rune in it carries a main property the preset asked for and the
+sets are cycled so that neither of those can move a verdict, and the six shares that
+survive the gates are tested against each other with Pearson's χ². It runs the eight
+shipped presets, seven adversarial single-stat roles, the craft sliders at maximum
+and both ends of the quality ladder. It then checks the three things a bare equality
+test would miss: that the ladder admits the share it names, that a slot which can
+legally carry nothing the role wants reports "No preset can use it" rather than being
+given a scale, and that a rune which out-scores another of its own slot still outranks
+it.
 
 `scripts/verify-rune-cleanup-calibration.mjs` independently generates legal runes,
 executes additions/upgrades with its own PRNG, and checks chance fixtures, finite advice
@@ -409,10 +593,12 @@ statistical run used before release.
 `scripts/verify-rune-cleanup-equivalence.mjs` answers the other question, which the
 calibration oracle deliberately cannot: whether this build says what the last one did.
 It records every public field of every row over a fixed population and eight settings
-and preset scenarios, and diffs them against a recorded baseline. The three are
-complementary — the weights gate says the score means the right thing, the oracle says
-the probability is right, the equivalence gate says a refactor did not move either —
-and a change to the engine runs all three.
+and preset scenarios, and diffs them against a recorded baseline. The five are
+complementary — the weights gate says the score means the right thing, the set gate
+says the same rune is scored alike whatever it is labelled, the slot gate says the
+floor cuts every slot at the same place, the oracle says the probability is right,
+and the equivalence gate says a refactor moved none of them — and a change to the
+engine runs all five.
 
 ## 10.1 What it costs
 
@@ -421,15 +607,25 @@ at the default settings, warm:
 
 | | Before §4 | After §4 |
 | --- | ---: | ---: |
-| `runeAdvice`, in Node | 0.52 s | 1.13 s |
-| The same account in the browser worker, as the page reports it | — | 1.9 s |
+| `runeAdvice`, in Node | 0.52 s | 0.6 s |
+| The same account in the browser worker, as the page reports it | — | 1.2 s |
 
-Roughly twice the old engine, for a model that prices every stat separately and
-enumerates every build rather than one. Three things account for the difference
-between that and the fourteen-fold regression the first working version had, and each
-is recorded where it lives: the raw-sum distributions of §7.1, the single candidate per
-preset of §5.1, and one valuation's eleven conversion factors being worked out once
-rather than per line.
+About the same as the old engine, for a model that prices every stat separately and
+enumerates every build rather than one. The first working version was fourteen times
+slower; four things closed that, each recorded where it lives — the raw-sum
+distributions of §7.1, the single candidate per preset of §5.1, one valuation's eleven
+conversion factors being worked out once rather than per line, and §4.3 taking the
+candidate's set out of the weight key, which cut the number of distinct weight vectors
+by the number of sets in the account.
+
+**§9.1 adds about 40 %**, measured over eight warm runs of a synthetic account of the
+same 3,242 runes: 0.47 s without the ordinary box and 0.65 s with it. A box is one
+enumeration of every line-up a slot can draw, priced in every build of the family, and
+it is memoised per slot, main property, craft credit, lineage and build family — so it
+is built a hundred-odd times for a whole account rather than once per rune. The first
+version cost three times as much rather than forty per cent: building each case's
+Gaussian smear afresh put a quarter of a million `exp` calls behind every box, and
+caching the kernel on its quantised width and offset is what closed that.
 
 ## 11. Change procedure
 

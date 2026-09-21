@@ -344,6 +344,439 @@ function slotCeiling(
   return best;
 }
 
+/* ------------------------------------------------- the ordinary rune */
+
+/**
+ * How often an ordinary six-star rune carries an innate property: **51 %**, measured
+ * on 2,998 runes (`RUNE-CANONICAL.md` §4). Com2uS states no rate, so this is an
+ * observation rather than a game rule, and §4 says it is to be re-measured at every
+ * game update.
+ */
+const innateFrequency = 0.51;
+
+/**
+ * What one upgrade allocation does to a line's spread.
+ *
+ * Four upgrades fall uniformly across four lines, so each line's count is
+ * `Binomial(4, ¼)`: variance `4 · ¼ · ¾`, and two lines covary at `−4 · ¼ · ¼`
+ * because an upgrade one line takes is one the other cannot. The negative term is
+ * not a rounding detail — it is what stops four lines' spreads from simply adding,
+ * and dropping it would overstate an ordinary rune's spread by about a fifth.
+ */
+const upgradeCountVariance = 4 * (1 / 4) * (3 / 4);
+const upgradeCountCovariance = -4 * (1 / 4) * (1 / 4);
+
+/** One effect id's roll statistics, in this role's own score units. */
+type RollStatistics = {
+  /** What one raw point of it is worth. A valuation is linear, so this is its slope. */
+  factor: number;
+  /** The mean and variance of one ordinary six-star roll, as whole game numbers. */
+  mean: number;
+  variance: number;
+};
+
+/** One build's price list for one slot's legal effect ids. */
+type OrdinaryPrices = {
+  ceiling: number;
+  /** Two average rolls plus whatever a Grindstone adds — one line of this id. */
+  line: Map<number, number>;
+  /** One average roll, and no craft item may touch an innate. */
+  innate: Map<number, number>;
+  gem: Map<number, number>;
+  roll: Map<number, RollStatistics>;
+};
+
+/**
+ * One slot's box of ordinary runes, as a **distribution** over the Max-value scale.
+ *
+ * It is a whole curve rather than a middle and a width, and the case that settles
+ * that is a maximum Gem credited to a role built around DEF: in the two slots that
+ * may draw DEF the Gem hands *every* rune the stat the role wants, crushing the top
+ * of the distribution, while in the four that may not it does nothing of the sort
+ * and the long right tail survives. Middles and widths matched, a floor read through
+ * a Gaussian still took 20 % of one slot and 13 % of another. The shape is where the
+ * difference lives, so the shape is what is kept.
+ */
+export type OrdinaryBox = {
+  /** The box's middle, which is all a box with no recorded shape has to offer. */
+  readonly value: number;
+  /** `below[i]` is the share of the box at or under Max value `i / (below.length - 1)`. */
+  readonly below: readonly number[];
+};
+
+/**
+ * How finely the box's own shape is recorded, over the whole `0`–`1` Max-value
+ * scale. Every Max value a rune can have falls inside it, so no candidate is ever
+ * off the end and no bound needs guarding.
+ *
+ * 512 steps is 0.2 of a percentage point of Max value — an order finer than the
+ * column that prints it, and finer than the narrowest box's own width by enough
+ * that the curve is smooth rather than steppy.
+ */
+const boxResolution = 512;
+
+/**
+ * A short, stable name for one valuation, for the family key above.
+ *
+ * Two valuations that price every line alike already *are* the same object — they
+ * are memoised on the weight set that produced them — so object identity is exactly
+ * as fine a distinction as their own keys make, and a counter off a `WeakMap` needs
+ * no invalidation rule of its own.
+ */
+const valuationNumbers = new WeakMap<Valuation, number>();
+let valuationCount = 0;
+
+function valuationNumber(valuation: Valuation): number {
+  let found = valuationNumbers.get(valuation);
+  if (found === undefined) { valuationCount += 1; found = valuationCount; valuationNumbers.set(valuation, found); }
+  return found;
+}
+
+/**
+ * **Where the box of ordinary runes of this slot sits, on the Max-value scale the
+ * candidate is read on.**
+ *
+ * This is the anchor that makes a quality floor mean the same thing in every slot,
+ * and without it the floor does not. A slot is not free to carry whatever the role
+ * wants: slot 1 may never carry DEF, slot 3 may never carry ATK, slot 5 may never
+ * carry flat HP, and a chosen main property bars its own effect id wherever it sits.
+ * So for a role built around DEF, slot 3 draws its lines from a pool that contains
+ * the one stat the role is starved of and slot 1 draws from a pool that does not —
+ * and the two pools produce completely different *distributions* of score even
+ * though each is measured against its own slot's perfect rune. Dividing by the
+ * ceiling makes the top of the two scales agree; it says nothing about the body, and
+ * the body is where the verdicts are made. Measured before this existed, one absolute
+ * Max-value floor kept 29.6 % of the ordinary slot-3 runes of a Def DD account and
+ * 8.8 % of its slot-4 ones, and for a role built around ATK, 87.4 % of slot 3 against
+ * 11.1 % of slot 5.
+ *
+ * ## The rune
+ *
+ * It is the construction §4.2 already prices a target against, plus an innate:
+ * **four sub-property lines drawn uniformly without replacement from the effect ids
+ * the slot allows, one initial roll each, four upgrades spread uniformly over the
+ * four, and — on 51 % of runes — one innate of a further legal id.** Every roll is
+ * worth the midpoint of its ordinary six-star interval, so a line that exists is
+ * worth two average rolls, and the value is linear in the roll count, which is what
+ * makes this an exact mean rather than a simulation. Ancient is not in it for the
+ * reason it is not in the ceiling: both ends of the scale are the ordinary six-star
+ * ones, so an Ancient rune's higher initial interval moves the rune and never the
+ * bar. The credited craft items *are* in it, because §6 requires that turning a
+ * slider up raise the bar as well as the rune.
+ *
+ * **§4.2 leaves the innate out and this must put it back.** There it cancels: every
+ * target's ratio moves by about the same factor and the normalisation removes it.
+ * Here nothing removes it — an innate is worth one average line, a rune's own score
+ * counts it in full, and how much one average line is worth *relative to the gap
+ * between the two anchors* is precisely the quantity that differs from slot to slot.
+ *
+ * ## Why it takes a family of builds and not one
+ *
+ * A preset describes a family of builds and §5.1 lets a rune keep its best of them.
+ * A slot-1 rune fits **every** build, because its main property is fixed and no
+ * build can disagree with it; a slot-2 rune fits only the builds that name its own
+ * main. So the two take their maximum over pools of very different sizes — 24
+ * against 6 for Bruiser — and a maximum over more draws is simply larger. Measured,
+ * that alone put Bruiser's slot-1 box a tenth of a standing above its slot-4 box,
+ * 0.21 against 0.11, after the legality skew above had been removed.
+ *
+ * **The ordinary rune is therefore offered the same choice.** Each drawn line-up is
+ * priced in every build of the family and keeps its best, exactly as the candidate
+ * does, and only then is the average taken. Max-then-average, in that order: the
+ * other order is a different and smaller number, and it is the one that leaves the
+ * bias behind.
+ *
+ * ## Why the whole shape and not the middle, or the middle and the width
+ *
+ * Putting the middles of the six boxes in the same place is not enough, because the
+ * boxes are not the same width: a slot whose main property has taken the role's
+ * tightest stat off its own sub-property list scores through the remaining stats,
+ * which the role prices more evenly, so its box is narrower, and a floor a fixed
+ * distance above the middle cuts a narrow box higher up than a wide one. Measured
+ * with the middles aligned and the widths ignored, the floor still admitted 16 % of
+ * one slot against 6 % of another.
+ *
+ * Matching the widths as well is not enough either, and a maximum Gem credited to a
+ * role built around DEF is the case that shows it. In the two slots that may draw
+ * DEF the Gem gives *every* rune the stat the role is starved of, so the top of the
+ * distribution is crushed against the ceiling; in the four that may not, it does
+ * nothing of the kind and the long right tail survives. Two boxes of the same middle
+ * and the same width, and a Gaussian read of them still took 20.0 % of one slot and
+ * 13.7 % of another, because the difference was in the third moment and beyond.
+ *
+ * **So the box is kept as a distribution.** The enumeration below already visits
+ * every line-up and every innate with its exact weight, and that *is* the shape —
+ * the between-line-up spread is where a peaked set of weights does all its work.
+ * Each case is laid onto a `0`–`1` grid smeared by its own within-case spread, which
+ * closed form gives exactly: the roll values and the upgrade allocation, both linear
+ * in the valuation. Within one line-up that smear really is a sum of eight uniform
+ * rolls and a Gaussian is the right shape for it; between line-ups it is not, and
+ * nothing here assumes it is.
+ */
+export function ordinaryBox(candidates: readonly RuneCandidate[]): OrdinaryBox {
+  const empty: OrdinaryBox = { value: 0, below: [] };
+  if (candidates.length === 0) return empty;
+  const [first] = candidates;
+  /* One box describes one slot holding one main property. Every build of a preset
+     that a given rune survives puts that rune's own main in its slot, or leaves the
+     slot unstated for all of them, so the family is uniform by construction — but
+     it is an invariant a caller could break silently by passing two runes' worth of
+     candidates, and a box quietly describing the wrong slot is exactly the failure
+     this whole anchor exists to prevent. */
+  for (const candidate of candidates) {
+    if (candidate.main !== first.main || candidate.rune.slot !== first.rune.slot) {
+      throw new Error('Rune Clean-up: an ordinary box was asked to describe two different slots at once.');
+    }
+  }
+  const ids = allStatIds.filter((statId) => statId !== first.main
+    && slotAllowsSubStat(first.rune.slot, statId));
+  if (ids.length < 4) return empty;
+
+  /* The family is named by short numbers rather than by its valuations' own keys.
+     This runs once per rune per preset, and a valuation key carries the whole
+     target row and reference line — two dozen of them concatenated is a kilobyte
+     of string built and thrown away for every lookup. A number per valuation
+     identifies it exactly as well, because a valuation is already memoised per
+     weight set for the life of the scope. */
+  const key = `${first.rune.slot}|${first.main}|${creditKey(first.credit)}|${first.lineage}`
+    + `|${candidates.map((candidate) => valuationNumber(candidate.valuation)).sort().join(' ')}`;
+  const cached = first.scope.ordinary.get(key);
+  if (cached !== undefined) return cached;
+
+  const builds: OrdinaryPrices[] = [];
+  for (const candidate of candidates) {
+    if (candidate.ceiling <= 0) continue;
+    const { valuation, credit, lineage } = candidate;
+    const prices: OrdinaryPrices = {
+      ceiling: candidate.ceiling, line: new Map(), innate: new Map(), gem: new Map(), roll: new Map(),
+    };
+    for (const statId of ids) {
+      const range = subPropertyRange(6, statId, 'upgrade');
+      const width = range ? range.maximum - range.minimum + 1 : 1;
+      const mean = range ? (range.minimum + range.maximum) / 2 : 0;
+      const grind = grindCredit(statId, lineage, credit);
+      prices.line.set(statId, valuation.value(statId, mean * 2 + grind));
+      prices.innate.set(statId, valuation.value(statId, mean));
+      prices.roll.set(statId, {
+        factor: valuation.value(statId, 1), mean, variance: (width * width - 1) / 12,
+      });
+      const rolled = gemCredit(statId, lineage, credit);
+      if (rolled !== null) prices.gem.set(statId, valuation.value(statId, rolled + grind));
+    }
+    builds.push(prices);
+  }
+  if (builds.length === 0) return empty;
+
+  /* Every line-up the slot can draw, weighted equally, which is what "uniformly
+     without replacement" means. Ten legal ids is 210 draws, the same order as the
+     ceiling's own enumeration, and the whole answer is memoised on the scope. */
+  const draws = combinations(ids, 4);
+  let mean = 0;
+  let weight = 0;
+  /* The shape, laid down case by case: `density[i]` is the mass this box puts on
+     Max values around `i / boxResolution`. */
+  const density = new Float64Array(boxResolution + 1);
+  for (const drawn of draws) {
+    const held = new Set(drawn);
+    /* Per build: the plain line-up, and — for each placement a Gem could take —
+       the best and second-best legal Gem. The runner-up is what an innate needs:
+       it bars one further id, and the only draw it changes is the one where the
+       id it barred is the very one the Gem wanted. */
+    const priced = builds.map((prices) => {
+      const plain = drawn.reduce((sum, statId) => sum + (prices.line.get(statId) ?? 0), 0);
+      const placements: Array<{ replaced: number; kept: number; barred: number; first: number; second: number }> = [];
+      for (const replaced of drawn) {
+        const kept = plain - (prices.line.get(replaced) ?? 0);
+        let firstValue = -Infinity;
+        let second = -Infinity;
+        let barred = 0;
+        for (const [statId, value] of prices.gem) {
+          if (statId !== replaced && held.has(statId)) continue;
+          if (value > firstValue) { second = firstValue; firstValue = value; barred = statId; }
+          else if (value > second) second = value;
+        }
+        if (firstValue === -Infinity) continue;
+        placements.push({ replaced, kept, barred, first: firstValue, second });
+      }
+      return { prices, plain, placements };
+    });
+
+    /**
+     * This line-up in one build, with the Gem spent where it earns most. `gemmed`
+     * is the line it froze, whose own rolls no longer vary.
+     */
+    const arrange = (entry: typeof priced[number], innateId: number | null) => {
+      let value = entry.plain;
+      let gemmed: number | null = null;
+      for (const placement of entry.placements) {
+        const gemValue = placement.barred === innateId ? placement.second : placement.first;
+        if (gemValue === -Infinity) continue;
+        if (placement.kept + gemValue > value) { value = placement.kept + gemValue; gemmed = placement.replaced; }
+      }
+      if (innateId !== null) value += entry.prices.innate.get(innateId) ?? 0;
+      return { value, gemmed };
+    };
+
+    /** The spread one arrangement's own rolls and upgrade allocation still carry. */
+    const spreadOf = (prices: OrdinaryPrices, gemmed: number | null, innateId: number | null) => {
+      const active = drawn.filter((statId) => statId !== gemmed);
+      let total = 0;
+      for (const statId of active) {
+        const roll = prices.roll.get(statId);
+        if (!roll) continue;
+        /* One initial roll plus `K` upgrades: the roll values contribute
+           `E[1 + K]` intervals' worth of variance, and the count itself
+           contributes its own variance at one mean roll apiece. */
+        total += roll.factor * roll.factor * (2 * roll.variance + upgradeCountVariance * roll.mean * roll.mean);
+      }
+      for (const left of active) for (const right of active) {
+        if (left === right) continue;
+        const a = prices.roll.get(left);
+        const b = prices.roll.get(right);
+        if (!a || !b) continue;
+        total += a.factor * b.factor * a.mean * b.mean * upgradeCountCovariance;
+      }
+      if (innateId !== null) {
+        const roll = prices.roll.get(innateId);
+        if (roll) total += roll.factor * roll.factor * roll.variance;
+      }
+      return total;
+    };
+
+    /** One case of the box — a line-up, with or without a named innate. */
+    const record = (innateId: number | null, share: number) => {
+      let best = -Infinity;
+      let chosen = priced[0];
+      let gemmedLine: number | null = null;
+      for (const entry of priced) {
+        const { value, gemmed } = arrange(entry, innateId);
+        const scaled = value / entry.prices.ceiling;
+        if (scaled > best) { best = scaled; chosen = entry; gemmedLine = gemmed; }
+      }
+      const caseVariance = Math.max(0,
+        spreadOf(chosen.prices, gemmedLine, innateId) / (chosen.prices.ceiling ** 2));
+      mean += share * best;
+      weight += share;
+      smear(density, best, Math.sqrt(caseVariance), share);
+    };
+
+    record(null, 1 - innateFrequency);
+    const free = ids.filter((statId) => !held.has(statId));
+    for (const statId of free) record(statId, innateFrequency / free.length);
+  }
+
+  if (weight <= 0) return empty;
+
+  /* The shape, as the share of the box at or below each grid point. Normalised by
+     the mass actually laid down rather than by `weight`, so a case whose smear was
+     clipped at either end of the scale cannot bend the total off 1. */
+  const below = new Array<number>(boxResolution + 1);
+  let running = 0;
+  for (let at = 0; at <= boxResolution; at += 1) { running += density[at]; below[at] = running; }
+  if (running > 0) for (let at = 0; at <= boxResolution; at += 1) below[at] /= running;
+
+  const box: OrdinaryBox = {
+    value: Math.min(1, Math.max(0, mean / weight)),
+    below: running > 0 ? below : [],
+  };
+  first.scope.ordinary.set(key, box);
+  return box;
+}
+
+/**
+ * Lay one case's mass onto the grid, as a Gaussian of its own within-case spread.
+ *
+ * The Gaussian is right *here* and nowhere else in this file: within one line-up the
+ * score is a sum of eight uniform rolls over at most four intervals, which is as
+ * close to normal as a small sum gets. It is the spread *between* line-ups that is
+ * nothing like normal, and that one is carried by the enumeration rather than by a
+ * formula.
+ *
+ * A case narrower than half a grid step is split between its two neighbouring points
+ * instead, so a case with no spread at all still lands somewhere definite and the
+ * grid stays a partition of the mass.
+ */
+function smear(density: Float64Array, centre: number, deviation: number, share: number): void {
+  const at = Math.min(1, Math.max(0, centre)) * boxResolution;
+  const middle = Math.round(at);
+  const steps = deviation * boxResolution;
+  if (!(steps > 0.5)) {
+    const low = Math.min(boxResolution, Math.max(0, Math.floor(at)));
+    const high = Math.min(boxResolution, low + 1);
+    const part = at - low;
+    density[low] += share * (1 - part);
+    density[high] += share * part;
+    return;
+  }
+  const kernel = gaussianKernel(steps, at - middle);
+  const reach = (kernel.length - 1) >> 1;
+  const from = middle - reach;
+  /* The whole bell lands on the scale, which is almost every case: the kernel is
+     already normalised, so one pass adds it. */
+  if (from >= 0 && middle + reach <= boxResolution) {
+    for (let index = 0; index < kernel.length; index += 1) density[from + index] += share * kernel[index];
+    return;
+  }
+  /* Clipped by an end of the scale. What falls off is dropped rather than folded
+     back, and what landed is renormalised to carry the case's whole share. */
+  let total = 0;
+  for (let index = Math.max(0, -from); index < kernel.length && from + index <= boxResolution; index += 1) {
+    total += kernel[index];
+  }
+  if (total <= 0) { density[Math.min(boxResolution, Math.max(0, middle))] += share; return; }
+  for (let index = Math.max(0, -from); index < kernel.length && from + index <= boxResolution; index += 1) {
+    density[from + index] += share * kernel[index] / total;
+  }
+}
+
+/**
+ * The bell every case is smeared with, normalised, and cached by its width and its
+ * sub-step offset.
+ *
+ * A box lays down a couple of thousand cases and each covers scores of grid points,
+ * so building the curve per case put hundreds of thousands of `exp` calls behind
+ * every box and trebled what a real account costs to judge. The shape depends on
+ * nothing but those two numbers, and both are quantised — the width to a twentieth
+ * of a grid step and the offset to a quarter of one, which moves a case's mass by at
+ * most an eighth of a step, or a twentieth of a percentage point of Max value. Both
+ * are folded into one integer key, because building a string key per case was itself
+ * a third of what the caching saved.
+ *
+ * **Three deviations each way** holds all but 27 parts in 10,000, and the kernel is
+ * normalised over exactly what it spans, so nothing is lost — the tails are folded
+ * into the shoulders rather than dropped.
+ *
+ * The cache is emptied rather than trimmed when it grows past its bound. It is a
+ * pure function of two numbers, so throwing it away costs only the work of building
+ * the next few — and an unbounded one in a worker that lives as long as the page
+ * does is a leak waiting for an account with enough distinct roles to find it.
+ */
+const gaussianKernels = new Map<number, Float64Array>();
+const gaussianKernelLimit = 2048;
+
+function gaussianKernel(steps: number, offset: number): Float64Array {
+  const twentieths = Math.max(1, Math.round(steps * 20));
+  const quarters = Math.round(offset * 4);
+  const key = twentieths * 16 + quarters + 8;
+  let found = gaussianKernels.get(key);
+  if (!found) {
+    const width = twentieths / 20;
+    const shift = quarters / 4;
+    const reach = Math.ceil(3 * width);
+    found = new Float64Array(2 * reach + 1);
+    let total = 0;
+    for (let index = 0; index < found.length; index += 1) {
+      const z = (index - reach - shift) / width;
+      found[index] = Math.exp(-z * z / 2);
+      total += found[index];
+    }
+    for (let index = 0; index < found.length; index += 1) found[index] /= total;
+    if (gaussianKernels.size >= gaussianKernelLimit) gaussianKernels.clear();
+    gaussianKernels.set(key, found);
+  }
+  return found;
+}
+
 /* ------------------------------------------------------------ the candidate */
 
 /**
@@ -362,6 +795,8 @@ export type RuneCandidate = {
   readonly weights: SubstatWeights;
   readonly lineUp: LineUp;
   readonly ceiling: number;
+  /** The main property this build puts in the rune's slot, which fixes its legal ids. */
+  readonly main: number;
   readonly best: number;
   readonly mainScale: number;
   readonly adds: number;
@@ -387,7 +822,10 @@ export type RuneCandidate = {
  */
 export type RuneAdviceScope = {
   weights: SubstatWeightScope;
+  /** The perfect rune of one slot, by valuation, slot, main, craft credit and lineage. */
   ceiling: Map<string, number>;
+  /** The ordinary box of one slot, by the same plus the whole family of builds. */
+  ordinary: Map<string, OrdinaryBox>;
   /**
    * One distribution per distinct line, shared by every rune this call judges.
    *
@@ -403,7 +841,7 @@ export type RuneAdviceScope = {
 };
 
 export const newRuneAdviceScope = (): RuneAdviceScope => ({
-  weights: newSubstatWeightScope(), ceiling: new Map(), distributions: new Map(),
+  weights: newSubstatWeightScope(), ceiling: new Map(), ordinary: new Map(), distributions: new Map(),
 });
 
 /** The deterministic half: everything that does not depend on the threshold. */
@@ -416,14 +854,21 @@ export function prepareRuneCandidate(
   if (mainOfSlot(build, rune.slot) !== rune.mainStatId && build.mains[rune.slot as 2 | 4 | 6] !== 0) return null;
 
   const main = mainOfSlot(build, rune.slot);
+  /* The weights read nothing about this rune. Two runes that differ only in their set
+     are scored identically, which is what lets the recommendation compare them; a set
+     decides a verdict through the preset's own ranking and the two set sliders, never
+     through the arithmetic. `verify:rune-set-neutrality` is the check. */
   const weights = substatWeights({
-    targets: preset.targets, mains: buildMains(build), setName: rune.setName, base,
+    targets: preset.targets, mains: buildMains(build), artifacts: preset.artifacts, base,
   }, scope.weights);
   if (weights.weights.size === 0) return null;
   const valuation = weightedValuation(base, weights);
 
   const lineage: CraftLineage = rune.ancient ? 'ancient' : 'standard';
-  const ceilingKey = `${valuation.key}|${main}|${creditKey(credit)}|${lineage}`;
+  /* The slot belongs in the key. Two slots can carry the same main property — ATK +
+     is slot 1's fixed main and one of slot 2's choices — while forbidding different
+     sub properties, so a key without the slot handed slot 2 slot 1's ceiling. */
+  const ceilingKey = `${valuation.key}|${rune.slot}|${main}|${creditKey(credit)}|${lineage}`;
   let ceiling = scope.ceiling.get(ceilingKey);
   if (ceiling === undefined) {
     ceiling = slotCeiling(valuation, rune.slot, main, credit, lineage);
@@ -458,14 +903,67 @@ export function prepareRuneCandidate(
     ? build.ranks[rune.slot as 2 | 4 | 6] : 'preferred';
 
   return {
-    rune, valuation, weights, lineUp, ceiling, best, mainScale, adds, rolls, credit, lineage,
-    rank: worseRank(setRank, mainRank), scope,
+    rune, valuation, weights, lineUp, ceiling, main, best, mainScale, adds, rolls, credit,
+    lineage, rank: worseRank(setRank, mainRank), scope,
   };
 }
 
 /** The best legal end state, against the best a rune in this slot could be. */
 export function candidateMaxValue(candidate: RuneCandidate): number {
   return Math.min(1, candidate.best / candidate.ceiling) * candidate.mainScale;
+}
+
+/* ------------------------------------------------------------ the standing */
+
+/**
+ * **The share of an ordinary box of its own slot that a rune beats, `0`–`1`.**
+ *
+ * This is the currency every gate and every allocation place is settled in, and Max
+ * value is what the row prints. They answer different questions, and the answer to
+ * the second one is not comparable between slots: a slot that may not legally carry
+ * the stat the role is starved of has a lower ceiling *and* a box of ordinary runes
+ * that sits at a different place on it and is a different width. Read as a position
+ * in the slot's own box, `0.85` means the same thing everywhere — better than 85 %
+ * of what that slot ordinarily produces for this role.
+ *
+ * The box is **not** scaled by the candidate's main-property factor, and that is
+ * deliberate: a four-star rune is measured against the same six-star box everybody
+ * else is, so its smaller main property costs it standing instead of buying it a
+ * lower bar.
+ *
+ * It is read straight off the box's recorded shape, so nothing here assumes the six
+ * boxes are alike in anything but the question asked of them.
+ */
+export function standingIn(box: OrdinaryBox, maxValue: number): number {
+  if (box.below.length === 0) return maxValue > box.value ? 1 : 0;
+  const at = Math.min(boxResolution, Math.max(0, maxValue * boxResolution));
+  const low = Math.min(boxResolution - 1, Math.floor(at));
+  return box.below[low] + (at - low) * (box.below[low + 1] - box.below[low]);
+}
+
+/**
+ * The Max value at which the best `share` of an ordinary box of this slot begins —
+ * the reading `standingIn` inverts, so a floor stated as a share of the box and the
+ * odds of clearing it are one and the same bar.
+ */
+export function boxThreshold(box: OrdinaryBox, share: number): number {
+  if (share >= 1) return Number.NEGATIVE_INFINITY;
+  if (share <= 0) return Number.POSITIVE_INFINITY;
+  if (box.below.length === 0) return box.value;
+  const wanted = 1 - share;
+  /* The first grid point the box has already reached `wanted` at, then back down
+     the last step linearly — the exact inverse of the interpolation above. */
+  let low = 0;
+  let high = boxResolution;
+  while (low < high) {
+    const middle = (low + high) >> 1;
+    if (box.below[middle] < wanted) low = middle + 1; else high = middle;
+  }
+  if (low === 0) return 0;
+  const under = box.below[low - 1];
+  const over = box.below[low];
+  const part = over > under ? (wanted - under) / (over - under) : 0;
+  return (low - 1 + part) / boxResolution;
 }
 
 /**

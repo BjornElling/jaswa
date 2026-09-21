@@ -83,8 +83,8 @@ export function TheMathSection() {
             <tbody>
               <tr>
                 <th scope="row" className="align-left">1. Subtract</th>
-                <td className="align-left">What do the monster, the six main stats and the completed set already bring?</td>
-                <td className="align-left">A Fast DD build carries ATK % in two slots and an ATK main in slot 1. Most of its ATK target is already paid for.</td>
+                <td className="align-left">What do the monster, the build&rsquo;s six main stats and its two artifacts already bring?</td>
+                <td className="align-left">A Fast DD build carries ATK % in two slots, an ATK main in slot 1 and two ATK artifacts. Most of its ATK target is already paid for.</td>
               </tr>
               <tr>
                 <th scope="row" className="align-left">2. Convert</th>
@@ -105,7 +105,10 @@ export function TheMathSection() {
           </table>
         </div>
         <p>
-          Worked through for <b className="type-body-emphasis">Fast DD</b>, on a Violent rune, against an attack-type monster with 9,708 HP, 808 ATK, 568 DEF and 105 SPD:
+          <b className="type-body-emphasis">Your artifacts count here too.</b> A monster wears two, and each carries one flat main stat &mdash; always <span className="math-table-rolled">HP +1,500</span>, <span className="math-table-rolled">ATK +100</span> or <span className="math-table-rolled">DEF +100</span>, the same on every artifact whatever its grade. Your preset says which of the three the role wants, so the two slots are split evenly over what it named: both into one stat if you named one, one each if you named two, two thirds of each if you named all three.
+        </p>
+        <p>
+          Worked through for <b className="type-body-emphasis">Fast DD</b>, against an attack-type monster with 9,708 HP, 808 ATK, 568 DEF and 105 SPD, with ATK artifacts named and no others:
         </p>
         <div className="math-table-scroll">
           <table className="math-table math-table-weights">
@@ -130,11 +133,6 @@ export function TheMathSection() {
                 <td><b className="type-body-emphasis">1.00</b></td>
               </tr>
               <tr>
-                <th scope="row" className="align-left">ATK</th>
-                <td>2,500</td><td>1,986</td><td>8.0 rolls</td><td>1.59</td><td>0.57</td>
-                <td><b className="type-body-emphasis">0.66</b></td>
-              </tr>
-              <tr>
                 <th scope="row" className="align-left">CRI Rate</th>
                 <td>90</td><td>18</td><td>12.0 rolls</td><td>2.00</td><td>0.72</td>
                 <td><b className="type-body-emphasis">0.66</b></td>
@@ -143,6 +141,11 @@ export function TheMathSection() {
                 <th scope="row" className="align-left">CRI Dmg</th>
                 <td>175</td><td>130</td><td>6.4 rolls</td><td>1.29</td><td>0.69</td>
                 <td><b className="type-body-emphasis">0.44</b></td>
+              </tr>
+              <tr>
+                <th scope="row" className="align-left">ATK</th>
+                <td>2,500</td><td>2,186</td><td>4.9 rolls</td><td>0.97</td><td>0.57</td>
+                <td><b className="type-body-emphasis">0.40</b></td>
               </tr>
               <tr>
                 <th scope="row" className="align-left">Accuracy</th>
@@ -166,10 +169,59 @@ export function TheMathSection() {
           A maximum CRI Dmg roll is now worth <b className="type-body-emphasis">2.8 maximum Accuracy rolls</b> to this role, and a maximum SPD roll <b className="type-body-emphasis">6.3</b> of them. The weights are scaled so the hardest target weighs exactly 1; nothing depends on that choice except readability.
         </p>
         <p>
-          Two consequences worth spelling out. <b className="type-body-emphasis">A target the build already meets asks the runes for nothing</b> — Leo wants 100 SPD and the reference monster already has 104, so SPD lines earn Leo nothing. And <b className="type-body-emphasis">the set matters</b>: a Fatal rune brings +35 % ATK with it, which finds 283 of Fast DD&rsquo;s missing 514 ATK, so the ATK weight on a Fatal rune drops from 0.66 to 0.30.
+          Watch what the artifacts did: they found 200 of the 514 ATK the build was short of, which moved ATK from 0.66 to 0.40 &mdash; from above CRI Dmg to below it. Naming an artifact stat in a preset is not decoration.
         </p>
         <p>
+          One consequence worth spelling out: <b className="type-body-emphasis">a target the build already meets asks the runes for nothing</b>. Leo wants 100 SPD and the reference monster already has 104, so SPD lines earn Leo nothing at all.
+        </p>
+
+        <p>
           What a target never does is <i>cap</i> anything. A rune that rolled past its share is worth more, not the same — the surplus is exactly what lets another rune in the finished build carry the HP or the Accuracy instead.
+        </p>
+
+        <h3 className="type-heading">Why your rune&rsquo;s own set is left out of that</h3>
+        <p>
+          A completed set carries stats of its own — Fatal is <span className="math-table-rolled">+35 % ATK</span>, Swift <span className="math-table-rolled">+25 % SPD</span> — and it is very tempting to subtract them too. A Fatal build really does need less ATK from its substats. <b className="type-body-emphasis">JASWA deliberately does not do it</b>, and it is worth saying why, because it is the one place a true fact about the game is left out on purpose.
+        </p>
+        <p>
+          The weights <i>are</i> the yardstick. Subtract a set&rsquo;s bonus and that set gets a yardstick of its own — and a recommendation is exactly a comparison between sets. Measured on 1,500 identical runes relabelled set by set, against presets that wanted every set equally, the same runes were kept <b className="type-body-emphasis">431 to 520 times</b> on the strength of the label alone:
+        </p>
+        <div className="math-table-scroll">
+          <table className="math-table math-table-verdicts">
+            <caption className="visually-hidden">
+              How often identical runes were kept under each set label, against Violent, when a set bonus was allowed to reduce the requirement
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col" className="align-left">Set</th>
+                <th scope="col">Kept, against Violent</th>
+                <th scope="col" className="align-left">Because</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row" className="align-left">Swift</th>
+                <td>+11.1 %</td>
+                <td className="align-left">SPD is the tightest target, so relieving it lifted every other weight</td>
+              </tr>
+              <tr>
+                <th scope="row" className="align-left">Fatal</th>
+                <td>+1.5 %</td>
+                <td className="align-left">ATK left the top five, so the perfect rune got cheaper to match</td>
+              </tr>
+              <tr>
+                <th scope="row" className="align-left">Rage</th>
+                <td>−7.9 %</td>
+                <td className="align-left">CRI Dmg lines were devalued on the very runes that carry the set</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Note that it runs <i>both</i> ways, and that no player asked for or could predict that ordering. Nor can it be patched out by dividing differently: Max value is a ratio, so scaling the weights changes nothing, and the damage is a change in their <i>shape</i> — which moves each rune by an amount depending on what it happened to roll. Equal treatment across sets needs the weights to ignore the set entirely. That is arithmetic, not taste.
+        </p>
+        <p>
+          So a set decides a verdict in the three places where <b className="type-body-emphasis">you</b> have said what you think of it — the preset&rsquo;s preferred and acceptable lists, the four-piece switch, and the Intangible slider — and nowhere else. If you ever want set bonuses back in the requirement, the honest route is for a preset to say which set <i>combination</i> its builds use; a combination you state is the same for every rune, so it can shape the requirement without tilting the comparison.
         </p>
 
         <h3 className="type-heading">What a perfect rune looks like</h3>
@@ -206,22 +258,22 @@ export function TheMathSection() {
                 <td>7</td><td>0.440</td><td>0.440</td>
               </tr>
               <tr>
-                <th scope="row" className="align-left">ATK <span className="math-table-rolled">+ flat</span></th>
-                <td>20</td><td>0.204</td><td>0.204</td>
+                <th scope="row" className="align-left">Accuracy</th>
+                <td>8</td><td>0.159</td><td>0.159</td>
               </tr>
               <tr>
-                <th scope="row" className="align-left">Accuracy <span className="math-table-rolled">innate</span></th>
-                <td>8</td><td>0.159</td><td>0.159</td>
+                <th scope="row" className="align-left">HP <span className="math-table-rolled">% innate</span></th>
+                <td>8</td><td>0.155</td><td>0.155</td>
               </tr>
               <tr className="math-table-total">
                 <th scope="row" className="align-left">100 %</th>
-                <td /><td /><td><b className="type-body-emphasis">6.46</b></td>
+                <td /><td /><td><b className="type-body-emphasis">6.41</b></td>
               </tr>
             </tbody>
           </table>
         </div>
         <p>
-          Note the flat ATK line. ATK is a stat this role badly wants, but on this rune it can only arrive as a flat roll — and a flat roll is worth 0.31 of a percentage roll against an 808 base. The weight says the role wants ATK; the yardstick says this line cannot deliver much of it. Both are true, and they are kept separate.
+          Note what is <i>missing</i>: ATK. The role wants it, but this rune already carries ATK % as its main stat, so ATK can only arrive here as a flat roll — worth 0.31 of a percentage roll against an 808 base, and 0.12 once the weight is applied. That is below every line above, so the perfect slot 2 rune does not carry ATK at all. The weight says the role wants ATK; the yardstick says this rune cannot deliver much of it; the other five slots have to.
         </p>
 
         <h3 className="type-heading">Scoring one rune</h3>
@@ -274,8 +326,8 @@ export function TheMathSection() {
               </tbody>
             </table>
           </div>
-          <p className="math-equation" aria-label="Max value: 4.01 divided by 6.46 equals 62 percent">
-            <span className="math-equation-label">Max value</span><span>4.01</span><span aria-hidden="true">/</span><span>6.46</span><span aria-hidden="true">=</span><b className="type-body-emphasis">62 %</b>
+          <p className="math-equation" aria-label="Max value: 4.01 divided by 6.41 equals 63 percent">
+            <span className="math-equation-label">Max value</span><span>4.01</span><span aria-hidden="true">/</span><span>6.41</span><span aria-hidden="true">=</span><b className="type-body-emphasis">63 %</b>
           </p>
           <p>
             The Accuracy line rolled near its maximum and still earns 0.139, while a slightly-above-average SPD line earns twenty times that. That is the whole point: the rune is good <i>because</i> of what it rolled into, not because it rolled into four things the preset happens to mention.
@@ -309,8 +361,8 @@ export function TheMathSection() {
               </tr>
               <tr>
                 <th scope="row" className="align-left">One new line</th>
-                <td className="align-left">The best substat still legal here — flat ATK, at its maximum</td>
-                <td>+ 0.20</td>
+                <td className="align-left">The best substat still legal here — HP %, at its maximum</td>
+                <td>+ 0.16</td>
               </tr>
               <tr>
                 <th scope="row" className="align-left">One upgrade</th>
@@ -319,7 +371,7 @@ export function TheMathSection() {
               </tr>
               <tr className="math-table-total">
                 <th scope="row" className="align-left">Best it can become</th>
-                <td className="align-left">5.10 against the same 6.46</td>
+                <td className="align-left">5.05 against the same 6.41</td>
                 <td><b className="type-body-emphasis">79 %</b></td>
               </tr>
             </tbody>
@@ -349,15 +401,15 @@ export function TheMathSection() {
             <tbody>
               <tr>
                 <th scope="row" className="align-left">4★</th>
-                <td>4.30</td><td>0.68</td><td>45 %</td>
+                <td>4.30</td><td>0.68</td><td>46 %</td>
               </tr>
               <tr>
                 <th scope="row" className="align-left">5★</th>
-                <td>5.38</td><td>0.81</td><td>67 %</td>
+                <td>5.36</td><td>0.81</td><td>68 %</td>
               </tr>
               <tr>
                 <th scope="row" className="align-left">6★</th>
-                <td>6.46</td><td>1.00</td><td><b className="type-body-emphasis">100 %</b></td>
+                <td>6.41</td><td>1.00</td><td><b className="type-body-emphasis">100 %</b></td>
               </tr>
             </tbody>
           </table>
@@ -377,9 +429,65 @@ export function TheMathSection() {
           A Gem is different, because it is spent at <span className="math-relic-level">+12</span> and <b className="type-body-emphasis">throws away every roll its line collected on the way</b>. So the line it lands on is reserved: it is worth exactly the Gem, and the upgrades that fall on it are simply lost. Below <span className="math-relic-level">+12</span> the Gem is only ever projected onto a line the rune already has — a line it has not drawn yet cannot be planned around.
         </p>
 
+        <h3 className="type-heading">Why the floor is not the same number in every slot</h3>
+        <p>
+          <b className="type-body-emphasis">The six slots do not offer the same substats.</b> Slot 1 can never carry DEF. Slot 3 can never carry ATK. Slot 5 can never carry flat HP. And a slot&rsquo;s main stat is barred from appearing again as a substat, so a slot 4 rune with a CRI Dmg main cannot roll CRI Dmg.
+        </p>
+        <p>
+          That creates a trap, and JASWA used to fall into it. Ask a role for a great deal of DEF and slot 3 can draw the stat you want while slot 1 cannot — so the two slots produce completely different runes, even though each is measured against the perfect rune <i>of its own slot</i>. Dividing by the perfect rune lines the six scales up at the <i>top</i>; it says nothing about the middle, and the middle is where the keeping and selling happens.
+        </p>
+        <p>
+          Measured on a synthetic box of two thousand ordinary six-star runes per slot, one absolute Max value floor kept <b className="type-body-emphasis">30 % of Def DD&rsquo;s slot 3 runes and 9 % of its slot 4</b>, and for a role built almost entirely on ATK, <b className="type-body-emphasis">87 % of slot 3 and 11 % of slot 5</b>. It ran both ways, which is why no rule of thumb fixes it: a slot that cannot draw the wanted stat has a <i>lower</i> ceiling, so ordinary runes read high against it and it over-fills; a slot that can draw the stat has a high ceiling ordinary runes fall well short of, and it starves. You kept a pile of one slot and nothing for another, while needing exactly one of each.
+        </p>
+        <p>
+          So the floor is not a Max value at all. <b className="type-body-emphasis">It is a share of the runes that slot ordinarily produces for that role</b> — the default setting keeps the best 15 % of them — and JASWA works out what Max value that comes to in each slot separately. Here is that one default floor, for four of the shipped presets, written out as the Max value it actually demands:
+        </p>
+        <div className="math-table-scroll">
+          <table className="math-table">
+            <caption className="visually-hidden">
+              The Max value the default quality floor comes to in each of the six slots, for each shipped preset
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col" className="align-left">Preset</th>
+                <th scope="col">Slot 1</th>
+                <th scope="col">Slot 2</th>
+                <th scope="col">Slot 3</th>
+                <th scope="col">Slot 4</th>
+                <th scope="col">Slot 5</th>
+                <th scope="col">Slot 6</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row" className="align-left">Fast DD</th>
+                <td>59 %</td><td>47 %</td><td>56 %</td><td>53 %</td><td>54 %</td><td>51 %</td>
+              </tr>
+              <tr>
+                <th scope="row" className="align-left">Def DD</th>
+                <td>56 %</td><td>53 %</td><td>56 %</td><td>43 %</td><td>51 %</td><td>53 %</td>
+              </tr>
+              <tr>
+                <th scope="row" className="align-left">Support</th>
+                <td>52 %</td><td>51 %</td><td>53 %</td><td>43 %</td><td>47 %</td><td>42 %</td>
+              </tr>
+              <tr>
+                <th scope="row" className="align-left">Bruiser</th>
+                <td>67 %</td><td>58 %</td><td>63 %</td><td>58 %</td><td>62 %</td><td>58 %</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          A Def DD slot 4 rune needs 43 % where a slot 1 rune needs 56 %, and both are the same demand: be better than five out of six of the runes your slot produces for this role. So <b className="type-body-emphasis">a rune can be kept while another with a higher Max value is sold</b>, and that is the system working, not a bug.
+        </p>
+        <p>
+          The ordinary rune the box describes is as concrete as the perfect one: four substat lines drawn without replacement from what the slot allows, one roll each, four upgrades spread across them, an innate on the measured 51 % of runes, and the Gems and Grindstones you told JASWA to assume. It is worked out exactly rather than simulated, for every slot of every build, and <span className="math-table-rolled">npm run verify:rune-slot-neutrality</span> checks the result by generating boxes of synthetic runes and failing unless every slot keeps the same share of them.
+        </p>
+
         <h3 className="type-heading">The number the column prints</h3>
         <p>
-          The Max value shown is the score the verdict uses. The quality floor is exactly the floor you set, so a number can be read directly without a hidden per-slot or per-preset multiplier.
+          The Max value column is always the plain thing it says: how close this rune can get to a perfect rune for its slot. That is the honest description of one rune, and it is the number to compare two runes of the same slot with. The floor above is what it is measured against.
         </p>
         <p>
           A preset describes a <i>family</i> of builds, not one build, and the main stats of the other five slots change what a rune is worth — a build with HP % in slots 4 and 6 asks its runes for thousands less HP than one with ATK % there. So every compatible build is scored and the rune keeps its best.
@@ -399,7 +507,7 @@ export function TheMathSection() {
           A future line is drawn without replacement from the legal missing effect ids; after all new lines exist, each remaining upgrade is allocated to one of the four lines. Every realised roll contributes in full, weighted by its stat — including surplus SPD or Accuracy. The paths are counted separately because their legal lines and roll ranges differ, not because a stat is locally capped.
         </p>
         <p>
-          Our <span className="math-relic-level">+6</span> rune above needs 79 % at its ceiling, but it only gets there if the one upgrade left lands on SPD and rolls well. At the strictest quality floor its chance of clearing the bar is <span className="math-table-rolled">75 %</span>; at the four looser floors it is already certain.
+          Our <span className="math-relic-level">+6</span> rune above reaches 79 % at its ceiling, which is clear of even the strictest Fast DD slot 2 bar however the last upgrade falls — its chance is 100 % at all five floors. Give the same rune a middling SPD roll of <span className="math-table-rolled">+ 9</span> instead of <span className="math-table-rolled">+ 17</span> and its ceiling drops to 58 %: still certain at the loosest floor, <span className="math-table-rolled">94 %</span> at the next, a coin toss at the default one, <span className="math-table-rolled">20 %</span> above that, and out of reach at the strictest.
         </p>
 
         <h3 className="type-heading">What is measured and what is assumed</h3>
@@ -443,7 +551,7 @@ export function TheMathSection() {
 
         <h3 className="type-heading">The sliders, and how many runes survive</h3>
         <p>
-          <b className="type-body-emphasis">Rune quality floor</b> sets the Max value bar. Its five stops are calibrated against a box of ordinary six-star runes: the setting it opens on passes about <b className="type-body-emphasis">15 %</b> of such a box, and the ladder runs from roughly a third of the box down to a few per cent. <b className="type-body-emphasis">Power-up policy</b> sets the Chance bar. <b className="type-body-emphasis">Accepted</b> and <b className="type-body-emphasis">Broken runes</b> discount a rune whose set or main stat the preset only tolerates, or never asked for — and at <i>No</i>, a broken rune is rejected outright whatever else is true of it.
+          <b className="type-body-emphasis">Rune quality floor</b> sets the bar, and its five stops say how much of an ordinary box of six-star runes to keep: <b className="type-body-emphasis">a third</b>, then 23 %, then <b className="type-body-emphasis">15 %</b> where the slider opens, then 9 %, then 4 %. Each stop asks that of every slot separately, which is the section above. <b className="type-body-emphasis">Power-up policy</b> sets the Chance bar. <b className="type-body-emphasis">Accepted</b> and <b className="type-body-emphasis">Broken runes</b> discount a rune whose set or main stat the preset only tolerates, or never asked for — and at <i>No</i>, a broken rune is rejected outright whatever else is true of it.
         </p>
         <p>
           A preset&rsquo;s <b className="type-body-emphasis">Desired no. of runes</b> is a real allocation preference. After quality and chance gates, JASWA divides the finite eligible pool between active presets in those relative shares. A broad preset cannot take a narrow preset&rsquo;s allocation merely because more runes happen to match it. The larger-set switch and Intangible slider prioritise those matching runes when a quota is filled.
@@ -469,7 +577,7 @@ export function TheMathSection() {
               </tr>
               <tr>
                 <th scope="row" className="align-left">Can it ever be good enough?</th>
-                <td className="align-left"><b className="type-body-emphasis">Sell</b> — Max value below the floor</td>
+                <td className="align-left"><b className="type-body-emphasis">Sell</b> — not in the share of its slot&rsquo;s box that the floor keeps</td>
               </tr>
               <tr>
                 <th scope="row" className="align-left">Is it likely enough to get there?</th>

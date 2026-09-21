@@ -118,7 +118,7 @@ const columns: readonly SortableColumn<RuneCleanupRow>[] = (() => {
     column('subs', 'Sub properties'),
     column('location', 'Location'),
     column('preset', 'Best preset'),
-    column('maxValue', <span className="table-heading-two-line" aria-label="Max value: the best end state it can reach, where a perfect rune is 100 per cent and the quality floor you set is the bar">Max<br />value</span>),
+    column('maxValue', <span className="table-heading-two-line" aria-label="Max value: the best end state it can reach, where a perfect rune for that slot is 100 per cent. The quality floor you set is a share of the ordinary runes a slot produces, so the Max value it comes to differs from slot to slot">Max<br />value</span>),
     column('chance', <span className="table-heading-two-line" aria-label="Chance to reach the quality floor by +12, or a dash for a rune already at +12">Chance</span>),
     column('advice', 'Advice'),
     /* The game's own three orderings, driven by the Sort by dropdown. They carry
@@ -211,7 +211,7 @@ export function RuneRecommendations({ game, settings, presets }: {
         rune,
         index,
         advice: advice.get(rune.id) ?? {
-          verdict: 'sell', reason: '', maxValue: 0, chance: 0, preset: null, rank: 'broken',
+          verdict: 'sell', reason: '', maxValue: 0, standing: 0, chance: 0, preset: null, rank: 'broken',
         },
         location: rune.occupiedId === null ? 'Inventory' : monsterNames[rune.occupiedId] ?? null,
       })),

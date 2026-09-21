@@ -301,6 +301,10 @@ function verifyPresetAllocation() {
     .slice(0, remaining).forEach((index) => { quotas[index] += 1; });
   console.log('Allocation: ' + total + ' feasible runes; '
     + presets.map((preset, index) => preset.name + '=' + assigned.get(preset.id) + '/' + quotas[index]).join(', ') + '.');
+  /* A hundred is what makes a 1/3 : 1 : 3 split land on whole numbers the
+     largest-remainder rule has to work for rather than round to. It is a floor on
+     the *fixture*, not on the engine, so the answer to a stricter quality ladder is
+     a bigger `--share-runes` — which is what the `:large` script now passes. */
   if (!quick) check(total >= 100, 'quota fixture produced only ' + total + ' feasible runes.');
   check(outsideCapacity === 0, outsideCapacity + ' feasible quota-fixture runes were left outside capacity.');
   for (let index = 0; index < presets.length; index += 1) {

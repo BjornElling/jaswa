@@ -41,13 +41,14 @@
  * finished build carry the HP or the Accuracy instead.
  */
 import {
-  allStatIds, mainPropertyMaximum, maximumRoll, scalesWithBase, setBonuses, subPropertyRange,
+  allStatIds, mainPropertyMaximum, maximumRoll, scalesWithBase, subPropertyRange,
   subPropertyTargetStat, targetStatSubProperties,
 } from './rune-properties';
 import type { TargetStat } from './rune-properties';
 import { slotAllowsSubStat } from './runes';
 import type { ReferenceStats } from './rune-reference-stats';
-import type { PresetTargets } from './rune-potential-presets';
+import type { PresetArtifacts, PresetTargets } from './rune-potential-presets';
+import { artifactMainValue, artifactsPerMonster } from './artifact-properties';
 import type { Valuation } from './rune-roll-distributions';
 
 /** The eight stats a preset can aim at, in the order every table reads them. */
@@ -151,20 +152,56 @@ function mainContribution(mainStatId: number, stat: TargetStat, base: ReferenceS
 }
 
 /**
- * What the candidate's own completed rune set contributes to one stat.
+ * **No completed set is credited here, and that is a decision rather than an
+ * omission.**
  *
- * A rune is judged for the build it would go into, and that build completes the set
- * the rune belongs to — once, which is the least a build containing it can do. A
- * Fatal rune is asking to be part of a Fatal build, so the role's ATK requirement is
- * 35 % of base lighter for it than it is for a Violent rune, and its own ATK lines
- * are worth correspondingly less. Sets whose effect is a battle or chance effect
- * contribute nothing here, because `RUNE-CANONICAL.md` §11 forbids converting one
- * into a stat.
+ * It was credited once: a rune was judged for the build it would join, that build
+ * completes the rune's own set, and a Fatal rune therefore met 283 of Fast DD's
+ * missing 514 ATK before its sub properties were read at all. Every word of that is
+ * true about the build. It is the wrong thing to put in this function, because the
+ * weights it produces are the yardstick a rune is measured against — so crediting
+ * the candidate's own set gave each set its own yardstick, and a recommendation is a
+ * comparison *across* sets.
+ *
+ * Measured on 1,500 identical rune bodies relabelled set by set, against presets that
+ * preferred every set equally, the same runes were retained **431 to 520 times**
+ * depending on nothing but the label: Swift +11 %, Fatal +1.5 %, Rage −8 %, Focus
+ * −7 %. No choice of denominator fixes it, because changing the *shape* of the weight
+ * vector moves a rune's ratio by an amount that depends on what that rune happens to
+ * have rolled. Equal treatment across sets requires that the weights not depend on
+ * the candidate's set at all.
+ *
+ * A set still decides plenty: the preset's preferred/acceptable/broken ranking, the
+ * four-piece switch and the Intangible slider are all set facts, and all three are
+ * things the user has said out loud rather than arithmetic inferring them.
+ *
+ * **The way back**, if the requirement should count set bonuses again: a preset would
+ * have to state the set *combination* its builds use — `RUNE-CANONICAL.md` §10.1
+ * already has that vocabulary, and `app/lib/rune-set-pairs.ts` already holds it for
+ * monsters. A combination stated by the preset is the same for every candidate, so it
+ * can shape the requirement without tilting the comparison. A combination guessed
+ * from the one rune being judged cannot.
  */
-function setContribution(setName: string, stat: TargetStat, base: ReferenceStats): number {
-  const bonus = setBonuses[setName];
-  if (!bonus || subPropertyTargetStat[bonus.statId] !== stat) return 0;
-  return bonus.percent !== undefined ? base[stat] * bonus.percent / 100 : bonus.flat ?? 0;
+
+/**
+ * What the monster's two artifacts contribute to one stat.
+ *
+ * A monster wears two artifacts and each carries one flat main property, measured at
+ * HP +1,500, ATK +100 or DEF +100 (`artifact-properties.ts`). A preset states which of
+ * the three its role wants, and nothing narrower — so the two slots are spread evenly
+ * over what it named: **two of one where a role wants one stat, one of each where it
+ * wants two, two thirds of each where it wants all three.** The total is always two
+ * artifacts' worth, which is the only thing the preset has actually promised.
+ *
+ * Like the main properties above and unlike a rune set, this is a fact about the role
+ * rather than about the candidate, so it shapes the requirement without giving any
+ * rune a yardstick of its own (§4.3).
+ */
+function artifactContribution(stat: TargetStat, artifacts: PresetArtifacts): number {
+  const wanted = (['hp', 'atk', 'def'] as const).filter((key) => artifacts[key]);
+  if (wanted.length === 0 || !wanted.includes(stat as 'hp' | 'atk' | 'def')) return 0;
+  const property = { hp: 'HP', atk: 'ATK', def: 'DEF' } as const;
+  return artifactMainValue[property[stat as 'hp' | 'atk' | 'def']] * artifactsPerMonster / wanted.length;
 }
 
 /** Which of a stat's effect ids a slot may carry, given the main property it holds. */
@@ -217,10 +254,10 @@ export type SubstatWeightRow = {
   stat: TargetStat;
   /** The whole-build figure the preset states. */
   target: number;
-  /** What the reference monster, the build's main properties and the set bring. */
+  /** What the reference monster, the build's main properties and its artifacts bring. */
   fromBase: number;
   fromMains: number;
-  fromSet: number;
+  fromArtifacts: number;
   /** What is left for the sub properties to find, in the stat's own unit. */
   needed: number;
   /** What one max roll of this stat is worth in that same unit. */
@@ -251,28 +288,34 @@ export type SubstatWeights = {
 export type SubstatWeightInput = {
   targets: PresetTargets;
   mains: BuildMains;
-  setName: string;
+  artifacts: PresetArtifacts;
   base: ReferenceStats;
 };
 
-/** Weights are shared by every rune of one set judged against one build. */
+/** Weights are shared by every rune judged against one build of one preset. */
 export type SubstatWeightScope = { weights: Map<string, SubstatWeights> };
 
 export const newSubstatWeightScope = (): SubstatWeightScope => ({ weights: new Map() });
 
 /**
- * The multiplier every max roll of every stat is scored with, for one role, one
- * build and one rune set.
+ * The multiplier every max roll of every stat is scored with, for one role and one
+ * build.
  *
  * It depends on the whole six-slot build rather than on any one slot, because the
  * build's main properties are what decide how much of a target is left for sub
  * properties to find. Two builds of the same preset therefore price the same rune
- * differently, and the rune keeps its best.
+ * differently, and the rune keeps its best. The preset's artifact choice comes off the
+ * requirement for the same reason and in the same way.
+ *
+ * **It depends on nothing about the candidate**, which is what makes one rune's Max
+ * value comparable with another's. See the note above `legalIdsFor` for the one
+ * thing that used to be in here and is not.
  */
 export function substatWeights(
   input: SubstatWeightInput, scope: SubstatWeightScope = newSubstatWeightScope(),
 ): SubstatWeights {
-  const key = `${slots.map((slot) => input.mains[slot] ?? 0).join('.')}|${input.setName}`
+  const key = `${slots.map((slot) => input.mains[slot] ?? 0).join('.')}`
+    + `|${input.artifacts.hp ? 'h' : ''}${input.artifacts.atk ? 'a' : ''}${input.artifacts.def ? 'd' : ''}`
     + `|${targetsKey(input.targets)}|${baseKey(input.base)}`;
   const cached = scope.weights.get(key);
   if (cached) return cached;
@@ -284,8 +327,8 @@ export function substatWeights(
     const fromBase = input.base[stat];
     let fromMains = 0;
     for (const slot of slots) fromMains += mainContribution(input.mains[slot] ?? 0, stat, input.base);
-    const fromSet = setContribution(input.setName, stat, input.base);
-    const needed = Math.max(0, target - fromBase - fromMains - fromSet);
+    const fromArtifacts = artifactContribution(stat, input.artifacts);
+    const needed = Math.max(0, target - fromBase - fromMains - fromArtifacts);
     const rollValue = canonicalRollValue(stat, input.base);
     const rollsNeeded = rollValue > 0 ? needed / rollValue : 0;
 
@@ -301,7 +344,7 @@ export function substatWeights(
     /* A stat no slot can carry has no ratio to state and no line to score. */
     const tightness = ordinaryPerRune > 0 ? perRune / ordinaryPerRune : 0;
     rows.push({
-      stat, target, fromBase, fromMains, fromSet, needed, rollValue, rollsNeeded,
+      stat, target, fromBase, fromMains, fromArtifacts, needed, rollValue, rollsNeeded,
       carriers, perRune, ordinaryPerRune, tightness, weight: 0,
     });
   }

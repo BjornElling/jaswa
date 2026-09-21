@@ -93,6 +93,27 @@ export const artifactMainProperties: Record<number, ArtifactMainProperty> = { 10
 
 export const artifactMainPropertyOrder: readonly ArtifactMainProperty[] = ['HP', 'ATK', 'DEF'];
 
+/**
+ * What a finished artifact's main property is worth, in flat points
+ * (`docs/ARTIFACT-CANONICAL.md` §2).
+ *
+ * The document's table, confirmed against a real account: all 262 artifacts in it
+ * carry exactly these three values at every natural grade, with no spread at all. The
+ * main property is deterministic in the same way a rune's is.
+ *
+ * `AGENTS.md` §5 keeps this out of every artifact *view*: an artifact's main stat is
+ * named and never quantified, `Artifact` carries no main value, and the import reads
+ * the magnitude only to reject a malformed record. That rule is about judging an
+ * artifact, where the number adds nothing to the comparison. This table exists for
+ * the opposite direction — `rune-substat-weights.ts` needs to know what a monster's
+ * two artifacts already bring before it can say what is left for the runes to find —
+ * and it must not leak back into an artifact column.
+ */
+export const artifactMainValue: Readonly<Record<ArtifactMainProperty, number>> = { HP: 1500, ATK: 100, DEF: 100 };
+
+/** A monster carries exactly two artifacts, one of each category (§2). */
+export const artifactsPerMonster = 2;
+
 /* The categories as the export encodes them, and the classes each one must
    match on the monster wearing it (§1). */
 export const artifactCategoryFromType: Record<number, ArtifactCategory> = { 1: 'attribute', 2: 'type' };

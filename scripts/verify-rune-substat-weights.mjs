@@ -5,8 +5,8 @@
  * simulation. It cannot answer the question this change raises, because a Monte
  * Carlo of the model's own score agrees with the model whatever the score means:
  * does a maximum Accuracy roll still price identically to a maximum CRI Dmg roll,
- * do a build's main properties and a completed set actually come off the
- * requirement, and does the rune the denominator describes really read 100 %.
+ * do a build's main properties actually come off the requirement, does a rune's own
+ * set stay out of it, and does the rune the denominator describes really read 100 %.
  *
  * Every figure below is derived from the shipped presets and one fixed reference
  * line, so a failure is a change in the model and never a change in the data.
@@ -43,13 +43,13 @@ const mainsOf = (build) => ({ 1: 3, 2: build.mains[2], 3: 5, 4: build.mains[4], 
  * The defect the weights exist to fix: Fast DD wants 215 SPD and 25 Accuracy, and
  * the old model priced a maximum roll of each identically because both targets were
  * positive. Nothing about the ladder below is arbitrary — it follows from the
- * requirements once base, mains and set are subtracted — but the *order* is the
- * claim the page makes, and it is held here.
+ * requirements once the base and the build's mains are subtracted — but the *order*
+ * is the claim the page makes, and it is held here.
  */
 function verifyTargetsAreNotSwitches() {
   const fastDd = preset('fast-dd');
   const build = presetBuilds(fastDd).find((candidate) => candidate.mains[2] === 4);
-  const weights = substatWeights({ targets: fastDd.targets, mains: mainsOf(build), setName: 'Violent', base });
+  const weights = substatWeights({ targets: fastDd.targets, mains: mainsOf(build), artifacts: fastDd.artifacts, base });
   const of = (stat) => weights.weights.get(stat) ?? 0;
 
   check(of('spd') > of('criDmg'), 'Fast DD: SPD should outweigh CRI Dmg.');
@@ -70,8 +70,8 @@ function verifyTargetsAreNotSwitches() {
 function verifyMainsReduceTheRequirement() {
   const bomber = preset('bomber');
   const mains = mainsOf(presetBuilds(bomber)[0]);
-  const withHp = substatWeights({ targets: bomber.targets, mains: { ...mains, 4: 2, 6: 2 }, setName: 'Violent', base });
-  const withAtk = substatWeights({ targets: bomber.targets, mains: { ...mains, 4: 4, 6: 4 }, setName: 'Violent', base });
+  const withHp = substatWeights({ targets: bomber.targets, mains: { ...mains, 4: 2, 6: 2 }, artifacts: bomber.artifacts, base });
+  const withAtk = substatWeights({ targets: bomber.targets, mains: { ...mains, 4: 4, 6: 4 }, artifacts: bomber.artifacts, base });
   const hpRow = (weights) => weights.rows.find((row) => row.stat === 'hp');
   check(hpRow(withHp).needed < hpRow(withAtk).needed,
     'HP % main properties should reduce what the build still needs in HP.');
@@ -83,31 +83,76 @@ function verifyMainsReduceTheRequirement() {
     'ATK % main properties should reduce what an ATK sub property is worth.');
 }
 
-/** Fatal gives +35 % ATK, so a Fatal rune's own ATK lines answer a smaller need. */
-function verifySetBonusReducesTheRequirement() {
+/**
+ * A completed set's stat bonus must **not** reach the requirement.
+ *
+ * It is the tempting thing to do and it was done once: Fatal is +35 % ATK, so a Fatal
+ * build genuinely needs less ATK from sub properties. The trouble is that the weights
+ * are the yardstick a rune is measured against, so crediting the candidate's own set
+ * gave every set a yardstick of its own — and a recommendation compares sets with each
+ * other. `verify:rune-set-neutrality` measures what that cost; this holds the one line
+ * of arithmetic that caused it.
+ */
+function verifySetsNeverReachTheRequirement() {
   const fastDd = preset('fast-dd');
   const mains = mainsOf(presetBuilds(fastDd).find((candidate) => candidate.mains[2] === 4));
-  const violent = substatWeights({ targets: fastDd.targets, mains, setName: 'Violent', base });
-  const fatal = substatWeights({ targets: fastDd.targets, mains, setName: 'Fatal', base });
-  const atk = (weights) => weights.rows.find((row) => row.stat === 'atk');
-  check(atk(fatal).fromSet > 0, 'Fatal should contribute to the ATK requirement.');
-  check(atk(fatal).needed < atk(violent).needed, 'Fatal should lower what the build still needs in ATK.');
-  check(atk(fatal).weight < atk(violent).weight, 'a Fatal rune should value its own ATK lines less.');
-  console.log(`Fatal lowers Fast DD's ATK weight from ${atk(violent).weight.toFixed(3)} to ${atk(fatal).weight.toFixed(3)}.`);
+  const weights = substatWeights({ targets: fastDd.targets, mains, artifacts: fastDd.artifacts, base });
+  const atk = weights.rows.find((row) => row.stat === 'atk');
+  check(close(atk.fromBase + atk.fromMains + atk.fromArtifacts + atk.needed, atk.target),
+    'base, mains, artifacts and the remaining need should account for the whole ATK target,'
+    + ' with nothing else in it.');
+  check(!('fromSet' in atk), 'a set contribution is still being carried in the requirement breakdown.');
+  console.log(`Fast DD needs ${Math.round(atk.needed)} ATK from sub properties whatever set the rune is.`);
+}
+
+/**
+ * The two artifacts a monster wears carry a flat main property each — HP +1,500, ATK
+ * +100 or DEF +100 (`ARTIFACT-CANONICAL.md` §2) — and a preset states which of the
+ * three its role wants. Whatever it names, two artifacts' worth comes off the
+ * requirement and no more, spread evenly over the stats named.
+ */
+function verifyArtifactsComeOffTheRequirement() {
+  const fastDd = preset('fast-dd');
+  const mains = mainsOf(presetBuilds(fastDd).find((candidate) => candidate.mains[2] === 4));
+  const of = (artifacts) => substatWeights({ targets: fastDd.targets, mains, artifacts, base }).rows;
+  const from = (rows, stat) => rows.find((row) => row.stat === stat)?.fromArtifacts ?? 0;
+
+  const none = of({ atk: false, def: false, hp: false });
+  const one = of({ atk: true, def: false, hp: false });
+  const two = of({ atk: true, def: true, hp: false });
+  const three = of({ atk: true, def: true, hp: true });
+
+  check(from(none, 'atk') === 0, 'a preset that names no artifact should have none credited.');
+  check(from(one, 'atk') === 200, `one named stat should take both artifacts: ${from(one, 'atk')}, not 200.`);
+  check(from(two, 'atk') === 100 && from(two, 'def') === 100,
+    'two named stats should take one artifact each.');
+  check(close(from(three, 'atk'), 200 / 3) && close(from(three, 'hp'), 3000 / 3),
+    'three named stats should split two artifacts evenly, at each stat\'s own magnitude.');
+  check(from(three, 'hp') > from(three, 'atk'),
+    'an HP artifact is +1,500 against ATK\'s +100 and must not be credited as if it were +100.');
+
+  const atkRow = (rows) => rows.find((row) => row.stat === 'atk');
+  check(atkRow(one).needed === atkRow(none).needed - 200,
+    'a named ATK artifact should lower what the build still needs in ATK by exactly its 200.');
+  check(atkRow(one).weight < atkRow(none).weight,
+    'a role whose artifacts already find ATK should value ATK sub properties less.');
+  console.log(`Artifacts: Fast DD's ATK need falls from ${Math.round(atkRow(none).needed)}`
+    + ` to ${Math.round(atkRow(one).needed)}, and its ATK weight from ${atkRow(none).weight.toFixed(3)}`
+    + ` to ${atkRow(one).weight.toFixed(3)}.`);
 }
 
 /** A target already met without a single sub property asks the runes for nothing. */
 function verifyMetTargetsAskForNothing() {
   const leo = preset('leo');
   const build = presetBuilds(leo)[0];
-  const weights = substatWeights({ targets: leo.targets, mains: mainsOf(build), setName: 'Violent', base });
+  const weights = substatWeights({ targets: leo.targets, mains: mainsOf(build), artifacts: leo.artifacts, base });
   const spd = weights.rows.find((row) => row.stat === 'spd');
   check(spd.needed === 0, "Leo's 100 SPD target is below the reference monster's own base speed.");
   check(spd.weight === 0, 'a target the build already meets should not pull value out of other stats.');
 
   /* And the degenerate case that would otherwise leave a preset unable to judge
      anything: every target met, so every stat the role names is scored alike. */
-  const met = substatWeights({ targets: { spd: 1, acc: 1 }, mains: mainsOf(build), setName: 'Violent', base });
+  const met = substatWeights({ targets: { spd: 1, acc: 1 }, mains: mainsOf(build), artifacts: leo.artifacts, base });
   check(met.degenerate, 'a preset whose every target is already met should report the degenerate case.');
   check([...met.weights.values()].every((weight) => weight === 1),
     'in the degenerate case every named stat should be scored alike rather than at nothing.');
@@ -129,7 +174,7 @@ function verifyThePerfectRuneReadsFull() {
         const main = slot === 1 ? 3 : slot === 3 ? 5 : slot === 5 ? 1 : build.mains[slot];
         if (main === 0 || !slotMainProperties[slot].includes(main)) continue;
         const line = entry.type === 'Support type' ? supportBase : base;
-        const weights = substatWeights({ targets: entry.targets, mains: mainsOf(build), setName: 'Violent', base: line });
+        const weights = substatWeights({ targets: entry.targets, mains: mainsOf(build), artifacts: entry.artifacts, base: line });
         if (weights.weights.size === 0) continue;
 
         const ranked = runeStatIds
@@ -276,7 +321,8 @@ function verifyCraftCreditMovesBothEnds() {
 console.log('Rune substat weights — deterministic checks.');
 verifyTargetsAreNotSwitches();
 verifyMainsReduceTheRequirement();
-verifySetBonusReducesTheRequirement();
+verifySetsNeverReachTheRequirement();
+verifyArtifactsComeOffTheRequirement();
 verifyMetTargetsAskForNothing();
 verifyThePerfectRuneReadsFull();
 verifySurplusKeepsPaying();

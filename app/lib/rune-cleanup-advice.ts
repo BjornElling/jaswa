@@ -15,10 +15,10 @@ import type { RunePotentialPreset } from './rune-potential-presets';
 import type { RunePotentialSettings } from './types';
 import type { ReferenceStats } from './rune-reference-stats';
 import {
-  candidateChance, candidateMaxValue, isFourPieceSet, newRuneAdviceScope, prepareRuneCandidate,
-  presetBuilds,
+  boxThreshold, candidateChance, candidateMaxValue, isFourPieceSet, newRuneAdviceScope,
+  ordinaryBox, prepareRuneCandidate, presetBuilds, standingIn,
 } from './rune-cleanup-model';
-import type { Build, CraftCredit, MatchRank, RuneCandidate } from './rune-cleanup-model';
+import type { Build, CraftCredit, MatchRank, OrdinaryBox, RuneCandidate } from './rune-cleanup-model';
 
 export type RuneVerdict = 'power-up' | 'keep' | 'sell';
 
@@ -31,25 +31,29 @@ export const runeVerdictLabels: Record<RuneVerdict, string> = {
 };
 
 /**
- * The Max value a rune must be able to reach, by the Rune quality floor slider.
+ * **The share of an ordinary box of runes each stop of the Rune quality floor lets
+ * through** — a third of it at `1`, about 15 % at `3`, a few per cent at `5`.
  *
- * The stops are calibrated against a synthetic box of ordinary six-star runes at
- * `+12`: at `3`, the setting the slider opens on, about **15 %** of that box clears
- * the value gate, and the ladder runs from roughly a third of the box down to a few
- * per cent. They are percentages of a perfect rune for the role, so `0.49` means
- * "reaches at least 49 % of what the best possible rune for this preset would".
+ * The box is the synthetic one §9 has always named: ordinary six-star runes at `+12`
+ * for this role. What changed is that the slider now *states* that share instead of
+ * being calibrated to produce it, and the model works out what Max value it comes to
+ * **in the slot the rune is actually in**.
  *
- * **They moved when the substat weights landed**, and they had to. The old stops —
- * `0.41` to `0.69` — were calibrated against a model in which every wanted stat
- * priced alike, so an ordinary rune with four wanted lines sat close to a perfect
- * one. Now a perfect rune concentrates on the tightest target the role has, an
- * ordinary rune spreads across whatever it drew, and the same box reads about one
- * stop lower throughout. Leaving the numbers alone would have silently made the
- * default setting twice as strict as it says it is.
+ * That is the whole of the slot fix, expressed in one line. A stop stated as one Max
+ * value cannot mean the same thing in two slots that may not carry the same effect
+ * ids: slot 1 may never carry DEF and slot 3 may never carry ATK, so for a Def DD
+ * account the same `0.49` admitted 25 % of the ordinary slot-3 runes and 5 % of the
+ * ordinary slot-4 ones. Stated as a share of each slot's own box, it admits the same
+ * fraction of every slot by construction, whatever the preset asks for.
+ * `rune-cleanup-model.ts`'s `ordinaryBox` is the arithmetic and §9.1 is the reasoning.
  *
- * The stop is the number the column prints and the floor every candidate faces.
+ * **This is the second time the stops have been restated**, and the reason is the
+ * same both times: a calibrated number left alone through a change of scale silently
+ * stops meaning what it says. Before the substat weights they ran `0.41`–`0.69` as
+ * Max values, after them `0.36`–`0.63`, and both ladders were this ladder — the
+ * shares were always what the ladder was chosen to produce.
  */
-export const qualityThresholds: readonly number[] = [0.36, 0.43, 0.49, 0.56, 0.63];
+export const qualityThresholds: readonly number[] = [0.33, 0.23, 0.15, 0.09, 0.04];
 
 /**
  * How likely a rune must be to reach that floor before its mana is worth spending,
@@ -89,8 +93,18 @@ export type RuneAdvice = {
   verdict: RuneVerdict;
   /** The chance itself, as the row prints it — never the internal score. */
   reason: string;
-  /** `0`–`1`, after the preferred/acceptable/broken discount. */
+  /** `0`–`1` against a perfect rune, after the preferred/acceptable/broken discount. */
   maxValue: number;
+  /**
+   * `0`–`1` from an ordinary rune of this slot to a perfect one, after the same
+   * discount — the figure the gates and the allocation actually settled on.
+   *
+   * It is carried out of the engine rather than kept private so that the page can
+   * explain why a slot-4 rune was kept beside a slot-3 rune that reads higher, and
+   * so `verify:rune-slot-neutrality` can check the scale rather than only its
+   * consequences.
+   */
+  standing: number;
   /** `0`–`1`: the chance of reaching the bar by +12. */
   chance: number;
   /** The preset this rune answers best, or `null` when none can use it. */
@@ -154,7 +168,7 @@ export function runeAdvice(
      for its duration, which is what makes the keys inside it sound. */
   const scope = newRuneAdviceScope();
 
-  type Answer = { value: number; chance: number; priority: number; preset: RunePotentialPreset; rank: MatchRank };
+  type Answer = { value: number; maxValue: number; chance: number; priority: number; preset: RunePotentialPreset; rank: MatchRank };
   type Pending = { rune: Rune; fallback: Answer | null; eligible: Answer[] };
   const pending: Pending[] = [];
   /* Every eligible candidate, by the preset it is eligible for. */
@@ -166,10 +180,19 @@ export function runeAdvice(
        would beat one worth 90 % at 70 %, and only the second one survives both
        gates. So the gates are applied to each candidate and the verdict is taken
        across all of them. */
-    const candidates: Array<{ preset: RunePotentialPreset; prepared: RuneCandidate; value: number; rank: MatchRank }> = [];
+    type Contender = {
+      preset: RunePotentialPreset; prepared: RuneCandidate; box: OrdinaryBox;
+      value: number; maxValue: number; rank: MatchRank;
+    };
+    const candidates: Contender[] = [];
     for (const preset of presets) {
       const line = base.get(preset.type);
       if (!line) continue;
+      /* The family first, then the scale it is measured on. A rune's standing is
+         read against an ordinary rune offered the same choice of builds, so the
+         whole family has to be prepared before any one of its members can be
+         scored — which is also why the anchor cannot live on a single candidate. */
+      const family: RuneCandidate[] = [];
       /* **Every compatible build, not one representative.** It used to keep the
          first build whose own slot matched, on the reasoning that another slot's
          main choice could not change this rune's legal lines. That reasoning ended
@@ -190,9 +213,25 @@ export function runeAdvice(
           if (wanted !== rune.mainStatId && wanted !== 0) continue;
         }
         const prepared = prepareRuneCandidate(rune, preset, build, line, credit, scope);
-        if (!prepared) continue;
+        if (prepared) family.push(prepared);
+      }
+      if (family.length === 0) continue;
+      const box = ordinaryBox(family);
+      for (const prepared of family) {
         const worth = prepared.rank === 'preferred' ? 1 : prepared.rank === 'acceptable' ? accepted : broken;
-        candidates.push({ preset, prepared, value: candidateMaxValue(prepared) * worth, rank: prepared.rank });
+        /* Two figures, and they are not interchangeable. `maxValue` is what the row
+           prints: the plain fraction of a perfect rune, discounted for a set or main
+           the preset merely accepts, which is the honest description of the rune
+           itself. `value` is that same discounted figure read as a position in this
+           slot's own box of ordinary runes, and it is what every gate, every
+           comparison and every quota is settled on — because it is the only one of
+           the two that means the same thing in slot 1 as it does in slot 3. The
+           discount is applied before the box is consulted rather than after, so it
+           goes on discounting the rune rather than the population. */
+        const maxValue = candidateMaxValue(prepared) * worth;
+        candidates.push({
+          preset, prepared, box, maxValue, value: standingIn(box, maxValue), rank: prepared.rank,
+        });
       }
     }
 
@@ -204,23 +243,36 @@ export function runeAdvice(
        enumerated first, so picking the best-valued one is strictly better than what
        this replaced. Choosing between *presets* on chance as well as value is a
        different question, and the loop below still does it. */
-    const bestPerPreset = new Map<string, typeof candidates[number]>();
+    /* Ties are broken on Max value, and they are not hypothetical. A standing is a
+       position in a box recorded at a finite resolution, so two candidates a hair
+       apart can land on the same step of it — and far out in a box's thin upper tail,
+       where the best runes live, a whole span of Max values can. Falling through to
+       the rune id there would seat an excellent rune behind a merely good one for
+       want of a comparison that was available all along. */
+    const beats = (candidate: Contender, standing: Contender | undefined) => !standing
+      || candidate.value > standing.value
+      || (candidate.value === standing.value && candidate.maxValue > standing.maxValue);
+    const bestPerPreset = new Map<string, Contender>();
     for (const candidate of candidates) {
-      const standing = bestPerPreset.get(candidate.preset.id);
-      if (!standing || candidate.value > standing.value) bestPerPreset.set(candidate.preset.id, candidate);
+      if (beats(candidate, bestPerPreset.get(candidate.preset.id))) {
+        bestPerPreset.set(candidate.preset.id, candidate);
+      }
     }
 
     /* Best first, so the strongest candidate that also clears the chance bar wins,
        and so a rune that clears nothing still reports its best showing rather than
        an arbitrary one.
 
-       On raw discounted value: the quality floor is shared, so no presentation
-       transform or hidden per-preset bar can change which candidate wins. */
-    const contenders = [...bestPerPreset.values()].sort((left, right) => right.value - left.value);
+       On standing rather than on Max value: each preset prices this rune's slot
+       differently, so their boxes differ, and a position in the box is the only
+       reading of the two that is comparable across them. The floor applied to it is
+       one shared number, so no presentation transform can change which one wins. */
+    const contenders = [...bestPerPreset.values()]
+      .sort((left, right) => right.value - left.value || right.maxValue - left.maxValue);
     let fallback: Answer | null = null;
     const eligibleByPreset = new Map<string, Answer>();
     for (const candidate of contenders) {
-      const passesValue = candidate.value >= qualityBar;
+      const passesValue = candidate.value >= 1 - qualityBar;
       if (!passesValue && fallback !== null) continue;
       /* The chance has to be the chance of clearing the *same* bar the value was
          judged against. The value carries the accepted/broken discount, so the fill
@@ -228,10 +280,13 @@ export function runeAdvice(
          otherwise an accepted rune would be discounted once in its score and not at
          all in its odds, and the two halves of the row would disagree. */
       const worth = candidate.rank === 'preferred' ? 1 : candidate.rank === 'acceptable' ? accepted : broken;
+      /* The floor is stated as a share of this slot's box and the odds are asked of
+         a Max value, so the share is read back out of the box before the probability
+         engine sees it. One bar, in the two units the two halves of the row speak. */
       const chance = candidateChance(candidate.prepared,
-        worth > 0 ? qualityBar / worth : Number.POSITIVE_INFINITY);
+        worth > 0 ? boxThreshold(candidate.box, qualityBar) / worth : Number.POSITIVE_INFINITY);
       const answer = {
-        value: candidate.value, chance,
+        value: candidate.value, maxValue: candidate.maxValue, chance,
         priority: candidate.value * (settings.keepMoreForLargerSets && isFourPieceSet(rune.setName) ? 2 : 1)
           * (rune.setName === 'Intangible' ? intangible : 1),
         preset: candidate.preset, rank: candidate.rank,
@@ -290,7 +345,10 @@ export function runeAdvice(
   for (const preset of allocationOrder) {
     const candidatesForPreset = (eligibleFor.get(preset.id) ?? [])
       .filter((candidate) => !assignments.has(candidate.item.rune.id))
-      .sort((left, right) => right.answer.priority - left.answer.priority || right.answer.chance - left.answer.chance || left.item.rune.id.localeCompare(right.item.rune.id));
+      .sort((left, right) => right.answer.priority - left.answer.priority
+        || right.answer.maxValue - left.answer.maxValue
+        || right.answer.chance - left.answer.chance
+        || left.item.rune.id.localeCompare(right.item.rune.id));
     for (const candidate of candidatesForPreset.slice(0, quota.get(preset.id) ?? 0)) assignments.set(candidate.item.rune.id, candidate.answer);
   }
 
@@ -299,7 +357,8 @@ export function runeAdvice(
     const assigned = assignments.get(item.rune.id) ?? null;
     const result = assigned ?? item.fallback;
     const verdict = decide({
-      rune: item.rune, value: result?.value ?? 0, chance: result?.chance ?? 0,
+      rune: item.rune, value: result?.maxValue ?? 0, standing: result?.value ?? 0,
+      chance: result?.chance ?? 0,
       preset: result?.preset ?? null, rank: result?.rank ?? 'broken', cleared: assigned !== null,
       brokenRejected: broken === 0,
     });
@@ -324,11 +383,12 @@ export function runeAdvice(
  * something it could not do anyway — are answered in `runeAdvice` where the
  * candidate is chosen, and arrive here as `cleared`.
  */
-function decide({ rune, value, chance, preset, rank, cleared, brokenRejected }: {
-  rune: Rune; value: number; chance: number; preset: RunePotentialPreset | null; rank: MatchRank;
+function decide({ rune, value, standing, chance, preset, rank, cleared, brokenRejected }: {
+  rune: Rune; value: number; standing: number; chance: number;
+  preset: RunePotentialPreset | null; rank: MatchRank;
   cleared: boolean; brokenRejected: boolean;
 }): RuneAdvice {
-  const base = { maxValue: value, chance, preset, rank };
+  const base = { maxValue: value, standing, chance, preset, rank };
   if (preset === null) {
     return { ...base, verdict: 'sell', reason: 'No preset can use it' };
   }
