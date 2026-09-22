@@ -1,4 +1,4 @@
-# A collaboration monster and its generic re-release are one species
+# Collaboration statistics and monster identity are separate rules
 
 **Status:** Binding project rule — the identity rule every general statement
 about a monster rests on
@@ -10,13 +10,13 @@ about a monster rests on
 
 ## The rule
 
-**A collaboration monster and the generic unit the game re-released it as are
-one *species*. Everything that speaks about monsters in general is keyed on the
-species — statistics, default preferences, score matrices, rankings. A player's
-own copy keeps its `unit_master_id` and the name the game gave it.**
+**A documented collaboration monster and the generic unit the game re-released
+it as may share one *statistics species*. That key is used only where the game
+serves one captured population: statistics, default preferences and score
+matrices. A player's owned copy keeps its own monster identity.**
 
 The species representative is the **generic** id, because it outlives the event.
-`app/data/collaboration-species.json` holds the 292 classes across 591 master
+`app/data/collaboration-species.json` holds the 282 documented classes across 571 master
 ids. In a general context the pair is shown once, under both of its names:
 
 ```
@@ -35,11 +35,16 @@ double every count and claim twice the evidence that exists.
 ## Why the duties split the way they do
 
 The split follows from what each identifier means. `unit_master_id` is what the
-game calls *this copy*; the species is what the monster *is*. So a roster row
-must keep the licensed name the player actually summoned, while a ranking must
-not list the same monster twice — holding both halves of a pair is holding one
-monster twice over, and scoring it twice would rank that result above everything
-it ties with.
+game calls *this copy*; the statistics species is only the population key behind
+captured data. Storage, fodder and row merging use the canonical monster
+identity and skill-up family instead. Those follow the catalogue's own awakening
+lineage and raw family id, so a collaboration line and a generic line never
+become one owned monster merely because the statistics table relates them.
+
+Choco Knight and Madeleine Cookie are an explicit non-pair. They are separate
+monster families, and no Choco Knight copy may make a Madeleine Cookie copy a
+duplicate for fodder or quantity purposes. The same ownership rule applies to
+every other collaboration pairing in the table.
 
 ## Pooling happens at read time
 

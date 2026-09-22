@@ -1,7 +1,7 @@
 import statistics from '../data/engraving-statistics.json';
 import type { ArtifactCategory, ArtifactMainProperty } from './artifact-properties';
 import { artifactMainProperties } from './artifact-properties';
-import { monsterIdentityId, monsterSpeciesId } from './monster-identity';
+import { monsterSpeciesId, monsterStatisticsId } from './monster-identity';
 import type { RelicMainProperty } from './relic-properties';
 import { relicMainProperties } from './relic-properties';
 import type { RuneMainStat } from './rune-potential-presets';
@@ -151,7 +151,7 @@ function latestObservation(entry: MonsterStatistics | undefined): string {
 
 const monsterStatistics: Record<string, MonsterStatistics> = {};
 for (const [masterId, recorded] of Object.entries(recordedStatistics)) {
-  const speciesId = monsterSpeciesId(masterId);
+  const speciesId = monsterStatisticsId(masterId);
   const existing = monsterStatistics[speciesId];
   if (!existing || latestObservation(recorded) > latestObservation(existing)) monsterStatistics[speciesId] = recorded;
 }
@@ -381,7 +381,7 @@ const resolved = new Map<string, MonsterDefaults | undefined>();
  */
 export function monsterDefaults(masterId: unknown): MonsterDefaults | undefined {
   if (typeof masterId !== 'number' && typeof masterId !== 'string') return undefined;
-  const speciesId = monsterIdentityId(masterId);
+  const speciesId = monsterSpeciesId(masterId);
   const cached = resolved.get(speciesId);
   if (cached !== undefined || resolved.has(speciesId)) return cached;
 

@@ -1,22 +1,24 @@
 import collaborationSpeciesData from '../data/collaboration-species.json';
 
-// A collaboration event launches monsters under a licensed name. When the event
-// ends, the same monsters return as regular units under names of the game's own
-// making, with identical stats and skills — only the artwork and the name
-// differ. Com2uS balances the two together and treats them as one unit.
+// A collaboration event can launch a monster under a licensed name and later
+// expose a documented generic statistic row. That relationship belongs to
+// statistics and scoring only; Storage's monster identity deliberately keeps
+// catalogue lineages separate for ownership, fodder and row merging.
 //
 // Both master ids stay in circulation, and a copy keeps the name it was summoned
-// under, so a player can hold one of each. That gives the two ids different jobs
-// here: `unit_master_id` is what the game calls this copy, and the species is
-// what the monster actually is. A roster row shows the master id's own name;
-// everything that speaks about monsters in general — statistics, preferences,
-// score rankings — is keyed on the species, so a pair counts once and their
-// observations pool into a single sample.
+// under. `unit_master_id` therefore remains the identity of that owned line,
+// while the species is only the shared key used by the captured statistics. A
+// roster row shows the master id's own name;
+// captured-statistics consumers — statistics, default preferences and score
+// rankings — can key on the species, so a documented pair counts once and its
+// observations pool into a single sample. Ownership questions use the separate
+// canonical identity in `monster-identity.ts`.
 //
 // The table lives in `app/data/collaboration-species.json` rather than here
 // because the collection script reads it too, and one source beats two that
 // agree until they do not. The generic id is the species representative because
-// it outlives the event; `members` are the other master ids of the same monster.
+// it outlives the event; `members` are the other master ids served by that
+// statistics population. This is intentionally not the owned-monster identity.
 // A class can hold three: Nezuko Kamado and Gandalf each shipped an extra event
 // form that reuses the same artwork, and those belong to the same species.
 //

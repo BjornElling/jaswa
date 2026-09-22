@@ -1,4 +1,3 @@
-import swarfarmMonsterData from '../data/swarfarm-monsters.json';
 import {
   hasMonsterCatalogEntry,
   highestAwakeningMasterId,
@@ -9,63 +8,6 @@ import {
 import type { MonsterAwakeningTier } from './monster-catalog';
 import { monsterSpeciesId } from './monster-species';
 
-type CatalogueMonster = { com2us_id: number };
-
-/* The catalogue carries two family ids for a collaboration release: one for
-   the licensed copy and one for the generic re-release. They are one skill-up
-   family only when their element-specific monster identities meet. A family
-   union is built once here so every caller uses the same cross-release rule. */
-class FamilyGroups {
-  private readonly parents = new Map<number, number>();
-
-  add(familyId: number) {
-    if (!this.parents.has(familyId)) this.parents.set(familyId, familyId);
-  }
-
-  find(familyId: number): number {
-    const parent = this.parents.get(familyId);
-    if (parent === undefined || parent === familyId) return familyId;
-    const root = this.find(parent);
-    this.parents.set(familyId, root);
-    return root;
-  }
-
-  join(left: number, right: number) {
-    const leftRoot = this.find(left);
-    const rightRoot = this.find(right);
-    if (leftRoot === rightRoot) return;
-    /* A canonical family id is an implementation detail. Picking the smaller
-       catalogue id makes it deterministic and does not privilege a release. */
-    if (leftRoot < rightRoot) this.parents.set(rightRoot, leftRoot);
-    else this.parents.set(leftRoot, rightRoot);
-  }
-
-  ids(): number[] {
-    return [...this.parents.keys()];
-  }
-}
-
-const skillFamilyByCatalogueFamily = (() => {
-  const groups = new FamilyGroups();
-  const familiesByIdentity = new Map<string, number[]>();
-
-  for (const { com2us_id: masterId } of swarfarmMonsterData.monsters as CatalogueMonster[]) {
-    const familyId = monsterCatalogueFamilyId(masterId);
-    if (familyId === undefined) continue;
-    groups.add(familyId);
-    const identity = monsterIdentityId(masterId);
-    const families = familiesByIdentity.get(identity) ?? [];
-    families.push(familyId);
-    familiesByIdentity.set(identity, families);
-  }
-
-  for (const families of familiesByIdentity.values()) {
-    for (const familyId of families.slice(1)) groups.join(families[0], familyId);
-  }
-
-  return new Map(groups.ids().map((familyId) => [familyId, groups.find(familyId)]));
-})();
-
 function rawMasterId(masterId: unknown): string {
   return String(masterId ?? '');
 }
@@ -73,10 +15,10 @@ function rawMasterId(masterId: unknown): string {
 /**
  * The stable identity of one owned monster line.
  *
- * Awakening stages and a collaboration re-release are the same monster for
- * ownership and skill-up questions. The element is deliberately preserved:
- * Madeleine Cookie (Fire), Madeleine Cookie (Water), and Madeleine Cookie
- * (Wind) are three identities that merely share one skill-up family.
+ * Awakening stages in one catalogue lineage are the same monster for ownership
+ * and skill-up questions. Collaboration names are deliberately not folded into
+ * that identity: a licensed monster and a generic monster may look related in
+ * a data table while still being separate monsters in the player's collection.
  *
  * Unknown ids remain their own raw keys. They must never collapse into one
  * guessed monster merely because the catalogue does not know them yet.
@@ -84,7 +26,15 @@ function rawMasterId(masterId: unknown): string {
 export function monsterIdentityId(masterId: unknown): string {
   const key = rawMasterId(masterId);
   if (!hasMonsterCatalogEntry(key)) return key;
-  return monsterSpeciesId(highestAwakeningMasterId(key));
+  return highestAwakeningMasterId(key);
+}
+
+/** The captured-statistics key for a monster, including its finished awakening. */
+export function monsterStatisticsId(masterId: unknown): string {
+  const key = rawMasterId(masterId);
+  return hasMonsterCatalogEntry(key)
+    ? monsterSpeciesId(highestAwakeningMasterId(key))
+    : key;
 }
 
 /** The identity above, only when the catalogue can prove what the id is. */
@@ -95,14 +45,12 @@ export function knownMonsterIdentityId(masterId: unknown): string | undefined {
 /**
  * The canonical skill-up family for a master id.
  *
- * This intentionally groups the five elements and equivalent collaboration
- * releases, while `monsterIdentityId` above remains element-specific. Keeping
- * the two keys separate is what prevents a Wind Praline from making a unique
- * Fire or Water Madeleine Cookie look like spare fodder.
+ * This groups the elements that the catalogue itself assigns to one skill-up
+ * family. It deliberately does not infer a relationship from a collaboration
+ * table: every collaboration family keeps its own raw catalogue family.
  */
 export function monsterSkillFamilyId(masterId: unknown): number | undefined {
-  const familyId = monsterCatalogueFamilyId(masterId);
-  return familyId === undefined ? undefined : skillFamilyByCatalogueFamily.get(familyId);
+  return monsterCatalogueFamilyId(masterId);
 }
 
 export type MonsterIdentity = {
@@ -181,7 +129,7 @@ export function withHigherAwakenings(
 }
 
 /* These lower-level collaboration mappings remain available from this
-   canonical surface. `monsterIdentityId` is the right key for ownership;
-   `monsterSpeciesId` is the right key when a dataset intentionally preserves
-   the exact awakening tier but merges only licensed/generic names. */
+   canonical surface for statistics and scoring datasets. `monsterStatisticsId`
+   is the finished-form statistics key; the ownership keys are deliberately
+   separate and answer row-merging and fodder questions. */
 export { isCollaborationSpecies, monsterSpeciesId, monsterSpeciesMemberIds } from './monster-species';

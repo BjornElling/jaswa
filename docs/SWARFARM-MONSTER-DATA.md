@@ -91,10 +91,16 @@ Kataloget kender ikke det slægtskab, og det kan ikke udledes af ID'et: de tidli
 collabs ligger i familieblokke med fast forskydning, mens Demon Slayer, TEKKEN 8
 og Ringenes Herre ikke gør. Sammenhængen er derfor skrevet ned i
 `app/data/collaboration-species.json` — bevidst uden for den synkroniserede
-snapshot, så en refresh ikke overskriver den. Filen holder 292 klasser over 591
-master-ID'er; `app/lib/monster-species.ts` og
+snapshot, så en refresh ikke overskriver den. Filen holder 282 dokumenterede
+statistikrelationer over 571 master-ID'er; `app/lib/monster-species.ts` og
 `scripts/collect-engraving-statistics.mjs` læser den begge, så der kun er én
 kilde.
+
+Relationerne er kun statistikrelationer. De ændrer ikke den kanoniske monster-
+identitet eller skill-up-familie i Numbers: samarbejdsudgaven og den generiske
+udgave holdes adskilt ved fodder, dublettælling og sammensmeltning af rækker.
+Choco Knight og Madeleine Cookie er ikke en relation i tabellen, fordi de er to
+forskellige monsterfamilier.
 
 `npm run verify:collaboration-species` kontrollerer efter hver refresh, at hver
 klasse hænger sammen: medlemmerne findes i kataloget, deler element og

@@ -1,5 +1,5 @@
 import statistics from '../data/engraving-statistics.json';
-import { monsterIdentityId, monsterSpeciesId } from './monster-identity';
+import { monsterSpeciesId, monsterStatisticsId } from './monster-identity';
 import { relicMainProperties, relicMainPropertyOrder } from './relic-properties';
 import type { RelicMainProperty } from './relic-properties';
 
@@ -104,7 +104,7 @@ function totalCount(rows: readonly EffectCount[]): number {
  */
 export function relicUsageStatistics(masterId: unknown): RelicUsageStatistics | undefined {
   const key = typeof masterId === 'number' || typeof masterId === 'string'
-    ? monsterIdentityId(masterId)
+    ? monsterStatisticsId(masterId)
     : null;
   const relics = key === null ? undefined : monsterStatistics[key]?.relics;
   if (!relics) return undefined;

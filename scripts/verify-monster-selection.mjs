@@ -8,6 +8,7 @@ const server = await createServer({ configFile: false, appType: 'custom', server
 try {
   const { createMonsterCopyIndex, createMonsterSelectionIndex } = await server.ssrLoadModule('/app/lib/monster-selection.ts');
   const { monsterIdentity, monsterIdentityId, monsterSkillFamilyId } = await server.ssrLoadModule('/app/lib/monster-identity.ts');
+  const { collaborationSpecies } = await server.ssrLoadModule('/app/lib/monster-species.ts');
   const haveLevel40 = { alreadyHaveLevel40: true, familyFullySkilled: false, fodderMon: false, candidateLevel: null };
   const familyMaxSkilled = { alreadyHaveLevel40: false, familyFullySkilled: true, fodderMon: false, candidateLevel: null };
   const both = { alreadyHaveLevel40: true, familyFullySkilled: true, fodderMon: false, candidateLevel: null };
@@ -25,8 +26,8 @@ try {
     'two enabled conditions must combine with AND');
 
   const ryu = createMonsterSelectionIndex([{ masterId: 24012, level: 40, maxSkilled: true, copies: 1 }]);
-  assert.equal(ryu.matches(24502, both), true,
-    'a Lv. 40 RYU must satisfy both conditions for its Fire Striker re-release');
+  assert.equal(ryu.matches(24502, both), false,
+    'a generic Striker must not satisfy conditions from a separate RYU collaboration monster');
 
   assert.equal(monsterIdentityId(10101), monsterIdentityId(10131),
     'an unawakened monster and its second awakening must share one identity');
@@ -103,9 +104,8 @@ try {
     'a unique specific monster without a Lv. 40 copy is not fodder');
 
   /* A family-wide Lv. 40 target does not make every element a spare copy.
-     Praline is the generic Wind release of Madeleine Cookie (Wind); Fire and
-     Water Madeleine Cookies remain separate identities and must stay hidden
-     when there is only one of each. */
+     Praline and Madeleine Cookie are separate catalogue families, so an
+     unskilled Lv. 40 Praline is not a target for either Cookie. */
   const madeleineFamily = createMonsterSelectionIndex([
     { masterId: 27113, level: 40, maxSkilled: false, copies: 1 },
     { masterId: 26611, level: 1, maxSkilled: false, copies: 1 },
@@ -118,20 +118,32 @@ try {
     'a unique Fire Madeleine Cookie is not fodder for an unrelated Wind family target');
   assert.notEqual(monsterIdentityId(26611), monsterIdentityId(26612),
     'same-name monsters of different elements must have different identities');
-  assert.equal(monsterSkillFamilyId(26611), monsterSkillFamilyId(27113),
-    'collaboration and generic releases must share one skill-up family');
+  assert.notEqual(monsterSkillFamilyId(26611), monsterSkillFamilyId(27113),
+    'a collaboration monster and a generic monster keep separate skill-up families');
   assert.notEqual(monsterIdentity(26612).identityId, monsterIdentity(26611).identityId,
     'the canonical identity record must preserve the element distinction');
-  const fireMadeleineTarget = createMonsterSelectionIndex([
+  const separateMadeleineFamily = createMonsterSelectionIndex([
     { masterId: 27113, level: 40, maxSkilled: false, copies: 1 },
     { masterId: 27112, level: 40, maxSkilled: true, copies: 1 },
     { masterId: 26611, level: 1, maxSkilled: false, copies: 1 },
     { masterId: 26612, level: 1, maxSkilled: false, copies: 1 },
   ]);
-  assert.equal(fireMadeleineTarget.matches(26612, fodderOnly), true,
-    'a Fire generic counterpart is the same specific monster as Fire Madeleine Cookie');
-  assert.equal(fireMadeleineTarget.matches(26611, fodderOnly), false,
-    'a Fire generic counterpart does not make Water Madeleine Cookie fodder');
+  assert.equal(separateMadeleineFamily.matches(26612, fodderOnly), false,
+    'a generic Praline family target does not make Fire Madeleine Cookie fodder');
+  assert.equal(separateMadeleineFamily.matches(26611, fodderOnly), false,
+    'a generic Praline family target does not make Water Madeleine Cookie fodder');
+
+  /* Every collaboration pairing is a statistics relationship only. It must
+     never make the two catalogue lineages merge for storage, fodder or row
+     quantities. This protects all pairings, not just the Cookie families. */
+  for (const [speciesId, entry] of Object.entries(collaborationSpecies)) {
+    for (const memberId of entry.members) {
+      assert.notEqual(monsterIdentityId(speciesId), monsterIdentityId(memberId),
+        `collaboration member ${memberId} must keep a separate monster identity from ${speciesId}`);
+      assert.notEqual(monsterSkillFamilyId(speciesId), monsterSkillFamilyId(memberId),
+        `collaboration member ${memberId} must keep a separate skill-up family from ${speciesId}`);
+    }
+  }
 
   const ordinaryElementFamily = createMonsterSelectionIndex([
     { masterId: 10111, level: 40, maxSkilled: false, copies: 1 },
@@ -158,7 +170,7 @@ try {
   assert.equal(twoLevel40Copies.matches(10112, { alreadyHaveLevel40: false, familyFullySkilled: false, fodderMon: true, candidateLevel: 40 }), true,
     'two copies of a specific Lv. 40 monster satisfy the current duplicate rule');
 
-  console.log('Monster selection canonicalizes awakenings, second awakenings, collaboration releases, and counts copies per monster.');
+  console.log('Monster selection canonicalizes awakenings while keeping collaboration lineages and families separate.');
 } finally {
   await server.close();
 }
