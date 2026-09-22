@@ -15,7 +15,7 @@ test('calculates and shows a verdict for every imported rune', async ({ page }, 
   await page.screenshot({ path: testInfo.outputPath('rune-cleanup-empty.png') });
 
   await recommendations.getByRole('button', { name: 'Calculate', exact: true }).click();
-  await expect(page.locator('.calculation-status')).toContainText('4 runes judged against');
+  await expect(page.locator('.calculation-status')).toHaveText(/4 runes judged against \d+ presets · \d+ ms · Processor/);
   const table = page.getByRole('table', { name: 'Rune verdicts' });
   await expect(table.locator('tbody tr')).toHaveCount(4);
   await expect(table.getByRole('img', { name: /quality$/ })).toHaveCount(4);

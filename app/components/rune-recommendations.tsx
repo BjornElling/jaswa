@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { AncientName } from './ancient-mark';
+import { CalculationStatus } from './calculation-status';
 import { Dropdown } from './dropdown';
 import { Button, FilterButton } from './button';
 import { DataTablePage, TableColumnGroup } from './data-table-page';
@@ -12,11 +13,13 @@ import type { SortableColumn } from './use-sorted-rows';
 import { RangeSlider } from './range-slider';
 import { TokenChoiceField } from './token-choice-field';
 import { alignmentClass, runeCleanupTableColumns } from '../lib/table-layouts';
+import { formatNumber } from '../lib/formatting';
 import { readRunes, runeMaximumLevel, runeStatName, runeSubValue } from '../lib/runes';
 import { numberedMonsterNames } from '../lib/monster-names';
 import { runeVerdictLabels, runeVerdictOrder } from '../lib/rune-cleanup-advice';
 import type { RuneVerdict } from '../lib/rune-cleanup-advice';
 import { calculateRuneAdvice, cancelRuneAdvice } from '../lib/compute/rune-advice-client';
+import type { ComputeBackend } from '../lib/compute/calculation-summary';
 import { noReferenceLineMessage, referenceLines } from '../lib/rune-reference-stats';
 import {
   compareRuneCleanupRows, compareRuneGameSort, defaultRuneCleanupSortDirections,
@@ -26,7 +29,7 @@ import type { RuneCleanupRow, RuneCleanupSortKey, RuneGameSortKey } from '../lib
 import type { RuneDefaultGrade } from '../lib/runes';
 import type { RunePotentialPreset } from '../lib/rune-potential-presets';
 import type { GameRecord } from '../lib/game-data';
-import type { ImportedGame, RunePotentialSettings } from '../lib/types';
+import type { GeneralSettings, ImportedGame, RunePotentialSettings } from '../lib/types';
 import { useSessionStorageState } from '../lib/session-storage-state';
 
 /* Nine of the game's own set names, and the slots and levels a rune can have.
@@ -146,10 +149,11 @@ const columns: readonly SortableColumn<RuneCleanupRow>[] = (() => {
  * preset and every build, and a table that re-ran itself under a dragging thumb
  * would be a table nobody could read.
  */
-export function RuneRecommendations({ game, settings, presets }: {
+export function RuneRecommendations({ game, settings, presets, general }: {
   game: ImportedGame | null;
   settings: RunePotentialSettings;
   presets: RunePotentialPreset[];
+  general: GeneralSettings;
 }) {
   const [filters, setFilters] = useSessionStorageState(
     'jaswa.filters.rune-cleanup', defaultRuneFilters, isRuneFilterState,
@@ -161,7 +165,12 @@ export function RuneRecommendations({ game, settings, presets }: {
   /* The held result, and the settings it answers. A result is kept until the user
      asks for another one, so a slider moved after a calculation leaves the table
      standing and says it is out of date rather than silently changing under them. */
-  const [result, setResult] = useState<{ rows: RuneCleanupRow[]; at: string; ms: number } | null>(null);
+  const [result, setResult] = useState<{
+    rows: RuneCleanupRow[];
+    at: string;
+    durationMs: number;
+    backend: ComputeBackend;
+  } | null>(null);
   const [busy, setBusy] = useState(false);
   /* A failed calculation says so and leaves the previous table standing. Clearing
      it would read as "no runes qualify", which is a different and wrong answer. */
@@ -214,7 +223,8 @@ export function RuneRecommendations({ game, settings, presets }: {
         location: rune.occupiedId === null ? 'Inventory' : monsterNames[rune.occupiedId] ?? null,
       })),
       at: new Date().toISOString(),
-      ms: outcome.durationMs,
+      durationMs: outcome.durationMs,
+      backend: outcome.backend,
     });
   }
 
@@ -514,13 +524,13 @@ export function RuneRecommendations({ game, settings, presets }: {
         </tbody>
       </DataTablePage>}
 
-    {(result || failure) && <p className="calculation-status" role="status" data-failed={failure ? '' : undefined}>
-      {failure ?? <>
-        {/* Every rune the import holds is judged, so this count is the account's
-            own rune count and nothing can stand between the two. */}
-        {rows.length.toLocaleString('en')} runes judged against {presets.length} presets
-        {' · '}{Math.round(result?.ms ?? 0).toLocaleString('en')} ms
-      </>}
-    </p>}
+    {failure
+      ? <p className="calculation-status" role="status" data-failed="">{failure}</p>
+      : result && <CalculationStatus
+        detail={<>{formatNumber(runes.length, general)} runes judged against {formatNumber(presets.length, general)} presets</>}
+        durationMs={result.durationMs}
+        backend={result.backend}
+        general={general}
+      />}
   </div>;
 }

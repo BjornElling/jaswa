@@ -12,7 +12,7 @@ import {
   withRefreshedMetrics,
 } from '../lib/rune-potential-presets';
 import type { PresetChoice, PresetStatTargets, PresetType, RuneMainStat, RunePotentialPreset } from '../lib/rune-potential-presets';
-import type { ImportedGame, ItemGrade, RunePotentialSettings } from '../lib/types';
+import type { GeneralSettings, ImportedGame, ItemGrade, RunePotentialSettings } from '../lib/types';
 import { presetRuneSetNameList } from '../lib/rune-sets';
 import { RuneRecommendations } from './rune-recommendations';
 
@@ -66,10 +66,11 @@ const potentialStepLabels = {
   ],
 } as const;
 
-export function RunePotentialSection({ game, settings, presets, onUpdate, onWritePresets }: {
+export function RunePotentialSection({ game, settings, presets, general, onUpdate, onWritePresets }: {
   game: ImportedGame | null;
   settings: RunePotentialSettings;
   presets: RunePotentialPreset[];
+  general: GeneralSettings;
   onUpdate: (update: Partial<RunePotentialSettings>) => void;
   onWritePresets: (change: (current: RunePotentialPreset[]) => RunePotentialPreset[]) => void;
 }) {
@@ -99,7 +100,7 @@ export function RunePotentialSection({ game, settings, presets, onUpdate, onWrit
     {/* The answer first, the controls that shape it underneath. A user opening
         this page has come for the verdicts, not for the sliders. */}
     <Disclosure title="Recommendations" sessionKey="rune-potential.recommendations" defaultOpen>
-      <RuneRecommendations game={game} settings={settings} presets={presets} />
+      <RuneRecommendations game={game} settings={settings} presets={presets} general={general} />
     </Disclosure>
 
     <Disclosure title="Settings" sessionKey="rune-potential.settings">

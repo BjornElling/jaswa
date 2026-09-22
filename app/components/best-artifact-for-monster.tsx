@@ -10,6 +10,8 @@ import { ValueSlider } from './range-slider';
 import { UnrefinedArtifactMark } from './unrefined-artifact-mark';
 import { useAutoRecalculate } from './use-auto-recalculate';
 import { calculateArtifactScores } from '../lib/compute/artifact-score-client';
+import { combineCalculationBackends } from '../lib/compute/calculation-summary';
+import type { CalculationBackend } from '../lib/compute/calculation-summary';
 import { buildArtifactScoreRequestsForMonsterIds } from '../lib/compute/artifact-score-input';
 import { artifactEquipClassLabel, artifactValueTint, displaySubProperty } from '../lib/artifact-grid';
 import { artifactCategoryLabels, artifactGradeOrder, artifactMainPropertyOrder } from '../lib/artifact-properties';
@@ -67,7 +69,7 @@ type Calculation = {
   inputKey: string;
   /** The score on the chosen monster, conversions included, per artifact. */
   target: Map<string, ArtifactMaximumScore>;
-  backend: 'cpu' | 'webgpu';
+  backend: CalculationBackend;
   evaluatedPairs: number;
   durationMs: number;
 };
@@ -432,7 +434,7 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
         /* One monster in the request, so its maximum over the monsters *is* its
            score on this monster — conversions and all. */
         target: scoreMap(results.flatMap((result) => result.maxima)),
-        backend: results.every((result) => result.backend === 'webgpu') ? 'webgpu' : 'cpu',
+        backend: combineCalculationBackends(results.map((result) => result.backend)),
         evaluatedPairs: results.reduce((total, result) => total + result.evaluatedPairs, 0),
         durationMs: results.reduce((total, result) => total + result.durationMs, 0),
       });

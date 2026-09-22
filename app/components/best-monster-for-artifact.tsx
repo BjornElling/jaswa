@@ -8,6 +8,8 @@ import { SortableHeader } from './sortable-table';
 import { useSortedRows } from './use-sorted-rows';
 import { columnClasses } from '../lib/table-layouts';
 import { calculateArtifactScores } from '../lib/compute/artifact-score-client';
+import { combineCalculationBackends } from '../lib/compute/calculation-summary';
+import type { CalculationBackend } from '../lib/compute/calculation-summary';
 import { buildArtifactScoreRequests, buildArtifactScoreRequestsForMonsterIds } from '../lib/compute/artifact-score-input';
 import { ConversionList } from './conversion-list';
 import { engravedStonesFor, isWorthwhileGain, scoringSettings } from '../lib/artifact-recommendations';
@@ -63,7 +65,7 @@ type Calculation = {
   inputKey: string;
   scopeScores: ArtifactMaximumScore[];
   ownedScores: Map<string, ArtifactMaximumScore>;
-  backend: 'cpu' | 'webgpu';
+  backend: CalculationBackend;
   evaluatedPairs: number;
   durationMs: number;
 };
@@ -271,7 +273,7 @@ export function BestMonsterForArtifact({ data, monsters, settings, general, hard
         inputKey,
         scopeScores: scopeResults.flatMap((result) => result.allScores),
         ownedScores: scoreMap(ownedResults.flatMap((result) => result.allScores)),
-        backend: [...scopeResults, ...ownedResults].every((result) => result.backend === 'webgpu') ? 'webgpu' : 'cpu',
+        backend: combineCalculationBackends([...scopeResults, ...ownedResults].map((result) => result.backend)),
         evaluatedPairs: [...scopeResults, ...ownedResults].reduce((total, result) => total + result.evaluatedPairs, 0),
         durationMs: [...scopeResults, ...ownedResults].reduce((total, result) => total + result.durationMs, 0),
       });

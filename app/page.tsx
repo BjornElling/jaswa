@@ -429,6 +429,7 @@ export default function Home() {
         game={game}
         settings={preferences.runePotential}
         presets={preferences.runePotentialPresets}
+        general={preferences.general}
         onUpdate={updateRunePotentialSettings}
         onWritePresets={writePresets}
       /></Suspense>}

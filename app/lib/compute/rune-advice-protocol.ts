@@ -12,6 +12,7 @@ import type { RunePotentialPreset } from '../rune-potential-presets';
 import type { ReferenceStats } from '../rune-reference-stats';
 import type { RunePotentialSettings } from '../types';
 import type { RuneAdvice } from '../rune-cleanup-advice';
+import type { ComputeBackend } from './calculation-summary';
 
 export type RuneAdviceRequest = {
   runes: readonly Rune[];
@@ -27,7 +28,7 @@ export type RuneAdviceWorkerRequest = {
 };
 
 export type RuneAdviceWorkerResponse =
-  | { type: 'result'; requestId: number; advice: Map<string, RuneAdvice>; durationMs: number }
+  | { type: 'result'; requestId: number; advice: Map<string, RuneAdvice>; durationMs: number; backend: ComputeBackend }
   | { type: 'error'; requestId: number; message: string };
 
 /**
@@ -40,6 +41,6 @@ export type RuneAdviceWorkerResponse =
  * a completed one.
  */
 export type RuneAdviceOutcome =
-  | { status: 'done'; advice: Map<string, RuneAdvice>; durationMs: number }
+  | { status: 'done'; advice: Map<string, RuneAdvice>; durationMs: number; backend: ComputeBackend }
   | { status: 'superseded' }
   | { status: 'failed'; message: string };

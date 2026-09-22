@@ -72,7 +72,7 @@ export function calculateRuneAdvice(request: RuneAdviceRequest): Promise<RuneAdv
       if (event.data.requestId !== requestId) return;
       settle(event.data.type === 'error'
         ? { status: 'failed', message: event.data.message }
-        : { status: 'done', advice: event.data.advice, durationMs: event.data.durationMs });
+        : { status: 'done', advice: event.data.advice, durationMs: event.data.durationMs, backend: event.data.backend });
     };
     const onError = () => {
       settle({ status: 'failed', message: 'JASWA could not start its rune calculation.' });

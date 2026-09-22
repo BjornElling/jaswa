@@ -1,4 +1,6 @@
-export type ArtifactComputeBackend = 'cpu' | 'webgpu';
+import type { ComputeBackend } from './calculation-summary';
+
+export type ArtifactComputeBackend = ComputeBackend;
 
 /**
  * The `restriction` value for an Intangible artifact, which fits every monster

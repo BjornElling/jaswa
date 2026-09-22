@@ -23,6 +23,10 @@ self.onmessage = (event: MessageEvent<RuneAdviceWorkerRequest>) => {
     const advice = runeAdvice(runes, presets, settings, base);
     const response: RuneAdviceWorkerResponse = {
       type: 'result', requestId: message.requestId, advice, durationMs: performance.now() - startedAt,
+      /* Rune Clean-up's probability model is deliberately kept on the CPU. It
+         has no WebGPU backend, so the status must say so rather than inherit the
+         user's general hardware preference. */
+      backend: 'cpu',
     };
     self.postMessage(response);
   } catch {

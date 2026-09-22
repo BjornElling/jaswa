@@ -8,6 +8,8 @@ import { SortableHeader } from './sortable-table';
 import { useSortedRows } from './use-sorted-rows';
 import { columnClasses } from '../lib/table-layouts';
 import { calculateArtifactScores } from '../lib/compute/artifact-score-client';
+import { combineCalculationBackends } from '../lib/compute/calculation-summary';
+import type { CalculationBackend } from '../lib/compute/calculation-summary';
 import { buildArtifactScoreRequestsForMonsterIds } from '../lib/compute/artifact-score-input';
 import { ConversionList } from './conversion-list';
 import { QualityRule, qualityRuleHost } from './quality-rule';
@@ -65,7 +67,7 @@ type OwnedMonster = { unitId: string; masterId: string; name: string };
 type CategoryCalculation = { request: ArtifactScoreRequest; result: ArtifactScoreResult };
 type Allocation = { monster: OwnedMonster; value: number; conversions: readonly ArtifactConversion[] };
 type UnscoredSlot = { monster: OwnedMonster; category: ArtifactCategory; status: 'missing' | 'empty' };
-type Calculation = { inputKey: string; backend: 'cpu' | 'webgpu'; durationMs: number; evaluatedPairs: number; ownedConversionCount: number; categories: CategoryCalculation[]; allocations: Map<string, Allocation>; unfilledSlots: number; slotCount: number; unscoredSlots: readonly UnscoredSlot[] };
+type Calculation = { inputKey: string; backend: CalculationBackend; durationMs: number; evaluatedPairs: number; ownedConversionCount: number; categories: CategoryCalculation[]; allocations: Map<string, Allocation>; unfilledSlots: number; slotCount: number; unscoredSlots: readonly UnscoredSlot[] };
 /* The view opens on the work the plan asks for: the artifacts it would equip,
    minus the ones already on the monster it names. Everything else — the pieces
    to sell, and the placements that are already right — stays one click away in
@@ -291,7 +293,7 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
       const categories = requests.map((request, index) => ({ request, result: results[index] }));
       setCalculation({
         inputKey,
-        backend: results.every((result) => result.backend === 'webgpu') ? 'webgpu' : 'cpu',
+        backend: combineCalculationBackends(results.map((result) => result.backend)),
         durationMs: results.reduce((total, result) => total + result.durationMs, 0),
         evaluatedPairs: results.reduce((total, result) => total + result.evaluatedPairs, 0),
         ownedConversionCount: Math.max(...results.map((result) => result.ownedConversionCount)),
