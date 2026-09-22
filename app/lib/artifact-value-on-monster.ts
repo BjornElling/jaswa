@@ -2,7 +2,7 @@ import { calculateArtifactOptimalValue } from './artifact-optimal-value';
 import { artifactPreferenceStatus, defaultPropertyPreferences } from './artifact-preferences';
 import { scoringSettings } from './artifact-recommendations';
 import { artifactFitsMonster } from './compute/artifact-score-input';
-import { monsterSpeciesId } from './monster-species';
+import { monsterSpeciesId } from './monster-identity';
 import type { Artifact } from './artifacts';
 import type { ArtifactPropertyPreference } from './artifact-optimal-value';
 import type { MonsterCopyPreferences } from './monster-preferences';

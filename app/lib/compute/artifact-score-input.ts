@@ -8,7 +8,7 @@ import type { ArtifactCategory, ArtifactMainProperty } from '../artifact-propert
 import type { GameRecord } from '../game-data';
 import type { MonsterCopyPreferences, MonsterPreferences } from '../monster-preferences';
 import { monsterSpeciesPresentation } from '../monster-catalog';
-import { monsterSpeciesId } from '../monster-species';
+import { monsterSpeciesId } from '../monster-identity';
 import { elementName } from '../rune-sets';
 import { artifactPropertyIndex, categoryCode, scoredArtifactProperties } from './artifact-score-schema';
 import { artifactFitsClassCodes, intangibleRestrictionCode } from './artifact-score-protocol';

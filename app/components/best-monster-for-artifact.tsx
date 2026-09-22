@@ -18,7 +18,7 @@ import { artifactArchetypes, artifactCategoryLabels, artifactElements, artifactG
 import { readArtifacts } from '../lib/artifacts';
 import { formatNumber } from '../lib/formatting';
 import { monsterPresentation } from '../lib/monster-catalog';
-import { monsterSpeciesId } from '../lib/monster-species';
+import { monsterSpeciesId } from '../lib/monster-identity';
 import { numberedMonsterNames } from '../lib/monster-names';
 import { monsterNameCollator } from '../lib/monster-grid';
 import type { ArtifactCategory, ArtifactGrade, ArtifactMainProperty } from '../lib/artifact-properties';

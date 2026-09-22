@@ -91,8 +91,14 @@ export function highestAwakeningMasterId(masterId: unknown): string {
   return highestAwakeningByMasterId.get(key) ?? key;
 }
 
-/** The family id is the element-free part of the game's master-id catalogue. */
-export function monsterFamilyId(masterId: unknown): number | undefined {
+/**
+ * The raw family id from the source catalogue.
+ *
+ * This is not the public skill-up family key: a collaboration re-release can
+ * have a different raw family id. Callers comparing monsters must use
+ * `monsterSkillFamilyId` from `monster-identity.ts` instead.
+ */
+export function monsterCatalogueFamilyId(masterId: unknown): number | undefined {
   return swarfarmDetailsByCom2usId.get(String(masterId ?? ''))?.familyId;
 }
 

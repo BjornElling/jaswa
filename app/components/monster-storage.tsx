@@ -9,7 +9,7 @@ import { SortableHeader } from './sortable-table';
 import { useSortedRows } from './use-sorted-rows';
 import type { SortableColumn } from './use-sorted-rows';
 import { monsterPresentation, monsterSkillUpsToMax } from '../lib/monster-catalog';
-import { withHigherAwakenings } from '../lib/monster-awakening-scope';
+import { withHigherAwakenings } from '../lib/monster-identity';
 import { createMonsterCopyIndex, createMonsterSelectionIndex } from '../lib/monster-selection';
 import type { GameRecord } from '../lib/game-data';
 import { formatNumber } from '../lib/formatting';
@@ -54,6 +54,7 @@ type StorageFilterState = {
   alreadyHaveLevel40: boolean;
   familyFullySkilled: boolean;
   needsSkillUps: boolean;
+  fodderMon: boolean;
   minimumQuantityEnabled: boolean;
   minimumQuantity: number;
 };
@@ -69,6 +70,7 @@ const defaultStorageFilters: StorageFilterState = {
   alreadyHaveLevel40: false,
   familyFullySkilled: false,
   needsSkillUps: false,
+  fodderMon: false,
   minimumQuantityEnabled: false,
   minimumQuantity: storageMinimumQuantity,
 };
@@ -96,10 +98,8 @@ function isStorageFilterState(value: unknown): value is StorageFilterState {
     && candidate.selectedGrades.every((entry) => storageGradeOptions.includes(entry as typeof storageGradeOptions[number]))
     && typeof candidate.alreadyHaveLevel40 === 'boolean'
     && typeof candidate.familyFullySkilled === 'boolean'
-    /* Added after the other conditions, so a session stored before it exists
-       carries no such key. Absent reads as unchecked rather than as an invalid
-       state, which would discard every other filter the tab had set. */
-    && (candidate.needsSkillUps === undefined || typeof candidate.needsSkillUps === 'boolean')
+    && typeof candidate.needsSkillUps === 'boolean'
+    && typeof candidate.fodderMon === 'boolean'
     && typeof candidate.minimumQuantityEnabled === 'boolean'
     && typeof candidate.minimumQuantity === 'number'
     && Number.isSafeInteger(candidate.minimumQuantity)
@@ -120,6 +120,7 @@ type StorageMonsterRow = {
    */
   owned: boolean;
   location: StorageLocation;
+  locations: StorageLocation[];
   /** Position in the table's own default order, so `#` can sort back to it. */
   ordinal: number;
   quantity: number;
@@ -134,6 +135,8 @@ type StorageMonsterRow = {
   currentSkillUps: number | null;
   maximumSkillUps?: number;
   maxSkilled: boolean;
+  /** Exact skill payload used to decide whether otherwise equal copies merge. */
+  skillsKey: string;
 };
 
 const storageLocationLabels: Record<StorageLocation, string> = {
@@ -142,6 +145,59 @@ const storageLocationLabels: Record<StorageLocation, string> = {
   'sealed-summoned': 'Sealed Shrine · Summoned',
   'sealed-normal': 'Sealed Shrine · Normal',
 };
+
+function storageLocationText(row: StorageMonsterRow): string {
+  return row.locations.map((location) => storageLocationLabels[location]).join(' / ');
+}
+
+function storageSkillsKey(monster: GameRecord, location: StorageLocation): string {
+  if (Array.isArray(monster.skills)) return JSON.stringify(monster.skills);
+  /* Summoned shrine stacks omit skills because a fresh copy is guaranteed to
+     start unskilled. A normal record omitting them still has unknown skills,
+     so it must not silently merge with that guaranteed state. */
+  return location === 'sealed-summoned' ? 'implicit-level-one' : 'skills-unknown';
+}
+
+function storageMergeKey(row: StorageMonsterRow): string {
+  return [
+    row.masterId,
+    row.grade === null ? 'grade-unknown' : String(row.grade),
+    row.level === null ? 'level-unknown' : String(row.level),
+    row.skillsKey,
+  ].join('\0');
+}
+
+/**
+ * A row is a stack only when every fact that distinguishes a usable copy is
+ * equal: the exact awakening form, grade, level and skills. Location does not
+ * distinguish the copies, so matching rows report all their locations together.
+ */
+function mergeStorageRows(rows: readonly StorageMonsterRow[]): StorageMonsterRow[] {
+  const merged: StorageMonsterRow[] = [];
+  const rowsByMergeKey = new Map<string, StorageMonsterRow>();
+
+  for (const row of rows) {
+    const existing = rowsByMergeKey.get(storageMergeKey(row));
+    if (!existing) {
+      const copy = { ...row, locations: [row.location] };
+      rowsByMergeKey.set(storageMergeKey(row), copy);
+      merged.push(copy);
+      continue;
+    }
+    existing.quantity += row.quantity;
+    existing.locations = storageLocationOptions.filter((location) =>
+      existing.locations.includes(location) || row.location === location);
+    /* A real unit gives the merged row a useful copy overlay; a shrine stack
+       has no unit id of its own and therefore remains a species link unless a
+       real copy appears in the same matching group. */
+    if (!existing.owned && row.owned) {
+      existing.unitId = row.unitId;
+      existing.owned = true;
+    }
+  }
+
+  return merged;
+}
 
 /* Where either shrine tab's list may be found, read from the same declaration
    the search's view of the account uses. Ordinary Monster Storage stays on the
@@ -277,7 +333,7 @@ const storageColumns: readonly SortableColumn<StorageMonsterRow>[] = [
     key: 'location', label: 'Location', align: 'left',
     /* Ordered by the Location filter's own listing rather than alphabetically,
        so sorting groups the table the way the filter above it is arranged. */
-    compare: (left, right) => storageLocationOptions.indexOf(left.location) - storageLocationOptions.indexOf(right.location),
+    compare: (left, right) => storageLocationOptions.indexOf(left.locations[0]) - storageLocationOptions.indexOf(right.locations[0]),
   },
   {
     key: 'element', label: 'Element', align: 'left',
@@ -331,11 +387,11 @@ export function MonsterStorage({ monsters, gameData, preferences, onOpenMonster 
   );
   const {
     search, selectedElements, selectedArchetypes, selectedLocations, minimumLevel, maximumLevel, selectedGrades,
-    alreadyHaveLevel40, familyFullySkilled, needsSkillUps = false, minimumQuantityEnabled, minimumQuantity,
+    alreadyHaveLevel40, familyFullySkilled, needsSkillUps, fodderMon, minimumQuantityEnabled, minimumQuantity,
   } = filters;
 
   const shrineEntries = useMemo(() => storageEntries(gameData), [gameData]);
-  const rows = useMemo<StorageMonsterRow[]>(() => [
+  const rows = useMemo<StorageMonsterRow[]>(() => mergeStorageRows([
     /* Storage and Inventory are the game's two places a monster on the account
        can be, so the same list yields both: the `building_id` marker decides
        which, and every monster lands in exactly one of the two. */
@@ -354,6 +410,7 @@ export function MonsterStorage({ monsters, gameData, preferences, onOpenMonster 
         masterId,
         owned: monster.unit_id !== undefined && monster.unit_id !== null,
         location,
+        locations: [location],
         ordinal: 0,
         quantity: storageEntryQuantity(monster),
         name: presentation.name,
@@ -368,8 +425,9 @@ export function MonsterStorage({ monsters, gameData, preferences, onOpenMonster 
         currentSkillUps: current,
         maximumSkillUps,
         maxSkilled: isMaxSkilled(monster),
+        skillsKey: storageSkillsKey(monster, location),
       };
-    })
+    }))
     .sort((left, right) => monsterNameCollator.compare(left.name, right.name) || left.unitId.localeCompare(right.unitId))
     /* Numbered after the default sort, so `#` names the order the table opens
        in and sorting by it returns to that order rather than to import order. */
@@ -383,16 +441,12 @@ export function MonsterStorage({ monsters, gameData, preferences, onOpenMonster 
      and still answers the two "Only show if" conditions, so the same row keeps
      the same verdict however the Location boxes are set. Build either index
      from `visible` and that stops being true. */
-  const allMonsterRecords = useMemo(() => [
-    ...monsters,
-    ...shrineEntries.map(({ record }) => record),
-  ], [monsters, shrineEntries]);
-
-  const monsterSelection = useMemo(() => createMonsterSelectionIndex(allMonsterRecords.map((monster) => ({
-    masterId: monster.unit_master_id,
-    level: numericOrNull(monster.unit_level),
-    maxSkilled: isMaxSkilled(monster),
-  }))), [allMonsterRecords]);
+  const monsterSelection = useMemo(() => createMonsterSelectionIndex(rows.map((row) => ({
+    masterId: row.masterId,
+    level: row.level,
+    maxSkilled: row.maxSkilled,
+    copies: row.quantity,
+  }))), [rows]);
 
   /* `rows` is the unfiltered set, so the tally spans all four locations.
      Awakening stages pool into it: `createMonsterCopyIndex` keys on the
@@ -427,11 +481,21 @@ export function MonsterStorage({ monsters, gameData, preferences, onOpenMonster 
          stacks are no longer such a row: `sealedStackDefaults` gives them the
          Lv. 1 the game guarantees, so they filter like any other level. */
       if (row.level === null ? minimumLevel !== storageMinimumLevel || maximumLevel !== storageMaximumLevel : row.level < minimumLevel || row.level > maximumLevel) return false;
-      if (!selectedLocations.includes(row.location)) return false;
+      if (!row.locations.some((location) => selectedLocations.includes(location))) return false;
       if (selectedElements.length && (!row.element || !selectedElements.includes(row.element))) return false;
       if (selectedArchetypes.length && (!row.archetype || !selectedArchetypes.includes(row.archetype))) return false;
       if (selectedGrades.length && (row.grade === null || !selectedGrades.includes(row.grade))) return false;
-      if (!monsterSelection.matches(row.masterId, { alreadyHaveLevel40, familyFullySkilled })) return false;
+      /* Level 40 is the target that consumes fodder, never the fodder itself;
+         a fully skilled copy is finished and cannot be fodder either. The
+         account-level selection index still uses level-40 copies as evidence
+         for lower rows. */
+      if (fodderMon && (row.maxSkilled || (row.level !== null && row.level >= storageMaximumLevel))) return false;
+      if (!monsterSelection.matches(row.masterId, {
+        alreadyHaveLevel40,
+        familyFullySkilled,
+        fodderMon,
+        candidateLevel: row.level,
+      })) return false;
       /* Unlike the two conditions above, this one asks about the row itself
          rather than about the account: a max-skilled copy is done, whatever
          other copies of the same monster still need. */
@@ -442,7 +506,7 @@ export function MonsterStorage({ monsters, gameData, preferences, onOpenMonster 
       if (minimumQuantityEnabled && storageCopies.copies(row.masterId) < minimumQuantity) return false;
       return searchedMasterIds === undefined || searchedMasterIds.has(row.masterId);
     }),
-  [alreadyHaveLevel40, familyFullySkilled, maximumLevel, minimumLevel, minimumQuantity, minimumQuantityEnabled, monsterSelection, needsSkillUps, rows, searchedMasterIds, selectedArchetypes, selectedElements, selectedGrades, selectedLocations, storageCopies]);
+  [alreadyHaveLevel40, familyFullySkilled, fodderMon, maximumLevel, minimumLevel, minimumQuantity, minimumQuantityEnabled, monsterSelection, needsSkillUps, rows, searchedMasterIds, selectedArchetypes, selectedElements, selectedGrades, selectedLocations, storageCopies]);
 
   /* The table opens in its default order, which `#` also sorts back to. The
      tiebreak keeps equal rows in that same order rather than letting them
@@ -515,16 +579,6 @@ export function MonsterStorage({ monsters, gameData, preferences, onOpenMonster 
           >{monsterArchetypeLabels[archetype]}</FilterButton>)}
         </div>
       </div>
-      <div className="filter-group storage-filter-location" role="group" aria-label="Choose which locations to include">
-        <span className="filter-label">Location</span>
-        <div className="filter-group-controls storage-location-options">
-          {storageLocationOptions.map((location) => <label className="filter-checkbox-label" key={location}>
-            <input className="filter-checkbox" type="checkbox" checked={selectedLocations.includes(location)}
-              onChange={() => toggleLocation(location)} />
-            <span>{storageLocationLabels[location]}</span>
-          </label>)}
-        </div>
-      </div>
       <div className="filter-group storage-filter-level">
         <span className="filter-label">Level</span>
         <div className="filter-group-controls">
@@ -567,6 +621,11 @@ export function MonsterStorage({ monsters, gameData, preferences, onOpenMonster 
               onChange={(event) => setFilters((current) => ({ ...current, needsSkillUps: event.target.checked }))} />
             <span>Needs skill-ups</span>
           </label>
+          <label className="checkbox-row">
+            <input type="checkbox" checked={fodderMon}
+              onChange={(event) => setFilters((current) => ({ ...current, fodderMon: event.target.checked }))} />
+            <span>Fodder mon</span>
+          </label>
           <div className="storage-quantity-filter">
             <label className="checkbox-row">
               <input type="checkbox" checked={minimumQuantityEnabled}
@@ -580,6 +639,16 @@ export function MonsterStorage({ monsters, gameData, preferences, onOpenMonster 
               valueText={(value) => `Have at least ${value}`}
               onChange={(value) => setFilters((current) => ({ ...current, minimumQuantity: value }))} />
           </div>
+        </div>
+      </div>
+      <div className="filter-group storage-filter-location" role="group" aria-label="Choose which locations to include">
+        <span className="filter-label">Location</span>
+        <div className="filter-group-controls storage-location-options">
+          {storageLocationOptions.map((location) => <label className="filter-checkbox-label" key={location}>
+            <input className="filter-checkbox" type="checkbox" checked={selectedLocations.includes(location)}
+              onChange={() => toggleLocation(location)} />
+            <span>{storageLocationLabels[location]}</span>
+          </label>)}
         </div>
       </div>
       <FilterSummary visible={visible.length} total={rows.length} noun="Numbers monsters"
@@ -604,7 +673,7 @@ export function MonsterStorage({ monsters, gameData, preferences, onOpenMonster 
             onOpen={onOpenMonster}
           />
         </td>
-        <td className={storageCell('location', 'dim')}>{storageLocationLabels[row.location]}</td>
+        <td className={storageCell('location', 'dim')}>{storageLocationText(row)}</td>
         <td className={storageCell('element', 'dim')}>{row.element ?? '—'}</td>
         <td className={storageCell('archetype', 'dim')}>{row.archetype ? monsterArchetypeLabels[row.archetype] : '—'}</td>
         <td className={storageCell('grade', 'dim')}>{row.grade === null ? '—' : `${row.grade}★`}</td>

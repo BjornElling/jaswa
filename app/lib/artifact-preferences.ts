@@ -2,8 +2,7 @@ import statistics from '../data/engraving-statistics.json';
 import type { ArtifactPropertyPreference } from './artifact-optimal-value';
 import type { ArtifactCategory, ArtifactMainProperty } from './artifact-properties';
 import { artifactMainProperties } from './artifact-properties';
-import { monsterIdentityId } from './monster-selection';
-import { monsterSpeciesId } from './monster-species';
+import { monsterIdentityId, monsterSpeciesId } from './monster-identity';
 
 type EffectCount = { effectId: number; count: number; slotId?: number };
 type MonsterStatistics = { artifacts?: { observedAt?: string; primaryEffect?: EffectCount[]; secondaryEffect?: EffectCount[] } };

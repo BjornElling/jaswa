@@ -791,16 +791,13 @@ label[for] {
       "archetype";
   }
 }
-/* Location is the one Storage group that stacks its choices, so on a shared row
-   it set the row's height and left a band of empty space above Level, Grade and
-   Only show if — a group deciding how far down its neighbours' neighbours
-   start. Giving it a column of its own across both rows takes it out of that
-   measurement entirely: it grows downwards beside the two rows instead of
-   pushing the second one away from the first. */
+/* Location and Only show if trade places here. Only show if is the taller
+   group, so its own column spans both rows while Location sits beside Level and
+   Grade rather than making those controls inherit its height. */
 .storage-filter-strip {
   grid-template-areas:
-    "search element type    location"
-    "level  grade   special location";
+    "search element type    special"
+    "level  grade   location special";
 }
 .storage-filter-search { grid-area: search; }
 .storage-filter-element { grid-area: element; }

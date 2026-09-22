@@ -1,6 +1,5 @@
 import statistics from '../data/engraving-statistics.json';
-import { monsterIdentityId } from './monster-selection';
-import { monsterSpeciesId } from './monster-species';
+import { monsterIdentityId, monsterSpeciesId } from './monster-identity';
 import { relicMainProperties, relicMainPropertyOrder } from './relic-properties';
 import type { RelicMainProperty } from './relic-properties';
 

@@ -19,7 +19,7 @@ import { readArtifacts } from '../lib/artifacts';
 import { formatNumber } from '../lib/formatting';
 import { monsterNameCollator } from '../lib/monster-grid';
 import { monsterPresentation } from '../lib/monster-catalog';
-import { monsterSpeciesId } from '../lib/monster-species';
+import { monsterSpeciesId } from '../lib/monster-identity';
 import { numberedMonsterNames } from '../lib/monster-names';
 import type { Artifact } from '../lib/artifacts';
 import type { ArtifactCategory, ArtifactGrade, ArtifactMainProperty } from '../lib/artifact-properties';

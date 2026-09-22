@@ -12,7 +12,7 @@ import type { OpenMonsterOverlay } from './monster-link';
 import { WorkspacePage } from './workspace-page';
 import { monsterPresentation } from '../lib/monster-catalog';
 import type { MonsterArchetype } from '../lib/monster-catalog';
-import { withHigherAwakenings } from '../lib/monster-awakening-scope';
+import { withHigherAwakenings } from '../lib/monster-identity';
 import { shrineMonsterRecords } from '../lib/sealed-shrine-storage';
 import type { GameRecord } from '../lib/game-data';
 import { calculateMonsterTotals } from '../lib/monster-stats';

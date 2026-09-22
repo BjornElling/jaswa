@@ -1,8 +1,7 @@
 import statistics from '../data/engraving-statistics.json';
 import type { ArtifactCategory, ArtifactMainProperty } from './artifact-properties';
 import { artifactMainProperties } from './artifact-properties';
-import { monsterIdentityId } from './monster-selection';
-import { monsterSpeciesId } from './monster-species';
+import { monsterIdentityId, monsterSpeciesId } from './monster-identity';
 import type { RelicMainProperty } from './relic-properties';
 import { relicMainProperties } from './relic-properties';
 import type { RuneMainStat } from './rune-potential-presets';

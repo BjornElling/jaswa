@@ -24,7 +24,7 @@ import {
 import { readArtifacts } from '../lib/artifacts';
 import { formatNumber } from '../lib/formatting';
 import { monsterPresentation, monsterSpeciesPresentation } from '../lib/monster-catalog';
-import { monsterSpeciesId } from '../lib/monster-species';
+import { monsterSpeciesId } from '../lib/monster-identity';
 import { numberedMonsterNames } from '../lib/monster-names';
 import { monsterNameCollator } from '../lib/monster-grid';
 import type { Artifact } from '../lib/artifacts';

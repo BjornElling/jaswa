@@ -6,34 +6,35 @@ import { createServer } from 'vite';
 const server = await createServer({ configFile: false, appType: 'custom', server: { middlewareMode: true } });
 
 try {
-  const { createMonsterCopyIndex, createMonsterSelectionIndex, monsterIdentityId } = await server.ssrLoadModule('/app/lib/monster-selection.ts');
-  const haveLevel40 = { alreadyHaveLevel40: true, familyFullySkilled: false };
-  const familyMaxSkilled = { alreadyHaveLevel40: false, familyFullySkilled: true };
-  const both = { alreadyHaveLevel40: true, familyFullySkilled: true };
+  const { createMonsterCopyIndex, createMonsterSelectionIndex } = await server.ssrLoadModule('/app/lib/monster-selection.ts');
+  const { monsterIdentity, monsterIdentityId, monsterSkillFamilyId } = await server.ssrLoadModule('/app/lib/monster-identity.ts');
+  const haveLevel40 = { alreadyHaveLevel40: true, familyFullySkilled: false, fodderMon: false, candidateLevel: null };
+  const familyMaxSkilled = { alreadyHaveLevel40: false, familyFullySkilled: true, fodderMon: false, candidateLevel: null };
+  const both = { alreadyHaveLevel40: true, familyFullySkilled: true, fodderMon: false, candidateLevel: null };
 
-  const trevor = createMonsterSelectionIndex([{ masterId: 20012, level: 40, maxSkilled: true }]);
+  const trevor = createMonsterSelectionIndex([{ masterId: 20012, level: 40, maxSkilled: true, copies: 1 }]);
   assert.equal(trevor.matches(20002, haveLevel40), true,
     'a Lv. 40 Trevor must satisfy Neostone Fighter (Fire) ownership');
   assert.equal(trevor.matches(20002, both), true,
     'a max-skilled Lv. 40 Trevor must satisfy both Neostone Fighter conditions');
 
-  const unskilledTrevor = createMonsterSelectionIndex([{ masterId: 20012, level: 40, maxSkilled: false }]);
+  const unskilledTrevor = createMonsterSelectionIndex([{ masterId: 20012, level: 40, maxSkilled: false, copies: 1 }]);
   assert.equal(unskilledTrevor.matches(20002, familyMaxSkilled), false,
     'one unskilled Lv. 40 family member must fail the family condition');
   assert.equal(unskilledTrevor.matches(20002, both), false,
     'two enabled conditions must combine with AND');
 
-  const ryu = createMonsterSelectionIndex([{ masterId: 24012, level: 40, maxSkilled: true }]);
+  const ryu = createMonsterSelectionIndex([{ masterId: 24012, level: 40, maxSkilled: true, copies: 1 }]);
   assert.equal(ryu.matches(24502, both), true,
     'a Lv. 40 RYU must satisfy both conditions for its Fire Striker re-release');
 
   assert.equal(monsterIdentityId(10101), monsterIdentityId(10131),
     'an unawakened monster and its second awakening must share one identity');
-  const secondAwakening = createMonsterSelectionIndex([{ masterId: 10131, level: 40, maxSkilled: true }]);
+  const secondAwakening = createMonsterSelectionIndex([{ masterId: 10131, level: 40, maxSkilled: true, copies: 1 }]);
   assert.equal(secondAwakening.matches(10101, both), true,
     'a Lv. 40 second awakening must satisfy both conditions for its base form');
 
-  const noLevel40 = createMonsterSelectionIndex([{ masterId: 20012, level: 39, maxSkilled: true }]);
+  const noLevel40 = createMonsterSelectionIndex([{ masterId: 20012, level: 39, maxSkilled: true, copies: 1 }]);
   assert.equal(noLevel40.matches(20002, familyMaxSkilled), false,
     'a family with no Lv. 40 monster must not pass merely because it is empty');
 
@@ -64,7 +65,7 @@ try {
     assert.equal(threeStages.copies(stage), 3,
       `an unawakened, an awakened and a second awakened copy are three of the same monster, asked via ${stage}`);
   }
-  const awakened = createMonsterSelectionIndex([{ masterId: 10111, level: 40, maxSkilled: true }]);
+  const awakened = createMonsterSelectionIndex([{ masterId: 10111, level: 40, maxSkilled: true, copies: 1 }]);
   assert.equal(awakened.matches(10101, both), true,
     'a Lv. 40 awakened copy must satisfy both conditions for its unawakened form');
   assert.equal(createMonsterCopyIndex([
@@ -77,6 +78,85 @@ try {
   ]).copies(99999999), 2, 'a monster the catalogue does not carry still counts its own copies');
   assert.equal(createMonsterCopyIndex([{ masterId: 10101, copies: 1 }]).copies(10102), 0,
     'a monster the list does not hold has no copies');
+
+  /* Fodder has a real target: at least one Lv. 40 family member must still
+     need skill-ups. A unique specific monster stays out, while a duplicate or
+     an already-levelled specific monster is useful. A 2A target narrows the
+     acceptable candidates to 2A forms of that family. */
+  const fodder = createMonsterSelectionIndex([
+    { masterId: 10111, level: 40, maxSkilled: false, copies: 1 },
+    { masterId: 10112, level: 40, maxSkilled: true, copies: 1 },
+    { masterId: 10113, level: 1, maxSkilled: false, copies: 2 },
+    { masterId: 10102, level: 1, maxSkilled: false, copies: 1 },
+    { masterId: 10104, level: 40, maxSkilled: true, copies: 1 },
+    { masterId: 10105, level: 1, maxSkilled: false, copies: 1 },
+  ]);
+  assert.equal(fodder.matches(10104, { alreadyHaveLevel40: false, familyFullySkilled: false, fodderMon: true, candidateLevel: 40 }), false,
+    'a unique Lv. 40 specific monster must not count itself as a spare copy');
+  assert.equal(fodder.matches(10101, { alreadyHaveLevel40: false, familyFullySkilled: false, fodderMon: true, candidateLevel: 1 }), true,
+    'an unawakened copy can feed its awakened Lv. 40 monster');
+  assert.equal(fodder.matches(10102, { alreadyHaveLevel40: false, familyFullySkilled: false, fodderMon: true, candidateLevel: 1 }), true,
+    'an unawakened copy can feed its awakened Lv. 40 monster of the same element');
+  assert.equal(fodder.matches(10113, { alreadyHaveLevel40: false, familyFullySkilled: false, fodderMon: true, candidateLevel: 1 }), true,
+    'a duplicated specific monster is fodder');
+  assert.equal(fodder.matches(10105, { alreadyHaveLevel40: false, familyFullySkilled: false, fodderMon: true, candidateLevel: 1 }), false,
+    'a unique specific monster without a Lv. 40 copy is not fodder');
+
+  /* A family-wide Lv. 40 target does not make every element a spare copy.
+     Praline is the generic Wind release of Madeleine Cookie (Wind); Fire and
+     Water Madeleine Cookies remain separate identities and must stay hidden
+     when there is only one of each. */
+  const madeleineFamily = createMonsterSelectionIndex([
+    { masterId: 27113, level: 40, maxSkilled: false, copies: 1 },
+    { masterId: 26611, level: 1, maxSkilled: false, copies: 1 },
+    { masterId: 26612, level: 1, maxSkilled: false, copies: 1 },
+  ]);
+  const fodderOnly = { alreadyHaveLevel40: false, familyFullySkilled: false, fodderMon: true, candidateLevel: 1 };
+  assert.equal(madeleineFamily.matches(26611, fodderOnly), false,
+    'a unique Water Madeleine Cookie is not fodder for an unrelated Wind family target');
+  assert.equal(madeleineFamily.matches(26612, fodderOnly), false,
+    'a unique Fire Madeleine Cookie is not fodder for an unrelated Wind family target');
+  assert.notEqual(monsterIdentityId(26611), monsterIdentityId(26612),
+    'same-name monsters of different elements must have different identities');
+  assert.equal(monsterSkillFamilyId(26611), monsterSkillFamilyId(27113),
+    'collaboration and generic releases must share one skill-up family');
+  assert.notEqual(monsterIdentity(26612).identityId, monsterIdentity(26611).identityId,
+    'the canonical identity record must preserve the element distinction');
+  const fireMadeleineTarget = createMonsterSelectionIndex([
+    { masterId: 27113, level: 40, maxSkilled: false, copies: 1 },
+    { masterId: 27112, level: 40, maxSkilled: true, copies: 1 },
+    { masterId: 26611, level: 1, maxSkilled: false, copies: 1 },
+    { masterId: 26612, level: 1, maxSkilled: false, copies: 1 },
+  ]);
+  assert.equal(fireMadeleineTarget.matches(26612, fodderOnly), true,
+    'a Fire generic counterpart is the same specific monster as Fire Madeleine Cookie');
+  assert.equal(fireMadeleineTarget.matches(26611, fodderOnly), false,
+    'a Fire generic counterpart does not make Water Madeleine Cookie fodder');
+
+  const ordinaryElementFamily = createMonsterSelectionIndex([
+    { masterId: 10111, level: 40, maxSkilled: false, copies: 1 },
+    { masterId: 10102, level: 1, maxSkilled: false, copies: 1 },
+  ]);
+  assert.equal(ordinaryElementFamily.matches(10102, fodderOnly), false,
+    'an ordinary family sibling of another element is not a duplicate');
+
+  const secondAwakeningFodder = createMonsterSelectionIndex([
+    { masterId: 10131, level: 40, maxSkilled: false, copies: 1 },
+    { masterId: 10132, level: 1, maxSkilled: false, copies: 2 },
+    { masterId: 10101, level: 1, maxSkilled: false, copies: 1 },
+  ]);
+  assert.equal(secondAwakeningFodder.matches(10132, fodderOnly), true,
+    'a 2A family member can feed an unskilled 2A target');
+  assert.equal(secondAwakeningFodder.matches(10101, fodderOnly), false,
+    'a non-2A family member cannot feed an unskilled 2A target');
+
+  const twoLevel40Copies = createMonsterSelectionIndex([
+    { masterId: 10111, level: 40, maxSkilled: false, copies: 1 },
+    { masterId: 10112, level: 40, maxSkilled: true, copies: 1 },
+    { masterId: 10112, level: 40, maxSkilled: false, copies: 1 },
+  ]);
+  assert.equal(twoLevel40Copies.matches(10112, { alreadyHaveLevel40: false, familyFullySkilled: false, fodderMon: true, candidateLevel: 40 }), true,
+    'two copies of a specific Lv. 40 monster satisfy the current duplicate rule');
 
   console.log('Monster selection canonicalizes awakenings, second awakenings, collaboration releases, and counts copies per monster.');
 } finally {

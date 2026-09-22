@@ -12,7 +12,7 @@ import type { GameRecord } from '../lib/game-data';
 import type { Preferences } from '../lib/types';
 import { monsterPresentation } from '../lib/monster-catalog';
 import type { MonsterArchetype } from '../lib/monster-catalog';
-import { withHigherAwakenings } from '../lib/monster-awakening-scope';
+import { withHigherAwakenings } from '../lib/monster-identity';
 import { numberedMonsterNames } from '../lib/monster-names';
 import { elementName, elementNameList } from '../lib/rune-sets';
 import { isStoredMonster, monsterArchetypeLabels, monsterFilterArchetypes, numericOrNull } from '../lib/monster-grid';
