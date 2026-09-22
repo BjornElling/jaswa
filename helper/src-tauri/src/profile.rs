@@ -174,8 +174,7 @@ impl ProfileStore {
             let inventory = collection(profile, entity.collection)
                 .iter()
                 .filter(|item| {
-                    identifier(item, entity.identifier)
-                        .is_none_or(|id| !equipped.contains(&id))
+                    identifier(item, entity.identifier).is_none_or(|id| !equipped.contains(&id))
                 })
                 .cloned()
                 .collect::<Vec<_>>();
@@ -299,6 +298,7 @@ impl ProfileStore {
         let mut profile = self.profile.clone().expect("checked above");
         let mut changed = false;
         let account_wizard_id = identifier(&profile, "wizard_id");
+        let claimed_mail_ids = mail_claim_ids(request);
         let response_items = response_entities(
             response,
             "",
@@ -306,6 +306,7 @@ impl ProfileStore {
             false,
             false,
             account_wizard_id.as_deref(),
+            &claimed_mail_ids,
         );
         /* A normal-shrine record and a live unit have the same identity. The
         game moves that one record between the two collections; it never owns
@@ -938,6 +939,7 @@ fn response_entities(
     account_context: bool,
     blocked_context: bool,
     account_wizard_id: Option<&str>,
+    claimed_mail_ids: &[String],
 ) -> Vec<(Entity, Value, bool)> {
     let mut found = Vec::new();
     fn visit(
@@ -947,6 +949,7 @@ fn response_entities(
         account_context: bool,
         blocked_context: bool,
         account_wizard_id: Option<&str>,
+        claimed_mail_ids: &[String],
         found: &mut Vec<(Entity, Value, bool)>,
     ) {
         if let Value::Array(entries) = value {
@@ -958,6 +961,7 @@ fn response_entities(
                     account_context,
                     blocked_context,
                     account_wizard_id,
+                    claimed_mail_ids,
                     found,
                 );
             }
@@ -966,9 +970,16 @@ fn response_entities(
         let Some(map) = value.as_object() else {
             return;
         };
-        let blocked_context =
-            blocked_context || non_account_container(parent) || superseded_record(parent);
-        let account_context = account_context || account_container(parent);
+        /* Inbox responses contain both the mail that was just opened and the
+        remaining inbox entries. Only the requested mail is account data;
+        the other entries are previews and must stay blocked. */
+        let claimed_mail = claimed_mail_record(value, parent, claimed_mail_ids);
+        let blocked_context = if claimed_mail {
+            false
+        } else {
+            blocked_context || non_account_container(parent) || superseded_record(parent)
+        };
+        let account_context = account_context || account_container(parent) || claimed_mail;
         for entity in ENTITIES {
             let account_identity = account_wizard_id.is_some_and(|wizard_id| {
                 identifier(value, "wizard_id").as_deref() == Some(wizard_id)
@@ -1010,6 +1021,7 @@ fn response_entities(
                 account_context,
                 blocked_context,
                 account_wizard_id,
+                claimed_mail_ids,
                 found,
             );
         }
@@ -1021,9 +1033,36 @@ fn response_entities(
         account_context,
         blocked_context,
         account_wizard_id,
+        claimed_mail_ids,
         &mut found,
     );
     found
+}
+
+fn mail_claim_ids(request: &Value) -> Vec<String> {
+    let command = request
+        .get("command")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if command != "receivemail" && command != "receivemail_v2" {
+        return Vec::new();
+    }
+    identifiers_in_fields(request, "mail_id", &["mail_id", "mail_id_list", "mail_ids"])
+}
+
+fn claimed_mail_record(value: &Value, parent: &str, claimed_mail_ids: &[String]) -> bool {
+    if claimed_mail_ids.is_empty() {
+        return false;
+    }
+    let parent = parent.to_ascii_lowercase();
+    if !matches!(
+        parent.as_str(),
+        "mail_list" | "mail_message_list" | "inventory_mail_info" | "mail_info_list"
+    ) {
+        return false;
+    }
+    identifier(value, "mail_id").is_some_and(|id| claimed_mail_ids.contains(&id))
 }
 
 fn account_collection(parent: &str, entity: Entity) -> bool {
@@ -1091,6 +1130,7 @@ fn non_account_container(parent: &str) -> bool {
             | "webevent_list"
             | "mail_list"
             | "mail_message_list"
+            | "mail_info_list"
             | "inventory_mail_info"
             | "npc_list"
             | "arena_list"
@@ -2268,12 +2308,24 @@ mod tests {
         let export = serialize_swex_export(&document).unwrap();
         let document: Value = serde_json::from_str(&export.content).unwrap();
         assert_eq!(document["unit_list"].as_array().unwrap().len(), 2);
-        assert!(document["unit_list"].as_array().unwrap().iter().any(|unit| unit["unit_master_id"] == 34911));
+        assert!(
+            document["unit_list"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|unit| unit["unit_master_id"] == 34911)
+        );
         assert_eq!(document["unit_list"][0]["runes"][0]["rune_id"], 5);
-        assert_eq!(document["runes"], json!([{"rune_id": 11, "wizard_id": 7, "set_id": 13, "slot_no": 1}]));
+        assert_eq!(
+            document["runes"],
+            json!([{"rune_id": 11, "wizard_id": 7, "set_id": 13, "slot_no": 1}])
+        );
         assert_eq!(document["artifacts"].as_array().unwrap().len(), 2);
         assert_eq!(document["relics"].as_array().unwrap().len(), 2);
-        assert_eq!(document["rune_craft_item_list"].as_array().unwrap().len(), 2);
+        assert_eq!(
+            document["rune_craft_item_list"].as_array().unwrap().len(),
+            2
+        );
         assert_eq!(document["artifact_crafts"].as_array().unwrap().len(), 2);
         assert_eq!(document["inventory_info"].as_array().unwrap().len(), 2);
     }
@@ -2414,6 +2466,62 @@ mod tests {
             store.read().unwrap().data["rune_craft_item_list"][0]["amount"],
             3
         );
+    }
+
+    #[test]
+    fn imports_only_the_mail_that_receive_mail_claimed() {
+        let mut store = ProfileStore::default();
+        store.accept_snapshot(json!({
+            "wizard_id": 7,
+            "unit_list": [],
+            "runes": [],
+            "artifacts": [],
+            "relics": [],
+            "rune_craft_item_list": [],
+            "artifact_crafts": [],
+            "inventory_info": []
+        }));
+
+        assert!(store.apply_update(
+            &json!({
+                "ret_code": 0,
+                "mail_list": [
+                    {
+                        "mail_id": 71,
+                        "reward": {"crate": {
+                            "runes": [{"rune_id": 11, "set_id": 13, "slot_no": 1}],
+                            "artifacts": [{"rid": 12, "type": 1, "pri_effect": [100, 1000], "sec_effects": []}],
+                            "relics": [{"rid": 13, "pri_effect": [100, 12], "sec_effect": [14, 150, 2]}],
+                            "changestones": [{"craft_item_id": 14, "craft_type": 6, "amount": 1}],
+                            "artifact_crafts": [{"rid": 15, "master_id": 2, "quantity": 1}],
+                            "inventory_info": [{"rid": 16, "item_master_id": 61, "item_master_type": 61, "item_quantity": 1}]
+                        }}
+                    },
+                    {
+                        "mail_id": 72,
+                        "reward": {"crate": {
+                            "runes": [{"rune_id": 99, "set_id": 13, "slot_no": 1}],
+                            "artifacts": [{"rid": 98, "type": 1, "pri_effect": [100, 1000], "sec_effects": []}]
+                        }}
+                    }
+                ]
+            }),
+            &json!({"command": "ReceiveMail", "mail_id": 71})
+        ));
+
+        let data = &store.read().unwrap().data;
+        assert_eq!(data["runes"].as_array().unwrap().len(), 1);
+        assert_eq!(data["runes"][0]["rune_id"], 11);
+        assert_eq!(data["artifacts"].as_array().unwrap().len(), 1);
+        assert_eq!(data["artifacts"][0]["rid"], 12);
+        assert_eq!(data["relics"].as_array().unwrap().len(), 1);
+        assert_eq!(data["relics"][0]["rid"], 13);
+        assert_eq!(data["rune_craft_item_list"].as_array().unwrap().len(), 1);
+        assert_eq!(data["rune_craft_item_list"][0]["craft_item_id"], 14);
+        assert_eq!(data["artifact_crafts"].as_array().unwrap().len(), 1);
+        assert_eq!(data["artifact_crafts"][0]["rid"], 15);
+        assert_eq!(data["inventory_info"].as_array().unwrap().len(), 1);
+        assert_eq!(data["inventory_info"][0]["rid"], 16);
     }
 
     #[test]

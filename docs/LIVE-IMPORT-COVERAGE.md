@@ -76,7 +76,8 @@ yet", and the second is the one a stale dashboard is made of.
   inventory.
 - Opponent, helper, arena, market, event-definition and unclaimed-mail
   containers are excluded. Mail becomes eligible only through the claim
-  response, not merely because it appears in the inbox list.
+  response, and only the `mail_id` named by `ReceiveMail` is opened; an inbox
+  list is never treated as owned inventory merely because it carries item data.
 - RTA and World Arena commands remain completely outside the account sync.
 - A relic is not treated like a rune or artifact: its inventory record remains
   in the root collection while individual monster copies are added or removed.
