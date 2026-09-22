@@ -80,13 +80,12 @@ export const chanceThresholds: readonly number[] = [0.02, 0.06, 0.08, 0.20, 0.40
 export const acceptedWorth: readonly number[] = [1.00, 0.95, 0.85, 0.70, 0.55];
 
 /**
- * The same for a rune the preset names neither way. The last stop is `0`: "No"
- * means no, and no amount of quality redeems a set the role never asked for.
+ * The same for a rune the preset names neither way. The middle of the ladder is
+ * shifted one stop towards leniency, so the old `A good rune is a good rune` bar is
+ * now `Occasionally`. The last stop remains `0`: "No" means no, and no amount of
+ * quality redeems a set the role never asked for.
  */
 export const brokenWorth: readonly number[] = [0.80, 0.70, 0.60, 0.40, 0];
-
-/** The share steps a preset can be set to, as plain multipliers. */
-const shareFactors: readonly number[] = [0.1, 0.2, 1 / 3, 0.5, 1, 2, 3, 5, 10];
 
 /** How much more an Intangible rune is wanted, by the Intangible runes slider. */
 const intangibleFactors: readonly number[] = [1, 1.5, 2, 3.5, 5];
@@ -99,7 +98,7 @@ export type RuneAdvice = {
   maxValue: number;
   /**
    * `0`–`1` from an ordinary rune of this slot to a perfect one, after the same
-   * discount — the figure the gates and allocation actually settled on.
+   * discount — the figure the gates actually settled on.
    *
    * It is carried out of the engine rather than kept private so that the page can
    * explain why a slot-4 rune was kept beside a slot-3 rune that reads higher, and
@@ -138,7 +137,6 @@ export function runeAdvice(
   const accepted = acceptedWorth[settings.acceptedRunes - 1] ?? acceptedWorth[2];
   const broken = brokenWorth[settings.brokenRunes - 1] ?? brokenWorth[2];
   const intangible = intangibleFactors[settings.intangibleRunes - 1] ?? 1;
-
   /* Builds are the same for every rune, so they are enumerated once. About sixty
      across the shipped presets; a preset with three choices in every slot would
      give twenty-four on its own, which is still nothing. */
@@ -160,10 +158,7 @@ export function runeAdvice(
   const scope = newRuneAdviceScope();
 
   type Answer = { value: number; maxValue: number; chance: number; priority: number; preset: RunePotentialPreset; rank: MatchRank };
-  type Pending = { rune: Rune; fallback: Answer | null; eligible: Answer[] };
-  const pending: Pending[] = [];
-  /* Every eligible candidate, by the preset it is eligible for. */
-  const eligibleFor = new Map<string, Array<{ item: Pending; answer: Answer }>>();
+  const advice = new Map<string, RuneAdvice>();
   for (const rune of runes) {
     /* Every preset and build this rune could serve, valued but not yet gated.
        Selecting a winner on Max value alone and *then* asking whether its chance
@@ -262,8 +257,14 @@ export function runeAdvice(
       .sort((left, right) => right.value - left.value || right.maxValue - left.maxValue);
     let fallback: Answer | null = null;
     const eligibleByPreset = new Map<string, Answer>();
+    /* These preferences change how much of the ordinary box this rune is
+       allowed to represent. They widen the retained share; they never remove
+       another rune's place or introduce any global limit. */
+    const retentionMultiplier = (settings.keepMoreForLargerSets && isFourPieceSet(rune.setName) ? 2 : 1)
+      * (rune.setName === 'Intangible' ? intangible : 1);
+    const retentionShare = Math.min(1, qualityBar * retentionMultiplier);
     for (const candidate of contenders) {
-      const passesValue = candidate.value >= 1 - qualityBar;
+      const passesValue = candidate.value >= 1 - retentionShare;
       if (!passesValue && fallback !== null) continue;
       /* The chance has to be the chance of clearing the *same* bar the value was
          judged against. The value carries the accepted/broken discount, so the fill
@@ -275,11 +276,10 @@ export function runeAdvice(
          a Max value, so the share is read back out of the box before the probability
          engine sees it. One bar, in the two units the two halves of the row speak. */
       const chance = candidateChance(candidate.prepared,
-        worth > 0 ? boxThreshold(candidate.box, qualityBar) / worth : Number.POSITIVE_INFINITY);
+        worth > 0 ? boxThreshold(candidate.box, retentionShare) / worth : Number.POSITIVE_INFINITY);
       const answer = {
         value: candidate.value, maxValue: candidate.maxValue, chance,
-        priority: candidate.value * (settings.keepMoreForLargerSets && isFourPieceSet(rune.setName) ? 2 : 1)
-          * (rune.setName === 'Intangible' ? intangible : 1),
+        priority: candidate.value,
         preset: candidate.preset, rank: candidate.rank,
       };
       if (fallback === null) fallback = answer;
@@ -292,67 +292,22 @@ export function runeAdvice(
         }
       }
     }
-    const item: Pending = { rune, fallback, eligible: [...eligibleByPreset.values()] };
-    pending.push(item);
-    /* Indexed as each item is produced rather than rescanned per preset. The
-       allocation below needs each candidate pool and the index keeps that work
-       linear in the imported rune count. */
-    for (const answer of item.eligible) {
-      const list = eligibleFor.get(answer.preset.id);
-      if (list) list.push({ item, answer });
-      else eligibleFor.set(answer.preset.id, [{ item, answer }]);
-    }
-  }
-
-  /* The rune-share setting is a count preference, not a disguised quality penalty.
-     First apply the quality/chance gates, then allocate the finite eligible pool to
-     presets in those exact relative shares. A rune is assigned only once; roles
-     with the smallest candidate pool per requested place go first, so a broad role
-     cannot consume the only rune a narrow role could use. */
-  const activePresets = presets.filter((preset) => (eligibleFor.get(preset.id)?.length ?? 0) > 0);
-  const totalEligible = pending.filter((item) => item.eligible.length > 0).length;
-  const requested = new Map(activePresets.map((preset) => [preset.id, shareFactors[preset.runeShare - 1] ?? 1]));
-  const totalRequested = [...requested.values()].reduce((sum, value) => sum + value, 0);
-  const quota = new Map<string, number>();
-  const remainders: Array<{ id: string; fraction: number }> = [];
-  let assignedQuota = 0;
-  for (const preset of activePresets) {
-    const exact = totalRequested > 0 ? totalEligible * (requested.get(preset.id) ?? 0) / totalRequested : 0;
-    const whole = Math.floor(exact);
-    quota.set(preset.id, whole); assignedQuota += whole;
-    remainders.push({ id: preset.id, fraction: exact - whole });
-  }
-  remainders.sort((left, right) => right.fraction - left.fraction || left.id.localeCompare(right.id));
-  for (const item of remainders.slice(0, totalEligible - assignedQuota)) quota.set(item.id, (quota.get(item.id) ?? 0) + 1);
-
-  const assignments = new Map<string, Answer>();
-  const capacity = new Map(activePresets.map((preset) =>
-    [preset.id, (eligibleFor.get(preset.id)?.length ?? 0) / Math.max(1, quota.get(preset.id) ?? 0)]));
-  const allocationOrder = [...activePresets].sort((left, right) =>
-    (capacity.get(left.id) ?? 0) - (capacity.get(right.id) ?? 0) || left.id.localeCompare(right.id));
-  for (const preset of allocationOrder) {
-    const candidatesForPreset = (eligibleFor.get(preset.id) ?? [])
-      .filter((candidate) => !assignments.has(candidate.item.rune.id))
-      .sort((left, right) => right.answer.priority - left.answer.priority
-        || right.answer.maxValue - left.answer.maxValue
-        || right.answer.chance - left.answer.chance
-        || left.item.rune.id.localeCompare(right.item.rune.id));
-    for (const candidate of candidatesForPreset.slice(0, quota.get(preset.id) ?? 0)) assignments.set(candidate.item.rune.id, candidate.answer);
-  }
-
-  const advice = new Map<string, RuneAdvice>();
-  for (const item of pending) {
-    const assigned = assignments.get(item.rune.id) ?? null;
-    const result = assigned ?? item.fallback;
+    /* A rune may satisfy several presets. Pick its strongest passing reading only
+       to give the row one explanation; this choice never removes another rune or
+       changes whether this rune passed. Every passing rune remains eligible. */
+    const selected = [...eligibleByPreset.values()].sort((left, right) =>
+      right.priority - left.priority
+      || right.maxValue - left.maxValue
+      || right.chance - left.chance
+      || left.preset.id.localeCompare(right.preset.id))[0] ?? null;
+    const result = selected ?? fallback;
     const verdict = decide({
-      rune: item.rune, value: result?.maxValue ?? 0, standing: result?.value ?? 0,
+      rune, value: result?.maxValue ?? 0, standing: result?.value ?? 0,
       chance: result?.chance ?? 0,
-      preset: result?.preset ?? null, rank: result?.rank ?? 'broken', cleared: assigned !== null,
+      preset: result?.preset ?? null, rank: result?.rank ?? 'broken', cleared: selected !== null,
       brokenRejected: broken === 0,
     });
-    advice.set(item.rune.id, assigned === null && item.eligible.length > 0
-      ? { ...verdict, verdict: 'sell', reason: 'Outside requested preset capacity' }
-      : verdict);
+    advice.set(rune.id, verdict);
   }
   return advice;
 }

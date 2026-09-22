@@ -172,9 +172,9 @@ function mainContribution(mainStatId: number, stat: TargetStat, base: ReferenceS
  * the candidate's set at all.
  *
  * A set still decides plenty through the preset's preferred/acceptable/broken
- * ranking and the finite allocation preferences. Intangible is the permanent
+ * ranking and the relative retention preferences. Intangible is the permanent
  * exception: its set side is always preferred and is not a user-editable preset
- * choice; its slider only changes allocation priority.
+ * choice; its slider only changes the retained share.
  *
  * **The way back**, if the requirement should count set bonuses again: a preset would
  * have to state the set *combination* its builds use — `RUNE-CANONICAL.md` §10.1

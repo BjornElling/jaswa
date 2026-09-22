@@ -28,6 +28,13 @@ that document were amended to carry, each in its own commit, as its §9 requires
 > which is where the engine already stood. Everything else below stands as a record
 > of the engine as it was profiled, and the function names in it are that engine's.
 
+> **Superseded in part, 22 September 2026.** The finite preset allocator and its
+> `runeShare` field were removed. The current policy judges each rune independently;
+> the Intangible and 4-set preferences widen their relative retained shares, while
+> no preset quota can sell a rune that passed its gates. Sections below that measure
+> global quotas or allocation indexing are historical performance notes, not current
+> product behaviour.
+
 **Where sections disagree, the later one wins:** §7 is superseded by §11, §11 is
 qualified by §13.4, and §14 reports against §13.4.
 

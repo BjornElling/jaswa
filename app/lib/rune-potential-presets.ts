@@ -112,29 +112,10 @@ export type PresetType = 'Attack type' | 'Support type' | 'Defence type' | 'HP t
 /** The families, in the order the editor offers them. */
 export const presetTypes: readonly PresetType[] = ['Attack type', 'Support type', 'Defence type', 'HP type', 'No type'];
 
-/*
- * How many runes a role wants kept, relative to what an even share would give
- * it. The scale is multiplicative and centred on `1`, so a role is stated as
- * wanting its ordinary share, a fraction of it, or a multiple — never an
- * absolute count, which would go stale when the box grows.
- */
-export const presetRuneShareSteps: readonly string[] = ['1/10', '1/5', '1/3', '1/2', 'x1', 'x2', 'x3', 'x5', 'x10'];
-export const defaultRuneShareStep = presetRuneShareSteps.indexOf('x1') + 1;
-
-export function runeShareLabel(step: number): string {
-  return presetRuneShareSteps[step - 1] ?? presetRuneShareSteps[defaultRuneShareStep - 1];
-}
-
-function isRuneShareStep(value: unknown): value is number {
-  return typeof value === 'number' && Number.isInteger(value)
-    && value >= 1 && value <= presetRuneShareSteps.length;
-}
-
 export type RunePotentialPreset = {
   id: string;
   name: string;
   type: PresetType;
-  runeShare: number;
   sets: PresetChoice<string>;
   slots: PresetSlots;
   artifacts: PresetArtifacts;
@@ -143,9 +124,8 @@ export type RunePotentialPreset = {
 
 /**
  * As a preset is written in this file: the composites are not its author's to
- * state. The share is a relative allocation preference, not a count, so the
- * allocator can divide the finite eligible pool without making the preset
- * stale when the account grows.
+ * state. They are derived from the target stats below and are refreshed on
+ * every save.
  */
 type PresetSource = Omit<RunePotentialPreset, 'targets'> & { targets: PresetStatTargets };
 
@@ -211,7 +191,6 @@ const presetSources: readonly PresetSource[] = [
     id: 'slow-dd',
     name: 'Slow DD',
     type: 'Attack type',
-    runeShare: 6,
     sets: {
       preferred: ['Fight', 'Rage', 'Shield', 'Violent', 'Will'],
       acceptable: ['Blade', 'Fatal', 'Swift', 'Vampire'],
@@ -228,7 +207,6 @@ const presetSources: readonly PresetSource[] = [
     id: 'fast-dd',
     name: 'Fast DD',
     type: 'Attack type',
-    runeShare: 6,
     sets: {
       preferred: ['Blade', 'Fight', 'Nemesis', 'Rage', 'Vampire', 'Violent', 'Will'],
       acceptable: ['Despair', 'Fatal', 'Focus', 'Seal', 'Shield', 'Swift'],
@@ -245,7 +223,6 @@ const presetSources: readonly PresetSource[] = [
     id: 'def-dd',
     name: 'Def DD',
     type: 'Attack type',
-    runeShare: 4,
     sets: {
       preferred: ['Determination', 'Guard', 'Rage', 'Vampire', 'Will'],
       acceptable: ['Blade', 'Fight', 'Violent'],
@@ -262,7 +239,6 @@ const presetSources: readonly PresetSource[] = [
     id: 'bomber',
     name: 'Bomber',
     type: 'Attack type',
-    runeShare: 3,
     sets: {
       preferred: ['Fatal', 'Violent', 'Will'],
       acceptable: ['Destroy', 'Energy', 'Fight', 'Focus', 'Vampire'],
@@ -279,7 +255,6 @@ const presetSources: readonly PresetSource[] = [
     id: 'support',
     name: 'Support',
     type: 'Support type',
-    runeShare: 7,
     sets: {
       preferred: ['Accuracy', 'Despair', 'Focus', 'Fight', 'Seal', 'Swift', 'Violent', 'Will'],
       acceptable: ['Determination', 'Enhance', 'Energy', 'Tolerance', 'Guard'],
@@ -296,7 +271,6 @@ const presetSources: readonly PresetSource[] = [
     id: 'pvp-def',
     name: 'PvP def',
     type: 'HP type',
-    runeShare: 5,
     sets: {
       preferred: ['Endure', 'Enhance', 'Fight', 'Seal', 'Shield', 'Tolerance', 'Violent', 'Will'],
       acceptable: ['Despair', 'Destroy', 'Determination', 'Energy', 'Revenge', 'Nemesis', 'Vampire'],
@@ -313,7 +287,6 @@ const presetSources: readonly PresetSource[] = [
     id: 'leo',
     name: 'Leo',
     type: 'Support type',
-    runeShare: 1,
     sets: {
       preferred: ['Vampire', 'Nemesis'],
       acceptable: ['Violent', 'Blade', 'Revenge'],
@@ -330,7 +303,6 @@ const presetSources: readonly PresetSource[] = [
     id: 'bruiser',
     name: 'Bruiser',
     type: 'No type',
-    runeShare: 6,
     sets: {
       preferred: ['Blade', 'Fight', 'Seal', 'Shield', 'Vampire', 'Violent', 'Will'],
       acceptable: ['Despair', 'Destroy', 'Energy', 'Rage', 'Revenge'],
@@ -368,7 +340,6 @@ export function createRunePotentialPreset(name = 'New preset'): RunePotentialPre
     id: newPresetId(),
     name,
     type: 'No type',
-    runeShare: defaultRuneShareStep,
     sets: emptyChoice<string>(),
     slots: { slot2: emptyChoice<RuneMainStat>(), slot4: emptyChoice<RuneMainStat>(), slot6: emptyChoice<RuneMainStat>() },
     artifacts: { atk: false, def: false, hp: false },
@@ -436,11 +407,10 @@ function isTargets(value: unknown): value is PresetTargets {
 }
 
 function isCurrentRunePotentialPreset(value: unknown): value is RunePotentialPreset {
-  const expectedKeys = new Set(['id', 'name', 'type', 'runeShare', 'sets', 'slots', 'artifacts', 'targets']);
+  const expectedKeys = new Set(['id', 'name', 'type', 'sets', 'slots', 'artifacts', 'targets']);
   if (!isRecord(value) || typeof value.id !== 'string' || value.id.length === 0
     || typeof value.name !== 'string' || value.name.trim() !== value.name || value.name.length === 0 || value.name.length > presetNameMaximum
     || !presetTypes.includes(value.type as PresetType)
-    || !isRuneShareStep(value.runeShare)
     || !Object.keys(value).every((key) => expectedKeys.has(key))
     || !isChoice(value.sets, presetRuneSetNameList)
     || !isRecord(value.slots) || !isChoice(value.slots.slot2, runeMainStatsBySlot.slot2) || !isChoice(value.slots.slot4, runeMainStatsBySlot.slot4) || !isChoice(value.slots.slot6, runeMainStatsBySlot.slot6)

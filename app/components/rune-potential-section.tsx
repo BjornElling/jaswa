@@ -7,8 +7,8 @@ import { CheckboxRow } from './form-controls';
 import { ChoiceEditor, ChoiceLegend } from './choice-editor';
 import { itemGrades } from '../lib/rune-craft-items';
 import {
-  createRunePotentialPreset, presetNameMaximum, presetRuneShareSteps, presetStatTargetKeys,
-  presetTargetColumns, presetTargetMaximum, presetTypes, runeMainStatsBySlot, runeShareLabel,
+  createRunePotentialPreset, presetNameMaximum, presetStatTargetKeys, presetTargetColumns,
+  presetTargetMaximum, presetTypes, runeMainStatsBySlot,
   withRefreshedMetrics,
 } from '../lib/rune-potential-presets';
 import type { PresetChoice, PresetStatTargets, PresetType, RuneMainStat, RunePotentialPreset } from '../lib/rune-potential-presets';
@@ -295,7 +295,6 @@ function PresetCard({ preset, onEdit, onDelete }: {
         <h4 className="preset-name">{preset.name}</h4>
         <div className="preset-subhead">
           <p className="preset-type">{preset.type}</p>
-          <p className="preset-share">Desired no. of runes:<b>{runeShareLabel(preset.runeShare)}</b></p>
         </div>
       </div>
       <div className="preset-actions">
@@ -420,13 +419,6 @@ function PresetEditor({ draft, isNew, onCancel, onSave }: {
             </Dropdown>
           </label>
         </div>
-
-        <PotentialSlider id="preset-rune-share" label="Desired no. of runes"
-          className="slider-compact"
-          description="How many runes this role is kept, against an even share of the box. A multiple, not a count, so it holds as the box grows."
-          value={preset.runeShare}
-          stepLabels={presetRuneShareSteps}
-          onChange={(runeShare) => update({ runeShare })} />
 
         <EditorBlock title="Rune sets" legend note="Preferred is what the role is built around. Acceptable still works when the box does not oblige.">
           <ChoiceEditor choice={preset.sets} options={presetRuneSetNameList} columns

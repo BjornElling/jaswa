@@ -3023,15 +3023,6 @@ label[for] {
   gap: var(--s5);
   align-items: baseline;
 }
-.preset-share {
-  margin: 2px 0 0;
-  color: var(--text-muted);
-  overflow-wrap: anywhere;
-}
-.preset-share b {
-  margin-left: var(--s2);
-  color: var(--text);
-}
 @media (max-width: 640px) {
   .preset-subhead { grid-template-columns: minmax(0, 1fr); gap: 0; }
 }

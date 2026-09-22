@@ -173,10 +173,10 @@ console.log(`Paired: ${bodies.length} identical bodies x ${sets.length} sets`
 check(Math.min(...retained) === Math.max(...retained),
   'the same runes were retained at different rates under different set labels.');
 
-/* ------------------------------ 2. allocation preferences still have teeth */
+/* ------------------------------ 2. relative retention preferences still have teeth */
 
-/* A controlled mixed account makes the two restored settings observable: the rune
-   bodies are identical, so only the preference multiplier can move a quota winner. */
+/* A controlled mixed account makes the two settings observable: the rune bodies are
+   identical, so only the preference multiplier can move the retained share. */
 const sample = bodies.slice(0, Math.min(bodies.length, 80));
 const mixed = [];
 for (const body of sample) {

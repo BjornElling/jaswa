@@ -1,6 +1,6 @@
 # Rune Clean-up — investigation into "Best preset"
 
-**Status:** Findings only. No code was changed. **Resolved 20 September 2026.**
+**Status:** Findings and resolution. **Resolved 20 September 2026.**
 **Date:** 18 September 2026
 **Scope:** `app/lib/rune-cleanup-model.ts`, `app/lib/rune-cleanup-advice.ts`,
 `app/lib/rune-potential-presets.ts`, `docs/RUNE-CLEANUP-MATH.md`
@@ -16,8 +16,9 @@
 > how the defect was found and what exactly it was.
 
 > **Follow-up.** The later finite preset-capacity allocator was removed as well.
-> A rune that passes the quality and Chance gates is now assigned to its strongest
-> matching preset and is never sold because another rune reached that preset first.
+> A rune that passes the quality and Chance gates is now matched independently and
+> is never sold because another rune reached the same preset first. The Intangible
+> slider and 4-set preference remain as relative retention preferences.
 
 ---
 
@@ -37,8 +38,7 @@ valuable. As a direct consequence:
   Max value differed between them **zero times**.
 - Therefore "Best preset" is not decided by the rune's sub properties at all. It is
   decided by **set membership**, by **main-stat legality in slots 2/4/6**, and — when
-  those tie, which is often — by **candidate array order and the rune-share quota
-  allocator**.
+  those tie, which is often — by the per-rune best-match tie-break.
 
 This is *not* a deviation from the written contract. `docs/RUNE-CLEANUP-MATH.md` §3 and
 §4 specify exactly this behaviour. It is a **design defect in the contract**, which
@@ -214,8 +214,8 @@ an attack score.
 decimal places. Nothing about the rune breaks the tie. `candidates.sort` in
 `rune-cleanup-advice.ts:175` is V8's stable sort over an array built in preset order, so
 the fallback goes to whichever of them appears first in the preset list — Fast DD — and
-the eventual assignment goes to whichever preset the quota allocator
-(`rune-cleanup-advice.ts:231-243`) reaches first.
+the displayed match goes to the strongest passing preset after the quality and Chance
+gates have been applied.
 
 The original suspicion that Slow DD "seems more obvious" is right about the outcome but
 not about the reason. Slow DD lost **only** because Vampire is `acceptable` there and
@@ -293,14 +293,14 @@ read 100 %**, whatever the preset is asking for." True as written, but it reads 
 claim that the scale is preset-sensitive. §3.2 shows a rune with no attack stats reading
 91 % for Fast DD. A user reading the Math page would not predict that.
 
-### 5.3 Historical allocator: a rune could be sold for capacity
+### 5.3 No finite preset quota
 
-Over 3,000 synthetic runes at stop-3 sliders, **113** were sold with the reason "Outside
-requested preset capacity" — they cleared both the quality and the chance gate, but every
-preset that would have taken them had already filled its quota. This is the documented
-design (`RUNE-CLEANUP-MATH.md` §7) and arguably correct, but it compounds §3.3(b): when a
-rune's preset is chosen by a tie-break rather than by fit, the quota it consumes is also
-charged to an arbitrary role.
+The former post-gate allocator has been retired. A rune that clears the quality and
+Chance gates for any preset is retained, even when several other runes match that same
+preset. The row chooses one strongest passing match only for explanation; it does not
+consume a slot, reduce another rune's chance, or produce a sell verdict. The
+Intangible slider and 4-set preference now widen the retained share used by the gates,
+so they still affect relative retention without introducing a finite preset pool.
 
 ### 5.4 Grindstone value is in the numerator but not in the denominator
 
