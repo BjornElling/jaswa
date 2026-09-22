@@ -64,22 +64,26 @@ export const qualityThresholds: readonly number[] = [0.33, 0.23, 0.15, 0.09, 0.0
  * almost no certainty, stop `5` takes no chances. The two bars are independent on
  * purpose — how good a rune must end up and how sure you must be are different
  * questions, and a player who wants a high ceiling on a long shot is entitled to say
- * so.
+ * so. The practical ladder is deliberately shifted one stop towards leniency: the
+ * old `Adventurous` bar now belongs to `Balanced`, while the new intermediate stop
+ * keeps `Adventurous` distinct instead of making two labels share a value.
  */
-export const chanceThresholds: readonly number[] = [0.02, 0.08, 0.20, 0.40, 0.70];
+export const chanceThresholds: readonly number[] = [0.02, 0.06, 0.08, 0.20, 0.40];
 
 /**
  * What a rune the preset merely accepts is worth against one it prefers, by the
  * Accepted runes slider. A multiplier on Max value, so an accepted rune has to be
- * that much better in itself to earn the same verdict.
+ * that much better in itself to earn the same verdict. The middle of the ladder is
+ * also shifted one stop towards leniency, so the old `Forgiving` bar is now
+ * `Quality is quality`.
  */
-export const acceptedWorth: readonly number[] = [1.00, 0.85, 0.70, 0.55, 0.40];
+export const acceptedWorth: readonly number[] = [1.00, 0.95, 0.85, 0.70, 0.55];
 
 /**
  * The same for a rune the preset names neither way. The last stop is `0`: "No"
  * means no, and no amount of quality redeems a set the role never asked for.
  */
-export const brokenWorth: readonly number[] = [0.80, 0.60, 0.40, 0.20, 0];
+export const brokenWorth: readonly number[] = [0.80, 0.70, 0.60, 0.40, 0];
 
 /** The share steps a preset can be set to, as plain multipliers. */
 const shareFactors: readonly number[] = [0.1, 0.2, 1 / 3, 0.5, 1, 2, 3, 5, 10];

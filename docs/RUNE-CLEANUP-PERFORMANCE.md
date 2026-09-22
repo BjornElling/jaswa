@@ -447,9 +447,9 @@ So if `mainScale × worth < qualityBar`, that candidate is provably ineligible a
 model call can change it.
 
 With the shipped defaults this prunes real work. At quality stop 3 the bar is 0.55; the
-default Broken stop is 0.40, so **every broken-rank candidate is provably ineligible**.
-A 4★ HP% rune has `mainScale = 43 / 63 = 0.68`, so at the default Accepted stop of 0.70
-a 4★ accepted candidate caps at 0.48 and is likewise ineligible. Whole star classes and
+default Broken stop is 0.60, so **every broken-rank candidate is provably ineligible**.
+A 4★ HP% rune has `mainScale = 43 / 63 = 0.68`, so at the default Accepted stop of 0.85
+a 4★ accepted candidate caps at 0.58 and is likewise ineligible. Whole star classes and
 whole rank categories fall out with no arithmetic at all.
 
 **What to do:** apply the pre-gate before `judgeAgainstBuild` in the candidate loop of

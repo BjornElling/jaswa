@@ -143,8 +143,8 @@ largest gap:                                                       0.00 pp
 With **distinct per-family reference lines** (the realistic case), the same five presets
 diverge by at most **3.89 pp**, and that divergence comes entirely from the monsters'
 base HP/ATK/DEF changing the flat-line conversion — not from anything about the roles.
-For comparison, the rank discount at slider stop 3 is a factor of 0.70 or 0.40, i.e.
-20–50 pp. **Set membership outweighs stat fit by an order of magnitude.**
+For comparison, the rank discount at slider stop 3 is a factor of 0.85 or 0.60, i.e.
+15–40 pp. **Set membership outweighs stat fit by an order of magnitude.**
 
 ### 3.2 The blindness test
 
@@ -173,7 +173,7 @@ concentrated in exactly the presets whose authors stated a target for nearly eve
 ### 3.3 The three reported runes
 
 Reconstructed (see §6, limitation 1), per-family base lines, sliders at stop 3
-(`accepted = 0.70`, `broken = 0.40`). "after discount" is the number the Max value column
+(`accepted = 0.85`, `broken = 0.60`). "after discount" is the number the Max value column
 prints.
 
 **(a) Blade, slot 2, SPD main, HP +747 / DEF +65 / Accuracy 7 / HP % 33, +15 → Fast DD**
@@ -182,9 +182,9 @@ prints.
 | --- | --- | --- | --- |
 | **Fast DD** | preferred | 86.4 % | **86.4 %** |
 | Bruiser | preferred | 82.1 % | 82.1 % |
-| Bomber | broken | 86.4 % | 34.6 % |
-| Support | broken | 81.6 % | 32.6 % |
-| PvP def | broken | 81.0 % | 32.4 % |
+| Bomber | broken | 86.4 % | 51.8 % |
+| Support | broken | 81.6 % | 49.0 % |
+| PvP def | broken | 81.0 % | 48.6 % |
 | Slow DD / Def DD / Leo | — | no build (they demand ATK % or DEF % in slot 2) | — |
 
 Mechanism: Slow DD, Def DD and Leo are eliminated because a SPD main in slot 2 is not a
@@ -205,10 +205,10 @@ an attack score.
 | Def DD | preferred | 81.9 % | **81.9 %** |
 | Leo | preferred | 81.9 % | **81.9 %** |
 | Bruiser | preferred | 81.9 % | **81.9 %** |
-| Slow DD | acceptable | 81.9 % | 57.4 % |
-| Bomber | acceptable | 59.7 % | 41.8 % |
-| PvP def | acceptable | 37.5 % | 26.2 % |
-| Support | broken | 37.5 % | 15.0 % |
+| Slow DD | acceptable | 81.9 % | 69.6 % |
+| Bomber | acceptable | 59.7 % | 50.7 % |
+| PvP def | acceptable | 37.5 % | 31.9 % |
+| Support | broken | 37.5 % | 22.5 % |
 
 **This is the clearest case.** Four presets are tied at the identical score to twelve
 decimal places. Nothing about the rune breaks the tie. `candidates.sort` in
@@ -227,14 +227,14 @@ a defensible answer — lost the coin toss, not the argument.
 | Preset | Rank | Raw | After discount |
 | --- | --- | --- | --- |
 | **Def DD** | preferred | 84.7 % | **84.7 %** |
-| Support | acceptable | 84.7 % | 59.3 % |
-| PvP def | **broken** | **100.0 %** | 40.0 % |
-| Slow DD / Fast DD / Bomber / Leo / Bruiser | broken | 84.7 % | 33.9 % |
+| Support | acceptable | 84.7 % | 72.0 % |
+| PvP def | **broken** | **100.0 %** | 60.0 % |
+| Slow DD / Fast DD / Bomber / Leo / Bruiser | broken | 84.7 % | 50.8 % |
 
 **PvP def is the only preset that scores this rune correctly**, at 100 %: it is the only
 role whose targets make Resistance relevant, and HP/SPD/Accuracy are exactly what it
-wants. It loses anyway, by 60 pp, because `Guard` appears in neither its preferred nor
-its acceptable set list, so the broken discount multiplies it by 0.40. Def DD wins with a
+wants. It loses anyway, by 40 pp, because `Guard` appears in neither its preferred nor
+its acceptable set list, so the broken discount multiplies it by 0.60. Def DD wins with a
 score 15.3 pp lower, on the strength of `Guard` being one of its preferred sets.
 
 (That 100 % is a *clipped* figure — the four lines as reported sum to 9.63 max-roll units
