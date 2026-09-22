@@ -364,6 +364,21 @@ impl ProfileStore {
                 set_collection(&mut profile, "unit_storage_list", next);
                 changed = true;
             }
+            /* A summoned Shrine stack has no unit_id, so the complete stack
+            list cannot say which live copies were consumed to make it. The
+            sealing request does: those source ids must leave unit_list or
+            Numbers will classify the stale records by their old building_id
+            as ordinary Monster Storage. Keep this scoped to sealing commands;
+            MoveStorageFromTo also carries unit ids, but that is the separate
+            Monster Storage location and must remain in unit_list. */
+            if command.contains("seal") || command.contains("shrine") {
+                changed |= remove_collection_items(
+                    &mut profile,
+                    "unit_list",
+                    "unit_id",
+                    &request_identifiers(request, "unit_id"),
+                );
+            }
         }
         let normal_storage_list = response
             .get("unit_storage_normal_list")
@@ -1986,6 +2001,41 @@ mod tests {
                 .unwrap()
                 .is_empty()
         );
+    }
+
+    /* Summoned Shrine stacks have no unit ids of their own. The only reliable
+    source ids are therefore the units named by the sealing request; keeping
+    those in unit_list made the same monsters appear as ordinary Storage. */
+    #[test]
+    fn sealing_units_into_summoned_shrine_removes_their_stale_live_records() {
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({
+            "wizard_id": 7,
+            "unit_list": [
+                {"unit_id": 1, "wizard_id": 7, "unit_master_id": 10101, "building_id": 99},
+                {"unit_id": 2, "wizard_id": 7, "unit_master_id": 10101, "building_id": 99},
+                {"unit_id": 3, "wizard_id": 7, "unit_master_id": 10102, "building_id": 0}
+            ],
+            "runes": []
+        })));
+
+        assert!(store.apply_update(
+            &json!({
+                "ret_code": 0,
+                "unit_storage_list": [
+                    {"unit_master_id": 10101, "quantity": 2, "class": 3}
+                ]
+            }),
+            &json!({
+                "command": "SealUnit",
+                "unit_id_list": [{"unit_id": 1}, {"unit_id": 2}]
+            })
+        ));
+
+        let data = &store.read().unwrap().data;
+        assert_eq!(collection(data, "unit_list").len(), 1);
+        assert_eq!(collection(data, "unit_list")[0]["unit_id"], 3);
+        assert_eq!(collection(data, "unit_storage_list")[0]["quantity"], 2);
     }
 
     #[test]
