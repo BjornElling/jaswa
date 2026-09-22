@@ -35,6 +35,11 @@ export const runeSetPieceCount: Readonly<Record<string, number>> = Object.fromEn
   Object.entries(runeSetNames).map(([setId, name]) => [name, runeSetPieces[Number(setId)] ?? 2]),
 );
 
+/** Intangible is a permanent Rune Clean-up exception, not a preset choice. */
+export const intangibleRuneSetName = 'Intangible';
+
+export const isIntangibleRuneSet = (setName: string): boolean => setName === intangibleRuneSetName;
+
 const elementNames: Record<number, string> = {
   1: 'Water', 2: 'Fire', 3: 'Wind', 4: 'Light', 5: 'Dark',
 };
@@ -62,11 +67,10 @@ const runeSetIdsByName = new Map(Object.entries(runeSetNames).map(([id, name]) =
  *
  * Intangible is deliberately absent. A monster may wear at most one, it carries
  * no set bonus of its own, and it completes a set that is one rune short rather
- * than being a set a role is built around — so asking a preset to prefer it says
- * nothing about which runes are worth keeping. How much an Intangible rune is
- * wanted is asked once, on its own slider, not per preset.
+ * than being a set a role is built around. Rune Clean-up therefore treats its set
+ * side as preferred centrally; the preset editor must not offer a second answer.
  */
-export const presetRuneSetNameList: readonly string[] = allRuneSetNames.filter((name) => name !== 'Intangible');
+export const presetRuneSetNameList: readonly string[] = allRuneSetNames.filter((name) => !isIntangibleRuneSet(name));
 
 export type ActiveRuneSet = { name: string; abbreviation: string; count: number };
 

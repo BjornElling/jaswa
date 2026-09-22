@@ -195,7 +195,8 @@ const adversarialPresets = [
 
 const baseSettings = {
   powerUpPolicy: 1, runeQuality: 3, enchantedGems: 1, grindstones: 1, gemGrade: 'Hero',
-  grindstoneGrade: 'Hero', acceptedRunes: 1, brokenRunes: 1,
+  grindstoneGrade: 'Hero', acceptedRunes: 1, brokenRunes: 1, intangibleRunes: 1,
+  keepMoreForLargerSets: false,
 };
 
 /**

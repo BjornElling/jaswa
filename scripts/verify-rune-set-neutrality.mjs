@@ -123,7 +123,8 @@ const everySet = { preferred: presetRuneSetNameList, acceptable: [] };
 const openPresets = defaultRunePotentialPresets().map((preset) => ({ ...preset, sets: everySet }));
 const settings = {
   powerUpPolicy: 3, runeQuality: 3, enchantedGems: 1, grindstones: 1, gemGrade: 'Hero',
-  grindstoneGrade: 'Hero', acceptedRunes: 3, brokenRunes: 3,
+  grindstoneGrade: 'Hero', acceptedRunes: 3, brokenRunes: 3, intangibleRunes: 1,
+  keepMoreForLargerSets: false,
 };
 
 /* Intangible is not a preset option, but it is still a preferred set match for
@@ -172,7 +173,30 @@ console.log(`Paired: ${bodies.length} identical bodies x ${sets.length} sets`
 check(Math.min(...retained) === Math.max(...retained),
   'the same runes were retained at different rates under different set labels.');
 
-/* ------------------------------------- 2. neutral is not the same as blind */
+/* ------------------------------ 2. allocation preferences still have teeth */
+
+/* A controlled mixed account makes the two restored settings observable: the rune
+   bodies are identical, so only the preference multiplier can move a quota winner. */
+const sample = bodies.slice(0, Math.min(bodies.length, 80));
+const mixed = [];
+for (const body of sample) {
+  for (let at = 0; at < sets.length; at += 1) {
+    mixed.push({ ...body, id: `${body.id.padStart(6, '0')}-${at}`, setName: sets[at] });
+  }
+}
+const intangibleMixed = runeAdvice(mixed, openPresets, { ...settings, intangibleRunes: 5 }, referenceStats);
+const countKept = (answers, setName) => mixed
+  .filter((rune) => rune.setName === setName && answers.get(rune.id).verdict !== 'sell').length;
+check(countKept(intangibleMixed, 'Intangible') > countKept(intangibleMixed, 'Violent'),
+  'the Intangible slider must prefer Intangible runes over otherwise identical normal runes.');
+
+const fourSetMixed = runeAdvice(mixed, openPresets, { ...settings, keepMoreForLargerSets: true }, referenceStats);
+const fourSetKept = ['Swift', 'Rage', 'Fatal', 'Intangible'].reduce((sum, setName) => sum + countKept(fourSetMixed, setName), 0);
+const twoSetKept = ['Violent', 'Despair', 'Energy', 'Guard'].reduce((sum, setName) => sum + countKept(fourSetMixed, setName), 0);
+check(fourSetKept > twoSetKept,
+  'the 4-set helper must prefer 4-set runes over otherwise identical 2-set runes.');
+
+/* ------------------------------------- 3. neutral is not the same as blind */
 
 /* The preset's own ranking is where a set is *supposed* to decide a verdict, and a
    check that only demanded neutrality would pass just as happily on an engine that

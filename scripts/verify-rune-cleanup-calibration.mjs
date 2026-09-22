@@ -57,6 +57,7 @@ const referenceStats = new Map([
 const settings = {
   powerUpPolicy: 3, runeQuality: 3, enchantedGems: 1, grindstones: 1,
   gemGrade: 'Hero', grindstoneGrade: 'Hero', acceptedRunes: 3, brokenRunes: 3,
+  intangibleRunes: 1, keepMoreForLargerSets: false,
 };
 /* The chance oracle isolates substat RNG. Craft outcomes have their own exhaustive
    legality checks, so an absent item is the only valid neutral credit here. */

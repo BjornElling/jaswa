@@ -35,7 +35,7 @@
  */
 import { runeDefaultGradeOrder, runeSubValue, slotAllowsSubStat } from './runes';
 import type { Rune, RuneSubProperty } from './runes';
-import { runeSetPieceCount } from './rune-sets';
+import { isIntangibleRuneSet, runeSetPieceCount } from './rune-sets';
 import {
   allStatIds, mainPropertyMaximum, maximumRoll, remainingEvents, subPropertyRange,
 } from './rune-properties';
@@ -64,6 +64,18 @@ export type MatchRank = 'preferred' | 'acceptable' | 'broken';
 const rankOf = <T>(choice: PresetChoice<T>, value: T): MatchRank =>
   choice.preferred.includes(value) ? 'preferred'
     : choice.acceptable.includes(value) ? 'acceptable' : 'broken';
+
+/**
+ * Intangible's set rank is a product rule, not a preset preference. It completes
+ * one missing set and is therefore always preferred for the set half of every
+ * preset. The preset may still judge the rune's main stat separately.
+ */
+export function runeSetMatchRank(choice: PresetChoice<string>, setName: string): MatchRank {
+  return isIntangibleRuneSet(setName) ? 'preferred' : rankOf(choice, setName);
+}
+
+/** Whether the set consumes four slots, used by the finite clean-up allocator. */
+export const isFourPieceSet = (setName: string): boolean => runeSetPieceCount[setName] === 4;
 
 /** The worse of two ranks — a rune is only as good as its weakest half. */
 export function worseRank(left: MatchRank, right: MatchRank): MatchRank {
@@ -871,8 +883,10 @@ export function prepareRuneCandidate(
   const main = mainOfSlot(build, rune.slot);
   /* The weights read nothing about this rune. Two runes that differ only in their set
      are scored identically, which is what lets the recommendation compare them; a set
-     decides a verdict through the preset's own ranking and the two set sliders, never
-     through the arithmetic. `verify:rune-set-neutrality` is the check. */
+     decides a verdict through the preset's own ranking and the finite allocation
+     preferences, never through the arithmetic. Intangible's set rank is permanently
+     preferred; its slider only affects allocation priority. `verify:rune-set-neutrality`
+     is the check. */
   const weights = substatWeights({
     targets: preset.targets, mains: buildMains(build), artifacts: preset.artifacts, base,
   }, scope.weights);
@@ -913,7 +927,7 @@ export function prepareRuneCandidate(
   const sixStarMain = mainPropertyMaximum(6, rune.mainStatId);
   const mainScale = sixStarMain > 0 ? mainPropertyMaximum(rune.stars, rune.mainStatId) / sixStarMain : 0;
 
-  const setRank = rankOf(preset.sets, rune.setName);
+  const setRank = runeSetMatchRank(preset.sets, rune.setName);
   const mainRank: MatchRank = rune.slot === 2 || rune.slot === 4 || rune.slot === 6
     ? build.ranks[rune.slot as 2 | 4 | 6] : 'preferred';
 
@@ -1291,6 +1305,3 @@ function reachChance(candidate: RuneCandidate, wanted: number): number {
   }
   return Math.min(1, Math.max(0, chance));
 }
-
-/** Whether a set takes four runes, which the "keep twice as many" setting reads. */
-export const isFourPieceSet = (setName: string): boolean => runeSetPieceCount[setName] === 4;

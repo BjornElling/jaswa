@@ -197,8 +197,10 @@ A set still decides a great deal through the preset's preferred/acceptable/broke
 ranking, but **Intangible is a permanent exception**: its set side is always
 `preferred` for every preset. Intangible is not offered in the preset set choices,
 and no setting can downgrade or override that rule. The rune's main-stat preference
-remains a separate judgement. What the set no longer does is decide anything by
-arithmetic inference.
+remains a separate judgement. The two allocation settings are separate policy
+preferences: the 4-set switch and Intangible slider raise a candidate's place in
+the finite allocation, but never change its score or downgrade the permanent
+Intangible set rank.
 
 **The way back.** If the requirement should count set bonuses again, a preset has to
 state the set *combination* its builds use. `RUNE-CANONICAL.md` §10.1 already argues
@@ -432,19 +434,28 @@ The denominator never moves with the candidate. A perfect four-star rune therefo
 reads below a perfect six-star one on one shared scale rather than reading 100 % on a
 scale of its own.
 
-## 9. Verdict and preset selection
+## 9. Verdict and finite preset allocation
 
 The population judged is every rune the import holds, and no setting narrows it.
-A rune equipped on a monster and a rune already at +12 are judged like any other.
-The table's Equipped/Inventory buttons and its level range are presentation
-filters applied after the engine has answered, and they change no figure.
+This is binding because the eligible pool and its quotas are global: withholding a
+rune would hand its place in a preset's share to the runes that remain and change
+their verdicts. A rune equipped on a monster and a rune already at +12 are judged
+like any other. The table's Equipped/Inventory buttons and its level range are
+presentation filters applied after the engine has answered, and they change no
+figure.
 
 For every build of every preset the engine applies the set/main rank discount, the
-Max-value quality floor, and then the Chance floor. A passing rune is compared on
-its own merits against every preset it passed and is shown under its strongest match.
-Another rune cannot make it fail by reaching a preset first. Runes below +12 are
-**Power up**; runes at +12 are **Keep**. The rest are **Sell** with the first
-applicable reason.
+Max-value quality floor, and then the Chance floor. A passing rune is eligible for
+every preset it passed. The account is then allocated globally: `runeShare` is
+converted to its stated factor and active presets receive largest-remainder quotas
+from the eligible pool. Scarce presets are allocated first and each rune serves one
+preset, so a broad preset cannot quietly consume a narrow preset's requested
+inventory.
+
+An eligible candidate outside finite requested capacity says so explicitly. The
+4-set and Intangible preferences break allocation ties; they do not alter the
+quality score. Assigned runes below +12 are **Power up**; assigned runes at +12 are
+**Keep**. The rest are **Sell** with the first applicable reason.
 
 **The quality floor's five stops state a share of an ordinary box** — a third of it
 at stop 1, 15 % at the default stop 3, a few per cent at stop 5 — and §9.1 is how a
@@ -584,7 +595,7 @@ it.
 
 `scripts/verify-rune-cleanup-calibration.mjs` independently generates legal runes,
 executes additions/upgrades with its own PRNG, and checks chance fixtures, finite advice
-for lower stars and Ancient runes, and a population smoke test. It reports the total
+for lower stars and Ancient runes, feasible preset allocation, and a population smoke test. It reports the total
 retained rate and slots but does not impose an invented universal slot distribution or
 retained percentage: those follow the user's presets and standards. Its output is an
 implementation regression check, not proof of an unverified game-RNG rule.

@@ -49,7 +49,7 @@ try {
     settings: {
       powerUpPolicy: 3, runeQuality: 3, enchantedGems: 1, grindstones: 1,
       gemGrade: 'Hero', grindstoneGrade: 'Hero', acceptedRunes: 3,
-      brokenRunes: 3,
+      brokenRunes: 3, intangibleRunes: 1, keepMoreForLargerSets: false,
     },
     base: null,
   }, () => 0.1);
