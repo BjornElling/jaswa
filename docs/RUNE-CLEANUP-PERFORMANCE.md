@@ -1460,32 +1460,18 @@ the same commit as any speed work.
 §9.15 is right that "exact" has been doing too much work. The precise claim, after
 everything above:
 
-**Preserved exactly, and verified field by field over roughly 2,500 runes across four seeds
-and four craft-credit settings:** every verdict, every chosen preset, every rank, and every
-`maxValue` — bit-identical.
+The baseline is now intentionally the current craft contract, not a promise to preserve the
+pre-adaptive calculation. The current model decides Gems after the realised +12 state,
+keeps every upgrade in that state, and compares the credited answer with the neutral
+no-craft answer. The equivalence script therefore protects the current result from accidental
+refactors, while a deliberate change to those rules must update its baseline and its
+independent monotonicity tests together.
 
-**Preserved to within 5.7 × 10⁻¹³:** `chance`. The difference is floating-point summation
-order. Where it was resolvable, the new value was the more accurate one (§10.2).
-
-**Not preserved, and deliberately so:** one printed percentage in one population, at a value
-of exactly 7⁄8, where the new engine prints the correct 88 % and the current engine prints
-87 %.
-
-**Not claimed at all:** bit-stability against a future refactor. Nothing the product promises
-requires it. The Math page's claim is *"this is counted exactly rather than guessed at or
-simulated. The same rune always prints the same number"* — a promise of exactness and
-determinism within a version, both of which survive. It does not promise that two versions
-of JASWA print the same number, and it should not be read as if it did.
-
-**The contract obligation this creates:** `RUNE-CLEANUP-MATH.md` §6 should gain one sentence
-stating the numerical tolerance on `chance` and the boundary behaviour, and §9 of that
-document requires it in the same commit as the change. Drafted:
-
-> *Chance is computed in whole units of 10⁻¹² max rolls. Summation order is an
-> implementation detail and is not part of the contract; two implementations of this model
-> agree on chance to within 10⁻⁹. Where a chance falls exactly on a display rounding
-> boundary, the printed percentage follows from the computed value and is not separately
-> pinned.*
+The preserved contract is: every verdict, chosen preset, rank, Max value and chance is
+deterministic within one version; craft credit may never lower the candidate or public-row
+score or chance; and the exact chance is checked against the independent game-loop oracle.
+The old pre-adaptive output is not a valid comparison target, because it treated some
+future upgrades as lost before it knew which line the final Gem should replace.
 
 ---
 

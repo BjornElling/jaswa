@@ -313,9 +313,11 @@ Craft sliders set a point in the selected item's legal range: none, average, thr
 quarters, or maximum. The model evaluates legal actions on actual lines, rather than
 adding a generic craft number to a selected stat. Both the rune's own projection and
 the §5 ceiling are computed with the credited items, so turning a slider up raises
-the bar as well as the rune. The ordinary denominator remains the reference; an
-Ancient rune can therefore read past 100 % when its Ancient roll interval takes it
-beyond that ordinary perfect rune.
+the rune. Craft is optional at the realised end state: a credit may improve a rune,
+but it may never make the same rune's score or chance lower than the neutral
+no-craft reading. The ordinary denominator remains the reference; an Ancient rune
+can therefore read past 100 % when its Ancient roll interval takes it beyond that
+ordinary perfect rune.
 
 - A **Grindstone** is credited on every grindable line, the rune's own and the ones it
   has yet to gain, as `max(existing grind, credited grind)` — never added to what is
@@ -325,18 +327,16 @@ beyond that ordinary perfect rune.
   the same effect id, after which a fresh stone may be credited.
 - Ancient runes use Ancient craft tables and ordinary runes ordinary craft tables.
 
-**A Gem is spent at `+12`, after every power-up, and it discards the rolls its line
-collected on the way.** So a line the projection reserves for a Gem contributes
-exactly the Gem's own value however the remaining upgrades fall, and the upgrades
-that land on it are lost — the chance calculation still allocates them there, because
-the game picks uniformly and knows nothing of the plan, and then counts nothing for
-them.
+**A Gem is spent at `+12`, after every power-up.** The chance calculation first
+realises every possible addition, upgrade target and roll value. It then finds the
+least-contributing legal line and compares that line with the best legal Gem +
+Grindstone replacement. The replacement is used only when its contribution is
+strictly greater; otherwise the original line remains. Upgrades are therefore never
+discarded merely because a line might later be Gemmed.
 
-Below `+12` the Gem is projected onto a line the rune **already holds**. This is a
-stated projection, not a search: a line the rune has not drawn yet cannot be planned
-around, and letting the Gem land on one would credit the rune for something it is
-not. At `+12` every line is offered and the choice is exactly optimal, because the end
-state is then a sum of independent lines.
+There is no requirement that a Gem must be spent. This matters below `+12`: a line
+that receives a good upgrade can remain the original line, while a different final
+line may be replaced if — and only if — that is the better realised end state.
 
 ## 7. Exact chance to reach the quality floor
 
@@ -424,7 +424,7 @@ its own best legal end state before it is scored.
 
 | The rune | What the projection does |
 | --- | --- |
-| Fewer than four sub properties | `RUNE-CANONICAL.md` §6 fixes which remaining events improve born lines and which add new lines. Every legal event sequence is enumerated; an added id must be legal in the slot and may not duplicate the main property, the innate, an existing line or a reserved Gem. |
+| Fewer than four sub properties | `RUNE-CANONICAL.md` §6 fixes which remaining events improve born lines and which add new lines. Every legal event sequence is enumerated; an added id must be legal in the slot and may not duplicate the main property, the innate or an existing line. Gem legality is checked after the final line-up exists. |
 | Improvements still to come | They land uniformly only on lines that exist when that event occurs. In the best case they concentrate on whichever legal line is worth most; the chance calculation follows the same event order and spreads them as the game does. |
 | Below six stars | Its own star's substat intervals are used for every future roll, and its own star's `+15` main property scales the result. It is neither ignored nor given an artificial six-star roll. |
 | Ancient | Initial-roll terms in its Max-value and Chance projections use the Ancient interval; upgrades, role valuation, the reference box, main property and denominator use ordinary six-star rules. Its craft items remain Ancient because that is a legality rule. |
@@ -502,8 +502,8 @@ DEF rows above show the same preset family doing each.
   the same interval, with neither Gem nor Grindstone on it;
 - every roll worth the midpoint of its ordinary six-star interval, which is exact
   rather than simulated because a valuation is linear in the roll count;
-- the credited Gem and Grindstone of §6 spent on it, so turning a slider up raises
-  the bar as well as the rune;
+- the same optional Gem and Grindstone end-state rule as a candidate rune, so the
+  reference cannot receive a craft penalty merely because craft is being considered;
 - ordinary six-star throughout, Ancient included, for §5's reason — both ends of the
   scale must stay still while the candidate moves.
 

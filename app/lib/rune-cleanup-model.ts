@@ -48,7 +48,7 @@ import {
 } from './rune-substat-weights';
 import type { BuildMains, SubstatWeightScope, SubstatWeights } from './rune-substat-weights';
 import {
-  combinations, isExactKey, probabilityKey, rollDistribution, tailMass,
+  combinations, convolveDistribution, isExactKey, probabilityKey, rollDistribution, tailMass,
   tailView, targetKey,
 } from './rune-roll-distributions';
 import type { Distribution, Valuation } from './rune-roll-distributions';
@@ -232,7 +232,7 @@ function groundLines(rune: Rune, lineage: CraftLineage, credit: CraftCredit): Ru
  * credits the configured Grindstone to the lines the rune can carry; the Gem is
  * handled by `adaptiveScore` once the final lines and their realised values exist.
  */
-function lineUpOptions(rune: Rune, valuation: Valuation, credit: CraftCredit): Array<Omit<LineUp, 'have'>> {
+function lineUpOptions(rune: Rune, credit: CraftCredit): Array<Omit<LineUp, 'have'>> {
   const lineage: CraftLineage = rune.ancient ? 'ancient' : 'standard';
   const lines = groundLines(rune, lineage, credit);
   return [{ lines, gemmedAt: null, gemStatId: null, replacedStatId: null }];
@@ -833,7 +833,7 @@ function gaussianKernel(steps: number, offset: number): Float64Array {
  * The page asks two questions of the same pair, and they arrive separately: what
  * is this rune's ceiling, and — for the few candidates still standing after the
  * value gate — what are its odds of reaching the bar. Both rest on the same
- * weights, the same craft projection and the same event count, and answering them
+ * weights, the same optional craft end state and the same event count, and answering them
  * through one function meant computing all of that twice for one extra number.
  */
 export type RuneCandidate = {
@@ -936,7 +936,7 @@ export function prepareRuneCandidate(
      future rolls have been evaluated. */
   let lineUp: LineUp | null = null;
   let best = -Infinity;
-  for (const option of lineUpOptions(rune, valuation, credit)) {
+  for (const option of lineUpOptions(rune, credit)) {
     const candidate: LineUp = { ...option, have: valueOfLineUp(option, rune, valuation) };
     const reachable = bestReachableScore(rune, candidate, valuation, credit, lineage, events);
     if (reachable > best) { best = reachable; lineUp = candidate; }
@@ -973,8 +973,11 @@ export function candidateMaxValue(candidate: RuneCandidate): number {
      Ancient rune may: its verified initial rolls are deliberately measured against
      that same ordinary denominator, so a maximum Ancient roll remains visible as
      more than 100 % instead of being flattened away. */
-  const ratio = candidate.best / candidate.ceiling;
-  return (candidate.rune.ancient ? ratio : Math.min(1, ratio)) * candidate.mainScale;
+  const ownRatio = candidate.best / candidate.ceiling;
+  const own = (candidate.rune.ancient ? ownRatio : Math.min(1, ownRatio)) * candidate.mainScale;
+  /* Craft is optional. Comparing with the neutral candidate prevents a larger
+     denominator or a poor assumed craft roll from making the displayed score fall. */
+  return Math.max(own, candidate.baseline === null ? 0 : candidateMaxValue(candidate.baseline));
 }
 
 /* ------------------------------------------------------------ the standing */
@@ -1037,14 +1040,22 @@ export function boxThreshold(box: OrdinaryBox, share: number): number {
  * nothing about policy — `rune-cleanup-advice.ts` does that.
  */
 export function candidateChance(candidate: RuneCandidate, threshold: number): number {
-  const wanted = candidate.mainScale > 0
-    ? threshold * candidate.ceiling / candidate.mainScale : Number.POSITIVE_INFINITY;
-  /* `best` is an upper bound over every legal remaining roll, so a threshold
-     above it has an exact zero chance. Most account runes miss the quality floor;
-     short-circuiting here prevents those certain losses from constructing their full
-     addition-and-upgrade probability tree merely to discover that same zero. */
-  if (!(candidate.best + 1e-12 >= wanted)) return 0;
-  return reachChance(candidate, wanted);
+  if (threshold === Number.NEGATIVE_INFINITY) return 1;
+  if (threshold === Number.POSITIVE_INFINITY || candidate.mainScale <= 0) return 0;
+  const chanceFor = (subject: RuneCandidate): number => {
+    const wanted = threshold * subject.ceiling / subject.mainScale;
+    /* `best` is an upper bound over every legal remaining roll, so a threshold
+       above it has an exact zero chance. Most account runes miss the quality floor;
+       short-circuiting here prevents those certain losses from constructing their full
+       addition-and-upgrade probability tree to discover that same zero. */
+    if (!(subject.best + 1e-12 >= wanted)) return 0;
+    return reachChance(subject, wanted);
+  };
+  /* The neutral candidate is a legal choice even when craft credit is present.
+     Returning the larger chance makes “considering” a Gem or Grindstone incapable
+     of being a penalty, while the adaptive path still uses the item whenever it wins
+     on the realised end state. */
+  return Math.max(chanceFor(candidate), candidate.baseline === null ? 0 : chanceFor(candidate.baseline));
 }
 
 /**
@@ -1136,6 +1147,15 @@ function bestReachableScore(
 
 /* ---------------------------------------------------------------- the odds */
 
+/* Kept as the exact additive evaluator for no-Gem cases. A Grindstone changes only
+   the fixed contribution of each line, so it does not require weakest-line state. */
+function heldStatIds(lineUp: LineUp): Set<number> {
+  const held = new Set(lineUp.lines.map((line) => line.statId));
+  if (lineUp.gemStatId !== null) held.add(lineUp.gemStatId);
+  if (lineUp.replacedStatId !== null) held.add(lineUp.replacedStatId);
+  return held;
+}
+
 /**
  * The chance the rune's realised score reaches `wanted` by +12.
  *
@@ -1151,7 +1171,7 @@ function bestReachableScore(
  * `verify:rune-cleanup-calibration` holds the whole thing to a Monte Carlo written
  * from the game's loop rather than from here.
  */
-function reachChance(candidate: RuneCandidate, wanted: number): number {
+function reachChanceLegacy(candidate: RuneCandidate, wanted: number): number {
   const { rune, lineUp, valuation, credit, lineage, events } = candidate;
   const gap = wanted - lineUp.have;
   if (gap <= 0) return 1;
@@ -1223,9 +1243,7 @@ function reachChance(candidate: RuneCandidate, wanted: number): number {
     const branchWeight = state.weight / state.lineIds.length;
     for (let lineAt = 0; lineAt < state.lineIds.length; lineAt += 1) {
       const terms = cloneTerms(state.terms);
-      /* The line a Gem is reserved for still receives the game's upgrade attempts,
-         but all of those rolls are discarded when the Gem is spent at +12. */
-      if (lineAt !== lineUp.gemmedAt) addTerm(terms, state.lineIds[lineAt], 'upgrade');
+      addTerm(terms, state.lineIds[lineAt], 'upgrade');
       visit(at + 1, { ...state, terms, weight: branchWeight });
     }
   };
@@ -1325,6 +1343,164 @@ function reachChance(candidate: RuneCandidate, wanted: number): number {
       if (until < values.length) chance += weight * probability * atOrAbove[until];
     };
     walk(0, 0, 1);
+  }
+  return Math.min(1, Math.max(0, chance));
+}
+
+/**
+ * Exact chance for the adaptive craft rule. Each branch keeps one distribution per
+ * final line instead of collapsing all rolls into one sum, because the Gem decision
+ * depends on which line is weakest after the rolls. The branch tree still follows
+ * the real event order, so additions cannot receive an earlier upgrade.
+ */
+function reachChance(candidate: RuneCandidate, wanted: number): number {
+  const { rune, lineUp, valuation, credit, lineage, events } = candidate;
+  /* Without a Gem there is no weakest-line decision to preserve. The older sum
+     distribution is exact for that case, including Grindstone credit, and avoids
+     carrying per-line state through the much larger adaptive tree. */
+  if (credit.gem === null) return reachChanceLegacy(candidate, wanted);
+  const wantedKey = targetKey(wanted);
+  if (!isExactKey(wantedKey)) {
+    throw new Error(`Rune Clean-up: a target of ${wanted} score units exceeds the exact range of the probability key.`);
+  }
+
+  type BranchLine = {
+    statId: number;
+    base: number;
+    initial: boolean;
+    upgrades: number;
+    grind: number;
+    gemmed: boolean;
+  };
+  type BranchState = { lines: BranchLine[]; blocked: Set<number>; weight: number };
+  const branches = new Map<string, { lines: BranchLine[]; weight: number }>();
+  const recordBranch = (state: BranchState) => {
+    const key = state.lines.map((line) => [line.statId, line.base, line.initial ? 1 : 0,
+      line.upgrades, line.grind, line.gemmed ? 1 : 0].join(':')).join('|');
+    const previous = branches.get(key);
+    if (previous) previous.weight += state.weight;
+    else branches.set(key, { lines: state.lines, weight: state.weight });
+  };
+  const visit = (at: number, state: BranchState) => {
+    if (at === events.length) { recordBranch(state); return; }
+    const event = events[at];
+    if (event === 'add') {
+      const options = allStatIds.filter((statId) => !state.blocked.has(statId)
+        && statId !== rune.mainStatId && statId !== rune.prefixStatId
+        && slotAllowsSubStat(rune.slot, statId));
+      if (options.length === 0) return;
+      const branchWeight = state.weight / options.length;
+      for (const statId of options) {
+        const blocked = new Set(state.blocked);
+        blocked.add(statId);
+        visit(at + 1, {
+          lines: [...state.lines, {
+            statId, base: probabilityKey(valuation.value(statId, grindCredit(statId, lineage, credit))),
+            initial: true, upgrades: 0, grind: grindCredit(statId, lineage, credit), gemmed: false,
+          }],
+          blocked, weight: branchWeight,
+        });
+      }
+      return;
+    }
+    if (state.lines.length === 0) return;
+    const branchWeight = state.weight / state.lines.length;
+    for (let lineAt = 0; lineAt < state.lines.length; lineAt += 1) {
+      const lines = state.lines.map((line, index) => index === lineAt
+        ? { ...line, upgrades: line.upgrades + 1 } : line);
+      visit(at + 1, { ...state, lines, weight: branchWeight });
+    }
+  };
+  visit(0, {
+    lines: lineUp.lines.map((line) => ({
+      statId: line.statId, base: probabilityKey(valuation.value(line.statId, runeSubValue(line))),
+      initial: false, upgrades: 0, grind: line.grind, gemmed: line.gemmed,
+    })),
+    blocked: new Set(lineUp.lines.map((line) => line.statId)), weight: 1,
+  });
+
+  const distributions = candidate.scope.distributions;
+  const distributionFor = (statId: number, count: number, kind: 'initial' | 'upgrade'): Distribution => {
+    const ancientInitial = rune.ancient && kind === 'initial' ? 'ancient' : 'ordinary';
+    const key = `${valuation.key}|${rune.stars}|${statId}/${count}/${kind}/${ancientInitial}`;
+    let found = distributions.get(key);
+    if (!found) {
+      found = rollDistribution(valuation, statId, count,
+        candidateRollRange(rune, statId, kind));
+      distributions.set(key, found);
+    }
+    return found;
+  };
+  const lineDistribution = (line: BranchLine): Distribution => {
+    let result: Distribution = new Map([[line.base, 1]]);
+    if (line.initial) result = convolveDistribution(result, distributionFor(line.statId, 1, 'initial'));
+    if (line.upgrades > 0) result = convolveDistribution(result,
+      distributionFor(line.statId, line.upgrades, 'upgrade'));
+    return result;
+  };
+  const prefix = rune.prefixStatId === null ? 0
+    : probabilityKey(valuation.value(rune.prefixStatId, rune.prefixValue));
+
+  let chance = 0;
+  for (const { lines, weight } of branches.values()) {
+    const lineProperties = lines.map((line) => ({
+      statId: line.statId, value: 0, grind: line.grind, gemmed: line.gemmed,
+    }));
+    const scored = lines.map((line, lineAt) => {
+      const gem = bestGemForLine(rune, lineProperties, lineAt, valuation, credit, lineage);
+      const view = tailView(lineDistribution(line));
+      return {
+        view,
+        gem: gem === null ? null : probabilityKey(gem),
+        minimum: view.values[0] ?? 0,
+        maximum: view.values[view.values.length - 1] ?? 0,
+      };
+    }).sort((left, right) => (left.maximum - left.minimum) - (right.maximum - right.minimum));
+    const minimumPlain = prefix + scored.reduce((sum, line) => sum + line.minimum, 0);
+    const maximumPlain = prefix + scored.reduce((sum, line) => sum + line.maximum, 0);
+    if (minimumPlain >= wantedKey) { chance += weight; continue; }
+
+    /* A branch can only gain by replacing its weakest line. This is a safe upper
+       bound because a future line may be the weakest, so its minimum is used here. */
+    const maximumGemGain = Math.max(0, ...scored.map((line) =>
+      line.gem === null ? 0 : line.gem - line.minimum));
+    if (maximumPlain + maximumGemGain < wantedKey) continue;
+
+    const remainingMinimum = new Array<number>(scored.length + 1).fill(0);
+    const remainingMaximum = new Array<number>(scored.length + 1).fill(0);
+    for (let at = scored.length - 1; at >= 0; at -= 1) {
+      remainingMinimum[at] = remainingMinimum[at + 1] + scored[at].minimum;
+      remainingMaximum[at] = remainingMaximum[at + 1] + scored[at].maximum;
+    }
+    const walk = (
+      at: number, sum: number, weakest: { value: number; gem: number } | null, probability: number,
+    ) => {
+      if (at === scored.length) {
+        const gain = weakest === null ? 0 : Math.max(0, weakest.gem - weakest.value);
+        if (prefix + sum + gain >= wantedKey) chance += weight * probability;
+        return;
+      }
+      const entry = scored[at];
+      const { values, probabilities } = entry.view;
+      for (let index = 0; index < values.length; index += 1) {
+        const value = values[index];
+        const nextWeakest = weakest === null || value < weakest.value
+          || (value === weakest.value && (entry.gem ?? -Infinity) > weakest.gem)
+          ? { value, gem: entry.gem ?? value }
+          : weakest;
+        const nextSum = sum + value;
+        if (prefix + nextSum + remainingMinimum[at + 1] >= wantedKey) {
+          chance += weight * probability * probabilities[index];
+          continue;
+        }
+        const futureGemGain = Math.max(0, ...scored.slice(at + 1).map((future) =>
+          future.gem === null ? 0 : future.gem - future.minimum));
+        const upperGain = Math.max(0, nextWeakest.gem - nextWeakest.value, futureGemGain);
+        if (prefix + nextSum + remainingMaximum[at + 1] + upperGain < wantedKey) continue;
+        walk(at + 1, nextSum, nextWeakest, probability * probabilities[index]);
+      }
+    };
+    walk(0, 0, null, 1);
   }
   return Math.min(1, Math.max(0, chance));
 }
