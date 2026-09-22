@@ -14,7 +14,7 @@ const preset = {
     slot6: { preferred: [], acceptable: [] },
   },
   artifacts: { hp: false, atk: false, def: false },
-  targets: { spd: 1 }, runeShare: 1,
+  targets: { spd: 1 },
 };
 const build = presetBuilds(preset)[0];
 

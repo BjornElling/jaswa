@@ -26,8 +26,6 @@ export const defaultRunePotentialSettings: RunePotentialSettings = {
   grindstoneGrade: 'Hero',
   acceptedRunes: 3,
   brokenRunes: 3,
-  intangibleRunes: 1,
-  keepMoreForLargerSets: false,
 };
 
 /* Half credit is the honest midpoint of §19.6's question, and it reads as
@@ -123,6 +121,11 @@ function isScale(value: unknown, maximum: number): value is number {
 
 function isRunePotentialSettings(value: unknown): value is RunePotentialSettings {
   if (!isRecord(value)) return false;
+  const expectedKeys = new Set([
+    'powerUpPolicy', 'runeQuality', 'enchantedGems', 'grindstones', 'gemGrade',
+    'grindstoneGrade', 'acceptedRunes', 'brokenRunes',
+  ]);
+  if (!Object.keys(value).every((key) => expectedKeys.has(key))) return false;
   return isScale(value.powerUpPolicy, 5)
     && isScale(value.runeQuality, 5)
     && isScale(value.enchantedGems, 4)
@@ -130,9 +133,7 @@ function isRunePotentialSettings(value: unknown): value is RunePotentialSettings
     && itemGrades.includes(value.gemGrade as ItemGrade)
     && itemGrades.includes(value.grindstoneGrade as ItemGrade)
     && isScale(value.acceptedRunes, 5)
-    && isScale(value.brokenRunes, 5)
-    && isScale(value.intangibleRunes, 5)
-    && typeof value.keepMoreForLargerSets === 'boolean';
+    && isScale(value.brokenRunes, 5);
 }
 
 /** Accept only a complete preferences document. */

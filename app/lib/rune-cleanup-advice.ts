@@ -15,7 +15,7 @@ import type { RunePotentialPreset } from './rune-potential-presets';
 import type { RunePotentialSettings } from './types';
 import type { ReferenceStats } from './rune-reference-stats';
 import {
-  boxThreshold, candidateChance, candidateMaxValue, isFourPieceSet, newRuneAdviceScope,
+  boxThreshold, candidateChance, candidateMaxValue, newRuneAdviceScope,
   ordinaryBox, prepareRuneCandidate, presetBuilds, standingIn,
 } from './rune-cleanup-model';
 import type { Build, CraftCredit, MatchRank, OrdinaryBox, RuneCandidate } from './rune-cleanup-model';
@@ -81,12 +81,6 @@ export const acceptedWorth: readonly number[] = [1.00, 0.85, 0.70, 0.55, 0.40];
  */
 export const brokenWorth: readonly number[] = [0.80, 0.60, 0.40, 0.20, 0];
 
-/** The share steps a preset can be set to, as plain multipliers. */
-const shareFactors: readonly number[] = [0.1, 0.2, 1 / 3, 0.5, 1, 2, 3, 5, 10];
-
-/** How much more an Intangible rune is wanted, by the Intangible runes slider. */
-const intangibleFactors: readonly number[] = [1, 1.5, 2, 3.5, 5];
-
 export type RuneAdvice = {
   verdict: RuneVerdict;
   /** The chance itself, as the row prints it — never the internal score. */
@@ -95,7 +89,7 @@ export type RuneAdvice = {
   maxValue: number;
   /**
    * `0`–`1` from an ordinary rune of this slot to a perfect one, after the same
-   * discount — the figure the gates and the allocation actually settled on.
+   * discount — the figure the gates and preset comparison actually settled on.
    *
    * It is carried out of the engine rather than kept private so that the page can
    * explain why a slot-4 rune was kept beside a slot-3 rune that reads higher, and
@@ -133,7 +127,6 @@ export function runeAdvice(
   const chanceBar = chanceThresholds[settings.powerUpPolicy - 1] ?? chanceThresholds[2];
   const accepted = acceptedWorth[settings.acceptedRunes - 1] ?? acceptedWorth[2];
   const broken = brokenWorth[settings.brokenRunes - 1] ?? brokenWorth[2];
-  const intangible = intangibleFactors[settings.intangibleRunes - 1] ?? 1;
 
   /* Builds are the same for every rune, so they are enumerated once. About sixty
      across the shipped presets; a preset with three choices in every slot would
@@ -155,11 +148,9 @@ export function runeAdvice(
      for its duration, which is what makes the keys inside it sound. */
   const scope = newRuneAdviceScope();
 
-  type Answer = { value: number; maxValue: number; chance: number; priority: number; preset: RunePotentialPreset; rank: MatchRank };
+  type Answer = { value: number; maxValue: number; chance: number; preset: RunePotentialPreset; rank: MatchRank };
   type Pending = { rune: Rune; fallback: Answer | null; eligible: Answer[] };
   const pending: Pending[] = [];
-  /* Every eligible candidate, by the preset it is eligible for. */
-  const eligibleFor = new Map<string, Array<{ item: Pending; answer: Answer }>>();
   for (const rune of runes) {
     /* Every preset and build this rune could serve, valued but not yet gated.
        Selecting a winner on Max value alone and *then* asking whether its chance
@@ -210,11 +201,11 @@ export function runeAdvice(
            prints: the plain fraction of a perfect rune, discounted for a set or main
            the preset merely accepts, which is the honest description of the rune
            itself. `value` is that same discounted figure read as a position in this
-           slot's own box of ordinary runes, and it is what every gate, every
-           comparison and every quota is settled on — because it is the only one of
-           the two that means the same thing in slot 1 as it does in slot 3. The
-           discount is applied before the box is consulted rather than after, so it
-           goes on discounting the rune rather than the population. */
+           slot's own box of ordinary runes, and it is what every gate and every
+           comparison is settled on — because it is the only one of the two that
+           means the same thing in slot 1 as it does in slot 3. The discount is
+           applied before the box is consulted rather than after, so it goes on
+           discounting the rune rather than the population. */
         const maxValue = candidateMaxValue(prepared) * worth;
         candidates.push({
           preset, prepared, box, maxValue, value: standingIn(box, maxValue), rank: prepared.rank,
@@ -274,74 +265,34 @@ export function runeAdvice(
         worth > 0 ? boxThreshold(candidate.box, qualityBar) / worth : Number.POSITIVE_INFINITY);
       const answer = {
         value: candidate.value, maxValue: candidate.maxValue, chance,
-        priority: candidate.value * (settings.keepMoreForLargerSets && isFourPieceSet(rune.setName) ? 2 : 1)
-          * (rune.setName === 'Intangible' ? intangible : 1),
         preset: candidate.preset, rank: candidate.rank,
       };
       if (fallback === null) fallback = answer;
       if (passesValue && chance >= chanceBar) {
         const prior = eligibleByPreset.get(answer.preset.id);
-        if (!prior || answer.priority > prior.priority || (answer.priority === prior.priority && answer.chance > prior.chance)) {
+        if (!prior || answer.value > prior.value
+          || (answer.value === prior.value && answer.maxValue > prior.maxValue)
+          || (answer.value === prior.value && answer.maxValue === prior.maxValue && answer.chance > prior.chance)) {
           eligibleByPreset.set(answer.preset.id, answer);
         }
       }
     }
     const item: Pending = { rune, fallback, eligible: [...eligibleByPreset.values()] };
     pending.push(item);
-    /* Indexed as each item is produced rather than rescanned per preset. The
-       allocation below asked `pending` the same question four times over — twice
-       inside a sort comparator, which is where an O(N) scan really does not
-       belong. The index preserves `pending`'s order, and the sorts that read it
-       end in a rune-id tie-break, so nothing about the order can turn on it. */
-    for (const answer of item.eligible) {
-      const list = eligibleFor.get(answer.preset.id);
-      if (list) list.push({ item, answer });
-      else eligibleFor.set(answer.preset.id, [{ item, answer }]);
-    }
   }
 
-  /* The rune-share setting is a count preference, not a disguised quality penalty.
-     First apply the quality/chance gates, then allocate the finite eligible pool to
-     presets in those exact relative shares. A rune is assigned only once; roles
-     with the smallest candidate pool per requested place go first, so a broad role
-     cannot consume the only rune a narrow role could use. */
-  const activePresets = presets.filter((preset) => (eligibleFor.get(preset.id)?.length ?? 0) > 0);
-  const totalEligible = pending.filter((item) => item.eligible.length > 0).length;
-  const requested = new Map(activePresets.map((preset) => [preset.id, shareFactors[preset.runeShare - 1] ?? 1]));
-  const totalRequested = [...requested.values()].reduce((sum, value) => sum + value, 0);
-  const quota = new Map<string, number>();
-  const remainders: Array<{ id: string; fraction: number }> = [];
-  let assignedQuota = 0;
-  for (const preset of activePresets) {
-    const exact = totalRequested > 0 ? totalEligible * (requested.get(preset.id) ?? 0) / totalRequested : 0;
-    const whole = Math.floor(exact);
-    quota.set(preset.id, whole); assignedQuota += whole;
-    remainders.push({ id: preset.id, fraction: exact - whole });
-  }
-  remainders.sort((left, right) => right.fraction - left.fraction || left.id.localeCompare(right.id));
-  for (const item of remainders.slice(0, totalEligible - assignedQuota)) quota.set(item.id, (quota.get(item.id) ?? 0) + 1);
-
-  const assignments = new Map<string, Answer>();
-  /* Each preset's candidate pool per requested place, computed once rather than
-     recomputed on every comparison. A key that is a pure function of state the
-     sort cannot change reads the same either way. */
-  const capacity = new Map(activePresets.map((preset) =>
-    [preset.id, (eligibleFor.get(preset.id)?.length ?? 0) / Math.max(1, quota.get(preset.id) ?? 0)]));
-  const allocationOrder = [...activePresets].sort((left, right) =>
-    (capacity.get(left.id) ?? 0) - (capacity.get(right.id) ?? 0) || left.id.localeCompare(right.id));
-  for (const preset of allocationOrder) {
-    const candidatesForPreset = (eligibleFor.get(preset.id) ?? [])
-      .filter((candidate) => !assignments.has(candidate.item.rune.id))
-      .sort((left, right) => right.answer.priority - left.answer.priority
-        || right.answer.maxValue - left.answer.maxValue
-        || right.answer.chance - left.answer.chance
-        || left.item.rune.id.localeCompare(right.item.rune.id));
-    for (const candidate of candidatesForPreset.slice(0, quota.get(preset.id) ?? 0)) assignments.set(candidate.item.rune.id, candidate.answer);
-  }
+  /* A rune that clears the gates for several presets belongs to the strongest one
+     for this rune. There is no account-wide cap: another rune cannot make this one
+     fail merely by reaching a preset first. */
+  const bestEligible = (answers: readonly Answer[]): Answer | null => [...answers]
+    .sort((left, right) => right.value - left.value
+      || right.maxValue - left.maxValue
+      || right.chance - left.chance
+      || left.preset.id.localeCompare(right.preset.id))[0] ?? null;
 
   const advice = new Map<string, RuneAdvice>();
   for (const item of pending) {
-    const assigned = assignments.get(item.rune.id) ?? null;
+    const assigned = bestEligible(item.eligible);
     const result = assigned ?? item.fallback;
     const verdict = decide({
       rune: item.rune, value: result?.maxValue ?? 0, standing: result?.value ?? 0,
@@ -349,9 +300,7 @@ export function runeAdvice(
       preset: result?.preset ?? null, rank: result?.rank ?? 'broken', cleared: assigned !== null,
       brokenRejected: broken === 0,
     });
-    advice.set(item.rune.id, assigned === null && item.eligible.length > 0
-      ? { ...verdict, verdict: 'sell', reason: 'Outside requested preset capacity' }
-      : verdict);
+    advice.set(item.rune.id, verdict);
   }
   return advice;
 }

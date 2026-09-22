@@ -193,10 +193,12 @@ the weight vector, which moves each rune's ratio by an amount that depends on wh
 rune happens to have rolled. Equal treatment across sets therefore requires that the
 weights not depend on the candidate's set at all. That is arithmetic, not preference.
 
-A set still decides a great deal, in the three places where the **user** has said what
-they think of it: the preset's preferred/acceptable/broken ranking, the "keep twice as
-many of a four-piece set" switch, and the Intangible slider. What it no longer does is
-decide anything by arithmetic inference.
+A set still decides a great deal through the preset's preferred/acceptable/broken
+ranking, but **Intangible is a permanent exception**: its set side is always
+`preferred` for every preset. Intangible is not offered in the preset set choices,
+and no setting can downgrade or override that rule. The rune's main-stat preference
+remains a separate judgement. What the set no longer does is decide anything by
+arithmetic inference.
 
 **The way back.** If the requirement should count set bonuses again, a preset has to
 state the set *combination* its builds use. `RUNE-CANONICAL.md` §10.1 already argues
@@ -430,28 +432,19 @@ The denominator never moves with the candidate. A perfect four-star rune therefo
 reads below a perfect six-star one on one shared scale rather than reading 100 % on a
 scale of its own.
 
-## 9. Verdict and finite preset allocation
+## 9. Verdict and preset selection
 
 The population judged is every rune the import holds, and no setting narrows it.
-This is binding, and it follows from the allocation below rather than from
-convenience: the eligible pool and its quotas are global, so a rune withheld from
-the engine would not merely go unanswered — it would hand its place in a preset's
-share to the runes that remain and change their verdicts. A rune equipped on a
-monster and a rune already at +12 are judged like any other. The table's
-Equipped/Inventory buttons and its level range are presentation filters applied
-after the engine has answered, and they change no figure.
+A rune equipped on a monster and a rune already at +12 are judged like any other.
+The table's Equipped/Inventory buttons and its level range are presentation
+filters applied after the engine has answered, and they change no figure.
 
 For every build of every preset the engine applies the set/main rank discount, the
-Max-value quality floor, and then the Chance floor. A passing rune is eligible for
-every preset it passed. The account is then allocated globally: `runeShare` is
-converted to its stated factor and active presets receive largest-remainder quotas from
-the eligible pool. Scarce presets are allocated first and each rune serves one preset.
-Thus a broad preset cannot quietly consume a narrow preset's requested inventory.
-
-An eligible candidate outside finite requested capacity says so explicitly. Larger-set
-and Intangible preferences break allocation ties; they do not alter the quality score.
-Assigned runes below +12 are **Power up**; assigned runes at +12 are **Keep**. The
-rest are **Sell** with the first applicable reason.
+Max-value quality floor, and then the Chance floor. A passing rune is compared on
+its own merits against every preset it passed and is shown under its strongest match.
+Another rune cannot make it fail by reaching a preset first. Runes below +12 are
+**Power up**; runes at +12 are **Keep**. The rest are **Sell** with the first
+applicable reason.
 
 **The quality floor's five stops state a share of an ordinary box** — a third of it
 at stop 1, 15 % at the default stop 3, a few per cent at stop 5 — and §9.1 is how a
@@ -506,8 +499,8 @@ DEF rows above show the same preset family doing each.
   scale must stay still while the candidate moves.
 
 A rune's **standing** is then where its Max value falls in that box, `0`–`1`, and the
-floor is a share of it. Standing is what every gate, every comparison between presets
-and every quota place is settled on; Max value is what the row prints, because "42 %
+floor is a share of it. Standing is what every gate and every comparison between
+presets is settled on; Max value is what the row prints, because "42 %
 of a perfect rune" is the honest description of the rune itself and a percentile is
 not. They are deliberately different numbers, and a slot-4 rune kept beside a
 slot-3 rune that reads higher is the system working.
@@ -573,10 +566,9 @@ every shipped preset.
 `scripts/verify-rune-set-neutrality.mjs` is the fairness gate on §4.3, and it is paired
 by construction: one synthetic population of rune *bodies* is generated once, every set
 is judged on exactly those bodies, and every field of every answer must match. It then
-puts all fifteen sets in one account so the preset quotas make them compete, and
-finally checks the mirror image — that a preset which *does* rank sets is still obeyed,
-because a gate that only demanded neutrality would pass just as happily on an engine
-that had stopped reading the set at all.
+checks the mirror image — that a preset which *does* rank sets is still obeyed, because
+a gate that only demanded neutrality would pass just as happily on an engine that had
+stopped reading the set at all.
 
 `scripts/verify-rune-slot-neutrality.mjs` is the fairness gate on §9.1, and it is
 built the same way: a synthetic box of ordinary six-star `+12` runes is generated for
@@ -592,11 +584,11 @@ it.
 
 `scripts/verify-rune-cleanup-calibration.mjs` independently generates legal runes,
 executes additions/upgrades with its own PRNG, and checks chance fixtures, finite advice
-for lower stars and Ancient runes, feasible preset allocation, and a population smoke
-test. It reports the total retained rate and slots but does not impose an invented
-universal slot distribution or retained percentage: those follow the user's presets
-and finite quotas. Its output is an implementation regression check, not proof of an
-unverified game-RNG rule. `npm run verify:rune-cleanup-calibration` is the fast
+for lower stars and Ancient runes, and a population smoke test. It reports the total
+retained rate and slots but does not impose an invented universal slot distribution or
+retained percentage: those follow the user's presets and standards. Its output is an
+implementation regression check, not proof of an unverified game-RNG rule.
+`npm run verify:rune-cleanup-calibration` is the fast
 regression guard; `npm run verify:rune-cleanup-calibration:large` is the 1,000-rune
 statistical run used before release.
 

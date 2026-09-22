@@ -85,7 +85,6 @@ test('a superseded calculation cannot commit its result', async ({ page }) => {
       settings: {
         powerUpPolicy: 3, runeQuality: 3, enchantedGems: 1, grindstones: 1,
         gemGrade: 'Hero', grindstoneGrade: 'Hero', acceptedRunes: 3, brokenRunes: 3,
-        intangibleRunes: 1, keepMoreForLargerSets: false,
       },
     };
     /* Both started in one tick, so the second is created before any worker message

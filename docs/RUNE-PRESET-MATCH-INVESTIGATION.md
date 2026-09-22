@@ -15,6 +15,10 @@
 > pre-fix engine's and several no longer exist; the document is kept as the record of
 > how the defect was found and what exactly it was.
 
+> **Follow-up.** The later finite preset-capacity allocator was removed as well.
+> A rune that passes the quality and Chance gates is now assigned to its strongest
+> matching preset and is never sold because another rune reached that preset first.
+
 ---
 
 ## 0. Verdict
@@ -289,7 +293,7 @@ read 100 %**, whatever the preset is asking for." True as written, but it reads 
 claim that the scale is preset-sensitive. §3.2 shows a rune with no attack stats reading
 91 % for Fast DD. A user reading the Math page would not predict that.
 
-### 5.3 Allocator: a rune can be sold for capacity
+### 5.3 Historical allocator: a rune could be sold for capacity
 
 Over 3,000 synthetic runes at stop-3 sliders, **113** were sold with the reason "Outside
 requested preset capacity" — they cleared both the quality and the chance gate, but every

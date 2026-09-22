@@ -6,11 +6,9 @@ const account = fileURLToPath(new URL('./fixtures/craft-account.json', import.me
 /**
  * The calculation judges every rune the import holds, and nothing narrows it.
  *
- * Settings used to carry two "Runes to include" boxes, and they are gone: preset
- * quotas are global, so a rune withheld from the engine hands its place in a
- * preset's share to the runes that remain and changes their verdicts. Where a rune
- * sits and how far it is powered up decide what the table *shows*, and a filter
- * moves no figure. The fixture account is built for the distinction — three runes
+ * Settings do not decide which runes enter the engine. Where a rune sits and how
+ * far it is powered up decide what the table *shows*, and a filter moves no figure.
+ * The fixture account is built for the distinction — three runes
  * in the inventory, two of them at +12, and one +15 rune equipped on a monster.
  */
 test('every rune is judged, and the filters only decide what is shown', async ({ page }) => {

@@ -22,7 +22,7 @@ const preset = {
     slot6: { preferred: [], acceptable: [] },
   },
   artifacts: { hp: false, atk: false, def: false },
-  targets: { spd: 1 }, runeShare: 1,
+  targets: { spd: 1 },
 };
 const build = presetBuilds(preset)[0];
 const bornCount = { Normal: 0, Magic: 1, Rare: 2, Hero: 3, Legend: 4 };

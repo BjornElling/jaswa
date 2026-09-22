@@ -170,12 +170,9 @@ export function RuneRecommendations({ game, settings, presets }: {
   /**
    * Every rune the import holds, and the population every calculation judges.
    *
-   * There is no scope setting, and there must not be one: preset quotas are
-   * global, so a rune withheld from the engine does not merely go unanswered, it
-   * hands its place in a preset's share to the runes that remain and changes
-   * their verdicts. Equipped runes and runes at +12 are judged like any other;
-   * whether they are *on screen* is the filter strip's business, and a filter
-   * cannot move a single figure.
+   * Every imported rune is judged independently. Equipped runes and runes at +12
+   * are judged like any other; whether they are *on screen* is the filter strip's
+   * business, and a filter cannot move a single figure.
    */
   const runes = useMemo(() => readRunes(game?.data), [game]);
 

@@ -7,8 +7,8 @@ import { CheckboxRow } from './form-controls';
 import { ChoiceEditor, ChoiceLegend } from './choice-editor';
 import { itemGrades } from '../lib/rune-craft-items';
 import {
-  createRunePotentialPreset, presetNameMaximum, presetRuneShareSteps, presetStatTargetKeys,
-  presetTargetColumns, presetTargetMaximum, presetTypes, runeMainStatsBySlot, runeShareLabel,
+  createRunePotentialPreset, presetNameMaximum, presetStatTargetKeys, presetTargetColumns,
+  presetTargetMaximum, presetTypes, runeMainStatsBySlot,
   withRefreshedMetrics,
 } from '../lib/rune-potential-presets';
 import type { PresetChoice, PresetStatTargets, PresetType, RuneMainStat, RunePotentialPreset } from '../lib/rune-potential-presets';
@@ -56,13 +56,6 @@ const potentialStepLabels = {
     'Occasionally',
     'A very selected few',
     'No',
-  ],
-  intangibleRunes: [
-    'All runes are created equal (×1)',
-    'But they’re sooo pretty…!! (×1½)',
-    'I need more. More! (×2)',
-    'Got to catch ’em all (×3½)',
-    'My precious…!!! (×5)',
   ],
 } as const;
 
@@ -142,17 +135,6 @@ export function RunePotentialSection({ game, settings, presets, onUpdate, onWrit
               </dl>
             </section>
 
-            <PotentialSlider id="intangible-runes" label="Intangible runes"
-                className="slider-compact aside-detached" value={settings.intangibleRunes}
-                description="How badly do you want them?"
-                stepLabels={potentialStepLabels.intangibleRunes}
-                onChange={(value) => void onUpdate({ intangibleRunes: value })} />
-
-            <div className="stack tight">
-              <p className="field-legend">4-sets vs. 2-sets</p>
-              <CheckboxRow label="Keep twice as many 4-set runes" checked={settings.keepMoreForLargerSets}
-                onChange={(checked) => void onUpdate({ keepMoreForLargerSets: checked })} />
-            </div>
           </aside>
         </div>
 
@@ -292,14 +274,8 @@ function PresetCard({ preset, onEdit, onDelete }: {
     <header className="preset-head">
       <div className="preset-title">
         <h4 className="preset-name">{preset.name}</h4>
-        {/* The type names the family, the share says how much of the box the
-            role is owed. They sit on one line, the share aligned with the
-            rows' value column so it reads down the card with them. */}
         <div className="preset-subhead">
           <p className="preset-type">{preset.type}</p>
-          <p className="preset-share">
-            Desired no. of runes:<b>{runeShareLabel(preset.runeShare)}</b>
-          </p>
         </div>
       </div>
       <div className="preset-actions">
@@ -424,13 +400,6 @@ function PresetEditor({ draft, isNew, onCancel, onSave }: {
             </Dropdown>
           </label>
         </div>
-
-        <PotentialSlider id="preset-rune-share" label="Desired no. of runes"
-          className="slider-compact"
-          description="How many runes this role is kept, against an even share of the box. A multiple, not a count, so it holds as the box grows."
-          value={preset.runeShare}
-          stepLabels={presetRuneShareSteps}
-          onChange={(runeShare) => update({ runeShare })} />
 
         <EditorBlock title="Rune sets" legend note="Preferred is what the role is built around. Acceptable still works when the box does not oblige.">
           <ChoiceEditor choice={preset.sets} options={presetRuneSetNameList} columns

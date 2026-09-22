@@ -5,12 +5,11 @@
  * own PRNG. Production code supplies only the public verdict and measured final
  * value; the stochastic oracle is intentionally not a second copy of the scorer.
  *
- * The mixed-box check is a population smoke test. The allocation check gives several otherwise identical presets one feasible
- * candidate pool and asserts the largest-remainder quota exactly.
+ * The mixed-box check is a population smoke test for independent advice.
  *
- * Release run: --runes=250000 --share-runes=30000 --rollouts=30000.
+ * Release run: --runes=250000 --rollouts=30000.
  */
-import { defaultRunePotentialPresets, runeMainStats } from '../app/lib/rune-potential-presets.ts';
+import { defaultRunePotentialPresets } from '../app/lib/rune-potential-presets.ts';
 import { runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
 import {
   initialSubPropertyRange, slotMainProperties, startingSubPropertyCount,
@@ -28,7 +27,6 @@ function integerArg(name, fallback) {
   return value;
 }
 const runeCount = integerArg('runes', quick ? 8 : 50_000);
-const shareRuneCount = integerArg('share-runes', quick ? 24 : Math.min(12_000, runeCount));
 const rolloutCount = integerArg('rollouts', quick ? 100 : 12_000);
 const variantRuneCount = integerArg('variant-runes', quick ? 1 : Math.min(60, runeCount));
 const seed = integerArg('seed', 0x9e3779b9);
@@ -59,7 +57,6 @@ const referenceStats = new Map([
 const settings = {
   powerUpPolicy: 3, runeQuality: 3, enchantedGems: 1, grindstones: 1,
   gemGrade: 'Hero', grindstoneGrade: 'Hero', acceptedRunes: 3, brokenRunes: 3,
-  intangibleRunes: 1, keepMoreForLargerSets: false,
 };
 /* The chance oracle isolates substat RNG. Craft outcomes have their own exhaustive
    legality checks, so an absent item is the only valid neutral credit here. */
@@ -233,9 +230,9 @@ function verifyMixedBox() {
   const rate = retained.length / source.length;
   console.log('Mixed box: ' + retained.length.toLocaleString('en') + ' / ' + source.length.toLocaleString('en')
     + ' retained (' + percent(retained.length, source.length) + ').');
-  /* The new uncapped model and hard preset quotas intentionally have no universal
-     retained-rate promise: it depends on the target vocabulary and user shares.
-     An empty or near-total result is still a regression worth catching. */
+  /* The model intentionally has no universal retained-rate promise: it depends on
+     the target vocabulary and user standards. An empty or near-total result is
+     still a regression worth catching. */
   if (!quick) check(rate > 0 && rate < .8, 'middle policy retained ' + percent(retained.length, source.length)
     + '; the synthetic population unexpectedly collapsed or saturated.');
   const slots = [1, 2, 3, 4, 5, 6].map((slot) => ({
@@ -253,75 +250,15 @@ function verifyMixedBox() {
     const name = answer?.preset?.name ?? 'unassigned';
     attribution.set(name, (attribution.get(name) ?? 0) + 1);
   }
-  console.log('Best-match attribution (diagnostic, not a quota): ' + [...attribution.entries()]
+  console.log('Best-match attribution: ' + [...attribution.entries()]
     .sort((left, right) => right[1] - left[1]).map(([name, count]) => name + ' ' + percent(count, retained.length)).join('; ') + '.');
 }
-/**
- * Quotas are meaningful only relative to another active preset. These three
- * identical roles make every eligible rune feasible for every quota; scarcity
- * cannot hide a bad largest-remainder calculation.
- */
-function verifyPresetAllocation() {
-  const random = makeRandom(seed ^ 0x53484152);
-  const source = Array.from({ length: shareRuneCount }, (_, id) =>
-    powerUp(random, freshRune(random, 'quota-' + id), 12));
-  const everySet = { preferred: setNames, acceptable: [] };
-  const everyMain = { preferred: runeMainStats, acceptable: [] };
-  const shared = {
-    type: 'No type', sets: everySet,
-    slots: { slot2: everyMain, slot4: everyMain, slot6: everyMain },
-    artifacts: { hp: false, atk: false, def: false },
-    targets: { hp: 100, atk: 100, def: 100, spd: 100, criRate: 100, criDmg: 100, res: 100, acc: 100 },
-  };
-  /* 1/3 : 1 : 3 verifies fractional and oversized user preferences. */
-  const presets = [
-    { ...shared, id: 'quota-a', name: 'Quota low', runeShare: 3 },
-    { ...shared, id: 'quota-b', name: 'Quota even', runeShare: 5 },
-    { ...shared, id: 'quota-c', name: 'Quota high', runeShare: 7 },
-  ];
-  const permissive = { ...settings, runeQuality: 1, powerUpPolicy: 1, acceptedRunes: 1, brokenRunes: 1 };
-  const advice = runeAdvice(source, presets, permissive, referenceStats);
-  const assigned = new Map(presets.map((preset) => [preset.id, 0]));
-  let total = 0;
-  let outsideCapacity = 0;
-  for (const rune of source) {
-    const answer = advice.get(rune.id);
-    if (answer?.reason === 'Outside requested preset capacity') outsideCapacity += 1;
-    if (answer?.verdict === 'keep' && answer.preset) {
-      total += 1;
-      assigned.set(answer.preset.id, (assigned.get(answer.preset.id) ?? 0) + 1);
-    }
-  }
-  const weights = [1 / 3, 1, 3];
-  const exact = weights.map((weight) => total * weight / weights.reduce((sum, value) => sum + value, 0));
-  const quotas = exact.map(Math.floor);
-  const remaining = total - quotas.reduce((sum, value) => sum + value, 0);
-  [...exact.keys()].sort((left, right) =>
-    (exact[right] - Math.floor(exact[right])) - (exact[left] - Math.floor(exact[left]))
-    || presets[left].id.localeCompare(presets[right].id))
-    .slice(0, remaining).forEach((index) => { quotas[index] += 1; });
-  console.log('Allocation: ' + total + ' feasible runes; '
-    + presets.map((preset, index) => preset.name + '=' + assigned.get(preset.id) + '/' + quotas[index]).join(', ') + '.');
-  /* A hundred is what makes a 1/3 : 1 : 3 split land on whole numbers the
-     largest-remainder rule has to work for rather than round to. It is a floor on
-     the *fixture*, not on the engine, so the answer to a stricter quality ladder is
-     a bigger `--share-runes` — which is what the `:large` script now passes. */
-  if (!quick) check(total >= 100, 'quota fixture produced only ' + total + ' feasible runes.');
-  check(outsideCapacity === 0, outsideCapacity + ' feasible quota-fixture runes were left outside capacity.');
-  for (let index = 0; index < presets.length; index += 1) {
-    check(assigned.get(presets[index].id) === quotas[index],
-      presets[index].name + ' received ' + assigned.get(presets[index].id) + ', not its quota ' + quotas[index] + '.');
-  }
-}
-
-console.log('Rune Clean-up calibration — ' + runeCount.toLocaleString('en') + ' mixed runes, '
-  + shareRuneCount.toLocaleString('en') + ' per share point, seed ' + seed + '.');
+console.log('Rune Clean-up calibration — ' + runeCount.toLocaleString('en') + ' mixed runes, seed ' + seed + '.');
 verifyProbability();
 verifyVariants();
 verifyMixedBox();
-verifyPresetAllocation();
 if (failures) {
   console.error('\n' + failures + ' calibration check' + (failures === 1 ? '' : 's') + ' failed.');
   process.exit(1);
 }
-console.log('\nPASS: independent chance simulation, rating parity, population smoke test, and preset quotas all hold.');
+console.log('\nPASS: independent chance simulation, rating parity, and population smoke test all hold.');

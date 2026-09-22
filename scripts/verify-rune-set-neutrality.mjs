@@ -20,6 +20,7 @@
  */
 import { defaultRunePotentialPresets } from '../app/lib/rune-potential-presets.ts';
 import { runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
+import { runeSetMatchRank } from '../app/lib/rune-cleanup-model.ts';
 import {
   initialSubPropertyRange, slotMainProperties, startingSubPropertyCount, subPropertyLevels,
   upgradeSubPropertyRange,
@@ -44,7 +45,7 @@ const referenceStats = new Map([
 /* Every set whose completed effect `RUNE-CANONICAL.md` §10 records as a constant
    stat, plus Violent and Despair, which contribute none and are the control. */
 const sets = ['Violent', 'Despair', 'Energy', 'Guard', 'Swift', 'Blade', 'Rage', 'Focus',
-  'Endure', 'Fatal', 'Fight', 'Determination', 'Enhance', 'Accuracy', 'Tolerance'];
+  'Endure', 'Fatal', 'Fight', 'Determination', 'Enhance', 'Accuracy', 'Tolerance', 'Intangible'];
 
 function makeRandom(initial) {
   let state = initial >>> 0;
@@ -122,9 +123,18 @@ const everySet = { preferred: presetRuneSetNameList, acceptable: [] };
 const openPresets = defaultRunePotentialPresets().map((preset) => ({ ...preset, sets: everySet }));
 const settings = {
   powerUpPolicy: 3, runeQuality: 3, enchantedGems: 1, grindstones: 1, gemGrade: 'Hero',
-  grindstoneGrade: 'Hero', acceptedRunes: 3, brokenRunes: 3, intangibleRunes: 1,
-  keepMoreForLargerSets: false,
+  grindstoneGrade: 'Hero', acceptedRunes: 3, brokenRunes: 3,
 };
+
+/* Intangible is not a preset option, but it is still a preferred set match for
+   every preset. Check the policy directly, including against a deliberately empty
+   choice, so a future editor or ranking refactor cannot make it user-configurable. */
+for (const preset of defaultRunePotentialPresets()) {
+  check(runeSetMatchRank(preset.sets, 'Intangible') === 'preferred',
+    `${preset.name} must treat Intangible as preferred`);
+}
+check(runeSetMatchRank({ preferred: [], acceptable: ['Intangible'] }, 'Intangible') === 'preferred',
+  'an acceptable Intangible entry must not be able to downgrade the permanent rule');
 
 /* ------------------------------------------------ 1. the same rune, every set */
 
@@ -162,65 +172,7 @@ console.log(`Paired: ${bodies.length} identical bodies x ${sets.length} sets`
 check(Math.min(...retained) === Math.max(...retained),
   'the same runes were retained at different rates under different set labels.');
 
-/* ------------------------- 2. the share of the recommendations each set ends up with */
-
-/**
- * The question that actually matters: **of everything the page ends up recommending,
- * what share goes to each set?** Every set is put into one account, where the finite
- * preset quotas make them compete for the same places, and the share each one walks
- * away with is printed.
- *
- * It is a controlled experiment rather than an observational one — every set holds the
- * same bodies — and that is a deliberate choice, not a convenience. A realistic
- * account, with the sets drawn at random over different runes, was tried first and
- * **cannot see the defect this script exists to prevent**: over 2,400 runes it scored
- * chi-square 8.0, 14.8 and 5.9 on 14 degrees of freedom with the biased engine, against
- * 7.8, 12.7 and 3.7 with the neutral one. Roughly 160 runes per set is ±20 % of
- * sampling noise around a systematic effect of about 10 %, and closing that gap needs
- * tens of thousands of runes per set. Holding the bodies fixed removes the noise
- * instead of drowning it, so a ten-per-cent tilt shows up immediately and exactly.
- *
- * Ids are body-major, so the quota's rune-id tie-break interleaves the sets rather than
- * ordering them by name: a quota boundary then falls inside one body's copies, which
- * costs one rune, and there is one boundary per active preset.
- */
-const sample = bodies.slice(0, Math.min(bodies.length, 400));
-const mixed = [];
-for (const body of sample) {
-  for (let at = 0; at < sets.length; at += 1) {
-    mixed.push({ ...body, id: `${body.id.padStart(6, '0')}-${at}`, setName: sets[at] });
-  }
-}
-const mixedAdvice = runeAdvice(mixed, openPresets, settings, referenceStats);
-const countWhere = (setName, accept) =>
-  mixed.filter((rune) => rune.setName === setName && accept(mixedAdvice.get(rune.id))).length;
-
-/* What the gates admitted, before the quotas spent the places. This is the figure that
-   has to be exactly equal: it is the whole of the engine's opinion of a rune, and it
-   owes nothing to who else happened to be in the account. */
-const eligible = sets.map((setName) => countWhere(setName,
-  (answer) => answer.verdict !== 'sell' || answer.reason === 'Outside requested preset capacity'));
-check(Math.min(...eligible) === Math.max(...eligible),
-  `the gates admitted between ${Math.min(...eligible)} and ${Math.max(...eligible)} of the same`
-  + ` ${sample.length} runes depending on nothing but their set.`);
-
-const kept = sets.map((setName) => countWhere(setName, (answer) => answer.verdict !== 'sell'));
-const keptTotal = kept.reduce((sum, value) => sum + value, 0);
-const evenShare = 100 / sets.length;
-const shares = kept.map((value) => value / keptTotal * 100);
-console.log(`Share: ${sample.length} bodies in every one of ${sets.length} sets, one account`
-  + ` — ${eligible[0]} eligible each, ${keptTotal} recommended in total,`
-  + ` an even share being ${evenShare.toFixed(2)} %.`);
-for (let at = 0; at < sets.length; at += 1) {
-  const off = shares[at] - evenShare;
-  console.log(`  ${sets[at].padEnd(14)} ${String(kept[at]).padStart(4)}  ${shares[at].toFixed(2)} %`
-    + `  ${off >= 0 ? '+' : ''}${off.toFixed(2)}`);
-}
-check(Math.max(...kept) - Math.min(...kept) <= openPresets.length,
-  `sets took between ${Math.min(...kept)} and ${Math.max(...kept)} of the same ${sample.length} runes,`
-  + ` which is more than the ${openPresets.length} quota boundaries can account for.`);
-
-/* ------------------------------------- 3. neutral is not the same as blind */
+/* ------------------------------------- 2. neutral is not the same as blind */
 
 /* The preset's own ranking is where a set is *supposed* to decide a verdict, and a
    check that only demanded neutrality would pass just as happily on an engine that
@@ -231,11 +183,14 @@ const pickyPresets = defaultRunePotentialPresets().map((preset) => ({
 const rejecting = { ...settings, brokenRunes: 5 };
 const fatal = runeAdvice(bodies.map((body) => ({ ...body, setName: 'Fatal' })), pickyPresets, rejecting, referenceStats);
 const violent = runeAdvice(bodies.map((body) => ({ ...body, setName: 'Violent' })), pickyPresets, rejecting, referenceStats);
+const intangible = runeAdvice(bodies.map((body) => ({ ...body, setName: 'Intangible' })), pickyPresets, rejecting, referenceStats);
 const fatalKept = [...fatal.values()].filter((answer) => answer.verdict !== 'sell').length;
 const violentKept = [...violent.values()].filter((answer) => answer.verdict !== 'sell').length;
+const intangibleKept = [...intangible.values()].filter((answer) => answer.verdict !== 'sell').length;
 console.log(`Ranking still bites: with only Fatal preferred and Broken runes at "No",`
-  + ` Fatal kept ${fatalKept}, Violent kept ${violentKept}.`);
+  + ` Fatal kept ${fatalKept}, Intangible kept ${intangibleKept}, Violent kept ${violentKept}.`);
 check(fatalKept > 0, 'the preferred set kept nothing, so this check proves nothing.');
+check(intangibleKept === fatalKept, 'Intangible must match the preferred-set verdict population.');
 check(violentKept === 0, `${violentKept} runes of an unwanted set survived a "No" on broken runes.`);
 
 if (failures) {

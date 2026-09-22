@@ -90,7 +90,7 @@ const draw = (random, low, high) => low + Math.floor(random() * (high - low + 1)
  * This is deliberately the same population `ordinaryBox` states analytically. The
  * point of the script is not to re-derive that mean — `verify:rune-substat-weights`
  * gates the arithmetic — but to check what the *policy* does with it once the gates,
- * the discounts and the quotas have all had their say.
+ * the discounts have all had their say.
  */
 function ordinaryRune(random, id, slot, mainStatId, setName) {
   const legal = runeStatIds.filter((stat) => stat !== mainStatId && slotAllowsSubStat(slot, stat));
@@ -136,7 +136,7 @@ function role({ id, name, type, targets, slot2, slot4, slot6 }) {
   const metrics = calculateRunePotentialMetrics({ atk, hp, def, criticalRate: criRate, criticalDamage: criDmg });
   const only = (stat) => ({ preferred: [stat], acceptable: [] });
   return {
-    id, name, type, runeShare: 9,
+    id, name, type,
     sets: { preferred: presetRuneSetNameList, acceptable: [] },
     slots: { slot2: only(slot2), slot4: only(slot4), slot6: only(slot6) },
     artifacts: { atk: false, def: false, hp: false },
@@ -195,19 +195,12 @@ const adversarialPresets = [
 
 const baseSettings = {
   powerUpPolicy: 1, runeQuality: 3, enchantedGems: 1, grindstones: 1, gemGrade: 'Hero',
-  grindstoneGrade: 'Hero', acceptedRunes: 1, brokenRunes: 1, intangibleRunes: 1,
-  keepMoreForLargerSets: false,
+  grindstoneGrade: 'Hero', acceptedRunes: 1, brokenRunes: 1,
 };
 
 /**
  * Every rune of every slot judged against one role, and the share of each slot that
  * survives.
- *
- * The runes are given to `runeAdvice` in one call, so the quota arithmetic sees one
- * account and the slots compete for the same places. The share the check reads is
- * what the **gates** admitted — a rune the quotas could not seat says so in its own
- * reason — because that is the whole of the engine's opinion of a rune and owes
- * nothing to who else happened to be in the box.
  */
 function sharesBySlot(preset, settings, random) {
   const runes = [];
@@ -228,7 +221,7 @@ function sharesBySlot(preset, settings, random) {
   for (const rune of runes) {
     const answer = advice.get(rune.id);
     seen[rune.slot - 1] += 1;
-    if (answer.verdict !== 'sell' || answer.reason === 'Outside requested preset capacity') {
+    if (answer.verdict !== 'sell') {
       kept[rune.slot - 1] += 1;
     }
   }
@@ -300,7 +293,7 @@ function spreadAllowance(rate, smallestCell) {
 
 const scenarios = [
   ...defaultRunePotentialPresets().map((preset) => ({
-    preset: { ...preset, runeShare: 9, sets: { preferred: presetRuneSetNameList, acceptable: [] } },
+    preset: { ...preset, sets: { preferred: presetRuneSetNameList, acceptable: [] } },
     settings: baseSettings, label: preset.name,
   })),
   ...adversarialPresets.map((preset) => ({ preset, settings: baseSettings, label: preset.name })),
@@ -360,7 +353,7 @@ for (const scenario of scenarios) {
  */
 console.log('\nWhat each stop of the quality floor lets through, against what it says:');
 const ladderPreset = {
-  ...defaultRunePotentialPresets()[1], runeShare: 9,
+  ...defaultRunePotentialPresets()[1],
   sets: { preferred: presetRuneSetNameList, acceptable: [] },
 };
 for (let stop = 1; stop <= qualityThresholds.length; stop += 1) {

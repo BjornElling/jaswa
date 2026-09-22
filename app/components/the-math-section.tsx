@@ -221,7 +221,7 @@ export function TheMathSection() {
           Note that it runs <i>both</i> ways, and that no player asked for or could predict that ordering. Nor can it be patched out by dividing differently: Max value is a ratio, so scaling the weights changes nothing, and the damage is a change in their <i>shape</i> — which moves each rune by an amount depending on what it happened to roll. Equal treatment across sets needs the weights to ignore the set entirely. That is arithmetic, not taste.
         </p>
         <p>
-          So a set decides a verdict in the three places where <b className="type-body-emphasis">you</b> have said what you think of it — the preset&rsquo;s preferred and acceptable lists, the four-piece switch, and the Intangible slider — and nowhere else. If you ever want set bonuses back in the requirement, the honest route is for a preset to say which set <i>combination</i> its builds use; a combination you state is the same for every rune, so it can shape the requirement without tilting the comparison.
+          A set decides a verdict through the preset&rsquo;s preferred and acceptable lists, except that Intangible is a permanent rule: its set side is always preferred for every preset and no setting can override it. The rune&rsquo;s main-stat preference remains separate. If you ever want set bonuses back in the requirement, the honest route is for a preset to say which set <i>combination</i> its builds use; a combination you state is the same for every rune, so it can shape the requirement without tilting the comparison.
         </p>
 
         <h3 className="type-heading">What a perfect rune looks like</h3>
@@ -554,7 +554,7 @@ export function TheMathSection() {
           <b className="type-body-emphasis">Rune quality floor</b> sets the bar, and its five stops say how much of an ordinary box of six-star runes to keep: <b className="type-body-emphasis">a third</b>, then 23 %, then <b className="type-body-emphasis">15 %</b> where the slider opens, then 9 %, then 4 %. Each stop asks that of every slot separately, which is the section above. <b className="type-body-emphasis">Power-up policy</b> sets the Chance bar. <b className="type-body-emphasis">Accepted</b> and <b className="type-body-emphasis">Broken runes</b> discount a rune whose set or main stat the preset only tolerates, or never asked for — and at <i>No</i>, a broken rune is rejected outright whatever else is true of it.
         </p>
         <p>
-          A preset&rsquo;s <b className="type-body-emphasis">Desired no. of runes</b> is a real allocation preference. After quality and chance gates, JASWA divides the finite eligible pool between active presets in those relative shares. A broad preset cannot take a narrow preset&rsquo;s allocation merely because more runes happen to match it. The larger-set switch and Intangible slider prioritise those matching runes when a quota is filled.
+          A rune that passes the quality and Chance gates is kept under its strongest matching preset. Another rune cannot make it fail by reaching that preset first; the verdict rests on the rune itself and the standards you set.
         </p>
 
         <h3 className="type-heading">The verdict</h3>
@@ -591,7 +591,7 @@ export function TheMathSection() {
           </table>
         </div>
         <p>
-          A rune is checked against <i>every</i> preset and every compatible main-stat choice. Passing candidates are then assigned once to the finite preset capacity you asked for. A rune that passed its own quality and Chance gates but is outside that capacity says so plainly instead of masquerading as a weak roll.
+          A rune is checked against <i>every</i> preset and every compatible main-stat choice. If several presets accept it, the strongest match is shown. A passing rune is never sold because another rune reached the same preset first.
         </p>
         <p>
           Every star class is rated. A 4★ or 5★ rune uses its own main and substat intervals on the shared 6★ scale. An Ancient rune uses its higher verified initial-roll interval only in its Max-value and Chance projections; its main stat, role valuation, reference box and denominator use the ordinary 6★ rules. Ancient Gems and Grindstones use their own legal tables.

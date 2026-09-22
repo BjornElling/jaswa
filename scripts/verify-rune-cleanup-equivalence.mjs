@@ -233,7 +233,6 @@ function namedFixtures(random) {
 const baseSettings = {
   powerUpPolicy: 3, runeQuality: 3, enchantedGems: 1, grindstones: 1,
   gemGrade: 'Hero', grindstoneGrade: 'Hero', acceptedRunes: 3, brokenRunes: 3,
-  intangibleRunes: 1, keepMoreForLargerSets: false,
 };
 
 const shipped = defaultRunePotentialPresets();
@@ -273,7 +272,7 @@ function twinPresets() {
 function disjointPreset() {
   const source = shipped[0];
   return {
-    ...source, id: 'fixture-disjoint', name: 'Disjoint', runeShare: 1,
+    ...source, id: 'fixture-disjoint', name: 'Disjoint',
     targets: { res: 60 },
   };
 }
@@ -289,7 +288,7 @@ function scenarios() {
     { name: 'broken-rejected', presets: shipped, settings: { ...baseSettings, brokenRunes: 5 } },
     { name: 'strict', presets: shipped, settings: { ...baseSettings, runeQuality: 5, powerUpPolicy: 5, acceptedRunes: 5 } },
     { name: 'permissive', presets: shipped, settings: { ...baseSettings, runeQuality: 1, powerUpPolicy: 1, acceptedRunes: 1, brokenRunes: 1 } },
-    { name: 'weighted-shares', presets: fixturePresets, settings: { ...baseSettings, keepMoreForLargerSets: true, intangibleRunes: 5 } },
+    { name: 'multiple-matches', presets: fixturePresets, settings: baseSettings },
     { name: 'fixture-presets', presets: fixturePresets, settings: baseSettings },
   ];
   return quick ? all.filter((scenario) => ['defaults', 'fixture-presets'].includes(scenario.name)) : all;
@@ -418,7 +417,7 @@ function diff(before, after) {
     }
     const oldCounts = JSON.stringify(old.counts);
     const newCounts = JSON.stringify(now.counts);
-    if (oldCounts !== newCounts) problems.push(`${name}: allocation counts changed\n    was ${oldCounts}\n    now ${newCounts}`);
+    if (oldCounts !== newCounts) problems.push(`${name}: assignment counts changed\n    was ${oldCounts}\n    now ${newCounts}`);
   }
   if (chanceDiffers > 0) {
     const line = `chance: ${chanceDiffers} row(s) differ, largest |Δ| ${worstChance.toExponential(3)}`;
