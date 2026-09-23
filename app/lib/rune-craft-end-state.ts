@@ -277,9 +277,9 @@ export function craftedScore(
   plan: CraftPlan, options: GemOptions, prices: PriceList,
   lines: readonly EndStateLine[], prefixScore: number,
   lineValues: Float64Array = new Float64Array(lines.length),
-  report?: { replaced: number },
+  report?: CraftReport,
 ): number {
-  if (report) report.replaced = -1;
+  if (report) { report.replaced = -1; report.option = -1; }
   let plain = prefixScore;
   for (let at = 0; at < lines.length; at += 1) {
     const line = lines[at];
@@ -304,12 +304,13 @@ export function craftedScore(
        so a line carrying a stone bigger than the credited one is worth more than its
        place in the order says. It is therefore priced separately. */
     let best = -Infinity;
+    let bestOption = -1;
     let foundOther = false;
     for (let index = 0; index < options.statIds.length; index += 1) {
       const statId = options.statIds[index];
       if (statId === line.statId) {
         const same = groundValue(plan, statId, options.rolls[index], line.grind) * prices[statId];
-        if (same > best) best = same;
+        if (same > best) { best = same; bestOption = index; }
         if (foundOther) break;
         continue;
       }
@@ -319,12 +320,50 @@ export function craftedScore(
         if (other !== at && lines[other].statId === statId) blocked = true;
       }
       if (blocked) continue;
-      if (options.values[index] > best) best = options.values[index];
+      if (options.values[index] > best) { best = options.values[index]; bestOption = index; }
       foundOther = true;
     }
     if (best === -Infinity) continue;
     const gain = best - lineValues[at];
-    if (gain > bestGain) { bestGain = gain; if (report) report.replaced = at; }
+    if (gain > bestGain) {
+      bestGain = gain;
+      if (report) { report.replaced = at; report.option = bestOption; }
+    }
   }
   return plain + bestGain;
+}
+
+/**
+ * Which line the Gem took and what it put there: `replaced` indexes the lines,
+ * `option` indexes `GemOptions`, and both are `-1` where no Gem gains anything.
+ */
+export type CraftReport = { replaced: number; option: number };
+
+/**
+ * **The finished line-up `craftedScore` scored**, as the lines a player would hold
+ * after spending the items.
+ *
+ * The score and the line-up come from one decision, and this function exists so that
+ * nothing has to make the decision a second time to find out what it was. The Rune
+ * Simulator used to: it gemmed a random line into a random id and ground one random
+ * line, and so showed a rune that a DEF % line had been swapped for CRI Rate beside a
+ * fresh Resistance, three stones left unspent, and a verdict that had assumed none of
+ * that. Rule 1 grinds *every* grindable line, and the Gem goes where it gains most —
+ * which is the weakest line only when nothing blocks the best id from taking it.
+ */
+export function craftedLines(
+  plan: CraftPlan, options: GemOptions, prices: PriceList,
+  lines: readonly EndStateLine[], prefixScore: number,
+): EndStateLine[] {
+  const report: CraftReport = { replaced: -1, option: -1 };
+  craftedScore(plan, options, prices, lines, prefixScore, undefined, report);
+  return lines.map((line, at) => {
+    if (at !== report.replaced) {
+      return { ...line, grind: Math.max(line.grind, grindCredit(plan, line.statId)) };
+    }
+    const statId = options.statIds[report.option];
+    /* Re-rolling a line's own id keeps its stone (rule 3); any other id starts bare. */
+    const kept = statId === line.statId ? line.grind : 0;
+    return { statId, value: options.rolls[report.option], gemmed: true, grind: Math.max(kept, grindCredit(plan, statId)) };
+  });
 }

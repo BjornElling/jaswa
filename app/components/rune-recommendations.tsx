@@ -221,6 +221,7 @@ export function RuneRecommendations({ game, settings, presets, general, hardware
         index,
         advice: advice.get(rune.id) ?? {
           verdict: 'sell', reason: '', maxValue: 0, standing: 0, chance: 0, preset: null, rank: 'broken',
+          craftedLines: null,
         },
         location: rune.occupiedId === null ? 'Inventory' : monsterNames[rune.occupiedId] ?? null,
       })),

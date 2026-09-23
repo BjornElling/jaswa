@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 const account = fileURLToPath(new URL('./fixtures/craft-account.json', import.meta.url));
 
-test('simulates random runes through +0, +9 and +12 with craft marks', async ({ page }, testInfo) => {
+test('simulates random runes through +0, +9 and +12, spending no craft without a role',async ({ page }, testInfo) => {
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
@@ -57,8 +57,9 @@ test('simulates random runes through +0, +9 and +12 with craft marks', async ({ 
   await page.screenshot({ path: testInfo.outputPath('rune-simulator-results-plus-zero.png') });
   await page.getByRole('button', { name: '+12', exact: true }).click();
   await expect(page.getByRole('button', { name: '+12', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('.rune-simulator-enchanted-mark').first()).toBeVisible();
-  await expect(page.locator('.rune-simulator-grind').first()).toBeVisible();
+  /* With no role to judge by, nothing says which Gem helps, so nothing is spent. */
+  await expect(page.locator('.rune-simulator-enchanted-mark')).toHaveCount(0);
+  await expect(page.locator('.rune-simulator-grind')).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('rune-simulator-results.png') });
 
   const after = await filters.boundingBox();
@@ -86,6 +87,10 @@ test('reads every checkpoint with Rune Clean-up and counts the keepers by preset
   await page.getByRole('button', { name: '+12', exact: true }).click();
   await expect(verdicts).toHaveCount(120);
   await expect(page.locator('.rune-simulator-table tbody [data-verdict="power-up"]')).toHaveCount(0);
+  /* The craft the verdict counted is the craft on screen: one Gem at most per rune,
+     and a stone on every line that can take one. */
+  await expect(page.locator('.rune-simulator-enchanted-mark').first()).toBeVisible();
+  await expect(page.locator('.rune-simulator-grind').first()).toBeVisible();
   const keeps = await page.locator('.rune-simulator-table tbody [data-verdict="keep"]').count();
   await expect(page.getByLabel('Runes kept at +12')).toHaveText(String(keeps));
 

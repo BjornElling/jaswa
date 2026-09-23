@@ -77,7 +77,7 @@ function gate(policy: string): { policy: SimulationCheckpointPolicy } {
   return { policy: policy as SimulationCheckpointPolicy };
 }
 
-function toConfig(form: FormState, count: number, settings: RunePotentialSettings): RuneSimulationConfig {
+function toConfig(form: FormState, count: number): RuneSimulationConfig {
   return {
     count,
     setName: form.setName || null,
@@ -87,12 +87,6 @@ function toConfig(form: FormState, count: number, settings: RunePotentialSetting
       0: gate(form.gateZero),
       9: gate(form.gateNine),
       12: gate(form.gateTwelve),
-    },
-    craftSettings: {
-      enchantedGems: settings.enchantedGems,
-      grindstones: settings.grindstones,
-      gemGrade: settings.gemGrade,
-      grindstoneGrade: settings.grindstoneGrade,
     },
   };
 }
@@ -154,7 +148,7 @@ export function RuneSimulatorSection({ game, settings, presets, general, hardwar
        generation and all three checkpoints can finish without freezing the controls. */
     void (async () => {
       try {
-        const result = await calculateRuneSimulation(toConfig(form, count, settings), {
+        const result = await calculateRuneSimulation(toConfig(form, count), {
           presets, settings, base, preferWebGpu: hardwareAcceleration,
         });
         setRun({ result, presets: judgedBy });

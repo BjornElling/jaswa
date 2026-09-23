@@ -23,6 +23,8 @@ import type {
 } from './rune-cleanup-model';
 import { countJobs } from './rune-power-up-outcomes';
 import { craftAssumptionForSetting } from './rune-craft-items';
+import { craftedLines } from './rune-craft-end-state';
+import type { EndStateLine } from './rune-craft-end-state';
 
 /**
  * Who answers the odds.
@@ -83,6 +85,8 @@ type RunePlan = { rune: Rune; retentionShare: number; steps: Step[]; neutralStep
 type Answer = {
   value: number; maxValue: number; chance: number; priority: number;
   preset: RunePotentialPreset; rank: MatchRank;
+  /** The credited reading of this preset's build, whose craft decision the row stands on. */
+  candidate: RuneCandidate;
 };
 
 export type RuneVerdict = 'power-up' | 'keep' | 'sell';
@@ -175,6 +179,14 @@ export type RuneAdvice = {
   /** The preset this rune answers best, or `null` when none can use it. */
   preset: RunePotentialPreset | null;
   rank: MatchRank;
+  /**
+   * For a rune at `+12`, the line-up its Max value assumed: every grindable line
+   * ground and the Gem spent where it gains most for `preset`, as `craftedLines`
+   * decides it. `null` below `+12`, where the lines are not final, and where no
+   * preset can use the rune. Carried out so that whatever acts on the verdict spends
+   * the items the verdict counted, rather than deciding the craft a second time.
+   */
+  craftedLines: EndStateLine[] | null;
 };
 
 /**
@@ -434,7 +446,7 @@ export async function runeAdvice(
       const answer: Answer = {
         value: step.candidate.value, maxValue: step.candidate.maxValue, chance,
         priority: step.candidate.value,
-        preset: step.candidate.preset, rank: step.candidate.rank,
+        preset: step.candidate.preset, rank: step.candidate.rank, candidate: step.candidate.prepared,
       };
       if (fallback === null) fallback = answer;
       if (step.passesValue && chance >= chanceBar) {
@@ -463,7 +475,7 @@ export async function runeAdvice(
       const answer: Answer = {
         value: step.candidate.neutralValue, maxValue: step.candidate.neutralMaxValue,
         chance: neutralChance, priority: step.candidate.neutralValue,
-        preset: step.candidate.preset, rank: step.candidate.rank,
+        preset: step.candidate.preset, rank: step.candidate.rank, candidate: step.candidate.prepared,
       };
       if (neutralFallback === null) neutralFallback = answer;
       if (step.passesValue && neutralChance >= chanceBar) {
@@ -508,13 +520,16 @@ export async function runeAdvice(
       || right.answer.maxValue - left.answer.maxValue
       || right.answer.chance - left.answer.chance);
 
-    advice.set(plan.rune.id, decide({
-      rune: plan.rune, value: chosen?.answer.maxValue ?? 0, standing: chosen?.answer.value ?? 0,
-      chance: chosen?.answer.chance ?? 0,
-      preset: chosen?.answer.preset ?? null, rank: chosen?.answer.rank ?? 'broken',
-      cleared: chosen?.cleared ?? false,
-      brokenRejected: broken === 0,
-    }));
+    advice.set(plan.rune.id, {
+      ...decide({
+        rune: plan.rune, value: chosen?.answer.maxValue ?? 0, standing: chosen?.answer.value ?? 0,
+        chance: chosen?.answer.chance ?? 0,
+        preset: chosen?.answer.preset ?? null, rank: chosen?.answer.rank ?? 'broken',
+        cleared: chosen?.cleared ?? false,
+        brokenRejected: broken === 0,
+      }),
+      craftedLines: chosen && plan.rune.level >= 12 ? finishedLines(chosen.answer.candidate) : null,
+    });
   }
   return advice;
 }
@@ -533,11 +548,24 @@ export async function runeAdvice(
  * something it could not do anyway — are answered in `runeAdvice` where the
  * candidate is chosen, and arrive here as `cleared`.
  */
+/**
+ * The line-up the credited reading counted, for a rune whose lines are final.
+ *
+ * Always the credited candidate, even when the neutral reading won the row: the
+ * neutral one differs only in its scale, not in the rune, and a stone or a Gem that
+ * `craftedLines` spends never lowers what the rune itself is worth.
+ */
+function finishedLines(candidate: RuneCandidate): EndStateLine[] {
+  const { scoring } = candidate;
+  const lines = candidate.rune.subProperties.map(({ statId, value, grind, gemmed }) => ({ statId, value, grind, gemmed }));
+  return craftedLines(scoring.plan, scoring.options, scoring.prices, lines, scoring.prefixScore);
+}
+
 function decide({ rune, value, standing, chance, preset, rank, cleared, brokenRejected }: {
   rune: Rune; value: number; standing: number; chance: number;
   preset: RunePotentialPreset | null; rank: MatchRank;
   cleared: boolean; brokenRejected: boolean;
-}): RuneAdvice {
+}): Omit<RuneAdvice, 'craftedLines'> {
   const base = { maxValue: value, standing, chance, preset, rank };
   if (preset === null) {
     return { ...base, verdict: 'sell', reason: 'No preset can use it' };

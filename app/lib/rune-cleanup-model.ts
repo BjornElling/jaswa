@@ -55,7 +55,7 @@ import {
   priceList, withoutCraft,
 } from './rune-craft-end-state';
 import type {
-  CraftCredit, CraftPlan, EndStateLine, GemOptions, PriceList,
+  CraftCredit, CraftPlan, CraftReport, EndStateLine, GemOptions, PriceList,
 } from './rune-craft-end-state';
 import type { CraftLineage } from './rune-craft-items';
 import {
@@ -524,7 +524,7 @@ export function ordinaryBox(candidates: readonly RuneCandidate[]): OrdinaryBox {
      assume exactly as it does for a real rune. */
   const lineUp: EndStateLine[] = [0, 1, 2, 3].map(() => ({ statId: 0, value: 0, grind: 0, gemmed: false }));
   const lineValues = new Float64Array(4);
-  const report = { replaced: -1 };
+  const report: CraftReport = { replaced: -1, option: -1 };
   /* An interval's midpoint is a game number rather than a role's opinion, so it is
      the same in every build of the family. */
   const [firstBuild] = builds;

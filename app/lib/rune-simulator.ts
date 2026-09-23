@@ -17,9 +17,7 @@ import {
 } from './runes';
 import type { Rune, RuneDefaultGrade } from './runes';
 import { runeSetId } from './rune-sets';
-import { craftAssumptionForSetting } from './rune-craft-items';
-import { craftItemRoll, isGrindableStatId } from './rune-craft-end-state';
-import type { CraftLineage, CraftRollAssumption } from './rune-craft-items';
+import type { EndStateLine } from './rune-craft-end-state';
 import { runeAdvice } from './rune-cleanup-advice';
 import type { RuneAdvice, RuneVerdict } from './rune-cleanup-advice';
 import type { RunePotentialPreset } from './rune-potential-presets';
@@ -44,18 +42,17 @@ export type SimulationGate = {
   policy: SimulationCheckpointPolicy;
 };
 
-export type RuneSimulationCraftSettings = Pick<
-  RunePotentialSettings, 'enchantedGems' | 'grindstones' | 'gemGrade' | 'grindstoneGrade'
->;
-
+/**
+ * What the experiment draws and where it stops. The craft at `+12` is not part of it:
+ * it is whatever Rune Clean-up's own settings credit, read from the context, so the
+ * items the simulator spends and the items the verdict counted cannot disagree.
+ */
 export type RuneSimulationConfig = {
   count: number;
   setName: SimulationSet;
   slot: SimulationSlot;
   stars: SimulationStars;
   gates: Readonly<Record<SimulationStage, SimulationGate>>;
-  /** The only craft policy the engine accepts: the four Rune Clean-up choices. */
-  craftSettings: RuneSimulationCraftSettings;
 };
 
 export type RuneSimulationContext = {
@@ -163,7 +160,6 @@ export const defaultRuneSimulationConfig: RuneSimulationConfig = {
     9: { policy: 'keep-all' },
     12: { policy: 'keep-all' },
   },
-  craftSettings: { enchantedGems: 1, grindstones: 1, gemGrade: 'Hero', grindstoneGrade: 'Hero' },
 };
 
 const asUnit = (value: number): number => Math.min(0.9999999999999999, Math.max(0, value));
@@ -248,56 +244,31 @@ export function powerUpRune(rune: SimulatedRune, targetLevel: SimulationStage, r
   return next;
 }
 
-function legalEnchantIds(rune: SimulatedRune, lineIndex: number): number[] {
-  return legalStatIds({
+/**
+ * Spend the Gem and the Grindstones Rune Clean-up's `+12` verdict counted.
+ *
+ * The craft is not decided here. It used to be — a random line, a random new id and
+ * one random stone — and so the rune on screen was never the one its verdict had
+ * valued: three grindable lines left bare, and a DEF % line swapped for CRI Rate while
+ * a fresh Resistance, worth less to the role, stayed. The verdict's own line-up is the
+ * only honest one to show. The rolls a replaced line had collected go with it (§8).
+ */
+function applyCraft(rune: SimulatedRune, lines: readonly EndStateLine[]): SimulatedRune {
+  if (lines.length !== rune.subProperties.length) {
+    throw new Error(`Rune simulator received a crafted line-up that does not fit ${rune.id}.`);
+  }
+  return {
     ...rune,
-    subProperties: rune.subProperties.filter((_, index) => index !== lineIndex),
-  });
-}
-
-function craftLineageFor(rune: SimulatedRune): CraftLineage {
-  return rune.setName === 'Intangible' ? 'immemorial' : 'standard';
-}
-
-function applyEnchant(
-  rune: SimulatedRune, assumption: CraftRollAssumption | null,
-  grade: RuneSimulationCraftSettings['gemGrade'], random: RandomSource,
-): void {
-  if (assumption === null || rune.subProperties.length === 0) return;
-  const lineIndex = integer(0, rune.subProperties.length - 1, random);
-  const current = rune.subProperties[lineIndex];
-  if (!current) return;
-  const candidates = legalEnchantIds(rune, lineIndex);
-  if (candidates.length === 0) return;
-  const statId = choose(candidates, random);
-  const value = craftItemRoll('gem', craftLineageFor(rune), statId, grade, assumption);
-  if (value === null) return;
-  rune.subProperties[lineIndex] = {
-    statId, value, gemmed: true, grind: statId === current.statId ? current.grind : 0, rolls: 0,
+    subProperties: lines.map((line, at) => {
+      const before = rune.subProperties[at];
+      const replaced = line.statId !== before.statId || line.value !== before.value
+        || line.gemmed !== before.gemmed;
+      return {
+        statId: line.statId, value: line.value, gemmed: line.gemmed, grind: line.grind,
+        rolls: replaced ? 0 : before.rolls,
+      };
+    }),
   };
-}
-
-function applyGrind(
-  rune: SimulatedRune, assumption: CraftRollAssumption | null,
-  grade: RuneSimulationCraftSettings['grindstoneGrade'], random: RandomSource,
-): void {
-  if (assumption === null) return;
-  const candidates = rune.subProperties.filter((property) => isGrindableStatId(property.statId));
-  if (!candidates.length) return;
-  const target = choose(candidates, random);
-  const value = craftItemRoll('grindstone', craftLineageFor(rune), target.statId, grade, assumption);
-  if (value !== null) target.grind = value;
-}
-
-/** Apply the optional post-+12 craft actions in their game order. */
-export function craftRuneAtTwelve(
-  rune: SimulatedRune, config: RuneSimulationConfig, random: RandomSource = defaultRandom,
-): SimulatedRune {
-  const next = cloneRune(rune);
-  const { craftSettings } = config;
-  applyEnchant(next, craftAssumptionForSetting(craftSettings.enchantedGems), craftSettings.gemGrade, random);
-  applyGrind(next, craftAssumptionForSetting(craftSettings.grindstones), craftSettings.grindstoneGrade, random);
-  return next;
 }
 
 /** Adapt the simulation copy to the exact Rune Clean-up input shape. */
@@ -455,7 +426,16 @@ export async function simulateRunes(
     await recommendationsFor(atNine, 9, config, context, engines));
   const afterNine = stages[9].entries.filter((entry) => !entry.sold).map((entry) => entry.rune);
 
-  const atTwelve = afterNine.map((rune) => craftRuneAtTwelve(powerUpRune(rune, 12, random), config, random));
+  /* Two asks at +12: the first says what the craft should be, the second judges the
+     rune it produced. The verdict is taken on the crafted rune so that its neutral
+     reading counts the stones now spent, not the bare rune from before. Without a
+     preset or a reference monster nothing says which Gem helps, so nothing is spent. */
+  const poweredToTwelve = afterNine.map((rune) => powerUpRune(rune, 12, random));
+  const craftPlans = await recommendationsFor(poweredToTwelve, 12, config, context, engines);
+  const atTwelve = poweredToTwelve.map((rune) => {
+    const lines = craftPlans?.get(rune.id)?.craftedLines;
+    return lines ? applyCraft(rune, lines) : rune;
+  });
   stages[12] = stageResult(12, atTwelve, afterNine.length, config,
     await recommendationsFor(atTwelve, 12, config, context, engines));
   const kept = stages[12].entries.some((entry) => entry.verdict === null)
