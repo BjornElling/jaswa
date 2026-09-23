@@ -21,6 +21,7 @@ import { readFileSync } from 'node:fs';
 
 const shader = readFileSync(new URL('../app/lib/compute/webgpu/artifact-score-shader.ts', import.meta.url), 'utf8');
 const backend = readFileSync(new URL('../app/lib/compute/backends/webgpu-artifact-score-backend.ts', import.meta.url), 'utf8');
+const layout = readFileSync(new URL('../app/lib/compute/webgpu/artifact-score-layout.ts', import.meta.url), 'utf8');
 
 /* WGSL's own alignment and size table, for the types this struct may use. A
    vec3 is the trap: it is 12 bytes wide but aligns to 16. */
@@ -93,8 +94,8 @@ assert.equal(writes.length, members.length,
  * report it. All three now interpolate one exported constant, and this confirms that
  * none of them has grown a literal again.
  */
-const lanesMatch = shader.match(/export const artifactScoreLanes = (\d+);/);
-assert.ok(lanesMatch, 'the shader module must export artifactScoreLanes');
+const lanesMatch = layout.match(/export const artifactScoreLanes = (\d+);/);
+assert.ok(lanesMatch, 'the artifact layout must export artifactScoreLanes');
 const lanes = Number(lanesMatch[1]);
 assert.ok(new RegExp(`const WORKGROUP_SIZE: u32 = \\$\\{artifactScoreLanes\\}u;`).test(shader),
   'WORKGROUP_SIZE must interpolate artifactScoreLanes rather than restate it');

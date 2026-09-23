@@ -436,8 +436,12 @@ and rediscovered that structure branch by branch, at the cost of walking `10 × 
 
 ### 7.2 The resolution, and why it is enough
 
-**4,096 runs.** One rune's answer is then within about half a percentage point of the
-truth nineteen times in twenty, which is finer than the column that prints it.
+**4,096 runs.** One rune's answer is a deterministic estimate, not an exact
+probability. At the widest point of a binomial distribution (`p = 0.5`), its standard
+error is about 0.78 percentage points and a 95 % interval is about ±1.53 points;
+at `p = 0.02`, the corresponding interval is about ±0.43 points. That uncertainty
+is wider than the displayed tenth-of-a-point floor, so the box-level stability check
+below is part of the contract rather than a claim that each row is exact.
 
 The number that had to be checked is not that one. A verdict is a threshold, and a
 threshold turns a spread into flipped rows — so what matters is what the resolution
@@ -461,11 +465,12 @@ four thousand runs can give is one run in four thousand, about 0.024 of a percen
 point. Two odds a tenth of a point apart are therefore the same answer to this engine,
 and a chance of 0.02 % against one of 0.07 % is a coin toss between one hit and three.
 
-That costs nothing a verdict turns on: the Power-up policy's loosest stop asks for
-2 %, eighty times the resolution. What it does cost is the right to print two decimals
-below a tenth of a point, so the row does not — anything real but below that floor
-reads `under 0.1 %`, and `0 %` goes on meaning the engine settled it at zero without
-drawing a single run.
+The loosest policy stop asks for 2 %, which is eighty sample increments, but sampling
+uncertainty can still matter near that bar. The calculation therefore checks the box
+across resolutions, and the GPU path rechecks jobs near the active bar on the CPU so
+single-precision cannot change the policy decision. The display still avoids claiming
+two decimals below a tenth of a point: anything real but below that floor reads
+`under 0.1 %`, and `0 %` means the engine settled it at zero without drawing a run.
 
 ### 7.3 The same rune always prints the same number
 
@@ -829,11 +834,12 @@ specific to runes. What matters to this document is what it does *not* move:
   two engines would draw different rolls.
 - **The pricing is not identical**, because a card works in single precision. That
   moves a score by about one part in ten million, so a run whose end state sits within
-  that of the bar can fall on either side of it — a handful of runs in four thousand at
-  the very worst, and invisible in a printed percentage.
+  that of the bar can fall on either side of it. The agreement gate allows up to one
+  percentage point of share difference for accumulated float rounding; jobs near the
+  active policy bar are then rechecked on the processor before the verdict is settled.
 - **A card must prove itself before it is used.** `runeChanceAgreement` puts a small
   battery of hand-built runes through both engines and compares; a card that disagrees
-  by more than the line above is not used at all, and the status line says Processor.
+  by more than the tolerance is not used at all, and the status line says Processor.
   That turns the one failure mode a shader has — quietly wrong numbers — into a visible
   fall back.
 

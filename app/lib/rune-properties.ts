@@ -14,7 +14,9 @@
  * higher”; the Dimension Hole release calls out the initial sub property specifically.
  * `RUNE-CANONICAL.md` §7 records the sources and that distinction.
  */
-import { runeStatIds } from './runes';
+import { runeStatIds, slotMainProperties } from './runes';
+
+export { slotMainProperties };
 
 /** Both ends included, as the game's own tables are written. */
 export type RollRange = { minimum: number; maximum: number };
@@ -163,15 +165,6 @@ export const mainPropertyMaximum = (stars: number, statId: number): number =>
 /** Backward-compatible ordinary six-star alias. */
 export const mainPropertyAtMaximum = mainPropertiesAtMaximumByStar[6];
 
-/** Which main properties each slot may carry (§3). Slots 1, 3 and 5 are fixed. */
-export const slotMainProperties: Readonly<Record<number, readonly number[]>> = {
-  1: [3],
-  2: [1, 2, 3, 4, 5, 6, 8],
-  3: [5],
-  4: [1, 2, 3, 4, 5, 6, 9, 10],
-  5: [1],
-  6: [1, 2, 3, 4, 5, 6, 11, 12],
-};
 
 /**
  * A completed set's permanent contribution to its wearer's own stats

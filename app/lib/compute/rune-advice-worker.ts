@@ -20,7 +20,7 @@
 import { runeAdvice } from '../rune-cleanup-advice';
 import { countRuneChances } from './rune-chance-engine';
 import { combineCalculationBackends } from './calculation-summary';
-import type { ComputeBackend } from './calculation-summary';
+import type { CalculationBackend } from './calculation-summary';
 import type { RuneAdviceWorkerRequest, RuneAdviceWorkerResponse } from './rune-advice-protocol';
 
 self.onmessage = async (event: MessageEvent<RuneAdviceWorkerRequest>) => {
@@ -29,9 +29,9 @@ self.onmessage = async (event: MessageEvent<RuneAdviceWorkerRequest>) => {
   try {
     const startedAt = performance.now();
     const { runes, presets, settings, base, preferWebGpu } = message.request;
-    const engines: ComputeBackend[] = [];
-    const advice = await runeAdvice(runes, presets, settings, base, async (jobs) => {
-      const answer = await countRuneChances(jobs, preferWebGpu);
+    const engines: CalculationBackend[] = [];
+    const advice = await runeAdvice(runes, presets, settings, base, async (jobs, chanceBar) => {
+      const answer = await countRuneChances(jobs, preferWebGpu, chanceBar);
       engines.push(answer.backend);
       return answer.shares;
     });

@@ -70,10 +70,12 @@ import type { Valuation } from './rune-substat-weights';
 /**
  * **How many runs settle a chance: 4,096.**
  *
- * That puts one rune's answer within half a percentage point of the truth nineteen
- * times out of twenty, which is finer than the column that prints it. The number that
- * had to be checked is not that one, though — it is what the *box* does, because a
- * verdict is a threshold and a threshold turns sampling spread into flipped rows.
+ * This is a deterministic estimate, not an exact probability. At the widest point
+ * of a binomial distribution (`p = 0.5`), 4,096 runs have a standard error of about
+ * 0.78 percentage points and a 95 % interval of about ±1.53 points; at `p = 0.02`,
+ * the corresponding interval is about ±0.43 points. The number that has to be
+ * checked is therefore what the *box* does, because a verdict is a threshold and
+ * sampling spread can flip rows.
  *
  * Measured on 1,500 synthetic runes at the fullest craft settings, against the eight
  * shipped presets: 1,024 runs retained 67 Keep and 170 Power up, 4,096 retained 67 and

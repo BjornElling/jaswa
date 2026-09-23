@@ -25,6 +25,9 @@ import type { RuneAdvice } from './rune-cleanup-advice';
 import type { RunePotentialPreset } from './rune-potential-presets';
 import type { ReferenceStats } from './rune-reference-stats';
 import type { RunePotentialSettings } from './types';
+import { combineCalculationBackends } from './compute/calculation-summary';
+import { countRuneChances } from './compute/rune-chance-engine';
+import type { CalculationBackend } from './compute/calculation-summary';
 
 export const simulationStages = [0, 9, 12] as const;
 export type SimulationStage = typeof simulationStages[number];
@@ -60,6 +63,8 @@ export type RuneSimulationContext = {
   presets: readonly RunePotentialPreset[];
   settings: RunePotentialSettings;
   base: ReadonlyMap<string, ReferenceStats> | null;
+  /** Whether recommendation checkpoints may count their odds on the graphics card. */
+  preferWebGpu?: boolean;
 };
 
 export type SimulationSubProperty = {
@@ -115,6 +120,8 @@ export type RuneSimulationResult = {
   config: RuneSimulationConfig;
   stages: Readonly<Record<SimulationStage, SimulationStageResult>>;
   summary: RuneSimulationSummary;
+  durationMs: number;
+  backend: CalculationBackend;
 };
 
 /** The simulator-only set label used when the user asks for no rune type. */
@@ -377,6 +384,7 @@ function emptyStageRecord(): Record<SimulationStage, SimulationStageResult> {
 async function recommendationsFor(
   runes: readonly SimulatedRune[], stage: SimulationStage,
   config: RuneSimulationConfig, context: RuneSimulationContext,
+  engines: CalculationBackend[],
 ): Promise<ReadonlyMap<string, RuneAdvice> | null> {
   if (config.gates[stage].policy === 'keep-all') return null;
   if (context.base === null) {
@@ -387,6 +395,11 @@ async function recommendationsFor(
     context.presets,
     context.settings,
     context.base,
+    async (jobs, chanceBar) => {
+      const answer = await countRuneChances(jobs, context.preferWebGpu ?? false, chanceBar);
+      engines.push(answer.backend);
+      return answer.shares;
+    },
   );
 }
 
@@ -399,6 +412,8 @@ async function recommendationsFor(
 export async function simulateRunes(
   config: RuneSimulationConfig, context: RuneSimulationContext, random: RandomSource = defaultRandom,
 ): Promise<RuneSimulationResult> {
+  const startedAt = performance.now();
+  const engines: CalculationBackend[] = [];
   if (!Number.isSafeInteger(config.count) || config.count < 1) {
     throw new Error('Rune simulator needs at least one rune.');
   }
@@ -411,21 +426,25 @@ export async function simulateRunes(
   const stages = emptyStageRecord();
   const generated = Array.from({ length: config.count }, (_, index) => generateRune(index, config, random));
 
-  stages[0] = stageResult(0, generated, generated.length, config, await recommendationsFor(generated, 0, config, context));
+  stages[0] = stageResult(0, generated, generated.length, config,
+    await recommendationsFor(generated, 0, config, context, engines));
   const afterZero = stages[0].entries.filter((entry) => entry.decision !== 'sell').map((entry) => entry.rune);
 
   const atNine = afterZero.map((rune) => powerUpRune(rune, 9, random));
-  stages[9] = stageResult(9, atNine, afterZero.length, config, await recommendationsFor(atNine, 9, config, context));
+  stages[9] = stageResult(9, atNine, afterZero.length, config,
+    await recommendationsFor(atNine, 9, config, context, engines));
   const afterNine = stages[9].entries.filter((entry) => entry.decision !== 'sell').map((entry) => entry.rune);
 
   const atTwelve = afterNine.map((rune) => craftRuneAtTwelve(powerUpRune(rune, 12, random), config, random));
   stages[12] = stageResult(12, atTwelve, afterNine.length, config,
-    await recommendationsFor(atTwelve, 12, config, context));
+    await recommendationsFor(atTwelve, 12, config, context, engines));
   const kept = stages[12].entries.filter((entry) => entry.decision === 'keep').length;
 
   return {
     config,
     stages,
+    durationMs: performance.now() - startedAt,
+    backend: combineCalculationBackends(engines),
     summary: {
       generated: generated.length,
       reachedNine: afterZero.length,

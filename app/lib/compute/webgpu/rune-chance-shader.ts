@@ -107,21 +107,22 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
     // The lines it holds now, which are the only ones an improvement can touch.
     for (var at: u32 = 0u; at < heldCount; at = at + 1u) {
       let base = runeAt + RUNE_LINES_AT + at * LINE_STRIDE;
-      lines[at] = Line(runes[base], runes[base + 1u], runes[base + 2u]);
+      lines[at] = Line(
+        runes[base + LINE_STAT_AT], runes[base + LINE_VALUE_AT], runes[base + LINE_GRIND_AT]);
     }
     for (var step: u32 = 0u; step < upgrades; step = step + 1u) {
       if (heldCount == 0u) { break; }
       let target = drawBelow(seed, counter + step * 2u, heldCount);
       let base = runeAt + RUNE_LINES_AT + target * LINE_STRIDE;
-      let low = runes[base + 3u];
-      let high = runes[base + 4u];
+      let low = runes[base + LINE_UPGRADE_MIN_AT];
+      let high = runes[base + LINE_UPGRADE_MAX_AT];
       let roll = low + i32(drawBelow(seed, counter + step * 2u + 1u, u32(high - low + 1)));
       lines[target].value = lines[target].value + roll;
     }
 
     // The lines it gains, drawn without replacement, each with one initial roll.
     for (var index: u32 = 0u; index < poolCount; index = index + 1u) {
-      bag[index] = runes[runeAt + RUNE_POOL_AT + index * POOL_STRIDE];
+      bag[index] = runes[runeAt + RUNE_POOL_AT + index * POOL_STRIDE + POOL_STAT_AT];
       order[index] = index;
     }
     var left = poolCount;
@@ -133,8 +134,8 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
       bag[pick] = bag[left];
       order[pick] = order[left];
       let base = runeAt + RUNE_POOL_AT + index * POOL_STRIDE;
-      let low = runes[base + 1u];
-      let high = runes[base + 2u];
+      let low = runes[base + POOL_INITIAL_MIN_AT];
+      let high = runes[base + POOL_INITIAL_MAX_AT];
       let roll = low + i32(drawBelow(seed, counter + ADDITION_DRAWS_AT + 1u + step * 2u, u32(high - low + 1)));
       lines[heldCount + step] = Line(statId, roll, 0);
     }
@@ -145,7 +146,7 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
       let statId = u32(lines[at].statId);
       let stone = scorings[scoringAt + SCORING_GRIND_AT + statId];
       let ground = f32(lines[at].value) + max(f32(lines[at].grind), stone);
-      lineValue[at] = ground * scorings[scoringAt + statId];
+      lineValue[at] = ground * scorings[scoringAt + SCORING_PRICES_AT + statId];
       total = total + lineValue[at];
     }
     if (gemCount > 0u) {
@@ -157,13 +158,13 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
         var foundOther = false;
         for (var index: u32 = 0u; index < gemCount; index = index + 1u) {
           let entry = scoringAt + SCORING_GEMS_AT + index * GEM_STRIDE;
-          let statId = i32(scorings[entry]);
+          let statId = i32(scorings[entry + GEM_STAT_AT]);
           if (statId == lines[at].statId) {
             // Re-rolling the line's own id keeps whatever stone is already there,
             // which a credited one can only improve.
             let stone = scorings[scoringAt + SCORING_GRIND_AT + u32(statId)];
-            let ground = scorings[entry + 2u] + max(f32(lines[at].grind), stone);
-            let same = ground * scorings[scoringAt + u32(statId)];
+            let ground = scorings[entry + GEM_ROLL_AT] + max(f32(lines[at].grind), stone);
+            let same = ground * scorings[scoringAt + SCORING_PRICES_AT + u32(statId)];
             if (same > best) { best = same; }
             if (foundOther) { break; }
             continue;
@@ -174,7 +175,7 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
             if (other != at && lines[other].statId == statId) { blocked = true; }
           }
           if (blocked) { continue; }
-          if (scorings[entry + 1u] > best) { best = scorings[entry + 1u]; }
+          if (scorings[entry + GEM_VALUE_AT] > best) { best = scorings[entry + GEM_VALUE_AT]; }
           foundOther = true;
         }
         if (best <= -1.0e29) { continue; }

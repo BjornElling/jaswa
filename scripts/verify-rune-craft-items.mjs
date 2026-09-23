@@ -103,13 +103,36 @@ try {
   /* `extra` is the default grade, which every real export carries and the reader
      requires: a rune whose rarity the vocabulary does not cover is rejected
      rather than given a fallback (`AGENTS.md` §0.1). */
-  const rune = (overrides = {}) => readRune({
+  const runeRecord = {
     rune_id: 1, set_id: 13, slot_no: 2, class: 6, rank: 5, extra: 5, upgrade_curr: 12,
     occupied_type: 2, occupied_id: 0,
     pri_eff: [4, 63], prefix_eff: [0, 0],
     sec_eff: [[2, 8, 0, 0], [9, 6, 0, 0], [10, 5, 0, 0], [8, 5, 0, 3]],
-    ...overrides,
-  });
+  };
+  const rune = (overrides = {}) => {
+    const parsed = readRune({ ...runeRecord, ...overrides });
+    if (parsed) return parsed;
+    /* These two cases deliberately make an otherwise invalid rune to test the
+       placement diagnostic. The import reader must reject it, so alter the
+       already-read fixture only after that rejection has been observed. */
+    const base = readRune(runeRecord);
+    assert.ok(base);
+    if (overrides.pri_eff) {
+      return { ...base, mainStatId: overrides.pri_eff[0], mainValue: overrides.pri_eff[1] };
+    }
+    if (overrides.prefix_eff) {
+      return {
+        ...base,
+        prefixStatId: overrides.prefix_eff[0] || null,
+        prefixValue: overrides.prefix_eff[1] || 0,
+      };
+    }
+    throw new Error('The rune fixture override was rejected unexpectedly.');
+  };
+  assert.equal(readRune({ ...runeRecord, pri_eff: [8, 42] }), null,
+    'an imported main property may not duplicate a sub property');
+  assert.equal(readRune({ ...runeRecord, prefix_eff: [8, 5] }), null,
+    'an imported prefix may not duplicate a sub property');
 
   const violentSpdGem = readCraftItem(stack(1, 13_08_05));
   const violentHpGem = readCraftItem(stack(1, 13_02_05));

@@ -2,9 +2,9 @@
  * **The odds are counted, so this is the check that counting is enough.**
  *
  * `rune-power-up-outcomes.ts` answers a rune's chance by playing it forward a few
- * thousand times and counting the runs that clear the bar. One rune's answer is
- * therefore within about half a percentage point of the truth rather than exactly on
- * it, and the question that matters is not what that does to one row — it is what it
+ * thousand times and counting the runs that clear the bar. One rune's answer is a
+ * deterministic estimate with binomial sampling error, and the question that matters
+ * is not only what that does to one row — it is what it
  * does to a **box**. A verdict is a threshold, and a threshold turns a spread into
  * flipped rows: if the last half point decided a material number of runes, a player
  * would see a different account every time they pressed Calculate.

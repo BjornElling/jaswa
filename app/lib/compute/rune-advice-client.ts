@@ -75,11 +75,17 @@ export function calculateRuneAdvice(request: RuneAdviceRequest): Promise<RuneAdv
         : { status: 'done', advice: event.data.advice, durationMs: event.data.durationMs, backend: event.data.backend });
     };
     const onError = () => {
+      currentWorker.terminate();
+      if (worker === currentWorker) worker = undefined;
       settle({ status: 'failed', message: 'JASWA could not start its rune calculation.' });
     };
     waiting.set(requestId, settle);
     currentWorker.addEventListener('message', onMessage);
     currentWorker.addEventListener('error', onError, { once: true });
-    currentWorker.postMessage({ type: 'calculate', requestId, request });
+    try {
+      currentWorker.postMessage({ type: 'calculate', requestId, request });
+    } catch {
+      onError();
+    }
   });
 }

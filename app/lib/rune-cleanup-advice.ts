@@ -15,8 +15,8 @@ import type { RunePotentialPreset } from './rune-potential-presets';
 import type { RunePotentialSettings } from './types';
 import type { ReferenceStats } from './rune-reference-stats';
 import {
-  boxThreshold, candidateChanceAsk, candidateMaxValue, isFourPieceSet, newRuneAdviceScope,
-  ordinaryBox, prepareRuneCandidate, presetBuilds, standingIn,
+  boxThreshold, candidateChanceAskForReading, candidateOwnMaxValue, isFourPieceSet,
+  newRuneAdviceScope, ordinaryBox, prepareRuneCandidate, presetBuilds, standingIn,
 } from './rune-cleanup-model';
 import type {
   Build, ChanceAsk, CountingJob, CraftCredit, MatchRank, OrdinaryBox, RuneCandidate,
@@ -33,7 +33,7 @@ import { craftAssumptionForSetting } from './rune-craft-items';
  * setting allows it and the card has proved itself. Nothing in this file knows which
  * one it got, which is the point — a verdict cannot depend on where it was computed.
  */
-export type ChanceCounter = (jobs: readonly CountingJob[]) => Promise<Float64Array>;
+export type ChanceCounter = (jobs: readonly CountingJob[], chanceBar?: number) => Promise<Float64Array>;
 
 /**
  * Every question about odds this call will ask, written down before any is answered.
@@ -61,6 +61,9 @@ class ChanceLedger {
   }
 
   settle(shares: Float64Array): number[] {
+    if (shares.length !== this.pending) {
+      throw new Error('The chance counter returned an unexpected number of answers.');
+    }
     return this.asks.map((ask, at) =>
       ask.combine(Array.from(shares.subarray(this.starts[at], this.starts[at] + ask.jobs.length))));
   }
@@ -73,7 +76,7 @@ type Contender = {
 };
 
 /** One contender the policy will walk, with its questions already numbered. */
-type Step = { candidate: Contender; passesValue: boolean; current: number; neutral: number | null };
+type Step = { candidate: Contender; passesValue: boolean; current: number };
 
 type RunePlan = { rune: Rune; retentionShare: number; steps: Step[]; neutralSteps: Step[] };
 
@@ -309,26 +312,17 @@ export async function runeAdvice(
            means the same thing in slot 1 as it does in slot 3. The discount is
            applied before the box is consulted rather than after, so it goes on
            discounting the rune rather than the population. */
-        const maxValue = candidateMaxValue(candidate) * worth;
+        const maxValue = candidateOwnMaxValue(candidate) * worth;
         const hasNeutral = candidate.baseline !== null || (credit.gem === null && credit.grind === null);
         const neutralMaxValue = !hasNeutral ? 0 : candidate.baseline === null ? maxValue
-          : candidateMaxValue(candidate.baseline) * worth;
+          : candidateOwnMaxValue(candidate.baseline) * worth;
         const neutralValue = !hasNeutral || candidate.baseline === null
           ? standingIn(box, maxValue) : standingIn(neutralBox, neutralMaxValue);
-        /* **Craft is optional, so the anchor must not turn it into a penalty — and
-           the escape has to be a reading of something.** Crediting a Gem raises the
-           rune, the perfect rune of §5 *and* the box of §9.1, and for some runes the
-           box rises further than the rune does. So the rune keeps the better of its
-           two legal readings: spend the items and be measured against a box that
-           spent them too, or spend nothing and be measured against a box that spent
-           nothing either. Each is a whole calculation.
-
-           It used to read the *credited* Max value in the *uncredited* box, which is
-           neither — a crafted rune against an uncrafted population, lenient by
-           construction and a standing no rune actually has. That admitted more than
-           the share `qualityThresholds` names, which is the one property
-           `verify:rune-slot-neutrality` exists to hold. */
-        const value = Math.max(standingIn(box, maxValue), neutralValue);
+        /* The credited and neutral readings stay separate. The policy chooses between
+           them after each has supplied its own Max value, standing and chance; taking
+           field-by-field maxima would print a score from one reading beside a standing
+           or chance from the other. */
+        const value = standingIn(box, maxValue);
         candidates.push({
           preset, prepared: candidate, box, neutralBox, maxValue, value, neutralMaxValue, neutralValue,
           rank: candidate.rank,
@@ -395,21 +389,14 @@ export async function runeAdvice(
          otherwise an accepted rune would be discounted once in its score and not at
          all in its odds, and the two halves of the row would disagree. */
       const worth = candidate.rank === 'preferred' ? 1 : candidate.rank === 'acceptable' ? accepted : broken;
-      /* The floor is stated as a share of this slot's box and the odds are asked of
-         a Max value, so the share is read back out of the box before the counting
-         engine sees it. Craft keeps its own craft-aware bar, but the neutral reading
-         remains a legal alternative and is compared as a whole answer. This keeps a
-         craft slider from making the displayed chance smaller by moving the bar. */
+      /* The floor is stated as a share of this reading's own box and the odds are
+         asked of its own Max value, so the bar and the chance describe one reading. */
       const currentThreshold = worth > 0
         ? boxThreshold(candidate.box, retentionShare) / worth : Number.POSITIVE_INFINITY;
-      const neutralThreshold = worth > 0
-        ? boxThreshold(candidate.neutralBox, retentionShare) / worth : Number.POSITIVE_INFINITY;
       steps.push({
         candidate,
         passesValue,
-        current: ledger.add(candidateChanceAsk(candidate.prepared, currentThreshold)),
-        neutral: candidate.prepared.baseline === null ? null
-          : ledger.add(candidateChanceAsk(candidate.prepared.baseline, neutralThreshold)),
+        current: ledger.add(candidateChanceAskForReading(candidate.prepared, currentThreshold)),
       });
     }
 
@@ -427,8 +414,7 @@ export async function runeAdvice(
       neutralSteps.push({
         candidate,
         passesValue: candidate.neutralValue >= 1 - retentionShare,
-        current: ledger.add(candidateChanceAsk(candidate.prepared.baseline ?? candidate.prepared, neutralThreshold)),
-        neutral: null,
+        current: ledger.add(candidateChanceAskForReading(candidate.prepared.baseline ?? candidate.prepared, neutralThreshold)),
       });
     }
 
@@ -436,7 +422,7 @@ export async function runeAdvice(
   }
 
   /* --------------------------------------------------------- 2. what is left */
-  const answers = ledger.settle(await count(ledger.jobs()));
+  const answers = ledger.settle(await count(ledger.jobs(), chanceBar));
 
   /* ------------------------------------------------------ 3. what it means */
   const advice = new Map<string, RuneAdvice>();
@@ -444,9 +430,7 @@ export async function runeAdvice(
     let fallback: Answer | null = null;
     const eligibleByPreset = new Map<string, Answer>();
     for (const step of plan.steps) {
-      const currentChance = answers[step.current];
-      const neutralChance = step.neutral === null ? currentChance : answers[step.neutral];
-      const chance = Math.max(currentChance, neutralChance);
+      const chance = answers[step.current];
       const answer: Answer = {
         value: step.candidate.value, maxValue: step.candidate.maxValue, chance,
         priority: step.candidate.value,

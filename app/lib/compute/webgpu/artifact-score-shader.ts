@@ -5,29 +5,16 @@ import {
 import { artifactNormalConversionContributions } from '../../artifact-properties';
 import { intangibleRestrictionCode } from '../artifact-score-protocol';
 import { gpuIndexPreamble } from '../gpu/gpu-context';
+import {
+  artifactCategoryAt, artifactConvertedPropertyAt, artifactMainPropertyAt,
+  artifactRestrictionAt, artifactScoreLanes, artifactStride,
+  artifactSubPropertyCount, artifactSubPropertyIndexesAt,
+  artifactSubPropertyRollPointsAt, artifactSubPropertyValuesAt,
+  monsterArchetypeAt, monsterElementAt, monsterMainPreferencesAt, monsterStride,
+  monsterSubPropertyMinimumsAt, monsterSubPropertyPreferencesAt,
+} from './artifact-score-layout';
 
-/* Four artifact facts, four property indexes, four max-roll-point values and
-   four absolute line values in hundredths — the last four so a substat floor
-   can be tested here as it is on the CPU. */
-const artifactStride = 16;
-/* Element, archetype, three mains, then one preference *and* one minimum for
-   every scored property. Both backends read this layout, and
-   `verify:artifact-score-agreement` fails if they stop agreeing. */
-const monsterStride = 5 + scoredArtifactProperties.length * 2;
 
-/**
- * **How many pairs one workgroup covers, stated once for all three readers.**
- *
- * It is the `@workgroup_size` attribute, the `WORKGROUP_SIZE` the dispatch preamble
- * multiplies by, and the divisor the backend counts workgroups with — and all three
- * have to be the same number. They were three separate literals, which is the one
- * WebGPU failure nothing reports: past 4,194,240 pairs the dispatch splits into a
- * second dimension, `flatIndex` starts multiplying by `WORKGROUP_SIZE`, and a
- * mismatch there attributes every score in the second row to the wrong pair — in
- * bounds, a real number, and silently wrong. 4.19 million pairs is about 2,000
- * artifacts against 2,100 monsters, which is an account rather than a hypothetical.
- */
-export const artifactScoreLanes = 64;
 
 /**
  * One invocation evaluates one artifact/monster pair. The full matrix is read
@@ -39,6 +26,19 @@ const WORKGROUP_SIZE: u32 = ${artifactScoreLanes}u;
 const ARTIFACT_STRIDE: u32 = ${artifactStride}u;
 const MONSTER_STRIDE: u32 = ${monsterStride}u;
 const PROPERTY_COUNT: u32 = ${scoredArtifactProperties.length}u;
+const ARTIFACT_CATEGORY_AT: u32 = ${artifactCategoryAt}u;
+const ARTIFACT_RESTRICTION_AT: u32 = ${artifactRestrictionAt}u;
+const ARTIFACT_MAIN_AT: u32 = ${artifactMainPropertyAt}u;
+const ARTIFACT_CONVERTED_AT: u32 = ${artifactConvertedPropertyAt}u;
+const ARTIFACT_INDEXES_AT: u32 = ${artifactSubPropertyIndexesAt}u;
+const ARTIFACT_ROLL_POINTS_AT: u32 = ${artifactSubPropertyRollPointsAt}u;
+const ARTIFACT_VALUES_AT: u32 = ${artifactSubPropertyValuesAt}u;
+const ARTIFACT_SUB_PROPERTY_COUNT: u32 = ${artifactSubPropertyCount}u;
+const MONSTER_ELEMENT_AT: u32 = ${monsterElementAt}u;
+const MONSTER_ARCHETYPE_AT: u32 = ${monsterArchetypeAt}u;
+const MONSTER_MAIN_PREFERENCES_AT: u32 = ${monsterMainPreferencesAt}u;
+const MONSTER_SUB_PREFERENCES_AT: u32 = ${monsterSubPropertyPreferencesAt}u;
+const MONSTER_SUB_MINIMUMS_AT: u32 = ${monsterSubPropertyMinimumsAt}u;
 const INTANGIBLE_RESTRICTION: i32 = ${intangibleRestrictionCode};
 // Interpolated from the same constants artifactScorePointBenchmark() uses, so the
 // two backends cannot drift apart on the denominator every score is divided by.
@@ -106,12 +106,12 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
   let monsterIndex = pairIndex % parameters.monsterCount;
   let artifactOffset = artifactIndex * ARTIFACT_STRIDE;
   let monsterOffset = monsterIndex * MONSTER_STRIDE;
-  let category = i32(artifacts[artifactOffset]);
-  let restriction = i32(artifacts[artifactOffset + 1u]);
-  let mainProperty = u32(artifacts[artifactOffset + 2u]);
-  let convertedIndex = i32(artifacts[artifactOffset + 3u]);
-  let element = i32(monsters[monsterOffset]);
-  let archetype = i32(monsters[monsterOffset + 1u]);
+  let category = i32(artifacts[artifactOffset + ARTIFACT_CATEGORY_AT]);
+  let restriction = i32(artifacts[artifactOffset + ARTIFACT_RESTRICTION_AT]);
+  let mainProperty = u32(artifacts[artifactOffset + ARTIFACT_MAIN_AT]);
+  let convertedIndex = i32(artifacts[artifactOffset + ARTIFACT_CONVERTED_AT]);
+  let element = i32(monsters[monsterOffset + MONSTER_ELEMENT_AT]);
+  let archetype = i32(monsters[monsterOffset + MONSTER_ARCHETYPE_AT]);
 
   // INTANGIBLE_RESTRICTION fits every monster the category allows, exactly as
   // fits() in artifact-score-core.ts accepts it. The two backends must agree on
@@ -126,23 +126,23 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
   // rolled lines, so an unwanted main is not an early exit: the artifact still
   // scores, and is still worth converting, on what its sub properties deliver.
   // Must match scoreArtifactOnMonster() in artifact-score-core.ts exactly.
-  let mainPoints = preferenceWeight(i32(monsters[monsterOffset + 2u + mainProperty])) * ARTIFACT_MAIN_POINTS;
+  let mainPoints = preferenceWeight(i32(monsters[monsterOffset + MONSTER_MAIN_PREFERENCES_AT + mainProperty])) * ARTIFACT_MAIN_POINTS;
 
   var weighted: f32 = 0.0;
-  var sourceContribution: array<f32, 4>;
-  for (var line: u32 = 0u; line < 4u; line = line + 1u) {
-    let propertyIndex = i32(artifacts[artifactOffset + 4u + line]);
-    let fraction = artifacts[artifactOffset + 8u + line];
+  var sourceContribution: array<f32, ${artifactSubPropertyCount}>;
+  for (var line: u32 = 0u; line < ARTIFACT_SUB_PROPERTY_COUNT; line = line + 1u) {
+    let propertyIndex = i32(artifacts[artifactOffset + ARTIFACT_INDEXES_AT + line]);
+    let fraction = artifacts[artifactOffset + ARTIFACT_ROLL_POINTS_AT + line];
     var contribution: f32 = 0.0;
     if (propertyIndex >= 0) {
       // A line below the floor its monster asked for contributes nothing, as an
       // unwanted property does. Must match clearsMinimum() in
       // artifact-score-core.ts exactly. A floor of 0 admits every roll; a legacy
       // line carries -1 and clears no real floor.
-      let minimum = monsters[monsterOffset + 5u + PROPERTY_COUNT + u32(propertyIndex)];
-      let lineValue = artifacts[artifactOffset + 12u + line];
+      let minimum = monsters[monsterOffset + MONSTER_SUB_MINIMUMS_AT + u32(propertyIndex)];
+      let lineValue = artifacts[artifactOffset + ARTIFACT_VALUES_AT + line];
       if (minimum <= 0.0 || lineValue >= minimum) {
-        contribution = preferenceWeight(i32(monsters[monsterOffset + 5u + u32(propertyIndex)])) * fraction;
+        contribution = preferenceWeight(i32(monsters[monsterOffset + MONSTER_SUB_PREFERENCES_AT + u32(propertyIndex)])) * fraction;
       }
     }
     sourceContribution[line] = contribution;
@@ -174,12 +174,13 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
   if (convertedIndex >= 0) {
     source = u32(convertedIndex);
   } else {
-    for (var line: u32 = 1u; line < 4u; line = line + 1u) {
+    for (var line: u32 = 1u; line < ARTIFACT_SUB_PROPERTY_COUNT; line = line + 1u) {
       let candidateContribution = sourceContribution[line];
       let sourceValue = sourceContribution[source];
       if (candidateContribution < sourceValue
         || (candidateContribution == sourceValue
-          && artifacts[artifactOffset + 8u + line] < artifacts[artifactOffset + 8u + source])) {
+          && artifacts[artifactOffset + ARTIFACT_ROLL_POINTS_AT + line]
+            < artifacts[artifactOffset + ARTIFACT_ROLL_POINTS_AT + source])) {
         source = line;
       }
     }
@@ -193,12 +194,12 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
     if (availability != 0 && availability != category) { continue; }
     if (parameters.conversionMode == 2u && !ownsProperty(restriction, candidate)) { continue; }
     var exists = false;
-    for (var line: u32 = 0u; line < 4u; line = line + 1u) {
-      if (i32(candidate) == i32(artifacts[artifactOffset + 4u + line])) { exists = true; }
+    for (var line: u32 = 0u; line < ARTIFACT_SUB_PROPERTY_COUNT; line = line + 1u) {
+      if (i32(candidate) == i32(artifacts[artifactOffset + ARTIFACT_INDEXES_AT + line])) { exists = true; }
     }
-    let isSourceProperty = i32(candidate) == i32(artifacts[artifactOffset + 4u + source]);
+    let isSourceProperty = i32(candidate) == i32(artifacts[artifactOffset + ARTIFACT_INDEXES_AT + source]);
     if (exists && !isSourceProperty) { continue; }
-    let band = i32(monsters[monsterOffset + 5u + candidate]);
+    let band = i32(monsters[monsterOffset + MONSTER_SUB_PREFERENCES_AT + candidate]);
     if (band != 2) { continue; }
     let converted = scorePercent((mainPoints + weighted - sourceContribution[source]
       + preferenceWeight(band) * conversionRollFractions[candidate] * ${artifactNormalConversionContributions}) / benchmark);
@@ -209,12 +210,12 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
     if (availability != 0 && availability != category) { continue; }
     if (parameters.conversionMode == 2u && !ownsProperty(restriction, candidate)) { continue; }
     var exists = false;
-    for (var line: u32 = 0u; line < 4u; line = line + 1u) {
-      if (i32(candidate) == i32(artifacts[artifactOffset + 4u + line])) { exists = true; }
+    for (var line: u32 = 0u; line < ARTIFACT_SUB_PROPERTY_COUNT; line = line + 1u) {
+      if (i32(candidate) == i32(artifacts[artifactOffset + ARTIFACT_INDEXES_AT + line])) { exists = true; }
     }
-    let isSourceProperty = i32(candidate) == i32(artifacts[artifactOffset + 4u + source]);
+    let isSourceProperty = i32(candidate) == i32(artifacts[artifactOffset + ARTIFACT_INDEXES_AT + source]);
     if (exists && !isSourceProperty) { continue; }
-    let band = i32(monsters[monsterOffset + 5u + candidate]);
+    let band = i32(monsters[monsterOffset + MONSTER_SUB_PREFERENCES_AT + candidate]);
     // A preferred target is always chosen ahead of an acceptable target.
     if (band == 0 || (hasWorthwhilePreferred && band != 2) || (!hasWorthwhilePreferred && band != 1)) { continue; }
     let candidateWeight = preferenceWeight(band);

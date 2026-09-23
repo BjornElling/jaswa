@@ -89,6 +89,16 @@ const forbiddenSubStats: Readonly<Record<number, readonly number[]>> = {
   5: [1],
 };
 
+/** Which main properties the game allows in each rune slot (§3). */
+export const slotMainProperties: Readonly<Record<number, readonly number[]>> = {
+  1: [3],
+  2: [1, 2, 3, 4, 5, 6, 8],
+  3: [5],
+  4: [1, 2, 3, 4, 5, 6, 9, 10],
+  5: [1],
+  6: [1, 2, 3, 4, 5, 6, 11, 12],
+};
+
 /** Whether a slot may carry this sub-property type at all, before the rune's
     own main, prefix and other sub properties are considered. */
 export function slotAllowsSubStat(slot: number, statId: number): boolean {
@@ -169,14 +179,18 @@ function readProperty(value: unknown): RuneSubProperty | null {
   if (!Array.isArray(value)) return null;
   const statId = numberOrNull(value[0]);
   const amount = numberOrNull(value[1]);
-  if (statId === null || amount === null || amount < 0) return null;
+  if (statId === null || !Number.isInteger(statId)
+    || amount === null || !Number.isInteger(amount) || amount < 0) return null;
   if (!runeStatNames[statId]) return null;
-  const grind = numberOrNull(value[3]) ?? 0;
+  const gemMarker = value.length > 2 ? numberOrNull(value[2]) : 0;
+  const grind = value.length > 3 ? numberOrNull(value[3]) : 0;
+  if (gemMarker === null || !Number.isInteger(gemMarker) || (gemMarker !== 0 && gemMarker !== 1)
+    || grind === null || !Number.isInteger(grind) || grind < 0) return null;
   return {
     statId,
     value: amount,
-    gemmed: Boolean(numberOrNull(value[2])),
-    grind: grind > 0 ? grind : 0,
+    gemmed: gemMarker === 1,
+    grind,
   };
 }
 
@@ -224,11 +238,17 @@ export function readRune(record: unknown): Rune | null {
 
   const main = readProperty(source.pri_eff);
   if (!main) return null;
+  if (!slotMainProperties[slot]?.includes(main.statId)) return null;
 
   const prefix = Array.isArray(source.prefix_eff) && numberOrNull(source.prefix_eff[0]) !== 0
     ? readProperty(source.prefix_eff)
     : null;
   if (Array.isArray(source.prefix_eff) && numberOrNull(source.prefix_eff[0]) !== 0 && !prefix) return null;
+  const usedStats = new Set<number>([main.statId]);
+  if (prefix) {
+    if (!slotAllowsSubStat(slot, prefix.statId) || usedStats.has(prefix.statId)) return null;
+    usedStats.add(prefix.statId);
+  }
 
   const rawSubs = source.sec_eff;
   if (rawSubs !== undefined && !Array.isArray(rawSubs)) return null;
@@ -236,8 +256,11 @@ export function readRune(record: unknown): Rune | null {
   for (const entry of Array.isArray(rawSubs) ? rawSubs : []) {
     const property = readProperty(entry);
     if (!property) return null;
+    if (!slotAllowsSubStat(slot, property.statId) || usedStats.has(property.statId)) return null;
+    usedStats.add(property.statId);
     subProperties.push(property);
   }
+  if (subProperties.length > 4) return null;
 
   /* `occupied_type` is `1` for a rune a monster wears and `2` for one in
      inventory. Anything else is a placement JASWA does not model, and a rune
@@ -273,7 +296,8 @@ export function readRunes(data: GameRecord | undefined): Rune[] {
   const runes: Rune[] = [];
   for (const record of records) {
     const rune = readRune(record);
-    if (rune) runes.push(rune);
+    if (!rune) throw new Error('This account contains a rune JASWA cannot read.');
+    runes.push(rune);
   }
   return runes;
 }

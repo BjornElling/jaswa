@@ -166,7 +166,7 @@ assert.ok(shader.includes(
 /* The main must be added in the shader too. A multiplication here would give the
    GPU backend a different candidate set for the same account, silently. */
 assert.ok(shader.includes(
-  'let mainPoints = preferenceWeight(i32(monsters[monsterOffset + 2u + mainProperty])) * ARTIFACT_MAIN_POINTS;'),
+  'let mainPoints = preferenceWeight(i32(monsters[monsterOffset + MONSTER_MAIN_PREFERENCES_AT + mainProperty])) * ARTIFACT_MAIN_POINTS;'),
 'the shader must weight the main property into its own points');
 assert.ok(!/mainWeight\s*\*/.test(shader),
   'the shader must not multiply anything by a main-property weight');

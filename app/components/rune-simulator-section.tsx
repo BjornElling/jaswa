@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { Dispatch, FormEvent, ReactNode, SetStateAction } from 'react';
 import { Button, FilterButton } from './button';
 import { CircularArrowsMark } from './converted-artifact-mark';
+import { CalculationStatus } from './calculation-status';
 import { Dropdown } from './dropdown';
 import { PageHeader } from './page-chrome';
 import { WorkspacePage } from './workspace-page';
@@ -18,10 +19,11 @@ import type {
   SimulationSubProperty as SimulatedSubProperty,
 } from '../lib/rune-simulator';
 import {
-  defaultRuneSimulationConfig, simulateRunes, simulationSetEffect, simulationStages,
+  defaultRuneSimulationConfig, simulationSetEffect, simulationStages,
   simulationNoRuneType, simulationStatLabel,
 } from '../lib/rune-simulator';
-import type { ImportedGame, ItemGrade, RunePotentialSettings } from '../lib/types';
+import { calculateRuneSimulation } from '../lib/compute/rune-simulator-client';
+import type { GeneralSettings, ImportedGame, ItemGrade, RunePotentialSettings } from '../lib/types';
 import type { RunePotentialPreset } from '../lib/rune-potential-presets';
 import { referenceLines, noReferenceLineMessage } from '../lib/rune-reference-stats';
 import {
@@ -101,10 +103,12 @@ function setFormValue<K extends keyof FormState>(setForm: Dispatch<SetStateActio
   setForm((current) => ({ ...current, [key]: value }));
 }
 
-export function RuneSimulatorSection({ game, settings, presets }: {
+export function RuneSimulatorSection({ game, settings, presets, general, hardwareAcceleration }: {
   game: ImportedGame | null;
   settings: RunePotentialSettings;
   presets: RunePotentialPreset[];
+  general: GeneralSettings;
+  hardwareAcceleration: boolean;
 }) {
   const [form, setForm] = useState<FormState>(initialForm);
   const [result, setResult] = useState<RuneSimulationResult | null>(null);
@@ -148,13 +152,13 @@ export function RuneSimulatorSection({ game, settings, presets }: {
     setBusy(true);
     setMessage('');
     /* The experiment is deterministic for the supplied random source, which keeps one
-       rule for every caller; it is asynchronous because the Rune Clean-up engine it
-       runs three times answers its odds in one batch and may answer them on the
-       graphics card. The wait yields the main thread, so the button paints its busy
-       state without a timeout arranged for that alone. */
+       rule for every caller. The page sends the account-wide work to a worker, so
+       generation and all three checkpoints can finish without freezing the controls. */
     void (async () => {
       try {
-        const next = await simulateRunes(toConfig(form, count, settings), { presets, settings, base });
+        const next = await calculateRuneSimulation(toConfig(form, count, settings), {
+          presets, settings, base, preferWebGpu: hardwareAcceleration,
+        });
         setResult(next);
         setStage(0);
       } catch (error) {
@@ -238,7 +242,7 @@ export function RuneSimulatorSection({ game, settings, presets }: {
         <h2>Nothing generated yet.</h2>
         <p className="next-step">Choose the rune conditions above, then press Generate runes to watch the batch move through +0, +9 and +12.</p>
       </section>
-      : <RuneSimulationResults result={result} stage={stage} onStageChange={setStage} />}
+      : <RuneSimulationResults result={result} stage={stage} onStageChange={setStage} general={general} />}
   </WorkspacePage>;
 }
 
@@ -313,10 +317,11 @@ function PowerUpArrow() {
   </svg>;
 }
 
-function RuneSimulationResults({ result, stage, onStageChange }: {
+function RuneSimulationResults({ result, stage, onStageChange, general }: {
   result: RuneSimulationResult;
   stage: SimulationStage;
   onStageChange: (stage: SimulationStage) => void;
+  general: GeneralSettings;
 }) {
   const current = result.stages[stage];
   return <section className="rune-simulator-results" aria-labelledby="rune-simulator-results-title">
@@ -333,6 +338,8 @@ function RuneSimulationResults({ result, stage, onStageChange }: {
           onClick={() => onStageChange(option)}>{stageLabel(option)}</FilterButton>)}
       </div>
     </header>
+    <CalculationStatus durationMs={result.durationMs} backend={result.backend} general={general}
+      detail="Simulation and recommendation checks" />
 
     <p className="rune-simulator-stage-summary type-caption" aria-live="polite">
       {stageLabel(stage)}: {current.reached.toLocaleString('en')} entered this checkpoint, {current.survived.toLocaleString('en')} survived it, {current.sold.toLocaleString('en')} sold.

@@ -18,10 +18,10 @@
  *
  * The tolerance is not zero and cannot be. The *runs* are bit-identical, because every
  * draw is integer arithmetic on both sides. What differs is the pricing: a card works
- * in single precision and the processor in double, so a run whose end state sits
- * within one part in ten million of the bar can fall on either side of it. Over a few
- * thousand runs that is a fraction of a percentage point at the very worst, and the
- * gate allows that much and nothing more.
+ * in single precision and the processor in double. The gate allows one percentage
+ * point of share difference for accumulated rounding; the caller separately sends
+ * jobs near the active policy bar back through the processor before settling the
+ * verdict.
  */
 import {
   countJobs, endStateScoring, playForward, runeFuture, runScore,
@@ -33,16 +33,18 @@ import type { Rune, RuneSubProperty } from '../../runes';
 import type { Valuation } from '../../rune-substat-weights';
 import { runeChanceShader } from '../webgpu/rune-chance-shader';
 import {
-  chanceLanes, gemEntryStride, jobRunsAt, jobRuneAt, jobScoringAt, jobStride, lineStride,
-  maxLines, maxPool, poolEntryStride, runeAdditionsAt, runeGemmedAt, runeHeldCountAt,
-  runeLinesAt, runeMainAt, runePoolAt, runePoolCountAt, runePrefixAt, runeSeedAt, runeSlotAt,
-  runeStride, runeUpgradesAt, scoringGemCountAt, scoringGemsAt, scoringGrindAt,
-  scoringPrefixAt, scoringStride,
+  chanceLanes, gemEntryStride, gemRollAt, gemStatAt, gemValueAt, jobRunsAt, jobRuneAt,
+  jobScoringAt, jobStride, lineGrindAt, lineStatAt, lineStride, lineUpgradeMaximumAt,
+  lineUpgradeMinimumAt, lineValueAt, maxLines, maxPool, poolInitialMaximumAt,
+  poolInitialMinimumAt, poolStatAt, poolEntryStride, runeAdditionsAt, runeGemmedAt,
+  runeHeldCountAt, runeLinesAt, runeMainAt, runePoolAt, runePoolCountAt, runePrefixAt,
+  runeSeedAt, runeSlotAt, runeStride, runeUpgradesAt, scoringGemCountAt, scoringGemsAt,
+  scoringGrindAt, scoringPrefixAt, scoringPricesAt, scoringStride,
 } from '../webgpu/rune-chance-layout';
 import type { GpuContext } from '../gpu/gpu-context';
 
 /** What the two engines may differ by on one job's share before the card is refused. */
-const agreementTolerance = 0.01;
+export const runeChanceAgreementTolerance = 0.01;
 
 function packRune(into: Int32Array, at: number, future: RuneFuture): void {
   const { rune, held } = future;
@@ -54,7 +56,9 @@ function packRune(into: Int32Array, at: number, future: RuneFuture): void {
      and hand back a number that is simply wrong, with nothing to report it. The
      processor sizes its buffer per rune and answers correctly, so throwing here is a
      fall back rather than a failure. */
-  if (held.length + future.additions > maxLines || future.pool.length > maxPool) {
+  if (!Number.isInteger(future.additions) || future.additions < 0
+    || held.length > maxLines || held.length + future.additions > maxLines
+    || future.pool.length > maxPool || future.pool.length !== future.poolInitial.length) {
     throw new Error(`Rune ${rune.id} does not fit the graphics card's fixed line-up.`);
   }
   const lines = held.length;
@@ -72,32 +76,32 @@ function packRune(into: Int32Array, at: number, future: RuneFuture): void {
   into[at + runeSeedAt] = future.seed | 0;
   for (let line = 0; line < lines; line += 1) {
     const base = at + runeLinesAt + line * lineStride;
-    into[base] = held[line].statId;
-    into[base + 1] = held[line].value;
-    into[base + 2] = held[line].grind;
-    into[base + 3] = future.heldUpgrade[line].minimum;
-    into[base + 4] = future.heldUpgrade[line].maximum;
+    into[base + lineStatAt] = held[line].statId;
+    into[base + lineValueAt] = held[line].value;
+    into[base + lineGrindAt] = held[line].grind;
+    into[base + lineUpgradeMinimumAt] = future.heldUpgrade[line].minimum;
+    into[base + lineUpgradeMaximumAt] = future.heldUpgrade[line].maximum;
   }
   for (let index = 0; index < pool; index += 1) {
     const base = at + runePoolAt + index * poolEntryStride;
-    into[base] = future.pool[index];
-    into[base + 1] = future.poolInitial[index].minimum;
-    into[base + 2] = future.poolInitial[index].maximum;
+    into[base + poolStatAt] = future.pool[index];
+    into[base + poolInitialMinimumAt] = future.poolInitial[index].minimum;
+    into[base + poolInitialMaximumAt] = future.poolInitial[index].maximum;
   }
 }
 
 function packScoring(into: Float32Array, at: number, scoring: EndStateScoring): void {
   for (const statId of allStatIds) {
-    into[at + statId] = scoring.prices[statId];
+    into[at + scoringPricesAt + statId] = scoring.prices[statId];
     into[at + scoringGrindAt + statId] = scoring.plan.grind[statId];
   }
   into[at + scoringPrefixAt] = scoring.prefixScore;
   into[at + scoringGemCountAt] = scoring.options.statIds.length;
   for (let index = 0; index < scoring.options.statIds.length; index += 1) {
     const base = at + scoringGemsAt + index * gemEntryStride;
-    into[base] = scoring.options.statIds[index];
-    into[base + 1] = scoring.options.values[index];
-    into[base + 2] = scoring.options.rolls[index];
+    into[base + gemStatAt] = scoring.options.statIds[index];
+    into[base + gemValueAt] = scoring.options.values[index];
+    into[base + gemRollAt] = scoring.options.rolls[index];
   }
 }
 
@@ -169,10 +173,25 @@ export async function countJobsOnGpu(
       workgroups: slice.length,
     });
     const counts = new Uint32Array(output);
+    if (counts.length !== slice.length * chanceLanes) {
+      throw new Error('The graphics card returned an invalid rune chance buffer.');
+    }
     for (let at = 0; at < slice.length; at += 1) {
       let hits = 0;
-      for (let lane = 0; lane < chanceLanes; lane += 1) hits += counts[at * chanceLanes + lane];
-      shares[from + at] = hits / slice[at].runs;
+      const runs = slice[at].runs;
+      if (!Number.isInteger(runs) || runs <= 0) {
+        throw new Error('Rune chance jobs must have a positive integer run count.');
+      }
+      for (let lane = 0; lane < chanceLanes; lane += 1) {
+        const laneHits = counts[at * chanceLanes + lane];
+        if (laneHits > runs) throw new Error('The graphics card returned too many rune chance hits.');
+        hits += laneHits;
+      }
+      const share = hits / runs;
+      if (!Number.isFinite(share) || share < 0 || share > 1) {
+        throw new Error('The graphics card returned an invalid rune chance.');
+      }
+      shares[from + at] = share;
     }
   }
   return shares;
@@ -194,7 +213,7 @@ export async function runeChanceAgreement(context: GpuContext): Promise<boolean>
   const theirs = await countJobsOnGpu(jobs, context);
   const ours = countJobs(jobs);
   for (let at = 0; at < jobs.length; at += 1) {
-    if (!(Math.abs(theirs[at] - ours[at]) <= agreementTolerance)) return false;
+    if (!(Math.abs(theirs[at] - ours[at]) <= runeChanceAgreementTolerance)) return false;
   }
   return true;
 }

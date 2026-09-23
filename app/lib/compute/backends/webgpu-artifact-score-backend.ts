@@ -15,12 +15,17 @@ import { calculateArtifactScoresCpu } from '../artifact-score-core';
 import type {
   ArtifactScoreRequest, PackedArtifactScoreInput, PackedMonsterScoreInput,
 } from '../artifact-score-protocol';
-import { artifactScoreLanes, artifactScoreShader } from '../webgpu/artifact-score-shader';
+import { artifactScoreShader } from '../webgpu/artifact-score-shader';
+import {
+  artifactCategoryAt, artifactConvertedPropertyAt, artifactMainPropertyAt,
+  artifactRestrictionAt, artifactScoreLanes, artifactStride,
+  artifactSubPropertyIndexesAt, artifactSubPropertyRollPointsAt,
+  artifactSubPropertyValuesAt, artifactSubPropertyCount, equipClassRows, monsterArchetypeAt,
+  monsterElementAt, monsterMainPreferencesAt, monsterMainPropertyCount, monsterStride,
+  monsterSubPropertyMinimumsAt,
+  monsterSubPropertyPreferencesAt,
+} from '../webgpu/artifact-score-layout';
 import type { GpuContext } from '../gpu/gpu-context';
-
-/* Class codes run 0 (Intangible) through 5 (Dark), the widest of the two
-   numberings, so one table shape serves both categories. */
-const equipClassRows = 6;
 
 /**
  * Half a percentage point. A score is rounded to whole points before it is compared
@@ -31,22 +36,36 @@ const equipClassRows = 6;
 const agreementTolerance = 0.5;
 
 function packed(request: ArtifactScoreRequest) {
-  /* The order here *is* the shader's stride layout — see `artifactStride` and
-     `monsterStride` in artifact-score-shader.ts. A field added to one and not
-     the other misreads every row after it, silently. */
-  const artifacts = new Float32Array(request.artifacts.flatMap((artifact) => [
-    artifact.category, artifact.restriction, artifact.mainProperty, artifact.convertedPropertyIndex,
-    ...artifact.subPropertyIndexes, ...artifact.subPropertyRollPoints,
-    /* A stride is fixed width, so an absent list is written as the zeroes it
-       means rather than omitted — one short row would misalign every row
-       after it, and the scores would be wrong rather than missing. */
-    ...(artifact.subPropertyValueHundredths ?? [-1, -1, -1, -1]),
-  ]));
-  const monsters = new Float32Array(request.monsters.flatMap((monster) => [
-    monster.element, monster.archetype, ...monster.mainPreferences,
-    ...monster.subPropertyPreferences,
-    ...(monster.subPropertyMinimums ?? scoredArtifactProperties.map(() => 0)),
-  ]));
+  const artifacts = new Float32Array(request.artifacts.length * artifactStride);
+  for (const [index, artifact] of request.artifacts.entries()) {
+    const at = index * artifactStride;
+    artifacts[at + artifactCategoryAt] = artifact.category;
+    artifacts[at + artifactRestrictionAt] = artifact.restriction;
+    artifacts[at + artifactMainPropertyAt] = artifact.mainProperty;
+    artifacts[at + artifactConvertedPropertyAt] = artifact.convertedPropertyIndex;
+    const values = artifact.subPropertyValueHundredths
+      ?? new Array<number>(artifactSubPropertyCount).fill(-1);
+    for (let line = 0; line < artifactSubPropertyCount; line += 1) {
+      artifacts[at + artifactSubPropertyIndexesAt + line] = artifact.subPropertyIndexes[line];
+      artifacts[at + artifactSubPropertyRollPointsAt + line] = artifact.subPropertyRollPoints[line];
+      artifacts[at + artifactSubPropertyValuesAt + line] = values[line];
+    }
+  }
+  const monsters = new Float32Array(request.monsters.length * monsterStride);
+  for (const [index, monster] of request.monsters.entries()) {
+    const at = index * monsterStride;
+    monsters[at + monsterElementAt] = monster.element;
+    monsters[at + monsterArchetypeAt] = monster.archetype;
+    for (let main = 0; main < monsterMainPropertyCount; main += 1) {
+      monsters[at + monsterMainPreferencesAt + main] = monster.mainPreferences[main];
+    }
+    for (let property = 0; property < scoredArtifactProperties.length; property += 1) {
+      monsters[at + monsterSubPropertyPreferencesAt + property] =
+        monster.subPropertyPreferences[property];
+      monsters[at + monsterSubPropertyMinimumsAt + property] =
+        monster.subPropertyMinimums?.[property] ?? 0;
+    }
+  }
   /* One row of flags per equip class, indexed by the class code the artifacts
      carry, because a stone converts only the class it was engraved for. The
      table is sized to the highest class code rather than to the number of

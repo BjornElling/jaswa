@@ -863,14 +863,20 @@ export function prepareRuneCandidate(
   };
 }
 
-/** The best legal end state, against the best a rune in this slot could be. */
-export function candidateMaxValue(candidate: RuneCandidate): number {
+/** The score of this reading alone, without its optional no-craft alternative. */
+export function candidateOwnMaxValue(candidate: RuneCandidate): number {
   /* Ordinary runes cannot exceed their ordinary perfect-rune denominator. An
      Ancient rune may: its verified initial rolls are deliberately measured against
      that same ordinary denominator, so a maximum Ancient roll remains visible as
      more than 100 % instead of being flattened away. */
   const ownRatio = candidate.best / candidate.ceiling;
   const own = (candidate.rune.ancient ? ownRatio : Math.min(1, ownRatio)) * candidate.mainScale;
+  return own;
+}
+
+/** The better of this reading and its optional no-craft alternative. */
+export function candidateMaxValue(candidate: RuneCandidate): number {
+  const own = candidateOwnMaxValue(candidate);
   /* Craft is optional. Comparing with the neutral candidate prevents a larger
      denominator or a poor assumed craft roll from making the displayed score fall. */
   return Math.max(own, candidate.baseline === null ? 0 : candidateMaxValue(candidate.baseline));
@@ -950,26 +956,37 @@ export type ChanceAsk = {
 
 const settledAsk = (answer: number): ChanceAsk => ({ jobs: [], combine: () => answer });
 
-export function candidateChanceAsk(candidate: RuneCandidate, threshold: number): ChanceAsk {
+/** One complete reading against one complete threshold. */
+export function candidateChanceAskForReading(candidate: RuneCandidate, threshold: number): ChanceAsk {
   if (threshold === Number.NEGATIVE_INFINITY) return settledAsk(1);
   if (threshold === Number.POSITIVE_INFINITY || candidate.mainScale <= 0) return settledAsk(0);
-  /* The neutral candidate is a legal choice even when craft credit is present.
-     Taking the larger of the two makes considering a Gem or Grindstone incapable of
-     being a penalty, while the craft-aware reading still uses the item wherever it
-     wins on the realised end state. */
+  const step = chanceStep(candidate.future, candidate.scoring, threshold * candidate.ceiling / candidate.mainScale);
+  if (step.job === null) return settledAsk(step.settled ?? 0);
+  return {
+    jobs: [step.job],
+    combine: (shares) => Math.min(1, Math.max(0, shares[0] ?? 0)),
+  };
+}
+
+export function candidateChanceAsk(candidate: RuneCandidate, threshold: number): ChanceAsk {
+  /* Craft is optional, but each option is a whole reading. Keeping the larger
+     chance is useful to callers that ask only whether either legal reading clears
+     a shared threshold; the advice policy uses the single-reading helper so the
+     printed figures never mix the two readings. */
   const subjects = candidate.baseline === null ? [candidate] : [candidate, candidate.baseline];
-  const steps = subjects.map((subject) =>
-    chanceStep(subject.future, subject.scoring, threshold * subject.ceiling / subject.mainScale));
-  const jobs = steps.map((step) => step.job).filter((job): job is CountingJob => job !== null);
-  if (jobs.length === 0) return settledAsk(Math.max(...steps.map((step) => step.settled ?? 0)));
+  const asks = subjects.map((subject) => candidateChanceAskForReading(subject, threshold));
+  const jobs = asks.flatMap((ask) => ask.jobs);
+  if (jobs.length === 0) {
+    return settledAsk(asks.reduce((best, ask) => Math.max(best, ask.combine([])), 0));
+  }
   return {
     jobs,
     combine(shares) {
       let best = 0;
       let at = 0;
-      for (const step of steps) {
-        let answer = step.settled ?? 0;
-        if (step.job !== null) { answer = shares[at] ?? 0; at += 1; }
+      for (const ask of asks) {
+        const answer = ask.combine(shares.slice(at, at + ask.jobs.length));
+        at += ask.jobs.length;
         if (answer > best) best = answer;
       }
       return Math.min(1, Math.max(0, best));

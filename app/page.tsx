@@ -461,6 +461,8 @@ export default function Home() {
         game={game}
         settings={preferences.runePotential}
         presets={preferences.runePotentialPresets}
+        general={preferences.general}
+        hardwareAcceleration={preferences.hardwareAcceleration}
       /></Suspense>}
 
       {page === 'relics' && <Suspense fallback={<WorkspaceLoading />}><RelicList game={game} monsters={monsters} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}

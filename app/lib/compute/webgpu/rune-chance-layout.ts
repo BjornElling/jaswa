@@ -33,10 +33,21 @@ export const maxGemOptions = 11;
 
 /** Effect id, roll total, the stone already there, and the improvement interval. */
 export const lineStride = 5;
+export const lineStatAt = 0;
+export const lineValueAt = 1;
+export const lineGrindAt = 2;
+export const lineUpgradeMinimumAt = 3;
+export const lineUpgradeMaximumAt = 4;
 /** Effect id and the initial-roll interval. */
 export const poolEntryStride = 3;
+export const poolStatAt = 0;
+export const poolInitialMinimumAt = 1;
+export const poolInitialMaximumAt = 2;
 /** Effect id, what it is worth with its stone, and the bare roll. */
 export const gemEntryStride = 3;
+export const gemStatAt = 0;
+export const gemValueAt = 1;
+export const gemRollAt = 2;
 
 /* ------------------------------------------------------------- the rune record */
 
@@ -105,8 +116,19 @@ export const runeChanceConstants: Readonly<Record<string, number>> = {
   SCORING_STRIDE: scoringStride,
   JOB_STRIDE: jobStride,
   LINE_STRIDE: lineStride,
+  LINE_STAT_AT: lineStatAt,
+  LINE_VALUE_AT: lineValueAt,
+  LINE_GRIND_AT: lineGrindAt,
+  LINE_UPGRADE_MIN_AT: lineUpgradeMinimumAt,
+  LINE_UPGRADE_MAX_AT: lineUpgradeMaximumAt,
   POOL_STRIDE: poolEntryStride,
+  POOL_STAT_AT: poolStatAt,
+  POOL_INITIAL_MIN_AT: poolInitialMinimumAt,
+  POOL_INITIAL_MAX_AT: poolInitialMaximumAt,
   GEM_STRIDE: gemEntryStride,
+  GEM_STAT_AT: gemStatAt,
+  GEM_VALUE_AT: gemValueAt,
+  GEM_ROLL_AT: gemRollAt,
   MAX_LINES: maxLines,
   MAX_POOL: maxPool,
   RUNE_GEMMED_AT: runeGemmedAt,
@@ -121,6 +143,7 @@ export const runeChanceConstants: Readonly<Record<string, number>> = {
   SCORING_PREFIX_AT: scoringPrefixAt,
   SCORING_GEM_COUNT_AT: scoringGemCountAt,
   SCORING_GEMS_AT: scoringGemsAt,
+  SCORING_PRICES_AT: scoringPricesAt,
   JOB_RUNE_AT: jobRuneAt,
   JOB_SCORING_AT: jobScoringAt,
   JOB_RUNS_AT: jobRunsAt,

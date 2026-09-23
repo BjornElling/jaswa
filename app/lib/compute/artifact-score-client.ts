@@ -26,12 +26,18 @@ export function calculateArtifactScores(
       else resolve(event.data.result);
     };
     const onError = () => {
+      currentWorker.terminate();
+      if (worker === currentWorker) worker = undefined;
       currentWorker.removeEventListener('message', onMessage);
       currentWorker.removeEventListener('error', onError);
       reject(new Error('JASWA could not start its artifact calculation worker.'));
     };
     currentWorker.addEventListener('message', onMessage);
     currentWorker.addEventListener('error', onError, { once: true });
-    currentWorker.postMessage({ type: 'calculate', requestId, request, preferWebGpu });
+    try {
+      currentWorker.postMessage({ type: 'calculate', requestId, request, preferWebGpu });
+    } catch {
+      onError();
+    }
   });
 }

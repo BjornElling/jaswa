@@ -5,9 +5,9 @@
 export type ComputeBackend = 'cpu' | 'webgpu';
 export type CalculationBackend = ComputeBackend | 'mixed';
 
-export function combineCalculationBackends(backends: readonly ComputeBackend[]): CalculationBackend {
-  const usesCpu = backends.includes('cpu');
-  const usesWebGpu = backends.includes('webgpu');
+export function combineCalculationBackends(backends: readonly CalculationBackend[]): CalculationBackend {
+  const usesCpu = backends.some((backend) => backend === 'cpu' || backend === 'mixed');
+  const usesWebGpu = backends.some((backend) => backend === 'webgpu' || backend === 'mixed');
   if (usesCpu && usesWebGpu) return 'mixed';
   return usesWebGpu ? 'webgpu' : 'cpu';
 }
