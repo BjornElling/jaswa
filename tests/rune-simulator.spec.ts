@@ -22,7 +22,7 @@ test('simulates random runes through +0, +9 and +12, spending no craft without a
   await expect(page.getByLabel('Main stat')).toHaveCount(0);
   await expect(page.getByRole('combobox', { name: 'Enchanted Gem' })).toHaveCount(0);
   await expect(page.getByRole('combobox', { name: 'Grindstone' })).toHaveCount(0);
-  await expect(page.getByLabel('Runes kept at +12')).toHaveText('—');
+  await expect(page.getByLabel('Runes kept at +12')).toContainText('Generate runes to count the keepers');
   for (const gate of ['After +0', 'After +9', 'After +12']) {
     await expect(page.getByLabel(gate)).toHaveValue('recommendation');
   }
@@ -64,7 +64,7 @@ test('simulates random runes through +0, +9 and +12, spending no craft without a
   await page.getByLabel('After +12').selectOption('keep-all');
   await page.getByRole('button', { name: 'Generate runes', exact: true }).click();
 
-  await expect(page.getByRole('heading', { name: '200 runes, three checkpoints', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '200 runes', exact: true })).toBeVisible();
   const rows = page.locator('.rune-simulator-table tbody tr');
   await expect(rows).toHaveCount(200);
   /* A named set is its name alone, and every row carries its quality rule. */
@@ -74,8 +74,16 @@ test('simulates random runes through +0, +9 and +12, spending no craft without a
   await expect(page.locator('.rune-simulator-table [title="Ancient"]')).toHaveCount(0);
   await expect(page.locator('.rune-simulator-rolls')).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('rune-simulator-results-plus-zero.png') });
+  /* Every row is four substats tall at every checkpoint, so none grows when a
+     rare or hero rune gains its fourth line at +12. */
+  /* Collapsed borders land rows on half pixels, so heights agree within one. */
+  const rowHeights = () => rows.evaluateAll((all) => all.map((row) => row.getBoundingClientRect().height));
+  const plusZeroHeights = await rowHeights();
+  expect(Math.max(...plusZeroHeights) - Math.min(...plusZeroHeights)).toBeLessThan(1);
   await page.getByRole('button', { name: '+12', exact: true }).click();
   await expect(page.getByRole('button', { name: '+12', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  const plusTwelveHeights = await rowHeights();
+  expect(Math.max(...plusTwelveHeights, ...plusZeroHeights) - Math.min(...plusTwelveHeights, ...plusZeroHeights)).toBeLessThan(1);
   /* With no role to judge by, nothing says which Gem helps, so nothing is spent. */
   await expect(page.locator('.rune-simulator-enchanted-mark')).toHaveCount(0);
   await expect(page.locator('.rune-simulator-grind')).toHaveCount(0);
@@ -101,7 +109,7 @@ test('reads every checkpoint with Rune Clean-up and counts the keepers by preset
   await page.getByLabel('After +9').selectOption('keep-all');
   await page.getByLabel('After +12').selectOption('keep-all');
   await page.getByRole('button', { name: 'Generate runes', exact: true }).click();
-  await expect(page.getByRole('heading', { name: '120 runes, three checkpoints', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '120 runes', exact: true })).toBeVisible();
   const verdicts = page.locator('.rune-simulator-table tbody [data-verdict]');
   await expect(verdicts).toHaveCount(120);
   await expect(page.locator('.rune-simulator-table tbody [data-verdict="keep"]')).toHaveCount(0);
@@ -114,7 +122,6 @@ test('reads every checkpoint with Rune Clean-up and counts the keepers by preset
   await expect(page.locator('.rune-simulator-enchanted-mark').first()).toBeVisible();
   await expect(page.locator('.rune-simulator-grind').first()).toBeVisible();
   const keeps = await page.locator('.rune-simulator-table tbody [data-verdict="keep"]').count();
-  await expect(page.getByLabel('Runes kept at +12')).toHaveText(String(keeps));
 
   const stats = page.locator('.rune-simulator-stats-table');
   await expect(stats.locator('thead th')).toHaveText(['Preset', 'Slot 1', 'Slot 2', 'Slot 3', 'Slot 4', 'Slot 5', 'Slot 6']);
@@ -133,7 +140,7 @@ test('reads every checkpoint with Rune Clean-up and counts the keepers by preset
   await page.getByLabel('After +12').selectOption('recommendation');
   await page.getByRole('button', { name: 'Generate runes', exact: true }).click();
 
-  await expect(page.getByRole('heading', { name: '20 runes, three checkpoints', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '20 runes', exact: true })).toBeVisible();
   await expect(page.locator('.rune-simulator-table tbody tr')).toHaveCount(20);
   await expect(page.locator('.rune-simulator-table [data-verdict="sell"]').first()).toBeVisible();
 });

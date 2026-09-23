@@ -5493,12 +5493,11 @@ th.align-center .sort-button { justify-content: center; }
 .rune-simulator-lead { margin: 0; max-width: 86ch; }
 .rune-simulator-filters {
   grid-template-columns: repeat(3, 16rem) minmax(0, 1fr);
-  grid-template-rows: auto auto auto auto 1fr;
+  grid-template-rows: auto auto auto 1fr;
   grid-template-areas:
-    "set       slot      stars       count"
+    "set       slot      stars       run"
     "gate-zero gate-nine gate-twelve stats"
     "craft     craft     craft       stats"
-    "actions   actions   actions     stats"
     ".         .         .           stats";
   align-items: start;
 }
@@ -5512,16 +5511,33 @@ th.align-center .sort-button { justify-content: center; }
 .rune-simulator-gate-nine { grid-area: gate-nine; }
 .rune-simulator-gate-twelve { grid-area: gate-twelve; }
 
-.rune-simulator-count {
-  grid-area: count;
+/* Reset, Generate and Quantity share one line, at the height of the selects
+   beside them. The quantity group lends its three rows — label, field, note —
+   to the whole cluster through a subgrid, so the buttons sit on the field's line
+   rather than on the label's or the note's. */
+.rune-simulator-run {
+  grid-area: run;
   justify-self: end;
+  display: grid;
+  grid-template-columns: max-content max-content max-content;
+  grid-template-rows: auto auto auto;
+  column-gap: var(--s3);
+  row-gap: var(--s1);
+}
+.rune-simulator-reset,
+.rune-simulator-generate { grid-row: 2; align-self: center; }
+.rune-simulator-reset { height: 36px; padding: 0 var(--s4); }
+.rune-simulator-count {
+  grid-row: 1 / 4;
+  display: grid;
+  grid-template-rows: subgrid;
   gap: var(--s1);
   text-align: right;
 }
 .rune-simulator-count .filter-group-controls { justify-content: flex-end; }
 .rune-simulator-count-input {
   width: 8ch;
-  height: 44px;
+  height: 36px;
   padding: 0 var(--s3);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
@@ -5591,9 +5607,6 @@ th.align-center .sort-button { justify-content: center; }
   font-variant-numeric: tabular-nums;
 }
 .rune-simulator-craft-note { grid-column: 1 / -1; margin: 0; }
-.rune-simulator-actions { grid-area: actions; }
-.rune-simulator-actions .button { width: 100%; }
-.rune-simulator-actions .filter-reset { width: 100%; }
 
 /* Narrower than three fixed columns and a count table, the panel stacks. */
 @media (max-width: 1180px) {
@@ -5601,15 +5614,12 @@ th.align-center .sort-button { justify-content: center; }
     grid-template-columns: repeat(3, minmax(0, 1fr));
     grid-template-rows: none;
     grid-template-areas:
-      "count     count     count"
       "set       slot      stars"
       "gate-zero gate-nine gate-twelve"
-      "stats     stats     stats"
       "craft     craft     craft"
-      "actions   actions   actions";
+      "stats     stats     stats"
+      "run       run       run";
   }
-  .rune-simulator-count { justify-self: start; text-align: left; }
-  .rune-simulator-count .filter-group-controls { justify-content: flex-start; }
   .rune-simulator-stats { padding-left: 0; border-left: 0; }
 }
 
@@ -5639,7 +5649,16 @@ th.align-center .sort-button { justify-content: center; }
 .rune-simulator-table tbody td { height: auto; vertical-align: top; padding-block: var(--s2); white-space: nowrap; }
 .rune-simulator-set,
 .rune-simulator-preset { overflow: hidden; text-overflow: ellipsis; }
-.rune-simulator-subs ul { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--s1); }
+/* Every row is four substats tall, whatever it holds. A rare or hero rune gains
+   its fourth line at +12, and a row that grew with it would push every row
+   below down the moment the checkpoint changed. */
+.rune-simulator-subs ul,
+.rune-simulator-subs > .muted {
+  display: grid;
+  align-content: start;
+  height: calc(4lh + 3 * var(--s1));
+}
+.rune-simulator-subs ul { margin: 0; padding: 0; list-style: none; grid-auto-rows: 1lh; gap: var(--s1); }
 /* Name, value and marks in three fixed tracks, so the values of four lines — and
    the innate beside them — line up on their units down the cell. */
 .rune-simulator-property {

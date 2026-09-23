@@ -190,17 +190,26 @@ export function RuneSimulatorSection({ game, settings, presets, general, hardwar
         {[1, 2, 3, 4, 5, 6].map((stars) => <option key={stars} value={stars}>{stars}★</option>)}
       </SimulatorSelect>
 
-      <div className="filter-group rune-simulator-count">
-        <label className="filter-label" htmlFor="rune-simulator-count">Quantity</label>
-        <div className="filter-group-controls">
-          {/* A text field rather than type="number": a quantity is typed, not nudged, and the
-              spinner arrows, arrow keys and scroll wheel only offered ways to change it by accident. */}
-          <input id="rune-simulator-count" className="rune-simulator-count-input" type="text"
-            inputMode="numeric" pattern="[0-9]*" maxLength={4} autoComplete="off" value={form.count}
-            onChange={(event) => setFormValue(setForm, 'count', event.target.value.replace(/\D/g, ''))}
-            aria-describedby="rune-simulator-count-note" />
+      {/* How many and go, on one line: the quantity is the last thing chosen before
+          generating, so the action sits beside it rather than at the foot of the panel. */}
+      <div className="rune-simulator-run">
+        <button type="button" className="filter-reset rune-simulator-reset" onClick={reset}>Reset filters</button>
+        <Button type="submit" tone="primary" className="rune-simulator-generate"
+          disabled={count === null || busy} busy={busy} busyLabel="Generating runes">
+          Generate runes
+        </Button>
+        <div className="filter-group rune-simulator-count">
+          <label className="filter-label" htmlFor="rune-simulator-count">Quantity</label>
+          <div className="filter-group-controls">
+            {/* A text field rather than type="number": a quantity is typed, not nudged, and the
+                spinner arrows, arrow keys and scroll wheel only offered ways to change it by accident. */}
+            <input id="rune-simulator-count" className="rune-simulator-count-input" type="text"
+              inputMode="numeric" pattern="[0-9]*" maxLength={4} autoComplete="off" value={form.count}
+              onChange={(event) => setFormValue(setForm, 'count', event.target.value.replace(/\D/g, ''))}
+              aria-describedby="rune-simulator-count-note" />
+          </div>
+          <span id="rune-simulator-count-note" className="rune-simulator-note type-caption">1–1,000 copies</span>
         </div>
-        <span id="rune-simulator-count-note" className="rune-simulator-note type-caption">1–1,000 copies</span>
       </div>
 
       <GateSelect id="rune-simulator-gate-zero" label="After +0" value={form.gateZero}
@@ -213,13 +222,6 @@ export function RuneSimulatorSection({ game, settings, presets, general, hardwar
       <KeeperStatistics run={run} />
 
       <CraftSettingsReadout settings={settings} />
-
-      <div className="filter-panel-actions rune-simulator-actions">
-        <Button type="submit" tone="primary" size="prominent" disabled={count === null || busy} busy={busy} busyLabel="Generating runes">
-          Generate runes
-        </Button>
-        <button type="button" className="filter-reset" onClick={reset}>Reset filters</button>
-      </div>
     </form>
 
     {message && <p className="calculation-status" data-failed role="alert">{message}</p>}
@@ -256,15 +258,9 @@ function KeeperStatistics({ run }: { run: SimulationRun | null }) {
     const totals = slots.map((_, at) => [...rows.values()].reduce((sum, row) => sum + row.slots[at], 0));
     return { rows: [...rows.entries()], totals };
   }, [run]);
-  const kept = run?.result.summary.kept ?? null;
-
-  return <section className="rune-simulator-stats" aria-labelledby="rune-simulator-stats-title">
-    <header className="rune-simulator-stats-head">
-      <h3 id="rune-simulator-stats-title" className="filter-label">Kept at +12</h3>
-      <output className="rune-simulator-stats-total" aria-label="Runes kept at +12">
-        {kept === null ? '—' : kept.toLocaleString('en')}
-      </output>
-    </header>
+  /* No headline total: the table's own footer already sums every column, and the
+     line under the results heading counts the kept runes too. */
+  return <section className="rune-simulator-stats" aria-label="Runes kept at +12">
     {counts
       ? <table className="rune-simulator-stats-table">
         <thead><tr>
@@ -374,7 +370,7 @@ function RuneSimulationResults({ result, stage, onStageChange, general }: {
     <header className="rune-simulator-results-head">
       <div>
         <p className="filter-label">Simulation results</p>
-        <h2 id="rune-simulator-results-title" className="type-title">{summary.generated.toLocaleString('en')} runes, three checkpoints</h2>
+        <h2 id="rune-simulator-results-title" className="type-title">{summary.generated.toLocaleString('en')} runes</h2>
         <p className="rune-simulator-results-note type-caption">
           Generated {summary.generated.toLocaleString('en')} · reached +9 {summary.reachedNine.toLocaleString('en')} · reached +12 {summary.reachedTwelve.toLocaleString('en')} · kept {summary.kept === null ? '—' : summary.kept.toLocaleString('en')}
         </p>
@@ -387,10 +383,9 @@ function RuneSimulationResults({ result, stage, onStageChange, general }: {
     <CalculationStatus durationMs={result.durationMs} backend={result.backend} general={general}
       detail="Simulation and recommendation checks" />
 
-    <p className="rune-simulator-stage-summary type-caption" aria-live="polite">
-      {stageLabel(stage)}: {current.reached.toLocaleString('en')} entered this checkpoint, {current.survived.toLocaleString('en')} survived it, {current.sold.toLocaleString('en')} sold.
-      {unjudged && ' Best preset, Max value, Chance and Action need an imported account with a level 40 monster and at least one Rune Clean-up preset.'}
-    </p>
+    {unjudged && <p className="rune-simulator-stage-summary type-caption">
+      Best preset, Max value, Chance and Action need an imported account with a level 40 monster and at least one Rune Clean-up preset.
+    </p>}
 
     <div className="table-wrap card rune-simulator-table-wrap">
       <table className="grid-table rune-simulator-table">
