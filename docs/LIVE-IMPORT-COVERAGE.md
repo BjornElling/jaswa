@@ -1,7 +1,7 @@
 # Live import coverage
 
 **Status:** Binding coverage for the direct-import live route  
-**Reviewed:** September 2, 2026
+**Reviewed:** September 23, 2026
 
 The route is also bound by [Import and Count Parity Contract](./IMPORT-PARITY-CONTRACT.md):
 the prepared profile must have the same account counts as the game for
@@ -23,8 +23,8 @@ new reward wrapper names do not silently lose a record.
 
 | Account data | Direct records | Reward records | Removal or movement |
 | --- | --- | --- | --- |
-| Monsters | `unit`, `unit_info`, `target_unit`, `unit_list` | Full unit records in a reward payload | `MoveStorageFromTo`, any request naming a `building_id` and the units moving into it, `remove_unit_id_list`, sacrifice sources, sell/convert requests |
-| Sealed Shrine stacks | `unit_storage_list`, `unit_storage_normal_list`, wherever a response carries them | — | The list in the response replaces the collection, so a sealed or summoned copy is counted the moment the game answers |
+| Monsters | `unit`, `unit_info`, `target_unit`, `unit_list` | Full unit records in a reward payload | `MoveUnitBuilding` (Monster Storage and back), any request naming a `building_id` and the units moving into it, `remove_unit_id_list`, sacrifice sources, sell/convert requests |
+| Sealed Shrine | `unit_storage_list`, `unit_storage_normal_list` at the top of a response | — | A whole list at the top of a response replaces the collection. `MoveStorageFromTo` is read side by side — see below |
 | Runes | `rune`, `rune_info`, `runes` | V2 `changed_item_list` type `8`; legacy `reward.crate.rune(s)`; shop and black-market responses | Upgrade, reappraisal, refine/convert, equip/unequip, sell and remove lists |
 | Artifacts | `artifact`, `artifact_info`, `artifacts` | V2 `changed_item_list` type `73`; legacy reward crates and quest/mail claims | Upgrade, occupation changes, sell and remove lists |
 | Relics | `relic`, `relic_info`, `relics` | Relic-shaped `changed_item_list` records and reward crates | Power-up, occupation changes, breakdown/sell and remove lists; the root relic stays present because one relic can be engraved on many monsters |
@@ -45,9 +45,33 @@ new reward wrapper names do not silently lose a record.
   the response returns a full or partial account unit.
 - Monster roster/storage moves, one monster or a batch, and equipment
   occupation changes.
-- Sealing a monster into the Sealed Shrine and summoning one back out, from the
-  shrine list the game returns with its own answer rather than only from a full
-  account read.
+- Sealing a monster into either Sealed Shrine tab and taking one back out, from
+  the game's own answer to the move rather than only from a full account read.
+
+## The Sealed Shrine door
+
+`MoveStorageFromTo` moves monsters between the roster and the Sealed Shrine.
+It never touches Monster Storage, which is `MoveUnitBuilding`. The sides
+below come from a captured session that moved one monster each way through
+each tab (September 23, 2026):
+
+| Move | Sides | What the answer carries |
+| --- | --- | --- |
+| Roster → Summoned | `1 → 3` | `result_to.remove_unit_id_list`, and the touched stack in `result_to.unit_storage_list` |
+| Summoned → roster | `3 → 1` | The new unit in `result_from.add_unit_list`, and the touched stack in `result_from.unit_storage_list` |
+| Roster → Normal | `1 → 4` | Each monster whole in `result_to.stored_unit_list` |
+| Normal → roster | `4 → 1` | The released unit in `result_from.add_unit_list` |
+
+The stack list in a move's answer holds only the stacks the move touched, so
+it updates those stacks instead of replacing the tab. A stack left at quantity
+zero is removed.
+
+Any other side, a known side answered without the fields above, equipment
+coming off with the seal, or sealing a monster that still carries equipment
+opens a capture gap and pauses live import. Before this, the helper assumed
+side `3` was Monster Storage. Sealed Summoned copies were filed as Storage, and
+a monster sealed into the Normal tab stayed in the inventory, because an
+unrecognised move changed nothing and nothing said so.
 
 ## What the diagnostic log says
 

@@ -1042,6 +1042,9 @@ fn capture(request: &[u8], response: &[u8], shared: &Shared) {
             "capture",
             &format!("Held back {command_name}: the capture gap stands until the next login"),
         );
+    } else if let Some(reason) = profile.unmodeled_exchange(&response, &request) {
+        drop(profile);
+        fail(reason);
     } else if profile.apply_update(&response, &request) {
         diagnostics::record(
             "capture",

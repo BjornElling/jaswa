@@ -287,6 +287,12 @@ impl ProfileStore {
         true
     }
 
+    /// Names an exchange the account model cannot apply faithfully, so the
+    /// caller can stop live import instead of letting the account drift.
+    pub fn unmodeled_exchange(&self, response: &Value, request: &Value) -> Option<String> {
+        unmodeled_shrine_move(self.profile.as_ref(), request, response)
+    }
+
     pub fn apply_update(&mut self, response: &Value, request: &Value) -> bool {
         if self.profile.is_none()
             || !response.is_object()
@@ -365,21 +371,6 @@ impl ProfileStore {
                 set_collection(&mut profile, "unit_storage_list", next);
                 changed = true;
             }
-            /* A summoned Shrine stack has no unit_id, so the complete stack
-            list cannot say which live copies were consumed to make it. The
-            sealing request does: those source ids must leave unit_list or
-            Numbers will classify the stale records by their old building_id
-            as ordinary Monster Storage. Keep this scoped to sealing commands;
-            MoveStorageFromTo also carries unit ids, but that is the separate
-            Monster Storage location and must remain in unit_list. */
-            if command.contains("seal") || command.contains("shrine") {
-                changed |= remove_collection_items(
-                    &mut profile,
-                    "unit_list",
-                    "unit_id",
-                    &request_identifiers(request, "unit_id"),
-                );
-            }
         }
         let normal_storage_list = response
             .get("unit_storage_normal_list")
@@ -439,22 +430,8 @@ impl ProfileStore {
                 &building_id,
             );
         }
-        if command.contains("movestoragefromto") {
-            let unit_ids = request_identifiers(request, "unit_id");
-            let building_id = match (
-                identifier(request, "from").as_deref(),
-                identifier(request, "to").as_deref(),
-            ) {
-                /* `3` is the game's monster-storage side. The actual building
-                id is account-specific, so read it from the captured account
-                instead of treating the side number as a building id. */
-                (_, Some("3")) => monster_storage_building_id(&profile),
-                (Some("3"), _) => Some(Value::from(0)),
-                _ => None,
-            };
-            if let Some(building_id) = building_id {
-                changed |= update_unit_building(&mut profile, &unit_ids, &building_id);
-            }
+        if command == "movestoragefromto" {
+            changed |= apply_shrine_move(&mut profile, response);
         }
         for entity in [ENTITIES[1], ENTITIES[2], ENTITIES[3]] {
             if command.contains("equip")
@@ -485,22 +462,20 @@ impl ProfileStore {
                 }
             }
         }
-        if !command.contains("movestoragefromto") {
-            changed |= remove_response_entities(&mut profile, response);
-            let mut removed_unit_ids = identifiers_in_fields(
-                response,
+        changed |= remove_response_entities(&mut profile, response);
+        let mut removed_unit_ids = identifiers_in_fields(
+            response,
+            "unit_id",
+            &["remove_unit_id_list", "remove_unit_ids"],
+        );
+        if command.contains("sacrifice") {
+            removed_unit_ids.extend(identifiers_in_fields(
+                request,
                 "unit_id",
-                &["remove_unit_id_list", "remove_unit_ids"],
-            );
-            if command.contains("sacrifice") {
-                removed_unit_ids.extend(identifiers_in_fields(
-                    request,
-                    "unit_id",
-                    &["source_unit_list"],
-                ));
-            }
-            changed |= remove_everywhere(&mut profile, ENTITIES[0], &unique(removed_unit_ids));
+                &["source_unit_list"],
+            ));
         }
+        changed |= remove_everywhere(&mut profile, ENTITIES[0], &unique(removed_unit_ids));
         if command.contains("sell") {
             for entity in ENTITIES {
                 if entity.collection == "inventory_info"
@@ -633,6 +608,174 @@ fn summoned_storage_list(response: &Value) -> Option<Vec<Value>> {
         })
         .cloned()
 }
+/* `MoveStorageFromTo` is the Sealed Shrine's door, and only that: Monster
+Storage is `MoveUnitBuilding`, which answers with the moved unit and its new
+building. Reading side `3` as Monster Storage — an assumption no capture ever
+backed — filed every monster sealed into the Summoned tab as Storage and let a
+monster sealed into the Normal tab stay in the inventory. The sides below are
+the ones captured traffic shows the game using; any other is refused by
+`unmodeled_shrine_move` rather than read. */
+const ROSTER_SIDE: &str = "1";
+const SUMMONED_SIDE: &str = "3";
+const NORMAL_SIDE: &str = "4";
+
+fn shrine_move_sides(request: &Value) -> (Option<String>, Option<String>) {
+    (identifier(request, "from"), identifier(request, "to"))
+}
+
+/* Each half of the answer describes the side it names. Captured shapes:
+- roster → Summoned: `result_to` carries `remove_unit_id_list` (the generic
+  removal handles it) and the changed stack in `unit_storage_list`;
+- Summoned → roster: `result_from` carries the new unit in `add_unit_list`
+  (the generic unit merge handles it) and the changed stack;
+- roster → Normal: `result_to.stored_unit_list` carries each monster whole,
+  in the shape the Normal list itself holds;
+- Normal → roster: `result_from.add_unit_list` carries the released unit, which
+  the generic merge files and which then evicts its shrine record.
+The stack list here is only the stacks this move touched, never the whole tab,
+so it updates stacks by master id instead of replacing the collection. */
+fn apply_shrine_move(profile: &mut Value, response: &Value) -> bool {
+    let mut changed = false;
+    for side in ["result_from", "result_to"] {
+        let Some(stacks) = response
+            .get(side)
+            .and_then(|value| value.get("unit_storage_list"))
+            .and_then(Value::as_array)
+        else {
+            continue;
+        };
+        let touched = stacks
+            .iter()
+            .filter_map(|stack| identifier(stack, "unit_master_id"))
+            .collect::<Vec<_>>();
+        let current = collection(profile, "unit_storage_list").to_vec();
+        /* A stack of nothing is not a stack: counting it would show a copy the
+        tab no longer holds. */
+        let next = merge_collection(current.clone(), stacks.clone(), "unit_master_id")
+            .into_iter()
+            .filter(|stack| {
+                !identifier(stack, "unit_master_id").is_some_and(|id| touched.contains(&id))
+                    || stack.get("quantity").and_then(Value::as_u64) != Some(0)
+            })
+            .collect::<Vec<_>>();
+        if next != current {
+            set_collection(profile, "unit_storage_list", next);
+            changed = true;
+        }
+    }
+    let stored = response
+        .get("result_to")
+        .and_then(|value| value.get("stored_unit_list"))
+        .and_then(Value::as_array)
+        .map(|units| {
+            units
+                .iter()
+                .filter(|unit| valid_identifier(unit, "unit_id"))
+                .cloned()
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if !stored.is_empty() {
+        let ids = stored
+            .iter()
+            .filter_map(|unit| identifier(unit, "unit_id"))
+            .collect::<Vec<_>>();
+        changed |= remove_collection_items(profile, "unit_list", "unit_id", &ids);
+        let current = collection(profile, "unit_storage_normal_list").to_vec();
+        let next = merge_collection(current.clone(), stored, "unit_id");
+        if next != current {
+            set_collection(profile, "unit_storage_normal_list", next);
+            changed = true;
+        }
+    }
+    changed
+}
+
+/* A shrine move JASWA cannot place must stop live import rather than leave a
+monster counted where it no longer is. That is exactly what the unread
+roster → Normal move did: it changed nothing, and the monster stayed on screen
+in the inventory it had left. Each check below is a shape the captured moves
+had; an answer without it is one the game has not been seen to give, and its
+meaning is to be found out, not assumed. */
+fn unmodeled_shrine_move(profile: Option<&Value>, request: &Value, response: &Value) -> Option<String> {
+    let command = request.get("command").and_then(Value::as_str)?;
+    if !command.eq_ignore_ascii_case("MoveStorageFromTo") || !successful_response(response) {
+        return None;
+    }
+    let (from, to) = shrine_move_sides(request);
+    let (from, to) = (from.unwrap_or_default(), to.unwrap_or_default());
+    let refuse = |why: &str| {
+        Some(format!(
+            "MoveStorageFromTo from side {from} to side {to} {why}, which JASWA does not model yet."
+        ))
+    };
+    let half = |side: &str, key: &str| {
+        response
+            .get(side)
+            .and_then(|value| value.get(key))
+            .and_then(Value::as_array)
+            .cloned()
+    };
+    match (from.as_str(), to.as_str()) {
+        (ROSTER_SIDE, SUMMONED_SIDE) if half("result_to", "remove_unit_id_list").is_none() => {
+            return refuse("named no monster leaving the roster");
+        }
+        (ROSTER_SIDE, NORMAL_SIDE) if half("result_to", "stored_unit_list").is_none() => {
+            return refuse("gave no record of the sealed monster");
+        }
+        (SUMMONED_SIDE | NORMAL_SIDE, ROSTER_SIDE) => {
+            let Some(added) = half("result_from", "add_unit_list") else {
+                return refuse("gave no record of the released monster");
+            };
+            /* Leaving the Summoned tab spends one copy of a stack. A stack
+            the answer does not restate would keep counting that copy. */
+            if from == SUMMONED_SIDE {
+                let stacks = half("result_from", "unit_storage_list").unwrap_or_default();
+                let restated = |unit: &Value| {
+                    identifier(unit, "unit_master_id").is_some_and(|master| {
+                        stacks
+                            .iter()
+                            .any(|stack| identifier(stack, "unit_master_id").as_deref() == Some(&master))
+                    })
+                };
+                if !added.iter().all(restated) {
+                    return refuse("did not restate the stack the monster left");
+                }
+            }
+        }
+        (ROSTER_SIDE, SUMMONED_SIDE) | (ROSTER_SIDE, NORMAL_SIDE) => {}
+        _ => return refuse("moved monsters between sides no captured exchange has shown"),
+    }
+    /* Every captured seal left the monster's equipment untouched and said so
+    with two empty lists. Equipment coming off, or a departing monster still
+    carrying some, would leave runes or artifacts attached to a monster the
+    roster no longer holds. */
+    let unequipped = ["unequip_rune_list", "unequip_artifact_list"].iter().any(|key| {
+        half("result_to", key).is_some_and(|items| !items.is_empty())
+            || half("result_from", key).is_some_and(|items| !items.is_empty())
+    });
+    if unequipped {
+        return refuse("also took equipment off");
+    }
+    if from == ROSTER_SIDE {
+        let leaving = request_identifiers(request, "unit_id");
+        let equipped = profile
+            .map(|profile| collection(profile, "unit_list"))
+            .unwrap_or(&[])
+            .iter()
+            .filter(|unit| identifier(unit, "unit_id").is_some_and(|id| leaving.contains(&id)))
+            .any(|unit| {
+                ["runes", "artifacts", "relics"]
+                    .iter()
+                    .any(|key| !collection(unit, key).is_empty())
+            });
+        if equipped {
+            return refuse("sealed a monster that still carries equipment");
+        }
+    }
+    None
+}
+
 fn identifier(value: &Value, key: &str) -> Option<String> {
     value.get(key).and_then(|value| match value {
         Value::String(value) => Some(value.clone()),
@@ -834,13 +977,6 @@ fn sync_unit_equipment(profile: &mut Value, unit: &Value) -> bool {
     }
     changed
 }
-fn monster_storage_building_id(profile: &Value) -> Option<Value> {
-    collection(profile, "building_list")
-        .iter()
-        .find(|building| identifier(building, "building_master_id").as_deref() == Some("25"))
-        .and_then(|building| building.get("building_id"))
-        .cloned()
-}
 fn update_unit_building(profile: &mut Value, ids: &[String], building_id: &Value) -> bool {
     if ids.is_empty() {
         return false;
@@ -977,7 +1113,10 @@ fn response_entities(
         let blocked_context = if claimed_mail {
             false
         } else {
-            blocked_context || non_account_container(parent) || superseded_record(parent)
+            blocked_context
+                || non_account_container(parent)
+                || superseded_record(parent)
+                || departed_record(parent)
         };
         let account_context = account_context || account_container(parent) || claimed_mail;
         for entity in ENTITIES {
@@ -1100,6 +1239,13 @@ refined artifact stayed marked unrefined however many times the snapshot
 refreshed. A "before" record is history, never account state. */
 fn superseded_record(parent: &str) -> bool {
     parent.starts_with("before_")
+}
+
+/* A monster the game has just sealed into the Normal tab, answered in full so
+it can be filed there. Read as a roster record it put the monster straight back
+in the inventory it had left; `apply_shrine_move` files it instead. */
+fn departed_record(parent: &str) -> bool {
+    parent == "stored_unit_list"
 }
 
 /* These containers describe somebody else's account, a shop preview, or an
@@ -1779,31 +1925,158 @@ mod tests {
         );
     }
 
-    #[test]
-    fn applies_storage_moves_in_both_directions() {
+    /* The request and response shapes in the shrine tests below are the
+    game's own, trimmed from a captured session: one monster to Monster Storage
+    and back, one into each Sealed Shrine tab and back. */
+    fn shrine_account() -> ProfileStore {
         let mut store = ProfileStore::default();
         assert!(store.accept_snapshot(json!({
+            "wizard_id": 7,
             "building_list": [{"building_id": 99, "building_master_id": 25}],
             "unit_list": [
-                {"unit_id": 1, "building_id": 0},
-                {"unit_id": 2, "building_id": 0}
+                {"unit_id": 1, "wizard_id": 7, "unit_master_id": 10615, "building_id": 0, "runes": [], "artifacts": []},
+                {"unit_id": 2, "wizard_id": 7, "unit_master_id": 22401, "building_id": 0, "runes": [], "artifacts": []}
             ],
+            "unit_storage_list": [{"class": 3, "quantity": 3, "unit_master_id": 22401}],
+            "unit_storage_normal_list": [],
             "runes": []
         })));
+        store
+    }
 
-        assert!(store.apply_update(
-            &json!({"result_to": {"unit_storage_list": [{"unit_master_id": 10101}]} }),
-            &json!({"command": "MoveStorageFromTo", "from": 1, "to": 3, "unit_id_list": [{"unit_id": 1}, {"unit_id": 2}]})
-        ));
+    fn unit_ids(data: &Value, key: &str) -> Vec<String> {
+        collection(data, key)
+            .iter()
+            .filter_map(|unit| identifier(unit, "unit_id"))
+            .collect()
+    }
+
+    #[test]
+    fn follows_a_monster_into_monster_storage_and_back() {
+        let mut store = shrine_account();
+        for building_id in [99, 0] {
+            assert!(store.apply_update(
+                &json!({"ret_code": 0, "unit_list": [
+                    {"unit_id": 1, "wizard_id": 7, "unit_master_id": 10615, "building_id": building_id}
+                ]}),
+                &json!({"command": "MoveUnitBuilding", "move_list": [
+                    {"building_id": building_id, "island_id": 5, "pos_x": 7, "pos_y": 15, "unit_id": 1}
+                ]})
+            ));
+            assert_eq!(
+                store.read().unwrap().data["unit_list"][0]["building_id"],
+                building_id
+            );
+        }
+    }
+
+    #[test]
+    fn seals_a_monster_into_the_normal_tab_and_releases_it() {
+        let mut store = shrine_account();
+        let seal_request = json!({"command": "MoveStorageFromTo", "from": 1, "to": 4, "move_list": [], "pos_arr": [], "unit_id_list": [1]});
+        let seal = json!({"ret_code": 0, "from": 1, "to": 4, "result_from": [], "result_to": {
+            "ret_code": 0,
+            "stored_unit_list": [{"unit_id": 1, "wizard_id": 7, "unit_master_id": 10615, "building_id": 0, "runes": [], "artifacts": []}],
+            "unequip_artifact_list": [], "unequip_rune_list": [], "unit_id_list": [1]
+        }});
+        assert_eq!(store.unmodeled_exchange(&seal, &seal_request), None);
+        assert!(store.apply_update(&seal, &seal_request));
         let data = &store.read().unwrap().data;
-        assert_eq!(data["unit_list"][0]["building_id"], 99);
-        assert_eq!(data["unit_list"][1]["building_id"], 99);
+        assert_eq!(unit_ids(data, "unit_list"), vec!["2"]);
+        assert_eq!(unit_ids(data, "unit_storage_normal_list"), vec!["1"]);
 
+        let release_request = json!({"command": "MoveStorageFromTo", "from": 4, "to": 1, "move_list": [], "pos_arr": [], "unit_id_list": [1]});
+        let release = json!({"ret_code": 0, "from": 4, "to": 1, "result_to": [], "result_from": {
+            "ret_code": 0,
+            "add_unit_list": [{"unit_id": 1, "wizard_id": 7, "unit_master_id": 10615, "building_id": 0, "runes": [], "artifacts": []}]
+        }});
+        assert_eq!(store.unmodeled_exchange(&release, &release_request), None);
+        assert!(store.apply_update(&release, &release_request));
+        let data = &store.read().unwrap().data;
+        assert_eq!(unit_ids(data, "unit_list"), vec!["2", "1"]);
+        assert!(unit_ids(data, "unit_storage_normal_list").is_empty());
+    }
+
+    #[test]
+    fn seals_a_monster_into_the_summoned_tab_and_summons_one_out() {
+        let mut store = shrine_account();
+        let seal_request = json!({"command": "MoveStorageFromTo", "from": 1, "to": 3, "move_list": [], "pos_arr": [], "unit_id_list": [2]});
+        let seal = json!({"ret_code": 0, "from": 1, "to": 3, "result_from": [], "result_to": {
+            "ret_code": 0,
+            "remove_unit_id_list": [2],
+            "unit_storage_list": [{"class": 3, "quantity": 4, "unit_master_id": 22401}]
+        }});
+        assert_eq!(store.unmodeled_exchange(&seal, &seal_request), None);
+        assert!(store.apply_update(&seal, &seal_request));
+        let data = &store.read().unwrap().data;
+        /* Gone from the roster, not filed as Storage. */
+        assert_eq!(unit_ids(data, "unit_list"), vec!["1"]);
+        assert_eq!(data["unit_storage_list"][0]["quantity"], 4);
+
+        let summon_request = json!({"command": "MoveStorageFromTo", "from": 3, "to": 1, "move_list": [], "unit_id_list": [],
+            "pos_arr": [{"class": 3, "island_id": 5, "pos_x": 39, "pos_y": 24, "unit_master_id": 22401}]});
+        let summon = json!({"ret_code": 0, "from": 3, "to": 1, "result_to": [], "result_from": {
+            "ret_code": 0,
+            "add_unit_list": [{"unit_id": 3, "wizard_id": 7, "unit_master_id": 22401, "building_id": 0, "runes": [], "artifacts": []}],
+            "unit_storage_list": [{"class": 3, "quantity": 3, "unit_master_id": 22401}]
+        }});
+        assert_eq!(store.unmodeled_exchange(&summon, &summon_request), None);
+        assert!(store.apply_update(&summon, &summon_request));
+        let data = &store.read().unwrap().data;
+        assert_eq!(unit_ids(data, "unit_list"), vec!["1", "3"]);
+        assert_eq!(data["unit_storage_list"][0]["quantity"], 3);
+    }
+
+    #[test]
+    fn a_summoned_stack_that_reaches_zero_is_no_longer_counted() {
+        let mut store = shrine_account();
         assert!(store.apply_update(
-            &json!({"result_from": {"unit_storage_list": []}}),
-            &json!({"command": "MoveStorageFromTo", "from": 3, "to": 1, "unit_id_list": [{"unit_id": 1}]})
+            &json!({"ret_code": 0, "result_to": [], "result_from": {
+                "add_unit_list": [{"unit_id": 3, "wizard_id": 7, "unit_master_id": 22401}],
+                "unit_storage_list": [{"class": 3, "quantity": 0, "unit_master_id": 22401}]
+            }}),
+            &json!({"command": "MoveStorageFromTo", "from": 3, "to": 1, "unit_id_list": []})
         ));
-        assert_eq!(store.read().unwrap().data["unit_list"][0]["building_id"], 0);
+        assert!(collection(&store.read().unwrap().data, "unit_storage_list").is_empty());
+    }
+
+    #[test]
+    fn refuses_a_shrine_move_it_cannot_place() {
+        let store = shrine_account();
+        let request = |from: u8, to: u8| {
+            json!({"command": "MoveStorageFromTo", "from": from, "to": to, "unit_id_list": [1]})
+        };
+        /* A side no captured exchange has used. */
+        assert!(store.unmodeled_exchange(&json!({"ret_code": 0}), &request(1, 2)).is_some());
+        assert!(store.unmodeled_exchange(&json!({"ret_code": 0}), &request(3, 4)).is_some());
+        /* A known side answered in a shape it has not been seen to take. */
+        assert!(store.unmodeled_exchange(&json!({"ret_code": 0, "result_to": {}}), &request(1, 4)).is_some());
+        assert!(store.unmodeled_exchange(&json!({"ret_code": 0, "result_to": {}}), &request(1, 3)).is_some());
+        assert!(store.unmodeled_exchange(
+            &json!({"ret_code": 0, "result_from": {"add_unit_list": [{"unit_id": 3, "unit_master_id": 22401}]}}),
+            &request(3, 1)
+        ).is_some());
+        /* Equipment coming off with the seal. */
+        assert!(store.unmodeled_exchange(
+            &json!({"ret_code": 0, "result_to": {"remove_unit_id_list": [1], "unequip_rune_list": [{"rune_id": 5}]}}),
+            &request(1, 3)
+        ).is_some());
+        /* A failed move changes nothing and is not a gap. */
+        assert_eq!(store.unmodeled_exchange(&json!({"ret_code": 1}), &request(1, 2)), None);
+    }
+
+    #[test]
+    fn refuses_to_seal_a_monster_that_still_carries_equipment() {
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({
+            "wizard_id": 7,
+            "unit_list": [{"unit_id": 1, "wizard_id": 7, "runes": [{"rune_id": 5}]}],
+            "runes": [{"rune_id": 5}]
+        })));
+        assert!(store.unmodeled_exchange(
+            &json!({"ret_code": 0, "result_to": {"remove_unit_id_list": [1], "unequip_rune_list": []}}),
+            &json!({"command": "MoveStorageFromTo", "from": 1, "to": 3, "unit_id_list": [1]})
+        ).is_some());
     }
 
     #[test]
@@ -1854,34 +2127,6 @@ mod tests {
     }
 
     #[test]
-    fn unsealing_a_normal_shrine_unit_evicts_its_stale_shrine_record() {
-        let mut store = ProfileStore::default();
-        assert!(store.accept_snapshot(json!({
-            "wizard_id": 7,
-            "unit_list": [{"unit_id": 1, "wizard_id": 7}],
-            "unit_storage_normal_list": [{"unit_id": 8, "unit_master_id": 10101}],
-            "runes": []
-        })));
-
-        /* The unseal reply gives the released unit, but no complete normal
-        storage list. The same id must now have precisely one location. */
-        assert!(store.apply_update(
-            &json!({
-                "ret_code": 0,
-                "unit": {"unit_id": 8, "wizard_id": 7, "unit_master_id": 10101, "unit_level": 1}
-            }),
-            &json!({"command": "UnsealNormalStorage"})
-        ));
-        let data = &store.read().unwrap().data;
-        assert!(
-            collection(data, "unit_list")
-                .iter()
-                .any(|unit| identifier(unit, "unit_id").as_deref() == Some("8"))
-        );
-        assert!(collection(data, "unit_storage_normal_list").is_empty());
-    }
-
-    #[test]
     fn a_complete_normal_shrine_list_evicts_a_stale_live_record() {
         let mut store = ProfileStore::default();
         assert!(store.accept_snapshot(json!({
@@ -1898,7 +2143,8 @@ mod tests {
                 "ret_code": 0,
                 "unit_storage_normal_list": [{"unit_id": 8, "unit_master_id": 10101}]
             }),
-            &json!({"command": "SealNormalStorage"})
+            /* The list is the signal, whichever command brought it. */
+            &json!({"command": "GetWizardDataPart1"})
         ));
         let data = &store.read().unwrap().data;
         assert!(
@@ -2006,10 +2252,9 @@ mod tests {
         );
     }
 
-    /* Sealing a monster answers under the command that sealed it, and the game
-    sends the whole shrine list back with it. Reading the list only under the
-    two full-account commands left the shrine showing yesterday's stacks until
-    the next login. */
+    /* A whole shrine list at the top of a response is the whole tab, whichever
+    command brought it; the game sends one each time the shrine is opened, under
+    `getUnitStorageList`. */
     #[test]
     fn captures_shrine_lists_from_any_command_that_carries_them() {
         let mut store = ProfileStore::default();
@@ -2025,7 +2270,7 @@ mod tests {
                 "ret_code": 0,
                 "unit_storage_list": [{"unit_master_id": 10101, "quantity": 2}]
             }),
-            &json!({"command": "SealUnit", "unit_id": 1})
+            &json!({"command": "getUnitStorageList"})
         ));
         assert_eq!(
             store.read().unwrap().data["unit_storage_list"][0]["quantity"],
@@ -2033,7 +2278,7 @@ mod tests {
         );
         assert!(store.apply_update(
             &json!({"ret_code": 0, "unit_storage_normal_list": []}),
-            &json!({"command": "SummonUnitFromStorage"})
+            &json!({"command": "GetWizardDataPart1"})
         ));
         assert!(
             store.read().unwrap().data["unit_storage_normal_list"]
@@ -2041,41 +2286,6 @@ mod tests {
                 .unwrap()
                 .is_empty()
         );
-    }
-
-    /* Summoned Shrine stacks have no unit ids of their own. The only reliable
-    source ids are therefore the units named by the sealing request; keeping
-    those in unit_list made the same monsters appear as ordinary Storage. */
-    #[test]
-    fn sealing_units_into_summoned_shrine_removes_their_stale_live_records() {
-        let mut store = ProfileStore::default();
-        assert!(store.accept_snapshot(json!({
-            "wizard_id": 7,
-            "unit_list": [
-                {"unit_id": 1, "wizard_id": 7, "unit_master_id": 10101, "building_id": 99},
-                {"unit_id": 2, "wizard_id": 7, "unit_master_id": 10101, "building_id": 99},
-                {"unit_id": 3, "wizard_id": 7, "unit_master_id": 10102, "building_id": 0}
-            ],
-            "runes": []
-        })));
-
-        assert!(store.apply_update(
-            &json!({
-                "ret_code": 0,
-                "unit_storage_list": [
-                    {"unit_master_id": 10101, "quantity": 2, "class": 3}
-                ]
-            }),
-            &json!({
-                "command": "SealUnit",
-                "unit_id_list": [{"unit_id": 1}, {"unit_id": 2}]
-            })
-        ));
-
-        let data = &store.read().unwrap().data;
-        assert_eq!(collection(data, "unit_list").len(), 1);
-        assert_eq!(collection(data, "unit_list")[0]["unit_id"], 3);
-        assert_eq!(collection(data, "unit_storage_list")[0]["quantity"], 2);
     }
 
     #[test]
