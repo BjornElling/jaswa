@@ -11,9 +11,9 @@
  * the random experiment around them: which legal property is drawn, where a
  * power-up lands, and how a configured checkpoint acts on the result.
  */
-import { allStatIds, mainPropertyMaximum, setBonuses, slotMainProperties, subPropertyRange } from './rune-properties';
+import { allStatIds, mainPropertyMaximum, slotMainProperties, subPropertyRange } from './rune-properties';
 import {
-  runeStatName, runeStatIds, slotAllowsSubStat,
+  runeStatName, slotAllowsSubStat,
 } from './runes';
 import type { Rune, RuneDefaultGrade } from './runes';
 import { runeSetId } from './rune-sets';
@@ -21,7 +21,7 @@ import { craftAssumptionForSetting } from './rune-craft-items';
 import { craftItemRoll, isGrindableStatId } from './rune-craft-end-state';
 import type { CraftLineage, CraftRollAssumption } from './rune-craft-items';
 import { runeAdvice } from './rune-cleanup-advice';
-import type { RuneAdvice } from './rune-cleanup-advice';
+import type { RuneAdvice, RuneVerdict } from './rune-cleanup-advice';
 import type { RunePotentialPreset } from './rune-potential-presets';
 import type { ReferenceStats } from './rune-reference-stats';
 import type { RunePotentialSettings } from './types';
@@ -37,7 +37,7 @@ export type SimulationSet = string | null;
 export type SimulationSlot = number | null;
 export type SimulationStars = number | null;
 
-/** A checkpoint either lets everything through or uses Rune Clean-up's verdict. */
+/** A checkpoint either lets everything through or acts on Rune Clean-up's verdict. */
 export type SimulationCheckpointPolicy = 'keep-all' | 'recommendation';
 
 export type SimulationGate = {
@@ -53,7 +53,6 @@ export type RuneSimulationConfig = {
   setName: SimulationSet;
   slot: SimulationSlot;
   stars: SimulationStars;
-  mainStatId: number | null;
   gates: Readonly<Record<SimulationStage, SimulationGate>>;
   /** The only craft policy the engine accepts: the four Rune Clean-up choices. */
   craftSettings: RuneSimulationCraftSettings;
@@ -79,7 +78,6 @@ export type SimulationSubProperty = {
 export type SimulatedRune = {
   id: string;
   setName: SimulationSet;
-  setBonus: string | null;
   slot: number;
   stars: number;
   defaultGrade: RuneDefaultGrade;
@@ -90,11 +88,30 @@ export type SimulatedRune = {
   subProperties: SimulationSubProperty[];
 };
 
-export type SimulationDecision = 'power-up' | 'keep' | 'sell';
+/**
+ * Rune Clean-up's reading of one simulated rune, reduced to what crosses the
+ * worker boundary: the preset is carried by id and name rather than as the whole
+ * preset, which the page already holds.
+ */
+export type SimulationVerdict = {
+  verdict: RuneVerdict;
+  reason: string;
+  maxValue: number;
+  chance: number;
+  presetId: string | null;
+  presetName: string | null;
+};
 
 export type SimulationEntry = {
   rune: SimulatedRune;
-  decision: SimulationDecision;
+  /**
+   * The engine's verdict, asked at every checkpoint whether or not the gate acts
+   * on it, so the table always says what Rune Clean-up would do. `null` only when
+   * there is nothing to ask it with: no reference monster or no preset.
+   */
+  verdict: SimulationVerdict | null;
+  /** Whether this checkpoint's gate removed the rune; only a recommendation gate can. */
+  sold: boolean;
 };
 
 export type SimulationStageResult = {
@@ -110,7 +127,8 @@ export type RuneSimulationSummary = {
   generated: number;
   reachedNine: number;
   reachedTwelve: number;
-  kept: number;
+  /** Runes Rune Clean-up keeps at +12, or `null` when no verdict could be asked. */
+  kept: number | null;
   soldAtZero: number;
   soldAtNine: number;
   soldAtTwelve: number;
@@ -140,7 +158,6 @@ export const defaultRuneSimulationConfig: RuneSimulationConfig = {
   setName: null,
   slot: null,
   stars: 6,
-  mainStatId: null,
   gates: {
     0: { policy: 'keep-all' },
     9: { policy: 'keep-all' },
@@ -186,23 +203,9 @@ function legalStatIds(rune: Pick<SimulatedRune, 'slot' | 'mainStatId' | 'prefixS
   return allStatIds.filter((statId) => !used.has(statId) && slotAllowsSubStat(rune.slot, statId));
 }
 
-function setEffectText(setName: string): string | null {
-  const effect = setBonuses[setName];
-  if (!effect) return null;
-  const name = runeStatName(effect.statId)?.replace(' %', '') ?? 'Unknown stat';
-  const amount = effect.percent ?? effect.flat;
-  if (amount === undefined) return null;
-  return `${name} +${amount}${effect.percent === undefined ? '' : ' %'}`;
-}
-
 /** The one display helper for the stat vocabulary used by the simulator. */
 export function simulationStatLabel(statId: number): string {
   return runeStatName(statId) ?? `Unknown stat ${statId}`;
-}
-
-/** The set property shown beside every generated copy of a named set. */
-export function simulationSetEffect(setName: string): string | null {
-  return setEffectText(setName);
 }
 
 function cloneRune(rune: SimulatedRune): SimulatedRune {
@@ -319,25 +322,34 @@ export function simulationRuneToCleanupRune(rune: SimulatedRune, obtainedOrder =
   };
 }
 
-function decisionFor(
-  rune: SimulatedRune, stage: SimulationStage, config: RuneSimulationConfig,
-  recommendations: ReadonlyMap<string, RuneAdvice> | null,
-): SimulationDecision {
-  const gate = config.gates[stage];
-  if (gate.policy === 'recommendation') {
-    const advice = recommendations?.get(rune.id);
-    if (!advice) throw new Error(`Rune simulator has no Rune Clean-up recommendation for ${rune.id}.`);
-    return advice.verdict;
-  }
-  return stage === 12 ? 'keep' : 'power-up';
+function verdictFor(advice: RuneAdvice): SimulationVerdict {
+  return {
+    verdict: advice.verdict,
+    reason: advice.reason,
+    maxValue: advice.maxValue,
+    chance: advice.chance,
+    presetId: advice.preset?.id ?? null,
+    presetName: advice.preset?.name ?? null,
+  };
 }
 
 function stageResult(
   level: SimulationStage, runes: readonly SimulatedRune[], reached: number, config: RuneSimulationConfig,
   recommendations: ReadonlyMap<string, RuneAdvice> | null,
 ): SimulationStageResult {
-  const entries = runes.map((rune) => ({ rune, decision: decisionFor(rune, level, config, recommendations) }));
-  const sold = entries.filter((entry) => entry.decision === 'sell').length;
+  const acts = config.gates[level].policy === 'recommendation';
+  const entries = runes.map((rune): SimulationEntry => {
+    const advice = recommendations?.get(rune.id);
+    if (recommendations !== null && !advice) {
+      throw new Error(`Rune simulator has no Rune Clean-up recommendation for ${rune.id}.`);
+    }
+    return {
+      rune,
+      verdict: advice ? verdictFor(advice) : null,
+      sold: acts && advice?.verdict === 'sell',
+    };
+  });
+  const sold = entries.filter((entry) => entry.sold).length;
   return { level, entries, reached, survived: entries.length - sold, sold };
 }
 
@@ -346,13 +358,10 @@ function generateRune(index: number, config: RuneSimulationConfig, random: Rando
   const slot = config.slot ?? integer(1, 6, random);
   const stars = config.stars ?? integer(1, 6, random);
   const grade = simulationGradeForSlot(slot, random);
-  const legalMains = slotMainProperties[slot] ?? [];
-  const mainStatId = config.mainStatId !== null && legalMains.includes(config.mainStatId)
-    ? config.mainStatId : choose(legalMains, random);
+  const mainStatId = choose(slotMainProperties[slot] ?? [], random);
   const rune: SimulatedRune = {
     id: `simulation-${index + 1}`,
     setName,
-    setBonus: setName === null ? null : setEffectText(setName),
     slot,
     stars,
     defaultGrade: grade,
@@ -380,21 +389,32 @@ function emptyStageRecord(): Record<SimulationStage, SimulationStageResult> {
   };
 }
 
-/** Run the complete configured experiment, including every checkpoint action. */
+/**
+ * Rune Clean-up's advice for one checkpoint.
+ *
+ * Asked whenever it can be, not only when the gate acts on it: a Keep all gate
+ * still wants to show what the engine would have sold, or the table would print
+ * a verdict nobody computed. A recommendation gate without the means to ask is
+ * an error rather than a silent Keep all.
+ */
 async function recommendationsFor(
   runes: readonly SimulatedRune[], stage: SimulationStage,
   config: RuneSimulationConfig, context: RuneSimulationContext,
   engines: CalculationBackend[],
 ): Promise<ReadonlyMap<string, RuneAdvice> | null> {
-  if (config.gates[stage].policy === 'keep-all') return null;
-  if (context.base === null) {
-    throw new Error('Rune Clean-up recommendations need a level 40 reference monster.');
+  const { base } = context;
+  if (base === null || context.presets.length === 0) {
+    if (config.gates[stage].policy === 'keep-all') return null;
+    throw new Error(base === null
+      ? 'Rune Clean-up recommendations need a level 40 reference monster.'
+      : 'Rune Clean-up recommendations need at least one preset.');
   }
+  if (runes.length === 0) return new Map();
   return runeAdvice(
     runes.map((rune, index) => simulationRuneToCleanupRune(rune, index + 1)),
     context.presets,
     context.settings,
-    context.base,
+    base,
     async (jobs, chanceBar) => {
       const answer = await countRuneChances(jobs, context.preferWebGpu ?? false, chanceBar);
       engines.push(answer.backend);
@@ -428,17 +448,18 @@ export async function simulateRunes(
 
   stages[0] = stageResult(0, generated, generated.length, config,
     await recommendationsFor(generated, 0, config, context, engines));
-  const afterZero = stages[0].entries.filter((entry) => entry.decision !== 'sell').map((entry) => entry.rune);
+  const afterZero = stages[0].entries.filter((entry) => !entry.sold).map((entry) => entry.rune);
 
   const atNine = afterZero.map((rune) => powerUpRune(rune, 9, random));
   stages[9] = stageResult(9, atNine, afterZero.length, config,
     await recommendationsFor(atNine, 9, config, context, engines));
-  const afterNine = stages[9].entries.filter((entry) => entry.decision !== 'sell').map((entry) => entry.rune);
+  const afterNine = stages[9].entries.filter((entry) => !entry.sold).map((entry) => entry.rune);
 
   const atTwelve = afterNine.map((rune) => craftRuneAtTwelve(powerUpRune(rune, 12, random), config, random));
   stages[12] = stageResult(12, atTwelve, afterNine.length, config,
     await recommendationsFor(atTwelve, 12, config, context, engines));
-  const kept = stages[12].entries.filter((entry) => entry.decision === 'keep').length;
+  const kept = stages[12].entries.some((entry) => entry.verdict === null)
+    ? null : stages[12].entries.filter((entry) => entry.verdict?.verdict === 'keep').length;
 
   return {
     config,
@@ -456,14 +477,3 @@ export async function simulateRunes(
     },
   };
 }
-
-/** A compact reading for a stat in the results table, including its own unit. */
-export function simulationValueLabel(statId: number, value: number): string {
-  return `${simulationStatLabel(statId)} ${value}`;
-}
-
-/** The grades the fixed slot distributions can generate. */
-export const simulationGrades: readonly RuneDefaultGrade[] = ['Rare', 'Hero', 'Legend'];
-export const simulationStars: readonly number[] = [1, 2, 3, 4, 5, 6];
-export const simulationSlots: readonly number[] = [1, 2, 3, 4, 5, 6];
-export const simulationMainStatIds: readonly number[] = runeStatIds;

@@ -38,6 +38,9 @@ export const navigationGroups: Array<{ heading: string; items: NavigationItem[] 
       { id: 'optimizer', label: 'Optimization', name: 'Rune Optimization', glyph: '◈' },
       { id: 'potential', label: 'Clean-up', name: 'Rune Clean-up', glyph: '◌' },
       { id: 'gems', label: 'Gems & grinds', name: 'Gems & Grinds', glyph: '✦' },
+      /* An experiment on runes nobody owns yet, judged by the same Clean-up
+         engine as the ones above — it belongs with them, not with the settings. */
+      { id: 'rune-simulator', label: 'Simulator', name: 'Rune Simulator', glyph: '↻' },
     ],
   },
   {
@@ -66,7 +69,6 @@ export const navigationGroups: Array<{ heading: string; items: NavigationItem[] 
          rest. ※ is the reference mark — the note the figures are worked out
          in — and it sits in the same box as ✦ and ◈. */
       { id: 'the-math', label: 'The Math', name: 'The Math', glyph: '※' },
-      { id: 'rune-simulator', label: 'Rune Simulator', name: 'Rune Simulator', glyph: '↻' },
     ],
   },
 ];

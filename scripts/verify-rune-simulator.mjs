@@ -23,7 +23,7 @@ try {
   assert.equal(simulationGradeForSlot(2, () => 0.75), 'Legend');
 
   const makeRune = (defaultGrade, count) => ({
-    id: `grade-${defaultGrade}`, setName: null, setBonus: null, slot: 2, stars: 6,
+    id: `grade-${defaultGrade}`, setName: null, slot: 2, stars: 6,
     ancient: false, defaultGrade, level: 0, mainStatId: 3, prefixStatId: null,
     prefixValue: 0,
     subProperties: Array.from({ length: count }, (_, index) => ({
@@ -60,6 +60,14 @@ try {
     'the simulator generates ordinary runes only');
   assert.equal(result.stages[0].entries.every(({ rune }) => rune.subProperties.every((property) => property.rolls === 0)), true,
     'natural substats do not count as power-up rolls');
+  assert.equal(result.stages[0].entries.every(({ verdict, sold }) => verdict === null && sold === false), true,
+    'with nothing to judge by, no verdict is invented and Keep all sells nothing');
+  assert.equal(result.summary.kept, null, 'no keeper count is claimed without a verdict');
+  assert.equal(result.stages[12].entries.length, 25, 'Keep all carries the whole batch to +12');
+  await assert.rejects(simulateRunes({
+    ...defaultRuneSimulationConfig, count: 1, gates: { ...defaultRuneSimulationConfig.gates, 0: { policy: 'recommendation' } },
+  }, { presets: [], settings: result.config.craftSettings, base: null }, () => 0.1),
+  'a recommendation gate with nothing to judge by fails rather than keeping everything');
 
   console.log('Verified the locked rune-grade distribution and roll counters.');
 } finally {

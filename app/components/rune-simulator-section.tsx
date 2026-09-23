@@ -5,23 +5,21 @@ import { CircularArrowsMark } from './converted-artifact-mark';
 import { CalculationStatus } from './calculation-status';
 import { Dropdown } from './dropdown';
 import { PageHeader } from './page-chrome';
+import { QualityRule, qualityRuleHost } from './quality-rule';
+import { TableColumnGroup } from './data-table-page';
 import { WorkspacePage } from './workspace-page';
-import {
-  allRuneSetNames,
-} from '../lib/rune-sets';
-import {
-  runeStatName, runeSubValue,
-} from '../lib/runes';
-import { slotMainProperties } from '../lib/rune-properties';
+import { allRuneSetNames } from '../lib/rune-sets';
+import { runeSubValue } from '../lib/runes';
 import type {
-  RuneSimulationConfig, RuneSimulationResult, SimulationStage,
+  RuneSimulationConfig, RuneSimulationResult, SimulationEntry, SimulationStage,
   SimulationCheckpointPolicy,
   SimulationSubProperty as SimulatedSubProperty,
 } from '../lib/rune-simulator';
 import {
-  defaultRuneSimulationConfig, simulationSetEffect, simulationStages,
+  defaultRuneSimulationConfig, simulationStages,
   simulationNoRuneType, simulationStatLabel,
 } from '../lib/rune-simulator';
+import { runeVerdictLabels } from '../lib/rune-cleanup-advice';
 import { calculateRuneSimulation } from '../lib/compute/rune-simulator-client';
 import type { GeneralSettings, ImportedGame, ItemGrade, RunePotentialSettings } from '../lib/types';
 import type { RunePotentialPreset } from '../lib/rune-potential-presets';
@@ -29,13 +27,13 @@ import { referenceLines, noReferenceLineMessage } from '../lib/rune-reference-st
 import {
   craftAssumptionForSetting, craftRollDescriptions, craftRollLabels,
 } from '../lib/rune-craft-items';
+import { columnClasses, runeSimulatorTableColumns } from '../lib/table-layouts';
 
 type FormState = {
   count: string;
   setName: string;
   slot: string;
   stars: string;
-  mainStatId: string;
   gateZero: string;
   gateNine: string;
   gateTwelve: string;
@@ -46,7 +44,6 @@ const initialForm: FormState = {
   setName: '',
   slot: '',
   stars: String(defaultRuneSimulationConfig.stars),
-  mainStatId: '',
   gateZero: 'keep-all',
   gateNine: 'keep-all',
   gateTwelve: 'keep-all',
@@ -56,6 +53,14 @@ const gateOptions = [
   { value: 'keep-all', label: 'Keep all' },
   { value: 'recommendation', label: 'Sell according to recommendation' },
 ] as const;
+
+const slots = [1, 2, 3, 4, 5, 6] as const;
+
+/** The presets a run was judged against, frozen with it so an edit afterwards cannot relabel it. */
+type PresetLabel = { id: string; name: string };
+type SimulationRun = { result: RuneSimulationResult; presets: readonly PresetLabel[] };
+
+const cell = columnClasses(runeSimulatorTableColumns);
 
 function numberOrNull(value: string): number | null {
   if (value.trim() === '') return null;
@@ -73,14 +78,11 @@ function gate(policy: string): { policy: SimulationCheckpointPolicy } {
 }
 
 function toConfig(form: FormState, count: number, settings: RunePotentialSettings): RuneSimulationConfig {
-  const slot = numberOrNull(form.slot);
-  const stars = numberOrNull(form.stars);
   return {
     count,
     setName: form.setName || null,
-    slot,
-    stars,
-    mainStatId: numberOrNull(form.mainStatId),
+    slot: numberOrNull(form.slot),
+    stars: numberOrNull(form.stars),
     gates: {
       0: gate(form.gateZero),
       9: gate(form.gateNine),
@@ -111,7 +113,7 @@ export function RuneSimulatorSection({ game, settings, presets, general, hardwar
   hardwareAcceleration: boolean;
 }) {
   const [form, setForm] = useState<FormState>(initialForm);
-  const [result, setResult] = useState<RuneSimulationResult | null>(null);
+  const [run, setRun] = useState<SimulationRun | null>(null);
   const [stage, setStage] = useState<SimulationStage>(0);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -120,11 +122,6 @@ export function RuneSimulatorSection({ game, settings, presets, general, hardwar
     const lines = referenceLines(game?.data);
     return lines === null ? null : new Map([...lines].map(([type, line]) => [type, line.stats]));
   }, [game]);
-
-  const selectedSlot = numberOrNull(form.slot);
-  const mainOptions = useMemo(() => selectedSlot === null
-    ? Object.values(slotMainProperties).flat().filter((value, at, values) => values.indexOf(value) === at)
-    : slotMainProperties[selectedSlot] ?? [], [selectedSlot]);
 
   const requiresRecommendation = [form.gateZero, form.gateNine, form.gateTwelve]
     .some((policy) => policy === 'recommendation');
@@ -151,15 +148,16 @@ export function RuneSimulatorSection({ game, settings, presets, general, hardwar
     }
     setBusy(true);
     setMessage('');
+    const judgedBy = presets.map(({ id, name }) => ({ id, name }));
     /* The experiment is deterministic for the supplied random source, which keeps one
        rule for every caller. The page sends the account-wide work to a worker, so
        generation and all three checkpoints can finish without freezing the controls. */
     void (async () => {
       try {
-        const next = await calculateRuneSimulation(toConfig(form, count, settings), {
+        const result = await calculateRuneSimulation(toConfig(form, count, settings), {
           presets, settings, base, preferWebGpu: hardwareAcceleration,
         });
-        setResult(next);
+        setRun({ result, presets: judgedBy });
         setStage(0);
       } catch (error) {
         setMessage(error instanceof Error ? error.message : 'The simulator could not generate these runes.');
@@ -171,7 +169,6 @@ export function RuneSimulatorSection({ game, settings, presets, general, hardwar
 
   return <WorkspacePage
     header={<PageHeader
-      eyebrow="Technical"
       title="Rune Simulator"
       tagline="Roll the dice, stop at +0, +9 and +12, and see exactly what survives the climb." />}
   >
@@ -181,6 +178,24 @@ export function RuneSimulatorSection({ game, settings, presets, general, hardwar
     </p>
 
     <form className="filter-panel rune-simulator-filters" onSubmit={generate}>
+      <SimulatorSelect id="rune-simulator-set" label="Rune set" value={form.setName}
+        className="rune-simulator-set"
+        placeholder="None" onChange={(value) => setFormValue(setForm, 'setName', value)}>
+        {allRuneSetNames.map((setName) => <option key={setName} value={setName}>{setName}</option>)}
+      </SimulatorSelect>
+
+      <SimulatorSelect id="rune-simulator-slot" label="Slot" value={form.slot}
+        className="rune-simulator-slot"
+        placeholder="Any slot" onChange={(value) => setFormValue(setForm, 'slot', value)}>
+        {slots.map((slot) => <option key={slot} value={slot}>Slot {slot}</option>)}
+      </SimulatorSelect>
+
+      <SimulatorSelect id="rune-simulator-stars" label="Stars" value={form.stars}
+        className="rune-simulator-stars"
+        placeholder="Any stars" onChange={(value) => setFormValue(setForm, 'stars', value)}>
+        {[1, 2, 3, 4, 5, 6].map((stars) => <option key={stars} value={stars}>{stars}★</option>)}
+      </SimulatorSelect>
+
       <div className="filter-group rune-simulator-count">
         <label className="filter-label" htmlFor="rune-simulator-count">Quantity</label>
         <div className="filter-group-controls">
@@ -192,38 +207,14 @@ export function RuneSimulatorSection({ game, settings, presets, general, hardwar
         <span id="rune-simulator-count-note" className="rune-simulator-note type-caption">1–1,000 copies</span>
       </div>
 
-      <SimulatorSelect id="rune-simulator-set" label="Rune set" value={form.setName}
-        className="rune-simulator-set"
-        placeholder="None" onChange={(value) => setFormValue(setForm, 'setName', value)}>
-        {allRuneSetNames.map((setName) => <option key={setName} value={setName}>{setName}</option>)}
-      </SimulatorSelect>
-
-      <SimulatorSelect id="rune-simulator-slot" label="Slot" value={form.slot}
-        className="rune-simulator-slot"
-        placeholder="Any slot" onChange={(value) => {
-          setForm((current) => ({ ...current, slot: value, mainStatId: '' }));
-        }}>
-        {[1, 2, 3, 4, 5, 6].map((slot) => <option key={slot} value={slot}>Slot {slot}</option>)}
-      </SimulatorSelect>
-
-      <SimulatorSelect id="rune-simulator-stars" label="Stars" value={form.stars}
-        className="rune-simulator-stars"
-        placeholder="Any stars" onChange={(value) => setFormValue(setForm, 'stars', value)}>
-        {[1, 2, 3, 4, 5, 6].map((stars) => <option key={stars} value={stars}>{stars}★</option>)}
-      </SimulatorSelect>
-
-      <SimulatorSelect id="rune-simulator-main" label="Main stat" value={form.mainStatId}
-        className="rune-simulator-main"
-        placeholder="Any legal main" onChange={(value) => setFormValue(setForm, 'mainStatId', value)}>
-        {mainOptions.map((statId) => <option key={statId} value={statId}>{runeStatName(statId)}</option>)}
-      </SimulatorSelect>
-
       <GateSelect id="rune-simulator-gate-zero" label="After +0" value={form.gateZero}
         className="rune-simulator-gate-zero" onChange={(value) => setFormValue(setForm, 'gateZero', value)} />
       <GateSelect id="rune-simulator-gate-nine" label="After +9" value={form.gateNine}
         className="rune-simulator-gate-nine" onChange={(value) => setFormValue(setForm, 'gateNine', value)} />
       <GateSelect id="rune-simulator-gate-twelve" label="After +12" value={form.gateTwelve}
         className="rune-simulator-gate-twelve" onChange={(value) => setFormValue(setForm, 'gateTwelve', value)} />
+
+      <KeeperStatistics run={run} />
 
       <CraftSettingsReadout settings={settings} />
 
@@ -237,13 +228,70 @@ export function RuneSimulatorSection({ game, settings, presets, general, hardwar
 
     {message && <p className="calculation-status" data-failed role="alert">{message}</p>}
 
-    {!result
+    {!run
       ? <section className="empty-state rune-simulator-empty">
         <h2>Nothing generated yet.</h2>
         <p className="next-step">Choose the rune conditions above, then press Generate runes to watch the batch move through +0, +9 and +12.</p>
       </section>
-      : <RuneSimulationResults result={result} stage={stage} onStageChange={setStage} general={general} />}
+      : <RuneSimulationResults result={run.result} stage={stage} onStageChange={setStage} general={general} />}
   </WorkspacePage>;
+}
+
+/**
+ * How many runes Rune Clean-up keeps at +12, each counted once under the preset it
+ * answers best. That is the engine's own choice of preset, so a rune two presets
+ * would both keep lands in exactly one cell and the columns add up to the total.
+ */
+function KeeperStatistics({ run }: { run: SimulationRun | null }) {
+  const counts = useMemo(() => {
+    if (!run || run.result.summary.kept === null) return null;
+    const rows = new Map<string, { name: string; slots: number[] }>(
+      run.presets.map((preset) => [preset.id, { name: preset.name, slots: slots.map(() => 0) }]));
+    for (const entry of run.result.stages[12].entries) {
+      const verdict = entry.verdict;
+      if (verdict?.verdict !== 'keep' || verdict.presetId === null) continue;
+      /* A keeper is always judged against a preset from the frozen list; one that
+         is not would be a defect in the engine, and it still gets its own row rather
+         than vanishing from a total the footer claims is complete. */
+      const row = rows.get(verdict.presetId) ?? { name: verdict.presetName ?? verdict.presetId, slots: slots.map(() => 0) };
+      row.slots[entry.rune.slot - 1] += 1;
+      rows.set(verdict.presetId, row);
+    }
+    const totals = slots.map((_, at) => [...rows.values()].reduce((sum, row) => sum + row.slots[at], 0));
+    return { rows: [...rows.entries()], totals };
+  }, [run]);
+  const kept = run?.result.summary.kept ?? null;
+
+  return <section className="rune-simulator-stats" aria-labelledby="rune-simulator-stats-title">
+    <header className="rune-simulator-stats-head">
+      <h3 id="rune-simulator-stats-title" className="filter-label">Kept at +12</h3>
+      <output className="rune-simulator-stats-total" aria-label="Runes kept at +12">
+        {kept === null ? '—' : kept.toLocaleString('en')}
+      </output>
+    </header>
+    {counts
+      ? <table className="rune-simulator-stats-table">
+        <thead><tr>
+          <th scope="col">Preset</th>
+          {slots.map((slot) => <th key={slot} scope="col">Slot {slot}</th>)}
+        </tr></thead>
+        <tbody>
+          {counts.rows.map(([id, row]) => <tr key={id}>
+            <th scope="row" title={row.name}>{row.name}</th>
+            {row.slots.map((value, at) => <td key={at} className={value === 0 ? 'muted' : undefined}>{value}</td>)}
+          </tr>)}
+        </tbody>
+        <tfoot><tr>
+          <th scope="row">All presets</th>
+          {counts.totals.map((value, at) => <td key={at}>{value}</td>)}
+        </tr></tfoot>
+      </table>
+      : <p className="rune-simulator-stats-note type-caption">
+        {run === null
+          ? 'Generate runes to count the keepers, preset by preset and slot by slot.'
+          : 'Counting keepers needs an imported account with a level 40 monster and at least one Rune Clean-up preset.'}
+      </p>}
+  </section>;
 }
 
 function craftSettingValue(step: number, grade: ItemGrade): string {
@@ -324,13 +372,15 @@ function RuneSimulationResults({ result, stage, onStageChange, general }: {
   general: GeneralSettings;
 }) {
   const current = result.stages[stage];
+  const { summary } = result;
+  const unjudged = current.entries.some((entry) => entry.verdict === null);
   return <section className="rune-simulator-results" aria-labelledby="rune-simulator-results-title">
     <header className="rune-simulator-results-head">
       <div>
         <p className="filter-label">Simulation results</p>
-        <h2 id="rune-simulator-results-title" className="type-title">{result.summary.generated.toLocaleString('en')} runes, three checkpoints</h2>
+        <h2 id="rune-simulator-results-title" className="type-title">{summary.generated.toLocaleString('en')} runes, three checkpoints</h2>
         <p className="rune-simulator-results-note type-caption">
-          Generated {result.summary.generated.toLocaleString('en')} · reached +9 {result.summary.reachedNine.toLocaleString('en')} · reached +12 {result.summary.reachedTwelve.toLocaleString('en')} · kept {result.summary.kept.toLocaleString('en')}
+          Generated {summary.generated.toLocaleString('en')} · reached +9 {summary.reachedNine.toLocaleString('en')} · reached +12 {summary.reachedTwelve.toLocaleString('en')} · kept {summary.kept === null ? '—' : summary.kept.toLocaleString('en')}
         </p>
       </div>
       <div className="rune-simulator-stage-tabs" role="group" aria-label="Choose simulation checkpoint">
@@ -343,62 +393,101 @@ function RuneSimulationResults({ result, stage, onStageChange, general }: {
 
     <p className="rune-simulator-stage-summary type-caption" aria-live="polite">
       {stageLabel(stage)}: {current.reached.toLocaleString('en')} entered this checkpoint, {current.survived.toLocaleString('en')} survived it, {current.sold.toLocaleString('en')} sold.
+      {unjudged && ' Best preset, Max value, Chance and Action need an imported account with a level 40 monster and at least one Rune Clean-up preset.'}
     </p>
 
     <div className="table-wrap card rune-simulator-table-wrap">
       <table className="grid-table rune-simulator-table">
+        <TableColumnGroup columns={runeSimulatorTableColumns} />
         <thead><tr>
-          <th scope="col">Set</th>
-          <th scope="col">Rune</th>
-          <th scope="col">Main</th>
-          <th scope="col">Innate</th>
-          <th scope="col">Substats</th>
-          <th scope="col">Action</th>
+          <th scope="col" className={cell('set')}>Set</th>
+          <th scope="col" className={cell('slot')}>Slot</th>
+          <th scope="col" className={cell('stars')}>Stars</th>
+          <th scope="col" className={cell('quality')}>Quality</th>
+          <th scope="col" className={cell('level')}>Lv.</th>
+          <th scope="col" className={cell('main')}>Main</th>
+          <th scope="col" className={cell('innate')}>Innate</th>
+          <th scope="col" className={cell('subs')}>Substats</th>
+          <th scope="col" className={cell('preset')}>Best preset</th>
+          <th scope="col" className={cell('maxValue')}>
+            <span className="table-heading-two-line" aria-label="Max value: the best end state it can reach against a perfect ordinary rune for that slot">Max<br />value</span>
+          </th>
+          <th scope="col" className={cell('chance')}>
+            <span aria-label="Chance to reach the quality floor by +12, or a dash for a rune already at +12">Chance</span>
+          </th>
+          <th scope="col" className={cell('action')}>Action</th>
         </tr></thead>
         <tbody>
-          {current.entries.map((entry) => <SimulationRow key={entry.rune.id} entry={entry} />)}
+          {current.entries.length
+            ? current.entries.map((entry) => <SimulationRow key={entry.rune.id} entry={entry} />)
+            : <tr><td className="table-empty-state" colSpan={runeSimulatorTableColumns.length}>
+              No rune reached this checkpoint. Loosen an earlier sell rule to see more.
+            </td></tr>}
         </tbody>
       </table>
     </div>
   </section>;
 }
 
-function SimulationRow({ entry }: { entry: RuneSimulationResult['stages'][SimulationStage]['entries'][number] }) {
-  const { rune } = entry;
+function SimulationRow({ entry }: { entry: SimulationEntry }) {
+  const { rune, verdict } = entry;
+  const judged = verdict !== null && verdict.presetName !== null;
   return <tr>
-    <td className="rune-simulator-set-cell">
-      <span className="rune-simulator-set-name">{rune.setName === null
-        ? simulationNoRuneType
-        : rune.setName}</span>
-      <span className="rune-simulator-set-effect type-caption">{rune.setName === null ? '—' : simulationSetEffect(rune.setName) ?? '—'}</span>
+    <td className={cell('set', qualityRuleHost, 'rune-simulator-set')}>
+      <QualityRule tier={rune.defaultGrade} />
+      {rune.setName ?? simulationNoRuneType}
     </td>
-    <td>
-      <span className="rune-simulator-rune-name">Slot {rune.slot}</span>
-      <span className="rune-simulator-rune-detail type-caption">{rune.stars}★ · {rune.defaultGrade} · +{rune.level}</span>
+    <td className={cell('slot')}>{rune.slot}</td>
+    <td className={cell('stars')}>{rune.stars}</td>
+    <td className={cell('quality')}>{rune.defaultGrade}</td>
+    <td className={cell('level')}>+{rune.level}</td>
+    <td className={cell('main')}>{simulationStatLabel(rune.mainStatId)}</td>
+    <td className={cell('innate', rune.prefixStatId === null && 'muted')}>
+      {rune.prefixStatId === null
+        ? '—'
+        : <span className="rune-simulator-property">
+          <span className="rune-sub-name">{simulationStatLabel(rune.prefixStatId)}</span>
+          <span className="rune-sub-value">{rune.prefixValue}</span>
+        </span>}
     </td>
-    <td>{simulationStatLabel(rune.mainStatId)}</td>
-    <td className={rune.prefixStatId === null ? 'muted' : ''}>
-      {rune.prefixStatId === null ? '—' : `${simulationStatLabel(rune.prefixStatId)} ${rune.prefixValue}`}
-    </td>
-    <td className="rune-simulator-subs">
+    <td className={cell('subs', 'rune-simulator-subs')}>
       {rune.subProperties.length === 0
         ? <span className="muted">—</span>
-        : <ul>{rune.subProperties.map((property) => <SimulationSubProperty key={`${property.statId}-${property.value}-${property.rolls}`} property={property} />)}</ul>}
+        : <ul>{rune.subProperties.map((property) => <SimulationSubProperty key={property.statId} property={property} />)}</ul>}
     </td>
-    <td><span className={`rune-verdict rune-simulator-decision-${entry.decision}`} data-verdict={entry.decision}>
-      {entry.decision === 'power-up' ? 'Power up' : entry.decision === 'keep' ? 'Keep' : 'Sell'}
-    </span></td>
+    <td className={cell('preset', !judged && 'muted', 'rune-simulator-preset')} title={verdict?.presetName ?? undefined}>
+      {verdict?.presetName ?? '—'}
+    </td>
+    {/* The same two figures, printed the same way, as Rune Clean-up's own table:
+        a simulated rune is judged by that engine and should read like it. */}
+    <td className={cell('maxValue')}>
+      {judged ? `${Math.round(verdict.maxValue * 100)} %` : <span className="muted">—</span>}
+    </td>
+    <td className={cell('chance')}>
+      {judged && rune.level < 12 ? `${Math.round(verdict.chance * 100)} %` : <span className="muted">—</span>}
+    </td>
+    <td className={cell('action', verdict === null && 'muted')}>
+      {verdict === null
+        ? '—'
+        : <>
+          <span className="rune-verdict" data-verdict={verdict.verdict}>{runeVerdictLabels[verdict.verdict]}</span>
+          <span className="rune-advice-reason">{verdict.reason}</span>
+        </>}
+    </td>
   </tr>;
 }
 
 function SimulationSubProperty({ property }: { property: SimulatedSubProperty }) {
-  return <li>
-    <span className="rune-simulator-sub-name">{simulationStatLabel(property.statId)}</span>
-    <span className="rune-simulator-sub-value">{runeSubValue(property)}</span>
-    {property.gemmed && <CircularArrowsMark label={`${simulationStatLabel(property.statId)} is enchanted`} className="rune-simulator-enchanted-mark" />}
-    {property.rolls > 0 && <span className="rune-simulator-rolls type-caption" aria-label={`${property.rolls} power-up rolls in ${simulationStatLabel(property.statId)}`}>
-      <PowerUpArrow /><span aria-hidden="true">{property.rolls}</span>
-    </span>}
-    {property.grind > 0 && <span className="rune-simulator-grind">+ {property.grind}</span>}
+  const name = simulationStatLabel(property.statId);
+  return <li className="rune-simulator-property">
+    <span className="rune-sub-name">{name}</span>
+    <span className="rune-sub-value">{runeSubValue(property)}</span>
+    <span className="rune-simulator-marks">
+      {property.gemmed && <CircularArrowsMark label={`${name} is enchanted`} className="rune-simulator-enchanted-mark" />}
+      {property.rolls > 0 && <span className="rune-simulator-rolls type-caption" aria-label={`${property.rolls} power-up rolls in ${name}`}>
+        <PowerUpArrow /><span aria-hidden="true">{property.rolls}</span>
+      </span>}
+      {property.grind > 0 && <span className="rune-simulator-grind">+ {property.grind}</span>}
+    </span>
   </li>;
 }

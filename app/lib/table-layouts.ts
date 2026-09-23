@@ -173,6 +173,31 @@ export const runeCleanupTableColumns: readonly TableColumn[] = [
   { key: 'advice', width: '9%', align: 'left' },
 ];
 
+/**
+ * The Rune Simulator's table: the Clean-up plan's vocabulary for a rune nobody
+ * owns yet. Location has nothing to say about a generated rune, so its width goes
+ * to Stars and Quality, which the simulator may vary where an account rune is
+ * already known. Substats stack one line per property rather than running on,
+ * because the power-up and craft marks beside each value make four inline pairs
+ * too wide to share a row with eleven other columns.
+ */
+export const runeSimulatorTableColumns: readonly TableColumn[] = [
+  { key: 'set', width: '11%', align: 'left' },
+  { key: 'slot', width: '4%', align: 'center' },
+  { key: 'stars', width: '4%', align: 'center' },
+  { key: 'quality', width: '6%', align: 'left' },
+  { key: 'level', width: '4%', align: 'right' },
+  /* Wide enough for `CRI Dmg` after the seam's extra padding; at 7 % it met the
+     innate beside it on a 1280px screen. */
+  { key: 'main', width: '9%', align: 'left', gutter: 'left' },
+  { key: 'innate', width: '12%', align: 'left' },
+  { key: 'subs', width: '17%', align: 'left' },
+  { key: 'preset', width: '10%', align: 'left' },
+  { key: 'maxValue', width: '6%', align: 'right' },
+  { key: 'chance', width: '6%', align: 'right' },
+  { key: 'action', width: '11%', align: 'left', gutter: 'left' },
+];
+
 export const relicTableColumns: readonly TableColumn[] = [
   { key: 'unique', width: '23%', align: 'left' },
   { key: 'main', width: '7%', align: 'left' },

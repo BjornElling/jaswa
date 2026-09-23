@@ -262,7 +262,8 @@ label[for] {
 
 /* Title — what a panel, card, dialog or disclosure is called. */
 .type-title, .block-title, .bar-head b, .dialog h2, .preset-name, .route-name,
-.route-body-title, .statistics h4, .acceleration-word, .handheld-brand {
+.route-body-title, .statistics h4, .acceleration-word, .handheld-brand,
+.rune-simulator-count-input, .rune-simulator-stats-total {
   font-family: var(--font-heading);
   font-size: var(--type-title);
   font-weight: 600;
@@ -305,7 +306,8 @@ label[for] {
 .best-artifact-improvements, .best-artifact-current-slot .artifact-subs li,
 .best-artifact-entry .artifact-subs li, .craft-best-use-facts dt,
 .craft-best-use-facts dd, .craft-rune-detail, .math-copy > p,
-.math-example p, .math-table {
+.math-example p, .math-table, .rune-simulator-stats-table td,
+.rune-simulator-stats-table tbody th, .rune-simulator-stats-table tfoot th {
   font-family: var(--font-body);
   font-size: var(--type-body);
   font-weight: 400;
@@ -336,7 +338,8 @@ label[for] {
 .type-label, .rail-heading, .filter-label, .eyebrow, .route-option,
 .grid-table thead th, .best-artifact-improvements-title,
 .best-artifact-result th, .best-monster-table th,
-.artifact-recommendation-table th, .overlay-row-label, .overlay-stat-head {
+.artifact-recommendation-table th, .overlay-row-label, .overlay-stat-head,
+.rune-simulator-stats-table thead th {
   font-family: var(--font-body);
   font-size: var(--type-label);
   font-weight: 700;
@@ -5480,29 +5483,51 @@ th.align-center .sort-button { justify-content: center; }
 /* --------------------------------------------------------- rune simulator
    The generator is a filter-shaped experiment: every condition stays in one
    fixed grid, so choosing a longer set name or a different gate cannot move
-   the Generate button or its neighbours. The result table is deliberately
-   outside this box; it grows only after the user has asked for that result. */
+   the Generate button or its neighbours. The conditions take three fixed
+   columns on the left and the keeper count fills the rest: what the batch is,
+   then what came of it, read left to right. Quantity closes the first row at
+   the far edge, because it is the one figure every run is scaled by.
+
+   The last row is a spare fr track so a tall keeper table grows into it rather
+   than spreading its height across the rows of controls beside it. */
 .rune-simulator-lead { margin: 0; max-width: 86ch; }
 .rune-simulator-filters {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, 16rem) minmax(0, 1fr);
+  grid-template-rows: auto auto auto auto 1fr;
   grid-template-areas:
-    "count set slot stars"
-    "main gate-zero gate-nine gate-twelve"
-    "craft craft craft craft"
-    "actions actions actions actions";
+    "set       slot      stars       count"
+    "gate-zero gate-nine gate-twelve stats"
+    "craft     craft     craft       stats"
+    "actions   actions   actions     stats"
+    ".         .         .           stats";
+  align-items: start;
 }
-.rune-simulator-count { grid-area: count; }
+.rune-simulator-filters .rune-simulator-set { grid-area: set; }
+.rune-simulator-filters .rune-simulator-slot { grid-area: slot; }
+.rune-simulator-filters .rune-simulator-stars { grid-area: stars; }
 .rune-simulator-select-group { min-width: 0; }
 .rune-simulator-select-group .jaswa-select,
 .rune-simulator-gate .jaswa-select { width: 100%; min-width: 0; }
+.rune-simulator-gate-zero { grid-area: gate-zero; }
+.rune-simulator-gate-nine { grid-area: gate-nine; }
+.rune-simulator-gate-twelve { grid-area: gate-twelve; }
+
+.rune-simulator-count {
+  grid-area: count;
+  justify-self: end;
+  gap: var(--s1);
+  text-align: right;
+}
+.rune-simulator-count .filter-group-controls { justify-content: flex-end; }
 .rune-simulator-count-input {
-  width: 12ch;
-  height: 36px;
+  width: 8ch;
+  height: 44px;
   padding: 0 var(--s3);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
   background: var(--sunk);
   color: var(--text-strong);
+  text-align: right;
   font-variant-numeric: tabular-nums;
   color-scheme: dark;
 }
@@ -5513,14 +5538,45 @@ th.align-center .sort-button { justify-content: center; }
   color: var(--text-muted);
 }
 .rune-simulator-note { white-space: nowrap; }
-.rune-simulator-count { gap: var(--s1); }
-.rune-simulator-filters .rune-simulator-set { grid-area: set; }
-.rune-simulator-filters .rune-simulator-slot { grid-area: slot; }
-.rune-simulator-filters .rune-simulator-stars { grid-area: stars; }
-.rune-simulator-filters .rune-simulator-main { grid-area: main; }
-.rune-simulator-gate-zero { grid-area: gate-zero; }
-.rune-simulator-gate-nine { grid-area: gate-nine; }
-.rune-simulator-gate-twelve { grid-area: gate-twelve; }
+
+/* The keepers, preset by slot. Counts are figures, so they sit right under
+   right-aligned headings; zero is dimmed rather than blanked, so every cell
+   still reads as a count and the grid keeps its shape. */
+.rune-simulator-stats {
+  grid-area: stats;
+  align-self: stretch;
+  display: grid;
+  align-content: start;
+  gap: var(--s2);
+  min-width: 0;
+  padding-left: var(--s4);
+  border-left: 1px solid var(--line);
+}
+.rune-simulator-stats-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s3); }
+.rune-simulator-stats-head h3 { margin: 0; }
+.rune-simulator-stats-total { color: var(--text-strong); font-variant-numeric: tabular-nums; }
+.rune-simulator-stats-note { margin: 0; color: var(--text-muted); }
+.rune-simulator-stats-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.rune-simulator-stats-table th,
+.rune-simulator-stats-table td {
+  height: 28px;
+  padding: 0 var(--s2);
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.rune-simulator-stats-table thead th { color: var(--text); border-bottom-color: var(--line-strong); }
+.rune-simulator-stats-table thead th:first-child { width: 40%; }
+.rune-simulator-stats-table th:first-child { padding-left: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; }
+.rune-simulator-stats-table td:last-child,
+.rune-simulator-stats-table th:last-child { padding-right: 0; }
+.rune-simulator-stats-table tbody th { color: var(--text); }
+.rune-simulator-stats-table td { color: var(--text-strong); }
+.rune-simulator-stats-table td.muted { color: var(--text-muted); }
+.rune-simulator-stats-table tfoot th,
+.rune-simulator-stats-table tfoot td { border-top: 1px solid var(--line-strong); border-bottom: 0; }
+
 .rune-simulator-craft-readout {
   grid-area: craft;
   display: grid;
@@ -5538,6 +5594,25 @@ th.align-center .sort-button { justify-content: center; }
 .rune-simulator-actions { grid-area: actions; }
 .rune-simulator-actions .button { width: 100%; }
 .rune-simulator-actions .filter-reset { width: 100%; }
+
+/* Narrower than three fixed columns and a count table, the panel stacks. */
+@media (max-width: 1180px) {
+  .rune-simulator-filters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: none;
+    grid-template-areas:
+      "count     count     count"
+      "set       slot      stars"
+      "gate-zero gate-nine gate-twelve"
+      "stats     stats     stats"
+      "craft     craft     craft"
+      "actions   actions   actions";
+  }
+  .rune-simulator-count { justify-self: start; text-align: left; }
+  .rune-simulator-count .filter-group-controls { justify-content: flex-start; }
+  .rune-simulator-stats { padding-left: 0; border-left: 0; }
+}
+
 .rune-simulator-empty { margin-top: var(--s4); }
 .rune-simulator-results { display: grid; gap: var(--s3); margin-top: var(--s5); }
 .rune-simulator-results-head {
@@ -5554,32 +5629,27 @@ th.align-center .sort-button { justify-content: center; }
 .rune-simulator-results-note { margin: var(--s1) 0 0; font-variant-numeric: tabular-nums; }
 .rune-simulator-stage-tabs { display: flex; gap: var(--s1); align-items: center; }
 .rune-simulator-stage-summary { margin: 0; font-variant-numeric: tabular-nums; }
+
+/* The table shares Rune Clean-up's vocabulary — the quality rule, the stat and
+   value pair, the verdict and its reason — because it is the same engine's
+   answer about the same kind of thing. Rows align to the top: the substats stack
+   four lines high, and the one-line cells read as that stack's first line. */
 .rune-simulator-table-wrap { overflow: clip; }
 .rune-simulator-table { table-layout: fixed; }
-.rune-simulator-table th:nth-child(1) { width: 13%; }
-.rune-simulator-table th:nth-child(2) { width: 13%; }
-.rune-simulator-table th:nth-child(3) { width: 12%; }
-.rune-simulator-table th:nth-child(4) { width: 14%; }
-.rune-simulator-table th:nth-child(5) { width: 38%; }
-.rune-simulator-table th:nth-child(6) { width: 10%; }
-.rune-simulator-table tbody td { vertical-align: top; padding-block: var(--s2); }
-.rune-simulator-set-cell,
-.rune-simulator-table td:nth-child(2),
-.rune-simulator-table td:nth-child(3),
-.rune-simulator-table td:nth-child(4),
-.rune-simulator-table td:nth-child(6) { white-space: nowrap; }
-.rune-simulator-set-name,
-.rune-simulator-rune-name,
-.rune-simulator-set-effect,
-.rune-simulator-rune-detail { display: block; overflow: hidden; text-overflow: ellipsis; }
-.rune-simulator-set-name,
-.rune-simulator-rune-name { color: var(--text-strong); }
-.rune-simulator-set-effect,
-.rune-simulator-rune-detail { color: var(--text-muted); }
+.rune-simulator-table tbody td { height: auto; vertical-align: top; padding-block: var(--s2); white-space: nowrap; }
+.rune-simulator-set,
+.rune-simulator-preset { overflow: hidden; text-overflow: ellipsis; }
 .rune-simulator-subs ul { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--s1); }
-.rune-simulator-subs li { display: flex; align-items: baseline; gap: var(--s1); min-height: 18px; white-space: nowrap; }
-.rune-simulator-sub-name { color: var(--text-muted); }
-.rune-simulator-sub-value { min-width: 4ch; font-variant-numeric: tabular-nums; }
+/* Name, value and marks in three fixed tracks, so the values of four lines — and
+   the innate beside them — line up on their units down the cell. */
+.rune-simulator-property {
+  display: grid;
+  grid-template-columns: 10ch 4ch max-content;
+  gap: var(--s2);
+  align-items: baseline;
+}
+.rune-simulator-property .rune-sub-value { text-align: right; }
+.rune-simulator-marks { display: inline-flex; align-items: center; gap: var(--s1); }
 .rune-simulator-rolls {
   display: inline-flex;
   align-items: center;
@@ -5588,11 +5658,8 @@ th.align-center .sort-button { justify-content: center; }
   font-variant-numeric: tabular-nums;
 }
 .rune-simulator-roll-arrow { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-.rune-simulator-enchanted-mark { color: var(--text-accent); width: 1em; height: 1em; margin-left: var(--s1); }
+.rune-simulator-enchanted-mark { color: var(--text-accent); width: 1em; height: 1em; }
 .rune-simulator-grind { color: var(--text-accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.rune-simulator-decision-power-up { color: var(--state-good); }
-.rune-simulator-decision-keep { color: var(--text-strong); }
-.rune-simulator-decision-sell { color: var(--state-bad); }
 
 /* Set, Main and Preset are token lines rather than chip rows: their vocabularies
    run to twenty-two sets, a dozen main properties and however many presets the

@@ -115,7 +115,7 @@ check, and by the agreement gate on a real card.
 | --- | --- |
 | Artifact score matrix (`compute/artifact-score-*`) | Worker; card or processor |
 | Rune Clean-up odds (`compute/rune-chance-*`) | Worker; card or processor |
-| Rune Simulator experiment | Worker; processor, with recommendation odds on the card when allowed |
+| Rune Simulator experiment | Worker; processor, with each checkpoint's Clean-up odds on the card when allowed |
 | Everything else | The processor |
 
 The second of those is new, and the reason it was worth moving is the reason to be
@@ -133,7 +133,7 @@ because that needs the whole reading and not its number.
 **What is left to do is to get the remaining account-wide work off the main thread**,
 which is a different job: `relicAdvice`, `allocateRelicEngravings` and `craftReach`
 still run synchronously while the page cannot paint. Rune Simulator now runs the
-experiment in its own worker; its recommendation checkpoints use the same chance
+experiment in its own worker; every checkpoint's Clean-up verdict uses the same chance
 counter and backend report as Rune Clean-up itself. The two calculations above are
 in workers precisely because that was the defect worth fixing first, and acceleration
 followed.
