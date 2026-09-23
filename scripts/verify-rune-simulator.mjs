@@ -60,6 +60,7 @@ try {
     count: 25,
     slot: 2,
     stars: 6,
+    gates: { 0: { policy: 'keep-all' }, 9: { policy: 'keep-all' }, 12: { policy: 'keep-all' } },
   }, {
     presets: [],
     settings: craftedSettings,
@@ -80,7 +81,7 @@ try {
     rune.subProperties.every((property) => !property.gemmed && property.grind === 0)), true,
   'with no role to judge by, no Gem or Grindstone is spent');
   await assert.rejects(simulateRunes({
-    ...defaultRuneSimulationConfig, count: 1, gates: { ...defaultRuneSimulationConfig.gates, 0: { policy: 'recommendation' } },
+    ...defaultRuneSimulationConfig, count: 1,
   }, { presets: [], settings: craftedSettings, base: null }, () => 0.1),
   'a recommendation gate with nothing to judge by fails rather than keeping everything');
 

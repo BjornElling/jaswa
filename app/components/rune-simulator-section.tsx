@@ -44,9 +44,9 @@ const initialForm: FormState = {
   setName: '',
   slot: '',
   stars: String(defaultRuneSimulationConfig.stars),
-  gateZero: 'keep-all',
-  gateNine: 'keep-all',
-  gateTwelve: 'keep-all',
+  gateZero: defaultRuneSimulationConfig.gates[0].policy,
+  gateNine: defaultRuneSimulationConfig.gates[9].policy,
+  gateTwelve: defaultRuneSimulationConfig.gates[12].policy,
 };
 
 const gateOptions = [

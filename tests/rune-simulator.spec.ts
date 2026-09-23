@@ -23,8 +23,19 @@ test('simulates random runes through +0, +9 and +12, spending no craft without a
   await expect(page.getByRole('combobox', { name: 'Enchanted Gem' })).toHaveCount(0);
   await expect(page.getByRole('combobox', { name: 'Grindstone' })).toHaveCount(0);
   await expect(page.getByLabel('Runes kept at +12')).toHaveText('—');
+  for (const gate of ['After +0', 'After +9', 'After +12']) {
+    await expect(page.getByLabel(gate)).toHaveValue('recommendation');
+  }
   await page.screenshot({ path: testInfo.outputPath('rune-simulator-empty.png') });
 
+  /* The default sells by recommendation, which needs an account to judge with. */
+  await page.getByRole('button', { name: 'Generate runes', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('Level a monster to');
+  await expect(page.getByRole('heading', { name: 'Nothing generated yet.', exact: true })).toBeVisible();
+
+  await page.getByLabel('After +0').selectOption('keep-all');
+  await page.getByLabel('After +9').selectOption('keep-all');
+  await page.getByLabel('After +12').selectOption('keep-all');
   await page.getByRole('button', { name: 'Generate runes', exact: true }).click();
   const firstSet = page.locator('.rune-simulator-table tbody tr').first().locator('td').first();
   await expect(firstSet).toHaveText('No rune type');
@@ -78,6 +89,9 @@ test('reads every checkpoint with Rune Clean-up and counts the keepers by preset
   /* Keep all at every gate: the verdicts are still the engine's, and the batch
      reaches +12 whole, so the keeper count is a count of the engine's Keeps. */
   await page.getByLabel('Quantity').fill('120');
+  await page.getByLabel('After +0').selectOption('keep-all');
+  await page.getByLabel('After +9').selectOption('keep-all');
+  await page.getByLabel('After +12').selectOption('keep-all');
   await page.getByRole('button', { name: 'Generate runes', exact: true }).click();
   await expect(page.getByRole('heading', { name: '120 runes, three checkpoints', exact: true })).toBeVisible();
   const verdicts = page.locator('.rune-simulator-table tbody [data-verdict]');

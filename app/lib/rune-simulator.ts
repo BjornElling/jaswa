@@ -156,9 +156,9 @@ export const defaultRuneSimulationConfig: RuneSimulationConfig = {
   slot: null,
   stars: 6,
   gates: {
-    0: { policy: 'keep-all' },
-    9: { policy: 'keep-all' },
-    12: { policy: 'keep-all' },
+    0: { policy: 'recommendation' },
+    9: { policy: 'recommendation' },
+    12: { policy: 'recommendation' },
   },
 };
 
