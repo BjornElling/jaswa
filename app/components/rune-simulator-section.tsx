@@ -193,9 +193,11 @@ export function RuneSimulatorSection({ game, settings, presets, general, hardwar
       <div className="filter-group rune-simulator-count">
         <label className="filter-label" htmlFor="rune-simulator-count">Quantity</label>
         <div className="filter-group-controls">
-          <input id="rune-simulator-count" className="rune-simulator-count-input" type="number"
-            min="1" max="1000" step="1" value={form.count}
-            onChange={(event) => setFormValue(setForm, 'count', event.target.value)}
+          {/* A text field rather than type="number": a quantity is typed, not nudged, and the
+              spinner arrows, arrow keys and scroll wheel only offered ways to change it by accident. */}
+          <input id="rune-simulator-count" className="rune-simulator-count-input" type="text"
+            inputMode="numeric" pattern="[0-9]*" maxLength={4} autoComplete="off" value={form.count}
+            onChange={(event) => setFormValue(setForm, 'count', event.target.value.replace(/\D/g, ''))}
             aria-describedby="rune-simulator-count-note" />
         </div>
         <span id="rune-simulator-count-note" className="rune-simulator-note type-caption">1–1,000 copies</span>

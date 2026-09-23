@@ -46,7 +46,15 @@ test('simulates random runes through +0, +9 and +12, spending no craft without a
 
   const filters = page.locator('.rune-simulator-filters');
   const before = await filters.boundingBox();
-  await page.getByLabel('Quantity').fill('200');
+  /* The quantity is typed, never nudged: no spinner, no arrow-key steps, digits only. */
+  const quantity = page.getByLabel('Quantity');
+  await expect(quantity).toHaveAttribute('type', 'text');
+  await quantity.fill('');
+  await quantity.pressSequentially('2a0-0');
+  await expect(quantity).toHaveValue('200');
+  await quantity.press('ArrowUp');
+  await expect(quantity).toHaveValue('200');
+  await quantity.fill('200');
   await page.getByLabel('Rune set').selectOption('Fatal');
   await page.getByLabel('Slot', { exact: true }).selectOption('2');
   await page.getByLabel('Stars', { exact: true }).selectOption('6');
