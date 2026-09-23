@@ -40,15 +40,29 @@ assert.ok(ancient);
 assert.equal(candidateMaxValue(ordinary), 1, 'an ordinary max roll stays at 100 %');
 assert.ok(candidateMaxValue(ancient) > 1, 'an Ancient max roll is not capped at 100 %');
 
-/* The initial interval is part of the exact Ancient probability input as well:
-   the Ancient line starts one point higher, so it needs one fewer ordinary
-   upgrade point to clear this shared score target. */
-const target = ancient.valuation.value(8, 29) / ancient.ceiling;
-/* `candidateChance` accepts the displayed, normalized Max-value threshold;
-   convert the shared raw score back through this candidate's denominator. */
-const threshold = target;
-assert.ok(candidateChance(ancient, threshold) > candidateChance(ordinary, threshold),
-  'Ancient initial values must affect the chance calculation');
+/* The initial interval is part of the Ancient probability input as well: the Ancient
+   line starts one point higher, so it needs one fewer ordinary upgrade point to clear
+   a shared score target.
+
+   The bar is set where both runes have real odds against it. It used to ask for 29
+   SPD, which is two points off the very best either can reach — an event of 2.4 parts
+   in ten thousand for the ordinary rune and 7.2 for the Ancient one. Those are the
+   right numbers and the odds are now counted rather than enumerated
+   (`RUNE-CLEANUP-MATH.md` §7), so four thousand runs cannot tell them apart: it is
+   one hit against three, and drawing none of either is an ordinary Tuesday. A check
+   that reads a difference the calculation does not claim to resolve is measuring the
+   dice, not the engine. Twenty SPD is comfortably inside what both can do, and the
+   Ancient rune's extra point is worth a clear margin there.
+
+   `candidateChance` accepts the displayed, normalised Max-value threshold, so the
+   shared raw score is converted back through this candidate's own denominator. */
+const threshold = ancient.valuation.value(8, 17) / ancient.ceiling;
+const ancientChance = candidateChance(ancient, threshold);
+const ordinaryChance = candidateChance(ordinary, threshold);
+assert.ok(ancientChance > ordinaryChance + 0.04,
+  `Ancient initial values must affect the chance calculation: ${ordinaryChance} -> ${ancientChance}`);
+assert.ok(ancientChance > 0.05 && ancientChance < 0.95,
+  `the Ancient fixture must sit where the odds can be read: ${ancientChance}`);
 
 /* An Ancient initial-roll event is also used for a line added later in the
    candidate projection. This guards the max-value path separately from the

@@ -68,6 +68,12 @@ const defaultGradeByExportValue: Readonly<Record<number, RuneDefaultGrade>> = {
  * How the five rarities rank against each other, lowest first — the order the
  * table above is written in, which is the order the game's own Grade sort reads
  * (`RUNE-CANONICAL.md` §11.1).
+ *
+ * **It is also the number of sub properties a rune of that grade is born with**, and
+ * several callers read it that way — `remainingEvents` most of all, which turns it
+ * into the whole schedule of what a rune may still gain. That is not a coincidence
+ * the game guarantees, it is a property of the order `runeDefaultGrades` is written
+ * in. Reordering that list therefore changes the event schedule, not just a sort.
  */
 export const runeDefaultGradeOrder = (grade: RuneDefaultGrade): number =>
   runeDefaultGrades.indexOf(grade);

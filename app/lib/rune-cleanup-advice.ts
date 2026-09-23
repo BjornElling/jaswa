@@ -15,11 +15,72 @@ import type { RunePotentialPreset } from './rune-potential-presets';
 import type { RunePotentialSettings } from './types';
 import type { ReferenceStats } from './rune-reference-stats';
 import {
-  boxThreshold, candidateChance, candidateMaxValue, isFourPieceSet, newRuneAdviceScope,
+  boxThreshold, candidateChanceAsk, candidateMaxValue, isFourPieceSet, newRuneAdviceScope,
   ordinaryBox, prepareRuneCandidate, presetBuilds, standingIn,
 } from './rune-cleanup-model';
-import type { Build, CraftCredit, MatchRank, OrdinaryBox, RuneCandidate } from './rune-cleanup-model';
+import type {
+  Build, ChanceAsk, CountingJob, CraftCredit, MatchRank, OrdinaryBox, RuneCandidate,
+} from './rune-cleanup-model';
+import { countJobs } from './rune-power-up-outcomes';
 import { craftAssumptionForSetting } from './rune-craft-items';
+
+/**
+ * Who answers the odds.
+ *
+ * The whole account's remaining questions arrive as one list, and whoever answers
+ * gives back one share per job in the same order. The processor's answer is
+ * `countJobs`; the worker hands this the graphics card instead when the user's
+ * setting allows it and the card has proved itself. Nothing in this file knows which
+ * one it got, which is the point — a verdict cannot depend on where it was computed.
+ */
+export type ChanceCounter = (jobs: readonly CountingJob[]) => Promise<Float64Array>;
+
+/**
+ * Every question about odds this call will ask, written down before any is answered.
+ *
+ * An ask can settle itself — a rune at `+12`, or one that cannot reach the bar by any
+ * road — and those never become jobs at all. The rest are numbered, gathered into one
+ * list, and handed back by number once the batch comes home.
+ */
+class ChanceLedger {
+  private readonly asks: ChanceAsk[] = [];
+  private readonly starts: number[] = [];
+  private pending = 0;
+
+  add(ask: ChanceAsk): number {
+    this.asks.push(ask);
+    this.starts.push(this.pending);
+    this.pending += ask.jobs.length;
+    return this.asks.length - 1;
+  }
+
+  jobs(): CountingJob[] {
+    const all: CountingJob[] = [];
+    for (const ask of this.asks) for (const job of ask.jobs) all.push(job);
+    return all;
+  }
+
+  settle(shares: Float64Array): number[] {
+    return this.asks.map((ask, at) =>
+      ask.combine(Array.from(shares.subarray(this.starts[at], this.starts[at] + ask.jobs.length))));
+  }
+}
+
+/** One preset's best reading of one rune, valued but not yet gated. */
+type Contender = {
+  preset: RunePotentialPreset; prepared: RuneCandidate; box: OrdinaryBox; neutralBox: OrdinaryBox;
+  value: number; maxValue: number; neutralValue: number; neutralMaxValue: number; rank: MatchRank;
+};
+
+/** One contender the policy will walk, with its questions already numbered. */
+type Step = { candidate: Contender; passesValue: boolean; current: number; neutral: number | null };
+
+type RunePlan = { rune: Rune; retentionShare: number; steps: Step[]; neutralSteps: Step[] };
+
+type Answer = {
+  value: number; maxValue: number; chance: number; priority: number;
+  preset: RunePotentialPreset; rank: MatchRank;
+};
 
 export type RuneVerdict = 'power-up' | 'keep' | 'sell';
 
@@ -113,25 +174,56 @@ export type RuneAdvice = {
   rank: MatchRank;
 };
 
+/**
+ * The chance, as the row prints it.
+ *
+ * **A tenth of a percentage point is the floor, and it is not a presentation choice.**
+ * The odds are counted over `chanceRuns` runs (`docs/RUNE-CLEANUP-MATH.md` §7.2), so
+ * the finest answer the engine can give is one run in four thousand — about
+ * 0.024 points. Printing `0.03 %` from a single run that happened to clear the bar
+ * would claim two decimals the calculation does not have. Anything real but below
+ * that floor says so instead, and `0 %` still means the engine settled it at zero
+ * rather than failing to find one.
+ */
 const percent = (fraction: number) => {
   const value = fraction * 100;
   if (value >= 10 || Number.isInteger(value)) return `${Math.round(value)} %`;
   if (value >= 1) return `${value.toFixed(1).replace(/\.0$/, '')} %`;
-  return `${value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')} %`;
+  if (value >= 0.1) return `${value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')} %`;
+  return value > 0 ? 'under 0.1 %' : '0 %';
 };
 
 /**
- * Every rune's advice at once.
+ * **Every rune's advice at once, in three passes.**
  *
  * Whole-account rather than per-rune because the thresholds a rune is held to are
  * account-wide: the same slider settings, the same presets and the same reference
  * base line decide every row, and computing them once per call is what keeps two
  * rows from being judged against two different bars.
+ *
+ * The three passes are what let the odds be answered anywhere but here:
+ *
+ * 1. **What is certain.** Every rune against every build of every preset: the weights,
+ *    the perfect rune of its slot, the box of ordinary runes it is measured in, its
+ *    own Max value and its standing. Nothing random, nothing deferred. Every question
+ *    about odds that the policy will ask is *written down* rather than answered, and
+ *    most of them are settled on the spot — a rune at `+12` has no gamble left, and
+ *    of the rest most cannot reach the bar by any road or cannot miss it.
+ * 2. **What is left.** Whatever questions remain go to `count` in one batch. That is
+ *    the only reason the pass exists: one batch is one errand for the graphics card,
+ *    where a question at a time would be thousands of them, and the processor's own
+ *    version is faster for it too, because a rune is played forward once however many
+ *    presets are asking about it.
+ * 3. **What it means.** The policy, with the answers in hand. It walks exactly the
+ *    candidates the first pass walked, because what it skips depends on Max value and
+ *    the retention share and never on the odds.
  */
-export function runeAdvice(
+export async function runeAdvice(
   runes: readonly Rune[], presets: readonly RunePotentialPreset[],
   settings: RunePotentialSettings, base: ReadonlyMap<string, ReferenceStats>,
-): Map<string, RuneAdvice> {
+  /** Who answers the odds. The processor by default; the worker passes the card. */
+  count: ChanceCounter = async (jobs) => countJobs(jobs),
+): Promise<Map<string, RuneAdvice>> {
   const qualityBar = qualityThresholds[settings.runeQuality - 1] ?? qualityThresholds[2];
   const chanceBar = chanceThresholds[settings.powerUpPolicy - 1] ?? chanceThresholds[2];
   const accepted = acceptedWorth[settings.acceptedRunes - 1] ?? acceptedWorth[2];
@@ -155,9 +247,10 @@ export function runeAdvice(
      exactly as long as this call. The presets and the reference lines are fixed
      for its duration, which is what makes the keys inside it sound. */
   const scope = newRuneAdviceScope();
+  const ledger = new ChanceLedger();
+  const prepared: RunePlan[] = [];
 
-  type Answer = { value: number; maxValue: number; chance: number; priority: number; preset: RunePotentialPreset; rank: MatchRank };
-  const advice = new Map<string, RuneAdvice>();
+  /* ------------------------------------------------- 1. everything that is certain */
   for (const rune of runes) {
     /* Every preset and build this rune could serve, valued but not yet gated.
        Selecting a winner on Max value alone and *then* asking whether its chance
@@ -165,10 +258,6 @@ export function runeAdvice(
        would beat one worth 90 % at 70 %, and only the second one survives both
        gates. So the gates are applied to each candidate and the verdict is taken
        across all of them. */
-    type Contender = {
-      preset: RunePotentialPreset; prepared: RuneCandidate; box: OrdinaryBox; neutralBox: OrdinaryBox;
-      value: number; maxValue: number; neutralValue: number; neutralMaxValue: number; rank: MatchRank;
-    };
     const candidates: Contender[] = [];
     const retentionMultiplier = (settings.keepMoreForLargerSets && isFourPieceSet(rune.setName) ? 2 : 1)
       * (rune.setName === 'Intangible' ? intangible : 1);
@@ -200,8 +289,8 @@ export function runeAdvice(
           const wanted = build.mains[rune.slot];
           if (wanted !== rune.mainStatId && wanted !== 0) continue;
         }
-        const prepared = prepareRuneCandidate(rune, preset, build, line, credit, scope);
-        if (prepared) family.push(prepared);
+        const candidate = prepareRuneCandidate(rune, preset, build, line, credit, scope);
+        if (candidate) family.push(candidate);
       }
       if (family.length === 0) continue;
       const box = ordinaryBox(family);
@@ -209,8 +298,8 @@ export function runeAdvice(
         .map((candidate) => candidate.baseline)
         .filter((candidate): candidate is RuneCandidate => candidate !== null);
       const neutralBox = neutralFamily.length > 0 ? ordinaryBox(neutralFamily) : box;
-      for (const prepared of family) {
-        const worth = prepared.rank === 'preferred' ? 1 : prepared.rank === 'acceptable' ? accepted : broken;
+      for (const candidate of family) {
+        const worth = candidate.rank === 'preferred' ? 1 : candidate.rank === 'acceptable' ? accepted : broken;
         /* Two figures, and they are not interchangeable. `maxValue` is what the row
            prints: the plain fraction of a perfect rune, discounted for a set or main
            the preset merely accepts, which is the honest description of the rune
@@ -220,20 +309,29 @@ export function runeAdvice(
            means the same thing in slot 1 as it does in slot 3. The discount is
            applied before the box is consulted rather than after, so it goes on
            discounting the rune rather than the population. */
-        const maxValue = candidateMaxValue(prepared) * worth;
-        /* Craft is optional, so the population anchor must not turn it into a
-           penalty either. A credited rune may use the craft-aware standing, but it
-           keeps at least the neutral no-craft standing and the more lenient of the
-           two equivalent quality floors. */
-        const value = Math.max(standingIn(box, maxValue), standingIn(neutralBox, maxValue));
-        const hasNeutral = prepared.baseline !== null || (credit.gem === null && credit.grind === null);
-        const neutralMaxValue = !hasNeutral ? 0 : prepared.baseline === null ? maxValue
-          : candidateMaxValue(prepared.baseline) * worth;
-        const neutralValue = !hasNeutral ? 0 : prepared.baseline === null ? value
-          : standingIn(neutralBox, neutralMaxValue);
+        const maxValue = candidateMaxValue(candidate) * worth;
+        const hasNeutral = candidate.baseline !== null || (credit.gem === null && credit.grind === null);
+        const neutralMaxValue = !hasNeutral ? 0 : candidate.baseline === null ? maxValue
+          : candidateMaxValue(candidate.baseline) * worth;
+        const neutralValue = !hasNeutral || candidate.baseline === null
+          ? standingIn(box, maxValue) : standingIn(neutralBox, neutralMaxValue);
+        /* **Craft is optional, so the anchor must not turn it into a penalty — and
+           the escape has to be a reading of something.** Crediting a Gem raises the
+           rune, the perfect rune of §5 *and* the box of §9.1, and for some runes the
+           box rises further than the rune does. So the rune keeps the better of its
+           two legal readings: spend the items and be measured against a box that
+           spent them too, or spend nothing and be measured against a box that spent
+           nothing either. Each is a whole calculation.
+
+           It used to read the *credited* Max value in the *uncredited* box, which is
+           neither — a crafted rune against an uncrafted population, lenient by
+           construction and a standing no rune actually has. That admitted more than
+           the share `qualityThresholds` names, which is the one property
+           `verify:rune-slot-neutrality` exists to hold. */
+        const value = Math.max(standingIn(box, maxValue), neutralValue);
         candidates.push({
-          preset, prepared, box, neutralBox, maxValue, value, neutralMaxValue, neutralValue,
-          rank: prepared.rank,
+          preset, prepared: candidate, box, neutralBox, maxValue, value, neutralMaxValue, neutralValue,
+          rank: candidate.rank,
         });
       }
     }
@@ -282,14 +380,15 @@ export function runeAdvice(
        one shared number, so no presentation transform can change which one wins. */
     const contenders = [...bestPerPreset.values()]
       .sort((left, right) => right.value - left.value || right.maxValue - left.maxValue);
-    let fallback: Answer | null = null;
-    const eligibleByPreset = new Map<string, Answer>();
+    const steps: Step[] = [];
+    let anyProcessed = false;
     /* These preferences change how much of the ordinary box this rune is
        allowed to represent. They widen the retained share; they never remove
        another rune's place or introduce any global limit. */
     for (const candidate of contenders) {
       const passesValue = candidate.value >= 1 - retentionShare;
-      if (!passesValue && fallback !== null) continue;
+      if (!passesValue && anyProcessed) continue;
+      anyProcessed = true;
       /* The chance has to be the chance of clearing the *same* bar the value was
          judged against. The value carries the accepted/broken discount, so the fill
          the rune actually has to reach is the bar divided by that discount —
@@ -297,25 +396,64 @@ export function runeAdvice(
          all in its odds, and the two halves of the row would disagree. */
       const worth = candidate.rank === 'preferred' ? 1 : candidate.rank === 'acceptable' ? accepted : broken;
       /* The floor is stated as a share of this slot's box and the odds are asked of
-         a Max value, so the share is read back out of the box before the probability
+         a Max value, so the share is read back out of the box before the counting
          engine sees it. Craft keeps its own craft-aware bar, but the neutral reading
          remains a legal alternative and is compared as a whole answer. This keeps a
          craft slider from making the displayed chance smaller by moving the bar. */
       const currentThreshold = worth > 0
         ? boxThreshold(candidate.box, retentionShare) / worth : Number.POSITIVE_INFINITY;
-      const currentChance = candidateChance(candidate.prepared, currentThreshold);
       const neutralThreshold = worth > 0
         ? boxThreshold(candidate.neutralBox, retentionShare) / worth : Number.POSITIVE_INFINITY;
-      const neutralChance = candidate.prepared.baseline === null
-        ? currentChance : candidateChance(candidate.prepared.baseline, neutralThreshold);
+      steps.push({
+        candidate,
+        passesValue,
+        current: ledger.add(candidateChanceAsk(candidate.prepared, currentThreshold)),
+        neutral: candidate.prepared.baseline === null ? null
+          : ledger.add(candidateChanceAsk(candidate.prepared.baseline, neutralThreshold)),
+      });
+    }
+
+    /* The neutral reading is built beside the credited reading from the same
+       candidate families. That is the same legal choice as a separate no-craft
+       calculation, without calculating every rune in the account twice. */
+    const neutralContenders = [...bestNeutralPerPreset.values()]
+      .sort((left, right) => right.neutralValue - left.neutralValue
+        || right.neutralMaxValue - left.neutralMaxValue);
+    const neutralSteps: Step[] = [];
+    for (const candidate of neutralContenders) {
+      const worth = candidate.rank === 'preferred' ? 1 : candidate.rank === 'acceptable' ? accepted : broken;
+      const neutralThreshold = worth > 0
+        ? boxThreshold(candidate.neutralBox, retentionShare) / worth : Number.POSITIVE_INFINITY;
+      neutralSteps.push({
+        candidate,
+        passesValue: candidate.neutralValue >= 1 - retentionShare,
+        current: ledger.add(candidateChanceAsk(candidate.prepared.baseline ?? candidate.prepared, neutralThreshold)),
+        neutral: null,
+      });
+    }
+
+    prepared.push({ rune, retentionShare, steps, neutralSteps });
+  }
+
+  /* --------------------------------------------------------- 2. what is left */
+  const answers = ledger.settle(await count(ledger.jobs()));
+
+  /* ------------------------------------------------------ 3. what it means */
+  const advice = new Map<string, RuneAdvice>();
+  for (const plan of prepared) {
+    let fallback: Answer | null = null;
+    const eligibleByPreset = new Map<string, Answer>();
+    for (const step of plan.steps) {
+      const currentChance = answers[step.current];
+      const neutralChance = step.neutral === null ? currentChance : answers[step.neutral];
       const chance = Math.max(currentChance, neutralChance);
-      const answer = {
-        value: candidate.value, maxValue: candidate.maxValue, chance,
-        priority: candidate.value,
-        preset: candidate.preset, rank: candidate.rank,
+      const answer: Answer = {
+        value: step.candidate.value, maxValue: step.candidate.maxValue, chance,
+        priority: step.candidate.value,
+        preset: step.candidate.preset, rank: step.candidate.rank,
       };
       if (fallback === null) fallback = answer;
-      if (passesValue && chance >= chanceBar) {
+      if (step.passesValue && chance >= chanceBar) {
         const prior = eligibleByPreset.get(answer.preset.id);
         if (!prior || answer.value > prior.value
           || (answer.value === prior.value && answer.maxValue > prior.maxValue)
@@ -333,26 +471,18 @@ export function runeAdvice(
       || right.chance - left.chance
       || left.preset.id.localeCompare(right.preset.id))[0] ?? null;
     const result = selected ?? fallback;
-    /* The neutral reading is built beside the credited reading from the same
-       candidate families. That is the same legal choice as a separate no-craft
-       calculation, without calculating every rune in the account twice. */
-    const neutralContenders = [...bestNeutralPerPreset.values()]
-      .sort((left, right) => right.neutralValue - left.neutralValue
-        || right.neutralMaxValue - left.neutralMaxValue);
+
     let neutralFallback: Answer | null = null;
     const neutralEligibleByPreset = new Map<string, Answer>();
-    for (const candidate of neutralContenders) {
-      const worth = candidate.rank === 'preferred' ? 1 : candidate.rank === 'acceptable' ? accepted : broken;
-      const neutralThreshold = worth > 0
-        ? boxThreshold(candidate.neutralBox, retentionShare) / worth : Number.POSITIVE_INFINITY;
-      const neutralChance = candidate.prepared.baseline === null
-        ? candidateChance(candidate.prepared, neutralThreshold) : candidateChance(candidate.prepared.baseline, neutralThreshold);
-      const answer = {
-        value: candidate.neutralValue, maxValue: candidate.neutralMaxValue, chance: neutralChance,
-        priority: candidate.neutralValue, preset: candidate.preset, rank: candidate.rank,
+    for (const step of plan.neutralSteps) {
+      const neutralChance = answers[step.current];
+      const answer: Answer = {
+        value: step.candidate.neutralValue, maxValue: step.candidate.neutralMaxValue,
+        chance: neutralChance, priority: step.candidate.neutralValue,
+        preset: step.candidate.preset, rank: step.candidate.rank,
       };
       if (neutralFallback === null) neutralFallback = answer;
-      if (candidate.neutralValue >= 1 - retentionShare && neutralChance >= chanceBar) {
+      if (step.passesValue && neutralChance >= chanceBar) {
         const prior = neutralEligibleByPreset.get(answer.preset.id);
         if (!prior || answer.value > prior.value
           || (answer.value === prior.value && answer.maxValue > prior.maxValue)
@@ -367,23 +497,40 @@ export function runeAdvice(
       || right.chance - left.chance
       || left.preset.id.localeCompare(right.preset.id))[0] ?? null;
     const neutral = neutralSelected ?? neutralFallback;
-    const neutralIsKept = neutralSelected !== null;
-    const safeResult = neutral === null ? result : {
-      value: Math.max(result?.value ?? 0, neutral.value),
-      maxValue: Math.max(result?.maxValue ?? 0, neutral.maxValue),
-      chance: Math.max(result?.chance ?? 0, neutral.chance),
-      priority: Math.max(result?.priority ?? 0, neutral.priority),
-      preset: result?.preset ?? neutral.preset,
-      rank: result?.rank ?? neutral.rank,
-    };
-    const verdict = decide({
-      rune, value: safeResult?.maxValue ?? 0, standing: safeResult?.value ?? 0,
-      chance: safeResult?.chance ?? 0,
-      preset: safeResult?.preset ?? null, rank: safeResult?.rank ?? 'broken',
-      cleared: selected !== null || neutralIsKept,
+
+    /**
+     * **Two whole readings, and one of them wins entire.**
+     *
+     * The credited reading and the neutral one are each a preset, a build, a rank, a
+     * Max value, a standing and a chance that belong together. This used to take the
+     * larger of each field separately and the preset and rank from whichever reading
+     * existed — so a row could carry preset A's name and rank beside preset B's
+     * chance, and print `55 %` under a preset whose own odds were 3 %. `RUNE-CLEANUP-
+     * MATH.md` §5.1 says the Max value and the Chance in a row describe one build,
+     * and a figure maxed across two presets describes neither.
+     *
+     * Passing outranks any figure, because the verdict is what the row is for and a
+     * reading that clears both gates is a legal way for this rune to be kept; below
+     * that it is standing, then Max value, then chance — the same order the
+     * contenders were sorted in.
+     */
+    const readings = [
+      { answer: result, cleared: selected !== null },
+      { answer: neutral, cleared: neutralSelected !== null },
+    ].filter((reading): reading is { answer: Answer; cleared: boolean } => reading.answer !== null);
+    const [chosen] = readings.sort((left, right) =>
+      Number(right.cleared) - Number(left.cleared)
+      || right.answer.value - left.answer.value
+      || right.answer.maxValue - left.answer.maxValue
+      || right.answer.chance - left.answer.chance);
+
+    advice.set(plan.rune.id, decide({
+      rune: plan.rune, value: chosen?.answer.maxValue ?? 0, standing: chosen?.answer.value ?? 0,
+      chance: chosen?.answer.chance ?? 0,
+      preset: chosen?.answer.preset ?? null, rank: chosen?.answer.rank ?? 'broken',
+      cleared: chosen?.cleared ?? false,
       brokenRejected: broken === 0,
-    });
-    advice.set(rune.id, verdict);
+    }));
   }
   return advice;
 }

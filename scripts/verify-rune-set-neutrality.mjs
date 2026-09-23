@@ -141,7 +141,7 @@ check(runeSetMatchRank({ preferred: [], acceptable: ['Intangible'] }, 'Intangibl
 
 const answers = new Map();
 for (const setName of sets) {
-  const advice = runeAdvice(bodies.map((body) => ({ ...body, setName })), openPresets, settings, referenceStats);
+  const advice = await runeAdvice(bodies.map((body) => ({ ...body, setName })), openPresets, settings, referenceStats);
   answers.set(setName, advice);
 }
 const control = answers.get('Violent');
@@ -184,13 +184,13 @@ for (const body of sample) {
     mixed.push({ ...body, id: `${body.id.padStart(6, '0')}-${at}`, setName: sets[at] });
   }
 }
-const intangibleMixed = runeAdvice(mixed, openPresets, { ...settings, intangibleRunes: 5 }, referenceStats);
+const intangibleMixed = await runeAdvice(mixed, openPresets, { ...settings, intangibleRunes: 5 }, referenceStats);
 const countKept = (answers, setName) => mixed
   .filter((rune) => rune.setName === setName && answers.get(rune.id).verdict !== 'sell').length;
 check(countKept(intangibleMixed, 'Intangible') > countKept(intangibleMixed, 'Violent'),
   'the Intangible slider must prefer Intangible runes over otherwise identical normal runes.');
 
-const fourSetMixed = runeAdvice(mixed, openPresets, { ...settings, keepMoreForLargerSets: true }, referenceStats);
+const fourSetMixed = await runeAdvice(mixed, openPresets, { ...settings, keepMoreForLargerSets: true }, referenceStats);
 const fourSetKept = ['Swift', 'Rage', 'Fatal', 'Intangible'].reduce((sum, setName) => sum + countKept(fourSetMixed, setName), 0);
 const twoSetKept = ['Violent', 'Despair', 'Energy', 'Guard'].reduce((sum, setName) => sum + countKept(fourSetMixed, setName), 0);
 check(fourSetKept > twoSetKept,
@@ -205,9 +205,9 @@ const pickyPresets = defaultRunePotentialPresets().map((preset) => ({
   ...preset, sets: { preferred: ['Fatal'], acceptable: [] },
 }));
 const rejecting = { ...settings, brokenRunes: 5 };
-const fatal = runeAdvice(bodies.map((body) => ({ ...body, setName: 'Fatal' })), pickyPresets, rejecting, referenceStats);
-const violent = runeAdvice(bodies.map((body) => ({ ...body, setName: 'Violent' })), pickyPresets, rejecting, referenceStats);
-const intangible = runeAdvice(bodies.map((body) => ({ ...body, setName: 'Intangible' })), pickyPresets, rejecting, referenceStats);
+const fatal = await runeAdvice(bodies.map((body) => ({ ...body, setName: 'Fatal' })), pickyPresets, rejecting, referenceStats);
+const violent = await runeAdvice(bodies.map((body) => ({ ...body, setName: 'Violent' })), pickyPresets, rejecting, referenceStats);
+const intangible = await runeAdvice(bodies.map((body) => ({ ...body, setName: 'Intangible' })), pickyPresets, rejecting, referenceStats);
 const fatalKept = [...fatal.values()].filter((answer) => answer.verdict !== 'sell').length;
 const violentKept = [...violent.values()].filter((answer) => answer.verdict !== 'sell').length;
 const intangibleKept = [...intangible.values()].filter((answer) => answer.verdict !== 'sell').length;

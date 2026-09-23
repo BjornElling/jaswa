@@ -19,16 +19,16 @@
  * `--write` records the current tree as the baseline (`work/` is not committed,
  * so a baseline is always captured deliberately before a change, never inherited).
  *
- * **On `chance` and exactness.** Stages that only remove recomputation must show
- * zero differences everywhere. The tail-lookup change in
- * `docs/RUNE-CLEANUP-PERFORMANCE.md` §4.3 reassociates a floating-point sum and
- * is exact in the probability model but not bit-for-bit in IEEE-754, so it is
- * allowed a stated tolerance (`--chance-tolerance`, default 0). A `reason`
- * difference is always reported and always fails: `reason` carries the printed
- * percentage, so a moved display boundary cannot slip through as a rounding
- * detail. §10.2 of that document says how to adjudicate one if it appears —
- * compensated summation on both sides — rather than assuming the older build is
- * right.
+ * **On `chance` and exactness.** Every field but `chance` is held to bit equality,
+ * including `reason` — which carries the *printed* percentage, so a moved display
+ * boundary is always adjudicated and never absorbed into a numeric tolerance.
+ *
+ * `chance` is the one field that is counted rather than derived
+ * (`docs/RUNE-CLEANUP-MATH.md` §7), so a change that only moves how finely it is
+ * counted, or in what order the runs are summed, may move it by the resolution and no
+ * further. `--chance-tolerance` states how far, and it defaults to zero: a stage that
+ * should not have touched the odds at all has to say so. A stage that did touch them
+ * states its own figure and records a fresh baseline in the same commit.
  */
 import { defaultRunePotentialPresets } from '../app/lib/rune-potential-presets.ts';
 import { runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
@@ -300,8 +300,8 @@ function scenarios() {
 // ---------------------------------------------------------------------------
 
 /** Everything a row can say, in one flat record per rune per scenario. */
-function record(runes, presets, settings) {
-  const advice = runeAdvice(runes, presets, settings, referenceStats);
+async function record(runes, presets, settings) {
+  const advice = await runeAdvice(runes, presets, settings, referenceStats);
   const rows = [];
   const counts = new Map();
   for (const rune of runes) {
@@ -323,19 +323,20 @@ function record(runes, presets, settings) {
  * filled in at all. These assert rather than diff — an empty account has one
  * right answer and it is not a number that can drift.
  */
-function degenerateChecks(runes) {
+async function degenerateChecks(runes) {
   const failures = [];
   const expect = (claim, condition) => { if (!condition) failures.push(claim); };
-  expect('no runes yields no advice', runeAdvice([], shipped, baseSettings, referenceStats).size === 0);
-  expect('no presets yields one row per rune',
-    runeAdvice(runes, [], baseSettings, referenceStats).size === runes.length);
+  const nothing = await runeAdvice([], shipped, baseSettings, referenceStats);
+  expect('no runes yields no advice', nothing.size === 0);
+  const noPresets = await runeAdvice(runes, [], baseSettings, referenceStats);
+  expect('no presets yields one row per rune', noPresets.size === runes.length);
   expect('no presets sells every rune',
-    [...runeAdvice(runes, [], baseSettings, referenceStats).values()].every((answer) => answer.verdict === 'sell'));
-  const emptyOnly = runeAdvice(runes, [emptyTargetPreset()], baseSettings, referenceStats);
+    [...noPresets.values()].every((answer) => answer.verdict === 'sell'));
+  const emptyOnly = await runeAdvice(runes, [emptyTargetPreset()], baseSettings, referenceStats);
   expect('a preset with no positive target can use nothing',
     [...emptyOnly.values()].every((answer) => answer.preset === null));
-  expect('no runes and no presets is still an empty map',
-    runeAdvice([], [], baseSettings, referenceStats).size === 0);
+  const neither = await runeAdvice([], [], baseSettings, referenceStats);
+  expect('no runes and no presets is still an empty map', neither.size === 0);
   return failures;
 }
 
@@ -362,12 +363,12 @@ function displayBoundaries(results) {
   return found;
 }
 
-function buildResults() {
+async function buildResults() {
   const random = makeRandom(0x5eed_1a7e);
   const runes = [...sweptPopulation(random), ...namedFixtures(random)];
   const results = {};
   for (const scenario of scenarios()) {
-    results[scenario.name] = record(runes, scenario.presets, scenario.settings);
+    results[scenario.name] = await record(runes, scenario.presets, scenario.settings);
   }
   return { runes, results };
 }
@@ -431,10 +432,10 @@ function diff(before, after) {
 // ---------------------------------------------------------------------------
 
 const started = Date.now();
-const { runes, results } = buildResults();
+const { runes, results } = await buildResults();
 const elapsed = Date.now() - started;
 
-const failures = degenerateChecks(runes.slice(0, 24));
+const failures = await degenerateChecks(runes.slice(0, 24));
 const boundaries = displayBoundaries(results);
 
 console.log(`Rune Clean-up equivalence: ${runes.length} runes x ${Object.keys(results).length} scenarios in ${elapsed} ms`);

@@ -35,8 +35,33 @@ that document were amended to carry, each in its own commit, as its §9 requires
 > global quotas or allocation indexing are historical performance notes, not current
 > product behaviour.
 
+> **Superseded in part, 23 September 2026.** The probability engine this document
+> profiles no longer exists. The odds are not enumerated any more: the exact branch
+> tree, the 10⁻¹² lattice of §7.1 of the calculation contract, the raw-sum
+> convolutions, the tail views and the three levels of pruning bound have all gone,
+> and with them `app/lib/rune-roll-distributions.ts`, which held them and has been
+> deleted; the `Valuation` type it also carried now lives beside the code that makes
+> one, in `app/lib/rune-substat-weights.ts`.
+> A rune's odds are now settled on its reachable best and worst where that is
+> possible, and counted by playing the rune forward a few thousand times where it is
+> not — `docs/RUNE-CLEANUP-MATH.md` §7 is the contract and
+> `app/lib/rune-power-up-outcomes.ts` is the arithmetic.
+>
+> What that did to the figures below, measured on 1,500 synthetic runes against the
+> eight shipped presets, in Node, warm: **8.98 s → 2.39 s** with both craft sliders at
+> maximum, **1.25 s → 0.83 s** with neither, and **9.20 s → 1.92 s** on a box of 400
+> level-0 runes. Three things account for it and only one is the counting — the event
+> schedule collapsing to a *subset* rather than an ordering, a rune being played
+> forward once however many presets ask about it, and a linear valuation being read
+> once per role into a flat array instead of a `Map` lookup per line per branch.
+>
+> Every profile, every flame-graph attribution and every function name below belongs to
+> the engine as it was. They stand as a record of how it got there and of what was
+> measured on the way, not as a description of what runs now.
+
 **Where sections disagree, the later one wins:** §7 is superseded by §11, §11 is
-qualified by §13.4, and §14 reports against §13.4.
+qualified by §13.4, §14 reports against §13.4, and the note above supersedes every
+figure that describes the probability engine.
 
 **Reviewed:** 18 September 2026
 **Implemented:** 18 September 2026

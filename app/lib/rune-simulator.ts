@@ -17,7 +17,8 @@ import {
 } from './runes';
 import type { Rune, RuneDefaultGrade } from './runes';
 import { runeSetId } from './rune-sets';
-import { craftAssumptionForSetting, craftRollValue, craftValueRange, isGrindableStat } from './rune-craft-items';
+import { craftAssumptionForSetting } from './rune-craft-items';
+import { craftItemRoll, isGrindableStatId } from './rune-craft-end-state';
 import type { CraftLineage, CraftRollAssumption } from './rune-craft-items';
 import { runeAdvice } from './rune-cleanup-advice';
 import type { RuneAdvice } from './rune-cleanup-advice';
@@ -259,8 +260,7 @@ function applyEnchant(
   const candidates = legalEnchantIds(rune, lineIndex);
   if (candidates.length === 0) return;
   const statId = choose(candidates, random);
-  const range = craftValueRange('gem', craftLineageFor(rune), statId, grade);
-  const value = range ? craftRollValue(range, assumption) : null;
+  const value = craftItemRoll('gem', craftLineageFor(rune), statId, grade, assumption);
   if (value === null) return;
   rune.subProperties[lineIndex] = {
     statId, value, gemmed: true, grind: statId === current.statId ? current.grind : 0, rolls: 0,
@@ -272,11 +272,10 @@ function applyGrind(
   grade: RuneSimulationCraftSettings['grindstoneGrade'], random: RandomSource,
 ): void {
   if (assumption === null) return;
-  const candidates = rune.subProperties.filter((property) => isGrindableStat(property.statId));
+  const candidates = rune.subProperties.filter((property) => isGrindableStatId(property.statId));
   if (!candidates.length) return;
   const target = choose(candidates, random);
-  const range = craftValueRange('grindstone', craftLineageFor(rune), target.statId, grade);
-  const value = range ? craftRollValue(range, assumption) : null;
+  const value = craftItemRoll('grindstone', craftLineageFor(rune), target.statId, grade, assumption);
   if (value !== null) target.grind = value;
 }
 
@@ -375,10 +374,10 @@ function emptyStageRecord(): Record<SimulationStage, SimulationStageResult> {
 }
 
 /** Run the complete configured experiment, including every checkpoint action. */
-function recommendationsFor(
+async function recommendationsFor(
   runes: readonly SimulatedRune[], stage: SimulationStage,
   config: RuneSimulationConfig, context: RuneSimulationContext,
-): ReadonlyMap<string, RuneAdvice> | null {
+): Promise<ReadonlyMap<string, RuneAdvice> | null> {
   if (config.gates[stage].policy === 'keep-all') return null;
   if (context.base === null) {
     throw new Error('Rune Clean-up recommendations need a level 40 reference monster.');
@@ -391,9 +390,15 @@ function recommendationsFor(
   );
 }
 
-export function simulateRunes(
+/**
+ * The experiment runs the whole Rune Clean-up engine three times, and that engine
+ * now answers the odds in one batch rather than a rune at a time — so this waits for
+ * it. The three stages stay strictly in order: what survives `+0` is what is powered
+ * to `+9`, and there is nothing to overlap.
+ */
+export async function simulateRunes(
   config: RuneSimulationConfig, context: RuneSimulationContext, random: RandomSource = defaultRandom,
-): RuneSimulationResult {
+): Promise<RuneSimulationResult> {
   if (!Number.isSafeInteger(config.count) || config.count < 1) {
     throw new Error('Rune simulator needs at least one rune.');
   }
@@ -406,15 +411,16 @@ export function simulateRunes(
   const stages = emptyStageRecord();
   const generated = Array.from({ length: config.count }, (_, index) => generateRune(index, config, random));
 
-  stages[0] = stageResult(0, generated, generated.length, config, recommendationsFor(generated, 0, config, context));
+  stages[0] = stageResult(0, generated, generated.length, config, await recommendationsFor(generated, 0, config, context));
   const afterZero = stages[0].entries.filter((entry) => entry.decision !== 'sell').map((entry) => entry.rune);
 
   const atNine = afterZero.map((rune) => powerUpRune(rune, 9, random));
-  stages[9] = stageResult(9, atNine, afterZero.length, config, recommendationsFor(atNine, 9, config, context));
+  stages[9] = stageResult(9, atNine, afterZero.length, config, await recommendationsFor(atNine, 9, config, context));
   const afterNine = stages[9].entries.filter((entry) => entry.decision !== 'sell').map((entry) => entry.rune);
 
   const atTwelve = afterNine.map((rune) => craftRuneAtTwelve(powerUpRune(rune, 12, random), config, random));
-  stages[12] = stageResult(12, atTwelve, afterNine.length, config, recommendationsFor(atTwelve, 12, config, context));
+  stages[12] = stageResult(12, atTwelve, afterNine.length, config,
+    await recommendationsFor(atTwelve, 12, config, context));
   const kept = stages[12].entries.filter((entry) => entry.decision === 'keep').length;
 
   return {

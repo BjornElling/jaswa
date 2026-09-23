@@ -82,9 +82,31 @@ for (const member of members) {
 assert.equal(writes.length, members.length,
   'the upload writes a value the Parameters struct does not declare');
 
+/**
+ * **The workgroup size, which three readers have to agree on.**
+ *
+ * `@workgroup_size`, the `WORKGROUP_SIZE` the dispatch preamble multiplies by, and
+ * the divisor the backend counts workgroups with. It is the same class of failure as
+ * the uniform block above and just as quiet: past 4,194,240 pairs the dispatch splits
+ * into a second dimension, and a mismatch there attributes every score in the second
+ * row to the wrong artifact/monster pair — in bounds, a real number, and nothing to
+ * report it. All three now interpolate one exported constant, and this confirms that
+ * none of them has grown a literal again.
+ */
+const lanesMatch = shader.match(/export const artifactScoreLanes = (\d+);/);
+assert.ok(lanesMatch, 'the shader module must export artifactScoreLanes');
+const lanes = Number(lanesMatch[1]);
+assert.ok(new RegExp(`const WORKGROUP_SIZE: u32 = \\$\\{artifactScoreLanes\\}u;`).test(shader),
+  'WORKGROUP_SIZE must interpolate artifactScoreLanes rather than restate it');
+assert.ok(/@compute @workgroup_size\(\$\{artifactScoreLanes\}\)/.test(shader),
+  '@workgroup_size must interpolate artifactScoreLanes rather than restate it');
+assert.ok(/workgroups: Math\.ceil\(pairCount \/ artifactScoreLanes\)/.test(backend),
+  'the backend must count workgroups with artifactScoreLanes rather than a literal');
+
 console.log('WebGPU scoring parameters');
 for (const member of members) {
   console.log(`  ${String(member.offset).padStart(3)}  ${member.name} (${member.type})`);
 }
 console.log(`  block ${structSize} bytes, upload ${bufferSize} bytes, ${writes.length} values written.`);
+console.log(`  ${lanes} lanes per workgroup, in the shader and the dispatch alike.`);
 console.log('All checks passed.');

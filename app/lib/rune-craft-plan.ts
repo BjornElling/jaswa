@@ -9,8 +9,9 @@
 import { calculateRuneEfficiency } from './rune-potential-metrics';
 import type { RunePotentialPreset } from './rune-potential-presets';
 import { runeMainStatIds } from './rune-potential-presets';
-import { craftRollValue, isGrindableStat } from './rune-craft-items';
+import { craftItemRoll } from './rune-craft-end-state';
 import type { CraftItem, CraftRollAssumption } from './rune-craft-items';
+import type { ItemGrade } from './types';
 import { gemMinimumLevel, runeSubValue, slotAllowsSubStat } from './runes';
 import type { Rune, RuneSubProperty } from './runes';
 
@@ -184,7 +185,7 @@ export type CraftPlanOptions = {
    * Grind the gemmed property afterwards, at this grade's range. `null` leaves
    * the gem standing on its own, which is what a grindstone item always does.
    */
-  grindAfter: { range: { minimum: number; maximum: number } } | null;
+  grindAfter: { grade: ItemGrade } | null;
   roll: CraftRollAssumption;
 };
 
@@ -202,7 +203,7 @@ export function craftCandidate(
   const fit = craftItemFit(item, rune);
   if (!fit.fits) return null;
   const scoreNow = provisionalRuneScore(rune);
-  const rolled = item.range ? craftRollValue(item.range, options.roll) : null;
+  const rolled = craftItemRoll(item.kind, item.lineage, item.statId, item.grade, options.roll);
 
   /* No verified range means no projection, but the rune is still a place the
      item can legally go — so it is reported with the figures it has. */
@@ -214,8 +215,11 @@ export function craftCandidate(
     };
   }
 
-  const grindAfter = item.kind === 'gem' && options.grindAfter && isGrindableStat(item.statId)
-    ? craftRollValue(options.grindAfter.range, options.roll)
+  /* A follow-up stone is only a question for a Gem, and `craftItemRoll` is what knows
+     it cannot land on CRI Rate, CRI Dmg, Resistance or Accuracy — so the legality is
+     not restated here. */
+  const grindAfter = item.kind === 'gem' && options.grindAfter !== null
+    ? craftItemRoll('grindstone', item.lineage, item.statId, options.grindAfter.grade, options.roll)
     : null;
 
   let best: CraftCandidate | null = null;

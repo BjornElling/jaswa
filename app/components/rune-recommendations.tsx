@@ -19,7 +19,7 @@ import { numberedMonsterNames } from '../lib/monster-names';
 import { runeVerdictLabels, runeVerdictOrder } from '../lib/rune-cleanup-advice';
 import type { RuneVerdict } from '../lib/rune-cleanup-advice';
 import { calculateRuneAdvice, cancelRuneAdvice } from '../lib/compute/rune-advice-client';
-import type { ComputeBackend } from '../lib/compute/calculation-summary';
+import type { CalculationBackend } from '../lib/compute/calculation-summary';
 import { noReferenceLineMessage, referenceLines } from '../lib/rune-reference-stats';
 import {
   compareRuneCleanupRows, compareRuneGameSort, defaultRuneCleanupSortDirections,
@@ -149,11 +149,13 @@ const columns: readonly SortableColumn<RuneCleanupRow>[] = (() => {
  * preset and every build, and a table that re-ran itself under a dragging thumb
  * would be a table nobody could read.
  */
-export function RuneRecommendations({ game, settings, presets, general }: {
+export function RuneRecommendations({ game, settings, presets, general, hardwareAcceleration }: {
   game: ImportedGame | null;
   settings: RunePotentialSettings;
   presets: RunePotentialPreset[];
   general: GeneralSettings;
+  /** Whether the graphics card may count the odds. The worker is told, not asked. */
+  hardwareAcceleration: boolean;
 }) {
   const [filters, setFilters] = useSessionStorageState(
     'jaswa.filters.rune-cleanup', defaultRuneFilters, isRuneFilterState,
@@ -169,7 +171,7 @@ export function RuneRecommendations({ game, settings, presets, general }: {
     rows: RuneCleanupRow[];
     at: string;
     durationMs: number;
-    backend: ComputeBackend;
+    backend: CalculationBackend;
   } | null>(null);
   const [busy, setBusy] = useState(false);
   /* A failed calculation says so and leaves the previous table standing. Clearing
@@ -206,7 +208,7 @@ export function RuneRecommendations({ game, settings, presets, general }: {
     if (!base) return;
     setBusy(true);
     setFailure(null);
-    const outcome = await calculateRuneAdvice({ runes, presets, settings, base });
+    const outcome = await calculateRuneAdvice({ runes, presets, settings, base, preferWebGpu: hardwareAcceleration });
     /* A newer request has taken over the busy state and the table, so this one
        returns without touching either. */
     if (outcome.status === 'superseded') return;

@@ -15,10 +15,10 @@ import { monsterNameCollator } from '../lib/monster-grid';
 import { numberedMonsterNames } from '../lib/monster-names';
 import {
   craftKindLabels, craftLineageLabels, craftLineageNotes, craftRollDescriptions,
-  craftRollLabels, craftRollAssumptions, craftSetLabel, craftSetName, craftValueRange,
-  isGrindableStat, itemGrades,
+  craftRollLabels, craftRollAssumptions, craftSetLabel, craftSetName, itemGrades,
 } from '../lib/rune-craft-items';
 import type { CraftItem, CraftKind, CraftLineage, CraftRollAssumption } from '../lib/rune-craft-items';
+import { craftItemRange } from '../lib/rune-craft-end-state';
 import { craftRangeText } from '../lib/rune-craft-grid';
 import {
   craftBlockReason, craftCandidate, craftLandingScore, craftReach, presetWantsRune, subPropertyText,
@@ -196,17 +196,23 @@ export function CraftItemBestUse({ items, runes, monsters, presets, general }: {
      can be ground at all (§8). The control stays mounted in every state and
      dims instead, so choosing a grindstone does not close a gap under the
      pointer (`AGENTS.md` §2). */
-  const grindPossible = item?.kind === 'gem' && isGrindableStat(item.statId);
-  const grindRange = grindPossible && item
-    ? craftValueRange('grindstone', item.lineage, item.statId, state.grindGrade)
+  const grindRange = item?.kind === 'gem'
+    ? craftItemRange('grindstone', item.lineage, item.statId, state.grindGrade)
     : undefined;
-  const grindApplied = state.grindAfter && grindRange !== undefined;
+  /* `craftItemRange` is the one place that knows a stone cannot touch CRI Rate, CRI
+     Dmg, Resistance or Accuracy, so "no such item exists" and "this stat cannot be
+     ground" are the same answer and this control does not restate either. */
+  const grindPossible = grindRange !== undefined;
+  const grindApplied = state.grindAfter && grindPossible;
 
   const rows = useMemo<Row[]>(() => {
     if (!item) return [];
+    /* The planner is told the grade, not the range: it reads the table itself through
+       the same door this panel does, and answers `null` where no such stone exists —
+       which is the legality the control above is already dimmed by. */
     const options = {
       roll: state.roll,
-      grindAfter: grindApplied && grindRange ? { range: grindRange } : null,
+      grindAfter: grindApplied && grindRange ? { grade: state.grindGrade } : null,
     };
     const found: Row[] = [];
     runes.forEach((rune, order) => {
@@ -223,7 +229,7 @@ export function CraftItemBestUse({ items, runes, monsters, presets, general }: {
     });
     return found;
   }, [item, runes, preset, state.roll, state.showEquipped, state.showInventory,
-    grindApplied, grindRange, monsterNames]);
+    grindApplied, grindRange, state.grindGrade, monsterNames]);
 
   const columns = useMemo<SortableColumn<Row>[]>(() => [
     /* Sorted on the name as the column draws it, mark included, so a set's

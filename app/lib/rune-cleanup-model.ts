@@ -2,13 +2,18 @@
  * **The single source of truth for what a rune is worth and what it may become.**
  *
  * `docs/RUNE-CLEANUP-MATH.md` owns the reasoning; this owns the arithmetic. Every
- * figure the Rune Clean-up page states — a rune's Max value, its chance of reaching
- * a threshold, which preset suits it — is computed here and nowhere else. A second
- * implementation would not merely duplicate work: it would drift, and the page
- * would then state two Max values for the same rune without either being obviously
- * wrong. The deliberate exception is `scripts/verify-rune-cleanup-calibration.mjs`,
- * which re-derives the chance by Monte Carlo from the game's own loop precisely so
- * that a disagreement is caught.
+ * figure the Rune Clean-up page states — a rune's Max value, its chance of reaching a
+ * threshold, which preset suits it — is settled here and nowhere else. A second
+ * implementation would not merely duplicate work: it would drift, and the page would
+ * then state two Max values for the same rune without either being obviously wrong.
+ *
+ * Two modules are underneath it and own one question each, because both were being
+ * answered in several places and two of the copies had already drifted:
+ * `rune-craft-end-state.ts` says what a Gem and a Grindstone do to a finished rune,
+ * and `rune-power-up-outcomes.ts` says what a rune may still become and how likely
+ * that is. The deliberate exception to all of it is
+ * `scripts/verify-rune-cleanup-calibration.mjs`, which re-derives both from the game's
+ * own rules precisely so that a disagreement is caught.
  *
  * ## One currency, two questions
  *
@@ -30,16 +35,13 @@
  * 1,530 measured prefixes rather than assumed (`RUNE-CANONICAL.md` §4). Which of
  * the four lines a power-up improves, and which type a new line takes, are **not
  * established by any source** and are assumed uniform. Those two assumptions are
- * named here and in the weights module, at the two places they are used, so nothing
- * downstream can present them as game facts.
+ * named in `rune-power-up-outcomes.ts` and in the weights module, at the two places
+ * they are used, so nothing downstream can present them as game facts.
  */
-import { runeDefaultGradeOrder, runeSubValue, slotAllowsSubStat } from './runes';
-import type { Rune, RuneSubProperty } from './runes';
+import { slotAllowsSubStat } from './runes';
+import type { Rune } from './runes';
 import { isIntangibleRuneSet, runeSetPieceCount } from './rune-sets';
-import {
-  allStatIds, mainPropertyMaximum, maximumRoll, remainingEvents, subPropertyRange,
-} from './rune-properties';
-import type { SubPropertyEvent } from './rune-properties';
+import { allStatIds, mainPropertyMaximum, maximumRoll, subPropertyRange } from './rune-properties';
 import type { ReferenceStats } from './rune-reference-stats';
 import type { PresetChoice, RunePotentialPreset } from './rune-potential-presets';
 import { runeMainStatIds } from './rune-potential-presets';
@@ -47,14 +49,21 @@ import {
   newSubstatWeightScope, substatWeights, targetStats, weightedValuation,
 } from './rune-substat-weights';
 import type { BuildMains, SubstatWeightScope, SubstatWeights } from './rune-substat-weights';
+import type { Valuation } from './rune-substat-weights';
 import {
-  combinations, convolveDistribution, isExactKey, probabilityKey, rollDistribution, tailMass,
-  tailView, targetKey,
-} from './rune-roll-distributions';
-import type { Distribution, Valuation } from './rune-roll-distributions';
-import { craftRollValue, craftValueRange, isGrindableStat } from './rune-craft-items';
-import type { CraftLineage, CraftRollAssumption } from './rune-craft-items';
-import type { ItemGrade } from './types';
+  craftPlan, craftedScore, creditKey, gemOptions, grindCredit, hasCraftCredit,
+  priceList, withoutCraft,
+} from './rune-craft-end-state';
+import type {
+  CraftCredit, CraftPlan, EndStateLine, GemOptions, PriceList,
+} from './rune-craft-end-state';
+import type { CraftLineage } from './rune-craft-items';
+import {
+  bestEndState, chanceRuns, chanceStep, countJobs, endStateScoring, runeFuture,
+} from './rune-power-up-outcomes';
+import type { CountingJob, EndStateScoring, RuneFuture } from './rune-power-up-outcomes';
+
+export type { CraftCredit } from './rune-craft-end-state';
 
 export { targetStats };
 
@@ -147,167 +156,6 @@ export type RuneOutcome = {
   rank: MatchRank;
 };
 
-/** The one optional Gem and one optional Grind the Clean-up policy assumes exist. */
-export type CraftCredit = {
-  gem: CraftRollAssumption | null;
-  gemGrade: ItemGrade;
-  grind: CraftRollAssumption | null;
-  grindGrade: ItemGrade;
-};
-
-const creditKey = (credit: CraftCredit): string =>
-  `${credit.gem ?? '-'}/${credit.gemGrade}/${credit.grind ?? '-'}/${credit.grindGrade}`;
-
-/** What a credited Grindstone would put on this line, or `0` where none can. */
-function grindCredit(statId: number, lineage: CraftLineage, credit: CraftCredit): number {
-  if (credit.grind === null || !isGrindableStat(statId)) return 0;
-  const range = craftValueRange('grindstone', lineage, statId, credit.grindGrade);
-  return range ? craftRollValue(range, credit.grind) : 0;
-}
-
-/** What a credited Enchanted Gem would put on this line, or `null` where none can. */
-function gemCredit(statId: number, lineage: CraftLineage, credit: CraftCredit): number | null {
-  if (credit.gem === null) return null;
-  const range = craftValueRange('gem', lineage, statId, credit.gemGrade);
-  return range ? craftRollValue(range, credit.gem) : null;
-}
-
-/**
- * The one Ancient exception in the candidate projection. An Ancient initial roll
- * uses the verified Ancient interval; upgrades still use the ordinary six-star
- * interval. Everything that defines the reference box, weights or ceiling calls
- * `subPropertyRange` directly and therefore remains ordinary by construction.
- */
-function candidateRollRange(
-  rune: Pick<Rune, 'stars' | 'ancient'>, statId: number, kind: 'initial' | 'upgrade',
-) {
-  return subPropertyRange(rune.stars, statId, kind, rune.ancient && kind === 'initial');
-}
-
-/* ----------------------------------------------------------- the projection */
-
-/**
- * The rune as it stands before any optional future craft choice.
- *
- * An Enchanted Gem is deliberately not reserved here. It is spent after the power-up
- * rolls, and the line it should replace is therefore a function of the realised
- * result. Keeping a preselected line in this object makes a Gem look mandatory and
- * turns upgrades on that line into apparent losses before the model has seen them.
- */
-type LineUp = {
-  lines: readonly RuneSubProperty[];
-  /** Retained for the candidate shape; adaptive craft has no preselected line. */
-  gemmedAt: number | null;
-  /** No replacement is chosen until the realised rolls are known. */
-  replacedStatId: number | null;
-  /** No replacement is chosen until the realised rolls are known. */
-  gemStatId: number | null;
-  /** The lines' current value, the innate included, in this role's units. */
-  have: number;
-};
-
-/** One line-up priced into the role's units, the innate included. */
-function valueOfLineUp(lineUp: Omit<LineUp, 'have'>, rune: Rune, valuation: Valuation): number {
-  let total = 0;
-  for (const line of lineUp.lines) total += valuation.value(line.statId, runeSubValue(line));
-  if (rune.prefixStatId !== null) total += valuation.value(rune.prefixStatId, rune.prefixValue);
-  return total;
-}
-
-/** Every line the rune holds, with a credited Grindstone applied wherever it is legal. */
-function groundLines(rune: Rune, lineage: CraftLineage, credit: CraftCredit): RuneSubProperty[] {
-  return rune.subProperties.map((line) => {
-    const credited = grindCredit(line.statId, lineage, credit);
-    /* A Grindstone is credited as `max(existing, assumed)` rather than added to what
-       is there: a rune already ground three quarters of the way is worth what an
-       unground one is, because the grind can always be topped up. Adding them would
-       pay the rune twice for the same line. */
-    return credited > line.grind ? { ...line, grind: credited } : line;
-  });
-}
-
-/**
- * The only line-up used by the probability tree. Craft is an optional end-state
- * action, not a branch selected before the tree is evaluated. `groundLines` still
- * credits the configured Grindstone to the lines the rune can carry; the Gem is
- * handled by `adaptiveScore` once the final lines and their realised values exist.
- */
-function lineUpOptions(rune: Rune, credit: CraftCredit): Array<Omit<LineUp, 'have'>> {
-  const lineage: CraftLineage = rune.ancient ? 'ancient' : 'standard';
-  const lines = groundLines(rune, lineage, credit);
-  return [{ lines, gemmedAt: null, gemStatId: null, replacedStatId: null }];
-}
-
-/** The best legal Gem contribution for one realised line, or `null` if no Gem can
- * legally replace that line. */
-function bestGemForLine(
-  rune: Rune, lines: readonly RuneSubProperty[], lineAt: number,
-  valuation: Valuation, credit: CraftCredit, lineage: CraftLineage,
-): number | null {
-  if (credit.gem === null) return null;
-  const converted = lines.findIndex((line) => line.gemmed);
-  /* A rune may have one converted line, and a later Gem may only replace that line. */
-  if (converted !== -1 && converted !== lineAt) return null;
-  const replaced = lines[lineAt];
-  if (!replaced) return null;
-  const others = new Set(lines.filter((_, index) => index !== lineAt).map((line) => line.statId));
-  let best: number | null = null;
-  for (const statId of allStatIds) {
-    if (others.has(statId) || statId === rune.mainStatId || statId === rune.prefixStatId
-      || !slotAllowsSubStat(rune.slot, statId)) continue;
-    const rolled = gemCredit(statId, lineage, credit);
-    if (rolled === null) continue;
-    /* A Gem that keeps the same property retains that line's existing Grindstone;
-       a changed property receives the configured Grindstone credit for the new id. */
-    const kept = statId === replaced.statId ? replaced.grind : 0;
-    const grind = Math.max(kept, grindCredit(statId, lineage, credit));
-    const value = valuation.value(statId, rolled + grind);
-    if (best === null || value > best) best = value;
-  }
-  return best;
-}
-
-/**
- * Score a realised end state with the user's rule for Gems:
- *
- * - score the lines as they actually rolled;
- * - find the least-contributing legal line;
- * - compare it with the best legal Gem + Grindstone result;
- * - keep the original line if the replacement would not improve the total.
- *
- * The `max` is intentional. It is the local monotonicity guarantee: an optional
- * craft item can add value, but it can never turn an already good end state into a
- * worse one merely because the calculation considered spending the item.
- */
-function adaptiveScore(
-  rune: Rune, lines: readonly RuneSubProperty[], valuation: Valuation,
-  credit: CraftCredit, lineage: CraftLineage,
-): number {
-  let plain = lines.reduce((sum, line) => sum + valuation.value(line.statId, runeSubValue(line)), 0);
-  if (rune.prefixStatId !== null) plain += valuation.value(rune.prefixStatId, rune.prefixValue);
-  if (credit.gem === null || lines.length === 0) return plain;
-
-  const converted = lines.findIndex((line) => line.gemmed);
-  const replaceable = converted === -1 ? lines.map((_, at) => at) : [converted];
-  let weakest: number | null = null;
-  let weakestValue = Number.POSITIVE_INFINITY;
-  let weakestGem: number | null = null;
-  for (const lineAt of replaceable) {
-    const line = lines[lineAt];
-    const lineValue = valuation.value(line.statId, runeSubValue(line));
-    const gemValue = bestGemForLine(rune, lines, lineAt, valuation, credit, lineage);
-    if (gemValue === null) continue;
-    if (lineValue < weakestValue
-      || (lineValue === weakestValue && (weakestGem === null || gemValue > weakestGem))) {
-      weakest = lineAt;
-      weakestValue = lineValue;
-      weakestGem = gemValue;
-    }
-  }
-  if (weakest === null || weakestGem === null || weakestGem <= weakestValue) return plain;
-  return Math.max(plain, plain - weakestValue + weakestGem);
-}
-
 /* ------------------------------------------------------------- the ceiling */
 
 /**
@@ -331,66 +179,92 @@ function adaptiveScore(
  * stars or is Ancient. That is what keeps a perfect 4★ rune below a perfect 6★ one
  * on a single scale; an Ancient rune's higher initial interval may move its own
  * score above the ordinary bar, but never moves the bar itself.
+ *
+ * **That includes the craft tables, and it used not to.** An Ancient candidate was
+ * given an *Ancient* perfect rune to divide by, so its stronger Ancient Gem and stone
+ * paid for its own denominator and cancelled most of what they had just earned it. On
+ * a Legend Ancient slot-2 rune at `+12` with Hero items at three quarters the bar
+ * stood 4.1 % higher and the rune read 71.5 % where the ordinary bar says 74.5 %.
+ * §6's "Ancient runes use Ancient craft tables" is a rule about what a *rune* may be
+ * spent on; the reference is the ordinary six-star rune of §5, whole, which is why
+ * this takes no lineage.
  */
-function slotCeiling(
-  valuation: Valuation, slot: number, main: number, credit: CraftCredit, lineage: CraftLineage,
+export function slotCeiling(
+  valuation: Valuation, slot: number, main: number, credit: CraftCredit,
 ): number {
+  const prices = priceList(valuation);
+  const plan = craftPlan('standard', credit);
   const ids = allStatIds.filter((statId) => statId !== main && slotAllowsSubStat(slot, statId))
-    .filter((statId) => valuation.value(statId, maximumRoll(statId)) > 0);
+    .filter((statId) => maximumRoll(statId) * prices[statId] > 0);
   if (ids.length === 0) return 0;
 
-  const five = new Map<number, number>();
-  const one = new Map<number, number>();
-  const prefix = new Map<number, number>();
-  const gem = new Map<number, number>();
+  /* A line of one maximum roll, with its Grindstone. The order this produces is the
+     order the three plain lines are filled in, and it is the same for every
+     arrangement below, so it is worked out once. */
+  const oneRoll = new Map<number, number>();
   for (const statId of ids) {
-    const grind = grindCredit(statId, lineage, credit);
-    const roll = maximumRoll(statId);
-    five.set(statId, valuation.value(statId, roll * 5 + grind));
-    one.set(statId, valuation.value(statId, roll + grind));
-    prefix.set(statId, valuation.value(statId, roll));
-    const rolled = gemCredit(statId, lineage, credit);
-    if (rolled !== null) gem.set(statId, valuation.value(statId, rolled + grind));
+    oneRoll.set(statId, (maximumRoll(statId) + grindCredit(plan, statId)) * prices[statId]);
   }
-  const byOneRoll = [...ids].sort((left, right) => (one.get(right) ?? 0) - (one.get(left) ?? 0));
+  const byOneRoll = [...ids].sort((left, right) => (oneRoll.get(right) ?? 0) - (oneRoll.get(left) ?? 0));
 
-  /** The best three (or two) plain lines and one innate, out of what is left. */
-  const fillRest = (excluded: ReadonlySet<number>, lineCount: number): number => {
-    let best = 0;
-    for (const innate of [null, ...ids]) {
-      if (innate !== null && excluded.has(innate)) continue;
-      let total = innate === null ? 0 : prefix.get(innate) ?? 0;
-      let taken = 0;
-      for (const statId of byOneRoll) {
-        if (taken === lineCount) break;
-        if (excluded.has(statId) || statId === innate) continue;
-        total += one.get(statId) ?? 0;
-        taken += 1;
-      }
-      best = Math.max(best, total);
-    }
-    return best;
-  };
-
+  const buffer: EndStateLine[] = [0, 1, 2, 3].map(() => ({ statId: 0, value: 0, grind: 0, gemmed: false }));
   let best = 0;
   for (const sink of ids) {
-    /* Gemming the five-roll line would trade four upgrades for one Gem roll, which
-       no legal Gem can repay; the arrangement is dominated by spending the Gem on
-       any other line, and every other line is offered below. */
-    for (const gemmed of [null, ...ids]) {
-      if (gemmed === sink) continue;
-      if (gemmed !== null && !gem.has(gemmed)) continue;
-      const excluded = new Set<number>([sink]);
-      if (gemmed !== null) excluded.add(gemmed);
-      const total = (five.get(sink) ?? 0) + (gemmed === null ? 0 : gem.get(gemmed) ?? 0)
-        + fillRest(excluded, gemmed === null ? 3 : 2);
-      best = Math.max(best, total);
+    /* An innate bars one further effect id, and which id that is changes what a Gem
+       may then take — so the innate is part of the arrangement rather than a constant
+       added at the end. `null` is the rune that has none. */
+    for (const innate of [null, ...ids]) {
+      if (innate === sink) continue;
+      buffer[0].statId = sink;
+      /* Four lines each begin with one roll, so the four later upgrades may all
+         concentrate on one line but the other three never fall below one. */
+      buffer[0].value = maximumRoll(sink) * 5;
+      let filled = 1;
+      for (const statId of byOneRoll) {
+        if (filled === 4) break;
+        if (statId === sink || statId === innate) continue;
+        buffer[filled].statId = statId;
+        buffer[filled].value = maximumRoll(statId);
+        filled += 1;
+      }
+      /* A role that values fewer than four of the slot's effect ids has fewer than
+         four lines worth writing down. The rune still has four, and the rest are worth
+         nothing to it — which is the same arrangement with the zeroes left out. */
+      const lines = filled === 4 ? buffer : buffer.slice(0, filled);
+      const prefixScore = innate === null ? 0 : maximumRoll(innate) * prices[innate];
+      /* The Gem is settled by the one craft rule, which considers replacing every
+         line — including trading the five-roll line for one Gem roll, an arrangement
+         no legal Gem can repay and which is therefore never the one it keeps. */
+      const options = gemOptions(plan, prices, slot, main, innate);
+      const total = craftedScore(plan, options, prices, lines, prefixScore);
+      if (total > best) best = total;
     }
   }
   return best;
 }
 
 /* ------------------------------------------------- the ordinary rune */
+
+/**
+ * Every unordered draw without replacement, each of them equally likely.
+ *
+ * It lives here because the box below is the one thing left that needs it: the lines a
+ * slot can draw are a *set*, and the order they arrive in cannot matter to what the
+ * line-up is worth. Ten legal ids is 210 draws.
+ */
+function combinations<T>(items: readonly T[], count: number): T[][] {
+  if (count === 0) return [[]];
+  const out: T[][] = [];
+  const chosen: T[] = [];
+  const visit = (from: number) => {
+    if (chosen.length === count) { out.push([...chosen]); return; }
+    for (let at = from; at <= items.length - (count - chosen.length); at += 1) {
+      chosen.push(items[at]); visit(at + 1); chosen.pop();
+    }
+  };
+  visit(0);
+  return out;
+}
 
 /**
  * How often an ordinary six-star rune carries an innate property: **51 %**, measured
@@ -421,14 +295,22 @@ type RollStatistics = {
   variance: number;
 };
 
-/** One build's price list for one slot's legal effect ids. */
+/**
+ * One build's price list for one slot's legal effect ids.
+ *
+ * It carries no craft arithmetic of its own. The end state of an ordinary rune is
+ * settled by `craftedScore` — the same function a candidate's own end state and the
+ * §5 ceiling go through — because this used to be a sixth place that applied
+ * `RUNE-CANONICAL.md` §8, and §6.1 is the account of what two copies of those rules
+ * cost the last time. `verify:rune-craft-single-source` now guards the decision as
+ * well as the tables.
+ */
 type OrdinaryPrices = {
   ceiling: number;
-  /** Two average rolls plus whatever a Grindstone adds — one line of this id. */
-  line: Map<number, number>;
-  /** One average roll, and no craft item may touch an innate. */
-  innate: Map<number, number>;
-  gem: Map<number, number>;
+  /** What one raw point of each effect id is worth, as `craftedScore` reads it. */
+  unit: PriceList;
+  /** The legal Gems for this build, by the innate that bars one of them; `-1` is none. */
+  options: Map<number, GemOptions>;
   roll: Map<number, RollStatistics>;
 };
 
@@ -563,14 +445,16 @@ export function ordinaryBox(candidates: readonly RuneCandidate[]): OrdinaryBox {
   const empty: OrdinaryBox = { value: 0, below: [] };
   if (candidates.length === 0) return empty;
   const [first] = candidates;
-  /* One box describes one slot holding one main property. Every build of a preset
-     that a given rune survives puts that rune's own main in its slot, or leaves the
-     slot unstated for all of them, so the family is uniform by construction — but
-     it is an invariant a caller could break silently by passing two runes' worth of
-     candidates, and a box quietly describing the wrong slot is exactly the failure
+  /* One box describes one slot holding one main property, at one craft credit. Every
+     build of a preset that a given rune survives puts that rune's own main in its
+     slot, or leaves the slot unstated for all of them, and the credit is the
+     account's rather than the build's — so the family is uniform by construction. It
+     is still an invariant a caller could break silently by passing two runes' worth
+     of candidates, and a box quietly describing the wrong slot is exactly the failure
      this whole anchor exists to prevent. */
   for (const candidate of candidates) {
-    if (candidate.main !== first.main || candidate.rune.slot !== first.rune.slot) {
+    if (candidate.main !== first.main || candidate.rune.slot !== first.rune.slot
+      || creditKey(candidate.credit) !== creditKey(first.credit)) {
       throw new Error('Rune Clean-up: an ordinary box was asked to describe two different slots at once.');
     }
   }
@@ -589,26 +473,37 @@ export function ordinaryBox(candidates: readonly RuneCandidate[]): OrdinaryBox {
   const cached = first.scope.ordinary.get(key);
   if (cached !== undefined) return cached;
 
+  /* Ordinary throughout, Ancient candidates included: both ends of the scale have to
+     stand still while the candidate moves, so the box is built with the ordinary
+     lineage's craft tables as well as its roll tables. The credit is the account's and
+     therefore one for the whole family, which the key above already assumes. */
+  const plan = craftPlan('standard', first.credit);
+
   const builds: OrdinaryPrices[] = [];
   for (const candidate of candidates) {
     if (candidate.ceiling <= 0) continue;
     const { valuation, credit } = candidate;
+    const unitPrices = priceList(valuation);
     const prices: OrdinaryPrices = {
-      ceiling: slotCeiling(valuation, candidate.rune.slot, candidate.main, credit, 'standard'),
-      line: new Map(), innate: new Map(), gem: new Map(), roll: new Map(),
+      ceiling: slotCeiling(valuation, candidate.rune.slot, candidate.main, credit),
+      unit: unitPrices, options: new Map(), roll: new Map(),
     };
     for (const statId of ids) {
       const range = subPropertyRange(6, statId, 'upgrade');
       const width = range ? range.maximum - range.minimum + 1 : 1;
       const mean = range ? (range.minimum + range.maximum) / 2 : 0;
-      const grind = grindCredit(statId, 'standard', credit);
-      prices.line.set(statId, valuation.value(statId, mean * 2 + grind));
-      prices.innate.set(statId, valuation.value(statId, mean));
       prices.roll.set(statId, {
-        factor: valuation.value(statId, 1), mean, variance: (width * width - 1) / 12,
+        factor: unitPrices[statId], mean, variance: (width * width - 1) / 12,
       });
-      const rolled = gemCredit(statId, 'standard', credit);
-      if (rolled !== null) prices.gem.set(statId, valuation.value(statId, rolled + grind));
+    }
+    /* Which Gems are legal depends on the innate, because an innate bars one further
+       effect id — so one list per innate, and `-1` for the runes that have none. They
+       are worked out here rather than inside the draw loop: nothing about which ids a
+       Gem may take depends on which four lines the rune happened to draw, and the
+       blocked-by-another-line half is `craftedScore`'s own business. */
+    prices.options.set(-1, gemOptions(plan, unitPrices, first.rune.slot, first.main, null));
+    for (const statId of ids) {
+      prices.options.set(statId, gemOptions(plan, unitPrices, first.rune.slot, first.main, statId));
     }
     builds.push(prices);
   }
@@ -623,45 +518,42 @@ export function ordinaryBox(candidates: readonly RuneCandidate[]): OrdinaryBox {
   /* The shape, laid down case by case: `density[i]` is the mass this box puts on
      Max values around `i / boxResolution`. */
   const density = new Float64Array(boxResolution + 1);
+  /* One line-up, reused across the draws. Each line stands at two average rolls —
+     one initial and one upgrade, since four upgrades fall over four lines — and
+     carries no stone of its own, so `craftedScore` credits whatever the settings
+     assume exactly as it does for a real rune. */
+  const lineUp: EndStateLine[] = [0, 1, 2, 3].map(() => ({ statId: 0, value: 0, grind: 0, gemmed: false }));
+  const lineValues = new Float64Array(4);
+  const report = { replaced: -1 };
+  /* An interval's midpoint is a game number rather than a role's opinion, so it is
+     the same in every build of the family. */
+  const [firstBuild] = builds;
   for (const drawn of draws) {
-    const held = new Set(drawn);
-    /* Per build: the plain line-up, and — for each placement a Gem could take —
-       the best and second-best legal Gem. The runner-up is what an innate needs:
-       it bars one further id, and the only draw it changes is the one where the
-       id it barred is the very one the Gem wanted. */
-    const priced = builds.map((prices) => {
-      const plain = drawn.reduce((sum, statId) => sum + (prices.line.get(statId) ?? 0), 0);
-      const placements: Array<{ replaced: number; kept: number; barred: number; first: number; second: number }> = [];
-      for (const replaced of drawn) {
-        const kept = plain - (prices.line.get(replaced) ?? 0);
-        let firstValue = -Infinity;
-        let second = -Infinity;
-        let barred = 0;
-        for (const [statId, value] of prices.gem) {
-          if (statId !== replaced && held.has(statId)) continue;
-          if (value > firstValue) { second = firstValue; firstValue = value; barred = statId; }
-          else if (value > second) second = value;
-        }
-        if (firstValue === -Infinity) continue;
-        placements.push({ replaced, kept, barred, first: firstValue, second });
-      }
-      return { prices, plain, placements };
-    });
+    for (let at = 0; at < 4; at += 1) {
+      lineUp[at].statId = drawn[at];
+      lineUp[at].value = (firstBuild.roll.get(drawn[at])?.mean ?? 0) * 2;
+    }
 
     /**
-     * This line-up in one build, with the Gem spent where it earns most. `gemmed`
-     * is the line it froze, whose own rolls no longer vary.
+     * This line-up in one build, with the Gem spent where §8 says it earns most.
+     * `gemmed` is the line it froze, whose own rolls no longer vary.
+     *
+     * The decision is `craftedScore`'s and not this file's — the same function that
+     * settles a candidate's own end state and the §5 ceiling. It used to be written
+     * out again here, with its own reading of which ids an innate bars and its own
+     * "a Gem is never forced", and `RUNE-CLEANUP-MATH.md` §6.1 is the account of what
+     * the last two copies of those rules cost.
      */
-    const arrange = (entry: typeof priced[number], innateId: number | null) => {
-      let value = entry.plain;
-      let gemmed: number | null = null;
-      for (const placement of entry.placements) {
-        const gemValue = placement.barred === innateId ? placement.second : placement.first;
-        if (gemValue === -Infinity) continue;
-        if (placement.kept + gemValue > value) { value = placement.kept + gemValue; gemmed = placement.replaced; }
-      }
-      if (innateId !== null) value += entry.prices.innate.get(innateId) ?? 0;
-      return { value, gemmed };
+    const arrange = (prices: OrdinaryPrices, innateId: number | null) => {
+      /* The innate takes neither craft item (`RUNE-CANONICAL.md` §4), so it is one
+         average roll and no stone, and it is handed over as the prefix rather than as
+         a line — which is also what keeps a Gem from being offered it. */
+      const innate = innateId === null ? null : prices.roll.get(innateId);
+      const prefixScore = innate ? innate.mean * innate.factor : 0;
+      const options = prices.options.get(innateId ?? -1);
+      const value = options === undefined ? prefixScore
+        : craftedScore(plan, options, prices.unit, lineUp, prefixScore, lineValues, report);
+      return { value, gemmed: report.replaced < 0 ? null : drawn[report.replaced] };
     };
 
     /** The spread one arrangement's own rolls and upgrade allocation still carry. */
@@ -693,22 +585,22 @@ export function ordinaryBox(candidates: readonly RuneCandidate[]): OrdinaryBox {
     /** One case of the box — a line-up, with or without a named innate. */
     const record = (innateId: number | null, share: number) => {
       let best = -Infinity;
-      let chosen = priced[0];
+      let chosen = builds[0];
       let gemmedLine: number | null = null;
-      for (const entry of priced) {
-        const { value, gemmed } = arrange(entry, innateId);
-        const scaled = value / entry.prices.ceiling;
-        if (scaled > best) { best = scaled; chosen = entry; gemmedLine = gemmed; }
+      for (const prices of builds) {
+        const { value, gemmed } = arrange(prices, innateId);
+        const scaled = value / prices.ceiling;
+        if (scaled > best) { best = scaled; chosen = prices; gemmedLine = gemmed; }
       }
       const caseVariance = Math.max(0,
-        spreadOf(chosen.prices, gemmedLine, innateId) / (chosen.prices.ceiling ** 2));
+        spreadOf(chosen, gemmedLine, innateId) / (chosen.ceiling ** 2));
       mean += share * best;
       weight += share;
       smear(density, best, Math.sqrt(caseVariance), share);
     };
 
     record(null, 1 - innateFrequency);
-    const free = ids.filter((statId) => !held.has(statId));
+    const free = ids.filter((statId) => !drawn.includes(statId));
     for (const statId of free) record(statId, innateFrequency / free.length);
   }
 
@@ -840,16 +732,18 @@ export type RuneCandidate = {
   readonly rune: Rune;
   readonly valuation: Valuation;
   readonly weights: SubstatWeights;
-  readonly lineUp: LineUp;
   readonly ceiling: number;
   /** The main property this build puts in the rune's slot, which fixes its legal ids. */
   readonly main: number;
+  /** The best legal end state the rune can still reach, in this role's units. */
   readonly best: number;
   readonly mainScale: number;
-  readonly events: readonly SubPropertyEvent[];
-  readonly adds: number;
-  readonly rolls: number;
+  /** What the rune may still become, which is a fact about the rune and not the role. */
+  readonly future: RuneFuture;
+  /** What this role pays, and what its craft items could do to this rune. */
+  readonly scoring: EndStateScoring;
   readonly credit: CraftCredit;
+  readonly plan: CraftPlan;
   readonly lineage: CraftLineage;
   readonly rank: MatchRank;
   readonly scope: RuneAdviceScope;
@@ -877,21 +771,18 @@ export type RuneAdviceScope = {
   /** The ordinary box of one slot, by the same plus the whole family of builds. */
   ordinary: Map<string, OrdinaryBox>;
   /**
-   * One distribution per distinct line, shared by every rune this call judges.
+   * What a rune may still become, which every preset judging it asks the same way.
    *
-   * It cannot be module-global any more, because a distribution is now built in the
-   * role's weighted units and is meaningless to a preset that prices that stat
-   * differently. It must not be per-`reachChance` either: the same terms recur across
-   * hundreds of branches *and* across every rune with the same set judged against the
-   * same build, and rebuilding them per call cost a real account fourteen times its
-   * run time. The key carries the valuation, so a cache hit is a cache hit for the
-   * same arithmetic.
+   * It is also what the runs are gathered by: playing a rune forward is a fact about
+   * the rune, so one set of runs answers every preset, every build and both the
+   * credited and the neutral reading. That sharing is the whole reason the odds are
+   * affordable, and it is why a job carries this object rather than a copy of it.
    */
-  distributions: Map<string, Distribution>;
+  futures: Map<string, RuneFuture>;
 };
 
 export const newRuneAdviceScope = (): RuneAdviceScope => ({
-  weights: newSubstatWeightScope(), ceiling: new Map(), ordinary: new Map(), distributions: new Map(),
+  weights: newSubstatWeightScope(), ceiling: new Map(), ordinary: new Map(), futures: new Map(),
 });
 
 /** The deterministic half: everything that does not depend on the threshold. */
@@ -904,7 +795,17 @@ export function prepareRuneCandidate(
      this build can use at all — it is a different build's rune. */
   if (mainOfSlot(build, rune.slot) !== rune.mainStatId && build.mains[rune.slot as 2 | 4 | 6] !== 0) return null;
 
-  const main = mainOfSlot(build, rune.slot);
+  /* **The scale is the one for the main property the rune actually carries.**
+     A slot the preset says nothing about accepts every main it allows (§3), so the
+     build states none and `mainOfSlot` answers `0`. That is the right answer for the
+     *requirement* — a slot that promised nothing subtracts nothing (§4.1) — and the
+     wrong one for the *scale*, because `0` is not a main property: it bars no effect
+     id, so the perfect rune of §5 and the ordinary box of §9.1 are both built from a
+     rune with four sub properties and no main at all, which the game cannot produce.
+     Measured on a slot-2 ATK % rune against Fast DD with slot 2 cleared, the ceiling
+     rose from 6.52 to 7.23 and the rune read 61.3 % where its own scale says 67.9 %.
+     The rune's own main is a fact about the rune whatever the preset left blank. */
+  const main = mainOfSlot(build, rune.slot) || rune.mainStatId;
   /* The weights read nothing about this rune. Two runes that differ only in their set
      are scored identically, which is what lets the recommendation compare them; a set
      decides a verdict through the preset's own ranking and the relative retention
@@ -917,31 +818,29 @@ export function prepareRuneCandidate(
   if (weights.weights.size === 0) return null;
   const valuation = weightedValuation(base, weights);
 
+  /* The rune's own lineage, which decides what *it* may be crafted with. The
+     denominator below takes no lineage at all: both ends of the scale stand still
+     while the candidate moves (§5), so the ceiling has no lineage in its key either. */
   const lineage: CraftLineage = rune.ancient ? 'ancient' : 'standard';
   /* The slot belongs in the key. Two slots can carry the same main property — ATK +
      is slot 1's fixed main and one of slot 2's choices — while forbidding different
      sub properties, so a key without the slot handed slot 2 slot 1's ceiling. */
-  const ceilingKey = `${valuation.key}|${rune.slot}|${main}|${creditKey(credit)}|${lineage}`;
+  const ceilingKey = `${valuation.key}|${rune.slot}|${main}|${creditKey(credit)}`;
   let ceiling = scope.ceiling.get(ceilingKey);
   if (ceiling === undefined) {
-    ceiling = slotCeiling(valuation, rune.slot, main, credit, lineage);
+    ceiling = slotCeiling(valuation, rune.slot, main, credit);
     scope.ceiling.set(ceilingKey, ceiling);
   }
   if (ceiling <= 0) return null;
 
-  const { events, adds, rolls } = remainingEvents(rune.level, runeDefaultGradeOrder(rune.defaultGrade));
-
-  /* Gems are decided on the realised end state. The plain line-up is the only
-     probability input; `adaptiveScore` compares it with the optional Gem after the
-     future rolls have been evaluated. */
-  let lineUp: LineUp | null = null;
-  let best = -Infinity;
-  for (const option of lineUpOptions(rune, credit)) {
-    const candidate: LineUp = { ...option, have: valueOfLineUp(option, rune, valuation) };
-    const reachable = bestReachableScore(rune, candidate, valuation, credit, lineage, events);
-    if (reachable > best) { best = reachable; lineUp = candidate; }
+  let future = scope.futures.get(rune.id);
+  if (future === undefined || future.rune !== rune) {
+    future = runeFuture(rune);
+    scope.futures.set(rune.id, future);
   }
-  if (lineUp === null) return null;
+  const plan = craftPlan(lineage, credit);
+  const scoring = endStateScoring(rune, valuation, plan);
+  const best = bestEndState(future, scoring);
 
   /* A main property is deterministic, but its final size depends on stars. It is
      part of a rune's potential, so a perfect 4★ rune cannot read as a perfect 6★
@@ -954,15 +853,12 @@ export function prepareRuneCandidate(
   const mainRank: MatchRank = rune.slot === 2 || rune.slot === 4 || rune.slot === 6
     ? build.ranks[rune.slot as 2 | 4 | 6] : 'preferred';
 
-  const hasCraftCredit = credit.gem !== null || credit.grind !== null;
-  const baseline = includeBaseline && hasCraftCredit
-    ? prepareRuneCandidate(rune, preset, build, base, {
-      gem: null, gemGrade: credit.gemGrade, grind: null, grindGrade: credit.grindGrade,
-    }, scope, false)
+  const baseline = includeBaseline && hasCraftCredit(credit)
+    ? prepareRuneCandidate(rune, preset, build, base, withoutCraft(credit), scope, false)
     : null;
 
   return {
-    rune, valuation, weights, lineUp, ceiling, main, best, mainScale, events, adds, rolls, credit,
+    rune, valuation, weights, ceiling, main, best, mainScale, future, scoring, credit, plan,
     lineage, rank: worseRank(setRank, mainRank), scope, baseline,
   };
 }
@@ -1034,29 +930,68 @@ export function boxThreshold(box: OrdinaryBox, share: number): number {
 }
 
 /**
- * The odds of reaching `threshold`, which is the Max value the rune has to reach.
+ * **What answering one candidate's odds against one bar needs.**
  *
- * It is passed in rather than read from a setting because this module decides
- * nothing about policy — `rune-cleanup-advice.ts` does that.
+ * The threshold is passed in rather than read from a setting because this module
+ * decides nothing about policy - `rune-cleanup-advice.ts` does that.
+ *
+ * It is an *ask* rather than an answer so that a whole account's worth can be
+ * gathered and settled together. Most of them need nothing gathered: a rune at `+12`
+ * has no gamble left, and most of the rest cannot reach the bar by any road or cannot
+ * miss it. Those come back settled, and only what is left becomes a job - which is
+ * what makes one pass over the graphics card, rather than one pass per rune, a shape
+ * this can take at all.
+ */
+export type ChanceAsk = {
+  readonly jobs: readonly CountingJob[];
+  /** The answer, given what each of this ask's jobs came back with. */
+  combine(shares: readonly number[]): number;
+};
+
+const settledAsk = (answer: number): ChanceAsk => ({ jobs: [], combine: () => answer });
+
+export function candidateChanceAsk(candidate: RuneCandidate, threshold: number): ChanceAsk {
+  if (threshold === Number.NEGATIVE_INFINITY) return settledAsk(1);
+  if (threshold === Number.POSITIVE_INFINITY || candidate.mainScale <= 0) return settledAsk(0);
+  /* The neutral candidate is a legal choice even when craft credit is present.
+     Taking the larger of the two makes considering a Gem or Grindstone incapable of
+     being a penalty, while the craft-aware reading still uses the item wherever it
+     wins on the realised end state. */
+  const subjects = candidate.baseline === null ? [candidate] : [candidate, candidate.baseline];
+  const steps = subjects.map((subject) =>
+    chanceStep(subject.future, subject.scoring, threshold * subject.ceiling / subject.mainScale));
+  const jobs = steps.map((step) => step.job).filter((job): job is CountingJob => job !== null);
+  if (jobs.length === 0) return settledAsk(Math.max(...steps.map((step) => step.settled ?? 0)));
+  return {
+    jobs,
+    combine(shares) {
+      let best = 0;
+      let at = 0;
+      for (const step of steps) {
+        let answer = step.settled ?? 0;
+        if (step.job !== null) { answer = shares[at] ?? 0; at += 1; }
+        if (answer > best) best = answer;
+      }
+      return Math.min(1, Math.max(0, best));
+    },
+  };
+}
+
+/**
+ * The same question answered on the spot, on the processor.
+ *
+ * `judgeAgainstBuild` and the verification scripts ask about one rune at a time and
+ * have nothing to batch, so they take this. It is the same ask and the same counting
+ * the batched path uses, run immediately instead of gathered.
  */
 export function candidateChance(candidate: RuneCandidate, threshold: number): number {
-  if (threshold === Number.NEGATIVE_INFINITY) return 1;
-  if (threshold === Number.POSITIVE_INFINITY || candidate.mainScale <= 0) return 0;
-  const chanceFor = (subject: RuneCandidate): number => {
-    const wanted = threshold * subject.ceiling / subject.mainScale;
-    /* `best` is an upper bound over every legal remaining roll, so a threshold
-       above it has an exact zero chance. Most account runes miss the quality floor;
-       short-circuiting here prevents those certain losses from constructing their full
-       addition-and-upgrade probability tree to discover that same zero. */
-    if (!(subject.best + 1e-12 >= wanted)) return 0;
-    return reachChance(subject, wanted);
-  };
-  /* The neutral candidate is a legal choice even when craft credit is present.
-     Returning the larger chance makes “considering” a Gem or Grindstone incapable
-     of being a penalty, while the adaptive path still uses the item whenever it wins
-     on the realised end state. */
-  return Math.max(chanceFor(candidate), candidate.baseline === null ? 0 : chanceFor(candidate.baseline));
+  const ask = candidateChanceAsk(candidate, threshold);
+  return ask.combine([...countJobs(ask.jobs)]);
 }
+
+/** The resolution the odds are counted at, for a check that wants to state it. */
+export { chanceRuns };
+export type { CountingJob } from './rune-power-up-outcomes';
 
 /**
  * One rune against one build of one preset, both answers at once.
@@ -1070,10 +1005,9 @@ export function candidateChance(candidate: RuneCandidate, threshold: number): nu
 export function judgeAgainstBuild(
   rune: Rune, preset: RunePotentialPreset, build: Build, base: ReferenceStats,
   threshold: number, credit: CraftCredit,
-  /* The chance is the expensive half — it enumerates every way the remaining
-     upgrades can fall — and most builds are rejected on their ceiling long before
-     anyone needs it. So it is only worked out when the caller says it will be
-     used, which is what makes checking every build affordable. */
+  /* The chance is still the expensive half, and most builds are rejected on their
+     ceiling long before anyone needs it. So it is only worked out when the caller
+     says it will be used, which is what makes checking every build affordable. */
   withChance = true,
 ): RuneOutcome | null {
   const candidate = prepareRuneCandidate(rune, preset, build, base, credit);
@@ -1083,424 +1017,4 @@ export function judgeAgainstBuild(
     chance: withChance ? candidateChance(candidate, threshold) : 0,
     rank: candidate.rank,
   };
-}
-
-/* ------------------------------------------------------- the reachable best */
-
-/**
- * The best score this rune can still reach.
- *
- * **An improvement can only land on a line the rune already has.** That restriction
- * is the whole reason this is not a free greedy over every wanted stat: without it
- * the ceiling lets an upgrade invent a SPD line the rune does not own, while the
- * chance — correctly — will not, and the page ends up printing a 68 % ceiling beside
- * a 0 % chance. A rune with four useless lines and no additions left cannot improve,
- * however much the role wants something else.
- *
- * The event order matters below +12. A Magic, Rare or Hero rune improves its born
- * lines before it gains every later line, so an early upgrade cannot land on a line
- * that does not exist yet. The recursion follows that schedule and chooses the best
- * legal result at each event. No line is reserved for a Gem before the rolls: every
- * upgrade remains part of the realised score, and the optional Gem is compared only
- * after the last event. A future line is credited with the same Grindstone the
- * settings credit every other line, since it will be an ordinary line by the time
- * the stone is spent.
- */
-function bestReachableScore(
-  rune: Rune, lineUp: LineUp, valuation: Valuation, credit: CraftCredit, lineage: CraftLineage,
-  events: readonly SubPropertyEvent[],
-): number {
-  const visit = (at: number, lines: readonly RuneSubProperty[], blocked: ReadonlySet<number>): number => {
-    if (at === events.length) return adaptiveScore(rune, lines, valuation, credit, lineage);
-    const event = events[at];
-    if (event === 'add') {
-      const options = allStatIds.filter((statId) => !blocked.has(statId)
-        && statId !== rune.mainStatId && statId !== rune.prefixStatId
-        && slotAllowsSubStat(rune.slot, statId));
-      let best = -Infinity;
-      for (const statId of options) {
-        const initial = candidateRollRange(rune, statId, 'initial')?.maximum ?? 0;
-        const nextBlocked = new Set(blocked);
-        nextBlocked.add(statId);
-        best = Math.max(best, visit(at + 1, [...lines, {
-          statId, value: initial, gemmed: false, grind: grindCredit(statId, lineage, credit),
-        }], nextBlocked));
-      }
-      return best;
-    }
-
-    let best = -Infinity;
-    for (let lineAt = 0; lineAt < lines.length; lineAt += 1) {
-      const upgrade = candidateRollRange(rune, lines[lineAt].statId, 'upgrade')?.maximum ?? 0;
-      const next = [...lines];
-      next[lineAt] = { ...next[lineAt], value: next[lineAt].value + upgrade };
-      best = Math.max(best, visit(at + 1, next, blocked));
-    }
-    return best;
-  };
-
-  /* A rune with no legal addition left still keeps whatever it already has. */
-  const blocked = new Set(lineUp.lines.map((line) => line.statId));
-  return Math.max(adaptiveScore(rune, lineUp.lines, valuation, credit, lineage),
-    visit(0, lineUp.lines, blocked));
-}
-
-/* ---------------------------------------------------------------- the odds */
-
-/* Kept as the exact additive evaluator for no-Gem cases. A Grindstone changes only
-   the fixed contribution of each line, so it does not require weakest-line state. */
-function heldStatIds(lineUp: LineUp): Set<number> {
-  const held = new Set(lineUp.lines.map((line) => line.statId));
-  if (lineUp.gemStatId !== null) held.add(lineUp.gemStatId);
-  if (lineUp.replacedStatId !== null) held.add(lineUp.replacedStatId);
-  return held;
-}
-
-/**
- * The chance the rune's realised score reaches `wanted` by +12.
- *
- * The grade's event sequence is followed exactly: an improvement can choose only
- * among lines that exist at that event, while an addition creates a line before any
- * later event can choose it. Every legal branch is enumerated, and a line's
- * contributions are summed without a cap.
- *
- * **Two assumptions live here and in `rune-substat-weights.ts` and nowhere else.**
- * Which of the lines an improvement lands on, and which type a new line takes, are
- * uniform. Neither is established by any source (`RUNE-CANONICAL.md` §7); the
- * roll's *value* being uniform is measured, and is the third leg this stands on.
- * `verify:rune-cleanup-calibration` holds the whole thing to a Monte Carlo written
- * from the game's loop rather than from here.
- */
-function reachChanceLegacy(candidate: RuneCandidate, wanted: number): number {
-  const { rune, lineUp, valuation, credit, lineage, events } = candidate;
-  const gap = wanted - lineUp.have;
-  if (gap <= 0) return 1;
-  if (events.length === 0) return 0;
-  /* Everything below this line is integer key space. A gap beyond the exact
-     range of the key scale would silently start losing units, so it fails
-     loudly instead — a slot ceiling is three orders of magnitude below it. */
-  const gapKey = targetKey(gap);
-  if (!isExactKey(gapKey)) {
-    throw new Error(`Rune Clean-up: a gap of ${gap} score units exceeds the exact range of the probability key.`);
-  }
-
-  /* A branch follows the actual event sequence rather than separating all additions
-     from all improvements. This is the distinction that matters at level 0: a Magic
-     rune's +3 improvement can target only its born line, before the +6 line exists.
-     Branches with the same term list are grouped after the sequence has been walked;
-     grouping changes no probability, it only avoids repeating the same convolution. */
-  type Term = { statId: number; count: number; kind: 'initial' | 'upgrade' };
-  type BranchState = {
-    lineIds: number[];
-    blocked: Set<number>;
-    terms: Map<string, Term>;
-    certain: number;
-    weight: number;
-  };
-  const branches = new Map<string, { terms: Term[]; certain: number; weight: number }>();
-  const addTerm = (terms: Map<string, Term>, statId: number, kind: Term['kind']) => {
-    if (valuation.value(statId, candidateRollRange(rune, statId, kind)?.maximum ?? 0) === 0) return;
-    const key = `${statId}:${kind}`;
-    const term = terms.get(key);
-    if (term) term.count += 1;
-    else terms.set(key, { statId, count: 1, kind });
-  };
-  const cloneTerms = (terms: Map<string, Term>): Map<string, Term> =>
-    new Map([...terms].map(([key, term]) => [key, { ...term }]));
-  const recordBranch = (state: BranchState) => {
-    const terms = [...state.terms.values()]
-      .sort((left, right) => left.statId - right.statId || left.kind.localeCompare(right.kind));
-    const certainKey = probabilityKey(state.certain);
-    const key = `${terms.map((term) => `${term.statId}:${term.count}:${term.kind}`).join('|')}#${certainKey}`;
-    const group = branches.get(key);
-    if (group) group.weight += state.weight;
-    else branches.set(key, { terms, certain: certainKey, weight: state.weight });
-  };
-  const visit = (at: number, state: BranchState) => {
-    if (at === events.length) { recordBranch(state); return; }
-    const event = events[at];
-    if (event === 'add') {
-      const options = allStatIds.filter((statId) => !state.blocked.has(statId)
-        && statId !== rune.mainStatId && statId !== rune.prefixStatId
-        && slotAllowsSubStat(rune.slot, statId));
-      if (options.length === 0) return;
-      const branchWeight = state.weight / options.length;
-      for (const statId of options) {
-        const terms = cloneTerms(state.terms);
-        addTerm(terms, statId, 'initial');
-        const blocked = new Set(state.blocked);
-        blocked.add(statId);
-        visit(at + 1, {
-          lineIds: [...state.lineIds, statId], blocked, terms,
-          certain: state.certain + valuation.value(statId, grindCredit(statId, lineage, credit)),
-          weight: branchWeight,
-        });
-      }
-      return;
-    }
-
-    if (state.lineIds.length === 0) return;
-    const branchWeight = state.weight / state.lineIds.length;
-    for (let lineAt = 0; lineAt < state.lineIds.length; lineAt += 1) {
-      const terms = cloneTerms(state.terms);
-      addTerm(terms, state.lineIds[lineAt], 'upgrade');
-      visit(at + 1, { ...state, terms, weight: branchWeight });
-    }
-  };
-  visit(0, {
-    lineIds: lineUp.lines.map((line) => line.statId),
-    blocked: heldStatIds(lineUp), terms: new Map(), certain: 0, weight: 1,
-  });
-
-  const distributions = candidate.scope.distributions;
-  const distributionFor = (term: Term): Distribution => {
-    const ancientInitial = rune.ancient && term.kind === 'initial' ? 'ancient' : 'ordinary';
-    const key = `${valuation.key}|${rune.stars}|${term.statId}/${term.count}/${term.kind}/${ancientInitial}`;
-    let found = distributions.get(key);
-    if (!found) {
-      found = rollDistribution(valuation, term.statId, term.count,
-        candidateRollRange(rune, term.statId, term.kind));
-      distributions.set(key, found);
-    }
-    return found;
-  };
-
-  let chance = 0;
-  for (const { terms, certain, weight } of branches.values()) {
-    const branchGap = gapKey - certain;
-    if (branchGap <= 0) { chance += weight; continue; }
-    /* Keyed rather than summed in value space, so a bound is exactly the extreme
-       the convolution can produce rather than a double that rounds differently
-       from the keys it is bounding. Each term's own bounds are kept, because the
-       floor below needs them term by term and not only in total.
-
-       Narrowest first, so the widest term is the one answered by tail lookup and
-       never convolved. Addition is commutative and the terms are independent, so
-       the distribution of their sum does not depend on the order; only the size
-       of the intermediates does, and it depends on it enormously. */
-    const ordered = terms.map((term) => {
-      const range = candidateRollRange(rune, term.statId, term.kind);
-      if (!range) return { term, minimum: 0, maximum: 0, width: 0 };
-      return {
-        term,
-        minimum: probabilityKey(valuation.value(term.statId, range.minimum * term.count)),
-        maximum: probabilityKey(valuation.value(term.statId, range.maximum * term.count)),
-        width: term.count * (range.maximum - range.minimum),
-      };
-    }).sort((left, right) => left.width - right.width);
-    if (ordered.length === 0) continue;
-
-    /* A branch's roll ranges bound its gain before any distributions are built.
-       In a real account most addition/upgrade splits cannot make the gap, and a
-       few must make it. Those are exact 0 % and 100 % answers respectively, not
-       approximations, so avoid allocating convolution maps for either case. */
-    let minimumGain = 0;
-    let maximumGain = 0;
-    for (const bound of ordered) { minimumGain += bound.minimum; maximumGain += bound.maximum; }
-    if (maximumGain < branchGap) continue;
-    if (minimumGain >= branchGap) { chance += weight; continue; }
-
-    /* How much a partial sum can still gain once term `at` has been convolved.
-       It is the same bound the `maximumGain` prune above already trusts, read
-       one term at a time, so a state below `branchGap - stillToCome[at]` is exactly
-       as certain a zero as a branch the prune skips outright. */
-    const stillToCome = new Array<number>(ordered.length).fill(0);
-    for (let at = ordered.length - 2; at >= 0; at -= 1) {
-      stillToCome[at] = stillToCome[at + 1] + ordered[at + 1].maximum;
-    }
-    /* The terms are walked rather than convolved into one another.
-       `P(Σ ≥ g) = Σ_x P(x)·P(rest ≥ g − x)` is the same sum either way, but the
-       convolution has to *materialise* each intermediate distribution in a map, and
-       the last one before the tail lookup is the largest thing the whole calculation
-       builds. Weighting the stats is what made that expensive: two different stats'
-       rolls used to land on the same key often enough for the map to stay small, and
-       once every stat carries its own multiplier they almost never do, so the map was
-       paying to merge entries that no longer merge.
-
-       Both bounds survive intact, and they now prune a whole subtree rather than one
-       pair: a partial sum that cannot reach the gap even if every later term rolls its
-       maximum is skipped, and one that has already reached it contributes its entire
-       remaining mass at once. The widest term is still read rather than walked. */
-    const last = ordered.length - 1;
-    const views = ordered.map((entry) => tailView(distributionFor(entry.term)));
-    const walk = (at: number, gain: number, probability: number) => {
-      if (at === last) {
-        chance += weight * probability * tailMass(views[last], branchGap - gain);
-        return;
-      }
-      const { values, probabilities, atOrAbove } = views[at];
-      /* Below this the branch is a certain zero; at or above `reached` it is a
-         certain one, whatever the terms after it do. */
-      const hopeless = branchGap - stillToCome[at] - gain;
-      const reached = branchGap - gain;
-      let from = 0;
-      while (from < values.length && values[from] < hopeless) from += 1;
-      let until = from;
-      while (until < values.length && values[until] < reached) until += 1;
-      for (let index = from; index < until; index += 1) {
-        walk(at + 1, gain + values[index], probability * probabilities[index]);
-      }
-      if (until < values.length) chance += weight * probability * atOrAbove[until];
-    };
-    walk(0, 0, 1);
-  }
-  return Math.min(1, Math.max(0, chance));
-}
-
-/**
- * Exact chance for the adaptive craft rule. Each branch keeps one distribution per
- * final line instead of collapsing all rolls into one sum, because the Gem decision
- * depends on which line is weakest after the rolls. The branch tree still follows
- * the real event order, so additions cannot receive an earlier upgrade.
- */
-function reachChance(candidate: RuneCandidate, wanted: number): number {
-  const { rune, lineUp, valuation, credit, lineage, events } = candidate;
-  /* Without a Gem there is no weakest-line decision to preserve. The older sum
-     distribution is exact for that case, including Grindstone credit, and avoids
-     carrying per-line state through the much larger adaptive tree. */
-  if (credit.gem === null) return reachChanceLegacy(candidate, wanted);
-  const wantedKey = targetKey(wanted);
-  if (!isExactKey(wantedKey)) {
-    throw new Error(`Rune Clean-up: a target of ${wanted} score units exceeds the exact range of the probability key.`);
-  }
-
-  type BranchLine = {
-    statId: number;
-    base: number;
-    initial: boolean;
-    upgrades: number;
-    grind: number;
-    gemmed: boolean;
-  };
-  type BranchState = { lines: BranchLine[]; blocked: Set<number>; weight: number };
-  const branches = new Map<string, { lines: BranchLine[]; weight: number }>();
-  const recordBranch = (state: BranchState) => {
-    const key = state.lines.map((line) => [line.statId, line.base, line.initial ? 1 : 0,
-      line.upgrades, line.grind, line.gemmed ? 1 : 0].join(':')).join('|');
-    const previous = branches.get(key);
-    if (previous) previous.weight += state.weight;
-    else branches.set(key, { lines: state.lines, weight: state.weight });
-  };
-  const visit = (at: number, state: BranchState) => {
-    if (at === events.length) { recordBranch(state); return; }
-    const event = events[at];
-    if (event === 'add') {
-      const options = allStatIds.filter((statId) => !state.blocked.has(statId)
-        && statId !== rune.mainStatId && statId !== rune.prefixStatId
-        && slotAllowsSubStat(rune.slot, statId));
-      if (options.length === 0) return;
-      const branchWeight = state.weight / options.length;
-      for (const statId of options) {
-        const blocked = new Set(state.blocked);
-        blocked.add(statId);
-        visit(at + 1, {
-          lines: [...state.lines, {
-            statId, base: probabilityKey(valuation.value(statId, grindCredit(statId, lineage, credit))),
-            initial: true, upgrades: 0, grind: grindCredit(statId, lineage, credit), gemmed: false,
-          }],
-          blocked, weight: branchWeight,
-        });
-      }
-      return;
-    }
-    if (state.lines.length === 0) return;
-    const branchWeight = state.weight / state.lines.length;
-    for (let lineAt = 0; lineAt < state.lines.length; lineAt += 1) {
-      const lines = state.lines.map((line, index) => index === lineAt
-        ? { ...line, upgrades: line.upgrades + 1 } : line);
-      visit(at + 1, { ...state, lines, weight: branchWeight });
-    }
-  };
-  visit(0, {
-    lines: lineUp.lines.map((line) => ({
-      statId: line.statId, base: probabilityKey(valuation.value(line.statId, runeSubValue(line))),
-      initial: false, upgrades: 0, grind: line.grind, gemmed: line.gemmed,
-    })),
-    blocked: new Set(lineUp.lines.map((line) => line.statId)), weight: 1,
-  });
-
-  const distributions = candidate.scope.distributions;
-  const distributionFor = (statId: number, count: number, kind: 'initial' | 'upgrade'): Distribution => {
-    const ancientInitial = rune.ancient && kind === 'initial' ? 'ancient' : 'ordinary';
-    const key = `${valuation.key}|${rune.stars}|${statId}/${count}/${kind}/${ancientInitial}`;
-    let found = distributions.get(key);
-    if (!found) {
-      found = rollDistribution(valuation, statId, count,
-        candidateRollRange(rune, statId, kind));
-      distributions.set(key, found);
-    }
-    return found;
-  };
-  const lineDistribution = (line: BranchLine): Distribution => {
-    let result: Distribution = new Map([[line.base, 1]]);
-    if (line.initial) result = convolveDistribution(result, distributionFor(line.statId, 1, 'initial'));
-    if (line.upgrades > 0) result = convolveDistribution(result,
-      distributionFor(line.statId, line.upgrades, 'upgrade'));
-    return result;
-  };
-  const prefix = rune.prefixStatId === null ? 0
-    : probabilityKey(valuation.value(rune.prefixStatId, rune.prefixValue));
-
-  let chance = 0;
-  for (const { lines, weight } of branches.values()) {
-    const lineProperties = lines.map((line) => ({
-      statId: line.statId, value: 0, grind: line.grind, gemmed: line.gemmed,
-    }));
-    const scored = lines.map((line, lineAt) => {
-      const gem = bestGemForLine(rune, lineProperties, lineAt, valuation, credit, lineage);
-      const view = tailView(lineDistribution(line));
-      return {
-        view,
-        gem: gem === null ? null : probabilityKey(gem),
-        minimum: view.values[0] ?? 0,
-        maximum: view.values[view.values.length - 1] ?? 0,
-      };
-    }).sort((left, right) => (left.maximum - left.minimum) - (right.maximum - right.minimum));
-    const minimumPlain = prefix + scored.reduce((sum, line) => sum + line.minimum, 0);
-    const maximumPlain = prefix + scored.reduce((sum, line) => sum + line.maximum, 0);
-    if (minimumPlain >= wantedKey) { chance += weight; continue; }
-
-    /* A branch can only gain by replacing its weakest line. This is a safe upper
-       bound because a future line may be the weakest, so its minimum is used here. */
-    const maximumGemGain = Math.max(0, ...scored.map((line) =>
-      line.gem === null ? 0 : line.gem - line.minimum));
-    if (maximumPlain + maximumGemGain < wantedKey) continue;
-
-    const remainingMinimum = new Array<number>(scored.length + 1).fill(0);
-    const remainingMaximum = new Array<number>(scored.length + 1).fill(0);
-    for (let at = scored.length - 1; at >= 0; at -= 1) {
-      remainingMinimum[at] = remainingMinimum[at + 1] + scored[at].minimum;
-      remainingMaximum[at] = remainingMaximum[at + 1] + scored[at].maximum;
-    }
-    const walk = (
-      at: number, sum: number, weakest: { value: number; gem: number } | null, probability: number,
-    ) => {
-      if (at === scored.length) {
-        const gain = weakest === null ? 0 : Math.max(0, weakest.gem - weakest.value);
-        if (prefix + sum + gain >= wantedKey) chance += weight * probability;
-        return;
-      }
-      const entry = scored[at];
-      const { values, probabilities } = entry.view;
-      for (let index = 0; index < values.length; index += 1) {
-        const value = values[index];
-        const nextWeakest = weakest === null || value < weakest.value
-          || (value === weakest.value && (entry.gem ?? -Infinity) > weakest.gem)
-          ? { value, gem: entry.gem ?? value }
-          : weakest;
-        const nextSum = sum + value;
-        if (prefix + nextSum + remainingMinimum[at + 1] >= wantedKey) {
-          chance += weight * probability * probabilities[index];
-          continue;
-        }
-        const futureGemGain = Math.max(0, ...scored.slice(at + 1).map((future) =>
-          future.gem === null ? 0 : future.gem - future.minimum));
-        const upperGain = Math.max(0, nextWeakest.gem - nextWeakest.value, futureGemGain);
-        if (prefix + nextSum + remainingMaximum[at + 1] + upperGain < wantedKey) continue;
-        walk(at + 1, nextSum, nextWeakest, probability * probabilities[index]);
-      }
-    };
-    walk(0, 0, null, 1);
-  }
-  return Math.min(1, Math.max(0, chance));
 }

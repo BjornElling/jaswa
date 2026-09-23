@@ -4,6 +4,7 @@ import {
 } from '../../artifact-optimal-value';
 import { artifactNormalConversionContributions } from '../../artifact-properties';
 import { intangibleRestrictionCode } from '../artifact-score-protocol';
+import { gpuIndexPreamble } from '../gpu/gpu-context';
 
 /* Four artifact facts, four property indexes, four max-roll-point values and
    four absolute line values in hundredths — the last four so a substat floor
@@ -15,11 +16,26 @@ const artifactStride = 16;
 const monsterStride = 5 + scoredArtifactProperties.length * 2;
 
 /**
+ * **How many pairs one workgroup covers, stated once for all three readers.**
+ *
+ * It is the `@workgroup_size` attribute, the `WORKGROUP_SIZE` the dispatch preamble
+ * multiplies by, and the divisor the backend counts workgroups with — and all three
+ * have to be the same number. They were three separate literals, which is the one
+ * WebGPU failure nothing reports: past 4,194,240 pairs the dispatch splits into a
+ * second dimension, `flatIndex` starts multiplying by `WORKGROUP_SIZE`, and a
+ * mismatch there attributes every score in the second row to the wrong pair — in
+ * bounds, a real number, and silently wrong. 4.19 million pairs is about 2,000
+ * artifacts against 2,100 monsters, which is an account rather than a hypothetical.
+ */
+export const artifactScoreLanes = 64;
+
+/**
  * One invocation evaluates one artifact/monster pair. The full matrix is read
- * back for this first workload because 4,000 × 400 scores is only about 6 MB;
- * later searches can reduce candidates on the device before readback.
+ * back for this workload because 4,000 × 400 scores is only about 6 MB; later
+ * searches can reduce candidates on the device before readback.
  */
 export const artifactScoreShader = /* wgsl */`
+const WORKGROUP_SIZE: u32 = ${artifactScoreLanes}u;
 const ARTIFACT_STRIDE: u32 = ${artifactStride}u;
 const MONSTER_STRIDE: u32 = ${monsterStride}u;
 const PROPERTY_COUNT: u32 = ${scoredArtifactProperties.length}u;
@@ -44,6 +60,8 @@ struct Parameters {
   acceptableWorth: f32,
   insignificantDifference: f32,
 };
+
+${gpuIndexPreamble}
 
 @group(0) @binding(0) var<storage, read> artifacts: array<f32>;
 @group(0) @binding(1) var<storage, read> monsters: array<f32>;
@@ -75,9 +93,12 @@ fn scorePercent(value: f32) -> f32 {
   return round(value * 100.0);
 }
 
-@compute @workgroup_size(64)
+@compute @workgroup_size(${artifactScoreLanes})
 fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
-  let pairIndex = invocation.x;
+  // flatIndex rather than invocation.x: one dispatch dimension holds 65,535
+  // workgroups and a large roster passes that, so the dispatch is split across two
+  // and recombined here exactly as every other shader does it.
+  let pairIndex = flatIndex(invocation);
   let pairCount = parameters.artifactCount * parameters.monsterCount;
   if (pairIndex >= pairCount) { return; }
 

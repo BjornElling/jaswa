@@ -205,17 +205,48 @@ assert.ok(candidateChance(toleranceCraftCandidate, 0.7) + eps
   'the Tolerance regression rune lost chance when craft was considered');
 assert.ok(candidateMaxValue(toleranceCraftCandidate) + eps >= candidateMaxValue(toleranceNeutralCandidate),
   'the Tolerance regression rune lost score when craft was considered');
-assert.ok(Math.abs(candidateChance(toleranceCraftCandidate, 0.7154971085912513)
-  - 0.18593535665294925) < 1e-12,
-  'the Tolerance regression did not use the deferred Gem calculation');
+/* **The Gem is spent at +12, after the rolls.** That is what this fixture has always
+   been about: reserving a line for a Gem before the improvements are drawn throws
+   away every improvement that lands on it, and the rune's odds fall for considering
+   an item it was never obliged to spend.
+
+   It used to be pinned as one probability to the last bit, which stopped being
+   possible when the odds began to be counted rather than enumerated. What the fixture
+   is for survives as three statements, and all three are exact — they are settled on
+   the reachable best and worst, without a single draw:
+
+   - a Gem raises what this rune can reach at all;
+   - a bar only a Gem can clear is a certain no without one;
+   - and the same bar is not a certain no with one. */
+const neutralCeiling = candidateMaxValue(toleranceNeutralCandidate);
+const craftedCeiling = candidateMaxValue(toleranceCraftCandidate);
+assert.ok(craftedCeiling > neutralCeiling + eps,
+  'a credited Gem did not raise what the Tolerance regression rune can reach');
+/* Above what either rune can reach at all, both are certain noes, settled on the
+   reachable best rather than counted. */
+assert.equal(candidateChance(toleranceCraftCandidate, craftedCeiling + 0.01), 0,
+  'a bar above the crafted rune\'s own maximum should be a certain no');
+assert.equal(candidateChance(toleranceNeutralCandidate, (neutralCeiling + craftedCeiling) / 2), 0,
+  'a bar above the uncrafted rune\'s own maximum should be a certain no');
+/* At a bar both can argue about, the credited Gem has to be worth something large.
+   It measures 2.6 % against 29 %; a Gem reserved before the rolls would throw away
+   every improvement landing on the reserved line and could not produce that. The
+   margin is wide enough that the counting's own spread cannot reach it. */
+const withCraft = candidateChance(toleranceCraftCandidate, 0.7);
+const withoutCraft = candidateChance(toleranceNeutralCandidate, 0.7);
+assert.ok(withCraft > 0 && withCraft < 1, `the Tolerance regression rune's odds went degenerate: ${withCraft}`);
+assert.ok(withCraft > withoutCraft * 5,
+  `the Tolerance regression did not use the deferred Gem calculation: ${withoutCraft} -> ${withCraft}`);
+assert.equal(candidateChance(toleranceCraftCandidate, 0.7), withCraft,
+  'the Tolerance regression rune did not answer the same question twice the same way');
 
 const policySettings = {
   powerUpPolicy: 2, runeQuality: 3, acceptedRunes: 2, brokenRunes: 2,
   intangibleRunes: 1, keepMoreForLargerSets: false, gemGrade: 'Hero', grindstoneGrade: 'Hero',
 };
-const noCraftAdvice = runeAdvice([tolerance], presets,
+const noCraftAdvice = await runeAdvice([tolerance], presets,
   { ...policySettings, enchantedGems: 1, grindstones: 1 }, baseByType);
-const craftAdvice = runeAdvice([tolerance], presets,
+const craftAdvice = await runeAdvice([tolerance], presets,
   { ...policySettings, enchantedGems: 3, grindstones: 3 }, baseByType);
 const neutralRow = noCraftAdvice.get(tolerance.id);
 const craftRow = craftAdvice.get(tolerance.id);
@@ -224,6 +255,45 @@ assert.ok(craftRow.maxValue + eps >= neutralRow.maxValue,
   'the public advice score fell when craft was considered');
 assert.ok(craftRow.chance + eps >= neutralRow.chance,
   'the public advice chance fell when craft was considered');
+
+/**
+ * **The same promise, on the whole fixture set rather than on one rune.**
+ *
+ * Everything above is a candidate against a candidate — one preset, one build. The
+ * row a player reads is chosen across every preset, so it is a different claim and
+ * worth its own sweep: turning a slider up must not lower where a rune *stands*, must
+ * not lower its odds, and must never turn a rune the account was keeping into one it
+ * sells.
+ *
+ * **Max value is deliberately not in that list.** A row names one preset and prints
+ * that preset's figures (`RUNE-CLEANUP-MATH.md` §5.1), and a stone can hand the rune
+ * to a preset that stands it higher while describing it lower — measured here on 6 of
+ * 120 fixtures, by up to 7.5 points, every one of them a preset switch with the
+ * standing rising and the verdict unchanged. Asserting a monotone Max value would
+ * require the row to print a figure belonging to a preset it does not name, which is
+ * what it used to do.
+ */
+const sweepSettings = { ...policySettings, powerUpPolicy: 3, runeQuality: 3 };
+const sweepWithoutCraft = await runeAdvice(runes, presets,
+  { ...sweepSettings, enchantedGems: 1, grindstones: 1 }, baseByType);
+for (const [label, credited] of [
+  ['a Gem', { ...sweepSettings, enchantedGems: 3, grindstones: 1 }],
+  ['a Grindstone', { ...sweepSettings, enchantedGems: 1, grindstones: 3 }],
+  ['both at maximum', { ...sweepSettings, enchantedGems: 4, grindstones: 4 }],
+]) {
+  const sweepWithCraft = await runeAdvice(runes, presets, credited, baseByType);
+  for (const rune of runes) {
+    const before = sweepWithoutCraft.get(rune.id);
+    const after = sweepWithCraft.get(rune.id);
+    assert.ok(before && after, `${rune.id} lost its row when ${label} was credited`);
+    assert.ok(after.standing + eps >= before.standing,
+      `${rune.id}: standing fell from ${before.standing} to ${after.standing} when ${label} was credited`);
+    assert.ok(after.chance + eps >= before.chance,
+      `${rune.id}: chance fell from ${before.chance} to ${after.chance} when ${label} was credited`);
+    assert.ok(!(before.verdict !== 'sell' && after.verdict === 'sell'),
+      `${rune.id}: a rune the account was keeping became a Sell when ${label} was credited`);
+  }
+}
 
 /* Monte Carlo is not the production calculation; it is an independent guard that
    the adaptive exact result still describes the game's own level-up loop. */
@@ -265,4 +335,6 @@ for (const [fixtureIndex, fixture] of oracleFixtures.entries()) {
   }
 }
 
-console.log(`PASS: ${comparisons.toLocaleString('en')} craft monotonicity comparisons across ${runes.length} legal fixtures.`);
+console.log(`PASS: ${comparisons.toLocaleString('en')} craft monotonicity comparisons across`
+  + ` ${runes.length} legal fixtures, and the public row's standing, odds and verdict hold`
+  + ' across three craft credits.');

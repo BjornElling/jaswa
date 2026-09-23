@@ -16,7 +16,8 @@ import {
   subPropertyLevels, upgradeSubPropertyRange,
 } from '../app/lib/rune-properties.ts';
 import { runeDefaultGradeOrder, runeDefaultGrades, runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
-import { judgeAgainstBuild, presetBuilds } from '../app/lib/rune-cleanup-model.ts';
+import { craftRollValue, craftValueRange } from '../app/lib/rune-craft-items.ts';
+import { chanceRuns, judgeAgainstBuild, prepareRuneCandidate, presetBuilds } from '../app/lib/rune-cleanup-model.ts';
 
 const args = new Map(process.argv.slice(2).filter((arg) => arg.startsWith('--') && arg.includes('='))
   .map((arg) => arg.slice(2).split('=', 2)));
@@ -29,6 +30,9 @@ function integerArg(name, fallback) {
 const runeCount = integerArg('runes', quick ? 8 : 50_000);
 const rolloutCount = integerArg('rollouts', quick ? 100 : 12_000);
 const variantRuneCount = integerArg('variant-runes', quick ? 1 : Math.min(60, runeCount));
+const craftRuneCount = integerArg('craft-runes', quick ? 120 : 400);
+/** Section 8's seven grindable effect ids, restated here rather than imported. */
+const grindableInScript = [1, 2, 3, 4, 5, 6, 8];
 const seed = integerArg('seed', 0x9e3779b9);
 
 function makeRandom(initial) {
@@ -59,9 +63,12 @@ const settings = {
   gemGrade: 'Hero', grindstoneGrade: 'Hero', acceptedRunes: 3, brokenRunes: 3,
   intangibleRunes: 1, keepMoreForLargerSets: false,
 };
-/* The chance oracle isolates substat RNG. Craft outcomes have their own exhaustive
-   legality checks, so an absent item is the only valid neutral credit here. */
 const noCraft = { gem: null, gemGrade: 'Hero', grind: null, grindGrade: 'Hero' };
+/* The chance oracle is run twice: once with the substat RNG on its own, and once
+   with both craft items credited, so the Gem decision is inside the probability
+   rather than beside it. It used to run only the first, which left every path
+   through `rune-craft-end-state.ts` unchecked by any simulation. */
+const fullCraft = { gem: 'three-quarters', gemGrade: 'Hero', grind: 'three-quarters', grindGrade: 'Hero' };
 
 function initialRank(random, slot) {
   const value = random();
@@ -109,9 +116,14 @@ function powerUp(random, rune, targetLevel) {
       const options = runeStatIds.filter((stat) => stat !== rune.mainStatId && stat !== rune.prefixStatId
         && !held.has(stat) && slotAllowsSubStat(rune.slot, stat));
       const statId = choose(random, options);
-      /* This property is created by a power-up. Ancient's higher table applies
-         only to lines the rune was born with, not to this later addition. */
-      const range = upgradeSubPropertyRange(rune.stars, statId, rune.ancient);
+      /* A line the rune gains at +6 is having its *initial* roll then, so an Ancient
+         rune draws it from the Ancient table (`RUNE-CANONICAL.md` §7,
+         `RUNE-CLEANUP-MATH.md` §8). This read the ordinary table until 23 September
+         2026, which made the oracle disagree with the engine about every unfinished
+         Ancient rune — and with `verify:rune-cleanup-ancient`, which has asserted the
+         other reading on an *added* line all along. An ordinary rune is unaffected:
+         its two tables are the same one. */
+      const range = initialSubPropertyRange(rune.stars, statId, rune.ancient);
       rune.subProperties.push({ statId, value: draw(random, range.minimum, range.maximum), gemmed: false, grind: 0 });
     } else {
       const line = choose(random, rune.subProperties);
@@ -122,12 +134,12 @@ function powerUp(random, rune, targetLevel) {
   rune.level = targetLevel;
   return rune;
 }
-function policy(source, presets, random) {
+async function policy(source, presets, random) {
   let active = source.map(clone);
   const retained = [];
   for (const stop of [0, 9, 12]) {
     if (stop) active = active.map((rune) => powerUp(random, rune, stop));
-    const advice = runeAdvice(active, presets, settings, referenceStats);
+    const advice = await runeAdvice(active, presets, settings, referenceStats);
     if (stop === 12) {
       for (const rune of active) {
         const answer = advice.get(rune.id);
@@ -148,8 +160,14 @@ function check(condition, message) {
  * Direct chance oracle. The candidate's probability comes from the model; each
  * trial progresses the exact rune independently and asks only whether the final
  * realised value reached the same bar.
+ *
+ * It runs at two craft credits. With none, the substat RNG is isolated. With both
+ * items credited, the Gem decision — which depends on how the lines actually rolled
+ * and so cannot be lifted out of the probability — is inside what is measured. Only
+ * the first of the two existed until 23 September 2026, which left every path
+ * through the craft rules unchecked by any simulation.
  */
-function verifyProbability() {
+function verifyProbability(credit, label) {
   const random = makeRandom(seed ^ 0x4d43504b);
   const presets = defaultRunePotentialPresets();
   const fixtures = [];
@@ -165,12 +183,12 @@ function verifyProbability() {
     const base = referenceStats.get(preset.type);
     const threshold = .20 + attempt % 13 * .045;
     if (!build || !base) continue;
-    const outcome = judgeAgainstBuild(rune, preset, build, base, threshold, noCraft, true);
+    const outcome = judgeAgainstBuild(rune, preset, build, base, threshold, credit, true);
     if (outcome && outcome.chance > .03 && outcome.chance < .97) {
       fixtures.push({ rune, preset, build, base, threshold, expected: outcome.chance });
     }
   }
-  check(fixtures.length >= 8, 'only ' + fixtures.length + ' non-degenerate chance fixtures were found.');
+  check(fixtures.length >= 8, label + ': only ' + fixtures.length + ' non-degenerate chance fixtures were found.');
   let largestDifference = 0;
   for (let index = 0; index < fixtures.length; index += 1) {
     const fixture = fixtures[index];
@@ -179,19 +197,123 @@ function verifyProbability() {
     for (let trial = 0; trial < rolloutCount; trial += 1) {
       const finalRune = powerUp(randomTrial, clone(fixture.rune), 12);
       const outcome = judgeAgainstBuild(finalRune, fixture.preset, fixture.build, fixture.base,
-        fixture.threshold, noCraft, false);
+        fixture.threshold, credit, false);
       if (outcome && outcome.maxValue + 1e-12 >= fixture.threshold) hits += 1;
     }
     const observed = hits / rolloutCount;
     const difference = Math.abs(observed - fixture.expected);
     largestDifference = Math.max(largestDifference, difference);
-    const fiveSigma = 5 * Math.sqrt(Math.max(.0001, fixture.expected * (1 - fixture.expected)) / rolloutCount);
-    check(difference <= fiveSigma + .015,
-      'chance fixture ' + (index + 1) + ': model ' + percent(fixture.expected, 1)
+    /* Both sides are counted rather than derived, so the band has to carry the
+       model's own run-to-run spread as well as the oracle's. */
+    const spread = Math.sqrt(Math.max(.0001, fixture.expected * (1 - fixture.expected)))
+      * (1 / Math.sqrt(rolloutCount) + 1 / Math.sqrt(chanceRuns));
+    check(difference <= 5 * spread + .015,
+      label + ' chance fixture ' + (index + 1) + ': model ' + percent(fixture.expected, 1)
       + ', simulation ' + percent(observed, 1) + ' (difference ' + (difference * 100).toFixed(2) + ' points).');
   }
-  console.log('Probability: ' + fixtures.length + ' independent fixtures x ' + rolloutCount.toLocaleString('en')
-    + ' rollouts; largest difference ' + (largestDifference * 100).toFixed(2) + ' points.');
+  console.log(label + ' probability: ' + fixtures.length + ' independent fixtures x '
+    + rolloutCount.toLocaleString('en') + ' rollouts; largest difference '
+    + (largestDifference * 100).toFixed(2) + ' points.');
+}
+
+/**
+ * **The Gem and Grindstone rules, written from `RUNE-CANONICAL.md` §8 rather than
+ * from the engine, against every finished rune this script can build.**
+ *
+ * The engine's answer used to be "replace the least-contributing line", which is
+ * neither what §8 permits nor what a player does: a player replaces whichever line
+ * gains the most, and the two differ whenever the weakest line's best legal Gem is
+ * barred by an effect id one of the other lines is holding. Nothing caught it,
+ * because the only simulation in this file passed a neutral credit.
+ */
+function independentEndState(rune, credit, valuation) {
+  const lineage = rune.ancient ? 'ancient' : 'standard';
+  const grindOf = (statId) => {
+    if (credit.grind === null || !grindableInScript.includes(statId)) return 0;
+    const range = craftValueRange('grindstone', lineage, statId, credit.grindGrade);
+    return range ? craftRollValue(range, credit.grind) : 0;
+  };
+  const gemOf = (statId) => {
+    if (credit.gem === null) return null;
+    const range = craftValueRange('gem', lineage, statId, credit.gemGrade);
+    return range ? craftRollValue(range, credit.gem) : null;
+  };
+  const lines = rune.subProperties;
+  const worth = (statId, roll, ownGrind) => valuation.value(statId, roll + Math.max(ownGrind, grindOf(statId)));
+  const held = lines.map((line) => worth(line.statId, line.value, line.grind));
+  const prefix = rune.prefixStatId === null ? 0 : valuation.value(rune.prefixStatId, rune.prefixValue);
+  const plain = prefix + held.reduce((sum, value) => sum + value, 0);
+
+  /* One converted line at a time, and a later Gem may only replace that one. */
+  const converted = lines.findIndex((line) => line.gemmed);
+  let best = plain;
+  for (let at = 0; at < lines.length; at += 1) {
+    if (converted !== -1 && at !== converted) continue;
+    for (const statId of runeStatIds) {
+      if (statId === rune.mainStatId || statId === rune.prefixStatId) continue;
+      if (!slotAllowsSubStat(rune.slot, statId)) continue;
+      if (lines.some((line, index) => index !== at && line.statId === statId)) continue;
+      const roll = gemOf(statId);
+      if (roll === null) continue;
+      /* The replaced line loses its rolls. It keeps its own stone only where the
+         effect id is unchanged, and the new line may then be ground like any other. */
+      const kept = statId === lines[at].statId ? lines[at].grind : 0;
+      best = Math.max(best, plain - held[at] + worth(statId, roll, kept));
+    }
+  }
+  return best;
+}
+
+function verifyCraftEndState() {
+  const random = makeRandom(seed ^ 0x43524654);
+  const presets = defaultRunePotentialPresets();
+  const credits = [
+    noCraft,
+    { gem: null, gemGrade: 'Hero', grind: 'maximum', grindGrade: 'Legend' },
+    { gem: 'maximum', gemGrade: 'Legend', grind: null, grindGrade: 'Hero' },
+    { gem: 'average', gemGrade: 'Normal', grind: 'maximum', grindGrade: 'Legend' },
+    fullCraft,
+  ];
+  let compared = 0;
+  let largest = 0;
+  let worstCase = '';
+  for (let index = 0; index < craftRuneCount; index += 1) {
+    const variant = [[4, false], [5, false], [6, false], [6, true]][index % 4];
+    const rune = powerUp(random, freshRune(random, 'craft-' + index, variant[0], variant[1]), 12);
+    /* Runes that already carry craft are where rules 2 and 3 bite: a converted line
+       restricts which line may be replaced at all, and a stone already on a line is
+       kept only where the Gem leaves its effect id alone. */
+    if (index % 3 === 1 && rune.subProperties.length > 0) rune.subProperties[0].gemmed = true;
+    if (index % 3 === 2) {
+      for (const line of rune.subProperties) {
+        if (grindableInScript.includes(line.statId)) line.grind = draw(random, 1, 40);
+      }
+    }
+    const preset = presets[index % presets.length];
+    const base = referenceStats.get(preset.type);
+    const build = presetBuilds(preset).find((candidate) => {
+      const expectedMain = rune.slot === 1 ? 3 : rune.slot === 3 ? 5 : rune.slot === 5 ? 1 : candidate.mains[rune.slot];
+      return expectedMain === rune.mainStatId || ![2, 4, 6].includes(rune.slot);
+    });
+    if (!build || !base) continue;
+    for (const credit of credits) {
+      const candidate = prepareRuneCandidate(rune, preset, build, base, credit, undefined, false);
+      if (!candidate) continue;
+      const expected = independentEndState(rune, credit, candidate.valuation);
+      const difference = Math.abs(candidate.best - expected);
+      compared += 1;
+      if (difference > largest) {
+        largest = difference;
+        worstCase = 'rune ' + rune.id + ' slot ' + rune.slot + ', gem ' + credit.gem
+          + '/' + credit.gemGrade + ', grind ' + credit.grind + '/' + credit.grindGrade
+          + ': engine ' + candidate.best.toFixed(9) + ', the rules ' + expected.toFixed(9);
+      }
+    }
+  }
+  check(compared > 0, 'no finished rune reached the craft end-state comparison.');
+  check(largest <= 1e-9, 'the engine and the rules disagree about a crafted end state — ' + worstCase);
+  console.log('Craft end state: ' + compared.toLocaleString('en')
+    + ' finished runes x credits agreed with the rules to ' + largest.toExponential(2) + '.');
 }
 /**
  * Four and five star ordinary runes and six star Ancient runes must all enter the
@@ -199,7 +321,7 @@ function verifyProbability() {
  * properly be sold); it catches the much worse error of importing a rune that no
  * calculation can ever see.
  */
-function verifyVariants() {
+async function verifyVariants() {
   const variants = [
     { stars: 4, ancient: false, name: '4-star ordinary' },
     { stars: 5, ancient: false, name: '5-star ordinary' },
@@ -213,7 +335,7 @@ function verifyVariants() {
        independent chance fixtures above already cover unfinished states. */
     const sample = Array.from({ length: variantRuneCount }, (_, id) =>
       powerUp(random, freshRune(random, variant.name + '-' + id, variant.stars, variant.ancient), 12));
-    const advice = runeAdvice(sample, defaultRunePotentialPresets(), settings, referenceStats);
+    const advice = await runeAdvice(sample, defaultRunePotentialPresets(), settings, referenceStats);
     let usable = 0;
     for (const rune of sample) {
       const answer = advice.get(rune.id);
@@ -224,10 +346,10 @@ function verifyVariants() {
     check(usable === sample.length, variant.name + ' did not reach the current rating engine.');
   }
 }
-function verifyMixedBox() {
+async function verifyMixedBox() {
   const random = makeRandom(seed);
   const source = Array.from({ length: runeCount }, (_, id) => freshRune(random, 'mixed-' + id));
-  const retained = policy(source, defaultRunePotentialPresets(), random);
+  const retained = await policy(source, defaultRunePotentialPresets(), random);
   const rate = retained.length / source.length;
   console.log('Mixed box: ' + retained.length.toLocaleString('en') + ' / ' + source.length.toLocaleString('en')
     + ' retained (' + percent(retained.length, source.length) + ').');
@@ -255,9 +377,11 @@ function verifyMixedBox() {
     .sort((left, right) => right[1] - left[1]).map(([name, count]) => name + ' ' + percent(count, retained.length)).join('; ') + '.');
 }
 console.log('Rune Clean-up calibration — ' + runeCount.toLocaleString('en') + ' mixed runes, seed ' + seed + '.');
-verifyProbability();
-verifyVariants();
-verifyMixedBox();
+verifyProbability(noCraft, 'No craft');
+verifyProbability(fullCraft, 'Gem and stone');
+verifyCraftEndState();
+await verifyVariants();
+await verifyMixedBox();
 if (failures) {
   console.error('\n' + failures + ' calibration check' + (failures === 1 ? '' : 's') + ' failed.');
   process.exit(1);

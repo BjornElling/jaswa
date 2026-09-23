@@ -203,7 +203,7 @@ const baseSettings = {
  * Every rune of every slot judged against one role, and the share of each slot that
  * survives.
  */
-function sharesBySlot(preset, settings, random) {
+async function sharesBySlot(preset, settings, random) {
   const runes = [];
   for (const slot of [1, 2, 3, 4, 5, 6]) {
     const mains = mainsFor(preset, slot);
@@ -216,7 +216,7 @@ function sharesBySlot(preset, settings, random) {
         presetRuneSetNameList[at % presetRuneSetNameList.length]));
     }
   }
-  const advice = runeAdvice(runes, [preset], settings, referenceStats);
+  const advice = await runeAdvice(runes, [preset], settings, referenceStats);
   const seen = [0, 0, 0, 0, 0, 0];
   const kept = [0, 0, 0, 0, 0, 0];
   for (const rune of runes) {
@@ -317,7 +317,7 @@ console.log('                        1      2      3      4      5      6    ove
 
 for (const scenario of scenarios) {
   const random = makeRandom(seed);
-  const { seen, kept } = sharesBySlot(scenario.preset, scenario.settings, random);
+  const { seen, kept } = await sharesBySlot(scenario.preset, scenario.settings, random);
   const rates = seen.map((count, at) => (count > 0 ? kept[at] / count : null));
   const measured = rates.filter((rate) => rate !== null);
   const overall = kept.reduce((sum, value) => sum + value, 0) / seen.reduce((sum, value) => sum + value, 0);
@@ -359,7 +359,7 @@ const ladderPreset = {
 };
 for (let stop = 1; stop <= qualityThresholds.length; stop += 1) {
   const random = makeRandom(seed);
-  const { seen, kept } = sharesBySlot(ladderPreset, { ...baseSettings, runeQuality: stop }, random);
+  const { seen, kept } = await sharesBySlot(ladderPreset, { ...baseSettings, runeQuality: stop }, random);
   const overall = kept.reduce((sum, value) => sum + value, 0) / seen.reduce((sum, value) => sum + value, 0);
   const named = qualityThresholds[stop - 1];
   console.log(`  stop ${stop}: says ${(named * 100).toFixed(0).padStart(2)} %, admits ${(overall * 100).toFixed(1).padStart(5)} %`);
@@ -392,7 +392,7 @@ const barred = Array.from({ length: 50 }, (_, at) =>
   ordinaryRune(degenerateRandom, `barred-${at}`, 1, slotMainProperties[1][0], 'Violent'));
 const ableSlot = Array.from({ length: 50 }, (_, at) =>
   ordinaryRune(degenerateRandom, `able-${at}`, 3, slotMainProperties[3][0], 'Violent'));
-const degenerateAdvice = runeAdvice([...barred, ...ableSlot], [degenerate], baseSettings, referenceStats);
+const degenerateAdvice = await runeAdvice([...barred, ...ableSlot], [degenerate], baseSettings, referenceStats);
 const barredRated = barred.filter((rune) => degenerateAdvice.get(rune.id).preset !== null).length;
 const ableRated = ableSlot.filter((rune) => degenerateAdvice.get(rune.id).preset !== null).length;
 console.log(`  Wanting only DEF: ${barredRated} of ${barred.length} slot-1 runes rated,`
@@ -420,7 +420,7 @@ for (const slot of [1, 2, 3, 4, 5, 6]) {
     probe.push(ordinaryRune(random, `probe-${slot}-${at}`, slot, mains[at % mains.length], 'Violent'));
   }
 }
-const probeAdvice = runeAdvice(probe, [discriminating], baseSettings, referenceStats);
+const probeAdvice = await runeAdvice(probe, [discriminating], baseSettings, referenceStats);
 
 /* Within one slot, a rune that reads a higher Max value must never stand lower: the
    box is a property of the slot, so the map from one to the other is monotone, and a
@@ -450,7 +450,7 @@ withDef.subProperties = [
 ];
 const withoutDef = { ...withDef, id: 'shape-plain', subProperties: withDef.subProperties.map((line, at) =>
   (at === 0 ? { statId: 2, value: 8, gemmed: false, grind: 0 } : { ...line })) };
-const shapeAdvice = runeAdvice([withDef, withoutDef], [discriminating], baseSettings, referenceStats);
+const shapeAdvice = await runeAdvice([withDef, withoutDef], [discriminating], baseSettings, referenceStats);
 const better = shapeAdvice.get('shape-def');
 const worse = shapeAdvice.get('shape-plain');
 console.log(`  A maxed DEF % line is worth something: ${(better.standing * 100).toFixed(1)} %`

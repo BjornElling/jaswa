@@ -426,7 +426,10 @@ export function TheMathSection() {
           A Grindstone is credited on every grindable line, including ones the rune has yet to gain, as <b className="type-body-emphasis">the better of what is already there and what the stone would give</b> — never added on top, which would pay the rune twice for one line.
         </p>
         <p>
-          A Gem is different, because it is spent at <span className="math-relic-level">+12</span> and <b className="type-body-emphasis">throws away every roll its line collected on the way</b>. So the line it lands on is reserved: it is worth exactly the Gem, and the upgrades that fall on it are simply lost. Below <span className="math-relic-level">+12</span> the Gem is only ever projected onto a line the rune already has — a line it has not drawn yet cannot be planned around.
+          A Gem is different, because it is spent at <span className="math-relic-level">+12</span> and <b className="type-body-emphasis">throws away every roll its line collected on the way</b>. So it is not decided in advance: JASWA plays the rune out first, and only then asks which line it would have been worth replacing. An upgrade is never written off because a line <i>might</i> later be Gemmed, and a Gem is never spent when the rune is better off without one.
+        </p>
+        <p>
+          The line it replaces is <b className="type-body-emphasis">whichever one gains the most</b> — not the weakest one, which is what JASWA used to look at. Those are different lines more often than they sound, because a Gem may not duplicate a stat one of the <i>other</i> lines is holding: removing the line that holds SPD is exactly what makes a SPD Gem legal at all. Reading the weakest line instead was worth up to nine per cent of a rune&rsquo;s whole score, and it went unnoticed because nothing in the test suite had ever spent a Gem.
         </p>
 
         <h3 className="type-heading">Why the floor is not the same number in every slot</h3>
@@ -501,13 +504,22 @@ export function TheMathSection() {
           A rune below <span className="math-relic-level">+12</span> has upgrades still to come, and where they land is luck. A rune gains a substat roll at <span className="math-relic-level">+3</span>, <span className="math-relic-level">+6</span>, <span className="math-relic-level">+9</span> and <span className="math-relic-level">+12</span> — never at <span className="math-relic-level">+15</span>, which only improves the main stat.
         </p>
         <p>
-          JASWA lists every way those remaining upgrades can fall — which line each one lands on, and how big it rolls — and adds up the chances of the paths that reach the bar. There are at most four upgrades and at most four lines, so this is counted exactly rather than guessed at or simulated. The same rune always prints the same number.
+          Two of those answers need no luck at all, and between them they settle most of a box. If the <i>best</i> the rune could possibly become still misses the bar, the chance is zero — there is no road to it. If the <i>worst</i> it could be left with already clears the bar, the chance is one. And a rune already at <span className="math-relic-level">+12</span> has nothing left to gamble on either way.
         </p>
         <p>
-          A future line is drawn without replacement from the legal missing effect ids; after all new lines exist, each remaining upgrade is allocated to one of the four lines. Every realised roll contributes in full, weighted by its stat — including surplus SPD or Accuracy. The paths are counted separately because their legal lines and roll ranges differ, not because a stat is locally capped.
+          For everything in between, <b className="type-body-emphasis">JASWA plays the rune forward a few thousand times and counts how often it ends up good enough.</b> Each run follows the game&rsquo;s own schedule — which line each upgrade lands on, how big it rolls, which substat a new line turns out to be — then spends the Gem and the Grindstone wherever they would have helped, and checks the result against the bar. That is the whole of it, and it is deliberately something you can picture.
         </p>
         <p>
-          Our <span className="math-relic-level">+6</span> rune above reaches 79 % at its ceiling, which is clear of even the strictest Fast DD slot 2 bar however the last upgrade falls — its chance is 100 % at all five floors. Give the same rune a middling SPD roll of <span className="math-table-rolled">+ 9</span> instead of <span className="math-table-rolled">+ 17</span> and its ceiling drops to 58 %: still certain at the loosest floor, <span className="math-table-rolled">94 %</span> at the next, a coin toss at the default one, <span className="math-table-rolled">20 %</span> above that, and out of reach at the strictest.
+          The alternative is to list every path instead of sampling them, and JASWA did that until it stopped being worth it: with four upgrades, four lines, every roll value each could take and a Gem decision that depends on all of them, one box of 1,500 runes took nine seconds to produce a column printed to the nearest per cent. Counting gives the same answer to within half a point, in two.
+        </p>
+        <p>
+          <b className="type-body-emphasis">The same rune always prints the same number.</b> The dice are a hash of the rune itself — its slot, its grade, its level, every line it carries — and not a running generator, so pressing Calculate twice gives an identical account, and <i>two identical runes are given identical odds</i>. Nor does the number of runes JASWA keeps move: counted at a quarter of the usual number of runs, at it, and at sixty-four times it, a box of three thousand kept the same 301 runes at <span className="math-relic-level">+12</span> every time, in the same slots, under the same presets.
+        </p>
+        <p>
+          A future line is drawn without replacement from the legal missing effect ids, and every remaining upgrade lands on a line the rune already has — new lines arrive last, so nothing can improve a line that does not exist yet. Every realised roll contributes in full, weighted by its stat, including surplus SPD or Accuracy.
+        </p>
+        <p>
+          Our <span className="math-relic-level">+6</span> rune above reaches 79 % at its ceiling, which is clear of even the strictest Fast DD slot 2 bar however the last upgrade falls — its chance is 100 % at all five floors. Give the same rune a middling SPD roll of <span className="math-table-rolled">+ 9</span> instead of <span className="math-table-rolled">+ 17</span> and its ceiling drops to 58 %: certain at the two loosest floors, <span className="math-table-rolled">66 %</span> at the default one, <span className="math-table-rolled">26 %</span> above that, and out of reach at the strictest.
         </p>
 
         <h3 className="type-heading">What is measured and what is assumed</h3>

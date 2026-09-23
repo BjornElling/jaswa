@@ -66,11 +66,15 @@ const potentialStepLabels = {
   ],
 } as const;
 
-export function RunePotentialSection({ game, settings, presets, general, onUpdate, onWritePresets }: {
+export function RunePotentialSection({
+  game, settings, presets, general, hardwareAcceleration, onUpdate, onWritePresets,
+}: {
   game: ImportedGame | null;
   settings: RunePotentialSettings;
   presets: RunePotentialPreset[];
   general: GeneralSettings;
+  /** The user's own setting, on its way to the worker that counts the odds. */
+  hardwareAcceleration: boolean;
   onUpdate: (update: Partial<RunePotentialSettings>) => void;
   onWritePresets: (change: (current: RunePotentialPreset[]) => RunePotentialPreset[]) => void;
 }) {
@@ -100,7 +104,8 @@ export function RunePotentialSection({ game, settings, presets, general, onUpdat
     {/* The answer first, the controls that shape it underneath. A user opening
         this page has come for the verdicts, not for the sliders. */}
     <Disclosure title="Recommendations" sessionKey="rune-potential.recommendations" defaultOpen>
-      <RuneRecommendations game={game} settings={settings} presets={presets} general={general} />
+      <RuneRecommendations game={game} settings={settings} presets={presets} general={general}
+        hardwareAcceleration={hardwareAcceleration} />
     </Disclosure>
 
     <Disclosure title="Settings" sessionKey="rune-potential.settings">

@@ -2,17 +2,20 @@
 
 **Status:** Binding contract for Rune Clean-up verdicts
 **Depends on:** `docs/RUNE-CANONICAL.md` and `docs/RUNE-PRESET-METRICS.md`
-**Reviewed:** 21 September 2026
+**Reviewed:** 23 September 2026
 
 This document describes the calculation, not the game rules. Game facts and their
 sources belong in `RUNE-CANONICAL.md`; where the two differ on a game fact, the
 canonical document wins. `app/lib/rune-substat-weights.ts` decides what one substat
-is worth to one role, `app/lib/rune-cleanup-model.ts` is the one arithmetic
-implementation of everything else, `app/lib/rune-cleanup-advice.ts` applies policy,
+is worth to one role, `app/lib/rune-craft-end-state.ts` decides what a Gem and a
+Grindstone do, `app/lib/rune-power-up-outcomes.ts` decides what a rune may still
+become and how likely it is, `app/lib/rune-cleanup-model.ts` is the one arithmetic
+implementation of everything else, and `app/lib/rune-cleanup-advice.ts` applies policy.
 `npm run verify:rune-substat-weights` holds the weights deterministically,
 `npm run verify:rune-slot-neutrality` holds the quality floor to the same share of
-every slot, and `npm run verify:rune-cleanup-calibration` independently checks the
-stochastic part.
+every slot, `npm run verify:rune-craft-single-source` keeps the craft rules in one
+file, `npm run verify:rune-chance-stability` holds the odds still, and
+`npm run verify:rune-cleanup-calibration` independently checks both.
 
 ## 1. Evidence and explicit assumptions
 
@@ -29,8 +32,9 @@ stochastic part.
 | The set a build completes | **Not modelled.** A preset states no set combination, and guessing one from the candidate is what §4.3 forbids. |
 | What a substat is *worth* to a role | A product decision, as `RUNE-CANONICAL.md` §12 requires. §4 states it in full. |
 
-The stochastic assumptions are isolated in the exact probability engine and checked
-against a separate Monte Carlo oracle, not a duplicate implementation.
+The stochastic assumptions are isolated in one loop — the one that plays a rune
+forward, in `app/lib/rune-power-up-outcomes.ts` — and checked against a separate
+simulation written from the game's schedule rather than from that loop.
 
 ## 2. One currency, including flat stats
 
@@ -309,113 +313,206 @@ one, and is not made here.
 
 ## 6. Gems and Grindstones
 
+`app/lib/rune-craft-end-state.ts` is the only module that applies these rules, and
+`npm run verify:rune-craft-single-source` is what keeps it that way. They used to be
+applied in five places — a rune's own projection, the perfect rune of its slot, the
+box of ordinary runes it is measured in, the probability engine and the craft planner
+— and two of them had drifted apart, which is §6.1.
+
 Craft sliders set a point in the selected item's legal range: none, average, three
-quarters, or maximum. The model evaluates legal actions on actual lines, rather than
-adding a generic craft number to a selected stat. Both the rune's own projection and
-the §5 ceiling are computed with the credited items, so turning a slider up raises
-the rune. Craft is optional at the realised end state: a credit may improve a rune,
-but it may never make the same rune's score or chance lower than the neutral
-no-craft reading. The ordinary denominator remains the reference; an Ancient rune
-can therefore read past 100 % when its Ancient roll interval takes it beyond that
-ordinary perfect rune.
+quarters, or maximum. The model evaluates legal actions on actual lines rather than
+adding a generic craft number to a selected stat, so an item only ever helps where the
+game would let it. Both the rune's own projection and the §5 ceiling are computed with
+the credited items, so turning a slider up raises the rune *and* the bar.
 
-- A **Grindstone** is credited on every grindable line, the rune's own and the ones it
-  has yet to gain, as `max(existing grind, credited grind)` — never added to what is
-  there, which would pay a rune twice for the same line.
-- A **Gem** replaces one line. It respects duplicate, main, innate and slot rules; a
-  re-Gem may only replace the already Gemmed line; and it preserves a Grind only for
-  the same effect id, after which a fresh stone may be credited.
-- Ancient runes use Ancient craft tables and ordinary runes ordinary craft tables.
+**The four rules, as the game states them** (`RUNE-CANONICAL.md` §§4, 8):
 
-**A Gem is spent at `+12`, after every power-up.** The chance calculation first
-realises every possible addition, upgrade target and roll value. It then finds the
-least-contributing legal line and compares that line with the best legal Gem +
-Grindstone replacement. The replacement is used only when its contribution is
-strictly greater; otherwise the original line remains. Upgrades are therefore never
-discarded merely because a line might later be Gemmed.
+1. **A Grindstone sits on top of a sub property**, and only on one of the seven
+   grindable effect ids. Never on the main property, and never on the innate, which
+   takes neither craft item. One stone per line, and a line holds at most one — so
+   the slider credits a stone to *every* grindable line the rune holds, which is what
+   a player with a stock of them does, not one stone to be placed somewhere. It is
+   credited as `max(the stone already there, the one the settings assume)` rather
+   than added to it: a rune ground three quarters of the way is worth what an unground
+   one is, because a stone can always be topped up, and adding them would pay the rune
+   twice for one line.
+2. **A Gem replaces one sub property**, and the rune must be at `+12` for it. The
+   replaced line loses every roll it collected. A rune may carry one converted line at
+   a time, so where it already has one, that is the only line a further Gem may
+   replace.
+3. **The new effect id must be legal**: allowed in the slot, and not the main
+   property, the innate, or any *other* sub property. Re-rolling the replaced line's
+   own id is allowed, and is what a player does to improve a bad value.
+4. **A Gemmed line may then be ground**, where its new id is grindable — so an
+   enchanted value that can be ground is always counted as ground.
 
-There is no requirement that a Gem must be spent. This matters below `+12`: a line
-that receives a good upgrade can remain the original line, while a different final
-line may be replaced if — and only if — that is the better realised end state.
+Ancient runes use Ancient craft tables and ordinary runes ordinary ones, because that
+is a legality rule rather than a valuation one. **It is a rule about what a rune may
+be spent on, and not about the reference it is measured against.** The §5 ceiling
+takes no lineage at all. An Ancient candidate used to be given an *Ancient* perfect
+rune to divide by, so its stronger Ancient Gem and stone paid for its own denominator
+and cancelled most of what they had just earned it: measured on a Legend Ancient
+slot-2 rune at `+12`, Hero items at three quarters, the bar stood 4.1 % higher and the
+rune read **71.5 % where the ordinary bar says 74.5 %**. Both ends of the scale stand
+still while the candidate moves, which is §5's rule and the only reason an Ancient
+rune can print above 100 % at all.
 
-## 7. Exact chance to reach the quality floor
+And the rule that follows from all four: **a Gem is never forced.** The end state is
+whichever of "no Gem" and the best legal placement scores higher, so considering a
+craft item can only raise a rune, never lower it. This matters below `+12`: a line that
+receives a good upgrade can remain the original line, while a different final line may
+be replaced if — and only if — that is the better realised end state.
 
-`Chance` is the exact discrete probability that final Max value reaches the quality
-floor by +12, including the deterministic main-stat factor. Events are modelled in
-the game's grade-specific order: a Normal rune adds four lines; a Magic rune
-improves its born line and then adds three; a Rare rune improves its two born lines
-and then adds two; a Hero rune improves its three born lines and then adds one; a
-Legend rune improves four times. At every event the choice is uniform over the
-lines or legal new effect ids that exist **at that event**; +15 is never a
-sub-property event.
+**A Gem is spent at `+12`, after every power-up.** The chance calculation plays the
+rune's remaining events out first and applies rule 4 to what it actually got, so an
+upgrade is never discarded merely because a line might later be Gemmed.
 
-For an Ancient candidate, every initial-roll term in this probability uses the
-verified Ancient min–max interval; upgrade terms use the ordinary six-star interval.
-The quality bar, role valuation, ordinary reference box and perfect-rune denominator
-remain ordinary. The same Ancient/ordinary split is used by Max value, so the two
-figures answer the same candidate rather than quietly using different roll tables.
+### 6.1 Which line the Gem replaces
 
-The engine enumerates every legal event sequence and every legal integer roll value.
-An added line receives its initial draw before any later event can improve it, and it
-is credited with the same Grindstone every other line is. All realised value is
-summed in full: surplus ACC, SPD or HP is never discarded. The independent Monte
-Carlo oracle checks ordinary 4★/5★/6★ and Ancient 6★ fixtures.
+**The best one, and it used not to be.**
 
-### 7.1 The representation contract
+The projection's rule was: find the least-contributing line, and offer it the best
+legal Gem. The ceiling's rule was: offer every line every legal Gem and keep the best
+pair. Both were written from the same paragraph of `RUNE-CANONICAL.md` §8 and they are
+not the same rule, because **which Gem is legal depends on which line is being
+replaced** — a Gem may not duplicate one of the *other* lines, so removing the line
+that holds SPD is what makes a SPD Gem legal at all.
 
-**Probability support is represented on a lattice of 10⁻¹² score units.** A term's
-contribution is quantised to a whole number of those units **once**, where it crosses
-from the game's own whole numbers into score units; sums of those whole numbers are
-then exact, so nothing downstream rounds again. "Exact" here means **exact on that
-lattice** — the lattice itself is a quantisation of the underlying value, and this
-document states it rather than implying the engine works in unrounded reals.
+So a rune whose weakest line was HP + and whose best available Gem was SPD scored as
+though the Gem were worth what it added to the HP + line, when a player would have
+replaced the SPD line and taken a full Gem roll of it. Measured against the rules
+written out independently from §8, over 1,210 finished runes at five craft credits, the
+worst case read **9.20 where the rules say 10.12** — nine per cent of that rune's whole
+score. Nothing failed, because the only simulation in the suite passed a neutral
+credit and never exercised a Gem at all.
 
-The distribution of a term is built over the **sum of its raw roll values**, as whole
-game numbers, and priced afterwards. A valuation is linear, so the price of the sum is
-the sum of the prices, and doing it in that order has two consequences that both
-matter: the quantisation happens once per term instead of once per roll, and the
-convolution depends on nothing but the interval and the count — not on the reference
-monster and not on what a role pays for the stat. Pricing first made every one of
-those convolutions role-dependent, and on a real account rebuilding them per preset,
-per build and per rune set was half the total run time.
+Both halves are now the one function, and both are checked: the craft end state of
+every synthetic finished rune is compared against §8 written out afresh inside
+`verify:rune-cleanup-calibration`, and the chance oracle runs a second time with both
+items credited.
 
-The rule the lattice protects: **no grid may ever be coarse enough to merge two
-outcomes the game can distinguish.** The smallest difference two distinct outcomes can
-have is one flat point of a scaled stat — about 7 × 10⁻⁴ score units for a realistic
-reference line — which is nine orders of magnitude above one lattice unit.
+## 7. Chance: a certain no, a certain yes, or a count
 
-Three figures are part of this contract and must move together if any of them moves:
+`Chance` is the probability that a rune's final Max value reaches the quality floor by
+`+12`, including the deterministic main-stat factor. It is answered in three steps, and
+the first two are exact:
 
-- **Scale.** 10⁻¹² score units per unit.
-- **Target slack.** A threshold comparison carries exactly **one unit** of slack, folded
-  into the target once rather than applied at each comparison. This is the successor to
-  the former `+ 1e-12` epsilon, and it is what keeps the key's precision and the
-  comparison's tolerance from drifting apart.
-- **Maximum safe magnitude.** Keys stay exact below `Number.MAX_SAFE_INTEGER` divided by
-  the scale — about **9,007 score units**. A slot ceiling is at most nine, and §4's
-  weights are normalised to a maximum of 1 precisely so that a weight can only ever
-  lower a contribution, so there are three orders of magnitude of headroom. The engine
-  asserts this at run time rather than trusting it, because a future change that made
-  contributions larger — weighting a target by its raw stated magnitude, for instance —
-  would consume that headroom and otherwise lose precision silently.
+1. **A rune with no events left** — already `+12` or `+15` — has nothing to project.
+   Its chance is `1` or `0`, and the row says `Already there` or `Below the floor`
+   rather than dressing a certainty as a gamble.
+2. **A rune whose best possible end state misses the bar** cannot reach it by any road,
+   and one whose **worst possible end state clears it** cannot miss. Both bounds are
+   computed, not sampled, and between them they settle most of a real box.
+3. **Everything else is played forward and counted.** The rune is taken to `+12`
+   `chanceRuns` times by the game's own loop, each run is priced and offered its craft
+   end state, and the answer is the share that cleared the bar.
 
-### 7.2 Numerical tolerance and display
+### 7.1 Why it is counted rather than enumerated
 
-Summation order is an implementation detail and is not part of this contract; two
-implementations of this model agree on chance to within 10⁻⁹. The probability model is
-exact, but IEEE-754 addition is not associative, so a reassociation that is exact in the
-model can still move the last bits of a double.
+The exact answer is an enumeration of every split of the remaining improvements, every
+subset of the additions, and every integer value each of those rolls can take — and
+then, for each of those thousands of end states, the Gem decision of §6, which depends
+on the realised values and so cannot be factored out of the sum. It was implemented
+that way, on a lattice of 10⁻¹² score units, with a branch tree, convolutions of raw
+roll sums, and pruning bounds at three levels. It is the right answer, arrived at a way
+that costs **nine seconds for 1,500 runes** at the fullest craft settings and
+twenty-three for a real box — and the result is a number printed to the nearest
+percentage point.
 
-Where a chance falls exactly on a display rounding boundary, **the printed percentage
-follows from the computed value**, and summation order is not a stable presentation
-guarantee across versions. What this document does promise is exactness and determinism
-*within* a version: the same rune always prints the same number.
+Counting is the same answer to within the resolution it is counted at, it applies §6's
+rules to a realised rune rather than to a model of them, and it is the one description
+of this calculation that can be given to a player in a sentence: *JASWA plays the rune
+forward a few thousand times and counts how often it ends up good enough.*
 
-`npm run verify:rune-cleanup-equivalence` is the check that holds every other field —
-verdict, reason, preset, rank and Max value — to bit equality across a change. It treats
-the printed percentage, which `reason` carries, as an exact field rather than absorbing
-it into the numeric tolerance, so a moved boundary is always adjudicated and never
-assumed.
+**The schedule is simpler than the old engine made it look**, and this is what makes a
+run cheap. `RUNE-CANONICAL.md` §6 writes an improvement wherever the event index is
+below the grade's born-line count and an addition everywhere else, and the indices run
+in order — so **every remaining improvement happens before every remaining addition,
+without exception**. No line a rune has yet to gain can ever receive an improvement,
+the set of lines an improvement may land on never changes, and a rune's whole future is
+three numbers and a list. The old engine enumerated the events as an ordered sequence
+and rediscovered that structure branch by branch, at the cost of walking `10 × 9 × 8 ×
+7` orderings of a draw whose order cannot matter.
+
+### 7.2 The resolution, and why it is enough
+
+**4,096 runs.** One rune's answer is then within about half a percentage point of the
+truth nineteen times in twenty, which is finer than the column that prints it.
+
+The number that had to be checked is not that one. A verdict is a threshold, and a
+threshold turns a spread into flipped rows — so what matters is what the resolution
+does to a **box**. Measured on 1,500 synthetic runes at the fullest craft settings,
+against the eight shipped presets:
+
+| Runs per answer | Keep | Power up | Time |
+| ---: | ---: | ---: | ---: |
+| 1,024 | 67 | 170 | 1.6 s |
+| 4,096 | 67 | 169 | 2.2 s |
+| 16,384 | 67 | 169 | 4.8 s |
+| 65,536 | 67 | 169 | 15.3 s |
+
+Per slot the counts move by at most one rune anywhere above 1,024. Sixteen times the
+work buys nothing a player could see, so the second, finer round this engine briefly
+had — a re-run at eight times the resolution for answers landing near the policy bar —
+was removed rather than kept for the look of the thing.
+
+**What it cannot resolve, stated rather than left to be discovered.** The finest answer
+four thousand runs can give is one run in four thousand, about 0.024 of a percentage
+point. Two odds a tenth of a point apart are therefore the same answer to this engine,
+and a chance of 0.02 % against one of 0.07 % is a coin toss between one hit and three.
+
+That costs nothing a verdict turns on: the Power-up policy's loosest stop asks for
+2 %, eighty times the resolution. What it does cost is the right to print two decimals
+below a tenth of a point, so the row does not — anything real but below that floor
+reads `under 0.1 %`, and `0 %` goes on meaning the engine settled it at zero without
+drawing a single run.
+
+### 7.3 The same rune always prints the same number
+
+The stream of draws is a hash of **the rune itself** — its slot, star class, lineage,
+grade, level, main property, innate and every sub property — and of the run's own
+number. Not a generator carrying state, and not the rune's id. Three consequences, and
+the third is why it is the rune and not the id:
+
+- Two calculations of one box agree exactly, and the order the runes are judged in
+  cannot move a verdict.
+- The graphics card reproduces the processor's stream rather than keeping one of its
+  own, because every draw is integer arithmetic on both sides (§10.2).
+- **Two identical runes are given identical odds.** Seeding from the id instead put
+  three copies of one rune in a box at 55 %, 56 % and 57 % — each answer honest to its
+  own resolution, and the three of them together an obvious defect on screen.
+
+`npm run verify:rune-chance-stability` is the check, and it is the one that says
+counting is enough. One population is judged several times at **different
+resolutions** — a quarter of the shipped run count, the shipped one, and sixteen times
+it, which is a sixty-fourfold sweep end to end — with nothing about the runes or the
+policy changing, and the totals, the breakdown by slot, by preset and by
+preferred/acceptable/broken rank, and the certainties all have to hold still. Measured
+over 3,000 runes with Gems and Grindstones credited:
+
+| | Moved by |
+| --- | ---: |
+| Power up and Sell at `+0` | 0 runes |
+| Power up and Sell at `+9` | 8 runes in 3,000 |
+| Any one slot's retained count | at most 3 |
+| Any one preset's retained count | at most 4 |
+| **Everything at `+12`** | **nothing at all** |
+
+The last row is not luck: a rune at `+12` has no events left, so §7's first step
+settles it and no run is ever drawn.
+
+### 7.4 Ancient runes
+
+For an Ancient candidate, every **initial** roll uses the verified Ancient interval and
+every improvement uses the ordinary six-star one. A line the rune *gains* at `+6` is
+having its initial roll then, so it draws from the Ancient table; this is what
+`verify:rune-cleanup-ancient` has asserted all along, and until 23 September 2026 the
+calibration oracle disagreed with it and read the ordinary table instead. That one
+difference was worth up to sixteen percentage points of chance on an unfinished
+Ancient rune, and it was the whole of the disagreement between the two.
+
+The quality bar, the role valuation, the ordinary reference box and the perfect-rune
+denominator all remain ordinary, so an Ancient rune moves against a bar that does not.
 
 ## 8. Runes below +12 and below six stars
 
@@ -424,8 +521,8 @@ its own best legal end state before it is scored.
 
 | The rune | What the projection does |
 | --- | --- |
-| Fewer than four sub properties | `RUNE-CANONICAL.md` §6 fixes which remaining events improve born lines and which add new lines. Every legal event sequence is enumerated; an added id must be legal in the slot and may not duplicate the main property, the innate or an existing line. Gem legality is checked after the final line-up exists. |
-| Improvements still to come | They land uniformly only on lines that exist when that event occurs. In the best case they concentrate on whichever legal line is worth most; the chance calculation follows the same event order and spreads them as the game does. |
+| Fewer than four sub properties | `RUNE-CANONICAL.md` §6 fixes which remaining events improve born lines and which add new lines. The lines it gains are drawn without replacement from the ids the slot, the main property and the innate leave legal; the order they arrive in cannot matter, because no improvement follows them. Gem legality is settled after the final line-up exists. |
+| Improvements still to come | Every one of them lands on a line the rune already holds, because improvements precede additions without exception (§7.1). In the best case they concentrate on whichever held line is worth most — the value of a line-up is linear in how they are split and the Gem's gain is convex in it, so the maximum is always at a corner. |
 | Below six stars | Its own star's substat intervals are used for every future roll, and its own star's `+15` main property scales the result. It is neither ignored nor given an artificial six-star roll. |
 | Ancient | Initial-roll terms in its Max-value and Chance projections use the Ancient interval; upgrades, role valuation, the reference box, main property and denominator use ordinary six-star rules. Its craft items remain Ancient because that is a legality rule. |
 | Already `+12` or `+15` | Nothing is left to project, so its Max value is what it is, and its chance is 1 or 0. The row says `Already there` or `Below the floor` rather than dressing a certainty as a gamble. |
@@ -502,8 +599,11 @@ DEF rows above show the same preset family doing each.
   the same interval, with neither Gem nor Grindstone on it;
 - every roll worth the midpoint of its ordinary six-star interval, which is exact
   rather than simulated because a valuation is linear in the roll count;
-- the same optional Gem and Grindstone end-state rule as a candidate rune, so the
-  reference cannot receive a craft penalty merely because craft is being considered;
+- the same optional Gem and Grindstone end-state rule as a candidate rune — literally
+  the same function, so the reference cannot receive a craft penalty merely because
+  craft is being considered, and cannot drift from §6 either. The box used to write
+  §8's placement rule out again, with its own reading of which ids an innate bars;
+  it now hands its line-up to `craftedScore` like everything else;
 - ordinary six-star throughout, Ancient included, for §5's reason — both ends of the
   scale must stay still while the candidate moves.
 
@@ -561,6 +661,36 @@ difference is the over-admission above being removed, with slots 1, 3 and 5 fall
 from 41.5 %, 39.5 % and 27.3 % to a common 22–23 %. What is now delivered is the
 15 % this section has claimed all along.
 
+## 9.2 Two readings of a rune, and one of them wins whole
+
+**Crediting a craft item raises the rune, the §5 ceiling and the §9.1 box, and for
+some runes the box rises further than the rune does.** Considering an item the player
+is never obliged to spend must not lower a verdict, so a rune is read twice and keeps
+the better reading: *spend the items, and be measured against a box that spent them
+too*, or *spend nothing, and be measured against a box that spent nothing either*.
+
+Each is a whole calculation — a preset, a build, a rank, a Max value, a standing and a
+chance that belong together — and **the row prints one of them entire**. It used to
+take the larger of each field separately and the preset name from whichever reading
+existed, so a row could carry one preset's name and rank beside another preset's
+chance: `55 %` printed under a preset whose own odds were 3 %. §5.1 says the two
+figures in a row describe one build, and a figure maxed across two presets describes
+neither.
+
+The escape also has to be a reading of *something*. The gate read the credited Max
+value in the *uncredited* box for a while — a crafted rune against an uncrafted
+population, lenient by construction and a standing no rune actually has — which
+admitted more than the share §9's ladder names.
+
+**A consequence worth stating.** Because a row now names one preset and prints that
+preset's figures, turning a slider up can lower the printed Max value: the item hands
+the rune to a preset that *stands* it higher while describing it lower. Measured
+across 120 fixtures at three craft credits, that happened to 6 of them, by up to 7.5
+points, every one a preset switch with the standing rising and the verdict unchanged.
+Standing, odds and verdict are monotone and `verify:rune-cleanup-craft-monotonic`
+holds all three; Max value is not, and §9.1 already says it is the description rather
+than the currency.
+
 ## 10. Calibration and adversarial checks
 
 `scripts/verify-rune-substat-weights.mjs` is the deterministic gate on §§4–5. It holds
@@ -591,56 +721,128 @@ legally carry nothing the role wants reports "No preset can use it" rather than 
 given a scale, and that a rune which out-scores another of its own slot still outranks
 it.
 
-`scripts/verify-rune-cleanup-calibration.mjs` independently generates legal runes,
-executes additions/upgrades with its own PRNG, and checks chance fixtures, finite advice
-for lower stars and Ancient runes, independent preset matching, and a population smoke test. It reports the total
-retained rate and slots but does not impose an invented universal slot distribution or
-retained percentage: those follow the user's presets and standards. Its output is an
-implementation regression check, not proof of an unverified game-RNG rule.
-`npm run verify:rune-cleanup-calibration` is the fast
+`scripts/verify-rune-cleanup-calibration.mjs` independently generates legal runes and
+plays the game's own addition/upgrade loop with its own PRNG. It checks the chance
+**twice** — once with no craft credited, which isolates the substat RNG, and once with
+both items credited, which puts §6's Gem decision inside the probability rather than
+beside it. Only the first of those existed until 23 September 2026, which is why §6.1's
+defect survived for as long as it did.
+
+It also holds §6 itself, deterministically and exhaustively: the craft rules are
+written out afresh inside the script from `RUNE-CANONICAL.md` §8 — grindability, the
+one converted line, the duplicate and slot bans, the stone a re-Gem keeps — and every
+synthetic finished rune's end state is compared against the engine's at five craft
+credits. It agrees to 2 × 10⁻¹⁵ over 1,210 comparisons, and reading the weakest line
+instead of the best pair fails it by nine per cent of a rune's score.
+
+Its population section reports the total retained rate and the slots but does not
+impose an invented universal slot distribution or retained percentage: those follow the
+user's presets and standards. `npm run verify:rune-cleanup-calibration` is the fast
 regression guard; `npm run verify:rune-cleanup-calibration:large` is the 1,000-rune
 statistical run used before release.
+
+`scripts/verify-rune-chance-stability.mjs` is the gate on §7 — whether counting is
+enough. One population of rune bodies is generated once and judged several times at
+different **resolutions**, which changes how finely every answer in the account is
+counted while changing not a single rune, and the totals, the breakdown by slot, by
+preset and by rank, and the certainties at `+12` all have to hold still. It also puts
+two copies of one rune in a box and requires one answer twice, which is the half that
+says a player pressing Calculate sees a consistent account rather than merely a
+repeatable one.
+
+`scripts/verify-rune-craft-single-source.mjs` is a source-text gate rather than a
+behavioural one, and §6.1 is why it exists: two implementations that happen to agree
+today are still two implementations. Only `rune-craft-items.ts`, which holds the §8
+tables, and `rune-craft-end-state.ts`, which applies them, may read either.
+
+`scripts/verify-rune-chance-layout.mjs` holds the one WebGPU failure the runtime
+cannot report. A rejected pass is caught by a validation scope and falls back to the
+processor; a *misread* buffer is not rejected at all, because every offset is inside
+the buffer and every value is a number. Neither side writes an offset of its own — both
+take them from `rune-chance-layout.ts`, and the shader interpolates them — and this
+confirms that is still true.
 
 `scripts/verify-rune-cleanup-equivalence.mjs` answers the other question, which the
 calibration oracle deliberately cannot: whether this build says what the last one did.
 It records every public field of every row over a fixed population and eight settings
-and preset scenarios, and diffs them against a recorded baseline. The five are
+and preset scenarios, and diffs them against a recorded baseline. The gates are
 complementary — the weights gate says the score means the right thing, the set gate
 says the same rune is scored alike whatever it is labelled, the slot gate says the
-floor cuts every slot at the same place, the oracle says the probability is right,
-and the equivalence gate says a refactor moved none of them — and a change to the
-engine runs all five.
+floor cuts every slot at the same place, the craft gate says a Gem does what §8 says,
+the oracle says the probability is right, the stability gate says the resolution is
+enough, and the equivalence gate says a refactor moved none of them — and a change to
+the engine runs all of them.
+
+**The equivalence gate treats `chance` as a numeric field with a tolerance and every
+other field as exact.** It was exact on every field before, because the odds were
+enumerated rather than counted; now a baseline recorded on one build and compared on
+the next agrees on `chance` to the resolution of §7.2, and on verdict, reason, preset,
+rank, Max value and standing to the bit.
 
 ## 10.1 What it costs
 
-Measured on a real captured account of 3,242 runes against the eight shipped presets,
-at the default settings, warm:
+Measured on a synthetic account of 1,500 runes against the eight shipped presets, in
+Node, warm — three settings, because the craft sliders are what the old engine cost
+the most of:
 
-| | Before §4 | After §4 |
+| | Enumerated | Counted |
 | --- | ---: | ---: |
-| `runeAdvice`, in Node | 0.52 s | 0.6 s |
-| The same account in the browser worker, as the page reports it | — | 1.2 s |
+| No craft credited | 1.25 s | 0.83 s |
+| Gem and stone at maximum | 8.98 s | 2.39 s |
+| 400 level-0 runes, craft at maximum | 9.20 s | 1.92 s |
 
-About the same as the old engine, for a model that prices every stat separately and
-enumerates every build rather than one. The first working version was fourteen times
-slower; four things closed that, each recorded where it lives — the raw-sum
-distributions of §7.1, the single candidate per preset of §5.1, one valuation's eleven
-conversion factors being worked out once rather than per line, and §4.3 taking the
-candidate's set out of the weight key, which cut the number of distinct weight vectors
-by the number of sets in the account.
+The verdicts move by one or two runes across the whole box, which is §7.2's table read
+from the other end. Three things account for the difference, and only one of them is
+the counting:
 
-**§9.1 adds about 40 %**, measured over eight warm runs of a synthetic account of the
-same 3,242 runes: 0.47 s without the ordinary box and 0.65 s with it. A box is one
+- **The event schedule collapses** (§7.1). Every remaining improvement precedes every
+  remaining addition, so the additions are a *subset* and not an ordering:
+  `C(10,4) = 210` arrangements where the old engine walked 5,040.
+- **A rune is played forward once** however many presets ask about it. Playing it out
+  is a fact about the rune; only the pricing is a fact about the role.
+- **Pricing is a table lookup.** A `Valuation` is linear by contract, so the eleven
+  slopes are read once per role into a flat array. That is the innermost operation of
+  the whole calculation, and it was a `Map` lookup per line per branch.
+
+**§9.1's ordinary box is now the expensive half**, which it was not before: it is one
 enumeration of every line-up a slot can draw, priced in every build of the family, and
 it is memoised per slot, main property, craft credit, lineage and build family — so it
-is built a hundred-odd times for a whole account rather than once per rune. The first
-version cost three times as much rather than forty per cent: building each case's
-Gaussian smear afresh put a quarter of a million `exp` calls behind every box, and
-caching the kernel on its quantised width and offset is what closed that.
+is built a hundred-odd times for a whole account rather than once per rune.
+
+## 10.2 Where the counting happens
+
+**The odds are the one part of this calculation shaped like a graphics card's work**:
+the same short arithmetic, a few million times, with no branch that depends on another
+lane. So `app/lib/compute/` offers it to the card whenever the user's Hardware
+acceleration setting allows and the card accepts, and the status line under the table
+says which engine answered.
+
+The structure is stated in `docs/HARDWARE-ACCELERATION.md` and is deliberately not
+specific to runes. What matters to this document is what it does *not* move:
+
+- **The card answers one question only** — how many of a rune's runs cleared a bar.
+  Every certainty of §7, every threshold, every gate and the whole of the policy stay
+  on the processor, so a verdict cannot depend on where it was computed.
+- **The runs themselves are identical**, because every draw is integer arithmetic on
+  both sides: the same hash of the same counter, and the same multiply-high for turning
+  it into a number below a bound. A float there would round the hash above 2²⁴ and the
+  two engines would draw different rolls.
+- **The pricing is not identical**, because a card works in single precision. That
+  moves a score by about one part in ten million, so a run whose end state sits within
+  that of the bar can fall on either side of it — a handful of runs in four thousand at
+  the very worst, and invisible in a printed percentage.
+- **A card must prove itself before it is used.** `runeChanceAgreement` puts a small
+  battery of hand-built runes through both engines and compares; a card that disagrees
+  by more than the line above is not used at all, and the status line says Processor.
+  That turns the one failure mode a shader has — quietly wrong numbers — into a visible
+  fall back.
 
 ## 11. Change procedure
 
 Changing a game rule updates `RUNE-CANONICAL.md` first. Changing this model updates
-this document, The Math, the deterministic weight checks, the independent calibration
-and a fresh equivalence baseline in the same commit. A new uncertainty is named as an
-assumption, never smuggled in as a default.
+this document, The Math, the deterministic weight checks, the independent calibration,
+the stability gate and a fresh equivalence baseline in the same commit. A change to
+what a Gem or a Grindstone does goes in `rune-craft-end-state.ts` and nowhere else; a
+change to how the odds are counted goes in `rune-power-up-outcomes.ts`, and if it
+changes the draws it changes the shader in the same commit. A new uncertainty is named
+as an assumption, never smuggled in as a default.

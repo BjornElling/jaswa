@@ -1,36 +1,35 @@
 /// <reference lib="webworker" />
 
-import { scoreArtifactOnMonster } from './artifact-score-core';
-import { CpuArtifactScoreBackend } from './backends/cpu-artifact-score-backend';
-import { WebGpuArtifactScoreBackend } from './backends/webgpu-artifact-score-backend';
-import type { ArtifactScoreBackend } from './backends/artifact-score-backend';
+/**
+ * The artifact score matrix, off the main thread.
+ *
+ * It decides nothing about *where* the matrix is computed: it hands the request and
+ * the user's own setting to `runAccelerated`, which is the one place in the program
+ * that weighs a preference against what a card will actually do
+ * (`docs/HARDWARE-ACCELERATION.md`). It used to keep its own backend instances and
+ * its own fallback rule, which is how a second, quieter version of that decision came
+ * to exist — Rune Clean-up's worker said `backend: 'cpu'` in a comment and meant it.
+ *
+ * Everything after the matrix is deliberately still on this thread. Recovering which
+ * conversion a winning pair should take needs the whole scoring detail and not just
+ * its number, so it is re-scored here rather than read back from the card.
+ */
+import { calculateArtifactScoresCpu, scoreArtifactOnMonster } from './artifact-score-core';
+import {
+  artifactScoreAgreement, calculateArtifactScoresOnGpu,
+} from './backends/webgpu-artifact-score-backend';
+import { runAccelerated } from './accelerated-calculation';
+import type { AcceleratedCalculation } from './accelerated-calculation';
 import type {
   ArtifactMaximumScore, ArtifactScoreRequest, ArtifactScoreWorkerRequest, ArtifactScoreWorkerResponse,
 } from './artifact-score-protocol';
 
-let backend: ArtifactScoreBackend | undefined;
-let backendPreference: boolean | undefined;
-
-async function selectedBackend(preferWebGpu: boolean): Promise<ArtifactScoreBackend> {
-  if (backend && backendPreference === preferWebGpu) return backend;
-  backend?.dispose();
-  backendPreference = preferWebGpu;
-  if (preferWebGpu) {
-    try {
-      const gpu = new WebGpuArtifactScoreBackend();
-      await gpu.initialize();
-      backend = gpu;
-      return backend;
-    } catch {
-      /* The response identifies the CPU backend, so a driver or browser fallback
-         is observable to the interface instead of being a hidden decision. */
-    }
-  }
-  const cpu = new CpuArtifactScoreBackend();
-  await cpu.initialize();
-  backend = cpu;
-  return backend;
-}
+const artifactScoreCalculation: AcceleratedCalculation<ArtifactScoreRequest, Float32Array> = {
+  name: 'artifact-score',
+  cpu: (request) => calculateArtifactScoresCpu(request),
+  gpu: (request, context) => calculateArtifactScoresOnGpu(request, context),
+  agrees: artifactScoreAgreement,
+};
 
 function maximaFromScores(request: ArtifactScoreRequest, scores: Float32Array): ArtifactMaximumScore[] {
   const maxima: ArtifactMaximumScore[] = [];
@@ -110,22 +109,12 @@ self.onmessage = async (event: MessageEvent<ArtifactScoreWorkerRequest>) => {
   if (message.type !== 'calculate') return;
   try {
     const startedAt = performance.now();
-    let selected = await selectedBackend(message.preferWebGpu);
-    let scores: Float32Array;
-    try {
-      scores = await selected.calculate(message.request);
-    } catch {
-      if (selected.type !== 'webgpu') throw new Error('Artifact scoring failed on the processor.');
-      selected.dispose();
-      selected = new CpuArtifactScoreBackend();
-      await selected.initialize();
-      backend = selected;
-      scores = await selected.calculate(message.request);
-    }
+    const answer = await runAccelerated(artifactScoreCalculation, message.request, message.preferWebGpu);
+    const scores = answer.result;
     const result: ArtifactScoreWorkerResponse = {
       type: 'result', requestId: message.requestId,
       result: {
-        backend: selected.type,
+        backend: answer.backend,
         durationMs: performance.now() - startedAt,
         evaluatedPairs: message.request.artifacts.length * message.request.monsters.length,
         maxima: maximaFromScores(message.request, scores),

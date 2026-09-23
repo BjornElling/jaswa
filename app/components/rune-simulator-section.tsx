@@ -147,12 +147,14 @@ export function RuneSimulatorSection({ game, settings, presets }: {
     }
     setBusy(true);
     setMessage('');
-    /* Let the button paint its busy state before a large batch occupies the
-       main thread. The actual experiment remains synchronous and deterministic
-       for the supplied random source, which keeps one rule for every caller. */
-    window.setTimeout(() => {
+    /* The experiment is deterministic for the supplied random source, which keeps one
+       rule for every caller; it is asynchronous because the Rune Clean-up engine it
+       runs three times answers its odds in one batch and may answer them on the
+       graphics card. The wait yields the main thread, so the button paints its busy
+       state without a timeout arranged for that alone. */
+    void (async () => {
       try {
-        const next = simulateRunes(toConfig(form, count, settings), { presets, settings, base });
+        const next = await simulateRunes(toConfig(form, count, settings), { presets, settings, base });
         setResult(next);
         setStage(0);
       } catch (error) {
@@ -160,7 +162,7 @@ export function RuneSimulatorSection({ game, settings, presets }: {
       } finally {
         setBusy(false);
       }
-    }, 0);
+    })();
   }
 
   return <WorkspacePage

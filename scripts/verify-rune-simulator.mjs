@@ -39,7 +39,7 @@ try {
   assert.equal(hero.subProperties.reduce((sum, property) => sum + property.rolls, 0), 3,
     'Hero improves its three born lines before adding its fourth line');
 
-  const result = simulateRunes({
+  const result = await simulateRunes({
     ...defaultRuneSimulationConfig,
     count: 25,
     slot: 2,

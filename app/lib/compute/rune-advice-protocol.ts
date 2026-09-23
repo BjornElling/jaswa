@@ -12,13 +12,22 @@ import type { RunePotentialPreset } from '../rune-potential-presets';
 import type { ReferenceStats } from '../rune-reference-stats';
 import type { RunePotentialSettings } from '../types';
 import type { RuneAdvice } from '../rune-cleanup-advice';
-import type { ComputeBackend } from './calculation-summary';
+import type { CalculationBackend } from './calculation-summary';
 
 export type RuneAdviceRequest = {
   runes: readonly Rune[];
   presets: readonly RunePotentialPreset[];
   settings: RunePotentialSettings;
   base: ReadonlyMap<string, ReferenceStats>;
+  /**
+   * Whether the graphics card may count the odds.
+   *
+   * It is the user's own setting, carried across the boundary rather than read
+   * inside the worker: a worker has no preferences document, and inventing a second
+   * way to reach one is how two halves of a program come to disagree about a switch
+   * the user flipped once.
+   */
+  preferWebGpu: boolean;
 };
 
 export type RuneAdviceWorkerRequest = {
@@ -28,7 +37,7 @@ export type RuneAdviceWorkerRequest = {
 };
 
 export type RuneAdviceWorkerResponse =
-  | { type: 'result'; requestId: number; advice: Map<string, RuneAdvice>; durationMs: number; backend: ComputeBackend }
+  | { type: 'result'; requestId: number; advice: Map<string, RuneAdvice>; durationMs: number; backend: CalculationBackend }
   | { type: 'error'; requestId: number; message: string };
 
 /**
@@ -41,6 +50,6 @@ export type RuneAdviceWorkerResponse =
  * a completed one.
  */
 export type RuneAdviceOutcome =
-  | { status: 'done'; advice: Map<string, RuneAdvice>; durationMs: number; backend: ComputeBackend }
+  | { status: 'done'; advice: Map<string, RuneAdvice>; durationMs: number; backend: CalculationBackend }
   | { status: 'superseded' }
   | { status: 'failed'; message: string };

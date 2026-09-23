@@ -344,6 +344,33 @@ parts an agent must not quietly break:
   any disagreement, including a disagreement about which pairs are judged at
   all. It runs inside `npm run test:domain` against the repository fixture, and
   takes a real export as an argument for a wider sweep.
+- **One Gem rule and one Grindstone rule, however many workspaces spend them.**
+  `app/lib/rune-craft-end-state.ts` is the only module that applies
+  `RUNE-CANONICAL.md` §8, and `app/lib/rune-craft-items.ts` is the only one that
+  holds its tables. Nothing else under `app/` may read either. This is not
+  tidiness: the same four rules were applied in five places, two of them had
+  drifted, and the projection was reading the *weakest* line where the ceiling
+  was reading the *best pair* — up to nine per cent of a rune's whole score, with
+  nothing failing. `npm run verify:rune-craft-single-source` is the check, and it
+  reads source text rather than behaviour, because two implementations that
+  happen to agree today are still two implementations.
+- **The graphics card is asked through one door.**
+  `docs/HARDWARE-ACCELERATION.md` is binding. A calculation states how the
+  processor does it and how the card does it; it does not decide *whether* to use
+  a card, because `app/lib/compute/accelerated-calculation.ts` does that once for
+  the whole program. Three states and not two: switched off is the user's
+  decision, refused is the card's, and only the third uses the card. Every
+  calculation reports which engine answered, because a silent fall back to the
+  processor is a thing the user is entitled to see.
+
+  A shader is a second implementation, which this section is otherwise against.
+  The bargain is that it must prove itself against the processor on this
+  machine's own card before its answers are used, and that neither it nor the
+  packing beside it may write a buffer offset of its own — **no browser this
+  repository can drive exposes WebGPU, so no shader here is ever executed by a
+  test.** `verify:webgpu-parameter-layout` and `verify:rune-chance-layout` are
+  what stands in for that, and `verify:acceleration-routing` is what keeps the
+  decision itself from growing a second copy.
 - **Validate everything read back.** Preferences are user-editable files.
   Anything loaded from IndexedDB or a `.sw` file must satisfy the complete
   current contract before it reaches the interface. Discard malformed or
@@ -392,20 +419,28 @@ Before reporting a change complete, all of these hold:
    table, `npm run verify:element-qualified-names` passes.
 9. After a statistics capture or a change to the collector,
    `npm run verify:statistics-tiers` passes.
-10. After a change under `helper/`, the helper is **released**, not merely
+10. After a change to the Rune Clean-up engine, all of
+    `verify:rune-substat-weights`, `verify:rune-set-neutrality`,
+    `verify:rune-slot-neutrality`, `verify:rune-craft-single-source`,
+    `verify:rune-cleanup-calibration`, `verify:rune-cleanup-probability`,
+    `verify:rune-cleanup-craft-monotonic` and `verify:rune-chance-stability`
+    pass, and a **fresh `verify:rune-cleanup-equivalence` baseline** is recorded
+    in the same commit — `work/` is not committed, so a baseline is always
+    captured deliberately before a change and never inherited.
+11. After a change under `helper/`, the helper is **released**, not merely
     edited: `npm run verify:helper-version` fails until the version is raised
     and an installer is built and recorded (`npm run release:helper`). The app
     tells every user which helper is newest, so an unreleased change leaves
     that statement false. Packaging needs the Rust toolchain and
     `JASWA_SIGNING_THUMBPRINT`; if neither is at hand, say the helper is
     unreleased rather than reporting the change complete.
-11. **Renaming a user-visible label is a repository-wide rename.** The
+12. **Renaming a user-visible label is a repository-wide rename.** The
     Playwright suite, the `scripts/verify-*.mjs` checks and `docs/` all address
     the interface by its accessible names, and a check under `scripts/` is not
     run by `npm test`, so a missed one stays silent until someone runs it. Grep
     the whole repository for the old string — every one of `tests/`, `scripts/`
     and `docs/` — before reporting the rename done.
-12. The work is committed to `main`.
+13. The work is committed to `main`.
 
 Two caveats worth knowing before trusting a green run:
 

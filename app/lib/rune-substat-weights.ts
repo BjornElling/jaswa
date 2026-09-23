@@ -49,7 +49,23 @@ import { slotAllowsSubStat } from './runes';
 import type { ReferenceStats } from './rune-reference-stats';
 import type { PresetArtifacts, PresetTargets } from './rune-potential-presets';
 import { artifactMainValue, artifactsPerMonster } from './artifact-properties';
-import type { Valuation } from './rune-roll-distributions';
+
+/**
+ * **What a raw stat value is worth in the unit a calculation counts in.**
+ *
+ * It is **linear in `raw`**, and that is load-bearing rather than incidental: a
+ * Grindstone's flat bonus is priced by valuing the bonus on its own and adding it, and
+ * the innermost loop of the chance calculation reads the eleven slopes once into a
+ * flat table instead of calling this per line. A valuation that was not linear would
+ * make those two disagree.
+ *
+ * `key` identifies it for caches. Two valuations that would price every line
+ * identically must carry the same key, and two that would not must not.
+ */
+export type Valuation = {
+  readonly key: string;
+  value(statId: number, raw: number): number;
+};
 
 /** The eight stats a preset can aim at, in the order every table reads them. */
 export const targetStats: readonly TargetStat[] = ['hp', 'atk', 'def', 'spd', 'criRate', 'criDmg', 'res', 'acc'];

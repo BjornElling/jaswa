@@ -430,6 +430,7 @@ export default function Home() {
         settings={preferences.runePotential}
         presets={preferences.runePotentialPresets}
         general={preferences.general}
+        hardwareAcceleration={preferences.hardwareAcceleration}
         onUpdate={updateRunePotentialSettings}
         onWritePresets={writePresets}
       /></Suspense>}
