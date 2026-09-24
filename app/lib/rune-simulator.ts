@@ -427,8 +427,9 @@ export async function simulateRunes(
   const afterNine = stages[9].entries.filter((entry) => !entry.sold).map((entry) => entry.rune);
 
   /* Two asks at +12: the first says what the craft should be, the second judges the
-     rune it produced. The verdict is taken on the crafted rune so that its neutral
-     reading counts the stones now spent, not the bare rune from before. Without a
+     rune it produced. Every rune is judged with the credited items already spent, so
+     the crafted rune stands where the bare one did; the row shows the rune the
+     verdict counted rather than the bare one from before. Without a
      preset or a reference monster nothing says which Gem helps, so nothing is spent. */
   const poweredToTwelve = afterNine.map((rune) => powerUpRune(rune, 12, random));
   const craftPlans = await recommendationsFor(poweredToTwelve, 12, config, context, engines);

@@ -62,13 +62,6 @@ export type CraftCredit = {
 export const creditKey = (credit: CraftCredit): string =>
   `${credit.gem ?? '-'}/${credit.gemGrade}/${credit.grind ?? '-'}/${credit.grindGrade}`;
 
-/** The neutral credit: the same settings with neither item assumed. */
-export const withoutCraft = (credit: CraftCredit): CraftCredit =>
-  ({ gem: null, gemGrade: credit.gemGrade, grind: null, grindGrade: credit.grindGrade });
-
-export const hasCraftCredit = (credit: CraftCredit): boolean =>
-  credit.gem !== null || credit.grind !== null;
-
 /** The highest effect id the game uses, so a table can be a flat array. */
 export const statIdBound = 13;
 

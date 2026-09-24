@@ -388,7 +388,7 @@ export function leastEndState(future: RuneFuture, scoring: EndStateScoring): num
  * Only the *lines* are recorded, not what they are worth: what the game does to a
  * rune is a fact about the rune, so one set of runs answers every preset that asks
  * about it, and the role's price list is applied afterwards. The stones are applied
- * afterwards too, so the same runs serve the credited reading and the neutral one.
+ * afterwards too, so the same runs serve every craft credit.
  *
  * Three whole numbers per line: its effect id, its rolls added up, and whatever stone
  * the rune already carries there.

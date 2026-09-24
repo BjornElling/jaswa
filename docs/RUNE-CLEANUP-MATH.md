@@ -2,7 +2,7 @@
 
 **Status:** Binding contract for Rune Clean-up verdicts
 **Depends on:** `docs/RUNE-CANONICAL.md` and `docs/RUNE-PRESET-METRICS.md`
-**Reviewed:** 23 September 2026
+**Reviewed:** 25 September 2026
 
 This document describes the calculation, not the game rules. Game facts and their
 sources belong in `RUNE-CANONICAL.md`; where the two differ on a game fact, the
@@ -666,35 +666,43 @@ difference is the over-admission above being removed, with slots 1, 3 and 5 fall
 from 41.5 %, 39.5 % and 27.3 % to a common 22–23 %. What is now delivered is the
 15 % this section has claimed all along.
 
-## 9.2 Two readings of a rune, and one of them wins whole
+## 9.2 One standard for every rune
 
-**Crediting a craft item raises the rune, the §5 ceiling and the §9.1 box, and for
-some runes the box rises further than the rune does.** Considering an item the player
-is never obliged to spend must not lower a verdict, so a rune is read twice and keeps
-the better reading: *spend the items, and be measured against a box that spent them
-too*, or *spend nothing, and be measured against a box that spent nothing either*.
+**Every rune — below, at and above `+12` — is judged on one question: what its Max
+value will be at `+12` with the credited items spent.** Every grindable line carries
+the credited Grindstone, the Gem goes where §6.1 says it gains most (and nowhere, if
+no placement beats the line it would replace), and a Gemmed line is ground too. The
+perfect rune of §5 and the ordinary box of §9.1 are built with exactly the same
+credit, so the rune and both ends of its scale have had the same treatment.
 
-Each is a whole calculation — a preset, a build, a rank, a Max value, a standing and a
-chance that belong together — and **the row prints one of them entire**. It used to
-take the larger of each field separately and the preset name from whichever reading
-existed, so a row could carry one preset's name and rank beside another preset's
-chance: `55 %` printed under a preset whose own odds were 3 %. §5.1 says the two
-figures in a row describe one build, and a figure maxed across two presets describes
-neither.
+A stone the player has already spent is part of the rune and meets the credited one
+through §6's `max`: a rune ground to no more than the credit reads **exactly** as it
+did bare, and one ground past it can only rise. Grinding a rune therefore never moves
+it onto a different scale.
 
-The escape also has to be a reading of *something*. The gate read the credited Max
-value in the *uncredited* box for a while — a crafted rune against an uncrafted
-population, lenient by construction and a standing no rune actually has — which
-admitted more than the share §9's ladder names.
+**There used to be a second reading, and it is gone.** Crediting an item raises the
+rune, the ceiling and the box, and for some runes the box rises further than the rune
+does. On the reasoning that considering an optional item should never lower a
+verdict, every rune was also read *without* the credit, against a box and a ceiling
+without it, and kept whichever reading was better. It could not be both that and
+honest, because the stones already on a rune stayed on it: the uncredited reading
+measured a ground rune against a population without a single stone. A Bruiser Shield
+rune in slot 3 read 70.9 % against a credited bar of 72.8 % and was sold; ground to
+roughly the credited three quarters of a Hero stone it read 72.2 % against the same
+bar — and 84.7 % in the uncredited reading, which then won the row and kept it. The
+grind had been counted in advance and was paid for a second time on arrival.
 
-**A consequence worth stating.** Because a row now names one preset and prints that
-preset's figures, turning a slider up can lower the printed Max value: the item hands
-the rune to a preset that *stands* it higher while describing it lower. Measured
-across 120 fixtures at three craft credits, that happened to 6 of them, by up to 7.5
-points, every one a preset switch with the standing rising and the verdict unchanged.
-Standing, odds and verdict are monotone and `verify:rune-cleanup-craft-monotonic`
-holds all three; Max value is not, and §9.1 already says it is the description rather
-than the currency.
+**What that costs, stated rather than left to be discovered.** Turning a craft slider
+up can now lower a row's standing and turn a Keep into a Sell: the slider raises the
+standard, and a rune that gains less from the items than the ordinary box does stands
+lower against it. That is the one standard doing its job, not a defect. What remains
+promised is that a credited item is never *forced* on the rune — its own score and
+its odds of reaching any fixed score never fall — and that a real stone no larger than
+the credit changes nothing. `verify:rune-cleanup-craft-monotonic` holds both, and
+grinds every fixture to the credit and past it to do so.
+
+The row names one preset and prints that preset's figures — Max value, standing and
+chance from one build (§5.1).
 
 ## 10. Calibration and adversarial checks
 

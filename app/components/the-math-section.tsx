@@ -420,7 +420,7 @@ export function TheMathSection() {
 
         <h3 className="type-heading">Gems and Grindstones</h3>
         <p>
-          If you tell JASWA in Settings which Gems and Grindstones to assume, they are spent on the rune <i>and</i> on the perfect ordinary rune it is measured against. Turning a slider up raises the bar as well as the rune. Ordinary runes stay at or below 100 %; an Ancient rune may exceed it when its higher initial interval beats that ordinary reference.
+          If you tell JASWA in Settings which Gems and Grindstones to assume, they are spent on the rune <i>and</i> on the perfect ordinary rune it is measured against. Turning a slider up raises the bar as well as the rune, and every rune is held to that one bar, whatever its level — so grinding a rune to what the settings already assumed changes nothing. Ordinary runes stay at or below 100 %; an Ancient rune may exceed it when its higher initial interval beats that ordinary reference.
         </p>
         <p>
           A Grindstone is credited on every grindable line, including ones the rune has yet to gain, as <b className="type-body-emphasis">the better of what is already there and what the stone would give</b> — never added on top, which would pay the rune twice for one line.

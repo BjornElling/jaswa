@@ -15,7 +15,7 @@ import type { RunePotentialPreset } from './rune-potential-presets';
 import type { RunePotentialSettings } from './types';
 import type { ReferenceStats } from './rune-reference-stats';
 import {
-  boxThreshold, candidateChanceAskForReading, candidateOwnMaxValue, isFourPieceSet,
+  boxThreshold, candidateChanceAsk, candidateMaxValue, isFourPieceSet,
   newRuneAdviceScope, ordinaryBox, prepareRuneCandidate, presetBuilds, standingIn,
 } from './rune-cleanup-model';
 import type {
@@ -73,19 +73,19 @@ class ChanceLedger {
 
 /** One preset's best reading of one rune, valued but not yet gated. */
 type Contender = {
-  preset: RunePotentialPreset; prepared: RuneCandidate; box: OrdinaryBox; neutralBox: OrdinaryBox;
-  value: number; maxValue: number; neutralValue: number; neutralMaxValue: number; rank: MatchRank;
+  preset: RunePotentialPreset; prepared: RuneCandidate; box: OrdinaryBox;
+  value: number; maxValue: number; rank: MatchRank;
 };
 
-/** One contender the policy will walk, with its questions already numbered. */
+/** One contender the policy will walk, with its question already numbered. */
 type Step = { candidate: Contender; passesValue: boolean; current: number };
 
-type RunePlan = { rune: Rune; retentionShare: number; steps: Step[]; neutralSteps: Step[] };
+type RunePlan = { rune: Rune; retentionShare: number; steps: Step[] };
 
 type Answer = {
-  value: number; maxValue: number; chance: number; priority: number;
+  value: number; maxValue: number; chance: number;
   preset: RunePotentialPreset; rank: MatchRank;
-  /** The credited reading of this preset's build, whose craft decision the row stands on. */
+  /** This preset's best build, whose craft decision the row stands on. */
   candidate: RuneCandidate;
 };
 
@@ -309,10 +309,6 @@ export async function runeAdvice(
       }
       if (family.length === 0) continue;
       const box = ordinaryBox(family);
-      const neutralFamily = family
-        .map((candidate) => candidate.baseline)
-        .filter((candidate): candidate is RuneCandidate => candidate !== null);
-      const neutralBox = neutralFamily.length > 0 ? ordinaryBox(neutralFamily) : box;
       for (const candidate of family) {
         const worth = candidate.rank === 'preferred' ? 1 : candidate.rank === 'acceptable' ? accepted : broken;
         /* Two figures, and they are not interchangeable. `maxValue` is what the row
@@ -324,21 +320,9 @@ export async function runeAdvice(
            means the same thing in slot 1 as it does in slot 3. The discount is
            applied before the box is consulted rather than after, so it goes on
            discounting the rune rather than the population. */
-        const maxValue = candidateOwnMaxValue(candidate) * worth;
-        const hasNeutral = candidate.baseline !== null || (credit.gem === null && credit.grind === null);
-        const neutralMaxValue = !hasNeutral ? 0 : candidate.baseline === null ? maxValue
-          : candidateOwnMaxValue(candidate.baseline) * worth;
-        const neutralValue = !hasNeutral || candidate.baseline === null
-          ? standingIn(box, maxValue) : standingIn(neutralBox, neutralMaxValue);
-        /* The credited and neutral readings stay separate. The policy chooses between
-           them after each has supplied its own Max value, standing and chance; taking
-           field-by-field maxima would print a score from one reading beside a standing
-           or chance from the other. */
+        const maxValue = candidateMaxValue(candidate) * worth;
         const value = standingIn(box, maxValue);
-        candidates.push({
-          preset, prepared: candidate, box, neutralBox, maxValue, value, neutralMaxValue, neutralValue,
-          rank: candidate.rank,
-        });
+        candidates.push({ preset, prepared: candidate, box, maxValue, value, rank: candidate.rank });
       }
     }
 
@@ -363,16 +347,6 @@ export async function runeAdvice(
     for (const candidate of candidates) {
       if (beats(candidate, bestPerPreset.get(candidate.preset.id))) {
         bestPerPreset.set(candidate.preset.id, candidate);
-      }
-    }
-    const bestNeutralPerPreset = new Map<string, Contender>();
-    for (const candidate of candidates) {
-      if ((credit.gem !== null || credit.grind !== null) && candidate.prepared.baseline === null) continue;
-      const current = bestNeutralPerPreset.get(candidate.preset.id);
-      if (!current || candidate.neutralValue > current.neutralValue
-        || (candidate.neutralValue === current.neutralValue
-          && candidate.neutralMaxValue > current.neutralMaxValue)) {
-        bestNeutralPerPreset.set(candidate.preset.id, candidate);
       }
     }
 
@@ -408,29 +382,11 @@ export async function runeAdvice(
       steps.push({
         candidate,
         passesValue,
-        current: ledger.add(candidateChanceAskForReading(candidate.prepared, currentThreshold)),
+        current: ledger.add(candidateChanceAsk(candidate.prepared, currentThreshold)),
       });
     }
 
-    /* The neutral reading is built beside the credited reading from the same
-       candidate families. That is the same legal choice as a separate no-craft
-       calculation, without calculating every rune in the account twice. */
-    const neutralContenders = [...bestNeutralPerPreset.values()]
-      .sort((left, right) => right.neutralValue - left.neutralValue
-        || right.neutralMaxValue - left.neutralMaxValue);
-    const neutralSteps: Step[] = [];
-    for (const candidate of neutralContenders) {
-      const worth = candidate.rank === 'preferred' ? 1 : candidate.rank === 'acceptable' ? accepted : broken;
-      const neutralThreshold = worth > 0
-        ? boxThreshold(candidate.neutralBox, retentionShare) / worth : Number.POSITIVE_INFINITY;
-      neutralSteps.push({
-        candidate,
-        passesValue: candidate.neutralValue >= 1 - retentionShare,
-        current: ledger.add(candidateChanceAskForReading(candidate.prepared.baseline ?? candidate.prepared, neutralThreshold)),
-      });
-    }
-
-    prepared.push({ rune, retentionShare, steps, neutralSteps });
+    prepared.push({ rune, retentionShare, steps });
   }
 
   /* --------------------------------------------------------- 2. what is left */
@@ -439,96 +395,33 @@ export async function runeAdvice(
   /* ------------------------------------------------------ 3. what it means */
   const advice = new Map<string, RuneAdvice>();
   for (const plan of prepared) {
-    let fallback: Answer | null = null;
-    const eligibleByPreset = new Map<string, Answer>();
-    for (const step of plan.steps) {
-      const chance = answers[step.current];
-      const answer: Answer = {
-        value: step.candidate.value, maxValue: step.candidate.maxValue, chance,
-        priority: step.candidate.value,
-        preset: step.candidate.preset, rank: step.candidate.rank, candidate: step.candidate.prepared,
-      };
-      if (fallback === null) fallback = answer;
-      if (step.passesValue && chance >= chanceBar) {
-        const prior = eligibleByPreset.get(answer.preset.id);
-        if (!prior || answer.value > prior.value
-          || (answer.value === prior.value && answer.maxValue > prior.maxValue)
-          || (answer.value === prior.value && answer.maxValue === prior.maxValue && answer.chance > prior.chance)) {
-          eligibleByPreset.set(answer.preset.id, answer);
-        }
-      }
-    }
+    const answered: Answer[] = plan.steps.map((step) => ({
+      value: step.candidate.value, maxValue: step.candidate.maxValue, chance: answers[step.current],
+      preset: step.candidate.preset, rank: step.candidate.rank, candidate: step.candidate.prepared,
+    }));
     /* A rune may satisfy several presets. Pick its strongest passing reading only
        to give the row one explanation; this choice never removes another rune or
-       changes whether this rune passed. Every passing rune remains eligible. */
-    const selected = [...eligibleByPreset.values()].sort((left, right) =>
-      right.priority - left.priority
-      || right.maxValue - left.maxValue
-      || right.chance - left.chance
-      || left.preset.id.localeCompare(right.preset.id))[0] ?? null;
-    const result = selected ?? fallback;
-
-    let neutralFallback: Answer | null = null;
-    const neutralEligibleByPreset = new Map<string, Answer>();
-    for (const step of plan.neutralSteps) {
-      const neutralChance = answers[step.current];
-      const answer: Answer = {
-        value: step.candidate.neutralValue, maxValue: step.candidate.neutralMaxValue,
-        chance: neutralChance, priority: step.candidate.neutralValue,
-        preset: step.candidate.preset, rank: step.candidate.rank, candidate: step.candidate.prepared,
-      };
-      if (neutralFallback === null) neutralFallback = answer;
-      if (step.passesValue && neutralChance >= chanceBar) {
-        const prior = neutralEligibleByPreset.get(answer.preset.id);
-        if (!prior || answer.value > prior.value
-          || (answer.value === prior.value && answer.maxValue > prior.maxValue)
-          || (answer.value === prior.value && answer.maxValue === prior.maxValue && answer.chance > prior.chance)) {
-          neutralEligibleByPreset.set(answer.preset.id, answer);
-        }
-      }
-    }
-    const neutralSelected = [...neutralEligibleByPreset.values()].sort((left, right) =>
-      right.priority - left.priority
-      || right.maxValue - left.maxValue
-      || right.chance - left.chance
-      || left.preset.id.localeCompare(right.preset.id))[0] ?? null;
-    const neutral = neutralSelected ?? neutralFallback;
-
-    /**
-     * **Two whole readings, and one of them wins entire.**
-     *
-     * The credited reading and the neutral one are each a preset, a build, a rank, a
-     * Max value, a standing and a chance that belong together. This used to take the
-     * larger of each field separately and the preset and rank from whichever reading
-     * existed — so a row could carry preset A's name and rank beside preset B's
-     * chance, and print `55 %` under a preset whose own odds were 3 %. `RUNE-CLEANUP-
-     * MATH.md` §5.1 says the Max value and the Chance in a row describe one build,
-     * and a figure maxed across two presets describes neither.
-     *
-     * Passing outranks any figure, because the verdict is what the row is for and a
-     * reading that clears both gates is a legal way for this rune to be kept; below
-     * that it is standing, then Max value, then chance — the same order the
-     * contenders were sorted in.
-     */
-    const readings = [
-      { answer: result, cleared: selected !== null },
-      { answer: neutral, cleared: neutralSelected !== null },
-    ].filter((reading): reading is { answer: Answer; cleared: boolean } => reading.answer !== null);
-    const [chosen] = readings.sort((left, right) =>
-      Number(right.cleared) - Number(left.cleared)
-      || right.answer.value - left.answer.value
-      || right.answer.maxValue - left.answer.maxValue
-      || right.answer.chance - left.answer.chance);
+       changes whether this rune passed. Every passing rune remains eligible. The
+       row's Max value, standing and chance all come from that one preset's build
+       (§5.1). */
+    const selected = answered
+      .filter((answer, at) => plan.steps[at].passesValue && answer.chance >= chanceBar)
+      .sort((left, right) =>
+        right.value - left.value
+        || right.maxValue - left.maxValue
+        || right.chance - left.chance
+        || left.preset.id.localeCompare(right.preset.id))[0] ?? null;
+    const chosen = selected ?? answered[0] ?? null;
 
     advice.set(plan.rune.id, {
       ...decide({
-        rune: plan.rune, value: chosen?.answer.maxValue ?? 0, standing: chosen?.answer.value ?? 0,
-        chance: chosen?.answer.chance ?? 0,
-        preset: chosen?.answer.preset ?? null, rank: chosen?.answer.rank ?? 'broken',
-        cleared: chosen?.cleared ?? false,
+        rune: plan.rune, value: chosen?.maxValue ?? 0, standing: chosen?.value ?? 0,
+        chance: chosen?.chance ?? 0,
+        preset: chosen?.preset ?? null, rank: chosen?.rank ?? 'broken',
+        cleared: selected !== null,
         brokenRejected: broken === 0,
       }),
-      craftedLines: chosen && plan.rune.level >= 12 ? finishedLines(chosen.answer.candidate) : null,
+      craftedLines: chosen && plan.rune.level >= 12 ? finishedLines(chosen.candidate) : null,
     });
   }
   return advice;
@@ -548,13 +441,7 @@ export async function runeAdvice(
  * something it could not do anyway — are answered in `runeAdvice` where the
  * candidate is chosen, and arrive here as `cleared`.
  */
-/**
- * The line-up the credited reading counted, for a rune whose lines are final.
- *
- * Always the credited candidate, even when the neutral reading won the row: the
- * neutral one differs only in its scale, not in the rune, and a stone or a Gem that
- * `craftedLines` spends never lowers what the rune itself is worth.
- */
+/** The line-up the row's Max value counted, for a rune whose lines are final. */
 function finishedLines(candidate: RuneCandidate): EndStateLine[] {
   const { scoring } = candidate;
   const lines = candidate.rune.subProperties.map(({ statId, value, grind, gemmed }) => ({ statId, value, grind, gemmed }));

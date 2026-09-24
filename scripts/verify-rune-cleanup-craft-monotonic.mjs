@@ -1,12 +1,24 @@
 /**
  * Regression guard for Rune Clean-up craft monotonicity.
  *
- * A Gem or Grindstone is an optional way to improve a rune. It must never turn a
- * legal end state into a worse score or make the same fixed target less likely.
- * This sweep deliberately exercises more than the rune that exposed the original
- * defect: every slot, ordinary and Ancient lineages, several star classes and
- * starting grades, unfinished event schedules, already-ground lines, an existing
- * Gem line, several presets and every craft assumption.
+ * Two promises, and they are about the *rune*, not about the scale it is read on:
+ *
+ * 1. **A credited Gem or Grindstone is never forced.** It must never turn a legal end
+ *    state into a worse score, or make a fixed score less likely to be reached.
+ * 2. **One standard for every rune** (`RUNE-CLEANUP-MATH.md` §9.2). A stone the player
+ *    has actually spent, no larger than the one the settings credit, changes nothing
+ *    at all; a larger one can only raise the rune.
+ *
+ * What is deliberately *not* promised any more is that turning a craft slider up never
+ * lowers a row. It raises the perfect rune and the ordinary box as well as the rune,
+ * and a rune that gains less than the box does stands lower — which is the one
+ * standard doing its job. The escape that used to prevent it was a second, uncredited
+ * reading, and it read a ground rune against a box without stones.
+ *
+ * This sweep deliberately exercises more than the rune that exposed either defect:
+ * every slot, ordinary and Ancient lineages, several star classes and starting
+ * grades, unfinished event schedules, already-ground lines, an existing Gem line,
+ * several presets and every craft assumption.
  */
 import assert from 'node:assert/strict';
 import { defaultRunePotentialPresets } from '../app/lib/rune-potential-presets.ts';
@@ -14,6 +26,7 @@ import { runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
 import {
   candidateChance, candidateMaxValue, prepareRuneCandidate, presetBuilds,
 } from '../app/lib/rune-cleanup-model.ts';
+import { craftPlan, grindCredit } from '../app/lib/rune-craft-end-state.ts';
 import {
   initialSubPropertyRange, slotMainProperties, startingSubPropertyCount,
   subPropertyLevels, upgradeSubPropertyRange,
@@ -142,6 +155,10 @@ for (const [ancient, stars] of [[false, 4], [false, 5], [false, 6], [true, 6]]) 
 runes.push(makeCraftedFixture());
 
 const eps = 1e-10;
+/* A score in the role's own units, as a threshold in one candidate's Max-value units.
+   Two credits have two perfect runes, so "0.7" means two different scores to them;
+   the promise that a Gem is never forced is about one score. */
+const atScore = (candidate, score) => score * candidate.mainScale / candidate.ceiling;
 let comparisons = 0;
 for (const rune of runes) {
   for (const preset of selectedPresets) {
@@ -155,18 +172,16 @@ for (const rune of runes) {
     if (!build) continue;
     const neutralCandidate = prepareRuneCandidate(rune, preset, build, base, neutral);
     if (!neutralCandidate) continue;
-    const neutralMax = candidateMaxValue(neutralCandidate);
     const neutralRaw = neutralCandidate.best;
     for (const credit of credits) {
       const candidate = prepareRuneCandidate(rune, preset, build, base, credit);
       assert.ok(candidate, `${rune.id}/${preset.id} must remain judgeable with craft credit`);
       assert.ok(candidate.best + eps >= neutralRaw,
         `${rune.id}/${preset.id}: raw best score fell after craft credit`);
-      assert.ok(candidateMaxValue(candidate) + eps >= neutralMax,
-        `${rune.id}/${preset.id}: Max value fell after craft credit`);
       for (const threshold of [0.35, 0.7, 0.9]) {
+        const score = threshold * neutralCandidate.ceiling / neutralCandidate.mainScale;
         const neutralChance = candidateChance(neutralCandidate, threshold);
-        const craftChance = candidateChance(candidate, threshold);
+        const craftChance = candidateChance(candidate, atScore(candidate, score));
         assert.ok(craftChance + eps >= neutralChance,
           `${rune.id}/${preset.id}: chance fell at threshold ${threshold}`);
         assert.ok(craftChance >= -eps && craftChance <= 1 + eps,
@@ -200,10 +215,11 @@ const toleranceCraftCandidate = prepareRuneCandidate(tolerance, pvp, pvpBuild, p
   gem: 'three-quarters', gemGrade: 'Hero', grind: 'three-quarters', grindGrade: 'Hero',
 });
 assert.ok(toleranceNeutralCandidate && toleranceCraftCandidate);
-assert.ok(candidateChance(toleranceCraftCandidate, 0.7) + eps
+const toleranceBar = 0.7 * toleranceNeutralCandidate.ceiling / toleranceNeutralCandidate.mainScale;
+assert.ok(candidateChance(toleranceCraftCandidate, atScore(toleranceCraftCandidate, toleranceBar)) + eps
   >= candidateChance(toleranceNeutralCandidate, 0.7),
   'the Tolerance regression rune lost chance when craft was considered');
-assert.ok(candidateMaxValue(toleranceCraftCandidate) + eps >= candidateMaxValue(toleranceNeutralCandidate),
+assert.ok(toleranceCraftCandidate.best + eps >= toleranceNeutralCandidate.best,
   'the Tolerance regression rune lost score when craft was considered');
 /* **The Gem is spent at +12, after the rolls.** That is what this fixture has always
    been about: reserving a line for a Gem before the improvements are drawn throws
@@ -218,82 +234,95 @@ assert.ok(candidateMaxValue(toleranceCraftCandidate) + eps >= candidateMaxValue(
    - a Gem raises what this rune can reach at all;
    - a bar only a Gem can clear is a certain no without one;
    - and the same bar is not a certain no with one. */
-const neutralCeiling = candidateMaxValue(toleranceNeutralCandidate);
-const craftedCeiling = candidateMaxValue(toleranceCraftCandidate);
-assert.ok(craftedCeiling > neutralCeiling + eps,
+const neutralReach = toleranceNeutralCandidate.best;
+const craftedReach = toleranceCraftCandidate.best;
+assert.ok(craftedReach > neutralReach + eps,
   'a credited Gem did not raise what the Tolerance regression rune can reach');
 /* Above what either rune can reach at all, both are certain noes, settled on the
    reachable best rather than counted. */
-assert.equal(candidateChance(toleranceCraftCandidate, craftedCeiling + 0.01), 0,
+assert.equal(candidateChance(toleranceCraftCandidate, atScore(toleranceCraftCandidate, craftedReach * 1.01)), 0,
   'a bar above the crafted rune\'s own maximum should be a certain no');
-assert.equal(candidateChance(toleranceNeutralCandidate, (neutralCeiling + craftedCeiling) / 2), 0,
+assert.equal(candidateChance(toleranceNeutralCandidate,
+  atScore(toleranceNeutralCandidate, (neutralReach + craftedReach) / 2)), 0,
   'a bar above the uncrafted rune\'s own maximum should be a certain no');
-/* At a bar both can argue about, the credited Gem has to be worth something large.
-   It measures 2.6 % against 29 %; a Gem reserved before the rolls would throw away
-   every improvement landing on the reserved line and could not produce that. The
-   margin is wide enough that the counting's own spread cannot reach it. */
-const withCraft = candidateChance(toleranceCraftCandidate, 0.7);
+/* At a score both can argue about, the credited Gem has to be worth something large;
+   a Gem reserved before the rolls would throw away every improvement landing on the
+   reserved line and could not produce that. The margin is wide enough that the
+   counting's own spread cannot reach it. */
+const craftedBar = atScore(toleranceCraftCandidate, toleranceBar);
+const withCraft = candidateChance(toleranceCraftCandidate, craftedBar);
 const withoutCraft = candidateChance(toleranceNeutralCandidate, 0.7);
 assert.ok(withCraft > 0 && withCraft < 1, `the Tolerance regression rune's odds went degenerate: ${withCraft}`);
 assert.ok(withCraft > withoutCraft * 5,
   `the Tolerance regression did not use the deferred Gem calculation: ${withoutCraft} -> ${withCraft}`);
-assert.equal(candidateChance(toleranceCraftCandidate, 0.7), withCraft,
+assert.equal(candidateChance(toleranceCraftCandidate, craftedBar), withCraft,
   'the Tolerance regression rune did not answer the same question twice the same way');
 
-const policySettings = {
-  powerUpPolicy: 2, runeQuality: 3, acceptedRunes: 2, brokenRunes: 2,
-  intangibleRunes: 1, keepMoreForLargerSets: false, gemGrade: 'Hero', grindstoneGrade: 'Hero',
-};
-const noCraftAdvice = await runeAdvice([tolerance], presets,
-  { ...policySettings, enchantedGems: 1, grindstones: 1 }, baseByType);
-const craftAdvice = await runeAdvice([tolerance], presets,
-  { ...policySettings, enchantedGems: 3, grindstones: 3 }, baseByType);
-const neutralRow = noCraftAdvice.get(tolerance.id);
-const craftRow = craftAdvice.get(tolerance.id);
-assert.ok(neutralRow && craftRow);
-assert.ok(craftRow.maxValue + eps >= neutralRow.maxValue,
-  'the public advice score fell when craft was considered');
-assert.ok(craftRow.chance + eps >= neutralRow.chance,
-  'the public advice chance fell when craft was considered');
-
 /**
- * **The same promise, on the whole fixture set rather than on one rune.**
+ * **One standard: a stone already spent is judged exactly like a credited one.**
  *
- * Everything above is a candidate against a candidate — one preset, one build. The
- * row a player reads is chosen across every preset, so it is a different claim and
- * worth its own sweep: turning a slider up must not lower where a rune *stands*, must
- * not lower its odds, and must never turn a rune the account was keeping into one it
- * sells.
+ * The rune that exposed it: a Shield slot-3 rune at `+12`, sold for Bruiser, ground
+ * to about the credited three quarters of a Hero stone — and kept at 85 %, because a
+ * second reading measured the ground rune against a box and a perfect rune without a
+ * stone between them. Credited, it read 70.9 % before the grind and 72.2 % after.
  *
- * **Max value is deliberately not in that list.** A row names one preset and prints
- * that preset's figures (`RUNE-CLEANUP-MATH.md` §5.1), and a stone can hand the rune
- * to a preset that stands it higher while describing it lower — measured here on 6 of
- * 120 fixtures, by up to 7.5 points, every one of them a preset switch with the
- * standing rising and the verdict unchanged. Asserting a monotone Max value would
- * require the row to print a figure belonging to a preset it does not name, which is
- * what it used to do.
+ * So every fixture is ground for real, line by line, to exactly the credited stone and
+ * then past it. At the credit the row must not move by a bit: Max value, standing,
+ * preset, verdict — and chance, at `+12`, where it is settled rather than counted.
+ * Past it the rune may only rise.
  */
-const sweepSettings = { ...policySettings, powerUpPolicy: 3, runeQuality: 3 };
-const sweepWithoutCraft = await runeAdvice(runes, presets,
-  { ...sweepSettings, enchantedGems: 1, grindstones: 1 }, baseByType);
-for (const [label, credited] of [
-  ['a Gem', { ...sweepSettings, enchantedGems: 3, grindstones: 1 }],
-  ['a Grindstone', { ...sweepSettings, enchantedGems: 1, grindstones: 3 }],
-  ['both at maximum', { ...sweepSettings, enchantedGems: 4, grindstones: 4 }],
-]) {
-  const sweepWithCraft = await runeAdvice(runes, presets, credited, baseByType);
-  for (const rune of runes) {
-    const before = sweepWithoutCraft.get(rune.id);
-    const after = sweepWithCraft.get(rune.id);
-    assert.ok(before && after, `${rune.id} lost its row when ${label} was credited`);
-    assert.ok(after.standing + eps >= before.standing,
-      `${rune.id}: standing fell from ${before.standing} to ${after.standing} when ${label} was credited`);
-    assert.ok(after.chance + eps >= before.chance,
-      `${rune.id}: chance fell from ${before.chance} to ${after.chance} when ${label} was credited`);
-    assert.ok(!(before.verdict !== 'sell' && after.verdict === 'sell'),
-      `${rune.id}: a rune the account was keeping became a Sell when ${label} was credited`);
+const policySettings = {
+  powerUpPolicy: 3, runeQuality: 3, acceptedRunes: 2, brokenRunes: 2, enchantedGems: 3,
+  grindstones: 3, intangibleRunes: 1, keepMoreForLargerSets: false,
+  gemGrade: 'Hero', grindstoneGrade: 'Hero',
+};
+const shield = {
+  id: 'ground-shield', setId: 16, setName: 'Shield', slot: 3, stars: 6, ancient: false,
+  defaultGrade: 'Legend', level: 12, mainStatId: 5, mainValue: 0, prefixStatId: 9, prefixValue: 4,
+  subProperties: [
+    { statId: 6, value: 5, gemmed: false, grind: 0 },
+    { statId: 8, value: 18, gemmed: false, grind: 0 },
+    { statId: 2, value: 6, gemmed: false, grind: 0 },
+    { statId: 12, value: 7, gemmed: false, grind: 0 },
+  ],
+  occupiedId: null, obtainedOrder: 1001,
+};
+const creditedPlan = craftPlan('standard', {
+  gem: 'three-quarters', gemGrade: 'Hero', grind: 'three-quarters', grindGrade: 'Hero',
+});
+const groundTo = (rune, extra) => ({
+  ...rune, id: `${rune.id}-ground-${extra}`,
+  subProperties: rune.subProperties.map((line) => {
+    const stone = grindCredit(creditedPlan, line.statId);
+    return stone > 0 ? { ...line, grind: Math.max(line.grind, stone + extra) } : line;
+  }),
+});
+const standardRunes = [...runes.filter((rune) => !rune.ancient), shield];
+const bare = await runeAdvice(standardRunes, presets, policySettings, baseByType);
+const atCredit = await runeAdvice(standardRunes.map((rune) => groundTo(rune, 0)), presets, policySettings, baseByType);
+const pastCredit = await runeAdvice(standardRunes.map((rune) => groundTo(rune, 1)), presets, policySettings, baseByType);
+for (const rune of standardRunes) {
+  const before = bare.get(rune.id);
+  const same = atCredit.get(`${rune.id}-ground-0`);
+  const more = pastCredit.get(`${rune.id}-ground-1`);
+  assert.ok(before && same && more, `${rune.id} lost its row when it was ground`);
+  assert.equal(same.maxValue, before.maxValue,
+    `${rune.id}: a stone no larger than the credited one moved Max value from ${before.maxValue} to ${same.maxValue}`);
+  assert.equal(same.standing, before.standing,
+    `${rune.id}: a stone no larger than the credited one moved the standing from ${before.standing} to ${same.standing}`);
+  assert.equal(same.preset?.id, before.preset?.id, `${rune.id}: grinding to the credit changed the preset`);
+  if (rune.level >= 12) {
+    assert.equal(same.verdict, before.verdict,
+      `${rune.id}: grinding to the credit turned ${before.verdict} into ${same.verdict}`);
+    assert.ok(more.standing + eps >= before.standing,
+      `${rune.id}: a stone past the credit lowered the standing from ${before.standing} to ${more.standing}`);
+    assert.ok(!(before.verdict === 'keep' && more.verdict === 'sell'),
+      `${rune.id}: a stone past the credit turned a Keep into a Sell`);
   }
 }
+assert.equal(bare.get(shield.id).verdict, 'sell', 'the Shield regression rune is no longer the Sell it was');
+assert.equal(atCredit.get(`${shield.id}-ground-0`).verdict, 'sell',
+  'the Shield regression rune was kept for a grind the credit had already counted');
 
 /* Monte Carlo is not the production calculation; it is an independent guard that
    the adaptive exact result still describes the game's own level-up loop. */
@@ -336,5 +365,5 @@ for (const [fixtureIndex, fixture] of oracleFixtures.entries()) {
 }
 
 console.log(`PASS: ${comparisons.toLocaleString('en')} craft monotonicity comparisons across`
-  + ` ${runes.length} legal fixtures, and the public row's standing, odds and verdict hold`
-  + ' across three craft credits.');
+  + ` ${runes.length} legal fixtures, and ${standardRunes.length} runes ground to the credit`
+  + ' read exactly as they did bare.');

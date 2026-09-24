@@ -51,8 +51,7 @@ import {
 import type { BuildMains, SubstatWeightScope, SubstatWeights } from './rune-substat-weights';
 import type { Valuation } from './rune-substat-weights';
 import {
-  craftPlan, craftedScore, creditKey, gemOptions, grindCredit, hasCraftCredit,
-  priceList, withoutCraft,
+  craftPlan, craftedScore, creditKey, gemOptions, grindCredit, priceList,
 } from './rune-craft-end-state';
 import type {
   CraftCredit, CraftPlan, CraftReport, EndStateLine, GemOptions, PriceList,
@@ -747,8 +746,6 @@ export type RuneCandidate = {
   readonly lineage: CraftLineage;
   readonly rank: MatchRank;
   readonly scope: RuneAdviceScope;
-  /** The same candidate with no craft credit, used only for monotonic comparisons. */
-  readonly baseline: RuneCandidate | null;
 };
 
 /**
@@ -774,8 +771,7 @@ export type RuneAdviceScope = {
    * What a rune may still become, which every preset judging it asks the same way.
    *
    * It is also what the runs are gathered by: playing a rune forward is a fact about
-   * the rune, so one set of runs answers every preset, every build and both the
-   * credited and the neutral reading. That sharing is the whole reason the odds are
+   * the rune, so one set of runs answers every preset and every build. That sharing is the whole reason the odds are
    * affordable, and it is why a job carries this object rather than a copy of it.
    */
   futures: Map<string, RuneFuture>;
@@ -789,7 +785,6 @@ export const newRuneAdviceScope = (): RuneAdviceScope => ({
 export function prepareRuneCandidate(
   rune: Rune, preset: RunePotentialPreset, build: Build, base: ReferenceStats, credit: CraftCredit,
   scope: RuneAdviceScope = newRuneAdviceScope(),
-  includeBaseline = true,
 ): RuneCandidate | null {
   /* A rune whose main property is not the one this build asks for is not a rune
      this build can use at all — it is a different build's rune. */
@@ -853,33 +848,31 @@ export function prepareRuneCandidate(
   const mainRank: MatchRank = rune.slot === 2 || rune.slot === 4 || rune.slot === 6
     ? build.ranks[rune.slot as 2 | 4 | 6] : 'preferred';
 
-  const baseline = includeBaseline && hasCraftCredit(credit)
-    ? prepareRuneCandidate(rune, preset, build, base, withoutCraft(credit), scope, false)
-    : null;
-
   return {
     rune, valuation, weights, ceiling, main, best, mainScale, future, scoring, credit, plan,
-    lineage, rank: worseRank(setRank, mainRank), scope, baseline,
+    lineage, rank: worseRank(setRank, mainRank), scope,
   };
 }
 
-/** The score of this reading alone, without its optional no-craft alternative. */
-export function candidateOwnMaxValue(candidate: RuneCandidate): number {
+/**
+ * **One standard for every rune: its `+12` end state with the credited items spent,
+ * against a perfect rune and an ordinary box that spent them too.**
+ *
+ * There used to be a second, uncredited reading beside this one, and the row took
+ * whichever read better. It could not stay honest: the stones already on a rune are
+ * part of the rune, so the uncredited reading measured a ground rune against a box
+ * and a ceiling with no stones at all. A Shield rune read 70.9 % against a credited
+ * bar of 72.8 % and was sold; ground to roughly the credited three quarters, it read
+ * 72.2 % against the same bar — and 84.7 % in the uncredited reading, which then won
+ * the row and kept it. `RUNE-CLEANUP-MATH.md` §9.2.
+ */
+export function candidateMaxValue(candidate: RuneCandidate): number {
   /* Ordinary runes cannot exceed their ordinary perfect-rune denominator. An
      Ancient rune may: its verified initial rolls are deliberately measured against
      that same ordinary denominator, so a maximum Ancient roll remains visible as
      more than 100 % instead of being flattened away. */
-  const ownRatio = candidate.best / candidate.ceiling;
-  const own = (candidate.rune.ancient ? ownRatio : Math.min(1, ownRatio)) * candidate.mainScale;
-  return own;
-}
-
-/** The better of this reading and its optional no-craft alternative. */
-export function candidateMaxValue(candidate: RuneCandidate): number {
-  const own = candidateOwnMaxValue(candidate);
-  /* Craft is optional. Comparing with the neutral candidate prevents a larger
-     denominator or a poor assumed craft roll from making the displayed score fall. */
-  return Math.max(own, candidate.baseline === null ? 0 : candidateMaxValue(candidate.baseline));
+  const ratio = candidate.best / candidate.ceiling;
+  return (candidate.rune.ancient ? ratio : Math.min(1, ratio)) * candidate.mainScale;
 }
 
 /* ------------------------------------------------------------ the standing */
@@ -956,8 +949,8 @@ export type ChanceAsk = {
 
 const settledAsk = (answer: number): ChanceAsk => ({ jobs: [], combine: () => answer });
 
-/** One complete reading against one complete threshold. */
-export function candidateChanceAskForReading(candidate: RuneCandidate, threshold: number): ChanceAsk {
+/** One candidate against one threshold, in the Max-value units `candidateMaxValue` prints. */
+export function candidateChanceAsk(candidate: RuneCandidate, threshold: number): ChanceAsk {
   if (threshold === Number.NEGATIVE_INFINITY) return settledAsk(1);
   if (threshold === Number.POSITIVE_INFINITY || candidate.mainScale <= 0) return settledAsk(0);
   const step = chanceStep(candidate.future, candidate.scoring, threshold * candidate.ceiling / candidate.mainScale);
@@ -965,32 +958,6 @@ export function candidateChanceAskForReading(candidate: RuneCandidate, threshold
   return {
     jobs: [step.job],
     combine: (shares) => Math.min(1, Math.max(0, shares[0] ?? 0)),
-  };
-}
-
-export function candidateChanceAsk(candidate: RuneCandidate, threshold: number): ChanceAsk {
-  /* Craft is optional, but each option is a whole reading. Keeping the larger
-     chance is useful to callers that ask only whether either legal reading clears
-     a shared threshold; the advice policy uses the single-reading helper so the
-     printed figures never mix the two readings. */
-  const subjects = candidate.baseline === null ? [candidate] : [candidate, candidate.baseline];
-  const asks = subjects.map((subject) => candidateChanceAskForReading(subject, threshold));
-  const jobs = asks.flatMap((ask) => ask.jobs);
-  if (jobs.length === 0) {
-    return settledAsk(asks.reduce((best, ask) => Math.max(best, ask.combine([])), 0));
-  }
-  return {
-    jobs,
-    combine(shares) {
-      let best = 0;
-      let at = 0;
-      for (const ask of asks) {
-        const answer = ask.combine(shares.slice(at, at + ask.jobs.length));
-        at += ask.jobs.length;
-        if (answer > best) best = answer;
-      }
-      return Math.min(1, Math.max(0, best));
-    },
   };
 }
 

@@ -1493,8 +1493,10 @@ refactors, while a deliberate change to those rules must update its baseline and
 independent monotonicity tests together.
 
 The preserved contract is: every verdict, chosen preset, rank, Max value and chance is
-deterministic within one version; craft credit may never lower the candidate or public-row
-score or chance; and the exact chance is checked against the independent game-loop oracle.
+deterministic within one version; craft credit may never lower the candidate's own score or
+its chance of reaching a fixed score; and the exact chance is checked against the independent
+game-loop oracle. (The public-row half of that promise was withdrawn on 25 September 2026 —
+`RUNE-CLEANUP-MATH.md` §9.2 says why.)
 The old pre-adaptive output is not a valid comparison target, because it treated some
 future upgrades as lost before it knew which line the final Gem should replace.
 
