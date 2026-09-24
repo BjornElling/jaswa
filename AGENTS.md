@@ -29,6 +29,16 @@ file is corrected.
   of the resulting breaking change.
 - Validate only the current contract. Reject malformed or obsolete input
   rather than repairing it into a newer shape.
+- **Except the user's own choices, which always survive a change.** The one
+  saved state that does exist is the developer's own preferences — presets,
+  settings, the import mode — and a change to the code must never reset them.
+  Rejection happens one choice at a time: a setting, a preset, a monster's
+  field, a team the stored copy cannot satisfy starts from its default, and
+  every other choice is kept. Never reject a whole preferences document because
+  one part of it predates the change just made; that is what made every dev
+  server restart after a contract change put everything back to defaults.
+  `app/lib/preference-reading.ts` states the rule and
+  `npm run verify:preference-survival` holds it.
 
 ---
 
@@ -380,10 +390,13 @@ parts an agent must not quietly break:
   screen names its form — display speed, arena speed or dungeon speed.
   `npm run verify:speed-tick` is the check, and confirms every printed interval
   at both of its edges.
-- **Validate everything read back.** Preferences are user-editable files.
-  Anything loaded from IndexedDB or a `.sw` file must satisfy the complete
-  current contract before it reaches the interface. Discard malformed or
-  obsolete records rather than repairing them into a newer shape.
+- **Validate everything read back, one choice at a time.** Preferences are
+  user-editable files. Every value loaded from IndexedDB or a `.sw` file is
+  checked against the current contract before it reaches the interface; one
+  that fails is dropped and that one choice starts from its default — never
+  coerced into a newer shape, and never allowed to take its neighbours with it
+  (§0). A new preference field is read through `readSettings` or the section's
+  own `read…` function, so a stored copy without it still loads.
 - **`undefined` and empty are different answers.** A missing list means "never
   set, use the default"; an empty list means "the user cleared it", and must
   stay empty across a reload.

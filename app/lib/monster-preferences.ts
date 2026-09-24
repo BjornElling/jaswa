@@ -326,48 +326,52 @@ function isStatTargets(value: unknown): value is MonsterStatTargets {
   });
 }
 
-const copyPreferenceKeys = new Set([
-  'unitId', 'label', 'runeSets', 'allowBrokenRuneSets', 'allowIntangibleRunes',
-  'runeSlots', 'artifacts', 'relics', 'statTargets', 'runeSuggestionStat',
-]);
-
-/**
- * Accept only the complete current contract.
- *
- * Preferences are a file the user can edit, so everything read back is checked
- * before it reaches the interface: every band is one of three strings, every
- * set name and property id is one the editor could have offered, every target
- * is a whole number in range, and no key carries nothing. A malformed record is
- * discarded rather than repaired into a newer shape (`AGENTS.md` §6).
- */
-export function isCurrentMonsterCopyPreferences(value: unknown): value is MonsterCopyPreferences {
-  if (!isRecord(value)) return false;
-  if (!Object.keys(value).every((key) => copyPreferenceKeys.has(key))) return false;
-  if (typeof value.unitId !== 'string' || value.unitId.length === 0) return false;
-  if (value.label !== undefined
-    && (typeof value.label !== 'string' || value.label.trim() !== value.label || value.label.length > monsterLabelMaximum)) return false;
-  if (value.runeSets !== undefined && !isChosenList(value.runeSets, isRuneBuildId)) return false;
-  if (value.allowBrokenRuneSets !== undefined && typeof value.allowBrokenRuneSets !== 'boolean') return false;
-  if (value.allowIntangibleRunes !== undefined && typeof value.allowIntangibleRunes !== 'boolean') return false;
-  if (value.runeSlots !== undefined) {
-    if (!isRecord(value.runeSlots)) return false;
-    if (!Object.keys(value.runeSlots).every((key) => runeSlotKeys.includes(key as RuneSlotKey))) return false;
-    if (!Object.entries(value.runeSlots).every(([key, slot]) => isChosenList(slot, isRuneMainStatIn(key as RuneSlotKey)))) return false;
-  }
-  if (value.artifacts !== undefined) {
-    if (!isRecord(value.artifacts)) return false;
-    if (!Object.keys(value.artifacts).every((key) => key === 'attribute' || key === 'type')) return false;
-    if (!Object.values(value.artifacts).every(isArtifactPreference)) return false;
-  }
-  if (value.relics !== undefined && !isRelicPreference(value.relics)) return false;
-  if (value.runeSuggestionStat !== undefined
-    && !monsterStatTargetKeys.includes(value.runeSuggestionStat as keyof MonsterStatTargets)) return false;
-  return value.statTargets === undefined || isStatTargets(value.statTargets);
+function isRuneSlots(value: unknown): boolean {
+  return isRecord(value)
+    && Object.entries(value).every(([key, slot]) =>
+      runeSlotKeys.includes(key as RuneSlotKey) && isChosenList(slot, isRuneMainStatIn(key as RuneSlotKey)));
 }
 
-/** The whole map, with every record's own `unitId` matching the key it sits under. */
-export function isCurrentMonsterPreferences(value: unknown): value is MonsterPreferences {
+function isArtifactPreferences(value: unknown): boolean {
   return isRecord(value)
-    && Object.entries(value).every(([unitId, preferences]) =>
-      isCurrentMonsterCopyPreferences(preferences) && preferences.unitId === unitId);
+    && Object.entries(value).every(([key, preference]) =>
+      (key === 'attribute' || key === 'type') && isArtifactPreference(preference));
+}
+
+/*
+ * Every band is one of three strings, every set name and property id is one the
+ * editor could have offered, every target is a whole number in range. Each
+ * field is its own decision and is checked alone, so one the contract no longer
+ * honours costs that field and not the rest of the copy.
+ */
+const copyFieldChecks: Record<Exclude<keyof MonsterCopyPreferences, 'unitId'>, (value: unknown) => boolean> = {
+  label: (value) => typeof value === 'string' && value.trim() === value && value.length <= monsterLabelMaximum,
+  runeSets: (value) => isChosenList(value, isRuneBuildId),
+  allowBrokenRuneSets: (value) => typeof value === 'boolean',
+  allowIntangibleRunes: (value) => typeof value === 'boolean',
+  runeSlots: isRuneSlots,
+  artifacts: isArtifactPreferences,
+  relics: isRelicPreference,
+  statTargets: isStatTargets,
+  runeSuggestionStat: (value) => monsterStatTargetKeys.includes(value as keyof MonsterStatTargets),
+};
+
+/**
+ * The stored map, copy by copy and field by field (`preference-reading.ts`).
+ * A copy is kept under its own `unitId` only, and only while what survives the
+ * checks still states something — the same rule the write route keeps.
+ */
+export function readMonsterPreferences(value: unknown): MonsterPreferences {
+  if (!isRecord(value)) return {};
+  const read: MonsterPreferences = {};
+  for (const [unitId, stored] of Object.entries(value)) {
+    if (unitId.length === 0 || !isRecord(stored) || stored.unitId !== unitId) continue;
+    const copy: Record<string, unknown> = { unitId };
+    for (const [key, check] of Object.entries(copyFieldChecks)) {
+      if (stored[key] !== undefined && check(stored[key])) copy[key] = stored[key];
+    }
+    const preferences = copy as MonsterCopyPreferences;
+    if (statesSomething(preferences)) read[unitId] = preferences;
+  }
+  return read;
 }

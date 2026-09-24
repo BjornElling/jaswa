@@ -4,7 +4,7 @@ import { HomeSection } from './components/home-section';
 import { ImportBadge, ImportConfirmation } from './components/import-badge';
 import { DirectImportModeDialog, LoadPreferencesDialog, RemoveGameDataDialog, ReplaceImportDialog, ReportDialog } from './components/import-dialogs';
 import { clearImportedGame, loadImportedGame, loadPreferences, saveImportedGame, savePreferences } from './lib/browser-storage';
-import { blankPreferences, createImportedGame, fileToText, importPreferencesFile, isValidImportedGame, restoredPreferences, validateGameFile } from './lib/file-imports';
+import { blankPreferences, createImportedGame, fileToText, importPreferencesFile, isValidImportedGame, readPreferences, validateGameFile } from './lib/file-imports';
 import { checkHelperConnection, readHelperProfile } from './lib/helper-client';
 import type { HelperConnection } from './lib/helper-client';
 import { downloadJson, formatDateTime } from './lib/formatting';
@@ -83,7 +83,7 @@ export default function Home() {
       const savedCurrentGame = savedGame && isValidImportedGame(savedGame) ? savedGame : null;
       setGame(savedCurrentGame);
       if (savedCurrentGame?.helperSession) appliedHelperSession.current = `${savedCurrentGame.helperSession.instanceId}:${savedCurrentGame.helperSession.sessionId}`;
-      const savedCurrentPreferences = restoredPreferences(savedPreferences, savedCurrentGame);
+      const savedCurrentPreferences = readPreferences(savedPreferences, savedCurrentGame);
       preferencesRef.current = savedCurrentPreferences;
       setPreferences(savedCurrentPreferences);
     }).catch(() => {

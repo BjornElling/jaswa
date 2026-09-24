@@ -114,11 +114,32 @@ function isRule(value: unknown): value is SpeedRule {
     && typeof value.arena === 'boolean' && typeof value.dungeons === 'boolean';
 }
 
-/** Accept only the complete current contract; anything else is discarded, never repaired. */
+/** Whether a whole document meets the current contract, as a `.sw` writer must produce it. */
 export function isSpeedTuningPreferences(value: unknown): value is SpeedTuningPreferences {
   if (!isRecord(value) || !hasExactKeys(value, ['teams', 'rules'])) return false;
   if (!Array.isArray(value.teams) || !value.teams.every(isTeam)) return false;
   if (!Array.isArray(value.rules) || !value.rules.every(isRule)) return false;
   const ids = [...value.teams.map((team) => team.id), ...value.rules.map((rule) => rule.id)];
   return new Set(ids).size === ids.length;
+}
+
+/**
+ * The stored page, team by team and rule by rule (`preference-reading.ts`). A
+ * team's fields bind one another — the leader must be a member, the members
+ * must fit the content — so a team is the smallest unit that can be judged,
+ * and one that fails is dropped without costing the others. A repeated id
+ * keeps its first holder.
+ */
+export function readSpeedTuningPreferences(value: unknown): SpeedTuningPreferences {
+  const stored = isRecord(value) ? value : {};
+  const seen = new Set<string>();
+  const unseen = (entry: { id: string }) => {
+    if (seen.has(entry.id)) return false;
+    seen.add(entry.id);
+    return true;
+  };
+  return {
+    teams: (Array.isArray(stored.teams) ? stored.teams : []).filter(isTeam).filter(unseen),
+    rules: (Array.isArray(stored.rules) ? stored.rules : []).filter(isRule).filter(unseen),
+  };
 }

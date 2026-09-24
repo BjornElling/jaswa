@@ -8,29 +8,29 @@ const server = await createServer({
 });
 
 try {
-  const { restoredPreferences, defaultArtifactSettings } = await server.ssrLoadModule('/app/lib/file-imports.ts');
+  const { readPreferences, defaultArtifactSettings } = await server.ssrLoadModule('/app/lib/file-imports.ts');
   const { scoringSettings } = await server.ssrLoadModule('/app/lib/artifact-recommendations.ts');
 
   assert.equal(defaultArtifactSettings.recalculate, 'manual',
     'a whole-library calculation is work the user asks for, so manual is the default');
 
-  /* A settings block missing the mode is not a complete answer to the contract
-     JASWA asks today, and there is no earlier form of the document to honour
-     (`AGENTS.md` §0). It is rejected whole rather than filled in, which is what
-     keeps every view reading a complete `ArtifactSettings`. */
-  const stored = restoredPreferences(null, null);
+  /* A settings block saved before the mode existed still carries every other
+     choice the user made. Only the missing mode starts from its default, so
+     every view still reads a complete `ArtifactSettings`. */
+  const stored = readPreferences(null, null);
   const incompleteArtifacts = { ...defaultArtifactSettings, acceptableWorth: 25 };
   delete incompleteArtifacts.recalculate;
-  const incomplete = restoredPreferences({ ...stored, artifacts: incompleteArtifacts }, null);
-  assert.equal(incomplete.artifacts.acceptableWorth, defaultArtifactSettings.acceptableWorth,
-    'a settings block without the mode is not the current contract and must be discarded whole');
+  const incomplete = readPreferences({ ...stored, artifacts: incompleteArtifacts }, null);
+  assert.equal(incomplete.artifacts.acceptableWorth, 25,
+    'a settings block without the mode must keep the choices it does carry');
+  assert.equal(incomplete.artifacts.recalculate, 'manual', 'the missing mode starts from its default');
 
-  const chosen = restoredPreferences({ ...stored, artifacts: { ...defaultArtifactSettings, recalculate: 'on-change' } }, null);
+  const chosen = readPreferences({ ...stored, artifacts: { ...defaultArtifactSettings, recalculate: 'on-change' } }, null);
   assert.equal(chosen.artifacts.recalculate, 'on-change', 'a stored choice must survive a round trip');
 
   /* A mode this settings page never offered did not come from it. */
-  const bogus = restoredPreferences({ ...stored, artifacts: { ...defaultArtifactSettings, recalculate: 'whenever' } }, null);
-  assert.notEqual(bogus.artifacts.recalculate, 'whenever', 'an unknown mode must be rejected');
+  const bogus = readPreferences({ ...stored, artifacts: { ...defaultArtifactSettings, recalculate: 'whenever' } }, null);
+  assert.equal(bogus.artifacts.recalculate, 'manual', 'an unknown mode must be rejected');
 
   /* The mode decides *when* a table re-runs, never what it produces. Left in
      the key the views compare a held result against, switching it would mark
@@ -48,7 +48,7 @@ try {
     assert.deepEqual(manual[key], value, `${key} must be carried through unchanged`);
   }
 
-  console.log('Re-calculate mode: manual by default, an incomplete settings block is discarded whole, and the mode never invalidates a result.');
+  console.log('Re-calculate mode: manual by default, a missing mode costs only the mode, and the mode never invalidates a result.');
 } finally {
   await server.close();
 }

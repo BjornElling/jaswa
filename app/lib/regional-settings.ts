@@ -1,4 +1,5 @@
 import type { DateOrderChoice, GeneralSettings, HourCycleChoice, NumberFormatChoice, TimeZoneChoice } from './types';
+import { isOneOf, readSettings } from './preference-reading';
 
 /* Every regional choice offers "follow this computer" and defaults to it,
    because the browser already knows the answer the user gave their operating
@@ -134,14 +135,15 @@ export function blankGeneralSettings(): GeneralSettings {
   };
 }
 
-export function isGeneralSettings(value: unknown): value is GeneralSettings {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  const settings = value as Record<string, unknown>;
-  return numberFormatChoices.includes(settings.numberFormat as NumberFormatChoice)
-    && dateOrderChoices.includes(settings.dateOrder as DateOrderChoice)
-    && hourCycleChoices.includes(settings.hourCycle as HourCycleChoice)
-    && timeZoneChoices.includes(settings.timeZone as TimeZoneChoice)
-    && isTimeZone(settings.manualTimeZone);
+/** Each regional choice is read on its own; one it cannot honour starts from "this computer". */
+export function readGeneralSettings(value: unknown): GeneralSettings {
+  return readSettings(value, blankGeneralSettings(), {
+    numberFormat: isOneOf(numberFormatChoices),
+    dateOrder: isOneOf(dateOrderChoices),
+    hourCycle: isOneOf(hourCycleChoices),
+    timeZone: isOneOf(timeZoneChoices),
+    manualTimeZone: isTimeZone,
+  });
 }
 
 /**

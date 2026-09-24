@@ -396,35 +396,66 @@ function isChoice<T extends string>(value: unknown, allowed: readonly T[]): valu
     && new Set(members).size === members.length;
 }
 
-function isTargets(value: unknown): value is PresetTargets {
-  if (!isRecord(value)) return false;
-  const allowed = new Set([...presetStatTargetKeys, 'dmg', 'ehp', 'ehpD']);
-  if (!Object.keys(value).every((key) => allowed.has(key))) return false;
-  if (!presetStatTargetKeys.every((key) => value[key] === undefined || (typeof value[key] === 'number' && Number.isInteger(value[key]) && value[key] >= 0 && value[key] <= presetTargetMaximum))) return false;
-  return typeof value.dmg === 'number' && Number.isFinite(value.dmg)
-    && typeof value.ehp === 'number' && Number.isFinite(value.ehp)
-    && typeof value.ehpD === 'number' && Number.isFinite(value.ehpD);
+/* Each stated target on its own. The composites are not read at all: they are
+   derived, so the reader recomputes them rather than trusting a stored copy. */
+function readStatTargets(value: unknown): PresetStatTargets {
+  const stored = isRecord(value) ? value : {};
+  const targets: PresetStatTargets = {};
+  for (const key of presetStatTargetKeys) {
+    const target = stored[key];
+    if (typeof target === 'number' && Number.isInteger(target) && target >= 0 && target <= presetTargetMaximum) targets[key] = target;
+  }
+  return targets;
 }
 
-function isCurrentRunePotentialPreset(value: unknown): value is RunePotentialPreset {
-  const expectedKeys = new Set(['id', 'name', 'type', 'sets', 'slots', 'artifacts', 'targets']);
-  if (!isRecord(value) || typeof value.id !== 'string' || value.id.length === 0
-    || typeof value.name !== 'string' || value.name.trim() !== value.name || value.name.length === 0 || value.name.length > presetNameMaximum
-    || !presetTypes.includes(value.type as PresetType)
-    || !Object.keys(value).every((key) => expectedKeys.has(key))
-    || !isChoice(value.sets, presetRuneSetNameList)
-    || !isRecord(value.slots) || !isChoice(value.slots.slot2, runeMainStatsBySlot.slot2) || !isChoice(value.slots.slot4, runeMainStatsBySlot.slot4) || !isChoice(value.slots.slot6, runeMainStatsBySlot.slot6)
-    || !isRecord(value.artifacts) || typeof value.artifacts.atk !== 'boolean' || typeof value.artifacts.def !== 'boolean' || typeof value.artifacts.hp !== 'boolean'
-    || !isTargets(value.targets)) return false;
-  const refreshed = withRefreshedMetrics(value as RunePotentialPreset);
-  return value.targets.dmg === refreshed.targets.dmg
-    && value.targets.ehp === refreshed.targets.ehp
-    && value.targets.ehpD === refreshed.targets.ehpD;
+function isPresetName(value: unknown): value is string {
+  return typeof value === 'string' && value.trim() === value && value.length > 0 && value.length <= presetNameMaximum;
 }
 
-/** Validate the complete current preset contract without repairing older data. */
-export function isCurrentRunePotentialPresets(value: unknown): value is RunePotentialPreset[] {
-  return Array.isArray(value)
-    && value.every(isCurrentRunePotentialPreset)
-    && new Set(value.map((preset) => preset.id)).size === value.length;
+/*
+ * A preset is kept whenever it can still be told apart and named; every other
+ * field is its own choice and starts from an empty preset's value when the
+ * stored one is missing or fails. A preset gaining a field must never cost the
+ * user the presets they edited (`preference-reading.ts`).
+ */
+function readRunePotentialPreset(value: unknown): RunePotentialPreset | null {
+  if (!isRecord(value) || typeof value.id !== 'string' || value.id.length === 0 || !isPresetName(value.name)) return null;
+  const blank = createRunePotentialPreset(value.name);
+  const slots = isRecord(value.slots) ? value.slots : {};
+  const artifacts = isRecord(value.artifacts) ? value.artifacts : {};
+  const slot = (key: keyof PresetSlots) => {
+    const stored = slots[key];
+    return isChoice(stored, runeMainStatsBySlot[key]) ? stored : blank.slots[key];
+  };
+  const flag = (key: keyof RunePotentialPreset['artifacts']) => {
+    const stored = artifacts[key];
+    return typeof stored === 'boolean' ? stored : blank.artifacts[key];
+  };
+  return withDerivedMetrics({
+    id: value.id,
+    name: value.name,
+    type: presetTypes.includes(value.type as PresetType) ? value.type as PresetType : blank.type,
+    sets: isChoice(value.sets, presetRuneSetNameList) ? value.sets : blank.sets,
+    slots: { slot2: slot('slot2'), slot4: slot('slot4'), slot6: slot('slot6') },
+    artifacts: { atk: flag('atk'), def: flag('def'), hp: flag('hp') },
+    targets: readStatTargets(value.targets),
+  });
+}
+
+/**
+ * The stored preset list, preset by preset. No list at all means the user never
+ * had one and gets the shipped presets; an empty list is the user having
+ * deleted them all, and stays empty. A repeated id keeps its first preset.
+ */
+export function readRunePotentialPresets(value: unknown): RunePotentialPreset[] {
+  if (!Array.isArray(value)) return defaultRunePotentialPresets();
+  const seen = new Set<string>();
+  const presets: RunePotentialPreset[] = [];
+  for (const stored of value) {
+    const preset = readRunePotentialPreset(stored);
+    if (!preset || seen.has(preset.id)) continue;
+    seen.add(preset.id);
+    presets.push(preset);
+  }
+  return presets;
 }

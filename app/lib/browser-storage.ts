@@ -1,5 +1,4 @@
 import type { ImportedGame, Preferences } from './types';
-import { isValidPreferences } from './file-imports';
 
 const databaseName = 'jaswa-local';
 const storeName = 'workspace';
@@ -68,16 +67,25 @@ function readPreferencesMirror(): unknown {
   }
 }
 
-function latestPreferences(first: unknown, second: unknown): Preferences | null {
-  const firstValid = isValidPreferences(first) ? first : null;
-  const secondValid = isValidPreferences(second) ? second : null;
-  if (!firstValid) return secondValid;
-  if (!secondValid) return firstValid;
+/* Only the timestamp decides which copy is newer. The copies are not checked
+   against the whole contract here: that used to throw away any copy saved
+   before the latest change to it, and with it every choice the user had made.
+   `readPreferences` judges the chosen copy one choice at a time. */
+function savedAt(value: unknown): number | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const updatedAt = (value as { updatedAt?: unknown }).updatedAt;
+  const time = typeof updatedAt === 'string' ? Date.parse(updatedAt) : NaN;
+  return Number.isFinite(time) ? time : null;
+}
+
+function latestPreferences(first: unknown, second: unknown): unknown {
+  const firstTime = savedAt(first);
+  const secondTime = savedAt(second);
+  if (firstTime === null) return secondTime === null ? null : second;
+  if (secondTime === null) return first;
   /* The synchronous mirror is written before IndexedDB, so it must win an
      exact tie as well as a newer timestamp after a tab closes mid-write. */
-  return Date.parse(secondValid.updatedAt) >= Date.parse(firstValid.updatedAt)
-    ? secondValid
-    : firstValid;
+  return secondTime >= firstTime ? second : first;
 }
 
 function writePreferencesMirror(preferences: Preferences) {
@@ -117,7 +125,8 @@ export async function clearImportedGame(): Promise<void> {
   });
 }
 
-export async function loadPreferences(): Promise<Preferences | null> {
+/** The newest stored copy, unjudged; pass it through `readPreferences`. */
+export async function loadPreferences(): Promise<unknown> {
   const mirror = readPreferencesMirror();
   try {
     return latestPreferences(await read<unknown>(preferencesKey), mirror);

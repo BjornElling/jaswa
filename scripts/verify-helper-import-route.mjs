@@ -8,20 +8,22 @@ const server = await createServer({
 });
 
 try {
-  const { blankPreferences, restoredPreferences } = await server.ssrLoadModule('/app/lib/file-imports.ts');
+  const { blankPreferences, readPreferences } = await server.ssrLoadModule('/app/lib/file-imports.ts');
   const helperGame = { helperSession: { instanceId: 'helper', sessionId: 1 } };
   const fileGame = { fileName: 'account.json' };
   const validFilePreference = { ...blankPreferences(), importRoute: 'file' };
-  const malformedPreference = { ...blankPreferences(), artifacts: {} };
+  const unreadableRoute = { ...blankPreferences(), importRoute: 'carrier-pigeon' };
 
-  assert.equal(restoredPreferences(malformedPreference, helperGame).importRoute, 'direct',
-    'a rejected preferences record must retain the helper source recorded on the imported game');
-  assert.equal(restoredPreferences(null, fileGame).importRoute, 'file',
+  assert.equal(readPreferences(unreadableRoute, helperGame).importRoute, 'direct',
+    'an unreadable route must follow the helper source recorded on the imported game');
+  assert.equal(readPreferences(null, helperGame).importRoute, 'direct',
+    'missing preferences must follow the helper source recorded on the imported game');
+  assert.equal(readPreferences(null, fileGame).importRoute, 'file',
     'a file import keeps the neutral file source when preferences are unavailable');
-  assert.equal(restoredPreferences(validFilePreference, helperGame).importRoute, 'file',
+  assert.equal(readPreferences(validFilePreference, helperGame).importRoute, 'file',
     'a valid explicit file choice must not be overridden by an older helper game');
 
-  console.log('Helper-backed imports retain their source when preferences are rejected.');
+  console.log('Helper-backed imports retain their source when the stored route cannot be read.');
 } finally {
   await server.close();
 }

@@ -2,7 +2,7 @@ import type {
   ArtifactConversionStoneMode, ArtifactRecalculateMode, ArtifactSettings, DirectImportMode, HelperSession, ImportReport, ImportRoute, ImportedGame, ItemGrade,
   Preferences, RunePotentialSettings,
 } from './types';
-import { isCurrentMonsterPreferences } from './monster-preferences';
+import { readMonsterPreferences } from './monster-preferences';
 import { readArtifact } from './artifacts';
 import { readRelic } from './relics';
 import { itemGrades, readCraftItem } from './rune-craft-items';
@@ -10,9 +10,11 @@ import { readRune } from './runes';
 import { hasMonsterCatalogEntry } from './monster-catalog';
 import { skyTribeTotemProblem } from './sky-tribe-totem';
 import type { GameRecord } from './game-data';
-import { defaultRunePotentialPresets, isCurrentRunePotentialPresets } from './rune-potential-presets';
-import { blankGeneralSettings, isGeneralSettings } from './regional-settings';
-import { blankSpeedTuningPreferences, isSpeedTuningPreferences } from './speed-tuning-preferences';
+import { defaultRunePotentialPresets, readRunePotentialPresets } from './rune-potential-presets';
+import { blankGeneralSettings, readGeneralSettings } from './regional-settings';
+import { blankSpeedTuningPreferences, readSpeedTuningPreferences } from './speed-tuning-preferences';
+import { isBoolean, isOneOf, isWholeNumberIn, readSettings } from './preference-reading';
+import type { FieldChecks } from './preference-reading';
 
 const expectedSections = [
   'unit_list', 'unit_storage_list', 'unit_storage_normal_list', 'runes', 'artifacts', 'relics', 'rune_craft_item_list', 'artifact_crafts', 'inventory_info',
@@ -39,12 +41,6 @@ export const defaultRunePotentialSettings: RunePotentialSettings = {
 export const artifactAcceptableWorthChoices = [0, 25, 50, 75, 100] as const;
 export const artifactConversionStoneModes: ArtifactConversionStoneMode[] = ['none', 'owned', 'theoretical'];
 export const artifactRecalculateModes: ArtifactRecalculateMode[] = ['manual', 'on-change'];
-/* The exact key set rejects the retired grade-specific source shape instead of
-   silently carrying fields the current settings page no longer offers. */
-const artifactSettingKeys = [
-  'acceptableWorth', 'onlyFactorInOwnedMonsters', 'onlyLevel40Monsters', 'conversionStoneMode', 'conversionStoneValue',
-  'ignoreInsignificantDifferences', 'insignificantDifference', 'includeIntangibleArtifacts', 'recalculate',
-] as const;
 /* The band the significance rule uses, in whole percentage points of the score
    (`ARTIFACT-CANONICAL.md` §17.3). One point is the smallest difference the
    integer scores can express, so the range starts there rather than at zero:
@@ -75,8 +71,10 @@ function isRecord(value: unknown): value is GameRecord {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
-/* Live sync can overwrite a plan, so the safer snapshot mode is the default. */
-export const defaultDirectImportMode: DirectImportMode = 'on-load';
+/* Live sync is what a user connecting the helper came for: the workspace shows
+   the game as it is. Reading only at game start is the deliberate choice of a
+   user who wants to plan against a snapshot. */
+export const defaultDirectImportMode: DirectImportMode = 'live';
 const directImportModes: DirectImportMode[] = ['live', 'on-load'];
 
 /* The file route works without any companion program, so it is the neutral
@@ -102,75 +100,67 @@ export function blankPreferences(): Preferences {
 /* The stored value is the percentage, so it is checked against the offered
    choices rather than against a 1–5 range: a file claiming 37 % came from
    somewhere other than this slider and is not a contract JASWA honours. */
-function isArtifactSettings(value: unknown): value is ArtifactSettings {
-  return isRecord(value)
-    && artifactSettingKeys.every((key) => key in value)
-    && Object.keys(value).every((key) => artifactSettingKeys.includes(key as typeof artifactSettingKeys[number]))
-    && artifactRecalculateModes.includes(value.recalculate as ArtifactRecalculateMode)
-    && artifactAcceptableWorthChoices.includes(value.acceptableWorth as typeof artifactAcceptableWorthChoices[number])
-    && typeof value.onlyFactorInOwnedMonsters === 'boolean'
-    && typeof value.onlyLevel40Monsters === 'boolean'
-    && artifactConversionStoneModes.includes(value.conversionStoneMode as ArtifactConversionStoneMode)
-    && isScale(value.conversionStoneValue, 4)
-    && typeof value.ignoreInsignificantDifferences === 'boolean'
-    && typeof value.insignificantDifference === 'number'
-    && Number.isInteger(value.insignificantDifference)
-    && value.insignificantDifference >= artifactInsignificantDifferenceRange.minimum
-    && value.insignificantDifference <= artifactInsignificantDifferenceRange.maximum
-    && typeof value.includeIntangibleArtifacts === 'boolean';
-}
+const artifactSettingChecks: FieldChecks<ArtifactSettings> = {
+  acceptableWorth: isOneOf(artifactAcceptableWorthChoices),
+  onlyFactorInOwnedMonsters: isBoolean,
+  onlyLevel40Monsters: isBoolean,
+  conversionStoneMode: isOneOf(artifactConversionStoneModes),
+  conversionStoneValue: isWholeNumberIn(1, 4),
+  ignoreInsignificantDifferences: isBoolean,
+  insignificantDifference: isWholeNumberIn(artifactInsignificantDifferenceRange.minimum, artifactInsignificantDifferenceRange.maximum),
+  includeIntangibleArtifacts: isBoolean,
+  recalculate: isOneOf(artifactRecalculateModes),
+};
 
-function isScale(value: unknown, maximum: number): value is number {
-  return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= maximum;
-}
+const runePotentialSettingChecks: FieldChecks<RunePotentialSettings> = {
+  powerUpPolicy: isWholeNumberIn(1, 5),
+  runeQuality: isWholeNumberIn(1, 5),
+  enchantedGems: isWholeNumberIn(1, 4),
+  grindstones: isWholeNumberIn(1, 4),
+  gemGrade: isOneOf<ItemGrade>(itemGrades),
+  grindstoneGrade: isOneOf<ItemGrade>(itemGrades),
+  acceptedRunes: isWholeNumberIn(1, 5),
+  brokenRunes: isWholeNumberIn(1, 5),
+  intangibleRunes: isWholeNumberIn(1, 5),
+  keepMoreForLargerSets: isBoolean,
+};
 
-function isRunePotentialSettings(value: unknown): value is RunePotentialSettings {
-  if (!isRecord(value)) return false;
-  const expectedKeys = new Set([
-    'powerUpPolicy', 'runeQuality', 'enchantedGems', 'grindstones', 'gemGrade',
-    'grindstoneGrade', 'acceptedRunes', 'brokenRunes', 'intangibleRunes', 'keepMoreForLargerSets',
-  ]);
-  if (!Object.keys(value).every((key) => expectedKeys.has(key))) return false;
-  return isScale(value.powerUpPolicy, 5)
-    && isScale(value.runeQuality, 5)
-    && isScale(value.enchantedGems, 4)
-    && isScale(value.grindstones, 4)
-    && itemGrades.includes(value.gemGrade as ItemGrade)
-    && itemGrades.includes(value.grindstoneGrade as ItemGrade)
-    && isScale(value.acceptedRunes, 5)
-    && isScale(value.brokenRunes, 5)
-    && isScale(value.intangibleRunes, 5)
-    && typeof value.keepMoreForLargerSets === 'boolean';
-}
-
-/** Accept only a complete preferences document. */
-export function isValidPreferences(value: unknown): value is Preferences {
-  if (!isRecord(value)) return false;
-  return typeof value.updatedAt === 'string'
-    && Number.isFinite(Date.parse(value.updatedAt))
-    && typeof value.hardwareAcceleration === 'boolean'
-    && importRoutes.includes(value.importRoute as ImportRoute)
-    && directImportModes.includes(value.directImportMode as DirectImportMode)
-    && isGeneralSettings(value.general)
-    && isCurrentMonsterPreferences(value.monsterPreferences)
-    && isRunePotentialSettings(value.runePotential)
-    && isCurrentRunePotentialPresets(value.runePotentialPresets)
-    && isArtifactSettings(value.artifacts)
-    && isSpeedTuningPreferences(value.speedTuning);
-}
+const preferenceSections = [
+  'updatedAt', 'hardwareAcceleration', 'importRoute', 'directImportMode', 'general',
+  'monsterPreferences', 'runePotential', 'runePotentialPresets', 'artifacts', 'speedTuning',
+] as const satisfies readonly (keyof Preferences)[];
 
 /**
- * Preference corruption must not silently change where a valid imported game
- * came from. The game record itself carries the helper session that produced
- * it, so a discarded preferences document can safely retain that source while
- * every other preference returns to the current defaults. A valid explicit
- * JSON-file choice always wins: this only handles a preference document that
- * was rejected in full.
+ * The stored preferences, one choice at a time (`preference-reading.ts`).
+ *
+ * Never all or nothing: a section, setting or record the current contract
+ * cannot honour starts from its default and every other choice is kept. The
+ * import route is the one default that depends on something else — a game the
+ * helper produced says where it came from, so a route that cannot be read
+ * follows that game rather than the neutral file route.
  */
-export function restoredPreferences(value: unknown, game: ImportedGame | null): Preferences {
-  if (isValidPreferences(value)) return value;
-  const preferences = blankPreferences();
-  return game?.helperSession ? { ...preferences, importRoute: 'direct' } : preferences;
+export function readPreferences(value: unknown, game: ImportedGame | null): Preferences {
+  const stored = isRecord(value) ? value : {};
+  const blank = blankPreferences();
+  return {
+    updatedAt: typeof stored.updatedAt === 'string' && Number.isFinite(Date.parse(stored.updatedAt)) ? stored.updatedAt : blank.updatedAt,
+    hardwareAcceleration: isBoolean(stored.hardwareAcceleration) ? stored.hardwareAcceleration : blank.hardwareAcceleration,
+    importRoute: isOneOf(importRoutes)(stored.importRoute) ? stored.importRoute : game?.helperSession ? 'direct' : blank.importRoute,
+    directImportMode: isOneOf(directImportModes)(stored.directImportMode) ? stored.directImportMode : blank.directImportMode,
+    general: readGeneralSettings(stored.general),
+    monsterPreferences: readMonsterPreferences(stored.monsterPreferences),
+    runePotential: readSettings(stored.runePotential, blank.runePotential, runePotentialSettingChecks),
+    runePotentialPresets: readRunePotentialPresets(stored.runePotentialPresets),
+    artifacts: readSettings(stored.artifacts, blank.artifacts, artifactSettingChecks),
+    speedTuning: readSpeedTuningPreferences(stored.speedTuning),
+  };
+}
+
+/* A `.sw` file is read the same forgiving way as the stored copy, so one saved
+   before a setting was added still loads. It must still be a JASWA preferences
+   document at all: a record naming none of its sections is some other file. */
+function isPreferencesDocument(value: unknown): boolean {
+  return isRecord(value) && preferenceSections.some((section) => section in value);
 }
 
 function recordCollection(value: unknown): GameRecord[] {
@@ -436,6 +426,6 @@ export async function fileToText(file: File): Promise<string> {
 
 export async function importPreferencesFile(file: File): Promise<Preferences> {
   const value = JSON.parse(await fileToText(file)) as unknown;
-  if (!isValidPreferences(value)) throw new Error('Invalid JASWA preferences file');
-  return { ...value, updatedAt: new Date().toISOString() };
+  if (!isPreferencesDocument(value)) throw new Error('Invalid JASWA preferences file');
+  return { ...readPreferences(value, null), updatedAt: new Date().toISOString() };
 }
