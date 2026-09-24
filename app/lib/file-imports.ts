@@ -21,17 +21,20 @@ const expectedSections = [
 ] as const;
 const excludedKeys = new Set(['session_key', 'session_key_node']);
 
+/* Every scale is 1-based: the value is the slider's stop, counted from the
+   left. The starting point is the middle of every ladder, plus a mild taste
+   for Intangible runes (×1½) and twice as many 4-set runes kept. */
 export const defaultRunePotentialSettings: RunePotentialSettings = {
-  powerUpPolicy: 4,
-  runeQuality: 4,
+  powerUpPolicy: 3,
+  runeQuality: 3,
   enchantedGems: 3,
   grindstones: 3,
   gemGrade: 'Hero',
   grindstoneGrade: 'Hero',
   acceptedRunes: 3,
   brokenRunes: 3,
-  intangibleRunes: 1,
-  keepMoreForLargerSets: false,
+  intangibleRunes: 2,
+  keepMoreForLargerSets: true,
 };
 
 /* Half credit is the honest midpoint of §19.6's question, and it reads as
