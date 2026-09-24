@@ -14,6 +14,7 @@ import type { DirectoryHandle } from './lib/save-location';
 import type { GameRecord } from './lib/game-data';
 import type { ArtifactSettings, DirectImportMode, GeneralSettings, ImportRoute, ImportedGame, Preferences, RunePotentialSettings } from './lib/types';
 import type { RunePotentialPreset } from './lib/rune-potential-presets';
+import type { SpeedTuningPreferences } from './lib/speed-tuning-preferences';
 import type { MonsterCopyPreferences } from './lib/monster-preferences';
 import { statesSomething } from './lib/monster-preferences';
 import type { MonsterReference } from './components/monster-link';
@@ -31,6 +32,7 @@ const RunePotentialSection = lazy(() => import('./components/rune-potential-sect
 const SettingsSection = lazy(() => import('./components/settings-section').then(({ SettingsSection: component }) => ({ default: component })));
 const TheMathSection = lazy(() => import('./components/the-math-section').then(({ TheMathSection: component }) => ({ default: component })));
 const RuneSimulatorSection = lazy(() => import('./components/rune-simulator-section').then(({ RuneSimulatorSection: component }) => ({ default: component })));
+const SpeedTuningSection = lazy(() => import('./components/speed-tuning-section').then(({ SpeedTuningSection: component }) => ({ default: component })));
 const UpcomingWorkspace = lazy(() => import('./components/upcoming-workspace').then(({ UpcomingWorkspace: component }) => ({ default: component })));
 const MonsterOverlay = lazy(() => import('./components/monster-overlay').then(({ MonsterOverlay: component }) => ({ default: component })));
 
@@ -333,6 +335,12 @@ export default function Home() {
     }));
   }
 
+  /* The Speed Tuning page's one route to storage — a named wrapper over
+     `changePreferences`, like the monster overlay's. */
+  function writeSpeedTuning(change: (current: SpeedTuningPreferences) => SpeedTuningPreferences) {
+    changePreferences((current) => ({ ...current, speedTuning: change(current.speedTuning) }));
+  }
+
   function writePresets(change: (current: RunePotentialPreset[]) => RunePotentialPreset[]) {
     changePreferences((current) => ({ ...current, runePotentialPresets: change(current.runePotentialPresets) }));
   }
@@ -427,6 +435,7 @@ export default function Home() {
 
       {page === 'potential' && <Suspense fallback={<WorkspaceLoading />}><RunePotentialSection
         game={game}
+        monsterPreferences={preferences.monsterPreferences}
         settings={preferences.runePotential}
         presets={preferences.runePotentialPresets}
         general={preferences.general}
@@ -439,6 +448,7 @@ export default function Home() {
         settings={preferences.artifacts}
         data={game?.data}
         monsters={monsters}
+        monsterPreferences={preferences.monsterPreferences}
         general={preferences.general}
         hardwareAcceleration={preferences.hardwareAcceleration}
         onUpdate={updateArtifactSettings}
@@ -473,7 +483,15 @@ export default function Home() {
         preferences={preferences}
       /></Suspense>}
 
-      {(page === 'optimizer' || page === 'speed') && <Suspense fallback={<WorkspaceLoading />}><UpcomingWorkspace
+      {page === 'speed' && <Suspense fallback={<WorkspaceLoading />}><SpeedTuningSection
+        game={game}
+        monsters={monsters}
+        preferences={preferences}
+        onWrite={writeSpeedTuning}
+        onOpenMonster={openMonsterOverlay}
+      /></Suspense>}
+
+      {page === 'optimizer' && <Suspense fallback={<WorkspaceLoading />}><UpcomingWorkspace
         {...upcomingWorkspaces[page]}
         hasGame={Boolean(game)}
       /></Suspense>}

@@ -371,6 +371,15 @@ parts an agent must not quietly break:
   test.** `verify:webgpu-parameter-layout` and `verify:rune-chance-layout` are
   what stands in for that, and `verify:acceleration-routing` is what keeps the
   decision itself from growing a second copy.
+- **One clock for every turn order.** `docs/SPEED-TICK-CANONICAL.md` is
+  binding, and `app/lib/speed-tick.ts` is the only module that states a rule
+  of the game's turn order — combat speed, the tick, a boost, a buff, a tie.
+  `speed-tuning-analysis.ts` decides what to simulate and reports it; it never
+  restates a rule, and an interval is found by running that one clock at every
+  candidate display speed rather than by a second formula. Every speed on
+  screen names its form — display speed, arena speed or dungeon speed.
+  `npm run verify:speed-tick` is the check, and confirms every printed interval
+  at both of its edges.
 - **Validate everything read back.** Preferences are user-editable files.
   Anything loaded from IndexedDB or a `.sw` file must satisfy the complete
   current contract before it reaches the interface. Discard malformed or
@@ -419,7 +428,9 @@ Before reporting a change complete, all of these hold:
    table, `npm run verify:element-qualified-names` passes.
 9. After a statistics capture or a change to the collector,
    `npm run verify:statistics-tiers` passes.
-10. After a change to the Rune Clean-up engine, all of
+10. After a change to the turn-order rules, the speed skill reading or the
+    speed snapshot, `npm run verify:speed-tick` passes.
+11. After a change to the Rune Clean-up engine, all of
     `verify:rune-substat-weights`, `verify:rune-set-neutrality`,
     `verify:rune-slot-neutrality`, `verify:rune-craft-single-source`,
     `verify:rune-cleanup-calibration`, `verify:rune-cleanup-probability`,
@@ -427,20 +438,20 @@ Before reporting a change complete, all of these hold:
     pass, and a **fresh `verify:rune-cleanup-equivalence` baseline** is recorded
     in the same commit — `work/` is not committed, so a baseline is always
     captured deliberately before a change and never inherited.
-11. After a change under `helper/`, the helper is **released**, not merely
+12. After a change under `helper/`, the helper is **released**, not merely
     edited: `npm run verify:helper-version` fails until the version is raised
     and an installer is built and recorded (`npm run release:helper`). The app
     tells every user which helper is newest, so an unreleased change leaves
     that statement false. Packaging needs the Rust toolchain and
     `JASWA_SIGNING_THUMBPRINT`; if neither is at hand, say the helper is
     unreleased rather than reporting the change complete.
-12. **Renaming a user-visible label is a repository-wide rename.** The
+13. **Renaming a user-visible label is a repository-wide rename.** The
     Playwright suite, the `scripts/verify-*.mjs` checks and `docs/` all address
     the interface by its accessible names, and a check under `scripts/` is not
     run by `npm test`, so a missed one stays silent until someone runs it. Grep
     the whole repository for the old string — every one of `tests/`, `scripts/`
     and `docs/` — before reporting the rename done.
-13. The work is committed to `main`.
+14. The work is committed to `main`.
 
 Two caveats worth knowing before trusting a green run:
 

@@ -15,7 +15,8 @@ import { TokenChoiceField } from './token-choice-field';
 import { alignmentClass, runeCleanupTableColumns } from '../lib/table-layouts';
 import { formatNumber } from '../lib/formatting';
 import { readRunes, runeMaximumLevel, runeStatName, runeSubValue } from '../lib/runes';
-import { numberedMonsterNames } from '../lib/monster-names';
+import { monsterCopyNames } from '../lib/monster-names';
+import type { MonsterPreferences } from '../lib/monster-preferences';
 import { runeVerdictLabels, runeVerdictOrder } from '../lib/rune-cleanup-advice';
 import type { RuneVerdict } from '../lib/rune-cleanup-advice';
 import { calculateRuneAdvice, cancelRuneAdvice } from '../lib/compute/rune-advice-client';
@@ -149,8 +150,9 @@ const columns: readonly SortableColumn<RuneCleanupRow>[] = (() => {
  * preset and every build, and a table that re-ran itself under a dragging thumb
  * would be a table nobody could read.
  */
-export function RuneRecommendations({ game, settings, presets, general, hardwareAcceleration }: {
+export function RuneRecommendations({ game, monsterPreferences, settings, presets, general, hardwareAcceleration }: {
   game: ImportedGame | null;
+  monsterPreferences: MonsterPreferences;
   settings: RunePotentialSettings;
   presets: RunePotentialPreset[];
   general: GeneralSettings;
@@ -192,8 +194,8 @@ export function RuneRecommendations({ game, settings, presets, general, hardware
      actually on rather than a species the account owns four of. */
   const monsterNames = useMemo(() => {
     const units = game?.data?.unit_list;
-    return numberedMonsterNames(Array.isArray(units) ? units as GameRecord[] : []);
-  }, [game]);
+    return monsterCopyNames(Array.isArray(units) ? units as GameRecord[] : [], monsterPreferences);
+  }, [game, monsterPreferences]);
 
   const base = useMemo(() => {
     const lines = referenceLines(game?.data);
@@ -223,7 +225,7 @@ export function RuneRecommendations({ game, settings, presets, general, hardware
           verdict: 'sell', reason: '', maxValue: 0, standing: 0, chance: 0, preset: null, rank: 'broken',
           craftedLines: null,
         },
-        location: rune.occupiedId === null ? 'Inventory' : monsterNames[rune.occupiedId] ?? null,
+        location: rune.occupiedId === null ? 'Inventory' : monsterNames[rune.occupiedId]?.name ?? null,
       })),
       at: new Date().toISOString(),
       durationMs: outcome.durationMs,

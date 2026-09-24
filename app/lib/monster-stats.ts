@@ -144,6 +144,20 @@ export function calculateMonsterTotals(monster: RecordLike, accountModifiers: Ac
 }
 
 /**
+ * What a copy's display speed is made of, for Speed Tuning: the base speed, and
+ * whether a four-piece Swift set is worn. The display speed itself is the stat
+ * sheet's own figure, so it can never disagree with the Monsters page.
+ */
+export function monsterSpeedParts(monster: RecordLike): { baseSpeed: number; swift: boolean; displaySpeed: number } {
+  const swiftPieces = equippedRunes(monster).filter((rune) => numberValue(rune.set_id) === 3).length;
+  return {
+    baseSpeed: numberValue(monster.spd),
+    swift: swiftPieces >= setBonuses[3].pieces,
+    displaySpeed: calculateMonsterTotals(monster).spd,
+  };
+}
+
+/**
  * The eleven figures a copy can be measured against: its eight stats under the
  * names a target is stated in, plus the three composites derived from them.
  *

@@ -8,9 +8,11 @@ import { readRelic } from './relics';
 import { itemGrades, readCraftItem } from './rune-craft-items';
 import { readRune } from './runes';
 import { hasMonsterCatalogEntry } from './monster-catalog';
+import { skyTribeTotemProblem } from './sky-tribe-totem';
 import type { GameRecord } from './game-data';
 import { defaultRunePotentialPresets, isCurrentRunePotentialPresets } from './rune-potential-presets';
 import { blankGeneralSettings, isGeneralSettings } from './regional-settings';
+import { blankSpeedTuningPreferences, isSpeedTuningPreferences } from './speed-tuning-preferences';
 
 const expectedSections = [
   'unit_list', 'unit_storage_list', 'unit_storage_normal_list', 'runes', 'artifacts', 'relics', 'rune_craft_item_list', 'artifact_crafts', 'inventory_info',
@@ -93,6 +95,7 @@ export function blankPreferences(): Preferences {
     runePotential: defaultRunePotentialSettings,
     runePotentialPresets: defaultRunePotentialPresets(),
     artifacts: defaultArtifactSettings,
+    speedTuning: blankSpeedTuningPreferences(),
   };
 }
 
@@ -152,7 +155,8 @@ export function isValidPreferences(value: unknown): value is Preferences {
     && isCurrentMonsterPreferences(value.monsterPreferences)
     && isRunePotentialSettings(value.runePotential)
     && isCurrentRunePotentialPresets(value.runePotentialPresets)
-    && isArtifactSettings(value.artifacts);
+    && isArtifactSettings(value.artifacts)
+    && isSpeedTuningPreferences(value.speedTuning);
 }
 
 /**
@@ -310,7 +314,10 @@ function validateAccountCollections(value: GameRecord): string | undefined {
     && !isValidIdentifiedCollection(value.rune_craft_item_list, 'craft_item_id', isValidCraftRecord)) {
     return 'This file contains an invalid craft-item collection.';
   }
-  return undefined;
+  /* The totem moves every arena and dungeon speed Speed Tuning shows, so a
+     building list that cannot say its level is refused rather than read as
+     "no totem". */
+  return skyTribeTotemProblem(value);
 }
 
 /* Artifacts and relics both carry their own id as `rid`, not `artifact_id` or

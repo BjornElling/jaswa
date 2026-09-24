@@ -12,7 +12,8 @@ import { columnClasses } from '../lib/table-layouts';
 import { formatDecimal, formatNumber } from '../lib/formatting';
 import type { GameRecord } from '../lib/game-data';
 import { monsterNameCollator } from '../lib/monster-grid';
-import { numberedMonsterNames } from '../lib/monster-names';
+import { monsterCopyNames } from '../lib/monster-names';
+import type { MonsterPreferences } from '../lib/monster-preferences';
 import {
   craftKindLabels, craftLineageLabels, craftLineageNotes, craftRollDescriptions,
   craftRollLabels, craftRollAssumptions, craftSetLabel, craftSetName, itemGrades,
@@ -123,10 +124,11 @@ function ResultCard({ title, description, children, empty }: {
   </section>;
 }
 
-export function CraftItemBestUse({ items, runes, monsters, presets, general }: {
+export function CraftItemBestUse({ items, runes, monsters, monsterPreferences, presets, general }: {
   items: readonly CraftItem[];
   runes: readonly Rune[];
   monsters: readonly GameRecord[];
+  monsterPreferences: MonsterPreferences;
   presets: readonly RunePotentialPreset[];
   general: GeneralSettings;
 }) {
@@ -190,7 +192,7 @@ export function CraftItemBestUse({ items, runes, monsters, presets, general }: {
   const selectedItemId = item?.id ?? '';
   const presetId = preset?.id ?? '';
 
-  const monsterNames = useMemo(() => numberedMonsterNames([...monsters]), [monsters]);
+  const monsterNames = useMemo(() => monsterCopyNames(monsters, monsterPreferences), [monsters, monsterPreferences]);
 
   /* A follow-up grind is only a question for a gem, and only for one whose stat
      can be ground at all (§8). The control stays mounted in every state and
@@ -223,7 +225,7 @@ export function CraftItemBestUse({ items, runes, monsters, presets, general }: {
       if (!candidate) return;
       found.push({
         candidate,
-        where: rune.occupiedId === null ? 'Inventory' : monsterNames[rune.occupiedId] ?? 'A monster',
+        where: rune.occupiedId === null ? 'Inventory' : monsterNames[rune.occupiedId]?.name ?? 'A monster',
         order,
       });
     });

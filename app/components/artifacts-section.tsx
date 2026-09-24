@@ -7,6 +7,7 @@ import { BestMonsterForArtifact } from './best-monster-for-artifact';
 import { artifactAcceptableWorthChoices, artifactInsignificantDifferenceRange } from '../lib/file-imports';
 import type { ArtifactConversionStoneMode, ArtifactRecalculateMode, ArtifactSettings, GeneralSettings } from '../lib/types';
 import type { GameRecord } from '../lib/game-data';
+import type { MonsterPreferences } from '../lib/monster-preferences';
 
 /* The slider's stops are the stored percentages themselves
    (`ARTIFACT-CANONICAL.md` §19.6), so
@@ -43,10 +44,11 @@ const recalculateOptions: Array<{ value: ArtifactRecalculateMode; label: string 
    the account owns, while this page will answer what to change. Keeping those
    questions apart leaves the optimizer room for a clear, decision-first draft. */
 
-export function ArtifactsSection({ settings, data, monsters, general, hardwareAcceleration, onUpdate }: {
+export function ArtifactsSection({ settings, data, monsters, monsterPreferences, general, hardwareAcceleration, onUpdate }: {
   settings: ArtifactSettings;
   data: GameRecord | undefined;
   monsters: readonly GameRecord[];
+  monsterPreferences: MonsterPreferences;
   general: GeneralSettings;
   hardwareAcceleration: boolean;
   onUpdate: (update: Partial<ArtifactSettings>) => void;
@@ -70,17 +72,17 @@ export function ArtifactsSection({ settings, data, monsters, general, hardwareAc
     </section>}
 
     <Disclosure title="This is the way" sessionKey="artifacts.recommendations">
-      {data ? <ArtifactMaximumValues data={data} monsters={monsters} settings={settings} general={general}
+      {data ? <ArtifactMaximumValues data={data} monsters={monsters} monsterPreferences={monsterPreferences} settings={settings} general={general}
         hardwareAcceleration={hardwareAcceleration} /> : <p className="lead">Import your game data first, then ask every artifact where it can shine.</p>}
     </Disclosure>
 
     <Disclosure title="Best monster for this artifact" sessionKey="artifacts.best-monster">
-      {data ? <BestMonsterForArtifact data={data} monsters={monsters} settings={settings} general={general}
+      {data ? <BestMonsterForArtifact data={data} monsters={monsters} monsterPreferences={monsterPreferences} settings={settings} general={general}
         hardwareAcceleration={hardwareAcceleration} /> : <p className="lead">Import your game data first, then find the monster that can make an artifact shine.</p>}
     </Disclosure>
 
     <Disclosure title="Best artifact for this monster" sessionKey="artifacts.best-artifact">
-      {data ? <BestArtifactForMonster data={data} monsters={monsters} settings={settings} general={general}
+      {data ? <BestArtifactForMonster data={data} monsters={monsters} monsterPreferences={monsterPreferences} settings={settings} general={general}
         hardwareAcceleration={hardwareAcceleration} /> : <p className="lead">Import your game data first, then compare artifacts against one monster at a time.</p>}
     </Disclosure>
 

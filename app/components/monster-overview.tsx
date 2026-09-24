@@ -25,7 +25,7 @@ import {
   monsterArchetypeLabels, monsterFilterArchetypes, numericOrNull,
 } from '../lib/monster-grid';
 import type { MonsterGridColumn, MonsterRow, SortKey } from '../lib/monster-grid';
-import { numberedMonsterNames } from '../lib/monster-names';
+import { monsterCopyNames } from '../lib/monster-names';
 import { formatNumber } from '../lib/formatting';
 import { useSessionStorageState } from '../lib/session-storage-state';
 import { alignmentClass, monsterTableColumns } from '../lib/table-layouts';
@@ -171,12 +171,11 @@ export function MonsterOverview({ monsters, gameData, preferences, onOpenMonster
     search, selectedElements, selectedArchetypes, showStorage, showInventory, showBelowMaxLevel,
   } = filters;
   const rows = useMemo<MonsterRow[]>(() => {
-    const defaultNames = numberedMonsterNames(monsters);
+    const copyNames = monsterCopyNames(monsters, preferences.monsterPreferences);
     return monsters.map((monster, index) => {
       const unitId = String(monster.unit_id ?? `unknown-${index}`);
       const display = monsterPresentation(monster.unit_master_id);
       const totals = calculateMonsterTotals(monster);
-      const preference = preferences.monsterPreferences[unitId];
       const baseHp = numericOrNull(monster.con);
       const baseAtk = numericOrNull(monster.atk);
       const baseDef = numericOrNull(monster.def);
@@ -194,10 +193,9 @@ export function MonsterOverview({ monsters, gameData, preferences, onOpenMonster
       return {
         unitId,
         masterId: String(monster.unit_master_id ?? `unknown-${index}`),
-        name: preference?.label || defaultNames[unitId],
         /* Only a user's own label earns a second line, and it shows the game's
            name beneath it. A collaboration copy shows one name — its own. */
-        secondaryName: preference?.label ? defaultNames[unitId] : undefined,
+        ...copyNames[unitId],
         searchAliases: display.searchAliases,
         element: elementName(monster.attribute),
         archetype: display.archetype,

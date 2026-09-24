@@ -1,0 +1,45 @@
+{
+  "wizard_id": 9,
+  "deco_list": [
+    { "deco_id": 1, "wizard_id": 9, "island_id": 1, "master_id": 6, "level": 20, "pos_x": 1, "pos_y": 1 },
+    { "deco_id": 2, "wizard_id": 9, "island_id": 1, "master_id": 4, "level": 20, "pos_x": 2, "pos_y": 1 }
+  ],
+  "unit_list": [
+    {
+      "unit_id": 1, "wizard_id": 9, "unit_master_id": 11533, "attribute": 3, "unit_level": 40, "building_id": 0,
+      "con": 700, "atk": 500, "def": 500, "spd": 111, "resist": 15, "accuracy": 0, "critical_rate": 15, "critical_damage": 50,
+      "skills": [[2553, 3], [2558, 2], [2563, 3]],
+      "runes": [
+        { "rune_id": 101, "wizard_id": 9, "occupied_type": 1, "occupied_id": 1, "slot_no": 2, "rank": 5, "class": 6, "set_id": 3,
+          "upgrade_limit": 15, "upgrade_curr": 15, "base_value": 1000, "sell_value": 1000,
+          "pri_eff": [8, 42], "prefix_eff": [0, 0], "sec_eff": [[9, 4, 0, 0], [10, 24, 0, 0], [2, 8, 0, 6], [4, 10, 1, 7]], "extra": 4 }
+      ]
+    },
+    {
+      "unit_id": 2, "wizard_id": 9, "unit_master_id": 15931, "attribute": 1, "unit_level": 40, "building_id": 0,
+      "con": 700, "atk": 500, "def": 500, "spd": 97, "resist": 15, "accuracy": 0, "critical_rate": 15, "critical_damage": 50,
+      "skills": [[7351, 3], [7356, 3], [7361, 2]], "runes": []
+    },
+    {
+      "unit_id": 3, "wizard_id": 9, "unit_master_id": 14712, "attribute": 2, "unit_level": 40, "building_id": 0,
+      "con": 700, "atk": 500, "def": 500, "spd": 99, "resist": 15, "accuracy": 0, "critical_rate": 15, "critical_damage": 50,
+      "skills": [[6502, 5], [6507, 5], [6512, 1]], "runes": []
+    },
+    {
+      "unit_id": 4, "wizard_id": 9, "unit_master_id": 13413, "attribute": 3, "unit_level": 40, "building_id": 0,
+      "con": 700, "atk": 500, "def": 500, "spd": 103, "resist": 15, "accuracy": 0, "critical_rate": 15, "critical_damage": 50,
+      "skills": [[4703, 6], [4708, 5], [4713, 5]], "runes": []
+    },
+    {
+      "unit_id": 5, "wizard_id": 9, "unit_master_id": 13413, "attribute": 3, "unit_level": 40, "building_id": 0,
+      "con": 700, "atk": 500, "def": 500, "spd": 103, "resist": 15, "accuracy": 0, "critical_rate": 15, "critical_damage": 50,
+      "skills": [[4703, 6], [4708, 5], [4713, 5]], "runes": []
+    },
+    {
+      "unit_id": 6, "wizard_id": 9, "unit_master_id": 19215, "attribute": 5, "unit_level": 40, "building_id": 0,
+      "con": 700, "atk": 500, "def": 500, "spd": 100, "resist": 15, "accuracy": 0, "critical_rate": 15, "critical_damage": 50,
+      "skills": [[10005, 6], [10010, 7], [10015, 1]], "runes": []
+    }
+  ],
+  "runes": []
+}

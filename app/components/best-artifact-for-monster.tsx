@@ -22,7 +22,9 @@ import { formatNumber } from '../lib/formatting';
 import { monsterNameCollator } from '../lib/monster-grid';
 import { monsterPresentation } from '../lib/monster-catalog';
 import { monsterSpeciesId } from '../lib/monster-identity';
-import { numberedMonsterNames } from '../lib/monster-names';
+import { monsterCopyNames } from '../lib/monster-names';
+import type { MonsterCopyName } from '../lib/monster-names';
+import type { MonsterPreferences } from '../lib/monster-preferences';
 import type { Artifact } from '../lib/artifacts';
 import type { ArtifactCategory, ArtifactGrade, ArtifactMainProperty } from '../lib/artifact-properties';
 import type { ArtifactConversion, ArtifactMaximumScore, ArtifactScoreRequest } from '../lib/compute/artifact-score-protocol';
@@ -93,8 +95,9 @@ type ScoreContext = {
   speciesId: string;
 };
 
-function monsterOptions(monsters: readonly GameRecord[]): MonsterOption[] {
-  const names = numberedMonsterNames([...monsters]);
+/* `names` covers the whole roster, so a copy keeps its number when the
+   options are narrowed to a subset. */
+function monsterOptions(monsters: readonly GameRecord[], names: Record<string, MonsterCopyName>): MonsterOption[] {
   const seen = new Set<string>();
   const options: MonsterOption[] = [];
   for (const monster of monsters) {
@@ -106,7 +109,7 @@ function monsterOptions(monsters: readonly GameRecord[]): MonsterOption[] {
     const masterId = String(rawMasterId);
     if (!unitId || !masterId || seen.has(unitId)) continue;
     seen.add(unitId);
-    options.push({ unitId, masterId, name: names[unitId] ?? monsterPresentation(masterId).name });
+    options.push({ unitId, masterId, name: names[unitId]?.name ?? monsterPresentation(masterId).name });
   }
   return options.sort((left, right) => monsterNameCollator.compare(left.name, right.name)
     || monsterNameCollator.compare(left.unitId, right.unitId));
@@ -298,9 +301,10 @@ function Recommendation({ row, context }: { row: ResultRow; context: ScoreContex
   </li>;
 }
 
-export function BestArtifactForMonster({ data, monsters, settings, general, hardwareAcceleration }: {
+export function BestArtifactForMonster({ data, monsters, monsterPreferences, settings, general, hardwareAcceleration }: {
   data: GameRecord;
   monsters: readonly GameRecord[];
+  monsterPreferences: MonsterPreferences;
   settings: ArtifactSettings;
   general: GeneralSettings;
   hardwareAcceleration: boolean;
@@ -309,10 +313,11 @@ export function BestArtifactForMonster({ data, monsters, settings, general, hard
   const [calculation, setCalculation] = useState<Calculation | undefined>();
   const [state, setState] = useState<'idle' | 'calculating' | 'error'>('idle');
 
-  const allMonsters = useMemo(() => monsterOptions(monsters), [monsters]);
+  const copyNames = useMemo(() => monsterCopyNames(monsters, monsterPreferences), [monsters, monsterPreferences]);
+  const allMonsters = useMemo(() => monsterOptions(monsters, copyNames), [monsters, copyNames]);
   const eligibleMonsters = useMemo(
-    () => monsterOptions(artifactOptimizationMonsters(monsters, settings)),
-    [monsters, settings],
+    () => monsterOptions(artifactOptimizationMonsters(monsters, settings), copyNames),
+    [monsters, settings, copyNames],
   );
   const selectedMonster = eligibleMonsters.find((monster) => monster.unitId === filters.selectedUnitId);
   const artifacts = useMemo(() => readArtifacts(data), [data]);

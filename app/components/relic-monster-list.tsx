@@ -13,7 +13,7 @@ import type { Preferences } from '../lib/types';
 import { monsterPresentation } from '../lib/monster-catalog';
 import type { MonsterArchetype } from '../lib/monster-catalog';
 import { withHigherAwakenings } from '../lib/monster-identity';
-import { numberedMonsterNames } from '../lib/monster-names';
+import { monsterCopyNames } from '../lib/monster-names';
 import { elementName, elementNameList } from '../lib/rune-sets';
 import { isStoredMonster, monsterArchetypeLabels, monsterFilterArchetypes, numericOrNull } from '../lib/monster-grid';
 import { relicEngravingCounts } from '../lib/relics';
@@ -266,11 +266,10 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
   }, [monsters, relics, wornByMonster, preferences.monsterPreferences]);
 
   const rows = useMemo<RelicMonsterRow[]>(() => {
-    const defaultNames = numberedMonsterNames(monsters);
+    const copyNames = monsterCopyNames(monsters, preferences.monsterPreferences);
     return monsters.map((monster, index) => {
       const unitId = String(monster.unit_id ?? `unknown-${index}`);
       const display = monsterPresentation(monster.unit_master_id);
-      const preference = preferences.monsterPreferences[unitId];
       const worn = wornByMonster.get(unitId) ?? [];
       const recommendation = allocation.recommendations.get(unitId) ?? {
         monsterId: unitId,
@@ -287,8 +286,7 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
         unitId,
         masterId: String(monster.unit_master_id ?? `unknown-${index}`),
         index,
-        name: preference?.label || defaultNames[unitId],
-        secondaryName: preference?.label ? defaultNames[unitId] : undefined,
+        ...copyNames[unitId],
         searchAliases: display.searchAliases,
         element: elementName(monster.attribute),
         archetype: display.archetype,

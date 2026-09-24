@@ -27,7 +27,7 @@ import {
   artifactIntangibleLabel, artifactMainPropertyOrder,
 } from '../lib/artifact-properties';
 import type { ArtifactCategory, ArtifactGrade, ArtifactMainProperty } from '../lib/artifact-properties';
-import { numberedMonsterNames } from '../lib/monster-names';
+import { monsterCopyNames } from '../lib/monster-names';
 import { formatNumber } from '../lib/formatting';
 import { useSessionStorageState } from '../lib/session-storage-state';
 import { WorkspacePage } from './workspace-page';
@@ -194,7 +194,7 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
   const artifacts = useMemo(() => readArtifacts(game?.data), [game]);
 
   const rows = useMemo<ArtifactRow[]>(() => {
-    const names = numberedMonsterNames(monsters);
+    const names = monsterCopyNames(monsters, preferences.monsterPreferences);
     const wearers = new Map<string, GameRecord>();
     for (const monster of monsters) {
       if (monster.unit_id !== undefined && monster.unit_id !== null) wearers.set(String(monster.unit_id), monster);
@@ -220,7 +220,7 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
            import, which must not read as an empty inventory. */
         location: artifact.occupiedId === null
           ? 'Inventory'
-          : unitId === null ? null : preference?.label || names[unitId] || null,
+          : unitId === null ? null : names[unitId]?.name ?? null,
         wearer: unitId === null || wearer?.unit_master_id === undefined
           ? undefined
           : { unitId, masterId: String(wearer.unit_master_id) },

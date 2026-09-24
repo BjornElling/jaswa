@@ -1,0 +1,306 @@
+{
+ "source": "https://swarfarm.com/api/v2/",
+ "retrievedAt": "2026-09-24T07:54:30.250Z",
+ "minimumDelayMs": 3000,
+ "dungeons": [
+  {
+   "id": "giants",
+   "swarfarmDungeon": "Giant's Keep (Abyss)",
+   "swarfarmLevel": 799,
+   "floor": 2,
+   "teamSize": 5,
+   "stages": [
+    {
+     "fastest": 119,
+     "speeds": [
+      108,
+      119,
+      119,
+      108
+     ]
+    },
+    {
+     "fastest": 169,
+     "speeds": [
+      169,
+      164,
+      169
+     ]
+    },
+    {
+     "fastest": 119,
+     "speeds": [
+      108,
+      119,
+      119,
+      119,
+      108
+     ]
+    },
+    {
+     "fastest": 121,
+     "speeds": [
+      90,
+      90,
+      121
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dragons",
+   "swarfarmDungeon": "Dragon's Lair (Abyss)",
+   "swarfarmLevel": 801,
+   "floor": 2,
+   "teamSize": 5,
+   "stages": [
+    {
+     "fastest": 118,
+     "speeds": [
+      109,
+      118,
+      118,
+      109
+     ]
+    },
+    {
+     "fastest": 169,
+     "speeds": [
+      169,
+      163,
+      169
+     ]
+    },
+    {
+     "fastest": 118,
+     "speeds": [
+      109,
+      118,
+      118,
+      118,
+      109
+     ]
+    },
+    {
+     "fastest": 163,
+     "speeds": [
+      163,
+      163,
+      121
+     ]
+    }
+   ]
+  },
+  {
+   "id": "necropolis",
+   "swarfarmDungeon": "Necropolis (Abyss)",
+   "swarfarmLevel": 813,
+   "floor": 2,
+   "teamSize": 5,
+   "stages": [
+    {
+     "fastest": 118,
+     "speeds": [
+      109,
+      118,
+      118,
+      109
+     ]
+    },
+    {
+     "fastest": 169,
+     "speeds": [
+      169,
+      164,
+      169
+     ]
+    },
+    {
+     "fastest": 118,
+     "speeds": [
+      109,
+      118,
+      118,
+      118,
+      109
+     ]
+    },
+    {
+     "fastest": 109,
+     "speeds": [
+      109
+     ]
+    }
+   ]
+  },
+  {
+   "id": "spiritual",
+   "swarfarmDungeon": "Spiritual Realm (Abyss)",
+   "swarfarmLevel": 849,
+   "floor": 2,
+   "teamSize": 5,
+   "stages": [
+    {
+     "fastest": 119,
+     "speeds": [
+      108,
+      119,
+      119,
+      108
+     ]
+    },
+    {
+     "fastest": 169,
+     "speeds": [
+      169,
+      164,
+      169
+     ]
+    },
+    {
+     "fastest": 119,
+     "speeds": [
+      108,
+      119,
+      119,
+      119,
+      108
+     ]
+    },
+    {
+     "fastest": 177,
+     "speeds": [
+      150,
+      177,
+      98
+     ]
+    }
+   ]
+  },
+  {
+   "id": "steel",
+   "swarfarmDungeon": "Steel Fortress",
+   "swarfarmLevel": 703,
+   "floor": 10,
+   "teamSize": 5,
+   "stages": [
+    {
+     "fastest": 140,
+     "speeds": [
+      140,
+      135,
+      135,
+      140
+     ]
+    },
+    {
+     "fastest": 145,
+     "speeds": [
+      143,
+      145,
+      100
+     ]
+    },
+    {
+     "fastest": 140,
+     "speeds": [
+      140,
+      135,
+      135,
+      135,
+      140
+     ]
+    },
+    {
+     "fastest": 150,
+     "speeds": [
+      143,
+      150,
+      100
+     ]
+    }
+   ]
+  },
+  {
+   "id": "punisher",
+   "swarfarmDungeon": "Punisher's Crypt",
+   "swarfarmLevel": 705,
+   "floor": 10,
+   "teamSize": 5,
+   "stages": [
+    {
+     "fastest": 160,
+     "speeds": [
+      155,
+      160,
+      160,
+      155
+     ]
+    },
+    {
+     "fastest": 170,
+     "speeds": [
+      162,
+      170,
+      164
+     ]
+    },
+    {
+     "fastest": 160,
+     "speeds": [
+      155,
+      160,
+      160,
+      160,
+      155
+     ]
+    },
+    {
+     "fastest": 175,
+     "speeds": [
+      162,
+      175,
+      164
+     ]
+    }
+   ]
+  },
+  {
+   "id": "magic",
+   "swarfarmDungeon": "Hall of Magic",
+   "swarfarmLevel": 344,
+   "floor": 10,
+   "teamSize": 5,
+   "stages": [
+    {
+     "fastest": 105,
+     "speeds": [
+      105,
+      45,
+      91,
+      105,
+      90
+     ]
+    },
+    {
+     "fastest": 105,
+     "speeds": [
+      45,
+      105,
+      86,
+      90,
+      45
+     ]
+    },
+    {
+     "fastest": 127,
+     "speeds": [
+      114,
+      127,
+      80
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -27,7 +27,9 @@ import { readArtifacts } from '../lib/artifacts';
 import { formatNumber } from '../lib/formatting';
 import { monsterPresentation, monsterSpeciesPresentation } from '../lib/monster-catalog';
 import { monsterSpeciesId } from '../lib/monster-identity';
-import { numberedMonsterNames } from '../lib/monster-names';
+import { monsterCopyNames } from '../lib/monster-names';
+import type { MonsterCopyName } from '../lib/monster-names';
+import type { MonsterPreferences } from '../lib/monster-preferences';
 import { monsterNameCollator } from '../lib/monster-grid';
 import type { Artifact } from '../lib/artifacts';
 import type { ArtifactCategory, ArtifactGrade, ArtifactMainProperty } from '../lib/artifact-properties';
@@ -76,8 +78,10 @@ type Calculation = { inputKey: string; backend: CalculationBackend; durationMs: 
    return the complete plan. */
 const defaultFilters: ArtifactFilters = { categories: [], restrictions: [], grades: [], mainProperties: [], subPropertyId: '', locations: [], plannedLocations: ['equipped'], matching: ['hide'] };
 
-function readOwnedMonsters(monsters: readonly GameRecord[]): OwnedMonster[] {
-  const names = numberedMonsterNames([...monsters]);
+/* `names` is read off the whole roster, never off `monsters`: numbering a
+   filtered subset would call the second Lushen "Lushen" whenever the first was
+   filtered away, and the same copy would read differently on every page. */
+function readOwnedMonsters(monsters: readonly GameRecord[], names: Record<string, MonsterCopyName>): OwnedMonster[] {
   const seen = new Set<string>();
   const owned: OwnedMonster[] = [];
   for (const monster of monsters) {
@@ -88,14 +92,14 @@ function readOwnedMonsters(monsters: readonly GameRecord[]): OwnedMonster[] {
     const masterId = String(rawMasterId);
     if (!unitId || !masterId || seen.has(unitId)) continue;
     seen.add(unitId);
-    owned.push({ unitId, masterId, name: names[unitId] ?? monsterPresentation(masterId).name });
+    owned.push({ unitId, masterId, name: names[unitId]?.name ?? monsterPresentation(masterId).name });
   }
   return owned.sort((left, right) => monsterNameCollator.compare(left.name, right.name) || monsterNameCollator.compare(left.unitId, right.unitId));
 }
 
-function recommendationMonsters(monsters: readonly GameRecord[], settings: ArtifactSettings): OwnedMonster[] {
+function recommendationMonsters(monsters: readonly GameRecord[], settings: ArtifactSettings, names: Record<string, MonsterCopyName>): OwnedMonster[] {
   const candidates = artifactOptimizationMonsters(monsters, settings);
-  if (settings.onlyFactorInOwnedMonsters || settings.onlyLevel40Monsters) return readOwnedMonsters(candidates);
+  if (settings.onlyFactorInOwnedMonsters || settings.onlyLevel40Monsters) return readOwnedMonsters(candidates, names);
   /* Not owned copies but monsters in the abstract, so each is named as a species
      and a collaboration pair is listed once under both of its names. */
   return recordedArtifactPreferenceMonsterIds.map((speciesId) => ({
@@ -222,9 +226,10 @@ function Score({ value, general }: { value: number | undefined; general: General
   return value === undefined ? '—' : <span {...artifactValueTint(value)}>{formatNumber(value, general)} %</span>;
 }
 
-export function ArtifactMaximumValues({ data, monsters, settings, general, hardwareAcceleration }: {
+export function ArtifactMaximumValues({ data, monsters, monsterPreferences, settings, general, hardwareAcceleration }: {
   data: GameRecord | undefined;
   monsters: readonly GameRecord[];
+  monsterPreferences: MonsterPreferences;
   settings: ArtifactSettings;
   general: GeneralSettings;
   hardwareAcceleration: boolean;
@@ -238,8 +243,9 @@ export function ArtifactMaximumValues({ data, monsters, settings, general, hardw
      an artifact's position in the export means nothing to the user. */
   const artifactOrder = useMemo(() => new Map(artifacts.map((artifact, index) => [artifact.id, index])), [artifacts]);
   const stones = useMemo(() => engravedStonesFor(data), [data]);
-  const ownedMonsters = useMemo(() => readOwnedMonsters(monsters), [monsters]);
-  const scopedMonsters = useMemo(() => recommendationMonsters(monsters, settings), [monsters, settings]);
+  const copyNames = useMemo(() => monsterCopyNames(monsters, monsterPreferences), [monsters, monsterPreferences]);
+  const ownedMonsters = useMemo(() => readOwnedMonsters(monsters, copyNames), [monsters, copyNames]);
+  const scopedMonsters = useMemo(() => recommendationMonsters(monsters, settings, copyNames), [monsters, settings, copyNames]);
   const wearerByUnitId = useMemo(() => new Map(ownedMonsters.map((monster) => [monster.unitId, monster])), [ownedMonsters]);
   const scopedMonsterIds = useMemo(() => new Set(scopedMonsters.map((monster) => monster.unitId)), [scopedMonsters]);
   const subPropertyOptions = useMemo(() => {

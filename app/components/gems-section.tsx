@@ -367,6 +367,7 @@ export function GemsSection({ game, presets, preferences }: {
         items={items}
         runes={runes}
         monsters={monsters}
+        monsterPreferences={preferences.monsterPreferences}
         presets={presets}
         general={preferences.general}
       />}

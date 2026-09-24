@@ -13,6 +13,7 @@ import {
 } from '../lib/rune-potential-presets';
 import type { PresetChoice, PresetStatTargets, PresetType, RuneMainStat, RunePotentialPreset } from '../lib/rune-potential-presets';
 import type { GeneralSettings, ImportedGame, ItemGrade, RunePotentialSettings } from '../lib/types';
+import type { MonsterPreferences } from '../lib/monster-preferences';
 import { presetRuneSetNameList } from '../lib/rune-sets';
 import { RuneRecommendations } from './rune-recommendations';
 
@@ -67,9 +68,10 @@ const potentialStepLabels = {
 } as const;
 
 export function RunePotentialSection({
-  game, settings, presets, general, hardwareAcceleration, onUpdate, onWritePresets,
+  game, monsterPreferences, settings, presets, general, hardwareAcceleration, onUpdate, onWritePresets,
 }: {
   game: ImportedGame | null;
+  monsterPreferences: MonsterPreferences;
   settings: RunePotentialSettings;
   presets: RunePotentialPreset[];
   general: GeneralSettings;
@@ -104,7 +106,7 @@ export function RunePotentialSection({
     {/* The answer first, the controls that shape it underneath. A user opening
         this page has come for the verdicts, not for the sliders. */}
     <Disclosure title="Recommendations" sessionKey="rune-potential.recommendations" defaultOpen>
-      <RuneRecommendations game={game} settings={settings} presets={presets} general={general}
+      <RuneRecommendations game={game} monsterPreferences={monsterPreferences} settings={settings} presets={presets} general={general}
         hardwareAcceleration={hardwareAcceleration} />
     </Disclosure>
 

@@ -276,7 +276,7 @@ label[for] {
 .drop-zone strong, .best-artifact-result h3, .best-artifact-current h3,
 .best-artifact-category h3, .best-artifact-current-slot-title,
 .best-monster-artifact-details h3, .craft-best-use-item h3, .empty-state h2,
-.field-lead > span, .helper-version h4, .overlay-block-title {
+.field-lead > span, .helper-version h4, .overlay-block-title, .speed-team-title {
   font-family: var(--font-heading);
   font-size: var(--type-heading);
   font-weight: 600;
@@ -315,7 +315,7 @@ label[for] {
 }
 
 /* Body emphasis — weight carries priority without changing the family or size. */
-.type-body-emphasis, .monster-name, .slider-choice, .relic-verdict, .rune-verdict,
+.type-body-emphasis, .monster-name, .slider-choice, .relic-verdict, .rune-verdict, .speed-rule-monster,
 .drop-zone.settled strong, .acceleration-adapter b {
   font-family: var(--font-body);
   font-size: var(--type-body);
@@ -351,7 +351,7 @@ label[for] {
 .preset-type, .overlay-hero-facts, .overlay-provenance, .usage-share, .usage-sample,
 .overlay-stat-current, .overlay-substat-unit, .overlay-slot-name,
 .choice-menu-option-note, .rune-build-leader-pieces, .rune-build-leader-count,
-.rune-build-note, .rune-build-composed, .overlay-suggestion-label {
+.rune-build-note, .rune-build-composed, .overlay-suggestion-label, .speed-timeline-turn {
   font-family: var(--font-body);
   font-size: var(--type-label);
   font-weight: 400;
@@ -5684,3 +5684,243 @@ th.align-center .sort-button { justify-content: center; }
    run to twenty-two sets, a dozen main properties and however many presets the
    user has written, which as chips took six rows of the strip to state options
    nobody was reading. Each is now one row high whatever is chosen. */
+
+/* ------------------------------------------------------ speed tuning */
+
+/* Three columns side by side, as the page is read: dungeons, arena, and the
+   standing rules that reach across both. The rules column is narrower — it
+   holds sentences, not tables. */
+.speed-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, .78fr);
+  gap: var(--s5);
+  align-items: start;
+  margin-top: var(--s5);
+}
+.speed-column { display: grid; gap: var(--s4); min-width: 0; }
+.speed-column-head {
+  display: grid;
+  gap: var(--s3);
+  padding-bottom: var(--s3);
+  border-bottom: 1px solid var(--line);
+}
+.speed-column-head h2 { margin: 0; color: var(--text-strong); }
+.speed-column-add { display: grid; grid-template-columns: minmax(0, 1fr) max-content; gap: var(--s2); }
+.speed-column-add > .button:only-child { justify-self: start; }
+.speed-column-empty { margin: 0; color: var(--text-muted); line-height: 1.6; }
+
+.speed-rules {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--raise);
+  padding: var(--s4) var(--s5);
+}
+.speed-rule-facts {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--s4);
+  margin: 0;
+}
+.speed-rule-facts div { display: grid; gap: var(--s1); align-content: start; min-width: 0; }
+.speed-rule-facts dd { margin: 0; color: var(--text-strong); }
+.speed-rule-facts dd.type-caption { color: var(--text-muted); line-height: 1.5; }
+.speed-rules-note { margin: var(--s3) 0 0; color: var(--text-muted); line-height: 1.6; }
+
+/* One team. Its height is set by its content's size, never by its state: the
+   table always has a row per slot, every row has its verdict line, and the
+   facts below come in a fixed number — so reordering, adding or fixing a
+   monster moves nothing outside the card (AGENTS.md §2). */
+.speed-team {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--raise);
+  padding: var(--s4);
+  display: grid;
+  gap: var(--s3);
+  min-width: 0;
+}
+.speed-team-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
+.speed-team-title { margin: 0; color: var(--text-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.speed-team-actions { display: flex; gap: var(--s2); flex: 0 0 auto; }
+.speed-team-settings { display: grid; grid-template-columns: minmax(0, 1fr) max-content; gap: var(--s3); align-items: end; }
+.speed-team-leader { display: grid; gap: var(--s1); min-width: 0; }
+.speed-team-margin { display: flex; align-items: center; gap: var(--s2); }
+.speed-margin-select { width: 20ch; }
+.speed-team-leader-note { margin: 0; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.speed-team-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.speed-col-order { width: 3ch; }
+.speed-col-speed { width: 7ch; }
+.speed-col-what-if { width: 8ch; }
+.speed-col-controls { width: 84px; }
+.speed-team-table thead th {
+  padding: 0 var(--s1) var(--s2);
+  border-bottom: 1px solid var(--line);
+  color: var(--text-muted);
+  text-align: left;
+}
+.speed-team-table thead th.align-right { text-align: right; }
+/* Every slot is the same two rows, filled or empty: figures, then the
+   verdict across the width. */
+.speed-team-table td { padding: 0 var(--s1); vertical-align: middle; }
+.speed-row td { height: 36px; padding-top: var(--s1); }
+.speed-verdict-row td { height: 24px; padding-bottom: var(--s1); vertical-align: top; }
+.speed-slot { border-bottom: 1px solid var(--line); }
+.speed-slot[draggable] { cursor: grab; }
+.speed-slot[data-dragging] { opacity: .5; }
+.speed-slot:hover { background: var(--hover); }
+.speed-order { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.speed-monster { min-width: 0; }
+.speed-monster-line { display: flex; align-items: center; gap: var(--s2); min-width: 0; }
+.speed-monster-line .monster-link { min-width: 0; overflow: hidden; }
+.speed-boost-slot { flex: 0 0 16px; width: 16px; height: 16px; }
+.speed-boost-mark { display: block; width: 16px; height: 16px; color: var(--text-strong); }
+.speed-boost-mark[data-tone='own'] { color: var(--text-muted); }
+.speed-boost-mark svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.speed-verdict {
+  display: block;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--text-muted);
+}
+.speed-verdict[data-state='good'] { color: var(--state-good); }
+.speed-verdict[data-state='warn'] { color: var(--state-warn); }
+.speed-verdict[data-state='bad'] { color: var(--state-bad); }
+.speed-monster-name { display: block; }
+.speed-figure { text-align: right; font-variant-numeric: tabular-nums; color: var(--text); }
+.speed-combat { color: var(--text-strong); }
+.speed-what-if {
+  width: 100%;
+  height: 28px;
+  padding: 0 var(--s2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--sunk);
+  color: var(--text-strong);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color-scheme: dark;
+}
+.speed-what-if::placeholder { color: var(--text-muted); }
+.speed-what-if:focus { outline: none; border-color: var(--text-accent); }
+.speed-controls { text-align: right; white-space: nowrap; }
+.speed-icon-button {
+  width: 24px; height: 24px;
+  padding: 0;
+  display: inline-grid; place-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  transition: color .12s, border-color .12s, background .12s;
+}
+.speed-icon-button:hover:not(:disabled) { color: var(--text-accent); border-color: var(--gold-edge); background: var(--gold-deep); }
+.speed-icon-button:disabled { opacity: .35; cursor: default; }
+.speed-icon { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.speed-slot-empty td { color: var(--text-muted); }
+.speed-empty-slot { color: var(--text-muted); }
+.speed-add-monster { height: 32px; }
+
+.speed-team-facts {
+  margin: 0; padding: 0; list-style: none;
+  display: grid; gap: var(--s1);
+  color: var(--text);
+}
+.speed-team-facts li { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.speed-team-status[data-state='good'] { color: var(--state-good); }
+.speed-team-status[data-state='bad'] { color: var(--state-bad); }
+.speed-team-status[data-state='none'] { color: var(--text-muted); }
+.speed-team-rules[data-state='none'] { color: var(--text-muted); }
+.speed-team-rules[data-state='good'] { color: var(--state-good); }
+.speed-team-rules[data-state='bad'] { color: var(--state-bad); }
+
+.speed-rule-form { display: grid; gap: var(--s3); }
+.speed-rule-pick { display: grid; gap: var(--s1); }
+.speed-rule-where { display: flex; align-items: center; gap: var(--s4); flex-wrap: wrap; }
+.speed-rule-where .button { margin-left: auto; }
+.speed-rule-list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--s3); }
+.speed-rule {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--raise);
+  padding: var(--s3) var(--s4);
+  display: grid; gap: var(--s2);
+  min-width: 0;
+}
+.speed-rule-text { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-strong); }
+.speed-rule-controls { display: flex; align-items: center; gap: var(--s2); }
+.speed-rule-controls .button { margin-left: auto; }
+.speed-rule-state { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
+.speed-rule-state[data-state='good'] { color: var(--state-good); }
+.speed-rule-state[data-state='bad'] { color: var(--state-bad); }
+
+/* The turn-order dialog: wide enough for a tick column per turn of a slow
+   team, and capped at the viewport so the timeline scrolls inside it while the
+   heading and Close stay put. */
+.dialog.speed-turn-dialog {
+  --speed-timeline-label: 200px;
+  --speed-timeline-tick: 24px;
+  width: min(1280px, 100%);
+  max-height: min(88vh, 960px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  padding: 0;
+}
+.speed-turn-head {
+  display: flex; justify-content: space-between; align-items: end; gap: var(--s4);
+  padding: var(--s5) var(--s5) var(--s4);
+  border-bottom: 1px solid var(--line);
+}
+.speed-turn-head h2 { color: var(--text-accent); }
+.dialog .speed-turn-note { margin: var(--s2) 0 0; color: var(--text-muted); line-height: 1.5; }
+.speed-turn-views { display: flex; gap: var(--s1); flex: 0 0 auto; }
+.speed-turn-body { overflow: auto; padding: var(--s5); display: grid; gap: var(--s5); align-content: start; }
+.dialog-actions.speed-turn-actions { margin: 0; padding: var(--s4) var(--s5); border-top: 1px solid var(--line); }
+
+.speed-timeline { display: grid; row-gap: var(--s1); width: max-content; }
+.speed-timeline-row { display: contents; }
+.speed-timeline-label {
+  display: grid; align-content: center;
+  padding-right: var(--s3);
+  min-width: 0;
+  position: sticky; left: 0; z-index: 1;
+  background: var(--raise);
+}
+.speed-timeline-label .type-caption { color: var(--text-muted); }
+.speed-timeline-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-strong); }
+.speed-timeline-row[data-enemy] .speed-timeline-name { color: var(--text); }
+.speed-timeline-tick-head { text-align: center; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.speed-timeline-cell {
+  position: relative;
+  height: 36px;
+  margin: 0 1px;
+  border-radius: 2px;
+  background: var(--sunk);
+  overflow: hidden;
+}
+.speed-timeline-fill { position: absolute; left: 0; right: 0; bottom: 0; background: var(--line-strong); }
+.speed-timeline-row[data-enemy] .speed-timeline-fill { background: color-mix(in srgb, var(--state-bad) 45%, var(--line)); }
+.speed-timeline-turn {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  background: var(--gold-deep);
+  border: 1px solid var(--text-accent);
+  border-radius: 2px;
+  color: var(--text-accent);
+  font-variant-numeric: tabular-nums;
+}
+.speed-timeline-row[data-enemy] .speed-timeline-turn { background: color-mix(in srgb, var(--state-bad) 22%, var(--sunk)); border-color: var(--state-bad); color: var(--state-bad); }
+
+.speed-turn-list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--s1); }
+.speed-turn-list li {
+  display: grid;
+  grid-template-columns: 3ch 8ch minmax(0, 14rem) minmax(0, 1fr);
+  gap: var(--s3);
+  align-items: baseline;
+  padding: var(--s1) 0;
+  border-bottom: 1px solid var(--line);
+}
+.speed-turn-list li[data-enemy] .speed-turn-name { color: var(--state-bad); }
+.speed-turn-index { color: var(--text-muted); font-variant-numeric: tabular-nums; text-align: right; }
+.speed-turn-tick { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.speed-turn-name { color: var(--text-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.speed-turn-effects { color: var(--text-muted); }

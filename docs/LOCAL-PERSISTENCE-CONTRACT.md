@@ -28,7 +28,11 @@ The durable workspace contains:
   be built for different jobs), Rune Clean-up settings, Rune Clean-up
   presets, and Artifact Optimization settings (whether to factor in only owned
   monsters or only Lv. 40 monsters, how conversion stones are sourced, the
-  assumed stone value, and the acceptable-property factor);
+  assumed stone value, and the acceptable-property factor), and Speed Tuning's
+  teams and rules (each team's dungeon or arena, its monsters in the order they
+  should move, its leader, its speed margin, and any what-if display speed
+  typed for one monster in that team — keyed by `unit_id`; and each standing
+  rule that one monster moves before another in arena, dungeons or both);
 - the chosen export-folder handle when the browser supports it.
 
 The first two records live in IndexedDB under the local `jaswa-local`
@@ -62,6 +66,13 @@ storage API. That route updates the synchronous preferences mirror before the
 new value reaches the interface, and queues an IndexedDB write after the
 earlier preference writes. Imported game data and folder choices wait for their
 IndexedDB transaction to complete before appearing as saved state.
+
+A Speed Tuning change goes through `writeSpeedTuning` in `app/page.tsx`, a
+named wrapper over `changePreferences`. Only the user's statements are stored;
+every arena speed, dungeon speed, verdict and interval is derived from the
+current import on each render, so a saved team cannot carry a stale reading.
+An empty what-if is absent, never `0`, and a saved team whose monster the
+import no longer holds keeps its slot and says so until the user removes it.
 
 A monster-overlay choice goes through `updateMonsterPreferences` in
 `app/page.tsx`, which is a named wrapper over `changePreferences` and not a

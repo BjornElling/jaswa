@@ -73,16 +73,11 @@ export const navigationGroups: Array<{ heading: string; items: NavigationItem[] 
   },
 ];
 
-export const upcomingWorkspaces: Record<'optimizer' | 'speed', { title: string; tagline: string; text: string }> = {
+export const upcomingWorkspaces: Record<'optimizer', { title: string; tagline: string; text: string }> = {
   optimizer: {
     title: 'Rune Optimization',
     tagline: 'Six slots, thousands of runes, one answer. Let your computer do the arithmetic so you can go back to pretending it was intuition.',
     text: 'Finds rune combinations that meet the requirements you save for each monster.',
-  },
-  speed: {
-    title: 'Speed Tuning',
-    tagline: 'Turn order is a solved problem. Getting your own team to respect it is the hard part.',
-    text: 'Works out the rune speeds your team needs to take turns in the order you intend.',
   },
 };
 
