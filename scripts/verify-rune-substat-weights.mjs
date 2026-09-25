@@ -49,7 +49,7 @@ const mainsOf = (build) => ({ 1: 3, 2: build.mains[2], 3: 5, 4: build.mains[4], 
 function verifyTargetsAreNotSwitches() {
   const fastDd = preset('fast-dd');
   const build = presetBuilds(fastDd).find((candidate) => candidate.mains[2] === 4);
-  const weights = substatWeights({ targets: fastDd.targets, mains: mainsOf(build), artifacts: fastDd.artifacts, base });
+  const weights = substatWeights({ targets: fastDd.targets, mains: mainsOf(build), artifacts: fastDd.artifacts, base, credit: noCraft });
   const of = (stat) => weights.weights.get(stat) ?? 0;
 
   check(of('spd') > of('criDmg'), 'Fast DD: SPD should outweigh CRI Dmg.');
@@ -70,8 +70,8 @@ function verifyTargetsAreNotSwitches() {
 function verifyMainsReduceTheRequirement() {
   const bomber = preset('bomber');
   const mains = mainsOf(presetBuilds(bomber)[0]);
-  const withHp = substatWeights({ targets: bomber.targets, mains: { ...mains, 4: 2, 6: 2 }, artifacts: bomber.artifacts, base });
-  const withAtk = substatWeights({ targets: bomber.targets, mains: { ...mains, 4: 4, 6: 4 }, artifacts: bomber.artifacts, base });
+  const withHp = substatWeights({ targets: bomber.targets, mains: { ...mains, 4: 2, 6: 2 }, artifacts: bomber.artifacts, base, credit: noCraft });
+  const withAtk = substatWeights({ targets: bomber.targets, mains: { ...mains, 4: 4, 6: 4 }, artifacts: bomber.artifacts, base, credit: noCraft });
   const hpRow = (weights) => weights.rows.find((row) => row.stat === 'hp');
   check(hpRow(withHp).needed < hpRow(withAtk).needed,
     'HP % main properties should reduce what the build still needs in HP.');
@@ -96,7 +96,7 @@ function verifyMainsReduceTheRequirement() {
 function verifySetsNeverReachTheRequirement() {
   const fastDd = preset('fast-dd');
   const mains = mainsOf(presetBuilds(fastDd).find((candidate) => candidate.mains[2] === 4));
-  const weights = substatWeights({ targets: fastDd.targets, mains, artifacts: fastDd.artifacts, base });
+  const weights = substatWeights({ targets: fastDd.targets, mains, artifacts: fastDd.artifacts, base, credit: noCraft });
   const atk = weights.rows.find((row) => row.stat === 'atk');
   check(close(atk.fromBase + atk.fromMains + atk.fromArtifacts + atk.needed, atk.target),
     'base, mains, artifacts and the remaining need should account for the whole ATK target,'
@@ -114,7 +114,7 @@ function verifySetsNeverReachTheRequirement() {
 function verifyArtifactsComeOffTheRequirement() {
   const fastDd = preset('fast-dd');
   const mains = mainsOf(presetBuilds(fastDd).find((candidate) => candidate.mains[2] === 4));
-  const of = (artifacts) => substatWeights({ targets: fastDd.targets, mains, artifacts, base }).rows;
+  const of = (artifacts) => substatWeights({ targets: fastDd.targets, mains, artifacts, base, credit: noCraft }).rows;
   const from = (rows, stat) => rows.find((row) => row.stat === stat)?.fromArtifacts ?? 0;
 
   const none = of({ atk: false, def: false, hp: false });
@@ -141,18 +141,66 @@ function verifyArtifactsComeOffTheRequirement() {
     + ` to ${atkRow(one).weight.toFixed(3)}.`);
 }
 
+/**
+ * The credited Grindstones come off the requirement, on as many lines as the
+ * requirement puts in the build: a small need is met by a line or two and brings a
+ * stone or two, a large one puts the stat on every line that may hold it and every
+ * one of those is ground. Nothing a stone cannot touch moves, and with no stone
+ * credited nothing moves at all.
+ */
+function verifyGrindstonesComeOffTheRequirement() {
+  const fastDd = preset('fast-dd');
+  const mains = mainsOf(presetBuilds(fastDd).find((candidate) => candidate.mains[2] === 4));
+  const ground = { gem: null, gemGrade: 'Hero', grind: 'three-quarters', grindGrade: 'Hero' };
+  const of = (credit) => substatWeights({ targets: fastDd.targets, mains, artifacts: fastDd.artifacts, base, credit });
+  const bare = of(noCraft);
+  const withStones = of(ground);
+  const row = (weights, stat) => weights.rows.find((entry) => entry.stat === stat);
+
+  for (const entry of bare.rows) {
+    check(entry.fromGrindstones === 0 && entry.groundLines === 0 && entry.rollsToRoll === entry.rollsNeeded,
+      `${entry.stat}: with no Grindstone credited, the stones should find nothing.`);
+  }
+  for (const entry of withStones.rows) {
+    check(close(entry.rollsToRoll + entry.fromGrindstones, entry.rollsNeeded),
+      `${entry.stat}: the rolls and the stones should account for the whole requirement.`);
+    check(entry.rollsToRoll >= 0, `${entry.stat}: the stones found more than the role needed.`);
+  }
+  for (const stat of ['criRate', 'criDmg', 'acc']) {
+    check(row(withStones, stat).fromGrindstones === 0 && close(row(withStones, stat).tightness, row(bare, stat).tightness),
+      `${stat} takes no Grindstone and its requirement should not move.`);
+  }
+  for (const stat of ['spd', 'atk', 'hp', 'def']) {
+    check(row(withStones, stat).fromGrindstones > 0, `${stat}: the credited stones should find some of it.`);
+    check(row(withStones, stat).tightness < row(bare, stat).tightness,
+      `${stat}: a requirement the stones help with should be looser.`);
+  }
+  /* SPD is eighteen max rolls and has one effect id on all six slots, so the build
+     carries it on every rune and every one of them is ground. DEF is under two, so
+     a line or two does. */
+  const spd = row(withStones, 'spd');
+  check(close(spd.groundLines, 6), `a large SPD need should put SPD on all six lines, not ${spd.groundLines.toFixed(2)}.`);
+  const def = row(withStones, 'def');
+  check(def.groundLines > 0 && def.groundLines < 2, `a small DEF need should use a line or two, not ${def.groundLines.toFixed(2)}.`);
+  check(of(ground).weights.get('criRate') > bare.weights.get('criRate'),
+    'with the grindable stats relieved, CRI Rate should weigh more against the tightest target.');
+  console.log(`Grindstones: SPD ${spd.groundLines.toFixed(2)} lines find ${spd.fromGrindstones.toFixed(2)} of`
+    + ` ${spd.rollsNeeded.toFixed(2)} rolls; DEF ${def.groundLines.toFixed(2)} lines find`
+    + ` ${def.fromGrindstones.toFixed(2)} of ${def.rollsNeeded.toFixed(2)}.`);
+}
+
 /** A target already met without a single sub property asks the runes for nothing. */
 function verifyMetTargetsAskForNothing() {
   const leo = preset('leo');
   const build = presetBuilds(leo)[0];
-  const weights = substatWeights({ targets: leo.targets, mains: mainsOf(build), artifacts: leo.artifacts, base });
+  const weights = substatWeights({ targets: leo.targets, mains: mainsOf(build), artifacts: leo.artifacts, base, credit: noCraft });
   const spd = weights.rows.find((row) => row.stat === 'spd');
   check(spd.needed === 0, "Leo's 100 SPD target is below the reference monster's own base speed.");
   check(spd.weight === 0, 'a target the build already meets should not pull value out of other stats.');
 
   /* And the degenerate case that would otherwise leave a preset unable to judge
      anything: every target met, so every stat the role names is scored alike. */
-  const met = substatWeights({ targets: { spd: 1, acc: 1 }, mains: mainsOf(build), artifacts: leo.artifacts, base });
+  const met = substatWeights({ targets: { spd: 1, acc: 1 }, mains: mainsOf(build), artifacts: leo.artifacts, base, credit: noCraft });
   check(met.degenerate, 'a preset whose every target is already met should report the degenerate case.');
   check([...met.weights.values()].every((weight) => weight === 1),
     'in the degenerate case every named stat should be scored alike rather than at nothing.');
@@ -170,28 +218,28 @@ function verifyMetTargetsAskForNothing() {
 function verifyThePerfectRuneReadsFull() {
   for (const entry of presets) {
     for (const build of presetBuilds(entry)) {
-      for (const slot of [1, 2, 3, 4, 5, 6]) {
+      for (const stars of [4, 5, 6]) for (const slot of [1, 2, 3, 4, 5, 6]) {
         const main = slot === 1 ? 3 : slot === 3 ? 5 : slot === 5 ? 1 : build.mains[slot];
         if (main === 0 || !slotMainProperties[slot].includes(main)) continue;
         const line = entry.type === 'Support type' ? supportBase : base;
-        const weights = substatWeights({ targets: entry.targets, mains: mainsOf(build), artifacts: entry.artifacts, base: line });
+        const weights = substatWeights({ targets: entry.targets, mains: mainsOf(build), artifacts: entry.artifacts, base: line, credit: noCraft });
         if (weights.weights.size === 0) continue;
 
         const ranked = runeStatIds
           .filter((statId) => statId !== main && slotAllowsSubStat(slot, statId))
-          .map((statId) => ({ statId, worth: (weights.weights.get(subPropertyTargetStat[statId]) ?? 0) * rollWorth(statId, line) }))
+          .map((statId) => ({ statId, worth: (weights.weights.get(subPropertyTargetStat[statId]) ?? 0) * rollWorth(statId, line, stars) }))
           .filter((option) => option.worth > 0)
           .sort((left, right) => right.worth - left.worth);
         if (ranked.length < 5) continue;
 
         const rune = {
-          id: 'perfect', setId: 13, setName: 'Violent', slot, stars: 6, ancient: false,
+          id: 'perfect', setId: 13, setName: 'Violent', slot, stars, ancient: false,
           defaultGrade: 'Legend', level: 12, mainStatId: main, mainValue: 0,
-          prefixStatId: ranked[4].statId, prefixValue: maximumRoll(ranked[4].statId),
+          prefixStatId: ranked[4].statId, prefixValue: maximumRoll(ranked[4].statId, stars),
           subProperties: [
-            { statId: ranked[0].statId, value: maximumRoll(ranked[0].statId) * 5, gemmed: false, grind: 0 },
+            { statId: ranked[0].statId, value: maximumRoll(ranked[0].statId, stars) * 5, gemmed: false, grind: 0 },
             ...ranked.slice(1, 4).map((option) => ({
-              statId: option.statId, value: maximumRoll(option.statId), gemmed: false, grind: 0,
+              statId: option.statId, value: maximumRoll(option.statId, stars), gemmed: false, grind: 0,
             })),
           ],
           occupiedId: null, obtainedOrder: 1,
@@ -200,19 +248,19 @@ function verifyThePerfectRuneReadsFull() {
         check(candidate !== null, `${entry.name} slot ${slot}: the perfect rune was not judged at all.`);
         if (!candidate) continue;
         check(close(candidateMaxValue(candidate), 1, 1e-9),
-          `${entry.name} slot ${slot}: the perfect rune reads ${(candidateMaxValue(candidate) * 100).toFixed(3)} %, not 100 %.`);
+          `${entry.name} slot ${slot} ${stars}★: the perfect rune reads ${(candidateMaxValue(candidate) * 100).toFixed(3)} %, not 100 %.`);
       }
     }
   }
-  console.log('The perfect rune reads 100 % in every slot of every shipped preset build.');
+  console.log('The perfect rune of every star class reads 100 % in every slot of every shipped preset build.');
 }
 
-/** One max roll of an effect id, in max-roll equivalents against this base line. */
-function rollWorth(statId, line) {
+/** One max roll of an effect id, in max rolls of its own star class against this base line. */
+function rollWorth(statId, line, stars) {
   const stat = subPropertyTargetStat[statId];
   const percentId = { hp: 2, atk: 4, def: 6 }[stat];
   if (percentId === undefined) return 1;
-  return statId === percentId ? 1 : maximumRoll(statId) * 100 / line[stat] / maximumRoll(percentId);
+  return statId === percentId ? 1 : maximumRoll(statId, stars) * 100 / line[stat] / maximumRoll(percentId, stars);
 }
 
 /* ------------------------------------------------ 4. surplus is never penalised */
@@ -251,11 +299,13 @@ function verifySurplusKeepsPaying() {
 /* -------------------------------------------- 5. lower stars, unfinished runes */
 
 /**
- * A lower-star rune is rated on the same scale, not excluded from it and not given
- * an artificial six-star roll. A perfect five-star rune therefore sits below a
- * perfect six-star one and well above nothing.
+ * **A rune is measured against the best rune of its own star class**
+ * (`RUNE-CLEANUP-MATH.md` §2, §5). Its lines are priced in its own class's max rolls
+ * and its perfect rune is one of its own class, so a perfect four-, five- or six-star
+ * rune each reads 100 %. It used to read 45 %, 67 % and 99 % on one six-star scale,
+ * which was the star tables talking rather than a judgement of the rune.
  */
-function verifyLowerStarsStayOnOneScale() {
+function verifyEachStarClassIsItsOwnScale() {
   const fastDd = preset('fast-dd');
   const build = presetBuilds(fastDd).find((candidate) => candidate.mains[2] === 4);
   const make = (stars, level) => ({
@@ -272,10 +322,22 @@ function verifyLowerStarsStayOnOneScale() {
   });
   const values = [4, 5, 6].map((stars) =>
     candidateMaxValue(prepareRuneCandidate(make(stars, 12), fastDd, build, base, noCraft)));
-  check(values[0] < values[1] && values[1] < values[2],
-    `a perfect rune should read higher with each star class, not ${values.map((v) => v.toFixed(3)).join(' / ')}.`);
-  check(values[0] > 0.1, 'a perfect four-star rune should still be rated, not written off.');
-  console.log(`Perfect 4★ / 5★ / 6★ read ${values.map((value) => (value * 100).toFixed(1) + ' %').join(' / ')}.`);
+  check(values.every((value) => close(value, values[2], 0.005)),
+    `the same arrangement at its own class's maxima should read alike at every star class, not ${values.map((v) => v.toFixed(3)).join(' / ')}.`);
+  console.log(`The same maximal arrangement at 4★ / 5★ / 6★ reads ${values.map((value) => (value * 100).toFixed(1) + ' %').join(' / ')}.`);
+
+  /* And a five-star line is priced in five-star rolls: SPD +5 on a five-star rune is
+     one whole max roll, exactly as SPD +6 is on a six-star one. */
+  const one = (stars, value) => {
+    const rune = make(stars, 12);
+    rune.subProperties = [{ statId: 8, value, gemmed: false, grind: 0 },
+      ...rune.subProperties.slice(1).map((line) => ({ ...line, value: 0 }))];
+    rune.prefixStatId = null;
+    rune.prefixValue = 0;
+    return candidateMaxValue(prepareRuneCandidate(rune, fastDd, build, base, noCraft));
+  };
+  check(close(one(5, maximumRoll(8, 5)), one(6, maximumRoll(8, 6)), 1e-9),
+    'one maximum SPD roll should be worth the same share of its own class\'s perfect rune at five and six stars.');
 
   /* An unfinished rune is scored on what it can still become, so the same lines at
      +0 must reach the same ceiling they reach at +12 — every remaining upgrade is
@@ -323,10 +385,11 @@ verifyTargetsAreNotSwitches();
 verifyMainsReduceTheRequirement();
 verifySetsNeverReachTheRequirement();
 verifyArtifactsComeOffTheRequirement();
+verifyGrindstonesComeOffTheRequirement();
 verifyMetTargetsAskForNothing();
 verifyThePerfectRuneReadsFull();
 verifySurplusKeepsPaying();
-verifyLowerStarsStayOnOneScale();
+verifyEachStarClassIsItsOwnScale();
 verifyCraftCreditMovesBothEnds();
 newSubstatWeightScope();
 

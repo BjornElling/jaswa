@@ -463,6 +463,10 @@ it reads as though it were rune-dependent, which it is not.
 
 ### 4.7 A candidate's eligibility ceiling is known before any arithmetic
 
+> **Superseded, 25 September 2026.** `mainScale` no longer exists: a rune is measured
+> against the perfect rune of its own star class (`RUNE-CLEANUP-MATH.md` §2, §5), so
+> the bound below is `value ≤ worth` and skips nothing a lower star class used to.
+
 **Founded on:** the shape of the value gate. A candidate is eligible only if
 `value >= qualityBar`, where
 

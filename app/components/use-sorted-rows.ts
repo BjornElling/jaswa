@@ -30,6 +30,13 @@ export type SortableColumn<Row> = {
   /** Numeric columns start at their most useful end, which is the largest. */
   initialDirection?: SortDirection;
   /**
+   * A row this column prints no value for — a dash. It sorts after every row that
+   * has one, in both directions: a dash is not the column's smallest or largest
+   * value, and ranking it as either puts rows with nothing to compare at the top of
+   * one of the two passes.
+   */
+  absent?: (row: Row) => boolean;
+  /**
    * `false` for an ordering the table can sort by but shows no column for,
    * driven from a control elsewhere on the page. It stays in this list rather
    * than becoming a second sort state, so the header marks nothing as sorted
@@ -70,7 +77,13 @@ export function useSortedRows<Row>(
     const column = columns.find((entry) => entry.key === sort.key);
     if (!column?.compare) return rows;
     const direction = sort.direction === 'ascending' ? 1 : -1;
+    const absent = column.absent;
     return [...rows].sort((left, right) => {
+      if (absent) {
+        const missing = Number(absent(left)) - Number(absent(right));
+        if (missing !== 0) return missing;
+        if (absent(left)) return tiebreak ? tiebreak(left, right) : 0;
+      }
       const ordered = column.compare?.(left, right) ?? 0;
       if (ordered !== 0) return ordered * direction;
       /* The fallback is not reversed: it keeps equal rows in one stated order

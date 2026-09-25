@@ -156,14 +156,11 @@ const mainPropertiesAtMaximumByStar: Readonly<Record<number, Readonly<Record<num
 };
 
 /**
- * Main properties are deterministic and Ancient changes none of them. The stars
- * argument is mandatory in new code, unlike the legacy six-star alias below.
+ * Main properties are deterministic and Ancient changes none of them, so the star
+ * class is the only thing besides the effect id that decides the `+15` value.
  */
 export const mainPropertyMaximum = (stars: number, statId: number): number =>
   mainPropertiesAtMaximumByStar[stars]?.[statId] ?? 0;
-
-/** Backward-compatible ordinary six-star alias. */
-export const mainPropertyAtMaximum = mainPropertiesAtMaximumByStar[6];
 
 
 /**

@@ -125,6 +125,32 @@ export function compareRuneGameSort(
   return 0;
 }
 
+/** Whether the row prints a Max value: not where no preset can use the rune. */
+export const runeMaxValueShown = (row: RuneCleanupRow): boolean => row.advice.preset !== null;
+
+/**
+ * Whether the row prints a Chance. A rune at `+12` has no upgrades left and no odds
+ * to quote — its chance is a certainty, 1 or 0, which the verdict already states —
+ * so it prints a dash, and a dash is not 100 %.
+ */
+export const runeChanceShown = (row: RuneCleanupRow): boolean =>
+  row.advice.preset !== null && row.rune.level < 12;
+
+/**
+ * The chance as the column prints it: whole percentage points, **rounded down**.
+ *
+ * Every Power-up policy stop is a whole percentage, and the verdict is the chance
+ * compared with it. Rounded to the nearest point, a 79.6 % rune printed `80 %` beside
+ * a Sell under Take no chances; rounded down, the printed number clears the stop
+ * exactly when the rune does. A real chance under one point says so rather than
+ * reading `0 %`, which is kept for a rune that cannot get there at all.
+ */
+export function runeChanceText(chance: number): string {
+  if (chance <= 0) return '0 %';
+  const points = Math.floor(chance * 100 + 1e-9);
+  return points >= 1 ? `${points} %` : '<1 %';
+}
+
 /** The verdicts in the order they rank, so sorting by advice reads as a priority. */
 const verdictRank: Readonly<Record<string, number>> = { 'power-up': 0, keep: 1, sell: 2 };
 

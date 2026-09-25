@@ -27,6 +27,7 @@ file, `npm run verify:rune-chance-stability` holds the odds still, and
 | Gem and Grindstone legality/ranges | Verified tables and source notes in `RUNE-CRAFT-ITEMS.md`. |
 | A value inside its legal integer interval | Modelled uniformly; the 6★ distribution has a measured check. |
 | Upgrade target and new-line type | Assumed uniform over legal choices; neither is claimed as game fact. |
+| Main-property rate on slots 2, 4 and 6 | Assumed uniform over the slot's legal mains (§9.3); not measured. |
 | Artifact main properties | Verified table in `ARTIFACT-CANONICAL.md` §2; confirmed against 262 real artifacts. |
 | How a preset's artifact choice fills two slots | Stated assumption: evenly over the stats it named (§4.1). |
 | The set a build completes | **Not modelled.** A preset states no set combination, and guessing one from the candidate is what §4.3 forbids. |
@@ -38,19 +39,35 @@ simulation written from the game's schedule rather than from that loop.
 
 ## 2. One currency, including flat stats
 
-All relevant substats are converted to **six-star maximum-roll equivalents**. A
-percent line divides by its six-star maximum. HP, ATK and DEF flat lines first become
-percentage points of the selected reference monster's base stat, then divide by the
-corresponding percentage-line maximum:
+All relevant substats are converted to **maximum-roll equivalents of the rune's own
+star class**. A percent line divides by its own class's maximum. HP, ATK and DEF flat
+lines first become percentage points of the selected reference monster's base stat —
+a conversion that is the same at every star class — and then divide by the matching
+percentage line's maximum for the rune's class. For a six-star rune:
 
 ```
 flat HP contribution = (flat HP × 100 / reference HP) / 8
 HP % contribution    = HP % / 8
 ```
 
-The same conversion is used for ATK and DEF. Thus `HP +375` and `HP % +8` can be
-compared without a made-up universal flat-stat weight. SPD, CRI Rate, CRI DMG, RES
-and ACC are native points and divide by their own maximum roll.
+and for a five-star rune the divisor is the five-star HP % maximum instead. The same
+conversion is used for ATK and DEF. Thus `HP +375` and `HP % +8` can be compared
+without a made-up universal flat-stat weight. SPD, CRI Rate, CRI DMG, RES and ACC are
+native points and divide by their own class's maximum roll, so `SPD +5` on a
+five-star rune is one whole maximum roll, exactly as `SPD +6` is on a six-star one.
+
+**It used to be six-star rolls for every rune**, with a main-property factor on top,
+which read a perfect five-star rune at 67 % and a perfect four-star one at 45 %. That
+was the star tables talking: it weighed a lower-star rune's stats by how far each
+one's table happens to shrink — CRI Dmg from 7 to 6, SPD from 6 to 5 — and printed the
+result as a judgement of the rune. A rune is now measured against the best rune of its
+own class (§5) and its chance is played forward with its own class's rolls (§7), so
+every figure on its row answers "how good a rune of this class is this".
+
+**What a role needs stays six-star** (§4). The finished build the runes are collected
+for is a six-star one, so a requirement, the main properties that come off it and the
+Grindstones that come off it are counted in six-star rolls, and the weights that come
+out of it are the same for every star class.
 
 The reference base is the average of the user's own level-40 monsters in the preset's
 family. A missing family uses the account-wide level-40 average; with no level-40
@@ -89,7 +106,7 @@ identically for Fast DD, because both stats had a positive target; a 215 SPD tar
 and a 25 Accuracy target asked the runes for the same thing. They do not.
 
 Each target gets a **multiplier between 0 and 1**, and every max roll of that stat is
-scored with it. The multiplier is derived in four steps, for one preset and one build.
+scored with it. The multiplier is derived in the steps below, for one preset and one build.
 Nothing in it reads the rune being judged, which is §4.3's whole subject.
 
 ### 4.1 Subtract what the build already brings
@@ -100,9 +117,13 @@ needed = max(0, target − reference base − the build's main properties − th
 
 - **Reference base** is the family average of §2.
 - **Main properties** are the deterministic ordinary six-star `+15` values of all six
-  slots — slots 1, 3 and 5 fixed, slots 2, 4 and 6 from the build being evaluated. A
-  percent main is applied to the reference base; a flat one is added outright. A slot
-  the preset leaves blank contributes nothing, because it has promised nothing.
+  slots — the largest a main property can ever be, whatever the level or star class of
+  the rune being judged, because the requirement describes the finished six-star
+  build. Slots 1, 3 and 5 are fixed, slots 2, 4 and 6 come from the build being
+  evaluated. A percent main is applied to the reference base; a flat one is added
+  outright. A slot the preset leaves blank contributes nothing, because it has
+  promised nothing. `mainContribution` in `rune-substat-weights.ts` reads
+  `mainPropertyMaximum(6, …)` and nothing else.
 - **Artifacts.** A monster carries exactly two, one of each category, and each has one
   flat main property: **HP +1,500, ATK +100 or DEF +100** (`ARTIFACT-CANONICAL.md` §2,
   confirmed against 262 real artifacts, which carry those values at every natural grade
@@ -117,25 +138,84 @@ needed = max(0, target − reference base − the build's main properties − th
 Every term here is a fact about the **role**, not about the rune being judged. That is
 what §4.3 is protecting.
 
-### 4.2 Convert to max rolls, spread it, and divide by what runes give anyway
+### 4.2 Convert to max rolls, take off the stones, spread it, and divide by what runes give anyway
 
 ```
-rollsNeeded     = needed / (what one max roll of the stat is worth in that stat's unit)
+rollsNeeded     = needed / (what one six-star max roll of the stat is worth in its unit)
+rollsToRoll     = rollsNeeded − what the credited Grindstones find of it (§4.2.1)
 carriers        = how many of the six slots may legally carry the stat at all
-perRune         = rollsNeeded / carriers
-ordinaryPerRune = what one ordinary carrying rune supplies of it anyway
+perRune         = rollsToRoll / carriers
+ordinaryPerRune = what one ordinary carrying rune rolls of it anyway
 tightness       = perRune / ordinaryPerRune
 weight          = tightness / (the largest tightness in this preset)
 ```
 
 `ordinaryPerRune` is computed slot by slot from the same event model the chance
-calculation uses: an ordinary six-star rune draws four sub-property lines uniformly
-without replacement from the effect ids the slot allows, each line takes one initial
-roll, and four upgrades fall uniformly across the four. So each of a slot's `n` legal
-ids appears on `4/n` of runes, a line that exists collects two rolls on average, and
-a roll averages the midpoint of its interval. **The flat/percent asymmetry survives
-it**: a slot whose main property is ATK % supplies its ATK only through flat ATK
-lines, and is correctly read as supplying very little ATK rather than none.
+calculation uses, applied to an ordinary six-star **Legend-born** rune: it draws four
+sub-property lines uniformly without replacement from the effect ids the slot allows,
+each line takes one initial roll, and four upgrades fall uniformly across the four —
+eight rolls. So each of a slot's `n` legal ids appears on `4/n` of runes, a line that
+exists collects two rolls on average, and a roll averages the midpoint of its
+interval. **The flat/percent asymmetry survives it**: a slot whose main property is
+ATK % supplies its ATK only through flat ATK lines, and is correctly read as
+supplying very little ATK rather than none.
+
+**Why Legend-born, when a Hero rune rolls seven times and a Rare six.** A Hero rune
+starts with three lines, improves them at `+3`, `+6` and `+9`, and draws its fourth
+line at `+12` with one roll; a Rare starts with two and gains two. Either still ends
+with four lines drawn uniformly from the same ids, so every stat's supply shrinks by
+the same factor — 7/8, 6/8 — and a factor common to every stat is exactly what the
+normalisation removes: the weights are identical whichever grade the yardstick is
+built from. What the grade *does* change is how much a rune can become, and that is
+answered from the rune's own schedule (§7, §8); the reference a rune is measured
+against (§5, §9.1) is the Legend-born one, so a Hero rune that is perfect for its grade
+reads below 100 % because it genuinely rolled once less.
+
+#### 4.2.1 What the Grindstones find
+
+Every grindable line of every rune in the finished build carries the credited
+Grindstone — the credit the rune, its perfect rune and its ordinary box are all judged
+with (§6, §9.2) — so a role gets part of a grindable stat from stones rather than from
+rolls. How much depends on **how many lines hold the stat**, and that depends on how
+much the role asks for: a small ATK need is met by a line or two and brings a stone or
+two; a large SPD need puts SPD on every rune that may carry it, and every one of those
+is ground. So the build is read as holding just enough lines of the stat to meet the
+need, each worth what an ordinary line rolls plus its stone, and never more lines than
+the six slots may legally hold, flat and percent counted separately because a rune may
+carry both:
+
+```
+lines           = min(legal lines, rollsNeeded / (ordinary line rolls + its stone))
+relief          = lines × its stone
+rollsToRoll     = rollsNeeded − relief
+```
+
+Below the cap this lowers the requirement in proportion — by the stone's share of a
+ground line — which is exactly what adding the stones to the ordinary supply would
+have said instead: the two readings agree. At the cap it lowers it by a fixed amount,
+because every line that can be ground already is and the rest falls on the rolls
+alone. The stones are ordinary six-star ones whatever the candidate's lineage, for the
+reason the ceiling and the box are ordinary: the yardstick must not move with the rune
+it measures. **A Gem is not credited here.** One Gem per rune goes to whichever line the
+weights price highest, so crediting it in the weights would make them depend on
+themselves; it lives in the ceiling and the box, where the weights are already settled.
+
+Fast DD's example below, with Hero stones at three quarters:
+
+| Target | Rolls needed | Lines | Stones find | Weight without | Weight with |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| SPD | 18.33 | 6.00 (every slot) | 4.00 | 1.000 | 1.000 |
+| CRI Rate | 12.00 | — | 0 | 0.655 | 0.837 |
+| CRI Dmg | 6.43 | — | 0 | 0.440 | 0.562 |
+| ATK | 4.86 | 3.33 | 1.66 | 0.402 | 0.339 |
+| Accuracy | 2.63 | — | 0 | 0.159 | 0.203 |
+| HP | 3.72 | 2.04 | 1.30 | 0.155 | 0.129 |
+| DEF | 1.89 | 1.05 | 0.64 | 0.100 | 0.085 |
+
+The stats no stone can touch weigh more against the ones it can, which is the whole
+effect: a role that grinds its SPD needs fewer SPD rolls from its runes.
+`verify:rune-substat-weights` holds it — the accounting, the lines at both ends, and
+that nothing moves with no stone credited.
 
 The innate property is left out of `ordinaryPerRune`. Roughly half of runes have one
 and a role cannot plan around it; it is counted in full in a rune's own score, and
@@ -223,8 +303,9 @@ does rank sets must still be obeyed.
 Fast DD, against a reference attack-type monster of 9,708 HP, 808 ATK, 568 DEF,
 105 SPD, 18 CRI Rate, 50 CRI Dmg and 4 ACC; the build is ATK % / CRI Dmg % / ATK %
 in slots 2, 4 and 6, and the preset names ATK artifacts and no others, so both
-artifact slots are ATK. The candidate's set is not an input, so this one table is the
-answer for every rune in that slot of that build (§4.3).
+artifact slots are ATK, and no Grindstone is credited (§4.2.1 shows what one does).
+The candidate's set is not an input, so this one table is the answer for every rune in
+that slot of that build (§4.3).
 
 | Target | Wants | Base | Mains | Artifacts | Needed | One roll | Rolls | Carriers | Per rune | Ordinary | Tightness | **Weight** |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -249,7 +330,8 @@ score = Σ over lines of (the line's value in max rolls × its stat's weight)
 ```
 
 Nothing is capped and nothing is discarded. The denominator is a concrete rune, not a
-formula — **the best legal ordinary six-star rune for this role in this slot**:
+formula — **the best legal ordinary rune of the candidate's own star class for this
+role in this slot** (six-star for an Ancient rune):
 
 - four sub properties at their maximum, on the four best-valued legal effect ids;
 - the most valuable of them carrying all four later upgrades as well, so it stands at
@@ -267,18 +349,21 @@ no difference while every wanted stat priced alike; with weights it flattered th
 second-best stat by two whole rolls.
 
 ```
-Max value = score / ceiling × (candidate main maximum / 6★ main maximum)
+Max value = score / ceiling
 ```
 
-The main factor puts deterministic lower-star main properties on the same scale as
-their 6★ counterparts. A perfect 4★ or 5★ rune is rated, but cannot masquerade as a
-perfect 6★ rune. Ancient leaves this factor unchanged because Ancient does not alter
-main stats, and the ceiling stays the ordinary six-star one. Ordinary runes are capped
-at that ceiling; Ancient runes are not, so a higher Ancient initial roll can correctly
-print above 100 % rather than being flattened to it.
+Both are in the candidate's own class's max rolls (§2), so a perfect four-, five- or
+six-star rune reads 100 %. **There is no main-property factor any more.** It used to
+multiply by the candidate's `+15` main over the six-star one, which read a perfect
+five-star rune at 67 %; but a main property decides which build a rune belongs to, not
+how good a member of that build the rune is, and the requirement already counts every
+main at its six-star `+15` (§4.1). An Ancient rune is a six-star rune measured against
+the ordinary six-star ceiling. Ordinary runes are capped at that ceiling; Ancient runes
+are not, so a higher Ancient initial roll can correctly print above 100 % rather than
+being flattened to it.
 
-`npm run verify:rune-substat-weights` builds that rune for every slot of every build
-of every shipped preset and fails unless it reads exactly 100 %.
+`npm run verify:rune-substat-weights` builds that rune for every star class, slot and
+build of every shipped preset and fails unless it reads exactly 100 %.
 
 **Max value is what the row prints and is not what the gates read.** A ratio against
 the perfect rune of a slot is an honest description of one rune, and it is not
@@ -294,10 +379,29 @@ change its score. §4.1 ended that: a build with HP % in slots 4 and 6 asks its 
 for thousands less HP than one with ATK % there. Every compatible build is therefore
 prepared and **the rune keeps its best**.
 
-One candidate per preset reaches the Chance gate: the build the rune scores best in.
-The row prints one Max value and one Chance against one preset, so the build those two
-describe is the same one. Choosing between *presets* on chance as well as value is a
-different question, and §9's gates still do it.
+**Every build that clears the floor is asked for its chance, and the preset answers
+with its best of each.** A preset's builds are the main-stat combinations it would
+accept in slots 2, 4 and 6, and the rune goes into whichever of them it suits: its Max
+value is its best build's, and its chance is the best chance any build gives, even
+where those are two different builds. It used to ask only the best-valued build, and
+the best-valued build is not always the likeliest — one whose other targets its main
+stats already cover puts the rune's one excellent line on a higher ceiling *and* a
+higher bar, and a build that asks less of the rune can be the one it reaches. Measured
+on 2,500 synthetic runes against the shipped presets, asking every build turned 5 to
+30 Sells into Power up, depending on the policy stop, and turned no Power up into a
+Sell; 170-odd runes printed a higher chance.
+
+The obvious worry is the count: three mains preferred in each of slots 2, 4 and 6 is
+27 builds. A rune only fits the builds naming its own main, so that is nine for a
+slot-2 rune and 27 for a slot-1 rune, and it costs less than it sounds, for three
+reasons. A rune is played forward once however many builds ask about it; another build
+is another price list over the same runs. A build whose best end state misses its own
+bar settles at zero without a run. And two builds whose main stats differ only where
+the role wants nothing price every line alike and draw the same bar, so they ask one
+question, counted once — on a preset with 64 builds that was half of its jobs. Measured
+on the processor, 2,500 runes against the shipped presets went from 2.7 s to about 8 s;
+adding a 64-build preset costs a further 1.5 s. The counting is the part the graphics
+card takes over (§10.2).
 
 **The consequence, stated rather than left to be discovered.** "Its best build" now
 means something stronger than it used to, and it reads optimistically: a rune with one
@@ -337,9 +441,13 @@ the credited items, so turning a slider up raises the rune *and* the bar.
    one is, because a stone can always be topped up, and adding them would pay the rune
    twice for one line.
 2. **A Gem replaces one sub property**, and the rune must be at `+12` for it. The
-   replaced line loses every roll it collected. A rune may carry one converted line at
-   a time, so where it already has one, that is the only line a further Gem may
-   replace.
+   replaced line loses every roll it collected — and its stone, unless the Gem re-rolls
+   the line's own id (rule 3). **The new line is worth the Gem's roll plus the credited
+   Grindstone** wherever its id is grindable (rule 4), because a converted line can be
+   ground like any other; `gemOptions` prices every Gem that way, and `craftedLines`
+   hands the same stone on to whatever acts on the verdict. A rune may carry one
+   converted line at a time, so where it already has one, that is the only line a
+   further Gem may replace.
 3. **The new effect id must be legal**: allowed in the slot, and not the main
    property, the innate, or any *other* sub property. Re-rolling the replaced line's
    own id is allowed, and is what a player does to improve a bad value.
@@ -465,7 +573,7 @@ four thousand runs can give is one run in four thousand, about 0.024 of a percen
 point. Two odds a tenth of a point apart are therefore the same answer to this engine,
 and a chance of 0.02 % against one of 0.07 % is a coin toss between one hit and three.
 
-The loosest policy stop asks for 2 %, which is eighty sample increments, but sampling
+The loosest policy stop asks for 1 %, which is forty-one sample increments, but sampling
 uncertainty can still matter near that bar. The calculation therefore checks the box
 across resolutions, and the GPU path rechecks jobs near the active bar on the CPU so
 single-precision cannot change the policy decision. The display still avoids claiming
@@ -528,13 +636,15 @@ its own best legal end state before it is scored.
 | --- | --- |
 | Fewer than four sub properties | `RUNE-CANONICAL.md` §6 fixes which remaining events improve born lines and which add new lines. The lines it gains are drawn without replacement from the ids the slot, the main property and the innate leave legal; the order they arrive in cannot matter, because no improvement follows them. Gem legality is settled after the final line-up exists. |
 | Improvements still to come | Every one of them lands on a line the rune already holds, because improvements precede additions without exception (§7.1). In the best case they concentrate on whichever held line is worth most — the value of a line-up is linear in how they are split and the Gem's gain is convex in it, so the maximum is always at a corner. |
-| Below six stars | Its own star's substat intervals are used for every future roll, and its own star's `+15` main property scales the result. It is neither ignored nor given an artificial six-star roll. |
+| Below six stars | Its own star's substat intervals are used for every future roll, its lines are priced in its own star's max rolls, and it is measured against the perfect rune and the ordinary box of its own star class (§2, §5). It is neither ignored nor given an artificial six-star roll. |
+| Hero, Rare, Magic or Normal born | Its own grade's schedule decides every remaining event — a Hero rune improves three lines and draws its fourth at `+12`, seven rolls in all — so its best end state and its chance are its own. It is measured against the Legend-born reference, so a rune perfect for its grade reads below 100 % (§4.2). |
 | Ancient | Initial-roll terms in its Max-value and Chance projections use the Ancient interval; upgrades, role valuation, the reference box, main property and denominator use ordinary six-star rules. Its craft items remain Ancient because that is a legality rule. |
 | Already `+12` or `+15` | Nothing is left to project, so its Max value is what it is, and its chance is 1 or 0. The row says `Already there` or `Below the floor` rather than dressing a certainty as a gamble. |
 
-The denominator never moves with the candidate. A perfect four-star rune therefore
-reads below a perfect six-star one on one shared scale rather than reading 100 % on a
-scale of its own.
+The denominator never moves with the candidate's own rolls, lineage or level; it moves
+with its star class and nothing else. A perfect four-star rune reads 100 % against the
+perfect four-star rune, and whether a four-star rune is worth keeping at all is the
+floor's question, asked of the four-star box (§9.1).
 
 ## 9. Verdict and unbounded preset matching
 
@@ -545,9 +655,17 @@ Equipped/Inventory buttons and its level range are presentation filters applied
 after the engine has answered, and they change no figure.
 
 For every build of every preset the engine applies the set/main rank discount, the
-Max-value quality floor, and then the Chance floor. A passing rune is eligible for
-every preset it passed. If it passes at least one preset, it is **Power up** below
-+12 and **Keep** at +12. The row chooses its strongest passing preset only to explain
+Max-value quality floor, and then the Chance floor. **The Chance floor is one
+comparison: the rune's chance — its best build's (§5.1) — against the Power-up policy
+stop**, and the stops mean what their labels say: Full YOLO 1 %, Adventurous 5 %,
+Balanced 20 %, Picky 50 %, Take no chances 80 %. They used to run 2 %–40 %, so Take no
+chances still rolled a rune that would miss more often than it arrived. The Chance
+column prints whole percentage points rounded **down**, so the number on screen clears
+the stop exactly when the rune does; rounded to the nearest point, a 79.6 % rune
+printed `80 %` beside a Sell. A real chance under one point prints `<1 %`.
+
+A passing rune is eligible for every preset it passed. If it passes at least one
+preset, it is **Power up** below +12 and **Keep** at +12. The row chooses its strongest passing preset only to explain
 the result; that choice cannot displace another rune and no desired amount can make
 an otherwise passing rune **Sell**. A rune that passes none of the presets is **Sell**
 for the first applicable ordinary reason.
@@ -560,7 +678,8 @@ the verdict independent of how many other runes happen to match the same preset.
 **The quality floor's five stops state a share of an ordinary box** — a third of it
 at stop 1, 15 % at the default stop 3, a few per cent at stop 5 — and §9.1 is how a
 share becomes a Max value. The box is the synthetic one this document has always
-named: ordinary six-star runes at `+12` for the role in question. What changed is
+named: ordinary Legend-born runes at `+12` of the candidate's star class, for the role
+in question, every main of the slot counted (§9.3). What changed is
 that the ladder now says the share and the model works out the Max value, rather
 than the ladder being a Max value calibrated to produce the share.
 
@@ -602,15 +721,15 @@ DEF rows above show the same preset family doing each.
   slot allows, one initial roll each, four upgrades spread uniformly over the four;
 - an innate on the measured **51 %** of runes (`RUNE-CANONICAL.md` §4), one roll from
   the same interval, with neither Gem nor Grindstone on it;
-- every roll worth the midpoint of its ordinary six-star interval, which is exact
-  rather than simulated because a valuation is linear in the roll count;
+- every roll worth the midpoint of its ordinary interval at the candidate's star class,
+  which is exact rather than simulated because a valuation is linear in the roll count;
 - the same optional Gem and Grindstone end-state rule as a candidate rune — literally
   the same function, so the reference cannot receive a craft penalty merely because
   craft is being considered, and cannot drift from §6 either. The box used to write
   §8's placement rule out again, with its own reading of which ids an innate bars;
   it now hands its line-up to `craftedScore` like everything else;
-- ordinary six-star throughout, Ancient included, for §5's reason — both ends of the
-  scale must stay still while the candidate moves.
+- ordinary throughout, and six-star for an Ancient candidate, for §5's reason — both
+  ends of the scale must stay still while the candidate moves.
 
 A rune's **standing** is then where its Max value falls in that box, `0`–`1`, and the
 floor is a share of it. Standing is what every gate and every comparison between
@@ -701,19 +820,76 @@ its odds of reaching any fixed score never fall — and that a real stone no lar
 the credit changes nothing. `verify:rune-cleanup-craft-monotonic` holds both, and
 grinds every fixture to the credit and past it to do so.
 
-The row names one preset and prints that preset's figures — Max value, standing and
-chance from one build (§5.1).
+The row names one preset and prints that preset's figures — the Max value and standing
+of its best build, and the best chance any of its builds gives (§5.1).
+
+## 9.3 A slot's share is of everything it produces
+
+**§9.1 made the floor fair between slots holding one main each, and slots 2, 4 and 6
+hold seven or eight.** A preset names one or two of them, so most of those slots' runes
+are runes it cannot use at all, and a share `q` of the few it can use is a small share
+of the slot. Measured per shipped preset on a box of every main, the default floor
+kept 1–7 % of slots 2, 4 and 6 against 15–20 % of slots 1, 3 and 5 — about half as
+many across all presets together — while a monster needs one rune of each.
+
+It is not the substats. The obvious explanation is that a slot-2, -4 or -6 main is
+usually a stat the role wants, which then cannot appear as a substat, so those runes
+have worse odds of being good; but that is exactly what §9.1's box per slot *and main*
+already neutralises, and `verify:rune-slot-neutrality` still measures it neutral — a
+role built mostly on DEF keeps its slot-1 runes, which can never carry DEF, at 17 %
+against 12–16 % elsewhere, well inside the χ² gate. What was left was the count of
+mains.
+
+**So the floor is stated for the whole slot.** Its ordinary runes are a mixture of its
+`M` legal mains, each on `1/M` of runes — the game publishes no rate and none has been
+measured, so uniform is the stated assumption (§1). A rune of main `m` is worth `w_m`
+of itself to the preset: `1` preferred, the Accepted runes worth acceptable, the Broken
+runes worth for a slot left blank, and nothing where no build accepts `m`. One share
+`q'` of *every* main's own box is found such that the slot as a whole keeps `q`:
+
+```
+(1/M) · Σ_m P( w_m · X_m ≥ T_m(q') ) = q
+```
+
+where `X_m` is main `m`'s ordinary Max value and `T_m(q')` the Max value at which the
+best `q'` of its box begins. A preferred main contributes `q'` exactly, a discounted
+one less, an unwanted one nothing; the left side is continuous and never falls as
+`q'` rises, so a bisection finds it. The 4-set and Intangible preferences scale `q`
+before it is solved, exactly as they scaled the retained share before.
+
+- **Slots 1, 3 and 5 are unchanged**: one main, preferred, so `q' = q`.
+- **The preset's own choices set the factor**, which is what a flat "double slots 2, 4
+  and 6" gets wrong. Five of slot 6's eight mains preferred is `q' = 1.6q`; one of them
+  is `8q`. Measured in `verify:rune-slot-neutrality`, one preferred slot-6 main and
+  five kept 8.9 % and 9.0 % of a whole box at the stop naming 9 %.
+- **One `q'` for every main of the slot**, not one Max value, so §9.1's promise still
+  holds between mains: a CRI Dmg slot-4 rune and an ATK % one are cut at the same place
+  in their own boxes, whichever of the two blocks the stat the role wants.
+- **Where even `q' = 1` falls short, every rune of a wanted main is kept.** CRI Dmg
+  alone on slot 4 is one rune in eight, fewer than the default floor's 15 %, so the only
+  way slot 4 keeps as many as slot 1 is to keep every CRI Dmg slot-4 rune, however it
+  rolled. That is the arithmetic of "as many as any other slot", chosen deliberately
+  over a cap that would leave the slot short; a preset that names more mains, or names
+  some acceptable ones, gives the slot more to choose from. At the default settings it
+  applies to Fast DD's slots 4 and 6, Def DD's 2 and 6 and Support's 2.
+
+What the row prints does not change: Max value is still the fraction of a perfect rune
+and standing still a position in the rune's own box. `floorShare` on every row is the
+`q'` its standing was held to, so a check — and a reader — can see which bar applied.
+`verify:rune-slot-neutrality` holds it on a population of every main: equal shares by
+χ² wherever the slot can supply the share, and every usable rune kept, exactly, where
+it cannot.
 
 ## 10. Calibration and adversarial checks
 
 `scripts/verify-rune-substat-weights.mjs` is the deterministic gate on §§4–5. It holds
 the thing a simulation cannot: a Monte Carlo of the model's own score agrees with the
 model whatever the score *means*. It checks that a stated target is no longer a
-switch, that main properties and the role's artifacts come off the requirement while a
-rune's own set does not, that a met target asks for nothing, that surplus is never
-penalised, that lower star classes stay on one scale, that credited craft items move
-both ends, and that the §5 rune reads exactly 100 % in every slot of every build of
-every shipped preset.
+switch, that main properties, the role's artifacts and the credited Grindstones come off
+the requirement while a rune's own set does not, that a met target asks for nothing,
+that surplus is never penalised, that every star class is priced in its own max rolls,
+that credited craft items move both ends, and that the §5 rune reads exactly 100 % at
+every star class in every slot of every build of every shipped preset.
 
 `scripts/verify-rune-set-neutrality.mjs` is the fairness gate on §4.3, and it is paired
 by construction: one synthetic population of rune *bodies* is generated once, every set
@@ -722,13 +898,16 @@ checks the mirror image — that a preset which *does* rank sets is still obeyed
 a gate that only demanded neutrality would pass just as happily on an engine that had
 stopped reading the set at all.
 
-`scripts/verify-rune-slot-neutrality.mjs` is the fairness gate on §9.1, and it is
-built the same way: a synthetic box of ordinary six-star `+12` runes is generated for
-every slot, every rune in it carries a main property the preset asked for and the
-sets are cycled so that neither of those can move a verdict, and the six shares that
-survive the gates are tested against each other with Pearson's χ². It runs the eight
-shipped presets, seven adversarial single-stat roles, the craft sliders at maximum
-and both ends of the quality ladder. It then checks the three things a bare equality
+`scripts/verify-rune-slot-neutrality.mjs` is the fairness gate on §§9.1 and 9.3, and
+it is built the same way: a synthetic box of ordinary six-star `+12` runes is generated
+for every slot, its mains cycled evenly over every main the slot allows and its sets
+cycled so that the set cannot move a verdict, and the shares that survive the gates
+are tested against each other with Pearson's χ². A slot the preset can use less of
+than the floor's share is checked separately and exactly: it must keep every usable
+rune and nothing else. It runs the eight shipped presets, seven adversarial
+single-stat roles, the craft sliders at maximum, both ends of the quality ladder, the
+strictest stop on the roles whose single mains need the most help, and one against
+five preferred slot-6 mains. It then checks the three things a bare equality
 test would miss: that the ladder admits the share it names, that a slot which can
 legally carry nothing the role wants reports "No preset can use it" rather than being
 given a scale, and that a rune which out-scores another of its own slot still outranks

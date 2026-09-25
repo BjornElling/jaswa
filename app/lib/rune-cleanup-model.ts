@@ -17,8 +17,8 @@
  *
  * ## One currency, two questions
  *
- * Everything is counted in **max rolls** — how many best-possible six-star
- * sub-property rolls a quantity is worth — and every max roll is then multiplied by
+ * Everything is counted in **max rolls** — how many best-possible sub-property rolls
+ * of the rune's own star class a quantity is worth — and every max roll is then multiplied by
  * what the role is actually paying for that stat. `rune-substat-weights.ts` owns
  * that multiplier and explains it; without it a maximum Accuracy roll and a maximum
  * SPD roll price identically for a role that wants 25 of one and 215 of the other,
@@ -41,7 +41,7 @@
 import { slotAllowsSubStat } from './runes';
 import type { Rune } from './runes';
 import { isIntangibleRuneSet, runeSetPieceCount } from './rune-sets';
-import { allStatIds, mainPropertyMaximum, maximumRoll, subPropertyRange } from './rune-properties';
+import { allStatIds, maximumRoll, subPropertyRange } from './rune-properties';
 import type { ReferenceStats } from './rune-reference-stats';
 import type { PresetChoice, RunePotentialPreset } from './rune-potential-presets';
 import { runeMainStatIds } from './rune-potential-presets';
@@ -174,10 +174,17 @@ export type RuneOutcome = {
  * lines and a rune the game cannot produce. It made no difference while every stat
  * priced alike; with weights it flatters the second-best stat by two whole rolls.
  *
- * The scale is the best **ordinary six-star** rune even when the candidate has fewer
- * stars or is Ancient. That is what keeps a perfect 4★ rune below a perfect 6★ one
- * on a single scale; an Ancient rune's higher initial interval may move its own
- * score above the ordinary bar, but never moves the bar itself.
+ * **The scale is the best ordinary rune of the candidate's own star class**, so a
+ * perfect five-star rune reads 100 % exactly as a perfect six-star one does. It used
+ * to be the six-star rune for everyone, with a main-property factor on top, which
+ * read a perfect 5★ rune at 67 % and a perfect 4★ at 45 %: a statement about how far
+ * the star tables shrink, printed as though it were a judgement of the rune. Whether
+ * a lower-star rune is worth keeping at all is the quality floor's question, and it
+ * is asked of the rune's own class too (`ordinaryBox`).
+ *
+ * An Ancient rune is a six-star rune and is measured against the **ordinary**
+ * six-star one: its higher initial interval may move its own score above the bar,
+ * but never moves the bar itself.
  *
  * **That includes the craft tables, and it used not to.** An Ancient candidate was
  * given an *Ancient* perfect rune to divide by, so its stronger Ancient Gem and stone
@@ -189,12 +196,13 @@ export type RuneOutcome = {
  * this takes no lineage.
  */
 export function slotCeiling(
-  valuation: Valuation, slot: number, main: number, credit: CraftCredit,
+  valuation: Valuation, slot: number, main: number, credit: CraftCredit, stars: number,
 ): number {
   const prices = priceList(valuation);
   const plan = craftPlan('standard', credit);
+  const most = (statId: number) => maximumRoll(statId, stars);
   const ids = allStatIds.filter((statId) => statId !== main && slotAllowsSubStat(slot, statId))
-    .filter((statId) => maximumRoll(statId) * prices[statId] > 0);
+    .filter((statId) => most(statId) * prices[statId] > 0);
   if (ids.length === 0) return 0;
 
   /* A line of one maximum roll, with its Grindstone. The order this produces is the
@@ -202,7 +210,7 @@ export function slotCeiling(
      arrangement below, so it is worked out once. */
   const oneRoll = new Map<number, number>();
   for (const statId of ids) {
-    oneRoll.set(statId, (maximumRoll(statId) + grindCredit(plan, statId)) * prices[statId]);
+    oneRoll.set(statId, (most(statId) + grindCredit(plan, statId)) * prices[statId]);
   }
   const byOneRoll = [...ids].sort((left, right) => (oneRoll.get(right) ?? 0) - (oneRoll.get(left) ?? 0));
 
@@ -217,20 +225,20 @@ export function slotCeiling(
       buffer[0].statId = sink;
       /* Four lines each begin with one roll, so the four later upgrades may all
          concentrate on one line but the other three never fall below one. */
-      buffer[0].value = maximumRoll(sink) * 5;
+      buffer[0].value = most(sink) * 5;
       let filled = 1;
       for (const statId of byOneRoll) {
         if (filled === 4) break;
         if (statId === sink || statId === innate) continue;
         buffer[filled].statId = statId;
-        buffer[filled].value = maximumRoll(statId);
+        buffer[filled].value = most(statId);
         filled += 1;
       }
       /* A role that values fewer than four of the slot's effect ids has fewer than
          four lines worth writing down. The rune still has four, and the rest are worth
          nothing to it — which is the same arrangement with the zeroes left out. */
       const lines = filled === 4 ? buffer : buffer.slice(0, filled);
-      const prefixScore = innate === null ? 0 : maximumRoll(innate) * prices[innate];
+      const prefixScore = innate === null ? 0 : most(innate) * prices[innate];
       /* The Gem is settled by the one craft rule, which considers replacing every
          line — including trading the five-roll line for one Gem roll, an arrangement
          no legal Gem can repay and which is therefore never the one it keeps. */
@@ -289,7 +297,7 @@ const upgradeCountCovariance = -4 * (1 / 4) * (1 / 4);
 type RollStatistics = {
   /** What one raw point of it is worth. A valuation is linear, so this is its slope. */
   factor: number;
-  /** The mean and variance of one ordinary six-star roll, as whole game numbers. */
+  /** The mean and variance of one ordinary roll at the box's star class, as whole game numbers. */
   mean: number;
   variance: number;
 };
@@ -324,6 +332,22 @@ type OrdinaryPrices = {
  * a Gaussian still took 20 % of one slot and 13 % of another. The shape is where the
  * difference lives, so the shape is what is kept.
  */
+/**
+ * What one ordinary box describes: one slot holding one main property, at one star
+ * class and one craft credit, priced in every build of a preset family that accepts
+ * that main. The credit is the account's and the stars and main the rune's, so the
+ * only thing that varies inside a family is the build's valuation.
+ */
+export type OrdinaryFamily = {
+  readonly slot: number;
+  readonly main: number;
+  /** The reference star class: the rune's own, and six for an Ancient rune. */
+  readonly stars: number;
+  readonly credit: CraftCredit;
+  readonly valuations: readonly Valuation[];
+  readonly scope: RuneAdviceScope;
+};
+
 export type OrdinaryBox = {
   /** The box's middle, which is all a box with no recorded shape has to offer. */
   readonly value: number;
@@ -383,7 +407,7 @@ function valuationNumber(valuation: Valuation): number {
  * **four sub-property lines drawn uniformly without replacement from the effect ids
  * the slot allows, one initial roll each, four upgrades spread uniformly over the
  * four, and — on 51 % of runes — one innate of a further legal id.** Every roll is
- * worth the midpoint of its ordinary six-star interval, so a line that exists is
+ * worth the midpoint of its ordinary interval at the candidate's star class, so a line that exists is
  * worth two average rolls, and the value is linear in the roll count, which is what
  * makes this an exact mean rather than a simulation. Ancient is not in it for the
  * reason it is not in the ceiling: the reference box stays ordinary, so an Ancient
@@ -440,25 +464,11 @@ function valuationNumber(valuation: Valuation): number {
  * rolls and a Gaussian is the right shape for it; between line-ups it is not, and
  * nothing here assumes it is.
  */
-export function ordinaryBox(candidates: readonly RuneCandidate[]): OrdinaryBox {
+export function ordinaryBox(family: OrdinaryFamily): OrdinaryBox {
   const empty: OrdinaryBox = { value: 0, below: [] };
-  if (candidates.length === 0) return empty;
-  const [first] = candidates;
-  /* One box describes one slot holding one main property, at one craft credit. Every
-     build of a preset that a given rune survives puts that rune's own main in its
-     slot, or leaves the slot unstated for all of them, and the credit is the
-     account's rather than the build's — so the family is uniform by construction. It
-     is still an invariant a caller could break silently by passing two runes' worth
-     of candidates, and a box quietly describing the wrong slot is exactly the failure
-     this whole anchor exists to prevent. */
-  for (const candidate of candidates) {
-    if (candidate.main !== first.main || candidate.rune.slot !== first.rune.slot
-      || creditKey(candidate.credit) !== creditKey(first.credit)) {
-      throw new Error('Rune Clean-up: an ordinary box was asked to describe two different slots at once.');
-    }
-  }
-  const ids = allStatIds.filter((statId) => statId !== first.main
-    && slotAllowsSubStat(first.rune.slot, statId));
+  const { slot, main, stars, credit, scope } = family;
+  if (family.valuations.length === 0) return empty;
+  const ids = allStatIds.filter((statId) => statId !== main && slotAllowsSubStat(slot, statId));
   if (ids.length < 4) return empty;
 
   /* The family is named by short numbers rather than by its valuations' own keys.
@@ -467,28 +477,25 @@ export function ordinaryBox(candidates: readonly RuneCandidate[]): OrdinaryBox {
      of string built and thrown away for every lookup. A number per valuation
      identifies it exactly as well, because a valuation is already memoised per
      weight set for the life of the scope. */
-  const key = `${first.rune.slot}|${first.main}|${creditKey(first.credit)}`
-    + `|${candidates.map((candidate) => valuationNumber(candidate.valuation)).sort().join(' ')}`;
-  const cached = first.scope.ordinary.get(key);
+  const key = `${slot}|${main}|${stars}|${creditKey(credit)}`
+    + `|${family.valuations.map(valuationNumber).sort().join(' ')}`;
+  const cached = scope.ordinary.get(key);
   if (cached !== undefined) return cached;
 
   /* Ordinary throughout, Ancient candidates included: both ends of the scale have to
      stand still while the candidate moves, so the box is built with the ordinary
      lineage's craft tables as well as its roll tables. The credit is the account's and
      therefore one for the whole family, which the key above already assumes. */
-  const plan = craftPlan('standard', first.credit);
+  const plan = craftPlan('standard', credit);
 
   const builds: OrdinaryPrices[] = [];
-  for (const candidate of candidates) {
-    if (candidate.ceiling <= 0) continue;
-    const { valuation, credit } = candidate;
+  for (const valuation of family.valuations) {
+    const ceiling = slotCeiling(valuation, slot, main, credit, stars);
+    if (ceiling <= 0) continue;
     const unitPrices = priceList(valuation);
-    const prices: OrdinaryPrices = {
-      ceiling: slotCeiling(valuation, candidate.rune.slot, candidate.main, credit),
-      unit: unitPrices, options: new Map(), roll: new Map(),
-    };
+    const prices: OrdinaryPrices = { ceiling, unit: unitPrices, options: new Map(), roll: new Map() };
     for (const statId of ids) {
-      const range = subPropertyRange(6, statId, 'upgrade');
+      const range = subPropertyRange(stars, statId, 'upgrade');
       const width = range ? range.maximum - range.minimum + 1 : 1;
       const mean = range ? (range.minimum + range.maximum) / 2 : 0;
       prices.roll.set(statId, {
@@ -500,9 +507,9 @@ export function ordinaryBox(candidates: readonly RuneCandidate[]): OrdinaryBox {
        are worked out here rather than inside the draw loop: nothing about which ids a
        Gem may take depends on which four lines the rune happened to draw, and the
        blocked-by-another-line half is `craftedScore`'s own business. */
-    prices.options.set(-1, gemOptions(plan, unitPrices, first.rune.slot, first.main, null));
+    prices.options.set(-1, gemOptions(plan, unitPrices, slot, main, null));
     for (const statId of ids) {
-      prices.options.set(statId, gemOptions(plan, unitPrices, first.rune.slot, first.main, statId));
+      prices.options.set(statId, gemOptions(plan, unitPrices, slot, main, statId));
     }
     builds.push(prices);
   }
@@ -617,7 +624,7 @@ export function ordinaryBox(candidates: readonly RuneCandidate[]): OrdinaryBox {
     value: Math.min(1, Math.max(0, mean / weight)),
     below: running > 0 ? below : [],
   };
-  first.scope.ordinary.set(key, box);
+  scope.ordinary.set(key, box);
   return box;
 }
 
@@ -736,7 +743,8 @@ export type RuneCandidate = {
   readonly main: number;
   /** The best legal end state the rune can still reach, in this role's units. */
   readonly best: number;
-  readonly mainScale: number;
+  /** The star class its Max value is read in (`referenceStars`). */
+  readonly stars: number;
   /** What the rune may still become, which is a fact about the rune and not the role. */
   readonly future: RuneFuture;
   /** What this role pays, and what its craft items could do to this rune. */
@@ -801,31 +809,16 @@ export function prepareRuneCandidate(
      rose from 6.52 to 7.23 and the rune read 61.3 % where its own scale says 67.9 %.
      The rune's own main is a fact about the rune whatever the preset left blank. */
   const main = mainOfSlot(build, rune.slot) || rune.mainStatId;
-  /* The weights read nothing about this rune. Two runes that differ only in their set
-     are scored identically, which is what lets the recommendation compare them; a set
-     decides a verdict through the preset's own ranking and the relative retention
-     preferences, never through the arithmetic. Intangible's set rank is permanently
-     preferred; its slider only widens the retained share. `verify:rune-set-neutrality`
-     is the check. */
-  const weights = substatWeights({
-    targets: preset.targets, mains: buildMains(build), artifacts: preset.artifacts, base,
-  }, scope.weights);
-  if (weights.weights.size === 0) return null;
-  const valuation = weightedValuation(base, weights);
+  const stars = referenceStars(rune);
+  const priced = buildPricing(preset, build, base, credit, stars, scope);
+  if (!priced) return null;
+  const { weights, valuation } = priced;
 
   /* The rune's own lineage, which decides what *it* may be crafted with. The
      denominator below takes no lineage at all: both ends of the scale stand still
      while the candidate moves (§5), so the ceiling has no lineage in its key either. */
   const lineage: CraftLineage = rune.ancient ? 'ancient' : 'standard';
-  /* The slot belongs in the key. Two slots can carry the same main property — ATK +
-     is slot 1's fixed main and one of slot 2's choices — while forbidding different
-     sub properties, so a key without the slot handed slot 2 slot 1's ceiling. */
-  const ceilingKey = `${valuation.key}|${rune.slot}|${main}|${creditKey(credit)}`;
-  let ceiling = scope.ceiling.get(ceilingKey);
-  if (ceiling === undefined) {
-    ceiling = slotCeiling(valuation, rune.slot, main, credit);
-    scope.ceiling.set(ceilingKey, ceiling);
-  }
+  const ceiling = cachedCeiling(valuation, rune.slot, main, credit, stars, scope);
   if (ceiling <= 0) return null;
 
   let future = scope.futures.get(rune.id);
@@ -837,21 +830,97 @@ export function prepareRuneCandidate(
   const scoring = endStateScoring(rune, valuation, plan);
   const best = bestEndState(future, scoring);
 
-  /* A main property is deterministic, but its final size depends on stars. It is
-     part of a rune's potential, so a perfect 4★ rune cannot read as a perfect 6★
-     rune merely because its sub properties were excellent. Ancient does not alter
-     main properties. */
-  const sixStarMain = mainPropertyMaximum(6, rune.mainStatId);
-  const mainScale = sixStarMain > 0 ? mainPropertyMaximum(rune.stars, rune.mainStatId) / sixStarMain : 0;
-
+  /* No main-property factor. A rune is judged on its sub properties against the
+     best rune of its own star class, and its main property is the same at `+15`
+     whatever it rolled — it decides which build the rune belongs to, not how good a
+     member of it the rune is. The factor this replaced read a perfect five-star rune
+     at two thirds of a perfect six-star one, which is the star table talking. */
   const setRank = runeSetMatchRank(preset.sets, rune.setName);
   const mainRank: MatchRank = rune.slot === 2 || rune.slot === 4 || rune.slot === 6
     ? build.ranks[rune.slot as 2 | 4 | 6] : 'preferred';
 
   return {
-    rune, valuation, weights, ceiling, main, best, mainScale, future, scoring, credit, plan,
+    rune, valuation, weights, ceiling, main, stars, best, future, scoring, credit, plan,
     lineage, rank: worseRank(setRank, mainRank), scope,
   };
+}
+
+/**
+ * **The star class a rune is measured in: its own.** A five-star rune's lines are
+ * priced in five-star max rolls, its perfect rune is a five-star one and its ordinary
+ * box is five-star runes, so its Max value, its standing and its chance all answer
+ * "how good a five-star rune is this". An Ancient rune is a six-star rune measured
+ * against the ordinary six-star reference (§5), which is why its higher initial
+ * interval can read above 100 %.
+ */
+export const referenceStars = (rune: Rune): number => (rune.ancient ? 6 : rune.stars);
+
+/** One build's weights and the valuation they price a rune of `stars` with. */
+function buildPricing(
+  preset: RunePotentialPreset, build: Build, base: ReferenceStats, credit: CraftCredit, stars: number,
+  scope: RuneAdviceScope,
+): { weights: SubstatWeights; valuation: Valuation } | null {
+  /* The weights read nothing about the rune. Two runes that differ only in their set
+     are scored identically, which is what lets the recommendation compare them; a set
+     decides a verdict through the preset's own ranking and the relative retention
+     preferences, never through the arithmetic. Intangible's set rank is permanently
+     preferred; its slider only widens the retained share. `verify:rune-set-neutrality`
+     is the check. */
+  const weights = substatWeights({
+    targets: preset.targets, mains: buildMains(build), artifacts: preset.artifacts, base, credit,
+  }, scope.weights);
+  if (weights.weights.size === 0) return null;
+  return { weights, valuation: weightedValuation(base, weights, stars) };
+}
+
+function cachedCeiling(
+  valuation: Valuation, slot: number, main: number, credit: CraftCredit, stars: number, scope: RuneAdviceScope,
+): number {
+  /* The slot belongs in the key. Two slots can carry the same main property — ATK +
+     is slot 1's fixed main and one of slot 2's choices — while forbidding different
+     sub properties, so a key without the slot handed slot 2 slot 1's ceiling. The
+     valuation's own key already carries the star class. */
+  const key = `${valuation.key}|${slot}|${main}|${creditKey(credit)}`;
+  let ceiling = scope.ceiling.get(key);
+  if (ceiling === undefined) {
+    ceiling = slotCeiling(valuation, slot, main, credit, stars);
+    scope.ceiling.set(key, ceiling);
+  }
+  return ceiling;
+}
+
+/** Whether a build accepts `main` in `slot`: its own choice there, or none stated. */
+function buildAccepts(build: Build, slot: number, main: number): boolean {
+  if (slot === 1 || slot === 3 || slot === 5) return mainOfSlot(build, slot) === main;
+  const named = build.mains[slot as 2 | 4 | 6];
+  return named === main || named === 0;
+}
+
+/**
+ * **The family of builds a rune of this slot, main and star class is judged in** —
+ * every build of the preset that accepts the main, priced for that star class. It is
+ * what a real rune's ordinary box is built from, and it can be asked of a main no rune
+ * in the account carries, which is what the slot's share of §9.3 needs.
+ *
+ * A build whose weights ask nothing, or whose perfect rune is worth nothing, judges no
+ * rune and so has no ordinary rune either; both are left out here exactly as
+ * `prepareRuneCandidate` leaves them out, so a rune's box and this family are one.
+ */
+export function slotMainFamily(
+  preset: RunePotentialPreset, builds: readonly Build[], slot: number, main: number, stars: number,
+  base: ReferenceStats, credit: CraftCredit, scope: RuneAdviceScope,
+): OrdinaryFamily & { rank: MatchRank } {
+  const valuations: Valuation[] = [];
+  let rank: MatchRank = 'preferred';
+  for (const build of builds) {
+    if (!buildAccepts(build, slot, main)) continue;
+    const priced = buildPricing(preset, build, base, credit, stars, scope);
+    if (!priced) continue;
+    if (cachedCeiling(priced.valuation, slot, main, credit, stars, scope) <= 0) continue;
+    valuations.push(priced.valuation);
+    if (slot === 2 || slot === 4 || slot === 6) rank = build.ranks[slot];
+  }
+  return { slot, main, stars, credit, valuations, scope, rank };
 }
 
 /**
@@ -872,7 +941,7 @@ export function candidateMaxValue(candidate: RuneCandidate): number {
      that same ordinary denominator, so a maximum Ancient roll remains visible as
      more than 100 % instead of being flattened away. */
   const ratio = candidate.best / candidate.ceiling;
-  return (candidate.rune.ancient ? ratio : Math.min(1, ratio)) * candidate.mainScale;
+  return candidate.rune.ancient ? ratio : Math.min(1, ratio);
 }
 
 /* ------------------------------------------------------------ the standing */
@@ -952,8 +1021,8 @@ const settledAsk = (answer: number): ChanceAsk => ({ jobs: [], combine: () => an
 /** One candidate against one threshold, in the Max-value units `candidateMaxValue` prints. */
 export function candidateChanceAsk(candidate: RuneCandidate, threshold: number): ChanceAsk {
   if (threshold === Number.NEGATIVE_INFINITY) return settledAsk(1);
-  if (threshold === Number.POSITIVE_INFINITY || candidate.mainScale <= 0) return settledAsk(0);
-  const step = chanceStep(candidate.future, candidate.scoring, threshold * candidate.ceiling / candidate.mainScale);
+  if (threshold === Number.POSITIVE_INFINITY) return settledAsk(0);
+  const step = chanceStep(candidate.future, candidate.scoring, threshold * candidate.ceiling);
   if (step.job === null) return settledAsk(step.settled ?? 0);
   return {
     jobs: [step.job],

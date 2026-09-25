@@ -158,7 +158,7 @@ const eps = 1e-10;
 /* A score in the role's own units, as a threshold in one candidate's Max-value units.
    Two credits have two perfect runes, so "0.7" means two different scores to them;
    the promise that a Gem is never forced is about one score. */
-const atScore = (candidate, score) => score * candidate.mainScale / candidate.ceiling;
+const atScore = (candidate, score) => score / candidate.ceiling;
 let comparisons = 0;
 for (const rune of runes) {
   for (const preset of selectedPresets) {
@@ -179,7 +179,7 @@ for (const rune of runes) {
       assert.ok(candidate.best + eps >= neutralRaw,
         `${rune.id}/${preset.id}: raw best score fell after craft credit`);
       for (const threshold of [0.35, 0.7, 0.9]) {
-        const score = threshold * neutralCandidate.ceiling / neutralCandidate.mainScale;
+        const score = threshold * neutralCandidate.ceiling;
         const neutralChance = candidateChance(neutralCandidate, threshold);
         const craftChance = candidateChance(candidate, atScore(candidate, score));
         assert.ok(craftChance + eps >= neutralChance,
@@ -215,7 +215,7 @@ const toleranceCraftCandidate = prepareRuneCandidate(tolerance, pvp, pvpBuild, p
   gem: 'three-quarters', gemGrade: 'Hero', grind: 'three-quarters', grindGrade: 'Hero',
 });
 assert.ok(toleranceNeutralCandidate && toleranceCraftCandidate);
-const toleranceBar = 0.7 * toleranceNeutralCandidate.ceiling / toleranceNeutralCandidate.mainScale;
+const toleranceBar = 0.7 * toleranceNeutralCandidate.ceiling;
 assert.ok(candidateChance(toleranceCraftCandidate, atScore(toleranceCraftCandidate, toleranceBar)) + eps
   >= candidateChance(toleranceNeutralCandidate, 0.7),
   'the Tolerance regression rune lost chance when craft was considered');

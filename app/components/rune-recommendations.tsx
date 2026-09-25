@@ -24,7 +24,8 @@ import type { CalculationBackend } from '../lib/compute/calculation-summary';
 import { noReferenceLineMessage, referenceLines } from '../lib/rune-reference-stats';
 import {
   compareRuneCleanupRows, compareRuneGameSort, defaultRuneCleanupSortDirections,
-  runeCleanupSearchText, runeGameSortKeys, runeGameSortLabels,
+  runeChanceShown, runeChanceText, runeCleanupSearchText, runeGameSortKeys, runeGameSortLabels,
+  runeMaxValueShown,
 } from '../lib/rune-cleanup-grid';
 import type { RuneCleanupRow, RuneCleanupSortKey, RuneGameSortKey } from '../lib/rune-cleanup-grid';
 import type { RuneDefaultGrade } from '../lib/runes';
@@ -113,6 +114,9 @@ const columns: readonly SortableColumn<RuneCleanupRow>[] = (() => {
     initialDirection: defaultRuneCleanupSortDirections[key] ? 'ascending' as const : 'descending' as const,
     compare: (left: RuneCleanupRow, right: RuneCleanupRow) =>
       compareRuneCleanupRows(left, right, key) || left.index - right.index,
+    /* A dash is not a figure, so it sorts after every figure either way round. */
+    absent: key === 'maxValue' ? (row: RuneCleanupRow) => !runeMaxValueShown(row)
+      : key === 'chance' ? (row: RuneCleanupRow) => !runeChanceShown(row) : undefined,
   });
   return [
     column('set', 'Set'),
@@ -222,7 +226,7 @@ export function RuneRecommendations({ game, monsterPreferences, settings, preset
         rune,
         index,
         advice: advice.get(rune.id) ?? {
-          verdict: 'sell', reason: '', maxValue: 0, standing: 0, chance: 0, preset: null, rank: 'broken',
+          verdict: 'sell', reason: '', maxValue: 0, standing: 0, floorShare: 0, chance: 0, preset: null, rank: 'broken',
           craftedLines: null,
         },
         location: rune.occupiedId === null ? 'Inventory' : monsterNames[rune.occupiedId]?.name ?? null,
@@ -504,22 +508,21 @@ export function RuneRecommendations({ game, monsterPreferences, settings, preset
             {/* The two figures the verdict is made of, printed beside it so the
                 advice is arguable rather than something to be taken on trust. */}
             <td className={cell('maxValue')}>
-              {row.advice.preset ? `${Math.round(row.advice.maxValue * 100)} %` : <span className="muted">—</span>}
+              {runeMaxValueShown(row) ? `${Math.round(row.advice.maxValue * 100)} %` : <span className="muted">—</span>}
             </td>
             {/* A rune at +12 has spent every upgrade it will ever get, so there is
                 nothing left to be uncertain about and no odds to print. A dash says
                 that; "100 %" beside a Keep would invite the reader to compare a
                 settled fact with the gambles in the rows above it. */}
             <td className={cell('chance')}>
-              {row.advice.preset && row.rune.level < 12
-                ? `${Math.round(row.advice.chance * 100)} %`
-                : <span className="muted">—</span>}
+              {runeChanceShown(row) ? runeChanceText(row.advice.chance) : <span className="muted">—</span>}
             </td>
+            {/* The verdict alone. The chance it rests on is the column beside it, so
+                repeating it underneath only said the same number twice. */}
             <td className={cell('advice')}>
               <span className="rune-verdict" data-verdict={row.advice.verdict}>
                 {runeVerdictLabels[row.advice.verdict]}
               </span>
-              <span className="rune-advice-reason">{row.advice.reason}</span>
             </td>
           </tr>) : <tr>
             <td className="table-empty-state" colSpan={runeCleanupTableColumns.length}>

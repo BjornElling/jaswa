@@ -25,13 +25,17 @@
  * the main property that carries its own stat in all three choosing slots so the
  * stat is barred as a sub property in four of the six.
  *
- * The comparison holds the **main property** fixed, because a main property is a
- * separate question the preset has already answered out loud. Slots 1, 3 and 5 have
- * one main each and slots 2, 4 and 6 have seven or eight, so a box of slot-2 runes
- * drawn at random is mostly runes no preset asked for; counting those would measure
- * the preset's main-stat choice, not the arithmetic. Every rune in every cell below
- * carries a main the preset named, and every set is preferred, so the only thing left
- * that can move a verdict is the slot.
+ * **The population is every rune a slot produces**, its main drawn evenly over every
+ * main the slot allows (`RUNE-CLEANUP-MATH.md` §9.3). It used to hold the main fixed to
+ * one the preset named, and that hid the larger half of the skew: slots 1, 3 and 5
+ * have one main each and slots 2, 4 and 6 have seven or eight, so a preset naming one
+ * or two of them could use a seventh of those slots' runes and kept a seventh as many.
+ * Measured on the shipped presets that was 1–7 % of slots 2, 4 and 6 against 15–20 %
+ * of slots 1, 3 and 5. Now every slot must keep the same share of *everything* it
+ * produces — except where the preset can use less of the slot than that share, and
+ * then it must keep every rune it can use and no more (`usableShare` below). Every
+ * set is preferred, so the only things left that can move a verdict are the slot and
+ * the main.
  *
  * The last section is the mirror image and matters just as much: the scale must still
  * *discriminate*. A check that only demanded equal shares would pass on an engine that
@@ -120,6 +124,25 @@ function ordinaryRune(random, id, slot, mainStatId, setName) {
   return rune;
 }
 
+/**
+ * The share of a slot's runes a preset can use at all: those whose main one of its
+ * builds accepts. A slot left blank accepts every main, at the broken worth. The floor
+ * can never keep more of a slot than this, so it is the expected share wherever it is
+ * smaller than the one the floor names.
+ */
+function usableShare(preset, slot, settings) {
+  const mains = slotMainProperties[slot];
+  return mains.filter((main) => usableMain(preset, slot, main, settings)).length / mains.length;
+}
+
+function usableMain(preset, slot, main, settings) {
+  if (slot === 1 || slot === 3 || slot === 5) return true;
+  const choice = preset.slots[`slot${slot}`];
+  const named = [...choice.preferred, ...choice.acceptable].map((stat) => runeMainStatIds[stat]);
+  if (named.length === 0) return settings.brokenRunes !== 5;
+  return named.includes(main);
+}
+
 /** The main properties a preset named for one slot; slots 1, 3 and 5 have one. */
 function mainsFor(preset, slot) {
   if (slot === 1 || slot === 3 || slot === 5) return slotMainProperties[slot];
@@ -206,12 +229,12 @@ const baseSettings = {
 async function sharesBySlot(preset, settings, random) {
   const runes = [];
   for (const slot of [1, 2, 3, 4, 5, 6]) {
-    const mains = mainsFor(preset, slot);
-    if (mains.length === 0) continue;
+    const mains = slotMainProperties[slot];
     for (let at = 0; at < perSlot; at += 1) {
       /* Sets cycle rather than being drawn, so every cell holds the same multiset of
          set labels and `verify:rune-set-neutrality`'s subject cannot leak into this
-         one. Mains cycle for the same reason. */
+         one. Mains cycle over every main the slot allows, which is the population the
+         floor is a share of. */
       runes.push(ordinaryRune(random, `${slot}-${at}`, slot, mains[at % mains.length],
         presetRuneSetNameList[at % presetRuneSetNameList.length]));
     }
@@ -219,14 +242,16 @@ async function sharesBySlot(preset, settings, random) {
   const advice = await runeAdvice(runes, [preset], settings, referenceStats);
   const seen = [0, 0, 0, 0, 0, 0];
   const kept = [0, 0, 0, 0, 0, 0];
+  const usable = [0, 0, 0, 0, 0, 0];
   for (const rune of runes) {
     const answer = advice.get(rune.id);
     seen[rune.slot - 1] += 1;
+    if (usableMain(preset, rune.slot, rune.mainStatId, settings)) usable[rune.slot - 1] += 1;
     if (answer.verdict !== 'sell') {
       kept[rune.slot - 1] += 1;
     }
   }
-  return { seen, kept };
+  return { seen, kept, usable };
 }
 
 /**
@@ -309,6 +334,25 @@ const scenarios = [
      and a mismatch in the *shape* of two slots' boxes would show up first. */
   { preset: adversarialPresets[3], label: 'Mostly SPD, floor 1', settings: { ...baseSettings, runeQuality: 1 } },
   { preset: adversarialPresets[3], label: 'Mostly SPD, floor 5', settings: { ...baseSettings, runeQuality: 5 } },
+  /* The strictest floor asks for 4 % of a slot, which every one-main slot of the roles
+     above can supply — so here the share is found rather than capped, and a slot-2
+     rune must clear seven times as much of its own box as a slot-1 rune does. */
+  { preset: adversarialPresets[0], label: 'Mostly DEF, floor 5', settings: { ...baseSettings, runeQuality: 5 } },
+  { preset: adversarialPresets[1], label: 'Mostly ATK, floor 5', settings: { ...baseSettings, runeQuality: 5 } },
+  /* The case a flat "double it" gets wrong: one role, one preferred slot-6 main
+     against five. Five of eight is past any floor's share and needs almost no help;
+     one of eight needs eight times the share. Both must land where slot 1 does. */
+  {
+    preset: { ...adversarialPresets[6], id: 'one-six', slots: { ...adversarialPresets[6].slots, slot6: { preferred: ['HP%'], acceptable: [] } } },
+    label: 'One slot-6 main, fl 4', settings: { ...baseSettings, runeQuality: 4 },
+  },
+  {
+    preset: {
+      ...adversarialPresets[6], id: 'five-six',
+      slots: { ...adversarialPresets[6].slots, slot6: { preferred: ['HP%', 'Atk%', 'Def%', 'Res%', 'Acc%'], acceptable: [] } },
+    },
+    label: 'Five slot-6 mains, 4', settings: { ...baseSettings, runeQuality: 4 },
+  },
 ];
 
 console.log(`Slot neutrality — ${perSlot.toLocaleString('en')} ordinary 6★ +12 runes per slot,`
@@ -317,14 +361,28 @@ console.log('                        1      2      3      4      5      6    ove
 
 for (const scenario of scenarios) {
   const random = makeRandom(seed);
-  const { seen, kept } = await sharesBySlot(scenario.preset, scenario.settings, random);
-  const rates = seen.map((count, at) => (count > 0 ? kept[at] / count : null));
-  const measured = rates.filter((rate) => rate !== null);
-  const overall = kept.reduce((sum, value) => sum + value, 0) / seen.reduce((sum, value) => sum + value, 0);
+  const { seen: allSeen, kept: allKept, usable: allUsable } = await sharesBySlot(scenario.preset, scenario.settings, random);
+  /* A slot whose usable runes are fewer than the floor's share keeps every one of
+     them, which is a count rather than a sample: it is checked exactly, and the
+     comparison of shares is made between the slots that had enough to choose from. */
+  const named = qualityThresholds[scenario.settings.runeQuality - 1];
+  const capped = [1, 2, 3, 4, 5, 6].map((slot) => usableShare(scenario.preset, slot, scenario.settings) <= named);
+  for (let at = 0; at < 6; at += 1) {
+    if (!capped[at]) continue;
+    const usable = allUsable[at];
+    check(allKept[at] === usable, `${scenario.label}: slot ${at + 1} can use ${usable} of its runes, fewer than`
+      + ` the floor's share, and should keep every one of them — it kept ${allKept[at]}.`);
+  }
+  const seen = allSeen.map((count, at) => (capped[at] ? 0 : count));
+  const kept = allKept.map((count, at) => (capped[at] ? 0 : count));
+  const rates = allSeen.map((count, at) => (count > 0 ? allKept[at] / count : null));
+  const measured = rates.filter((rate, at) => rate !== null && !capped[at]);
+  const overall = kept.reduce((sum, value) => sum + value, 0) / Math.max(1, seen.reduce((sum, value) => sum + value, 0));
   const spread = Math.min(...measured) > 0 ? Math.max(...measured) / Math.min(...measured) : Infinity;
   const statistic = chiSquare(seen, kept);
-  const cells = rates.map((rate) => (rate === null ? '    - ' : `${(rate * 100).toFixed(1)} %`.padStart(6)));
-  console.log(`${scenario.label.padEnd(20)} ${cells.join(' ')}  ${(overall * 100).toFixed(1).padStart(5)} %`
+  const cells = rates.map((rate, at) => (rate === null ? '    - '
+    : `${(rate * 100).toFixed(1)}${capped[at] ? '*' : ' '}%`.padStart(7)));
+  console.log(`${scenario.label.padEnd(20)} ${cells.join('')}  ${(overall * 100).toFixed(1).padStart(5)} %`
     + `  ${spread.toFixed(2).padStart(7)}x  ${statistic.toFixed(1).padStart(7)}`);
 
   check(overall > 0, `${scenario.label} recommended nothing at all, so the comparison proves nothing.`);

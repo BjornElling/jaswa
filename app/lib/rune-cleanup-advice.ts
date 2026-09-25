@@ -16,13 +16,17 @@ import type { RunePotentialSettings } from './types';
 import type { ReferenceStats } from './rune-reference-stats';
 import {
   boxThreshold, candidateChanceAsk, candidateMaxValue, isFourPieceSet,
-  newRuneAdviceScope, ordinaryBox, prepareRuneCandidate, presetBuilds, standingIn,
+  newRuneAdviceScope, ordinaryBox, prepareRuneCandidate, presetBuilds, referenceStars, slotMainFamily,
+  standingIn,
 } from './rune-cleanup-model';
 import type {
   Build, ChanceAsk, CountingJob, CraftCredit, MatchRank, OrdinaryBox, RuneCandidate,
 } from './rune-cleanup-model';
 import { countJobs } from './rune-power-up-outcomes';
+import type { RuneFuture } from './rune-power-up-outcomes';
+import type { Valuation } from './rune-substat-weights';
 import { craftAssumptionForSetting } from './rune-craft-items';
+import { slotMainProperties } from './rune-properties';
 import { craftedLines } from './rune-craft-end-state';
 import type { EndStateLine } from './rune-craft-end-state';
 
@@ -46,28 +50,146 @@ export type ChanceCounter = (jobs: readonly CountingJob[], chanceBar?: number) =
  */
 class ChanceLedger {
   private readonly asks: ChanceAsk[] = [];
-  private readonly starts: number[] = [];
-  private pending = 0;
+  /** For every ask, where each of its jobs sits in the one list handed out. */
+  private readonly slots: number[][] = [];
+  private readonly unique: CountingJob[] = [];
+  /**
+   * **The same question is counted once.** Two builds of a preset whose main stats
+   * differ only where the role wants nothing price every line alike and draw the
+   * same bar, so they ask one rune one question twice. Measured on a preset with
+   * three main stats in each of slots 2, 4 and 6, half its jobs were such repeats.
+   * A job is the rune's future, the role's valuation and craft plan, the bar and
+   * the run count — every one of them either memoised or a number, so identity is
+   * exact rather than approximate.
+   */
+  private readonly seen = new Map<RuneFuture, Map<string, number>>();
 
   add(ask: ChanceAsk): number {
     this.asks.push(ask);
-    this.starts.push(this.pending);
-    this.pending += ask.jobs.length;
+    this.slots.push(ask.jobs.map((job) => {
+      const key = `${valuationNumber(job.scoring.valuation)}|${job.scoring.plan.key}|${job.wanted}|${job.runs}`;
+      let known = this.seen.get(job.future);
+      if (!known) { known = new Map(); this.seen.set(job.future, known); }
+      const found = known.get(key);
+      if (found !== undefined) return found;
+      this.unique.push(job);
+      known.set(key, this.unique.length - 1);
+      return this.unique.length - 1;
+    }));
     return this.asks.length - 1;
   }
 
   jobs(): CountingJob[] {
-    const all: CountingJob[] = [];
-    for (const ask of this.asks) for (const job of ask.jobs) all.push(job);
-    return all;
+    return [...this.unique];
   }
 
   settle(shares: Float64Array): number[] {
-    if (shares.length !== this.pending) {
+    if (shares.length !== this.unique.length) {
       throw new Error('The chance counter returned an unexpected number of answers.');
     }
-    return this.asks.map((ask, at) =>
-      ask.combine(Array.from(shares.subarray(this.starts[at], this.starts[at] + ask.jobs.length))));
+    return this.asks.map((ask, at) => ask.combine(this.slots[at].map((slot) => shares[slot])));
+  }
+}
+
+/* A short number per valuation for the ledger's key. Valuations are memoised per
+   weight set, so identity is as fine a distinction as their own keys make, and a
+   key built from those would be a kilobyte of string per job. */
+const valuationNumbers = new WeakMap<Valuation, number>();
+let valuationCount = 0;
+
+function valuationNumber(valuation: Valuation): number {
+  let found = valuationNumbers.get(valuation);
+  if (found === undefined) { valuationCount += 1; found = valuationCount; valuationNumbers.set(valuation, found); }
+  return found;
+}
+
+/**
+ * **How much of each main's own box passes, so that every slot keeps the same share
+ * of what it produces.** `docs/RUNE-CLEANUP-MATH.md` §9.3 owns the reasoning.
+ *
+ * §9.1 makes the floor a share `q` of the ordinary box of one slot *holding one main*.
+ * That is fair between slots 1, 3 and 5, which have one main each, and it is not fair
+ * to slots 2, 4 and 6, which have seven or eight: a preset names one or two of them,
+ * so most of those slots' runes are runes it cannot use at all, and `q` of the few it
+ * can use is a small share of the slot. Measured per shipped preset on an ordinary
+ * box of every main, that kept 1–7 % of slots 2, 4 and 6 against 15–20 % of slots 1,
+ * 3 and 5, and about half as many across all presets together — while a monster needs
+ * one of each.
+ *
+ * So the floor is stated for the **whole slot** instead. The slot's ordinary runes are
+ * a mixture of its `M` legal mains, each drawn on `1/M` of runes (the game states no
+ * main-property rate, and none has been measured; uniform is the stated assumption,
+ * as it is for the upgrade target). A rune of main `m` is worth `w_m` of itself to the
+ * preset — `1` preferred, the Accepted runes worth acceptable, the Broken runes worth
+ * for a slot left blank — and nothing where no build accepts `m`. One share `q'` of
+ * *every* main's own box is then found such that the slot as a whole keeps `q`:
+ *
+ * ```
+ * (1/M) · Σ_m P( w_m · X_m ≥ T_m(q') ) = q
+ * ```
+ *
+ * where `X_m` is main `m`'s ordinary Max value and `T_m(q')` the Max value at which the
+ * best `q'` of its box begins. A preferred main contributes `q'` exactly, a discounted
+ * one less, an unwanted one nothing. The left side is continuous and never falls as
+ * `q'` rises, so one bisection finds it.
+ *
+ * - **Slots 1, 3 and 5 are unchanged**: one main, preferred, so `q' = q`.
+ * - **Many preferred mains need little help and one needs a lot**, which is the case a
+ *   flat "double it" gets wrong: four of slot 6's eight mains preferred is `q' = 2q`,
+ *   one of them is `8q`. The preset's own choices set the factor.
+ * - **One `q'` for every main of the slot**, not one Max value, so §9.1's promise
+ *   still holds between mains: a CRI Dmg slot-4 rune and an ATK % one are cut at the
+ *   same place in their own boxes, whichever of the two blocks the stat the role wants.
+ * - **Where even `q' = 1` falls short**, the slot cannot produce `q` of runes the preset
+ *   can use, and every rune of a wanted main clears the floor. That is the arithmetic
+ *   of "as many as any other slot" and it is stated rather than hidden: a preset asking
+ *   for SPD alone in slot 2 has one slot-2 rune in seven to choose from.
+ */
+class SlotShares {
+  private readonly found = new Map<string, number>();
+  private readonly scope: ReturnType<typeof newRuneAdviceScope>;
+  private readonly credit: CraftCredit;
+  private readonly accepted: number;
+  private readonly broken: number;
+
+  constructor(scope: ReturnType<typeof newRuneAdviceScope>, credit: CraftCredit, accepted: number, broken: number) {
+    this.scope = scope;
+    this.credit = credit;
+    this.accepted = accepted;
+    this.broken = broken;
+  }
+
+  shareOf(
+    preset: RunePotentialPreset, builds: readonly Build[], slot: number, stars: number,
+    base: ReferenceStats, wanted: number,
+  ): number {
+    const key = `${preset.id}|${slot}|${stars}|${wanted}`;
+    const known = this.found.get(key);
+    if (known !== undefined) return known;
+    const mains = slotMainProperties[slot] ?? [];
+    const readings = mains.map((main) => {
+      const family = slotMainFamily(preset, builds, slot, main, stars, base, this.credit, this.scope);
+      const worth = family.valuations.length === 0 ? 0
+        : family.rank === 'preferred' ? 1 : family.rank === 'acceptable' ? this.accepted : this.broken;
+      return { box: ordinaryBox(family), worth };
+    });
+    const kept = (share: number) => readings.reduce((total, { box, worth }) => {
+      if (worth <= 0 || box.below.length === 0) return total;
+      if (share >= 1) return total + 1;
+      return total + 1 - standingIn(box, boxThreshold(box, share) / worth);
+    }, 0) / Math.max(1, mains.length);
+    let share = 1;
+    if (kept(1) > wanted) {
+      let low = 0;
+      let high = 1;
+      for (let step = 0; step < 50; step += 1) {
+        const middle = (low + high) / 2;
+        if (kept(middle) < wanted) low = middle; else high = middle;
+      }
+      share = high;
+    }
+    this.found.set(key, share);
+    return share;
   }
 }
 
@@ -75,15 +197,20 @@ class ChanceLedger {
 type Contender = {
   preset: RunePotentialPreset; prepared: RuneCandidate; box: OrdinaryBox;
   value: number; maxValue: number; rank: MatchRank;
+  /** The share of this rune's own box that passes: the slot's share, spread over its mains (§9.3). */
+  share: number;
 };
 
-/** One contender the policy will walk, with its question already numbered. */
-type Step = { candidate: Contender; passesValue: boolean; current: number };
+/**
+ * One preset the policy will walk: its best-valued build, whose Max value and standing
+ * the row prints, and one numbered question per build whose odds are asked.
+ */
+type Step = { candidate: Contender; passesValue: boolean; asks: number[] };
 
-type RunePlan = { rune: Rune; retentionShare: number; steps: Step[] };
+type RunePlan = { rune: Rune; steps: Step[] };
 
 type Answer = {
-  value: number; maxValue: number; chance: number;
+  value: number; maxValue: number; chance: number; share: number;
   preset: RunePotentialPreset; rank: MatchRank;
   /** This preset's best build, whose craft decision the row stands on. */
   candidate: RuneCandidate;
@@ -132,11 +259,16 @@ export const qualityThresholds: readonly number[] = [0.33, 0.23, 0.15, 0.09, 0.0
  * almost no certainty, stop `5` takes no chances. The two bars are independent on
  * purpose — how good a rune must end up and how sure you must be are different
  * questions, and a player who wants a high ceiling on a long shot is entitled to say
- * so. The practical ladder is deliberately shifted one stop towards leniency: the
- * old `Adventurous` bar now belongs to `Balanced`, while the new intermediate stop
- * keeps `Adventurous` distinct instead of making two labels share a value.
+ * so.
+ *
+ * **Each stop means what its label says**: Full YOLO rolls a one-in-a-hundred shot,
+ * Adventurous one in twenty, Balanced one in five, Picky a coin toss, and Take no
+ * chances only a rune four times in five sure to get there. The ladder used to run
+ * 2 %–40 %, so "Take no chances" still rolled a rune that would miss more often than
+ * it arrived. The verdict is this one comparison and nothing else: the rune's chance
+ * — its best build's (§5.1) — against the stop.
  */
-export const chanceThresholds: readonly number[] = [0.02, 0.06, 0.08, 0.20, 0.40];
+export const chanceThresholds: readonly number[] = [0.01, 0.05, 0.20, 0.50, 0.80];
 
 /**
  * What a rune the preset merely accepts is worth against one it prefers, by the
@@ -174,6 +306,13 @@ export type RuneAdvice = {
    * consequences.
    */
   standing: number;
+  /**
+   * The share of its own box the floor let through for this rune: the quality stop's
+   * share of the whole slot, spread over the slot's mains (§9.3). A slot-1 rune's is
+   * the stop itself; a slot-2 rune's is larger wherever the preset can use only a few
+   * of slot 2's mains. `standing` passed where it reached `1 - floorShare`.
+   */
+  floorShare: number;
   /** `0`–`1`: the chance of reaching the bar by +12. */
   chance: number;
   /** The preset this rune answers best, or `null` when none can use it. */
@@ -263,6 +402,7 @@ export async function runeAdvice(
      for its duration, which is what makes the keys inside it sound. */
   const scope = newRuneAdviceScope();
   const ledger = new ChanceLedger();
+  const slotShares = new SlotShares(scope, credit, accepted, broken);
   const prepared: RunePlan[] = [];
 
   /* ------------------------------------------------- 1. everything that is certain */
@@ -277,6 +417,7 @@ export async function runeAdvice(
     const retentionMultiplier = (settings.keepMoreForLargerSets && isFourPieceSet(rune.setName) ? 2 : 1)
       * (rune.setName === 'Intangible' ? intangible : 1);
     const retentionShare = Math.min(1, qualityBar * retentionMultiplier);
+    const stars = referenceStars(rune);
     for (const preset of presets) {
       const line = base.get(preset.type);
       if (!line) continue;
@@ -308,7 +449,9 @@ export async function runeAdvice(
         if (candidate) family.push(candidate);
       }
       if (family.length === 0) continue;
-      const box = ordinaryBox(family);
+      const presetBuildList = builds.get(preset.id) ?? [];
+      const box = ordinaryBox(slotMainFamily(preset, presetBuildList, rune.slot, family[0].main, stars, line, credit, scope));
+      const share = slotShares.shareOf(preset, presetBuildList, rune.slot, stars, line, retentionShare);
       for (const candidate of family) {
         const worth = candidate.rank === 'preferred' ? 1 : candidate.rank === 'acceptable' ? accepted : broken;
         /* Two figures, and they are not interchangeable. `maxValue` is what the row
@@ -322,18 +465,25 @@ export async function runeAdvice(
            discounting the rune rather than the population. */
         const maxValue = candidateMaxValue(candidate) * worth;
         const value = standingIn(box, maxValue);
-        candidates.push({ preset, prepared: candidate, box, maxValue, value, rank: candidate.rank });
+        candidates.push({ preset, prepared: candidate, box, maxValue, value, rank: candidate.rank, share });
       }
     }
 
-    /* **One candidate per preset: the build it scores best in.** A preset's builds
-       are readings of the same role, and the row prints one Max value and one Chance
-       against one preset, so the build those two describe should be the same one —
-       the best. Asking every build for its odds instead is what the chance
-       calculation costs the most of, and the engine used to keep whichever build was
-       enumerated first, so picking the best-valued one is strictly better than what
-       this replaced. Choosing between *presets* on chance as well as value is a
-       different question, and the loop below still does it. */
+    /* **Every build of a preset is asked for its odds, and the preset answers with
+       its best of each.** A preset's builds are the main-stat combinations it would
+       accept in slots 2, 4 and 6, and the rune goes into whichever of them it suits
+       — so its Max value is its best build's, and its chance is its best build's
+       chance, even where those are two different builds. The best-valued build is
+       not always the likeliest: one whose other targets its main stats already cover
+       puts this rune's one excellent line on a higher ceiling and a higher bar, and a
+       build that asks less of the rune can be the one it reaches. Asking only the
+       best-valued build sold such a rune for want of a question nobody asked.
+
+       It is affordable because a rune is played forward once however many builds ask
+       about it: another build is another price list over the same runs, and a build
+       whose best end state misses its bar settles at zero without a run. A rune only
+       fits the builds that name its own main, so three choices in each of slots 2, 4
+       and 6 is nine builds for a slot-2 rune and twenty-seven for a slot-1 rune. */
     /* Ties are broken on Max value, and they are not hypothetical. A standing is a
        position in a box recorded at a finite resolution, so two candidates a hair
        apart can land on the same step of it — and far out in a box's thin upper tail,
@@ -344,10 +494,13 @@ export async function runeAdvice(
       || candidate.value > standing.value
       || (candidate.value === standing.value && candidate.maxValue > standing.maxValue);
     const bestPerPreset = new Map<string, Contender>();
+    const buildsPerPreset = new Map<string, Contender[]>();
     for (const candidate of candidates) {
       if (beats(candidate, bestPerPreset.get(candidate.preset.id))) {
         bestPerPreset.set(candidate.preset.id, candidate);
       }
+      const family = buildsPerPreset.get(candidate.preset.id);
+      if (family) family.push(candidate); else buildsPerPreset.set(candidate.preset.id, [candidate]);
     }
 
     /* Best first, so the strongest candidate that also clears the chance bar wins,
@@ -362,31 +515,36 @@ export async function runeAdvice(
       .sort((left, right) => right.value - left.value || right.maxValue - left.maxValue);
     const steps: Step[] = [];
     let anyProcessed = false;
+    /* The chance has to be the chance of clearing the *same* bar the value was judged
+       against. The value carries the accepted/broken discount, so the fill the rune
+       actually has to reach is the bar divided by that discount — otherwise an
+       accepted rune would be discounted once in its score and not at all in its odds,
+       and the two halves of the row would disagree. The floor is stated as a share of
+       each build's own box and the odds are asked of that build's own Max value, so
+       the bar and the chance describe one reading. */
+    const askOf = (candidate: Contender) => {
+      const worth = candidate.rank === 'preferred' ? 1 : candidate.rank === 'acceptable' ? accepted : broken;
+      const threshold = worth > 0
+        ? boxThreshold(candidate.box, candidate.share) / worth : Number.POSITIVE_INFINITY;
+      return ledger.add(candidateChanceAsk(candidate.prepared, threshold));
+    };
     /* These preferences change how much of the ordinary box this rune is
        allowed to represent. They widen the retained share; they never remove
        another rune's place or introduce any global limit. */
     for (const candidate of contenders) {
-      const passesValue = candidate.value >= 1 - retentionShare;
+      const passesValue = candidate.value >= 1 - candidate.share;
       if (!passesValue && anyProcessed) continue;
       anyProcessed = true;
-      /* The chance has to be the chance of clearing the *same* bar the value was
-         judged against. The value carries the accepted/broken discount, so the fill
-         the rune actually has to reach is the bar divided by that discount —
-         otherwise an accepted rune would be discounted once in its score and not at
-         all in its odds, and the two halves of the row would disagree. */
-      const worth = candidate.rank === 'preferred' ? 1 : candidate.rank === 'acceptable' ? accepted : broken;
-      /* The floor is stated as a share of this reading's own box and the odds are
-         asked of its own Max value, so the bar and the chance describe one reading. */
-      const currentThreshold = worth > 0
-        ? boxThreshold(candidate.box, retentionShare) / worth : Number.POSITIVE_INFINITY;
-      steps.push({
-        candidate,
-        passesValue,
-        current: ledger.add(candidateChanceAsk(candidate.prepared, currentThreshold)),
-      });
+      /* A build below the floor cannot reach it by any road, so asking it would only
+         spend a bound on a certain zero. Where not even the best build passes, it is
+         still asked once, so the row reports the odds of its best showing. */
+      const asked = passesValue
+        ? (buildsPerPreset.get(candidate.preset.id) ?? []).filter((build) => build.value >= 1 - build.share)
+        : [candidate];
+      steps.push({ candidate, passesValue, asks: asked.map(askOf) });
     }
 
-    prepared.push({ rune, retentionShare, steps });
+    prepared.push({ rune, steps });
   }
 
   /* --------------------------------------------------------- 2. what is left */
@@ -396,14 +554,15 @@ export async function runeAdvice(
   const advice = new Map<string, RuneAdvice>();
   for (const plan of prepared) {
     const answered: Answer[] = plan.steps.map((step) => ({
-      value: step.candidate.value, maxValue: step.candidate.maxValue, chance: answers[step.current],
+      value: step.candidate.value, maxValue: step.candidate.maxValue, share: step.candidate.share,
+      chance: step.asks.reduce((best, at) => Math.max(best, answers[at]), 0),
       preset: step.candidate.preset, rank: step.candidate.rank, candidate: step.candidate.prepared,
     }));
     /* A rune may satisfy several presets. Pick its strongest passing reading only
        to give the row one explanation; this choice never removes another rune or
        changes whether this rune passed. Every passing rune remains eligible. The
-       row's Max value, standing and chance all come from that one preset's build
-       (§5.1). */
+       row's Max value and standing are that preset's best build's, and its chance
+       is the best chance any of the preset's builds gives (§5.1). */
     const selected = answered
       .filter((answer, at) => plan.steps[at].passesValue && answer.chance >= chanceBar)
       .sort((left, right) =>
@@ -421,6 +580,7 @@ export async function runeAdvice(
         cleared: selected !== null,
         brokenRejected: broken === 0,
       }),
+      floorShare: chosen?.share ?? 0,
       craftedLines: chosen && plan.rune.level >= 12 ? finishedLines(chosen.candidate) : null,
     });
   }
@@ -452,7 +612,7 @@ function decide({ rune, value, standing, chance, preset, rank, cleared, brokenRe
   rune: Rune; value: number; standing: number; chance: number;
   preset: RunePotentialPreset | null; rank: MatchRank;
   cleared: boolean; brokenRejected: boolean;
-}): Omit<RuneAdvice, 'craftedLines'> {
+}): Omit<RuneAdvice, 'craftedLines' | 'floorShare'> {
   const base = { maxValue: value, standing, chance, preset, rank };
   if (preset === null) {
     return { ...base, verdict: 'sell', reason: 'No preset can use it' };

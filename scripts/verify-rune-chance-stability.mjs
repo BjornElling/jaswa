@@ -37,7 +37,7 @@
  * end state that depends on how its lines actually rolled.
  */
 import { defaultRunePotentialPresets } from '../app/lib/rune-potential-presets.ts';
-import { runeAdvice, qualityThresholds } from '../app/lib/rune-cleanup-advice.ts';
+import { runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
 import { chanceRuns } from '../app/lib/rune-cleanup-model.ts';
 import { countJobs } from '../app/lib/rune-power-up-outcomes.ts';
 import {
@@ -202,7 +202,7 @@ for (const resolution of resolutions) {
       if (name === '+12') {
         check(answer.chance === 1 || answer.chance === 0,
           `+12: rune ${rune.id} was retained on a counted chance of ${answer.chance}`);
-        check(answer.standing >= 1 - qualityThresholds[settings.runeQuality - 1] - 1e-9,
+        check(answer.standing >= 1 - answer.floorShare - 1e-9,
           `+12: rune ${rune.id} was retained at a standing of ${answer.standing.toFixed(4)},`
           + ` below the floor it was judged against`);
       }
