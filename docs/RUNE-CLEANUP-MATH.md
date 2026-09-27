@@ -978,17 +978,18 @@ synthetic population:
 
 - **Percent to roll** is the share of the population at `+0` whose Rune Clean-up
   verdict is `Power up`.
-- **Percent to keep** is the share of the same rune bodies at `+12` whose verdict is
-  `Keep`.
+- **Percent to keep** is the share of the original population whose `+0` and `+9`
+  verdicts both survive the sell gate and whose `+12` verdict is `Keep`.
 
 The population is 50 runes for each of the six slots, or **300 runes at each
 checkpoint**. It is Legend-born six-star runes, with every legal main cycled evenly;
-the +0 and +12 records consume the same deterministic random stream, so they are
-checkpoints of the same bodies rather than two unrelated samples. The statistics
+the +0, +9 and +12 records consume the same deterministic random stream, so they are
+checkpoints of the same bodies rather than three unrelated samples. The statistics
 calculation then uses the ordinary advice engine, including the current presets,
-quality floor, chance policy, set preferences and craft assumptions. A worker keeps
-the calculation off the interface thread, and a newer slider choice supersedes an
-older answer.
+quality floor, chance policy, set preferences and craft assumptions. It follows the
+same funnel as the Rune Simulator: runes sold at +0 never reach +9, and runes sold at
++9 never reach +12. A worker keeps the calculation off the interface thread, and a
+newer slider choice supersedes an older answer.
 
 This is intentionally a fast, comparable indicator. At the worst-case proportion
 of 50 %, 300 observations have a binomial standard error of about 2.9 percentage

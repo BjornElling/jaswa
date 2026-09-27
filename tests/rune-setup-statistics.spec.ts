@@ -3,6 +3,10 @@ import { fileURLToPath } from 'node:url';
 
 const account = fileURLToPath(new URL('./fixtures/craft-account.json', import.meta.url));
 
+function percentage(value: string): number {
+  return Number(value.replace('%', '').replace(',', '.'));
+}
+
 test('keeps the statistics box honest without an account reference', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
@@ -29,13 +33,15 @@ test('shows the synthetic statistics and recalculates them after a setting chang
   await expect(status).toContainText(/synthetic runes/);
   const before = await values.allTextContents();
   expect(before.every((value) => /\d/.test(value))).toBe(true);
+  expect(percentage(before[1] ?? '')).toBeLessThanOrEqual(percentage(before[0] ?? ''));
 
-  const quality = page.locator('#rune-quality');
-  const nextQuality = (Number(await quality.inputValue()) === 5 ? 1 : 5).toString();
-  await quality.fill(nextQuality);
+  const accepted = page.locator('#accepted-runes');
+  await expect(accepted).toHaveValue('3');
+  await accepted.fill('5');
   await expect(status).toContainText('Calculating…');
   await expect(status).toContainText(/synthetic runes/);
   const after = await values.allTextContents();
   expect(after.every((value) => /\d/.test(value))).toBe(true);
+  expect(percentage(after[1] ?? '')).toBeLessThanOrEqual(percentage(after[0] ?? ''));
   expect(after).not.toEqual(before);
 });
