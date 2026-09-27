@@ -35,8 +35,8 @@ const potentialStepLabels = {
     'I’m a newbie — around 10% Max is enough, slot-balanced',
     'Been playing for a while — still some way to go',
     'I’ve got good runes, and I want more good runes',
-    'G1 baby — around 50% Max, slot-balanced',
-    'You’ve seen my replays — sell below 90% Max, slot-balanced',
+    'G1 baby',
+    'You’ve seen my replays',
   ],
   enchantedGems: [
     'None — takes each rune as it stands today',

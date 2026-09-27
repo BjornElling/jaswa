@@ -308,10 +308,10 @@ function ordinarySupply(slot: number, mainStatId: number, stat: TargetStat, base
 type GroundRelief = { lines: number; rolls: number };
 
 /**
- * **What the credited Grindstones find of a requirement before a single roll does.**
+ * **What the comparison Grindstones find of a requirement before a single roll does.**
  *
  * Every grindable line of every rune in the finished build carries a stone — that is
- * the credit the rune, its perfect rune and its ordinary box are all judged with — so
+ * the fixed credit used for the common ruler — so
  * a role that needs a stat from its sub properties gets part of it from stones. How
  * much depends on **how many lines hold the stat**, and that depends on how much the
  * role asks for: a small ATK need is met by a line or two and brings a stone or two;
@@ -408,7 +408,7 @@ export type SubstatWeightInput = {
   mains: BuildMains;
   artifacts: PresetArtifacts;
   base: ReferenceStats;
-  /** The account's craft credit. Only its Grindstone half reaches the weights. */
+  /** The comparison credit. Only its Grindstone half reaches the weights. */
   credit: CraftCredit;
 };
 

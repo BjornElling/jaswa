@@ -7,7 +7,7 @@ function percentage(value: string): number {
   return Number(value.replace('%', '').replace(',', '.'));
 }
 
-test('keeps the statistics box honest without an account reference', async ({ page }) => {
+test('keeps the statistics box honest without an account reference', async ({ page }, testInfo) => {
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Set-up', exact: true }).click();
@@ -17,6 +17,7 @@ test('keeps the statistics box honest without an account reference', async ({ pa
   await expect(statistics.locator('.statistics-lead')).toContainText('Import an account with a level 40 monster');
   await expect(statistics.locator('dd')).toHaveText(['—', '—']);
   await expect(statistics.locator('.statistics-meta')).toHaveText('Waiting for an account');
+  await page.screenshot({ path: testInfo.outputPath('rune-setup-empty.png'), fullPage: true });
 });
 
 test('shows the synthetic statistics and recalculates them after a setting changes', async ({ page }) => {
@@ -44,4 +45,31 @@ test('shows the synthetic statistics and recalculates them after a setting chang
   expect(after.every((value) => /\d/.test(value))).toBe(true);
   expect(percentage(after[1] ?? '')).toBeLessThanOrEqual(percentage(after[0] ?? ''));
   expect(after).not.toEqual(before);
+});
+
+test('gets stricter when broken runes are excluded', async ({ page }, testInfo) => {
+  test.setTimeout(45_000);
+  await page.goto('/');
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
+  await page.getByRole('navigation').getByRole('button', { name: 'Rune Set-up', exact: true }).click();
+  await page.locator('main details').filter({ hasText: 'Settings' }).locator('summary').click();
+
+  const statistics = page.locator('.statistics');
+  const status = statistics.locator('.statistics-meta');
+  const values = statistics.locator('dd');
+  const broken = page.locator('#broken-runes');
+  await expect(status).toContainText(/synthetic runes/);
+  await expect(broken).toHaveValue('3');
+  const permissive = await values.allTextContents();
+  await page.screenshot({ path: testInfo.outputPath('rune-setup-broken-permissive.png'), fullPage: true });
+
+  await broken.fill('5');
+  await expect(status).toContainText('Calculating…');
+  await expect(status).toContainText(/synthetic runes/);
+  const strict = await values.allTextContents();
+  await page.screenshot({ path: testInfo.outputPath('rune-setup-broken-strict.png'), fullPage: true });
+
+  expect(percentage(strict[0] ?? '')).toBeLessThanOrEqual(percentage(permissive[0] ?? ''));
+  expect(percentage(strict[1] ?? '')).toBeLessThanOrEqual(percentage(permissive[1] ?? ''));
 });

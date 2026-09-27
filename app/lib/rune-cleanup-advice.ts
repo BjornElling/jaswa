@@ -31,6 +31,16 @@ import { lastSubPropertyLevel, slotMainProperties } from './rune-properties';
 import { craftedLines } from './rune-craft-end-state';
 import type { EndStateLine } from './rune-craft-end-state';
 
+/* Slot balance is a yardstick, not another user preference. Keeping it at the
+   shipped baseline means craft settings can only make a candidate stronger or
+   weaker; they cannot move the floor underneath every other rune. */
+const floorCalibrationCredit: CraftCredit = {
+  gem: 'three-quarters', gemGrade: 'Hero', grind: 'three-quarters', grindGrade: 'Hero',
+};
+/* The most lenient stops define the shared floor. User changes are then
+   monotone candidate filters instead of moving that floor. */
+const floorCalibrationTolerances = { accepted: 1, broken: 0.90 } as const;
+
 /**
  * Who answers the odds.
  *
@@ -127,18 +137,19 @@ const balanceSampleRunes = 2000;
  * So the floor is stated for the **whole slot** instead. The slot's ordinary runes are
  * a mixture of its `M` legal mains, each drawn on `1/M` of runes (the game states no
  * main-property rate, and none has been measured; uniform is the stated assumption,
- * as it is for the upgrade target). A rune of main `m` is worth `w_m` of itself to the
- * preset — `1` preferred, the Accepted runes worth acceptable, the Broken runes worth
- * for a slot left blank — and nothing where no build accepts `m`. One share `q'` of
- * *every* main's own box is then found such that the slot as a whole keeps `q`:
+ * as it is for the upgrade target). The calibration uses one fixed yardstick: the
+ * most lenient Accepted/Broken stops. The user's slider changes, Intangible and
+ * craft preferences are applied later to candidates; they never move this yardstick.
+ * One share `q'` of *every* main's own box is then found such that the slot as a whole
+ * keeps `q`:
  *
  * ```
  * (1/M) · Σ_m P( w_m · X_m ≥ T_m(q') ) = q
  * ```
  *
  * where `X_m` is main `m`'s ordinary Max value and `T_m(q')` the Max value at which the
- * best `q'` of its box begins. A preferred main contributes `q'` exactly, a discounted
- * one less, an unwanted one nothing. The left side is continuous and never falls as
+ * best `q'` of its box begins. A preferred main contributes `q'` exactly; the fixed
+ * calibration discounts the other ranks. The left side is continuous and never falls as
  * `q'` rises, so one bisection finds it.
  *
  * - **Slots 1, 3 and 5 are unchanged**: one main, preferred, so `q' = q`.
@@ -157,23 +168,17 @@ class SlotShares {
   private readonly found = new Map<string, number>();
   private readonly balance = new Map<number, readonly number[]>();
   private readonly scope: ReturnType<typeof newRuneAdviceScope>;
-  private readonly credit: CraftCredit;
-  private readonly accepted: number;
-  private readonly broken: number;
   private readonly presets: readonly RunePotentialPreset[];
   private readonly builds: ReadonlyMap<string, readonly Build[]>;
   private readonly base: ReadonlyMap<string, ReferenceStats>;
   private readonly qualityBar: number;
 
   constructor(
-    scope: ReturnType<typeof newRuneAdviceScope>, credit: CraftCredit, accepted: number, broken: number,
+    scope: ReturnType<typeof newRuneAdviceScope>,
     presets: readonly RunePotentialPreset[], builds: ReadonlyMap<string, readonly Build[]>,
     base: ReadonlyMap<string, ReferenceStats>, qualityBar: number,
   ) {
     this.scope = scope;
-    this.credit = credit;
-    this.accepted = accepted;
-    this.broken = broken;
     this.presets = presets;
     this.builds = builds;
     this.base = base;
@@ -216,23 +221,37 @@ class SlotShares {
     if (known) return known;
     const bar = this.qualityBar;
     /* One reading per sample rune: for each preset that can judge it, the best standing
-       any of its builds gives, discounted by its main's rank exactly as a real rune is. */
-    const readings = [1, 2, 3, 4, 5, 6].map((slot) => ordinarySample(slot, stars, balanceSampleRunes).map((rune) =>
-      this.presets.flatMap((preset) => {
+       any of its builds gives the neutral floor yardstick, independent of settings. */
+    const readings = [1, 2, 3, 4, 5, 6].map((slot) => ordinarySample(slot, stars, balanceSampleRunes).map((rune) => {
+      const candidatesByPreset = this.presets.flatMap((preset) => {
         const line = this.base.get(preset.type);
         if (!line) return [];
         const builds = this.builds.get(preset.id) ?? [];
-        let best = -Infinity;
+        const candidates: { standing: number; max: number; rank: MatchRank }[] = [];
         let box: OrdinaryBox | null = null;
         for (const build of builds) {
-          const candidate = prepareRuneCandidate(rune, preset, build, line, this.credit, this.scope);
+          const candidate = prepareRuneCandidate(rune, preset, build, line, floorCalibrationCredit, this.scope);
           if (!candidate) continue;
-          const worth = candidate.rank === 'preferred' ? 1 : candidate.rank === 'acceptable' ? this.accepted : this.broken;
-          box ??= ordinaryBox(slotMainFamily(preset, builds, slot, candidate.main, stars, line, this.credit, this.scope));
-          best = Math.max(best, standingIn(box, candidateMaxValue(candidate) * worth));
+          box ??= ordinaryBox(slotMainFamily(preset, builds, slot, candidate.main, stars, line, floorCalibrationCredit, this.scope));
+          const worth = candidate.rank === 'preferred' ? 1
+            : candidate.rank === 'acceptable' ? floorCalibrationTolerances.accepted : floorCalibrationTolerances.broken;
+          const max = candidateMaxValue(candidate) * worth;
+          candidates.push({ standing: standingIn(box, max), max, rank: candidate.rank });
         }
-        return best === -Infinity ? [] : [{ preset, standing: best }];
-      })));
+        return candidates.length === 0 ? [] : [{ preset, candidates }];
+      });
+      const hasPreferred = candidatesByPreset.some(({ candidates }) =>
+        candidates.some(({ rank }) => rank === 'preferred'));
+      return candidatesByPreset.flatMap(({ preset, candidates }) => {
+        const judged = hasPreferred ? candidates.filter(({ rank }) => rank === 'preferred') : candidates;
+        const best = judged.reduce<{ standing: number; max: number; rank: MatchRank } | null>(
+          (current, candidate) => !current || candidate.standing > current.standing
+            || (candidate.standing === current.standing && candidate.max > current.max) ? candidate : current,
+          null,
+        );
+        return best ? [{ preset, standing: best.standing, rank: best.rank }] : [];
+      });
+    }));
     const keptAt = (slot: number, balance: number) => {
       const target = Math.min(1, bar * balance);
       const floors = new Map(this.presets.map((preset) => [preset.id, 1 - this.shareOf(preset, slot, stars, target)]));
@@ -266,9 +285,10 @@ class SlotShares {
     if (known !== undefined) return known;
     const mains = slotMainProperties[slot] ?? [];
     const readings = mains.map((main) => {
-      const family = slotMainFamily(preset, builds, slot, main, stars, base, this.credit, this.scope);
+      const family = slotMainFamily(preset, builds, slot, main, stars, base, floorCalibrationCredit, this.scope);
       const worth = family.valuations.length === 0 ? 0
-        : family.rank === 'preferred' ? 1 : family.rank === 'acceptable' ? this.accepted : this.broken;
+        : family.rank === 'preferred' ? 1
+          : family.rank === 'acceptable' ? floorCalibrationTolerances.accepted : floorCalibrationTolerances.broken;
       return { box: ordinaryBox(family), worth };
     });
     const kept = (share: number) => readings.reduce((total, { box, worth }) => {
@@ -472,11 +492,11 @@ const percent = (fraction: number) => {
  */
 /** Every number the sliders stand for, read once, for every caller alike. */
 function policyOf(settings: RunePotentialSettings) {
-  /* Every field comes from the settings, so the credit is the account's and not the
-     rune's. Every imported star class enters the same engine: Ancient roll intervals
-     are a candidate-only input to Max value and Chance, while role valuation, the
-     ordinary reference box and later upgrades stay on ordinary rules. Craft legality
-     remains Ancient-specific. */
+  /* Every field comes from the settings, so the active credit belongs to the policy
+     and not to the rune. Every imported star class enters the same engine: Ancient
+     roll intervals are a candidate-only input to Max value and Chance, while the
+     common ruler stays on the fixed neutral credit. Craft legality remains
+     Ancient-specific. */
   const credit: CraftCredit = {
     gem: craftAssumptionForSetting(settings.enchantedGems), gemGrade: settings.gemGrade,
     grind: craftAssumptionForSetting(settings.grindstones), grindGrade: settings.grindstoneGrade,
@@ -501,9 +521,9 @@ export function slotFloorShares(
   presets: readonly RunePotentialPreset[], settings: RunePotentialSettings,
   base: ReadonlyMap<string, ReferenceStats>, stars = 6,
 ): Map<string, number[]> {
-  const { qualityBar, accepted, broken, credit } = policyOf(settings);
+  const { qualityBar } = policyOf(settings);
   const builds = new Map<string, Build[]>(presets.map((preset) => [preset.id, presetBuilds(preset)]));
-  const shares = new SlotShares(newRuneAdviceScope(), credit, accepted, broken, presets, builds, base, qualityBar);
+  const shares = new SlotShares(newRuneAdviceScope(), presets, builds, base, qualityBar);
   return new Map(presets.map((preset) => [preset.id,
     [1, 2, 3, 4, 5, 6].map((slot) => shares.shareFor(preset, slot, stars, qualityBar))]));
 }
@@ -525,7 +545,12 @@ export async function runeAdvice(
      for its duration, which is what makes the keys inside it sound. */
   const scope = newRuneAdviceScope();
   const ledger = new ChanceLedger();
-  const slotShares = new SlotShares(scope, credit, accepted, broken, presets, builds, base, qualityBar);
+  /* The floor is calibrated once against the same neutral yardstick for every
+     setting. Letting Accepted/Broken, Intangible or craft credit change that
+     calibration can move the preferred-main bar itself, so a stricter filter
+     could admit more runes. Those settings now only change their own candidate's
+     verdict. */
+  const slotShares = new SlotShares(scope, presets, builds, base, qualityBar);
   const prepared: RunePlan[] = [];
 
   /* ------------------------------------------------- 1. everything that is certain */
@@ -568,12 +593,14 @@ export async function runeAdvice(
           const wanted = build.mains[rune.slot];
           if (wanted !== rune.mainStatId && wanted !== 0) continue;
         }
-        const candidate = prepareRuneCandidate(rune, preset, build, line, credit, scope);
+        const candidate = prepareRuneCandidate(rune, preset, build, line, credit, scope, floorCalibrationCredit);
         if (candidate) family.push(candidate);
       }
       if (family.length === 0) continue;
       const presetBuildList = builds.get(preset.id) ?? [];
-      const box = ordinaryBox(slotMainFamily(preset, presetBuildList, rune.slot, family[0].main, stars, line, credit, scope));
+      const box = ordinaryBox(slotMainFamily(
+        preset, presetBuildList, rune.slot, family[0].main, stars, line, floorCalibrationCredit, scope,
+      ));
       const share = slotShares.shareFor(preset, rune.slot, stars, retentionShare);
       for (const candidate of family) {
         const worth = candidate.rank === 'preferred' ? 1 : candidate.rank === 'acceptable' ? accepted : broken;
@@ -607,18 +634,25 @@ export async function runeAdvice(
        whose best end state misses its bar settles at zero without a run. A rune only
        fits the builds that name its own main, so three choices in each of slots 2, 4
        and 6 is nine builds for a slot-2 rune and twenty-seven for a slot-1 rune. */
-    /* Ties are broken on Max value, and they are not hypothetical. A standing is a
+    /* A rune that is preferred by any role is judged through those preferred readings
+       only. Accepted and Broken are a fallback for runes that no role prefers; they
+       must not be able to displace a preferred reading when their slider moves.
+
+       Ties are broken on Max value, and they are not hypothetical. A standing is a
        position in a box recorded at a finite resolution, so two candidates a hair
        apart can land on the same step of it — and far out in a box's thin upper tail,
        where the best runes live, a whole span of Max values can. Falling through to
        the rune id there would seat an excellent rune behind a merely good one for
        want of a comparison that was available all along. */
+    const judgedCandidates = candidates.some((candidate) => candidate.rank === 'preferred')
+      ? candidates.filter((candidate) => candidate.rank === 'preferred')
+      : candidates;
     const beats = (candidate: Contender, standing: Contender | undefined) => !standing
       || candidate.value > standing.value
       || (candidate.value === standing.value && candidate.maxValue > standing.maxValue);
     const bestPerPreset = new Map<string, Contender>();
     const buildsPerPreset = new Map<string, Contender[]>();
-    for (const candidate of candidates) {
+    for (const candidate of judgedCandidates) {
       if (beats(candidate, bestPerPreset.get(candidate.preset.id))) {
         bestPerPreset.set(candidate.preset.id, candidate);
       }

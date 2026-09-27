@@ -191,16 +191,16 @@ function verifyGrindstonesComeOffTheRequirement() {
 
 /** A target already met without a single sub property asks the runes for nothing. */
 function verifyMetTargetsAskForNothing() {
-  const leo = preset('leo');
-  const build = presetBuilds(leo)[0];
-  const weights = substatWeights({ targets: leo.targets, mains: mainsOf(build), artifacts: leo.artifacts, base, credit: noCraft });
+  const noSpdBruiser = preset('no-spd-bruiser');
+  const build = presetBuilds(noSpdBruiser)[0];
+  const weights = substatWeights({ targets: noSpdBruiser.targets, mains: mainsOf(build), artifacts: noSpdBruiser.artifacts, base, credit: noCraft });
   const spd = weights.rows.find((row) => row.stat === 'spd');
-  check(spd.needed === 0, "Leo's 100 SPD target is below the reference monster's own base speed.");
+  check(spd.needed === 0, "No-spd bruiser's 100 SPD target is below the reference monster's own base speed.");
   check(spd.weight === 0, 'a target the build already meets should not pull value out of other stats.');
 
   /* And the degenerate case that would otherwise leave a preset unable to judge
      anything: every target met, so every stat the role names is scored alike. */
-  const met = substatWeights({ targets: { spd: 1, acc: 1 }, mains: mainsOf(build), artifacts: leo.artifacts, base, credit: noCraft });
+  const met = substatWeights({ targets: { spd: 1, acc: 1 }, mains: mainsOf(build), artifacts: noSpdBruiser.artifacts, base, credit: noCraft });
   check(met.degenerate, 'a preset whose every target is already met should report the degenerate case.');
   check([...met.weights.values()].every((weight) => weight === 1),
     'in the degenerate case every named stat should be scored alike rather than at nothing.');

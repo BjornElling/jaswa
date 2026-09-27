@@ -875,6 +875,7 @@ function remembered<T>(tree: Remembered, path: readonly unknown[], make: () => T
 export function prepareRuneCandidate(
   rune: Rune, preset: RunePotentialPreset, build: Build, base: ReferenceStats, credit: CraftCredit,
   scope: RuneAdviceScope = newRuneAdviceScope(),
+  comparisonCredit: CraftCredit = credit,
 ): RuneCandidate | null {
   /* A rune whose main property is not the one this build asks for is not a rune
      this build can use at all — it is a different build's rune. */
@@ -892,7 +893,12 @@ export function prepareRuneCandidate(
      The rune's own main is a fact about the rune whatever the preset left blank. */
   const main = mainOfSlot(build, rune.slot) || rune.mainStatId;
   const stars = referenceStars(rune);
-  const priced = buildPricing(preset, build, base, credit, stars, scope);
+  /* `credit` belongs to the candidate: it changes the projected end state. The
+     comparison credit belongs to the common ruler: changing the user's craft
+     assumption must not move the perfect denominator or ordinary box underneath
+     every other rune. The clean-up engine passes its fixed neutral yardstick here;
+     direct callers retain the old single-credit behaviour by default. */
+  const priced = buildPricing(preset, build, base, comparisonCredit, stars, scope);
   if (!priced) return null;
   const { weights, valuation } = priced;
 
@@ -900,7 +906,7 @@ export function prepareRuneCandidate(
      denominator below takes no lineage at all: both ends of the scale stand still
      while the candidate moves (§5), so the ceiling has no lineage in its key either. */
   const lineage: CraftLineage = rune.ancient ? 'ancient' : 'standard';
-  const ceiling = cachedCeiling(valuation, rune.slot, main, credit, stars, scope);
+  const ceiling = cachedCeiling(valuation, rune.slot, main, comparisonCredit, stars, scope);
   if (ceiling <= 0) return null;
 
   let future = scope.futures.get(rune.id);
@@ -1009,17 +1015,10 @@ export function slotMainFamily(
 }
 
 /**
- * **One standard for every rune: its `+15` projection with the credited items spent,
- * where the substat state is already final at `+12`, against a perfect rune and an
- * ordinary box that spent them too.**
- *
- * There used to be a second, uncredited reading beside this one, and the row took
- * whichever read better. It could not stay honest: the stones already on a rune are
- * part of the rune, so the uncredited reading measured a ground rune against a box
- * and a ceiling with no stones at all. A Shield rune read 70.9 % against a credited
- * bar of 72.8 % and was sold; ground to roughly the credited three quarters, it read
- * 72.2 % against the same bar — and 84.7 % in the uncredited reading, which then won
- * the row and kept it. `RUNE-CLEANUP-MATH.md` §9.2.
+ * **One standard for every rune: its `+15` projection with the active items spent,
+ * against the fixed neutral ruler used by the Clean-up engine.** A Gem or Grindstone
+ * changes the candidate's end state and its chance of reaching that ruler; it does
+ * not move the perfect denominator or ordinary box. `RUNE-CLEANUP-MATH.md` §9.2.
  */
 export function candidateMaxValue(candidate: RuneCandidate): number {
   /* Ordinary runes cannot exceed their ordinary perfect-rune denominator. An

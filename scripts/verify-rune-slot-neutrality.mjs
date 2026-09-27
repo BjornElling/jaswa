@@ -226,7 +226,7 @@ const adversarialPresets = [
 /* ------------------------------------------------- 1. the share each slot takes */
 
 const baseSettings = {
-  powerUpPolicy: 1, runeQuality: 3, enchantedGems: 1, grindstones: 1, gemGrade: 'Hero',
+  powerUpPolicy: 1, runeQuality: 3, enchantedGems: 3, grindstones: 3, gemGrade: 'Hero',
   grindstoneGrade: 'Hero', acceptedRunes: 1, brokenRunes: 1, intangibleRunes: 1,
   keepMoreForLargerSets: false,
 };
@@ -358,9 +358,8 @@ const scenarios = [
     preset: defaultRunePotentialPresets().map((preset) => ({ ...preset, sets: { preferred: presetRuneSetNameList, acceptable: [] } })),
     settings: defaultDiscounts, label: 'All, every set',
   },
-  /* The craft sliders move both anchors (§6), so they get their own run: a Gem and a
-     Grindstone credited at maximum change which effect ids are worth having in a way
-     that is not the same in two slots with different legal ids. */
+  /* Craft settings get their own run: the candidate projection changes, while the
+     common neutral ruler stays fixed across slots (§6). */
   {
     preset: adversarialPresets[0], label: 'Mostly DEF, crafted',
     settings: { ...baseSettings, enchantedGems: 4, grindstones: 4 },

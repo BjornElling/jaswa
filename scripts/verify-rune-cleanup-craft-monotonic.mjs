@@ -9,11 +9,9 @@
  *    has actually spent, no larger than the one the settings credit, changes nothing
  *    at all; a larger one can only raise the rune.
  *
- * What is deliberately *not* promised any more is that turning a craft slider up never
- * lowers a row. It raises the perfect rune and the ordinary box as well as the rune,
- * and a rune that gains less than the box does stands lower — which is the one
- * standard doing its job. The escape that used to prevent it was a second, uncredited
- * reading, and it read a ground rune against a box without stones.
+ * The policy now compares the candidate's active projection against a fixed neutral
+ * denominator and ordinary box, so using more credit can only help a recommendation;
+ * the preference monotonicity sweep checks that complete policy separately.
  *
  * This sweep deliberately exercises more than the rune that exposed either defect:
  * every slot, ordinary and Ancient lineages, several star classes and starting

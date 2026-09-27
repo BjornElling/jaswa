@@ -179,29 +179,44 @@ export const presetTargetColumns: ReadonlyArray<{ key: keyof PresetTargets; labe
  * fixtures: they are copied into the user's preferences the first time the
  * workspace is opened, and are then editable and deletable like any other.
  *
- * Sets, slots, artifacts and the stat targets are transcribed from the source
- * spreadsheet. DMG, E.HP and E.HP D are deliberately absent: `withDerivedMetrics`
- * computes them from each preset's own stats, so no transcription error is
- * possible and editing a stat cannot leave a stale composite behind. Where the
- * spreadsheet's own composites differed they were one unit higher, from
- * rounding up where SWOP's display truncates.
+ * These are copied from the developer's current workspace. They are ordered
+ * by the role's desired SPD, fastest first; equal speeds retain the workspace
+ * order. DMG, E.HP and E.HP D are deliberately absent: `withDerivedMetrics`
+ * computes them from each preset's own stats, so editing a stat cannot leave a
+ * stale composite behind.
  */
 const presetSources: readonly PresetSource[] = [
   {
-    id: 'slow-dd',
-    name: 'Slow DD',
-    type: 'Attack type',
+    id: 'support',
+    name: 'Support',
+    type: 'Support type',
     sets: {
-      preferred: ['Fight', 'Rage', 'Shield', 'Violent', 'Will'],
-      acceptable: ['Blade', 'Fatal', 'Swift', 'Vampire'],
+      preferred: ['Accuracy', 'Despair', 'Focus', 'Fight', 'Seal', 'Swift', 'Violent', 'Will'],
+      acceptable: ['Determination', 'Enhance', 'Energy', 'Tolerance', 'Guard'],
     },
     slots: {
-      slot2: { preferred: ['Atk%'], acceptable: [] },
+      slot2: { preferred: ['Spd'], acceptable: [] },
+      slot4: { preferred: ['HP%'], acceptable: ['Def%'] },
+      slot6: { preferred: ['HP%'], acceptable: ['Acc%', 'Def%'] },
+    },
+    artifacts: { atk: false, def: false, hp: true },
+    targets: { hp: 37500, atk: 0, def: 1200, spd: 275, res: 0, acc: 65, criRate: 0, criDmg: 0 },
+  },
+  {
+    id: 'first-turn-debuff',
+    name: 'First-turn debuff',
+    type: 'Support type',
+    sets: {
+      preferred: ['Accuracy', 'Blade', 'Focus', 'Swift', 'Rage', 'Fight', 'Violent'],
+      acceptable: ['Despair', 'Fatal', 'Will'],
+    },
+    slots: {
+      slot2: { preferred: ['Spd'], acceptable: ['Atk%'] },
       slot4: { preferred: ['CtD%'], acceptable: [] },
       slot6: { preferred: ['Atk%'], acceptable: [] },
     },
-    artifacts: { atk: true, def: false, hp: true },
-    targets: { hp: 25069, atk: 2700, def: 814, spd: 150, res: 0, acc: 25, criRate: 95, criDmg: 200 },
+    artifacts: { atk: true, def: false, hp: false },
+    targets: { hp: 15042, atk: 2200, def: 814, spd: 240, acc: 65, criRate: 85, criDmg: 200 },
   },
   {
     id: 'fast-dd',
@@ -212,28 +227,12 @@ const presetSources: readonly PresetSource[] = [
       acceptable: ['Despair', 'Fatal', 'Focus', 'Seal', 'Shield', 'Swift'],
     },
     slots: {
-      slot2: { preferred: ['Atk%', 'Spd'], acceptable: [] },
+      slot2: { preferred: ['Atk%'], acceptable: ['Spd'] },
       slot4: { preferred: ['CtD%'], acceptable: [] },
       slot6: { preferred: ['Atk%'], acceptable: [] },
     },
     artifacts: { atk: true, def: false, hp: false },
     targets: { hp: 15042, atk: 2500, def: 814, spd: 215, res: 0, acc: 25, criRate: 90, criDmg: 175 },
-  },
-  {
-    id: 'def-dd',
-    name: 'Def DD',
-    type: 'Attack type',
-    sets: {
-      preferred: ['Determination', 'Guard', 'Rage', 'Vampire', 'Will'],
-      acceptable: ['Blade', 'Fight', 'Violent'],
-    },
-    slots: {
-      slot2: { preferred: ['Def%'], acceptable: [] },
-      slot4: { preferred: ['CtD%'], acceptable: ['Def%'] },
-      slot6: { preferred: ['Def%'], acceptable: [] },
-    },
-    artifacts: { atk: false, def: true, hp: false },
-    targets: { hp: 14649, atk: 1000, def: 2600, spd: 175, res: 0, acc: 25, criRate: 70, criDmg: 200 },
   },
   {
     id: 'bomber',
@@ -252,20 +251,20 @@ const presetSources: readonly PresetSource[] = [
     targets: { hp: 28195, atk: 2400, def: 941, spd: 215, res: 0, acc: 50, criRate: 50, criDmg: 0 },
   },
   {
-    id: 'support',
-    name: 'Support',
-    type: 'Support type',
+    id: 'bruiser',
+    name: 'Bruiser',
+    type: 'No type',
     sets: {
-      preferred: ['Accuracy', 'Despair', 'Focus', 'Fight', 'Seal', 'Swift', 'Violent', 'Will'],
-      acceptable: ['Determination', 'Enhance', 'Energy', 'Tolerance', 'Guard'],
+      preferred: ['Blade', 'Fight', 'Seal', 'Shield', 'Vampire', 'Violent', 'Will'],
+      acceptable: ['Despair', 'Destroy', 'Energy', 'Rage', 'Revenge'],
     },
     slots: {
-      slot2: { preferred: ['Spd'], acceptable: [] },
-      slot4: { preferred: ['HP%'], acceptable: ['Def%'] },
-      slot6: { preferred: ['HP%'], acceptable: ['Acc%', 'Def%'] },
+      slot2: { preferred: ['Spd', 'Atk%', 'HP%'], acceptable: ['Def%'] },
+      slot4: { preferred: ['CtD%'], acceptable: ['CtR%'] },
+      slot6: { preferred: ['HP%', 'Atk%'], acceptable: ['Def%'] },
     },
-    artifacts: { atk: false, def: false, hp: true },
-    targets: { hp: 37500, atk: 0, def: 1200, spd: 275, res: 0, acc: 65, criRate: 0, criDmg: 0 },
+    artifacts: { atk: true, def: false, hp: true },
+    targets: { hp: 28195, atk: 1800, def: 941, spd: 215, res: 0, acc: 25, criRate: 75, criDmg: 150 },
   },
   {
     id: 'pvp-def',
@@ -284,8 +283,40 @@ const presetSources: readonly PresetSource[] = [
     targets: { hp: 43860, atk: 0, def: 1303, spd: 200, res: 80, acc: 25, criRate: 0, criDmg: 0 },
   },
   {
-    id: 'leo',
-    name: 'Leo',
+    id: 'def-dd',
+    name: 'Def DD',
+    type: 'Attack type',
+    sets: {
+      preferred: ['Determination', 'Guard', 'Rage', 'Vampire', 'Will'],
+      acceptable: ['Blade', 'Fight', 'Violent'],
+    },
+    slots: {
+      slot2: { preferred: ['Def%'], acceptable: [] },
+      slot4: { preferred: ['CtD%'], acceptable: ['Def%'] },
+      slot6: { preferred: ['Def%'], acceptable: [] },
+    },
+    artifacts: { atk: false, def: true, hp: false },
+    targets: { hp: 14649, atk: 1000, def: 2600, spd: 175, res: 0, acc: 25, criRate: 70, criDmg: 200 },
+  },
+  {
+    id: 'slow-dd',
+    name: 'Slow DD',
+    type: 'Attack type',
+    sets: {
+      preferred: ['Fight', 'Rage', 'Shield', 'Violent', 'Will', 'Blade'],
+      acceptable: ['Fatal', 'Swift', 'Vampire'],
+    },
+    slots: {
+      slot2: { preferred: ['Atk%'], acceptable: [] },
+      slot4: { preferred: ['CtD%'], acceptable: [] },
+      slot6: { preferred: ['Atk%'], acceptable: [] },
+    },
+    artifacts: { atk: true, def: false, hp: true },
+    targets: { hp: 25069, atk: 2700, def: 814, spd: 150, res: 0, acc: 25, criRate: 95, criDmg: 200 },
+  },
+  {
+    id: 'no-spd-bruiser',
+    name: 'No-spd bruiser',
     type: 'Support type',
     sets: {
       preferred: ['Vampire', 'Nemesis'],
@@ -297,23 +328,7 @@ const presetSources: readonly PresetSource[] = [
       slot6: { preferred: ['Atk%'], acceptable: ['HP%'] },
     },
     artifacts: { atk: true, def: false, hp: true },
-    targets: { hp: 28195, atk: 2500, def: 941, spd: 100, res: 0, acc: 25, criRate: 100, criDmg: 200 },
-  },
-  {
-    id: 'bruiser',
-    name: 'Bruiser',
-    type: 'No type',
-    sets: {
-      preferred: ['Blade', 'Fight', 'Seal', 'Shield', 'Vampire', 'Violent', 'Will'],
-      acceptable: ['Despair', 'Destroy', 'Energy', 'Rage', 'Revenge'],
-    },
-    slots: {
-      slot2: { preferred: ['Spd', 'Atk%', 'HP%'], acceptable: ['Def%'] },
-      slot4: { preferred: ['CtD%'], acceptable: ['CtR%'] },
-      slot6: { preferred: ['HP%', 'Atk%'], acceptable: ['Def%'] },
-    },
-    artifacts: { atk: true, def: false, hp: true },
-    targets: { hp: 28195, atk: 1800, def: 941, spd: 215, res: 0, acc: 25, criRate: 75, criDmg: 150 },
+    targets: { hp: 26314, atk: 2500, def: 1303, spd: 100, res: 0, acc: 25, criRate: 100, criDmg: 175 },
   },
 ];
 

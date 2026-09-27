@@ -173,9 +173,9 @@ reads below 100 % because it genuinely rolled once less.
 
 #### 4.2.1 What the Grindstones find
 
-Every grindable line of every rune in the finished build carries the credited
-Grindstone — the credit the rune, its perfect rune and its ordinary box are all judged
-with (§6, §9.2) — so a role gets part of a grindable stat from stones rather than from
+Every grindable line of every rune in the finished build carries the comparison
+Grindstone — the fixed credit used to price the role's requirement (§6, §9.2) — so a
+role gets part of a grindable stat from stones rather than from
 rolls. How much depends on **how many lines hold the stat**, and that depends on how
 much the role asks for: a small ATK need is met by a line or two and brings a stone or
 two; a large SPD need puts SPD on every rune that may carry it, and every one of those
@@ -816,37 +816,26 @@ from 41.5 %, 39.5 % and 27.3 % to a common 22–23 %. What is now delivered is t
 ## 9.2 One standard for every rune
 
 **Every rune — below, at and above `+12` — is judged on one question: what its Max
-value will be at `+15` with the credited items spent.** Every grindable line carries
+value will be at `+15` with the active items credited.** Every grindable line carries
 the credited Grindstone, the Gem goes where §6.1 says it gains most (and nowhere, if
 no placement beats the line it would replace), and a Gemmed line is ground too. The
-perfect rune of §5 and the ordinary box of §9.1 are built with exactly the same
-credit, so the rune and both ends of its scale have had the same treatment.
+perfect rune and ordinary box are held at one neutral Hero / three-quarters reference
+credit, so changing the craft sliders changes the candidate's projection without
+moving the common ruler underneath every other rune.
 
 A stone the player has already spent is part of the rune and meets the credited one
 through §6's `max`: a rune ground to no more than the credit reads **exactly** as it
 did bare, and one ground past it can only rise. Grinding a rune therefore never moves
 it onto a different scale.
 
-**There used to be a second reading, and it is gone.** Crediting an item raises the
-rune, the ceiling and the box, and for some runes the box rises further than the rune
-does. On the reasoning that considering an optional item should never lower a
-verdict, every rune was also read *without* the credit, against a box and a ceiling
-without it, and kept whichever reading was better. It could not be both that and
-honest, because the stones already on a rune stayed on it: the uncredited reading
-measured a ground rune against a population without a single stone. A Bruiser Shield
-rune in slot 3 read 70.9 % against a credited bar of 72.8 % and was sold; ground to
-roughly the credited three quarters of a Hero stone it read 72.2 % against the same
-bar — and 84.7 % in the uncredited reading, which then won the row and kept it. The
-grind had been counted in advance and was paid for a second time on arrival.
-
-**What that costs, stated rather than left to be discovered.** Turning a craft slider
-up can now lower a row's standing and turn a Keep into a Sell: the slider raises the
-standard, and a rune that gains less from the items than the ordinary box does stands
-lower against it. That is the one standard doing its job, not a defect. What remains
-promised is that a credited item is never *forced* on the rune — its own score and
-its odds of reaching any fixed score never fall — and that a real stone no larger than
-the credit changes nothing. `verify:rune-cleanup-craft-monotonic` holds both, and
-grinds every fixture to the credit and past it to do so.
+**The old moving-ruler reading is gone.** Crediting an item changes the candidate's
+projected end state and its chance of reaching the fixed floor; it does not raise the
+perfect denominator or the ordinary population at the same time. A more generous
+craft setting can therefore only make a rune easier to keep, while a less generous
+one can only make it harder. A stone already spent remains part of the rune and meets
+the active credit through §6's `max`, so a real stone no larger than the credit changes
+nothing. `verify:rune-cleanup-craft-monotonic` checks the candidate rule, and
+`verify:rune-cleanup-preference-monotonic` checks the complete recommendation funnel.
 
 The row names one preset and prints that preset's figures — the Max value and standing
 of its best build, and the best chance any of its builds gives (§5.1).
@@ -871,19 +860,20 @@ mains.
 **So the floor is stated for the whole slot.** Its ordinary runes are a mixture of its
 `M` legal mains, each on `1/M` of runes — the game publishes no rate and none has been
 measured, so uniform is the stated assumption (§1). A rune of main `m` is worth `w_m`
-of itself to the preset: `1` preferred, the Accepted runes worth acceptable, the Broken
-runes worth for a slot left blank, and nothing where no build accepts `m`. One share
-`q'` of *every* main's own box is found such that the slot as a whole keeps `q`:
+of itself to the preset under one fixed calibration: `1` preferred, and the most
+lenient Accepted/Broken stops for the other ranks. The user's sliders do not move this
+yardstick. One share `q'` of *every* main's own box is found such that the slot as a
+whole keeps `q`:
 
 ```
 (1/M) · Σ_m P( w_m · X_m ≥ T_m(q') ) = q
 ```
 
 where `X_m` is main `m`'s ordinary Max value and `T_m(q')` the Max value at which the
-best `q'` of its box begins. A preferred main contributes `q'` exactly, a discounted
-one less, an unwanted one nothing; the left side is continuous and never falls as
-`q'` rises, so a bisection finds it. The 4-set and Intangible preferences scale `q`
-before it is solved, exactly as they scaled the retained share before.
+best `q'` of its box begins. A preferred main contributes `q'` exactly, a fixed-
+discounted one less, an unwanted one nothing; the left side is continuous and never
+falls as `q'` rises, so a bisection finds it. The 4-set and Intangible preferences
+scale `q` for the candidate after calibration, never the shared yardstick itself.
 
 - **Slots 1, 3 and 5 are unchanged**: one main, preferred, so `q' = q`.
 - **The preset's own choices set the factor**, which is what a flat "double slots 2, 4
@@ -986,8 +976,12 @@ checkpoint**. It is Legend-born six-star runes, with every legal main cycled eve
 the +0, +9 and +12 records consume the same deterministic random stream, so they are
 checkpoints of the same bodies rather than three unrelated samples. The statistics
 calculation then uses the ordinary advice engine, including the current presets,
-quality floor, chance policy, set preferences and craft assumptions. It follows the
-same funnel as the Rune Simulator: runes sold at +0 never reach +9, and runes sold at
+quality floor, chance policy, set preferences and craft assumptions. Accepted, Broken,
+Intangible, the four-set preference and craft credit still change their own verdicts, but the floor's slot-balance
+calibration uses one fixed neutral yardstick for every setting. Otherwise tightening a
+filter or reducing craft credit could widen the calibrated preferred-main floor and make
+a stricter choice appear to keep more. It follows the same funnel as the Rune Simulator:
+runes sold at +0 never reach +9, and runes sold at
 +9 never reach +12. A worker keeps the calculation off the interface thread, and a
 newer slider choice supersedes an older answer.
 

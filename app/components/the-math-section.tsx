@@ -180,7 +180,7 @@ export function TheMathSection() {
           <b className="type-body-emphasis">Grindstones come off the same way.</b> JASWA reads the finished build as holding just enough lines of a stat to meet what is missing &mdash; each worth an ordinary line&rsquo;s rolls plus its stone, and never more lines than the six slots may legally hold. With Hero stones at three quarters, Fast DD&rsquo;s 18.3 SPD rolls put SPD on all six runes and the six stones find 4.0 of them; its 4.9 ATK rolls take about three lines, whose stones find 1.7; its 1.9 DEF rolls take one line. CRI Rate, CRI Dmg and Accuracy take no stone at all, so they now weigh more against SPD: CRI Rate rises from 0.66 to 0.84, ATK falls from 0.40 to 0.34.
         </p>
         <p>
-          One consequence worth spelling out: <b className="type-body-emphasis">a target the build already meets asks the runes for nothing</b>. Leo wants 100 SPD and the reference monster already has 104, so SPD lines earn Leo nothing at all.
+          One consequence worth spelling out: <b className="type-body-emphasis">a target the build already meets asks the runes for nothing</b>. No-spd bruiser wants 100 SPD and the reference monster already has 104, so SPD lines earn No-spd bruiser nothing at all.
         </p>
 
         <p>

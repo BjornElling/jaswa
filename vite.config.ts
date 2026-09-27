@@ -10,7 +10,7 @@ export default defineConfig({
     watch: {
       /* Rust build intermediates are not application source and Windows can
          keep them locked while Cargo runs. Excluding them keeps HMR reliable. */
-      ignored: ['**/helper/src-tauri/target/**'],
+      ignored: ['**/helper/src-tauri/target/**', '**/work/**'],
     },
   },
 });

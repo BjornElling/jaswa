@@ -30,7 +30,7 @@ The model does not score a rune against what a role *needs*. It scores a rune ag
 what a role *does not care about at all*, and treats everything else as equally
 valuable. As a direct consequence:
 
-- For **Slow DD, Fast DD, Def DD, Leo and Bruiser**, the only sub property the model
+- For **Slow DD, Fast DD, Def DD, No-spd bruiser and Bruiser**, the only sub property the model
   considers worthless is **Resistance**. Accuracy, HP and DEF count in full, at exactly
   the same rate per roll as CRI Dmg.
 - Those five presets have **identical relevance sets**, so they produce **identical Max
@@ -110,7 +110,7 @@ Computed from `defaultRunePotentialPresets()`:
 | Slow DD | Attack | hp, atk, def, spd, criRate, criDmg, acc |
 | Fast DD | Attack | hp, atk, def, spd, criRate, criDmg, acc |
 | Def DD | Attack | hp, atk, def, spd, criRate, criDmg, acc |
-| Leo | Support | hp, atk, def, spd, criRate, criDmg, acc |
+| No-spd bruiser | Support | hp, atk, def, spd, criRate, criDmg, acc |
 | Bruiser | No type | hp, atk, def, spd, criRate, criDmg, acc |
 | Bomber | Attack | hp, atk, def, spd, criRate, acc |
 | Support | Support | hp, def, spd, acc |
@@ -135,7 +135,7 @@ Lv. 40 averages, not the user's own roster (see §6, limitation 2).
 4,000 synthetic legal 6★ runes, one shared reference line for all preset types:
 
 ```
-runes scored by >= 2 of {Slow DD, Fast DD, Def DD, Leo, Bruiser}:  2677
+runes scored by >= 2 of {Slow DD, Fast DD, Def DD, No-spd bruiser, Bruiser}:  2677
 runes where their raw Max values differ at all:                       0
 largest gap:                                                       0.00 pp
 ```
@@ -160,7 +160,7 @@ rolls, same roll sizes. The only difference is which stats the rolls landed on:
 | Fast DD | 96.56 % | **91.20 %** |
 | Def DD | 96.56 % | **91.20 %** |
 | Bruiser | 96.56 % | **91.20 %** |
-| Leo | 96.56 % | **91.20 %** |
+| No-spd bruiser | 96.56 % | **91.20 %** |
 | Bomber | 53.70 % | 91.20 % |
 | Support | 9.26 % | 91.20 % |
 | PvP def | 9.26 % | 91.20 % |
@@ -185,9 +185,9 @@ prints.
 | Bomber | broken | 86.4 % | 51.8 % |
 | Support | broken | 81.6 % | 49.0 % |
 | PvP def | broken | 81.0 % | 48.6 % |
-| Slow DD / Def DD / Leo | — | no build (they demand ATK % or DEF % in slot 2) | — |
+| Slow DD / Def DD / No-spd bruiser | — | no build (they demand ATK % or DEF % in slot 2) | — |
 
-Mechanism: Slow DD, Def DD and Leo are eliminated because a SPD main in slot 2 is not a
+Mechanism: Slow DD, Def DD and No-spd bruiser are eliminated because a SPD main in slot 2 is not a
 main stat they accept. Of the two survivors, Fast DD wins by 4.3 pp — which comes from
 the Attack-family base line making the flat HP +747 worth slightly more, **not** from
 anything about the rune suiting a speed damage dealer.
@@ -203,7 +203,7 @@ an attack score.
 | --- | --- | --- | --- |
 | **Fast DD** | preferred | 81.9 % | **81.9 %** |
 | Def DD | preferred | 81.9 % | **81.9 %** |
-| Leo | preferred | 81.9 % | **81.9 %** |
+| No-spd bruiser | preferred | 81.9 % | **81.9 %** |
 | Bruiser | preferred | 81.9 % | **81.9 %** |
 | Slow DD | acceptable | 81.9 % | 69.6 % |
 | Bomber | acceptable | 59.7 % | 50.7 % |
@@ -229,7 +229,7 @@ a defensible answer — lost the coin toss, not the argument.
 | **Def DD** | preferred | 84.7 % | **84.7 %** |
 | Support | acceptable | 84.7 % | 72.0 % |
 | PvP def | **broken** | **100.0 %** | 60.0 % |
-| Slow DD / Fast DD / Bomber / Leo / Bruiser | broken | 84.7 % | 50.8 % |
+| Slow DD / Fast DD / Bomber / No-spd bruiser / Bruiser | broken | 84.7 % | 50.8 % |
 
 **PvP def is the only preset that scores this rune correctly**, at 100 %: it is the only
 role whose targets make Resistance relevant, and HP/SPD/Accuracy are exactly what it
