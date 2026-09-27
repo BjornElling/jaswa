@@ -36,6 +36,9 @@ function largeAccount(count: number): string {
  * animation frames while the calculation runs. A blocked main thread paints none.
  */
 test('the page keeps painting while a large box is judged', async ({ page }) => {
+  /* The calibrated slot population is deliberately substantial; the assertion
+     below already allows a minute, so the test itself must allow it too. */
+  test.setTimeout(60_000);
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.locator('input[type="file"][accept="application/json,.json"]')

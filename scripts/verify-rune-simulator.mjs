@@ -54,6 +54,10 @@ try {
   assert.equal(hero.subProperties.length, 4);
   assert.equal(hero.subProperties.reduce((sum, property) => sum + property.rolls, 0), 3,
     'Hero improves its three born lines before adding its fourth line');
+  const heroAtFifteen = powerUpRune(hero, 15, () => 0);
+  assert.equal(heroAtFifteen.level, 15, 'the simulator reaches the finished +15 level');
+  assert.deepEqual(heroAtFifteen.subProperties, hero.subProperties,
+    '+12 to +15 adds no substat roll');
 
   const result = await simulateRunes({
     ...defaultRuneSimulationConfig,
@@ -109,6 +113,21 @@ try {
   const reportedAdvice = (await runeAdvice([reported], support, craftedSettings, supportBase)).get('reported');
   const crafted = reportedAdvice.craftedLines;
   assert.ok(crafted, 'a +12 rune a preset can use reports the line-up its verdict assumed');
+  const passingLevelFixture = {
+    ...reported,
+    subProperties: [
+      { statId: 8, value: 24, gemmed: false, grind: 0 },
+      { statId: 2, value: 8, gemmed: false, grind: 0 },
+      { statId: 6, value: 8, gemmed: false, grind: 0 },
+      { statId: 12, value: 8, gemmed: false, grind: 0 },
+    ],
+  };
+  for (const [level, expected] of [[12, 'keep'], [13, 'power-up'], [14, 'power-up'], [15, 'keep']]) {
+    const answer = (await runeAdvice([{ ...passingLevelFixture, id: `reported-${level}`, level }], support, craftedSettings, supportBase))
+      .get(`reported-${level}`);
+    assert.equal(answer?.verdict, expected,
+      `a passing rune at +${level} should be ${expected}, not ${answer?.verdict}`);
+  }
   assert.deepEqual(crafted.slice(0, 3).map((line) => [line.statId, line.value, line.gemmed]),
     [[8, 14, false], [2, 15, false], [6, 16, false]], 'the Gem leaves SPD, HP % and DEF % alone');
   assert.equal(crafted[3].gemmed, true, 'the Gem replaces Resistance');
@@ -129,8 +148,16 @@ try {
       if (property.gemmed) assert.equal(property.rolls, 0, `${rune.id}: a Gemmed line keeps none of its rolls`);
     }
   }
+  assert.equal(supported.stages[15].entries.length, supported.stages[12].entries.length,
+    'the final main-stat-only checkpoint receives every rune that survived +12');
+  for (const { rune: atTwelve } of supported.stages[12].entries) {
+    const atFifteen = supported.stages[15].entries.find(({ rune }) => rune.id === atTwelve.id)?.rune;
+    assert.ok(atFifteen, `${atTwelve.id} reaches +15`);
+    assert.deepEqual(atFifteen.subProperties, atTwelve.subProperties,
+      `${atTwelve.id}: +15 does not roll another substat`);
+  }
 
-  console.log('Verified the locked rune-grade distribution, roll counters and the +12 craft.');
+  console.log('Verified the locked rune-grade distribution, roll counters, the +12 craft and the deterministic +15 finish.');
 } finally {
   await server.close();
 }

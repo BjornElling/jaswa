@@ -33,7 +33,7 @@
 import { defaultRunePotentialPresets } from '../app/lib/rune-potential-presets.ts';
 import { runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
 import {
-  initialSubPropertyRange, slotMainProperties, subPropertyLevels, upgradeSubPropertyRange,
+  initialSubPropertyRange, runeInnateFrequency, slotMainProperties, subPropertyLevels, upgradeSubPropertyRange,
 } from '../app/lib/rune-properties.ts';
 import { runeDefaultGradeOrder, runeDefaultGrades, runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -93,7 +93,7 @@ const referenceStats = new Map([
 function freshRune(random, id, { slot, stars, ancient, subCount }) {
   const mainStatId = choose(random, slotMainProperties[slot]);
   const legal = runeStatIds.filter((stat) => stat !== mainStatId && slotAllowsSubStat(slot, stat));
-  const prefixStatId = random() < 0.5 ? choose(random, legal) : null;
+  const prefixStatId = random() < runeInnateFrequency ? choose(random, legal) : null;
   const available = legal.filter((stat) => stat !== prefixStatId);
   const held = new Set();
   const subProperties = [];

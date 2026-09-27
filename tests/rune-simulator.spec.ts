@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 const account = fileURLToPath(new URL('./fixtures/craft-account.json', import.meta.url));
 
-test('simulates random runes through +0, +9 and +12, spending no craft without a role',async ({ page }, testInfo) => {
+test('simulates random runes through +0, +9, +12 and +15, spending no craft without a role',async ({ page }, testInfo) => {
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
@@ -22,10 +22,11 @@ test('simulates random runes through +0, +9 and +12, spending no craft without a
   await expect(page.getByLabel('Main stat')).toHaveCount(0);
   await expect(page.getByRole('combobox', { name: 'Enchanted Gem' })).toHaveCount(0);
   await expect(page.getByRole('combobox', { name: 'Grindstone' })).toHaveCount(0);
-  await expect(page.getByLabel('Runes kept at +12')).toContainText('Generate runes to count the keepers');
+  await expect(page.getByLabel('Runes kept at +15')).toContainText('Generate runes to count the keepers');
   for (const gate of ['After +0', 'After +9', 'After +12']) {
     await expect(page.getByLabel(gate)).toHaveValue('recommendation');
   }
+  await expect(page.getByLabel('After +15')).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('rune-simulator-empty.png') });
 
   /* The default sells by recommendation, which needs an account to judge with. */
@@ -80,10 +81,10 @@ test('simulates random runes through +0, +9 and +12, spending no craft without a
   const rowHeights = () => rows.evaluateAll((all) => all.map((row) => row.getBoundingClientRect().height));
   const plusZeroHeights = await rowHeights();
   expect(Math.max(...plusZeroHeights) - Math.min(...plusZeroHeights)).toBeLessThan(1);
-  await page.getByRole('button', { name: '+12', exact: true }).click();
-  await expect(page.getByRole('button', { name: '+12', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  const plusTwelveHeights = await rowHeights();
-  expect(Math.max(...plusTwelveHeights, ...plusZeroHeights) - Math.min(...plusTwelveHeights, ...plusZeroHeights)).toBeLessThan(1);
+  await page.getByRole('button', { name: '+15', exact: true }).click();
+  await expect(page.getByRole('button', { name: '+15', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  const plusFifteenHeights = await rowHeights();
+  expect(Math.max(...plusFifteenHeights, ...plusZeroHeights) - Math.min(...plusFifteenHeights, ...plusZeroHeights)).toBeLessThan(1);
   /* With no role to judge by, nothing says which Gem helps, so nothing is spent. */
   await expect(page.locator('.rune-simulator-enchanted-mark')).toHaveCount(0);
   await expect(page.locator('.rune-simulator-grind')).toHaveCount(0);
@@ -103,7 +104,7 @@ test('reads every checkpoint with Rune Clean-up and counts the keepers by preset
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Simulator', exact: true }).click();
 
   /* Keep all at every gate: the verdicts are still the engine's, and the batch
-     reaches +12 whole, so the keeper count is a count of the engine's Keeps. */
+     reaches +15 whole, so the keeper count is a count of the engine's Keeps. */
   await page.getByLabel('Quantity').fill('120');
   await page.getByLabel('After +0').selectOption('keep-all');
   await page.getByLabel('After +9').selectOption('keep-all');
@@ -117,6 +118,12 @@ test('reads every checkpoint with Rune Clean-up and counts the keepers by preset
   await page.getByRole('button', { name: '+12', exact: true }).click();
   await expect(verdicts).toHaveCount(120);
   await expect(page.locator('.rune-simulator-table tbody [data-verdict="power-up"]')).toHaveCount(0);
+  const sellsAtTwelve = await page.locator('.rune-simulator-table tbody [data-verdict="sell"]').count();
+
+  await page.getByRole('button', { name: '+15', exact: true }).click();
+  await expect(verdicts).toHaveCount(120);
+  await expect(page.locator('.rune-simulator-table tbody [data-verdict="power-up"]')).toHaveCount(0);
+  await expect(page.locator('.rune-simulator-table tbody [data-verdict="sell"]')).toHaveCount(sellsAtTwelve);
   /* The craft the verdict counted is the craft on screen: one Gem at most per rune,
      and a stone on every line that can take one. */
   await expect(page.locator('.rune-simulator-enchanted-mark').first()).toBeVisible();

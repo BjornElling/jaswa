@@ -30,6 +30,8 @@ import type { Rune } from '../lib/runes';
 import type { RunePotentialPreset } from '../lib/rune-potential-presets';
 import type { GeneralSettings, ItemGrade } from '../lib/types';
 import { useSessionStorageState } from '../lib/session-storage-state';
+import { RuneLink } from './rune-link';
+import type { OpenRuneOverlay } from './rune-link';
 
 const craftKinds: readonly CraftKind[] = ['gem', 'grindstone'];
 const craftLineages: readonly CraftLineage[] = ['standard', 'immemorial', 'ancient'];
@@ -124,13 +126,14 @@ function ResultCard({ title, description, children, empty }: {
   </section>;
 }
 
-export function CraftItemBestUse({ items, runes, monsters, monsterPreferences, presets, general }: {
+export function CraftItemBestUse({ items, runes, monsters, monsterPreferences, presets, general, onOpenRune }: {
   items: readonly CraftItem[];
   runes: readonly Rune[];
   monsters: readonly GameRecord[];
   monsterPreferences: MonsterPreferences;
   presets: readonly RunePotentialPreset[];
   general: GeneralSettings;
+  onOpenRune: OpenRuneOverlay;
 }) {
   const [state, setState] = useSessionStorageState(
     'jaswa.filters.craft-best-use', defaultState, isBestUseState,
@@ -289,13 +292,21 @@ export function CraftItemBestUse({ items, runes, monsters, monsterPreferences, p
      score columns beside them. A rune is named by what a player would call it. */
   const body = (sorted: readonly Row[]) => <tbody>{sorted.map(({ candidate, where }) => <tr key={candidate.rune.id}>
     <td className={cell('rune')}>
-      <span className="craft-rune-name">
-        <AncientName name={candidate.rune.setName} ancient={candidate.rune.ancient} />
-      </span>
-      <span className="craft-rune-detail">
-        Slot {candidate.rune.slot}{optionSeparator}+{format(candidate.rune.level)}
-        {optionSeparator}{runeStatName(candidate.rune.mainStatId)}
-      </span>
+      <RuneLink
+        target={{ kind: 'account', runeId: candidate.rune.id }}
+        label={`${candidate.rune.setName} rune, slot ${candidate.rune.slot}`}
+        onOpen={onOpenRune}
+      >
+        <span className="rune-link-cell craft-rune-link-cell">
+          <span className="craft-rune-name">
+            <AncientName name={candidate.rune.setName} ancient={candidate.rune.ancient} />
+          </span>
+          <span className="craft-rune-detail">
+            Slot {candidate.rune.slot}{optionSeparator}+{format(candidate.rune.level)}
+            {optionSeparator}{runeStatName(candidate.rune.mainStatId)}
+          </span>
+        </span>
+      </RuneLink>
     </td>
     <td className={cell('where')}>{where}</td>
     {/* What lands where, in the game's own numbers: the property being spent

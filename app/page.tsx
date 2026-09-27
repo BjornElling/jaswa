@@ -15,9 +15,11 @@ import type { GameRecord } from './lib/game-data';
 import type { ArtifactSettings, DirectImportMode, GeneralSettings, ImportRoute, ImportedGame, Preferences, RunePotentialSettings } from './lib/types';
 import type { RunePotentialPreset } from './lib/rune-potential-presets';
 import type { SpeedTuningPreferences } from './lib/speed-tuning-preferences';
+import { readRunes } from './lib/runes';
 import type { MonsterCopyPreferences } from './lib/monster-preferences';
 import { statesSomething } from './lib/monster-preferences';
 import type { MonsterReference } from './components/monster-link';
+import type { OpenRuneOverlay, RuneOverlayTarget } from './components/rune-link';
 import { useSessionStorageState } from './lib/session-storage-state';
 import { type Page, type ReportCategory, upcomingWorkspaces } from './lib/workspace-config';
 
@@ -35,6 +37,11 @@ const RuneSimulatorSection = lazy(() => import('./components/rune-simulator-sect
 const SpeedTuningSection = lazy(() => import('./components/speed-tuning-section').then(({ SpeedTuningSection: component }) => ({ default: component })));
 const UpcomingWorkspace = lazy(() => import('./components/upcoming-workspace').then(({ UpcomingWorkspace: component }) => ({ default: component })));
 const MonsterOverlay = lazy(() => import('./components/monster-overlay').then(({ MonsterOverlay: component }) => ({ default: component })));
+const RuneOverlay = lazy(() => import('./components/rune-overlay').then(({ RuneOverlay: component }) => ({ default: component })));
+
+type OverlayTarget =
+  | { kind: 'monster'; target: MonsterReference }
+  | { kind: 'rune'; target: RuneOverlayTarget };
 
 function WorkspaceLoading() {
   return <section className="panel" aria-busy="true"><p className="lead">Opening workspace…</p></section>;
@@ -56,7 +63,7 @@ export default function Home() {
   const [pendingImportRoute, setPendingImportRoute] = useState<ImportRoute | null>(null);
   const [helperConnection, setHelperConnection] = useState<HelperConnection>({ state: 'checking', detail: 'Run the helper. Then roll for initiative.', version: null, updateAvailable: false, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, instanceId: '', revision: 0, sessionId: 0 });
   const [saveFolder, setSaveFolder] = useState<DirectoryHandle | null>(null);
-  const [monsterOverlay, setMonsterOverlay] = useState<MonsterReference | null>(null);
+  const [overlay, setOverlay] = useState<OverlayTarget | null>(null);
   /* The control that opened the overlay, so focus returns to the exact row the
      reader came from. It is held here rather than in the overlay because it has
      to outlive the overlay's own unmount. */
@@ -234,11 +241,16 @@ export default function Home() {
    */
   function openMonsterOverlay(target: MonsterReference, opener: HTMLElement) {
     overlayOpener.current = opener;
-    setMonsterOverlay(target);
+    setOverlay({ kind: 'monster', target });
   }
 
-  function closeMonsterOverlay() {
-    setMonsterOverlay(null);
+  const openRuneOverlay: OpenRuneOverlay = (target, opener) => {
+    overlayOpener.current = opener;
+    setOverlay({ kind: 'rune', target });
+  };
+
+  function closeOverlay() {
+    setOverlay(null);
     /* The row may have been filtered away while the overlay was open, in which
        case there is nothing to return to and the browser's own fallback is
        better than focusing something the reader is not looking at. */
@@ -442,6 +454,7 @@ export default function Home() {
         hardwareAcceleration={preferences.hardwareAcceleration}
         onUpdate={updateRunePotentialSettings}
         onWritePresets={writePresets}
+        onOpenRune={openRuneOverlay}
       /></Suspense>}
 
       {page === 'artifacts' && <Suspense fallback={<WorkspaceLoading />}><ArtifactsSection
@@ -473,6 +486,7 @@ export default function Home() {
         presets={preferences.runePotentialPresets}
         general={preferences.general}
         hardwareAcceleration={preferences.hardwareAcceleration}
+        onOpenRune={openRuneOverlay}
       /></Suspense>}
 
       {page === 'relics' && <Suspense fallback={<WorkspaceLoading />}><RelicList game={game} monsters={monsters} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
@@ -481,6 +495,7 @@ export default function Home() {
         game={game}
         presets={preferences.runePotentialPresets}
         preferences={preferences}
+        onOpenRune={openRuneOverlay}
       /></Suspense>}
 
       {page === 'speed' && <Suspense fallback={<WorkspaceLoading />}><SpeedTuningSection
@@ -530,14 +545,28 @@ export default function Home() {
       onConfirm={() => { setRemoveGameDataPrompt(false); void removeImport(); }}
     />}
 
-    {monsterOverlay && <Suspense fallback={null}><MonsterOverlay
-      target={monsterOverlay}
+    {overlay?.kind === 'monster' && <Suspense fallback={null}><MonsterOverlay
+      target={overlay.target}
       game={game?.data}
       general={preferences.general}
-      preferences={monsterOverlay.kind === 'copy' ? preferences.monsterPreferences[monsterOverlay.unitId] : undefined}
+      preferences={overlay.target.kind === 'copy' ? preferences.monsterPreferences[overlay.target.unitId] : undefined}
       onSave={updateMonsterPreferences}
-      onClose={closeMonsterOverlay}
+      onOpenRune={openRuneOverlay}
+      onClose={closeOverlay}
     /></Suspense>}
+
+    {overlay?.kind === 'rune' && (() => {
+      const runeTarget = overlay.target;
+      const rune = runeTarget.kind === 'account'
+        ? (game?.data ? readRunes(game.data).find((entry) => entry.id === runeTarget.runeId) : undefined)
+        : runeTarget.rune;
+      return rune ? <Suspense fallback={null}><RuneOverlay
+        rune={rune}
+        game={game?.data}
+        settings={preferences.runePotential}
+        onClose={closeOverlay}
+      /></Suspense> : null;
+    })()}
 
     {report && <ReportDialog
       report={report}

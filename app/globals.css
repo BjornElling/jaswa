@@ -4660,6 +4660,76 @@ label[for] {
 /* The two that leave stay together at the right, whatever sits opposite. */
 .overlay-actions-leave { display: flex; gap: var(--s2); margin-left: auto; }
 
+/* Rune names are actions, not destinations. The underline is reserved in the
+   resting box so opening a dialog never reflows a table row. */
+.rune-link {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+}
+.rune-link:hover, .rune-link:focus-visible { color: var(--text-accent); text-decoration-color: currentColor; }
+.rune-link-cell { display: inline-flex; align-items: center; gap: var(--s2); min-width: 0; }
+.rune-link-label { display: inline-flex; }
+.overlay-rune-links { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s3); }
+
+.rune-overlay { width: min(840px, 100%); }
+.rune-overlay-head { grid-template-columns: auto minmax(0, 1fr) auto; }
+.rune-overlay-head > .quality-rule { flex: none; }
+.rune-overlay-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s3) var(--s5);
+  margin: 0;
+}
+.rune-overlay-facts > div { display: grid; grid-template-columns: 116px minmax(0, 1fr); gap: var(--s3); align-items: baseline; }
+.rune-overlay-facts dt { color: var(--text-muted); }
+.rune-overlay-facts dd { margin: 0; min-width: 0; font-variant-numeric: tabular-nums; }
+.rune-overlay-substats { display: grid; gap: var(--s2); }
+.rune-overlay-substat {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(5ch, auto) minmax(110px, auto);
+  align-items: center;
+  gap: var(--s3);
+  min-height: 32px;
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.rune-overlay-substat-name, .rune-overlay-substat-value, .rune-overlay-rolls, .rune-overlay-grind { font-variant-numeric: tabular-nums; }
+.rune-overlay-substat-value { text-align: right; }
+.rune-overlay-substat-marks { display: inline-flex; justify-content: flex-end; align-items: center; gap: var(--s2); color: var(--text-muted); }
+.rune-overlay-roll-arrow { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.rune-overlay-rolls { display: inline-flex; align-items: center; gap: var(--s1); }
+.rune-overlay-enchanted-mark { width: 15px; height: 15px; }
+.rune-overlay-history-note { margin: 0; }
+.rune-overlay-table-wrap { overflow-x: auto; }
+.rune-overlay-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.rune-overlay-table th, .rune-overlay-table td { padding: var(--s2) var(--s3); border-bottom: 1px solid var(--line); text-align: right; }
+.rune-overlay-table th:first-child, .rune-overlay-table td:first-child { text-align: left; }
+.rune-overlay-table tbody th { font-weight: inherit; }
+.rune-overlay-best th, .rune-overlay-best td { background: var(--sunk); }
+.rune-overlay-best-label { display: block; color: var(--text-muted); }
+.rune-overlay-improvements { display: grid; gap: var(--s3); }
+.rune-overlay-event-path { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--s2); }
+.rune-overlay-event { display: grid; gap: var(--s1); min-height: 52px; padding: var(--s2); border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.rune-overlay-event-level { color: var(--text-accent); font-variant-numeric: tabular-nums; }
+.rune-overlay-improvement-summary, .rune-overlay-improvement { margin: 0; }
+
+@media (max-width: 720px) {
+  .rune-overlay-facts { grid-template-columns: minmax(0, 1fr); }
+  .rune-overlay-event-path { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rune-overlay-event:last-child { grid-column: 1 / -1; }
+}
+
 .overlay-block { display: grid; gap: var(--s3); }
 .overlay-block-head {
   display: flex;

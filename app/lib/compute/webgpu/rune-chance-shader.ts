@@ -5,7 +5,7 @@ import { chanceLanes, runeChanceConstants } from './rune-chance-layout';
  * **The counting step, on the graphics card.**
  *
  * It does exactly what `countJobs` does on the processor: play one rune forward to
- * `+12` a few thousand times, apply the craft rules to each end state, and count how
+ * `+12` a few thousand times, apply the craft rules to each final substat state, and count how
  * many cleared the bar. One job is one workgroup; each of its 64 lanes runs its own
  * share of the runs and writes its own count, and the caller adds the 64 together.
  * Nothing is reduced on the card, because adding 64 numbers is not what a card is for

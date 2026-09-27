@@ -28,7 +28,7 @@ import {
 } from '../app/lib/rune-cleanup-model.ts';
 import { craftPlan, grindCredit } from '../app/lib/rune-craft-end-state.ts';
 import {
-  initialSubPropertyRange, slotMainProperties, startingSubPropertyCount,
+  initialSubPropertyRange, runeInnateFrequency, slotMainProperties, startingSubPropertyCount,
   subPropertyLevels, upgradeSubPropertyRange,
 } from '../app/lib/rune-properties.ts';
 import {
@@ -77,7 +77,7 @@ const draw = (random, minimum, maximum) => minimum + Math.floor(random() * (maxi
 function freshRune(random, id, { slot, stars, ancient, grade, level }) {
   const mainStatId = choose(random, slotMainProperties[slot]);
   const legal = runeStatIds.filter((statId) => statId !== mainStatId && slotAllowsSubStat(slot, statId));
-  const prefixStatId = random() < 0.5 ? choose(random, legal) : null;
+  const prefixStatId = random() < runeInnateFrequency ? choose(random, legal) : null;
   const available = legal.filter((statId) => statId !== prefixStatId);
   const count = Math.min(startingSubPropertyCount(runeDefaultGradeOrder(grade)), available.length);
   const subProperties = [];

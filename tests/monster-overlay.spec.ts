@@ -209,7 +209,7 @@ test('a rune build is chosen as a whole pair, never as two loose sets', async ({
   const builds = page.getByRole('button', { name: /^Desired rune builds:/ });
   await builds.scrollIntoViewIfNeeded();
   await builds.click();
-  await page.getByRole('button', { name: /^Violent/ }).click();
+  await page.getByRole('button', { name: 'Violent 4-piece' }).click();
   await page.getByRole('checkbox', { name: 'Violent / Blade' }).check();
   await page.keyboard.press('Escape');
 

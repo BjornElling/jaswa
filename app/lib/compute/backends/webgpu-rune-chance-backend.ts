@@ -49,7 +49,7 @@ export const runeChanceAgreementTolerance = 0.01;
 function packRune(into: Int32Array, at: number, future: RuneFuture): void {
   const { rune, held } = future;
   /* **A rune the card cannot hold is refused, never trimmed.**
-     A rune ends at `+12` with four sub properties: `remainingEvents` writes one event
+     A rune's substats end at `+12` with four sub properties: `remainingEvents` writes one event
      per missing line, so `held + additions` is exactly four for every rune the game
      can produce. An export whose grade and sub-property count disagree could make it
      five, and the shader's line array is a fixed four — WGSL would clamp the write

@@ -33,6 +33,8 @@ import type { RunePotentialPreset } from '../lib/rune-potential-presets';
 import type { GameRecord } from '../lib/game-data';
 import type { GeneralSettings, ImportedGame, RunePotentialSettings } from '../lib/types';
 import { useSessionStorageState } from '../lib/session-storage-state';
+import { RuneLink } from './rune-link';
+import type { OpenRuneOverlay } from './rune-link';
 
 /* Nine of the game's own set names, and the slots and levels a rune can have.
    Listed rather than derived from the import so the filter strip does not change
@@ -128,7 +130,7 @@ const columns: readonly SortableColumn<RuneCleanupRow>[] = (() => {
     column('location', 'Location'),
     column('preset', 'Best preset'),
     column('maxValue', <span className="table-heading-two-line" aria-label="Max value: the best end state it can reach against a perfect ordinary rune for that slot. An Ancient rune can exceed 100 per cent. The quality floor you set is a share of the ordinary runes a slot produces, so the Max value it comes to differs from slot to slot">Max<br />value</span>),
-    column('chance', <span className="table-heading-two-line" aria-label="Chance to reach the quality floor by +12, or a dash for a rune already at +12">Chance</span>),
+    column('chance', <span className="table-heading-two-line" aria-label="Chance to reach the final +15 quality floor; random substat rolls end at +12">Chance</span>),
     column('advice', 'Advice'),
     /* The game's own three orderings, driven by the Sort by dropdown. They carry
        `header: false` for the reason `artifact-list.tsx` does: they stay in this
@@ -154,7 +156,7 @@ const columns: readonly SortableColumn<RuneCleanupRow>[] = (() => {
  * preset and every build, and a table that re-ran itself under a dragging thumb
  * would be a table nobody could read.
  */
-export function RuneRecommendations({ game, monsterPreferences, settings, presets, general, hardwareAcceleration }: {
+export function RuneRecommendations({ game, monsterPreferences, settings, presets, general, hardwareAcceleration, onOpenRune }: {
   game: ImportedGame | null;
   monsterPreferences: MonsterPreferences;
   settings: RunePotentialSettings;
@@ -162,6 +164,7 @@ export function RuneRecommendations({ game, monsterPreferences, settings, preset
   general: GeneralSettings;
   /** Whether the graphics card may count the odds. The worker is told, not asked. */
   hardwareAcceleration: boolean;
+  onOpenRune: OpenRuneOverlay;
 }) {
   const [filters, setFilters] = useSessionStorageState(
     'jaswa.filters.rune-cleanup', defaultRuneFilters, isRuneFilterState,
@@ -187,7 +190,7 @@ export function RuneRecommendations({ game, monsterPreferences, settings, preset
   /**
    * Every rune the import holds, and the population every calculation judges.
    *
-   * Every imported rune is judged independently. Equipped runes and runes at +12
+   * Every imported rune is judged independently. Equipped runes and runes at +15
    * are judged like any other; whether they are *on screen* is the filter strip's
    * business, and a filter cannot move a single figure.
    */
@@ -476,8 +479,16 @@ export function RuneRecommendations({ game, monsterPreferences, settings, preset
         <tbody>
           {sorted.length ? sorted.map((row) => <tr key={row.rune.id}>
             <td className={cell('set', qualityRuleHost)}>
-              <QualityRule tier={row.rune.defaultGrade} />
-              <AncientName name={row.rune.setName} ancient={row.rune.ancient} />
+              <RuneLink
+                target={{ kind: 'account', runeId: row.rune.id }}
+                label={`${row.rune.setName} rune, slot ${row.rune.slot}`}
+                onOpen={onOpenRune}
+              >
+                <span className="rune-link-cell">
+                  <QualityRule tier={row.rune.defaultGrade} />
+                  <AncientName name={row.rune.setName} ancient={row.rune.ancient} />
+                </span>
+              </RuneLink>
             </td>
             <td className={cell('slot')}>{row.rune.slot}</td>
             <td className={cell('level')}>+{row.rune.level}</td>
@@ -510,7 +521,7 @@ export function RuneRecommendations({ game, monsterPreferences, settings, preset
             <td className={cell('maxValue')}>
               {runeMaxValueShown(row) ? `${Math.round(row.advice.maxValue * 100)} %` : <span className="muted">—</span>}
             </td>
-            {/* A rune at +12 has spent every upgrade it will ever get, so there is
+            {/* A rune at +12 has spent every substat upgrade it will ever get, so there is
                 nothing left to be uncertain about and no odds to print. A dash says
                 that; "100 %" beside a Keep would invite the reader to compare a
                 settled fact with the gambles in the rows above it. */}

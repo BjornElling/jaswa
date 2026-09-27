@@ -28,6 +28,7 @@ import { readRunes, runeStatIds, runeStatName } from '../lib/runes';
 import type { RunePotentialPreset } from '../lib/rune-potential-presets';
 import type { ImportedGame, ItemGrade, Preferences } from '../lib/types';
 import { useSessionStorageState } from '../lib/session-storage-state';
+import type { OpenRuneOverlay } from './rune-link';
 
 const craftKinds: readonly CraftKind[] = ['gem', 'grindstone'];
 const craftLineages: readonly CraftLineage[] = ['standard', 'immemorial', 'ancient'];
@@ -110,10 +111,11 @@ const craftColumns: readonly SortableColumn<CraftRow>[] = (() => {
   ];
 })();
 
-export function GemsSection({ game, presets, preferences }: {
+export function GemsSection({ game, presets, preferences, onOpenRune }: {
   game: ImportedGame | null;
   presets: readonly RunePotentialPreset[];
   preferences: Preferences;
+  onOpenRune: OpenRuneOverlay;
 }) {
   const [filters, setFilters] = useSessionStorageState(
     'jaswa.filters.craft-items', defaultCraftFilters, isCraftFilterState,
@@ -370,6 +372,7 @@ export function GemsSection({ game, presets, preferences }: {
         monsterPreferences={preferences.monsterPreferences}
         presets={presets}
         general={preferences.general}
+        onOpenRune={onOpenRune}
       />}
     </Disclosure>
   </WorkspacePage>;

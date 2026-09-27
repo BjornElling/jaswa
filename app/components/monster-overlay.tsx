@@ -7,6 +7,8 @@ import { MonsterPortrait } from './monster-portrait';
 import { RuneBuildMenu } from './rune-build-menu';
 import { ShortfallMark } from './shortfall-mark';
 import type { MonsterReference } from './monster-link';
+import { RuneLink } from './rune-link';
+import type { OpenRuneOverlay } from './rune-link';
 import type { Artifact } from '../lib/artifacts';
 import { readArtifacts } from '../lib/artifacts';
 import type { ArtifactCategory, ArtifactMainProperty } from '../lib/artifact-properties';
@@ -36,7 +38,8 @@ import { relicMainPropertyOrder, relicProperties, relicPropertyLabel } from '../
 import type { RelicMainProperty } from '../lib/relic-properties';
 import { presetTargetColumns, presetTargetMaximum, runeMainStatsBySlot } from '../lib/rune-potential-presets';
 import type { RuneMainStat } from '../lib/rune-potential-presets';
-import { activeRuneSets, elementName } from '../lib/rune-sets';
+import { elementName } from '../lib/rune-sets';
+import { readRunes } from '../lib/runes';
 import type { GeneralSettings } from '../lib/types';
 
 /**
@@ -122,13 +125,14 @@ function shareNote(share: number | undefined): string | undefined {
   return share === undefined ? undefined : `${(share * 100).toFixed(0)} %`;
 }
 
-export function MonsterOverlay({ target, game, general, preferences, onSave, onClose }: {
+export function MonsterOverlay({ target, game, general, preferences, onSave, onClose, onOpenRune }: {
   target: MonsterReference;
   game: GameRecord | undefined;
   general: GeneralSettings;
   preferences: MonsterCopyPreferences | undefined;
   onSave: (unitId: string, preferences: MonsterCopyPreferences) => void;
   onClose: () => void;
+  onOpenRune: OpenRuneOverlay;
 }) {
   const [draft, setDraft] = useState<MonsterCopyPreferences>(
     () => preferences ?? blankMonsterCopyPreferences(target.kind === 'copy' ? target.unitId : ''),
@@ -159,7 +163,7 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
   const current = useMemo(() => (totals ? monsterTargetFigures(totals) : undefined), [totals]);
 
   const worn = useMemo(() => {
-    if (!monster || !game) return { artifacts: {} as Partial<Record<ArtifactCategory, Artifact>>, relics: [] as Relic[] };
+    if (!monster || !game) return { artifacts: {} as Partial<Record<ArtifactCategory, Artifact>>, relics: [] as Relic[], runes: [] };
     const unitId = String(monster.unit_id);
     const artifacts: Partial<Record<ArtifactCategory, Artifact>> = {};
     for (const artifact of readArtifacts(game)) {
@@ -167,7 +171,8 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
     }
     const engraved = new Set((Array.isArray(monster.relics) ? monster.relics : [])
       .map((entry) => String((entry as GameRecord | null)?.rid)));
-    return { artifacts, relics: readRelics(game).filter((relic) => engraved.has(relic.id)) };
+    return { artifacts, relics: readRelics(game).filter((relic) => engraved.has(relic.id)),
+      runes: readRunes(game).filter((rune) => rune.occupiedId === unitId) };
   }, [game, monster]);
 
   const shortfalls: Shortfall[] = useMemo(
@@ -366,7 +371,14 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
           <div className="overlay-lines">
             {monster !== undefined && <Line label="Current">
               <span className="overlay-current-value">
-                {activeRuneSets(monster).map((set) => `${set.name} (${set.count})`).join(' · ') || 'No runes equipped'}
+                {worn.runes.length === 0
+                  ? 'No runes equipped'
+                  : <span className="overlay-rune-links">
+                    {worn.runes.map((rune) => <RuneLink key={rune.id}
+                      target={{ kind: 'account', runeId: rune.id }}
+                      label={`${rune.setName} rune, slot ${rune.slot}`}
+                      onOpen={onOpenRune}>{rune.setName} · {rune.slot}</RuneLink>)}
+                  </span>}
               </span>
             </Line>}
             {editable && <Line label="Desired builds">

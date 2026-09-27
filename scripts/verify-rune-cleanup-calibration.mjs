@@ -12,7 +12,7 @@
 import { defaultRunePotentialPresets } from '../app/lib/rune-potential-presets.ts';
 import { runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
 import {
-  initialSubPropertyRange, slotMainProperties, startingSubPropertyCount,
+  initialSubPropertyRange, runeInnateFrequency, slotMainProperties, startingSubPropertyCount,
   subPropertyLevels, upgradeSubPropertyRange,
 } from '../app/lib/rune-properties.ts';
 import { runeDefaultGradeOrder, runeDefaultGrades, runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
@@ -81,7 +81,7 @@ function freshRune(random, id, stars = 6, ancient = false) {
   const rank = initialRank(random, slot);
   const mainStatId = choose(random, slotMainProperties[slot]);
   const legal = runeStatIds.filter((stat) => stat !== mainStatId && slotAllowsSubStat(slot, stat));
-  const prefixStatId = random() < .51 ? choose(random, legal) : null;
+  const prefixStatId = random() < runeInnateFrequency ? choose(random, legal) : null;
   const available = legal.filter((stat) => stat !== prefixStatId);
   const held = new Set();
   const subProperties = [];

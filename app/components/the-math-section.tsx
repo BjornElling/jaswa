@@ -13,7 +13,7 @@ export function TheMathSection() {
           For every rune you own, JASWA answers one question: <b className="type-body-emphasis">Power up</b>, <b className="type-body-emphasis">Keep</b>, or <b className="type-body-emphasis">Sell</b>. The answer rests on two numbers, and a rune has to satisfy both. <b className="type-body-emphasis">Max value</b> is the best this rune could ever become. <b className="type-body-emphasis">Chance</b> is how likely it is to actually get there.
         </p>
         <p>
-          Every rune you own is judged — the ones on your monsters and the ones already at +12 along with the rest. Nothing in Settings narrows that, because a preset&rsquo;s share is finite: a rune held back from the calculation would hand its place to the runes that remain and change their answers. What the table <i>shows</i> is a separate matter, and the filters above it move no figure at all.
+          Every rune you own is judged — the ones on your monsters and the ones already at +15 along with the rest. Nothing in Settings narrows that, because a preset&rsquo;s share is finite: a rune held back from the calculation would hand its place to the runes that remain and change their answers. What the table <i>shows</i> is a separate matter, and the filters above it move no figure at all.
         </p>
         <p>
           A rune that could be wonderful but almost certainly will not be is not worth your mana. Neither is a rune that is certain to reach a ceiling that is too low. Both have to clear their bar.
@@ -291,7 +291,7 @@ export function TheMathSection() {
         <article className="math-example" aria-labelledby="rune-math-example-title">
           <h3 id="rune-math-example-title" className="type-heading">How it adds up</h3>
           <p>
-            A <span className="math-table-rolled">+12</span> Violent slot 2 rune with an ATK % main stat, judged for Fast DD.
+          A <span className="math-table-rolled">+15</span> Violent slot 2 rune with an ATK % main stat, judged for Fast DD.
           </p>
           <div className="math-table-scroll">
             <table className="math-table">
@@ -344,7 +344,7 @@ export function TheMathSection() {
 
         <h3 className="type-heading">Runes that are not finished yet</h3>
         <p>
-          Max value is what a rune <i>can become</i>, so an unfinished rune is projected forward first. A rune gains a substat at <span className="math-relic-level">+3</span>, <span className="math-relic-level">+6</span>, <span className="math-relic-level">+9</span> and <span className="math-relic-level">+12</span>, filling its four lines before improving them — never at <span className="math-relic-level">+15</span>, which only grows the main stat.
+          Max value is what a rune <i>can become</i>, so an unfinished rune is projected forward to <span className="math-relic-level">+15</span> first. A rune gains a substat at <span className="math-relic-level">+3</span>, <span className="math-relic-level">+6</span>, <span className="math-relic-level">+9</span> and <span className="math-relic-level">+12</span>, filling its four lines before improving them — never at <span className="math-relic-level">+15</span>, which only grows the main stat.
         </p>
         <p>
           Take the same rune at <span className="math-relic-level">+6</span>, before it drew its HP line. Two events are left: one new line, and one upgrade.
@@ -397,7 +397,7 @@ export function TheMathSection() {
           Two things stay six-star on purpose. What the role still needs is worked out for a finished six-star build, main stats at <span className="math-relic-level">+15</span> included, because that is the build the runes are being collected for. And the conversion of a flat line into a share of the monster&rsquo;s base is the same at every star class; only the size of a maximum roll changes.
         </p>
         <p>
-          Ancient runes are six-star runes measured against the <i>ordinary</i> six-star reference. They use their higher verified <i>initial</i> substat interval in the Max-value and Chance projections; their later <span className="math-relic-level">+3</span>/<span className="math-relic-level">+6</span>/<span className="math-relic-level">+9</span>/<span className="math-relic-level">+12</span> upgrades, role valuation, reference box and denominator follow the ordinary rules, and they take Ancient craft items only. Because the denominator stays ordinary, a maximum Ancient result may exceed 100 %.
+          Ancient runes are six-star runes measured against the <i>ordinary</i> six-star reference. They use their higher verified <i>initial</i> substat interval in the Max-value and Chance projections; their later <span className="math-relic-level">+3</span>/<span className="math-relic-level">+6</span>/<span className="math-relic-level">+9</span>/<span className="math-relic-level">+12</span> upgrades, role valuation, reference box and denominator follow the ordinary rules, and they take Ancient craft items only. The projection finishes at <span className="math-relic-level">+15</span>; +12→+15 raises only the main stat. Because the denominator stays ordinary, a maximum Ancient result may exceed 100 %.
         </p>
 
         <h3 className="type-heading">Gems and Grindstones</h3>
@@ -408,7 +408,7 @@ export function TheMathSection() {
           A Grindstone is credited on every grindable line, including ones the rune has yet to gain, as <b className="type-body-emphasis">the better of what is already there and what the stone would give</b> — never added on top, which would pay the rune twice for one line.
         </p>
         <p>
-          A Gem is different, because it is spent at <span className="math-relic-level">+12</span> and <b className="type-body-emphasis">throws away every roll its line collected on the way</b>. So it is not decided in advance: JASWA plays the rune out first, and only then asks which line it would have been worth replacing. An upgrade is never written off because a line <i>might</i> later be Gemmed, and a Gem is never spent when the rune is better off without one.
+          A Gem is different, because it is spent at <span className="math-relic-level">+12</span> and <b className="type-body-emphasis">throws away every roll its line collected on the way</b>. So it is not decided in advance: JASWA plays the substats out first, then projects the finished main stat to <span className="math-relic-level">+15</span>, and only then asks which line it would have been worth replacing. An upgrade is never written off because a line <i>might</i> later be Gemmed, and a Gem is never spent when the rune is better off without one.
         </p>
         <p>
           The line it replaces is <b className="type-body-emphasis">whichever one gains the most</b> — not the weakest one, which is what JASWA used to look at. Those are different lines more often than they sound, because a Gem may not duplicate a stat one of the <i>other</i> lines is holding: removing the line that holds SPD is exactly what makes a SPD Gem legal at all. Reading the weakest line instead was worth up to nine per cent of a rune&rsquo;s whole score, and it went unnoticed because nothing in the test suite had ever spent a Gem.
@@ -431,12 +431,15 @@ export function TheMathSection() {
           <b className="type-body-emphasis">And a slot means all of it.</b> Slots 1, 3 and 5 have one main stat each; slots 2, 4 and 6 have seven or eight, and a preset names one or two. Keeping 15 % of the runes a preset can use would keep 15 % of slot 1 but only a fraction of slot 4 &mdash; measured on the shipped presets, 1&ndash;7 % of slots 2, 4 and 6 against 15&ndash;20 % of the others. So the 15 % is of <i>everything</i> the slot produces, every main counted evenly, and the runes with a main the preset wants are let further into their own box to make up the rest. One preferred main out of eight needs eight times the share; five out of eight need barely any help. Where a preset can use fewer of a slot&rsquo;s runes than the floor asks for &mdash; CRI Dmg alone on slot 4 is one rune in eight &mdash; every one of them is kept, because that is the only way that slot keeps as many as the others.
         </p>
         <p>
-          Here is that one default floor, at the default Gem and Grindstone settings, for four of the shipped presets, written out as the Max value it actually demands:
+          <b className="type-body-emphasis">And the presets are counted together.</b> A rune is kept when <i>any</i> preset keeps it. A good slot 1 rune tends to be good for several presets at once, so what they keep of slot 1 overlaps and is counted once; on slots 2, 4 and 6 each preset keeps runes of its own main stats, so what they keep barely overlaps and adds up. With every slot balanced preset by preset, the eight shipped presets together still kept 34&ndash;49 % of slots 2, 4 and 6 and 23&ndash;25 % of the others. So JASWA also measures what all your presets keep <i>together</i>, on a fixed sample of ordinary runes with every main and every set, and scales each slot until every slot keeps the same share. The level is where slots 1, 3 and 5 already stood, so the total number of runes you keep stays where your quality floor puts it; only how it is spread over the slots changes.
+        </p>
+        <p>
+          Here is that one default floor, at the default Gem and Grindstone settings and with all eight shipped presets in use, written out for four of them as the Max value it actually demands:
         </p>
         <div className="math-table-scroll">
           <table className="math-table">
             <caption className="visually-hidden">
-              The Max value the default quality floor comes to in each of the six slots, for each shipped preset; any means every rune of that main is kept
+              The Max value the default quality floor comes to in each of the six slots, for four of the shipped presets judging together
             </caption>
             <thead>
               <tr>
@@ -452,28 +455,28 @@ export function TheMathSection() {
             <tbody>
               <tr>
                 <th scope="row" className="align-left">Fast DD</th>
-                <td>71 %</td><td>48 %</td><td>66 %</td><td>any</td><td>66 %</td><td>any</td>
+                <td>71 %</td><td>52 %</td><td>66 %</td><td>34 %</td><td>66 %</td><td>34 %</td>
               </tr>
               <tr>
                 <th scope="row" className="align-left">Def DD</th>
-                <td>62 %</td><td>any</td><td>63 %</td><td>41 %</td><td>60 %</td><td>any</td>
+                <td>62 %</td><td>39 %</td><td>63 %</td><td>45 %</td><td>60 %</td><td>35 %</td>
               </tr>
               <tr>
                 <th scope="row" className="align-left">Support</th>
-                <td>64 %</td><td>any</td><td>64 %</td><td>38 %</td><td>60 %</td><td>40 %</td>
+                <td>64 %</td><td>41 %</td><td>64 %</td><td>41 %</td><td>60 %</td><td>42 %</td>
               </tr>
               <tr>
                 <th scope="row" className="align-left">Bruiser</th>
-                <td>76 %</td><td>62 %</td><td>73 %</td><td>52 %</td><td>73 %</td><td>58 %</td>
+                <td>76 %</td><td>64 %</td><td>73 %</td><td>57 %</td><td>73 %</td><td>62 %</td>
               </tr>
             </tbody>
           </table>
         </div>
         <p>
-          A Def DD slot 4 rune needs 41 % where a slot 1 rune needs 62 %, and both are the same demand: be among the best 15 % of the runes that slot produces for this role. So <b className="type-body-emphasis">a rune can be kept while another with a higher Max value is sold</b>, and that is the system working, not a bug.
+          A Def DD slot 6 rune needs 35 % where a slot 1 rune needs 62 %, and both are the same demand: be among the runes that keep your slot 6 as well stocked as your slot 1. So <b className="type-body-emphasis">a rune can be kept while another with a higher Max value is sold</b>, and that is the system working, not a bug.
         </p>
         <p>
-          The ordinary rune the box describes is as concrete as the perfect one: four substat lines drawn without replacement from what the slot allows, one roll each, four upgrades spread across them, an innate on the measured 51 % of runes, and the Gems and Grindstones you told JASWA to assume. It is worked out exactly rather than simulated, for every slot of every build, and <span className="math-table-rolled">npm run verify:rune-slot-neutrality</span> checks the result by generating boxes of synthetic runes of every main and failing unless every slot keeps the same share of them.
+          The ordinary rune the box describes is as concrete as the perfect one: four substat lines drawn without replacement from what the slot allows, one roll each, four upgrades spread across them, an innate on the canonical 50 % of runes, and the Gems and Grindstones you told JASWA to assume. It is worked out exactly rather than simulated, for every slot of every build, and <span className="math-table-rolled">npm run verify:rune-slot-neutrality</span> checks the result by generating boxes of synthetic runes of every main and failing unless every slot keeps the same share of them.
         </p>
 
         <h3 className="type-heading">The number the column prints</h3>
@@ -489,10 +492,10 @@ export function TheMathSection() {
 
         <h3 className="type-heading">Chance: will it actually get there?</h3>
         <p>
-          A rune below <span className="math-relic-level">+12</span> has upgrades still to come, and where they land is luck. A rune gains a substat roll at <span className="math-relic-level">+3</span>, <span className="math-relic-level">+6</span>, <span className="math-relic-level">+9</span> and <span className="math-relic-level">+12</span> — never at <span className="math-relic-level">+15</span>, which only improves the main stat.
+          A rune below <span className="math-relic-level">+15</span> may still have a main-stat increase to come; a rune below <span className="math-relic-level">+12</span> also has substat upgrades or reveals still to come, and where they land is luck. A rune gains a substat roll at <span className="math-relic-level">+3</span>, <span className="math-relic-level">+6</span>, <span className="math-relic-level">+9</span> and <span className="math-relic-level">+12</span> — never at <span className="math-relic-level">+15</span>, which only improves the main stat.
         </p>
         <p>
-          Two of those answers need no luck at all, and between them they settle most of a box. If the <i>best</i> the rune could possibly become still misses the bar, the chance is zero — there is no road to it. If the <i>worst</i> it could be left with already clears the bar, the chance is one. And a rune already at <span className="math-relic-level">+12</span> has nothing left to gamble on either way.
+          Two of those answers need no luck at all, and between them they settle most of a box. If the <i>best</i> the rune could possibly become still misses the bar, the chance is zero — there is no road to it. If the <i>worst</i> it could be left with already clears the bar, the chance is one. And a rune already at <span className="math-relic-level">+12</span> has no substat gamble left; the climb to <span className="math-relic-level">+15</span> is main-stat only.
         </p>
         <p>
           For everything in between, <b className="type-body-emphasis">JASWA plays the rune forward a few thousand times and counts how often it ends up good enough.</b> Each run follows the game&rsquo;s own schedule — which line each upgrade lands on, how big it rolls, which substat a new line turns out to be — then spends the Gem and the Grindstone wherever they would have helped, and checks the result against the bar. That is the whole of it, and it is deliberately something you can picture.
@@ -501,13 +504,13 @@ export function TheMathSection() {
           The alternative is to list every path instead of sampling them, and JASWA did that until it stopped being worth it: with four upgrades, four lines, every roll value each could take and a Gem decision that depends on all of them, one box of 1,500 runes took nine seconds to produce a column printed to the nearest per cent. Counting gives the same answer to within half a point, in two.
         </p>
         <p>
-          <b className="type-body-emphasis">The same rune always prints the same number.</b> The dice are a hash of the rune itself — its slot, its grade, its level, every line it carries — and not a running generator, so pressing Calculate twice gives an identical account, and <i>two identical runes are given identical odds</i>. Nor does the number of runes JASWA keeps move: counted at a quarter of the usual number of runs, at it, and at sixty-four times it, a box of three thousand kept the same 301 runes at <span className="math-relic-level">+12</span> every time, in the same slots, under the same presets.
+          <b className="type-body-emphasis">The same rune always prints the same number.</b> The dice are a hash of the rune itself — its slot, its grade, its level, every line it carries — and not a running generator, so pressing Calculate twice gives an identical account, and <i>two identical runes are given identical odds</i>. Nor does the number of runes JASWA keeps move: counted at a quarter of the usual number of runs, at it, and at sixty-four times it, a box of three thousand kept the same final +15 decisions every time, in the same slots, under the same presets.
         </p>
         <p>
           A future line is drawn without replacement from the legal missing effect ids, and every remaining upgrade lands on a line the rune already has — new lines arrive last, so nothing can improve a line that does not exist yet. Every realised roll contributes in full, weighted by its stat, including surplus SPD or Accuracy.
         </p>
         <p>
-          Our <span className="math-relic-level">+6</span> rune above reaches 79 % at its ceiling, which is clear of even the strictest Fast DD slot 2 bar however the last upgrade falls — its chance is 100 % at all five floors. Give the same rune a middling SPD roll of <span className="math-table-rolled">+ 9</span> instead of <span className="math-table-rolled">+ 17</span> and its ceiling drops to 58 %: still certain at the four loosest floors, because a slot 2 rune with a main Fast DD wants is let well into its own box, and <span className="math-table-rolled">62 %</span> at the strictest.
+          Our <span className="math-relic-level">+6</span> rune above reaches 79 % at its ceiling, which is clear of even the strictest Fast DD slot 2 bar however the last upgrade falls — its chance is 100 % at all five floors. Give the same rune a middling SPD roll of <span className="math-table-rolled">+ 9</span> instead of <span className="math-table-rolled">+ 17</span> and its ceiling drops to 58 %: still certain at the four loosest floors, because a slot 2 rune with a main Fast DD wants is let well into its own box, and <span className="math-table-rolled">51 %</span> at the strictest.
         </p>
 
         <h3 className="type-heading">What is measured and what is assumed</h3>
@@ -528,7 +531,11 @@ export function TheMathSection() {
             <tbody>
               <tr>
                 <th scope="row" className="align-left">How big is a roll?</th>
-                <td className="align-left"><b className="type-body-emphasis">Measured.</b> Every value in the range is equally likely, confirmed on 1,530 innate properties from a real account.</td>
+                <td className="align-left"><b className="type-body-emphasis">Measured.</b> Every value in a verified range is treated as equally likely; the observed prefix values sit inside the matching sub-property ranges.</td>
+              </tr>
+              <tr>
+                <th scope="row" className="align-left">How often is there an innate?</th>
+                <td className="align-left"><b className="type-body-emphasis">Modelled.</b> JASWA uses exactly 50 % for every rune type and default grade; Com2uS publishes no rate.</td>
               </tr>
               <tr>
                 <th scope="row" className="align-left">What are the ranges?</th>
@@ -585,7 +592,7 @@ export function TheMathSection() {
               </tr>
               <tr className="math-table-total">
                 <th scope="row" className="align-left">It passed everything</th>
-                <td className="align-left"><b className="type-body-emphasis">Power up</b> below <span className="math-relic-level">+12</span>, <b className="type-body-emphasis">Keep</b> at <span className="math-relic-level">+12</span> or above</td>
+                <td className="align-left"><b className="type-body-emphasis">Power up</b> below <span className="math-relic-level">+12</span> and at <span className="math-relic-level">+13</span>/<span className="math-relic-level">+14</span>; <b className="type-body-emphasis">Keep</b> at <span className="math-relic-level">+12</span> and <span className="math-relic-level">+15</span></td>
               </tr>
             </tbody>
           </table>

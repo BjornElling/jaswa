@@ -39,7 +39,8 @@
  * the right answer computed a way that costs tens of seconds on a real box, and the
  * result is a number printed to the nearest percentage point.
  *
- * So the middle case is **played forward and counted**: the rune is taken to `+12` a
+ * So the middle case is **played forward and counted**: the rune is taken through its
+ * final substat event at `+12` and projected to `+15` without another substat roll, a
  * few thousand times, by the game's own loop, and the answer is the share of those
  * runs that cleared the bar. It is the one description of the calculation a player can
  * be told in a sentence, it applies the craft rules exactly rather than through a
@@ -383,7 +384,8 @@ export function leastEndState(future: RuneFuture, scoring: EndStateScoring): num
 /* --------------------------------------------------------------------- the runs */
 
 /**
- * The rune played forward to `+12`, as many times as asked.
+ * The rune played forward through `+12`; its substat state is therefore also its
+ * state at `+15`, because the last three levels improve only the main property.
  *
  * Only the *lines* are recorded, not what they are worth: what the game does to a
  * rune is a fact about the rune, so one set of runs answers every preset that asks
@@ -491,7 +493,7 @@ export function runScore(runs: RuneRuns, scoring: EndStateScoring, run: number):
  * this file exists to state: a certain no, a certain yes, or a count.
  *
  * The two certainties are settled here and cost nothing, which is most of a real box:
- * a rune already at `+12` has no gamble left, most runes cannot reach the quality
+ * a rune already at `+12` has no substat gamble left, most runes cannot reach the quality
  * floor by any road, and a few cannot miss it. Only what is left becomes a job, and a
  * job is the unit the processor and the graphics card both answer in.
  */

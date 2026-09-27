@@ -32,7 +32,7 @@
  * ## What is measured and what is assumed
  *
  * The value a roll takes is **uniform over its range**, which is verified against
- * 1,530 measured prefixes rather than assumed (`RUNE-CANONICAL.md` §4). Which of
+ * the observed prefix ranges rather than assumed (`RUNE-CANONICAL.md` §4). Which of
  * the four lines a power-up improves, and which type a new line takes, are **not
  * established by any source** and are assumed uniform. Those two assumptions are
  * named in `rune-power-up-outcomes.ts` and in the weights module, at the two places
@@ -40,8 +40,11 @@
  */
 import { slotAllowsSubStat } from './runes';
 import type { Rune } from './runes';
-import { isIntangibleRuneSet, runeSetPieceCount } from './rune-sets';
-import { allStatIds, maximumRoll, subPropertyRange } from './rune-properties';
+import { isIntangibleRuneSet, presetRuneSetNameList, runeSetPieceCount } from './rune-sets';
+import {
+  allStatIds, mainPropertyMaximum, maximumRoll, runeInnateFrequency, slotMainProperties,
+  subPropertyRange,
+} from './rune-properties';
 import type { ReferenceStats } from './rune-reference-stats';
 import type { PresetChoice, RunePotentialPreset } from './rune-potential-presets';
 import { runeMainStatIds } from './rune-potential-presets';
@@ -149,7 +152,7 @@ function buildMains(build: Build): BuildMains {
 export type RuneOutcome = {
   /** The best legal end state against the best ordinary rune in this slot. Ancient can exceed 1. */
   maxValue: number;
-  /** `0`–`1`: the chance the rune actually reaches the threshold by +12. */
+  /** `0`–`1`: the chance the rune reaches the final +15 projection; RNG ends at +12. */
   chance: number;
   /** How the rune's own set and main stat answer the preset. */
   rank: MatchRank;
@@ -189,7 +192,7 @@ export type RuneOutcome = {
  * **That includes the craft tables, and it used not to.** An Ancient candidate was
  * given an *Ancient* perfect rune to divide by, so its stronger Ancient Gem and stone
  * paid for its own denominator and cancelled most of what they had just earned it. On
- * a Legend Ancient slot-2 rune at `+12` with Hero items at three quarters the bar
+ * a Legend Ancient slot-2 rune at `+15` with Hero items at three quarters the bar
  * stood 4.1 % higher and the rune read 71.5 % where the ordinary bar says 74.5 %.
  * §6's "Ancient runes use Ancient craft tables" is a rule about what a *rune* may be
  * spent on; the reference is the ordinary six-star rune of §5, whole, which is why
@@ -272,14 +275,6 @@ function combinations<T>(items: readonly T[], count: number): T[][] {
   visit(0);
   return out;
 }
-
-/**
- * How often an ordinary six-star rune carries an innate property: **51 %**, measured
- * on 2,998 runes (`RUNE-CANONICAL.md` §4). Com2uS states no rate, so this is an
- * observation rather than a game rule, and §4 says it is to be re-measured at every
- * game update.
- */
-const innateFrequency = 0.51;
 
 /**
  * What one upgrade allocation does to a line's spread.
@@ -406,7 +401,7 @@ function valuationNumber(valuation: Valuation): number {
  * It is the construction §4.2 already prices a target against, plus an innate:
  * **four sub-property lines drawn uniformly without replacement from the effect ids
  * the slot allows, one initial roll each, four upgrades spread uniformly over the
- * four, and — on 51 % of runes — one innate of a further legal id.** Every roll is
+ * four, and — on 50 % of runes — one innate of a further legal id.** Every roll is
  * worth the midpoint of its ordinary interval at the candidate's star class, so a line that exists is
  * worth two average rolls, and the value is linear in the roll count, which is what
  * makes this an exact mean rather than a simulation. Ancient is not in it for the
@@ -605,9 +600,9 @@ export function ordinaryBox(family: OrdinaryFamily): OrdinaryBox {
       smear(density, best, Math.sqrt(caseVariance), share);
     };
 
-    record(null, 1 - innateFrequency);
+    record(null, 1 - runeInnateFrequency);
     const free = ids.filter((statId) => !drawn.includes(statId));
-    for (const statId of free) record(statId, innateFrequency / free.length);
+    for (const statId of free) record(statId, runeInnateFrequency / free.length);
   }
 
   if (weight <= 0) return empty;
@@ -722,6 +717,73 @@ function gaussianKernel(steps: number, offset: number): Float64Array {
   return found;
 }
 
+/* --------------------------------------------------- a sample of the box */
+
+/**
+ * **A fixed sample of the ordinary runes a slot produces**, every main counted evenly,
+ * for the one question the box's closed form cannot answer: what *several presets
+ * together* keep of a slot (`rune-cleanup-advice.ts`, `RUNE-CLEANUP-MATH.md` §9.3).
+ *
+ * A box is one preset's distribution, worked out exactly. Several presets judge the
+ * same rune, and whether one of them keeps it depends on how its standings in all of
+ * them move together — which no product of single boxes can say. So the runes are
+ * drawn, by the same construction `ordinaryBox` states: a Legend-born rune of this
+ * star class at `+15`, its main even over the slot's legal mains, four lines drawn
+ * without replacement, an innate on 50 % of runes, one initial roll each and four
+ * upgrades falling uniformly, every roll uniform over its interval.
+ *
+ * **Its sets are drawn evenly over every set a preset can name**, and that is not a
+ * detail. Several presets overlap on a rune only where they all want its set, so a
+ * sample of runes every preset wants — all Intangible, which was the first form of
+ * this — overlapped far more than any real box and aimed the balance at keeping 54 %
+ * of slot 1 where the presets actually keep 22 %. Evenly is the stated assumption; the
+ * game publishes no set rate either. Every slot gets the same draw of sets, so the
+ * sample moves no set against another (§4.3).
+ *
+ * The draws are a fixed stream, so the sample — and every verdict calibrated on it —
+ * is the same on every calculation.
+ */
+export function ordinarySample(slot: number, stars: number, count: number): Rune[] {
+  let state = (0x9e3779b9 ^ Math.imul(slot, 0x85ebca6b) ^ Math.imul(stars, 0xc2b2ae35)) >>> 0 || 1;
+  const next = () => {
+    state ^= state << 13; state >>>= 0;
+    state ^= state >>> 17;
+    state ^= state << 5; state >>>= 0;
+    return state / 0x1_0000_0000;
+  };
+  const pick = <T>(values: readonly T[]): T => values[Math.floor(next() * values.length)];
+  const roll = (statId: number, kind: 'initial' | 'upgrade') => {
+    const range = subPropertyRange(stars, statId, kind);
+    return range ? range.minimum + Math.floor(next() * (range.maximum - range.minimum + 1)) : 0;
+  };
+  const mains = slotMainProperties[slot] ?? [];
+  const runes: Rune[] = [];
+  for (let at = 0; at < count; at += 1) {
+    const main = mains[at % mains.length];
+    const setName = pick(presetRuneSetNameList);
+    const legal = allStatIds.filter((statId) => statId !== main && slotAllowsSubStat(slot, statId)
+      && subPropertyRange(stars, statId, 'initial'));
+    const innate = next() < runeInnateFrequency ? pick(legal) : null;
+    const open = legal.filter((statId) => statId !== innate);
+    const lines = [];
+    for (let line = 0; line < 4 && open.length > 0; line += 1) {
+      const statId = open.splice(Math.floor(next() * open.length), 1)[0];
+      lines.push({ statId, value: roll(statId, 'initial'), gemmed: false, grind: 0 });
+    }
+    for (let upgrade = 0; upgrade < 4 && lines.length > 0; upgrade += 1) {
+      const line = pick(lines);
+      line.value += roll(line.statId, 'upgrade');
+    }
+    runes.push({
+      id: `ordinary-sample:${slot}:${stars}:${at}`, setId: 0, setName, slot, stars,
+      ancient: false, defaultGrade: 'Legend', level: 15, mainStatId: main, mainValue: mainPropertyMaximum(stars, main),
+      prefixStatId: innate, prefixValue: innate === null ? 0 : roll(innate, 'initial'),
+      subProperties: lines, occupiedId: null, obtainedOrder: 0,
+    });
+  }
+  return runes;
+}
+
 /* ------------------------------------------------------------ the candidate */
 
 /**
@@ -771,8 +833,10 @@ export type RuneCandidate = {
  */
 export type RuneAdviceScope = {
   weights: SubstatWeightScope;
-  /** The perfect rune of one slot, by valuation, slot, main, craft credit and lineage. */
-  ceiling: Map<string, number>;
+  /** The perfect rune of one slot, by valuation, craft credit, slot and main. */
+  ceiling: Remembered;
+  /** One build's weights and valuation, by preset, build, reference line, credit and stars. */
+  pricing: Remembered;
   /** The ordinary box of one slot, by the same plus the whole family of builds. */
   ordinary: Map<string, OrdinaryBox>;
   /**
@@ -786,8 +850,32 @@ export type RuneAdviceScope = {
 };
 
 export const newRuneAdviceScope = (): RuneAdviceScope => ({
-  weights: newSubstatWeightScope(), ceiling: new Map(), ordinary: new Map(), futures: new Map(),
+  weights: newSubstatWeightScope(), ceiling: new Map(), pricing: new Map(), ordinary: new Map(), futures: new Map(),
 });
+
+/**
+ * A cache addressed by the objects a result depends on rather than by a string made
+ * of them. The weights and ceilings are asked for by every candidate of every rune,
+ * and building their key strings was most of what asking cost: measured on the slot
+ * balance's sample, 3.5 of its 5.4 seconds went on concatenating keys for answers
+ * already known. Every object on a path is fixed for the scope's life, which is what
+ * makes identity a sound key.
+ */
+type Remembered = Map<unknown, unknown>;
+
+function remembered<T>(tree: Remembered, path: readonly unknown[], make: () => T): T {
+  let node = tree;
+  for (let at = 0; at < path.length - 1; at += 1) {
+    let next = node.get(path[at]) as Remembered | undefined;
+    if (!next) { next = new Map(); node.set(path[at], next); }
+    node = next;
+  }
+  const last = path[path.length - 1];
+  if (node.has(last)) return node.get(last) as T;
+  const value = make();
+  node.set(last, value);
+  return value;
+}
 
 /** The deterministic half: everything that does not depend on the threshold. */
 export function prepareRuneCandidate(
@@ -860,6 +948,14 @@ function buildPricing(
   preset: RunePotentialPreset, build: Build, base: ReferenceStats, credit: CraftCredit, stars: number,
   scope: RuneAdviceScope,
 ): { weights: SubstatWeights; valuation: Valuation } | null {
+  return remembered(scope.pricing, [preset, build, base, credit, stars],
+    () => priceBuild(preset, build, base, credit, stars, scope));
+}
+
+function priceBuild(
+  preset: RunePotentialPreset, build: Build, base: ReferenceStats, credit: CraftCredit, stars: number,
+  scope: RuneAdviceScope,
+): { weights: SubstatWeights; valuation: Valuation } | null {
   /* The weights read nothing about the rune. Two runes that differ only in their set
      are scored identically, which is what lets the recommendation compare them; a set
      decides a verdict through the preset's own ranking and the relative retention
@@ -876,17 +972,12 @@ function buildPricing(
 function cachedCeiling(
   valuation: Valuation, slot: number, main: number, credit: CraftCredit, stars: number, scope: RuneAdviceScope,
 ): number {
-  /* The slot belongs in the key. Two slots can carry the same main property — ATK +
+  /* The slot belongs in the path. Two slots can carry the same main property — ATK +
      is slot 1's fixed main and one of slot 2's choices — while forbidding different
      sub properties, so a key without the slot handed slot 2 slot 1's ceiling. The
-     valuation's own key already carries the star class. */
-  const key = `${valuation.key}|${slot}|${main}|${creditKey(credit)}`;
-  let ceiling = scope.ceiling.get(key);
-  if (ceiling === undefined) {
-    ceiling = slotCeiling(valuation, slot, main, credit, stars);
-    scope.ceiling.set(key, ceiling);
-  }
-  return ceiling;
+     valuation already carries the star class. */
+  return remembered(scope.ceiling, [valuation, credit, slot, main],
+    () => slotCeiling(valuation, slot, main, credit, stars));
 }
 
 /** Whether a build accepts `main` in `slot`: its own choice there, or none stated. */
@@ -924,8 +1015,9 @@ export function slotMainFamily(
 }
 
 /**
- * **One standard for every rune: its `+12` end state with the credited items spent,
- * against a perfect rune and an ordinary box that spent them too.**
+ * **One standard for every rune: its `+15` projection with the credited items spent,
+ * where the substat state is already final at `+12`, against a perfect rune and an
+ * ordinary box that spent them too.**
  *
  * There used to be a second, uncredited reading beside this one, and the row took
  * whichever read better. It could not stay honest: the stones already on a rune are

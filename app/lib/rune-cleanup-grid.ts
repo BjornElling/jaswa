@@ -11,6 +11,7 @@ import { runeDefaultGradeOrder, runeStatName, runeSubValue } from './runes';
 import type { Rune } from './runes';
 import type { RuneAdvice } from './rune-cleanup-advice';
 import { runeVerdictLabels } from './rune-cleanup-advice';
+import { lastSubPropertyLevel } from './rune-properties';
 
 export type RuneCleanupRow = {
   rune: Rune;
@@ -129,12 +130,12 @@ export function compareRuneGameSort(
 export const runeMaxValueShown = (row: RuneCleanupRow): boolean => row.advice.preset !== null;
 
 /**
- * Whether the row prints a Chance. A rune at `+12` has no upgrades left and no odds
+ * Whether the row prints a Chance. A rune at `+12` has no substat upgrades left and no odds
  * to quote — its chance is a certainty, 1 or 0, which the verdict already states —
  * so it prints a dash, and a dash is not 100 %.
  */
 export const runeChanceShown = (row: RuneCleanupRow): boolean =>
-  row.advice.preset !== null && row.rune.level < 12;
+  row.advice.preset !== null && row.rune.level < lastSubPropertyLevel;
 
 /**
  * The chance as the column prints it: whole percentage points, **rounded down**.

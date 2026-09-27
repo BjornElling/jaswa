@@ -253,7 +253,8 @@ function legalIdsFor(slot: number, mainStatId: number, stat: TargetStat): number
 /* ------------------------------------------------- what an ordinary rune gives */
 
 /**
- * What one line of `statId` on an ordinary six-star rune has rolled by `+12`, in max
+ * What one line of `statId` on an ordinary six-star rune has rolled by the final
+ * substat event at `+12` (and therefore in the `+15` projection), in max
  * rolls: its own initial roll plus one upgrade, since four upgrades fall over four
  * lines, each at the midpoint of its interval.
  */
@@ -263,7 +264,8 @@ function ordinaryLineRolls(statId: number, base: ReferenceStats): number {
 }
 
 /**
- * What one ordinary six-star rune in this slot supplies of one stat by `+12`, in
+ * What one ordinary six-star rune in this slot supplies of one stat by the final
+ * substat event at `+12` (and therefore in the `+15` projection), in
  * max rolls, on average.
  *
  * The baseline rune is deliberately plain: four sub-property lines drawn uniformly
@@ -279,7 +281,8 @@ function ordinaryLineRolls(statId: number, base: ReferenceStats): number {
  * which is about a third of a percent line, so a slot whose main property is ATK %
  * is correctly read as supplying very little ATK rather than none.
  *
- * **The innate property is left out.** Roughly half of runes have one and a role
+ * **The innate property is left out.** Exactly half of runes have one in the
+ * canonical model, and a role
  * cannot plan around it. It is counted in full in a rune's own score; leaving it out
  * of the yardstick raises every requirement's ratio by about the same factor, which
  * the normalisation then removes.

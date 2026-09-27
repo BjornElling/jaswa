@@ -10,14 +10,15 @@
  * kind the account wants at all, is its best possible end state good enough, and is
  * it likely enough to get there.
  */
+import { runeMaximumLevel } from './runes';
 import type { Rune } from './runes';
 import type { RunePotentialPreset } from './rune-potential-presets';
 import type { RunePotentialSettings } from './types';
 import type { ReferenceStats } from './rune-reference-stats';
 import {
   boxThreshold, candidateChanceAsk, candidateMaxValue, isFourPieceSet,
-  newRuneAdviceScope, ordinaryBox, prepareRuneCandidate, presetBuilds, referenceStars, slotMainFamily,
-  standingIn,
+  newRuneAdviceScope, ordinaryBox, ordinarySample, prepareRuneCandidate, presetBuilds, referenceStars,
+  slotMainFamily, standingIn,
 } from './rune-cleanup-model';
 import type {
   Build, ChanceAsk, CountingJob, CraftCredit, MatchRank, OrdinaryBox, RuneCandidate,
@@ -26,7 +27,7 @@ import { countJobs } from './rune-power-up-outcomes';
 import type { RuneFuture } from './rune-power-up-outcomes';
 import type { Valuation } from './rune-substat-weights';
 import { craftAssumptionForSetting } from './rune-craft-items';
-import { slotMainProperties } from './rune-properties';
+import { lastSubPropertyLevel, slotMainProperties } from './rune-properties';
 import { craftedLines } from './rune-craft-end-state';
 import type { EndStateLine } from './rune-craft-end-state';
 
@@ -44,7 +45,7 @@ export type ChanceCounter = (jobs: readonly CountingJob[], chanceBar?: number) =
 /**
  * Every question about odds this call will ask, written down before any is answered.
  *
- * An ask can settle itself — a rune at `+12`, or one that cannot reach the bar by any
+ * An ask can settle itself — a rune whose substats are final at `+12`, or one that cannot reach the bar by any
  * road — and those never become jobs at all. The rest are numbered, gathered into one
  * list, and handed back by number once the batch comes home.
  */
@@ -104,6 +105,13 @@ function valuationNumber(valuation: Valuation): number {
 }
 
 /**
+ * How many ordinary runes per slot the balance between slots is measured on. At a
+ * quarter kept, a thousand runes put one standard error of a slot's share at about
+ * 1.4 points, which is finer than any two slots can be told apart by in a real box.
+ */
+const balanceSampleRunes = 2000;
+
+/**
  * **How much of each main's own box passes, so that every slot keeps the same share
  * of what it produces.** `docs/RUNE-CLEANUP-MATH.md` §9.3 owns the reasoning.
  *
@@ -147,22 +155,112 @@ function valuationNumber(valuation: Valuation): number {
  */
 class SlotShares {
   private readonly found = new Map<string, number>();
+  private readonly balance = new Map<number, readonly number[]>();
   private readonly scope: ReturnType<typeof newRuneAdviceScope>;
   private readonly credit: CraftCredit;
   private readonly accepted: number;
   private readonly broken: number;
+  private readonly presets: readonly RunePotentialPreset[];
+  private readonly builds: ReadonlyMap<string, readonly Build[]>;
+  private readonly base: ReadonlyMap<string, ReferenceStats>;
+  private readonly qualityBar: number;
 
-  constructor(scope: ReturnType<typeof newRuneAdviceScope>, credit: CraftCredit, accepted: number, broken: number) {
+  constructor(
+    scope: ReturnType<typeof newRuneAdviceScope>, credit: CraftCredit, accepted: number, broken: number,
+    presets: readonly RunePotentialPreset[], builds: ReadonlyMap<string, readonly Build[]>,
+    base: ReadonlyMap<string, ReferenceStats>, qualityBar: number,
+  ) {
     this.scope = scope;
     this.credit = credit;
     this.accepted = accepted;
     this.broken = broken;
+    this.presets = presets;
+    this.builds = builds;
+    this.base = base;
+    this.qualityBar = qualityBar;
   }
 
-  shareOf(
-    preset: RunePotentialPreset, builds: readonly Build[], slot: number, stars: number,
-    base: ReferenceStats, wanted: number,
-  ): number {
+  /**
+   * The share of its own box a rune of this slot, star class and preset must clear,
+   * for a rune whose retention share is `wanted`: the slot's balance (below) applied
+   * to it, then spread over the slot's mains.
+   */
+  shareFor(preset: RunePotentialPreset, slot: number, stars: number, wanted: number): number {
+    const balance = this.balanceOf(stars)[slot - 1] ?? 1;
+    return this.shareOf(preset, slot, stars, Math.min(1, wanted * balance));
+  }
+
+  /**
+   * **The balance between slots once every preset judges at once.** `RUNE-CLEANUP-MATH.md`
+   * §9.4 owns the reasoning.
+   *
+   * The per-main share above balances slots for one preset at a time, and a rune is
+   * kept if *any* preset keeps it. Those are different things. A good slot-1 rune tends
+   * to be good for several presets, so what the presets keep of slot 1 overlaps and
+   * the rune is counted once; on slots 2, 4 and 6 each preset keeps runes of its own
+   * mains, so what they keep barely overlaps and adds up. Measured on an ordinary box
+   * against the eight shipped presets, each of them balanced on its own, slots 2, 4
+   * and 6 kept 34–49 % where slots 1, 3 and 5 kept 23–25 %.
+   *
+   * So each slot gets one factor `λ` on its target, found so that the share of the
+   * slot's ordinary runes kept by *at least one* preset is the same in every slot. The
+   * level is where slots 1, 3 and 5 stand without any factor, so the overall number
+   * kept stays where the quality floor puts it and only its distribution changes. It
+   * is measured on `ordinarySample` — a fixed draw of the same ordinary runes the box
+   * states, every main even and every set preferred — judged by the same candidate,
+   * box and share as a real rune, because the question is about the joint behaviour
+   * of several boxes and no single box can answer it.
+   */
+  private balanceOf(stars: number): readonly number[] {
+    const known = this.balance.get(stars);
+    if (known) return known;
+    const bar = this.qualityBar;
+    /* One reading per sample rune: for each preset that can judge it, the best standing
+       any of its builds gives, discounted by its main's rank exactly as a real rune is. */
+    const readings = [1, 2, 3, 4, 5, 6].map((slot) => ordinarySample(slot, stars, balanceSampleRunes).map((rune) =>
+      this.presets.flatMap((preset) => {
+        const line = this.base.get(preset.type);
+        if (!line) return [];
+        const builds = this.builds.get(preset.id) ?? [];
+        let best = -Infinity;
+        let box: OrdinaryBox | null = null;
+        for (const build of builds) {
+          const candidate = prepareRuneCandidate(rune, preset, build, line, this.credit, this.scope);
+          if (!candidate) continue;
+          const worth = candidate.rank === 'preferred' ? 1 : candidate.rank === 'acceptable' ? this.accepted : this.broken;
+          box ??= ordinaryBox(slotMainFamily(preset, builds, slot, candidate.main, stars, line, this.credit, this.scope));
+          best = Math.max(best, standingIn(box, candidateMaxValue(candidate) * worth));
+        }
+        return best === -Infinity ? [] : [{ preset, standing: best }];
+      })));
+    const keptAt = (slot: number, balance: number) => {
+      const target = Math.min(1, bar * balance);
+      const floors = new Map(this.presets.map((preset) => [preset.id, 1 - this.shareOf(preset, slot, stars, target)]));
+      const runes = readings[slot - 1];
+      return runes.filter((reading) => reading.some(({ preset, standing }) =>
+        standing >= (floors.get(preset.id) ?? Infinity))).length / Math.max(1, runes.length);
+    };
+    const level = (keptAt(1, 1) + keptAt(3, 1) + keptAt(5, 1)) / 3;
+    const found = [1, 2, 3, 4, 5, 6].map((slot) => {
+      /* Nothing kept anywhere is not a balance to strike: every slot stays as it is. */
+      if (!(level > 0)) return 1;
+      let low = 0;
+      let high = bar > 0 ? 1 / bar : 1;
+      if (keptAt(slot, high) < level) return high;
+      for (let step = 0; step < 30; step += 1) {
+        const middle = (low + high) / 2;
+        if (keptAt(slot, middle) < level) low = middle; else high = middle;
+      }
+      return high;
+    });
+    this.balance.set(stars, found);
+    return found;
+  }
+
+  private shareOf(preset: RunePotentialPreset, slot: number, stars: number, wanted: number): number {
+    const builds = this.builds.get(preset.id) ?? [];
+    const base = this.base.get(preset.type);
+    if (!base) return 0;
     const key = `${preset.id}|${slot}|${stars}|${wanted}`;
     const known = this.found.get(key);
     if (known !== undefined) return known;
@@ -230,7 +328,7 @@ export const runeVerdictLabels: Record<RuneVerdict, string> = {
  * **The share of an ordinary box of runes each stop of the Rune quality floor lets
  * through** — a third of it at `1`, about 15 % at `3`, a few per cent at `5`.
  *
- * The box is the synthetic one §9 has always named: ordinary six-star runes at `+12`
+ * The box is the synthetic one §9 has always named: ordinary six-star runes at `+15`
  * for this role. What changed is that the slider now *states* that share instead of
  * being calibrated to produce it, and the model works out what Max value it comes to
  * **in the slot the rune is actually in**.
@@ -285,7 +383,7 @@ export const acceptedWorth: readonly number[] = [1.00, 0.95, 0.85, 0.70, 0.55];
  * now `Occasionally`. The last stop remains `0`: "No" means no, and no amount of
  * quality redeems a set the role never asked for.
  */
-export const brokenWorth: readonly number[] = [0.80, 0.70, 0.60, 0.40, 0];
+export const brokenWorth: readonly number[] = [0.90, 0.85, 0.80, 0.65, 0];
 
 /** How much more an Intangible rune is wanted, by the Intangible runes slider. */
 const intangibleFactors: readonly number[] = [1, 1.5, 2, 3.5, 5];
@@ -313,13 +411,13 @@ export type RuneAdvice = {
    * of slot 2's mains. `standing` passed where it reached `1 - floorShare`.
    */
   floorShare: number;
-  /** `0`–`1`: the chance of reaching the bar by +12. */
+  /** `0`–`1`: the chance of reaching the final +15 bar; RNG ends at +12. */
   chance: number;
   /** The preset this rune answers best, or `null` when none can use it. */
   preset: RunePotentialPreset | null;
   rank: MatchRank;
   /**
-   * For a rune at `+12`, the line-up its Max value assumed: every grindable line
+   * For a rune at `+12` or `+15`, the line-up its Max value assumed: every grindable line
    * ground and the Gem spent where it gains most for `preset`, as `craftedLines`
    * decides it. `null` below `+12`, where the lines are not final, and where no
    * preset can use the rune. Carried out so that whatever acts on the verdict spends
@@ -361,7 +459,7 @@ const percent = (fraction: number) => {
  *    the perfect rune of its slot, the box of ordinary runes it is measured in, its
  *    own Max value and its standing. Nothing random, nothing deferred. Every question
  *    about odds that the policy will ask is *written down* rather than answered, and
- *    most of them are settled on the spot — a rune at `+12` has no gamble left, and
+ *    most of them are settled on the spot — a rune at `+12` has no substat gamble left, and
  *    of the rest most cannot reach the bar by any road or cannot miss it.
  * 2. **What is left.** Whatever questions remain go to `count` in one batch. That is
  *    the only reason the pass exists: one batch is one errand for the graphics card,
@@ -372,37 +470,62 @@ const percent = (fraction: number) => {
  *    candidates the first pass walked, because what it skips depends on Max value and
  *    the retention share and never on the odds.
  */
+/** Every number the sliders stand for, read once, for every caller alike. */
+function policyOf(settings: RunePotentialSettings) {
+  /* Every field comes from the settings, so the credit is the account's and not the
+     rune's. Every imported star class enters the same engine: Ancient roll intervals
+     are a candidate-only input to Max value and Chance, while role valuation, the
+     ordinary reference box and later upgrades stay on ordinary rules. Craft legality
+     remains Ancient-specific. */
+  const credit: CraftCredit = {
+    gem: craftAssumptionForSetting(settings.enchantedGems), gemGrade: settings.gemGrade,
+    grind: craftAssumptionForSetting(settings.grindstones), grindGrade: settings.grindstoneGrade,
+  };
+  return {
+    qualityBar: qualityThresholds[settings.runeQuality - 1] ?? qualityThresholds[2],
+    chanceBar: chanceThresholds[settings.powerUpPolicy - 1] ?? chanceThresholds[2],
+    accepted: acceptedWorth[settings.acceptedRunes - 1] ?? acceptedWorth[2],
+    broken: brokenWorth[settings.brokenRunes - 1] ?? brokenWorth[2],
+    intangible: intangibleFactors[settings.intangibleRunes - 1] ?? 1,
+    credit,
+  };
+}
+
+/**
+ * **The share of its own box a rune must clear, by preset and slot**, when these
+ * presets judge together at these settings — what `floorShare` reports on a row, laid
+ * out for a reader instead of for one rune. It is the same `SlotShares` a calculation
+ * builds, for a rune of `stars` with no 4-set or Intangible preference.
+ */
+export function slotFloorShares(
+  presets: readonly RunePotentialPreset[], settings: RunePotentialSettings,
+  base: ReadonlyMap<string, ReferenceStats>, stars = 6,
+): Map<string, number[]> {
+  const { qualityBar, accepted, broken, credit } = policyOf(settings);
+  const builds = new Map<string, Build[]>(presets.map((preset) => [preset.id, presetBuilds(preset)]));
+  const shares = new SlotShares(newRuneAdviceScope(), credit, accepted, broken, presets, builds, base, qualityBar);
+  return new Map(presets.map((preset) => [preset.id,
+    [1, 2, 3, 4, 5, 6].map((slot) => shares.shareFor(preset, slot, stars, qualityBar))]));
+}
+
 export async function runeAdvice(
   runes: readonly Rune[], presets: readonly RunePotentialPreset[],
   settings: RunePotentialSettings, base: ReadonlyMap<string, ReferenceStats>,
   /** Who answers the odds. The processor by default; the worker passes the card. */
   count: ChanceCounter = async (jobs) => countJobs(jobs),
 ): Promise<Map<string, RuneAdvice>> {
-  const qualityBar = qualityThresholds[settings.runeQuality - 1] ?? qualityThresholds[2];
-  const chanceBar = chanceThresholds[settings.powerUpPolicy - 1] ?? chanceThresholds[2];
-  const accepted = acceptedWorth[settings.acceptedRunes - 1] ?? acceptedWorth[2];
-  const broken = brokenWorth[settings.brokenRunes - 1] ?? brokenWorth[2];
-  const intangible = intangibleFactors[settings.intangibleRunes - 1] ?? 1;
+  const { qualityBar, chanceBar, accepted, broken, intangible, credit } = policyOf(settings);
   /* Builds are the same for every rune, so they are enumerated once. About sixty
      across the shipped presets; a preset with three choices in every slot would
      give twenty-four on its own, which is still nothing. */
   const builds = new Map<string, Build[]>(presets.map((preset) => [preset.id, presetBuilds(preset)]));
 
-  /* Every field comes from the settings, so the credit is the account's and not
-     the rune's. Every imported star class enters the same engine: Ancient roll
-     intervals are a candidate-only input to Max value and Chance, while role
-     valuation, the ordinary reference box, main stats and later upgrades stay on
-     ordinary six-star rules. Craft legality remains Ancient-specific. */
-  const credit: CraftCredit = {
-    gem: craftAssumptionForSetting(settings.enchantedGems), gemGrade: settings.gemGrade,
-    grind: craftAssumptionForSetting(settings.grindstones), grindGrade: settings.grindstoneGrade,
-  };
   /* Work the model would otherwise repeat per rune or per preset, held for
      exactly as long as this call. The presets and the reference lines are fixed
      for its duration, which is what makes the keys inside it sound. */
   const scope = newRuneAdviceScope();
   const ledger = new ChanceLedger();
-  const slotShares = new SlotShares(scope, credit, accepted, broken);
+  const slotShares = new SlotShares(scope, credit, accepted, broken, presets, builds, base, qualityBar);
   const prepared: RunePlan[] = [];
 
   /* ------------------------------------------------- 1. everything that is certain */
@@ -451,7 +574,7 @@ export async function runeAdvice(
       if (family.length === 0) continue;
       const presetBuildList = builds.get(preset.id) ?? [];
       const box = ordinaryBox(slotMainFamily(preset, presetBuildList, rune.slot, family[0].main, stars, line, credit, scope));
-      const share = slotShares.shareOf(preset, presetBuildList, rune.slot, stars, line, retentionShare);
+      const share = slotShares.shareFor(preset, rune.slot, stars, retentionShare);
       for (const candidate of family) {
         const worth = candidate.rank === 'preferred' ? 1 : candidate.rank === 'acceptable' ? accepted : broken;
         /* Two figures, and they are not interchangeable. `maxValue` is what the row
@@ -581,7 +704,7 @@ export async function runeAdvice(
         brokenRejected: broken === 0,
       }),
       floorShare: chosen?.share ?? 0,
-      craftedLines: chosen && plan.rune.level >= 12 ? finishedLines(chosen.candidate) : null,
+      craftedLines: chosen && plan.rune.level >= lastSubPropertyLevel ? finishedLines(chosen.candidate) : null,
     });
   }
   return advice;
@@ -620,16 +743,23 @@ function decide({ rune, value, standing, chance, preset, rank, cleared, brokenRe
   if (rank === 'broken' && brokenRejected) {
     return { ...base, verdict: 'sell', reason: 'Broken: not wanted' };
   }
-  /* A rune at +12 has no upgrades left, so it has no odds to quote: its chance is
-     1 or 0, and at +12 that is the ceiling gate restated, since nothing can change
-     the fill it already has. Printing "0 %" there would dress a certainty as a
-     gamble, so the row says what happened instead. */
+  /* A rune at +12 has no substat upgrades left, so it has no odds to quote: its
+     chance is 1 or 0, and the climb to +15 changes only the deterministic main stat.
+     Printing "0 %" there would dress a certainty as a gamble, so the row says what
+     happened instead. */
   if (!cleared) {
-    return { ...base, verdict: 'sell', reason: rune.level >= 12 ? 'Below the floor' : percent(chance) };
+    return { ...base, verdict: 'sell', reason: rune.level >= lastSubPropertyLevel ? 'Below the floor' : percent(chance) };
   }
   return {
     ...base,
-    verdict: rune.level < 12 ? 'power-up' : 'keep',
-    reason: rune.level >= 12 ? 'Already there' : percent(chance),
+    /* +12 is the one checkpoint where the user explicitly wants no further
+       level-up recommendation. At +13 and +14 the substats are still final,
+       but the remaining main-stat levels are again actionable; +15 is settled. */
+    verdict: rune.level === lastSubPropertyLevel
+      ? 'keep'
+      : rune.level < runeMaximumLevel ? 'power-up' : 'keep',
+    reason: rune.level >= runeMaximumLevel
+      ? 'Already there'
+      : rune.level >= lastSubPropertyLevel ? 'Main stat only' : percent(chance),
   };
 }

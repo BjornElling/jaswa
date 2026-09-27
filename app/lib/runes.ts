@@ -36,6 +36,9 @@ export const gemMinimumLevel = 12;
 /** The highest power-up level a rune can reach. */
 export const runeMaximumLevel = 15;
 
+/** The level every rune projection describes when its main stat is complete. */
+export const runeProjectionLevel = runeMaximumLevel;
+
 /**
  * Default grade — the game's own word for a rune's rarity, which fixes how many
  * Sub Properties it dropped with and never changes afterwards
@@ -122,6 +125,8 @@ export type RuneSubProperty = {
   gemmed: boolean;
   /** The Grindstone bonus already applied, `0` when none has been. */
   grind: number;
+  /** Exact natural upgrade count when a simulated rune supplies the history. */
+  rolls?: number;
 };
 
 export const runeSubValue = (property: RuneSubProperty): number => property.value + property.grind;

@@ -3,8 +3,8 @@
  * that needs to know.**
  *
  * `docs/RUNE-CANONICAL.md` §8 owns the game rules and `rune-craft-items.ts` owns the
- * value tables. This owns the *arithmetic*: given a line-up the rune will hold at
- * `+12`, what is the best legal end state worth.
+ * value tables. This owns the *arithmetic*: given a line-up whose substats are final
+ * at `+12`, what is the best legal end state worth at the `+15` projection point.
  *
  * It exists because the same four rules were being applied in five places — a rune's
  * projection, its ceiling, the box of ordinary runes it is measured against, the
@@ -226,6 +226,25 @@ export function gemOptions(
   plan: CraftPlan, prices: PriceList, slot: number, mainStatId: number, prefixStatId: number | null,
 ): GemOptions {
   if (!plan.hasGem) return emptyGemOptions;
+  /* Every candidate of every rune asks, and the answer depends on nothing but these
+     five, so it is remembered. Plans and price lists are memoised objects already. */
+  let byPlan = rememberedGems.get(prices);
+  if (!byPlan) { byPlan = new WeakMap(); rememberedGems.set(prices, byPlan); }
+  let byRune = byPlan.get(plan);
+  if (!byRune) { byRune = new Map(); byPlan.set(plan, byRune); }
+  const key = (slot * statIdBound + mainStatId) * (statIdBound + 1) + (prefixStatId ?? statIdBound);
+  const known = byRune.get(key);
+  if (known) return known;
+  const found = legalGems(plan, prices, slot, mainStatId, prefixStatId);
+  byRune.set(key, found);
+  return found;
+}
+
+const rememberedGems = new WeakMap<PriceList, WeakMap<CraftPlan, Map<number, GemOptions>>>();
+
+function legalGems(
+  plan: CraftPlan, prices: PriceList, slot: number, mainStatId: number, prefixStatId: number | null,
+): GemOptions {
   const legal: Array<{ statId: number; value: number; roll: number }> = [];
   for (const statId of allStatIds) {
     if (statId === mainStatId || statId === prefixStatId || !slotAllowsSubStat(slot, statId)) continue;

@@ -35,7 +35,10 @@
  * produces — except where the preset can use less of the slot than that share, and
  * then it must keep every rune it can use and no more (`usableShare` below). Every
  * set is preferred, so the only things left that can move a verdict are the slot and
- * the main.
+ * the main — except in the two rows that put **every shipped preset on the box at
+ * once**, which is what the Recommendations table actually does and where the sets
+ * are part of the question (`RUNE-CLEANUP-MATH.md` §9.4). Each preset balanced on its
+ * own still kept 50 % of slot 2 and 25 % of slot 1 together, and only those rows see it.
  *
  * The last section is the mirror image and matters just as much: the scale must still
  * *discriminate*. A check that only demanded equal shares would pass on an engine that
@@ -44,7 +47,7 @@
 import { defaultRunePotentialPresets, runeMainStatIds } from '../app/lib/rune-potential-presets.ts';
 import { qualityThresholds, runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
 import {
-  initialSubPropertyRange, slotMainProperties, startingSubPropertyCount, subPropertyLevels,
+  initialSubPropertyRange, runeInnateFrequency, slotMainProperties, startingSubPropertyCount, subPropertyLevels,
   upgradeSubPropertyRange,
 } from '../app/lib/rune-properties.ts';
 import { runeDefaultGrades, runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
@@ -56,6 +59,8 @@ const args = new Map(process.argv.slice(2).filter((arg) => arg.startsWith('--') 
 const perSlot = Number(args.get('runes') ?? 600);
 if (!Number.isInteger(perSlot) || perSlot <= 0) throw new Error('--runes must be a positive integer.');
 const seed = Number(args.get('seed') ?? 0x510757a7);
+const level = Number(args.get('level') ?? 15);
+if (![0, 3, 6, 9, 12, 15].includes(level)) throw new Error('--level must be one of 0, 3, 6, 9, 12 or 15.');
 
 const referenceStats = new Map([
   ['Attack type', { hp: 9708, atk: 808, def: 568, spd: 105, criRate: 18, criDmg: 50, res: 15, acc: 4 }],
@@ -87,9 +92,11 @@ const draw = (random, low, high) => low + Math.floor(random() * (high - low + 1)
 /* ------------------------------------------------------- the ordinary box */
 
 /**
- * One ordinary six-star rune at `+12`, built by the game's own loop: a Legend body
- * with four lines drawn without replacement from the ids the slot allows, an innate
- * on 51 % of them (`RUNE-CANONICAL.md` §4), and four upgrades falling uniformly.
+ * One ordinary six-star rune at the selected checkpoint, built by the game's own
+ * loop: a Legend body with four lines drawn without replacement from the ids the
+ * slot allows, an innate on 50 % of them (`RUNE-CANONICAL.md` §4), and four upgrades
+ * falling uniformly. The default checkpoint is `+15`; lower levels are an explicit
+ * diagnostic for the path a real inventory took to get there.
  *
  * This is deliberately the same population `ordinaryBox` states analytically. The
  * point of the script is not to re-derive that mean — `verify:rune-substat-weights`
@@ -98,7 +105,7 @@ const draw = (random, low, high) => low + Math.floor(random() * (high - low + 1)
  */
 function ordinaryRune(random, id, slot, mainStatId, setName) {
   const legal = runeStatIds.filter((stat) => stat !== mainStatId && slotAllowsSubStat(slot, stat));
-  const prefixStatId = random() < .51 ? choose(random, legal) : null;
+  const prefixStatId = random() < runeInnateFrequency ? choose(random, legal) : null;
   const available = legal.filter((stat) => stat !== prefixStatId);
   const held = new Set();
   const subProperties = [];
@@ -118,9 +125,10 @@ function ordinaryRune(random, id, slot, mainStatId, setName) {
   for (let at = 0; at < subPropertyLevels.length; at += 1) {
     const line = choose(random, rune.subProperties);
     const range = upgradeSubPropertyRange(6, line.statId, false);
-    line.value += draw(random, range.minimum, range.maximum);
+    const value = draw(random, range.minimum, range.maximum);
+    if (subPropertyLevels[at] <= level) line.value += value;
   }
-  rune.level = 12;
+  rune.level = level;
   return rune;
 }
 
@@ -130,9 +138,10 @@ function ordinaryRune(random, id, slot, mainStatId, setName) {
  * can never keep more of a slot than this, so it is the expected share wherever it is
  * smaller than the one the floor names.
  */
-function usableShare(preset, slot, settings) {
+function usableShare(presetOrList, slot, settings) {
+  const presets = Array.isArray(presetOrList) ? presetOrList : [presetOrList];
   const mains = slotMainProperties[slot];
-  return mains.filter((main) => usableMain(preset, slot, main, settings)).length / mains.length;
+  return mains.filter((main) => presets.some((preset) => usableMain(preset, slot, main, settings))).length / mains.length;
 }
 
 function usableMain(preset, slot, main, settings) {
@@ -226,7 +235,8 @@ const baseSettings = {
  * Every rune of every slot judged against one role, and the share of each slot that
  * survives.
  */
-async function sharesBySlot(preset, settings, random) {
+async function sharesBySlot(presetOrList, settings, random) {
+  const presets = Array.isArray(presetOrList) ? presetOrList : [presetOrList];
   const runes = [];
   for (const slot of [1, 2, 3, 4, 5, 6]) {
     const mains = slotMainProperties[slot];
@@ -239,14 +249,14 @@ async function sharesBySlot(preset, settings, random) {
         presetRuneSetNameList[at % presetRuneSetNameList.length]));
     }
   }
-  const advice = await runeAdvice(runes, [preset], settings, referenceStats);
+  const advice = await runeAdvice(runes, presets, settings, referenceStats);
   const seen = [0, 0, 0, 0, 0, 0];
   const kept = [0, 0, 0, 0, 0, 0];
   const usable = [0, 0, 0, 0, 0, 0];
   for (const rune of runes) {
     const answer = advice.get(rune.id);
     seen[rune.slot - 1] += 1;
-    if (usableMain(preset, rune.slot, rune.mainStatId, settings)) usable[rune.slot - 1] += 1;
+    if (presets.some((preset) => usableMain(preset, rune.slot, rune.mainStatId, settings))) usable[rune.slot - 1] += 1;
     if (answer.verdict !== 'sell') {
       kept[rune.slot - 1] += 1;
     }
@@ -317,12 +327,37 @@ function spreadAllowance(rate, smallestCell) {
   return (1 + noise) / Math.max(0.25, 1 - noise);
 }
 
+/* The shipped discounts for accepted and broken runes. The single-preset rows switch
+   them off so a discount cannot move a slot; with every preset at once they are part
+   of what the overlap is made of, and switched off they hid most of it. */
+const defaultDiscounts = { ...baseSettings, acceptedRunes: 3, brokenRunes: 3 };
+const shippedSettings = {
+  ...defaultDiscounts, powerUpPolicy: 3, enchantedGems: 3, grindstones: 3, intangibleRunes: 2,
+};
+const shippedG1Settings = { ...shippedSettings, runeQuality: 4 };
+const floorOnlyG1Settings = { ...shippedG1Settings, powerUpPolicy: 1 };
+
 const scenarios = [
   ...defaultRunePotentialPresets().map((preset) => ({
     preset: { ...preset, sets: { preferred: presetRuneSetNameList, acceptable: [] } },
     settings: baseSettings, label: preset.name,
   })),
   ...adversarialPresets.map((preset) => ({ preset, settings: baseSettings, label: preset.name })),
+  /* **Every preset at once**, which is what a player's Recommendations table is. Each
+     preset above is balanced on its own, and that was not enough: a rune is kept when
+     any preset keeps it, the presets' picks of slot 1 overlap while their picks of slots
+     2, 4 and 6 — each preset its own mains — barely do, and the engine that passed every
+     row above kept 34–49 % of slots 2, 4 and 6 and 23–25 % of 1, 3 and 5 here. Once with
+     the shipped set preferences, which is the real overlap, and once with every set
+     preferred, which is the most overlap there can be. */
+  { preset: defaultRunePotentialPresets(), settings: defaultDiscounts, label: 'All shipped presets' },
+  { preset: defaultRunePotentialPresets(), settings: shippedSettings, label: 'Shipped defaults' },
+  { preset: defaultRunePotentialPresets(), settings: shippedG1Settings, label: 'Shipped G1 floor' },
+  { preset: defaultRunePotentialPresets(), settings: floorOnlyG1Settings, label: 'G1 floor, YOLO chance' },
+  {
+    preset: defaultRunePotentialPresets().map((preset) => ({ ...preset, sets: { preferred: presetRuneSetNameList, acceptable: [] } })),
+    settings: defaultDiscounts, label: 'All, every set',
+  },
   /* The craft sliders move both anchors (§6), so they get their own run: a Gem and a
      Grindstone credited at maximum change which effect ids are worth having in a way
      that is not the same in two slots with different legal ids. */
@@ -355,7 +390,7 @@ const scenarios = [
   },
 ];
 
-console.log(`Slot neutrality — ${perSlot.toLocaleString('en')} ordinary 6★ +12 runes per slot,`
+console.log(`Slot neutrality — ${perSlot.toLocaleString('en')} ordinary 6★ runes at +${level} per slot,`
   + ` ${scenarios.length} scenarios, seed ${seed}.\n`);
 console.log('                        1      2      3      4      5      6    overall    spread     chi2');
 
@@ -367,12 +402,6 @@ for (const scenario of scenarios) {
      comparison of shares is made between the slots that had enough to choose from. */
   const named = qualityThresholds[scenario.settings.runeQuality - 1];
   const capped = [1, 2, 3, 4, 5, 6].map((slot) => usableShare(scenario.preset, slot, scenario.settings) <= named);
-  for (let at = 0; at < 6; at += 1) {
-    if (!capped[at]) continue;
-    const usable = allUsable[at];
-    check(allKept[at] === usable, `${scenario.label}: slot ${at + 1} can use ${usable} of its runes, fewer than`
-      + ` the floor's share, and should keep every one of them — it kept ${allKept[at]}.`);
-  }
   const seen = allSeen.map((count, at) => (capped[at] ? 0 : count));
   const kept = allKept.map((count, at) => (capped[at] ? 0 : count));
   const rates = allSeen.map((count, at) => (count > 0 ? allKept[at] / count : null));
@@ -380,6 +409,21 @@ for (const scenario of scenarios) {
   const overall = kept.reduce((sum, value) => sum + value, 0) / Math.max(1, seen.reduce((sum, value) => sum + value, 0));
   const spread = Math.min(...measured) > 0 ? Math.max(...measured) / Math.min(...measured) : Infinity;
   const statistic = chiSquare(seen, kept);
+  /* A slot with fewer usable runes than the floor's share is held to the level the
+     other slots reach, or to every usable rune where it cannot get there — never more
+     than it can use, and within the binomial noise of the smaller of the two. The level
+     is what the other slots actually keep, not the stop's own number: the balance aims
+     at slots 1, 3 and 5, so a slot that can use 14.3 % of its runes keeps 13.5 % where
+     they keep 13.5 %, and all of them only where they keep more. */
+  for (let at = 0; at < 6; at += 1) {
+    if (!capped[at]) continue;
+    const usable = allUsable[at];
+    const expected = Math.min(usable, allSeen[at] * overall);
+    const noise = 3 * Math.sqrt(Math.max(1, allSeen[at] * overall * (1 - overall))) + 1;
+    check(allKept[at] <= usable, `${scenario.label}: slot ${at + 1} kept ${allKept[at]} runes and can use only ${usable}.`);
+    check(Math.abs(allKept[at] - expected) <= noise, `${scenario.label}: slot ${at + 1} can use ${usable} of its runes`
+      + ` and should keep about ${expected.toFixed(0)}, the other slots' level or all of them, but kept ${allKept[at]}.`);
+  }
   const cells = rates.map((rate, at) => (rate === null ? '    - '
     : `${(rate * 100).toFixed(1)}${capped[at] ? '*' : ' '}%`.padStart(7)));
   console.log(`${scenario.label.padEnd(20)} ${cells.join('')}  ${(overall * 100).toFixed(1).padStart(5)} %`

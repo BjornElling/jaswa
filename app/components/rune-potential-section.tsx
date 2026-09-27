@@ -16,6 +16,7 @@ import type { GeneralSettings, ImportedGame, ItemGrade, RunePotentialSettings } 
 import type { MonsterPreferences } from '../lib/monster-preferences';
 import { presetRuneSetNameList } from '../lib/rune-sets';
 import { RuneRecommendations } from './rune-recommendations';
+import type { OpenRuneOverlay } from './rune-link';
 
 const potentialStepLabels = {
   powerUpPolicy: [
@@ -26,11 +27,11 @@ const potentialStepLabels = {
     'Take no chances — only roll guaranteed keepers',
   ],
   runeQuality: [
-    'I’m a newbie — everything beats what I’ve got',
-    'Been playing for a while, still some way to go',
+    'I’m a newbie — around 10% Max is enough, slot-balanced',
+    'Been playing for a while — still some way to go',
     'I’ve got good runes, and I want more good runes',
-    'G1 baby — they need some quality to stay',
-    'I’ve got “you’ve seen my replays” high standards',
+    'G1 baby — around 50% Max, slot-balanced',
+    'You’ve seen my replays — sell below 90% Max, slot-balanced',
   ],
   enchantedGems: [
     'None — takes each rune as it stands today',
@@ -68,7 +69,7 @@ const potentialStepLabels = {
 } as const;
 
 export function RunePotentialSection({
-  game, monsterPreferences, settings, presets, general, hardwareAcceleration, onUpdate, onWritePresets,
+  game, monsterPreferences, settings, presets, general, hardwareAcceleration, onUpdate, onWritePresets, onOpenRune,
 }: {
   game: ImportedGame | null;
   monsterPreferences: MonsterPreferences;
@@ -79,6 +80,7 @@ export function RunePotentialSection({
   hardwareAcceleration: boolean;
   onUpdate: (update: Partial<RunePotentialSettings>) => void;
   onWritePresets: (change: (current: RunePotentialPreset[]) => RunePotentialPreset[]) => void;
+  onOpenRune: OpenRuneOverlay;
 }) {
   const [editing, setEditing] = useState<{ draft: RunePotentialPreset; isNew: boolean } | null>(null);
   const [deleting, setDeleting] = useState<RunePotentialPreset | null>(null);
@@ -107,7 +109,7 @@ export function RunePotentialSection({
         this page has come for the verdicts, not for the sliders. */}
     <Disclosure title="Recommendations" sessionKey="rune-potential.recommendations" defaultOpen>
       <RuneRecommendations game={game} monsterPreferences={monsterPreferences} settings={settings} presets={presets} general={general}
-        hardwareAcceleration={hardwareAcceleration} />
+        hardwareAcceleration={hardwareAcceleration} onOpenRune={onOpenRune} />
     </Disclosure>
 
     <Disclosure title="Settings" sessionKey="rune-potential.settings">
@@ -119,7 +121,7 @@ export function RunePotentialSection({
               stepLabels={potentialStepLabels.powerUpPolicy}
               onChange={(value) => void onUpdate({ powerUpPolicy: value })} />
             <PotentialSlider id="rune-quality" label="Rune quality floor" value={settings.runeQuality}
-              description="How high must a rune's potential be before it earns a roll?"
+              description="How high must a rune's projected +15 potential be before it earns a roll? The floor is calibrated per slot so a box does not starve slots 2, 4 or 6."
               stepLabels={potentialStepLabels.runeQuality}
               onChange={(value) => void onUpdate({ runeQuality: value })} />
             <PotentialSlider id="accepted-runes" label="Accepted runes" value={settings.acceptedRunes}

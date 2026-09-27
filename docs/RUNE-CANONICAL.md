@@ -24,6 +24,10 @@ En **roll** er enten den oprindelige værdi af en Sub Property eller en senere
 forbedring af den ved +3, +6, +9 eller +12. +15 giver ikke en Sub
 Property-roll; det forbedrer Main Property.
 
+JASWA's fremskrivninger, Max-værdier og chanceberegninger beskriver den færdige
+rune ved +15. Sub Property-delen er identisk med +12, fordi der ikke sker nogen
+roll fra +12 til +15; kun Main Property vokser deterministisk i det interval.
+
 Spilnavnene er **HP**, **ATK**, **DEF**, **SPD**, **CRI Rate**, **CRI Dmg**,
 **Resistance** og **Accuracy**. JASWA skal bruge disse navne i UI; danske
 forklaringer må stå ved siden af, men må ikke erstatte dem.
@@ -116,10 +120,11 @@ almindelige 6★-runer i `Culpa-21822407.json` ligger nøjagtigt inden for
 Sub Property-intervallerne ovenfor og rammer begge endepunkter — HP + 135–375,
 ATK + 10–20, DEF + 10–20, SPD 4–6, procenter 5–8. Ingen observation falder uden for.
 
-En Prefix Property forekommer på **51 %** af almindelige 6★-runer (1.530 af 2.998), og
-andelen afhænger ikke af default grade: 42,9 % ved Rare, 49,5 % ved Hero, 51,6 % ved
-Legend. Com2uS oplyser ingen rate; tallet er en måling, ikke en spilregel, og skal
-efterprøves ved hver spilopdatering.
+JASWA's kanoniske spilmodel bruger en Prefix Property på **nøjagtigt 50 %** af alle
+runer, uanset rune-type og default grade. Com2uS oplyser ingen officiel rate, så
+50 %-tallet er en eksplicit modelpræmis — ikke en påstand om offentliggjort
+spildokumentation — og skal efterprøves mod en frisk kontomåling ved hver
+spilopdatering.
 
 ## 5. Lovlige Sub Properties pr. slot
 

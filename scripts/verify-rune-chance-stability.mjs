@@ -18,11 +18,11 @@
  *
  * Three things are held, and the third is the one that is easy to lose:
  *
- * 1. **The totals.** Keep, Power up and Sell, at `+0`, at `+9` and at `+12`.
+ * 1. **The totals.** Keep, Power up and Sell, at `+0`, at `+9`, at `+12` and at `+15`.
  * 2. **The breakdown.** By slot, by preset, and by the rank the rune answered its
  *    preset at — preferred, acceptable, broken — because a stable total made of
  *    unstable parts is not stable, it is two errors cancelling.
- * 3. **The certainties.** A rune at `+12` has nothing left to gamble on, so its
+ * 3. **The certainties.** A rune at `+12` or `+15` has nothing left to gamble on, so its
  *    chance is `1` or `0` and never a count. A sampled answer there would mean the
  *    short circuit had stopped firing, and nothing else in the suite would notice.
  *
@@ -41,7 +41,7 @@ import { runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
 import { chanceRuns } from '../app/lib/rune-cleanup-model.ts';
 import { countJobs } from '../app/lib/rune-power-up-outcomes.ts';
 import {
-  initialSubPropertyRange, slotMainProperties, startingSubPropertyCount,
+  initialSubPropertyRange, runeInnateFrequency, slotMainProperties, startingSubPropertyCount,
   subPropertyLevels, upgradeSubPropertyRange,
 } from '../app/lib/rune-properties.ts';
 import { runeDefaultGradeOrder, runeDefaultGrades, runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
@@ -103,7 +103,7 @@ function freshBody(random, index) {
   const rank = initialRank(random, slot);
   const mainStatId = choose(random, slotMainProperties[slot]);
   const legal = runeStatIds.filter((stat) => stat !== mainStatId && slotAllowsSubStat(slot, stat));
-  const prefixStatId = random() < .51 ? choose(random, legal) : null;
+  const prefixStatId = random() < runeInnateFrequency ? choose(random, legal) : null;
   const available = legal.filter((stat) => stat !== prefixStatId);
   const held = new Set();
   const subProperties = [];
@@ -174,11 +174,12 @@ const bodies = Array.from({ length: runeCount }, (_, index) => freshBody(bodyRan
 const powerRandom = makeRandom(seed ^ 0x5eed);
 const atNine = bodies.map((body) => powerUp(powerRandom, clone(body), 9));
 const atTwelve = atNine.map((rune) => powerUp(powerRandom, clone(rune), 12));
+const atFifteen = atTwelve.map((rune) => powerUp(powerRandom, clone(rune), 15));
 
 const tallies = [];
 for (const resolution of resolutions) {
   const stages = {};
-  for (const [name, source] of [['+0', bodies], ['+9', atNine], ['+12', atTwelve]]) {
+  for (const [name, source] of [['+0', bodies], ['+9', atNine], ['+12', atTwelve], ['+15', atFifteen]]) {
     const runes = named(source);
     const advice = await runeAdvice(runes, presets, settings, referenceStats, countingAt(resolution));
     const tally = {
@@ -197,13 +198,13 @@ for (const resolution of resolutions) {
       tally.slots[rune.slot - 1] += 1;
       const key = answer.preset?.id ?? 'none';
       tally.presets.set(key, (tally.presets.get(key) ?? 0) + 1);
-      /* At +12 there is nothing left to gamble on, so the engine must have settled
+      /* At +12 and +15 there is nothing left to gamble on, so the engine must have settled
          the answer rather than counted it. */
-      if (name === '+12') {
+      if (name === '+12' || name === '+15') {
         check(answer.chance === 1 || answer.chance === 0,
-          `+12: rune ${rune.id} was retained on a counted chance of ${answer.chance}`);
+          `${name}: rune ${rune.id} was retained on a counted chance of ${answer.chance}`);
         check(answer.standing >= 1 - answer.floorShare - 1e-9,
-          `+12: rune ${rune.id} was retained at a standing of ${answer.standing.toFixed(4)},`
+          `${name}: rune ${rune.id} was retained at a standing of ${answer.standing.toFixed(4)},`
           + ` below the floor it was judged against`);
       }
     }
@@ -218,7 +219,7 @@ for (const resolution of resolutions) {
  *
  * The runes are identical, so everything that moves is a rune whose own odds sit
  * within the counting's spread of the Power-up policy's bar. Nothing moves at all at
- * `+12`, where every answer is a certainty rather than a count.
+ * `+12` and `+15`, where every answer is a certainty rather than a count.
  *
  * The allowance is deliberately *not* scaled by the resolution. One that widened as
  * the runs were cut would pass whatever resolution it was given, which is the one
@@ -241,7 +242,7 @@ console.log(`Rune chance stability — ${runeCount.toLocaleString('en')} runes j
   + ' gems and stones credited.');
 console.log(`Allowed movement between resolutions: ${spreadAllowance} runes.\n`);
 
-for (const stage of ['+0', '+9', '+12']) {
+for (const stage of ['+0', '+9', '+12', '+15']) {
   const verdicts = ['keep', 'power-up', 'sell'].map((verdict) => {
     const { low, high } = spread(`${stage} ${verdict}`, (tally) => tally[stage][verdict]);
     return `${verdict} ${low}${low === high ? '' : `–${high}`}`;
@@ -277,10 +278,10 @@ check(twinAdvice.get('twin-a').chance === twinAdvice.get('twin-b').chance,
 check(twinAdvice.get('twin-a').verdict === twinAdvice.get('twin-b').verdict,
   'two identical runes were given different verdicts');
 
-const retainedAtTwelve = tallies.map((tally) => tally['+12'].retained);
-const share = Math.min(...retainedAtTwelve) / runeCount;
+const retainedAtFifteen = tallies.map((tally) => tally['+15'].retained);
+const share = Math.min(...retainedAtFifteen) / runeCount;
 check(share > 0.02 && share < 0.6,
-  `the box retained ${(share * 100).toFixed(1)} % at +12, which is not a population anyone`
+  `the box retained ${(share * 100).toFixed(1)} % at +15, which is not a population anyone`
   + ' would have to make decisions about');
 
 if (failures) {

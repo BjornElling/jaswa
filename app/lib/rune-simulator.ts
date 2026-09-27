@@ -1,8 +1,8 @@
 /**
  * The complete random-rune simulator.
  *
- * This module owns the simulation loop and the decisions between its three
- * visible checkpoints. The page may choose inputs and render the returned
+ * This module owns the simulation loop and the decisions between its visible
+ * checkpoints. The page may choose inputs and render the returned
  * snapshots, but it must not re-create a power-up rule, a sell gate or a
  * craft action: doing that in the page would make a pretty table that no
  * longer describes the thing it claims to simulate.
@@ -11,9 +11,11 @@
  * the random experiment around them: which legal property is drawn, where a
  * power-up lands, and how a configured checkpoint acts on the result.
  */
-import { allStatIds, mainPropertyMaximum, slotMainProperties, subPropertyRange } from './rune-properties';
 import {
-  runeStatName, slotAllowsSubStat,
+  allStatIds, mainPropertyMaximum, runeInnateFrequency, slotMainProperties, subPropertyRange,
+} from './rune-properties';
+import {
+  runeMaximumLevel, runeStatName, slotAllowsSubStat,
 } from './runes';
 import type { Rune, RuneDefaultGrade } from './runes';
 import { runeSetId } from './rune-sets';
@@ -27,8 +29,10 @@ import { combineCalculationBackends } from './compute/calculation-summary';
 import { countRuneChances } from './compute/rune-chance-engine';
 import type { CalculationBackend } from './compute/calculation-summary';
 
-export const simulationStages = [0, 9, 12] as const;
+export const simulationStages = [0, 9, 12, 15] as const;
 export type SimulationStage = typeof simulationStages[number];
+export const simulationGateStages = [0, 9, 12] as const;
+export type SimulationGateStage = typeof simulationGateStages[number];
 
 /** A named set, or null for a generated rune with no rune type. */
 export type SimulationSet = string | null;
@@ -52,7 +56,8 @@ export type RuneSimulationConfig = {
   setName: SimulationSet;
   slot: SimulationSlot;
   stars: SimulationStars;
-  gates: Readonly<Record<SimulationStage, SimulationGate>>;
+  /** Sell gates stop at +12; +15 is only the deterministic main-stat projection. */
+  gates: Readonly<Record<SimulationGateStage, SimulationGate>>;
 };
 
 export type RuneSimulationContext = {
@@ -124,7 +129,7 @@ export type RuneSimulationSummary = {
   generated: number;
   reachedNine: number;
   reachedTwelve: number;
-  /** Runes Rune Clean-up keeps at +12, or `null` when no verdict could be asked. */
+  /** Runes Rune Clean-up keeps at +15, or `null` when no verdict could be asked. */
   kept: number | null;
   soldAtZero: number;
   soldAtNine: number;
@@ -145,7 +150,6 @@ export const simulationNoRuneType = 'No rune type';
 export type RandomSource = () => number;
 
 const defaultRandom: RandomSource = () => Math.random();
-const prefixFrequency = 0.51;
 const gradeSubPropertyCount: Readonly<Record<RuneDefaultGrade, number>> = {
   Normal: 0, Magic: 1, Rare: 2, Hero: 3, Legend: 4,
 };
@@ -241,6 +245,9 @@ export function powerUpRune(rune: SimulatedRune, targetLevel: SimulationStage, r
     }
     next.level = level;
   }
+  /* +12→+15 is deliberately not another sub-property event. The main stat is
+     deterministic and is represented by the checkpoint level only. */
+  next.level = targetLevel;
   return next;
 }
 
@@ -284,10 +291,13 @@ export function simulationRuneToCleanupRune(rune: SimulatedRune, obtainedOrder =
     defaultGrade: rune.defaultGrade,
     level: rune.level,
     mainStatId: rune.mainStatId,
-    mainValue: mainPropertyMaximum(rune.stars, rune.mainStatId),
+    /* The simulator does not model intermediate main-stat increments. Keep the
+       current value absent until +15 rather than presenting the finished value as
+       though it were already on a fresh generated rune. */
+    mainValue: rune.level >= runeMaximumLevel ? mainPropertyMaximum(rune.stars, rune.mainStatId) : 0,
     prefixStatId: rune.prefixStatId,
     prefixValue: rune.prefixValue,
-    subProperties: rune.subProperties.map(({ statId, value, gemmed, grind }) => ({ statId, value, gemmed, grind })),
+    subProperties: rune.subProperties.map(({ statId, value, gemmed, grind, rolls }) => ({ statId, value, gemmed, grind, rolls })),
     occupiedId: null,
     obtainedOrder,
   };
@@ -308,7 +318,9 @@ function stageResult(
   level: SimulationStage, runes: readonly SimulatedRune[], reached: number, config: RuneSimulationConfig,
   recommendations: ReadonlyMap<string, RuneAdvice> | null,
 ): SimulationStageResult {
-  const acts = config.gates[level].policy === 'recommendation';
+  /* +15 has no gate. It is the same settled recommendation as +12 after the
+     deterministic main-stat increase, shown for comparison rather than judged again. */
+  const acts = level !== 15 && config.gates[level as SimulationGateStage].policy === 'recommendation';
   const entries = runes.map((rune): SimulationEntry => {
     const advice = recommendations?.get(rune.id);
     if (recommendations !== null && !advice) {
@@ -343,7 +355,7 @@ function generateRune(index: number, config: RuneSimulationConfig, random: Rando
     subProperties: [],
   };
 
-  if (random() < prefixFrequency) {
+  if (random() < runeInnateFrequency) {
     const prefixStatId = choose(legalStatIds(rune), random);
     rune.prefixStatId = prefixStatId;
     rune.prefixValue = rollValue(stars, prefixStatId, 'initial', random);
@@ -357,6 +369,7 @@ function emptyStageRecord(): Record<SimulationStage, SimulationStageResult> {
     0: { level: 0, entries: [], reached: 0, survived: 0, sold: 0 },
     9: { level: 9, entries: [], reached: 0, survived: 0, sold: 0 },
     12: { level: 12, entries: [], reached: 0, survived: 0, sold: 0 },
+    15: { level: 15, entries: [], reached: 0, survived: 0, sold: 0 },
   };
 }
 
@@ -369,7 +382,7 @@ function emptyStageRecord(): Record<SimulationStage, SimulationStageResult> {
  * an error rather than a silent Keep all.
  */
 async function recommendationsFor(
-  runes: readonly SimulatedRune[], stage: SimulationStage,
+  runes: readonly SimulatedRune[], stage: SimulationGateStage,
   config: RuneSimulationConfig, context: RuneSimulationContext,
   engines: CalculationBackend[],
 ): Promise<ReadonlyMap<string, RuneAdvice> | null> {
@@ -397,8 +410,9 @@ async function recommendationsFor(
 /**
  * The experiment runs the whole Rune Clean-up engine three times, and that engine
  * now answers the odds in one batch rather than a rune at a time — so this waits for
- * it. The three stages stay strictly in order: what survives `+0` is what is powered
- * to `+9`, and there is nothing to overlap.
+ * it. The four stages stay strictly in order: what survives `+0` is what is powered
+ * to `+9`, then to the final substat checkpoint at `+12`, and finally to `+15` where
+ * only the main stat grows.
  */
 export async function simulateRunes(
   config: RuneSimulationConfig, context: RuneSimulationContext, random: RandomSource = defaultRandom,
@@ -408,7 +422,7 @@ export async function simulateRunes(
   if (!Number.isSafeInteger(config.count) || config.count < 1) {
     throw new Error('Rune simulator needs at least one rune.');
   }
-  for (const stage of simulationStages) {
+  for (const stage of simulationGateStages) {
     const checkpoint = config.gates[stage];
     if (!checkpoint || !['keep-all', 'recommendation'].includes(checkpoint.policy)) {
       throw new Error(`Rune simulator has an invalid gate at +${stage}.`);
@@ -437,10 +451,15 @@ export async function simulateRunes(
     const lines = craftPlans?.get(rune.id)?.craftedLines;
     return lines ? applyCraft(rune, lines) : rune;
   });
-  stages[12] = stageResult(12, atTwelve, afterNine.length, config,
-    await recommendationsFor(atTwelve, 12, config, context, engines));
-  const kept = stages[12].entries.some((entry) => entry.verdict === null)
-    ? null : stages[12].entries.filter((entry) => entry.verdict?.verdict === 'keep').length;
+  const adviceAtTwelve = await recommendationsFor(atTwelve, 12, config, context, engines);
+  stages[12] = stageResult(12, atTwelve, afterNine.length, config, adviceAtTwelve);
+  const afterTwelve = stages[12].entries.filter((entry) => !entry.sold).map((entry) => entry.rune);
+  const atFifteen = afterTwelve.map((rune) => powerUpRune(rune, 15, random));
+  /* The +15 view is the same decision made at +12 on the final +15 projection.
+     There is deliberately no second keep/sell gate after the main stat grows. */
+  stages[15] = stageResult(15, atFifteen, afterTwelve.length, config, adviceAtTwelve);
+  const kept = stages[15].entries.some((entry) => entry.verdict === null)
+    ? null : stages[15].entries.filter((entry) => entry.verdict?.verdict === 'keep').length;
 
   return {
     config,

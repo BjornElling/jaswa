@@ -128,6 +128,12 @@ export const subPropertyRanges = ordinarySubPropertyRangesByStar[6];
  */
 export const prefixRanges = subPropertyRanges;
 
+/**
+ * The canonical innate-generation rate used by every rune model. Rune type and
+ * default grade do not create separate rates in JASWA's current game model.
+ */
+export const runeInnateFrequency = 0.5;
+
 /** The best a single roll can be — the unit every demand and supply is counted in. */
 export const maximumRoll = (statId: number, stars = 6, ancient = false, kind: SubPropertyRollKind = 'upgrade'): number =>
   subPropertyRange(stars, statId, kind, ancient)?.maximum ?? 0;
