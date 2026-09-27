@@ -6,7 +6,7 @@ const account = fileURLToPath(new URL('./fixtures/craft-account.json', import.me
 test('simulates random runes through +0, +9, +12 and +15, spending no craft without a role',async ({ page }, testInfo) => {
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
-  await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Rune Set-up', exact: true }).click();
   await page.locator('details').filter({ hasText: 'Settings' }).locator('summary').click();
   await page.locator('#enchanted-gems').fill('4');
   await page.locator('#grindstones').fill('3');
@@ -18,7 +18,7 @@ test('simulates random runes through +0, +9, +12 and +15, spending no craft with
   await expect(page.getByRole('heading', { name: 'Nothing generated yet.', exact: true })).toBeVisible();
   await expect(page.getByText('Best · Hero', { exact: true })).toBeVisible();
   await expect(page.getByText('¾ · Hero', { exact: true })).toBeVisible();
-  await expect(page.getByLabel('Rune set')).toHaveValue('');
+  await expect(page.getByLabel('Rune set', { exact: true })).toHaveValue('');
   await expect(page.getByLabel('Main stat')).toHaveCount(0);
   await expect(page.getByRole('combobox', { name: 'Enchanted Gem' })).toHaveCount(0);
   await expect(page.getByRole('combobox', { name: 'Grindstone' })).toHaveCount(0);
@@ -56,7 +56,7 @@ test('simulates random runes through +0, +9, +12 and +15, spending no craft with
   await quantity.press('ArrowUp');
   await expect(quantity).toHaveValue('200');
   await quantity.fill('200');
-  await page.getByLabel('Rune set').selectOption('Fatal');
+  await page.getByLabel('Rune set', { exact: true }).selectOption('Fatal');
   await page.getByLabel('Slot', { exact: true }).selectOption('2');
   await page.getByLabel('Stars', { exact: true }).selectOption('6');
   await expect(page.getByLabel('After +0').locator('option')).toHaveText(['Keep all', 'Sell according to recommendation']);
@@ -139,7 +139,7 @@ test('reads every checkpoint with Rune Clean-up and counts the keepers by preset
   await page.screenshot({ path: testInfo.outputPath('rune-simulator-keepers.png'), fullPage: true });
 
   await page.getByLabel('Quantity').fill('20');
-  await page.getByLabel('Rune set').selectOption('Fatal');
+  await page.getByLabel('Rune set', { exact: true }).selectOption('Fatal');
   await page.getByLabel('Slot', { exact: true }).selectOption('2');
   await page.getByLabel('Stars', { exact: true }).selectOption('6');
   await page.getByLabel('After +0').selectOption('recommendation');

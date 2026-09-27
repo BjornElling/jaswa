@@ -971,6 +971,41 @@ the calibration measures. The calibration is against the runes a slot *produces*
 not against which other runes happen to remain in the box, because a verdict must not
 depend on that history (§9).
 
+## 9.5 The live Statistics box is an estimate, not a second model
+
+Rune Set-up's Statistics box asks two deliberately narrow questions of one fixed
+synthetic population:
+
+- **Percent to roll** is the share of the population at `+0` whose Rune Clean-up
+  verdict is `Power up`.
+- **Percent to keep** is the share of the same rune bodies at `+12` whose verdict is
+  `Keep`.
+
+The population is 50 runes for each of the six slots, or **300 runes at each
+checkpoint**. It is Legend-born six-star runes, with every legal main cycled evenly;
+the +0 and +12 records consume the same deterministic random stream, so they are
+checkpoints of the same bodies rather than two unrelated samples. The statistics
+calculation then uses the ordinary advice engine, including the current presets,
+quality floor, chance policy, set preferences and craft assumptions. A worker keeps
+the calculation off the interface thread, and a newer slider choice supersedes an
+older answer.
+
+This is intentionally a fast, comparable indicator. At the worst-case proportion
+of 50 %, 300 observations have a binomial standard error of about 2.9 percentage
+points and a rough 95 % interval of about ±5.7 points. That is useful for seeing how
+the settings move the recommendation, but it is not evidence of the game's real rune
+drop rate and it is not the population from which the scoring rules are inferred.
+The one-preset score remains the closed-form `ordinaryBox`; the larger 2,000-per-slot
+sample in §9.4 is reserved for the slower multi-preset slot-balance calibration.
+
+There is no serialized ordinary population to become stale. `ordinarySample` calls
+the canonical generator in `rune-generation.ts`, which is also the generator used by
+the Rune Simulator. If a game rule or a generation bug is corrected there, the next
+calculation creates the updated deterministic population automatically. Keeping the
+population as a fixed seed plus a generator, rather than as a checked-in 10,000-rune
+file, makes that update safe and avoids a cache-invalidation path that could silently
+judge an old population with a new method.
+
 **What it costs.** The sample is 12,000 runes judged against every preset, once per
 calculation and star class present. Building its key strings was most of that at first
 — 5.4 s, of which 3.5 s went on concatenating cache keys for answers already known — so

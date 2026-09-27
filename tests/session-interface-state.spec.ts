@@ -74,6 +74,8 @@ test('keeps navigation, disclosures, and table filters in the current tab only',
     await expect(newTab.getByRole('heading', { name: 'Just Another Summoners War App' })).toBeVisible();
     await expect(newTab.getByRole('button', { name: 'Home', exact: true })).toHaveAttribute('aria-current', 'page');
     await expect(newTab.locator('details[open]')).toHaveCount(0);
+    const runeGroup = newTab.locator('.rail-group').filter({ has: newTab.locator('.rail-heading', { hasText: 'Runes' }) });
+    await expect(runeGroup.locator('.rail-item').first()).toHaveAttribute('aria-label', 'Rune Set-up');
     await newTab.getByRole('navigation').getByRole('button', { name: 'Monsters', exact: true }).click();
     await expect(newTab.getByRole('heading', { name: 'Monsters', exact: true })).toBeVisible();
     await expect(newTab.locator('details[open]')).toHaveCount(0);
@@ -93,10 +95,12 @@ test('keeps navigation, disclosures, and table filters in the current tab only',
     await expect(newTab.locator('details[open]')).toHaveCount(1);
     await expect(newTab.locator('summary').filter({ hasText: 'Recommendations' }).locator('..'))
       .toHaveAttribute('open', '');
-    await expect(newTab.locator('summary').filter({ hasText: 'Settings' }).locator('..'))
-      .not.toHaveAttribute('open', '');
-    await expect(newTab.locator('summary').filter({ hasText: 'Presets' }).locator('..'))
-      .not.toHaveAttribute('open', '');
+    await expect(newTab.locator('summary').filter({ hasText: 'Settings' })).toHaveCount(0);
+    await expect(newTab.locator('summary').filter({ hasText: 'Presets' })).toHaveCount(0);
+    await newTab.getByRole('button', { name: 'Rune Set-up', exact: true }).click();
+    await expect(newTab.getByRole('heading', { name: 'Rune Set-up', exact: true })).toBeVisible();
+    await expect(newTab.locator('details').filter({ hasText: 'Settings' })).toHaveCount(1);
+    await expect(newTab.locator('details').filter({ hasText: 'Presets' })).toHaveCount(1);
   } finally {
     await newTab.close();
   }

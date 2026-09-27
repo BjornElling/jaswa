@@ -32,12 +32,10 @@ test('every rune is judged, and the filters only decide what is shown', async ({
      rather than under Inventory. */
   await expect(rows.filter({ hasText: 'Inventory' })).toHaveCount(3);
 
-  /* Settings states what a rune is worth, never which runes are looked at. */
-  const settings = page.locator('details')
-    .filter({ has: page.locator('summary', { hasText: 'Settings' }) });
-  await settings.locator('summary').click();
-  await expect(settings.getByText('Runes to include')).toHaveCount(0);
-  await expect(settings.getByRole('checkbox', { name: /^Include runes/ })).toHaveCount(0);
+  /* Settings states what a rune is worth, never which runes are looked at, and
+     now has its own workspace rather than living below the verdicts. */
+  await expect(recommendations.locator('summary').filter({ hasText: 'Settings' })).toHaveCount(0);
+  await expect(page.getByRole('navigation').getByRole('button', { name: 'Rune Set-up', exact: true })).toBeVisible();
 
   /* Hiding the equipped rune takes a row off the screen and leaves the
      calculation exactly where it was — four runes judged, all four still held. */

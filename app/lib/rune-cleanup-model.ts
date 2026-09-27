@@ -64,6 +64,7 @@ import {
   bestEndState, chanceRuns, chanceStep, countJobs, endStateScoring, runeFuture,
 } from './rune-power-up-outcomes';
 import type { CountingJob, EndStateScoring, RuneFuture } from './rune-power-up-outcomes';
+import { generateRuneBody, upgradeRuneBody } from './rune-generation';
 
 export type { CraftCredit } from './rune-craft-end-state';
 
@@ -728,9 +729,11 @@ function gaussianKernel(steps: number, offset: number): Float64Array {
  * same rune, and whether one of them keeps it depends on how its standings in all of
  * them move together — which no product of single boxes can say. So the runes are
  * drawn, by the same construction `ordinaryBox` states: a Legend-born rune of this
- * star class at `+15`, its main even over the slot's legal mains, four lines drawn
- * without replacement, an innate on 50 % of runes, one initial roll each and four
- * upgrades falling uniformly, every roll uniform over its interval.
+ * star class, its main even over the slot's legal mains, four lines drawn without
+ * replacement, an innate on 50 % of runes, one initial roll each and four upgrades
+ * falling uniformly, every roll uniform over its interval. Callers may stop the same
+ * fixed stream at +0, +12 or +15 when they need to read a checkpoint rather than the
+ * finished box.
  *
  * **Its sets are drawn evenly over every set a preset can name**, and that is not a
  * detail. Several presets overlap on a rune only where they all want its set, so a
@@ -743,7 +746,9 @@ function gaussianKernel(steps: number, offset: number): Float64Array {
  * The draws are a fixed stream, so the sample — and every verdict calibrated on it —
  * is the same on every calculation.
  */
-export function ordinarySample(slot: number, stars: number, count: number): Rune[] {
+export type OrdinarySampleLevel = 0 | 3 | 6 | 9 | 12 | 15;
+
+export function ordinarySample(slot: number, stars: number, count: number, level: OrdinarySampleLevel = 15): Rune[] {
   let state = (0x9e3779b9 ^ Math.imul(slot, 0x85ebca6b) ^ Math.imul(stars, 0xc2b2ae35)) >>> 0 || 1;
   const next = () => {
     state ^= state << 13; state >>>= 0;
@@ -751,34 +756,23 @@ export function ordinarySample(slot: number, stars: number, count: number): Rune
     state ^= state << 5; state >>>= 0;
     return state / 0x1_0000_0000;
   };
-  const pick = <T>(values: readonly T[]): T => values[Math.floor(next() * values.length)];
-  const roll = (statId: number, kind: 'initial' | 'upgrade') => {
-    const range = subPropertyRange(stars, statId, kind);
-    return range ? range.minimum + Math.floor(next() * (range.maximum - range.minimum + 1)) : 0;
-  };
-  const mains = slotMainProperties[slot] ?? [];
   const runes: Rune[] = [];
   for (let at = 0; at < count; at += 1) {
-    const main = mains[at % mains.length];
-    const setName = pick(presetRuneSetNameList);
-    const legal = allStatIds.filter((statId) => statId !== main && slotAllowsSubStat(slot, statId)
-      && subPropertyRange(stars, statId, 'initial'));
-    const innate = next() < runeInnateFrequency ? pick(legal) : null;
-    const open = legal.filter((statId) => statId !== innate);
-    const lines = [];
-    for (let line = 0; line < 4 && open.length > 0; line += 1) {
-      const statId = open.splice(Math.floor(next() * open.length), 1)[0];
-      lines.push({ statId, value: roll(statId, 'initial'), gemmed: false, grind: 0 });
-    }
-    for (let upgrade = 0; upgrade < 4 && lines.length > 0; upgrade += 1) {
-      const line = pick(lines);
-      line.value += roll(line.statId, 'upgrade');
-    }
+    const mainStatId = (slotMainProperties[slot] ?? [])[at % (slotMainProperties[slot]?.length ?? 1)];
+    const body = upgradeRuneBody(generateRuneBody({
+      setName: presetRuneSetNameList[Math.floor(next() * presetRuneSetNameList.length)] ?? null,
+      slot, stars, defaultGrade: 'Legend', mainStatId, random: next,
+    }), level, next, 15);
+    const sampleId = level === 15
+      ? `ordinary-sample:${slot}:${stars}:${at}`
+      : `ordinary-sample:${slot}:${stars}:${level}:${at}`;
     runes.push({
-      id: `ordinary-sample:${slot}:${stars}:${at}`, setId: 0, setName, slot, stars,
-      ancient: false, defaultGrade: 'Legend', level: 15, mainStatId: main, mainValue: mainPropertyMaximum(stars, main),
-      prefixStatId: innate, prefixValue: innate === null ? 0 : roll(innate, 'initial'),
-      subProperties: lines, occupiedId: null, obtainedOrder: 0,
+      id: sampleId, setId: 0, setName: body.setName ?? '', slot, stars,
+      ancient: false, defaultGrade: body.defaultGrade, level, mainStatId: body.mainStatId,
+      mainValue: level === 15 ? mainPropertyMaximum(stars, body.mainStatId) : 0,
+      prefixStatId: body.prefixStatId, prefixValue: body.prefixValue,
+      subProperties: body.subProperties.map(({ statId, value, gemmed, grind }) => ({ statId, value, gemmed, grind })),
+      occupiedId: null, obtainedOrder: 0,
     });
   }
   return runes;

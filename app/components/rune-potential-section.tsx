@@ -1,4 +1,4 @@
-import { type FormEvent, type ReactNode, useEffect, useRef, useState } from 'react';
+import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from './button';
 import { WorkspacePage } from './workspace-page';
 import { Disclosure, PageHeader } from './page-chrome';
@@ -15,6 +15,11 @@ import type { PresetChoice, PresetStatTargets, PresetType, RuneMainStat, RunePot
 import type { GeneralSettings, ImportedGame, ItemGrade, RunePotentialSettings } from '../lib/types';
 import type { MonsterPreferences } from '../lib/monster-preferences';
 import { presetRuneSetNameList } from '../lib/rune-sets';
+import { formatDecimal } from '../lib/formatting';
+import { calculationBackendLabel, type CalculationBackend } from '../lib/compute/calculation-summary';
+import { calculateRuneStatistics, cancelRuneStatistics } from '../lib/compute/rune-statistics-client';
+import type { RuneCleanupStatistics } from '../lib/rune-cleanup-statistics';
+import { referenceLines } from '../lib/rune-reference-stats';
 import { RuneRecommendations } from './rune-recommendations';
 import type { OpenRuneOverlay } from './rune-link';
 
@@ -68,22 +73,53 @@ const potentialStepLabels = {
   ],
 } as const;
 
-export function RunePotentialSection({
-  game, monsterPreferences, settings, presets, general, hardwareAcceleration, onUpdate, onWritePresets, onOpenRune,
-}: {
+/** The standards and roles that the Clean-up workspace reads. Kept as their
+ * own workspace so changing what a rune is judged against is not hidden below
+ * the answers it changes. */
+type RuneStatisticsState =
+  | { status: 'unavailable' | 'calculating' }
+  | { status: 'ready'; statistics: RuneCleanupStatistics; backend: CalculationBackend }
+  | { status: 'failed'; message: string };
+
+export function RuneSetupSection({ game, settings, presets, general, hardwareAcceleration, onUpdate, onWritePresets }: {
   game: ImportedGame | null;
-  monsterPreferences: MonsterPreferences;
   settings: RunePotentialSettings;
   presets: RunePotentialPreset[];
   general: GeneralSettings;
-  /** The user's own setting, on its way to the worker that counts the odds. */
   hardwareAcceleration: boolean;
   onUpdate: (update: Partial<RunePotentialSettings>) => void;
   onWritePresets: (change: (current: RunePotentialPreset[]) => RunePotentialPreset[]) => void;
-  onOpenRune: OpenRuneOverlay;
 }) {
   const [editing, setEditing] = useState<{ draft: RunePotentialPreset; isNew: boolean } | null>(null);
   const [deleting, setDeleting] = useState<RunePotentialPreset | null>(null);
+  const [statistics, setStatistics] = useState<RuneStatisticsState>({ status: 'unavailable' });
+  const base = useMemo(() => {
+    const lines = referenceLines(game?.data);
+    return lines ? new Map([...lines].map(([type, line]) => [type, line.stats])) : null;
+  }, [game]);
+
+  useEffect(() => {
+    if (!base || presets.length === 0) {
+      cancelRuneStatistics();
+      return undefined;
+    }
+
+    let disposed = false;
+    const timer = window.setTimeout(() => {
+      setStatistics({ status: 'calculating' });
+      void calculateRuneStatistics({ presets, settings, base, preferWebGpu: hardwareAcceleration }).then((outcome) => {
+        if (disposed || outcome.status === 'superseded') return;
+        setStatistics(outcome.status === 'done'
+          ? { status: 'ready', statistics: outcome.statistics, backend: outcome.backend }
+          : { status: 'failed', message: outcome.message });
+      });
+    }, 120);
+    return () => {
+      disposed = true;
+      window.clearTimeout(timer);
+      cancelRuneStatistics();
+    };
+  }, [base, hardwareAcceleration, presets, settings]);
 
   function savePreset(preset: RunePotentialPreset, isNew: boolean) {
     const saved = withRefreshedMetrics(preset);
@@ -100,19 +136,29 @@ export function RunePotentialSection({
     setDeleting(null);
   }
 
+  const readyStatistics = base && presets.length > 0 && statistics.status === 'ready' ? statistics : null;
+  const statisticsReady = readyStatistics !== null;
+  const statisticsCopy = !base
+    ? 'Import an account with a level 40 monster to give the synthetic box a reference.'
+    : presets.length === 0
+      ? 'Add a preset to give the synthetic box something to be judged against.'
+      : statistics.status === 'failed'
+        ? statistics.message
+        : 'A fast fixed estimate from synthetic runes, judged by your current settings — not a drop-rate claim.';
+  const statisticsStatus = !base || presets.length === 0
+    ? 'Waiting for an account'
+    : statistics.status === 'calculating'
+    ? 'Calculating…'
+    : statisticsReady
+      ? `${readyStatistics.statistics.sampleSize.toLocaleString('en')} synthetic runes · ${calculationBackendLabel(readyStatistics.backend)}`
+      : statistics.status === 'failed' ? 'Calculation failed' : 'Waiting for an account';
+
   return <WorkspacePage
     header={<PageHeader
-      title="Rune Clean-up"
-      tagline="Which runes deserve your mana. Set your tolerance for disappointment below." />}
+      title="Rune Set-up"
+      tagline="Set the standards and roles JASWA uses to judge your runes." />}
   >
-    {/* The answer first, the controls that shape it underneath. A user opening
-        this page has come for the verdicts, not for the sliders. */}
-    <Disclosure title="Recommendations" sessionKey="rune-potential.recommendations" defaultOpen>
-      <RuneRecommendations game={game} monsterPreferences={monsterPreferences} settings={settings} presets={presets} general={general}
-        hardwareAcceleration={hardwareAcceleration} onOpenRune={onOpenRune} />
-    </Disclosure>
-
-    <Disclosure title="Settings" sessionKey="rune-potential.settings">
+    <Disclosure title="Settings" sessionKey="rune-setup.settings">
       <div className="stack">
         <div className="settings-layout">
           <div className="slider-grid">
@@ -137,17 +183,18 @@ export function RunePotentialSection({
           <div className="settings-rule" role="presentation" />
 
           <aside className="settings-aside">
-            <section className="statistics pending">
+            <section className={statisticsReady ? 'statistics' : 'statistics pending'}>
               <h4>Statistics</h4>
-              <p className="statistics-lead">What your settings would give you, once the calculation is in place.</p>
+              <p className="statistics-lead">{statisticsCopy}</p>
+              <p className="statistics-meta type-caption" aria-live="polite">{statisticsStatus}</p>
               <dl>
                 <div>
                   <dt>Percent to roll</dt>
-                  <dd>—</dd>
+                  <dd>{statisticsReady ? <>{formatDecimal(readyStatistics.statistics.percentToRoll, general)}<span className="unit">%</span></> : '—'}</dd>
                 </div>
                 <div>
                   <dt>Percent to keep</dt>
-                  <dd>—</dd>
+                  <dd>{statisticsReady ? <>{formatDecimal(readyStatistics.statistics.percentToKeep, general)}<span className="unit">%</span></> : '—'}</dd>
                 </div>
               </dl>
             </section>
@@ -163,7 +210,6 @@ export function RunePotentialSection({
               <CheckboxRow label="Keep twice as many 4-set runes" checked={settings.keepMoreForLargerSets}
                 onChange={(checked) => void onUpdate({ keepMoreForLargerSets: checked })} />
             </div>
-
           </aside>
         </div>
 
@@ -200,17 +246,10 @@ export function RunePotentialSection({
             </div>
           </aside>
         </div>
-
-        {/* Neither a sort order nor a population lives here. The table's own
-            column headers sort it and its own filter strip decides which runes
-            are on screen, the way the Relic and Artifact tables already work, so
-            both are a click where the user is looking rather than a saved
-            preference two panels away from the rows it governs. Every rune the
-            import holds is judged; nothing in Settings narrows that. */}
       </div>
     </Disclosure>
 
-    <Disclosure title="Presets" sessionKey="rune-potential.presets">
+    <Disclosure title="Presets" sessionKey="rune-setup.presets">
       <div className="stack">
         <div className="list-actions">
           <p className="list-count"><b>{presets.length}</b> presets</p>
@@ -252,6 +291,32 @@ export function RunePotentialSection({
         </div>
       </section>
     </div>}
+  </WorkspacePage>;
+}
+
+export function RunePotentialSection({
+  game, monsterPreferences, settings, presets, general, hardwareAcceleration, onOpenRune,
+}: {
+  game: ImportedGame | null;
+  monsterPreferences: MonsterPreferences;
+  settings: RunePotentialSettings;
+  presets: RunePotentialPreset[];
+  general: GeneralSettings;
+  /** The user's own setting, on its way to the worker that counts the odds. */
+  hardwareAcceleration: boolean;
+  onOpenRune: OpenRuneOverlay;
+}) {
+  return <WorkspacePage
+    header={<PageHeader
+      title="Rune Clean-up"
+      tagline="Which runes deserve your mana. Set your tolerance for disappointment below." />}
+  >
+    {/* The answer first, the controls that shape it underneath. A user opening
+        this page has come for the verdicts, not for the sliders. */}
+    <Disclosure title="Recommendations" sessionKey="rune-potential.recommendations" defaultOpen>
+      <RuneRecommendations game={game} monsterPreferences={monsterPreferences} settings={settings} presets={presets} general={general}
+        hardwareAcceleration={hardwareAcceleration} onOpenRune={onOpenRune} />
+    </Disclosure>
   </WorkspacePage>;
 }
 

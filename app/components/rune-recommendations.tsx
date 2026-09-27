@@ -150,11 +150,11 @@ const columns: readonly SortableColumn<RuneCleanupRow>[] = (() => {
 /**
  * The verdict table — the answer the whole workspace exists to give.
  *
- * It sits **above** Settings and Presets because it is what the user came for; the
- * two panels below it are the controls that shape it. The calculation waits for the
- * button rather than running as sliders move: it reads every rune against every
- * preset and every build, and a table that re-ran itself under a dragging thumb
- * would be a table nobody could read.
+ * It is the answer the user came for; the Rune Set-up workspace holds the
+ * controls that shape it. The calculation waits for the button rather than
+ * running as sliders move: it reads every rune against every preset and every
+ * build, and a table that re-ran itself under a dragging thumb would be a table
+ * nobody could read.
  */
 export function RuneRecommendations({ game, monsterPreferences, settings, presets, general, hardwareAcceleration, onOpenRune }: {
   game: ImportedGame | null;
@@ -348,7 +348,7 @@ export function RuneRecommendations({ game, monsterPreferences, settings, preset
   if (!presets.length) {
     return <section className="empty-state">
       <h2>There are no presets to judge runes against.</h2>
-      <p className="next-step">Add one under Presets below to say what a rune should be worth.</p>
+      <p className="next-step">Add one under Rune Set-up to say what a rune should be worth.</p>
     </section>;
   }
 
@@ -368,8 +368,8 @@ export function RuneRecommendations({ game, monsterPreferences, settings, preset
       ? <section className="empty-state">
         <h2>Nothing calculated yet.</h2>
         <p className="next-step">
-          Press Calculate to judge every rune you own against every preset. Settings and Presets below
-          decide what it is looking for.
+          Press Calculate to judge every rune you own against every preset. Rune Set-up decides what
+          it is looking for.
         </p>
       </section>
       : <DataTablePage

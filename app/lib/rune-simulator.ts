@@ -11,12 +11,8 @@
  * the random experiment around them: which legal property is drawn, where a
  * power-up lands, and how a configured checkpoint acts on the result.
  */
-import {
-  allStatIds, mainPropertyMaximum, runeInnateFrequency, slotMainProperties, subPropertyRange,
-} from './rune-properties';
-import {
-  runeMaximumLevel, runeStatName, slotAllowsSubStat,
-} from './runes';
+import { mainPropertyMaximum } from './rune-properties';
+import { runeMaximumLevel, runeStatName } from './runes';
 import type { Rune, RuneDefaultGrade } from './runes';
 import { runeSetId } from './rune-sets';
 import type { EndStateLine } from './rune-craft-end-state';
@@ -28,6 +24,12 @@ import type { RunePotentialSettings } from './types';
 import { combineCalculationBackends } from './compute/calculation-summary';
 import { countRuneChances } from './compute/rune-chance-engine';
 import type { CalculationBackend } from './compute/calculation-summary';
+import {
+  generateRuneBody, randomInteger, upgradeRuneBody,
+} from './rune-generation';
+import type { RandomSource } from './rune-generation';
+
+export type { RandomSource };
 
 export const simulationStages = [0, 9, 12, 15] as const;
 export type SimulationStage = typeof simulationStages[number];
@@ -147,12 +149,7 @@ export type RuneSimulationResult = {
 /** The simulator-only set label used when the user asks for no rune type. */
 export const simulationNoRuneType = 'No rune type';
 
-export type RandomSource = () => number;
-
 const defaultRandom: RandomSource = () => Math.random();
-const gradeSubPropertyCount: Readonly<Record<RuneDefaultGrade, number>> = {
-  Normal: 0, Magic: 1, Rare: 2, Hero: 3, Legend: 4,
-};
 
 export const defaultRuneSimulationConfig: RuneSimulationConfig = {
   count: 50,
@@ -168,24 +165,6 @@ export const defaultRuneSimulationConfig: RuneSimulationConfig = {
 
 const asUnit = (value: number): number => Math.min(0.9999999999999999, Math.max(0, value));
 
-function integer(minimum: number, maximum: number, random: RandomSource): number {
-  return minimum + Math.floor(asUnit(random()) * (maximum - minimum + 1));
-}
-
-function choose<T>(values: readonly T[], random: RandomSource): T {
-  const value = values[integer(0, values.length - 1, random)];
-  if (value === undefined) throw new Error('Rune simulator cannot choose from an empty legal set.');
-  return value;
-}
-
-function rollValue(
-  stars: number, statId: number, kind: 'initial' | 'upgrade', random: RandomSource,
-): number {
-  const range = subPropertyRange(stars, statId, kind);
-  if (!range) throw new Error(`Rune simulator has no ${kind} range for ${stars}★ stat ${statId}.`);
-  return integer(range.minimum, range.maximum, random);
-}
-
 /** The simulator's only legal rune-grade distribution, fixed by slot. */
 export function simulationGradeForSlot(slot: number, random: RandomSource = defaultRandom): RuneDefaultGrade {
   const roll = asUnit(random());
@@ -194,61 +173,17 @@ export function simulationGradeForSlot(slot: number, random: RandomSource = defa
   return roll < 0.75 ? 'Hero' : 'Legend';
 }
 
-function legalStatIds(rune: Pick<SimulatedRune, 'slot' | 'mainStatId' | 'prefixStatId' | 'subProperties'>): number[] {
-  const used = new Set([
-    rune.mainStatId,
-    ...(rune.prefixStatId === null ? [] : [rune.prefixStatId]),
-    ...rune.subProperties.map((property) => property.statId),
-  ]);
-  return allStatIds.filter((statId) => !used.has(statId) && slotAllowsSubStat(rune.slot, statId));
-}
-
 /** The one display helper for the stat vocabulary used by the simulator. */
 export function simulationStatLabel(statId: number): string {
   return runeStatName(statId) ?? `Unknown stat ${statId}`;
 }
 
-function cloneRune(rune: SimulatedRune): SimulatedRune {
-  return {
-    ...rune,
-    subProperties: rune.subProperties.map((property) => ({ ...property })),
-  };
-}
-
-function addRandomSubProperty(rune: SimulatedRune, random: RandomSource): void {
-  const statId = choose(legalStatIds(rune), random);
-  rune.subProperties.push({
-    statId,
-    value: rollValue(rune.stars, statId, 'initial', random),
-    gemmed: false,
-    grind: 0,
-    rolls: 0,
-  });
-}
-
 /** Power the exact same copy to the requested checkpoint. */
 export function powerUpRune(rune: SimulatedRune, targetLevel: SimulationStage, random: RandomSource = defaultRandom): SimulatedRune {
-  if (targetLevel < rune.level) return cloneRune(rune);
-  const next = cloneRune(rune);
-  const bornLines = gradeSubPropertyCount[next.defaultGrade];
-  for (const [eventIndex, level] of ([3, 6, 9, 12] as const).entries()) {
-    if (level <= next.level || level > targetLevel) continue;
-    if (eventIndex >= bornLines) {
-      /* The grade fixes which events add a line; every generated line uses the
-         ordinary interval because the simulator has no Ancient mode. */
-      addRandomSubProperty(next, random);
-    } else {
-      const target = next.subProperties[integer(0, next.subProperties.length - 1, random)];
-      if (!target) throw new Error('Rune simulator chose no existing sub-property to improve.');
-      target.value += rollValue(next.stars, target.statId, 'upgrade', random);
-      target.rolls += 1;
-    }
-    next.level = level;
-  }
+  const next = upgradeRuneBody(rune, targetLevel, random);
   /* +12→+15 is deliberately not another sub-property event. The main stat is
      deterministic and is represented by the checkpoint level only. */
-  next.level = targetLevel;
-  return next;
+  return { ...next, id: rune.id, subProperties: next.subProperties.map((property) => ({ ...property })) };
 }
 
 /**
@@ -338,30 +273,13 @@ function stageResult(
 
 function generateRune(index: number, config: RuneSimulationConfig, random: RandomSource): SimulatedRune {
   const setName = config.setName;
-  const slot = config.slot ?? integer(1, 6, random);
-  const stars = config.stars ?? integer(1, 6, random);
+  const slot = config.slot ?? randomInteger(1, 6, random);
+  const stars = config.stars ?? randomInteger(1, 6, random);
   const grade = simulationGradeForSlot(slot, random);
-  const mainStatId = choose(slotMainProperties[slot] ?? [], random);
-  const rune: SimulatedRune = {
+  return {
+    ...generateRuneBody({ setName, slot, stars, defaultGrade: grade, random }),
     id: `simulation-${index + 1}`,
-    setName,
-    slot,
-    stars,
-    defaultGrade: grade,
-    level: 0,
-    mainStatId,
-    prefixStatId: null,
-    prefixValue: 0,
-    subProperties: [],
   };
-
-  if (random() < runeInnateFrequency) {
-    const prefixStatId = choose(legalStatIds(rune), random);
-    rune.prefixStatId = prefixStatId;
-    rune.prefixValue = rollValue(stars, prefixStatId, 'initial', random);
-  }
-  for (let at = 0; at < gradeSubPropertyCount[grade]; at += 1) addRandomSubProperty(rune, random);
-  return rune;
 }
 
 function emptyStageRecord(): Record<SimulationStage, SimulationStageResult> {

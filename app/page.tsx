@@ -23,7 +23,7 @@ import type { OpenRuneOverlay, RuneOverlayTarget } from './components/rune-link'
 import { useSessionStorageState } from './lib/session-storage-state';
 import { type Page, type ReportCategory, upcomingWorkspaces } from './lib/workspace-config';
 
-const pageChoices: readonly Page[] = ['home', 'monsters', 'artifact-list', 'optimizer', 'speed', 'potential', 'artifacts', 'gems', 'rune-simulator', 'relics', 'settings', 'the-math'];
+const pageChoices: readonly Page[] = ['home', 'monsters', 'artifact-list', 'optimizer', 'speed', 'rune-setup', 'potential', 'artifacts', 'gems', 'rune-simulator', 'relics', 'settings', 'the-math'];
 const isPage = (value: unknown): value is Page => typeof value === 'string' && pageChoices.includes(value as Page);
 const ArtifactList = lazy(() => import('./components/artifact-list').then(({ ArtifactList: component }) => ({ default: component })));
 const ArtifactsSection = lazy(() => import('./components/artifacts-section').then(({ ArtifactsSection: component }) => ({ default: component })));
@@ -31,6 +31,7 @@ const GemsSection = lazy(() => import('./components/gems-section').then(({ GemsS
 const MonsterOverview = lazy(() => import('./components/monster-overview').then(({ MonsterOverview: component }) => ({ default: component })));
 const RelicList = lazy(() => import('./components/relic-list').then(({ RelicList: component }) => ({ default: component })));
 const RunePotentialSection = lazy(() => import('./components/rune-potential-section').then(({ RunePotentialSection: component }) => ({ default: component })));
+const RuneSetupSection = lazy(() => import('./components/rune-potential-section').then(({ RuneSetupSection: component }) => ({ default: component })));
 const SettingsSection = lazy(() => import('./components/settings-section').then(({ SettingsSection: component }) => ({ default: component })));
 const TheMathSection = lazy(() => import('./components/the-math-section').then(({ TheMathSection: component }) => ({ default: component })));
 const RuneSimulatorSection = lazy(() => import('./components/rune-simulator-section').then(({ RuneSimulatorSection: component }) => ({ default: component })));
@@ -445,6 +446,16 @@ export default function Home() {
 
       {page === 'artifact-list' && <Suspense fallback={<WorkspaceLoading />}><ArtifactList game={game} monsters={monsters} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
 
+      {page === 'rune-setup' && <Suspense fallback={<WorkspaceLoading />}><RuneSetupSection
+        game={game}
+        settings={preferences.runePotential}
+        presets={preferences.runePotentialPresets}
+        general={preferences.general}
+        hardwareAcceleration={preferences.hardwareAcceleration}
+        onUpdate={updateRunePotentialSettings}
+        onWritePresets={writePresets}
+      /></Suspense>}
+
       {page === 'potential' && <Suspense fallback={<WorkspaceLoading />}><RunePotentialSection
         game={game}
         monsterPreferences={preferences.monsterPreferences}
@@ -452,8 +463,6 @@ export default function Home() {
         presets={preferences.runePotentialPresets}
         general={preferences.general}
         hardwareAcceleration={preferences.hardwareAcceleration}
-        onUpdate={updateRunePotentialSettings}
-        onWritePresets={writePresets}
         onOpenRune={openRuneOverlay}
       /></Suspense>}
 

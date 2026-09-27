@@ -31,7 +31,7 @@ async function openPresetEditor(page: Page, { pollForHelper = false } = {}) {
      only runs on the direct route. Choosing it is therefore part of
      reproducing the focus bug, not incidental setup — no helper need answer. */
   if (pollForHelper) await page.getByRole('radio', { name: 'Direct import' }).check();
-  await page.getByRole('button', { name: 'Rune Clean-up' }).click();
+  await page.getByRole('button', { name: 'Rune Set-up' }).click();
   await page.locator('summary').filter({ hasText: 'Presets' }).click();
   await page.getByRole('button', { name: 'Edit Slow DD' }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
