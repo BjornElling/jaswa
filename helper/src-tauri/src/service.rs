@@ -705,7 +705,19 @@ fn relay(
             if captures_gateway {
                 capture(&request, &response, &shared);
             }
-            incoming.write_message(&response)?;
+            // The game may close its keep-alive socket immediately after the
+            // response it asked for. On Windows that close can surface while
+            // rustls is flushing the response as WSAECONNRESET (10054). The
+            // upstream exchange and capture are already complete at this
+            // point, so a client-side disconnect must not turn a valid update
+            // into a helper-wide capture gap.
+            if !forward_response(&mut incoming, &response)? {
+                diagnostics::record(
+                    "game",
+                    "Summoners War closed the local gateway connection while the helper was forwarding a completed response",
+                );
+                return Ok(());
+            }
         }
     })();
     shared.open_connections.fetch_sub(1, Ordering::AcqRel);
@@ -775,7 +787,9 @@ fn exchange_once(
     connection: &mut Connection<StreamOwned<ClientConnection, TcpStream>>,
     request: &[u8],
 ) -> Result<Vec<u8>, String> {
-    connection.write_message(request)?;
+    connection
+        .write_message(request)
+        .map_err(|error| error.to_string())?;
     connection
         .read_message()?
         .ok_or_else(|| "The gateway closed without answering.".into())
@@ -897,11 +911,33 @@ impl<S: Read + Write> Connection<S> {
         }
     }
 
-    fn write_message(&mut self, message: &[u8]) -> Result<(), String> {
-        self.stream
-            .write_all(message)
-            .map_err(|error| error.to_string())?;
-        self.stream.flush().map_err(|error| error.to_string())
+    fn write_message(&mut self, message: &[u8]) -> io::Result<()> {
+        self.stream.write_all(message)?;
+        self.stream.flush()
+    }
+}
+
+fn peer_disconnected(kind: io::ErrorKind) -> bool {
+    matches!(
+        kind,
+        io::ErrorKind::BrokenPipe
+            | io::ErrorKind::ConnectionAborted
+            | io::ErrorKind::ConnectionReset
+            | io::ErrorKind::NotConnected
+            | io::ErrorKind::UnexpectedEof
+    )
+}
+
+fn forward_response<S: Read + Write>(
+    connection: &mut Connection<S>,
+    response: &[u8],
+) -> Result<bool, String> {
+    match connection.write_message(response) {
+        Ok(()) => Ok(true),
+        Err(error) if peer_disconnected(error.kind()) => Ok(false),
+        Err(error) => Err(format!(
+            "Could not forward the gateway response to Summoners War: {error}"
+        )),
     }
 }
 
@@ -1348,6 +1384,27 @@ mod tests {
         }
     }
 
+    struct ResetWriter;
+
+    impl Read for ResetWriter {
+        fn read(&mut self, _buffer: &mut [u8]) -> io::Result<usize> {
+            Ok(0)
+        }
+    }
+
+    impl Write for ResetWriter {
+        fn write(&mut self, _buffer: &[u8]) -> io::Result<usize> {
+            Err(io::Error::new(
+                io::ErrorKind::ConnectionReset,
+                "the game closed the connection",
+            ))
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
     fn message(body: &str) -> String {
         format!(
             "POST /api/gateway_c2.php HTTP/1.1\r\nHost: gateway\r\nContent-Length: {}\r\n\r\n{body}",
@@ -1403,6 +1460,14 @@ mod tests {
             incoming: io::Cursor::new(Vec::new()),
         });
         assert!(connection.read_message().unwrap().is_none());
+    }
+
+    #[test]
+    fn treats_a_game_reset_while_forwarding_as_a_closed_client() {
+        let mut connection = Connection::new(ResetWriter);
+        assert_eq!(forward_response(&mut connection, b"response").unwrap(), false);
+        assert!(peer_disconnected(io::ErrorKind::ConnectionReset));
+        assert!(!peer_disconnected(io::ErrorKind::TimedOut));
     }
 
     /// A message that stops mid-body is a real failure and must stay one, so a
