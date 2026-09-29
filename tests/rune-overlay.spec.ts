@@ -109,10 +109,10 @@ test('Evaluation explains Best preset with every preset\'s reading, at one heigh
   await expect(row).toContainText(`${Math.round(Number.parseFloat(bestMax))} %`);
   const facts = evaluation.locator('.rune-overlay-evaluation-facts dd');
   await expect(facts.nth(1)).toHaveText(/^(Preferred|Accepted|Broken)$/);
-  /* The build the reading assumed, one main per choosing slot in the editor's words. */
-  await expect(facts.nth(2)).toHaveText(/^[A-Za-z]+%? \/ [A-Za-z]+%? \/ [A-Za-z]+%?$/);
-  await expect(facts.nth(3)).toHaveText(/^\d+\.\d %$/);
-  await expect(facts.nth(4)).toHaveText(/^(\d+\.\d %|None)$/);
+  /* The build's slot 2/4/6 mains are not repeated here: the line cost the overlay its fit. */
+  await expect(facts).toHaveCount(4);
+  await expect(facts.nth(2)).toHaveText(/^\d+\.\d %$/);
+  await expect(facts.nth(3)).toHaveText(/^(\d+\.\d %|None)$/);
 });
 
 test('anywhere in a verdict row opens its rune, and selecting text there does not', async ({ page }) => {
@@ -139,7 +139,7 @@ test('anywhere in a verdict row opens its rune, and selecting text there does no
   await expect(row.locator('.rune-link')).toBeFocused();
 });
 
-test('Your call holds a rune under its own word, files it under Keep, and outlives a re-import', async ({ page }, testInfo) => {
+test('Instructions hold a rune under its own word, files it under Keep, and outlives a re-import', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await openCleanup(page);
   const table = page.getByRole('table', { name: 'Rune verdicts' });
@@ -153,7 +153,7 @@ test('Your call holds a rune under its own word, files it under Keep, and outliv
   /* An inventory rune can be made unsellable but has no monster to be locked to. */
   await violentRow.locator('.rune-link').click();
   const violent = page.getByRole('dialog', { name: 'Violent' });
-  const hold = violent.getByRole('region', { name: 'Your call' });
+  const hold = violent.getByRole('region', { name: 'Instructions' });
   await expect(hold.getByRole('checkbox', { name: 'Lock to monster' })).toBeDisabled();
   const evaluation = violent.getByRole('region', { name: 'Evaluation' });
   await expect(evaluation.locator('tbody tr[aria-current="true"]')).toHaveCount(1);
@@ -167,10 +167,18 @@ test('Your call holds a rune under its own word, files it under Keep, and outliv
 
   /* A worn rune can take both, and Locked is the word that wins. */
   await fatalRow.locator('.rune-link').click();
-  const fatal = page.getByRole('dialog', { name: 'Fatal' }).getByRole('region', { name: 'Your call' });
+  const fatal = page.getByRole('dialog', { name: 'Fatal' }).getByRole('region', { name: 'Instructions' });
   await fatal.getByRole('checkbox', { name: 'Unsellable' }).check();
   await fatal.getByRole('checkbox', { name: 'Lock to monster' }).check();
   await page.screenshot({ path: testInfo.outputPath('your-call-full.png') });
+  /* Four sub properties, both choices and every preset: the tallest the overlay gets,
+     and still no scrollbar of its own. */
+  const overflow = await page.getByRole('dialog', { name: 'Fatal' }).evaluate((dialog) => {
+    const scrolling = [dialog, ...dialog.querySelectorAll('*')].filter((element) => element.scrollHeight > element.clientHeight + 1
+      && ['auto', 'scroll'].includes(getComputedStyle(element).overflowY));
+    return scrolling.map((element) => element.className);
+  });
+  expect(overflow).toEqual([]);
   await page.keyboard.press('Escape');
   await expect(advice(fatalRow)).toHaveText('Locked');
 

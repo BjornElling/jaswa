@@ -4873,20 +4873,22 @@ tr[data-opens-rune] .rune-link:hover:not(:focus-visible) { color: inherit; text-
 .rune-overlay-craft > .rune-overlay-figure:not(:first-child) { margin-left: var(--s1); }
 .rune-overlay-figure { font-variant-numeric: tabular-nums; color: var(--text-strong); }
 
-/* The user's own word, in the same sunk box as its neighbours: a title and two
-   choices on one line, the lock dimmed where the rune has no monster to lock to.
-   The rows are always both there, so ticking one moves nothing. */
+/* The user's own word, in the same sunk box as its neighbours: a title, and the
+   two choices on the line under it in the grey Evaluation's sentences use, the
+   lock dimmed where the rune has no monster to lock to. The rows are always both
+   there, so ticking one moves nothing. */
+/* Held to its lines' own height: at 1080 the overlay has no pixel to spare
+   before it grows a scrollbar. */
 .rune-overlay-hold {
-  display: flex;
-  align-items: center;
-  gap: var(--s6);
-  padding: var(--s3) var(--s5);
+  display: grid;
+  gap: var(--s1);
+  padding: var(--s4) var(--s5);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--sunk);
 }
 .rune-overlay-hold-choices { display: flex; gap: var(--s6); }
-.rune-overlay-hold .checkbox-row { color: var(--text-strong); }
+.rune-overlay-hold .checkbox-row { min-height: var(--s5); color: var(--text); }
 .rune-overlay-hold .checkbox-row[data-disabled] { color: var(--text-muted); cursor: not-allowed; }
 .rune-overlay-hold .checkbox-row input:disabled { opacity: .4; cursor: not-allowed; }
 .rune-overlay-hold .checkbox-row input:disabled:hover { background: var(--raise); border-color: var(--text-muted); }

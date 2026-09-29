@@ -18,7 +18,6 @@ import type { PresetReading, RuneAdvice, RuneCraftStep } from '../lib/rune-clean
 import type { MatchRank } from '../lib/rune-cleanup-model';
 import { canLockRune } from '../lib/rune-holds';
 import type { RuneHold } from '../lib/rune-holds';
-import { runeMainStatByEffect } from '../lib/rune-potential-presets';
 import type { RunePotentialPreset } from '../lib/rune-potential-presets';
 import { lastSubPropertyLevel } from '../lib/rune-properties';
 import { referenceLines } from '../lib/rune-reference-stats';
@@ -144,11 +143,6 @@ function maxCraftOf(known: RuneAdvice | undefined, explained: Explained, rune: R
     `74 %` beside a Sell would explain nothing. */
 const tenths = (fraction: number) => `${(fraction * 100).toFixed(1)} %`;
 
-/** A build's slot 2, 4 and 6 mains in the preset editor's words; a slot the preset
-    leaves open takes any main, and says so. */
-const buildText = (mains: NonNullable<RuneAdvice['buildMains']>) =>
-  ([2, 4, 6] as const).map((slot) => runeMainStatByEffect[mains[slot]] ?? 'Any').join(' / ');
-
 /** How the rune's set and main answer Best preset, in the words the preset editor uses. */
 const suitabilityLabels: Record<MatchRank, string> = { preferred: 'Preferred', acceptable: 'Accepted', broken: 'Broken' };
 
@@ -206,10 +200,7 @@ function Evaluation({ rune, presets, explained }: {
   const oddsLeft = rune.level < lastSubPropertyLevel;
   const facts = [
     { label: 'Best preset for this rune', value: chosen?.name ?? placeholder },
-    { label: 'Set and main desirability for this preset', value: chosen && advice ? suitabilityLabels[advice.rank] : '—' },
-    /* Which build the reading assumed stands on its own: it is what explains a line the
-       Improvements column gems away, and it is neither the preset nor the floor. */
-    { label: 'Best for the slot 2/4/6 mains', value: chosen && advice?.buildMains ? buildText(advice.buildMains) : '—', opensGroup: true },
+    { label: 'Rune set and main stat desirability for this preset', value: chosen && advice ? suitabilityLabels[advice.rank] : '—' },
     /* The floor and its cutoff are one statement, set a step apart from which preset
        it is and how well the rune suits it. */
     { label: 'Based on the Rune quality floor, the rune must be among the best', value: chosen && advice ? tenths(advice.floorShare) : '—', opensGroup: true },
@@ -263,7 +254,7 @@ function Evaluation({ rune, presets, explained }: {
  * rune that left its monster after being locked keeps the lock and can still have
  * it taken off, rather than holding a choice the user can see and not undo.
  */
-function YourCall({ rune, hold, onHold }: { rune: Rune; hold: RuneHold | undefined; onHold: (next: RuneHold) => void }) {
+function Instructions({ rune, hold, onHold }: { rune: Rune; hold: RuneHold | undefined; onHold: (next: RuneHold) => void }) {
   const locked = hold?.locked === true;
   const lockable = canLockRune(rune) || locked;
   const change = (key: keyof RuneHold, on: boolean) => {
@@ -272,7 +263,7 @@ function YourCall({ rune, hold, onHold }: { rune: Rune; hold: RuneHold | undefin
     onHold(next);
   };
   return <section className="rune-overlay-hold" aria-labelledby="rune-overlay-hold-title">
-    <h3 id="rune-overlay-hold-title" className="overlay-block-title">Your call</h3>
+    <h3 id="rune-overlay-hold-title" className="overlay-block-title">Instructions</h3>
     <div className="rune-overlay-hold-choices">
       <label className="checkbox-row">
         <input type="checkbox" checked={hold?.unsellable === true} onChange={(event) => change('unsellable', event.target.checked)} />
@@ -420,7 +411,7 @@ export function RuneOverlay({ rune, game, general, settings, presets, hardwareAc
         </table>
       </div>
 
-      {onHold && <YourCall rune={rune} hold={hold} onHold={(next) => onHold(rune.id, next)} />}
+      {onHold && <Instructions rune={rune} hold={hold} onHold={(next) => onHold(rune.id, next)} />}
 
       <Evaluation rune={rune} presets={presets} explained={explained} />
     </div>
