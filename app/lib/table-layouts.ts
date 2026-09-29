@@ -160,14 +160,16 @@ export const artifactTableColumns: readonly TableColumn[] = [
 export const runeCleanupTableColumns: readonly TableColumn[] = [
   { key: 'set', width: '12%', align: 'left' },
   { key: 'slot', width: '4%', align: 'center' },
-  { key: 'level', width: '5%', align: 'right' },
+  { key: 'level', width: '4%', align: 'right' },
   { key: 'main', width: '7%', align: 'left' },
   { key: 'innate', width: '8%', align: 'left' },
-  { key: 'subs', width: '21%', align: 'left' },
+  /* Four pairs and, on a crafted rune, a gem mark after each: the width is for
+     four gemmed lines, not four bare ones. */
+  { key: 'subs', width: '24%', align: 'left' },
   { key: 'location', width: '12%', align: 'left' },
   { key: 'preset', width: '8%', align: 'left' },
-  { key: 'maxValue', width: '7%', align: 'right' },
-  { key: 'chance', width: '7%', align: 'right' },
+  { key: 'maxValue', width: '6%', align: 'right' },
+  { key: 'chance', width: '6%', align: 'right' },
   /* A verdict and its chance share this column, and its width is reserved for the
      longest reading so that moving a slider cannot reflow the table. */
   { key: 'advice', width: '9%', align: 'left' },

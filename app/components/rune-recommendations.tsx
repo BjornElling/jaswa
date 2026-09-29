@@ -14,7 +14,7 @@ import { RangeSlider } from './range-slider';
 import { TokenChoiceField } from './token-choice-field';
 import { alignmentClass, runeCleanupTableColumns } from '../lib/table-layouts';
 import { formatNumber } from '../lib/formatting';
-import { readRunes, runeMaximumLevel, runeStatName, runeSubValue } from '../lib/runes';
+import { readRunes, runeMaximumLevel, runeStatName } from '../lib/runes';
 import { monsterCopyNames } from '../lib/monster-names';
 import type { MonsterPreferences } from '../lib/monster-preferences';
 import { runeVerdictLabels, runeVerdictOrder } from '../lib/rune-cleanup-advice';
@@ -35,6 +35,7 @@ import type { GeneralSettings, ImportedGame, RunePotentialSettings } from '../li
 import { useSessionStorageState } from '../lib/session-storage-state';
 import { RuneLink } from './rune-link';
 import type { OpenRuneOverlay } from './rune-link';
+import { RuneSubLine } from './rune-sub-line';
 
 /* Nine of the game's own set names, and the slots and levels a rune can have.
    Listed rather than derived from the import so the filter strip does not change
@@ -504,10 +505,8 @@ export function RuneRecommendations({ game, monsterPreferences, settings, preset
             <td className={cell('subs', 'rune-subs')}>
               {row.rune.subProperties.length === 0
                 ? <span className="muted">—</span>
-                : row.rune.subProperties.map((property, at) => <span className="rune-sub" key={at}>
-                  <span className="rune-sub-name">{runeStatName(property.statId) ?? '?'}</span>
-                  <span className="rune-sub-value">{runeSubValue(property)}</span>
-                </span>)}
+                : row.rune.subProperties.map((property, at) => <RuneSubLine key={at} property={property}
+                  name={runeStatName(property.statId) ?? '?'} format={String} />)}
             </td>
             <td className={cell('location', !row.location && 'muted')}
               title={row.location === null ? 'Worn by a monster this import does not contain' : undefined}>

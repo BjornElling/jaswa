@@ -1,15 +1,14 @@
 import { useMemo } from 'react';
 import { AncientName } from './ancient-mark';
-import { CircularArrowsMark } from './converted-artifact-mark';
 import { MonsterLink } from './monster-link';
 import type { MonsterReference, OpenMonsterOverlay } from './monster-link';
 import { Overlay } from './overlay';
 import { RuneEmblem } from './rune-emblem';
+import { RuneSubLine } from './rune-sub-line';
 import { formatNumber } from '../lib/formatting';
 import type { GameRecord } from '../lib/game-data';
 import { monsterPresentation } from '../lib/monster-catalog';
-import { mainPropertyMaximum } from '../lib/rune-properties';
-import { runeStatName, runeSubValue } from '../lib/runes';
+import { runeStatName } from '../lib/runes';
 import type { Rune } from '../lib/runes';
 import type { GeneralSettings } from '../lib/types';
 
@@ -96,47 +95,32 @@ export function RuneOverlay({ rune, game, general, onClose, onOpenMonster }: {
     {/* One box, read top to bottom in the order the rune was made: the main
         property it dropped for, the innate one it dropped with, and the sub
         properties that decide whether it is worth keeping. No headings — the
-        three read for what they are by size and position alone. Names are
-        dimmed and figures lit, the way Rune Clean-up's own table writes them.
-        Divs rather than paragraphs: `.dialog p` outranks the type voices. */}
+        three read for what they are by size and position alone. Divs rather
+        than paragraphs: `.dialog p` outranks the type voices. */}
     <div className="overlay-body rune-overlay-body">
       <div className="rune-overlay-stats">
-        <div className="rune-overlay-main-block">
-          <div className="rune-overlay-main" aria-label="Main property">
-            {/* "HP +" and its kin are the flat stats; the plus goes on the figure. */}
-            {statName(rune.mainStatId).replace(/ \+$/, '')} {rune.mainValue > 0 ? `+${figure(rune.mainValue)}` : '—'}
-          </div>
-          <div className="rune-overlay-main-ceiling">+{figure(mainPropertyMaximum(rune.stars, rune.mainStatId))} at +15</div>
+        <div className="rune-overlay-main" aria-label="Main property">
+          {/* "HP +" and its kin are the flat stats; the plus goes on the figure. */}
+          {statName(rune.mainStatId).replace(/ \+$/, '')} {rune.mainValue > 0 ? `+${figure(rune.mainValue)}` : '—'}
         </div>
 
-        <div className="rune-overlay-line rune-overlay-innate" aria-label="Innate property">
+        <div className="rune-overlay-innate" aria-label="Innate property">
           {rune.prefixStatId === null
             ? <span className="rune-sub-name">No innate</span>
-            : <>
+            : <span className="rune-sub">
               <span className="rune-sub-name">{statName(rune.prefixStatId)}</span>
               <span className="rune-sub-value">{figure(rune.prefixValue)}</span>
-            </>}
+            </span>}
         </div>
 
-        <ul className="rune-overlay-lines" aria-label="Sub properties">
+        {/* Four lines always, the ones not revealed yet left blank: the box is
+            the same height for a fresh rune as for a finished one. */}
+        <ul className="rune-overlay-subs" aria-label="Sub properties">
           {Array.from({ length: subPropertySlots }, (_, at) => {
             const property = rune.subProperties[at];
-            if (property === undefined) {
-              return <li key={`empty-${at}`} className="rune-overlay-line">
-                <span className="rune-sub-name">Not revealed yet</span>
-              </li>;
-            }
-            const name = statName(property.statId);
-            return <li key={property.statId} className="rune-overlay-line">
-              <span className="rune-sub-name">{name}</span>
-              <span className="rune-sub-value">{figure(runeSubValue(property))}</span>
-              <span className="rune-overlay-gem">
-                {property.gemmed && <CircularArrowsMark label={`${name} came from an Enchanted Gem`} />}
-              </span>
-              <span className="rune-overlay-grind">
-                {property.grind > 0 && <abbr title={`Grindstone +${figure(property.grind)}`}>+{figure(property.grind)} grind</abbr>}
-              </span>
-            </li>;
+            if (property === undefined) return <li key={`unrevealed-${at}`} aria-hidden="true" />;
+            return <RuneSubLine key={property.statId} as="li" property={property}
+              name={statName(property.statId)} format={figure} />;
           })}
         </ul>
       </div>

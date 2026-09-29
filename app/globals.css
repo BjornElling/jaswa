@@ -11,11 +11,12 @@
    content, and the gold accent for something worth acting on. Surface, rule
    and status colours are separate structural vocabularies.
 
-   Two exceptions, each one a vocabulary the user already reads
+   Three exceptions, each one a vocabulary the user already reads
    elsewhere rather than a decoration invented here: the verdict colours
-   below, for a machine reporting its own state; and an artifact's score
+   below, for a machine reporting its own state; an artifact's score
    in three bands, where the top band's gold marks a number that is
-   itself the invitation to act.
+   itself the invitation to act; and a rune sub property a Grindstone has
+   touched, which is gold because it is gold in the game.
    ===================================================================== */
 
 :root {
@@ -50,6 +51,12 @@
   --state-good: #5fbf82;
   --state-warn: var(--text-accent);
   --state-bad: #e0705f;
+
+  /* A ground rune line, in the game's own colour for it (`rune-sub-line.tsx`).
+     Named apart from the accent for the same reason the verdicts are: it is the
+     game's fact, not an invitation, and matches the gold only because the game
+     happens to paint it gold. */
+  --rune-ground: #d9ad52;
 
   /* rhythm — one 4px scale. Every gap, pad and inset below is a step on it,
      so nothing lands on an arbitrary 9px or 13px any more. */
@@ -309,7 +316,7 @@ label[for] {
 .craft-best-use-facts dd, .craft-rune-detail, .math-copy > p,
 .math-example p, .math-table, .rune-simulator-stats-table td,
 .rune-simulator-stats-table tbody th, .rune-simulator-stats-table tfoot th,
-.rune-overlay-line {
+.rune-overlay-innate, .rune-overlay-subs {
   font-family: var(--font-body);
   font-size: var(--type-body);
   font-weight: 400;
@@ -353,8 +360,7 @@ label[for] {
 .preset-type, .overlay-hero-facts, .overlay-provenance, .usage-share, .usage-sample,
 .overlay-stat-current, .overlay-substat-unit, .overlay-slot-name,
 .choice-menu-option-note, .rune-build-leader-pieces, .rune-build-leader-count,
-.rune-build-note, .rune-build-composed, .overlay-suggestion-label, .speed-timeline-turn,
-.rune-overlay-main-ceiling, .rune-overlay-grind {
+.rune-build-note, .rune-build-composed, .overlay-suggestion-label, .speed-timeline-turn {
   font-family: var(--font-body);
   font-size: var(--type-label);
   font-weight: 400;
@@ -4790,38 +4796,28 @@ html.overlay-open .overlay-backdrop { right: var(--overlay-gutter, 0px); }
 /* Every stat of the rune in one box, starting on the line the rune's name
    starts on, so it reads as the continuation of the head rather than as a
    second panel. The innate line sits close under the main property — the two
-   are what the rune dropped with — and a rule sets the sub properties a step
-   further off. */
+   are what the rune dropped with — and clear space, not a rule, sets the sub
+   properties off. Each value follows its name directly. */
 .rune-overlay-body { padding-left: calc(var(--s5) + 108px + var(--s5)); }
 .rune-overlay-stats {
   display: grid;
-  gap: var(--s3);
+  gap: var(--s2);
   padding: var(--s4) var(--s5);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--sunk);
+  color: var(--text-strong);
 }
-.rune-overlay-main-block { display: grid; gap: var(--s1); }
-.rune-overlay-main { color: var(--text-strong); font-variant-numeric: tabular-nums; }
-.rune-overlay-main-ceiling { color: var(--text-muted); font-variant-numeric: tabular-nums; }
-.rune-overlay-innate { padding-bottom: var(--s4); border-bottom: 1px solid var(--line); margin-bottom: var(--s1); }
-
-/* Fixed columns — name, figure, gem mark, grindstone — so every figure lands on
-   one vertical line whichever marks its row carries. The name column fits the
-   longest stat name the game has, Resistance. */
-.rune-overlay-lines { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--s2); }
-.rune-overlay-line {
+.rune-overlay-main { font-variant-numeric: tabular-nums; }
+/* Four rows of one fixed height whether or not a line is there yet, so a
+   rune with two sub properties draws the same box as one with four. */
+.rune-overlay-subs {
+  margin: var(--s4) 0 0; padding: 0;
+  list-style: none;
   display: grid;
-  grid-template-columns: 12ch 6ch var(--s4) auto;
-  column-gap: var(--s3);
-  align-items: baseline;
+  grid-template-rows: repeat(4, var(--s5));
+  align-items: center;
 }
-.rune-overlay-line > :only-child { grid-column: 1 / -1; }
-.rune-overlay-line .rune-sub-value { text-align: right; color: var(--text-strong); }
-.rune-overlay-gem { display: flex; align-self: center; color: var(--text); }
-.rune-overlay-gem .artifact-sub-mark { margin-left: 0; }
-.rune-overlay-grind { color: var(--text-muted); }
-.rune-overlay-grind abbr { text-decoration: none; cursor: help; }
 
 .overlay-block { display: grid; gap: var(--s3); }
 .overlay-block-head {
@@ -5578,6 +5574,15 @@ th.align-center .sort-button { justify-content: center; }
 }
 .rune-sub-name { color: var(--text-muted); }
 .rune-sub-value { font-variant-numeric: tabular-nums; }
+/* The marks after a line — the gem, and on the simulator its rolls. The gem
+   mark takes the line's own colour, so it is white on a line that was never
+   ground and gold on one that was, as in the game. */
+.rune-sub-marks { display: inline-flex; align-items: center; gap: var(--s1); }
+.rune-sub .rune-sub-marks:empty { display: none; }
+.rune-sub-gem.artifact-sub-mark { margin-left: 0; }
+[data-ground='true'] .rune-sub-name,
+[data-ground='true'] .rune-sub-value,
+[data-ground='true'] .rune-sub-gem { color: var(--rune-ground); }
 .rune-innate { margin-right: 0; }
 
 .rune-verdict { display: block; }
@@ -5831,17 +5836,16 @@ th.align-center .sort-button { justify-content: center; }
   align-items: baseline;
 }
 .rune-simulator-property .rune-sub-value { text-align: right; }
-.rune-simulator-marks { display: inline-flex; align-items: center; gap: var(--s1); }
+/* Muted, not gold: gold on a rune line now means a Grindstone touched it, and
+   a roll count in gold beside an unground line would read as one. */
 .rune-simulator-rolls {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  color: var(--text-accent);
+  color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
 .rune-simulator-roll-arrow { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-.rune-simulator-enchanted-mark { color: var(--text-accent); width: 1em; height: 1em; }
-.rune-simulator-grind { color: var(--text-accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* Set, Main and Preset are token lines rather than chip rows: their vocabularies
    run to twenty-two sets, a dozen main properties and however many presets the

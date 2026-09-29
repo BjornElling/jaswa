@@ -29,7 +29,11 @@ test('the rune overlay states the rune and nothing else, and returns focus', asy
   }
   await expect(overlay.getByText('No innate', { exact: true })).toBeVisible();
   await expect(overlay.getByText('Legend', { exact: true })).toBeVisible();
-  await expect(overlay.getByRole('list', { name: 'Sub properties' }).getByRole('listitem')).toHaveCount(4);
+  /* Four lines always, the unrevealed ones blank, so the box keeps its height. */
+  await expect(overlay.locator('.rune-overlay-subs > li')).toHaveCount(4);
+  await expect(overlay.getByRole('list', { name: 'Sub properties' }).getByRole('listitem')).toHaveCount(2);
+  await expect(overlay.getByText('Not revealed yet')).toHaveCount(0);
+  await expect(overlay.getByText(/at \+15/)).toHaveCount(0);
   await expect(overlay.getByText('Rune', { exact: true })).toHaveCount(0);
   await expect(overlay.getByText(/piece set/)).toHaveCount(0);
   /* The projection it used to carry belongs to the pages that judge a rune. */

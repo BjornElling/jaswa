@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { Dispatch, FormEvent, ReactNode, SetStateAction } from 'react';
 import { Button, FilterButton } from './button';
-import { CircularArrowsMark } from './converted-artifact-mark';
 import { CalculationStatus } from './calculation-status';
 import { Dropdown } from './dropdown';
 import { PageHeader } from './page-chrome';
@@ -9,7 +8,6 @@ import { QualityRule, qualityRuleHost } from './quality-rule';
 import { TableColumnGroup } from './data-table-page';
 import { WorkspacePage } from './workspace-page';
 import { allRuneSetNames } from '../lib/rune-sets';
-import { runeSubValue } from '../lib/runes';
 import { lastSubPropertyLevel } from '../lib/rune-properties';
 import type {
   RuneSimulationConfig, RuneSimulationResult, SimulationEntry, SimulationStage,
@@ -31,6 +29,7 @@ import {
 import { columnClasses, runeSimulatorTableColumns } from '../lib/table-layouts';
 import { RuneLink } from './rune-link';
 import type { OpenRuneOverlay } from './rune-link';
+import { RuneSubLine } from './rune-sub-line';
 
 type FormState = {
   count: string;
@@ -480,15 +479,9 @@ function SimulationRow({ entry, onOpenRune }: { entry: SimulationEntry; onOpenRu
 
 function SimulationSubProperty({ property }: { property: SimulatedSubProperty }) {
   const name = simulationStatLabel(property.statId);
-  return <li className="rune-simulator-property">
-    <span className="rune-sub-name">{name}</span>
-    <span className="rune-sub-value">{runeSubValue(property)}</span>
-    <span className="rune-simulator-marks">
-      {property.gemmed && <CircularArrowsMark label={`${name} is enchanted`} className="rune-simulator-enchanted-mark" />}
-      {property.rolls > 0 && <span className="rune-simulator-rolls type-caption" aria-label={`${property.rolls} power-up rolls in ${name}`}>
-        <PowerUpArrow /><span aria-hidden="true">{property.rolls}</span>
-      </span>}
-      {property.grind > 0 && <span className="rune-simulator-grind">+ {property.grind}</span>}
-    </span>
-  </li>;
+  return <RuneSubLine as="li" className="rune-simulator-property" property={property} name={name} format={String}>
+    {property.rolls > 0 && <span className="rune-simulator-rolls type-caption" aria-label={`${property.rolls} power-up rolls in ${name}`}>
+      <PowerUpArrow /><span aria-hidden="true">{property.rolls}</span>
+    </span>}
+  </RuneSubLine>;
 }

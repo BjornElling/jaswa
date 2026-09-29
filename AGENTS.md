@@ -251,14 +251,19 @@ parts an agent must not quietly break:
   section, a chosen option. Data is never coloured for decoration. A fact on
   screen is expressed through weight, position, or form.
 
-  Two narrow exceptions, each a vocabulary the user already reads elsewhere
-  rather than one invented here. Do not add a third without the same
+  Three narrow exceptions, each a vocabulary the user already reads elsewhere
+  rather than one invented here. Do not add a fourth without the same
   justification:
   - The verdict colours (`--state-*`), for a machine reporting its own state.
   - **An artifact's score, in three bands** (`docs/ARTIFACT-CANONICAL.md`
     §18) — the one place a fact wears the accent, because at the top band the
     number *is* the invitation to act. `artifactValueBands` is the single set
     of boundaries, and no table may carry its own.
+  - **A ground rune sub property** (`--rune-ground`), gold because the game
+    paints a Grindstone-touched line gold. The gem mark after a line takes the
+    line's colour, as in the game. `app/components/rune-sub-line.tsx` is the one
+    place that writes a rune sub property, so no page can colour one its own
+    way.
 
   A grade is **not** an exception. Tinting artifact quality in the game's own
   five hues was tried and removed: five colours competing across a dense table

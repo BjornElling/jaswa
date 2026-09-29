@@ -86,8 +86,8 @@ test('simulates random runes through +0, +9, +12 and +15, spending no craft with
   const plusFifteenHeights = await rowHeights();
   expect(Math.max(...plusFifteenHeights, ...plusZeroHeights) - Math.min(...plusFifteenHeights, ...plusZeroHeights)).toBeLessThan(1);
   /* With no role to judge by, nothing says which Gem helps, so nothing is spent. */
-  await expect(page.locator('.rune-simulator-enchanted-mark')).toHaveCount(0);
-  await expect(page.locator('.rune-simulator-grind')).toHaveCount(0);
+  await expect(page.locator('.rune-simulator-table .rune-sub-gem')).toHaveCount(0);
+  await expect(page.locator('.rune-simulator-table [data-ground="true"]')).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('rune-simulator-results.png') });
 
   const after = await filters.boundingBox();
@@ -126,8 +126,8 @@ test('reads every checkpoint with Rune Clean-up and counts the keepers by preset
   await expect(page.locator('.rune-simulator-table tbody [data-verdict="sell"]')).toHaveCount(sellsAtTwelve);
   /* The craft the verdict counted is the craft on screen: one Gem at most per rune,
      and a stone on every line that can take one. */
-  await expect(page.locator('.rune-simulator-enchanted-mark').first()).toBeVisible();
-  await expect(page.locator('.rune-simulator-grind').first()).toBeVisible();
+  await expect(page.locator('.rune-simulator-table .rune-sub-gem').first()).toBeVisible();
+  await expect(page.locator('.rune-simulator-table [data-ground="true"]').first()).toBeVisible();
   const keeps = await page.locator('.rune-simulator-table tbody [data-verdict="keep"]').count();
 
   const stats = page.locator('.rune-simulator-stats-table');
