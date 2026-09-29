@@ -41,13 +41,10 @@ type Placement = { top: number; right: number; width: number; height: number };
  * scrolled past needs none. `Math.max` against the plain inset says that.
  *
  * The other three come from the badge because two stacked cards that nearly
- * agree read as a mistake, and every way of nearly agreeing was tried on the
- * way here. The window's own inset put the toast's right edge well outside the
- * badge's, because the badge keeps the *workspace's* gutter — it sits inside
- * the rail's grid column, and the window reserves a scrollbar track besides.
- * Matching the right edge alone then left the wider toast hanging out to the
- * left instead. Only the whole box copied over stacks the two exactly, so the
- * whole box is what is copied.
+ * agree read as a mistake. The fixed notice uses the badge's right inset and
+ * its layout width. Those values share CSS pixels with the canvas; fractional
+ * viewport measurements do not, and feeding them back through `zoom` was the
+ * source of the small but visible sideways drift.
  *
  * `getBoundingClientRect` reads the zoomed canvas in viewport pixels while
  * `offsetHeight` reads the same box in the canvas's own, so the ratio between
@@ -62,7 +59,7 @@ function placeBelow(badge: HTMLElement | null, inset: number, gap: number): Plac
   if (!scale) return null;
   return {
     top: Math.max(inset, box.bottom / scale + gap),
-    right: Math.max(0, (window.innerWidth - box.right) / scale),
+    right: Math.max(0, Math.round((window.innerWidth - box.right) / scale)),
     width: box.width / scale,
     height: box.height / scale,
   };

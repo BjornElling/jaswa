@@ -60,9 +60,9 @@ test('the confirmation clears the account badge they share a corner with', async
      to the left. Two cards in one corner either stack exactly or look broken.
      Half a pixel of tolerance is the canvas scale's rounding, not an offset. */
   expect(stacked!.y).toBeGreaterThan(topBadge!.y + topBadge!.height);
-  expect(stacked!.x).toBeCloseTo(topBadge!.x, 0);
-  expect(stacked!.x + stacked!.width).toBeCloseTo(topBadge!.x + topBadge!.width, 0);
-  expect(stacked!.width).toBeCloseTo(topBadge!.width, 0);
+  expect(Math.abs(stacked!.x - topBadge!.x)).toBeLessThan(0.25);
+  expect(Math.abs((stacked!.x + stacked!.width) - (topBadge!.x + topBadge!.width))).toBeLessThan(0.25);
+  expect(Math.abs(stacked!.width - topBadge!.width)).toBeLessThan(0.25);
   expect(stacked!.height).toBeCloseTo(topBadge!.height, 0);
   /* And it holds its own words inside that box rather than spilling past it. */
   expect(await confirmation.evaluate((card) => card.scrollWidth - card.clientWidth)).toBeLessThanOrEqual(0);
