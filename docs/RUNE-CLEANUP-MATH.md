@@ -379,17 +379,12 @@ change its score. §4.1 ended that: a build with HP % in slots 4 and 6 asks its 
 for thousands less HP than one with ATK % there. Every compatible build is therefore
 prepared and **the rune keeps its best**.
 
-**Every build that clears the floor is asked for its chance, and the preset answers
-with its best of each.** A preset's builds are the main-stat combinations it would
-accept in slots 2, 4 and 6, and the rune goes into whichever of them it suits: its Max
-value is its best build's, and its chance is the best chance any build gives, even
-where those are two different builds. It used to ask only the best-valued build, and
-the best-valued build is not always the likeliest — one whose other targets its main
-stats already cover puts the rune's one excellent line on a higher ceiling *and* a
-higher bar, and a build that asks less of the rune can be the one it reaches. Measured
-on 2,500 synthetic runes against the shipped presets, asking every build turned 5 to
-30 Sells into Power up, depending on the policy stop, and turned no Power up into a
-Sell; 170-odd runes printed a higher chance.
+**Every compatible build is a complete reading.** A preset's builds are the main-stat
+combinations it accepts in slots 2, 4 and 6. Each supplies its own Max value, quality
+floor and Chance. A build clears only when that same reading clears both gates; a
+high Max value from one build may not borrow a passing Chance from another. Best preset
+is then the passing reading with the highest Max value, or, where none pass, simply the
+reading with the highest Max value.
 
 The obvious worry is the count: three mains preferred in each of slots 2, 4 and 6 is
 27 builds. A rune only fits the builds naming its own main, so that is nine for a
@@ -403,17 +398,12 @@ on the processor, 2,500 runes against the shipped presets went from 2.7 s to abo
 adding a 64-build preset costs a further 1.5 s. The counting is the part the graphics
 card takes over (§10.2).
 
-**The consequence, stated rather than left to be discovered.** "Its best build" now
-means something stronger than it used to, and it reads optimistically: a rune with one
-excellent line will find the build whose other targets are covered by main properties,
-because that is the build in which its one line is worth the most. A PvP def rune
-carrying HP % and nothing else useful reaches 89 % against the DEF % / DEF % build,
-where DEF needs nothing from sub properties, and 77 % against the HP % / HP % build,
-where it needs a great deal. Both readings are true of the build they describe, the
-preset says it will accept either, and the quality floor's stops (§9) are calibrated
-against this engine and not the previous one. Narrowing it would mean asking the user
-which build they actually intend — which is a preset-model decision, not an arithmetic
-one, and is not made here.
+**The consequence, stated rather than left to be discovered.** A rune with one
+excellent line may still find the build whose other targets are covered by main
+properties, because that is the build in which its line is worth most. But the row
+reports that build's own Chance as well; it never splices together two favourable
+answers. Narrowing the family would mean asking the user which build they actually
+intend — a preset-model decision, not an arithmetic one, and not made here.
 
 ## 6. Gems and Grindstones
 
@@ -659,8 +649,11 @@ Equipped/Inventory buttons and its level range are presentation filters applied
 after the engine has answered, and they change no figure.
 
 For every build of every preset the engine applies the set/main rank discount, the
-Max-value quality floor, and then the Chance floor. **The Chance floor is one
-comparison: the rune's chance — its best build's (§5.1) — against the Power-up policy
+Max-value quality floor, and then the Chance floor. Every viable reading competes:
+a preferred reading never suppresses an acceptable one, nor a broken one while the
+Broken runes setting permits it. The rank makes that reading's own gates stricter or
+looser; it is not a priority rule between presets. **The Chance floor is one
+comparison: the rune's chance in that same build reading (§5.1) — against the Power-up policy
 stop**, and the stops mean what their labels say: Full YOLO 1 %, Adventurous 5 %,
 Balanced 20 %, Picky 50 %, Take no chances 80 %. They used to run 2 %–40 %, so Take no
 chances still rolled a rune that would miss more often than it arrived. The Chance
@@ -670,10 +663,13 @@ printed `80 %` beside a Sell. A real chance under one point prints `<1 %`.
 
 A passing rune is eligible for every preset it passed. If it passes at least one
 preset, it is **Power up** below +12, **Keep** at +12, and **Power up** again at +13 or +14. At +15 it is **Keep**. Between +12 and +15 the
-action is deterministic main-stat investment; no new chance is shown. The row chooses its strongest passing preset only to explain
-the result; that choice cannot displace another rune and no desired amount can make
-an otherwise passing rune **Sell**. A rune that passes none of the presets is **Sell**
-for the first applicable ordinary reason.
+action is deterministic main-stat investment; no new chance is shown. **Best preset is
+the passing reading with the highest Max value.** Max value and Chance always come from
+that same build. If no reading passes both gates, Best preset is instead the reading
+with the highest Max value, regardless of its Chance. This rule is the single source
+for every Best preset label in Rune Clean-up and Rune Simulator; it cannot displace
+another rune or make an otherwise passing rune **Sell**. A rune that passes none of
+the presets is **Sell** for the first applicable ordinary reason.
 
 The +12 and +15 readings are otherwise identical: Max value, standing, chance and
 the keep/sell decision are all based on the same finished +15 projection. +15 is a
@@ -837,8 +833,8 @@ the active credit through §6's `max`, so a real stone no larger than the credit
 nothing. `verify:rune-cleanup-craft-monotonic` checks the candidate rule, and
 `verify:rune-cleanup-preference-monotonic` checks the complete recommendation funnel.
 
-The row names one preset and prints that preset's figures — the Max value and standing
-of its best build, and the best chance any of its builds gives (§5.1).
+The row names one preset and prints one build reading's figures — its Max value,
+standing and Chance together (§5.1).
 
 ## 9.3 A slot's share is of everything it produces
 

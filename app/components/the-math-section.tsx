@@ -484,7 +484,7 @@ export function TheMathSection() {
           The Max value column is always the plain thing it says: how close this rune can get to a perfect rune for its slot. That is the honest description of one rune, and it is the number to compare two runes of the same slot with. The floor above is what it is measured against.
         </p>
         <p>
-          A preset describes a <i>family</i> of builds, not one build, and the main stats of the other five slots change what a rune is worth — a build with HP % in slots 4 and 6 asks its runes for thousands less HP than one with ATK % there. So every compatible build is scored and the rune keeps its best: its best Max value, and its best chance, which need not come from the same build. A build that asks less of the rune can be the one it is likeliest to reach.
+          A preset describes a <i>family</i> of builds, not one build, and the main stats of the other five slots change what a rune is worth — a build with HP % in slots 4 and 6 asks its runes for thousands less HP than one with ATK % there. So every compatible build is scored as one complete reading: its Max value and its Chance stay together. Best preset is the passing reading with the highest Max value; if none pass, it is simply the highest-Max-value reading.
         </p>
         <p>
           That reads optimistically, and deliberately so: a rune with one excellent line will find the build whose other targets its main stats already cover, because that is the build where its one line counts for most. A PvP def rune carrying HP % and little else reaches 89 % against a DEF % / DEF % build and 77 % against an HP % / HP % one. Both are true of the build they describe, and your preset says it will take either.

@@ -31,12 +31,12 @@ const presets = defaultRunePotentialPresets();
 const noCraft = { gem: null, gemGrade: 'Hero', grind: null, grindGrade: 'Hero' };
 const builds = presets.map((preset) => [preset, presetBuilds(preset)]);
 
-function hasPreferredCandidate(rune) {
+function hasCandidateAtRank(rune, wantedRank) {
   const scope = newRuneAdviceScope();
   return builds.some(([preset, presetBuildsForRune]) => {
     const line = base.get(preset.type);
     return line !== undefined && presetBuildsForRune.some((build) =>
-      prepareRuneCandidate(rune, preset, build, line, noCraft, scope)?.rank === 'preferred');
+      prepareRuneCandidate(rune, preset, build, line, noCraft, scope)?.rank === wantedRank);
   });
 }
 
@@ -72,14 +72,31 @@ const broken = await assertOnlyGetsStricter(
   { ...defaultRunePotentialSettings, brokenRunes: 5 },
 );
 
-for (const [label, [lenient, strict]] of [['Accepted', accepted], ['Broken', broken]]) {
-  for (const rune of runes.filter(hasPreferredCandidate)) {
-    assert.equal(
-      lenient.get(rune.id)?.verdict,
-      strict.get(rune.id)?.verdict,
-      `${label}: changing the tolerance must not change a preferred rune's verdict (${rune.id})`,
-    );
-  }
+/* A preferred candidate is an offer, never an exclusive claim. An accepted or
+   broken reading that is stronger may win when its own slider permits it. The
+   old rank-priority shortcut silently discarded those readings before either
+   gate was tried. */
+const allRanksAllowed = await judged({
+  ...defaultRunePotentialSettings, runeQuality: 1, powerUpPolicy: 1, acceptedRunes: 1, brokenRunes: 1,
+});
+for (const rank of ['acceptable', 'broken']) {
+  const winner = runes.find((rune) =>
+    hasCandidateAtRank(rune, 'preferred')
+    && hasCandidateAtRank(rune, rank)
+    && allRanksAllowed.get(rune.id)?.rank === rank
+    && kept(allRanksAllowed.get(rune.id)));
+  assert.ok(winner,
+    `${rank} must be able to win even when the same rune has a preferred candidate`);
+}
+
+/* Broken = No removes only broken readings. A preferred or acceptable fallback
+   remains visible and decisive whenever one exists. */
+const brokenRejected = await judged({ ...defaultRunePotentialSettings, brokenRunes: 5 });
+for (const rune of runes.filter((entry) =>
+  hasCandidateAtRank(entry, 'broken')
+  && (hasCandidateAtRank(entry, 'preferred') || hasCandidateAtRank(entry, 'acceptable')))) {
+  assert.notEqual(brokenRejected.get(rune.id)?.rank, 'broken',
+    `Broken = No must not let a broken reading hide another match (${rune.id})`);
 }
 
 await assertOnlyGetsStricter(

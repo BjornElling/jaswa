@@ -240,11 +240,8 @@ class SlotShares {
         }
         return candidates.length === 0 ? [] : [{ preset, candidates }];
       });
-      const hasPreferred = candidatesByPreset.some(({ candidates }) =>
-        candidates.some(({ rank }) => rank === 'preferred'));
       return candidatesByPreset.flatMap(({ preset, candidates }) => {
-        const judged = hasPreferred ? candidates.filter(({ rank }) => rank === 'preferred') : candidates;
-        const best = judged.reduce<{ standing: number; max: number; rank: MatchRank } | null>(
+        const best = candidates.reduce<{ standing: number; max: number; rank: MatchRank } | null>(
           (current, candidate) => !current || candidate.standing > current.standing
             || (candidate.standing === current.standing && candidate.max > current.max) ? candidate : current,
           null,
@@ -330,7 +327,7 @@ type RunePlan = { rune: Rune; steps: Step[] };
 type Answer = {
   value: number; maxValue: number; chance: number; share: number;
   preset: RunePotentialPreset; rank: MatchRank;
-  /** This preset's best build, whose craft decision the row stands on. */
+  /** The one build whose Max value, Chance and craft decision the row shows. */
   candidate: RuneCandidate;
 };
 
@@ -384,7 +381,7 @@ export const qualityThresholds: readonly number[] = [0.33, 0.23, 0.15, 0.09, 0.0
  * chances only a rune four times in five sure to get there. The ladder used to run
  * 2 %–40 %, so "Take no chances" still rolled a rune that would miss more often than
  * it arrived. The verdict is this one comparison and nothing else: the rune's chance
- * — its best build's (§5.1) — against the stop.
+ * — in its own build reading (§5.1) — against the stop.
  */
 export const chanceThresholds: readonly number[] = [0.01, 0.05, 0.20, 0.50, 0.80];
 
@@ -619,59 +616,33 @@ export async function runeAdvice(
       }
     }
 
-    /* **Every build of a preset is asked for its odds, and the preset answers with
-       its best of each.** A preset's builds are the main-stat combinations it would
-       accept in slots 2, 4 and 6, and the rune goes into whichever of them it suits
-       — so its Max value is its best build's, and its chance is its best build's
-       chance, even where those are two different builds. The best-valued build is
-       not always the likeliest: one whose other targets its main stats already cover
-       puts this rune's one excellent line on a higher ceiling and a higher bar, and a
-       build that asks less of the rune can be the one it reaches. Asking only the
-       best-valued build sold such a rune for want of a question nobody asked.
+    /* **Every build is one complete reading.** A preset's builds are the main-stat
+       combinations it would accept in slots 2, 4 and 6. A row may name a reading only
+       when that reading's own Max value and Chance clear their gates; it must not pair
+       one build's high Max value with another's high Chance.
 
        It is affordable because a rune is played forward once however many builds ask
        about it: another build is another price list over the same runs, and a build
        whose best end state misses its bar settles at zero without a run. A rune only
        fits the builds that name its own main, so three choices in each of slots 2, 4
        and 6 is nine builds for a slot-2 rune and twenty-seven for a slot-1 rune. */
-    /* A rune that is preferred by any role is judged through those preferred readings
-       only. Accepted and Broken are a fallback for runes that no role prefers; they
-       must not be able to displace a preferred reading when their slider moves.
-
-       Ties are broken on Max value, and they are not hypothetical. A standing is a
+    /* Every viable reading competes. Preferred, accepted and (unless the user chose
+       No) broken say how demanding its own gate is; a preferred match is never a
+       licence to hide a better answer for another role. Ties are broken on Max value,
+       and they are not hypothetical. A standing is a
        position in a box recorded at a finite resolution, so two candidates a hair
        apart can land on the same step of it — and far out in a box's thin upper tail,
        where the best runes live, a whole span of Max values can. Falling through to
        the rune id there would seat an excellent rune behind a merely good one for
        want of a comparison that was available all along. */
-    const judgedCandidates = candidates.some((candidate) => candidate.rank === 'preferred')
-      ? candidates.filter((candidate) => candidate.rank === 'preferred')
-      : candidates;
-    const beats = (candidate: Contender, standing: Contender | undefined) => !standing
-      || candidate.value > standing.value
-      || (candidate.value === standing.value && candidate.maxValue > standing.maxValue);
-    const bestPerPreset = new Map<string, Contender>();
-    const buildsPerPreset = new Map<string, Contender[]>();
-    for (const candidate of judgedCandidates) {
-      if (beats(candidate, bestPerPreset.get(candidate.preset.id))) {
-        bestPerPreset.set(candidate.preset.id, candidate);
-      }
-      const family = buildsPerPreset.get(candidate.preset.id);
-      if (family) family.push(candidate); else buildsPerPreset.set(candidate.preset.id, [candidate]);
-    }
-
-    /* Best first, so the strongest candidate that also clears the chance bar wins,
-       and so a rune that clears nothing still reports its best showing rather than
-       an arbitrary one.
-
-       On standing rather than on Max value: each preset prices this rune's slot
-       differently, so their boxes differ, and a position in the box is the only
-       reading of the two that is comparable across them. The floor applied to it is
-       one shared number, so no presentation transform can change which one wins. */
-    const contenders = [...bestPerPreset.values()]
-      .sort((left, right) => right.value - left.value || right.maxValue - left.maxValue);
+    /* The row's Best preset is a Max-value reading, not a standing reading. A
+       standing decides whether one reading clears its own quality floor, but cannot
+       decide which role the rune best serves: the boxes differ from role to role.
+       Keep every build as a complete pair of Max value and Chance, so a high Max
+       value from one build cannot borrow a passing chance from another. */
+    const contenders = [...candidates]
+      .sort((left, right) => right.maxValue - left.maxValue || right.value - left.value);
     const steps: Step[] = [];
-    let anyProcessed = false;
     /* The chance has to be the chance of clearing the *same* bar the value was judged
        against. The value carries the accepted/broken discount, so the fill the rune
        actually has to reach is the bar divided by that discount — otherwise an
@@ -687,18 +658,12 @@ export async function runeAdvice(
     };
     /* These preferences change how much of the ordinary box this rune is
        allowed to represent. They widen the retained share; they never remove
-       another rune's place or introduce any global limit. */
+       another rune's place or introduce any global limit. Every candidate is
+       asked separately: the Max value and the Chance that selects Best preset must
+       describe the same build. */
     for (const candidate of contenders) {
       const passesValue = candidate.value >= 1 - candidate.share;
-      if (!passesValue && anyProcessed) continue;
-      anyProcessed = true;
-      /* A build below the floor cannot reach it by any road, so asking it would only
-         spend a bound on a certain zero. Where not even the best build passes, it is
-         still asked once, so the row reports the odds of its best showing. */
-      const asked = passesValue
-        ? (buildsPerPreset.get(candidate.preset.id) ?? []).filter((build) => build.value >= 1 - build.share)
-        : [candidate];
-      steps.push({ candidate, passesValue, asks: asked.map(askOf) });
+      steps.push({ candidate, passesValue, asks: [askOf(candidate)] });
     }
 
     prepared.push({ rune, steps });
@@ -715,19 +680,25 @@ export async function runeAdvice(
       chance: step.asks.reduce((best, at) => Math.max(best, answers[at]), 0),
       preset: step.candidate.preset, rank: step.candidate.rank, candidate: step.candidate.prepared,
     }));
-    /* A rune may satisfy several presets. Pick its strongest passing reading only
-       to give the row one explanation; this choice never removes another rune or
-       changes whether this rune passed. Every passing rune remains eligible. The
-       row's Max value and standing are that preset's best build's, and its chance
-       is the best chance any of the preset's builds gives (§5.1). */
-    const selected = answered
-      .filter((answer, at) => plan.steps[at].passesValue && answer.chance >= chanceBar)
+    /* A rune may satisfy several presets. Best preset is the one with the highest
+       Max value among readings that clear both gates. If none clear, it is simply
+       the highest-Max-value reading. That same reading supplies every figure in the
+       row; no build may lend its Chance to another build's Max value. */
+    const answersWithSteps = answered.map((answer, at) => ({ answer, passesValue: plan.steps[at].passesValue }));
+    const allowed = broken === 0
+      ? answersWithSteps.filter(({ answer }) => answer.rank !== 'broken')
+      : answersWithSteps;
+    const selected = allowed
+      .filter(({ answer, passesValue }) => passesValue && answer.chance >= chanceBar)
       .sort((left, right) =>
-        right.value - left.value
-        || right.maxValue - left.maxValue
-        || right.chance - left.chance
-        || left.preset.id.localeCompare(right.preset.id))[0] ?? null;
-    const chosen = selected ?? answered[0] ?? null;
+        right.answer.maxValue - left.answer.maxValue
+        || right.answer.value - left.answer.value
+        || right.answer.chance - left.answer.chance
+        || left.answer.preset.id.localeCompare(right.answer.preset.id))[0]?.answer ?? null;
+    /* At Broken = No, an unwanted rune remains as the named fallback only when no
+       preferred or acceptable reading exists. It must not hide a permitted reading
+       merely because its standing happens to be higher. */
+    const chosen = selected ?? allowed[0]?.answer ?? answered[0] ?? null;
 
     advice.set(plan.rune.id, {
       ...decide({
