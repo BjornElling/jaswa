@@ -145,6 +145,9 @@ function maxCraftOf(rune: Rune, known: RuneAdvice | undefined, explained: Explai
     `74 %` beside a Sell would explain nothing. */
 const tenths = (fraction: number) => `${(fraction * 100).toFixed(1)} %`;
 
+/** How the rune's set and main answer Best preset, in the words the preset editor uses. */
+const suitabilityLabels: Record<MatchRank, string> = { preferred: 'Preferred', acceptable: 'Accepted', broken: 'Broken' };
+
 /**
  * A preferred rune gets a tick and an accepted one a ring: two shapes rather than
  * one shape in two tones, so the difference survives a glance, and the ring is also
@@ -199,7 +202,10 @@ function Evaluation({ rune, presets, explained }: {
   const oddsLeft = rune.level < lastSubPropertyLevel;
   const facts = [
     { label: 'Best preset for this rune', value: chosen?.name ?? placeholder },
-    { label: 'Based on the Rune quality floor, the rune must be among the best', value: chosen && advice ? tenths(advice.floorShare) : '—' },
+    { label: 'Suitability for this preset', value: chosen && advice ? suitabilityLabels[advice.rank] : '—' },
+    /* The floor and its cutoff are one statement, set a step apart from which preset
+       it is and how well the rune suits it. */
+    { label: 'Based on the Rune quality floor, the rune must be among the best', value: chosen && advice ? tenths(advice.floorShare) : '—', opensGroup: true },
     /* A floor that lets the whole box through has no cutoff to state, and says so
        rather than printing the unbounded figure behind it. */
     { label: 'This equals a Max value cutoff of', value: !chosen || !advice ? '—'
@@ -208,7 +214,7 @@ function Evaluation({ rune, presets, explained }: {
   return <section className="rune-overlay-evaluation" aria-labelledby="rune-overlay-evaluation-title">
     <h3 id="rune-overlay-evaluation-title" className="overlay-block-title">Evaluation</h3>
     <dl className="rune-overlay-evaluation-facts">
-      {facts.map((fact) => <div key={fact.label}>
+      {facts.map((fact) => <div key={fact.label} data-opens-group={('opensGroup' in fact) || undefined}>
         <dt>{fact.label}</dt>
         <dd>{fact.value}</dd>
       </div>)}

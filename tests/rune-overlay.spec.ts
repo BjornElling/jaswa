@@ -104,8 +104,9 @@ test('Evaluation explains Best preset with every preset\'s reading, at one heigh
   await expect(readings.locator('tbody tr').last().locator('td').first()).toBeEmpty();
   await expect(row).toContainText(`${Math.round(Number.parseFloat(bestMax))} %`);
   const facts = evaluation.locator('.rune-overlay-evaluation-facts dd');
-  await expect(facts.nth(1)).toHaveText(/^\d+\.\d %$/);
-  await expect(facts.nth(2)).toHaveText(/^(\d+\.\d %|None)$/);
+  await expect(facts.nth(1)).toHaveText(/^(Preferred|Accepted|Broken)$/);
+  await expect(facts.nth(2)).toHaveText(/^\d+\.\d %$/);
+  await expect(facts.nth(3)).toHaveText(/^(\d+\.\d %|None)$/);
 });
 
 test('a worn rune names its wearer as a way into that monster', async ({ page }) => {

@@ -4877,6 +4877,7 @@ html.overlay-open .overlay-backdrop { right: var(--overlay-gutter, 0px); }
 }
 .rune-overlay-evaluation-facts { display: grid; gap: var(--s1); margin: 0; }
 .rune-overlay-evaluation-facts > div { display: flex; justify-content: space-between; gap: var(--s4); }
+.rune-overlay-evaluation-facts > div[data-opens-group] { margin-top: var(--s3); }
 .rune-overlay-evaluation-facts dt { color: var(--text); }
 .rune-overlay-evaluation-facts dd {
   margin: 0;
