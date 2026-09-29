@@ -28,13 +28,13 @@ self.onmessage = async (event: MessageEvent<RuneAdviceWorkerRequest>) => {
   if (message.type !== 'calculate') return;
   try {
     const startedAt = performance.now();
-    const { runes, presets, settings, base, preferWebGpu } = message.request;
+    const { runes, presets, settings, base, preferWebGpu, explain } = message.request;
     const engines: CalculationBackend[] = [];
     const advice = await runeAdvice(runes, presets, settings, base, async (jobs, chanceBar) => {
       const answer = await countRuneChances(jobs, preferWebGpu, chanceBar);
       engines.push(answer.backend);
       return answer.shares;
-    });
+    }, { explain });
     const response: RuneAdviceWorkerResponse = {
       type: 'result', requestId: message.requestId, advice, durationMs: performance.now() - startedAt,
       /* One batch today, so one engine. It is still read through

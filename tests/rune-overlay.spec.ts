@@ -72,6 +72,34 @@ test('Max stats names the Gem and the stones the verdict counted', async ({ page
   await expect(maxOf(/^Resistance/)).toHaveText('');
 });
 
+test('Evaluation explains Best preset with every preset\'s reading, at one height', async ({ page }) => {
+  await openCleanup(page);
+  const row = page.getByRole('table', { name: 'Rune verdicts' }).locator('tbody tr')
+    .filter({ hasText: 'Violent', has: page.getByRole('img', { name: 'Legend quality' }) })
+    .filter({ hasText: /SPD\s*\+5/ });
+  await row.locator('.rune-link').click();
+  const overlay = page.getByRole('dialog', { name: 'Violent' });
+  const evaluation = overlay.getByRole('region', { name: 'Evaluation' });
+  const readings = evaluation.getByRole('table', { name: 'Every preset\'s reading' });
+  /* Every preset has a row before the answer lands, so the box does not grow under it. */
+  await expect(readings.locator('tbody tr')).toHaveCount(10);
+  const early = await evaluation.boundingBox();
+  const best = readings.locator('tbody tr[aria-current="true"]');
+  await expect(best).toHaveCount(1);
+  expect(await evaluation.boundingBox()).toEqual(early);
+
+  /* The starred row is the preset the verdict table names, with the same Max value. */
+  const presetName = (await best.getByRole('rowheader').textContent())!;
+  await expect(best.getByRole('img', { name: 'Best preset' })).toBeVisible();
+  await expect(evaluation.getByText(presetName, { exact: true }).first()).toBeVisible();
+  await expect(row).toContainText(presetName);
+  const bestMax = (await best.locator('td').first().textContent())!;
+  await expect(row).toContainText(`${Math.round(Number.parseFloat(bestMax))} %`);
+  const facts = evaluation.locator('.rune-overlay-evaluation-facts dd');
+  await expect(facts.nth(1)).toHaveText(/^\d+\.\d %$/);
+  await expect(facts.nth(2)).toHaveText(/^(\d+\.\d %|None)$/);
+});
+
 test('a worn rune names its wearer as a way into that monster', async ({ page }) => {
   const links = await openCleanup(page);
   await links.filter({ hasText: 'Fatal' }).click();

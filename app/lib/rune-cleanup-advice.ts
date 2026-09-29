@@ -324,11 +324,13 @@ type Step = { candidate: Contender; passesValue: boolean; asks: number[] };
 type RunePlan = { rune: Rune; steps: Step[] };
 
 type Answer = {
-  value: number; maxValue: number; chance: number; share: number;
+  value: number; maxValue: number; chance: number; share: number; floorMaxValue: number;
   preset: RunePotentialPreset; rank: MatchRank;
   /** The one build whose Max value, Chance and craft decision the row shows. */
   candidate: RuneCandidate;
 };
+
+type AnswerWithStep = { answer: Answer; passesValue: boolean };
 
 export type RuneVerdict = 'power-up' | 'keep' | 'sell';
 
@@ -427,6 +429,12 @@ export type RuneAdvice = {
    * of slot 2's mains. `standing` passed where it reached `1 - floorShare`.
    */
   floorShare: number;
+  /**
+   * The Max value at which the best `floorShare` of this reading's own box begins:
+   * the floor restated on the scale the row prints, so a reader can hold the rune's
+   * Max value against the one figure it had to reach.
+   */
+  floorMaxValue: number;
   /** `0`–`1`: the chance of reaching the final +15 bar; RNG ends at +12. */
   chance: number;
   /** The preset this rune answers best, or `null` when none can use it. */
@@ -440,6 +448,31 @@ export type RuneAdvice = {
    * the items the verdict counted, rather than deciding the craft a second time.
    */
   craftedLines: EndStateLine[] | null;
+  /**
+   * Every preset's own best reading of this rune, for a page that explains the
+   * choice of Best preset rather than only stating it. `null` unless asked for:
+   * a reading's expectation costs a pass over the rune's runs, and the table,
+   * which asks about every rune at once, has no use for the other nine.
+   */
+  readings: PresetReading[] | null;
+};
+
+/**
+ * **One preset's view of one rune**, chosen within that preset by the same rule Best
+ * preset is chosen by across all of them: the readings that clear both gates first,
+ * the one expected to be worth most among those. So the reading marked best in a list
+ * of these is exactly the one the row names.
+ */
+export type PresetReading = {
+  presetId: string;
+  maxValue: number;
+  chance: number;
+  /** What the rune is expected to be worth at `+15`, on the Max value scale — the figure Best preset is chosen on. */
+  expected: number;
+  floorShare: number;
+  floorMaxValue: number;
+  /** Whether this reading clears both the quality floor and the chance bar. */
+  cleared: boolean;
 };
 
 /**
@@ -529,6 +562,8 @@ export async function runeAdvice(
   settings: RunePotentialSettings, base: ReadonlyMap<string, ReferenceStats>,
   /** Who answers the odds. The processor by default; the worker passes the card. */
   count: ChanceCounter = async (jobs) => countJobs(jobs),
+  /** Whether to carry every preset's reading out (`RuneAdvice.readings`). */
+  { explain = false }: { explain?: boolean } = {},
 ): Promise<Map<string, RuneAdvice>> {
   const { qualityBar, chanceBar, accepted, broken, intangible, credit } = policyOf(settings);
   const worthOf = (rank: MatchRank) => (rank === 'preferred' ? 1 : rank === 'acceptable' ? accepted : broken);
@@ -677,6 +712,7 @@ export async function runeAdvice(
   for (const plan of prepared) {
     const answered: Answer[] = plan.steps.map((step) => ({
       value: step.candidate.value, maxValue: step.candidate.maxValue, share: step.candidate.share,
+      floorMaxValue: boxThreshold(step.candidate.box, step.candidate.share),
       chance: step.asks.reduce((best, at) => Math.max(best, answers[at]), 0),
       preset: step.candidate.preset, rank: step.candidate.rank, candidate: step.candidate.prepared,
     }));
@@ -690,7 +726,7 @@ export async function runeAdvice(
        on a rune whose other two lines only another role could use. The chosen
        reading supplies every figure in the row; no build may lend its Chance to
        another build's Max value. */
-    const answersWithSteps = answered.map((answer, at) => ({ answer, passesValue: plan.steps[at].passesValue }));
+    const answersWithSteps: AnswerWithStep[] = answered.map((answer, at) => ({ answer, passesValue: plan.steps[at].passesValue }));
     const allowed = broken === 0
       ? answersWithSteps.filter(({ answer }) => answer.rank !== 'broken')
       : answersWithSteps;
@@ -712,10 +748,37 @@ export async function runeAdvice(
         brokenRejected: broken === 0,
       }),
       floorShare: chosen?.share ?? 0,
+      floorMaxValue: chosen?.floorMaxValue ?? 0,
       craftedLines: chosen && plan.rune.level >= lastSubPropertyLevel ? finishedLines(chosen.candidate) : null,
+      readings: explain ? presetReadings(presets, answersWithSteps, allowed, chanceBar, worthOf) : null,
     });
   }
   return advice;
+}
+
+/**
+ * Each preset's own pick, by the rule the row's pick is made by, so the list can
+ * never mark as best a reading the row does not name. A preset whose only readings
+ * are broken, at Broken = No, still shows them rather than a blank: the list explains
+ * the choice, and "this preset could only read it as broken" is part of that.
+ */
+function presetReadings(
+  presets: readonly RunePotentialPreset[], answered: readonly AnswerWithStep[], allowed: readonly AnswerWithStep[],
+  chanceBar: number, worthOf: (rank: MatchRank) => number,
+): PresetReading[] {
+  let runs: RuneRuns | null = null;
+  return presets.flatMap((preset) => {
+    const own = (list: readonly AnswerWithStep[]) => list.filter(({ answer }) => answer.preset.id === preset.id);
+    const pool = own(allowed).length > 0 ? own(allowed) : own(answered);
+    const qualified = pool.filter(({ answer, passesValue }) => passesValue && answer.chance >= chanceBar);
+    const pick = mostExpected(qualified.length > 0 ? qualified : pool, worthOf)?.answer;
+    if (!pick) return [];
+    const raw = candidateExpectedValue(pick.candidate, () => (runs ??= runeRuns(pick.candidate.future)));
+    return [{
+      presetId: preset.id, maxValue: pick.maxValue, chance: pick.chance, expected: worthOf(pick.rank) * raw,
+      floorShare: pick.share, floorMaxValue: pick.floorMaxValue, cleared: qualified.length > 0,
+    }];
+  });
 }
 
 /**
@@ -811,7 +874,7 @@ function decide({ rune, value, standing, chance, preset, rank, cleared, brokenRe
   rune: Rune; value: number; standing: number; chance: number;
   preset: RunePotentialPreset | null; rank: MatchRank;
   cleared: boolean; brokenRejected: boolean;
-}): Omit<RuneAdvice, 'craftedLines' | 'floorShare'> {
+}): Omit<RuneAdvice, 'craftedLines' | 'floorShare' | 'floorMaxValue' | 'readings'> {
   const base = { maxValue: value, standing, chance, preset, rank };
   if (preset === null) {
     return { ...base, verdict: 'sell', reason: 'No preset can use it' };

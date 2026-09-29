@@ -37,6 +37,7 @@ import { useSessionStorageState } from '../lib/session-storage-state';
 import { RuneLink } from './rune-link';
 import type { OpenRuneOverlay } from './rune-link';
 import { RuneInnateLine, RuneSubLine } from './rune-sub-line';
+import { StarIcon } from './star-icon';
 
 /* Nine of the game's own set names, and the slots and levels a rune can have.
    Listed rather than derived from the import so the filter strip does not change
@@ -46,13 +47,6 @@ const starOptions = [1, 2, 3, 4, 5, 6];
 /* The requested quality filter deliberately leaves Magic out of its short row;
    when no quality is chosen, Magic runes remain included with every other rune. */
 const qualityOptions: readonly RuneDefaultGrade[] = ['Normal', 'Rare', 'Hero', 'Legend'];
-
-function StarIcon() {
-  return <svg className="rune-star-icon" viewBox="0 0 16 16" fill="none"
-    stroke="currentColor" strokeWidth="1.35" strokeLinejoin="round" aria-hidden="true">
-    <path d="M8 1.6 9.9 5.5l4.3.6-3.1 3  .8 4.3L8 11.4l-3.9 2 .8-4.3-3.1-3 4.3-.6L8 1.6Z" />
-  </svg>;
-}
 
 type RuneFilterState = {
   search: string;
@@ -241,8 +235,8 @@ export function RuneRecommendations({ game, monsterPreferences, settings, preset
         rune,
         index,
         advice: advice.get(rune.id) ?? {
-          verdict: 'sell', reason: '', maxValue: 0, standing: 0, floorShare: 0, chance: 0, preset: null, rank: 'broken',
-          craftedLines: null,
+          verdict: 'sell', reason: '', maxValue: 0, standing: 0, floorShare: 0, floorMaxValue: 0, chance: 0, preset: null, rank: 'broken',
+          craftedLines: null, readings: null,
         },
         location: rune.occupiedId === null ? 'Inventory' : monsterNames[rune.occupiedId]?.name ?? null,
       })),

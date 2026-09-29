@@ -28,6 +28,8 @@ export type RuneAdviceRequest = {
    * the user flipped once.
    */
   preferWebGpu: boolean;
+  /** Whether each answer carries every preset's reading (`RuneAdvice.readings`). */
+  explain?: boolean;
 };
 
 export type RuneAdviceWorkerRequest = {

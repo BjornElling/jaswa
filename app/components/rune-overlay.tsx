@@ -6,7 +6,9 @@ import type { MonsterReference, OpenMonsterOverlay } from './monster-link';
 import { Overlay } from './overlay';
 import { RuneEmblem } from './rune-emblem';
 import { RuneInnateLine, RuneSubLine } from './rune-sub-line';
+import { StarIcon } from './star-icon';
 import { formatNumber } from '../lib/formatting';
+import { runeChanceText } from '../lib/rune-cleanup-grid';
 import type { GameRecord } from '../lib/game-data';
 import { monsterPresentation } from '../lib/monster-catalog';
 import { runeAdviceChannel } from '../lib/compute/rune-advice-client';
@@ -70,50 +72,137 @@ function craftOf(rune: Rune, advice: RuneAdvice | undefined): MaxCraft {
     : { state: 'unavailable', reason: 'No preset can use this rune' };
 }
 
+/** Rune Clean-up's verdict on this rune with every preset's reading beside it. */
+type Explained =
+  | { state: 'pending' }
+  | { state: 'unavailable'; reason: string }
+  | { state: 'ready'; advice: RuneAdvice };
+
 /** The overlay's own channel to the advice worker, so opening a rune never
     supersedes a Rune Clean-up calculation in flight. */
 const overlayChannel = runeAdviceChannel();
 
 /**
- * The verdict's craft for this rune: read from Rune Clean-up's newest answers when
- * they were calculated with these very inputs — at once, so the column paints with
- * the overlay — and otherwise asked of the worker, off the main thread, where the
- * one-rune calculation takes about a second.
+ * The verdict for this rune, explained: read from Rune Clean-up's newest answers
+ * when they were calculated with these very inputs, and otherwise asked of the
+ * worker, off the main thread, where the one-rune calculation takes about a second.
+ *
+ * The table's answers carry no per-preset readings — it asks about every rune at
+ * once and would pay for nine expectations it never shows — so an answer from there
+ * still paints the craft column at once while the explained one is asked for.
  */
-function useMaxCraft(rune: Rune, game: GameRecord | undefined, settings: RunePotentialSettings,
-  presets: readonly RunePotentialPreset[], hardwareAcceleration: boolean): MaxCraft {
+function useRuneAdvice(rune: Rune, game: GameRecord | undefined, settings: RunePotentialSettings,
+  presets: readonly RunePotentialPreset[], hardwareAcceleration: boolean,
+): { known: RuneAdvice | undefined; explained: Explained } {
   const base = useMemo(() => {
     const lines = referenceLines(game);
     return lines === null ? null : new Map([...lines].map(([type, line]) => [type, line.stats]));
   }, [game]);
-  const blocked = rune.level < lastSubPropertyLevel ? `Decided at +${lastSubPropertyLevel}, when the sub properties are final`
-    : game === undefined || base === null ? 'Needs a level 40 monster in the import'
-      : presets.length === 0 ? 'Needs a Rune Clean-up preset' : null;
+  const blocked = game === undefined || base === null ? 'Needs a level 40 monster in the import'
+    : presets.length === 0 ? 'Needs a Rune Clean-up preset' : null;
   const known = useMemo(
     () => (game === undefined ? undefined : rememberedRuneAdvice({ data: game, settings, presets }, rune)),
     [game, settings, presets, rune],
   );
-  const [asked, setAsked] = useState<{ rune: Rune; craft: MaxCraft } | null>(null);
+  const [asked, setAsked] = useState<{ rune: Rune; explained: Explained } | null>(null);
+  const settled = known?.readings != null;
   useEffect(() => {
-    if (blocked !== null || known !== undefined || game === undefined || base === null) return undefined;
+    if (blocked !== null || settled || game === undefined || base === null) return undefined;
     let current = true;
-    void overlayChannel.calculate({ runes: [rune], presets, settings, base, preferWebGpu: hardwareAcceleration })
+    void overlayChannel.calculate({ runes: [rune], presets, settings, base, preferWebGpu: hardwareAcceleration, explain: true })
       .then((outcome) => {
         if (!current || outcome.status === 'superseded') return;
         if (outcome.status === 'failed') {
-          setAsked({ rune, craft: { state: 'unavailable', reason: outcome.message } });
+          setAsked({ rune, explained: { state: 'unavailable', reason: outcome.message } });
           return;
         }
         rememberRuneAdvice({ data: game, settings, presets }, [rune], outcome.advice);
-        setAsked({ rune, craft: craftOf(rune, outcome.advice.get(rune.id)) });
+        const advice = outcome.advice.get(rune.id);
+        setAsked({ rune, explained: advice ? { state: 'ready', advice } : { state: 'unavailable', reason: 'No preset can use this rune' } });
       });
     return () => { current = false; };
-  }, [rune, game, presets, settings, base, blocked, known, hardwareAcceleration]);
+  }, [rune, game, presets, settings, base, blocked, settled, hardwareAcceleration]);
   /* Closing the overlay gives the worker back rather than finishing into a void. */
   useEffect(() => overlayChannel.cancel, []);
-  if (blocked !== null) return { state: 'unavailable', reason: blocked };
+  if (blocked !== null) return { known: undefined, explained: { state: 'unavailable', reason: blocked } };
+  if (settled) return { known, explained: { state: 'ready', advice: known } };
+  return { known, explained: asked?.rune === rune ? asked.explained : { state: 'pending' } };
+}
+
+/** Below `+12` the lines are not final, so no craft is named yet, whatever the verdict says. */
+function maxCraftOf(rune: Rune, known: RuneAdvice | undefined, explained: Explained): MaxCraft {
+  if (rune.level < lastSubPropertyLevel) {
+    return { state: 'unavailable', reason: `Decided at +${lastSubPropertyLevel}, when the sub properties are final` };
+  }
+  if (explained.state === 'ready') return craftOf(rune, explained.advice);
   if (known !== undefined) return craftOf(rune, known);
-  return asked?.rune === rune ? asked.craft : { state: 'pending' };
+  return explained;
+}
+
+/** A fraction as a percentage to one decimal — finer than the table's whole points,
+    because here a Max value sits beside the cutoff it has to reach, and `74 %` against
+    `74 %` beside a Sell would explain nothing. */
+const tenths = (fraction: number) => `${(fraction * 100).toFixed(1)} %`;
+
+/**
+ * **Why Best preset is the preset it is**, and what the floor asked of it.
+ *
+ * Every preset gets a row whether or not it can read the rune, and every row is
+ * drawn while the answer is still on its way, so the box has one height from the
+ * first paint to the last. The best row is set apart by ink and a star, never by
+ * weight, so marking it moves nothing (`AGENTS.md` §2).
+ */
+function Evaluation({ rune, presets, explained }: {
+  rune: Rune; presets: readonly RunePotentialPreset[]; explained: Explained;
+}) {
+  const advice = explained.state === 'ready' ? explained.advice : undefined;
+  const readings = new Map((advice?.readings ?? []).map((reading) => [reading.presetId, reading]));
+  const chosen = advice?.preset ?? null;
+  const placeholder = explained.state === 'pending' ? 'Calculating'
+    : explained.state === 'unavailable' ? explained.reason : '—';
+  /* A rune at +12 has no odds left to quote; the Rune Clean-up table prints a dash there too. */
+  const oddsLeft = rune.level < lastSubPropertyLevel;
+  const facts = [
+    { label: 'Best preset for this rune', value: chosen?.name ?? placeholder },
+    { label: 'Based on the Rune quality floor, the rune must be among the best', value: chosen && advice ? tenths(advice.floorShare) : '—' },
+    /* A floor that lets the whole box through has no cutoff to state, and says so
+       rather than printing the unbounded figure behind it. */
+    { label: 'This equals a Max value cutoff of', value: !chosen || !advice ? '—'
+      : Number.isFinite(advice.floorMaxValue) ? tenths(advice.floorMaxValue) : 'None' },
+  ];
+  return <section className="rune-overlay-evaluation" aria-labelledby="rune-overlay-evaluation-title">
+    <h3 id="rune-overlay-evaluation-title" className="overlay-block-title">Evaluation</h3>
+    <dl className="rune-overlay-evaluation-facts">
+      {facts.map((fact) => <div key={fact.label}>
+        <dt>{fact.label}</dt>
+        <dd>{fact.value}</dd>
+      </div>)}
+    </dl>
+    <table className="rune-overlay-readings" aria-label="Every preset's reading">
+      <thead>
+        <tr>
+          <th scope="col">Preset</th>
+          <th scope="col">Max value</th>
+          <th scope="col">Chance</th>
+          <th scope="col">Expected</th>
+          <th scope="col">Best</th>
+        </tr>
+      </thead>
+      <tbody>
+        {presets.map((preset) => {
+          const reading = readings.get(preset.id);
+          const best = chosen?.id === preset.id;
+          return <tr key={preset.id} data-best={best || undefined} aria-current={best ? 'true' : undefined}>
+            <th scope="row" title={preset.name}>{preset.name}</th>
+            <td>{reading ? tenths(reading.maxValue) : '—'}</td>
+            <td>{reading && oddsLeft ? runeChanceText(reading.chance) : '—'}</td>
+            <td>{reading ? tenths(reading.expected) : '—'}</td>
+            <td>{best && <StarIcon className="rune-overlay-best-mark" label="Best preset" />}</td>
+          </tr>;
+        })}
+      </tbody>
+    </table>
+  </section>;
 }
 
 /** A Gem's id, what it rolled, and a stone's figure, written alike in every column that shows them.
@@ -149,7 +238,8 @@ export function RuneOverlay({ rune, game, general, settings, presets, hardwareAc
   onOpenMonster: OpenMonsterOverlay;
 }) {
   const worn = useMemo(() => wearer(rune, game), [rune, game]);
-  const maxCraft = useMaxCraft(rune, game, settings, presets, hardwareAcceleration);
+  const { known, explained } = useRuneAdvice(rune, game, settings, presets, hardwareAcceleration);
+  const maxCraft = maxCraftOf(rune, known, explained);
   const figure = (value: number) => formatNumber(value, general);
   const maxHeading = maxCraft.state === 'ready'
     ? `The Gem and Grindstones Max value counts, for ${maxCraft.presetName}`
@@ -241,6 +331,8 @@ export function RuneOverlay({ rune, game, general, settings, presets, hardwareAc
           </tbody>
         </table>
       </div>
+
+      <Evaluation rune={rune} presets={presets} explained={explained} />
     </div>
   </Overlay>;
 }

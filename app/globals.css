@@ -317,7 +317,8 @@ label[for] {
 .craft-best-use-facts dd, .craft-rune-detail, .math-copy > p,
 .math-example p, .math-table, .rune-simulator-stats-table td,
 .rune-simulator-stats-table tbody th, .rune-simulator-stats-table tfoot th,
-.rune-overlay-innate, .rune-overlay-subs {
+.rune-overlay-innate, .rune-overlay-subs, .rune-overlay-evaluation-facts,
+.rune-overlay-readings, .rune-overlay-readings tbody th {
   font-family: var(--font-body);
   font-size: var(--type-body);
   font-weight: 400;
@@ -349,7 +350,8 @@ label[for] {
 .grid-table thead th, .best-artifact-improvements-title,
 .best-artifact-result th, .best-monster-table th,
 .artifact-recommendation-table th, .overlay-row-label, .overlay-stat-head,
-.rune-simulator-stats-table thead th, .rune-overlay-facts dt, .rune-overlay-subs th {
+.rune-simulator-stats-table thead th, .rune-overlay-facts dt, .rune-overlay-subs th,
+.rune-overlay-readings thead th {
   font-family: var(--font-body);
   font-size: var(--type-label);
   font-weight: 700;
@@ -4859,6 +4861,59 @@ html.overlay-open .overlay-backdrop { right: var(--overlay-gutter, 0px); }
 .rune-overlay-craft { display: inline-flex; align-items: center; gap: var(--s1); }
 .rune-overlay-craft > .rune-overlay-figure:not(:first-child) { margin-left: var(--s1); }
 .rune-overlay-figure { font-variant-numeric: tabular-nums; color: var(--text-strong); }
+
+/* The verdict, explained: the same sunk box as the stats above it, so the two read
+   as one record. Three facts, each a sentence on the left and its figure at the
+   right edge, then every preset's reading. The figures take fixed columns and
+   tabular digits, and the table draws a row for every preset from the first paint,
+   so nothing moves when the answer lands. */
+.rune-overlay-evaluation {
+  display: grid;
+  gap: var(--s3);
+  padding: var(--s4) var(--s5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--sunk);
+}
+.rune-overlay-evaluation-facts { display: grid; gap: var(--s1); margin: 0; }
+.rune-overlay-evaluation-facts > div { display: flex; justify-content: space-between; gap: var(--s4); }
+.rune-overlay-evaluation-facts dt { color: var(--text); }
+.rune-overlay-evaluation-facts dd {
+  margin: 0;
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rune-overlay-readings {
+  width: 100%;
+  margin: 0;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.rune-overlay-readings :is(th, td) {
+  height: var(--s5);
+  padding: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.rune-overlay-readings :is(th, td):first-child { text-align: left; }
+.rune-overlay-readings :is(th, td):last-child { width: 64px; text-align: center; }
+.rune-overlay-readings thead th {
+  height: var(--s4);
+  padding-bottom: var(--s1);
+  vertical-align: bottom;
+  color: var(--text-muted);
+}
+.rune-overlay-readings thead th:first-child { width: 40%; }
+/* Ink, not weight, marks the best reading: bold would widen its row's text. */
+.rune-overlay-readings tr[data-best] :is(th, td) { color: var(--text-strong); }
+.rune-overlay-best-mark { width: 12px; height: 12px; vertical-align: middle; }
 
 .overlay-block { display: grid; gap: var(--s3); }
 .overlay-block-head {
