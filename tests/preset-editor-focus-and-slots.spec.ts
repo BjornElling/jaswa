@@ -65,3 +65,20 @@ test('the caret stays where the user put it while the editor is open', async ({ 
   await expect(spd).toBeFocused();
   await expect(spd).toHaveValue('215');
 });
+
+test('a blank desired stat is saved as zero', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  await page.getByRole('button', { name: 'Rune Set-up' }).click();
+  await page.locator('summary').filter({ hasText: 'Presets' }).click();
+  await page.getByRole('button', { name: 'Add preset' }).click();
+
+  const hp = page.getByRole('spinbutton', { name: 'HP', exact: true });
+  await expect(hp).toHaveValue('0');
+  await hp.fill('');
+  await page.getByRole('button', { name: 'Add preset' }).last().click();
+  await expect(page.getByRole('dialog')).toBeHidden();
+
+  await page.getByRole('button', { name: 'Edit New preset' }).click();
+  await expect(page.getByRole('spinbutton', { name: 'HP', exact: true })).toHaveValue('0');
+});

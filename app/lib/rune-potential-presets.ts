@@ -80,11 +80,8 @@ export type PresetSlots = { slot2: PresetChoice<RuneMainStat>; slot4: PresetChoi
 /** Whether an artifact's primary stat suits the role. */
 export type PresetArtifacts = { atk: boolean; def: boolean; hp: boolean };
 
-/**
- * The stat targets a role aims at, as stated. A stat left `undefined` is one
- * the role does not aim at and is shown as a dash; an explicit `0` is a stated
- * target of nothing, and is shown as `0`.
- */
+/** The stat targets a role aims at. An unstated field is saved as `0`, so a
+ * preset never leaves its desired-stat row ambiguous. */
 export type PresetStatTargets = {
   hp?: number; atk?: number; def?: number; spd?: number;
   res?: number; acc?: number; criRate?: number; criDmg?: number;
@@ -136,14 +133,15 @@ type PresetSource = Omit<RunePotentialPreset, 'targets'> & { targets: PresetStat
  * gets a DMG of 0 rather than a dash: nothing is missing, the answer is zero.
  */
 function withDerivedMetrics(preset: PresetSource): RunePotentialPreset {
-  const { hp = 0, atk = 0, def = 0, criRate = 0, criDmg = 0 } = preset.targets;
+  const targets = statTargetsOnly(preset.targets);
+  const { hp = 0, atk = 0, def = 0, criRate = 0, criDmg = 0 } = targets;
   const metrics = calculateRunePotentialMetrics({
     atk, hp, def, criticalRate: criRate, criticalDamage: criDmg,
   });
   return {
     ...preset,
     targets: {
-      ...preset.targets,
+      ...targets,
       dmg: displayRunePotentialMetric(metrics.dmg),
       ehp: displayRunePotentialMetric(metrics.ehp),
       ehpD: displayRunePotentialMetric(metrics.ehpD),
@@ -346,9 +344,8 @@ export function defaultRunePotentialPresets(): RunePotentialPreset[] {
 function emptyChoice<T>(): PresetChoice<T> { return { preferred: [], acceptable: [] }; }
 
 /**
- * A new preset, empty apart from the name. Everything else starts unset so the
- * editor states only what the user has actually decided; the composites are
- * derived, so a preset with no stats reads as zero rather than as a guess.
+ * A new preset starts with zero targets. The editor may hold a blank field
+ * while it is open, but saving makes that temporary blank explicit.
  */
 export function createRunePotentialPreset(name = 'New preset'): RunePotentialPreset {
   return withDerivedMetrics({
@@ -358,7 +355,7 @@ export function createRunePotentialPreset(name = 'New preset'): RunePotentialPre
     sets: emptyChoice<string>(),
     slots: { slot2: emptyChoice<RuneMainStat>(), slot4: emptyChoice<RuneMainStat>(), slot6: emptyChoice<RuneMainStat>() },
     artifacts: { atk: false, def: false, hp: false },
-    targets: {},
+    targets: { hp: 0, atk: 0, def: 0, spd: 0, res: 0, acc: 0, criRate: 0, criDmg: 0 },
   });
 }
 
@@ -377,12 +374,12 @@ export function newPresetId(): string {
  * produce — the same guarantee the shipped presets get.
  */
 export function withRefreshedMetrics(preset: RunePotentialPreset): RunePotentialPreset {
-  return withDerivedMetrics({ ...preset, targets: statTargetsOnly(preset.targets) });
+  return withDerivedMetrics(preset);
 }
 
 /** The stated stats of a target row, with the three derived composites dropped. */
 function statTargetsOnly(targets: PresetTargets): PresetStatTargets {
-  const stats: PresetStatTargets = {};
+  const stats: PresetStatTargets = { hp: 0, atk: 0, def: 0, spd: 0, res: 0, acc: 0, criRate: 0, criDmg: 0 };
   for (const key of presetStatTargetKeys) {
     if (targets[key] !== undefined) stats[key] = targets[key];
   }
@@ -411,11 +408,11 @@ function isChoice<T extends string>(value: unknown, allowed: readonly T[]): valu
     && new Set(members).size === members.length;
 }
 
-/* Each stated target on its own. The composites are not read at all: they are
+/* Each target on its own. The composites are not read at all: they are
    derived, so the reader recomputes them rather than trusting a stored copy. */
 function readStatTargets(value: unknown): PresetStatTargets {
   const stored = isRecord(value) ? value : {};
-  const targets: PresetStatTargets = {};
+  const targets: PresetStatTargets = { hp: 0, atk: 0, def: 0, spd: 0, res: 0, acc: 0, criRate: 0, criDmg: 0 };
   for (const key of presetStatTargetKeys) {
     const target = stored[key];
     if (typeof target === 'number' && Number.isInteger(target) && target >= 0 && target <= presetTargetMaximum) targets[key] = target;
