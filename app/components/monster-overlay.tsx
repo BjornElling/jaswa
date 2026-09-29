@@ -6,6 +6,7 @@ import { Dropdown } from './dropdown';
 import { MonsterPortrait } from './monster-portrait';
 import { RuneBuildMenu } from './rune-build-menu';
 import { Overlay } from './overlay';
+import { PencilIcon } from './pencil-icon';
 import { ShortfallMark } from './shortfall-mark';
 import type { MonsterReference } from './monster-link';
 import { RuneLink } from './rune-link';
@@ -126,6 +127,84 @@ function shareNote(share: number | undefined): string | undefined {
   return share === undefined ? undefined : `${(share * 100).toFixed(0)} %`;
 }
 
+/**
+ * A nickname as it is kept: trimmed, and without the parentheses the heading
+ * already draws around it — typing `(Arena nuker)` is typing what the heading
+ * will show, not asking for two pairs of them.
+ */
+function normalizedNickname(raw: string): string | undefined {
+  const nickname = raw.trim().replace(/^\(+/, '').replace(/\)+$/, '').trim().slice(0, monsterLabelMaximum).trim();
+  return nickname === '' ? undefined : nickname;
+}
+
+/**
+ * The pencil beside a copy's name, and the field it opens in place of the
+ * nickname.
+ *
+ * A nickname qualifies the monster's name rather than replacing it, so it is
+ * edited where it is read: after the name, at the name's own size. The field
+ * lives only while it is being typed in — the heading is the thing acted upon,
+ * so its reflow is the movement the user asked for (`AGENTS.md` §2). The pencil
+ * itself is never unmounted and keeps one box in both states.
+ */
+function Nickname({ value, editing, onEditingChange, onCommit }: {
+  value: string | undefined;
+  editing: boolean;
+  onEditingChange: (editing: boolean) => void;
+  onCommit: (nickname: string | undefined) => void;
+}) {
+  const [text, setText] = useState('');
+  const field = useRef<HTMLInputElement>(null);
+  const pencil = useRef<HTMLButtonElement>(null);
+  const open = useRef(false);
+
+  useEffect(() => { if (editing) field.current?.select(); }, [editing]);
+
+  function finish(commit: boolean, refocus: boolean) {
+    /* Read from a ref, not from `editing`: moving focus to the pencil below
+       blurs the field synchronously, and that blur would otherwise find the
+       stale `editing` and save what Escape had just thrown away. */
+    if (!open.current) return;
+    open.current = false;
+    if (commit) {
+      const next = normalizedNickname(text);
+      if (next !== value) onCommit(next);
+    }
+    onEditingChange(false);
+    /* Back to the pencil, where the reader started, rather than to the top of
+       the dialog — unless they left by clicking somewhere else, which is where
+       they are looking now. */
+    if (refocus) pencil.current?.focus();
+  }
+
+  return <>
+    {editing && <input ref={field} className="overlay-nickname-input" value={text}
+      aria-label="Nickname" placeholder="Nickname" maxLength={monsterLabelMaximum + 2}
+      onChange={(event) => setText(event.target.value)}
+      onBlur={() => finish(true, false)}
+      onKeyDown={(event) => {
+        /* Enter would submit the whole panel, and Escape would close it; here
+           each means only "done with this field". */
+        if (event.key === 'Enter') { event.preventDefault(); finish(true, true); }
+        if (event.key === 'Escape') { event.preventDefault(); finish(false, true); }
+      }} />}
+    <button ref={pencil} type="button" className="overlay-nickname-edit"
+      aria-label={value === undefined ? 'Add a nickname' : 'Edit nickname'} title={value === undefined ? 'Add a nickname' : 'Edit nickname'}
+      aria-expanded={editing}
+      /* Keeps the caret in the field, so a click here while typing is read as
+         "done" by the click itself rather than by a blur that races it. */
+      onMouseDown={(event) => { if (editing) event.preventDefault(); }}
+      onClick={() => {
+        if (editing) { finish(true, true); return; }
+        setText(value ?? '');
+        open.current = true;
+        onEditingChange(true);
+      }}>
+      <PencilIcon />
+    </button>
+  </>;
+}
+
 export function MonsterOverlay({ target, game, general, preferences, onSave, onClose, onOpenRune }: {
   target: MonsterReference;
   game: GameRecord | undefined;
@@ -139,6 +218,7 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
     () => preferences ?? blankMonsterCopyPreferences(target.kind === 'copy' ? target.unitId : ''),
   );
   const [dirty, setDirty] = useState(false);
+  const [editingNickname, setEditingNickname] = useState(false);
   const firstField = useRef<HTMLInputElement>(null);
 
   const monster = useMemo(() => {
@@ -208,11 +288,16 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
   }
 
   const editable = target.kind === 'copy';
+  /* The same labelled row the rune overlay opens with. A species has no level
+     to show, so it has no Level box either; a copy always has all three, each
+     reading `—` rather than disappearing when the import cannot say, so the row
+     keeps its shape. A species' element is the last digit of its id, which is
+     how the game numbers the five elemental copies. */
   const facts = [
-    elementName(monster?.attribute),
-    display.archetype && display.archetype !== 'none' ? display.archetype : undefined,
-    monster?.unit_level === undefined ? undefined : `Lv. ${monster.unit_level}`,
-  ].filter((fact): fact is string => Boolean(fact));
+    { label: 'Element', value: elementName(target.kind === 'copy' ? monster?.attribute : Number(masterId.at(-1))) },
+    { label: 'Type', value: display.archetype && display.archetype !== 'none' ? display.archetype : undefined },
+    ...(target.kind === 'copy' ? [{ label: 'Level', value: monster?.unit_level === undefined ? undefined : String(monster.unit_level) }] : []),
+  ];
 
   /** One target field's value, written back as a whole number or cleared. */
   function setTarget(key: keyof MonsterStatTargets, raw: string) {
@@ -279,19 +364,23 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
       <header className="overlay-head">
         <MonsterPortrait imageFilename={display.imageFilename} initial={display.shortName} name={display.name} decorative />
         <div className="overlay-identity">
-          <p className="eyebrow">Monster</p>
-          <h2 id="monster-overlay-title" className="overlay-hero-name" title={display.name}>{display.name}</h2>
-          <p className="overlay-hero-facts">{facts.join(' · ') || 'Not in this import'}</p>
+          <div className="overlay-hero-line">
+            <h2 id="monster-overlay-title" className="overlay-hero-name"
+              title={draft.label === undefined ? display.name : `${display.name} (${draft.label})`}>
+              {display.name}
+              {draft.label !== undefined && !editingNickname
+                && <span className="overlay-hero-nickname"> ({draft.label})</span>}
+            </h2>
+            {editable && <Nickname value={draft.label} editing={editingNickname} onEditingChange={setEditingNickname}
+              onCommit={(label) => change((state) => ({ ...state, label }))} />}
+          </div>
+          <dl className="overlay-facts">
+            {facts.map((fact) => <div key={fact.label}>
+              <dt>{fact.label}</dt>
+              <dd>{fact.value ?? '—'}</dd>
+            </div>)}
+          </dl>
         </div>
-        {editable && <label className="field overlay-label-field"><span>Your name for this copy</span>
-          {/* The placeholder says what an empty field means rather than echoing
-              the name beside it, which read as a value already filled in. */}
-          <input ref={firstField} value={draft.label ?? ''} placeholder="e.g. Arena nuker" maxLength={monsterLabelMaximum}
-            onChange={(event) => {
-              const label = event.target.value;
-              change((state) => (label.trim() === '' ? { ...state, label: undefined } : { ...state, label }));
-            }} />
-        </label>}
       </header>
 
       <div className="overlay-body">
@@ -303,12 +392,13 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
         {current !== undefined && <Section title="Stats"
           note="Type the figures you are building toward. Current values are shown for reference.">
           <div className="overlay-stats">
-            {targetRows.map((row) => {
+            {targetRows.map((row, index) => {
               const marks = statShortfalls.get(row.label) ?? [];
               return <div className="overlay-stat" key={row.key}>
                 <p className="overlay-stat-head">{row.label}</p>
                 {editable
-                  ? <input className="overlay-stat-target" type="number" min={0} step={1} inputMode="numeric"
+                  ? <input ref={index === 0 ? firstField : undefined}
+                    className="overlay-stat-target" type="number" min={0} step={1} inputMode="numeric"
                     placeholder="—"
                     aria-label={`Desired ${row.label}`}
                     value={draft.statTargets?.[row.key] ?? ''}

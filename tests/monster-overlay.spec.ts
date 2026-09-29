@@ -81,7 +81,35 @@ test('a monster name opens its overlay without moving the row it sits in', async
   await expect(dialog).toHaveAttribute('aria-modal', 'true');
   /* Focus opens in the body, not on the way out: stating preferences is what
      the overlay is for. */
-  await expect(page.locator('.overlay-label-field input')).toBeFocused();
+  await expect(page.locator('.overlay-stat-target').first()).toBeFocused();
+});
+
+test('a nickname is typed in place after the name, and its parentheses are the heading\'s own', async ({ page }) => {
+  await importAccount(page);
+  await openOverlay(page);
+  const dialog = page.getByRole('dialog');
+  const heading = dialog.getByRole('heading', { level: 2 });
+  const name = (await heading.textContent()) ?? '';
+  await expect(dialog.getByText('Your name for this copy')).toHaveCount(0);
+
+  /* Escape leaves the field, not the panel, and throws the typing away. */
+  await dialog.getByRole('button', { name: 'Add a nickname' }).click();
+  await dialog.getByRole('textbox', { name: 'Nickname' }).fill('Discarded');
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeVisible();
+  await expect(heading).toHaveText(name);
+
+  /* Typing the parentheses the heading already draws does not double them. */
+  await dialog.getByRole('button', { name: 'Add a nickname' }).click();
+  await dialog.getByRole('textbox', { name: 'Nickname' }).fill('  (Arena nuker) ');
+  await page.keyboard.press('Enter');
+  await expect(dialog).toBeVisible();
+  await expect(heading).toHaveText(`${name} (Arena nuker)`);
+  await expect(dialog.getByRole('button', { name: 'Edit nickname' })).toBeFocused();
+
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  await expect(dialog).toBeHidden();
+  expect((await storedPreferences(page))?.['1']?.label).toBe('Arena nuker');
 });
 
 test('anywhere in a monster row opens its overlay, and selecting text there does not', async ({ page }) => {

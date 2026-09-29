@@ -332,9 +332,9 @@ export function RuneOverlay({ rune, game, general, settings, presets, hardwareAc
   ];
 
   return <Overlay labelledBy="rune-overlay-title" describedBy="rune-overlay-facts" className="rune-overlay" onClose={onClose}>
-    <header className="overlay-head rune-overlay-head">
+    <header className="overlay-head">
       <RuneEmblem setName={rune.setName} slot={rune.slot} />
-      <div className="overlay-identity rune-overlay-identity">
+      <div className="overlay-identity">
         <h2 id="rune-overlay-title" className="overlay-hero-name">
           <AncientName name={rune.setName} ancient={rune.ancient} />
         </h2>
@@ -343,7 +343,7 @@ export function RuneOverlay({ rune, game, general, settings, presets, hardwareAc
             theirs. Gold where it is a monster, because there it is also the way
             into that monster; plain white where it is the inventory, a fact with
             nowhere to go. */}
-        <dl id="rune-overlay-facts" className="rune-overlay-facts">
+        <dl id="rune-overlay-facts" className="overlay-facts">
           {facts.map((fact) => <div key={fact.label}>
             <dt>{fact.label}</dt>
             <dd>{fact.value}</dd>
