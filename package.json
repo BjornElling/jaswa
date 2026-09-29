@@ -74,6 +74,7 @@
     "refresh:monsters": "node scripts/refresh-swarfarm-monsters.mjs",
     "refresh:speed-data": "node scripts/refresh-swarfarm-speed-data.mjs",
     "fetch:monster-images": "node scripts/fetch-monster-images.mjs",
+    "fetch:rune-images": "node scripts/fetch-rune-images.mjs",
     "verify:speed-tick": "node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs scripts/verify-speed-tick.mjs",
     "verify:rune-game-sort": "node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs scripts/verify-rune-game-sort.mjs"
   },

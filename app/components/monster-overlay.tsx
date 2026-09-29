@@ -5,6 +5,7 @@ import type { ChoiceMenuOption } from './choice-menu';
 import { Dropdown } from './dropdown';
 import { MonsterPortrait } from './monster-portrait';
 import { RuneBuildMenu } from './rune-build-menu';
+import { Overlay } from './overlay';
 import { ShortfallMark } from './shortfall-mark';
 import type { MonsterReference } from './monster-link';
 import { RuneLink } from './rune-link';
@@ -139,7 +140,6 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
   );
   const [dirty, setDirty] = useState(false);
   const firstField = useRef<HTMLInputElement>(null);
-  const dialog = useRef<HTMLFormElement>(null);
 
   const monster = useMemo(() => {
     if (target.kind !== 'copy' || !game) return undefined;
@@ -193,34 +193,6 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
      re-runs whenever `dirty` flips or the page re-renders around it, and a
      re-run would pull the caret back to the first field mid-edit. */
   useEffect(() => { firstField.current?.focus(); }, []);
-
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        /* An overlay holding unsaved edits does not close on a stray Escape:
-           it holds far more state than a confirmation does, and losing it to a
-           keypress aimed at something else is the expensive failure. */
-        if (dirty) return;
-        event.preventDefault();
-        onClose();
-        return;
-      }
-      if (event.key !== 'Tab' || !dialog.current) return;
-      /* `aria-modal` alone does not trap focus in any browser, and this panel is
-         long enough that tabbing out of it strands the reader behind a
-         backdrop they cannot see past. */
-      const focusable = dialog.current.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      );
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (!first || !last) return;
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-    }
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [dirty, onClose]);
 
   function change(next: (current: MonsterCopyPreferences) => MonsterCopyPreferences) {
     setDraft((state) => next(state));
@@ -299,11 +271,11 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
     note: shareNote(resolved.runes.slots[key].shares.get(stat)),
   }));
 
-  return <div className="modal-backdrop" role="presentation"
-    onMouseDown={(event) => { if (event.target === event.currentTarget && !dirty) onClose(); }}>
-    <form ref={dialog} className="dialog overlay" role="dialog" aria-modal="true"
-      aria-labelledby="monster-overlay-title" onSubmit={submit}>
-
+  /* An overlay holding unsaved edits does not close on a stray Escape, a
+     backdrop click or the back button: it holds far more state than a
+     confirmation does, and losing it to a gesture aimed at something else is
+     the expensive failure. The close button still closes — that is a decision. */
+  return <Overlay labelledBy="monster-overlay-title" dismissible={!dirty} onClose={onClose} onSubmit={submit}>
       <header className="overlay-head">
         <MonsterPortrait imageFilename={display.imageFilename} initial={display.shortName} name={display.name} decorative />
         <div className="overlay-identity">
@@ -565,15 +537,13 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
         </Section>
       </div>
 
-      <div className="dialog-actions">
-        {editable && <Button onClick={() => { setDraft(blankMonsterCopyPreferences(target.unitId)); setDirty(true); }}>
+      {/* Reset and Save sit at opposite ends; the middle is left to the
+          overlay's own close button, which straddles this edge. */}
+      {editable && <div className="dialog-actions">
+        <Button onClick={() => { setDraft(blankMonsterCopyPreferences(target.unitId)); setDirty(true); }}>
           Reset to defaults
-        </Button>}
-        <div className="overlay-actions-leave">
-          <Button onClick={onClose}>Close</Button>
-          {editable && <Button type="submit" tone="primary" disabled={!dirty}>Save changes</Button>}
-        </div>
-      </div>
-    </form>
-  </div>;
+        </Button>
+        <Button type="submit" tone="primary" disabled={!dirty}>Save changes</Button>
+      </div>}
+  </Overlay>;
 }

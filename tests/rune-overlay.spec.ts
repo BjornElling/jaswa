@@ -1,29 +1,87 @@
 import { expect, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
 
 const account = fileURLToPath(new URL('./fixtures/craft-account.json', import.meta.url));
 
-test('opens the shared rune overlay from a cleanup row and returns focus', async ({ page }, testInfo) => {
+async function openCleanup(page: Page) {
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
   await expect(page.getByText('craft-account.json')).toBeVisible();
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
   await page.getByRole('button', { name: 'Calculate', exact: true }).click();
+  const links = page.getByRole('table', { name: 'Rune verdicts' }).locator('tbody .rune-link');
+  await expect(links.first()).toBeVisible();
+  return links;
+}
 
-  const firstRune = page.getByRole('table', { name: 'Rune verdicts' }).locator('tbody .rune-link').first();
-  await expect(firstRune).toBeVisible();
+test('the rune overlay states the rune and nothing else, and returns focus', async ({ page }, testInfo) => {
+  const links = await openCleanup(page);
+  const firstRune = links.first();
   await firstRune.click();
 
-  const overlay = page.getByRole('dialog');
+  const overlay = page.getByRole('dialog', { name: 'Violent' });
   await expect(overlay).toBeVisible();
-  await expect(overlay.getByText('Rune facts', { exact: true })).toBeVisible();
-  await expect(overlay.getByText('Substats', { exact: true })).toBeVisible();
-  await expect(overlay.getByText('Substat potential at +15', { exact: true })).toBeVisible();
-  await expect(overlay.getByText('What can still improve', { exact: true })).toBeVisible();
-  await page.screenshot({ path: testInfo.outputPath('rune-overlay-open.png'), fullPage: true });
+  await expect(overlay.getByText('Main property', { exact: true })).toBeVisible();
+  await expect(overlay.getByRole('table', { name: 'Sub properties' }).locator('tbody tr')).toHaveCount(4);
+  /* The projection it used to carry belongs to the pages that judge a rune. */
+  await expect(overlay.getByText('Substat potential at +15')).toHaveCount(0);
+  await expect(overlay.getByText('What can still improve')).toHaveCount(0);
+  await expect(overlay.getByText('Inventory', { exact: true })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('rune-overlay-open.png') });
 
-  await overlay.getByRole('button', { name: 'Close', exact: true }).first().click();
+  /* One close control, the overlay's own. */
+  await expect(overlay.getByRole('button', { name: 'Close', exact: true })).toHaveCount(1);
+  await overlay.getByRole('button', { name: 'Close', exact: true }).click();
   await expect(overlay).toBeHidden();
   await expect(firstRune).toBeFocused();
+});
+
+test('a worn rune names its wearer as a way into that monster', async ({ page }) => {
+  const links = await openCleanup(page);
+  await links.filter({ hasText: 'Fatal' }).click();
+  const overlay = page.getByRole('dialog', { name: 'Fatal' });
+  await overlay.getByRole('button', { name: 'Elucia (2A)' }).click();
+  await expect(page.getByRole('dialog', { name: /Elucia/ })).toBeVisible();
+});
+
+test('while an overlay is up the page behind it neither scrolls nor keeps it open', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 700 });
+  const links = await openCleanup(page);
+  const opener = links.first();
+  await opener.scrollIntoViewIfNeeded();
+  await page.mouse.wheel(0, 200);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+  const scrolled = await page.evaluate(() => window.scrollY);
+  const resting = await opener.boundingBox();
+
+  const overlay = page.getByRole('dialog');
+  await opener.click();
+  await expect(overlay).toBeVisible();
+  /* Locking the page must not move it: the stable gutter keeps the scrollbar's room. */
+  expect(await opener.boundingBox()).toEqual(resting);
+  await page.mouse.move(300, 650);
+  await page.mouse.wheel(0, 600);
+  await page.keyboard.press('End');
+  expect(await page.evaluate(() => window.scrollY)).toBe(scrolled);
+
+  await page.keyboard.press('Escape');
+  await expect(overlay).toBeHidden();
+
+  await opener.click();
+  await page.mouse.click(300, 60);
+  await expect(overlay).toBeHidden();
+
+  /* The mouse's back button closes the overlay rather than leaving the page. */
+  await opener.click();
+  const url = page.url();
+  const box = (await overlay.boundingBox())!;
+  const client = await page.context().newCDPSession(page);
+  const at = { x: box.x + 40, y: box.y + box.height / 2 };
+  await client.send('Input.dispatchMouseEvent', { type: 'mousePressed', ...at, button: 'back', buttons: 8, clickCount: 1 });
+  await client.send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...at, button: 'back', buttons: 0, clickCount: 1 });
+  await expect(overlay).toBeHidden();
+  expect(page.url()).toBe(url);
+  expect(await page.evaluate(() => window.scrollY)).toBe(scrolled);
 });

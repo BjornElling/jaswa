@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
-import { Button, FilterButton } from './button';
+import { useState } from 'react';
+import { FilterButton } from './button';
+import { Overlay } from './overlay';
 import { formatNumber } from '../lib/formatting';
 import type { MonsterCopyName } from '../lib/monster-names';
 import { describeTurnEffect } from '../lib/speed-skills';
@@ -39,19 +40,6 @@ export function SpeedTurnOrderDialog({ reading, title, names, general, onClose }
   const choices = views(reading);
   const [viewId, setViewId] = useState(choices[0].id);
   const view = choices.find((entry) => entry.id === viewId) ?? choices[0];
-  const closeRef = useRef<HTMLButtonElement>(null);
-  const onCloseRef = useRef(onClose);
-  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
-  useEffect(() => {
-    closeRef.current?.focus();
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key !== 'Escape') return;
-      event.preventDefault();
-      onCloseRef.current();
-    }
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
 
   const speedName = combatSpeedName(reading);
   const memberById = new Map(reading.members.map((member) => [member.unitId, member]));
@@ -73,9 +61,7 @@ export function SpeedTurnOrderDialog({ reading, title, names, general, onClose }
   const snapshots = view.trace.snapshots.slice(0, lastTick);
   const turnNumber = new Map(view.trace.events.map((event, at) => [`${event.key}@${event.tick}`, at + 1]));
 
-  return <div className="modal-backdrop" role="presentation"
-    onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-    <section className="dialog speed-turn-dialog" role="dialog" aria-modal="true" aria-labelledby="speed-turn-title">
+  return <Overlay labelledBy="speed-turn-title" className="speed-turn-dialog" onClose={onClose}>
       <header className="speed-turn-head">
         <div>
           <p className="eyebrow">Turn order</p>
@@ -136,10 +122,5 @@ export function SpeedTurnOrderDialog({ reading, title, names, general, onClose }
           })}
         </ol>
       </div>
-
-      <div className="dialog-actions speed-turn-actions">
-        <Button ref={closeRef} onClick={onClose}>Close</Button>
-      </div>
-    </section>
-  </div>;
+  </Overlay>;
 }

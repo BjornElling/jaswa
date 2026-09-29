@@ -263,7 +263,8 @@ label[for] {
 /* Title — what a panel, card, dialog or disclosure is called. */
 .type-title, .block-title, .bar-head b, .dialog h2, .preset-name, .route-name,
 .route-body-title, .statistics h4, .acceleration-word, .handheld-brand,
-.rune-simulator-count-input, .rune-simulator-stats-total {
+.rune-simulator-count-input, .rune-simulator-stats-total, .rune-overlay-main-name,
+.rune-emblem.placeholder {
   font-family: var(--font-heading);
   font-size: var(--type-title);
   font-weight: 600;
@@ -307,7 +308,8 @@ label[for] {
 .best-artifact-entry .artifact-subs li, .craft-best-use-facts dt,
 .craft-best-use-facts dd, .craft-rune-detail, .math-copy > p,
 .math-example p, .math-table, .rune-simulator-stats-table td,
-.rune-simulator-stats-table tbody th, .rune-simulator-stats-table tfoot th {
+.rune-simulator-stats-table tbody th, .rune-simulator-stats-table tfoot th,
+.rune-overlay-line, .rune-overlay-sub-table tbody th, .rune-overlay-sub-table td {
   font-family: var(--font-body);
   font-size: var(--type-body);
   font-weight: 400;
@@ -339,7 +341,7 @@ label[for] {
 .grid-table thead th, .best-artifact-improvements-title,
 .best-artifact-result th, .best-monster-table th,
 .artifact-recommendation-table th, .overlay-row-label, .overlay-stat-head,
-.rune-simulator-stats-table thead th {
+.rune-simulator-stats-table thead th, .rune-overlay-sub-table thead th {
   font-family: var(--font-body);
   font-size: var(--type-label);
   font-weight: 700;
@@ -351,7 +353,8 @@ label[for] {
 .preset-type, .overlay-hero-facts, .overlay-provenance, .usage-share, .usage-sample,
 .overlay-stat-current, .overlay-substat-unit, .overlay-slot-name,
 .choice-menu-option-note, .rune-build-leader-pieces, .rune-build-leader-count,
-.rune-build-note, .rune-build-composed, .overlay-suggestion-label, .speed-timeline-turn {
+.rune-build-note, .rune-build-composed, .overlay-suggestion-label, .speed-timeline-turn,
+.rune-overlay-main-ceiling {
   font-family: var(--font-body);
   font-size: var(--type-label);
   font-weight: 400;
@@ -359,7 +362,7 @@ label[for] {
 }
 
 /* Figure — a number that is the answer, not a second body voice. */
-.type-figure, .statistics dd {
+.type-figure, .statistics dd, .rune-overlay-main-value {
   font-family: var(--font-body);
   font-size: var(--type-figure);
   font-weight: 700;
@@ -4598,12 +4601,58 @@ label[for] {
    inside it. The body scrolls while the identity above it and the actions below
    it stay put, so the reader always knows how to leave. */
 .dialog.overlay {
+  position: relative;
   width: min(var(--measure), 100%);
-  max-height: min(92vh, 1000px);
+  max-height: min(92vh, 1000px, calc(100vh - var(--s5) - var(--s7)));
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   padding: 0;
 }
+
+/* The overlay's frame (`overlay.tsx`). The backdrop leaves room below the
+   panel for the lower half of the close button, and the page behind is locked
+   while any overlay is up: `overflow: hidden` stops the wheel and the keyboard
+   from scrolling it. Hiding the page's permanent scrollbar would widen the page
+   by the scrollbar's width, so exactly that width — measured in `overlay.tsx`
+   before the lock, and zero where scrollbars take no room — is given back as
+   padding, and locking moves nothing (`AGENTS.md` §2). `scrollbar-gutter:
+   stable` is not the same thing: it reserves a gutter even where the unlocked
+   page had none. */
+html.overlay-open { overflow: hidden; padding-right: var(--overlay-gutter, 0px); }
+.overlay-backdrop { padding-bottom: var(--s7); }
+html.overlay-open .overlay-backdrop { right: var(--overlay-gutter, 0px); }
+/* A body with nothing below it scrolls its last line clear of the button. */
+.dialog.overlay > .overlay-body:nth-last-child(2) { padding-bottom: var(--s7); }
+
+/* Every overlay leaves by one control, in one place: a round gold button
+   centred on the panel's lower edge, half on the panel and half off it, so it
+   reads as belonging to the panel as a whole rather than to any block inside
+   it. The ring, in the sunk ground the footers use, cuts it out of the edge it
+   sits on.
+   Gold because it is the thing to act on; the mark is ink on gold, the way a
+   primary button's label is. */
+.overlay-close {
+  position: absolute;
+  left: 50%; bottom: 0;
+  translate: -50% 50%;
+  z-index: 2;
+  width: 44px; height: 44px;
+  padding: 0;
+  display: grid; place-items: center;
+  border: 1px solid var(--gold-edge);
+  border-radius: 50%;
+  background: var(--text-accent);
+  color: var(--gold-ink);
+  box-shadow: 0 0 0 var(--s1) var(--sunk), 0 12px 28px rgba(0, 0, 0, .55);
+  transition: filter .12s ease, box-shadow .12s ease;
+}
+.overlay-close svg {
+  width: var(--glyph-small); height: var(--glyph-small);
+  fill: none; stroke: currentColor; stroke-width: 2.25; stroke-linecap: round;
+}
+.overlay-close:hover { filter: brightness(1.12); }
+.overlay-close:active { filter: brightness(.94); }
+.overlay-close:focus-visible { outline: 2px solid var(--text-accent); outline-offset: var(--s1); }
 
 .overlay-head {
   display: grid;
@@ -4615,7 +4664,7 @@ label[for] {
 }
 /* A mark rather than type, so its size is stated here the way --glyph-* is:
    large enough that the monster is recognised before its name is read. */
-.overlay-head .monster-portrait {
+.overlay-head > .monster-portrait {
   width: 108px;
   height: 108px;
   border-radius: var(--radius);
@@ -4665,8 +4714,6 @@ label[for] {
   border-radius: 0 0 var(--radius) var(--radius);
   justify-content: space-between;
 }
-/* The two that leave stay together at the right, whatever sits opposite. */
-.overlay-actions-leave { display: flex; gap: var(--s2); margin-left: auto; }
 
 /* Rune names are actions, not destinations. The underline is reserved in the
    resting box so opening a dialog never reflows a table row. */
@@ -4689,54 +4736,93 @@ label[for] {
 .rune-link-label { display: inline-flex; }
 .overlay-rune-links { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s3); }
 
-.rune-overlay { width: min(840px, 100%); }
-.rune-overlay-head { grid-template-columns: auto minmax(0, 1fr) auto; }
-.rune-overlay-head > .quality-rule { flex: none; }
-.rune-overlay-facts {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--s3) var(--s5);
-  margin: 0;
-}
-.rune-overlay-facts > div { display: grid; grid-template-columns: 116px minmax(0, 1fr); gap: var(--s3); align-items: baseline; }
-.rune-overlay-facts dt { color: var(--text-muted); }
-.rune-overlay-facts dd { margin: 0; min-width: 0; font-variant-numeric: tabular-nums; }
-.rune-overlay-substats { display: grid; gap: var(--s2); }
-.rune-overlay-substat {
-  display: grid;
-  grid-template-columns: minmax(120px, 1fr) minmax(5ch, auto) minmax(110px, auto);
-  align-items: center;
-  gap: var(--s3);
-  min-height: 32px;
-  padding: var(--s2) var(--s3);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-}
-.rune-overlay-substat-name, .rune-overlay-substat-value, .rune-overlay-rolls, .rune-overlay-grind { font-variant-numeric: tabular-nums; }
-.rune-overlay-substat-value { text-align: right; }
-.rune-overlay-substat-marks { display: inline-flex; justify-content: flex-end; align-items: center; gap: var(--s2); color: var(--text-muted); }
-.rune-overlay-roll-arrow { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-.rune-overlay-rolls { display: inline-flex; align-items: center; gap: var(--s1); }
-.rune-overlay-enchanted-mark { width: 15px; height: 15px; }
-.rune-overlay-history-note { margin: 0; }
-.rune-overlay-table-wrap { overflow-x: auto; }
-.rune-overlay-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-.rune-overlay-table th, .rune-overlay-table td { padding: var(--s2) var(--s3); border-bottom: 1px solid var(--line); text-align: right; }
-.rune-overlay-table th:first-child, .rune-overlay-table td:first-child { text-align: left; }
-.rune-overlay-table tbody th { font-weight: inherit; }
-.rune-overlay-best th, .rune-overlay-best td { background: var(--sunk); }
-.rune-overlay-best-label { display: block; color: var(--text-muted); }
-.rune-overlay-improvements { display: grid; gap: var(--s3); }
-.rune-overlay-event-path { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--s2); }
-.rune-overlay-event { display: grid; gap: var(--s1); min-height: 52px; padding: var(--s2); border: 1px solid var(--line); border-radius: var(--radius-sm); }
-.rune-overlay-event-level { color: var(--text-accent); font-variant-numeric: tabular-nums; }
-.rune-overlay-improvement-summary, .rune-overlay-improvement { margin: 0; }
+/* ------------------------------------------------------------ rune overlay */
+/* Narrower than the monster panel: a rune is six facts and a short list, and
+   stretched to the table's measure the four sub properties would sit a whole
+   screen away from their names. */
+.dialog.rune-overlay { width: min(760px, 100%); }
 
-@media (max-width: 720px) {
-  .rune-overlay-facts { grid-template-columns: minmax(0, 1fr); }
-  .rune-overlay-event-path { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .rune-overlay-event:last-child { grid-column: 1 / -1; }
+/* The picture, the name, and where the rune is: the same three-part head the
+   monster overlay opens with, so the two read as one family. */
+.rune-overlay-wearer { display: grid; gap: var(--s2); justify-items: start; min-width: 200px; }
+.rune-overlay-wearer > p { margin: 0; }
+
+/* A tile the size of the monster overlay's portrait, holding the game's two
+   layers — the slot's frame and the set's glyph — stacked in one cell. The
+   frames are two shapes (upright for slots 1 and 4, wide for the rest), and
+   each is scaled by the same factor so the slots keep the proportions they
+   have in the game's rune circle. */
+.rune-emblem {
+  width: 108px; height: 108px;
+  flex: none;
+  display: grid; place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: radial-gradient(closest-side, var(--hover), var(--sunk));
 }
+.rune-emblem > img { grid-area: 1 / 1; display: block; height: auto; }
+.rune-emblem-frame { width: 90px; }
+.rune-emblem[data-slot="1"] .rune-emblem-frame,
+.rune-emblem[data-slot="4"] .rune-emblem-frame { width: 76px; }
+.rune-emblem-glyph { width: 56px; }
+.rune-emblem.placeholder { color: var(--text); }
+
+/* Main against subs: the one line the rune was dropped for, set as a figure,
+   beside the four lines that decide whether it was worth keeping. */
+.rune-overlay-body {
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  align-items: start;
+}
+.rune-overlay-body h3 { margin: 0; }
+.rune-overlay-main {
+  display: grid;
+  gap: var(--s2);
+  padding: var(--s4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--sunk);
+}
+.rune-overlay-main-stat {
+  margin: 0;
+  display: flex; align-items: baseline; justify-content: space-between; gap: var(--s3);
+  color: var(--text-strong);
+}
+.rune-overlay-main-value { font-variant-numeric: tabular-nums; }
+.rune-overlay-main-ceiling { margin: 0; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.rune-overlay-main .rune-overlay-innate-title { margin-top: var(--s2); padding-top: var(--s3); border-top: 1px solid var(--line); }
+.rune-overlay-line {
+  margin: 0;
+  display: flex; justify-content: space-between; gap: var(--s3);
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Fixed columns, so a value, a gem mark and a grindstone bonus each land on
+   one vertical line whichever of them a row happens to carry. */
+.rune-overlay-sub-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.rune-overlay-sub-table th:nth-child(2) { width: 88px; }
+.rune-overlay-sub-table th:nth-child(3) { width: 56px; }
+.rune-overlay-sub-table th:nth-child(4) { width: 64px; }
+.rune-overlay-sub-table th, .rune-overlay-sub-table td {
+  height: var(--row);
+  padding: 0;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+  white-space: nowrap;
+}
+.rune-overlay-sub-table thead th { height: auto; padding-bottom: var(--s2); color: var(--text-muted); }
+.rune-overlay-sub-table th:first-child { text-align: left; }
+.rune-overlay-sub-table th:nth-child(3), .rune-overlay-sub-table td:nth-child(3) { text-align: center; }
+.rune-overlay-sub-table tbody th, .rune-overlay-sub-table td { color: var(--text-strong); }
+.rune-overlay-sub-table td:nth-child(4) { color: var(--text); }
+.rune-overlay-sub-table abbr { text-decoration: none; cursor: help; }
+.rune-overlay-sub-table .artifact-sub-mark { margin-left: 0; color: var(--text); }
+.rune-overlay-sub-table .rune-overlay-sub-empty th, .rune-overlay-sub-table .rune-overlay-sub-empty td { color: var(--text-muted); }
 
 .overlay-block { display: grid; gap: var(--s3); }
 .overlay-block-head {
@@ -5951,8 +6037,7 @@ th.align-center .sort-button { justify-content: center; }
 .speed-turn-head h2 { color: var(--text-accent); }
 .dialog .speed-turn-note { margin: var(--s2) 0 0; color: var(--text-muted); line-height: 1.5; }
 .speed-turn-views { display: flex; gap: var(--s1); flex: 0 0 auto; }
-.speed-turn-body { overflow: auto; padding: var(--s5); display: grid; gap: var(--s5); align-content: start; }
-.dialog-actions.speed-turn-actions { margin: 0; padding: var(--s4) var(--s5); border-top: 1px solid var(--line); }
+.speed-turn-body { overflow: auto; padding: var(--s5) var(--s5) var(--s7); display: grid; gap: var(--s5); align-content: start; }
 
 .speed-timeline { display: grid; row-gap: var(--s1); width: max-content; }
 .speed-timeline-row { display: contents; }

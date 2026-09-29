@@ -572,7 +572,8 @@ export default function Home() {
       return rune ? <Suspense fallback={null}><RuneOverlay
         rune={rune}
         game={game?.data}
-        settings={preferences.runePotential}
+        general={preferences.general}
+        onOpenMonster={openMonsterOverlay}
         onClose={closeOverlay}
       /></Suspense> : null;
     })()}

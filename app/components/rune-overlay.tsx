@@ -1,171 +1,138 @@
-import { useEffect, useMemo, useRef } from 'react';
-import { Button } from './button';
-import { CircularArrowsMark } from './converted-artifact-mark';
+import { useMemo } from 'react';
 import { AncientName } from './ancient-mark';
-import { QualityRule } from './quality-rule';
+import { CircularArrowsMark } from './converted-artifact-mark';
+import { MonsterLink } from './monster-link';
+import type { MonsterReference, OpenMonsterOverlay } from './monster-link';
+import { Overlay } from './overlay';
+import { RuneEmblem } from './rune-emblem';
+import { formatNumber } from '../lib/formatting';
 import type { GameRecord } from '../lib/game-data';
+import { monsterPresentation } from '../lib/monster-catalog';
 import { mainPropertyMaximum } from '../lib/rune-properties';
+import { runeSetPieceCount } from '../lib/rune-sets';
 import { runeStatName, runeSubValue } from '../lib/runes';
 import type { Rune } from '../lib/runes';
-import { runeOverlayProjection } from '../lib/rune-overlay-projection';
-import type { RunePotentialSettings } from '../lib/types';
+import type { GeneralSettings } from '../lib/types';
 
-function PowerUpArrow() {
-  return <svg className="rune-overlay-roll-arrow" viewBox="0 0 16 16" aria-hidden="true">
-    <path d="M8 13V3" />
-    <path d="m4.5 6.5 3.5-3.5 3.5 3.5" />
-  </svg>;
-}
+/**
+ * One rune, as a record of what it is: its set and slot, its main and innate
+ * properties, and its four sub properties with whatever craft already sits on
+ * them.
+ *
+ * It states facts and nothing else. What the rune could still become is the
+ * business of the pages that judge it — Rune Clean-up and the simulator — and a
+ * projection repeated here was a second reading of the same rune that could
+ * only drift from theirs.
+ */
 
-function percent(chance: number): string {
-  if (chance >= 1) return '100 %';
-  if (chance <= 0) return '0 %';
-  if (chance < 0.01) return '<1 %';
-  return `${Math.round(chance * 100)} %`;
-}
+/** A rune carries at most four sub properties; the list always reserves all
+    four, so a rune with two does not make a shorter panel than one with four. */
+const subPropertySlots = 4;
 
-function substatRollMark(rune: Rune, statName: string, rolls: number | null) {
-  return <span className="rune-overlay-rolls" aria-label={rolls === null
-    ? `${statName} power-up roll history is not present in this import`
-    : `${rolls} power-up rolls in ${statName}`}>
-    <PowerUpArrow /><span aria-hidden="true">{rolls === null ? '?' : rolls}</span>
-  </span>;
-}
-
-function equippedOn(rune: Rune, game: GameRecord | undefined): string {
-  if (rune.occupiedId === null) return 'Inventory';
+/** Who wears the rune, as a way into that monster's own overlay. A wearer this
+    import does not contain is named as such and opens nothing. */
+function wearer(rune: Rune, game: GameRecord | undefined): {
+  target: MonsterReference | null; name: string; imageFilename?: string; initial: string;
+} | null {
+  if (rune.occupiedId === null) return null;
   const units = Array.isArray(game?.unit_list) ? game.unit_list as GameRecord[] : [];
   const unit = units.find((entry) => String(entry.unit_id) === rune.occupiedId);
-  if (!unit) return 'Unknown monster';
-  const name = unit.name ?? unit.unit_name;
-  if (typeof name === 'string' && name.trim()) return name;
-  return `Monster ${String(unit.unit_master_id ?? unit.master_id ?? rune.occupiedId)}`;
+  if (unit === undefined) return { target: null, name: 'Monster not in this import', initial: '?' };
+  const display = monsterPresentation(unit.unit_master_id);
+  return {
+    target: { kind: 'copy', unitId: rune.occupiedId, masterId: String(unit.unit_master_id) },
+    name: display.name,
+    imageFilename: display.imageFilename,
+    initial: display.shortName,
+  };
 }
 
-export function RuneOverlay({ rune, game, settings, onClose }: {
+export function RuneOverlay({ rune, game, general, onClose, onOpenMonster }: {
   rune: Rune;
   game: GameRecord | undefined;
-  settings: RunePotentialSettings;
+  general: GeneralSettings;
   onClose: () => void;
+  onOpenMonster: OpenMonsterOverlay;
 }) {
-  const dialog = useRef<HTMLDivElement>(null);
-  const closeButton = useRef<HTMLButtonElement>(null);
-  const projection = useMemo(() => runeOverlayProjection(rune, settings), [rune, settings]);
-  const mainName = runeStatName(rune.mainStatId) ?? 'Unknown main';
-  const mainMaximum = mainPropertyMaximum(rune.stars, rune.mainStatId);
-  const innateName = rune.prefixStatId === null ? null : runeStatName(rune.prefixStatId) ?? 'Unknown innate';
+  const worn = useMemo(() => wearer(rune, game), [rune, game]);
+  const figure = (value: number) => formatNumber(value, general);
+  const mainName = runeStatName(rune.mainStatId) ?? `Stat ${rune.mainStatId}`;
+  const pieces = runeSetPieceCount[rune.setName];
+  const facts = [
+    `Slot ${rune.slot}`,
+    `${rune.stars}★ ${rune.defaultGrade}`,
+    `+${rune.level}`,
+    pieces === undefined ? undefined : `${pieces}-piece set`,
+  ].filter((fact): fact is string => fact !== undefined);
 
-  useEffect(() => { closeButton.current?.focus(); }, []);
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') { event.preventDefault(); onClose(); return; }
-      if (event.key !== 'Tab' || !dialog.current) return;
-      const focusable = dialog.current.querySelectorAll<HTMLElement>('button:not([disabled]), [tabindex]:not([tabindex="-1"])');
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (!first || !last) return;
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-    }
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
-
-  return <div className="modal-backdrop">
-    <div ref={dialog} className="dialog overlay rune-overlay" role="dialog" aria-modal="true"
-      aria-labelledby="rune-overlay-title" aria-describedby="rune-overlay-summary">
-      <header className="overlay-head rune-overlay-head">
-        <QualityRule tier={rune.defaultGrade} />
-        <div className="overlay-identity">
-          <h2 id="rune-overlay-title" className="overlay-hero-name type-title">
-            <AncientName name={rune.setName} ancient={rune.ancient} />
-          </h2>
-          <p id="rune-overlay-summary" className="overlay-hero-facts">
-            {rune.stars}★ · Slot {rune.slot} · +{rune.level} · {equippedOn(rune, game)}
-          </p>
-        </div>
-        <Button ref={closeButton} onClick={onClose}>Close</Button>
-      </header>
-
-      <div className="overlay-body">
-        <section className="overlay-block">
-          <header className="overlay-block-head"><h3 className="overlay-block-title">Rune facts</h3><p className="overlay-provenance">Imported account data</p></header>
-          <dl className="rune-overlay-facts">
-            <div><dt>Quality</dt><dd>{rune.defaultGrade}</dd></div>
-            <div><dt>Slot</dt><dd>{rune.slot}</dd></div>
-            <div><dt>Main</dt><dd>{mainName}{rune.mainValue > 0 ? ` · ${rune.mainValue}` : ''} <span className="muted">→ +15 {mainMaximum}</span></dd></div>
-            <div><dt>Innate</dt><dd>{innateName === null ? 'None' : `${innateName} ${rune.prefixValue}`}</dd></div>
-            <div><dt>Equipped on</dt><dd>{equippedOn(rune, game)}</dd></div>
-          </dl>
-        </section>
-
-        <section className="overlay-block">
-          <header className="overlay-block-head"><h3 className="overlay-block-title">Substats</h3><p className="overlay-provenance">Natural rolls and current craft marks</p></header>
-          <div className="rune-overlay-substats" role="list">
-            {rune.subProperties.length === 0
-              ? <p className="overlay-empty">No substats yet.</p>
-              : rune.subProperties.map((property) => {
-                const name = runeStatName(property.statId) ?? 'Unknown stat';
-                return <div className="rune-overlay-substat" role="listitem" key={property.statId}>
-                  <span className="rune-overlay-substat-name">{name}</span>
-                  <span className="rune-overlay-substat-value">{runeSubValue(property)}</span>
-                  <span className="rune-overlay-substat-marks">
-                    {property.gemmed && <CircularArrowsMark label={`${name} is enchanted`} className="rune-overlay-enchanted-mark" />}
-                    {substatRollMark(rune, name, property.rolls ?? null)}
-                    {property.grind > 0 && <span className="rune-overlay-grind">+{property.grind}</span>}
-                  </span>
-                </div>;
-              })}
-          </div>
-          <p className="overlay-provenance rune-overlay-history-note">
-            A question mark means the export preserved the final value but not its individual power-up history; simulated runes carry the exact arrow count.
-          </p>
-        </section>
-
-        <section className="overlay-block">
-          <header className="overlay-block-head"><h3 className="overlay-block-title">Substat potential at +15</h3><p className="overlay-provenance">+12→+15 is main-stat only</p></header>
-          <div className="table-wrap rune-overlay-table-wrap">
-            <table className="rune-overlay-table">
-              <thead><tr><th scope="col">Substat</th><th scope="col">Now</th><th scope="col">Max</th><th scope="col">Chance</th></tr></thead>
-              <tbody>{projection.rows.map((row) => {
-                const name = runeStatName(row.statId) ?? 'Unknown stat';
-                const best = row.statId === projection.bestStatId;
-                return <tr key={row.statId} className={best ? 'rune-overlay-best' : undefined}>
-                  <th scope="row">{name}{best && <span className="rune-overlay-best-label">Best potential</span>}</th>
-                  <td>{row.current || '—'}</td>
-                  <td>{row.maximum}</td>
-                  <td>{percent(row.chance)}</td>
-                </tr>;
-              })}</tbody>
-            </table>
-          </div>
-        </section>
-
-        <section className="overlay-block">
-          <header className="overlay-block-head"><h3 className="overlay-block-title">What can still improve</h3><p className="overlay-provenance">Settings-driven projection</p></header>
-          <div className="rune-overlay-improvements">
-            <div className="rune-overlay-event-path" aria-label="Remaining rune events">
-              {[...projection.events, { level: 15, kind: 'main' as const }].map((event) =>
-                <span className="rune-overlay-event" key={event.level}>
-                  <span className="rune-overlay-event-level">+{event.level}</span>
-                  <span>{event.kind === 'roll' ? 'Power-up roll' : event.kind === 'add' ? 'Reveal substat' : 'Main stat only'}</span>
-                </span>)}
-            </div>
-            <p className="rune-overlay-improvement-summary">
-              {projection.remainingRolls} substat roll{projection.remainingRolls === 1 ? '' : 's'} and {projection.remainingAdditions} new line{projection.remainingAdditions === 1 ? '' : 's'} remain before +12; +15 adds no new substat roll.
-            </p>
-            {projection.rows.filter((row) => row.current > 0).map((row) => {
-              const name = runeStatName(row.statId) ?? 'Unknown stat';
-              return <p className="rune-overlay-improvement" key={row.statId}>
-                <b>{name}</b>: {row.remainingRolls ? `${row.remainingRolls} possible roll${row.remainingRolls === 1 ? '' : 's'}` : 'no natural rolls left'}
-                {row.grind > 0 && ` · configured Grindstone +${row.grind}`}
-                {row.gemMaximum !== null && ` · configured Gem up to ${row.gemMaximum}`}
-              </p>;
-            })}
-          </div>
-        </section>
+  return <Overlay labelledBy="rune-overlay-title" describedBy="rune-overlay-facts" className="rune-overlay" onClose={onClose}>
+    <header className="overlay-head rune-overlay-head">
+      <RuneEmblem setName={rune.setName} slot={rune.slot} />
+      <div className="overlay-identity">
+        <p className="eyebrow">Rune</p>
+        <h2 id="rune-overlay-title" className="overlay-hero-name">
+          <AncientName name={rune.setName} ancient={rune.ancient} />
+        </h2>
+        <p id="rune-overlay-facts" className="overlay-hero-facts">{facts.join(' · ')}</p>
       </div>
-      <div className="dialog-actions"><span className="type-caption">Rune details are read-only.</span><Button onClick={onClose}>Close</Button></div>
+      <div className="rune-overlay-wearer">
+        <p className="overlay-row-label">{worn === null ? 'Location' : 'Worn by'}</p>
+        {worn === null
+          ? <p className="overlay-current-value">Inventory</p>
+          : <MonsterLink target={worn.target} name={worn.name} portrait={{ imageFilename: worn.imageFilename, initial: worn.initial }}
+            onOpen={onOpenMonster} />}
+      </div>
+    </header>
+
+    <div className="overlay-body rune-overlay-body">
+      <section className="rune-overlay-main" aria-labelledby="rune-overlay-main-title">
+        <h3 id="rune-overlay-main-title" className="overlay-row-label">Main property</h3>
+        <p className="rune-overlay-main-stat">
+          <span className="rune-overlay-main-name">{mainName}</span>
+          <span className="rune-overlay-main-value">{rune.mainValue > 0 ? figure(rune.mainValue) : '—'}</span>
+        </p>
+        <p className="rune-overlay-main-ceiling">At +15: {figure(mainPropertyMaximum(rune.stars, rune.mainStatId))}</p>
+
+        <h3 className="overlay-row-label rune-overlay-innate-title">Innate property</h3>
+        <p className="rune-overlay-line">
+          {rune.prefixStatId === null
+            ? <span className="rune-overlay-line-name overlay-empty">None</span>
+            : <>
+              <span className="rune-overlay-line-name">{runeStatName(rune.prefixStatId) ?? `Stat ${rune.prefixStatId}`}</span>
+              <span className="rune-overlay-line-value">{figure(rune.prefixValue)}</span>
+            </>}
+        </p>
+      </section>
+
+      {/* The column heading names the block, so it carries no title of its own
+          above a second row of headings saying the same thing. */}
+      <table className="rune-overlay-sub-table" aria-label="Sub properties">
+        <thead>
+          <tr>
+            <th scope="col">Sub properties</th>
+            <th scope="col">Value</th>
+            <th scope="col"><abbr title="Enchanted Gem">Gem</abbr></th>
+            <th scope="col"><abbr title="Grindstone">Grind</abbr></th>
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from({ length: subPropertySlots }, (_, at) => {
+            const property = rune.subProperties[at];
+            if (property === undefined) {
+              return <tr key={`empty-${at}`} className="rune-overlay-sub-empty">
+                <th scope="row">Not revealed yet</th><td>—</td><td /><td />
+              </tr>;
+            }
+            const name = runeStatName(property.statId) ?? `Stat ${property.statId}`;
+            return <tr key={property.statId}>
+              <th scope="row">{name}</th>
+              <td>{figure(runeSubValue(property))}</td>
+              <td>{property.gemmed && <CircularArrowsMark label={`${name} came from an Enchanted Gem`} />}</td>
+              <td>{property.grind > 0 ? `+${figure(property.grind)}` : ''}</td>
+            </tr>;
+          })}
+        </tbody>
+      </table>
     </div>
-  </div>;
+  </Overlay>;
 }
