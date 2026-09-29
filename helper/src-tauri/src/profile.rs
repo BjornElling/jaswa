@@ -292,6 +292,7 @@ impl ProfileStore {
     pub fn unmodeled_exchange(&self, response: &Value, request: &Value) -> Option<String> {
         unmodeled_shrine_move(self.profile.as_ref(), request, response)
             .or_else(|| unmodeled_unit_conversion(self.profile.as_ref(), request, response))
+            .or_else(|| unmodeled_summoned_stacks(request, response))
     }
 
     pub fn apply_update(&mut self, response: &Value, request: &Value) -> bool {
@@ -355,23 +356,20 @@ impl ProfileStore {
             .and_then(Value::as_str)
             .unwrap_or("")
             .to_ascii_lowercase();
-        /* Any response that carries a shrine list carries this account's shrine
-        list, so the list itself is the signal — not the command that happened
-        to bring it. Gating on `GetUnitStorageList` and `GetWizardDataPart1`
-        left the shrine frozen at whatever the last full read said: sealing a
-        monster answers under the command that sealed it, and the sealed copy
-        stayed on screen until the next login. The response is already known to
-        belong to this account — an RTA command and a failed response never
-        reach here — and the list it carries is the whole list, so replacing
-        the collection with it cannot lose a stack the game still holds. */
-        let storage_list = summoned_storage_list(response);
-        if storage_list.is_some() {
-            let next = normalize(storage_list.unwrap_or_default(), "unit_master_id");
+        /* Only a read of the shrine answers with the whole Summoned tab. A
+        power-up answers with the stacks it fed from — none, when every fodder
+        came from the roster — so reading that empty list as the tab emptied a
+        shrine of 148 stacks on the first ordinary power-up. Sealing answers
+        per side and is read in `apply_shrine_move`. */
+        if let Some(storage_list) = summoned_storage_list(response, &command) {
+            let next = normalize(storage_list, "unit_master_id");
             self.record_snapshot_section("unit_storage_list", &next);
             if collection(&profile, "unit_storage_list") != next.as_slice() {
                 set_collection(&mut profile, "unit_storage_list", next);
                 changed = true;
             }
+        } else if command == "sacrificeunit_v4" {
+            changed |= merge_touched_stacks(&mut profile, collection(response, "unit_storage_list"));
         }
         let normal_storage_list = response
             .get("unit_storage_normal_list")
@@ -594,12 +592,17 @@ fn collection<'a>(profile: &'a Value, key: &str) -> &'a [Value] {
         .map(Vec::as_slice)
         .unwrap_or(&[])
 }
-/* The game has returned this complete list in more than one envelope over
-time. Keep the wire-shape knowledge at the helper boundary so the profile
-never depends on whichever response wrapper happened to carry it. */
-fn summoned_storage_list(response: &Value) -> Option<Vec<Value>> {
+/* The game has returned the complete Summoned tab in more than one envelope
+over time. Keep the wire-shape knowledge at the helper boundary so the profile
+never depends on whichever response wrapper happened to carry it. A list at the
+top of a response is the whole tab only when the response is the shrine read
+itself; elsewhere the same key names the stacks one action touched. */
+const WHOLE_SUMMONED_TAB_COMMAND: &str = "getunitstoragelist";
+
+fn summoned_storage_list(response: &Value, command: &str) -> Option<Vec<Value>> {
     response
         .get("unit_storage_list")
+        .filter(|_| command == WHOLE_SUMMONED_TAB_COMMAND)
         .and_then(Value::as_array)
         .or_else(|| {
             response
@@ -651,30 +654,8 @@ so it updates stacks by master id instead of replacing the collection. */
 fn apply_shrine_move(profile: &mut Value, response: &Value) -> bool {
     let mut changed = false;
     for side in ["result_from", "result_to"] {
-        let Some(stacks) = response
-            .get(side)
-            .and_then(|value| value.get("unit_storage_list"))
-            .and_then(Value::as_array)
-        else {
-            continue;
-        };
-        let touched = stacks
-            .iter()
-            .filter_map(|stack| identifier(stack, "unit_master_id"))
-            .collect::<Vec<_>>();
-        let current = collection(profile, "unit_storage_list").to_vec();
-        /* A stack of nothing is not a stack: counting it would show a copy the
-        tab no longer holds. */
-        let next = merge_collection(current.clone(), stacks.clone(), "unit_master_id")
-            .into_iter()
-            .filter(|stack| {
-                !identifier(stack, "unit_master_id").is_some_and(|id| touched.contains(&id))
-                    || stack.get("quantity").and_then(Value::as_u64) != Some(0)
-            })
-            .collect::<Vec<_>>();
-        if next != current {
-            set_collection(profile, "unit_storage_list", next);
-            changed = true;
+        if let Some(stacks) = response.get(side) {
+            changed |= merge_touched_stacks(profile, collection(stacks, "unit_storage_list"));
         }
     }
     let stored = response
@@ -703,6 +684,81 @@ fn apply_shrine_move(profile: &mut Value, response: &Value) -> bool {
         }
     }
     changed
+}
+
+/* The Summoned stacks one action touched, each restated with what is left of
+it. Stacks the action did not name are untouched, never removed. */
+fn merge_touched_stacks(profile: &mut Value, stacks: &[Value]) -> bool {
+    if stacks.is_empty() {
+        return false;
+    }
+    let touched = stacks
+        .iter()
+        .filter_map(|stack| identifier(stack, "unit_master_id"))
+        .collect::<Vec<_>>();
+    let current = collection(profile, "unit_storage_list").to_vec();
+    /* A stack of nothing is not a stack: counting it would show a copy the
+    tab no longer holds. */
+    let next = merge_collection(current.clone(), stacks.to_vec(), "unit_master_id")
+        .into_iter()
+        .filter(|stack| {
+            !identifier(stack, "unit_master_id").is_some_and(|id| touched.contains(&id))
+                || stack.get("quantity").and_then(Value::as_u64) != Some(0)
+        })
+        .collect::<Vec<_>>();
+    if next == current {
+        return false;
+    }
+    set_collection(profile, "unit_storage_list", next);
+    true
+}
+
+/* A power-up may feed on Summoned stacks as well as on monsters: the request
+names them in `source_storage_list`, and the answer restates each in its own
+`unit_storage_list`. A fed stack the answer does not restate would keep
+counting the copy it spent, so that answer stops live import. So does a top-level
+Summoned list under any command not yet seen carrying one: whether it means the
+whole tab or the stacks one action touched is the game's to show, not ours to
+assume, and assuming "whole tab" is what emptied the shrine. */
+fn unmodeled_summoned_stacks(request: &Value, response: &Value) -> Option<String> {
+    let command = request.get("command").and_then(Value::as_str)?;
+    if !successful_response(response) {
+        return None;
+    }
+    let lower = command.to_ascii_lowercase();
+    if lower == WHOLE_SUMMONED_TAB_COMMAND || lower == "movestoragefromto" {
+        return None;
+    }
+    let restated = collection(response, "unit_storage_list")
+        .iter()
+        .filter_map(|stack| identifier(stack, "unit_master_id"))
+        .collect::<Vec<_>>();
+    if lower == "sacrificeunit_v4" {
+        let fed = collection(request, "source_storage_list");
+        let fed_ids = fed
+            .iter()
+            .filter_map(|stack| identifier(stack, "unit_master_id"))
+            .collect::<Vec<_>>();
+        if fed_ids.len() != fed.len() {
+            return Some(
+                "SacrificeUnit_V4 fed on a Summoned stack JASWA cannot read, which JASWA does not model yet."
+                    .into(),
+            );
+        }
+        if !fed_ids.iter().all(|id| restated.contains(id)) {
+            return Some(
+                "SacrificeUnit_V4 fed on a Summoned stack its answer did not restate, which JASWA does not model yet."
+                    .into(),
+            );
+        }
+        return None;
+    }
+    if response.get("unit_storage_list").is_some() {
+        return Some(format!(
+            "{command} answered with a Summoned shrine list, which JASWA does not model yet."
+        ));
+    }
+    None
 }
 
 /* A shrine move JASWA cannot place must stop live import rather than leave a
@@ -2250,10 +2306,118 @@ mod tests {
                         "unit_storage_list": [{"unit_master_id": 10103}]
                     }
                 }
-            }))
+            }), "getwizarddatapart1")
             .unwrap()
             .len(),
             1
+        );
+    }
+
+    /* The shape a captured power-up had (September 29, 2026): every fodder from
+    the roster, `source_storage_list` empty, and the answer's own
+    `unit_storage_list` empty with it. Reading that as the whole tab emptied a
+    shrine of 148 stacks on the first ordinary power-up. */
+    #[test]
+    fn a_power_up_from_the_roster_keeps_every_summoned_stack() {
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({
+            "unit_list": [{"unit_id": 1, "unit_master_id": 10101}, {"unit_id": 2, "unit_master_id": 10102}],
+            "unit_storage_list": [
+                {"unit_master_id": 10101, "quantity": 8, "class": 3},
+                {"unit_master_id": 10102, "quantity": 12, "class": 3}
+            ],
+            "runes": []
+        })));
+        let request = json!({
+            "command": "SacrificeUnit_V4",
+            "target_unit_id": 1,
+            "source_unit_list": [{"unit_id": 2}],
+            "source_storage_list": [],
+            "source_item_list": []
+        });
+        let response = json!({
+            "ret_code": 0,
+            "target_unit": {"unit_id": 1, "unit_master_id": 10101, "unit_level": 2},
+            "unit_storage_list": [],
+            "inventory_item_list": []
+        });
+        assert_eq!(store.unmodeled_exchange(&response, &request), None);
+        assert!(store.apply_update(&response, &request));
+        let data = store.read().unwrap().data;
+        assert_eq!(data["unit_storage_list"].as_array().unwrap().len(), 2);
+        assert_eq!(data["unit_storage_list"][1]["quantity"], 12);
+    }
+
+    /* Fodder taken from the Summoned tab is spent from its stack. The answer
+    restates the stack it fed from; the others stay as they were. */
+    #[test]
+    fn a_power_up_fed_from_the_shrine_updates_only_that_stack() {
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({
+            "unit_list": [{"unit_id": 1, "unit_master_id": 10101}],
+            "unit_storage_list": [
+                {"unit_master_id": 10101, "quantity": 8, "class": 3},
+                {"unit_master_id": 10102, "quantity": 1, "class": 3}
+            ],
+            "runes": []
+        })));
+        let feed = |master: u64| {
+            json!({
+                "command": "SacrificeUnit_V4",
+                "target_unit_id": 1,
+                "source_unit_list": [],
+                "source_storage_list": [{"unit_master_id": master, "quantity": 1}]
+            })
+        };
+        let answer = |master: u64, quantity: u64| {
+            json!({
+                "ret_code": 0,
+                "target_unit": {"unit_id": 1, "unit_master_id": 10101},
+                "unit_storage_list": [{"unit_master_id": master, "quantity": quantity, "class": 3}]
+            })
+        };
+        assert_eq!(store.unmodeled_exchange(&answer(10101, 7), &feed(10101)), None);
+        assert!(store.apply_update(&answer(10101, 7), &feed(10101)));
+        assert!(store.apply_update(&answer(10102, 0), &feed(10102)));
+        let data = store.read().unwrap().data;
+        assert_eq!(
+            data["unit_storage_list"],
+            json!([{"unit_master_id": 10101, "quantity": 7, "class": 3}])
+        );
+    }
+
+    /* What a list at the top of an answer means is shown by the game, one
+    command at a time. A fed stack the answer leaves out, or a list under a
+    command never seen carrying one, stops live import instead. */
+    #[test]
+    fn an_unknown_summoned_list_stops_live_import() {
+        let store = ProfileStore::default();
+        let ok = json!({"ret_code": 0, "unit_storage_list": []});
+        assert!(store
+            .unmodeled_exchange(
+                &ok,
+                &json!({
+                    "command": "SacrificeUnit_V4",
+                    "source_storage_list": [{"unit_master_id": 10101, "quantity": 1}]
+                })
+            )
+            .is_some());
+        assert!(store
+            .unmodeled_exchange(
+                &ok,
+                &json!({"command": "SacrificeUnit_V4", "source_storage_list": [{"quantity": 1}]})
+            )
+            .is_some());
+        assert!(store
+            .unmodeled_exchange(&ok, &json!({"command": "ConvertUnitToItem", "unit_id_list": [{"unit_id": 1}]}))
+            .is_some_and(|reason| reason.contains("Summoned")));
+        assert_eq!(
+            store.unmodeled_exchange(&ok, &json!({"command": "getUnitStorageList"})),
+            None
+        );
+        assert_eq!(
+            store.unmodeled_exchange(&json!({"ret_code": 0}), &json!({"command": "SummonUnit"})),
+            None
         );
     }
 
@@ -2305,9 +2469,9 @@ mod tests {
         );
     }
 
-    /* A whole shrine list at the top of a response is the whole tab, whichever
-    command brought it; the game sends one each time the shrine is opened, under
-    `getUnitStorageList`. */
+    /* The game sends the whole Summoned tab each time the shrine is opened,
+    under `getUnitStorageList`, and the whole Normal tab under any command that
+    carries one. */
     #[test]
     fn captures_shrine_lists_from_any_command_that_carries_them() {
         let mut store = ProfileStore::default();
