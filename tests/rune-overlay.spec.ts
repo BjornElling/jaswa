@@ -38,7 +38,7 @@ test('the rune overlay states the rune and nothing else, and returns focus', asy
   await expect(overlay.locator('.rune-overlay-subs tbody tr')).toHaveCount(4);
   await expect(overlay.getByRole('table', { name: 'Sub properties' }).locator('tbody').getByRole('row')).toHaveCount(2);
   /* Below +12 the lines are not final, so no craft is named yet. */
-  await expect(overlay.getByRole('columnheader', { name: 'Max stats' })).toHaveAttribute('title', /Decided at \+12/);
+  await expect(overlay.getByRole('columnheader', { name: 'Improvements' })).toHaveAttribute('title', /Decided at \+12/);
   await expect(overlay.getByText('Not revealed yet')).toHaveCount(0);
   /* The stats box states the rune as it is; only Evaluation speaks of +15. */
   await expect(overlay.locator('.rune-overlay-stats').getByText(/at \+15/)).toHaveCount(0);
@@ -57,12 +57,12 @@ test('the rune overlay states the rune and nothing else, and returns focus', asy
   await expect(firstRune).toBeFocused();
 });
 
-test('Max stats names the Gem and the stones the verdict counted', async ({ page }) => {
+test('Improvements names the Gem and the stones the verdict counted', async ({ page }) => {
   const links = await openCleanup(page);
   await links.filter({ hasText: 'Fatal' }).click();
   const overlay = page.getByRole('dialog', { name: 'Fatal' });
   const table = overlay.getByRole('table', { name: 'Sub properties' });
-  await expect(table.getByRole('columnheader', { name: 'Max stats' })).toHaveAttribute('title', /Max value counts, for /);
+  await expect(table.getByRole('columnheader', { name: 'Improvements' })).toHaveAttribute('title', /Max value counts, for /);
   const maxOf = (line: RegExp) => table.locator('tbody tr').filter({ hasText: line }).locator('td').nth(3);
   /* The Gem goes where it gains most, which here is the HP line, into CRI Rate; the
      grindable lines carry the credited stone. Resistance takes no stone. */

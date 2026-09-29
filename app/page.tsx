@@ -178,7 +178,7 @@ export default function Home() {
   /* The overlay's rune is the same object for as long as the overlay and the import
      stand. Read afresh in render, it was a new rune on every render of this page —
      the helper's poll alone renders it every two seconds — and the overlay took
-     each one for a different rune and calculated its Max stats again. */
+     each one for a different rune and calculated its Improvements again. */
   const overlayRune = useMemo(() => {
     if (overlay?.kind !== 'rune') return undefined;
     const runeTarget = overlay.target;

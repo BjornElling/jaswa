@@ -58,7 +58,7 @@ function wearer(rune: Rune, game: GameRecord | undefined): {
 }
 
 /**
- * What the Max stats column has to say, and why it says nothing where it does.
+ * What the Improvements column has to say, and why it says nothing where it does.
  * Below `+12` the lines are not final, so the engine names no craft (`craftedLines`
  * is `null` there) and neither does this.
  */
@@ -247,7 +247,7 @@ function Evaluation({ rune, presets, explained }: {
     way a filter names one, or the two HP lines would read alike. */
 function CraftCell({ gemStatId, gemRoll, grind, statId, format }: {
   gemStatId: number | null;
-  /** What the Gem here rolled — or, in Max stats, is counted to roll — its stone
+  /** What the Gem here rolled — or, in Improvements, is counted to roll — its stone
       excluded and printed after it; absent where no Gem is named. */
   gemRoll?: number;
   grind: number; statId: number; format: (value: number) => string;
@@ -347,7 +347,7 @@ export function RuneOverlay({ rune, game, general, settings, presets, hardwareAc
               <th scope="col"><span className="visually-hidden">Sub property</span></th>
               <th scope="col">Grinds</th>
               <th scope="col">Gems</th>
-              <th scope="col" title={maxHeading}>Max stats</th>
+              <th scope="col" title={maxHeading}>Improvements</th>
             </tr>
           </thead>
           <tbody>
