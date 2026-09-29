@@ -23,7 +23,7 @@ new reward wrapper names do not silently lose a record.
 
 | Account data | Direct records | Reward records | Removal or movement |
 | --- | --- | --- | --- |
-| Monsters | `unit`, `unit_info`, `target_unit`, `unit_list` | Full unit records in a reward payload | `MoveUnitBuilding` (Monster Storage and back), any request naming a `building_id` and the units moving into it, `remove_unit_id_list`, sacrifice sources, sell/convert requests |
+| Monsters | `unit`, `unit_info`, `target_unit`, `unit_list` | Full unit records in a reward payload | `MoveUnitBuilding` (Monster Storage and back), any request naming a `building_id` and the units moving into it, `remove_unit_id_list`, sacrifice sources, sell requests, and the monsters a `ConvertUnitToItem` request names (crafting Engraved Stones answers with the item alone, so the request is the only record of what it spent; roster and Normal shrine copies both go, and a conversion naming no readable monster or spending an equipped one stops live import) |
 | Sealed Shrine | `unit_storage_list`, `unit_storage_normal_list` at the top of a response | — | A whole list at the top of a response replaces the collection. `MoveStorageFromTo` is read side by side — see below |
 | Runes | `rune`, `rune_info`, `runes` | V2 `changed_item_list` type `8`; legacy `reward.crate.rune(s)`; shop and black-market responses | Upgrade, reappraisal, refine/convert, equip/unequip, sell and remove lists |
 | Artifacts | `artifact`, `artifact_info`, `artifacts` | V2 `changed_item_list` type `73`; legacy reward crates and quest/mail claims | Upgrade, occupation changes, sell and remove lists |

@@ -291,6 +291,7 @@ impl ProfileStore {
     /// caller can stop live import instead of letting the account drift.
     pub fn unmodeled_exchange(&self, response: &Value, request: &Value) -> Option<String> {
         unmodeled_shrine_move(self.profile.as_ref(), request, response)
+            .or_else(|| unmodeled_unit_conversion(self.profile.as_ref(), request, response))
     }
 
     pub fn apply_update(&mut self, response: &Value, request: &Value) -> bool {
@@ -474,6 +475,19 @@ impl ProfileStore {
                 "unit_id",
                 &["source_unit_list"],
             ));
+        }
+        /* Crafting an item out of monsters — an Engraved Stone, say — answers
+        with the item it made and says nothing of the monsters it spent. Waiting
+        for a `remove_unit_id_list` kept every spent monster on screen, while the
+        revision still moved for the new item, so the log read as if it had
+        worked. The request is where the spent monsters are named. A sealed
+        monster has the same id as the live one it was, so the shrine copy goes
+        too. */
+        if command == "convertunittoitem" {
+            let spent = request_identifiers(request, "unit_id");
+            changed |=
+                remove_collection_items(&mut profile, "unit_storage_normal_list", "unit_id", &spent);
+            removed_unit_ids.extend(spent);
         }
         changed |= remove_everywhere(&mut profile, ENTITIES[0], &unique(removed_unit_ids));
         if command.contains("sell") {
@@ -772,6 +786,45 @@ fn unmodeled_shrine_move(profile: Option<&Value>, request: &Value, response: &Va
         if equipped {
             return refuse("sealed a monster that still carries equipment");
         }
+    }
+    None
+}
+
+/* A conversion is modelled by the monsters its request names. One that names
+none the helper can read would spend monsters and change nothing, which is the
+silent drift this whole check exists to stop. Equipment on a spent monster has
+to go somewhere, and no captured exchange has shown where. */
+fn unmodeled_unit_conversion(
+    profile: Option<&Value>,
+    request: &Value,
+    response: &Value,
+) -> Option<String> {
+    let command = request.get("command").and_then(Value::as_str)?;
+    if !command.eq_ignore_ascii_case("ConvertUnitToItem") || !successful_response(response) {
+        return None;
+    }
+    let spent = request_identifiers(request, "unit_id");
+    if spent.is_empty() {
+        return Some(
+            "ConvertUnitToItem named no monster JASWA can read, which JASWA does not model yet."
+                .into(),
+        );
+    }
+    let equipped = profile
+        .map(|profile| collection(profile, "unit_list"))
+        .unwrap_or(&[])
+        .iter()
+        .filter(|unit| identifier(unit, "unit_id").is_some_and(|id| spent.contains(&id)))
+        .any(|unit| {
+            ["runes", "artifacts", "relics"]
+                .iter()
+                .any(|key| !collection(unit, key).is_empty())
+        });
+    if equipped {
+        return Some(
+            "ConvertUnitToItem spent a monster that still carries equipment, which JASWA does not model yet."
+                .into(),
+        );
     }
     None
 }
@@ -2324,6 +2377,59 @@ mod tests {
         assert_eq!(
             units.iter().find(|unit| unit["unit_id"] == 2).unwrap()["unit_level"],
             40
+        );
+    }
+
+    /// Crafting Engraved Stones answered with the new item alone, and the
+    /// three monsters it spent stayed on screen.
+    #[test]
+    fn a_conversion_spends_the_monsters_its_request_names() {
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({
+            "unit_list": [{"unit_id": 1}, {"unit_id": 2}, {"unit_id": 3}],
+            "unit_storage_normal_list": [{"unit_id": 4}],
+            "runes": []
+        })));
+        let request = json!({
+            "command": "ConvertUnitToItem",
+            "unit_id_list": [{"unit_id": 1}, {"unit_id": 2}, {"unit_id": 4}]
+        });
+        let response = json!({"ret_code": 0, "inventory_item_list": []});
+        assert_eq!(store.unmodeled_exchange(&response, &request), None);
+        assert!(store.apply_update(&response, &request));
+        let data = store.read().unwrap().data;
+        let ids = |key: &str| {
+            data[key]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|unit| unit["unit_id"].clone())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(ids("unit_list"), vec![json!(3)]);
+        assert!(ids("unit_storage_normal_list").is_empty());
+    }
+
+    #[test]
+    fn a_conversion_it_cannot_read_stops_live_import() {
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({
+            "unit_list": [{"unit_id": 1, "runes": [{"rune_id": 9, "occupied_id": 1}]}],
+            "runes": []
+        })));
+        let ok = json!({"ret_code": 0});
+        assert!(store
+            .unmodeled_exchange(&ok, &json!({"command": "ConvertUnitToItem", "item_id": 5}))
+            .is_some());
+        assert!(store
+            .unmodeled_exchange(&ok, &json!({"command": "ConvertUnitToItem", "unit_id": 1}))
+            .is_some());
+        assert_eq!(
+            store.unmodeled_exchange(
+                &json!({"ret_code": 1}),
+                &json!({"command": "ConvertUnitToItem", "item_id": 5})
+            ),
+            None
         );
     }
 
