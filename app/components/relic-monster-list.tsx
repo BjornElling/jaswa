@@ -5,6 +5,7 @@ import { FilterSummary } from './filter-summary';
 import { MonsterLink } from './monster-link';
 import type { OpenMonsterOverlay } from './monster-link';
 import { SortableHeader } from './sortable-table';
+import { useRowOpener } from './use-row-opener';
 import { useSortedRows } from './use-sorted-rows';
 import type { SortableColumn } from './use-sorted-rows';
 import { columnClasses, relicMonsterTableColumns } from '../lib/table-layouts';
@@ -192,6 +193,7 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
   preferences: Preferences;
   onOpenMonster: OpenMonsterOverlay;
 }) {
+  const rowOpener = useRowOpener();
   const [filters, setFilters] = useSessionStorageState(
     'jaswa.filters.relic-monsters', defaultRelicMonsterFilters, isRelicMonsterFilterState,
   );
@@ -468,7 +470,7 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
       <tbody>
         {sorted.length ? sorted.map((row) => {
           const chosen = row.recommendation.chosen;
-          return <tr key={row.unitId}>
+          return <tr key={row.unitId} {...rowOpener}>
             <td className={relicMonsterCell('index', 'row-index')}>{String(row.index + 1).padStart(2, '0')}</td>
             <td className={relicMonsterCell('name')}>
               <MonsterLink

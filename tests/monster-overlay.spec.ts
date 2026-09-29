@@ -84,6 +84,30 @@ test('a monster name opens its overlay without moving the row it sits in', async
   await expect(page.locator('.overlay-label-field input')).toBeFocused();
 });
 
+test('anywhere in a monster row opens its overlay, and selecting text there does not', async ({ page }) => {
+  await importAccount(page);
+  await monsterLinks(page);
+  const row = page.locator('tbody tr').filter({ has: page.locator('.monster-link') }).first();
+  const link = row.locator('.monster-link');
+  const figure = row.locator('td').last();
+  await figure.scrollIntoViewIfNeeded();
+
+  /* Dragging across a figure to copy it is a selection, not a request. */
+  const box = (await figure.boundingBox())!;
+  await page.mouse.move(box.x + 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width - 2, box.y + box.height / 2, { steps: 5 });
+  await page.mouse.up();
+  await expect(page.getByRole('dialog')).toBeHidden();
+
+  await figure.click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toBeHidden();
+  /* Focus returns to the one control the row has, not to wherever it was clicked. */
+  await expect(link).toBeFocused();
+});
+
 test('the overlay is centred on the table it opens over, not on the window', async ({ page }) => {
   await importAccount(page);
   await monsterLinks(page);

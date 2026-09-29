@@ -5,6 +5,7 @@ import { FilterButton } from './button';
 import { Dropdown } from './dropdown';
 import { ValueSlider } from './range-slider';
 import { SortableHeader } from './sortable-table';
+import { useRowOpener } from './use-row-opener';
 import { useSortedRows } from './use-sorted-rows';
 import type { SortableColumn } from './use-sorted-rows';
 import { withAncientMark } from '../lib/ancient-mark';
@@ -135,6 +136,7 @@ export function CraftItemBestUse({ items, runes, monsters, monsterPreferences, p
   general: GeneralSettings;
   onOpenRune: OpenRuneOverlay;
 }) {
+  const rowOpener = useRowOpener();
   const [state, setState] = useSessionStorageState(
     'jaswa.filters.craft-best-use', defaultState, isBestUseState,
   );
@@ -290,7 +292,7 @@ export function CraftItemBestUse({ items, runes, monsters, monsterPreferences, p
 
   /* The table shows the rune's own facts; the gem's arithmetic is in the two
      score columns beside them. A rune is named by what a player would call it. */
-  const body = (sorted: readonly Row[]) => <tbody>{sorted.map(({ candidate, where }) => <tr key={candidate.rune.id}>
+  const body = (sorted: readonly Row[]) => <tbody>{sorted.map(({ candidate, where }) => <tr key={candidate.rune.id} {...rowOpener}>
     <td className={cell('rune')}>
       <RuneLink
         target={{ kind: 'account', runeId: candidate.rune.id }}

@@ -4,6 +4,7 @@ import { Disclosure, PageHeader } from './page-chrome';
 import { DataTablePage, TableColumnGroup } from './data-table-page';
 import { FilterSummary } from './filter-summary';
 import { SortableHeader } from './sortable-table';
+import { useRowOpener } from './use-row-opener';
 import { useSortedRows } from './use-sorted-rows';
 import type { SortableColumn } from './use-sorted-rows';
 import { MonsterStorage } from './monster-storage';
@@ -164,6 +165,7 @@ export function MonsterOverview({ monsters, gameData, preferences, onOpenMonster
   preferences: Preferences;
   onOpenMonster: OpenMonsterOverlay;
 }) {
+  const rowOpener = useRowOpener();
   const [filters, setFilters] = useSessionStorageState(
     'jaswa.filters.monsters', defaultMonsterFilters, isMonsterFilterState,
   );
@@ -373,7 +375,7 @@ export function MonsterOverview({ monsters, gameData, preferences, onOpenMonster
         </>}
       >
         <tbody>
-          {sorted.map((row) => <tr key={row.unitId}>
+          {sorted.map((row) => <tr key={row.unitId} {...rowOpener}>
             <td className={cell('index', 'row-index')}>{String(row.index + 1).padStart(2, '0')}</td>
             <td className={cell('name')}>
               <MonsterLink

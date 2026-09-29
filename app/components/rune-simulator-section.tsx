@@ -6,9 +6,11 @@ import { Dropdown } from './dropdown';
 import { PageHeader } from './page-chrome';
 import { QualityRule, qualityRuleHost } from './quality-rule';
 import { TableColumnGroup } from './data-table-page';
+import { useRowOpener } from './use-row-opener';
 import { WorkspacePage } from './workspace-page';
 import { allRuneSetNames } from '../lib/rune-sets';
-import { lastSubPropertyLevel } from '../lib/rune-properties';import type {
+import { lastSubPropertyLevel } from '../lib/rune-properties';
+import type {
   RuneSimulationConfig, RuneSimulationResult, SimulationEntry, SimulationStage,
   SimulationCheckpointPolicy,
   SimulationSubProperty as SimulatedSubProperty,
@@ -426,7 +428,8 @@ function RuneSimulationResults({ result, stage, onStageChange, general, onOpenRu
 function SimulationRow({ entry, onOpenRune }: { entry: SimulationEntry; onOpenRune: OpenRuneOverlay }) {
   const { rune, verdict } = entry;
   const judged = verdict !== null && verdict.presetName !== null;
-  return <tr>
+  const rowOpener = useRowOpener();
+  return <tr {...rowOpener}>
     <td className={cell('set', qualityRuleHost, 'rune-simulator-set')}>
       <RuneLink
         target={{ kind: 'generated', rune: simulationRuneToCleanupRune(rune) }}

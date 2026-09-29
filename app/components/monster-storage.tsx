@@ -6,6 +6,7 @@ import { MonsterLink } from './monster-link';
 import type { OpenMonsterOverlay } from './monster-link';
 import { RangeSlider, ValueSlider } from './range-slider';
 import { SortableHeader } from './sortable-table';
+import { useRowOpener } from './use-row-opener';
 import { useSortedRows } from './use-sorted-rows';
 import type { SortableColumn } from './use-sorted-rows';
 import { monsterPresentation, monsterSkillUpsToMax } from '../lib/monster-catalog';
@@ -382,6 +383,7 @@ export function MonsterStorage({ monsters, gameData, preferences, onOpenMonster 
   preferences: Preferences;
   onOpenMonster: OpenMonsterOverlay;
 }) {
+  const rowOpener = useRowOpener();
   const [filters, setFilters] = useSessionStorageState(
     'jaswa.filters.monster-storage', defaultStorageFilters, isStorageFilterState,
   );
@@ -658,7 +660,7 @@ export function MonsterStorage({ monsters, gameData, preferences, onOpenMonster 
     <tbody>
       {!monsters.length && !shrineEntries.length ? <tr><td className="table-empty-state" colSpan={9}>
         Import your game data first. Your monsters will appear here when JASWA has an account to inspect.
-      </td></tr> : sorted.length ? sorted.map((row) => <tr key={row.unitId}>
+      </td></tr> : sorted.length ? sorted.map((row) => <tr key={row.unitId} {...rowOpener}>
         {/* The row's own number, not its position in the current view, so
             sorting by `#` visibly restores the table's default order rather
             than renumbering whatever order is already on screen. */}
