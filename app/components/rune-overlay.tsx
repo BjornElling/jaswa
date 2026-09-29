@@ -202,7 +202,7 @@ function Evaluation({ rune, presets, explained }: {
   const oddsLeft = rune.level < lastSubPropertyLevel;
   const facts = [
     { label: 'Best preset for this rune', value: chosen?.name ?? placeholder },
-    { label: 'Suitability for this preset', value: chosen && advice ? suitabilityLabels[advice.rank] : '—' },
+    { label: 'Set and main desirability for this preset', value: chosen && advice ? suitabilityLabels[advice.rank] : '—' },
     /* The floor and its cutoff are one statement, set a step apart from which preset
        it is and how well the rune suits it. */
     { label: 'Based on the Rune quality floor, the rune must be among the best', value: chosen && advice ? tenths(advice.floorShare) : '—', opensGroup: true },
