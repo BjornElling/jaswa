@@ -52,7 +52,8 @@
   --state-warn: var(--text-accent);
   --state-bad: #e0705f;
 
-  /* A ground rune line, in the game's own colour for it (`rune-sub-line.tsx`).
+  /* A ground rune figure and the Enchanted Gem ring, in the game's own colour
+     for them (`rune-sub-line.tsx`).
      Named apart from the accent for the same reason the verdicts are: it is the
      game's fact, not an invitation, and matches the gold only because the game
      happens to paint it gold. */
@@ -5577,13 +5578,14 @@ th.align-center .sort-button { justify-content: center; }
 }
 .rune-sub-name { color: var(--text-muted); }
 .rune-sub-value { font-variant-numeric: tabular-nums; }
-/* The marks after a line — the gem, and on the simulator its rolls. The gem
-   mark takes the line's own colour, so it is white on a line that was never
-   ground and gold on one that was, as in the game. */
+/* The marks after a line — the gem, and on the simulator its rolls. The gem's
+   ring is gold always; its arrows take the line's colour, so they are white on
+   a line that was never ground and gold with the figure on one that was, as in
+   the game. The name stays muted either way. */
 .rune-sub-marks { display: inline-flex; align-items: center; gap: var(--s1); }
 .rune-sub .rune-sub-marks:empty { display: none; }
 .rune-sub-gem.artifact-sub-mark { margin-left: 0; }
-[data-ground='true'] .rune-sub-name,
+.rune-sub-gem-ring { stroke: var(--rune-ground); }
 [data-ground='true'] .rune-sub-value,
 [data-ground='true'] .rune-sub-gem { color: var(--rune-ground); }
 .rune-innate { margin-right: 0; }
@@ -5834,7 +5836,7 @@ th.align-center .sort-button { justify-content: center; }
    the innate beside them — line up on their units down the cell. */
 .rune-simulator-property {
   display: grid;
-  grid-template-columns: 10ch 4ch max-content;
+  grid-template-columns: 10ch 5ch max-content;
   gap: var(--s2);
   align-items: baseline;
 }

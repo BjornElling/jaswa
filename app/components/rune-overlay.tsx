@@ -4,11 +4,11 @@ import { MonsterLink } from './monster-link';
 import type { MonsterReference, OpenMonsterOverlay } from './monster-link';
 import { Overlay } from './overlay';
 import { RuneEmblem } from './rune-emblem';
-import { RuneSubLine } from './rune-sub-line';
+import { RuneInnateLine, RuneSubLine } from './rune-sub-line';
 import { formatNumber } from '../lib/formatting';
 import type { GameRecord } from '../lib/game-data';
 import { monsterPresentation } from '../lib/monster-catalog';
-import { runeStatName } from '../lib/runes';
+import { runeLineFigure, runeLineStat } from '../lib/runes';
 import type { Rune } from '../lib/runes';
 import type { GeneralSettings } from '../lib/types';
 
@@ -54,7 +54,6 @@ export function RuneOverlay({ rune, game, general, onClose, onOpenMonster }: {
 }) {
   const worn = useMemo(() => wearer(rune, game), [rune, game]);
   const figure = (value: number) => formatNumber(value, general);
-  const statName = (statId: number) => runeStatName(statId) ?? `Stat ${statId}`;
   const facts = [
     { label: 'Slot', value: String(rune.slot) },
     { label: 'Grade', value: `${rune.stars}★` },
@@ -100,17 +99,13 @@ export function RuneOverlay({ rune, game, general, onClose, onOpenMonster }: {
     <div className="overlay-body rune-overlay-body">
       <div className="rune-overlay-stats">
         <div className="rune-overlay-main" aria-label="Main property">
-          {/* "HP +" and its kin are the flat stats; the plus goes on the figure. */}
-          {statName(rune.mainStatId).replace(/ \+$/, '')} {rune.mainValue > 0 ? `+${figure(rune.mainValue)}` : '—'}
+          {runeLineStat(rune.mainStatId) ?? `Stat ${rune.mainStatId}`} {rune.mainValue > 0 ? runeLineFigure(rune.mainStatId, rune.mainValue, figure) : '—'}
         </div>
 
         <div className="rune-overlay-innate" aria-label="Innate property">
           {rune.prefixStatId === null
             ? <span className="rune-sub-name">No innate</span>
-            : <span className="rune-sub">
-              <span className="rune-sub-name">{statName(rune.prefixStatId)}</span>
-              <span className="rune-sub-value">{figure(rune.prefixValue)}</span>
-            </span>}
+            : <RuneInnateLine statId={rune.prefixStatId} value={rune.prefixValue} format={figure} />}
         </div>
 
         {/* Four lines always, the ones not revealed yet left blank: the box is
@@ -119,8 +114,7 @@ export function RuneOverlay({ rune, game, general, onClose, onOpenMonster }: {
           {Array.from({ length: subPropertySlots }, (_, at) => {
             const property = rune.subProperties[at];
             if (property === undefined) return <li key={`unrevealed-${at}`} aria-hidden="true" />;
-            return <RuneSubLine key={property.statId} as="li" property={property}
-              name={statName(property.statId)} format={figure} />;
+            return <RuneSubLine key={property.statId} as="li" property={property} format={figure} />;
           })}
         </ul>
       </div>

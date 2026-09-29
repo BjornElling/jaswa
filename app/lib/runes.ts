@@ -30,6 +30,27 @@ export function runeStatName(id: number): string | undefined {
   return runeStatNames[id];
 }
 
+/** The stats written as a percentage — §2's percent and percentage-point forms. */
+const percentStatIds: ReadonlySet<number> = new Set([2, 4, 6, 9, 10, 11, 12]);
+
+/**
+ * A rune line as the game writes it: `ATK +33%`, `SPD +10`. The stat is named
+ * bare and the figure carries the form — the sign in front, the percent sign
+ * after — so `HP +` and `HP %`, which name a *kind* of stat in a filter, do not
+ * also stand on a line where the figure already says which one it is.
+ */
+export function runeLineStat(id: number): string | undefined {
+  return runeStatNames[id]?.replace(/ [+%]$/, '');
+}
+
+export function runeLineFigure(id: number, value: number, format: (value: number) => string = String): string {
+  return `+${format(value)}${percentStatIds.has(id) ? '%' : ''}`;
+}
+
+export function runeLineText(id: number, value: number): string {
+  return `${runeLineStat(id) ?? '?'} ${runeLineFigure(id, value)}`;
+}
+
 /** The level at which a rune becomes eligible for an Enchanted Gem (§8). */
 export const gemMinimumLevel = 12;
 
@@ -130,7 +151,6 @@ export type RuneSubProperty = {
 };
 
 export const runeSubValue = (property: RuneSubProperty): number => property.value + property.grind;
-
 export type Rune = {
   id: string;
   setId: number;

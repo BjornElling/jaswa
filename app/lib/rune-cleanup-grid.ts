@@ -7,7 +7,7 @@
  * ordered, which is why a change of sort can never change a number.
  */
 import { ancientSearchWord, withAncientMark } from './ancient-mark';
-import { runeDefaultGradeOrder, runeStatName, runeSubValue } from './runes';
+import { runeDefaultGradeOrder, runeLineText, runeStatName, runeSubValue } from './runes';
 import type { Rune } from './runes';
 import type { RuneAdvice } from './rune-cleanup-advice';
 import { runeVerdictLabels } from './rune-cleanup-advice';
@@ -175,15 +175,13 @@ export function runeSetLabel(rune: Rune): string {
 /** The sub properties said in one breath, which is also what a search matches. */
 export function runeSubText(rune: Rune): string {
   return rune.subProperties
-    .map((property) => `${runeStatName(property.statId) ?? '?'} ${runeSubValue(property)}`)
+    .map((property) => runeLineText(property.statId, runeSubValue(property)))
     .join('  ');
 }
 
 /** The innate is a stat/value pair too, but unlike a sub property it is optional. */
 function runeInnateText(rune: Rune): string {
-  return rune.prefixStatId === null
-    ? ''
-    : `${runeStatName(rune.prefixStatId) ?? '?'} ${rune.prefixValue}`;
+  return rune.prefixStatId === null ? '' : runeLineText(rune.prefixStatId, rune.prefixValue);
 }
 
 export function compareRuneCleanupRows(

@@ -35,7 +35,7 @@ import type { GeneralSettings, ImportedGame, RunePotentialSettings } from '../li
 import { useSessionStorageState } from '../lib/session-storage-state';
 import { RuneLink } from './rune-link';
 import type { OpenRuneOverlay } from './rune-link';
-import { RuneSubLine } from './rune-sub-line';
+import { RuneInnateLine, RuneSubLine } from './rune-sub-line';
 
 /* Nine of the game's own set names, and the slots and levels a rune can have.
    Listed rather than derived from the import so the filter strip does not change
@@ -497,16 +497,12 @@ export function RuneRecommendations({ game, monsterPreferences, settings, preset
             <td className={cell('innate', row.rune.prefixStatId === null && 'muted')}>
               {row.rune.prefixStatId === null
                 ? '—'
-                : <span className="rune-sub rune-innate">
-                  <span className="rune-sub-name">{runeStatName(row.rune.prefixStatId) ?? '?'}</span>
-                  <span className="rune-sub-value">{row.rune.prefixValue}</span>
-                </span>}
+                : <RuneInnateLine className="rune-sub rune-innate" statId={row.rune.prefixStatId} value={row.rune.prefixValue} />}
             </td>
             <td className={cell('subs', 'rune-subs')}>
               {row.rune.subProperties.length === 0
                 ? <span className="muted">—</span>
-                : row.rune.subProperties.map((property, at) => <RuneSubLine key={at} property={property}
-                  name={runeStatName(property.statId) ?? '?'} format={String} />)}
+                : row.rune.subProperties.map((property, at) => <RuneSubLine key={at} property={property} />)}
             </td>
             <td className={cell('location', !row.location && 'muted')}
               title={row.location === null ? 'Worn by a monster this import does not contain' : undefined}>

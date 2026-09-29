@@ -260,10 +260,11 @@ parts an agent must not quietly break:
     number *is* the invitation to act. `artifactValueBands` is the single set
     of boundaries, and no table may carry its own.
   - **A ground rune sub property** (`--rune-ground`), gold because the game
-    paints a Grindstone-touched line gold. The gem mark after a line takes the
-    line's colour, as in the game. `app/components/rune-sub-line.tsx` is the one
-    place that writes a rune sub property, so no page can colour one its own
-    way.
+    paints a Grindstone-touched figure gold — sign and percent sign included,
+    the name not. An Enchanted Gem's mark is a gold ring whose arrows take the
+    figure's colour, as in the game. `app/components/rune-sub-line.tsx` is the
+    one place that writes a rune property line, innate or sub, so no page can
+    word or colour one its own way.
 
   A grade is **not** an exception. Tinting artifact quality in the game's own
   five hues was tried and removed: five colours competing across a dense table

@@ -8,8 +8,7 @@ import { QualityRule, qualityRuleHost } from './quality-rule';
 import { TableColumnGroup } from './data-table-page';
 import { WorkspacePage } from './workspace-page';
 import { allRuneSetNames } from '../lib/rune-sets';
-import { lastSubPropertyLevel } from '../lib/rune-properties';
-import type {
+import { lastSubPropertyLevel } from '../lib/rune-properties';import type {
   RuneSimulationConfig, RuneSimulationResult, SimulationEntry, SimulationStage,
   SimulationCheckpointPolicy,
   SimulationSubProperty as SimulatedSubProperty,
@@ -29,7 +28,7 @@ import {
 import { columnClasses, runeSimulatorTableColumns } from '../lib/table-layouts';
 import { RuneLink } from './rune-link';
 import type { OpenRuneOverlay } from './rune-link';
-import { RuneSubLine } from './rune-sub-line';
+import { RuneInnateLine, RuneSubLine } from './rune-sub-line';
 
 type FormState = {
   count: string;
@@ -445,10 +444,7 @@ function SimulationRow({ entry, onOpenRune }: { entry: SimulationEntry; onOpenRu
     <td className={cell('innate', rune.prefixStatId === null && 'muted')}>
       {rune.prefixStatId === null
         ? '—'
-        : <span className="rune-simulator-property">
-          <span className="rune-sub-name">{simulationStatLabel(rune.prefixStatId)}</span>
-          <span className="rune-sub-value">{rune.prefixValue}</span>
-        </span>}
+        : <RuneInnateLine className="rune-simulator-property" statId={rune.prefixStatId} value={rune.prefixValue} />}
     </td>
     <td className={cell('subs', 'rune-simulator-subs')}>
       {rune.subProperties.length === 0
@@ -479,7 +475,7 @@ function SimulationRow({ entry, onOpenRune }: { entry: SimulationEntry; onOpenRu
 
 function SimulationSubProperty({ property }: { property: SimulatedSubProperty }) {
   const name = simulationStatLabel(property.statId);
-  return <RuneSubLine as="li" className="rune-simulator-property" property={property} name={name} format={String}>
+  return <RuneSubLine as="li" className="rune-simulator-property" property={property}>
     {property.rolls > 0 && <span className="rune-simulator-rolls type-caption" aria-label={`${property.rolls} power-up rolls in ${name}`}>
       <PowerUpArrow /><span aria-hidden="true">{property.rolls}</span>
     </span>}
