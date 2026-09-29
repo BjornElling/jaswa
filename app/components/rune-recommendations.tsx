@@ -64,18 +64,25 @@ type RuneFilterState = {
   selectedQualities: RuneDefaultGrade[];
   lowestLevel: number;
   highestLevel: number;
-  showEquipped: boolean;
-  showStored: boolean;
+  selectedPlaces: RunePlace[];
   showOnlyAncient: boolean;
   /** One of the game's own orderings, or `null` while a column heading orders. */
   gameSort: RuneGameSortKey | null;
 };
 
+/* Where a rune sits, chosen like every other value on the strip: none chosen and
+   both chosen alike show every rune, and only one of the two narrows. */
+const placeOptions = ['equipped', 'inventory'] as const;
+type RunePlace = typeof placeOptions[number];
+const placeLabels: Readonly<Record<RunePlace, string>> = { equipped: 'Equipped', inventory: 'Inventory' };
+
+/* The table opens in the game's own Obtained order, newest first, so it reads
+   like the box the player just left in Summoners War. */
 const defaultRuneFilters: RuneFilterState = {
   search: '', selectedSets: [], selectedSlots: [], selectedVerdicts: [], selectedPresets: [],
   selectedMains: [], selectedStars: [], selectedQualities: [], lowestLevel: 0,
-  highestLevel: runeMaximumLevel, showEquipped: true, showStored: true,
-  showOnlyAncient: false, gameSort: null,
+  highestLevel: runeMaximumLevel, selectedPlaces: [],
+  showOnlyAncient: false, gameSort: 'gameObtained',
 };
 
 function isRuneFilterState(value: unknown): value is RuneFilterState {
@@ -95,7 +102,8 @@ function isRuneFilterState(value: unknown): value is RuneFilterState {
     && candidate.selectedQualities.every((e) => qualityOptions.includes(e as RuneDefaultGrade))
     && level(candidate.lowestLevel) && level(candidate.highestLevel)
     && (candidate.lowestLevel as number) <= (candidate.highestLevel as number)
-    && typeof candidate.showEquipped === 'boolean' && typeof candidate.showStored === 'boolean'
+    && Array.isArray(candidate.selectedPlaces)
+    && candidate.selectedPlaces.every((e) => placeOptions.includes(e as RunePlace))
     && typeof candidate.showOnlyAncient === 'boolean'
     /* `null` is "a column heading is ordering", which is a stated value here and
        not an absent one, so it is accepted and anything else is rejected. */
@@ -171,7 +179,7 @@ export function RuneRecommendations({ game, monsterPreferences, settings, preset
     'jaswa.filters.rune-cleanup', defaultRuneFilters, isRuneFilterState,
   );
   const { search, selectedSets, selectedSlots, selectedVerdicts, selectedPresets, selectedMains,
-    selectedStars, selectedQualities, lowestLevel, highestLevel, showEquipped, showStored,
+    selectedStars, selectedQualities, lowestLevel, highestLevel, selectedPlaces,
     showOnlyAncient, gameSort } = filters;
 
   /* The held result, and the settings it answers. A result is kept until the user
@@ -262,8 +270,8 @@ export function RuneRecommendations({ game, monsterPreferences, settings, preset
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
     return rows.filter((row) => {
-      if (!showEquipped && row.rune.occupiedId !== null) return false;
-      if (!showStored && row.rune.occupiedId === null) return false;
+      if (selectedPlaces.length === 1
+        && selectedPlaces[0] !== (row.rune.occupiedId === null ? 'inventory' : 'equipped')) return false;
       if (showOnlyAncient && !row.rune.ancient) return false;
       if (selectedSets.length && !selectedSets.includes(row.rune.setName)) return false;
       if (selectedSlots.length && !selectedSlots.includes(row.rune.slot)) return false;
@@ -277,10 +285,12 @@ export function RuneRecommendations({ game, monsterPreferences, settings, preset
       return runeCleanupSearchText(row).includes(term);
     });
   }, [rows, search, selectedSets, selectedSlots, selectedStars, selectedQualities, selectedVerdicts,
-    selectedPresets, selectedMains, lowestLevel, highestLevel, showEquipped, showStored, showOnlyAncient]);
+    selectedPresets, selectedMains, lowestLevel, highestLevel, selectedPlaces, showOnlyAncient]);
 
   const { sorted, sort, toggle: toggleColumn, setSort } = useSortedRows(
-    visible, columns, { key: 'maxValue', direction: 'descending' },
+    visible, columns, gameSort === null
+      ? { key: 'maxValue', direction: 'descending' }
+      : { key: gameSort, direction: 'ascending' },
   );
 
   /* Choosing one of the game's orderings takes the table over; clicking any
@@ -462,17 +472,8 @@ export function RuneRecommendations({ game, monsterPreferences, settings, preset
           {/* "Where the rune is", not "which runes count": every rune was judged
               before this strip was reached, and these two buttons decide only
               which of the answers are on screen. */}
-          <div className="filter-group rune-filter-usage" role="group" aria-label="Filter by where the rune is">
-            <span className="filter-label">Where</span>
-            <div className="filter-group-controls">
-              <FilterButton active={showEquipped}
-                onClick={() => setFilters((current) => ({ ...current, showEquipped: !current.showEquipped }))}
-              >Equipped</FilterButton>
-              <FilterButton active={showStored}
-                onClick={() => setFilters((current) => ({ ...current, showStored: !current.showStored }))}
-              >Inventory</FilterButton>
-            </div>
-          </div>
+          {toggleGroup('Where', 'Filter by where the rune is', placeOptions, selectedPlaces,
+            'selectedPlaces', (place) => placeLabels[place], 'rune-filter-usage')}
           <FilterSummary visible={visible.length} total={rows.length} noun="runes"
             onReset={() => setFilters(defaultRuneFilters)} className="rune-filter-status" />
         </>}

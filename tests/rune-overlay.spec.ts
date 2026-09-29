@@ -17,8 +17,13 @@ async function openCleanup(page: Page) {
 }
 
 test('the rune overlay states the rune and nothing else, and returns focus', async ({ page }, testInfo) => {
-  const links = await openCleanup(page);
-  const firstRune = links.first();
+  await openCleanup(page);
+  /* Chosen by what it is, not by where it sorts: the table opens in Obtained
+     order, which a change to the fixture would reshuffle. */
+  const firstRune = page.getByRole('table', { name: 'Rune verdicts' }).locator('tbody tr')
+    .filter({ hasText: 'Violent', has: page.getByRole('img', { name: 'Legend quality' }) })
+    .filter({ hasText: /SPD\s*\+5/ })
+    .locator('.rune-link');
   await firstRune.click();
 
   const overlay = page.getByRole('dialog', { name: 'Violent' });

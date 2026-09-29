@@ -167,7 +167,7 @@ export function RuneSetupSection({ game, settings, presets, general, hardwareAcc
   return <WorkspacePage
     header={<PageHeader
       title="Rune Set-up"
-      tagline="Set the standards and roles JASWA uses to judge your runes." />}
+      tagline="Which runes deserve your mana. Set your tolerance for disappointment below." />}
   >
     <Disclosure title="Settings" sessionKey="rune-setup.settings">
       <div className="stack">
@@ -324,7 +324,7 @@ export function RunePotentialSection({
   return <WorkspacePage
     header={<PageHeader
       title="Rune Clean-up"
-      tagline="Which runes deserve your mana. Set your tolerance for disappointment below." />}
+      tagline="Time to take out the trash, so there is room for more trash." />}
   >
     {/* The answer first, the controls that shape it underneath. A user opening
         this page has come for the verdicts, not for the sliders. */}

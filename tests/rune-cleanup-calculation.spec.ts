@@ -52,10 +52,10 @@ test('the game orderings take the table over and hand it back to the headings', 
   const sortBy = page.getByRole('combobox', { name: 'Sort by' });
   const sortedHeading = header.locator('th[aria-sort]');
 
-  /* The table opens on a column, so exactly one heading reports itself sorted
-     and the dropdown reports no ordering of its own. */
-  await expect(sortBy).toHaveValue('');
-  await expect(sortedHeading).toHaveCount(1);
+  /* The table opens in the game's Obtained order, so the dropdown names it and
+     no heading claims to be the one ordering the rows. */
+  await expect(sortBy).toHaveValue('gameObtained');
+  await expect(sortedHeading).toHaveCount(0);
 
   /* Every ordering the game offers is on the dropdown, in the game's wording. */
   await expect(sortBy.locator('option')).toHaveText(['Not sorted', 'Grade', 'Power-up Lv.', 'Obtained']);
@@ -76,14 +76,14 @@ test('the game orderings take the table over and hand it back to the headings', 
   await expect(sortedHeading).toHaveCount(1);
   await page.screenshot({ path: testInfo.outputPath('rune-cleanup-heading-sort.png') });
 
-  /* Reset filters puts the ordering back too. The dropdown is part of the
-     panel's state, so leaving it set after a reset would leave the table in an
-     order the panel no longer admits to. */
+  /* Reset filters puts the opening ordering back too. The dropdown is part of
+     the panel's state, so leaving another ordering set after a reset would
+     leave the table in an order the panel no longer admits to. */
   await sortBy.selectOption({ label: 'Grade' });
   await expect(sortedHeading).toHaveCount(0);
   await page.getByRole('button', { name: 'Reset runes filters' }).click();
-  await expect(sortBy).toHaveValue('');
-  await expect(sortedHeading).toHaveCount(1);
+  await expect(sortBy).toHaveValue('gameObtained');
+  await expect(sortedHeading).toHaveCount(0);
 });
 
 test('filters by Ancient, star count and rune quality', async ({ page }, testInfo) => {

@@ -37,14 +37,27 @@ test('every rune is judged, and the filters only decide what is shown', async ({
   await expect(recommendations.locator('summary').filter({ hasText: 'Settings' })).toHaveCount(0);
   await expect(page.getByRole('navigation').getByRole('button', { name: 'Rune Set-up', exact: true })).toBeVisible();
 
-  /* Hiding the equipped rune takes a row off the screen and leaves the
-     calculation exactly where it was — four runes judged, all four still held. */
+  /* Where is chosen like every other value: none chosen shows every rune, one
+     chosen narrows to it, and both chosen is every rune again. Narrowing takes
+     rows off the screen and leaves the calculation exactly where it was. */
   const where = page.getByRole('group', { name: 'Filter by where the rune is' });
-  await where.getByRole('button', { name: 'Equipped' }).click();
+  const equipped = where.getByRole('button', { name: 'Equipped' });
+  const inventory = where.getByRole('button', { name: 'Inventory' });
+  await expect(equipped).toHaveAttribute('aria-pressed', 'false');
+  await expect(inventory).toHaveAttribute('aria-pressed', 'false');
+
+  await inventory.click();
   await expect(rows).toHaveCount(3);
   await expect(status).toContainText('4 runes judged against');
   await expect(recommendations.getByText('3 of 4 runes')).toBeVisible();
 
-  await where.getByRole('button', { name: 'Equipped' }).click();
+  await equipped.click();
+  await expect(rows).toHaveCount(4);
+
+  await inventory.click();
+  await expect(rows).toHaveCount(1);
+  await expect(rows.filter({ hasText: 'Inventory' })).toHaveCount(0);
+
+  await equipped.click();
   await expect(rows).toHaveCount(4);
 });
