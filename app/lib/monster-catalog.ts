@@ -230,6 +230,24 @@ export function monsterPresentation(masterId: unknown): MonsterPresentation {
   };
 }
 
+/* Read off the catalogue's own name rather than a list of ids, because the game
+   ships these two under many ids — 14314 and 15105, and again at 608xx–611xx —
+   and a new copy should be covered the day the catalogue lands. The raw
+   name, not `monsterPresentation`'s, so an element qualifier or a user's own label
+   can never make one slip through. Not the `Material` archetype either: that
+   takes in every Angelmon too, and the catalogue marks the 6xxxx copies `none`,
+   so it would miss most of the ones meant. */
+const rainbowmonNames: ReadonlySet<string> = new Set(['Rainbowmon', 'Devilmon']);
+
+/**
+ * Whether this is a Rainbowmon or a Devilmon: a monster held only to be fed to
+ * another, whose rows would crowd a roster of the ones actually played.
+ */
+export function isRainbowmon(masterId: unknown): boolean {
+  const name = swarfarmByCom2usId[String(masterId ?? '')]?.name;
+  return name !== undefined && rainbowmonNames.has(name);
+}
+
 export function hasMonsterCatalogEntry(masterId: unknown): boolean {
   const key = String(masterId ?? 'unknown');
   return Boolean(swarfarmByCom2usId[key]);

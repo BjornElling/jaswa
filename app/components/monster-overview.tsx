@@ -11,7 +11,7 @@ import { MonsterStorage } from './monster-storage';
 import { MonsterLink } from './monster-link';
 import type { OpenMonsterOverlay } from './monster-link';
 import { WorkspacePage } from './workspace-page';
-import { monsterPresentation } from '../lib/monster-catalog';
+import { isRainbowmon, monsterPresentation } from '../lib/monster-catalog';
 import type { MonsterArchetype } from '../lib/monster-catalog';
 import { withHigherAwakenings } from '../lib/monster-identity';
 import { shrineMonsterRecords } from '../lib/sealed-shrine-storage';
@@ -39,6 +39,7 @@ type MonsterFilterState = {
   showStorage: boolean;
   showInventory: boolean;
   showBelowMaxLevel: boolean;
+  showRainbowmons: boolean;
 };
 
 const defaultMonsterFilters: MonsterFilterState = {
@@ -48,6 +49,9 @@ const defaultMonsterFilters: MonsterFilterState = {
   showStorage: true,
   showInventory: true,
   showBelowMaxLevel: false,
+  /* Rainbowmons and Devilmons are fed to other monsters, never played, and an
+     account holds them by the dozen, so the roster opens without them. */
+  showRainbowmons: false,
 };
 /* The game's five elements, in the game's order, shown whether or not the
    account holds one of each: a row of controls that gained and lost buttons
@@ -156,7 +160,8 @@ function isMonsterFilterState(value: unknown): value is MonsterFilterState {
        no `showInventory`, so it fails here and the defaults are used. Carrying
        it over as `false` would open the page with the roster hidden. */
     && typeof candidate.showInventory === 'boolean'
-    && typeof candidate.showBelowMaxLevel === 'boolean';
+    && typeof candidate.showBelowMaxLevel === 'boolean'
+    && typeof candidate.showRainbowmons === 'boolean';
 }
 
 export function MonsterOverview({ monsters, gameData, preferences, onOpenMonster }: {
@@ -170,7 +175,7 @@ export function MonsterOverview({ monsters, gameData, preferences, onOpenMonster
     'jaswa.filters.monsters', defaultMonsterFilters, isMonsterFilterState,
   );
   const {
-    search, selectedElements, selectedArchetypes, showStorage, showInventory, showBelowMaxLevel,
+    search, selectedElements, selectedArchetypes, showStorage, showInventory, showBelowMaxLevel, showRainbowmons,
   } = filters;
   const rows = useMemo<MonsterRow[]>(() => {
     const copyNames = monsterCopyNames(monsters, preferences.monsterPreferences);
@@ -276,13 +281,14 @@ export function MonsterOverview({ monsters, gameData, preferences, onOpenMonster
       if (!showStorage && row.inStorage) return false;
       if (!showInventory && !row.inStorage) return false;
       if (!showBelowMaxLevel && (row.level === null || row.level < maxMonsterLevel)) return false;
+      if (!showRainbowmons && isRainbowmon(row.masterId)) return false;
       if (selectedElements.length && (!row.element || !selectedElements.includes(row.element))) return false;
       if (selectedArchetypes.length && (!row.archetype || !selectedArchetypes.includes(row.archetype))) return false;
       if (searchedMasterIds === undefined) return true;
       return searchedMasterIds.has(row.masterId)
         || row.sets.some((set) => set.name.toLowerCase().includes(term));
     });
-  }, [rows, search, searchedMasterIds, selectedElements, selectedArchetypes, showStorage, showInventory, showBelowMaxLevel]);
+  }, [rows, search, searchedMasterIds, selectedElements, selectedArchetypes, showStorage, showInventory, showBelowMaxLevel, showRainbowmons]);
 
   const { sorted, sort, toggle } = useSortedRows(
     visible, monsterColumns, { key: 'index', direction: 'ascending' },
@@ -366,8 +372,13 @@ export function MonsterOverview({ monsters, gameData, preferences, onOpenMonster
             onClick={() => setFilters((current) => ({ ...current, showStorage: !current.showStorage }))}
           >Storage</FilterButton>
           <FilterButton active={showBelowMaxLevel}
-            onClick={() => setFilters((current) => ({ ...current, showBelowMaxLevel: !showBelowMaxLevel }))}
+            onClick={() => setFilters((current) => ({ ...current, showBelowMaxLevel: !current.showBelowMaxLevel }))}
           >Lvl. &lt; {maxMonsterLevel}</FilterButton>
+          <FilterButton active={showRainbowmons}
+            onClick={() => setFilters((current) => ({ ...current, showRainbowmons: !current.showRainbowmons }))}
+            title="Rainbowmons and Devilmons"
+            aria-label="Rainbowmons and Devilmons"
+          >Rainbowmon</FilterButton>
         </div>
       </div>
       <FilterSummary visible={visible.length} total={rows.length} noun="monsters"

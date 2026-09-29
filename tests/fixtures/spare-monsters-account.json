@@ -1,0 +1,18 @@
+{
+  "_comment": [
+    "Monsters an account holds without needing them, for the two filters that find them.",
+    "  10111 Elucia, Lv. 40 and max skilled -- the only Lv. 40 of the Fairy family,",
+    "  10101 Fairy (Water) at Lv. 1 -- already levelled as Elucia, so Not needed,",
+    "  10102 Fairy (Fire) at Lv. 1 -- same family, but no Fire copy is levelled, so needed.",
+    "  14314 Rainbowmon and 15105 Devilmon at Lv. 1 -- hidden from Stats until asked for."
+  ],
+  "wizard_id": 7,
+  "unit_list": [
+    { "unit_id": 901, "wizard_id": 7, "unit_master_id": 10111, "attribute": 1, "unit_level": 40, "class": 5, "skills": [[1, 5], [2, 5], [3, 5], [4, 5]] },
+    { "unit_id": 902, "wizard_id": 7, "unit_master_id": 10101, "attribute": 1, "unit_level": 1, "class": 3, "skills": [[1, 1], [2, 1]] },
+    { "unit_id": 903, "wizard_id": 7, "unit_master_id": 10102, "attribute": 2, "unit_level": 1, "class": 3, "skills": [[1, 1], [2, 1]] },
+    { "unit_id": 904, "wizard_id": 7, "unit_master_id": 14314, "attribute": 4, "unit_level": 1, "class": 4 },
+    { "unit_id": 905, "wizard_id": 7, "unit_master_id": 15105, "attribute": 5, "unit_level": 1, "class": 5 }
+  ],
+  "runes": []
+}

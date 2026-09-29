@@ -12,6 +12,7 @@ export type MonsterSelectionRequirements = {
   alreadyHaveLevel40: boolean;
   familyFullySkilled: boolean;
   fodderMon: boolean;
+  notNeeded: boolean;
   candidateLevel: number | null;
 };
 
@@ -133,13 +134,21 @@ export function createMonsterSelectionIndex(records: readonly MonsterSelectionRe
       const hasSecondAwakeningTarget = fodderTiers?.has(3) === true;
       const suitableForUnskilledTarget = hasNonSecondAwakeningTarget
         || (hasSecondAwakeningTarget && candidateTier === 3);
+      const familyAllMaxSkilled = familyId !== undefined && level40Families.get(familyId)?.allMaxSkilled === true;
       return (!requirements.alreadyHaveLevel40 || (identity !== undefined && level40Identities.has(identity)))
-        && (!requirements.familyFullySkilled || (familyId !== undefined && level40Families.get(familyId)?.allMaxSkilled === true))
+        && (!requirements.familyFullySkilled || familyAllMaxSkilled)
         /* A 2A target can only take another 2A family member as skill-up. A
            non-2A target keeps the game's broader family rule and can take any
            awakening stage. The second gate protects the only copy of a
            monster line unless the account already has it at Lv. 40. */
-        && (!requirements.fodderMon || (suitableForUnskilledTarget && safeSpecificMonster));
+        && (!requirements.fodderMon || (suitableForUnskilledTarget && safeSpecificMonster))
+        /* The mirror of the condition above: the monster is already levelled in
+           another copy — read the same tier-aware way, so a 2A is not declared
+           spare on the strength of its 1A — and no Lv. 40 of the family has a
+           skill left to take. A family without any Lv. 40 stays out, because
+           nothing yet says what it will be wanted for. That keeps the two
+           disjoint: fodder needs an unskilled target, this needs there to be none. */
+        && (!requirements.notNeeded || (alreadyHaveAnotherLevel40 && familyAllMaxSkilled));
     },
   };
 }

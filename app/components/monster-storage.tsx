@@ -56,6 +56,7 @@ type StorageFilterState = {
   familyFullySkilled: boolean;
   needsSkillUps: boolean;
   fodderMon: boolean;
+  notNeeded: boolean;
   minimumQuantityEnabled: boolean;
   minimumQuantity: number;
 };
@@ -72,6 +73,7 @@ const defaultStorageFilters: StorageFilterState = {
   familyFullySkilled: false,
   needsSkillUps: false,
   fodderMon: false,
+  notNeeded: false,
   minimumQuantityEnabled: false,
   minimumQuantity: storageMinimumQuantity,
 };
@@ -101,6 +103,7 @@ function isStorageFilterState(value: unknown): value is StorageFilterState {
     && typeof candidate.familyFullySkilled === 'boolean'
     && typeof candidate.needsSkillUps === 'boolean'
     && typeof candidate.fodderMon === 'boolean'
+    && typeof candidate.notNeeded === 'boolean'
     && typeof candidate.minimumQuantityEnabled === 'boolean'
     && typeof candidate.minimumQuantity === 'number'
     && Number.isSafeInteger(candidate.minimumQuantity)
@@ -389,7 +392,8 @@ export function MonsterStorage({ monsters, gameData, preferences, onOpenMonster 
   );
   const {
     search, selectedElements, selectedArchetypes, selectedLocations, minimumLevel, maximumLevel, selectedGrades,
-    alreadyHaveLevel40, familyFullySkilled, needsSkillUps, fodderMon, minimumQuantityEnabled, minimumQuantity,
+    alreadyHaveLevel40, familyFullySkilled, needsSkillUps, fodderMon, notNeeded,
+    minimumQuantityEnabled, minimumQuantity,
   } = filters;
 
   const shrineEntries = useMemo(() => storageEntries(gameData), [gameData]);
@@ -492,10 +496,16 @@ export function MonsterStorage({ monsters, gameData, preferences, onOpenMonster 
          account-level selection index still uses level-40 copies as evidence
          for lower rows. */
       if (fodderMon && (row.maxSkilled || (row.level !== null && row.level >= storageMaximumLevel))) return false;
+      /* The Lv. 40 copies are what this filter's verdict rests on, and a copy
+         the user levelled is one they chose to keep; only the rest can be spare.
+         Unlike fodder, a max-skilled row stays in — being finished does not make
+         it needed. */
+      if (notNeeded && (row.level === null || row.level >= storageMaximumLevel)) return false;
       if (!monsterSelection.matches(row.masterId, {
         alreadyHaveLevel40,
         familyFullySkilled,
         fodderMon,
+        notNeeded,
         candidateLevel: row.level,
       })) return false;
       /* Unlike the two conditions above, this one asks about the row itself
@@ -508,7 +518,7 @@ export function MonsterStorage({ monsters, gameData, preferences, onOpenMonster 
       if (minimumQuantityEnabled && storageCopies.copies(row.masterId) < minimumQuantity) return false;
       return searchedMasterIds === undefined || searchedMasterIds.has(row.masterId);
     }),
-  [alreadyHaveLevel40, familyFullySkilled, fodderMon, maximumLevel, minimumLevel, minimumQuantity, minimumQuantityEnabled, monsterSelection, needsSkillUps, rows, searchedMasterIds, selectedArchetypes, selectedElements, selectedGrades, selectedLocations, storageCopies]);
+  [alreadyHaveLevel40, familyFullySkilled, fodderMon, maximumLevel, minimumLevel, minimumQuantity, minimumQuantityEnabled, monsterSelection, needsSkillUps, notNeeded, rows, searchedMasterIds, selectedArchetypes, selectedElements, selectedGrades, selectedLocations, storageCopies]);
 
   /* The table opens in its default order, which `#` also sorts back to. The
      tiebreak keeps equal rows in that same order rather than letting them
@@ -627,6 +637,11 @@ export function MonsterStorage({ monsters, gameData, preferences, onOpenMonster 
             <input type="checkbox" checked={fodderMon}
               onChange={(event) => setFilters((current) => ({ ...current, fodderMon: event.target.checked }))} />
             <span>Fodder mon</span>
+          </label>
+          <label className="checkbox-row">
+            <input type="checkbox" checked={notNeeded}
+              onChange={(event) => setFilters((current) => ({ ...current, notNeeded: event.target.checked }))} />
+            <span>Not needed</span>
           </label>
           <div className="storage-quantity-filter">
             <label className="checkbox-row">
