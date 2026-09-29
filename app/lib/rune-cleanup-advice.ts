@@ -680,25 +680,30 @@ export async function runeAdvice(
       chance: step.asks.reduce((best, at) => Math.max(best, answers[at]), 0),
       preset: step.candidate.preset, rank: step.candidate.rank, candidate: step.candidate.prepared,
     }));
-    /* A rune may satisfy several presets. Best preset is the one with the highest
-       Max value among readings that clear both gates. If none clear, it is simply
-       the highest-Max-value reading. That same reading supplies every figure in the
-       row; no build may lend its Chance to another build's Max value. */
+    /* A rune may satisfy several presets. Best preset is the reading with the
+       highest Chance among candidates whose Max value clears its gate. If none
+       clears that gate, it is simply the reading with the highest Chance. The
+       chosen reading supplies every figure in the row; no build may lend its
+       Chance to another build's Max value. */
     const answersWithSteps = answered.map((answer, at) => ({ answer, passesValue: plan.steps[at].passesValue }));
     const allowed = broken === 0
       ? answersWithSteps.filter(({ answer }) => answer.rank !== 'broken')
       : answersWithSteps;
-    const selected = allowed
-      .filter(({ answer, passesValue }) => passesValue && answer.chance >= chanceBar)
+    const valueQualified = allowed.filter(({ passesValue }) => passesValue);
+    const bestByChance = (valueQualified.length > 0 ? valueQualified : allowed)
       .sort((left, right) =>
-        right.answer.maxValue - left.answer.maxValue
+        right.answer.chance - left.answer.chance
+        || right.answer.maxValue - left.answer.maxValue
         || right.answer.value - left.answer.value
-        || right.answer.chance - left.answer.chance
-        || left.answer.preset.id.localeCompare(right.answer.preset.id))[0]?.answer ?? null;
+        || left.answer.preset.id.localeCompare(right.answer.preset.id))[0] ?? null;
+    const selected = bestByChance
+      && bestByChance.passesValue
+      && bestByChance.answer.chance >= chanceBar
+      ? bestByChance.answer : null;
     /* At Broken = No, an unwanted rune remains as the named fallback only when no
        preferred or acceptable reading exists. It must not hide a permitted reading
        merely because its standing happens to be higher. */
-    const chosen = selected ?? allowed[0]?.answer ?? answered[0] ?? null;
+    const chosen = selected ?? bestByChance?.answer ?? allowed[0]?.answer ?? answered[0] ?? null;
 
     advice.set(plan.rune.id, {
       ...decide({
