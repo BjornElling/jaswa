@@ -138,6 +138,14 @@ function drawBelow(seed: number, counter: number, bound: number): number {
  *   three copies of one rune in a box at 55 %, 56 % and 57 % — each answer honest to
  *   its own resolution, and the three of them together an obvious defect on screen. A
  *   chance is a fact about a rune, so it must not depend on which rune it is.
+ *
+ * **A stone is not one of those fields.** It prices an end state and never decides
+ * which improvement lands where, so it cannot change what the rune may become. Taking
+ * it in gave a rune ground to exactly the credited stone a different stream from the
+ * same rune bare, and once the Gem's expectation began choosing Best preset from that
+ * stream, the grind moved the preset and the Max value with it — against the one
+ * standard of `RUNE-CLEANUP-MATH.md` §9.2 that a stone the credit already counts
+ * changes nothing.
  */
 export function runeSeedOf(rune: Rune): number {
   let seed = 0x811c9dc5;
@@ -153,7 +161,9 @@ export function runeSeedOf(rune: Rune): number {
   for (const line of rune.subProperties) {
     take(line.statId);
     take(line.value);
-    take(line.grind);
+    /* The stone's place, held at an unground line's zero: a ground rune draws its bare
+       twin's stream, and every unground rune keeps the one it always had. */
+    take(0);
     take(line.gemmed ? 1 : 0);
   }
   return mix(seed);

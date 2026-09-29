@@ -36,9 +36,11 @@ function largeAccount(count: number): string {
  * animation frames while the calculation runs. A blocked main thread paints none.
  */
 test('the page keeps painting while a large box is judged', async ({ page }) => {
-  /* The calibrated slot population is deliberately substantial; the assertion
-     below already allows a minute, so the test itself must allow it too. */
-  test.setTimeout(60_000);
+  /* The calibrated slot population is deliberately substantial, and so is the box:
+     judging it measured 42 s with this test alone and about a minute with the whole
+     suite's browsers sharing the processor. What is asserted is painting, not speed,
+     so the wait is sized to the calculation with room to spare. */
+  test.setTimeout(150_000);
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.locator('input[type="file"][accept="application/json,.json"]')
@@ -58,7 +60,7 @@ test('the page keeps painting while a large box is judged', async ({ page }) => 
   });
   await recommendations.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(page.locator('.calculation-status'))
-    .toContainText('3,001 runes judged against', { timeout: 60_000 });
+    .toContainText('3,001 runes judged against', { timeout: 120_000 });
 
   /* Generous on purpose: a live page at 60 Hz paints hundreds over a calculation
      this size, and a blocked one paints none. The margin is what keeps a busy

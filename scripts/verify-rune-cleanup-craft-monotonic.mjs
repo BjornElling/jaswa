@@ -19,7 +19,7 @@
  * several presets and every craft assumption.
  */
 import assert from 'node:assert/strict';
-import { defaultRunePotentialPresets } from '../app/lib/rune-potential-presets.ts';
+import { defaultRunePotentialPresets, withRefreshedMetrics } from '../app/lib/rune-potential-presets.ts';
 import { runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
 import {
   candidateChance, candidateMaxValue, prepareRuneCandidate, presetBuilds,
@@ -204,7 +204,26 @@ const tolerance = {
   ],
   occupiedId: null, obtainedOrder: 1000,
 };
-const pvp = presets.find((preset) => preset.id === 'pvp-def');
+/* The role the defect was found under, stated here rather than read from the shipped
+   list. When the shipped HP tank's DEF target rose from 1,303 to 1,580, a credited
+   Gem made this bar a certain yes and the check below read that as degenerate: the
+   fixture had moved, not the Gem calculation. */
+const pvp = withRefreshedMetrics({
+  id: 'tolerance-regression-pvp-def',
+  name: 'PvP def',
+  type: 'HP type',
+  sets: {
+    preferred: ['Endure', 'Enhance', 'Fight', 'Seal', 'Shield', 'Tolerance', 'Violent', 'Will'],
+    acceptable: ['Despair', 'Destroy', 'Determination', 'Energy', 'Revenge', 'Nemesis', 'Vampire'],
+  },
+  slots: {
+    slot2: { preferred: ['Spd', 'HP%'], acceptable: ['Def%'] },
+    slot4: { preferred: ['HP%'], acceptable: ['Def%'] },
+    slot6: { preferred: ['HP%'], acceptable: ['Def%'] },
+  },
+  artifacts: { atk: false, def: false, hp: true },
+  targets: { hp: 43860, def: 1303, spd: 200, res: 80, acc: 25 },
+});
 const pvpBuild = pvp && presetBuilds(pvp)[4];
 const pvpBase = pvp && baseByType.get(pvp.type);
 assert.ok(pvp && pvpBuild && pvpBase);
@@ -318,8 +337,31 @@ for (const rune of standardRunes) {
       `${rune.id}: a stone past the credit turned a Keep into a Sell`);
   }
 }
-assert.equal(bare.get(shield.id).verdict, 'sell', 'the Shield regression rune is no longer the Sell it was');
-assert.equal(atCredit.get(`${shield.id}-ground-0`).verdict, 'sell',
+/* The Shield rune's own verdict is asked of the role it was sold for alone. Across
+   every shipped preset its answer is whatever those presets make of it — the Support
+   that replaced the old one wants its 18 SPD and keeps it — and that is not the
+   regression: a Bruiser keeping it for a grind the credit had already counted is. */
+const bruiser = [withRefreshedMetrics({
+  id: 'shield-regression-bruiser',
+  name: 'Bruiser',
+  type: 'No type',
+  sets: {
+    preferred: ['Blade', 'Fight', 'Seal', 'Shield', 'Vampire', 'Violent', 'Will'],
+    acceptable: ['Despair', 'Destroy', 'Energy', 'Rage', 'Revenge'],
+  },
+  slots: {
+    slot2: { preferred: ['Spd', 'Atk%', 'HP%'], acceptable: ['Def%'] },
+    slot4: { preferred: ['CtD%'], acceptable: ['CtR%'] },
+    slot6: { preferred: ['HP%', 'Atk%'], acceptable: ['Def%'] },
+  },
+  artifacts: { atk: true, def: false, hp: true },
+  targets: { hp: 28195, atk: 1800, def: 941, spd: 215, acc: 25, criRate: 75, criDmg: 150 },
+})];
+const shieldBare = (await runeAdvice([shield], bruiser, policySettings, baseByType)).get(shield.id);
+const shieldGround = (await runeAdvice([groundTo(shield, 0)], bruiser, policySettings, baseByType))
+  .get(`${shield.id}-ground-0`);
+assert.equal(shieldBare.verdict, 'sell', 'the Shield regression rune is no longer the Sell it was');
+assert.equal(shieldGround.verdict, 'sell',
   'the Shield regression rune was kept for a grind the credit had already counted');
 
 /* Monte Carlo is not the production calculation; it is an independent guard that

@@ -44,7 +44,7 @@
  * *discriminate*. A check that only demanded equal shares would pass on an engine that
  * had stopped reading the rune at all.
  */
-import { defaultRunePotentialPresets, runeMainStatIds } from '../app/lib/rune-potential-presets.ts';
+import { defaultRunePotentialPresets, runeMainStatIds, withRefreshedMetrics } from '../app/lib/rune-potential-presets.ts';
 import { qualityThresholds, runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
 import {
   initialSubPropertyRange, runeInnateFrequency, slotMainProperties, startingSubPropertyCount, subPropertyLevels,
@@ -452,12 +452,27 @@ for (const scenario of scenarios) {
  * exactly, and a preset's own targets move the agreement a little either way. What
  * this check is for is the gross error: a ladder left behind by a change of scale,
  * which is how the stops came to be restated twice already.
+ *
+ * The role is stated here rather than taken from the shipped list. It used to be
+ * "the second shipped preset", and when the shipped presets were replaced that
+ * became a different role and the ladder read 23.6 % where it had read 26.2 % —
+ * a failure about the fixture, not the ladder. Shipped presets are the user's to
+ * edit and reorder; a calibration cannot stand on them.
  */
 console.log('\nWhat each stop of the quality floor lets through, against what it says:');
-const ladderPreset = {
-  ...defaultRunePotentialPresets()[1],
+const ladderPreset = withRefreshedMetrics({
+  id: 'ladder-first-turn-debuff',
+  name: 'First-turn debuff',
+  type: 'Support type',
   sets: { preferred: presetRuneSetNameList, acceptable: [] },
-};
+  slots: {
+    slot2: { preferred: ['Spd'], acceptable: ['Atk%'] },
+    slot4: { preferred: ['CtD%'], acceptable: [] },
+    slot6: { preferred: ['Atk%'], acceptable: [] },
+  },
+  artifacts: { atk: true, def: false, hp: false },
+  targets: { hp: 15042, atk: 2200, def: 814, spd: 240, acc: 65, criRate: 85, criDmg: 200 },
+});
 for (let stop = 1; stop <= qualityThresholds.length; stop += 1) {
   const random = makeRandom(seed);
   const { seen, kept } = await sharesBySlot(ladderPreset, { ...baseSettings, runeQuality: stop }, random);

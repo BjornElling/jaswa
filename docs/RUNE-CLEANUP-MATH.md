@@ -589,6 +589,12 @@ the third is why it is the rune and not the id:
   three copies of one rune in a box at 55 %, 56 % and 57 % — each answer honest to its
   own resolution, and the three of them together an obvious defect on screen.
 
+A sub property's stone is deliberately left out of the hash. It prices an end state
+and never decides where an improvement lands, and taking it in gave a rune ground to
+exactly the credited stone a different stream from the same rune bare — which, once
+the Gem's expectation began choosing Best preset (§9.6), let the grind move the preset
+against §9.2.
+
 `npm run verify:rune-chance-stability` is the check, and it is the one that says
 counting is enough. One population is judged several times at **different
 resolutions** — a quarter of the shipped run count, the shipped one, and sixteen times
