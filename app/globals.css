@@ -263,8 +263,7 @@ label[for] {
 /* Title — what a panel, card, dialog or disclosure is called. */
 .type-title, .block-title, .bar-head b, .dialog h2, .preset-name, .route-name,
 .route-body-title, .statistics h4, .acceleration-word, .handheld-brand,
-.rune-simulator-count-input, .rune-simulator-stats-total, .rune-overlay-main-name,
-.rune-emblem.placeholder {
+.rune-simulator-count-input, .rune-simulator-stats-total, .rune-emblem.placeholder {
   font-family: var(--font-heading);
   font-size: var(--type-title);
   font-weight: 600;
@@ -277,7 +276,8 @@ label[for] {
 .drop-zone strong, .best-artifact-result h3, .best-artifact-current h3,
 .best-artifact-category h3, .best-artifact-current-slot-title,
 .best-monster-artifact-details h3, .craft-best-use-item h3, .empty-state h2,
-.field-lead > span, .helper-version h4, .overlay-block-title, .speed-team-title {
+.field-lead > span, .helper-version h4, .overlay-block-title, .speed-team-title,
+.rune-overlay-facts dd, .rune-overlay-location .monster-name {
   font-family: var(--font-heading);
   font-size: var(--type-heading);
   font-weight: 600;
@@ -309,7 +309,7 @@ label[for] {
 .craft-best-use-facts dd, .craft-rune-detail, .math-copy > p,
 .math-example p, .math-table, .rune-simulator-stats-table td,
 .rune-simulator-stats-table tbody th, .rune-simulator-stats-table tfoot th,
-.rune-overlay-line, .rune-overlay-sub-table tbody th, .rune-overlay-sub-table td {
+.rune-overlay-line {
   font-family: var(--font-body);
   font-size: var(--type-body);
   font-weight: 400;
@@ -341,7 +341,7 @@ label[for] {
 .grid-table thead th, .best-artifact-improvements-title,
 .best-artifact-result th, .best-monster-table th,
 .artifact-recommendation-table th, .overlay-row-label, .overlay-stat-head,
-.rune-simulator-stats-table thead th, .rune-overlay-sub-table thead th {
+.rune-simulator-stats-table thead th, .rune-overlay-facts dt {
   font-family: var(--font-body);
   font-size: var(--type-label);
   font-weight: 700;
@@ -354,7 +354,7 @@ label[for] {
 .overlay-stat-current, .overlay-substat-unit, .overlay-slot-name,
 .choice-menu-option-note, .rune-build-leader-pieces, .rune-build-leader-count,
 .rune-build-note, .rune-build-composed, .overlay-suggestion-label, .speed-timeline-turn,
-.rune-overlay-main-ceiling {
+.rune-overlay-main-ceiling, .rune-overlay-grind {
   font-family: var(--font-body);
   font-size: var(--type-label);
   font-weight: 400;
@@ -362,7 +362,7 @@ label[for] {
 }
 
 /* Figure — a number that is the answer, not a second body voice. */
-.type-figure, .statistics dd, .rune-overlay-main-value {
+.type-figure, .statistics dd, .rune-overlay-main {
   font-family: var(--font-body);
   font-size: var(--type-figure);
   font-weight: 700;
@@ -4737,15 +4737,35 @@ html.overlay-open .overlay-backdrop { right: var(--overlay-gutter, 0px); }
 .overlay-rune-links { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s3); }
 
 /* ------------------------------------------------------------ rune overlay */
-/* Narrower than the monster panel: a rune is six facts and a short list, and
-   stretched to the table's measure the four sub properties would sit a whole
-   screen away from their names. */
+/* Narrower than the monster panel: a rune is a handful of facts and one short
+   column of properties, and stretched to the table's measure they would sit a
+   screen's width away from the picture they describe. */
 .dialog.rune-overlay { width: min(760px, 100%); }
+.rune-overlay-head { grid-template-columns: auto minmax(0, 1fr); }
 
 /* The picture, the name, and where the rune is: the same three-part head the
    monster overlay opens with, so the two read as one family. */
-.rune-overlay-wearer { display: grid; gap: var(--s2); justify-items: start; min-width: 200px; }
-.rune-overlay-wearer > p { margin: 0; }
+.rune-overlay-identity { gap: var(--s3); }
+/* Slot, grade, quality and level as labelled facts in a row, each value set a
+   step above body text so it reads at a glance rather than as a caption.
+   Location closes the row at its far end. Every value box is the height of the
+   wearer's portrait, so a worn rune and an inventory one put their values on
+   the same line and the head does not change height between them. */
+.rune-overlay-facts { display: flex; margin: 0; }
+.rune-overlay-facts > div { display: grid; gap: var(--s1); padding: 0 var(--s4); border-left: 1px solid var(--line); }
+.rune-overlay-facts > div:first-child { padding-left: 0; border-left: 0; }
+.rune-overlay-facts dt { color: var(--text-muted); }
+.rune-overlay-facts dd {
+  margin: 0;
+  min-height: 28px;
+  display: flex; align-items: center;
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
+.rune-overlay-facts > .rune-overlay-location { margin-left: auto; padding-right: 0; border-left: 0; min-width: 180px; }
+/* A worn rune's location is a way into its monster, so it wears the accent
+   from the first paint rather than only under the pointer. */
+.rune-overlay-location .monster-link { color: var(--text-accent); }
 
 /* A tile the size of the monster overlay's portrait, holding the game's two
    layers — the slot's frame and the set's glyph — stacked in one cell. The
@@ -4767,62 +4787,41 @@ html.overlay-open .overlay-backdrop { right: var(--overlay-gutter, 0px); }
 .rune-emblem-glyph { width: 56px; }
 .rune-emblem.placeholder { color: var(--text); }
 
-/* Main against subs: the one line the rune was dropped for, set as a figure,
-   beside the four lines that decide whether it was worth keeping. */
-.rune-overlay-body {
-  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
-  align-items: start;
-}
-.rune-overlay-body h3 { margin: 0; }
-.rune-overlay-main {
+/* Every stat of the rune in one box, starting on the line the rune's name
+   starts on, so it reads as the continuation of the head rather than as a
+   second panel. The innate line sits close under the main property — the two
+   are what the rune dropped with — and a rule sets the sub properties a step
+   further off. */
+.rune-overlay-body { padding-left: calc(var(--s5) + 108px + var(--s5)); }
+.rune-overlay-stats {
   display: grid;
-  gap: var(--s2);
-  padding: var(--s4);
+  gap: var(--s3);
+  padding: var(--s4) var(--s5);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--sunk);
 }
-.rune-overlay-main-stat {
-  margin: 0;
-  display: flex; align-items: baseline; justify-content: space-between; gap: var(--s3);
-  color: var(--text-strong);
-}
-.rune-overlay-main-value { font-variant-numeric: tabular-nums; }
-.rune-overlay-main-ceiling { margin: 0; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-.rune-overlay-main .rune-overlay-innate-title { margin-top: var(--s2); padding-top: var(--s3); border-top: 1px solid var(--line); }
-.rune-overlay-line {
-  margin: 0;
-  display: flex; justify-content: space-between; gap: var(--s3);
-  color: var(--text-strong);
-  font-variant-numeric: tabular-nums;
-}
+.rune-overlay-main-block { display: grid; gap: var(--s1); }
+.rune-overlay-main { color: var(--text-strong); font-variant-numeric: tabular-nums; }
+.rune-overlay-main-ceiling { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.rune-overlay-innate { padding-bottom: var(--s4); border-bottom: 1px solid var(--line); margin-bottom: var(--s1); }
 
-/* Fixed columns, so a value, a gem mark and a grindstone bonus each land on
-   one vertical line whichever of them a row happens to carry. */
-.rune-overlay-sub-table {
-  width: 100%;
-  table-layout: fixed;
-  border-collapse: collapse;
-  font-variant-numeric: tabular-nums;
+/* Fixed columns — name, figure, gem mark, grindstone — so every figure lands on
+   one vertical line whichever marks its row carries. The name column fits the
+   longest stat name the game has, Resistance. */
+.rune-overlay-lines { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--s2); }
+.rune-overlay-line {
+  display: grid;
+  grid-template-columns: 12ch 6ch var(--s4) auto;
+  column-gap: var(--s3);
+  align-items: baseline;
 }
-.rune-overlay-sub-table th:nth-child(2) { width: 88px; }
-.rune-overlay-sub-table th:nth-child(3) { width: 56px; }
-.rune-overlay-sub-table th:nth-child(4) { width: 64px; }
-.rune-overlay-sub-table th, .rune-overlay-sub-table td {
-  height: var(--row);
-  padding: 0;
-  border-bottom: 1px solid var(--line);
-  text-align: right;
-  white-space: nowrap;
-}
-.rune-overlay-sub-table thead th { height: auto; padding-bottom: var(--s2); color: var(--text-muted); }
-.rune-overlay-sub-table th:first-child { text-align: left; }
-.rune-overlay-sub-table th:nth-child(3), .rune-overlay-sub-table td:nth-child(3) { text-align: center; }
-.rune-overlay-sub-table tbody th, .rune-overlay-sub-table td { color: var(--text-strong); }
-.rune-overlay-sub-table td:nth-child(4) { color: var(--text); }
-.rune-overlay-sub-table abbr { text-decoration: none; cursor: help; }
-.rune-overlay-sub-table .artifact-sub-mark { margin-left: 0; color: var(--text); }
-.rune-overlay-sub-table .rune-overlay-sub-empty th, .rune-overlay-sub-table .rune-overlay-sub-empty td { color: var(--text-muted); }
+.rune-overlay-line > :only-child { grid-column: 1 / -1; }
+.rune-overlay-line .rune-sub-value { text-align: right; color: var(--text-strong); }
+.rune-overlay-gem { display: flex; align-self: center; color: var(--text); }
+.rune-overlay-gem .artifact-sub-mark { margin-left: 0; }
+.rune-overlay-grind { color: var(--text-muted); }
+.rune-overlay-grind abbr { text-decoration: none; cursor: help; }
 
 .overlay-block { display: grid; gap: var(--s3); }
 .overlay-block-head {

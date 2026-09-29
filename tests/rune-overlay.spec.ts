@@ -23,8 +23,15 @@ test('the rune overlay states the rune and nothing else, and returns focus', asy
 
   const overlay = page.getByRole('dialog', { name: 'Violent' });
   await expect(overlay).toBeVisible();
-  await expect(overlay.getByText('Main property', { exact: true })).toBeVisible();
-  await expect(overlay.getByRole('table', { name: 'Sub properties' }).locator('tbody tr')).toHaveCount(4);
+  /* The stats need no headings; the reader knows which is which. */
+  for (const heading of ['Main property', 'Innate property', 'Sub properties']) {
+    await expect(overlay.getByText(heading, { exact: true })).toHaveCount(0);
+  }
+  await expect(overlay.getByText('No innate', { exact: true })).toBeVisible();
+  await expect(overlay.getByText('Legend', { exact: true })).toBeVisible();
+  await expect(overlay.getByRole('list', { name: 'Sub properties' }).getByRole('listitem')).toHaveCount(4);
+  await expect(overlay.getByText('Rune', { exact: true })).toHaveCount(0);
+  await expect(overlay.getByText(/piece set/)).toHaveCount(0);
   /* The projection it used to carry belongs to the pages that judge a rune. */
   await expect(overlay.getByText('Substat potential at +15')).toHaveCount(0);
   await expect(overlay.getByText('What can still improve')).toHaveCount(0);

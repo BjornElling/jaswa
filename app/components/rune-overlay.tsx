@@ -9,7 +9,6 @@ import { formatNumber } from '../lib/formatting';
 import type { GameRecord } from '../lib/game-data';
 import { monsterPresentation } from '../lib/monster-catalog';
 import { mainPropertyMaximum } from '../lib/rune-properties';
-import { runeSetPieceCount } from '../lib/rune-sets';
 import { runeStatName, runeSubValue } from '../lib/runes';
 import type { Rune } from '../lib/runes';
 import type { GeneralSettings } from '../lib/types';
@@ -56,83 +55,91 @@ export function RuneOverlay({ rune, game, general, onClose, onOpenMonster }: {
 }) {
   const worn = useMemo(() => wearer(rune, game), [rune, game]);
   const figure = (value: number) => formatNumber(value, general);
-  const mainName = runeStatName(rune.mainStatId) ?? `Stat ${rune.mainStatId}`;
-  const pieces = runeSetPieceCount[rune.setName];
+  const statName = (statId: number) => runeStatName(statId) ?? `Stat ${statId}`;
   const facts = [
-    `Slot ${rune.slot}`,
-    `${rune.stars}★ ${rune.defaultGrade}`,
-    `+${rune.level}`,
-    pieces === undefined ? undefined : `${pieces}-piece set`,
-  ].filter((fact): fact is string => fact !== undefined);
+    { label: 'Slot', value: String(rune.slot) },
+    { label: 'Grade', value: `${rune.stars}★` },
+    { label: 'Quality', value: rune.defaultGrade },
+    { label: 'Level', value: `+${rune.level}` },
+  ];
 
   return <Overlay labelledBy="rune-overlay-title" describedBy="rune-overlay-facts" className="rune-overlay" onClose={onClose}>
     <header className="overlay-head rune-overlay-head">
       <RuneEmblem setName={rune.setName} slot={rune.slot} />
-      <div className="overlay-identity">
-        <p className="eyebrow">Rune</p>
+      <div className="overlay-identity rune-overlay-identity">
         <h2 id="rune-overlay-title" className="overlay-hero-name">
           <AncientName name={rune.setName} ancient={rune.ancient} />
         </h2>
-        <p id="rune-overlay-facts" className="overlay-hero-facts">{facts.join(' · ')}</p>
-      </div>
-      <div className="rune-overlay-wearer">
-        <p className="overlay-row-label">{worn === null ? 'Location' : 'Worn by'}</p>
-        {worn === null
-          ? <p className="overlay-current-value">Inventory</p>
-          : <MonsterLink target={worn.target} name={worn.name} portrait={{ imageFilename: worn.imageFilename, initial: worn.initial }}
-            onOpen={onOpenMonster} />}
+        {/* Location is the last fact in the same row, pushed to the far end: its
+            label reads on the line the other labels read on, and its value on
+            theirs. Gold where it is a monster, because there it is also the way
+            into that monster; plain white where it is the inventory, a fact with
+            nowhere to go. */}
+        <dl id="rune-overlay-facts" className="rune-overlay-facts">
+          {facts.map((fact) => <div key={fact.label}>
+            <dt>{fact.label}</dt>
+            <dd>{fact.value}</dd>
+          </div>)}
+          <div className="rune-overlay-location">
+            <dt>Location</dt>
+            <dd>
+              {worn === null
+                ? 'Inventory'
+                : <MonsterLink target={worn.target} name={worn.name} portrait={{ imageFilename: worn.imageFilename, initial: worn.initial }}
+                  onOpen={onOpenMonster} />}
+            </dd>
+          </div>
+        </dl>
       </div>
     </header>
 
+    {/* One box, read top to bottom in the order the rune was made: the main
+        property it dropped for, the innate one it dropped with, and the sub
+        properties that decide whether it is worth keeping. No headings — the
+        three read for what they are by size and position alone. Names are
+        dimmed and figures lit, the way Rune Clean-up's own table writes them.
+        Divs rather than paragraphs: `.dialog p` outranks the type voices. */}
     <div className="overlay-body rune-overlay-body">
-      <section className="rune-overlay-main" aria-labelledby="rune-overlay-main-title">
-        <h3 id="rune-overlay-main-title" className="overlay-row-label">Main property</h3>
-        <p className="rune-overlay-main-stat">
-          <span className="rune-overlay-main-name">{mainName}</span>
-          <span className="rune-overlay-main-value">{rune.mainValue > 0 ? figure(rune.mainValue) : '—'}</span>
-        </p>
-        <p className="rune-overlay-main-ceiling">At +15: {figure(mainPropertyMaximum(rune.stars, rune.mainStatId))}</p>
+      <div className="rune-overlay-stats">
+        <div className="rune-overlay-main-block">
+          <div className="rune-overlay-main" aria-label="Main property">
+            {/* "HP +" and its kin are the flat stats; the plus goes on the figure. */}
+            {statName(rune.mainStatId).replace(/ \+$/, '')} {rune.mainValue > 0 ? `+${figure(rune.mainValue)}` : '—'}
+          </div>
+          <div className="rune-overlay-main-ceiling">+{figure(mainPropertyMaximum(rune.stars, rune.mainStatId))} at +15</div>
+        </div>
 
-        <h3 className="overlay-row-label rune-overlay-innate-title">Innate property</h3>
-        <p className="rune-overlay-line">
+        <div className="rune-overlay-line rune-overlay-innate" aria-label="Innate property">
           {rune.prefixStatId === null
-            ? <span className="rune-overlay-line-name overlay-empty">None</span>
+            ? <span className="rune-sub-name">No innate</span>
             : <>
-              <span className="rune-overlay-line-name">{runeStatName(rune.prefixStatId) ?? `Stat ${rune.prefixStatId}`}</span>
-              <span className="rune-overlay-line-value">{figure(rune.prefixValue)}</span>
+              <span className="rune-sub-name">{statName(rune.prefixStatId)}</span>
+              <span className="rune-sub-value">{figure(rune.prefixValue)}</span>
             </>}
-        </p>
-      </section>
+        </div>
 
-      {/* The column heading names the block, so it carries no title of its own
-          above a second row of headings saying the same thing. */}
-      <table className="rune-overlay-sub-table" aria-label="Sub properties">
-        <thead>
-          <tr>
-            <th scope="col">Sub properties</th>
-            <th scope="col">Value</th>
-            <th scope="col"><abbr title="Enchanted Gem">Gem</abbr></th>
-            <th scope="col"><abbr title="Grindstone">Grind</abbr></th>
-          </tr>
-        </thead>
-        <tbody>
+        <ul className="rune-overlay-lines" aria-label="Sub properties">
           {Array.from({ length: subPropertySlots }, (_, at) => {
             const property = rune.subProperties[at];
             if (property === undefined) {
-              return <tr key={`empty-${at}`} className="rune-overlay-sub-empty">
-                <th scope="row">Not revealed yet</th><td>—</td><td /><td />
-              </tr>;
+              return <li key={`empty-${at}`} className="rune-overlay-line">
+                <span className="rune-sub-name">Not revealed yet</span>
+              </li>;
             }
-            const name = runeStatName(property.statId) ?? `Stat ${property.statId}`;
-            return <tr key={property.statId}>
-              <th scope="row">{name}</th>
-              <td>{figure(runeSubValue(property))}</td>
-              <td>{property.gemmed && <CircularArrowsMark label={`${name} came from an Enchanted Gem`} />}</td>
-              <td>{property.grind > 0 ? `+${figure(property.grind)}` : ''}</td>
-            </tr>;
+            const name = statName(property.statId);
+            return <li key={property.statId} className="rune-overlay-line">
+              <span className="rune-sub-name">{name}</span>
+              <span className="rune-sub-value">{figure(runeSubValue(property))}</span>
+              <span className="rune-overlay-gem">
+                {property.gemmed && <CircularArrowsMark label={`${name} came from an Enchanted Gem`} />}
+              </span>
+              <span className="rune-overlay-grind">
+                {property.grind > 0 && <abbr title={`Grindstone +${figure(property.grind)}`}>+{figure(property.grind)} grind</abbr>}
+              </span>
+            </li>;
           })}
-        </tbody>
-      </table>
+        </ul>
+      </div>
     </div>
   </Overlay>;
 }
