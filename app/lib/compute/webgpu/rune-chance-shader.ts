@@ -112,12 +112,13 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
     }
     for (var step: u32 = 0u; step < upgrades; step = step + 1u) {
       if (heldCount == 0u) { break; }
-      let target = drawBelow(seed, counter + step * 2u, heldCount);
-      let base = runeAt + RUNE_LINES_AT + target * LINE_STRIDE;
+      // Not "target": WGSL reserves the word, and the shader would not compile at all.
+      let improved = drawBelow(seed, counter + step * 2u, heldCount);
+      let base = runeAt + RUNE_LINES_AT + improved * LINE_STRIDE;
       let low = runes[base + LINE_UPGRADE_MIN_AT];
       let high = runes[base + LINE_UPGRADE_MAX_AT];
       let roll = low + i32(drawBelow(seed, counter + step * 2u + 1u, u32(high - low + 1)));
-      lines[target].value = lines[target].value + roll;
+      lines[improved].value = lines[improved].value + roll;
     }
 
     // The lines it gains, drawn without replacement, each with one initial roll.
