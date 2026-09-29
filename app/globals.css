@@ -5301,7 +5301,10 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 /* Its own two columns scroll independently, so the panel around it must not
    scroll as well: an outer scroller would carry the pinned note and the running
    answer out of view along with the list they describe. */
-.choice-menu-panel:has(.rune-build-menu) { overflow: hidden; }
+.token-choice-panel:has(.rune-build-menu) { overflow: hidden; max-height: none; }
+/* A build names up to three sets, so its pill is given room for
+   `Will / Revenge / Shield` where a filter's single value needs 14ch. */
+.rune-build-field .token-choice-pill { max-width: 26ch; }
 .rune-build-menu {
   display: grid;
   grid-template-columns: 210px minmax(0, 300px);
@@ -5359,6 +5362,17 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   min-height: 0;
 }
 .rune-build-completions .choice-menu-list { overflow-y: auto; min-height: 0; }
+/* A finished build is chosen in one click, so its row is a button: the same
+   row as a ticked option, without the tick. */
+.rune-build-completions button.choice-menu-option {
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr) auto;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+.rune-build-completions button.choice-menu-option:hover:not(:disabled) { color: var(--text-strong); }
 .rune-build-note, .rune-build-composed {
   margin: 0;
   padding: var(--s2);
@@ -5367,9 +5381,11 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   background: var(--raise);
 }
 .rune-build-composed {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s3);
   border-top: 1px solid var(--line);
   color: var(--text-accent);
 }
+.rune-build-composed-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* The build field and its two concessions read as one row. */
 .overlay-build-row {
@@ -5378,7 +5394,7 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   flex-wrap: wrap;
   gap: var(--s2) var(--s4);
 }
-.overlay-build-row .choice-menu { flex: 1 1 260px; }
+.overlay-build-row .rune-build-field { flex: 1 1 260px; }
 .overlay-toggle { display: inline-flex; align-items: center; gap: var(--s2); cursor: pointer; }
 
 /* Three slots on one row: each names itself and opens its own mains. */

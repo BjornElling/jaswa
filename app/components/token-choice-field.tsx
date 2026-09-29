@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 
 /**
  * A filter that answers on one line: the chosen values as removable pills, and
@@ -135,6 +135,71 @@ export function TokenChoiceField<T extends string | number>({
   className?: string;
   onChange: (next: T[]) => void;
 }) {
+  const labelOf = new Map(options.map((option) => [option.value, option.label]));
+  /* Read back in the vocabulary's own order rather than the order they were
+     ticked, so the line reads the same whichever way round the two were chosen
+     and a pill does not jump position when its neighbour is removed. */
+  const picked = options.filter((option) => chosen.includes(option.value));
+  /* A value the vocabulary no longer covers — a preset renamed since the filter
+     was stored — still shows, so the user can see what is narrowing the table
+     and take it off. Silently dropping it would leave rows missing with nothing
+     on screen saying why. */
+  const orphans = chosen.filter((value) => !labelOf.has(value))
+    .map((value) => ({ value, label: String(value) }));
+  const offered = options.filter((option) => !chosen.includes(option.value));
+
+  return <div className={['filter-group', 'token-choice-group', className].filter(Boolean).join(' ')}
+    role="group" aria-label={description}>
+    <span className="filter-label">{label}</span>
+    <div className="filter-group-controls">
+      <TokenChoiceLine name={label} description={description} empty={empty}
+        pills={[...picked, ...orphans]}
+        onRemove={(value) => onChange(chosen.filter((entry) => entry !== value))}
+        renderMenu={(close) => <ul className="token-choice-list">
+          {offered.map((option) => <li key={String(option.value)}>
+            {/* Chosen and closed in one move: the user asked one question,
+                and the next answer starts from the line again, beside the
+                pill this just added. */}
+            <button type="button" role="menuitem" className="token-choice-option"
+              onClick={() => {
+                onChange([...chosen, option.value]);
+                close();
+              }}>{option.label}</button>
+          </li>)}
+          {offered.length === 0 && <li className="token-choice-note">
+            {options.length === 0 ? 'Nothing to choose from.' : 'Everything is chosen.'}
+          </li>}
+        </ul>} />
+    </div>
+  </div>;
+}
+
+/**
+ * The line itself — pills, the counted pill, and the run that opens the menu —
+ * without the label above it or a vocabulary of its own.
+ *
+ * Split out because not every vocabulary is one flat list. A rune build is two
+ * questions deep, so its menu is two columns; it still answers on this line, in
+ * pills, exactly as a filter does, and so it borrows the line rather than
+ * growing a second copy of the measuring and the ways out.
+ */
+export function TokenChoiceLine<T extends string | number>({
+  name, description, pills, empty, className, menuRole = 'menu', onRemove, renderMenu,
+}: {
+  /** What the answer is called, for each pill's remove button. */
+  name: string;
+  /** What the line asks, for the accessible name of the line and the menu. */
+  description: string;
+  /** The answer, in the order it reads. */
+  pills: readonly TokenChoiceOption<T>[];
+  empty: string;
+  className?: string;
+  /** `dialog` where the menu holds more than a list of choices. */
+  menuRole?: 'menu' | 'dialog';
+  onRemove: (value: T) => void;
+  /** The menu's content. `close` ends the question and returns to the line. */
+  renderMenu: (close: () => void) => ReactNode;
+}) {
   /* `add` offers what is left to choose; `overflow` shows the pills the line had
      no room for. One panel in two modes, because every way out of it — Escape, a
      click outside, focus returning to the control — has to behave the same. */
@@ -147,20 +212,6 @@ export function TokenChoiceField<T extends string | number>({
   const trigger = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
   const panelId = useId();
-
-  const labelOf = new Map(options.map((option) => [option.value, option.label]));
-  /* Read back in the vocabulary's own order rather than the order they were
-     ticked, so the line reads the same whichever way round the two were chosen
-     and a pill does not jump position when its neighbour is removed. */
-  const picked = options.filter((option) => chosen.includes(option.value));
-  /* A value the vocabulary no longer covers — a preset renamed since the filter
-     was stored — still shows, so the user can see what is narrowing the table
-     and take it off. Silently dropping it would leave rows missing with nothing
-     on screen saying why. */
-  const orphans = chosen.filter((value) => !labelOf.has(value))
-    .map((value) => ({ value, label: String(value) }));
-  const pills = [...picked, ...orphans];
-  const offered = options.filter((option) => !chosen.includes(option.value));
 
   /* What the measurement has to be redone for: a different answer means
      different pill elements, so the observer has to be pointed at the new ones.
@@ -206,8 +257,14 @@ export function TokenChoiceField<T extends string | number>({
     if (overrun > 0) element.style.left = `${from.offsetLeft - overrun}px`;
   }, [panel, visible]);
 
-  function remove(value: T) {
-    onChange(chosen.filter((entry) => entry !== value));
+  /* Focus goes back to the line once the menu has closed, from an effect
+     rather than from `close` itself: `close` is handed to the menu's content
+     during render, and so must not carry a ref with it. */
+  const [returns, setReturns] = useState(0);
+  useEffect(() => { if (returns > 0) trigger.current?.focus(); }, [returns]);
+  function close() {
+    setPanel(null);
+    setReturns((count) => count + 1);
   }
 
   function keyOnTrigger(event: React.KeyboardEvent) {
@@ -215,77 +272,56 @@ export function TokenChoiceField<T extends string | number>({
        other field that holds a row of removable values. */
     if (event.key !== 'Backspace' || panel !== null || pills.length === 0) return;
     event.preventDefault();
-    remove(pills[pills.length - 1].value);
+    onRemove(pills[pills.length - 1].value);
   }
 
   const summary = pills.length === 0 ? empty : pills.map((pill) => pill.label).join(', ');
 
-  return <div className={['filter-group', 'token-choice-group', className].filter(Boolean).join(' ')}
-    role="group" aria-label={description}>
-    <span className="filter-label">{label}</span>
-    <div className="filter-group-controls">
-      <div className="token-choice" ref={field}>
-        <div className="token-choice-line" ref={line}>
-          {pills.slice(0, visible).map((pill) => <Pill key={String(pill.value)} label={pill.label}
-            describe={`Remove ${pill.label} from ${label}`} remove={() => remove(pill.value)} />)}
-          {hidden.length > 0 && <button type="button" ref={more}
-            className={panel === 'overflow' ? 'token-choice-more open' : 'token-choice-more'}
-            aria-expanded={panel === 'overflow'} aria-haspopup="menu"
-            aria-controls={panel === 'overflow' ? panelId : undefined}
-            aria-label={`Show ${hidden.length} more chosen in ${label}`}
-            onClick={() => setPanel((current) => (current === 'overflow' ? null : 'overflow'))}
-          >+{hidden.length}</button>}
-          {/* The rest of the line is the control that adds one, so clicking
-              beside the last pill — anywhere in the empty run — opens the menu
-              where the new pill will appear. */}
-          <span className="token-choice-slot" ref={slot}>
-            <button type="button" ref={trigger} className="token-choice-add"
-              aria-expanded={panel === 'add'} aria-haspopup="menu"
-              aria-controls={panel === 'add' ? panelId : undefined}
-              aria-label={`${description}: ${summary}`}
-              onKeyDown={keyOnTrigger}
-              onClick={() => setPanel((current) => (current === 'add' ? null : 'add'))}>
-              {pills.length === 0 && <span className="token-choice-empty">{empty}</span>}
-              <Chevron />
-            </button>
-          </span>
-        </div>
-        {/* Outside the line, because the line clips what overruns it — that is
-            how the counted pill replaces a wrapped row — and a menu hung inside
-            it was clipped to nothing. It is placed against the slot instead, so
-            it still opens where the pill it adds will land. */}
-        {panel !== null && <div className="token-choice-panel" id={panelId} ref={menu}
-          role="menu" aria-label={panel === 'add' ? description : `${label}: the rest`}>
-          {panel === 'add'
-            ? <ul className="token-choice-list">
-              {offered.map((option) => <li key={String(option.value)}>
-                {/* Chosen and closed in one move: the user asked one question,
-                    and the next answer starts from the line again, beside the
-                    pill this just added. */}
-                <button type="button" role="menuitem" className="token-choice-option"
-                  onClick={() => {
-                    onChange([...chosen, option.value]);
-                    setPanel(null);
-                    trigger.current?.focus();
-                  }}>{option.label}</button>
-              </li>)}
-              {offered.length === 0 && <li className="token-choice-note">
-                {options.length === 0 ? 'Nothing to choose from.' : 'Everything is chosen.'}
-              </li>}
-            </ul>
-            : <div className="token-choice-overflow">
-              {hidden.map((pill) => <Pill key={String(pill.value)} label={pill.label}
-                describe={`Remove ${pill.label} from ${label}`} remove={() => remove(pill.value)} />)}
-            </div>}
+  return <div className={['token-choice', className].filter(Boolean).join(' ')} ref={field}>
+    <div className="token-choice-line" ref={line}>
+      {pills.slice(0, visible).map((pill) => <Pill key={String(pill.value)} label={pill.label}
+        describe={`Remove ${pill.label} from ${name}`} remove={() => onRemove(pill.value)} />)}
+      {hidden.length > 0 && <button type="button" ref={more}
+        className={panel === 'overflow' ? 'token-choice-more open' : 'token-choice-more'}
+        aria-expanded={panel === 'overflow'} aria-haspopup="menu"
+        aria-controls={panel === 'overflow' ? panelId : undefined}
+        aria-label={`Show ${hidden.length} more chosen in ${name}`}
+        onClick={() => setPanel((current) => (current === 'overflow' ? null : 'overflow'))}
+      >+{hidden.length}</button>}
+      {/* The rest of the line is the control that adds one, so clicking
+          beside the last pill — anywhere in the empty run — opens the menu
+          where the new pill will appear. */}
+      <span className="token-choice-slot" ref={slot}>
+        <button type="button" ref={trigger} className="token-choice-add"
+          aria-expanded={panel === 'add'} aria-haspopup={menuRole}
+          aria-controls={panel === 'add' ? panelId : undefined}
+          aria-label={`${description}: ${summary}`}
+          onKeyDown={keyOnTrigger}
+          onClick={() => setPanel((current) => (current === 'add' ? null : 'add'))}>
+          {pills.length === 0 && <span className="token-choice-empty">{empty}</span>}
+          <Chevron />
+        </button>
+      </span>
+    </div>
+    {/* Outside the line, because the line clips what overruns it — that is
+        how the counted pill replaces a wrapped row — and a menu hung inside
+        it was clipped to nothing. It is placed against the slot instead, so
+        it still opens where the pill it adds will land. */}
+    {panel !== null && <div className="token-choice-panel" id={panelId} ref={menu}
+      role={panel === 'add' ? menuRole : 'menu'} aria-label={panel === 'add' ? description : `${name}: the rest`}>
+      {panel === 'add'
+        ? renderMenu(close)
+        : <div className="token-choice-overflow">
+          {hidden.map((pill) => <Pill key={String(pill.value)} label={pill.label}
+            describe={`Remove ${pill.label} from ${name}`} remove={() => onRemove(pill.value)} />)}
         </div>}
-        {/* Laid out but not shown, and never reachable: this is the copy the
-            line is measured against. `aria-hidden` alone would leave its ✕
-            buttons in the tab order, so every pill in it is inert. */}
-        <div className="token-choice-ruler" ref={ruler} aria-hidden="true" inert>
-          {pills.map((pill) => <Pill key={String(pill.value)} label={pill.label}
-            describe="" remove={() => undefined} />)}
-        </div>
-      </div>
+    </div>}
+    {/* Laid out but not shown, and never reachable: this is the copy the
+        line is measured against. `aria-hidden` alone would leave its ✕
+        buttons in the tab order, so every pill in it is inert. */}
+    <div className="token-choice-ruler" ref={ruler} aria-hidden="true" inert>
+      {pills.map((pill) => <Pill key={String(pill.value)} label={pill.label}
+        describe="" remove={() => undefined} />)}
     </div>
   </div>;
 }

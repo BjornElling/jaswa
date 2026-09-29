@@ -262,13 +262,31 @@ test('a rune build is chosen as a whole pair, never as two loose sets', async ({
   await builds.scrollIntoViewIfNeeded();
   await builds.click();
   await page.getByRole('button', { name: 'Violent 4-piece' }).click();
-  await page.getByRole('checkbox', { name: 'Violent / Blade' }).check();
-  await page.keyboard.press('Escape');
-
+  /* A finished build is one click, and lands on the line as a pill. */
+  await page.getByRole('button', { name: 'Violent / Blade 4 + 2' }).click();
+  await expect(page.getByRole('dialog', { name: 'Desired rune builds' })).toHaveCount(0);
   await expect(builds).toHaveAttribute('aria-label', 'Desired rune builds: Violent / Blade');
+
+  /* The next is added straight after it, from the same line. A two-set stack
+     is composed from ticks and added as one build. */
+  await builds.click();
+  await page.getByRole('button', { name: 'Will 2-piece' }).click();
+  await page.getByRole('checkbox', { name: 'Revenge' }).check();
+  await page.getByRole('button', { name: 'Add build' }).click();
+  await expect(builds).toHaveAttribute('aria-label', 'Desired rune builds: Violent / Blade, Will / Revenge');
+  /* The overlay behind survived both menus. */
+  await expect(page.getByRole('button', { name: 'Remove Will / Revenge from Desired rune builds' })).toBeVisible();
+
   await page.getByRole('button', { name: 'Save changes' }).click();
   await expect(page.getByRole('dialog')).toBeHidden();
-  expect((await storedPreferences(page))?.['1']?.runeSets).toEqual(['Violent / Blade']);
+  expect((await storedPreferences(page))?.['1']?.runeSets).toEqual(['Violent / Blade', 'Will / Revenge']);
+});
+
+test('the Runes block opens the panel, above the stats', async ({ page }) => {
+  await importAccount(page);
+  await openOverlay(page);
+  const titles = await page.locator('.overlay-block-title').allTextContents();
+  expect(titles.slice(0, 2)).toEqual(['Runes', 'Stats']);
 });
 
 test('a copy with nothing equipped says so in every panel', async ({ page }) => {

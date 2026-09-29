@@ -4,7 +4,7 @@ import { MultiChoiceMenu } from './choice-menu';
 import type { ChoiceMenuOption } from './choice-menu';
 import { Dropdown } from './dropdown';
 import { MonsterPortrait } from './monster-portrait';
-import { RuneBuildMenu } from './rune-build-menu';
+import { RuneBuildField } from './rune-build-field';
 import { Overlay } from './overlay';
 import { PencilIcon } from './pencil-icon';
 import { ShortfallMark } from './shortfall-mark';
@@ -389,6 +389,59 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
           What the wider player base equips is below.
         </p>}
 
+        <Section title="Runes">
+          <div className="overlay-lines">
+            {monster !== undefined && <Line label="Current">
+              <span className="overlay-current-value">
+                {worn.runes.length === 0
+                  ? 'No runes equipped'
+                  : <span className="overlay-rune-links">
+                    {worn.runes.map((rune) => <RuneLink key={rune.id}
+                      target={{ kind: 'account', runeId: rune.id }}
+                      label={`${rune.setName} rune, slot ${rune.slot}`}
+                      onOpen={onOpenRune}>{rune.setName} · {rune.slot}</RuneLink>)}
+                  </span>}
+              </span>
+            </Line>}
+            {editable && <Line label="Desired builds">
+              <div className="overlay-build-row">
+                <RuneBuildField chosen={resolved.runes.sets.chosen}
+                  onChange={(next) => change((state) => ({ ...state, runeSets: next }))} />
+                <label className="overlay-toggle">
+                  <input type="checkbox" checked={resolved.runes.allowBroken}
+                    onChange={(event) => change((state) => ({ ...state, allowBrokenRuneSets: event.target.checked }))} />
+                  <span>Allow broken pairs</span>
+                </label>
+                <label className="overlay-toggle">
+                  <input type="checkbox" checked={resolved.runes.allowIntangible}
+                    onChange={(event) => change((state) => ({ ...state, allowIntangibleRunes: event.target.checked }))} />
+                  <span>Allow Intangible runes</span>
+                </label>
+              </div>
+            </Line>}
+            {editable && <Line label="Slot mains">
+              <div className="overlay-slot-row">
+                {runeSlotKeys.map((key) => <div className="overlay-slot" key={key}>
+                  <span className="overlay-slot-name">Slot {slotNumbers[key]}</span>
+                  <MultiChoiceMenu<RuneMainStat>
+                    label={`Slot ${slotNumbers[key]} main stat`}
+                    options={slotOptions(key)}
+                    chosen={resolved.runes.slots[key].source === 'user' ? resolved.runes.slots[key].chosen : []}
+                    empty="Any"
+                    onChange={(next) => change((state) => ({
+                      ...state,
+                      runeSlots: { ...state.runeSlots, [key]: next },
+                    }))} />
+                </div>)}
+              </div>
+            </Line>}
+            <Line label="Most common">
+              <Usage entries={usage.runes?.sets.filter((entry) => entry.wanted)}
+                observations={usage.runes?.setObservations} />
+            </Line>
+          </div>
+        </Section>
+
         {current !== undefined && <Section title="Stats"
           note="Type the figures you are building toward. Current values are shown for reference.">
           <div className="overlay-stats">
@@ -428,59 +481,6 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
             </Dropdown>
           </div>}
         </Section>}
-
-        <Section title="Runes">
-          <div className="overlay-lines">
-            {monster !== undefined && <Line label="Current">
-              <span className="overlay-current-value">
-                {worn.runes.length === 0
-                  ? 'No runes equipped'
-                  : <span className="overlay-rune-links">
-                    {worn.runes.map((rune) => <RuneLink key={rune.id}
-                      target={{ kind: 'account', runeId: rune.id }}
-                      label={`${rune.setName} rune, slot ${rune.slot}`}
-                      onOpen={onOpenRune}>{rune.setName} · {rune.slot}</RuneLink>)}
-                  </span>}
-              </span>
-            </Line>}
-            {editable && <Line label="Desired builds">
-              <div className="overlay-build-row">
-                <RuneBuildMenu chosen={resolved.runes.sets.chosen}
-                  onChange={(next) => change((state) => ({ ...state, runeSets: next }))} />
-                <label className="overlay-toggle">
-                  <input type="checkbox" checked={resolved.runes.allowBroken}
-                    onChange={(event) => change((state) => ({ ...state, allowBrokenRuneSets: event.target.checked }))} />
-                  <span>Allow broken pairs</span>
-                </label>
-                <label className="overlay-toggle">
-                  <input type="checkbox" checked={resolved.runes.allowIntangible}
-                    onChange={(event) => change((state) => ({ ...state, allowIntangibleRunes: event.target.checked }))} />
-                  <span>Allow Intangible runes</span>
-                </label>
-              </div>
-            </Line>}
-            {editable && <Line label="Slot mains">
-              <div className="overlay-slot-row">
-                {runeSlotKeys.map((key) => <div className="overlay-slot" key={key}>
-                  <span className="overlay-slot-name">Slot {slotNumbers[key]}</span>
-                  <MultiChoiceMenu<RuneMainStat>
-                    label={`Slot ${slotNumbers[key]} main stat`}
-                    options={slotOptions(key)}
-                    chosen={resolved.runes.slots[key].source === 'user' ? resolved.runes.slots[key].chosen : []}
-                    empty="Any"
-                    onChange={(next) => change((state) => ({
-                      ...state,
-                      runeSlots: { ...state.runeSlots, [key]: next },
-                    }))} />
-                </div>)}
-              </div>
-            </Line>}
-            <Line label="Most common">
-              <Usage entries={usage.runes?.sets.filter((entry) => entry.wanted)}
-                observations={usage.runes?.setObservations} />
-            </Line>
-          </div>
-        </Section>
 
         <div className="overlay-artifact-pair">
           {(['attribute', 'type'] as const).map((category) => {
