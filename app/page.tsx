@@ -175,6 +175,18 @@ export default function Home() {
     [game],
   );
 
+  /* The overlay's rune is the same object for as long as the overlay and the import
+     stand. Read afresh in render, it was a new rune on every render of this page —
+     the helper's poll alone renders it every two seconds — and the overlay took
+     each one for a different rune and calculated its Max stats again. */
+  const overlayRune = useMemo(() => {
+    if (overlay?.kind !== 'rune') return undefined;
+    const runeTarget = overlay.target;
+    return runeTarget.kind === 'account'
+      ? (game?.data ? readRunes(game.data).find((entry) => entry.id === runeTarget.runeId) : undefined)
+      : runeTarget.rune;
+  }, [overlay, game]);
+
   async function selectGameFile(file?: File) {
     if (!file) return;
     try {
@@ -564,19 +576,16 @@ export default function Home() {
       onClose={closeOverlay}
     /></Suspense>}
 
-    {overlay?.kind === 'rune' && (() => {
-      const runeTarget = overlay.target;
-      const rune = runeTarget.kind === 'account'
-        ? (game?.data ? readRunes(game.data).find((entry) => entry.id === runeTarget.runeId) : undefined)
-        : runeTarget.rune;
-      return rune ? <Suspense fallback={null}><RuneOverlay
-        rune={rune}
-        game={game?.data}
-        general={preferences.general}
-        onOpenMonster={openMonsterOverlay}
-        onClose={closeOverlay}
-      /></Suspense> : null;
-    })()}
+    {overlayRune && <Suspense fallback={null}><RuneOverlay
+      rune={overlayRune}
+      game={game?.data}
+      general={preferences.general}
+      settings={preferences.runePotential}
+      presets={preferences.runePotentialPresets}
+      hardwareAcceleration={preferences.hardwareAcceleration}
+      onOpenMonster={openMonsterOverlay}
+      onClose={closeOverlay}
+    /></Suspense>}
 
     {report && <ReportDialog
       report={report}

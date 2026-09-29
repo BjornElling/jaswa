@@ -20,6 +20,7 @@ import type { MonsterPreferences } from '../lib/monster-preferences';
 import { runeVerdictLabels, runeVerdictOrder } from '../lib/rune-cleanup-advice';
 import type { RuneVerdict } from '../lib/rune-cleanup-advice';
 import { calculateRuneAdvice, cancelRuneAdvice } from '../lib/compute/rune-advice-client';
+import { rememberRuneAdvice } from '../lib/compute/rune-advice-memory';
 import type { CalculationBackend } from '../lib/compute/calculation-summary';
 import { noReferenceLineMessage, referenceLines } from '../lib/rune-reference-stats';
 import {
@@ -233,6 +234,8 @@ export function RuneRecommendations({ game, monsterPreferences, settings, preset
     setBusy(false);
     if (outcome.status === 'failed') { setFailure(outcome.message); return; }
     const { advice } = outcome;
+    /* The overlay reads a rune's answer from here instead of asking for it again. */
+    if (game?.data) rememberRuneAdvice({ data: game.data, settings, presets }, runes, advice);
     setResult({
       rows: runes.map((rune, index) => ({
         rune,

@@ -349,7 +349,7 @@ label[for] {
 .grid-table thead th, .best-artifact-improvements-title,
 .best-artifact-result th, .best-monster-table th,
 .artifact-recommendation-table th, .overlay-row-label, .overlay-stat-head,
-.rune-simulator-stats-table thead th, .rune-overlay-facts dt {
+.rune-simulator-stats-table thead th, .rune-overlay-facts dt, .rune-overlay-subs th {
   font-family: var(--font-body);
   font-size: var(--type-label);
   font-weight: 700;
@@ -4806,12 +4806,11 @@ html.overlay-open .overlay-backdrop { right: var(--overlay-gutter, 0px); }
 .rune-emblem-glyph { width: 56px; }
 .rune-emblem.placeholder { color: var(--text); }
 
-/* Every stat of the rune in one box, starting on the line the rune's name
-   starts on, so it reads as the continuation of the head rather than as a
-   second panel. The innate line sits close under the main property — the two
-   are what the rune dropped with — and clear space, not a rule, sets the sub
-   properties off. Each value follows its name directly. */
-.rune-overlay-body { padding-left: calc(var(--s5) + 108px + var(--s5)); }
+/* Every stat of the rune in one box, its left edge on the emblem's, so the box
+   has the dialog's full measure for the craft columns beside the lines. The
+   innate line sits close under the main property — the two are what the rune
+   dropped with — and clear space, not a rule, sets the sub properties off.
+   Each value follows its name directly. */
 .rune-overlay-stats {
   display: grid;
   gap: var(--s2);
@@ -4823,14 +4822,43 @@ html.overlay-open .overlay-backdrop { right: var(--overlay-gutter, 0px); }
 }
 .rune-overlay-main { font-variant-numeric: tabular-nums; }
 /* Four rows of one fixed height whether or not a line is there yet, so a
-   rune with two sub properties draws the same box as one with four. */
+   rune with two sub properties draws the same box as one with four. The head
+   row fills the clear line above them rather than adding one. The sub
+   properties take a fixed share, room for `Resistance +10%` and its gem mark,
+   and the three craft columns split the rest alike, so they stand at an even
+   pitch close to the lines they describe and no answer widens its column. */
 .rune-overlay-subs {
-  margin: var(--s4) 0 0; padding: 0;
-  list-style: none;
-  display: grid;
-  grid-template-rows: repeat(4, var(--s5));
-  align-items: center;
+  width: 100%;
+  margin: 0;
+  border-collapse: collapse;
+  table-layout: fixed;
 }
+.rune-overlay-subs th:first-child { width: 30%; }
+.rune-overlay-subs :is(th, td):not(:first-child) { padding-left: var(--s5); }
+.rune-overlay-subs th {
+  height: var(--s4);
+  padding: 0 0 var(--s1);
+  text-align: left;
+  vertical-align: bottom;
+  color: var(--text-muted);
+}
+.rune-overlay-subs td {
+  height: var(--s5);
+  padding: 0;
+  vertical-align: middle;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rune-overlay-subs td > .rune-sub { margin-right: 0; }
+/* Gold is the game's mark for a gem only; the figures a player still has to
+   spend are plain full ink, a fact rather than an invitation. */
+/* One flex line for the whole cell, so a gem's mark, its id and a stone's figure
+   share one centre: a figure left on the text baseline beside a centred flex box
+   sat lower than the id next to it. */
+.rune-overlay-craft { display: inline-flex; align-items: center; gap: var(--s1); }
+.rune-overlay-craft > .rune-overlay-figure:not(:first-child) { margin-left: var(--s1); }
+.rune-overlay-figure { font-variant-numeric: tabular-nums; color: var(--text-strong); }
 
 .overlay-block { display: grid; gap: var(--s3); }
 .overlay-block-head {

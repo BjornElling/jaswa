@@ -783,6 +783,30 @@ function finishedLines(candidate: RuneCandidate): EndStateLine[] {
   return craftedLines(scoring.plan, scoring.options, scoring.prices, lines, scoring.prefixScore);
 }
 
+/**
+ * What a player still has to spend on each line to hold `craftedLines`: the Gem's new
+ * id on the line it replaces, and a stone wherever the end state carries more than
+ * the line already keeps. Read off the line-up the verdict counted rather than decided
+ * again, so a line named here is exactly a line Max value assumed.
+ */
+export type RuneCraftStep = {
+  /** The id the Gem puts on this line, or `null` where no Gem is spent here. */
+  gemStatId: number | null;
+  /** The stone the end state carries on this line, or `0` where none is spent. */
+  grind: number;
+};
+
+export function runeCraftSteps(rune: Rune, crafted: readonly EndStateLine[]): RuneCraftStep[] {
+  return rune.subProperties.map((line, at) => {
+    const end = crafted[at];
+    if (end === undefined) return { gemStatId: null, grind: 0 };
+    const gemSpent = end.statId !== line.statId || end.value !== line.value || end.gemmed !== line.gemmed;
+    /* A Gem on another id starts the line bare; re-rolling its own id keeps the stone. */
+    const kept = gemSpent && end.statId !== line.statId ? 0 : line.grind;
+    return { gemStatId: gemSpent ? end.statId : null, grind: end.grind > kept ? end.grind : 0 };
+  });
+}
+
 function decide({ rune, value, standing, chance, preset, rank, cleared, brokenRejected }: {
   rune: Rune; value: number; standing: number; chance: number;
   preset: RunePotentialPreset | null; rank: MatchRank;
