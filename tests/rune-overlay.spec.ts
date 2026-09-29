@@ -37,8 +37,12 @@ test('the rune overlay states the rune and nothing else, and returns focus', asy
   /* Four lines always, the unrevealed ones blank, so the box keeps its height. */
   await expect(overlay.locator('.rune-overlay-subs tbody tr')).toHaveCount(4);
   await expect(overlay.getByRole('table', { name: 'Sub properties' }).locator('tbody').getByRole('row')).toHaveCount(2);
-  /* Below +12 the lines are not final, so no craft is named yet. */
-  await expect(overlay.getByRole('columnheader', { name: 'Improvements' })).toHaveAttribute('title', /Decided at \+12/);
+  /* Below +12 a stone may already go on and a Gem may not, so Improvements names the
+     stones the verdict counted and no Gem. */
+  await expect(overlay.getByRole('columnheader', { name: 'Improvements' })).toHaveAttribute('title', /Gem is decided at \+12/);
+  const improvements = overlay.getByRole('table', { name: 'Sub properties' }).locator('tbody tr td:nth-child(4)');
+  await expect(improvements.filter({ hasText: /^\+\d+%?$/ })).toHaveCount(2);
+  await expect(overlay.locator('.rune-overlay-subs').getByRole('img', { name: 'Enchanted Gem to' })).toHaveCount(0);
   await expect(overlay.getByText('Not revealed yet')).toHaveCount(0);
   /* The stats box states the rune as it is; only Evaluation speaks of +15. */
   await expect(overlay.locator('.rune-overlay-stats').getByText(/at \+15/)).toHaveCount(0);

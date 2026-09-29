@@ -59,8 +59,8 @@ function wearer(rune: Rune, game: GameRecord | undefined): {
 
 /**
  * What the Improvements column has to say, and why it says nothing where it does.
- * Below `+12` the lines are not final, so the engine names no craft (`craftedLines`
- * is `null` there) and neither does this.
+ * Below `+12` it names the stones alone: a Grindstone may go on at any level, a Gem
+ * only from `+12`, and the engine's `craftedLines` already holds exactly that.
  */
 type MaxCraft =
   | { state: 'pending' }
@@ -130,11 +130,7 @@ function useRuneAdvice(rune: Rune, game: GameRecord | undefined, settings: RuneP
   return { known, explained: asked?.rune === rune ? asked.explained : { state: 'pending' } };
 }
 
-/** Below `+12` the lines are not final, so no craft is named yet, whatever the verdict says. */
-function maxCraftOf(rune: Rune, known: RuneAdvice | undefined, explained: Explained): MaxCraft {
-  if (rune.level < lastSubPropertyLevel) {
-    return { state: 'unavailable', reason: `Decided at +${lastSubPropertyLevel}, when the sub properties are final` };
-  }
+function maxCraftOf(known: RuneAdvice | undefined, explained: Explained, rune: Rune): MaxCraft {
   if (explained.state === 'ready') return craftOf(rune, explained.advice);
   if (known !== undefined) return craftOf(rune, known);
   return explained;
@@ -283,10 +279,12 @@ export function RuneOverlay({ rune, game, general, settings, presets, hardwareAc
 }) {
   const worn = useMemo(() => wearer(rune, game), [rune, game]);
   const { known, explained } = useRuneAdvice(rune, game, settings, presets, hardwareAcceleration);
-  const maxCraft = maxCraftOf(rune, known, explained);
+  const maxCraft = maxCraftOf(known, explained, rune);
   const figure = (value: number) => formatNumber(value, general);
   const maxHeading = maxCraft.state === 'ready'
-    ? `The Gem and Grindstones Max value counts, for ${maxCraft.presetName}`
+    ? rune.level >= lastSubPropertyLevel
+      ? `The Gem and Grindstones Max value counts, for ${maxCraft.presetName}`
+      : `The Grindstones Max value counts, for ${maxCraft.presetName}. The Gem is decided at +${lastSubPropertyLevel}, when a Gem becomes legal`
     : maxCraft.state === 'unavailable' ? maxCraft.reason : 'Calculating';
   const facts = [
     { label: 'Slot', value: String(rune.slot) },

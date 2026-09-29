@@ -363,6 +363,18 @@ export type CraftReport = { replaced: number; option: number };
  * that. Rule 1 grinds *every* grindable line, and the Gem goes where it gains most —
  * which is the weakest line only when nothing blocks the best id from taking it.
  */
+const groundLine = (plan: CraftPlan, line: EndStateLine): EndStateLine =>
+  ({ ...line, grind: Math.max(line.grind, grindCredit(plan, line.statId)) });
+
+/**
+ * **Rule 1 alone**, for a rune below `+12`: a Grindstone may go on at any level, a Gem
+ * only from `+12`, so what can be named on such a rune today is the credited stone on
+ * every grindable line it already shows, and no Gem.
+ */
+export function groundLines(plan: CraftPlan, lines: readonly EndStateLine[]): EndStateLine[] {
+  return lines.map((line) => groundLine(plan, line));
+}
+
 export function craftedLines(
   plan: CraftPlan, options: GemOptions, prices: PriceList,
   lines: readonly EndStateLine[], prefixScore: number,
@@ -370,9 +382,7 @@ export function craftedLines(
   const report: CraftReport = { replaced: -1, option: -1 };
   craftedScore(plan, options, prices, lines, prefixScore, undefined, report);
   return lines.map((line, at) => {
-    if (at !== report.replaced) {
-      return { ...line, grind: Math.max(line.grind, grindCredit(plan, line.statId)) };
-    }
+    if (at !== report.replaced) return groundLine(plan, line);
     const statId = options.statIds[report.option];
     /* Re-rolling a line's own id keeps its stone (rule 3); any other id starts bare. */
     const kept = statId === line.statId ? line.grind : 0;

@@ -28,7 +28,7 @@ import type { RuneFuture, RuneRuns } from './rune-power-up-outcomes';
 import type { Valuation } from './rune-substat-weights';
 import { craftAssumptionForSetting } from './rune-craft-items';
 import { lastSubPropertyLevel, slotMainProperties } from './rune-properties';
-import { craftedLines } from './rune-craft-end-state';
+import { craftedLines, groundLines } from './rune-craft-end-state';
 import type { EndStateLine } from './rune-craft-end-state';
 
 /* Slot balance is a yardstick, not another user preference. Keeping it at the
@@ -441,11 +441,12 @@ export type RuneAdvice = {
   preset: RunePotentialPreset | null;
   rank: MatchRank;
   /**
-   * For a rune at `+12` or `+15`, the line-up its Max value assumed: every grindable line
-   * ground and the Gem spent where it gains most for `preset`, as `craftedLines`
-   * decides it. `null` below `+12`, where the lines are not final, and where no
-   * preset can use the rune. Carried out so that whatever acts on the verdict spends
-   * the items the verdict counted, rather than deciding the craft a second time.
+   * The line-up its Max value assumed for `preset`. From `+12`: every grindable line
+   * ground and the Gem spent where it gains most, as `craftedLines` decides it. Below
+   * `+12`: the lines it shows so far, each grindable one ground and no Gem, because a
+   * stone may go on at any level and a Gem only from `+12` (`groundLines`). `null` only
+   * where no preset can use the rune. Carried out so that whatever acts on the verdict
+   * spends the items the verdict counted, rather than deciding the craft a second time.
    */
   craftedLines: EndStateLine[] | null;
   /**
@@ -751,7 +752,7 @@ export async function runeAdvice(
       }),
       floorShare: chosen?.share ?? 0,
       floorMaxValue: chosen?.floorMaxValue ?? 0,
-      craftedLines: chosen && plan.rune.level >= lastSubPropertyLevel ? finishedLines(chosen.candidate) : null,
+      craftedLines: chosen ? finishedLines(chosen.candidate) : null,
       readings: explain ? presetReadings(presets, answersWithSteps, allowed, chanceBar, worthOf) : null,
     });
   }
@@ -841,11 +842,14 @@ function mostExpected<T extends { answer: Answer }>(
  * something it could not do anyway — are answered in `runeAdvice` where the
  * candidate is chosen, and arrive here as `cleared`.
  */
-/** The line-up the row's Max value counted, for a rune whose lines are final. */
+/** The craft the row's Max value counted on the lines the rune shows: the whole of it
+    from `+12`, the stones alone below, where no Gem is legal yet. */
 function finishedLines(candidate: RuneCandidate): EndStateLine[] {
   const { scoring } = candidate;
   const lines = candidate.rune.subProperties.map(({ statId, value, grind, gemmed }) => ({ statId, value, grind, gemmed }));
-  return craftedLines(scoring.plan, scoring.options, scoring.prices, lines, scoring.prefixScore);
+  return candidate.rune.level >= lastSubPropertyLevel
+    ? craftedLines(scoring.plan, scoring.options, scoring.prices, lines, scoring.prefixScore)
+    : groundLines(scoring.plan, lines);
 }
 
 /**
