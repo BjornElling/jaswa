@@ -38,8 +38,37 @@ function CloseMark() {
   </svg>;
 }
 
+const actionMarks = {
+  /* A tick: what is on the panel is kept. */
+  save: <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" /></svg>,
+  /* An arrow turning back on itself: the panel starts over. */
+  reset: <svg viewBox="0 0 16 16" aria-hidden="true">
+    <path d="M3.5 8a4.5 4.5 0 1 0 1.3-3.2" />
+    <path d="M3.5 2.5v2.8h2.8" />
+  </svg>,
+} as const;
+
+/**
+ * One of an overlay's own ways out, drawn as the close button is: a round mark
+ * on the panel's lower edge, named by its accessible label rather than by text.
+ * Its box is the same in every state, disabled included, so nothing on the
+ * edge moves when an edit makes Save available.
+ */
+export function OverlayAction({ kind, label, type = 'button', disabled, onClick }: {
+  kind: keyof typeof actionMarks;
+  label: string;
+  type?: 'button' | 'submit';
+  disabled?: boolean;
+  onClick?: () => void;
+}) {
+  return <button type={type} className={`overlay-round overlay-${kind}`} aria-label={label} title={label}
+    disabled={disabled} onClick={onClick}>
+    {actionMarks[kind]}
+  </button>;
+}
+
 export function Overlay({
-  labelledBy, describedBy, className, dismissible = true, onClose, onSubmit, children,
+  labelledBy, describedBy, className, dismissible = true, onClose, onSubmit, actions, children,
 }: {
   labelledBy: string;
   describedBy?: string;
@@ -49,6 +78,12 @@ export function Overlay({
   onClose: () => void;
   /** Given, the panel is a `<form>` and this is its submit. */
   onSubmit?: (event: FormEvent<HTMLFormElement>) => void;
+  /**
+   * Buttons that sit on the panel's lower edge beside the close button. They
+   * replace a footer bar: a bar cut the scrolling body short above it and
+   * read as a second panel, where the edge already holds the one way out.
+   */
+  actions?: ReactNode;
   children: ReactNode;
 }) {
   const panel = useRef<HTMLElement>(null);
@@ -139,7 +174,8 @@ export function Overlay({
   } as const;
   const body = <>
     {children}
-    <button ref={closeButton} type="button" className="overlay-close" aria-label="Close" title="Close"
+    {actions !== undefined && <div className="overlay-actions">{actions}</div>}
+    <button ref={closeButton} type="button" className="overlay-round overlay-close" aria-label="Close" title="Close"
       onClick={onClose}>
       <CloseMark />
     </button>

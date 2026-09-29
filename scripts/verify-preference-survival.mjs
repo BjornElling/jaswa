@@ -32,7 +32,7 @@ try {
     importRoute: 'direct',
     directImportMode: 'on-load',
     general: { ...blank.general, numberFormat: 'european', hourCycle: 'h23' },
-    monsterPreferences: { 17: { unitId: '17', label: 'Arena defence', allowBrokenRuneSets: true } },
+    monsterPreferences: { 17: { unitId: '17', label: 'Arena defence', allowIntangibleRunes: true } },
     runeHolds: { 901: { unsellable: true }, 902: { unsellable: true, locked: true } },
     runePotential: { ...blank.runePotential, powerUpPolicy: 2, gemGrade: 'Legend', keepMoreForLargerSets: true },
     runePotentialPresets: [withRefreshedMetrics({ ...firstPreset, name: 'My nuker', targets: { ...firstPreset.targets, atk: 3100 } }), otherPresets[0]],

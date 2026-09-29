@@ -10,10 +10,11 @@ import type { Relic } from './relics';
 import { runeSlotKeys } from './monster-defaults';
 import type { RuneSlotKey } from './monster-defaults';
 import { relicProperty, relicPropertyLabel } from './relic-properties';
-import { presetTargetColumns, runeMainStatByEffect } from './rune-potential-presets';
+import { presetTargetColumns } from './rune-potential-presets';
+import { runeSlotMainByEffect } from './rune-slot-mains';
 import { runeStatNames } from './runes';
 import { activeRuneSets } from './rune-sets';
-import { runeSetPair } from './rune-set-pairs';
+import { runeBuild, runeBuildName } from './rune-set-pairs';
 
 /**
  * Where an owned copy does not yet match what it is for.
@@ -92,19 +93,20 @@ function runeShortfalls(monster: GameRecord, resolved: ResolvedMonsterPreference
      `activeRuneSets` already counts only the sets whose piece requirement is
      met, which is the same arithmetic the stat sheet applies. A build names
      every set it wants, so it is met only when all of them are standing. */
-  const completed = new Set(activeRuneSets(monster).map((set) => set.name));
+  const active = activeRuneSets(monster);
+  const completed = new Set(active.map((set) => set.name));
   const wantedBuilds = resolved.runes.sets;
   /* One shortfall for the whole group rather than one per build. A monster
      wears one build at a time, so a list of four is a list of alternatives, and
      reporting each as a failure would read as four problems where there is
      one. */
   if (wantedBuilds.chosen.length > 0
-    && !wantedBuilds.chosen.some((id) => runeSetPair(id)?.sets.every((name) => completed.has(name)) ?? false)) {
+    && !wantedBuilds.chosen.some((id) => runeBuild(id)?.sets.every((name) => completed.has(name)) ?? false)) {
     shortfalls.push({
       kind: 'rune-set',
       source: wantedBuilds.source,
       wanted: wantedBuilds.chosen.join(' or '),
-      present: completed.size > 0 ? [...completed].join(', ') : undefined,
+      present: completed.size > 0 ? runeBuildName(active.map((set) => set.name)) : undefined,
     });
   }
 
@@ -119,7 +121,7 @@ function runeShortfalls(monster: GameRecord, resolved: ResolvedMonsterPreference
     }) as GameRecord | undefined;
     const mainId = typeof worn?.pri_eff === 'object' && Array.isArray(worn.pri_eff)
       ? Number(worn.pri_eff[0]) : null;
-    const present = mainId === null || !Number.isFinite(mainId) ? undefined : runeMainStatByEffect[mainId];
+    const present = mainId === null || !Number.isFinite(mainId) ? undefined : runeSlotMainByEffect(mainId);
     if (present !== undefined && wanted.chosen.some((stat) => stat === present)) continue;
     shortfalls.push({
       kind: 'rune-slot-main',

@@ -160,22 +160,26 @@ test('the overlay is centred on the table it opens over, not on the window', asy
   expect(dialogBox.width).toBeGreaterThanOrEqual(tableBox.width);
 });
 
-test('the actions stay clear of the edge the body scrolls against', async ({ page }) => {
+test('the actions sit on the lower edge, beside the close button and clear of it', async ({ page }) => {
   await importAccount(page);
   await openOverlay(page);
 
-  /* Flush against the corner the buttons read as clipped, and the scrolling
-     body's scrollbar came down on top of the last of them. */
+  /* A footer bar cut the scrolling body short above it and read as a second
+     panel. The buttons now straddle the edge the close button does, on its
+     line, so the body scrolls all the way down to that edge. */
   const dialogBox = await page.getByRole('dialog').boundingBox();
   const saveBox = await page.getByRole('button', { name: 'Save changes' }).boundingBox();
-  expect(dialogBox).not.toBeNull();
-  expect(saveBox).not.toBeNull();
-  if (!dialogBox || !saveBox) return;
+  const closeBox = await page.getByRole('button', { name: 'Close' }).boundingBox();
+  expect(dialogBox && saveBox && closeBox).toBeTruthy();
+  if (!dialogBox || !saveBox || !closeBox) return;
 
-  const rightGap = (dialogBox.x + dialogBox.width) - (saveBox.x + saveBox.width);
-  const bottomGap = (dialogBox.y + dialogBox.height) - (saveBox.y + saveBox.height);
-  expect(rightGap).toBeGreaterThanOrEqual(12);
-  expect(bottomGap).toBeGreaterThanOrEqual(12);
+  const edge = dialogBox.y + dialogBox.height;
+  expect(Math.abs(saveBox.y + saveBox.height / 2 - edge)).toBeLessThan(2);
+  expect(Math.abs(closeBox.y + closeBox.height / 2 - edge)).toBeLessThan(2);
+  /* The workspace scales, so the step between them arrives a little under its
+     stated 12px; what matters is that they never touch. */
+  expect(closeBox.x - (saveBox.x + saveBox.width)).toBeGreaterThanOrEqual(6);
+  await expect(page.locator('.dialog-actions')).toHaveCount(0);
 });
 
 test('a stated preference is saved, and only what was stated', async ({ page }) => {
@@ -227,17 +231,16 @@ test('a cleared preference stays cleared, and does not fall back to the default'
   await openOverlay(page);
 
   /* Slot 4 has a statistics default, so it opens standing in from the
-     population. Opening the menu and ticking nothing off is no statement at
-     all; ticking one on and then off again is the user saying they want none,
+     population. Opening the menu and choosing nothing is no statement at all;
+     adding a main and taking it off again is the user saying they want none,
      which is stored as an empty list rather than as a silence. An absent key
      would let the default quietly return the next time the overlay opened. */
   const slot4 = page.getByRole('button', { name: /^Slot 4 main stat:/ });
   await slot4.scrollIntoViewIfNeeded();
   await slot4.click();
-  const options = page.getByRole('group', { name: 'Slot 4 main stat' });
-  await options.getByRole('checkbox', { name: 'HP%' }).check();
-  await options.getByRole('checkbox', { name: 'HP%' }).uncheck();
-  await page.keyboard.press('Escape');
+  await page.getByRole('menu', { name: 'Slot 4 main stat' }).getByRole('menuitem', { name: /^HP%/ }).click();
+  await expect(slot4).toHaveAttribute('aria-label', 'Slot 4 main stat: HP%');
+  await page.getByRole('button', { name: 'Remove HP% from Slot 4 main stat' }).click();
 
   await page.getByRole('button', { name: 'Save changes' }).click();
   await expect(page.getByRole('dialog')).toBeHidden();
@@ -255,7 +258,7 @@ test('a rune build is chosen as a whole pair, never as two loose sets', async ({
   await importAccount(page);
   await openOverlay(page);
 
-  /* The point of the change: `Violent / Blade` is one answer. Choosing Violent
+  /* The point of the change: `Violent/Blade` is one answer. Choosing Violent
      and Blade separately could not say whether a triple Violent build would
      do, and the optimizer had to guess. */
   const builds = page.getByRole('button', { name: /^Desired rune builds:/ });
@@ -263,23 +266,57 @@ test('a rune build is chosen as a whole pair, never as two loose sets', async ({
   await builds.click();
   await page.getByRole('button', { name: 'Violent 4-piece' }).click();
   /* A finished build is one click, and lands on the line as a pill. */
-  await page.getByRole('button', { name: 'Violent / Blade 4 + 2' }).click();
+  await page.getByRole('button', { name: 'Violent/Blade 4 + 2' }).click();
   await expect(page.getByRole('dialog', { name: 'Desired rune builds' })).toHaveCount(0);
-  await expect(builds).toHaveAttribute('aria-label', 'Desired rune builds: Violent / Blade');
+  await expect(builds).toHaveAttribute('aria-label', 'Desired rune builds: Violent/Blade');
 
-  /* The next is added straight after it, from the same line. A two-set stack
-     is composed from ticks and added as one build. */
+  /* Broken is part of the build that accepts it, not a switch beside it. */
+  await builds.click();
+  await page.getByRole('button', { name: 'Violent 4-piece' }).click();
+  await page.getByRole('button', { name: 'Violent/Broken 4 + 2' }).click();
+
+  /* A two-set stack is composed from ticks and added as one build; the slots
+     nothing is ticked for are broken, and three sets fill all six. */
   await builds.click();
   await page.getByRole('button', { name: 'Will 2-piece' }).click();
+  const composed = page.locator('.rune-build-composed-name');
+  await expect(composed).toHaveText('Will/Broken');
   await page.getByRole('checkbox', { name: 'Revenge' }).check();
+  await expect(composed).toHaveText('Will/Revenge/Broken');
+  await page.getByRole('checkbox', { name: 'Destroy' }).check();
+  await expect(composed).toHaveText('Will/Destroy/Revenge');
   await page.getByRole('button', { name: 'Add build' }).click();
-  await expect(builds).toHaveAttribute('aria-label', 'Desired rune builds: Violent / Blade, Will / Revenge');
-  /* The overlay behind survived both menus. */
-  await expect(page.getByRole('button', { name: 'Remove Will / Revenge from Desired rune builds' })).toBeVisible();
+  await expect(builds).toHaveAttribute('aria-label',
+    'Desired rune builds: Violent/Blade, Violent/Broken, Will/Destroy/Revenge');
+
+  /* The same six slots led by another set are the same build, and cannot be
+     added a second time. */
+  await builds.click();
+  await page.getByRole('button', { name: 'Destroy 2-piece' }).click();
+  await page.getByRole('checkbox', { name: 'Will' }).check();
+  await page.getByRole('checkbox', { name: 'Revenge' }).check();
+  await expect(page.getByRole('button', { name: 'Add build' })).toBeDisabled();
+  await page.keyboard.press('Escape');
+  /* The overlay behind survived every menu. */
+  await expect(page.getByRole('button', { name: 'Save changes' })).toBeEnabled();
+  await expect(builds).toHaveAttribute('aria-label',
+    'Desired rune builds: Violent/Blade, Violent/Broken, Will/Destroy/Revenge');
 
   await page.getByRole('button', { name: 'Save changes' }).click();
   await expect(page.getByRole('dialog')).toBeHidden();
-  expect((await storedPreferences(page))?.['1']?.runeSets).toEqual(['Violent / Blade', 'Will / Revenge']);
+  expect((await storedPreferences(page))?.['1']?.runeSets).toEqual(['Violent/Blade', 'Violent/Broken', 'Will/Destroy/Revenge']);
+});
+
+test('what is wanted leads each block, and what is worn follows as reference', async ({ page }) => {
+  await importAccount(page);
+  await openOverlay(page);
+  const runeLabels = await page.locator('.overlay-block').first().locator('.overlay-row-label').allTextContents();
+  expect(runeLabels).toEqual(['Desired builds', 'Current', 'Most common']);
+  /* The worn build is written the way a desired one is, and nothing else: not
+     the runes one by one, and no sample size beside the shares. */
+  const runes = page.locator('.overlay-block').first();
+  await expect(runes.locator('.overlay-current-build')).toHaveText(/^[A-Z][a-z]+(\/[A-Z][a-z]+)+$/);
+  await expect(runes.getByText(/measured/)).toHaveCount(0);
 });
 
 test('the Runes block opens the panel, above the stats', async ({ page }) => {

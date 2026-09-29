@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { Button } from './button';
 import { TokenChoiceLine } from './token-choice-field';
 import {
-  fourPieceRuneSets, makeRuneSetPair, runeSetPairMaximumSets,
-  runeSetPairsLedBy, runeSetPairSeparator, twoPieceRuneSets,
+  fourPieceRuneSets, makeRuneBuild, runeBuild, runeBuildKey, runeBuildMaximumSets,
+  runeBuildsLedBy, twoPieceRuneSets,
 } from '../lib/rune-set-pairs';
 import { runeSetPieceCount } from '../lib/rune-sets';
 
@@ -11,21 +11,21 @@ import { runeSetPieceCount } from '../lib/rune-sets';
  * Where the user names the exact rune builds they will accept.
  *
  * **A build, not a set.** Choosing sets one at a time cannot say whether
- * `Despair` and `Revenge` together mean `Despair / Revenge` or
- * `Revenge / Revenge / Revenge`, and an optimizer given the looser statement
- * has to guess — which is how someone asking for Revenge ends up with a triple
- * Revenge build. Every pill here is a whole six-slot answer.
+ * `Despair` and `Revenge` together mean `Despair/Revenge` or
+ * `Revenge/Revenge/Revenge`, and an optimizer given the looser statement has to
+ * guess — which is how someone asking for Revenge ends up with a triple Revenge
+ * build. Every pill here is a whole six-slot answer, broken slots included.
  *
  * It answers on a token line, as the rune filters do: each build is a pill with
  * its own ✕, and the next one is added straight after the last. The menu under
- * the line is two columns because the vocabulary is two questions deep and 96
- * finished rows is more than a single list can be read at. The left column
- * names the set the build leads with; hovering or focusing one opens its
- * completions on the right. A four-set has sixteen of them, one per two-set,
- * and choosing one adds it and closes, like any token menu. A two-set has no
- * finished completions — three two-sets can be stacked in C(16,3) = 560 ways,
- * which is not a list — so it opens the other two-sets as ticks, and the build
- * they compose is added when the user says so.
+ * the line is two columns because the vocabulary is two questions deep and a
+ * hundred finished rows is more than a single list can be read at. The left
+ * column names the set the build leads with; hovering or focusing one opens its
+ * completions on the right. A four-set has seventeen of them — one per two-set,
+ * and broken — and choosing one adds it and closes, like any token menu. A
+ * two-set has no finished completions — the stacks run to hundreds, which is
+ * not a list — so it opens the other two-sets as ticks, the slots nothing is
+ * ticked for read as broken, and the build is added when the user says so.
  */
 
 function setPieces(name: string): string {
@@ -49,17 +49,21 @@ function BuildMenu({ chosen, onAdd }: {
     setTicked([]);
   }
 
+  /* Compared by what fills the six slots rather than by spelling, so a stack
+     led by Will cannot be added again under Destroy. */
+  const chosenKeys = new Set(chosen.map((id) => runeBuild(id)).filter((build) => build !== undefined).map(runeBuildKey));
+
   const leadingIsFour = runeSetPieceCount[leading] === 4;
-  /* In the vocabulary's order rather than the order ticked, so one stack has
-     one name and cannot be added twice under two spellings. */
+  /* The leader first, as the user reads it; the rest in the vocabulary's order,
+     so one stack has one spelling. */
   const stack = [leading, ...twoPieceRuneSets.filter((name) => ticked.includes(name))];
-  const composed = makeRuneSetPair(stack)?.id;
-  const composedChosen = composed !== undefined && chosen.includes(composed);
+  const composed = makeRuneBuild(stack, stack.length < runeBuildMaximumSets);
+  const composedChosen = composed !== undefined && chosenKeys.has(runeBuildKey(composed));
 
   return <div className="rune-build-menu">
     <ul className="rune-build-leaders">
       {leaders.map((name) => {
-        const count = chosen.filter((id) => id.split(runeSetPairSeparator)[0] === name).length;
+        const count = chosen.filter((id) => runeBuild(id)?.leading === name).length;
         return <li key={name}>
           <button type="button"
             className={name === leading ? 'rune-build-leader current' : 'rune-build-leader'}
@@ -80,14 +84,14 @@ function BuildMenu({ chosen, onAdd }: {
     <div className="rune-build-completions">
       {leadingIsFour
         ? <ul className="choice-menu-list">
-          {runeSetPairsLedBy(leading).map((pair) => {
-            /* Kept in the list, dimmed, once chosen: sixteen rows that stay
-               sixteen read faster than a list that closes up as it is used. */
-            const added = chosen.includes(pair.id);
-            return <li key={pair.id}>
+          {runeBuildsLedBy(leading).map((build) => {
+            /* Kept in the list, dimmed, once chosen: seventeen rows that stay
+               seventeen read faster than a list that closes up as it is used. */
+            const added = chosenKeys.has(runeBuildKey(build));
+            return <li key={build.id}>
               <button type="button" className={added ? 'choice-menu-option unavailable' : 'choice-menu-option'}
-                disabled={added} onClick={() => onAdd(pair.id)}>
-                <span className="choice-menu-option-label">{pair.id}</span>
+                disabled={added} onClick={() => onAdd(build.id)}>
+                <span className="choice-menu-option-label">{build.id}</span>
                 {/* The slot split, not the set name again: the row already
                     says which sets, and repeating the second one told the
                     reader nothing they had not just read. */}
@@ -98,15 +102,15 @@ function BuildMenu({ chosen, onAdd }: {
         </ul>
         : <>
           <p className="rune-build-note">
-            {leading} takes two slots, so up to {runeSetPairMaximumSets} sets share the six.
-            Tick the ones that complete the build.
+            {leading} takes two slots, so up to {runeBuildMaximumSets} sets share the six.
+            Tick the ones that complete the build; slots left over are broken.
           </p>
           <ul className="choice-menu-list">
             {twoPieceRuneSets.filter((name) => name !== leading).map((name) => {
               const selected = ticked.includes(name);
               /* Full at three: a fourth set has no slots left to sit in, so
                  the option is disabled rather than silently dropped. */
-              const full = stack.length >= runeSetPairMaximumSets && !selected;
+              const full = stack.length >= runeBuildMaximumSets && !selected;
               return <li key={name}>
                 <label className={full ? 'choice-menu-option unavailable' : 'choice-menu-option'}>
                   <input type="checkbox" checked={selected} disabled={full}
@@ -119,16 +123,15 @@ function BuildMenu({ chosen, onAdd }: {
             })}
           </ul>
           {/* What ticking has built so far, named in full, and the one move
-              that makes it an answer. A stack of one is the leading set on its
-              own, which is a real answer — "two Will runes and I do not mind
-              what fills the rest". */}
+              that makes it an answer. Nothing ticked is a real answer —
+              `Will/Broken`, two Will runes and whatever fills the rest. */}
           <div className="rune-build-composed">
-            <span className="rune-build-composed-name">{composed ?? leading}{stack.length === 1 ? ' only' : ''}</span>
+            <span className="rune-build-composed-name">{composed?.id ?? ''}</span>
             {/* One wording in every state, so the button cannot change width
                 under the pointer; a build already on the line simply cannot be
                 added again. */}
             <Button tone="primary" size="compact" disabled={composed === undefined || composedChosen}
-              onClick={() => { if (composed !== undefined) onAdd(composed); }}>
+              onClick={() => { if (composed !== undefined) onAdd(composed.id); }}>
               Add build
             </Button>
           </div>

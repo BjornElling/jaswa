@@ -1,16 +1,14 @@
 import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import { Button } from './button';
 import { MultiChoiceMenu } from './choice-menu';
 import type { ChoiceMenuOption } from './choice-menu';
 import { Dropdown } from './dropdown';
 import { MonsterPortrait } from './monster-portrait';
 import { RuneBuildField } from './rune-build-field';
-import { Overlay } from './overlay';
+import { TokenChoiceLine } from './token-choice-field';
+import { Overlay, OverlayAction } from './overlay';
 import { PencilIcon } from './pencil-icon';
 import { ShortfallMark } from './shortfall-mark';
 import type { MonsterReference } from './monster-link';
-import { RuneLink } from './rune-link';
-import type { OpenRuneOverlay } from './rune-link';
 import type { Artifact } from '../lib/artifacts';
 import { readArtifacts } from '../lib/artifacts';
 import type { ArtifactCategory, ArtifactMainProperty } from '../lib/artifact-properties';
@@ -38,10 +36,11 @@ import type { Relic } from '../lib/relics';
 import { readRelics } from '../lib/relics';
 import { relicMainPropertyOrder, relicProperties, relicPropertyLabel } from '../lib/relic-properties';
 import type { RelicMainProperty } from '../lib/relic-properties';
-import { presetTargetColumns, presetTargetMaximum, runeMainStatsBySlot } from '../lib/rune-potential-presets';
-import type { RuneMainStat } from '../lib/rune-potential-presets';
-import { elementName } from '../lib/rune-sets';
-import { readRunes } from '../lib/runes';
+import { presetTargetColumns, presetTargetMaximum } from '../lib/rune-potential-presets';
+import type { RuneSlotMain } from '../lib/rune-slot-mains';
+import { runeSlotMainsBySlot } from '../lib/rune-slot-mains';
+import { activeRuneSets, elementName } from '../lib/rune-sets';
+import { runeBuildName } from '../lib/rune-set-pairs';
 import type { GeneralSettings } from '../lib/types';
 
 /**
@@ -91,8 +90,8 @@ function Line({ label, children }: { label: string; children: ReactNode }) {
 }
 
 /**
- * A community row, shown as reference: what the population does, and the sample
- * behind it.
+ * A community row, shown as reference: the three choices the population makes
+ * most, each with its share, as the game's own statistics panel shows them.
  *
  * It is reference only. There is no longer any way to adopt it as an answer —
  * the Adopt buttons are gone, because a statistic the user has not looked at is
@@ -101,9 +100,8 @@ function Line({ label, children }: { label: string; children: ReactNode }) {
  * optimizers fall back on these figures anyway, so adopting them explicitly
  * changed nothing except who appeared to have decided.
  */
-function Usage({ entries, observations }: {
+function Usage({ entries }: {
   entries: ReadonlyArray<{ label: string; share: number }> | undefined;
-  observations: number | undefined;
 }) {
   const shown = (entries ?? []).slice(0, 3);
   return <div className="usage-line">
@@ -113,19 +111,40 @@ function Usage({ entries, observations }: {
         {entry.label}
         <span className="usage-share">{(entry.share * 100).toFixed(0)} %</span>
       </span>)}
-    {/* Reserved whether or not there is a sample, so the row keeps its height.
-        A share without its sample size is what the dataset itself refuses to
-        store: 58 % of 41,203 builds and 58 % of 12 are not the same fact. */}
-    <span className="usage-sample">
-      {shown.length > 0 && observations !== undefined ? `${observations.toLocaleString('en')} measured` : ''}
-    </span>
   </div>;
 }
 
-/** The share the population gives one option, as the menus show it. */
-function shareNote(share: number | undefined): string | undefined {
-  return share === undefined ? undefined : `${(share * 100).toFixed(0)} %`;
+/**
+ * The mains one slot will accept, on the token line the builds answer on: each
+ * main is a pill with its own ✕, and the menu offers every other main the slot
+ * can carry, bare. The population's shares are read under the field, never in
+ * the menu: a percentage beside an option leans on the choice it is meant only
+ * to inform. Removing the last pill leaves an empty list — the user saying no
+ * main will do — which stays apart from never having answered.
+ */
+function SlotMainField({ slot, options, chosen, onChange }: {
+  slot: number;
+  options: readonly RuneSlotMain[];
+  chosen: readonly RuneSlotMain[];
+  onChange: (next: RuneSlotMain[]) => void;
+}) {
+  const name = `Slot ${slot} main stat`;
+  /* In the slot's own order rather than the order chosen, so a pill does not
+     jump when its neighbour is removed. */
+  const picked = options.filter((stat) => chosen.includes(stat));
+  const offered = options.filter((stat) => !chosen.includes(stat));
+  return <TokenChoiceLine name={name} description={name} className="overlay-slot-field" empty="Any"
+    pills={picked.map((stat) => ({ value: stat, label: stat }))}
+    onRemove={(stat) => onChange(chosen.filter((entry) => entry !== stat))}
+    renderMenu={(close) => <ul className="token-choice-list">
+      {offered.map((stat) => <li key={stat}>
+        <button type="button" role="menuitem" className="token-choice-option"
+          onClick={() => { onChange([...chosen, stat]); close(); }}>{stat}</button>
+      </li>)}
+      {offered.length === 0 && <li className="token-choice-note">Everything is chosen.</li>}
+    </ul>} />;
 }
+
 
 /**
  * A nickname as it is kept: trimmed, and without the parentheses the heading
@@ -205,14 +224,13 @@ function Nickname({ value, editing, onEditingChange, onCommit }: {
   </>;
 }
 
-export function MonsterOverlay({ target, game, general, preferences, onSave, onClose, onOpenRune }: {
+export function MonsterOverlay({ target, game, general, preferences, onSave, onClose }: {
   target: MonsterReference;
   game: GameRecord | undefined;
   general: GeneralSettings;
   preferences: MonsterCopyPreferences | undefined;
   onSave: (unitId: string, preferences: MonsterCopyPreferences) => void;
   onClose: () => void;
-  onOpenRune: OpenRuneOverlay;
 }) {
   const [draft, setDraft] = useState<MonsterCopyPreferences>(
     () => preferences ?? blankMonsterCopyPreferences(target.kind === 'copy' ? target.unitId : ''),
@@ -243,7 +261,7 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
   const current = useMemo(() => (totals ? monsterTargetFigures(totals) : undefined), [totals]);
 
   const worn = useMemo(() => {
-    if (!monster || !game) return { artifacts: {} as Partial<Record<ArtifactCategory, Artifact>>, relics: [] as Relic[], runes: [] };
+    if (!monster || !game) return { artifacts: {} as Partial<Record<ArtifactCategory, Artifact>>, relics: [] as Relic[] };
     const unitId = String(monster.unit_id);
     const artifacts: Partial<Record<ArtifactCategory, Artifact>> = {};
     for (const artifact of readArtifacts(game)) {
@@ -251,9 +269,15 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
     }
     const engraved = new Set((Array.isArray(monster.relics) ? monster.relics : [])
       .map((entry) => String((entry as GameRecord | null)?.rid)));
-    return { artifacts, relics: readRelics(game).filter((relic) => engraved.has(relic.id)),
-      runes: readRunes(game).filter((rune) => rune.occupiedId === unitId) };
+    return { artifacts, relics: readRelics(game).filter((relic) => engraved.has(relic.id)) };
   }, [game, monster]);
+
+  /* What the copy wears, written the way a desired build is, so the two read
+     against each other without translation. */
+  const currentBuild = useMemo(
+    () => (monster ? runeBuildName(activeRuneSets(monster).map((set) => set.name)) : ''),
+    [monster],
+  );
 
   const shortfalls: Shortfall[] = useMemo(
     () => (monster && totals ? monsterShortfalls(monster, resolved, totals, worn) : []),
@@ -315,52 +339,37 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
     });
   }
 
-  const artifactMainOptions = (category: ArtifactCategory): ChoiceMenuOption<ArtifactMainProperty>[] =>
-    artifactMainPropertyOrder.map((property) => ({
-      value: property,
-      label: property,
-      note: shareNote(resolved.artifacts[category].main.shares.get(property)),
-    }));
+  /* Every menu offers its bare vocabulary, in the vocabulary's own order. The
+     population's shares are read only in the Most common rows under the fields:
+     a percentage beside an option, or an order sorted by it, leans on the choice
+     it is meant only to inform. */
+  const artifactMainOptions: ChoiceMenuOption<ArtifactMainProperty>[] =
+    artifactMainPropertyOrder.map((property) => ({ value: property, label: property }));
 
-  const substatOptions = (category: ArtifactCategory): ChoiceMenuOption<number>[] => {
-    const shares = new Map((usage.artifacts?.[category]?.sub ?? []).map((entry) => [entry.id, entry.share]));
-    /* Every property the category can carry, not only the ones the population
-       picks: asking for a property nobody else wants is precisely what stating
-       a preference is for. The widely used ones lead, because that is the order
-       the shares beside them read in, and the rest keep the vocabulary's own
-       order behind them. */
-    return artifactPropertiesFor(category)
-      .map((definition) => ({
-        value: definition.id,
-        label: definition.name,
-        note: shareNote(shares.get(definition.id)),
-      }))
-      .sort((left, right) => (shares.get(right.value) ?? 0) - (shares.get(left.value) ?? 0));
-  };
+  /* Every property the category can carry, not only the ones the population
+     picks: asking for a property nobody else wants is precisely what stating a
+     preference is for. */
+  const substatOptions = (category: ArtifactCategory): ChoiceMenuOption<number>[] =>
+    artifactPropertiesFor(category).map((definition) => ({ value: definition.id, label: definition.name }));
 
-  const relicMainOptions: ChoiceMenuOption<RelicMainProperty>[] = relicMainPropertyOrder.map((property) => ({
-    value: property,
-    label: property,
-    note: shareNote(resolved.relics.main.shares.get(property)),
-  }));
+  const relicMainOptions: ChoiceMenuOption<RelicMainProperty>[] =
+    relicMainPropertyOrder.map((property) => ({ value: property, label: property }));
 
   const relicUniqueOptions: ChoiceMenuOption<number>[] = relicProperties.map((definition) => ({
     value: definition.id,
     label: relicPropertyLabel(definition),
-    note: shareNote(resolved.relics.unique.shares.get(definition.id)),
-  }));
-
-  const slotOptions = (key: RuneSlotKey): ChoiceMenuOption<RuneMainStat>[] => runeMainStatsBySlot[key].map((stat) => ({
-    value: stat,
-    label: stat,
-    note: shareNote(resolved.runes.slots[key].shares.get(stat)),
   }));
 
   /* An overlay holding unsaved edits does not close on a stray Escape, a
      backdrop click or the back button: it holds far more state than a
      confirmation does, and losing it to a gesture aimed at something else is
      the expensive failure. The close button still closes — that is a decision. */
-  return <Overlay labelledBy="monster-overlay-title" dismissible={!dirty} onClose={onClose} onSubmit={submit}>
+  return <Overlay labelledBy="monster-overlay-title" dismissible={!dirty} onClose={onClose} onSubmit={submit}
+    actions={editable ? <>
+      <OverlayAction kind="reset" label="Reset to defaults"
+        onClick={() => { setDraft(blankMonsterCopyPreferences(target.unitId)); setDirty(true); }} />
+      <OverlayAction kind="save" label="Save changes" type="submit" disabled={!dirty} />
+    </> : undefined}>
       <header className="overlay-head">
         <MonsterPortrait imageFilename={display.imageFilename} initial={display.shortName} name={display.name} decorative />
         <div className="overlay-identity">
@@ -390,55 +399,49 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
         </p>}
 
         <Section title="Runes">
-          <div className="overlay-lines">
-            {monster !== undefined && <Line label="Current">
-              <span className="overlay-current-value">
-                {worn.runes.length === 0
-                  ? 'No runes equipped'
-                  : <span className="overlay-rune-links">
-                    {worn.runes.map((rune) => <RuneLink key={rune.id}
-                      target={{ kind: 'account', runeId: rune.id }}
-                      label={`${rune.setName} rune, slot ${rune.slot}`}
-                      onOpen={onOpenRune}>{rune.setName} · {rune.slot}</RuneLink>)}
-                  </span>}
-              </span>
-            </Line>}
-            {editable && <Line label="Desired builds">
-              <div className="overlay-build-row">
+          {/* Two halves: the build on the left with what is worn and what the
+              population wears under it, the three slot mains on the right with
+              their own population under each. A slot's statistics sit under the
+              slot they describe, where they are read against its answer. */}
+          <div className="overlay-runes">
+            <div className="overlay-lines">
+              {editable && <Line label="Desired builds">
                 <RuneBuildField chosen={resolved.runes.sets.chosen}
                   onChange={(next) => change((state) => ({ ...state, runeSets: next }))} />
-                <label className="overlay-toggle">
-                  <input type="checkbox" checked={resolved.runes.allowBroken}
-                    onChange={(event) => change((state) => ({ ...state, allowBrokenRuneSets: event.target.checked }))} />
-                  <span>Allow broken pairs</span>
-                </label>
-                <label className="overlay-toggle">
-                  <input type="checkbox" checked={resolved.runes.allowIntangible}
-                    onChange={(event) => change((state) => ({ ...state, allowIntangibleRunes: event.target.checked }))} />
-                  <span>Allow Intangible runes</span>
-                </label>
-              </div>
-            </Line>}
-            {editable && <Line label="Slot mains">
-              <div className="overlay-slot-row">
-                {runeSlotKeys.map((key) => <div className="overlay-slot" key={key}>
-                  <span className="overlay-slot-name">Slot {slotNumbers[key]}</span>
-                  <MultiChoiceMenu<RuneMainStat>
-                    label={`Slot ${slotNumbers[key]} main stat`}
-                    options={slotOptions(key)}
-                    chosen={resolved.runes.slots[key].source === 'user' ? resolved.runes.slots[key].chosen : []}
-                    empty="Any"
-                    onChange={(next) => change((state) => ({
-                      ...state,
-                      runeSlots: { ...state.runeSlots, [key]: next },
-                    }))} />
-                </div>)}
-              </div>
-            </Line>}
-            <Line label="Most common">
-              <Usage entries={usage.runes?.sets.filter((entry) => entry.wanted)}
-                observations={usage.runes?.setObservations} />
-            </Line>
+              </Line>}
+              {(monster !== undefined || editable) && <Line label="Current">
+                {/* The concession shares the line with what is worn: both qualify
+                    the builds above rather than being a build of their own. */}
+                <div className="overlay-build-row">
+                  {/* Full ink rather than the reference grey: of everything worn,
+                      the set build is the fact read first against the answer. */}
+                  <span className="overlay-current-build">
+                    {monster === undefined ? '—' : currentBuild === '' ? 'No runes equipped' : currentBuild}
+                  </span>
+                  {editable && <label className="overlay-toggle">
+                    <input type="checkbox" checked={resolved.runes.allowIntangible}
+                      onChange={(event) => change((state) => ({ ...state, allowIntangibleRunes: event.target.checked }))} />
+                    <span>Allow Intangible runes</span>
+                  </label>}
+                </div>
+              </Line>}
+              <Line label="Most common">
+                <Usage entries={usage.runes?.builds} />
+              </Line>
+            </div>
+            <div className="overlay-slot-row">
+              {runeSlotKeys.map((key) => <div className="overlay-slot" key={key}>
+                <span className="overlay-slot-name">Slot {slotNumbers[key]}</span>
+                {editable && <SlotMainField slot={slotNumbers[key]}
+                  options={runeSlotMainsBySlot[key]}
+                  chosen={resolved.runes.slots[key].source === 'user' ? resolved.runes.slots[key].chosen : []}
+                  onChange={(next) => change((state) => ({
+                    ...state,
+                    runeSlots: { ...state.runeSlots, [key]: next },
+                  }))} />}
+                <Usage entries={usage.runes?.slots[key]} />
+              </div>)}
+            </div>
           </div>
         </Section>
 
@@ -490,18 +493,10 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
             const chosenSubs = stated?.sub === undefined ? [] : Object.keys(stated.sub).map(Number);
             return <Section key={category} title={`${categoryLabels[category]} artifact`}>
               <div className="overlay-lines">
-                {monster !== undefined && <Line label="Current">
-                  <span className="overlay-current-value">
-                    {equipped === undefined ? 'None equipped' : [
-                      equipped.mainProperty,
-                      ...equipped.subProperties.map((line) => displaySubProperty(line, (value) => formatNumber(value, general))),
-                    ].join(' · ')}
-                  </span>
-                </Line>}
                 {editable && <Line label="Main stats">
                   <MultiChoiceMenu<ArtifactMainProperty>
                     label={`${categoryLabels[category]} artifact main stats`}
-                    options={artifactMainOptions(category)}
+                    options={artifactMainOptions}
                     chosen={stated?.main ?? []}
                     empty="Any main"
                     onChange={(next) => change((state) => ({
@@ -573,13 +568,19 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
                     })}
                   </div>
                 </Line>}
+                {monster !== undefined && <Line label="Current">
+                  <span className="overlay-current-value">
+                    {equipped === undefined ? 'None equipped' : [
+                      equipped.mainProperty,
+                      ...equipped.subProperties.map((line) => displaySubProperty(line, (value) => formatNumber(value, general))),
+                    ].join(' · ')}
+                  </span>
+                </Line>}
                 <Line label="Most common">
-                  <Usage entries={panel?.main.filter((entry) => entry.wanted)}
-                    observations={panel?.mainObservations} />
+                  <Usage entries={panel?.main.filter((entry) => entry.wanted)} />
                 </Line>
                 <Line label="Common substats">
-                  <Usage entries={panel?.sub.filter((entry) => entry.wanted)}
-                    observations={panel?.subObservations} />
+                  <Usage entries={panel?.sub.filter((entry) => entry.wanted)} />
                 </Line>
               </div>
             </Section>;
@@ -588,13 +589,6 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
 
         <Section title="Relics">
           <div className="overlay-lines">
-            {monster !== undefined && <Line label="Current">
-              <span className="overlay-current-value">
-                {worn.relics.length === 0 ? 'None engraved' : worn.relics
-                  .map((relic) => `${relic.mainProperty} ${relic.mainPercent} % · ${relicPropertyLabel(relic.unique.definition)}`)
-                  .join(' · ')}
-              </span>
-            </Line>}
             {editable && <Line label="Main stats">
               <MultiChoiceMenu<RelicMainProperty>
                 label="Relic main stats"
@@ -615,25 +609,21 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
                   ...state, relics: { ...state.relics, unique: next },
                 }))} />
             </Line>}
+            {monster !== undefined && <Line label="Current">
+              <span className="overlay-current-value">
+                {worn.relics.length === 0 ? 'None engraved' : worn.relics
+                  .map((relic) => `${relic.mainProperty} ${relic.mainPercent} % · ${relicPropertyLabel(relic.unique.definition)}`)
+                  .join(' · ')}
+              </span>
+            </Line>}
             <Line label="Most common">
-              <Usage entries={usage.relics?.main.filter((entry) => entry.wanted)}
-                observations={usage.relics?.mainObservations} />
+              <Usage entries={usage.relics?.main.filter((entry) => entry.wanted)} />
             </Line>
             <Line label="Common uniques">
-              <Usage entries={usage.relics?.unique.filter((entry) => entry.wanted)}
-                observations={usage.relics?.uniqueObservations} />
+              <Usage entries={usage.relics?.unique.filter((entry) => entry.wanted)} />
             </Line>
           </div>
         </Section>
       </div>
-
-      {/* Reset and Save sit at opposite ends; the middle is left to the
-          overlay's own close button, which straddles this edge. */}
-      {editable && <div className="dialog-actions">
-        <Button onClick={() => { setDraft(blankMonsterCopyPreferences(target.unitId)); setDirty(true); }}>
-          Reset to defaults
-        </Button>
-        <Button type="submit" tone="primary" disabled={!dirty}>Save changes</Button>
-      </div>}
   </Overlay>;
 }

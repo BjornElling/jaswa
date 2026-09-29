@@ -4,7 +4,7 @@ import type { MonsterDefaults, RuneSlotKey } from './monster-defaults';
 import { monsterDefaults, runeSlotKeys } from './monster-defaults';
 import type { RelicMainProperty } from './relic-properties';
 import { relicProperty, relicPropertyLabel } from './relic-properties';
-import type { RuneMainStat } from './rune-potential-presets';
+import type { RuneSlotMain } from './rune-slot-mains';
 
 /**
  * What the wider player base most commonly equips, ready to read.
@@ -36,7 +36,9 @@ export type UsageChoiceEntry<T extends string> = UsageEntry & { value: T };
 export type MonsterUsage = {
   runes?: {
     sets: UsageChoiceEntry<string>[];
-    slots: Record<RuneSlotKey, UsageChoiceEntry<RuneMainStat>[]>;
+    /** Whole builds, as the game's panel lists them — see `RuneDefaults.builds`. */
+    builds: ReadonlyArray<{ label: string; share: number }>;
+    slots: Record<RuneSlotKey, UsageChoiceEntry<RuneSlotMain>[]>;
     observations: number;
     /** Builds behind the set list, which the game truncates — see `RuneSetShareBasis`. */
     setObservations: number;
@@ -87,10 +89,11 @@ function propertyEntries(
 function runeUsage(defaults: MonsterDefaults): MonsterUsage['runes'] {
   const runes = defaults.runes;
   if (!runes) return undefined;
-  const slots = {} as Record<RuneSlotKey, UsageChoiceEntry<RuneMainStat>[]>;
+  const slots = {} as Record<RuneSlotKey, UsageChoiceEntry<RuneSlotMain>[]>;
   for (const key of runeSlotKeys) slots[key] = choiceEntries(runes.slots[key]);
   return {
     sets: choiceEntries(runes.sets),
+    builds: runes.builds.map((entry) => ({ label: entry.build, share: entry.share })),
     slots,
     /* The slot distributions are the honest measure of how many builds stand
        behind this monster's rune panel: the set list is capped by the game. */

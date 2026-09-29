@@ -4,9 +4,10 @@ import { artifactMainProperties } from './artifact-properties';
 import { monsterSpeciesId, monsterStatisticsId } from './monster-identity';
 import type { RelicMainProperty } from './relic-properties';
 import { relicMainProperties } from './relic-properties';
-import type { RuneMainStat } from './rune-potential-presets';
-import { runeMainStatByEffect } from './rune-potential-presets';
-import { runeSetName } from './rune-sets';
+import type { RuneSlotMain } from './rune-slot-mains';
+import { runeSlotMainByEffect } from './rune-slot-mains';
+import { runeSetName, runeSetPieceCount } from './rune-sets';
+import { brokenRuneBuildPart, runeBuildName } from './rune-set-pairs';
 
 /**
  * Where a monster's preferences start from, before its owner says anything.
@@ -45,18 +46,12 @@ export const runeSlotKeys: readonly RuneSlotKey[] = ['slot2', 'slot4', 'slot6'];
 const runeSlotNumbers: Record<RuneSlotKey, number> = { slot2: 2, slot4: 4, slot6: 6 };
 
 /*
- * `runeMainStatByEffect` is the vocabulary a preset already speaks, and ids 1, 3
- * and 5 — flat HP +, ATK + and DEF + — are absent from it. A default of `HP +`
- * would be a value no chip can show and no comparison can ever match: the
- * invisible record `AGENTS.md` §0.1 forbids. They are excluded from the
- * denominator and the excluded share is *reported* on every slot, so the gap is
- * visible rather than swallowed. Across the dataset it averages 1.6 % of mains
- * and peaks at 11.2 %; if it ever stops being negligible the fix is to grow
- * `RuneMainStat`, not to special-case it here.
+ * A slot's mains are read in `rune-slot-mains.ts`'s vocabulary, which names the
+ * flat HP +, ATK + and DEF + as well. They used to be dropped from the
+ * denominator because the preset vocabulary had no word for them; a monster's
+ * slots now offer every main the game does, so every main the population wears
+ * is counted and shown.
  */
-
-/** The flat mains that vocabulary cannot express, kept named rather than inline. */
-const flatRuneMainEffects: ReadonlySet<number> = new Set([1, 3, 5]);
 
 /**
  * How a rune-set share was measured, carried in the data because the basis is a
@@ -81,17 +76,26 @@ const flatRuneMainEffects: ReadonlySet<number> = new Set([1, 3, 5]);
  */
 export type RuneSetShareBasis = 'observed-top-ten';
 
+/** One row of the game's rune-set list: a whole build and its share of the list. */
+export type RuneBuildShare = { build: string; share: number };
+
 export type RuneDefaults = {
   /** By rune set name, as `rune-sets.ts` names them. */
   sets: Map<string, DefaultEntry>;
+  /**
+   * The builds themselves, largest share first, written as `runeBuildName`
+   * writes them. This is what the game's panel shows: each `setList` row is
+   * one combination, and its percentage is its count over the list's total —
+   * a partition that sums to 1, where `sets` is a participation rate that
+   * does not.
+   */
+  builds: RuneBuildShare[];
   basis: RuneSetShareBasis;
   /** Builds behind the set distribution, after the game's truncation. */
   setObservations: number;
-  slots: Record<RuneSlotKey, Map<RuneMainStat, DefaultEntry>>;
-  /** Observations behind each slot, after the flat mains are removed. */
+  slots: Record<RuneSlotKey, Map<RuneSlotMain, DefaultEntry>>;
+  /** Observations behind each slot. */
   slotObservations: Record<RuneSlotKey, number>;
-  /** The share of each slot's raw observations that named a flat main and was excluded. */
-  excludedFlatMainShare: Record<RuneSlotKey, number>;
 };
 
 export type ArtifactCategoryDefaults = {
@@ -287,20 +291,36 @@ function runeDefaults(panel: RunePanelStatistics | undefined): RuneDefaults | un
     }
   }
 
+  const builds: RuneBuildShare[] = [];
+  if (setObservations > 0) {
+    for (const row of setRows) {
+      if (!Array.isArray(row.setList)) continue;
+      const names = row.setList.map(runeSetName);
+      if (names.some((name) => name === undefined)) continue;
+      /* The game lists a combination by set id; JASWA writes a build with its
+         four-set first, and names the slots the list leaves unfilled — `[13]`
+         is Violent and two runes of anything, which is `Violent/Broken`. */
+      const ordered = [
+        ...(names as string[]).filter((name) => runeSetPieceCount[name] === 4),
+        ...(names as string[]).filter((name) => runeSetPieceCount[name] !== 4),
+      ];
+      const filled = ordered.reduce((total, name) => total + (runeSetPieceCount[name] ?? 2), 0);
+      builds.push({
+        build: runeBuildName(filled < 6 ? [...ordered, brokenRuneBuildPart] : ordered),
+        share: row.count / setObservations,
+      });
+    }
+    builds.sort((left, right) => right.share - left.share);
+  }
+
   const primary = panel.primaryEffect ?? [];
-  const slots = {} as Record<RuneSlotKey, Map<RuneMainStat, DefaultEntry>>;
+  const slots = {} as Record<RuneSlotKey, Map<RuneSlotMain, DefaultEntry>>;
   const slotObservations = {} as Record<RuneSlotKey, number>;
-  const excludedFlatMainShare = {} as Record<RuneSlotKey, number>;
   for (const key of runeSlotKeys) {
     const all = primary.filter((row) => row.slotId === runeSlotNumbers[key]);
-    const rawTotal = totalCount(all);
-    const expressible = all.filter((row) => !flatRuneMainEffects.has(row.effectId));
-    const total = totalCount(expressible);
-    slots[key] = classifyDistribution(
-      expressible, total, (id) => runeMainStatByEffect[id], defaultThresholds.runeSlotMain,
-    );
+    const total = totalCount(all);
+    slots[key] = classifyDistribution(all, total, runeSlotMainByEffect, defaultThresholds.runeSlotMain);
     slotObservations[key] = total;
-    excludedFlatMainShare[key] = rawTotal > 0 ? (rawTotal - total) / rawTotal : 0;
   }
 
   /* A panel that yielded neither a set nor a single expressible main is a panel
@@ -309,7 +329,7 @@ function runeDefaults(panel: RunePanelStatistics | undefined): RuneDefaults | un
   const hasSlots = runeSlotKeys.some((key) => slots[key].size > 0);
   if (sets.size === 0 && !hasSlots) return undefined;
 
-  return { sets, basis: 'observed-top-ten', setObservations, slots, slotObservations, excludedFlatMainShare };
+  return { sets, builds, basis: 'observed-top-ten', setObservations, slots, slotObservations };
 }
 
 function artifactCategoryDefaults(

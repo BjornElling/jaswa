@@ -15,13 +15,12 @@
  * quietly moved with it is the worst kind of wrong: nothing breaks, the defaults
  * simply start saying something else. This script is what makes that visible.
  *
- * It also holds three invariants that would each produce a default nothing can
+ * It also holds two invariants that would each produce a default nothing can
  * act on, which is `AGENTS.md` §0.1's third failure:
  *
  * - no share exceeds 1, which would mean a distribution was divided by the
  *   wrong denominator;
- * - no captured species ends up with every panel empty;
- * - the flat rune mains the vocabulary cannot express stay a rounding error.
+ * - no captured species ends up with every panel empty.
  *
  * Usage: node scripts/verify-monster-defaults.mjs
  */
@@ -44,9 +43,6 @@ const expectations = [
   { panel: 'relic unique', preferred: [0.8, 1.6], acceptable: [1.5, 2.6] },
 ];
 
-/** The most of one slot's mains that may be a flat HP +, ATK + or DEF +. */
-const flatMainShareLimit = 0.15;
-
 const server = await createServer({ configFile: false, appType: 'custom', server: { middlewareMode: true } });
 
 try {
@@ -65,7 +61,6 @@ try {
     }
   };
 
-  let highestFlatShare = 0;
   let judged = 0;
 
   for (const speciesId of defaultedMonsterSpeciesIds) {
@@ -82,7 +77,6 @@ try {
       for (const key of runeSlotKeys) {
         count(`rune slot ${key.slice(-1)}`, defaults.runes.slots[key]);
         shares.push(...[...defaults.runes.slots[key].values()].map((entry) => entry.share));
-        highestFlatShare = Math.max(highestFlatShare, defaults.runes.excludedFlatMainShare[key]);
       }
     }
     for (const category of ['attribute', 'type']) {
@@ -108,13 +102,6 @@ try {
 
   assert.ok(judged > 0, 'every captured species produced no defaults at all');
 
-  assert.ok(
-    highestFlatShare <= flatMainShareLimit,
-    `flat rune mains reached ${(highestFlatShare * 100).toFixed(1)} % of one slot, above the `
-    + `${(flatMainShareLimit * 100).toFixed(0)} % the exclusion is justified at. `
-    + 'RuneMainStat needs to grow rather than the exclusion widening.',
-  );
-
   const failures = [];
   for (const { panel, preferred, acceptable } of expectations) {
     const row = tally.get(panel);
@@ -133,7 +120,6 @@ try {
   assert.deepEqual(failures, [], `thresholds no longer produce what they were chosen for:\n  ${failures.join('\n  ')}`);
 
   console.log(`Monster defaults: ${judged} species judged, every threshold still means what it was chosen to mean.`);
-  console.log(`Flat rune mains peaked at ${(highestFlatShare * 100).toFixed(1)} % of one slot.`);
 } finally {
   await server.close();
 }

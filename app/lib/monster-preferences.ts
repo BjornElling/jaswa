@@ -4,9 +4,11 @@ import type { RuneSlotKey } from './monster-defaults';
 import { runeSlotKeys } from './monster-defaults';
 import type { RelicMainProperty } from './relic-properties';
 import { relicMainPropertyOrder, relicProperty } from './relic-properties';
-import type { PresetTargets, RuneMainStat } from './rune-potential-presets';
-import { presetStatTargetKeys, presetTargetMaximum, runeMainStatsBySlot } from './rune-potential-presets';
-import { isRuneSetPairId } from './rune-set-pairs';
+import type { PresetTargets } from './rune-potential-presets';
+import { presetStatTargetKeys, presetTargetMaximum } from './rune-potential-presets';
+import type { RuneSlotMain } from './rune-slot-mains';
+import { runeSlotMainsBySlot } from './rune-slot-mains';
+import { runeBuild, runeBuildKey } from './rune-set-pairs';
 
 /**
  * What one owned copy of a monster is for, as its owner has said so.
@@ -120,7 +122,8 @@ export type MonsterCopyPreferences = {
   label?: string;
   /**
    * The exact rune builds this copy will accept, as `rune-set-pairs.ts` names
-   * them — `Violent / Blade`, not `Violent` and `Blade` separately.
+   * them — `Violent/Blade` or `Violent/Broken`, not `Violent` and `Blade`
+   * separately.
    *
    * **This reverses the earlier per-set model.** Stating sets one at a time
    * cannot distinguish `Despair / Revenge` from `Revenge / Revenge / Revenge`,
@@ -129,10 +132,10 @@ export type MonsterCopyPreferences = {
    *
    * These are yes/no statements, not bands: a build is one the user will take
    * or it is not. An empty list means none of them; an absent one is a silence.
+   * Broken slots are part of the build that accepts them, so there is no
+   * separate switch saying a broken pair will do.
    */
   runeSets?: string[];
-  /** Whether a build whose last two runes do not complete a set is acceptable. */
-  allowBrokenRuneSets?: boolean;
   /** Whether an Intangible rune may stand in for the one rune a set is short. */
   allowIntangibleRunes?: boolean;
   /**
@@ -214,7 +217,6 @@ export function blankMonsterCopyPreferences(unitId: string): MonsterCopyPreferen
 export function statesSomething(preferences: MonsterCopyPreferences): boolean {
   if (preferences.label !== undefined && preferences.label.length > 0) return true;
   if (preferences.runeSets !== undefined) return true;
-  if (preferences.allowBrokenRuneSets !== undefined) return true;
   if (preferences.allowIntangibleRunes !== undefined) return true;
   if (runeSlotKeys.some((key) => preferences.runeSlots?.[key] !== undefined)) return true;
   for (const category of ['attribute', 'type'] as const) {
@@ -280,12 +282,20 @@ function isRelicMain(value: unknown): value is RelicMainProperty {
    roll is one no rune can ever satisfy, and a stored preference carrying one is
    malformed rather than merely unlucky. */
 function isRuneMainStatIn(slot: RuneSlotKey) {
-  return (value: unknown): value is RuneMainStat =>
-    typeof value === 'string' && runeMainStatsBySlot[slot].includes(value as RuneMainStat);
+  return (value: unknown): value is RuneSlotMain =>
+    typeof value === 'string' && runeSlotMainsBySlot[slot].includes(value as RuneSlotMain);
 }
 
 function isRuneBuildId(value: unknown): value is string {
-  return typeof value === 'string' && isRuneSetPairId(value);
+  return typeof value === 'string' && runeBuild(value) !== undefined;
+}
+
+/* Two spellings of one build — `Destroy/Blade/Will` and `Will/Blade/Destroy` —
+   are a duplicate the editor refuses to add, so a list carrying both is held to
+   the same rule as a list naming one build twice. */
+function isRuneBuildList(value: unknown): value is string[] {
+  if (!isChosenList(value, isRuneBuildId)) return false;
+  return new Set(value.map((id) => runeBuildKey(runeBuild(id)!))).size === value.length;
 }
 
 function isArtifactPreference(value: unknown): value is ArtifactCategoryPreference {
@@ -346,8 +356,7 @@ function isArtifactPreferences(value: unknown): boolean {
  */
 const copyFieldChecks: Record<Exclude<keyof MonsterCopyPreferences, 'unitId'>, (value: unknown) => boolean> = {
   label: (value) => typeof value === 'string' && value.trim() === value && value.length <= monsterLabelMaximum,
-  runeSets: (value) => isChosenList(value, isRuneBuildId),
-  allowBrokenRuneSets: (value) => typeof value === 'boolean',
+  runeSets: isRuneBuildList,
   allowIntangibleRunes: (value) => typeof value === 'boolean',
   runeSlots: isRuneSlots,
   artifacts: isArtifactPreferences,

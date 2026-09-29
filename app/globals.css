@@ -52,6 +52,18 @@
   --state-warn: var(--text-accent);
   --state-bad: #e0705f;
 
+  /* An overlay's round ways out (`overlay.tsx`): close in a muted red, save in
+     a muted green, reset in the accent's own gold. A fourth use of colour, and
+     a narrow one: the three are told apart by their marks as well, and the hues
+     say discard, keep and start over — the conventional reading of a dialog's
+     buttons — on grounds dark enough not to compete with what the panel says. */
+  --exit-close-deep: #34191a;
+  --exit-close-edge: #6a302b;
+  --exit-close-mark: #e0897a;
+  --exit-save-deep: #132a1c;
+  --exit-save-edge: #2b5a3c;
+  --exit-save-mark: #7cc998;
+
   /* A ground rune figure and the Enchanted Gem ring, in the game's own colour
      for them (`rune-sub-line.tsx`).
      Named apart from the accent for the same reason the verdicts are: it is the
@@ -271,8 +283,7 @@ label[for] {
 /* Title — what a panel, card, dialog or disclosure is called. */
 .type-title, .block-title, .bar-head b, .dialog h2, .preset-name, .route-name,
 .route-body-title, .statistics h4, .acceleration-word, .handheld-brand,
-.rune-simulator-count-input, .rune-simulator-stats-total, .rune-emblem.placeholder,
-.overlay-nickname-input {
+.rune-simulator-count-input, .rune-simulator-stats-total, .rune-emblem.placeholder {
   font-family: var(--font-heading);
   font-size: var(--type-title);
   font-weight: 600;
@@ -295,7 +306,7 @@ label[for] {
 
 /* Body — every sentence, label and value that is not a heading. */
 .type-body, .lead, .notice, .dialog p, .slider-note, .radio-note,
-.overlay-current-value, .overlay-empty, .usage-entry, .overlay-stat-value,
+.overlay-current-value, .overlay-current-build, .overlay-nickname-input, .overlay-empty, .usage-entry, .overlay-stat-value,
 .choice-menu-summary, .choice-menu-option-label, .rune-build-leader-name,
 .overlay-substat-name, .overlay-toggle, .choice-menu-empty,
 .checkbox-row, .editor-note, .route-links, .artifact-conversion-intro,
@@ -361,7 +372,7 @@ label[for] {
 }
 .type-caption, .slot-label, .editor-slot-label, .target dt, .choice-legend,
 .field-compact > span, .relic-stone-balance-label, .craft-held-balance-label,
-.preset-type, .overlay-provenance, .usage-share, .usage-sample,
+.preset-type, .overlay-provenance, .usage-share,
 .overlay-stat-current, .overlay-substat-unit, .overlay-slot-name,
 .choice-menu-option-note, .rune-build-leader-pieces, .rune-build-leader-count,
 .rune-build-note, .rune-build-composed, .overlay-suggestion-label, .speed-timeline-turn {
@@ -3204,7 +3215,7 @@ label[for] {
    ringed all the way round. At 16px square that reads as a smudge, so the box
    is raised above the page ground rather than cut into it, and takes the
    --text-muted border that marks the edge of something empty but present. */
-.checkbox-row input, .filter-checkbox {
+.checkbox-row input, .filter-checkbox, .overlay-toggle input {
   appearance: none; -webkit-appearance: none;
   width: 16px; height: 16px; margin: 0;
   flex: 0 0 auto;
@@ -3214,13 +3225,13 @@ label[for] {
   cursor: pointer;
   transition: background .12s, border-color .12s;
 }
-.checkbox-row input:hover, .filter-checkbox:hover {
+.checkbox-row input:hover, .filter-checkbox:hover, .overlay-toggle input:hover {
   background: var(--hover);
   border-color: var(--text-accent);
 }
 /* The tick is a background image rather than a pseudo-element: `input` is a
    replaced element and cannot carry ::after in every browser. */
-.checkbox-row input:checked, .filter-checkbox:checked {
+.checkbox-row input:checked, .filter-checkbox:checked, .overlay-toggle input:checked {
   background:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23d9ad52' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5 6.5 11.5 12.5 4.5'/%3E%3C/svg%3E")
     center / 14px 14px no-repeat,
@@ -4617,14 +4628,14 @@ label[for] {
    table the user was reading, so sharing that width is what makes it read as
    the same page rather than as a narrower panel floating off to one side — and
    the panel needs the room besides, since two artifact blocks sit side by side
-   inside it. The body scrolls while the identity above it and the actions below
-   it stay put, so the reader always knows how to leave. */
+   inside it. The body scrolls while the identity above it stays put, and the
+   ways out sit on the lower edge, so the reader always knows how to leave. */
 .dialog.overlay {
   position: relative;
   width: min(var(--measure), 100%);
   max-height: min(92vh, 1000px, calc(100vh - var(--s5) - var(--s7)));
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr);
   padding: 0;
 }
 
@@ -4647,33 +4658,50 @@ html.overlay-open .overlay-backdrop { right: var(--overlay-gutter, 0px); }
 /* Every overlay leaves by one control, in one place: a round button centred
    on the panel's lower right corner, a quarter of it on the panel and the rest
    off it, so it reads as belonging to the panel as a whole rather than to any
-   block inside it, and sits where the eye ends up after reading. The ring, in
-   the sunk ground the footers use, cuts it out of the corner it sits on.
-   Quiet at rest — gold mark and rim on the deep gold ground — so it does not
-   compete with what the panel says, and full gold under the pointer, where it
-   is the thing being acted on. */
+   block inside it, and sits where the eye ends up after reading. An overlay's
+   own actions — save, reset — are the same round mark on the same edge. The
+   ring, in the sunk ground, cuts each out of the edge it sits on. Quiet at
+   rest — mark and rim on a deep ground of its own hue — so none competes with
+   what the panel says, and full hue under the pointer, where it is the thing
+   being acted on. */
+.overlay-round {
+  --round-deep: var(--gold-deep);
+  --round-edge: var(--gold-edge);
+  --round-mark: var(--text-accent);
+  width: 56px; height: 56px;
+  padding: 0;
+  display: grid; place-items: center;
+  border: 1px solid var(--round-edge);
+  border-radius: 50%;
+  background: var(--round-deep);
+  color: var(--round-mark);
+  box-shadow: 0 0 0 var(--s1) var(--sunk), 0 12px 28px rgba(0, 0, 0, .55);
+  cursor: pointer;
+  transition: background-color .12s ease, color .12s ease, border-color .12s ease;
+}
+.overlay-round svg {
+  width: var(--glyph); height: var(--glyph);
+  fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+.overlay-round:hover:not(:disabled) { background: var(--round-mark); border-color: var(--round-mark); color: var(--sunk); }
+.overlay-round:active:not(:disabled) { filter: brightness(.94); }
+.overlay-round:focus-visible { outline: 2px solid var(--round-mark); outline-offset: var(--s1); }
+/* Unavailable rather than hidden: the mark keeps its place and its box. */
+.overlay-round:disabled { opacity: .4; cursor: default; }
 .overlay-close {
+  --round-deep: var(--exit-close-deep);
+  --round-edge: var(--exit-close-edge);
+  --round-mark: var(--exit-close-mark);
   position: absolute;
   right: 0; bottom: 0;
   translate: 50% 50%;
   z-index: 2;
-  width: 56px; height: 56px;
-  padding: 0;
-  display: grid; place-items: center;
-  border: 1px solid var(--gold-edge);
-  border-radius: 50%;
-  background: var(--gold-deep);
-  color: var(--text-accent);
-  box-shadow: 0 0 0 var(--s1) var(--sunk), 0 12px 28px rgba(0, 0, 0, .55);
-  transition: background-color .12s ease, color .12s ease, border-color .12s ease;
 }
-.overlay-close svg {
-  width: var(--glyph); height: var(--glyph);
-  fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round;
+.overlay-save {
+  --round-deep: var(--exit-save-deep);
+  --round-edge: var(--exit-save-edge);
+  --round-mark: var(--exit-save-mark);
 }
-.overlay-close:hover { background: var(--text-accent); border-color: var(--text-accent); color: var(--gold-ink); }
-.overlay-close:active { filter: brightness(.94); }
-.overlay-close:focus-visible { outline: 2px solid var(--text-accent); outline-offset: var(--s1); }
 
 /* The picture, the name, and a row of labelled facts: one head for every
    overlay, so a monster and a rune read as one family. */
@@ -4711,18 +4739,23 @@ html.overlay-open .overlay-backdrop { right: var(--overlay-gutter, 0px); }
    qualifies the name rather than competing with it. */
 .overlay-hero-nickname { color: var(--text); }
 /* Sized to its own text, so the field reads as the nickname being typed in
-   place rather than as a form box. An underline, not a frame, marks it live. */
+   place rather than as a form box. It speaks in the body voice a step below
+   the name, set off from it and dropped onto the name's lower edge, with a
+   quiet underline marking it live: a note being added to the name, not a
+   second heading competing with it. */
 .overlay-nickname-input {
   flex: none;
+  align-self: flex-end;
   field-sizing: content;
   min-width: 12ch;
   max-width: 32ch;
-  padding: 0;
+  margin-left: var(--s2);
+  padding: 0 0 1px;
   border: 0;
-  border-bottom: 1px solid var(--text-accent);
+  border-bottom: 1px solid var(--line-strong);
   border-radius: 0;
   background: transparent;
-  color: var(--text-strong);
+  color: var(--text);
   line-height: inherit;
   outline: none;
 }
@@ -4779,20 +4812,24 @@ html.overlay-open .overlay-backdrop { right: var(--overlay-gutter, 0px); }
   background-attachment: local, local, scroll, scroll;
 }
 
-/* The actions are a fixed footer under the scrolling body, and they get the
-   same inset the body has: flush against the dialog's own corner they read as
-   clipped, and the body's scrollbar came down on top of the last one. The top
-   rule and the sunk ground separate them from the content that scrolls beneath.
-   `space-between` puts Reset at the opposite end from the pair that leaves —
-   the destructive action should not sit under the pointer on its way to Save. */
-.dialog.overlay .dialog-actions {
-  margin: 0;
-  /* The right inset clears the close button on the corner below it. */
-  padding: var(--s5) var(--s7) var(--s5) var(--s5);
-  border-top: 1px solid var(--line);
-  background: var(--sunk);
-  border-radius: 0 0 var(--radius) var(--radius);
-  justify-content: space-between;
+/* The overlay's own round marks, on its lower edge beside the close button
+   and centred on the same line, so the edge holds every way out and the body
+   scrolls all the way down to it. They used to be a footer bar, which cut the
+   scrolling body short above it and read as a second panel. Reset takes
+   `.overlay-round`'s own gold — the plain "act on this" beside keep and
+   discard. */
+/* Only an overlay with actions needs the deeper bottom inset, which keeps its
+   last line clear of the marks straddling the edge below it; one with only the
+   corner button keeps the plain inset and does not scroll for want of it. */
+.dialog.overlay:has(.overlay-actions) .overlay-body { padding-bottom: var(--s7); }
+.overlay-actions {
+  position: absolute;
+  right: calc(28px + var(--s3));
+  bottom: 0;
+  translate: 0 50%;
+  z-index: 2;
+  display: flex;
+  gap: var(--s3);
 }
 
 /* Rune names are actions, not destinations. The underline is reserved in the
@@ -4826,7 +4863,6 @@ tr[data-opens-row] .rune-link:hover:not(:focus-visible) { color: inherit; text-d
 tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color: inherit; text-decoration-color: transparent; }
 .rune-link-cell { display: inline-flex; align-items: center; gap: var(--s2); min-width: 0; }
 .rune-link-label { display: inline-flex; }
-.overlay-rune-links { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s3); }
 
 /* ------------------------------------------------------------ rune overlay */
 /* Narrower than the monster panel: a rune is a handful of facts and one short
@@ -5018,7 +5054,9 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 }
 .overlay-row-label { margin: 0; color: var(--text-muted); }
 .overlay-row-value { min-width: 0; }
-.overlay-current-value { color: var(--text); }
+/* What is worn now is reference under what is wanted, dimmed like the current
+   figure under a stat target: the statement leads, the fact qualifies it. */
+.overlay-current-value { color: var(--text-muted); }
 .overlay-empty { color: var(--text-muted); }
 
 /* Eleven columns — the eight stats and the three composites — each reserving
@@ -5302,12 +5340,14 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
    scroll as well: an outer scroller would carry the pinned note and the running
    answer out of view along with the list they describe. */
 .token-choice-panel:has(.rune-build-menu) { overflow: hidden; max-height: none; }
-/* A build names up to three sets, so its pill is given room for
-   `Will / Revenge / Shield` where a filter's single value needs 14ch. */
-.rune-build-field .token-choice-pill { max-width: 26ch; }
+/* A build names up to three sets, so its pill is given room for the longest,
+   `Determination/Tolerance/Accuracy`, where a filter's single value needs 14ch. */
+.rune-build-field .token-choice-pill { max-width: 34ch; }
 .rune-build-menu {
   display: grid;
-  grid-template-columns: 210px minmax(0, 300px);
+  /* Room for the longest three-set name beside its Add build button, and for a
+     row's "six slots full" note beside the set it disables. */
+  grid-template-columns: 210px minmax(0, 340px);
   /* A fixed height rather than a maximum: the two columns are independent
      scrollers, and a grid row that sizes to its tallest child gives the taller
      column its full height and then clips it against the panel — which put the
@@ -5387,15 +5427,20 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 }
 .rune-build-composed-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* The build field and its two concessions read as one row. */
+/* What is worn and the Intangible concession read as one row, the concession
+   at the far end of the half. */
 .overlay-build-row {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   flex-wrap: wrap;
   gap: var(--s2) var(--s4);
 }
-.overlay-build-row .rune-build-field { flex: 1 1 260px; }
-.overlay-toggle { display: inline-flex; align-items: center; gap: var(--s2); cursor: pointer; }
+.overlay-current-build { color: var(--text-strong); }
+/* A concession rather than a statement, so it stays quiet: muted text, and a
+   box on the panel's ground ringed in the gold edge rather than a white hole. */
+.overlay-toggle { display: inline-flex; align-items: center; gap: var(--s2); color: var(--text-muted); cursor: pointer; }
+.overlay-toggle input { border-color: var(--gold-edge); }
 
 /* Three slots on one row: each names itself and opens its own mains. */
 .overlay-slot-row {
@@ -5403,8 +5448,20 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--s3);
 }
-.overlay-slot { display: grid; gap: var(--s1); min-width: 0; }
+.overlay-slot { display: grid; gap: var(--s1); min-width: 0; align-content: start; }
 .overlay-slot-name { color: var(--text-muted); }
+
+/* The build takes the left half and the three slot mains the right, the same
+   seam the artifact pair below uses, so the block's middle lines up with theirs. */
+.overlay-runes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--seam);
+  align-items: start;
+}
+/* A slot's population reads on one row under its field, as the build's does
+   beside it; the gap is tighter because a third of a half is little room. */
+.overlay-slot .usage-line { flex-wrap: nowrap; gap: var(--s2); margin-top: var(--s1); white-space: nowrap; }
 
 /* One floor per chosen substat. Only the properties the user asked for appear,
    so the list is as long as their answer rather than as the vocabulary. */
@@ -5427,7 +5484,8 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 .overlay-substat-unit { color: var(--text-muted); }
 
 .usage-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s3); }
-.usage-entry { color: var(--text); }
+/* Most common is reference, never an answer, so all of it reads muted. */
+.usage-entry { color: var(--text-muted); }
 /* The name leads and the number qualifies it — no bars, which would be
    decoration and would resize with their value. */
 .usage-share {
@@ -5435,7 +5493,6 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
-.usage-sample { color: var(--text-muted); min-height: 1lh; }
 
 /* ----------------------------------------------------------- responsive */
 

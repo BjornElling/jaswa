@@ -93,7 +93,9 @@ export function elementName(attribute: unknown): string | undefined {
 /**
  * The completed sets a monster currently has, most pieces first. Repeating an
  * abbreviation for each completed set keeps a 6-piece Fight build legible as
- * `FIG/FIG/FIG`; all leftover pieces collapse into one `BRO` marker.
+ * `Fig/Fig/Fig` — a capital and two lower-case letters, so the column reads as
+ * names rather than as a shouted code; all leftover pieces collapse into one
+ * `Bro` marker.
  */
 export function activeRuneSets(monster: Record<string, unknown>): ActiveRuneSet[] {
   const runes = Array.isArray(monster.runes) ? monster.runes : [];
@@ -117,7 +119,7 @@ export function activeRuneSets(monster: Record<string, unknown>): ActiveRuneSet[
       const name = runeSetNames[setId];
       if (!required || !name) return undefined;
       const complete = Math.floor(count / required);
-      return { name, abbreviation: name.slice(0, 3).toUpperCase(), count, complete, broken: count % required > 0 };
+      return { name, abbreviation: name.slice(0, 3), count, complete, broken: count % required > 0 };
     })
     .filter((set): set is { name: string; abbreviation: string; count: number; complete: number; broken: boolean } => set !== undefined)
     .sort((left, right) => right.count - left.count || left.name.localeCompare(right.name));
@@ -127,6 +129,6 @@ export function activeRuneSets(monster: Record<string, unknown>): ActiveRuneSet[
       count: set.count,
     })));
   if (completedSets.some((set) => set.broken)) hasBrokenRune = true;
-  if (hasBrokenRune) sets.push({ name: 'Broken', abbreviation: 'BRO', count: 0 });
+  if (hasBrokenRune) sets.push({ name: 'Broken', abbreviation: 'Bro', count: 0 });
   return sets;
 }

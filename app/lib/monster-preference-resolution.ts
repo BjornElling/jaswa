@@ -8,7 +8,7 @@ import type {
 } from './monster-preferences';
 import { monsterStatTargetKeys } from './monster-preferences';
 import type { RelicMainProperty } from './relic-properties';
-import type { RuneMainStat } from './rune-potential-presets';
+import type { RuneSlotMain } from './rune-slot-mains';
 
 /**
  * What one owned copy actually wants, once its owner's statements have been
@@ -66,9 +66,7 @@ export type ResolvedSubstat = {
 export type ResolvedRunes = {
   /** The exact builds wanted, as `rune-set-pairs.ts` names them. */
   sets: ResolvedChoices<string>;
-  slots: Record<RuneSlotKey, ResolvedChoices<RuneMainStat>>;
-  /** Whether a build may leave two runes that complete no set. */
-  allowBroken: boolean;
+  slots: Record<RuneSlotKey, ResolvedChoices<RuneSlotMain>>;
   /** Whether an Intangible rune may complete a set that is one short. */
   allowIntangible: boolean;
   /** `false` where neither the user nor the dataset says anything about runes. */
@@ -201,18 +199,16 @@ function resolveRunes(
     ? noChoices<string>()
     : resolveChoices<string>(stated.runeSets, undefined);
 
-  const slots = {} as Record<RuneSlotKey, ResolvedChoices<RuneMainStat>>;
+  const slots = {} as Record<RuneSlotKey, ResolvedChoices<RuneSlotMain>>;
   for (const key of runeSlotKeys) {
-    slots[key] = resolveChoices(stated?.runeSlots?.[key] as RuneMainStat[] | undefined, runeDefaults?.slots[key]);
+    slots[key] = resolveChoices(stated?.runeSlots?.[key] as RuneSlotMain[] | undefined, runeDefaults?.slots[key]);
   }
   const judged = sets.chosen.length > 0 || runeSlotKeys.some((key) => slots[key].chosen.length > 0);
   return {
     sets,
     slots,
-    /* Both default to off: a build that leaves a dangling pair or spends the
-       one Intangible rune is a concession, and a concession nobody asked for is
-       not one to make on their behalf. */
-    allowBroken: stated?.allowBrokenRuneSets ?? false,
+    /* Off by default: spending the one Intangible rune is a concession, and a
+       concession nobody asked for is not one to make on their behalf. */
     allowIntangible: stated?.allowIntangibleRunes ?? false,
     judged,
   };

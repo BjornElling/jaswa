@@ -611,7 +611,6 @@ export default function Home() {
       general={preferences.general}
       preferences={overlay.target.kind === 'copy' ? preferences.monsterPreferences[overlay.target.unitId] : undefined}
       onSave={updateMonsterPreferences}
-      onOpenRune={openRuneOverlay}
       onClose={closeOverlay}
     /></Suspense>}
 

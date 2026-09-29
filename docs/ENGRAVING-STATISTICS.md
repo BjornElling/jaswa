@@ -50,13 +50,19 @@ instead would divide one population's counts by another's.
 `RuneSetShareBasis` in `app/lib/monster-defaults.ts` names that basis in the type
 so it cannot be forgotten at a call site.
 
-**One vocabulary gap, excluded and reported.** The rune primary distributions
-include flat `HP +`, `ATK +` and `DEF +` mains (effect ids 1, 3 and 5), which
-`RuneMainStat` has no member for. They are excluded from the denominator and the
-excluded share is carried on every slot rather than swallowed, because a default
-no view can express is the invisible record `AGENTS.md` §0.1 forbids. It averages
-1.6 % of mains and peaks at 11.2 %; if it stops being negligible the fix is to
-grow `RuneMainStat`.
+**Every rune main is read.** The rune primary distributions include flat
+`HP +`, `ATK +` and `DEF +` mains (effect ids 1, 3 and 5). They used to be
+excluded, because the preset vocabulary `RuneMainStat` has no word for them.
+A monster's slots are now read in `app/lib/rune-slot-mains.ts`, which names all
+seven or eight mains the game allows per slot, so the flat mains are counted,
+shown under the slot and offered as a choice. `RuneMainStat` stays the Clean-up
+presets' own.
+
+**A rune build's share is the game's.** Each `runeset` row is one whole
+combination with its count, and the monster overlay's Most common line shows
+each combination's count over the list's total, as the game's panel does —
+`Violent/Revenge 28 %`, a partition that sums to one. The per-set participation
+rate behind the defaults is a separate reading and is not shown.
 
 **All three panels are now read.** They supply the provisional preferences a
 monster starts from in the monster overlay (`app/lib/monster-defaults.ts`).
