@@ -261,8 +261,9 @@ parts an agent must not quietly break:
     of boundaries, and no table may carry its own.
   - **A ground rune sub property** (`--rune-ground`), gold because the game
     paints a Grindstone-touched figure gold — sign and percent sign included,
-    the name not. An Enchanted Gem's mark is a gold ring whose arrows take the
-    figure's colour, as in the game. `app/components/rune-sub-line.tsx` is the
+    the name not. An Enchanted Gem's mark — the circular arrows an artifact's
+    converted line also carries, with nothing drawn around them — is gold
+    always, as in the game. `app/components/rune-sub-line.tsx` is the
     one place that writes a rune property line, innate or sub, so no page can
     word or colour one its own way.
 

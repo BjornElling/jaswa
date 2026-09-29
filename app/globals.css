@@ -974,7 +974,12 @@ label[for] {
   width: 1em;
   height: 1em;
   margin-left: var(--s1);
-  vertical-align: -.14em;
+  /* Drawn a full em, counted as half of one: a mark beside a figure must never
+     be what makes its line taller than the lines without one. An icon's
+     baseline is its bottom margin edge, so the offset that centres it on the
+     digits, -.14em, is stated from that edge: -.14em + .25em. */
+  margin-block: -.25em;
+  vertical-align: .11em;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.5;
@@ -5580,16 +5585,19 @@ th.align-center .sort-button { justify-content: center; }
 }
 .rune-sub-name { color: var(--text-muted); }
 .rune-sub-value { font-variant-numeric: tabular-nums; }
-/* The marks after a line — the gem, and on the simulator its rolls. The gem's
-   ring is gold always; its arrows take the line's colour, so they are white on
-   a line that was never ground and gold with the figure on one that was, as in
-   the game. The name stays muted either way. */
-.rune-sub-marks { display: inline-flex; align-items: center; gap: var(--s1); }
+/* The marks after a line — the gem, and on the simulator its rolls. The gem is
+   gold always, as in the game; a Grindstone adds the figure to it, never the
+   name.
+
+   Centred on the line rather than baseline-aligned: a flex box takes its
+   baseline from an icon's bottom edge, which stood the whole mark on the
+   baseline and lifted it above the digits it belongs to. The line's centre is
+   where the artifact mark's own offset puts it, so the two marks sit alike. */
+.rune-sub-marks { display: inline-flex; align-items: center; align-self: center; gap: var(--s1); }
 .rune-sub .rune-sub-marks:empty { display: none; }
 .rune-sub-gem.artifact-sub-mark { margin-left: 0; }
-.rune-sub-gem-ring { stroke: var(--rune-ground); }
-[data-ground='true'] .rune-sub-value,
-[data-ground='true'] .rune-sub-gem { color: var(--rune-ground); }
+.rune-sub-gem,
+[data-ground='true'] .rune-sub-value { color: var(--rune-ground); }
 .rune-innate { margin-right: 0; }
 
 .rune-verdict { display: block; }

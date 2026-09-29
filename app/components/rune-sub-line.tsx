@@ -1,23 +1,7 @@
 import type { ReactNode } from 'react';
+import { CircularArrowsMark } from './converted-artifact-mark';
 import { runeLineFigure, runeLineStat, runeSubValue } from '../lib/runes';
 import type { RuneSubProperty } from '../lib/runes';
-
-/**
- * The Enchanted Gem mark: the shared circular arrows, inside a ring. The ring is
- * the gem and is gold always; the arrows take the line's colour, so they turn
- * gold with the figure only once a Grindstone has touched the line too.
- */
-function RuneGemMark({ label }: { label: string }) {
-  return <svg className="artifact-sub-mark rune-sub-gem" viewBox="0 0 16 16" role="img" aria-label={label}>
-    <circle className="rune-sub-gem-ring" cx="8" cy="8" r="7.25" />
-    <g transform="translate(8 8) scale(.6) translate(-8 -8)">
-      <path vectorEffect="non-scaling-stroke" d="M13 5.5A5.25 5.25 0 0 0 3.6 4L2.5 5.25" />
-      <path vectorEffect="non-scaling-stroke" d="M2.5 2.75v2.5H5" />
-      <path vectorEffect="non-scaling-stroke" d="M3 10.5A5.25 5.25 0 0 0 12.4 12l1.1-1.25" />
-      <path vectorEffect="non-scaling-stroke" d="M13.5 13.25v-2.5H11" />
-    </g>
-  </svg>;
-}
 
 /**
  * One rune property line — innate or sub — written the way the game writes it,
@@ -25,10 +9,11 @@ function RuneGemMark({ label }: { label: string }) {
  * same on every page.
  *
  * The game's own vocabulary, which the player already reads there: an Enchanted
- * Gem puts a gold ring with arrows after the line, and a Grindstone paints the
- * figure gold — sign and percent sign included — and the arrows with it. The
- * name never changes colour. This is one of the narrow exceptions `globals.css`
- * lists to gold meaning "you can act on this".
+ * Gem puts the gold circular arrows after the line — the same mark an artifact's
+ * converted line carries, and nothing drawn around it — and a Grindstone paints
+ * the figure gold, sign and percent sign included. The name never changes
+ * colour. This is one of the narrow exceptions `globals.css` lists to gold
+ * meaning "you can act on this".
  *
  * The figure is the total the game shows, grindstone included. The grindstone's
  * share is not printed — the colour is the signal — but it is not lost either:
@@ -57,7 +42,7 @@ export function RuneSubLine({ property, format = String, as: Element = 'span', c
     <span className="rune-sub-name">{name}</span>
     <span className="rune-sub-value">{figure}</span>
     <span className="rune-sub-marks">
-      {property.gemmed && <RuneGemMark label={`${name} came from an Enchanted Gem`} />}
+      {property.gemmed && <CircularArrowsMark label={`${name} came from an Enchanted Gem`} className="rune-sub-gem" />}
       {ground && <span className="visually-hidden">, includes Grindstone {grindFigure}</span>}
       {children}
     </span>
