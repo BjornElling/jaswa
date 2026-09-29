@@ -379,8 +379,8 @@ export function RuneRecommendations({ game, monsterPreferences, settings, preset
       ? <section className="empty-state">
         <h2>Nothing calculated yet.</h2>
         <p className="next-step">
-          Press Calculate to put every rune on trial. The standards they are judged by live in Rune
-          Set-up.
+          Press Calculate to put every rune on trial.<br />
+          The standards they are judged by live in Rune Set-up.
         </p>
       </section>
       : <DataTablePage

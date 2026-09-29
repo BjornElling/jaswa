@@ -53,6 +53,38 @@ test('shows the synthetic statistics and recalculates them after a setting chang
   expect(after).not.toEqual(before);
 });
 
+/* Rule 2: the box must not shrink while it calculates and grow when the figures
+   arrive — a dash and a percentage get the same room. */
+test('keeps the statistics box the same height while it calculates', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.goto('/');
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
+  await page.getByRole('navigation').getByRole('button', { name: 'Rune Set-up', exact: true }).click();
+  await page.locator('main details').filter({ hasText: 'Settings' }).locator('summary').click();
+
+  const statistics = page.locator('.statistics').first();
+  const status = statistics.locator('.statistics-meta');
+  const height = async () => (await statistics.boundingBox())?.height;
+  await expect(status).toContainText(/synthetic runes/, calculation);
+  const ready = await height();
+
+  await page.locator('#accepted-runes').fill('5');
+  await expect(status).toContainText('Calculating…');
+  const calculating = await height();
+  await expect(status).toContainText(/synthetic runes/, calculation);
+
+  expect(ready).toBeDefined();
+  expect(calculating).toBe(ready);
+  expect(await height()).toBe(ready);
+
+  /* No browser this suite drives has a graphics card, so the widest status the
+     box can carry is written in by hand: it wraps to two lines, and the box must
+     already have room for them. */
+  await status.evaluate((meta) => { meta.textContent = '12,000 synthetic runes · Graphics card + processor'; });
+  expect(await height()).toBe(ready);
+});
+
 test('gets stricter when broken runes are excluded', async ({ page }, testInfo) => {
   test.setTimeout(120_000);
   await page.goto('/');

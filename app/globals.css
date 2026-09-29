@@ -2816,8 +2816,12 @@ label[for] {
   color: var(--text);
   line-height: 1.45;
 }
+/* Two lines reserved, as the lead above reserves two: "Calculating…" takes
+   one, but "12,000 synthetic runes · Graphics card + processor" wraps to a
+   second in every width the aside comes in, and the box grew by that line the
+   moment the figures arrived. */
 .statistics-meta {
-  min-height: 1.3em;
+  min-height: calc(2 * 1.3em);
   margin: calc(-1 * var(--s2)) 0 var(--s4);
   color: var(--text-muted);
   line-height: 1.3;
