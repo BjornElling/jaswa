@@ -26,16 +26,17 @@ file, `npm run verify:rune-chance-stability` holds the odds still, and
 | Ancient rolls in Max value and Chance | Ancient min–max values for initial-roll terms; ordinary six-star values for upgrades. All reference calculations remain ordinary. |
 | Gem and Grindstone legality/ranges | Verified tables and source notes in `RUNE-CRAFT-ITEMS.md`. |
 | A value inside its legal integer interval | Modelled uniformly; the 6★ distribution has a measured check. |
-| Upgrade target and new-line type | Assumed uniform over legal choices; neither is claimed as game fact. |
+| Upgrade target and new-line type | Uniform over legal choices — a game rule, `RUNE-CANONICAL.md` §7. |
 | Main-property rate on slots 2, 4 and 6 | Assumed uniform over the slot's legal mains (§9.3); not measured. |
 | Artifact main properties | Verified table in `ARTIFACT-CANONICAL.md` §2; confirmed against 262 real artifacts. |
 | How a preset's artifact choice fills two slots | Stated assumption: evenly over the stats it named (§4.1). |
 | The set a build completes | **Not modelled.** A preset states no set combination, and guessing one from the candidate is what §4.3 forbids. |
 | What a substat is *worth* to a role | A product decision, as `RUNE-CANONICAL.md` §12 requires. §4 states it in full. |
 
-The stochastic assumptions are isolated in one loop — the one that plays a rune
-forward, in `app/lib/rune-power-up-outcomes.ts` — and checked against a separate
-simulation written from the game's schedule rather than from that loop.
+The stochastic rules a rune's own future follows are applied in one loop — the one
+that plays a rune forward, in `app/lib/rune-power-up-outcomes.ts` — and checked
+against a separate simulation written from the game's schedule rather than from that
+loop.
 
 ## 2. One currency, including flat stats
 

@@ -29,14 +29,14 @@
  * target is worth more than one that stopped at it, because the surplus is what
  * frees a different rune in the finished build to carry something else.
  *
- * ## What is measured and what is assumed
+ * ## Where the odds come from
  *
  * The value a roll takes is **uniform over its range**, which is verified against
- * the observed prefix ranges rather than assumed (`RUNE-CANONICAL.md` §4). Which of
- * the four lines a power-up improves, and which type a new line takes, are **not
- * established by any source** and are assumed uniform. Those two assumptions are
- * named in `rune-power-up-outcomes.ts` and in the weights module, at the two places
- * they are used, so nothing downstream can present them as game facts.
+ * the observed prefix ranges rather than assumed (`RUNE-CANONICAL.md` §7). Which of
+ * the lines a power-up improves, and which legal type a new line takes, are uniform
+ * too, and that is a stated game rule in the same section, not a convenience of the
+ * model. A box a player has kept cannot confirm or refute either, because keeping is
+ * a choice that skews every count in it.
  */
 import { slotAllowsSubStat } from './runes';
 import type { Rune } from './runes';

@@ -520,7 +520,7 @@ export function TheMathSection() {
         <div className="math-table-scroll">
           <table className="math-table">
             <caption className="visually-hidden">
-              Which parts of the roll mechanic are measured from real data and which are assumed
+              Which parts of the roll mechanic are measured, which are game rules and which are assumed
             </caption>
             <thead>
               <tr>
@@ -543,17 +543,17 @@ export function TheMathSection() {
               </tr>
               <tr>
                 <th scope="row" className="align-left">Which line does an upgrade improve?</th>
-                <td className="align-left"><b className="type-body-emphasis">Assumed</b> to be an even 1-in-4. Com2uS has never published it and no datamine settles it.</td>
+                <td className="align-left"><b className="type-body-emphasis">Game rule.</b> Every line the rune holds is equally likely — 1 in 4 on a finished line-up.</td>
               </tr>
               <tr>
                 <th scope="row" className="align-left">Which stat does a new line take?</th>
-                <td className="align-left"><b className="type-body-emphasis">Assumed</b> even across the legal stats. The belief that SPD is rarer is widespread but unproven.</td>
+                <td className="align-left"><b className="type-body-emphasis">Game rule.</b> Every stat the rune may legally take is equally likely. SPD is not rarer than the rest.</td>
               </tr>
             </tbody>
           </table>
         </div>
         <p>
-          Those last two cannot be settled from your own box, however large it is: the runes you still own are the ones you chose to keep, and that choice contaminates every count. It is why the SPD figures in a rune collection always look stranger than the game actually is.
+          Don&rsquo;t try to check those last two against your own box, however large it is: the runes you still own are the ones you chose to keep, and that choice skews every count. It is why the SPD figures in a rune collection always look stranger than the game actually is.
         </p>
 
         <h3 className="type-heading">The sliders, and how many runes survive</h3>

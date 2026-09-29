@@ -210,12 +210,14 @@ ligefordeling `χ² = 52,97`, `df = 44`, `p = 0,17`, og HP + er ligefordelt over
 middelværdi står stille på 0,481 / 0,488 / 0,492 / 0,523 ved +0 / +9 / +12 / +15:
 en stikprøve, udvalget havde forvrænget, ville flytte sig med udvalgspresset.
 
-**Hvilken stattype et rul rammer, er derimod ikke fastlagt.** Hverken hvilken af de
-fire Sub Properties en power-up forbedrer, eller hvilken type en ny Sub Property får,
-er dokumenteret i en officiel kilde, en datamine eller en kontrolleret stikprøve. Det
-sædvanlige `1/4` er en regnekonvention. Ingen stikprøve fra en spillers egen boks kan
-afgøre det, fordi boksen er dét, der overlevede spillerens egne beslutninger — se
-`docs/RUNE-CLEANUP-MATH.md` §2, hvor antagelsen står navngivet.
+**Hvilken linje og hvilken stattype et rul rammer, er også ligefordelt.** En power-up
+forbedrer hver af runens eksisterende Sub Properties med lige stor sandsynlighed — `1/4`
+på en rune med fire linjer — og en ny Sub Property er med lige stor sandsynlighed hver
+af de stattyper, slot, Main Property, Prefix Property og de øvrige Sub Properties
+lader være lovlige. Det er fastlagt spilregel (kilde 12), ikke en regnekonvention.
+Belægget kommer ikke fra en spillers egen boks og kunne ikke komme derfra: boksen er
+dét, der overlevede spillerens egne beslutninger, så enhver optælling i den er
+forvrænget af udvalget.
 
 ### Ancient Runes
 
@@ -576,6 +578,7 @@ produktbeslutninger, ikke spilfakta. De står kun i arbejdsdokumentet.
 9. [SWEX raw rune records](https://github.com/Xzandro/sw-exporter/issues/316) — real-world records where `rank` stays `5` while `extra` varies with rune quality.
 10. Brugerleveret `full_log.txt`, 23. august 2026 — ingen Rune Statistics-forespørgsel forekommer i den konkrete log.
 11. [Xzandros Ancient roll tables](https://www.reddit.com/r/summonerswar/comments/c0dc2h/ancient_grindstone_ancient_enchanted_gems_min_max/) — Ancient-startintervaller samt Ancient Gem- og Grindstone-tabeller. Sekundær, men den komplette tabel er krydstjekket mod observerede eksportværdier; en reproducerbar klientmåling vinder ved konflikt.
+12. Udviklerens fastlæggelse, 29. september 2026 — en power-up forbedrer hver eksisterende Sub Property med lige stor sandsynlighed, og en ny Sub Property er ligefordelt over de lovlige stattyper (§7).
 
 Ved hver spilopdatering skal set-tabellen, `class`/`extra`-mapping og
 Sub Property-intervaller revalideres. Et ukendt felt eller Rune Set må aldrig

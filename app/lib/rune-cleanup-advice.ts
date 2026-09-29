@@ -136,10 +136,9 @@ const balanceSampleRunes = 2000;
  *
  * So the floor is stated for the **whole slot** instead. The slot's ordinary runes are
  * a mixture of its `M` legal mains, each drawn on `1/M` of runes (the game states no
- * main-property rate, and none has been measured; uniform is the stated assumption,
- * as it is for the upgrade target). The calibration uses one fixed yardstick: the
- * most lenient Accepted/Broken stops. The user's slider changes, Intangible and
- * craft preferences are applied later to candidates; they never move this yardstick.
+ * main-property rate, and none has been measured; uniform is the stated assumption).
+ * The calibration uses one fixed yardstick: the most lenient Accepted/Broken stops.
+ * The user's slider changes, Intangible and craft preferences are applied later to candidates; they never move this yardstick.
  * One share `q'` of *every* main's own box is then found such that the slot as a whole
  * keeps `q`:
  *
