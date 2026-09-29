@@ -198,12 +198,22 @@ export default function Home() {
       const imported = createImportedGame(file.name, raw as Record<string, unknown>, validation);
       /* An empty workspace has no existing data to protect. The confirmation
          only belongs to replacing a real import. */
-      if (!game) { await applyImport(imported); return; }
+      if (!game) { await applyFileImport(imported); return; }
       setPendingGame(imported);
       setMessage('');
     } catch {
       setMessage('JASWA could not read this file. Please choose the original JSON file exported from Summoners War.');
     }
+  }
+
+  /* The applied revision and session describe the helper snapshot the shown
+     game came from, and nothing else. Once a file import, a removal or a switch
+     of source replaces that game, they must be forgotten — kept, they told the
+     poll the helper's data was already on screen, so returning to the direct
+     route left the file's data standing until the game itself changed. */
+  function forgetAppliedHelperImport() {
+    appliedHelperRevision.current = null;
+    appliedHelperSession.current = null;
   }
 
   async function applyImport(imported: ImportedGame) {
@@ -220,6 +230,10 @@ export default function Home() {
     return true;
   }
 
+  async function applyFileImport(imported: ImportedGame) {
+    if (await applyImport(imported)) forgetAppliedHelperImport();
+  }
+
   async function removeImport() {
     try {
       await clearImportedGame();
@@ -227,6 +241,7 @@ export default function Home() {
       setMessage('JASWA could not remove the saved import. Please try again.');
       return;
     }
+    forgetAppliedHelperImport();
     setGame(null);
     setMessage('');
   }
@@ -307,6 +322,9 @@ export default function Home() {
     if (!pendingDirectImportMode) return;
     const mode = pendingDirectImportMode;
     setPendingDirectImportMode(null);
+    /* Turning synchronization on promises to overwrite the current game data,
+       so the next poll imports even when the helper's snapshot is unchanged. */
+    if (mode === 'live') forgetAppliedHelperImport();
     changePreferences((current) => ({ ...current, directImportMode: mode }));
   }
 
@@ -318,13 +336,20 @@ export default function Home() {
       setPendingImportRoute(route);
       return;
     }
-    changePreferences((current) => ({ ...current, importRoute: route }));
+    switchImportRoute(route);
   }
 
   function confirmImportRoute() {
     if (!pendingImportRoute) return;
     const route = pendingImportRoute;
     setPendingImportRoute(null);
+    switchImportRoute(route);
+  }
+
+  /* Choosing the direct route is choosing the helper's data, in either sync
+     mode: whatever the workspace held before is replaced by the next poll. */
+  function switchImportRoute(route: ImportRoute) {
+    if (route === 'direct') forgetAppliedHelperImport();
     changePreferences((current) => ({ ...current, importRoute: route }));
   }
 
@@ -555,7 +580,7 @@ export default function Home() {
     {pendingGame && <ReplaceImportDialog
       pendingGame={pendingGame}
       onCancel={() => setPendingGame(null)}
-      onReplace={() => void applyImport(pendingGame)}
+      onReplace={() => void applyFileImport(pendingGame)}
     />}
 
     {pendingDirectImportMode && <DirectImportModeDialog
