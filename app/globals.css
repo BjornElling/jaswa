@@ -5568,12 +5568,14 @@ th.align-center .sort-button { justify-content: center; }
 .rune-cleanup-grid td.rune-subs { white-space: nowrap; }
 
 /* Each sub property is a name and a number that belong together, so the pair
-   never breaks across a line while the four of them wrap freely. */
+   never breaks across a line while the four of them wrap freely. One step apart
+   is enough between pairs: the muted name after a bright figure already says
+   where one ends, and four long lines need every step the column has. */
 .rune-sub {
   display: inline-flex;
   gap: var(--s1);
   align-items: baseline;
-  margin-right: var(--s3);
+  margin-right: var(--s2);
   white-space: nowrap;
 }
 .rune-sub-name { color: var(--text-muted); }
