@@ -384,8 +384,8 @@ prepared and **the rune keeps its best**.
 combinations it accepts in slots 2, 4 and 6. Each supplies its own Max value, quality
 floor and Chance. A build clears only when that same reading clears both gates; a
 high Max value from one build may not borrow a passing Chance from another. Best preset
-is then the passing reading with the highest Max value, or, where none pass, simply the
-reading with the highest Max value.
+is then the passing reading the rune is expected to be worth most to, or, where none
+pass, simply the reading it is expected to be worth most to (§9.6).
 
 The obvious worry is the count: three mains preferred in each of slots 2, 4 and 6 is
 27 builds. A rune only fits the builds naming its own main, so that is nine for a
@@ -665,9 +665,10 @@ printed `80 %` beside a Sell. A real chance under one point prints `<1 %`.
 A passing rune is eligible for every preset it passed. If it passes at least one
 preset, it is **Power up** below +12, **Keep** at +12, and **Power up** again at +13 or +14. At +15 it is **Keep**. Between +12 and +15 the
 action is deterministic main-stat investment; no new chance is shown. **Best preset is
-the passing reading with the highest Max value.** Max value and Chance always come from
-that same build. If no reading passes both gates, Best preset is instead the reading
-with the highest Max value, regardless of its Chance. This rule is the single source
+the passing reading the rune is expected to be worth most to** (§9.6). Max value and
+Chance always come from that same build. If no reading passes both gates, Best preset
+is instead the reading it is expected to be worth most to, regardless of its Chance.
+A passing reading therefore always outranks a failing one. This rule is the single source
 for every Best preset label in Rune Clean-up and Rune Simulator; it cannot displace
 another rune or make an otherwise passing rune **Sell**. A rune that passes none of
 the presets is **Sell** for the first applicable ordinary reason.
@@ -1004,6 +1005,67 @@ calculation and star class present. Building its key strings was most of that at
 the weights, ceilings and legal Gems are now remembered by the objects they depend on
 rather than by strings made of them. The sample then costs about a second, and the same
 change took a calculation of 18,000 runes from 10.4 s to 2.2 s.
+
+## 9.6 Which preset a rune is named for
+
+**Best preset is the reading the rune is expected to be worth most to**, chosen first
+among the readings that clear both gates and, only where none does, among all of them.
+The order of those two steps is the promise that matters: a role that says **Sell** can
+never be named while another role says **Keep** or **Power up**, because a failing
+reading is not in the pool while a passing one exists. `npm run verify:rune-best-preset`
+holds it, rebuilding every reading of a population from the model's own pieces.
+
+**It used to be the reading with the highest Max value, and Max value is the best
+case.** At `+0` it is the one outcome in several hundred where every improvement lands
+on one line at its maximum. That flatters the role that prices one stat alone. A
+six-star Hero Will slot-5 rune with ATK % 5, CRI Rate 4 and SPD 5, measured against a
+real account's presets, showed the whole effect:
+
+| Preset | Best case (Max value) | Expected at `+15` | Chance, exact |
+| --- | ---: | ---: | ---: |
+| Support | **81.7 %** | 49.2 % | 15.7 % |
+| Bruiser | 79.9 % | **71.4 %** | 3.5 % |
+| Bomber | 77.8 % | 65.0 % | 1.6 % |
+| Fast DD | 78.4 % | 64.7 % | 8.0 % |
+
+Support prices SPD and almost nothing else, so its perfect rune is essentially five
+SPD rolls, and a rune whose three improvements all land on SPD comes close to it. But
+that is what happens on a small share of outcomes: on the rest the improvements land
+on ATK % and CRI Rate, which Support cannot use, and the rune ends near half of its
+perfect rune. Every other role on that list uses all three lines, so every outcome
+moves the rune forward. The best case named Support; what the rune will most likely
+become names Bruiser.
+
+**Chance is not the answer either**, though it looks like one. It is a tail against a
+bar, and a rune whose every roll helps a little has a *narrow* distribution, which
+reaches a bar above its middle less often than a wide distribution with a lower middle.
+Support's 15.7 % beside Fast DD's 8 % is exactly that: the robustness that makes a rune
+useful to a role is what lowers its chance of an exceptional result there. Chance stays
+where it belongs, as the gate.
+
+**How the expectation is computed.** Without the Gem, a rune's end state is linear in
+every roll, so its expectation is exact and needs no runs: each improvement lands on
+each held line alike at its interval's midpoint, and each line gained is any legal id
+alike at its initial midpoint plus its stone (`expectedPlainScore`). Only what the Gem
+adds is not linear, and it is averaged over the first 256 of the runs the chance is
+counted on (`meanGemGain`) — the same runs, because a run is a function of its own
+number. So few are enough because only the Gem is averaged: on a real account of 2,958
+runes, averaging over all 4,096 instead named another preset for 8 of them, each a
+near-tie, and cost the calculation a tenth of its time. It is capped at the Max value, which no expectation can exceed, and it
+carries the same accepted/broken discount. Measured against an exact enumeration of
+every outcome on runes with one or two events left, it agrees to within half a point.
+
+**What it costs.** Counting a reading's Gem over its runs is a pass over four thousand
+end states, and most readings are never counted: the exact part plus the most a Gem can
+add to any run (`gemGainBound`) is a ceiling on the expectation that needs no runs, so
+readings are walked in falling ceiling and the walk stops at the first whose ceiling is
+below the best expectation found. On a real account of 2,958 runes the calculation went
+from 12.4 s to 12.7 s on the processor, and the Statistics box's 900 synthetic runes from
+7.5 s to 8.0 s; the choice is made on the processor whatever counts the chances.
+
+Max value and Chance on the row still come from the chosen build, as §5.1 requires.
+The row therefore shows a lower Max value than before wherever the best case and the
+expectation named different roles — which is the change, not a side effect of it.
 
 ## 10. Calibration and adversarial checks
 

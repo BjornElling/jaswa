@@ -61,9 +61,10 @@ import type {
 } from './rune-craft-end-state';
 import type { CraftLineage } from './rune-craft-items';
 import {
-  bestEndState, chanceRuns, chanceStep, countJobs, endStateScoring, runeFuture,
+  bestEndState, chanceRuns, chanceStep, countJobs, endStateScoring, expectedPlainScore, gemGainBound,
+  meanGemGain, playForward, runeFuture,
 } from './rune-power-up-outcomes';
-import type { CountingJob, EndStateScoring, RuneFuture } from './rune-power-up-outcomes';
+import type { CountingJob, EndStateScoring, RuneFuture, RuneRuns } from './rune-power-up-outcomes';
 import { generateRuneBody, upgradeRuneBody } from './rune-generation';
 
 export type { CraftCredit } from './rune-craft-end-state';
@@ -1028,6 +1029,56 @@ export function candidateMaxValue(candidate: RuneCandidate): number {
   const ratio = candidate.best / candidate.ceiling;
   return candidate.rune.ancient ? ratio : Math.min(1, ratio);
 }
+
+/**
+ * **What the rune is expected to be worth at `+15`**, on the scale `candidateMaxValue`
+ * prints and against the same perfect rune. `RUNE-CLEANUP-MATH.md` §9.6.
+ *
+ * The part without a Gem is linear in every roll and is therefore exact; only what the
+ * Gem adds is averaged, over the first of the runs the chance is counted on, so `runs` is asked for
+ * only where a Gem is credited. A rune with no substat event left has one end state,
+ * and that is its expectation.
+ */
+export function candidateExpectedValue(candidate: RuneCandidate, runs: () => RuneRuns): number {
+  const { future, scoring } = candidate;
+  if (future.upgrades === 0 && future.additions === 0) return onScale(candidate, candidate.best);
+  const gem = scoring.plan.hasGem ? meanGemGain(runs(), scoring) : 0;
+  /* The exact part and a counted part together can, on a rune with almost no spread
+     left, read a hair above the best end state; no expectation can. */
+  return Math.min(candidateMaxValue(candidate), onScale(candidate, expectedPlainScore(future, scoring) + gem));
+}
+
+/**
+ * **A ceiling on `candidateExpectedValue` that needs no runs**: the exact part plus the
+ * most a Gem can add to any run, and never above the Max value, since no run beats the
+ * best end state. It is what lets Best preset skip a reading without counting it.
+ */
+export function candidateExpectedBound(candidate: RuneCandidate): number {
+  const { future, scoring } = candidate;
+  if (future.upgrades === 0 && future.additions === 0) return onScale(candidate, candidate.best);
+  const bound = expectedPlainScore(future, scoring) + gemGainBound(future, scoring);
+  return Math.min(candidateMaxValue(candidate), onScale(candidate, bound));
+}
+
+const onScale = (candidate: RuneCandidate, score: number): number => {
+  const ratio = score / candidate.ceiling;
+  return candidate.rune.ancient ? ratio : Math.min(1, ratio);
+};
+
+/**
+ * **The runs a rune's expected Gem is averaged over: the first 256 of the ones its
+ * chance is counted on.** A run is a function of its own number, so these are exactly
+ * those runs, not a second stream.
+ *
+ * So few are enough because only the Gem is averaged — the rest of the expectation is
+ * exact — and what a Gem adds moves far less from run to run than whether a run clears
+ * a bar. Measured against an exact enumeration it stays within half a point; on a real
+ * account of 2,958 runes, all 4,096 runs named another preset for 8 of them, each a
+ * near-tie. More runs cost the calculation a tenth of its time for that.
+ */
+export const expectationRuns = 256;
+
+export const runeRuns = (future: RuneFuture): RuneRuns => playForward(future, expectationRuns);
 
 /* ------------------------------------------------------------ the standing */
 

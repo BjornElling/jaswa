@@ -16,15 +16,15 @@ import type { RunePotentialPreset } from './rune-potential-presets';
 import type { RunePotentialSettings } from './types';
 import type { ReferenceStats } from './rune-reference-stats';
 import {
-  boxThreshold, candidateChanceAsk, candidateMaxValue, isFourPieceSet,
+  boxThreshold, candidateChanceAsk, candidateExpectedBound, candidateExpectedValue, candidateMaxValue, isFourPieceSet,
   newRuneAdviceScope, ordinaryBox, ordinarySample, prepareRuneCandidate, presetBuilds, referenceStars,
-  slotMainFamily, standingIn,
+  runeRuns, slotMainFamily, standingIn,
 } from './rune-cleanup-model';
 import type {
   Build, ChanceAsk, CountingJob, CraftCredit, MatchRank, OrdinaryBox, RuneCandidate,
 } from './rune-cleanup-model';
 import { countJobs } from './rune-power-up-outcomes';
-import type { RuneFuture } from './rune-power-up-outcomes';
+import type { RuneFuture, RuneRuns } from './rune-power-up-outcomes';
 import type { Valuation } from './rune-substat-weights';
 import { craftAssumptionForSetting } from './rune-craft-items';
 import { lastSubPropertyLevel, slotMainProperties } from './rune-properties';
@@ -531,6 +531,7 @@ export async function runeAdvice(
   count: ChanceCounter = async (jobs) => countJobs(jobs),
 ): Promise<Map<string, RuneAdvice>> {
   const { qualityBar, chanceBar, accepted, broken, intangible, credit } = policyOf(settings);
+  const worthOf = (rank: MatchRank) => (rank === 'preferred' ? 1 : rank === 'acceptable' ? accepted : broken);
   /* Builds are the same for every rune, so they are enumerated once. About sixty
      across the shipped presets; a preset with three choices in every slot would
      give twenty-four on its own, which is still nothing. */
@@ -599,7 +600,7 @@ export async function runeAdvice(
       ));
       const share = slotShares.shareFor(preset, rune.slot, stars, retentionShare);
       for (const candidate of family) {
-        const worth = candidate.rank === 'preferred' ? 1 : candidate.rank === 'acceptable' ? accepted : broken;
+        const worth = worthOf(candidate.rank);
         /* Two figures, and they are not interchangeable. `maxValue` is what the row
            prints: the plain fraction of a perfect rune, discounted for a set or main
            the preset merely accepts, which is the honest description of the rune
@@ -634,11 +635,11 @@ export async function runeAdvice(
        where the best runes live, a whole span of Max values can. Falling through to
        the rune id there would seat an excellent rune behind a merely good one for
        want of a comparison that was available all along. */
-    /* The row's Best preset is a Max-value reading, not a standing reading. A
-       standing decides whether one reading clears its own quality floor, but cannot
-       decide which role the rune best serves: the boxes differ from role to role.
-       Keep every build as a complete pair of Max value and Chance, so a high Max
-       value from one build cannot borrow a passing chance from another. */
+    /* The row's Best preset is not a standing reading. A standing decides whether
+       one reading clears its own quality floor, but cannot decide which role the
+       rune best serves: the boxes differ from role to role. Keep every build as a
+       complete pair of Max value and Chance, so a high Max value from one build
+       cannot borrow a passing chance from another. */
     const contenders = [...candidates]
       .sort((left, right) => right.maxValue - left.maxValue || right.value - left.value);
     const steps: Step[] = [];
@@ -650,7 +651,7 @@ export async function runeAdvice(
        each build's own box and the odds are asked of that build's own Max value, so
        the bar and the chance describe one reading. */
     const askOf = (candidate: Contender) => {
-      const worth = candidate.rank === 'preferred' ? 1 : candidate.rank === 'acceptable' ? accepted : broken;
+      const worth = worthOf(candidate.rank);
       const threshold = worth > 0
         ? boxThreshold(candidate.box, candidate.share) / worth : Number.POSITIVE_INFINITY;
       return ledger.add(candidateChanceAsk(candidate.prepared, threshold));
@@ -679,23 +680,23 @@ export async function runeAdvice(
       chance: step.asks.reduce((best, at) => Math.max(best, answers[at]), 0),
       preset: step.candidate.preset, rank: step.candidate.rank, candidate: step.candidate.prepared,
     }));
-    /* A rune may satisfy several presets. Best preset is the reading with the
-       highest Max value among candidates that clear both gates. If none clears
-       both, it is simply the reading with the highest Max value. The chosen
-       reading supplies every figure in the row; no build may lend its Chance
-       to another build's Max value. */
+    /* A rune may satisfy several presets. **The readings that clear both gates are
+       chosen from first, and only where there are none does any other reading
+       compete**, so a Best preset that says Sell can never stand in for one that
+       says Keep or Power up. Within that pool the reading the rune is expected to
+       be worth most to wins (`RUNE-CLEANUP-MATH.md` §9.6). It used to be the one
+       with the highest Max value, which is the best case — every improvement on
+       one line at its maximum — and so named the role that prices one stat alone
+       on a rune whose other two lines only another role could use. The chosen
+       reading supplies every figure in the row; no build may lend its Chance to
+       another build's Max value. */
     const answersWithSteps = answered.map((answer, at) => ({ answer, passesValue: plan.steps[at].passesValue }));
     const allowed = broken === 0
       ? answersWithSteps.filter(({ answer }) => answer.rank !== 'broken')
       : answersWithSteps;
     const qualified = allowed
       .filter(({ answer, passesValue }) => passesValue && answer.chance >= chanceBar);
-    const best = (qualified.length > 0 ? qualified : allowed)
-      .sort((left, right) =>
-        right.answer.maxValue - left.answer.maxValue
-        || right.answer.value - left.answer.value
-        || right.answer.chance - left.answer.chance
-        || left.answer.preset.id.localeCompare(right.answer.preset.id))[0] ?? null;
+    const best = mostExpected(qualified.length > 0 ? qualified : allowed, worthOf);
     const selected = qualified.length > 0 ? best?.answer ?? null : null;
     /* At Broken = No, an unwanted rune remains as the named fallback only when no
        preferred or acceptable reading exists. It must not hide a permitted reading
@@ -715,6 +716,50 @@ export async function runeAdvice(
     });
   }
   return advice;
+}
+
+/**
+ * **The reading the rune is expected to be worth most to**, after the same
+ * accepted/broken discount its Max value carries. Ties fall to Max value, then standing,
+ * then chance, then the preset id, so the answer never depends on enumeration order.
+ *
+ * The Gem's share of the expectation is counted over the rune's runs, so a reading costs
+ * a pass over them. Most readings are never counted: each has a ceiling on its
+ * expectation that needs no runs (`candidateExpectedBound`), and once the readings are
+ * walked in falling ceiling, the walk stops at the first whose ceiling is below the best
+ * expectation found.
+ */
+function mostExpected<T extends { answer: Answer }>(
+  pool: readonly T[], worthOf: (rank: MatchRank) => number,
+): T | null {
+  if (pool.length <= 1) return pool[0] ?? null;
+  /* Every candidate of one rune shares its future, so one set of runs serves them all;
+     and two builds that price every line alike share a valuation, so they share an
+     expectation too. */
+  let runs: RuneRuns | null = null;
+  const known = new Map<Valuation, number>();
+  const byBound = pool
+    .map((entry) => ({ entry, bound: worthOf(entry.answer.rank) * candidateExpectedBound(entry.answer.candidate) }))
+    .sort((left, right) => right.bound - left.bound);
+  let best: T | null = null;
+  let bestExpected = Number.NEGATIVE_INFINITY;
+  for (const { entry, bound } of byBound) {
+    if (bound < bestExpected) break;
+    const { answer } = entry;
+    const { valuation } = answer.candidate;
+    let raw = known.get(valuation);
+    if (raw === undefined) {
+      raw = candidateExpectedValue(answer.candidate, () => (runs ??= runeRuns(answer.candidate.future)));
+      known.set(valuation, raw);
+    }
+    const expected = worthOf(answer.rank) * raw;
+    const current = best?.answer;
+    const wins = !current || expected > bestExpected || (expected === bestExpected && (
+      answer.maxValue - current.maxValue || answer.value - current.value || answer.chance - current.chance
+      || current.preset.id.localeCompare(answer.preset.id)) > 0);
+    if (wins) { best = entry; bestExpected = expected; }
+  }
+  return best;
 }
 
 /**

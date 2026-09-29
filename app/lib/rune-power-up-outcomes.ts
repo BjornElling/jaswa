@@ -64,7 +64,7 @@
 import { runeDefaultGradeOrder, slotAllowsSubStat } from './runes';
 import type { Rune } from './runes';
 import { allStatIds, remainingEvents, subPropertyRange } from './rune-properties';
-import { craftedScore, gemOptions, groundValue, priceList } from './rune-craft-end-state';
+import { craftedScore, gemOptions, grindCredit, groundValue, priceList } from './rune-craft-end-state';
 import type { CraftPlan, EndStateLine, GemOptions, PriceList } from './rune-craft-end-state';
 import type { Valuation } from './rune-substat-weights';
 
@@ -471,6 +471,88 @@ export function shareReaching(runs: RuneRuns, scoring: EndStateScoring, wanted: 
       lines, scoring.prefixScore, scratchValues) >= wanted) hits += 1;
   }
   return hits / runs.count;
+}
+
+/* ------------------------------------------------------------ the expectation */
+
+/**
+ * **What the rune is expected to be worth without a Gem, exactly.**
+ *
+ * Every line is ground and nothing else is decided, so the score is linear in every
+ * roll and its expectation needs no runs: each improvement lands on each held line
+ * alike and averages its interval's midpoint, and each line the rune gains is any legal
+ * id alike, at its initial interval's midpoint plus its stone. The Gem is the only part
+ * that is not linear, and `meanGemGain` counts that.
+ */
+export function expectedPlainScore(future: RuneFuture, scoring: EndStateScoring): number {
+  const { held, upgrades, additions, pool } = future;
+  const { prices, plan } = scoring;
+  let total = scoring.prefixScore;
+  let upgrade = 0;
+  for (let at = 0; at < held.length; at += 1) {
+    const line = held[at];
+    total += groundValue(plan, line.statId, line.value, line.grind) * prices[line.statId];
+    const interval = future.heldUpgrade[at];
+    upgrade += (interval.minimum + interval.maximum) / 2 * prices[line.statId];
+  }
+  if (upgrades > 0 && held.length > 0) total += upgrades * upgrade / held.length;
+  if (additions > 0 && pool.length > 0) {
+    let gained = 0;
+    for (let index = 0; index < pool.length; index += 1) {
+      const interval = future.poolInitial[index];
+      gained += groundValue(plan, pool[index], (interval.minimum + interval.maximum) / 2, 0) * prices[pool[index]];
+    }
+    total += additions * gained / pool.length;
+  }
+  return total;
+}
+
+/**
+ * **The most a Gem can add to any run of this rune**, which is what lets a reading be
+ * skipped without counting it. A Gem gains its new line's worth less the worth of the
+ * line it replaces; the new line is worth at most the best legal Gem, plus whatever a
+ * stone already on that line exceeds the credit by, and the replaced line is worth at
+ * least the least any line of the rune can end at.
+ */
+export function gemGainBound(future: RuneFuture, scoring: EndStateScoring): number {
+  const { options, plan, prices } = scoring;
+  if (!plan.hasGem || options.values.length === 0) return 0;
+  let excess = 0;
+  let least = Number.POSITIVE_INFINITY;
+  for (const line of future.held) {
+    excess = Math.max(excess, Math.max(0, line.grind - grindCredit(plan, line.statId)) * prices[line.statId]);
+    least = Math.min(least, groundValue(plan, line.statId, line.value, line.grind) * prices[line.statId]);
+  }
+  if (future.additions > 0) {
+    for (let index = 0; index < future.pool.length; index += 1) {
+      const statId = future.pool[index];
+      least = Math.min(least, groundValue(plan, statId, future.poolInitial[index].minimum, 0) * prices[statId]);
+    }
+  }
+  return Math.max(0, options.values[0] + excess - (Number.isFinite(least) ? least : 0));
+}
+
+/** What the Gem added on average, over the runs the chance is counted on. */
+export function meanGemGain(runs: RuneRuns, scoring: EndStateScoring): number {
+  if (runs.count === 0 || !scoring.plan.hasGem) return 0;
+  const lines = lineUpBuffer(runs.lineCount);
+  for (let at = 0; at < runs.lineCount; at += 1) lines[at].gemmed = at === runs.gemmedAt;
+  let total = 0;
+  let read = 0;
+  for (let run = 0; run < runs.count; run += 1) {
+    for (let at = 0; at < runs.lineCount; at += 1) {
+      lines[at].statId = runs.lines[read];
+      lines[at].value = runs.lines[read + 1];
+      lines[at].grind = runs.lines[read + 2];
+      read += 3;
+    }
+    const crafted = craftedScore(scoring.plan, scoring.options, scoring.prices,
+      lines, scoring.prefixScore, scratchValues);
+    let plain = scoring.prefixScore;
+    for (let at = 0; at < runs.lineCount; at += 1) plain += scratchValues[at];
+    total += crafted - plain;
+  }
+  return total / runs.count;
 }
 
 /** What one run came out worth, for a check that needs the value and not a share. */
