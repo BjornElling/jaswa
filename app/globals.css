@@ -4625,38 +4625,40 @@ label[for] {
    stable` is not the same thing: it reserves a gutter even where the unlocked
    page had none. */
 html.overlay-open { overflow: hidden; padding-right: var(--overlay-gutter, 0px); }
-.overlay-backdrop { padding-bottom: var(--s7); }
+/* Room on both sides and below for the close button, which sits over the
+   panel's lower right corner. The left side grows by the same step as the
+   right, so the panel stays centred on the workspace. */
+.overlay-backdrop { padding: var(--s5) var(--s7) var(--s7) calc(var(--rail) + var(--s7)); }
 html.overlay-open .overlay-backdrop { right: var(--overlay-gutter, 0px); }
-/* A body with nothing below it scrolls its last line clear of the button. */
-.dialog.overlay > .overlay-body:nth-last-child(2) { padding-bottom: var(--s7); }
 
-/* Every overlay leaves by one control, in one place: a round gold button
-   centred on the panel's lower edge, half on the panel and half off it, so it
-   reads as belonging to the panel as a whole rather than to any block inside
-   it. The ring, in the sunk ground the footers use, cuts it out of the edge it
-   sits on.
-   Gold because it is the thing to act on; the mark is ink on gold, the way a
-   primary button's label is. */
+/* Every overlay leaves by one control, in one place: a round button centred
+   on the panel's lower right corner, a quarter of it on the panel and the rest
+   off it, so it reads as belonging to the panel as a whole rather than to any
+   block inside it, and sits where the eye ends up after reading. The ring, in
+   the sunk ground the footers use, cuts it out of the corner it sits on.
+   Quiet at rest — gold mark and rim on the deep gold ground — so it does not
+   compete with what the panel says, and full gold under the pointer, where it
+   is the thing being acted on. */
 .overlay-close {
   position: absolute;
-  left: 50%; bottom: 0;
-  translate: -50% 50%;
+  right: 0; bottom: 0;
+  translate: 50% 50%;
   z-index: 2;
-  width: 44px; height: 44px;
+  width: 56px; height: 56px;
   padding: 0;
   display: grid; place-items: center;
   border: 1px solid var(--gold-edge);
   border-radius: 50%;
-  background: var(--text-accent);
-  color: var(--gold-ink);
+  background: var(--gold-deep);
+  color: var(--text-accent);
   box-shadow: 0 0 0 var(--s1) var(--sunk), 0 12px 28px rgba(0, 0, 0, .55);
-  transition: filter .12s ease, box-shadow .12s ease;
+  transition: background-color .12s ease, color .12s ease, border-color .12s ease;
 }
 .overlay-close svg {
-  width: var(--glyph-small); height: var(--glyph-small);
-  fill: none; stroke: currentColor; stroke-width: 2.25; stroke-linecap: round;
+  width: var(--glyph); height: var(--glyph);
+  fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round;
 }
-.overlay-close:hover { filter: brightness(1.12); }
+.overlay-close:hover { background: var(--text-accent); border-color: var(--text-accent); color: var(--gold-ink); }
 .overlay-close:active { filter: brightness(.94); }
 .overlay-close:focus-visible { outline: 2px solid var(--text-accent); outline-offset: var(--s1); }
 
@@ -4714,7 +4716,8 @@ html.overlay-open .overlay-backdrop { right: var(--overlay-gutter, 0px); }
    the destructive action should not sit under the pointer on its way to Save. */
 .dialog.overlay .dialog-actions {
   margin: 0;
-  padding: var(--s5);
+  /* The right inset clears the close button on the corner below it. */
+  padding: var(--s5) var(--s7) var(--s5) var(--s5);
   border-top: 1px solid var(--line);
   background: var(--sunk);
   border-radius: 0 0 var(--radius) var(--radius);
@@ -6040,7 +6043,7 @@ th.align-center .sort-button { justify-content: center; }
 .speed-turn-head h2 { color: var(--text-accent); }
 .dialog .speed-turn-note { margin: var(--s2) 0 0; color: var(--text-muted); line-height: 1.5; }
 .speed-turn-views { display: flex; gap: var(--s1); flex: 0 0 auto; }
-.speed-turn-body { overflow: auto; padding: var(--s5) var(--s5) var(--s7); display: grid; gap: var(--s5); align-content: start; }
+.speed-turn-body { overflow: auto; padding: var(--s5); display: grid; gap: var(--s5); align-content: start; }
 
 .speed-timeline { display: grid; row-gap: var(--s1); width: max-content; }
 .speed-timeline-row { display: contents; }
