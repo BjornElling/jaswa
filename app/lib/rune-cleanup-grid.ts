@@ -11,6 +11,8 @@ import { runeDefaultGradeOrder, runeLineText, runeStatName, runeSubValue } from 
 import type { Rune } from './runes';
 import type { RuneAdvice } from './rune-cleanup-advice';
 import { runeVerdictLabels } from './rune-cleanup-advice';
+import { filteredRuneVerdict, runeHoldLabels } from './rune-holds';
+import type { RuneHoldVerdict, ShownRuneVerdict } from './rune-holds';
 import { lastSubPropertyLevel } from './rune-properties';
 
 export type RuneCleanupRow = {
@@ -24,7 +26,16 @@ export type RuneCleanupRow = {
    * must not read as an empty inventory.
    */
   location: string | null;
+  /** The user's own word over the advice. Read beside the held result rather than
+      into it, so locking a rune changes its row at once without a recalculation. */
+  hold: RuneHoldVerdict | null;
 };
+
+/** The advice the row prints: the user's hold where there is one, else the engine's verdict. */
+export const shownRuneVerdict = (row: RuneCleanupRow): ShownRuneVerdict => row.hold ?? row.advice.verdict;
+
+export const shownRuneVerdictLabel = (row: RuneCleanupRow): string =>
+  row.hold ? runeHoldLabels[row.hold] : runeVerdictLabels[row.advice.verdict];
 
 export type RuneCleanupSortKey =
   'set' | 'slot' | 'level' | 'main' | 'innate' | 'subs' | 'location' | 'preset' | 'maxValue' | 'chance' | 'advice';
@@ -152,8 +163,14 @@ export function runeChanceText(chance: number): string {
   return points >= 1 ? `${points} %` : '<1 %';
 }
 
-/** The verdicts in the order they rank, so sorting by advice reads as a priority. */
+/** The verdicts in the order they rank, so sorting by advice reads as a priority.
+    A held rune ranks as the Keep it stands for, then after the engine's own Keeps. */
 const verdictRank: Readonly<Record<string, number>> = { 'power-up': 0, keep: 1, sell: 2 };
+const holdRank: Readonly<Record<RuneHoldVerdict | 'none', number>> = { none: 0, unsellable: 1, locked: 2 };
+
+function adviceRank(row: RuneCleanupRow): number {
+  return (verdictRank[filteredRuneVerdict(shownRuneVerdict(row))] ?? 3) * 3 + holdRank[row.hold ?? 'none'];
+}
 
 /**
  * The set as the row names it, in plain text — the sort key, the search index
@@ -198,7 +215,7 @@ export function compareRuneCleanupRows(
     case 'preset': return (left.advice.preset?.name ?? '').localeCompare(right.advice.preset?.name ?? '');
     case 'maxValue': return left.advice.maxValue - right.advice.maxValue;
     case 'chance': return left.advice.chance - right.advice.chance;
-    case 'advice': return (verdictRank[left.advice.verdict] ?? 3) - (verdictRank[right.advice.verdict] ?? 3);
+    case 'advice': return adviceRank(left) - adviceRank(right);
     default: return 0;
   }
 }
@@ -216,7 +233,7 @@ export function runeCleanupSearchText(row: RuneCleanupRow): string {
     runeInnateText(row.rune),
     runeSubText(row.rune),
     row.advice.preset?.name ?? '',
-    runeVerdictLabels[row.advice.verdict],
+    shownRuneVerdictLabel(row),
     row.location ?? '',
   ].join(' ').toLowerCase();
 }

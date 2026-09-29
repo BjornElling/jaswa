@@ -26,8 +26,10 @@ import { noReferenceLineMessage, referenceLines } from '../lib/rune-reference-st
 import {
   compareRuneCleanupRows, compareRuneGameSort, defaultRuneCleanupSortDirections,
   runeChanceShown, runeChanceText, runeCleanupSearchText, runeGameSortKeys, runeGameSortLabels,
-  runeMaxValueShown,
+  runeMaxValueShown, shownRuneVerdict, shownRuneVerdictLabel,
 } from '../lib/rune-cleanup-grid';
+import { filteredRuneVerdict, runeHoldVerdict } from '../lib/rune-holds';
+import type { RuneHolds } from '../lib/rune-holds';
 import type { RuneCleanupRow, RuneCleanupSortKey, RuneGameSortKey } from '../lib/rune-cleanup-grid';
 import type { RuneDefaultGrade } from '../lib/runes';
 import type { RunePotentialPreset } from '../lib/rune-potential-presets';
@@ -160,9 +162,11 @@ const columns: readonly SortableColumn<RuneCleanupRow>[] = (() => {
  * build, and a table that re-ran itself under a dragging thumb would be a table
  * nobody could read.
  */
-export function RuneRecommendations({ game, monsterPreferences, settings, presets, general, hardwareAcceleration, onOpenRune }: {
+export function RuneRecommendations({ game, monsterPreferences, runeHolds, settings, presets, general, hardwareAcceleration, onOpenRune }: {
   game: ImportedGame | null;
   monsterPreferences: MonsterPreferences;
+  /** The runes the user has said are not to be sold, which print their own word over the advice. */
+  runeHolds: RuneHolds;
   settings: RunePotentialSettings;
   presets: RunePotentialPreset[];
   general: GeneralSettings;
@@ -241,6 +245,7 @@ export function RuneRecommendations({ game, monsterPreferences, settings, preset
           craftedLines: null, buildMains: null, readings: null,
         },
         location: rune.occupiedId === null ? 'Inventory' : monsterNames[rune.occupiedId]?.name ?? null,
+        hold: null,
       })),
       at: new Date().toISOString(),
       durationMs: outcome.durationMs,
@@ -248,7 +253,12 @@ export function RuneRecommendations({ game, monsterPreferences, settings, preset
     });
   }
 
-  const rows = useMemo(() => result?.rows ?? [], [result]);
+  /* A hold is the user's, not the calculation's, so it is laid over the held result
+     on every change rather than frozen into it at Calculate. */
+  const rows = useMemo(
+    () => (result?.rows ?? []).map((row) => ({ ...row, hold: runeHoldVerdict(runeHolds[row.rune.id]) })),
+    [result, runeHolds],
+  );
   /* Offered from the account's own runes, so a filter never names a set or a main
      stat that no row can carry. */
   const setOptions = useMemo(
@@ -276,7 +286,7 @@ export function RuneRecommendations({ game, monsterPreferences, settings, preset
       if (selectedSlots.length && !selectedSlots.includes(row.rune.slot)) return false;
       if (selectedStars.length && !selectedStars.includes(row.rune.stars)) return false;
       if (selectedQualities.length && !selectedQualities.includes(row.rune.defaultGrade)) return false;
-      if (selectedVerdicts.length && !selectedVerdicts.includes(row.advice.verdict)) return false;
+      if (selectedVerdicts.length && !selectedVerdicts.includes(filteredRuneVerdict(shownRuneVerdict(row)))) return false;
       if (selectedPresets.length && !selectedPresets.includes(row.advice.preset?.name ?? '')) return false;
       if (selectedMains.length && !selectedMains.includes(row.rune.mainStatId)) return false;
       if (row.rune.level < lowestLevel || row.rune.level > highestLevel) return false;
@@ -542,8 +552,8 @@ export function RuneRecommendations({ game, monsterPreferences, settings, preset
             {/* The verdict alone. The chance it rests on is the column beside it, so
                 repeating it underneath only said the same number twice. */}
             <td className={cell('advice')}>
-              <span className="rune-verdict" data-verdict={row.advice.verdict}>
-                {runeVerdictLabels[row.advice.verdict]}
+              <span className="rune-verdict" data-verdict={shownRuneVerdict(row)}>
+                {shownRuneVerdictLabel(row)}
               </span>
             </td>
           </tr>) : <tr>

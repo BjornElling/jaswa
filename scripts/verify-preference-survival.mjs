@@ -33,6 +33,7 @@ try {
     directImportMode: 'on-load',
     general: { ...blank.general, numberFormat: 'european', hourCycle: 'h23' },
     monsterPreferences: { 17: { unitId: '17', label: 'Arena defence', allowBrokenRuneSets: true } },
+    runeHolds: { 901: { unsellable: true }, 902: { unsellable: true, locked: true } },
     runePotential: { ...blank.runePotential, powerUpPolicy: 2, gemGrade: 'Legend', keepMoreForLargerSets: true },
     runePotentialPresets: [withRefreshedMetrics({ ...firstPreset, name: 'My nuker', targets: { ...firstPreset.targets, atk: 3100 } }), otherPresets[0]],
     artifacts: { ...blank.artifacts, acceptableWorth: 75, recalculate: 'on-change' },
@@ -87,6 +88,10 @@ try {
   /* A monster copy loses the field it cannot read, not the copy. */
   const monster = readPreferences({ ...chosen, monsterPreferences: { 17: { ...chosen.monsterPreferences[17], runeSets: ['NotASet'], retired: 1 } } }, null);
   assert.deepEqual(monster.monsterPreferences, chosen.monsterPreferences, 'an unreadable monster field costs only that field');
+
+  /* A rune hold loses the choice it cannot read, not the rune's other choice or any other rune. */
+  const holds = readPreferences({ ...chosen, runeHolds: { ...chosen.runeHolds, 902: { unsellable: true, locked: 'yes' }, 903: { locked: false } } }, null);
+  assert.deepEqual(holds.runeHolds, { 901: { unsellable: true }, 902: { unsellable: true } }, 'an unreadable rune hold costs only that choice');
 
   /* A team that fails costs that team. */
   const badTeam = { ...chosen.speedTuning.teams[0], id: 'team-b', margin: 9 };

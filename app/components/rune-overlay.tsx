@@ -16,6 +16,8 @@ import { rememberedRuneAdvice, rememberRuneAdvice } from '../lib/compute/rune-ad
 import { runeCraftSteps } from '../lib/rune-cleanup-advice';
 import type { PresetReading, RuneAdvice, RuneCraftStep } from '../lib/rune-cleanup-advice';
 import type { MatchRank } from '../lib/rune-cleanup-model';
+import { canLockRune } from '../lib/rune-holds';
+import type { RuneHold } from '../lib/rune-holds';
 import { runeMainStatByEffect } from '../lib/rune-potential-presets';
 import type { RunePotentialPreset } from '../lib/rune-potential-presets';
 import { lastSubPropertyLevel } from '../lib/rune-properties';
@@ -253,6 +255,38 @@ function Evaluation({ rune, presets, explained }: {
   </section>;
 }
 
+/**
+ * **The user's own word on the rune**, which Rune Clean-up prints over its advice
+ * and files under Keep. Stored by `rune_id`, so no import and no live sync resets it.
+ *
+ * The lock needs a monster to lock to, so an inventory rune cannot take one — but a
+ * rune that left its monster after being locked keeps the lock and can still have
+ * it taken off, rather than holding a choice the user can see and not undo.
+ */
+function YourCall({ rune, hold, onHold }: { rune: Rune; hold: RuneHold | undefined; onHold: (next: RuneHold) => void }) {
+  const locked = hold?.locked === true;
+  const lockable = canLockRune(rune) || locked;
+  const change = (key: keyof RuneHold, on: boolean) => {
+    const next: RuneHold = { ...hold };
+    if (on) next[key] = true; else delete next[key];
+    onHold(next);
+  };
+  return <section className="rune-overlay-hold" aria-labelledby="rune-overlay-hold-title">
+    <h3 id="rune-overlay-hold-title" className="overlay-block-title">Your call</h3>
+    <div className="rune-overlay-hold-choices">
+      <label className="checkbox-row">
+        <input type="checkbox" checked={hold?.unsellable === true} onChange={(event) => change('unsellable', event.target.checked)} />
+        <span>Unsellable</span>
+      </label>
+      <label className="checkbox-row" data-disabled={!lockable || undefined}
+        title={lockable ? undefined : 'Only a rune on a monster can be locked to it'}>
+        <input type="checkbox" checked={locked} disabled={!lockable} onChange={(event) => change('locked', event.target.checked)} />
+        <span>Lock to monster</span>
+      </label>
+    </div>
+  </section>;
+}
+
 /** A Gem's id, what it rolled, and a stone's figure, written alike in every column that shows them.
     The id stands without a figure, so it is named as a kind — `HP %`, `HP +` — the
     way a filter names one, or the two HP lines would read alike. */
@@ -275,7 +309,7 @@ function CraftCell({ gemStatId, gemRoll, grind, statId, format }: {
   </span>;
 }
 
-export function RuneOverlay({ rune, game, general, settings, presets, hardwareAcceleration, onClose, onOpenMonster }: {
+export function RuneOverlay({ rune, game, general, settings, presets, hardwareAcceleration, hold, onHold, onClose, onOpenMonster }: {
   rune: Rune;
   game: GameRecord | undefined;
   general: GeneralSettings;
@@ -283,6 +317,9 @@ export function RuneOverlay({ rune, game, general, settings, presets, hardwareAc
   presets: readonly RunePotentialPreset[];
   /** Whether the graphics card may count the odds, as for every other calculation. */
   hardwareAcceleration: boolean;
+  hold: RuneHold | undefined;
+  /** Absent for a rune the account does not own — a simulated one has nothing to hold. */
+  onHold?: (runeId: string, next: RuneHold) => void;
   onClose: () => void;
   onOpenMonster: OpenMonsterOverlay;
 }) {
@@ -382,6 +419,8 @@ export function RuneOverlay({ rune, game, general, settings, presets, hardwareAc
           </tbody>
         </table>
       </div>
+
+      {onHold && <YourCall rune={rune} hold={hold} onHold={(next) => onHold(rune.id, next)} />}
 
       <Evaluation rune={rune} presets={presets} explained={explained} />
     </div>

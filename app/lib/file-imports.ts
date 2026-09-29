@@ -3,6 +3,7 @@ import type {
   Preferences, RunePotentialSettings,
 } from './types';
 import { readMonsterPreferences } from './monster-preferences';
+import { readRuneHolds } from './rune-holds';
 import { readArtifact } from './artifacts';
 import { readRelic } from './relics';
 import { itemGrades, readCraftItem } from './rune-craft-items';
@@ -93,6 +94,7 @@ export function blankPreferences(): Preferences {
     directImportMode: defaultDirectImportMode,
     general: blankGeneralSettings(),
     monsterPreferences: {},
+    runeHolds: {},
     runePotential: defaultRunePotentialSettings,
     runePotentialPresets: defaultRunePotentialPresets(),
     artifacts: defaultArtifactSettings,
@@ -130,7 +132,7 @@ const runePotentialSettingChecks: FieldChecks<RunePotentialSettings> = {
 
 const preferenceSections = [
   'updatedAt', 'hardwareAcceleration', 'importRoute', 'directImportMode', 'general',
-  'monsterPreferences', 'runePotential', 'runePotentialPresets', 'artifacts', 'speedTuning',
+  'monsterPreferences', 'runeHolds', 'runePotential', 'runePotentialPresets', 'artifacts', 'speedTuning',
 ] as const satisfies readonly (keyof Preferences)[];
 
 /**
@@ -152,6 +154,7 @@ export function readPreferences(value: unknown, game: ImportedGame | null): Pref
     directImportMode: isOneOf(directImportModes)(stored.directImportMode) ? stored.directImportMode : blank.directImportMode,
     general: readGeneralSettings(stored.general),
     monsterPreferences: readMonsterPreferences(stored.monsterPreferences),
+    runeHolds: readRuneHolds(stored.runeHolds),
     runePotential: readSettings(stored.runePotential, blank.runePotential, runePotentialSettingChecks),
     runePotentialPresets: readRunePotentialPresets(stored.runePotentialPresets),
     artifacts: readSettings(stored.artifacts, blank.artifacts, artifactSettingChecks),

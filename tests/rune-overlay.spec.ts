@@ -139,6 +139,69 @@ test('anywhere in a verdict row opens its rune, and selecting text there does no
   await expect(row.locator('.rune-link')).toBeFocused();
 });
 
+test('Your call holds a rune under its own word, files it under Keep, and outlives a re-import', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await openCleanup(page);
+  const table = page.getByRole('table', { name: 'Rune verdicts' });
+  const violentRow = table.locator('tbody tr')
+    .filter({ hasText: 'Violent', has: page.getByRole('img', { name: 'Legend quality' }) })
+    .filter({ hasText: /SPD\s*\+5/ });
+  const fatalRow = table.locator('tbody tr').filter({ hasText: 'Fatal' });
+  const advice = (row: typeof violentRow) => row.locator('.rune-verdict');
+  const engineVerdict = (await advice(violentRow).textContent())!;
+
+  /* An inventory rune can be made unsellable but has no monster to be locked to. */
+  await violentRow.locator('.rune-link').click();
+  const violent = page.getByRole('dialog', { name: 'Violent' });
+  const hold = violent.getByRole('region', { name: 'Your call' });
+  await expect(hold.getByRole('checkbox', { name: 'Lock to monster' })).toBeDisabled();
+  const evaluation = violent.getByRole('region', { name: 'Evaluation' });
+  await expect(evaluation.locator('tbody tr[aria-current="true"]')).toHaveCount(1);
+  const before = { hold: await hold.boundingBox(), evaluation: await evaluation.boundingBox() };
+  await page.screenshot({ path: testInfo.outputPath('your-call-empty.png') });
+  await hold.getByRole('checkbox', { name: 'Unsellable' }).check();
+  /* Ticking a box moves nothing around it. */
+  expect({ hold: await hold.boundingBox(), evaluation: await evaluation.boundingBox() }).toEqual(before);
+  await page.keyboard.press('Escape');
+  await expect(advice(violentRow)).toHaveText('Unsellable');
+
+  /* A worn rune can take both, and Locked is the word that wins. */
+  await fatalRow.locator('.rune-link').click();
+  const fatal = page.getByRole('dialog', { name: 'Fatal' }).getByRole('region', { name: 'Your call' });
+  await fatal.getByRole('checkbox', { name: 'Unsellable' }).check();
+  await fatal.getByRole('checkbox', { name: 'Lock to monster' }).check();
+  await page.screenshot({ path: testInfo.outputPath('your-call-full.png') });
+  await page.keyboard.press('Escape');
+  await expect(advice(fatalRow)).toHaveText('Locked');
+
+  /* Keep shows the runes the user kept as well as those the engine did. */
+  await page.getByRole('group', { name: 'Filter by advice' }).getByRole('button', { name: 'Keep', exact: true }).click();
+  await expect(violentRow).toBeVisible();
+  await expect(fatalRow).toBeVisible();
+  await page.getByRole('group', { name: 'Filter by advice' }).getByRole('button', { name: 'Keep', exact: true }).click();
+
+  /* A new import of the same account changes nothing the user chose. */
+  await page.getByRole('navigation').getByRole('button', { name: 'Home', exact: true }).click();
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
+  await page.getByRole('button', { name: 'Replace data', exact: true }).click();
+  await page.reload();
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
+  await expect(advice(violentRow)).toHaveText('Unsellable');
+  await expect(advice(fatalRow)).toHaveText('Locked');
+
+  /* Taking the choices off hands the row back to the engine. */
+  await violentRow.locator('.rune-link').click();
+  await page.getByRole('dialog', { name: 'Violent' }).getByRole('checkbox', { name: 'Unsellable' }).uncheck();
+  await page.keyboard.press('Escape');
+  await expect(advice(violentRow)).toHaveText(engineVerdict);
+  await fatalRow.locator('.rune-link').click();
+  await page.getByRole('dialog', { name: 'Fatal' }).getByRole('checkbox', { name: 'Lock to monster' }).uncheck();
+  await page.keyboard.press('Escape');
+  await expect(advice(fatalRow)).toHaveText('Unsellable');
+});
+
 test('a worn rune names its wearer as a way into that monster', async ({ page }) => {
   const links = await openCleanup(page);
   await links.filter({ hasText: 'Fatal' }).click();

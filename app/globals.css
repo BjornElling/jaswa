@@ -262,7 +262,7 @@ label[for] {
    ===================================================================== */
 
 /* Display — the page's own name and the home hero. */
-.type-display, .page-title, .overlay-hero-name {
+.type-display, .page-title, .overlay-hero-name, .rune-overlay-main {
   font-family: var(--font-heading);
   font-weight: 700;
   letter-spacing: var(--track-display);
@@ -371,7 +371,7 @@ label[for] {
 }
 
 /* Figure — a number that is the answer, not a second body voice. */
-.type-figure, .statistics dd, .rune-overlay-main {
+.type-figure, .statistics dd {
   font-family: var(--font-body);
   font-size: var(--type-figure);
   font-weight: 700;
@@ -4831,7 +4831,9 @@ tr[data-opens-rune] .rune-link:hover:not(:focus-visible) { color: inherit; text-
   background: var(--sunk);
   color: var(--text-strong);
 }
-.rune-overlay-main { font-variant-numeric: tabular-nums; }
+/* A step below a figure: at 32px the main line out-shouted the rune's own name
+   and the sub properties that actually decide its fate. */
+.rune-overlay-main { font-size: var(--type-display); font-variant-numeric: tabular-nums; }
 /* Four rows of one fixed height whether or not a line is there yet, so a
    rune with two sub properties draws the same box as one with four. The head
    row fills the clear line above them rather than adding one. The sub
@@ -4870,6 +4872,24 @@ tr[data-opens-rune] .rune-link:hover:not(:focus-visible) { color: inherit; text-
 .rune-overlay-craft { display: inline-flex; align-items: center; gap: var(--s1); }
 .rune-overlay-craft > .rune-overlay-figure:not(:first-child) { margin-left: var(--s1); }
 .rune-overlay-figure { font-variant-numeric: tabular-nums; color: var(--text-strong); }
+
+/* The user's own word, in the same sunk box as its neighbours: a title and two
+   choices on one line, the lock dimmed where the rune has no monster to lock to.
+   The rows are always both there, so ticking one moves nothing. */
+.rune-overlay-hold {
+  display: flex;
+  align-items: center;
+  gap: var(--s6);
+  padding: var(--s3) var(--s5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--sunk);
+}
+.rune-overlay-hold-choices { display: flex; gap: var(--s6); }
+.rune-overlay-hold .checkbox-row { color: var(--text-strong); }
+.rune-overlay-hold .checkbox-row[data-disabled] { color: var(--text-muted); cursor: not-allowed; }
+.rune-overlay-hold .checkbox-row input:disabled { opacity: .4; cursor: not-allowed; }
+.rune-overlay-hold .checkbox-row input:disabled:hover { background: var(--raise); border-color: var(--text-muted); }
 
 /* The verdict, explained: the same sunk box as the stats above it, so the two read
    as one record. Three facts, each a sentence on the left and its figure at the
@@ -5703,7 +5723,7 @@ th.align-center .sort-button { justify-content: center; }
 
 .rune-verdict { display: block; }
 .rune-verdict[data-verdict='power-up'] { color: var(--state-good); }
-.rune-verdict[data-verdict='keep'] { color: var(--text-strong); }
+.rune-verdict:is([data-verdict='keep'], [data-verdict='unsellable'], [data-verdict='locked']) { color: var(--text-strong); }
 .rune-verdict[data-verdict='sell'] { color: var(--state-bad); }
 /* Always present and one line high, so moving a slider can replace one reading
    with another without changing the row's height under the reader. */

@@ -1,4 +1,5 @@
 import type { MonsterPreferences } from './monster-preferences';
+import type { RuneHolds } from './rune-holds';
 import type { RunePotentialPreset } from './rune-potential-presets';
 import type { SpeedTuningPreferences } from './speed-tuning-preferences';
 
@@ -112,4 +113,4 @@ export type ArtifactSettings = {
  * program: JASWA supplies a starting set, and after that they are the user's
  * to rename, retune and delete, and they travel with the .sw file.
  */
-export type Preferences = { updatedAt: string; hardwareAcceleration: boolean; importRoute: ImportRoute; directImportMode: DirectImportMode; general: GeneralSettings; monsterPreferences: MonsterPreferences; runePotential: RunePotentialSettings; runePotentialPresets: RunePotentialPreset[]; artifacts: ArtifactSettings; speedTuning: SpeedTuningPreferences };
+export type Preferences = { updatedAt: string; hardwareAcceleration: boolean; importRoute: ImportRoute; directImportMode: DirectImportMode; general: GeneralSettings; monsterPreferences: MonsterPreferences; runeHolds: RuneHolds; runePotential: RunePotentialSettings; runePotentialPresets: RunePotentialPreset[]; artifacts: ArtifactSettings; speedTuning: SpeedTuningPreferences };

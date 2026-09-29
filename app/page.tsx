@@ -18,6 +18,8 @@ import type { SpeedTuningPreferences } from './lib/speed-tuning-preferences';
 import { readRunes } from './lib/runes';
 import type { MonsterCopyPreferences } from './lib/monster-preferences';
 import { statesSomething } from './lib/monster-preferences';
+import type { RuneHold } from './lib/rune-holds';
+import { runeHoldVerdict } from './lib/rune-holds';
 import type { MonsterReference } from './components/monster-link';
 import type { OpenRuneOverlay, RuneOverlayTarget } from './components/rune-link';
 import { useSessionStorageState } from './lib/session-storage-state';
@@ -281,6 +283,17 @@ export default function Home() {
     });
   }
 
+  /* The rune overlay's one route to storage. A rune left holding nothing is
+     removed, so the map counts decisions rather than runes once opened. */
+  function updateRuneHold(runeId: string, next: RuneHold) {
+    changePreferences((current) => {
+      const runeHolds = { ...current.runeHolds };
+      if (runeHoldVerdict(next) !== null) runeHolds[runeId] = next;
+      else delete runeHolds[runeId];
+      return { ...current, runeHolds };
+    });
+  }
+
   function updateHardwareAcceleration(enabled: boolean) {
     changePreferences((current) => ({ ...current, hardwareAcceleration: enabled }));
   }
@@ -471,6 +484,7 @@ export default function Home() {
       {page === 'potential' && <Suspense fallback={<WorkspaceLoading />}><RunePotentialSection
         game={game}
         monsterPreferences={preferences.monsterPreferences}
+        runeHolds={preferences.runeHolds}
         settings={preferences.runePotential}
         presets={preferences.runePotentialPresets}
         general={preferences.general}
@@ -583,6 +597,8 @@ export default function Home() {
       settings={preferences.runePotential}
       presets={preferences.runePotentialPresets}
       hardwareAcceleration={preferences.hardwareAcceleration}
+      hold={preferences.runeHolds[overlayRune.id]}
+      onHold={overlay?.kind === 'rune' && overlay.target.kind === 'account' ? updateRuneHold : undefined}
       onOpenMonster={openMonsterOverlay}
       onClose={closeOverlay}
     /></Suspense>}

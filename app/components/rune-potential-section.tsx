@@ -14,6 +14,7 @@ import {
 import type { PresetChoice, PresetStatTargets, PresetType, RuneMainStat, RunePotentialPreset } from '../lib/rune-potential-presets';
 import type { GeneralSettings, ImportedGame, ItemGrade, RunePotentialSettings } from '../lib/types';
 import type { MonsterPreferences } from '../lib/monster-preferences';
+import type { RuneHolds } from '../lib/rune-holds';
 import { presetRuneSetNameList } from '../lib/rune-sets';
 import { formatDecimal } from '../lib/formatting';
 import { calculationBackendLabel, type CalculationBackend } from '../lib/compute/calculation-summary';
@@ -310,10 +311,11 @@ export function RuneSetupSection({ game, settings, presets, general, hardwareAcc
 }
 
 export function RunePotentialSection({
-  game, monsterPreferences, settings, presets, general, hardwareAcceleration, onOpenRune,
+  game, monsterPreferences, runeHolds, settings, presets, general, hardwareAcceleration, onOpenRune,
 }: {
   game: ImportedGame | null;
   monsterPreferences: MonsterPreferences;
+  runeHolds: RuneHolds;
   settings: RunePotentialSettings;
   presets: RunePotentialPreset[];
   general: GeneralSettings;
@@ -329,7 +331,7 @@ export function RunePotentialSection({
     {/* The answer first, the controls that shape it underneath. A user opening
         this page has come for the verdicts, not for the sliders. */}
     <Disclosure title="Recommendations" sessionKey="rune-potential.recommendations" defaultOpen>
-      <RuneRecommendations game={game} monsterPreferences={monsterPreferences} settings={settings} presets={presets} general={general}
+      <RuneRecommendations game={game} monsterPreferences={monsterPreferences} runeHolds={runeHolds} settings={settings} presets={presets} general={general}
         hardwareAcceleration={hardwareAcceleration} onOpenRune={onOpenRune} />
     </Disclosure>
   </WorkspacePage>;
