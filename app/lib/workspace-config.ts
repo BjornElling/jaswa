@@ -29,6 +29,10 @@ export const navigationGroups: Array<{ heading: string; items: NavigationItem[] 
     heading: 'Monsters',
     items: [
       { id: 'monsters', label: 'Overview', name: 'Monsters', glyph: '♜' },
+      /* Rune Optimization answers for a monster — a build per monster, from the
+         requirements saved for it — so it sits with the monster tools. The
+         Runes group keeps the work done on the runes themselves. */
+      { id: 'optimizer', label: 'Optimization', name: 'Rune Optimization', glyph: '◈' },
       { id: 'speed', label: 'Speed tuning', name: 'Speed Tuning', glyph: '↝' },
     ],
   },
@@ -36,7 +40,6 @@ export const navigationGroups: Array<{ heading: string; items: NavigationItem[] 
     heading: 'Runes',
     items: [
       { id: 'rune-setup', label: 'Set up', name: 'Rune Set-up', glyph: '⚙' },
-      { id: 'optimizer', label: 'Optimization', name: 'Rune Optimization', glyph: '◈' },
       { id: 'potential', label: 'Clean-up', name: 'Rune Clean-up', glyph: '◌' },
       { id: 'gems', label: 'Gems & grinds', name: 'Gems & Grinds', glyph: '✦' },
       /* An experiment on runes nobody owns yet, judged by the same Clean-up
