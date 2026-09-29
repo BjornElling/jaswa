@@ -115,6 +115,30 @@ test('Evaluation explains Best preset with every preset\'s reading, at one heigh
   await expect(facts.nth(4)).toHaveText(/^(\d+\.\d %|None)$/);
 });
 
+test('anywhere in a verdict row opens its rune, and selecting text there does not', async ({ page }) => {
+  await openCleanup(page);
+  const row = page.getByRole('table', { name: 'Rune verdicts' }).locator('tbody tr')
+    .filter({ hasText: 'Violent', has: page.getByRole('img', { name: 'Legend quality' }) })
+    .filter({ hasText: /SPD\s*\+5/ });
+  const overlay = page.getByRole('dialog', { name: 'Violent' });
+  const main = row.locator('td').nth(3);
+
+  /* Dragging across a figure to copy it is a selection, not a request. */
+  const box = (await main.boundingBox())!;
+  await page.mouse.move(box.x + 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width - 2, box.y + box.height / 2, { steps: 5 });
+  await page.mouse.up();
+  await expect(overlay).toBeHidden();
+
+  await main.click();
+  await expect(overlay).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(overlay).toBeHidden();
+  /* Focus returns to the one control the row has, not to wherever it was clicked. */
+  await expect(row.locator('.rune-link')).toBeFocused();
+});
+
 test('a worn rune names its wearer as a way into that monster', async ({ page }) => {
   const links = await openCleanup(page);
   await links.filter({ hasText: 'Fatal' }).click();

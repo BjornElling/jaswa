@@ -4753,6 +4753,10 @@ html.overlay-open .overlay-backdrop { right: var(--overlay-gutter, 0px); }
   text-underline-offset: 3px;
 }
 .rune-link:hover, .rune-link:focus-visible { color: var(--text-accent); text-decoration-color: currentColor; }
+/* A row that opens its rune says so from anywhere in it by lighting the one name that
+   does it. The rest of the row is data and keeps its ink. */
+tr[data-opens-rune] { cursor: pointer; }
+tr[data-opens-rune]:hover .rune-link { color: var(--text-accent); text-decoration-color: currentColor; }
 .rune-link-cell { display: inline-flex; align-items: center; gap: var(--s2); min-width: 0; }
 .rune-link-label { display: inline-flex; }
 .overlay-rune-links { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s3); }

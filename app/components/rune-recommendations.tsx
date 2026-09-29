@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import type { ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { MouseEvent, ReactNode } from 'react';
 import { AncientName } from './ancient-mark';
 import { CalculationStatus } from './calculation-status';
 import { Dropdown } from './dropdown';
@@ -190,6 +190,8 @@ export function RuneRecommendations({ game, monsterPreferences, settings, preset
   /* A failed calculation says so and leaves the previous table standing. Clearing
      it would read as "no runes qualify", which is a different and wrong answer. */
   const [failure, setFailure] = useState<string | null>(null);
+  /* Where the pointer went down on a row, so a release somewhere else reads as a drag. */
+  const pressedAt = useRef<{ x: number; y: number } | null>(null);
 
   /**
    * Every rune the import holds, and the population every calculation judges.
@@ -360,6 +362,20 @@ export function RuneRecommendations({ game, monsterPreferences, settings, preset
     </section>;
   }
 
+  /* The whole row opens the rune, for a pointer. The set name's button stays the one
+     control a keyboard or a screen reader meets, and it is handed over as the opener,
+     so focus comes back to it wherever the row was clicked. A press that travels before
+     it is released is someone selecting a figure to copy, not asking for the overlay.
+     That is measured on the pointer rather than read off the selection, because a
+     selection left by the last drag is still standing when the next plain click lands. */
+  const openFromRow = (event: MouseEvent<HTMLTableRowElement>, runeId: string) => {
+    if ((event.target as Element).closest('button, a')) return;
+    const start = pressedAt.current;
+    if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > 4) return;
+    const opener = event.currentTarget.querySelector<HTMLElement>('.rune-link');
+    if (opener) onOpenRune({ kind: 'account', runeId }, opener);
+  };
+
   return <div className="stack">
     <div className="list-actions">
       <p className="list-count">
@@ -476,7 +492,9 @@ export function RuneRecommendations({ game, monsterPreferences, settings, preset
         </>}
       >
         <tbody>
-          {sorted.length ? sorted.map((row) => <tr key={row.rune.id}>
+          {sorted.length ? sorted.map((row) => <tr key={row.rune.id} data-opens-rune
+            onMouseDown={(event) => { pressedAt.current = { x: event.clientX, y: event.clientY }; }}
+            onClick={(event) => openFromRow(event, row.rune.id)}>
             <td className={cell('set', qualityRuleHost)}>
               <RuneLink
                 target={{ kind: 'account', runeId: row.rune.id }}
