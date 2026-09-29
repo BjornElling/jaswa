@@ -46,6 +46,13 @@ type Placement = { top: number; right: number; width: number; height: number };
  * viewport measurements do not, and feeding them back through `zoom` was the
  * source of the small but visible sideways drift.
  *
+ * The right inset is measured from the root's client width, never from
+ * `window.innerWidth`. The page keeps a permanent scrollbar track, and
+ * `innerWidth` counts it while a fixed box's `right` starts inside it — so the
+ * toast stood one scrollbar to the left of the badge. Playwright hides
+ * scrollbars by default, which is how that passed every test; the
+ * import-confirmation spec runs with them shown.
+ *
  * `getBoundingClientRect` reads the zoomed canvas in viewport pixels while
  * `offsetHeight` reads the same box in the canvas's own, so the ratio between
  * them is the scale `AppViewport` applied — and dividing by it converts a
@@ -59,7 +66,7 @@ function placeBelow(badge: HTMLElement | null, inset: number, gap: number): Plac
   if (!scale) return null;
   return {
     top: Math.max(inset, box.bottom / scale + gap),
-    right: Math.max(0, Math.round((window.innerWidth - box.right) / scale)),
+    right: Math.max(0, (document.documentElement.clientWidth - box.right) / scale),
     width: box.width / scale,
     height: box.height / scale,
   };

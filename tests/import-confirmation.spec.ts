@@ -3,6 +3,12 @@ import { fileURLToPath } from 'node:url';
 
 const syntheticAccount = fileURLToPath(new URL('./fixtures/synthetic-account.json', import.meta.url));
 
+/* Playwright hides scrollbars by default, and the page keeps a permanent one.
+   With it hidden, a toast measured against the window rather than the root
+   stacked exactly here and stood one scrollbar to the left on every real
+   screen. Shown, the test sees what the user sees. */
+test.use({ launchOptions: { ignoreDefaultArgs: ['--hide-scrollbars'] } });
+
 test('confirms a JSON import in the viewport without moving the page', async ({ page }, testInfo) => {
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
@@ -49,6 +55,7 @@ test('the confirmation clears the account badge they share a corner with', async
 
   await page.evaluate(() => window.scrollTo(0, 0));
   await settle();
+  expect(await page.evaluate(() => window.innerWidth - document.documentElement.clientWidth)).toBeGreaterThan(0);
   const topBadge = await badge.boundingBox();
   const stacked = await confirmation.boundingBox();
   expect(topBadge).not.toBeNull();
