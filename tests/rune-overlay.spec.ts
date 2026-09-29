@@ -40,7 +40,8 @@ test('the rune overlay states the rune and nothing else, and returns focus', asy
   /* Below +12 the lines are not final, so no craft is named yet. */
   await expect(overlay.getByRole('columnheader', { name: 'Max stats' })).toHaveAttribute('title', /Decided at \+12/);
   await expect(overlay.getByText('Not revealed yet')).toHaveCount(0);
-  await expect(overlay.getByText(/at \+15/)).toHaveCount(0);
+  /* The stats box states the rune as it is; only Evaluation speaks of +15. */
+  await expect(overlay.locator('.rune-overlay-stats').getByText(/at \+15/)).toHaveCount(0);
   await expect(overlay.getByText('Rune', { exact: true })).toHaveCount(0);
   await expect(overlay.getByText(/piece set/)).toHaveCount(0);
   /* The projection it used to carry belongs to the pages that judge a rune. */
@@ -87,6 +88,8 @@ test('Evaluation explains Best preset with every preset\'s reading, at one heigh
   const best = readings.locator('tbody tr[aria-current="true"]');
   await expect(best).toHaveCount(1);
   expect(await evaluation.boundingBox()).toEqual(early);
+  /* Ranked the way Best preset is chosen, so the choice leads the list. */
+  await expect(readings.locator('tbody tr').first()).toHaveAttribute('aria-current', 'true');
 
   /* The starred row is the preset the verdict table names, with the same Max value. */
   const presetName = (await best.getByRole('rowheader').textContent())!;

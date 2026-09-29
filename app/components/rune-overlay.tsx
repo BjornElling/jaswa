@@ -14,7 +14,7 @@ import { monsterPresentation } from '../lib/monster-catalog';
 import { runeAdviceChannel } from '../lib/compute/rune-advice-client';
 import { rememberedRuneAdvice, rememberRuneAdvice } from '../lib/compute/rune-advice-memory';
 import { runeCraftSteps } from '../lib/rune-cleanup-advice';
-import type { RuneAdvice, RuneCraftStep } from '../lib/rune-cleanup-advice';
+import type { PresetReading, RuneAdvice, RuneCraftStep } from '../lib/rune-cleanup-advice';
 import type { RunePotentialPreset } from '../lib/rune-potential-presets';
 import { lastSubPropertyLevel } from '../lib/rune-properties';
 import { referenceLines } from '../lib/rune-reference-stats';
@@ -145,6 +145,23 @@ function maxCraftOf(rune: Rune, known: RuneAdvice | undefined, explained: Explai
 const tenths = (fraction: number) => `${(fraction * 100).toFixed(1)} %`;
 
 /**
+ * The presets in the order Best preset is decided in: the readings that clear both
+ * gates before those that do not, then by average worth at +15, then Max value — so
+ * the starred row leads and no row above it can carry a higher average. The one
+ * exception is Broken = No, where a preset that reads the rune only as broken is
+ * listed by its figures but never chosen. Presets that cannot read the rune close
+ * the list in their own order.
+ */
+function ranked(presets: readonly RunePotentialPreset[], readings: ReadonlyMap<string, PresetReading>) {
+  return [...presets].sort((left, right) => {
+    const a = readings.get(left.id);
+    const b = readings.get(right.id);
+    if (!a || !b) return (a ? 0 : 1) - (b ? 0 : 1);
+    return Number(b.cleared) - Number(a.cleared) || b.expected - a.expected || b.maxValue - a.maxValue;
+  });
+}
+
+/**
  * **Why Best preset is the preset it is**, and what the floor asked of it.
  *
  * Every preset gets a row whether or not it can read the rune, and every row is
@@ -184,12 +201,12 @@ function Evaluation({ rune, presets, explained }: {
           <th scope="col">Preset</th>
           <th scope="col">Max value</th>
           <th scope="col">Chance</th>
-          <th scope="col">Expected</th>
+          <th scope="col" title="What the rune is worth on average once levelled to +15, against a perfect rune — the figure Best preset is chosen on">Avg. at +15</th>
           <th scope="col">Best</th>
         </tr>
       </thead>
       <tbody>
-        {presets.map((preset) => {
+        {ranked(presets, readings).map((preset) => {
           const reading = readings.get(preset.id);
           const best = chosen?.id === preset.id;
           return <tr key={preset.id} data-best={best || undefined} aria-current={best ? 'true' : undefined}>

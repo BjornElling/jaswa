@@ -4886,9 +4886,11 @@ html.overlay-open .overlay-backdrop { right: var(--overlay-gutter, 0px); }
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Air above the column heads, so the table reads as its own part rather than a
+   fourth fact. The four figure columns split what the name column leaves alike. */
 .rune-overlay-readings {
   width: 100%;
-  margin: 0;
+  margin: var(--s3) 0 0;
   border-collapse: collapse;
   table-layout: fixed;
 }
@@ -4903,14 +4905,14 @@ html.overlay-open .overlay-backdrop { right: var(--overlay-gutter, 0px); }
   color: var(--text);
 }
 .rune-overlay-readings :is(th, td):first-child { text-align: left; }
-.rune-overlay-readings :is(th, td):last-child { width: 64px; text-align: center; }
+.rune-overlay-readings :is(th, td):last-child { text-align: center; }
 .rune-overlay-readings thead th {
   height: var(--s4);
   padding-bottom: var(--s1);
   vertical-align: bottom;
   color: var(--text-muted);
 }
-.rune-overlay-readings thead th:first-child { width: 40%; }
+.rune-overlay-readings thead th:first-child { width: 32%; }
 /* Ink, not weight, marks the best reading: bold would widen its row's text. */
 .rune-overlay-readings tr[data-best] :is(th, td) { color: var(--text-strong); }
 .rune-overlay-best-mark { width: 12px; height: 12px; vertical-align: middle; }
