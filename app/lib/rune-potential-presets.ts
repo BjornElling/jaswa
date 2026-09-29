@@ -80,8 +80,11 @@ export type PresetSlots = { slot2: PresetChoice<RuneMainStat>; slot4: PresetChoi
 /** Whether an artifact's primary stat suits the role. */
 export type PresetArtifacts = { atk: boolean; def: boolean; hp: boolean };
 
-/** The stat targets a role aims at. An unstated field is saved as `0`, so a
- * preset never leaves its desired-stat row ambiguous. */
+/**
+ * The stat targets a role aims at, as stated. A stat left `undefined` is one
+ * the role does not aim at and is shown as a dash; `0` means the same thing
+ * when it is saved, so it is dropped rather than becoming a false target.
+ */
 export type PresetStatTargets = {
   hp?: number; atk?: number; def?: number; spd?: number;
   res?: number; acc?: number; criRate?: number; criDmg?: number;
@@ -142,9 +145,10 @@ function withDerivedMetrics(preset: PresetSource): RunePotentialPreset {
     ...preset,
     targets: {
       ...targets,
-      dmg: displayRunePotentialMetric(metrics.dmg),
-      ehp: displayRunePotentialMetric(metrics.ehp),
-      ehpD: displayRunePotentialMetric(metrics.ehpD),
+      dmg: targets.atk === undefined || targets.criRate === undefined || targets.criDmg === undefined
+        ? undefined : displayRunePotentialMetric(metrics.dmg),
+      ehp: targets.hp === undefined || targets.def === undefined ? undefined : displayRunePotentialMetric(metrics.ehp),
+      ehpD: targets.hp === undefined || targets.def === undefined ? undefined : displayRunePotentialMetric(metrics.ehpD),
     },
   };
 }
@@ -344,8 +348,8 @@ export function defaultRunePotentialPresets(): RunePotentialPreset[] {
 function emptyChoice<T>(): PresetChoice<T> { return { preferred: [], acceptable: [] }; }
 
 /**
- * A new preset starts with zero targets. The editor may hold a blank field
- * while it is open, but saving makes that temporary blank explicit.
+ * A new preset starts with no targets. The editor keeps that absence visible
+ * until the user chooses what the role is aiming at.
  */
 export function createRunePotentialPreset(name = 'New preset'): RunePotentialPreset {
   return withDerivedMetrics({
@@ -355,7 +359,7 @@ export function createRunePotentialPreset(name = 'New preset'): RunePotentialPre
     sets: emptyChoice<string>(),
     slots: { slot2: emptyChoice<RuneMainStat>(), slot4: emptyChoice<RuneMainStat>(), slot6: emptyChoice<RuneMainStat>() },
     artifacts: { atk: false, def: false, hp: false },
-    targets: { hp: 0, atk: 0, def: 0, spd: 0, res: 0, acc: 0, criRate: 0, criDmg: 0 },
+    targets: {},
   });
 }
 
@@ -379,9 +383,9 @@ export function withRefreshedMetrics(preset: RunePotentialPreset): RunePotential
 
 /** The stated stats of a target row, with the three derived composites dropped. */
 function statTargetsOnly(targets: PresetTargets): PresetStatTargets {
-  const stats: PresetStatTargets = { hp: 0, atk: 0, def: 0, spd: 0, res: 0, acc: 0, criRate: 0, criDmg: 0 };
+  const stats: PresetStatTargets = {};
   for (const key of presetStatTargetKeys) {
-    if (targets[key] !== undefined) stats[key] = targets[key];
+    if (targets[key] !== undefined && targets[key] !== 0) stats[key] = targets[key];
   }
   return stats;
 }
@@ -408,14 +412,14 @@ function isChoice<T extends string>(value: unknown, allowed: readonly T[]): valu
     && new Set(members).size === members.length;
 }
 
-/* Each target on its own. The composites are not read at all: they are
+/* Each stated target on its own. The composites are not read at all: they are
    derived, so the reader recomputes them rather than trusting a stored copy. */
 function readStatTargets(value: unknown): PresetStatTargets {
   const stored = isRecord(value) ? value : {};
-  const targets: PresetStatTargets = { hp: 0, atk: 0, def: 0, spd: 0, res: 0, acc: 0, criRate: 0, criDmg: 0 };
+  const targets: PresetStatTargets = {};
   for (const key of presetStatTargetKeys) {
     const target = stored[key];
-    if (typeof target === 'number' && Number.isInteger(target) && target >= 0 && target <= presetTargetMaximum) targets[key] = target;
+    if (typeof target === 'number' && Number.isInteger(target) && target > 0 && target <= presetTargetMaximum) targets[key] = target;
   }
   return targets;
 }

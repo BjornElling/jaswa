@@ -66,7 +66,7 @@ test('the caret stays where the user put it while the editor is open', async ({ 
   await expect(spd).toHaveValue('215');
 });
 
-test('a blank desired stat is saved as zero', async ({ page }) => {
+test('a zero desired stat is saved as unstated', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.getByRole('button', { name: 'Rune Set-up' }).click();
@@ -74,11 +74,14 @@ test('a blank desired stat is saved as zero', async ({ page }) => {
   await page.getByRole('button', { name: 'Add preset' }).click();
 
   const hp = page.getByRole('spinbutton', { name: 'HP', exact: true });
-  await expect(hp).toHaveValue('0');
-  await hp.fill('');
+  await expect(hp).toHaveValue('');
+  await hp.fill('0');
   await page.getByRole('button', { name: 'Add preset' }).last().click();
   await expect(page.getByRole('dialog')).toBeHidden();
 
+  const saved = page.locator('.preset-card').filter({ hasText: 'New preset' });
+  await expect(saved.locator('.target.empty')).toHaveCount(11);
+
   await page.getByRole('button', { name: 'Edit New preset' }).click();
-  await expect(page.getByRole('spinbutton', { name: 'HP', exact: true })).toHaveValue('0');
+  await expect(page.getByRole('spinbutton', { name: 'HP', exact: true })).toHaveValue('');
 });

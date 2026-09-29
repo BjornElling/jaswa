@@ -554,7 +554,7 @@ function PresetEditor({ draft, isNew, onCancel, onSave }: {
           </div>
         </EditorBlock>
 
-        <EditorBlock title="Desired stats" note="Leave a stat empty to save it as 0. DMG, E.HP and E.HP D follow from these and are not entered.">
+        <EditorBlock title="Desired stats" note="Leave a stat empty — or enter 0 — to leave it unstated. DMG, E.HP and E.HP D follow from these and are not entered.">
           <div className="editor-targets">
             {presetStatTargetKeys.map((key) => {
               const column = presetTargetColumns.find((entry) => entry.key === key);
@@ -563,7 +563,7 @@ function PresetEditor({ draft, isNew, onCancel, onSave }: {
                 <span>{column?.label ?? key}{column?.unit}</span>
                 <input type="number" min={0} max={presetTargetMaximum} step={1} inputMode="numeric"
                   value={value === undefined ? '' : value}
-                  placeholder="0"
+                  placeholder="—"
                   onChange={(event) => {
                     const raw = event.target.value.trim();
                     const parsed = Number(raw);
