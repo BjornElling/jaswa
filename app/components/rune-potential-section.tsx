@@ -136,6 +136,17 @@ export function RuneSetupSection({ game, settings, presets, general, hardwareAcc
     setDeleting(null);
   }
 
+  function movePreset(id: string, direction: -1 | 1) {
+    onWritePresets((current) => {
+      const index = current.findIndex((entry) => entry.id === id);
+      const destination = index + direction;
+      if (index < 0 || destination < 0 || destination >= current.length) return current;
+      const reordered = [...current];
+      [reordered[index], reordered[destination]] = [reordered[destination], reordered[index]];
+      return reordered;
+    });
+  }
+
   const readyStatistics = base && presets.length > 0 && statistics.status === 'ready' ? statistics : null;
   const statisticsReady = readyStatistics !== null;
   const statisticsCopy = !base
@@ -262,11 +273,15 @@ export function RuneSetupSection({ game, settings, presets, general, hardwareAcc
         {presets.length === 0
           ? <p className="notice">Every preset is gone, including the ones JASWA started you with. Add one to say what a rune should be judged against.</p>
           : <div className="preset-list">
-            {presets.map((preset) => <PresetCard
+            {presets.map((preset, index) => <PresetCard
               key={preset.id}
               preset={preset}
               onEdit={() => setEditing({ draft: preset, isNew: false })}
               onDelete={() => setDeleting(preset)}
+              onMoveEarlier={() => movePreset(preset.id, -1)}
+              onMoveLater={() => movePreset(preset.id, 1)}
+              canMoveEarlier={index > 0}
+              canMoveLater={index < presets.length - 1}
             />)}
           </div>}
       </div>
@@ -357,10 +372,14 @@ function PresetRow({ label, children }: { label: string; children: ReactNode }) 
   </div>;
 }
 
-function PresetCard({ preset, onEdit, onDelete }: {
+function PresetCard({ preset, onEdit, onDelete, onMoveEarlier, onMoveLater, canMoveEarlier, canMoveLater }: {
   preset: RunePotentialPreset;
   onEdit: () => void;
   onDelete: () => void;
+  onMoveEarlier: () => void;
+  onMoveLater: () => void;
+  canMoveEarlier: boolean;
+  canMoveLater: boolean;
 }) {
   const artifacts: Array<[string, boolean]> = [['ATK', preset.artifacts.atk], ['DEF', preset.artifacts.def], ['HP', preset.artifacts.hp]];
 
@@ -373,6 +392,14 @@ function PresetCard({ preset, onEdit, onDelete }: {
         </div>
       </div>
       <div className="preset-actions">
+        <button className="icon-button" type="button" onClick={onMoveEarlier} disabled={!canMoveEarlier}
+          title={`Move ${preset.name} earlier`} aria-label={`Move ${preset.name} earlier`}>
+          <PresetMoveIcon direction="up" />
+        </button>
+        <button className="icon-button" type="button" onClick={onMoveLater} disabled={!canMoveLater}
+          title={`Move ${preset.name} later`} aria-label={`Move ${preset.name} later`}>
+          <PresetMoveIcon direction="down" />
+        </button>
         <button className="icon-button" onClick={onEdit} title={`Edit ${preset.name}`} aria-label={`Edit ${preset.name}`}>
           <PencilIcon />
         </button>
@@ -413,6 +440,13 @@ function PresetCard({ preset, onEdit, onDelete }: {
       </PresetRow>
     </div>
   </article>;
+}
+
+function PresetMoveIcon({ direction }: { direction: 'up' | 'down' }) {
+  return <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor"
+    strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d={direction === 'up' ? 'M8 13V3M4 7l4-4 4 4' : 'M8 3v10M4 9l4 4-4 4'} />
+  </svg>;
 }
 
 function PencilIcon() {

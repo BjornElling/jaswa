@@ -2999,12 +2999,13 @@ label[for] {
   transition: color .12s, border-color .12s, background .12s;
 }
 .preset-card:hover .icon-button { color: var(--text-muted); }
-.icon-button:hover {
+.icon-button:hover:not(:disabled) {
   color: var(--text-accent);
   border-color: var(--line-strong);
   background: var(--hover);
 }
-.icon-button.danger:hover { color: var(--state-bad); border-color: var(--state-bad); }
+.icon-button.danger:hover:not(:disabled) { color: var(--state-bad); border-color: var(--state-bad); }
+.icon-button:disabled { opacity: .35; cursor: default; }
 .icon-button:focus-visible { color: var(--text-accent); }
 /* A long name wraps rather than pushing the actions off the line, and stops at
    three lines so one preset cannot take a screen to itself. */
