@@ -4753,10 +4753,15 @@ html.overlay-open .overlay-backdrop { right: var(--overlay-gutter, 0px); }
   text-underline-offset: 3px;
 }
 .rune-link:hover, .rune-link:focus-visible { color: var(--text-accent); text-decoration-color: currentColor; }
-/* A row that opens its rune says so from anywhere in it by lighting the one name that
-   does it. The rest of the row is data and keeps its ink. */
+/* A row that opens its rune is the target as a whole, so the whole row answers the
+   pointer with a faint trace of the accent's hover wash — the one a Reset filters
+   button takes, thinned, because a whole row of it outshouts the data — and no cell's
+   text changes. Lighting only the set name was tried and read as a link that had
+   wandered off from where the pointer was. The name still marks keyboard focus, since
+   there it is the control itself that is being pointed at. */
 tr[data-opens-rune] { cursor: pointer; }
-tr[data-opens-rune]:hover .rune-link { color: var(--text-accent); text-decoration-color: currentColor; }
+.grid-table tbody tr[data-opens-rune]:hover td { background: color-mix(in srgb, var(--gold-deep) 35%, var(--hover)); }
+tr[data-opens-rune] .rune-link:hover:not(:focus-visible) { color: inherit; text-decoration-color: transparent; }
 .rune-link-cell { display: inline-flex; align-items: center; gap: var(--s2); min-width: 0; }
 .rune-link-label { display: inline-flex; }
 .overlay-rune-links { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s3); }
