@@ -42,7 +42,7 @@ test('the rune overlay states the rune and nothing else, and returns focus', asy
   await expect(overlay.getByRole('columnheader', { name: 'Improvements' })).toHaveAttribute('title', /Gem is decided at \+12/);
   const improvements = overlay.getByRole('table', { name: 'Sub properties' }).locator('tbody tr td:nth-child(4)');
   await expect(improvements.filter({ hasText: /^\+\d+%?$/ })).toHaveCount(2);
-  await expect(overlay.locator('.rune-overlay-subs').getByRole('img', { name: 'Enchanted Gem to' })).toHaveCount(0);
+  await expect(improvements.getByRole('img', { name: /from an Enchanted Gem$/ })).toHaveCount(0);
   await expect(overlay.getByText('Not revealed yet')).toHaveCount(0);
   /* The stats box states the rune as it is; only Evaluation speaks of +15. */
   await expect(overlay.locator('.rune-overlay-stats').getByText(/at \+15/)).toHaveCount(0);
@@ -73,7 +73,7 @@ test('Improvements names the Gem and the stones the verdict counted', async ({ p
   /* The Gem is named with the roll Max value counts for it, unsigned: it is what the
      line becomes, not something added to it. */
   await expect(maxOf(/^HP/)).toHaveText(/^CRI Rate\s*6%$/);
-  await expect(maxOf(/^HP/).getByRole('img', { name: 'Enchanted Gem to' })).toBeVisible();
+  await expect(maxOf(/^HP/).getByRole('img', { name: 'CRI Rate from an Enchanted Gem' })).toBeVisible();
   await expect(maxOf(/^ATK/)).toHaveText('+6%');
   await expect(maxOf(/^SPD/)).toHaveText('+4');
   await expect(maxOf(/^Resistance/)).toHaveText('');

@@ -280,7 +280,8 @@ function Instructions({ rune, hold, onHold }: { rune: Rune; hold: RuneHold | und
 
 /** A Gem's id, what it rolled, and a stone's figure, written alike in every column that shows them.
     The id stands without a figure, so it is named as a kind — `HP %`, `HP +` — the
-    way a filter names one, or the two HP lines would read alike. */
+    way a filter names one, or the two HP lines would read alike. The Gem's mark
+    follows its value, where the sub property column and the game put it. */
 function CraftCell({ gemStatId, gemRoll, grind, statId, format }: {
   gemStatId: number | null;
   /** What the Gem here rolled — or, in Improvements, is counted to roll — its stone
@@ -291,10 +292,10 @@ function CraftCell({ gemStatId, gemRoll, grind, statId, format }: {
   const name = gemStatId === null ? null : runeStatName(gemStatId) ?? `Stat ${gemStatId}`;
   return <span className="rune-overlay-craft">
     {name !== null && <>
-      <CircularArrowsMark label="Enchanted Gem to" className="rune-sub-gem" />
       <span>{name}</span>
       {gemRoll !== undefined && gemStatId !== null
         && <span className="rune-overlay-figure">{runeLineValue(gemStatId, gemRoll, format)}</span>}
+      <CircularArrowsMark label={`${name} from an Enchanted Gem`} className="rune-sub-gem" />
     </>}
     {grind > 0 && <span className="rune-overlay-figure">{runeLineFigure(gemStatId ?? statId, grind, format)}</span>}
   </span>;
