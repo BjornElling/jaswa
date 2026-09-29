@@ -18,7 +18,7 @@ import type { PresetReading, RuneAdvice, RuneCraftStep } from '../lib/rune-clean
 import type { RunePotentialPreset } from '../lib/rune-potential-presets';
 import { lastSubPropertyLevel } from '../lib/rune-properties';
 import { referenceLines } from '../lib/rune-reference-stats';
-import { runeLineFigure, runeLineStat, runeStatName } from '../lib/runes';
+import { runeLineFigure, runeLineStat, runeLineValue, runeStatName } from '../lib/runes';
 import type { Rune } from '../lib/runes';
 import type { GeneralSettings, RunePotentialSettings } from '../lib/types';
 
@@ -227,7 +227,8 @@ function Evaluation({ rune, presets, explained }: {
     way a filter names one, or the two HP lines would read alike. */
 function CraftCell({ gemStatId, gemRoll, grind, statId, format }: {
   gemStatId: number | null;
-  /** What a Gem already spent here rolled, its stone excluded; absent where none has been. */
+  /** What the Gem here rolled — or, in Max stats, is counted to roll — its stone
+      excluded and printed after it; absent where no Gem is named. */
   gemRoll?: number;
   grind: number; statId: number; format: (value: number) => string;
 }) {
@@ -237,7 +238,7 @@ function CraftCell({ gemStatId, gemRoll, grind, statId, format }: {
       <CircularArrowsMark label="Enchanted Gem to" className="rune-sub-gem" />
       <span>{name}</span>
       {gemRoll !== undefined && gemStatId !== null
-        && <span className="rune-overlay-figure">{runeLineFigure(gemStatId, gemRoll, format)}</span>}
+        && <span className="rune-overlay-figure">{runeLineValue(gemStatId, gemRoll, format)}</span>}
     </>}
     {grind > 0 && <span className="rune-overlay-figure">{runeLineFigure(gemStatId ?? statId, grind, format)}</span>}
   </span>;
@@ -340,7 +341,7 @@ export function RuneOverlay({ rune, game, general, settings, presets, hardwareAc
                 <td><CraftCell gemStatId={property.gemmed ? property.statId : null} gemRoll={property.value} grind={0} statId={property.statId} format={figure} /></td>
                 <td title={maxCraft.state === 'unavailable' ? maxCraft.reason : undefined}>
                   {step
-                    ? <CraftCell gemStatId={step.gemStatId} grind={step.grind} statId={property.statId} format={figure} />
+                    ? <CraftCell gemStatId={step.gemStatId} gemRoll={step.gemValue ?? undefined} grind={step.grind} statId={property.statId} format={figure} />
                     : maxCraft.state === 'unavailable' && <span className="muted">—</span>}
                 </td>
               </tr>;

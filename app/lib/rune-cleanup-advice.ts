@@ -855,6 +855,8 @@ function finishedLines(candidate: RuneCandidate): EndStateLine[] {
 export type RuneCraftStep = {
   /** The id the Gem puts on this line, or `null` where no Gem is spent here. */
   gemStatId: number | null;
+  /** What Max value assumes that Gem rolls, its stone excluded; `null` where no Gem is spent. */
+  gemValue: number | null;
   /** The stone the end state carries on this line, or `0` where none is spent. */
   grind: number;
 };
@@ -862,11 +864,14 @@ export type RuneCraftStep = {
 export function runeCraftSteps(rune: Rune, crafted: readonly EndStateLine[]): RuneCraftStep[] {
   return rune.subProperties.map((line, at) => {
     const end = crafted[at];
-    if (end === undefined) return { gemStatId: null, grind: 0 };
+    if (end === undefined) return { gemStatId: null, gemValue: null, grind: 0 };
     const gemSpent = end.statId !== line.statId || end.value !== line.value || end.gemmed !== line.gemmed;
     /* A Gem on another id starts the line bare; re-rolling its own id keeps the stone. */
     const kept = gemSpent && end.statId !== line.statId ? 0 : line.grind;
-    return { gemStatId: gemSpent ? end.statId : null, grind: end.grind > kept ? end.grind : 0 };
+    return {
+      gemStatId: gemSpent ? end.statId : null, gemValue: gemSpent ? end.value : null,
+      grind: end.grind > kept ? end.grind : 0,
+    };
   });
 }
 

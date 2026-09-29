@@ -43,8 +43,13 @@ export function runeLineStat(id: number): string | undefined {
   return runeStatNames[id]?.replace(/ [+%]$/, '');
 }
 
+/** The figure without its sign, for a value that is a result rather than an addition — what a Gem rolls. */
+export function runeLineValue(id: number, value: number, format: (value: number) => string = String): string {
+  return `${format(value)}${percentStatIds.has(id) ? '%' : ''}`;
+}
+
 export function runeLineFigure(id: number, value: number, format: (value: number) => string = String): string {
-  return `+${format(value)}${percentStatIds.has(id) ? '%' : ''}`;
+  return `+${runeLineValue(id, value, format)}`;
 }
 
 export function runeLineText(id: number, value: number): string {
