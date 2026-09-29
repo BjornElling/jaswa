@@ -465,6 +465,8 @@ export type RuneAdvice = {
  */
 export type PresetReading = {
   presetId: string;
+  /** How the rune's set and main answer this preset — the worse of the two. */
+  rank: MatchRank;
   maxValue: number;
   chance: number;
   /** What the rune is expected to be worth at `+15`, on the Max value scale — the figure Best preset is chosen on. */
@@ -775,7 +777,7 @@ function presetReadings(
     if (!pick) return [];
     const raw = candidateExpectedValue(pick.candidate, () => (runs ??= runeRuns(pick.candidate.future)));
     return [{
-      presetId: preset.id, maxValue: pick.maxValue, chance: pick.chance, expected: worthOf(pick.rank) * raw,
+      presetId: preset.id, rank: pick.rank, maxValue: pick.maxValue, chance: pick.chance, expected: worthOf(pick.rank) * raw,
       floorShare: pick.share, floorMaxValue: pick.floorMaxValue, cleared: qualified.length > 0,
     }];
   });

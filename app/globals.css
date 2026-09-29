@@ -4905,7 +4905,7 @@ html.overlay-open .overlay-backdrop { right: var(--overlay-gutter, 0px); }
   color: var(--text);
 }
 .rune-overlay-readings :is(th, td):first-child { text-align: left; }
-.rune-overlay-readings :is(th, td):last-child { text-align: center; }
+.rune-overlay-readings :is(th, td):is(:nth-child(2), :last-child) { text-align: center; }
 .rune-overlay-readings thead th {
   height: var(--s4);
   padding-bottom: var(--s1);
@@ -4915,7 +4915,9 @@ html.overlay-open .overlay-backdrop { right: var(--overlay-gutter, 0px); }
 .rune-overlay-readings thead th:first-child { width: 32%; }
 /* Ink, not weight, marks the best reading: bold would widen its row's text. */
 .rune-overlay-readings tr[data-best] :is(th, td) { color: var(--text-strong); }
-.rune-overlay-best-mark { width: 12px; height: 12px; vertical-align: middle; }
+.rune-overlay-best-mark, .rune-overlay-match-mark { width: 12px; height: 12px; vertical-align: middle; }
+.rune-overlay-match-mark[data-rank="preferred"] { color: var(--text-strong); }
+.rune-overlay-match-mark[data-rank="acceptable"] { color: var(--text-muted); }
 
 .overlay-block { display: grid; gap: var(--s3); }
 .overlay-block-head {

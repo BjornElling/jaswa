@@ -15,6 +15,7 @@ import { runeAdviceChannel } from '../lib/compute/rune-advice-client';
 import { rememberedRuneAdvice, rememberRuneAdvice } from '../lib/compute/rune-advice-memory';
 import { runeCraftSteps } from '../lib/rune-cleanup-advice';
 import type { PresetReading, RuneAdvice, RuneCraftStep } from '../lib/rune-cleanup-advice';
+import type { MatchRank } from '../lib/rune-cleanup-model';
 import type { RunePotentialPreset } from '../lib/rune-potential-presets';
 import { lastSubPropertyLevel } from '../lib/rune-properties';
 import { referenceLines } from '../lib/rune-reference-stats';
@@ -145,6 +146,23 @@ function maxCraftOf(rune: Rune, known: RuneAdvice | undefined, explained: Explai
 const tenths = (fraction: number) => `${(fraction * 100).toFixed(1)} %`;
 
 /**
+ * A preferred rune gets a tick and an accepted one a ring: two shapes rather than
+ * one shape in two tones, so the difference survives a glance, and the ring is also
+ * dimmed, the house's device for acceptable against preferred. A rune the preset
+ * names neither way gets nothing: a blank cell is quicker to read past than a third mark.
+ */
+function MatchMark({ rank }: { rank: MatchRank }) {
+  if (rank === 'broken') return null;
+  const preferred = rank === 'preferred';
+  const label = preferred ? 'Preferred' : 'Accepted';
+  return <svg className="rune-overlay-match-mark" data-rank={rank} viewBox="0 0 16 16" fill="none"
+    stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" role="img" aria-label={label}>
+    <title>{label}</title>
+    {preferred ? <path d="M3.5 8.5 6.5 11.5 12.5 4.5" /> : <circle cx="8" cy="8" r="4" />}
+  </svg>;
+}
+
+/**
  * The presets in the order Best preset is decided in: the readings that clear both
  * gates before those that do not, then by average worth at +15, then Max value — so
  * the starred row leads and no row above it can carry a higher average. The one
@@ -199,6 +217,7 @@ function Evaluation({ rune, presets, explained }: {
       <thead>
         <tr>
           <th scope="col">Preset</th>
+          <th scope="col" title="How the rune's set and main property answer the preset: a tick where it prefers both, a ring where it only accepts one or both, nothing where it asked for neither">Match</th>
           <th scope="col">Max value</th>
           <th scope="col">Chance</th>
           <th scope="col" title="What the rune is worth on average once levelled to +15, against a perfect rune — the figure Best preset is chosen on">Avg. at +15</th>
@@ -211,6 +230,7 @@ function Evaluation({ rune, presets, explained }: {
           const best = chosen?.id === preset.id;
           return <tr key={preset.id} data-best={best || undefined} aria-current={best ? 'true' : undefined}>
             <th scope="row" title={preset.name}>{preset.name}</th>
+            <td>{reading && <MatchMark rank={reading.rank} />}</td>
             <td>{reading ? tenths(reading.maxValue) : '—'}</td>
             <td>{reading && oddsLeft ? runeChanceText(reading.chance) : '—'}</td>
             <td>{reading ? tenths(reading.expected) : '—'}</td>

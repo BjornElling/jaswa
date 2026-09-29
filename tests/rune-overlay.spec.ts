@@ -98,7 +98,10 @@ test('Evaluation explains Best preset with every preset\'s reading, at one heigh
   await expect(best.getByRole('img', { name: 'Best preset' })).toBeVisible();
   await expect(evaluation.getByText(presetName, { exact: true }).first()).toBeVisible();
   await expect(row).toContainText(presetName);
-  const bestMax = (await best.locator('td').first().textContent())!;
+  const bestMax = (await best.locator('td').nth(1).textContent())!;
+  /* A preset that prefers or accepts the rune says so; one that cannot read it, nothing. */
+  await expect(readings.getByRole('img', { name: /^(Preferred|Accepted)$/ }).first()).toBeVisible();
+  await expect(readings.locator('tbody tr').last().locator('td').first()).toBeEmpty();
   await expect(row).toContainText(`${Math.round(Number.parseFloat(bestMax))} %`);
   const facts = evaluation.locator('.rune-overlay-evaluation-facts dd');
   await expect(facts.nth(1)).toHaveText(/^\d+\.\d %$/);
