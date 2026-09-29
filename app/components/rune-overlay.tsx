@@ -16,6 +16,7 @@ import { rememberedRuneAdvice, rememberRuneAdvice } from '../lib/compute/rune-ad
 import { runeCraftSteps } from '../lib/rune-cleanup-advice';
 import type { PresetReading, RuneAdvice, RuneCraftStep } from '../lib/rune-cleanup-advice';
 import type { MatchRank } from '../lib/rune-cleanup-model';
+import { runeMainStatByEffect } from '../lib/rune-potential-presets';
 import type { RunePotentialPreset } from '../lib/rune-potential-presets';
 import { lastSubPropertyLevel } from '../lib/rune-properties';
 import { referenceLines } from '../lib/rune-reference-stats';
@@ -141,6 +142,11 @@ function maxCraftOf(known: RuneAdvice | undefined, explained: Explained, rune: R
     `74 %` beside a Sell would explain nothing. */
 const tenths = (fraction: number) => `${(fraction * 100).toFixed(1)} %`;
 
+/** A build's slot 2, 4 and 6 mains in the preset editor's words; a slot the preset
+    leaves open takes any main, and says so. */
+const buildText = (mains: NonNullable<RuneAdvice['buildMains']>) =>
+  ([2, 4, 6] as const).map((slot) => runeMainStatByEffect[mains[slot]] ?? 'Any').join(' / ');
+
 /** How the rune's set and main answer Best preset, in the words the preset editor uses. */
 const suitabilityLabels: Record<MatchRank, string> = { preferred: 'Preferred', acceptable: 'Accepted', broken: 'Broken' };
 
@@ -199,6 +205,9 @@ function Evaluation({ rune, presets, explained }: {
   const facts = [
     { label: 'Best preset for this rune', value: chosen?.name ?? placeholder },
     { label: 'Set and main desirability for this preset', value: chosen && advice ? suitabilityLabels[advice.rank] : '—' },
+    /* Which build the reading assumed stands on its own: it is what explains a line the
+       Improvements column gems away, and it is neither the preset nor the floor. */
+    { label: 'Best for the slot 2/4/6 mains', value: chosen && advice?.buildMains ? buildText(advice.buildMains) : '—', opensGroup: true },
     /* The floor and its cutoff are one statement, set a step apart from which preset
        it is and how well the rune suits it. */
     { label: 'Based on the Rune quality floor, the rune must be among the best', value: chosen && advice ? tenths(advice.floorShare) : '—', opensGroup: true },

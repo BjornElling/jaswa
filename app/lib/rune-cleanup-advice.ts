@@ -450,6 +450,14 @@ export type RuneAdvice = {
    */
   craftedLines: EndStateLine[] | null;
   /**
+   * The slot 2, 4 and 6 mains of the build `preset` was read in, `0` where the preset
+   * leaves a slot open. A rune keeps its best build, and which one that is decides what
+   * each of its lines is worth — a CRI Rate % main in slot 4 can meet the role's whole
+   * CRI Rate target and leave a CRI Rate sub worth nothing — so the page names it.
+   * `null` only where no preset can use the rune.
+   */
+  buildMains: Build['mains'] | null;
+  /**
    * Every preset's own best reading of this rune, for a page that explains the
    * choice of Best preset rather than only stating it. `null` unless asked for:
    * a reading's expectation costs a pass over the rune's runs, and the table,
@@ -753,6 +761,7 @@ export async function runeAdvice(
       floorShare: chosen?.share ?? 0,
       floorMaxValue: chosen?.floorMaxValue ?? 0,
       craftedLines: chosen ? finishedLines(chosen.candidate) : null,
+      buildMains: chosen ? chosen.candidate.build.mains : null,
       readings: explain ? presetReadings(presets, answersWithSteps, allowed, chanceBar, worthOf) : null,
     });
   }
@@ -885,7 +894,7 @@ function decide({ rune, value, standing, chance, preset, rank, cleared, brokenRe
   rune: Rune; value: number; standing: number; chance: number;
   preset: RunePotentialPreset | null; rank: MatchRank;
   cleared: boolean; brokenRejected: boolean;
-}): Omit<RuneAdvice, 'craftedLines' | 'floorShare' | 'floorMaxValue' | 'readings'> {
+}): Omit<RuneAdvice, 'craftedLines' | 'buildMains' | 'floorShare' | 'floorMaxValue' | 'readings'> {
   const base = { maxValue: value, standing, chance, preset, rank };
   if (preset === null) {
     return { ...base, verdict: 'sell', reason: 'No preset can use it' };

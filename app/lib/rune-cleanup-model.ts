@@ -796,6 +796,9 @@ export type RuneCandidate = {
   readonly valuation: Valuation;
   readonly weights: SubstatWeights;
   readonly ceiling: number;
+  /** The build this candidate is priced in. Its slot 2, 4 and 6 mains decide what the
+      role still asks of sub properties, so a reading is not explained without it. */
+  readonly build: Build;
   /** The main property this build puts in the rune's slot, which fixes its legal ids. */
   readonly main: number;
   /** The best legal end state the rune can still reach, in this role's units. */
@@ -929,7 +932,7 @@ export function prepareRuneCandidate(
     ? build.ranks[rune.slot as 2 | 4 | 6] : 'preferred';
 
   return {
-    rune, valuation, weights, ceiling, main, stars, best, future, scoring, credit, plan,
+    rune, valuation, weights, ceiling, build, main, stars, best, future, scoring, credit, plan,
     lineage, rank: worseRank(setRank, mainRank), scope,
   };
 }
