@@ -110,6 +110,9 @@ test('a nickname is typed in place after the name, and its parentheses are the h
   await page.getByRole('button', { name: 'Save changes' }).click();
   await expect(dialog).toBeHidden();
   expect((await storedPreferences(page))?.['1']?.label).toBe('Arena nuker');
+  /* The table names the copy as the heading does: the game's name first, the
+     nickname after it, never in its place. */
+  await expect(page.locator('.monster-link').first()).toHaveText(`${name} (Arena nuker)`);
 });
 
 test('anywhere in a monster row opens its overlay, and selecting text there does not', async ({ page }) => {

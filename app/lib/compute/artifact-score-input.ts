@@ -9,6 +9,7 @@ import type { GameRecord } from '../game-data';
 import type { MonsterCopyPreferences, MonsterPreferences } from '../monster-preferences';
 import { monsterSpeciesPresentation } from '../monster-catalog';
 import { monsterSpeciesId } from '../monster-identity';
+import { labelledMonsterName } from '../monster-names';
 import { elementName } from '../rune-sets';
 import { artifactPropertyIndex, categoryCode, scoredArtifactProperties } from './artifact-score-schema';
 import { artifactFitsClassCodes, intangibleRestrictionCode } from './artifact-score-protocol';
@@ -154,7 +155,7 @@ function packStatedCopy(
     ...species,
     id: unitId,
     ownerUnitId: unitId,
-    name: stated.label && stated.label.length > 0 ? stated.label : species.name,
+    name: labelledMonsterName(species.name, stated.label),
     /* A stated list is exhaustive: a main the user did not name is one they do
        not want, which is `unwanted`, not `acceptable`. Every named main is
        preferred — the user drew no ranking, so the scorer must not invent one. */

@@ -15,7 +15,6 @@ export type MonsterRow = {
      is what a search compares to reach a row's awakened forms (§17.15). */
   masterId: string;
   name: string;
-  secondaryName?: string;
   /* Names the row answers to in search but never shows — the twin release's
      name, or a former name after a rename. See `monster-catalog.ts`. */
   searchAliases?: string[];

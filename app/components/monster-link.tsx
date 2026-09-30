@@ -32,19 +32,15 @@ export type OpenMonsterOverlay = (target: MonsterReference, opener: HTMLElement)
  * `target` of `null` renders the name as the inert text it is today — a wearer
  * this import does not contain, or a location that is not a monster at all.
  */
-export function MonsterLink({ target, name, secondaryName, portrait, onOpen, children }: {
+export function MonsterLink({ target, name, portrait, onOpen, children }: {
   target: MonsterReference | null;
   name: string;
-  secondaryName?: string;
   portrait?: { imageFilename?: string; initial: string };
   onOpen?: OpenMonsterOverlay;
   /** What to render in place of the name, where a caller draws its own cell. */
   children?: ReactNode;
 }) {
-  const label = <span className="monster-name">
-    {children ?? name}
-    {secondaryName !== undefined && <small>{secondaryName}</small>}
-  </span>;
+  const label = <span className="monster-name">{children ?? name}</span>;
 
   const body = portrait === undefined ? label : <>
     <MonsterPortrait imageFilename={portrait.imageFilename} initial={portrait.initial} name={name} decorative />

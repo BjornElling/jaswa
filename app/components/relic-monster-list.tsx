@@ -314,7 +314,7 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
     const term = search.trim().toLowerCase();
     if (!term) return undefined;
     const named = rows
-      .filter((row) => [row.name, row.secondaryName ?? '', ...(row.searchAliases ?? [])]
+      .filter((row) => [row.name, ...(row.searchAliases ?? [])]
         .some((name) => name.toLowerCase().includes(term)))
       .map((row) => row.masterId);
     return withHigherAwakenings(named, rows.map((row) => row.masterId));
@@ -476,7 +476,6 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
               <MonsterLink
                 target={{ kind: 'copy', unitId: row.unitId, masterId: row.masterId }}
                 name={row.name}
-                secondaryName={row.secondaryName}
                 portrait={{ imageFilename: row.imageFilename, initial: row.initial }}
                 onOpen={onOpenMonster}
               />

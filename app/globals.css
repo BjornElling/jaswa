@@ -1503,13 +1503,6 @@ label[for] {
 .monster-name {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.monster-name small {
-  display: block;
-  font-size: var(--type-label);
-  color: var(--text-muted);
-  font-weight: 400;
-  margin-top: 1px;
-}
 
 /* monster portrait — the bundled artwork where it exists, the monster's
    own initial where it does not. Never the element. */

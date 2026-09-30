@@ -17,6 +17,7 @@ import { displaySubProperty } from '../lib/artifact-grid';
 import { formatNumber } from '../lib/formatting';
 import type { GameRecord } from '../lib/game-data';
 import { monsterPresentation, monsterSpeciesPresentation } from '../lib/monster-catalog';
+import { labelledMonsterName, numberedMonsterNames } from '../lib/monster-names';
 import type { RuneSlotKey } from '../lib/monster-defaults';
 import { runeSlotKeys } from '../lib/monster-defaults';
 import type {
@@ -215,6 +216,13 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
 
   const masterId = target.kind === 'copy' ? target.masterId : target.speciesId;
   const display = target.kind === 'copy' ? monsterPresentation(masterId) : monsterSpeciesPresentation(masterId);
+  /* The heading names the copy the way every table does — `Lushen (2A) #2` —
+     so the overlay and the row that opened it agree on which Lushen this is. */
+  const heroName = useMemo(() => {
+    if (target.kind !== 'copy' || !game) return display.name;
+    const roster = Array.isArray(game.unit_list) ? game.unit_list as GameRecord[] : [];
+    return numberedMonsterNames(roster)[target.unitId] ?? display.name;
+  }, [game, target, display.name]);
   const usage: MonsterUsage = useMemo(() => monsterUsage(masterId), [masterId]);
   const resolved: ResolvedMonsterPreferences = useMemo(
     () => resolveMonsterPreferences(target.kind === 'copy' ? target.unitId : '', masterId, draft),
@@ -343,8 +351,8 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
         <div className="overlay-identity">
           <div className="overlay-hero-line">
             <h2 id="monster-overlay-title" className="overlay-hero-name"
-              title={draft.label === undefined ? display.name : `${display.name} (${draft.label})`}>
-              {display.name}
+              title={labelledMonsterName(heroName, draft.label)}>
+              {heroName}
               {draft.label !== undefined && !editingNickname
                 && <span className="overlay-hero-nickname"> ({draft.label})</span>}
             </h2>

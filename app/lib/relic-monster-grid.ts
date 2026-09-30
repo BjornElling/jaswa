@@ -58,7 +58,6 @@ export type RelicMonsterRow = {
   masterId: string;
   index: number;
   name: string;
-  secondaryName?: string;
   searchAliases?: string[];
   element?: string;
   archetype?: MonsterArchetype;
@@ -233,7 +232,6 @@ export function relicMonsterSearchText(row: RelicMonsterRow): string {
   const chosen = row.recommendation.chosen;
   return [
     row.name,
-    row.secondaryName ?? '',
     row.element ?? '',
     row.worn.map((relic) => `${relicMonsterRelicLabel(relic)} ${relicMonsterRelicDetail(relic)}`).join(' '),
     chosen ? `${relicMonsterRelicLabel(chosen.relic)} ${relicMonsterRelicDetail(chosen.relic)}` : '',

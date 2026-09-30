@@ -200,8 +200,6 @@ export function MonsterOverview({ monsters, gameData, preferences, onOpenMonster
       return {
         unitId,
         masterId: String(monster.unit_master_id ?? `unknown-${index}`),
-        /* Only a user's own label earns a second line, and it shows the game's
-           name beneath it. A collaboration copy shows one name — its own. */
         ...copyNames[unitId],
         searchAliases: display.searchAliases,
         element: elementName(monster.attribute),
@@ -267,8 +265,7 @@ export function MonsterOverview({ monsters, gameData, preferences, onOpenMonster
     /* A user's own label is on the row rather than in the catalogue, so it is
        matched from the rows themselves and seeds the widening alongside. */
     const labelled = rows
-      .filter((row) => row.name.toLowerCase().includes(term)
-        || row.secondaryName?.toLowerCase().includes(term))
+      .filter((row) => row.name.toLowerCase().includes(term))
       .map((row) => row.masterId);
     return withHigherAwakenings([...named, ...labelled], rows.map((row) => row.masterId));
   }, [heldNames, rows, search]);
@@ -392,7 +389,6 @@ export function MonsterOverview({ monsters, gameData, preferences, onOpenMonster
               <MonsterLink
                 target={{ kind: 'copy', unitId: row.unitId, masterId: row.masterId }}
                 name={row.name}
-                secondaryName={row.secondaryName}
                 portrait={{ imageFilename: row.imageFilename, initial: row.initial }}
                 onOpen={onOpenMonster}
               />

@@ -15,24 +15,30 @@ export function numberedMonsterNames(monsters: readonly GameRecord[]): Record<st
   }));
 }
 
+/** A copy's numbered game name, qualified by the user's own label when it has one. */
+export function labelledMonsterName(gameName: string, label: string | undefined): string {
+  return label ? `${gameName} (${label})` : gameName;
+}
+
 /**
  * What one owned copy is called, wherever it is named.
  *
- * `name` is the user's own label when there is one and the numbered game name
- * otherwise; `secondaryName` is the game name under a label, so a renamed copy
- * can still be recognised. Every page naming a copy reads this rather than
- * composing the two itself: pages that read only the numbered name showed
- * "Lushen #2" on one screen and "Farm Lushen" on the next for the same monster.
+ * The numbered game name always comes first — `Lushen (2A) #2` — and a user's
+ * own label follows it in parentheses. A label qualifies the monster rather
+ * than replacing it: a copy called only "Farm" could not be recognised, and a
+ * list sorted by label scattered one species across the table. Every page
+ * naming a copy reads this rather than composing the two itself: pages that
+ * read only the numbered name showed "Lushen #2" on one screen and "Farm
+ * Lushen" on the next for the same monster.
  */
-export type MonsterCopyName = { name: string; secondaryName?: string };
+export type MonsterCopyName = { name: string };
 
 export function monsterCopyNames(
   monsters: readonly GameRecord[],
   monsterPreferences: MonsterPreferences,
 ): Record<string, MonsterCopyName> {
   const numbered = numberedMonsterNames(monsters);
-  return Object.fromEntries(Object.entries(numbered).map(([unitId, gameName]) => {
-    const label = monsterPreferences[unitId]?.label;
-    return [unitId, label ? { name: label, secondaryName: gameName } : { name: gameName }];
-  }));
+  return Object.fromEntries(Object.entries(numbered).map(([unitId, gameName]) => (
+    [unitId, { name: labelledMonsterName(gameName, monsterPreferences[unitId]?.label) }]
+  )));
 }
