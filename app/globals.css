@@ -319,7 +319,7 @@ label[for] {
 .token-choice-pill, .token-choice-more, .token-choice-option, .token-choice-empty,
 .token-choice-note,
 .artifact-subs li, .relic-effect, .best-monster-intangible,
-.calculation-status, .range-slider-values, .optimizer-draft-columns,
+.calculation-status, .range-slider-values,
 .helper-current-version, .import-badge-count, .best-artifact-result table,
 .best-monster-table, .artifact-recommendation-table-wrap > .artifact-recommendation-table,
 .grid-table, .meta-line, .sample-value, .target dd, .relic-monster-none,
@@ -330,7 +330,8 @@ label[for] {
 .math-example p, .math-table, .rune-simulator-stats-table td,
 .rune-simulator-stats-table tbody th, .rune-simulator-stats-table tfoot th,
 .rune-overlay-innate, .rune-overlay-subs, .rune-overlay-evaluation-facts,
-.rune-overlay-readings, .rune-overlay-readings tbody th {
+.rune-overlay-readings, .rune-overlay-readings tbody th,
+.rune-optimization-rune-main, .rune-optimization-rune-subs, .rune-optimization-choose {
   font-family: var(--font-body);
   font-size: var(--type-body);
   font-weight: 400;
@@ -339,7 +340,7 @@ label[for] {
 
 /* Body emphasis — weight carries priority without changing the family or size. */
 .type-body-emphasis, .monster-name, .slider-choice, .relic-verdict, .rune-verdict, .speed-rule-monster,
-.drop-zone.settled strong, .acceleration-adapter b {
+.drop-zone.settled strong, .acceleration-adapter b, .rune-optimization-rune-head {
   font-family: var(--font-body);
   font-size: var(--type-body);
   font-weight: 500;
@@ -375,7 +376,9 @@ label[for] {
 .preset-type, .overlay-provenance, .usage-share,
 .overlay-stat-current, .overlay-substat-unit, .overlay-slot-name,
 .choice-menu-option-note, .rune-build-leader-pieces, .rune-build-leader-count,
-.rune-build-note, .rune-build-composed, .overlay-suggestion-label, .speed-timeline-turn {
+.rune-build-note, .rune-build-composed, .overlay-suggestion-label, .speed-timeline-turn,
+.rune-optimization-provenance, .rune-optimization-rune-level, .rune-optimization-rune-where,
+.rune-optimization-rune-craft {
   font-family: var(--font-body);
   font-size: var(--type-label);
   font-weight: 400;
@@ -2127,19 +2130,6 @@ label[for] {
   margin: var(--s4) 0 0;
   padding-left: var(--s2);
 }
-.optimizer-draft { display: grid; gap: var(--s3); }
-.optimizer-draft .lead, .optimizer-draft-note { margin: 0; }
-.optimizer-draft-note { color: var(--text); }
-.optimizer-draft-columns {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 10ch;
-  gap: var(--s4);
-  padding: var(--s3) var(--s4);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--sunk);
-  color: var(--text-muted);
-  }
 
 /* ================================================================ filter panel
    THE AUTHORITATIVE SKELETON for every boxed filter panel.
@@ -2275,6 +2265,119 @@ label[for] {
    `--state-*` vocabulary `AGENTS.md` §5 allows. The sentence says what happened
    on its own; only the colour changes, so nothing around it moves. */
 .calculation-status[data-failed] { color: var(--state-bad); }
+
+/* ------------------------------------------------------ rune optimization
+   One question and its answers (`RUNE-OPTIMIZATION.md` §8): the monster, what
+   this calculation asks of it, how to search, then the builds. Every box is a
+   .filter-panel, so the page contributes only its own grid areas. */
+.rune-optimization { display: grid; gap: var(--s4); }
+.rune-optimization-monster-panel {
+  grid-template-columns: minmax(0, 1fr) max-content;
+  grid-template-areas: "monster actions";
+}
+.rune-optimization-monster { grid-area: monster; }
+.rune-optimization-monster .filter-group-controls { gap: var(--s4); }
+/* Fixed, so a long nickname chosen in the list cannot drag the link beside it. */
+.rune-optimization-monster .jaswa-select { width: 40ch; min-width: 0; }
+.rune-optimization-actions { grid-area: actions; justify-self: end; }
+.rune-optimization-action-row { display: flex; gap: var(--s2); }
+
+.rune-optimization-requirements {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-areas:
+    "builds  builds  builds  intangible"
+    "slot2   slot4   slot6   rank"
+    "targets targets targets targets";
+  align-items: start;
+}
+.rune-optimization-builds { grid-area: builds; }
+.rune-optimization-intangible { grid-area: intangible; }
+.rune-optimization-slot2 { grid-area: slot2; }
+.rune-optimization-slot4 { grid-area: slot4; }
+.rune-optimization-slot6 { grid-area: slot6; }
+.rune-optimization-rank { grid-area: rank; }
+.rune-optimization-rank .jaswa-select { width: 18ch; }
+.rune-optimization-targets { grid-area: targets; white-space: normal; }
+.rune-optimization-target-row {
+  display: grid;
+  grid-template-columns: repeat(11, minmax(0, 1fr));
+  gap: var(--s3);
+}
+.rune-optimization-target { display: grid; gap: var(--s1); }
+/* Where an answer came from, on a line of its own that is always there and never
+   wraps, so its wording can change under a choice without moving the field. */
+.rune-optimization-provenance {
+  margin: 0;
+  min-height: 1.5em;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rune-optimization-settings {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-areas:
+    "gems  grinds sources"
+    "depth depth  count";
+  align-items: start;
+}
+.rune-optimization-gems { grid-area: gems; }
+.rune-optimization-grinds { grid-area: grinds; }
+.rune-optimization-sources { grid-area: sources; }
+.rune-optimization-depth { grid-area: depth; }
+.rune-optimization-count { grid-area: count; }
+.rune-optimization-craft-choices { display: flex; gap: var(--s2); }
+.rune-optimization-craft-choices .jaswa-select { width: 16ch; }
+
+/* One line reserved for the status, so starting a search or finishing one never
+   moves the table below it. */
+.rune-optimization-status { min-height: 1.5em; }
+.rune-optimization-results { display: grid; gap: var(--s2); }
+.rune-optimization-results-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s4); }
+.rune-optimization-results-head h3 { margin: 0; }
+.rune-optimization-table { table-layout: fixed; }
+.rune-optimization-table tbody tr { cursor: pointer; }
+/* The build to beat reads as reference: dimmed ink on the sunk ground, above the
+   ranking rather than inside it. */
+.rune-optimization-table tbody tr.rune-optimization-current td {
+  color: var(--text);
+  background: var(--sunk);
+  cursor: default;
+}
+.rune-optimization-table tbody tr[data-chosen='true'] td { background: var(--gold-deep); }
+.rune-optimization-choose {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.rune-optimization-choose[aria-pressed='true'] { color: var(--text-accent); }
+
+.rune-optimization-build { display: grid; gap: var(--s3); }
+.rune-optimization-build h3 { margin: 0; }
+.rune-optimization-build-runes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rune-optimization-rune {
+  display: grid;
+  align-content: start;
+  gap: var(--s1);
+  padding: var(--s3) var(--s4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--sunk);
+}
+.rune-optimization-rune p { margin: 0; }
+.rune-optimization-rune-head { display: flex; justify-content: space-between; gap: var(--s3); }
+.rune-optimization-rune-level, .rune-optimization-rune-where, .rune-optimization-rune-craft { color: var(--text-muted); }
+.rune-optimization-rune-subs { display: grid; gap: var(--s1); margin: 0; padding: 0; list-style: none; }
 
 /* What the monster wears today, before any advice: the comparison every
    recommendation below is measured against, so it sits between the choice and
@@ -3786,7 +3889,7 @@ label[for] {
    restyling one of their own: they are the same control asking the same kind
    of question, and a second definition is how two text boxes on one page come
    to have two different heights. */
-.field input, .field textarea, .overlay-stat-target, .overlay-substat input {
+.field input, .field textarea, .overlay-stat-target, .overlay-substat input, .rune-optimization-target-input {
   display: block; width: 100%;
   height: 36px;
   background: var(--sunk);

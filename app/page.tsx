@@ -14,6 +14,7 @@ import type { DirectoryHandle } from './lib/save-location';
 import type { GameRecord } from './lib/game-data';
 import type { ArtifactSettings, DirectImportMode, GeneralSettings, ImportRoute, ImportedGame, Preferences, RunePotentialSettings } from './lib/types';
 import type { RunePotentialPreset } from './lib/rune-potential-presets';
+import type { RuneOptimizationSettings } from './lib/rune-optimization-settings';
 import type { SpeedTuningPreferences } from './lib/speed-tuning-preferences';
 import { readRunes } from './lib/runes';
 import type { MonsterCopyPreferences } from './lib/monster-preferences';
@@ -23,7 +24,7 @@ import { runeHoldVerdict } from './lib/rune-holds';
 import type { MonsterReference } from './components/monster-link';
 import type { OpenRuneOverlay, RuneOverlayTarget } from './components/rune-link';
 import { useSessionStorageState } from './lib/session-storage-state';
-import { type Page, type ReportCategory, upcomingWorkspaces } from './lib/workspace-config';
+import { type Page, type ReportCategory } from './lib/workspace-config';
 
 const pageChoices: readonly Page[] = ['home', 'monsters', 'artifact-list', 'optimizer', 'speed', 'rune-setup', 'potential', 'artifacts', 'gems', 'rune-simulator', 'relics', 'settings', 'the-math'];
 const isPage = (value: unknown): value is Page => typeof value === 'string' && pageChoices.includes(value as Page);
@@ -38,7 +39,7 @@ const SettingsSection = lazy(() => import('./components/settings-section').then(
 const TheMathSection = lazy(() => import('./components/the-math-section').then(({ TheMathSection: component }) => ({ default: component })));
 const RuneSimulatorSection = lazy(() => import('./components/rune-simulator-section').then(({ RuneSimulatorSection: component }) => ({ default: component })));
 const SpeedTuningSection = lazy(() => import('./components/speed-tuning-section').then(({ SpeedTuningSection: component }) => ({ default: component })));
-const UpcomingWorkspace = lazy(() => import('./components/upcoming-workspace').then(({ UpcomingWorkspace: component }) => ({ default: component })));
+const RuneOptimizationSection = lazy(() => import('./components/rune-optimization-section').then(({ RuneOptimizationSection: component }) => ({ default: component })));
 const MonsterOverlay = lazy(() => import('./components/monster-overlay').then(({ MonsterOverlay: component }) => ({ default: component })));
 const RuneOverlay = lazy(() => import('./components/rune-overlay').then(({ RuneOverlay: component }) => ({ default: component })));
 
@@ -391,6 +392,13 @@ export default function Home() {
     }));
   }
 
+  function updateRuneOptimizationSettings(update: Partial<RuneOptimizationSettings>) {
+    changePreferences((current) => ({
+      ...current,
+      runeOptimization: { ...current.runeOptimization, ...update },
+    }));
+  }
+
   function updateArtifactSettings(update: Partial<ArtifactSettings>) {
     changePreferences((current) => ({
       ...current,
@@ -566,9 +574,13 @@ export default function Home() {
         onOpenMonster={openMonsterOverlay}
       /></Suspense>}
 
-      {page === 'optimizer' && <Suspense fallback={<WorkspaceLoading />}><UpcomingWorkspace
-        {...upcomingWorkspaces[page]}
-        hasGame={Boolean(game)}
+      {page === 'optimizer' && <Suspense fallback={<WorkspaceLoading />}><RuneOptimizationSection
+        game={game}
+        monsters={monsters}
+        preferences={preferences}
+        onUpdate={updateRuneOptimizationSettings}
+        onOpenMonster={openMonsterOverlay}
+        onOpenRune={openRuneOverlay}
       /></Suspense>}
     </section>
 

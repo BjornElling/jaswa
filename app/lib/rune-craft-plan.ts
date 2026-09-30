@@ -46,7 +46,7 @@ export type CraftFit =
  * Intangible item matches it by set and an Immemorial one by belonging to none,
  * which is exactly the pair §10 allows it.
  */
-function lineageFits(item: CraftItem, rune: Rune): boolean {
+export function lineageFits(item: CraftItem, rune: Pick<Rune, 'ancient' | 'setId'>): boolean {
   /* Immemorial is the only item that belongs to no set, and the only one whose
      match is the lineage alone. An Ancient item still names a set in its own
      id, so Ancient is a second condition on top of the set — not a replacement

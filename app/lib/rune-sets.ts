@@ -7,6 +7,7 @@
  * meaning through form and position, and reserves colour for interactive
  * state.
  */
+import { intangibleCompletion, intangibleSetId, setIdBound } from './monster-stats';
 
 const runeSetNames: Record<number, string> = {
   1: 'Energy', 2: 'Guard', 3: 'Swift', 4: 'Blade', 5: 'Rage', 6: 'Focus',
@@ -100,6 +101,7 @@ export function elementName(attribute: unknown): string | undefined {
 export function activeRuneSets(monster: Record<string, unknown>): ActiveRuneSet[] {
   const runes = Array.isArray(monster.runes) ? monster.runes : [];
   const counts: Record<number, number> = {};
+  const worn = new Int32Array(setIdBound);
   let hasBrokenRune = false;
 
   for (const rune of runes) {
@@ -108,9 +110,18 @@ export function activeRuneSets(monster: Record<string, unknown>): ActiveRuneSet[
       continue;
     }
     const setId = numberValue((rune as Record<string, unknown>).set_id);
+    if (setId > 0 && setId < setIdBound) worn[setId] += 1;
+    /* An Intangible is not a set of its own: it completes one that is a rune
+       short, or it is a broken rune (`RUNE-CANONICAL.md` §10). */
+    if (setId === intangibleSetId) continue;
     if (runeSetNames[setId] && runeSetPieces[setId]) counts[setId] = (counts[setId] ?? 0) + 1;
     else hasBrokenRune = true;
   }
+  /* Where it is not known which set the Intangible completes, it is shown as the
+     broken rune the stat sheet also counts it as, rather than as a guess. */
+  const completes = intangibleCompletion(worn);
+  if (completes > 0) counts[completes] = (counts[completes] ?? 0) + 1;
+  else if (worn[intangibleSetId] > 0) hasBrokenRune = true;
 
   const completedSets = Object.entries(counts)
     .map(([rawSetId, count]) => {

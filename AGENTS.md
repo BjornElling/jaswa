@@ -388,6 +388,13 @@ parts an agent must not quietly break:
   test.** `verify:webgpu-parameter-layout` and `verify:rune-chance-layout` are
   what stands in for that, and `verify:acceleration-routing` is what keeps the
   decision itself from growing a second copy.
+- **One stat sheet, one build search.** `app/lib/monster-stats.ts` is the only
+  place a monster's stats are summed — the Monsters page, the overlay, Speed
+  Tuning and Rune Optimization all read it — and `docs/RUNE-OPTIMIZATION.md` is
+  binding for the build search. Every reduction the search makes before its
+  depth's cut is exact, and `npm run verify:rune-optimization` holds that
+  against brute force; a shortcut that is not exact is only allowed where the
+  page says it was taken.
 - **One clock for every turn order.** `docs/SPEED-TICK-CANONICAL.md` is
   binding, and `app/lib/speed-tick.ts` is the only module that states a rule
   of the game's turn order — combat speed, the tick, a boost, a buff, a tie.
@@ -458,20 +465,22 @@ Before reporting a change complete, all of these hold:
     pass, and a **fresh `verify:rune-cleanup-equivalence` baseline** is recorded
     in the same commit — `work/` is not committed, so a baseline is always
     captured deliberately before a change and never inherited.
-12. After a change under `helper/`, the helper is **released**, not merely
+12. After a change to the stat sheet or to anything under
+    `app/lib/rune-optimization-*`, `npm run verify:rune-optimization` passes.
+13. After a change under `helper/`, the helper is **released**, not merely
     edited: `npm run verify:helper-version` fails until the version is raised
     and an installer is built and recorded (`npm run release:helper`). The app
     tells every user which helper is newest, so an unreleased change leaves
     that statement false. Packaging needs the Rust toolchain and
     `JASWA_SIGNING_THUMBPRINT`; if neither is at hand, say the helper is
     unreleased rather than reporting the change complete.
-13. **Renaming a user-visible label is a repository-wide rename.** The
+14. **Renaming a user-visible label is a repository-wide rename.** The
     Playwright suite, the `scripts/verify-*.mjs` checks and `docs/` all address
     the interface by its accessible names, and a check under `scripts/` is not
     run by `npm test`, so a missed one stays silent until someone runs it. Grep
     the whole repository for the old string — every one of `tests/`, `scripts/`
     and `docs/` — before reporting the rename done.
-14. The work is committed to `main`.
+15. The work is committed to `main`.
 
 Two caveats worth knowing before trusting a green run:
 

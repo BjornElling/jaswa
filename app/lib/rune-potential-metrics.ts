@@ -57,18 +57,35 @@ function finiteNonNegative(value: number): number {
   return Number.isFinite(value) ? Math.max(0, value) : 0;
 }
 
+/*
+ * The three formulas of `RUNE-PRESET-METRICS.md` §2–4, one scalar function each.
+ * They are scalars rather than one object-returning call because Rune Optimization
+ * evaluates them once per combination it tries, and the object version below is
+ * built on them, so the two cannot answer differently.
+ */
+
+/** `DMG = ATK × (1 + CR × CD)`, with CRI Rate capped at 100 %. Percentages as the sheet shows them. */
+export function metricDmg(atk: number, criticalRatePercent: number, criticalDamagePercent: number): number {
+  const criticalRate = Math.min(1, finiteNonNegative(criticalRatePercent) / 100);
+  return finiteNonNegative(atk) * (1 + criticalRate * finiteNonNegative(criticalDamagePercent) / 100);
+}
+
+/** `E.HP = HP × (1140 + 3.5 × DEF) / 1000`. */
+export function metricEhp(hp: number, def: number): number {
+  return finiteNonNegative(hp) * (1140 + 3.5 * finiteNonNegative(def)) / 1000;
+}
+
+/** `E.HP D = HP × (1140 + 3.5 × 0.3 × DEF) / 1000` — DEF broken to 30 %. */
+export function metricEhpD(hp: number, def: number): number {
+  return finiteNonNegative(hp) * (1140 + 3.5 * finiteNonNegative(def) * 0.3) / 1000;
+}
+
 /** Calculates the three static-preset metrics from a monster's total stats. */
 export function calculateRunePotentialMetrics(input: RunePotentialMetricInput): RunePotentialMetrics {
-  const atk = finiteNonNegative(input.atk);
-  const hp = finiteNonNegative(input.hp);
-  const def = finiteNonNegative(input.def);
-  const criticalRate = Math.min(1, finiteNonNegative(input.criticalRate) / 100);
-  const criticalDamage = finiteNonNegative(input.criticalDamage) / 100;
-
   return {
-    dmg: atk * (1 + criticalRate * criticalDamage),
-    ehp: hp * (1140 + 3.5 * def) / 1000,
-    ehpD: hp * (1140 + 3.5 * def * 0.3) / 1000,
+    dmg: metricDmg(input.atk, input.criticalRate, input.criticalDamage),
+    ehp: metricEhp(input.hp, input.def),
+    ehpD: metricEhpD(input.hp, input.def),
   };
 }
 

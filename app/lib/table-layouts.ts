@@ -315,6 +315,20 @@ export const relicMonsterTableColumns: readonly TableColumn[] = [
 ];
 
 /**
+ * Rune Optimization's builds. The build is named in the one wide column — it has
+ * to hold `Violent/Will` and `Energy/Blade/Broken` alike — and every figure gets
+ * the same measure, wide enough for a six-digit E.HP in either number format, so
+ * the eleven read down the page as one grid and sorting one cannot widen another.
+ */
+export const runeOptimizationTableColumns: readonly TableColumn[] = [
+  { key: 'index', width: '4%', align: 'left' },
+  { key: 'build', width: '15%', align: 'left' },
+  { key: 'moves', width: '5%', align: 'right' },
+  ...['hp', 'atk', 'def', 'spd', 'criRate', 'criDmg', 'res', 'acc', 'dmg', 'ehp', 'ehpD']
+    .map((key): TableColumn => ({ key, width: `${76 / 11}%`, align: 'right' })),
+];
+
+/**
  * The workspace result tables build their columns from a `SortableColumn` list
  * instead of a colgroup, so each declares its own `align` there beside the
  * column's label and comparison. `columnClasses` in `sortable-table.tsx` is what

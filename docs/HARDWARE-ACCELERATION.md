@@ -116,6 +116,7 @@ check, and by the agreement gate on a real card.
 | Artifact score matrix (`compute/artifact-score-*`) | Worker; card or processor |
 | Rune Clean-up odds (`compute/rune-chance-*`) | Worker; card or processor |
 | Rune Simulator experiment | Worker; processor, with each checkpoint's Clean-up odds on the card when allowed |
+| Rune Optimization search (`compute/rune-optimization-*`) | Up to eight workers; processor — no card half yet, `RUNE-OPTIMIZATION.md` §7 says which part will move |
 | Everything else | The processor |
 
 The second of those is new, and the reason it was worth moving is the reason to be

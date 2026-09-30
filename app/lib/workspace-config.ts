@@ -77,14 +77,6 @@ export const navigationGroups: Array<{ heading: string; items: NavigationItem[] 
   },
 ];
 
-export const upcomingWorkspaces: Record<'optimizer', { title: string; tagline: string; text: string }> = {
-  optimizer: {
-    title: 'Rune Optimization',
-    tagline: 'Six slots, thousands of runes, one answer. Let your computer do the arithmetic so you can go back to pretending it was intuition.',
-    text: 'Finds rune combinations that meet the requirements you save for each monster.',
-  },
-};
-
 /* These labels are display copy, kept beside the states they describe so a
    component cannot quietly invent a second vocabulary for the same verdict. */
 export const accelerationLabels: Record<AccelerationState, string> = {

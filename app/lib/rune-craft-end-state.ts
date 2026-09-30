@@ -38,7 +38,7 @@
  * a craft item can only ever raise a rune, never lower it.
  */
 import { craftRollValue, craftValueRange, grindableStatIds } from './rune-craft-items';
-import type { CraftKind, CraftLineage, CraftRollAssumption, CraftValueRange } from './rune-craft-items';
+import type { CraftItem, CraftKind, CraftLineage, CraftRollAssumption, CraftValueRange } from './rune-craft-items';
 import { allStatIds } from './rune-properties';
 import { slotAllowsSubStat } from './runes';
 import type { ItemGrade } from './types';
@@ -388,4 +388,160 @@ export function craftedLines(
     const kept = statId === line.statId ? line.grind : 0;
     return { statId, value: options.rolls[report.option], gemmed: true, grind: Math.max(kept, grindCredit(plan, statId)) };
   });
+}
+
+/*
+ * ## Rune Optimization's question
+ *
+ * Clean-up asks what one rune is worth in one role's units, so a Gem decision there
+ * collapses to one number. Rune Optimization cannot ask that: whether SPD or ATK %
+ * is the better Gem depends on the other five runes, which are what it is still
+ * choosing. So it asks for **every legal end state worth considering**, and the
+ * search chooses between them like it chooses between runes. The four rules are the
+ * same four; only the question differs.
+ *
+ * It also asks a question Clean-up never does — **which of the account's own items
+ * would be spent** — because "only the Gems and Grindstones I hold" is a real
+ * setting there, and one stack can be spent only as many times as it is deep.
+ */
+
+/**
+ * One half of a supply — the Gems or the Grindstones — as the optimizer is allowed
+ * to spend it on one rune. Indexed by effect id: what an item of that id would put
+ * on a line (`-1` for none), and the held stack it would come out of (`-1` where the
+ * item is assumed rather than held, which is a stock that never runs out).
+ */
+export type CraftHalf = { readonly value: Float64Array; readonly stock: Int32Array };
+
+export type CraftSupply = { readonly gem: CraftHalf | null; readonly grind: CraftHalf | null };
+
+const assumedHalves = new Map<string, CraftHalf>();
+
+/**
+ * The half the settings assume: one item of this kind, grade and lineage for every
+ * effect id the game makes one for, landing where `assumption` says. It is the same
+ * credit `craftPlan` gives Clean-up, read per kind because the optimizer's two
+ * halves are set independently.
+ */
+export function assumedCraftHalf(
+  kind: CraftKind, lineage: CraftLineage, grade: ItemGrade, assumption: CraftRollAssumption,
+): CraftHalf {
+  const key = `${kind}|${lineage}|${grade}|${assumption}`;
+  const found = assumedHalves.get(key);
+  if (found) return found;
+  const value = new Float64Array(statIdBound).fill(-1);
+  const stock = new Int32Array(statIdBound).fill(-1);
+  for (const statId of allStatIds) {
+    const roll = craftItemRoll(kind, lineage, statId, grade, assumption);
+    if (roll !== null) value[statId] = roll;
+  }
+  const half = { value, stock };
+  assumedHalves.set(key, half);
+  return half;
+}
+
+/**
+ * The half the account actually holds, for one rune: the best item of this kind per
+ * effect id among `items`, which the caller has already narrowed to the ones whose
+ * lineage fits the rune. `stock` is the caller's own index for each item's stack, so
+ * the search can count how many times a stack has been spent.
+ *
+ * Only the best item per id is offered. Where it runs out the next-best would still
+ * do, and offering it is a refinement the search does not make yet —
+ * `RUNE-OPTIMIZATION.md` §6.3 records it.
+ */
+export function heldCraftHalf(
+  kind: CraftKind, items: ReadonlyArray<{ item: CraftItem; stock: number }>, assumption: CraftRollAssumption,
+): CraftHalf {
+  const value = new Float64Array(statIdBound).fill(-1);
+  const stock = new Int32Array(statIdBound).fill(-1);
+  for (const { item, stock: index } of items) {
+    if (item.kind !== kind || item.statId < 0 || item.statId >= statIdBound) continue;
+    const roll = craftItemRoll(kind, item.lineage, item.statId, item.grade, assumption);
+    if (roll === null || roll <= value[item.statId]) continue;
+    value[item.statId] = roll;
+    stock[item.statId] = index;
+  }
+  return { value, stock };
+}
+
+/** One legal end state of one rune, with what it costs. */
+export type CraftVariant = {
+  /** The lines as they would stand once the items are spent. */
+  readonly lines: readonly EndStateLine[];
+  /** The line a Gem replaced, or `-1` where none did. */
+  readonly gemmedAt: number;
+  /** The held stacks spent, one entry per item. Empty where nothing held was spent. */
+  readonly stock: readonly number[];
+};
+
+/**
+ * **Every end state of a finished line-up worth handing to the search.**
+ *
+ * `wanted` says which effect ids the calculation can use at all. A Grindstone or a
+ * Gem landing on an id nothing reads is left out, because it spends an item and a
+ * candidate slot to change no figure; everything else follows the four rules:
+ *
+ * - every wanted grindable line takes the supply's stone where it beats the one
+ *   already there (rule 1);
+ * - from `+12` only (`gemAllowed`), one Gem may replace one line — the converted one
+ *   where the rune already has one — with a legal id (rules 2 and 3), and the new
+ *   line is then ground where it can be (rule 4);
+ * - no Gem is always one of the answers, so considering a Gem can only add options.
+ *
+ * Where the stones come out of held stacks the unground line-up is offered as well,
+ * because a stack can run out and a rune that needs none is then still usable. An
+ * assumed stone never runs out, so there the ground line-up is the only one.
+ */
+export function craftVariants(
+  supply: CraftSupply, slot: number, mainStatId: number, prefixStatId: number | null,
+  lines: readonly EndStateLine[], gemAllowed: boolean, wanted: (statId: number) => boolean,
+): CraftVariant[] {
+  const grind = supply.grind;
+  function ground(from: readonly EndStateLine[], stock: number[]): EndStateLine[] {
+    if (!grind) return [...from];
+    return from.map((line) => {
+      if (!wanted(line.statId)) return line;
+      const stone = grind.value[line.statId];
+      if (!(stone > line.grind)) return line;
+      if (grind.stock[line.statId] >= 0) stock.push(grind.stock[line.statId]);
+      return { ...line, grind: stone };
+    });
+  }
+
+  const variants: CraftVariant[] = [];
+  function offer(from: readonly EndStateLine[], gemmedAt: number, stock: readonly number[]) {
+    const groundStock = [...stock];
+    const finished = ground(from, groundStock);
+    variants.push({ lines: finished, gemmedAt, stock: groundStock });
+    /* `ground` records only held stacks, so a longer list means one was spent. */
+    if (groundStock.length > stock.length) variants.push({ lines: from, gemmedAt, stock });
+  }
+
+  offer(lines, -1, []);
+
+  const gem = supply.gem;
+  if (!gem || !gemAllowed || lines.length === 0) return variants;
+  /* Rule 2: one converted line at a time, and a later Gem may only replace it. */
+  const onlyAt = lines.findIndex((line) => line.gemmed);
+  for (let at = 0; at < lines.length; at += 1) {
+    if (onlyAt !== -1 && at !== onlyAt) continue;
+    const line = lines[at];
+    for (const statId of allStatIds) {
+      const roll = gem.value[statId];
+      if (roll < 0 || !wanted(statId)) continue;
+      if (statId === mainStatId || statId === prefixStatId || !slotAllowsSubStat(slot, statId)) continue;
+      if (lines.some((other, index) => index !== at && other.statId === statId)) continue;
+      /* Re-rolling a line into less than it already holds changes nothing a
+         player would choose, so it is not an end state worth a candidate. */
+      if (statId === line.statId && roll <= line.value) continue;
+      const replaced = lines.map((entry, index) => (index !== at ? entry : {
+        statId, value: roll, gemmed: true,
+        /* Re-rolling a line's own id keeps its stone (rule 3); any other id starts bare. */
+        grind: statId === line.statId ? line.grind : 0,
+      }));
+      offer(replaced, at, gem.stock[statId] >= 0 ? [gem.stock[statId]] : []);
+    }
+  }
+  return variants;
 }
