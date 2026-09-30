@@ -2,41 +2,52 @@
  * Rune Optimization's search, on whichever engine the user's setting allows.
  *
  * Thin on purpose, like `rune-chance-engine.ts`: the decision of *which* engine
- * belongs to `accelerated-calculation.ts` and the arithmetic to
- * `rune-optimization-search.ts`. What is left is the one statement tying them
- * together.
+ * belongs to `accelerated-calculation.ts`, the search to
+ * `rune-optimization-search.ts` and the card's packing to its own backend. What is
+ * left is the one statement tying them together.
  *
- * **There is no card half yet, and that is a recorded decision, not an omission**
- * (`RUNE-OPTIMIZATION.md` §7). A branch-and-bound search is a chain of decisions —
- * every node asks whether to go on — which is precisely what
- * `HARDWARE-ACCELERATION.md` §2 keeps on the processor. The part a card can take is
- * the bottom of the tree: for a batch of four-slot prefixes, the full cross product
- * of the last two slots, returning each prefix's best few builds. That needs a shader,
- * its layout module and an agreement battery, and no browser this repository drives
- * can run one. Until it exists, the status line says `Processor`, which is true.
+ * The card takes the tail — the last two slots' pairs, block by block — and hands
+ * back a shortlist the processor judges pair by pair (`RUNE-OPTIMIZATION.md` §7). The
+ * tree above it is decisions all the way down and stays on the processor, which is
+ * why the status line can say `Graphics card` while every core is also busy.
  */
-import { searchRuneBuilds } from '../rune-optimization-search';
-import type { SearchOutcome } from '../rune-optimization-search';
+import { searchRuneBuildsInPasses, searchRuneBuildsInSlices } from '../rune-optimization-search';
+import type { SearchHooks, SearchOutcome } from '../rune-optimization-search';
 import type { RuneOptimizationProblem } from '../rune-optimization-problem';
 import { runAccelerated } from './accelerated-calculation';
 import type { AcceleratedCalculation } from './accelerated-calculation';
+import {
+  runeOptimizationAgreement, runeOptimizationPassLimits, tailCardOnGpu,
+} from './backends/webgpu-rune-optimization-backend';
+import { combineCalculationBackends } from './calculation-summary';
 import type { CalculationBackend } from './calculation-summary';
 
 type SearchRequest = {
   problem: RuneOptimizationProblem;
   part: number;
   parts: number;
-  onProgress?: (fraction: number) => void;
+  hooks: SearchHooks;
 };
 
-const runeOptimizationSearch: AcceleratedCalculation<SearchRequest, SearchOutcome> = {
+/* `processorTook` is a card that answered some passes and then refused one: the rest
+   of the tail ran on the processor, and the status line has to say both. */
+type SearchAnswer = { outcome: SearchOutcome; processorTook: boolean };
+
+const runeOptimizationSearch: AcceleratedCalculation<SearchRequest, SearchAnswer> = {
   name: 'rune-optimization',
-  cpu: ({ problem, part, parts, onProgress }) => searchRuneBuilds(problem, part, parts, onProgress),
+  cpu: async ({ problem, part, parts, hooks }) => ({
+    outcome: await searchRuneBuildsInSlices(problem, part, parts, hooks), processorTook: false,
+  }),
+  gpu: ({ problem, part, parts, hooks }, context) => searchRuneBuildsInPasses(
+    problem, (question) => tailCardOnGpu(question, context), runeOptimizationPassLimits, part, parts, hooks,
+  ),
+  agrees: runeOptimizationAgreement,
 };
 
 export async function searchRuneBuildsAccelerated(
   request: SearchRequest, preferWebGpu: boolean,
 ): Promise<{ outcome: SearchOutcome; backend: CalculationBackend }> {
   const answer = await runAccelerated(runeOptimizationSearch, request, preferWebGpu);
-  return { outcome: answer.result, backend: answer.backend };
+  const backend = answer.result.processorTook ? combineCalculationBackends([answer.backend, 'cpu']) : answer.backend;
+  return { outcome: answer.result.outcome, backend };
 }

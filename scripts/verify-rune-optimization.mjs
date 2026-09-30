@@ -11,7 +11,9 @@
  * So random small accounts are searched two ways and the tables compared:
  *
  * 1. **The search** — `prepareRuneOptimization` at the `complete` depth, then
- *    `searchRuneBuilds`, once whole and once split into three parts and merged.
+ *    `searchRuneBuilds`, once whole and once split into three parts and merged —
+ *    and split again with the parts handing each other their bars, the way the
+ *    workers do, which may prune only what cannot make the merged table.
  * 2. **Brute force** — every combination of the unreduced candidates, each written
  *    out as an export rune record and scored by `calculateMonsterTotals`, the stat
  *    sheet the Monsters page shows, with builds, the Intangible rule, targets and
@@ -20,6 +22,18 @@
  * The two must agree on every row's ranking figure and move count, and every figure
  * the search reports must be the figure the stat sheet gives its six runes.
  *
+ * 3. **The search in passes** — `searchRuneBuildsInPasses`, the shape the graphics
+ *    card is driven in, with a stand-in card on the processor that is as generous as
+ *    a card may ever be: it sends back *every* pair, shuffled, from passes of a few
+ *    blocks, and says it has no room once a pass holds more than a few dozen pairs.
+ *    That is the whole machinery around a card — holding blocks, splitting a pass
+ *    that overflows, judging a lone block on the processor, confirming every pair
+ *    against a prefix the tree has long left — and it must give the processor's own
+ *    table, row for row and pick for pick. A second stand-in answers two passes and
+ *    then refuses, so the processor has to finish what the card left.
+ *
+ * No real card runs here; `verify-rune-optimization-card.mjs` holds the shader.
+ *
  *   node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs \
  *     scripts/verify-rune-optimization.mjs
  */
@@ -27,104 +41,15 @@ import assert from 'node:assert/strict';
 import { calculateMonsterTotals, intangibleSetId, monsterTargetFigures, targetFigureKeys } from '../app/lib/monster-stats.ts';
 import { monsterStatTargetKeys } from '../app/lib/monster-preferences.ts';
 import { prepareRuneOptimization } from '../app/lib/rune-optimization-problem.ts';
-import { defaultRuneOptimizationSettings } from '../app/lib/rune-optimization-settings.ts';
-import { mergeBuildResults, searchRuneBuilds } from '../app/lib/rune-optimization-search.ts';
+import {
+  mergeBuildResults, searchRuneBuilds, searchRuneBuildsInPasses, searchRuneBuildsInSlices,
+} from '../app/lib/rune-optimization-search.ts';
 import { runeBuild } from '../app/lib/rune-set-pairs.ts';
 import { runeSetId, runeSetPieceCount } from '../app/lib/rune-sets.ts';
-import { slotAllowsSubStat, slotMainProperties } from '../app/lib/runes.ts';
+import { scenarioGenerator } from './rune-optimization-scenarios.mjs';
 
-let seed = 20260930;
-const random = () => {
-  seed = (seed * 1103515245 + 12345) % 2147483648;
-  return seed / 2147483648;
-};
-const pick = (list) => list[Math.floor(random() * list.length)];
-const between = (low, high) => low + Math.floor(random() * (high - low + 1));
-
-const statRange = { 1: [135, 375], 2: [5, 40], 3: [10, 80], 4: [5, 40], 5: [10, 80], 6: [5, 40], 8: [4, 30], 9: [4, 30], 10: [4, 35], 11: [4, 40], 12: [4, 40] };
-const mainValue = { 1: 2448, 2: 63, 3: 160, 4: 63, 5: 160, 6: 63, 8: 42, 9: 58, 10: 80, 11: 64, 12: 64 };
-const setPool = [13, 15, 1, 3, 4, 8, 5];
-
-function randomRune(id, slot, occupiedId, allowIntangible, favoured) {
-  /* Mostly the sets the scenario's builds ask for, or almost every table would be
-     empty and prove nothing about the ranking. */
-  const setId = allowIntangible && random() < 0.12 ? intangibleSetId
-    : favoured.length > 0 && random() < 0.8 ? pick(favoured) : pick(setPool);
-  const mainStatId = pick(slotMainProperties[slot]);
-  const prefixStatId = random() < 0.4 ? pick([1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12].filter((stat) => stat !== mainStatId && slotAllowsSubStat(slot, stat))) : null;
-  const used = new Set([mainStatId, prefixStatId]);
-  const subProperties = [];
-  while (subProperties.length < 4) {
-    const statId = pick([1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12]);
-    if (used.has(statId) || !slotAllowsSubStat(slot, statId)) continue;
-    used.add(statId);
-    const [low, high] = statRange[statId];
-    subProperties.push({ statId, value: between(low, Math.max(low, Math.round(high / 3))), gemmed: false, grind: 0 });
-  }
-  const level = pick([12, 15, 15, 9]);
-  return {
-    id: String(id), setId, setName: '', slot, stars: 6, ancient: false, defaultGrade: 'Legend', level,
-    mainStatId, mainValue: level === 15 ? mainValue[mainStatId] : Math.round(mainValue[mainStatId] * 0.6),
-    prefixStatId, prefixValue: prefixStatId === null ? 0 : between(...statRange[prefixStatId].map((value, at) => (at ? Math.round(value / 4) : value))),
-    subProperties, occupiedId, obtainedOrder: id,
-  };
-}
-
-const builds = [[], ['Violent/Will'], ['Violent/Broken'], ['Swift/Energy', 'Violent/Blade'], ['Energy/Will/Blade'], ['Fatal/Broken', 'Rage/Energy']];
+const { scenario } = scenarioGenerator();
 const figures = monsterStatTargetKeys;
-
-function scenario(index) {
-  const allowIntangible = random() < 0.4;
-  const wantedBuilds = builds[index % builds.length];
-  const favoured = [...new Set(wantedBuilds.flatMap((id) => runeBuild(id).sets.map((name) => runeSetId(name))))];
-  const runes = [];
-  let id = 1;
-  for (let slot = 1; slot <= 6; slot += 1) {
-    const count = between(3, 5);
-    for (let at = 0; at < count; at += 1) {
-      const where = random();
-      runes.push(randomRune(id, slot, where < 0.3 ? '1' : where < 0.55 ? '2' : null, allowIntangible, favoured));
-      id += 1;
-    }
-  }
-  const holds = {};
-  if (random() < 0.3) {
-    const worn = runes.find((rune) => rune.occupiedId === '1');
-    if (worn) holds[worn.id] = { locked: true };
-  }
-  const other = runes.find((rune) => rune.occupiedId === '2');
-  if (other && random() < 0.5) holds[other.id] = { locked: true };
-
-  const craftItems = [
-    { id: '901', kind: 'gem', lineage: 'immemorial', setId: null, setName: null, statId: 8, statName: 'SPD', grade: 'Hero', amount: 1, range: undefined },
-    { id: '902', kind: 'grindstone', lineage: 'immemorial', setId: null, setName: null, statId: 4, statName: 'ATK %', grade: 'Legend', amount: 2, range: undefined },
-    { id: '903', kind: 'grindstone', lineage: 'standard', setId: 13, setName: 'Violent', statId: 8, statName: 'SPD', grade: 'Legend', amount: 1, range: undefined },
-  ];
-  const rankBy = pick(figures);
-  const targets = {};
-  if (random() < 0.5) targets.spd = between(100, 150);
-  if (random() < 0.3) targets.hp = between(8000, 16000);
-  const gems = pick(['none', 'owned', 'theoretical']);
-  const grinds = pick(['none', 'owned', 'theoretical']);
-  return {
-    unitId: '1',
-    monster: {
-      unit_id: 1, con: 700, atk: 700, def: 600, spd: 101, critical_rate: 15, critical_damage: 50, resist: 15, accuracy: 0,
-      artifacts: [{ pri_effect: [101, 100] }, { pri_effect: [100, 1500] }],
-    },
-    runes, holds, craftItems,
-    requirements: {
-      builds: wantedBuilds,
-      slotMains: { slot2: random() < 0.3 ? ['SPD'] : [], slot4: [], slot6: [] },
-      allowIntangible, targets, rankBy,
-    },
-    settings: {
-      ...defaultRuneOptimizationSettings, gems, grinds, gemGrade: 'Legend', grindGrade: 'Hero',
-      runesOnOtherMonsters: random() < 0.7, unfinishedAtMaximum: random() < 0.5,
-      depth: 'complete', resultCount: 5,
-    },
-  };
-}
 
 /* The stat sheet of six chosen end states, through the Monsters page's own reader. */
 function sheet(input, chosen) {
@@ -205,9 +130,33 @@ function bruteForce(input) {
    agree are held equal here. */
 assert.deepEqual([...targetFigureKeys], [...monsterStatTargetKeys], 'the stat sheet and the profile list the eleven figures differently');
 
+/* A card that sends back every pair it was given, in a shuffled order, and admits
+   to overflowing past `room` pairs. */
+function everyPairCard(room, refuseAfter = Infinity) {
+  let shuffle = 7;
+  let asked = 0;
+  return () => async (pass) => {
+    asked += 1;
+    if (asked > refuseAfter) throw new Error('the stand-in card refuses');
+    if (pass.pairs > room) return null;
+    const pairs = [];
+    for (let block = 0; block < pass.blocks; block += 1) {
+      const size = pass.ranges[block * 4 + 1] * pass.ranges[block * 4 + 3];
+      for (let pair = 0; pair < size; pair += 1) pairs.push([block, pair]);
+    }
+    for (let at = pairs.length - 1; at > 0; at -= 1) {
+      shuffle = (shuffle * 1103515245 + 12345) % 2147483648;
+      const other = shuffle % (at + 1);
+      [pairs[at], pairs[other]] = [pairs[other], pairs[at]];
+    }
+    return Uint32Array.from(pairs.flat());
+  };
+}
+
 const scenarios = Number(process.argv.find((arg) => arg.startsWith('--scenarios='))?.split('=')[1] ?? 160);
 let checkedRows = 0;
 let emptyTables = 0;
+let refusedMidway = 0;
 /* Brute force is only a proof while it finishes, and a theoretical Gem multiplies a
    rune into a dozen end states. An account whose unreduced combinations run past
    this is drawn again rather than searched for minutes. */
@@ -225,12 +174,33 @@ for (let index = 0; index < scenarios; index += 1) {
   const problem = prepareRuneOptimization(input);
   const whole = searchRuneBuilds(problem);
   const split = mergeBuildResults([0, 1, 2].map((part) => searchRuneBuilds(problem, part, 3)), problem.rank, problem.resultCount);
+  let shared = -Infinity;
+  const sharing = { sharedBar: () => shared, onBar: (value) => { shared = Math.max(shared, value); } };
+  const sharedSplit = mergeBuildResults([0, 1, 2].map((part) => searchRuneBuilds(problem, part, 3, sharing)), problem.rank, problem.resultCount);
+  shared = -Infinity;
+  const sliced = mergeBuildResults(await Promise.all([0, 1, 2].map((part) => searchRuneBuildsInSlices(problem, part, 3, sharing))), problem.rank, problem.resultCount);
   const expected = bruteForce(input);
   const reading = (table) => table.builds.map((build) => ({ value: build.figures[problem.rank], moves: build.moves }));
   const context = `scenario ${index}: ${JSON.stringify({ builds: input.requirements.builds, rank: input.requirements.rankBy, targets: input.requirements.targets, gems: input.settings.gems, grinds: input.settings.grinds })}`;
   assert.ok(whole.complete, `${context} did not finish`);
   assert.deepEqual(reading(whole), expected, `${context}: the search's table differs from brute force`);
   assert.deepEqual(reading(split), expected, `${context}: the split search's table differs from brute force`);
+  assert.deepEqual(reading(sharedSplit), expected, `${context}: parts sharing their bars lost a build`);
+  assert.deepEqual(reading(sliced), expected, `${context}: parts sharing their bars in slices lost a build`);
+  const exactly = (table) => table.builds.map((build) => ({ picks: build.picks, figures: build.figures, moves: build.moves }));
+  const passes = await searchRuneBuildsInPasses(problem, everyPairCard(40), { blocks: 3, pairs: 60 });
+  assert.equal(passes.processorTook, false, `${context}: the stand-in card was not asked every pass`);
+  assert.deepEqual(exactly(passes.outcome), exactly(whole), `${context}: the search in passes differs from the processor's`);
+  assert.equal(passes.outcome.complete, true, `${context}: the search in passes did not finish`);
+  try {
+    const refused = await searchRuneBuildsInPasses(problem, everyPairCard(40, 2), { blocks: 2, pairs: 30 });
+    assert.deepEqual(exactly(refused.outcome), exactly(whole), `${context}: a card that refused midway lost a build`);
+    refusedMidway += refused.processorTook ? 1 : 0;
+  } catch (error) {
+    /* A card that refused its very first pass throws, so the whole search can be the
+       processor's. That is only allowed where there was no first pass to answer. */
+    assert.match(String(error), /refuses/, `${context}: the search in passes failed`);
+  }
   for (const build of whole.builds) {
     const chosen = build.picks.map((at, slot) => problem.slots[slot][at]);
     assert.deepEqual(build.figures, sheet(input, chosen), `${context}: a reported figure is not the stat sheet's`);
@@ -240,5 +210,7 @@ for (let index = 0; index < scenarios; index += 1) {
 }
 
 assert.ok(checkedRows > scenarios, 'too few builds were compared to prove anything');
+assert.ok(refusedMidway > scenarios / 4, 'too few searches lost their card midway to prove the processor finishes');
 console.log(`PASS: ${scenarios} random accounts, ${checkedRows} ranked builds — the search, whole and split three ways,`
-  + ` matches brute force on every row (${emptyTables} tables were rightly empty).`);
+  + ` matches brute force on every row (${emptyTables} tables were rightly empty); in passes it matches the`
+  + ` processor pick for pick, and ${refusedMidway} searches finished on the processor after the card refused.`);

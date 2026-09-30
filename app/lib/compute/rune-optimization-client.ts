@@ -45,6 +45,7 @@ export function optimizeRuneBuilds(
     const workers: Worker[] = [];
     const answers: Array<RuneOptimizationAnswer | undefined> = new Array(parts).fill(undefined);
     const progress = new Array<number>(parts).fill(0);
+    let bestBar = -Infinity;
     let settled = false;
     const settle = (outcome: RuneOptimizationOutcome) => {
       if (settled) return;
@@ -61,6 +62,13 @@ export function optimizeRuneBuilds(
       worker.addEventListener('message', (event: MessageEvent<RuneOptimizationWorkerResponse>) => {
         const message = event.data;
         if (message.requestId !== part) return;
+        /* One part's table rose: every other part may now prune against it. */
+        if (message.type === 'bar') {
+          if (message.value <= bestBar) return;
+          bestBar = message.value;
+          workers.forEach((other, at) => { if (at !== part) other.postMessage({ type: 'bar', value: bestBar }); });
+          return;
+        }
         if (message.type === 'progress') {
           progress[part] = message.fraction;
           onProgress?.(progress.reduce((total, share) => total + share, 0) / parts);

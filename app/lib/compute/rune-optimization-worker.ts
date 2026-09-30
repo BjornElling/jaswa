@@ -14,8 +14,16 @@ import type {
   OptimizedBuild, RuneOptimizationWorkerRequest, RuneOptimizationWorkerResponse,
 } from './rune-optimization-protocol';
 
+/* The best bar the other parts have reached. A worker answers one request in its
+   life, so this belongs to that one search. */
+let sharedBar = -Infinity;
+
 self.onmessage = async (event: MessageEvent<RuneOptimizationWorkerRequest>) => {
   const message = event.data;
+  if (message.type === 'bar') {
+    if (message.value > sharedBar) sharedBar = message.value;
+    return;
+  }
   if (message.type !== 'calculate') return;
   const { requestId } = message;
   try {
@@ -24,9 +32,16 @@ self.onmessage = async (event: MessageEvent<RuneOptimizationWorkerRequest>) => {
     const problem = prepareRuneOptimization(input);
     const { outcome, backend } = await searchRuneBuildsAccelerated({
       problem, part, parts,
-      onProgress: (fraction) => {
-        const progress: RuneOptimizationWorkerResponse = { type: 'progress', requestId, fraction };
-        self.postMessage(progress);
+      hooks: {
+        onProgress: (fraction) => {
+          const progress: RuneOptimizationWorkerResponse = { type: 'progress', requestId, fraction };
+          self.postMessage(progress);
+        },
+        onBar: (value) => {
+          const raised: RuneOptimizationWorkerResponse = { type: 'bar', requestId, value };
+          self.postMessage(raised);
+        },
+        sharedBar: () => sharedBar,
       },
     }, preferWebGpu);
     const builds: OptimizedBuild[] = outcome.builds.map((build) => ({

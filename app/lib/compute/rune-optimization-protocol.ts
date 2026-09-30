@@ -46,10 +46,15 @@ export type RuneOptimizationAnswer = Omit<SearchOutcome, 'builds'> & {
   durationMs: number;
 };
 
-export type RuneOptimizationWorkerRequest = { type: 'calculate'; requestId: number; request: RuneOptimizationRequest };
+/* `bar` is the highest bar any other part of the same search has reached, relayed by
+   the client, so every part prunes against the best table found anywhere (§6.5). */
+export type RuneOptimizationWorkerRequest =
+  | { type: 'calculate'; requestId: number; request: RuneOptimizationRequest }
+  | { type: 'bar'; value: number };
 
 export type RuneOptimizationWorkerResponse =
   | { type: 'progress'; requestId: number; fraction: number }
+  | { type: 'bar'; requestId: number; value: number }
   | { type: 'result'; requestId: number; answer: RuneOptimizationAnswer }
   | { type: 'error'; requestId: number; message: string };
 

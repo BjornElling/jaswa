@@ -6,15 +6,16 @@
 Rune Optimization finds the rune builds one monster can wear that meet what its
 profile asks for, and ranks them by one figure. This document says what it
 calculates, how the search is kept finite, which of its shortcuts are exact and
-which are not, and what is left to build.
+which are not, and where each part of it runs.
 
 | Module | Owns |
 | --- | --- |
 | `app/lib/rune-optimization-requirements.ts` | A calculation's requirements, seeded from the profile (§2) |
 | `app/lib/rune-optimization-problem.ts` | Candidates, filters, exact reduction, the depth's cut (§3–§5) |
-| `app/lib/rune-optimization-search.ts` | The branch-and-bound search and the merge of its parts (§6) |
+| `app/lib/rune-optimization-search.ts` | The tree, the tail's blocks, the passes to a card, the merge of parts (§6–§7) |
 | `app/lib/rune-optimization-settings.ts` | How to search: craft items, rune sources, depth, table size |
-| `app/lib/compute/rune-optimization-*.ts` | Workers, the client that fans out to them, the engine door (§7) |
+| `app/lib/compute/rune-optimization-*.ts` | Workers, the client that fans out to them and relays their bars, the engine door (§6.5, §7) |
+| `app/lib/compute/{backends,webgpu}/*rune-optimization*` | The card's packing, agreement gate, layout and shader (§7) |
 | `app/components/rune-optimization-section.tsx` | The page (§8) |
 
 Every figure comes from the shared stat sheet in `monster-stats.ts`, every craft
@@ -40,7 +41,7 @@ that stage is visible on screen.
 | Filters (§3) | Yes | Violent/Will with slot mains: 500 → 50–160 per slot |
 | Dominance (§4) | Yes | a further 10–50 % |
 | Depth's cut (§5) | **No — reported** | to at most `keep` per slot and set |
-| Branch and bound (§6) | Yes | 10¹⁰ combinations → 3 × 10⁶ evaluated |
+| Branch and bound (§6–§7) | Yes | billions of combinations settled in seconds (§6.7) |
 
 ## 2. Requirements: the profile, then this calculation
 
@@ -159,25 +160,70 @@ ones that add most.
 
 ## 6. The search
 
-A depth-first **branch and bound** over the six slots, fewest candidates first, each
-slot best first, so strong builds fill the table early and the bar rises fast.
+A depth-first **branch and bound** in two halves. The **tree** places the first
+four slots — fewest candidates first, each slot best first, so strong builds fill
+the table early and the bar rises fast. The **tail** is the last two slots, the two
+widest, and it is where the combinations are. The tree is iterative rather than
+recursive, so it can stop between two prefixes and pick up where it left off; that
+is what lets the tail be handed to a card in passes (§7).
 
 ### 6.1 The bound
 
-At every node the open slots can add at most the best each holds per accumulator.
-Every figure rises with every accumulator, so the figures of that optimistic sum
-bound every build below the node. A node is entered only if its bound meets every
-target and could beat the build now last in the table.
+At every node of the tree the open slots can add at most what their candidates
+hold. Every figure rises with every accumulator, so the figures of an optimistic
+sum bound every build below the node. A node is entered only if its bound meets
+every target and could beat the build now last in the table.
 
-**Set bonuses are bounded per plan, not per stat.** Assuming every set bonus at
-once — Fatal, Rage and triple Blade together — made the bound useless on an
-unconstrained search. The free slots hold only so many pieces, so the bound is
-taken for each way the free slots could still complete stat sets, with a worn
-Intangible standing in for one missing piece once; a node survives if any plan
-could make the table. On the real account this cut evaluated combinations from
-247 million to 28 million for the same search.
+**Only what the question reads.** The ranking figure and the targets read a few
+accumulators (§4.1). A set bonus on any other accumulator moves no figure a decision
+turns on, so the bound ignores those sets entirely; the figures a found build
+reports still count them.
 
-### 6.2 Builds and the Intangible rule
+**The open slots are bounded per main.** The most each accumulator could gain on
+its own would let one rune in slot 4 carry an ATK %, a CRI Rate and a CRI Dmg main
+at once — exactly the build a DMG bound reaches for, and one no rune is. So each
+open slot's candidates are taken per main, and a bound row is one main per open slot
+summed. Rows another row beats on every accumulator the question reads are dropped;
+past two dozen, the rows are folded into their accumulator-wise maximum, which is
+still a bound, only a looser one.
+
+**Set bonuses are bounded per plan.** Assuming every set bonus at once — Fatal, Rage
+and triple Blade together — made the bound useless on an unconstrained search. The
+free slots hold only so many pieces, so the bound is taken for each way the free
+slots could still complete stat sets, with a worn Intangible standing in for one
+missing piece once. Only *maximal* plans are tried — a plan that could still complete
+one more set never decides — and of those only the ones no other plan beats on every
+accumulator. Which plans those are depends only on the free slots, the Intangible
+credit and how far each planned set is towards its next completion, so each is
+worked out once per search.
+
+Most nodes fail, so the loosest pairing of row and plan is tried first. Where it
+fails every pairing does, and the node cost one evaluation.
+
+### 6.2 The tail: blocks
+
+The two tail slots' candidates are grouped by set once per search. A **block** is
+one group of each, and it has one set state: whether it can be a stated build,
+which set an Intangible completes, what the sets add. That is decided once per block
+rather than once per pair, and a block whose bound — the prefix, the best of each
+group, the block's exact set bonus — cannot reach the table is never opened.
+
+A set only needs a group of its own where it can change a decision: a stated build
+asks for it, its bonus lands on an accumulator the question reads, or it is
+Intangible. Every other set shares one neutral group. That stops being true the
+moment an Intangible can be worn, because which set it completes depends on which
+sets are one short, so with one in reach every set keeps its own group.
+
+Which blocks a prefix may open, and what each adds, depends only on its four runes'
+groups. A few hundred such signatures cover millions of prefixes, so the set rules
+run once per signature.
+
+A pair inside a block is decided on the block's bonus, which is exact on every
+accumulator a decision reads. Only a pair that makes the table has its figures
+counted again from its runes' real sets, so a Violent rune in the neutral group
+still reports the sheet it would really have.
+
+### 6.3 Builds and the Intangible rule
 
 Sets are checked as they are placed: a branch that can no longer become a stated
 build stops at the rune that ruined it. A finished combination is a stated build
@@ -190,57 +236,100 @@ not know which**, so such a combination is not offered, and the stat sheet count
 no completion for it. `intangibleCompletion` in `monster-stats.ts` states this once
 for the sheet, the build names and the search.
 
-### 6.3 Held items
+### 6.4 Held items
 
 With *Owned only*, every candidate names the stacks it spends and the search counts
 them: a combination needing three stones from a stack of two is not offered.
 **Known gap:** only the best held item per stat is offered for a rune; where that
 stack runs out, the next-best stack would still do and is not tried yet.
 
-### 6.4 Time, parallelism and honesty
+### 6.5 Time, parallelism and a shared bar
 
 The search stops at its depth's time limit and says so: the table is then the best
 it had found. It runs in one worker per spare processor core, up to eight, each
-taking every *n*-th candidate of the first open slot, and their tables merge by one
-total order — ranking figure, then fewer runes moved, then the picks — so the split
-cannot change the answer. The progress line under the panels is theirs.
+taking every *n*-th candidate of the first slot with a choice in it, and their
+tables merge by one total order — ranking figure, then fewer runes moved, then the
+picks — so the split cannot change the answer. The progress line under the panels
+is theirs.
 
-### 6.5 What holds it
+**The parts share their bar.** A part whose table is full proves the merged table
+holds as many builds at or above its last row, because the parts' builds are
+distinct. So every rise is relayed by the client to the other parts, and each prunes
+against the highest bar any part has reached — dropping only builds *strictly*
+below it, so ties stay for the order after the figure to settle. Eight parts then
+prune like one search rather than like eight small ones. A part hears the others
+between two passes to the card, or on the processor every 50 ms.
 
-`npm run verify:rune-optimization` searches random small accounts two ways — the
-full funnel at `Complete`, whole and split three ways, against brute force over the
-unreduced candidates scored by `calculateMonsterTotals` — and requires every row to
-agree. It was checked by breaking it: a bound three per cent too tight, and a
-dominance that dropped on one dominator, both fail it.
+### 6.6 What holds it
 
-### 6.6 Measured
+`npm run verify:rune-optimization` searches random small accounts against brute
+force over the unreduced candidates scored by `calculateMonsterTotals`, and requires
+every row to agree: the funnel at `Complete`, whole; split three ways; split with
+the parts sharing their bars, at once and in slices; and in passes, the way a card
+is driven, with a stand-in card as generous as a card may ever be — it sends back
+every pair, shuffled, overflows past a few dozen, and in a second run refuses
+midway so the processor has to finish. It was checked by breaking it: a bound three
+per cent too tight, and a dominance that dropped on one dominator, both fail it.
 
-On the real 3,038-rune account, one worker, Balanced depth:
+`npm run verify:rune-optimization-card` runs the shader itself (§7).
 
-| Question | Time | Complete |
+### 6.7 Measured
+
+On a real 2,444-rune account, the Rune Optimization page itself, eight workers,
+the card switched on and then off:
+
+| Question | Graphics card | Processor |
 | --- | --- | --- |
-| Violent/Will, SPD/CRI Dmg/ATK % mains, SPD ≥ 200, rank DMG | 1.0 s | yes |
-| Any build, rank DMG, Quick | 21 s (≈ 3 s on eight workers) | yes |
-| Any build, rank DMG or E.HP, Balanced | stopped at 30 s | no |
-| Violent/Broken with Legend theoretical Gems and stones | stopped at 30 s | no |
+| Any build, rank DMG, Quick | 1.1 s | 0.9 s |
+| Any build, rank DMG, Balanced | 3.4 s | 6.2 s |
+| Any build, rank DMG, Thorough | 8.3 s | 20.2 s |
+| Any build, rank DMG, Complete | 24.4 s | 63.0 s |
 
-The narrower the question, the faster the answer; an unconstrained search at a deep
-setting is the case §7 is for.
+Every one of them finished. Before this search was rebuilt the Balanced question ran
+into its 45-second limit. *Builds checked* counts what each engine evaluated in
+full: the card evaluates every pair of an open block, where the processor first
+skips each rune of the first tail slot that cannot reach the bar, so the card's
+count is the larger by two orders of magnitude for the same table.
+
+The narrower the question, the faster the answer.
 
 ## 7. The graphics card
 
 `HARDWARE-ACCELERATION.md` keeps decisions on the processor and offers the card
-whole questions. A branch and bound is decisions all the way down, so the search
-goes through `runAccelerated` with **no card half yet**, and the status line says
-`Processor` because that is true.
+whole questions. The tree is decisions all the way down and stays on the processor.
+The card takes the tail: for a pass of blocks it is asked **which pairs could clear
+the table's current bar and every floor**, and answers with a shortlist.
 
-The part a card can take is the bottom of the tree: for a batch of four-slot
-prefixes that survived their bound, the full cross product of the last two slots
-— a few thousand pairs each, independent, with one number coming back — returning
-each prefix's best few builds for the processor to merge. That is the next step,
-and it comes with the layout module, the agreement battery and the source check
-`HARDWARE-ACCELERATION.md` requires of every shader. No browser this repository
-drives exposes WebGPU, so it will be verified by the gate on a real card.
+- **Generous, never strict.** The card works in single precision; it takes every
+  rounded stat a whole point high and compares every figure with slack to spare, so
+  it can shortlist a pair that does not belong, never leave off one that does. Every
+  shortlisted pair is judged again on the processor, from the prefix's own exact
+  state, before it may enter the table. The card's answer is therefore always the
+  processor's answer.
+- **Passes start small and grow.** The tree prunes with the bar the table held when
+  the last pass came back, so the first pass is a few dozen blocks and each answered
+  pass doubles the next, up to 32,768 blocks or 2²⁵ pairs.
+- **A pass that clears more than the card can report** — 65,536 pairs, which happens
+  only before the table is full — says so, and is split in two and asked again. A
+  single block that still overflows is judged on the processor.
+- **A card that refuses** its very first pass hands the whole search to the
+  processor, and the status line says `Processor`. A card that refuses later hands
+  over what is left, and the status line says `Graphics card + processor`.
+
+`rune-optimization-layout.ts` holds every offset, `rune-optimization-shader.ts`
+interpolates them, and `webgpu-rune-optimization-backend.ts` packs the passes and
+holds the agreement gate: a battery of hand-built blocks with the bar and a floor
+in the middle of their figures, on which every pair the processor keeps must be on
+the shortlist, nothing on it may fall short by more than the card's stated
+generosity, and a pass too full to report must say so.
+
+`npm run verify:rune-optimization-layout` holds the offsets by reading source.
+`npm run verify:rune-optimization-card` runs the shader: Chromium's new headless
+mode exposes this machine's own card, so it loads the modules from the dev server,
+passes the agreement gate, and searches the same random accounts the processor was
+proved on — and wider ones — with the tail on the card, requiring the processor's
+table pick for pick. It needs a running dev server and a card, and is not part of
+`npm test`.
 
 ## 8. The page
 
@@ -275,5 +364,5 @@ has its own reserved height.
 - **Repeated two-sets.** `rune-set-pairs.ts` cannot express `Energy/Energy/Energy`,
   which the game allows. The search handles repeated sets; the build vocabulary
   does not yet offer them.
-- **The Intangible ambiguity** (§6.2) needs one capture of a monster wearing an
+- **The Intangible ambiguity** (§6.3) needs one capture of a monster wearing an
   Intangible with two sets one rune short.

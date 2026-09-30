@@ -383,11 +383,14 @@ parts an agent must not quietly break:
   A shader is a second implementation, which this section is otherwise against.
   The bargain is that it must prove itself against the processor on this
   machine's own card before its answers are used, and that neither it nor the
-  packing beside it may write a buffer offset of its own — **no browser this
-  repository can drive exposes WebGPU, so no shader here is ever executed by a
-  test.** `verify:webgpu-parameter-layout` and `verify:rune-chance-layout` are
-  what stands in for that, and `verify:acceleration-routing` is what keeps the
-  decision itself from growing a second copy.
+  packing beside it may write a buffer offset of its own — **the headless shell
+  `npm test` launches exposes no WebGPU, so no shader runs inside `npm test`.**
+  `verify:webgpu-parameter-layout`, `verify:rune-chance-layout` and
+  `verify:rune-optimization-layout` stand in for that there, and
+  `verify:acceleration-routing` keeps the decision itself from growing a second
+  copy. Chromium's new headless mode (`channel: 'chromium'`) does expose this
+  machine's card, and `verify:rune-optimization-card` uses it to execute the
+  optimization shader against the processor.
 - **One stat sheet, one build search.** `app/lib/monster-stats.ts` is the only
   place a monster's stats are summed — the Monsters page, the overlay, Speed
   Tuning and Rune Optimization all read it — and `docs/RUNE-OPTIMIZATION.md` is
@@ -467,6 +470,9 @@ Before reporting a change complete, all of these hold:
     captured deliberately before a change and never inherited.
 12. After a change to the stat sheet or to anything under
     `app/lib/rune-optimization-*`, `npm run verify:rune-optimization` passes.
+    After a change to the search, its card backend, layout or shader, so does
+    `npm run verify:rune-optimization-card` — it needs the dev server and a
+    graphics card, and where either is missing, say the shader went unrun.
 13. After a change under `helper/`, the helper is **released**, not merely
     edited: `npm run verify:helper-version` fails until the version is raised
     and an installer is built and recorded (`npm run release:helper`). The app
@@ -491,7 +497,8 @@ Two caveats worth knowing before trusting a green run:
   `verify:recommendation-filters` and `verify:artifact-obtained-order` are
   deliberately outside it — they drive a real browser against a real imported
   account on `http://localhost:3000/`, which needs a running server and a local
-  export. Run the relevant one by hand after a change to the surface it covers;
+  export. `verify:rune-optimization-card` is outside it for the same reason: it
+  needs the server and a graphics card. Run the relevant one by hand after a change to the surface it covers;
   `verify:library-layout` in particular is what holds the account tables'
   shared measure and their freedom from horizontal overflow.
 

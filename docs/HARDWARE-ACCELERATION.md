@@ -1,7 +1,7 @@
 # Hardware acceleration — where a calculation runs
 
 **Status:** Binding contract for every accelerated calculation
-**Reviewed:** 23 September 2026
+**Reviewed:** 30 September 2026
 
 One rule, for the whole program: **heavy work goes to the graphics card unless the
 user switched it off or the card refused.** This document says what "heavy work"
@@ -102,12 +102,20 @@ Four failures, and only two of them announce themselves.
   knows will fit rather than finding out. Rune Clean-up sends 65,536 jobs at a time,
   which is 16 MiB of answers.
 
-`verify:webgpu-parameter-layout` does this for the artifact scorer's uniform block and
-`verify:rune-chance-layout` for the rune chance kernel. Both exist because **the
-browsers Playwright drives in this repository expose no WebGPU at all** — every
-automated check runs the processor's version, and no shader in this repository is ever
-executed by a test. A change to a shader is verified by reading it, by the layout
-check, and by the agreement gate on a real card.
+`verify:webgpu-parameter-layout` does this for the artifact scorer's uniform block,
+`verify:rune-chance-layout` for the rune chance kernel and
+`verify:rune-optimization-layout` for the Rune Optimization tail. They exist because
+**the headless shell Playwright launches by default exposes no WebGPU at all**, so
+`npm test` runs the processor's version of everything.
+
+**Chromium's new headless mode does expose the machine's own card** —
+`chromium.launch({ channel: 'chromium', args: ['--enable-unsafe-webgpu'] })` against
+the dev server on `http://localhost:3000/` — and `verify:rune-optimization-card` uses
+it to run a shader for real: its agreement gate, and whole searches compared with the
+processor's pick for pick. It needs a card and a running server, so it sits outside
+`npm test` beside `verify:library-layout`. The artifact and rune chance shaders are
+still verified only by reading them, by their layout checks and by their agreement
+gates on a real card; the same harness would run them.
 
 ## 5. What is accelerated, and what is not
 
@@ -116,18 +124,21 @@ check, and by the agreement gate on a real card.
 | Artifact score matrix (`compute/artifact-score-*`) | Worker; card or processor |
 | Rune Clean-up odds (`compute/rune-chance-*`) | Worker; card or processor |
 | Rune Simulator experiment | Worker; processor, with each checkpoint's Clean-up odds on the card when allowed |
-| Rune Optimization search (`compute/rune-optimization-*`) | Up to eight workers; processor — no card half yet, `RUNE-OPTIMIZATION.md` §7 says which part will move |
+| Rune Optimization search (`compute/rune-optimization-*`) | Up to eight workers; the tree on the processor, the tail's pairs on the card or processor (`RUNE-OPTIMIZATION.md` §7) |
 | Everything else | The processor |
 
-The second of those is new, and the reason it was worth moving is the reason to be
-careful about the rest: it is the same short arithmetic a few million times with no
+The second of those was the first to move after the artifact scorer, and the reason it
+was worth moving is the reason to be careful about the rest: it is the same short arithmetic a few million times with no
 lane depending on another. Most of what is left is not that shape. Relic verdicts are a
 dynamic-programming table per relic, the craft planner is a join, the grids are sorts.
 Moving those to a card would buy little and cost a second implementation each.
 
 Even within an accelerated calculation, only the shaped part goes. Rune Clean-up hands
 over one question — how many of a rune's runs cleared a bar — and keeps every
-threshold, gate and tie-break on the processor. Artifact scoring hands over the matrix
+threshold, gate and tie-break on the processor. Rune Optimization hands over another —
+which of these pairs *could* clear the table's bar — and has the card answer
+generously, so its shortlist can only be too long; the processor judges every pair on
+it before a build enters the table. Artifact scoring hands over the matrix
 and recovers each winning pair's conversion detail on the processor afterwards,
 because that needs the whole reading and not its number.
 
@@ -146,9 +157,11 @@ followed.
 | `verify:acceleration-routing` | One module opens a device, one weighs the setting, no worker branches on it or decides in advance what to report |
 | `verify:webgpu-parameter-layout` | The artifact scorer's uniform block is the size the backend uploads, and its workgroup size is one constant rather than three literals |
 | `verify:rune-chance-layout` | Every offset the rune chance shader reads is one the layout declares, and no record overruns its stride |
+| `verify:rune-optimization-layout` | Every offset the optimization shader reads is one the layout declares, and its accumulators and figures are the stat sheet's own |
+| `verify:rune-optimization-card` | The optimization shader, run on this machine's card: its agreement gate passes and its searches are the processor's, pick for pick |
 
-All three read source text. None of them executes a shader, because nothing in this
-repository can.
+The first four read source text. The last executes a shader, and needs a card and the
+dev server to do it.
 
 ## 7. Change procedure
 

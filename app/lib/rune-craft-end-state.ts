@@ -448,7 +448,7 @@ export function assumedCraftHalf(
  *
  * Only the best item per id is offered. Where it runs out the next-best would still
  * do, and offering it is a refinement the search does not make yet —
- * `RUNE-OPTIMIZATION.md` §6.3 records it.
+ * `RUNE-OPTIMIZATION.md` §6.4 records it.
  */
 export function heldCraftHalf(
   kind: CraftKind, items: ReadonlyArray<{ item: CraftItem; stock: number }>, assumption: CraftRollAssumption,

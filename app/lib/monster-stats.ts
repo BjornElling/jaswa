@@ -163,10 +163,21 @@ export const targetFigureCount = targetFigureKeys.length;
  * figure compared anywhere is the figure the user is shown.
  */
 export function figuresInto(totals: ArrayLike<number>, out: Float64Array): void {
-  for (let at = 0; at < baseStatCount; at += 1) out[at] = totals[at];
-  out[8] = Math.floor(Math.max(0, metricDmg(totals[1], totals[4], totals[5])));
-  out[9] = Math.floor(Math.max(0, metricEhp(totals[0], totals[2])));
-  out[10] = Math.floor(Math.max(0, metricEhpD(totals[0], totals[2])));
+  for (let at = 0; at < targetFigureCount; at += 1) out[at] = figureOf(totals, at);
+}
+
+/**
+ * One of the eleven figures, by its position in `targetFigureKeys`. It is what
+ * `figuresInto` writes, one at a time, for a caller that reads one figure a few
+ * hundred million times and would otherwise pay for all three composites each time.
+ */
+export function figureOf(totals: ArrayLike<number>, index: number): number {
+  switch (index) {
+    case 8: return Math.floor(Math.max(0, metricDmg(totals[1], totals[4], totals[5])));
+    case 9: return Math.floor(Math.max(0, metricEhp(totals[0], totals[2])));
+    case 10: return Math.floor(Math.max(0, metricEhpD(totals[0], totals[2])));
+    default: return totals[index];
+  }
 }
 
 function numberValue(value: unknown): number {

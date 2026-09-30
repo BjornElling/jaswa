@@ -84,6 +84,8 @@ export type Candidate = {
   effects: Float64Array;
   /** The main property as counted — at `+15` where the settings say so. */
   mainValue: number;
+  /** The accumulator the main property feeds, `-1` for none: what the search's bound groups a slot by. */
+  main: number;
   lines: readonly EndStateLine[];
   /** The line a Gem replaced, `-1` for none. */
   gemmedAt: number;
@@ -130,6 +132,12 @@ export type RuneOptimizationProblem = {
   /** One per figure in `monsterStatTargetKeys` order; `NaN` where no floor is set. */
   targets: Float64Array;
   rank: number;
+  /**
+   * The accumulators the ranking figure and the targets read (§4.1). A set bonus on
+   * any other accumulator moves no figure a decision reads, so the search's bound
+   * and its blocks ignore it — the figures a found build reports still count it.
+   */
+  relevant: readonly number[];
   resultCount: number;
   /** Held stacks the calculation may spend, and how deep each is. */
   stock: ReadonlyArray<{ itemId: string; amount: number }>;
@@ -444,7 +452,7 @@ export function prepareRuneOptimization(
       const lines = rune.subProperties.map((line) => ({ ...line }));
       bySlot[slotIndex] = [{
         runeId: rune.id, slot: rune.slot, setId: rune.setId, effects: runeEffects(rune, rune.mainValue, lines),
-        mainValue: rune.mainValue, lines, gemmedAt: -1, groundAt: [], stock: [], moves: false, locked: true, proxy: 0,
+        mainValue: rune.mainValue, main: effectSlotOf(rune.mainStatId), lines, gemmedAt: -1, groundAt: [], stock: [], moves: false, locked: true, proxy: 0,
       }];
       runesSeen.add(rune.id);
       continue;
@@ -476,7 +484,7 @@ export function prepareRuneOptimization(
     for (const variant of variants) {
       const effects = runeEffects(rune, mainValue, variant.lines);
       bySlot[slotIndex].push({
-        runeId: rune.id, slot: rune.slot, setId: rune.setId, effects, mainValue,
+        runeId: rune.id, slot: rune.slot, setId: rune.setId, effects, mainValue, main: effectSlotOf(rune.mainStatId),
         lines: variant.lines, gemmedAt: variant.gemmedAt, groundAt: newlyGround(lines, variant.lines),
         stock: variant.stock, moves: !onThisMonster, locked: false, proxy: dot(rankSlope, effects),
       });
@@ -528,53 +536,13 @@ export function prepareRuneOptimization(
 
   return {
     base, start, slots, builds, allowIntangible: requirements.allowIntangible,
-    targets, rank, resultCount: settings.resultCount, stock,
+    targets, rank, relevant, resultCount: settings.resultCount, stock,
     timeLimitMs: plan.seconds * 1000,
     report: { runes: runesSeen.size, slots: reports, keep },
   };
 }
 
-/**
- * The most any arrangement of completed sets could add to each accumulator, for the
- * search's upper bound (§6.1). One bound per accumulator, each taken on its own —
- * no build has Fatal and Rage at once, but a bound only has to be high enough, and
- * one that is too tight would be a wrong answer rather than a slow one.
- */
-export function setBonusBound(builds: readonly BuildRequirement[] | null): Float64Array {
-  /* Every way to complete stat sets inside some number of free slots, as the most
-     each accumulator can gain. Small: eight stat sets, six slots. */
-  function bestInFree(free: number): Float64Array {
-    const best = new Float64Array(effectSlotCount);
-    const gains = new Float64Array(effectSlotCount);
-    function walk(from: number, left: number) {
-      for (let slot = 0; slot < effectSlotCount; slot += 1) best[slot] = Math.max(best[slot], gains[slot]);
-      for (let at = from; at < statSetBonuses.length; at += 1) {
-        const [, pieces, slot, value] = statSetBonuses[at];
-        if (pieces > left) continue;
-        gains[slot] += value;
-        walk(at, left - pieces);
-        gains[slot] -= value;
-      }
-    }
-    walk(0, free);
-    return best;
-  }
-
-  if (builds === null) return bestInFree(6);
-  const bound = new Float64Array(effectSlotCount);
-  for (const build of builds) {
-    const own = new Float64Array(effectSlotCount);
-    const counts = new Int32Array(setIdBound);
-    let filled = 0;
-    for (const need of build.needs) { counts[need.setId] += need.pieces; filled += need.pieces; }
-    addSetBonuses(counts, -1, own);
-    const extra = build.broken ? bestInFree(6 - filled) : new Float64Array(effectSlotCount);
-    for (let slot = 0; slot < effectSlotCount; slot += 1) bound[slot] = Math.max(bound[slot], own[slot] + extra[slot]);
-  }
-  return bound;
-}
-
-/** Whether a finished set count is one of the stated builds (§6.2). */
+/** Whether a finished set count is one of the stated builds (§6.3). */
 export function satisfiesBuild(build: BuildRequirement, counts: ArrayLike<number>, completes: number): boolean {
   let inBuild = 0;
   for (const need of build.needs) {
