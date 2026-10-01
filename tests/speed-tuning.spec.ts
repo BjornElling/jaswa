@@ -83,10 +83,11 @@ test('tunes a dungeon team, explains every miss, and keeps the card still', asyn
   await expect(saveDraft).toBeDisabled();
   await expect(saveDraft).toHaveAttribute('title', 'Choose a dungeon to save this team');
   /* Every stage has its row before any monster is added. */
-  const enemyTurns = draft.getByRole('region', { name: 'Turn order' });
+  const enemyTurns = draft.getByRole('region', { name: 'Enemy cut in' });
   await expect(enemyTurns.locator('tbody tr')).toHaveCount(4);
   await expect(enemyTurns.locator('tbody tr').nth(1)).toHaveText('2—');
   await expect(draft.getByRole('button', { name: 'Ticks' })).toBeDisabled();
+  await expect(enemyTurns.locator('.speed-cut-mark[data-state]')).toHaveCount(0);
   const emptyBox = await box(draft.locator('.speed-team-editor'));
   await page.screenshot({ path: testInfo.outputPath('speed-overlay-empty.png') });
 
@@ -148,6 +149,12 @@ test('tunes a dungeon team, explains every miss, and keeps the card still', asyn
   /* Each stage names the turn its first enemy follows: whose, and which of theirs. */
   await expect(enemyTurns.locator('tbody tr').nth(1)).toHaveText('2Lushen #1 (1st turn)');
   await expect(enemyTurns.locator('tbody tr').first().locator('.speed-enemy-after')).toHaveText('Lushen #1 (2nd turn)');
+  /* Each stage ends on whether its first enemy moves before every monster has moved. */
+  const cutMarks = enemyTurns.locator('.speed-cut-mark');
+  await expect(cutMarks.nth(0)).toHaveAttribute('data-state', 'clear');
+  await expect(cutMarks.nth(1)).toHaveAttribute('data-state', 'cut');
+  await expect(enemyTurns.getByRole('img', { name: 'Can cut in before Veromos, Verdehile, Megan (2A)' })).toBeVisible();
+  await expect(enemyTurns.getByRole('img', { name: 'Cannot cut in' })).toHaveCount(3);
   await expect(card.getByRole('img', { name: /^Bernard \(2A\) — Tailwind: \+34\.5 % attack bar to allies/ })).toBeVisible();
   const fullBox = await box(card.locator('.speed-team-editor'));
   expectSameHeight(fullBox.height, emptyBox.height);
@@ -337,7 +344,8 @@ test('arena teams are numbered and face a worst-case enemy', async ({ page }, te
   const add = card.getByLabel('Add a monster to Arena team #1');
   for (const name of ['Bernard (2A)', 'Lushen #1', 'Lushen #2', 'Megan (2A)']) await add.selectOption({ label: name });
   await expect(add).toHaveCount(0);
-  await expect(card.getByRole('region', { name: 'Turn order' }).locator('tbody tr')).toHaveText(['Worst caseLushen #2 (1st turn)']);
+  await expect(card.getByRole('region', { name: 'Enemy cut in' }).locator('tbody tr')).toHaveText(['Worst caseLushen #2 (1st turn)']);
+  await expect(card.getByRole('region', { name: 'Enemy cut in' }).getByRole('img', { name: 'Can cut in before Megan (2A)' })).toBeVisible();
   /* Two copies at one arena speed tie on the bar; only field position can settle
      that. The lower one, looking up at the other, says so; the upper one has
      nobody above it to tie with and is in place. */

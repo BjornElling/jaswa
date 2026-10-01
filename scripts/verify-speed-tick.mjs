@@ -222,8 +222,8 @@ for (let sample = 0; sample < 60; sample += 1) {
   for (const enemy of reading.enemies) {
     const firstEnemy = enemy.trace.events.findIndex((event) => event.side === 'enemy');
     const allyFirsts = members.map(({ unitId }) => enemy.trace.events.findIndex((event) => event.key === unitId));
-    const expected = firstEnemy !== -1 && allyFirsts.some((at) => at === -1 || at > firstEnemy);
-    check(enemy.cutsIn === expected, `sample ${sample}: the cut-in verdict agrees with the ticks drawn`);
+    const expected = firstEnemy === -1 ? [] : members.filter((_, at) => allyFirsts[at] === -1 || allyFirsts[at] > firstEnemy).map(({ unitId }) => unitId);
+    check(enemy.cutsBefore.join() === expected.join(), `sample ${sample}: the cut-in verdict agrees with the ticks drawn`);
   }
   /* Each member looks up the order only: it is too fast exactly when its first
      turn comes before that of a monster placed above it, and never for one below. */

@@ -114,7 +114,7 @@ function teamStatus(reading: TeamReading): { text: string; state: Verdict } {
    turn, read off the same traces the Ticks view draws — boosts, buffs and
    Leo's cap included. A dungeon names its stages; arena has the one worst case. */
 function cutInText(reading: TeamReading): string {
-  const stages = reading.enemies.flatMap((enemy, at) => enemy.cutsIn ? [at + 1] : []);
+  const stages = reading.enemies.flatMap((enemy, at) => enemy.cutsBefore.length > 0 ? [at + 1] : []);
   if (stages.length === 0) return '';
   return reading.content.area === 'arena' ? ' · Enemy can cut in' : ` · Enemy can cut in (stage ${stages.join(', ')})`;
 }

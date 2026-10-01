@@ -232,7 +232,7 @@ export function SpeedTeamEditor({ reading, title, names, choices, general, onCha
         <th scope="col">Monster</th>
         <th scope="col" className="align-center">Leader</th>
         <th scope="col" className="align-right">Display speed</th>
-        <th scope="col" className="align-right">What if</th>
+        <th scope="col" className="align-right">What if...</th>
         <th scope="col" className="align-right">{contentWord} speed</th>
         <th scope="col"><span className="visually-hidden">Move or remove</span></th>
       </tr></thead>
@@ -292,8 +292,7 @@ export function SpeedTeamEditor({ reading, title, names, choices, general, onCha
           used.length ? `${used.map((skill) => `${skill.name}: ${skill.effects.map(describeTurnEffect).join(', ')}`).join('; ')} — counted on every turn` : '',
           uncounted.length ? `Not counted, because its size depends on the battle: ${uncounted.join(', ')}` : '',
         ].filter(Boolean).join('. ');
-        const verdict = verdictText(monster, names, team.margin, speedName, fastestEnemy, general);
-        /* What this monster's turn does to the turns after it, hung on the line
+        const verdict = verdictText(monster, names, team.margin, speedName, fastestEnemy, general);        /* What this monster's turn does to the turns after it, hung on the line
            below its slot, where the next monster waits. Only an attack-bar
            boost to the whole team is named — a boost to one ally or to itself
            does not pass down the order, and a speed buff changes how fast the
@@ -372,21 +371,28 @@ export function SpeedTeamEditor({ reading, title, names, choices, general, onCha
       </div>
     </div>
 
-    {/* When the other side first gets a turn: a row per stage, or the one
-        worst case in arena. The rows are the content's, never the team's, so
-        adding the first monster fills cells rather than adding lines. */}
-    <section className="speed-enemy-turns" aria-labelledby={`${team.id}-turn-order`}>
-      <h3 id={`${team.id}-turn-order`} className="type-label">Turn order</h3>
+    {/* Where the first enemy turn lands in the opening: a row per stage, or
+        the one worst case in arena. The rows are the content's, never the
+        team's, so adding the first monster fills cells rather than adding
+        lines. At the row's end, whether that turn comes before every monster
+        has had one of its own. */}
+    <section className="speed-enemy-turns" aria-labelledby={`${team.id}-enemy-cut-in`}>
+      <h3 id={`${team.id}-enemy-cut-in`} className="type-label">Enemy cut in</h3>
       <div className="speed-enemy-turns-body">
         <table className="speed-enemy-table">
-          <colgroup><col className="speed-col-stage" /><col /></colgroup>
+          <colgroup><col className="speed-col-stage" /><col /><col className="speed-col-cut" /></colgroup>
           <thead><tr>
             <th scope="col">{content.area === 'arena' ? 'Enemy' : 'Stage'}</th>
             <th scope="col">First enemy moves after</th>
+            <th scope="col"><span className="visually-hidden">Cuts in</span></th>
           </tr></thead>
           <tbody>
             {(content.area === 'arena' ? [null] : content.stages).map((stage, at) => {
               const enemy = enemiesKnown ? reading.enemies[at] : undefined;
+              const cut = enemy === undefined ? undefined : enemy.cutsBefore.length > 0;
+              const cutLabel = cut === undefined ? undefined
+                : cut ? `Can cut in before ${enemy?.cutsBefore.map((unitId) => names[unitId]?.name ?? 'a teammate').join(', ')}`
+                  : 'Cannot cut in';
               return <tr key={at}>
                 <th scope="row">{stage ? at + 1 : 'Worst case'}</th>
                 <td className="speed-enemy-after">
@@ -396,6 +402,14 @@ export function SpeedTeamEditor({ reading, title, names, choices, general, onCha
                         <span className="speed-enemy-after-name">{names[enemy.follows.unitId]?.name ?? 'A teammate'}</span>
                         {' '}<span className="speed-enemy-after-turn">({ordinal(enemy.follows.turn)} turn)</span>
                       </>}
+                </td>
+                {/* A red cross or a green check, in a box laid out before
+                    either is known, so the mark arriving moves nothing. */}
+                <td className="speed-cut-cell">
+                  <span className="speed-cut-mark" data-state={cut === undefined ? undefined : cut ? 'cut' : 'clear'}
+                    role={cutLabel === undefined ? undefined : 'img'} aria-label={cutLabel} title={cutLabel}>
+                    <svg viewBox="0 0 16 16" aria-hidden="true"><path d={cut === false ? 'M3 8.5l3.5 3.5L13 4.5' : 'M4 4l8 8M12 4l-8 8'} /></svg>
+                  </span>
                 </td>
               </tr>;
             })}

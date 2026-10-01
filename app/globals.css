@@ -6376,9 +6376,10 @@ th.align-center .sort-button { justify-content: center; }
 .speed-col-leader { width: 20ch; }
 .speed-col-speed { width: 15ch; }
 /* The field keeps its 10ch; the column adds the air that holds it off the
-   display speed beside it, so the imported figure and the experiment read apart. */
-.speed-col-what-if { width: calc(10ch + var(--s4)); }
-.speed-team-table td.speed-what-if-cell { padding-left: var(--s4); }
+   display speed beside it, so the imported figure and the experiment read
+   apart, and room for its heading's trailing dots. */
+.speed-col-what-if { width: calc(12ch + var(--s4)); }
+.speed-team-table td.speed-what-if-cell { padding-left: calc(2ch + var(--s4)); }
 .speed-col-controls { width: 108px; }
 .speed-team-table thead th.align-center { text-align: center; }
 .speed-team-table thead th {
@@ -6480,7 +6481,7 @@ th.align-center .sort-button { justify-content: center; }
 
 /* When the enemy first moves, set apart from the team above by air and a
    quiet label rather than a second box. */
-.speed-enemy-turns { display: grid; gap: var(--s2); margin-top: var(--s3); }
+.speed-enemy-turns { display: grid; gap: var(--s4); margin-top: var(--s3); }
 .speed-enemy-turns h3 { margin: 0; color: var(--text-muted); }
 /* The table reads in half the width; the other half holds the way into the
    ticks behind it, centred on the table so it reads as its companion. */
@@ -6490,6 +6491,13 @@ th.align-center .sort-button { justify-content: center; }
 .speed-ticks-button .speed-icon { width: 16px; height: 16px; }
 .speed-enemy-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .speed-col-stage { width: 12ch; }
+.speed-col-cut { width: 32px; }
+.speed-enemy-table td.speed-cut-cell { text-align: right; }
+/* The verdict vocabulary: red for an enemy turn before this monster's first, green for none. */
+.speed-cut-mark { display: inline-grid; place-items: center; width: 16px; height: 16px; vertical-align: middle; opacity: 0; }
+.speed-cut-mark[data-state='cut'] { opacity: 1; color: var(--state-bad); }
+.speed-cut-mark[data-state='clear'] { opacity: 1; color: var(--state-good); }
+.speed-cut-mark svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 .speed-enemy-table thead th {
   padding: 0 var(--s1) var(--s2);
   border-bottom: 1px solid var(--line);

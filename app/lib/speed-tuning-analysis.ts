@@ -75,8 +75,8 @@ export type EnemyStageReading = {
   /** The team's turn the first enemy turn comes straight after — whose, and that
       monster's how-many-th — or `null` when an enemy moves before the team. */
   follows: { unitId: string; turn: number } | null;
-  /** An enemy turn comes before the team's last first turn: the opening can be cut into. */
-  cutsIn: boolean;
+  /** The members whose first turn the first enemy turn comes before: the opening is cut into when there is one. */
+  cutsBefore: readonly string[];
   /** The very trace the tick-by-tick view draws, so a verdict and the ticks cannot disagree. */
   trace: BattleTrace;
   /** Every enemy on the stage, in the trace as `enemy-1`, `enemy-2` …, with their speeds. */
@@ -243,7 +243,7 @@ function stageReading(allies: readonly TickUnit[], enemySpeeds: readonly number[
     enemySpeed: Math.max(...enemySpeeds),
     firstEnemyTick: firstEnemy?.tick ?? Number.POSITIVE_INFINITY,
     follows: last ? { unitId: last.key, turn: before.filter((event) => event.key === last.key).length } : null,
-    cutsIn: firstEnemy !== undefined && allyKeys.some((key) => !movedBefore.has(key)),
+    cutsBefore: firstEnemy === undefined ? [] : allyKeys.filter((key) => !movedBefore.has(key)),
     trace,
     enemySpeeds,
   };
