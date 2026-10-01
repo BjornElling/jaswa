@@ -3,7 +3,8 @@
 /**
  * Creates the checked-in snapshot that Speed Tuning reads: every monster's
  * speed leader skill, every skill that moves an attack bar or grants a speed
- * buff, and the enemy speeds of the hardest floor of each tuned dungeon.
+ * buff, and the enemy speeds and resistances of the hardest floor of each
+ * tuned dungeon.
  *
  * Like `refresh-swarfarm-monsters.mjs`, this is a human-triggered maintenance
  * command. It never runs in the app, on import, or in CI; the app reads only
@@ -146,6 +147,22 @@ function fastestEnemy(wave) {
   return Math.max(...wave.enemies.map((enemy) => enemy.speed));
 }
 
+/* A wave whose enemy lacks a speed or a resistance would quietly read as a
+   floor easier than it is, so it stops the refresh instead. */
+function checkedWave(level, wave) {
+  for (const enemy of wave.enemies) {
+    if (!Number.isFinite(enemy.speed) || !Number.isFinite(enemy.resist)) {
+      throw new Error(`Swarfarm level ${level.id} has an enemy (${enemy.id}) without a speed or resistance. The existing snapshot was kept.`);
+    }
+  }
+  return {
+    fastest: fastestEnemy(wave),
+    speeds: wave.enemies.map((enemy) => enemy.speed),
+    /* Resistance percent, in the same order as the speeds. */
+    resists: wave.enemies.map((enemy) => enemy.resist),
+  };
+}
+
 async function main() {
   const existing = await readExisting();
   if (!force && isFresh(existing)) {
@@ -199,10 +216,7 @@ async function main() {
       floor: best.level.floor,
       /* How many monsters the player brings. */
       teamSize: best.level.total_slots,
-      stages: best.level.waves.map((wave) => ({
-        fastest: fastestEnemy(wave),
-        speeds: wave.enemies.map((enemy) => enemy.speed),
-      })),
+      stages: best.level.waves.map((wave) => checkedWave(best.level, wave)),
     });
     console.log(`${target.id}: ${best.dungeon.name} floor ${best.level.floor} (level ${best.level.id})`);
   }

@@ -9,9 +9,10 @@ import { SpeedTurnOrderDialog } from './speed-turn-order-dialog';
 import type { OpenMonsterOverlay } from './monster-link';
 import type { GameRecord } from '../lib/game-data';
 import type { MonsterCopyName } from '../lib/monster-names';
-import { dungeonIds, speedContent } from '../lib/speed-contents';
+import { formatNumber } from '../lib/formatting';
+import { dungeonIds, fastestEnemySpeed, speedContent, usefulAccuracy } from '../lib/speed-contents';
 import type { DungeonId } from '../lib/speed-contents';
-import { hasWhatIf, readSpeedTeam, withMonsterAdded, withoutWhatIfs } from '../lib/speed-tuning-analysis';
+import { readSpeedTeam, withMonsterAdded } from '../lib/speed-tuning-analysis';
 import { speedTeamTitle } from '../lib/speed-tuning-preferences';
 import type { SpeedTeam } from '../lib/speed-tuning-preferences';
 import type { GeneralSettings } from '../lib/types';
@@ -52,11 +53,23 @@ export function SpeedTeamOverlay({
   const [showTurnOrder, setShowTurnOrder] = useState(false);
   const turnOrderOpener = useRef<HTMLButtonElement>(null);
 
-  const reading = useMemo(() => readSpeedTeam({ team: draft, monsters, totemPercent: totemShare }), [draft, monsters, totemShare]);
-  const worn = useMemo(() => hasWhatIf(draft)
-    ? readSpeedTeam({ team: withoutWhatIfs(draft), monsters, totemPercent: totemShare })
-    : reading, [draft, reading, monsters, totemShare]);
-  const arena = draft.content === 'arena';
+  /* What-ifs are saved with the team, so an experiment is there the next time
+     it is opened, and typing one is an edit like any other. But only this
+     overlay reads them: the page judges the runes worn and never passes them. */
+  const whatIfs = useMemo(() => new Map(draft.members.flatMap((member) =>
+    member.whatIfDisplaySpeed === undefined ? [] : [[member.unitId, member.whatIfDisplaySpeed] as const])), [draft]);
+  const reading = useMemo(() => readSpeedTeam({ team: draft, monsters, totemPercent: totemShare, whatIfs }),
+    [draft, whatIfs, monsters, totemShare]);
+
+  function setWhatIf(unitId: string, value: number | undefined) {
+    change((team) => ({
+      ...team,
+      members: team.members.map((member) => member.unitId !== unitId ? member
+        : value === undefined ? { unitId: member.unitId } : { ...member, whatIfDisplaySpeed: value }),
+    }));
+  }
+  const dungeon = draft.content === 'arena' ? null : draft.content;
+  const arena = dungeon === null;
   /* A new dungeon team opens with no dungeon chosen. The draft still carries
      one, because the table needs a content to read the monsters in, but none
      is shown, the enemy's turns stay blank and the team cannot be saved until
@@ -112,15 +125,25 @@ export function SpeedTeamOverlay({
       <div className="overlay-body">
         {/* An arena team stays an arena team: its size and its enemy are not a
             dungeon's, so there is nothing to move it between. */}
-        {!arena && <div className="speed-dungeon-choice">
-          <label className="filter-label" htmlFor={`${draft.id}-dungeon`}>Select dungeon</label>
-          <Dropdown id={`${draft.id}-dungeon`} className="speed-dungeon-select" placeholder={dungeonChosen ? undefined : ''}
-            value={dungeonChosen ? draft.content : ''}
-            onChange={(event) => { if (event.target.value) changeDungeon(event.target.value as DungeonId); }}>
-            {dungeonIds.map((id) => <option key={id} value={id}>{speedContent(id).name}</option>)}
-          </Dropdown>
+        {dungeon !== null && <div className="speed-dungeon-choice">
+          <div className="speed-dungeon-pick">
+            <label className="filter-label" htmlFor={`${draft.id}-dungeon`}>Select dungeon</label>
+            <Dropdown id={`${draft.id}-dungeon`} className="speed-dungeon-select" placeholder={dungeonChosen ? undefined : ''}
+              value={dungeonChosen ? draft.content : ''}
+              onChange={(event) => { if (event.target.value) changeDungeon(event.target.value as DungeonId); }}>
+              {dungeonIds.map((id) => <option key={id} value={id}>{speedContent(id).name}</option>)}
+            </Dropdown>
+          </div>
+          {/* Kept in the layout before a dungeon is chosen, so choosing one
+              fills it in rather than widening the row. */}
+          <dl className="speed-dungeon-facts" data-shown={dungeonChosen ? 'true' : 'false'}>
+            <dt className="type-caption">Fastest enemy</dt>
+            <dd>{formatNumber(fastestEnemySpeed(dungeon), general)} dungeon speed</dd>
+            <dt className="type-caption">Acc needed</dt>
+            <dd>{usefulAccuracy(dungeon)}%</dd>
+          </dl>
         </div>}
-        <SpeedTeamEditor reading={reading} worn={worn} title={title} names={names} general={general}
+        <SpeedTeamEditor reading={reading} title={title} names={names} general={general}
           enemiesKnown={dungeonChosen}
           turnOrderAction={<Button ref={turnOrderOpener} tone="important" size="prominent" className="speed-ticks-button"
             disabled={!dungeonChosen || reading.members.length === 0} onClick={() => setShowTurnOrder(true)}>
@@ -128,10 +151,8 @@ export function SpeedTeamOverlay({
           </Button>}
           choices={choices.filter((choice) => !inTeam.has(choice.unitId))}
           onChange={change}
-          onAddMonster={(unitId) => {
-            const monster = monsters.get(unitId);
-            if (monster) change((team) => withMonsterAdded(team, reading, unitId, monster, totemShare));
-          }}
+          onWhatIf={setWhatIf}
+          onAddMonster={(unitId) => { if (monsters.has(unitId)) change((team) => withMonsterAdded(team, unitId)); }}
           onOpenMonster={onOpenMonster} />
       </div>
     </Overlay>

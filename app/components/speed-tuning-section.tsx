@@ -18,24 +18,23 @@ import { dungeonIds, speedContent } from '../lib/speed-contents';
 import type { SpeedContentId } from '../lib/speed-contents';
 import { totemMaximumLevel } from '../lib/speed-tick';
 import { readSpeedRule, speedRuleKind, speedRuleScopeText, speedRuleSentence, speedRuleVerdict } from '../lib/speed-rules';
-import { hasWhatIf, outOfPlaceCount, readSpeedTeam, withoutWhatIfs } from '../lib/speed-tuning-analysis';
+import { outOfPlaceCount, readSpeedTeam } from '../lib/speed-tuning-analysis';
 import type { TeamReading } from '../lib/speed-tuning-analysis';
 import { newSpeedTuningId, speedTeamTitle } from '../lib/speed-tuning-preferences';
 import type { SpeedRule, SpeedTeam, SpeedTuningPreferences } from '../lib/speed-tuning-preferences';
 import type { ImportedGame, Preferences } from '../lib/types';
 
-type Titled = { reading: TeamReading; worn: TeamReading; title: string };
+type Titled = { reading: TeamReading; title: string };
 type Verdict = SpeedVerdict;
 
 type ReadingContext = {
   monsters: ReadonlyMap<string, GameRecord>;
   totemPercent: number;
   cache: WeakMap<SpeedTeam, TeamReading>;
-  worn: WeakMap<SpeedTeam, TeamReading>;
 };
 
 function newReadingContext(monsters: ReadonlyMap<string, GameRecord>, totemPercent: number): ReadingContext {
-  return { monsters, totemPercent, cache: new WeakMap(), worn: new WeakMap() };
+  return { monsters, totemPercent, cache: new WeakMap() };
 }
 
 function cachedReading(context: ReadingContext, team: SpeedTeam): TeamReading {
@@ -43,18 +42,6 @@ function cachedReading(context: ReadingContext, team: SpeedTeam): TeamReading {
   if (held) return held;
   const reading = readSpeedTeam({ team, monsters: context.monsters, totemPercent: context.totemPercent });
   context.cache.set(team, reading);
-  return reading;
-}
-
-/* Every verdict on the page answers whether the runes worn hold the tune, so
-   it reads the team without its what-ifs (`withoutWhatIfs`); the experiment
-   is the editor's. */
-function wornReading(context: ReadingContext, team: SpeedTeam): TeamReading {
-  if (!hasWhatIf(team)) return cachedReading(context, team);
-  const held = context.worn.get(team);
-  if (held) return held;
-  const reading = readSpeedTeam({ team: withoutWhatIfs(team), monsters: context.monsters, totemPercent: context.totemPercent });
-  context.worn.set(team, reading);
   return reading;
 }
 
@@ -100,20 +87,36 @@ function SummaryLine({ label, status, state, spoken, onOpen, children }: {
 }
 
 /**
- * A team's verdict in one sentence, read from the runes worn. Where the
- * editor holds what-ifs, the sentence quotes their count too: the editor reads
- * the team with them, and two counts that disagree without saying why read as
- * one of them being wrong.
+ * A team's verdict in one sentence. The page only ever reads the runes worn —
+ * a what-if lives and dies inside the open editor — so the sentence need not
+ * say which reading it is.
  */
-function teamStatus(worn: TeamReading, experiment: TeamReading): { text: string; state: Verdict } {
-  if (worn.team.members.length === 0) return { text: 'No monsters yet', state: 'none' };
-  if (worn.missingUnitIds.length) {
-    const missing = worn.missingUnitIds.length;
+function teamStatus(reading: TeamReading): { text: string; state: Verdict } {
+  if (reading.team.members.length === 0) return { text: 'No monsters yet', state: 'none' };
+  if (reading.missingUnitIds.length) {
+    const missing = reading.missingUnitIds.length;
     return { text: `${missing} monster${missing === 1 ? ' is' : 's are'} not in this import`, state: 'bad' };
   }
-  const tried = hasWhatIf(experiment.team) ? ` · ${outOfPlaceCount(experiment)} with your what-ifs` : '';
-  if (worn.perfect) return { text: `Turn order holds with the runes worn${tried}`, state: 'good' };
-  return { text: `${outOfPlaceCount(worn)} of ${worn.members.length} out of place with the runes worn${tried}`, state: 'bad' };
+  const cut = cutInText(reading);
+  /* In arena the worst-case enemy is the one the team must open against, so
+     its cutting in fails the team; a dungeon stage's enemies may simply be
+     faster than any build, and there it is reported without a verdict. */
+  const cutFails = reading.content.area === 'arena' && cut !== '';
+  if (reading.perfect) return { text: `Turn order holds${cut}`, state: cutFails ? 'bad' : 'good' };
+  const count = `${outOfPlaceCount(reading)} of ${reading.members.length}`;
+  if (reading.marginOnly) return { text: `${count} short of the speed margin${cut}`, state: cutFails ? 'bad' : 'warn' };
+  /* Out of place counts the members in red; one only short of the margin is yellow, and not counted here. */
+  const faults = reading.members.filter((member) => member.verdict.kind === 'order' || member.verdict.kind === 'tie').length;
+  return { text: `${faults} of ${reading.members.length} out of place${cut}`, state: 'bad' };
+}
+
+/* Whether an enemy moves before the team's last monster has had its first
+   turn, read off the same traces the Ticks view draws — boosts, buffs and
+   Leo's cap included. A dungeon names its stages; arena has the one worst case. */
+function cutInText(reading: TeamReading): string {
+  const stages = reading.enemies.flatMap((enemy, at) => enemy.cutsIn ? [at + 1] : []);
+  if (stages.length === 0) return '';
+  return reading.content.area === 'arena' ? ' · Enemy can cut in' : ` · Enemy can cut in (stage ${stages.join(', ')})`;
 }
 
 type Opened<T> = { value: T; isNew: boolean; opener: HTMLElement | null; fallback: RefObject<HTMLButtonElement | null> };
@@ -160,7 +163,6 @@ export function SpeedTuningSection({ game, monsters, preferences, onWrite, onOpe
   const titled = (content: SpeedContentId): Titled[] => teams.filter((team) => team.content === content)
     .map((team) => ({
       reading: cachedReading(readingContext, team),
-      worn: wornReading(readingContext, team),
       title: speedTeamTitle(teams, team),
     }));
   const arenaTeams = titled('arena');
@@ -258,7 +260,7 @@ export function SpeedTuningSection({ game, monsters, preferences, onWrite, onOpe
   /* A team's line: the order asked for, its leader marked. */
   function renderTeam(entry: Titled) {
     const { team } = entry.reading;
-    const status = teamStatus(entry.worn, entry.reading);
+    const status = teamStatus(entry.reading);
     return <SummaryLine label={entry.title} status={status.text} state={status.state}
       onOpen={(opener) => setEditingTeam({ value: team, isNew: false, opener, fallback: addButton })}>
       {team.members.map((member, at) => <span key={member.unitId} className="speed-summary-member">

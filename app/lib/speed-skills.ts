@@ -11,6 +11,7 @@
  */
 import speedSkillData from '../data/swarfarm-speed-skills.json';
 import type { GameRecord } from './game-data';
+import { speedBuffPercent } from './speed-tick';
 import type { LeaderArea, SpeedLeaderSkill, TurnEffect } from './speed-tick';
 
 type SnapshotEffect = {
@@ -192,7 +193,20 @@ export type SpeedSkillProfile = {
   similarBoostPassive: boolean;
   /** Skills with a speed effect whose size depends on the battle, and so is not counted. */
   uncounted: string[];
+  /** Leo's Eye of the Storm: no one else on the field moves faster than this monster. */
+  capsOthersSpeed: boolean;
 };
+
+/* Leo's passive, com2us skill 7813 — "the attack speed of all enemies and
+   allies is limited to your attack speed", sparing Boss Monsters and anyone
+   with the same skill (Swarfarm skill 1096). It names no number, so the
+   snapshot's speed effects do not carry it; it is read from the copy's own
+   skill list. Dragon Knight carries it before awakening as Leo does after. */
+const speedCapSkillId = 7813;
+
+function hasSpeedCap(monster: GameRecord): boolean {
+  return Array.isArray(monster.skills) && monster.skills.some((entry) => Array.isArray(entry) && entry[0] === speedCapSkillId);
+}
 
 function ownSkills(monster: GameRecord): Array<{ skill: SnapshotSkill; level: number }> {
   if (!Array.isArray(monster.skills)) return [];
@@ -232,6 +246,7 @@ export function speedSkillProfile(monster: GameRecord): SpeedSkillProfile {
     effects: used.flatMap((skill) => skill.effects),
     similarBoostPassive: passives.some((skill) => skill.effects.some((effect) => effect.kind === 'allies-attack-bar')),
     uncounted: read.filter((entry) => entry.uncounted).map((entry) => entry.skill.name),
+    capsOthersSpeed: hasSpeedCap(monster),
   };
 }
 
@@ -248,6 +263,18 @@ export function describeTurnEffect(effect: TurnEffect): string {
     case 'allies-speed-buff': return `speed buff to allies for ${effect.turns} turns`;
     case 'ally-speed-buff': return `speed buff to one ally for ${effect.turns} turns`;
     case 'self-speed-buff': return `own speed buff for ${effect.turns} turns`;
+  }
+}
+
+/** The same effect in a few characters, for the tag a team table hangs between two slots. */
+export function shortTurnEffect(effect: TurnEffect): string {
+  switch (effect.kind) {
+    case 'allies-attack-bar': return `+${percent(effect.amount)} % ATB`;
+    case 'ally-attack-bar': return `+${percent(effect.amount)} % ATB · 1 ally`;
+    case 'self-attack-bar': return `+${percent(effect.amount)} % own ATB`;
+    case 'allies-speed-buff': return `+${speedBuffPercent} % SPD · ${effect.turns} turns`;
+    case 'ally-speed-buff': return `+${speedBuffPercent} % SPD · 1 ally`;
+    case 'self-speed-buff': return `+${speedBuffPercent} % own SPD`;
   }
 }
 

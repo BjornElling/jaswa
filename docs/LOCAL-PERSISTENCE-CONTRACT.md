@@ -30,8 +30,10 @@ The durable workspace contains:
   monsters or only Lv. 40 monsters, how conversion stones are sourced, the
   assumed stone value, and the acceptable-property factor), and Speed Tuning's
   teams and rules (each team's dungeon or arena, its monsters in the order they
-  should move, its leader, its speed margin, and any what-if display speed
-  typed for one monster in that team — keyed by `unit_id`; and each standing
+  should move, its leader, its speed margin and any what-if display speed
+  tried on a monster — keyed by `unit_id`; the what-if is stored with the team
+  but read only by the team's overlay, never by the page or any other figure;
+  and each standing
   rule about one monster — that it moves before or after another, or that it
   reaches, stays under or stays between figures — and which of display speed,
   dungeon speed and arena speed it is checked in);
@@ -73,7 +75,8 @@ A Speed Tuning change goes through `writeSpeedTuning` in `app/page.tsx`, a
 named wrapper over `changePreferences`. Only the user's statements are stored;
 every arena speed, dungeon speed, verdict and interval is derived from the
 current import on each render, so a saved team cannot carry a stale reading.
-An empty what-if is absent, never `0`, and a saved team whose monster the
+A what-if the contract refuses — not a whole display speed from 1 to 999 — is
+dropped alone, and the team it sat in is read as it stands. A saved team whose monster the
 import no longer holds keeps its slot and says so until the user removes it.
 
 A monster-overlay choice goes through `updateMonsterPreferences` in

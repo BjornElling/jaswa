@@ -12,16 +12,14 @@
 import { speedContent, speedContents, speedContentTeamSize } from './speed-contents';
 import type { SpeedContentId } from './speed-contents';
 
-/** The widest speed margin the page offers, in combat speed (arena or dungeon speed). */
+/** The widest speed margin the page offers, in the team's arena or dungeon speed. */
 export const speedMarginMaximum = 3;
 
 /**
- * One monster's place in a team.
- *
- * `whatIfDisplaySpeed` is an experiment the user typed for *this team only*:
- * the display speed the monster would have after a rune change. Absent means
- * "read the monster's own display speed from the import", which is a different
- * answer from any number, so it is left out rather than stored as `0`.
+ * One monster's place in a team, and the what-if display speed the user tried
+ * on it, if any. The what-if is kept so the experiment is there next time the
+ * team is opened, but it is read only inside the team's overlay: the page and
+ * everything else judge the runes worn, and never see it.
  */
 export type SpeedTeamMember = { unitId: string; whatIfDisplaySpeed?: number };
 
@@ -39,7 +37,8 @@ export type SpeedTeam = {
   /** Whether a speed margin is asked of every neighbouring pair. */
   marginEnabled: boolean;
   /**
-   * The margin in combat speed (arena or dungeon speed), held while the switch
+   * The margin in arena or dungeon speed, by the team's content — the speed
+   * the battle runs on, so a gap of one is one speed on the bar. Held while the switch
    * is off so turning it on again finds the value chosen before.
    */
   margin: number;
@@ -101,7 +100,7 @@ export function speedTeamTitle(teams: readonly SpeedTeam[], team: SpeedTeam): st
   return `${base} #${placed.filter((entry) => entry.content === team.content).findIndex((entry) => entry.id === team.id) + 1}`;
 }
 
-/** The highest display speed the page accepts as an experiment. Far above any rune build. */
+/** The highest display speed the editor accepts as a what-if. Far above any rune build. */
 export const whatIfDisplaySpeedMaximum = 999;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -117,12 +116,29 @@ function isIdentifier(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0 && value.length <= 64;
 }
 
+function isWhatIfDisplaySpeed(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 1 && value <= whatIfDisplaySpeedMaximum;
+}
+
 function isMember(value: unknown): value is SpeedTeamMember {
-  if (!isRecord(value) || !hasExactKeys(value, ['unitId'], ['whatIfDisplaySpeed'])) return false;
-  if (!isIdentifier(value.unitId)) return false;
-  return value.whatIfDisplaySpeed === undefined
-    || (typeof value.whatIfDisplaySpeed === 'number' && Number.isSafeInteger(value.whatIfDisplaySpeed)
-      && value.whatIfDisplaySpeed >= 1 && value.whatIfDisplaySpeed <= whatIfDisplaySpeedMaximum);
+  return isRecord(value) && hasExactKeys(value, ['unitId'], ['whatIfDisplaySpeed']) && isIdentifier(value.unitId)
+    && (!('whatIfDisplaySpeed' in value) || isWhatIfDisplaySpeed(value.whatIfDisplaySpeed));
+}
+
+/* A what-if is its own choice, apart from the team it sits in: one the
+   contract refuses is dropped alone, and the team the user built is read as it
+   stands (`preference-reading.ts`). */
+function withValidWhatIfs(value: unknown): unknown {
+  if (!isRecord(value) || !Array.isArray(value.members)) return value;
+  return {
+    ...value,
+    members: value.members.map((member) => {
+      if (!isRecord(member) || !('whatIfDisplaySpeed' in member) || isWhatIfDisplaySpeed(member.whatIfDisplaySpeed)) return member;
+      const kept = { ...member };
+      delete kept.whatIfDisplaySpeed;
+      return kept;
+    }),
+  };
 }
 
 function isTeam(value: unknown): value is SpeedTeam {
@@ -192,7 +208,7 @@ export function readSpeedTuningPreferences(value: unknown): SpeedTuningPreferenc
     return true;
   };
   return {
-    teams: (Array.isArray(stored.teams) ? stored.teams : []).filter(isTeam).filter(unseen),
+    teams: (Array.isArray(stored.teams) ? stored.teams : []).map(withValidWhatIfs).filter(isTeam).filter(unseen),
     rules: (Array.isArray(stored.rules) ? stored.rules : []).filter(isRule).filter(unseen),
   };
 }

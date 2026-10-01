@@ -1,7 +1,7 @@
 # Speed and turn order — canonical rules
 
 **Status:** Binding rule basis for JASWA Speed Tuning
-**Reviewed:** September 24, 2026
+**Reviewed:** October 1, 2026
 **Game:** *Summoners War: Sky Arena*
 
 This document states the game rules Speed Tuning is built on. `app/lib/speed-tick.ts`
@@ -24,7 +24,10 @@ Every speed on the page names its form. A bare "speed" is not used.
 
 A what-if value is always a display speed. It is turned back into flat rune
 speed (`runeSpeedForDisplay`), so an experiment changes the runes and nothing
-else: base speed, Swift, totem and leader stay the monster's own.
+else: base speed, Swift, totem and leader stay the monster's own. It is saved
+with the team, so the experiment is there when the team is opened again, but
+only the team's overlay reads it: the page behind it, its verdicts and every
+other figure judge the runes worn.
 
 ## 2. Combat speed
 
@@ -34,16 +37,23 @@ Without a speed buff:
 
 With a speed buff:
 
-    S = ⌈ (B · (1 + t + l + s) + b) · 1.3 ⌉
+    S = ⌈ B · (1 + t + l + s) + b ⌉ · 1.3
 
 - `B` is base speed, `b` all flat speed on runes (main, innate, substats and grinds).
 - `t` is the Sky Tribe Totem, `l` the leader skill, `s` Swift (0.25 with four
   Swift pieces, otherwise 0). All three are fractions of **base** speed and add.
 - **One rounding up, over the whole sum.** No term is rounded on its own.
+- **The buff multiplies the rounded figure and is not rounded again**, so a
+  buffed speed may carry a tenth. Its potency is ⌊30 · (1 + speed-up effect)⌋ %;
+  nothing JASWA reads carries a speed-up effect, so it is 30 %.
 
-Sources: Ellia's Wiki, *Attack Bar* (elliabot.neocities.org/game_mechanics/attack_bar/);
-SWSpeedTuner's source (`Math.ceil((1.15 + lead/100) * base + runeSpeed)`). Both
-agree. SWLens contradicts itself on the totem and is not used.
+Sources: SWCalc, *Speed Calculation* (swcalc.cz/game-mechanics), which is
+authoritative (`CALCULATION-AUTHORITY.md`) — its worked Agrius example is
+⌈104 × 1.15 + 145⌉ = 265, buffed 265 × 1.37 = 363.05. Ellia's Wiki, *Attack Bar*
+(elliabot.neocities.org/game_mechanics/attack_bar/) and SWSpeedTuner's source
+(`Math.ceil((1.15 + lead/100) * base + runeSpeed)`) agree on the unbuffed form.
+The buff was earlier modelled as rounding up after the multiplication; SWCalc
+does not, and decides. SWLens contradicts itself on the totem and is not used.
 
 **Swift.** Display speed shows Swift's 25 % rounded up to a whole number
 (`displayedSwiftBonus`); battle uses the exact quarter inside the single
@@ -119,14 +129,32 @@ tick happens"); SWGT (the bar resets to 0). A unit needs `⌈100 / (7 · n)⌉`
 combat speed to move within `n` ticks: 1,429, 715, 477, 358, 286, 239, 205, 179,
 159, 143 …
 
-Bars are held in hundredths of a percent (a tick is `7 × speed`, a turn
-10,000), so every comparison is exact.
+Bars are reported in hundredths of a percent (a tick is `7 × speed`, a turn
+10,000). The clock counts a hundred times finer — a tick is
+`7 × speed × (100 + buff %)` — so a buffed speed's tenth stays whole and every
+comparison is exact.
+
+### 3.1 Leo
+
+Leo's passive, *Eye of the Storm* (com2us skill 7813, also on the unawakened
+Dragon Knight): "The attack speed of all enemies and allies is limited to your
+attack speed. This effect does not affect enemies with the same skill or Boss
+Monsters." SWCalc: "If Leo exists, non-Leo monsters are capped to the lowest
+Leo combat speed." On every tick, every other unit's combat speed — its buff
+included — is held to the slowest Leo's current combat speed.
+
+**Modelled:** a dungeon stage does not say which enemy is the boss, so in
+dungeons no enemy is capped — the pessimistic reading, as a tie is. Arena has
+no bosses, and the worst-case arena enemy is one below the team's first mover as
+the cap leaves it.
 
 **Ties.** An exact tie is settled by field position: the monster further left
 moves first (Ellia; SWGT). The page cannot see positions, so a tie is reported
 as its own verdict — "position decides" — and never counted as a pass. In the
 simulation a tie goes to the enemy (the pessimistic reading) and between allies
-to the one listed first. Leo's special tie rule is not modelled.
+to the one listed first. SWCalc's "highest attack bar goes first" agrees; its
+"same order as selected in setup" is its own stand-in for field position. A
+tie-break of Leo's own beyond §3.1 is not modelled.
 
 **Start of battle.** No source describes any random factor in arena or
 dungeons; the clock is deterministic.
@@ -212,22 +240,59 @@ its first enemy moves. **Unverified:** whether the game resets bars between
 stages; the page counts each stage from its start. Several Abyss stages repeat
 the B12 speeds exactly on Swarfarm, which may be a gap in its data.
 
+The snapshot also keeps each enemy's `resist`. It is not part of the turn
+order: the team overlay quotes the floor's fastest enemy and the accuracy a
+monster can still use there — the highest resistance less 15, because the game
+never lets a resistance fall below 15 per cent.
+
 ## 7. Judging a tune
 
 The user's order is strict: monster A before monster B means A's first turn
-comes before B's. Per member, against every other member:
+comes before B's. Each member looks **up the order only**: it is judged against
+every monster placed above it, never against one below. A monster below that
+moves first is out of place itself and says so; the slower one above it stays
+in place. So if the fourth outpaces the third, while the third still follows
+the first two, only the fourth is wrong.
 
-- **In place** — every relation holds, with no tie and, where asked, the margin.
-- **Too slow / too fast / out of order** — a relation fails.
-- **Tie** — a relation holds only by an exact tie on the bar.
-- **Margin** — in order, but a neighbour given `margin` more combat speed
-  would pass it. The margin is combat speed; the interval is display speed.
+- **In place** — follows everyone above it, with no tie and, where asked, the
+  margin.
+- **Too fast** — moves before a monster placed above it.
+- **Tie** — follows one above it only by an exact tie on the bar.
+- **Margin** — follows everyone above it, but would not with `margin` more
+  combat speed — arena or dungeon speed, by the team's content. The margin is
+  in the speed the battle runs on, added after §2's rounding, so a margin of
+  one is one speed on the bar. The interval stays display speed, the figure the
+  user reads off a monster and changes with runes.
 
 Each member out of place gets its own interval of display speeds: every whole
 display speed from bare runes to 999 is run through the clock with the others
 held where they are, and the passing run nearest the current value is printed.
-"No display speed fixes this on its own" means no value of that monster alone
-does. The verifier confirms every printed interval at both edges.
+Where no display speed of that monster alone fixes it, the line names the fault
+and says nothing more. The verifier confirms every printed interval at both
+edges.
+
+Faults are judged in order, per member. A member out of order, or in order
+only by a tie, shows that fault in red; the margin is asked of every member
+without one, whatever its teammates do, and a member short of it alone is a
+warning in yellow. So a margin shortfall never hides a wrong turn order, and is
+never hidden by another member's. Where a margin is asked, every interval is
+the run that clears both. A team whose only faults are margins is a warning (a
+yellow triangle) rather than a failure.
+
+**Slower than the fastest enemy** — in a dungeon, a member whose dungeon speed
+is below the floor's fastest enemy (the figure the overlay quotes, §6) is
+warned at the end of its line, after every fault in the team's own order:
+yellow where the verdict is otherwise green, and
+left red where it is red. Under Leo's cap the member is read at the speed the
+cap leaves it. An equal speed is not warned: a tie on the bar is taken as the
+team's, which is the assumption the user tunes to. Arena has no fixed enemy and
+no such warning.
+
+**Enemy can cut in** — an enemy turn comes before the team's last first turn,
+read off the very traces the Ticks view draws, boosts, buffs and Leo's cap
+included. In arena, where the enemy is the worst case the team must open
+against, it fails the team; on a dungeon stage it is reported, because a
+stage's enemies may be faster than any build.
 
 ## 8. Data sources
 

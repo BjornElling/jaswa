@@ -332,7 +332,7 @@ label[for] {
 .rune-overlay-innate, .rune-overlay-subs, .rune-overlay-evaluation-facts,
 .rune-overlay-readings, .rune-overlay-readings tbody th,
 .rune-optimization-rune-main, .rune-optimization-rune-subs, .rune-optimization-choose,
-.speed-summary, .speed-basis-level, .speed-basis-bonus {
+.speed-summary, .speed-basis-level, .speed-basis-bonus, .speed-dungeon-facts dd {
   font-family: var(--font-body);
   font-size: var(--type-body);
   font-weight: 400;
@@ -379,7 +379,8 @@ label[for] {
 .choice-menu-option-note, .rune-build-leader-pieces, .rune-build-leader-count,
 .rune-build-note, .rune-build-composed, .overlay-suggestion-label, .speed-timeline-turn,
 .rune-optimization-provenance, .rune-optimization-rune-level, .rune-optimization-rune-where,
-.rune-optimization-rune-craft, .speed-summary-state {
+.rune-optimization-rune-craft, .speed-summary-state, .speed-leader-skill,
+.speed-team-margin .checkbox-row {
   font-family: var(--font-body);
   font-size: var(--type-label);
   font-weight: 400;
@@ -3326,35 +3327,42 @@ label[for] {
 }
 /* `accent-color` only paints the tick and its fill; an unchecked box keeps the
    browser's white, which is a hole in a dark page. The box is drawn here
-   instead, and the tick is a stroked mark in the accent — the same "you can act
-   on this" gold the filter buttons carry.
+   instead: a plain square in greys, quiet beside the controls around it, with
+   a white tick when checked. A tick is a state the user reads off the box, not
+   an invitation, so it carries no gold.
 
    A text field can sit on --sunk and still be found, because it is wide and
    ringed all the way round. At 16px square that reads as a smudge, so the box
    is raised above the page ground rather than cut into it, and takes the
-   --text-muted border that marks the edge of something empty but present. */
-.checkbox-row input, .filter-checkbox, .overlay-toggle input {
+   --text-muted border that marks the edge of something empty but present.
+
+   This is the program's one checkbox: every `input[type=checkbox]` is drawn
+   by it, wherever it stands, so no page falls back to the browser's own. */
+input[type='checkbox'] {
   appearance: none; -webkit-appearance: none;
   width: 16px; height: 16px; margin: 0;
   flex: 0 0 auto;
   background: var(--raise);
   border: 1px solid var(--text-muted);
-  border-radius: var(--radius-sm);
+  border-radius: 2px;
   cursor: pointer;
   transition: background .12s, border-color .12s;
 }
-.checkbox-row input:hover, .filter-checkbox:hover, .overlay-toggle input:hover {
+/* Only an empty box lights on hover: a ticked one keeps its tick under the pointer. */
+input[type='checkbox']:hover:not(:disabled):not(:checked) {
   background: var(--hover);
-  border-color: var(--text-accent);
+  border-color: var(--text);
 }
+/* Unavailable rather than gone: the box keeps its place and fades. */
+input[type='checkbox']:disabled { opacity: .4; cursor: not-allowed; }
 /* The tick is a background image rather than a pseudo-element: `input` is a
    replaced element and cannot carry ::after in every browser. */
-.checkbox-row input:checked, .filter-checkbox:checked, .overlay-toggle input:checked {
+input[type='checkbox']:checked {
   background:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23d9ad52' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5 6.5 11.5 12.5 4.5'/%3E%3C/svg%3E")
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23f0eee9' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5 6.5 11.5 12.5 4.5'/%3E%3C/svg%3E")
     center / 14px 14px no-repeat,
-    var(--gold-deep);
-  border-color: var(--text-accent);
+    var(--line-strong);
+  border-color: var(--text);
 }
 /* A checkbox standing on its own in the filter strip, named by the group's
    label rather than by text of its own. A filter button pads its text by --s3
@@ -3863,9 +3871,14 @@ label[for] {
 /* Destructive buttons name themselves in red on hover and focus rather than at
    rest, so the warning arrives when the pointer is on them instead of
    colouring the panel they sit in. */
+/* Mixed down from the verdict red rather than the full colour: the warning is
+   a hint under the pointer, not an alarm across the panel. */
 .button.danger:hover:not(:disabled),
-.button.danger:focus-visible:not(:disabled) { color: var(--state-bad); border-color: var(--state-bad); }
-.button.danger:hover:not(:disabled) { background: #1c1210; }
+.button.danger:focus-visible:not(:disabled) {
+  color: color-mix(in srgb, var(--state-bad) 70%, var(--text));
+  border-color: color-mix(in srgb, var(--state-bad) 45%, var(--line-strong));
+}
+.button.danger:hover:not(:disabled) { background: color-mix(in srgb, var(--state-bad) 6%, transparent); }
 /* Important actions use a gold frame, not a filled slab, so they stand out
    without competing with the filter state or the surrounding section title. */
 .button.important-action { border-color: var(--text-accent); }
@@ -6263,6 +6276,7 @@ th.align-center .sort-button { justify-content: center; }
 .speed-summary-mark svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
 .speed-summary-mark[data-state='good'] { color: var(--state-good); }
 .speed-summary-mark[data-state='bad'] { color: var(--state-bad); }
+.speed-summary-mark[data-state='warn'] { color: var(--state-warn); }
 /* The names wrap as words do: a line of five long names is still read in
    order, and nothing on the line changes when it is clicked. */
 .speed-summary-names { grid-area: names; display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--s2); row-gap: var(--s1); min-width: 0; }
@@ -6289,9 +6303,24 @@ th.align-center .sort-button { justify-content: center; }
 .speed-overlay-tools { display: flex; align-items: center; gap: var(--s2); flex: none; }
 /* The dungeon, under the overlay's rule: one labelled dropdown, wide enough
    for the longest name, so choosing one moves nothing beside it. */
-.speed-dungeon-choice { display: flex; align-items: center; gap: var(--s3); margin-bottom: var(--s2); }
+/* The choice on the left, the floor's facts from two thirds across: far
+   enough out to read as a note on the choice rather than part of it. */
+.speed-dungeon-choice {
+  display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: center;
+  padding: var(--s4) 0; margin-bottom: var(--s3);
+}
+.speed-dungeon-pick { display: flex; align-items: center; gap: var(--s3); }
 .speed-dungeon-choice .filter-label { margin: 0; align-self: center; }
 .speed-dungeon-select { width: 24ch; }
+/* What the chosen floor asks of a team, set off by a gold rule. Hidden rather
+   than unmounted until a dungeon is chosen, so the row never changes height. */
+.speed-dungeon-facts {
+  display: grid; grid-template-columns: auto 18ch; column-gap: var(--s4); row-gap: var(--s1); align-items: baseline;
+  justify-self: start; margin: 0; padding-left: var(--s4); border-left: 2px solid var(--text-accent);
+}
+.speed-dungeon-facts[data-shown='false'] { visibility: hidden; }
+.speed-dungeon-facts dt { color: var(--text-muted); }
+.speed-dungeon-facts dd { margin: 0; color: var(--text-strong); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* The account's totem and how a combat speed is made from it: one strip,
    because it is the same for every team. Leader skills, boosts and buffs
@@ -6333,15 +6362,23 @@ th.align-center .sort-button { justify-content: center; }
    and the facts below come in a fixed number — so reordering, adding or
    fixing a monster moves nothing else in the overlay (AGENTS.md §2). */
 .speed-team-editor { display: grid; gap: var(--s3); min-width: 0; }
-.speed-team-settings { display: flex; align-items: center; gap: var(--s3); }
-.speed-team-margin { display: flex; align-items: center; gap: var(--s2); }
-.speed-margin-select { width: 20ch; }
+/* A refinement of the order above, so it sits at the table's right edge in
+   the quieter caption voice rather than competing with the slots. */
+/* The verdict takes what the margin leaves and ends in an ellipsis rather
+   than pushing the margin off its edge. */
+.speed-team-foot { display: flex; justify-content: flex-end; align-items: center; gap: var(--s4); min-width: 0; }
+.speed-team-margin { display: flex; flex: 0 0 auto; align-items: center; gap: var(--s2); }
+.speed-team-margin .checkbox-row { min-height: 0; gap: var(--s2); color: var(--text-muted); }
+.speed-margin-select.jaswa-select { width: 21ch; height: 28px; padding-left: var(--s2); font-size: var(--type-label); }
 
 .speed-team-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .speed-col-order { width: 3ch; }
 .speed-col-leader { width: 20ch; }
 .speed-col-speed { width: 15ch; }
-.speed-col-what-if { width: 10ch; }
+/* The field keeps its 10ch; the column adds the air that holds it off the
+   display speed beside it, so the imported figure and the experiment read apart. */
+.speed-col-what-if { width: calc(10ch + var(--s4)); }
+.speed-team-table td.speed-what-if-cell { padding-left: var(--s4); }
 .speed-col-controls { width: 108px; }
 .speed-team-table thead th.align-center { text-align: center; }
 .speed-team-table thead th {
@@ -6351,14 +6388,35 @@ th.align-center .sort-button { justify-content: center; }
   text-align: left;
 }
 .speed-team-table thead th.align-right { text-align: right; }
-/* Every slot is the same two rows, filled or empty: figures, then the
-   verdict across the width. */
+/* Every slot is the same two rows, filled or empty: the name, then its
+   verdict. A cell spanning both is padded alike at each end, so it sits in
+   the slot's true middle. */
 .speed-team-table td { padding: 0 var(--s1); vertical-align: middle; }
 .speed-row td { height: 36px; padding-top: var(--s1); }
+.speed-row td[rowspan] { padding-bottom: var(--s1); }
 .speed-verdict-row td { height: 24px; padding-bottom: var(--s1); vertical-align: top; }
+/* A boost sits on the rule between this slot and the next, cut out of the
+   line by the panel's own ground, so it reads as what passes from one turn
+   to the following one. Out of the flow: a booster joining moves nothing. */
+.speed-verdict-cell { position: relative; }
+.speed-boost-tag {
+  /* Set in from the start of the name column, under the names it passes
+     between: clear of their first letters, but nowhere near the column's far edge. */
+  position: absolute; left: calc(var(--s7) * 2); bottom: 0; translate: 0 50%; z-index: 1;
+  padding: 0 var(--s2); background: var(--raise); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  color: var(--text-muted); white-space: nowrap; font-variant-numeric: tabular-nums;
+}
 .speed-slot { border-bottom: 1px solid var(--line); }
 .speed-slot[draggable] { cursor: grab; }
 .speed-slot[data-dragging] { opacity: .5; }
+/* A drag draws each slot where the drop would put it. The slide is eased only
+   while sorting, so the drop itself — new order, no offset — lands in one frame
+   instead of animating the reordered slots back from where they were drawn.
+   Each cell is moved rather than the body or its rows: Chrome draws a moved
+   body's or row's spanning cells short of where it put them. */
+.speed-slot > tr > td { transform: translateY(var(--speed-slot-shift, 0)); }
+.speed-team-table[data-sorting] .speed-slot > tr > td { transition: transform .15s ease; }
+.speed-team-table[data-sorting] .speed-slot:hover { background: none; }
 .speed-slot:hover { background: var(--hover); }
 .speed-order { color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .speed-monster { min-width: 0; }
@@ -6415,17 +6473,10 @@ th.align-center .sort-button { justify-content: center; }
    muted at rest, full ink once chosen, red where the lead does not count. */
 .speed-leader-cell { text-align: center; }
 .speed-leader { display: inline-grid; justify-items: center; gap: var(--s1); max-width: 100%; cursor: pointer; }
-.speed-leader input { width: 16px; height: 16px; margin: 0; accent-color: var(--text-accent); cursor: pointer; }
-.speed-leader input:disabled { cursor: default; }
 .speed-leader:has(input:disabled) { cursor: default; }
 .speed-leader-skill { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--text-muted); }
 .speed-leader-skill[data-state='chosen'] { color: var(--text-strong); }
 .speed-leader-skill[data-state='bad'] { color: var(--state-bad); }
-
-.speed-team-status { margin: 0; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.speed-team-status[data-state='good'] { color: var(--state-good); }
-.speed-team-status[data-state='bad'] { color: var(--state-bad); }
-.speed-team-status[data-state='none'] { color: var(--text-muted); }
 
 /* When the enemy first moves, set apart from the team above by air and a
    quiet label rather than a second box. */

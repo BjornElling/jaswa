@@ -84,11 +84,12 @@ function ruleOf(id: string, draft: Draft): SpeedRule | null {
 function formVerdictText(rule: SpeedRule, entry: SpeedRuleFormReading, general: GeneralSettings): string {
   if (entry.state === 'holds') return 'Holds';
   const fix = displaySpeedIntervalText(entry.interval, general);
-  if (entry.state === 'tie') return `${entry.form === 'displaySpeed' ? 'Level' : 'Tied · position decides'} · ${fix}`;
+  const withFix = (problem: string) => fix === null ? problem : `${problem} · ${fix}`;
+  if (entry.state === 'tie') return withFix(entry.form === 'displaySpeed' ? 'Level' : 'Tied · position decides');
   const { must } = rule;
   const tooSlow = must.kind === 'move-before' || must.kind === 'reach-at-least'
     || (must.kind === 'stay-between' && entry.own < must.minimum);
-  return `${tooSlow ? 'Too slow' : 'Too fast'} · ${fix}`;
+  return withFix(tooSlow ? 'Too slow' : 'Too fast');
 }
 
 function FigureField({ id, label, value, onChange }: { id?: string; label?: string; value: string; onChange: (value: string) => void }) {

@@ -50,6 +50,11 @@ test('an empty workspace says what Speed Tuning needs', async ({ page }, testInf
 });
 
 test('tunes a dungeon team, explains every miss, and keeps the card still', async ({ page }, testInfo) => {
+  /* Long on purpose — a whole team built, edited, saved and reloaded — and run
+     beside every other spec against one dev server. Twenty seconds on a quiet
+     machine ran past the default thirty under load, always at the same late
+     step, so the budget is set for the load rather than the quiet. */
+  test.setTimeout(90_000);
   await freshWorkspace(page);
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
   await expect(page.getByText('speed-account.json')).toBeVisible();
@@ -87,21 +92,59 @@ test('tunes a dungeon team, explains every miss, and keeps the card still', asyn
 
   /* Choosing a dungeon moves nothing beside the dropdown, and the draft is for it. */
   const choiceBox = await box(dungeonChoice);
+  const facts = draft.locator('.speed-dungeon-facts');
+  const factsBox = await box(facts);
+  await expect(facts).toBeHidden();
   await dungeonChoice.selectOption({ label: 'Necropolis' });
+  /* The floor's facts fill their reserved place beside the choice. */
+  await expect(facts).toBeVisible();
+  await expect(facts).toContainText(/Fastest enemy\d+ dungeon speedAcc needed\d+%/);
+  expect(await box(facts)).toEqual(factsBox);
   await expect(draft.getByLabel('Add a monster to Necropolis team #1')).toBeVisible();
   await expect(saveDraft).toHaveAttribute('title', 'Add a monster to save this team');
   expect(await box(dungeonChoice)).toEqual(choiceBox);
   await dungeonChoice.selectOption({ label: "Giant's Keep" });
   const card = draft;
 
-  /* Monsters join in the order their dungeon speed gives them, whatever order they are picked in. */
+  /* Monsters join in the slot they are added from, whatever their speed. */
   const add = card.getByLabel("Add a monster to Giant's Keep team #1");
-  for (const name of ['Megan (2A)', 'Lushen #1', 'Bernard (2A)', 'Veromos', 'Verdehile']) {
+  for (const name of ['Megan (2A)', 'Bernard (2A)', 'Lushen #1', 'Veromos', 'Verdehile']) {
     await add.selectOption({ label: name });
   }
-  await expect(card.locator('.speed-monster .monster-name')).toHaveText(['Bernard (2A)', 'Lushen #1', 'Veromos', 'Verdehile', 'Megan (2A)']);
+  const names = card.locator('.speed-monster .monster-name');
+  await expect(names).toHaveText(['Megan (2A)', 'Bernard (2A)', 'Lushen #1', 'Veromos', 'Verdehile']);
+
+  /* Dragging Megan down slides the others up to where the drop leaves them,
+     numbered as drawn, before anything is committed; the drop commits it. */
+  const slots = card.locator('.speed-slot');
+  const slotBoxes = await Promise.all([0, 1, 2, 3, 4].map((at) => box(slots.nth(at).locator('.speed-monster'))));
+  /* Taken by its number: the name is a link, and a link is not a handle. */
+  const handle = await box(slots.nth(0).locator('.speed-order'));
+  await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+  await page.mouse.down();
+  for (let step = 1; step <= 12; step += 1) {
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2 + (slotBoxes[4].y - slotBoxes[0].y) * step / 12);
+  }
+  await expect(card.locator('.speed-order')).toHaveText(['5', '1', '2', '3', '4']);
+  await expect(names).toHaveText(['Megan (2A)', 'Bernard (2A)', 'Lushen #1', 'Veromos', 'Verdehile']);
+  /* Drawn aside, not laid out again: the slide moves the rows, never the editor. */
+  await expect.poll(async () => Math.abs((await box(slots.nth(1).locator('.speed-monster'))).y - slotBoxes[0].y)).toBeLessThanOrEqual(1);
+  await expect.poll(async () => Math.abs((await box(slots.nth(0).locator('.speed-monster'))).y - slotBoxes[4].y)).toBeLessThanOrEqual(1);
+  expectSameHeight((await box(card.locator('.speed-team-editor'))).height, emptyBox.height);
+  await card.screenshot({ path: testInfo.outputPath('speed-team-drag-preview.png') });
+  /* One more step, so the drop lands on a target the drag is still over. */
+  await page.mouse.move(handle.x + handle.width / 2 + 1, handle.y + handle.height / 2 + slotBoxes[4].y - slotBoxes[0].y);
+  await page.mouse.up();
+  await expect(names).toHaveText(['Bernard (2A)', 'Lushen #1', 'Veromos', 'Verdehile', 'Megan (2A)']);
+  await expect(card.locator('.speed-order')).toHaveText(['1', '2', '3', '4', '5']);
   await expect(card.locator('.speed-combat')).toHaveText(['170', '119', '115', '114', '112']);
-  await expect(card.getByText('Perfect tune: everyone moves where you put them.')).toBeVisible();
+  /* No line sums the team up: each slot says its own verdict. All are in place,
+     and the four the floor's fastest enemy outpaces say so last, in yellow. */
+  await expect(card.locator('.speed-verdict[data-state="bad"]')).toHaveCount(0);
+  await expect(card.locator('.speed-verdict').first()).toHaveText('In place · moves 1st');
+  await expect(card.locator('.speed-verdict').first()).toHaveAttribute('data-state', 'good');
+  await expect(card.locator('.speed-verdict[data-state="warn"]')).toHaveText(Array(4).fill(/^In place · moves \d\w\w · slower than the fastest enemy$/));
+  await expect(card.locator('.speed-team-status')).toHaveCount(0);
   /* Each stage names the turn its first enemy follows: whose, and which of theirs. */
   await expect(enemyTurns.locator('tbody tr').nth(1)).toHaveText('2Lushen #1 (1st turn)');
   await expect(enemyTurns.locator('tbody tr').first().locator('.speed-enemy-after')).toHaveText('Lushen #1 (2nd turn)');
@@ -118,7 +161,9 @@ test('tunes a dungeon team, explains every miss, and keeps the card still', asyn
   await expect(addButton).toBeFocused();
   const line = dungeons.getByRole('button', { name: /^Giant's Keep team #1:/ });
   await expect(line.locator('.speed-summary-name')).toHaveText(['Bernard (2A)', 'Lushen #1', 'Veromos', 'Verdehile', 'Megan (2A)']);
-  await expect(line.locator('.speed-summary-state')).toHaveText('Turn order holds with the runes worn');
+  /* In order, but stage 2's enemies get a turn before the last monster's first,
+     read off the same ticks the Ticks view draws. */
+  await expect(line.locator('.speed-summary-state')).toHaveText('Turn order holds · Enemy can cut in (stage 2)');
   await expect(line.locator('.speed-summary-mark')).toHaveAttribute('data-state', 'good');
   const lineBox = await box(line);
   expectSameHeight((await box(dungeons.getByRole('heading', { name: 'Dungeons' }))).y, headBefore.y);
@@ -128,23 +173,30 @@ test('tunes a dungeon team, explains every miss, and keeps the card still', asyn
   const saved = page.getByRole('dialog', { name: "Giant's Keep team #1" });
   await expect(saved.getByRole('heading', { name: "Giant's Keep team #1" })).toBeVisible();
 
-  /* Megan asked to move second: she is too slow, and gets her own interval. */
+  /* Megan asked to move second. Each monster looks only up the order: Megan
+     follows Bernard, so she is in place, slow as she is, and the three below
+     her that move first are the ones out of place, each with its own interval. */
   for (let step = 0; step < 3; step += 1) await saved.getByRole('button', { name: 'Move Megan (2A) earlier' }).click();
   const megan = saved.locator('.speed-slot').nth(1);
-  await expect(megan.locator('.speed-verdict')).toHaveText('Too slow · moves 5th · needs 104–154 display speed');
-  await expect(saved.locator('.speed-slot').nth(2).locator('.speed-verdict')).toHaveText(/^Too fast · moves 2nd/);
-  await expect(saved.getByText('4 of 5 out of place.')).toBeVisible();
+  /* In place, but outpaced by the floor's fastest enemy: yellow, the warning last. */
+  await expect(megan.locator('.speed-verdict')).toHaveText('In place · moves 5th · slower than the fastest enemy');
+  await expect(megan.locator('.speed-verdict')).toHaveAttribute('data-state', 'warn');
+  /* Red stays red with the warning after its fault. */
+  await expect(saved.locator('.speed-slot').nth(2).locator('.speed-verdict')).toHaveText(/^Too fast · moves 2nd.* · slower than the fastest enemy$/);
+  await expect(saved.locator('.speed-verdict[data-state="bad"]')).toHaveCount(3);
   expectSameHeight((await box(saved.locator('.speed-team-editor'))).height, emptyBox.height);
   await saved.screenshot({ path: testInfo.outputPath('speed-team-out-of-order.png') });
 
-  /* A what-if inside the interval fixes the whole team; empty goes back to the import. */
+  /* A what-if starts empty, fixes the whole team from inside the interval, and
+     empty goes back to the import. */
   const whatIf = saved.getByLabel("What-if display speed for Megan (2A) in Giant's Keep team #1");
+  await expect(whatIf).toHaveValue('');
+  await expect(whatIf).not.toHaveAttribute('placeholder');
   await whatIf.fill('120');
-  /* The experiment's verdict names itself and quotes the runes worn beside it. */
-  await expect(saved.getByText('Perfect tune with your what-ifs · 4 of 5 with the runes worn.')).toBeVisible();
+  await expect(saved.locator('.speed-verdict[data-state="bad"]')).toHaveCount(0);
   await expect(megan.locator('.speed-combat')).toHaveText('135');
   await whatIf.fill('');
-  await expect(saved.getByText('4 of 5 out of place.')).toBeVisible();
+  await expect(saved.locator('.speed-verdict[data-state="bad"]')).toHaveCount(3);
   await whatIf.fill('120');
 
   /* A leader counts only where it reaches; a dungeon lead does here. */
@@ -160,13 +212,20 @@ test('tunes a dungeon team, explains every miss, and keeps the card still', asyn
   const meganLead = saved.locator('.speed-slot').filter({ has: page.getByRole('checkbox', { name: "Megan (2A) leads Giant's Keep team #1" }) })
     .locator('.speed-leader-skill');
   await expect(meganLead).toHaveText('ATK 21 % · Arena');
+  /* Only a chosen lead is judged: unchosen it is as quiet as any other. */
+  await expect(meganLead).toHaveAttribute('data-state', 'idle');
+  const meganLeadBox = await box(meganLead);
+  await saved.getByRole('checkbox', { name: "Megan (2A) leads Giant's Keep team #1" }).check();
   await expect(meganLead).toHaveAttribute('data-state', 'bad');
+  expect(await box(meganLead)).toEqual(meganLeadBox);
+  await verdehileLeads.check();
+  await expect(meganLead).toHaveAttribute('data-state', 'idle');
   await expect(saved.locator('.speed-combat').first()).toHaveText('201');
 
   /* The margin names its own failure, apart from order. */
-  await saved.getByRole('checkbox', { name: 'Add speed margin' }).check();
+  await saved.getByRole('checkbox', { name: 'Require speed margin' }).check();
   await saved.getByLabel("Speed margin for Giant's Keep team #1, in dungeon speed").selectOption('3');
-  await expect(saved.locator('.speed-verdict').filter({ hasText: 'inside the 3-speed margin' }).first()).toBeVisible();
+  await expect(saved.locator('.speed-verdict').filter({ hasText: 'short of the 3 dungeon speed margin' }).first()).toBeVisible();
   expectSameHeight((await box(saved.locator('.speed-team-editor'))).height, emptyBox.height);
 
   /* The turn order opens over the editor, draws every tick, and Escape closes only it. */
@@ -185,19 +244,21 @@ test('tunes a dungeon team, explains every miss, and keeps the card still', asyn
   await expect(saved).toBeVisible();
   await expect(opener).toBeFocused();
 
-  /* The line judges the runes worn, not the experiment: Megan's what-if fixes the
-     draft, but she is still out of place on the page, and the leader is marked. */
+  /* The line judges the runes worn, never the experiment: Megan's what-if fixes
+     the editor's reading and is saved with the team, but the page does not
+     read it, and the leader is marked. */
   await saved.getByRole('button', { name: 'Save changes' }).click();
   await expect(line).toBeFocused();
   /* The names follow the order asked for, uncoloured; only the mark and the sentence change. */
   await expect(line.locator('.speed-summary-name')).toHaveText(['Bernard (2A)', 'Megan (2A)', 'Lushen #1', 'Veromos', 'Verdehile']);
-  /* Its count is the count the editor quotes for the runes worn, with the what-ifs' beside it. */
-  await expect(line.locator('.speed-summary-state')).toHaveText(/^\d of 5 out of place with the runes worn · \d with your what-ifs$/);
-  const editorWorn = /· (\d) of 5 with the runes worn/;
+  /* With the runes worn, the three below Megan still move before her. */
+  await expect(line.locator('.speed-summary-state')).toHaveText('3 of 5 out of place');
+  /* Opened again, the what-if is still there, and the overlay reads it. */
   await line.click();
-  const quoted = (await saved.locator('.speed-team-status').textContent())?.match(editorWorn)?.[1];
+  await expect(saved.getByLabel("What-if display speed for Megan (2A) in Giant's Keep team #1")).toHaveValue('120');
+  await expect(saved.locator('.speed-verdict[data-state="bad"]')).toHaveCount(0);
   await saved.getByRole('button', { name: 'Close' }).click();
-  await expect(line.locator('.speed-summary-state')).toHaveText(new RegExp(`^${quoted} of 5 out of place with the runes worn`));
+  await expect(line.locator('.speed-summary-state')).toHaveText('3 of 5 out of place');
   await expect(line.locator('.speed-summary-mark')).toHaveAttribute('data-state', 'bad');
   await expect(line.getByRole('img', { name: 'leader' })).toHaveCount(1);
   expectSameHeight((await box(line)).height, lineBox.height);
@@ -226,7 +287,7 @@ test('tunes a dungeon team, explains every miss, and keeps the card still', asyn
   const reloaded = page.getByRole('dialog', { name: "Giant's Keep team #1" });
   await expect(reloaded.getByLabel("What-if display speed for Megan (2A) in Giant's Keep team #1")).toHaveValue('120');
   await expect(reloaded.getByRole('checkbox', { name: "Verdehile leads Giant's Keep team #1" })).toBeChecked();
-  await expect(reloaded.getByRole('checkbox', { name: 'Add speed margin' })).toBeChecked();
+  await expect(reloaded.getByRole('checkbox', { name: 'Require speed margin' })).toBeChecked();
 
   await reloaded.getByRole('button', { name: 'Close' }).click();
 
@@ -278,9 +339,10 @@ test('arena teams are numbered and face a worst-case enemy', async ({ page }, te
   await expect(add).toHaveCount(0);
   await expect(card.getByRole('region', { name: 'Turn order' }).locator('tbody tr')).toHaveText(['Worst caseLushen #2 (1st turn)']);
   /* Two copies at one arena speed tie on the bar; only field position can settle
-     that, so both say so rather than one being called in place. */
-  await expect(card.getByText('2 of 4 out of place.')).toBeVisible();
-  await expect(card.locator('.speed-slot').nth(1).locator('.speed-verdict')).toHaveText(/^Tied with Lushen #2 · position decides · needs/);
+     that. The lower one, looking up at the other, says so; the upper one has
+     nobody above it to tie with and is in place. */
+  await expect(card.locator('.speed-verdict:not([data-state="good"])')).toHaveCount(1);
+  await expect(card.locator('.speed-slot').nth(2).locator('.speed-verdict')).toHaveText(/^Tied with Lushen #1 · position decides/);
   await card.getByRole('button', { name: 'Add this team' }).click();
   await expect(card).toHaveCount(0);
 
@@ -288,7 +350,10 @@ test('arena teams are numbered and face a worst-case enemy', async ({ page }, te
   await page.getByRole('dialog', { name: 'New arena team' }).getByLabel('Add a monster to Arena team #2').selectOption({ label: 'Veromos' });
   await page.getByRole('dialog').getByRole('button', { name: 'Add this team' }).click();
   const first = arena.getByRole('button', { name: /^Arena team #1:/ });
-  await expect(first.locator('.speed-summary-state')).toHaveText('2 of 4 out of place with the runes worn');
+  await expect(first.locator('.speed-summary-state')).toHaveText('1 of 4 out of place · Enemy can cut in');
+  await expect(first.locator('.speed-summary-mark')).toHaveAttribute('data-state', 'bad');
+  /* A lone monster always opens before an enemy one arena speed slower. */
+  await expect(arena.getByRole('button', { name: /^Arena team #2:/ }).locator('.speed-summary-state')).toHaveText('Turn order holds');
   await expect(arena.getByRole('button', { name: /^Arena team #2:/ }).locator('.speed-summary-mark')).toHaveAttribute('data-state', 'good');
   await page.screenshot({ path: testInfo.outputPath('speed-arena.png'), fullPage: true });
 
@@ -355,7 +420,7 @@ test('a rule is a reminder about one monster, judged in the speed forms it is ch
   /* On the page: the sentence, where it is checked, and the verdict at the edge. */
   const rule = rulesColumn.getByRole('button', { name: /^Rule Megan \(2A\) must move before Lushen #1:/ });
   await expect(rule.locator('.speed-summary-names')).toHaveText('Megan (2A)must move beforeLushen #1');
-  await expect(rule.locator('.speed-summary-state')).toHaveText('Display speed, dungeon speed and arena speed');
+  await expect(rule.locator('.speed-summary-state')).toHaveText('Display speed, dungeon and arena');
   await expect(rule.locator('.speed-summary-mark')).toHaveAttribute('data-state', 'bad');
   await expect(addRule).toBeFocused();
 
@@ -374,7 +439,7 @@ test('a rule is a reminder about one monster, judged in the speed forms it is ch
   await page.screenshot({ path: testInfo.outputPath('speed-rule-figure.png') });
   await dialog.getByRole('button', { name: 'Save changes' }).click();
   const reached = rulesColumn.getByRole('button', { name: /^Rule Megan \(2A\) must reach at least 100:/ });
-  await expect(reached.locator('.speed-summary-state')).toHaveText('Dungeon speed and arena speed');
+  await expect(reached.locator('.speed-summary-state')).toHaveText('Dungeon and arena');
   await expect(reached.locator('.speed-summary-mark')).toHaveAttribute('data-state', 'good');
   await expect(reached).toBeFocused();
 
@@ -392,7 +457,7 @@ test('a rule is a reminder about one monster, judged in the speed forms it is ch
   /* Bare runes already carry Megan past 110 in combat, which the verdict says rather than inventing a fix. */
   await expect(dialog.locator('.speed-rule-verdict')).toHaveText([
     'Too slow · needs 105–110 display speed',
-    'Too fast · no display speed fixes this on its own', 'Too fast · no display speed fixes this on its own',
+    'Too fast', 'Too fast',
   ]);
 
   /* Ticked nowhere, saving asks first; going back keeps the draft, saving anyway keeps the rule. */
@@ -426,4 +491,66 @@ test('a rule is a reminder about one monster, judged in the speed forms it is ch
   await dialog.getByRole('button', { name: 'Remove rule' }).click();
   await expect(page.getByText('No rules yet.', { exact: true })).toBeVisible();
   await expect(addRule).toBeFocused();
+});
+
+test('a margin is asked of every monster in its place, and a what-if is selected rather than dragged', async ({ page }, testInfo) => {
+  /* Long on purpose — a whole team built, edited, saved and reloaded — and run
+     beside every other spec against one dev server. Twenty seconds on a quiet
+     machine ran past the default thirty under load, always at the same late
+     step, so the budget is set for the load rather than the quiet. */
+  test.setTimeout(90_000);
+  await freshWorkspace(page);
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
+  await expect(page.getByText('speed-account.json')).toBeVisible();
+  await openSpeedTuning(page);
+  await addFromMenu(page, 'Dungeon team');
+  const draft = page.getByRole('dialog', { name: 'New dungeon team' });
+  await draft.getByLabel('Select dungeon').selectOption({ label: "Giant's Keep" });
+  for (const name of ['Bernard (2A)', 'Lushen #1', 'Veromos', 'Verdehile', 'Megan (2A)']) {
+    await draft.getByLabel("Add a monster to Giant's Keep team #1").selectOption({ label: name });
+  }
+  /* What a booster's turn hands the next one hangs on the line below it, and takes no room. */
+  const bernard = draft.locator('.speed-slot').first();
+  const slotBox = await box(bernard);
+  /* Only the attack bar it hands the whole team: a speed buff is not a push from one turn to the next. */
+  await expect(bernard.locator('.speed-boost-tag')).toHaveText('+34.5 % ATB');
+  expectSameHeight((await box(bernard)).height, slotBox.height);
+
+  /* In order, a margin shortfall is a warning that names the margin, not a failure. */
+  await draft.getByRole('checkbox', { name: 'Require speed margin' }).check();
+  await draft.getByLabel("Speed margin for Giant's Keep team #1, in dungeon speed").selectOption('3');
+  const short = draft.locator('.speed-verdict').filter({ hasText: /^In order, but short of the 3 dungeon speed margin/ });
+  await expect(short.first()).toHaveAttribute('data-state', 'warn');
+  await expect(draft.locator('.speed-verdict[data-state="bad"]')).toHaveCount(0);
+
+  /* Out of order, the order fault is red on the monster that has it — the one
+     below that moves first, never the slower one above it — and is never
+     reported as a margin; a monster only too close keeps its warning. */
+  await draft.getByRole('button', { name: 'Move Megan (2A) earlier' }).click();
+  const meganVerdict = draft.locator('.speed-slot').filter({ hasText: 'Megan (2A)' }).locator('.speed-verdict');
+  const verdehileVerdict = draft.locator('.speed-slot').filter({ hasText: 'Verdehile' }).locator('.speed-verdict');
+  await expect(meganVerdict).not.toHaveAttribute('data-state', 'bad');
+  await expect(verdehileVerdict).toHaveAttribute('data-state', 'bad');
+  await expect(verdehileVerdict).toHaveText(/^Too fast/);
+  await expect(draft.locator('.speed-verdict[data-state="warn"]').filter({ hasText: 'short of the 3 dungeon speed margin' }).first()).toBeVisible();
+  await draft.getByRole('button', { name: 'Move Megan (2A) later' }).click();
+
+  /* Pressing in a what-if and moving selects its digits; the slot stays put. */
+  const whatIf = draft.getByLabel("What-if display speed for Lushen #1 in Giant's Keep team #1");
+  await whatIf.fill('123');
+  const field = await box(whatIf);
+  await page.mouse.move(field.x + field.width - 4, field.y + field.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(field.x + 4, field.y + field.height / 2 + 40, { steps: 8 });
+  await page.mouse.up();
+  await expect(draft.locator('.speed-slot[data-dragging]')).toHaveCount(0);
+  expect(await whatIf.evaluate((input: HTMLInputElement) => input.selectionEnd! - input.selectionStart!)).toBeGreaterThan(0);
+  await whatIf.fill('');
+
+  /* On the page the margin-only team wears the warning triangle. */
+  await draft.getByRole('button', { name: 'Add this team' }).click();
+  const line = page.getByRole('button', { name: /^Giant's Keep team #1:/ });
+  await expect(line.locator('.speed-summary-state')).toHaveText(/^\d of 5 short of the speed margin · Enemy can cut in \(stage 2\)$/);
+  await expect(line.locator('.speed-summary-mark')).toHaveAttribute('data-state', 'warn');
+  await line.screenshot({ path: testInfo.outputPath('speed-line-margin.png') });
 });

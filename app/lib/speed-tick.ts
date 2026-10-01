@@ -15,17 +15,25 @@
  *   base speed times totem, leader and Swift percentages, plus flat rune speed,
  *   rounded up once over the whole sum. Swift is exact here, not rounded.
  *
- * Attack bars are held in hundredths of a percent, so a tick of 7 % × combat
- * speed is the whole number `7 × speed` and no comparison ever meets a
- * floating-point remainder. A turn is 10,000.
+ * Attack bars are reported in hundredths of a percent — a turn is 10,000 — and
+ * every amount a skill names is in the same unit. The clock itself counts a
+ * hundred times finer, because a speed buff multiplies a whole combat speed by
+ * 1.3 and leaves a tenth over (§2): a tick is `7 × speed × (100 + buff)` there,
+ * and no comparison ever meets a floating-point remainder.
  */
 
 /** The share of combat speed a tick adds to the attack bar, in hundredths of a percent per speed point. */
 export const attackBarPerSpeedPerTick = 7;
 /** A full attack bar: 100 %, in hundredths of a percent. */
 export const fullAttackBar = 10_000;
-/** The speed buff's bonus: +30 % of the unrounded combat speed. */
+/**
+ * The speed buff's bonus, in percent of the rounded combat speed. A speed-up
+ * effect would make it ⌊30 · (1 + effect)⌋; nothing JASWA reads carries one.
+ */
 export const speedBuffPercent = 30;
+/* The clock's own unit: a hundredth of the reported one, so the buff's percent
+   fits inside a whole number. */
+const clockScale = 100;
 /** Swift's four-piece bonus, as a percentage of base speed. */
 export const swiftPercent = 25;
 /** The last Sky Tribe Totem level. */
@@ -115,11 +123,6 @@ export function combatSpeed(sheet: SpeedSheet): number {
   return Math.ceil(combatSpeedThousandths(sheet) / 1_000);
 }
 
-/** Combat speed under a speed buff: ⌈(B·(1 + t + l + s) + b) · 1.3⌉. */
-export function buffedCombatSpeed(sheet: SpeedSheet): number {
-  return Math.ceil(combatSpeedThousandths(sheet) * (100 + speedBuffPercent) / 100_000);
-}
-
 /** How many ticks a unit starting from an empty bar needs for its first turn. */
 export function ticksToFirstTurn(speed: number): number {
   return Math.ceil(fullAttackBar / (attackBarPerSpeedPerTick * speed));
@@ -149,13 +152,16 @@ export type TurnEffect =
 export type TickUnit = {
   key: string;
   side: 'ally' | 'enemy';
-  /** Combat speed without and with a speed buff. */
+  /** Combat speed, rounded (§2). A speed buff multiplies it inside the clock. */
   speed: number;
-  buffedSpeed: number;
   /** Applied on every turn the unit takes. */
   effects: readonly TurnEffect[];
   /** Carries a team attack-bar passive, so a `skipsSimilar` boost passes it over. */
   similarBoostPassive?: boolean;
+  /** Leo's Eye of the Storm: every other unit on the field moves no faster than this one. */
+  capsOthersSpeed?: boolean;
+  /** Out of the cap's reach, as a boss is. */
+  exemptFromCap?: boolean;
 };
 
 export type TurnEvent = {
@@ -164,7 +170,7 @@ export type TurnEvent = {
   side: 'ally' | 'enemy';
   /** Which turn of this unit it is, from 1. */
   turn: number;
-  /** The unit's bar when the turn began, in hundredths of a percent. */
+  /** The unit's bar when the turn began, in hundredths of a percent; a buffed fill may leave a fraction. */
   attackBar: number;
   /**
    * The units that had exactly the same bar and waited. The game settles that
@@ -187,7 +193,8 @@ export type BattleTrace = { events: TurnEvent[]; snapshots: TickSnapshot[] };
  * Runs the attack-bar clock (`SPEED-TICK-CANONICAL.md` §3):
  *
  * 1. Every bar starts empty.
- * 2. A tick adds 7 % × current combat speed to every bar.
+ * 2. A tick adds 7 % × current combat speed to every bar — under a speed buff
+ *    the rounded speed × 1.3, and under Leo's cap no more than Leo's own.
  * 3. If any bar is at 100 % or more, exactly one unit moves — the fullest. Its
  *    bar empties (overflow is lost) and its turn's effects apply. Then the next
  *    tick runs, even if another bar is already past 100 %.
@@ -212,13 +219,24 @@ export function simulateBattle(units: readonly TickUnit[], options: {
   const events: TurnEvent[] = [];
   const snapshots: TickSnapshot[] = [];
 
+  const leos = units.filter((unit) => unit.capsOthersSpeed);
+  /* Combat speed in hundredths, buff included: a whole number however the
+     buff falls. Under Leo's cap every other unit is held to the slowest Leo. */
+  const ownSpeed = (unit: TickUnit) => unit.speed * (100 + ((buffTurns.get(unit.key) ?? 0) > 0 ? speedBuffPercent : 0));
+  const currentSpeed = (unit: TickUnit) => unit.capsOthersSpeed || unit.exemptFromCap || leos.length === 0
+    ? ownSpeed(unit)
+    : Math.min(ownSpeed(unit), ...leos.map(ownSpeed));
+  const fullBar = fullAttackBar * clockScale;
+
   for (let tick = 1; tick <= tickLimit && !options.done(events); tick += 1) {
-    for (const unit of units) {
-      const speed = (buffTurns.get(unit.key) ?? 0) > 0 ? unit.buffedSpeed : unit.speed;
-      bars.set(unit.key, (bars.get(unit.key) ?? 0) + attackBarPerSpeedPerTick * speed);
-    }
-    const ready = units.filter((unit) => (bars.get(unit.key) ?? 0) >= fullAttackBar);
-    const snapshot: TickSnapshot = { tick, bars: Object.fromEntries(bars), mover: null };
+    const fills = units.map((unit) => attackBarPerSpeedPerTick * currentSpeed(unit));
+    units.forEach((unit, at) => bars.set(unit.key, (bars.get(unit.key) ?? 0) + fills[at]));
+    const ready = units.filter((unit) => (bars.get(unit.key) ?? 0) >= fullBar);
+    const snapshot: TickSnapshot = {
+      tick,
+      bars: Object.fromEntries([...bars].map(([key, bar]) => [key, bar / clockScale])),
+      mover: null,
+    };
     snapshots.push(snapshot);
     if (ready.length === 0) continue;
 
@@ -228,7 +246,7 @@ export function simulateBattle(units: readonly TickUnit[], options: {
     const mover = contenders[0];
     const turn = (turns.get(mover.key) ?? 0) + 1;
     turns.set(mover.key, turn);
-    events.push({ tick, key: mover.key, side: mover.side, turn, attackBar: fullest, tiedWith: contenders.slice(1).map((unit) => unit.key) });
+    events.push({ tick, key: mover.key, side: mover.side, turn, attackBar: fullest / clockScale, tiedWith: contenders.slice(1).map((unit) => unit.key) });
     snapshot.mover = mover.key;
 
     /* The bar empties as the turn is taken, so an effect that fills "all
@@ -244,16 +262,17 @@ export function simulateBattle(units: readonly TickUnit[], options: {
       buffTurns.set(key, Math.max(buffTurns.get(key) ?? 0, count));
       if (key === mover.key) refreshedOwnBuff = true;
     };
+    const boost = (key: string, amount: number) => bars.set(key, (bars.get(key) ?? 0) + amount * clockScale);
     for (const effect of mover.effects) {
       switch (effect.kind) {
         case 'allies-attack-bar':
-          for (const ally of allies) if (!(effect.skipsSimilar && ally.similarBoostPassive)) bars.set(ally.key, (bars.get(ally.key) ?? 0) + effect.amount);
+          for (const ally of allies) if (!(effect.skipsSimilar && ally.similarBoostPassive)) boost(ally.key, effect.amount);
           break;
         case 'ally-attack-bar':
-          if (closestAlly) bars.set(closestAlly.key, (bars.get(closestAlly.key) ?? 0) + effect.amount);
+          if (closestAlly) boost(closestAlly.key, effect.amount);
           break;
         case 'self-attack-bar':
-          bars.set(mover.key, (bars.get(mover.key) ?? 0) + effect.amount);
+          boost(mover.key, effect.amount);
           break;
         case 'allies-speed-buff':
           grantBuff(mover.key, effect.turns);

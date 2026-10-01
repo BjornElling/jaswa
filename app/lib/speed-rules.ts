@@ -87,8 +87,8 @@ function figure(form: SpeedRuleForm, sheet: Sheet, shown: number, totemPercent: 
 function order(form: SpeedRuleForm, own: number, other: number): 'before' | 'tie' | 'after' {
   if (form === 'displaySpeed') return own > other ? 'before' : own === other ? 'tie' : 'after';
   const units: TickUnit[] = [
-    { key: 'own', side: 'ally', speed: own, buffedSpeed: own, effects: [] },
-    { key: 'other', side: 'ally', speed: other, buffedSpeed: other, effects: [] },
+    { key: 'own', side: 'ally', speed: own, effects: [] },
+    { key: 'other', side: 'ally', speed: other, effects: [] },
   ];
   const first = simulateBattle(units, { done: everyoneMoved(['own']) }).events[0];
   if (!first) return 'after';
@@ -142,9 +142,13 @@ export function speedRuleVerdict(rule: SpeedRule, reading: SpeedRuleReading): Sp
   return reading.forms.every((entry) => !entry.checked || entry.state === 'holds') ? 'good' : 'bad';
 }
 
-/** Where a rule is checked, as one phrase: "Display speed and arena speed". */
+/* A line on the page names where a rule is checked, not which speed: there
+   "dungeon" can only mean dungeon speed, and the short form keeps the line one. */
+const scopeNames: Record<SpeedRuleForm, string> = { displaySpeed: 'Display speed', dungeonSpeed: 'Dungeon', arenaSpeed: 'Arena' };
+
+/** Where a rule is checked, as one phrase: "Display speed and arena". */
 export function speedRuleScopeText(rule: SpeedRule): string {
-  const names = speedRuleForms.filter(({ id }) => rule[id]).map(({ name }, at) => at === 0 ? name : name.toLowerCase());
+  const names = speedRuleForms.filter(({ id }) => rule[id]).map(({ id }, at) => at === 0 ? scopeNames[id] : scopeNames[id].toLowerCase());
   if (names.length === 0) return 'Checked nowhere yet';
   return names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
 }

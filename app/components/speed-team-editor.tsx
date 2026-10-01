@@ -1,14 +1,15 @@
-import { useState } from 'react';
-import type { DragEvent, ReactNode } from 'react';
+import { useRef, useState } from 'react';
+import type { CSSProperties, DragEvent, ReactNode } from 'react';
 import { CheckboxRow } from './form-controls';
 import { Dropdown } from './dropdown';
 import { MonsterLink } from './monster-link';
 import type { OpenMonsterOverlay } from './monster-link';
 import { formatNumber } from '../lib/formatting';
+import { fastestEnemySpeed } from '../lib/speed-contents';
 import type { MonsterCopyName } from '../lib/monster-names';
-import { boostsAllies, describeLeaderSkill, describeTurnEffect, leaderSkill, shortLeaderSkill } from '../lib/speed-skills';
+import { boostsAllies, describeLeaderSkill, describeTurnEffect, leaderSkill, shortLeaderSkill, shortTurnEffect } from '../lib/speed-skills';
 import { leaderAreaReaches } from '../lib/speed-tick';
-import { combatSpeedName, displaySpeedIntervalText, hasWhatIf, outOfPlaceCount } from '../lib/speed-tuning-analysis';
+import { combatSpeedName, displaySpeedIntervalText } from '../lib/speed-tuning-analysis';
 import type { MemberReading, TeamReading } from '../lib/speed-tuning-analysis';
 import { speedMarginMaximum, whatIfDisplaySpeedMaximum } from '../lib/speed-tuning-preferences';
 import type { SpeedTeam } from '../lib/speed-tuning-preferences';
@@ -22,24 +23,36 @@ function ordinal(value: number): string {
   return `${value}${({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[value % 10] ?? 'th'}`;
 }
 
-/** The one line under a member that says whether it is where it was put, and if not, what would put it there. */
-function verdictText(member: MemberReading, names: Record<string, MonsterCopyName>, margin: number, general: GeneralSettings): string {
+/**
+ * The one line under a member that says whether it is where it was put, and if
+ * not, what would put it there; a member slower than the floor's fastest enemy
+ * says so at the end.
+ */
+function verdictText(member: MemberReading, names: Record<string, MonsterCopyName>, margin: number, speedName: string,
+  fastestEnemy: number | null, general: GeneralSettings): string {
   const { verdict } = member;
+  /* The enemy's figure stands at the top of the overlay; the line has no room to repeat it. */
+  const enemyWarning = member.slowerThanFastestEnemy && fastestEnemy !== null ? ' · slower than the fastest enemy' : '';
+  /* Where no display speed of this monster alone fixes it, the line stops at
+     the fault. The enemy warning comes last, after every fault in the team's own order. */
+  const withFix = (text: string) => {
+    const fix = verdict.kind === 'in-place' ? null : displaySpeedIntervalText(verdict.interval, general);
+    return `${fix === null ? text : `${text} · ${fix}`}${enemyWarning}`;
+  };
   switch (verdict.kind) {
-    case 'in-place': return `In place · moves ${ordinal(member.actualPosition)}`;
-    case 'order': {
-      const problem = verdict.tooSlow && verdict.tooFast ? 'Out of order' : verdict.tooSlow ? 'Too slow' : 'Too fast';
-      return `${problem} · moves ${ordinal(member.actualPosition)} · ${displaySpeedIntervalText(verdict.interval, general)}`;
-    }
-    case 'margin': return `In order, inside the ${margin}-speed margin · ${displaySpeedIntervalText(verdict.interval, general)}`;
-    case 'tie': return `Tied with ${names[verdict.with]?.name ?? 'a teammate'} · position decides · ${displaySpeedIntervalText(verdict.interval, general)}`;
+    case 'in-place': return withFix(`In place · moves ${ordinal(member.actualPosition)}`);
+    case 'order': return withFix(`Too fast · moves ${ordinal(member.actualPosition)}`);
+    case 'margin': return withFix(`In order, but short of the ${margin} ${speedName} margin`);
+    case 'tie': return withFix(`Tied with ${names[verdict.with]?.name ?? 'a teammate'} · position decides`);
   }
 }
 
-function verdictState(member: MemberReading): 'good' | 'warn' | 'bad' {
+/* Red for a fault in the order; yellow for a tie, a margin or a member the
+   fastest enemy outpaces; green only with none of them. */
+function verdictState(member: MemberReading, enemiesKnown: boolean): 'good' | 'warn' | 'bad' {
   switch (member.verdict.kind) {
-    case 'in-place': return 'good';
     case 'order': return 'bad';
+    case 'in-place': return enemiesKnown && member.slowerThanFastestEnemy ? 'warn' : 'good';
     default: return 'warn';
   }
 }
@@ -69,11 +82,12 @@ function WhatIfField({ member, label, onChange }: {
   onChange: (value: number | undefined) => void;
 }) {
   /* Held as text while it is typed, so an empty field is "no experiment" rather
-     than a zero, and a half-typed number is not saved until it is a number. */
+     than a zero, and a half-typed number is not read until it is a number.
+     Empty until typed in: the imported figure sits one column to the left. */
   const [draft, setDraft] = useState<string | null>(null);
   const value = draft ?? (member.whatIf ? String(member.displaySpeed) : '');
   return <input className="speed-what-if" type="text" inputMode="numeric" pattern="[0-9]*" maxLength={3}
-    autoComplete="off" aria-label={label} placeholder={String(member.importedDisplaySpeed)} value={value}
+    autoComplete="off" aria-label={label} value={value}
     onChange={(event) => {
       const digits = event.target.value.replace(/\D/g, '');
       setDraft(digits);
@@ -84,16 +98,43 @@ function WhatIfField({ member, label, onChange }: {
     onBlur={() => setDraft(null)} />;
 }
 
+/**
+ * A drag in progress, measured once when it starts: the slot it came from, the
+ * slot it would land in now, and the table's own grid, so the target is read
+ * off where slots sit at rest rather than off rows already sliding aside.
+ */
+type SlotDrag = {
+  from: number;
+  over: number;
+  /** In screen pixels, as the pointer reports: the first slot's top below the table's, and one slot's height. */
+  origin: number;
+  pitch: number;
+  /** One slot's height in layout pixels, which is what a transform moves by. */
+  layoutPitch: number;
+  /** Where in its slot the pointer took hold. */
+  grab: number;
+};
+
+/** How many slots a filled slot is drawn away from its own while a drag is previewed. */
+function slotShift(drag: SlotDrag | null, at: number): number {
+  if (drag === null) return 0;
+  const { from, over } = drag;
+  if (at === from) return over - from;
+  if (from < over && at > from && at <= over) return -1;
+  if (from > over && at >= over && at < from) return 1;
+  return 0;
+}
+
 type EditorProps = {
   reading: TeamReading;
-  /** The same team without its what-ifs: the runes worn today. */
-  worn: TeamReading;
   title: string;
   names: Record<string, MonsterCopyName>;
   /** Owned monsters not yet in this team. */
   choices: readonly MonsterChoice[];
   general: GeneralSettings;
   onChange: (change: (team: SpeedTeam) => SpeedTeam) => void;
+  /** A what-if typed or cleared: saved with the team, but read only by the team's overlay. */
+  onWhatIf: (unitId: string, value: number | undefined) => void;
   onAddMonster: (unitId: string) => void;
   onOpenMonster: OpenMonsterOverlay;
   /** The way into the tick-by-tick view, set beside the turn order it details. */
@@ -103,10 +144,17 @@ type EditorProps = {
 };
 
 /** Everything a team states and everything read from it: the leader, the margin, each slot and its verdict, and what the team faces. */
-export function SpeedTeamEditor({ reading, worn, title, names, choices, general, onChange, onAddMonster, onOpenMonster, turnOrderAction, enemiesKnown = true }: EditorProps) {
+export function SpeedTeamEditor({ reading, title, names, choices, general, onChange, onWhatIf, onAddMonster, onOpenMonster, turnOrderAction, enemiesKnown = true }: EditorProps) {
   const { team, content } = reading;
-  const [dragging, setDragging] = useState<number | null>(null);
+  const [drag, setDrag] = useState<SlotDrag | null>(null);
+  /* A press inside a text field selects its text; a press anywhere else on a
+     slot, its name included, picks the slot up. Set on the press itself, before the browser decides
+     whether a drag begins. */
+  const [grabbable, setGrabbable] = useState(true);
+  const tableRef = useRef<HTMLTableElement>(null);
   const speedName = combatSpeedName(reading);
+  /* Only once the dungeon is chosen: until then the floor's enemies are nobody's. */
+  const fastestEnemy = enemiesKnown && team.content !== 'arena' ? fastestEnemySpeed(team.content) : null;
   const readingById = new Map(reading.members.map((member) => [member.unitId, member]));
   const full = team.members.length >= content.teamSize;
 
@@ -120,6 +168,7 @@ export function SpeedTeamEditor({ reading, worn, title, names, choices, general,
     });
   }
 
+  /* The member's what-if leaves with it: it is stored on the member. */
   function removeMember(unitId: string) {
     onChange((current) => ({
       ...current,
@@ -128,55 +177,51 @@ export function SpeedTeamEditor({ reading, worn, title, names, choices, general,
     }));
   }
 
-  function setWhatIf(unitId: string, value: number | undefined) {
-    onChange((current) => ({
-      ...current,
-      members: current.members.map((member) => {
-        if (member.unitId !== unitId) return member;
-        return value === undefined ? { unitId } : { unitId, whatIfDisplaySpeed: value };
-      }),
-    }));
+  function startDrag(event: DragEvent<HTMLTableSectionElement>, from: number) {
+    const table = tableRef.current;
+    const slots = table?.tBodies;
+    if (!table || !slots || slots.length < 2) return;
+    const tableTop = table.getBoundingClientRect().top;
+    const firstTop = slots[0].getBoundingClientRect().top;
+    const pitch = slots[1].getBoundingClientRect().top - firstTop;
+    /* The pointer reads screen pixels and a transform writes layout pixels;
+       under the page's zoom they differ, so the slide gets its own measure. */
+    const layoutPitch = slots[1].offsetTop - slots[0].offsetTop;
+    if (!(pitch > 0) || !(layoutPitch > 0)) return;
+    event.dataTransfer.effectAllowed = 'move';
+    /* Firefox starts no drag without data; a private type keeps it from being dropped as text into a field. */
+    event.dataTransfer.setData('application/x-jaswa-speed-slot', String(from));
+    const slotTop = event.currentTarget.getBoundingClientRect().top;
+    setDrag({ from, over: from, origin: firstTop - tableTop, pitch, layoutPitch, grab: event.clientY - slotTop });
   }
 
-  function drop(event: DragEvent, to: number) {
+  /* The slot under the middle of the dragged one, on the grid measured at the
+     start. The table itself never moves, so scrolling mid-drag stays right. */
+  function dragOver(event: DragEvent<HTMLTableElement>) {
+    if (drag === null || !tableRef.current) return;
     event.preventDefault();
-    if (dragging !== null) move(dragging, to);
-    setDragging(null);
+    event.dataTransfer.dropEffect = 'move';
+    const middle = event.clientY - drag.grab + drag.pitch / 2 - tableRef.current.getBoundingClientRect().top - drag.origin;
+    const over = Math.min(Math.max(Math.floor(middle / drag.pitch), 0), team.members.length - 1);
+    if (over !== drag.over) setDrag({ ...drag, over });
   }
 
-  /* With what-ifs typed, the table is read with them and the line says so, and
-     quotes the runes worn beside it — the count the page's own line shows. */
-  const tried = hasWhatIf(team);
-  const wornNote = !tried ? '' : worn.perfect ? ' · in place with the runes worn'
-    : ` · ${outOfPlaceCount(worn)} of ${worn.members.length} with the runes worn`;
-  /* An empty team says nothing; the line keeps its height so the first
-     monster does not push the turn order down. */
-  const status = team.members.length === 0
-    ? ' '
-    : reading.missingUnitIds.length
-      ? `${reading.missingUnitIds.length} saved monster${reading.missingUnitIds.length === 1 ? ' is' : 's are'} not in this import.`
-      : tried
-        ? `${reading.perfect ? 'Perfect tune' : `${outOfPlaceCount(reading)} of ${reading.members.length} out of place`} with your what-ifs${wornNote}.`
-        : reading.perfect ? 'Perfect tune: everyone moves where you put them.'
-          : `${outOfPlaceCount(reading)} of ${reading.members.length} out of place.`;
-  const statusState = team.members.length === 0 ? 'none' : reading.perfect && !reading.missingUnitIds.length ? 'good' : 'bad';
+  function drop(event: DragEvent<HTMLTableElement>) {
+    if (drag === null) return;
+    event.preventDefault();
+    move(drag.from, drag.over);
+    setDrag(null);
+  }
+
   const contentWord = content.area === 'arena' ? 'Arena' : 'Dungeon';
 
   return <div className="speed-team-editor">
-    <div className="speed-team-settings">
-      <div className="speed-team-margin">
-        <CheckboxRow label="Add speed margin" checked={team.marginEnabled}
-          onChange={(checked) => onChange((current) => ({ ...current, marginEnabled: checked }))} />
-        <Dropdown aria-label={`Speed margin for ${title}, in ${speedName}`} value={String(team.margin)}
-          disabled={!team.marginEnabled} className="speed-margin-select"
-          onChange={(event) => onChange((current) => ({ ...current, margin: Number(event.target.value) }))}>
-          {Array.from({ length: speedMarginMaximum }, (_, at) => at + 1).map((margin) => <option key={margin} value={margin}>
-            {margin} {speedName}
-          </option>)}
-        </Dropdown>
-      </div>
-    </div>
-    <table className="speed-team-table">
+    {/* While a slot is dragged, every other slot slides to where the drop
+        would put it, so the order is read before it is committed. The slots
+        are drawn aside, never laid out again: nothing outside the table moves. */}
+    <table ref={tableRef} className="speed-team-table" data-sorting={drag === null ? undefined : 'true'}
+      onDragOver={dragOver} onDrop={drop}
+      onPointerDownCapture={(event) => setGrabbable(!(event.target as Element).closest('input[type="text"], textarea, select'))}>
       <colgroup>
         <col className="speed-col-order" /><col className="speed-col-monster" /><col className="speed-col-leader" />
         <col className="speed-col-speed" /><col className="speed-col-what-if" /><col className="speed-col-speed" />
@@ -191,10 +236,10 @@ export function SpeedTeamEditor({ reading, worn, title, names, choices, general,
         <th scope="col" className="align-right">{contentWord} speed</th>
         <th scope="col"><span className="visually-hidden">Move or remove</span></th>
       </tr></thead>
-      {/* One body per slot, two rows each: the figures, and under them the
-          verdict, where an interval has room to be read whole. The order and
-          the leader span both, so a slot reads as one unit, and grouping the
-          pair keeps a dragged monster and its verdict together. */}
+      {/* One body per slot, two rows each: the name, and under it the
+          verdict. Every other cell spans both and sits in their middle, so a
+          slot reads as one unit, and grouping the pair keeps a dragged monster
+          and its verdict together. */}
       {Array.from({ length: content.teamSize }, (_, at) => {
         const member = team.members[at];
         if (!member) {
@@ -216,7 +261,7 @@ export function SpeedTeamEditor({ reading, worn, title, names, choices, general,
         }
         const monster = readingById.get(member.unitId);
         const name = names[member.unitId]?.name ?? 'Unknown monster';
-        const controls = <td className="speed-controls">
+        const controls = <td className="speed-controls" rowSpan={2}>
           <button type="button" className="speed-icon-button" aria-label={`Move ${name} earlier`}
             disabled={at === 0} onClick={() => move(at, at - 1)}><ArrowIcon direction="up" /></button>
           <button type="button" className="speed-icon-button" aria-label={`Move ${name} later`}
@@ -224,16 +269,19 @@ export function SpeedTeamEditor({ reading, worn, title, names, choices, general,
           <button type="button" className="speed-icon-button" aria-label={`Remove ${name} from ${title}`}
             onClick={() => removeMember(member.unitId)}><RemoveIcon /></button>
         </td>;
+        const shift = slotShift(drag, at);
+        const shiftStyle = shift === 0 || drag === null ? undefined
+          : { '--speed-slot-shift': `${shift * drag.layoutPitch}px` } as CSSProperties;
         if (!monster) {
-          return <tbody key={member.unitId} className="speed-slot">
+          return <tbody key={member.unitId} className="speed-slot" style={shiftStyle}>
             <tr className="speed-row">
-              <td className="speed-order" rowSpan={2}>{at + 1}</td>
+              <td className="speed-order" rowSpan={2}>{at + shift + 1}</td>
               <td><span className="speed-monster-name muted">Not in this import</span></td>
               <td rowSpan={2} />
-              <td colSpan={3} />
+              <td colSpan={3} rowSpan={2} />
               {controls}
             </tr>
-            <tr className="speed-verdict-row"><td /><td colSpan={4} /></tr>
+            <tr className="speed-verdict-row"><td /></tr>
           </tbody>;
         }
         const lead = leaderSkill(monster.masterId);
@@ -244,15 +292,23 @@ export function SpeedTeamEditor({ reading, worn, title, names, choices, general,
           used.length ? `${used.map((skill) => `${skill.name}: ${skill.effects.map(describeTurnEffect).join(', ')}`).join('; ')} — counted on every turn` : '',
           uncounted.length ? `Not counted, because its size depends on the battle: ${uncounted.join(', ')}` : '',
         ].filter(Boolean).join('. ');
-        const verdict = verdictText(monster, names, team.margin, general);
-        return <tbody key={member.unitId} className="speed-slot" draggable
-          data-dragging={dragging === at ? 'true' : undefined}
-          onDragStart={(event) => { setDragging(at); event.dataTransfer.effectAllowed = 'move'; }}
-          onDragEnd={() => setDragging(null)}
-          onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; }}
-          onDrop={(event) => drop(event, at)}>
+        const verdict = verdictText(monster, names, team.margin, speedName, fastestEnemy, general);
+        /* What this monster's turn does to the turns after it, hung on the line
+           below its slot, where the next monster waits. Only an attack-bar
+           boost to the whole team is named — a boost to one ally or to itself
+           does not pass down the order, and a speed buff changes how fast the
+           bars fill rather than pushing one — and the mark beside the name
+           explains the rest. */
+        const boostTag = [...new Set(monster.profile.effects
+          .filter((effect) => effect.kind === 'allies-attack-bar')
+          .map(shortTurnEffect))].join(' + ');
+        return <tbody key={member.unitId} className="speed-slot" draggable={grabbable}
+          data-dragging={drag?.from === at ? 'true' : undefined} style={shiftStyle}
+          onDragStart={(event) => startDrag(event, at)}
+          onDragEnd={() => setDrag(null)}>
           <tr className="speed-row">
-            <td className="speed-order" rowSpan={2}>{at + 1}</td>
+            {/* Numbered by where the slot is drawn, so the preview reads 1 to n down the table. */}
+            <td className="speed-order" rowSpan={2}>{at + shift + 1}</td>
             <td className="speed-monster">
               <span className="speed-monster-line">
                 <MonsterLink target={{ kind: 'copy', unitId: member.unitId, masterId: monster.masterId }}
@@ -266,37 +322,55 @@ export function SpeedTeamEditor({ reading, worn, title, names, choices, general,
               </span>
             </td>
             {/* One leader per team: ticking another moves the lead, ticking the
-                leader again leaves the team without one. A lead that does not
-                count here says so in red; a monster with no lead has nothing to tick. */}
+                leader again leaves the team without one. A chosen lead that does
+                not count here says so in red; one not chosen stays quiet whatever
+                it reaches, and a monster with no lead has nothing to tick. */}
             <td className="speed-leader-cell" rowSpan={2}>
               <label className="speed-leader" title={lead ? describeLeaderSkill(lead) : undefined}>
                 <input type="checkbox" checked={leads} disabled={lead === null && !leads}
                   aria-label={`${name} leads ${title}`}
                   onChange={(event) => onChange((current) => ({ ...current, leaderUnitId: event.target.checked ? member.unitId : null }))} />
-                <span className="speed-leader-skill" data-state={lead === null ? 'none' : reaches ? (leads ? 'chosen' : 'idle') : 'bad'}>
+                <span className="speed-leader-skill" data-state={lead === null ? 'none' : !leads ? 'idle' : reaches ? 'chosen' : 'bad'}>
                   {lead ? shortLeaderSkill(lead) : '—'}
                 </span>
               </label>
             </td>
-            <td className="speed-figure">{formatNumber(monster.importedDisplaySpeed, general)}</td>
-            <td className="speed-figure">
+            <td className="speed-figure" rowSpan={2}>{formatNumber(monster.importedDisplaySpeed, general)}</td>
+            <td className="speed-figure speed-what-if-cell" rowSpan={2}>
               <WhatIfField member={monster} label={`What-if display speed for ${name} in ${title}`}
-                onChange={(value) => setWhatIf(member.unitId, value)} />
+                onChange={(value) => onWhatIf(member.unitId, value)} />
             </td>
-            <td className="speed-figure speed-combat" title={`${formatNumber(monster.combatSpeed, general)} ${speedName}`}>
+            <td className="speed-figure speed-combat" rowSpan={2} title={`${formatNumber(monster.combatSpeed, general)} ${speedName}`}>
               {formatNumber(monster.combatSpeed, general)}
             </td>
             {controls}
           </tr>
           <tr className="speed-verdict-row">
-            <td><span className="speed-verdict type-caption" data-state={verdictState(monster)} title={verdict}>{verdict}</span></td>
-            <td colSpan={4} />
+            <td className="speed-verdict-cell">
+              <span className="speed-verdict type-caption" data-state={verdictState(monster, fastestEnemy !== null)} title={verdict}>{verdict}</span>
+              {boostTag !== '' && <span className="speed-boost-tag type-caption" aria-hidden="true">{boostTag}</span>}
+            </td>
           </tr>
         </tbody>;
       })}
     </table>
 
-    <p className="speed-team-status" data-state={statusState}>{status}</p>
+    {/* Under the table, at its right edge: the margin tightens the verdicts
+        above it. No summary line beside it — every slot states its own. */}
+    <div className="speed-team-foot">
+      <div className="speed-team-margin">
+        <CheckboxRow label="Require speed margin" checked={team.marginEnabled}
+          onChange={(checked) => onChange((current) => ({ ...current, marginEnabled: checked }))} />
+        {/* In the speed the battle runs on, as the column beside it states it. */}
+        <Dropdown aria-label={`Speed margin for ${title}, in ${speedName}`} value={String(team.margin)}
+          disabled={!team.marginEnabled} className="speed-margin-select"
+          onChange={(event) => onChange((current) => ({ ...current, margin: Number(event.target.value) }))}>
+          {Array.from({ length: speedMarginMaximum }, (_, at) => at + 1).map((margin) => <option key={margin} value={margin}>
+            {margin} {speedName}
+          </option>)}
+        </Dropdown>
+      </div>
+    </div>
 
     {/* When the other side first gets a turn: a row per stage, or the one
         worst case in arena. The rows are the content's, never the team's, so

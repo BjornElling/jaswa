@@ -5,8 +5,9 @@
  * their arithmetic:
  *
  * 1. The combat-speed formula: one rounding up over the whole sum, Swift exact
- *    in battle and rounded in display speed, and a speed buff on the unrounded
- *    total — the worked figures from the canonical document.
+ *    in battle and rounded in display speed, and a speed buff on the rounded
+ *    figure, not rounded again — the worked figures from the canonical document
+ *    and SWCalc's.
  * 2. The clock: the tick table, highest bar first, one turn per tick, overflow
  *    lost, ties reported, and a boost moving a slower ally ahead of a faster
  *    enemy exactly as Ellia's inequality says it should.
@@ -18,13 +19,13 @@
  */
 import assert from 'node:assert/strict';
 import {
-  buffedCombatSpeed, combatSpeed, displaySpeed, displayedSwiftBonus, everyoneMoved, leaderAreaReaches, leaderSpeedPercent,
+  combatSpeed, displaySpeed, displayedSwiftBonus, everyoneMoved, leaderAreaReaches, leaderSpeedPercent,
   runeSpeedForDisplay, simulateBattle, ticksToFirstTurn, totemPercentByLevel,
 } from '../app/lib/speed-tick.ts';
 import { describeTurnEffect, leaderSkill, shortLeaderSkill, speedLeaderSkill, speedSkillProfile } from '../app/lib/speed-skills.ts';
-import { dungeonIds, speedContent, speedContents } from '../app/lib/speed-contents.ts';
+import { dungeonIds, fastestEnemySpeed, speedContent, speedContents, usefulAccuracy } from '../app/lib/speed-contents.ts';
 import { readSpeedTeam } from '../app/lib/speed-tuning-analysis.ts';
-import { isSpeedTuningPreferences } from '../app/lib/speed-tuning-preferences.ts';
+import { isSpeedTuningPreferences, readSpeedTuningPreferences } from '../app/lib/speed-tuning-preferences.ts';
 import { readSkyTribeTotem, skyTribeTotemProblem } from '../app/lib/sky-tribe-totem.ts';
 import { calculateMonsterTotals, monsterSpeedParts } from '../app/lib/monster-stats.ts';
 
@@ -40,8 +41,7 @@ check(combatSpeed(sheet(111, 100, true, 15)) === 256, 'Bernard-like: ⌈111 × 1
 check(combatSpeed(sheet(100, 0, false, 0)) === 100, 'no bonus leaves base speed');
 check(combatSpeed(sheet(101, 0, false, 15)) === 117, 'one rounding up: ⌈116.15⌉');
 check(combatSpeed(sheet(99, 10, false, 2.5)) === 112, 'a half-percent totem step stays exact: ⌈99 × 1.025 + 10⌉ = ⌈111.475⌉');
-check(buffedCombatSpeed(sheet(100, 0, false, 0)) === 130, 'a speed buff is +30 %');
-check(buffedCombatSpeed(sheet(101, 0, false, 15)) === 151, 'the buff multiplies the unrounded total: ⌈116.15 × 1.3⌉ = ⌈150.995⌉');
+check(combatSpeed(sheet(104, 145, false, 15)) === 265, "SWCalc's Agrius: ⌈104 × 1.15 + 145⌉ = ⌈264.6⌉ = 265");
 check(displayedSwiftBonus(111) === 28, 'display rounds Swift up: 27.75 → 28');
 check(displaySpeed(111, true, 100) === 239, 'display speed is base + displayed Swift + runes');
 check(runeSpeedForDisplay(111, true, 239) === 100, 'a display speed maps back to its rune speed');
@@ -69,7 +69,7 @@ for (const leaderArea of ['General', 'Arena', 'Dungeon', 'Guild', 'Element']) {
 for (const [speed, ticks] of [[1429, 1], [715, 2], [477, 3], [358, 4], [286, 5], [285, 6], [239, 6], [143, 10]]) {
   check(ticksToFirstTurn(speed) === ticks, `${speed} combat speed needs ${ticks} ticks`);
 }
-const unit = (key, speed, effects = [], side = 'ally') => ({ key, side, speed, buffedSpeed: Math.ceil(speed * 1.3), effects });
+const unit = (key, speed, effects = [], side = 'ally', extra = {}) => ({ key, side, speed, effects, ...extra });
 {
   const trace = simulateBattle([unit('slow', 280), unit('fast', 300)], { done: everyoneMoved(['slow', 'fast']) });
   check(trace.events[0].key === 'fast' && trace.events[1].key === 'slow', 'the fuller bar moves first');
@@ -99,6 +99,27 @@ const unit = (key, speed, effects = [], side = 'ally') => ({ key, side, speed, b
   /* Buffed from tick 8: 7 × 100 × 8 = 5,600, then 7 × 130 per tick → 100 % at tick 13. */
   check(allyTurn.tick === 13, `a speed buff speeds the ally's fill (turn at tick ${allyTurn.tick})`);
 }
+{
+  /* The buff multiplies the rounded combat speed and is not rounded again
+     (SWCalc §Speed): 101 buffed fills 7 × 131.3 = 919.1 hundredths a tick, not
+     7 × ⌈131.3⌉ = 924. */
+  const trace = simulateBattle([unit('buffer', 200, [{ kind: 'allies-speed-buff', turns: 2 }]), unit('ally', 101)], {
+    done: (events) => events.some((event) => event.key === 'ally'),
+  });
+  const fill = Math.round((trace.snapshots[9].bars.ally - trace.snapshots[8].bars.ally) * 100);
+  check(fill === 91_910, `a buffed tick is 7 × 101 × 1.3 exactly (${fill / 100})`);
+}
+{
+  /* Leo's Eye of the Storm (SWCalc: "non-Leo monsters are capped to the lowest
+     Leo combat speed"), sparing a boss. */
+  const leo = unit('leo', 150, [], 'ally', { capsOthersSpeed: true });
+  const capped = simulateBattle([leo, unit('fast', 300)], { done: everyoneMoved(['leo', 'fast']) });
+  check(capped.events[0].tiedWith.length === 1 && capped.events[0].tick === 10, 'under the cap a 300 moves with a 150 Leo, on a tie');
+  const twoLeos = simulateBattle([leo, unit('leo-2', 140, [], 'ally', { capsOthersSpeed: true }), unit('fast', 300)], { done: everyoneMoved(['leo', 'leo-2', 'fast']) });
+  check(twoLeos.events[0].key === 'leo' && twoLeos.events.find((event) => event.key === 'fast').tick === 12, 'the slowest Leo sets the cap, and a Leo is not capped by another');
+  const boss = simulateBattle([leo, unit('boss', 300, [], 'enemy', { exemptFromCap: true })], { done: everyoneMoved(['leo', 'boss']) });
+  check(boss.events[0].key === 'boss' && boss.events[0].tick === 5, 'a boss is out of the cap\'s reach');
+}
 
 /* 3. The data. */
 check(speedLeaderSkill(14712)?.percent === 28 && speedLeaderSkill(14712)?.area === 'Dungeon', 'Verdehile leads +28 % in dungeons');
@@ -114,6 +135,8 @@ check(shortLeaderSkill(leaderSkill(14712)) === 'SPD 28 % · Dungeon', 'a lead is
   check(describeTurnEffect(megan.effects[0]) === '+22 % attack bar to allies', 'an unnumbered boost is read from its description, with its skill-up');
   const verdehile = speedSkillProfile({ skills: [[6512, 1]] });
   check(verdehile.similarBoostPassive && verdehile.effects[0].kind === 'allies-attack-bar' && verdehile.effects[0].skipsSimilar, 'Boiling Blood passes over similar passives');
+  check(speedSkillProfile({ skills: [[7813, 1]] }).capsOthersSpeed && !speedSkillProfile({ skills: [[2563, 3]] }).capsOthersSpeed,
+    'Eye of the Storm marks Leo, and only Leo');
   const chasun = speedSkillProfile({ skills: [[9113, 2]] });
   check(chasun.effects.length === 0 && chasun.uncounted.includes('Fallen Blossoms'), 'a balanced bar is not counted, and says so');
 }
@@ -121,6 +144,11 @@ for (const id of dungeonIds) {
   const content = speedContent(id);
   check(content.teamSize === 5 && content.stages.length >= 3 && content.stages.every((stage) => stage.speeds.length > 0 && stage.fastest === Math.max(...stage.speeds)),
     `${content.name} has a five-monster team and enemy stages`);
+  check(content.stages.every((stage) => stage.resists.length === stage.speeds.length && stage.resists.every(Number.isFinite)),
+    `${content.name} has a resistance for every enemy`);
+  const highest = Math.max(...content.stages.flatMap((stage) => stage.resists));
+  check(fastestEnemySpeed(id) === Math.max(...content.stages.map((stage) => stage.fastest)) && usefulAccuracy(id) === Math.max(0, highest - 15),
+    `${content.name}'s fastest enemy and useful accuracy follow its stages`);
 }
 check(speedContents.find((content) => content.id === 'arena')?.teamSize === 4, 'arena offence is four monsters');
 
@@ -144,7 +172,24 @@ check(skyTribeTotemProblem({ deco_list: [{ master_id: 6, level: 12 }] }) === und
 const team = (members, extra = {}) => ({ id: 'team-1', content: 'giants', members, leaderUnitId: null, marginEnabled: false, margin: 1, ...extra });
 check(isSpeedTuningPreferences({ teams: [], rules: [] }), 'an empty workspace is valid');
 check(!isSpeedTuningPreferences({ teams: [team([{ unitId: '1' }, { unitId: '1' }])], rules: [] }), 'a monster twice in a team is refused');
-check(!isSpeedTuningPreferences({ teams: [team([{ unitId: '1', whatIfDisplaySpeed: 0 }])], rules: [] }), 'a zero what-if is refused, not read as "none"');
+check(isSpeedTuningPreferences({ teams: [team([{ unitId: '1', whatIfDisplaySpeed: 120 }])], rules: [] }), 'a what-if is kept with its member');
+check(!isSpeedTuningPreferences({ teams: [team([{ unitId: '1', whatIfDisplaySpeed: 0 }])], rules: [] }), 'a what-if of zero is refused');
+{
+  const stored = readSpeedTuningPreferences({ teams: [team([{ unitId: '1', whatIfDisplaySpeed: 'fast' }, { unitId: '2', whatIfDisplaySpeed: 140 }], { leaderUnitId: '2' })], rules: [] });
+  check(stored.teams.length === 1 && Object.keys(stored.teams[0].members[0]).join() === 'unitId'
+    && stored.teams[0].members[1].whatIfDisplaySpeed === 140 && stored.teams[0].leaderUnitId === '2',
+    'a malformed what-if is dropped on its own; its neighbour and the team it sat in are kept');
+}
+{
+  /* Stored, a what-if still never reaches a reading that is not handed it: the page judges the runes worn. */
+  const unitId = '1';
+  const monster = { unit_id: 1, unit_master_id: 14712, attribute: 2, spd: 100, skills: [], runes: [{ set_id: 1, slot_no: 2, pri_eff: [8, 40], sec_eff: [] }] };
+  const monsters = new Map([[unitId, monster]]);
+  const plain = readSpeedTeam({ team: team([{ unitId }]), monsters, totemPercent: 15 });
+  const stored = readSpeedTeam({ team: team([{ unitId, whatIfDisplaySpeed: 999 }]), monsters, totemPercent: 15 });
+  check(stored.members[0].displaySpeed === monsterSpeedParts(monster).displaySpeed && !stored.members[0].whatIf
+    && stored.members[0].combatSpeed === plain.members[0].combatSpeed, 'a stored what-if is read by nothing but the overlay');
+}
 check(!isSpeedTuningPreferences({ teams: [team(['1', '2', '3', '4', '5', '6'].map((unitId) => ({ unitId })))], rules: [] }), 'a team larger than its content is refused');
 check(!isSpeedTuningPreferences({ teams: [team([{ unitId: '1' }], { leaderUnitId: '2' })], rules: [] }), 'a leader outside the team is refused');
 check(!isSpeedTuningPreferences({ teams: [team([], { margin: 4 })], rules: [] }), 'a margin past the maximum is refused');
@@ -173,12 +218,35 @@ for (let sample = 0; sample < 60; sample += 1) {
   }
   const saved = { id: `sample-${sample}`, content: area, members, leaderUnitId: sample % 3 === 0 ? '1' : null, marginEnabled: sample % 4 === 1, margin: 1 + (sample % 3) };
   const reading = readSpeedTeam({ team: saved, monsters, totemPercent: 15, rules: [] });
+  /* A cut-in is read off the drawn trace: an enemy turn before some ally's first. */
+  for (const enemy of reading.enemies) {
+    const firstEnemy = enemy.trace.events.findIndex((event) => event.side === 'enemy');
+    const allyFirsts = members.map(({ unitId }) => enemy.trace.events.findIndex((event) => event.key === unitId));
+    const expected = firstEnemy !== -1 && allyFirsts.some((at) => at === -1 || at > firstEnemy);
+    check(enemy.cutsIn === expected, `sample ${sample}: the cut-in verdict agrees with the ticks drawn`);
+  }
+  /* Each member looks up the order only: it is too fast exactly when its first
+     turn comes before that of a monster placed above it, and never for one below. */
+  const firstAt = (unitId) => {
+    const at = reading.trace.events.findIndex((event) => event.key === unitId);
+    return at === -1 ? Number.POSITIVE_INFINITY : at;
+  };
+  /* The fastest-enemy warning: in a dungeon, a member whose speed is strictly
+     below the floor's fastest enemy's — an equal one is read as the team's tie. */
+  const fastest = area === 'arena' ? null : fastestEnemySpeed(area);
+  reading.members.forEach((member, index) => {
+    check(member.slowerThanFastestEnemy === (fastest !== null && member.combatSpeed < fastest),
+      `sample ${sample}: member ${index + 1} is warned of the fastest enemy exactly when it is slower`);
+  });
+  reading.members.forEach((member, index) => {
+    const passesSomeoneAbove = reading.members.slice(0, index).some((above) => firstAt(member.unitId) < firstAt(above.unitId));
+    check((member.verdict.kind === 'order') === passesSomeoneAbove, `sample ${sample}: member ${index + 1} is too fast exactly when it moves before one above it`);
+  });
   for (const member of reading.members) {
     const interval = member.verdict.kind === 'in-place' ? null : member.verdict.interval;
     if (!interval) continue;
     const at = (shown) => readSpeedTeam({
-      team: { ...saved, members: saved.members.map((entry) => entry.unitId === member.unitId ? { ...entry, whatIfDisplaySpeed: shown } : entry) },
-      monsters, totemPercent: 15, rules: [],
+      team: saved, monsters, totemPercent: 15, whatIfs: new Map([[member.unitId, shown]]),
     }).members.find((entry) => entry.unitId === member.unitId).verdict.kind;
     check(at(interval.minimum) === 'in-place', `sample ${sample}: ${interval.minimum} is inside the printed interval`);
     if (interval.maximum !== null) check(at(interval.maximum) === 'in-place', `sample ${sample}: ${interval.maximum} is inside the printed interval`);
