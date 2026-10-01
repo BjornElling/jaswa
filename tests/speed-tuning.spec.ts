@@ -71,9 +71,12 @@ test('tunes a dungeon team, explains every miss, and keeps the card still', asyn
   const draft = page.getByRole('dialog', { name: 'New dungeon team' });
   await expect(draft.getByRole('heading', { name: 'New dungeon team' })).toBeVisible();
   await expect(draft.locator('.speed-slot')).toHaveCount(5);
-  await expect(draft.getByRole('button', { name: 'Add this team' })).toBeDisabled();
-  const dungeonChoice = draft.getByRole('group', { name: 'Dungeon' });
-  await expect(dungeonChoice.getByRole('button', { name: "Giant's Keep" })).toHaveAttribute('aria-pressed', 'true');
+  /* No dungeon is chosen yet, and saving says that is what it waits for. */
+  const dungeonChoice = draft.getByLabel('Select dungeon');
+  await expect(dungeonChoice).toHaveValue('');
+  const saveDraft = draft.getByRole('button', { name: 'Add this team' });
+  await expect(saveDraft).toBeDisabled();
+  await expect(saveDraft).toHaveAttribute('title', 'Choose a dungeon to save this team');
   /* Every stage has its row before any monster is added. */
   const enemyTurns = draft.getByRole('region', { name: 'Turn order' });
   await expect(enemyTurns.locator('tbody tr')).toHaveCount(4);
@@ -82,13 +85,13 @@ test('tunes a dungeon team, explains every miss, and keeps the card still', asyn
   const emptyBox = await box(draft.locator('.speed-team-editor'));
   await page.screenshot({ path: testInfo.outputPath('speed-overlay-empty.png') });
 
-  /* Choosing another dungeon changes only the chosen chip, and the draft is for it; choosing back restores it. */
+  /* Choosing a dungeon moves nothing beside the dropdown, and the draft is for it. */
   const choiceBox = await box(dungeonChoice);
-  await dungeonChoice.getByRole('button', { name: 'Necropolis' }).click();
-  await expect(dungeonChoice.getByRole('button', { name: 'Necropolis' })).toHaveAttribute('aria-pressed', 'true');
+  await dungeonChoice.selectOption({ label: 'Necropolis' });
   await expect(draft.getByLabel('Add a monster to Necropolis team #1')).toBeVisible();
+  await expect(saveDraft).toHaveAttribute('title', 'Add a monster to save this team');
   expect(await box(dungeonChoice)).toEqual(choiceBox);
-  await dungeonChoice.getByRole('button', { name: "Giant's Keep" }).click();
+  await dungeonChoice.selectOption({ label: "Giant's Keep" });
   const card = draft;
 
   /* Monsters join in the order their dungeon speed gives them, whatever order they are picked in. */
@@ -231,7 +234,7 @@ test('tunes a dungeon team, explains every miss, and keeps the card still', asyn
   async function addDungeonTeam(dungeon: string, monsters: string[]) {
     await addFromMenu(page, 'Dungeon team');
     const draft = page.getByRole('dialog');
-    await draft.getByRole('group', { name: 'Dungeon' }).getByRole('button', { name: dungeon }).click();
+    await draft.getByLabel('Select dungeon').selectOption({ label: dungeon });
     for (const name of monsters) await draft.getByLabel(/^Add a monster to /).selectOption({ label: name });
     await draft.getByRole('button', { name: 'Add this team' }).click();
     await expect(draft).toHaveCount(0);
@@ -268,7 +271,7 @@ test('arena teams are numbered and face a worst-case enemy', async ({ page }, te
   await addFromMenu(page, 'Arena team');
   const card = page.getByRole('dialog', { name: 'New arena team' });
   await expect(card.getByRole('heading', { name: 'New arena team' })).toBeVisible();
-  await expect(card.getByRole('group', { name: 'Dungeon' })).toHaveCount(0);
+  await expect(card.getByLabel('Select dungeon')).toHaveCount(0);
   await expect(card.locator('.speed-slot')).toHaveCount(4);
   const add = card.getByLabel('Add a monster to Arena team #1');
   for (const name of ['Bernard (2A)', 'Lushen #1', 'Lushen #2', 'Megan (2A)']) await add.selectOption({ label: name });

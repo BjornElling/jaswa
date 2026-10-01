@@ -98,10 +98,12 @@ type EditorProps = {
   onOpenMonster: OpenMonsterOverlay;
   /** The way into the tick-by-tick view, set beside the turn order it details. */
   turnOrderAction?: ReactNode;
+  /** False while a new dungeon team has no dungeon chosen: its enemies are nobody's yet. */
+  enemiesKnown?: boolean;
 };
 
 /** Everything a team states and everything read from it: the leader, the margin, each slot and its verdict, and what the team faces. */
-export function SpeedTeamEditor({ reading, worn, title, names, choices, general, onChange, onAddMonster, onOpenMonster, turnOrderAction }: EditorProps) {
+export function SpeedTeamEditor({ reading, worn, title, names, choices, general, onChange, onAddMonster, onOpenMonster, turnOrderAction, enemiesKnown = true }: EditorProps) {
   const { team, content } = reading;
   const [dragging, setDragging] = useState<number | null>(null);
   const speedName = combatSpeedName(reading);
@@ -310,7 +312,7 @@ export function SpeedTeamEditor({ reading, worn, title, names, choices, general,
           </tr></thead>
           <tbody>
             {(content.area === 'arena' ? [null] : content.stages).map((stage, at) => {
-              const enemy = reading.enemies[at];
+              const enemy = enemiesKnown ? reading.enemies[at] : undefined;
               return <tr key={at}>
                 <th scope="row">{stage ? at + 1 : 'Worst case'}</th>
                 <td className="speed-enemy-after">

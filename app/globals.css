@@ -6287,11 +6287,11 @@ th.align-center .sort-button { justify-content: center; }
 .speed-overlay-identity { min-width: 0; }
 .speed-overlay-title { margin: 0; color: var(--text-accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .speed-overlay-tools { display: flex; align-items: center; gap: var(--s2); flex: none; }
-/* Every dungeon as one chip, in the game's order, under the overlay's rule.
-   Seven names do not fit one row, so they sit on an even grid of two rather
-   than wrapping a lone straggler onto a line of its own. */
-.speed-dungeon-choice { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s2); margin-bottom: var(--s2); }
-.speed-dungeon-choice .filter-button { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The dungeon, under the overlay's rule: one labelled dropdown, wide enough
+   for the longest name, so choosing one moves nothing beside it. */
+.speed-dungeon-choice { display: flex; align-items: center; gap: var(--s3); margin-bottom: var(--s2); }
+.speed-dungeon-choice .filter-label { margin: 0; align-self: center; }
+.speed-dungeon-select { width: 24ch; }
 
 /* The account's totem and how a combat speed is made from it: one strip,
    because it is the same for every team. Leader skills, boosts and buffs

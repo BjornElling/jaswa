@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Button, FilterButton } from './button';
+import { Button } from './button';
+import { Dropdown } from './dropdown';
 import { Overlay, OverlayAction } from './overlay';
 import { SpeedTeamEditor } from './speed-team-editor';
 import type { MonsterChoice } from './speed-team-editor';
@@ -55,9 +56,16 @@ export function SpeedTeamOverlay({
   const worn = useMemo(() => hasWhatIf(draft)
     ? readSpeedTeam({ team: withoutWhatIfs(draft), monsters, totemPercent: totemShare })
     : reading, [draft, reading, monsters, totemShare]);
-  const title = speedTeamTitle(teams, draft);
   const arena = draft.content === 'arena';
-  const heading = isNew ? `New ${arena ? 'arena' : 'dungeon'} team` : title;
+  /* A new dungeon team opens with no dungeon chosen. The draft still carries
+     one, because the table needs a content to read the monsters in, but none
+     is shown, the enemy's turns stay blank and the team cannot be saved until
+     the user picks. A saved team always has its dungeon. */
+  const [dungeonChosen, setDungeonChosen] = useState(!isNew || arena);
+  const heading = isNew ? `New ${arena ? 'arena' : 'dungeon'} team` : speedTeamTitle(teams, draft);
+  const title = dungeonChosen ? speedTeamTitle(teams, draft) : heading;
+  const saveHint = !dungeonChosen ? 'Choose a dungeon to save this team'
+    : draft.members.length === 0 ? 'Add a monster to save this team' : undefined;
   const inTeam = new Set(draft.members.map((member) => member.unitId));
 
   function change(update: (team: SpeedTeam) => SpeedTeam) {
@@ -68,6 +76,7 @@ export function SpeedTeamOverlay({
   /* Every dungeon fields five today, but the size is the content's to state:
      a smaller one keeps the first movers and, if it was dropped, no leader. */
   function changeDungeon(id: DungeonId) {
+    setDungeonChosen(true);
     change((team) => {
       const members = team.members.slice(0, speedContent(id).teamSize);
       const leaderUnitId = members.some((member) => member.unitId === team.leaderUnitId) ? team.leaderUnitId : null;
@@ -77,7 +86,7 @@ export function SpeedTeamOverlay({
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!dirty || draft.members.length === 0) return;
+    if (!dirty || saveHint !== undefined) return;
     onSave(draft);
   }
 
@@ -87,7 +96,7 @@ export function SpeedTeamOverlay({
     <Overlay labelledBy="speed-team-overlay-title" className="speed-team-overlay" dismissible={!dirty}
       onClose={onClose} onSubmit={submit}
       actions={<OverlayAction kind="save" type="submit" label={isNew ? 'Add this team' : 'Save changes'}
-        disabled={!dirty || draft.members.length === 0} />}>
+        hint={saveHint} disabled={!dirty || saveHint !== undefined} />}>
       {/* A new team is named as one until it is saved: its number among the
           saved teams is not settled before then, and the dungeon it is for is
           chosen right below. */}
@@ -102,15 +111,19 @@ export function SpeedTeamOverlay({
 
       <div className="overlay-body">
         {/* An arena team stays an arena team: its size and its enemy are not a
-            dungeon's, so there is nothing to move it between. Every dungeon is
-            one click away; the chosen one changes colour and nothing else. */}
-        {!arena && <div className="speed-dungeon-choice" role="group" aria-label="Dungeon">
-          {dungeonIds.map((id) => <FilterButton key={id} active={draft.content === id}
-            onClick={() => { if (draft.content !== id) changeDungeon(id); }}>{speedContent(id).name}</FilterButton>)}
+            dungeon's, so there is nothing to move it between. */}
+        {!arena && <div className="speed-dungeon-choice">
+          <label className="filter-label" htmlFor={`${draft.id}-dungeon`}>Select dungeon</label>
+          <Dropdown id={`${draft.id}-dungeon`} className="speed-dungeon-select" placeholder={dungeonChosen ? undefined : ''}
+            value={dungeonChosen ? draft.content : ''}
+            onChange={(event) => { if (event.target.value) changeDungeon(event.target.value as DungeonId); }}>
+            {dungeonIds.map((id) => <option key={id} value={id}>{speedContent(id).name}</option>)}
+          </Dropdown>
         </div>}
         <SpeedTeamEditor reading={reading} worn={worn} title={title} names={names} general={general}
+          enemiesKnown={dungeonChosen}
           turnOrderAction={<Button ref={turnOrderOpener} tone="important" size="prominent" className="speed-ticks-button"
-            disabled={reading.members.length === 0} onClick={() => setShowTurnOrder(true)}>
+            disabled={!dungeonChosen || reading.members.length === 0} onClick={() => setShowTurnOrder(true)}>
             <TicksIcon />Ticks
           </Button>}
           choices={choices.filter((choice) => !inTeam.has(choice.unitId))}

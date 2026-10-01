@@ -54,15 +54,17 @@ const actionMarks = {
  * Its box is the same in every state, disabled included, so nothing on the
  * edge moves when an edit makes Save available.
  */
-export function OverlayAction({ kind, label, type = 'button', disabled, onClick }: {
+export function OverlayAction({ kind, label, hint, type = 'button', disabled, onClick }: {
   kind: keyof typeof actionMarks;
   label: string;
+  /** What is missing before the action can be taken; shown on hover in place of the label. */
+  hint?: string;
   type?: 'button' | 'submit';
   disabled?: boolean;
   onClick?: () => void;
 }) {
-  return <button type={type} className={`overlay-round overlay-${kind}`} aria-label={label} title={label}
-    disabled={disabled} onClick={onClick}>
+  return <button type={type} className={`overlay-round overlay-${kind}`} aria-label={label} title={hint ?? label}
+    aria-description={hint} disabled={disabled} onClick={onClick}>
     {actionMarks[kind]}
   </button>;
 }
