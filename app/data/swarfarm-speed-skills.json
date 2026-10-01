@@ -1,1116 +1,10891 @@
 {
  "source": "https://swarfarm.com/api/v2/",
- "retrievedAt": "2026-09-24T07:54:30.250Z",
+ "retrievedAt": "2026-10-01T17:15:34.492Z",
  "minimumDelayMs": 3000,
  "leaders": [
   [
+   10101,
+   "Resistance",
+   20,
+   "General",
+   null
+  ],
+  [
+   10104,
+   "Resistance",
+   20,
+   "General",
+   null
+  ],
+  [
+   10111,
+   "Resistance",
+   20,
+   "General",
+   null
+  ],
+  [
+   10114,
+   "Resistance",
+   20,
+   "General",
+   null
+  ],
+  [
+   10131,
+   "Resistance",
+   20,
+   "General",
+   null
+  ],
+  [
+   10134,
+   "Resistance",
+   20,
+   "General",
+   null
+  ],
+  [
+   10405,
+   "HP",
+   25,
+   "Element",
+   "Dark"
+  ],
+  [
+   10415,
+   "HP",
+   25,
+   "Element",
+   "Dark"
+  ],
+  [
+   10502,
+   "Attack Power",
+   30,
+   "Element",
+   "Fire"
+  ],
+  [
+   10505,
+   "Attack Power",
+   30,
+   "Element",
+   "Dark"
+  ],
+  [
+   10512,
+   "Attack Power",
+   30,
+   "Element",
+   "Fire"
+  ],
+  [
+   10515,
+   "Attack Power",
+   30,
+   "Element",
+   "Dark"
+  ],
+  [
+   10701,
+   "HP",
+   15,
+   "General",
+   null
+  ],
+  [
+   10704,
+   "HP",
+   15,
+   "General",
+   null
+  ],
+  [
+   10711,
+   "HP",
+   15,
+   "General",
+   null
+  ],
+  [
+   10714,
+   "HP",
+   15,
+   "General",
+   null
+  ],
+  [
+   10731,
+   "HP",
+   15,
+   "General",
+   null
+  ],
+  [
+   10734,
+   "HP",
+   15,
+   "General",
+   null
+  ],
+  [
+   10914,
+   "HP",
+   17,
+   "Dungeon",
+   null
+  ],
+  [
    11001,
+   "Attack Speed",
    23,
    "Element",
    "Water"
   ],
   [
    11003,
+   "Attack Speed",
    23,
    "Element",
    "Wind"
   ],
   [
    11011,
+   "Attack Speed",
    23,
    "Element",
    "Water"
   ],
   [
    11013,
+   "Attack Speed",
    23,
    "Element",
    "Wind"
   ],
   [
    11031,
+   "Attack Speed",
    23,
    "Element",
    "Water"
   ],
   [
    11033,
+   "Attack Speed",
    23,
    "Element",
    "Wind"
   ],
   [
+   11201,
+   "Attack Power",
+   40,
+   "Element",
+   "Water"
+  ],
+  [
+   11202,
+   "Attack Power",
+   40,
+   "Element",
+   "Fire"
+  ],
+  [
+   11203,
+   "Attack Power",
+   40,
+   "Element",
+   "Wind"
+  ],
+  [
+   11204,
+   "Attack Power",
+   40,
+   "Element",
+   "Light"
+  ],
+  [
+   11205,
+   "Attack Power",
+   40,
+   "Element",
+   "Dark"
+  ],
+  [
+   11211,
+   "Attack Power",
+   40,
+   "Element",
+   "Water"
+  ],
+  [
+   11212,
+   "Attack Power",
+   40,
+   "Element",
+   "Fire"
+  ],
+  [
+   11213,
+   "Attack Power",
+   40,
+   "Element",
+   "Wind"
+  ],
+  [
+   11214,
+   "Attack Power",
+   40,
+   "Element",
+   "Light"
+  ],
+  [
+   11215,
+   "Attack Power",
+   40,
+   "Element",
+   "Dark"
+  ],
+  [
+   11223,
+   "Attack Power",
+   40,
+   "Element",
+   "Wind"
+  ],
+  [
+   11302,
+   "HP",
+   21,
+   "Arena",
+   null
+  ],
+  [
+   11305,
+   "HP",
+   21,
+   "Arena",
+   null
+  ],
+  [
+   11312,
+   "HP",
+   21,
+   "Arena",
+   null
+  ],
+  [
+   11315,
+   "HP",
+   21,
+   "Arena",
+   null
+  ],
+  [
+   11403,
+   "HP",
+   30,
+   "Element",
+   "Wind"
+  ],
+  [
+   11404,
+   "HP",
+   30,
+   "Element",
+   "Light"
+  ],
+  [
+   11413,
+   "HP",
+   30,
+   "Element",
+   "Wind"
+  ],
+  [
+   11414,
+   "HP",
+   30,
+   "Element",
+   "Light"
+  ],
+  [
+   11501,
+   "Attack Power",
+   30,
+   "Element",
+   "Water"
+  ],
+  [
+   11511,
+   "Attack Power",
+   30,
+   "Element",
+   "Water"
+  ],
+  [
+   11513,
+   "Attack Power",
+   30,
+   "Element",
+   "Wind"
+  ],
+  [
+   11514,
+   "Attack Power",
+   30,
+   "Element",
+   "Light"
+  ],
+  [
+   11531,
+   "Attack Power",
+   30,
+   "Element",
+   "Water"
+  ],
+  [
+   11533,
+   "Attack Power",
+   30,
+   "Element",
+   "Wind"
+  ],
+  [
+   11534,
+   "Attack Power",
+   30,
+   "Element",
+   "Light"
+  ],
+  [
+   11601,
+   "Defense",
+   40,
+   "Element",
+   "Water"
+  ],
+  [
+   11602,
+   "Defense",
+   40,
+   "Element",
+   "Fire"
+  ],
+  [
+   11603,
+   "Defense",
+   40,
+   "Element",
+   "Wind"
+  ],
+  [
+   11604,
+   "Defense",
+   40,
+   "Element",
+   "Light"
+  ],
+  [
+   11605,
+   "Defense",
+   40,
+   "Element",
+   "Dark"
+  ],
+  [
+   11611,
+   "Defense",
+   40,
+   "Element",
+   "Water"
+  ],
+  [
+   11612,
+   "Defense",
+   40,
+   "Element",
+   "Fire"
+  ],
+  [
+   11613,
+   "Defense",
+   40,
+   "Element",
+   "Wind"
+  ],
+  [
+   11614,
+   "Defense",
+   40,
+   "Element",
+   "Light"
+  ],
+  [
+   11615,
+   "Defense",
+   40,
+   "Element",
+   "Dark"
+  ],
+  [
+   11621,
+   "Defense",
+   40,
+   "Element",
+   "Water"
+  ],
+  [
+   11702,
+   "Critical Rate",
+   23,
+   "Element",
+   "Fire"
+  ],
+  [
+   11705,
+   "Critical Rate",
+   23,
+   "Element",
+   "Dark"
+  ],
+  [
+   11711,
+   "Critical Rate",
+   23,
+   "Element",
+   "Water"
+  ],
+  [
+   11712,
+   "Critical Rate",
+   23,
+   "Element",
+   "Fire"
+  ],
+  [
+   11713,
+   "Critical Rate",
+   23,
+   "Element",
+   "Wind"
+  ],
+  [
+   11714,
+   "Critical Rate",
+   23,
+   "Element",
+   "Light"
+  ],
+  [
+   11715,
+   "Critical Rate",
+   23,
+   "Element",
+   "Dark"
+  ],
+  [
+   11731,
+   "Critical Rate",
+   23,
+   "Element",
+   "Water"
+  ],
+  [
+   11732,
+   "Critical Rate",
+   23,
+   "Element",
+   "Fire"
+  ],
+  [
+   11733,
+   "Critical Rate",
+   23,
+   "Element",
+   "Wind"
+  ],
+  [
+   11734,
+   "Critical Rate",
+   23,
+   "Element",
+   "Light"
+  ],
+  [
+   11735,
+   "Critical Rate",
+   23,
+   "Element",
+   "Dark"
+  ],
+  [
    11801,
+   "Attack Speed",
    19,
    "General",
    null
   ],
   [
    11802,
+   "Attack Speed",
    19,
    "General",
    null
   ],
   [
    11803,
+   "Attack Speed",
    24,
    "Arena",
    null
   ],
   [
    11804,
+   "Attack Speed",
    24,
    "Dungeon",
    null
   ],
   [
    11805,
+   "Attack Speed",
    19,
    "General",
    null
   ],
   [
    11811,
+   "Attack Speed",
    19,
    "General",
    null
   ],
   [
    11812,
+   "Attack Speed",
    19,
    "General",
    null
   ],
   [
    11813,
+   "Attack Speed",
    24,
    "Arena",
    null
   ],
   [
    11814,
+   "Attack Speed",
    24,
    "Dungeon",
    null
   ],
   [
    11815,
+   "Attack Speed",
    19,
    "General",
    null
   ],
   [
    11822,
+   "Attack Speed",
    19,
    "General",
    null
   ],
   [
+   11901,
+   "Resistance",
+   50,
+   "Element",
+   "Water"
+  ],
+  [
+   11902,
+   "Resistance",
+   50,
+   "Element",
+   "Fire"
+  ],
+  [
+   11903,
+   "Resistance",
+   50,
+   "Element",
+   "Wind"
+  ],
+  [
+   11904,
+   "Resistance",
+   50,
+   "Element",
+   "Light"
+  ],
+  [
+   11905,
+   "Resistance",
+   50,
+   "Element",
+   "Dark"
+  ],
+  [
+   11911,
+   "Resistance",
+   50,
+   "Element",
+   "Water"
+  ],
+  [
+   11912,
+   "Resistance",
+   50,
+   "Element",
+   "Fire"
+  ],
+  [
+   11913,
+   "Resistance",
+   50,
+   "Element",
+   "Wind"
+  ],
+  [
+   11914,
+   "Resistance",
+   50,
+   "Element",
+   "Light"
+  ],
+  [
+   11915,
+   "Resistance",
+   50,
+   "Element",
+   "Dark"
+  ],
+  [
+   12001,
+   "Critical Rate",
+   23,
+   "Element",
+   "Water"
+  ],
+  [
+   12002,
+   "Critical Rate",
+   23,
+   "Element",
+   "Fire"
+  ],
+  [
+   12003,
+   "Critical Rate",
+   23,
+   "Element",
+   "Wind"
+  ],
+  [
+   12004,
+   "Critical Rate",
+   23,
+   "Element",
+   "Light"
+  ],
+  [
+   12005,
+   "Critical Rate",
+   23,
+   "Element",
+   "Dark"
+  ],
+  [
+   12011,
+   "Critical Rate",
+   23,
+   "Element",
+   "Water"
+  ],
+  [
+   12012,
+   "Critical Rate",
+   23,
+   "Element",
+   "Fire"
+  ],
+  [
+   12013,
+   "Critical Rate",
+   23,
+   "Element",
+   "Wind"
+  ],
+  [
+   12014,
+   "Critical Rate",
+   23,
+   "Element",
+   "Light"
+  ],
+  [
+   12015,
+   "Critical Rate",
+   23,
+   "Element",
+   "Dark"
+  ],
+  [
+   12031,
+   "Critical Rate",
+   23,
+   "Element",
+   "Water"
+  ],
+  [
+   12032,
+   "Critical Rate",
+   23,
+   "Element",
+   "Fire"
+  ],
+  [
+   12033,
+   "Critical Rate",
+   23,
+   "Element",
+   "Wind"
+  ],
+  [
+   12034,
+   "Critical Rate",
+   23,
+   "Element",
+   "Light"
+  ],
+  [
+   12035,
+   "Critical Rate",
+   23,
+   "Element",
+   "Dark"
+  ],
+  [
+   12104,
+   "Defense",
+   25,
+   "Element",
+   "Light"
+  ],
+  [
+   12114,
+   "Defense",
+   25,
+   "Element",
+   "Light"
+  ],
+  [
+   12115,
+   "Defense",
+   25,
+   "Element",
+   "Dark"
+  ],
+  [
+   12134,
+   "Defense",
+   25,
+   "Element",
+   "Light"
+  ],
+  [
+   12135,
+   "Defense",
+   25,
+   "Element",
+   "Dark"
+  ],
+  [
+   12811,
+   "HP",
+   15,
+   "General",
+   null
+  ],
+  [
+   12812,
+   "Attack Power",
+   15,
+   "General",
+   null
+  ],
+  [
+   12813,
+   "Critical Rate",
+   10,
+   "General",
+   null
+  ],
+  [
+   12814,
+   "Resistance",
+   15,
+   "General",
+   null
+  ],
+  [
+   12815,
+   "Accuracy",
+   15,
+   "General",
+   null
+  ],
+  [
    13311,
+   "Attack Speed",
    24,
    "Arena",
    null
   ],
   [
+   13312,
+   "Accuracy",
+   40,
+   "Arena",
+   null
+  ],
+  [
+   13313,
+   "Resistance",
+   40,
+   "Arena",
+   null
+  ],
+  [
+   13314,
+   "HP",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   13315,
+   "Defense",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   13401,
+   "HP",
+   33,
+   "Dungeon",
+   null
+  ],
+  [
+   13402,
+   "Defense",
+   33,
+   "Dungeon",
+   null
+  ],
+  [
+   13403,
+   "Attack Power",
+   33,
+   "Dungeon",
+   null
+  ],
+  [
+   13404,
+   "Resistance",
+   40,
+   "Dungeon",
+   null
+  ],
+  [
+   13405,
+   "Accuracy",
+   40,
+   "Dungeon",
+   null
+  ],
+  [
+   13411,
+   "HP",
+   33,
+   "Dungeon",
+   null
+  ],
+  [
+   13412,
+   "Defense",
+   33,
+   "Dungeon",
+   null
+  ],
+  [
+   13413,
+   "Attack Power",
+   33,
+   "Dungeon",
+   null
+  ],
+  [
+   13414,
+   "Resistance",
+   40,
+   "Dungeon",
+   null
+  ],
+  [
+   13415,
+   "Accuracy",
+   40,
+   "Dungeon",
+   null
+  ],
+  [
+   13422,
+   "Defense",
+   33,
+   "Dungeon",
+   null
+  ],
+  [
    13505,
+   "Attack Speed",
    30,
    "Element",
    "Dark"
   ],
   [
    13511,
+   "Attack Speed",
    30,
    "Element",
    "Water"
   ],
   [
    13512,
+   "Attack Speed",
    30,
    "Element",
    "Fire"
   ],
   [
    13513,
+   "Attack Speed",
    30,
    "Element",
    "Wind"
   ],
   [
    13514,
+   "Attack Speed",
    30,
    "Element",
    "Light"
   ],
   [
    13515,
+   "Attack Speed",
    30,
    "Element",
    "Dark"
   ],
   [
-   13802,
+   13701,
+   "Defense",
+   30,
+   "Element",
+   "Water"
+  ],
+  [
+   13702,
+   "Defense",
+   30,
+   "Element",
+   "Fire"
+  ],
+  [
+   13703,
+   "Defense",
+   30,
+   "Element",
+   "Wind"
+  ],
+  [
+   13704,
+   "Defense",
+   30,
+   "Element",
+   "Light"
+  ],
+  [
+   13705,
+   "Defense",
+   30,
+   "Element",
+   "Dark"
+  ],
+  [
+   13711,
+   "Defense",
+   30,
+   "Element",
+   "Water"
+  ],
+  [
+   13712,
+   "Defense",
+   30,
+   "Element",
+   "Fire"
+  ],
+  [
+   13713,
+   "Defense",
+   30,
+   "Element",
+   "Wind"
+  ],
+  [
+   13714,
+   "Defense",
+   30,
+   "Element",
+   "Light"
+  ],
+  [
+   13715,
+   "Defense",
+   30,
+   "Element",
+   "Dark"
+  ],
+  [
+   13801,
+   "Critical Rate",
    33,
    "Arena",
    null
   ],
   [
+   13802,
+   "Attack Speed",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   13803,
+   "Resistance",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   13804,
+   "HP",
+   44,
+   "Arena",
+   null
+  ],
+  [
    13805,
+   "Attack Speed",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   13811,
+   "Critical Rate",
    33,
    "Arena",
    null
   ],
   [
    13812,
+   "Attack Speed",
    33,
+   "Arena",
+   null
+  ],
+  [
+   13813,
+   "Resistance",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   13814,
+   "HP",
+   44,
    "Arena",
    null
   ],
   [
    13815,
+   "Attack Speed",
    33,
    "Arena",
    null
   ],
   [
+   13911,
+   "Attack Power",
+   25,
+   "General",
+   null
+  ],
+  [
    13912,
+   "Attack Speed",
    19,
    "General",
    null
   ],
   [
+   13913,
+   "Resistance",
+   30,
+   "General",
+   null
+  ],
+  [
+   13914,
+   "Resistance",
+   30,
+   "General",
+   null
+  ],
+  [
+   13915,
+   "Accuracy",
+   30,
+   "General",
+   null
+  ],
+  [
+   14001,
+   "Attack Power",
+   21,
+   "Guild",
+   null
+  ],
+  [
+   14002,
+   "Accuracy",
+   26,
+   "Guild",
+   null
+  ],
+  [
+   14003,
+   "Resistance",
+   26,
+   "Guild",
+   null
+  ],
+  [
+   14004,
+   "HP",
+   21,
+   "Guild",
+   null
+  ],
+  [
    14005,
+   "Attack Speed",
    16,
+   "Guild",
+   null
+  ],
+  [
+   14011,
+   "Attack Power",
+   21,
+   "Guild",
+   null
+  ],
+  [
+   14012,
+   "Accuracy",
+   26,
+   "Guild",
+   null
+  ],
+  [
+   14013,
+   "Resistance",
+   26,
+   "Guild",
+   null
+  ],
+  [
+   14014,
+   "HP",
+   21,
    "Guild",
    null
   ],
   [
    14015,
+   "Attack Speed",
    16,
+   "Guild",
+   null
+  ],
+  [
+   14031,
+   "Attack Power",
+   21,
+   "Guild",
+   null
+  ],
+  [
+   14032,
+   "Accuracy",
+   26,
+   "Guild",
+   null
+  ],
+  [
+   14033,
+   "Resistance",
+   26,
+   "Guild",
+   null
+  ],
+  [
+   14034,
+   "HP",
+   21,
    "Guild",
    null
   ],
   [
    14035,
+   "Attack Speed",
    16,
    "Guild",
    null
   ],
   [
+   14111,
+   "Accuracy",
+   40,
+   "Arena",
+   null
+  ],
+  [
+   14112,
+   "Resistance",
+   40,
+   "Arena",
+   null
+  ],
+  [
+   14113,
+   "HP",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   14114,
+   "Defense",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   14115,
+   "Attack Power",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   14401,
+   "HP",
+   33,
+   "General",
+   null
+  ],
+  [
+   14402,
+   "Attack Power",
+   33,
+   "General",
+   null
+  ],
+  [
    14403,
+   "Attack Speed",
    24,
+   "General",
+   null
+  ],
+  [
+   14404,
+   "Critical Rate",
+   24,
+   "General",
+   null
+  ],
+  [
+   14405,
+   "Resistance",
+   41,
+   "General",
+   null
+  ],
+  [
+   14411,
+   "HP",
+   33,
+   "General",
+   null
+  ],
+  [
+   14412,
+   "Attack Power",
+   33,
    "General",
    null
   ],
   [
    14413,
+   "Attack Speed",
    24,
    "General",
    null
   ],
   [
+   14414,
+   "Critical Rate",
+   24,
+   "General",
+   null
+  ],
+  [
+   14415,
+   "Resistance",
+   41,
+   "General",
+   null
+  ],
+  [
+   14501,
+   "HP",
+   44,
+   "Dungeon",
+   null
+  ],
+  [
+   14502,
+   "Attack Power",
+   44,
+   "Dungeon",
+   null
+  ],
+  [
+   14503,
+   "Critical Rate",
+   33,
+   "Dungeon",
+   null
+  ],
+  [
+   14504,
+   "Defense",
+   44,
+   "Dungeon",
+   null
+  ],
+  [
+   14505,
+   "Resistance",
+   55,
+   "Dungeon",
+   null
+  ],
+  [
+   14511,
+   "HP",
+   44,
+   "Dungeon",
+   null
+  ],
+  [
+   14512,
+   "Attack Power",
+   44,
+   "Dungeon",
+   null
+  ],
+  [
+   14513,
+   "Critical Rate",
+   33,
+   "Dungeon",
+   null
+  ],
+  [
+   14514,
+   "Defense",
+   44,
+   "Dungeon",
+   null
+  ],
+  [
+   14515,
+   "Resistance",
+   55,
+   "Dungeon",
+   null
+  ],
+  [
+   14601,
+   "HP",
+   50,
+   "Element",
+   "Water"
+  ],
+  [
+   14602,
+   "HP",
+   50,
+   "Element",
+   "Fire"
+  ],
+  [
+   14603,
+   "HP",
+   50,
+   "Element",
+   "Wind"
+  ],
+  [
+   14604,
+   "HP",
+   50,
+   "Element",
+   "Light"
+  ],
+  [
+   14605,
+   "HP",
+   50,
+   "Element",
+   "Dark"
+  ],
+  [
+   14611,
+   "HP",
+   50,
+   "Element",
+   "Water"
+  ],
+  [
+   14612,
+   "HP",
+   50,
+   "Element",
+   "Fire"
+  ],
+  [
+   14613,
+   "HP",
+   50,
+   "Element",
+   "Wind"
+  ],
+  [
+   14614,
+   "HP",
+   50,
+   "Element",
+   "Light"
+  ],
+  [
+   14615,
+   "HP",
+   50,
+   "Element",
+   "Dark"
+  ],
+  [
+   14701,
+   "HP",
+   38,
+   "Dungeon",
+   null
+  ],
+  [
    14702,
+   "Attack Speed",
    28,
    "Dungeon",
    null
   ],
   [
+   14703,
+   "Resistance",
+   48,
+   "Dungeon",
+   null
+  ],
+  [
+   14704,
+   "Attack Power",
+   38,
+   "Dungeon",
+   null
+  ],
+  [
+   14705,
+   "Critical Rate",
+   28,
+   "Dungeon",
+   null
+  ],
+  [
+   14711,
+   "HP",
+   38,
+   "Dungeon",
+   null
+  ],
+  [
    14712,
+   "Attack Speed",
+   28,
+   "Dungeon",
+   null
+  ],
+  [
+   14713,
+   "Resistance",
+   48,
+   "Dungeon",
+   null
+  ],
+  [
+   14714,
+   "Attack Power",
+   38,
+   "Dungeon",
+   null
+  ],
+  [
+   14715,
+   "Critical Rate",
    28,
    "Dungeon",
    null
   ],
   [
    14722,
+   "Attack Speed",
    28,
    "Dungeon",
    null
   ],
   [
+   14723,
+   "Resistance",
+   48,
+   "Dungeon",
+   null
+  ],
+  [
+   14802,
+   "Attack Power",
+   15,
+   "General",
+   null
+  ],
+  [
    14805,
+   "Attack Speed",
    10,
+   "General",
+   null
+  ],
+  [
+   14812,
+   "Attack Power",
+   15,
    "General",
    null
   ],
   [
    14815,
+   "Attack Speed",
    10,
    "General",
    null
   ],
   [
+   14911,
+   "Accuracy",
+   26,
+   "Guild",
+   null
+  ],
+  [
    14912,
+   "Attack Speed",
    16,
+   "Guild",
+   null
+  ],
+  [
+   14913,
+   "Critical Rate",
+   16,
+   "Guild",
+   null
+  ],
+  [
+   14914,
+   "Attack Power",
+   21,
+   "Guild",
+   null
+  ],
+  [
+   14915,
+   "Attack Power",
+   21,
+   "Guild",
+   null
+  ],
+  [
+   15001,
+   "Critical Rate",
+   16,
+   "Guild",
+   null
+  ],
+  [
+   15002,
+   "HP",
+   21,
    "Guild",
    null
   ],
   [
    15003,
+   "Attack Speed",
    16,
+   "Guild",
+   null
+  ],
+  [
+   15004,
+   "Attack Power",
+   21,
+   "Guild",
+   null
+  ],
+  [
+   15005,
+   "Defense",
+   21,
+   "Guild",
+   null
+  ],
+  [
+   15011,
+   "Critical Rate",
+   16,
+   "Guild",
+   null
+  ],
+  [
+   15012,
+   "HP",
+   21,
    "Guild",
    null
   ],
   [
    15013,
+   "Attack Speed",
    16,
+   "Guild",
+   null
+  ],
+  [
+   15014,
+   "Attack Power",
+   21,
+   "Guild",
+   null
+  ],
+  [
+   15015,
+   "Defense",
+   21,
+   "Guild",
+   null
+  ],
+  [
+   15031,
+   "Critical Rate",
+   16,
+   "Guild",
+   null
+  ],
+  [
+   15032,
+   "HP",
+   21,
    "Guild",
    null
   ],
   [
    15033,
+   "Attack Speed",
    16,
    "Guild",
    null
   ],
   [
+   15034,
+   "Attack Power",
+   21,
+   "Guild",
+   null
+  ],
+  [
+   15035,
+   "Defense",
+   21,
+   "Guild",
+   null
+  ],
+  [
+   15212,
+   "HP",
+   18,
+   "Dungeon",
+   null
+  ],
+  [
+   15232,
+   "HP",
+   18,
+   "Dungeon",
+   null
+  ],
+  [
    15302,
+   "Attack Speed",
    20,
    "Arena",
+   null
+  ],
+  [
+   15304,
+   "Resistance",
+   33,
+   "Dungeon",
    null
   ],
   [
    15312,
+   "Attack Speed",
    20,
    "Arena",
    null
   ],
   [
+   15314,
+   "Resistance",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   15404,
+   "Attack Power",
+   35,
+   "Element",
+   "Light"
+  ],
+  [
+   15405,
+   "Attack Power",
+   35,
+   "Element",
+   "Dark"
+  ],
+  [
+   15411,
+   "Attack Power",
+   35,
+   "Element",
+   "Water"
+  ],
+  [
+   15412,
+   "Attack Power",
+   35,
+   "Element",
+   "Fire"
+  ],
+  [
+   15413,
+   "Attack Power",
+   35,
+   "Element",
+   "Wind"
+  ],
+  [
+   15414,
+   "Attack Power",
+   35,
+   "Element",
+   "Light"
+  ],
+  [
+   15415,
+   "Attack Power",
+   35,
+   "Element",
+   "Dark"
+  ],
+  [
+   15501,
+   "Attack Power",
+   25,
+   "General",
+   null
+  ],
+  [
+   15502,
+   "Critical Rate",
+   19,
+   "General",
+   null
+  ],
+  [
+   15503,
+   "Attack Power",
+   25,
+   "General",
+   null
+  ],
+  [
+   15504,
+   "Critical Rate",
+   19,
+   "General",
+   null
+  ],
+  [
+   15505,
+   "Attack Power",
+   25,
+   "General",
+   null
+  ],
+  [
+   15511,
+   "Attack Power",
+   25,
+   "General",
+   null
+  ],
+  [
+   15512,
+   "Critical Rate",
+   19,
+   "General",
+   null
+  ],
+  [
+   15513,
+   "Attack Power",
+   25,
+   "General",
+   null
+  ],
+  [
+   15514,
+   "Critical Rate",
+   19,
+   "General",
+   null
+  ],
+  [
+   15515,
+   "Attack Power",
+   25,
+   "General",
+   null
+  ],
+  [
+   15601,
+   "Attack Power",
+   30,
+   "Element",
+   "Water"
+  ],
+  [
    15602,
+   "Attack Speed",
    16,
+   "Guild",
+   null
+  ],
+  [
+   15603,
+   "Accuracy",
+   26,
    "Guild",
    null
   ],
   [
    15604,
+   "Attack Speed",
    23,
    "Element",
    "Light"
   ],
   [
-   15612,
+   15605,
+   "Critical Rate",
    16,
    "Guild",
    null
   ],
   [
+   15611,
+   "Attack Power",
+   30,
+   "Element",
+   "Water"
+  ],
+  [
+   15612,
+   "Attack Speed",
+   16,
+   "Guild",
+   null
+  ],
+  [
+   15613,
+   "Accuracy",
+   26,
+   "Guild",
+   null
+  ],
+  [
    15614,
+   "Attack Speed",
    23,
    "Element",
    "Light"
   ],
   [
+   15615,
+   "Critical Rate",
+   16,
+   "Guild",
+   null
+  ],
+  [
+   15701,
+   "Resistance",
+   41,
+   "General",
+   null
+  ],
+  [
+   15702,
+   "Critical Rate",
+   24,
+   "General",
+   null
+  ],
+  [
    15703,
+   "Attack Speed",
+   24,
+   "General",
+   null
+  ],
+  [
+   15704,
+   "Accuracy",
+   41,
+   "General",
+   null
+  ],
+  [
+   15705,
+   "Attack Power",
+   33,
+   "General",
+   null
+  ],
+  [
+   15711,
+   "Resistance",
+   41,
+   "General",
+   null
+  ],
+  [
+   15712,
+   "Critical Rate",
    24,
    "General",
    null
   ],
   [
    15713,
+   "Attack Speed",
    24,
+   "General",
+   null
+  ],
+  [
+   15714,
+   "Accuracy",
+   41,
+   "General",
+   null
+  ],
+  [
+   15715,
+   "Attack Power",
+   33,
+   "General",
+   null
+  ],
+  [
+   15901,
+   "Attack Power",
+   21,
+   "Arena",
+   null
+  ],
+  [
+   15903,
+   "Resistance",
+   26,
+   "Arena",
+   null
+  ],
+  [
+   15905,
+   "Resistance",
+   26,
+   "Arena",
+   null
+  ],
+  [
+   15911,
+   "Attack Power",
+   21,
+   "Arena",
+   null
+  ],
+  [
+   15912,
+   "Accuracy",
+   26,
+   "Arena",
+   null
+  ],
+  [
+   15913,
+   "Resistance",
+   26,
+   "Arena",
+   null
+  ],
+  [
+   15914,
+   "Accuracy",
+   26,
+   "Arena",
+   null
+  ],
+  [
+   15915,
+   "Resistance",
+   26,
+   "Arena",
+   null
+  ],
+  [
+   15931,
+   "Attack Power",
+   21,
+   "Arena",
+   null
+  ],
+  [
+   15932,
+   "Accuracy",
+   26,
+   "Arena",
+   null
+  ],
+  [
+   15933,
+   "Resistance",
+   26,
+   "Arena",
+   null
+  ],
+  [
+   15934,
+   "Accuracy",
+   26,
+   "Arena",
+   null
+  ],
+  [
+   15935,
+   "Resistance",
+   26,
+   "Arena",
+   null
+  ],
+  [
+   16011,
+   "Attack Power",
+   30,
+   "Element",
+   "Water"
+  ],
+  [
+   16012,
+   "Attack Power",
+   30,
+   "Element",
+   "Fire"
+  ],
+  [
+   16013,
+   "Attack Power",
+   30,
+   "Element",
+   "Wind"
+  ],
+  [
+   16014,
+   "Attack Power",
+   30,
+   "Element",
+   "Light"
+  ],
+  [
+   16015,
+   "Attack Power",
+   30,
+   "Element",
+   "Dark"
+  ],
+  [
+   16031,
+   "Attack Power",
+   30,
+   "Element",
+   "Water"
+  ],
+  [
+   16032,
+   "Attack Power",
+   30,
+   "Element",
+   "Fire"
+  ],
+  [
+   16033,
+   "Attack Power",
+   30,
+   "Element",
+   "Wind"
+  ],
+  [
+   16034,
+   "Attack Power",
+   30,
+   "Element",
+   "Light"
+  ],
+  [
+   16035,
+   "Attack Power",
+   30,
+   "Element",
+   "Dark"
+  ],
+  [
+   16101,
+   "Critical Rate",
+   38,
+   "Element",
+   "Water"
+  ],
+  [
+   16102,
+   "Critical Rate",
+   38,
+   "Element",
+   "Fire"
+  ],
+  [
+   16103,
+   "Critical Rate",
+   38,
+   "Element",
+   "Wind"
+  ],
+  [
+   16104,
+   "Critical Rate",
+   38,
+   "Element",
+   "Light"
+  ],
+  [
+   16105,
+   "Critical Rate",
+   38,
+   "Element",
+   "Dark"
+  ],
+  [
+   16111,
+   "Critical Rate",
+   38,
+   "Element",
+   "Water"
+  ],
+  [
+   16112,
+   "Critical Rate",
+   38,
+   "Element",
+   "Fire"
+  ],
+  [
+   16113,
+   "Critical Rate",
+   38,
+   "Element",
+   "Wind"
+  ],
+  [
+   16114,
+   "Critical Rate",
+   38,
+   "Element",
+   "Light"
+  ],
+  [
+   16115,
+   "Critical Rate",
+   38,
+   "Element",
+   "Dark"
+  ],
+  [
+   16201,
+   "Defense",
+   25,
+   "General",
+   null
+  ],
+  [
+   16202,
+   "HP",
+   25,
+   "General",
+   null
+  ],
+  [
+   16203,
+   "Resistance",
+   30,
    "General",
    null
   ],
   [
    16204,
+   "Attack Speed",
    19,
+   "General",
+   null
+  ],
+  [
+   16205,
+   "Resistance",
+   30,
+   "General",
+   null
+  ],
+  [
+   16211,
+   "Defense",
+   25,
+   "General",
+   null
+  ],
+  [
+   16212,
+   "HP",
+   25,
+   "General",
+   null
+  ],
+  [
+   16213,
+   "Resistance",
+   30,
    "General",
    null
   ],
   [
    16214,
+   "Attack Speed",
    19,
    "General",
    null
   ],
   [
-   16314,
+   16215,
+   "Resistance",
+   30,
+   "General",
+   null
+  ],
+  [
+   16311,
+   "HP",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   16312,
+   "Critical Rate",
    24,
    "Arena",
    null
   ],
   [
-   16803,
+   16313,
+   "Attack Power",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   16314,
+   "Attack Speed",
    24,
+   "Arena",
+   null
+  ],
+  [
+   16315,
+   "Resistance",
+   40,
+   "Arena",
+   null
+  ],
+  [
+   16601,
+   "Defense",
+   50,
+   "Element",
+   "Water"
+  ],
+  [
+   16602,
+   "Defense",
+   50,
+   "Element",
+   "Fire"
+  ],
+  [
+   16603,
+   "Defense",
+   50,
+   "Element",
+   "Wind"
+  ],
+  [
+   16604,
+   "Defense",
+   50,
+   "Element",
+   "Light"
+  ],
+  [
+   16605,
+   "Defense",
+   50,
+   "Element",
+   "Dark"
+  ],
+  [
+   16611,
+   "Defense",
+   50,
+   "Element",
+   "Water"
+  ],
+  [
+   16612,
+   "Defense",
+   50,
+   "Element",
+   "Fire"
+  ],
+  [
+   16613,
+   "Defense",
+   50,
+   "Element",
+   "Wind"
+  ],
+  [
+   16614,
+   "Defense",
+   50,
+   "Element",
+   "Light"
+  ],
+  [
+   16615,
+   "Defense",
+   50,
+   "Element",
+   "Dark"
+  ],
+  [
+   16714,
+   "Critical DMG",
+   25,
+   "General",
+   null
+  ],
+  [
+   16801,
+   "Attack Power",
+   33,
+   "General",
+   null
+  ],
+  [
+   16802,
+   "Defense",
+   33,
+   "General",
+   null
+  ],
+  [
+   16803,
+   "Attack Speed",
+   24,
+   "General",
+   null
+  ],
+  [
+   16804,
+   "Resistance",
+   41,
+   "General",
+   null
+  ],
+  [
+   16805,
+   "Accuracy",
+   41,
+   "General",
+   null
+  ],
+  [
+   16811,
+   "Attack Power",
+   33,
+   "General",
+   null
+  ],
+  [
+   16812,
+   "Defense",
+   33,
    "General",
    null
   ],
   [
    16813,
+   "Attack Speed",
    24,
    "General",
    null
   ],
   [
+   16814,
+   "Resistance",
+   41,
+   "General",
+   null
+  ],
+  [
+   16815,
+   "Accuracy",
+   41,
+   "General",
+   null
+  ],
+  [
+   17001,
+   "HP",
+   50,
+   "Element",
+   "Water"
+  ],
+  [
+   17002,
+   "HP",
+   50,
+   "Element",
+   "Fire"
+  ],
+  [
+   17003,
+   "HP",
+   50,
+   "Element",
+   "Wind"
+  ],
+  [
+   17004,
+   "HP",
+   50,
+   "Element",
+   "Light"
+  ],
+  [
+   17005,
+   "HP",
+   50,
+   "Element",
+   "Dark"
+  ],
+  [
+   17011,
+   "HP",
+   50,
+   "Element",
+   "Water"
+  ],
+  [
+   17012,
+   "HP",
+   50,
+   "Element",
+   "Fire"
+  ],
+  [
+   17013,
+   "HP",
+   50,
+   "Element",
+   "Wind"
+  ],
+  [
+   17014,
+   "HP",
+   50,
+   "Element",
+   "Light"
+  ],
+  [
+   17015,
+   "HP",
+   50,
+   "Element",
+   "Dark"
+  ],
+  [
+   17101,
+   "Defense",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   17102,
+   "HP",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   17103,
+   "Attack Power",
+   44,
+   "Arena",
+   null
+  ],
+  [
    17104,
+   "Attack Speed",
    33,
+   "Arena",
+   null
+  ],
+  [
+   17105,
+   "Resistance",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   17111,
+   "Defense",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   17112,
+   "HP",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   17113,
+   "Attack Power",
+   44,
    "Arena",
    null
   ],
   [
    17114,
+   "Attack Speed",
    33,
    "Arena",
    null
   ],
   [
+   17115,
+   "Resistance",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   17201,
+   "HP",
+   21,
+   "Guild",
+   null
+  ],
+  [
+   17202,
+   "Attack Power",
+   21,
+   "Guild",
+   null
+  ],
+  [
+   17203,
+   "Accuracy",
+   26,
+   "Guild",
+   null
+  ],
+  [
    17204,
+   "Attack Speed",
    16,
+   "Guild",
+   null
+  ],
+  [
+   17205,
+   "Critical Rate",
+   16,
+   "Guild",
+   null
+  ],
+  [
+   17211,
+   "HP",
+   21,
+   "Guild",
+   null
+  ],
+  [
+   17212,
+   "Attack Power",
+   21,
+   "Guild",
+   null
+  ],
+  [
+   17213,
+   "Accuracy",
+   26,
    "Guild",
    null
   ],
   [
    17214,
+   "Attack Speed",
    16,
    "Guild",
    null
   ],
   [
+   17215,
+   "Critical Rate",
+   16,
+   "Guild",
+   null
+  ],
+  [
+   17301,
+   "Defense",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   17302,
+   "Attack Power",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   17303,
+   "Accuracy",
+   40,
+   "Arena",
+   null
+  ],
+  [
+   17304,
+   "Critical Rate",
+   24,
+   "Arena",
+   null
+  ],
+  [
    17305,
+   "Attack Speed",
+   24,
+   "Arena",
+   null
+  ],
+  [
+   17311,
+   "Defense",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   17312,
+   "Attack Power",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   17313,
+   "Accuracy",
+   40,
+   "Arena",
+   null
+  ],
+  [
+   17314,
+   "Critical Rate",
    24,
    "Arena",
    null
   ],
   [
    17315,
+   "Attack Speed",
    24,
    "Arena",
    null
   ],
   [
+   17323,
+   "Accuracy",
+   40,
+   "Arena",
+   null
+  ],
+  [
    17401,
+   "Attack Speed",
    24,
    "General",
    null
   ],
   [
+   17402,
+   "HP",
+   33,
+   "General",
+   null
+  ],
+  [
+   17403,
+   "Defense",
+   33,
+   "General",
+   null
+  ],
+  [
+   17404,
+   "HP",
+   44,
+   "Guild",
+   null
+  ],
+  [
    17405,
+   "Attack Speed",
    33,
    "Guild",
    null
   ],
   [
    17411,
+   "Attack Speed",
    24,
    "General",
    null
   ],
   [
+   17412,
+   "HP",
+   33,
+   "General",
+   null
+  ],
+  [
+   17413,
+   "Defense",
+   33,
+   "General",
+   null
+  ],
+  [
+   17414,
+   "HP",
+   44,
+   "Guild",
+   null
+  ],
+  [
    17415,
+   "Attack Speed",
    33,
    "Guild",
    null
   ],
   [
+   17711,
+   "HP",
+   30,
+   "Element",
+   "Water"
+  ],
+  [
+   17712,
+   "HP",
+   30,
+   "Element",
+   "Fire"
+  ],
+  [
+   17713,
+   "HP",
+   30,
+   "Element",
+   "Wind"
+  ],
+  [
+   17714,
+   "HP",
+   30,
+   "Element",
+   "Light"
+  ],
+  [
+   17715,
+   "HP",
+   30,
+   "Element",
+   "Dark"
+  ],
+  [
+   17901,
+   "HP",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   17902,
+   "Attack Power",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   17903,
+   "Critical Rate",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   17904,
+   "Accuracy",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   17905,
+   "Defense",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   17911,
+   "HP",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   17912,
+   "Attack Power",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   17913,
+   "Critical Rate",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   17914,
+   "Accuracy",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   17915,
+   "Defense",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   18011,
+   "Defense",
+   25,
+   "General",
+   null
+  ],
+  [
+   18012,
+   "HP",
+   25,
+   "General",
+   null
+  ],
+  [
+   18013,
+   "Attack Power",
+   25,
+   "General",
+   null
+  ],
+  [
    18014,
+   "Attack Speed",
    19,
    "General",
    null
   ],
   [
+   18015,
+   "Critical Rate",
+   19,
+   "General",
+   null
+  ],
+  [
+   18101,
+   "Accuracy",
+   50,
+   "Element",
+   "Water"
+  ],
+  [
+   18102,
+   "Accuracy",
+   50,
+   "Element",
+   "Fire"
+  ],
+  [
+   18103,
+   "Accuracy",
+   50,
+   "Element",
+   "Wind"
+  ],
+  [
+   18104,
+   "Accuracy",
+   50,
+   "Element",
+   "Light"
+  ],
+  [
+   18105,
+   "Accuracy",
+   50,
+   "Element",
+   "Dark"
+  ],
+  [
+   18111,
+   "Accuracy",
+   50,
+   "Element",
+   "Water"
+  ],
+  [
+   18112,
+   "Accuracy",
+   50,
+   "Element",
+   "Fire"
+  ],
+  [
+   18113,
+   "Accuracy",
+   50,
+   "Element",
+   "Wind"
+  ],
+  [
+   18114,
+   "Accuracy",
+   50,
+   "Element",
+   "Light"
+  ],
+  [
+   18115,
+   "Accuracy",
+   50,
+   "Element",
+   "Dark"
+  ],
+  [
    18301,
+   "Attack Speed",
    28,
    "Guild",
    null
   ],
   [
+   18302,
+   "Attack Power",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   18303,
+   "HP",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   18304,
+   "Resistance",
+   48,
+   "Arena",
+   null
+  ],
+  [
    18305,
+   "Attack Speed",
    28,
    "Arena",
    null
   ],
   [
    18311,
+   "Attack Speed",
    28,
    "Guild",
    null
   ],
   [
+   18312,
+   "Attack Power",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   18313,
+   "HP",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   18314,
+   "Resistance",
+   48,
+   "Arena",
+   null
+  ],
+  [
    18315,
+   "Attack Speed",
    28,
    "Arena",
    null
   ],
   [
+   18401,
+   "Attack Power",
+   22,
+   "General",
+   null
+  ],
+  [
+   18403,
+   "Resistance",
+   28,
+   "General",
+   null
+  ],
+  [
+   18404,
+   "Critical Rate",
+   17,
+   "General",
+   null
+  ],
+  [
+   18411,
+   "Attack Power",
+   22,
+   "General",
+   null
+  ],
+  [
+   18413,
+   "Resistance",
+   28,
+   "General",
+   null
+  ],
+  [
+   18414,
+   "Critical Rate",
+   17,
+   "General",
+   null
+  ],
+  [
+   18511,
+   "HP",
+   21,
+   "Arena",
+   null
+  ],
+  [
+   18512,
+   "Accuracy",
+   26,
+   "Dungeon",
+   null
+  ],
+  [
    18513,
+   "Attack Speed",
    16,
    "Arena",
    null
   ],
   [
+   18514,
+   "HP",
+   21,
+   "Dungeon",
+   null
+  ],
+  [
+   18515,
+   "Critical Rate",
+   16,
+   "Arena",
+   null
+  ],
+  [
+   18601,
+   "Accuracy",
+   41,
+   "General",
+   null
+  ],
+  [
    18602,
+   "Attack Speed",
    24,
+   "General",
+   null
+  ],
+  [
+   18603,
+   "Critical Rate",
+   24,
+   "General",
+   null
+  ],
+  [
+   18604,
+   "HP",
+   33,
+   "General",
+   null
+  ],
+  [
+   18605,
+   "Defense",
+   33,
+   "General",
+   null
+  ],
+  [
+   18611,
+   "Accuracy",
+   41,
    "General",
    null
   ],
   [
    18612,
+   "Attack Speed",
    24,
    "General",
    null
   ],
   [
-   18804,
+   18613,
+   "Critical Rate",
    24,
+   "General",
+   null
+  ],
+  [
+   18614,
+   "HP",
+   33,
+   "General",
+   null
+  ],
+  [
+   18615,
+   "Defense",
+   33,
+   "General",
+   null
+  ],
+  [
+   18701,
+   "HP",
+   30,
+   "Element",
+   "Water"
+  ],
+  [
+   18702,
+   "HP",
+   30,
+   "Element",
+   "Fire"
+  ],
+  [
+   18703,
+   "HP",
+   30,
+   "Element",
+   "Wind"
+  ],
+  [
+   18704,
+   "HP",
+   30,
+   "Element",
+   "Light"
+  ],
+  [
+   18705,
+   "HP",
+   30,
+   "Element",
+   "Dark"
+  ],
+  [
+   18711,
+   "HP",
+   30,
+   "Element",
+   "Water"
+  ],
+  [
+   18712,
+   "HP",
+   30,
+   "Element",
+   "Fire"
+  ],
+  [
+   18713,
+   "HP",
+   30,
+   "Element",
+   "Wind"
+  ],
+  [
+   18714,
+   "HP",
+   30,
+   "Element",
+   "Light"
+  ],
+  [
+   18715,
+   "HP",
+   30,
+   "Element",
+   "Dark"
+  ],
+  [
+   18801,
+   "HP",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   18802,
+   "Defense",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   18803,
+   "Attack Power",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   18804,
+   "Attack Speed",
+   24,
+   "Guild",
+   null
+  ],
+  [
+   18805,
+   "Resistance",
+   40,
+   "Guild",
+   null
+  ],
+  [
+   18811,
+   "HP",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   18812,
+   "Defense",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   18813,
+   "Attack Power",
+   33,
    "Guild",
    null
   ],
   [
    18814,
+   "Attack Speed",
    24,
    "Guild",
    null
   ],
   [
+   18815,
+   "Resistance",
+   40,
+   "Guild",
+   null
+  ],
+  [
+   18901,
+   "Attack Power",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   18902,
+   "HP",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   18903,
+   "Defense",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   18904,
+   "Resistance",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   18905,
+   "Accuracy",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   18911,
+   "Attack Power",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   18912,
+   "HP",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   18913,
+   "Defense",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   18914,
+   "Resistance",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   18915,
+   "Accuracy",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   19011,
+   "Defense",
+   30,
+   "Element",
+   "Water"
+  ],
+  [
+   19012,
+   "Defense",
+   30,
+   "Element",
+   "Fire"
+  ],
+  [
+   19013,
+   "Defense",
+   30,
+   "Element",
+   "Wind"
+  ],
+  [
+   19014,
+   "Defense",
+   30,
+   "Element",
+   "Light"
+  ],
+  [
+   19015,
+   "Defense",
+   30,
+   "Element",
+   "Dark"
+  ],
+  [
    19104,
+   "Attack Speed",
    10,
    "General",
    null
   ],
   [
    19114,
+   "Attack Speed",
    10,
    "General",
    null
   ],
   [
-   19203,
+   19201,
+   "Critical Rate",
    24,
+   "General",
+   null
+  ],
+  [
+   19202,
+   "Resistance",
+   41,
+   "General",
+   null
+  ],
+  [
+   19203,
+   "Attack Speed",
+   24,
+   "General",
+   null
+  ],
+  [
+   19204,
+   "Attack Power",
+   33,
+   "General",
+   null
+  ],
+  [
+   19205,
+   "HP",
+   33,
+   "General",
+   null
+  ],
+  [
+   19211,
+   "Critical Rate",
+   24,
+   "General",
+   null
+  ],
+  [
+   19212,
+   "Resistance",
+   41,
    "General",
    null
   ],
   [
    19213,
+   "Attack Speed",
    24,
    "General",
    null
   ],
   [
+   19214,
+   "Attack Power",
+   33,
+   "General",
+   null
+  ],
+  [
+   19215,
+   "HP",
+   33,
+   "General",
+   null
+  ],
+  [
+   19301,
+   "Attack Power",
+   21,
+   "Dungeon",
+   null
+  ],
+  [
+   19302,
+   "Attack Power",
+   21,
+   "Arena",
+   null
+  ],
+  [
+   19303,
+   "Attack Power",
+   21,
+   "Guild",
+   null
+  ],
+  [
+   19304,
+   "Attack Power",
+   18,
+   "General",
+   null
+  ],
+  [
+   19305,
+   "Attack Power",
+   18,
+   "General",
+   null
+  ],
+  [
+   19311,
+   "Attack Power",
+   21,
+   "Dungeon",
+   null
+  ],
+  [
+   19312,
+   "Attack Power",
+   21,
+   "Arena",
+   null
+  ],
+  [
+   19313,
+   "Attack Power",
+   21,
+   "Guild",
+   null
+  ],
+  [
+   19314,
+   "Attack Power",
+   18,
+   "General",
+   null
+  ],
+  [
+   19315,
+   "Attack Power",
+   18,
+   "General",
+   null
+  ],
+  [
    19401,
+   "Attack Speed",
    24,
+   "Guild",
+   null
+  ],
+  [
+   19402,
+   "Attack Power",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   19403,
+   "Critical Rate",
+   24,
+   "Guild",
+   null
+  ],
+  [
+   19404,
+   "Accuracy",
+   40,
+   "Guild",
+   null
+  ],
+  [
+   19405,
+   "Attack Power",
+   33,
    "Guild",
    null
   ],
   [
    19411,
+   "Attack Speed",
    24,
    "Guild",
    null
   ],
   [
+   19412,
+   "Attack Power",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   19413,
+   "Critical Rate",
+   24,
+   "Guild",
+   null
+  ],
+  [
+   19414,
+   "Accuracy",
+   40,
+   "Guild",
+   null
+  ],
+  [
+   19415,
+   "Attack Power",
+   33,
+   "Guild",
+   null
+  ],
+  [
    19511,
+   "Attack Speed",
    23,
    "Element",
    "Water"
   ],
   [
    19512,
+   "Attack Speed",
    23,
    "Element",
    "Fire"
   ],
   [
    19513,
+   "Attack Speed",
    23,
    "Element",
    "Wind"
   ],
   [
    19514,
+   "Attack Speed",
    23,
    "Element",
    "Light"
   ],
   [
    19515,
+   "Attack Speed",
    23,
    "Element",
    "Dark"
   ],
   [
+   19601,
+   "Resistance",
+   30,
+   "General",
+   null
+  ],
+  [
    19602,
+   "Attack Speed",
    24,
    "Guild",
    null
   ],
   [
-   19612,
-   24,
-   "Guild",
-   null
-  ],
-  [
-   19704,
-   24,
+   19603,
+   "Accuracy",
+   30,
    "General",
    null
   ],
   [
-   19714,
-   24,
+   19604,
+   "Defense",
+   25,
    "General",
    null
   ],
   [
-   19805,
-   19,
-   "General",
-   null
-  ],
-  [
-   19815,
-   19,
-   "General",
-   null
-  ],
-  [
-   19905,
-   19,
-   "General",
-   null
-  ],
-  [
-   19915,
-   19,
-   "General",
-   null
-  ],
-  [
-   20115,
+   19605,
+   "HP",
    33,
    "Guild",
    null
   ],
   [
-   20402,
-   19,
+   19611,
+   "Resistance",
+   30,
    "General",
    null
   ],
   [
-   20412,
-   19,
+   19612,
+   "Attack Speed",
+   24,
+   "Guild",
+   null
+  ],
+  [
+   19613,
+   "Accuracy",
+   30,
    "General",
    null
   ],
   [
-   20505,
+   19614,
+   "Defense",
+   25,
+   "General",
+   null
+  ],
+  [
+   19615,
+   "HP",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   19701,
+   "Attack Power",
+   33,
+   "General",
+   null
+  ],
+  [
+   19702,
+   "Accuracy",
+   41,
+   "General",
+   null
+  ],
+  [
+   19703,
+   "Defense",
+   33,
+   "General",
+   null
+  ],
+  [
+   19704,
+   "Attack Speed",
    24,
    "General",
    null
   ],
   [
+   19705,
+   "Critical Rate",
+   24,
+   "General",
+   null
+  ],
+  [
+   19711,
+   "Attack Power",
+   33,
+   "General",
+   null
+  ],
+  [
+   19712,
+   "Accuracy",
+   41,
+   "General",
+   null
+  ],
+  [
+   19713,
+   "Defense",
+   33,
+   "General",
+   null
+  ],
+  [
+   19714,
+   "Attack Speed",
+   24,
+   "General",
+   null
+  ],
+  [
+   19715,
+   "Critical Rate",
+   24,
+   "General",
+   null
+  ],
+  [
+   19801,
+   "Attack Power",
+   25,
+   "General",
+   null
+  ],
+  [
+   19802,
+   "HP",
+   25,
+   "General",
+   null
+  ],
+  [
+   19803,
+   "Critical Rate",
+   19,
+   "General",
+   null
+  ],
+  [
+   19804,
+   "Accuracy",
+   30,
+   "General",
+   null
+  ],
+  [
+   19805,
+   "Attack Speed",
+   19,
+   "General",
+   null
+  ],
+  [
+   19811,
+   "Attack Power",
+   25,
+   "General",
+   null
+  ],
+  [
+   19812,
+   "HP",
+   25,
+   "General",
+   null
+  ],
+  [
+   19813,
+   "Critical Rate",
+   19,
+   "General",
+   null
+  ],
+  [
+   19814,
+   "Accuracy",
+   30,
+   "General",
+   null
+  ],
+  [
+   19815,
+   "Attack Speed",
+   19,
+   "General",
+   null
+  ],
+  [
+   19823,
+   "Critical Rate",
+   19,
+   "General",
+   null
+  ],
+  [
+   19901,
+   "Attack Power",
+   25,
+   "General",
+   null
+  ],
+  [
+   19902,
+   "HP",
+   25,
+   "General",
+   null
+  ],
+  [
+   19903,
+   "Critical Rate",
+   19,
+   "General",
+   null
+  ],
+  [
+   19904,
+   "Accuracy",
+   30,
+   "General",
+   null
+  ],
+  [
+   19905,
+   "Attack Speed",
+   19,
+   "General",
+   null
+  ],
+  [
+   19911,
+   "Attack Power",
+   25,
+   "General",
+   null
+  ],
+  [
+   19912,
+   "HP",
+   25,
+   "General",
+   null
+  ],
+  [
+   19913,
+   "Critical Rate",
+   19,
+   "General",
+   null
+  ],
+  [
+   19914,
+   "Accuracy",
+   30,
+   "General",
+   null
+  ],
+  [
+   19915,
+   "Attack Speed",
+   19,
+   "General",
+   null
+  ],
+  [
+   20011,
+   "Attack Power",
+   33,
+   "Dungeon",
+   null
+  ],
+  [
+   20012,
+   "Attack Power",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   20013,
+   "Attack Power",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   20014,
+   "Attack Power",
+   25,
+   "General",
+   null
+  ],
+  [
+   20015,
+   "Attack Power",
+   25,
+   "General",
+   null
+  ],
+  [
+   20111,
+   "Resistance",
+   40,
+   "Guild",
+   null
+  ],
+  [
+   20112,
+   "Critical Rate",
+   24,
+   "Guild",
+   null
+  ],
+  [
+   20113,
+   "Defense",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   20114,
+   "Attack Power",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   20115,
+   "Attack Speed",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   20302,
+   "Resistance",
+   38,
+   "Element",
+   "Fire"
+  ],
+  [
+   20303,
+   "Resistance",
+   38,
+   "Element",
+   "Wind"
+  ],
+  [
+   20304,
+   "Resistance",
+   38,
+   "Element",
+   "Light"
+  ],
+  [
+   20311,
+   "Resistance",
+   38,
+   "Element",
+   "Water"
+  ],
+  [
+   20312,
+   "Resistance",
+   38,
+   "Element",
+   "Fire"
+  ],
+  [
+   20313,
+   "Resistance",
+   38,
+   "Element",
+   "Wind"
+  ],
+  [
+   20314,
+   "Resistance",
+   38,
+   "Element",
+   "Light"
+  ],
+  [
+   20315,
+   "Resistance",
+   38,
+   "Element",
+   "Dark"
+  ],
+  [
+   20401,
+   "Resistance",
+   40,
+   "Guild",
+   null
+  ],
+  [
+   20402,
+   "Attack Speed",
+   19,
+   "General",
+   null
+  ],
+  [
+   20403,
+   "Accuracy",
+   40,
+   "Guild",
+   null
+  ],
+  [
+   20404,
+   "Defense",
+   25,
+   "General",
+   null
+  ],
+  [
+   20405,
+   "HP",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   20411,
+   "Resistance",
+   40,
+   "Guild",
+   null
+  ],
+  [
+   20412,
+   "Attack Speed",
+   19,
+   "General",
+   null
+  ],
+  [
+   20413,
+   "Accuracy",
+   40,
+   "Guild",
+   null
+  ],
+  [
+   20414,
+   "Defense",
+   25,
+   "General",
+   null
+  ],
+  [
+   20415,
+   "HP",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   20501,
+   "Defense",
+   33,
+   "General",
+   null
+  ],
+  [
+   20502,
+   "HP",
+   33,
+   "General",
+   null
+  ],
+  [
+   20503,
+   "Resistance",
+   41,
+   "General",
+   null
+  ],
+  [
+   20504,
+   "Attack Power",
+   33,
+   "General",
+   null
+  ],
+  [
+   20505,
+   "Attack Speed",
+   24,
+   "General",
+   null
+  ],
+  [
+   20511,
+   "Defense",
+   33,
+   "General",
+   null
+  ],
+  [
+   20512,
+   "HP",
+   33,
+   "General",
+   null
+  ],
+  [
+   20513,
+   "Resistance",
+   41,
+   "General",
+   null
+  ],
+  [
+   20514,
+   "Attack Power",
+   33,
+   "General",
+   null
+  ],
+  [
    20515,
+   "Attack Speed",
    24,
    "General",
    null
   ],
   [
    20604,
+   "Attack Speed",
+   24,
+   "Arena",
+   null
+  ],
+  [
+   20611,
+   "Resistance",
+   40,
+   "Arena",
+   null
+  ],
+  [
+   20612,
+   "HP",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   20613,
+   "Critical Rate",
    24,
    "Arena",
    null
   ],
   [
    20614,
+   "Attack Speed",
    24,
    "Arena",
    null
   ],
   [
-   20914,
+   20615,
+   "Attack Power",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   20711,
+   "Accuracy",
+   40,
+   "Dungeon",
+   null
+  ],
+  [
+   20712,
+   "HP",
+   33,
+   "Dungeon",
+   null
+  ],
+  [
+   20713,
+   "Defense",
+   33,
+   "Dungeon",
+   null
+  ],
+  [
+   20714,
+   "Critical Rate",
+   24,
+   "Dungeon",
+   null
+  ],
+  [
+   20715,
+   "Resistance",
+   40,
+   "Dungeon",
+   null
+  ],
+  [
+   20801,
+   "HP",
+   21,
+   "Guild",
+   null
+  ],
+  [
+   20802,
+   "Defense",
+   21,
+   "Guild",
+   null
+  ],
+  [
+   20803,
+   "HP",
+   21,
+   "Guild",
+   null
+  ],
+  [
+   20804,
+   "Defense",
+   21,
+   "Guild",
+   null
+  ],
+  [
+   20805,
+   "Resistance",
+   26,
+   "Guild",
+   null
+  ],
+  [
+   20811,
+   "HP",
+   21,
+   "Guild",
+   null
+  ],
+  [
+   20812,
+   "Defense",
+   21,
+   "Guild",
+   null
+  ],
+  [
+   20813,
+   "HP",
+   21,
+   "Guild",
+   null
+  ],
+  [
+   20814,
+   "Defense",
+   21,
+   "Guild",
+   null
+  ],
+  [
+   20815,
+   "Resistance",
+   26,
+   "Guild",
+   null
+  ],
+  [
+   20831,
+   "HP",
+   21,
+   "Guild",
+   null
+  ],
+  [
+   20832,
+   "Defense",
+   21,
+   "Guild",
+   null
+  ],
+  [
+   20833,
+   "HP",
+   21,
+   "Guild",
+   null
+  ],
+  [
+   20834,
+   "Defense",
+   21,
+   "Guild",
+   null
+  ],
+  [
+   20835,
+   "Resistance",
+   26,
+   "Guild",
+   null
+  ],
+  [
+   20905,
+   "Attack Power",
+   20,
+   "General",
+   null
+  ],
+  [
+   20913,
+   "Critical Rate",
    15,
    "General",
    null
   ],
   [
+   20914,
+   "Attack Speed",
+   15,
+   "General",
+   null
+  ],
+  [
+   20915,
+   "Attack Power",
+   20,
+   "General",
+   null
+  ],
+  [
+   21003,
+   "Defense",
+   20,
+   "General",
+   null
+  ],
+  [
+   21004,
+   "Resistance",
+   25,
+   "General",
+   null
+  ],
+  [
+   21013,
+   "Defense",
+   20,
+   "General",
+   null
+  ],
+  [
+   21014,
+   "Resistance",
+   25,
+   "General",
+   null
+  ],
+  [
    21101,
+   "Attack Speed",
    33,
+   "Arena",
+   null
+  ],
+  [
+   21102,
+   "Critical Rate",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   21103,
+   "Accuracy",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   21104,
+   "Attack Power",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   21105,
+   "Resistance",
+   55,
    "Arena",
    null
   ],
   [
    21111,
+   "Attack Speed",
    33,
    "Arena",
    null
   ],
   [
+   21112,
+   "Critical Rate",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   21113,
+   "Accuracy",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   21114,
+   "Attack Power",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   21115,
+   "Resistance",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   21201,
+   "HP",
+   33,
+   "General",
+   null
+  ],
+  [
+   21202,
+   "Defense",
+   33,
+   "General",
+   null
+  ],
+  [
+   21203,
+   "Defense",
+   44,
+   "Guild",
+   null
+  ],
+  [
+   21204,
+   "HP",
+   44,
+   "Guild",
+   null
+  ],
+  [
+   21205,
+   "Attack Power",
+   44,
+   "Guild",
+   null
+  ],
+  [
+   21211,
+   "HP",
+   33,
+   "General",
+   null
+  ],
+  [
+   21212,
+   "Defense",
+   33,
+   "General",
+   null
+  ],
+  [
+   21213,
+   "Defense",
+   44,
+   "Guild",
+   null
+  ],
+  [
+   21214,
+   "HP",
+   44,
+   "Guild",
+   null
+  ],
+  [
+   21215,
+   "Attack Power",
+   44,
+   "Guild",
+   null
+  ],
+  [
+   21311,
+   "Attack Power",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   21312,
+   "HP",
+   33,
+   "Guild",
+   null
+  ],
+  [
    21313,
+   "Attack Speed",
    24,
    "Guild",
    null
   ],
   [
    21314,
+   "Attack Speed",
    24,
    "Arena",
    null
   ],
   [
-   21914,
+   21315,
+   "Resistance",
+   40,
+   "Arena",
+   null
+  ],
+  [
+   21401,
+   "Resistance",
+   40,
+   "Guild",
+   null
+  ],
+  [
+   21402,
+   "HP",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   21403,
+   "Defense",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   21404,
+   "Accuracy",
+   48,
+   "Arena",
+   null
+  ],
+  [
+   21405,
+   "HP",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   21411,
+   "Resistance",
+   40,
+   "Guild",
+   null
+  ],
+  [
+   21412,
+   "HP",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   21413,
+   "Defense",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   21414,
+   "Accuracy",
+   48,
+   "Arena",
+   null
+  ],
+  [
+   21415,
+   "HP",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   21422,
+   "HP",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   21801,
+   "Accuracy",
+   41,
+   "General",
+   null
+  ],
+  [
+   21802,
+   "Defense",
+   44,
+   "Guild",
+   null
+  ],
+  [
+   21803,
+   "HP",
+   44,
+   "Guild",
+   null
+  ],
+  [
+   21804,
+   "Resistance",
+   41,
+   "General",
+   null
+  ],
+  [
+   21805,
+   "Critical Rate",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   21811,
+   "Accuracy",
+   41,
+   "General",
+   null
+  ],
+  [
+   21812,
+   "Defense",
+   44,
+   "Guild",
+   null
+  ],
+  [
+   21813,
+   "HP",
+   44,
+   "Guild",
+   null
+  ],
+  [
+   21814,
+   "Resistance",
+   41,
+   "General",
+   null
+  ],
+  [
+   21815,
+   "Critical Rate",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   21911,
+   "Critical Rate",
    24,
    "Dungeon",
    null
   ],
   [
-   22013,
+   21912,
+   "Attack Power",
+   33,
+   "Dungeon",
+   null
+  ],
+  [
+   21913,
+   "HP",
+   33,
+   "Dungeon",
+   null
+  ],
+  [
+   21914,
+   "Attack Speed",
    24,
+   "Dungeon",
+   null
+  ],
+  [
+   21915,
+   "Accuracy",
+   40,
+   "Dungeon",
+   null
+  ],
+  [
+   22011,
+   "Accuracy",
+   40,
+   "Guild",
+   null
+  ],
+  [
+   22012,
+   "HP",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   22013,
+   "Attack Speed",
+   24,
+   "Guild",
+   null
+  ],
+  [
+   22014,
+   "Critical Rate",
+   24,
+   "Guild",
+   null
+  ],
+  [
+   22015,
+   "Attack Power",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   22111,
+   "Defense",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   22112,
+   "Resistance",
+   40,
+   "Guild",
+   null
+  ],
+  [
+   22113,
+   "HP",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   22114,
+   "Accuracy",
+   40,
    "Guild",
    null
   ],
   [
    22115,
+   "Attack Speed",
    24,
    "Guild",
    null
   ],
   [
+   22403,
+   "Defense",
+   22,
+   "General",
+   null
+  ],
+  [
    22404,
+   "Attack Speed",
    17,
+   "General",
+   null
+  ],
+  [
+   22405,
+   "HP",
+   22,
+   "General",
+   null
+  ],
+  [
+   22413,
+   "Defense",
+   22,
    "General",
    null
   ],
   [
    22414,
+   "Attack Speed",
    17,
    "General",
    null
   ],
   [
+   22415,
+   "HP",
+   22,
+   "General",
+   null
+  ],
+  [
+   22503,
+   "Defense",
+   22,
+   "General",
+   null
+  ],
+  [
+   22505,
+   "HP",
+   22,
+   "General",
+   null
+  ],
+  [
+   22513,
+   "Defense",
+   22,
+   "General",
+   null
+  ],
+  [
+   22515,
+   "HP",
+   22,
+   "General",
+   null
+  ],
+  [
+   22601,
+   "HP",
+   44,
+   "Guild",
+   null
+  ],
+  [
+   22602,
+   "Attack Power",
+   44,
+   "Guild",
+   null
+  ],
+  [
+   22603,
+   "Critical Rate",
+   33,
+   "Guild",
+   null
+  ],
+  [
    22604,
+   "Attack Speed",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   22605,
+   "Resistance",
+   55,
+   "Guild",
+   null
+  ],
+  [
+   22611,
+   "HP",
+   44,
+   "Guild",
+   null
+  ],
+  [
+   22612,
+   "Attack Power",
+   44,
+   "Guild",
+   null
+  ],
+  [
+   22613,
+   "Critical Rate",
    33,
    "Guild",
    null
   ],
   [
    22614,
+   "Attack Speed",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   22615,
+   "Resistance",
+   55,
+   "Guild",
+   null
+  ],
+  [
+   22701,
+   "Attack Power",
    33,
    "Guild",
    null
   ],
   [
    22702,
+   "Attack Speed",
    24,
+   "Guild",
+   null
+  ],
+  [
+   22703,
+   "Resistance",
+   40,
+   "Guild",
+   null
+  ],
+  [
+   22704,
+   "Attack Power",
+   25,
+   "General",
+   null
+  ],
+  [
+   22705,
+   "Critical Rate",
+   19,
+   "General",
+   null
+  ],
+  [
+   22711,
+   "Attack Power",
+   33,
    "Guild",
    null
   ],
   [
    22712,
+   "Attack Speed",
    24,
    "Guild",
+   null
+  ],
+  [
+   22713,
+   "Resistance",
+   40,
+   "Guild",
+   null
+  ],
+  [
+   22714,
+   "Attack Power",
+   25,
+   "General",
+   null
+  ],
+  [
+   22715,
+   "Critical Rate",
+   19,
+   "General",
    null
   ],
   [
    22802,
+   "Attack Speed",
    24,
    "Guild",
    null
   ],
   [
+   22803,
+   "Resistance",
+   40,
+   "Guild",
+   null
+  ],
+  [
+   22805,
+   "Critical Rate",
+   19,
+   "General",
+   null
+  ],
+  [
    22812,
+   "Attack Speed",
    24,
+   "Guild",
+   null
+  ],
+  [
+   22813,
+   "Resistance",
+   40,
+   "Guild",
+   null
+  ],
+  [
+   22815,
+   "Critical Rate",
+   19,
+   "General",
+   null
+  ],
+  [
+   22901,
+   "Attack Power",
+   38,
+   "Dungeon",
+   null
+  ],
+  [
+   22902,
+   "Attack Power",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   22904,
+   "Attack Power",
+   28,
+   "General",
+   null
+  ],
+  [
+   22911,
+   "Attack Power",
+   38,
+   "Dungeon",
+   null
+  ],
+  [
+   22912,
+   "Attack Power",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   22914,
+   "Attack Power",
+   28,
+   "General",
+   null
+  ],
+  [
+   23005,
+   "Attack Power",
+   38,
+   "Dungeon",
+   null
+  ],
+  [
+   23015,
+   "Attack Power",
+   38,
+   "Dungeon",
+   null
+  ],
+  [
+   23101,
+   "Resistance",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   23102,
+   "Accuracy",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   23103,
+   "HP",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   23104,
+   "Defense",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   23105,
+   "Attack Power",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   23111,
+   "Resistance",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   23112,
+   "Accuracy",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   23113,
+   "HP",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   23114,
+   "Defense",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   23115,
+   "Attack Power",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   23201,
+   "Resistance",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   23205,
+   "Attack Power",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   23211,
+   "Resistance",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   23215,
+   "Attack Power",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   23311,
+   "HP",
+   40,
+   "Element",
+   "Water"
+  ],
+  [
+   23312,
+   "HP",
+   40,
+   "Element",
+   "Fire"
+  ],
+  [
+   23313,
+   "HP",
+   40,
+   "Element",
+   "Wind"
+  ],
+  [
+   23314,
+   "HP",
+   40,
+   "Element",
+   "Light"
+  ],
+  [
+   23315,
+   "HP",
+   40,
+   "Element",
+   "Dark"
+  ],
+  [
+   23411,
+   "HP",
+   40,
+   "Element",
+   "Water"
+  ],
+  [
+   23412,
+   "HP",
+   40,
+   "Element",
+   "Fire"
+  ],
+  [
+   23413,
+   "HP",
+   40,
+   "Element",
+   "Wind"
+  ],
+  [
+   23414,
+   "HP",
+   40,
+   "Element",
+   "Light"
+  ],
+  [
+   23415,
+   "HP",
+   40,
+   "Element",
+   "Dark"
+  ],
+  [
+   23701,
+   "Attack Power",
+   50,
+   "Element",
+   "Water"
+  ],
+  [
+   23702,
+   "Attack Power",
+   50,
+   "Element",
+   "Fire"
+  ],
+  [
+   23703,
+   "Attack Power",
+   50,
+   "Element",
+   "Wind"
+  ],
+  [
+   23704,
+   "Attack Power",
+   50,
+   "Element",
+   "Light"
+  ],
+  [
+   23705,
+   "Attack Power",
+   50,
+   "Element",
+   "Dark"
+  ],
+  [
+   23711,
+   "Attack Power",
+   50,
+   "Element",
+   "Water"
+  ],
+  [
+   23712,
+   "Attack Power",
+   50,
+   "Element",
+   "Fire"
+  ],
+  [
+   23713,
+   "Attack Power",
+   50,
+   "Element",
+   "Wind"
+  ],
+  [
+   23714,
+   "Attack Power",
+   50,
+   "Element",
+   "Light"
+  ],
+  [
+   23715,
+   "Attack Power",
+   50,
+   "Element",
+   "Dark"
+  ],
+  [
+   23911,
+   "Accuracy",
+   40,
+   "Guild",
+   null
+  ],
+  [
+   23912,
+   "HP",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   23913,
+   "Resistance",
+   40,
+   "Guild",
+   null
+  ],
+  [
+   23914,
+   "Defense",
+   33,
    "Guild",
    null
   ],
   [
    23915,
+   "Attack Speed",
    24,
    "Guild",
    null
   ],
   [
    24001,
+   "Attack Speed",
+   24,
+   "General",
+   null
+  ],
+  [
+   24002,
+   "Attack Power",
+   33,
+   "General",
+   null
+  ],
+  [
+   24003,
+   "Accuracy",
+   41,
+   "General",
+   null
+  ],
+  [
+   24004,
+   "Resistance",
+   41,
+   "General",
+   null
+  ],
+  [
+   24005,
+   "Critical Rate",
    24,
    "General",
    null
   ],
   [
    24011,
+   "Attack Speed",
    24,
    "General",
    null
   ],
   [
-   24402,
+   24012,
+   "Attack Power",
+   33,
+   "General",
+   null
+  ],
+  [
+   24013,
+   "Accuracy",
+   41,
+   "General",
+   null
+  ],
+  [
+   24014,
+   "Resistance",
+   41,
+   "General",
+   null
+  ],
+  [
+   24015,
+   "Critical Rate",
    24,
+   "General",
+   null
+  ],
+  [
+   24102,
+   "Critical Rate",
+   33,
+   "Dungeon",
+   null
+  ],
+  [
+   24112,
+   "Critical Rate",
+   33,
+   "Dungeon",
+   null
+  ],
+  [
+   24201,
+   "Accuracy",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   24202,
+   "HP",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   24203,
+   "Defense",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   24204,
+   "Resistance",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   24205,
+   "Critical Rate",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   24211,
+   "Accuracy",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   24212,
+   "HP",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   24213,
+   "Defense",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   24214,
+   "Resistance",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   24215,
+   "Critical Rate",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   24311,
+   "Attack Power",
+   33,
+   "Dungeon",
+   null
+  ],
+  [
+   24312,
+   "Accuracy",
+   40,
+   "Dungeon",
+   null
+  ],
+  [
+   24313,
+   "Critical Rate",
+   24,
+   "Dungeon",
+   null
+  ],
+  [
+   24314,
+   "Resistance",
+   40,
+   "Dungeon",
+   null
+  ],
+  [
+   24315,
+   "Defense",
+   33,
+   "Dungeon",
+   null
+  ],
+  [
+   24401,
+   "Accuracy",
+   40,
+   "Guild",
+   null
+  ],
+  [
+   24402,
+   "Attack Speed",
+   24,
+   "Guild",
+   null
+  ],
+  [
+   24403,
+   "Attack Power",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   24404,
+   "Critical Rate",
+   24,
+   "Guild",
+   null
+  ],
+  [
+   24405,
+   "HP",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   24411,
+   "Accuracy",
+   40,
    "Guild",
    null
   ],
   [
    24412,
+   "Attack Speed",
    24,
    "Guild",
    null
   ],
   [
+   24413,
+   "Attack Power",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   24414,
+   "Critical Rate",
+   24,
+   "Guild",
+   null
+  ],
+  [
+   24415,
+   "HP",
+   33,
+   "Guild",
+   null
+  ],
+  [
    24501,
+   "Attack Speed",
+   24,
+   "General",
+   null
+  ],
+  [
+   24502,
+   "Attack Power",
+   33,
+   "General",
+   null
+  ],
+  [
+   24503,
+   "Accuracy",
+   41,
+   "General",
+   null
+  ],
+  [
+   24504,
+   "Resistance",
+   41,
+   "General",
+   null
+  ],
+  [
+   24505,
+   "Critical Rate",
    24,
    "General",
    null
   ],
   [
    24511,
+   "Attack Speed",
    24,
    "General",
    null
   ],
   [
-   24902,
+   24512,
+   "Attack Power",
+   33,
+   "General",
+   null
+  ],
+  [
+   24513,
+   "Accuracy",
+   41,
+   "General",
+   null
+  ],
+  [
+   24514,
+   "Resistance",
+   41,
+   "General",
+   null
+  ],
+  [
+   24515,
+   "Critical Rate",
    24,
+   "General",
+   null
+  ],
+  [
+   24602,
+   "Critical Rate",
+   33,
+   "Dungeon",
+   null
+  ],
+  [
+   24612,
+   "Critical Rate",
+   33,
+   "Dungeon",
+   null
+  ],
+  [
+   24701,
+   "Accuracy",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   24702,
+   "HP",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   24703,
+   "Defense",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   24704,
+   "Resistance",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   24705,
+   "Critical Rate",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   24711,
+   "Accuracy",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   24712,
+   "HP",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   24713,
+   "Defense",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   24714,
+   "Resistance",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   24715,
+   "Critical Rate",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   24811,
+   "Attack Power",
+   33,
+   "Dungeon",
+   null
+  ],
+  [
+   24812,
+   "Accuracy",
+   40,
+   "Dungeon",
+   null
+  ],
+  [
+   24813,
+   "Critical Rate",
+   24,
+   "Dungeon",
+   null
+  ],
+  [
+   24814,
+   "Resistance",
+   40,
+   "Dungeon",
+   null
+  ],
+  [
+   24815,
+   "Defense",
+   33,
+   "Dungeon",
+   null
+  ],
+  [
+   24901,
+   "Accuracy",
+   40,
+   "Guild",
+   null
+  ],
+  [
+   24902,
+   "Attack Speed",
+   24,
+   "Guild",
+   null
+  ],
+  [
+   24903,
+   "Attack Power",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   24904,
+   "Critical Rate",
+   24,
+   "Guild",
+   null
+  ],
+  [
+   24905,
+   "HP",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   24911,
+   "Accuracy",
+   40,
    "Guild",
    null
   ],
   [
    24912,
+   "Attack Speed",
    24,
    "Guild",
    null
   ],
   [
-   25002,
+   24913,
+   "Attack Power",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   24914,
+   "Critical Rate",
    24,
+   "Guild",
+   null
+  ],
+  [
+   24915,
+   "HP",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   25001,
+   "HP",
+   33,
+   "General",
+   null
+  ],
+  [
+   25002,
+   "Attack Speed",
+   24,
+   "General",
+   null
+  ],
+  [
+   25003,
+   "Resistance",
+   41,
+   "General",
+   null
+  ],
+  [
+   25004,
+   "Defense",
+   33,
+   "General",
+   null
+  ],
+  [
+   25005,
+   "Accuracy",
+   41,
+   "General",
+   null
+  ],
+  [
+   25011,
+   "HP",
+   33,
    "General",
    null
   ],
   [
    25012,
+   "Attack Speed",
    24,
    "General",
+   null
+  ],
+  [
+   25013,
+   "Resistance",
+   41,
+   "General",
+   null
+  ],
+  [
+   25014,
+   "Defense",
+   33,
+   "General",
+   null
+  ],
+  [
+   25015,
+   "Accuracy",
+   41,
+   "General",
+   null
+  ],
+  [
+   25105,
+   "HP",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   25115,
+   "HP",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   25201,
+   "Accuracy",
+   55,
+   "Guild",
+   null
+  ],
+  [
+   25202,
+   "Attack Power",
+   44,
+   "Guild",
+   null
+  ],
+  [
+   25203,
+   "HP",
+   44,
+   "Guild",
    null
   ],
   [
    25204,
+   "Attack Speed",
    24,
    "General",
+   null
+  ],
+  [
+   25205,
+   "Defense",
+   33,
+   "General",
+   null
+  ],
+  [
+   25211,
+   "Accuracy",
+   55,
+   "Guild",
+   null
+  ],
+  [
+   25212,
+   "Attack Power",
+   44,
+   "Guild",
+   null
+  ],
+  [
+   25213,
+   "HP",
+   44,
+   "Guild",
    null
   ],
   [
    25214,
+   "Attack Speed",
    24,
    "General",
    null
   ],
   [
-   25303,
+   25215,
+   "Defense",
    33,
+   "General",
+   null
+  ],
+  [
+   25301,
+   "Defense",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   25302,
+   "Resistance",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   25303,
+   "Attack Speed",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   25304,
+   "Critical Rate",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   25305,
+   "Accuracy",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   25311,
+   "Defense",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   25312,
+   "Resistance",
+   55,
    "Arena",
    null
   ],
   [
    25313,
+   "Attack Speed",
    33,
    "Arena",
    null
   ],
   [
-   25705,
+   25314,
+   "Critical Rate",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   25315,
+   "Accuracy",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   25701,
+   "Attack Power",
+   33,
+   "General",
+   null
+  ],
+  [
+   25702,
+   "Critical Rate",
    24,
+   "General",
+   null
+  ],
+  [
+   25703,
+   "HP",
+   33,
+   "General",
+   null
+  ],
+  [
+   25704,
+   "Accuracy",
+   41,
+   "General",
+   null
+  ],
+  [
+   25705,
+   "Attack Speed",
+   24,
+   "General",
+   null
+  ],
+  [
+   25711,
+   "Attack Power",
+   33,
+   "General",
+   null
+  ],
+  [
+   25712,
+   "Critical Rate",
+   24,
+   "General",
+   null
+  ],
+  [
+   25713,
+   "HP",
+   33,
+   "General",
+   null
+  ],
+  [
+   25714,
+   "Accuracy",
+   41,
    "General",
    null
   ],
   [
    25715,
+   "Attack Speed",
    24,
+   "General",
+   null
+  ],
+  [
+   25811,
+   "Defense",
+   40,
+   "Element",
+   "Water"
+  ],
+  [
+   25812,
+   "Defense",
+   40,
+   "Element",
+   "Fire"
+  ],
+  [
+   25813,
+   "Defense",
+   40,
+   "Element",
+   "Wind"
+  ],
+  [
+   25814,
+   "Defense",
+   40,
+   "Element",
+   "Light"
+  ],
+  [
+   25815,
+   "Defense",
+   40,
+   "Element",
+   "Dark"
+  ],
+  [
+   25901,
+   "Critical Rate",
+   38,
+   "Element",
+   "Water"
+  ],
+  [
+   25902,
+   "Critical Rate",
+   38,
+   "Element",
+   "Fire"
+  ],
+  [
+   25903,
+   "Critical Rate",
+   38,
+   "Element",
+   "Wind"
+  ],
+  [
+   25904,
+   "Critical Rate",
+   38,
+   "Element",
+   "Light"
+  ],
+  [
+   25905,
+   "Critical Rate",
+   38,
+   "Element",
+   "Dark"
+  ],
+  [
+   25911,
+   "Critical Rate",
+   38,
+   "Element",
+   "Water"
+  ],
+  [
+   25912,
+   "Critical Rate",
+   38,
+   "Element",
+   "Fire"
+  ],
+  [
+   25913,
+   "Critical Rate",
+   38,
+   "Element",
+   "Wind"
+  ],
+  [
+   25914,
+   "Critical Rate",
+   38,
+   "Element",
+   "Light"
+  ],
+  [
+   25915,
+   "Critical Rate",
+   38,
+   "Element",
+   "Dark"
+  ],
+  [
+   26013,
+   "HP",
+   25,
+   "General",
+   null
+  ],
+  [
+   26014,
+   "HP",
+   25,
+   "General",
+   null
+  ],
+  [
+   26101,
+   "Critical Rate",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   26102,
+   "Attack Power",
+   44,
+   "Guild",
+   null
+  ],
+  [
+   26103,
+   "Resistance",
+   55,
+   "Guild",
+   null
+  ],
+  [
+   26104,
+   "Accuracy",
+   55,
+   "Guild",
+   null
+  ],
+  [
+   26105,
+   "HP",
+   44,
+   "Guild",
+   null
+  ],
+  [
+   26111,
+   "Critical Rate",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   26112,
+   "Attack Power",
+   44,
+   "Guild",
+   null
+  ],
+  [
+   26113,
+   "Resistance",
+   55,
+   "Guild",
+   null
+  ],
+  [
+   26114,
+   "Accuracy",
+   55,
+   "Guild",
+   null
+  ],
+  [
+   26115,
+   "HP",
+   44,
+   "Guild",
+   null
+  ],
+  [
+   26203,
+   "Critical Rate",
+   24,
+   "General",
+   null
+  ],
+  [
+   26213,
+   "Critical Rate",
+   24,
+   "General",
+   null
+  ],
+  [
+   26301,
+   "Attack Power",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   26302,
+   "Critical Rate",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   26303,
+   "Resistance",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   26304,
+   "Defense",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   26305,
+   "HP",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   26311,
+   "Attack Power",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   26312,
+   "Critical Rate",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   26313,
+   "Resistance",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   26314,
+   "Defense",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   26315,
+   "HP",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   26401,
+   "Defense",
+   50,
+   "Element",
+   "Water"
+  ],
+  [
+   26402,
+   "Defense",
+   50,
+   "Element",
+   "Fire"
+  ],
+  [
+   26403,
+   "Defense",
+   50,
+   "Element",
+   "Wind"
+  ],
+  [
+   26404,
+   "Defense",
+   50,
+   "Element",
+   "Light"
+  ],
+  [
+   26405,
+   "Defense",
+   50,
+   "Element",
+   "Dark"
+  ],
+  [
+   26411,
+   "Defense",
+   50,
+   "Element",
+   "Water"
+  ],
+  [
+   26412,
+   "Defense",
+   50,
+   "Element",
+   "Fire"
+  ],
+  [
+   26413,
+   "Defense",
+   50,
+   "Element",
+   "Wind"
+  ],
+  [
+   26414,
+   "Defense",
+   50,
+   "Element",
+   "Light"
+  ],
+  [
+   26415,
+   "Defense",
+   50,
+   "Element",
+   "Dark"
+  ],
+  [
+   26611,
+   "HP",
+   25,
+   "General",
+   null
+  ],
+  [
+   26612,
+   "Attack Power",
+   25,
    "General",
    null
   ],
   [
    26613,
+   "Attack Speed",
    19,
+   "General",
+   null
+  ],
+  [
+   26614,
+   "Critical Rate",
+   24,
+   "Guild",
+   null
+  ],
+  [
+   26615,
+   "HP",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   26703,
+   "Critical Rate",
+   24,
+   "General",
+   null
+  ],
+  [
+   26713,
+   "Critical Rate",
+   24,
+   "General",
+   null
+  ],
+  [
+   26801,
+   "Attack Power",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   26802,
+   "Critical Rate",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   26803,
+   "Resistance",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   26804,
+   "Defense",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   26805,
+   "HP",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   26811,
+   "Attack Power",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   26812,
+   "Critical Rate",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   26813,
+   "Resistance",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   26814,
+   "Defense",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   26815,
+   "HP",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   26901,
+   "Defense",
+   50,
+   "Element",
+   "Water"
+  ],
+  [
+   26902,
+   "Defense",
+   50,
+   "Element",
+   "Fire"
+  ],
+  [
+   26903,
+   "Defense",
+   50,
+   "Element",
+   "Wind"
+  ],
+  [
+   26904,
+   "Defense",
+   50,
+   "Element",
+   "Light"
+  ],
+  [
+   26905,
+   "Defense",
+   50,
+   "Element",
+   "Dark"
+  ],
+  [
+   26911,
+   "Defense",
+   50,
+   "Element",
+   "Water"
+  ],
+  [
+   26912,
+   "Defense",
+   50,
+   "Element",
+   "Fire"
+  ],
+  [
+   26913,
+   "Defense",
+   50,
+   "Element",
+   "Wind"
+  ],
+  [
+   26914,
+   "Defense",
+   50,
+   "Element",
+   "Light"
+  ],
+  [
+   26915,
+   "Defense",
+   50,
+   "Element",
+   "Dark"
+  ],
+  [
+   27111,
+   "HP",
+   25,
+   "General",
+   null
+  ],
+  [
+   27112,
+   "Attack Power",
+   25,
    "General",
    null
   ],
   [
    27113,
+   "Attack Speed",
    19,
    "General",
    null
   ],
   [
-   27605,
+   27114,
+   "Critical Rate",
+   24,
+   "Guild",
+   null
+  ],
+  [
+   27115,
+   "HP",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   27201,
+   "Accuracy",
+   41,
+   "General",
+   null
+  ],
+  [
+   27202,
+   "HP",
+   33,
+   "General",
+   null
+  ],
+  [
+   27203,
+   "Resistance",
+   41,
+   "General",
+   null
+  ],
+  [
+   27204,
+   "Attack Power",
+   33,
+   "General",
+   null
+  ],
+  [
+   27205,
+   "Defense",
+   33,
+   "General",
+   null
+  ],
+  [
+   27211,
+   "Accuracy",
+   41,
+   "General",
+   null
+  ],
+  [
+   27212,
+   "HP",
+   33,
+   "General",
+   null
+  ],
+  [
+   27213,
+   "Resistance",
+   41,
+   "General",
+   null
+  ],
+  [
+   27214,
+   "Attack Power",
+   33,
+   "General",
+   null
+  ],
+  [
+   27215,
+   "Defense",
+   33,
+   "General",
+   null
+  ],
+  [
+   27304,
+   "Critical Rate",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   27314,
+   "Critical Rate",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   27401,
+   "HP",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   27402,
+   "Attack Power",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   27404,
+   "Critical Rate",
+   28,
+   "Arena",
+   null
+  ],
+  [
+   27411,
+   "HP",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   27412,
+   "Attack Power",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   27413,
+   "Defense",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   27414,
+   "Critical Rate",
+   28,
+   "Arena",
+   null
+  ],
+  [
+   27415,
+   "Accuracy",
+   48,
+   "Arena",
+   null
+  ],
+  [
+   27502,
+   "HP",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   27503,
+   "Attack Power",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   27505,
+   "Accuracy",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   27511,
+   "Attack Speed",
+   28,
+   "Guild",
+   null
+  ],
+  [
+   27512,
+   "HP",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   27513,
+   "Attack Power",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   27514,
+   "Critical Rate",
+   28,
+   "Guild",
+   null
+  ],
+  [
+   27515,
+   "Accuracy",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   27603,
+   "Critical Rate",
    21,
+   "General",
+   null
+  ],
+  [
+   27605,
+   "Attack Speed",
+   21,
+   "General",
+   null
+  ],
+  [
+   27611,
+   "Accuracy",
+   21,
+   "General",
+   null
+  ],
+  [
+   27612,
+   "Attack Power",
+   28,
+   "General",
+   null
+  ],
+  [
+   27613,
+   "Critical Rate",
+   21,
+   "General",
+   null
+  ],
+  [
+   27614,
+   "HP",
+   28,
    "General",
    null
   ],
   [
    27615,
+   "Attack Speed",
    21,
    "General",
    null
   ],
   [
+   27701,
+   "HP",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   27704,
+   "Defense",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   27711,
+   "HP",
+   38,
+   "Guild",
+   null
+  ],
+  [
    27712,
+   "Attack Speed",
    28,
    "Guild",
    null
   ],
   [
-   28105,
+   27713,
+   "Accuracy",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   27714,
+   "Defense",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   27715,
+   "Attack Power",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   27804,
+   "Critical Rate",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   27814,
+   "Critical Rate",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   27901,
+   "HP",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   27902,
+   "Attack Power",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   27904,
+   "Critical Rate",
+   28,
+   "Arena",
+   null
+  ],
+  [
+   27911,
+   "HP",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   27912,
+   "Attack Power",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   27913,
+   "Defense",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   27914,
+   "Critical Rate",
+   28,
+   "Arena",
+   null
+  ],
+  [
+   27915,
+   "Accuracy",
+   48,
+   "Arena",
+   null
+  ],
+  [
+   28002,
+   "HP",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   28003,
+   "Attack Power",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   28005,
+   "Accuracy",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   28011,
+   "Attack Speed",
+   28,
+   "Guild",
+   null
+  ],
+  [
+   28012,
+   "HP",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   28013,
+   "Attack Power",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   28014,
+   "Critical Rate",
+   28,
+   "Guild",
+   null
+  ],
+  [
+   28015,
+   "Accuracy",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   28102,
+   "Attack Power",
+   28,
+   "General",
+   null
+  ],
+  [
+   28103,
+   "Critical Rate",
    21,
+   "General",
+   null
+  ],
+  [
+   28105,
+   "Attack Speed",
+   21,
+   "General",
+   null
+  ],
+  [
+   28111,
+   "Accuracy",
+   21,
+   "General",
+   null
+  ],
+  [
+   28112,
+   "Attack Power",
+   28,
+   "General",
+   null
+  ],
+  [
+   28113,
+   "Critical Rate",
+   21,
+   "General",
+   null
+  ],
+  [
+   28114,
+   "HP",
+   28,
    "General",
    null
   ],
   [
    28115,
+   "Attack Speed",
    21,
    "General",
    null
   ],
   [
+   28201,
+   "HP",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   28204,
+   "Defense",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   28205,
+   "Attack Power",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   28211,
+   "HP",
+   38,
+   "Guild",
+   null
+  ],
+  [
    28212,
+   "Attack Speed",
    28,
    "Guild",
    null
   ],
   [
+   28213,
+   "Accuracy",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   28214,
+   "Defense",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   28215,
+   "Attack Power",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   28601,
+   "Accuracy",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   28602,
+   "Attack Power",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   28603,
+   "Defense",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   28604,
+   "HP",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   28605,
+   "Critical Rate",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   28611,
+   "Accuracy",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   28612,
+   "Attack Power",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   28613,
+   "Defense",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   28614,
+   "HP",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   28615,
+   "Critical Rate",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   28705,
+   "Critical Rate",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   28715,
+   "Critical Rate",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   28901,
+   "HP",
+   50,
+   "General",
+   "Water"
+  ],
+  [
+   28902,
+   "HP",
+   50,
+   "General",
+   "Fire"
+  ],
+  [
+   28903,
+   "HP",
+   50,
+   "General",
+   "Wind"
+  ],
+  [
+   28904,
+   "HP",
+   50,
+   "General",
+   "Light"
+  ],
+  [
+   28905,
+   "HP",
+   50,
+   "General",
+   "Dark"
+  ],
+  [
+   28911,
+   "HP",
+   50,
+   "General",
+   "Water"
+  ],
+  [
+   28912,
+   "HP",
+   50,
+   "General",
+   "Fire"
+  ],
+  [
+   28913,
+   "HP",
+   50,
+   "General",
+   "Wind"
+  ],
+  [
+   28914,
+   "HP",
+   50,
+   "General",
+   "Light"
+  ],
+  [
+   28915,
+   "HP",
+   50,
+   "General",
+   "Dark"
+  ],
+  [
+   29011,
+   "Resistance",
+   40,
+   "Guild",
+   null
+  ],
+  [
+   29012,
+   "Accuracy",
+   30,
+   "General",
+   null
+  ],
+  [
    29013,
+   "Attack Speed",
    24,
    "Guild",
    null
   ],
   [
+   29014,
+   "Critical Rate",
+   19,
+   "General",
+   null
+  ],
+  [
+   29015,
+   "HP",
+   25,
+   "General",
+   null
+  ],
+  [
    29101,
+   "Attack Speed",
    24,
+   "General",
+   null
+  ],
+  [
+   29102,
+   "Resistance",
+   41,
+   "General",
+   null
+  ],
+  [
+   29103,
+   "Defense",
+   33,
+   "General",
+   null
+  ],
+  [
+   29104,
+   "Critical Rate",
+   24,
+   "General",
+   null
+  ],
+  [
+   29105,
+   "Attack Power",
+   33,
    "General",
    null
   ],
   [
    29111,
+   "Attack Speed",
    24,
    "General",
    null
   ],
   [
-   29315,
+   29112,
+   "Resistance",
+   41,
+   "General",
+   null
+  ],
+  [
+   29113,
+   "Defense",
+   33,
+   "General",
+   null
+  ],
+  [
+   29114,
+   "Critical Rate",
+   24,
+   "General",
+   null
+  ],
+  [
+   29115,
+   "Attack Power",
+   33,
+   "General",
+   null
+  ],
+  [
+   29201,
+   "Attack Power",
+   50,
+   "General",
+   "Water"
+  ],
+  [
+   29202,
+   "Attack Power",
+   50,
+   "General",
+   "Fire"
+  ],
+  [
+   29203,
+   "Attack Power",
+   50,
+   "General",
+   "Wind"
+  ],
+  [
+   29204,
+   "Attack Power",
+   50,
+   "General",
+   "Light"
+  ],
+  [
+   29205,
+   "Attack Power",
+   50,
+   "General",
+   "Dark"
+  ],
+  [
+   29211,
+   "Attack Power",
+   50,
+   "General",
+   "Water"
+  ],
+  [
+   29212,
+   "Attack Power",
+   50,
+   "General",
+   "Fire"
+  ],
+  [
+   29213,
+   "Attack Power",
+   50,
+   "General",
+   "Wind"
+  ],
+  [
+   29214,
+   "Attack Power",
+   50,
+   "General",
+   "Light"
+  ],
+  [
+   29215,
+   "Attack Power",
+   50,
+   "General",
+   "Dark"
+  ],
+  [
+   29301,
+   "HP",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   29303,
+   "Accuracy",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   29304,
+   "Attack Power",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   29311,
+   "HP",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   29312,
+   "Critical Rate",
    28,
    "Guild",
    null
   ],
   [
+   29313,
+   "Accuracy",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   29314,
+   "Attack Power",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   29315,
+   "Attack Speed",
+   28,
+   "Guild",
+   null
+  ],
+  [
+   29401,
+   "Critical Rate",
+   28,
+   "Arena",
+   null
+  ],
+  [
    29402,
+   "Attack Speed",
    21,
    "General",
    null
   ],
   [
+   29405,
+   "Attack Power",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   29411,
+   "Critical Rate",
+   28,
+   "Arena",
+   null
+  ],
+  [
    29412,
+   "Attack Speed",
+   21,
+   "General",
+   null
+  ],
+  [
+   29413,
+   "Accuracy",
+   35,
+   "General",
+   null
+  ],
+  [
+   29414,
+   "Defense",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   29415,
+   "Attack Power",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   29502,
+   "Critical Rate",
    21,
    "General",
    null
   ],
   [
    29504,
+   "Attack Speed",
    21,
+   "General",
+   null
+  ],
+  [
+   29505,
+   "Attack Power",
+   28,
+   "General",
+   null
+  ],
+  [
+   29511,
+   "HP",
+   28,
+   "General",
+   null
+  ],
+  [
+   29512,
+   "Critical Rate",
+   21,
+   "General",
+   null
+  ],
+  [
+   29513,
+   "Accuracy",
+   35,
    "General",
    null
   ],
   [
    29514,
+   "Attack Speed",
    21,
    "General",
    null
   ],
   [
-   29715,
+   29515,
+   "Attack Power",
+   28,
+   "General",
+   null
+  ],
+  [
+   29601,
+   "Attack Power",
+   50,
+   "General",
+   "Water"
+  ],
+  [
+   29602,
+   "Attack Power",
+   50,
+   "General",
+   "Fire"
+  ],
+  [
+   29603,
+   "Attack Power",
+   50,
+   "General",
+   "Wind"
+  ],
+  [
+   29604,
+   "Attack Power",
+   50,
+   "General",
+   "Light"
+  ],
+  [
+   29605,
+   "Attack Power",
+   50,
+   "General",
+   "Dark"
+  ],
+  [
+   29611,
+   "Attack Power",
+   50,
+   "General",
+   "Water"
+  ],
+  [
+   29612,
+   "Attack Power",
+   50,
+   "General",
+   "Fire"
+  ],
+  [
+   29613,
+   "Attack Power",
+   50,
+   "General",
+   "Wind"
+  ],
+  [
+   29614,
+   "Attack Power",
+   50,
+   "General",
+   "Light"
+  ],
+  [
+   29615,
+   "Attack Power",
+   50,
+   "General",
+   "Dark"
+  ],
+  [
+   29701,
+   "HP",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   29703,
+   "Accuracy",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   29704,
+   "Attack Power",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   29711,
+   "HP",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   29712,
+   "Critical Rate",
    28,
    "Guild",
    null
   ],
   [
+   29713,
+   "Accuracy",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   29714,
+   "Attack Power",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   29715,
+   "Attack Speed",
+   28,
+   "Guild",
+   null
+  ],
+  [
+   29801,
+   "Critical Rate",
+   28,
+   "Arena",
+   null
+  ],
+  [
    29802,
+   "Attack Speed",
    21,
    "General",
    null
   ],
   [
+   29805,
+   "Attack Power",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   29811,
+   "Critical Rate",
+   28,
+   "Arena",
+   null
+  ],
+  [
    29812,
+   "Attack Speed",
+   21,
+   "General",
+   null
+  ],
+  [
+   29813,
+   "Accuracy",
+   35,
+   "General",
+   null
+  ],
+  [
+   29814,
+   "Defense",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   29815,
+   "Attack Power",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   29902,
+   "Critical Rate",
    21,
    "General",
    null
   ],
   [
    29904,
+   "Attack Speed",
    21,
+   "General",
+   null
+  ],
+  [
+   29905,
+   "Attack Power",
+   28,
+   "General",
+   null
+  ],
+  [
+   29911,
+   "HP",
+   28,
+   "General",
+   null
+  ],
+  [
+   29912,
+   "Critical Rate",
+   21,
+   "General",
+   null
+  ],
+  [
+   29913,
+   "Accuracy",
+   35,
    "General",
    null
   ],
   [
    29914,
+   "Attack Speed",
    21,
    "General",
    null
   ],
   [
-   30004,
+   29915,
+   "Attack Power",
+   28,
+   "General",
+   null
+  ],
+  [
+   30001,
+   "Critical Rate",
    33,
+   "Arena",
+   null
+  ],
+  [
+   30002,
+   "Defense",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   30003,
+   "Attack Power",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   30004,
+   "Attack Speed",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   30005,
+   "HP",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   30011,
+   "Critical Rate",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   30012,
+   "Defense",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   30013,
+   "Attack Power",
+   44,
    "Arena",
    null
   ],
   [
    30014,
+   "Attack Speed",
    33,
    "Arena",
    null
   ],
   [
+   30015,
+   "HP",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   30111,
+   "Attack Power",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   30112,
+   "Accuracy",
+   40,
+   "Guild",
+   null
+  ],
+  [
    30113,
+   "Attack Speed",
    24,
    "Guild",
    null
   ],
   [
+   30114,
+   "HP",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   30115,
+   "Defense",
+   33,
+   "Guild",
+   null
+  ],
+  [
+   30215,
+   "Critical Rate",
+   38,
+   "General",
+   "Dark"
+  ],
+  [
+   30301,
+   "Defense",
+   33,
+   "General",
+   null
+  ],
+  [
+   30302,
+   "Attack Power",
+   33,
+   "General",
+   null
+  ],
+  [
+   30303,
+   "Accuracy",
+   41,
+   "General",
+   null
+  ],
+  [
    30304,
+   "Attack Speed",
    24,
+   "General",
+   null
+  ],
+  [
+   30305,
+   "HP",
+   33,
+   "General",
+   null
+  ],
+  [
+   30311,
+   "Defense",
+   33,
+   "General",
+   null
+  ],
+  [
+   30312,
+   "Attack Power",
+   33,
+   "General",
+   null
+  ],
+  [
+   30313,
+   "Accuracy",
+   41,
    "General",
    null
   ],
   [
    30314,
+   "Attack Speed",
    24,
    "General",
    null
   ],
   [
-   30502,
+   30315,
+   "HP",
+   33,
+   "General",
+   null
+  ],
+  [
+   30401,
+   "Critical Rate",
    28,
+   "Guild",
+   null
+  ],
+  [
+   30402,
+   "Attack Power",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   30405,
+   "Defense",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   30411,
+   "Critical Rate",
+   28,
+   "Guild",
+   null
+  ],
+  [
+   30412,
+   "Attack Power",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   30413,
+   "HP",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   30414,
+   "Resistance",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   30415,
+   "Defense",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   30502,
+   "Attack Speed",
+   28,
+   "Arena",
+   null
+  ],
+  [
+   30503,
+   "Attack Power",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   30505,
+   "Critical Rate",
+   28,
+   "Arena",
+   null
+  ],
+  [
+   30511,
+   "Accuracy",
+   48,
    "Arena",
    null
   ],
   [
    30512,
+   "Attack Speed",
    28,
+   "Arena",
+   null
+  ],
+  [
+   30513,
+   "Attack Power",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   30514,
+   "HP",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   30515,
+   "Critical Rate",
+   28,
+   "Arena",
+   null
+  ],
+  [
+   30601,
+   "HP",
+   45,
+   "General",
+   "Water"
+  ],
+  [
+   30603,
+   "HP",
+   45,
+   "General",
+   "Wind"
+  ],
+  [
+   30604,
+   "HP",
+   45,
+   "General",
+   "Light"
+  ],
+  [
+   30611,
+   "HP",
+   45,
+   "General",
+   "Water"
+  ],
+  [
+   30612,
+   "HP",
+   45,
+   "General",
+   "Fire"
+  ],
+  [
+   30613,
+   "HP",
+   45,
+   "General",
+   "Wind"
+  ],
+  [
+   30614,
+   "HP",
+   45,
+   "General",
+   "Light"
+  ],
+  [
+   30615,
+   "HP",
+   45,
+   "General",
+   "Dark"
+  ],
+  [
+   30701,
+   "Defense",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   30702,
+   "Attack Power",
+   44,
    "Arena",
    null
   ],
   [
    30703,
+   "Attack Speed",
    33,
+   "Arena",
+   null
+  ],
+  [
+   30704,
+   "HP",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   30705,
+   "Critical Rate",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   30711,
+   "Defense",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   30712,
+   "Attack Power",
+   44,
    "Arena",
    null
   ],
   [
    30713,
+   "Attack Speed",
    33,
    "Arena",
    null
   ],
   [
+   30714,
+   "HP",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   30715,
+   "Critical Rate",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   30805,
+   "Critical Rate",
+   38,
+   "General",
+   "Dark"
+  ],
+  [
+   30815,
+   "Critical Rate",
+   38,
+   "General",
+   "Dark"
+  ],
+  [
+   30901,
+   "Defense",
+   33,
+   "General",
+   null
+  ],
+  [
+   30902,
+   "Attack Power",
+   33,
+   "General",
+   null
+  ],
+  [
+   30903,
+   "Accuracy",
+   41,
+   "General",
+   null
+  ],
+  [
    30904,
+   "Attack Speed",
    24,
+   "General",
+   null
+  ],
+  [
+   30905,
+   "HP",
+   33,
+   "General",
+   null
+  ],
+  [
+   30911,
+   "Defense",
+   33,
+   "General",
+   null
+  ],
+  [
+   30912,
+   "Attack Power",
+   33,
+   "General",
+   null
+  ],
+  [
+   30913,
+   "Accuracy",
+   41,
    "General",
    null
   ],
   [
    30914,
+   "Attack Speed",
    24,
    "General",
    null
   ],
   [
-   31102,
+   30915,
+   "HP",
+   33,
+   "General",
+   null
+  ],
+  [
+   31001,
+   "Critical Rate",
    28,
+   "Guild",
+   null
+  ],
+  [
+   31002,
+   "Attack Power",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   31003,
+   "HP",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   31004,
+   "Resistance",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   31005,
+   "Defense",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   31011,
+   "Critical Rate",
+   28,
+   "Guild",
+   null
+  ],
+  [
+   31012,
+   "Attack Power",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   31013,
+   "HP",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   31014,
+   "Resistance",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   31015,
+   "Defense",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   31101,
+   "Accuracy",
+   48,
+   "Arena",
+   null
+  ],
+  [
+   31102,
+   "Attack Speed",
+   28,
+   "Arena",
+   null
+  ],
+  [
+   31103,
+   "Attack Power",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   31104,
+   "HP",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   31105,
+   "Critical Rate",
+   28,
+   "Arena",
+   null
+  ],
+  [
+   31111,
+   "Accuracy",
+   48,
    "Arena",
    null
   ],
   [
    31112,
+   "Attack Speed",
    28,
    "Arena",
    null
   ],
   [
+   31113,
+   "Attack Power",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   31114,
+   "HP",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   31115,
+   "Critical Rate",
+   28,
+   "Arena",
+   null
+  ],
+  [
+   31201,
+   "HP",
+   45,
+   "General",
+   "Water"
+  ],
+  [
+   31202,
+   "HP",
+   45,
+   "General",
+   "Fire"
+  ],
+  [
+   31203,
+   "HP",
+   45,
+   "General",
+   "Wind"
+  ],
+  [
+   31204,
+   "HP",
+   45,
+   "General",
+   "Light"
+  ],
+  [
+   31205,
+   "HP",
+   45,
+   "General",
+   "Dark"
+  ],
+  [
+   31211,
+   "HP",
+   45,
+   "General",
+   "Water"
+  ],
+  [
+   31212,
+   "HP",
+   45,
+   "General",
+   "Fire"
+  ],
+  [
+   31213,
+   "HP",
+   45,
+   "General",
+   "Wind"
+  ],
+  [
+   31214,
+   "HP",
+   45,
+   "General",
+   "Light"
+  ],
+  [
+   31215,
+   "HP",
+   45,
+   "General",
+   "Dark"
+  ],
+  [
+   31301,
+   "HP",
+   44,
+   "Guild",
+   null
+  ],
+  [
    31302,
+   "Attack Speed",
    24,
    "General",
+   null
+  ],
+  [
+   31303,
+   "HP",
+   33,
+   "General",
+   null
+  ],
+  [
+   31304,
+   "Defense",
+   44,
+   "Guild",
+   null
+  ],
+  [
+   31305,
+   "Attack Power",
+   44,
+   "Guild",
+   null
+  ],
+  [
+   31311,
+   "HP",
+   44,
+   "Guild",
    null
   ],
   [
    31312,
+   "Attack Speed",
    24,
    "General",
    null
   ],
   [
-   32101,
+   31313,
+   "HP",
+   33,
+   "General",
+   null
+  ],
+  [
+   31314,
+   "Defense",
+   44,
+   "Guild",
+   null
+  ],
+  [
+   31315,
+   "Attack Power",
+   44,
+   "Guild",
+   null
+  ],
+  [
+   31703,
+   "Defense",
+   33,
+   "General",
+   null
+  ],
+  [
+   31713,
+   "Defense",
+   33,
+   "General",
+   null
+  ],
+  [
+   31802,
+   "HP",
    28,
+   "General",
+   null
+  ],
+  [
+   31803,
+   "Attack Power",
+   28,
+   "General",
+   null
+  ],
+  [
+   31804,
+   "Resistance",
+   35,
+   "General",
+   null
+  ],
+  [
+   31811,
+   "Defense",
+   28,
+   "General",
+   null
+  ],
+  [
+   31812,
+   "HP",
+   28,
+   "General",
+   null
+  ],
+  [
+   31813,
+   "Attack Power",
+   28,
+   "General",
+   null
+  ],
+  [
+   31814,
+   "Resistance",
+   35,
+   "General",
+   null
+  ],
+  [
+   31815,
+   "Critical Rate",
+   21,
+   "General",
+   null
+  ],
+  [
+   31901,
+   "Resistance",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   31902,
+   "Accuracy",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   31905,
+   "HP",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   31911,
+   "Resistance",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   31912,
+   "Accuracy",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   31913,
+   "Defense",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   31914,
+   "Critical Rate",
+   28,
+   "Guild",
+   null
+  ],
+  [
+   31915,
+   "HP",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   32011,
+   "Resistance",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   32012,
+   "Accuracy",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   32013,
+   "Defense",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   32014,
+   "Critical Rate",
+   28,
+   "Guild",
+   null
+  ],
+  [
+   32015,
+   "HP",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   32101,
+   "Attack Speed",
+   28,
+   "Arena",
+   null
+  ],
+  [
+   32102,
+   "Defense",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   32104,
+   "Attack Power",
+   38,
    "Arena",
    null
   ],
   [
    32111,
+   "Attack Speed",
    28,
    "Arena",
    null
   ],
   [
-   32801,
+   32112,
+   "Defense",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   32113,
+   "Critical Rate",
    28,
+   "Arena",
+   null
+  ],
+  [
+   32114,
+   "Attack Power",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   32115,
+   "HP",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   32301,
+   "Defense",
+   50,
+   "General",
+   "Water"
+  ],
+  [
+   32302,
+   "Defense",
+   50,
+   "General",
+   "Fire"
+  ],
+  [
+   32303,
+   "Defense",
+   50,
+   "General",
+   "Wind"
+  ],
+  [
+   32304,
+   "Defense",
+   50,
+   "General",
+   "Light"
+  ],
+  [
+   32305,
+   "Defense",
+   50,
+   "General",
+   "Dark"
+  ],
+  [
+   32311,
+   "Defense",
+   50,
+   "General",
+   "Water"
+  ],
+  [
+   32312,
+   "Defense",
+   50,
+   "General",
+   "Fire"
+  ],
+  [
+   32313,
+   "Defense",
+   50,
+   "General",
+   "Wind"
+  ],
+  [
+   32314,
+   "Defense",
+   50,
+   "General",
+   "Light"
+  ],
+  [
+   32315,
+   "Defense",
+   50,
+   "General",
+   "Dark"
+  ],
+  [
+   32403,
+   "Defense",
+   33,
+   "General",
+   null
+  ],
+  [
+   32413,
+   "Defense",
+   33,
+   "General",
+   null
+  ],
+  [
+   32502,
+   "HP",
+   28,
+   "General",
+   null
+  ],
+  [
+   32503,
+   "Attack Power",
+   28,
+   "General",
+   null
+  ],
+  [
+   32504,
+   "Resistance",
+   35,
+   "General",
+   null
+  ],
+  [
+   32511,
+   "Defense",
+   28,
+   "General",
+   null
+  ],
+  [
+   32512,
+   "HP",
+   28,
+   "General",
+   null
+  ],
+  [
+   32513,
+   "Attack Power",
+   28,
+   "General",
+   null
+  ],
+  [
+   32514,
+   "Resistance",
+   35,
+   "General",
+   null
+  ],
+  [
+   32515,
+   "Critical Rate",
+   21,
+   "General",
+   null
+  ],
+  [
+   32601,
+   "Resistance",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   32602,
+   "Accuracy",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   32605,
+   "HP",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   32611,
+   "Resistance",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   32612,
+   "Accuracy",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   32613,
+   "Defense",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   32614,
+   "Critical Rate",
+   28,
+   "Guild",
+   null
+  ],
+  [
+   32615,
+   "HP",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   32801,
+   "Attack Speed",
+   28,
+   "Arena",
+   null
+  ],
+  [
+   32802,
+   "Defense",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   32804,
+   "Attack Power",
+   38,
    "Arena",
    null
   ],
   [
    32811,
+   "Attack Speed",
    28,
    "Arena",
    null
   ],
   [
+   32812,
+   "Defense",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   32813,
+   "Critical Rate",
+   28,
+   "Arena",
+   null
+  ],
+  [
+   32814,
+   "Attack Power",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   32815,
+   "HP",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   33002,
+   "Attack Power",
+   44,
+   "Dungeon",
+   null
+  ],
+  [
+   33012,
+   "Attack Power",
+   44,
+   "Dungeon",
+   null
+  ],
+  [
+   33102,
+   "Resistance",
+   48,
+   "Arena",
+   null
+  ],
+  [
+   33103,
+   "HP",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   33105,
+   "Attack Power",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   33111,
+   "Defense",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   33112,
+   "Resistance",
+   48,
+   "Arena",
+   null
+  ],
+  [
+   33113,
+   "HP",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   33114,
+   "Accuracy",
+   48,
+   "Arena",
+   null
+  ],
+  [
+   33115,
+   "Attack Power",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   33201,
+   "Attack Power",
+   45,
+   "General",
+   "Water"
+  ],
+  [
+   33203,
+   "Attack Power",
+   45,
+   "General",
+   "Wind"
+  ],
+  [
+   33204,
+   "Attack Power",
+   45,
+   "General",
+   "Light"
+  ],
+  [
+   33211,
+   "Attack Power",
+   45,
+   "General",
+   "Water"
+  ],
+  [
+   33212,
+   "Attack Power",
+   45,
+   "General",
+   "Fire"
+  ],
+  [
+   33213,
+   "Attack Power",
+   45,
+   "General",
+   "Wind"
+  ],
+  [
+   33214,
+   "Attack Power",
+   45,
+   "General",
+   "Light"
+  ],
+  [
+   33215,
+   "Attack Power",
+   45,
+   "General",
+   "Dark"
+  ],
+  [
+   33301,
+   "Accuracy",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   33302,
+   "Defense",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   33303,
+   "Resistance",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   33311,
+   "Accuracy",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   33312,
+   "Defense",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   33313,
+   "Resistance",
+   48,
+   "Guild",
+   null
+  ],
+  [
    33314,
+   "Attack Speed",
    28,
    "Guild",
    null
   ],
   [
+   33315,
+   "Critical Rate",
+   28,
+   "Guild",
+   null
+  ],
+  [
+   33401,
+   "Resistance",
+   35,
+   "General",
+   null
+  ],
+  [
    33404,
+   "Attack Speed",
    21,
+   "General",
+   null
+  ],
+  [
+   33405,
+   "HP",
+   28,
+   "General",
+   null
+  ],
+  [
+   33411,
+   "Resistance",
+   35,
+   "General",
+   null
+  ],
+  [
+   33412,
+   "Attack Power",
+   28,
+   "General",
+   null
+  ],
+  [
+   33413,
+   "Defense",
+   28,
    "General",
    null
   ],
   [
    33414,
+   "Attack Speed",
    21,
    "General",
    null
   ],
   [
+   33415,
+   "HP",
+   28,
+   "General",
+   null
+  ],
+  [
+   33502,
+   "Attack Power",
+   44,
+   "Dungeon",
+   null
+  ],
+  [
+   33512,
+   "Attack Power",
+   44,
+   "Dungeon",
+   null
+  ],
+  [
+   33602,
+   "Resistance",
+   48,
+   "Arena",
+   null
+  ],
+  [
+   33603,
+   "HP",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   33605,
+   "Attack Power",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   33611,
+   "Defense",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   33612,
+   "Resistance",
+   48,
+   "Arena",
+   null
+  ],
+  [
+   33613,
+   "HP",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   33614,
+   "Accuracy",
+   48,
+   "Arena",
+   null
+  ],
+  [
+   33615,
+   "Attack Power",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   33701,
+   "Attack Power",
+   45,
+   "General",
+   "Water"
+  ],
+  [
+   33703,
+   "Attack Power",
+   45,
+   "General",
+   "Wind"
+  ],
+  [
+   33704,
+   "Attack Power",
+   45,
+   "General",
+   "Light"
+  ],
+  [
+   33711,
+   "Attack Power",
+   45,
+   "General",
+   "Water"
+  ],
+  [
+   33712,
+   "Attack Power",
+   45,
+   "General",
+   "Fire"
+  ],
+  [
+   33713,
+   "Attack Power",
+   45,
+   "General",
+   "Wind"
+  ],
+  [
+   33714,
+   "Attack Power",
+   45,
+   "General",
+   "Light"
+  ],
+  [
+   33715,
+   "Attack Power",
+   45,
+   "General",
+   "Dark"
+  ],
+  [
+   33801,
+   "Accuracy",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   33802,
+   "Defense",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   33803,
+   "Resistance",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   33811,
+   "Accuracy",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   33812,
+   "Defense",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   33813,
+   "Resistance",
+   48,
+   "Guild",
+   null
+  ],
+  [
    33814,
+   "Attack Speed",
    28,
    "Guild",
    null
   ],
   [
+   33815,
+   "Critical Rate",
+   28,
+   "Guild",
+   null
+  ],
+  [
+   33901,
+   "Resistance",
+   35,
+   "General",
+   null
+  ],
+  [
    33904,
+   "Attack Speed",
    21,
+   "General",
+   null
+  ],
+  [
+   33905,
+   "HP",
+   28,
+   "General",
+   null
+  ],
+  [
+   33911,
+   "Resistance",
+   35,
+   "General",
+   null
+  ],
+  [
+   33912,
+   "Attack Power",
+   28,
+   "General",
+   null
+  ],
+  [
+   33913,
+   "Defense",
+   28,
    "General",
    null
   ],
   [
    33914,
+   "Attack Speed",
    21,
    "General",
    null
   ],
   [
+   33915,
+   "HP",
+   28,
+   "General",
+   null
+  ],
+  [
+   34001,
+   "Critical Rate",
+   24,
+   "General",
+   null
+  ],
+  [
    34002,
+   "Attack Speed",
+   24,
+   "General",
+   null
+  ],
+  [
+   34003,
+   "Attack Power",
+   33,
+   "General",
+   null
+  ],
+  [
+   34004,
+   "HP",
+   33,
+   "General",
+   null
+  ],
+  [
+   34005,
+   "Resistance",
+   41,
+   "General",
+   null
+  ],
+  [
+   34011,
+   "Critical Rate",
    24,
    "General",
    null
   ],
   [
    34012,
+   "Attack Speed",
    24,
    "General",
    null
   ],
   [
+   34013,
+   "Attack Power",
+   33,
+   "General",
+   null
+  ],
+  [
+   34014,
+   "HP",
+   33,
+   "General",
+   null
+  ],
+  [
+   34015,
+   "Resistance",
+   41,
+   "General",
+   null
+  ],
+  [
+   34111,
+   "Critical Rate",
+   30,
+   "General",
+   "Water"
+  ],
+  [
+   34112,
+   "Critical Rate",
+   30,
+   "General",
+   "Fire"
+  ],
+  [
+   34113,
+   "Critical Rate",
+   30,
+   "General",
+   "Wind"
+  ],
+  [
+   34114,
+   "Critical Rate",
+   30,
+   "General",
+   "Light"
+  ],
+  [
+   34115,
+   "Critical Rate",
+   30,
+   "General",
+   "Dark"
+  ],
+  [
+   34201,
+   "HP",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   34202,
+   "Accuracy",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   34203,
+   "Attack Power",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   34204,
+   "Critical Rate",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   34205,
+   "Defense",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   34211,
+   "HP",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   34212,
+   "Accuracy",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   34213,
+   "Attack Power",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   34214,
+   "Critical Rate",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   34215,
+   "Defense",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   34311,
+   "Attack Power",
+   33,
+   "General",
+   null
+  ],
+  [
+   34401,
+   "HP",
+   33,
+   "General",
+   null
+  ],
+  [
+   34402,
+   "Critical Rate",
+   24,
+   "General",
+   null
+  ],
+  [
+   34403,
+   "Resistance",
+   41,
+   "General",
+   null
+  ],
+  [
+   34404,
+   "Defense",
+   33,
+   "General",
+   null
+  ],
+  [
+   34405,
+   "Attack Power",
+   33,
+   "General",
+   null
+  ],
+  [
+   34411,
+   "HP",
+   33,
+   "General",
+   null
+  ],
+  [
+   34412,
+   "Critical Rate",
+   24,
+   "General",
+   null
+  ],
+  [
+   34413,
+   "Resistance",
+   41,
+   "General",
+   null
+  ],
+  [
+   34414,
+   "Defense",
+   33,
+   "General",
+   null
+  ],
+  [
+   34415,
+   "Attack Power",
+   33,
+   "General",
+   null
+  ],
+  [
+   34514,
+   "Defense",
+   33,
+   "General",
+   null
+  ],
+  [
+   34601,
+   "Critical Rate",
+   28,
+   "Guild",
+   null
+  ],
+  [
+   34602,
+   "Resistance",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   34605,
+   "HP",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   34611,
+   "Critical Rate",
+   28,
+   "Guild",
+   null
+  ],
+  [
+   34612,
+   "Resistance",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   34613,
+   "Accuracy",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   34614,
+   "Defense",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   34615,
+   "HP",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   34702,
+   "HP",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   34703,
+   "Attack Power",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   34704,
+   "Critical Rate",
+   28,
+   "Arena",
+   null
+  ],
+  [
+   34711,
+   "Accuracy",
+   48,
+   "Arena",
+   null
+  ],
+  [
+   34712,
+   "HP",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   34713,
+   "Attack Power",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   34714,
+   "Critical Rate",
+   28,
+   "Arena",
+   null
+  ],
+  [
+   34715,
+   "Resistance",
+   48,
+   "Arena",
+   null
+  ],
+  [
+   34911,
+   "Attack Power",
+   33,
+   "General",
+   null
+  ],
+  [
+   35001,
+   "HP",
+   33,
+   "General",
+   null
+  ],
+  [
+   35002,
+   "Critical Rate",
+   24,
+   "General",
+   null
+  ],
+  [
+   35003,
+   "Resistance",
+   41,
+   "General",
+   null
+  ],
+  [
+   35004,
+   "Defense",
+   33,
+   "General",
+   null
+  ],
+  [
+   35005,
+   "Attack Power",
+   33,
+   "General",
+   null
+  ],
+  [
+   35011,
+   "HP",
+   33,
+   "General",
+   null
+  ],
+  [
+   35012,
+   "Critical Rate",
+   24,
+   "General",
+   null
+  ],
+  [
+   35013,
+   "Resistance",
+   41,
+   "General",
+   null
+  ],
+  [
+   35014,
+   "Defense",
+   33,
+   "General",
+   null
+  ],
+  [
+   35015,
+   "Attack Power",
+   33,
+   "General",
+   null
+  ],
+  [
+   35114,
+   "Defense",
+   33,
+   "General",
+   null
+  ],
+  [
+   35201,
+   "Critical Rate",
+   28,
+   "Guild",
+   null
+  ],
+  [
+   35202,
+   "Resistance",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   35205,
+   "HP",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   35211,
+   "Critical Rate",
+   28,
+   "Guild",
+   null
+  ],
+  [
+   35212,
+   "Resistance",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   35213,
+   "Accuracy",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   35214,
+   "Defense",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   35215,
+   "HP",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   35302,
+   "HP",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   35303,
+   "Attack Power",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   35304,
+   "Critical Rate",
+   28,
+   "Arena",
+   null
+  ],
+  [
+   35311,
+   "Accuracy",
+   48,
+   "Arena",
+   null
+  ],
+  [
+   35312,
+   "HP",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   35313,
+   "Attack Power",
+   38,
+   "Arena",
+   null
+  ],
+  [
+   35314,
+   "Critical Rate",
+   28,
+   "Arena",
+   null
+  ],
+  [
+   35315,
+   "Resistance",
+   48,
+   "Arena",
+   null
+  ],
+  [
+   35501,
+   "Critical Rate",
+   38,
+   "General",
+   "Water"
+  ],
+  [
+   35502,
+   "Critical Rate",
+   38,
+   "General",
+   "Fire"
+  ],
+  [
+   35503,
+   "Critical Rate",
+   38,
+   "General",
+   "Wind"
+  ],
+  [
+   35504,
+   "Critical Rate",
+   38,
+   "General",
+   "Light"
+  ],
+  [
+   35505,
+   "Critical Rate",
+   38,
+   "General",
+   "Dark"
+  ],
+  [
+   35511,
+   "Critical Rate",
+   38,
+   "General",
+   "Water"
+  ],
+  [
+   35512,
+   "Critical Rate",
+   38,
+   "General",
+   "Fire"
+  ],
+  [
+   35513,
+   "Critical Rate",
+   38,
+   "General",
+   "Wind"
+  ],
+  [
+   35514,
+   "Critical Rate",
+   38,
+   "General",
+   "Light"
+  ],
+  [
+   35515,
+   "Critical Rate",
+   38,
+   "General",
+   "Dark"
+  ],
+  [
+   35601,
+   "Defense",
+   44,
+   "Dungeon",
+   null
+  ],
+  [
+   35611,
+   "Defense",
+   44,
+   "Dungeon",
+   null
+  ],
+  [
+   35701,
+   "Attack Power",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   35702,
+   "HP",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   35703,
+   "Resistance",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   35704,
+   "Accuracy",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   35705,
+   "Critical Rate",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   35711,
+   "Attack Power",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   35712,
+   "HP",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   35713,
+   "Resistance",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   35714,
+   "Accuracy",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   35715,
+   "Critical Rate",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   35801,
+   "Attack Power",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   35803,
+   "HP",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   35804,
+   "Resistance",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   35811,
+   "Attack Power",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   35812,
+   "Accuracy",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   35813,
+   "HP",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   35814,
+   "Resistance",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   35815,
+   "Defense",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   35902,
+   "Defense",
+   28,
+   "General",
+   null
+  ],
+  [
+   35903,
+   "HP",
+   28,
+   "General",
+   null
+  ],
+  [
    35905,
+   "Attack Speed",
    21,
    "General",
    null
   ],
   [
-   35915,
+   35911,
+   "Critical Rate",
    21,
    "General",
+   null
+  ],
+  [
+   35912,
+   "Defense",
+   28,
+   "General",
+   null
+  ],
+  [
+   35913,
+   "HP",
+   28,
+   "General",
+   null
+  ],
+  [
+   35914,
+   "Accuracy",
+   35,
+   "General",
+   null
+  ],
+  [
+   35915,
+   "Attack Speed",
+   21,
+   "General",
+   null
+  ],
+  [
+   36111,
+   "Attack Power",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   36112,
+   "Accuracy",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   36113,
+   "HP",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   36114,
+   "Resistance",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   36115,
+   "Defense",
+   38,
+   "Guild",
    null
   ]
  ],
@@ -3438,7 +13213,7 @@
    "name": "Daydream",
    "slot": 3,
    "passive": false,
-   "description": "Recovers the HP of all allies by 30% by putting yourself to an irresistible sleep for 1 turn. In addition, increases the Attack Speed of all allies for 2 turns and decreases their skill cooldown by 1 turn.",
+   "description": "Recovers the HP of all allies by 50% and puts yourself to an irresistible sleep for 1 turn. In addition, increases the Attack Speed of all allies for 2 turns and decreases their skill cooldowns by 1 turn.",
    "recoveryUpgrades": [
     0,
     0,
@@ -6322,7 +16097,7 @@
    "name": "Start of Attacking",
    "slot": 3,
    "passive": false,
-   "description": "Attacks the enemy with the beast 2 times. The beast's attack removes all beneficial effects granted on the enemy, and the rider's attack ignores the enemy's Defense by 25% for each beneficial effect the beast removed. Afterwards, the Attack Bar of other allies will be increased, up to 50%, in proportion to the enemy's lost HP from this attack.",
+   "description": "Attacks the enemy with the beast 2 times. The beast's attack removes all beneficial effects granted on the enemy, and the rider's attack ignores the enemy's Defense by 35% for each beneficial effect the beast removed. Afterwards, increases the Attack Bar of other allies by up to 50% in proportion to the HP the enemy lost from this attack.",
    "recoveryUpgrades": [
     0,
     0,
@@ -7270,17 +17045,17 @@
    "name": "Caffeine (Passive)",
    "slot": 3,
    "passive": true,
-   "description": "You will be immune to Sleep, and grants one of the following effects for 2 turns when you gain a turn: Increase Attack Power, Increase Defense or Increase Attack Speed. [Automatic Effect]",
+   "description": "Gains immunity against Sleep. In addition, grants one of the following effects to all allies for 2 turns whenever you gain a turn: Increase Attack Power, Increase Defense, or Increase Attack Speed. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
     {
      "effect": "speed-buff",
      "quantity": 2,
-     "aoe": false,
-     "self": true,
+     "aoe": true,
+     "self": false,
      "single": false,
      "onCrit": false,
-     "chance": 0
+     "chance": 33
     }
    ]
   },
@@ -7331,17 +17106,17 @@
    "name": "Mind and Body Rest (Passive)",
    "slot": 3,
    "passive": true,
-   "description": "You will be immune to Sleep, and grants one of the following effects for 2 turns when you gain a turn: Increase Attack Power, Increase Defense or Increase Attack Speed. [Automatic Effect]",
+   "description": "Gains immunity against Sleep. In addition, grants one of the following effects to all allies for 2 turns whenever you gain a turn: Increase Attack Power, Increase Defense, or Increase Attack Speed. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
     {
      "effect": "speed-buff",
      "quantity": 2,
-     "aoe": false,
-     "self": true,
+     "aoe": true,
+     "self": false,
      "single": false,
      "onCrit": false,
-     "chance": 0
+     "chance": 33
     }
    ]
   },
@@ -8051,7 +17826,7 @@
    "name": "Mischievous Curse (Passive)",
    "slot": 3,
    "passive": true,
-   "description": "Prevents the enemy from removing harmful effects with an 80% chance for 1 turn if you attack the enemy under harmful effects, and silences for 1 turn with a 30% chance if you attack the enemy with no harmful effects. In addition, increases your Attack Bar by 20% whenever the enemy is granted with harmful effects. [Automatic Effect]",
+   "description": "When you attack an enemy granted with a harmful effect, blocks the enemy from removing harmful effects for 1 turn with a 30% chance. When you attack an enemy with no harmful effects, silences the enemy for 1 turn with a 30% chance. In addition, increases your Attack Bar by 20% whenever an enemy is granted with a harmful effect. [Automatic Effect]",
    "recoveryUpgrades": [
     0,
     0
@@ -8073,7 +17848,7 @@
    "name": "Mischievous Curse (Passive)",
    "slot": 3,
    "passive": true,
-   "description": "Prevents the enemy from removing harmful effects with an 80% chance for 1 turn if you attack the enemy under harmful effects, and silences for 1 turn with a 30% chance if you attack the enemy with no harmful effects. In addition, increases your Attack Bar by 20% whenever the enemy is granted with harmful effects. [Automatic Effect]",
+   "description": "When you attack an enemy granted with a harmful effect, blocks the enemy from removing harmful effects for 1 turn with a 30% chance. When you attack an enemy with no harmful effects, silences the enemy for 1 turn with a 30% chance. In addition, increases your Attack Bar by 20% whenever an enemy is granted with a harmful effect. [Automatic Effect]",
    "recoveryUpgrades": [
     0,
     0
@@ -8197,7 +17972,7 @@
    "name": "Horn of Charge",
    "slot": 1,
    "passive": false,
-   "description": "Increases the ally target's Attack Bar by 10%.",
+   "description": "Increases the ally target's Attack Bar by 12%.",
    "recoveryUpgrades": [
     0,
     0,
@@ -8207,7 +17982,7 @@
    "effects": [
     {
      "effect": "attack-bar",
-     "quantity": 10,
+     "quantity": 12,
      "aoe": false,
      "self": false,
      "single": true,
@@ -8221,7 +17996,7 @@
    "name": "Horn of Charge",
    "slot": 1,
    "passive": false,
-   "description": "Increases the ally target's Attack Bar by 10%.",
+   "description": "Increases the ally target's Attack Bar by 12%.",
    "recoveryUpgrades": [
     0,
     0,
@@ -8231,7 +18006,7 @@
    "effects": [
     {
      "effect": "attack-bar",
-     "quantity": 10,
+     "quantity": 12,
      "aoe": false,
      "self": true,
      "single": false,
@@ -8245,7 +18020,7 @@
    "name": "Horn of Charge",
    "slot": 1,
    "passive": false,
-   "description": "Increases the ally target's Attack Bar by 10%.",
+   "description": "Increases the ally target's Attack Bar by 12%.",
    "recoveryUpgrades": [
     0,
     0,
@@ -8255,7 +18030,7 @@
    "effects": [
     {
      "effect": "attack-bar",
-     "quantity": 10,
+     "quantity": 12,
      "aoe": false,
      "self": false,
      "single": true,
@@ -8269,7 +18044,7 @@
    "name": "Horn of Charge",
    "slot": 1,
    "passive": false,
-   "description": "Increases the ally target's Attack Bar by 10%.",
+   "description": "Increases the ally target's Attack Bar by 12%.",
    "recoveryUpgrades": [
     0,
     0,
@@ -8279,7 +18054,7 @@
    "effects": [
     {
      "effect": "attack-bar",
-     "quantity": 10,
+     "quantity": 12,
      "aoe": false,
      "self": false,
      "single": true,
@@ -8293,7 +18068,7 @@
    "name": "Horn of Charge",
    "slot": 1,
    "passive": false,
-   "description": "Increases the ally target's Attack Bar by 10%.",
+   "description": "Increases the ally target's Attack Bar by 12%.",
    "recoveryUpgrades": [
     0,
     0,
@@ -8303,7 +18078,7 @@
    "effects": [
     {
      "effect": "attack-bar",
-     "quantity": 10,
+     "quantity": 12,
      "aoe": false,
      "self": false,
      "single": true,
@@ -8428,15 +18203,24 @@
    "name": "Magic Control (Passive)",
    "slot": 3,
    "passive": true,
-   "description": "When the enemy removes harmful effects or an ally's beneficial effects, beneficial effects granted on the enemy target are removed together. Afterwards, removes 1 harmful effect from yourself and the ally with the highest Attack Bar and increases both's Attack Bar by 20%. [Automatic Effect]",
+   "description": "When an enemy removes a harmful effect or an ally's beneficial effect, beneficial effects granted on the enemy are also removed. Afterwards, removes 1 harmful effect from the 2 allies with the highest Attack Bar and increases their Attack Bar by 20%. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
     {
      "effect": "attack-bar",
      "quantity": 20,
      "aoe": false,
-     "self": true,
-     "single": false,
+     "self": false,
+     "single": true,
+     "onCrit": false,
+     "chance": 100
+    },
+    {
+     "effect": "attack-bar",
+     "quantity": 20,
+     "aoe": false,
+     "self": false,
+     "single": true,
      "onCrit": false,
      "chance": 100
     }
@@ -8554,14 +18338,23 @@
    "name": "Magic Mastery (Passive)",
    "slot": 3,
    "passive": true,
-   "description": "When the enemy removes harmful effects or an ally's beneficial effects, beneficial effects granted on the enemy target are removed together. Afterwards, removes 1 harmful effect from yourself and the ally with the highest Attack Bar and increases both's Attack Bar by 20%. [Automatic Effect]",
+   "description": "When an enemy removes a harmful effect or an ally's beneficial effect, beneficial effects granted on the enemy are also removed. Afterwards, removes 1 harmful effect from the 2 allies with the highest Attack Bar and increases their Attack Bar by 20%. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
     {
      "effect": "attack-bar",
      "quantity": 20,
      "aoe": false,
-     "self": true,
+     "self": false,
+     "single": true,
+     "onCrit": false,
+     "chance": 100
+    },
+    {
+     "effect": "attack-bar",
+     "quantity": 20,
+     "aoe": false,
+     "self": false,
      "single": true,
      "onCrit": false,
      "chance": 100
@@ -8695,7 +18488,7 @@
    "name": "Strong Willpower (Passive)",
    "slot": 3,
    "passive": true,
-   "description": "Increases your Attack Bar by 30% if you get harmful effects. Decreases your HP by 10% and the HP of all enemies (boss excluded) by 25% each if you have a harmful effect when you gain a turn. [Automatic Effect]",
+   "description": "Increases your Attack Bar by 30% when you are granted with a harmful effect. Decreases your HP by 20% and the HP of all enemies (excluding the boss) by 25% each if you have a harmful effect when you gain a turn. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
     {
@@ -8854,7 +18647,7 @@
    "name": "Strong Vengeance (Passive)",
    "slot": 3,
    "passive": true,
-   "description": "Increases your Attack Bar by 30% if you get harmful effects. Decreases your HP by 10% and the HP of all enemies (boss excluded) by 25% each if you have a harmful effect when you gain a turn. [Automatic Effect]",
+   "description": "Increases your Attack Bar by 30% when you are granted with a harmful effect. Decreases your HP by 20% and the HP of all enemies (excluding the boss) by 25% each if you have a harmful effect when you gain a turn. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
     {
@@ -10692,7 +20485,7 @@
    "name": "Super Solenoid",
    "slot": 3,
    "passive": false,
-   "description": "Attacks all enemies to steal all their beneficial effects. Increases your Attack Bar by 20% for each beneficial effect removed.",
+   "description": "Attacks all enemies to steal all their beneficial effects. Increases your Attack Bar by 25% for each beneficial effect removed.",
    "recoveryUpgrades": [
     0,
     0
@@ -10700,7 +20493,7 @@
    "effects": [
     {
      "effect": "attack-bar",
-     "quantity": 20,
+     "quantity": 25,
      "aoe": false,
      "self": true,
      "single": false,
@@ -10742,14 +20535,14 @@
    "name": "Magic Interpretation (Passive)",
    "slot": 2,
    "passive": true,
-   "description": "After you attack, recovers your HP by 10% per enemy granted with a harmful effect among the targets you attacked. In addition, when an enemy granted with a harmful effect gains a turn, increases your Attack Bar by 10%. [Automatic Effect]",
+   "description": "After you attack, recovers your HP by 10% per enemy granted with a harmful effect among the targets you attacked. In addition, when an enemy granted with a harmful effect gains a turn, increases your Attack Bar by 25%. [Automatic Effect]",
    "recoveryUpgrades": [
     0
    ],
    "effects": [
     {
      "effect": "attack-bar",
-     "quantity": 10,
+     "quantity": 25,
      "aoe": false,
      "self": true,
      "single": false,
@@ -10763,14 +20556,14 @@
    "name": "Magic Interpretation (Passive)",
    "slot": 2,
    "passive": true,
-   "description": "After you attack, recovers your HP by 10% per enemy granted with a harmful effect among the targets you attacked. In addition, when an enemy granted with a harmful effect gains a turn, increases your Attack Bar by 10%. [Automatic Effect]",
+   "description": "After you attack, recovers your HP by 10% per enemy granted with a harmful effect among the targets you attacked. In addition, when an enemy granted with a harmful effect gains a turn, increases your Attack Bar by 25%. [Automatic Effect]",
    "recoveryUpgrades": [
     0
    ],
    "effects": [
     {
      "effect": "attack-bar",
-     "quantity": 10,
+     "quantity": 25,
      "aoe": false,
      "self": true,
      "single": false,
@@ -10784,14 +20577,14 @@
    "name": "Magic Interpretation (Passive)",
    "slot": 2,
    "passive": true,
-   "description": "After you attack, recovers your HP by 10% per enemy granted with a harmful effect among the targets you attacked. In addition, when an enemy granted with a harmful effect gains a turn, increases your Attack Bar by 10%. [Automatic Effect]",
+   "description": "After you attack, recovers your HP by 10% per enemy granted with a harmful effect among the targets you attacked. In addition, when an enemy granted with a harmful effect gains a turn, increases your Attack Bar by 25%. [Automatic Effect]",
    "recoveryUpgrades": [
     0
    ],
    "effects": [
     {
      "effect": "attack-bar",
-     "quantity": 10,
+     "quantity": 25,
      "aoe": false,
      "self": true,
      "single": false,
@@ -11073,12 +20866,12 @@
    "name": "Ally Cover (Passive)",
    "slot": 3,
    "passive": true,
-   "description": "Grants Reflect Harmful Effect on all allies for 1 turn at the start of your turn, and decreases the damage that other allies receive by 20%. In addition, increases your Attack Bar by 10% when an ally, including yourself, is attacked. This does not accumulate with other damage reduction effects. [Automatic Effect]",
+   "description": "Grants Reflect Harmful Effect on all allies for 1 turn at the start of your turn. In addition, increases your Attack Bar by 5% whenever an ally (including yourself) is attacked and decreases the damage other allies receive by 10%. This does not accumulate with other damage reduction effects. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
     {
      "effect": "attack-bar",
-     "quantity": 15,
+     "quantity": 5,
      "aoe": false,
      "self": true,
      "single": false,

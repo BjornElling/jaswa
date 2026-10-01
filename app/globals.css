@@ -6275,9 +6275,10 @@ th.align-center .sort-button { justify-content: center; }
    explains why the editor reads differently. */
 .speed-summary-state { grid-area: state; min-width: 0; color: var(--text-muted); overflow-wrap: anywhere; }
 
-/* One dungeon team as a draft. Narrower than the monster panel: it holds one
-   team's table, which reads best at the width it has on a card. */
-.dialog.speed-team-overlay { width: min(760px, 100%); }
+/* One team as a draft. Wide enough that every column of its table — the
+   leader, three speeds, the controls — has air around it, and the verdict
+   under a monster's name has room to be read whole. */
+.dialog.speed-team-overlay { width: min(1040px, 100%); }
 .speed-overlay-head {
   display: flex; justify-content: space-between; align-items: end; gap: var(--s4);
   padding: var(--s5) var(--s5) var(--s4);
@@ -6332,17 +6333,17 @@ th.align-center .sort-button { justify-content: center; }
    and the facts below come in a fixed number — so reordering, adding or
    fixing a monster moves nothing else in the overlay (AGENTS.md §2). */
 .speed-team-editor { display: grid; gap: var(--s3); min-width: 0; }
-.speed-team-settings { display: grid; grid-template-columns: minmax(0, 1fr) max-content; gap: var(--s3); align-items: end; }
-.speed-team-leader { display: grid; gap: var(--s1); min-width: 0; }
+.speed-team-settings { display: flex; align-items: center; gap: var(--s3); }
 .speed-team-margin { display: flex; align-items: center; gap: var(--s2); }
 .speed-margin-select { width: 20ch; }
-.speed-team-leader-note { margin: 0; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .speed-team-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .speed-col-order { width: 3ch; }
-.speed-col-speed { width: 7ch; }
-.speed-col-what-if { width: 8ch; }
-.speed-col-controls { width: 84px; }
+.speed-col-leader { width: 20ch; }
+.speed-col-speed { width: 15ch; }
+.speed-col-what-if { width: 10ch; }
+.speed-col-controls { width: 108px; }
+.speed-team-table thead th.align-center { text-align: center; }
 .speed-team-table thead th {
   padding: 0 var(--s1) var(--s2);
   border-bottom: 1px solid var(--line);
@@ -6407,8 +6408,19 @@ th.align-center .sort-button { justify-content: center; }
 .speed-icon-button:disabled { opacity: .35; cursor: default; }
 .speed-icon { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .speed-slot-empty td { color: var(--text-muted); }
-.speed-empty-slot { color: var(--text-muted); }
-.speed-add-monster { height: 32px; }
+.speed-add-monster { width: 32ch; max-width: 100%; height: 32px; }
+
+/* The tick above, the lead it brings below, both centred in the column so a
+   team's leader reads down one line. Only colour tells the states apart:
+   muted at rest, full ink once chosen, red where the lead does not count. */
+.speed-leader-cell { text-align: center; }
+.speed-leader { display: inline-grid; justify-items: center; gap: var(--s1); max-width: 100%; cursor: pointer; }
+.speed-leader input { width: 16px; height: 16px; margin: 0; accent-color: var(--text-accent); cursor: pointer; }
+.speed-leader input:disabled { cursor: default; }
+.speed-leader:has(input:disabled) { cursor: default; }
+.speed-leader-skill { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--text-muted); }
+.speed-leader-skill[data-state='chosen'] { color: var(--text-strong); }
+.speed-leader-skill[data-state='bad'] { color: var(--state-bad); }
 
 .speed-team-status { margin: 0; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .speed-team-status[data-state='good'] { color: var(--state-good); }
@@ -6509,7 +6521,6 @@ th.align-center .sort-button { justify-content: center; }
   border-bottom: 1px solid var(--line);
 }
 .speed-turn-head h2 { color: var(--text-accent); }
-.dialog .speed-turn-note { margin: var(--s2) 0 0; color: var(--text-muted); line-height: 1.5; }
 .speed-turn-views { display: flex; gap: var(--s1); flex: 0 0 auto; }
 .speed-turn-body { overflow: auto; padding: var(--s5); display: grid; gap: var(--s5); align-content: start; }
 

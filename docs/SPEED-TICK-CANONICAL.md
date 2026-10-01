@@ -80,7 +80,11 @@ not in the import and counts it as 0 %.
 
 ### 2.2 Leader skills
 
-Read from Swarfarm (`leader_skill` with `attribute: "Attack Speed"`). Where one counts:
+Read from Swarfarm (`leader_skill`). Only `attribute: "Attack Speed"` changes a
+combat speed, but the snapshot keeps every lead, because the team editor names
+whatever a monster leads with and marks a lead that does not count where the
+team is going. The table holds for every attribute (`leaderAreaReaches`). Where
+one counts:
 
 | Area | Arena | Dungeons |
 | --- | --- | --- |

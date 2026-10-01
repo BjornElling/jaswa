@@ -18,10 +18,10 @@
  */
 import assert from 'node:assert/strict';
 import {
-  buffedCombatSpeed, combatSpeed, displaySpeed, displayedSwiftBonus, everyoneMoved, leaderSpeedPercent,
+  buffedCombatSpeed, combatSpeed, displaySpeed, displayedSwiftBonus, everyoneMoved, leaderAreaReaches, leaderSpeedPercent,
   runeSpeedForDisplay, simulateBattle, ticksToFirstTurn, totemPercentByLevel,
 } from '../app/lib/speed-tick.ts';
-import { describeTurnEffect, speedLeaderSkill, speedSkillProfile } from '../app/lib/speed-skills.ts';
+import { describeTurnEffect, leaderSkill, shortLeaderSkill, speedLeaderSkill, speedSkillProfile } from '../app/lib/speed-skills.ts';
 import { dungeonIds, speedContent, speedContents } from '../app/lib/speed-contents.ts';
 import { readSpeedTeam } from '../app/lib/speed-tuning-analysis.ts';
 import { isSpeedTuningPreferences } from '../app/lib/speed-tuning-preferences.ts';
@@ -56,6 +56,14 @@ check(leaderSpeedPercent({ percent: 28, area: 'Dungeon', element: null }, 'dunge
 check(leaderSpeedPercent({ percent: 33, area: 'Guild', element: null }, 'arena', 'Fire') === 0, 'a guild lead counts in neither');
 check(leaderSpeedPercent({ percent: 30, area: 'Element', element: 'Wind' }, 'arena', 'Fire') === 0, 'an element lead skips other elements');
 check(leaderSpeedPercent({ percent: 30, area: 'Element', element: 'Wind' }, 'dungeon', 'Wind') === 30, 'an element lead reaches its element everywhere');
+/* Where a lead counts is one rule for every attribute: the speed figure above
+   and the editor's red mark must agree. */
+for (const leaderArea of ['General', 'Arena', 'Dungeon', 'Guild', 'Element']) {
+  for (const area of ['arena', 'dungeon']) {
+    const counts = leaderSpeedPercent({ percent: 10, area: leaderArea, element: 'Fire' }, area, 'Fire') > 0;
+    check(leaderAreaReaches(leaderArea, area) === counts, `${leaderArea} lead in ${area}: reach and speed agree`);
+  }
+}
 
 /* 2. The clock. */
 for (const [speed, ticks] of [[1429, 1], [715, 2], [477, 3], [358, 4], [286, 5], [285, 6], [239, 6], [143, 10]]) {
@@ -95,6 +103,7 @@ const unit = (key, speed, effects = [], side = 'ally') => ({ key, side, speed, b
 /* 3. The data. */
 check(speedLeaderSkill(14712)?.percent === 28 && speedLeaderSkill(14712)?.area === 'Dungeon', 'Verdehile leads +28 % in dungeons');
 check(speedLeaderSkill(11533) === null, 'Bernard has no speed lead');
+check(shortLeaderSkill(leaderSkill(14712)) === 'SPD 28 % · Dungeon', 'a lead is abbreviated as the editor shows it');
 {
   const bernard = speedSkillProfile({ skills: [[2553, 3], [2558, 2], [2563, 3]] });
   check(bernard.effects.some((effect) => effect.kind === 'allies-attack-bar' && effect.amount === 3450), 'Tailwind at level 3 boosts 34.5 %');

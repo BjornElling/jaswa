@@ -145,8 +145,19 @@ test('tunes a dungeon team, explains every miss, and keeps the card still', asyn
   await whatIf.fill('120');
 
   /* A leader counts only where it reaches; a dungeon lead does here. */
-  await saved.getByLabel('Leader').selectOption({ label: 'Verdehile — +28 % attack speed in dungeons' });
-  await expect(saved.getByText('+28 % attack speed in dungeons.')).toBeVisible();
+  const verdehileLeads = saved.getByRole('checkbox', { name: "Verdehile leads Giant's Keep team #1" });
+  const verdehileLead = saved.locator('.speed-slot').filter({ has: page.getByRole('checkbox', { name: "Verdehile leads Giant's Keep team #1" }) }).locator('.speed-leader-skill');
+  await expect(verdehileLead).toHaveText('SPD 28 % · Dungeon');
+  await expect(verdehileLead).toHaveAttribute('data-state', 'idle');
+  const leaderBox = await box(verdehileLead);
+  await verdehileLeads.check();
+  await expect(verdehileLead).toHaveAttribute('data-state', 'chosen');
+  expect(await box(verdehileLead)).toEqual(leaderBox);
+  /* Every lead is named, speed or not; one that does not reach a dungeon is marked. */
+  const meganLead = saved.locator('.speed-slot').filter({ has: page.getByRole('checkbox', { name: "Megan (2A) leads Giant's Keep team #1" }) })
+    .locator('.speed-leader-skill');
+  await expect(meganLead).toHaveText('ATK 21 % · Arena');
+  await expect(meganLead).toHaveAttribute('data-state', 'bad');
   await expect(saved.locator('.speed-combat').first()).toHaveText('201');
 
   /* The margin names its own failure, apart from order. */
@@ -211,7 +222,7 @@ test('tunes a dungeon team, explains every miss, and keeps the card still', asyn
   await page.getByRole('button', { name: /^Giant's Keep team #1:/ }).click();
   const reloaded = page.getByRole('dialog', { name: "Giant's Keep team #1" });
   await expect(reloaded.getByLabel("What-if display speed for Megan (2A) in Giant's Keep team #1")).toHaveValue('120');
-  await expect(reloaded.getByLabel('Leader')).toHaveValue('3');
+  await expect(reloaded.getByRole('checkbox', { name: "Verdehile leads Giant's Keep team #1" })).toBeChecked();
   await expect(reloaded.getByRole('checkbox', { name: 'Add speed margin' })).toBeChecked();
 
   await reloaded.getByRole('button', { name: 'Close' }).click();

@@ -6,7 +6,8 @@ import { MonsterLink } from './monster-link';
 import type { OpenMonsterOverlay } from './monster-link';
 import { formatNumber } from '../lib/formatting';
 import type { MonsterCopyName } from '../lib/monster-names';
-import { boostsAllies, describeLeaderSkill, describeTurnEffect, speedLeaderSkill } from '../lib/speed-skills';
+import { boostsAllies, describeLeaderSkill, describeTurnEffect, leaderSkill, shortLeaderSkill } from '../lib/speed-skills';
+import { leaderAreaReaches } from '../lib/speed-tick';
 import { combatSpeedName, displaySpeedIntervalText, hasWhatIf, outOfPlaceCount } from '../lib/speed-tuning-analysis';
 import type { MemberReading, TeamReading } from '../lib/speed-tuning-analysis';
 import { speedMarginMaximum, whatIfDisplaySpeedMaximum } from '../lib/speed-tuning-preferences';
@@ -146,8 +147,10 @@ export function SpeedTeamEditor({ reading, worn, title, names, choices, general,
   const tried = hasWhatIf(team);
   const wornNote = !tried ? '' : worn.perfect ? ' · in place with the runes worn'
     : ` · ${outOfPlaceCount(worn)} of ${worn.members.length} with the runes worn`;
+  /* An empty team says nothing; the line keeps its height so the first
+     monster does not push the turn order down. */
   const status = team.members.length === 0
-    ? 'Add the monsters, then drag them into the order they should move.'
+    ? ' '
     : reading.missingUnitIds.length
       ? `${reading.missingUnitIds.length} saved monster${reading.missingUnitIds.length === 1 ? ' is' : 's are'} not in this import.`
       : tried
@@ -155,26 +158,10 @@ export function SpeedTeamEditor({ reading, worn, title, names, choices, general,
         : reading.perfect ? 'Perfect tune: everyone moves where you put them.'
           : `${outOfPlaceCount(reading)} of ${reading.members.length} out of place.`;
   const statusState = team.members.length === 0 ? 'none' : reading.perfect && !reading.missingUnitIds.length ? 'good' : 'bad';
-
-  const leaderOptions = team.members.filter((member) => readingById.has(member.unitId));
-  const leaderReading = reading.leader;
+  const contentWord = content.area === 'arena' ? 'Arena' : 'Dungeon';
 
   return <div className="speed-team-editor">
     <div className="speed-team-settings">
-      <div className="speed-team-leader">
-        <label className="filter-label" htmlFor={`${team.id}-leader`}>Leader</label>
-        <Dropdown id={`${team.id}-leader`} value={team.leaderUnitId ?? ''}
-          onChange={(event) => onChange((current) => ({ ...current, leaderUnitId: event.target.value || null }))}>
-          <option value="">No leader</option>
-          {leaderOptions.map((member) => {
-            const monster = readingById.get(member.unitId);
-            const skill = monster ? speedLeaderSkill(monster.masterId) : null;
-            return <option key={member.unitId} value={member.unitId}>
-              {names[member.unitId]?.name ?? member.unitId}{skill ? ` — ${describeLeaderSkill(skill)}` : ' — no speed lead'}
-            </option>;
-          })}
-        </Dropdown>
-      </div>
       <div className="speed-team-margin">
         <CheckboxRow label="Add speed margin" checked={team.marginEnabled}
           onChange={(checked) => onChange((current) => ({ ...current, marginEnabled: checked }))} />
@@ -187,32 +174,25 @@ export function SpeedTeamEditor({ reading, worn, title, names, choices, general,
         </Dropdown>
       </div>
     </div>
-    <p className="speed-team-leader-note type-caption">
-      {leaderReading === null
-        ? 'No leader skill counted.'
-        : leaderReading.skill === null
-          ? `${names[leaderReading.unitId]?.name ?? 'The leader'} has no speed lead.`
-          : `${describeLeaderSkill(leaderReading.skill)}${(leaderReading.skill.area === 'Arena' && content.area !== 'arena')
-            || (leaderReading.skill.area === 'Dungeon' && content.area !== 'dungeon') || leaderReading.skill.area === 'Guild'
-            ? ' — does not count here' : ''}.`}
-    </p>
-
     <table className="speed-team-table">
       <colgroup>
-        <col className="speed-col-order" /><col className="speed-col-monster" /><col className="speed-col-speed" />
-        <col className="speed-col-what-if" /><col className="speed-col-speed" /><col className="speed-col-controls" />
+        <col className="speed-col-order" /><col className="speed-col-monster" /><col className="speed-col-leader" />
+        <col className="speed-col-speed" /><col className="speed-col-what-if" /><col className="speed-col-speed" />
+        <col className="speed-col-controls" />
       </colgroup>
       <thead><tr>
         <th scope="col">#</th>
         <th scope="col">Monster</th>
-        <th scope="col" className="align-right"><span aria-label="Display speed from the import">Display</span></th>
-        <th scope="col" className="align-right"><span aria-label="What-if display speed for this team">What if</span></th>
-        <th scope="col" className="align-right">{content.area === 'arena' ? 'Arena' : 'Dungeon'}</th>
+        <th scope="col" className="align-center">Leader</th>
+        <th scope="col" className="align-right">Display speed</th>
+        <th scope="col" className="align-right">What if</th>
+        <th scope="col" className="align-right">{contentWord} speed</th>
         <th scope="col"><span className="visually-hidden">Move or remove</span></th>
       </tr></thead>
       {/* One body per slot, two rows each: the figures, and under them the
-          verdict across the full width, where an interval has room to be read
-          whole. Grouping the pair keeps a dragged monster and its verdict one unit. */}
+          verdict, where an interval has room to be read whole. The order and
+          the leader span both, so a slot reads as one unit, and grouping the
+          pair keeps a dragged monster and its verdict together. */}
       {Array.from({ length: content.teamSize }, (_, at) => {
         const member = team.members[at];
         if (!member) {
@@ -220,15 +200,14 @@ export function SpeedTeamEditor({ reading, worn, title, names, choices, general,
           return <tbody key={`empty-${at}`} className="speed-slot speed-slot-empty">
             <tr className="speed-row">
               <td className="speed-order" rowSpan={2}>{at + 1}</td>
-              <td colSpan={5}>
-                {firstEmpty && !full
-                  ? <Dropdown aria-label={`Add a monster to ${title}`} value="" placeholder="Add a monster"
-                    className="speed-add-monster"
-                    onChange={(event) => { if (event.target.value) onAddMonster(event.target.value); }}>
-                    {choices.map((choice) => <option key={choice.unitId} value={choice.unitId}>{choice.name}</option>)}
-                  </Dropdown>
-                  : <span className="speed-empty-slot type-caption">Empty slot</span>}
+              <td className="speed-add-cell" rowSpan={2}>
+                {firstEmpty && !full && <Dropdown aria-label={`Add a monster to ${title}`} value="" placeholder="Add a monster"
+                  className="speed-add-monster"
+                  onChange={(event) => { if (event.target.value) onAddMonster(event.target.value); }}>
+                  {choices.map((choice) => <option key={choice.unitId} value={choice.unitId}>{choice.name}</option>)}
+                </Dropdown>}
               </td>
+              <td colSpan={5} />
             </tr>
             <tr className="speed-verdict-row"><td colSpan={5} /></tr>
           </tbody>;
@@ -247,14 +226,17 @@ export function SpeedTeamEditor({ reading, worn, title, names, choices, general,
           return <tbody key={member.unitId} className="speed-slot">
             <tr className="speed-row">
               <td className="speed-order" rowSpan={2}>{at + 1}</td>
-              <td colSpan={4}><span className="speed-monster-name muted">Not in this import</span></td>
+              <td><span className="speed-monster-name muted">Not in this import</span></td>
+              <td rowSpan={2} />
+              <td colSpan={3} />
               {controls}
             </tr>
-            <tr className="speed-verdict-row"><td colSpan={5}>
-              <span className="speed-verdict type-caption" data-state="bad">Import the account again, or remove this slot.</span>
-            </td></tr>
+            <tr className="speed-verdict-row"><td /><td colSpan={4} /></tr>
           </tbody>;
         }
+        const lead = leaderSkill(monster.masterId);
+        const leads = team.leaderUnitId === member.unitId;
+        const reaches = lead !== null && leaderAreaReaches(lead.area, content.area);
         const { used, uncounted } = monster.profile;
         const boostLabel = [
           used.length ? `${used.map((skill) => `${skill.name}: ${skill.effects.map(describeTurnEffect).join(', ')}`).join('; ')} — counted on every turn` : '',
@@ -281,6 +263,19 @@ export function SpeedTeamEditor({ reading, worn, title, names, choices, general,
                 </span>
               </span>
             </td>
+            {/* One leader per team: ticking another moves the lead, ticking the
+                leader again leaves the team without one. A lead that does not
+                count here says so in red; a monster with no lead has nothing to tick. */}
+            <td className="speed-leader-cell" rowSpan={2}>
+              <label className="speed-leader" title={lead ? describeLeaderSkill(lead) : undefined}>
+                <input type="checkbox" checked={leads} disabled={lead === null && !leads}
+                  aria-label={`${name} leads ${title}`}
+                  onChange={(event) => onChange((current) => ({ ...current, leaderUnitId: event.target.checked ? member.unitId : null }))} />
+                <span className="speed-leader-skill" data-state={lead === null ? 'none' : reaches ? (leads ? 'chosen' : 'idle') : 'bad'}>
+                  {lead ? shortLeaderSkill(lead) : '—'}
+                </span>
+              </label>
+            </td>
             <td className="speed-figure">{formatNumber(monster.importedDisplaySpeed, general)}</td>
             <td className="speed-figure">
               <WhatIfField member={monster} label={`What-if display speed for ${name} in ${title}`}
@@ -291,9 +286,10 @@ export function SpeedTeamEditor({ reading, worn, title, names, choices, general,
             </td>
             {controls}
           </tr>
-          <tr className="speed-verdict-row"><td colSpan={5}>
-            <span className="speed-verdict type-caption" data-state={verdictState(monster)} title={verdict}>{verdict}</span>
-          </td></tr>
+          <tr className="speed-verdict-row">
+            <td><span className="speed-verdict type-caption" data-state={verdictState(monster)} title={verdict}>{verdict}</span></td>
+            <td colSpan={4} />
+          </tr>
         </tbody>;
       })}
     </table>

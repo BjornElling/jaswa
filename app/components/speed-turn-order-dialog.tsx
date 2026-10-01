@@ -66,10 +66,6 @@ export function SpeedTurnOrderDialog({ reading, title, names, general, onClose }
         <div>
           <p className="eyebrow">Turn order</p>
           <h2 id="speed-turn-title">{title}</h2>
-          <p className="speed-turn-note type-caption">
-            Every bar starts empty; each tick adds 7 % of its {speedName}; the fullest bar past 100 % moves, one monster per tick.
-            Every speed effect is counted on every turn.
-          </p>
         </div>
         <div className="speed-turn-views" role="group" aria-label="Choose what the team faces">
           {choices.map((choice) => <FilterButton key={choice.id} active={choice.id === view.id}

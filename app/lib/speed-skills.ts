@@ -33,17 +33,54 @@ type SnapshotSkill = {
   effects: SnapshotEffect[];
 };
 
-type SnapshotLeader = [com2usId: number, percent: number, area: LeaderArea, element: string | null];
+type SnapshotLeader = [com2usId: number, attribute: string, percent: number, area: LeaderArea, element: string | null];
 
-const leaderByMasterId = new Map((speedSkillData.leaders as SnapshotLeader[])
-  .map(([id, percent, area, element]) => [String(id), { percent, area, element }]));
+/* Swarfarm's name for each attribute a leader raises, and how the game's own
+   rune screen abbreviates it. */
+const leaderAttributes = {
+  'Attack Speed': { short: 'SPD', words: 'attack speed' },
+  'Attack Power': { short: 'ATK', words: 'attack power' },
+  Defense: { short: 'DEF', words: 'defense' },
+  HP: { short: 'HP', words: 'HP' },
+  'Critical Rate': { short: 'CRI Rate', words: 'critical rate' },
+  'Critical DMG': { short: 'CRI Dmg', words: 'critical damage' },
+  Resistance: { short: 'RES', words: 'resistance' },
+  Accuracy: { short: 'ACC', words: 'accuracy' },
+} as const;
+export type LeaderAttribute = keyof typeof leaderAttributes;
+
+/** What a monster leads with: any attribute, wherever it counts. */
+export type LeaderSkill = { attribute: LeaderAttribute; percent: number; area: LeaderArea; element: string | null };
+
+function isLeaderAttribute(value: string): value is LeaderAttribute {
+  return Object.hasOwn(leaderAttributes, value);
+}
+
+/* An attribute the table does not name fails here, at load, rather than
+   leaving a monster whose lead the editor cannot word. */
+const leaderByMasterId = new Map((speedSkillData.leaders as SnapshotLeader[]).map(([id, attribute, percent, area, element]) => {
+  if (!isLeaderAttribute(attribute)) throw new Error(`The speed snapshot gives monster ${id} a leader skill on an unknown attribute, ${attribute}.`);
+  return [String(id), { attribute, percent, area, element } satisfies LeaderSkill];
+}));
 
 const skillByCom2usId = new Map((speedSkillData.skills as SnapshotSkill[])
   .map((skill) => [skill.com2usId, skill]));
 
+/** This monster's leader skill, of whatever attribute, or `null` when it has none. */
+export function leaderSkill(masterId: unknown): LeaderSkill | null {
+  return leaderByMasterId.get(String(masterId ?? '')) ?? null;
+}
+
 /** This monster's speed leader skill, or `null` when it leads with something else. */
 export function speedLeaderSkill(masterId: unknown): SpeedLeaderSkill | null {
-  return leaderByMasterId.get(String(masterId ?? '')) ?? null;
+  const lead = leaderSkill(masterId);
+  return lead?.attribute === 'Attack Speed' ? { percent: lead.percent, area: lead.area, element: lead.element } : null;
+}
+
+/** The lead as a table cell names it: `SPD 24 %`, `ATK 33 % · Dungeon`, `HP 50 % · Water`. */
+export function shortLeaderSkill(lead: LeaderSkill): string {
+  const where = lead.area === 'General' ? '' : ` · ${lead.area === 'Element' ? lead.element ?? 'Element' : lead.area}`;
+  return `${leaderAttributes[lead.attribute].short} ${lead.percent} %${where}`;
 }
 
 const leaderAreaWords: Record<LeaderArea, string> = {
@@ -54,10 +91,11 @@ const leaderAreaWords: Record<LeaderArea, string> = {
   Element: 'on',
 };
 
-export function describeLeaderSkill(leader: SpeedLeaderSkill): string {
-  return leader.area === 'Element'
-    ? `+${leader.percent} % attack speed on ${leader.element ?? 'one element'} monsters`
-    : `+${leader.percent} % attack speed ${leaderAreaWords[leader.area]}`;
+export function describeLeaderSkill(lead: LeaderSkill): string {
+  const words = leaderAttributes[lead.attribute].words;
+  return lead.area === 'Element'
+    ? `+${lead.percent} % ${words} on ${lead.element ?? 'one element'} monsters`
+    : `+${lead.percent} % ${words} ${leaderAreaWords[lead.area]}`;
 }
 
 type Recipient = 'allies' | 'ally' | 'self';

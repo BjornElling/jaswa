@@ -31,6 +31,9 @@ const force = process.argv.includes('--force');
 const increaseAttackBar = 17;
 const increaseAttackSpeed = 5;
 
+/* Where Swarfarm says a leader skill counts; `speed-tick.ts` names the same five. */
+const leaderAreas = new Set(['General', 'Arena', 'Dungeon', 'Guild', 'Element']);
+
 /* The page's dungeons, as Swarfarm names them. Swarfarm files each Abyss as a
    dungeon of its own ("Giant's Keep (Abyss)"), with Normal and Hard as floors 1
    and 2 and `difficulty` left empty. The hardest floor is therefore the highest
@@ -150,11 +153,17 @@ async function main() {
     return;
   }
 
+  /* Every leader skill, not only speed: the team editor names whatever a
+     monster leads with, and says whether it counts where the team is going. An
+     area outside the vocabulary is a Swarfarm change to look at, not a lead to
+     file under the nearest one. */
   const leaders = [];
   await fetchAll('monsters/', (monster) => {
     const lead = monster.leader_skill;
-    if (!lead || lead.attribute !== 'Attack Speed') return;
-    leaders.push([monster.com2us_id, lead.amount, lead.area, lead.element ?? null]);
+    if (!lead) return;
+    if (!leaderAreas.has(lead.area)) throw new Error(`Swarfarm gives ${monster.name} (${monster.com2us_id}) a leader skill in an unknown area, ${JSON.stringify(lead.area)}. The existing snapshot was kept.`);
+    if (typeof lead.attribute !== 'string' || !Number.isFinite(lead.amount)) throw new Error(`Swarfarm's leader skill for ${monster.name} (${monster.com2us_id}) has no attribute or amount. The existing snapshot was kept.`);
+    leaders.push([monster.com2us_id, lead.attribute, lead.amount, lead.area, lead.element ?? null]);
   });
 
   const skills = [];
@@ -207,11 +216,12 @@ async function main() {
     source: api,
     retrievedAt,
     minimumDelayMs,
-    /* [com2us_id, percent, area, element] — one row per speed leader skill. */
+    /* [com2us_id, attribute, percent, area, element] — one row per leader skill. */
     leaders: leaders.sort((left, right) => left[0] - right[0]),
     skills: skills.sort((left, right) => left.com2usId - right.com2usId),
   });
-  console.log(`Wrote ${leaders.length} speed leaders and ${skills.length} skills to ${skillsPath}, and ${floors.length} dungeons to ${dungeonsPath}.`);
+  console.log(`Leader attributes: ${[...new Set(leaders.map((leader) => leader[1]))].sort().join(', ')}.`);
+  console.log(`Wrote ${leaders.length} leaders and ${skills.length} skills to ${skillsPath}, and ${floors.length} dungeons to ${dungeonsPath}.`);
 }
 
 async function writeSnapshot(path, snapshot) {

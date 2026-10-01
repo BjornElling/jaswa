@@ -53,13 +53,19 @@ export type SpeedLeaderSkill = { percent: number; area: LeaderArea; element: str
  * lead everywhere, but only on monsters of that element.
  */
 export function leaderSpeedPercent(leader: SpeedLeaderSkill | null, area: SpeedArea, memberElement: string | null): number {
-  if (leader === null) return 0;
-  switch (leader.area) {
-    case 'General': return leader.percent;
-    case 'Arena': return area === 'arena' ? leader.percent : 0;
-    case 'Dungeon': return area === 'dungeon' ? leader.percent : 0;
-    case 'Guild': return 0;
-    case 'Element': return leader.element !== null && leader.element === memberElement ? leader.percent : 0;
+  if (leader === null || !leaderAreaReaches(leader.area, area)) return 0;
+  if (leader.area === 'Element') return leader.element !== null && leader.element === memberElement ? leader.percent : 0;
+  return leader.percent;
+}
+
+/** Whether a lead of any attribute counts in this content at all. An Element
+    lead does, on the members of its element. */
+export function leaderAreaReaches(leaderArea: LeaderArea, area: SpeedArea): boolean {
+  switch (leaderArea) {
+    case 'General': case 'Element': return true;
+    case 'Arena': return area === 'arena';
+    case 'Dungeon': return area === 'dungeon';
+    case 'Guild': return false;
   }
 }
 
