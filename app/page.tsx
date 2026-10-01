@@ -1,7 +1,7 @@
 import { lazy, Suspense, type ChangeEvent, type DragEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { AppRail } from './components/app-rail';
 import { HomeSection } from './components/home-section';
-import { ImportBadge, ImportConfirmation } from './components/import-badge';
+import { CornerNotices, ImportBadge } from './components/import-badge';
 import { DirectImportModeDialog, LoadPreferencesDialog, RemoveGameDataDialog, ReplaceImportDialog, ReportDialog } from './components/import-dialogs';
 import { clearImportedGame, loadImportedGame, loadPreferences, saveImportedGame, savePreferences } from './lib/browser-storage';
 import { blankPreferences, createImportedGame, fileToText, importPreferencesFile, isValidImportedGame, readPreferences, validateGameFile } from './lib/file-imports';
@@ -172,6 +172,11 @@ export default function Home() {
     const interval = window.setInterval(() => void refreshHelper(), 2000);
     return () => { disposed = true; window.clearInterval(interval); };
   }, [preferences.directImportMode, preferences.importRoute, ready]);
+
+  /* The poll stops when the route leaves direct import, and the last answer it
+     gave stays in state. Read alone, that answer kept the update warning up on
+     the file route, where no helper is being asked anything. */
+  const helperUpdateDue = preferences.importRoute === 'direct' && helperConnection.updateAvailable;
 
   const monsters = useMemo(
     () => (Array.isArray(game?.data?.unit_list) ? game.data.unit_list : []) as GameRecord[],
@@ -478,8 +483,9 @@ export default function Home() {
 
     <section className="workspace">
       {game && <ImportBadge ref={importBadge} game={game} general={preferences.general} />}
-      {page === 'home' && importConfirmation && <ImportConfirmation
-        game={importConfirmation} general={preferences.general} below={importBadge} />}
+      {page === 'home' && <CornerNotices badge={importBadge} badgeShown={game !== null}
+        helperUpdate={helperUpdateDue}
+        confirmation={importConfirmation} general={preferences.general} />}
 
       {page === 'home' && <HomeSection
         game={game}

@@ -72,8 +72,12 @@ try {
   for (let attempt = 0; attempt < 30 && !(await readGame()); attempt += 1) await page.waitForTimeout(500);
   assert.equal((await readGame()).instanceId, instance);
   await page.screenshot({ path: 'outputs/helper-hardening/app-full-import.png', fullPage: true });
-  await page.locator('input[name="direct-import-mode"][value="live"]').click();
-  await page.getByRole('button', { name: 'Switch mode' }).click();
+  /* Live is the default, and choosing the mode already chosen asks nothing. */
+  const live = page.locator('input[name="direct-import-mode"][value="live"]');
+  if (!(await live.isChecked())) {
+    await live.click();
+    await page.getByRole('button', { name: 'Switch mode' }).click();
+  }
   instance = 'restarted-helper';
   for (let attempt = 0; attempt < 30 && (await readGame()).instanceId !== instance; attempt += 1) await page.waitForTimeout(500);
   assert.equal((await readGame()).instanceId, instance, 'a restarted helper with the same revision must import');

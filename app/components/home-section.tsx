@@ -6,7 +6,7 @@ import { detectGraphicsCard, disabledStatus } from '../lib/hardware-acceleration
 import type { AccelerationState, AccelerationStatus } from '../lib/hardware-acceleration';
 import { accelerationLabels, helperLabels } from '../lib/workspace-config';
 import { formatDateTime } from '../lib/formatting';
-import { recommendedHelperVersion } from '../lib/helper-version';
+import { HelperDownload } from './helper-download';
 import type { HelperConnection } from '../lib/helper-client';
 import type { DirectImportMode, GeneralSettings, ImportRoute, ImportedGame } from '../lib/types';
 
@@ -24,23 +24,6 @@ function AccelerationMark({ state }: { state: AccelerationState | 'restart' }) {
       {path && <path d={path} />}
     </svg>
   </span>;
-}
-
-/* The four-pane Windows mark, the badge a download row conventionally uses to
-   say which platform a file is for. Filled in `currentColor` so it takes the
-   button's colour through hover and the disabled state rather than staying lit
-   while the label around it dims. */
-function WindowsMark() {
-  return <svg className="button-mark" viewBox="0 0 16 16" width="13" height="13"
-    fill="currentColor" aria-hidden="true" focusable="false">
-    {/* Tilted panes: the top edges rise to the right and the left panes are
-        shorter, which is the perspective that reads as the Windows flag rather
-        than as a plain window grid. */}
-    <path d="M0 2.25 6.5 1.4v6.05H0z" />
-    <path d="M7.35 1.28 16 0v7.45H7.35z" />
-    <path d="M0 8.3h6.5v6.06L0 13.5z" />
-    <path d="M7.35 8.3H16V16l-8.65-1.24z" />
-  </svg>;
 }
 
 export function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLeave, onDrop, onRemove, hardwareAcceleration, onHardwareAcceleration, directImportMode, onDirectImportMode, importRoute, onImportRoute, helperConnection, general }: {
@@ -161,13 +144,8 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
             </p>
 
             <div className="route-download">
-              <a className="button important-action" href={`/JASWA-Helper-Setup-${recommendedHelperVersion}.exe`} download={`JASWA-Helper-Setup-${recommendedHelperVersion}.exe`}><WindowsMark />Download helper</a>
+              <HelperDownload />
             </div>
-
-            {helperConnection.updateAvailable && <section className="helper-version update-available" role="status" aria-live="polite" aria-label="Helper update available">
-              <h4>Helper is tired, boss</h4>
-              <p>You should let it rest and download the latest update. Version {recommendedHelperVersion} is now available.</p>
-            </section>}
 
             <section className={`statistics acceleration ${helperState} route-link`} role="status" aria-label="Helper program connection">
               <span className="helper-current-version" title="Running helper version">

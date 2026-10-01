@@ -296,7 +296,7 @@ label[for] {
 .drop-zone strong, .best-artifact-result h3, .best-artifact-current h3,
 .best-artifact-category h3, .best-artifact-current-slot-title,
 .best-monster-artifact-details h3, .craft-best-use-item h3, .empty-state h2,
-.field-lead > span, .helper-version h4, .overlay-block-title, .speed-basis-title,
+.field-lead > span, .overlay-block-title, .speed-basis-title,
 .overlay-facts dd, .rune-overlay-location .monster-name {
   font-family: var(--font-heading);
   font-size: var(--type-heading);
@@ -313,7 +313,7 @@ label[for] {
 .statistics-lead, .best-artifact-ranking, .best-artifact-empty,
 .best-artifact-fact dt, .statistics dt, .empty-state p,
 .empty-state .next-step, .section-intro p, .relic-property,
-.relic-synergy-label, .helper-version p, .route-qualifier, .rail-item,
+.relic-synergy-label, .route-qualifier, .rail-item,
 .page-tagline, .filter-button, .filter-summary, .list-count, .grid-footer,
 .choice, .choice-none, .choice-chip, .flag, .set-mark, .set-none,
 .token-choice-pill, .token-choice-more, .token-choice-option, .token-choice-empty,
@@ -575,8 +575,17 @@ label[for] {
    one's top, right, width and height from it, so the two stand as one column
    of two cards rather than as two cards that nearly agree. That is why the
    copy inside wraps and is centred rather than setting the width itself: the
-   width is the badge's to decide, and the badge is always the taller card. */
-.import-confirmation {
+   width is the badge's to decide, and the badge is always the taller card.
+
+   The helper warning is the same card in the machine's other verdict colour,
+   and hangs between the two: a standing problem outranks a passing success.
+   It differs in three ways, each because it stays. It scrolls with the page
+   like the badge, rather than following the window over content for as long
+   as the helper is old. Its height is its own, since its sentence is longer
+   than the badge's figures. And it takes clicks, because it holds the link to
+   the installer. */
+.import-confirmation, .helper-update {
+  --notice: var(--state-good);
   position: fixed;
   top: var(--s4);
   right: var(--s4);
@@ -586,32 +595,44 @@ label[for] {
   justify-content: center;
   margin: 0;
   padding: var(--s2) var(--s3);
-  border: 1px solid color-mix(in srgb, var(--state-good) 55%, var(--line-strong));
+  border: 1px solid color-mix(in srgb, var(--notice) 55%, var(--line-strong));
   border-radius: var(--radius);
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--state-good) 16%, transparent), transparent 78%),
+    linear-gradient(180deg, color-mix(in srgb, var(--notice) 16%, transparent), transparent 78%),
     color-mix(in srgb, var(--raise) 94%, transparent);
-  box-shadow: 0 var(--s3) var(--s6) color-mix(in srgb, var(--state-good) 12%, transparent);
+  box-shadow: 0 var(--s3) var(--s6) color-mix(in srgb, var(--notice) 12%, transparent);
   text-align: right;
   pointer-events: none;
-  animation: import-confirmation-leave 400ms ease 3.6s forwards;
+}
+.import-confirmation { animation: import-confirmation-leave 400ms ease 3.6s forwards; }
+/* With no badge above it the warning opens the corner at the badge's own inset,
+   at a width that holds its title on one line. */
+.helper-update {
+  --notice: var(--state-bad);
+  position: absolute;
+  right: var(--gutter);
+  z-index: 20;
+  width: calc(var(--s7) * 6);
+  pointer-events: auto;
 }
 /* Wrapping, not `nowrap` as the badge does: this card is given the badge's
    width, so a line it cannot fit has to fold inside the box rather than run out
    through the edge. The badge's third line is the slack that pays for it. */
-.import-confirmation p { margin: 0; }
-.import-confirmation-title {
+.import-confirmation p, .helper-update p { margin: 0; }
+/* The card's one action, closing it on the same right edge as its text. */
+.helper-update-action { display: flex; justify-content: end; margin-top: var(--s2); }
+.corner-notice-title {
   display: flex;
   align-items: center;
   justify-content: end;
   gap: var(--s2);
-  color: var(--state-good);
+  color: var(--notice);
   font-family: var(--font-body);
   font-size: var(--type-body);
   font-weight: 600;
 }
-.import-confirmation-title svg { flex: 0 0 auto; }
-.import-confirmation-count {
+.corner-notice-title svg { flex: 0 0 auto; }
+.corner-notice-detail {
   margin-top: var(--s1) !important;
   color: var(--text);
   font-family: var(--font-body);
@@ -4270,35 +4291,6 @@ label[for] {
   display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap;
 }
 
-/* The warning is deliberately absent when the connected helper is current: a
-   healthy version check should leave no extra box behind on the home page. */
-.helper-version {
-  display: grid;
-  gap: var(--s2);
-  padding: var(--s3) var(--s4);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--sunk);
-}
-.helper-version.update-available {
-  border-color: var(--text-accent);
-  background:
-    linear-gradient(180deg, rgba(217, 173, 82, .12), transparent 85%),
-    var(--sunk);
-}
-.helper-version h4 {
-  margin: 0;
-  color: var(--text-accent);
-  }
-.helper-version p {
-  margin: 0;
-  min-height: 2.8em;
-  overflow: hidden;
-  color: var(--text);
-  line-height: 1.4;
-}
-.helper-version.update-available p { color: var(--text-strong); }
-
 /* The verdict card is a full-width block in the aside it was written for; here
    it sits in a column of its own content and takes the column's width. */
 .statistics.acceleration.route-link { width: 100%; position: relative; }
@@ -5643,6 +5635,12 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   /* the figures are wider than a narrow screen, so here they are allowed to
      fall onto as many lines as they need */
   .import-badge p { white-space: normal; }
+  .helper-update {
+    position: static;
+    justify-self: end;
+    width: auto;
+    margin: var(--s3) var(--gutter) 0;
+  }
 }
 
 /* ------------------------------------------------- general settings */
