@@ -387,7 +387,6 @@ test('a rule is a reminder about one monster, judged in the speed forms it is ch
   await page.screenshot({ path: testInfo.outputPath('speed-rules-page.png'), fullPage: true });
 
   /* A rule reaches no team: a team's editor says nothing of it. */
-  const arena = page.getByRole('region', { name: 'Arena offence' });
   await addFromMenu(page, 'Arena team');
   await page.getByRole('dialog').getByLabel('Add a monster to Arena team #1').selectOption({ label: 'Megan (2A)' });
   await expect(page.getByRole('dialog')).not.toContainText('rule');

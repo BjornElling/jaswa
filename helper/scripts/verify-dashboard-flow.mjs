@@ -49,6 +49,10 @@ try {
           return { deliberately: 'not a text result' };
         }
         if (command === 'save_error_report') return 'Saved a private error report. Send it to the developer.';
+        if (command === 'download_json') {
+          if (window.downloadFailure) throw window.downloadFailure;
+          return 'Saved Culpa-1.json to your Downloads folder.';
+        }
         return null;
       },
     };
@@ -138,6 +142,23 @@ try {
   await page.getByRole('button', { name: 'Download JSON' }).click();
   assert.ok(await page.evaluate(() => window.commands.includes('download_json')),
     'the captured-account action must reach the SWEX-compatible download command');
+  /* A second download overwrites the same file and replies with the same
+     words. It still has to answer: collapsed as a repeat, the click looked
+     dead. */
+  const saved = page.locator('.activity-text').filter({ hasText: 'Saved Culpa-1.json' });
+  await saved.first().waitFor();
+  await page.getByRole('button', { name: 'Download JSON' }).click();
+  await page.waitForFunction(() => [...document.querySelectorAll('.activity-text')]
+    .filter((node) => node.textContent.startsWith('Saved Culpa-1.json')).length === 2);
+  /* A refusal is written in the failure colour, not the trail's grey. */
+  await page.evaluate(() => { window.downloadFailure = 'Windows could not find your Downloads folder.'; });
+  await page.getByRole('button', { name: 'Download JSON' }).click();
+  const refused = page.locator('.activity-error .activity-text').filter({ hasText: 'could not find your Downloads folder' });
+  await refused.waitFor();
+  assert.notEqual(await refused.evaluate((node) => getComputedStyle(node).color),
+    await saved.first().evaluate((node) => getComputedStyle(node).color));
+  await page.evaluate(() => { window.downloadFailure = undefined; });
+  await page.screenshot({ path: resolve(output, 'helper-download-refused.png'), fullPage: true });
   assert.deepEqual(await boxes(), before);
   await state(
     { hasProfile: true, profileReady: true, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: null, source: 'live' },
@@ -171,7 +192,7 @@ try {
     false, 'long errors scroll inside their own boxes, never the window');
   await page.screenshot({ path: resolve(output, 'helper-full-errors.png'), fullPage: true });
   await page.evaluate(() => { window.statusFailure = true; });
-  await page.getByRole('status').filter({ hasText: 'Backend status failed' }).waitFor();
+  await page.locator('.activity-error').filter({ hasText: 'Backend status failed' }).waitFor();
   assert.deepEqual(await boxes(), before);
   await page.screenshot({ path: resolve(output, 'helper-status-failure.png'), fullPage: true });
 

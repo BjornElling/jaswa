@@ -219,14 +219,26 @@ function TitleBar({ version }: { version: string | null }) {
    at the very bottom with an empty stretch of window above it. Both are
    records of something happening, so both belong in one titled, timestamped
    list — which also fills the space the strip left. */
-type Entry = { id: number; at: string; text: string };
+type Tone = 'note' | 'error';
+type Entry = { id: number; at: string; text: string; tone: Tone };
+
+/** How a line enters the list. `answer` marks the reply to a click: it is
+    always written, because a second Download JSON saves the same file under
+    the same name and its reply is word for word the first one's — dropped as
+    a repeat, the click looked like it had done nothing. Only what the poll
+    re-reads every second is collapsed. */
+type Say = { tone?: Tone; answer?: boolean };
 
 /** Newest first, capped: this is a running window's recent activity, not a
     file. The diagnostic log is the file, and it has its own button. */
-function remember(entries: Entry[], text: string): Entry[] {
-  if (entries[0]?.text === text) return entries;
+function remember(entries: Entry[], text: string, { tone = 'note', answer = false }: Say): Entry[] {
+  if (!answer && entries[0]?.text === text) return entries;
   const at = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  return [{ id: (entries[0]?.id ?? 0) + 1, at, text }, ...entries].slice(0, 50);
+  return [{ id: (entries[0]?.id ?? 0) + 1, at, text, tone }, ...entries].slice(0, 50);
+}
+
+function failure(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 /** The capture light: a ring that reads as a state, with its name beside it. */
@@ -244,7 +256,7 @@ export function App() {
   const busy = useRef(false);
   const polling = useRef(false);
   const [activity, setActivity] = useState<Entry[]>([]);
-  const note = useCallback((text: string) => setActivity((entries) => remember(entries, text)), []);
+  const note = useCallback((text: string, say: Say = {}) => setActivity((entries) => remember(entries, text, say)), []);
 
   const refresh = useCallback(async () => {
     if (polling.current) return;
@@ -255,7 +267,7 @@ export function App() {
       setDashboard(value);
     } catch (error) {
       setDashboard(null);
-      note(error instanceof Error ? error.message : String(error));
+      note(failure(error), { tone: 'error' });
     } finally { polling.current = false; }
   }, [note]);
 
@@ -272,10 +284,10 @@ export function App() {
       const result = await invoke<unknown>(command, args);
       // Only a command's own words belong in the activity list. Anything else a
       // command returns is state the next refresh reads, not text to show.
-      if (typeof result === 'string' && result) note(result);
+      if (typeof result === 'string' && result) note(result, { answer: true });
       await refresh();
     } catch (error) {
-      note(error instanceof Error ? error.message : String(error));
+      note(failure(error), { tone: 'error', answer: true });
     } finally { busy.current = false; }
   }, [refresh, note]);
 
@@ -305,9 +317,12 @@ export function App() {
      showing the explanation in full, and repeating it here made one state
      change fill the box. An error is the exception: it is the one detail the
      card may have to scroll to show, and the one worth copying out. */
-  useEffect(() => { if (trafficNote) note(trafficNote); }, [trafficNote, note]);
+  const trafficFailed = Boolean(traffic?.lastError);
   useEffect(() => {
-    note(now.state === 'bad' ? `${now.headline} — ${now.detail}` : now.headline);
+    if (trafficNote) note(trafficNote, { tone: trafficFailed ? 'error' : 'note' });
+  }, [trafficNote, trafficFailed, note]);
+  useEffect(() => {
+    note(now.state === 'bad' ? `${now.headline} — ${now.detail}` : now.headline, { tone: now.state === 'bad' ? 'error' : 'note' });
   }, [now.state, now.headline, now.detail, note]);
 
   async function toggleTraffic() {
@@ -370,7 +385,7 @@ export function App() {
           {activity.length === 0
             ? <li className="activity-empty">Nothing to report yet. What the helper does — and anything it saves for you — is listed here.</li>
             : activity.map((entry) => (
-              <li key={entry.id}>
+              <li key={entry.id} className={entry.tone === 'error' ? 'activity-error' : undefined}>
                 <span className="activity-time">{entry.at}</span>
                 <span className="activity-text">{entry.text}</span>
               </li>

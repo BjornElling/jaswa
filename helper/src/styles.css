@@ -465,6 +465,12 @@ button:disabled { color: var(--ghost); border-color: var(--line); background: va
    it. One step of contrast separates them — no second accent, no rule. */
 .activity-list li:first-child .activity-text { color: var(--dim); }
 .activity-text { color: var(--faint); }
+/* Something the helper tried and could not do. The verdict red, muted toward
+   the trail's grey so a failure reads as one at a glance without outshouting
+   the capture card; the newest one takes the same contrast step as any other.
+   Colour only — the words already say what failed. */
+.activity-list li.activity-error .activity-text { color: color-mix(in srgb, var(--state-bad) 48%, var(--faint)); }
+.activity-list li.activity-error:first-child .activity-text { color: color-mix(in srgb, var(--state-bad) 60%, var(--dim)); }
 
 .activity-time {
   font-family: var(--mono);
