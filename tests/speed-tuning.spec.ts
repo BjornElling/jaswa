@@ -50,7 +50,7 @@ test('tunes a dungeon team, explains every miss, and keeps the card still', asyn
   await openSpeedTuning(page);
 
   /* Nothing is shipped: the page opens empty, with the account's own totem. */
-  await expect(page.getByText('Level 20 of 20 · +15 % of base speed')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Sky Tribe Totem' })).toContainText('Level 20 of 20+15 % of base speed');
   await expect(page.getByText('No dungeon teams yet.', { exact: false })).toBeVisible();
   await expect(page.getByText('No arena teams yet.', { exact: false })).toBeVisible();
   await expect(page.getByText('No rules yet.', { exact: false })).toBeVisible();
@@ -224,9 +224,10 @@ test('arena teams are numbered, face a worst-case enemy, and rules reach them', 
   await expect(page.getByText('speed-account.json')).toBeVisible();
   await openSpeedTuning(page);
 
-  /* The page states only the account's totem and how a combat speed is made. */
-  const basis = page.getByRole('region', { name: 'What every speed on this page counts' });
-  await expect(basis).toContainText('Level 20 of 20 · +15 % of base speed');
+  /* Above the columns the page states only what belongs to the account: the totem. */
+  const basis = page.getByRole('region', { name: 'Sky Tribe Totem' });
+  await expect(basis.locator('.speed-basis-level')).toHaveText('Level 20 of 20');
+  await expect(basis.locator('.speed-basis-bonus')).toHaveText('+15 % of base speed');
   await expect(basis).not.toContainText('Speed buff');
 
   /* An arena team is drafted in the same overlay, with no dungeon to choose. */

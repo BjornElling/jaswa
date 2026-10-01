@@ -331,26 +331,21 @@ function SpeedHeader() {
 
 /**
  * The one thing every figure on the page counts that belongs to the account
- * rather than to a team — the totem — and how a combat speed is made from it.
- * Everything else that moves a turn belongs to one monster or one team (a
+ * rather than to a team: the totem. Everything else that moves a turn belongs to one monster or one team (a
  * leader skill, a skill that boosts or buffs) and is read where that monster
  * or team is.
  */
 function SpeedBasis({ totem, general }: { totem: ReturnType<typeof readSkyTribeTotem>; general: Preferences['general'] }) {
-  const totemText = totem.state === 'built'
-    ? `Level ${totem.level} of ${totemMaximumLevel} · +${formatNumber(totem.percent, general)} % of base speed`
-    : totem.state === 'not-built' ? 'Not built · +0 %' : 'Not in this import · counted as +0 %';
-  return <section className="speed-basis" aria-label="What every speed on this page counts">
-    <dl className="speed-basis-facts">
-      <div>
-        <dt className="filter-label">Sky Tribe Totem</dt>
-        <dd className="speed-basis-value">{totemText}</dd>
-      </div>
-      <div>
-        <dt className="filter-label">Combat speed</dt>
-        <dd className="speed-basis-value">Arena speed and dungeon speed are base × (1 + totem + leader + Swift) + rune speed, rounded up once.</dd>
-        <dd className="speed-basis-note type-caption">Display speed is base plus runes, as the game shows it.</dd>
-      </div>
-    </dl>
+  const level = totem.state === 'built' ? `Level ${totem.level} of ${totemMaximumLevel}`
+    : totem.state === 'not-built' ? 'Not built' : 'Not in this import';
+  const percent = totem.state === 'built' ? totem.percent : 0;
+  /* The bonus is the figure every combat speed on the page counts, so it is
+     the one in full ink; the level is where it comes from, and dimmed. */
+  return <section className="speed-basis" aria-labelledby="speed-basis-title">
+    <h2 id="speed-basis-title" className="speed-basis-title">Sky Tribe Totem</h2>
+    <p className="speed-basis-level">{level}</p>
+    <p className="speed-basis-bonus">
+      <span className="speed-basis-figure">+{formatNumber(percent, general)} %</span> of base speed
+    </p>
   </section>;
 }
