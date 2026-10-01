@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import type { DragEvent } from 'react';
-import { Button } from './button';
 import { CheckboxRow } from './form-controls';
 import { Dropdown } from './dropdown';
 import { MonsterLink } from './monster-link';
@@ -105,24 +104,6 @@ type EditorProps = {
   onAddMonster: (unitId: string) => void;
   onOpenMonster: OpenMonsterOverlay;
 };
-
-/** An arena team, edited in place on the page. */
-export function SpeedTeamCard({ onRemove, onShowTurnOrder, ...editor }: EditorProps & {
-  onRemove: () => void;
-  onShowTurnOrder: (opener: HTMLElement) => void;
-}) {
-  const { reading, title } = editor;
-  return <section className="speed-team" aria-labelledby={`${reading.team.id}-title`}>
-    <header className="speed-team-head">
-      <h3 id={`${reading.team.id}-title`} className="speed-team-title">{title}</h3>
-      <div className="speed-team-actions">
-        <Button size="compact" onClick={(event) => onShowTurnOrder(event.currentTarget)} disabled={reading.members.length === 0}>Turn order</Button>
-        <Button size="compact" onClick={onRemove} aria-label={`Remove ${title}`}>Remove</Button>
-      </div>
-    </header>
-    <SpeedTeamEditor {...editor} />
-  </section>;
-}
 
 /** Everything a team states and everything read from it: the leader, the margin, each slot and its verdict, and what the team faces. */
 export function SpeedTeamEditor({ reading, worn, title, names, choices, general, onChange, onAddMonster, onOpenMonster }: EditorProps) {

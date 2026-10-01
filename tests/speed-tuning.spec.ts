@@ -39,7 +39,7 @@ test('an empty workspace says what Speed Tuning needs', async ({ page }, testInf
   await freshWorkspace(page);
   await openSpeedTuning(page);
   await expect(page.getByText('Import your game data first.', { exact: false })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Add arena team' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Add team' })).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('speed-no-import.png') });
 });
 
@@ -206,7 +206,7 @@ test('tunes a dungeon team, explains every miss, and keeps the card still', asyn
   }
   await addDungeonTeam('Necropolis', ['Veromos', 'Bernard (2A)']);
   await addDungeonTeam("Giant's Keep", ['Lushen #2']);
-  await expect(dungeons.locator('.speed-dungeon-title')).toHaveText(["Giant's Keep", 'Necropolis']);
+  await expect(dungeons.locator('.speed-group-title')).toHaveText(["Giant's Keep", 'Necropolis']);
   await expect(dungeons.getByRole('button', { name: /^Giant's Keep team #2:/ })).toBeVisible();
   await expect(dungeons.getByRole('button', { name: /^Necropolis team #1:/ })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('speed-page-three-teams.png') });
@@ -214,7 +214,7 @@ test('tunes a dungeon team, explains every miss, and keeps the card still', asyn
   /* Removing a team takes its line, and its dungeon's heading with the last one. */
   await dungeons.getByRole('button', { name: /^Necropolis team #1:/ }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Remove team' }).click();
-  await expect(dungeons.locator('.speed-dungeon-title')).toHaveText(["Giant's Keep"]);
+  await expect(dungeons.locator('.speed-group-title')).toHaveText(["Giant's Keep"]);
   await expect(addButton).toBeFocused();
 });
 
@@ -224,14 +224,19 @@ test('arena teams are numbered, face a worst-case enemy, and rules reach them', 
   await expect(page.getByText('speed-account.json')).toBeVisible();
   await openSpeedTuning(page);
 
-  await page.getByRole('button', { name: 'Add arena team' }).click();
-  await page.getByRole('button', { name: 'Add arena team' }).click();
-  await expect(page.getByRole('heading', { name: 'Arena team #1' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Arena team #2' })).toBeVisible();
+  /* The page states only the account's totem and how a combat speed is made. */
+  const basis = page.getByRole('region', { name: 'What every speed on this page counts' });
+  await expect(basis).toContainText('Level 20 of 20 · +15 % of base speed');
+  await expect(basis).not.toContainText('Speed buff');
 
-  const card = page.locator('.speed-team').filter({ hasText: 'Arena team #1' });
+  /* An arena team is drafted in the same overlay, with no dungeon to choose. */
+  const arena = page.getByRole('region', { name: 'Arena offence' });
+  const addTeam = arena.getByRole('button', { name: 'Add team' });
+  await addTeam.click();
+  const card = page.getByRole('dialog', { name: 'Arena team #1' });
+  await expect(card.getByText('New arena team')).toBeVisible();
+  await expect(card.getByLabel('Dungeon', { exact: true })).toHaveCount(0);
   await expect(card.locator('.speed-slot')).toHaveCount(4);
-  const before = await box(card);
   const add = card.getByLabel('Add a monster to Arena team #1');
   for (const name of ['Bernard (2A)', 'Lushen #1', 'Lushen #2', 'Megan (2A)']) await add.selectOption({ label: name });
   await expect(add).toHaveCount(0);
@@ -241,17 +246,50 @@ test('arena teams are numbered, face a worst-case enemy, and rules reach them', 
   await expect(card.getByText('2 of 4 out of place.')).toBeVisible();
   await expect(card.locator('.speed-slot').nth(1).locator('.speed-verdict')).toHaveText(/^Tied with Lushen #2 · position decides · needs/);
   await expect(card.getByText('No rule reaches this team.')).toBeVisible();
+  await card.getByRole('button', { name: 'Add this team' }).click();
+  await expect(card).toHaveCount(0);
 
-  /* A rule in the third column reaches every team holding both monsters. */
-  await page.getByLabel('Moves first').selectOption({ label: 'Megan (2A)' });
-  await page.getByLabel('Moves after').selectOption({ label: 'Lushen #1' });
-  await page.getByRole('button', { name: 'Add rule' }).click();
-  await expect(card.getByText('Rules: Megan (2A) before Lushen #1 your order says otherwise')).toBeVisible();
-  await expect(page.locator('.speed-rule-state')).toHaveText('Arena team #1: your order says otherwise');
-  expectSameHeight((await box(card)).height, before.height);
+  await addTeam.click();
+  await page.getByRole('dialog', { name: 'Arena team #2' }).getByLabel('Add a monster to Arena team #2').selectOption({ label: 'Veromos' });
+  await page.getByRole('dialog').getByRole('button', { name: 'Add this team' }).click();
+  const first = arena.getByRole('button', { name: /^Arena team #1:/ });
+  await expect(first.locator('.speed-summary-state')).toHaveText('2 of 4 out of place with the runes worn');
+  await expect(arena.getByRole('button', { name: /^Arena team #2:/ }).locator('.speed-summary-mark')).toHaveAttribute('data-state', 'good');
+
+  /* A rule is drafted in its own overlay and cannot be added half-chosen. */
+  const rulesColumn = page.getByRole('region', { name: 'Rules' });
+  await rulesColumn.getByRole('button', { name: 'Add rule' }).click();
+  const ruleDialog = page.getByRole('dialog', { name: 'Who moves first' });
+  await expect(ruleDialog.getByRole('button', { name: 'Add this rule' })).toBeDisabled();
+  await ruleDialog.getByLabel('Moves first').selectOption({ label: 'Megan (2A)' });
+  await ruleDialog.getByLabel('Moves after').selectOption({ label: 'Lushen #1' });
+  await expect(page.getByRole('heading', { name: 'Megan (2A) before Lushen #1' })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('speed-rule-overlay.png') });
+  await page.getByRole('dialog').getByRole('button', { name: 'Add this rule' }).click();
+
+  /* The rule's line names the team that breaks it, and that team's editor says so too. */
+  const rule = rulesColumn.getByRole('button', { name: /^Rule Megan \(2A\) before Lushen #1:/ });
+  await expect(rule.locator('.speed-summary-state')).toHaveText('Arena and dungeons · Arena team #1: your order says otherwise');
+  await expect(rule.locator('.speed-summary-mark')).toHaveAttribute('data-state', 'bad');
   await page.screenshot({ path: testInfo.outputPath('speed-arena-and-rules.png'), fullPage: true });
+  await first.click();
+  await expect(page.getByRole('dialog').getByText('Rules: Megan (2A) before Lushen #1 your order says otherwise')).toBeVisible();
+  await page.getByRole('dialog').getByRole('button', { name: 'Close' }).click();
 
-  await card.getByRole('button', { name: 'Remove Arena team #1' }).click();
-  await expect(page.getByRole('heading', { name: 'Arena team #1' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Arena team #2' })).toHaveCount(0);
+  /* Narrowed to dungeons, the rule reaches no team; removed, the column is empty again. */
+  await rule.click();
+  await page.getByRole('dialog').getByRole('checkbox', { name: 'Arena' }).uncheck();
+  await page.getByRole('dialog').getByRole('button', { name: 'Save changes' }).click();
+  await expect(rule.locator('.speed-summary-state')).toHaveText('Dungeons · no team holds both yet');
+  await expect(rule).toBeFocused();
+  await rule.click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Remove rule' }).click();
+  await expect(page.getByText('No rules yet.', { exact: false })).toBeVisible();
+
+  /* Removing the first arena team renumbers the one after it. */
+  await first.click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Remove team' }).click();
+  await expect(arena.getByRole('button', { name: /^Arena team #1:/ })).toContainText('Veromos');
+  await expect(arena.getByRole('button', { name: /^Arena team #2:/ })).toHaveCount(0);
+  await expect(addTeam).toBeFocused();
 });

@@ -3,8 +3,8 @@ import type { FormEvent } from 'react';
 import { Button } from './button';
 import { Dropdown } from './dropdown';
 import { Overlay, OverlayAction } from './overlay';
-import { SpeedTeamEditor } from './speed-team-card';
-import type { MonsterChoice } from './speed-team-card';
+import { SpeedTeamEditor } from './speed-team-editor';
+import type { MonsterChoice } from './speed-team-editor';
 import { SpeedTurnOrderDialog } from './speed-turn-order-dialog';
 import type { OpenMonsterOverlay } from './monster-link';
 import type { GameRecord } from '../lib/game-data';
@@ -17,7 +17,7 @@ import type { SpeedRule, SpeedTeam } from '../lib/speed-tuning-preferences';
 import type { GeneralSettings } from '../lib/types';
 
 /**
- * One dungeon team, edited as a draft. Nothing reaches the page until Save:
+ * One team, arena or dungeon, edited as a draft. Nothing reaches the page until Save:
  * the page shows each team only as a line, and a line that changed under every
  * keystroke behind the overlay would be the page moving while the reader looks
  * at something else.
@@ -51,6 +51,7 @@ export function SpeedTeamOverlay({
     ? readSpeedTeam({ team: withoutWhatIfs(draft), monsters, totemPercent: totemShare, rules })
     : reading, [draft, reading, monsters, totemShare, rules]);
   const title = speedTeamTitle(teams, draft);
+  const arena = draft.content === 'arena';
   const inTeam = new Set(draft.members.map((member) => member.unitId));
 
   function change(update: (team: SpeedTeam) => SpeedTeam) {
@@ -83,14 +84,16 @@ export function SpeedTeamOverlay({
         disabled={!dirty || draft.members.length === 0} />}>
       <header className="speed-overlay-head">
         <div className="speed-overlay-identity">
-          <p className="eyebrow">{isNew ? 'New dungeon team' : 'Dungeon team'}</p>
+          <p className="eyebrow">{isNew ? `New ${arena ? 'arena' : 'dungeon'} team` : arena ? 'Arena team' : 'Dungeon team'}</p>
           <h2 id="speed-team-overlay-title" className="speed-overlay-title">{title}</h2>
         </div>
         <div className="speed-overlay-tools">
-          <Dropdown aria-label="Dungeon" value={draft.content} className="speed-overlay-dungeon"
+          {/* An arena team stays an arena team: its size and its enemy are
+              not a dungeon's, so there is nothing to move it between. */}
+          {!arena && <Dropdown aria-label="Dungeon" value={draft.content} className="speed-overlay-dungeon"
             onChange={(event) => changeDungeon(event.target.value as DungeonId)}>
             {dungeonIds.map((id) => <option key={id} value={id}>{speedContent(id).name}</option>)}
-          </Dropdown>
+          </Dropdown>}
           <Button ref={turnOrderOpener} size="compact" disabled={reading.members.length === 0}
             onClick={() => setShowTurnOrder(true)}>Turn order</Button>
           {!isNew && <Button size="compact" tone="danger" onClick={onRemove}>Remove team</Button>}

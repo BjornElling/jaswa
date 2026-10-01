@@ -296,7 +296,7 @@ label[for] {
 .drop-zone strong, .best-artifact-result h3, .best-artifact-current h3,
 .best-artifact-category h3, .best-artifact-current-slot-title,
 .best-monster-artifact-details h3, .craft-best-use-item h3, .empty-state h2,
-.field-lead > span, .helper-version h4, .overlay-block-title, .speed-team-title,
+.field-lead > span, .helper-version h4, .overlay-block-title,
 .overlay-facts dd, .rune-overlay-location .monster-name {
   font-family: var(--font-heading);
   font-size: var(--type-heading);
@@ -340,7 +340,7 @@ label[for] {
 }
 
 /* Body emphasis — weight carries priority without changing the family or size. */
-.type-body-emphasis, .monster-name, .slider-choice, .relic-verdict, .rune-verdict, .speed-rule-monster, .speed-summary-name,
+.type-body-emphasis, .monster-name, .slider-choice, .relic-verdict, .rune-verdict, .speed-summary-name,
 .drop-zone.settled strong, .acceleration-adapter b, .rune-optimization-rune-head {
   font-family: var(--font-body);
   font-size: var(--type-body);
@@ -365,7 +365,7 @@ label[for] {
 .best-artifact-result th, .best-monster-table th,
 .artifact-recommendation-table th, .overlay-row-label, .overlay-stat-head,
 .rune-simulator-stats-table thead th, .overlay-facts dt, .rune-overlay-subs th,
-.rune-overlay-readings thead th, .speed-dungeon-title {
+.rune-overlay-readings thead th, .speed-group-title {
   font-family: var(--font-body);
   font-size: var(--type-label);
   font-weight: 700;
@@ -6232,12 +6232,13 @@ th.align-center .sort-button { justify-content: center; }
 .speed-column-head .button { flex: none; gap: var(--s2); }
 .speed-column-empty { margin: 0; color: var(--text-muted); line-height: 1.6; }
 
-/* Dungeon teams as lines under their dungeon's name. Two teams for each of
-   seven dungeons is the expected load, which as full cards ran to metres of
-   table; a line says the one thing the page is visited for — does it hold —
-   and opens the editor for everything else. */
-.speed-dungeon { display: grid; gap: var(--s2); min-width: 0; }
-.speed-dungeon-title { margin: 0; color: var(--text-muted); }
+/* Every team and every rule as a line, dungeon teams under their dungeon's
+   name. Two teams for each of seven dungeons and ten arena offences is the
+   expected load, which as full cards ran to metres of table; a line says the
+   one thing the page is visited for — does it hold — and opens an editor for
+   everything else. */
+.speed-group { display: grid; gap: var(--s2); min-width: 0; }
+.speed-group-title { margin: 0; color: var(--text-muted); }
 .speed-summary-list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--s2); }
 /* Two lines and a mark: the order asked for, the verdict under it, and the
    verdict again as a tick or a cross at the right edge, centred on both lines
@@ -6290,40 +6291,25 @@ th.align-center .sort-button { justify-content: center; }
 .speed-overlay-tools { display: flex; align-items: center; gap: var(--s2); flex: none; }
 .speed-overlay-dungeon { width: 22ch; }
 
-.speed-rules {
+/* The account's totem and how a combat speed is made from it: one strip,
+   because it is the same for every team. Leader skills, boosts and buffs
+   belong to a monster or a team and are read there. */
+.speed-basis {
+  display: flex; align-items: baseline; flex-wrap: wrap; column-gap: var(--s6); row-gap: var(--s2);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--raise);
-  padding: var(--s4) var(--s5);
+  padding: var(--s3) var(--s5);
 }
-.speed-rule-facts {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: var(--s4);
-  margin: 0;
-}
-.speed-rule-facts div { display: grid; gap: var(--s1); align-content: start; min-width: 0; }
-.speed-rule-facts dd { margin: 0; color: var(--text-strong); }
-.speed-rule-facts dd.type-caption { color: var(--text-muted); line-height: 1.5; }
-.speed-rules-note { margin: var(--s3) 0 0; color: var(--text-muted); line-height: 1.6; }
+.speed-basis p { margin: 0; }
+.speed-basis-totem { display: flex; align-items: baseline; gap: var(--s3); color: var(--text-strong); }
+.speed-basis-formula { color: var(--text-muted); }
 
-/* One team. Its height is set by its content's size, never by its state: the
-   table always has a row per slot, every row has its verdict line, and the
-   facts below come in a fixed number — so reordering, adding or fixing a
-   monster moves nothing outside the card (AGENTS.md §2). */
-.speed-team {
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--raise);
-  padding: var(--s4);
-  display: grid;
-  gap: var(--s3);
-  min-width: 0;
-}
+/* One team's editor. Its height is set by its content's size, never by its
+   state: the table always has a row per slot, every row has its verdict line,
+   and the facts below come in a fixed number — so reordering, adding or
+   fixing a monster moves nothing else in the overlay (AGENTS.md §2). */
 .speed-team-editor { display: grid; gap: var(--s3); min-width: 0; }
-.speed-team-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
-.speed-team-title { margin: 0; color: var(--text-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.speed-team-actions { display: flex; gap: var(--s2); flex: 0 0 auto; }
 .speed-team-settings { display: grid; grid-template-columns: minmax(0, 1fr) max-content; gap: var(--s3); align-items: end; }
 .speed-team-leader { display: grid; gap: var(--s1); min-width: 0; }
 .speed-team-margin { display: flex; align-items: center; gap: var(--s2); }
@@ -6415,25 +6401,12 @@ th.align-center .sort-button { justify-content: center; }
 .speed-team-rules[data-state='good'] { color: var(--state-good); }
 .speed-team-rules[data-state='bad'] { color: var(--state-bad); }
 
-.speed-rule-form { display: grid; gap: var(--s3); }
+.dialog.speed-rule-overlay { width: min(560px, 100%); }
+.speed-rule-body { gap: var(--s4); }
 .speed-rule-pick { display: grid; gap: var(--s1); }
-.speed-rule-where { display: flex; align-items: center; gap: var(--s4); flex-wrap: wrap; }
-.speed-rule-where .button { margin-left: auto; }
-.speed-rule-list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--s3); }
-.speed-rule {
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--raise);
-  padding: var(--s3) var(--s4);
-  display: grid; gap: var(--s2);
-  min-width: 0;
-}
-.speed-rule-text { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-strong); }
-.speed-rule-controls { display: flex; align-items: center; gap: var(--s2); }
-.speed-rule-controls .button { margin-left: auto; }
-.speed-rule-state { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
-.speed-rule-state[data-state='good'] { color: var(--state-good); }
-.speed-rule-state[data-state='bad'] { color: var(--state-bad); }
+.speed-rule-where { display: flex; align-items: center; gap: var(--s4); flex-wrap: wrap; margin: 0; padding: 0; border: 0; }
+.speed-rule-where legend { float: left; margin-right: var(--s2); padding: 0; }
+.dialog .speed-rule-note { margin: 0; color: var(--text-muted); }
 
 /* The turn-order dialog: wide enough for a tick column per turn of a slow
    team, and capped at the viewport so the timeline scrolls inside it while the
