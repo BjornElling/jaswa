@@ -15,6 +15,13 @@ import { speedTeamTitle } from '../lib/speed-tuning-preferences';
 import type { SpeedTeam } from '../lib/speed-tuning-preferences';
 import type { GeneralSettings } from '../lib/types';
 
+/** Attack bars at uneven fill: what the tick-by-tick view draws. */
+function TicksIcon() {
+  return <svg className="speed-icon button-mark" viewBox="0 0 16 16" aria-hidden="true">
+    <path d="M3 13V8M6.5 13V3M10 13V6M13.5 13V10M2 13.5h12.5" />
+  </svg>;
+}
+
 /**
  * One team, arena or dungeon, edited as a draft. Nothing reaches the page until Save:
  * the page shows each team only as a line, and a line that changed under every
@@ -102,8 +109,10 @@ export function SpeedTeamOverlay({
             onClick={() => { if (draft.content !== id) changeDungeon(id); }}>{speedContent(id).name}</FilterButton>)}
         </div>}
         <SpeedTeamEditor reading={reading} worn={worn} title={title} names={names} general={general}
-          turnOrderAction={<Button ref={turnOrderOpener} size="compact" disabled={reading.members.length === 0}
-            onClick={() => setShowTurnOrder(true)}>Show every tick</Button>}
+          turnOrderAction={<Button ref={turnOrderOpener} tone="important" size="prominent" className="speed-ticks-button"
+            disabled={reading.members.length === 0} onClick={() => setShowTurnOrder(true)}>
+            <TicksIcon />Ticks
+          </Button>}
           choices={choices.filter((choice) => !inTeam.has(choice.unitId))}
           onChange={change}
           onAddMonster={(unitId) => {

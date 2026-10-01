@@ -77,8 +77,8 @@ test('tunes a dungeon team, explains every miss, and keeps the card still', asyn
   /* Every stage has its row before any monster is added. */
   const enemyTurns = draft.getByRole('region', { name: 'Turn order' });
   await expect(enemyTurns.locator('tbody tr')).toHaveCount(4);
-  await expect(enemyTurns.locator('tbody tr').nth(1)).toHaveText(['2', '169 dungeon speed', '—'].join(''));
-  await expect(draft.getByRole('button', { name: 'Show every tick' })).toBeDisabled();
+  await expect(enemyTurns.locator('tbody tr').nth(1)).toHaveText('2—');
+  await expect(draft.getByRole('button', { name: 'Ticks' })).toBeDisabled();
   const emptyBox = await box(draft.locator('.speed-team-editor'));
   await page.screenshot({ path: testInfo.outputPath('speed-overlay-empty.png') });
 
@@ -100,7 +100,7 @@ test('tunes a dungeon team, explains every miss, and keeps the card still', asyn
   await expect(card.locator('.speed-combat')).toHaveText(['170', '119', '115', '114', '112']);
   await expect(card.getByText('Perfect tune: everyone moves where you put them.')).toBeVisible();
   /* Each stage names the turn its first enemy follows: whose, and which of theirs. */
-  await expect(enemyTurns.locator('tbody tr').nth(1)).toHaveText('2169 dungeon speedLushen #1 (1st turn)');
+  await expect(enemyTurns.locator('tbody tr').nth(1)).toHaveText('2Lushen #1 (1st turn)');
   await expect(enemyTurns.locator('tbody tr').first().locator('.speed-enemy-after')).toHaveText('Lushen #1 (2nd turn)');
   await expect(card.getByRole('img', { name: /^Bernard \(2A\) — Tailwind: \+34\.5 % attack bar to allies/ })).toBeVisible();
   const fullBox = await box(card.locator('.speed-team-editor'));
@@ -156,7 +156,7 @@ test('tunes a dungeon team, explains every miss, and keeps the card still', asyn
   expectSameHeight((await box(saved.locator('.speed-team-editor'))).height, emptyBox.height);
 
   /* The turn order opens over the editor, draws every tick, and Escape closes only it. */
-  const opener = saved.getByRole('button', { name: 'Show every tick' });
+  const opener = saved.getByRole('button', { name: 'Ticks' });
   await opener.click();
   const dialog = page.locator('.speed-turn-dialog');
   await expect(dialog).toBeVisible();
@@ -262,7 +262,7 @@ test('arena teams are numbered and face a worst-case enemy', async ({ page }, te
   const add = card.getByLabel('Add a monster to Arena team #1');
   for (const name of ['Bernard (2A)', 'Lushen #1', 'Lushen #2', 'Megan (2A)']) await add.selectOption({ label: name });
   await expect(add).toHaveCount(0);
-  await expect(card.getByRole('region', { name: 'Turn order' }).locator('tbody tr')).toHaveText(['Worst case169 arena speedLushen #2 (1st turn)']);
+  await expect(card.getByRole('region', { name: 'Turn order' }).locator('tbody tr')).toHaveText(['Worst caseLushen #2 (1st turn)']);
   /* Two copies at one arena speed tie on the bar; only field position can settle
      that, so both say so rather than one being called in place. */
   await expect(card.getByText('2 of 4 out of place.')).toBeVisible();

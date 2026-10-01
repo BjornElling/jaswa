@@ -6418,11 +6418,15 @@ th.align-center .sort-button { justify-content: center; }
 /* When the enemy first moves, set apart from the team above by air and a
    quiet label rather than a second box. */
 .speed-enemy-turns { display: grid; gap: var(--s2); margin-top: var(--s3); }
-.speed-enemy-turns-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
-.speed-enemy-turns-head h3 { margin: 0; color: var(--text-muted); }
+.speed-enemy-turns h3 { margin: 0; color: var(--text-muted); }
+/* The table reads in half the width; the other half holds the way into the
+   ticks behind it, centred on the table so it reads as its companion. */
+.speed-enemy-turns-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s5); align-items: center; }
+.speed-enemy-turns-action { display: grid; place-items: center; }
+.speed-ticks-button { min-width: 20ch; }
+.speed-ticks-button .speed-icon { width: 16px; height: 16px; }
 .speed-enemy-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .speed-col-stage { width: 12ch; }
-.speed-col-enemy { width: 24ch; }
 .speed-enemy-table thead th {
   padding: 0 var(--s1) var(--s2);
   border-bottom: 1px solid var(--line);
@@ -6437,7 +6441,6 @@ th.align-center .sort-button { justify-content: center; }
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .speed-enemy-table tbody th { color: var(--text-muted); }
-.speed-enemy-speed { color: var(--text); }
 .speed-enemy-after-name { color: var(--text-strong); }
 .speed-enemy-after-turn { color: var(--text-muted); }
 /* A rule as a draft: three lines that read as one sentence — the monster,

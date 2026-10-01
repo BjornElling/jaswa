@@ -304,40 +304,33 @@ export function SpeedTeamEditor({ reading, worn, title, names, choices, general,
         worst case in arena. The rows are the content's, never the team's, so
         adding the first monster fills cells rather than adding lines. */}
     <section className="speed-enemy-turns" aria-labelledby={`${team.id}-turn-order`}>
-      <div className="speed-enemy-turns-head">
-        <h3 id={`${team.id}-turn-order`} className="type-label">Turn order</h3>
-        {turnOrderAction}
+      <h3 id={`${team.id}-turn-order`} className="type-label">Turn order</h3>
+      <div className="speed-enemy-turns-body">
+        <table className="speed-enemy-table">
+          <colgroup><col className="speed-col-stage" /><col /></colgroup>
+          <thead><tr>
+            <th scope="col">{content.area === 'arena' ? 'Enemy' : 'Stage'}</th>
+            <th scope="col">First enemy moves after</th>
+          </tr></thead>
+          <tbody>
+            {(content.area === 'arena' ? [null] : content.stages).map((stage, at) => {
+              const enemy = reading.enemies[at];
+              return <tr key={at}>
+                <th scope="row">{stage ? at + 1 : 'Worst case'}</th>
+                <td className="speed-enemy-after">
+                  {!enemy ? <span className="muted">—</span>
+                    : enemy.follows === null ? 'Before your team'
+                      : <>
+                        <span className="speed-enemy-after-name">{names[enemy.follows.unitId]?.name ?? 'A teammate'}</span>
+                        {' '}<span className="speed-enemy-after-turn">({ordinal(enemy.follows.turn)} turn)</span>
+                      </>}
+                </td>
+              </tr>;
+            })}
+          </tbody>
+        </table>
+      <div className="speed-enemy-turns-action">{turnOrderAction}</div>
       </div>
-      <table className="speed-enemy-table">
-        <colgroup><col className="speed-col-stage" /><col className="speed-col-enemy" /><col /></colgroup>
-        <thead><tr>
-          <th scope="col">{content.area === 'arena' ? 'Enemy' : 'Stage'}</th>
-          <th scope="col">First enemy to move</th>
-          <th scope="col">Enemy moves after</th>
-        </tr></thead>
-        <tbody>
-          {(content.area === 'arena' ? [null] : content.stages).map((stage, at) => {
-            const enemy = reading.enemies[at];
-            /* A stage's first mover is its fastest enemy: enemies carry no speed
-               effects here, so the figure is known before the team is. */
-            const speed = enemy ? enemy.enemySpeeds[enemy.firstEnemy ?? 0] : stage?.fastest;
-            return <tr key={at}>
-              <th scope="row">{stage ? at + 1 : 'Worst case'}</th>
-              <td className="speed-enemy-speed">
-                {speed === undefined ? '—' : `${formatNumber(speed, general)} ${content.area === 'arena' ? 'arena' : 'dungeon'} speed`}
-              </td>
-              <td className="speed-enemy-after">
-                {!enemy ? <span className="muted">—</span>
-                  : enemy.follows === null ? 'Before your team'
-                    : <>
-                      <span className="speed-enemy-after-name">{names[enemy.follows.unitId]?.name ?? 'A teammate'}</span>
-                      {' '}<span className="speed-enemy-after-turn">({ordinal(enemy.follows.turn)} turn)</span>
-                    </>}
-              </td>
-            </tr>;
-          })}
-        </tbody>
-      </table>
     </section>
   </div>;
 }
