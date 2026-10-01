@@ -3,7 +3,7 @@
 **Status:** Kanonisk beregningskontrakt for `DMG`, `E.HP`, `E.HP D` og `Eff. %`
 i Rune Clean-up-presets
 **Afhængighed:** `docs/RUNE-CLEANUP-MATH.md` og `docs/RUNE-CANONICAL.md`  
-**Kontrolleret:** 23. august 2026
+**Kontrolleret:** 1. oktober 2026
 
 Dette er det eneste dokument, der fastlægger disse fire metrikker. De bruges
 til at vægte, hvilke stats og Rune Sets en preset finder ønskværdige, når
@@ -45,20 +45,21 @@ god substat.
 ## 3. E.HP — effektiv holdbarhed uden DEF break
 
 ```text
-E.HP = HP × (1140 + 3.5 × DEF) / 1000
+E.HP = HP × (1142 + 3.572 × DEF) / 1000
 ```
 
 E.HP angiver det rå skadeinput, der omtrent skal til for at nedbringe den
-aktuelle HP gennem den observerede DEF-reduktionsfaktor:
+aktuelle HP gennem SWCalcs DEF-reduktionsfaktor (Term 4), som er
+autoritativ (`CALCULATION-AUTHORITY.md`):
 
 ```text
-defenseFactor = 1000 / (1140 + 3.5 × DEF)
+defenseFactor = 1000 / (1142 + 3.572 × DEF)
 ```
 
 ## 4. E.HP D — effektiv holdbarhed under DEF break
 
 ```text
-E.HP D = HP × (1140 + 3.5 × (0.3 × DEF)) / 1000
+E.HP D = HP × (1142 + 3.572 × (0.3 × DEF)) / 1000
 ```
 
 DEF break sætter den effektive DEF til 30 % af den normale DEF. `E.HP D`
@@ -116,8 +117,8 @@ de to +200 ATK skal derfor med i monsterets statark, før DMG beregnes.
 | DEF | 849 | 849 |
 | SPD | 224 | 224 |
 | DMG | 6.778,3728 → `6.778` | 6.778 |
-| E.HP | 62.984,0685 → `62.984` | 62.984 |
-| E.HP D | 31.119,7826 → `31.119` | 31.119 |
+| E.HP | 63.951,1263 → `63.951` | 62.984 |
+| E.HP D | 31.431,3465 → `31.431` | 31.119 |
 | Avg. Eff. % | 90,82 | 90,82 |
 
 Beths seks uafrundede rune-effektiviteter er `94,86`, `81,46`, `96,30`,
@@ -126,8 +127,10 @@ de viste enkelt-runer (95, 81, 96, 94, 90 og 89 efter SWOPs nedadgående
 heltalsvisning). Kontrol af resten af de første ti rækker bekræftede også
 SWOPs 50 %-vægtning af flad HP/ATK/DEF: Lapis `93,41`, Konamiya `96,79`,
 Megan `106,17`, Emma `90,18`, Sigmarus `88,23` og Verad `90,50` matcher
-skærmprintet. Kontrollen viste desuden, at den tidligere E.HP-konstant
-`1142 + 3.572 × DEF` ikke er SWOP Pro-værdien og er erstattet ovenfor.
+skærmprintet. SWOP Pro regner E.HP med `1140 + 3.5 × DEF`, og JASWA fulgte
+den indtil 1. oktober 2026. SWCalcs `1142 + 3.572 × DEF` er siden gjort
+autoritativ (`CALCULATION-AUTHORITY.md`), så E.HP og E.HP D afviger nu bevidst
+fra SWOP Pro; de øvrige rækker matcher fortsat.
 
 ## 7. Preset-vægte
 
@@ -149,8 +152,9 @@ stiltiende default.
 
 ## 8. Kilder og revisionsregel
 
-1. [SWCalc — Summoners War Mechanics](https://swcalc.cz/game-mechanics) —
-   dokumenteret skadepipeline, statskalering og crit-bucket.
+1. [SWCalc — Summoners War Mechanics](https://swcalc.cz/game-mechanics#term-2-crit) —
+   **autoritativ** for skadepipeline, DEF-faktor, statskalering og crit-bucket
+   (`CALCULATION-AUTHORITY.md`). Den går forud for kilderne nedenfor.
 2. [SWLens RTA Builder Wizard & Optimizer Guide](https://www.swlens.io/guides/rta-wizard)
    — praktisk optimizer-præcedens for gennemsnitlig `DMG` og EHP som
    rollemetrikker.
@@ -164,5 +168,6 @@ stiltiende default.
    — uafhængig forklaring af sammenhængen mellem HP, DEF og effective HP.
 
 SWCalc beskriver modellen som en verificeret praktisk forudsigelsesmodel, ikke
-offentliggjort spil-kildekode. Ved en reproducerbar nyere klientobservation
-opdateres kun dette dokument først og derefter kode og tests.
+offentliggjort spil-kildekode. Hvor SWCalc og en anden kilde er uenige,
+følger JASWA SWCalc. Ved en reproducerbar nyere klientobservation opdateres
+kun dette dokument først og derefter kode og tests.

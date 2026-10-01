@@ -315,7 +315,7 @@ function isRelicPreference(value: unknown): boolean {
 /*
  * A target is a whole number within the reach of the figure it names. The
  * composites run an order of magnitude above a raw stat — the contract's own
- * worked example is an E.HP of 62,984 against a HP of 15,319 — so one ceiling
+ * worked example is an E.HP of 63,951 against a HP of 15,319 — so one ceiling
  * for all eleven would either reject a legitimate E.HP or admit an absurd SPD.
  */
 export const monsterCompositeTargetMaximum = 1_000_000;

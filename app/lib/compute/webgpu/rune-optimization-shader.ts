@@ -108,8 +108,8 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
     let def = max(0.0, figures[FIGURE_DEF]);
     let criticalRate = min(1.0, max(0.0, figures[FIGURE_CRI_RATE]) / 100.0);
     figures[FIGURE_DMG] = max(0.0, figures[FIGURE_ATK]) * (1.0 + criticalRate * max(0.0, figures[FIGURE_CRI_DMG]) / 100.0);
-    figures[FIGURE_EHP] = hp * (1140.0 + 3.5 * def) / 1000.0;
-    figures[FIGURE_EHP_D] = hp * (1140.0 + 3.5 * def * 0.3) / 1000.0;
+    figures[FIGURE_EHP] = hp * (1142.0 + 3.572 * def) / 1000.0;
+    figures[FIGURE_EHP_D] = hp * (1142.0 + 3.572 * def * 0.3) / 1000.0;
 
     var clears = true;
     for (var at: u32 = 0u; at < FIGURE_COUNT; at = at + 1u) {

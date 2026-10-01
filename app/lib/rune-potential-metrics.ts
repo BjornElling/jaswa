@@ -70,14 +70,14 @@ export function metricDmg(atk: number, criticalRatePercent: number, criticalDama
   return finiteNonNegative(atk) * (1 + criticalRate * finiteNonNegative(criticalDamagePercent) / 100);
 }
 
-/** `E.HP = HP × (1140 + 3.5 × DEF) / 1000`. */
+/** `E.HP = HP × (1142 + 3.572 × DEF) / 1000` — HP over SWCalc's defense factor. */
 export function metricEhp(hp: number, def: number): number {
-  return finiteNonNegative(hp) * (1140 + 3.5 * finiteNonNegative(def)) / 1000;
+  return finiteNonNegative(hp) * (1142 + 3.572 * finiteNonNegative(def)) / 1000;
 }
 
-/** `E.HP D = HP × (1140 + 3.5 × 0.3 × DEF) / 1000` — DEF broken to 30 %. */
+/** `E.HP D = HP × (1142 + 3.572 × 0.3 × DEF) / 1000` — DEF broken to 30 %. */
 export function metricEhpD(hp: number, def: number): number {
-  return finiteNonNegative(hp) * (1140 + 3.5 * finiteNonNegative(def) * 0.3) / 1000;
+  return finiteNonNegative(hp) * (1142 + 3.572 * finiteNonNegative(def) * 0.3) / 1000;
 }
 
 /** Calculates the three static-preset metrics from a monster's total stats. */

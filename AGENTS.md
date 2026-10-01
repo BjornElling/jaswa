@@ -398,6 +398,12 @@ parts an agent must not quietly break:
   depth's cut is exact, and `npm run verify:rune-optimization` holds that
   against brute force; a shortcut that is not exact is only allowed where the
   page says it was taken.
+- **SWCalc is the authority on how the game calculates.**
+  `docs/CALCULATION-AUTHORITY.md` is binding: where
+  [swcalc.cz/game-mechanics](https://swcalc.cz/game-mechanics#term-2-crit)
+  states a damage, defense, crit or speed rule, JASWA follows it, and another
+  source or an earlier JASWA choice gives way. Check a new calculation against
+  that page before inventing or borrowing a formula.
 - **One clock for every turn order.** `docs/SPEED-TICK-CANONICAL.md` is
   binding, and `app/lib/speed-tick.ts` is the only module that states a rule
   of the game's turn order — combat speed, the tick, a boost, a buff, a tie.
@@ -493,13 +499,16 @@ Two caveats worth knowing before trusting a green run:
 - **`npm test` stops at the first failure.** It is one `&&` chain, so a failure
   early on hides every check behind it. When something fails, fix it and run the
   chain again rather than reading a truncated pass as a pass.
-- **`npm test` does not run every check that exists.** `verify:library-layout`,
-  `verify:recommendation-filters` and `verify:artifact-obtained-order` are
-  deliberately outside it — they drive a real browser against a real imported
-  account on `http://localhost:3000/`, which needs a running server and a local
-  export. `verify:rune-optimization-card` is outside it for the same reason: it
-  needs the server and a graphics card. Run the relevant one by hand after a change to the surface it covers;
-  `verify:library-layout` in particular is what holds the account tables'
-  shared measure and their freedom from horizontal overflow.
+- **A green `npm test` may contain skips.** `verify:library-layout` and
+  `verify:recommendation-filters` are in the chain, but they drive a real
+  browser against a real imported account on `http://localhost:3000/`, and an
+  account export is personal data no checkout carries. Without one (at
+  `JASWA_IMPORT`, by default `%TEMP%/claude/shots/game.json`) each prints
+  `Skipped:` and exits zero, so the checks behind it still run. A skip has
+  measured nothing: after a change to the surface it covers, run it with an
+  export and say so if none was at hand. `verify:library-layout` in particular
+  is what holds the account tables' shared measure and their freedom from
+  horizontal overflow. `verify:rune-optimization-card` is outside the chain
+  altogether: it needs the server and a graphics card.
 
 Report faithfully. If a step was skipped or a check failed, say which and why.
