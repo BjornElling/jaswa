@@ -39,7 +39,10 @@ try {
     artifacts: { ...blank.artifacts, acceptableWorth: 75, recalculate: 'on-change' },
     speedTuning: {
       teams: [{ id: 'team-a', content: speedContents[0].id, members: [{ unitId: '17' }], leaderUnitId: '17', marginEnabled: true, margin: 2 }],
-      rules: [],
+      rules: [
+        { id: 'rule-a', unitId: '17', must: { kind: 'move-before', unitId: '18' }, displaySpeed: true, dungeonSpeed: false, arenaSpeed: true },
+        { id: 'rule-b', unitId: '18', must: { kind: 'stay-between', minimum: 150, maximum: 160 }, displaySpeed: false, dungeonSpeed: false, arenaSpeed: false },
+      ],
     },
   };
 
@@ -95,8 +98,9 @@ try {
 
   /* A team that fails costs that team. */
   const badTeam = { ...chosen.speedTuning.teams[0], id: 'team-b', margin: 9 };
-  const speed = readPreferences({ ...chosen, speedTuning: { teams: [chosen.speedTuning.teams[0], badTeam], rules: [] } }, null);
-  assert.deepEqual(speed.speedTuning, chosen.speedTuning, 'an unreadable team costs only itself');
+  const badRule = { ...chosen.speedTuning.rules[0], id: 'rule-c', must: { kind: 'stay-between', minimum: 160, maximum: 150 } };
+  const speed = readPreferences({ ...chosen, speedTuning: { teams: [chosen.speedTuning.teams[0], badTeam], rules: [...chosen.speedTuning.rules, badRule] } }, null);
+  assert.deepEqual(speed.speedTuning, chosen.speedTuning, 'an unreadable team or rule costs only itself');
 
   /* A key the contract does not name is not a reason to reject anything. */
   assert.deepEqual(readPreferences({ ...chosen, retiredSection: { anything: true } }, null), chosen, 'an unknown section is ignored');

@@ -13,7 +13,7 @@ import { dungeonIds, speedContent } from '../lib/speed-contents';
 import type { DungeonId } from '../lib/speed-contents';
 import { hasWhatIf, readSpeedTeam, withMonsterAdded, withoutWhatIfs } from '../lib/speed-tuning-analysis';
 import { speedTeamTitle } from '../lib/speed-tuning-preferences';
-import type { SpeedRule, SpeedTeam } from '../lib/speed-tuning-preferences';
+import type { SpeedTeam } from '../lib/speed-tuning-preferences';
 import type { GeneralSettings } from '../lib/types';
 
 /**
@@ -23,7 +23,7 @@ import type { GeneralSettings } from '../lib/types';
  * at something else.
  */
 export function SpeedTeamOverlay({
-  initial, isNew, teams, monsters, totemShare, rules, names, choices, general, onSave, onRemove, onClose, onOpenMonster,
+  initial, isNew, teams, monsters, totemShare, names, choices, general, onSave, onRemove, onClose, onOpenMonster,
 }: {
   initial: SpeedTeam;
   isNew: boolean;
@@ -31,7 +31,6 @@ export function SpeedTeamOverlay({
   teams: readonly SpeedTeam[];
   monsters: ReadonlyMap<string, GameRecord>;
   totemShare: number;
-  rules: readonly SpeedRule[];
   names: Record<string, MonsterCopyName>;
   /** Every owned monster; those already in the draft are left out here. */
   choices: readonly MonsterChoice[];
@@ -46,10 +45,10 @@ export function SpeedTeamOverlay({
   const [showTurnOrder, setShowTurnOrder] = useState(false);
   const turnOrderOpener = useRef<HTMLButtonElement>(null);
 
-  const reading = useMemo(() => readSpeedTeam({ team: draft, monsters, totemPercent: totemShare, rules }), [draft, monsters, totemShare, rules]);
+  const reading = useMemo(() => readSpeedTeam({ team: draft, monsters, totemPercent: totemShare }), [draft, monsters, totemShare]);
   const worn = useMemo(() => hasWhatIf(draft)
-    ? readSpeedTeam({ team: withoutWhatIfs(draft), monsters, totemPercent: totemShare, rules })
-    : reading, [draft, reading, monsters, totemShare, rules]);
+    ? readSpeedTeam({ team: withoutWhatIfs(draft), monsters, totemPercent: totemShare })
+    : reading, [draft, reading, monsters, totemShare]);
   const title = speedTeamTitle(teams, draft);
   const arena = draft.content === 'arena';
   const inTeam = new Set(draft.members.map((member) => member.unitId));

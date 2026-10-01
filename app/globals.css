@@ -349,7 +349,7 @@ label[for] {
 }
 
 /* Controls name actions, but keep the same body family and measure. */
-.type-control, .button, .filter-reset, .text-link, .radio-line-legend,
+.type-control, .button, .filter-reset, .text-link, .radio-line-legend, .speed-add-item,
 .preset-row-label, .expandable-list-toggle, .notice-link,
 .field > span {
   font-family: var(--font-body);
@@ -6217,8 +6217,8 @@ th.align-center .sort-button { justify-content: center; }
 }
 .speed-column { display: grid; gap: var(--s4); min-width: 0; }
 /* The title and its one action on a line, the action at the far edge. Every
-   column head is the height of a compact button, with or without one, so the
-   three columns start their content on one line. */
+   column head is the same height, so the three columns start their content
+   on one line. */
 .speed-column-head {
   display: flex;
   align-items: center;
@@ -6229,7 +6229,6 @@ th.align-center .sort-button { justify-content: center; }
   border-bottom: 1px solid var(--line);
 }
 .speed-column-head h2 { margin: 0; color: var(--text-strong); }
-.speed-column-head .button { flex: none; gap: var(--s2); }
 .speed-column-empty { margin: 0; color: var(--text-muted); line-height: 1.6; }
 
 /* Every team and every rule as a line, dungeon teams under their dungeon's
@@ -6297,13 +6296,31 @@ th.align-center .sort-button { justify-content: center; }
 /* The totem as three lines: its name, where its bonus comes from, and the
    bonus itself — the only figure in full ink. */
 .speed-basis {
-  display: grid; gap: var(--s1);
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--s5);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--raise);
   padding: var(--s5) var(--s6);
 }
+.speed-basis-facts { display: grid; gap: var(--s1); min-width: 0; }
 .speed-basis p { margin: 0; }
+/* The page's one Add, and its menu hung from the button's right edge, over
+   the columns rather than pushing them down. */
+.speed-add { position: relative; }
+.speed-add .button { gap: var(--s2); }
+.speed-add-menu {
+  position: absolute; z-index: 10; top: calc(100% + var(--s1)); right: 0;
+  min-width: 100%; display: grid; padding: var(--s1);
+  background: var(--raise);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, .55);
+}
+.speed-add-item {
+  padding: var(--s2) var(--s3); border: 0; border-radius: var(--radius-sm);
+  background: transparent; color: var(--text-strong); text-align: left; white-space: nowrap; cursor: pointer;
+}
+.speed-add-item:hover, .speed-add-item:focus-visible { background: var(--sunk); color: var(--text-accent); outline: none; }
 .speed-basis-title { margin: 0 0 var(--s1); color: var(--text-strong); }
 .speed-basis-level, .speed-basis-bonus { color: var(--text-muted); }
 .speed-basis-figure { color: var(--text-strong); font-variant-numeric: tabular-nums; }
@@ -6400,16 +6417,53 @@ th.align-center .sort-button { justify-content: center; }
 .speed-team-status[data-state='good'] { color: var(--state-good); }
 .speed-team-status[data-state='bad'] { color: var(--state-bad); }
 .speed-team-status[data-state='none'] { color: var(--text-muted); }
-.speed-team-rules[data-state='none'] { color: var(--text-muted); }
-.speed-team-rules[data-state='good'] { color: var(--state-good); }
-.speed-team-rules[data-state='bad'] { color: var(--state-bad); }
-
-.dialog.speed-rule-overlay { width: min(560px, 100%); }
-.speed-rule-body { gap: var(--s4); }
-.speed-rule-pick { display: grid; gap: var(--s1); }
-.speed-rule-where { display: flex; align-items: center; gap: var(--s4); flex-wrap: wrap; margin: 0; padding: 0; border: 0; }
-.speed-rule-where legend { float: left; margin-right: var(--s2); padding: 0; }
-.dialog .speed-rule-note { margin: 0; color: var(--text-muted); }
+/* A rule as a draft: three lines that read as one sentence — the monster,
+   what it must do, what that is measured against — and under them the speed
+   forms it is checked in, each with its verdict. */
+.dialog.speed-rule-overlay { width: min(680px, 100%); }
+.speed-rule-body { gap: var(--s5); }
+.speed-rule-lines {
+  display: grid; grid-template-columns: 16ch minmax(0, 1fr);
+  grid-auto-rows: 36px; align-items: center; gap: var(--s3) var(--s4);
+}
+/* Centred on its control's line; `label[for]` would otherwise sit it at the top. */
+.speed-rule-lines .filter-label { margin: 0; align-self: center; }
+.speed-rule-target { display: flex; align-items: center; gap: var(--s2); min-width: 0; height: 36px; }
+.speed-rule-figure {
+  width: 8ch; height: 36px;
+  padding: 0 var(--s2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--sunk);
+  color: var(--text-strong);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color-scheme: dark;
+}
+.speed-rule-figure:focus { outline: none; border-color: var(--text-accent); }
+.speed-rule-and { color: var(--text-muted); }
+.speed-rule-hint { min-width: 0; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.speed-rule-hint[data-state='bad'] { color: var(--state-bad); }
+/* One row per speed form, every column a fixed measure, so a verdict that
+   changes as a figure is typed never moves the row or the rows below it. */
+.speed-rule-where { display: grid; gap: var(--s2); margin: 0; padding: 0; border: 0; min-width: 0; }
+.speed-rule-where legend { padding: 0; margin-bottom: var(--s2); }
+.speed-rule-check {
+  display: grid; grid-template-columns: 16ch 14ch minmax(0, 1fr) 16px;
+  align-items: center; column-gap: var(--s4); min-height: 28px;
+}
+.speed-rule-figures { color: var(--text-strong); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.speed-rule-check[data-checked='false'] .speed-rule-figures { color: var(--text-muted); }
+.speed-rule-verdict { min-width: 0; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.speed-rule-verdict[data-state='good'] { color: var(--state-good); }
+.speed-rule-verdict[data-state='bad'] { color: var(--state-bad); }
+.speed-summary-mark.speed-summary-mark-small { grid-area: auto; }
+.speed-summary-mark.speed-summary-mark-small, .speed-summary-mark-small svg { width: 16px; height: 16px; }
+.speed-rule-check[data-read='false'] .speed-summary-mark { visibility: hidden; }
+.speed-summary-figure { font-variant-numeric: tabular-nums; }
+.dialog.speed-rule-confirm { width: min(480px, 100%); }
+.speed-rule-confirm h2 { margin: 0; }
+.speed-rule-confirm .dialog-actions { margin-top: 0; }
 
 /* The turn-order dialog: wide enough for a tick column per turn of a slow
    team, and capped at the viewport so the timeline scrolls inside it while the

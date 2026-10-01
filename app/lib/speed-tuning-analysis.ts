@@ -8,6 +8,7 @@
  * interval is found by running the same clock at each candidate display speed,
  * so rounding, Swift and boosts are all answered by the one implementation.
  */
+import { formatNumber } from './formatting';
 import type { GameRecord } from './game-data';
 import { monsterSpeedParts } from './monster-stats';
 import { elementName } from './rune-sets';
@@ -20,8 +21,9 @@ import {
   runeSpeedForDisplay, simulateBattle,
 } from './speed-tick';
 import type { BattleTrace, SpeedLeaderSkill, SpeedSheet, TickUnit, TurnEvent } from './speed-tick';
-import type { SpeedRule, SpeedTeam } from './speed-tuning-preferences';
+import type { SpeedTeam } from './speed-tuning-preferences';
 import { whatIfDisplaySpeedMaximum } from './speed-tuning-preferences';
+import type { GeneralSettings } from './types';
 
 /** A range of display speeds; `maximum` is `null` where every faster value works too. */
 export type DisplaySpeedInterval = { minimum: number; maximum: number | null };
@@ -71,8 +73,6 @@ export type EnemyStageReading = {
   enemySpeeds: readonly number[];
 };
 
-export type RuleReading = { rule: SpeedRule; state: 'holds' | 'broken' | 'contradicts-order' };
-
 export type TeamReading = {
   team: SpeedTeam;
   content: SpeedContent;
@@ -86,7 +86,6 @@ export type TeamReading = {
   perfect: boolean;
   /** Arena: one reading against the worst-case enemy. Dungeon: one per stage. */
   enemies: EnemyStageReading[];
-  rules: RuleReading[];
 };
 
 type Candidate = {
@@ -190,11 +189,23 @@ function passes(check: Check): boolean {
  */
 function passingInterval(candidates: readonly Candidate[], index: number, margin: number | null, current: number): DisplaySpeedInterval | null {
   const { baseSpeed, swift } = candidates[index].base;
+  return nearestPassingDisplaySpeeds(baseSpeed, swift, current,
+    (shown) => passes(checkMember(candidates, index, runeSpeedForDisplay(baseSpeed, swift, shown), margin)));
+}
+
+/**
+ * The run of display speeds nearest `current` at which `passes` holds, from
+ * bare runes up to the page's ceiling. A team's member and a standing rule are
+ * both asked "which display speeds would put this right" through this one
+ * search, so the two cannot come to disagree about what an interval is.
+ */
+export function nearestPassingDisplaySpeeds(baseSpeed: number, swift: boolean, current: number,
+  passes: (shown: number) => boolean): DisplaySpeedInterval | null {
   const lowest = displaySpeed(baseSpeed, swift, 0);
   const runs: DisplaySpeedInterval[] = [];
   let start: number | null = null;
   for (let shown = lowest; shown <= whatIfDisplaySpeedMaximum; shown += 1) {
-    const ok = passes(checkMember(candidates, index, runeSpeedForDisplay(baseSpeed, swift, shown), margin));
+    const ok = passes(shown);
     if (ok && start === null) start = shown;
     if (!ok && start !== null) {
       runs.push({ minimum: start, maximum: shown - 1 });
@@ -228,11 +239,10 @@ function stageReading(allies: readonly TickUnit[], enemySpeeds: readonly number[
   };
 }
 
-export function readSpeedTeam({ team, monsters, totemPercent, rules }: {
+export function readSpeedTeam({ team, monsters, totemPercent }: {
   team: SpeedTeam;
   monsters: ReadonlyMap<string, GameRecord>;
   totemPercent: number;
-  rules: readonly SpeedRule[];
 }): TeamReading {
   const content = speedContent(team.content);
   const present = team.members.filter((member) => monsters.has(member.unitId));
@@ -301,17 +311,6 @@ export function readSpeedTeam({ team, monsters, totemPercent, rules }: {
       ? [stageReading(units, [Math.max(1, (units.find((unit) => unit.key === actualOrder[0])?.speed ?? 1) - 1)])]
       : content.stages.map((stage) => stageReading(units, stage.speeds));
 
-  const inTeam = new Set(present.map((member) => member.unitId));
-  const ruleReadings: RuleReading[] = rules
-    .filter((rule) => (content.area === 'arena' ? rule.arena : rule.dungeons)
-      && inTeam.has(rule.fasterUnitId) && inTeam.has(rule.slowerUnitId))
-    .map((rule) => {
-      const wanted = present.findIndex((member) => member.unitId === rule.fasterUnitId)
-        < present.findIndex((member) => member.unitId === rule.slowerUnitId);
-      if (!wanted) return { rule, state: 'contradicts-order' as const };
-      return { rule, state: relation(first, trace.events, rule.fasterUnitId, rule.slowerUnitId) === 'before' ? 'holds' as const : 'broken' as const };
-    });
-
   return {
     team,
     content,
@@ -321,7 +320,6 @@ export function readSpeedTeam({ team, monsters, totemPercent, rules }: {
     trace,
     perfect: members.length > 0 && members.every((member) => member.verdict.kind === 'in-place'),
     enemies,
-    rules: ruleReadings,
   };
 }
 
@@ -369,11 +367,14 @@ export function combatSpeedName(reading: TeamReading): string {
   return reading.content.area === 'arena' ? 'arena speed' : 'dungeon speed';
 }
 
-export const ruleStateText = {
-  holds: 'holds',
-  broken: 'broken',
-  'contradicts-order': 'your order says otherwise',
-} as const;
+/** What an interval asks for, in the words a team's member and a standing rule both use. */
+export function displaySpeedIntervalText(interval: DisplaySpeedInterval | null, general: GeneralSettings): string {
+  if (interval === null) return 'no display speed fixes this on its own';
+  const minimum = formatNumber(interval.minimum, general);
+  if (interval.maximum === null) return `needs ${minimum}+ display speed`;
+  if (interval.maximum === interval.minimum) return `needs exactly ${minimum} display speed`;
+  return `needs ${minimum}–${formatNumber(interval.maximum, general)} display speed`;
+}
 
 /** A monster joins where its own speed puts it; from there the user moves it. */
 export function withMonsterAdded(team: SpeedTeam, reading: TeamReading, unitId: string, monster: GameRecord, totemShare: number): SpeedTeam {

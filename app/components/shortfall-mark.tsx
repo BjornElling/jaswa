@@ -10,7 +10,7 @@ import type { GeneralSettings } from '../lib/types';
  * preference the user stated and a population default merely standing in are
  * different claims, and the mark looks identical for both.
  */
-export function describeShortfall(shortfall: Shortfall, general: GeneralSettings): string {
+function describeShortfall(shortfall: Shortfall, general: GeneralSettings): string {
   const whose = shortfall.source === 'user' ? 'You want' : 'Most players want';
   const where = shortfall.where === undefined ? '' : `${shortfall.where}: `;
 

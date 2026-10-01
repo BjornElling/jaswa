@@ -32,7 +32,9 @@ The durable workspace contains:
   teams and rules (each team's dungeon or arena, its monsters in the order they
   should move, its leader, its speed margin, and any what-if display speed
   typed for one monster in that team — keyed by `unit_id`; and each standing
-  rule that one monster moves before another in arena, dungeons or both);
+  rule about one monster — that it moves before or after another, or that it
+  reaches, stays under or stays between figures — and which of display speed,
+  dungeon speed and arena speed it is checked in);
 - the chosen export-folder handle when the browser supports it.
 
 The first two records live in IndexedDB under the local `jaswa-local`

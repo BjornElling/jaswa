@@ -1,11 +1,13 @@
-import { useMemo, useRef, useState } from 'react';
-import type { ReactNode, RefObject } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import type { KeyboardEvent, ReactNode, RefObject } from 'react';
 import { Button } from './button';
 import { PageHeader } from './page-chrome';
 import { WorkspacePage } from './workspace-page';
 import type { MonsterChoice } from './speed-team-editor';
 import { SpeedRuleOverlay } from './speed-rule-overlay';
 import { SpeedTeamOverlay } from './speed-team-overlay';
+import { SpeedVerdictMark } from './speed-verdict-mark';
+import type { SpeedVerdict } from './speed-verdict-mark';
 import type { OpenMonsterOverlay } from './monster-link';
 import { formatNumber } from '../lib/formatting';
 import type { GameRecord } from '../lib/game-data';
@@ -15,31 +17,31 @@ import { readSkyTribeTotem, totemPercent } from '../lib/sky-tribe-totem';
 import { dungeonIds, speedContent } from '../lib/speed-contents';
 import type { SpeedContentId } from '../lib/speed-contents';
 import { totemMaximumLevel } from '../lib/speed-tick';
-import { hasWhatIf, outOfPlaceCount, readSpeedTeam, ruleStateText, withoutWhatIfs } from '../lib/speed-tuning-analysis';
+import { readSpeedRule, speedRuleKind, speedRuleScopeText, speedRuleSentence, speedRuleVerdict } from '../lib/speed-rules';
+import { hasWhatIf, outOfPlaceCount, readSpeedTeam, withoutWhatIfs } from '../lib/speed-tuning-analysis';
 import type { TeamReading } from '../lib/speed-tuning-analysis';
 import { newSpeedTuningId, speedTeamTitle } from '../lib/speed-tuning-preferences';
 import type { SpeedRule, SpeedTeam, SpeedTuningPreferences } from '../lib/speed-tuning-preferences';
 import type { ImportedGame, Preferences } from '../lib/types';
 
 type Titled = { reading: TeamReading; worn: TeamReading; title: string };
-type Verdict = 'good' | 'bad' | 'none';
+type Verdict = SpeedVerdict;
 
 type ReadingContext = {
   monsters: ReadonlyMap<string, GameRecord>;
   totemPercent: number;
-  rules: readonly SpeedRule[];
   cache: WeakMap<SpeedTeam, TeamReading>;
   worn: WeakMap<SpeedTeam, TeamReading>;
 };
 
-function newReadingContext(monsters: ReadonlyMap<string, GameRecord>, totemPercent: number, rules: readonly SpeedRule[]): ReadingContext {
-  return { monsters, totemPercent, rules, cache: new WeakMap(), worn: new WeakMap() };
+function newReadingContext(monsters: ReadonlyMap<string, GameRecord>, totemPercent: number): ReadingContext {
+  return { monsters, totemPercent, cache: new WeakMap(), worn: new WeakMap() };
 }
 
 function cachedReading(context: ReadingContext, team: SpeedTeam): TeamReading {
   const held = context.cache.get(team);
   if (held) return held;
-  const reading = readSpeedTeam({ team, monsters: context.monsters, totemPercent: context.totemPercent, rules: context.rules });
+  const reading = readSpeedTeam({ team, monsters: context.monsters, totemPercent: context.totemPercent });
   context.cache.set(team, reading);
   return reading;
 }
@@ -51,17 +53,13 @@ function wornReading(context: ReadingContext, team: SpeedTeam): TeamReading {
   if (!hasWhatIf(team)) return cachedReading(context, team);
   const held = context.worn.get(team);
   if (held) return held;
-  const reading = readSpeedTeam({ team: withoutWhatIfs(team), monsters: context.monsters, totemPercent: context.totemPercent, rules: context.rules });
+  const reading = readSpeedTeam({ team: withoutWhatIfs(team), monsters: context.monsters, totemPercent: context.totemPercent });
   context.worn.set(team, reading);
   return reading;
 }
 
 function newTeam(content: SpeedContentId): SpeedTeam {
   return { id: newSpeedTuningId('team'), content, members: [], leaderUnitId: null, marginEnabled: false, margin: 1 };
-}
-
-function newRule(): SpeedRule {
-  return { id: newSpeedTuningId('rule'), fasterUnitId: '', slowerUnitId: '', arena: true, dungeons: true };
 }
 
 function PlusIcon() {
@@ -75,26 +73,19 @@ function LeaderMark() {
   </span>;
 }
 
-/* A tick or a cross, large enough to be read down a column of lines before
-   any name is: the one question the page is opened to answer. */
-function SummaryMark({ state }: { state: Verdict }) {
-  const path = state === 'good' ? 'M3.5 8.5l3 3 6-7' : state === 'bad' ? 'M4 4l8 8M12 4l-8 8' : 'M4 8h8';
-  return <span className="speed-summary-mark" data-state={state} aria-hidden="true">
-    <svg viewBox="0 0 16 16"><path d={path} /></svg>
-  </span>;
-}
-
 /**
  * One line of the page — a team or a rule — and the button that opens it.
  * Two lines and a mark: what the user stated, a sentence saying whether the
  * runes worn deliver it, and that verdict again at the right edge. What was
  * stated is never coloured; it is the user's choice, not a verdict.
  */
-function SummaryLine({ label, status, state, onOpen, children }: {
+function SummaryLine({ label, status, state, spoken, onOpen, children }: {
   /** Read before the line's content, so a line is found by its name. */
   label: string;
   status: string;
   state: Verdict;
+  /** The verdict in words, for a line whose status does not already say it. */
+  spoken?: string;
   onOpen: (opener: HTMLElement) => void;
   children: ReactNode;
 }) {
@@ -103,7 +94,8 @@ function SummaryLine({ label, status, state, onOpen, children }: {
     <span className="speed-summary-names">{children}</span>
     <span className="visually-hidden"> — </span>
     <span className="speed-summary-state" data-state={state}>{status}</span>
-    <SummaryMark state={state} />
+    {spoken !== undefined && <span className="visually-hidden"> — {spoken}</span>}
+    <SpeedVerdictMark state={state} />
   </button>;
 }
 
@@ -124,8 +116,6 @@ function teamStatus(worn: TeamReading, experiment: TeamReading): { text: string;
   return { text: `${outOfPlaceCount(worn)} of ${worn.members.length} out of place with the runes worn${tried}`, state: 'bad' };
 }
 
-const ruleScope = (rule: SpeedRule) => rule.arena && rule.dungeons ? 'Arena and dungeons' : rule.arena ? 'Arena' : 'Dungeons';
-
 type Opened<T> = { value: T; isNew: boolean; opener: HTMLElement | null; fallback: RefObject<HTMLButtonElement | null> };
 
 export function SpeedTuningSection({ game, monsters, preferences, onWrite, onOpenMonster }: {
@@ -138,10 +128,11 @@ export function SpeedTuningSection({ game, monsters, preferences, onWrite, onOpe
   const { teams, rules } = preferences.speedTuning;
   const general = preferences.general;
   const [editingTeam, setEditingTeam] = useState<Opened<SpeedTeam> | null>(null);
-  const [editingRule, setEditingRule] = useState<Opened<SpeedRule> | null>(null);
-  const addDungeonTeam = useRef<HTMLButtonElement>(null);
-  const addArenaTeam = useRef<HTMLButtonElement>(null);
-  const addRule = useRef<HTMLButtonElement>(null);
+  /* A rule not yet saved has no rule to open, only the id it will be saved under. */
+  const [editingRule, setEditingRule] = useState<Opened<{ id: string; saved: SpeedRule | null }> | null>(null);
+  /* The one Add button, and where focus returns when the entry it was
+     opened for is gone. */
+  const addButton = useRef<HTMLButtonElement>(null);
 
   const names = useMemo(() => monsterCopyNames(monsters, preferences.monsterPreferences), [monsters, preferences.monsterPreferences]);
   const monsterById = useMemo(() => new Map(monsters
@@ -160,7 +151,9 @@ export function SpeedTuningSection({ game, monsters, preferences, onWrite, onOpe
      until that team itself changes. An edit replaces only the edited team's
      object, which is what the cache is keyed on; the import, the totem and the
      rules reach every team, so a change to any of them starts a new context. */
-  const readingContext = useMemo(() => newReadingContext(monsterById, totemShare, rules), [monsterById, totemShare, rules]);
+  const readingContext = useMemo(() => newReadingContext(monsterById, totemShare), [monsterById, totemShare]);
+  const ruleReadings = useMemo(() => new Map(rules.map((rule) => [rule.id, readSpeedRule(rule, monsterById, totemShare)])),
+    [rules, monsterById, totemShare]);
 
   /* Numbered within their own kind, in the order they were added: the first
      arena team is Arena team #1 whatever the dungeons hold. */
@@ -172,7 +165,6 @@ export function SpeedTuningSection({ game, monsters, preferences, onWrite, onOpe
     }));
   const arenaTeams = titled('arena');
   const dungeonGroups = dungeonIds.map((id) => ({ id, entries: titled(id) })).filter((group) => group.entries.length > 0);
-  const allTitled = [...dungeonGroups.flatMap((group) => group.entries), ...arenaTeams];
 
   /* A saved entry keeps its place in its list, so a team's number does not
      change under it; a new one goes last, which is where its overlay said. */
@@ -207,43 +199,43 @@ export function SpeedTuningSection({ game, monsters, preferences, onWrite, onOpe
   }
 
   return <WorkspacePage header={<SpeedHeader />}>
-    <SpeedBasis totem={totem} general={general} />
+    <SpeedBasis totem={totem} general={general} action={<AddMenu triggerRef={addButton} onChoose={(choice, opener) => {
+      if (choice === 'rule') setEditingRule({ value: { id: newSpeedTuningId('rule'), saved: null }, isNew: true, opener, fallback: addButton });
+      else setEditingTeam({ value: newTeam(choice === 'dungeon' ? dungeonIds[0] : 'arena'), isNew: true, opener, fallback: addButton });
+    }} />} />
 
     <div className="speed-columns">
       <section className="speed-column" aria-labelledby="speed-dungeons-title">
-        <ColumnHead id="speed-dungeons-title" title="Dungeons" addLabel="Add team" addRef={addDungeonTeam}
-          onAdd={(opener) => setEditingTeam({ value: newTeam(dungeonIds[0]), isNew: true, opener, fallback: addDungeonTeam })} />
+        <ColumnHead id="speed-dungeons-title" title="Dungeons" />
         {dungeonGroups.length === 0
-          ? <p className="speed-column-empty type-caption">No dungeon teams yet. Add one; each is tuned against its dungeon&apos;s hardest floor.</p>
+          ? <p className="speed-column-empty type-caption">No dungeon teams yet.</p>
           : dungeonGroups.map((group) => <section key={group.id} className="speed-group" aria-labelledby={`speed-dungeon-${group.id}`}>
             <h3 id={`speed-dungeon-${group.id}`} className="speed-group-title">{speedContent(group.id).name}</h3>
             <ul className="speed-summary-list">
-              {group.entries.map((entry) => <li key={entry.reading.team.id}>{renderTeam(entry, addDungeonTeam)}</li>)}
+              {group.entries.map((entry) => <li key={entry.reading.team.id}>{renderTeam(entry)}</li>)}
             </ul>
           </section>)}
       </section>
 
       <section className="speed-column" aria-labelledby="speed-arena-title">
-        <ColumnHead id="speed-arena-title" title="Arena offence" addLabel="Add team" addRef={addArenaTeam}
-          onAdd={(opener) => setEditingTeam({ value: newTeam('arena'), isNew: true, opener, fallback: addArenaTeam })} />
+        <ColumnHead id="speed-arena-title" title="Arena offence" />
         {arenaTeams.length === 0
-          ? <p className="speed-column-empty type-caption">No arena teams yet. Add one for every offence you tune; each faces a worst-case enemy read from the team itself.</p>
+          ? <p className="speed-column-empty type-caption">No arena teams yet.</p>
           : <ul className="speed-summary-list">
-            {arenaTeams.map((entry) => <li key={entry.reading.team.id}>{renderTeam(entry, addArenaTeam)}</li>)}
+            {arenaTeams.map((entry) => <li key={entry.reading.team.id}>{renderTeam(entry)}</li>)}
           </ul>}
       </section>
 
       <section className="speed-column" aria-labelledby="speed-rules-title">
-        <ColumnHead id="speed-rules-title" title="Rules" addLabel="Add rule" addRef={addRule}
-          onAdd={(opener) => setEditingRule({ value: newRule(), isNew: true, opener, fallback: addRule })} />
+        <ColumnHead id="speed-rules-title" title="Rules" />
         {rules.length === 0
-          ? <p className="speed-column-empty type-caption">No rules yet. A rule says one monster moves before another, in every team that holds them both.</p>
+          ? <p className="speed-column-empty type-caption">No rules yet.</p>
           : <ul className="speed-summary-list">{rules.map((rule) => <li key={rule.id}>{renderRule(rule)}</li>)}</ul>}
       </section>
     </div>
 
     {editingTeam && <SpeedTeamOverlay key={editingTeam.value.id} initial={editingTeam.value} isNew={editingTeam.isNew} teams={teams}
-      monsters={monsterById} totemShare={totemShare} rules={rules} names={names} choices={choices} general={general}
+      monsters={monsterById} totemShare={totemShare} names={names} choices={choices} general={general}
       onSave={(team) => { saveTeam(team); closeTeam(); }}
       onRemove={() => {
         const id = editingTeam.value.id;
@@ -252,8 +244,8 @@ export function SpeedTuningSection({ game, monsters, preferences, onWrite, onOpe
       }}
       onClose={closeTeam} onOpenMonster={onOpenMonster} />}
 
-    {editingRule && <SpeedRuleOverlay key={editingRule.value.id} initial={editingRule.value} isNew={editingRule.isNew}
-      choices={choices} names={names}
+    {editingRule && <SpeedRuleOverlay key={editingRule.value.id} id={editingRule.value.id} initial={editingRule.value.saved}
+      choices={choices} names={names} monsters={monsterById} totemShare={totemShare} general={general}
       onSave={(rule) => { saveRule(rule); closeRule(); }}
       onRemove={() => {
         const id = editingRule.value.id;
@@ -264,11 +256,11 @@ export function SpeedTuningSection({ game, monsters, preferences, onWrite, onOpe
   </WorkspacePage>;
 
   /* A team's line: the order asked for, its leader marked. */
-  function renderTeam(entry: Titled, fallback: RefObject<HTMLButtonElement | null>) {
+  function renderTeam(entry: Titled) {
     const { team } = entry.reading;
     const status = teamStatus(entry.worn, entry.reading);
     return <SummaryLine label={entry.title} status={status.text} state={status.state}
-      onOpen={(opener) => setEditingTeam({ value: team, isNew: false, opener, fallback })}>
+      onOpen={(opener) => setEditingTeam({ value: team, isNew: false, opener, fallback: addButton })}>
       {team.members.map((member, at) => <span key={member.unitId} className="speed-summary-member">
         {at > 0 && <span className="speed-summary-step" aria-hidden="true">›</span>}
         <span className="speed-summary-name">{monsterById.has(member.unitId) ? names[member.unitId]?.name ?? member.unitId : 'Not in this import'}</span>
@@ -278,26 +270,25 @@ export function SpeedTuningSection({ game, monsters, preferences, onWrite, onOpe
     </SummaryLine>;
   }
 
-  /* A rule's line: who moves before whom, where it reaches, and every team
-     with both that breaks it — named, since that is where the fix is made. */
+  /* A rule's line: the rule as a sentence, its monsters and figures in full
+     ink, where it is checked under it, and whether it holds there at the edge. */
   function renderRule(rule: SpeedRule) {
-    const verdicts = allTitled.flatMap((entry) => entry.worn.rules
-      .filter((reading) => reading.rule.id === rule.id)
-      .map((reading) => ({ title: entry.title, state: reading.state })));
-    const failing = verdicts.filter((verdict) => verdict.state !== 'holds');
-    const fasterName = monsterById.has(rule.fasterUnitId) ? names[rule.fasterUnitId]?.name ?? rule.fasterUnitId : 'Not in this import';
-    const slowerName = monsterById.has(rule.slowerUnitId) ? names[rule.slowerUnitId]?.name ?? rule.slowerUnitId : 'Not in this import';
-    const verdict = verdicts.length === 0
-      ? 'no team holds both yet'
-      : failing.length === 0
-        ? `holds in ${verdicts.length === 1 ? 'the one team' : `all ${verdicts.length} teams`} with both`
-        : failing.map((entry) => `${entry.title}: ${ruleStateText[entry.state]}`).join(' · ');
-    const state: Verdict = verdicts.length === 0 ? 'none' : failing.length ? 'bad' : 'good';
-    return <SummaryLine label={`Rule ${fasterName} before ${slowerName}`} status={`${ruleScope(rule)} · ${verdict}`} state={state}
-      onOpen={(opener) => setEditingRule({ value: rule, isNew: false, opener, fallback: addRule })}>
-      <span className="speed-summary-member"><span className="speed-summary-name">{fasterName}</span></span>
-      <span className="speed-summary-step">before</span>
-      <span className="speed-summary-member"><span className="speed-summary-name">{slowerName}</span></span>
+    const reading = ruleReadings.get(rule.id) ?? readSpeedRule(rule, monsterById, totemShare);
+    const state = speedRuleVerdict(rule, reading);
+    const nameOf = (unitId: string) => monsterById.has(unitId) ? names[unitId]?.name ?? unitId : 'Not in this import';
+    const figure = (value: number) => <span className="speed-summary-member"><span className="speed-summary-name speed-summary-figure">{formatNumber(value, general)}</span></span>;
+    const { must } = rule;
+    return <SummaryLine label={`Rule ${speedRuleSentence(rule, nameOf, (value) => formatNumber(value, general))}`}
+      status={speedRuleScopeText(rule)} state={state}
+      spoken={state === 'good' ? 'holds' : state === 'bad' ? 'does not hold' : 'not judged'}
+      onOpen={(opener) => setEditingRule({ value: { id: rule.id, saved: rule }, isNew: false, opener, fallback: addButton })}>
+      <span className="speed-summary-member"><span className="speed-summary-name">{nameOf(rule.unitId)}</span></span>
+      <span className="speed-summary-step">must {speedRuleKind(must.kind).label.toLowerCase()}</span>
+      {must.kind === 'move-before' || must.kind === 'move-after'
+        ? <span className="speed-summary-member"><span className="speed-summary-name">{nameOf(must.unitId)}</span></span>
+        : must.kind === 'stay-between'
+          ? <>{figure(must.minimum)}<span className="speed-summary-step">and</span>{figure(must.maximum)}</>
+          : figure(must.speed)}
     </SummaryLine>;
   }
 }
@@ -308,20 +299,81 @@ function upsert<T extends { id: string }>(list: readonly T[], saved: T): T[] {
     : [...list, saved];
 }
 
-/** A column's title and its one action, on one line, the action at the far edge. */
-function ColumnHead({ id, title, addLabel, addRef, onAdd }: {
-  id: string;
-  title: string;
-  addLabel: string;
-  addRef: RefObject<HTMLButtonElement | null>;
-  onAdd: (opener: HTMLElement) => void;
-}) {
+/** A column's title, ruled off from its lines. */
+function ColumnHead({ id, title }: { id: string; title: string }) {
   return <header className="speed-column-head">
     <h2 id={id} className="type-title">{title}</h2>
-    <Button ref={addRef} tone="important" size="compact" onClick={(event) => onAdd(event.currentTarget)}>
-      <PlusIcon />{addLabel}
-    </Button>
   </header>;
+}
+
+type AddChoice = 'dungeon' | 'arena' | 'rule';
+const addChoices: readonly { choice: AddChoice; label: string }[] = [
+  { choice: 'dungeon', label: 'Dungeon team' },
+  { choice: 'arena', label: 'Arena team' },
+  { choice: 'rule', label: 'Rule' },
+];
+
+/**
+ * The page's one way to add anything: a button that opens a short menu of
+ * the three things the page holds. One button in the strip every figure
+ * starts from, rather than one per column head, so the columns are ruled
+ * titles over their lines and the action is in one predictable place.
+ *
+ * The menu is absolutely placed, so opening it moves nothing (AGENTS.md §2).
+ * Escape, a click outside and Tab close it; Escape and a choice hand focus
+ * back to the button, which is also where a closed overlay returns it.
+ */
+function AddMenu({ triggerRef, onChoose }: {
+  triggerRef: RefObject<HTMLButtonElement | null>;
+  onChoose: (choice: AddChoice, opener: HTMLElement) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const holder = useRef<HTMLDivElement>(null);
+  const items = useRef<(HTMLButtonElement | null)[]>([]);
+  const menuId = useId();
+
+  useEffect(() => {
+    if (!open) return;
+    items.current[0]?.focus();
+    function onPointer(event: MouseEvent) {
+      if (!holder.current?.contains(event.target as Node)) setOpen(false);
+    }
+    window.addEventListener('mousedown', onPointer);
+    return () => window.removeEventListener('mousedown', onPointer);
+  }, [open]);
+
+  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (!open) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      setOpen(false);
+      triggerRef.current?.focus();
+      return;
+    }
+    if (event.key === 'Tab') { setOpen(false); return; }
+    const at = items.current.findIndex((item) => item === document.activeElement);
+    const step = event.key === 'ArrowDown' ? 1 : event.key === 'ArrowUp' ? -1 : 0;
+    if (step === 0 && event.key !== 'Home' && event.key !== 'End') return;
+    event.preventDefault();
+    const last = addChoices.length - 1;
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? last : (at + step + addChoices.length) % addChoices.length;
+    items.current[next]?.focus();
+  }
+
+  return <div ref={holder} className="speed-add" onKeyDown={onKeyDown}>
+    <Button ref={triggerRef} tone="important" aria-haspopup="menu" aria-expanded={open}
+      aria-controls={open ? menuId : undefined} onClick={() => setOpen((current) => !current)}>
+      <PlusIcon />Add…
+    </Button>
+    {open && <div id={menuId} className="speed-add-menu" role="menu" aria-label="Add">
+      {addChoices.map(({ choice, label }, at) => <button key={choice} ref={(element) => { items.current[at] = element; }}
+        type="button" role="menuitem" className="speed-add-item" tabIndex={-1}
+        onClick={() => {
+          setOpen(false);
+          if (triggerRef.current) onChoose(choice, triggerRef.current);
+        }}>{label}</button>)}
+    </div>}
+  </div>;
 }
 
 function SpeedHeader() {
@@ -335,17 +387,25 @@ function SpeedHeader() {
  * leader skill, a skill that boosts or buffs) and is read where that monster
  * or team is.
  */
-function SpeedBasis({ totem, general }: { totem: ReturnType<typeof readSkyTribeTotem>; general: Preferences['general'] }) {
+function SpeedBasis({ totem, general, action }: {
+  totem: ReturnType<typeof readSkyTribeTotem>;
+  general: Preferences['general'];
+  /** The page's one action, at the strip's far edge. */
+  action: ReactNode;
+}) {
   const level = totem.state === 'built' ? `Level ${totem.level} of ${totemMaximumLevel}`
     : totem.state === 'not-built' ? 'Not built' : 'Not in this import';
   const percent = totem.state === 'built' ? totem.percent : 0;
   /* The bonus is the figure every combat speed on the page counts, so it is
      the one in full ink; the level is where it comes from, and dimmed. */
-  return <section className="speed-basis" aria-labelledby="speed-basis-title">
-    <h2 id="speed-basis-title" className="speed-basis-title">Sky Tribe Totem</h2>
-    <p className="speed-basis-level">{level}</p>
-    <p className="speed-basis-bonus">
-      <span className="speed-basis-figure">+{formatNumber(percent, general)} %</span> of base speed
-    </p>
-  </section>;
+  return <div className="speed-basis">
+    <section className="speed-basis-facts" aria-labelledby="speed-basis-title">
+      <h2 id="speed-basis-title" className="speed-basis-title">Sky Tribe Totem</h2>
+      <p className="speed-basis-level">{level}</p>
+      <p className="speed-basis-bonus">
+        <span className="speed-basis-figure">+{formatNumber(percent, general)} %</span> of base speed
+      </p>
+    </section>
+    {action}
+  </div>;
 }

@@ -7,8 +7,8 @@ import type { OpenMonsterOverlay } from './monster-link';
 import { formatNumber } from '../lib/formatting';
 import type { MonsterCopyName } from '../lib/monster-names';
 import { boostsAllies, describeLeaderSkill, describeTurnEffect, speedLeaderSkill } from '../lib/speed-skills';
-import { combatSpeedName, hasWhatIf, outOfPlaceCount, ruleStateText } from '../lib/speed-tuning-analysis';
-import type { DisplaySpeedInterval, MemberReading, TeamReading } from '../lib/speed-tuning-analysis';
+import { combatSpeedName, displaySpeedIntervalText, hasWhatIf, outOfPlaceCount } from '../lib/speed-tuning-analysis';
+import type { MemberReading, TeamReading } from '../lib/speed-tuning-analysis';
 import { speedMarginMaximum, whatIfDisplaySpeedMaximum } from '../lib/speed-tuning-preferences';
 import type { SpeedTeam } from '../lib/speed-tuning-preferences';
 import type { GeneralSettings } from '../lib/types';
@@ -21,14 +21,6 @@ function ordinal(value: number): string {
   return `${value}${({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[value % 10] ?? 'th'}`;
 }
 
-function intervalText(interval: DisplaySpeedInterval | null, general: GeneralSettings): string {
-  if (interval === null) return 'no display speed fixes this on its own';
-  const minimum = formatNumber(interval.minimum, general);
-  if (interval.maximum === null) return `needs ${minimum}+ display speed`;
-  if (interval.maximum === interval.minimum) return `needs exactly ${minimum} display speed`;
-  return `needs ${minimum}–${formatNumber(interval.maximum, general)} display speed`;
-}
-
 /** The one line under a member that says whether it is where it was put, and if not, what would put it there. */
 function verdictText(member: MemberReading, names: Record<string, MonsterCopyName>, margin: number, general: GeneralSettings): string {
   const { verdict } = member;
@@ -36,10 +28,10 @@ function verdictText(member: MemberReading, names: Record<string, MonsterCopyNam
     case 'in-place': return `In place · moves ${ordinal(member.actualPosition)}`;
     case 'order': {
       const problem = verdict.tooSlow && verdict.tooFast ? 'Out of order' : verdict.tooSlow ? 'Too slow' : 'Too fast';
-      return `${problem} · moves ${ordinal(member.actualPosition)} · ${intervalText(verdict.interval, general)}`;
+      return `${problem} · moves ${ordinal(member.actualPosition)} · ${displaySpeedIntervalText(verdict.interval, general)}`;
     }
-    case 'margin': return `In order, inside the ${margin}-speed margin · ${intervalText(verdict.interval, general)}`;
-    case 'tie': return `Tied with ${names[verdict.with]?.name ?? 'a teammate'} · position decides · ${intervalText(verdict.interval, general)}`;
+    case 'margin': return `In order, inside the ${margin}-speed margin · ${displaySpeedIntervalText(verdict.interval, general)}`;
+    case 'tie': return `Tied with ${names[verdict.with]?.name ?? 'a teammate'} · position decides · ${displaySpeedIntervalText(verdict.interval, general)}`;
   }
 }
 
@@ -317,14 +309,6 @@ export function SpeedTeamEditor({ reading, worn, title, names, choices, general,
             {enemy ? ` ${cutIn(enemy.allyTurnsBefore, reading.members.length)}` : ''}
           </li>;
         })}
-      {/* Always a line, so a rule added in the next column cannot push this
-          card's height about (AGENTS.md §2). */}
-      <li className="speed-team-rules" data-state={reading.rules.length === 0 ? 'none'
-        : reading.rules.every((rule) => rule.state === 'holds') ? 'good' : 'bad'}>
-        {reading.rules.length === 0
-          ? 'No rule reaches this team.'
-          : `Rules: ${reading.rules.map((rule) => `${names[rule.rule.fasterUnitId]?.name ?? '?'} before ${names[rule.rule.slowerUnitId]?.name ?? '?'} ${ruleStateText[rule.state]}`).join(' · ')}`}
-      </li>
     </ul>
   </div>;
 }

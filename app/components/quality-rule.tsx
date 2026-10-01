@@ -9,11 +9,6 @@ const tierClass: Record<QualityTier, string> = {
   Legend: styles.legend,
 };
 
-/** The class a cell hosting a `QualityRule` needs: it positions the rule and
- * leaves the gap the rule sits in. Exported so a caller adds it to a `td` it
- * already styles rather than nesting another element inside the cell. */
-export const qualityRuleHost = styles.host;
-
 /**
  * A tier shown as a discreet coloured rule down the left edge of its cell.
  *

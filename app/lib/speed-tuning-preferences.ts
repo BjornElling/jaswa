@@ -1,6 +1,6 @@
 /**
  * What the user has stated on the Speed Tuning page: the teams they intend to
- * tune, the order each should move in, and the standing rules between two
+ * tune, the order each should move in, and the standing rules about single
  * monsters. Nothing here is shipped — the page starts empty and holds only what
  * the user typed.
  *
@@ -46,16 +46,37 @@ export type SpeedTeam = {
 };
 
 /**
- * A standing rule between two monsters: `fasterUnitId` must move before
- * `slowerUnitId` in every team of the ticked kinds that holds them both.
+ * What a rule asks of its monster: a turn order against another monster, or a
+ * figure to reach, stay under or stay inside. The figure is read in each
+ * speed form the rule is checked in, so one rule can say "at least 160" of
+ * display speed and of dungeon speed at once.
+ */
+export type SpeedRuleMust =
+  | { kind: 'move-before'; unitId: string }
+  | { kind: 'move-after'; unitId: string }
+  | { kind: 'reach-at-least'; speed: number }
+  | { kind: 'stay-at-most'; speed: number }
+  | { kind: 'stay-between'; minimum: number; maximum: number };
+
+export type SpeedRuleKind = SpeedRuleMust['kind'];
+
+/**
+ * A standing reminder about one monster, judged on its own and never inside a
+ * team: the teams on the page are one question, a rule is another. Where it is
+ * checked is the user's to tick, and a rule ticked nowhere is still a rule —
+ * kept, and judged by nothing until a box is ticked.
  */
 export type SpeedRule = {
   id: string;
-  fasterUnitId: string;
-  slowerUnitId: string;
-  arena: boolean;
-  dungeons: boolean;
+  unitId: string;
+  must: SpeedRuleMust;
+  displaySpeed: boolean;
+  dungeonSpeed: boolean;
+  arenaSpeed: boolean;
 };
+
+/** The highest figure a rule accepts. Far above any display speed, dungeon speed or arena speed a build reaches. */
+export const speedRuleFigureMaximum = 999;
 
 export type SpeedTuningPreferences = { teams: SpeedTeam[]; rules: SpeedRule[] };
 
@@ -119,12 +140,31 @@ function isTeam(value: unknown): value is SpeedTeam {
     && value.margin >= 1 && value.margin <= speedMarginMaximum;
 }
 
+export function isSpeedRuleFigure(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 1 && value <= speedRuleFigureMaximum;
+}
+
+function isMust(value: unknown, unitId: string): value is SpeedRuleMust {
+  if (!isRecord(value)) return false;
+  switch (value.kind) {
+    case 'move-before':
+    case 'move-after':
+      return hasExactKeys(value, ['kind', 'unitId']) && isIdentifier(value.unitId) && value.unitId !== unitId;
+    case 'reach-at-least':
+    case 'stay-at-most':
+      return hasExactKeys(value, ['kind', 'speed']) && isSpeedRuleFigure(value.speed);
+    case 'stay-between':
+      return hasExactKeys(value, ['kind', 'minimum', 'maximum'])
+        && isSpeedRuleFigure(value.minimum) && isSpeedRuleFigure(value.maximum) && value.minimum <= value.maximum;
+    default:
+      return false;
+  }
+}
+
 function isRule(value: unknown): value is SpeedRule {
-  if (!isRecord(value) || !hasExactKeys(value, ['id', 'fasterUnitId', 'slowerUnitId', 'arena', 'dungeons'])) return false;
-  return isIdentifier(value.id)
-    && isIdentifier(value.fasterUnitId) && isIdentifier(value.slowerUnitId)
-    && value.fasterUnitId !== value.slowerUnitId
-    && typeof value.arena === 'boolean' && typeof value.dungeons === 'boolean';
+  if (!isRecord(value) || !hasExactKeys(value, ['id', 'unitId', 'must', 'displaySpeed', 'dungeonSpeed', 'arenaSpeed'])) return false;
+  return isIdentifier(value.id) && isIdentifier(value.unitId) && isMust(value.must, value.unitId)
+    && typeof value.displaySpeed === 'boolean' && typeof value.dungeonSpeed === 'boolean' && typeof value.arenaSpeed === 'boolean';
 }
 
 /** Whether a whole document meets the current contract, as a `.sw` writer must produce it. */
