@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { DragEvent } from 'react';
+import type { DragEvent, ReactNode } from 'react';
 import { CheckboxRow } from './form-controls';
 import { Dropdown } from './dropdown';
 import { MonsterLink } from './monster-link';
@@ -95,10 +95,12 @@ type EditorProps = {
   onChange: (change: (team: SpeedTeam) => SpeedTeam) => void;
   onAddMonster: (unitId: string) => void;
   onOpenMonster: OpenMonsterOverlay;
+  /** The way into the tick-by-tick view, set beside the turn order it details. */
+  turnOrderAction?: ReactNode;
 };
 
 /** Everything a team states and everything read from it: the leader, the margin, each slot and its verdict, and what the team faces. */
-export function SpeedTeamEditor({ reading, worn, title, names, choices, general, onChange, onAddMonster, onOpenMonster }: EditorProps) {
+export function SpeedTeamEditor({ reading, worn, title, names, choices, general, onChange, onAddMonster, onOpenMonster, turnOrderAction }: EditorProps) {
   const { team, content } = reading;
   const [dragging, setDragging] = useState<number | null>(null);
   const speedName = combatSpeedName(reading);
@@ -296,25 +298,46 @@ export function SpeedTeamEditor({ reading, worn, title, names, choices, general,
       })}
     </table>
 
-    <ul className="speed-team-facts">
-      <li className="speed-team-status" data-state={statusState}>{status}</li>
-      {content.area === 'arena'
-        ? <li>{reading.enemies[0]
-          ? `Worst-case enemy at ${formatNumber(reading.enemies[0].enemySpeed, general)} arena speed ${cutIn(reading.enemies[0].allyTurnsBefore, reading.members.length)}`
-          : 'Worst-case enemy: add a monster to see when an enemy can first cut in.'}</li>
-        : content.stages.map((stage, at) => {
-          const enemy = reading.enemies[at];
-          return <li key={at}>
-            Stage {at + 1} · fastest enemy {formatNumber(stage.fastest, general)} dungeon speed
-            {enemy ? ` ${cutIn(enemy.allyTurnsBefore, reading.members.length)}` : ''}
-          </li>;
-        })}
-    </ul>
-  </div>;
-}
+    <p className="speed-team-status" data-state={statusState}>{status}</p>
 
-function cutIn(allyTurnsBefore: number, teamSize: number): string {
-  if (teamSize > 0 && allyTurnsBefore >= teamSize) return '· first moves after your whole team';
-  if (allyTurnsBefore === 0) return '· moves before your team';
-  return `· first moves after your ${ordinal(allyTurnsBefore)} turn`;
+    {/* When the other side first gets a turn: a row per stage, or the one
+        worst case in arena. The rows are the content's, never the team's, so
+        adding the first monster fills cells rather than adding lines. */}
+    <section className="speed-enemy-turns" aria-labelledby={`${team.id}-turn-order`}>
+      <div className="speed-enemy-turns-head">
+        <h3 id={`${team.id}-turn-order`} className="type-label">Turn order</h3>
+        {turnOrderAction}
+      </div>
+      <table className="speed-enemy-table">
+        <colgroup><col className="speed-col-stage" /><col className="speed-col-enemy" /><col /></colgroup>
+        <thead><tr>
+          <th scope="col">{content.area === 'arena' ? 'Enemy' : 'Stage'}</th>
+          <th scope="col">First enemy to move</th>
+          <th scope="col">Enemy moves after</th>
+        </tr></thead>
+        <tbody>
+          {(content.area === 'arena' ? [null] : content.stages).map((stage, at) => {
+            const enemy = reading.enemies[at];
+            /* A stage's first mover is its fastest enemy: enemies carry no speed
+               effects here, so the figure is known before the team is. */
+            const speed = enemy ? enemy.enemySpeeds[enemy.firstEnemy ?? 0] : stage?.fastest;
+            return <tr key={at}>
+              <th scope="row">{stage ? at + 1 : 'Worst case'}</th>
+              <td className="speed-enemy-speed">
+                {speed === undefined ? '—' : `${formatNumber(speed, general)} ${content.area === 'arena' ? 'arena' : 'dungeon'} speed`}
+              </td>
+              <td className="speed-enemy-after">
+                {!enemy ? <span className="muted">—</span>
+                  : enemy.follows === null ? 'Before your team'
+                    : <>
+                      <span className="speed-enemy-after-name">{names[enemy.follows.unitId]?.name ?? 'A teammate'}</span>
+                      {' '}<span className="speed-enemy-after-turn">({ordinal(enemy.follows.turn)} turn)</span>
+                    </>}
+              </td>
+            </tr>;
+          })}
+        </tbody>
+      </table>
+    </section>
+  </div>;
 }

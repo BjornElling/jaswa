@@ -67,18 +67,29 @@ test('tunes a dungeon team, explains every miss, and keeps the card still', asyn
   const addButton = page.getByRole('button', { name: 'Add…' });
   const headBefore = await box(dungeons.getByRole('heading', { name: 'Dungeons' }));
   await addFromMenu(page, 'Dungeon team');
-  const card = page.getByRole('dialog', { name: "Giant's Keep team #1" });
-  await expect(card.getByText('New dungeon team')).toBeVisible();
-  await expect(card.locator('.speed-slot')).toHaveCount(5);
-  await expect(card.getByRole('button', { name: 'Add this team' })).toBeDisabled();
-  const emptyBox = await box(card.locator('.speed-team-editor'));
+  /* A draft is named as new until it is saved; the dungeon is chosen under the title. */
+  const draft = page.getByRole('dialog', { name: 'New dungeon team' });
+  await expect(draft.getByRole('heading', { name: 'New dungeon team' })).toBeVisible();
+  await expect(draft.locator('.speed-slot')).toHaveCount(5);
+  await expect(draft.getByRole('button', { name: 'Add this team' })).toBeDisabled();
+  const dungeonChoice = draft.getByRole('group', { name: 'Dungeon' });
+  await expect(dungeonChoice.getByRole('button', { name: "Giant's Keep" })).toHaveAttribute('aria-pressed', 'true');
+  /* Every stage has its row before any monster is added. */
+  const enemyTurns = draft.getByRole('region', { name: 'Turn order' });
+  await expect(enemyTurns.locator('tbody tr')).toHaveCount(4);
+  await expect(enemyTurns.locator('tbody tr').nth(1)).toHaveText(['2', '169 dungeon speed', '—'].join(''));
+  await expect(draft.getByRole('button', { name: 'Show every tick' })).toBeDisabled();
+  const emptyBox = await box(draft.locator('.speed-team-editor'));
   await page.screenshot({ path: testInfo.outputPath('speed-overlay-empty.png') });
 
-  /* Choosing another dungeon renames the draft; choosing back restores it. */
-  await card.getByLabel('Dungeon', { exact: true }).selectOption({ label: 'Necropolis' });
-  await expect(page.getByRole('heading', { name: 'Necropolis team #1' })).toBeVisible();
-  await page.getByRole('dialog', { name: 'Necropolis team #1' }).getByLabel('Dungeon', { exact: true }).selectOption({ label: "Giant's Keep" });
-  await expect(card).toBeVisible();
+  /* Choosing another dungeon changes only the chosen chip, and the draft is for it; choosing back restores it. */
+  const choiceBox = await box(dungeonChoice);
+  await dungeonChoice.getByRole('button', { name: 'Necropolis' }).click();
+  await expect(dungeonChoice.getByRole('button', { name: 'Necropolis' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(draft.getByLabel('Add a monster to Necropolis team #1')).toBeVisible();
+  expect(await box(dungeonChoice)).toEqual(choiceBox);
+  await dungeonChoice.getByRole('button', { name: "Giant's Keep" }).click();
+  const card = draft;
 
   /* Monsters join in the order their dungeon speed gives them, whatever order they are picked in. */
   const add = card.getByLabel("Add a monster to Giant's Keep team #1");
@@ -88,7 +99,9 @@ test('tunes a dungeon team, explains every miss, and keeps the card still', asyn
   await expect(card.locator('.speed-monster .monster-name')).toHaveText(['Bernard (2A)', 'Lushen #1', 'Veromos', 'Verdehile', 'Megan (2A)']);
   await expect(card.locator('.speed-combat')).toHaveText(['170', '119', '115', '114', '112']);
   await expect(card.getByText('Perfect tune: everyone moves where you put them.')).toBeVisible();
-  await expect(card.getByText('Stage 2 · fastest enemy 169 dungeon speed · first moves after your 2nd turn')).toBeVisible();
+  /* Each stage names the turn its first enemy follows: whose, and which of theirs. */
+  await expect(enemyTurns.locator('tbody tr').nth(1)).toHaveText('2169 dungeon speedLushen #1 (1st turn)');
+  await expect(enemyTurns.locator('tbody tr').first().locator('.speed-enemy-after')).toHaveText('Lushen #1 (2nd turn)');
   await expect(card.getByRole('img', { name: /^Bernard \(2A\) — Tailwind: \+34\.5 % attack bar to allies/ })).toBeVisible();
   const fullBox = await box(card.locator('.speed-team-editor'));
   expectSameHeight(fullBox.height, emptyBox.height);
@@ -108,40 +121,42 @@ test('tunes a dungeon team, explains every miss, and keeps the card still', asyn
   expectSameHeight((await box(dungeons.getByRole('heading', { name: 'Dungeons' }))).y, headBefore.y);
   await page.screenshot({ path: testInfo.outputPath('speed-page-one-team.png') });
   await line.click();
-  await expect(card.getByText('Dungeon team', { exact: true })).toBeVisible();
+  /* Saved, the team is named by what it is. */
+  const saved = page.getByRole('dialog', { name: "Giant's Keep team #1" });
+  await expect(saved.getByRole('heading', { name: "Giant's Keep team #1" })).toBeVisible();
 
   /* Megan asked to move second: she is too slow, and gets her own interval. */
-  for (let step = 0; step < 3; step += 1) await card.getByRole('button', { name: 'Move Megan (2A) earlier' }).click();
-  const megan = card.locator('.speed-slot').nth(1);
+  for (let step = 0; step < 3; step += 1) await saved.getByRole('button', { name: 'Move Megan (2A) earlier' }).click();
+  const megan = saved.locator('.speed-slot').nth(1);
   await expect(megan.locator('.speed-verdict')).toHaveText('Too slow · moves 5th · needs 104–154 display speed');
-  await expect(card.locator('.speed-slot').nth(2).locator('.speed-verdict')).toHaveText(/^Too fast · moves 2nd/);
-  await expect(card.getByText('4 of 5 out of place.')).toBeVisible();
-  expectSameHeight((await box(card.locator('.speed-team-editor'))).height, emptyBox.height);
-  await card.screenshot({ path: testInfo.outputPath('speed-team-out-of-order.png') });
+  await expect(saved.locator('.speed-slot').nth(2).locator('.speed-verdict')).toHaveText(/^Too fast · moves 2nd/);
+  await expect(saved.getByText('4 of 5 out of place.')).toBeVisible();
+  expectSameHeight((await box(saved.locator('.speed-team-editor'))).height, emptyBox.height);
+  await saved.screenshot({ path: testInfo.outputPath('speed-team-out-of-order.png') });
 
   /* A what-if inside the interval fixes the whole team; empty goes back to the import. */
-  const whatIf = card.getByLabel("What-if display speed for Megan (2A) in Giant's Keep team #1");
+  const whatIf = saved.getByLabel("What-if display speed for Megan (2A) in Giant's Keep team #1");
   await whatIf.fill('120');
   /* The experiment's verdict names itself and quotes the runes worn beside it. */
-  await expect(card.getByText('Perfect tune with your what-ifs · 4 of 5 with the runes worn.')).toBeVisible();
+  await expect(saved.getByText('Perfect tune with your what-ifs · 4 of 5 with the runes worn.')).toBeVisible();
   await expect(megan.locator('.speed-combat')).toHaveText('135');
   await whatIf.fill('');
-  await expect(card.getByText('4 of 5 out of place.')).toBeVisible();
+  await expect(saved.getByText('4 of 5 out of place.')).toBeVisible();
   await whatIf.fill('120');
 
   /* A leader counts only where it reaches; a dungeon lead does here. */
-  await card.getByLabel('Leader').selectOption({ label: 'Verdehile — +28 % attack speed in dungeons' });
-  await expect(card.getByText('+28 % attack speed in dungeons.')).toBeVisible();
-  await expect(card.locator('.speed-combat').first()).toHaveText('201');
+  await saved.getByLabel('Leader').selectOption({ label: 'Verdehile — +28 % attack speed in dungeons' });
+  await expect(saved.getByText('+28 % attack speed in dungeons.')).toBeVisible();
+  await expect(saved.locator('.speed-combat').first()).toHaveText('201');
 
   /* The margin names its own failure, apart from order. */
-  await card.getByRole('checkbox', { name: 'Add speed margin' }).check();
-  await card.getByLabel("Speed margin for Giant's Keep team #1, in dungeon speed").selectOption('3');
-  await expect(card.locator('.speed-verdict').filter({ hasText: 'inside the 3-speed margin' }).first()).toBeVisible();
-  expectSameHeight((await box(card.locator('.speed-team-editor'))).height, emptyBox.height);
+  await saved.getByRole('checkbox', { name: 'Add speed margin' }).check();
+  await saved.getByLabel("Speed margin for Giant's Keep team #1, in dungeon speed").selectOption('3');
+  await expect(saved.locator('.speed-verdict').filter({ hasText: 'inside the 3-speed margin' }).first()).toBeVisible();
+  expectSameHeight((await box(saved.locator('.speed-team-editor'))).height, emptyBox.height);
 
   /* The turn order opens over the editor, draws every tick, and Escape closes only it. */
-  const opener = card.getByRole('button', { name: 'Turn order' });
+  const opener = saved.getByRole('button', { name: 'Show every tick' });
   await opener.click();
   const dialog = page.locator('.speed-turn-dialog');
   await expect(dialog).toBeVisible();
@@ -153,12 +168,12 @@ test('tunes a dungeon team, explains every miss, and keeps the card still', asyn
   await page.screenshot({ path: testInfo.outputPath('speed-turn-order.png') });
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
-  await expect(card).toBeVisible();
+  await expect(saved).toBeVisible();
   await expect(opener).toBeFocused();
 
   /* The line judges the runes worn, not the experiment: Megan's what-if fixes the
      draft, but she is still out of place on the page, and the leader is marked. */
-  await card.getByRole('button', { name: 'Save changes' }).click();
+  await saved.getByRole('button', { name: 'Save changes' }).click();
   await expect(line).toBeFocused();
   /* The names follow the order asked for, uncoloured; only the mark and the sentence change. */
   await expect(line.locator('.speed-summary-name')).toHaveText(['Bernard (2A)', 'Megan (2A)', 'Lushen #1', 'Veromos', 'Verdehile']);
@@ -166,8 +181,8 @@ test('tunes a dungeon team, explains every miss, and keeps the card still', asyn
   await expect(line.locator('.speed-summary-state')).toHaveText(/^\d of 5 out of place with the runes worn · \d with your what-ifs$/);
   const editorWorn = /· (\d) of 5 with the runes worn/;
   await line.click();
-  const quoted = (await card.locator('.speed-team-status').textContent())?.match(editorWorn)?.[1];
-  await card.getByRole('button', { name: 'Close' }).click();
+  const quoted = (await saved.locator('.speed-team-status').textContent())?.match(editorWorn)?.[1];
+  await saved.getByRole('button', { name: 'Close' }).click();
   await expect(line.locator('.speed-summary-state')).toHaveText(new RegExp(`^${quoted} of 5 out of place with the runes worn`));
   await expect(line.locator('.speed-summary-mark')).toHaveAttribute('data-state', 'bad');
   await expect(line.getByRole('img', { name: 'leader' })).toHaveCount(1);
@@ -205,7 +220,7 @@ test('tunes a dungeon team, explains every miss, and keeps the card still', asyn
   async function addDungeonTeam(dungeon: string, monsters: string[]) {
     await addFromMenu(page, 'Dungeon team');
     const draft = page.getByRole('dialog');
-    await draft.getByLabel('Dungeon', { exact: true }).selectOption({ label: dungeon });
+    await draft.getByRole('group', { name: 'Dungeon' }).getByRole('button', { name: dungeon }).click();
     for (const name of monsters) await draft.getByLabel(/^Add a monster to /).selectOption({ label: name });
     await draft.getByRole('button', { name: 'Add this team' }).click();
     await expect(draft).toHaveCount(0);
@@ -240,14 +255,14 @@ test('arena teams are numbered and face a worst-case enemy', async ({ page }, te
   const arena = page.getByRole('region', { name: 'Arena offence' });
   const addTeam = page.getByRole('button', { name: 'Add…' });
   await addFromMenu(page, 'Arena team');
-  const card = page.getByRole('dialog', { name: 'Arena team #1' });
-  await expect(card.getByText('New arena team')).toBeVisible();
-  await expect(card.getByLabel('Dungeon', { exact: true })).toHaveCount(0);
+  const card = page.getByRole('dialog', { name: 'New arena team' });
+  await expect(card.getByRole('heading', { name: 'New arena team' })).toBeVisible();
+  await expect(card.getByRole('group', { name: 'Dungeon' })).toHaveCount(0);
   await expect(card.locator('.speed-slot')).toHaveCount(4);
   const add = card.getByLabel('Add a monster to Arena team #1');
   for (const name of ['Bernard (2A)', 'Lushen #1', 'Lushen #2', 'Megan (2A)']) await add.selectOption({ label: name });
   await expect(add).toHaveCount(0);
-  await expect(card.getByText('Worst-case enemy at 169 arena speed · first moves after your 3rd turn')).toBeVisible();
+  await expect(card.getByRole('region', { name: 'Turn order' }).locator('tbody tr')).toHaveText(['Worst case169 arena speedLushen #2 (1st turn)']);
   /* Two copies at one arena speed tie on the bar; only field position can settle
      that, so both say so rather than one being called in place. */
   await expect(card.getByText('2 of 4 out of place.')).toBeVisible();
@@ -256,7 +271,7 @@ test('arena teams are numbered and face a worst-case enemy', async ({ page }, te
   await expect(card).toHaveCount(0);
 
   await addFromMenu(page, 'Arena team');
-  await page.getByRole('dialog', { name: 'Arena team #2' }).getByLabel('Add a monster to Arena team #2').selectOption({ label: 'Veromos' });
+  await page.getByRole('dialog', { name: 'New arena team' }).getByLabel('Add a monster to Arena team #2').selectOption({ label: 'Veromos' });
   await page.getByRole('dialog').getByRole('button', { name: 'Add this team' }).click();
   const first = arena.getByRole('button', { name: /^Arena team #1:/ });
   await expect(first.locator('.speed-summary-state')).toHaveText('2 of 4 out of place with the runes worn');

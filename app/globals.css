@@ -6286,7 +6286,11 @@ th.align-center .sort-button { justify-content: center; }
 .speed-overlay-identity { min-width: 0; }
 .speed-overlay-title { margin: 0; color: var(--text-accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .speed-overlay-tools { display: flex; align-items: center; gap: var(--s2); flex: none; }
-.speed-overlay-dungeon { width: 22ch; }
+/* Every dungeon as one chip, in the game's order, under the overlay's rule.
+   Seven names do not fit one row, so they sit on an even grid of two rather
+   than wrapping a lone straggler onto a line of its own. */
+.speed-dungeon-choice { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s2); margin-bottom: var(--s2); }
+.speed-dungeon-choice .filter-button { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* The account's totem and how a combat speed is made from it: one strip,
    because it is the same for every team. Leader skills, boosts and buffs
@@ -6406,15 +6410,36 @@ th.align-center .sort-button { justify-content: center; }
 .speed-empty-slot { color: var(--text-muted); }
 .speed-add-monster { height: 32px; }
 
-.speed-team-facts {
-  margin: 0; padding: 0; list-style: none;
-  display: grid; gap: var(--s1);
-  color: var(--text);
-}
-.speed-team-facts li { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.speed-team-status { margin: 0; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .speed-team-status[data-state='good'] { color: var(--state-good); }
 .speed-team-status[data-state='bad'] { color: var(--state-bad); }
 .speed-team-status[data-state='none'] { color: var(--text-muted); }
+
+/* When the enemy first moves, set apart from the team above by air and a
+   quiet label rather than a second box. */
+.speed-enemy-turns { display: grid; gap: var(--s2); margin-top: var(--s3); }
+.speed-enemy-turns-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
+.speed-enemy-turns-head h3 { margin: 0; color: var(--text-muted); }
+.speed-enemy-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.speed-col-stage { width: 12ch; }
+.speed-col-enemy { width: 24ch; }
+.speed-enemy-table thead th {
+  padding: 0 var(--s1) var(--s2);
+  border-bottom: 1px solid var(--line);
+  color: var(--text-muted);
+  text-align: left;
+}
+.speed-enemy-table tbody th, .speed-enemy-table td {
+  height: 32px; padding: 0 var(--s1);
+  border-bottom: 1px solid var(--line);
+  text-align: left; font-weight: inherit;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.speed-enemy-table tbody th { color: var(--text-muted); }
+.speed-enemy-speed { color: var(--text); }
+.speed-enemy-after-name { color: var(--text-strong); }
+.speed-enemy-after-turn { color: var(--text-muted); }
 /* A rule as a draft: three lines that read as one sentence — the monster,
    what it must do, what that is measured against — and under them the speed
    forms it is checked in, each with its verdict. */

@@ -66,8 +66,11 @@ export type EnemyStageReading = {
   enemySpeed: number;
   /** The tick of the first enemy turn. */
   firstEnemyTick: number;
-  /** How many of the team's turns come before it. */
-  allyTurnsBefore: number;
+  /** Which enemy takes that turn, as an index into `enemySpeeds`; `null` if none moves. */
+  firstEnemy: number | null;
+  /** The team's turn the first enemy turn comes straight after — whose, and that
+      monster's how-many-th — or `null` when an enemy moves before the team. */
+  follows: { unitId: string; turn: number } | null;
   trace: BattleTrace;
   /** Every enemy on the stage, in the trace as `enemy-1`, `enemy-2` …, with their speeds. */
   enemySpeeds: readonly number[];
@@ -225,15 +228,18 @@ function stageReading(allies: readonly TickUnit[], enemySpeeds: readonly number[
     key: `enemy-${at + 1}`, side: 'enemy', speed, buffedSpeed: speed, effects: [],
   }));
   const allyKeys = allies.map((unit) => unit.key);
+  const enemyKeys = enemies.map((unit) => unit.key);
   const trace = simulateBattle([...allies, ...enemies], {
     done: (events) => everyoneMoved(allyKeys)(events) && events.some((event) => event.side === 'enemy'),
   });
   const firstEnemy = trace.events.find((event) => event.side === 'enemy');
-  const index = firstEnemy ? trace.events.indexOf(firstEnemy) : trace.events.length;
+  const before = firstEnemy ? trace.events.slice(0, trace.events.indexOf(firstEnemy)) : trace.events;
+  const last = before.at(-1);
   return {
     enemySpeed: Math.max(...enemySpeeds),
     firstEnemyTick: firstEnemy?.tick ?? Number.POSITIVE_INFINITY,
-    allyTurnsBefore: trace.events.slice(0, index).filter((event) => event.side === 'ally').length,
+    firstEnemy: firstEnemy ? enemyKeys.indexOf(firstEnemy.key) : null,
+    follows: last ? { unitId: last.key, turn: before.filter((event) => event.key === last.key).length } : null,
     trace,
     enemySpeeds,
   };

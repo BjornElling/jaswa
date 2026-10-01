@@ -1,7 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Button } from './button';
-import { Dropdown } from './dropdown';
+import { Button, FilterButton } from './button';
 import { Overlay, OverlayAction } from './overlay';
 import { SpeedTeamEditor } from './speed-team-editor';
 import type { MonsterChoice } from './speed-team-editor';
@@ -51,6 +50,7 @@ export function SpeedTeamOverlay({
     : reading, [draft, reading, monsters, totemShare]);
   const title = speedTeamTitle(teams, draft);
   const arena = draft.content === 'arena';
+  const heading = isNew ? `New ${arena ? 'arena' : 'dungeon'} team` : title;
   const inTeam = new Set(draft.members.map((member) => member.unitId));
 
   function change(update: (team: SpeedTeam) => SpeedTeam) {
@@ -81,26 +81,29 @@ export function SpeedTeamOverlay({
       onClose={onClose} onSubmit={submit}
       actions={<OverlayAction kind="save" type="submit" label={isNew ? 'Add this team' : 'Save changes'}
         disabled={!dirty || draft.members.length === 0} />}>
+      {/* A new team is named as one until it is saved: its number among the
+          saved teams is not settled before then, and the dungeon it is for is
+          chosen right below. */}
       <header className="speed-overlay-head">
         <div className="speed-overlay-identity">
-          <p className="eyebrow">{isNew ? `New ${arena ? 'arena' : 'dungeon'} team` : arena ? 'Arena team' : 'Dungeon team'}</p>
-          <h2 id="speed-team-overlay-title" className="speed-overlay-title">{title}</h2>
+          <h2 id="speed-team-overlay-title" className="speed-overlay-title" title={heading}>{heading}</h2>
         </div>
-        <div className="speed-overlay-tools">
-          {/* An arena team stays an arena team: its size and its enemy are
-              not a dungeon's, so there is nothing to move it between. */}
-          {!arena && <Dropdown aria-label="Dungeon" value={draft.content} className="speed-overlay-dungeon"
-            onChange={(event) => changeDungeon(event.target.value as DungeonId)}>
-            {dungeonIds.map((id) => <option key={id} value={id}>{speedContent(id).name}</option>)}
-          </Dropdown>}
-          <Button ref={turnOrderOpener} size="compact" disabled={reading.members.length === 0}
-            onClick={() => setShowTurnOrder(true)}>Turn order</Button>
-          {!isNew && <Button size="compact" tone="danger" onClick={onRemove}>Remove team</Button>}
-        </div>
+        {!isNew && <div className="speed-overlay-tools">
+          <Button size="compact" tone="danger" onClick={onRemove}>Remove team</Button>
+        </div>}
       </header>
 
       <div className="overlay-body">
+        {/* An arena team stays an arena team: its size and its enemy are not a
+            dungeon's, so there is nothing to move it between. Every dungeon is
+            one click away; the chosen one changes colour and nothing else. */}
+        {!arena && <div className="speed-dungeon-choice" role="group" aria-label="Dungeon">
+          {dungeonIds.map((id) => <FilterButton key={id} active={draft.content === id}
+            onClick={() => { if (draft.content !== id) changeDungeon(id); }}>{speedContent(id).name}</FilterButton>)}
+        </div>}
         <SpeedTeamEditor reading={reading} worn={worn} title={title} names={names} general={general}
+          turnOrderAction={<Button ref={turnOrderOpener} size="compact" disabled={reading.members.length === 0}
+            onClick={() => setShowTurnOrder(true)}>Show every tick</Button>}
           choices={choices.filter((choice) => !inTeam.has(choice.unitId))}
           onChange={change}
           onAddMonster={(unitId) => {
