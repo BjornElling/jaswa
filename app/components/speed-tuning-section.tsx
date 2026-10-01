@@ -4,8 +4,9 @@ import { CheckboxRow } from './form-controls';
 import { Dropdown } from './dropdown';
 import { PageHeader } from './page-chrome';
 import { WorkspacePage } from './workspace-page';
-import { SpeedTeamCard, ruleStateText } from './speed-team-card';
+import { SpeedTeamCard } from './speed-team-card';
 import type { MonsterChoice } from './speed-team-card';
+import { SpeedTeamOverlay } from './speed-team-overlay';
 import { SpeedTurnOrderDialog } from './speed-turn-order-dialog';
 import type { OpenMonsterOverlay } from './monster-link';
 import { formatNumber } from '../lib/formatting';
@@ -14,11 +15,11 @@ import { monsterNameCollator } from '../lib/monster-grid';
 import { monsterCopyNames } from '../lib/monster-names';
 import { readSkyTribeTotem, totemPercent } from '../lib/sky-tribe-totem';
 import { dungeonIds, speedContent } from '../lib/speed-contents';
-import type { DungeonId, SpeedContentId } from '../lib/speed-contents';
+import type { SpeedContentId } from '../lib/speed-contents';
 import { speedBuffPercent, swiftPercent, totemMaximumLevel } from '../lib/speed-tick';
-import { naturalInsertIndex, readSpeedTeam } from '../lib/speed-tuning-analysis';
+import { hasWhatIf, outOfPlaceCount, readSpeedTeam, ruleStateText, withMonsterAdded, withoutWhatIfs } from '../lib/speed-tuning-analysis';
 import type { TeamReading } from '../lib/speed-tuning-analysis';
-import { newSpeedTuningId } from '../lib/speed-tuning-preferences';
+import { newSpeedTuningId, speedTeamTitle } from '../lib/speed-tuning-preferences';
 import type { SpeedRule, SpeedTeam, SpeedTuningPreferences } from '../lib/speed-tuning-preferences';
 import type { ImportedGame, Preferences } from '../lib/types';
 
@@ -29,10 +30,11 @@ type ReadingContext = {
   totemPercent: number;
   rules: readonly SpeedRule[];
   cache: WeakMap<SpeedTeam, TeamReading>;
+  worn: WeakMap<SpeedTeam, TeamReading>;
 };
 
 function newReadingContext(monsters: ReadonlyMap<string, GameRecord>, totemPercent: number, rules: readonly SpeedRule[]): ReadingContext {
-  return { monsters, totemPercent, rules, cache: new WeakMap() };
+  return { monsters, totemPercent, rules, cache: new WeakMap(), worn: new WeakMap() };
 }
 
 function cachedReading(context: ReadingContext, team: SpeedTeam): TeamReading {
@@ -43,9 +45,59 @@ function cachedReading(context: ReadingContext, team: SpeedTeam): TeamReading {
   return reading;
 }
 
+/* The line on the page answers whether the runes worn hold the tune, so it
+   reads the team without its what-ifs (`withoutWhatIfs`). */
+function wornReading(context: ReadingContext, team: SpeedTeam): TeamReading {
+  if (!hasWhatIf(team)) return cachedReading(context, team);
+  const held = context.worn.get(team);
+  if (held) return held;
+  const reading = readSpeedTeam({ team: withoutWhatIfs(team), monsters: context.monsters, totemPercent: context.totemPercent, rules: context.rules });
+  context.worn.set(team, reading);
+  return reading;
+}
+
 function newTeam(content: SpeedContentId): SpeedTeam {
   return { id: newSpeedTuningId('team'), content, members: [], leaderUnitId: null, marginEnabled: false, margin: 1 };
 }
+
+function PlusIcon() {
+  return <svg className="speed-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" /></svg>;
+}
+
+/** A crown: whose leader skill the team runs. */
+function LeaderMark() {
+  return <span className="speed-leader-mark" role="img" aria-label="leader" title="Leader">
+    <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 12.5h11M3 10.5l-1-6 3.5 3L8 3l2.5 4.5 3.5-3-1 6z" /></svg>
+  </span>;
+}
+
+/* A tick or a cross, large enough to be read down a column of teams before
+   any name is: the one question the page is opened to answer. */
+function SummaryMark({ state }: { state: 'good' | 'bad' | 'none' }) {
+  const path = state === 'good' ? 'M3.5 8.5l3 3 6-7' : state === 'bad' ? 'M4 4l8 8M12 4l-8 8' : 'M4 8h8';
+  return <span className="speed-summary-mark" data-state={state} aria-hidden="true">
+    <svg viewBox="0 0 16 16"><path d={path} /></svg>
+  </span>;
+}
+
+/**
+ * The team's verdict in one sentence, read from the runes worn. Where the
+ * editor holds what-ifs, the sentence quotes their count too: the editor reads
+ * the team with them, and two counts that disagree without saying why read as
+ * one of them being wrong.
+ */
+function summaryStatus(worn: TeamReading, experiment: TeamReading): { text: string; state: 'good' | 'bad' | 'none' } {
+  if (worn.team.members.length === 0) return { text: 'No monsters yet', state: 'none' };
+  if (worn.missingUnitIds.length) {
+    const missing = worn.missingUnitIds.length;
+    return { text: `${missing} monster${missing === 1 ? ' is' : 's are'} not in this import`, state: 'bad' };
+  }
+  const tried = hasWhatIf(experiment.team) ? ` · ${outOfPlaceCount(experiment)} with your what-ifs` : '';
+  if (worn.perfect) return { text: `Turn order holds with the runes worn${tried}`, state: 'good' };
+  return { text: `${outOfPlaceCount(worn)} of ${worn.members.length} out of place with the runes worn${tried}`, state: 'bad' };
+}
+
+type Editing = { team: SpeedTeam; isNew: boolean };
 
 export function SpeedTuningSection({ game, monsters, preferences, onWrite, onOpenMonster }: {
   game: ImportedGame | null;
@@ -56,10 +108,12 @@ export function SpeedTuningSection({ game, monsters, preferences, onWrite, onOpe
 }) {
   const { teams, rules } = preferences.speedTuning;
   const general = preferences.general;
-  const [newDungeon, setNewDungeon] = useState<DungeonId>('giants');
   const [openTeamId, setOpenTeamId] = useState<string | null>(null);
-  /* The Turn order button that opened the dialog, so closing it puts focus back where the reader was. */
+  const [editing, setEditing] = useState<Editing | null>(null);
+  /* The control that opened a dialog, so closing it puts focus back where the reader was. */
   const dialogOpener = useRef<HTMLElement | null>(null);
+  const editorOpener = useRef<HTMLElement | null>(null);
+  const addDungeonTeam = useRef<HTMLButtonElement>(null);
 
   const names = useMemo(() => monsterCopyNames(monsters, preferences.monsterPreferences), [monsters, preferences.monsterPreferences]);
   const monsterById = useMemo(() => new Map(monsters
@@ -83,18 +137,11 @@ export function SpeedTuningSection({ game, monsters, preferences, onWrite, onOpe
 
   /* Numbered within their own kind, in the order they were added: the first
      arena team is Arena team #1 whatever the dungeons hold. */
-  const titled = (filter: (team: SpeedTeam) => boolean, label: (team: SpeedTeam) => string): Titled[] => {
-    const counts = new Map<string, number>();
-    return teams.filter(filter).map((team) => {
-      const base = label(team);
-      const number = (counts.get(base) ?? 0) + 1;
-      counts.set(base, number);
-      return { reading: readings.get(team.id) as TeamReading, title: `${base} #${number}` };
-    });
-  };
-  const arenaTeams = titled((team) => team.content === 'arena', () => 'Arena team');
-  const dungeonTeams = dungeonIds.flatMap((id) => titled((team) => team.content === id, () => `${speedContent(id).name} team`));
-  const allTitled = [...dungeonTeams, ...arenaTeams];
+  const titled = (content: SpeedContentId): Titled[] => teams.filter((team) => team.content === content)
+    .map((team) => ({ reading: readings.get(team.id) as TeamReading, title: speedTeamTitle(teams, team) }));
+  const arenaTeams = titled('arena');
+  const dungeonGroups = dungeonIds.map((id) => ({ id, entries: titled(id) })).filter((group) => group.entries.length > 0);
+  const allTitled = [...dungeonGroups.flatMap((group) => group.entries), ...arenaTeams];
   const openTeam = allTitled.find((entry) => entry.reading.team.id === openTeamId);
 
   function changeTeam(id: string, change: (team: SpeedTeam) => SpeedTeam) {
@@ -109,19 +156,27 @@ export function SpeedTuningSection({ game, monsters, preferences, onWrite, onOpe
     onWrite((current) => ({ ...current, teams: current.teams.filter((team) => team.id !== id) }));
   }
 
-  /* A monster joins where its own speed puts it; from there the user moves it. */
-  function addMonster(reading: TeamReading, unitId: string) {
-    const monster = monsterById.get(unitId);
-    if (!monster) return;
-    const presentIndex = naturalInsertIndex(reading, { unitId, monster }, totemShare);
-    const before = reading.members[presentIndex]?.unitId;
-    changeTeam(reading.team.id, (team) => {
-      if (team.members.some((member) => member.unitId === unitId) || team.members.length >= speedContent(team.content).teamSize) return team;
-      const at = before === undefined ? team.members.length : team.members.findIndex((member) => member.unitId === before);
-      const members = [...team.members];
-      members.splice(at === -1 ? members.length : at, 0, { unitId });
-      return { ...team, members };
-    });
+  /* A saved team keeps its place in the list, so its number does not change
+     under it; a new one goes last, which is where its overlay said it would. */
+  function saveTeam(saved: SpeedTeam) {
+    onWrite((current) => ({
+      ...current,
+      teams: current.teams.some((team) => team.id === saved.id)
+        ? current.teams.map((team) => team.id === saved.id ? saved : team)
+        : [...current.teams, saved],
+    }));
+  }
+
+  function openEditor(opener: HTMLElement, next: Editing) {
+    editorOpener.current = opener;
+    setEditing(next);
+  }
+
+  /* Back to the line that was opened; a team just removed has no line, and a
+     new team's opener was the Add button, which is still the right place. */
+  function closeEditor() {
+    setEditing(null);
+    requestAnimationFrame(() => (editorOpener.current?.isConnected ? editorOpener.current : addDungeonTeam.current)?.focus());
   }
 
   if (!game) {
@@ -140,25 +195,25 @@ export function SpeedTuningSection({ game, monsters, preferences, onWrite, onOpe
       <section className="speed-column" aria-labelledby="speed-dungeons-title">
         <header className="speed-column-head">
           <h2 id="speed-dungeons-title" className="type-title">Dungeons</h2>
-          <div className="speed-column-add">
-            <Dropdown aria-label="Dungeon for the new team" value={newDungeon}
-              onChange={(event) => setNewDungeon(event.target.value as DungeonId)}>
-              {dungeonIds.map((id) => <option key={id} value={id}>{speedContent(id).name}</option>)}
-            </Dropdown>
-            <Button tone="important" onClick={() => addTeam(newDungeon)}>Add dungeon team</Button>
-          </div>
+          <Button ref={addDungeonTeam} tone="important" size="compact"
+            onClick={(event) => openEditor(event.currentTarget, { team: newTeam(dungeonIds[0]), isNew: true })}>
+            <PlusIcon />Add team
+          </Button>
         </header>
-        {dungeonTeams.length === 0
-          ? <p className="speed-column-empty type-caption">No dungeon teams yet. Choose a dungeon and add one; each is tuned against its hardest floor.</p>
-          : dungeonTeams.map(renderTeam)}
+        {dungeonGroups.length === 0
+          ? <p className="speed-column-empty type-caption">No dungeon teams yet. Add one; each is tuned against its dungeon&apos;s hardest floor.</p>
+          : dungeonGroups.map((group) => <section key={group.id} className="speed-dungeon" aria-labelledby={`speed-dungeon-${group.id}`}>
+            <h3 id={`speed-dungeon-${group.id}`} className="speed-dungeon-title">{speedContent(group.id).name}</h3>
+            <ul className="speed-summary-list">
+              {group.entries.map((entry) => <li key={entry.reading.team.id}>{renderSummary(entry)}</li>)}
+            </ul>
+          </section>)}
       </section>
 
       <section className="speed-column" aria-labelledby="speed-arena-title">
         <header className="speed-column-head">
           <h2 id="speed-arena-title" className="type-title">Arena offence</h2>
-          <div className="speed-column-add">
-            <Button tone="important" onClick={() => addTeam('arena')}>Add arena team</Button>
-          </div>
+          <Button tone="important" size="compact" onClick={() => addTeam('arena')}><PlusIcon />Add arena team</Button>
         </header>
         {arenaTeams.length === 0
           ? <p className="speed-column-empty type-caption">No arena teams yet. Add one for every offence you tune.</p>
@@ -173,20 +228,56 @@ export function SpeedTuningSection({ game, monsters, preferences, onWrite, onOpe
         setOpenTeamId(null);
         if (dialogOpener.current?.isConnected) dialogOpener.current.focus();
       }} />}
+
+    {editing && <SpeedTeamOverlay key={editing.team.id} initial={editing.team} isNew={editing.isNew} teams={teams}
+      monsters={monsterById} totemShare={totemShare} rules={rules} names={names} choices={choices} general={general}
+      onSave={(team) => { saveTeam(team); closeEditor(); }}
+      onRemove={() => { removeTeam(editing.team.id); closeEditor(); }}
+      onClose={closeEditor} onOpenMonster={onOpenMonster} />}
   </WorkspacePage>;
+
+  /* One box per team: the turn order asked for, and under it whether the
+     runes worn today deliver it. The names are never coloured — they are the
+     order the user chose, not a verdict — and the verdict is the mark at the
+     right and the sentence under the names. Everything else is in the editor
+     the box opens. */
+  function renderSummary(entry: Titled) {
+    const { team } = entry.reading;
+    const status = summaryStatus(wornReading(readingContext, team), entry.reading);
+    return <button type="button" className="speed-summary"
+      onClick={(event) => openEditor(event.currentTarget, { team, isNew: false })}>
+      <span className="visually-hidden">{entry.title}: </span>
+      <span className="speed-summary-names">
+        {team.members.map((member, at) => <span key={member.unitId} className="speed-summary-member">
+          {at > 0 && <span className="speed-summary-step" aria-hidden="true">›</span>}
+          <span className="speed-summary-name">{monsterById.has(member.unitId) ? names[member.unitId]?.name ?? member.unitId : 'Not in this import'}</span>
+          {team.leaderUnitId === member.unitId && <LeaderMark />}
+          {at < team.members.length - 1 && <span className="visually-hidden">, </span>}
+        </span>)}
+      </span>
+      <span className="visually-hidden"> — </span>
+      <span className="speed-summary-state" data-state={status.state}>{status.text}</span>
+      <SummaryMark state={status.state} />
+    </button>;
+  }
 
   /* A render function rather than a component declared here: a component made
      inside this one would be a new type on every render, remounting each card
      and dropping the focus of a what-if field mid-number. */
   function renderTeam(entry: Titled) {
     const inTeam = new Set(entry.reading.team.members.map((member) => member.unitId));
-    return <SpeedTeamCard key={entry.reading.team.id} reading={entry.reading} title={entry.title} names={names} general={general}
+    return <SpeedTeamCard key={entry.reading.team.id} reading={entry.reading} worn={wornReading(readingContext, entry.reading.team)} title={entry.title} names={names} general={general}
       choices={choices.filter((choice) => !inTeam.has(choice.unitId))}
       onChange={(change) => changeTeam(entry.reading.team.id, change)}
       onRemove={() => removeTeam(entry.reading.team.id)}
       onShowTurnOrder={(opener) => { dialogOpener.current = opener; setOpenTeamId(entry.reading.team.id); }}
       onAddMonster={(unitId) => addMonster(entry.reading, unitId)}
       onOpenMonster={onOpenMonster} />;
+  }
+
+  function addMonster(reading: TeamReading, unitId: string) {
+    const monster = monsterById.get(unitId);
+    if (monster) changeTeam(reading.team.id, (team) => withMonsterAdded(team, reading, unitId, monster, totemShare));
   }
 }
 

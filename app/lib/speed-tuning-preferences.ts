@@ -9,7 +9,7 @@
  * import by `speed-tick.ts` on every render, so a stored team can never carry a
  * stale reading of a monster whose runes have since changed.
  */
-import { speedContents, speedContentTeamSize } from './speed-contents';
+import { speedContent, speedContents, speedContentTeamSize } from './speed-contents';
 import type { SpeedContentId } from './speed-contents';
 
 /** The widest speed margin the page offers, in combat speed (arena or dungeon speed). */
@@ -65,6 +65,19 @@ export function blankSpeedTuningPreferences(): SpeedTuningPreferences {
 
 export function newSpeedTuningId(kind: 'team' | 'rule'): string {
   return `${kind}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/**
+ * The name a team goes by: its content and its place among that content's
+ * teams, in the order they were added. A team not yet saved is counted as the
+ * last, which is where saving puts it, so an editor names it as the page will.
+ */
+export function speedTeamTitle(teams: readonly SpeedTeam[], team: SpeedTeam): string {
+  const base = team.content === 'arena' ? 'Arena team' : `${speedContent(team.content).name} team`;
+  const placed = teams.some((entry) => entry.id === team.id)
+    ? teams.map((entry) => entry.id === team.id ? team : entry)
+    : [...teams, team];
+  return `${base} #${placed.filter((entry) => entry.content === team.content).findIndex((entry) => entry.id === team.id) + 1}`;
 }
 
 /** The highest display speed the page accepts as an experiment. Far above any rune build. */

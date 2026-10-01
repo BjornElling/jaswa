@@ -6,9 +6,9 @@ import type { MonsterCopyName } from '../lib/monster-names';
 import { describeTurnEffect } from '../lib/speed-skills';
 import { fullAttackBar } from '../lib/speed-tick';
 import type { BattleTrace } from '../lib/speed-tick';
+import { combatSpeedName } from '../lib/speed-tuning-analysis';
 import type { TeamReading } from '../lib/speed-tuning-analysis';
 import type { GeneralSettings } from '../lib/types';
-import { combatSpeedName } from './speed-team-card';
 
 type View = { id: string; label: string; trace: BattleTrace; enemySpeeds: readonly number[] };
 

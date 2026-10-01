@@ -331,7 +331,8 @@ label[for] {
 .rune-simulator-stats-table tbody th, .rune-simulator-stats-table tfoot th,
 .rune-overlay-innate, .rune-overlay-subs, .rune-overlay-evaluation-facts,
 .rune-overlay-readings, .rune-overlay-readings tbody th,
-.rune-optimization-rune-main, .rune-optimization-rune-subs, .rune-optimization-choose {
+.rune-optimization-rune-main, .rune-optimization-rune-subs, .rune-optimization-choose,
+.speed-summary {
   font-family: var(--font-body);
   font-size: var(--type-body);
   font-weight: 400;
@@ -339,7 +340,7 @@ label[for] {
 }
 
 /* Body emphasis — weight carries priority without changing the family or size. */
-.type-body-emphasis, .monster-name, .slider-choice, .relic-verdict, .rune-verdict, .speed-rule-monster,
+.type-body-emphasis, .monster-name, .slider-choice, .relic-verdict, .rune-verdict, .speed-rule-monster, .speed-summary-name,
 .drop-zone.settled strong, .acceleration-adapter b, .rune-optimization-rune-head {
   font-family: var(--font-body);
   font-size: var(--type-body);
@@ -364,7 +365,7 @@ label[for] {
 .best-artifact-result th, .best-monster-table th,
 .artifact-recommendation-table th, .overlay-row-label, .overlay-stat-head,
 .rune-simulator-stats-table thead th, .overlay-facts dt, .rune-overlay-subs th,
-.rune-overlay-readings thead th {
+.rune-overlay-readings thead th, .speed-dungeon-title {
   font-family: var(--font-body);
   font-size: var(--type-label);
   font-weight: 700;
@@ -378,7 +379,7 @@ label[for] {
 .choice-menu-option-note, .rune-build-leader-pieces, .rune-build-leader-count,
 .rune-build-note, .rune-build-composed, .overlay-suggestion-label, .speed-timeline-turn,
 .rune-optimization-provenance, .rune-optimization-rune-level, .rune-optimization-rune-where,
-.rune-optimization-rune-craft {
+.rune-optimization-rune-craft, .speed-summary-state {
   font-family: var(--font-body);
   font-size: var(--type-label);
   font-weight: 400;
@@ -6215,16 +6216,79 @@ th.align-center .sort-button { justify-content: center; }
   margin-top: var(--s5);
 }
 .speed-column { display: grid; gap: var(--s4); min-width: 0; }
+/* The title and its one action on a line, the action at the far edge. Every
+   column head is the height of a compact button, with or without one, so the
+   three columns start their content on one line. */
 .speed-column-head {
-  display: grid;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: var(--s3);
+  min-height: calc(32px + var(--s3));
   padding-bottom: var(--s3);
   border-bottom: 1px solid var(--line);
 }
 .speed-column-head h2 { margin: 0; color: var(--text-strong); }
-.speed-column-add { display: grid; grid-template-columns: minmax(0, 1fr) max-content; gap: var(--s2); }
-.speed-column-add > .button:only-child { justify-self: start; }
+.speed-column-head .button { flex: none; gap: var(--s2); }
 .speed-column-empty { margin: 0; color: var(--text-muted); line-height: 1.6; }
+
+/* Dungeon teams as lines under their dungeon's name. Two teams for each of
+   seven dungeons is the expected load, which as full cards ran to metres of
+   table; a line says the one thing the page is visited for — does it hold —
+   and opens the editor for everything else. */
+.speed-dungeon { display: grid; gap: var(--s2); min-width: 0; }
+.speed-dungeon-title { margin: 0; color: var(--text-muted); }
+.speed-summary-list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--s2); }
+/* Two lines and a mark: the order asked for, the verdict under it, and the
+   verdict again as a tick or a cross at the right edge, centred on both lines
+   so a column of teams can be read down that edge alone. */
+.speed-summary {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 24px;
+  grid-template-areas: 'names mark' 'state mark';
+  align-items: center;
+  column-gap: var(--s4);
+  row-gap: var(--s1);
+  padding: var(--s3) var(--s4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--raise);
+  color: var(--text-strong);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color .12s ease, border-color .12s ease;
+}
+.speed-summary:hover { background: color-mix(in srgb, var(--gold-deep) 35%, var(--raise)); border-color: var(--gold-edge); }
+.speed-summary:focus-visible { outline: 2px solid var(--text-accent); outline-offset: 2px; }
+.speed-summary-mark { grid-area: mark; display: block; width: 24px; height: 24px; color: var(--text-muted); }
+.speed-summary-mark svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
+.speed-summary-mark[data-state='good'] { color: var(--state-good); }
+.speed-summary-mark[data-state='bad'] { color: var(--state-bad); }
+/* The names wrap as words do: a line of five long names is still read in
+   order, and nothing on the line changes when it is clicked. */
+.speed-summary-names { grid-area: names; display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--s2); row-gap: var(--s1); min-width: 0; }
+.speed-summary-member { display: inline-flex; align-items: center; gap: var(--s1); min-width: 0; max-width: 100%; }
+.speed-summary-step { color: var(--text-muted); margin-right: var(--s1); }
+.speed-summary-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.speed-leader-mark { display: block; flex: none; width: 14px; height: 14px; color: var(--text-muted); }
+.speed-leader-mark svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+/* Wraps rather than clips: the what-ifs' count at its end is the half that
+   explains why the editor reads differently. */
+.speed-summary-state { grid-area: state; min-width: 0; color: var(--text-muted); overflow-wrap: anywhere; }
+
+/* One dungeon team as a draft. Narrower than the monster panel: it holds one
+   team's table, which reads best at the width it has on a card. */
+.dialog.speed-team-overlay { width: min(760px, 100%); }
+.speed-overlay-head {
+  display: flex; justify-content: space-between; align-items: end; gap: var(--s4);
+  padding: var(--s5) var(--s5) var(--s4);
+  border-bottom: 1px solid var(--line);
+}
+.speed-overlay-identity { min-width: 0; }
+.speed-overlay-title { margin: 0; color: var(--text-accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.speed-overlay-tools { display: flex; align-items: center; gap: var(--s2); flex: none; }
+.speed-overlay-dungeon { width: 22ch; }
 
 .speed-rules {
   border: 1px solid var(--line);
@@ -6256,6 +6320,7 @@ th.align-center .sort-button { justify-content: center; }
   gap: var(--s3);
   min-width: 0;
 }
+.speed-team-editor { display: grid; gap: var(--s3); min-width: 0; }
 .speed-team-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
 .speed-team-title { margin: 0; color: var(--text-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .speed-team-actions { display: flex; gap: var(--s2); flex: 0 0 auto; }

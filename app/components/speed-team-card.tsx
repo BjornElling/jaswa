@@ -8,17 +8,13 @@ import type { OpenMonsterOverlay } from './monster-link';
 import { formatNumber } from '../lib/formatting';
 import type { MonsterCopyName } from '../lib/monster-names';
 import { boostsAllies, describeLeaderSkill, describeTurnEffect, speedLeaderSkill } from '../lib/speed-skills';
+import { combatSpeedName, hasWhatIf, outOfPlaceCount, ruleStateText } from '../lib/speed-tuning-analysis';
 import type { DisplaySpeedInterval, MemberReading, TeamReading } from '../lib/speed-tuning-analysis';
 import { speedMarginMaximum, whatIfDisplaySpeedMaximum } from '../lib/speed-tuning-preferences';
 import type { SpeedTeam } from '../lib/speed-tuning-preferences';
 import type { GeneralSettings } from '../lib/types';
 
 export type MonsterChoice = { unitId: string; masterId: string; name: string };
-
-/** "arena speed" or "dungeon speed" — the page always says which combat speed a figure is. */
-export function combatSpeedName(reading: TeamReading): string {
-  return reading.content.area === 'arena' ? 'arena speed' : 'dungeon speed';
-}
 
 function ordinal(value: number): string {
   const tens = value % 100;
@@ -35,7 +31,7 @@ function intervalText(interval: DisplaySpeedInterval | null, general: GeneralSet
 }
 
 /** The one line under a member that says whether it is where it was put, and if not, what would put it there. */
-export function verdictText(member: MemberReading, names: Record<string, MonsterCopyName>, margin: number, general: GeneralSettings): string {
+function verdictText(member: MemberReading, names: Record<string, MonsterCopyName>, margin: number, general: GeneralSettings): string {
   const { verdict } = member;
   switch (verdict.kind) {
     case 'in-place': return `In place · moves ${ordinal(member.actualPosition)}`;
@@ -96,21 +92,40 @@ function WhatIfField({ member, label, onChange }: {
     onBlur={() => setDraft(null)} />;
 }
 
-export function SpeedTeamCard({
-  reading, title, names, choices, general, onChange, onRemove, onShowTurnOrder, onAddMonster, onOpenMonster,
-}: {
+type EditorProps = {
   reading: TeamReading;
+  /** The same team without its what-ifs: the runes worn today. */
+  worn: TeamReading;
   title: string;
   names: Record<string, MonsterCopyName>;
   /** Owned monsters not yet in this team. */
   choices: readonly MonsterChoice[];
   general: GeneralSettings;
   onChange: (change: (team: SpeedTeam) => SpeedTeam) => void;
-  onRemove: () => void;
-  onShowTurnOrder: (opener: HTMLElement) => void;
   onAddMonster: (unitId: string) => void;
   onOpenMonster: OpenMonsterOverlay;
+};
+
+/** An arena team, edited in place on the page. */
+export function SpeedTeamCard({ onRemove, onShowTurnOrder, ...editor }: EditorProps & {
+  onRemove: () => void;
+  onShowTurnOrder: (opener: HTMLElement) => void;
 }) {
+  const { reading, title } = editor;
+  return <section className="speed-team" aria-labelledby={`${reading.team.id}-title`}>
+    <header className="speed-team-head">
+      <h3 id={`${reading.team.id}-title`} className="speed-team-title">{title}</h3>
+      <div className="speed-team-actions">
+        <Button size="compact" onClick={(event) => onShowTurnOrder(event.currentTarget)} disabled={reading.members.length === 0}>Turn order</Button>
+        <Button size="compact" onClick={onRemove} aria-label={`Remove ${title}`}>Remove</Button>
+      </div>
+    </header>
+    <SpeedTeamEditor {...editor} />
+  </section>;
+}
+
+/** Everything a team states and everything read from it: the leader, the margin, each slot and its verdict, and what the team faces. */
+export function SpeedTeamEditor({ reading, worn, title, names, choices, general, onChange, onAddMonster, onOpenMonster }: EditorProps) {
   const { team, content } = reading;
   const [dragging, setDragging] = useState<number | null>(null);
   const speedName = combatSpeedName(reading);
@@ -151,27 +166,25 @@ export function SpeedTeamCard({
     setDragging(null);
   }
 
-  const outOfPlace = reading.members.filter((member) => member.verdict.kind !== 'in-place').length;
+  /* With what-ifs typed, the table is read with them and the line says so, and
+     quotes the runes worn beside it — the count the page's own line shows. */
+  const tried = hasWhatIf(team);
+  const wornNote = !tried ? '' : worn.perfect ? ' · in place with the runes worn'
+    : ` · ${outOfPlaceCount(worn)} of ${worn.members.length} with the runes worn`;
   const status = team.members.length === 0
     ? 'Add the monsters, then drag them into the order they should move.'
     : reading.missingUnitIds.length
       ? `${reading.missingUnitIds.length} saved monster${reading.missingUnitIds.length === 1 ? ' is' : 's are'} not in this import.`
-      : reading.perfect ? 'Perfect tune: everyone moves where you put them.'
-        : `${outOfPlace} of ${reading.members.length} out of place.`;
+      : tried
+        ? `${reading.perfect ? 'Perfect tune' : `${outOfPlaceCount(reading)} of ${reading.members.length} out of place`} with your what-ifs${wornNote}.`
+        : reading.perfect ? 'Perfect tune: everyone moves where you put them.'
+          : `${outOfPlaceCount(reading)} of ${reading.members.length} out of place.`;
   const statusState = team.members.length === 0 ? 'none' : reading.perfect && !reading.missingUnitIds.length ? 'good' : 'bad';
 
   const leaderOptions = team.members.filter((member) => readingById.has(member.unitId));
   const leaderReading = reading.leader;
 
-  return <section className="speed-team" aria-labelledby={`${team.id}-title`}>
-    <header className="speed-team-head">
-      <h3 id={`${team.id}-title`} className="speed-team-title">{title}</h3>
-      <div className="speed-team-actions">
-        <Button size="compact" onClick={(event) => onShowTurnOrder(event.currentTarget)} disabled={reading.members.length === 0}>Turn order</Button>
-        <Button size="compact" onClick={onRemove} aria-label={`Remove ${title}`}>Remove</Button>
-      </div>
-    </header>
-
+  return <div className="speed-team-editor">
     <div className="speed-team-settings">
       <div className="speed-team-leader">
         <label className="filter-label" htmlFor={`${team.id}-leader`}>Leader</label>
@@ -332,14 +345,8 @@ export function SpeedTeamCard({
           : `Rules: ${reading.rules.map((rule) => `${names[rule.rule.fasterUnitId]?.name ?? '?'} before ${names[rule.rule.slowerUnitId]?.name ?? '?'} ${ruleStateText[rule.state]}`).join(' · ')}`}
       </li>
     </ul>
-  </section>;
+  </div>;
 }
-
-export const ruleStateText = {
-  holds: 'holds',
-  broken: 'broken',
-  'contradicts-order': 'your order says otherwise',
-} as const;
 
 function cutIn(allyTurnsBefore: number, teamSize: number): string {
   if (teamSize > 0 && allyTurnsBefore >= teamSize) return '· first moves after your whole team';

@@ -344,3 +344,43 @@ export function naturalInsertIndex(reading: TeamReading, candidate: { unitId: st
   const at = reading.members.findIndex((member) => member.combatSpeed < speed);
   return at === -1 ? reading.members.length : at;
 }
+
+/** How many members do not move where they were put — the one count every verdict on a team quotes. */
+export function outOfPlaceCount(reading: TeamReading): number {
+  return reading.members.filter((member) => member.verdict.kind !== 'in-place').length;
+}
+
+/** Whether a team is read with any typed experiment, so a verdict can say which reading it is. */
+export function hasWhatIf(team: SpeedTeam): boolean {
+  return team.members.some((member) => member.whatIfDisplaySpeed !== undefined);
+}
+
+/**
+ * The team as its monsters stand today, every what-if left out. A what-if is
+ * an experiment; whether the runes actually worn hold the tune is a different
+ * question, and a team whose experiment works is not tuned until the runes are.
+ */
+export function withoutWhatIfs(team: SpeedTeam): SpeedTeam {
+  return hasWhatIf(team) ? { ...team, members: team.members.map((member) => ({ unitId: member.unitId })) } : team;
+}
+
+/** "arena speed" or "dungeon speed" — the page always says which combat speed a figure is. */
+export function combatSpeedName(reading: TeamReading): string {
+  return reading.content.area === 'arena' ? 'arena speed' : 'dungeon speed';
+}
+
+export const ruleStateText = {
+  holds: 'holds',
+  broken: 'broken',
+  'contradicts-order': 'your order says otherwise',
+} as const;
+
+/** A monster joins where its own speed puts it; from there the user moves it. */
+export function withMonsterAdded(team: SpeedTeam, reading: TeamReading, unitId: string, monster: GameRecord, totemShare: number): SpeedTeam {
+  if (team.members.some((member) => member.unitId === unitId) || team.members.length >= speedContent(team.content).teamSize) return team;
+  const before = reading.members[naturalInsertIndex(reading, { unitId, monster }, totemShare)]?.unitId;
+  const at = before === undefined ? team.members.length : team.members.findIndex((member) => member.unitId === before);
+  const members = [...team.members];
+  members.splice(at === -1 ? members.length : at, 0, { unitId });
+  return { ...team, members };
+}
