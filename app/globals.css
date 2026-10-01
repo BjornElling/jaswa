@@ -332,7 +332,7 @@ label[for] {
 .rune-overlay-innate, .rune-overlay-subs, .rune-overlay-evaluation-facts,
 .rune-overlay-readings, .rune-overlay-readings tbody th,
 .rune-optimization-rune-main, .rune-optimization-rune-subs, .rune-optimization-choose,
-.speed-summary {
+.speed-summary, .speed-basis-value {
   font-family: var(--font-body);
   font-size: var(--type-body);
   font-weight: 400;
@@ -6294,16 +6294,26 @@ th.align-center .sort-button { justify-content: center; }
 /* The account's totem and how a combat speed is made from it: one strip,
    because it is the same for every team. Leader skills, boosts and buffs
    belong to a monster or a team and are read there. */
+/* Two labelled facts side by side, label above value, parted by a rule as the
+   overlay head's facts are: read as two answers rather than one run-on line. */
 .speed-basis {
-  display: flex; align-items: baseline; flex-wrap: wrap; column-gap: var(--s6); row-gap: var(--s2);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--raise);
-  padding: var(--s3) var(--s5);
+  padding: var(--s5) var(--s6);
 }
-.speed-basis p { margin: 0; }
-.speed-basis-totem { display: flex; align-items: baseline; gap: var(--s3); color: var(--text-strong); }
-.speed-basis-formula { color: var(--text-muted); }
+.speed-basis-facts { display: flex; flex-wrap: wrap; row-gap: var(--s4); margin: 0; }
+.speed-basis-facts > div {
+  display: grid; gap: var(--s2); align-content: start; min-width: 0;
+  padding: 0 var(--s6);
+  border-left: 1px solid var(--line);
+}
+.speed-basis-facts > div:first-child { padding-left: 0; border-left: 0; flex: none; }
+.speed-basis-facts > div:last-child { flex: 1 1 32rem; }
+.speed-basis-facts dt { color: var(--text-muted); }
+.speed-basis-facts dd { margin: 0; }
+.speed-basis-value { color: var(--text-strong); line-height: 1.5; }
+.speed-basis-note { color: var(--text-muted); }
 
 /* One team's editor. Its height is set by its content's size, never by its
    state: the table always has a row per slot, every row has its verdict line,

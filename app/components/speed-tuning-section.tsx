@@ -341,10 +341,16 @@ function SpeedBasis({ totem, general }: { totem: ReturnType<typeof readSkyTribeT
     ? `Level ${totem.level} of ${totemMaximumLevel} · +${formatNumber(totem.percent, general)} % of base speed`
     : totem.state === 'not-built' ? 'Not built · +0 %' : 'Not in this import · counted as +0 %';
   return <section className="speed-basis" aria-label="What every speed on this page counts">
-    <p className="speed-basis-totem"><span className="filter-label">Sky Tribe Totem</span><span>{totemText}</span></p>
-    <p className="speed-basis-formula type-caption">
-      Arena speed and dungeon speed are base × (1 + totem + leader + Swift) + rune speed, rounded up once.
-      Display speed is base plus runes, as the game shows it.
-    </p>
+    <dl className="speed-basis-facts">
+      <div>
+        <dt className="filter-label">Sky Tribe Totem</dt>
+        <dd className="speed-basis-value">{totemText}</dd>
+      </div>
+      <div>
+        <dt className="filter-label">Combat speed</dt>
+        <dd className="speed-basis-value">Arena speed and dungeon speed are base × (1 + totem + leader + Swift) + rune speed, rounded up once.</dd>
+        <dd className="speed-basis-note type-caption">Display speed is base plus runes, as the game shows it.</dd>
+      </div>
+    </dl>
   </section>;
 }
