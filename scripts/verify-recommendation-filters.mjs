@@ -18,10 +18,19 @@
  *   warning about 2 further slots — so it is asserted rather than assumed.
  */
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 
 const baseUrl = process.env.JASWA_URL ?? 'http://localhost:3000/';
 const importPath = process.env.JASWA_IMPORT ?? `${process.env.TEMP}/claude/shots/game.json`;
+
+/* The import is a real account, personal data no checkout carries. Without one
+   this check has measured nothing: it says so and steps aside, a skip and not
+   a pass, so the gate it sits in still runs everything behind it. */
+if (!existsSync(importPath)) {
+  console.log(`Skipped: no account export at ${importPath} (set JASWA_IMPORT) — the recommendation filters went unchecked.`);
+  process.exit(0);
+}
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });

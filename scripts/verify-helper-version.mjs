@@ -43,13 +43,13 @@ function versionFromApp(source) {
   return match[1];
 }
 
-const [cargo, tauri, packageJson, lock, app, home, packager] = await Promise.all([
+const [cargo, tauri, packageJson, lock, app, download, packager] = await Promise.all([
   readFile(path.join(repositoryRoot, 'helper/src-tauri/Cargo.toml'), 'utf8'),
   readFile(path.join(repositoryRoot, 'helper/src-tauri/tauri.conf.json'), 'utf8').then(JSON.parse),
   readFile(path.join(repositoryRoot, 'helper/package.json'), 'utf8').then(JSON.parse),
   readFile(path.join(repositoryRoot, 'helper/package-lock.json'), 'utf8').then(JSON.parse),
   readFile(path.join(repositoryRoot, 'app/lib/helper-version.ts'), 'utf8'),
-  readFile(path.join(repositoryRoot, 'app/components/home-section.tsx'), 'utf8'),
+  readFile(path.join(repositoryRoot, 'app/components/helper-download.tsx'), 'utf8'),
   readFile(path.join(repositoryRoot, 'helper/scripts/package.cjs'), 'utf8'),
 ]);
 
@@ -74,7 +74,7 @@ identify the exact installer after the browser has saved it. The app and the
 packager derive it from the one version value rather than maintaining a sixth
 literal that can drift. */
 assert.match(
-  home,
+  download,
   /JASWA-Helper-Setup-\$\{recommendedHelperVersion\}\.exe/,
   'The helper download link must include the recommended version',
 );
