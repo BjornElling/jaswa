@@ -22,10 +22,10 @@ function ordinal(value: number): string {
 }
 
 /**
- * The one line under a member that says whether it is where it was put, what
- * would give it a perfect place, and last, which enemy gets in before it. The
- * fix quotes the Interval column's range and nothing else, so every display
- * speed the line offers is one the user can type for a perfect place.
+ * The one line under a member that says whether it is where it was put, where
+ * to tune it, and last, which enemy gets in before it. The fix quotes the
+ * Interval column's range and nothing else, so every display speed the line
+ * offers is one the team can be tuned through from the top down.
  */
 function verdictText(member: MemberReading, names: Record<string, MonsterCopyName>, area: 'arena' | 'dungeon',
   enemiesKnown: boolean, general: GeneralSettings): string {
@@ -139,9 +139,9 @@ type EditorProps = {
 };
 
 /**
- * The display speeds that give a member a perfect place, as the Interval
- * column states them: a closed range, an open one, or a dash where none does
- * or the enemies are not known yet.
+ * The display speeds a member can be tuned to, as the Interval column states
+ * them: a closed range, an open one, or a dash where none will do or the
+ * enemies are not known yet.
  */
 function rangeText(range: DisplaySpeedInterval | null, general: GeneralSettings): string {
   if (range === null) return '—';
@@ -298,7 +298,7 @@ export function SpeedTeamEditor({ reading, title, names, choices, general, onCha
           uncounted.length ? `Not counted, because its size depends on the battle: ${uncounted.join(', ')}` : '',
         ].filter(Boolean).join('. ');
         const verdict = verdictText(monster, names, content.area, enemiesKnown, general);
-        /* Until the dungeon is chosen its enemies are nobody's, so neither is a perfect place. */
+        /* Until the dungeon is chosen its enemies are nobody's, so neither is a range. */
         const range = rangeText(enemiesKnown ? monster.range : null, general);
         const noRange = enemiesKnown && monster.range === null;
         /* What this monster's turn does to the turns after it, hung on the line
@@ -345,7 +345,8 @@ export function SpeedTeamEditor({ reading, title, names, choices, general, onCha
             </td>
             <td className="speed-figure" rowSpan={2}>{formatNumber(monster.importedDisplaySpeed, general)}</td>
             <td className="speed-figure speed-slot-range" rowSpan={2}
-              title={noRange ? `No display speed of ${name} alone gives a perfect turn order with no enemy cutting in` : undefined}>{range}</td>
+              title={!noRange ? undefined : at === 0 ? `No display speed of ${name} gives the team a perfect order with no enemy cutting in`
+                : `No display speed gives ${name} a place with no enemy cutting in until a monster above it is tuned`}>{range}</td>
             <td className="speed-figure speed-what-if-cell" rowSpan={2}>
               <WhatIfField member={monster} label={`What-if display speed for ${name} in ${title}`}
                 onChange={(value) => onWhatIf(member.unitId, value)} />

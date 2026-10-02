@@ -1,8 +1,8 @@
 /**
  * Reads one saved team against the current import: each member's arena or
  * dungeon speed, the order the team really moves in, what is wrong with it,
- * when an enemy first moves, and the display speeds that give each member a
- * perfect place (`perfectRange`).
+ * when an enemy first moves, and the display speeds each member can be tuned
+ * to (`tuningRange`).
  *
  * Every rule comes from `speed-tick.ts`. This module decides what to simulate
  * and how to report it, and states no rule of the game of its own — an
@@ -65,7 +65,10 @@ export type MemberReading = {
    * table.
    */
   cutInAt: readonly number[];
-  /** The display speeds that give it a perfect place (`perfectRange`), or `null` where none does or none was asked for. */
+  /**
+   * The display speeds it can be tuned to (`tuningRange`), or `null` where
+   * none will do or none was asked for.
+   */
   range: DisplaySpeedInterval | null;
   /** Whether the display speed it is read at is one of them. */
   inRange: boolean;
@@ -149,13 +152,10 @@ function relation(first: Map<string, TurnEvent>, events: readonly TurnEvent[], e
   return a.tiedWith.includes(later) ? 'tie' : 'before';
 }
 
-/* Every fault a team has, as keys: a pair the table orders `upper>lower`
-   that does not strictly move so — a tie counts, as no order should hang on
-   field position the page cannot see — and `stage:unit` for each member an
-   enemy has a turn before. Unit ids are digits, so neither separator can
-   occur inside one. */
-type TeamFaults = { pairs: Set<string>; cuts: Set<string> };
-
+/* Every pair the table orders `upper>lower` that does not strictly move so —
+   a tie counts, as no order should hang on field position the page cannot
+   see — and `stage:unit` for each member an enemy has a turn before. Unit ids
+   are digits, so neither separator can occur inside one. */
 function pairFaults(units: readonly TickUnit[], trace: BattleTrace): Set<string> {
   const first = firstTurns(trace.events);
   const pairs = new Set<string>();
@@ -171,38 +171,178 @@ function cutFaults(stages: readonly EnemyStageReading[]): Set<string> {
   return new Set(stages.flatMap((stage, at) => stage.cutsBefore.map((key) => `${at + 1}:${key}`)));
 }
 
+function unitsAt(candidates: readonly Candidate[], shown: readonly number[]): TickUnit[] {
+  return candidates.map((candidate, at) => tickUnit(candidate,
+    runeSpeedForDisplay(candidate.base.baseSpeed, candidate.base.swift, shown[at])));
+}
+
 /*
- * The display speeds this member can be given, the others held where they
- * are, for a perfect place: every teammate it is ordered against moves
- * strictly before or after it as the table asks, no enemy on any stage has a
- * turn before its first, and nothing else on the team gets worse — no pair
- * and no member cut into that was not already. So a value from the range,
- * typed in, never leaves this monster wrong and never breaks another, and
- * with every other member already perfect the whole team is.
- *
- * It is the one answer to "which display speeds would put this right": the
- * Interval column states it and the verdict line quotes it, so the two cannot
- * disagree. Every candidate runs through the clock, the enemy's stages
- * included, so boosts, Leo and the attacker's tie (`SPEED-TICK-CANONICAL.md`
- * §3.2) are answered by the one implementation.
+ * Whether the member at `index` moves strictly after every member above it.
+ * The members below are read at bare runes: they are still to be tuned, and a
+ * fast one moving early, its boost pushing the bars above, would otherwise
+ * decide a ceiling it has no part in.
  */
-function perfectRange(candidates: readonly Candidate[], index: number, content: SpeedContent,
-  current: number, baseline: TeamFaults): DisplaySpeedInterval | null {
-  const candidate = candidates[index];
-  const self = candidate.unitId;
-  const { baseSpeed, swift } = candidate.base;
-  const perfect = (shown: number) => {
-    const units = candidates.map((entry, at) => tickUnit(entry, at === index ? runeSpeedForDisplay(baseSpeed, swift, shown) : undefined));
-    const trace = teamTrace(units, false);
-    for (const pair of pairFaults(units, trace)) {
-      if (pair.split('>').includes(self) || !baseline.pairs.has(pair)) return false;
+function behindAbove(candidates: readonly Candidate[], shown: readonly number[], index: number, lowest: readonly number[]): boolean {
+  const trace = teamTrace(unitsAt(candidates, shown.map((value, at) => at > index ? lowest[at] : value)), false);
+  const first = firstTurns(trace.events);
+  const self = candidates[index].unitId;
+  return candidates.slice(0, index).every((candidate) => relation(first, trace.events, candidate.unitId, self) === 'before');
+}
+
+/*
+ * Whether every member from `index` down, with each at the display speed
+ * `shown` gives it, trails every member placed above it — those above `index`
+ * included — and has no enemy turn before it.
+ */
+function holdsBelow(candidates: readonly Candidate[], content: SpeedContent, shown: readonly number[], index: number): boolean {
+  const units = unitsAt(candidates, shown);
+  const trace = teamTrace(units, false);
+  for (const pair of pairFaults(units, trace)) {
+    if (units.findIndex((unit) => unit.key === pair.slice(pair.indexOf('>') + 1)) >= index) return false;
+  }
+  const lower = new Set(units.slice(index).map((unit) => unit.key));
+  for (const fault of cutFaults(enemyStages(units, content, trace, false))) {
+    if (lower.has(fault.slice(fault.indexOf(':') + 1))) return false;
+  }
+  return true;
+}
+
+/*
+ * The lowest value in `low`…`high` at which `holds` is true, by halving, or
+ * `null` where it is not true even at `high`. Halving reads `holds` as false
+ * below some value and true from it on; where a boost's timing breaks that,
+ * the answer is still one at which `holds` is true, and always the same one,
+ * as no earlier question steers it.
+ */
+function lowestHolding(low: number, high: number, holds: (value: number) => boolean): number | null {
+  if (high < low || !holds(high)) return null;
+  if (holds(low)) return low;
+  let failing = low;
+  let passing = high;
+  while (passing - failing > 1) {
+    const middle = Math.floor((failing + passing) / 2);
+    if (holds(middle)) passing = middle; else failing = middle;
+  }
+  return passing;
+}
+
+/* The highest value in `low`…`high` at which `holds` is true, by halving, read as true up to some value and false above it. */
+function highestHolding(low: number, high: number, holds: (value: number) => boolean): number | null {
+  if (high < low || !holds(low)) return null;
+  if (holds(high)) return high;
+  let passing = low;
+  let failing = high;
+  while (failing - passing > 1) {
+    const middle = Math.floor((failing + passing) / 2);
+    if (holds(middle)) passing = middle; else failing = middle;
+  }
+  return passing;
+}
+
+/*
+ * The fastest display speed at which the member at `index` still trails
+ * every member above it, those above where `shown` puts them, or `null` where
+ * even bare runes do not.
+ */
+function trailingCeiling(candidates: readonly Candidate[], shown: readonly number[], index: number,
+  lowest: readonly number[]): number | null {
+  const config = [...shown];
+  return highestHolding(lowest[index], whatIfDisplaySpeedMaximum, (value) => {
+    config[index] = value;
+    return behindAbove(candidates, config, index, lowest);
+  });
+}
+
+/*
+ * Whether the members below `index` can all be placed, with `index` and every
+ * member above it where `shown` puts them. They are placed from the top down,
+ * each as fast as it can be and still trail the members above it: a faster
+ * member is cut into no sooner, hands its boost on no later, and leaves the
+ * one under it a higher ceiling of its own, so that placing gives the members
+ * below the most room there is. If even it lets an enemy in or breaks the
+ * order, no placing does. Placing them from the bottom up instead, with the
+ * members between still at their old speeds, read room that was not there: a
+ * fast member in the middle, its boost early, made the floors under it look
+ * lower than they are once it is tuned down to its place.
+ */
+function leavesRoomBelow(candidates: readonly Candidate[], content: SpeedContent, shown: readonly number[],
+  index: number, lowest: readonly number[]): boolean {
+  const config = [...shown];
+  for (let k = index + 1; k < candidates.length; k += 1) {
+    const value = trailingCeiling(candidates, config, k, lowest);
+    if (value === null) return false;
+    config[k] = value;
+  }
+  return holdsBelow(candidates, content, config, index);
+}
+
+/*
+ * The display speeds a member can be tuned to, the team tuned from the top
+ * down: with every member above it where it is, the member moves strictly
+ * after each of them, and the members below it can still all be placed under
+ * it with no enemy on any stage getting a turn before any member
+ * (`leavesRoomBelow`). The lower end is therefore not only this member's own
+ * need but the room the ones below it need: three intervals each fine on its
+ * own could otherwise leave the fourth monster nowhere to go.
+ *
+ * So a value from the range, typed in, never leaves the members below without
+ * a way through, and typing each member's value in turn from the top ends in
+ * a perfect team. The last member has nobody below it, so its range is simply
+ * every value that is perfect for it.
+ *
+ * The ceiling is the fastest display speed that still trails the members
+ * above, and the floor is found under it by halving: faster is never worse
+ * for the room below. The first mover in arena is the exception, as the
+ * worst-case enemy follows it (§6); its range is walked out from the current
+ * value one display speed at a time. Every candidate runs the team's clock and
+ * every stage's, so boosts, buffs, Leo and the attacker's tie
+ * (`SPEED-TICK-CANONICAL.md` §3.2) are the clock's answer.
+ */
+function tuningRange(candidates: readonly Candidate[], content: SpeedContent, current: readonly number[],
+  index: number): DisplaySpeedInterval | null {
+  const lowest = candidates.map((candidate) => displaySpeed(candidate.base.baseSpeed, candidate.base.swift, 0));
+  const config = [...current];
+  const room = (value: number) => { config[index] = value; return leavesRoomBelow(candidates, content, config, index, lowest); };
+  const top = whatIfDisplaySpeedMaximum;
+
+  if (index === 0 && content.area === 'arena') {
+    let start: number | null = null;
+    for (let step = 0; step <= top && start === null; step += 1) {
+      const up = current[index] + step;
+      const down = current[index] - step;
+      if (up > top && down < lowest[index]) break;
+      if (up <= top && room(up)) start = up;
+      else if (step > 0 && down >= lowest[index] && room(down)) start = down;
     }
-    for (const cut of cutFaults(enemyStages(units, content, trace, false))) {
-      if (cut.slice(cut.indexOf(':') + 1) === self || !baseline.cuts.has(cut)) return false;
-    }
-    return true;
-  };
-  return nearestPassingDisplaySpeeds(baseSpeed, swift, current, perfect);
+    if (start === null) return null;
+    /* Out from the run's first value in doubling steps, then halved: the run
+       is read as one unbroken stretch, as it is on either side of it. */
+    const reach = (direction: 1 | -1) => {
+      const limit = direction === 1 ? top : lowest[index];
+      let held = start as number;
+      let step = 1;
+      while (held !== limit) {
+        const next = direction === 1 ? Math.min(held + step, limit) : Math.max(held - step, limit);
+        if (!room(next)) {
+          return direction === 1
+            ? highestHolding(held, next - 1, room) ?? held
+            : lowestHolding(next + 1, held, room) ?? held;
+        }
+        held = next;
+        step *= 2;
+      }
+      return held;
+    };
+    const minimum = reach(-1);
+    const maximum = reach(1);
+    return { minimum, maximum: maximum === top ? null : maximum };
+  }
+
+  const ceiling = index === 0 ? top : trailingCeiling(candidates, current, index, lowest);
+  if (ceiling === null) return null;
+  const minimum = lowestHolding(lowest[index], ceiling, room);
+  if (minimum === null) return null;
+  return { minimum, maximum: index === 0 ? null : ceiling };
 }
 
 /**
@@ -289,7 +429,7 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
    */
   whatIfs?: ReadonlyMap<string, number>;
   /**
-   * Whether to search each member's perfect range. Only the overlay states a
+   * Whether to search each member's tuning range. Only the overlay states a
    * range, and the search runs the clock a few thousand times, so the page,
    * which reads every team at once and shows none, leaves it out: there every
    * `range` is `null` and every `inRange` false.
@@ -323,7 +463,7 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
   const first = firstTurns(trace.events);
   const actualOrder = [...first.keys()];
   const enemies = enemyStages(units, content, trace);
-  const baseline: TeamFaults = { pairs: pairFaults(units, trace), cuts: cutFaults(enemies) };
+  const shownSpeeds = present.map((member) => whatIfs?.get(member.unitId) ?? monsterSpeedParts(monsters.get(member.unitId) as GameRecord).displaySpeed);
 
   const members: MemberReading[] = candidates.map((candidate, index) => {
     const member = present[index];
@@ -337,7 +477,7 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
     const tie = above.find((entry) => entry.state === 'tie')?.unitId ?? null;
     const verdict: MemberVerdict = above.some((entry) => entry.state === 'after') ? { kind: 'order' }
       : tie !== null ? { kind: 'tie', with: tie } : { kind: 'in-place' };
-    const range = ranges ? perfectRange(candidates, index, content, shown, baseline) : null;
+    const range = ranges ? tuningRange(candidates, content, shownSpeeds, index) : null;
     return {
       unitId: member.unitId,
       wantedPosition: index + 1,
