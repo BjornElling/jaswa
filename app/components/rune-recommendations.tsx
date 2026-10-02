@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { AncientName } from './ancient-mark';
 import { CalculationStatus } from './calculation-status';
 import { Dropdown } from './dropdown';
-import { Button, FilterButton } from './button';
+import { Button, FilterButton, LabelSwap } from './button';
 import { DataTablePage, TableColumnGroup } from './data-table-page';
 import { FilterSummary } from './filter-summary';
 import { QualityRule } from './quality-rule';
@@ -373,15 +373,23 @@ export function RuneRecommendations({ game, monsterPreferences, runeHolds, setti
     </section>;
   }
 
-  return <div className="stack">
-    <div className="list-actions">
+  /* A fragment, so each block is a block of the page itself and takes the
+     page's one vertical rhythm rather than a second stack of its own. */
+  return <>
+    {/* Framed like the filter panel below it, so the count starts on the same
+        inset as the filters and the page's one action sits in a box, as it
+        does on every other page without a bar. */}
+    <div className="panel list-actions">
       <p className="list-count">
         {result
           ? <><b>{visible.length.toLocaleString('en')}</b> of {rows.length.toLocaleString('en')} runes</>
           : <><b>{runes.length.toLocaleString('en')}</b> runes ready to judge</>}
       </p>
-      <Button tone="primary" onClick={calculate} disabled={busy} busyLabel="Calculating">
-        {result ? 'Recalculate' : 'Calculate'}
+      {/* All three wordings in one LabelSwap, so the first result turning
+          Calculate into Recalculate does not resize the button either. */}
+      <Button tone="primary" onClick={calculate} busy={busy}>
+        <LabelSwap showing={busy ? 'busy' : result ? 'again' : 'first'}
+          faces={{ first: 'Calculate', again: 'Recalculate', busy: 'Calculating' }} />
       </Button>
     </div>
 
@@ -557,5 +565,5 @@ export function RuneRecommendations({ game, monsterPreferences, runeHolds, setti
         backend={result.backend}
         general={general}
       />}
-  </div>;
+  </>;
 }

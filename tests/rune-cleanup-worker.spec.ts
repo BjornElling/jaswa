@@ -48,9 +48,8 @@ test('the page keeps painting while a large box is judged', async ({ page }) => 
   await expect(page.getByText('large-account.json')).toBeVisible();
 
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
-  const recommendations = page.locator('details')
-    .filter({ has: page.locator('summary', { hasText: 'Recommendations' }) });
-  await expect(recommendations.getByText('Nothing calculated yet.')).toBeVisible();
+  const cleanup = page.locator('.workspace-page-content');
+  await expect(cleanup.getByText('Nothing calculated yet.')).toBeVisible();
 
   await page.evaluate(() => {
     const counter = window as unknown as { jaswaFrames: number };
@@ -58,7 +57,7 @@ test('the page keeps painting while a large box is judged', async ({ page }) => 
     const tick = () => { counter.jaswaFrames += 1; requestAnimationFrame(tick); };
     requestAnimationFrame(tick);
   });
-  await recommendations.getByRole('button', { name: 'Calculate', exact: true }).click();
+  await cleanup.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(page.locator('.calculation-status'))
     .toContainText('3,001 runes judged against', { timeout: 120_000 });
 

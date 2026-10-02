@@ -18,13 +18,12 @@ test('every rune is judged, and the filters only decide what is shown', async ({
   await expect(page.getByText('craft-account.json')).toBeVisible();
 
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
-  const recommendations = page.locator('details')
-    .filter({ has: page.locator('summary', { hasText: 'Recommendations' }) });
-  const calculate = recommendations.getByRole('button', { name: /^(Calculate|Recalculate)$/ });
+  const cleanup = page.locator('.workspace-page-content');
+  const calculate = cleanup.getByRole('button', { name: /^(Calculate|Recalculate)$/ });
   const status = page.locator('.calculation-status');
   const rows = page.getByRole('table', { name: 'Rune verdicts' }).locator('tbody tr');
 
-  await expect(recommendations.getByText('4 runes ready to judge')).toBeVisible();
+  await expect(cleanup.getByText('4 runes ready to judge')).toBeVisible();
   await calculate.click();
   await expect(status).toContainText('4 runes judged against');
   await expect(rows).toHaveCount(4);
@@ -34,7 +33,7 @@ test('every rune is judged, and the filters only decide what is shown', async ({
 
   /* Settings states what a rune is worth, never which runes are looked at, and
      now has its own workspace rather than living below the verdicts. */
-  await expect(recommendations.locator('summary').filter({ hasText: 'Settings' })).toHaveCount(0);
+  await expect(cleanup.locator('summary').filter({ hasText: 'Settings' })).toHaveCount(0);
   await expect(page.getByRole('navigation').getByRole('button', { name: 'Rune Set-up', exact: true })).toBeVisible();
 
   /* Where is chosen like every other value: none chosen shows every rune, one
@@ -49,7 +48,7 @@ test('every rune is judged, and the filters only decide what is shown', async ({
   await inventory.click();
   await expect(rows).toHaveCount(3);
   await expect(status).toContainText('4 runes judged against');
-  await expect(recommendations.getByText('3 of 4 runes')).toBeVisible();
+  await expect(cleanup.getByText('3 of 4 runes')).toBeVisible();
 
   await equipped.click();
   await expect(rows).toHaveCount(4);

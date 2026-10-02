@@ -171,7 +171,7 @@ export function RuneSimulatorSection({ game, settings, presets, general, hardwar
       title="Rune Simulator"
       tagline="Roll the dice, stop at +0, +9, +12 and +15, and see exactly what survives the climb." />}
   >
-    <p className="lead rune-simulator-lead">
+    <p className="lead">
       Generate a controlled batch of legal runes. The same model handles their
       substats, power-ups, settings-driven craft actions and every sell decision between stages.
     </p>

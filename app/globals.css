@@ -917,21 +917,12 @@ label[for] {
   width: min(100%, var(--measure-grid));
   min-width: 0;
   margin: 0 auto;
-  padding: var(--s5) 0 var(--s7);
 }
 .artifact-library { width: 100%; }
 @media (min-width: 1921px) and (max-width: 760px) {
   .filter-strip { --filter-columns: 1; }
   .filter-strip > .filter-group:nth-child(2n + 1) { padding-left: var(--s4); border-left: 1px solid var(--line); }
   .filter-strip > .filter-group { padding-left: 0; border-left: 0; }
-}
-/* Both account libraries clear the absolute import badge on their table frame.
-   Artifacts keep a wrapper around that frame, so the clearance belongs on the
-   nested page rather than adding an extra offset to the wrapper. */
-.import-badge + .data-table-page,
-.import-badge + .relic-library > .data-table-page,
-.import-badge + .artifact-library > .data-table-page {
-  padding-top: calc(var(--s4) + var(--badge-height) + var(--s3));
 }
 .data-table-filter-panel {
   margin-bottom: var(--s4);
@@ -1571,7 +1562,19 @@ label[for] {
   padding: 0 var(--gutter) var(--s7);
   overflow-x: clip;
 }
-.workspace-page-content { min-width: 0; }
+/* The page's skeleton: one column of blocks — a bar, a panel, a lead, a table,
+   an empty state — one step apart. The gap is the only thing that spaces them,
+   so a page with bars and a page without read with the same rhythm, and no
+   block brings a margin of its own to the page. Each page used to: bars sat
+   16px apart, panels 24px, the Simulator's lead touched its panel and the
+   libraries' tables started 20px below every other page's content. */
+.workspace-page-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: var(--s4);
+  min-width: 0;
+}
 
 /* The header's box reaches the same width as the content below. Its text
    reserves the status card's corner, while the wash and the crown stay
@@ -1637,7 +1640,6 @@ label[for] {
   background: var(--raise);
   padding: var(--s5);
 }
-.panel + .panel { margin-top: var(--s5); }
 
 /* a panel whose content reaches the edge — a table, typically. The heading
    keeps the padding; the content below sheds it. */
@@ -1661,7 +1663,6 @@ label[for] {
   background: var(--raise);
   overflow: hidden;
 }
-.bar + .bar { margin-top: var(--s4); }
 .bar[open] { border-color: var(--line-strong); }
 
 .bar-head {
@@ -6019,7 +6020,6 @@ th.align-center .sort-button { justify-content: center; }
 
    The last row is a spare fr track so a tall keeper table grows into it rather
    than spreading its height across the rows of controls beside it. */
-.rune-simulator-lead { margin: 0; max-width: 86ch; }
 .rune-simulator-filters {
   grid-template-columns: repeat(3, 16rem) minmax(0, 1fr);
   grid-template-rows: auto auto auto 1fr;
@@ -6152,8 +6152,7 @@ th.align-center .sort-button { justify-content: center; }
   .rune-simulator-stats { padding-left: 0; border-left: 0; }
 }
 
-.rune-simulator-empty { margin-top: var(--s4); }
-.rune-simulator-results { display: grid; gap: var(--s3); margin-top: var(--s5); }
+.rune-simulator-results { display: grid; gap: var(--s3); }
 .rune-simulator-results-head {
   display: grid;
   grid-template-columns: minmax(0, 1fr) max-content;
@@ -6223,7 +6222,6 @@ th.align-center .sort-button { justify-content: center; }
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, .78fr);
   gap: var(--s5);
   align-items: start;
-  margin-top: var(--s5);
 }
 .speed-column { display: grid; gap: var(--s4); min-width: 0; }
 /* The title and its one action on a line, the action at the far edge. Every

@@ -10,11 +10,11 @@ test('calculates and shows a verdict for every imported rune', async ({ page }, 
   await expect(page.getByText('craft-account.json')).toBeVisible();
 
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
-  const recommendations = page.locator('details').filter({ has: page.locator('summary', { hasText: 'Recommendations' }) });
-  await expect(recommendations.getByText('Nothing calculated yet.')).toBeVisible();
+  const cleanup = page.locator('.workspace-page-content');
+  await expect(cleanup.getByText('Nothing calculated yet.')).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('rune-cleanup-empty.png') });
 
-  await recommendations.getByRole('button', { name: 'Calculate', exact: true }).click();
+  await cleanup.getByRole('button', { name: 'Calculate', exact: true }).click();
   /* Either engine is a pass: the browsers this suite drives expose no WebGPU, so the
      label is always Processor here — but asserting that would make the check a
      statement about the test browser rather than about the page. */
@@ -45,8 +45,8 @@ test('the game orderings take the table over and hand it back to the headings', 
   await expect(page.getByText('craft-account.json')).toBeVisible();
 
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
-  const recommendations = page.locator('details').filter({ has: page.locator('summary', { hasText: 'Recommendations' }) });
-  await recommendations.getByRole('button', { name: 'Calculate', exact: true }).click();
+  const cleanup = page.locator('.workspace-page-content');
+  await cleanup.getByRole('button', { name: 'Calculate', exact: true }).click();
 
   const header = page.getByRole('table', { name: 'Rune verdict columns' });
   const sortBy = page.getByRole('combobox', { name: 'Sort by' });
@@ -93,8 +93,8 @@ test('filters by Ancient, star count and rune quality', async ({ page }, testInf
   await expect(page.getByText('craft-account.json')).toBeVisible();
 
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
-  const recommendations = page.locator('details').filter({ has: page.locator('summary', { hasText: 'Recommendations' }) });
-  await recommendations.getByRole('button', { name: 'Calculate', exact: true }).click();
+  const cleanup = page.locator('.workspace-page-content');
+  await cleanup.getByRole('button', { name: 'Calculate', exact: true }).click();
 
   const table = page.getByRole('table', { name: 'Rune verdicts' });
   const dataRows = () => table.locator('tbody tr').filter({ hasNot: page.locator('.table-empty-state') });

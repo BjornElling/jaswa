@@ -329,12 +329,10 @@ export function RunePotentialSection({
       title="Rune Clean-up"
       tagline="Time to take out the trash, so there is room for more trash." />}
   >
-    {/* The answer first, the controls that shape it underneath. A user opening
-        this page has come for the verdicts, not for the sliders. */}
-    <Disclosure title="Recommendations" sessionKey="rune-potential.recommendations" defaultOpen>
-      <RuneRecommendations game={game} monsterPreferences={monsterPreferences} runeHolds={runeHolds} settings={settings} presets={presets} general={general}
-        hardwareAcceleration={hardwareAcceleration} onOpenRune={onOpenRune} />
-    </Disclosure>
+    {/* No bar: the verdicts are the page's only content, and a disclosure
+        with nothing beside it to fold away only adds a click and a frame. */}
+    <RuneRecommendations game={game} monsterPreferences={monsterPreferences} runeHolds={runeHolds} settings={settings} presets={presets} general={general}
+      hardwareAcceleration={hardwareAcceleration} onOpenRune={onOpenRune} />
   </WorkspacePage>;
 }
 

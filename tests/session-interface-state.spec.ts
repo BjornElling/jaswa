@@ -88,13 +88,10 @@ test('keeps navigation, disclosures, and table filters in the current tab only',
     await expect(newTab.getByRole('textbox', { name: 'Filter artifacts by monster or property' })).toHaveValue('');
     await newTab.getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
     await expect(newTab.getByRole('heading', { name: 'Rune Clean-up', exact: true })).toBeVisible();
-    /* Recommendations is the page's own answer and opens by default, exactly as the
-       relic library does — so a fresh tab shows that one and nothing else. The two
-       panels the first tab opened must still be shut: what is asserted here is that
-       a default survives and a *choice* does not travel between tabs. */
-    await expect(newTab.locator('details[open]')).toHaveCount(1);
-    await expect(newTab.locator('summary').filter({ hasText: 'Recommendations' }).locator('..'))
-      .toHaveAttribute('open', '');
+    /* The verdicts are the page's only content, so they stand without a bar —
+       there is nothing on this page for a choice made in the first tab to have
+       opened or shut. */
+    await expect(newTab.locator('details')).toHaveCount(0);
     await expect(newTab.locator('summary').filter({ hasText: 'Settings' })).toHaveCount(0);
     await expect(newTab.locator('summary').filter({ hasText: 'Presets' })).toHaveCount(0);
     await newTab.getByRole('button', { name: 'Rune Set-up', exact: true }).click();

@@ -20,7 +20,7 @@ async function calculatedCleanup(page: Page) {
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
   await expect(page.locator('.import-badge')).toBeVisible();
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
-  const panel = page.locator('details').filter({ has: page.locator('summary', { hasText: 'Recommendations' }) });
+  const panel = page.locator('.workspace-page-content');
   await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(page.getByRole('table', { name: 'Rune verdicts' })).toBeVisible();
 }

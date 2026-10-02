@@ -15,8 +15,8 @@ test('choosing an ordering leaves the filter panel where it was', async ({ page 
   await expect(page.getByText('craft-account.json')).toBeVisible();
 
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
-  const recommendations = page.locator('details').filter({ has: page.locator('summary', { hasText: 'Recommendations' }) });
-  await recommendations.getByRole('button', { name: 'Calculate', exact: true }).click();
+  const cleanup = page.locator('.workspace-page-content');
+  await cleanup.getByRole('button', { name: 'Calculate', exact: true }).click();
 
   const panel = page.locator('.rune-filter-strip');
   const sortBy = page.getByRole('combobox', { name: 'Sort by' });
