@@ -6431,9 +6431,6 @@ th.align-center .sort-button { justify-content: center; }
 .speed-verdict[data-state='bad'] { color: var(--state-bad); }
 .speed-monster-name { display: block; }
 .speed-figure { text-align: right; font-variant-numeric: tabular-nums; color: var(--text); }
-/* The two-tone device: a slot whose range cannot keep the enemy out is
-   dimmed, and the verdict line says why in words. */
-.speed-slot-range[data-clear='false'] { color: var(--text-muted); }
 .speed-combat { color: var(--text-strong); }
 .speed-what-if {
   width: 100%;

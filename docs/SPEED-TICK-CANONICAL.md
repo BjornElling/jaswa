@@ -154,8 +154,8 @@ leaves it (§3.2, §6).
 goes to the user's team.** The user's team is the attacker everywhere Speed
 Tuning reads it — arena offence and every dungeon — and the attacker moves first
 on a tie. Every figure follows from this one rule: the clock (`speed-tick.ts`),
-the Enemy cut in table, the Ticks view, the fastest-enemy warning and the
-Interval column's floor all count a level speed as the team's.
+the Enemy cut in table, the Ticks view, the enemy warning and the perfect
+range (§7.1) all count a level speed with the enemy as the team's.
 
 Sources, read October 2, 2026:
 
@@ -284,51 +284,68 @@ the first two, only the fourth is wrong.
 - **Too fast** — moves before a monster placed above it.
 - **Tie** — follows one above it only by an exact tie on the bar.
 
-Each member out of place gets its own interval of display speeds: every whole
-display speed from bare runes to 999 is run through the clock with the others
-held where they are, and the passing run nearest the current value is printed.
-No display speed under the slot's floor (below) is offered: a fix that looked
-only up the order once proposed 98–204 to cure a tie, which would have sent the
-monster under the one below it and let the enemy in.
-Where no display speed of that monster alone fixes it, the line names the fault
-and says nothing more. The verifier confirms every printed interval at both
-edges.
-
 A member too fast is red on its line and a tie yellow. A team with any member
 out of place, a tie included, is a failure on the page.
 
-**The slot's range** — the overlay's *Interval* column, beside display speed,
-states for every member the display speeds that hold the slot the table puts
-it in, its neighbours held where they are, as `xx – yy`:
+### 7.1 The perfect range — the one recommendation
 
-- `xx`, the floor, is the lowest display speed whose arena or dungeon speed is
-  at least level with the monster below it. In a dungeon it must also be level
-  with the floor's fastest enemy (§6), matched at the speed any Leo cap leaves
-  the member. In arena it must also be fast enough that the worst-case enemy
-  has no turn before this member's first — run through the clock, boosts and
-  all, as the Enemy cut in table reads it.
-- `yy`, the ceiling, is the highest display speed whose arena or dungeon speed
-  is at most level with the monster above it. The first mover has none and
-  reads `xx+`.
+**Binding rule: every display speed the page offers a member, typed in, gives
+that member a perfect place and lets no enemy in before it.** There is one
+such answer per member, and both places that offer display speeds quote it:
+the overlay's *Interval* column, beside display speed, and the `needs …
+display speed` on the verdict line. They cannot disagree, because they are the
+same figure.
 
-A level speed counts at both ends, as the user tunes to it. Where no display
-speed inside the slot clears the enemy, the cell shows the slot between its
-neighbours alone, dimmed, and the verdict line says the enemy gets in. Where
-the neighbours themselves leave no room — or, for a new dungeon team, until its
-dungeon is chosen — the cell is a dash. Each figure is the combat speed §2 gives one display speed,
-tried a display speed at a time, so no rounding is restated. The verifier
-confirms every range at both edges.
+A display speed is in a member's range when, with that member alone moved to
+it and every other member held where it is:
 
-**Slower than the fastest enemy** — in a dungeon, a member whose dungeon speed
-is below the floor's fastest enemy (the figure the overlay quotes, §6) is
-warned at the end of its line, after every fault in the team's own order:
-yellow where the verdict is otherwise green, and
-left red where it is red. Under Leo's cap the member is read at the speed the
-cap leaves it. An equal speed is not warned: a tie on the bar goes to the
-team (§3.2). Arena has no fixed enemy and
-no such figure; there the matching warning is **worst-case enemy cuts in** —
-the worst-case enemy (§6) has a turn before the member's first, read off the
-same trace as the Enemy cut in table.
+1. **Its order is perfect.** Every teammate the table puts above it has its
+   first turn strictly before this member's, and every one below strictly
+   after. A tie with a teammate counts against it: no order may hang on field
+   position the page cannot see. A tie with the enemy goes to the team (§3.2).
+2. **No enemy gets in before it.** On no stage — in arena the worst-case enemy
+   (§6), in a dungeon each stage — does an enemy turn come before this
+   member's first.
+3. **Nothing else gets worse.** No other pair falls out of order and no other
+   member is cut into that was not already. A member's boost moves its
+   teammates' turns, so a value that fixes this member could otherwise break
+   another.
+
+So a value from the range never leaves this monster wrong and never breaks
+another, and with every other member already perfect the whole team is.
+
+Every whole display speed from bare runes to 999 is run through the clock —
+the team's trace and every stage's — so boosts, buffs, Leo's cap and the
+attacker's tie (§3.2) are answered by the one implementation, with nothing
+restated. The run of passing values nearest the current value is shown, as
+`xx – yy`, `xx+` where every faster value passes too, or a dash where no
+display speed of that monster alone gives a perfect place (and, for a new
+dungeon team, until its dungeon is chosen). The verdict line quotes the range
+only where the current value lies outside it.
+
+An earlier version derived the range from combat speed comparisons against
+the neighbours and the fastest enemy, and let a level speed count. It could
+recommend a display speed at which the enemy still cut in, because a level
+speed or a boost's timing is decided by the clock and not by the comparison.
+The rule above replaced it.
+
+The verifier (`verify:speed-tick`) re-reads the team with each value typed in
+and checks the three conditions off the drawn traces, apart from the search:
+values spread through every range, both of its edges, one past each edge, and
+a spread of values where a member has no range.
+
+The search runs the clock a few thousand times per team, so only the overlay,
+which shows ranges, asks for it; the page reads every team at once without it.
+
+### 7.2 Warnings
+
+**Enemy cuts in** — a member an enemy has a turn before is warned at the end
+of its line, after every fault in the team's own order: `· enemy cuts in
+(stage 2)` in a dungeon, `· worst-case enemy cuts in` in arena. It reads the
+same traces as the Enemy cut in table. It is yellow where the verdict is
+otherwise green and left red where it is red. It replaced *slower than the
+fastest enemy*, a speed comparison that a boost could contradict, so a member
+inside its perfect range was still warned.
 
 **Enemy can cut in** — an enemy turn comes before the team's last first turn,
 read off the very traces the Ticks view draws, boosts, buffs and Leo's cap

@@ -4,12 +4,11 @@ import { Dropdown } from './dropdown';
 import { MonsterLink } from './monster-link';
 import type { OpenMonsterOverlay } from './monster-link';
 import { formatNumber } from '../lib/formatting';
-import { fastestEnemySpeed } from '../lib/speed-contents';
 import type { MonsterCopyName } from '../lib/monster-names';
 import { boostsAllies, describeLeaderSkill, describeTurnEffect, leaderSkill, shortLeaderSkill, shortTurnEffect } from '../lib/speed-skills';
 import { leaderAreaReaches } from '../lib/speed-tick';
 import { combatSpeedName, displaySpeedIntervalText } from '../lib/speed-tuning-analysis';
-import type { MemberReading, SlotRange, TeamReading } from '../lib/speed-tuning-analysis';
+import type { DisplaySpeedInterval, MemberReading, TeamReading } from '../lib/speed-tuning-analysis';
 import { whatIfDisplaySpeedMaximum } from '../lib/speed-tuning-preferences';
 import type { SpeedTeam } from '../lib/speed-tuning-preferences';
 import type { GeneralSettings } from '../lib/types';
@@ -23,35 +22,32 @@ function ordinal(value: number): string {
 }
 
 /**
- * The one line under a member that says whether it is where it was put, and if
- * not, what would put it there; a member slower than the floor's fastest enemy
- * says so at the end.
+ * The one line under a member that says whether it is where it was put, what
+ * would give it a perfect place, and last, which enemy gets in before it. The
+ * fix quotes the Interval column's range and nothing else, so every display
+ * speed the line offers is one the user can type for a perfect place.
  */
-function verdictText(member: MemberReading, names: Record<string, MonsterCopyName>,
-  fastestEnemy: number | null, general: GeneralSettings): string {
+function verdictText(member: MemberReading, names: Record<string, MonsterCopyName>, area: 'arena' | 'dungeon',
+  enemiesKnown: boolean, general: GeneralSettings): string {
   const { verdict } = member;
-  /* The enemy's figure stands at the top of the overlay; the line has no room to repeat it. */
-  const enemyWarning = member.slowerThanFastestEnemy && fastestEnemy !== null ? ' · slower than the fastest enemy'
-    : member.worstEnemyCutsIn ? ' · worst-case enemy cuts in' : '';
-  /* Where no display speed of this monster alone fixes it, the line stops at
-     the fault. The enemy warning comes last, after every fault in the team's own order. */
-  const withFix = (text: string) => {
-    const fix = verdict.kind === 'in-place' ? null : displaySpeedIntervalText(verdict.interval, general);
-    return `${fix === null ? text : `${text} · ${fix}`}${enemyWarning}`;
-  };
-  switch (verdict.kind) {
-    case 'in-place': return withFix(`In place · moves ${ordinal(member.actualPosition)}`);
-    case 'order': return withFix(`Too fast · moves ${ordinal(member.actualPosition)}`);
-    case 'tie': return withFix(`Tied with ${names[verdict.with]?.name ?? 'a teammate'} · position decides`);
-  }
+  const fix = enemiesKnown && !member.inRange ? displaySpeedIntervalText(member.range, general) : null;
+  const stages = member.cutInAt;
+  const enemyWarning = !enemiesKnown || stages.length === 0 ? ''
+    : area === 'arena' ? ' · worst-case enemy cuts in'
+      : ` · enemy cuts in (stage${stages.length === 1 ? '' : 's'} ${stages.join(', ')})`;
+  const fault = verdict.kind === 'in-place' ? `In place · moves ${ordinal(member.actualPosition)}`
+    : verdict.kind === 'order' ? `Too fast · moves ${ordinal(member.actualPosition)}`
+      : `Tied with ${names[verdict.with]?.name ?? 'a teammate'} · position decides`;
+  return `${fault}${fix === null ? '' : ` · ${fix}`}${enemyWarning}`;
 }
 
-/* Red for a fault in the order; yellow for a tie or a member the
-   fastest enemy outpaces; green only with none of them. */
+/* Red for a fault in the order; yellow for a tie, an enemy that gets in, or a
+   member in place that a display speed of its own would still improve; green
+   only with none of them. */
 function verdictState(member: MemberReading, enemiesKnown: boolean): 'good' | 'warn' | 'bad' {
   switch (member.verdict.kind) {
     case 'order': return 'bad';
-    case 'in-place': return (enemiesKnown && member.slowerThanFastestEnemy) || member.worstEnemyCutsIn ? 'warn' : 'good';
+    case 'in-place': return enemiesKnown && (member.cutInAt.length > 0 || (member.range !== null && !member.inRange)) ? 'warn' : 'good';
     default: return 'warn';
   }
 }
@@ -143,11 +139,11 @@ type EditorProps = {
 };
 
 /**
- * The display speeds that hold a slot, as the Interval column states them: a
- * closed range, an open one for the first mover, or a dash where none fits or
- * the enemies are not known yet.
+ * The display speeds that give a member a perfect place, as the Interval
+ * column states them: a closed range, an open one, or a dash where none does
+ * or the enemies are not known yet.
  */
-function slotRangeText(range: SlotRange | null, general: GeneralSettings): string {
+function rangeText(range: DisplaySpeedInterval | null, general: GeneralSettings): string {
   if (range === null) return '—';
   const minimum = formatNumber(range.minimum, general);
   return range.maximum === null ? `${minimum}+` : `${minimum} – ${formatNumber(range.maximum, general)}`;
@@ -163,8 +159,6 @@ export function SpeedTeamEditor({ reading, title, names, choices, general, onCha
   const [grabbable, setGrabbable] = useState(true);
   const tableRef = useRef<HTMLTableElement>(null);
   const speedName = combatSpeedName(reading);
-  /* Only once the dungeon is chosen: until then the floor's enemies are nobody's. */
-  const fastestEnemy = enemiesKnown && team.content !== 'arena' ? fastestEnemySpeed(team.content) : null;
   const readingById = new Map(reading.members.map((member) => [member.unitId, member]));
   const full = team.members.length >= content.teamSize;
 
@@ -303,13 +297,10 @@ export function SpeedTeamEditor({ reading, title, names, choices, general, onCha
           used.length ? `${used.map((skill) => `${skill.name}: ${skill.effects.map(describeTurnEffect).join(', ')}`).join('; ')} — counted on every turn` : '',
           uncounted.length ? `Not counted, because its size depends on the battle: ${uncounted.join(', ')}` : '',
         ].filter(Boolean).join('. ');
-        const verdict = verdictText(monster, names, fastestEnemy, general);
-        /* Until the dungeon is chosen its fastest enemy is nobody's, so neither is the floor. */
-        const slot = enemiesKnown ? monster.slotRange : null;
-        const range = slotRangeText(slot, general);
-        /* A slot no display speed of its own can keep the enemy out of is still
-           shown, dimmed, and the verdict line beside it says the enemy gets in. */
-        const rangeClear = slot === null || slot.clearOfEnemy;
+        const verdict = verdictText(monster, names, content.area, enemiesKnown, general);
+        /* Until the dungeon is chosen its enemies are nobody's, so neither is a perfect place. */
+        const range = rangeText(enemiesKnown ? monster.range : null, general);
+        const noRange = enemiesKnown && monster.range === null;
         /* What this monster's turn does to the turns after it, hung on the line
            below its slot, where the next monster waits. Only an attack-bar
            boost to the whole team is named — a boost to one ally or to itself
@@ -353,8 +344,8 @@ export function SpeedTeamEditor({ reading, title, names, choices, general, onCha
               </label>
             </td>
             <td className="speed-figure" rowSpan={2}>{formatNumber(monster.importedDisplaySpeed, general)}</td>
-            <td className="speed-figure speed-slot-range" rowSpan={2} data-clear={rangeClear ? undefined : 'false'}
-              title={rangeClear ? undefined : `${range} display speed holds the slot, but none of it keeps the enemy out`}>{range}</td>
+            <td className="speed-figure speed-slot-range" rowSpan={2}
+              title={noRange ? `No display speed of ${name} alone gives a perfect turn order with no enemy cutting in` : undefined}>{range}</td>
             <td className="speed-figure speed-what-if-cell" rowSpan={2}>
               <WhatIfField member={monster} label={`What-if display speed for ${name} in ${title}`}
                 onChange={(value) => onWhatIf(member.unitId, value)} />
@@ -366,7 +357,7 @@ export function SpeedTeamEditor({ reading, title, names, choices, general, onCha
           </tr>
           <tr className="speed-verdict-row">
             <td className="speed-verdict-cell">
-              <span className="speed-verdict type-caption" data-state={verdictState(monster, fastestEnemy !== null)} title={verdict}>{verdict}</span>
+              <span className="speed-verdict type-caption" data-state={verdictState(monster, enemiesKnown)} title={verdict}>{verdict}</span>
               {boostTag !== '' && <span className="speed-boost-tag type-caption" aria-hidden="true">{boostTag}</span>}
             </td>
           </tr>

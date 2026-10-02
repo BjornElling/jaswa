@@ -204,16 +204,35 @@ check(!isSpeedTuningPreferences({ teams: [team([], { margin: 1 })], rules: [] })
 check(readSpeedTuningPreferences({ teams: [team([{ unitId: '1' }], { marginEnabled: true, margin: 2 })], rules: [] }).teams.length === 1,
   'a team field the page no longer offers is left out on reading, and the team kept');
 
-/* 4. Every printed interval is the truth. */
+/* 4. Every display speed the page offers gives a perfect place. */
 let seed = 0x5eed;
 const random = () => {
   seed = (seed * 1_103_515_245 + 12_345) % 2 ** 31;
   return seed / 2 ** 31;
 };
 const skillSets = [[[2563, 3]], [[7361, 2]], [[6512, 1]], [[10015, 1]], []];
-let intervalsChecked = 0;
 let rangesChecked = 0;
-let blockedRanges = 0;
+let valuesChecked = 0;
+let emptyRanges = 0;
+/* Faults read off a reading's own drawn traces, apart from the module's
+   search: a pair the table orders that does not strictly move so, and each
+   member an enemy has a turn before. */
+const faultsOf = (reading, members) => {
+  const events = reading.trace.events;
+  const first = new Map();
+  events.forEach((event, at) => { if (!first.has(event.key)) first.set(event.key, { at, event }); });
+  const pairs = [];
+  members.forEach(({ unitId: upper }, at) => {
+    for (const { unitId: lower } of members.slice(at + 1)) {
+      const a = first.get(upper);
+      const b = first.get(lower);
+      const strict = a && (!b || (a.at < b.at && !a.event.tiedWith.includes(lower)));
+      if (!strict) pairs.push(`${upper}>${lower}`);
+    }
+  });
+  const cuts = reading.enemies.flatMap((stage, at) => stage.cutsBefore.map((unitId) => `${at + 1}:${unitId}`));
+  return { pairs, cuts };
+};
 for (let sample = 0; sample < 60; sample += 1) {
   const area = sample % 2 === 0 ? 'giants' : 'arena';
   const size = speedContent(area).teamSize;
@@ -229,7 +248,7 @@ for (let sample = 0; sample < 60; sample += 1) {
     members.push({ unitId });
   }
   const saved = { id: `sample-${sample}`, content: area, members, leaderUnitId: sample % 3 === 0 ? '1' : null };
-  const reading = readSpeedTeam({ team: saved, monsters, totemPercent: 15, rules: [] });
+  const reading = readSpeedTeam({ team: saved, monsters, totemPercent: 15, ranges: true });
   /* A cut-in is read off the drawn trace: an enemy turn before some ally's first. */
   for (const enemy of reading.enemies) {
     const firstEnemy = enemy.trace.events.findIndex((event) => event.side === 'enemy');
@@ -243,85 +262,48 @@ for (let sample = 0; sample < 60; sample += 1) {
     const at = reading.trace.events.findIndex((event) => event.key === unitId);
     return at === -1 ? Number.POSITIVE_INFINITY : at;
   };
-  /* The fastest-enemy warning: in a dungeon, a member whose speed is strictly
-     below the floor's fastest enemy's — an equal one is read as the team's tie. */
-  const fastest = area === 'arena' ? null : fastestEnemySpeed(area);
-  reading.members.forEach((member, index) => {
-    check(member.slowerThanFastestEnemy === (fastest !== null && member.combatSpeed < fastest),
-      `sample ${sample}: member ${index + 1} is warned of the fastest enemy exactly when it is slower`);
-  });
   reading.members.forEach((member, index) => {
     const passesSomeoneAbove = reading.members.slice(0, index).some((above) => firstAt(member.unitId) < firstAt(above.unitId));
     check((member.verdict.kind === 'order') === passesSomeoneAbove, `sample ${sample}: member ${index + 1} is too fast exactly when it moves before one above it`);
+    const cutAt = reading.enemies.flatMap((stage, at) => stage.cutsBefore.includes(member.unitId) ? [at + 1] : []);
+    check(member.cutInAt.join() === cutAt.join(), `sample ${sample}: member ${index + 1} is warned of exactly the stages that cut in before it`);
   });
-  /* Each slot's range, read off a reading of the team with the member moved
-     there: at its floor level with the one below and, where the range says
-     so, clear of the enemy; at its ceiling level with the one above; one
-     display speed past either edge no longer so. A range that says the enemy
-     gets in is the slot between the neighbours alone, and no display speed in
-     it keeps the enemy out. */
+  /* The promise: any value in a member's range, typed in, leaves no fault
+     that involves it — every pair with it strict, no enemy before it — and no
+     fault elsewhere the team did not already have. One display speed past
+     either edge breaks that. Where there is no range, no value keeps it. */
+  const baseline = faultsOf(reading, members);
   for (const [index, member] of reading.members.entries()) {
-    if (area === 'arena') check(member.worstEnemyCutsIn === reading.enemies[0].cutsBefore.includes(member.unitId),
-      `sample ${sample}: member ${index + 1} is warned of the worst-case enemy exactly when it cuts in`);
-    else check(!member.worstEnemyCutsIn, `sample ${sample}: a dungeon member is never warned of the arena enemy`);
-    const range = member.slotRange;
-    if (!range) continue;
-    const moved = (shown) => readSpeedTeam({ team: saved, monsters, totemPercent: 15, whatIfs: new Map([[member.unitId, shown]]) });
-    const besideBelow = (there) => {
-      const below = there.members[index + 1];
-      return !below || there.members[index].combatSpeed >= below.combatSpeed;
+    const perfectAt = (shown) => {
+      const there = faultsOf(readSpeedTeam({ team: saved, monsters, totemPercent: 15, whatIfs: new Map([[member.unitId, shown]]) }), members);
+      return there.pairs.every((pair) => !pair.split('>').includes(member.unitId) && baseline.pairs.includes(pair))
+        && there.cuts.every((cut) => cut.split(':')[1] !== member.unitId && baseline.cuts.includes(cut));
     };
-    const enemyClear = (there) => {
-      /* The floor and the Enemy cut in table read the same clock: at the
-         floor, no stage's enemy has a turn before this member's first. */
-      const clear = area === 'arena' ? !there.enemies[0].cutsBefore.includes(member.unitId) : !there.members[index].slowerThanFastestEnemy;
-      if (area !== 'arena' && clear) check(there.enemies.every((stage) => !stage.cutsBefore.includes(member.unitId)),
-        `sample ${sample}: member ${index + 1} level with the fastest enemy is not cut in before`);
-      return clear;
-    };
-    const floorHolds = (shown) => {
-      const there = moved(shown);
-      return besideBelow(there) && (!range.clearOfEnemy || enemyClear(there));
-    };
-    const ceilingHolds = (shown) => {
-      const there = moved(shown);
-      return index === 0 || there.members[index].combatSpeed <= there.members[index - 1].combatSpeed;
-    };
-    check(floorHolds(range.minimum) && ceilingHolds(range.minimum), `sample ${sample}: member ${index + 1} holds its slot at the floor ${range.minimum}`);
     const lowest = displaySpeed(member.baseSpeed, member.swift, 0);
-    if (range.minimum - 1 >= lowest) check(!floorHolds(range.minimum - 1), `sample ${sample}: member ${index + 1} loses its slot under the floor ${range.minimum}`);
-    check((range.maximum === null) === (index === 0), `sample ${sample}: only the first mover has no ceiling`);
-    if (range.maximum !== null) {
-      check(ceilingHolds(range.maximum) && floorHolds(range.maximum), `sample ${sample}: member ${index + 1} holds its slot at the ceiling ${range.maximum}`);
-      if (range.maximum < 999) check(!ceilingHolds(range.maximum + 1), `sample ${sample}: member ${index + 1} loses its slot over the ceiling ${range.maximum}`);
+    const range = member.range;
+    if (range === null) {
+      for (let shown = lowest; shown <= 999; shown += 17) check(!perfectAt(shown), `sample ${sample}: member ${index + 1} has no range, and ${shown} is not perfect`);
+      emptyRanges += 1;
+      continue;
     }
-    if (!range.clearOfEnemy) {
-      for (let shown = range.minimum; shown <= (range.maximum ?? 999); shown += 1) {
-        check(!enemyClear(moved(shown)), `sample ${sample}: member ${index + 1} at ${shown} is cut in, as its range says`);
-      }
-      blockedRanges += 1;
+    const top = range.maximum ?? Math.min(999, range.minimum + 120);
+    const step = Math.max(1, Math.floor((top - range.minimum) / 30));
+    for (let shown = range.minimum; shown <= top; shown += step) {
+      check(perfectAt(shown), `sample ${sample}: member ${index + 1} is perfect at ${shown}, inside its range`);
+      valuesChecked += 1;
     }
+    check(perfectAt(top), `sample ${sample}: member ${index + 1} is perfect at ${top}, its range's top`);
+    if (range.minimum - 1 >= lowest) check(!perfectAt(range.minimum - 1), `sample ${sample}: member ${index + 1} is not perfect at ${range.minimum - 1}, under its range`);
+    if (range.maximum !== null && range.maximum < 999) check(!perfectAt(range.maximum + 1), `sample ${sample}: member ${index + 1} is not perfect at ${range.maximum + 1}, over its range`);
+    const inside = member.displaySpeed >= range.minimum && (range.maximum === null || member.displaySpeed <= range.maximum);
+    check(member.inRange === inside, `sample ${sample}: member ${index + 1} knows whether it is in its range`);
     rangesChecked += 1;
   }
-  for (const member of reading.members) {
-    const interval = member.verdict.kind === 'in-place' ? null : member.verdict.interval;
-    if (!interval) continue;
-    const at = (shown) => readSpeedTeam({
-      team: saved, monsters, totemPercent: 15, whatIfs: new Map([[member.unitId, shown]]),
-    }).members.find((entry) => entry.unitId === member.unitId).verdict.kind;
-    check(at(interval.minimum) === 'in-place', `sample ${sample}: ${interval.minimum} is inside the printed interval`);
-    if (interval.maximum !== null) check(at(interval.maximum) === 'in-place', `sample ${sample}: ${interval.maximum} is inside the printed interval`);
-    const lowest = displaySpeed(member.baseSpeed, member.swift, 0);
-    /* The fix never reaches under the slot's floor, which the Interval column states. */
-    check(member.slotRange !== null && interval.minimum >= member.slotRange.minimum, `sample ${sample}: the fix stays on or above the slot's floor`);
-    const underFloor = (shown) => shown < member.slotRange.minimum;
-    if (interval.minimum - 1 >= lowest) check(underFloor(interval.minimum - 1) || at(interval.minimum - 1) !== 'in-place', `sample ${sample}: ${interval.minimum - 1} is outside the printed interval`);
-    if (interval.maximum !== null && interval.maximum < 999) check(at(interval.maximum + 1) !== 'in-place', `sample ${sample}: ${interval.maximum + 1} is outside the printed interval`);
-    intervalsChecked += 1;
-  }
+  /* The page asks for no ranges and gets none. */
+  const plain = readSpeedTeam({ team: saved, monsters, totemPercent: 15 });
+  check(plain.members.every((member) => member.range === null && !member.inRange), `sample ${sample}: a reading without ranges carries none`);
 }
-check(rangesChecked > 20, `the sweep exercised slot ranges (${rangesChecked})`);
-check(blockedRanges > 0, `the sweep met a slot the enemy gets into (${blockedRanges})`);
-check(intervalsChecked > 20, `the sweep exercised intervals (${intervalsChecked})`);
+check(rangesChecked > 20, `the sweep exercised ranges (${rangesChecked})`);
+check(emptyRanges > 0, `the sweep met a member with no perfect place (${emptyRanges})`);
 
-console.log(`Speed tick rules hold: ${checks} checks, ${intervalsChecked} printed intervals confirmed at both edges.`);
+console.log(`Speed tick rules hold: ${checks} checks, ${rangesChecked} ranges confirmed at ${valuesChecked} display speeds and both edges.`);

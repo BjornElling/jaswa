@@ -58,7 +58,7 @@ export function SpeedTeamOverlay({
      overlay reads them: the page judges the runes worn and never passes them. */
   const whatIfs = useMemo(() => new Map(draft.members.flatMap((member) =>
     member.whatIfDisplaySpeed === undefined ? [] : [[member.unitId, member.whatIfDisplaySpeed] as const])), [draft]);
-  const reading = useMemo(() => readSpeedTeam({ team: draft, monsters, totemPercent: totemShare, whatIfs }),
+  const reading = useMemo(() => readSpeedTeam({ team: draft, monsters, totemPercent: totemShare, whatIfs, ranges: true }),
     [draft, whatIfs, monsters, totemShare]);
 
   function setWhatIf(unitId: string, value: number | undefined) {

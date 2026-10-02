@@ -207,11 +207,16 @@ export type BattleTrace = { events: TurnEvent[]; snapshots: TickSnapshot[] };
  *
  * `order` lists every unit key, allies in the user's intended order, and sets
  * that last resort. The loop stops when `done` says so or at `tickLimit`.
+ * `snapshots: false` leaves the per-tick bars out: a search that only reads
+ * the order of turns runs the clock hundreds of times, and copying every bar
+ * on every tick was most of its cost. The turns are the same either way.
  */
 export function simulateBattle(units: readonly TickUnit[], options: {
   done: (events: readonly TurnEvent[]) => boolean;
   tickLimit?: number;
+  snapshots?: boolean;
 }): BattleTrace {
+  const recording = options.snapshots ?? true;
   const tickLimit = options.tickLimit ?? 2_000;
   const bars = new Map(units.map((unit) => [unit.key, 0]));
   const buffTurns = new Map(units.map((unit) => [unit.key, 0]));
@@ -233,12 +238,12 @@ export function simulateBattle(units: readonly TickUnit[], options: {
     const fills = units.map((unit) => attackBarPerSpeedPerTick * currentSpeed(unit));
     units.forEach((unit, at) => bars.set(unit.key, (bars.get(unit.key) ?? 0) + fills[at]));
     const ready = units.filter((unit) => (bars.get(unit.key) ?? 0) >= fullBar);
-    const snapshot: TickSnapshot = {
+    const snapshot: TickSnapshot | null = recording ? {
       tick,
       bars: Object.fromEntries([...bars].map(([key, bar]) => [key, bar / clockScale])),
       mover: null,
-    };
-    snapshots.push(snapshot);
+    } : null;
+    if (snapshot) snapshots.push(snapshot);
     if (ready.length === 0) continue;
 
     const fullest = Math.max(...ready.map((unit) => bars.get(unit.key) ?? 0));
@@ -248,7 +253,7 @@ export function simulateBattle(units: readonly TickUnit[], options: {
     const turn = (turns.get(mover.key) ?? 0) + 1;
     turns.set(mover.key, turn);
     events.push({ tick, key: mover.key, side: mover.side, turn, attackBar: fullest / clockScale, tiedWith: contenders.slice(1).map((unit) => unit.key) });
-    snapshot.mover = mover.key;
+    if (snapshot) snapshot.mover = mover.key;
 
     /* The bar empties as the turn is taken, so an effect that fills "all
        allies" does not reach the one casting it; a self effect is written for
