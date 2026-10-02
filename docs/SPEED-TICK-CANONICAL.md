@@ -287,6 +287,9 @@ the first two, only the fourth is wrong.
 Each member out of place gets its own interval of display speeds: every whole
 display speed from bare runes to 999 is run through the clock with the others
 held where they are, and the passing run nearest the current value is printed.
+No display speed under the slot's floor (below) is offered: a fix that looked
+only up the order once proposed 98–204 to cure a tie, which would have sent the
+monster under the one below it and let the enemy in.
 Where no display speed of that monster alone fixes it, the line names the fault
 and says nothing more. The verifier confirms every printed interval at both
 edges.
@@ -309,8 +312,10 @@ it in, its neighbours held where they are, as `xx – yy`:
   reads `xx+`.
 
 A level speed counts at both ends, as the user tunes to it. Where no display
-speed meets both — or, for a new dungeon team, until its dungeon is chosen —
-the cell is a dash. Each figure is the combat speed §2 gives one display speed,
+speed inside the slot clears the enemy, the cell shows the slot between its
+neighbours alone, dimmed, and the verdict line says the enemy gets in. Where
+the neighbours themselves leave no room — or, for a new dungeon team, until its
+dungeon is chosen — the cell is a dash. Each figure is the combat speed §2 gives one display speed,
 tried a display speed at a time, so no rounding is restated. The verifier
 confirms every range at both edges.
 
@@ -321,7 +326,9 @@ yellow where the verdict is otherwise green, and
 left red where it is red. Under Leo's cap the member is read at the speed the
 cap leaves it. An equal speed is not warned: a tie on the bar goes to the
 team (§3.2). Arena has no fixed enemy and
-no such warning.
+no such figure; there the matching warning is **worst-case enemy cuts in** —
+the worst-case enemy (§6) has a turn before the member's first, read off the
+same trace as the Enemy cut in table.
 
 **Enemy can cut in** — an enemy turn comes before the team's last first turn,
 read off the very traces the Ticks view draws, boosts, buffs and Leo's cap

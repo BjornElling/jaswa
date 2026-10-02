@@ -28,6 +28,9 @@ import type { GeneralSettings } from './types';
 /** A range of display speeds; `maximum` is `null` where every faster value works too. */
 export type DisplaySpeedInterval = { minimum: number; maximum: number | null };
 
+/** A slot's range (`slotRange`), and whether any display speed in it keeps the enemy out. */
+export type SlotRange = DisplaySpeedInterval & { clearOfEnemy: boolean };
+
 export type MemberVerdict =
   /** Moves where it was asked to. */
   | { kind: 'in-place' }
@@ -66,9 +69,15 @@ export type MemberReading = {
   /**
    * The display speeds that keep it in its slot between the neighbours the
    * table puts above and below it, enemy included (`slotRange`), or `null`
-   * where none does.
+   * where the neighbours leave no room.
    */
-  slotRange: DisplaySpeedInterval | null;
+  slotRange: SlotRange | null;
+  /**
+   * In arena, the worst-case enemy has a turn before this member's first. The
+   * arena counterpart of `slowerThanFastestEnemy`: a warning beside the
+   * verdict, never a verdict of its own.
+   */
+  worstEnemyCutsIn: boolean;
 };
 
 export type EnemyStageReading = {
@@ -176,15 +185,18 @@ function passes(check: Check): boolean {
 
 /*
  * The display speeds at which this member alone would be in place, the others
- * held where they are, judged as the team is: in order, with no tie. Every
- * whole display speed from bare runes to the page's ceiling is tried, and the
- * run of passing values nearest the current one is reported — usually the only
- * run there is.
+ * held where they are, judged as the team is: in order, with no tie, and no
+ * lower than its slot's floor (`slotRange`). Without the floor the fix looked
+ * only up the order and could send a monster under the one below it, or let
+ * the enemy in, to cure a tie above it — a fix the Interval column beside it
+ * contradicted. Every whole display speed from bare runes to the page's
+ * ceiling is tried, and the run of passing values nearest the current one is
+ * reported — usually the only run there is.
  */
-function passingInterval(candidates: readonly Candidate[], index: number, current: number): DisplaySpeedInterval | null {
+function passingInterval(candidates: readonly Candidate[], index: number, current: number, floor: number): DisplaySpeedInterval | null {
   const { baseSpeed, swift } = candidates[index].base;
   return nearestPassingDisplaySpeeds(baseSpeed, swift, current,
-    (shown) => passes(checkMember(candidates, index, runeSpeedForDisplay(baseSpeed, swift, shown))));
+    (shown) => shown >= floor && passes(checkMember(candidates, index, runeSpeedForDisplay(baseSpeed, swift, shown))));
 }
 
 /*
@@ -197,10 +209,16 @@ function passingInterval(candidates: readonly Candidate[], index: number, curren
  * longer has a turn before this member's first, run through the clock with
  * boosts and all. Each figure is the combat speed `speed-tick.ts` gives a
  * display speed, tried one display speed at a time, so no rounding is
- * restated here. `null` where no display speed meets both ends.
+ * restated here.
+ *
+ * Where no display speed inside the slot clears the enemy, the slot between
+ * its neighbours is still reported, marked `clearOfEnemy: false`: a dash said
+ * only that something failed, where the range says where the slot lies and the
+ * verdict line says the enemy gets in anyway. `null` only where the neighbours
+ * leave no room at all.
  */
 function slotRange(candidates: readonly Candidate[], units: readonly TickUnit[], index: number,
-  content: SpeedContent, fastestEnemy: number | null): DisplaySpeedInterval | null {
+  content: SpeedContent, fastestEnemy: number | null): SlotRange | null {
   const candidate = candidates[index];
   const { baseSpeed, swift } = candidate.base;
   const lowest = displaySpeed(baseSpeed, swift, 0);
@@ -214,15 +232,21 @@ function slotRange(candidates: readonly Candidate[], units: readonly TickUnit[],
     const allies = units.map((unit, at) => at === index ? tickUnit(candidate, runeSpeedForDisplay(baseSpeed, swift, shown)) : unit);
     return !worstArenaStage(allies).cutsBefore.includes(candidate.unitId);
   };
-  let minimum: number | null = null;
-  for (let shown = lowest; shown <= whatIfDisplaySpeedMaximum && minimum === null; shown += 1) {
-    if ((below === null || speedAt(shown) >= below) && clearOfEnemy(shown)) minimum = shown;
+  let floor: number | null = null;
+  for (let shown = lowest; shown <= whatIfDisplaySpeedMaximum && floor === null; shown += 1) {
+    if (below === null || speedAt(shown) >= below) floor = shown;
   }
-  if (minimum === null) return null;
-  if (above === null) return { minimum, maximum: null };
+  if (floor === null) return null;
   let maximum: number | null = null;
-  for (let shown = minimum; shown <= whatIfDisplaySpeedMaximum && speedAt(shown) <= above; shown += 1) maximum = shown;
-  return maximum === null ? null : { minimum, maximum };
+  if (above !== null) {
+    for (let shown = floor; shown <= whatIfDisplaySpeedMaximum && speedAt(shown) <= above; shown += 1) maximum = shown;
+    if (maximum === null) return null;
+  }
+  const top = maximum ?? whatIfDisplaySpeedMaximum;
+  for (let shown = floor; shown <= top; shown += 1) {
+    if (clearOfEnemy(shown)) return { minimum: shown, maximum, clearOfEnemy: true };
+  }
+  return { minimum: floor, maximum, clearOfEnemy: false };
 }
 
 /**
@@ -332,6 +356,10 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs }: {
      each member really runs at against it: under Leo's cap, no more than his. */
   const fastestEnemy = team.content === 'arena' ? null : fastestEnemySpeed(team.content);
   const runningSpeed = (unit: TickUnit) => unit.capsOthersSpeed ? unit.speed : Math.min(unit.speed, ...leoSpeeds);
+  const enemies: EnemyStageReading[] = units.length === 0 ? []
+    : content.area === 'arena'
+      ? [worstArenaStage(units)]
+      : content.stages.map((stage) => stageReading(units, stage.speeds, content.area));
 
   const members: MemberReading[] = candidates.map((candidate, index) => {
     const member = present[index];
@@ -339,8 +367,9 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs }: {
     const parts = monsterSpeedParts(monster);
     const shown = whatIfs?.get(member.unitId) ?? parts.displaySpeed;
     const check = checks[index];
-    const needsInterval = !passes(check);
-    const interval = needsInterval ? passingInterval(candidates, index, shown) : null;
+    /* Where the neighbours leave no room, no display speed of this monster alone fixes it. */
+    const slot = slotRange(candidates, units, index, content, fastestEnemy);
+    const interval = passes(check) || slot === null ? null : passingInterval(candidates, index, shown, slot.minimum);
     const verdict: MemberVerdict = check.tooFast
       ? { kind: 'order', interval }
       : check.tie !== null ? { kind: 'tie', with: check.tie, interval } : { kind: 'in-place' };
@@ -361,14 +390,10 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs }: {
       firstTurnTick: first.get(member.unitId)?.tick ?? Number.POSITIVE_INFINITY,
       verdict,
       slowerThanFastestEnemy: fastestEnemy !== null && runningSpeed(units[index]) < fastestEnemy,
-      slotRange: slotRange(candidates, units, index, content, fastestEnemy),
+      slotRange: slot,
+      worstEnemyCutsIn: content.area === 'arena' && (enemies[0]?.cutsBefore.includes(member.unitId) ?? false),
     };
   });
-
-  const enemies: EnemyStageReading[] = units.length === 0 ? []
-    : content.area === 'arena'
-      ? [worstArenaStage(units)]
-      : content.stages.map((stage) => stageReading(units, stage.speeds, content.area));
 
   return {
     team,

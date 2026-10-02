@@ -213,6 +213,7 @@ const random = () => {
 const skillSets = [[[2563, 3]], [[7361, 2]], [[6512, 1]], [[10015, 1]], []];
 let intervalsChecked = 0;
 let rangesChecked = 0;
+let blockedRanges = 0;
 for (let sample = 0; sample < 60; sample += 1) {
   const area = sample % 2 === 0 ? 'giants' : 'arena';
   const size = speedContent(area).teamSize;
@@ -254,23 +255,33 @@ for (let sample = 0; sample < 60; sample += 1) {
     check((member.verdict.kind === 'order') === passesSomeoneAbove, `sample ${sample}: member ${index + 1} is too fast exactly when it moves before one above it`);
   });
   /* Each slot's range, read off a reading of the team with the member moved
-     there: at its floor level with the one below and clear of the enemy, at
-     its ceiling level with the one above, and one display speed past either
-     edge no longer so. */
+     there: at its floor level with the one below and, where the range says
+     so, clear of the enemy; at its ceiling level with the one above; one
+     display speed past either edge no longer so. A range that says the enemy
+     gets in is the slot between the neighbours alone, and no display speed in
+     it keeps the enemy out. */
   for (const [index, member] of reading.members.entries()) {
+    if (area === 'arena') check(member.worstEnemyCutsIn === reading.enemies[0].cutsBefore.includes(member.unitId),
+      `sample ${sample}: member ${index + 1} is warned of the worst-case enemy exactly when it cuts in`);
+    else check(!member.worstEnemyCutsIn, `sample ${sample}: a dungeon member is never warned of the arena enemy`);
     const range = member.slotRange;
     if (!range) continue;
     const moved = (shown) => readSpeedTeam({ team: saved, monsters, totemPercent: 15, whatIfs: new Map([[member.unitId, shown]]) });
-    const floorHolds = (shown) => {
-      const there = moved(shown);
-      const self = there.members[index];
+    const besideBelow = (there) => {
       const below = there.members[index + 1];
+      return !below || there.members[index].combatSpeed >= below.combatSpeed;
+    };
+    const enemyClear = (there) => {
       /* The floor and the Enemy cut in table read the same clock: at the
          floor, no stage's enemy has a turn before this member's first. */
-      const clear = area === 'arena' ? !there.enemies[0].cutsBefore.includes(member.unitId) : !self.slowerThanFastestEnemy;
+      const clear = area === 'arena' ? !there.enemies[0].cutsBefore.includes(member.unitId) : !there.members[index].slowerThanFastestEnemy;
       if (area !== 'arena' && clear) check(there.enemies.every((stage) => !stage.cutsBefore.includes(member.unitId)),
         `sample ${sample}: member ${index + 1} level with the fastest enemy is not cut in before`);
-      return (!below || self.combatSpeed >= below.combatSpeed) && clear;
+      return clear;
+    };
+    const floorHolds = (shown) => {
+      const there = moved(shown);
+      return besideBelow(there) && (!range.clearOfEnemy || enemyClear(there));
     };
     const ceilingHolds = (shown) => {
       const there = moved(shown);
@@ -284,6 +295,12 @@ for (let sample = 0; sample < 60; sample += 1) {
       check(ceilingHolds(range.maximum) && floorHolds(range.maximum), `sample ${sample}: member ${index + 1} holds its slot at the ceiling ${range.maximum}`);
       if (range.maximum < 999) check(!ceilingHolds(range.maximum + 1), `sample ${sample}: member ${index + 1} loses its slot over the ceiling ${range.maximum}`);
     }
+    if (!range.clearOfEnemy) {
+      for (let shown = range.minimum; shown <= (range.maximum ?? 999); shown += 1) {
+        check(!enemyClear(moved(shown)), `sample ${sample}: member ${index + 1} at ${shown} is cut in, as its range says`);
+      }
+      blockedRanges += 1;
+    }
     rangesChecked += 1;
   }
   for (const member of reading.members) {
@@ -295,12 +312,16 @@ for (let sample = 0; sample < 60; sample += 1) {
     check(at(interval.minimum) === 'in-place', `sample ${sample}: ${interval.minimum} is inside the printed interval`);
     if (interval.maximum !== null) check(at(interval.maximum) === 'in-place', `sample ${sample}: ${interval.maximum} is inside the printed interval`);
     const lowest = displaySpeed(member.baseSpeed, member.swift, 0);
-    if (interval.minimum - 1 >= lowest) check(at(interval.minimum - 1) !== 'in-place', `sample ${sample}: ${interval.minimum - 1} is outside the printed interval`);
+    /* The fix never reaches under the slot's floor, which the Interval column states. */
+    check(member.slotRange !== null && interval.minimum >= member.slotRange.minimum, `sample ${sample}: the fix stays on or above the slot's floor`);
+    const underFloor = (shown) => shown < member.slotRange.minimum;
+    if (interval.minimum - 1 >= lowest) check(underFloor(interval.minimum - 1) || at(interval.minimum - 1) !== 'in-place', `sample ${sample}: ${interval.minimum - 1} is outside the printed interval`);
     if (interval.maximum !== null && interval.maximum < 999) check(at(interval.maximum + 1) !== 'in-place', `sample ${sample}: ${interval.maximum + 1} is outside the printed interval`);
     intervalsChecked += 1;
   }
 }
 check(rangesChecked > 20, `the sweep exercised slot ranges (${rangesChecked})`);
+check(blockedRanges > 0, `the sweep met a slot the enemy gets into (${blockedRanges})`);
 check(intervalsChecked > 20, `the sweep exercised intervals (${intervalsChecked})`);
 
 console.log(`Speed tick rules hold: ${checks} checks, ${intervalsChecked} printed intervals confirmed at both edges.`);

@@ -9,7 +9,7 @@ import type { MonsterCopyName } from '../lib/monster-names';
 import { boostsAllies, describeLeaderSkill, describeTurnEffect, leaderSkill, shortLeaderSkill, shortTurnEffect } from '../lib/speed-skills';
 import { leaderAreaReaches } from '../lib/speed-tick';
 import { combatSpeedName, displaySpeedIntervalText } from '../lib/speed-tuning-analysis';
-import type { DisplaySpeedInterval, MemberReading, TeamReading } from '../lib/speed-tuning-analysis';
+import type { MemberReading, SlotRange, TeamReading } from '../lib/speed-tuning-analysis';
 import { whatIfDisplaySpeedMaximum } from '../lib/speed-tuning-preferences';
 import type { SpeedTeam } from '../lib/speed-tuning-preferences';
 import type { GeneralSettings } from '../lib/types';
@@ -31,7 +31,8 @@ function verdictText(member: MemberReading, names: Record<string, MonsterCopyNam
   fastestEnemy: number | null, general: GeneralSettings): string {
   const { verdict } = member;
   /* The enemy's figure stands at the top of the overlay; the line has no room to repeat it. */
-  const enemyWarning = member.slowerThanFastestEnemy && fastestEnemy !== null ? ' · slower than the fastest enemy' : '';
+  const enemyWarning = member.slowerThanFastestEnemy && fastestEnemy !== null ? ' · slower than the fastest enemy'
+    : member.worstEnemyCutsIn ? ' · worst-case enemy cuts in' : '';
   /* Where no display speed of this monster alone fixes it, the line stops at
      the fault. The enemy warning comes last, after every fault in the team's own order. */
   const withFix = (text: string) => {
@@ -50,7 +51,7 @@ function verdictText(member: MemberReading, names: Record<string, MonsterCopyNam
 function verdictState(member: MemberReading, enemiesKnown: boolean): 'good' | 'warn' | 'bad' {
   switch (member.verdict.kind) {
     case 'order': return 'bad';
-    case 'in-place': return enemiesKnown && member.slowerThanFastestEnemy ? 'warn' : 'good';
+    case 'in-place': return (enemiesKnown && member.slowerThanFastestEnemy) || member.worstEnemyCutsIn ? 'warn' : 'good';
     default: return 'warn';
   }
 }
@@ -146,7 +147,7 @@ type EditorProps = {
  * closed range, an open one for the first mover, or a dash where none fits or
  * the enemies are not known yet.
  */
-function slotRangeText(range: DisplaySpeedInterval | null, general: GeneralSettings): string {
+function slotRangeText(range: SlotRange | null, general: GeneralSettings): string {
   if (range === null) return '—';
   const minimum = formatNumber(range.minimum, general);
   return range.maximum === null ? `${minimum}+` : `${minimum} – ${formatNumber(range.maximum, general)}`;
@@ -304,7 +305,11 @@ export function SpeedTeamEditor({ reading, title, names, choices, general, onCha
         ].filter(Boolean).join('. ');
         const verdict = verdictText(monster, names, fastestEnemy, general);
         /* Until the dungeon is chosen its fastest enemy is nobody's, so neither is the floor. */
-        const range = slotRangeText(enemiesKnown ? monster.slotRange : null, general);
+        const slot = enemiesKnown ? monster.slotRange : null;
+        const range = slotRangeText(slot, general);
+        /* A slot no display speed of its own can keep the enemy out of is still
+           shown, dimmed, and the verdict line beside it says the enemy gets in. */
+        const rangeClear = slot === null || slot.clearOfEnemy;
         /* What this monster's turn does to the turns after it, hung on the line
            below its slot, where the next monster waits. Only an attack-bar
            boost to the whole team is named — a boost to one ally or to itself
@@ -348,7 +353,8 @@ export function SpeedTeamEditor({ reading, title, names, choices, general, onCha
               </label>
             </td>
             <td className="speed-figure" rowSpan={2}>{formatNumber(monster.importedDisplaySpeed, general)}</td>
-            <td className="speed-figure speed-slot-range" rowSpan={2}>{range}</td>
+            <td className="speed-figure speed-slot-range" rowSpan={2} data-clear={rangeClear ? undefined : 'false'}
+              title={rangeClear ? undefined : `${range} display speed holds the slot, but none of it keeps the enemy out`}>{range}</td>
             <td className="speed-figure speed-what-if-cell" rowSpan={2}>
               <WhatIfField member={monster} label={`What-if display speed for ${name} in ${title}`}
                 onChange={(value) => onWhatIf(member.unitId, value)} />

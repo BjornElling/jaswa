@@ -348,9 +348,15 @@ test('arena teams are numbered and face a worst-case enemy', async ({ page }, te
   await expect(card.getByRole('region', { name: 'Enemy cut in' }).getByRole('img', { name: 'Can cut in before Megan (2A)' })).toBeVisible();
   /* Two copies at one arena speed tie on the bar; only field position can settle
      that. The lower one, looking up at the other, says so; the upper one has
-     nobody above it to tie with and is in place. */
-  await expect(card.locator('.speed-verdict:not([data-state="good"])')).toHaveCount(1);
+     nobody above it to tie with and is in place. Megan, in place, is warned
+     that the worst-case enemy gets in before her, and no display speed inside
+     her slot keeps it out, so her range is dimmed. */
+  await expect(card.locator('.speed-verdict:not([data-state="good"])')).toHaveCount(2);
   await expect(card.locator('.speed-slot').nth(2).locator('.speed-verdict')).toHaveText(/^Tied with Lushen #1 · position decides/);
+  const megan = card.locator('.speed-slot').nth(3);
+  await expect(megan.locator('.speed-verdict')).toHaveText(/^In place · moves 4th · worst-case enemy cuts in$/);
+  await expect(megan.locator('.speed-verdict')).toHaveAttribute('data-state', 'warn');
+  await expect(megan.locator('.speed-slot-range')).toHaveAttribute('data-clear', 'false');
   await card.getByRole('button', { name: 'Add this team' }).click();
   await expect(card).toHaveCount(0);
 
@@ -360,7 +366,7 @@ test('arena teams are numbered and face a worst-case enemy', async ({ page }, te
   const first = arena.getByRole('button', { name: /^Arena team #1:/ });
   await expect(first.locator('.speed-summary-state')).toHaveText('1 of 4 out of place · Enemy can cut in');
   await expect(first.locator('.speed-summary-mark')).toHaveAttribute('data-state', 'bad');
-  /* A lone monster always opens before an enemy one arena speed slower. */
+  /* A lone monster always opens before an enemy level with it: the tie is the attacker's. */
   await expect(arena.getByRole('button', { name: /^Arena team #2:/ }).locator('.speed-summary-state')).toHaveText('Turn order holds');
   await expect(arena.getByRole('button', { name: /^Arena team #2:/ }).locator('.speed-summary-mark')).toHaveAttribute('data-state', 'good');
   await page.screenshot({ path: testInfo.outputPath('speed-arena.png'), fullPage: true });
@@ -526,11 +532,14 @@ test('each slot states the display speeds that hold it, and a what-if is selecte
 
   /* In order, every member is in place. Each floor is the fastest enemy's
      dungeon speed, above every monster below: the first mover has no
-     ceiling, the second just fits under Bernard, and behind them no display
-     speed reaches the floor without passing the monster above — a dash. */
+     ceiling and the second just fits under Bernard. Behind them no display
+     speed reaches the enemy without passing the monster above, so the slot
+     between the neighbours is shown dimmed. */
   await expect(draft.locator('.speed-verdict[data-state="bad"]')).toHaveCount(0);
   const ranges = draft.locator('.speed-slot-range');
-  await expect(ranges).toHaveText([/^\d+\+$/, /^\d+ – \d+$/, '—', '—', '—']);
+  await expect(ranges).toHaveText([/^\d+\+$/, ...Array(4).fill(/^\d+ – \d+$/)]);
+  await expect(ranges.nth(1)).not.toHaveAttribute('data-clear', 'false');
+  for (const at of [2, 3, 4]) await expect(ranges.nth(at)).toHaveAttribute('data-clear', 'false');
 
   /* Out of order, the order fault is red on the monster that has it — the one
      below that moves first, never the slower one above it. */
