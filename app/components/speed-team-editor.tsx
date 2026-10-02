@@ -379,6 +379,9 @@ export function SpeedTeamEditor({ reading, title, names, choices, general, onCha
         team's, so adding the first monster fills cells rather than adding
         lines. At the row's end, whether that turn comes before every monster
         has had one of its own. */}
+    {/* "(1st turn)" is said only beside a "(2nd turn)" or later: alone it
+        repeats what the name already tells, while a later turn is always worth
+        naming, and naming every row then lets the rows be compared. */}
     <section className="speed-enemy-turns" aria-labelledby={`${team.id}-enemy-cut-in`}>
       <h3 id={`${team.id}-enemy-cut-in`} className="type-label">Enemy cut in</h3>
       <div className="speed-enemy-turns-body">
@@ -390,8 +393,9 @@ export function SpeedTeamEditor({ reading, title, names, choices, general, onCha
             <th scope="col"><span className="visually-hidden">Cuts in</span></th>
           </tr></thead>
           <tbody>
-            {(content.area === 'arena' ? [null] : content.stages).map((stage, at) => {
+            {(content.area === 'arena' ? [null] : content.stages).map((stage, at, rows) => {
               const enemy = enemiesKnown ? reading.enemies[at] : undefined;
+              const laterTurnShown = enemiesKnown && rows.some((_, row) => (reading.enemies[row]?.follows?.turn ?? 1) > 1);
               const cut = enemy === undefined ? undefined : enemy.cutsBefore.length > 0;
               const cutLabel = cut === undefined ? undefined
                 : cut ? `Can cut in before ${enemy?.cutsBefore.map((unitId) => names[unitId]?.name ?? 'a teammate').join(', ')}`
@@ -403,7 +407,9 @@ export function SpeedTeamEditor({ reading, title, names, choices, general, onCha
                     : enemy.follows === null ? 'Before your team'
                       : <>
                         <span className="speed-enemy-after-name">{names[enemy.follows.unitId]?.name ?? 'A teammate'}</span>
-                        {' '}<span className="speed-enemy-after-turn">({ordinal(enemy.follows.turn)} turn)</span>
+                        {(enemy.follows.turn > 1 || laterTurnShown) && <>
+                          {' '}<span className="speed-enemy-after-turn">({ordinal(enemy.follows.turn)} turn)</span>
+                        </>}
                       </>}
                 </td>
                 {/* A red cross or a green check, in a box laid out before

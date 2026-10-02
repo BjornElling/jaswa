@@ -146,7 +146,8 @@ test('tunes a dungeon team, explains every miss, and keeps the card still', asyn
   await expect(card.locator('.speed-verdict').first()).toHaveAttribute('data-state', 'good');
   await expect(card.locator('.speed-verdict[data-state="warn"]')).toHaveText(Array(4).fill(/^In place · moves \d\w\w · slower than the fastest enemy$/));
   await expect(card.locator('.speed-team-status')).toHaveCount(0);
-  /* Each stage names the turn its first enemy follows: whose, and which of theirs. */
+  /* Each stage names the turn its first enemy follows: whose, and which of
+     theirs — a first turn too, since another stage's is a second. */
   await expect(enemyTurns.locator('tbody tr').nth(1)).toHaveText('2Lushen #1 (1st turn)');
   await expect(enemyTurns.locator('tbody tr').first().locator('.speed-enemy-after')).toHaveText('Lushen #1 (2nd turn)');
   /* Each stage ends on whether its first enemy moves before every monster has moved. */
@@ -344,7 +345,8 @@ test('arena teams are numbered and face a worst-case enemy', async ({ page }, te
   const add = card.getByLabel('Add a monster to Arena team #1');
   for (const name of ['Bernard (2A)', 'Lushen #1', 'Lushen #2', 'Megan (2A)']) await add.selectOption({ label: name });
   await expect(add).toHaveCount(0);
-  await expect(card.getByRole('region', { name: 'Enemy cut in' }).locator('tbody tr')).toHaveText(['Worst caseLushen #2 (1st turn)']);
+  /* A first turn with no later one beside it is not spelled out. */
+  await expect(card.getByRole('region', { name: 'Enemy cut in' }).locator('tbody tr')).toHaveText(['Worst caseLushen #2']);
   await expect(card.getByRole('region', { name: 'Enemy cut in' }).getByRole('img', { name: 'Can cut in before Megan (2A)' })).toBeVisible();
   /* Two copies at one arena speed tie on the bar; only field position can settle
      that. The lower one, looking up at the other, says so; the upper one has
