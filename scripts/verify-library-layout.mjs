@@ -71,15 +71,19 @@ try {
         && nearlyEqual(summary.x + summary.width, strip.x + strip.width),
       `${pageName} result summary is not aligned with the filter headings at ${width}px.`);
       if (pageName === 'Artifacts' && width === 2000) {
-        const mainStatShowsValue = await page.locator('.artifact-grid tbody td:nth-child(6)')
-          .evaluateAll((cells) => cells.some((cell) => cell.textContent?.includes('+')));
-        assert(!mainStatShowsValue, 'Artifact main-stat cells must show the stat name without its numeric value.');
         const headers = await page.locator('.artifact-grid thead th').evaluateAll((cells) =>
           cells.map((cell) => cell.textContent?.replace(/\s+/g, ' ').trim()));
-        /* The table opens on Location: an artifact's position in the export is
-           not shown, so there is no row number ahead of it. */
-        assert(headers[0] === 'Location' && headers[1] === 'Value onmon',
-          'Artifact location and value must open the table.');
+        const mainStatColumn = headers.indexOf('Main stat') + 1;
+        assert(mainStatColumn > 0, 'The artifact table must have a Main stat column.');
+        const mainStatShowsValue = await page.locator(`.artifact-grid tbody td:nth-child(${mainStatColumn})`)
+          .evaluateAll((cells) => cells.some((cell) => cell.textContent?.includes('+')));
+        assert(!mainStatShowsValue, 'Artifact main-stat cells must show the stat name without its numeric value.');
+        /* The order Artifact Optimization reads an artifact in: what it is, then
+           where it sits and what it is worth there. An artifact's position in
+           the export is not shown, so there is no row number ahead of it. */
+        assert.deepEqual(headers.slice(0, 7),
+          ['Type', 'Fits', 'Quality', 'Main stat', 'Substats', 'Location', 'Value onmon'],
+          'The artifact library must read its columns in the Optimization table\'s order.');
         assert(!headers.includes('#'), 'The artifact table must not show a row number.');
         const positions = await page.locator(
           '.artifact-filter-search, .artifact-filter-quality, .artifact-filter-main-stat, .artifact-filter-location, .artifact-filter-include, .artifact-filter-type, .artifact-filter-element, .artifact-filter-archetype',

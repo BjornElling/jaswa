@@ -122,14 +122,28 @@ export const storageTableColumns: readonly TableColumn[] = [
   { key: 'quantity', width: '10%', align: 'right' },
 ];
 
+/**
+ * The artifact library, in the order Artifact Optimization reads the same
+ * artifact: what it is, then where it sits and what it is worth there. Location
+ * and value belong side by side because the value is read *against* that
+ * wearer — and the library once led with the two, which is why it read
+ * differently from its sibling and opened a hole between a short `Inventory`
+ * and the right-aligned figure after it, the slack of both columns landing in
+ * one seam.
+ *
+ * Location is cut to a numbered, element-qualified name rather than given the
+ * spare width, so that seam stays narrow; the spare width goes to Substats,
+ * whose lines are ragged anyway. The marks column closes the row, as it does
+ * on the Optimization table.
+ */
 export const artifactTableColumns: readonly TableColumn[] = [
-  { key: 'location', width: '17.8899%', align: 'left' },
-  { key: 'value', width: '7.7982%', align: 'right' },
   { key: 'category', width: '7.3394%', align: 'left' },
   { key: 'equipClass', width: '7.7982%', align: 'left' },
   { key: 'grade', width: '7.3394%', align: 'left' },
   { key: 'mainProperty', width: '8.7156%', align: 'left' },
-  { key: 'subProperties', width: '39.1193%', align: 'left' },
+  { key: 'subProperties', width: '43.0092%', align: 'left' },
+  { key: 'location', width: '14%', align: 'left' },
+  { key: 'value', width: '7.7982%', align: 'right' },
   { key: 'refinement', width: '4%', align: 'right' },
 ];
 

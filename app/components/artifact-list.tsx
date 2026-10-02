@@ -142,13 +142,13 @@ const artifactColumns = (subPropertyId: number | null): readonly SortableColumn<
     compare: (left, right) => compareArtifactRows(left, right, key, 1) || left.index - right.index,
   });
   return [
-    column('location', 'Location'),
-    column('value', <span className="table-heading-two-line" aria-label="Value on mon">Value on<br />mon</span>),
     column('category', 'Type'),
     column('equipClass', 'Fits'),
     column('grade', 'Quality'),
     column('mainProperty', 'Main stat'),
     column('subProperties', 'Substats'),
+    column('location', 'Location'),
+    column('value', <span className="table-heading-two-line" aria-label="Value on mon">Value on<br />mon</span>),
     {
       key: 'refinement',
       label: '',
@@ -452,29 +452,6 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
     >
       <tbody>
           {sorted.length ? sorted.map((row) => <tr key={row.artifact.id}>
-            <td className={artifactCell('location', !row.location && 'muted')}
-              title={row.location === null ? 'Worn by a monster this import does not contain' : undefined}>
-              {/* `Inventory` and an absent wearer are locations rather than
-                  monsters, so they stay the plain text they always were. */}
-              {row.wearer === undefined || row.location === null
-                ? row.location ?? 'Unknown monster'
-                : <MonsterLink
-                  target={{ kind: 'copy', unitId: row.wearer.unitId, masterId: row.wearer.masterId }}
-                  name={row.location}
-                  onOpen={onOpenMonster}
-                />}
-            </td>
-            {/* The score bands itself: gold once the artifact is worth acting
-                on, full ink where it is respectable, dim where it argues
-                against the slot. An unjudged value is not a low score and
-                keeps its own muted reading. */}
-            <td className={artifactCell('value', row.valuePercent === undefined && 'muted')}
-              {...(row.valuePercent === undefined ? {} : artifactValueTint(row.valuePercent))}
-              title={row.valuePercent === undefined && row.artifact.occupiedId !== null
-                ? 'Not judged: nothing recorded for this monster type'
-                : undefined}>
-              {row.valuePercent === undefined ? '—' : `${formatNumber(row.valuePercent, preferences.general)} %`}
-            </td>
             <td className={artifactCell('category', 'dim')}>{artifactCategoryLabel(row.artifact.category)}</td>
             {/* Type and Fits are both plain description of the artifact, so
                 they read at one weight: full ink here made the equip class
@@ -502,9 +479,32 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
                 })}
               </ul>
             </td>
+            <td className={artifactCell('location', !row.location && 'muted')}
+              title={row.location === null ? 'Worn by a monster this import does not contain' : undefined}>
+              {/* `Inventory` and an absent wearer are locations rather than
+                  monsters, so they stay the plain text they always were. */}
+              {row.wearer === undefined || row.location === null
+                ? row.location ?? 'Unknown monster'
+                : <MonsterLink
+                  target={{ kind: 'copy', unitId: row.wearer.unitId, masterId: row.wearer.masterId }}
+                  name={row.location}
+                  onOpen={onOpenMonster}
+                />}
+            </td>
+            {/* The score bands itself: gold once the artifact is worth acting
+                on, full ink where it is respectable, dim where it argues
+                against the slot. An unjudged value is not a low score and
+                keeps its own muted reading. */}
+            <td className={artifactCell('value', row.valuePercent === undefined && 'muted')}
+              {...(row.valuePercent === undefined ? {} : artifactValueTint(row.valuePercent))}
+              title={row.valuePercent === undefined && row.artifact.occupiedId !== null
+                ? 'Not judged: nothing recorded for this monster type'
+                : undefined}>
+              {row.valuePercent === undefined ? '—' : `${formatNumber(row.valuePercent, preferences.general)} %`}
+            </td>
             <td className={artifactCell('refinement', 'artifact-refinement-flag')}><UnrefinedArtifactMark unrefined={row.artifact.unrefined} /></td>
           </tr>) : <tr>
-            <td className="table-empty-state" colSpan={9}>No artifacts match these filters. Clear a filter to see more.</td>
+            <td className="table-empty-state" colSpan={artifactTableColumns.length}>No artifacts match these filters. Clear a filter to see more.</td>
           </tr>}
       </tbody>
       </DataTablePage>
