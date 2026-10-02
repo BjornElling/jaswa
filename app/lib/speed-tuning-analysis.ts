@@ -260,17 +260,25 @@ function trailingCeiling(candidates: readonly Candidate[], shown: readonly numbe
  * member is cut into no sooner, hands its boost on no later, and leaves the
  * one under it a higher ceiling of its own, so that placing gives the members
  * below the most room there is. If even it lets an enemy in or breaks the
- * order, no placing does. Placing them from the bottom up instead, with the
- * members between still at their old speeds, read room that was not there: a
- * fast member in the middle, its boost early, made the floors under it look
- * lower than they are once it is tuned down to its place.
+ * order, no placing does.
+ *
+ * A member that is settled — in its place, with every member above it in
+ * theirs — may be made faster but never pushed slower: a placing that needs
+ * one of them under the display speed it has now fails. Without that, the room below was anybody's
+ * to take — a first mover at bare runes, every monster under it pressed down
+ * behind it and the arena's worst-case enemy, which follows the first mover,
+ * slowed to match, read as a perfect team. A member below the first one out of
+ * its place may go anywhere behind the ones above it. Placing them from the bottom up
+ * instead, with the members between still at their old speeds, read room that
+ * was not there: a fast member in the middle, its boost early, made the floors
+ * under it look lower than they are once it is tuned down to its place.
  */
 function leavesRoomBelow(candidates: readonly Candidate[], content: SpeedContent, shown: readonly number[],
-  index: number, lowest: readonly number[]): boolean {
+  index: number, lowest: readonly number[], settled: readonly boolean[]): boolean {
   const config = [...shown];
   for (let k = index + 1; k < candidates.length; k += 1) {
     const value = trailingCeiling(candidates, config, k, lowest);
-    if (value === null) return false;
+    if (value === null || (settled[k] && value < shown[k])) return false;
     config[k] = value;
   }
   return holdsBelow(candidates, content, config, index);
@@ -280,8 +288,8 @@ function leavesRoomBelow(candidates: readonly Candidate[], content: SpeedContent
  * The display speeds a member can be tuned to, the team tuned from the top
  * down: with every member above it where it is, the member moves strictly
  * after each of them, and the members below it can still all be placed under
- * it with no enemy on any stage getting a turn before any member
- * (`leavesRoomBelow`). The lower end is therefore not only this member's own
+ * it, none that is in its place now pushed slower, with no enemy on any stage
+ * getting a turn before any member (`leavesRoomBelow`). The lower end is therefore not only this member's own
  * need but the room the ones below it need: three intervals each fine on its
  * own could otherwise leave the fourth monster nowhere to go.
  *
@@ -299,10 +307,10 @@ function leavesRoomBelow(candidates: readonly Candidate[], content: SpeedContent
  * (`SPEED-TICK-CANONICAL.md` §3.2) are the clock's answer.
  */
 function tuningRange(candidates: readonly Candidate[], content: SpeedContent, current: readonly number[],
-  index: number): DisplaySpeedInterval | null {
+  index: number, settled: readonly boolean[]): DisplaySpeedInterval | null {
   const lowest = candidates.map((candidate) => displaySpeed(candidate.base.baseSpeed, candidate.base.swift, 0));
   const config = [...current];
-  const room = (value: number) => { config[index] = value; return leavesRoomBelow(candidates, content, config, index, lowest); };
+  const room = (value: number) => { config[index] = value; return leavesRoomBelow(candidates, content, config, index, lowest, settled); };
   const top = whatIfDisplaySpeedMaximum;
 
   if (index === 0 && content.area === 'arena') {
@@ -465,19 +473,28 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
   const enemies = enemyStages(units, content, trace);
   const shownSpeeds = present.map((member) => whatIfs?.get(member.unitId) ?? monsterSpeedParts(monsters.get(member.unitId) as GameRecord).displaySpeed);
 
+  /* A member's own verdict looks only up the order: a monster below that
+     moves first is that monster's fault, so a slow member never turns red for
+     a fast one under it — the one out of place is the one that says so. */
+  const verdicts: MemberVerdict[] = candidates.map((candidate, index) => {
+    const above = candidates.slice(0, index).map((entry) => ({ unitId: entry.unitId, state: relation(first, trace.events, entry.unitId, candidate.unitId) }));
+    const tie = above.find((entry) => entry.state === 'tie')?.unitId ?? null;
+    return above.some((entry) => entry.state === 'after') ? { kind: 'order' }
+      : tie !== null ? { kind: 'tie', with: tie } : { kind: 'in-place' };
+  });
+  /* Settled: in its place with every member above it in theirs. A member that
+     trails the ones above it only because one of them is out of place is not
+     settled — that one will move, and it with it. */
+  const firstUnsettled = verdicts.findIndex((verdict) => verdict.kind !== 'in-place');
+  const settled = verdicts.map((_, index) => firstUnsettled === -1 || index < firstUnsettled);
+
   const members: MemberReading[] = candidates.map((candidate, index) => {
     const member = present[index];
     const monster = monsters.get(member.unitId) as GameRecord;
     const parts = monsterSpeedParts(monster);
-    const shown = whatIfs?.get(member.unitId) ?? parts.displaySpeed;
-    /* Its own verdict looks only up the order: a monster below that moves
-       first is that monster's fault, so a slow member never turns red for a
-       fast one under it — the one out of place is the one that says so. */
-    const above = candidates.slice(0, index).map((entry) => ({ unitId: entry.unitId, state: relation(first, trace.events, entry.unitId, member.unitId) }));
-    const tie = above.find((entry) => entry.state === 'tie')?.unitId ?? null;
-    const verdict: MemberVerdict = above.some((entry) => entry.state === 'after') ? { kind: 'order' }
-      : tie !== null ? { kind: 'tie', with: tie } : { kind: 'in-place' };
-    const range = ranges ? tuningRange(candidates, content, shownSpeeds, index) : null;
+    const shown = shownSpeeds[index];
+    const verdict = verdicts[index];
+    const range = ranges ? tuningRange(candidates, content, shownSpeeds, index, settled) : null;
     return {
       unitId: member.unitId,
       wantedPosition: index + 1,

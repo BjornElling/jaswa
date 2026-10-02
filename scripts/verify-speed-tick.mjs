@@ -277,13 +277,23 @@ for (let sample = 0; sample < 60; sample += 1) {
      range is given the first value of it, in order. Whenever every member on
      the way has a range when its turn comes, the team ends perfect with no
      enemy cutting in. */
+  /* A member settled in the team as read — in its place with every member
+     above it in theirs — is never tuned slower on the way down: the ranges
+     being checked were read with it there. It is given the first value of its
+     range at or above its own, and one whose range lies wholly under it stops
+     the walk. */
+  const firstUnsettled = reading.members.findIndex((member) => member.verdict.kind !== 'in-place');
+  const settled = reading.members.map((_, at) => firstUnsettled === -1 || at < firstUnsettled);
   const walk = (typed, from) => {
     let walked = read(new Map(typed));
     for (let at = from; at < members.length; at += 1) {
       const member = walked.members[at];
       if (member.range === null) return { walked, through: false };
       if (!member.inRange) {
-        typed.set(member.unitId, member.range.minimum);
+        const own = reading.members[at].displaySpeed;
+        const value = settled[at] ? Math.max(member.range.minimum, own) : member.range.minimum;
+        if (member.range.maximum !== null && value > member.range.maximum) return { walked, through: false };
+        typed.set(member.unitId, value);
         walked = read(new Map(typed));
       }
     }

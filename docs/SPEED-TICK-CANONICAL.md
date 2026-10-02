@@ -312,6 +312,20 @@ it is:
    sooner, hands its boost on no later and leaves the one under it a higher
    ceiling, so that placing is the most room the members below can have: if
    even it fails, nothing does.
+3. **No settled member below it is pushed slower.** A member is settled when
+   it and every member above it are in their places. A settled member may be
+   made faster — a monster in its place can always gain speed up to the one
+   above it — but a value that needs one of them under the display speed it
+   has now is not offered. A member below the first one out of its place is not
+   settled, however it reads: the one out of place will move, and it with it.
+
+Without the third condition the room below was anybody's to take. In arena the
+worst-case enemy follows the first mover, so a first mover at bare runes, with
+every monster under it pressed down behind it and the enemy slowed to match,
+read as a perfect team, and a first mover at 258 display speed was offered
+`121+`. Counting a member as settled whenever it trailed the ones above it was
+tried too: tuning one member then made another settled further down, and a
+way through that had been offered closed.
 
 So the floor of a range is not only the member's own need but the room the
 ones below it need. A range asked of each member alone, the others held where
