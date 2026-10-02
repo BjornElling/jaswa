@@ -334,6 +334,7 @@ test('tunes a dungeon team, explains every miss, and keeps the card still', asyn
   /* Removing a team takes its line, and its dungeon's heading with the last one. */
   await dungeons.getByRole('button', { name: /^Necropolis team #1:/ }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Remove team' }).click();
+  await page.getByRole('dialog', { name: 'Remove Necropolis team #1?' }).getByRole('button', { name: 'Remove team' }).click();
   await expect(dungeons.locator('.speed-group-title')).toHaveText(["Giant's Keep"]);
   await expect(addButton).toBeFocused();
 });
@@ -392,7 +393,22 @@ test('arena teams are numbered and face a worst-case enemy', async ({ page }, te
 
   /* Removing the first arena team renumbers the one after it. */
   await first.click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Remove team' }).click();
+  /* Removing is asked once, and the safe answer is the one under the hand. */
+  const team = page.getByRole('dialog', { name: 'Arena team #1' });
+  const remove = team.getByRole('button', { name: 'Remove team' });
+  await remove.click();
+  const confirm = page.getByRole('dialog', { name: 'Remove Arena team #1?' });
+  await expect(confirm.getByRole('button', { name: 'Keep the team' })).toBeFocused();
+  await page.screenshot({ path: testInfo.outputPath('speed-team-remove-confirm.png') });
+  await confirm.getByRole('button', { name: 'Keep the team' }).click();
+  await expect(confirm).toHaveCount(0);
+  await expect(remove).toBeFocused();
+  await remove.click();
+  await page.keyboard.press('Escape');
+  await expect(confirm).toHaveCount(0);
+  await expect(team).toBeVisible();
+  await remove.click();
+  await confirm.getByRole('button', { name: 'Remove team' }).click();
   await expect(arena.getByRole('button', { name: /^Arena team #1:/ })).toContainText('Veromos');
   await expect(arena.getByRole('button', { name: /^Arena team #2:/ })).toHaveCount(0);
   await expect(addTeam).toBeFocused();

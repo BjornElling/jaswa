@@ -248,7 +248,7 @@ export function SpeedRuleOverlay({ id, initial, choices, names, monsters, totemS
     </Overlay>
 
     {confirming && rule && <Overlay labelledBy="speed-rule-confirm-title" describedBy="speed-rule-confirm-text"
-      className="speed-rule-confirm" onClose={() => setConfirming(false)}>
+      className="speed-confirm" onClose={() => setConfirming(false)}>
       <div className="overlay-body">
         <div>
           <p className="eyebrow">No speed form ticked</p>

@@ -6552,9 +6552,9 @@ th.align-center .sort-button { justify-content: center; }
 .speed-summary-mark.speed-summary-mark-small, .speed-summary-mark-small svg { width: 16px; height: 16px; }
 .speed-rule-check[data-read='false'] .speed-summary-mark { visibility: hidden; }
 .speed-summary-figure { font-variant-numeric: tabular-nums; }
-.dialog.speed-rule-confirm { width: min(480px, 100%); }
-.speed-rule-confirm h2 { margin: 0; }
-.speed-rule-confirm .dialog-actions { margin-top: 0; }
+.dialog.speed-confirm { width: min(480px, 100%); }
+.speed-confirm h2 { margin: 0; }
+.speed-confirm .dialog-actions { margin-top: 0; }
 
 /* The turn-order dialog: as wide as its widest view, so a short opening does
    not sit in a sea of empty panel, and capped at the viewport so a long one

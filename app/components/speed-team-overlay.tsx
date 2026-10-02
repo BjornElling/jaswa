@@ -52,6 +52,8 @@ export function SpeedTeamOverlay({
   const [dirty, setDirty] = useState(false);
   const [showTurnOrder, setShowTurnOrder] = useState(false);
   const turnOrderOpener = useRef<HTMLButtonElement>(null);
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
+  const removeOpener = useRef<HTMLButtonElement>(null);
 
   /* What-ifs are saved with the team, so an experiment is there the next time
      it is opened, and typing one is an edit like any other. But only this
@@ -97,6 +99,11 @@ export function SpeedTeamOverlay({
     });
   }
 
+  function keepTeam() {
+    setConfirmingRemove(false);
+    removeOpener.current?.focus();
+  }
+
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!dirty || saveHint !== undefined) return;
@@ -118,7 +125,7 @@ export function SpeedTeamOverlay({
           <h2 id="speed-team-overlay-title" className="speed-overlay-title" title={heading}>{heading}</h2>
         </div>
         {!isNew && <div className="speed-overlay-tools">
-          <Button size="compact" tone="danger" onClick={onRemove}>Remove team</Button>
+          <Button ref={removeOpener} size="compact" tone="danger" onClick={() => setConfirmingRemove(true)}>Remove team</Button>
         </div>}
       </header>
 
@@ -164,5 +171,25 @@ export function SpeedTeamOverlay({
         setShowTurnOrder(false);
         turnOrderOpener.current?.focus();
       }} />}
+
+    {/* A team is a dozen choices — members, leader, what-ifs — and removing it
+        takes them all with no way back, so it is asked once. */}
+    {confirmingRemove && <Overlay labelledBy="speed-team-remove-title" describedBy="speed-team-remove-text"
+      className="speed-confirm" onClose={keepTeam}>
+      <div className="overlay-body">
+        <div>
+          <p className="eyebrow">Remove team</p>
+          <h2 id="speed-team-remove-title">Remove {speedTeamTitle(teams, initial)}?</h2>
+        </div>
+        <p id="speed-team-remove-text">
+          Its monsters, leader and what-ifs go with it, and there is no undo.
+        </p>
+        <div className="dialog-actions">
+          {/* The safe answer takes focus, as in every confirmation in JASWA. */}
+          <Button autoFocus onClick={keepTeam}>Keep the team</Button>
+          <Button tone="danger" onClick={onRemove}>Remove team</Button>
+        </div>
+      </div>
+    </Overlay>}
   </>;
 }
