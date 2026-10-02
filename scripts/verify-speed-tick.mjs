@@ -192,7 +192,7 @@ check(!isSpeedTuningPreferences({ teams: [team([{ unitId: '1', whatIfDisplaySpee
 }
 check(!isSpeedTuningPreferences({ teams: [team(['1', '2', '3', '4', '5', '6'].map((unitId) => ({ unitId })))], rules: [] }), 'a team larger than its content is refused');
 check(!isSpeedTuningPreferences({ teams: [team([{ unitId: '1' }], { leaderUnitId: '2' })], rules: [] }), 'a leader outside the team is refused');
-check(!isSpeedTuningPreferences({ teams: [team([], { margin: 4 })], rules: [] }), 'a margin past the maximum is refused');
+check(!isSpeedTuningPreferences({ teams: [team([], { margin: 4 })], rules: [] }), 'an interval past the maximum is refused');
 
 /* 4. Every printed interval is the truth. */
 let seed = 0x5eed;
@@ -202,6 +202,7 @@ const random = () => {
 };
 const skillSets = [[[2563, 3]], [[7361, 2]], [[6512, 1]], [[10015, 1]], []];
 let intervalsChecked = 0;
+let tooCloseSeen = 0;
 for (let sample = 0; sample < 60; sample += 1) {
   const area = sample % 2 === 0 ? 'giants' : 'arena';
   const size = speedContent(area).teamSize;
@@ -242,6 +243,42 @@ for (let sample = 0; sample < 60; sample += 1) {
     const passesSomeoneAbove = reading.members.slice(0, index).some((above) => firstAt(member.unitId) < firstAt(above.unitId));
     check((member.verdict.kind === 'order') === passesSomeoneAbove, `sample ${sample}: member ${index + 1} is too fast exactly when it moves before one above it`);
   });
+  /* The ± interval, read off the drawn traces alone: a member in order is too
+     close exactly when some display speed within ±interval of its own, worn
+     alone, loses a place it holds in the asked order: behind a teammate above
+     it, or ahead of one below. A pair already out of order is that fault, not this one. */
+  if (saved.marginEnabled) {
+    const sides = (trace, unitId) => {
+      const first = new Map();
+      trace.events.forEach((event, at) => { if (!first.has(event.key)) first.set(event.key, { at, event }); });
+      const self = first.get(unitId);
+      return members.filter((other) => other.unitId !== unitId).map(({ unitId: other }) => {
+        const them = first.get(other);
+        if (!self && !them) return 'tie';
+        if (!them) return 'ahead';
+        if (!self) return 'behind';
+        if (self.event.tiedWith.includes(other) || them.event.tiedWith.includes(unitId)) return 'tie';
+        return self.at < them.at ? 'ahead' : 'behind';
+      }).join();
+    };
+    for (const member of reading.members) {
+      if (member.verdict.kind !== 'in-place' && member.verdict.kind !== 'too-close') continue;
+      const at = sides(reading.trace, member.unitId).split(',');
+      const wanted = members.filter((other) => other.unitId !== member.unitId)
+        .map(({ unitId }) => members.findIndex((other) => other.unitId === unitId) < member.wantedPosition - 1 ? 'behind' : 'ahead');
+      const lowest = displaySpeed(member.baseSpeed, member.swift, 0);
+      let flips = false;
+      for (let offset = -saved.margin; offset <= saved.margin; offset += 1) {
+        if (offset === 0 || member.displaySpeed + offset < lowest) continue;
+        const moved = readSpeedTeam({ team: saved, monsters, totemPercent: 15, whatIfs: new Map([[member.unitId, member.displaySpeed + offset]]) });
+        const there = sides(moved.trace, member.unitId).split(',');
+        if (at.some((side, index) => side === wanted[index] && there[index] !== side)) flips = true;
+      }
+      if (flips) tooCloseSeen += 1;
+      check((member.verdict.kind === 'too-close') === flips,
+        `sample ${sample}: member ${member.wantedPosition} is too close exactly when ±${saved.margin} display speed flips it against a teammate`);
+    }
+  }
   for (const member of reading.members) {
     const interval = member.verdict.kind === 'in-place' ? null : member.verdict.interval;
     if (!interval) continue;
@@ -256,6 +293,7 @@ for (let sample = 0; sample < 60; sample += 1) {
     intervalsChecked += 1;
   }
 }
+check(tooCloseSeen > 0, `the sweep met a member too close for its interval (${tooCloseSeen})`);
 check(intervalsChecked > 20, `the sweep exercised intervals (${intervalsChecked})`);
 
 console.log(`Speed tick rules hold: ${checks} checks, ${intervalsChecked} printed intervals confirmed at both edges.`);

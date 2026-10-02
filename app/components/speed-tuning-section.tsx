@@ -104,8 +104,8 @@ function teamStatus(reading: TeamReading): { text: string; state: Verdict } {
   const cutFails = reading.content.area === 'arena' && cut !== '';
   if (reading.perfect) return { text: `Turn order holds${cut}`, state: cutFails ? 'bad' : 'good' };
   const count = `${outOfPlaceCount(reading)} of ${reading.members.length}`;
-  if (reading.marginOnly) return { text: `${count} short of the speed margin${cut}`, state: cutFails ? 'bad' : 'warn' };
-  /* Out of place counts the members in red; one only short of the margin is yellow, and not counted here. */
+  if (reading.tooCloseOnly) return { text: `${count} too close for the interval${cut}`, state: cutFails ? 'bad' : 'warn' };
+  /* Out of place counts the members in red; one only too close is yellow, and not counted here. */
   const faults = reading.members.filter((member) => member.verdict.kind === 'order' || member.verdict.kind === 'tie').length;
   return { text: `${faults} of ${reading.members.length} out of place${cut}`, state: 'bad' };
 }

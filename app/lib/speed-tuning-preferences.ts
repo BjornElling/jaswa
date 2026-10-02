@@ -12,8 +12,8 @@
 import { speedContent, speedContents, speedContentTeamSize } from './speed-contents';
 import type { SpeedContentId } from './speed-contents';
 
-/** The widest speed margin the page offers, in the team's arena or dungeon speed. */
-export const speedMarginMaximum = 3;
+/** The widest ± interval the page offers, in display speed. */
+export const speedIntervalMaximum = 3;
 
 /**
  * One monster's place in a team, and the what-if display speed the user tried
@@ -34,12 +34,14 @@ export type SpeedTeam = {
   members: SpeedTeamMember[];
   /** Whose leader skill the team runs, or `null` for no leader. Always a member. */
   leaderUnitId: string | null;
-  /** Whether a speed margin is asked of every neighbouring pair. */
+  /** Whether every member is asked to keep its place across a ± interval of its own display speed. */
   marginEnabled: boolean;
   /**
-   * The margin in arena or dungeon speed, by the team's content — the speed
-   * the battle runs on, so a gap of one is one speed on the bar. Held while the switch
-   * is off so turning it on again finds the value chosen before.
+   * That interval's half-width in display speed: 1 asks a monster at 150 to
+   * keep its place at 149 and at 151. Display speed because it is the figure
+   * the user reads off a monster and changes with runes. Held while the switch
+   * is off so turning it on again finds the value chosen before. The stored
+   * names predate the interval and are kept so saved teams load unchanged.
    */
   margin: number;
 };
@@ -153,7 +155,7 @@ function isTeam(value: unknown): value is SpeedTeam {
   if (value.leaderUnitId !== null && !(isIdentifier(value.leaderUnitId) && unitIds.includes(value.leaderUnitId))) return false;
   return typeof value.marginEnabled === 'boolean'
     && typeof value.margin === 'number' && Number.isSafeInteger(value.margin)
-    && value.margin >= 1 && value.margin <= speedMarginMaximum;
+    && value.margin >= 1 && value.margin <= speedIntervalMaximum;
 }
 
 export function isSpeedRuleFigure(value: unknown): value is number {

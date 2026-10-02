@@ -254,15 +254,18 @@ moves first is out of place itself and says so; the slower one above it stays
 in place. So if the fourth outpaces the third, while the third still follows
 the first two, only the fourth is wrong.
 
-- **In place** — follows everyone above it, with no tie and, where asked, the
-  margin.
+- **In place** — follows everyone above it, with no tie and, where asked,
+  clear of its teammates by the interval.
 - **Too fast** — moves before a monster placed above it.
 - **Tie** — follows one above it only by an exact tie on the bar.
-- **Margin** — follows everyone above it, but would not with `margin` more
-  combat speed — arena or dungeon speed, by the team's content. The margin is
-  in the speed the battle runs on, added after §2's rounding, so a margin of
-  one is one speed on the bar. The interval stays display speed, the figure the
-  user reads off a monster and changes with runes.
+- **Too close** — follows everyone above it, but some display speed within
+  ±`interval` of its own (*Add interval*: ±1, ±2 or ±3 spd) would flip its
+  order against a teammate — one above or one below. The interval is display
+  speed, the figure the user reads off a monster and changes with runes: with
+  ±1, a monster at 150 display speed is run through the clock at 149 and 151
+  too, and every teammate it moves ahead of or behind at 150 must stay so. A
+  display speed under bare runes cannot be worn and is not tried. Because the
+  interval looks both ways, both monsters of a pair that close are warned.
 
 Each member out of place gets its own interval of display speeds: every whole
 display speed from bare runes to 999 is run through the clock with the others
@@ -272,12 +275,12 @@ and says nothing more. The verifier confirms every printed interval at both
 edges.
 
 Faults are judged in order, per member. A member out of order, or in order
-only by a tie, shows that fault in red; the margin is asked of every member
-without one, whatever its teammates do, and a member short of it alone is a
-warning in yellow. So a margin shortfall never hides a wrong turn order, and is
-never hidden by another member's. Where a margin is asked, every interval is
-the run that clears both. A team whose only faults are margins is a warning (a
-yellow triangle) rather than a failure.
+only by a tie, shows that fault in red; the interval is asked of every member
+without one, whatever its teammates do, and a member only too close is a
+warning in yellow. So a member too close never hides a wrong turn order, and is
+never hidden by another member's. Where an interval is asked, every printed
+range of display speeds is the run that clears both. A team whose only faults
+are members too close is a warning (a yellow triangle) rather than a failure.
 
 **Slower than the fastest enemy** — in a dungeon, a member whose dungeon speed
 is below the floor's fastest enemy (the figure the overlay quotes, §6) is

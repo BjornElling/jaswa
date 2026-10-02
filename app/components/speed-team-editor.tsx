@@ -11,7 +11,7 @@ import { boostsAllies, describeLeaderSkill, describeTurnEffect, leaderSkill, sho
 import { leaderAreaReaches } from '../lib/speed-tick';
 import { combatSpeedName, displaySpeedIntervalText } from '../lib/speed-tuning-analysis';
 import type { MemberReading, TeamReading } from '../lib/speed-tuning-analysis';
-import { speedMarginMaximum, whatIfDisplaySpeedMaximum } from '../lib/speed-tuning-preferences';
+import { speedIntervalMaximum, whatIfDisplaySpeedMaximum } from '../lib/speed-tuning-preferences';
 import type { SpeedTeam } from '../lib/speed-tuning-preferences';
 import type { GeneralSettings } from '../lib/types';
 
@@ -28,7 +28,7 @@ function ordinal(value: number): string {
  * not, what would put it there; a member slower than the floor's fastest enemy
  * says so at the end.
  */
-function verdictText(member: MemberReading, names: Record<string, MonsterCopyName>, margin: number, speedName: string,
+function verdictText(member: MemberReading, names: Record<string, MonsterCopyName>, interval: number,
   fastestEnemy: number | null, general: GeneralSettings): string {
   const { verdict } = member;
   /* The enemy's figure stands at the top of the overlay; the line has no room to repeat it. */
@@ -42,12 +42,12 @@ function verdictText(member: MemberReading, names: Record<string, MonsterCopyNam
   switch (verdict.kind) {
     case 'in-place': return withFix(`In place · moves ${ordinal(member.actualPosition)}`);
     case 'order': return withFix(`Too fast · moves ${ordinal(member.actualPosition)}`);
-    case 'margin': return withFix(`In order, but short of the ${margin} ${speedName} margin`);
+    case 'too-close': return withFix(`Too close · within ±${interval} display speed`);
     case 'tie': return withFix(`Tied with ${names[verdict.with]?.name ?? 'a teammate'} · position decides`);
   }
 }
 
-/* Red for a fault in the order; yellow for a tie, a margin or a member the
+/* Red for a fault in the order; yellow for a tie, a member too close or one the
    fastest enemy outpaces; green only with none of them. */
 function verdictState(member: MemberReading, enemiesKnown: boolean): 'good' | 'warn' | 'bad' {
   switch (member.verdict.kind) {
@@ -292,7 +292,8 @@ export function SpeedTeamEditor({ reading, title, names, choices, general, onCha
           used.length ? `${used.map((skill) => `${skill.name}: ${skill.effects.map(describeTurnEffect).join(', ')}`).join('; ')} — counted on every turn` : '',
           uncounted.length ? `Not counted, because its size depends on the battle: ${uncounted.join(', ')}` : '',
         ].filter(Boolean).join('. ');
-        const verdict = verdictText(monster, names, team.margin, speedName, fastestEnemy, general);        /* What this monster's turn does to the turns after it, hung on the line
+        const verdict = verdictText(monster, names, team.margin, fastestEnemy, general);
+        /* What this monster's turn does to the turns after it, hung on the line
            below its slot, where the next monster waits. Only an attack-bar
            boost to the whole team is named — a boost to one ally or to itself
            does not pass down the order, and a speed buff changes how fast the
@@ -354,18 +355,19 @@ export function SpeedTeamEditor({ reading, title, names, choices, general, onCha
       })}
     </table>
 
-    {/* Under the table, at its right edge: the margin tightens the verdicts
+    {/* Under the table, at its right edge: the interval tightens the verdicts
         above it. No summary line beside it — every slot states its own. */}
     <div className="speed-team-foot">
-      <div className="speed-team-margin">
-        <CheckboxRow label="Require speed margin" checked={team.marginEnabled}
+      <div className="speed-team-interval">
+        <CheckboxRow label="Add interval" checked={team.marginEnabled}
           onChange={(checked) => onChange((current) => ({ ...current, marginEnabled: checked }))} />
-        {/* In the speed the battle runs on, as the column beside it states it. */}
-        <Dropdown aria-label={`Speed margin for ${title}, in ${speedName}`} value={String(team.margin)}
-          disabled={!team.marginEnabled} className="speed-margin-select"
+        {/* In display speed, the figure a monster's runes change. The options
+            read "spd" as the user asked; the accessible name says which speed. */}
+        <Dropdown aria-label={`Interval for ${title}, in display speed`} value={String(team.margin)}
+          disabled={!team.marginEnabled} className="speed-interval-select"
           onChange={(event) => onChange((current) => ({ ...current, margin: Number(event.target.value) }))}>
-          {Array.from({ length: speedMarginMaximum }, (_, at) => at + 1).map((margin) => <option key={margin} value={margin}>
-            {margin} {speedName}
+          {Array.from({ length: speedIntervalMaximum }, (_, at) => at + 1).map((interval) => <option key={interval} value={interval}>
+            ±{interval} spd
           </option>)}
         </Dropdown>
       </div>

@@ -380,7 +380,7 @@ label[for] {
 .rune-build-note, .rune-build-composed, .overlay-suggestion-label, .speed-timeline-turn,
 .rune-optimization-provenance, .rune-optimization-rune-level, .rune-optimization-rune-where,
 .rune-optimization-rune-craft, .speed-summary-state, .speed-leader-skill,
-.speed-team-margin .checkbox-row {
+.speed-team-interval .checkbox-row {
   font-family: var(--font-body);
   font-size: var(--type-label);
   font-weight: 400;
@@ -6364,12 +6364,12 @@ th.align-center .sort-button { justify-content: center; }
 .speed-team-editor { display: grid; gap: var(--s3); min-width: 0; }
 /* A refinement of the order above, so it sits at the table's right edge in
    the quieter caption voice rather than competing with the slots. */
-/* The verdict takes what the margin leaves and ends in an ellipsis rather
-   than pushing the margin off its edge. */
+/* The verdict takes what the interval leaves and ends in an ellipsis rather
+   than pushing the interval off its edge. */
 .speed-team-foot { display: flex; justify-content: flex-end; align-items: center; gap: var(--s4); min-width: 0; }
-.speed-team-margin { display: flex; flex: 0 0 auto; align-items: center; gap: var(--s2); }
-.speed-team-margin .checkbox-row { min-height: 0; gap: var(--s2); color: var(--text-muted); }
-.speed-margin-select.jaswa-select { width: 21ch; height: 28px; padding-left: var(--s2); font-size: var(--type-label); }
+.speed-team-interval { display: flex; flex: 0 0 auto; align-items: center; gap: var(--s2); }
+.speed-team-interval .checkbox-row { min-height: 0; gap: var(--s2); color: var(--text-muted); }
+.speed-interval-select.jaswa-select { width: 14ch; height: 28px; padding-left: var(--s2); font-size: var(--type-label); }
 
 .speed-team-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .speed-col-order { width: 3ch; }

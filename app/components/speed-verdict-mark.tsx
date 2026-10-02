@@ -1,5 +1,5 @@
 /* `warn` is the one fault that is not a wrong turn order: a team in order
-   that falls short of the margin it asked for. */
+   with a member too close for the interval it asked for. */
 export type SpeedVerdict = 'good' | 'warn' | 'bad' | 'none';
 
 /* A tick, a triangle, a cross or a dash, large enough to be read down a column of lines
