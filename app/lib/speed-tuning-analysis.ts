@@ -97,7 +97,7 @@ export type TeamReading = {
   /** Saved members the import no longer holds. */
   missingUnitIds: string[];
   leader: { unitId: string; skill: SpeedLeaderSkill | null } | null;
-  /** The team alone, until each member has moved once. */
+  /** The team alone, until each member has moved twice or 20 turns are taken, and never before each has moved once. */
   trace: BattleTrace;
   /** Every member in place, with no tie. */
   perfect: boolean;
@@ -134,8 +134,26 @@ function firstTurns(events: readonly TurnEvent[]): Map<string, TurnEvent> {
   return first;
 }
 
-function teamTrace(units: readonly TickUnit[], snapshots = true): BattleTrace {
-  return simulateBattle(units, { done: everyoneMoved(units.map((unit) => unit.key)), snapshots });
+/* A drawn trace runs on past the verdict's stop until every member has had a
+   second turn, so the view shows the team's rhythm and not only its opening —
+   but no further than `drawnTurns` turns, which a slow member under a fast
+   booster could otherwise stretch across a hundred ticks. It never stops before
+   `settled` would: the clock is deterministic, so every first turn a verdict
+   reads is the same in the short trace and the drawn one. */
+const drawnTurns = 20;
+
+function drawnUntil(allyKeys: readonly string[], settled: (events: readonly TurnEvent[]) => boolean) {
+  return (events: readonly TurnEvent[]) => settled(events)
+    && (events.length >= drawnTurns || allyKeys.every((key) => events.filter((event) => event.key === key).length >= 2));
+}
+
+/* `drawn` is the reading a view draws: it records every tick's bars and runs
+   on. A search only reads first turns and leaves both out, as it runs the
+   clock hundreds of times. */
+function teamTrace(units: readonly TickUnit[], drawn = true): BattleTrace {
+  const keys = units.map((unit) => unit.key);
+  const settled = everyoneMoved(keys);
+  return simulateBattle(units, { done: drawn ? drawnUntil(keys, settled) : settled, snapshots: drawn });
 }
 
 /* Whether `earlier` really moves before `later`, and whether only a tie on the
@@ -383,14 +401,15 @@ export function nearestPassingDisplaySpeeds(baseSpeed: number, swift: boolean, c
 /* Leo's cap spares a boss, and a dungeon stage does not say which of its
    enemies is one, so in a dungeon every enemy is read as uncapped: the
    pessimistic reading. Arena has no bosses. */
-function stageReading(allies: readonly TickUnit[], enemySpeeds: readonly number[], area: SpeedContent['area'], snapshots = true): EnemyStageReading {
+function stageReading(allies: readonly TickUnit[], enemySpeeds: readonly number[], area: SpeedContent['area'], drawn = true): EnemyStageReading {
   const enemies: TickUnit[] = enemySpeeds.map((speed, at) => ({
     key: `enemy-${at + 1}`, side: 'enemy', speed, effects: [], exemptFromCap: area === 'dungeon',
   }));
   const allyKeys = allies.map((unit) => unit.key);
+  const settled = (events: readonly TurnEvent[]) => everyoneMoved(allyKeys)(events) && events.some((event) => event.side === 'enemy');
   const trace = simulateBattle([...allies, ...enemies], {
-    done: (events) => everyoneMoved(allyKeys)(events) && events.some((event) => event.side === 'enemy'),
-    snapshots,
+    done: drawn ? drawnUntil(allyKeys, settled) : settled,
+    snapshots: drawn,
   });
   const firstEnemy = trace.events.find((event) => event.side === 'enemy');
   const before = firstEnemy ? trace.events.slice(0, trace.events.indexOf(firstEnemy)) : trace.events;
@@ -411,19 +430,19 @@ function stageReading(allies: readonly TickUnit[], enemySpeeds: readonly number[
    (`SPEED-TICK-CANONICAL.md` §3.2). Anything faster could win the opening
    outright; anything slower cuts in no earlier. Under Leo's
    cap the first mover goes at no more than Leo's own arena speed. */
-function worstArenaStage(units: readonly TickUnit[], trace: BattleTrace, snapshots = true): EnemyStageReading {
+function worstArenaStage(units: readonly TickUnit[], trace: BattleTrace, drawn = true): EnemyStageReading {
   const opener = trace.events[0]?.key;
   const leoSpeeds = units.filter((unit) => unit.capsOthersSpeed).map((unit) => unit.speed);
   const openingSpeed = Math.min(units.find((unit) => unit.key === opener)?.speed ?? 1, ...leoSpeeds);
-  return stageReading(units, [openingSpeed], 'arena', snapshots);
+  return stageReading(units, [openingSpeed], 'arena', drawn);
 }
 
 /** What the team faces: the worst-case enemy in arena, each stage in a dungeon. */
-function enemyStages(units: readonly TickUnit[], content: SpeedContent, trace: BattleTrace, snapshots = true): EnemyStageReading[] {
+function enemyStages(units: readonly TickUnit[], content: SpeedContent, trace: BattleTrace, drawn = true): EnemyStageReading[] {
   if (units.length === 0) return [];
   return content.area === 'arena'
-    ? [worstArenaStage(units, trace, snapshots)]
-    : content.stages.map((stage) => stageReading(units, stage.speeds, content.area, snapshots));
+    ? [worstArenaStage(units, trace, drawn)]
+    : content.stages.map((stage) => stageReading(units, stage.speeds, content.area, drawn));
 }
 
 export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = false }: {

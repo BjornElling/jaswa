@@ -243,16 +243,26 @@ test('tunes a dungeon team, explains every miss, and keeps the card still', asyn
   await expect(saved.locator('.speed-slot-range').first()).toHaveText(/^(\d+\+|—)$/);
   expectSameHeight((await box(saved.locator('.speed-team-editor'))).height, emptyBox.height);
 
-  /* The turn order opens over the editor, draws every tick, and Escape closes only it. */
+  /* The turn order opens over the editor, draws every tick until each member
+     has had a second turn, keeps its size between views, and Escape closes only it. */
   const opener = saved.getByRole('button', { name: 'Ticks' });
   await opener.click();
   const dialog = page.locator('.speed-turn-dialog');
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Stage 1' })).toHaveAttribute('aria-pressed', 'true');
-  await expect(dialog.locator('.speed-timeline-turn').first()).toHaveText('1');
-  await expect(dialog.locator('.speed-turn-list li[data-enemy]')).toHaveCount(1);
+  const shown = dialog.locator('.speed-lanes[data-active]');
+  await expect(shown.locator('.speed-lane-turn').first()).toHaveText('1');
+  await expect(shown.getByRole('rowheader', { name: /^Enemy \d/ })).toHaveCount(4);
+  for (const name of ['Bernard (2A)', 'Megan (2A)', 'Lushen #1', 'Veromos', 'Verdehile']) {
+    const lane = shown.getByRole('row').filter({ has: page.getByRole('rowheader', { name: new RegExp(`^${name.replace(/[()]/g, '\\$&')}`) }) });
+    expect(await lane.getByRole('cell', { name: /: turn \d+ at/ }).count()).toBeGreaterThanOrEqual(2);
+  }
+  const panelBox = await box(dialog);
+  await page.screenshot({ path: testInfo.outputPath('speed-turn-order-stage.png') });
   await dialog.getByRole('button', { name: 'Your team alone' }).click();
-  await expect(dialog.locator('.speed-turn-list li')).toHaveCount(5);
+  await expect(shown.getByRole('rowheader', { name: /^Enemy/ })).toHaveCount(0);
+  await expect(shown.getByRole('rowheader')).toHaveCount(5);
+  expect(await box(dialog)).toEqual(panelBox);
   await page.screenshot({ path: testInfo.outputPath('speed-turn-order.png') });
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
