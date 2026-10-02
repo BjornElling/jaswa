@@ -59,8 +59,8 @@ export type MemberReading = {
   verdict: MemberVerdict;
   /**
    * In a dungeon, its dungeon speed is below the floor's fastest enemy's, so
-   * that enemy outpaces it. An equal speed is not counted: a tie is read as the
-   * team's. A warning beside the verdict, never a verdict of its own.
+   * that enemy outpaces it. An equal speed is not counted: a tie goes to the
+   * team (`SPEED-TICK-CANONICAL.md` §3.2). A warning beside the verdict, never a verdict of its own.
    */
   slowerThanFastestEnemy: boolean;
   /**
@@ -254,7 +254,7 @@ export function nearestPassingDisplaySpeeds(baseSpeed: number, swift: boolean, c
 
 /* Leo's cap spares a boss, and a dungeon stage does not say which of its
    enemies is one, so in a dungeon every enemy is read as uncapped: the
-   pessimistic reading, as a tie is. Arena has no bosses. */
+   pessimistic reading. Arena has no bosses. */
 function stageReading(allies: readonly TickUnit[], enemySpeeds: readonly number[], area: SpeedContent['area']): EnemyStageReading {
   const enemies: TickUnit[] = enemySpeeds.map((speed, at) => ({
     key: `enemy-${at + 1}`, side: 'enemy', speed, effects: [], exemptFromCap: area === 'dungeon',
@@ -278,14 +278,15 @@ function stageReading(allies: readonly TickUnit[], enemySpeeds: readonly number[
 }
 
 /* The worst arena enemy is the fastest one that still cannot take the first
-   turn: one arena speed below the team's first mover. Anything faster could
-   win the opening outright; anything slower cuts in no earlier. Under Leo's
+   turn: level with the team's first mover, since a tie goes to the attacker
+   (`SPEED-TICK-CANONICAL.md` §3.2). Anything faster could win the opening
+   outright; anything slower cuts in no earlier. Under Leo's
    cap the first mover goes at no more than Leo's own arena speed. */
 function worstArenaStage(units: readonly TickUnit[]): EnemyStageReading {
   const opener = teamTrace(units).events[0]?.key;
   const leoSpeeds = units.filter((unit) => unit.capsOthersSpeed).map((unit) => unit.speed);
   const openingSpeed = Math.min(units.find((unit) => unit.key === opener)?.speed ?? 1, ...leoSpeeds);
-  return stageReading(units, [Math.max(1, openingSpeed - 1)], 'arena');
+  return stageReading(units, [openingSpeed], 'arena');
 }
 
 export function readSpeedTeam({ team, monsters, totemPercent, whatIfs }: {

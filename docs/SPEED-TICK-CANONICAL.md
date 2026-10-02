@@ -144,17 +144,43 @@ Leo combat speed." On every tick, every other unit's combat speed — its buff
 included — is held to the slowest Leo's current combat speed.
 
 **Modelled:** a dungeon stage does not say which enemy is the boss, so in
-dungeons no enemy is capped — the pessimistic reading, as a tie is. Arena has
-no bosses, and the worst-case arena enemy is one below the team's first mover as
-the cap leaves it.
+dungeons no enemy is capped — the pessimistic reading. Arena has no bosses,
+and the worst-case arena enemy is level with the team's first mover as the cap
+leaves it (§3.2, §6).
 
-**Ties.** An exact tie is settled by field position: the monster further left
-moves first (Ellia; SWGT). The page cannot see positions, so a tie is reported
-as its own verdict — "position decides" — and never counted as a pass. In the
-simulation a tie goes to the enemy (the pessimistic reading) and between allies
-to the one listed first. SWCalc's "highest attack bar goes first" agrees; its
-"same order as selected in setup" is its own stand-in for field position. A
-tie-break of Leo's own beyond §3.1 is not modelled.
+### 3.2 Ties
+
+**Binding norm: an exact tie on the bar between the user's team and the enemy
+goes to the user's team.** The user's team is the attacker everywhere Speed
+Tuning reads it — arena offence and every dungeon — and the attacker moves first
+on a tie. Every figure follows from this one rule: the clock (`speed-tick.ts`),
+the Enemy cut in table, the Ticks view, the fastest-enemy warning and the
+Interval column's floor all count a level speed as the team's.
+
+Sources, read October 2, 2026:
+
+- SWGT, *How to use the Speed Tick Bracket Calculator* (swgt.io/faq/39):
+  "same speed unit on offense and defense, offense will go first."
+- Ellia's Wiki, *Attack Bar* (elliabot.neocities.org/game_mechanics/attack_bar/):
+  on equal attack bar "the monster that is placed more left will take
+  priority", and between the leftmost monsters of opposing teams "priority is
+  given to the attacker (first pick in RTA)."
+- SWCalc (`CALCULATION-AUTHORITY.md`) says only that the highest attack bar
+  goes first and that same-priority monsters move "in the same order they were
+  selected in setup"; it does not name a side, so this section decides.
+
+**Modelled, not verified:** Ellia's wording lets field position come before
+side, so an enemy placed further left than a tied ally could still move first.
+The page cannot see positions on either side and follows SWGT's plain rule. An
+in-game observation of an enemy winning a tie from a position further left is
+to be recorded here before the code changes.
+
+**Between the user's own monsters** a tie is settled by field position — the
+monster further left moves first (Ellia; SWGT's leader-first example). The page
+cannot see positions, so such a tie is reported as its own verdict — "position
+decides" — and never counted as a pass; in the simulation it goes to the one
+listed first. A tie-break of Leo's own beyond §3.1 (Ellia: ties after Leo moves
+are broken by original speed) is not modelled.
 
 **Start of battle.** No source describes any random factor in arena or
 dungeons; the clock is deterministic.
@@ -216,9 +242,9 @@ the target: "all allies", "an ally", or otherwise the monster itself.
 ## 6. What the team faces
 
 **Arena offence (4 monsters).** The worst-case enemy is the fastest one that
-still cannot take the first turn: one arena speed below the team's first
-mover. Anything faster could win the opening; anything slower cuts in no
-earlier. The page reports after which of the team's turns it first moves.
+still cannot take the first turn: level with the team's first mover, since a
+tie goes to the attacker (§3.2). Anything faster could win the opening;
+anything slower cuts in no earlier. The page reports after which of the team's turns it first moves.
 
 **Dungeons (5 monsters).** The hardest floor Swarfarm carries enemy data for:
 the Abyss Hard floor (Swarfarm files each Abyss as its own dungeon, Hard as
@@ -293,8 +319,8 @@ is below the floor's fastest enemy (the figure the overlay quotes, §6) is
 warned at the end of its line, after every fault in the team's own order:
 yellow where the verdict is otherwise green, and
 left red where it is red. Under Leo's cap the member is read at the speed the
-cap leaves it. An equal speed is not warned: a tie on the bar is taken as the
-team's, which is the assumption the user tunes to. Arena has no fixed enemy and
+cap leaves it. An equal speed is not warned: a tie on the bar goes to the
+team (§3.2). Arena has no fixed enemy and
 no such warning.
 
 **Enemy can cut in** — an enemy turn comes before the team's last first turn,

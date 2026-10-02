@@ -34,6 +34,7 @@ page lists.
 | Ch. 2, SpdBuff% = ⌊30 · (1 + effect)⌋ | 30 % (no speed-up effect is read) | `SPEED-TICK-CANONICAL.md` §2 |
 | Ch. 2, ΔATB = CombatSpeed · TickSize | 7 % per tick | `SPEED-TICK-CANONICAL.md` §3 |
 | Ch. 2, Leo rule | others held to the slowest Leo | `SPEED-TICK-CANONICAL.md` §3.1 |
+| Ch. 2, highest attack bar first; ties in setup order | ties within the team by listed order; SWCalc names no side, so a tie with the enemy goes to the attacker per SWGT and Ellia | `SPEED-TICK-CANONICAL.md` §3.2 |
 
 ## Reconciliation of October 1, 2026
 

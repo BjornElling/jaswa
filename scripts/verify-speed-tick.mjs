@@ -80,6 +80,14 @@ const unit = (key, speed, effects = [], side = 'ally', extra = {}) => ({ key, si
   check(trace.events[0].tiedWith.includes('b'), 'an exact tie is reported');
 }
 {
+  /* §3.2: a tie between the team and the enemy goes to the team, the attacker,
+     whichever is listed first. */
+  for (const order of [['ally', 'enemy'], ['enemy', 'ally']]) {
+    const trace = simulateBattle(order.map((side) => unit(side, 169, [], side)), { done: everyoneMoved(['ally', 'enemy']) });
+    check(trace.events[0].key === 'ally', `a tie with the enemy goes to the team (${order.join(' before ')})`);
+  }
+}
+{
   /* Ellia §Speed Tuning: after the booster's turn at n ticks, an ally needs
      (n+1)·τ·S₂ + B ≥ (n+1)·τ·Sₑ to go next. With S₁ = 300 (n = 5), B = 30 %
      and Sₑ = 299, S₂ ≥ 299 − 30 / (6 × 0.07) = 227.6. */
@@ -257,7 +265,11 @@ for (let sample = 0; sample < 60; sample += 1) {
       const there = moved(shown);
       const self = there.members[index];
       const below = there.members[index + 1];
+      /* The floor and the Enemy cut in table read the same clock: at the
+         floor, no stage's enemy has a turn before this member's first. */
       const clear = area === 'arena' ? !there.enemies[0].cutsBefore.includes(member.unitId) : !self.slowerThanFastestEnemy;
+      if (area !== 'arena' && clear) check(there.enemies.every((stage) => !stage.cutsBefore.includes(member.unitId)),
+        `sample ${sample}: member ${index + 1} level with the fastest enemy is not cut in before`);
       return (!below || self.combatSpeed >= below.combatSpeed) && clear;
     };
     const ceilingHolds = (shown) => {

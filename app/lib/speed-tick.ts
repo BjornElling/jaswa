@@ -199,10 +199,11 @@ export type BattleTrace = { events: TurnEvent[]; snapshots: TickSnapshot[] };
  *    bar empties (overflow is lost) and its turn's effects apply. Then the next
  *    tick runs, even if another bar is already past 100 %.
  *
- * An exact tie on the bar is settled by field position in the game. This page
- * cannot see positions, so a tie goes to the enemy — the pessimistic reading —
- * and between allies to the one listed first; either way the event says
- * who it was `tiedWith`, so the page can say the order hangs on where they stand.
+ * An exact tie on the bar between the user's team and the enemy goes to the
+ * team: it attacks, and the attacker moves first on a tie (`SPEED-TICK-CANONICAL.md`
+ * §3.2). Between allies the game settles a tie by field position, which this
+ * page cannot see, so it goes to the one listed first and the event says who
+ * it was `tiedWith`, so the page can say the order hangs on where they stand.
  *
  * `order` lists every unit key, allies in the user's intended order, and sets
  * that last resort. The loop stops when `done` says so or at `tickLimit`.
@@ -215,7 +216,7 @@ export function simulateBattle(units: readonly TickUnit[], options: {
   const bars = new Map(units.map((unit) => [unit.key, 0]));
   const buffTurns = new Map(units.map((unit) => [unit.key, 0]));
   const turns = new Map(units.map((unit) => [unit.key, 0]));
-  const rank = new Map(units.map((unit, index) => [unit.key, (unit.side === 'enemy' ? 0 : 1_000) + index]));
+  const rank = new Map(units.map((unit, index) => [unit.key, (unit.side === 'ally' ? 0 : 1_000) + index]));
   const events: TurnEvent[] = [];
   const snapshots: TickSnapshot[] = [];
 
