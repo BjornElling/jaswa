@@ -379,8 +379,7 @@ label[for] {
 .choice-menu-option-note, .rune-build-leader-pieces, .rune-build-leader-count,
 .rune-build-note, .rune-build-composed, .overlay-suggestion-label, .speed-timeline-turn,
 .rune-optimization-provenance, .rune-optimization-rune-level, .rune-optimization-rune-where,
-.rune-optimization-rune-craft, .speed-summary-state, .speed-leader-skill,
-.speed-team-interval .checkbox-row {
+.rune-optimization-rune-craft, .speed-summary-state, .speed-leader-skill {
   font-family: var(--font-body);
   font-size: var(--type-label);
   font-weight: 400;
@@ -6276,7 +6275,6 @@ th.align-center .sort-button { justify-content: center; }
 .speed-summary-mark svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
 .speed-summary-mark[data-state='good'] { color: var(--state-good); }
 .speed-summary-mark[data-state='bad'] { color: var(--state-bad); }
-.speed-summary-mark[data-state='warn'] { color: var(--state-warn); }
 /* The names wrap as words do: a line of five long names is still read in
    order, and nothing on the line changes when it is clicked. */
 .speed-summary-names { grid-area: names; display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--s2); row-gap: var(--s1); min-width: 0; }
@@ -6292,7 +6290,9 @@ th.align-center .sort-button { justify-content: center; }
 /* One team as a draft. Wide enough that every column of its table — the
    leader, three speeds, the controls — has air around it, and the verdict
    under a monster's name has room to be read whole. */
-.dialog.speed-team-overlay { width: min(1040px, 100%); }
+/* Wide enough for the Interval column beside display speed without taking
+   room from the verdict lines under the names. */
+.dialog.speed-team-overlay { width: min(1200px, 100%); }
 .speed-overlay-head {
   display: flex; justify-content: space-between; align-items: end; gap: var(--s4);
   padding: var(--s5) var(--s5) var(--s4);
@@ -6362,19 +6362,13 @@ th.align-center .sort-button { justify-content: center; }
    and the facts below come in a fixed number — so reordering, adding or
    fixing a monster moves nothing else in the overlay (AGENTS.md §2). */
 .speed-team-editor { display: grid; gap: var(--s3); min-width: 0; }
-/* A refinement of the order above, so it sits at the table's right edge in
-   the quieter caption voice rather than competing with the slots. */
-/* The verdict takes what the interval leaves and ends in an ellipsis rather
-   than pushing the interval off its edge. */
-.speed-team-foot { display: flex; justify-content: flex-end; align-items: center; gap: var(--s4); min-width: 0; }
-.speed-team-interval { display: flex; flex: 0 0 auto; align-items: center; gap: var(--s2); }
-.speed-team-interval .checkbox-row { min-height: 0; gap: var(--s2); color: var(--text-muted); }
-.speed-interval-select.jaswa-select { width: 14ch; height: 28px; padding-left: var(--s2); font-size: var(--type-label); }
 
 .speed-team-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .speed-col-order { width: 3ch; }
 .speed-col-leader { width: 20ch; }
 .speed-col-speed { width: 15ch; }
+/* Fits the widest range, "999 – 999", at the data voice. */
+.speed-col-interval { width: 13ch; }
 /* The field keeps its 10ch; the column adds the air that holds it off the
    display speed beside it, so the imported figure and the experiment read
    apart, and room for its heading's trailing dots. */

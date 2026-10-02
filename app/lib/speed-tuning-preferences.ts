@@ -12,9 +12,6 @@
 import { speedContent, speedContents, speedContentTeamSize } from './speed-contents';
 import type { SpeedContentId } from './speed-contents';
 
-/** The widest ± interval the page offers, in display speed. */
-export const speedIntervalMaximum = 3;
-
 /**
  * One monster's place in a team, and the what-if display speed the user tried
  * on it, if any. The what-if is kept so the experiment is there next time the
@@ -34,16 +31,6 @@ export type SpeedTeam = {
   members: SpeedTeamMember[];
   /** Whose leader skill the team runs, or `null` for no leader. Always a member. */
   leaderUnitId: string | null;
-  /** Whether every member is asked to keep its place across a ± interval of its own display speed. */
-  marginEnabled: boolean;
-  /**
-   * That interval's half-width in display speed: 1 asks a monster at 150 to
-   * keep its place at 149 and at 151. Display speed because it is the figure
-   * the user reads off a monster and changes with runes. Held while the switch
-   * is off so turning it on again finds the value chosen before. The stored
-   * names predate the interval and are kept so saved teams load unchanged.
-   */
-  margin: number;
 };
 
 /**
@@ -143,8 +130,10 @@ function withValidWhatIfs(value: unknown): unknown {
   };
 }
 
+const teamKeys = ['id', 'content', 'members', 'leaderUnitId'] as const;
+
 function isTeam(value: unknown): value is SpeedTeam {
-  if (!isRecord(value) || !hasExactKeys(value, ['id', 'content', 'members', 'leaderUnitId', 'marginEnabled', 'margin'])) return false;
+  if (!isRecord(value) || !hasExactKeys(value, teamKeys)) return false;
   if (!isIdentifier(value.id)) return false;
   if (!speedContents.some((content) => content.id === value.content)) return false;
   const members = value.members;
@@ -152,10 +141,15 @@ function isTeam(value: unknown): value is SpeedTeam {
   if (members.length > speedContentTeamSize(value.content as SpeedContentId)) return false;
   const unitIds = members.map((member) => member.unitId);
   if (new Set(unitIds).size !== unitIds.length) return false;
-  if (value.leaderUnitId !== null && !(isIdentifier(value.leaderUnitId) && unitIds.includes(value.leaderUnitId))) return false;
-  return typeof value.marginEnabled === 'boolean'
-    && typeof value.margin === 'number' && Number.isSafeInteger(value.margin)
-    && value.margin >= 1 && value.margin <= speedIntervalMaximum;
+  return value.leaderUnitId === null || (isIdentifier(value.leaderUnitId) && unitIds.includes(value.leaderUnitId));
+}
+
+/* Keys the contract does not name are left out before a team is judged, as
+   `readSettings` leaves them out of a settings block: a field the page no
+   longer offers is not a reason to lose the team the user built. */
+function withTeamKeysOnly(value: unknown): unknown {
+  if (!isRecord(value)) return value;
+  return Object.fromEntries(teamKeys.filter((key) => key in value).map((key) => [key, value[key]]));
 }
 
 export function isSpeedRuleFigure(value: unknown): value is number {
@@ -210,7 +204,7 @@ export function readSpeedTuningPreferences(value: unknown): SpeedTuningPreferenc
     return true;
   };
   return {
-    teams: (Array.isArray(stored.teams) ? stored.teams : []).map(withValidWhatIfs).filter(isTeam).filter(unseen),
+    teams: (Array.isArray(stored.teams) ? stored.teams : []).map(withTeamKeysOnly).map(withValidWhatIfs).filter(isTeam).filter(unseen),
     rules: (Array.isArray(stored.rules) ? stored.rules : []).filter(isRule).filter(unseen),
   };
 }

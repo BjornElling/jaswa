@@ -30,7 +30,7 @@ The durable workspace contains:
   monsters or only Lv. 40 monsters, how conversion stones are sourced, the
   assumed stone value, and the acceptable-property factor), and Speed Tuning's
   teams and rules (each team's dungeon or arena, its monsters in the order they
-  should move, its leader, its ± display speed interval and any what-if display speed
+  should move, its leader and any what-if display speed
   tried on a monster — keyed by `unit_id`; the what-if is stored with the team
   but read only by the team's overlay, never by the page or any other figure;
   and each standing

@@ -254,18 +254,9 @@ moves first is out of place itself and says so; the slower one above it stays
 in place. So if the fourth outpaces the third, while the third still follows
 the first two, only the fourth is wrong.
 
-- **In place** — follows everyone above it, with no tie and, where asked,
-  clear of its teammates by the interval.
+- **In place** — follows everyone above it, with no tie.
 - **Too fast** — moves before a monster placed above it.
 - **Tie** — follows one above it only by an exact tie on the bar.
-- **Too close** — follows everyone above it, but some display speed within
-  ±`interval` of its own (*Add interval*: ±1, ±2 or ±3 spd) would flip its
-  order against a teammate — one above or one below. The interval is display
-  speed, the figure the user reads off a monster and changes with runes: with
-  ±1, a monster at 150 display speed is run through the clock at 149 and 151
-  too, and every teammate it moves ahead of or behind at 150 must stay so. A
-  display speed under bare runes cannot be worn and is not tried. Because the
-  interval looks both ways, both monsters of a pair that close are warned.
 
 Each member out of place gets its own interval of display speeds: every whole
 display speed from bare runes to 999 is run through the clock with the others
@@ -274,13 +265,28 @@ Where no display speed of that monster alone fixes it, the line names the fault
 and says nothing more. The verifier confirms every printed interval at both
 edges.
 
-Faults are judged in order, per member. A member out of order, or in order
-only by a tie, shows that fault in red; the interval is asked of every member
-without one, whatever its teammates do, and a member only too close is a
-warning in yellow. So a member too close never hides a wrong turn order, and is
-never hidden by another member's. Where an interval is asked, every printed
-range of display speeds is the run that clears both. A team whose only faults
-are members too close is a warning (a yellow triangle) rather than a failure.
+A member too fast is red on its line and a tie yellow. A team with any member
+out of place, a tie included, is a failure on the page.
+
+**The slot's range** — the overlay's *Interval* column, beside display speed,
+states for every member the display speeds that hold the slot the table puts
+it in, its neighbours held where they are, as `xx – yy`:
+
+- `xx`, the floor, is the lowest display speed whose arena or dungeon speed is
+  at least level with the monster below it. In a dungeon it must also be level
+  with the floor's fastest enemy (§6), matched at the speed any Leo cap leaves
+  the member. In arena it must also be fast enough that the worst-case enemy
+  has no turn before this member's first — run through the clock, boosts and
+  all, as the Enemy cut in table reads it.
+- `yy`, the ceiling, is the highest display speed whose arena or dungeon speed
+  is at most level with the monster above it. The first mover has none and
+  reads `xx+`.
+
+A level speed counts at both ends, as the user tunes to it. Where no display
+speed meets both — or, for a new dungeon team, until its dungeon is chosen —
+the cell is a dash. Each figure is the combat speed §2 gives one display speed,
+tried a display speed at a time, so no rounding is restated. The verifier
+confirms every range at both edges.
 
 **Slower than the fastest enemy** — in a dungeon, a member whose dungeon speed
 is below the floor's fastest enemy (the figure the overlay quotes, §6) is

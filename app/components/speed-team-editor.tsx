@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react';
 import type { CSSProperties, DragEvent, ReactNode } from 'react';
-import { CheckboxRow } from './form-controls';
 import { Dropdown } from './dropdown';
 import { MonsterLink } from './monster-link';
 import type { OpenMonsterOverlay } from './monster-link';
@@ -10,8 +9,8 @@ import type { MonsterCopyName } from '../lib/monster-names';
 import { boostsAllies, describeLeaderSkill, describeTurnEffect, leaderSkill, shortLeaderSkill, shortTurnEffect } from '../lib/speed-skills';
 import { leaderAreaReaches } from '../lib/speed-tick';
 import { combatSpeedName, displaySpeedIntervalText } from '../lib/speed-tuning-analysis';
-import type { MemberReading, TeamReading } from '../lib/speed-tuning-analysis';
-import { speedIntervalMaximum, whatIfDisplaySpeedMaximum } from '../lib/speed-tuning-preferences';
+import type { DisplaySpeedInterval, MemberReading, TeamReading } from '../lib/speed-tuning-analysis';
+import { whatIfDisplaySpeedMaximum } from '../lib/speed-tuning-preferences';
 import type { SpeedTeam } from '../lib/speed-tuning-preferences';
 import type { GeneralSettings } from '../lib/types';
 
@@ -28,7 +27,7 @@ function ordinal(value: number): string {
  * not, what would put it there; a member slower than the floor's fastest enemy
  * says so at the end.
  */
-function verdictText(member: MemberReading, names: Record<string, MonsterCopyName>, interval: number,
+function verdictText(member: MemberReading, names: Record<string, MonsterCopyName>,
   fastestEnemy: number | null, general: GeneralSettings): string {
   const { verdict } = member;
   /* The enemy's figure stands at the top of the overlay; the line has no room to repeat it. */
@@ -42,12 +41,11 @@ function verdictText(member: MemberReading, names: Record<string, MonsterCopyNam
   switch (verdict.kind) {
     case 'in-place': return withFix(`In place · moves ${ordinal(member.actualPosition)}`);
     case 'order': return withFix(`Too fast · moves ${ordinal(member.actualPosition)}`);
-    case 'too-close': return withFix(`Too close · within ±${interval} display speed`);
     case 'tie': return withFix(`Tied with ${names[verdict.with]?.name ?? 'a teammate'} · position decides`);
   }
 }
 
-/* Red for a fault in the order; yellow for a tie, a member too close or one the
+/* Red for a fault in the order; yellow for a tie or a member the
    fastest enemy outpaces; green only with none of them. */
 function verdictState(member: MemberReading, enemiesKnown: boolean): 'good' | 'warn' | 'bad' {
   switch (member.verdict.kind) {
@@ -143,7 +141,18 @@ type EditorProps = {
   enemiesKnown?: boolean;
 };
 
-/** Everything a team states and everything read from it: the leader, the margin, each slot and its verdict, and what the team faces. */
+/**
+ * The display speeds that hold a slot, as the Interval column states them: a
+ * closed range, an open one for the first mover, or a dash where none fits or
+ * the enemies are not known yet.
+ */
+function slotRangeText(range: DisplaySpeedInterval | null, general: GeneralSettings): string {
+  if (range === null) return '—';
+  const minimum = formatNumber(range.minimum, general);
+  return range.maximum === null ? `${minimum}+` : `${minimum} – ${formatNumber(range.maximum, general)}`;
+}
+
+/** Everything a team states and everything read from it: the leader, each slot and its verdict, and what the team faces. */
 export function SpeedTeamEditor({ reading, title, names, choices, general, onChange, onWhatIf, onAddMonster, onOpenMonster, turnOrderAction, enemiesKnown = true }: EditorProps) {
   const { team, content } = reading;
   const [drag, setDrag] = useState<SlotDrag | null>(null);
@@ -224,7 +233,7 @@ export function SpeedTeamEditor({ reading, title, names, choices, general, onCha
       onPointerDownCapture={(event) => setGrabbable(!(event.target as Element).closest('input[type="text"], textarea, select'))}>
       <colgroup>
         <col className="speed-col-order" /><col className="speed-col-monster" /><col className="speed-col-leader" />
-        <col className="speed-col-speed" /><col className="speed-col-what-if" /><col className="speed-col-speed" />
+        <col className="speed-col-speed" /><col className="speed-col-interval" /><col className="speed-col-what-if" /><col className="speed-col-speed" />
         <col className="speed-col-controls" />
       </colgroup>
       <thead><tr>
@@ -232,6 +241,7 @@ export function SpeedTeamEditor({ reading, title, names, choices, general, onCha
         <th scope="col">Monster</th>
         <th scope="col" className="align-center">Leader</th>
         <th scope="col" className="align-right">Display speed</th>
+        <th scope="col" className="align-right">Interval</th>
         <th scope="col" className="align-right">What if...</th>
         <th scope="col" className="align-right">{contentWord} speed</th>
         <th scope="col"><span className="visually-hidden">Move or remove</span></th>
@@ -254,9 +264,9 @@ export function SpeedTeamEditor({ reading, title, names, choices, general, onCha
                   {choices.map((choice) => <option key={choice.unitId} value={choice.unitId}>{choice.name}</option>)}
                 </Dropdown>}
               </td>
-              <td colSpan={5} />
+              <td colSpan={6} />
             </tr>
-            <tr className="speed-verdict-row"><td colSpan={5} /></tr>
+            <tr className="speed-verdict-row"><td colSpan={6} /></tr>
           </tbody>;
         }
         const monster = readingById.get(member.unitId);
@@ -278,7 +288,7 @@ export function SpeedTeamEditor({ reading, title, names, choices, general, onCha
               <td className="speed-order" rowSpan={2}>{at + shift + 1}</td>
               <td><span className="speed-monster-name muted">Not in this import</span></td>
               <td rowSpan={2} />
-              <td colSpan={3} rowSpan={2} />
+              <td colSpan={4} rowSpan={2} />
               {controls}
             </tr>
             <tr className="speed-verdict-row"><td /></tr>
@@ -292,7 +302,9 @@ export function SpeedTeamEditor({ reading, title, names, choices, general, onCha
           used.length ? `${used.map((skill) => `${skill.name}: ${skill.effects.map(describeTurnEffect).join(', ')}`).join('; ')} — counted on every turn` : '',
           uncounted.length ? `Not counted, because its size depends on the battle: ${uncounted.join(', ')}` : '',
         ].filter(Boolean).join('. ');
-        const verdict = verdictText(monster, names, team.margin, fastestEnemy, general);
+        const verdict = verdictText(monster, names, fastestEnemy, general);
+        /* Until the dungeon is chosen its fastest enemy is nobody's, so neither is the floor. */
+        const range = slotRangeText(enemiesKnown ? monster.slotRange : null, general);
         /* What this monster's turn does to the turns after it, hung on the line
            below its slot, where the next monster waits. Only an attack-bar
            boost to the whole team is named — a boost to one ally or to itself
@@ -336,6 +348,7 @@ export function SpeedTeamEditor({ reading, title, names, choices, general, onCha
               </label>
             </td>
             <td className="speed-figure" rowSpan={2}>{formatNumber(monster.importedDisplaySpeed, general)}</td>
+            <td className="speed-figure speed-slot-range" rowSpan={2}>{range}</td>
             <td className="speed-figure speed-what-if-cell" rowSpan={2}>
               <WhatIfField member={monster} label={`What-if display speed for ${name} in ${title}`}
                 onChange={(value) => onWhatIf(member.unitId, value)} />
@@ -354,24 +367,6 @@ export function SpeedTeamEditor({ reading, title, names, choices, general, onCha
         </tbody>;
       })}
     </table>
-
-    {/* Under the table, at its right edge: the interval tightens the verdicts
-        above it. No summary line beside it — every slot states its own. */}
-    <div className="speed-team-foot">
-      <div className="speed-team-interval">
-        <CheckboxRow label="Add interval" checked={team.marginEnabled}
-          onChange={(checked) => onChange((current) => ({ ...current, marginEnabled: checked }))} />
-        {/* In display speed, the figure a monster's runes change. The options
-            read "spd" as the user asked; the accessible name says which speed. */}
-        <Dropdown aria-label={`Interval for ${title}, in display speed`} value={String(team.margin)}
-          disabled={!team.marginEnabled} className="speed-interval-select"
-          onChange={(event) => onChange((current) => ({ ...current, margin: Number(event.target.value) }))}>
-          {Array.from({ length: speedIntervalMaximum }, (_, at) => at + 1).map((interval) => <option key={interval} value={interval}>
-            ±{interval} spd
-          </option>)}
-        </Dropdown>
-      </div>
-    </div>
 
     {/* Where the first enemy turn lands in the opening: a row per stage, or
         the one worst case in arena. The rows are the content's, never the

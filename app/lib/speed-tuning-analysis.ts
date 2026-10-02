@@ -29,12 +29,10 @@ import type { GeneralSettings } from './types';
 export type DisplaySpeedInterval = { minimum: number; maximum: number | null };
 
 export type MemberVerdict =
-  /** Moves where it was asked to, clear of its teammates by the interval where one is asked. */
+  /** Moves where it was asked to. */
   | { kind: 'in-place' }
   /** Too fast: moves before a monster placed above it. A member only ever answers for the order above it. */
   | { kind: 'order'; interval: DisplaySpeedInterval | null }
-  /** In order, but a display speed inside the team's ± interval would flip it against a teammate. Judged on every member with no fault of its own. */
-  | { kind: 'too-close'; interval: DisplaySpeedInterval | null }
   /** In order only by an exact tie on the attack bar, which field position settles. */
   | { kind: 'tie'; with: string; interval: DisplaySpeedInterval | null };
 
@@ -65,6 +63,12 @@ export type MemberReading = {
    * team's. A warning beside the verdict, never a verdict of its own.
    */
   slowerThanFastestEnemy: boolean;
+  /**
+   * The display speeds that keep it in its slot between the neighbours the
+   * table puts above and below it, enemy included (`slotRange`), or `null`
+   * where none does.
+   */
+  slotRange: DisplaySpeedInterval | null;
 };
 
 export type EnemyStageReading = {
@@ -92,10 +96,8 @@ export type TeamReading = {
   leader: { unitId: string; skill: SpeedLeaderSkill | null } | null;
   /** The team alone, until each member has moved once. */
   trace: BattleTrace;
-  /** Every member in place, with no tie and none too close. */
+  /** Every member in place, with no tie. */
   perfect: boolean;
-  /** Short only of the interval: every member in its place, a teammate too close. */
-  tooCloseOnly: boolean;
   /** Arena: one reading against the worst-case enemy. Dungeon: one per stage. */
   enemies: EnemyStageReading[];
 };
@@ -147,64 +149,80 @@ function relation(first: Map<string, TurnEvent>, events: readonly TurnEvent[], e
   return a.tiedWith.includes(later) ? 'tie' : 'before';
 }
 
-type Check = { tooFast: boolean; tie: string | null; tooClose: boolean };
+type Check = { tooFast: boolean; tie: string | null };
 
 /*
- * One member judged inside one simulated team. Its place looks only up the
- * order: it is wrong if it moves before a monster placed above it, or in place
- * only by a tie with one. A monster below that moves first is that monster's
- * fault, not this one's, so a slow member never turns red for a fast one under
- * it — the one out of place is the one that says so.
- *
- * The interval looks both ways, because it is a statement about this monster's
- * own display speed: anywhere within ±`interval` of it, every teammate it moves
- * ahead of or behind now must still be ahead of or behind it. Stated in display
- * speed, the figure the user reads off a monster and changes with runes, so
- * ±1 at 150 is too close to a teammate the order flips against at 149 or 151.
- * A display speed under bare runes cannot be worn and is not tried.
+ * One member judged inside one simulated team, looking only up the order: it
+ * is wrong if it moves before a monster placed above it, or in place only by a
+ * tie with one. A monster below that moves first is that monster's fault, not
+ * this one's, so a slow member never turns red for a fast one under it — the
+ * one out of place is the one that says so.
  */
-function checkMember(candidates: readonly Candidate[], index: number, runeSpeed: number, interval: number | null): Check {
+function checkMember(candidates: readonly Candidate[], index: number, runeSpeed: number): Check {
   const self = candidates[index].unitId;
-  const { baseSpeed, swift } = candidates[index].base;
-  const others = candidates.flatMap((candidate, at) => at === index ? [] : [{ unitId: candidate.unitId, above: at < index }]);
-  const judge = (memberRuneSpeed: number) => {
-    const trace = teamTrace(candidates.map((candidate, at) => tickUnit(candidate, at === index ? memberRuneSpeed : undefined)));
-    const first = firstTurns(trace.events);
-    return others.map(({ unitId, above }) => above
-      ? relation(first, trace.events, unitId, self)
-      : relation(first, trace.events, self, unitId));
-  };
-  const relations = judge(runeSpeed);
-  const aboveRelations = relations.filter((_, at) => others[at].above);
-  const tooFast = aboveRelations.includes('after');
-  const tieAt = aboveRelations.indexOf('tie');
-  const tie = tieAt === -1 ? null : others[tieAt].unitId;
-  const shown = displaySpeed(baseSpeed, swift, runeSpeed);
-  const lowest = displaySpeed(baseSpeed, swift, 0);
-  const offsets = interval === null ? [] : Array.from({ length: interval * 2 + 1 }, (_, at) => at - interval).filter((offset) => offset !== 0);
-  const tooClose = !tooFast && tie === null && offsets.some((offset) => {
-    if (shown + offset < lowest) return false;
-    const shifted = judge(runeSpeedForDisplay(baseSpeed, swift, shown + offset));
-    return relations.some((state, at) => state === 'before' && shifted[at] !== 'before');
-  });
-  return { tooFast, tie, tooClose };
+  const trace = teamTrace(candidates.map((candidate, at) => tickUnit(candidate, at === index ? runeSpeed : undefined)));
+  const first = firstTurns(trace.events);
+  const relations = candidates.slice(0, index).map((candidate) => ({
+    unitId: candidate.unitId, state: relation(first, trace.events, candidate.unitId, self),
+  }));
+  const tooFast = relations.some((entry) => entry.state === 'after');
+  const tie = relations.find((entry) => entry.state === 'tie')?.unitId ?? null;
+  return { tooFast, tie };
 }
 
 function passes(check: Check): boolean {
-  return !check.tooFast && check.tie === null && !check.tooClose;
+  return !check.tooFast && check.tie === null;
 }
 
 /*
  * The display speeds at which this member alone would be in place, the others
- * held where they are, judged as the team is: in order, with no tie and, where
- * one is asked, clear of its teammates by the interval. Every whole display
- * speed from bare runes to the page's ceiling is tried, and the run of passing
- * values nearest the current one is reported — usually the only run there is.
+ * held where they are, judged as the team is: in order, with no tie. Every
+ * whole display speed from bare runes to the page's ceiling is tried, and the
+ * run of passing values nearest the current one is reported — usually the only
+ * run there is.
  */
-function passingInterval(candidates: readonly Candidate[], index: number, interval: number | null, current: number): DisplaySpeedInterval | null {
+function passingInterval(candidates: readonly Candidate[], index: number, current: number): DisplaySpeedInterval | null {
   const { baseSpeed, swift } = candidates[index].base;
   return nearestPassingDisplaySpeeds(baseSpeed, swift, current,
-    (shown) => passes(checkMember(candidates, index, runeSpeedForDisplay(baseSpeed, swift, shown), interval)));
+    (shown) => passes(checkMember(candidates, index, runeSpeedForDisplay(baseSpeed, swift, shown))));
+}
+
+/*
+ * The display speeds that hold this member's slot between its neighbours in
+ * the table, each held where it is: at least level with the monster below and
+ * at most level with the one above, in the team's arena or dungeon speed. A
+ * level speed counts, as the user tunes to it. The floor is raised further by
+ * the enemy: in a dungeon the floor's fastest enemy, matched under any Leo cap
+ * the member runs at; in arena the speed at which the worst-case enemy no
+ * longer has a turn before this member's first, run through the clock with
+ * boosts and all. Each figure is the combat speed `speed-tick.ts` gives a
+ * display speed, tried one display speed at a time, so no rounding is
+ * restated here. `null` where no display speed meets both ends.
+ */
+function slotRange(candidates: readonly Candidate[], units: readonly TickUnit[], index: number,
+  content: SpeedContent, fastestEnemy: number | null): DisplaySpeedInterval | null {
+  const candidate = candidates[index];
+  const { baseSpeed, swift } = candidate.base;
+  const lowest = displaySpeed(baseSpeed, swift, 0);
+  const speedAt = (shown: number) => combatSpeed(sheetOf(candidate, runeSpeedForDisplay(baseSpeed, swift, shown)));
+  const above = index > 0 ? units[index - 1].speed : null;
+  const below = index < units.length - 1 ? units[index + 1].speed : null;
+  const leoCap = units.filter((unit, at) => at !== index && unit.capsOthersSpeed).map((unit) => unit.speed);
+  const runningAt = (shown: number) => candidate.profile.capsOthersSpeed ? speedAt(shown) : Math.min(speedAt(shown), ...leoCap);
+  const clearOfEnemy = (shown: number) => {
+    if (content.area === 'dungeon') return fastestEnemy === null || runningAt(shown) >= fastestEnemy;
+    const allies = units.map((unit, at) => at === index ? tickUnit(candidate, runeSpeedForDisplay(baseSpeed, swift, shown)) : unit);
+    return !worstArenaStage(allies).cutsBefore.includes(candidate.unitId);
+  };
+  let minimum: number | null = null;
+  for (let shown = lowest; shown <= whatIfDisplaySpeedMaximum && minimum === null; shown += 1) {
+    if ((below === null || speedAt(shown) >= below) && clearOfEnemy(shown)) minimum = shown;
+  }
+  if (minimum === null) return null;
+  if (above === null) return { minimum, maximum: null };
+  let maximum: number | null = null;
+  for (let shown = minimum; shown <= whatIfDisplaySpeedMaximum && speedAt(shown) <= above; shown += 1) maximum = shown;
+  return maximum === null ? null : { minimum, maximum };
 }
 
 /**
@@ -259,6 +277,17 @@ function stageReading(allies: readonly TickUnit[], enemySpeeds: readonly number[
   };
 }
 
+/* The worst arena enemy is the fastest one that still cannot take the first
+   turn: one arena speed below the team's first mover. Anything faster could
+   win the opening outright; anything slower cuts in no earlier. Under Leo's
+   cap the first mover goes at no more than Leo's own arena speed. */
+function worstArenaStage(units: readonly TickUnit[]): EnemyStageReading {
+  const opener = teamTrace(units).events[0]?.key;
+  const leoSpeeds = units.filter((unit) => unit.capsOthersSpeed).map((unit) => unit.speed);
+  const openingSpeed = Math.min(units.find((unit) => unit.key === opener)?.speed ?? 1, ...leoSpeeds);
+  return stageReading(units, [Math.max(1, openingSpeed - 1)], 'arena');
+}
+
 export function readSpeedTeam({ team, monsters, totemPercent, whatIfs }: {
   team: SpeedTeam;
   monsters: ReadonlyMap<string, GameRecord>;
@@ -292,12 +321,7 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs }: {
       runeSpeed: runeSpeedForDisplay(parts.baseSpeed, parts.swift, shown),
     };
   });
-  /* Faults come in an order. A monster out of its place, or in it only by a
-     tie, is the fault and is read first; the interval is asked of every monster
-     that has neither, whatever its teammates do, so a monster in its place but
-     too close to a teammate says so even while another is out of order. */
-  const interval = team.marginEnabled ? team.margin : null;
-  const checks = candidates.map((candidate, index) => checkMember(candidates, index, candidate.runeSpeed, interval));
+  const checks = candidates.map((candidate, index) => checkMember(candidates, index, candidate.runeSpeed));
   const units = candidates.map((candidate) => tickUnit(candidate));
   const trace = teamTrace(units);
   const first = firstTurns(trace.events);
@@ -315,11 +339,10 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs }: {
     const shown = whatIfs?.get(member.unitId) ?? parts.displaySpeed;
     const check = checks[index];
     const needsInterval = !passes(check);
-    const fix = needsInterval ? passingInterval(candidates, index, interval, shown) : null;
+    const interval = needsInterval ? passingInterval(candidates, index, shown) : null;
     const verdict: MemberVerdict = check.tooFast
-      ? { kind: 'order', interval: fix }
-      : check.tie !== null ? { kind: 'tie', with: check.tie, interval: fix }
-        : check.tooClose ? { kind: 'too-close', interval: fix } : { kind: 'in-place' };
+      ? { kind: 'order', interval }
+      : check.tie !== null ? { kind: 'tie', with: check.tie, interval } : { kind: 'in-place' };
     return {
       unitId: member.unitId,
       wantedPosition: index + 1,
@@ -337,17 +360,13 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs }: {
       firstTurnTick: first.get(member.unitId)?.tick ?? Number.POSITIVE_INFINITY,
       verdict,
       slowerThanFastestEnemy: fastestEnemy !== null && runningSpeed(units[index]) < fastestEnemy,
+      slotRange: slotRange(candidates, units, index, content, fastestEnemy),
     };
   });
 
-  /* The worst arena enemy is the fastest one that still cannot take the first
-     turn: one arena speed below the team's first mover. Anything faster could
-     win the opening outright; anything slower cuts in no earlier. Under Leo's
-     cap the first mover goes at no more than Leo's own arena speed. */
-  const openingSpeed = Math.min(units.find((unit) => unit.key === actualOrder[0])?.speed ?? 1, ...leoSpeeds);
   const enemies: EnemyStageReading[] = units.length === 0 ? []
     : content.area === 'arena'
-      ? [stageReading(units, [Math.max(1, openingSpeed - 1)], content.area)]
+      ? [worstArenaStage(units)]
       : content.stages.map((stage) => stageReading(units, stage.speeds, content.area));
 
   return {
@@ -358,8 +377,6 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs }: {
     leader: team.leaderUnitId === null ? null : { unitId: team.leaderUnitId, skill: leaderSkill },
     trace,
     perfect: members.length > 0 && members.every((member) => member.verdict.kind === 'in-place'),
-    tooCloseOnly: members.some((member) => member.verdict.kind === 'too-close')
-      && members.every((member) => member.verdict.kind === 'too-close' || member.verdict.kind === 'in-place'),
     enemies,
   };
 }

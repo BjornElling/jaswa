@@ -46,7 +46,7 @@ function cachedReading(context: ReadingContext, team: SpeedTeam): TeamReading {
 }
 
 function newTeam(content: SpeedContentId): SpeedTeam {
-  return { id: newSpeedTuningId('team'), content, members: [], leaderUnitId: null, marginEnabled: false, margin: 1 };
+  return { id: newSpeedTuningId('team'), content, members: [], leaderUnitId: null };
 }
 
 function PlusIcon() {
@@ -103,11 +103,7 @@ function teamStatus(reading: TeamReading): { text: string; state: Verdict } {
      faster than any build, and there it is reported without a verdict. */
   const cutFails = reading.content.area === 'arena' && cut !== '';
   if (reading.perfect) return { text: `Turn order holds${cut}`, state: cutFails ? 'bad' : 'good' };
-  const count = `${outOfPlaceCount(reading)} of ${reading.members.length}`;
-  if (reading.tooCloseOnly) return { text: `${count} too close for the interval${cut}`, state: cutFails ? 'bad' : 'warn' };
-  /* Out of place counts the members in red; one only too close is yellow, and not counted here. */
-  const faults = reading.members.filter((member) => member.verdict.kind === 'order' || member.verdict.kind === 'tie').length;
-  return { text: `${faults} of ${reading.members.length} out of place${cut}`, state: 'bad' };
+  return { text: `${outOfPlaceCount(reading)} of ${reading.members.length} out of place${cut}`, state: 'bad' };
 }
 
 /* Whether an enemy moves before the team's last monster has had its first

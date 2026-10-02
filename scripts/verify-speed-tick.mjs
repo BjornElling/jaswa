@@ -169,7 +169,7 @@ check(skyTribeTotemProblem({ deco_list: [{ master_id: 6, level: 12 }] }) === und
 }
 
 /* The saved contract. */
-const team = (members, extra = {}) => ({ id: 'team-1', content: 'giants', members, leaderUnitId: null, marginEnabled: false, margin: 1, ...extra });
+const team = (members, extra = {}) => ({ id: 'team-1', content: 'giants', members, leaderUnitId: null, ...extra });
 check(isSpeedTuningPreferences({ teams: [], rules: [] }), 'an empty workspace is valid');
 check(!isSpeedTuningPreferences({ teams: [team([{ unitId: '1' }, { unitId: '1' }])], rules: [] }), 'a monster twice in a team is refused');
 check(isSpeedTuningPreferences({ teams: [team([{ unitId: '1', whatIfDisplaySpeed: 120 }])], rules: [] }), 'a what-if is kept with its member');
@@ -192,7 +192,9 @@ check(!isSpeedTuningPreferences({ teams: [team([{ unitId: '1', whatIfDisplaySpee
 }
 check(!isSpeedTuningPreferences({ teams: [team(['1', '2', '3', '4', '5', '6'].map((unitId) => ({ unitId })))], rules: [] }), 'a team larger than its content is refused');
 check(!isSpeedTuningPreferences({ teams: [team([{ unitId: '1' }], { leaderUnitId: '2' })], rules: [] }), 'a leader outside the team is refused');
-check(!isSpeedTuningPreferences({ teams: [team([], { margin: 4 })], rules: [] }), 'an interval past the maximum is refused');
+check(!isSpeedTuningPreferences({ teams: [team([], { margin: 1 })], rules: [] }), 'a team field the contract does not name is not written');
+check(readSpeedTuningPreferences({ teams: [team([{ unitId: '1' }], { marginEnabled: true, margin: 2 })], rules: [] }).teams.length === 1,
+  'a team field the page no longer offers is left out on reading, and the team kept');
 
 /* 4. Every printed interval is the truth. */
 let seed = 0x5eed;
@@ -202,7 +204,7 @@ const random = () => {
 };
 const skillSets = [[[2563, 3]], [[7361, 2]], [[6512, 1]], [[10015, 1]], []];
 let intervalsChecked = 0;
-let tooCloseSeen = 0;
+let rangesChecked = 0;
 for (let sample = 0; sample < 60; sample += 1) {
   const area = sample % 2 === 0 ? 'giants' : 'arena';
   const size = speedContent(area).teamSize;
@@ -217,7 +219,7 @@ for (let sample = 0; sample < 60; sample += 1) {
     });
     members.push({ unitId });
   }
-  const saved = { id: `sample-${sample}`, content: area, members, leaderUnitId: sample % 3 === 0 ? '1' : null, marginEnabled: sample % 4 === 1, margin: 1 + (sample % 3) };
+  const saved = { id: `sample-${sample}`, content: area, members, leaderUnitId: sample % 3 === 0 ? '1' : null };
   const reading = readSpeedTeam({ team: saved, monsters, totemPercent: 15, rules: [] });
   /* A cut-in is read off the drawn trace: an enemy turn before some ally's first. */
   for (const enemy of reading.enemies) {
@@ -243,41 +245,34 @@ for (let sample = 0; sample < 60; sample += 1) {
     const passesSomeoneAbove = reading.members.slice(0, index).some((above) => firstAt(member.unitId) < firstAt(above.unitId));
     check((member.verdict.kind === 'order') === passesSomeoneAbove, `sample ${sample}: member ${index + 1} is too fast exactly when it moves before one above it`);
   });
-  /* The ± interval, read off the drawn traces alone: a member in order is too
-     close exactly when some display speed within ±interval of its own, worn
-     alone, loses a place it holds in the asked order: behind a teammate above
-     it, or ahead of one below. A pair already out of order is that fault, not this one. */
-  if (saved.marginEnabled) {
-    const sides = (trace, unitId) => {
-      const first = new Map();
-      trace.events.forEach((event, at) => { if (!first.has(event.key)) first.set(event.key, { at, event }); });
-      const self = first.get(unitId);
-      return members.filter((other) => other.unitId !== unitId).map(({ unitId: other }) => {
-        const them = first.get(other);
-        if (!self && !them) return 'tie';
-        if (!them) return 'ahead';
-        if (!self) return 'behind';
-        if (self.event.tiedWith.includes(other) || them.event.tiedWith.includes(unitId)) return 'tie';
-        return self.at < them.at ? 'ahead' : 'behind';
-      }).join();
+  /* Each slot's range, read off a reading of the team with the member moved
+     there: at its floor level with the one below and clear of the enemy, at
+     its ceiling level with the one above, and one display speed past either
+     edge no longer so. */
+  for (const [index, member] of reading.members.entries()) {
+    const range = member.slotRange;
+    if (!range) continue;
+    const moved = (shown) => readSpeedTeam({ team: saved, monsters, totemPercent: 15, whatIfs: new Map([[member.unitId, shown]]) });
+    const floorHolds = (shown) => {
+      const there = moved(shown);
+      const self = there.members[index];
+      const below = there.members[index + 1];
+      const clear = area === 'arena' ? !there.enemies[0].cutsBefore.includes(member.unitId) : !self.slowerThanFastestEnemy;
+      return (!below || self.combatSpeed >= below.combatSpeed) && clear;
     };
-    for (const member of reading.members) {
-      if (member.verdict.kind !== 'in-place' && member.verdict.kind !== 'too-close') continue;
-      const at = sides(reading.trace, member.unitId).split(',');
-      const wanted = members.filter((other) => other.unitId !== member.unitId)
-        .map(({ unitId }) => members.findIndex((other) => other.unitId === unitId) < member.wantedPosition - 1 ? 'behind' : 'ahead');
-      const lowest = displaySpeed(member.baseSpeed, member.swift, 0);
-      let flips = false;
-      for (let offset = -saved.margin; offset <= saved.margin; offset += 1) {
-        if (offset === 0 || member.displaySpeed + offset < lowest) continue;
-        const moved = readSpeedTeam({ team: saved, monsters, totemPercent: 15, whatIfs: new Map([[member.unitId, member.displaySpeed + offset]]) });
-        const there = sides(moved.trace, member.unitId).split(',');
-        if (at.some((side, index) => side === wanted[index] && there[index] !== side)) flips = true;
-      }
-      if (flips) tooCloseSeen += 1;
-      check((member.verdict.kind === 'too-close') === flips,
-        `sample ${sample}: member ${member.wantedPosition} is too close exactly when ±${saved.margin} display speed flips it against a teammate`);
+    const ceilingHolds = (shown) => {
+      const there = moved(shown);
+      return index === 0 || there.members[index].combatSpeed <= there.members[index - 1].combatSpeed;
+    };
+    check(floorHolds(range.minimum) && ceilingHolds(range.minimum), `sample ${sample}: member ${index + 1} holds its slot at the floor ${range.minimum}`);
+    const lowest = displaySpeed(member.baseSpeed, member.swift, 0);
+    if (range.minimum - 1 >= lowest) check(!floorHolds(range.minimum - 1), `sample ${sample}: member ${index + 1} loses its slot under the floor ${range.minimum}`);
+    check((range.maximum === null) === (index === 0), `sample ${sample}: only the first mover has no ceiling`);
+    if (range.maximum !== null) {
+      check(ceilingHolds(range.maximum) && floorHolds(range.maximum), `sample ${sample}: member ${index + 1} holds its slot at the ceiling ${range.maximum}`);
+      if (range.maximum < 999) check(!ceilingHolds(range.maximum + 1), `sample ${sample}: member ${index + 1} loses its slot over the ceiling ${range.maximum}`);
     }
+    rangesChecked += 1;
   }
   for (const member of reading.members) {
     const interval = member.verdict.kind === 'in-place' ? null : member.verdict.interval;
@@ -293,7 +288,7 @@ for (let sample = 0; sample < 60; sample += 1) {
     intervalsChecked += 1;
   }
 }
-check(tooCloseSeen > 0, `the sweep met a member too close for its interval (${tooCloseSeen})`);
+check(rangesChecked > 20, `the sweep exercised slot ranges (${rangesChecked})`);
 check(intervalsChecked > 20, `the sweep exercised intervals (${intervalsChecked})`);
 
 console.log(`Speed tick rules hold: ${checks} checks, ${intervalsChecked} printed intervals confirmed at both edges.`);

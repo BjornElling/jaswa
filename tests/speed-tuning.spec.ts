@@ -229,10 +229,11 @@ test('tunes a dungeon team, explains every miss, and keeps the card still', asyn
   await expect(meganLead).toHaveAttribute('data-state', 'idle');
   await expect(saved.locator('.speed-combat').first()).toHaveText('201');
 
-  /* The interval names its own failure, apart from order. */
-  await saved.getByRole('checkbox', { name: 'Add interval' }).check();
-  await saved.getByLabel("Interval for Giant's Keep team #1, in display speed").selectOption('3');
-  await expect(saved.locator('.speed-verdict').filter({ hasText: 'within ±3 display speed' }).first()).toBeVisible();
+  /* Every slot states the display speeds that hold it between its neighbours,
+     the first mover open-ended, a slot none can hold a dash. */
+  await expect(saved.getByRole('columnheader', { name: 'Interval' })).toBeVisible();
+  await expect(saved.locator('.speed-slot-range')).toHaveText(Array(5).fill(/^(\d+ – \d+|\d+\+|—)$/));
+  await expect(saved.locator('.speed-slot-range').first()).toHaveText(/^(\d+\+|—)$/);
   expectSameHeight((await box(saved.locator('.speed-team-editor'))).height, emptyBox.height);
 
   /* The turn order opens over the editor, draws every tick, and Escape closes only it. */
@@ -294,7 +295,6 @@ test('tunes a dungeon team, explains every miss, and keeps the card still', asyn
   const reloaded = page.getByRole('dialog', { name: "Giant's Keep team #1" });
   await expect(reloaded.getByLabel("What-if display speed for Megan (2A) in Giant's Keep team #1")).toHaveValue('120');
   await expect(reloaded.getByRole('checkbox', { name: "Verdehile leads Giant's Keep team #1" })).toBeChecked();
-  await expect(reloaded.getByRole('checkbox', { name: 'Add interval' })).toBeChecked();
 
   await reloaded.getByRole('button', { name: 'Close' }).click();
 
@@ -501,7 +501,7 @@ test('a rule is a reminder about one monster, judged in the speed forms it is ch
   await expect(addRule).toBeFocused();
 });
 
-test('an interval is asked of every monster in its place, and a what-if is selected rather than dragged', async ({ page }, testInfo) => {
+test('each slot states the display speeds that hold it, and a what-if is selected rather than dragged', async ({ page }, testInfo) => {
   /* Long on purpose — a whole team built, edited, saved and reloaded — and run
      beside every other spec against one dev server. Twenty seconds on a quiet
      machine ran past the default thirty under load, always at the same late
@@ -524,23 +524,22 @@ test('an interval is asked of every monster in its place, and a what-if is selec
   await expect(bernard.locator('.speed-boost-tag')).toHaveText('+34.5 % ATB');
   expectSameHeight((await box(bernard)).height, slotBox.height);
 
-  /* In order, a monster too close is a warning that names the interval, not a failure. */
-  await draft.getByRole('checkbox', { name: 'Add interval' }).check();
-  await draft.getByLabel("Interval for Giant's Keep team #1, in display speed").selectOption('3');
-  const short = draft.locator('.speed-verdict').filter({ hasText: /^Too close · within ±3 display speed/ });
-  await expect(short.first()).toHaveAttribute('data-state', 'warn');
+  /* In order, every member is in place. Each floor is the fastest enemy's
+     dungeon speed, above every monster below: the first mover has no
+     ceiling, the second just fits under Bernard, and behind them no display
+     speed reaches the floor without passing the monster above — a dash. */
   await expect(draft.locator('.speed-verdict[data-state="bad"]')).toHaveCount(0);
+  const ranges = draft.locator('.speed-slot-range');
+  await expect(ranges).toHaveText([/^\d+\+$/, /^\d+ – \d+$/, '—', '—', '—']);
 
   /* Out of order, the order fault is red on the monster that has it — the one
-     below that moves first, never the slower one above it — and is never
-     reported as too close; a monster only too close keeps its warning. */
+     below that moves first, never the slower one above it. */
   await draft.getByRole('button', { name: 'Move Megan (2A) earlier' }).click();
   const meganVerdict = draft.locator('.speed-slot').filter({ hasText: 'Megan (2A)' }).locator('.speed-verdict');
   const verdehileVerdict = draft.locator('.speed-slot').filter({ hasText: 'Verdehile' }).locator('.speed-verdict');
   await expect(meganVerdict).not.toHaveAttribute('data-state', 'bad');
   await expect(verdehileVerdict).toHaveAttribute('data-state', 'bad');
   await expect(verdehileVerdict).toHaveText(/^Too fast/);
-  await expect(draft.locator('.speed-verdict[data-state="warn"]').filter({ hasText: 'within ±3 display speed' }).first()).toBeVisible();
   await draft.getByRole('button', { name: 'Move Megan (2A) later' }).click();
 
   /* Pressing in a what-if and moving selects its digits; the slot stays put. */
@@ -555,10 +554,10 @@ test('an interval is asked of every monster in its place, and a what-if is selec
   expect(await whatIf.evaluate((input: HTMLInputElement) => input.selectionEnd! - input.selectionStart!)).toBeGreaterThan(0);
   await whatIf.fill('');
 
-  /* On the page the team only too close wears the warning triangle. */
+  /* On the page the team in order wears the tick, the stage it is cut in at named. */
   await draft.getByRole('button', { name: 'Add this team' }).click();
   const line = page.getByRole('button', { name: /^Giant's Keep team #1:/ });
-  await expect(line.locator('.speed-summary-state')).toHaveText(/^\d of 5 too close for the interval · Enemy can cut in \(stage 2\)$/);
-  await expect(line.locator('.speed-summary-mark')).toHaveAttribute('data-state', 'warn');
-  await line.screenshot({ path: testInfo.outputPath('speed-line-interval.png') });
+  await expect(line.locator('.speed-summary-state')).toHaveText('Turn order holds · Enemy can cut in (stage 2)');
+  await expect(line.locator('.speed-summary-mark')).toHaveAttribute('data-state', 'good');
+  await line.screenshot({ path: testInfo.outputPath('speed-line-in-order.png') });
 });
