@@ -519,7 +519,12 @@ export function prepareRuneOptimization(
   const halves = new Map<string, CraftHalf | null>();
   function half(plan: SupplyPlan, rune: Rune): CraftHalf | null {
     if (plan.use === 'none') return null;
-    const key = `${plan.kind}|${plan.use}|${rune.ancient ? 'A' : rune.setId}`;
+    /* An assumed item depends on the lineage alone; a held one on the set as well,
+       because an Ancient item names a set like any other (`lineageFits`). Keyed by
+       lineage only, every Ancient rune was offered the first Ancient rune's stacks. */
+    const lineage = rune.ancient ? 'A' : 'S';
+    const key = plan.use === 'theoretical' ? `${plan.kind}|${plan.use}|${lineage}`
+      : `${plan.kind}|${plan.use}|${lineage}${rune.setId}`;
     if (halves.has(key)) return halves.get(key) ?? null;
     const found = plan.use === 'theoretical'
       ? assumedCraftHalf(plan.kind, rune.ancient ? 'ancient' : 'standard', plan.grade, plan.roll)

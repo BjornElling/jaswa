@@ -376,6 +376,38 @@ for (let index = 0; index < scenarios; index += 1) {
   if (expected.length === 0) emptyTables += 1;
 }
 
+/* Held items reach only the runes their lineage fits. Two Ancient runes of different
+   sets once shared one cached supply, so the second was offered the first one's
+   Ancient stacks; an ordinary or Immemorial stack must never reach either. */
+{
+  const base = scenario(0);
+  const spdRune = (id, setId, ancient) => ({
+    id, setId, setName: '', slot: 1, stars: 6, ancient, defaultGrade: 'Legend', level: 15,
+    mainStatId: 3, mainValue: 160, prefixStatId: null, prefixValue: 0,
+    subProperties: [8, 4, 9, 10].map((statId) => ({ statId, value: 6, gemmed: false, grind: 0 })),
+    occupiedId: null, obtainedOrder: Number(id),
+  });
+  const stone = (id, lineage, setId) => ({
+    id, kind: 'grindstone', lineage, setId, setName: null, statId: 8, statName: 'SPD', grade: 'Legend', amount: 1, range: undefined,
+  });
+  const craftItems = [stone('1', 'ancient', 13), stone('2', 'ancient', 3), stone('3', 'standard', 13), stone('4', 'immemorial', null)];
+  const runes = [spdRune('11', 13, true), spdRune('12', 3, true), spdRune('13', 13, false)];
+  const input = {
+    ...base, runes, holds: {}, craftItems,
+    requirements: { ...base.requirements, builds: [], allowBroken: true, allowImmemorial: true, targets: {}, ceilings: {}, rankBy: 'spd' },
+    settings: { ...base.settings, gems: 'none', grinds: 'owned', runesOnOtherMonsters: true },
+  };
+  const expectedStones = { 11: ['1'], 12: ['2'], 13: ['3', '4'] };
+  const candidates = prepareRuneOptimization(input, { reduce: false }).slots[0];
+  for (const rune of runes) {
+    const spent = new Set(candidates.filter((candidate) => candidate.runeId === rune.id)
+      .flatMap((candidate) => candidate.stock.map((entry) => craftItems[entry].id)));
+    assert.ok([...spent].every((id) => expectedStones[rune.id].includes(id)),
+      `rune ${rune.id} was offered stones ${[...spent]} outside its lineage and set`);
+    assert.ok(spent.size > 0, `rune ${rune.id} was offered none of its own stones`);
+  }
+}
+
 assert.ok(checkedRows > scenarios, 'too few builds were compared to prove anything');
 assert.ok(withWork > scenarios / 4, `only ${withWork} builds had work to follow`);
 assert.ok(refusedMidway > scenarios / 4, 'too few searches lost their card midway to prove the processor finishes');
