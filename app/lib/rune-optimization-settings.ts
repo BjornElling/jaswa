@@ -51,6 +51,14 @@ export const runeOptimizationDepthLabels: Readonly<Record<RuneOptimizationDepth,
   complete: 'Complete',
 };
 
+/** What each depth looks through, in words that need no knowledge of the cut. */
+export const runeOptimizationDepthReach: Readonly<Record<RuneOptimizationDepth, string>> = {
+  quick: 'Only your strongest runes',
+  balanced: 'A wide pick of your strongest runes',
+  thorough: 'Most runes worth trying',
+  complete: 'Every rune that could matter',
+};
+
 /**
  * What each depth means in runes kept and seconds allowed. One table, read by the
  * preparation and the search alike, so the words on the control and the work done

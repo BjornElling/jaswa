@@ -2342,7 +2342,9 @@ label[for] {
 .rune-optimization-monster-select .jaswa-select { height: 52px; padding-left: calc(36px + var(--s4)); }
 .rune-optimization-open-preset { gap: var(--s2); }
 
-.rune-optimization-search { display: grid; gap: var(--s2); min-width: 0; padding-top: var(--s5); }
+/* The depth carries a line of its own, so the build count stands clear of it
+   rather than reading as a third line of the same group. */
+.rune-optimization-search { display: grid; gap: var(--s5); min-width: 0; padding-top: var(--s5); }
 
 /* A fixed measure, so the status line at its foot can change its wording — a
    percentage, then a line of counts — without the columns beside it moving. */

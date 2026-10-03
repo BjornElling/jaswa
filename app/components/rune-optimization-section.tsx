@@ -40,7 +40,7 @@ import { currentBuilds } from '../lib/rune-optimization-refresh';
 import type { CurrentBuild } from '../lib/rune-optimization-refresh';
 import { profileRequirements, sameList } from '../lib/rune-optimization-requirements';
 import {
-  craftUseLabels, craftUses, runeOptimizationDepthLabels, runeOptimizationDepthPlans, runeOptimizationDepths,
+  craftUseLabels, craftUses, runeOptimizationDepthLabels, runeOptimizationDepthPlans, runeOptimizationDepthReach, runeOptimizationDepths,
   runeOptimizationResultCounts,
 } from '../lib/rune-optimization-settings';
 import type { CraftUse, RuneOptimizationSettings } from '../lib/rune-optimization-settings';
@@ -311,9 +311,11 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
             <RadioLine name="rune-optimization-depth" legend="Depth" current={settings.depth}
               options={runeOptimizationDepths.map((depth) => ({ value: depth, label: runeOptimizationDepthLabels[depth] }))}
               onChange={(depth) => onUpdate({ depth })} />
-            <Provenance>{Number.isFinite(plan.keep)
-              ? `Keeps the ${plan.keep} runes per slot and set that add most · stops after ${plan.seconds} s`
-              : `Keeps every rune that could matter · stops after ${plan.seconds / 60} min`}</Provenance>
+            {/* Written for someone who has never seen the cut: what the depth
+                trades, and the longest it may take — "up to", because most
+                searches finish well inside it. */}
+            <Provenance>{`${runeOptimizationDepthReach[settings.depth]} · up to ${plan.seconds < 60
+              ? `${plan.seconds} s` : `${plan.seconds / 60} min`}`}</Provenance>
           </div>
           <div className="filter-group rune-optimization-count">
             <RadioLine name="rune-optimization-count" legend="Builds listed" current={String(settings.resultCount)}
