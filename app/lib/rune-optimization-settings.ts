@@ -93,10 +93,10 @@ export function runeOptimizationWorkWarning(estimate: number | undefined, depth:
   // while the card can examine a tail in bulk. Neither is measured device speed.
   const budget = seconds * (hardwareAcceleration ? 50_000_000 : 1_000_000);
   if (estimate !== undefined && estimate > budget * 10) return {
-    tone: 'bad', text: 'Very large search: it is unlikely to finish within the limit. Lower depth or narrow the requirements.',
+    tone: 'bad', text: 'Very large search: it may stop at the time limit. Builds found are kept; completion is not guaranteed.',
   };
   if (estimate !== undefined && estimate > budget) return {
-    tone: 'warn', text: 'Large search: it may reach the time limit. Lower depth or narrow the requirements.',
+    tone: 'warn', text: 'Large search: it may reach the time limit. Builds found are kept; narrower requirements can help it finish.',
   };
   if (!hardwareAcceleration) return {
     tone: 'warn', text: 'Graphics card use is off. Large searches may reach the time limit on the processor.',

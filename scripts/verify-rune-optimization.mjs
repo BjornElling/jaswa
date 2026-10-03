@@ -189,7 +189,7 @@ function everyPairCard(room, refuseAfter = Infinity) {
   };
 }
 
-const scenarios = Number(process.argv.find((arg) => arg.startsWith('--scenarios='))?.split('=')[1] ?? 160);
+const scenarios = Number(process.argv.find((arg) => arg.startsWith('--scenarios='))?.split('=')[1] ?? 200);
 let checkedRows = 0;
 let emptyTables = 0;
 let refusedMidway = 0;
@@ -209,6 +209,21 @@ const bruteForceCeiling = 40_000;
 function affordableScenario(index) {
   for (;;) {
     const input = scenario(index);
+    if (index >= 160) {
+      // Two required two-sets leave the last pair open. The broad set pool is
+      // exactly where a bound must stop promising incompatible four-set bonuses.
+      input.holds = {}; input.spared = [];
+      input.settings = { ...input.settings, depth: 'complete', gems: 'none', grinds: 'none', runesOnOtherMonsters: true };
+      input.requirements = { ...input.requirements, builds: index % 2 ? ['Shield/Will'] : [],
+        slotMains: { slot2: [], slot4: [], slot6: [] }, allowBroken: index % 3 === 0,
+        allowIntangible: true, targets: {}, ceilings: {}, rankBy: figures[index % figures.length] };
+      const seen = new Set();
+      const choices = [1, 2, 4, 5, 8, 13, 15, 16, 25];
+      input.runes = input.runes.map((rune, at) => {
+        const first = !seen.has(rune.slot); seen.add(rune.slot);
+        return { ...rune, occupiedId: null, setId: first ? [16, 16, 15, 15, 4, 4][rune.slot - 1] : choices[(at + index) % choices.length] };
+      });
+    }
     const unreduced = prepareRuneOptimization(input, { reduce: false });
     if (unreduced.slots.reduce((product, slot) => product * Math.max(1, slot.length), 1) <= bruteForceCeiling) return input;
   }

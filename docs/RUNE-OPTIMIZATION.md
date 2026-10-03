@@ -1,7 +1,7 @@
 # Rune Optimization — how six runes are chosen out of thousands
 
 **Status:** Binding contract for the Rune Optimization page and its engine
-**Reviewed:** 30 September 2026
+**Reviewed:** 3 October 2026
 
 Rune Optimization finds the rune builds one monster can wear that meet what its
 profile asks for, and ranks them by one figure. This document says what it
@@ -218,7 +218,7 @@ budget warns in yellow; above ten times it warns in red. Switching graphics-card
 off also warns in yellow even without a monster selected. A severe work warning takes
 precedence. None prevents starting the search.
 
-The warning explicitly says "may" or "unlikely": pruning can make a huge combination
+The warning says it may stop at the limit and keeps the builds found: pruning can make a huge combination
 space cheap, Gem variants and supplemental picks can expand it, and enabling the card
 does not guarantee that it will accept the calculation. The actual engine and whether
 the search reached its limit are still reported after it runs. No second GPU decision
@@ -265,6 +265,18 @@ builds before picking individual runes**:
 - Candidates from those improvements and twelve finished guides supplement the
   independent lanes and are tried first in the final search. The guide is identical
   across finite depths: a deeper shortlist retains every shallower candidate.
+
+The search also checks those whole guides and their same-set one-rune neighbours
+before opening the tree. Their real sets, ranges and held-item spend are checked
+again, and each belongs to its eventual search part. They start the table with useful
+builds even when a short time limit leaves most combinations unvisited. A seeded
+build's identity is remembered so revisiting it cannot fill another row or raise the
+bar with a duplicate. This adds no cut: the tree still searches the same candidates.
+
+Preparation runs once in a worker, then the prepared problem is shared with the
+search parts. Beam prefixes carry only the stack indexes they spend, sorted with
+repetitions, rather than copying the account's entire craft inventory on every
+expansion. This changes allocation cost, not supply or candidate selection.
 
 The beam and its paired improvements are heuristics within the reported cut. They
 prove no candidate inferior and do not establish a global optimum. Preparation has
@@ -319,6 +331,23 @@ one more set never decides — and of those only the ones no other plan beats on
 accumulator. Which plans those are depends only on the free slots, the Intangible
 credit and how far each planned set is towards its next completion, so each is
 worked out once per search.
+
+A plan can credit only stat sets that fit beside the required sets, or that the
+build itself requires. Slots still owed to required neutral sets — and started
+neutral sets when broken sets are refused — are reserved before planning stat
+bonuses. An already worn Intangible may complete a set one piece short without
+using another slot. Letting that credit also reduce the reservation deliberately
+overestimates what is possible; it cannot hide an accepted build.
+
+With broken sets refused and three or fewer slots left, the bound enumerates the
+actual remaining slot/set groups. Each group contributes independent accumulator
+maxima, and only completions accepted by the shared set rules contribute a row,
+with their own set bonuses. This couples the rune bound to sets that can really be
+finished. Dominated rows are removed; more than 24 rows are folded into their
+independent maxima, which stays an upper bound.
+
+Completion rows and tail blocks each have a 2 MiB cache budget per worker. Eviction
+recalculates the same answer; it never removes a candidate or a branch.
 
 Most nodes fail, so the loosest pairing of row and plan is tried first. Where it
 fails every pairing does, and the node cost one evaluation.
@@ -386,6 +415,20 @@ tables merge by one total order — ranking figure, then fewer runes moved, then
 picks — so the split cannot change the answer. The progress line under the panels
 is theirs.
 
+Preparation's stages are shown before the search percentage; the depth's limit is
+the search time, with preparation additional. Clock checks include tail pairs and
+blocks as well as tree candidates, so a large tail cannot bypass the limit.
+*Stop the search* asks each part to finish with its checked builds; leaving the
+workspace or replacing the calculation still terminates its workers immediately.
+Stopping during preparation cancels it, while retaining the previous table.
+
+Only parts with distinct tree work are launched. If several workers cannot be
+started or a search worker fails, the client retries the same prepared problem in
+one worker. It reports that stage and keeps the chosen depth and requirements.
+An unexpected failure of that single search is still an error, recorded in the
+console; the previous table is retained. This recovery is independent of the one
+shared rule deciding whether the card answers.
+
 **The parts share their bar.** A part whose table is full proves the merged table
 holds as many builds at or above its last row, because the parts' builds are
 distinct. So every rise is relayed by the client to the other parts, and each prunes
@@ -396,7 +439,7 @@ between two passes to the card, or on the processor every 50 ms.
 
 ### 6.6 What holds it
 
-`npm run verify:rune-optimization` searches random small accounts against brute
+`npm run verify:rune-optimization` searches 200 random small accounts against brute
 force over the unreduced candidates scored by `calculateMonsterTotals`, and requires
 every row to agree: the funnel at depth 10, whole; split three ways; split with
 the parts sharing their bars, at once and in slices; and in passes, the way a card
@@ -406,6 +449,18 @@ midway so the processor has to finish. It was checked by breaking it: a bound th
 per cent too tight, and a dominance that dropped on one dominator, both fail it.
 
 `npm run verify:rune-optimization-card` runs the shader itself (§7).
+
+`verify:rune-optimization-quality` also compares seeded and unseeded exhaustive
+tables on the same shortlists, checks that no build is counted twice, checks that
+time limits and stop requests preserve feasible guides, and holds the Intangible
+completion that needs no further slot. In that case, Energy, Guard and Blade are
+each one piece short with an Intangible already worn: two open slots finish all
+three. Charging another slot for the Intangible loses the only accepted build;
+restoring that charge was checked to make the regression fail. Seeded, unseeded
+and split tables also agree on 16 crafted accounts, with 156 guides spending held
+items. The interface's stability suite exercises
+an open Shield/Will search at depth 1, stopping with results, an immediate time
+limit, and a worker allocation failure that recovers in one worker.
 
 ### 6.7 Measured
 
@@ -446,6 +501,18 @@ answer by 0.8 %. This is an older capture than the user's reported 5,792 / 6,286
 6,384 example; it measures an improvement on this input, not that current account
 or a guarantee for every question. Preparation also costs more, about two seconds
 on this run; the deeper shortlist admits more candidates and can take longer.
+
+On 3 October 2026, the preparation and bound changes were measured on the same
+local 2,437-rune capture and the same Chromium/card setup, using eight search parts.
+Galleon asked for Shield/Will, ATK % or SPD / CRI Dmg / ATK % or ACC mains,
+218 SPD, 100,000 E.HP and 50,000 E.HP D, owned craft items and 50 rows at depth 1.
+The client took 46.1 seconds before and 23.7 seconds after, returning 50 builds
+with the same best DMG, 5,944. Both reached their search time limit; neither proves
+that shortlist's optimum. Driving the final page also returned 50 builds, in
+22.6 seconds, with its control and requirement panels unchanged in position and
+size. This capture is smaller than the 2,607-rune account in the reported image;
+the reported error itself was not reproduced on it. The recovery path was verified
+with an injected worker allocation failure.
 
 ## 7. The graphics card
 
@@ -556,6 +623,13 @@ table pick for pick. It needs a running dev server and a card, and is not part o
 Nothing a choice changes moves anything else (`AGENTS.md` §2): captions are
 reserved lines, the craft selects disable rather than disappear, the status line
 has its own reserved height.
+
+An unfinished search with no result says no build was found before it stopped;
+it does not claim the requirements are impossible. A finished guided shortlist
+with no result names that shortlist and suggests greater depth. Only the complete
+search, or an exact range reduction leaving a slot empty, can rule builds out.
+Preparation, retry and error messages use the reserved status box, and an error
+keeps the previous result table.
 
 ## 9. Open questions, recorded rather than guessed
 

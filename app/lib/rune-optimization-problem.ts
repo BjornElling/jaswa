@@ -148,6 +148,8 @@ export type RuneOptimizationProblem = {
   start: Float64Array;
   /** Index 0 is slot 1. Complementary picks first at finite depths, then `proxy`. */
   slots: Candidate[][];
+  /** Feasible whole-build guides, in slot order, checked again before seeding the table. */
+  guides: number[][];
   /** `null` where any combination of sets will do. */
   builds: BuildRequirement[] | null;
   /** Whether a rune may complete no set. Off, every finished build is six runes in completed sets. */
@@ -573,8 +575,9 @@ type SupplyPlan = {
  * code it is checking.
  */
 export function prepareRuneOptimization(
-  input: RuneOptimizationInput, options: { reduce?: boolean } = {},
+  input: RuneOptimizationInput, options: { reduce?: boolean; onStage?: (stage: 'candidates' | 'reducing' | 'guiding') => void } = {},
 ): RuneOptimizationProblem {
+  options.onStage?.('candidates');
   const reduce = options.reduce ?? true;
   const { requirements, settings, unitId, monster } = input;
   const base = searchBase(monster, requirements.alwaysCrits);
@@ -747,6 +750,7 @@ export function prepareRuneOptimization(
   const keep = Number.isFinite(plan.keep) ? plan.keep : null;
   const slots: Candidate[][] = [];
   const reports: SlotReport[] = [];
+  options.onStage?.('reducing');
   for (let slotIndex = 0; slotIndex < 6; slotIndex += 1) {
     const eligible = bySlot[slotIndex];
     if (locked[slotIndex]) {
@@ -775,7 +779,7 @@ export function prepareRuneOptimization(
   }
 
   const problem: RuneOptimizationProblem = {
-    base, criticalRateLift: criticalRateLift(requirements.alwaysCrits), start, slots, builds,
+    base, criticalRateLift: criticalRateLift(requirements.alwaysCrits), start, slots, builds, guides: [],
     allowBroken: requirements.allowBroken, setPieces: setPiecesById, allowIntangible: requirements.allowIntangible,
     targets, ceilings, rank, relevant, resultCount: settings.resultCount, stock,
     timeLimitMs: plan.seconds * 1000,
@@ -785,7 +789,9 @@ export function prepareRuneOptimization(
     problem.slots = rangeFeasibleCandidates(problem);
     for (const [at, slot] of problem.slots.entries()) reports[at].undominated = slot.length;
     if (keep !== null) {
-      const complementary = complementaryCandidates(problem);
+      options.onStage?.('guiding');
+      const guidance = complementaryCandidates(problem);
+      const complementary = guidance.candidates;
       problem.slots = problem.slots.map((slot) => {
         const groups = new Map<number, Candidate[]>();
         for (const candidate of slot) {
@@ -797,6 +803,7 @@ export function prepareRuneOptimization(
         return slot.filter((candidate) => independent.has(candidate) || complementary.has(candidate))
           .sort((a, b) => Number(complementary.has(b)) - Number(complementary.has(a)) || b.proxy - a.proxy || a.runeId.localeCompare(b.runeId));
       });
+      problem.guides = guidance.builds.map((build) => build.map((candidate, slot) => problem.slots[slot].indexOf(candidate)));
     }
     for (const [at, slot] of problem.slots.entries()) reports[at].kept = slot.length;
   }

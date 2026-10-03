@@ -1,12 +1,9 @@
 /**
  * What crosses the thread boundary for a Rune Optimization calculation.
  *
- * The request is the raw input — one monster, the account's runes and craft items,
- * the requirements and the settings — rather than a prepared problem. Every worker
- * prepares the same problem from it, deterministically, and searches its own share:
- * preparing is milliseconds against a search of seconds, and sending the input
- * keeps one module, `rune-optimization-problem.ts`, the only place a candidate is
- * made.
+ * One worker prepares the raw input once. The client then hands the prepared
+ * problem to each search part: craft variants, exact reductions and guidance
+ * need neither eight copies of their temporary pool nor eight executions.
  */
 import type { EndStateLine } from '../rune-craft-end-state';
 import type { RuneOptimizationInput, RuneOptimizationProblem } from '../rune-optimization-problem';
@@ -14,7 +11,7 @@ import type { FoundBuild, SearchOutcome } from '../rune-optimization-search';
 import type { CalculationBackend } from './calculation-summary';
 
 export type RuneOptimizationRequest = {
-  input: RuneOptimizationInput;
+  problem: RuneOptimizationProblem;
   /** Which share of the first open slot this worker searches, of `parts`. */
   part: number;
   parts: number;
@@ -49,14 +46,20 @@ export type RuneOptimizationAnswer = Omit<SearchOutcome, 'builds'> & {
 /* `bar` is the highest bar any other part of the same search has reached, relayed by
    the client, so every part prunes against the best table found anywhere (§6.5). */
 export type RuneOptimizationWorkerRequest =
+  | { type: 'prepare'; input: RuneOptimizationInput }
+  | { type: 'stop' }
   | { type: 'calculate'; requestId: number; request: RuneOptimizationRequest }
   | { type: 'bar'; value: number };
 
 export type RuneOptimizationWorkerResponse =
+  | { type: 'phase'; phase: RuneOptimizationPhase }
+  | { type: 'prepared'; problem: RuneOptimizationProblem }
   | { type: 'progress'; requestId: number; fraction: number }
   | { type: 'bar'; requestId: number; value: number }
   | { type: 'result'; requestId: number; answer: RuneOptimizationAnswer }
   | { type: 'error'; requestId: number; message: string };
+
+export type RuneOptimizationPhase = 'candidates' | 'reducing' | 'guiding' | 'searching' | 'retrying';
 
 /** As Rune Clean-up's: a replaced or cancelled calculation is neither a result nor a failure. */
 export type RuneOptimizationOutcome =

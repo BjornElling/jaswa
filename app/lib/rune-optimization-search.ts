@@ -34,6 +34,7 @@ import {
 } from './monster-stats';
 import { canStillFinishSets, canStillSatisfy, noBrokenSets, overCeiling, satisfiesBuild } from './rune-optimization-problem';
 import type { RuneOptimizationProblem } from './rune-optimization-problem';
+import { availableStatSets } from './rune-optimization-shortlist';
 
 /** One build the search found: a candidate index per slot (index 0 is slot 1), and its figures. */
 export type FoundBuild = {
@@ -46,6 +47,7 @@ export type SearchOutcome = {
   builds: FoundBuild[];
   /** `false` where the time limit stopped the search before it had looked everywhere. */
   complete: boolean;
+  stoppedBy?: 'time-limit' | 'user';
   /** Combinations evaluated in full, on whichever engine evaluated them. */
   combinations: number;
   /** Partial combinations and blocks whose bound was checked. */
@@ -75,6 +77,8 @@ export function mergeBuildResults<Build extends FoundBuild>(
   return {
     builds: outcomes.flatMap((outcome) => outcome.builds).sort(compareFoundBuilds(rank)).slice(0, count),
     complete: outcomes.every((outcome) => outcome.complete),
+    stoppedBy: outcomes.some((outcome) => outcome.stoppedBy === 'user') ? 'user'
+      : outcomes.some((outcome) => !outcome.complete) ? 'time-limit' : undefined,
     combinations: outcomes.reduce((total, outcome) => total + outcome.combinations, 0),
     nodes: outcomes.reduce((total, outcome) => total + outcome.nodes, 0),
   };
@@ -137,6 +141,7 @@ export type SearchHooks = {
   /** The highest bar any other part has reported, read whenever the search pauses. */
   sharedBar?: () => number;
   now?: () => number;
+  shouldStop?: () => boolean;
 };
 
 type Mode = 'processor' | 'card';
@@ -248,9 +253,7 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
    * Where every slot is spoken for by a build, only the builds' own sets can be
    * completed at all.
    */
-  const reachableSets = builds === null || builds.some((build) => build.free > 0)
-    ? statSetBonuses
-    : statSetBonuses.filter(([setId]) => builds.some((build) => build.needs.some((need) => need.setId === setId)));
+  const reachableSets = availableStatSets(builds);
   const planSets = reachableSets.filter(([, , slot]) => relevantSlot[slot] === 1);
 
   /*
@@ -279,7 +282,7 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
       for (let at = from; at < planSets.length; at += 1) {
         const [, pieces, slot, value] = planSets[at];
         const need = pieces - left[at];
-        for (const useCredit of creditLeft && need > 1 ? [false, true] : [false]) {
+        for (const useCredit of creditLeft ? [false, true] : [false]) {
           const spent = useCredit ? need - 1 : need;
           if (spent > slotsFree) continue;
           extended = true;
@@ -368,6 +371,69 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
   const [firstOrder, lastOrder] = tailOrder;
   const [firstEffects, lastEffects] = tailEffects;
 
+  const setsByDepth = order.map((_, depth) => {
+    const rows = new Map<number, Float64Array>();
+    for (let at = 0; at < counts[depth]; at += 1) {
+      const set = groupOf(sets[depth][at]);
+      const row = rows.get(set) ?? new Float64Array(effectSlotCount).fill(-Infinity);
+      for (let slot = 0; slot < effectSlotCount; slot += 1) row[slot] = Math.max(row[slot], effects[depth][at * effectSlotCount + slot]);
+      rows.set(set, row);
+    }
+    return [...rows];
+  });
+  const completionMemo = new Map<string, Plans>();
+  let completionMemoBytes = 0;
+  // With three slots left, actual set completions give a much tighter bound
+  // than independent rune maxima plus unrelated set bonuses. Cache by counts,
+  // not candidate identities: thousands of rune prefixes ask the same question.
+  function completionRows(depthNow: number): Plans {
+    const signature = order.slice(0, depthNow).map((_, d) => groupOf(sets[d][picks[d]])).sort((a, b) => a - b);
+    const key = signature.join(',');
+    const known = completionMemo.get(key);
+    if (known) return known;
+    const counted = new Int32Array(setIdBound);
+    for (const set of signature) counted[set] += 1;
+    const sum = new Float64Array(effectSlotCount);
+    let rows: Float64Array[] = [];
+    function walk(d: number) {
+      if (d === depthCount) {
+        const completes = intangibleCompletion(counted);
+        if (completes === -2 || !buildMet(counted, completes)) return;
+        const row = new Float64Array(sum);
+        addSetBonuses(counted, completes, row);
+        rows.push(row);
+        return;
+      }
+      for (const [set, best] of setsByDepth[d]) {
+        if (set === intangibleSetId && counted[intangibleSetId] > 0) continue;
+        counted[set] += 1;
+        if ((allowBroken || canStillFinishSets(counted, d + 1, setPieces))
+          && (builds === null || builds.some((build) => canStillSatisfy(build, counted, d + 1)))) {
+          for (let slot = 0; slot < effectSlotCount; slot += 1) sum[slot] += best[slot];
+          walk(d + 1);
+          for (let slot = 0; slot < effectSlotCount; slot += 1) sum[slot] -= best[slot];
+        }
+        counted[set] -= 1;
+      }
+    }
+    walk(depthNow);
+    rows = paretoRows(rows);
+    // Folding is an overestimate, so even a many-set question has bounded memory.
+    if (rows.length > suffixRowCap) rows = [looseRow(rows)];
+    const packed = new Float64Array(rows.length * effectSlotCount);
+    rows.forEach((row, at) => packed.set(row, at * effectSlotCount));
+    const found = { rows: packed, loose: looseRow(rows) };
+    const bytes = packed.byteLength + found.loose.byteLength + 256;
+    while (completionMemo.size > 0 && completionMemoBytes + bytes > 2 * 1024 * 1024) {
+      const oldest = completionMemo.keys().next().value!;
+      const entry = completionMemo.get(oldest)!;
+      completionMemoBytes -= entry.rows.byteLength + entry.loose.byteLength + 256;
+      completionMemo.delete(oldest);
+    }
+    completionMemo.set(key, found); completionMemoBytes += bytes;
+    return found;
+  }
+
   /*
    * **A block's set state, remembered per prefix.** Which blocks can be a stated
    * build, which set an Intangible completes and what the sets add depend on nothing
@@ -378,6 +444,10 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
    */
   const prefixGroups = order.slice(0, tailDepth).map((_, depth) => Int32Array.from(sets[depth], groupOf));
   const tailMemo = new Map<number, { blocks: Int32Array; bonuses: Float64Array }>();
+  // A cached set signature saves arithmetic; it must never grow with the search
+  // space. Eviction only repeats a calculation and cannot discard a build.
+  const tailMemoBudget = 2 * 1024 * 1024;
+  let tailMemoBytes = 0;
   const keyParts = new Int32Array(tailDepth);
   function tailBlocks(prefix: ArrayLike<number>) {
     for (let at = 0; at < tailDepth; at += 1) {
@@ -418,7 +488,14 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
       counted[firstSet] -= 1;
     }
     const found = { blocks: Int32Array.from(blocks), bonuses: Float64Array.from(bonuses) };
-    tailMemo.set(key, found);
+    const bytes = found.blocks.byteLength + found.bonuses.byteLength + 128;
+    while (tailMemo.size > 0 && tailMemoBytes + bytes > tailMemoBudget) {
+      const oldest = tailMemo.keys().next().value!;
+      const entry = tailMemo.get(oldest)!;
+      tailMemoBytes -= entry.blocks.byteLength + entry.bonuses.byteLength + 128;
+      tailMemo.delete(oldest);
+    }
+    if (bytes <= tailMemoBudget) { tailMemo.set(key, found); tailMemoBytes += bytes; }
     return found;
   }
 
@@ -441,11 +518,13 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
   const figures = new Float64Array(targetFigureCount);
 
   const table: FoundBuild[] = [];
+  const seeded = new Set<string>();
   const ordered = compareFoundBuilds(rank);
   let bar = -Infinity;
   let combinations = 0;
   let nodes = 0;
   let stopped = false;
+  let stoppedBy: SearchOutcome['stoppedBy'];
   let ticks = 0;
   const startedAt = now();
   let lastReport = startedAt;
@@ -497,7 +576,8 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
 
   function checkClock() {
     const time = now();
-    if (time - startedAt > problem.timeLimitMs) stopped = true;
+    if (hooks.shouldStop?.()) { stopped = true; stoppedBy = 'user'; }
+    else if (time - startedAt > problem.timeLimitMs) { stopped = true; stoppedBy = 'time-limit'; }
     return time;
   }
 
@@ -528,6 +608,17 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
   function promising(depthNow: number): boolean {
     nodes += 1;
     const from = depthNow * effectSlotCount;
+    if (!allowBroken && depthNow >= 3) {
+      const completions = completionRows(depthNow);
+      if (completions.rows.length === 0) return false;
+      for (let slot = 0; slot < effectSlotCount; slot += 1) planned[slot] = accumulated[from + slot] + completions.loose[slot];
+      if (!passes(planned)) return false;
+      for (let row = 0; row < completions.rows.length; row += effectSlotCount) {
+        for (let slot = 0; slot < effectSlotCount; slot += 1) planned[slot] = accumulated[from + slot] + completions.rows[row + slot];
+        if (passes(planned)) return true;
+      }
+      return false;
+    }
     for (let slot = 0; slot < effectSlotCount; slot += 1) bound[slot] = accumulated[from + slot];
     addSetBonuses(setCounts, -1, bound);
     let plans: Plans = noPlans;
@@ -536,7 +627,23 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
         const [setId, pieces] = planSets[at];
         residues[at] = setCounts[setId] % pieces;
       }
-      plans = plansFor(depthCount - depthNow, setCounts[intangibleSetId] > 0);
+      // Required neutral sets spend slots too. Giving those same slots to a
+      // stat-set plan made open two-set builds look far stronger than they are.
+      // Credit may be spent twice here, deliberately: an overestimate is safe.
+      let reserved = Infinity;
+      for (const build of builds ?? [null]) {
+        let missing = 0;
+        for (let set = 1; set < setPieces.length; set += 1) {
+          if (setPieces[set] === 0 || relevantStatSets.has(set)) continue;
+          const worn = setCounts[set];
+          const finish = !allowBroken ? (setPieces[set] - worn % setPieces[set]) % setPieces[set] : 0;
+          const required = build?.needs.find((need) => need.setId === set)?.pieces ?? 0;
+          missing += Math.max(finish, required - worn);
+        }
+        reserved = Math.min(reserved, missing);
+      }
+      reserved = Math.max(0, reserved - Math.min(1, setCounts[intangibleSetId]));
+      plans = plansFor(Math.max(0, depthCount - depthNow - reserved), setCounts[intangibleSetId] > 0);
     }
     const loose = suffixLoose[depthNow];
     for (let slot = 0; slot < effectSlotCount; slot += 1) planned[slot] = bound[slot] + loose[slot] + plans.loose[slot];
@@ -552,7 +659,7 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
     return false;
   }
 
-  function record(prefix: ArrayLike<number>, first: number, last: number) {
+  function record(prefix: ArrayLike<number>, first: number, last: number, seed = false) {
     let moved = moves[firstTail][first] + moves[lastTail][last];
     const bySlot = new Array<number>(depthCount);
     for (let at = 0; at < tailDepth; at += 1) {
@@ -561,6 +668,11 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
     }
     bySlot[order[firstTail]] = first;
     bySlot[order[lastTail]] = last;
+    if (seeded.size > 0 || seed) {
+      const key = bySlot.join(',');
+      if (seeded.has(key)) return;
+      if (seed) seeded.add(key);
+    }
     const found: FoundBuild = { picks: bySlot, figures: Array.from(figures), moves: moved };
     if (table.length >= capacity && ordered(found, table[table.length - 1]) >= 0) return;
     let at = table.length;
@@ -607,6 +719,9 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
       if (!passes(planned)) continue;
       if (firstSpent.length > 0) spend(stock, firstSpent, 1);
       for (let m = lastFrom; m < lastTo; m += 1) {
+        ticks += 1;
+        if ((ticks & clockEvery) === 0) checkClock();
+        if (stopped) break;
         const last = lastOrder[m];
         const lastSpent = spends[lastTail][last];
         if (lastSpent.length > 0 && !spendable(stock, lastSpent)) continue;
@@ -674,6 +789,9 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
     const { blocks, bonuses } = tailBlocks(picks);
     const accAt = firstTail * effectSlotCount;
     for (let at = 0; at < blocks.length; at += 2) {
+      ticks += 1;
+      if ((ticks & clockEvery) === 0) checkClock();
+      if (stopped) return;
       const firstGroup = firstGroups[blocks[at]];
       const lastGroup = lastGroups[blocks[at + 1]];
       const bonusAt = (at / 2) * effectSlotCount;
@@ -721,6 +839,7 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
         unplace(depth);
         finishCandidate(at, depth);
         if (stopped) return 'stopped';
+        if ((ticks & clockEvery) === 0 && sliceEnd !== Infinity && now() >= sliceEnd) return 'pass';
       }
       let entered = false;
       const count = counts[depth];
@@ -779,6 +898,48 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
     return pendingPrefix.subarray(block * tailDepth, (block + 1) * tailDepth);
   }
 
+  // Guides belong to one part only. Their exact figures give the tree a useful
+  // starting bar; remembering their identities prevents counting them twice
+  // when the exhaustive traversal reaches the same picks.
+  function seedGuide(guide: readonly number[]) {
+    if (splits && guide[order[splitDepth]] % parts !== part) return;
+    const guideCounts = heldCounts;
+    const guideStock = heldStockLeft;
+    guideCounts.fill(0);
+    guideStock.set(heldStock);
+    finished.set(problem.start);
+    let valid = true;
+    for (let d = 0; d < depthCount; d += 1) {
+      const at = guide[order[d]];
+      guideCounts[sets[d][at]] += 1;
+      if (!spendable(guideStock, spends[d][at])) { valid = false; break; }
+      spend(guideStock, spends[d][at], 1);
+      for (let slot = 0; slot < effectSlotCount; slot += 1) finished[slot] += effects[d][at * effectSlotCount + slot];
+    }
+    const completes = intangibleCompletion(guideCounts);
+    if (!valid || completes === -2 || !buildMet(guideCounts, completes)) return;
+    addSetBonuses(guideCounts, completes, finished);
+    if (!passes(finished)) return;
+    totalsInto(problem.base, finished, totals);
+    figuresInto(totals, figures);
+    if (capped && overCeiling(figures, ceilings)) return;
+    record(order.slice(0, tailDepth).map((slot) => guide[slot]), guide[order[firstTail]], guide[order[lastTail]], true);
+  }
+  if (!idle) for (const guide of problem.guides) {
+    seedGuide(guide);
+    // Feasible one-rune neighbours fill larger tables before the tree opens.
+    // Keeping the set makes this small warm-up useful even with broken sets off.
+    const neighbour = [...guide];
+    for (let slot = 0; slot < depthCount; slot += 1) {
+      const set = problem.slots[slot][guide[slot]].setId;
+      for (let at = 0; at < problem.slots[slot].length; at += 1) {
+        if (problem.slots[slot][at].setId !== set) continue;
+        neighbour[slot] = at;
+        seedGuide(neighbour);
+      }
+      neighbour[slot] = guide[slot];
+    }
+  }
   if (depth === 0 && !promising(0)) depth = -1;
 
   const cardCandidates = new Float64Array((counts[firstTail] + counts[lastTail]) * effectSlotCount);
@@ -863,7 +1024,7 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
     },
     countPairs(pairs: number) { combinations += pairs; },
     clearHeld() { pending = 0; pendingPairs = 0; },
-    outcome: (): SearchOutcome => ({ builds: table, complete: !stopped, combinations, nodes }),
+    outcome: (): SearchOutcome => ({ builds: table, complete: !stopped, stoppedBy, combinations, nodes }),
   };
 }
 

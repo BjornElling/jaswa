@@ -20,8 +20,8 @@ import { TableColumnGroup } from './data-table-page';
 import { useSortedRows } from './use-sorted-rows';
 import type { SortableColumn } from './use-sorted-rows';
 import { WorkspacePage } from './workspace-page';
-import { cancelRuneOptimization, optimizeRuneBuilds } from '../lib/compute/rune-optimization-client';
-import type { RuneOptimizationAnswer } from '../lib/compute/rune-optimization-protocol';
+import { cancelRuneOptimization, optimizeRuneBuilds, stopRuneOptimization } from '../lib/compute/rune-optimization-client';
+import type { RuneOptimizationAnswer, RuneOptimizationPhase } from '../lib/compute/rune-optimization-protocol';
 import { formatNumber } from '../lib/formatting';
 import type { GeneralSettings } from '../lib/types';
 import type { GameRecord } from '../lib/game-data';
@@ -78,6 +78,10 @@ const figureLabels: Readonly<Record<RankFigure, string>> = Object.fromEntries(
 ) as Record<RankFigure, string>;
 
 const isString = (value: unknown): value is string => typeof value === 'string';
+const searchPhaseWords: Record<RuneOptimizationPhase, string> = {
+  candidates: 'Reading rune end states…', reducing: 'Checking rune candidates…',
+  guiding: 'Finding promising builds…', searching: 'Searching…', retrying: 'Retrying with one worker…',
+};
 
 type MonsterOption = { unitId: string; masterId: string; name: string; record: GameRecord };
 
@@ -139,6 +143,8 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
   const [calculation, setCalculation] = useState<Calculation | undefined>();
   const [state, setState] = useState<'idle' | 'calculating' | 'error'>('idle');
   const [progress, setProgress] = useState(0);
+  const [phase, setPhase] = useState<RuneOptimizationPhase>('candidates');
+  const [error, setError] = useState('');
   /* The build last opened stays marked in the table after its overlay closes, so
      the reader comes back to the row they were reading rather than to the top. */
   const [chosenBuild, setChosenBuild] = useState<number | null>(null);
@@ -268,11 +274,13 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
       unitId, requirements, settings, spared, runes: runesById, items: itemsById, resultCount,
     };
     setState('calculating');
+    setPhase('candidates');
+    setError('');
     setProgress(0);
     setChosenBuild(null);
-    const outcome = await optimizeRuneBuilds(input, preferences.hardwareAcceleration, setProgress);
+    const outcome = await optimizeRuneBuilds(input, preferences.hardwareAcceleration, setProgress, setPhase);
     if (outcome.status === 'superseded') { setState('idle'); return; }
-    if (outcome.status === 'failed') { setState('error'); setCalculation(undefined); return; }
+    if (outcome.status === 'failed') { setError(outcome.message); setState('error'); return; }
     setCalculation((previous) => ({ inputKey, answer: outcome.answer, ...searched, id: (previous?.id ?? 0) + 1 }));
     setState('idle');
   }
@@ -341,7 +349,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
                 searches finish well inside it. */}
             <div id="rune-optimization-depth-estimate"><Provenance>{`${estimate === undefined
               ? runeOptimizationDepthReach[settings.depth]
-              : `Considers around ${roughCount(estimate, general)} builds`} · up to ${plan.seconds < 60
+              : `Considers around ${roughCount(estimate, general)} builds`} · search up to ${plan.seconds < 60
               ? `${plan.seconds} s` : `${plan.seconds / 60} min`}`}</Provenance></div>
             <p id="rune-optimization-work-warning" className="rune-optimization-work-warning type-caption"
               role="status" data-tone={workWarning.tone ?? undefined} aria-hidden={workWarning.tone === null ? true : undefined}>
@@ -363,7 +371,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
                 button rather than a second button of the same weight. It is
                 there in every state, and can only be pressed while a search runs. */}
             <Button tone="danger" size="prominent" className="rune-optimization-stop" disabled={state !== 'calculating'}
-              aria-label="Stop the search" title="Stop the search" onClick={() => cancelRuneOptimization()}>
+              aria-label="Stop the search" title="Stop the search and keep found builds" onClick={() => stopRuneOptimization()}>
               <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
                 <path d="M4.5 4.5l7 7M11.5 4.5l-7 7" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
               </svg>
@@ -379,8 +387,10 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
               where the eye already is when the search is running. */}
           <div className="rune-optimization-status">
             {state === 'calculating'
-              ? <p className="calculation-status rune-optimization-searching" role="status">Searching… {formatNumber(Math.round(progress * 100), general)} %</p>
-              : current
+              ? <p className="calculation-status rune-optimization-searching" role="status">{searchPhaseWords[phase]} {phase === 'searching' ? `${formatNumber(Math.round(progress * 100), general)} %` : ''}</p>
+              : state === 'error'
+                ? <p className="calculation-status" role="status">{error}</p>
+                : current
                 ? <CalculationStatus twoLines durationMs={current.answer.durationMs} backend={current.answer.backend} general={general}
                   detail={`${formatNumber(current.answer.combinations, general)} builds checked · ${formatNumber(current.answer.report.runes, general)} runes considered`} />
                 : <p className="calculation-status" role="status">{selected ? 'Not calculated yet.' : ''}</p>}
@@ -503,13 +513,14 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
         </div>
       </Overlay>}
 
-      {state === 'error' && <p className="notice warning" role="status">JASWA could not search rune builds for this monster.</p>}
       {calculation && calculation.unitId === unitId && !selected && state !== 'calculating' && <p className="notice warning" role="status">
         This monster is no longer in the account, so its builds have nowhere to go. Choose another monster.
       </p>}
       {current && !current.answer.complete && <p className="notice warning" role="status">
-        The search stopped at its time limit before it had looked everywhere, so these are the best builds it found.
-        Tighter requirements, or a quicker depth, let it finish.
+        {current.answer.stoppedBy === 'user'
+          ? 'The search was stopped. The builds it found are kept below.'
+          : 'The search reached its time limit. The builds it found are kept below.'}
+        {' '}The remaining combinations have not been ruled out.
       </p>}
 
       {current && builds && selected && tableNowFigures && <Results key={current.id} answer={current.answer} builds={builds} rankBy={current.requirements.rankBy}
@@ -609,9 +620,13 @@ function Results({ answer, builds, rankBy, currentBuild, currentFigures, general
           </td>)}
         </tr>
         {sorted.length === 0 && <tr><td className="table-empty-state" colSpan={columns.length}>
-          {slots.some((slot) => slot.kept === 0)
+          {!answer.complete
+            ? 'No build found before the search stopped. This does not rule out a build that meets your requirements. Try greater depth or narrower requirements.'
+            : slots.some((slot) => slot.kept === 0)
             ? `No build meets every requirement. No rune can fill slot ${slots.filter((slot) => slot.kept === 0).map((slot) => slot.slot).join(', ')} under these requirements. Widen the stat ranges, slot mains or builds.`
-            : 'No build meets every requirement. Lower a target, or allow more builds.'}
+            : answer.report.keep !== null
+              ? 'No build found in this guided shortlist. Try greater depth or widen the requirements.'
+              : 'No build meets every requirement. Lower a target, or allow more builds.'}
         </td></tr>}
         {/* The whole row opens the build; the number is the same way in for the
             keyboard, and the element focus returns to when the overlay closes. */}

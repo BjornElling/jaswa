@@ -15,7 +15,7 @@ type Prefix = {
   picks: Candidate[];
   effects: Float64Array;
   counts: Int32Array;
-  spent: Int32Array;
+  spent: number[];
   score: number;
 };
 
@@ -24,7 +24,7 @@ function bestPrefixes(prefixes: Prefix[], relevant: readonly number[], limit: nu
   const signatures = new Map<string, number>();
   const kept: Prefix[] = [];
   for (const prefix of prefixes) {
-    const signature = `${Array.from(prefix.counts)}|${relevant.map((stat) => prefix.effects[stat])}|${Array.from(prefix.spent)}`;
+    const signature = `${Array.from(prefix.counts)}|${relevant.map((stat) => prefix.effects[stat])}|${prefix.spent}`;
     const count = signatures.get(signature) ?? 0;
     if (count >= 2) continue;
     signatures.set(signature, count + 1);
@@ -40,9 +40,10 @@ function bestPrefixes(prefixes: Prefix[], relevant: readonly number[], limit: nu
  * complement, so its picks supplement rather than replace the independent cut.
  * Several prices for unmet ranges keep damage and feasibility in contention.
  */
-export function complementaryCandidates(problem: RuneOptimizationProblem): Set<Candidate> {
+export function complementaryCandidates(problem: RuneOptimizationProblem): { candidates: Set<Candidate>; builds: Candidate[][] } {
   const selected = new Set<Candidate>();
-  if (problem.slots.some((slot) => slot.length === 0)) return selected;
+  const guides: Candidate[][] = [];
+  if (problem.slots.some((slot) => slot.length === 0)) return { candidates: selected, builds: guides };
   const order = problem.slots.map((_, slot) => slot)
     .sort((a, b) => problem.slots[a].length - problem.slots[b].length || a - b);
   const remaining = Array.from({ length: 7 }, () => new Float64Array(effectSlotCount));
@@ -81,7 +82,7 @@ export function complementaryCandidates(problem: RuneOptimizationProblem): Set<C
   // Fixed work across depths makes the guidance independent of the larger depth's cut.
   for (const price of [1, 4, 16, 64]) {
     let beam: Prefix[] = [{ picks: [], effects: new Float64Array(problem.start),
-      counts: new Int32Array(problem.setPieces.length), spent: new Int32Array(problem.stock.length), score: 0 }];
+      counts: new Int32Array(problem.setPieces.length), spent: [], score: 0 }];
     for (let depth = 0; depth < 6 && beam.length > 0; depth += 1) {
       let next: Prefix[] = [];
       for (const prefix of beam) for (const candidate of problem.slots[order[depth]]) {
@@ -90,11 +91,15 @@ export function complementaryCandidates(problem: RuneOptimizationProblem): Set<C
         counts[candidate.setId] += 1;
         if (problem.builds !== null && !problem.builds.some((build) => canStillSatisfy(build, counts, depth + 1))) continue;
         if (!problem.allowBroken && !canStillFinishSets(counts, depth + 1, problem.setPieces)) continue;
-        const spent = new Int32Array(prefix.spent);
+        // A prefix spends only a few stacks, even when the account owns thousands.
+        // Copying the whole inventory for every beam expansion was the dominant
+        // allocation cost on an open crafted search.
+        const spent = [...prefix.spent, ...candidate.stock].sort((a, b) => a - b);
         let available = true;
         for (const stack of candidate.stock) {
-          spent[stack] += 1;
-          if (spent[stack] > problem.stock[stack].amount) { available = false; break; }
+          let used = 0;
+          for (const entry of spent) if (entry === stack) used += 1;
+          if (used > problem.stock[stack].amount) { available = false; break; }
         }
         if (!available) continue;
         const effects = new Float64Array(prefix.effects);
@@ -189,10 +194,15 @@ export function complementaryCandidates(problem: RuneOptimizationProblem): Set<C
       }
       if (!improved) break;
     }
+    guides.push([...picks]);
   }
   // Preserve the same guide at every finite depth, so shallower discoveries survive.
-  for (const prefix of complete.slice(0, 12)) for (const candidate of prefix.picks) selected.add(candidate);
-  return selected;
+  for (const prefix of complete.slice(0, 12)) {
+    const picks = new Array<Candidate>(6);
+    prefix.picks.forEach((candidate, at) => { picks[order[at]] = candidate; selected.add(candidate); });
+    guides.push(picks);
+  }
+  return { candidates: selected, builds: guides };
 }
 
 /**
