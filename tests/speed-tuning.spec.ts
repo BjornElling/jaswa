@@ -537,7 +537,22 @@ test('a rule is a reminder about one monster, judged in the speed forms it is ch
 
   /* Removed, the column is empty again. */
   await nowhere.click();
-  await dialog.getByRole('button', { name: 'Remove rule' }).click();
+  /* Removing is asked once, and the safe answer is the one under the hand. */
+  const remove = ranged.getByRole('button', { name: 'Remove rule' });
+  await remove.click();
+  const removing = page.getByRole('dialog', { name: 'Remove this rule?' });
+  await expect(removing).toContainText('“Megan (2A) must stay between 105 and 110”');
+  await expect(removing.getByRole('button', { name: 'Keep the rule' })).toBeFocused();
+  await page.screenshot({ path: testInfo.outputPath('speed-rule-remove-confirm.png') });
+  await removing.getByRole('button', { name: 'Keep the rule' }).click();
+  await expect(removing).toHaveCount(0);
+  await expect(remove).toBeFocused();
+  await remove.click();
+  await page.keyboard.press('Escape');
+  await expect(removing).toHaveCount(0);
+  await expect(ranged).toBeVisible();
+  await remove.click();
+  await removing.getByRole('button', { name: 'Remove rule' }).click();
   await expect(page.getByText('No rules yet.', { exact: true })).toBeVisible();
   await expect(addRule).toBeFocused();
 });

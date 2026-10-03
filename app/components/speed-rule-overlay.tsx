@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Button } from './button';
 import { CheckboxRow } from './form-controls';
@@ -122,6 +122,8 @@ export function SpeedRuleOverlay({ id, initial, choices, names, monsters, totemS
   const [draft, setDraft] = useState(() => draftOf(initial));
   const [dirty, setDirty] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
+  const removeOpener = useRef<HTMLButtonElement>(null);
   const rule = ruleOf(id, draft);
   /* Read from the draft rather than from `rule`, which is a new object on every
      render: a verdict searches every display speed, and costs that only when
@@ -137,6 +139,11 @@ export function SpeedRuleOverlay({ id, initial, choices, names, monsters, totemS
   function change(update: Partial<Draft>) {
     setDraft((current) => ({ ...current, ...update }));
     setDirty(true);
+  }
+
+  function keepRule() {
+    setConfirmingRemove(false);
+    removeOpener.current?.focus();
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -171,7 +178,7 @@ export function SpeedRuleOverlay({ id, initial, choices, names, monsters, totemS
           <h2 id="speed-rule-overlay-title" className="speed-overlay-title" title={title}>{title}</h2>
         </div>
         {initial !== null && <div className="speed-overlay-tools">
-          <Button size="compact" tone="danger" onClick={onRemove}>Remove rule</Button>
+          <Button ref={removeOpener} size="compact" tone="danger" onClick={() => setConfirmingRemove(true)}>Remove rule</Button>
         </div>}
       </header>
 
@@ -262,6 +269,27 @@ export function SpeedRuleOverlay({ id, initial, choices, names, monsters, totemS
           {/* The safe answer takes focus, as in every confirmation in JASWA. */}
           <Button autoFocus onClick={() => setConfirming(false)}>Back to the rule</Button>
           <Button tone="primary" onClick={() => onSave(rule)}>Save anyway</Button>
+        </div>
+      </div>
+    </Overlay>}
+
+    {/* Removing a rule takes it with no way back, so it is asked once, as a
+        team's removal is. The saved rule is named, not the draft: that is the
+        one that goes. */}
+    {confirmingRemove && initial && <Overlay labelledBy="speed-rule-remove-title" describedBy="speed-rule-remove-text"
+      className="speed-confirm" onClose={keepRule}>
+      <div className="overlay-body">
+        <div>
+          <p className="eyebrow">Remove rule</p>
+          <h2 id="speed-rule-remove-title">Remove this rule?</h2>
+        </div>
+        <p id="speed-rule-remove-text">
+          “{speedRuleSentence(initial, nameOf, figureText)}” is checked nowhere once it is gone, and there is no undo.
+        </p>
+        <div className="dialog-actions">
+          {/* The safe answer takes focus, as in every confirmation in JASWA. */}
+          <Button autoFocus onClick={keepRule}>Keep the rule</Button>
+          <Button tone="danger" onClick={onRemove}>Remove rule</Button>
         </div>
       </div>
     </Overlay>}
