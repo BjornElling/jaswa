@@ -46,8 +46,10 @@ that stage is visible on screen.
 ## 2. Requirements: the profile, then this calculation
 
 The monster's profile states the answer's shape: the builds it will accept, the
-mains of slots 2, 4 and 6, whether an Intangible may be spent, the targets it must
-reach, and the figure to rank by. The page opens on exactly that, read *resolved*
+mains of slots 2, 4 and 6, whether an Intangible rune and an Immemorial Gem or
+Grindstone may be spent (both yes unless the owner said no), whether the monster
+always crits (no unless the owner said yes), the targets it must reach, and the
+figure to rank by. The page opens on exactly that, read *resolved*
 (`monster-preference-resolution.ts`), so a slot the owner never answered carries
 the community's answer — and says so under the field.
 
@@ -65,6 +67,17 @@ do" would answer a question the screen never asked.
 A target is a minimum on one of the eleven figures. Absent means "not aimed at";
 `0` is a stated floor of nothing (`AGENTS.md` §3). A build below any floor is not
 listed at all.
+
+### 2.2.1 Always crits
+
+A monster whose owner says it always crits — a skill, a leader or a team that
+guarantees one — is counted at a certain crit. `monster-stats.ts` states the rule
+once, as `alwaysCritsLift`: a hundred points on the CRI Rate of the base the search
+reads. DMG reads CRI Rate capped at 100 %, so every hit is a crit and nothing a rune
+adds to CRI Rate moves a figure; the reductions stop comparing CRI Rate for DMG,
+and a CRI Rate floor is never asked. Because the lift is on the base, the card's
+shader needs no rule of its own. Every CRI Rate *shown* is the monster's own, with
+the green *Always crits* mark after it.
 
 ### 2.3 The figure to rank by
 
@@ -88,6 +101,10 @@ Grindstones the settings allow. A rune enters its own slot's list when:
 - its main is one the slot accepts;
 - it is not Intangible, unless Intangible runes are allowed.
 
+A held Immemorial Gem or Grindstone is spent only where Immemorial items are allowed.
+An assumed (*Theoretical*) item is always the rune's own lineage, so the switch does
+not touch it.
+
 **Unfinished runes.** A main property grows deterministically with power-up level,
 so *Count unfinished runes at their +15 main stat* is a fact about what the rune
 will carry, not a projection of luck. Sub properties are counted as they stand.
@@ -95,7 +112,7 @@ will carry, not a projection of luck. Sub properties are counted as they stand.
 **Gems and Grindstones** have their own settings, deliberately not Rune Clean-up's:
 *None*, *Owned only* (the account's own stacks, each spendable as often as it is
 deep) or *Theoretical* (an assumed item of a named grade), and for both the roll
-assumed — worst, average, three quarters, best. `craftVariants` in
+assumed — worst, average, two thirds (the default), three quarters, best. `craftVariants` in
 `rune-craft-end-state.ts` produces every legal end state: every wanted line ground,
 and from `+12` one Gem into every legal wanted stat. A Gem or stone on a stat
 nothing in the calculation reads is not offered — it spends an item to change no
@@ -356,11 +373,29 @@ table pick for pick. It needs a running dev server and a card, and is not part o
    (`rune-optimization-refresh.ts`): a Gem or stone applied since the search counts
    as done at what it rolled and leaves the modifications, one not yet applied is
    still counted as planned, Moves follow where each rune now sits, and the figures
-   are summed again with the search's own arithmetic (`buildFigures`). A build whose
-   rune has left the account keeps its row with no figures. The status line says the
-   runes changed, because a better build the change made possible is only found by
-   searching again. Changing the requirements, the search settings or a rune's hold
-   still marks the table as stale.
+   are summed again with the search's own arithmetic (`buildFigures`).
+
+   A change that stands in a build's way keeps the row and names the rune, slot by
+   slot, in the overlay and as a yellow mark on the row, which is dimmed:
+   - the rune was **sold or fed** — the row keeps no figures;
+   - it is **locked where it is**, and that is not this monster (or the inventory);
+   - **another rune is locked into its slot** on this monster;
+   - it now sits on **another monster** while *Take runes from other monsters* is off;
+   - the Gems and Grindstones **still to come need more of a held item** than the
+     account has left, counted over the whole build.
+
+   Some changes alter the work rather than block it. A rune that took a Gem on
+   another line cannot take the planned one (a rune holds one converted line), so
+   that Gem is dropped. A rune newly locked to this monster is used as worn, as the
+   search uses a locked rune, so the work still planned on it is dropped. Where the
+   new figures fall below a target, the overlay's *Targets* and the row's mark say
+   which.
+
+   The status line says the runes or the locks changed, because a better build the
+   change made possible is only found by searching again. Listing fewer builds cuts
+   the same table shorter. Changing the requirements or the other search settings —
+   or listing more builds than were searched — marks the table as stale; a monster
+   that left the account says so.
 
 Nothing a choice changes moves anything else (`AGENTS.md` §2): captions are
 reserved lines, the craft selects disable rather than disappear, the status line

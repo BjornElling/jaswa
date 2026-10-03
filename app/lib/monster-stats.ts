@@ -277,6 +277,29 @@ export function monsterSpeedParts(monster: RecordLike): { baseSpeed: number; swi
 }
 
 /**
+ * **Always crits.** The CRI Rate a monster whose owner says it always crits is
+ * counted with on top of its own — a skill that cannot miss a crit, a leader or a
+ * team that guarantees one. DMG reads CRI Rate capped at 100 %, so from here every
+ * hit is a crit and nothing a rune adds to CRI Rate moves a figure.
+ *
+ * It is a lift on the stat rather than a second DMG formula because Rune
+ * Optimization's search, and the shader beside it, read CRI Rate from the monster's
+ * base: lifting the base there is the whole of the rule, with no second
+ * implementation to drift. A CRI Rate *shown* is always the monster's own —
+ * `unliftedFigures` takes the lift back off — and a CRI Rate *target* is met by
+ * definition, so it is never asked.
+ */
+export const alwaysCritsLift = 100;
+
+export const criticalRateLift = (alwaysCrits: boolean): number => (alwaysCrits ? alwaysCritsLift : 0);
+
+/** Figures summed over a lifted base, with the CRI Rate put back to the monster's own. */
+export function unliftedFigures<Figures extends { [index: number]: number }>(figures: Figures, lift: number): Figures {
+  figures[4] -= lift;
+  return figures;
+}
+
+/**
  * The eleven figures a copy can be measured against: its eight stats under the
  * names a target is stated in, plus the three composites derived from them.
  *
@@ -287,16 +310,18 @@ export function monsterSpeedParts(monster: RecordLike): { baseSpeed: number; swi
  * (`AGENTS.md` §6). The truncation is `RUNE-PRESET-METRICS.md`'s display rule,
  * so a figure compared here is the figure the user was shown.
  */
-export function monsterTargetFigures(totals: MonsterTotals): {
+export function monsterTargetFigures(totals: MonsterTotals, alwaysCrits = false): {
   hp: number; atk: number; def: number; spd: number;
   criRate: number; criDmg: number; res: number; acc: number;
   dmg: number; ehp: number; ehpD: number;
 } {
+  const lift = criticalRateLift(alwaysCrits);
   const figures = new Float64Array(targetFigureCount);
   figuresInto([
     totals.hp, totals.atk, totals.def, totals.spd,
-    totals.criticalRate, totals.criticalDamage, totals.resistance, totals.accuracy,
+    totals.criticalRate + lift, totals.criticalDamage, totals.resistance, totals.accuracy,
   ], figures);
+  unliftedFigures(figures, lift);
   return {
     hp: figures[0], atk: figures[1], def: figures[2], spd: figures[3],
     criRate: figures[4], criDmg: figures[5], res: figures[6], acc: figures[7],

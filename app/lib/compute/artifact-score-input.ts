@@ -310,7 +310,7 @@ export function buildArtifactScoreRequestsForMonsterIds(
   const conversionMode: 0 | 1 | 2 = settings.conversionStoneMode === 'none' ? 0
     : settings.conversionStoneMode === 'theoretical' ? 1 : 2;
   const conversionRollFractions = scoredArtifactProperties.map((property) =>
-    artifactConversionRollFraction(property, settings.conversionStoneValue) ?? 0);
+    artifactConversionRollFraction(property, settings.conversionRoll) ?? 0);
   const insignificantDifference = settings.ignoreInsignificantDifferences
     ? settings.insignificantDifference
     : 0;

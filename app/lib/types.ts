@@ -10,7 +10,7 @@ export type ImportedGame = { fileName: string; importedAt: string; data: Record<
 /** The five item grades from `docs/RUNE-CANONICAL.md`, shared by gems and grindstones. */
 export type ItemGrade = 'Normal' | 'Magic' | 'Rare' | 'Hero' | 'Legend';
 export type ArtifactConversionStoneMode = 'none' | 'owned' | 'theoretical';
-export type RunePotentialSettings = { powerUpPolicy: number; runeQuality: number; enchantedGems: number; grindstones: number; gemGrade: ItemGrade; grindstoneGrade: ItemGrade; acceptedRunes: number; brokenRunes: number; intangibleRunes: number; keepMoreForLargerSets: boolean };
+export type RunePotentialSettings = { powerUpPolicy: number; runeQuality: number; gemRollStep: number; grindstoneRollStep: number; gemGrade: ItemGrade; grindstoneGrade: ItemGrade; acceptedRunes: number; brokenRunes: number; intangibleRunes: number; keepMoreForLargerSets: boolean };
 /**
  * How the companion program is allowed to feed JASWA once it is connected.
  *
@@ -81,7 +81,7 @@ export type ArtifactSettings = {
   /** Limit every artifact recommendation destination to an owned Lv. 40 monster. */
   onlyLevel40Monsters: boolean;
   conversionStoneMode: ArtifactConversionStoneMode;
-  conversionStoneValue: number;
+  conversionRoll: number;
   /**
    * Whether a gain must clear `insignificantDifference` before it counts as an
    * improvement worth recommending (`ARTIFACT-CANONICAL.md` §17.3).

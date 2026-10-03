@@ -1,6 +1,6 @@
 import { isBoolean, isOneOf } from './preference-reading';
 import type { FieldChecks } from './preference-reading';
-import { craftRollAssumptions, itemGrades } from './rune-craft-items';
+import { craftRollAssumptions, defaultCraftRollAssumption, itemGrades } from './rune-craft-items';
 import type { CraftRollAssumption } from './rune-craft-items';
 import type { ItemGrade } from './types';
 
@@ -71,11 +71,15 @@ export type RuneOptimizationSettings = {
   gems: CraftUse;
   /** The grade a theoretical Gem is assumed to be. Held while Gems are off, as `manualTimeZone` is. */
   gemGrade: ItemGrade;
-  /** Where in its range any Gem — held or theoretical — is assumed to land. */
-  gemRoll: CraftRollAssumption;
+  /**
+   * Where in its range any Gem — held or theoretical — is assumed to land. Named for
+   * the five-choice vocabulary with two thirds as its default; a value stored under an
+   * earlier name is not read, so every saved choice starts again from two thirds.
+   */
+  gemRollAssumption: CraftRollAssumption;
   grinds: CraftUse;
   grindGrade: ItemGrade;
-  grindRoll: CraftRollAssumption;
+  grindRollAssumption: CraftRollAssumption;
   /**
    * Whether a rune another monster wears may be moved onto this one. A locked rune
    * never may, whatever this says: the lock is the user's own word (`rune-holds.ts`).
@@ -101,10 +105,10 @@ export type RuneOptimizationSettings = {
 export const defaultRuneOptimizationSettings: RuneOptimizationSettings = {
   gems: 'none',
   gemGrade: 'Hero',
-  gemRoll: 'average',
+  gemRollAssumption: defaultCraftRollAssumption,
   grinds: 'none',
   grindGrade: 'Hero',
-  grindRoll: 'average',
+  grindRollAssumption: defaultCraftRollAssumption,
   runesOnOtherMonsters: true,
   unfinishedAtMaximum: true,
   depth: 'balanced',
@@ -114,10 +118,10 @@ export const defaultRuneOptimizationSettings: RuneOptimizationSettings = {
 export const runeOptimizationSettingChecks: FieldChecks<RuneOptimizationSettings> = {
   gems: isOneOf(craftUses),
   gemGrade: isOneOf<ItemGrade>(itemGrades),
-  gemRoll: isOneOf(craftRollAssumptions),
+  gemRollAssumption: isOneOf(craftRollAssumptions),
   grinds: isOneOf(craftUses),
   grindGrade: isOneOf<ItemGrade>(itemGrades),
-  grindRoll: isOneOf(craftRollAssumptions),
+  grindRollAssumption: isOneOf(craftRollAssumptions),
   runesOnOtherMonsters: isBoolean,
   unfinishedAtMaximum: isBoolean,
   depth: isOneOf(runeOptimizationDepths),

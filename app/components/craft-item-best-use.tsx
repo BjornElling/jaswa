@@ -17,7 +17,7 @@ import { monsterCopyNames } from '../lib/monster-names';
 import type { MonsterPreferences } from '../lib/monster-preferences';
 import {
   craftKindLabels, craftLineageLabels, craftLineageNotes, craftRollDescriptions,
-  craftRollLabels, craftRollAssumptions, craftSetLabel, craftSetName, itemGrades,
+  craftRollLabels, craftRollAssumptions, craftSetLabel, defaultCraftRollAssumption, craftSetName, itemGrades,
 } from '../lib/rune-craft-items';
 import type { CraftItem, CraftKind, CraftLineage, CraftRollAssumption } from '../lib/rune-craft-items';
 import { craftItemRange } from '../lib/rune-craft-end-state';
@@ -73,9 +73,9 @@ const defaultState: BestUseState = {
   statId: '',
   selectedItemId: '',
   presetId: '',
-  /* The midpoint, because it is the honest answer to "how lucky will I get".
-     Best would rank the box by how well it could conceivably go. */
-  roll: 'average',
+  /* The program's one default for a craft roll. Best would rank the box by how
+     well it could conceivably go. */
+  roll: defaultCraftRollAssumption,
   grindAfter: false,
   grindGrade: 'Legend',
   showEquipped: true,

@@ -255,6 +255,11 @@ parts an agent must not quietly break:
   rather than one invented here. Do not add a fourth without the same
   justification:
   - The verdict colours (`--state-*`), for a machine reporting its own state.
+    They are also the three tones of **the marks after a figure**
+    (`app/components/figure-marks.tsx`): red for something wrong, yellow for
+    something left to do, green for a fact in the figure's favour. Every mark that
+    applies is shown, side by side on the figure's own line, red first, then
+    yellow, then green; none hides another, and none is uncoloured.
   - **An artifact's score, in three bands** (`docs/ARTIFACT-CANONICAL.md`
     §18) — the one place a fact wears the accent, because at the top band the
     number *is* the invitation to act. `artifactValueBands` is the single set

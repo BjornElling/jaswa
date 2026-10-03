@@ -24,9 +24,9 @@ import type { GameRecord } from './game-data';
 import type { RuneSlotKey } from './monster-defaults';
 import type { MonsterStatTargets } from './monster-preferences';
 import {
-  addEquipmentEffects, addSetBonuses, baseStatCount, effectSlot, effectSlotCount, effectSlotOf,
+  addEquipmentEffects, addSetBonuses, baseStatCount, criticalRateLift, effectSlot, effectSlotCount, effectSlotOf,
   figuresInto, intangibleCompletion, intangibleSetId, monsterBaseStats, setIdBound,
-  statSetBonuses, targetFigureCount, targetFigureKeys, totalsInto,
+  statSetBonuses, targetFigureCount, targetFigureKeys, totalsInto, unliftedFigures,
 } from './monster-stats';
 import type { MonsterArchetype } from './monster-catalog';
 import { assumedCraftHalf, craftVariants, heldCraftHalf } from './rune-craft-end-state';
@@ -59,6 +59,10 @@ export type RuneOptimizationRequirements = {
   builds: readonly string[];
   slotMains: Readonly<Record<RuneSlotKey, readonly RuneSlotMain[]>>;
   allowIntangible: boolean;
+  /** Whether a held Immemorial Gem or Grindstone may be spent. An assumed item is never one. */
+  allowImmemorial: boolean;
+  /** Every figure counted at a certain crit, and no CRI Rate floor asked (`alwaysCritsLift`). */
+  alwaysCrits: boolean;
   /** Floors the build must reach. Absent is "not aimed at"; `0` is a floor of nothing. */
   targets: Partial<Record<RankFigure, number>>;
   rankBy: RankFigure;
@@ -121,7 +125,10 @@ export type SlotReport = {
 };
 
 export type RuneOptimizationProblem = {
+  /** The copy's base stats, CRI Rate lifted by `criticalRateLift` where it always crits. */
   base: Float64Array;
+  /** What `base` lifted CRI Rate by, for the figures shown to take back off. */
+  criticalRateLift: number;
   /** The accumulators before any rune: the artifacts' main properties. */
   start: Float64Array;
   /** Index 0 is slot 1. Best first by `proxy`. */
@@ -167,6 +174,25 @@ const figureSlots: Readonly<Record<RankFigure, readonly number[]>> = {
 };
 
 export const figureIndex = (figure: RankFigure): number => targetFigureKeys.indexOf(figure);
+
+/* What a figure reads once a monster always crits: DMG no longer moves with CRI
+   Rate, so a reduction that still compared it would keep runes for nothing. */
+const slotsOf = (figure: RankFigure, alwaysCrits: boolean): readonly number[] => (alwaysCrits && figure === 'dmg'
+  ? figureSlots.dmg.filter((slot) => slot !== effectSlot.criticalRate)
+  : figureSlots[figure]);
+
+/**
+ * The floors a calculation asks for, with `NaN` where none is set. A monster that
+ * always crits is never asked for CRI Rate: every hit it lands is already a crit.
+ */
+export function targetFloors(requirements: Pick<RuneOptimizationRequirements, 'targets' | 'alwaysCrits'>): Float64Array {
+  const targets = new Float64Array(targetFigureCount).fill(Number.NaN);
+  for (const [key, value] of Object.entries(requirements.targets)) {
+    if (requirements.alwaysCrits && key === 'criRate') continue;
+    if (typeof value === 'number' && Number.isFinite(value)) targets[figureIndex(key as RankFigure)] = value;
+  }
+  return targets;
+}
 
 /**
  * The figure to rank by when the profile names none (§2.3).
@@ -234,13 +260,21 @@ function runeEffects(rune: Rune, mainValue: number, lines: readonly EndStateLine
 /** One rune of a build in the end state a figure is counted in. */
 export type BuildPiece = { rune: Rune; mainValue: number; lines: readonly EndStateLine[] };
 
+/** The copy's base stats as the search reads them: CRI Rate lifted where it always crits. */
+export function searchBase(monster: GameRecord, alwaysCrits: boolean): Float64Array {
+  const base = monsterBaseStats(monster);
+  base[4] += criticalRateLift(alwaysCrits);
+  return base;
+}
+
 /**
  * The eleven figures of six runes on a copy, summed exactly as the search sums a
  * finished build — the artifacts, each rune's effects, the completed sets with the
- * Intangible's completion — so a build counted again after the account changed
- * reads the figure the search would have given it.
+ * Intangible's completion, a certain crit where the copy always crits — so a build
+ * counted again after the account changed reads the figure the search would have
+ * given it.
  */
-export function buildFigures(monster: GameRecord, pieces: readonly BuildPiece[]): number[] {
+export function buildFigures(monster: GameRecord, pieces: readonly BuildPiece[], alwaysCrits: boolean): number[] {
   const effects = new Float64Array(effectSlotCount);
   addEquipmentEffects(monster, effects);
   const counts = new Int32Array(setIdBound);
@@ -250,7 +284,8 @@ export function buildFigures(monster: GameRecord, pieces: readonly BuildPiece[])
     if (piece.rune.setId > 0 && piece.rune.setId < setIdBound) counts[piece.rune.setId] += 1;
   }
   addSetBonuses(counts, intangibleCompletion(counts), effects);
-  return Array.from(figuresOf(monsterBaseStats(monster), effects, new Float64Array(targetFigureCount)));
+  const figures = figuresOf(searchBase(monster, alwaysCrits), effects, new Float64Array(targetFigureCount));
+  return Array.from(unliftedFigures(figures, criticalRateLift(alwaysCrits)));
 }
 
 /* The lines a Grindstone would newly touch: a stone bigger than the one the rune
@@ -378,7 +413,7 @@ type SupplyPlan = {
   use: CraftUse;
   kind: 'gem' | 'grindstone';
   grade: RuneOptimizationSettings['gemGrade'];
-  roll: RuneOptimizationSettings['gemRoll'];
+  roll: RuneOptimizationSettings['gemRollAssumption'];
 };
 
 /**
@@ -392,21 +427,19 @@ export function prepareRuneOptimization(
 ): RuneOptimizationProblem {
   const reduce = options.reduce ?? true;
   const { requirements, settings, unitId, monster } = input;
-  const base = monsterBaseStats(monster);
+  const base = searchBase(monster, requirements.alwaysCrits);
   const start = new Float64Array(effectSlotCount);
   addEquipmentEffects(monster, start);
 
   const rank = figureIndex(requirements.rankBy);
-  const targets = new Float64Array(targetFigureCount).fill(Number.NaN);
-  for (const [key, value] of Object.entries(requirements.targets)) {
-    if (typeof value === 'number' && Number.isFinite(value)) targets[figureIndex(key as RankFigure)] = value;
-  }
+  const targets = targetFloors(requirements);
   const targetFigures = targetFigureKeys.filter((key) => Number.isFinite(targets[figureIndex(key)]));
 
   /* Only what the ranking figure and the targets read matters to any reduction. A
      rune's Accuracy is noise to a DMG build with no Accuracy floor, and a reduction
      that compared it would keep a hundred runes for their Accuracy alone. */
-  const relevant = [...new Set([requirements.rankBy, ...targetFigures].flatMap((figure) => figureSlots[figure]))];
+  const relevant = [...new Set([requirements.rankBy, ...targetFigures]
+    .flatMap((figure) => slotsOf(figure, requirements.alwaysCrits)))];
   const relevantSlots = new Uint8Array(effectSlotCount);
   for (const slot of relevant) relevantSlots[slot] = 1;
   const wanted = (statId: number) => {
@@ -439,7 +472,8 @@ export function prepareRuneOptimization(
   /* Held stacks are numbered once, so every candidate names its spend by index and
      the search counts it in a flat array. */
   const stock = input.craftItems.map((item) => ({ itemId: item.id, amount: item.amount }));
-  const heldItems = input.craftItems.map((item, index) => ({ item, stock: index }));
+  const heldItems = input.craftItems.map((item, index) => ({ item, stock: index }))
+    .filter(({ item }) => requirements.allowImmemorial || item.lineage !== 'immemorial');
   const halves = new Map<string, CraftHalf | null>();
   function half(plan: SupplyPlan, rune: Rune): CraftHalf | null {
     if (plan.use === 'none') return null;
@@ -451,8 +485,8 @@ export function prepareRuneOptimization(
     halves.set(key, found);
     return found;
   }
-  const gemPlan: SupplyPlan = { use: settings.gems, kind: 'gem', grade: settings.gemGrade, roll: settings.gemRoll };
-  const grindPlan: SupplyPlan = { use: settings.grinds, kind: 'grindstone', grade: settings.grindGrade, roll: settings.grindRoll };
+  const gemPlan: SupplyPlan = { use: settings.gems, kind: 'gem', grade: settings.gemGrade, roll: settings.gemRollAssumption };
+  const grindPlan: SupplyPlan = { use: settings.grinds, kind: 'grindstone', grade: settings.grindGrade, roll: settings.grindRollAssumption };
 
   const slotMainFor: Record<number, readonly RuneSlotMain[]> = {
     2: requirements.slotMains.slot2, 4: requirements.slotMains.slot4, 6: requirements.slotMains.slot6,
@@ -557,7 +591,7 @@ export function prepareRuneOptimization(
   }
 
   return {
-    base, start, slots, builds, allowIntangible: requirements.allowIntangible,
+    base, criticalRateLift: criticalRateLift(requirements.alwaysCrits), start, slots, builds, allowIntangible: requirements.allowIntangible,
     targets, rank, relevant, resultCount: settings.resultCount, stock,
     timeLimitMs: plan.seconds * 1000,
     report: { runes: runesSeen.size, slots: reports, keep },

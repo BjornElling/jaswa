@@ -136,8 +136,17 @@ export type MonsterCopyPreferences = {
    * separate switch saying a broken pair will do.
    */
   runeSets?: string[];
-  /** Whether an Intangible rune may stand in for the one rune a set is short. */
+  /** Whether an Intangible rune may stand in for the one rune a set is short. Absent is yes. */
   allowIntangibleRunes?: boolean;
+  /** Whether an Immemorial Gem or Grindstone, which fits a rune of any set, may be spent. Absent is yes. */
+  allowImmemorialItems?: boolean;
+  /**
+   * Whether every hit this copy lands is a crit, whatever its CRI Rate — a skill,
+   * a leader or a team that guarantees one. Every figure is then counted at a
+   * certain crit (`alwaysCritsLift`), and a CRI Rate target is met by definition.
+   * Absent is no.
+   */
+  alwaysCrits?: boolean;
   /**
    * The main stats wanted in slots 2, 4 and 6 — several may be, so each slot
    * holds a list. Slots 1, 3 and 5 carry a fixed main and cannot be stated.
@@ -218,6 +227,8 @@ export function statesSomething(preferences: MonsterCopyPreferences): boolean {
   if (preferences.label !== undefined && preferences.label.length > 0) return true;
   if (preferences.runeSets !== undefined) return true;
   if (preferences.allowIntangibleRunes !== undefined) return true;
+  if (preferences.allowImmemorialItems !== undefined) return true;
+  if (preferences.alwaysCrits !== undefined) return true;
   if (runeSlotKeys.some((key) => preferences.runeSlots?.[key] !== undefined)) return true;
   for (const category of ['attribute', 'type'] as const) {
     const artifact = preferences.artifacts?.[category];
@@ -358,6 +369,8 @@ const copyFieldChecks: Record<Exclude<keyof MonsterCopyPreferences, 'unitId'>, (
   label: (value) => typeof value === 'string' && value.trim() === value && value.length <= monsterLabelMaximum,
   runeSets: isRuneBuildList,
   allowIntangibleRunes: (value) => typeof value === 'boolean',
+  allowImmemorialItems: (value) => typeof value === 'boolean',
+  alwaysCrits: (value) => typeof value === 'boolean',
   runeSlots: isRuneSlots,
   artifacts: isArtifactPreferences,
   relics: isRelicPreference,

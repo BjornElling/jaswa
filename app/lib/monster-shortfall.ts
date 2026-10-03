@@ -243,10 +243,12 @@ function relicShortfalls(resolved: ResolvedMonsterPreferences, worn: readonly Re
 
 function statShortfalls(resolved: ResolvedMonsterPreferences, totals: MonsterTotals): Shortfall[] {
   const shortfalls: Shortfall[] = [];
-  const current = monsterTargetFigures(totals);
+  const current = monsterTargetFigures(totals, resolved.alwaysCrits);
   for (const [key, target] of Object.entries(resolved.statTargets)) {
     if (!target) continue;
     const statKey = key as keyof MonsterStatTargets;
+    /* A copy that always crits has every crit its CRI Rate could buy. */
+    if (statKey === 'criRate' && resolved.alwaysCrits) continue;
     const reached = current[statKey];
     /* A target of `0` is a stated target of nothing and is always met; an absent
        one never reaches this loop at all (`AGENTS.md` §3). */

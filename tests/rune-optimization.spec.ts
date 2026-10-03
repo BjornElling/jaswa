@@ -77,9 +77,13 @@ test('finds builds from the profile, keeps the profile untouched, and moves noth
   /* This copy has no profile, so the builds are open and the figures are its own. */
   await expect(requirements.getByText('The profile names no build, so any will do')).toBeVisible();
 
+  /* Intangible runes and Immemorial items are allowed until the owner says not. */
+  await expect(requirements.getByLabel('Allow Intangible runes')).toBeChecked();
+  await expect(requirements.getByLabel('Allow Immemorial Gems and Grindstones')).toBeChecked();
+
   /* A requirement changed here changes that field's caption and nothing else. */
   const panelBefore = await box(requirements);
-  await requirements.getByLabel('Allow Intangible runes').check();
+  await requirements.getByLabel('Allow Intangible runes').uncheck();
   await expect(requirements.getByText('Changed for this calculation')).toBeVisible();
   expect(await box(requirements)).toEqual(panelBefore);
 
@@ -129,10 +133,18 @@ test('finds builds from the profile, keeps the profile untouched, and moves noth
   const gradeSelect = settings.getByLabel('Gems: grade');
   await expect(gradeSelect).toBeDisabled();
   const settingsBefore = await box(settings);
+  const findBefore = await box(page.getByRole('button', { name: 'Find builds' }));
+  const rowsBefore = await table.getByRole('row').count();
+  await page.screenshot({ path: testInfo.outputPath('optimization-before-stale.png') });
   await settings.getByRole('radio', { name: 'Theoretical' }).first().check();
   await expect(gradeSelect).toBeEnabled();
   expect(await box(settings)).toEqual(settingsBefore);
-  await expect(page.getByText('Find builds again to refresh this table.', { exact: false })).toBeVisible();
+  /* The table stays; the warning beside Find builds says it answers the earlier
+     question, and appearing moves neither the button nor the table. */
+  await expect(page.getByText('You should rebuild.', { exact: false })).toBeVisible();
+  expect(await box(page.getByRole('button', { name: 'Find builds' }))).toEqual(findBefore);
+  await expect(table.getByRole('row')).toHaveCount(rowsBefore);
+  await page.screenshot({ path: testInfo.outputPath('optimization-stale.png') });
   await expect.poll(async () => ((await storedPreferences(page))?.runeOptimization as Record<string, unknown>)?.gems).toBe('theoretical');
   await page.reload();
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
@@ -182,7 +194,117 @@ test('an open build follows the runes as the player works on them', async ({ pag
   await expect(page.getByRole('status').filter({ hasText: 'builds checked' })).toContainText('your runes changed since');
   const rowAfter = await table.getByRole('row').filter({ has: page.getByRole('button', { name: 'Show build 2', exact: true }) }).innerText();
   expect(rowAfter).not.toEqual(rowBefore);
-  await expect(page.getByText('Find builds again to refresh this table.', { exact: false })).toHaveCount(0);
+  await expect(page.getByText('You should rebuild.', { exact: false })).toBeHidden();
+});
+
+test('an open build names the rune a lock or a sale has taken from it, and keeps its row', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await freshWorkspace(page);
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
+  await expect(page.getByText('rune-optimization-account.json').first()).toBeVisible();
+  await openOptimization(page);
+  await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  await page.getByRole('button', { name: 'Find builds' }).click();
+  const table = page.getByRole('table', { name: 'Rune builds' });
+  await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
+
+  /* The first build that takes a rune off the other monster. */
+  const rows = await table.getByRole('button', { name: /^Show build \d+$/ }).count();
+  let chosen = 0;
+  let card = page.locator('.rune-build-card').first();
+  for (let build = 1; build <= rows && chosen === 0; build += 1) {
+    await page.getByRole('button', { name: `Show build ${build}`, exact: true }).click();
+    const borrowed = page.getByRole('dialog', { name: `Build ${build}` }).getByRole('listitem')
+      .filter({ has: page.locator('.rune-build-card-where-value .monster-link') });
+    if (await borrowed.count() > 0) { chosen = build; card = borrowed.first(); break; }
+    await page.keyboard.press('Escape');
+  }
+  expect(chosen, 'no build borrows a rune from the other monster').toBeGreaterThan(0);
+  const detail = page.getByRole('dialog', { name: `Build ${chosen}` });
+  const slot = (await card.getAttribute('aria-label')) ?? '';
+  const row = table.getByRole('row').filter({ has: page.getByRole('button', { name: `Show build ${chosen}`, exact: true }) });
+  const rowBox = await box(row);
+  await page.screenshot({ path: testInfo.outputPath('optimization-before-lock.png') });
+
+  /* The player locks that rune to the monster it is on, from its own overlay. */
+  await card.getByRole('button', { name: new RegExp(`^${slot} `) }).click();
+  const runeDialog = page.getByRole('dialog').filter({ has: page.getByText('Lock to monster') });
+  await runeDialog.getByLabel('Lock to monster').check();
+  await page.keyboard.press('Escape');
+  await expect(runeDialog).toBeHidden();
+
+  /* The build stays open and says which rune is in its way; the table keeps the row
+     where it was, dimmed and marked, and the status line says the locks changed. */
+  await expect(detail).toBeVisible();
+  await expect(detail.getByRole('region', { name: `${slot} modifications` })).toContainText('The rune is locked to');
+  await expect(card).toContainText('Locked to');
+  await page.screenshot({ path: testInfo.outputPath('optimization-after-lock.png') });
+  await page.keyboard.press('Escape');
+  await expect(row.getByRole('img', { name: new RegExp(`${slot}: The rune is locked to`) })).toBeVisible();
+  await expect(row).toHaveAttribute('data-stale', 'true');
+  expect(await box(row)).toEqual(rowBox);
+  await expect(page.getByRole('status').filter({ hasText: 'builds checked' })).toContainText('your locks changed since');
+  await expect(page.getByText('You should rebuild.', { exact: false })).toBeHidden();
+
+  /* Then the rune is sold: the row has no figures left to show, and says why. */
+  const runeId = await page.evaluate(() => {
+    const stored = JSON.parse(window.localStorage.getItem('jaswa-preferences') ?? '{}') as { runeHolds?: Record<string, unknown> };
+    return Object.keys(stored.runeHolds ?? {})[0];
+  });
+  const game = JSON.parse(readFileSync(account, 'utf8')) as {
+    runes: Array<{ rune_id: number }>; unit_list: Array<{ runes: Array<{ rune_id: number }> }>;
+  };
+  game.runes = game.runes.filter((entry) => String(entry.rune_id) !== runeId);
+  for (const unit of game.unit_list) unit.runes = unit.runes.filter((entry) => String(entry.rune_id) !== runeId);
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
+    name: 'rune-optimization-account.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(game)),
+  });
+  await page.getByRole('button', { name: 'Replace data' }).click();
+  await expect(row.getByRole('img', { name: new RegExp(`${slot}: The rune is no longer in the account`) })).toBeVisible();
+  await expect(row.getByRole('cell', { name: '—', exact: true })).toHaveCount(11);
+  await page.screenshot({ path: testInfo.outputPath('optimization-after-sale.png') });
+});
+
+test('a monster that always crits is counted at a certain crit and shows its own CRI Rate', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await freshWorkspace(page);
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
+  await expect(page.getByText('rune-optimization-account.json').first()).toBeVisible();
+  await openOptimization(page);
+  await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  const targets = page.getByRole('group', { name: 'At least' });
+  const before = await targets.innerText();
+
+  await page.getByRole('button', { name: 'Open profile' }).click();
+  const profile = page.getByRole('dialog').filter({ has: page.getByLabel('Always crits') });
+  const toggle = profile.getByLabel('Always crits');
+  await expect(toggle).not.toBeChecked();
+  const stats = profile.locator('.overlay-stats');
+  const statsBefore = await box(stats);
+  await page.screenshot({ path: testInfo.outputPath('always-crits-off.png') });
+  await toggle.check();
+  /* The choice moves nothing beside it: the mark's place was already kept. */
+  expect(await box(stats)).toEqual(statsBefore);
+  await expect(profile.getByRole('img', { name: 'Always crits' })).toBeVisible();
+  await expect(profile.getByLabel('Desired CtR%')).toBeDisabled();
+  await page.screenshot({ path: testInfo.outputPath('always-crits-on.png') });
+  await profile.getByRole('button', { name: 'Save changes' }).click();
+  await expect(profile).toBeHidden();
+
+  /* CRI Rate reads the same; DMG is now counted with every hit a crit. */
+  await expect(targets.getByRole('img', { name: 'Always crits' })).toBeVisible();
+  await expect(page.getByLabel('At least CtR%')).toBeDisabled();
+  const after = await targets.innerText();
+  const figure = (text: string, at: number) => text.split('\n').map((line) => line.trim()).filter((line) => /^[\d.,]+$/.test(line))[at];
+  expect(figure(after, 4)).toEqual(figure(before, 4));
+  expect(Number(figure(after, 8).replace(/\D/g, ''))).toBeGreaterThan(Number(figure(before, 8).replace(/\D/g, '')));
+
+  await page.getByRole('button', { name: 'Find builds' }).click();
+  const table = page.getByRole('table', { name: 'Rune builds' });
+  await expect(table.getByRole('row')).not.toHaveCount(1);
+  /* The mark stays above, by the field; the table reads figures only. */
+  await expect(table.getByRole('img', { name: 'Always crits' })).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath('always-crits-table.png'), fullPage: true });
 });
 
 test('a target nothing can reach is answered with an empty table that says why', async ({ page }, testInfo) => {

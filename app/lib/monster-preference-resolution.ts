@@ -69,6 +69,8 @@ export type ResolvedRunes = {
   slots: Record<RuneSlotKey, ResolvedChoices<RuneSlotMain>>;
   /** Whether an Intangible rune may complete a set that is one short. */
   allowIntangible: boolean;
+  /** Whether an Immemorial Gem or Grindstone may be spent on this copy's runes. */
+  allowImmemorial: boolean;
   /** `false` where neither the user nor the dataset says anything about runes. */
   judged: boolean;
 };
@@ -107,6 +109,8 @@ export type ResolvedMonsterPreferences = {
   statTargets: Partial<Record<keyof MonsterStatTargets, ResolvedStatTarget>>;
   /** The figure to maximise once every target is met, where one was named. */
   runeSuggestionStat?: keyof MonsterStatTargets;
+  /** Whether every figure is counted at a certain crit (`monster-stats.ts` `alwaysCritsLift`). */
+  alwaysCrits: boolean;
 };
 
 const noChoices = <T,>(): ResolvedChoices<T> => ({ chosen: [], source: 'default', shares: new Map<T, number>() });
@@ -207,9 +211,11 @@ function resolveRunes(
   return {
     sets,
     slots,
-    /* Off by default: spending the one Intangible rune is a concession, and a
-       concession nobody asked for is not one to make on their behalf. */
-    allowIntangible: stated?.allowIntangibleRunes ?? false,
+    /* On unless the owner switched them off. An Intangible rune and an Immemorial
+       item are owned to be spent, and a build that leaves them out answers a
+       narrower question than the one asked; the owner who is saving them says so. */
+    allowIntangible: stated?.allowIntangibleRunes ?? true,
+    allowImmemorial: stated?.allowImmemorialItems ?? true,
     judged,
   };
 }
@@ -275,5 +281,6 @@ export function resolveMonsterPreferences(
     relics: resolveRelics(stated, defaults),
     statTargets: resolveStatTargets(stated?.statTargets),
     ...(stated?.runeSuggestionStat === undefined ? {} : { runeSuggestionStat: stated.runeSuggestionStat }),
+    alwaysCrits: stated?.alwaysCrits ?? false,
   };
 }

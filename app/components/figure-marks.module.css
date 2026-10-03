@@ -1,0 +1,40 @@
+/* The marks after a figure (`figure-marks.tsx`). They sit on the figure's own line
+   and never wrap under it; a mark arriving after a flush-left figure moves nothing,
+   and a flush-right figure reserves its marks' room (`AGENTS.md` §2). */
+.marks {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.mark {
+  display: inline-grid;
+  place-items: center;
+  width: var(--glyph-small);
+  height: var(--glyph-small);
+  flex: 0 0 auto;
+  color: transparent;
+  cursor: help;
+}
+
+.mark svg {
+  display: block;
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* The bar and dot only read at this size with a slightly heavier stroke. */
+.stroke { stroke-width: 1.7; }
+
+/* Three tones, the verdict colours, and nothing uncoloured: red is wrong, yellow
+   is left to do, green is in the figure's favour. */
+.mark[data-tone='red'] { color: var(--state-bad); }
+.mark[data-tone='yellow'] { color: var(--state-warn); }
+.mark[data-tone='green'] { color: var(--state-good); }

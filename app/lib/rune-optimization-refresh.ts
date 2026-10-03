@@ -9,13 +9,23 @@
  * - a rune is shown and counted as it now is;
  * - a Gem or a Grindstone the build planned and the player has since applied counts
  *   as done, at whatever the game actually rolled, and stops being listed as work;
- * - one not applied yet is still counted at the value the search assumed;
+ * - one not applied yet is still counted at the value the search assumed — unless it
+ *   can no longer be applied: a rune that took a Gem on another line cannot take a
+ *   second, and a rune locked to this monster is used as worn, as the search uses it;
  * - where the rune now sits decides whether it still has to move;
- * - the figures are summed again by `buildFigures`, the search's own arithmetic.
+ * - the figures are summed again by `buildFigures`, the search's own arithmetic, and
+ *   a target the new figures no longer reach is named.
  *
  * "Applied" is read against the rune as it stood when the search ran, because the
  * end state alone cannot tell a Gem the player put on from a line that was already
  * there: a re-roll keeps its property, and only the change says it happened.
+ *
+ * Some changes leave a build that cannot be followed at all, and the build says so
+ * rune by rune rather than leaving the table: the rune was sold or fed, it is locked
+ * where it is, another rune is locked into its slot on this monster, it now sits on
+ * a monster the settings keep their runes, or the Gems and Grindstones still to come
+ * need more of an item than the account holds. The row keeps its place, so the player
+ * does not lose the one they were reading.
  *
  * What this cannot do is notice a *better* build that the change made possible.
  * The search did not see the new runes, so the page says the table can be searched
@@ -23,25 +33,78 @@
  */
 import type { OptimizedBuild, PickedRune } from './compute/rune-optimization-protocol';
 import type { GameRecord } from './game-data';
+import { targetFigureKeys } from './monster-stats';
 import type { EndStateLine } from './rune-craft-end-state';
-import { buildFigures } from './rune-optimization-problem';
+import type { CraftItem } from './rune-craft-items';
+import type { RuneHolds } from './rune-holds';
+import { buildFigures, figureIndex, targetFloors } from './rune-optimization-problem';
+import type { RankFigure, RuneOptimizationRequirements } from './rune-optimization-problem';
+import type { RuneOptimizationSettings } from './rune-optimization-settings';
 import type { Rune } from './runes';
 
-/** A build as the page shows it: figures `null` where one of its runes has left the account. */
-export type CurrentBuild = Omit<OptimizedBuild, 'figures'> & { figures: number[] | null };
+/** Why one rune of a build cannot be used as the build uses it. */
+export type PickIssue =
+  /** No longer in the account: sold, or fed to another rune. */
+  | { kind: 'gone' }
+  /** Locked where it is, which is not this monster. `wearer` is `null` for the inventory. */
+  | { kind: 'locked-away'; wearer: string | null }
+  /** Another rune is locked into this slot on this monster. */
+  | { kind: 'slot-taken'; runeId: string }
+  /** Worn by another monster, whose runes the settings keep. */
+  | { kind: 'worn-elsewhere'; wearer: string }
+  /** A Gem or Grindstone still to come needs more of a held item than the account has left. */
+  | { kind: 'items' };
+
+export type CurrentPick = PickedRune & { issue: PickIssue | null };
+
+/**
+ * A build as the page shows it: figures `null` where one of its runes has left the
+ * account, the issue per rune, and the targets its figures no longer reach.
+ */
+export type CurrentBuild = Omit<OptimizedBuild, 'figures' | 'runes'> & {
+  runes: CurrentPick[];
+  figures: number[] | null;
+  short: RankFigure[];
+};
+
+/** Whether a build can still be followed as it stands. */
+export const buildFollowable = (build: CurrentBuild): boolean => build.runes.every((picked) => picked.issue === null);
+
+/** What a calculation was and what the account is now, for one re-reading. */
+export type RefreshContext = {
+  unitId: string;
+  /** The copy's record as it is now: its artifacts are counted as well as its runes. */
+  monster: GameRecord;
+  requirements: Pick<RuneOptimizationRequirements, 'targets' | 'alwaysCrits'>;
+  settings: Pick<RuneOptimizationSettings, 'runesOnOtherMonsters'>;
+  /** The runes and held items the search read. */
+  before: { runes: ReadonlyMap<string, Rune>; items: ReadonlyMap<string, CraftItem> };
+  now: { runes: ReadonlyMap<string, Rune>; items: ReadonlyMap<string, CraftItem>; holds: RuneHolds };
+};
 
 const sameLine = (left: EndStateLine | undefined, right: EndStateLine | undefined) => left !== undefined && right !== undefined
   && left.statId === right.statId && left.value === right.value && left.gemmed === right.gemmed && left.grind === right.grind;
 
 function sameRune(left: Rune, right: Rune): boolean {
-  return left.mainValue === right.mainValue && left.occupiedId === right.occupiedId
+  return left.mainValue === right.mainValue && left.occupiedId === right.occupiedId && left.setId === right.setId
     && left.subProperties.length === right.subProperties.length
     && left.subProperties.every((line, at) => sameLine(line, right.subProperties[at]));
 }
 
-/** One picked rune, re-read against what it has become since `before`. */
-export function currentPick(picked: PickedRune, before: Rune, now: Rune, unitId: string): PickedRune {
-  if (now === before || sameRune(before, now)) return picked;
+/**
+ * One picked rune, re-read against what it has become since `before`. `lockedHere`
+ * is whether it is now locked on this monster: the search counts such a rune as
+ * worn, with nothing spent on it, and so does the re-reading.
+ */
+export function currentPick(picked: PickedRune, before: Rune, now: Rune, unitId: string, lockedHere = picked.locked): PickedRune {
+  if (lockedHere) {
+    if (picked.locked && (now === before || sameRune(before, now))) return picked;
+    return {
+      ...picked, setId: now.setId, mainValue: now.mainValue, lines: now.subProperties.map((line) => ({ ...line })),
+      gemmedAt: -1, groundAt: [], moves: false, locked: true,
+    };
+  }
+  if (!picked.locked && (now === before || sameRune(before, now))) return picked;
   const lines: EndStateLine[] = now.subProperties.map((line) => ({ ...line }));
 
   let gemmedAt = -1;
@@ -49,8 +112,10 @@ export function currentPick(picked: PickedRune, before: Rune, now: Rune, unitId:
   if (at >= 0 && lines[at] && picked.lines[at]) {
     const was = before.subProperties[at];
     const is = now.subProperties[at];
-    /* The line is untouched since the search, so the Gem is still to come. */
-    if (was && was.statId === is.statId && was.value === is.value && was.gemmed === is.gemmed) {
+    /* The line is untouched since the search, so the Gem is still to come — unless
+       the rune took a Gem on another line meanwhile, and a rune holds one. */
+    const gemmedElsewhere = now.subProperties.some((line, index) => index !== at && line.gemmed);
+    if (was && was.statId === is.statId && was.value === is.value && was.gemmed === is.gemmed && !gemmedElsewhere) {
       const planned = picked.lines[at];
       lines[at] = { statId: planned.statId, value: planned.value, gemmed: true, grind: planned.statId === is.statId ? is.grind : 0 };
       gemmedAt = at;
@@ -75,35 +140,104 @@ export function currentPick(picked: PickedRune, before: Rune, now: Rune, unitId:
 
   /* A main counted at +15 stays counted there until the rune gets there itself. */
   const mainValue = picked.mainValue > before.mainValue ? Math.max(now.mainValue, picked.mainValue) : now.mainValue;
-  const moves = !picked.locked && now.occupiedId !== unitId;
-  return { ...picked, mainValue, lines, gemmedAt, groundAt, moves };
+  const moves = now.occupiedId !== unitId;
+  return { ...picked, setId: now.setId, mainValue, lines, gemmedAt, groundAt, moves, locked: false };
 }
 
 /**
- * Every build of an answer, re-read against `now` and the copy's record as it is now.
- * `before` is the runes the search read. With nothing synced since, the builds are
- * returned as found, so an untouched table keeps the search's own figures; after a
- * sync every build is counted again, since an artifact can change as well as a rune.
+ * The held items the work still to come on one rune spends: the Gem's while a Gem
+ * is still planned, and a Grindstone of each stone still planned. The search named
+ * the stacks; which of them are still needed is read off what is left to do.
  */
-export function currentBuilds(
-  builds: readonly OptimizedBuild[], before: ReadonlyMap<string, Rune>, now: ReadonlyMap<string, Rune>,
-  monster: GameRecord, unitId: string,
-): CurrentBuild[] {
-  if (now === before) return [...builds];
-  return builds.map((build) => {
-    const pieces: Array<{ picked: PickedRune; rune: Rune }> = [];
-    for (const picked of build.runes) {
-      const was = before.get(picked.runeId);
-      const is = now.get(picked.runeId);
-      if (!was || !is) return { ...build, figures: null };
-      pieces.push({ picked: currentPick(picked, was, is, unitId), rune: is });
+function stillSpends(found: PickedRune, current: PickedRune, items: ReadonlyMap<string, CraftItem>): string[] {
+  const stones = current.groundAt.map((at) => current.lines[at]?.statId);
+  const needed: string[] = [];
+  for (const id of found.spends) {
+    const item = items.get(id);
+    if (!item) continue;
+    if (item.kind === 'gem') {
+      if (current.gemmedAt >= 0) needed.push(id);
+      continue;
     }
-    const runes = pieces.map((piece) => piece.picked);
-    return {
-      ...build,
-      runes,
-      moves: runes.filter((picked) => picked.moves).length,
-      figures: buildFigures(monster, pieces.map(({ picked, rune }) => ({ rune, mainValue: picked.mainValue, lines: picked.lines }))),
-    };
-  });
+    const at = stones.indexOf(item.statId);
+    if (at === -1) continue;
+    stones.splice(at, 1);
+    needed.push(id);
+  }
+  return needed;
+}
+
+function readBuild(build: OptimizedBuild, context: RefreshContext, lockedSlots: ReadonlyMap<number, string>): CurrentBuild {
+  const { unitId, now, before } = context;
+  const changedAccount = now.runes !== before.runes;
+  let changed = changedAccount;
+  const picks: CurrentPick[] = [];
+  const pieces: Array<{ rune: Rune; mainValue: number; lines: readonly EndStateLine[] }> = [];
+  const spending = new Map<string, number>();
+  const spendsBySlot = new Map<number, string[]>();
+  let gone = false;
+
+  for (const found of build.runes) {
+    const was = before.runes.get(found.runeId);
+    const is = now.runes.get(found.runeId);
+    if (!was || !is) {
+      gone = true;
+      picks.push({ ...found, issue: { kind: 'gone' } });
+      continue;
+    }
+    const locked = now.holds[found.runeId]?.locked === true;
+    const lockedHere = locked && is.occupiedId === unitId;
+    const picked = currentPick(found, was, is, unitId, lockedHere);
+    if (picked !== found) changed = true;
+
+    let issue: PickIssue | null = null;
+    const taken = lockedSlots.get(picked.slot);
+    if (locked && !lockedHere) issue = { kind: 'locked-away', wearer: is.occupiedId };
+    else if (taken !== undefined && taken !== found.runeId) issue = { kind: 'slot-taken', runeId: taken };
+    else if (!context.settings.runesOnOtherMonsters && is.occupiedId !== null && is.occupiedId !== unitId) {
+      issue = { kind: 'worn-elsewhere', wearer: is.occupiedId };
+    }
+    picks.push({ ...picked, issue });
+    pieces.push({ rune: is, mainValue: picked.mainValue, lines: picked.lines });
+
+    const spends = stillSpends(found, picked, before.items);
+    spendsBySlot.set(picked.slot, spends);
+    for (const id of spends) spending.set(id, (spending.get(id) ?? 0) + 1);
+  }
+
+  /* Items are counted over the whole build, since two of its runes can draw on one stack. */
+  const short = new Set([...spending].filter(([id, count]) => (now.items.get(id)?.amount ?? 0) < count).map(([id]) => id));
+  if (short.size > 0) {
+    for (let at = 0; at < picks.length; at += 1) {
+      if (picks[at].issue === null && (spendsBySlot.get(picks[at].slot) ?? []).some((id) => short.has(id))) {
+        picks[at] = { ...picks[at], issue: { kind: 'items' } };
+      }
+    }
+  }
+
+  const moves = picks.filter((picked) => picked.moves).length;
+  if (gone) return { ...build, runes: picks, moves, figures: null, short: [] };
+  /* Untouched since the search: its own figures, exactly. After a sync every build is
+     counted again, since an artifact can change as well as a rune. */
+  const figures = changed
+    ? buildFigures(context.monster, pieces, context.requirements.alwaysCrits)
+    : build.figures;
+  const floors = targetFloors(context.requirements);
+  const missed = targetFigureKeys.filter((key) => figures[figureIndex(key)] < floors[figureIndex(key)]);
+  return { ...build, runes: picks, moves, figures, short: missed };
+}
+
+/**
+ * Every build of an answer, re-read against the account, the holds and the held
+ * items as they are now. With nothing changed since, each build keeps the search's
+ * own figures.
+ */
+export function currentBuilds(builds: readonly OptimizedBuild[], context: RefreshContext): CurrentBuild[] {
+  /* The slots a lock on this monster has already filled. */
+  const lockedSlots = new Map<number, string>();
+  for (const [runeId, hold] of Object.entries(context.now.holds)) {
+    const rune = hold.locked ? context.now.runes.get(runeId) : undefined;
+    if (rune && rune.occupiedId === context.unitId) lockedSlots.set(rune.slot, runeId);
+  }
+  return builds.map((build) => readBuild(build, context, lockedSlots));
 }

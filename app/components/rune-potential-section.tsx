@@ -43,15 +43,17 @@ const potentialStepLabels = {
     'G1 baby',
     'You’ve seen my replays',
   ],
-  enchantedGems: [
+  gemRollStep: [
     'None — takes each rune as it stands today',
     'Average — an ordinary roll, nothing special',
+    'Two thirds — a decent roll, a little better than the middle',
     'Three quarters — a good roll, short of perfect',
     'Maximum — the best the grade allows',
   ],
-  grindstones: [
+  grindstoneRollStep: [
     'None — takes each rune as it stands today',
     'Average — an ordinary roll, nothing special',
+    'Two thirds — a decent roll, a little better than the middle',
     'Three quarters — a good roll, short of perfect',
     'Maximum — the best the grade allows',
   ],
@@ -228,14 +230,14 @@ export function RuneSetupSection({ game, settings, presets, general, hardwareAcc
 
         <div className="settings-layout">
           <div className="slider-grid">
-            <PotentialSlider id="enchanted-gems" label="Enchanted gems" value={settings.enchantedGems}
+            <PotentialSlider id="enchanted-gems" label="Enchanted gems" value={settings.gemRollStep}
               description="Credit every rune with this much of a gem, before you spend one."
-              stepLabels={potentialStepLabels.enchantedGems}
-              onChange={(value) => void onUpdate({ enchantedGems: value })} />
-            <PotentialSlider id="grindstones" label="Grindstones" value={settings.grindstones}
+              stepLabels={potentialStepLabels.gemRollStep}
+              onChange={(value) => void onUpdate({ gemRollStep: value })} />
+            <PotentialSlider id="grindstones" label="Grindstones" value={settings.grindstoneRollStep}
               description="Credit every rune with this much of a grindstone, before you spend one."
-              stepLabels={potentialStepLabels.grindstones}
-              onChange={(value) => void onUpdate({ grindstones: value })} />
+              stepLabels={potentialStepLabels.grindstoneRollStep}
+              onChange={(value) => void onUpdate({ grindstoneRollStep: value })} />
           </div>
 
           <div className="settings-rule" role="presentation" />

@@ -1,14 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Button } from './button';
 import { CalculationStatus } from './calculation-status';
+import { FigureMarks, alwaysCritsMark, buildIssueMarks } from './figure-marks';
 import { CheckboxRow, RadioLine } from './form-controls';
 import { Dropdown } from './dropdown';
 import { MonsterLink } from './monster-link';
 import type { OpenMonsterOverlay } from './monster-link';
 import { PageHeader } from './page-chrome';
 import { RuneBuildField } from './rune-build-field';
-import { RuneBuildOverlay } from './rune-build-overlay';
+import { RuneBuildOverlay, buildIssueReading } from './rune-build-overlay';
 import type { OpenRuneOverlay } from './rune-link';
 import { RuneSlotMainField } from './rune-slot-main-field';
 import { SortableHeader } from './sortable-table';
@@ -28,7 +29,8 @@ import { monsterCopyNames } from '../lib/monster-names';
 import { monsterCompositeTargetMaximum, monsterStatTargetKeys } from '../lib/monster-preferences';
 import { calculateMonsterTotals, monsterTargetFigures } from '../lib/monster-stats';
 import { craftRollAssumptions, craftRollLabels, itemGrades, readCraftItems } from '../lib/rune-craft-items';
-import type { CraftRollAssumption } from '../lib/rune-craft-items';
+import type { CraftItem, CraftRollAssumption } from '../lib/rune-craft-items';
+import type { RuneHolds } from '../lib/rune-holds';
 import { figureIndex } from '../lib/rune-optimization-problem';
 import type { RankFigure, RuneOptimizationInput, RuneOptimizationRequirements } from '../lib/rune-optimization-problem';
 import { currentBuilds } from '../lib/rune-optimization-refresh';
@@ -75,11 +77,24 @@ const isString = (value: unknown): value is string => typeof value === 'string';
 
 type MonsterOption = { unitId: string; masterId: string; name: string; record: GameRecord };
 
-/* `runes` is the account as the search read it, which a build is re-read against
-   when a sync brings back the work the player did from the table. */
-type Calculation = { inputKey: string; answer: RuneOptimizationAnswer; runes: ReadonlyMap<string, Rune>; id: number };
+/* The question the table answers — the monster, the requirements and the settings
+   as they stood when it was searched — and the account as the search read it:
+   `runes`, `items` and `holds`, which a build is re-read against when a sync brings
+   back the work the player did from the table. */
+type Calculation = {
+  inputKey: string;
+  unitId: string;
+  requirements: RuneOptimizationRequirements;
+  settings: RuneOptimizationSettings;
+  answer: RuneOptimizationAnswer;
+  runes: ReadonlyMap<string, Rune>;
+  items: ReadonlyMap<string, CraftItem>;
+  holds: RuneHolds;
+  resultCount: number;
+  id: number;
+};
 
-type ResultRow = { index: number; build: CurrentBuild; name: string };
+type ResultRow = { index: number; build: CurrentBuild; name: string; issue: string };
 
 /** A build whose rune has left the account has no figure, and sorts below every build that has one. */
 const figureOf = (build: CurrentBuild, at: number) => build.figures?.[at] ?? -Infinity;
@@ -133,6 +148,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
     return { unitId: selected.unitId, name: selected.name, imageFilename: display.imageFilename, initial: display.shortName };
   }, [selected, unitId]);
   const wearers = useMemo(() => new Map(options.map((option) => [option.unitId, { name: option.name, masterId: option.masterId }])), [options]);
+  const describeBuild = useCallback((build: CurrentBuild) => buildIssueReading(build, (id) => wearers.get(id)?.name), [wearers]);
 
   const profile = useMemo(() => (selected
     ? profileRequirements(selected.unitId, selected.masterId, preferences.monsterPreferences[selected.unitId])
@@ -142,25 +158,45 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
   const runes = useMemo(() => (game ? readRunes(game.data) : []), [game]);
   const runesById = useMemo(() => new Map(runes.map((rune) => [rune.id, rune])), [runes]);
   const craftItems = useMemo(() => (game ? readCraftItems(game.data) : []), [game]);
+  const itemsById = useMemo(() => new Map(craftItems.map((item) => [item.id, item])), [craftItems]);
+  const alwaysCrits = requirements?.alwaysCrits ?? false;
 
   const input = useMemo<RuneOptimizationInput | undefined>(() => (selected && requirements ? {
     unitId: selected.unitId, monster: selected.record, runes, holds: preferences.runeHolds, craftItems, requirements, settings,
   } : undefined), [selected, requirements, runes, preferences.runeHolds, craftItems, settings]);
-  /* What the table answers. The import is not part of it: the player follows the
-     table by moving, gemming and grinding runes, and a sync bringing that back must
-     update the builds rather than throw them away (`rune-optimization-refresh.ts`). */
-  const inputKey = JSON.stringify({ unitId, requirements, settings, holds: preferences.runeHolds });
-  const current = calculation?.inputKey === inputKey ? calculation : undefined;
+  /* The question on screen. The account is never part of it: the player follows the
+     table by moving, gemming, grinding and locking runes, and a sync or a lock that
+     brings that back updates the builds (`rune-optimization-refresh.ts`). Listing
+     fewer builds is the same table cut shorter. */
+  const { resultCount, ...searchSettings } = settings;
+  const inputKey = JSON.stringify({ unitId, requirements, settings: searchSettings });
+  /* A table stays on screen while its monster is chosen, whatever is changed above
+     it: it is still the answer to the question it was asked, read with that
+     question's own requirements, and the warning beside Find builds says the
+     question on screen is now a different one. */
+  const current = calculation !== undefined && calculation.unitId === unitId && selected ? calculation : undefined;
+  const stale = current !== undefined && (current.inputKey !== inputKey || current.resultCount < resultCount);
   const builds = useMemo(() => (current && selected
-    ? currentBuilds(current.answer.builds, current.runes, runesById, selected.record, selected.unitId)
-    : undefined), [current, selected, runesById]);
-  const runesChanged = current !== undefined && current.runes !== runesById;
+    ? currentBuilds(current.answer.builds.slice(0, resultCount), {
+      unitId: selected.unitId, monster: selected.record, requirements: current.requirements, settings: current.settings,
+      before: { runes: current.runes, items: current.items },
+      now: { runes: runesById, items: itemsById, holds: preferences.runeHolds },
+    })
+    : undefined), [current, selected, resultCount, runesById, itemsById, preferences.runeHolds]);
+  const changedSince = current === undefined ? [] : [
+    ...(current.runes !== runesById ? ['runes'] : []),
+    ...(current.holds !== preferences.runeHolds ? ['locks'] : []),
+  ];
 
-  const currentFigures = useMemo(() => {
+  const figuresNow = useCallback((crits: boolean) => {
     if (!selected) return undefined;
-    const figures = monsterTargetFigures(calculateMonsterTotals(selected.record));
+    const figures = monsterTargetFigures(calculateMonsterTotals(selected.record), crits);
     return monsterStatTargetKeys.map((key) => figures[key]);
   }, [selected]);
+  const currentFigures = useMemo(() => figuresNow(alwaysCrits), [figuresNow, alwaysCrits]);
+  /* The table's `Now` row is counted the way its builds were. */
+  const tableAlwaysCrits = current?.requirements.alwaysCrits ?? alwaysCrits;
+  const tableNowFigures = useMemo(() => figuresNow(tableAlwaysCrits), [figuresNow, tableAlwaysCrits]);
   const currentBuild = selected ? runeBuildName(activeRuneSets(selected.record).map((set) => set.name)) : '';
 
   function change(update: (current: RuneOptimizationRequirements) => RuneOptimizationRequirements) {
@@ -188,15 +224,17 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
   }
 
   async function calculate() {
-    if (!input) return;
-    const searched = runesById;
+    if (!input || !requirements) return;
+    const searched = {
+      unitId, requirements, settings, runes: runesById, items: itemsById, holds: preferences.runeHolds, resultCount,
+    };
     setState('calculating');
     setProgress(0);
     setChosenBuild(null);
     const outcome = await optimizeRuneBuilds(input, preferences.hardwareAcceleration, setProgress);
     if (outcome.status === 'superseded') { setState('idle'); return; }
     if (outcome.status === 'failed') { setState('error'); setCalculation(undefined); return; }
-    setCalculation((previous) => ({ inputKey, answer: outcome.answer, runes: searched, id: (previous?.id ?? 0) + 1 }));
+    setCalculation((previous) => ({ inputKey, answer: outcome.answer, ...searched, id: (previous?.id ?? 0) + 1 }));
     setState('idle');
   }
 
@@ -232,6 +270,12 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
         </div>
         <div className="filter-panel-actions rune-optimization-actions">
           <div className="rune-optimization-action-row">
+            {/* Always in the row and only shown when it applies, so the buttons beside
+                it never move (`AGENTS.md` §2). */}
+            <p className="rune-optimization-stale" role="status" data-shown={stale ? 'true' : undefined}
+              aria-hidden={stale ? undefined : true}>
+              The requirements or settings have changed since these builds were found. You should rebuild.
+            </p>
             <Button tone="important" size="prominent" busy={state === 'calculating'} busyLabel="Searching…"
               disabled={!input} onClick={() => void calculate()}>Find builds</Button>
             <Button size="prominent" disabled={state !== 'calculating'} onClick={() => cancelRuneOptimization()}>Stop</Button>
@@ -251,10 +295,13 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
             ?? (profile.requirements.builds.length === 0 ? 'The profile names no build, so any will do' : 'From the profile')}</Provenance>
         </div>
         <div className="filter-group rune-optimization-intangible">
-          <span className="filter-label">Intangible</span>
+          <span className="filter-label">Any set</span>
           <CheckboxRow label="Allow Intangible runes" checked={requirements.allowIntangible}
             onChange={(checked) => change((state) => ({ ...state, allowIntangible: checked }))} />
-          <Provenance>{changed(requirements.allowIntangible === profile.requirements.allowIntangible) ?? 'From the profile'}</Provenance>
+          <CheckboxRow label="Allow Immemorial Gems and Grindstones" checked={requirements.allowImmemorial}
+            onChange={(checked) => change((state) => ({ ...state, allowImmemorial: checked }))} />
+          <Provenance>{changed(requirements.allowIntangible === profile.requirements.allowIntangible
+            && requirements.allowImmemorial === profile.requirements.allowImmemorial) ?? 'From the profile'}</Provenance>
         </div>
         {runeSlotKeys.map((key) => <div className={`filter-group rune-optimization-${key}`} key={key}>
           <span className="filter-label">Slot {slotNumbers[key]}</span>
@@ -278,8 +325,12 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
           <div className="rune-optimization-target-row">
             {monsterStatTargetKeys.map((key) => <label className="rune-optimization-target" key={key}>
               <span className="overlay-stat-head">{figureLabels[key]}</span>
+              {/* A monster that always crits is never asked for CRI Rate, so the field
+                  says so by standing still rather than by vanishing. */}
               <input className="rune-optimization-target-input" type="number" min={0} step={1} inputMode="numeric" placeholder="—"
                 aria-label={`At least ${figureLabels[key]}`}
+                disabled={key === 'criRate' && alwaysCrits}
+                title={key === 'criRate' && alwaysCrits ? 'Always crits, so no CRI Rate is needed' : undefined}
                 value={requirements.targets[key] ?? ''}
                 onChange={(event) => {
                   const raw = event.target.value.trim();
@@ -293,7 +344,10 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
                     return { ...state, targets };
                   });
                 }} />
-              <span className="overlay-stat-current">{currentFigures ? formatNumber(currentFigures[figureIndex(key)], general) : '—'}</span>
+              <span className="overlay-stat-current">
+                {currentFigures ? formatNumber(currentFigures[figureIndex(key)], general) : '—'}
+                {key === 'criRate' && <FigureMarks marks={alwaysCrits ? [alwaysCritsMark] : []} />}
+              </span>
             </label>)}
           </div>
           <Provenance>{changed(monsterStatTargetKeys.every((key) => requirements.targets[key] === profile.requirements.targets[key]))
@@ -302,10 +356,10 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
       </section>}
 
       <section className="filter-panel rune-optimization-settings" aria-label="How to search">
-        <CraftSetting legend="Gems" name="rune-optimization-gems" use={settings.gems} grade={settings.gemGrade} roll={settings.gemRoll}
-          onUse={(gems) => onUpdate({ gems })} onGrade={(gemGrade) => onUpdate({ gemGrade })} onRoll={(gemRoll) => onUpdate({ gemRoll })} />
-        <CraftSetting legend="Grindstones" name="rune-optimization-grinds" use={settings.grinds} grade={settings.grindGrade} roll={settings.grindRoll}
-          onUse={(grinds) => onUpdate({ grinds })} onGrade={(grindGrade) => onUpdate({ grindGrade })} onRoll={(grindRoll) => onUpdate({ grindRoll })} />
+        <CraftSetting legend="Gems" name="rune-optimization-gems" use={settings.gems} grade={settings.gemGrade} roll={settings.gemRollAssumption}
+          onUse={(gems) => onUpdate({ gems })} onGrade={(gemGrade) => onUpdate({ gemGrade })} onRoll={(gemRollAssumption) => onUpdate({ gemRollAssumption })} />
+        <CraftSetting legend="Grindstones" name="rune-optimization-grinds" use={settings.grinds} grade={settings.grindGrade} roll={settings.grindRollAssumption}
+          onUse={(grinds) => onUpdate({ grinds })} onGrade={(grindGrade) => onUpdate({ grindGrade })} onRoll={(grindRollAssumption) => onUpdate({ grindRollAssumption })} />
         <div className="filter-group rune-optimization-sources">
           <span className="filter-label">Runes</span>
           <CheckboxRow label="Take runes from other monsters" checked={settings.runesOnOtherMonsters}
@@ -334,28 +388,29 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
           : current
             ? <CalculationStatus durationMs={current.answer.durationMs} backend={current.answer.backend} general={general}
               detail={`${formatNumber(current.answer.combinations, general)} builds checked · ${formatNumber(current.answer.report.runes, general)} runes considered`
-                + (runesChanged ? ' · your runes changed since, and the builds follow them' : '')} />
+                + (changedSince.length > 0 ? ` · your ${changedSince.join(' and ')} changed since, and the builds follow them` : '')} />
             : <p className="calculation-status" role="status">{selected ? 'Not calculated yet.' : ''}</p>}
       </div>
 
       {state === 'error' && <p className="notice warning" role="status">JASWA could not search rune builds for this monster.</p>}
-      {calculation && !current && state !== 'calculating' && <p className="notice warning" role="status">
-        The requirements, the settings or the import changed. Find builds again to refresh this table.
+      {calculation && calculation.unitId === unitId && !selected && state !== 'calculating' && <p className="notice warning" role="status">
+        This monster is no longer in the account, so its builds have nowhere to go. Choose another monster.
       </p>}
       {current && !current.answer.complete && <p className="notice warning" role="status">
         The search stopped at its time limit before it had looked everywhere, so these are the best builds it found.
         Tighter requirements, or a quicker depth, let it finish.
       </p>}
 
-      {current && builds && selected && currentFigures && <Results key={current.id} answer={current.answer} builds={builds} rankBy={requirements?.rankBy ?? 'ehp'}
-        currentBuild={currentBuild} currentFigures={currentFigures} general={general}
+      {current && builds && selected && tableNowFigures && <Results key={current.id} answer={current.answer} builds={builds} rankBy={current.requirements.rankBy}
+        currentBuild={currentBuild} currentFigures={tableNowFigures} general={general}
+        describe={describeBuild}
         chosen={chosenBuild} onChoose={openBuild} />}
     </div>
 
     {builds && showingBuild && chosenBuild !== null && builds[chosenBuild] && <RuneBuildOverlay
       index={chosenBuild} buildName={buildNameOf(builds[chosenBuild].runes.map((rune) => rune.setId))}
-      moves={builds[chosenBuild].moves} runes={builds[chosenBuild].runes} runesById={runesById}
-      monster={buildMonster} wearer={(id) => wearers.get(id)}
+      moves={builds[chosenBuild].moves} runes={builds[chosenBuild].runes} short={builds[chosenBuild].short}
+      runesById={runesById} monster={buildMonster} wearer={(id) => wearers.get(id)}
       general={general} onClose={closeBuild} onOpenRune={onOpenRune} onOpenMonster={onOpenMonster} />}
   </WorkspacePage>;
 }
@@ -394,19 +449,21 @@ function CraftSetting({ legend, name, use, grade, roll, onUse, onGrade, onRoll }
   </div>;
 }
 
-function Results({ answer, builds, rankBy, currentBuild, currentFigures, general, chosen, onChoose }: {
+function Results({ answer, builds, rankBy, currentBuild, currentFigures, general, describe, chosen, onChoose }: {
   answer: RuneOptimizationAnswer;
   builds: readonly CurrentBuild[];
   rankBy: RankFigure;
   currentBuild: string;
   currentFigures: readonly number[];
   general: Preferences['general'];
+  /** What changed under a build since the search, in words; empty where nothing did. */
+  describe: (build: CurrentBuild) => string;
   chosen: number | null;
   onChoose: (index: number, opener: HTMLElement) => void;
 }) {
   const rows = useMemo<ResultRow[]>(() => builds.map((build, index) => ({
-    index, build, name: buildNameOf(build.runes.map((rune) => rune.setId)),
-  })), [builds]);
+    index, build, name: buildNameOf(build.runes.map((rune) => rune.setId)), issue: describe(build),
+  })), [builds, describe]);
   const columns = useMemo<SortableColumn<ResultRow>[]>(() => [
     { key: 'index', label: '#', align: 'left', compare: (left, right) => left.index - right.index },
     { key: 'build', label: 'Build', align: 'left', compare: (left, right) => left.name.localeCompare(right.name) },
@@ -448,7 +505,10 @@ function Results({ answer, builds, rankBy, currentBuild, currentFigures, general
         </td></tr>}
         {/* The whole row opens the build; the number is the same way in for the
             keyboard, and the element focus returns to when the overlay closes. */}
+        {/* A build that no longer holds keeps its row, dimmed and marked, so the
+            reader does not lose the one they were following. */}
         {sorted.map((row) => <tr key={row.index} data-chosen={chosen === row.index ? 'true' : undefined}
+          data-stale={row.issue === '' ? undefined : 'true'}
           onClick={(event) => onChoose(row.index, event.currentTarget.querySelector('button') ?? event.currentTarget)}>
           <td className={cell('index')}>
             <button type="button" className="rune-optimization-choose" aria-haspopup="dialog"
@@ -456,7 +516,12 @@ function Results({ answer, builds, rankBy, currentBuild, currentFigures, general
               {row.index + 1}
             </button>
           </td>
-          <td className={cell('build')}>{row.name}</td>
+          <td className={cell('build')}>
+            <span className="rune-optimization-build-name">
+              <span className="rune-optimization-build-text">{row.name}</span>
+              <FigureMarks marks={buildIssueMarks(row.issue)} reserve={1} />
+            </span>
+          </td>
           <td className={cell('moves')}>{formatNumber(row.build.moves, general)}</td>
           {monsterStatTargetKeys.map((key) => <td key={key} className={cell(key)}
             title={row.build.figures === null ? 'A rune in this build is no longer in the account' : undefined}>

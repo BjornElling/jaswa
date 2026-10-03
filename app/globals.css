@@ -2297,7 +2297,20 @@ label[for] {
 /* Fixed, so a long nickname chosen in the list cannot drag the link beside it. */
 .rune-optimization-monster .jaswa-select { width: 40ch; min-width: 0; }
 .rune-optimization-actions { grid-area: actions; justify-self: end; }
-.rune-optimization-action-row { display: flex; gap: var(--s2); }
+.rune-optimization-action-row { display: flex; align-items: center; gap: var(--s2); }
+/* The table on screen answers a question that is no longer the one above it. A box
+   of fixed measure, always in the row and only made visible, so the buttons beside
+   it never move; the machine reporting on its own answer, so the verdict colour. */
+.rune-optimization-stale {
+  width: 44ch;
+  margin: 0 var(--s2) 0 0;
+  padding: var(--s1) var(--s3);
+  border: 1px solid var(--state-warn);
+  border-radius: var(--radius-sm);
+  color: var(--state-warn);
+  visibility: hidden;
+}
+.rune-optimization-stale[data-shown='true'] { visibility: visible; }
 
 .rune-optimization-requirements {
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -2371,6 +2384,15 @@ label[for] {
   font-variant-numeric: tabular-nums;
 }
 .rune-optimization-table tbody tr[data-chosen='true'] .rune-optimization-choose { color: var(--text-accent); }
+/* The name gives way to an ellipsis before the mark after it does, so a long build
+   name and a mark share the column without either widening it. */
+.rune-optimization-build-name { display: flex; align-items: center; gap: var(--s1); min-width: 0; }
+.rune-optimization-build-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A build the account has moved out from under: still there to read, in the dimmed
+   ink of the house's two-tone device, with the mark saying why. */
+.rune-optimization-table tbody tr[data-stale='true'] td { color: var(--text-muted); }
+/* The CRI Rate under its field keeps its mark on the same line. */
+.rune-optimization-target .overlay-stat-current { display: inline-flex; align-items: center; gap: var(--s1); }
 
 /* ------------------------------------------------------ rune build overlay */
 /* The overlay keeps the frame's full measure: the circle takes two thirds and
@@ -2465,6 +2487,9 @@ label[for] {
 .rune-build-change-body { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s2); min-width: 0; }
 .rune-build-change-body .rune-sub { margin-right: 0; }
 .dialog .rune-build-change-none { margin: 0; color: var(--text-muted); line-height: normal; }
+/* Why a rune cannot be used as the build uses it: the machine reporting on its own
+   answer, so the verdict colour, with the sentence carrying the fact. */
+.dialog .rune-build-issue { margin: 0; color: var(--state-warn); line-height: normal; }
 /* What a change replaces, dimmed against what it becomes: the house's two-tone
    device for the lesser of a pair. */
 .rune-build-replaced { color: var(--text-muted); font-variant-numeric: tabular-nums; }
@@ -5284,6 +5309,8 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
+/* CRI Rate carries the Always crits mark after its figure, on the figure's line. */
+.overlay-stat .overlay-stat-current { display: flex; align-items: center; gap: var(--s1); }
 
 /* The tie-break question sits under the eleven fields it depends on, reading
    as one sentence with its own answer at the end. */
@@ -5636,6 +5663,10 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
    box on the panel's ground ringed in the gold edge rather than a white hole. */
 .overlay-toggle { display: inline-flex; align-items: center; gap: var(--s2); color: var(--text-muted); cursor: pointer; }
 .overlay-toggle input { border-color: var(--gold-edge); }
+.overlay-toggles { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); }
+/* A fact about how the copy fights rather than part of the tie-break sentence, so
+   it keeps to the far end of the row. */
+.overlay-always-crits { margin-left: auto; }
 
 /* Three slots on one row: each names itself and opens its own mains. */
 .overlay-slot-row {

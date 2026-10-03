@@ -169,13 +169,21 @@ export function craftValueRange(
  * wording matches the artifact workspace's conversion slider, because the
  * question is the same one: how lucky may a figure on screen assume you got.
  */
-export type CraftRollAssumption = 'minimum' | 'average' | 'three-quarters' | 'maximum';
+export type CraftRollAssumption = 'minimum' | 'average' | 'two-thirds' | 'three-quarters' | 'maximum';
 
-export const craftRollAssumptions: readonly CraftRollAssumption[] = ['minimum', 'average', 'three-quarters', 'maximum'];
+export const craftRollAssumptions: readonly CraftRollAssumption[] = ['minimum', 'average', 'two-thirds', 'three-quarters', 'maximum'];
+
+/**
+ * What a Gem or Grindstone is assumed to roll where nobody has said otherwise:
+ * two thirds of the way up, a little luckier than the middle and short of the
+ * three quarters a player who is counting on it would hope for.
+ */
+export const defaultCraftRollAssumption: CraftRollAssumption = 'two-thirds';
 
 export const craftRollLabels: Readonly<Record<CraftRollAssumption, string>> = {
   minimum: 'Worst',
   average: 'Average',
+  'two-thirds': '⅔',
   'three-quarters': '¾',
   maximum: 'Best',
 };
@@ -183,14 +191,18 @@ export const craftRollLabels: Readonly<Record<CraftRollAssumption, string>> = {
 export const craftRollDescriptions: Readonly<Record<CraftRollAssumption, string>> = {
   minimum: 'the floor of its range',
   average: 'the midpoint of its range',
+  'two-thirds': 'two thirds of the way up its range',
   'three-quarters': 'three quarters of the way up its range',
   maximum: 'the best its grade allows',
 };
 
-/** The four Rune Clean-up stops, in the order used by its sliders. */
+/** The five Rune Clean-up stops, in the order used by its sliders. */
 export const craftSettingAssumptions: readonly (CraftRollAssumption | null)[] = [
-  null, 'average', 'three-quarters', 'maximum',
+  null, 'average', 'two-thirds', 'three-quarters', 'maximum',
 ];
+
+/** The slider stop that assumes `defaultCraftRollAssumption`. */
+export const defaultCraftSetting = craftSettingAssumptions.indexOf(defaultCraftRollAssumption) + 1;
 
 export function craftAssumptionForSetting(step: number): CraftRollAssumption | null {
   return craftSettingAssumptions[step - 1] ?? null;
@@ -206,7 +218,7 @@ export function craftRollValue(bounds: CraftValueRange, assumption: CraftRollAss
   const span = bounds.maximum - bounds.minimum;
   if (assumption === 'minimum') return bounds.minimum;
   if (assumption === 'maximum') return bounds.maximum;
-  const fraction = assumption === 'average' ? 0.5 : 0.75;
+  const fraction = assumption === 'average' ? 0.5 : assumption === 'two-thirds' ? 2 / 3 : 0.75;
   return roundAwayFromZero(bounds.minimum + span * fraction);
 }
 

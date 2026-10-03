@@ -37,7 +37,13 @@
  *    re-sent it must change nothing; against one where every move, Gem and stone the
  *    build asks for has been done it must report the same figures, no work left and
  *    no rune to move. `buildFigures`, which it counts with, must give the search's
- *    own figures.
+ *    own figures. And it must say which rune stands in the way when one cannot be
+ *    used: sold, locked where it is, its slot taken by a lock, the items for its
+ *    work spent elsewhere, or a Gem put on another of its lines.
+ *
+ * Scenarios draw the profile's switches too: a monster that always crits is
+ * scored by the stat sheet at a certain crit with no CRI Rate floor, and with
+ * Immemorial items refused no candidate may spend one.
  *
  * No real card runs here; `verify-rune-optimization-card.mjs` holds the shader.
  *
@@ -45,7 +51,9 @@
  *     scripts/verify-rune-optimization.mjs
  */
 import assert from 'node:assert/strict';
-import { calculateMonsterTotals, intangibleSetId, monsterTargetFigures, targetFigureKeys } from '../app/lib/monster-stats.ts';
+import {
+  calculateMonsterTotals, intangibleSetId, monsterTargetFigures, targetFigureKeys, unliftedFigures,
+} from '../app/lib/monster-stats.ts';
 import { monsterStatTargetKeys } from '../app/lib/monster-preferences.ts';
 import { buildFigures, prepareRuneOptimization } from '../app/lib/rune-optimization-problem.ts';
 import { currentBuilds } from '../app/lib/rune-optimization-refresh.ts';
@@ -73,9 +81,14 @@ function sheet(input, chosen) {
       };
     }),
   };
-  const shown = monsterTargetFigures(calculateMonsterTotals(record));
+  const shown = monsterTargetFigures(calculateMonsterTotals(record), input.requirements.alwaysCrits);
   return figures.map((key) => shown[key]);
 }
+
+/* The floors a build is held to, written out here rather than read from the search:
+   a monster that always crits is never asked for CRI Rate. */
+const floorsOf = (input) => Object.entries(input.requirements.targets)
+  .filter(([key]) => !(input.requirements.alwaysCrits && key === 'criRate'));
 
 function oneShort(counts) {
   const short = [...counts.entries()].filter(([setId, count]) => setId !== intangibleSetId && runeSetPiecesById(setId) && count % runeSetPiecesById(setId) === runeSetPiecesById(setId) - 1);
@@ -118,7 +131,7 @@ function bruteForce(input) {
       for (const candidate of chosen) for (const entry of candidate.stock) spent.set(entry, (spent.get(entry) ?? 0) + 1);
       for (const [entry, count] of spent) if (count > problem.stock[entry].amount) return;
       const values = sheet(input, chosen);
-      for (const [key, floor] of Object.entries(input.requirements.targets)) if (values[figures.indexOf(key)] < floor) return;
+      for (const [key, floor] of floorsOf(input)) if (values[figures.indexOf(key)] < floor) return;
       found.push({ value: values[rank], moves: chosen.filter((candidate) => candidate.moves).length });
       return;
     }
@@ -167,6 +180,10 @@ let emptyTables = 0;
 let refusedMidway = 0;
 /* Builds with a Gem or a stone still to apply, so the followed case is not only ever read on bare runes. */
 let withWork = 0;
+/* How often the rarer re-readings and Always crits were actually exercised. */
+let lockedAwayChecked = 0;
+let itemsChecked = 0;
+let alwaysCritting = 0;
 /* Brute force is only a proof while it finishes, and a theoretical Gem multiplies a
    rune into a dozen end states. An account whose unreduced combinations run past
    this is drawn again rather than searched for minutes. */
@@ -190,7 +207,15 @@ for (let index = 0; index < scenarios; index += 1) {
   shared = -Infinity;
   const sliced = mergeBuildResults(await Promise.all([0, 1, 2].map((part) => searchRuneBuildsInSlices(problem, part, 3, sharing))), problem.rank, problem.resultCount);
   const expected = bruteForce(input);
-  const reading = (table) => table.builds.map((build) => ({ value: build.figures[problem.rank], moves: build.moves }));
+  /* The search ranks over a lifted CRI Rate where the monster always crits; the
+     figures it reports are put back the way the worker puts them back. */
+  const shownOf = (build) => unliftedFigures([...build.figures], problem.criticalRateLift);
+  const reading = (table) => table.builds.map((build) => ({ value: shownOf(build)[problem.rank], moves: build.moves }));
+  if (!input.requirements.allowImmemorial) {
+    const immemorial = new Set(input.craftItems.flatMap((item, at) => (item.lineage === 'immemorial' ? [at] : [])));
+    assert.ok(problem.slots.flat().every((candidate) => candidate.stock.every((entry) => !immemorial.has(entry))),
+      'an Immemorial item was spent although the profile refuses them');
+  }
   const context = `scenario ${index}: ${JSON.stringify({ builds: input.requirements.builds, rank: input.requirements.rankBy, targets: input.requirements.targets, gems: input.settings.gems, grinds: input.settings.grinds })}`;
   assert.ok(whole.complete, `${context} did not finish`);
   assert.deepEqual(reading(whole), expected, `${context}: the search's table differs from brute force`);
@@ -212,29 +237,46 @@ for (let index = 0; index < scenarios; index += 1) {
     assert.match(String(error), /refuses/, `${context}: the search in passes failed`);
   }
   const runesById = new Map(input.runes.map((rune) => [rune.id, rune]));
+  const itemsById = new Map(input.craftItems.map((item) => [item.id, item]));
   const found = whole.builds.map((build) => ({
     ...build,
+    figures: shownOf(build),
     runes: build.picks.map((at, slot) => {
       const candidate = problem.slots[slot][at];
       return {
         runeId: candidate.runeId, slot: candidate.slot, setId: candidate.setId, mainValue: candidate.mainValue,
-        lines: candidate.lines, gemmedAt: candidate.gemmedAt, groundAt: candidate.groundAt, spends: [],
+        lines: candidate.lines, gemmedAt: candidate.gemmedAt, groundAt: candidate.groundAt,
+        spends: candidate.stock.map((entry) => problem.stock[entry].itemId),
         moves: candidate.moves, locked: candidate.locked,
       };
     }),
   }));
+  /* One re-reading of a build against the account `runes`, the holds and the items. */
+  const reread = (build, runes, { holds = input.holds, items = itemsById } = {}) => currentBuilds([build], {
+    unitId: input.unitId, monster: input.monster, requirements: input.requirements, settings: input.settings,
+    before: { runes: runesById, items: itemsById }, now: { runes, items, holds },
+  })[0];
+  const issues = (build) => build.runes.flatMap((picked) => (picked.issue ? [`${picked.slot}:${picked.issue.kind}`] : []));
   for (const build of found) {
     const chosen = build.picks.map((at, slot) => problem.slots[slot][at]);
     assert.deepEqual(build.figures, sheet(input, chosen), `${context}: a reported figure is not the stat sheet's`);
-    assert.deepEqual(buildFigures(input.monster, build.runes.map((picked) => ({ rune: runesById.get(picked.runeId), mainValue: picked.mainValue, lines: picked.lines }))),
+    assert.deepEqual(buildFigures(input.monster, build.runes.map((picked) => ({ rune: runesById.get(picked.runeId), mainValue: picked.mainValue, lines: picked.lines })), input.requirements.alwaysCrits),
       build.figures, `${context}: buildFigures disagrees with the search`);
+    if (input.requirements.alwaysCrits) {
+      /* Every hit a crit, written out: ATK × (1 + CRI Dmg). */
+      const [, atk, , , , criDmg] = build.figures;
+      assert.equal(build.figures[figures.indexOf('dmg')], Math.floor(atk * (1 + criDmg / 100)), `${context}: Always crits did not count a certain crit`);
+      alwaysCritting += 1;
+    }
 
     /* A sync that re-sent the same account: new objects, nothing changed. */
     const resent = new Map(input.runes.map((rune) => [rune.id, { ...rune, subProperties: rune.subProperties.map((line) => ({ ...line })) }]));
-    const [same] = currentBuilds([build], runesById, resent, input.monster, input.unitId);
+    const same = reread(build, resent);
     assert.deepEqual(same.figures, build.figures, `${context}: re-reading an unchanged account changed a figure`);
     assert.deepEqual(same.runes.map((picked) => [picked.gemmedAt, picked.groundAt, picked.moves]),
       build.runes.map((picked) => [picked.gemmedAt, picked.groundAt, picked.moves]), `${context}: re-reading an unchanged account changed the work`);
+    assert.deepEqual(issues(same), [], `${context}: an unchanged account stood in a build's way`);
+    assert.deepEqual(same.short, [], `${context}: an unchanged account missed a target`);
 
     if (build.runes.some((picked) => picked.gemmedAt >= 0 || picked.groundAt.length > 0)) withWork += 1;
     /* The player did everything the build asks: every rune on the monster, every Gem
@@ -244,11 +286,58 @@ for (let index = 0; index < scenarios; index += 1) {
       const rune = runesById.get(picked.runeId);
       done.set(rune.id, { ...rune, mainValue: rune.mainValue, occupiedId: input.unitId, subProperties: picked.lines.map((line) => ({ ...line })) });
     }
-    const [followed] = currentBuilds([build], runesById, done, input.monster, input.unitId);
+    const followed = reread(build, done);
     assert.deepEqual(followed.figures, build.figures, `${context}: a build followed to the letter changed its figures`);
     assert.equal(followed.moves, 0, `${context}: a build followed to the letter still moves a rune`);
     assert.ok(followed.runes.every((picked) => picked.gemmedAt === -1 && picked.groundAt.length === 0),
       `${context}: a build followed to the letter still lists work`);
+    assert.deepEqual(issues(followed), [], `${context}: a build followed to the letter is in its own way`);
+
+    /* The first rune sold: no figures, and that slot says why. */
+    const first = build.runes[0];
+    const sold = new Map(resent);
+    sold.delete(first.runeId);
+    const afterSale = reread(build, sold);
+    assert.equal(afterSale.figures, null, `${context}: a build with a sold rune still has figures`);
+    assert.deepEqual(issues(afterSale), [`${first.slot}:gone`], `${context}: a sold rune was not named`);
+
+    /* A rune that has to move, locked where it is: the build cannot take it. */
+    const moving = build.runes.find((picked) => picked.moves && !picked.locked);
+    if (moving) {
+      const lockedAway = reread(build, resent, { holds: { ...input.holds, [moving.runeId]: { locked: true } } });
+      assert.deepEqual(issues(lockedAway), [`${moving.slot}:locked-away`], `${context}: a rune locked elsewhere was not named`);
+      lockedAwayChecked += 1;
+    }
+
+    /* Another rune locked into a slot on this monster: that slot is taken. */
+    const intruder = input.runes.find((rune) => !build.runes.some((picked) => picked.runeId === rune.id)
+      && !build.runes.some((picked) => picked.locked && picked.slot === rune.slot));
+    if (intruder) {
+      const taken = new Map(resent);
+      taken.set(intruder.id, { ...runesById.get(intruder.id), occupiedId: input.unitId });
+      const slotTaken = reread(build, taken, { holds: { ...input.holds, [intruder.id]: { locked: true } } });
+      assert.ok(issues(slotTaken).includes(`${intruder.slot}:slot-taken`), `${context}: a slot taken by a lock was not named`);
+    }
+
+    /* The items still to be spent, spent elsewhere: every slot that needed them says so. */
+    const spending = build.runes.filter((picked) => picked.spends.length > 0);
+    if (spending.length > 0) {
+      const emptied = new Map([...itemsById].filter(([id]) => !spending.some((picked) => picked.spends.includes(id))));
+      const noItems = reread(build, resent, { items: emptied });
+      assert.deepEqual(issues(noItems), spending.map((picked) => `${picked.slot}:items`), `${context}: missing items were not named`);
+      itemsChecked += 1;
+    }
+
+    /* A Gem put on another line than the one planned: a rune holds one, so the planned Gem is off. */
+    const gemmed = build.runes.find((picked) => picked.gemmedAt >= 0 && !picked.locked);
+    if (gemmed) {
+      const rune = runesById.get(gemmed.runeId);
+      const other = rune.subProperties.findIndex((line, at) => at !== gemmed.gemmedAt);
+      const elsewhere = new Map(resent);
+      elsewhere.set(rune.id, { ...rune, subProperties: rune.subProperties.map((line, at) => (at === other ? { ...line, gemmed: true } : { ...line })) });
+      const offPlan = reread(build, elsewhere);
+      assert.equal(offPlan.runes.find((picked) => picked.runeId === rune.id).gemmedAt, -1, `${context}: a second Gem was still planned on one rune`);
+    }
   }
   checkedRows += expected.length;
   if (expected.length === 0) emptyTables += 1;
@@ -257,7 +346,11 @@ for (let index = 0; index < scenarios; index += 1) {
 assert.ok(checkedRows > scenarios, 'too few builds were compared to prove anything');
 assert.ok(withWork > scenarios / 4, `only ${withWork} builds had work to follow`);
 assert.ok(refusedMidway > scenarios / 4, 'too few searches lost their card midway to prove the processor finishes');
+assert.ok(lockedAwayChecked > scenarios / 4, `only ${lockedAwayChecked} builds had a rune to lock away`);
+assert.ok(itemsChecked > scenarios / 10, `only ${itemsChecked} builds spent a held item`);
+assert.ok(alwaysCritting > scenarios / 10, `only ${alwaysCritting} builds were for a monster that always crits`);
 console.log(`PASS: ${scenarios} random accounts, ${checkedRows} ranked builds — the search, whole and split three ways,`
-  + ` matches brute force on every row (${emptyTables} tables were rightly empty); in passes it matches the`
+  + ` matches brute force on every row (${emptyTables} tables were rightly empty; ${alwaysCritting} builds always crit); in passes it matches the`
   + ` processor pick for pick, and ${refusedMidway} searches finished on the processor after the card refused;`
-  + ` every build read again against a re-sent account and a followed one (${withWork} with Gems or stones) kept its figures.`);
+  + ` every build read again against a re-sent account and a followed one (${withWork} with Gems or stones) kept its figures,`
+  + ` and a sold rune, a lock (${lockedAwayChecked}) and spent items (${itemsChecked}) were each named on the slot they block.`);

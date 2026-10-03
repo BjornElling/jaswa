@@ -307,15 +307,15 @@ function CraftSettingsReadout({ settings }: { settings: RunePotentialSettings })
   return <div className="rune-simulator-craft-readout" aria-label="Rune Clean-up craft settings">
     <div className="rune-simulator-readout">
       <span className="filter-label">Enchanted Gem</span>
-      <output className="rune-simulator-readout-value type-body-emphasis">{craftSettingValue(settings.enchantedGems, settings.gemGrade)}</output>
+      <output className="rune-simulator-readout-value type-body-emphasis">{craftSettingValue(settings.gemRollStep, settings.gemGrade)}</output>
       <span className="type-caption">Locked to Rune Clean-up Settings</span>
-      <span className="type-caption">{craftSettingNote(settings.enchantedGems)}</span>
+      <span className="type-caption">{craftSettingNote(settings.gemRollStep)}</span>
     </div>
     <div className="rune-simulator-readout">
       <span className="filter-label">Grindstone</span>
-      <output className="rune-simulator-readout-value type-body-emphasis">{craftSettingValue(settings.grindstones, settings.grindstoneGrade)}</output>
+      <output className="rune-simulator-readout-value type-body-emphasis">{craftSettingValue(settings.grindstoneRollStep, settings.grindstoneGrade)}</output>
       <span className="type-caption">Locked to Rune Clean-up Settings</span>
-      <span className="type-caption">{craftSettingNote(settings.grindstones)}</span>
+      <span className="type-caption">{craftSettingNote(settings.grindstoneRollStep)}</span>
     </div>
     <p className="rune-simulator-craft-note type-caption">
       The resulting whole-number craft value appears beside each enchanted or ground substat below.

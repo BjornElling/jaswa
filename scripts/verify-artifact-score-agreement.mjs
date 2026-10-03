@@ -86,7 +86,7 @@ try {
          are compared on the reading that has no conversion in it. The projected
          figure has only one producer and nothing to disagree with. */
       conversionStoneMode: 'none',
-      conversionStoneValue: 2,
+      conversionRoll: 2,
       ignoreInsignificantDifferences: false,
       insignificantDifference: 3,
       includeIntangibleArtifacts: true,

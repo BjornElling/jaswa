@@ -28,7 +28,7 @@ export function scoringSettings(settings: ArtifactSettings): Omit<ArtifactSettin
     onlyFactorInOwnedMonsters: settings.onlyFactorInOwnedMonsters,
     onlyLevel40Monsters: settings.onlyLevel40Monsters,
     conversionStoneMode: settings.conversionStoneMode,
-    conversionStoneValue: settings.conversionStoneValue,
+    conversionRoll: settings.conversionRoll,
     ignoreInsignificantDifferences: settings.ignoreInsignificantDifferences,
     insignificantDifference: settings.insignificantDifference,
     includeIntangibleArtifacts: settings.includeIntangibleArtifacts,

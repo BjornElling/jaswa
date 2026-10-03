@@ -376,9 +376,10 @@ export function artifactConversionMaximum(property: ArtifactPropertyDefinition):
  * floor is `minRoll` — the Repeat Convert dialog's lowest selectable threshold
  * on all 25 properties — and *not* two minimum rolls: a conversion re-rolls the
  * line from nothing, so its two contributions are what it may reach, never a
- * floor it must clear (§10). "Three quarters" is deliberately three quarters of
- * that ceiling: it is the value the control names, rather than a nearby
- * hand-picked estimate.
+ * floor it must clear (§10). "Two thirds" and "three quarters" are deliberately
+ * those shares of that ceiling: they are the values the control names, rather
+ * than nearby hand-picked estimates. The five stops are the five a Gem or a
+ * Grindstone offers (`craftRollAssumptions`).
  */
 export function artifactConversionRollFraction(
   property: ArtifactPropertyDefinition,
@@ -388,5 +389,7 @@ export function artifactConversionRollFraction(
   if (property.minRoll === null || ceiling === null || ceiling <= 0) return null;
   const floor = property.minRoll / ceiling;
   const average = (floor + 1) / 2;
-  return [floor, average, 0.75, 1][choice - 1] ?? null;
+  /* Where the floor is high enough that the midpoint already passes a later stop,
+     that stop reads as the midpoint, so the slider never assumes less further right. */
+  return [floor, average, Math.max(average, 2 / 3), Math.max(average, 0.75), 1][choice - 1] ?? null;
 }

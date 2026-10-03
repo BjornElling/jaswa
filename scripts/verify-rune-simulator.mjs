@@ -24,7 +24,7 @@ try {
 
   /* Gems and Grindstones credited at three quarters; step 1 of either slider is "none". */
   const craftedSettings = {
-    powerUpPolicy: 3, runeQuality: 3, enchantedGems: 3, grindstones: 3,
+    powerUpPolicy: 3, runeQuality: 3, gemRollStep: 4, grindstoneRollStep: 4,
     gemGrade: 'Hero', grindstoneGrade: 'Hero', acceptedRunes: 3,
     brokenRunes: 3, intangibleRunes: 1, keepMoreForLargerSets: false,
   };

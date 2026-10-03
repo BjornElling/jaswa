@@ -6,7 +6,7 @@ import { readMonsterPreferences } from './monster-preferences';
 import { readRuneHolds } from './rune-holds';
 import { readArtifact } from './artifacts';
 import { readRelic } from './relics';
-import { itemGrades, readCraftItem } from './rune-craft-items';
+import { craftSettingAssumptions, defaultCraftSetting, itemGrades, readCraftItem } from './rune-craft-items';
 import { readRune } from './runes';
 import { hasMonsterCatalogEntry } from './monster-catalog';
 import { skyTribeTotemProblem } from './sky-tribe-totem';
@@ -29,8 +29,9 @@ const excludedKeys = new Set(['session_key', 'session_key_node']);
 export const defaultRunePotentialSettings: RunePotentialSettings = {
   powerUpPolicy: 3,
   runeQuality: 3,
-  enchantedGems: 3,
-  grindstones: 3,
+  /* Two thirds, the program's one default for a craft roll (`rune-craft-items.ts`). */
+  gemRollStep: defaultCraftSetting,
+  grindstoneRollStep: defaultCraftSetting,
   gemGrade: 'Hero',
   grindstoneGrade: 'Hero',
   acceptedRunes: 3,
@@ -57,7 +58,8 @@ export const defaultArtifactSettings: ArtifactSettings = {
   onlyFactorInOwnedMonsters: true,
   onlyLevel40Monsters: false,
   conversionStoneMode: 'owned',
-  conversionStoneValue: 3,
+  /* Three quarters, the fourth of the five stops (`artifactConversionRollFraction`). */
+  conversionRoll: 4,
   /* Off by default: suppressing a difference is the user's judgement about what
      is worth acting on, and JASWA should not make it on their behalf. */
   ignoreInsignificantDifferences: false,
@@ -112,7 +114,7 @@ const artifactSettingChecks: FieldChecks<ArtifactSettings> = {
   onlyFactorInOwnedMonsters: isBoolean,
   onlyLevel40Monsters: isBoolean,
   conversionStoneMode: isOneOf(artifactConversionStoneModes),
-  conversionStoneValue: isWholeNumberIn(1, 4),
+  conversionRoll: isWholeNumberIn(1, 5),
   ignoreInsignificantDifferences: isBoolean,
   insignificantDifference: isWholeNumberIn(artifactInsignificantDifferenceRange.minimum, artifactInsignificantDifferenceRange.maximum),
   includeIntangibleArtifacts: isBoolean,
@@ -122,8 +124,8 @@ const artifactSettingChecks: FieldChecks<ArtifactSettings> = {
 const runePotentialSettingChecks: FieldChecks<RunePotentialSettings> = {
   powerUpPolicy: isWholeNumberIn(1, 5),
   runeQuality: isWholeNumberIn(1, 5),
-  enchantedGems: isWholeNumberIn(1, 4),
-  grindstones: isWholeNumberIn(1, 4),
+  gemRollStep: isWholeNumberIn(1, craftSettingAssumptions.length),
+  grindstoneRollStep: isWholeNumberIn(1, craftSettingAssumptions.length),
   gemGrade: isOneOf<ItemGrade>(itemGrades),
   grindstoneGrade: isOneOf<ItemGrade>(itemGrades),
   acceptedRunes: isWholeNumberIn(1, 5),

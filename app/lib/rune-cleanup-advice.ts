@@ -538,8 +538,8 @@ function policyOf(settings: RunePotentialSettings) {
      common ruler stays on the fixed neutral credit. Craft legality remains
      Ancient-specific. */
   const credit: CraftCredit = {
-    gem: craftAssumptionForSetting(settings.enchantedGems), gemGrade: settings.gemGrade,
-    grind: craftAssumptionForSetting(settings.grindstones), grindGrade: settings.grindstoneGrade,
+    gem: craftAssumptionForSetting(settings.gemRollStep), gemGrade: settings.gemGrade,
+    grind: craftAssumptionForSetting(settings.grindstoneRollStep), grindGrade: settings.grindstoneGrade,
   };
   return {
     qualityBar: qualityThresholds[settings.runeQuality - 1] ?? qualityThresholds[2],

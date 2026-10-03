@@ -2,12 +2,12 @@ import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } 
 import { MultiChoiceMenu } from './choice-menu';
 import type { ChoiceMenuOption } from './choice-menu';
 import { Dropdown } from './dropdown';
+import { FigureMarks, alwaysCritsMark, shortfallMarks } from './figure-marks';
 import { MonsterPortrait } from './monster-portrait';
 import { RuneBuildField } from './rune-build-field';
 import { RuneSlotMainField } from './rune-slot-main-field';
 import { Overlay, OverlayAction } from './overlay';
 import { PencilIcon } from './pencil-icon';
-import { ShortfallMark } from './shortfall-mark';
 import type { MonsterReference } from './monster-link';
 import type { Artifact } from '../lib/artifacts';
 import { readArtifacts } from '../lib/artifacts';
@@ -234,7 +234,10 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
      composites are derived rather than stored, and derived *here* rather than
      in the row that shows them, so the reference column and the shortfall check
      can never disagree about whether a target is met. */
-  const current = useMemo(() => (totals ? monsterTargetFigures(totals) : undefined), [totals]);
+  const current = useMemo(
+    () => (totals ? monsterTargetFigures(totals, resolved.alwaysCrits) : undefined),
+    [totals, resolved.alwaysCrits],
+  );
 
   const worn = useMemo(() => {
     if (!monster || !game) return { artifacts: {} as Partial<Record<ArtifactCategory, Artifact>>, relics: [] as Relic[] };
@@ -394,11 +397,18 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
                   <span className="overlay-current-build">
                     {monster === undefined ? '—' : currentBuild === '' ? 'No runes equipped' : currentBuild}
                   </span>
-                  {editable && <label className="overlay-toggle">
-                    <input type="checkbox" checked={resolved.runes.allowIntangible}
-                      onChange={(event) => change((state) => ({ ...state, allowIntangibleRunes: event.target.checked }))} />
-                    <span>Allow Intangible runes</span>
-                  </label>}
+                  {editable && <div className="overlay-toggles">
+                    <label className="overlay-toggle">
+                      <input type="checkbox" checked={resolved.runes.allowIntangible}
+                        onChange={(event) => change((state) => ({ ...state, allowIntangibleRunes: event.target.checked }))} />
+                      <span>Allow Intangible runes</span>
+                    </label>
+                    <label className="overlay-toggle">
+                      <input type="checkbox" checked={resolved.runes.allowImmemorial}
+                        onChange={(event) => change((state) => ({ ...state, allowImmemorialItems: event.target.checked }))} />
+                      <span>Allow Immemorial Gems and Grindstones</span>
+                    </label>
+                  </div>}
                 </div>
               </Line>}
               <Line label="Most common">
@@ -433,13 +443,21 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
                     className="overlay-stat-target" type="number" min={0} step={1} inputMode="numeric"
                     placeholder="—"
                     aria-label={`Desired ${row.label}`}
+                    disabled={row.key === 'criRate' && resolved.alwaysCrits}
+                    title={row.key === 'criRate' && resolved.alwaysCrits ? 'Always crits, so no CRI Rate is needed' : undefined}
                     value={draft.statTargets?.[row.key] ?? ''}
                     onChange={(event) => setTarget(row.key, event.target.value)} />
                   : <p className="overlay-stat-value">{formatNumber(current[row.key], general)}</p>}
                 {/* The copy's own figure, dimmed under the target: what is
-                    wanted leads, what is there qualifies it. */}
-                <p className="overlay-stat-current">{formatNumber(current[row.key], general)}</p>
-                <ShortfallMark shortfalls={marks} general={general} />
+                    wanted leads, what is there qualifies it. Every mark the
+                    figure carries follows it on its own line. */}
+                <p className="overlay-stat-current">
+                  {formatNumber(current[row.key], general)}
+                  <FigureMarks marks={[
+                    ...shortfallMarks(marks, general),
+                    ...(row.key === 'criRate' && resolved.alwaysCrits ? [alwaysCritsMark] : []),
+                  ]} />
+                </p>
               </div>;
             })}
           </div>
@@ -458,6 +476,11 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
               }}>
               {targetRows.map((row) => <option key={row.key} value={row.key}>{row.label}</option>)}
             </Dropdown>
+            <label className="overlay-toggle overlay-always-crits">
+              <input type="checkbox" checked={resolved.alwaysCrits}
+                onChange={(event) => change((state) => ({ ...state, alwaysCrits: event.target.checked }))} />
+              <span>Always crits</span>
+            </label>
           </div>}
         </Section>}
 
@@ -537,9 +560,8 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
                             });
                           }} />
                         <span className="overlay-substat-unit">%</span>
-                        <ShortfallMark general={general}
-                          shortfalls={shortfalls.filter((shortfall) => shortfall.kind === 'artifact-sub'
-                            && shortfall.where === categoryLabels[category] && shortfall.wanted === name)} />
+                        <FigureMarks marks={shortfallMarks(shortfalls.filter((shortfall) => shortfall.kind === 'artifact-sub'
+                          && shortfall.where === categoryLabels[category] && shortfall.wanted === name), general)} reserve={1} />
                       </label>;
                     })}
                   </div>

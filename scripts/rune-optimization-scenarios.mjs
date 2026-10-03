@@ -88,8 +88,12 @@ export function scenarioGenerator(firstSeed = 20260930, runesPerSlot = [3, 5]) {
     const targets = {};
     if (random() < 0.5) targets.spd = between(100, 150);
     if (random() < 0.3) targets.hp = between(8000, 16000);
+    /* A CRI Rate floor now and then, so a monster that always crits is seen to ignore it. */
+    if (random() < 0.2) targets.criRate = between(30, 70);
     const gems = pick(['none', 'owned', 'theoretical']);
     const grinds = pick(['none', 'owned', 'theoretical']);
+    const allowImmemorial = random() < 0.7;
+    const alwaysCrits = random() < 0.3;
     return {
       unitId: '1',
       monster: {
@@ -100,7 +104,7 @@ export function scenarioGenerator(firstSeed = 20260930, runesPerSlot = [3, 5]) {
       requirements: {
         builds: wantedBuilds,
         slotMains: { slot2: random() < 0.3 ? ['Spd'] : [], slot4: [], slot6: [] },
-        allowIntangible, targets, rankBy,
+        allowIntangible, allowImmemorial, alwaysCrits, targets, rankBy,
       },
       settings: {
         ...defaultRuneOptimizationSettings, gems, grinds, gemGrade: 'Legend', grindGrade: 'Hero',

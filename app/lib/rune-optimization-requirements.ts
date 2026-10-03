@@ -44,6 +44,8 @@ export function profileRequirements(
       builds: [...resolved.runes.sets.chosen],
       slotMains,
       allowIntangible: resolved.runes.allowIntangible,
+      allowImmemorial: resolved.runes.allowImmemorial,
+      alwaysCrits: resolved.alwaysCrits,
       targets,
       rankBy: named ?? defaultRankFigure(monsterPresentation(masterId).archetype),
     },

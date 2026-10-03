@@ -59,8 +59,8 @@ const check = (ok, message) => {
 /** Every reading the engine weighs for one rune, rebuilt as `runeAdvice` builds them. */
 function readingsOf(rune, settings, shares, scope) {
   const credit = {
-    gem: craftAssumptionForSetting(settings.enchantedGems), gemGrade: settings.gemGrade,
-    grind: craftAssumptionForSetting(settings.grindstones), grindGrade: settings.grindstoneGrade,
+    gem: craftAssumptionForSetting(settings.gemRollStep), gemGrade: settings.gemGrade,
+    grind: craftAssumptionForSetting(settings.grindstoneRollStep), grindGrade: settings.grindstoneGrade,
   };
   const accepted = acceptedWorth[settings.acceptedRunes - 1];
   const broken = brokenWorth[settings.brokenRunes - 1];

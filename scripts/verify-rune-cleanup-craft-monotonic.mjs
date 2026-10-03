@@ -289,8 +289,8 @@ assert.equal(candidateChance(toleranceCraftCandidate, craftedBar), withCraft,
  * Past it the rune may only rise.
  */
 const policySettings = {
-  powerUpPolicy: 3, runeQuality: 3, acceptedRunes: 2, brokenRunes: 2, enchantedGems: 3,
-  grindstones: 3, intangibleRunes: 1, keepMoreForLargerSets: false,
+  powerUpPolicy: 3, runeQuality: 3, acceptedRunes: 2, brokenRunes: 2, gemRollStep: 4,
+  grindstoneRollStep: 4, intangibleRunes: 1, keepMoreForLargerSets: false,
   gemGrade: 'Hero', grindstoneGrade: 'Hero',
 };
 const shield = {
