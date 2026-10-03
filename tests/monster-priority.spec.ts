@@ -64,10 +64,17 @@ test('builds the list from the menu, orders it three ways, and keeps it', async 
   const addPanel = page.locator('.monster-priority-add-panel');
   const panelBox = await box(addPanel);
   const menuBox = await box(menu);
+  /* The text beside the field is centred on the field, not on the label and field together. */
+  const aboutBox = await box(page.locator('.monster-priority-about > span'));
+  expect(Math.abs((aboutBox.y + aboutBox.height / 2) - (menuBox.y + menuBox.height / 2))).toBeLessThanOrEqual(1);
   await page.screenshot({ path: testInfo.outputPath('priority-empty.png'), fullPage: true });
 
   const names = await menu.locator('option:not([value=""])').allInnerTexts();
   expect(names).toHaveLength(2);
+  /* Opening the menu fetches the portraits, so an added monster arrives with its face. */
+  const warming = page.waitForRequest(/\/monster-images\//, { timeout: 2000 });
+  await menu.focus();
+  await warming;
   await menu.selectOption('12');
   await menu.selectOption('11');
 
@@ -80,6 +87,20 @@ test('builds the list from the menu, orders it three ways, and keeps it', async 
   /* Picking from the menu moves nothing above the list. */
   expect(await box(addPanel)).toEqual(panelBox);
   expect(await box(menu)).toEqual(menuBox);
+  /* A rule between entries, none under the last. */
+  const rules = await page.locator('.monster-priority-entry').evaluateAll((entries) => entries.map((entry) => getComputedStyle(entry).borderBottomWidth));
+  expect(rules).toEqual(['1px', '0px']);
+  /* What each copy wears, read from the import: six runes, no artifacts, no relic. */
+  const firstEntry = page.locator('.monster-priority-entry').first();
+  await expect(firstEntry.getByRole('img', { name: '6 of 6 runes equipped' })).toHaveText('6/6');
+  await expect(firstEntry.getByRole('img', { name: '0 of 2 artifacts equipped' })).toHaveText('0/2');
+  await expect(firstEntry.getByRole('img', { name: 'No relic' })).toBeVisible();
+  expect(await firstEntry.locator('.speed-summary-mark').evaluateAll((marks) => marks.map((mark) => mark.getAttribute('data-state'))))
+    .toEqual(['good', 'bad', 'bad']);
+  /* The column names stand over their cells. */
+  const head = await box(page.locator('.monster-priority-head > span').nth(3));
+  const runesCell = await box(firstEntry.locator('.monster-priority-gear').first());
+  expect(Math.abs(head.x - runesCell.x)).toBeLessThanOrEqual(1);
   await page.screenshot({ path: testInfo.outputPath('priority-full.png'), fullPage: true });
 
   const initial = await order(page);
@@ -112,6 +133,16 @@ test('builds the list from the menu, orders it three ways, and keeps it', async 
   await expect(page.getByLabel('Add mon', { exact: true })).toBeEnabled();
   await page.getByRole('button', { name: `Remove ${initial[1]} from the priority list` }).click();
   await expect(page.getByText('Nobody ranked yet.', { exact: false })).toBeVisible();
+});
+
+test('Optimize opens Rune Optimization on that monster', async ({ page }) => {
+  await freshWorkspace(page);
+  await importAccount(page);
+  await openPriority(page);
+  await page.getByLabel('Add mon', { exact: true }).selectOption('12');
+  await page.getByRole('button', { name: /^Optimize runes for / }).click();
+  await expect(page.getByRole('heading', { name: 'Rune Optimization', exact: true })).toBeVisible();
+  await expect(page.getByLabel('Monster', { exact: true })).toHaveValue('12');
 });
 
 test('Rune Optimization leaves a higher-priority monster\'s runes alone until told otherwise', async ({ page }, testInfo) => {

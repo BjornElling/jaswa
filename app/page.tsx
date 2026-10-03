@@ -15,6 +15,7 @@ import type { GameRecord } from './lib/game-data';
 import type { ArtifactSettings, DirectImportMode, GeneralSettings, ImportRoute, ImportedGame, Preferences, RunePotentialSettings } from './lib/types';
 import type { RunePotentialPreset } from './lib/rune-potential-presets';
 import type { RuneOptimizationSettings } from './lib/rune-optimization-settings';
+import { runeOptimizationMonsterKey } from './lib/rune-optimization-settings';
 import type { SpeedTuningPreferences } from './lib/speed-tuning-preferences';
 import { readRunes } from './lib/runes';
 import type { MonsterCopyPreferences } from './lib/monster-preferences';
@@ -24,7 +25,7 @@ import type { RuneHold } from './lib/rune-holds';
 import { runeHoldVerdict } from './lib/rune-holds';
 import type { MonsterReference } from './components/monster-link';
 import type { OpenRuneOverlay, RuneOverlayTarget } from './components/rune-link';
-import { useSessionStorageState } from './lib/session-storage-state';
+import { useSessionStorageState, writeSessionValue } from './lib/session-storage-state';
 import { type Page, type ReportCategory } from './lib/workspace-config';
 
 const pageChoices: readonly Page[] = ['home', 'monsters', 'artifact-list', 'optimizer', 'speed', 'priority', 'rune-setup', 'potential', 'artifacts', 'gems', 'rune-simulator', 'relics', 'settings', 'the-math'];
@@ -424,6 +425,13 @@ export default function Home() {
     changePreferences((current) => ({ ...current, monsterPriority: change(current.monsterPriority) }));
   }
 
+  /* Rune Optimization reads its monster from the tab when it mounts, so choosing
+     it before the page changes is all it takes to open on that copy. */
+  function optimizeMonster(unitId: string) {
+    writeSessionValue(runeOptimizationMonsterKey, unitId);
+    setPage('optimizer');
+  }
+
   function writePresets(change: (current: RunePotentialPreset[]) => RunePotentialPreset[]) {
     changePreferences((current) => ({ ...current, runePotentialPresets: change(current.runePotentialPresets) }));
   }
@@ -593,6 +601,7 @@ export default function Home() {
         preferences={preferences}
         onWrite={writeMonsterPriority}
         onOpenMonster={openMonsterOverlay}
+        onOptimize={optimizeMonster}
       /></Suspense>}
 
       {page === 'optimizer' && <Suspense fallback={<WorkspaceLoading />}><RuneOptimizationSection

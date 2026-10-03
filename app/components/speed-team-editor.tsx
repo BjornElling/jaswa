@@ -188,7 +188,7 @@ export function SpeedTeamEditor({ reading, title, names, choices, general, onCha
             disabled={at === 0} onClick={() => move(at, at - 1)}><ArrowIcon direction="up" /></button>
           <button type="button" className="speed-icon-button" aria-label={`Move ${name} later`}
             disabled={at === team.members.length - 1} onClick={() => move(at, at + 1)}><ArrowIcon direction="down" /></button>
-          <button type="button" className="speed-icon-button" aria-label={`Remove ${name} from ${title}`}
+          <button type="button" className="speed-icon-button danger" aria-label={`Remove ${name} from ${title}`}
             onClick={() => removeMember(member.unitId)}><RemoveIcon /></button>
         </td>;
         /* Numbered by where the slot is drawn, so a drag's preview reads 1 to n down the table. */

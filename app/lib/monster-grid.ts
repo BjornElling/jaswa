@@ -84,6 +84,23 @@ export function equippedEquipmentTypes(monster: GameRecord, key: 'artifacts' | '
   return monster[key].map(primaryEquipmentType);
 }
 
+export const artifactSlotCount = 2;
+
+/**
+ * What a copy wears: runes and artifacts as the slots they fill, the relic as
+ * engraved or not, since a monster carries one at most.
+ */
+export function equippedCounts(monster: GameRecord): { runes: number; artifacts: number; relic: boolean } {
+  const worn = (value: unknown) => (Array.isArray(value)
+    ? value.filter((entry) => Boolean(entry) && typeof entry === 'object' && !Array.isArray(entry))
+    : []) as GameRecord[];
+  return {
+    runes: worn(monster.runes).length,
+    artifacts: worn(monster.artifacts).length,
+    relic: worn(monster.relics).some((relic) => numericOrNull(relic.rid) !== null),
+  };
+}
+
 export function displayArtifactTypes(types: EquipmentPrimaryTypeSlot[]): string {
   if (!types.some((type) => type !== null)) return '—';
   return [types[0] ?? '-', types[1] ?? '-'].join('/');

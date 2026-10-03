@@ -3,19 +3,22 @@ import type { KeyboardEvent } from 'react';
 import { Dropdown } from './dropdown';
 import { ArrowIcon, RemoveIcon } from './list-icons';
 import { MonsterLink } from './monster-link';
+import { warmMonsterPortraits } from './monster-portrait';
 import type { OpenMonsterOverlay } from './monster-link';
 import { PageHeader } from './page-chrome';
+import { SpeedVerdictMark } from './speed-verdict-mark';
 import { reorderKeyStep, useDragReorder } from './use-drag-reorder';
 import { WorkspacePage } from './workspace-page';
 import type { GameRecord } from '../lib/game-data';
 import { moveItem } from '../lib/list-order';
 import { monsterPresentation } from '../lib/monster-catalog';
-import { monsterNameCollator } from '../lib/monster-grid';
+import { artifactSlotCount, equippedCounts, monsterNameCollator } from '../lib/monster-grid';
+import { runeSlotCount } from '../lib/rune-set-pairs';
 import { monsterCopyNames } from '../lib/monster-names';
 import type { MonsterPriority } from '../lib/monster-priority';
 import type { ImportedGame, Preferences } from '../lib/types';
 
-type MonsterChoice = { unitId: string; masterId: string; name: string };
+type MonsterChoice = { unitId: string; masterId: string; name: string; record: GameRecord };
 
 /**
  * **The monster priority list — the page.** One order of copies, first place
@@ -25,12 +28,14 @@ type MonsterChoice = { unitId: string; masterId: string; name: string };
  * The list is the user's alone: it starts empty, nothing is ranked for them, and
  * a copy leaves it only when they remove it.
  */
-export function MonsterPrioritySection({ game, monsters, preferences, onWrite, onOpenMonster }: {
+export function MonsterPrioritySection({ game, monsters, preferences, onWrite, onOpenMonster, onOptimize }: {
   game: ImportedGame | null;
   monsters: readonly GameRecord[];
   preferences: Preferences;
   onWrite: (change: (current: MonsterPriority) => MonsterPriority) => void;
   onOpenMonster: OpenMonsterOverlay;
+  /** Opens Rune Optimization on this copy. */
+  onOptimize: (unitId: string) => void;
 }) {
   const priority = preferences.monsterPriority;
   const names = useMemo(() => monsterCopyNames(monsters, preferences.monsterPreferences), [monsters, preferences.monsterPreferences]);
@@ -38,7 +43,7 @@ export function MonsterPrioritySection({ game, monsters, preferences, onWrite, o
     .filter((monster) => monster.unit_id !== undefined && monster.unit_id !== null)
     .map((monster) => {
       const unitId = String(monster.unit_id);
-      return [unitId, { unitId, masterId: String(monster.unit_master_id ?? ''), name: names[unitId]?.name ?? unitId }];
+      return [unitId, { unitId, masterId: String(monster.unit_master_id ?? ''), name: names[unitId]?.name ?? unitId, record: monster }];
     })), [monsters, names]);
   /* A copy already ranked is left out, so the menu cannot place one copy twice. */
   const choices = useMemo(() => {
@@ -56,6 +61,10 @@ export function MonsterPrioritySection({ game, monsters, preferences, onWrite, o
   function add(unitId: string) {
     if (!owned.has(unitId)) return;
     onWrite((current) => (current.includes(unitId) ? current : [...current, unitId]));
+  }
+
+  function warmChoices() {
+    warmMonsterPortraits(choices.map((choice) => monsterPresentation(choice.masterId)?.imageFilename));
   }
 
   function remove(unitId: string) {
@@ -80,13 +89,13 @@ export function MonsterPrioritySection({ game, monsters, preferences, onWrite, o
               rather than holding a choice of its own. */}
           <Dropdown id="monster-priority-add" className="monster-priority-select" value="" placeholder="Choose a monster"
             disabled={choices.length === 0}
+            onFocus={warmChoices} onPointerDown={warmChoices}
             onChange={(event) => { if (event.target.value) add(event.target.value); }}>
             {choices.map((choice) => <option key={choice.unitId} value={choice.unitId}>{choice.name}</option>)}
           </Dropdown>
         </div>
-        <p className="lead monster-priority-about">
-          Rune Optimization never moves runes from a monster ranked above the one it builds
-          for, and a monster left off the list takes none from any that is on it — unless <em>Include runes from higher-priority monsters</em> is ticked.
+        <p className="monster-priority-about">
+          <span>Decides which monsters Rune Optimization may take runes from.</span>
         </p>
       </div>
 
@@ -96,7 +105,14 @@ export function MonsterPrioritySection({ game, monsters, preferences, onWrite, o
           ? <p className="monster-priority-empty">Nobody ranked yet. Add a monster above, and the first one in takes #1.</p>
           /* Each entry is dragged by any part of it; the arrows beside it, and
              Alt with an arrow key, are the same move without a pointer. */
-          : <ol className="monster-priority-list" {...reorder.containerProps}>
+          : <div className="monster-priority-table">
+            {/* The column names are for the eye; every cell says its own in full to a screen reader. */}
+            <div className="monster-priority-head" aria-hidden="true">
+              <span /><span /><span />
+              <span>Runes</span><span>Artifacts</span><span>Relic</span>
+              <span />
+            </div>
+            <ol className="monster-priority-list" {...reorder.containerProps}>
             {priority.map((unitId, at) => {
               const choice = owned.get(unitId);
               const name = choice?.name ?? 'Not in this import';
@@ -117,20 +133,48 @@ export function MonsterPrioritySection({ game, monsters, preferences, onWrite, o
                       portrait={{ imageFilename: display.imageFilename, initial: display.shortName }} onOpen={onOpenMonster} />
                     : <span className="monster-name muted">{name}</span>}
                 </span>
+                {/* The row's own small control rather than a page button: it is a way out
+                    of the list, and should not outshout the names it sits beside. */}
+                <button type="button" className="speed-icon-button monster-priority-optimize" disabled={!choice}
+                  aria-label={`Optimize runes for ${name}`} onClick={() => onOptimize(unitId)}>Optimize</button>
+                {choice ? <Equipment monster={choice.record} /> : <><span /><span /><span /></>}
                 <span className="monster-priority-controls">
                   <button type="button" className="speed-icon-button" aria-label={`Move ${name} up`}
                     disabled={at === 0} onClick={() => move(at, at - 1)}><ArrowIcon direction="up" /></button>
                   <button type="button" className="speed-icon-button" aria-label={`Move ${name} down`}
                     disabled={at === priority.length - 1} onClick={() => move(at, at + 1)}><ArrowIcon direction="down" /></button>
-                  <button type="button" className="speed-icon-button" aria-label={`Remove ${name} from the priority list`}
+                  <button type="button" className="speed-icon-button danger" aria-label={`Remove ${name} from the priority list`}
                     onClick={() => remove(unitId)}><RemoveIcon /></button>
                 </span>
               </li>;
             })}
-          </ol>}
+            </ol>
+          </div>}
       </section>
     </div>
   </WorkspacePage>;
+}
+
+/* Three cells: what the copy wears against what it can wear, and a tick only
+   when every slot is filled. */
+function Equipment({ monster }: { monster: GameRecord }) {
+  const worn = equippedCounts(monster);
+  return <>
+    <Worn count={worn.runes} of={runeSlotCount} what="runes" />
+    <Worn count={worn.artifacts} of={artifactSlotCount} what="artifacts" />
+    <span className="monster-priority-gear" role="img" title={worn.relic ? 'Relic engraved' : 'No relic'}
+      aria-label={worn.relic ? 'Relic engraved' : 'No relic'}>
+      <SpeedVerdictMark state={worn.relic ? 'good' : 'bad'} small />
+    </span>
+  </>;
+}
+
+function Worn({ count, of, what }: { count: number; of: number; what: string }) {
+  const reading = `${count} of ${of} ${what} equipped`;
+  return <span className="monster-priority-gear" role="img" title={reading} aria-label={reading}>
+    <span className="monster-priority-count">{count}/{of}</span>
+    <SpeedVerdictMark state={count >= of ? 'good' : 'bad'} small />
+  </span>;
 }
 
 function PriorityHeader() {

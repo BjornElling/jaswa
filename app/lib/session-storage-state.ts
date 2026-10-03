@@ -14,7 +14,8 @@ function readSessionValue<T>(key: string, validate: SessionValueValidator<T>): T
   }
 }
 
-function writeSessionValue<T>(key: string, value: T) {
+/** For a page that sets another page's choice before sending the user there. */
+export function writeSessionValue<T>(key: string, value: T) {
   if (typeof window === 'undefined') return;
   try {
     window.sessionStorage.setItem(key, JSON.stringify(value));
