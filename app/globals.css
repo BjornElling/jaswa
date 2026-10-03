@@ -2521,8 +2521,7 @@ label[for] {
    its width (`AGENTS.md` §2). */
 .rune-optimization-status .calculation-status.rune-optimization-searching { color: var(--text-accent); }
 .rune-optimization-results { display: grid; gap: var(--s2); }
-.rune-optimization-results-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s4); }
-.rune-optimization-results-head h3 { margin: 0; }
+.rune-optimization-results > h3 { margin: 0; }
 .rune-optimization-table { table-layout: fixed; }
 .rune-optimization-table tbody tr { cursor: pointer; }
 /* The build to beat reads as reference: dimmed ink on the sunk ground, above the
@@ -2599,6 +2598,7 @@ label[for] {
   white-space: nowrap;
   color: var(--text-strong);
 }
+.rune-build-centre-name .monster-link { max-width: 100%; }
 .rune-build-card {
   min-width: 0;
   display: grid;
@@ -2609,7 +2609,9 @@ label[for] {
   border-radius: var(--radius-sm);
   background: var(--sunk);
 }
-.rune-build-card-head { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--s3); }
+.rune-build-card-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--s3); }
+.rune-build-card-ancient { align-self: start; justify-self: end; }
+.rune-build-card-ancient[data-ancient='false'] { visibility: hidden; }
 /* The overlay's emblem at three fifths, every layer by the same factor, so the
    slots keep the proportions they have in the game's circle. */
 .rune-build-card .rune-emblem { width: 64px; height: 64px; }
@@ -5082,6 +5084,12 @@ html.overlay-open .overlay-backdrop { right: var(--overlay-gutter, 0px); }
   padding: var(--s5);
   border-bottom: 1px solid var(--line);
 }
+.monster-overlay-head { grid-template-columns: auto minmax(0, 1fr) auto; }
+.monster-overlay-optimize { justify-self: end; }
+@media (max-width: 640px) {
+  .monster-overlay-head { grid-template-columns: auto minmax(0, 1fr); }
+  .monster-overlay-optimize { grid-column: 2; justify-self: start; }
+}
 /* A mark rather than type, so its size is stated here the way --glyph-* is:
    large enough that the monster is recognised before its name is read. */
 .overlay-head > .monster-portrait {
@@ -6688,7 +6696,12 @@ th.align-center .sort-button { justify-content: center; }
   color: var(--text-muted);
   transition: color .12s, border-color .12s, background .12s;
 }
-.speed-icon-button:hover:not(:disabled) { color: var(--text-accent); border-color: var(--gold-edge); background: var(--gold-deep); }
+.speed-icon-button:hover:not(:disabled),
+.button.monster-overlay-optimize:hover:not(:disabled) {
+  color: var(--text-accent);
+  border-color: var(--gold-edge);
+  background: var(--gold-deep);
+}
 /* Removing is not moving: it takes the red the other destructive controls hover in. */
 .speed-icon-button.danger:hover:not(:disabled) {
   color: var(--state-bad);

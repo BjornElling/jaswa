@@ -166,9 +166,9 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
   [monsters, names]);
   const selected = options.find((option) => option.unitId === unitId);
   const buildMonster = useMemo(() => {
-    if (!selected) return { unitId, name: '', initial: '?' };
+    if (!selected) return { unitId, masterId: '', name: '', initial: '?' };
     const display = monsterPresentation(selected.masterId);
-    return { unitId: selected.unitId, name: selected.name, imageFilename: display.imageFilename, initial: display.shortName };
+    return { unitId: selected.unitId, masterId: selected.masterId, name: selected.name, imageFilename: display.imageFilename, initial: display.shortName };
   }, [selected, unitId]);
   const wearers = useMemo(() => new Map(options.map((option) => [option.unitId, { name: option.name, masterId: option.masterId }])), [options]);
   const describeBuild = useCallback((build: CurrentBuild) => buildIssueReading(build, (id) => wearers.get(id)?.name), [wearers]);
@@ -601,12 +601,7 @@ function Results({ answer, builds, rankBy, currentBuild, currentFigures, general
   const slots = answer.report.slots;
 
   return <section className="rune-optimization-results" aria-labelledby="rune-optimization-results-title">
-    <header className="rune-optimization-results-head">
-      <h3 id="rune-optimization-results-title" className="type-heading">Builds</h3>
-      <p className="type-caption" title={`Candidate end states tried by slot: ${slots.map((slot) => slot.kept).join(' / ')}`}>
-        Depths 1–9 use a guided shortlist; depth 10 keeps every feasible candidate.
-      </p>
-    </header>
+    <h3 id="rune-optimization-results-title" className="type-heading">Builds</h3>
     <table className="grid-table rune-optimization-table" aria-label="Rune builds">
       <TableColumnGroup columns={runeOptimizationTableColumns} />
       <SortableHeader columns={columns} sort={sort} onToggle={toggle} />

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { AncientMark } from './ancient-mark';
 import { MonsterLink } from './monster-link';
 import { MonsterPortrait } from './monster-portrait';
 import type { OpenMonsterOverlay } from './monster-link';
@@ -36,7 +37,7 @@ const subPropertySlots = 4;
 export type BuildWearer = { name: string; masterId: string };
 
 /** The monster the build is for, as its portrait and copy name. */
-export type BuildMonster = { unitId: string; name: string; imageFilename?: string; initial: string };
+export type BuildMonster = { unitId: string; masterId: string; name: string; imageFilename?: string; initial: string };
 
 type Change =
   | { kind: 'gem'; before: EndStateLine; after: EndStateLine }
@@ -182,6 +183,9 @@ function RuneCard({ picked, rune, thisMonster, wearer, format, onOpenRune, onOpe
           {runeLineStat(rune.mainStatId) ?? `Stat ${rune.mainStatId}`} {rune.mainValue > 0 ? runeLineFigure(rune.mainStatId, rune.mainValue, format) : '—'}
         </div>
       </div>
+      <span className="rune-build-card-ancient" data-ancient={rune.ancient} aria-hidden={!rune.ancient}>
+        <AncientMark />
+      </span>
     </div>
     <div className="rune-build-card-innate" aria-label="Innate property">
       {rune.prefixStatId === null
@@ -261,7 +265,10 @@ export function RuneBuildOverlay({
         </ol>
         <div className="rune-build-centre">
           <MonsterPortrait imageFilename={monster.imageFilename} initial={monster.initial} name={monster.name} decorative />
-          <span className="rune-build-centre-name" title={monster.name}>{monster.name}</span>
+          <span className="rune-build-centre-name" title={monster.name}>
+            <MonsterLink target={{ kind: 'copy', unitId: monster.unitId, masterId: monster.masterId }}
+              name={monster.name} onOpen={onOpenMonster} />
+          </span>
         </div>
       </div>
 

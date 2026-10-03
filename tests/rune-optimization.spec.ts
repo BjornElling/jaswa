@@ -113,7 +113,19 @@ test('finds builds from the profile, keeps the profile untouched, and moves noth
   expect(slot6.x).toBeLessThan(slot1.x);
   const changes = detail.getByRole('region', { name: 'Modifications' });
   await expect(changes.getByRole('region', { name: /^Slot \d modifications$/ })).toHaveCount(6);
+  await detail.locator('img').evaluateAll((images) => Promise.all(images.map((image) => (image as HTMLImageElement).decode().catch(() => undefined))));
   await page.screenshot({ path: testInfo.outputPath('optimization-build.png') });
+  const monsterName = detail.locator('.rune-build-centre-name').getByRole('button');
+  const centreBefore = await box(detail.locator('.rune-build-centre'));
+  await monsterName.click();
+  const monsterDetail = page.getByRole('dialog').filter({ has: page.locator('#monster-overlay-title') });
+  await expect(monsterDetail).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('optimization-monster.png') });
+  await page.keyboard.press('Escape');
+  await expect(monsterDetail).toBeHidden();
+  await expect(monsterName).toBeFocused();
+  expect(await box(detail.locator('.rune-build-centre'))).toEqual(centreBefore);
+  await page.screenshot({ path: testInfo.outputPath('optimization-build-return.png') });
   await page.keyboard.press('Escape');
   await expect(detail).toBeHidden();
   await expect(opener).toBeFocused();
@@ -149,6 +161,51 @@ test('finds builds from the profile, keeps the profile untouched, and moves noth
   await page.reload();
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await expect(page.getByRole('complementary', { name: 'Settings' }).getByRole('radio', { name: 'Theoretical' }).first()).toBeChecked();
+});
+
+test('Optimize from a build monster returns to a fresh search for that copy', async ({ page }) => {
+  await freshWorkspace(page);
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
+  await openOptimization(page);
+  await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  await page.getByRole('button', { name: 'Find builds' }).click();
+  await page.getByRole('button', { name: 'Show build 1', exact: true }).click();
+  const build = page.getByRole('dialog', { name: 'Build 1' });
+  await build.locator('.rune-build-centre-name').getByRole('button').click();
+  const monster = page.getByRole('dialog').filter({ has: page.locator('#monster-overlay-title') });
+  await monster.getByRole('button', { name: /^Optimize runes for / }).click();
+  await expect(monster).toBeHidden();
+  await expect(build).toBeHidden();
+  await expect(page.getByLabel('Monster', { exact: true })).toHaveValue('11');
+  await expect(page.getByRole('button', { name: 'Find builds' })).toBeEnabled();
+});
+
+test('an Ancient rune carries its A at the right edge of a build card', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await freshWorkspace(page);
+  const game = JSON.parse(readFileSync(account, 'utf8')) as {
+    runes: Array<{ class: number }>;
+    unit_list: Array<{ runes: Array<{ class: number }> }>;
+  };
+  for (const rune of game.runes) rune.class = 16;
+  for (const monster of game.unit_list) for (const rune of monster.runes) rune.class = 16;
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
+    name: 'ancient-account.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(game)),
+  });
+  await openOptimization(page);
+  await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  await page.getByRole('button', { name: 'Find builds' }).click();
+  await page.getByRole('button', { name: 'Show build 1', exact: true }).click();
+  const cards = page.getByRole('dialog', { name: 'Build 1' }).locator('.rune-build-card');
+  await expect(cards).toHaveCount(6);
+  for (const card of await cards.all()) {
+    const mark = card.getByRole('img', { name: 'Ancient' });
+    await expect(mark).toBeVisible();
+    const cardBox = await card.boundingBox();
+    const markBox = await mark.boundingBox();
+    expect(markBox!.x + markBox!.width).toBeGreaterThan(cardBox!.x + cardBox!.width - 40);
+  }
+  await page.screenshot({ path: testInfo.outputPath('optimization-ancient-build.png') });
 });
 
 test('an open build follows the runes as the player works on them', async ({ page }, testInfo) => {

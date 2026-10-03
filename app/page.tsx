@@ -71,6 +71,7 @@ export default function Home() {
   const [helperConnection, setHelperConnection] = useState<HelperConnection>({ state: 'checking', detail: 'Run the helper. Then roll for initiative.', version: null, updateAvailable: false, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, instanceId: '', revision: 0, sessionId: 0 });
   const [saveFolder, setSaveFolder] = useState<DirectoryHandle | null>(null);
   const [overlay, setOverlay] = useState<OverlayTarget | null>(null);
+  const [optimizerVisit, setOptimizerVisit] = useState(0);
   /* The control that opened the overlay, so focus returns to the exact row the
      reader came from. It is held here rather than in the overlay because it has
      to outlive the overlay's own unmount. */
@@ -425,10 +426,13 @@ export default function Home() {
     changePreferences((current) => ({ ...current, monsterPriority: change(current.monsterPriority) }));
   }
 
-  /* Rune Optimization reads its monster from the tab when it mounts, so choosing
-     it before the page changes is all it takes to open on that copy. */
+  /* Remount the search when this route starts inside Rune Optimization too:
+     a build and its monster overlay can both be open over the current search. */
   function optimizeMonster(unitId: string) {
     writeSessionValue(runeOptimizationMonsterKey, unitId);
+    overlayOpener.current = null;
+    setOverlay(null);
+    setOptimizerVisit((visit) => visit + 1);
     setPage('optimizer');
   }
 
@@ -605,6 +609,7 @@ export default function Home() {
       /></Suspense>}
 
       {page === 'optimizer' && <Suspense fallback={<WorkspaceLoading />}><RuneOptimizationSection
+        key={optimizerVisit}
         game={game}
         monsters={monsters}
         preferences={preferences}
@@ -654,6 +659,7 @@ export default function Home() {
       preferences={overlay.target.kind === 'copy' ? preferences.monsterPreferences[overlay.target.unitId] : undefined}
       onSave={updateMonsterPreferences}
       onClose={closeOverlay}
+      onOptimize={optimizeMonster}
     /></Suspense>}
 
     {overlayRune && <Suspense fallback={null}><RuneOverlay

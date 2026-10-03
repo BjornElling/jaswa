@@ -283,10 +283,6 @@ prove no candidate inferior and do not establish a global optimum. Preparation h
 this additional bounded work; the table above limits the subsequent search. Depth 10
 uses neither the beam nor the selection lanes, only the exact reductions.
 
-The table explicitly names the finite depths as guided shortlists. Its caption's
-tooltip reports the actual end-state counts per slot, including supplemental picks.
-These counts can exceed the lane width and the pre-search estimate.
-
 `npm run verify:rune-optimization-quality` holds the cut separately from exactness:
 Depth 1 matches depth 10's optimum on eight fixed wider pools, finite depths retain
 shallower picks, moving every rune to inventory leaves selection unchanged, and

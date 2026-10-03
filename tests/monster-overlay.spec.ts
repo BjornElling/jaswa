@@ -84,6 +84,27 @@ test('a monster name opens its overlay without moving the row it sits in', async
   await expect(page.locator('.stat-range-input').first()).toBeFocused();
 });
 
+test('Optimize opens this copy in Rune Optimization and keeps an unsaved choice', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await importAccount(page);
+  await openOverlay(page);
+  const dialog = page.getByRole('dialog');
+  const action = dialog.getByRole('button', { name: /^Optimize runes for / });
+  const head = dialog.locator('.monster-overlay-head');
+  const before = await head.boundingBox();
+  await page.screenshot({ path: testInfo.outputPath('monster-optimize-before.png') });
+  await action.hover();
+  expect(await head.boundingBox()).toEqual(before);
+  await dialog.getByRole('button', { name: 'Add a nickname' }).click();
+  await dialog.getByRole('textbox', { name: 'Nickname' }).fill('Arena nuker');
+  await action.click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole('heading', { name: 'Rune Optimization', exact: true })).toBeVisible();
+  await expect(page.getByLabel('Monster', { exact: true })).toHaveValue('1');
+  expect((await storedPreferences(page))?.['1']?.label).toBe('Arena nuker');
+  await page.screenshot({ path: testInfo.outputPath('monster-optimize-after.png') });
+});
+
 test('a nickname is typed in place after the name, and its parentheses are the heading\'s own', async ({ page }) => {
   await importAccount(page);
   await openOverlay(page);

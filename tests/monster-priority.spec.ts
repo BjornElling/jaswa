@@ -145,6 +145,32 @@ test('Optimize opens Rune Optimization on that monster', async ({ page }) => {
   await expect(page.getByLabel('Monster', { exact: true })).toHaveValue('12');
 });
 
+test('the monster overlay Optimize button shares the priority button hover', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await freshWorkspace(page);
+  await importAccount(page);
+  await openPriority(page);
+  await page.getByLabel('Add mon', { exact: true }).selectOption('12');
+  const row = page.locator('.monster-priority-entry');
+  const priorityAction = row.getByRole('button', { name: /^Optimize runes for / });
+  await priorityAction.hover();
+  await expect(priorityAction).toHaveCSS('color', 'rgb(217, 173, 82)');
+  const hover = async (button: Locator) => button.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { color: style.color, borderColor: style.borderColor, backgroundColor: style.backgroundColor };
+  });
+  const priorityColors = await hover(priorityAction);
+  await row.locator('.monster-link').click();
+  const dialog = page.getByRole('dialog');
+  const action = dialog.getByRole('button', { name: /^Optimize runes for / });
+  const before = await box(action);
+  await page.screenshot({ path: testInfo.outputPath('monster-optimize-rest.png') });
+  await action.hover();
+  await expect.poll(() => hover(action)).toEqual(priorityColors);
+  expect(await box(action)).toEqual(before);
+  await page.screenshot({ path: testInfo.outputPath('monster-optimize-hover.png') });
+});
+
 test('Rune Optimization leaves a higher-priority monster\'s runes alone until told otherwise', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await freshWorkspace(page);

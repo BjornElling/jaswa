@@ -7,6 +7,7 @@ import { MonsterPortrait } from './monster-portrait';
 import { RuneBuildField } from './rune-build-field';
 import { RuneSlotMainField } from './rune-slot-main-field';
 import { StatRangeField } from './stat-range-field';
+import { Button } from './button';
 import { Overlay, OverlayAction } from './overlay';
 import { PencilIcon } from './pencil-icon';
 import type { MonsterReference } from './monster-link';
@@ -195,13 +196,14 @@ function Nickname({ value, editing, onEditingChange, onCommit }: {
   </>;
 }
 
-export function MonsterOverlay({ target, game, general, preferences, onSave, onClose }: {
+export function MonsterOverlay({ target, game, general, preferences, onSave, onClose, onOptimize }: {
   target: MonsterReference;
   game: GameRecord | undefined;
   general: GeneralSettings;
   preferences: MonsterCopyPreferences | undefined;
   onSave: (unitId: string, preferences: MonsterCopyPreferences) => void;
   onClose: () => void;
+  onOptimize: (unitId: string) => void;
 }) {
   const [draft, setDraft] = useState<MonsterCopyPreferences>(
     () => preferences ?? blankMonsterCopyPreferences(target.kind === 'copy' ? target.unitId : ''),
@@ -348,7 +350,7 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
         onClick={() => { setDraft(blankMonsterCopyPreferences(target.unitId)); setDirty(true); }} />
       <OverlayAction kind="save" label="Save changes" type="submit" disabled={!dirty} />
     </> : undefined}>
-      <header className="overlay-head">
+      <header className="overlay-head monster-overlay-head">
         <MonsterPortrait imageFilename={display.imageFilename} initial={display.shortName} name={display.name} decorative />
         <div className="overlay-identity">
           <div className="overlay-hero-line">
@@ -368,6 +370,12 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
             </div>)}
           </dl>
         </div>
+        {editable && <Button size="prominent" className="monster-overlay-optimize"
+          aria-label={`Optimize runes for ${heroName}`}
+          onClick={() => {
+            if (dirty) onSave(target.unitId, { ...draft, unitId: target.unitId });
+            onOptimize(target.unitId);
+          }}>Optimize</Button>}
       </header>
 
       <div className="overlay-body">
