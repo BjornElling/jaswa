@@ -6,7 +6,7 @@ import { Dropdown } from './dropdown';
 import { CheckboxRow } from './form-controls';
 import { ChoiceEditor, ChoiceLegend } from './choice-editor';
 import { PencilIcon } from './pencil-icon';
-import { itemGrades } from '../lib/rune-craft-items';
+import { craftSettingAssumptions, itemGrades } from '../lib/rune-craft-items';
 import {
   createRunePotentialPreset, presetNameMaximum, presetStatTargetKeys, presetTargetColumns,
   presetTargetMaximum, presetTypes, runeMainStatsBySlot,
@@ -43,20 +43,6 @@ const potentialStepLabels = {
     'G1 baby',
     'You’ve seen my replays',
   ],
-  gemRollStep: [
-    'None — takes each rune as it stands today',
-    'Average — an ordinary roll, nothing special',
-    'Two thirds — a decent roll, a little better than the middle',
-    'Three quarters — a good roll, short of perfect',
-    'Maximum — the best the grade allows',
-  ],
-  grindstoneRollStep: [
-    'None — takes each rune as it stands today',
-    'Average — an ordinary roll, nothing special',
-    'Two thirds — a decent roll, a little better than the middle',
-    'Three quarters — a good roll, short of perfect',
-    'Maximum — the best the grade allows',
-  ],
   acceptedRunes: [
     'I love all my runes equally',
     'Forgiving — if there’s potential, they stay',
@@ -79,6 +65,16 @@ const potentialStepLabels = {
     'My precious…!!! (×5)',
   ],
 } as const;
+
+/* One line per stop of `craftSettingAssumptions`, in its order. */
+const craftRollStepLabels = [
+  'None — takes each rune as it stands today',
+  'One third — a modest roll, below the middle',
+  'Average — an ordinary roll, nothing special',
+  'Two thirds — a decent roll, a little better than the middle',
+  'Three quarters — a good roll, short of perfect',
+  'Maximum — the best the grade allows',
+] as const;
 
 /** The standards and roles that the Clean-up workspace reads. Kept as their
  * own workspace so changing what a rune is judged against is not hidden below
@@ -230,14 +226,14 @@ export function RuneSetupSection({ game, settings, presets, general, hardwareAcc
 
         <div className="settings-layout">
           <div className="slider-grid">
-            <PotentialSlider id="enchanted-gems" label="Enchanted gems" value={settings.gemRollStep}
+            <PotentialSlider id="enchanted-gems" label="Enchanted gems" value={craftSettingAssumptions.indexOf(settings.gemRoll) + 1}
               description="Credit every rune with this much of a gem, before you spend one."
-              stepLabels={potentialStepLabels.gemRollStep}
-              onChange={(value) => void onUpdate({ gemRollStep: value })} />
-            <PotentialSlider id="grindstones" label="Grindstones" value={settings.grindstoneRollStep}
+              stepLabels={craftRollStepLabels}
+              onChange={(value) => void onUpdate({ gemRoll: craftSettingAssumptions[value - 1] ?? null })} />
+            <PotentialSlider id="grindstones" label="Grindstones" value={craftSettingAssumptions.indexOf(settings.grindstoneRoll) + 1}
               description="Credit every rune with this much of a grindstone, before you spend one."
-              stepLabels={potentialStepLabels.grindstoneRollStep}
-              onChange={(value) => void onUpdate({ grindstoneRollStep: value })} />
+              stepLabels={craftRollStepLabels}
+              onChange={(value) => void onUpdate({ grindstoneRoll: craftSettingAssumptions[value - 1] ?? null })} />
           </div>
 
           <div className="settings-rule" role="presentation" />

@@ -8,6 +8,8 @@ import { artifactAcceptableWorthChoices, artifactInsignificantDifferenceRange } 
 import type { ArtifactConversionStoneMode, ArtifactRecalculateMode, ArtifactSettings, GeneralSettings } from '../lib/types';
 import type { GameRecord } from '../lib/game-data';
 import type { MonsterPreferences } from '../lib/monster-preferences';
+import { craftRollAssumptions } from '../lib/rune-craft-items';
+import type { CraftRollAssumption } from '../lib/rune-craft-items';
 
 /* The slider's stops are the stored percentages themselves
    (`ARTIFACT-CANONICAL.md` §19.6), so
@@ -25,13 +27,14 @@ const acceptableWorthLabels = [
    holds: a conversion collects two contributions whatever the grade granted
    (`ARTIFACT-CANONICAL.md` §10), so "maximum" is the best a conversion can
    produce rather than the best the artifact could ever have carried. */
-const conversionRollLabels = [
-  'Minimum — the conversion’s two-roll floor',
-  'Average — the midpoint of its possible range',
-  'Two thirds — 67 % of the conversion maximum',
-  'Three quarters — 75 % of the conversion maximum',
-  'Maximum — the best a conversion can roll',
-] as const;
+const conversionRollLabels: Readonly<Record<CraftRollAssumption, string>> = {
+  minimum: 'Minimum — the conversion’s two-roll floor',
+  'one-third': 'One third — 33 % of the conversion maximum',
+  average: 'Average — the midpoint of its possible range',
+  'two-thirds': 'Two thirds — 67 % of the conversion maximum',
+  'three-quarters': 'Three quarters — 75 % of the conversion maximum',
+  maximum: 'Maximum — the best a conversion can roll',
+};
 
 /* Named for what the user does, not for what the program does: "On change" is
    the event they can point at, and "Manually" is the answer they are choosing
@@ -57,7 +60,7 @@ export function ArtifactsSection({ settings, data, monsters, monsterPreferences,
   const step = artifactAcceptableWorthChoices.indexOf(
     settings.acceptableWorth as typeof artifactAcceptableWorthChoices[number],
   );
-  const conversionRollStep = settings.conversionRoll - 1;
+  const conversionRollStep = craftRollAssumptions.indexOf(settings.conversionRoll);
   /* With no conversion assumed the roll value has nothing to describe, so the
      slider dims rather than inviting an answer that changes nothing. */
   const conversionsOff = settings.conversionStoneMode === 'none';
@@ -183,12 +186,15 @@ export function ArtifactsSection({ settings, data, monsters, monsterPreferences,
                 How well should a conversion roll be assumed to land? Every choice is measured against
                 that property’s own two-roll maximum, whatever the artifact or stone grade.
               </p>
-              <input id="conversion-stone-value" type="range" min={1} max={conversionRollLabels.length} step={1}
-                value={settings.conversionRoll} disabled={conversionsOff}
-                onChange={(event) => void onUpdate({ conversionRoll: Number(event.target.value) })}
+              <input id="conversion-stone-value" type="range" min={1} max={craftRollAssumptions.length} step={1}
+                value={conversionRollStep + 1} disabled={conversionsOff}
+                onChange={(event) => {
+                  const choice = craftRollAssumptions[Number(event.target.value) - 1];
+                  if (choice) void onUpdate({ conversionRoll: choice });
+                }}
                 aria-describedby="conversion-stone-value-choice" />
               <p id="conversion-stone-value-choice" className="slider-choice" aria-live="polite">
-                {conversionsOff ? 'No conversion is being assumed.' : conversionRollLabels[conversionRollStep]}
+                {conversionsOff ? 'No conversion is being assumed.' : conversionRollLabels[settings.conversionRoll]}
               </p>
             </div>
           </div>

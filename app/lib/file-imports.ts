@@ -6,7 +6,7 @@ import { readMonsterPreferences } from './monster-preferences';
 import { readRuneHolds } from './rune-holds';
 import { readArtifact } from './artifacts';
 import { readRelic } from './relics';
-import { craftSettingAssumptions, defaultCraftSetting, itemGrades, readCraftItem } from './rune-craft-items';
+import { craftRollAssumptions, craftSettingAssumptions, defaultCraftRollAssumption, itemGrades, readCraftItem } from './rune-craft-items';
 import { readRune } from './runes';
 import { hasMonsterCatalogEntry } from './monster-catalog';
 import { skyTribeTotemProblem } from './sky-tribe-totem';
@@ -23,15 +23,16 @@ const expectedSections = [
 ] as const;
 const excludedKeys = new Set(['session_key', 'session_key_node']);
 
-/* Every scale is 1-based: the value is the slider's stop, counted from the
-   left. The starting point is the middle of every ladder, plus a mild taste
+/* Every scale but the two craft rolls is 1-based: the value is the slider's
+   stop, counted from the left. The craft rolls store the roll itself
+   (`craftSettingAssumptions`). The starting point is the middle of every ladder, plus a mild taste
    for Intangible runes (×1½) and twice as many 4-set runes kept. */
 export const defaultRunePotentialSettings: RunePotentialSettings = {
   powerUpPolicy: 3,
   runeQuality: 3,
   /* Two thirds, the program's one default for a craft roll (`rune-craft-items.ts`). */
-  gemRollStep: defaultCraftSetting,
-  grindstoneRollStep: defaultCraftSetting,
+  gemRoll: defaultCraftRollAssumption,
+  grindstoneRoll: defaultCraftRollAssumption,
   gemGrade: 'Hero',
   grindstoneGrade: 'Hero',
   acceptedRunes: 3,
@@ -58,8 +59,8 @@ export const defaultArtifactSettings: ArtifactSettings = {
   onlyFactorInOwnedMonsters: true,
   onlyLevel40Monsters: false,
   conversionStoneMode: 'owned',
-  /* Three quarters, the fourth of the five stops (`artifactConversionRollFraction`). */
-  conversionRoll: 4,
+  /* Three quarters (`artifactConversionRollFraction`). */
+  conversionRoll: 'three-quarters',
   /* Off by default: suppressing a difference is the user's judgement about what
      is worth acting on, and JASWA should not make it on their behalf. */
   ignoreInsignificantDifferences: false,
@@ -114,7 +115,7 @@ const artifactSettingChecks: FieldChecks<ArtifactSettings> = {
   onlyFactorInOwnedMonsters: isBoolean,
   onlyLevel40Monsters: isBoolean,
   conversionStoneMode: isOneOf(artifactConversionStoneModes),
-  conversionRoll: isWholeNumberIn(1, 5),
+  conversionRoll: isOneOf(craftRollAssumptions),
   ignoreInsignificantDifferences: isBoolean,
   insignificantDifference: isWholeNumberIn(artifactInsignificantDifferenceRange.minimum, artifactInsignificantDifferenceRange.maximum),
   includeIntangibleArtifacts: isBoolean,
@@ -124,8 +125,8 @@ const artifactSettingChecks: FieldChecks<ArtifactSettings> = {
 const runePotentialSettingChecks: FieldChecks<RunePotentialSettings> = {
   powerUpPolicy: isWholeNumberIn(1, 5),
   runeQuality: isWholeNumberIn(1, 5),
-  gemRollStep: isWholeNumberIn(1, craftSettingAssumptions.length),
-  grindstoneRollStep: isWholeNumberIn(1, craftSettingAssumptions.length),
+  gemRoll: isOneOf(craftSettingAssumptions),
+  grindstoneRoll: isOneOf(craftSettingAssumptions),
   gemGrade: isOneOf<ItemGrade>(itemGrades),
   grindstoneGrade: isOneOf<ItemGrade>(itemGrades),
   acceptedRunes: isWholeNumberIn(1, 5),

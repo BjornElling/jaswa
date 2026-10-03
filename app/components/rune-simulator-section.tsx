@@ -25,9 +25,8 @@ import { calculateRuneSimulation } from '../lib/compute/rune-simulator-client';
 import type { GeneralSettings, ImportedGame, ItemGrade, RunePotentialSettings } from '../lib/types';
 import type { RunePotentialPreset } from '../lib/rune-potential-presets';
 import { referenceLines, noReferenceLineMessage } from '../lib/rune-reference-stats';
-import {
-  craftAssumptionForSetting, craftRollDescriptions, craftRollLabels,
-} from '../lib/rune-craft-items';
+import { craftRollDescriptions, craftRollLabels } from '../lib/rune-craft-items';
+import type { CraftRollAssumption } from '../lib/rune-craft-items';
 import { columnClasses, runeSimulatorTableColumns } from '../lib/table-layouts';
 import { RuneLink } from './rune-link';
 import type { OpenRuneOverlay } from './rune-link';
@@ -291,13 +290,11 @@ function KeeperStatistics({ run }: { run: SimulationRun | null }) {
   </section>;
 }
 
-function craftSettingValue(step: number, grade: ItemGrade): string {
-  const assumption = craftAssumptionForSetting(step);
+function craftSettingValue(assumption: CraftRollAssumption | null, grade: ItemGrade): string {
   return `${assumption === null ? 'Off' : craftRollLabels[assumption]} · ${grade}`;
 }
 
-function craftSettingNote(step: number): string {
-  const assumption = craftAssumptionForSetting(step);
+function craftSettingNote(assumption: CraftRollAssumption | null): string {
   return assumption === null
     ? 'No item is applied.'
     : `Rolls at ${craftRollDescriptions[assumption]}; rounded away from zero.`;
@@ -307,15 +304,15 @@ function CraftSettingsReadout({ settings }: { settings: RunePotentialSettings })
   return <div className="rune-simulator-craft-readout" aria-label="Rune Clean-up craft settings">
     <div className="rune-simulator-readout">
       <span className="filter-label">Enchanted Gem</span>
-      <output className="rune-simulator-readout-value type-body-emphasis">{craftSettingValue(settings.gemRollStep, settings.gemGrade)}</output>
+      <output className="rune-simulator-readout-value type-body-emphasis">{craftSettingValue(settings.gemRoll, settings.gemGrade)}</output>
       <span className="type-caption">Locked to Rune Clean-up Settings</span>
-      <span className="type-caption">{craftSettingNote(settings.gemRollStep)}</span>
+      <span className="type-caption">{craftSettingNote(settings.gemRoll)}</span>
     </div>
     <div className="rune-simulator-readout">
       <span className="filter-label">Grindstone</span>
-      <output className="rune-simulator-readout-value type-body-emphasis">{craftSettingValue(settings.grindstoneRollStep, settings.grindstoneGrade)}</output>
+      <output className="rune-simulator-readout-value type-body-emphasis">{craftSettingValue(settings.grindstoneRoll, settings.grindstoneGrade)}</output>
       <span className="type-caption">Locked to Rune Clean-up Settings</span>
-      <span className="type-caption">{craftSettingNote(settings.grindstoneRollStep)}</span>
+      <span className="type-caption">{craftSettingNote(settings.grindstoneRoll)}</span>
     </div>
     <p className="rune-simulator-craft-note type-caption">
       The resulting whole-number craft value appears beside each enchanted or ground substat below.

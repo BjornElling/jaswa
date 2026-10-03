@@ -122,7 +122,7 @@ const bodies = Array.from({ length: runeCount }, (_, id) =>
 const everySet = { preferred: presetRuneSetNameList, acceptable: [] };
 const openPresets = defaultRunePotentialPresets().map((preset) => ({ ...preset, sets: everySet }));
 const settings = {
-  powerUpPolicy: 3, runeQuality: 3, gemRollStep: 1, grindstoneRollStep: 1, gemGrade: 'Hero',
+  powerUpPolicy: 3, runeQuality: 3, gemRoll: null, grindstoneRoll: null, gemGrade: 'Hero',
   grindstoneGrade: 'Hero', acceptedRunes: 3, brokenRunes: 3, intangibleRunes: 1,
   keepMoreForLargerSets: false,
 };

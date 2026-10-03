@@ -42,7 +42,7 @@ const baseByType = new Map([
 ]);
 
 const grades = ['Normal', 'Magic', 'Rare', 'Hero', 'Legend'];
-const assumptions = ['minimum', 'average', 'three-quarters', 'maximum'];
+const assumptions = ['minimum', 'one-third', 'average', 'two-thirds', 'three-quarters', 'maximum'];
 const hero = { gemGrade: 'Hero', grindstoneGrade: 'Hero' };
 const neutral = { gem: null, gemGrade: 'Hero', grind: null, grindGrade: 'Hero' };
 const credits = [
@@ -289,8 +289,8 @@ assert.equal(candidateChance(toleranceCraftCandidate, craftedBar), withCraft,
  * Past it the rune may only rise.
  */
 const policySettings = {
-  powerUpPolicy: 3, runeQuality: 3, acceptedRunes: 2, brokenRunes: 2, gemRollStep: 4,
-  grindstoneRollStep: 4, intangibleRunes: 1, keepMoreForLargerSets: false,
+  powerUpPolicy: 3, runeQuality: 3, acceptedRunes: 2, brokenRunes: 2, gemRoll: 'three-quarters',
+  grindstoneRoll: 'three-quarters', intangibleRunes: 1, keepMoreForLargerSets: false,
   gemGrade: 'Hero', grindstoneGrade: 'Hero',
 };
 const shield = {

@@ -101,13 +101,13 @@ for (const rune of runes.filter((entry) =>
 
 await assertOnlyGetsStricter(
   'Enchanted gems',
-  { ...defaultRunePotentialSettings, gemRollStep: 5 },
-  { ...defaultRunePotentialSettings, gemRollStep: 1 },
+  { ...defaultRunePotentialSettings, gemRoll: 'maximum' },
+  { ...defaultRunePotentialSettings, gemRoll: null },
 );
 await assertOnlyGetsStricter(
   'Grindstones',
-  { ...defaultRunePotentialSettings, grindstoneRollStep: 5 },
-  { ...defaultRunePotentialSettings, grindstoneRollStep: 1 },
+  { ...defaultRunePotentialSettings, grindstoneRoll: 'maximum' },
+  { ...defaultRunePotentialSettings, grindstoneRoll: null },
 );
 await assertOnlyGetsStricter(
   'Four-set preference',

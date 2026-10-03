@@ -59,7 +59,7 @@ const referenceStats = new Map([
   ['No type', { hp: 10404, atk: 720, def: 608, spd: 104, criRate: 17, criDmg: 50, res: 17, acc: 4 }],
 ]);
 const settings = {
-  powerUpPolicy: 3, runeQuality: 3, gemRollStep: 1, grindstoneRollStep: 1,
+  powerUpPolicy: 3, runeQuality: 3, gemRoll: null, grindstoneRoll: null,
   gemGrade: 'Hero', grindstoneGrade: 'Hero', acceptedRunes: 3, brokenRunes: 3,
   intangibleRunes: 1, keepMoreForLargerSets: false,
 };

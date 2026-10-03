@@ -226,7 +226,7 @@ const adversarialPresets = [
 /* ------------------------------------------------- 1. the share each slot takes */
 
 const baseSettings = {
-  powerUpPolicy: 1, runeQuality: 3, gemRollStep: 4, grindstoneRollStep: 4, gemGrade: 'Hero',
+  powerUpPolicy: 1, runeQuality: 3, gemRoll: 'three-quarters', grindstoneRoll: 'three-quarters', gemGrade: 'Hero',
   grindstoneGrade: 'Hero', acceptedRunes: 1, brokenRunes: 1, intangibleRunes: 1,
   keepMoreForLargerSets: false,
 };
@@ -332,7 +332,7 @@ function spreadAllowance(rate, smallestCell) {
    of what the overlap is made of, and switched off they hid most of it. */
 const defaultDiscounts = { ...baseSettings, acceptedRunes: 3, brokenRunes: 3 };
 const shippedSettings = {
-  ...defaultDiscounts, powerUpPolicy: 3, gemRollStep: 4, grindstoneRollStep: 4, intangibleRunes: 2,
+  ...defaultDiscounts, powerUpPolicy: 3, gemRoll: 'three-quarters', grindstoneRoll: 'three-quarters', intangibleRunes: 2,
 };
 const shippedG1Settings = { ...shippedSettings, runeQuality: 4 };
 const floorOnlyG1Settings = { ...shippedG1Settings, powerUpPolicy: 1 };
@@ -362,7 +362,7 @@ const scenarios = [
      common neutral ruler stays fixed across slots (§6). */
   {
     preset: adversarialPresets[0], label: 'Mostly DEF, crafted',
-    settings: { ...baseSettings, gemRollStep: 5, grindstoneRollStep: 5 },
+    settings: { ...baseSettings, gemRoll: 'maximum', grindstoneRoll: 'maximum' },
   },
   /* Both ends of the quality ladder, where the box is read furthest from its middle
      and a mismatch in the *shape* of two slots' boxes would show up first. */

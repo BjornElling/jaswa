@@ -83,7 +83,7 @@ const referenceStats = new Map([
 ]);
 /* Both craft sliders up, at a grade a real account holds plenty of. */
 const settings = {
-  powerUpPolicy: 3, runeQuality: 3, gemRollStep: 4, grindstoneRollStep: 4,
+  powerUpPolicy: 3, runeQuality: 3, gemRoll: 'three-quarters', grindstoneRoll: 'three-quarters',
   gemGrade: 'Hero', grindstoneGrade: 'Hero', acceptedRunes: 3, brokenRunes: 3,
   intangibleRunes: 1, keepMoreForLargerSets: false,
 };

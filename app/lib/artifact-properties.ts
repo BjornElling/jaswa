@@ -1,6 +1,7 @@
 import type { MonsterArchetype } from './monster-catalog';
 import { qualityTiers } from './quality-tiers';
 import type { QualityTier } from './quality-tiers';
+import type { CraftRollAssumption } from './rune-craft-items';
 
 export type ArtifactCategory = 'attribute' | 'type';
 export type ArtifactMainProperty = 'HP' | 'ATK' | 'DEF';
@@ -376,20 +377,29 @@ export function artifactConversionMaximum(property: ArtifactPropertyDefinition):
  * floor is `minRoll` — the Repeat Convert dialog's lowest selectable threshold
  * on all 25 properties — and *not* two minimum rolls: a conversion re-rolls the
  * line from nothing, so its two contributions are what it may reach, never a
- * floor it must clear (§10). "Two thirds" and "three quarters" are deliberately
- * those shares of that ceiling: they are the values the control names, rather
- * than nearby hand-picked estimates. The five stops are the five a Gem or a
- * Grindstone offers (`craftRollAssumptions`).
+ * floor it must clear (§10). "One third", "two thirds" and "three quarters" are
+ * deliberately those shares of that ceiling: they are the values the control
+ * names, rather than nearby hand-picked estimates. The stops are the ones a Gem
+ * or a Grindstone offers (`craftRollAssumptions`).
  */
 export function artifactConversionRollFraction(
   property: ArtifactPropertyDefinition,
-  choice: number,
+  choice: CraftRollAssumption,
 ): number | null {
   const ceiling = artifactNormalConversionMaximum(property);
   if (property.minRoll === null || ceiling === null || ceiling <= 0) return null;
   const floor = property.minRoll / ceiling;
   const average = (floor + 1) / 2;
-  /* Where the floor is high enough that the midpoint already passes a later stop,
-     that stop reads as the midpoint, so the slider never assumes less further right. */
-  return [floor, average, Math.max(average, 2 / 3), Math.max(average, 0.75), 1][choice - 1] ?? null;
+  /* Where the floor or the midpoint already passes a stop's share, that stop
+     reads as the floor or the midpoint, so the slider never assumes less further
+     right. */
+  const fractions: Record<CraftRollAssumption, number> = {
+    minimum: floor,
+    'one-third': Math.max(floor, 1 / 3),
+    average,
+    'two-thirds': Math.max(average, 2 / 3),
+    'three-quarters': Math.max(average, 0.75),
+    maximum: 1,
+  };
+  return fractions[choice];
 }

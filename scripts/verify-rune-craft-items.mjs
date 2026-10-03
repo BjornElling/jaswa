@@ -92,6 +92,8 @@ try {
 
   const spd = { minimum: 7, maximum: 10 };
   assert.equal(craftRollValue(spd, 'minimum'), 7);
+  assert.equal(craftRollValue(spd, 'one-third'), 8);
+  assert.equal(craftRollValue({ minimum: 2, maximum: 7 }, 'one-third'), 4, 'one third rounds to the nearest whole, like every stop');
   assert.equal(craftRollValue(spd, 'average'), 9);
   assert.equal(craftRollValue(spd, 'three-quarters'), 9);
   assert.equal(craftRollValue(spd, 'maximum'), 10);

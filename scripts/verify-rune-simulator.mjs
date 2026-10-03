@@ -22,9 +22,9 @@ try {
   assert.equal(simulationGradeForSlot(2, () => 0.749999), 'Hero');
   assert.equal(simulationGradeForSlot(2, () => 0.75), 'Legend');
 
-  /* Gems and Grindstones credited at three quarters; step 1 of either slider is "none". */
+  /* Gems and Grindstones credited at three quarters; `null` would be no item. */
   const craftedSettings = {
-    powerUpPolicy: 3, runeQuality: 3, gemRollStep: 4, grindstoneRollStep: 4,
+    powerUpPolicy: 3, runeQuality: 3, gemRoll: 'three-quarters', grindstoneRoll: 'three-quarters',
     gemGrade: 'Hero', grindstoneGrade: 'Hero', acceptedRunes: 3,
     brokenRunes: 3, intangibleRunes: 1, keepMoreForLargerSets: false,
   };

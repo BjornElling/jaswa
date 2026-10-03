@@ -1,4 +1,5 @@
 import type { MonsterPreferences } from './monster-preferences';
+import type { CraftRollAssumption } from './rune-craft-items';
 import type { RuneHolds } from './rune-holds';
 import type { RuneOptimizationSettings } from './rune-optimization-settings';
 import type { RunePotentialPreset } from './rune-potential-presets';
@@ -10,7 +11,8 @@ export type ImportedGame = { fileName: string; importedAt: string; data: Record<
 /** The five item grades from `docs/RUNE-CANONICAL.md`, shared by gems and grindstones. */
 export type ItemGrade = 'Normal' | 'Magic' | 'Rare' | 'Hero' | 'Legend';
 export type ArtifactConversionStoneMode = 'none' | 'owned' | 'theoretical';
-export type RunePotentialSettings = { powerUpPolicy: number; runeQuality: number; gemRollStep: number; grindstoneRollStep: number; gemGrade: ItemGrade; grindstoneGrade: ItemGrade; acceptedRunes: number; brokenRunes: number; intangibleRunes: number; keepMoreForLargerSets: boolean };
+/** `null` for a craft roll is the slider's first stop: no item credited at all. */
+export type RunePotentialSettings = { powerUpPolicy: number; runeQuality: number; gemRoll: CraftRollAssumption | null; grindstoneRoll: CraftRollAssumption | null; gemGrade: ItemGrade; grindstoneGrade: ItemGrade; acceptedRunes: number; brokenRunes: number; intangibleRunes: number; keepMoreForLargerSets: boolean };
 /**
  * How the companion program is allowed to feed JASWA once it is connected.
  *
@@ -81,7 +83,8 @@ export type ArtifactSettings = {
   /** Limit every artifact recommendation destination to an owned Lv. 40 monster. */
   onlyLevel40Monsters: boolean;
   conversionStoneMode: ArtifactConversionStoneMode;
-  conversionRoll: number;
+  /** The roll a conversion is assumed to land on (`artifactConversionRollFraction`). */
+  conversionRoll: CraftRollAssumption;
   /**
    * Whether a gain must clear `insignificantDifference` before it counts as an
    * improvement worth recommending (`ARTIFACT-CANONICAL.md` §17.3).

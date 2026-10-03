@@ -31,7 +31,6 @@ import {
   slotMainFamily, standingIn,
 } from '../app/lib/rune-cleanup-model.ts';
 import { craftedScore } from '../app/lib/rune-craft-end-state.ts';
-import { craftAssumptionForSetting } from '../app/lib/rune-craft-items.ts';
 
 const base = new Map([
   ['Attack type', { hp: 9708, atk: 808, def: 568, spd: 105, criRate: 18, criDmg: 50, res: 15, acc: 4 }],
@@ -59,8 +58,8 @@ const check = (ok, message) => {
 /** Every reading the engine weighs for one rune, rebuilt as `runeAdvice` builds them. */
 function readingsOf(rune, settings, shares, scope) {
   const credit = {
-    gem: craftAssumptionForSetting(settings.gemRollStep), gemGrade: settings.gemGrade,
-    grind: craftAssumptionForSetting(settings.grindstoneRollStep), grindGrade: settings.grindstoneGrade,
+    gem: settings.gemRoll, gemGrade: settings.gemGrade,
+    grind: settings.grindstoneRoll, grindGrade: settings.grindstoneGrade,
   };
   const accepted = acceptedWorth[settings.acceptedRunes - 1];
   const broken = brokenWorth[settings.brokenRunes - 1];

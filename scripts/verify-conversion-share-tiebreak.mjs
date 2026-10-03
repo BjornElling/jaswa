@@ -85,17 +85,20 @@ try {
      exactly 75 % for every property. */
   const bombDamage = artifactProperty(210);
   const dealtOnFire = artifactProperty(300);
-  assert.equal(artifactConversionRollFraction(bombDamage, 1), 1 / 6,
+  assert.equal(artifactConversionRollFraction(bombDamage, 'minimum'), 1 / 6,
     'minimum uses Bomb Damage’s own single-roll floor against its 6 % ceiling');
-  assert.equal(artifactConversionRollFraction(dealtOnFire, 1), 0.375,
+  assert.equal(artifactConversionRollFraction(dealtOnFire, 'minimum'), 0.375,
     'minimum is one 3 % roll of an 8 % ceiling, not a shared estimate');
-  assert.equal(artifactConversionRollFraction(dealtOnFire, 2), 0.6875,
+  assert.equal(artifactConversionRollFraction(bombDamage, 'one-third'), 1 / 3, 'one third is exactly one third of the maximum');
+  assert.equal(artifactConversionRollFraction(dealtOnFire, 'one-third'), 0.375,
+    'one third never assumes less than the floor a stop to its left already assumes');
+  assert.equal(artifactConversionRollFraction(dealtOnFire, 'average'), 0.6875,
     'average is the midpoint between the single-roll floor and the ceiling');
-  assert.equal(artifactConversionRollFraction(bombDamage, 3), 2 / 3, 'two thirds is exactly two thirds of the maximum');
-  assert.equal(artifactConversionRollFraction(dealtOnFire, 3), 0.6875,
+  assert.equal(artifactConversionRollFraction(bombDamage, 'two-thirds'), 2 / 3, 'two thirds is exactly two thirds of the maximum');
+  assert.equal(artifactConversionRollFraction(dealtOnFire, 'two-thirds'), 0.6875,
     'two thirds never assumes less than the midpoint a stop to its left already assumes');
-  assert.equal(artifactConversionRollFraction(dealtOnFire, 4), 0.75, 'three quarters is exactly 75 % of the maximum');
-  assert.equal(artifactConversionRollFraction(dealtOnFire, 5), 1, 'maximum is the conversion maximum');
+  assert.equal(artifactConversionRollFraction(dealtOnFire, 'three-quarters'), 0.75, 'three quarters is exactly 75 % of the maximum');
+  assert.equal(artifactConversionRollFraction(dealtOnFire, 'maximum'), 1, 'maximum is the conversion maximum');
 
   /* Conversion at full reach against a Legend-shaped ceiling, so the fixtures
      below test the ordering rules rather than the conversion ceiling. */
@@ -378,7 +381,7 @@ try {
      max-roll points — 0.125 points against the `2 + 5 + a` benchmark, which
      moves the artifact from 27 % to 28 %. Small enough for the band to swallow,
      which is what this fixture is for. */
-  const floorFractions = scoredArtifactProperties.map((property) => artifactConversionRollFraction(property, 1));
+  const floorFractions = scoredArtifactProperties.map((property) => artifactConversionRollFraction(property, 'minimum'));
   const lowGainBanded = (insignificantDifference) => scoreArtifactOnMonster(lowGainArtifact, lowGainMonster, {
     ...request, conversionRollFractions: floorFractions, insignificantDifference,
   });

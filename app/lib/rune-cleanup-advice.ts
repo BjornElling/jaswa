@@ -26,7 +26,6 @@ import type {
 import { countJobs } from './rune-power-up-outcomes';
 import type { RuneFuture, RuneRuns } from './rune-power-up-outcomes';
 import type { Valuation } from './rune-substat-weights';
-import { craftAssumptionForSetting } from './rune-craft-items';
 import { lastSubPropertyLevel, slotMainProperties } from './rune-properties';
 import { craftedLines, groundLines } from './rune-craft-end-state';
 import type { EndStateLine } from './rune-craft-end-state';
@@ -538,8 +537,8 @@ function policyOf(settings: RunePotentialSettings) {
      common ruler stays on the fixed neutral credit. Craft legality remains
      Ancient-specific. */
   const credit: CraftCredit = {
-    gem: craftAssumptionForSetting(settings.gemRollStep), gemGrade: settings.gemGrade,
-    grind: craftAssumptionForSetting(settings.grindstoneRollStep), grindGrade: settings.grindstoneGrade,
+    gem: settings.gemRoll, gemGrade: settings.gemGrade,
+    grind: settings.grindstoneRoll, grindGrade: settings.grindstoneGrade,
   };
   return {
     qualityBar: qualityThresholds[settings.runeQuality - 1] ?? qualityThresholds[2],

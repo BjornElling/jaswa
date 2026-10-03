@@ -169,9 +169,11 @@ export function craftValueRange(
  * wording matches the artifact workspace's conversion slider, because the
  * question is the same one: how lucky may a figure on screen assume you got.
  */
-export type CraftRollAssumption = 'minimum' | 'average' | 'two-thirds' | 'three-quarters' | 'maximum';
+export type CraftRollAssumption = 'minimum' | 'one-third' | 'average' | 'two-thirds' | 'three-quarters' | 'maximum';
 
-export const craftRollAssumptions: readonly CraftRollAssumption[] = ['minimum', 'average', 'two-thirds', 'three-quarters', 'maximum'];
+export const craftRollAssumptions: readonly CraftRollAssumption[] = [
+  'minimum', 'one-third', 'average', 'two-thirds', 'three-quarters', 'maximum',
+];
 
 /**
  * What a Gem or Grindstone is assumed to roll where nobody has said otherwise:
@@ -182,6 +184,7 @@ export const defaultCraftRollAssumption: CraftRollAssumption = 'two-thirds';
 
 export const craftRollLabels: Readonly<Record<CraftRollAssumption, string>> = {
   minimum: 'Worst',
+  'one-third': '⅓',
   average: 'Average',
   'two-thirds': '⅔',
   'three-quarters': '¾',
@@ -190,35 +193,37 @@ export const craftRollLabels: Readonly<Record<CraftRollAssumption, string>> = {
 
 export const craftRollDescriptions: Readonly<Record<CraftRollAssumption, string>> = {
   minimum: 'the floor of its range',
+  'one-third': 'one third of the way up its range',
   average: 'the midpoint of its range',
   'two-thirds': 'two thirds of the way up its range',
   'three-quarters': 'three quarters of the way up its range',
   maximum: 'the best its grade allows',
 };
 
-/** The five Rune Clean-up stops, in the order used by its sliders. */
+/**
+ * The Rune Clean-up stops, in the order used by its sliders. `null` is no item at
+ * all. The setting stores the assumption rather than the stop's position, so a
+ * stop added to the ladder cannot quietly change what a saved choice means.
+ */
 export const craftSettingAssumptions: readonly (CraftRollAssumption | null)[] = [
-  null, 'average', 'two-thirds', 'three-quarters', 'maximum',
+  null, 'one-third', 'average', 'two-thirds', 'three-quarters', 'maximum',
 ];
-
-/** The slider stop that assumes `defaultCraftRollAssumption`. */
-export const defaultCraftSetting = craftSettingAssumptions.indexOf(defaultCraftRollAssumption) + 1;
-
-export function craftAssumptionForSetting(step: number): CraftRollAssumption | null {
-  return craftSettingAssumptions[step - 1] ?? null;
-}
 
 /** Round a craft value to a whole number without biasing negative halves inward. */
 export function roundAwayFromZero(value: number): number {
   return value < 0 ? -Math.round(-value) : Math.round(value);
 }
 
+const craftRollFractions: Readonly<Record<CraftRollAssumption, number>> = {
+  minimum: 0, 'one-third': 1 / 3, average: 0.5, 'two-thirds': 2 / 3, 'three-quarters': 0.75, maximum: 1,
+};
+
 /** The value a roll is assumed to land on. Whole, as every rune value is. */
 export function craftRollValue(bounds: CraftValueRange, assumption: CraftRollAssumption): number {
   const span = bounds.maximum - bounds.minimum;
   if (assumption === 'minimum') return bounds.minimum;
   if (assumption === 'maximum') return bounds.maximum;
-  const fraction = assumption === 'average' ? 0.5 : assumption === 'two-thirds' ? 2 / 3 : 0.75;
+  const fraction = craftRollFractions[assumption];
   return roundAwayFromZero(bounds.minimum + span * fraction);
 }
 

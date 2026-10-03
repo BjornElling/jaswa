@@ -8,8 +8,8 @@ test('simulates random runes through +0, +9, +12 and +15, spending no craft with
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Set-up', exact: true }).click();
   await page.locator('details').filter({ hasText: 'Settings' }).locator('summary').click();
-  await page.locator('#enchanted-gems').fill('5');
-  await page.locator('#grindstones').fill('4');
+  await page.locator('#enchanted-gems').fill('6');
+  await page.locator('#grindstones').fill('5');
 
   /* The simulator is a Runes tool, judged by the Clean-up engine beside it. */
   const runes = page.locator('.rail-group').filter({ has: page.locator('.rail-heading', { hasText: 'Runes' }) });

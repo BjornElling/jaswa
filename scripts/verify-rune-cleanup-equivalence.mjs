@@ -231,7 +231,7 @@ function namedFixtures(random) {
 // ---------------------------------------------------------------------------
 
 const baseSettings = {
-  powerUpPolicy: 3, runeQuality: 3, gemRollStep: 1, grindstoneRollStep: 1,
+  powerUpPolicy: 3, runeQuality: 3, gemRoll: null, grindstoneRoll: null,
   gemGrade: 'Hero', grindstoneGrade: 'Hero', acceptedRunes: 3, brokenRunes: 3,
   intangibleRunes: 1, keepMoreForLargerSets: false,
 };
@@ -284,8 +284,8 @@ function scenarios() {
   ];
   const all = [
     { name: 'defaults', settings: baseSettings, presets: shipped },
-    { name: 'max-craft', presets: shipped, settings: { ...baseSettings, gemRollStep: 5, grindstoneRollStep: 5, gemGrade: 'Legend', grindstoneGrade: 'Legend' } },
-    { name: 'half-craft', presets: shipped, settings: { ...baseSettings, gemRollStep: 2, grindstoneRollStep: 1, gemGrade: 'Rare', grindstoneGrade: 'Legend' } },
+    { name: 'max-craft', presets: shipped, settings: { ...baseSettings, gemRoll: 'maximum', grindstoneRoll: 'maximum', gemGrade: 'Legend', grindstoneGrade: 'Legend' } },
+    { name: 'half-craft', presets: shipped, settings: { ...baseSettings, gemRoll: 'average', grindstoneRoll: null, gemGrade: 'Rare', grindstoneGrade: 'Legend' } },
     { name: 'broken-rejected', presets: shipped, settings: { ...baseSettings, brokenRunes: 5 } },
     { name: 'strict', presets: shipped, settings: { ...baseSettings, runeQuality: 5, powerUpPolicy: 5, acceptedRunes: 5 } },
     { name: 'permissive', presets: shipped, settings: { ...baseSettings, runeQuality: 1, powerUpPolicy: 1, acceptedRunes: 1, brokenRunes: 1 } },
