@@ -231,6 +231,28 @@ function runeEffects(rune: Rune, mainValue: number, lines: readonly EndStateLine
   return effects;
 }
 
+/** One rune of a build in the end state a figure is counted in. */
+export type BuildPiece = { rune: Rune; mainValue: number; lines: readonly EndStateLine[] };
+
+/**
+ * The eleven figures of six runes on a copy, summed exactly as the search sums a
+ * finished build — the artifacts, each rune's effects, the completed sets with the
+ * Intangible's completion — so a build counted again after the account changed
+ * reads the figure the search would have given it.
+ */
+export function buildFigures(monster: GameRecord, pieces: readonly BuildPiece[]): number[] {
+  const effects = new Float64Array(effectSlotCount);
+  addEquipmentEffects(monster, effects);
+  const counts = new Int32Array(setIdBound);
+  for (const piece of pieces) {
+    const own = runeEffects(piece.rune, piece.mainValue, piece.lines);
+    for (let slot = 0; slot < effectSlotCount; slot += 1) effects[slot] += own[slot];
+    if (piece.rune.setId > 0 && piece.rune.setId < setIdBound) counts[piece.rune.setId] += 1;
+  }
+  addSetBonuses(counts, intangibleCompletion(counts), effects);
+  return Array.from(figuresOf(monsterBaseStats(monster), effects, new Float64Array(targetFigureCount)));
+}
+
 /* The lines a Grindstone would newly touch: a stone bigger than the one the rune
    carries on the same property. A line a Gem turned into another property starts
    from no stone at all. */

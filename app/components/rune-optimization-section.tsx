@@ -17,7 +17,7 @@ import { useSortedRows } from './use-sorted-rows';
 import type { SortableColumn } from './use-sorted-rows';
 import { WorkspacePage } from './workspace-page';
 import { cancelRuneOptimization, optimizeRuneBuilds } from '../lib/compute/rune-optimization-client';
-import type { OptimizedBuild, RuneOptimizationAnswer } from '../lib/compute/rune-optimization-protocol';
+import type { RuneOptimizationAnswer } from '../lib/compute/rune-optimization-protocol';
 import { formatNumber } from '../lib/formatting';
 import type { GameRecord } from '../lib/game-data';
 import { runeSlotKeys } from '../lib/monster-defaults';
@@ -30,6 +30,8 @@ import { craftRollAssumptions, craftRollLabels, itemGrades, readCraftItems } fro
 import type { CraftRollAssumption } from '../lib/rune-craft-items';
 import { figureIndex } from '../lib/rune-optimization-problem';
 import type { RankFigure, RuneOptimizationInput, RuneOptimizationRequirements } from '../lib/rune-optimization-problem';
+import { currentBuilds } from '../lib/rune-optimization-refresh';
+import type { CurrentBuild } from '../lib/rune-optimization-refresh';
 import { profileRequirements, sameList } from '../lib/rune-optimization-requirements';
 import {
   craftUseLabels, craftUses, runeOptimizationDepthLabels, runeOptimizationDepthPlans, runeOptimizationDepths,
@@ -41,6 +43,7 @@ import { runeSlotMainsBySlot } from '../lib/rune-slot-mains';
 import { activeRuneSets } from '../lib/rune-sets';
 import { runeBuildName } from '../lib/rune-set-pairs';
 import { readRunes } from '../lib/runes';
+import type { Rune } from '../lib/runes';
 import { useSessionStorageState } from '../lib/session-storage-state';
 import { runeOptimizationTableColumns, columnClasses } from '../lib/table-layouts';
 import type { ImportedGame, ItemGrade, Preferences } from '../lib/types';
@@ -71,9 +74,14 @@ const isString = (value: unknown): value is string => typeof value === 'string';
 
 type MonsterOption = { unitId: string; masterId: string; name: string; record: GameRecord };
 
-type Calculation = { inputKey: string; answer: RuneOptimizationAnswer; id: number };
+/* `runes` is the account as the search read it, which a build is re-read against
+   when a sync brings back the work the player did from the table. */
+type Calculation = { inputKey: string; answer: RuneOptimizationAnswer; runes: ReadonlyMap<string, Rune>; id: number };
 
-type ResultRow = { index: number; build: OptimizedBuild; name: string };
+type ResultRow = { index: number; build: CurrentBuild; name: string };
+
+/** A build whose rune has left the account has no figure, and sorts below every build that has one. */
+const figureOf = (build: CurrentBuild, at: number) => build.figures?.[at] ?? -Infinity;
 
 function buildNameOf(setIds: readonly number[]): string {
   return runeBuildName(activeRuneSets({ runes: setIds.map((setId) => ({ set_id: setId })) }).map((set) => set.name));
@@ -132,11 +140,15 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
   const input = useMemo<RuneOptimizationInput | undefined>(() => (selected && requirements ? {
     unitId: selected.unitId, monster: selected.record, runes, holds: preferences.runeHolds, craftItems, requirements, settings,
   } : undefined), [selected, requirements, runes, preferences.runeHolds, craftItems, settings]);
-  /* What the table answers. The import is keyed by when it arrived, because a live
-     sync replaces the whole game object on every revision and hashing three
-     thousand runes to notice that would be the slowest thing on the page. */
-  const inputKey = JSON.stringify({ unitId, requirements, settings, importedAt: game?.importedAt, holds: preferences.runeHolds });
+  /* What the table answers. The import is not part of it: the player follows the
+     table by moving, gemming and grinding runes, and a sync bringing that back must
+     update the builds rather than throw them away (`rune-optimization-refresh.ts`). */
+  const inputKey = JSON.stringify({ unitId, requirements, settings, holds: preferences.runeHolds });
   const current = calculation?.inputKey === inputKey ? calculation : undefined;
+  const builds = useMemo(() => (current && selected
+    ? currentBuilds(current.answer.builds, current.runes, runesById, selected.record, selected.unitId)
+    : undefined), [current, selected, runesById]);
+  const runesChanged = current !== undefined && current.runes !== runesById;
 
   const currentFigures = useMemo(() => {
     if (!selected) return undefined;
@@ -171,13 +183,14 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
 
   async function calculate() {
     if (!input) return;
+    const searched = runesById;
     setState('calculating');
     setProgress(0);
     setChosenBuild(null);
     const outcome = await optimizeRuneBuilds(input, preferences.hardwareAcceleration, setProgress);
     if (outcome.status === 'superseded') { setState('idle'); return; }
     if (outcome.status === 'failed') { setState('error'); setCalculation(undefined); return; }
-    setCalculation((previous) => ({ inputKey, answer: outcome.answer, id: (previous?.id ?? 0) + 1 }));
+    setCalculation((previous) => ({ inputKey, answer: outcome.answer, runes: searched, id: (previous?.id ?? 0) + 1 }));
     setState('idle');
   }
 
@@ -314,7 +327,8 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
           ? <p className="calculation-status" role="status">Searching… {formatNumber(Math.round(progress * 100), general)} %</p>
           : current
             ? <CalculationStatus durationMs={current.answer.durationMs} backend={current.answer.backend} general={general}
-              detail={`${formatNumber(current.answer.combinations, general)} builds checked · ${formatNumber(current.answer.report.runes, general)} runes considered`} />
+              detail={`${formatNumber(current.answer.combinations, general)} builds checked · ${formatNumber(current.answer.report.runes, general)} runes considered`
+                + (runesChanged ? ' · your runes changed since, and the builds follow them' : '')} />
             : <p className="calculation-status" role="status">{selected ? 'Not calculated yet.' : ''}</p>}
       </div>
 
@@ -327,14 +341,14 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
         Tighter requirements, or a quicker depth, let it finish.
       </p>}
 
-      {current && selected && currentFigures && <Results key={current.id} answer={current.answer} rankBy={requirements?.rankBy ?? 'ehp'}
+      {current && builds && selected && currentFigures && <Results key={current.id} answer={current.answer} builds={builds} rankBy={requirements?.rankBy ?? 'ehp'}
         currentBuild={currentBuild} currentFigures={currentFigures} general={general}
         chosen={chosenBuild} onChoose={openBuild} />}
     </div>
 
-    {current && showingBuild && chosenBuild !== null && current.answer.builds[chosenBuild] && <RuneBuildOverlay
-      index={chosenBuild} buildName={buildNameOf(current.answer.builds[chosenBuild].runes.map((rune) => rune.setId))}
-      moves={current.answer.builds[chosenBuild].moves} runes={current.answer.builds[chosenBuild].runes} runesById={runesById}
+    {builds && showingBuild && chosenBuild !== null && builds[chosenBuild] && <RuneBuildOverlay
+      index={chosenBuild} buildName={buildNameOf(builds[chosenBuild].runes.map((rune) => rune.setId))}
+      moves={builds[chosenBuild].moves} runes={builds[chosenBuild].runes} runesById={runesById}
       thisMonster={unitId} wearer={(id) => wearers.get(id)}
       general={general} onClose={closeBuild} onOpenRune={onOpenRune} onOpenMonster={onOpenMonster} />}
   </WorkspacePage>;
@@ -374,8 +388,9 @@ function CraftSetting({ legend, name, use, grade, roll, onUse, onGrade, onRoll }
   </div>;
 }
 
-function Results({ answer, rankBy, currentBuild, currentFigures, general, chosen, onChoose }: {
+function Results({ answer, builds, rankBy, currentBuild, currentFigures, general, chosen, onChoose }: {
   answer: RuneOptimizationAnswer;
+  builds: readonly CurrentBuild[];
   rankBy: RankFigure;
   currentBuild: string;
   currentFigures: readonly number[];
@@ -383,16 +398,16 @@ function Results({ answer, rankBy, currentBuild, currentFigures, general, chosen
   chosen: number | null;
   onChoose: (index: number, opener: HTMLElement) => void;
 }) {
-  const rows = useMemo<ResultRow[]>(() => answer.builds.map((build, index) => ({
+  const rows = useMemo<ResultRow[]>(() => builds.map((build, index) => ({
     index, build, name: buildNameOf(build.runes.map((rune) => rune.setId)),
-  })), [answer]);
+  })), [builds]);
   const columns = useMemo<SortableColumn<ResultRow>[]>(() => [
     { key: 'index', label: '#', align: 'left', compare: (left, right) => left.index - right.index },
     { key: 'build', label: 'Build', align: 'left', compare: (left, right) => left.name.localeCompare(right.name) },
     { key: 'moves', label: 'Moves', align: 'right', compare: (left, right) => left.build.moves - right.build.moves },
     ...monsterStatTargetKeys.map((key): SortableColumn<ResultRow> => ({
       key, label: figureLabels[key], align: 'right', initialDirection: 'descending',
-      compare: (left, right) => left.build.figures[figureIndex(key)] - right.build.figures[figureIndex(key)],
+      compare: (left, right) => figureOf(left.build, figureIndex(key)) - figureOf(right.build, figureIndex(key)),
     })),
   ], []);
   const { sorted, sort, toggle } = useSortedRows(rows, columns, { key: rankBy, direction: 'descending' },
@@ -437,8 +452,9 @@ function Results({ answer, rankBy, currentBuild, currentFigures, general, chosen
           </td>
           <td className={cell('build')}>{row.name}</td>
           <td className={cell('moves')}>{formatNumber(row.build.moves, general)}</td>
-          {monsterStatTargetKeys.map((key) => <td key={key} className={cell(key)}>
-            {formatNumber(row.build.figures[figureIndex(key)], general)}
+          {monsterStatTargetKeys.map((key) => <td key={key} className={cell(key)}
+            title={row.build.figures === null ? 'A rune in this build is no longer in the account' : undefined}>
+            {row.build.figures === null ? '—' : formatNumber(row.build.figures[figureIndex(key)], general)}
           </td>)}
         </tr>)}
       </tbody>

@@ -32,6 +32,13 @@
  *    table, row for row and pick for pick. A second stand-in answers two passes and
  *    then refuses, so the processor has to finish what the card left.
  *
+ * 4. **The build read again** — `currentBuilds`, which keeps an open table in step
+ *    with the account as the player follows it. Against an account a sync merely
+ *    re-sent it must change nothing; against one where every move, Gem and stone the
+ *    build asks for has been done it must report the same figures, no work left and
+ *    no rune to move. `buildFigures`, which it counts with, must give the search's
+ *    own figures.
+ *
  * No real card runs here; `verify-rune-optimization-card.mjs` holds the shader.
  *
  *   node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs \
@@ -40,7 +47,8 @@
 import assert from 'node:assert/strict';
 import { calculateMonsterTotals, intangibleSetId, monsterTargetFigures, targetFigureKeys } from '../app/lib/monster-stats.ts';
 import { monsterStatTargetKeys } from '../app/lib/monster-preferences.ts';
-import { prepareRuneOptimization } from '../app/lib/rune-optimization-problem.ts';
+import { buildFigures, prepareRuneOptimization } from '../app/lib/rune-optimization-problem.ts';
+import { currentBuilds } from '../app/lib/rune-optimization-refresh.ts';
 import {
   mergeBuildResults, searchRuneBuilds, searchRuneBuildsInPasses, searchRuneBuildsInSlices,
 } from '../app/lib/rune-optimization-search.ts';
@@ -157,6 +165,8 @@ const scenarios = Number(process.argv.find((arg) => arg.startsWith('--scenarios=
 let checkedRows = 0;
 let emptyTables = 0;
 let refusedMidway = 0;
+/* Builds with a Gem or a stone still to apply, so the followed case is not only ever read on bare runes. */
+let withWork = 0;
 /* Brute force is only a proof while it finishes, and a theoretical Gem multiplies a
    rune into a dozen end states. An account whose unreduced combinations run past
    this is drawn again rather than searched for minutes. */
@@ -201,16 +211,53 @@ for (let index = 0; index < scenarios; index += 1) {
        processor's. That is only allowed where there was no first pass to answer. */
     assert.match(String(error), /refuses/, `${context}: the search in passes failed`);
   }
-  for (const build of whole.builds) {
+  const runesById = new Map(input.runes.map((rune) => [rune.id, rune]));
+  const found = whole.builds.map((build) => ({
+    ...build,
+    runes: build.picks.map((at, slot) => {
+      const candidate = problem.slots[slot][at];
+      return {
+        runeId: candidate.runeId, slot: candidate.slot, setId: candidate.setId, mainValue: candidate.mainValue,
+        lines: candidate.lines, gemmedAt: candidate.gemmedAt, groundAt: candidate.groundAt, spends: [],
+        moves: candidate.moves, locked: candidate.locked,
+      };
+    }),
+  }));
+  for (const build of found) {
     const chosen = build.picks.map((at, slot) => problem.slots[slot][at]);
     assert.deepEqual(build.figures, sheet(input, chosen), `${context}: a reported figure is not the stat sheet's`);
+    assert.deepEqual(buildFigures(input.monster, build.runes.map((picked) => ({ rune: runesById.get(picked.runeId), mainValue: picked.mainValue, lines: picked.lines }))),
+      build.figures, `${context}: buildFigures disagrees with the search`);
+
+    /* A sync that re-sent the same account: new objects, nothing changed. */
+    const resent = new Map(input.runes.map((rune) => [rune.id, { ...rune, subProperties: rune.subProperties.map((line) => ({ ...line })) }]));
+    const [same] = currentBuilds([build], runesById, resent, input.monster, input.unitId);
+    assert.deepEqual(same.figures, build.figures, `${context}: re-reading an unchanged account changed a figure`);
+    assert.deepEqual(same.runes.map((picked) => [picked.gemmedAt, picked.groundAt, picked.moves]),
+      build.runes.map((picked) => [picked.gemmedAt, picked.groundAt, picked.moves]), `${context}: re-reading an unchanged account changed the work`);
+
+    if (build.runes.some((picked) => picked.gemmedAt >= 0 || picked.groundAt.length > 0)) withWork += 1;
+    /* The player did everything the build asks: every rune on the monster, every Gem
+       and stone applied at the value the search assumed. */
+    const done = new Map(resent);
+    for (const picked of build.runes) {
+      const rune = runesById.get(picked.runeId);
+      done.set(rune.id, { ...rune, mainValue: rune.mainValue, occupiedId: input.unitId, subProperties: picked.lines.map((line) => ({ ...line })) });
+    }
+    const [followed] = currentBuilds([build], runesById, done, input.monster, input.unitId);
+    assert.deepEqual(followed.figures, build.figures, `${context}: a build followed to the letter changed its figures`);
+    assert.equal(followed.moves, 0, `${context}: a build followed to the letter still moves a rune`);
+    assert.ok(followed.runes.every((picked) => picked.gemmedAt === -1 && picked.groundAt.length === 0),
+      `${context}: a build followed to the letter still lists work`);
   }
   checkedRows += expected.length;
   if (expected.length === 0) emptyTables += 1;
 }
 
 assert.ok(checkedRows > scenarios, 'too few builds were compared to prove anything');
+assert.ok(withWork > scenarios / 4, `only ${withWork} builds had work to follow`);
 assert.ok(refusedMidway > scenarios / 4, 'too few searches lost their card midway to prove the processor finishes');
 console.log(`PASS: ${scenarios} random accounts, ${checkedRows} ranked builds — the search, whole and split three ways,`
   + ` matches brute force on every row (${emptyTables} tables were rightly empty); in passes it matches the`
-  + ` processor pick for pick, and ${refusedMidway} searches finished on the processor after the card refused.`);
+  + ` processor pick for pick, and ${refusedMidway} searches finished on the processor after the card refused;`
+  + ` every build read again against a re-sent account and a followed one (${withWork} with Gems or stones) kept its figures.`);

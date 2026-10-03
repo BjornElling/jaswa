@@ -350,6 +350,17 @@ table pick for pick. It needs a running dev server and a card, and is not part o
    main, innate, sub properties and where the rune is; and beside the circle, slot
    by slot, the modifications the build assumes — which line a Gem replaces and
    with what, which stone goes on which line, and a main counted at +15.
+6. **Following the table** — a change to the runes does not throw the table away.
+   The player follows it by moving, gemming and grinding, and a sync bringing that
+   back re-reads every build against the account as it is now
+   (`rune-optimization-refresh.ts`): a Gem or stone applied since the search counts
+   as done at what it rolled and leaves the modifications, one not yet applied is
+   still counted as planned, Moves follow where each rune now sits, and the figures
+   are summed again with the search's own arithmetic (`buildFigures`). A build whose
+   rune has left the account keeps its row with no figures. The status line says the
+   runes changed, because a better build the change made possible is only found by
+   searching again. Changing the requirements, the search settings or a rune's hold
+   still marks the table as stale.
 
 Nothing a choice changes moves anything else (`AGENTS.md` §2): captions are
 reserved lines, the craft selects disable rather than disappear, the status line
