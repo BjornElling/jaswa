@@ -1,7 +1,7 @@
 {
   "unit_list": [
-    { "unit_id": 1, "unit_master_id": 10131, "attribute": 1 },
-    { "unit_id": 2, "unit_master_id": 10132, "attribute": 2 }
+    { "unit_id": 1, "unit_master_id": 10131, "attribute": 1, "class": 6 },
+    { "unit_id": 2, "unit_master_id": 10132, "attribute": 2, "class": 6 }
   ],
   "runes": [],
   "artifacts": [

@@ -1,4 +1,5 @@
 import type { GameRecord } from './game-data';
+import { canEquipRelics } from './monster-equipment-eligibility';
 import {
   relicMainProperties, relicMaximumDurability, relicMaximumLevel, relicProperty,
 } from './relic-properties';
@@ -163,6 +164,7 @@ export function relicPowerUpStoneCount(data: GameRecord | undefined): number | u
 export function relicEngravingCounts(monsters: readonly GameRecord[]): Map<string, number> {
   const counts = new Map<string, number>();
   for (const monster of monsters) {
+    if (!canEquipRelics(monster)) continue;
     if (!Array.isArray(monster.relics)) continue;
     /* One monster cannot wear the same relic twice, but the export is a file
        the user can hand over, so a repeated id counts once rather than

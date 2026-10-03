@@ -22,20 +22,23 @@ function artifact(id) {
 
 try {
   const { artifactOptimizationMonsters } = await server.ssrLoadModule('/app/lib/artifact-optimization-monsters.ts');
+  const { canEquipArtifacts, canEquipRelics } = await server.ssrLoadModule('/app/lib/monster-equipment-eligibility.ts');
+  const { relicEngravingCounts } = await server.ssrLoadModule('/app/lib/relics.ts');
   const { buildArtifactScoreRequests } = await server.ssrLoadModule('/app/lib/compute/artifact-score-input.ts');
   const { defaultArtifactSettings } = await server.ssrLoadModule('/app/lib/file-imports.ts');
   const { recordedArtifactPreferenceMonsterIds } = await server.ssrLoadModule('/app/lib/artifact-preferences.ts');
 
   const masterId = recordedArtifactPreferenceMonsterIds[0];
   const monsters = [
-    { unit_id: 1, unit_master_id: masterId, unit_level: 39 },
-    { unit_id: 2, unit_master_id: masterId, unit_level: 40 },
-    { unit_id: 3, unit_master_id: masterId, unit_level: 41 },
+    { unit_id: 1, unit_master_id: masterId, unit_level: 39, class: 6 },
+    { unit_id: 2, unit_master_id: masterId, unit_level: 40, class: 6 },
+    { unit_id: 3, unit_master_id: masterId, unit_level: 41, class: 6 },
+    { unit_id: 4, unit_master_id: masterId, unit_level: 40, class: 5 },
   ];
   const settings = { ...defaultArtifactSettings, onlyFactorInOwnedMonsters: false, onlyLevel40Monsters: true };
 
   assert.deepEqual(artifactOptimizationMonsters(monsters, settings).map((monster) => monster.unit_id), [2, 3],
-    'Lv. 40 scope must exclude lower-level monsters and retain the level-cap floor');
+    'artifact destinations must be six-star and meet the optional Lv. 40 scope');
 
   const requests = buildArtifactScoreRequests({ artifacts: [artifact(1), artifact(2)] }, monsters, settings);
   assert.deepEqual([...new Set(requests.flatMap((request) => request.monsters.map((monster) => monster.id)))], [masterId],
@@ -43,7 +46,16 @@ try {
   assert.deepEqual(requests.flatMap((request) => request.artifacts.map((entry) => entry.id)), ['1', '2'],
     'the level restriction must never remove artifacts from the calculation pool');
 
-  console.log('Artifact Lv. 40 scope excludes lower-level destinations without excluding their artifacts.');
+  assert.equal(canEquipArtifacts(monsters[1]), true, 'a six-star monster can equip artifacts');
+  assert.equal(canEquipArtifacts(monsters[3]), false, 'a five-star monster cannot equip artifacts');
+  assert.equal(canEquipRelics(monsters[1]), true, 'a level-40 monster can receive relic engravings');
+  assert.equal(canEquipRelics(monsters[0]), false, 'a level-39 monster cannot receive relic engravings');
+  assert.deepEqual([...relicEngravingCounts([
+    { ...monsters[1], relics: [{ rid: 10 }] },
+    { ...monsters[0], relics: [{ rid: 10 }] },
+  ])], [['10', 1]], 'only legal level-40 relic engravings consume account capacity');
+
+  console.log('Artifact and relic destinations follow the game equipment unlocks.');
 } finally {
   await server.close();
 }

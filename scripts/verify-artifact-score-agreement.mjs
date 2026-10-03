@@ -49,6 +49,7 @@ try {
   const { artifactValueOnMonster } = await server.ssrLoadModule('/app/lib/artifact-value-on-monster.ts');
   const { buildArtifactScoreRequestsForMonsterIds } = await server.ssrLoadModule('/app/lib/compute/artifact-score-input.ts');
   const { artifactPairScore } = await server.ssrLoadModule('/app/lib/artifact-recommendations.ts');
+  const { canEquipArtifacts } = await server.ssrLoadModule('/app/lib/monster-equipment-eligibility.ts');
   const { monsterSpeciesId } = await server.ssrLoadModule('/app/lib/monster-species.ts');
   const { createImportedGame } = await server.ssrLoadModule('/app/lib/file-imports.ts');
 
@@ -65,10 +66,10 @@ try {
   for (const artifact of artifacts) {
     if (artifact.occupiedId === null) continue;
     const unit = units.get(String(artifact.occupiedId));
-    if (!unit) continue;
+    if (!unit || !canEquipArtifacts(unit)) continue;
     const species = monsterSpeciesId(unit.unit_master_id);
     if (!bySpecies.has(species)) bySpecies.set(species, []);
-    bySpecies.get(species).push({ artifact, masterId: unit.unit_master_id, unitId: String(unit.unit_id) });
+    bySpecies.get(species).push({ artifact, unit, masterId: unit.unit_master_id, unitId: String(unit.unit_id) });
   }
 
   const pairs = [...bySpecies.values()].reduce((total, entries) => total + entries.length, 0);
@@ -95,13 +96,13 @@ try {
     const requests = buildArtifactScoreRequestsForMonsterIds(game, [...bySpecies.keys()], settings);
 
     for (const [species, entries] of bySpecies) {
-      for (const { artifact, masterId, unitId } of entries) {
+      for (const { artifact, unit, masterId, unitId } of entries) {
         /* A copy that states its own answers is scored on those, under its own
            row keyed by `unit_id`. Both readers have to reach the same number
            through the user's statement exactly as they do through the
            statistics — the floors and the plural mains are the two parts that
            can silently diverge, so the stated case is exercised below. */
-        const library = artifactValueOnMonster(artifact, masterId, settings);
+        const library = artifactValueOnMonster(artifact, unit, settings);
         const engine = artifactPairScore(requests, artifact.id, species, { conversions: false });
         const libraryPercent = library === undefined ? undefined : Math.round(library * 100);
         const enginePercent = engine === undefined ? undefined : engine.value;
@@ -137,7 +138,7 @@ try {
         const statedRequests = buildArtifactScoreRequestsForMonsterIds(
           game, [...bySpecies.keys()], settings, undefined, { [unitId]: stated },
         );
-        const statedLibrary = artifactValueOnMonster(artifact, masterId, settings, stated);
+        const statedLibrary = artifactValueOnMonster(artifact, unit, settings, stated);
         const statedEngine = artifactPairScore(statedRequests, artifact.id, unitId, { conversions: false });
         const statedLibraryPercent = statedLibrary === undefined ? undefined : Math.round(statedLibrary * 100);
         const statedEnginePercent = statedEngine === undefined ? undefined : statedEngine.value;

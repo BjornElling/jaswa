@@ -36,6 +36,7 @@ import { monsterUsage } from '../lib/monster-usage-statistics';
 import type { MonsterUsage } from '../lib/monster-usage-statistics';
 import type { Relic } from '../lib/relics';
 import { readRelics } from '../lib/relics';
+import { canEquipArtifacts, canEquipRelics } from '../lib/monster-equipment-eligibility';
 import { relicMainPropertyOrder, relicProperties, relicPropertyLabel } from '../lib/relic-properties';
 import type { RelicMainProperty } from '../lib/relic-properties';
 import { presetTargetColumns } from '../lib/rune-potential-presets';
@@ -245,11 +246,13 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
     const unitId = String(monster.unit_id);
     const artifacts: Partial<Record<ArtifactCategory, Artifact>> = {};
     for (const artifact of readArtifacts(game)) {
+      if (!canEquipArtifacts(monster)) continue;
       if (artifact.occupiedId === unitId) artifacts[artifact.category] = artifact;
     }
     const engraved = new Set((Array.isArray(monster.relics) ? monster.relics : [])
       .map((entry) => String((entry as GameRecord | null)?.rid)));
-    return { artifacts, relics: readRelics(game).filter((relic) => engraved.has(relic.id)) };
+    return { artifacts, relics: canEquipRelics(monster)
+      ? readRelics(game).filter((relic) => engraved.has(relic.id)) : [] };
   }, [game, monster]);
 
   /* What the copy wears, written the way a desired build is, so the two read

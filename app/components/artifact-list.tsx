@@ -209,7 +209,7 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
       /* The wearer's own statement where it has one, so this column answers for
          the copy actually wearing the artifact rather than for its species. */
       const value = wearer
-        ? artifactValueOnMonster(artifact, wearer.unit_master_id, preferences.artifacts, preference)
+        ? artifactValueOnMonster(artifact, wearer, preferences.artifacts, preference)
         : undefined;
       return {
         artifact,

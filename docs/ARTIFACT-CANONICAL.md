@@ -46,6 +46,12 @@ A Wind/Attack Teshar takes one Wind artifact and one Attack artifact. It cannot
 equip a Water, HP, or Support artifact. This is the fundamental equip rule, and
 it is the first thing validation checks.
 
+**A monster must be evolved to six stars before it can equip either artifact.**
+This is an eligibility rule before category or class matching: JASWA never
+scores, recommends, or displays an artifact as equipped on a lower-star copy.
+The artifact remains in the account's collection and may be recommended to a
+six-star monster.
+
 **Intangible is the one exception, and only to the inner class.** An *Intangible*
 artifact — the game's own name, shown in the artifact panel — still belongs to
 one category and still fills only that category's slot, but matches **any**

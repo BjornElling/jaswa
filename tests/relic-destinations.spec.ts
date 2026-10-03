@@ -12,8 +12,8 @@ import { fileURLToPath } from 'node:url';
  * directions — Elucia favours HP main and Nimble Primal outright, Beth favours
  * ATK main, Bulldozer favours DEF main on an account that owns no good DEF
  * relic. Kaimann has no captured panel at all, so the population prior is
- * exercised. Cassie sits below the level cap, so the default filter has
- * something to hide.
+ * exercised. Cassie sits below level 40 and is deliberately absent: the game
+ * does not allow a relic engraving on her.
  *
  * The maths and the capacity limit are the verifier's job
  * (`npm run verify:relic-monster-plan`): 150 monsters do not fit in a fixture.
@@ -90,10 +90,10 @@ test('the tagline states the engraving limit the plan actually obeys', async ({ 
 test('every monster gets exactly one relic named', async ({ page }) => {
   await importAccount(page);
   await openUseForMons(page);
-  /* Four of five: Cassie is below the level cap, which the default filter hides
-     exactly as the roster table does. */
+  /* Cassie is below level 40, so only the four legal relic destinations enter
+     either the total or the plan. */
   await expect(destinations(page)).toHaveCount(4);
-  await expect(page.getByLabel('4 of 5 monsters shown')).toBeVisible();
+  await expect(page.getByLabel('4 of 4 monsters shown')).toBeVisible();
   /* One recommendation, never a shortlist — the promise §11.1 makes. A row
      either names one relic or says `Same`, and never more than one of either. */
   for (const row of await destinations(page).all()) {
@@ -242,7 +242,7 @@ test('Hide if → Already optimal leaves only the rows asking for something', as
   await expect(destinations(page).filter({ hasText: 'Same' })).toHaveCount(0);
   /* It removes rows after the verdict is decided, so the total it is measured
      against is untouched and every surviving row still says what it said. */
-  await expect(page.getByLabel('2 of 5 monsters shown')).toBeVisible();
+  await expect(page.getByLabel('2 of 4 monsters shown')).toBeVisible();
   await expect(advice(monsterRow(page, 'Beth'))).toHaveText('Engrave');
 
   await page.getByRole('button', { name: 'Reset monsters filters' }).click();
@@ -258,7 +258,7 @@ test('Hide if → Already engraved leaves the monsters still free to take one', 
     .getByRole('button', { name: 'Already engraved' }).click();
   await expect(destinations(page)).toHaveCount(1);
   await expect(current(monsterRow(page, 'Beth'))).toHaveText('—');
-  await expect(page.getByLabel('1 of 5 monsters shown')).toBeVisible();
+  await expect(page.getByLabel('1 of 4 monsters shown')).toBeVisible();
 
   /* It hides on what the monster wears, not on the verdict: Bulldozer is asked
      to change relic and still goes, because acting on it means undoing an
@@ -269,15 +269,11 @@ test('Hide if → Already engraved leaves the monsters still free to take one', 
   await expect(destinations(page)).toHaveCount(4);
 });
 
-test('the level filter reaches a monster the default view hides', async ({ page }) => {
+test('a monster below level 40 never enters the relic plan', async ({ page }) => {
   await importAccount(page);
   await openUseForMons(page);
-  await page.getByRole('group', { name: 'Choose which monsters to include' })
-    .getByRole('button', { name: 'Lvl. < 40' }).click();
-  await expect(destinations(page)).toHaveCount(5);
-  /* Cassie wears nothing and is not the incumbent on anything, so she is told
-     to engrave rather than to keep. */
-  await expect(advice(monsterRow(page, 'Cassie'))).toContainText('Engrave');
+  await expect(destinations(page)).toHaveCount(4);
+  await expect(monsterRow(page, 'Cassie')).toHaveCount(0);
 });
 
 test('the destination headings say what their column holds', async ({ page }) => {

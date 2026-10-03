@@ -3,10 +3,12 @@ import { artifactPreferenceStatus, defaultPropertyPreferences } from './artifact
 import { scoringSettings } from './artifact-recommendations';
 import { artifactFitsMonster } from './compute/artifact-score-input';
 import { monsterSpeciesId } from './monster-identity';
+import { canEquipArtifacts } from './monster-equipment-eligibility';
 import type { Artifact } from './artifacts';
 import type { ArtifactPropertyPreference } from './artifact-optimal-value';
 import type { MonsterCopyPreferences } from './monster-preferences';
 import type { ArtifactSettings } from './types';
+import type { GameRecord } from './game-data';
 
 /**
  * How fully an artifact rolled on what its current wearer's monster type wants.
@@ -30,7 +32,7 @@ import type { ArtifactSettings } from './types';
  */
 export function artifactValueOnMonster(
   artifact: Artifact,
-  masterId: unknown,
+  monster: GameRecord,
   /* The whole settings object, not the one field this happens to need today.
      `scoringSettings` is the single classification of which settings define a
      calculation, so taking the object puts this reader through the same door as
@@ -46,6 +48,8 @@ export function artifactValueOnMonster(
      owned copy can answer for that copy. */
   stated?: MonsterCopyPreferences,
 ): number | undefined {
+  if (!canEquipArtifacts(monster)) return undefined;
+  const masterId = monster.unit_master_id;
   const { acceptableWorth } = scoringSettings(settings);
   const preferences = defaultPropertyPreferences(masterId, artifact.category);
   if (!preferences) return undefined;

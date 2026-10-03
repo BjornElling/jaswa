@@ -31,6 +31,7 @@ import {
 } from '../lib/relic-monster-grid';
 import type { RelicMonsterRow, RelicMonsterSortKey } from '../lib/relic-monster-grid';
 import { formatNumber } from '../lib/formatting';
+import { canEquipRelics } from '../lib/monster-equipment-eligibility';
 import { useSessionStorageState } from '../lib/session-storage-state';
 
 /* The game caps monsters at 40 today, so a level below that is not maxed. A
@@ -203,7 +204,7 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
      place on a relic would take that place from a monster that could use it —
      and the account holds fodder by the dozen. */
   const monsters = useMemo(
-    () => roster.filter((monster) => isRelicEngravableMonster(monster.unit_master_id)),
+    () => roster.filter((monster) => isRelicEngravableMonster(monster.unit_master_id) && canEquipRelics(monster)),
     [roster],
   );
   const {

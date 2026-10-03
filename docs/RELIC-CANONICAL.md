@@ -22,6 +22,10 @@ A rune belongs to one monster. An artifact belongs to one monster. **A relic is
 engraved on up to 150 monsters at once**, and that single fact rewrites
 every judgement around it.
 
+**Only a level-40 monster can receive a relic engraving.** This eligibility
+rule comes before fit, capacity, and every recommendation: JASWA neither counts
+an engraving on a lower-level monster nor proposes one there.
+
 - A good relic is not a good slot; it is a good *account*. Its value is the
   number of monsters in the metagame that want exactly it.
 - A duplicate has little marginal value **until the first copy runs out of
