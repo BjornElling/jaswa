@@ -65,7 +65,7 @@ const runeSlotNumbers: Record<RuneSlotKey, number> = { slot2: 2, slot4: 4, slot6
  *
  * It is the only honest denominator available. Normalising against the main-stat
  * total instead would divide one population's counts by another's, the error
- * `relic-monster-statistics.ts` refuses on the relic panel's two halves. The
+ * each effect group must be normalised against its own total. The
  * unmeasured tail is by construction made of combinations rarer than the tenth
  * row, so it cannot promote anything into a band; it can only make a share read
  * higher than it would against the whole population, which is what the rune-set

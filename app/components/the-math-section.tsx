@@ -694,100 +694,45 @@ export function TheMathSection() {
     <Disclosure title="Relic Optimization" sessionKey="the-math.relics">
       <div className="math-copy">
         <p className="lead">
-          For each monster, JASWA scores every relic you own and names the best one. A relic’s score is two things multiplied: how <b className="type-body-emphasis">suitable</b> it is for that monster, and how far it has been <b className="type-body-emphasis">powered up</b>.
+          Your runes say what you value. JASWA measures how much they add to each monster’s base HP, ATK and DEF, then scores each owned relic by what its two bonuses contribute to those priorities.
         </p>
-        <p className="math-equation" aria-label="score equals fit times strength">
-          <span className="math-equation-label">Score</span><span>fit</span><span aria-hidden="true">×</span><span>strength</span>
+        <h3 className="type-heading">1. Read the build</h3>
+        <p>
+          If runes add 100 % HP and 60 % DEF, with no extra ATK, the weights are <b className="type-body-emphasis">62.5 % HP and 37.5 % DEF</b>: divide each increase by their total, 160 %. Flat stats, grinds and completed personal stat sets count too. Artifacts help size a relic’s effect, but do not set the rune priorities.
+        </p>
+        <h3 className="type-heading">2. Add the two bonuses</h3>
+        <p>
+          Each stat gain is measured as a percentage of that monster’s base stat and multiplied by its weight. A 15 % HP main earns 15 × 0.625 = <b className="type-body-emphasis">9.375 points</b>. A unique giving 2 % DEF per 125 SPD on a monster with 250 display speed gives 4 % DEF, earning 4 × 0.375 = <b className="type-body-emphasis">1.5 points</b>.
+        </p>
+        <p className="math-equation" aria-label="9.375 main points plus 1.5 unique points equals 10.875 score points">
+          <span className="math-equation-label">Score</span><span>9.375 main</span><span aria-hidden="true">+</span><span>1.5 unique</span><span aria-hidden="true">=</span><b className="type-body-emphasis">10.875</b>
+        </p>
+        <div className="math-table-scroll">
+          <table className="math-table math-table-relics">
+            <caption className="visually-hidden">Two relics compared for the same HP and DEF build at 250 display speed</caption>
+            <thead><tr><th scope="col" className="align-left">Relic</th><th scope="col">Main value</th><th scope="col">Unique value</th><th scope="col">Total</th></tr></thead>
+            <tbody>
+              <tr><th scope="row" className="align-left">HP · Nimble Timeless · <span className="math-relic-level">+12</span></th><td>9.375</td><td>1.500</td><td>10.875</td></tr>
+              <tr><th scope="row" className="align-left">DEF · Nimble Primal · <span className="math-relic-level">+12</span></th><td>5.625</td><td>2.500</td><td>8.125</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          The HP relic wins on this build. Change the runes and the answer can change too. Main value and Unique value in the recommendations table are these same points; their titles show the effect behind the number and the current relic’s points.
+        </p>
+        <h3 className="type-heading">Bonuses that are not stats</h3>
+        <p>
+          <b className="type-body-emphasis">Damage dealt</b> is valued as an equivalent increase to current ATK. <b className="type-body-emphasis">Damage reduction</b> becomes equivalent HP: taking 10 % less damage lets the same HP survive 11.11 % more incoming damage. That gain gets <b className="type-body-emphasis">two-thirds credit</b>, since HP can help with more than survival. <b className="type-body-emphasis">Recovery &amp; Shield</b> also gets two-thirds of an equivalent current-HP increase. These are stated value choices, not measured skill damage or healing.
+        </p>
+        <h3 className="type-heading">What the model assumes</h3>
+        <p>
+          Stat bonuses use base stats. A unique scales continuously: 200 SPD at 2 % per 125 SPD gives 3.2 %, not 2 %. It reads the imported stat sheet plus the relic’s main bonus, once, before its own bonus. These battle-order and scaling rules are model assumptions awaiting an in-game check. Leaders, towers, team bonuses and skill behaviour are not inferred, so the score is exact within this model, not a promise of exact battle performance. In particular, damage dealt uses ATK priority even for a monster whose skills scale with HP or DEF.
         </p>
         <p>
-          They multiply rather than add, because a big number pointed at the wrong stat is worth nothing. A fully powered-up DEF relic on a pure attacker should not score well just for being fully powered up.
-        </p>
-
-        <h3 className="type-heading">Fit: is this the right relic?</h3>
-        <p>
-          A relic has a main stat and a unique property. JASWA asks three questions about them, and each is answered on a 0–1 scale.
-        </p>
-        <p>
-          <b className="type-body-emphasis">Is this the main stat the monster wants?</b> and <b className="type-body-emphasis">is this the unique property it wants?</b> are answered from your own relic preferences for that monster: anything you picked scores 1, anything you did not scores almost nothing. Where you have not picked anything, JASWA falls back on the game’s own Relic Engraving Statistics panel — what other players actually put on that monster — and the most popular choice scores 1, with the rest scoring less the further behind they fall.
-        </p>
-        <p>
-          The two questions are answered separately, so picking main stats for a monster and leaving its unique properties alone means your choice decides the first and the statistics still decide the second.
-        </p>
-        <p>
-          <b className="type-body-emphasis">Do the two work well together?</b> is a fixed rating for every possible pairing, from Exceptional down to Poor. It is a judgement written into JASWA, not a statistic.
-        </p>
-        <p>
-          The third question counts for half the fit, because it is the one that judges the relic as a whole:
-        </p>
-        <p className="math-equation" aria-label="fit equals 0.30 times main stat plus 0.20 times unique property plus 0.50 times pairing">
-          <span className="math-equation-label">Fit</span><span>0.30 × main</span><span aria-hidden="true">+</span><span>0.20 × unique</span><span aria-hidden="true">+</span><span>0.50 × pairing</span>
-        </p>
-
-        <h3 className="type-heading">Strength: how much is it delivering?</h3>
-        <p>
-          Strength is how far the relic has come towards being fully powered up, on the same 0–1 scale. A relic at <span className="math-relic-level">+15</span> reads 1.00 — but that is the top of the scale rather than a realistic goal. The odds get worse every level, and a fresh relic finishes roughly once in eleven thousand tries, so the example below stops at <span className="math-relic-level">+12</span>.
-        </p>
-
-        <article className="math-example" aria-labelledby="relic-math-example-title">
-          <h3 id="relic-math-example-title" className="type-heading">How it adds up</h3>
-          <p>
-            Two relics, judged for <b className="type-body-emphasis">Brandia</b>. Other players give Brandia an ATK main stat 81 % of the time, and Sharp Conquest is their most popular unique property. Relic A is exactly that — but barely powered up. Relic B has the wrong main stat, and is well on its way to finished.
-          </p>
-          <div className="math-table-scroll">
-            <table className="math-table math-table-relics">
-              <caption className="visually-hidden">
-                Two relics scored for Brandia, showing how each one answers the three fit questions, the fit they combine into, its strength, and the final score
-              </caption>
-              <thead>
-                <tr>
-                  <th scope="col" className="align-left">Relic</th>
-                  <th scope="col">Main</th>
-                  <th scope="col">Unique</th>
-                  <th scope="col">Pairing</th>
-                  <th scope="col">Fit</th>
-                  <th scope="col">Strength</th>
-                  <th scope="col">Score</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <th scope="row" className="align-left">
-                    Relic A <span className="math-table-rolled">ATK · Sharp Conquest · <span className="math-relic-level">+6</span></span>
-                  </th>
-                  <td>1.00</td><td>1.00</td><td>1.00</td><td>1.00</td><td>0.42</td>
-                  <td>0.42</td>
-                </tr>
-                <tr>
-                  <th scope="row" className="align-left">
-                    Relic B <span className="math-table-rolled">HP · Nimble Primal · <span className="math-relic-level">+12</span></span>
-                  </th>
-                  <td>0.14</td><td>0.90</td><td>1.00</td><td>0.72</td><td>0.82</td>
-                  <td><b className="type-body-emphasis">0.59</b></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <p>
-            Relic A is the perfect relic for Brandia, so its fit is a flat 1.00 — but at <span className="math-relic-level">+6</span> it is only delivering 42 % of what it eventually will. Relic B loses most of its main stat score, yet Nimble Primal is nearly as popular on Brandia as Sharp Conquest, and it pairs excellently with an HP main stat, so it still reaches a fit of 0.72:
-          </p>
-          <p className="math-equation" aria-label="0.30 times 0.14 plus 0.20 times 0.90 plus 0.50 times 1.00 equals 0.72 fit">
-            <span className="math-equation-label">Relic B fit</span><span>0.30 × 0.14</span><span aria-hidden="true">+</span><span>0.20 × 0.90</span><span aria-hidden="true">+</span><span>0.50 × 1.00</span><span aria-hidden="true">=</span><b className="type-body-emphasis">0.72</b>
-          </p>
-          <p>
-            <b className="type-body-emphasis">Relic B wins</b>, 0.59 against 0.42, and keeps winning until Relic A reaches <span className="math-relic-level">+10</span>. The perfect relic does not win just for being perfect — it has to be powered up far enough to actually deliver something first.
-          </p>
-        </article>
-
-        <h3 className="type-heading">Two things that override the score</h3>
-        <p>
-          <b className="type-body-emphasis">A relic fits on 150 monsters at a time.</b> If the best one for a monster is already on 150 others, that monster gets the next best instead, and the page says so. It also counts how many of the current 150 suit it <i>worse</i> — so you can see when unengraving one of them is the better move.
-        </p>
-        <p>
-          <b className="type-body-emphasis">Small upgrades are not worth the work.</b> A relic has to beat the one a monster already wears by at least 5 % before the page suggests swapping it.
+          JASWA picks the highest score within your saved main and unique choices; cleared menus allow any. Equal value keeps the relic already worn. A full relic cannot take a new wearer, so the next available one is named. Missing base stats or no rune priorities get an explanation instead of an invented build. The Power up, Keep or Sell rules below keep their own account-wide model.
         </p>
       </div>
     </Disclosure>
-
     <Disclosure title="Power up, Keep or Sell" sessionKey="the-math.relic-verdicts">
       <div className="math-copy">
         <p className="lead">
@@ -799,7 +744,7 @@ export function TheMathSection() {
 
         <h3 className="type-heading">1. Is this pairing worth owning at all?</h3>
         <p>
-          A relic’s main stat and unique property are rated from Exceptional down to Poor — the same pairing judgement the section above uses. The <b className="type-body-emphasis">Power-up threshold</b> slider sets the weakest pairing you are willing to keep, and anything below it is sold.
+          A relic’s main stat and unique property are rated from Exceptional down to Poor for account-wide investment. The <b className="type-body-emphasis">Power-up threshold</b> slider sets the weakest pairing you are willing to keep, and anything below it is sold.
         </p>
         <div className="math-table-scroll">
           <table className="math-table math-table-verdicts">

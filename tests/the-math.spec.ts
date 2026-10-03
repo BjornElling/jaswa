@@ -23,11 +23,11 @@ test('The Math sits under Technical and explains the equipment recommendations',
   await page.locator('summary').filter({ hasText: 'Artifact Optimization' }).click();
   await expect(page.locator('[aria-label="4 plus 1.5 plus 2 equals 7.5 points"]')).toBeVisible();
   await page.locator('summary').filter({ hasText: 'Relic Optimization' }).click();
-  await expect(page.locator('[aria-label="0.30 times 0.14 plus 0.20 times 0.90 plus 0.50 times 1.00 equals 0.72 fit"]')).toBeVisible();
+  await expect(page.locator('[aria-label="9.375 main points plus 1.5 unique points equals 10.875 score points"]')).toBeVisible();
   /* The worked example is held to the realistic power-up range: `+15` is the
      scale's reference point and may be named as such, but no relic in an
      illustration is levelled past `+12`. */
-  await expect(page.locator('.math-table-relics .math-relic-level')).toHaveText(['+6', '+12']);
+  await expect(page.locator('.math-table-relics .math-relic-level')).toHaveText(['+12', '+12']);
 });
 
 /* The verdict rules are stated in two places — this page and the code that

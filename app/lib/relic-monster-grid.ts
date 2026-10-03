@@ -3,25 +3,15 @@ import type { MonsterArchetype } from './monster-catalog';
 import { compareNumbersWithBlanks, compareTextWithBlanks } from './monster-grid';
 import { relicPropertyLabel } from './relic-properties';
 import type { Relic } from './relics';
-import { relicEngravingLimit, relicReplacementMargin } from './relic-monster-fit';
+import { relicEngravingLimit } from './relic-monster-fit';
 import type { RelicCandidate, RelicRecommendation } from './relic-monster-fit';
-import type { RelicUsageStatistics } from './relic-monster-statistics';
 
-/**
- * What the plan asks of one monster.
- *
- * The four are a closed set, and the fourth is the one worth naming. A relic is
- * shared equipment with a hard ceiling, so an account can own relics, own
- * monsters, and still have monsters the plan can put nothing on — every relic
- * good enough to reach them is already carrying its full 150. That is a real
- * state of the account and not an error, so it gets a verdict of its own rather
- * than an empty cell.
- */
-export type RelicMonsterVerdict = 'engrave' | 'replace' | 'keep' | 'none';
+/** Missing build evidence and exhausted engraving capacity need different verdicts. */
+export type RelicMonsterVerdict = 'engrave' | 'replace' | 'keep' | 'none' | 'unrated';
 
 /** Most actionable first, which is the order the Advice column opens on. */
 export const relicMonsterVerdictOrder: readonly RelicMonsterVerdict[] = [
-  'engrave', 'replace', 'keep', 'none',
+  'engrave', 'replace', 'keep', 'none', 'unrated',
 ];
 
 export const relicMonsterVerdictLabels: Record<RelicMonsterVerdict, string> = {
@@ -29,6 +19,7 @@ export const relicMonsterVerdictLabels: Record<RelicMonsterVerdict, string> = {
   replace: 'Replace',
   keep: 'Keep',
   none: 'No capacity',
+  unrated: 'No recommendation',
 };
 
 /**
@@ -71,58 +62,32 @@ export type RelicMonsterRow = {
   recommendation: RelicRecommendation;
   verdict: RelicMonsterVerdict;
   reason: string;
-  /** The panel behind the two readings, for the title that makes them arguable. */
-  usage: RelicUsageStatistics | undefined;
   /**
-   * The recommended relic's two halves, each as a share of the best that half
-   * could be on this monster (`relicHalvesAgainstOptimum`), and the same two
-   * readings for the relic it wears today — which is what the columns are read
-   * against when the page is asking for a change.
+   * The two contributions in score points, also computed for the first relic
+   * shown under Current relic so a proposed replacement can be compared.
    */
   recommendedHalves: { main: number | null; unique: number | null };
   currentHalves: { main: number | null; unique: number | null };
 };
 
 export function relicMonsterVerdict(recommendation: RelicRecommendation, worn: readonly Relic[]): RelicMonsterVerdict {
-  if (!recommendation.chosen) return 'none';
+  if (!recommendation.chosen) return recommendation.unavailable === 'capacity' ? 'none' : 'unrated';
   if (recommendation.alreadyEngraved) return 'keep';
   return worn.length ? 'replace' : 'engrave';
 }
 
-/**
- * The one line under the verdict, and it stays empty unless there is something
- * the columns cannot already say.
- *
- * **Three facts earn a line, and each is one the row cannot otherwise show.**
- *
- * **Capacity**, because it is the sole reason the row is showing anything but
- * the monster's best relic. Where the blocked relic is worn today by monsters
- * that fit it worse, the line counts them instead of stopping at "it is full":
- * the first wording named a dead end, and the second names the move — unengrave
- * one of them. That count is the only figure on the row drawn from the rest of
- * the roster, which is why it lives in the sentence rather than in a column.
- *
- * **Retention**, because a `Keep` that is not the monster's best relic looks
- * identical to one that is. The page is not saying this is the best relic; it is
- * saying the difference is too small to spend an engraving on.
- *
- * And **the state of the statistics**, because a fit assembled from population
- * averages is a different claim from one measured on this monster and the
- * columns beside it cannot tell them apart.
- *
- * **The usage credits deliberately get no line.** A row saying "Both halves are
- * favoured here" next to two columns already reading 100 % is one fact written
- * twice, and the sentence is the vaguer of the two. The shares behind them live
- * in those cells' own titles, where they explain the numbers rather than
- * competing with them.
- *
- * The order is a priority and not a list: a row has one binding reason.
- */
+/** Explain capacity or missing evidence; the two value columns explain scored rows. */
 export function relicMonsterReason(row: {
   recommendation: RelicRecommendation;
   verdict: RelicMonsterVerdict;
 }): string {
   const { recommendation, verdict } = row;
+  switch (recommendation.unavailable) {
+    case 'missing-stats': return 'Import this monster’s base stats.';
+    case 'no-priorities': return 'Equip runes to establish priorities.';
+    case 'no-relics': return 'Import relics to compare.';
+    case 'preferences': return 'No owned relic matches your choices.';
+  }
   if (verdict === 'none') return 'Every fit relic is full.';
   const chosen = recommendation.chosen;
   if (!chosen) return '';
@@ -132,10 +97,6 @@ export function relicMonsterReason(row: {
       ? `Best one is full; ${displaceable} wear it worse.`
       : `Best one is at its ${relicEngravingLimit} limit.`;
   }
-  if (recommendation.retained) {
-    return `Next best gains under ${Math.round(relicReplacementMargin * 100)} %.`;
-  }
-  if (chosen.suitability.status === 'missing') return 'No statistics; using averages.';
   return '';
 }
 

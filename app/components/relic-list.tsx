@@ -378,7 +378,7 @@ export function RelicList({ game, monsters, preferences, onOpenMonster }: {
 
     <Disclosure title="Use for mons" sessionKey="relics.monsters" deferContent>
       {!relics.length ? noRelics
-        : <Suspense fallback={<p className="lead">Reading what the player base engraves…</p>}>
+        : <Suspense fallback={<p className="lead">Reading your monsters’ builds…</p>}>
           <RelicMonsterList relics={relics} monsters={monsters} preferences={preferences} onOpenMonster={onOpenMonster} />
         </Suspense>}
     </Disclosure>

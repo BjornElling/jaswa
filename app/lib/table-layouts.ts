@@ -265,39 +265,7 @@ export const craftItemTableColumns: readonly TableColumn[] = [
   { key: 'scope', width: '26%', align: 'left', gutter: 'left' },
 ];
 
-/**
- * The roster, read as relic destinations. The monster's identity leads, because
- * that is what the user sorts and searches by, and the three columns that carry
- * the judgement sit together on the right: what it wears, what the plan gives
- * it, and why.
- *
- * The widths are set from one measurement of the rendered table rather than by
- * eye, because the space a reader sees between two columns is not the padding
- * between them: it is the padding *plus* whatever width each column carries
- * beyond its own content, and which end that slack lands on depends on the
- * alignment. Two left-aligned columns push their slack into the seam after them.
- * A left column followed by a right one puts *both* columns' slack into the same
- * seam, which is why the widest hole on this table — 207px — sat between the
- * recommended relic and the first percentage that rates it. A right column
- * followed by a left one has no slack in the seam at all and closes up to bare
- * padding, which is what happened at the level and again at the advice.
- *
- * So the widths below are solved rather than chosen: each column is given its
- * content, plus whatever slack the seam beside it needs to match the rest, and
- * the two seams that would otherwise close up are opened with a `gutter`. Every
- * seam then measures 82–100px, against 27–108px before, and the row fills its
- * width with no spare band at either end.
- *
- * Two of them sit at the top of that range and cannot come down: a column can
- * never be narrower than its own heading, and `Recc. main stat` and `Recc.
- * unique prop.` are both headings far wider than the percentage under them. Any
- * width a heading forces past its content becomes seam, so shortening those two
- * headings is the only thing that would even them out further.
- *
- * `npx playwright test` has no assertion on any of this — the numbers come from
- * measuring the rendered rows, and they have to be re-measured after a heading,
- * a font or a canvas width changes, not nudged one percent at a time.
- */
+/** Fixed columns keep the plan steady as filters and saved monster choices change. */
 export const relicMonsterTableColumns: readonly TableColumn[] = [
   { key: 'index', width: '7.65%', align: 'left' },
   { key: 'name', width: '12.26%', align: 'left' },
@@ -310,19 +278,12 @@ export const relicMonsterTableColumns: readonly TableColumn[] = [
      and the groups run together — the tightest seam on the row was here. */
   { key: 'current', width: '16.55%', align: 'left', gutter: 'left' },
   { key: 'recommended', width: '9.16%', align: 'left' },
-  /* The recommended relic's two halves, each as a share of the best that half
-     could be on this monster. Two readings rather than one composite, because
-     a reader can check either against the game's own Statistics panel and a
-     blended figure they cannot check is a figure they have to trust.
-     Both are cut to their headings and no wider. A right-aligned column parks
-     its figure at its far edge, so every pixel of width past the heading turns
-     into a hole in *front* of the number, between it and the relic name it
-     rates. These two were 10 % each and opened a 207px gap doing it. */
+  /* Each half reports points to two decimals, with room reserved before import. */
   { key: 'mainStat', width: '7.78%', align: 'right' },
   { key: 'uniqueStat', width: '8.77%', align: 'right' },
   /* A verdict and its one-line reason share this column, and its width is
      reserved for the longest reason so no row can crop or re-wrap the table.
-     The gutter closes the run of percentages as the one above opens it, and the
+     The gutter closes the run of values as the one above opens it, and the
      slack past the longest reason sits at the table's own edge — the one place
      on the row where spare width opens no hole between two things. */
   { key: 'advice', width: '20.56%', align: 'left', gutter: 'left' },

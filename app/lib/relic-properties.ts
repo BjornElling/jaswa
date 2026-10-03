@@ -237,8 +237,8 @@ export function relicThreshold(level: number, source: RelicSourceStat): number {
  *
  * **The halves are weighted equally, and that is a stated choice.** Which one
  * matters more depends on the monster wearing the relic — a unique property is
- * worth what the monster's own SPD or ATK makes it worth — and JASWA does not
- * model relic value per monster or its integer threshold breakpoints. Two equal
+ * worth what the monster's own SPD or ATK makes it worth — while this investment proxy does not
+ * read a monster. Engraving uses `relic-monster-value.ts` instead. Two equal
  * halves is the same premise the whole page rests on: a relic is its main
  * property and its unique property, and neither is the relic on its own.
  * `verify:relic-maths` checks that the verdicts do not turn on the choice, by

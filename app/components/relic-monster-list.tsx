@@ -20,17 +20,17 @@ import { isStoredMonster, monsterArchetypeLabels, monsterFilterArchetypes, numer
 import { relicEngravingCounts } from '../lib/relics';
 import type { Relic } from '../lib/relics';
 import {
-  allocateRelicEngravings, assertRelicAllocation, relicHalvesAgainstOptimum,
+  allocateRelicEngravings, assertRelicAllocation,
 } from '../lib/relic-monster-fit';
 import type { RelicAllocationSubject } from '../lib/relic-monster-fit';
-import { relicUsageObservations, relicUsageStatistics } from '../lib/relic-monster-statistics';
+import { relicMonsterModel, relicMonsterValue } from '../lib/relic-monster-value';
 import {
   compareRelicMonsterRows, defaultRelicMonsterSortDirections, isRelicEngravableMonster,
   relicMonsterReason, relicMonsterRelicDetail, relicMonsterRelicLabel, relicMonsterSearchText,
   relicMonsterVerdict, relicMonsterVerdictLabels,
 } from '../lib/relic-monster-grid';
 import type { RelicMonsterRow, RelicMonsterSortKey } from '../lib/relic-monster-grid';
-import { formatNumber } from '../lib/formatting';
+import { formatDecimal, formatNumber } from '../lib/formatting';
 import { canEquipRelics } from '../lib/monster-equipment-eligibility';
 import { useSessionStorageState } from '../lib/session-storage-state';
 
@@ -126,59 +126,28 @@ const relicMonsterColumns: readonly SortableColumn<RelicMonsterRow>[] = (() => {
     column('level', 'LVL'),
     column('current', <span className="table-heading-two-line" aria-label="The relic this monster wears today">Current<br />relic</span>),
     column('recommended', <span className="table-heading-two-line" aria-label="The relic to engrave on this monster">Recommended<br />relic</span>),
-    /* Two readings of the recommended relic, each against the best that half
-       could be on this monster. Named for the halves themselves rather than for
-       a composite, because a reader can check either one against the game's own
-       Statistics panel.
-       Both headings carry `Recc.` because both rate the relic in the column two
-       to their left and not the one the monster wears today. Unqualified, they
-       sat beside `Current relic` reading as though they described it — the
-       distinction the cell titles spell out belongs in the heading too. */
-    column('mainStat', <span className="table-heading-two-line" aria-label="The recommended main property, as a share of this monster's most-engraved main">Recc. main<br />stat</span>),
-    column('uniqueStat', <span className="table-heading-two-line" aria-label="The recommended unique property, as a share of this monster's most-engraved unique property">Recc. unique<br />prop.</span>),
+    /* The two score contributions describe the recommended relic, not its popularity. */
+    column('mainStat', <span className="table-heading-two-line" aria-label="The recommended main bonus in weighted score points">Main<br />value</span>),
+    column('uniqueStat', <span className="table-heading-two-line" aria-label="The recommended unique bonus in weighted score points">Unique<br />value</span>),
     column('advice', 'Advice'),
   ];
 })();
 
-/**
- * One half's column, in words: what the cell measures, and what the relic the
- * monster wears today scores on the same measure.
- *
- * The second half is the point of the title. The column rates the *recommended*
- * relic, so a row asking for a change shows a figure for a relic the monster is
- * not wearing; without the incumbent's own number beside it the reader cannot
- * see the size of the change being proposed.
- *
- * Where no panel was captured there is nothing to divide by, and the title says
- * so rather than printing a share of nothing — `undefined` and `0` are
- * different answers, and `0 %` would read as the population having rejected the
- * property.
- */
+/** The displayed points and the underlying effect come from the same calculation. */
 function halfExplanation(
-  half: 'main' | 'unique',
-  row: RelicMonsterRow,
-  percent: (value: number) => string,
-  format: (value: number) => string,
+  half: 'main' | 'unique', row: RelicMonsterRow, points: (value: number) => string,
 ): string | undefined {
-  if (row.recommendation.chosen?.suitability.status === 'missing') {
-    return 'No statistics captured for this monster.';
-  }
-  const recommended = row.recommendedHalves[half];
-  if (recommended === null || !row.usage) return undefined;
-  const suitability = row.recommendation.chosen?.suitability;
-  const observed = half === 'main' ? suitability?.mainShare : suitability?.uniqueShare;
-  const wearing = row.currentHalves[half];
-  return [
-    `${percent(recommended)} of this monster's most-engraved ${half === 'main' ? 'main property' : 'unique property'}`,
-    typeof observed === 'number' ? `${percent(observed)} of its engravings carry it` : null,
-    wearing === null ? 'it wears nothing rated here' : `the relic it wears reads ${percent(wearing)}`,
-    /* The sample size travels with every reading rather than gating it. A
-       percentage drawn from 88 engravings and one drawn from 69,590 look
-       identical in a column, and only one of them is worth leaning on. */
-    `${format(relicUsageObservations(row.usage))} engravings measured`,
-  ].filter(Boolean).join('; ');
+  const value = row.recommendation.chosen?.value;
+  if (!value) return row.reason || undefined;
+  const current = row.currentHalves[half];
+  const relic = row.recommendation.chosen!.relic;
+  const effect = half === 'main'
+    ? `${points(value.mainGain)} ${relic.mainProperty}`
+    : `${points(value.uniquePercent)} % ${relic.unique.definition.grants}, from ${points(value.sourceValue)} ${relic.unique.definition.per}`;
+  return `${points(value[half])} weighted score points; ${effect}; `
+    + (current === null ? 'nothing worn to compare' : `first current relic: ${points(current)} points`)
+    + `; total value: ${points(value.score)} points. See The Math for assumptions.`;
 }
-
 /** A relic cell: the property over its main and level, or an em dash. */
 function RelicCell({ relic }: { relic: Relic | undefined }) {
   if (!relic) return <span className="relic-monster-none">—</span>;
@@ -213,6 +182,9 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
   } = filters;
 
   const relicsById = useMemo(() => new Map(relics.map((relic) => [relic.id, relic])), [relics]);
+  const models = useMemo(() => new Map(monsters.map((monster, index) => [
+    String(monster.unit_id ?? `unknown-${index}`), relicMonsterModel(monster),
+  ])), [monsters]);
 
   /* The relics a monster wears, resolved against the account's own relic list
      rather than read out of the monster record. The export repeats the whole
@@ -252,21 +224,18 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
       const stated = preferences.monsterPreferences[unitId];
       return {
         monsterId: unitId,
-        monsterOrder: index,
-        masterId: monster.unit_master_id,
+        model: models.get(unitId)!,
         wornRelicIds: (wornByMonster.get(unitId) ?? []).map((relic) => relic.id),
-        /* What this copy's owner asked for, where they asked for anything. The
-           plan is theirs to direct; the statistics answer only where they have
-           not. */
+        /* Only saved choices constrain the plan; statistics defaults never score. */
         ...(stated === undefined ? {} : { preferences: stated }),
       };
     });
     const result = allocateRelicEngravings(
-      subjects, relics, relicEngravingCounts(monsters), relicUsageStatistics,
+      subjects, relics, relicEngravingCounts(monsters),
     );
     assertRelicAllocation(result, subjects);
     return result;
-  }, [monsters, relics, wornByMonster, preferences.monsterPreferences]);
+  }, [monsters, relics, wornByMonster, preferences.monsterPreferences, models]);
 
   const rows = useMemo<RelicMonsterRow[]>(() => {
     const copyNames = monsterCopyNames(monsters, preferences.monsterPreferences);
@@ -274,17 +243,10 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
       const unitId = String(monster.unit_id ?? `unknown-${index}`);
       const display = monsterPresentation(monster.unit_master_id);
       const worn = wornByMonster.get(unitId) ?? [];
-      const recommendation = allocation.recommendations.get(unitId) ?? {
-        monsterId: unitId,
-        chosen: null,
-        ideal: null,
-        alreadyEngraved: false,
-        limit: 'none' as const,
-        retained: false,
-        displaceableWearers: 0,
-      };
+      const recommendation = allocation.recommendations.get(unitId)!;
       const verdict = relicMonsterVerdict(recommendation, worn);
-      const usage = relicUsageStatistics(monster.unit_master_id);
+      const current = worn[0] ? relicMonsterValue(worn[0], models.get(unitId)!) : null;
+      const chosen = recommendation.chosen?.value;
       return {
         unitId,
         masterId: String(monster.unit_master_id ?? `unknown-${index}`),
@@ -301,12 +263,11 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
         recommendation,
         verdict,
         reason: relicMonsterReason({ recommendation, verdict }),
-        usage,
-        recommendedHalves: relicHalvesAgainstOptimum(recommendation.chosen?.relic, usage),
-        currentHalves: relicHalvesAgainstOptimum(worn[0], usage),
+        recommendedHalves: { main: chosen?.main ?? null, unique: chosen?.unique ?? null },
+        currentHalves: { main: current?.main ?? null, unique: current?.unique ?? null },
       };
     });
-  }, [monsters, preferences, wornByMonster, allocation]);
+  }, [monsters, preferences, wornByMonster, allocation, models]);
 
   /* A search names a monster, and awakening it does not change which monster it
      is, so a term reaches the forms above what it matched and never the forms
@@ -352,8 +313,7 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
     visible, relicMonsterColumns, { key: 'advice', direction: 'ascending' },
   );
 
-  const format = useMemo(() => (value: number) => formatNumber(value, preferences.general), [preferences.general]);
-  const percent = (value: number) => `${format(Math.round(value * 100))} %`;
+  const points = (value: number) => formatDecimal(value, preferences.general, 2);
 
   function toggleElement(name: string) {
     setFilters((current) => ({
@@ -508,17 +468,14 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
                 ? <span className="relic-monster-same">Same</span>
                 : <RelicCell relic={chosen?.relic} />}
             </td>
-            {/* Each half against the best that half could be here, with the
-                observed shares and the relic it wears today in the title —
-                which is what turns a percentage into something the reader can
-                check against the game's own Statistics panel. */}
+            {/* Values and explanations read the same effect calculation. */}
             <td className={relicMonsterCell('mainStat', row.recommendedHalves.main === null && 'muted')}
-              title={halfExplanation('main', row, percent, format)}>
-              {row.recommendedHalves.main === null ? '—' : percent(row.recommendedHalves.main)}
+              title={halfExplanation('main', row, points)}>
+              {row.recommendedHalves.main === null ? '—' : points(row.recommendedHalves.main)}
             </td>
             <td className={relicMonsterCell('uniqueStat', row.recommendedHalves.unique === null && 'muted')}
-              title={halfExplanation('unique', row, percent, format)}>
-              {row.recommendedHalves.unique === null ? '—' : percent(row.recommendedHalves.unique)}
+              title={halfExplanation('unique', row, points)}>
+              {row.recommendedHalves.unique === null ? '—' : points(row.recommendedHalves.unique)}
             </td>
             {/* The reason line is rendered only when there is one, so a verdict
                 with nothing to add sits centred in its cell instead of being

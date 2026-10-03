@@ -5,8 +5,7 @@
 **Collected by:** `scripts/collect-engraving-statistics.mjs`
 **Enforced by:** `npm run verify:statistics-tiers`
 **Read by:** `app/lib/monster-defaults.ts` (all three panels, as the preference
-defaults), `app/lib/artifact-preferences.ts` and
-`app/lib/relic-monster-statistics.ts`
+defaults) and `app/lib/artifact-preferences.ts`
 **Held by:** `npm run verify:statistics-tiers`, `npm run verify:monster-defaults`
 
 ---

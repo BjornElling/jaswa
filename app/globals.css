@@ -1265,6 +1265,7 @@ label[for] {
 .relic-verdict[data-verdict='engrave'] { color: var(--state-good); }
 .relic-verdict[data-verdict='replace'] { color: var(--state-warn); }
 .relic-verdict[data-verdict='none'] { color: var(--state-bad); }
+.relic-verdict[data-verdict='unrated'] { color: var(--state-warn); }
 
 /* Two rows: what the monster is, then what to leave out. Search leads the first
    and "Hide if" the second, so those two are the only groups without an indent
