@@ -3,7 +3,7 @@ import type { KeyboardEvent } from 'react';
 import { Dropdown } from './dropdown';
 import { ArrowIcon, RemoveIcon } from './list-icons';
 import { MonsterLink } from './monster-link';
-import { warmMonsterPortraits } from './monster-portrait';
+import { warmMonsterPortraits } from '../lib/monster-portrait-image';
 import type { OpenMonsterOverlay } from './monster-link';
 import { PageHeader } from './page-chrome';
 import { SpeedVerdictMark } from './speed-verdict-mark';

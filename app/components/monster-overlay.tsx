@@ -2,7 +2,8 @@ import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } 
 import { MultiChoiceMenu } from './choice-menu';
 import type { ChoiceMenuOption } from './choice-menu';
 import { Dropdown } from './dropdown';
-import { FigureMarks, alwaysCritsMark, shortfallMarks } from './figure-marks';
+import { FigureMarks } from './figure-marks';
+import { alwaysCritsMark, shortfallMarks } from '../lib/figure-marks';
 import { MonsterPortrait } from './monster-portrait';
 import { RuneBuildField } from './rune-build-field';
 import { RuneSlotMainField } from './rune-slot-main-field';

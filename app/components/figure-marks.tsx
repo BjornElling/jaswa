@@ -1,7 +1,5 @@
 import styles from './figure-marks.module.css';
-import type { Shortfall } from '../lib/monster-shortfall';
-import { formatNumber } from '../lib/formatting';
-import type { GeneralSettings } from '../lib/types';
+import type { FigureMark, FigureMarkTone } from '../lib/figure-marks';
 
 /**
  * **The marks after a figure** — one vocabulary for every note a figure can carry,
@@ -19,16 +17,6 @@ import type { GeneralSettings } from '../lib/types';
  *
  * Each says what it means in words, for a screen reader and on hover.
  */
-export type FigureMarkTone = 'red' | 'yellow' | 'green';
-
-export type FigureMark = {
-  key: string;
-  tone: FigureMarkTone;
-  /** What the mark means, in one sentence. */
-  reading: string;
-  glyph: 'ring' | 'info' | 'slashed';
-};
-
 const toneOrder: Record<FigureMarkTone, number> = { red: 0, yellow: 1, green: 2 };
 
 function Glyph({ glyph }: { glyph: FigureMark['glyph'] }) {
@@ -69,48 +57,4 @@ export function FigureMarks({ marks, reserve = 0 }: { marks: readonly FigureMark
     </span>)}
     {Array.from({ length: spare }, (_, at) => <span key={`spare-${at}`} className={styles.mark} aria-hidden="true" />)}
   </span>;
-}
-
-export const alwaysCritsMark: FigureMark = { key: 'always-crits', tone: 'green', reading: 'Always crits', glyph: 'info' };
-
-/**
- * How a shortfall reads in one line.
- *
- * Whose wish it was is part of the sentence rather than a second colour: a
- * preference the user stated and a population default merely standing in are
- * different claims, and the mark looks identical for both.
- */
-function describeShortfall(shortfall: Shortfall, general: GeneralSettings): string {
-  const whose = shortfall.source === 'user' ? 'You want' : 'Most players want';
-  const where = shortfall.where === undefined ? '' : `${shortfall.where}: `;
-
-  if (shortfall.kind === 'stat' && shortfall.target !== undefined && shortfall.current !== undefined) {
-    return `${where}${whose} ${shortfall.wanted} ${shortfall.over ? 'at most' : 'at least'} ${formatNumber(shortfall.target, general)},`
-      + ` and this copy has ${formatNumber(shortfall.current, general)}.`;
-  }
-  /* A substat floor states both figures in percentage points, since that is how
-     the game shows a roll and how the user typed the floor. */
-  if (shortfall.target !== undefined && shortfall.current !== undefined) {
-    return `${where}${whose} ${shortfall.wanted} at ${(shortfall.target / 100).toFixed(2)} % or better,`
-      + ` and this copy rolled ${(shortfall.current / 100).toFixed(2)} %.`;
-  }
-  if (shortfall.present === undefined) {
-    return `${where}${whose} ${shortfall.wanted}, and this copy has none.`;
-  }
-  return `${where}${whose} ${shortfall.wanted}, and this copy has ${shortfall.present}.`;
-}
-
-/**
- * A wish this copy does not meet, as one yellow mark: a monster that has not reached
- * its target is something left to finish, not something broken.
- */
-export function shortfallMarks(shortfalls: readonly Shortfall[], general: GeneralSettings): FigureMark[] {
-  if (shortfalls.length === 0) return [];
-  const reading = shortfalls.map((shortfall) => describeShortfall(shortfall, general)).join(' ');
-  return [{ key: 'shortfall', tone: 'yellow', reading, glyph: 'ring' }];
-}
-
-/** A found build that no longer holds as the search found it, as one yellow mark. Empty where it still does. */
-export function buildIssueMarks(reading: string): FigureMark[] {
-  return reading === '' ? [] : [{ key: 'build-issue', tone: 'yellow', reading, glyph: 'slashed' }];
 }
