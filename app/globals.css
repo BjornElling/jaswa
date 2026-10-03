@@ -3092,6 +3092,15 @@ label[for] {
    label column far more than it needed compactness. The card, the --sunk
    ground and the gold heading are the same devices the statistics block uses,
    so the two open bars read as one workspace. */
+/* Reordering by dragging (use-drag-reorder.ts), the same in every list. The
+   entry in hand is dimmed where it lies; the others are drawn where the drop
+   would leave them. The slide is eased only while sorting, so the drop itself
+   — new order, no offset — lands in one frame instead of animating the entries
+   back from where they were drawn. */
+[data-reorder-index][draggable='true'] { cursor: grab; }
+[data-reorder-index][data-dragging] { opacity: .5; }
+[data-sorting] > [data-reorder-index]:not(tbody) { transform: translateY(var(--reorder-shift, 0)); transition: transform .15s ease; }
+
 .preset-list { display: grid; gap: var(--s4); }
 
 /* The count on the left, the one action that adds to the list on the right.
@@ -6400,14 +6409,10 @@ th.align-center .sort-button { justify-content: center; }
   color: var(--text-muted); white-space: nowrap; font-variant-numeric: tabular-nums;
 }
 .speed-slot { border-bottom: 1px solid var(--line); }
-.speed-slot[draggable] { cursor: grab; }
-.speed-slot[data-dragging] { opacity: .5; }
-/* A drag draws each slot where the drop would put it. The slide is eased only
-   while sorting, so the drop itself — new order, no offset — lands in one frame
-   instead of animating the reordered slots back from where they were drawn.
-   Each cell is moved rather than the body or its rows: Chrome draws a moved
-   body's or row's spanning cells short of where it put them. */
-.speed-slot > tr > td { transform: translateY(var(--speed-slot-shift, 0)); }
+/* Dragged as any list is (see "Reordering by dragging"), except that each cell
+   is moved rather than the body or its rows: Chrome draws a moved body's or
+   row's spanning cells short of where it put them. */
+.speed-slot > tr > td { transform: translateY(var(--reorder-shift, 0)); }
 .speed-team-table[data-sorting] .speed-slot > tr > td { transition: transform .15s ease; }
 .speed-team-table[data-sorting] .speed-slot:hover { background: none; }
 .speed-slot:hover { background: var(--hover); }

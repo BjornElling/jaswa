@@ -78,7 +78,7 @@ export function newSpeedTuningId(kind: 'team' | 'rule'): string {
 
 /**
  * The name a team goes by: its content and its place among that content's
- * teams, in the order they were added. A team not yet saved is counted as the
+ * teams, in the order they are listed — added last, or dragged since. A team not yet saved is counted as the
  * last, which is where saving puts it, so an editor names it as the page will.
  */
 export function speedTeamTitle(teams: readonly SpeedTeam[], team: SpeedTeam): string {

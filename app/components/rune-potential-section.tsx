@@ -23,6 +23,9 @@ import { calculateRuneStatistics, cancelRuneStatistics } from '../lib/compute/ru
 import type { RuneCleanupStatistics } from '../lib/rune-cleanup-statistics';
 import { referenceLines } from '../lib/rune-reference-stats';
 import { RuneRecommendations } from './rune-recommendations';
+import { useDragReorder } from './use-drag-reorder';
+import type { ReorderEntryProps } from './use-drag-reorder';
+import { moveItem } from '../lib/list-order';
 import type { OpenRuneOverlay } from './rune-link';
 
 const potentialStepLabels = {
@@ -138,16 +141,11 @@ export function RuneSetupSection({ game, settings, presets, general, hardwareAcc
     setDeleting(null);
   }
 
-  function movePreset(id: string, direction: -1 | 1) {
-    onWritePresets((current) => {
-      const index = current.findIndex((entry) => entry.id === id);
-      const destination = index + direction;
-      if (index < 0 || destination < 0 || destination >= current.length) return current;
-      const reordered = [...current];
-      [reordered[index], reordered[destination]] = [reordered[destination], reordered[index]];
-      return reordered;
-    });
+  function movePreset(from: number, to: number) {
+    onWritePresets((current) => moveItem(current, from, to));
   }
+  /* Dragged by the card, or a place at a time by its arrows. */
+  const presetOrder = useDragReorder<HTMLDivElement>({ count: presets.length, onMove: movePreset });
 
   const readyStatistics = base && presets.length > 0 && statistics.status === 'ready' ? statistics : null;
   const statisticsReady = readyStatistics !== null;
@@ -274,14 +272,15 @@ export function RuneSetupSection({ game, settings, presets, general, hardwareAcc
 
         {presets.length === 0
           ? <p className="notice">Every preset is gone, including the ones JASWA started you with. Add one to say what a rune should be judged against.</p>
-          : <div className="preset-list">
+          : <div className="preset-list" {...presetOrder.containerProps}>
             {presets.map((preset, index) => <PresetCard
               key={preset.id}
               preset={preset}
+              dragProps={presetOrder.entryProps(index)}
               onEdit={() => setEditing({ draft: preset, isNew: false })}
               onDelete={() => setDeleting(preset)}
-              onMoveEarlier={() => movePreset(preset.id, -1)}
-              onMoveLater={() => movePreset(preset.id, 1)}
+              onMoveEarlier={() => movePreset(index, index - 1)}
+              onMoveLater={() => movePreset(index, index + 1)}
               canMoveEarlier={index > 0}
               canMoveLater={index < presets.length - 1}
             />)}
@@ -373,8 +372,9 @@ function PresetRow({ label, children }: { label: string; children: ReactNode }) 
   </div>;
 }
 
-function PresetCard({ preset, onEdit, onDelete, onMoveEarlier, onMoveLater, canMoveEarlier, canMoveLater }: {
+function PresetCard({ preset, dragProps, onEdit, onDelete, onMoveEarlier, onMoveLater, canMoveEarlier, canMoveLater }: {
   preset: RunePotentialPreset;
+  dragProps: ReorderEntryProps;
   onEdit: () => void;
   onDelete: () => void;
   onMoveEarlier: () => void;
@@ -384,7 +384,7 @@ function PresetCard({ preset, onEdit, onDelete, onMoveEarlier, onMoveLater, canM
 }) {
   const artifacts: Array<[string, boolean]> = [['ATK', preset.artifacts.atk], ['DEF', preset.artifacts.def], ['HP', preset.artifacts.hp]];
 
-  return <article className="preset-card">
+  return <article className="preset-card" {...dragProps}>
     <header className="preset-head">
       <div className="preset-title">
         <h4 className="preset-name">{preset.name}</h4>

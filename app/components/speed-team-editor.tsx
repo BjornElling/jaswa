@@ -1,9 +1,11 @@
-import { useRef, useState } from 'react';
-import type { CSSProperties, DragEvent, ReactNode } from 'react';
+import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { Dropdown } from './dropdown';
 import { MonsterLink } from './monster-link';
 import type { OpenMonsterOverlay } from './monster-link';
+import { useDragReorder } from './use-drag-reorder';
 import { formatNumber } from '../lib/formatting';
+import { moveItem } from '../lib/list-order';
 import type { MonsterCopyName } from '../lib/monster-names';
 import { boostsAllies, describeLeaderSkill, describeTurnEffect, leaderSkill, shortLeaderSkill, shortTurnEffect } from '../lib/speed-skills';
 import { leaderAreaReaches } from '../lib/speed-tick';
@@ -93,33 +95,6 @@ function WhatIfField({ member, label, onChange }: {
     onBlur={() => setDraft(null)} />;
 }
 
-/**
- * A drag in progress, measured once when it starts: the slot it came from, the
- * slot it would land in now, and the table's own grid, so the target is read
- * off where slots sit at rest rather than off rows already sliding aside.
- */
-type SlotDrag = {
-  from: number;
-  over: number;
-  /** In screen pixels, as the pointer reports: the first slot's top below the table's, and one slot's height. */
-  origin: number;
-  pitch: number;
-  /** One slot's height in layout pixels, which is what a transform moves by. */
-  layoutPitch: number;
-  /** Where in its slot the pointer took hold. */
-  grab: number;
-};
-
-/** How many slots a filled slot is drawn away from its own while a drag is previewed. */
-function slotShift(drag: SlotDrag | null, at: number): number {
-  if (drag === null) return 0;
-  const { from, over } = drag;
-  if (at === from) return over - from;
-  if (from < over && at > from && at <= over) return -1;
-  if (from > over && at >= over && at < from) return 1;
-  return 0;
-}
-
 type EditorProps = {
   reading: TeamReading;
   title: string;
@@ -152,24 +127,14 @@ function rangeText(range: DisplaySpeedInterval | null, general: GeneralSettings)
 /** Everything a team states and everything read from it: the leader, each slot and its verdict, and what the team faces. */
 export function SpeedTeamEditor({ reading, title, names, choices, general, onChange, onWhatIf, onAddMonster, onOpenMonster, turnOrderAction, enemiesKnown = true }: EditorProps) {
   const { team, content } = reading;
-  const [drag, setDrag] = useState<SlotDrag | null>(null);
-  /* A press inside a text field selects its text; a press anywhere else on a
-     slot, its name included, picks the slot up. Set on the press itself, before the browser decides
-     whether a drag begins. */
-  const [grabbable, setGrabbable] = useState(true);
-  const tableRef = useRef<HTMLTableElement>(null);
+  const reorder = useDragReorder<HTMLTableElement>({ count: team.members.length, onMove: move });
   const speedName = combatSpeedName(reading);
   const readingById = new Map(reading.members.map((member) => [member.unitId, member]));
   const full = team.members.length >= content.teamSize;
 
   function move(from: number, to: number) {
     if (to < 0 || to >= team.members.length || from === to) return;
-    onChange((current) => {
-      const members = [...current.members];
-      const [moved] = members.splice(from, 1);
-      members.splice(to, 0, moved);
-      return { ...current, members };
-    });
+    onChange((current) => ({ ...current, members: moveItem(current.members, from, to) }));
   }
 
   /* The member's what-if leaves with it: it is stored on the member. */
@@ -181,51 +146,12 @@ export function SpeedTeamEditor({ reading, title, names, choices, general, onCha
     }));
   }
 
-  function startDrag(event: DragEvent<HTMLTableSectionElement>, from: number) {
-    const table = tableRef.current;
-    const slots = table?.tBodies;
-    if (!table || !slots || slots.length < 2) return;
-    const tableTop = table.getBoundingClientRect().top;
-    const firstTop = slots[0].getBoundingClientRect().top;
-    const pitch = slots[1].getBoundingClientRect().top - firstTop;
-    /* The pointer reads screen pixels and a transform writes layout pixels;
-       under the page's zoom they differ, so the slide gets its own measure. */
-    const layoutPitch = slots[1].offsetTop - slots[0].offsetTop;
-    if (!(pitch > 0) || !(layoutPitch > 0)) return;
-    event.dataTransfer.effectAllowed = 'move';
-    /* Firefox starts no drag without data; a private type keeps it from being dropped as text into a field. */
-    event.dataTransfer.setData('application/x-jaswa-speed-slot', String(from));
-    const slotTop = event.currentTarget.getBoundingClientRect().top;
-    setDrag({ from, over: from, origin: firstTop - tableTop, pitch, layoutPitch, grab: event.clientY - slotTop });
-  }
-
-  /* The slot under the middle of the dragged one, on the grid measured at the
-     start. The table itself never moves, so scrolling mid-drag stays right. */
-  function dragOver(event: DragEvent<HTMLTableElement>) {
-    if (drag === null || !tableRef.current) return;
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
-    const middle = event.clientY - drag.grab + drag.pitch / 2 - tableRef.current.getBoundingClientRect().top - drag.origin;
-    const over = Math.min(Math.max(Math.floor(middle / drag.pitch), 0), team.members.length - 1);
-    if (over !== drag.over) setDrag({ ...drag, over });
-  }
-
-  function drop(event: DragEvent<HTMLTableElement>) {
-    if (drag === null) return;
-    event.preventDefault();
-    move(drag.from, drag.over);
-    setDrag(null);
-  }
-
   const contentWord = content.area === 'arena' ? 'Arena' : 'Dungeon';
 
   return <div className="speed-team-editor">
-    {/* While a slot is dragged, every other slot slides to where the drop
-        would put it, so the order is read before it is committed. The slots
-        are drawn aside, never laid out again: nothing outside the table moves. */}
-    <table ref={tableRef} className="speed-team-table" data-sorting={drag === null ? undefined : 'true'}
-      onDragOver={dragOver} onDrop={drop}
-      onPointerDownCapture={(event) => setGrabbable(!(event.target as Element).closest('input[type="text"], textarea, select'))}>
+    {/* A filled slot is dragged by any part that is not a field; the arrows
+        beside it are the same move for the keyboard. */}
+    <table className="speed-team-table" {...reorder.containerProps}>
       <colgroup>
         <col className="speed-col-order" /><col className="speed-col-monster" /><col className="speed-col-leader" />
         <col className="speed-col-speed" /><col className="speed-col-interval" /><col className="speed-col-what-if" /><col className="speed-col-speed" />
@@ -274,13 +200,12 @@ export function SpeedTeamEditor({ reading, title, names, choices, general, onCha
           <button type="button" className="speed-icon-button" aria-label={`Remove ${name} from ${title}`}
             onClick={() => removeMember(member.unitId)}><RemoveIcon /></button>
         </td>;
-        const shift = slotShift(drag, at);
-        const shiftStyle = shift === 0 || drag === null ? undefined
-          : { '--speed-slot-shift': `${shift * drag.layoutPitch}px` } as CSSProperties;
+        /* Numbered by where the slot is drawn, so a drag's preview reads 1 to n down the table. */
+        const number = reorder.place(at) + 1;
         if (!monster) {
-          return <tbody key={member.unitId} className="speed-slot" style={shiftStyle}>
+          return <tbody key={member.unitId} className="speed-slot" {...reorder.entryProps(at)}>
             <tr className="speed-row">
-              <td className="speed-order" rowSpan={2}>{at + shift + 1}</td>
+              <td className="speed-order" rowSpan={2}>{number}</td>
               <td><span className="speed-monster-name muted">Not in this import</span></td>
               <td rowSpan={2} />
               <td colSpan={4} rowSpan={2} />
@@ -310,13 +235,9 @@ export function SpeedTeamEditor({ reading, title, names, choices, general, onCha
         const boostTag = [...new Set(monster.profile.effects
           .filter((effect) => effect.kind === 'allies-attack-bar')
           .map(shortTurnEffect))].join(' + ');
-        return <tbody key={member.unitId} className="speed-slot" draggable={grabbable}
-          data-dragging={drag?.from === at ? 'true' : undefined} style={shiftStyle}
-          onDragStart={(event) => startDrag(event, at)}
-          onDragEnd={() => setDrag(null)}>
+        return <tbody key={member.unitId} className="speed-slot" {...reorder.entryProps(at)}>
           <tr className="speed-row">
-            {/* Numbered by where the slot is drawn, so the preview reads 1 to n down the table. */}
-            <td className="speed-order" rowSpan={2}>{at + shift + 1}</td>
+            <td className="speed-order" rowSpan={2}>{number}</td>
             <td className="speed-monster">
               <span className="speed-monster-line">
                 <MonsterLink target={{ kind: 'copy', unitId: member.unitId, masterId: monster.masterId }}

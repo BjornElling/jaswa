@@ -9,7 +9,9 @@ import { SpeedTeamOverlay } from './speed-team-overlay';
 import { SpeedVerdictMark } from './speed-verdict-mark';
 import type { SpeedVerdict } from './speed-verdict-mark';
 import type { OpenMonsterOverlay } from './monster-link';
+import { reorderKeyStep, useDragReorder } from './use-drag-reorder';
 import { formatNumber } from '../lib/formatting';
+import { moveItem, moveWithin } from '../lib/list-order';
 import type { GameRecord } from '../lib/game-data';
 import { monsterNameCollator } from '../lib/monster-grid';
 import { monsterCopyNames } from '../lib/monster-names';
@@ -66,17 +68,19 @@ function LeaderMark() {
  * runes worn deliver it, and that verdict again at the right edge. What was
  * stated is never coloured; it is the user's choice, not a verdict.
  */
-function SummaryLine({ label, status, state, spoken, onOpen, children }: {
+function SummaryLine({ label, status, state, spoken, keys, onOpen, children }: {
   /** Read before the line's content, so a line is found by its name. */
   label: string;
   status: string;
   state: Verdict;
   /** The verdict in words, for a line whose status does not already say it. */
   spoken?: string;
+  keys: LineKeys;
   onOpen: (opener: HTMLElement) => void;
   children: ReactNode;
 }) {
-  return <button type="button" className="speed-summary" onClick={(event) => onOpen(event.currentTarget)}>
+  return <button type="button" className="speed-summary" onClick={(event) => onOpen(event.currentTarget)}
+    aria-keyshortcuts={keys.shortcuts} onKeyDown={keys.onKeyDown}>
     <span className="visually-hidden">{label}: </span>
     <span className="speed-summary-names">{children}</span>
     <span className="visually-hidden"> — </span>
@@ -84,6 +88,39 @@ function SummaryLine({ label, status, state, spoken, onOpen, children }: {
     {spoken !== undefined && <span className="visually-hidden"> — {spoken}</span>}
     <SpeedVerdictMark state={state} />
   </button>;
+}
+
+/** How a line answers the keyboard's way to move it. */
+type LineKeys = { shortcuts?: string; onKeyDown?: (event: KeyboardEvent<HTMLButtonElement>) => void };
+
+/**
+ * One column's lines, in the order the user put them: dragged into place, or
+ * moved a place at a time with Alt and an arrow on the focused line. The order
+ * is saved, and it is what a team's number counts.
+ */
+function SummaryList<T>({ entries, keyOf, onMove, render }: {
+  entries: readonly T[];
+  keyOf: (entry: T) => string;
+  onMove: (from: number, to: number) => void;
+  render: (entry: T, keys: LineKeys) => ReactNode;
+}) {
+  const reorder = useDragReorder<HTMLUListElement>({ count: entries.length, onMove });
+  const keys = (at: number): LineKeys => entries.length < 2 ? {} : {
+    shortcuts: 'Alt+ArrowUp Alt+ArrowDown',
+    onKeyDown: (event) => {
+      const to = at + reorderKeyStep(event);
+      if (to === at || to < 0 || to >= entries.length) return;
+      event.preventDefault();
+      /* The line is the same element after the move, but moving it in the
+         document drops its focus; the keyboard stays with it. */
+      const line = event.currentTarget;
+      onMove(at, to);
+      requestAnimationFrame(() => line.focus());
+    },
+  };
+  return <ul className="speed-summary-list" {...reorder.containerProps}>
+    {entries.map((entry, at) => <li key={keyOf(entry)} {...reorder.entryProps(at)}>{render(entry, keys(at))}</li>)}
+  </ul>;
 }
 
 /**
@@ -154,8 +191,9 @@ export function SpeedTuningSection({ game, monsters, preferences, onWrite, onOpe
   const ruleReadings = useMemo(() => new Map(rules.map((rule) => [rule.id, readSpeedRule(rule, monsterById, totemShare)])),
     [rules, monsterById, totemShare]);
 
-  /* Numbered within their own kind, in the order they were added: the first
-     arena team is Arena team #1 whatever the dungeons hold. */
+  /* Numbered within their own kind, in the order they are listed: the first
+     arena team is Arena team #1 whatever the dungeons hold, and dragging a
+     team to the top makes it #1. */
   const titled = (content: SpeedContentId): Titled[] => teams.filter((team) => team.content === content)
     .map((team) => ({
       reading: cachedReading(readingContext, team),
@@ -171,6 +209,10 @@ export function SpeedTuningSection({ game, monsters, preferences, onWrite, onOpe
   }
   function saveRule(saved: SpeedRule) {
     onWrite((current) => ({ ...current, rules: upsert(current.rules, saved) }));
+  }
+  /* Within one list only: a dungeon's teams among themselves, arena's among its own. */
+  function moveTeam(content: SpeedContentId, from: number, to: number) {
+    onWrite((current) => ({ ...current, teams: moveWithin(current.teams, (team) => team.content === content, from, to) }));
   }
 
   /* Back to the line that was opened; an entry just removed has no line, and
@@ -209,9 +251,8 @@ export function SpeedTuningSection({ game, monsters, preferences, onWrite, onOpe
           ? <p className="speed-column-empty type-caption">No dungeon teams yet.</p>
           : dungeonGroups.map((group) => <section key={group.id} className="speed-group" aria-labelledby={`speed-dungeon-${group.id}`}>
             <h3 id={`speed-dungeon-${group.id}`} className="speed-group-title">{speedContent(group.id).name}</h3>
-            <ul className="speed-summary-list">
-              {group.entries.map((entry) => <li key={entry.reading.team.id}>{renderTeam(entry)}</li>)}
-            </ul>
+            <SummaryList entries={group.entries} keyOf={(entry) => entry.reading.team.id}
+              onMove={(from, to) => moveTeam(group.id, from, to)} render={renderTeam} />
           </section>)}
       </section>
 
@@ -219,16 +260,17 @@ export function SpeedTuningSection({ game, monsters, preferences, onWrite, onOpe
         <ColumnHead id="speed-arena-title" title="Arena offence" />
         {arenaTeams.length === 0
           ? <p className="speed-column-empty type-caption">No arena teams yet.</p>
-          : <ul className="speed-summary-list">
-            {arenaTeams.map((entry) => <li key={entry.reading.team.id}>{renderTeam(entry)}</li>)}
-          </ul>}
+          : <SummaryList entries={arenaTeams} keyOf={(entry) => entry.reading.team.id}
+            onMove={(from, to) => moveTeam('arena', from, to)} render={renderTeam} />}
       </section>
 
       <section className="speed-column" aria-labelledby="speed-rules-title">
         <ColumnHead id="speed-rules-title" title="Rules" />
         {rules.length === 0
           ? <p className="speed-column-empty type-caption">No rules yet.</p>
-          : <ul className="speed-summary-list">{rules.map((rule) => <li key={rule.id}>{renderRule(rule)}</li>)}</ul>}
+          : <SummaryList entries={rules} keyOf={(rule) => rule.id}
+            onMove={(from, to) => onWrite((current) => ({ ...current, rules: moveItem(current.rules, from, to) }))}
+            render={renderRule} />}
       </section>
     </div>
 
@@ -254,10 +296,10 @@ export function SpeedTuningSection({ game, monsters, preferences, onWrite, onOpe
   </WorkspacePage>;
 
   /* A team's line: the order asked for, its leader marked. */
-  function renderTeam(entry: Titled) {
+  function renderTeam(entry: Titled, keys: LineKeys) {
     const { team } = entry.reading;
     const status = teamStatus(entry.reading);
-    return <SummaryLine label={entry.title} status={status.text} state={status.state}
+    return <SummaryLine label={entry.title} status={status.text} state={status.state} keys={keys}
       onOpen={(opener) => setEditingTeam({ value: team, isNew: false, opener, fallback: addButton })}>
       {team.members.map((member, at) => <span key={member.unitId} className="speed-summary-member">
         {at > 0 && <span className="speed-summary-step" aria-hidden="true">›</span>}
@@ -270,14 +312,14 @@ export function SpeedTuningSection({ game, monsters, preferences, onWrite, onOpe
 
   /* A rule's line: the rule as a sentence, its monsters and figures in full
      ink, where it is checked under it, and whether it holds there at the edge. */
-  function renderRule(rule: SpeedRule) {
+  function renderRule(rule: SpeedRule, keys: LineKeys) {
     const reading = ruleReadings.get(rule.id) ?? readSpeedRule(rule, monsterById, totemShare);
     const state = speedRuleVerdict(rule, reading);
     const nameOf = (unitId: string) => monsterById.has(unitId) ? names[unitId]?.name ?? unitId : 'Not in this import';
     const figure = (value: number) => <span className="speed-summary-member"><span className="speed-summary-name speed-summary-figure">{formatNumber(value, general)}</span></span>;
     const { must } = rule;
     return <SummaryLine label={`Rule ${speedRuleSentence(rule, nameOf, (value) => formatNumber(value, general))}`}
-      status={speedRuleScopeText(rule)} state={state}
+      status={speedRuleScopeText(rule)} state={state} keys={keys}
       spoken={state === 'good' ? 'holds' : state === 'bad' ? 'does not hold' : 'not judged'}
       onOpen={(opener) => setEditingRule({ value: { id: rule.id, saved: rule }, isNew: false, opener, fallback: addButton })}>
       <span className="speed-summary-member"><span className="speed-summary-name">{nameOf(rule.unitId)}</span></span>

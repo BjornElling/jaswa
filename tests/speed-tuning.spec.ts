@@ -414,6 +414,124 @@ test('arena teams are numbered and face a worst-case enemy', async ({ page }, te
   await expect(addTeam).toBeFocused();
 });
 
+/* Picks a line up by its middle and carries it, a step at a time, until its
+   middle is over the target's; with `release` false the preview is left
+   showing. One last step lands the drop on a target the drag is still over. */
+async function dragLine(page: Page, line: Locator, target: Locator, release = true) {
+  const from = await box(line);
+  const to = await box(target);
+  const x = from.x + from.width / 2;
+  const startY = from.y + from.height / 2;
+  const endY = to.y + to.height / 2;
+  await page.mouse.move(x, startY);
+  await page.mouse.down();
+  for (let step = 1; step <= 12; step += 1) await page.mouse.move(x, startY + (endY - startY) * step / 12);
+  const drop = async () => {
+    await page.mouse.move(x + 1, endY);
+    await page.mouse.up();
+  };
+  if (release) await drop();
+  return drop;
+}
+
+test('teams and rules are put in order by dragging, each within its own list', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await freshWorkspace(page);
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
+  await expect(page.getByText('speed-account.json')).toBeVisible();
+  await openSpeedTuning(page);
+
+  const dungeons = page.getByRole('region', { name: 'Dungeons' });
+  const arena = page.getByRole('region', { name: 'Arena offence' });
+  const rulesColumn = page.getByRole('region', { name: 'Rules' });
+  const keep = dungeons.getByRole('region', { name: "Giant's Keep" });
+  const necropolis = dungeons.getByRole('region', { name: 'Necropolis' });
+
+  /* One line alone has nowhere to go, so it cannot be picked up. */
+  await addFromMenu(page, 'Rule');
+  async function fillRule(monster: string, speed: string) {
+    const dialog = page.getByRole('dialog');
+    await dialog.getByLabel('Chosen monster').selectOption({ label: monster });
+    await dialog.getByLabel('Must').selectOption({ label: 'Reach at least' });
+    await dialog.getByLabel('This speed').fill(speed);
+    await dialog.getByRole('button', { name: 'Add this rule' }).click();
+    await expect(dialog).toHaveCount(0);
+  }
+  await fillRule('Megan (2A)', '100');
+  await expect(rulesColumn.locator('li')).toHaveAttribute('draggable', 'false');
+  for (const [monster, speed] of [['Veromos', '110'], ['Bernard (2A)', '120']]) {
+    await addFromMenu(page, 'Rule');
+    await fillRule(monster, speed);
+  }
+  async function addTeam(kind: 'Dungeon team' | 'Arena team', monsters: string[], dungeon?: string) {
+    await addFromMenu(page, kind);
+    const draft = page.getByRole('dialog');
+    if (dungeon) await draft.getByLabel('Select dungeon').selectOption({ label: dungeon });
+    for (const name of monsters) await draft.getByLabel(/^Add a monster to /).selectOption({ label: name });
+    await draft.getByRole('button', { name: 'Add this team' }).click();
+    await expect(draft).toHaveCount(0);
+  }
+  await addTeam('Dungeon team', ['Veromos'], "Giant's Keep");
+  await addTeam('Dungeon team', ['Bernard (2A)'], 'Necropolis');
+  await addTeam('Dungeon team', ['Lushen #1'], "Giant's Keep");
+  await addTeam('Arena team', ['Megan (2A)']);
+  await addTeam('Arena team', ['Lushen #2']);
+
+  const ruleNames = rulesColumn.locator('.speed-summary-names');
+  await expect(ruleNames).toHaveText(['Megan (2A)must reach at least100', 'Veromosmust reach at least110', 'Bernard (2A)must reach at least120']);
+  await page.screenshot({ path: testInfo.outputPath('speed-reorder-before.png') });
+
+  /* Mid-drag, the others slide to where the drop would leave them and nothing
+     outside the list moves; the drop commits it, and the number follows the place. */
+  const arenaLines = arena.locator('.speed-summary');
+  const columnsStill = await Promise.all([dungeons, rulesColumn, arena.locator('.speed-column-head')].map(box));
+  const second = await box(arenaLines.nth(1));
+  const drop = await dragLine(page, arenaLines.nth(1), arenaLines.nth(0), false);
+  await expect(arena.locator('li[data-dragging]')).toHaveCount(1);
+  await expect.poll(async () => Math.round((await box(arenaLines.nth(0))).y)).toBe(Math.round(second.y));
+  expect(await Promise.all([dungeons, rulesColumn, arena.locator('.speed-column-head')].map(box))).toEqual(columnsStill);
+  await page.screenshot({ path: testInfo.outputPath('speed-reorder-preview.png') });
+  await drop();
+  await expect(arena.getByRole('button', { name: /^Arena team #1:/ })).toContainText('Lushen #2');
+  await expect(arena.getByRole('button', { name: /^Arena team #2:/ })).toContainText('Megan (2A)');
+  expect(await Promise.all([dungeons, rulesColumn, arena.locator('.speed-column-head')].map(box))).toEqual(columnsStill);
+
+  /* A dungeon's teams move among themselves; a drop on another dungeon's list is refused. */
+  await dragLine(page, keep.locator('.speed-summary').nth(1), keep.locator('.speed-summary').nth(0));
+  await expect(keep.getByRole('button', { name: /^Giant's Keep team #1:/ })).toContainText('Lushen #1');
+  await expect(keep.getByRole('button', { name: /^Giant's Keep team #2:/ })).toContainText('Veromos');
+  await dragLine(page, keep.locator('.speed-summary').nth(0), necropolis.locator('.speed-summary').nth(0));
+  await expect(keep.locator('.speed-summary')).toHaveCount(2);
+  await expect(necropolis.getByRole('button', { name: /^Necropolis team #1:/ })).toContainText('Bernard (2A)');
+  await expect(keep.getByRole('button', { name: /^Giant's Keep team #1:/ })).toContainText('Lushen #1');
+
+  /* Rules: the last dragged to the top. */
+  await dragLine(page, rulesColumn.locator('.speed-summary').nth(2), rulesColumn.locator('.speed-summary').nth(0));
+  await expect(ruleNames).toHaveText(['Bernard (2A)must reach at least120', 'Megan (2A)must reach at least100', 'Veromosmust reach at least110']);
+
+  /* The keyboard's way: Alt and an arrow move the focused line, and focus stays with it. */
+  const megan = rulesColumn.getByRole('button', { name: /^Rule Megan \(2A\) must reach at least 100:/ });
+  await expect(megan).toHaveAttribute('aria-keyshortcuts', 'Alt+ArrowUp Alt+ArrowDown');
+  await megan.focus();
+  await page.keyboard.press('Alt+ArrowDown');
+  await expect(ruleNames).toHaveText(['Bernard (2A)must reach at least120', 'Veromosmust reach at least110', 'Megan (2A)must reach at least100']);
+  await expect(megan).toBeFocused();
+  await page.keyboard.press('Alt+ArrowDown');
+  await expect(ruleNames.last()).toHaveText('Megan (2A)must reach at least100');
+  await page.keyboard.press('Alt+ArrowUp');
+  await expect(ruleNames).toHaveText(['Bernard (2A)must reach at least120', 'Megan (2A)must reach at least100', 'Veromosmust reach at least110']);
+  await expect(megan).toBeFocused();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath('speed-reorder-after.png') });
+
+  /* The order is saved. */
+  await page.reload();
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  await expect(ruleNames).toHaveText(['Bernard (2A)must reach at least120', 'Megan (2A)must reach at least100', 'Veromosmust reach at least110']);
+  await expect(arena.getByRole('button', { name: /^Arena team #1:/ })).toContainText('Lushen #2');
+  await expect(keep.getByRole('button', { name: /^Giant's Keep team #1:/ })).toContainText('Lushen #1');
+});
+
 test('a rule is a reminder about one monster, judged in the speed forms it is checked in', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1600, height: 1000 });
   await freshWorkspace(page);
