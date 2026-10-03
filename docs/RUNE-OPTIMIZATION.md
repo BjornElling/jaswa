@@ -12,6 +12,7 @@ which are not, and where each part of it runs.
 | --- | --- |
 | `app/lib/rune-optimization-requirements.ts` | A calculation's requirements, seeded from the profile (§2) |
 | `app/lib/rune-optimization-problem.ts` | Candidates, filters, exact reduction, the depth's cut (§3–§5) |
+| `app/lib/rune-optimization-shortlist.ts` | Exact range feasibility, complementary builds and paired improvements for the cut (§4.3, §5) |
 | `app/lib/rune-optimization-search.ts` | The tree, the tail's blocks, the passes to a card, the merge of parts (§6–§7) |
 | `app/lib/rune-optimization-settings.ts` | How to search: craft items, rune sources, depth, table size |
 | `app/lib/compute/rune-optimization-*.ts` | Workers, the client that fans out to them and relays their bars, the engine door (§6.5, §7) |
@@ -40,7 +41,7 @@ that stage is visible on screen.
 | --- | --- | --- |
 | Filters (§3) | Yes | Violent/Will with slot mains: 500 → 50–160 per slot |
 | Dominance (§4) | Yes | a further 10–50 % |
-| Depth's cut (§5) | **No — reported** | to at most `keep` per slot and set |
+| Depth's cut (§5) | **No — reported** | selection lanes plus complementary-build picks |
 | Branch and bound (§6–§7) | Yes | billions of combinations settled in seconds (§6.7) |
 
 ## 2. Requirements: the profile, then this calculation
@@ -111,7 +112,7 @@ Grindstones the settings allow. A rune enters its own slot's list when:
 - it sits in the inventory, on this monster, or — unless *Only use runes from
   inventory* is ticked — on another monster;
 - that other monster is not **above it on the priority list** (`monster-priority.ts`,
-  the *Priority List* page), unless *Include runes from higher-priority monsters* is
+  the *Rune Priority* page), unless *Include runes from higher-priority monsters* is
   ticked. A monster not on the list ranks below every monster on it, so it takes no
   rune from any of them. The page resolves the list into the copies spared
   (`RuneOptimizationInput.spared`); the search never reads the order or the switch,
@@ -178,28 +179,107 @@ only for the stat bonus it completes, so every set without one — Violent, Will
 — is one group, and a Violent rune can be dominated by a better Will rune. On the
 real account this halves the candidates of an unconstrained search.
 
+### 4.3 A rune that cannot reach a range
+
+Before the depth cut, each candidate is combined with independent maxima from the
+other five slots and every stat-set bonus at once. This deliberately overestimates
+what a real build can achieve. If even that sum misses a floor, the candidate cannot
+belong to any accepted build. Independent minima, with no set bonuses, give the
+opposite proof: if that sum exceeds a ceiling, the candidate cannot be used either.
+These checks do not read the current build and never use a heuristic price.
+
 ## 5. The depth's cut — the one shortcut that is not exact
 
-What dominance leaves can still be hundreds per slot. **Depth** sets how many are
-kept per slot and set, and how long the search may run:
+What the exact reductions leave can still be hundreds per slot. **Depth** sets the
+width of each selection lane per slot and set, and how long the search may run:
 
-| Depth | Kept per slot and set | Time limit |
+| Depth | Picks per selection lane and slot/set | Search time limit |
 | --- | --- | --- |
-| Quick | 6 | 15 s |
-| Balanced (default) | 12 | 45 s |
-| Thorough | 24 | 2 min |
-| Complete | every one | 10 min |
+| 1 | 6 | 15 s |
+| 2 | 8 | 20 s |
+| 3 | 10 | 30 s |
+| 4 (default) | 12 | 45 s |
+| 5 | 16 | 1 min |
+| 6 | 20 | 90 s |
+| 7 | 24 | 2 min |
+| 8 | 32 | 3 min |
+| 9 | 48 | 5 min |
+| 10 | every one | 10 min |
 
-A candidate's worth for the cut is its **first-order contribution** to the
-ranking figure, measured as the gradient of that figure at the monster's current
-build (so CRI Rate is priced as worthless on a monster already at the cap). The
-cut keeps the best by that measure **and** the best for each target separately: a
-rune that does little for DMG may be the only way to reach the SPD floor, and a
-cut blind to targets would make a reachable build look impossible.
+Depth is one native slider, numbered 1–10, usable with the pointer and arrow keys.
+Its value and warning each have a fixed box. The established saved choices keep
+their meaning: `quick`, `balanced`, `thorough` and `complete` remain valid preference
+values at steps 1, 4, 7 and 10. The intermediate steps are additional choices.
 
-This is the judgement the whole design allows itself, and only while it is seen:
-the table's caption says how many runes each slot tried and that the cut kept the
-ones that add most.
+The existing coarse estimate (§8) is compared with a broad work budget: one million
+combinations per search second on the processor, fifty million with graphics-card
+use enabled. These are planning thresholds, not measured speeds. Going above the
+budget warns in yellow; above ten times it warns in red. Switching graphics-card use
+off also warns in yellow even without a monster selected. A severe work warning takes
+precedence. None prevents starting the search.
+
+The warning explicitly says "may" or "unlikely": pruning can make a huge combination
+space cheap, Gem variants and supplemental picks can expand it, and enabling the card
+does not guarantee that it will accept the calculation. The actual engine and whether
+the search reached its limit are still reported after it runs. No second GPU decision
+or device probe is introduced for this estimate.
+
+A candidate's independent worth is its **first-order contribution** to the ranking
+figure, measured against the admitted candidate pool. Each physical rune gets one
+vote in that reference, however many Gem alternatives it has. **The currently worn
+build never prices candidates.** It supplies the `Now` row; ownership and locks
+still decide admission and move counts.
+
+The cut keeps the best end states by that measure, the best distinct physical runes
+by that measure, and the best end states for each floor. It also treats the eight
+direct-stat floors as a temporary Clean-up preset: `substatWeights` and
+`weightedValuation` price their selection pressure in max-roll equivalents. The
+reference is this copy's base, its actual artifact contribution and the admitted
+pool's most common main per slot. This extra lane rewards the targets that ask most
+of sub properties. It assumes no future Grindstones: candidates already contain the
+craft work allowed by the optimization settings. It uses six-star rolls as one common
+currency for comparing actual stat contributions, rather than rewarding a weaker
+star class for being good relative to its own ceiling.
+
+**Free set slots also have a price.** With no build stated or some slots left free,
+each candidate's ordering score includes a per-piece share of the stat bonus its set
+could complete. Ranking DMG gives Blade, Fatal and Rage attention; demanding floors
+can give Energy, Guard, Focus or another relevant stat set attention. A four-set is
+not credited for two free slots beside a required four-set. Only sets that can fit,
+or are themselves required, are priced. This never changes a build's actual figures.
+The beam likewise gives a partial stat set a proportional bonus for ordering its
+prefixes, but finished guides and the final search count completed sets alone.
+
+That price is guidance, not a replacement for DMG, E.HP or E.HP D. Those composite
+figures cannot be represented by Clean-up's eight direct-stat targets, and two
+individually strong runes may be poor complements. So the cut also looks for **whole
+builds before picking individual runes**:
+
+- Four deterministic beam searches retain 64 prefixes each, with different prices
+  for unmet floors and exceeded ceilings. Their reference for open slots comes from
+  the admitted pool; set feasibility and held-item stock are checked as they grow.
+- Finished guides must satisfy the actual sets, ranges, Intangible rule and stock.
+  Up to four different guides are improved by replacing two same-set runes at once,
+  for at most two rounds and 200,000 pair evaluations per guide. This can trade speed
+  or Accuracy between slots while gaining damage, where neither change works alone.
+- Candidates from those improvements and twelve finished guides supplement the
+  independent lanes and are tried first in the final search. The guide is identical
+  across finite depths: a deeper shortlist retains every shallower candidate.
+
+The beam and its paired improvements are heuristics within the reported cut. They
+prove no candidate inferior and do not establish a global optimum. Preparation has
+this additional bounded work; the table above limits the subsequent search. Depth 10
+uses neither the beam nor the selection lanes, only the exact reductions.
+
+The table explicitly names the finite depths as guided shortlists. Its caption's
+tooltip reports the actual end-state counts per slot, including supplemental picks.
+These counts can exceed the lane width and the pre-search estimate.
+
+`npm run verify:rune-optimization-quality` holds the cut separately from exactness:
+Depth 1 matches depth 10's optimum on eight fixed wider pools, finite depths retain
+shallower picks, moving every rune to inventory leaves selection unchanged, and
+empty and impossible questions return no builds. These are regression checks, not
+a claim that a finite shortlist always finds the optimum.
 
 ## 6. The search
 
@@ -318,7 +398,7 @@ between two passes to the card, or on the processor every 50 ms.
 
 `npm run verify:rune-optimization` searches random small accounts against brute
 force over the unreduced candidates scored by `calculateMonsterTotals`, and requires
-every row to agree: the funnel at `Complete`, whole; split three ways; split with
+every row to agree: the funnel at depth 10, whole; split three ways; split with
 the parts sharing their bars, at once and in slices; and in passes, the way a card
 is driven, with a stand-in card as generous as a card may ever be — it sends back
 every pair, shuffled, overflows past a few dozen, and in a second run refuses
@@ -329,23 +409,43 @@ per cent too tight, and a dominance that dropped on one dominator, both fail it.
 
 ### 6.7 Measured
 
-On a real 2,444-rune account, the Rune Optimization page itself, eight workers,
+Historical measurements before the guided shortlist, on a real 2,444-rune account,
+the Rune Optimization page itself, eight workers,
 the card switched on and then off:
 
 | Question | Graphics card | Processor |
 | --- | --- | --- |
-| Any build, rank DMG, Quick | 1.1 s | 0.9 s |
-| Any build, rank DMG, Balanced | 3.4 s | 6.2 s |
-| Any build, rank DMG, Thorough | 8.3 s | 20.2 s |
-| Any build, rank DMG, Complete | 24.4 s | 63.0 s |
+| Any build, rank DMG, width now at depth 1 | 1.1 s | 0.9 s |
+| Any build, rank DMG, width now at depth 4 | 3.4 s | 6.2 s |
+| Any build, rank DMG, width now at depth 7 | 8.3 s | 20.2 s |
+| Any build, rank DMG, depth 10 | 24.4 s | 63.0 s |
 
-Every one of them finished. Before this search was rebuilt the Balanced question ran
+Every one of them finished. Before this search was rebuilt the depth-4 question ran
 into its 45-second limit. *Builds checked* counts what each engine evaluated in
 full: the card evaluates every pair of an open block, where the processor first
 skips each rune of the first tail slot that cannot reach the bar, so the card's
 count is the larger by two orders of magnitude for the same table.
 
 The narrower the question, the faster the answer.
+
+On 3 October 2026 the guided shortlist was compared with the preceding cut on a
+local captured account, for Poseidon: Despair/Focus, ATK % / CRI Dmg / ATK % mains,
+215 SPD, 75 ACC, 60,000 E.HP and 30,000 E.HP D floors, owned craft items and 50 rows.
+The same capture and one card-driven search process were used for both cuts:
+
+| Depth | Preceding cut, best DMG | Guided cut, best DMG |
+| --- | --- | --- |
+| 1 | 5,752 | 6,392 |
+| 4 | 6,009 | 6,445 |
+| 7 | 6,079 | 6,445 |
+
+Both depth-1 and depth-4 searches finished. The preceding depth-7 search finished;
+the guided depth-7 search reached its limit, so its figure is the best found, not a
+proved maximum of that shortlist. Depth 1 gained 11.1 % and trailed the deeper
+answer by 0.8 %. This is an older capture than the user's reported 5,792 / 6,286 /
+6,384 example; it measures an improvement on this input, not that current account
+or a guarantee for every question. Preparation also costs more, about two seconds
+on this run; the deeper shortlist admits more candidates and can take longer.
 
 ## 7. The graphics card
 
@@ -388,14 +488,14 @@ table pick for pick. It needs a running dev server and a card, and is not part o
 ## 8. The page
 
 1. **Monster** — every owned copy by its copy name in a large field with its
-   portrait, *Open preset* under it; depth and table size beside it, because they
+   portrait, *Open preset* under it; the depth slider and table size beside it, because they
    are read at the moment of searching; then *Find builds* and a square stop mark.
    The line under the depth gives a rough size of the search before it runs —
    the runes the filters admit, at most the depth's number per slot and set,
    multiplied across the slots — and the time limit as "up to". It skips craft
    variants and the exact reduction, so it is an order of magnitude, never a
    count; with no monster chosen it says in words how much the depth looks
-   through.
+   through. A reserved three-line box below it carries the work warning (§5).
 2. **Requirements for this calculation** — two thirds: builds, the three slot
    mains, the figure to rank by and the eleven ranges in two rows, with a caption
    line under each that says only what differs from the preset or where an

@@ -27,6 +27,10 @@ import type { ItemGrade } from './types';
  * you name.
  */
 export type CraftUse = 'none' | 'owned' | 'theoretical';
+/** The copy Rune Optimization builds for: a choice of the tab, not a preference,
+    and set from outside the page when another page sends a monster to it. */
+export const runeOptimizationMonsterKey = 'jaswa.runeOptimization.unitId';
+
 export const craftUses: readonly CraftUse[] = ['none', 'owned', 'theoretical'];
 export const craftUseLabels: Readonly<Record<CraftUse, string>> = {
   none: 'None',
@@ -38,24 +42,27 @@ export const craftUseLabels: Readonly<Record<CraftUse, string>> = {
  * How many runes per slot and set the search keeps after the exact reductions, and
  * how long it may run — `RUNE-OPTIMIZATION.md` §5.
  *
- * `complete` makes no cut beyond the exact ones. The other three drop runes that
+ * Depth 10 (`complete`) makes no cut beyond the exact ones. Lower depths drop runes that
  * contribute least to what this calculation asks for, and say so on the status
  * line: a cut is a defensible shortcut only while the user can see it was taken.
  */
-export type RuneOptimizationDepth = 'quick' | 'balanced' | 'thorough' | 'complete';
-export const runeOptimizationDepths: readonly RuneOptimizationDepth[] = ['quick', 'balanced', 'thorough', 'complete'];
-export const runeOptimizationDepthLabels: Readonly<Record<RuneOptimizationDepth, string>> = {
-  quick: 'Quick',
-  balanced: 'Balanced',
-  thorough: 'Thorough',
-  complete: 'Complete',
-};
+// The four established preference values retain their place on the wider scale.
+export type RuneOptimizationDepth = 'quick' | 'step2' | 'step3' | 'balanced' | 'step5' | 'step6' | 'thorough' | 'step8' | 'step9' | 'complete';
+export const runeOptimizationDepths: readonly RuneOptimizationDepth[] = [
+  'quick', 'step2', 'step3', 'balanced', 'step5', 'step6', 'thorough', 'step8', 'step9', 'complete',
+];
 
 /** What each depth looks through, in words that need no knowledge of the cut. */
 export const runeOptimizationDepthReach: Readonly<Record<RuneOptimizationDepth, string>> = {
   quick: 'Only your strongest runes',
+  step2: 'A small guided shortlist',
+  step3: 'A growing guided shortlist',
   balanced: 'A wide pick of your strongest runes',
+  step5: 'A wider guided shortlist',
+  step6: 'A broad guided shortlist',
   thorough: 'Most runes worth trying',
+  step8: 'A very broad guided shortlist',
+  step9: 'Almost every promising rune',
   complete: 'Every rune that could matter',
 };
 
@@ -66,10 +73,36 @@ export const runeOptimizationDepthReach: Readonly<Record<RuneOptimizationDepth, 
  */
 export const runeOptimizationDepthPlans: Readonly<Record<RuneOptimizationDepth, { keep: number; seconds: number }>> = {
   quick: { keep: 6, seconds: 15 },
+  step2: { keep: 8, seconds: 20 },
+  step3: { keep: 10, seconds: 30 },
   balanced: { keep: 12, seconds: 45 },
+  step5: { keep: 16, seconds: 60 },
+  step6: { keep: 20, seconds: 90 },
   thorough: { keep: 24, seconds: 120 },
+  step8: { keep: 32, seconds: 180 },
+  step9: { keep: 48, seconds: 300 },
   complete: { keep: Infinity, seconds: 600 },
 };
+
+/** A planning signal, not a timing prediction: pruning and hardware vary greatly. */
+export function runeOptimizationWorkWarning(estimate: number | undefined, depth: RuneOptimizationDepth, hardwareAcceleration: boolean): {
+  tone: 'warn' | 'bad' | null; text: string;
+} {
+  const seconds = runeOptimizationDepthPlans[depth].seconds;
+  // Deliberately broad budgets: the estimate counts combinations before pruning,
+  // while the card can examine a tail in bulk. Neither is measured device speed.
+  const budget = seconds * (hardwareAcceleration ? 50_000_000 : 1_000_000);
+  if (estimate !== undefined && estimate > budget * 10) return {
+    tone: 'bad', text: 'Very large search: it is unlikely to finish within the limit. Lower depth or narrow the requirements.',
+  };
+  if (estimate !== undefined && estimate > budget) return {
+    tone: 'warn', text: 'Large search: it may reach the time limit. Lower depth or narrow the requirements.',
+  };
+  if (!hardwareAcceleration) return {
+    tone: 'warn', text: 'Graphics card use is off. Large searches may reach the time limit on the processor.',
+  };
+  return { tone: null, text: '' };
+}
 
 /** How many builds the table may list. */
 export const runeOptimizationResultCounts = [10, 20, 50, 100] as const;

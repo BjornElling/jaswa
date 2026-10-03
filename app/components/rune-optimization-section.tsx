@@ -41,8 +41,8 @@ import { currentBuilds } from '../lib/rune-optimization-refresh';
 import type { CurrentBuild } from '../lib/rune-optimization-refresh';
 import { profileRequirements, sameList } from '../lib/rune-optimization-requirements';
 import {
-  craftUseLabels, craftUses, runeOptimizationDepthLabels, runeOptimizationDepthPlans, runeOptimizationDepthReach, runeOptimizationDepths,
-  runeOptimizationResultCounts,
+  craftUseLabels, craftUses, runeOptimizationDepthPlans, runeOptimizationDepthReach, runeOptimizationDepths,
+  runeOptimizationMonsterKey, runeOptimizationResultCounts, runeOptimizationWorkWarning,
 } from '../lib/rune-optimization-settings';
 import type { CraftUse, RuneOptimizationSettings } from '../lib/rune-optimization-settings';
 import { presetTargetColumns } from '../lib/rune-potential-presets';
@@ -134,7 +134,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
 }) {
   const settings = preferences.runeOptimization;
   const general = preferences.general;
-  const [unitId, setUnitId] = useSessionStorageState<string>('jaswa.runeOptimization.unitId', '', isString);
+  const [unitId, setUnitId] = useSessionStorageState<string>(runeOptimizationMonsterKey, '', isString);
   const [edits, setEdits] = useState<{ unitId: string; requirements: RuneOptimizationRequirements } | null>(null);
   const [calculation, setCalculation] = useState<Calculation | undefined>();
   const [state, setState] = useState<'idle' | 'calculating' | 'error'>('idle');
@@ -287,6 +287,8 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
   }
 
   const plan = runeOptimizationDepthPlans[settings.depth];
+  const depthStep = runeOptimizationDepths.indexOf(settings.depth) + 1;
+  const workWarning = runeOptimizationWorkWarning(estimate, settings.depth, preferences.hardwareAcceleration);
   const changed = (same: boolean) => (same ? undefined : 'Changed for this calculation');
   const edited = edits !== null && edits.unitId === unitId;
   const display = selected ? monsterPresentation(selected.masterId) : undefined;
@@ -322,16 +324,29 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
             read at the moment of searching, and nowhere else on the page. */}
         <div className="rune-optimization-search">
           <div className="filter-group rune-optimization-depth">
-            <RadioLine name="rune-optimization-depth" legend="Depth" current={settings.depth}
-              options={runeOptimizationDepths.map((depth) => ({ value: depth, label: runeOptimizationDepthLabels[depth] }))}
-              onChange={(depth) => onUpdate({ depth })} />
+            <div className="rune-optimization-depth-control">
+              <label className="filter-label" htmlFor="rune-optimization-depth">Depth</label>
+              <input id="rune-optimization-depth" type="range" min="1" max="10" step="1" value={depthStep}
+                aria-valuetext={`${depthStep} of 10. ${runeOptimizationDepthReach[settings.depth]}`}
+                aria-describedby="rune-optimization-depth-estimate rune-optimization-work-warning"
+                onChange={(event) => {
+                  const step = event.currentTarget.valueAsNumber;
+                  const depth = Number.isInteger(step) ? runeOptimizationDepths[step - 1] : undefined;
+                  if (depth !== undefined) onUpdate({ depth });
+                }} />
+              <output htmlFor="rune-optimization-depth">{depthStep} / 10</output>
+            </div>
             {/* Written for someone who has never seen the cut: how much the depth
                 looks through, and the longest it may take — "up to", because most
                 searches finish well inside it. */}
-            <Provenance>{`${estimate === undefined
+            <div id="rune-optimization-depth-estimate"><Provenance>{`${estimate === undefined
               ? runeOptimizationDepthReach[settings.depth]
               : `Considers around ${roughCount(estimate, general)} builds`} · up to ${plan.seconds < 60
-              ? `${plan.seconds} s` : `${plan.seconds / 60} min`}`}</Provenance>
+              ? `${plan.seconds} s` : `${plan.seconds / 60} min`}`}</Provenance></div>
+            <p id="rune-optimization-work-warning" className="rune-optimization-work-warning type-caption"
+              role="status" data-tone={workWarning.tone ?? undefined} aria-hidden={workWarning.tone === null ? true : undefined}>
+              {workWarning.text || '\u00a0'}
+            </p>
           </div>
           <div className="filter-group rune-optimization-count">
             <RadioLine name="rune-optimization-count" legend="Builds listed" current={String(settings.resultCount)}
@@ -577,6 +592,9 @@ function Results({ answer, builds, rankBy, currentBuild, currentFigures, general
   return <section className="rune-optimization-results" aria-labelledby="rune-optimization-results-title">
     <header className="rune-optimization-results-head">
       <h3 id="rune-optimization-results-title" className="type-heading">Builds</h3>
+      <p className="type-caption" title={`Candidate end states tried by slot: ${slots.map((slot) => slot.kept).join(' / ')}`}>
+        Depths 1–9 use a guided shortlist; depth 10 keeps every feasible candidate.
+      </p>
     </header>
     <table className="grid-table rune-optimization-table" aria-label="Rune builds">
       <TableColumnGroup columns={runeOptimizationTableColumns} />
@@ -592,7 +610,7 @@ function Results({ answer, builds, rankBy, currentBuild, currentFigures, general
         </tr>
         {sorted.length === 0 && <tr><td className="table-empty-state" colSpan={columns.length}>
           {slots.some((slot) => slot.kept === 0)
-            ? `No rune can fill slot ${slots.filter((slot) => slot.kept === 0).map((slot) => slot.slot).join(', ')} under these requirements. Widen the slot mains or the builds.`
+            ? `No build meets every requirement. No rune can fill slot ${slots.filter((slot) => slot.kept === 0).map((slot) => slot.slot).join(', ')} under these requirements. Widen the stat ranges, slot mains or builds.`
             : 'No build meets every requirement. Lower a target, or allow more builds.'}
         </td></tr>}
         {/* The whole row opens the build; the number is the same way in for the

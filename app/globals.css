@@ -335,7 +335,7 @@ label[for] {
 .token-choice-pill, .token-choice-more, .token-choice-option, .token-choice-empty,
 .token-choice-note,
 .artifact-subs li, .relic-effect, .best-monster-intangible,
-.calculation-status, .range-slider-values,
+.calculation-status, .range-slider-values, .rune-optimization-depth-control output,
 .helper-current-version, .import-badge-count, .best-artifact-result table,
 .best-monster-table, .artifact-recommendation-table-wrap > .artifact-recommendation-table,
 .grid-table, .meta-line, .sample-value, .target dd, .relic-monster-none,
@@ -2388,6 +2388,14 @@ label[for] {
 /* The depth carries a line of its own, so the build count stands clear of it
    rather than reading as a third line of the same group. */
 .rune-optimization-search { display: grid; gap: var(--s5); min-width: 0; padding-top: var(--s5); }
+
+.rune-optimization-depth-control { display: grid; grid-template-columns: auto minmax(0, 1fr) 7ch; align-items: center; gap: var(--s3); }
+.rune-optimization-depth-control output { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rune-optimization-depth-control input { width: 100%; min-width: 0; margin: 0; accent-color: var(--text-accent); cursor: pointer; }
+/* Every warning owns three lines even when there is nothing to warn about. */
+.rune-optimization-work-warning { height: 3lh; margin: 0; overflow: hidden; visibility: hidden; }
+.rune-optimization-work-warning[data-tone] { visibility: visible; color: var(--state-warn); }
+.rune-optimization-work-warning[data-tone='bad'] { color: var(--state-bad); }
 
 /* A fixed measure, so the status line at its foot can change its wording — a
    percentage, then a line of counts — without the columns beside it moving. */

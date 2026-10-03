@@ -35,11 +35,16 @@ import type { CraftItem } from './rune-craft-items';
 import { lineageFits } from './rune-craft-plan';
 import type { RuneHolds } from './rune-holds';
 import { runeOptimizationDepthPlans } from './rune-optimization-settings';
+import { availableStatSets, complementaryCandidates, rangeFeasibleCandidates } from './rune-optimization-shortlist';
 import type { CraftUse, RuneOptimizationSettings } from './rune-optimization-settings';
 import { mainPropertyMaximum } from './rune-properties';
 import { runeBuild, runeSlotCount } from './rune-set-pairs';
 import { runeSetId, runeSetPieceCount } from './rune-sets';
 import { runeSlotMainByEffect } from './rune-slot-mains';
+import { substatWeights, targetStats, weightedValuation } from './rune-substat-weights';
+import type { BuildMains } from './rune-substat-weights';
+import type { ReferenceStats } from './rune-reference-stats';
+import { runeStatIds } from './runes';
 import type { RuneSlotMain } from './rune-slot-mains';
 import { gemMinimumLevel, runeMaximumLevel } from './runes';
 import type { Rune } from './runes';
@@ -111,7 +116,7 @@ export type Candidate = {
   moves: boolean;
   /** Whether the rune is locked to this monster, and so the slot's only answer. */
   locked: boolean;
-  /** Its first-order worth to the ranking figure, for ordering and for the cut. */
+  /** Independent ranking worth plus promising stat-set credit, for ordering and the cut. */
   proxy: number;
 };
 
@@ -141,7 +146,7 @@ export type RuneOptimizationProblem = {
   criticalRateLift: number;
   /** The accumulators before any rune: the artifacts' main properties. */
   start: Float64Array;
-  /** Index 0 is slot 1. Best first by `proxy`. */
+  /** Index 0 is slot 1. Complementary picks first at finite depths, then `proxy`. */
   slots: Candidate[][];
   /** `null` where any combination of sets will do. */
   builds: BuildRequirement[] | null;
@@ -169,7 +174,7 @@ export type RuneOptimizationProblem = {
     /** Distinct runes that could enter at least one slot. */
     runes: number;
     slots: SlotReport[];
-    /** How many runes per slot and set the depth kept; `null` for no cut. */
+    /** Width of each selection lane per slot and set; `null` for no cut. */
     keep: number | null;
   };
 };
@@ -536,8 +541,17 @@ function undominated(
 function cut(candidates: Candidate[], keep: number, targetSlopes: readonly Float64Array[]): Candidate[] {
   if (candidates.length <= keep) return candidates;
   const kept = new Set<Candidate>();
+  const takeFamilies = (ordered: Candidate[]) => {
+    const seen = new Set<string>();
+    for (const candidate of ordered) {
+      if (seen.has(candidate.runeId)) continue;
+      seen.add(candidate.runeId); kept.add(candidate);
+      if (seen.size === keep) break;
+    }
+  };
   const byProxy = [...candidates].sort((left, right) => right.proxy - left.proxy);
   for (const candidate of byProxy.slice(0, keep)) kept.add(candidate);
+  takeFamilies(byProxy);
   for (const slope of targetSlopes) {
     const byTarget = [...candidates].sort((left, right) => dot(slope, right.effects) - dot(slope, left.effects));
     for (const candidate of byTarget.slice(0, keep)) kept.add(candidate);
@@ -589,21 +603,6 @@ export function prepareRuneOptimization(
   const builds = buildRequirements(requirements.builds);
   const usableSets = usableSetsOf(builds);
 
-  /* The reference the gradients are taken at: the copy as it stands, sets and all.
-     A first-order worth measured against no runes at all would price CRI Rate as if
-     the cap were a hundred points away on a monster already sitting at it. */
-  const reference = new Float64Array(start);
-  const wornCounts = new Int32Array(setIdBound);
-  for (const rune of input.runes) {
-    if (rune.occupiedId !== unitId) continue;
-    const effects = runeEffects(rune, rune.mainValue, rune.subProperties.map((line) => ({ ...line })));
-    for (let slot = 0; slot < effectSlotCount; slot += 1) reference[slot] += effects[slot];
-    if (rune.setId > 0 && rune.setId < setIdBound) wornCounts[rune.setId] += 1;
-  }
-  addSetBonuses(wornCounts, intangibleCompletion(wornCounts), reference);
-  const rankSlope = gradient(base, reference, rank);
-  const targetSlopes = targetFigures.map((figure) => gradient(base, reference, figureIndex(figure)));
-
   /* Held stacks are numbered once, so every candidate names its spend by index and
      the search counts it in a flat array. */
   const stock = input.craftItems.map((item) => ({ itemId: item.id, amount: item.amount }));
@@ -637,7 +636,7 @@ export function prepareRuneOptimization(
     const onThisMonster = rune.occupiedId === unitId;
     const slotIndex = rune.slot - 1;
     if (verdict === 'locked') {
-      /* Locked and uforanderlig: the slot's one answer, exactly as it is worn. No
+      /* Locked and immutable: the slot's one answer, exactly as it is worn. No
          craft item is counted on it, and no filter can take it away — a lock that a
          requirement could override would be a lock in name only. */
       locked[slotIndex] = true;
@@ -668,8 +667,77 @@ export function prepareRuneOptimization(
       bySlot[slotIndex].push({
         runeId: rune.id, slot: rune.slot, setId: rune.setId, effects, mainValue, main: effectSlotOf(rune.mainStatId),
         lines: variant.lines, gemmedAt: variant.gemmedAt, groundAt: newlyGround(lines, variant.lines),
-        stock: variant.stock, moves: !onThisMonster, locked: false, proxy: dot(rankSlope, effects),
+        stock: variant.stock, moves: !onThisMonster, locked: false, proxy: 0,
       });
+    }
+  }
+
+  /* Price the question's admitted pool, never the monster's current build. Each
+     physical rune gets one vote, regardless of how many Gem alternatives it has.
+     An equipped rune still matters for admission, locks and moves, not stat prices. */
+  const reference = new Float64Array(start);
+  for (const candidates of bySlot) {
+    const families = new Map<string, Candidate[]>();
+    for (const candidate of candidates) {
+      const family = families.get(candidate.runeId) ?? [];
+      family.push(candidate); families.set(candidate.runeId, family);
+    }
+    for (const family of families.values()) for (const candidate of family) {
+      for (let stat = 0; stat < effectSlotCount; stat += 1) reference[stat] += candidate.effects[stat] / family.length / families.size;
+    }
+  }
+  const rankSlope = gradient(base, reference, rank);
+  const targetSlopes = targetFigures.map((figure) => gradient(base, reference, figureIndex(figure)));
+  /* Clean-up's selection pressure is an additional lane, not a replacement for
+     the actual ranking figure or the composite targets it cannot express. Use
+     the pool's most common main per slot; this price only guides the depth cut. */
+  const mainPlan: Record<number, number> = {};
+  for (const [at, candidates] of bySlot.entries()) {
+    const counts = new Map<number, Set<string>>();
+    for (const candidate of candidates) {
+      const ids = counts.get(candidate.main) ?? new Set<string>();
+      ids.add(candidate.runeId); counts.set(candidate.main, ids);
+    }
+    const mostCommon = [...counts].sort((a, b) => b[1].size - a[1].size || a[0] - b[0])[0]?.[0];
+    mainPlan[at + 1] = runeStatIds.find((id) => effectSlotOf(id) === mostCommon) ?? 0;
+  }
+  const referenceBase = Object.fromEntries(targetStats.map((stat, at) => [stat, base[at]])) as ReferenceStats;
+  const beforeRunes = new Float64Array(baseStatCount);
+  totalsInto(base, start, beforeRunes);
+  const pressureTargets = Object.fromEntries(targetStats.flatMap((stat, at) => {
+    const target = targets[figureIndex(stat)];
+    return Number.isFinite(target) ? [[stat, Math.max(0, target - (beforeRunes[at] - base[at]))]] : [];
+  }));
+  const weights = substatWeights({ targets: pressureTargets, mains: mainPlan as BuildMains,
+    artifacts: { hp: false, atk: false, def: false }, base: referenceBase,
+    credit: { gem: null, gemGrade: 'Hero', grind: null, grindGrade: 'Hero' } });
+  if (weights.weights.size > 0) {
+    const valuation = weightedValuation(referenceBase, weights, 6);
+    const pressure = new Float64Array(effectSlotCount);
+    for (const id of runeStatIds) pressure[effectSlotOf(id)] = valuation.value(id, 1);
+    targetSlopes.push(pressure);
+  }
+  const freeSets = builds === null || builds.some((build) => build.free > 0);
+  const orderableBonuses = availableStatSets(builds);
+  const orderingSlope = new Float64Array(rankSlope);
+  if (freeSets) {
+    // A demanding floor earns search attention too; units are normalized so an
+    // HP point cannot drown out a speed point merely because its number is bigger.
+    const figures = figuresOf(base, reference, new Float64Array(targetFigureCount));
+    const rankScale = Math.max(1, figures[rank]);
+    for (const figure of targetFigures) {
+      const at = figureIndex(figure);
+      const slope = gradient(base, reference, at);
+      const pressure = Math.max(0, targets[at] - figuresOf(base, start)[at]) / Math.max(1, figures[at]);
+      for (let stat = 0; stat < effectSlotCount; stat += 1) {
+        orderingSlope[stat] += rankScale * pressure * slope[stat] / Math.max(1, figures[at]);
+      }
+    }
+  }
+  for (const candidates of bySlot) for (const candidate of candidates) {
+    candidate.proxy = dot(rankSlope, candidate.effects);
+    if (freeSets) for (const [setId, pieces, stat, value] of orderableBonuses) {
+      if (candidate.setId === setId) candidate.proxy += orderingSlope[stat] * value / pieces;
     }
   }
 
@@ -699,20 +767,40 @@ export function prepareRuneOptimization(
       if (!reduce) { undominatedCount += group.length; kept.push(...group); continue; }
       const left = undominated(group, relevant, pinned, base, settings.resultCount);
       undominatedCount += left.length;
-      kept.push(...(keep === null ? left : cut(left, keep, targetSlopes)));
+      kept.push(...left);
     }
     kept.sort((left, right) => right.proxy - left.proxy || left.runeId.localeCompare(right.runeId));
     slots.push(kept);
     reports.push({ slot: slotIndex + 1, eligible: eligible.length, undominated: undominatedCount, kept: kept.length, locked: false });
   }
 
-  return {
+  const problem: RuneOptimizationProblem = {
     base, criticalRateLift: criticalRateLift(requirements.alwaysCrits), start, slots, builds,
     allowBroken: requirements.allowBroken, setPieces: setPiecesById, allowIntangible: requirements.allowIntangible,
     targets, ceilings, rank, relevant, resultCount: settings.resultCount, stock,
     timeLimitMs: plan.seconds * 1000,
     report: { runes: runesSeen.size, slots: reports, keep },
   };
+  if (reduce) {
+    problem.slots = rangeFeasibleCandidates(problem);
+    for (const [at, slot] of problem.slots.entries()) reports[at].undominated = slot.length;
+    if (keep !== null) {
+      const complementary = complementaryCandidates(problem);
+      problem.slots = problem.slots.map((slot) => {
+        const groups = new Map<number, Candidate[]>();
+        for (const candidate of slot) {
+          const key = dominanceGroup(candidate.setId);
+          const group = groups.get(key) ?? [];
+          group.push(candidate); groups.set(key, group);
+        }
+        const independent = new Set([...groups.values()].flatMap((group) => cut(group, keep, targetSlopes)));
+        return slot.filter((candidate) => independent.has(candidate) || complementary.has(candidate))
+          .sort((a, b) => Number(complementary.has(b)) - Number(complementary.has(a)) || b.proxy - a.proxy || a.runeId.localeCompare(b.runeId));
+      });
+    }
+    for (const [at, slot] of problem.slots.entries()) reports[at].kept = slot.length;
+  }
+  return problem;
 }
 
 /** Pieces per `set_id`, from the one table that names them. */
