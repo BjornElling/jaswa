@@ -382,6 +382,12 @@ table pick for pick. It needs a running dev server and a card, and is not part o
 1. **Monster** — every owned copy by its copy name in a large field with its
    portrait, *Open preset* under it; depth and table size beside it, because they
    are read at the moment of searching; then *Find builds* and a square stop mark.
+   The line under the depth gives a rough size of the search before it runs —
+   the runes the filters admit, at most the depth's number per slot and set,
+   multiplied across the slots — and the time limit as "up to". It skips craft
+   variants and the exact reduction, so it is an order of magnitude, never a
+   count; with no monster chosen it says in words how much the depth looks
+   through.
 2. **Requirements for this calculation** — two thirds: builds, the three slot
    mains, the figure to rank by and the eleven ranges in two rows, with a caption
    line under each that says only what differs from the preset or where an
@@ -390,9 +396,11 @@ table pick for pick. It needs a running dev server and a card, and is not part o
    the preset, and Gems, Grindstones and rune sources, which are saved
    preferences and hold for every monster.
 4. **Status** — at the foot of the monster panel, under *Find builds*, dimmed:
-   the search's progress while it runs, then builds checked, runes considered,
-   time and engine. The stale warning sits between the two; a search that stopped
-   at its limit says so above the table.
+   the search's progress while it runs, then builds checked and runes considered
+   on one line and time and engine on the next. The stale warning sits between
+   the two; a search that stopped at its limit says so above the table. A change
+   to the runes or locks since the search is not announced here: the rows it
+   touches say so themselves (item 6).
 5. **Builds** — the current build pinned first as `Now`, then the ranked builds.
    Every column sorts; the order starts on the ranking figure. Choosing a row opens
    the build in an overlay: its six runes in the game's rune circle — slot 1 at

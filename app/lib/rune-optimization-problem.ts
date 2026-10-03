@@ -342,6 +342,88 @@ function buildRequirements(ids: readonly string[]): BuildRequirement[] | null {
   return builds;
 }
 
+/* A rune whose set no stated build can use is never a candidate — unless a build
+   leaves slots free, where any set may fill them. `null` is any set. */
+function usableSetsOf(builds: BuildRequirement[] | null): ReadonlySet<number> | null {
+  return builds === null || builds.some((build) => build.free > 0)
+    ? null
+    : new Set(builds.flatMap((build) => build.needs.map((need) => need.setId)));
+}
+
+/**
+ * The filters of §3: whether a rune may enter its slot at all, before any craft
+ * item or reduction. One function, so the preparation and the estimate on the page
+ * cannot disagree about which runes are in play. `locked` is a rune locked to this
+ * monster — its slot's one answer, which no filter can take away.
+ */
+function admission(input: RuneOptimizationInput, usableSets: ReadonlySet<number> | null, rune: Rune): 'locked' | 'refused' | 'admitted' {
+  const { requirements, settings, unitId } = input;
+  const onThisMonster = rune.occupiedId === unitId;
+  /* A lock anywhere else keeps the rune where it is. */
+  if (input.holds[rune.id]?.locked) return onThisMonster ? 'locked' : 'refused';
+  if (!onThisMonster && rune.occupiedId !== null && !settings.runesOnOtherMonsters) return 'refused';
+  if (rune.setId === intangibleSetId && !requirements.allowIntangible) return 'refused';
+  if (usableSets !== null && rune.setId !== intangibleSetId && !usableSets.has(rune.setId)) return 'refused';
+  const mains = rune.slot === 2 ? requirements.slotMains.slot2
+    : rune.slot === 4 ? requirements.slotMains.slot4
+      : rune.slot === 6 ? requirements.slotMains.slot6 : undefined;
+  if (mains !== undefined && mains.length > 0) {
+    const main = runeSlotMainByEffect(rune.mainStatId);
+    if (main === undefined || !mains.includes(main)) return 'refused';
+  }
+  return 'admitted';
+}
+
+const statSets = new Set(statSetBonuses.map(([setId]) => setId));
+
+/*
+ * Which runes may stand in for each other in the exact reduction. Normally only
+ * runes of one set: swapping sets could break a stated build. With no build stated
+ * a set matters only for the stat bonus it completes, so every set without one —
+ * Violent, Will, Despair and the rest — is one group, and a Violent rune can be
+ * dominated by a better Will rune. Not while an Intangible may be worn: which set
+ * it completes depends on which sets are one short, so there the sets stay apart.
+ * Nor while broken sets are refused, because then a rune's set decides whether
+ * the build can be finished at all.
+ */
+function dominanceGroupOf(builds: BuildRequirement[] | null, requirements: RuneOptimizationRequirements) {
+  const mergeSetless = builds === null && requirements.allowBroken && !requirements.allowIntangible;
+  return (setId: number) => (mergeSetless && !statSets.has(setId) ? 0 : setId);
+}
+
+/**
+ * **A rough size of the search, for the page to show before it runs.** The runes the
+ * filters admit, at most the depth's `keep` per slot and group, multiplied across the
+ * six slots. It skips everything that costs time — craft variants, the exact
+ * reduction, the targets' own picks in the cut — so it is an order of magnitude to
+ * read beside the depth, not a count the search reports. The search proves most of
+ * these builds cannot win without summing them.
+ */
+export function estimateRuneOptimizationBuilds(input: RuneOptimizationInput): number {
+  const builds = buildRequirements(input.requirements.builds);
+  const usableSets = usableSetsOf(builds);
+  const group = dominanceGroupOf(builds, input.requirements);
+  const { keep } = runeOptimizationDepthPlans[input.settings.depth];
+  const counts = Array.from({ length: 6 }, () => new Map<number, number>());
+  const locked = [false, false, false, false, false, false];
+  for (const rune of input.runes) {
+    const verdict = admission(input, usableSets, rune);
+    if (verdict === 'locked') locked[rune.slot - 1] = true;
+    if (verdict !== 'admitted') continue;
+    const slot = counts[rune.slot - 1];
+    const key = group(rune.setId);
+    slot.set(key, (slot.get(key) ?? 0) + 1);
+  }
+  let total = 1;
+  for (let slotIndex = 0; slotIndex < 6; slotIndex += 1) {
+    if (locked[slotIndex]) continue;
+    let reach = 0;
+    for (const count of counts[slotIndex].values()) reach += Math.min(count, keep);
+    total *= reach;
+  }
+  return total;
+}
+
 /**
  * **Exact reduction (§4.2).** Within one slot and one set, rune `a` dominates `b`
  * when `a` is at least as good in every accumulator the calculation reads and costs
@@ -490,11 +572,7 @@ export function prepareRuneOptimization(
   };
 
   const builds = buildRequirements(requirements.builds);
-  /* A rune whose set no stated build can use is never a candidate — unless a build
-     leaves slots free, where any set may fill them. */
-  const usableSets: Set<number> | null = builds === null || builds.some((build) => build.free > 0)
-    ? null
-    : new Set(builds.flatMap((build) => build.needs.map((need) => need.setId)));
+  const usableSets = usableSetsOf(builds);
 
   /* The reference the gradients are taken at: the copy as it stands, sets and all.
      A first-order worth measured against no runes at all would price CRI Rate as if
@@ -535,19 +613,15 @@ export function prepareRuneOptimization(
   const gemPlan: SupplyPlan = { use: settings.gems, kind: 'gem', grade: settings.gemGrade, roll: settings.gemRollAssumption };
   const grindPlan: SupplyPlan = { use: settings.grinds, kind: 'grindstone', grade: settings.grindGrade, roll: settings.grindRollAssumption };
 
-  const slotMainFor: Record<number, readonly RuneSlotMain[]> = {
-    2: requirements.slotMains.slot2, 4: requirements.slotMains.slot4, 6: requirements.slotMains.slot6,
-  };
-
   const bySlot: Candidate[][] = [[], [], [], [], [], []];
   const locked = [false, false, false, false, false, false];
   const runesSeen = new Set<string>();
 
   for (const rune of input.runes) {
-    const hold = input.holds[rune.id];
+    const verdict = admission(input, usableSets, rune);
     const onThisMonster = rune.occupiedId === unitId;
     const slotIndex = rune.slot - 1;
-    if (hold?.locked && onThisMonster) {
+    if (verdict === 'locked') {
       /* Locked and uforanderlig: the slot's one answer, exactly as it is worn. No
          craft item is counted on it, and no filter can take it away — a lock that a
          requirement could override would be a lock in name only. */
@@ -560,17 +634,7 @@ export function prepareRuneOptimization(
       runesSeen.add(rune.id);
       continue;
     }
-    if (locked[slotIndex]) continue;
-    /* A lock anywhere else keeps the rune where it is. */
-    if (hold?.locked) continue;
-    if (!onThisMonster && rune.occupiedId !== null && !settings.runesOnOtherMonsters) continue;
-    if (rune.setId === intangibleSetId && !requirements.allowIntangible) continue;
-    if (usableSets !== null && rune.setId !== intangibleSetId && !usableSets.has(rune.setId)) continue;
-    const mains = slotMainFor[rune.slot];
-    if (mains !== undefined && mains.length > 0) {
-      const main = runeSlotMainByEffect(rune.mainStatId);
-      if (main === undefined || !mains.includes(main)) continue;
-    }
+    if (locked[slotIndex] || verdict === 'refused') continue;
 
     const mainValue = settings.unfinishedAtMaximum && rune.level < runeMaximumLevel
       ? Math.max(rune.mainValue, mainPropertyMaximum(rune.stars, rune.mainStatId))
@@ -594,19 +658,7 @@ export function prepareRuneOptimization(
     }
   }
 
-  /*
-   * Which runes may stand in for each other in the exact reduction. Normally only
-   * runes of one set: swapping sets could break a stated build. With no build stated
-   * a set matters only for the stat bonus it completes, so every set without one —
-   * Violent, Will, Despair and the rest — is one group, and a Violent rune can be
-   * dominated by a better Will rune. Not while an Intangible may be worn: which set
-   * it completes depends on which sets are one short, so there the sets stay apart.
-   */
-  /* Nor while broken sets are refused, because then a rune's set decides whether
-     the build can be finished at all. */
-  const statSets = new Set(statSetBonuses.map(([setId]) => setId));
-  const mergeSetless = builds === null && requirements.allowBroken && !requirements.allowIntangible;
-  const dominanceGroup = (setId: number) => (mergeSetless && !statSets.has(setId) ? 0 : setId);
+  const dominanceGroup = dominanceGroupOf(builds, requirements);
 
   const plan = runeOptimizationDepthPlans[settings.depth];
   const keep = Number.isFinite(plan.keep) ? plan.keep : null;

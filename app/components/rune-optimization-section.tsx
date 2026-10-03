@@ -23,6 +23,7 @@ import { WorkspacePage } from './workspace-page';
 import { cancelRuneOptimization, optimizeRuneBuilds } from '../lib/compute/rune-optimization-client';
 import type { RuneOptimizationAnswer } from '../lib/compute/rune-optimization-protocol';
 import { formatNumber } from '../lib/formatting';
+import type { GeneralSettings } from '../lib/types';
 import type { GameRecord } from '../lib/game-data';
 import { runeSlotKeys } from '../lib/monster-defaults';
 import type { RuneSlotKey } from '../lib/monster-defaults';
@@ -33,8 +34,7 @@ import { monsterStatTargetKeys, readTargetField } from '../lib/monster-preferenc
 import { calculateMonsterTotals, monsterTargetFigures } from '../lib/monster-stats';
 import { craftRollAssumptions, craftRollLabels, itemGrades, readCraftItems } from '../lib/rune-craft-items';
 import type { CraftItem, CraftRollAssumption } from '../lib/rune-craft-items';
-import type { RuneHolds } from '../lib/rune-holds';
-import { figureIndex } from '../lib/rune-optimization-problem';
+import { estimateRuneOptimizationBuilds, figureIndex } from '../lib/rune-optimization-problem';
 import type { RankFigure, RuneOptimizationInput, RuneOptimizationRequirements } from '../lib/rune-optimization-problem';
 import { currentBuilds } from '../lib/rune-optimization-refresh';
 import type { CurrentBuild } from '../lib/rune-optimization-refresh';
@@ -82,7 +82,7 @@ type MonsterOption = { unitId: string; masterId: string; name: string; record: G
 
 /* The question the table answers — the monster, the requirements and the settings
    as they stood when it was searched — and the account as the search read it:
-   `runes`, `items` and `holds`, which a build is re-read against when a sync brings
+   `runes` and `items`, which a build is re-read against when a sync brings
    back the work the player did from the table. */
 type Calculation = {
   inputKey: string;
@@ -92,7 +92,6 @@ type Calculation = {
   answer: RuneOptimizationAnswer;
   runes: ReadonlyMap<string, Rune>;
   items: ReadonlyMap<string, CraftItem>;
-  holds: RuneHolds;
   resultCount: number;
   id: number;
 };
@@ -104,6 +103,18 @@ const figureOf = (build: CurrentBuild, at: number) => build.figures?.[at] ?? -In
 
 function buildNameOf(setIds: readonly number[]): string {
   return runeBuildName(activeRuneSets({ runes: setIds.map((setId) => ({ set_id: setId })) }).map((set) => set.name));
+}
+
+const countWords: ReadonlyArray<readonly [number, string]> = [
+  [1e15, 'quadrillion'], [1e12, 'trillion'], [1e9, 'billion'], [1e6, 'million'], [1e3, 'thousand'],
+];
+
+/* Two significant figures and a word: the estimate is an order of magnitude, and
+   "2,147,483,648" would claim a precision it does not have. */
+function roughCount(value: number, general: GeneralSettings): string {
+  const [scale, word] = countWords.find(([at]) => value >= at) ?? [1, ''];
+  const figure = formatNumber(Number((value / scale).toPrecision(2)), general);
+  return word ? `${figure} ${word}` : figure;
 }
 
 /** A caption that is always one line and always present, so its wording can change without moving a field (`AGENTS.md` §2). */
@@ -168,6 +179,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
   const input = useMemo<RuneOptimizationInput | undefined>(() => (selected && requirements ? {
     unitId: selected.unitId, monster: selected.record, runes, holds: preferences.runeHolds, craftItems, requirements, settings,
   } : undefined), [selected, requirements, runes, preferences.runeHolds, craftItems, settings]);
+  const estimate = useMemo(() => (input ? estimateRuneOptimizationBuilds(input) : undefined), [input]);
   /* The question on screen. The account is never part of it: the player follows the
      table by moving, gemming, grinding and locking runes, and a sync or a lock that
      brings that back updates the builds (`rune-optimization-refresh.ts`). Listing
@@ -208,11 +220,6 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
       now: { runes: runesById, items: itemsById, holds: preferences.runeHolds },
     })
     : undefined), [current, selected, tableLimits, resultCount, runesById, itemsById, preferences.runeHolds]);
-  const changedSince = current === undefined ? [] : [
-    ...(current.runes !== runesById ? ['runes'] : []),
-    ...(current.holds !== preferences.runeHolds ? ['locks'] : []),
-  ];
-
   const figuresNow = useCallback((crits: boolean) => {
     if (!selected) return undefined;
     const figures = monsterTargetFigures(calculateMonsterTotals(selected.record), crits);
@@ -251,7 +258,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
   async function calculate() {
     if (!input || !requirements) return;
     const searched = {
-      unitId, requirements, settings, runes: runesById, items: itemsById, holds: preferences.runeHolds, resultCount,
+      unitId, requirements, settings, runes: runesById, items: itemsById, resultCount,
     };
     setState('calculating');
     setProgress(0);
@@ -311,10 +318,12 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
             <RadioLine name="rune-optimization-depth" legend="Depth" current={settings.depth}
               options={runeOptimizationDepths.map((depth) => ({ value: depth, label: runeOptimizationDepthLabels[depth] }))}
               onChange={(depth) => onUpdate({ depth })} />
-            {/* Written for someone who has never seen the cut: what the depth
-                trades, and the longest it may take — "up to", because most
+            {/* Written for someone who has never seen the cut: how much the depth
+                looks through, and the longest it may take — "up to", because most
                 searches finish well inside it. */}
-            <Provenance>{`${runeOptimizationDepthReach[settings.depth]} · up to ${plan.seconds < 60
+            <Provenance>{`${estimate === undefined
+              ? runeOptimizationDepthReach[settings.depth]
+              : `Considers around ${roughCount(estimate, general)} builds`} · up to ${plan.seconds < 60
               ? `${plan.seconds} s` : `${plan.seconds / 60} min`}`}</Provenance>
           </div>
           <div className="filter-group rune-optimization-count">
@@ -351,8 +360,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
               ? <p className="calculation-status rune-optimization-searching" role="status">Searching… {formatNumber(Math.round(progress * 100), general)} %</p>
               : current
                 ? <CalculationStatus twoLines durationMs={current.answer.durationMs} backend={current.answer.backend} general={general}
-                  detail={`${formatNumber(current.answer.combinations, general)} builds checked · ${formatNumber(current.answer.report.runes, general)} runes considered`
-                    + (changedSince.length > 0 ? ` · your ${changedSince.join(' and ')} changed since, and the builds follow them` : '')} />
+                  detail={`${formatNumber(current.answer.combinations, general)} builds checked · ${formatNumber(current.answer.report.runes, general)} runes considered`} />
                 : <p className="calculation-status" role="status">{selected ? 'Not calculated yet.' : ''}</p>}
           </div>
         </div>

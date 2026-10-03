@@ -190,8 +190,8 @@ test('an open build follows the runes as the player works on them', async ({ pag
   await page.screenshot({ path: testInfo.outputPath('optimization-build-followed.png') });
   await page.keyboard.press('Escape');
 
-  /* The table is still there, says the runes changed, and the build's figures follow the roll. */
-  await expect(page.getByRole('status').filter({ hasText: 'builds checked' })).toContainText('your runes changed since');
+  /* The table is still there, the status line still only reports the search, and the build's figures follow the roll. */
+  await expect(page.getByRole('status').filter({ hasText: 'builds checked' })).not.toContainText('changed since');
   const rowAfter = await table.getByRole('row').filter({ has: page.getByRole('button', { name: 'Show build 2', exact: true }) }).innerText();
   expect(rowAfter).not.toEqual(rowBefore);
   await expect(page.getByText('You should rebuild.', { exact: false })).toBeHidden();
@@ -234,7 +234,8 @@ test('an open build names the rune a lock or a sale has taken from it, and keeps
   await expect(runeDialog).toBeHidden();
 
   /* The build stays open and says which rune is in its way; the table keeps the row
-     where it was, dimmed and marked, and the status line says the locks changed. */
+     where it was, dimmed and marked. The status line stays a report of the search:
+     the row already says what changed. */
   await expect(detail).toBeVisible();
   await expect(detail.getByRole('region', { name: `${slot} modifications` })).toContainText('The rune is locked to');
   await expect(card).toContainText('Locked to');
@@ -243,7 +244,7 @@ test('an open build names the rune a lock or a sale has taken from it, and keeps
   await expect(row.getByRole('img', { name: new RegExp(`${slot}: The rune is locked to`) })).toBeVisible();
   await expect(row).toHaveAttribute('data-stale', 'true');
   expect(await box(row)).toEqual(rowBox);
-  await expect(page.getByRole('status').filter({ hasText: 'builds checked' })).toContainText('your locks changed since');
+  await expect(page.getByRole('status').filter({ hasText: 'builds checked' })).not.toContainText('changed since');
   await expect(page.getByText('You should rebuild.', { exact: false })).toBeHidden();
 
   /* Then the rune is sold: the row has no figures left to show, and says why. */
