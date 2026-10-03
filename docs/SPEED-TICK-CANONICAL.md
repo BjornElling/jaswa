@@ -287,7 +287,8 @@ the first two, only the fourth is wrong.
 A member too fast is red on its line and a tie yellow. Both members of a tie
 say which teammate they are tied with and that position decides, without a
 tuning suggestion on the verdict line. A tie is not counted as out of place on
-the team summary; when it is the only order concern, the summary names the tie.
+the team summary; when it is the only order concern, the summary names the tie
+and shows a green check. A saved team always has a green check or a red cross.
 
 ### 7.1 The tuning range — the one recommendation
 

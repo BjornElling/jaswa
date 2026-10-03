@@ -129,7 +129,7 @@ function SummaryList<T>({ entries, keyOf, onMove, render }: {
  * say which reading it is.
  */
 function teamStatus(reading: TeamReading): { text: string; state: Verdict } {
-  if (reading.team.members.length === 0) return { text: 'No monsters yet', state: 'none' };
+  if (reading.team.members.length === 0) return { text: 'No monsters yet', state: 'bad' };
   if (reading.missingUnitIds.length) {
     const missing = reading.missingUnitIds.length;
     return { text: `${missing} monster${missing === 1 ? ' is' : 's are'} not in this import`, state: 'bad' };
@@ -140,7 +140,7 @@ function teamStatus(reading: TeamReading): { text: string; state: Verdict } {
      faster than any build, and there it is reported without a verdict. */
   const cutFails = reading.content.area === 'arena' && cut !== '';
   if (reading.perfect) return { text: `Turn order holds${cut}`, state: cutFails ? 'bad' : 'good' };
-  if (outOfPlaceCount(reading) === 0) return { text: `Tied · position decides${cut}`, state: cutFails ? 'bad' : 'none' };
+  if (outOfPlaceCount(reading) === 0) return { text: `Tied · position decides${cut}`, state: cutFails ? 'bad' : 'good' };
   return { text: `${outOfPlaceCount(reading)} of ${reading.members.length} out of place${cut}`, state: 'bad' };
 }
 

@@ -49,6 +49,27 @@ test('an empty workspace says what Speed Tuning needs', async ({ page }, testInf
   await page.screenshot({ path: testInfo.outputPath('speed-no-import.png') });
 });
 
+test('a tied dungeon team gets a green check on the overview', async ({ page }, testInfo) => {
+  await freshWorkspace(page);
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
+  await openSpeedTuning(page);
+  await expect(page.getByText('No dungeon teams yet.', { exact: true })).toBeVisible();
+  await addFromMenu(page, 'Dungeon team');
+  const draft = page.getByRole('dialog', { name: 'New dungeon team' });
+  await draft.getByLabel('Select dungeon').selectOption({ label: "Giant's Keep" });
+  const add = draft.getByLabel("Add a monster to Giant's Keep team #1");
+  await add.selectOption({ label: 'Lushen #1' });
+  await add.selectOption({ label: 'Lushen #2' });
+  await expect(draft.locator('.speed-slot').nth(0).locator('.speed-verdict')).toHaveText('Tied with Lushen #2. Position decides.');
+  await expect(draft.locator('.speed-slot').nth(1).locator('.speed-verdict')).toHaveText('Tied with Lushen #1. Position decides.');
+  await draft.getByRole('button', { name: 'Add this team' }).click();
+  const team = page.getByRole('region', { name: 'Dungeons' }).getByRole('button', { name: /^Giant's Keep team #1:/ });
+  await expect(team.locator('.speed-summary-state')).toContainText('Tied · position decides');
+  await expect(team.locator('.speed-summary-state')).not.toContainText('out of place');
+  await expect(team.locator('.speed-summary-mark')).toHaveAttribute('data-state', 'good');
+  await team.screenshot({ path: testInfo.outputPath('speed-tied-team-good.png') });
+});
+
 test('tunes a dungeon team, explains every miss, and keeps the card still', async ({ page }, testInfo) => {
   /* Long on purpose — a whole team built, edited, saved and reloaded — and run
      beside every other spec against one dev server. Twenty seconds on a quiet
