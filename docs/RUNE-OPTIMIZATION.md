@@ -345,8 +345,11 @@ table pick for pick. It needs a running dev server and a card, and is not part o
    table is stale or the search stopped at its limit.
 5. **Builds** — the current build pinned first as `Now`, then the ranked builds.
    Every column sorts; the order starts on the ranking figure. Choosing a row opens
-   its six runes below: set, level, main as counted, innate, lines after crafting,
-   where the rune is now, and what it spends.
+   the build in an overlay: its six runes in the game's rune circle — slot 1 at
+   the top, the rest clockwise — each as it is in the account now: set, level,
+   main, innate, sub properties and where the rune is; and beside the circle, slot
+   by slot, the modifications the build assumes — which line a Gem replaces and
+   with what, which stone goes on which line, and a main counted at +15.
 
 Nothing a choice changes moves anything else (`AGENTS.md` §2): captions are
 reserved lines, the craft selects disable rather than disappear, the status line

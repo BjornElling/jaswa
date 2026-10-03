@@ -89,14 +89,30 @@ test('finds builds from the profile, keeps the profile untouched, and moves noth
   await expect(table.getByRole('row', { name: /^Now/ })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('optimization-results.png'), fullPage: true });
 
-  /* Choosing a build opens its six runes below the table and leaves the table where it was. */
+  /* Choosing a build opens its six runes in an overlay, in the game's circle, with
+     what the build assumes beside them; closing it hands focus back to the row and
+     leaves the table where it was. */
   const tableBefore = await box(table);
-  await page.getByRole('button', { name: 'Show build 1', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  const detail = page.getByRole('region', { name: 'Build 1' });
-  await expect(detail.getByRole('listitem').filter({ hasText: /^Slot \d/ })).toHaveCount(6);
+  const opener = page.getByRole('button', { name: 'Show build 1', exact: true });
+  await opener.click();
+  const detail = page.getByRole('dialog', { name: 'Build 1' });
+  await expect(detail).toBeVisible();
+  const circle = detail.getByRole('list', { name: 'Runes' });
+  await expect(circle.getByRole('listitem', { name: /^Slot \d$/ })).toHaveCount(6);
+  /* Slot 1 sits above slot 4, and slot 2 to the right of slot 6, as in the game. */
+  const [slot1, slot2, slot4, slot6] = await Promise.all([1, 2, 4, 6]
+    .map((slot) => box(circle.getByRole('listitem', { name: `Slot ${slot}`, exact: true }))));
+  expect(slot1.y).toBeLessThan(slot4.y);
+  expect(slot1.x).toBe(slot4.x);
+  expect(slot2.x).toBeGreaterThan(slot1.x);
+  expect(slot6.x).toBeLessThan(slot1.x);
+  const changes = detail.getByRole('region', { name: 'Modifications' });
+  await expect(changes.getByRole('region', { name: /^Slot \d modifications$/ })).toHaveCount(6);
+  await page.screenshot({ path: testInfo.outputPath('optimization-build.png') });
+  await page.keyboard.press('Escape');
+  await expect(detail).toBeHidden();
+  await expect(opener).toBeFocused();
   expect(await box(table)).toEqual(tableBefore);
-  await page.screenshot({ path: testInfo.outputPath('optimization-build.png'), fullPage: true });
 
   /* Every column sorts. */
   await table.getByRole('button', { name: 'E.HP', exact: true }).click();

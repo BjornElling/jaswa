@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Button } from './button';
 import { CalculationStatus } from './calculation-status';
@@ -8,10 +8,9 @@ import { MonsterLink } from './monster-link';
 import type { OpenMonsterOverlay } from './monster-link';
 import { PageHeader } from './page-chrome';
 import { RuneBuildField } from './rune-build-field';
-import { RuneLink } from './rune-link';
+import { RuneBuildOverlay } from './rune-build-overlay';
 import type { OpenRuneOverlay } from './rune-link';
 import { RuneSlotMainField } from './rune-slot-main-field';
-import { RuneInnateLine, RuneSubLine } from './rune-sub-line';
 import { SortableHeader } from './sortable-table';
 import { TableColumnGroup } from './data-table-page';
 import { useSortedRows } from './use-sorted-rows';
@@ -27,7 +26,7 @@ import { monsterNameCollator } from '../lib/monster-grid';
 import { monsterCopyNames } from '../lib/monster-names';
 import { monsterCompositeTargetMaximum, monsterStatTargetKeys } from '../lib/monster-preferences';
 import { calculateMonsterTotals, monsterTargetFigures } from '../lib/monster-stats';
-import { craftItemLabel, craftRollAssumptions, craftRollLabels, itemGrades, readCraftItems } from '../lib/rune-craft-items';
+import { craftRollAssumptions, craftRollLabels, itemGrades, readCraftItems } from '../lib/rune-craft-items';
 import type { CraftRollAssumption } from '../lib/rune-craft-items';
 import { figureIndex } from '../lib/rune-optimization-problem';
 import type { RankFigure, RuneOptimizationInput, RuneOptimizationRequirements } from '../lib/rune-optimization-problem';
@@ -41,8 +40,7 @@ import { presetTargetColumns, presetTargetMaximum } from '../lib/rune-potential-
 import { runeSlotMainsBySlot } from '../lib/rune-slot-mains';
 import { activeRuneSets } from '../lib/rune-sets';
 import { runeBuildName } from '../lib/rune-set-pairs';
-import { runeLineText, readRunes, runeStatName } from '../lib/runes';
-import type { Rune } from '../lib/runes';
+import { readRunes } from '../lib/runes';
 import { useSessionStorageState } from '../lib/session-storage-state';
 import { runeOptimizationTableColumns, columnClasses } from '../lib/table-layouts';
 import type { ImportedGame, ItemGrade, Preferences } from '../lib/types';
@@ -101,7 +99,11 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
   const [calculation, setCalculation] = useState<Calculation | undefined>();
   const [state, setState] = useState<'idle' | 'calculating' | 'error'>('idle');
   const [progress, setProgress] = useState(0);
+  /* The build last opened stays marked in the table after its overlay closes, so
+     the reader comes back to the row they were reading rather than to the top. */
   const [chosenBuild, setChosenBuild] = useState<number | null>(null);
+  const [showingBuild, setShowingBuild] = useState(false);
+  const buildOpener = useRef<HTMLElement | null>(null);
 
   /* A search the user walked away from gives the processor back. */
   useEffect(() => () => cancelRuneOptimization(), []);
@@ -116,6 +118,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
     .sort((left, right) => monsterNameCollator.compare(left.name, right.name) || left.unitId.localeCompare(right.unitId)),
   [monsters, names]);
   const selected = options.find((option) => option.unitId === unitId);
+  const wearers = useMemo(() => new Map(options.map((option) => [option.unitId, { name: option.name, masterId: option.masterId }])), [options]);
 
   const profile = useMemo(() => (selected
     ? profileRequirements(selected.unitId, selected.masterId, preferences.monsterPreferences[selected.unitId])
@@ -125,7 +128,6 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
   const runes = useMemo(() => (game ? readRunes(game.data) : []), [game]);
   const runesById = useMemo(() => new Map(runes.map((rune) => [rune.id, rune])), [runes]);
   const craftItems = useMemo(() => (game ? readCraftItems(game.data) : []), [game]);
-  const craftItemsById = useMemo(() => new Map(craftItems.map((item) => [item.id, item])), [craftItems]);
 
   const input = useMemo<RuneOptimizationInput | undefined>(() => (selected && requirements ? {
     unitId: selected.unitId, monster: selected.record, runes, holds: preferences.runeHolds, craftItems, requirements, settings,
@@ -152,6 +154,19 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
     setUnitId(next);
     setEdits(null);
     setChosenBuild(null);
+  }
+
+  function openBuild(index: number, opener: HTMLElement) {
+    buildOpener.current = opener;
+    setChosenBuild(index);
+    setShowingBuild(true);
+  }
+
+  function closeBuild() {
+    setShowingBuild(false);
+    const opener = buildOpener.current;
+    buildOpener.current = null;
+    if (opener?.isConnected) opener.focus();
   }
 
   async function calculate() {
@@ -314,14 +329,14 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
 
       {current && selected && currentFigures && <Results key={current.id} answer={current.answer} rankBy={requirements?.rankBy ?? 'ehp'}
         currentBuild={currentBuild} currentFigures={currentFigures} general={general}
-        chosen={chosenBuild} onChoose={setChosenBuild} />}
-
-      {current && chosenBuild !== null && current.answer.builds[chosenBuild] && <BuildDetail
-        index={chosenBuild} build={current.answer.builds[chosenBuild]} runesById={runesById}
-        monsterName={(id) => (id === unitId ? 'This monster' : names[id]?.name ?? 'Another monster')}
-        itemName={(id) => { const item = craftItemsById.get(id); return item ? craftItemLabel(item) : 'A held item'; }}
-        general={general} onOpenRune={onOpenRune} />}
+        chosen={chosenBuild} onChoose={openBuild} />}
     </div>
+
+    {current && showingBuild && chosenBuild !== null && current.answer.builds[chosenBuild] && <RuneBuildOverlay
+      index={chosenBuild} buildName={buildNameOf(current.answer.builds[chosenBuild].runes.map((rune) => rune.setId))}
+      moves={current.answer.builds[chosenBuild].moves} runes={current.answer.builds[chosenBuild].runes} runesById={runesById}
+      thisMonster={unitId} wearer={(id) => wearers.get(id)}
+      general={general} onClose={closeBuild} onOpenRune={onOpenRune} onOpenMonster={onOpenMonster} />}
   </WorkspacePage>;
 }
 
@@ -366,7 +381,7 @@ function Results({ answer, rankBy, currentBuild, currentFigures, general, chosen
   currentFigures: readonly number[];
   general: Preferences['general'];
   chosen: number | null;
-  onChoose: (index: number) => void;
+  onChoose: (index: number, opener: HTMLElement) => void;
 }) {
   const rows = useMemo<ResultRow[]>(() => answer.builds.map((build, index) => ({
     index, build, name: buildNameOf(build.runes.map((rune) => rune.setId)),
@@ -410,11 +425,13 @@ function Results({ answer, rankBy, currentBuild, currentFigures, general, chosen
             ? `No rune can fill slot ${slots.filter((slot) => slot.kept === 0).map((slot) => slot.slot).join(', ')} under these requirements. Widen the slot mains or the builds.`
             : 'No build meets every requirement. Lower a target, or allow more builds.'}
         </td></tr>}
+        {/* The whole row opens the build; the number is the same way in for the
+            keyboard, and the element focus returns to when the overlay closes. */}
         {sorted.map((row) => <tr key={row.index} data-chosen={chosen === row.index ? 'true' : undefined}
-          onClick={() => onChoose(row.index)}>
+          onClick={(event) => onChoose(row.index, event.currentTarget.querySelector('button') ?? event.currentTarget)}>
           <td className={cell('index')}>
-            <button type="button" className="rune-optimization-choose" aria-pressed={chosen === row.index}
-              aria-label={`Show build ${row.index + 1}`} onClick={(event) => { event.stopPropagation(); onChoose(row.index); }}>
+            <button type="button" className="rune-optimization-choose" aria-haspopup="dialog"
+              aria-label={`Show build ${row.index + 1}`} onClick={(event) => { event.stopPropagation(); onChoose(row.index, event.currentTarget); }}>
               {row.index + 1}
             </button>
           </td>
@@ -426,50 +443,5 @@ function Results({ answer, rankBy, currentBuild, currentFigures, general, chosen
         </tr>)}
       </tbody>
     </table>
-  </section>;
-}
-
-function BuildDetail({ index, build, runesById, monsterName, itemName, general, onOpenRune }: {
-  index: number;
-  build: OptimizedBuild;
-  runesById: ReadonlyMap<string, Rune>;
-  monsterName: (unitId: string) => string;
-  itemName: (itemId: string) => string;
-  general: Preferences['general'];
-  onOpenRune: OpenRuneOverlay;
-}) {
-  const format = (value: number) => formatNumber(value, general);
-  return <section className="rune-optimization-build" aria-labelledby="rune-optimization-build-title">
-    <h3 id="rune-optimization-build-title" className="type-heading">Build {index + 1}</h3>
-    <ol className="rune-optimization-build-runes">
-      {build.runes.map((picked) => {
-        const rune = runesById.get(picked.runeId);
-        if (!rune) return <li key={picked.slot} className="rune-optimization-rune">Slot {picked.slot}: a rune no longer in this import</li>;
-        const crafts = [
-          picked.gemmedAt >= 0 ? `Gem: ${runeStatName(picked.lines[picked.gemmedAt].statId) ?? 'a new line'}` : undefined,
-          picked.groundAt.length > 0 ? `Grindstone on ${picked.groundAt.length} ${picked.groundAt.length === 1 ? 'line' : 'lines'}` : undefined,
-        ].filter((entry): entry is string => entry !== undefined);
-        return <li key={picked.slot} className="rune-optimization-rune">
-          <p className="rune-optimization-rune-head">
-            <RuneLink target={{ kind: 'account', runeId: rune.id }} label={`Slot ${picked.slot} ${rune.setName}`} onOpen={onOpenRune}>
-              Slot {picked.slot} · {rune.setName}
-            </RuneLink>
-            <span className="rune-optimization-rune-level">{rune.stars}★ +{rune.level}</span>
-          </p>
-          <p className="rune-optimization-rune-main">{runeLineText(rune.mainStatId, picked.mainValue)}</p>
-          {rune.prefixStatId !== null && <RuneInnateLine className="rune-sub rune-optimization-rune-innate"
-            statId={rune.prefixStatId} value={rune.prefixValue} format={format} />}
-          <ul className="rune-optimization-rune-subs">
-            {picked.lines.map((line) => <RuneSubLine key={line.statId} as="li" format={format}
-              property={{ statId: line.statId, value: line.value, gemmed: line.gemmed, grind: line.grind }} />)}
-          </ul>
-          <p className="rune-optimization-rune-where">
-            {picked.locked ? 'Locked to this monster' : rune.occupiedId === null ? 'Inventory' : monsterName(rune.occupiedId)}
-          </p>
-          <p className="rune-optimization-rune-craft">{crafts.length > 0 ? crafts.join(' · ') : 'No craft items'}</p>
-          {picked.spends.length > 0 && <p className="rune-optimization-rune-craft">Spends {picked.spends.map(itemName).join(', ')}</p>}
-        </li>;
-      })}
-    </ol>
   </section>;
 }

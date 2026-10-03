@@ -331,7 +331,8 @@ label[for] {
 .rune-simulator-stats-table tbody th, .rune-simulator-stats-table tfoot th,
 .rune-overlay-innate, .rune-overlay-subs, .rune-overlay-evaluation-facts,
 .rune-overlay-readings, .rune-overlay-readings tbody th,
-.rune-optimization-rune-main, .rune-optimization-rune-subs, .rune-optimization-choose,
+.rune-build-card-innate, .rune-build-card-subs, .rune-build-change-list, .rune-build-change-none,
+.rune-build-missing, .rune-build-card-where-value, .rune-optimization-choose,
 .speed-summary, .speed-basis-level, .speed-basis-bonus, .speed-dungeon-facts dd {
   font-family: var(--font-body);
   font-size: var(--type-body);
@@ -341,7 +342,7 @@ label[for] {
 
 /* Body emphasis — weight carries priority without changing the family or size. */
 .type-body-emphasis, .monster-name, .slider-choice, .relic-verdict, .rune-verdict, .speed-summary-name, .speed-basis-figure,
-.drop-zone.settled strong, .acceleration-adapter b, .rune-optimization-rune-head {
+.drop-zone.settled strong, .acceleration-adapter b, .rune-build-card-identity .rune-link, .rune-build-card-main {
   font-family: var(--font-body);
   font-size: var(--type-body);
   font-weight: 500;
@@ -365,7 +366,7 @@ label[for] {
 .best-artifact-result th, .best-monster-table th,
 .artifact-recommendation-table th, .overlay-row-label, .overlay-stat-head,
 .rune-simulator-stats-table thead th, .overlay-facts dt, .rune-overlay-subs th,
-.rune-overlay-readings thead th, .speed-group-title {
+.rune-overlay-readings thead th, .speed-group-title, .rune-build-card-where-label, .rune-build-change-title {
   font-family: var(--font-body);
   font-size: var(--type-label);
   font-weight: 700;
@@ -378,8 +379,8 @@ label[for] {
 .overlay-stat-current, .overlay-substat-unit, .overlay-slot-name,
 .choice-menu-option-note, .rune-build-leader-pieces, .rune-build-leader-count,
 .rune-build-note, .rune-build-composed, .overlay-suggestion-label, .speed-lane-turn text, .speed-lane-figure,
-.rune-optimization-provenance, .rune-optimization-rune-level, .rune-optimization-rune-where,
-.rune-optimization-rune-craft, .speed-summary-state, .speed-leader-skill {
+.rune-optimization-provenance, .rune-build-card-grade, .rune-build-change-kind, .rune-build-centre,
+.speed-summary-state, .speed-leader-skill {
   font-family: var(--font-body);
   font-size: var(--type-label);
   font-weight: 400;
@@ -2369,31 +2370,104 @@ label[for] {
   color: var(--text);
   font-variant-numeric: tabular-nums;
 }
-.rune-optimization-choose[aria-pressed='true'] { color: var(--text-accent); }
+.rune-optimization-table tbody tr[data-chosen='true'] .rune-optimization-choose { color: var(--text-accent); }
 
-.rune-optimization-build { display: grid; gap: var(--s3); }
-.rune-optimization-build h3 { margin: 0; }
-.rune-optimization-build-runes {
+/* ------------------------------------------------------ rune build overlay */
+/* The overlay keeps the frame's full measure: the circle takes two thirds and
+   the modifications the rest, and at anything narrower the gem lines wrap. */
+.rune-build-head {
+  display: grid;
+  gap: var(--s3);
+  padding: var(--s5);
+  border-bottom: 1px solid var(--line);
+}
+.rune-build-body { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: start; }
+
+/* The game's rune circle: slot 1 at the top and the rest clockwise. Every card
+   spans two of six equal rows, so the side columns sit half a card lower than
+   the middle one and the six read as a ring. The rows are fixed, not sized by
+   content, so a rune with two sub properties draws the same card as one with
+   four and the ring cannot lose its shape. */
+.rune-build-circle {
+  --rune-build-row: 116px;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(6, var(--rune-build-row));
   gap: var(--s3);
   margin: 0;
   padding: 0;
   list-style: none;
 }
-.rune-optimization-rune {
+.rune-build-card[data-slot="1"] { grid-area: 1 / 2 / span 2 / span 1; }
+.rune-build-card[data-slot="2"] { grid-area: 2 / 3 / span 2 / span 1; }
+.rune-build-card[data-slot="3"] { grid-area: 4 / 3 / span 2 / span 1; }
+.rune-build-card[data-slot="4"] { grid-area: 5 / 2 / span 2 / span 1; }
+.rune-build-card[data-slot="5"] { grid-area: 4 / 1 / span 2 / span 1; }
+.rune-build-card[data-slot="6"] { grid-area: 2 / 1 / span 2 / span 1; }
+.rune-build-centre {
+  grid-area: 3 / 2 / span 2 / span 1;
   display: grid;
-  align-content: start;
-  gap: var(--s1);
-  padding: var(--s3) var(--s4);
+  place-items: center;
+  padding: var(--s3);
+  color: var(--text-muted);
+  text-align: center;
+}
+.rune-build-card {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: var(--s2);
+  padding: var(--s3);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--sunk);
 }
-.rune-optimization-rune p { margin: 0; }
-.rune-optimization-rune-head { display: flex; justify-content: space-between; gap: var(--s3); }
-.rune-optimization-rune-level, .rune-optimization-rune-where, .rune-optimization-rune-craft { color: var(--text-muted); }
-.rune-optimization-rune-subs { display: grid; gap: var(--s1); margin: 0; padding: 0; list-style: none; }
+.rune-build-card-head { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--s3); }
+/* The overlay's emblem at three fifths, every layer by the same factor, so the
+   slots keep the proportions they have in the game's circle. */
+.rune-build-card .rune-emblem { width: 64px; height: 64px; }
+.rune-build-card .rune-emblem-frame { width: 54px; }
+.rune-build-card .rune-emblem[data-slot="1"] .rune-emblem-frame,
+.rune-build-card .rune-emblem[data-slot="4"] .rune-emblem-frame { width: 46px; }
+.rune-build-card .rune-emblem-glyph { width: 34px; }
+.rune-build-card-identity { min-width: 0; display: grid; gap: var(--s1); }
+.rune-build-card-identity .rune-link { justify-self: start; color: var(--text-strong); }
+.rune-build-card-grade { color: var(--text-muted); }
+.rune-build-card-main { color: var(--text-strong); font-variant-numeric: tabular-nums; }
+.rune-build-card-subs { display: grid; grid-auto-rows: 1lh; gap: var(--s1); margin: 0; padding: 0; list-style: none; }
+.rune-build-card-subs .rune-sub { margin-right: 0; }
+/* Where the rune is now, on one line that gives way to an ellipsis, so a long
+   nickname cannot push the card out of its ring. */
+.rune-build-card-where { display: flex; align-items: baseline; gap: var(--s2); min-width: 0; }
+.rune-build-card-where-label { flex: none; color: var(--text-muted); }
+.rune-build-card-where-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.rune-build-card-where-value .monster-link { max-width: 100%; }
+.rune-build-missing { margin: 0; color: var(--text-muted); }
+
+/* What the build takes for granted, slot by slot in the circle's order. A fixed
+   label column, so every change's figures start on one vertical line. */
+.rune-build-changes { display: grid; gap: var(--s4); min-width: 0; }
+.rune-build-change-slot { display: grid; gap: var(--s2); padding-top: var(--s3); border-top: 1px solid var(--line); }
+.rune-build-change-title { margin: 0; color: var(--text-muted); }
+.rune-build-change-list { display: grid; gap: var(--s2); margin: 0; padding: 0; list-style: none; }
+.rune-build-change { display: grid; grid-template-columns: 15ch minmax(0, 1fr); align-items: baseline; gap: var(--s3); }
+.rune-build-change-kind { color: var(--text-muted); }
+.rune-build-change-body { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s2); min-width: 0; }
+.rune-build-change-body .rune-sub { margin-right: 0; }
+.dialog .rune-build-change-none { margin: 0; color: var(--text-muted); line-height: normal; }
+/* What a change replaces, dimmed against what it becomes: the house's two-tone
+   device for the lesser of a pair. */
+.rune-build-replaced { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.rune-build-arrow {
+  width: 14px; height: 14px;
+  flex: none;
+  align-self: center;
+  fill: none;
+  stroke: var(--text-muted);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 
 /* What the monster wears today, before any advice: the comparison every
    recommendation below is measured against, so it sits between the choice and
