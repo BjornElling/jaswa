@@ -384,24 +384,46 @@ test('the build menu cascades three deep, past the edge of its own line, without
   await line.click();
   const menu = page.getByRole('dialog', { name: 'Desired rune builds' });
   const column = (name: string) => menu.getByRole('list', { name, exact: true });
-  /* Each row is the set's name and nothing else. */
-  await expect(column('Four-piece sets').getByRole('button')).toHaveText(['Despair', 'Fatal', 'Rage', 'Swift', 'Vampire', 'Violent']);
-  const first = await box(column('Two-piece sets'));
-  await column('Two-piece sets').getByRole('button', { name: 'Will', exact: true }).hover();
+  /* One first column holds every set, four-sets first, each row the set's name and nothing else. */
+  await expect(menu.getByRole('list')).toHaveCount(1);
+  const names = await column('Sets').getByRole('button').allInnerTexts();
+  expect(names).toHaveLength(22);
+  expect(names.slice(0, 6)).toEqual(['Despair', 'Fatal', 'Rage', 'Swift', 'Vampire', 'Violent']);
+  const first = await box(column('Sets'));
+  await column('Sets').getByRole('button', { name: 'Will', exact: true }).hover();
   await column('After Will').getByRole('button', { name: 'Blade', exact: true }).hover();
   await expect(column('After Will and Blade')).toBeVisible();
   /* Every column whole, inside the window — and the first did not slide as the others opened. */
   const viewport = page.viewportSize();
   if (!viewport) throw new Error('no viewport');
-  for (const name of ['Four-piece sets', 'Two-piece sets', 'After Will', 'After Will and Blade']) {
+  for (const name of ['Sets', 'After Will', 'After Will and Blade']) {
     const right = await column(name).evaluate((element) => element.getBoundingClientRect().right);
     expect(right).toBeLessThanOrEqual(viewport.width);
   }
-  expect(await box(column('Two-piece sets'))).toEqual(first);
-  /* Sixteen two-piece sets fit with no scrollbar. */
-  expect(await column('Two-piece sets').evaluate((element) => element.scrollHeight <= element.clientHeight)).toBe(true);
+  expect(await box(column('Sets'))).toEqual(first);
+  /* All twenty-two sets fit with no scrollbar. */
+  expect(await column('Sets').evaluate((element) => element.scrollHeight <= element.clientHeight)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('optimization-build-menu.png') });
-  await page.keyboard.press('Escape');
+
+  /* A set may be chosen in every column: three Will sets are one build. */
+  await column('After Will').getByRole('button', { name: 'Will', exact: true }).hover();
+  await column('After Will and Will').getByRole('button', { name: 'Will', exact: true }).click();
+  await expect(menu).toHaveCount(0);
+  await expect(line).toHaveAttribute('aria-label', 'Desired rune builds: Will/Will/Will');
+
+  /* A four-set and a two-set fill the six slots, so no third column opens. And a
+     pointer crossing the first column on its way to the second does not swap the
+     set that leads: Despair stays the lead though the path brushes past others. */
+  await line.click();
+  const despair = column('Sets').getByRole('button', { name: 'Despair', exact: true });
+  await despair.hover();
+  const target = column('After Despair').getByRole('button', { name: 'Will', exact: true });
+  const to = await target.boundingBox();
+  if (!to) throw new Error('no row box');
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 12 });
+  await expect(column('After Despair and Will')).toHaveCount(0);
+  await target.click();
+  await expect(line).toHaveAttribute('aria-label', 'Desired rune builds: Will/Will/Will, Despair/Will');
 });
 
 test('a lone four-set, a ceiling and a reset to the preset', async ({ page }, testInfo) => {
@@ -417,7 +439,7 @@ test('a lone four-set, a ceiling and a reset to the preset', async ({ page }, te
   /* `Violent` alone: four Violent runes and, with broken sets refused, a whole
      two-set beside them — whichever does most. */
   await page.getByRole('button', { name: /^Desired rune builds/ }).click();
-  await page.getByRole('dialog', { name: 'Desired rune builds' }).getByRole('list', { name: 'Four-piece sets' })
+  await page.getByRole('dialog', { name: 'Desired rune builds' }).getByRole('list', { name: 'Sets' })
     .getByRole('button', { name: 'Violent', exact: true }).click();
   await expect(page.getByLabel('Allow broken sets')).not.toBeChecked();
   await page.getByLabel('Spd: at most').fill('170');

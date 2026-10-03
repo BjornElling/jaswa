@@ -275,7 +275,7 @@ test('a rune build is chosen as a whole, set by set, never as loose sets', async
   /* A four-set on its own is a build — four Violent runes and two others — and a
      click in the first column adds it. */
   await builds.click();
-  await set('Four-piece sets', 'Violent').click();
+  await set('Sets', 'Violent').click();
   await expect(menu).toHaveCount(0);
   await expect(builds).toHaveAttribute('aria-label', 'Desired rune builds: Violent');
 
@@ -283,22 +283,22 @@ test('a rune build is chosen as a whole, set by set, never as loose sets', async
      follow it. After a four-set and a two-set the six slots are spoken for, so
      there is no third column. */
   await builds.click();
-  await set('Four-piece sets', 'Violent').hover();
-  await expect(set('Four-piece sets', 'Violent')).toHaveAttribute('aria-disabled', 'true');
+  await set('Sets', 'Violent').hover();
+  await expect(set('Sets', 'Violent')).toHaveAttribute('aria-disabled', 'true');
   await set('After Violent', 'Blade').hover();
   await expect(menu.getByRole('list', { name: 'After Violent and Blade' })).toHaveCount(0);
   await set('After Violent', 'Blade').click();
 
   /* Two-sets go three columns deep. */
   await builds.click();
-  await set('Two-piece sets', 'Will').hover();
+  await set('Sets', 'Will').hover();
   await set('After Will', 'Revenge').hover();
   await set('After Will and Revenge', 'Destroy').click();
   await expect(builds).toHaveAttribute('aria-label', 'Desired rune builds: Violent, Violent/Blade, Will/Revenge/Destroy');
 
   /* A two-set stacks with itself: three Blade sets is a build of its own. */
   await builds.click();
-  await set('Two-piece sets', 'Blade').hover();
+  await set('Sets', 'Blade').hover();
   await set('After Blade', 'Blade').hover();
   await set('After Blade and Blade', 'Blade').click();
   await expect(builds).toHaveAttribute('aria-label', 'Desired rune builds: Violent, Violent/Blade, Will/Revenge/Destroy, Blade/Blade/Blade');
@@ -306,7 +306,7 @@ test('a rune build is chosen as a whole, set by set, never as loose sets', async
   /* The same six slots led by another set are the same build, and cannot be
      added a second time. */
   await builds.click();
-  await set('Two-piece sets', 'Destroy').hover();
+  await set('Sets', 'Destroy').hover();
   await set('After Destroy', 'Will').hover();
   await expect(set('After Destroy and Will', 'Revenge')).toHaveAttribute('aria-disabled', 'true');
   await set('After Destroy and Will', 'Revenge').click({ force: true });

@@ -5617,22 +5617,21 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 
 /* A cascade, one column per set in the build (`rune-build-field.tsx`). Every
    column is one fixed measure, so a column opening beside another never resizes
-   it, and the panel says how wide the cascade can get — first column pair and two
-   more — so it is placed once against that and never slides under the pointer. */
+   it, and the panel says how wide the cascade can get — three columns — so it is
+   placed once against that and never slides under the pointer. */
 .token-choice-panel:has(.rune-build-menu) {
-  --menu-reach: calc(4 * var(--rune-build-column) + 2px);
+  --menu-reach: calc(3 * var(--rune-build-column) + 2px);
   --rune-build-column: 16ch;
   width: max-content;
   max-height: none;
   overflow: visible;
 }
-/* Long enough for sixteen two-piece sets without a scrollbar on any ordinary
+/* Long enough for all twenty-two sets without a scrollbar on any ordinary
    screen; a short window still scrolls the column rather than losing the rest. */
-.rune-build-menu { display: flex; align-items: stretch; max-height: min(80vh, 560px); }
+.rune-build-menu { display: flex; align-items: stretch; max-height: min(80vh, 600px); }
 /* A build names up to three sets, so its pill is given room for the longest,
    `Determination/Tolerance/Accuracy`, where a filter's single value needs 14ch. */
 .rune-build-field .token-choice-pill { max-width: 34ch; }
-.rune-build-first { display: flex; }
 .rune-build-column {
   width: var(--rune-build-column);
   margin: 0;
@@ -5642,8 +5641,13 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   display: grid;
   align-content: start;
 }
-.rune-build-column + .rune-build-column,
-.rune-build-first + .rune-build-column { border-left: 1px solid var(--line); }
+.rune-build-column + .rune-build-column { border-left: 1px solid var(--line); }
+/* The four-sets can only lead a build; the rule says where the two-sets begin. */
+.rune-build-column > li[data-group-start='true'] {
+  margin-top: var(--s1);
+  padding-top: var(--s1);
+  border-top: 1px solid var(--line);
+}
 .rune-build-set {
   width: 100%;
   padding: var(--s1) var(--s3);
