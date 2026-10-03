@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { AncientMark } from './ancient-mark';
 import { MonsterLink } from './monster-link';
-import { MonsterPortrait } from './monster-portrait';
 import type { OpenMonsterOverlay } from './monster-link';
 import { Overlay } from './overlay';
 import { RuneEmblem } from './rune-emblem';
@@ -264,11 +263,10 @@ export function RuneBuildOverlay({
             thisMonster={monster.unitId} wearer={wearer} format={format} onOpenRune={onOpenRune} onOpenMonster={onOpenMonster} />)}
         </ol>
         <div className="rune-build-centre">
-          <MonsterPortrait imageFilename={monster.imageFilename} initial={monster.initial} name={monster.name} decorative />
-          <span className="rune-build-centre-name" title={monster.name}>
-            <MonsterLink target={{ kind: 'copy', unitId: monster.unitId, masterId: monster.masterId }}
-              name={monster.name} onOpen={onOpenMonster} />
-          </span>
+          <MonsterLink target={{ kind: 'copy', unitId: monster.unitId, masterId: monster.masterId }}
+            name={monster.name} portrait={{ imageFilename: monster.imageFilename, initial: monster.initial }} onOpen={onOpenMonster}>
+            <span className="rune-build-centre-name" title={monster.name}>{monster.name}</span>
+          </MonsterLink>
         </div>
       </div>
 

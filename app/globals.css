@@ -2598,7 +2598,8 @@ label[for] {
   white-space: nowrap;
   color: var(--text-strong);
 }
-.rune-build-centre-name .monster-link { max-width: 100%; }
+.rune-build-centre .monster-link.monster-cell { display: grid; justify-items: center; gap: var(--s3); max-width: 100%; }
+.rune-build-centre .monster-name { max-width: 100%; }
 .rune-build-card {
   min-width: 0;
   display: grid;
