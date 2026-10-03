@@ -14,7 +14,7 @@ import { presetTargetColumns } from './rune-potential-presets';
 import { runeSlotMainByEffect } from './rune-slot-mains';
 import { runeStatNames } from './runes';
 import { activeRuneSets } from './rune-sets';
-import { runeBuild, runeBuildName } from './rune-set-pairs';
+import { brokenRuneBuildPart, runeBuild, runeBuildName } from './rune-set-pairs';
 
 /**
  * Where an owned copy does not yet match what it is for.
@@ -61,6 +61,8 @@ export type Shortfall = {
   /** For a stat or a substat floor: what was asked for and what is there. */
   target?: number;
   current?: number;
+  /** A stat past the upper end of its range, rather than short of the lower. */
+  over?: boolean;
   /** Which artifact category or rune slot this concerns, where one applies. */
   where?: string;
 };
@@ -99,9 +101,18 @@ function runeShortfalls(monster: GameRecord, resolved: ResolvedMonsterPreference
   /* One shortfall for the whole group rather than one per build. A monster
      wears one build at a time, so a list of four is a list of alternatives, and
      reporting each as a failure would read as four problems where there is
-     one. */
-  if (wantedBuilds.chosen.length > 0
-    && !wantedBuilds.chosen.some((id) => runeBuild(id)?.sets.every((name) => completed.has(name)) ?? false)) {
+     one. A build leaves its unnamed slots free, and whether those may be broken
+     is the copy's own answer — so `Violent` worn as `Violent/Broken` meets it only
+     where broken sets are allowed. Where no build is named nothing is checked:
+     the switch qualifies a wish, and without one there is no wish to fall short of. */
+  const broken = completed.has(brokenRuneBuildPart) && !resolved.runes.allowBroken;
+  /* Counted, not merely looked up: `Blade/Blade` asks for two Blade sets standing. */
+  const standing = (name: string) => active.filter((set) => set.name === name).length;
+  const met = (id: string) => {
+    const sets = runeBuild(id)?.sets;
+    return sets !== undefined && sets.every((name) => standing(name) >= sets.filter((other) => other === name).length);
+  };
+  if (wantedBuilds.chosen.length > 0 && (broken || !wantedBuilds.chosen.some(met))) {
     shortfalls.push({
       kind: 'rune-set',
       source: wantedBuilds.source,
@@ -259,6 +270,23 @@ function statShortfalls(resolved: ResolvedMonsterPreferences, totals: MonsterTot
       wanted: statLabels[statKey] ?? statKey,
       target: target.value,
       current: reached,
+    });
+  }
+  /* The upper end of a range, read the same way: a figure past it is as far from
+     what the copy is for as one short of the lower end. */
+  for (const [key, ceiling] of Object.entries(resolved.statCeilings)) {
+    if (!ceiling) continue;
+    const statKey = key as keyof MonsterStatTargets;
+    if (statKey === 'criRate' && resolved.alwaysCrits) continue;
+    const reached = current[statKey];
+    if (reached <= ceiling.value) continue;
+    shortfalls.push({
+      kind: 'stat',
+      source: 'user',
+      wanted: statLabels[statKey] ?? statKey,
+      target: ceiling.value,
+      current: reached,
+      over: true,
     });
   }
   return shortfalls;

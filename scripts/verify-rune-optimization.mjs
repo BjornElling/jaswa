@@ -89,29 +89,42 @@ function sheet(input, chosen) {
    a monster that always crits is never asked for CRI Rate. */
 const floorsOf = (input) => Object.entries(input.requirements.targets)
   .filter(([key]) => !(input.requirements.alwaysCrits && key === 'criRate'));
+const ceilingsOf = (input) => Object.entries(input.requirements.ceilings)
+  .filter(([key]) => !(input.requirements.alwaysCrits && key === 'criRate'));
 
 function oneShort(counts) {
   const short = [...counts.entries()].filter(([setId, count]) => setId !== intangibleSetId && runeSetPiecesById(setId) && count % runeSetPiecesById(setId) === runeSetPiecesById(setId) - 1);
   return short.length;
 }
 
-const piecesById = new Map([[1, 2], [3, 4], [4, 2], [5, 4], [8, 4], [13, 4], [15, 2]]);
+const piecesById = new Map(Object.entries(runeSetPieceCount).map(([name, pieces]) => [runeSetId(name), pieces]));
 function runeSetPiecesById(setId) { return piecesById.get(setId); }
 
-function buildMet(id, counts) {
-  const build = runeBuild(id);
+/* The set an Intangible completes: the one set a rune short, or none. */
+function completedBy(counts) {
   const intangible = counts.get(intangibleSetId) ?? 0;
   const short = [...counts.entries()].filter(([setId, count]) => setId !== intangibleSetId && count % runeSetPiecesById(setId) === runeSetPiecesById(setId) - 1);
-  const completes = intangible > 0 && short.length === 1 ? short[0][0] : -1;
-  let inBuild = 0;
-  for (const name of build.sets) {
+  return intangible > 0 && short.length === 1 ? short[0][0] : -1;
+}
+
+/* A build names the sets it must hold; whatever else is worn fills its free slots. */
+function buildMet(id, counts) {
+  const build = runeBuild(id);
+  const completes = completedBy(counts);
+  /* A stacked two-set asks for its pieces once per time it is named. */
+  return build.sets.every((name) => {
     const setId = runeSetId(name);
-    const worn = (counts.get(setId) ?? 0) + (completes === setId ? 1 : 0);
-    if (worn < runeSetPieceCount[name]) return false;
-    if (!build.broken && (counts.get(setId) ?? 0) > runeSetPieceCount[name]) return false;
-    inBuild += counts.get(setId) ?? 0;
-  }
-  return build.broken || inBuild + intangible === 6;
+    const needed = runeSetPieceCount[name] * build.sets.filter((other) => other === name).length;
+    return (counts.get(setId) ?? 0) + (completes === setId ? 1 : 0) >= needed;
+  });
+}
+
+/* Broken sets refused: every rune in a finished set, an Intangible only where it finishes one. */
+function noBroken(counts) {
+  const completes = completedBy(counts);
+  if ((counts.get(intangibleSetId) ?? 0) > 0 && completes === -1) return false;
+  return [...counts.entries()].every(([setId, count]) => setId === intangibleSetId
+    || (count + (completes === setId ? 1 : 0)) % runeSetPiecesById(setId) === 0);
 }
 
 function bruteForce(input) {
@@ -127,11 +140,13 @@ function bruteForce(input) {
       if ((counts.get(intangibleSetId) ?? 0) === 1 && oneShort(counts) > 1) return;
       const wanted = input.requirements.builds;
       if (wanted.length > 0 && !wanted.some((id) => buildMet(id, counts))) return;
+      if (!input.requirements.allowBroken && !noBroken(counts)) return;
       const spent = new Map();
       for (const candidate of chosen) for (const entry of candidate.stock) spent.set(entry, (spent.get(entry) ?? 0) + 1);
       for (const [entry, count] of spent) if (count > problem.stock[entry].amount) return;
       const values = sheet(input, chosen);
       for (const [key, floor] of floorsOf(input)) if (values[figures.indexOf(key)] < floor) return;
+      for (const [key, ceiling] of ceilingsOf(input)) if (values[figures.indexOf(key)] > ceiling) return;
       found.push({ value: values[rank], moves: chosen.filter((candidate) => candidate.moves).length });
       return;
     }
@@ -178,6 +193,7 @@ const scenarios = Number(process.argv.find((arg) => arg.startsWith('--scenarios=
 let checkedRows = 0;
 let emptyTables = 0;
 let refusedMidway = 0;
+let spentChecked = 0;
 /* Builds with a Gem or a stone still to apply, so the followed case is not only ever read on bare runes. */
 let withWork = 0;
 /* How often the rarer re-readings and Always crits were actually exercised. */
@@ -216,12 +232,29 @@ for (let index = 0; index < scenarios; index += 1) {
     assert.ok(problem.slots.flat().every((candidate) => candidate.stock.every((entry) => !immemorial.has(entry))),
       'an Immemorial item was spent although the profile refuses them');
   }
-  const context = `scenario ${index}: ${JSON.stringify({ builds: input.requirements.builds, rank: input.requirements.rankBy, targets: input.requirements.targets, gems: input.settings.gems, grinds: input.settings.grinds })}`;
+  const context = `scenario ${index}: ${JSON.stringify({ builds: input.requirements.builds, broken: input.requirements.allowBroken, rank: input.requirements.rankBy, targets: input.requirements.targets, ceilings: input.requirements.ceilings, gems: input.settings.gems, grinds: input.settings.grinds })}`;
   assert.ok(whole.complete, `${context} did not finish`);
   assert.deepEqual(reading(whole), expected, `${context}: the search's table differs from brute force`);
   assert.deepEqual(reading(split), expected, `${context}: the split search's table differs from brute force`);
   assert.deepEqual(reading(sharedSplit), expected, `${context}: parts sharing their bars lost a build`);
   assert.deepEqual(reading(sliced), expected, `${context}: parts sharing their bars in slices lost a build`);
+  /* Every held Gem and Grindstone is spent at most once across the whole build:
+     no build may lean on one stack for more runes — or more lines — than it is deep.
+     Held directly against the search's own answer, not only through brute force,
+     where a double-spending build could hide behind an equal figure. */
+  for (const table of [whole, split, sharedSplit, sliced]) {
+    for (const build of table.builds) {
+      const spent = new Map();
+      build.picks.forEach((at, slot) => {
+        for (const entry of problem.slots[slot][at].stock) spent.set(entry, (spent.get(entry) ?? 0) + 1);
+      });
+      for (const [entry, count] of spent) {
+        assert.ok(count <= problem.stock[entry].amount,
+          `${context}: a build spends ${count} of item ${problem.stock[entry].itemId}, which the account holds ${problem.stock[entry].amount} of`);
+        spentChecked += 1;
+      }
+    }
+  }
   const exactly = (table) => table.builds.map((build) => ({ picks: build.picks, figures: build.figures, moves: build.moves }));
   const passes = await searchRuneBuildsInPasses(problem, everyPairCard(40), { blocks: 3, pairs: 60 });
   assert.equal(passes.processorTook, false, `${context}: the stand-in card was not asked every pass`);
@@ -352,5 +385,6 @@ assert.ok(alwaysCritting > scenarios / 10, `only ${alwaysCritting} builds were f
 console.log(`PASS: ${scenarios} random accounts, ${checkedRows} ranked builds — the search, whole and split three ways,`
   + ` matches brute force on every row (${emptyTables} tables were rightly empty; ${alwaysCritting} builds always crit); in passes it matches the`
   + ` processor pick for pick, and ${refusedMidway} searches finished on the processor after the card refused;`
+  + ` no build spent a held Gem or Grindstone more often than the account holds it (${spentChecked} stacks checked);`
   + ` every build read again against a re-sent account and a followed one (${withWork} with Gems or stones) kept its figures,`
   + ` and a sold rune, a lock (${lockedAwayChecked}) and spent items (${itemsChecked}) were each named on the slot they block.`);

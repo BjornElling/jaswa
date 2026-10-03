@@ -32,7 +32,7 @@ import {
   addSetBonuses, baseStatCount, effectSlotCount, figureOf, figuresInto, intangibleCompletion, intangibleSetId,
   setIdBound, statSetBonuses, targetFigureCount, totalsInto,
 } from './monster-stats';
-import { canStillSatisfy, satisfiesBuild } from './rune-optimization-problem';
+import { canStillFinishSets, canStillSatisfy, noBrokenSets, overCeiling, satisfiesBuild } from './rune-optimization-problem';
 import type { RuneOptimizationProblem } from './rune-optimization-problem';
 
 /** One build the search found: a candidate index per slot (index 0 is slot 1), and its figures. */
@@ -180,6 +180,9 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
   const buildCount = builds?.length ?? 0;
   const targets = problem.targets;
   const targetIndexes = [...targets.keys()].filter((index) => Number.isFinite(targets[index]));
+  const ceilings = problem.ceilings;
+  const capped = ceilings.some((value) => Number.isFinite(value));
+  const { allowBroken, setPieces } = problem;
   const rank = problem.rank;
   const capacity = problem.resultCount;
   const relevantSlot = new Uint8Array(effectSlotCount);
@@ -245,7 +248,7 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
    * Where every slot is spoken for by a build, only the builds' own sets can be
    * completed at all.
    */
-  const reachableSets = builds === null || builds.some((build) => build.broken)
+  const reachableSets = builds === null || builds.some((build) => build.free > 0)
     ? statSetBonuses
     : statSetBonuses.filter(([setId]) => builds.some((build) => build.needs.some((need) => need.setId === setId)));
   const planSets = reachableSets.filter(([, , slot]) => relevantSlot[slot] === 1);
@@ -321,7 +324,7 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
    */
   const needSets = new Set(builds?.flatMap((build) => build.needs.map((need) => need.setId)) ?? []);
   const relevantStatSets = new Set(statSetBonuses.filter(([, , slot]) => relevantSlot[slot] === 1).map(([setId]) => setId));
-  const groupOf = (setId: number): number => (intangibleInReach || setId === intangibleSetId
+  const groupOf = (setId: number): number => (intangibleInReach || !allowBroken || setId === intangibleSetId
     || needSets.has(setId) || relevantStatSets.has(setId) ? setId : 0);
 
   type Group = { set: number; start: number; count: number; best: Float64Array };
@@ -479,12 +482,14 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
   }
 
   function setsStillPossible(placedCount: number): boolean {
+    if (!allowBroken && !canStillFinishSets(setCounts, placedCount, setPieces)) return false;
     if (builds === null) return true;
     for (let at = 0; at < buildCount; at += 1) if (canStillSatisfy(builds[at], setCounts, placedCount)) return true;
     return false;
   }
 
   function buildMet(countsNow: Int32Array, completes: number): boolean {
+    if (!allowBroken && !noBrokenSets(countsNow, completes, setPieces)) return false;
     if (builds === null) return true;
     for (let at = 0; at < buildCount; at += 1) if (satisfiesBuild(builds[at], countsNow, completes)) return true;
     return false;
@@ -617,6 +622,10 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
         addSetBonuses(exactCounts, intangibleCompletion(exactCounts), finished);
         totalsInto(problem.base, finished, totals);
         figuresInto(totals, figures);
+        /* A ceiling is judged here, on the build's own figures, and nowhere above:
+           every bound in the tree is an *upper* estimate, and an upper estimate past
+           a ceiling says nothing about whether the build itself is. */
+        if (capped && overCeiling(figures, ceilings)) continue;
         record(prefix, first, last);
       }
       if (firstSpent.length > 0) spend(stock, firstSpent, -1);

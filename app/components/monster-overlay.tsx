@@ -6,6 +6,7 @@ import { FigureMarks, alwaysCritsMark, shortfallMarks } from './figure-marks';
 import { MonsterPortrait } from './monster-portrait';
 import { RuneBuildField } from './rune-build-field';
 import { RuneSlotMainField } from './rune-slot-main-field';
+import { StatRangeField } from './stat-range-field';
 import { Overlay, OverlayAction } from './overlay';
 import { PencilIcon } from './pencil-icon';
 import type { MonsterReference } from './monster-link';
@@ -24,7 +25,7 @@ import type {
   ArtifactSubPreference, MonsterCopyPreferences, MonsterStatTargets,
 } from '../lib/monster-preferences';
 import {
-  blankMonsterCopyPreferences, monsterCompositeTargetMaximum, monsterLabelMaximum, substatMinimumMaximum,
+  blankMonsterCopyPreferences, monsterLabelMaximum, readTargetField, substatMinimumMaximum,
 } from '../lib/monster-preferences';
 import { resolveMonsterPreferences } from '../lib/monster-preference-resolution';
 import type { ResolvedMonsterPreferences } from '../lib/monster-preference-resolution';
@@ -37,7 +38,7 @@ import type { Relic } from '../lib/relics';
 import { readRelics } from '../lib/relics';
 import { relicMainPropertyOrder, relicProperties, relicPropertyLabel } from '../lib/relic-properties';
 import type { RelicMainProperty } from '../lib/relic-properties';
-import { presetTargetColumns, presetTargetMaximum } from '../lib/rune-potential-presets';
+import { presetTargetColumns } from '../lib/rune-potential-presets';
 import { runeSlotMainsBySlot } from '../lib/rune-slot-mains';
 import { activeRuneSets, elementName } from '../lib/rune-sets';
 import { runeBuildName } from '../lib/rune-set-pairs';
@@ -302,19 +303,14 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
     ...(target.kind === 'copy' ? [{ label: 'Level', value: monster?.unit_level === undefined ? undefined : String(monster.unit_level) }] : []),
   ];
 
-  /** One target field's value, written back as a whole number or cleared. */
-  function setTarget(key: keyof MonsterStatTargets, raw: string) {
-    const trimmed = raw.trim();
-    const parsed = Number(trimmed);
-    const ceiling = key === 'dmg' || key === 'ehp' || key === 'ehpD'
-      ? monsterCompositeTargetMaximum : presetTargetMaximum;
+  /** One end of one range, written back as a whole number or cleared. */
+  function setLimit(end: 'statTargets' | 'statCeilings', key: keyof MonsterStatTargets, raw: string) {
+    const value = readTargetField(key, raw);
     change((state) => {
-      const targets = { ...state.statTargets };
-      /* An empty field is *absent* — this copy does not aim at the stat — where
-         `0` is a stated target of nothing (`AGENTS.md` §3). */
-      if (trimmed === '' || !Number.isFinite(parsed)) delete targets[key];
-      else targets[key] = Math.min(ceiling, Math.max(0, Math.round(parsed)));
-      return { ...state, statTargets: Object.keys(targets).length > 0 ? targets : undefined };
+      const limits = { ...state[end] };
+      if (value === undefined) delete limits[key];
+      else limits[key] = value;
+      return { ...state, [end]: Object.keys(limits).length > 0 ? limits : undefined };
     });
   }
 
@@ -399,6 +395,11 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
                   </span>
                   {editable && <div className="overlay-toggles">
                     <label className="overlay-toggle">
+                      <input type="checkbox" checked={resolved.runes.allowBroken}
+                        onChange={(event) => change((state) => ({ ...state, allowBrokenSets: event.target.checked }))} />
+                      <span>Allow broken sets</span>
+                    </label>
+                    <label className="overlay-toggle">
                       <input type="checkbox" checked={resolved.runes.allowIntangible}
                         onChange={(event) => change((state) => ({ ...state, allowIntangibleRunes: event.target.checked }))} />
                       <span>Allow Intangible runes</span>
@@ -431,34 +432,35 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
           </div>
         </Section>
 
-        {current !== undefined && <Section title="Stats"
-          note="Type the figures you are building toward. Current values are shown for reference.">
-          <div className="overlay-stats">
+        {current !== undefined && <Section title="Stats">
+          <div className="stat-ranges">
             {targetRows.map((row, index) => {
               const marks = statShortfalls.get(row.label) ?? [];
-              return <div className="overlay-stat" key={row.key}>
-                <p className="overlay-stat-head">{row.label}</p>
-                {editable
-                  ? <input ref={index === 0 ? firstField : undefined}
-                    className="overlay-stat-target" type="number" min={0} step={1} inputMode="numeric"
-                    placeholder="—"
-                    aria-label={`Desired ${row.label}`}
-                    disabled={row.key === 'criRate' && resolved.alwaysCrits}
-                    title={row.key === 'criRate' && resolved.alwaysCrits ? 'Always crits, so no CRI Rate is needed' : undefined}
-                    value={draft.statTargets?.[row.key] ?? ''}
-                    onChange={(event) => setTarget(row.key, event.target.value)} />
-                  : <p className="overlay-stat-value">{formatNumber(current[row.key], general)}</p>}
-                {/* The copy's own figure, dimmed under the target: what is
-                    wanted leads, what is there qualifies it. Every mark the
-                    figure carries follows it on its own line. */}
-                <p className="overlay-stat-current">
-                  {formatNumber(current[row.key], general)}
-                  <FigureMarks marks={[
-                    ...shortfallMarks(marks, general),
-                    ...(row.key === 'criRate' && resolved.alwaysCrits ? [alwaysCritsMark] : []),
-                  ]} />
-                </p>
-              </div>;
+              /* The copy's own figure, dimmed under the range: what is wanted
+                 leads, what is there qualifies it. Every mark the figure carries
+                 follows it on its own line. */
+              const now = <>
+                {formatNumber(current[row.key], general)}
+                <FigureMarks marks={[
+                  ...shortfallMarks(marks, general),
+                  ...(row.key === 'criRate' && resolved.alwaysCrits ? [alwaysCritsMark] : []),
+                ]} />
+              </>;
+              /* A monster that always crits is never asked for CRI Rate, so the
+                 fields say so by standing still rather than by vanishing. */
+              const crits = row.key === 'criRate' && resolved.alwaysCrits;
+              return editable
+                ? <StatRangeField key={row.key} label={row.label} firstField={index === 0 ? firstField : undefined}
+                  atLeast={draft.statTargets?.[row.key]} atMost={draft.statCeilings?.[row.key]}
+                  onAtLeast={(raw) => setLimit('statTargets', row.key, raw)}
+                  onAtMost={(raw) => setLimit('statCeilings', row.key, raw)}
+                  disabled={crits} title={crits ? 'Always crits, so no CRI Rate is needed' : undefined}
+                  current={now} />
+                : <div className="overlay-stat" key={row.key}>
+                  <p className="overlay-stat-head">{row.label}</p>
+                  <p className="overlay-stat-value">{formatNumber(current[row.key], general)}</p>
+                  <p className="overlay-stat-current">{now}</p>
+                </div>;
             })}
           </div>
           {editable && <div className="overlay-suggestion">

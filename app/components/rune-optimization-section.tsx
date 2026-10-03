@@ -5,13 +5,16 @@ import { CalculationStatus } from './calculation-status';
 import { FigureMarks, alwaysCritsMark, buildIssueMarks } from './figure-marks';
 import { CheckboxRow, RadioLine } from './form-controls';
 import { Dropdown } from './dropdown';
-import { MonsterLink } from './monster-link';
+import { MonsterPortrait } from './monster-portrait';
+import { Overlay } from './overlay';
+import { PencilIcon } from './pencil-icon';
 import type { OpenMonsterOverlay } from './monster-link';
 import { PageHeader } from './page-chrome';
 import { RuneBuildField } from './rune-build-field';
 import { RuneBuildOverlay, buildIssueReading } from './rune-build-overlay';
 import type { OpenRuneOverlay } from './rune-link';
 import { RuneSlotMainField } from './rune-slot-main-field';
+import { StatRangeField } from './stat-range-field';
 import { SortableHeader } from './sortable-table';
 import { TableColumnGroup } from './data-table-page';
 import { useSortedRows } from './use-sorted-rows';
@@ -26,7 +29,7 @@ import type { RuneSlotKey } from '../lib/monster-defaults';
 import { monsterPresentation } from '../lib/monster-catalog';
 import { monsterNameCollator } from '../lib/monster-grid';
 import { monsterCopyNames } from '../lib/monster-names';
-import { monsterCompositeTargetMaximum, monsterStatTargetKeys } from '../lib/monster-preferences';
+import { monsterStatTargetKeys, readTargetField } from '../lib/monster-preferences';
 import { calculateMonsterTotals, monsterTargetFigures } from '../lib/monster-stats';
 import { craftRollAssumptions, craftRollLabels, itemGrades, readCraftItems } from '../lib/rune-craft-items';
 import type { CraftItem, CraftRollAssumption } from '../lib/rune-craft-items';
@@ -41,7 +44,7 @@ import {
   runeOptimizationResultCounts,
 } from '../lib/rune-optimization-settings';
 import type { CraftUse, RuneOptimizationSettings } from '../lib/rune-optimization-settings';
-import { presetTargetColumns, presetTargetMaximum } from '../lib/rune-potential-presets';
+import { presetTargetColumns } from '../lib/rune-potential-presets';
 import { runeSlotMainsBySlot } from '../lib/rune-slot-mains';
 import { activeRuneSets } from '../lib/rune-sets';
 import { runeBuildName } from '../lib/rune-set-pairs';
@@ -127,6 +130,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
      the reader comes back to the row they were reading rather than to the top. */
   const [chosenBuild, setChosenBuild] = useState<number | null>(null);
   const [showingBuild, setShowingBuild] = useState(false);
+  const [confirmingReset, setConfirmingReset] = useState(false);
   const buildOpener = useRef<HTMLElement | null>(null);
 
   /* A search the user walked away from gives the processor back. */
@@ -176,6 +180,9 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
      question on screen is now a different one. */
   const current = calculation !== undefined && calculation.unitId === unitId && selected ? calculation : undefined;
   const stale = current !== undefined && (current.inputKey !== inputKey || current.resultCount < resultCount);
+  /* Once the user has asked again, the warning has been acted on: a search running
+     under it would read as the new search answering the old question. */
+  const warnStale = stale && state !== 'calculating';
   const builds = useMemo(() => (current && selected
     ? currentBuilds(current.answer.builds.slice(0, resultCount), {
       unitId: selected.unitId, monster: selected.record, requirements: current.requirements, settings: current.settings,
@@ -249,148 +256,198 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
 
   const plan = runeOptimizationDepthPlans[settings.depth];
   const changed = (same: boolean) => (same ? undefined : 'Changed for this calculation');
+  const edited = edits !== null && edits.unitId === unitId;
+  const display = selected ? monsterPresentation(selected.masterId) : undefined;
 
   return <WorkspacePage header={<OptimizationHeader />}>
     <div className="rune-optimization">
-      <p className="lead">
-        Choose a monster. Its profile says what the build must reach; change anything below for this calculation only — the profile itself stays as it is.
-      </p>
-
-      <div className="filter-panel rune-optimization-monster-panel">
+      <div className="panel rune-optimization-monster-panel">
         <div className="filter-group rune-optimization-monster">
           <label className="filter-label" htmlFor="rune-optimization-monster">Monster</label>
-          <div className="filter-group-controls">
+          {/* The portrait sits inside the field, at the start of the name it
+              belongs to. Its box is there with no monster chosen too, so choosing
+              one fills a space rather than pushing the name along (`AGENTS.md` §2). */}
+          <div className="rune-optimization-monster-select">
+            <MonsterPortrait imageFilename={display?.imageFilename} initial={display?.shortName ?? ''}
+              name={selected?.name ?? ''} decorative />
             <Dropdown id="rune-optimization-monster" value={selected ? unitId : ''} placeholder="Choose a monster"
               onChange={(event) => chooseMonster(event.target.value)}>
               {options.map((option) => <option key={option.unitId} value={option.unitId}>{option.name}</option>)}
             </Dropdown>
-            {selected && <MonsterLink target={{ kind: 'copy', unitId: selected.unitId, masterId: selected.masterId }}
-              name="Open profile" onOpen={onOpenMonster} />}
+          </div>
+          {/* Always on screen and only enabled with a monster to open, so the
+              panel keeps its height whether or not one is chosen. */}
+          <Button size="compact" className="rune-optimization-open-preset" disabled={!selected}
+            aria-haspopup="dialog"
+            onClick={(event) => {
+              if (selected) onOpenMonster({ kind: 'copy', unitId: selected.unitId, masterId: selected.masterId }, event.currentTarget);
+            }}>
+            <PencilIcon /><span>Open preset</span>
+          </Button>
+        </div>
+
+        {/* How hard to look, beside the button that starts looking: these two are
+            read at the moment of searching, and nowhere else on the page. */}
+        <div className="rune-optimization-search">
+          <div className="filter-group rune-optimization-depth">
+            <RadioLine name="rune-optimization-depth" legend="Depth" current={settings.depth}
+              options={runeOptimizationDepths.map((depth) => ({ value: depth, label: runeOptimizationDepthLabels[depth] }))}
+              onChange={(depth) => onUpdate({ depth })} />
+            <Provenance>{Number.isFinite(plan.keep)
+              ? `Keeps the ${plan.keep} runes per slot and set that add most · stops after ${plan.seconds} s`
+              : `Keeps every rune that could matter · stops after ${plan.seconds / 60} min`}</Provenance>
+          </div>
+          <div className="filter-group rune-optimization-count">
+            <RadioLine name="rune-optimization-count" legend="Builds listed" current={String(settings.resultCount)}
+              options={runeOptimizationResultCounts.map((count) => ({ value: String(count), label: String(count) }))}
+              onChange={(count) => onUpdate({ resultCount: Number(count) as RuneOptimizationSettings['resultCount'] })} />
           </div>
         </div>
-        <div className="filter-panel-actions rune-optimization-actions">
+
+        <div className="rune-optimization-actions">
           <div className="rune-optimization-action-row">
-            {/* Always in the row and only shown when it applies, so the buttons beside
-                it never move (`AGENTS.md` §2). */}
-            <p className="rune-optimization-stale" role="status" data-shown={stale ? 'true' : undefined}
-              aria-hidden={stale ? undefined : true}>
-              The requirements or settings have changed since these builds were found. You should rebuild.
-            </p>
-            <Button tone="important" size="prominent" busy={state === 'calculating'} busyLabel="Searching…"
+            <Button tone="primary" size="prominent" className="rune-optimization-find" busy={state === 'calculating'} busyLabel="Searching…"
               disabled={!input} onClick={() => void calculate()}>Find builds</Button>
-            <Button size="prominent" disabled={state !== 'calculating'} onClick={() => cancelRuneOptimization()}>Stop</Button>
+            {/* Stopping is a footnote to searching, so it is a mark beside the
+                button rather than a second button of the same weight. It is
+                there in every state, and can only be pressed while a search runs. */}
+            <Button size="prominent" className="rune-optimization-stop" disabled={state !== 'calculating'}
+              aria-label="Stop the search" title="Stop the search" onClick={() => cancelRuneOptimization()}>
+              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                <rect x="3.5" y="3.5" width="9" height="9" rx="1.5" fill="currentColor" />
+              </svg>
+            </Button>
           </div>
-          <button type="button" className="filter-reset" disabled={edits === null || edits.unitId !== unitId}
-            onClick={() => setEdits(null)}>Back to the profile</button>
+          {/* Always in the panel and only shown when it applies, so nothing beside
+              it moves (`AGENTS.md` §2). */}
+          <p className="rune-optimization-stale" role="status" data-shown={warnStale ? 'true' : undefined}
+            aria-hidden={warnStale ? undefined : true}>
+            The requirements or settings have changed since these builds were found. You should rebuild.
+          </p>
+          {/* At the foot of the panel, under the button that started the work:
+              where the eye already is when the search is running. */}
+          <div className="rune-optimization-status">
+            {state === 'calculating'
+              ? <p className="calculation-status" role="status">Searching… {formatNumber(Math.round(progress * 100), general)} %</p>
+              : current
+                ? <CalculationStatus durationMs={current.answer.durationMs} backend={current.answer.backend} general={general}
+                  detail={`${formatNumber(current.answer.combinations, general)} builds checked · ${formatNumber(current.answer.report.runes, general)} runes considered`
+                    + (changedSince.length > 0 ? ` · your ${changedSince.join(' and ')} changed since, and the builds follow them` : '')} />
+                : <p className="calculation-status" role="status">{selected ? 'Not calculated yet.' : ''}</p>}
+          </div>
         </div>
       </div>
 
-      {selected && requirements && profile && <section className="filter-panel rune-optimization-requirements"
+      {selected && requirements && profile && <section className="panel rune-optimization-requirements"
         aria-label="Requirements for this calculation">
-        <div className="filter-group rune-optimization-builds">
-          <span className="filter-label">Builds</span>
-          <RuneBuildField chosen={requirements.builds}
-            onChange={(next) => change((state) => ({ ...state, builds: next }))} />
-          <Provenance>{changed(sameList(requirements.builds, profile.requirements.builds))
-            ?? (profile.requirements.builds.length === 0 ? 'The profile names no build, so any will do' : 'From the profile')}</Provenance>
-        </div>
-        <div className="filter-group rune-optimization-intangible">
-          <span className="filter-label">Any set</span>
-          <CheckboxRow label="Allow Intangible runes" checked={requirements.allowIntangible}
-            onChange={(checked) => change((state) => ({ ...state, allowIntangible: checked }))} />
-          <CheckboxRow label="Allow Immemorial Gems and Grindstones" checked={requirements.allowImmemorial}
-            onChange={(checked) => change((state) => ({ ...state, allowImmemorial: checked }))} />
-          <Provenance>{changed(requirements.allowIntangible === profile.requirements.allowIntangible
-            && requirements.allowImmemorial === profile.requirements.allowImmemorial) ?? 'From the profile'}</Provenance>
-        </div>
-        {runeSlotKeys.map((key) => <div className={`filter-group rune-optimization-${key}`} key={key}>
-          <span className="filter-label">Slot {slotNumbers[key]}</span>
-          <RuneSlotMainField slot={slotNumbers[key]} options={runeSlotMainsBySlot[key]}
-            chosen={requirements.slotMains[key]} className="rune-optimization-slot-field"
-            onChange={(next) => change((state) => ({ ...state, slotMains: { ...state.slotMains, [key]: next } }))} />
-          <Provenance>{changed(sameList(requirements.slotMains[key], profile.requirements.slotMains[key]))
-            ?? (profile.sources.slots[key] === 'user' ? 'From the profile' : 'What most players wear')}</Provenance>
-        </div>)}
-        <div className="filter-group rune-optimization-rank">
-          <label className="filter-label" htmlFor="rune-optimization-rank">Rank by</label>
-          <Dropdown id="rune-optimization-rank" value={requirements.rankBy}
-            onChange={(event) => change((state) => ({ ...state, rankBy: event.target.value as RankFigure }))}>
-            {monsterStatTargetKeys.map((key) => <option key={key} value={key}>{figureLabels[key]}</option>)}
-          </Dropdown>
-          <Provenance>{changed(requirements.rankBy === profile.requirements.rankBy)
-            ?? (profile.sources.rankBy === 'profile' ? 'From the profile' : 'Chosen from the monster’s type')}</Provenance>
-        </div>
-        <div className="filter-group rune-optimization-targets" role="group" aria-label="At least">
-          <span className="filter-label">At least</span>
-          <div className="rune-optimization-target-row">
-            {monsterStatTargetKeys.map((key) => <label className="rune-optimization-target" key={key}>
-              <span className="overlay-stat-head">{figureLabels[key]}</span>
-              {/* A monster that always crits is never asked for CRI Rate, so the field
-                  says so by standing still rather than by vanishing. */}
-              <input className="rune-optimization-target-input" type="number" min={0} step={1} inputMode="numeric" placeholder="—"
-                aria-label={`At least ${figureLabels[key]}`}
-                disabled={key === 'criRate' && alwaysCrits}
-                title={key === 'criRate' && alwaysCrits ? 'Always crits, so no CRI Rate is needed' : undefined}
-                value={requirements.targets[key] ?? ''}
-                onChange={(event) => {
-                  const raw = event.target.value.trim();
-                  const parsed = Number(raw);
-                  const ceiling = key === 'dmg' || key === 'ehp' || key === 'ehpD' ? monsterCompositeTargetMaximum : presetTargetMaximum;
-                  change((state) => {
-                    const targets = { ...state.targets };
-                    /* Empty is absent — no floor — where `0` is a floor of nothing (`AGENTS.md` §3). */
-                    if (raw === '' || !Number.isFinite(parsed)) delete targets[key];
-                    else targets[key] = Math.min(ceiling, Math.max(0, Math.round(parsed)));
-                    return { ...state, targets };
-                  });
-                }} />
-              <span className="overlay-stat-current">
-                {currentFigures ? formatNumber(currentFigures[figureIndex(key)], general) : '—'}
-                {key === 'criRate' && <FigureMarks marks={alwaysCrits ? [alwaysCritsMark] : []} />}
-              </span>
-            </label>)}
+        <div className="rune-optimization-question">
+          <div className="filter-group rune-optimization-builds">
+            <span className="filter-label">Builds</span>
+            <RuneBuildField chosen={requirements.builds}
+              onChange={(next) => change((state) => ({ ...state, builds: next }))} />
+            <Provenance>{changed(sameList(requirements.builds, profile.requirements.builds))
+              ?? (profile.requirements.builds.length === 0 ? 'The preset names no build, so any will do' : '')}</Provenance>
           </div>
-          <Provenance>{changed(monsterStatTargetKeys.every((key) => requirements.targets[key] === profile.requirements.targets[key]))
-            ?? 'From the profile. The figure under each field is what the monster has now.'}</Provenance>
+          <div className="rune-optimization-slot-row">
+            {runeSlotKeys.map((key) => <div className="filter-group rune-optimization-slot" key={key}>
+              <span className="filter-label">Slot {slotNumbers[key]}</span>
+              <RuneSlotMainField slot={slotNumbers[key]} options={runeSlotMainsBySlot[key]}
+                chosen={requirements.slotMains[key]} className="rune-optimization-slot-field"
+                onChange={(next) => change((state) => ({ ...state, slotMains: { ...state.slotMains, [key]: next } }))} />
+              <Provenance>{changed(sameList(requirements.slotMains[key], profile.requirements.slotMains[key]))
+                ?? (profile.sources.slots[key] === 'user' ? '' : 'What most players wear')}</Provenance>
+            </div>)}
+            <div className="filter-group rune-optimization-rank">
+              <label className="filter-label" htmlFor="rune-optimization-rank">Rank by</label>
+              <Dropdown id="rune-optimization-rank" value={requirements.rankBy}
+                onChange={(event) => change((state) => ({ ...state, rankBy: event.target.value as RankFigure }))}>
+                {monsterStatTargetKeys.map((key) => <option key={key} value={key}>{figureLabels[key]}</option>)}
+              </Dropdown>
+              <Provenance>{changed(requirements.rankBy === profile.requirements.rankBy)
+                ?? (profile.sources.rankBy === 'profile' ? '' : 'Chosen from the monster’s type')}</Provenance>
+            </div>
+          </div>
+          <div className="filter-group rune-optimization-targets" role="group" aria-label="Stats">
+            <span className="filter-label">Stats</span>
+            <div className="stat-ranges">
+              {monsterStatTargetKeys.map((key) => {
+                /* A monster that always crits is never asked for CRI Rate, so the
+                   fields say so by standing still rather than by vanishing. */
+                const crits = key === 'criRate' && alwaysCrits;
+                const limit = (end: 'targets' | 'ceilings') => (raw: string) => {
+                  const value = readTargetField(key, raw);
+                  change((state) => {
+                    const limits = { ...state[end] };
+                    if (value === undefined) delete limits[key];
+                    else limits[key] = value;
+                    return { ...state, [end]: limits };
+                  });
+                };
+                return <StatRangeField key={key} label={figureLabels[key]}
+                  atLeast={requirements.targets[key]} atMost={requirements.ceilings[key]}
+                  onAtLeast={limit('targets')} onAtMost={limit('ceilings')}
+                  disabled={crits} title={crits ? 'Always crits, so no CRI Rate is needed' : undefined}
+                  current={<>
+                    {currentFigures ? formatNumber(currentFigures[figureIndex(key)], general) : '—'}
+                    {key === 'criRate' && <FigureMarks marks={alwaysCrits ? [alwaysCritsMark] : []} />}
+                  </>} />;
+              })}
+            </div>
+            <Provenance>{changed(monsterStatTargetKeys.every((key) => requirements.targets[key] === profile.requirements.targets[key]
+              && requirements.ceilings[key] === profile.requirements.ceilings[key])) ?? ''}</Provenance>
+          </div>
+          {/* Under the question it undoes, and always there: disabled until
+              something here differs from the preset. */}
+          <div className="rune-optimization-reset">
+            <Button size="compact" disabled={!edited} onClick={() => setConfirmingReset(true)}>Reset to preset</Button>
+          </div>
         </div>
+
+        <aside className="rune-optimization-settings" aria-label="Settings">
+          <div className="filter-group rune-optimization-sets">
+            <span className="filter-label">Any set</span>
+            <CheckboxRow label="Allow broken sets" checked={requirements.allowBroken}
+              onChange={(checked) => change((state) => ({ ...state, allowBroken: checked }))} />
+            <CheckboxRow label="Allow Intangible runes" checked={requirements.allowIntangible}
+              onChange={(checked) => change((state) => ({ ...state, allowIntangible: checked }))} />
+            <CheckboxRow label="Allow Immemorial Gems and Grindstones" checked={requirements.allowImmemorial}
+              onChange={(checked) => change((state) => ({ ...state, allowImmemorial: checked }))} />
+            <Provenance>{changed(requirements.allowBroken === profile.requirements.allowBroken
+              && requirements.allowIntangible === profile.requirements.allowIntangible
+              && requirements.allowImmemorial === profile.requirements.allowImmemorial) ?? ''}</Provenance>
+          </div>
+          <CraftSetting legend="Gems" name="rune-optimization-gems" use={settings.gems} grade={settings.gemGrade} roll={settings.gemRollAssumption}
+            onUse={(gems) => onUpdate({ gems })} onGrade={(gemGrade) => onUpdate({ gemGrade })} onRoll={(gemRollAssumption) => onUpdate({ gemRollAssumption })} />
+          <CraftSetting legend="Grindstones" name="rune-optimization-grinds" use={settings.grinds} grade={settings.grindGrade} roll={settings.grindRollAssumption}
+            onUse={(grinds) => onUpdate({ grinds })} onGrade={(grindGrade) => onUpdate({ grindGrade })} onRoll={(grindRollAssumption) => onUpdate({ grindRollAssumption })} />
+          <div className="filter-group rune-optimization-sources">
+            <span className="filter-label">Runes</span>
+            <CheckboxRow label="Take runes from other monsters" checked={settings.runesOnOtherMonsters}
+              onChange={(runesOnOtherMonsters) => onUpdate({ runesOnOtherMonsters })} />
+            <CheckboxRow label="Count unfinished runes at their +15 main stat" checked={settings.unfinishedAtMaximum}
+              onChange={(unfinishedAtMaximum) => onUpdate({ unfinishedAtMaximum })} />
+          </div>
+        </aside>
       </section>}
 
-      <section className="filter-panel rune-optimization-settings" aria-label="How to search">
-        <CraftSetting legend="Gems" name="rune-optimization-gems" use={settings.gems} grade={settings.gemGrade} roll={settings.gemRollAssumption}
-          onUse={(gems) => onUpdate({ gems })} onGrade={(gemGrade) => onUpdate({ gemGrade })} onRoll={(gemRollAssumption) => onUpdate({ gemRollAssumption })} />
-        <CraftSetting legend="Grindstones" name="rune-optimization-grinds" use={settings.grinds} grade={settings.grindGrade} roll={settings.grindRollAssumption}
-          onUse={(grinds) => onUpdate({ grinds })} onGrade={(grindGrade) => onUpdate({ grindGrade })} onRoll={(grindRollAssumption) => onUpdate({ grindRollAssumption })} />
-        <div className="filter-group rune-optimization-sources">
-          <span className="filter-label">Runes</span>
-          <CheckboxRow label="Take runes from other monsters" checked={settings.runesOnOtherMonsters}
-            onChange={(runesOnOtherMonsters) => onUpdate({ runesOnOtherMonsters })} />
-          <CheckboxRow label="Count unfinished runes at their +15 main stat" checked={settings.unfinishedAtMaximum}
-            onChange={(unfinishedAtMaximum) => onUpdate({ unfinishedAtMaximum })} />
+      {/* The preset's answers replace every change made here, which cannot be
+          undone, so it is asked once. The safe answer takes focus. */}
+      {confirmingReset && <Overlay labelledBy="rune-optimization-reset-title" describedBy="rune-optimization-reset-text"
+        className="speed-confirm" onClose={() => setConfirmingReset(false)}>
+        <div className="overlay-body">
+          <div>
+            <p className="eyebrow">Reset to preset</p>
+            <h2 id="rune-optimization-reset-title">Put back what the preset says?</h2>
+          </div>
+          <p id="rune-optimization-reset-text">
+            Every change made here for this calculation — builds, slots, ranking, stats and the set allowances — goes back to the monster’s preset.
+          </p>
+          <div className="dialog-actions">
+            <Button autoFocus onClick={() => setConfirmingReset(false)}>Keep my changes</Button>
+            <Button tone="danger" onClick={() => { setEdits(null); setConfirmingReset(false); }}>Reset to preset</Button>
+          </div>
         </div>
-        <div className="filter-group rune-optimization-depth">
-          <RadioLine name="rune-optimization-depth" legend="Depth" current={settings.depth}
-            options={runeOptimizationDepths.map((depth) => ({ value: depth, label: runeOptimizationDepthLabels[depth] }))}
-            onChange={(depth) => onUpdate({ depth })} />
-          <Provenance>{Number.isFinite(plan.keep)
-            ? `Keeps the ${plan.keep} runes per slot and set that add most · stops after ${plan.seconds} s`
-            : `Keeps every rune that could matter · stops after ${plan.seconds / 60} min`}</Provenance>
-        </div>
-        <div className="filter-group rune-optimization-count">
-          <RadioLine name="rune-optimization-count" legend="Builds listed" current={String(settings.resultCount)}
-            options={runeOptimizationResultCounts.map((count) => ({ value: String(count), label: String(count) }))}
-            onChange={(count) => onUpdate({ resultCount: Number(count) as RuneOptimizationSettings['resultCount'] })} />
-        </div>
-      </section>
-
-      <div className="rune-optimization-status">
-        {state === 'calculating'
-          ? <p className="calculation-status" role="status">Searching… {formatNumber(Math.round(progress * 100), general)} %</p>
-          : current
-            ? <CalculationStatus durationMs={current.answer.durationMs} backend={current.answer.backend} general={general}
-              detail={`${formatNumber(current.answer.combinations, general)} builds checked · ${formatNumber(current.answer.report.runes, general)} runes considered`
-                + (changedSince.length > 0 ? ` · your ${changedSince.join(' and ')} changed since, and the builds follow them` : '')} />
-            : <p className="calculation-status" role="status">{selected ? 'Not calculated yet.' : ''}</p>}
-      </div>
+      </Overlay>}
 
       {state === 'error' && <p className="notice warning" role="status">JASWA could not search rune builds for this monster.</p>}
       {calculation && calculation.unitId === unitId && !selected && state !== 'calculating' && <p className="notice warning" role="status">
@@ -481,10 +538,6 @@ function Results({ answer, builds, rankBy, currentBuild, currentFigures, general
   return <section className="rune-optimization-results" aria-labelledby="rune-optimization-results-title">
     <header className="rune-optimization-results-head">
       <h3 id="rune-optimization-results-title" className="type-heading">Builds</h3>
-      <p className="rune-optimization-provenance">
-        Runes tried per slot: {slots.map((slot) => (slot.locked ? `${slot.slot} locked` : `${slot.slot}: ${slot.kept}`)).join(' · ')}
-        {answer.report.keep === null ? '' : ` — up to ${answer.report.keep} per set, the ones that add most`}
-      </p>
     </header>
     <table className="grid-table rune-optimization-table" aria-label="Rune builds">
       <TableColumnGroup columns={runeOptimizationTableColumns} />

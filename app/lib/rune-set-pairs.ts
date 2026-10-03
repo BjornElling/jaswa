@@ -12,48 +12,47 @@ import { presetRuneSetNameList, runeSetPieceCount } from './rune-sets';
  *
  * `RUNE-CANONICAL.md` §10 fixes the arithmetic the combinations come from: six
  * slots, a four-set leaves room for exactly one two-set, and two-sets stack up
- * to three times. Slots no set completes are `broken`, and broken is named in
- * the build rather than granted by a switch beside it, because "Violent with
- * anything in the last two" and "Violent and Will" are different answers:
+ * to three times.
  *
- * | Shape | Example | Slots |
+ * **A build names the sets it must hold; the slots it does not name are free.**
+ * `Violent` is four Violent runes and any two others, `Violent/Will` fills all
+ * six, `Swift/Will` leaves two free. What may sit in a free slot is not part of
+ * the build but of the copy's *Allow broken sets* answer
+ * (`MonsterCopyPreferences.allowBrokenSets`): with it off, every rune must belong
+ * to a completed set, so `Violent` means Violent and some two-set; with it on, the
+ * free slots take anything. Naming broken slots inside the build — the earlier
+ * `Violent/Broken` — said the same thing build by build, and could not say
+ * "Violent with a whole two-set, whichever" at all.
+ *
+ * | Shape | Example | Slots named |
  * | --- | --- | --- |
+ * | four | `Violent` | 4 |
  * | four + two | `Violent/Destroy` | 4 + 2 |
- * | four + broken | `Violent/Broken` | 4 + 2 |
- * | two-sets | `Destroy/Blade/Will` | 2 + 2 + 2 |
- * | two-sets + broken | `Destroy/Blade/Broken`, `Destroy/Broken` | 2 + 2 + 2, 2 + 4 |
- *
- * Every build fills all six slots, so `Violent` or `Destroy/Blade` on its own
- * is not a build: it does not say what the rest is.
+ * | two-sets | `Destroy`, `Destroy/Blade`, `Destroy/Blade/Will` | 2, 2 + 2, 2 + 2 + 2 |
+ * | one two-set stacked | `Blade/Blade`, `Blade/Blade/Blade` | 2 + 2, 2 + 2 + 2 |
  *
  * **One spelling, everywhere.** A build is written as its set names as the game
- * spells them, joined by `/` with no spaces, leading set first and `Broken`
- * last. That string is the identifier: it is what the user reads, what a
- * preference stores, and what the optimizer matches, so there is no second
- * encoding to keep in step with the first. `runeBuildName` is the one place
- * that writes it, and a worn build goes through it too.
- *
- * The six four-sets against sixteen two-sets and broken make 102 four-set
- * builds — seventeen under each four-set, which is a menu a reader can scan.
- * The two-set stacks run to hundreds, which is not, so they are *composed*
- * rather than enumerated: a leading two-set opens the other two-sets and the
- * user ticks the ones that complete the build, the untouched slots reading as
- * broken.
+ * spells them, joined by `/` with no spaces, leading set first. That string is the
+ * identifier: it is what the user reads, what a preference stores, and what the
+ * optimizer matches, so there is no second encoding to keep in step with the
+ * first. `runeBuildName` is the one place that writes it, and a worn build goes
+ * through it too — a worn build still ends in `Broken` where slots are broken,
+ * because that describes runes, not a wish.
  */
 
 /** The separator between the parts of one build, in the identifier and on screen. */
 export const runeBuildSeparator = '/';
 
-/** The part that names slots no set completes. */
+/** The part that names the slots no set completes in a *worn* build. A wanted build never carries it. */
 export const brokenRuneBuildPart = 'Broken';
 
 export type RuneBuild = {
   /** The build as it is written, stored and matched. */
   id: string;
-  /** The completed sets, leading set first — `Broken` is not a set and is not here. */
+  /** The sets it must hold, leading set first. */
   sets: readonly string[];
-  /** Whether slots are left that no named set completes. */
-  broken: boolean;
+  /** How many of the six slots the named sets take; the rest are free. */
+  slots: number;
   /** The set the build is led by — the four-set, or the first two-set. */
   leading: string;
 };
@@ -69,7 +68,7 @@ export const twoPieceRuneSets: readonly string[] = presetRuneSetNameList
 /** The most sets one build may name: three two-sets fill all six slots. */
 export const runeBuildMaximumSets = 3;
 
-const runeSlots = 6;
+export const runeSlotCount = 6;
 
 /**
  * A worn or wanted build, written the one way builds are written. `names` are
@@ -80,43 +79,40 @@ export function runeBuildName(names: readonly string[]): string {
   return names.join(runeBuildSeparator);
 }
 
-/** One build from its sets, or `undefined` where the six slots cannot hold exactly that. */
-export function makeRuneBuild(sets: readonly string[], broken: boolean): RuneBuild | undefined {
-  const leading = sets[0];
-  if (leading === undefined || sets.length > runeBuildMaximumSets) return undefined;
-  if (new Set(sets).size !== sets.length) return undefined;
-  if (!sets.every((name) => presetRuneSetNameList.includes(name))) return undefined;
-  /* A four-set fills four slots, so it can only lead: after it there is room
-     for one two-set and nothing else. */
-  if (sets.slice(1).some((name) => runeSetPieceCount[name] !== 2)) return undefined;
-
-  const filled = sets.reduce((total, name) => total + (runeSetPieceCount[name] ?? 2), 0);
-  /* Broken names the slots left over, so it needs some left and the build
-     without it needs none. */
-  if (broken ? filled >= runeSlots : filled !== runeSlots) return undefined;
-  return {
-    id: runeBuildName(broken ? [...sets, brokenRuneBuildPart] : sets),
-    sets, broken, leading,
-  };
+/** How many slots a list of sets takes. */
+export function runeSetSlots(sets: readonly string[]): number {
+  return sets.reduce((total, name) => total + (runeSetPieceCount[name] ?? 2), 0);
 }
 
-/** The four-set builds led by one set, for the menu's second column: every two-set, then broken. */
-export function runeBuildsLedBy(leading: string): readonly RuneBuild[] {
-  if (runeSetPieceCount[leading] !== 4) return [];
-  return [
-    ...twoPieceRuneSets.map((two) => makeRuneBuild([leading, two], false)),
-    makeRuneBuild([leading], true),
-  ].filter((build): build is RuneBuild => build !== undefined);
+/** One build from its sets, or `undefined` where the six slots cannot hold them. */
+export function makeRuneBuild(sets: readonly string[]): RuneBuild | undefined {
+  const leading = sets[0];
+  if (leading === undefined || sets.length > runeBuildMaximumSets) return undefined;
+  if (!sets.every((name) => presetRuneSetNameList.includes(name))) return undefined;
+  /* A four-set takes four slots, so it can only lead: after it there is room
+     for one two-set and nothing else. */
+  if (sets.slice(1).some((name) => runeSetPieceCount[name] !== 2)) return undefined;
+  const slots = runeSetSlots(sets);
+  if (slots > runeSlotCount) return undefined;
+  return { id: runeBuildName(sets), sets, slots, leading };
+}
+
+/**
+ * The two-sets that may follow `sets` in a build, in the vocabulary's order — the
+ * menu's next column. Empty once the six slots are spoken for. A set already named
+ * is offered again: two-sets stack, and `Blade/Blade/Blade` is three Blade sets.
+ */
+export function runeBuildContinuations(sets: readonly string[]): readonly string[] {
+  if (sets.length >= runeBuildMaximumSets || runeSetSlots(sets) + 2 > runeSlotCount) return [];
+  return twoPieceRuneSets;
 }
 
 /**
  * A build by its identifier, or `undefined` where it is not written exactly as
- * `runeBuildName` writes it or names slots the game cannot fill.
+ * `runeBuildName` writes it or names more than the game can fill.
  */
 export function runeBuild(id: string): RuneBuild | undefined {
-  const parts = id.split(runeBuildSeparator);
-  const broken = parts.at(-1) === brokenRuneBuildPart;
-  const build = makeRuneBuild(broken ? parts.slice(0, -1) : parts, broken);
+  const build = makeRuneBuild(id.split(runeBuildSeparator));
   return build?.id === id ? build : undefined;
 }
 
@@ -131,5 +127,5 @@ export function isRuneBuildId(id: string): boolean {
  * be offering the optimizer one answer twice.
  */
 export function runeBuildKey(build: RuneBuild): string {
-  return [...build.sets].sort().join(runeBuildSeparator) + (build.broken ? runeBuildSeparator + brokenRuneBuildPart : '');
+  return [...build.sets].sort().join(runeBuildSeparator);
 }

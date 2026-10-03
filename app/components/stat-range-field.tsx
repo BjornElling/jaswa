@@ -1,0 +1,40 @@
+import type { ReactNode, Ref } from 'react';
+
+/**
+ * One figure's range: the least it must reach and the most it may, side by side
+ * under the figure's name, with what the monster has now beneath them.
+ *
+ * The monster profile and Rune Optimization ask the same question of the same
+ * eleven figures, so they ask it with one control. Both fields are always there,
+ * empty or not, and share the cell equally, so typing into one never moves the
+ * other (`AGENTS.md` §2). An empty field is no limit at that end.
+ */
+export function StatRangeField({
+  label, atLeast, atMost, onAtLeast, onAtMost, current, disabled, title, firstField,
+}: {
+  label: string;
+  atLeast: number | undefined;
+  atMost: number | undefined;
+  /** The raw text typed; the caller parses it through `readTargetField`. */
+  onAtLeast: (raw: string) => void;
+  onAtMost: (raw: string) => void;
+  /** The figure now, with any marks after it. */
+  current: ReactNode;
+  disabled?: boolean;
+  title?: string;
+  firstField?: Ref<HTMLInputElement>;
+}) {
+  return <div className="stat-range" role="group" aria-label={label}>
+    <p className="overlay-stat-head">{label}</p>
+    <div className="stat-range-fields">
+      <input ref={firstField} className="stat-range-input" type="number" min={0} step={1} inputMode="numeric"
+        placeholder="min" aria-label={`${label}: at least`} disabled={disabled} title={title}
+        value={atLeast ?? ''} onChange={(event) => onAtLeast(event.target.value)} />
+      <span className="stat-range-dash" aria-hidden="true">–</span>
+      <input className="stat-range-input" type="number" min={0} step={1} inputMode="numeric"
+        placeholder="max" aria-label={`${label}: at most`} disabled={disabled} title={title}
+        value={atMost ?? ''} onChange={(event) => onAtMost(event.target.value)} />
+    </div>
+    <p className="overlay-stat-current">{current}</p>
+  </div>;
+}

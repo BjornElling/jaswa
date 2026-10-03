@@ -45,16 +45,18 @@ that stage is visible on screen.
 
 ## 2. Requirements: the profile, then this calculation
 
-The monster's profile states the answer's shape: the builds it will accept, the
-mains of slots 2, 4 and 6, whether an Intangible rune and an Immemorial Gem or
-Grindstone may be spent (both yes unless the owner said no), whether the monster
-always crits (no unless the owner said yes), the targets it must reach, and the
-figure to rank by. The page opens on exactly that, read *resolved*
+The monster's profile — its *preset*, in the page's own words — states the
+answer's shape: the builds it will accept, the mains of slots 2, 4 and 6, whether
+a rune may complete no set (no unless the owner said yes), whether an Intangible
+rune and an Immemorial Gem or Grindstone may be spent (both yes unless the owner
+said no), whether the monster always crits (no unless the owner said yes), the
+range each figure must fall in, and the figure to rank by. The page opens on exactly that, read *resolved*
 (`monster-preference-resolution.ts`), so a slot the owner never answered carries
 the community's answer — and says so under the field.
 
 Anything may be changed on the page. **A change there is for this calculation
-only** and never written back to the profile; `Back to the profile` discards it.
+only** and never written back to the profile; *Reset to preset* discards it, once
+the user has confirmed it.
 
 ### 2.1 Empty means any
 
@@ -62,11 +64,22 @@ An empty list of builds or slot mains means *any*. That is what the profile's ow
 token lines show (`Any build`, `Any`), and an optimizer that read it as "none will
 do" would answer a question the screen never asked.
 
-### 2.2 Targets are floors
+### 2.1.1 Builds and broken sets
 
-A target is a minimum on one of the eleven figures. Absent means "not aimed at";
-`0` is a stated floor of nothing (`AGENTS.md` §3). A build below any floor is not
-listed at all.
+A build names the sets it must hold — `Violent`, `Violent/Will`, `Swift/Will` —
+and leaves the slots it does not name free (`rune-set-pairs.ts`). What may sit
+in a free slot is the profile's *Allow broken sets*: off, every rune of a finished
+build belongs to a completed set, so `Violent` means Violent and some whole
+two-set; on, the free slots take anything. The same switch holds where no build is
+named at all. An Intangible counts as belonging to a set only where it completes
+one.
+
+### 2.2 Targets are ranges
+
+Each of the eleven figures has a range: a floor (`targets`, the profile's
+`statTargets`) and a ceiling (`ceilings`, `statCeilings`), each absent or stated
+on its own. Absent means "no limit at that end"; `0` is a stated limit of nothing
+(`AGENTS.md` §3). A build outside any range is not listed at all.
 
 ### 2.2.1 Always crits
 
@@ -97,7 +110,7 @@ Grindstones the settings allow. A rune enters its own slot's list when:
   no craft item is counted on it.
 - it sits in the inventory, on this monster, or — where *Take runes from other
   monsters* is on — on another monster;
-- its set can appear in a stated build, unless a build leaves slots broken;
+- its set can appear in a stated build, unless a build leaves slots free;
 - its main is one the slot accepts;
 - it is not Intangible, unless Intangible runes are allowed.
 
@@ -122,8 +135,8 @@ figure.
 
 ### 4.1 Only what the question reads
 
-The ranking figure and the targets decide which of the twelve stat accumulators
-matter. DMG reads ATK, CRI Rate and CRI Dmg; E.HP reads HP and DEF. Every other
+The ranking figure, the floors and the ceilings decide which of the twelve stat
+accumulators matter. DMG reads ATK, CRI Rate and CRI Dmg; E.HP reads HP and DEF. Every other
 accumulator is ignored by every reduction below — a rune's Accuracy is noise to a
 DMG build with no Accuracy floor.
 
@@ -134,6 +147,11 @@ as good on every accumulator that matters and spends no held item *b* does not.
 Every figure JASWA computes rises with every accumulator, so replacing *b* by *a*
 in any build keeps its sets, its item spend and every target it met, and cannot
 lower the ranking figure.
+
+A ceiling breaks "more is better" on the accumulators it reads: the stronger rune
+can carry a build past the top of a range the weaker one kept it inside. On those
+accumulators *a* must therefore *equal* *b* rather than beat it — a narrower
+reduction, never a wrong one.
 
 HP, ATK and DEF are a percentage and a flat pair that the game rounds up once. *a*
 is safely no worse on a pair when it is no worse on both halves, or when its
@@ -147,8 +165,8 @@ dominators exist as the table has rows. That is what makes the whole table exact
 not only its first row. Identical candidates break the tie towards the rune
 already on the monster.
 
-With no build stated and no Intangible allowed, a set matters only for the stat
-bonus it completes, so every set without one — Violent, Will, Despair and the rest
+With no build stated, no Intangible allowed and broken sets allowed, a set matters
+only for the stat bonus it completes, so every set without one — Violent, Will, Despair and the rest
 — is one group, and a Violent rune can be dominated by a better Will rune. On the
 real account this halves the candidates of an unconstrained search.
 
@@ -229,7 +247,9 @@ A set only needs a group of its own where it can change a decision: a stated bui
 asks for it, its bonus lands on an accumulator the question reads, or it is
 Intangible. Every other set shares one neutral group. That stops being true the
 moment an Intangible can be worn, because which set it completes depends on which
-sets are one short, so with one in reach every set keeps its own group.
+sets are one short, so with one in reach every set keeps its own group — and so
+does refusing broken sets, because then a rune's set decides whether the build can
+be finished at all.
 
 Which blocks a prefix may open, and what each adds, depends only on its four runes'
 groups. A few hundred such signatures cover millions of prefixes, so the set rules
@@ -243,9 +263,18 @@ still reports the sheet it would really have.
 ### 6.3 Builds and the Intangible rule
 
 Sets are checked as they are placed: a branch that can no longer become a stated
-build stops at the rune that ruined it. A finished combination is a stated build
-when every set in it is complete and, for a build without broken slots, nothing
-else is worn.
+build — or, with broken sets refused, can no longer finish every set it has
+started — stops at the rune that ruined it. A finished combination is a stated
+build when every set the build names is complete; with broken sets refused, every
+rune must also sit in a completed set (`noBrokenSets`).
+
+### 6.3.1 Ceilings
+
+Every bound in the tree is an upper estimate, and an upper estimate past a ceiling
+says nothing about the build beneath it, so a ceiling never prunes the tree. It is
+judged once, on a finished build's own figures, after its real sets are counted.
+The card is unaffected: its answer is already generous, and every pair it sends
+back is judged on the processor.
 
 An Intangible completes the one set that is exactly one rune short
 (`RUNE-CANONICAL.md` §10). **Where several are, the game picks one and JASWA does
@@ -350,16 +379,20 @@ table pick for pick. It needs a running dev server and a card, and is not part o
 
 ## 8. The page
 
-1. **Monster** — every owned copy by its copy name, *Open profile* beside it, and
-   *Find builds*, *Stop* and *Back to the profile*.
-2. **Requirements for this calculation** — builds, Intangible, the three slot
-   mains, the figure to rank by and the eleven floors, each with a one-line caption
-   saying where its answer came from. The monster's current figure sits under each
-   floor.
-3. **How to search** — Gems, Grindstones, rune sources, depth and table size. These
-   are saved preferences and hold for every monster.
-4. **Status** — builds checked, runes considered, time, engine; notices when the
-   table is stale or the search stopped at its limit.
+1. **Monster** — every owned copy by its copy name in a large field with its
+   portrait, *Open preset* under it; depth and table size beside it, because they
+   are read at the moment of searching; then *Find builds* and a square stop mark.
+2. **Requirements for this calculation** — two thirds: builds, the three slot
+   mains, the figure to rank by and the eleven ranges in two rows, with a caption
+   line under each that says only what differs from the preset or where an
+   unstated answer came from; *Reset to preset* under them. One third, down the
+   whole box: the settings — *Any set* (broken sets, Intangible, Immemorial) from
+   the preset, and Gems, Grindstones and rune sources, which are saved
+   preferences and hold for every monster.
+4. **Status** — at the foot of the monster panel, under *Find builds*, dimmed:
+   the search's progress while it runs, then builds checked, runes considered,
+   time and engine. The stale warning sits between the two; a search that stopped
+   at its limit says so above the table.
 5. **Builds** — the current build pinned first as `Now`, then the ranked builds.
    Every column sorts; the order starts on the ranking figure. Choosing a row opens
    the build in an overlay: its six runes in the game's rune circle — slot 1 at

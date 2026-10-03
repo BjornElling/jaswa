@@ -122,8 +122,8 @@ export type MonsterCopyPreferences = {
   label?: string;
   /**
    * The exact rune builds this copy will accept, as `rune-set-pairs.ts` names
-   * them — `Violent/Blade` or `Violent/Broken`, not `Violent` and `Blade`
-   * separately.
+   * them — `Violent/Blade` or `Violent`, not `Violent` and `Blade` as two
+   * separate wishes.
    *
    * **This reverses the earlier per-set model.** Stating sets one at a time
    * cannot distinguish `Despair / Revenge` from `Revenge / Revenge / Revenge`,
@@ -132,10 +132,16 @@ export type MonsterCopyPreferences = {
    *
    * These are yes/no statements, not bands: a build is one the user will take
    * or it is not. An empty list means none of them; an absent one is a silence.
-   * Broken slots are part of the build that accepts them, so there is no
-   * separate switch saying a broken pair will do.
+   * A build names only the sets it must hold; whether the slots it leaves may
+   * stay broken is `allowBrokenSets`, one answer for the whole copy.
    */
   runeSets?: string[];
+  /**
+   * Whether a build may hold runes that complete no set — the free slots a build
+   * like `Violent` leaves, or a whole build where none is named. Absent is no: a
+   * build is six runes in finished sets unless the owner says otherwise.
+   */
+  allowBrokenSets?: boolean;
   /** Whether an Intangible rune may stand in for the one rune a set is short. Absent is yes. */
   allowIntangibleRunes?: boolean;
   /** Whether an Immemorial Gem or Grindstone, which fits a rune of any set, may be spent. Absent is yes. */
@@ -180,8 +186,20 @@ export type MonsterCopyPreferences = {
    *
    * A stat left `undefined` is one this copy does not aim at; an explicit `0`
    * is a stated target of nothing.
+   *
+   * These are the *lower* ends of each range — "at least" — and `statCeilings`
+   * holds the upper ends.
    */
   statTargets?: MonsterStatTargets;
+  /**
+   * The most each figure may reach — the upper end of a range whose lower end is
+   * in `statTargets`. A turn-order position, a RES that must not overshoot what a
+   * team needs: some figures are wanted *between* two values, not merely above
+   * one. Kept beside the floors rather than folded into one range object, so each
+   * end is its own answer — absent independently of the other, read back
+   * independently — and the floors every copy already states keep their shape.
+   */
+  statCeilings?: MonsterStatTargets;
   /**
    * Which figure to maximise once every stated target is met.
    *
@@ -226,6 +244,7 @@ export function blankMonsterCopyPreferences(unitId: string): MonsterCopyPreferen
 export function statesSomething(preferences: MonsterCopyPreferences): boolean {
   if (preferences.label !== undefined && preferences.label.length > 0) return true;
   if (preferences.runeSets !== undefined) return true;
+  if (preferences.allowBrokenSets !== undefined) return true;
   if (preferences.allowIntangibleRunes !== undefined) return true;
   if (preferences.allowImmemorialItems !== undefined) return true;
   if (preferences.alwaysCrits !== undefined) return true;
@@ -238,8 +257,9 @@ export function statesSomething(preferences: MonsterCopyPreferences): boolean {
   if (preferences.relics?.main !== undefined) return true;
   if (preferences.relics?.unique !== undefined) return true;
   if (preferences.runeSuggestionStat !== undefined) return true;
-  const targets = preferences.statTargets;
-  if (targets !== undefined && monsterStatTargetKeys.some((key) => targets[key] !== undefined)) return true;
+  for (const targets of [preferences.statTargets, preferences.statCeilings]) {
+    if (targets !== undefined && monsterStatTargetKeys.some((key) => targets[key] !== undefined)) return true;
+  }
   return false;
 }
 
@@ -337,6 +357,20 @@ function targetCeiling(key: string): number {
   return compositeTargetKeys.has(key) ? monsterCompositeTargetMaximum : presetTargetMaximum;
 }
 
+/**
+ * One end of a range as typed: a whole number within the figure's reach, or
+ * `undefined` for a field left empty. Empty is *absent* — that end is not aimed
+ * at — where `0` is a stated end of nothing (`AGENTS.md` §3). The profile and
+ * Rune Optimization both read their fields through this, so the two cannot parse
+ * the same keystrokes differently.
+ */
+export function readTargetField(key: keyof MonsterStatTargets, raw: string): number | undefined {
+  const trimmed = raw.trim();
+  const parsed = Number(trimmed);
+  if (trimmed === '' || !Number.isFinite(parsed)) return undefined;
+  return Math.min(targetCeiling(key), Math.max(0, Math.round(parsed)));
+}
+
 function isStatTargets(value: unknown): value is MonsterStatTargets {
   if (!isRecord(value)) return false;
   if (!Object.keys(value).every((key) => monsterStatTargetKeys.includes(key as keyof MonsterStatTargets))) return false;
@@ -368,6 +402,7 @@ function isArtifactPreferences(value: unknown): boolean {
 const copyFieldChecks: Record<Exclude<keyof MonsterCopyPreferences, 'unitId'>, (value: unknown) => boolean> = {
   label: (value) => typeof value === 'string' && value.trim() === value && value.length <= monsterLabelMaximum,
   runeSets: isRuneBuildList,
+  allowBrokenSets: (value) => typeof value === 'boolean',
   allowIntangibleRunes: (value) => typeof value === 'boolean',
   allowImmemorialItems: (value) => typeof value === 'boolean',
   alwaysCrits: (value) => typeof value === 'boolean',
@@ -375,6 +410,7 @@ const copyFieldChecks: Record<Exclude<keyof MonsterCopyPreferences, 'unitId'>, (
   artifacts: isArtifactPreferences,
   relics: isRelicPreference,
   statTargets: isStatTargets,
+  statCeilings: isStatTargets,
   runeSuggestionStat: (value) => monsterStatTargetKeys.includes(value as keyof MonsterStatTargets),
 };
 
@@ -391,6 +427,15 @@ export function readMonsterPreferences(value: unknown): MonsterPreferences {
     const copy: Record<string, unknown> = { unitId };
     for (const [key, check] of Object.entries(copyFieldChecks)) {
       if (stored[key] !== undefined && check(stored[key])) copy[key] = stored[key];
+    }
+    /* Each wanted build is its own choice (`AGENTS.md` §0): one the vocabulary no
+       longer writes — `Violent/Broken`, from before broken slots became the
+       copy's own switch — costs that build, not the builds beside it. A list
+       left with none of its builds is a list never stated, rather than a
+       statement that none will do. */
+    if (copy.runeSets === undefined && Array.isArray(stored.runeSets)) {
+      const kept = stored.runeSets.filter(isRuneBuildId);
+      if (kept.length > 0 && isRuneBuildList(kept)) copy.runeSets = kept;
     }
     const preferences = copy as MonsterCopyPreferences;
     if (statesSomething(preferences)) read[unitId] = preferences;

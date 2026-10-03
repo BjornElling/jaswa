@@ -37,7 +37,7 @@ import { targetFigureKeys } from './monster-stats';
 import type { EndStateLine } from './rune-craft-end-state';
 import type { CraftItem } from './rune-craft-items';
 import type { RuneHolds } from './rune-holds';
-import { buildFigures, figureIndex, targetFloors } from './rune-optimization-problem';
+import { buildFigures, figureIndex, targetCeilings, targetFloors } from './rune-optimization-problem';
 import type { RankFigure, RuneOptimizationRequirements } from './rune-optimization-problem';
 import type { RuneOptimizationSettings } from './rune-optimization-settings';
 import type { Rune } from './runes';
@@ -59,12 +59,14 @@ export type CurrentPick = PickedRune & { issue: PickIssue | null };
 
 /**
  * A build as the page shows it: figures `null` where one of its runes has left the
- * account, the issue per rune, and the targets its figures no longer reach.
+ * account, the issue per rune, the targets its figures no longer reach and the
+ * ceilings they have since passed.
  */
 export type CurrentBuild = Omit<OptimizedBuild, 'figures' | 'runes'> & {
   runes: CurrentPick[];
   figures: number[] | null;
   short: RankFigure[];
+  over: RankFigure[];
 };
 
 /** Whether a build can still be followed as it stands. */
@@ -75,7 +77,7 @@ export type RefreshContext = {
   unitId: string;
   /** The copy's record as it is now: its artifacts are counted as well as its runes. */
   monster: GameRecord;
-  requirements: Pick<RuneOptimizationRequirements, 'targets' | 'alwaysCrits'>;
+  requirements: Pick<RuneOptimizationRequirements, 'targets' | 'ceilings' | 'alwaysCrits'>;
   settings: Pick<RuneOptimizationSettings, 'runesOnOtherMonsters'>;
   /** The runes and held items the search read. */
   before: { runes: ReadonlyMap<string, Rune>; items: ReadonlyMap<string, CraftItem> };
@@ -216,7 +218,7 @@ function readBuild(build: OptimizedBuild, context: RefreshContext, lockedSlots: 
   }
 
   const moves = picks.filter((picked) => picked.moves).length;
-  if (gone) return { ...build, runes: picks, moves, figures: null, short: [] };
+  if (gone) return { ...build, runes: picks, moves, figures: null, short: [], over: [] };
   /* Untouched since the search: its own figures, exactly. After a sync every build is
      counted again, since an artifact can change as well as a rune. */
   const figures = changed
@@ -224,7 +226,9 @@ function readBuild(build: OptimizedBuild, context: RefreshContext, lockedSlots: 
     : build.figures;
   const floors = targetFloors(context.requirements);
   const missed = targetFigureKeys.filter((key) => figures[figureIndex(key)] < floors[figureIndex(key)]);
-  return { ...build, runes: picks, moves, figures, short: missed };
+  const ceilings = targetCeilings(context.requirements);
+  const past = targetFigureKeys.filter((key) => figures[figureIndex(key)] > ceilings[figureIndex(key)]);
+  return { ...build, runes: picks, moves, figures, short: missed, over: past };
 }
 
 /**

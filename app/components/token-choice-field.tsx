@@ -248,12 +248,19 @@ export function TokenChoiceLine<T extends string | number>({
      the field's left edge. Near the right edge of the window that would put it
      partly off screen, so it is then pulled back by however much it overruns —
      the whole menu moves, rather than opening from somewhere nobody clicked. */
+  /* A menu that grows while open — a cascade opening its next column — states the
+     width it may grow to in `--menu-reach`, and is placed against that once. Placing
+     it again as it grew would slide the column under the pointer sideways the moment
+     the next one opened. */
   useLayoutEffect(() => {
     const element = menu.current;
     const from = panel === 'overflow' ? more.current : slot.current;
     if (!element || !from) return;
     element.style.left = `${from.offsetLeft}px`;
-    const overrun = element.getBoundingClientRect().right - (window.innerWidth - 8);
+    const box = element.getBoundingClientRect();
+    const reach = Number.parseFloat(getComputedStyle(element).getPropertyValue('--menu-reach'));
+    const right = box.left + Math.max(box.width, Number.isFinite(reach) ? reach : 0);
+    const overrun = right - (window.innerWidth - 8);
     if (overrun > 0) element.style.left = `${from.offsetLeft - overrun}px`;
   }, [panel, visible]);
 

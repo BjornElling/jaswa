@@ -77,6 +77,7 @@ export function buildIssueReading(build: CurrentBuild, wearerName: (unitId: stri
   const lines = [...build.runes].sort((left, right) => left.slot - right.slot)
     .flatMap((picked) => (picked.issue ? [`Slot ${picked.slot}: ${pickIssueText(picked.issue, wearerName)}.`] : []));
   if (build.short.length > 0) lines.push(`${shortText(build.short)}.`);
+  if (build.over.length > 0) lines.push(`Now above the range for ${build.over.map((key) => figureNames[key] ?? key).join(', ')}.`);
   return lines.join(' ');
 }
 

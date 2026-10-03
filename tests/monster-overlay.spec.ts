@@ -81,7 +81,7 @@ test('a monster name opens its overlay without moving the row it sits in', async
   await expect(dialog).toHaveAttribute('aria-modal', 'true');
   /* Focus opens in the body, not on the way out: stating preferences is what
      the overlay is for. */
-  await expect(page.locator('.overlay-stat-target').first()).toBeFocused();
+  await expect(page.locator('.stat-range-input').first()).toBeFocused();
 });
 
 test('a nickname is typed in place after the name, and its parentheses are the heading\'s own', async ({ page }) => {
@@ -199,7 +199,7 @@ test('a stated preference is saved, and only what was stated', async ({ page }) 
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toBeVisible();
 
-  const spd = page.getByRole('spinbutton', { name: 'Desired Spd' });
+  const spd = page.getByRole('spinbutton', { name: 'Spd: at least' });
   await spd.scrollIntoViewIfNeeded();
   await spd.fill('130');
 
@@ -221,12 +221,15 @@ test('a composite target is stated and kept, alongside the stat it is derived fr
   /* E.HP follows from HP and DEF, so it is *derived* wherever it is shown — but
      a target for it is a goal its owner states, and no combination of the eight
      stat targets expresses it. Both therefore travel. */
-  const ehp = page.getByRole('spinbutton', { name: 'Desired E.HP', exact: true });
+  const ehp = page.getByRole('spinbutton', { name: 'E.HP: at least', exact: true });
   await ehp.scrollIntoViewIfNeeded();
   await ehp.fill('60000');
+  /* The other end of the range is its own answer, kept apart from the first. */
+  await page.getByRole('spinbutton', { name: 'Spd: at most', exact: true }).fill('200');
   await page.getByRole('button', { name: 'Save changes' }).click();
   await expect(page.getByRole('dialog')).toBeHidden();
   expect((await storedPreferences(page))?.['1']?.statTargets).toEqual({ ehp: 60000 });
+  expect((await storedPreferences(page))?.['1']?.statCeilings).toEqual({ spd: 200 });
 });
 
 test('a cleared preference stays cleared, and does not fall back to the default', async ({ page }) => {
@@ -257,57 +260,72 @@ test('a cleared preference stays cleared, and does not fall back to the default'
   await expect(reopened).toHaveAttribute('aria-label', 'Slot 4 main stat: Any');
 });
 
-test('a rune build is chosen as a whole pair, never as two loose sets', async ({ page }) => {
+test('a rune build is chosen as a whole, set by set, never as loose sets', async ({ page }) => {
   await importAccount(page);
   await openOverlay(page);
 
-  /* The point of the change: `Violent/Blade` is one answer. Choosing Violent
+  /* The point of the model: `Violent/Blade` is one answer. Choosing Violent
      and Blade separately could not say whether a triple Violent build would
      do, and the optimizer had to guess. */
   const builds = page.getByRole('button', { name: /^Desired rune builds:/ });
+  const menu = page.getByRole('dialog', { name: 'Desired rune builds' });
+  const set = (list: string, name: string) => menu.getByRole('list', { name: list }).getByRole('button', { name, exact: true });
   await builds.scrollIntoViewIfNeeded();
-  await builds.click();
-  await page.getByRole('button', { name: 'Violent 4-piece' }).click();
-  /* A finished build is one click, and lands on the line as a pill. */
-  await page.getByRole('button', { name: 'Violent/Blade 4 + 2' }).click();
-  await expect(page.getByRole('dialog', { name: 'Desired rune builds' })).toHaveCount(0);
-  await expect(builds).toHaveAttribute('aria-label', 'Desired rune builds: Violent/Blade');
 
-  /* Broken is part of the build that accepts it, not a switch beside it. */
+  /* A four-set on its own is a build — four Violent runes and two others — and a
+     click in the first column adds it. */
   await builds.click();
-  await page.getByRole('button', { name: 'Violent 4-piece' }).click();
-  await page.getByRole('button', { name: 'Violent/Broken 4 + 2' }).click();
+  await set('Four-piece sets', 'Violent').click();
+  await expect(menu).toHaveCount(0);
+  await expect(builds).toHaveAttribute('aria-label', 'Desired rune builds: Violent');
 
-  /* A two-set stack is composed from ticks and added as one build; the slots
-     nothing is ticked for are broken, and three sets fill all six. */
+  /* Chosen, it stays in its place, dimmed, and still opens the sets that can
+     follow it. After a four-set and a two-set the six slots are spoken for, so
+     there is no third column. */
   await builds.click();
-  await page.getByRole('button', { name: 'Will 2-piece' }).click();
-  const composed = page.locator('.rune-build-composed-name');
-  await expect(composed).toHaveText('Will/Broken');
-  await page.getByRole('checkbox', { name: 'Revenge' }).check();
-  await expect(composed).toHaveText('Will/Revenge/Broken');
-  await page.getByRole('checkbox', { name: 'Destroy' }).check();
-  await expect(composed).toHaveText('Will/Destroy/Revenge');
-  await page.getByRole('button', { name: 'Add build' }).click();
-  await expect(builds).toHaveAttribute('aria-label',
-    'Desired rune builds: Violent/Blade, Violent/Broken, Will/Destroy/Revenge');
+  await set('Four-piece sets', 'Violent').hover();
+  await expect(set('Four-piece sets', 'Violent')).toHaveAttribute('aria-disabled', 'true');
+  await set('After Violent', 'Blade').hover();
+  await expect(menu.getByRole('list', { name: 'After Violent and Blade' })).toHaveCount(0);
+  await set('After Violent', 'Blade').click();
+
+  /* Two-sets go three columns deep. */
+  await builds.click();
+  await set('Two-piece sets', 'Will').hover();
+  await set('After Will', 'Revenge').hover();
+  await set('After Will and Revenge', 'Destroy').click();
+  await expect(builds).toHaveAttribute('aria-label', 'Desired rune builds: Violent, Violent/Blade, Will/Revenge/Destroy');
+
+  /* A two-set stacks with itself: three Blade sets is a build of its own. */
+  await builds.click();
+  await set('Two-piece sets', 'Blade').hover();
+  await set('After Blade', 'Blade').hover();
+  await set('After Blade and Blade', 'Blade').click();
+  await expect(builds).toHaveAttribute('aria-label', 'Desired rune builds: Violent, Violent/Blade, Will/Revenge/Destroy, Blade/Blade/Blade');
 
   /* The same six slots led by another set are the same build, and cannot be
      added a second time. */
   await builds.click();
-  await page.getByRole('button', { name: 'Destroy 2-piece' }).click();
-  await page.getByRole('checkbox', { name: 'Will' }).check();
-  await page.getByRole('checkbox', { name: 'Revenge' }).check();
-  await expect(page.getByRole('button', { name: 'Add build' })).toBeDisabled();
+  await set('Two-piece sets', 'Destroy').hover();
+  await set('After Destroy', 'Will').hover();
+  await expect(set('After Destroy and Will', 'Revenge')).toHaveAttribute('aria-disabled', 'true');
+  await set('After Destroy and Will', 'Revenge').click({ force: true });
+  await expect(menu).toBeVisible();
+  await expect(builds).toHaveAttribute('aria-label', 'Desired rune builds: Violent, Violent/Blade, Will/Revenge/Destroy, Blade/Blade/Blade');
   await page.keyboard.press('Escape');
   /* The overlay behind survived every menu. */
   await expect(page.getByRole('button', { name: 'Save changes' })).toBeEnabled();
-  await expect(builds).toHaveAttribute('aria-label',
-    'Desired rune builds: Violent/Blade, Violent/Broken, Will/Destroy/Revenge');
+
+  /* Broken sets are the copy's own answer, off until it is given. */
+  const broken = page.getByLabel('Allow broken sets');
+  await expect(broken).not.toBeChecked();
+  await broken.check();
 
   await page.getByRole('button', { name: 'Save changes' }).click();
   await expect(page.getByRole('dialog')).toBeHidden();
-  expect((await storedPreferences(page))?.['1']?.runeSets).toEqual(['Violent/Blade', 'Violent/Broken', 'Will/Destroy/Revenge']);
+  const stored = (await storedPreferences(page))?.['1'];
+  expect(stored?.runeSets).toEqual(['Violent', 'Violent/Blade', 'Will/Revenge/Destroy', 'Blade/Blade/Blade']);
+  expect(stored?.allowBrokenSets).toBe(true);
 });
 
 test('what is wanted leads each block, and what is worn follows as reference', async ({ page }) => {

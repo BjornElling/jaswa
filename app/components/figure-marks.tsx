@@ -85,7 +85,7 @@ function describeShortfall(shortfall: Shortfall, general: GeneralSettings): stri
   const where = shortfall.where === undefined ? '' : `${shortfall.where}: `;
 
   if (shortfall.kind === 'stat' && shortfall.target !== undefined && shortfall.current !== undefined) {
-    return `${where}${whose} ${shortfall.wanted} ${formatNumber(shortfall.target, general)},`
+    return `${where}${whose} ${shortfall.wanted} ${shortfall.over ? 'at most' : 'at least'} ${formatNumber(shortfall.target, general)},`
       + ` and this copy has ${formatNumber(shortfall.current, general)}.`;
   }
   /* A substat floor states both figures in percentage points, since that is how

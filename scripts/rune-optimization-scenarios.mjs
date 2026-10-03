@@ -54,7 +54,7 @@ export function scenarioGenerator(firstSeed = 20260930, runesPerSlot = [3, 5]) {
     };
   }
 
-  const builds = [[], ['Violent/Will'], ['Violent/Broken'], ['Swift/Energy', 'Violent/Blade'], ['Energy/Will/Blade'], ['Fatal/Broken', 'Rage/Energy']];
+  const builds = [[], ['Violent/Will'], ['Violent'], ['Swift/Energy', 'Violent/Blade'], ['Energy/Will/Blade'], ['Fatal', 'Rage/Energy'], ['Will'], ['Energy/Blade'], ['Blade/Blade'], ['Will/Will/Will']];
   const figures = monsterStatTargetKeys;
 
   function scenario(index) {
@@ -94,6 +94,13 @@ export function scenarioGenerator(firstSeed = 20260930, runesPerSlot = [3, 5]) {
     const grinds = pick(['none', 'owned', 'theoretical']);
     const allowImmemorial = random() < 0.7;
     const alwaysCrits = random() < 0.3;
+    const allowBroken = random() < 0.5;
+    /* The other end of a range now and then: a ceiling turns "more is better" off on
+       what it reads, which is exactly what the exact reduction must notice. */
+    const ceilings = {};
+    if (random() < 0.35) ceilings.spd = between(130, 190);
+    if (random() < 0.2) ceilings.hp = between(12000, 20000);
+    if (random() < 0.15) ceilings.criRate = between(40, 90);
     return {
       unitId: '1',
       monster: {
@@ -104,7 +111,7 @@ export function scenarioGenerator(firstSeed = 20260930, runesPerSlot = [3, 5]) {
       requirements: {
         builds: wantedBuilds,
         slotMains: { slot2: random() < 0.3 ? ['Spd'] : [], slot4: [], slot6: [] },
-        allowIntangible, allowImmemorial, alwaysCrits, targets, rankBy,
+        allowBroken, allowIntangible, allowImmemorial, alwaysCrits, targets, ceilings, rankBy,
       },
       settings: {
         ...defaultRuneOptimizationSettings, gems, grinds, gemGrade: 'Legend', grindGrade: 'Hero',

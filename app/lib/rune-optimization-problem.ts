@@ -37,7 +37,7 @@ import type { RuneHolds } from './rune-holds';
 import { runeOptimizationDepthPlans } from './rune-optimization-settings';
 import type { CraftUse, RuneOptimizationSettings } from './rune-optimization-settings';
 import { mainPropertyMaximum } from './rune-properties';
-import { runeBuild } from './rune-set-pairs';
+import { runeBuild, runeSlotCount } from './rune-set-pairs';
 import { runeSetId, runeSetPieceCount } from './rune-sets';
 import { runeSlotMainByEffect } from './rune-slot-mains';
 import type { RuneSlotMain } from './rune-slot-mains';
@@ -58,6 +58,8 @@ export type RankFigure = keyof MonsterStatTargets;
 export type RuneOptimizationRequirements = {
   builds: readonly string[];
   slotMains: Readonly<Record<RuneSlotKey, readonly RuneSlotMain[]>>;
+  /** Whether a rune may complete no set — in the slots a build leaves free, or anywhere where no build is named. */
+  allowBroken: boolean;
   allowIntangible: boolean;
   /** Whether a held Immemorial Gem or Grindstone may be spent. An assumed item is never one. */
   allowImmemorial: boolean;
@@ -65,6 +67,8 @@ export type RuneOptimizationRequirements = {
   alwaysCrits: boolean;
   /** Floors the build must reach. Absent is "not aimed at"; `0` is a floor of nothing. */
   targets: Partial<Record<RankFigure, number>>;
+  /** The most each figure may reach — the other end of each range. Absent is no limit. */
+  ceilings: Partial<Record<RankFigure, number>>;
   rankBy: RankFigure;
 };
 
@@ -105,11 +109,11 @@ export type Candidate = {
   proxy: number;
 };
 
-/** A build as the search reads it: pieces needed per `set_id`, and whether slots are left free. */
+/** A build as the search reads it: pieces needed per `set_id`, and how many slots it leaves free. */
 export type BuildRequirement = {
   id: string;
   needs: ReadonlyArray<{ setId: number; pieces: number }>;
-  broken: boolean;
+  free: number;
 };
 
 export type SlotReport = {
@@ -135,12 +139,18 @@ export type RuneOptimizationProblem = {
   slots: Candidate[][];
   /** `null` where any combination of sets will do. */
   builds: BuildRequirement[] | null;
+  /** Whether a rune may complete no set. Off, every finished build is six runes in completed sets. */
+  allowBroken: boolean;
+  /** Pieces a set takes, by `set_id`; `0` for an id that is no set (Intangible among them). */
+  setPieces: Int32Array;
   allowIntangible: boolean;
   /** One per figure in `monsterStatTargetKeys` order; `NaN` where no floor is set. */
   targets: Float64Array;
+  /** The same, for the upper end of each range; `NaN` where no ceiling is set. */
+  ceilings: Float64Array;
   rank: number;
   /**
-   * The accumulators the ranking figure and the targets read (§4.1). A set bonus on
+   * The accumulators the ranking figure, the targets and the ceilings read (§4.1). A set bonus on
    * any other accumulator moves no figure a decision reads, so the search's bound
    * and its blocks ignore it — the figures a found build reports still count it.
    */
@@ -186,12 +196,27 @@ const slotsOf = (figure: RankFigure, alwaysCrits: boolean): readonly number[] =>
  * always crits is never asked for CRI Rate: every hit it lands is already a crit.
  */
 export function targetFloors(requirements: Pick<RuneOptimizationRequirements, 'targets' | 'alwaysCrits'>): Float64Array {
-  const targets = new Float64Array(targetFigureCount).fill(Number.NaN);
-  for (const [key, value] of Object.entries(requirements.targets)) {
-    if (requirements.alwaysCrits && key === 'criRate') continue;
-    if (typeof value === 'number' && Number.isFinite(value)) targets[figureIndex(key as RankFigure)] = value;
+  return figureLimits(requirements.targets, requirements.alwaysCrits);
+}
+
+/** The ceilings a calculation asks for, read as `targetFloors` reads the floors. */
+export function targetCeilings(requirements: Pick<RuneOptimizationRequirements, 'ceilings' | 'alwaysCrits'>): Float64Array {
+  return figureLimits(requirements.ceilings, requirements.alwaysCrits);
+}
+
+function figureLimits(limits: Partial<Record<RankFigure, number>>, alwaysCrits: boolean): Float64Array {
+  const values = new Float64Array(targetFigureCount).fill(Number.NaN);
+  for (const [key, value] of Object.entries(limits)) {
+    if (alwaysCrits && key === 'criRate') continue;
+    if (typeof value === 'number' && Number.isFinite(value)) values[figureIndex(key as RankFigure)] = value;
   }
-  return targets;
+  return values;
+}
+
+/** Whether any figure is past its ceiling. `NaN` compares false, so an unset ceiling never is. */
+export function overCeiling(figures: ArrayLike<number>, ceilings: Float64Array): boolean {
+  for (let at = 0; at < ceilings.length; at += 1) if (figures[at] > ceilings[at]) return true;
+  return false;
 }
 
 /**
@@ -310,7 +335,7 @@ function buildRequirements(ids: readonly string[]): BuildRequirement[] | null {
       if (setId === undefined) continue;
       needs.set(setId, (needs.get(setId) ?? 0) + (runeSetPieceCount[name] ?? 2));
     }
-    builds.push({ id: build.id, needs: [...needs].map(([setId, pieces]) => ({ setId, pieces })), broken: build.broken });
+    builds.push({ id: build.id, needs: [...needs].map(([setId, pieces]) => ({ setId, pieces })), free: runeSlotCount - build.slots });
   }
   /* Every stated build failed to read: that is not "any build" but "none", and the
      search must say it found nothing rather than widen the question. */
@@ -328,8 +353,15 @@ function buildRequirements(ids: readonly string[]): BuildRequirement[] | null {
  * build: `b` could still hold the second place `a` leaves. Each dominator gives one
  * build at least as good as any build using `b`, so `b` goes only once `keep` of them
  * exist — which is what makes the whole table exact, not just its first row.
+ *
+ * **A ceiling breaks "more is better"** on the accumulators it reads: the stronger
+ * rune can carry a build past the top of a range the weaker one kept it inside. So
+ * on every accumulator in `pinned`, `a` must equal `b` rather than beat it — a
+ * narrower reduction, never a wrong one.
  */
-function undominated(candidates: Candidate[], relevant: readonly number[], base: Float64Array, keep: number): Candidate[] {
+function undominated(
+  candidates: Candidate[], relevant: readonly number[], pinned: ReadonlySet<number>, base: Float64Array, keep: number,
+): Candidate[] {
   /* HP, ATK and DEF each come as a percentage and a flat pair, and the game rounds
      their sum up once. `a` is safely no worse on a pair when it is no worse on both
      halves, or when its combined figure is at least one whole point ahead — the
@@ -348,11 +380,18 @@ function undominated(candidates: Candidate[], relevant: readonly number[], base:
     let better = false;
     for (const slot of singles) {
       if (a.effects[slot] < b.effects[slot]) return -1;
-      if (a.effects[slot] > b.effects[slot]) better = true;
+      if (a.effects[slot] > b.effects[slot]) {
+        if (pinned.has(slot)) return -1;
+        better = true;
+      }
     }
     for (const [percent, flat, stat] of usedPairs) {
       const ap = a.effects[percent]; const af = a.effects[flat];
       const bp = b.effects[percent]; const bf = b.effects[flat];
+      if (pinned.has(percent) || pinned.has(flat)) {
+        if (ap !== bp || af !== bf) return -1;
+        continue;
+      }
       if (ap >= bp && af >= bf) { if (ap > bp || af > bf) better = true; continue; }
       if (stat * ap / 100 + af >= stat * bp / 100 + bf + 1) { better = true; continue; }
       return -1;
@@ -434,11 +473,14 @@ export function prepareRuneOptimization(
   const rank = figureIndex(requirements.rankBy);
   const targets = targetFloors(requirements);
   const targetFigures = targetFigureKeys.filter((key) => Number.isFinite(targets[figureIndex(key)]));
+  const ceilings = targetCeilings(requirements);
+  const ceilingFigures = targetFigureKeys.filter((key) => Number.isFinite(ceilings[figureIndex(key)]));
+  const pinned = new Set(ceilingFigures.flatMap((figure) => slotsOf(figure, requirements.alwaysCrits)));
 
-  /* Only what the ranking figure and the targets read matters to any reduction. A
-     rune's Accuracy is noise to a DMG build with no Accuracy floor, and a reduction
-     that compared it would keep a hundred runes for their Accuracy alone. */
-  const relevant = [...new Set([requirements.rankBy, ...targetFigures]
+  /* Only what the ranking figure, the targets and the ceilings read matters to any
+     reduction. A rune's Accuracy is noise to a DMG build with no Accuracy floor, and
+     a reduction that compared it would keep a hundred runes for their Accuracy alone. */
+  const relevant = [...new Set([requirements.rankBy, ...targetFigures, ...ceilingFigures]
     .flatMap((figure) => slotsOf(figure, requirements.alwaysCrits)))];
   const relevantSlots = new Uint8Array(effectSlotCount);
   for (const slot of relevant) relevantSlots[slot] = 1;
@@ -449,8 +491,8 @@ export function prepareRuneOptimization(
 
   const builds = buildRequirements(requirements.builds);
   /* A rune whose set no stated build can use is never a candidate — unless a build
-     leaves slots broken, where any set will do. */
-  const usableSets: Set<number> | null = builds === null || builds.some((build) => build.broken)
+     leaves slots free, where any set may fill them. */
+  const usableSets: Set<number> | null = builds === null || builds.some((build) => build.free > 0)
     ? null
     : new Set(builds.flatMap((build) => build.needs.map((need) => need.setId)));
 
@@ -555,8 +597,10 @@ export function prepareRuneOptimization(
    * dominated by a better Will rune. Not while an Intangible may be worn: which set
    * it completes depends on which sets are one short, so there the sets stay apart.
    */
+  /* Nor while broken sets are refused, because then a rune's set decides whether
+     the build can be finished at all. */
   const statSets = new Set(statSetBonuses.map(([setId]) => setId));
-  const mergeSetless = builds === null && !requirements.allowIntangible;
+  const mergeSetless = builds === null && requirements.allowBroken && !requirements.allowIntangible;
   const dominanceGroup = (setId: number) => (mergeSetless && !statSets.has(setId) ? 0 : setId);
 
   const plan = runeOptimizationDepthPlans[settings.depth];
@@ -581,7 +625,7 @@ export function prepareRuneOptimization(
     const kept: Candidate[] = [];
     for (const group of bySet.values()) {
       if (!reduce) { undominatedCount += group.length; kept.push(...group); continue; }
-      const left = undominated(group, relevant, base, settings.resultCount);
+      const left = undominated(group, relevant, pinned, base, settings.resultCount);
       undominatedCount += left.length;
       kept.push(...(keep === null ? left : cut(left, keep, targetSlopes)));
     }
@@ -591,40 +635,71 @@ export function prepareRuneOptimization(
   }
 
   return {
-    base, criticalRateLift: criticalRateLift(requirements.alwaysCrits), start, slots, builds, allowIntangible: requirements.allowIntangible,
-    targets, rank, relevant, resultCount: settings.resultCount, stock,
+    base, criticalRateLift: criticalRateLift(requirements.alwaysCrits), start, slots, builds,
+    allowBroken: requirements.allowBroken, setPieces: setPiecesById, allowIntangible: requirements.allowIntangible,
+    targets, ceilings, rank, relevant, resultCount: settings.resultCount, stock,
     timeLimitMs: plan.seconds * 1000,
     report: { runes: runesSeen.size, slots: reports, keep },
   };
 }
 
-/** Whether a finished set count is one of the stated builds (§6.3). */
-export function satisfiesBuild(build: BuildRequirement, counts: ArrayLike<number>, completes: number): boolean {
-  let inBuild = 0;
-  for (const need of build.needs) {
-    const worn = counts[need.setId] + (completes === need.setId ? 1 : 0);
-    if (worn < need.pieces) return false;
-    if (!build.broken && counts[need.setId] > need.pieces) return false;
-    inBuild += counts[need.setId];
+/** Pieces per `set_id`, from the one table that names them. */
+const setPiecesById = (() => {
+  const pieces = new Int32Array(setIdBound);
+  for (const [name, count] of Object.entries(runeSetPieceCount)) {
+    const setId = runeSetId(name);
+    if (setId !== undefined && setId > 0 && setId < setIdBound && setId !== intangibleSetId) pieces[setId] = count;
   }
-  return build.broken || inBuild + counts[intangibleSetId] === 6;
+  return pieces;
+})();
+
+/**
+ * Whether a finished set count holds one of the stated builds (§6.3). A build names
+ * the sets it must hold and leaves the rest free, so more runes of a named set — a
+ * second Will set beside `Will/Swift` — are free slots spent on it, not a mismatch.
+ */
+export function satisfiesBuild(build: BuildRequirement, counts: ArrayLike<number>, completes: number): boolean {
+  for (const need of build.needs) {
+    if (counts[need.setId] + (completes === need.setId ? 1 : 0) < need.pieces) return false;
+  }
+  return true;
 }
 
 /**
- * Whether a partly filled build can still become this one with `free` slots left —
- * the search's set pruning. It is allowed to be optimistic, never pessimistic: the
- * finished build is checked exactly by `satisfiesBuild`.
+ * Whether a partly filled build can still become this one with `6 - placed` slots
+ * left — the search's set pruning. It is allowed to be optimistic, never pessimistic:
+ * the finished build is checked exactly by `satisfiesBuild`.
  */
 export function canStillSatisfy(build: BuildRequirement, counts: ArrayLike<number>, placed: number): boolean {
-  const intangible = counts[intangibleSetId];
   let missing = 0;
-  let inBuild = 0;
-  for (const need of build.needs) {
-    const worn = counts[need.setId];
-    if (!build.broken && worn > need.pieces) return false;
-    missing += Math.max(0, need.pieces - worn);
-    inBuild += worn;
+  for (const need of build.needs) missing += Math.max(0, need.pieces - counts[need.setId]);
+  return missing - Math.min(1, counts[intangibleSetId]) <= 6 - placed;
+}
+
+/**
+ * Whether every rune of a finished build belongs to a completed set — what *Allow
+ * broken sets* turned off asks. An Intangible counts only where it completes a set.
+ */
+export function noBrokenSets(counts: ArrayLike<number>, completes: number, setPieces: Int32Array): boolean {
+  if (counts[intangibleSetId] > 0 && completes < 0) return false;
+  for (let setId = 1; setId < setPieces.length; setId += 1) {
+    if (setId === intangibleSetId) continue;
+    const worn = counts[setId] + (completes === setId ? 1 : 0);
+    if (worn > 0 && (setPieces[setId] === 0 || worn % setPieces[setId] !== 0)) return false;
   }
-  if (!build.broken && inBuild + intangible !== placed) return false;
-  return missing - Math.min(1, intangible) <= 6 - placed;
+  return true;
+}
+
+/**
+ * Whether the open slots can still finish every set started so far — the pruning
+ * for `noBrokenSets`, optimistic in the same way `canStillSatisfy` is.
+ */
+export function canStillFinishSets(counts: ArrayLike<number>, placed: number, setPieces: Int32Array): boolean {
+  let missing = 0;
+  for (let setId = 1; setId < setPieces.length; setId += 1) {
+    const worn = counts[setId];
+    if (worn === 0 || setPieces[setId] === 0) continue;
+    missing += (setPieces[setId] - (worn % setPieces[setId])) % setPieces[setId];
+  }
+  return missing - Math.min(1, counts[intangibleSetId]) <= 6 - placed;
 }

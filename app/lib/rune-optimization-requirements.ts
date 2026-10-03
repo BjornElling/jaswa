@@ -28,9 +28,12 @@ export function profileRequirements(
 ): { requirements: RuneOptimizationRequirements; sources: RequirementSources } {
   const resolved = resolveMonsterPreferences(unitId, masterId, stated);
   const targets: Partial<Record<RankFigure, number>> = {};
+  const ceilings: Partial<Record<RankFigure, number>> = {};
   for (const key of monsterStatTargetKeys) {
     const target = resolved.statTargets[key];
     if (target !== undefined) targets[key] = target.value;
+    const ceiling = resolved.statCeilings[key];
+    if (ceiling !== undefined) ceilings[key] = ceiling.value;
   }
   const slotMains = {} as RuneOptimizationRequirements['slotMains'];
   const slotSources = {} as Record<RuneSlotKey, PreferenceSource>;
@@ -43,10 +46,12 @@ export function profileRequirements(
     requirements: {
       builds: [...resolved.runes.sets.chosen],
       slotMains,
+      allowBroken: resolved.runes.allowBroken,
       allowIntangible: resolved.runes.allowIntangible,
       allowImmemorial: resolved.runes.allowImmemorial,
       alwaysCrits: resolved.alwaysCrits,
       targets,
+      ceilings,
       rankBy: named ?? defaultRankFigure(monsterPresentation(masterId).archetype),
     },
     sources: { slots: slotSources, rankBy: named === undefined ? 'archetype' : 'profile' },

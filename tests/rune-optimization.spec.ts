@@ -75,7 +75,7 @@ test('finds builds from the profile, keeps the profile untouched, and moves noth
   const requirements = page.getByRole('region', { name: 'Requirements for this calculation' });
   await expect(requirements).toBeVisible();
   /* This copy has no profile, so the builds are open and the figures are its own. */
-  await expect(requirements.getByText('The profile names no build, so any will do')).toBeVisible();
+  await expect(requirements.getByText('The preset names no build, so any will do')).toBeVisible();
 
   /* Intangible runes and Immemorial items are allowed until the owner says not. */
   await expect(requirements.getByLabel('Allow Intangible runes')).toBeChecked();
@@ -129,7 +129,7 @@ test('finds builds from the profile, keeps the profile untouched, and moves noth
   expect((stored?.monsterPreferences as Record<string, unknown> | undefined)?.['11']).toBeUndefined();
 
   /* The page's settings are the user's and are kept; changing one says the table is stale. */
-  const settings = page.getByRole('region', { name: 'How to search' });
+  const settings = page.getByRole('complementary', { name: 'Settings' });
   const gradeSelect = settings.getByLabel('Gems: grade');
   await expect(gradeSelect).toBeDisabled();
   const settingsBefore = await box(settings);
@@ -148,7 +148,7 @@ test('finds builds from the profile, keeps the profile untouched, and moves noth
   await expect.poll(async () => ((await storedPreferences(page))?.runeOptimization as Record<string, unknown>)?.gems).toBe('theoretical');
   await page.reload();
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
-  await expect(page.getByRole('region', { name: 'How to search' }).getByRole('radio', { name: 'Theoretical' }).first()).toBeChecked();
+  await expect(page.getByRole('complementary', { name: 'Settings' }).getByRole('radio', { name: 'Theoretical' }).first()).toBeChecked();
 });
 
 test('an open build follows the runes as the player works on them', async ({ page }, testInfo) => {
@@ -158,7 +158,7 @@ test('an open build follows the runes as the player works on them', async ({ pag
   await expect(page.getByText('rune-optimization-account.json').first()).toBeVisible();
   await openOptimization(page);
   await page.getByLabel('Monster', { exact: true }).selectOption('11');
-  const settings = page.getByRole('region', { name: 'How to search' });
+  const settings = page.getByRole('complementary', { name: 'Settings' });
   await settings.getByRole('radio', { name: 'Theoretical' }).nth(0).check();
   await settings.getByRole('radio', { name: 'Theoretical' }).nth(1).check();
   await page.getByRole('button', { name: 'Find builds' }).click();
@@ -272,28 +272,29 @@ test('a monster that always crits is counted at a certain crit and shows its own
   await expect(page.getByText('rune-optimization-account.json').first()).toBeVisible();
   await openOptimization(page);
   await page.getByLabel('Monster', { exact: true }).selectOption('11');
-  const targets = page.getByRole('group', { name: 'At least' });
+  const targets = page.getByRole('group', { name: 'Stats', exact: true });
   const before = await targets.innerText();
 
-  await page.getByRole('button', { name: 'Open profile' }).click();
+  await page.getByRole('button', { name: 'Open preset' }).click();
   const profile = page.getByRole('dialog').filter({ has: page.getByLabel('Always crits') });
   const toggle = profile.getByLabel('Always crits');
   await expect(toggle).not.toBeChecked();
-  const stats = profile.locator('.overlay-stats');
+  const stats = profile.locator('.stat-ranges');
   const statsBefore = await box(stats);
   await page.screenshot({ path: testInfo.outputPath('always-crits-off.png') });
   await toggle.check();
   /* The choice moves nothing beside it: the mark's place was already kept. */
   expect(await box(stats)).toEqual(statsBefore);
   await expect(profile.getByRole('img', { name: 'Always crits' })).toBeVisible();
-  await expect(profile.getByLabel('Desired CtR%')).toBeDisabled();
+  await expect(profile.getByLabel('CtR%: at least')).toBeDisabled();
+  await expect(profile.getByLabel('CtR%: at most')).toBeDisabled();
   await page.screenshot({ path: testInfo.outputPath('always-crits-on.png') });
   await profile.getByRole('button', { name: 'Save changes' }).click();
   await expect(profile).toBeHidden();
 
   /* CRI Rate reads the same; DMG is now counted with every hit a crit. */
   await expect(targets.getByRole('img', { name: 'Always crits' })).toBeVisible();
-  await expect(page.getByLabel('At least CtR%')).toBeDisabled();
+  await expect(targets.getByLabel('CtR%: at least')).toBeDisabled();
   const after = await targets.innerText();
   const figure = (text: string, at: number) => text.split('\n').map((line) => line.trim()).filter((line) => /^[\d.,]+$/.test(line))[at];
   expect(figure(after, 4)).toEqual(figure(before, 4));
@@ -313,10 +314,140 @@ test('a target nothing can reach is answered with an empty table that says why',
   await expect(page.getByText('rune-optimization-account.json').first()).toBeVisible();
   await openOptimization(page);
   await page.getByLabel('Monster', { exact: true }).selectOption('11');
-  await page.getByLabel('At least Spd').fill('999');
+  await page.getByLabel('Spd: at least').fill('999');
   await page.getByRole('button', { name: 'Find builds' }).click();
   await expect(page.getByText('No build meets every requirement.', { exact: false })).toBeVisible();
   /* The current build is still there to read against. */
   await expect(page.getByRole('table', { name: 'Rune builds' }).getByRole('row', { name: /^Now/ })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('optimization-unreachable.png'), fullPage: true });
+});
+
+test('the page wears the house panels, and its controls say what they do', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await freshWorkspace(page);
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
+  await expect(page.getByText('rune-optimization-account.json').first()).toBeVisible();
+  await openOptimization(page);
+
+  /* Nothing chosen: the preset cannot be opened and there is nothing to find, but
+     every control is already in its place. */
+  const openPreset = page.getByRole('button', { name: 'Open preset' });
+  const find = page.getByRole('button', { name: 'Find builds' });
+  const stop = page.getByRole('button', { name: 'Stop the search' });
+  await expect(openPreset).toBeDisabled();
+  await expect(find).toBeDisabled();
+  await expect(stop).toBeDisabled();
+  const before = { preset: await box(openPreset), find: await box(find), stop: await box(stop) };
+  await page.screenshot({ path: testInfo.outputPath('optimization-layout-empty.png'), fullPage: true });
+
+  await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  await expect(openPreset).toBeEnabled();
+  /* Choosing a monster moves none of them (`AGENTS.md` §2). */
+  expect({ preset: await box(openPreset), find: await box(find), stop: await box(stop) }).toEqual(before);
+
+  /* The raised ground of every other workspace, not the sunk ground of a filter strip. */
+  const ground = (selector: string) => page.locator(selector).first().evaluate((element) => getComputedStyle(element).backgroundColor);
+  const raised = await page.evaluate(() => {
+    const probe = document.createElement('div');
+    probe.className = 'panel';
+    document.body.append(probe);
+    const colour = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return colour;
+  });
+  expect(await ground('.rune-optimization-monster-panel')).toBe(raised);
+  expect(await ground('.rune-optimization-requirements')).toBe(raised);
+  /* Find builds is the filled button the other workspaces end on; Stop is a mark
+     beside it, square and smaller than it, whose mark is actually drawn. */
+  await expect(find).toHaveClass(/\bprimary\b/);
+  const stopBox = await box(stop);
+  expect(stopBox.width).toBe(stopBox.height);
+  expect(stopBox.width).toBeLessThan(before.find.width);
+  expect(await stop.locator('svg').evaluate((svg) => svg.getBoundingClientRect().width)).toBeGreaterThan(0);
+  /* Open preset sits under the monster, not beside it. */
+  const select = await box(page.getByLabel('Monster', { exact: true }));
+  expect(before.preset.y).toBeGreaterThan(select.y + select.height - 1);
+  await expect(page.locator('.rune-optimization-monster-select .monster-portrait')).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('optimization-layout-chosen.png'), fullPage: true });
+});
+
+test('the build menu cascades three deep, past the edge of its own line, without moving', async ({ page }, testInfo) => {
+  /* Narrow enough that the builds line ends well before the third column would. */
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await freshWorkspace(page);
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
+  await expect(page.getByText('rune-optimization-account.json').first()).toBeVisible();
+  await openOptimization(page);
+  await page.getByLabel('Monster', { exact: true }).selectOption('11');
+
+  const line = page.getByRole('button', { name: /^Desired rune builds/ });
+  await line.click();
+  const menu = page.getByRole('dialog', { name: 'Desired rune builds' });
+  const column = (name: string) => menu.getByRole('list', { name, exact: true });
+  /* Each row is the set's name and nothing else. */
+  await expect(column('Four-piece sets').getByRole('button')).toHaveText(['Despair', 'Fatal', 'Rage', 'Swift', 'Vampire', 'Violent']);
+  const first = await box(column('Two-piece sets'));
+  await column('Two-piece sets').getByRole('button', { name: 'Will', exact: true }).hover();
+  await column('After Will').getByRole('button', { name: 'Blade', exact: true }).hover();
+  await expect(column('After Will and Blade')).toBeVisible();
+  /* Every column whole, inside the window — and the first did not slide as the others opened. */
+  const viewport = page.viewportSize();
+  if (!viewport) throw new Error('no viewport');
+  for (const name of ['Four-piece sets', 'Two-piece sets', 'After Will', 'After Will and Blade']) {
+    const right = await column(name).evaluate((element) => element.getBoundingClientRect().right);
+    expect(right).toBeLessThanOrEqual(viewport.width);
+  }
+  expect(await box(column('Two-piece sets'))).toEqual(first);
+  /* Sixteen two-piece sets fit with no scrollbar. */
+  expect(await column('Two-piece sets').evaluate((element) => element.scrollHeight <= element.clientHeight)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('optimization-build-menu.png') });
+  await page.keyboard.press('Escape');
+});
+
+test('a lone four-set, a ceiling and a reset to the preset', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await freshWorkspace(page);
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
+  await expect(page.getByText('rune-optimization-account.json').first()).toBeVisible();
+  await openOptimization(page);
+  await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  const reset = page.getByRole('button', { name: 'Reset to preset' });
+  await expect(reset).toBeDisabled();
+
+  /* `Violent` alone: four Violent runes and, with broken sets refused, a whole
+     two-set beside them — whichever does most. */
+  await page.getByRole('button', { name: /^Desired rune builds/ }).click();
+  await page.getByRole('dialog', { name: 'Desired rune builds' }).getByRole('list', { name: 'Four-piece sets' })
+    .getByRole('button', { name: 'Violent', exact: true }).click();
+  await expect(page.getByLabel('Allow broken sets')).not.toBeChecked();
+  await page.getByLabel('Spd: at most').fill('170');
+  await page.getByRole('button', { name: 'Find builds' }).click();
+  const table = page.getByRole('table', { name: 'Rune builds' });
+  await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
+  const rows = table.getByRole('row').filter({ has: page.getByRole('button', { name: /^Show build \d+$/ }) });
+  const count = await rows.count();
+  expect(count).toBeGreaterThan(0);
+  const headers = await table.getByRole('columnheader').allInnerTexts();
+  const spdColumn = headers.findIndex((text) => text.trim() === 'SPD');
+  expect(spdColumn).toBeGreaterThan(0);
+  for (let at = 0; at < count; at += 1) {
+    const cells = await rows.nth(at).getByRole('cell').allInnerTexts();
+    expect(cells[1]).toMatch(/^Violent\/[A-Z][a-z]+$/);
+    expect(Number(cells[spdColumn].replace(/\D/g, ''))).toBeLessThanOrEqual(170);
+  }
+  await page.screenshot({ path: testInfo.outputPath('optimization-ceiling.png'), fullPage: true });
+
+  /* Resetting asks first, keeps everything on the safe answer, and only then puts the preset back. */
+  await expect(reset).toBeEnabled();
+  await reset.click();
+  const confirm = page.getByRole('dialog', { name: 'Put back what the preset says?' });
+  await expect(confirm.getByRole('button', { name: 'Keep my changes' })).toBeFocused();
+  await confirm.getByRole('button', { name: 'Keep my changes' }).click();
+  await expect(page.getByLabel('Spd: at most')).toHaveValue('170');
+  await reset.click();
+  await confirm.getByRole('button', { name: 'Reset to preset' }).click();
+  await expect(confirm).toBeHidden();
+  await expect(page.getByLabel('Spd: at most')).toHaveValue('');
+  await expect(page.getByRole('button', { name: /^Desired rune builds/ })).toHaveAttribute('aria-label', 'Desired rune builds: Any build');
+  await expect(reset).toBeDisabled();
 });

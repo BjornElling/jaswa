@@ -67,6 +67,8 @@ export type ResolvedRunes = {
   /** The exact builds wanted, as `rune-set-pairs.ts` names them. */
   sets: ResolvedChoices<string>;
   slots: Record<RuneSlotKey, ResolvedChoices<RuneSlotMain>>;
+  /** Whether runes that complete no set may be worn. */
+  allowBroken: boolean;
   /** Whether an Intangible rune may complete a set that is one short. */
   allowIntangible: boolean;
   /** Whether an Immemorial Gem or Grindstone may be spent on this copy's runes. */
@@ -107,6 +109,8 @@ export type ResolvedMonsterPreferences = {
   artifacts: Record<ArtifactCategory, ResolvedArtifactCategory>;
   relics: ResolvedRelics;
   statTargets: Partial<Record<keyof MonsterStatTargets, ResolvedStatTarget>>;
+  /** The most each figure may reach, where the owner said; the upper end of each range. */
+  statCeilings: Partial<Record<keyof MonsterStatTargets, ResolvedStatTarget>>;
   /** The figure to maximise once every target is met, where one was named. */
   runeSuggestionStat?: keyof MonsterStatTargets;
   /** Whether every figure is counted at a certain crit (`monster-stats.ts` `alwaysCritsLift`). */
@@ -215,6 +219,9 @@ function resolveRunes(
        item are owned to be spent, and a build that leaves them out answers a
        narrower question than the one asked; the owner who is saving them says so. */
     allowIntangible: stated?.allowIntangibleRunes ?? true,
+    /* Off unless the owner switched it on: a broken set is stats given away, and
+       an optimizer that offered one unasked would be answering a looser question. */
+    allowBroken: stated?.allowBrokenSets ?? false,
     allowImmemorial: stated?.allowImmemorialItems ?? true,
     judged,
   };
@@ -280,6 +287,7 @@ export function resolveMonsterPreferences(
     },
     relics: resolveRelics(stated, defaults),
     statTargets: resolveStatTargets(stated?.statTargets),
+    statCeilings: resolveStatTargets(stated?.statCeilings),
     ...(stated?.runeSuggestionStat === undefined ? {} : { runeSuggestionStat: stated.runeSuggestionStat }),
     alwaysCrits: stated?.alwaysCrits ?? false,
   };
