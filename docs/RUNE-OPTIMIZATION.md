@@ -125,7 +125,7 @@ will carry, not a projection of luck. Sub properties are counted as they stand.
 **Gems and Grindstones** have their own settings, deliberately not Rune Clean-up's:
 *None*, *Owned only* (the account's own stacks, each spendable as often as it is
 deep) or *Theoretical* (an assumed item of a named grade), and for both the roll
-assumed — worst, average, two thirds (the default), three quarters, best. `craftVariants` in
+assumed — worst, one third, average, two thirds (the default), three quarters, best. `craftVariants` in
 `rune-craft-end-state.ts` produces every legal end state: every wanted line ground,
 and from `+12` one Gem into every legal wanted stat. A Gem or stone on a stat
 nothing in the calculation reads is not offered — it spends an item to change no
@@ -421,8 +421,13 @@ table pick for pick. It needs a running dev server and a card, and is not part o
    another line cannot take the planned one (a rune holds one converted line), so
    that Gem is dropped. A rune newly locked to this monster is used as worn, as the
    search uses a locked rune, so the work still planned on it is dropped. Where the
-   new figures fall below a target, the overlay's *Targets* and the row's mark say
-   which.
+   figures fall below a target or above a ceiling, the overlay's *Targets* and the
+   row's mark say which, and the row is dimmed.
+
+   The targets and ceilings a build is held to are the stat ranges **on screen**,
+   not those it was searched under: narrowing a range after the search dims every
+   row now outside it, and widening it again lifts the dimming. The figures
+   themselves stay counted as the search counted them, *Always crits* included.
 
    The status line says the runes or the locks changed, because a better build the
    change made possible is only found by searching again. Listing fewer builds cuts

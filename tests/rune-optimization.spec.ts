@@ -437,6 +437,30 @@ test('a lone four-set, a ceiling and a reset to the preset', async ({ page }, te
   }
   await page.screenshot({ path: testInfo.outputPath('optimization-ceiling.png'), fullPage: true });
 
+  /* A range moved after the search dims exactly the rows it now excludes, and
+     dims them in place: the table keeps its rows and its box. */
+  const spds: number[] = [];
+  for (let at = 0; at < count; at += 1) {
+    spds.push(Number((await rows.nth(at).getByRole('cell').nth(spdColumn).innerText()).replace(/\D/g, '')));
+  }
+  const tableBefore = await box(table);
+  const lowered = Math.max(...spds) - 1;
+  await page.getByLabel('Spd: at most').fill(String(lowered));
+  for (let at = 0; at < count; at += 1) {
+    if (spds[at] > lowered) await expect(rows.nth(at)).toHaveAttribute('data-stale', 'true');
+    else await expect(rows.nth(at)).not.toHaveAttribute('data-stale', 'true');
+  }
+  expect(await box(table)).toEqual(tableBefore);
+  await page.screenshot({ path: testInfo.outputPath('optimization-ceiling-lowered.png'), fullPage: true });
+  /* Back inside every range, nothing is dimmed; a floor above them all dims every row. */
+  await page.getByLabel('Spd: at most').fill('170');
+  for (let at = 0; at < count; at += 1) await expect(rows.nth(at)).not.toHaveAttribute('data-stale', 'true');
+  await page.getByLabel('Spd: at least').fill(String(Math.max(...spds) + 1));
+  for (let at = 0; at < count; at += 1) await expect(rows.nth(at)).toHaveAttribute('data-stale', 'true');
+  expect(await box(table)).toEqual(tableBefore);
+  await page.getByLabel('Spd: at least').fill('');
+  for (let at = 0; at < count; at += 1) await expect(rows.nth(at)).not.toHaveAttribute('data-stale', 'true');
+
   /* Resetting asks first, keeps everything on the safe answer, and only then puts the preset back. */
   await expect(reset).toBeEnabled();
   await reset.click();
