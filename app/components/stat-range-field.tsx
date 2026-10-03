@@ -10,8 +10,10 @@ import type { ReactNode, Ref } from 'react';
  * other (`AGENTS.md` §2). An empty field is no limit at that end.
  */
 export function StatRangeField({
-  label, atLeast, atMost, onAtLeast, onAtMost, current, disabled, title, firstField,
+  figure, label, atLeast, atMost, onAtLeast, onAtMost, current, disabled, title, firstField,
 }: {
+  /** Which of the eleven figures, so the grid can give the widest numbers the widest cells. */
+  figure: string;
   label: string;
   atLeast: number | undefined;
   atMost: number | undefined;
@@ -24,7 +26,7 @@ export function StatRangeField({
   title?: string;
   firstField?: Ref<HTMLInputElement>;
 }) {
-  return <div className="stat-range" role="group" aria-label={label}>
+  return <div className="stat-range" data-figure={figure} role="group" aria-label={label}>
     <p className="overlay-stat-head">{label}</p>
     <div className="stat-range-fields">
       <input ref={firstField} className="stat-range-input" type="number" min={0} step={1} inputMode="numeric"

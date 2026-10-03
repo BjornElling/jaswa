@@ -485,7 +485,7 @@ export function BestArtifactForMonster({ data, monsters, monsterPreferences, set
         </div>
       </div>
       <div className="filter-panel-actions best-artifact-actions">
-        <Button tone="important" size="prominent" busy={state === 'calculating'} busyLabel="Calculating…"
+        <Button tone="primary" size="prominent" busy={state === 'calculating'} busyLabel="Calculating…"
           onClick={() => void calculate()} disabled={!selectedMonster}>Calculate artifacts</Button>
         {/* The chooser belongs to the same state as the filters, so this one
             reset restores every control in the panel to its default. */}

@@ -311,10 +311,10 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
             {/* Stopping is a footnote to searching, so it is a mark beside the
                 button rather than a second button of the same weight. It is
                 there in every state, and can only be pressed while a search runs. */}
-            <Button size="prominent" className="rune-optimization-stop" disabled={state !== 'calculating'}
+            <Button tone="danger" size="prominent" className="rune-optimization-stop" disabled={state !== 'calculating'}
               aria-label="Stop the search" title="Stop the search" onClick={() => cancelRuneOptimization()}>
-              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-                <rect x="3.5" y="3.5" width="9" height="9" rx="1.5" fill="currentColor" />
+              <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                <path d="M4.5 4.5l7 7M11.5 4.5l-7 7" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
               </svg>
             </Button>
           </div>
@@ -328,9 +328,9 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
               where the eye already is when the search is running. */}
           <div className="rune-optimization-status">
             {state === 'calculating'
-              ? <p className="calculation-status" role="status">Searching… {formatNumber(Math.round(progress * 100), general)} %</p>
+              ? <p className="calculation-status rune-optimization-searching" role="status">Searching… {formatNumber(Math.round(progress * 100), general)} %</p>
               : current
-                ? <CalculationStatus durationMs={current.answer.durationMs} backend={current.answer.backend} general={general}
+                ? <CalculationStatus twoLines durationMs={current.answer.durationMs} backend={current.answer.backend} general={general}
                   detail={`${formatNumber(current.answer.combinations, general)} builds checked · ${formatNumber(current.answer.report.runes, general)} runes considered`
                     + (changedSince.length > 0 ? ` · your ${changedSince.join(' and ')} changed since, and the builds follow them` : '')} />
                 : <p className="calculation-status" role="status">{selected ? 'Not calculated yet.' : ''}</p>}
@@ -383,7 +383,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
                     return { ...state, [end]: limits };
                   });
                 };
-                return <StatRangeField key={key} label={figureLabels[key]}
+                return <StatRangeField key={key} figure={key} label={figureLabels[key]}
                   atLeast={requirements.targets[key]} atMost={requirements.ceilings[key]}
                   onAtLeast={limit('targets')} onAtMost={limit('ceilings')}
                   disabled={crits} title={crits ? 'Always crits, so no CRI Rate is needed' : undefined}

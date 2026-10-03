@@ -2188,7 +2188,13 @@ label[for] {
    either is what breaks alignment between boxes.
 
    To add a panel: give it .filter-panel plus its own class for the areas only.
-   To change spacing: change it here, so every box moves together. */
+   To change spacing: change it here, so every box moves together.
+
+   The ground is the raised one every other box in the house stands on — the
+   library strips, Clean-up, Speed Tuning, the empty states. A filter box on the
+   sunk ground read as a hole in the page beside them, and made one workspace
+   look like a different program from the next. The fields inside keep the sunk
+   ground, so they read as wells cut into the panel, as they do everywhere. */
 .filter-panel {
   display: grid;
   align-items: end;
@@ -2196,7 +2202,7 @@ label[for] {
   padding: var(--s4);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: var(--sunk);
+  background: var(--raise);
 }
 /* min-width lets a group shrink inside its track instead of forcing the panel
    wider than its container. */
@@ -2298,6 +2304,7 @@ label[for] {
    `--state-*` vocabulary `AGENTS.md` §5 allows. The sentence says what happened
    on its own; only the colour changes, so nothing around it moves. */
 .calculation-status[data-failed] { color: var(--state-bad); }
+.calculation-status-line { display: block; }
 
 /* ------------------------------------------------------ rune optimization
    One question and its answers (`RUNE-OPTIMIZATION.md` §8): the monster, what
@@ -2407,13 +2414,18 @@ label[for] {
 .rune-optimization-craft-choices { display: flex; gap: var(--s2); }
 .rune-optimization-craft-choices .jaswa-select { width: 16ch; }
 
-/* At the foot of the panel, two lines reserved, so starting a search or finishing
-   one — or a sync adding a clause — never changes the panel's height. */
-.rune-optimization-status { align-self: end; width: 100%; min-height: 2lh; }
+/* At the foot of the panel, three lines reserved — what was measured, a clause a
+   sync may add to it, then how it was done — so starting a search or finishing
+   one never changes the panel's height. */
+.rune-optimization-status { align-self: end; width: 100%; min-height: 3lh; }
 /* Dimmed: it reports on the answer below, and is read after it, not before. A
    failure keeps its verdict red. */
 .rune-optimization-status .calculation-status { white-space: normal; }
 .rune-optimization-status .calculation-status:not([data-failed]) { color: var(--text-muted); }
+/* Except while the search runs: then the line is the work the user just asked for,
+   in the accent that marks what they are acting on. Colour only, so the line keeps
+   its width (`AGENTS.md` §2). */
+.rune-optimization-status .calculation-status.rune-optimization-searching { color: var(--text-accent); }
 .rune-optimization-results { display: grid; gap: var(--s2); }
 .rune-optimization-results-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s4); }
 .rune-optimization-results-head h3 { margin: 0; }
@@ -5329,12 +5341,17 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
    (`AGENTS.md` §2). Shared by the monster profile and Rune Optimization. */
 .stat-ranges {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: var(--s4) var(--s4);
 }
+.stat-range, .stat-ranges > .overlay-stat { grid-column: span 2; }
 .stat-range { display: grid; gap: var(--s1); min-width: 0; }
+/* The two survival composites run to six and seven digits where a stat runs to
+   five, and the second row has a sixth of its width spare — so they take it, half
+   a column each, rather than every field growing to fit them. */
+.stat-range[data-figure='ehp'], .stat-range[data-figure='ehpD'] { grid-column: span 3; }
 .stat-range-fields { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: var(--s1); }
-.stat-range-input { font-variant-numeric: tabular-nums; }
+.stat-range-input { padding-inline: var(--s2); font-variant-numeric: tabular-nums; }
 .stat-range-dash { color: var(--text-muted); }
 .overlay-stat { display: grid; gap: var(--s1); justify-items: start; }
 .overlay-stat-head { margin: 0; color: var(--text-muted); }

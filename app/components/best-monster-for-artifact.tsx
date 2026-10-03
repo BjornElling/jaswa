@@ -346,7 +346,7 @@ export function BestMonsterForArtifact({ data, monsters, monsterPreferences, set
         </div>
       </div>
       <div className="filter-panel-actions best-monster-actions">
-        <Button tone="important" size="prominent" busy={state === 'calculating'} busyLabel="Calculating…"
+        <Button tone="primary" size="prominent" busy={state === 'calculating'} busyLabel="Calculating…"
           onClick={() => void calculate()} disabled={!selectedArtifact}>Calculate monsters</Button>
         {/* The chosen artifact goes with the filters: it was picked out of the
             narrowed list, so leaving it behind would name a piece the restored

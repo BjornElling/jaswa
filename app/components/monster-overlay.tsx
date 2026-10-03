@@ -450,7 +450,7 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
                  fields say so by standing still rather than by vanishing. */
               const crits = row.key === 'criRate' && resolved.alwaysCrits;
               return editable
-                ? <StatRangeField key={row.key} label={row.label} firstField={index === 0 ? firstField : undefined}
+                ? <StatRangeField key={row.key} figure={row.key} label={row.label} firstField={index === 0 ? firstField : undefined}
                   atLeast={draft.statTargets?.[row.key]} atMost={draft.statCeilings?.[row.key]}
                   onAtLeast={(raw) => setLimit('statTargets', row.key, raw)}
                   onAtMost={(raw) => setLimit('statCeilings', row.key, raw)}

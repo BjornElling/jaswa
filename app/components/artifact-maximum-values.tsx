@@ -465,7 +465,7 @@ export function ArtifactMaximumValues({ data, monsters, monsterPreferences, sett
           allocation. */}
       {buttonGroup('Already matching', 'matching', matchingFilters, () => 'Hide', 'artifact-recommendation-filter-matching')}
       <div className="filter-panel-actions artifact-recommendation-actions">
-        <Button tone="important" size="prominent" busy={state === 'calculating'} busyLabel="Calculating…"
+        <Button tone="primary" size="prominent" busy={state === 'calculating'} busyLabel="Calculating…"
           onClick={() => void calculate()}>Calculate recommendations</Button>
         <Button tone="danger" size="compact" className="artifact-recommendation-clear"
           onClick={() => clear()} disabled={!calculation || state === 'calculating'}>Clear results</Button>
