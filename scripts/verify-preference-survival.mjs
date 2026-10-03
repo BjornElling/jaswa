@@ -44,6 +44,8 @@ try {
         { id: 'rule-b', unitId: '18', must: { kind: 'stay-between', minimum: 150, maximum: 160 }, displaySpeed: false, dungeonSpeed: false, arenaSpeed: false },
       ],
     },
+    monsterPriority: ['18', '17'],
+    runeOptimization: { ...blank.runeOptimization, includeHigherPriority: true },
   };
 
   assert.deepEqual(readPreferences(chosen, null), chosen, 'a complete stored document must read back unchanged');
@@ -95,6 +97,11 @@ try {
   /* A rune hold loses the choice it cannot read, not the rune's other choice or any other rune. */
   const holds = readPreferences({ ...chosen, runeHolds: { ...chosen.runeHolds, 902: { unsellable: true, locked: 'yes' }, 903: { locked: false } } }, null);
   assert.deepEqual(holds.runeHolds, { 901: { unsellable: true }, 902: { unsellable: true } }, 'an unreadable rune hold costs only that choice');
+
+  /* A priority entry that cannot be read costs that entry; the order of the rest stands. */
+  const priority = readPreferences({ ...chosen, monsterPriority: ['18', 5, '', '17', '18'] }, null);
+  assert.deepEqual(priority.monsterPriority, ['18', '17'], 'an unreadable or repeated priority entry costs only itself');
+  assert.deepEqual(readPreferences({ ...chosen, monsterPriority: [] }, null).monsterPriority, [], 'a priority list the user emptied stays empty');
 
   /* A team that fails costs that team. */
   const badTeam = { ...chosen.speedTuning.teams[0], id: 'team-b', leaderUnitId: '99' };

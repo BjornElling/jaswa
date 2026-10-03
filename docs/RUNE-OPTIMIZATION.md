@@ -108,8 +108,16 @@ Grindstones the settings allow. A rune enters its own slot's list when:
 - it is **not locked to another monster** (`rune-holds.ts`). A rune locked to *this*
   monster is the slot's only candidate, exactly as worn: no filter removes it and
   no craft item is counted on it.
-- it sits in the inventory, on this monster, or — where *Take runes from other
-  monsters* is on — on another monster;
+- it sits in the inventory, on this monster, or — unless *Only use runes from
+  inventory* is ticked — on another monster;
+- that other monster is not **above it on the priority list** (`monster-priority.ts`,
+  the *Priority List* page), unless *Include runes from higher-priority monsters* is
+  ticked. A monster not on the list ranks below every monster on it, so it takes no
+  rune from any of them. The page resolves the list into the copies spared
+  (`RuneOptimizationInput.spared`); the search never reads the order or the switch,
+  and `mayTakeFrom` is the one rule both it and the re-reading of a build apply. The
+  two switches are independent: neither disables the other, though the second has
+  nothing to decide while the first is ticked;
 - its set can appear in a stated build, unless a build leaves slots free;
 - its main is one the slot accepts;
 - it is not Intangible, unless Intangible runes are allowed.
@@ -421,7 +429,9 @@ table pick for pick. It needs a running dev server and a card, and is not part o
    - the rune was **sold or fed** — the row keeps no figures;
    - it is **locked where it is**, and that is not this monster (or the inventory);
    - **another rune is locked into its slot** on this monster;
-   - it now sits on **another monster** while *Take runes from other monsters* is off;
+   - it now sits on **another monster** whose runes the search could not take —
+     *Only use runes from inventory* was ticked, or that monster is above this one on
+     the priority list;
    - the Gems and Grindstones **still to come need more of a held item** than the
      account has left, counted over the whole build.
 

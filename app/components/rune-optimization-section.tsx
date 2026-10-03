@@ -29,6 +29,7 @@ import { runeSlotKeys } from '../lib/monster-defaults';
 import type { RuneSlotKey } from '../lib/monster-defaults';
 import { monsterPresentation } from '../lib/monster-catalog';
 import { monsterNameCollator } from '../lib/monster-grid';
+import { higherPriorityThan } from '../lib/monster-priority';
 import { monsterCopyNames } from '../lib/monster-names';
 import { monsterStatTargetKeys, readTargetField } from '../lib/monster-preferences';
 import { calculateMonsterTotals, monsterTargetFigures } from '../lib/monster-stats';
@@ -89,6 +90,7 @@ type Calculation = {
   unitId: string;
   requirements: RuneOptimizationRequirements;
   settings: RuneOptimizationSettings;
+  spared: readonly string[];
   answer: RuneOptimizationAnswer;
   runes: ReadonlyMap<string, Rune>;
   items: ReadonlyMap<string, CraftItem>;
@@ -176,16 +178,21 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
   const itemsById = useMemo(() => new Map(craftItems.map((item) => [item.id, item])), [craftItems]);
   const alwaysCrits = requirements?.alwaysCrits ?? false;
 
+  /* The priority list is resolved here, into the copies this one may not take from,
+     so the search reads one list of wearers and never the switch or the order. */
+  const sparing = settings.runesOnOtherMonsters && !settings.includeHigherPriority;
+  const spared = useMemo(() => (sparing ? higherPriorityThan(preferences.monsterPriority, unitId) : []),
+    [sparing, preferences.monsterPriority, unitId]);
   const input = useMemo<RuneOptimizationInput | undefined>(() => (selected && requirements ? {
-    unitId: selected.unitId, monster: selected.record, runes, holds: preferences.runeHolds, craftItems, requirements, settings,
-  } : undefined), [selected, requirements, runes, preferences.runeHolds, craftItems, settings]);
+    unitId: selected.unitId, monster: selected.record, runes, holds: preferences.runeHolds, spared, craftItems, requirements, settings,
+  } : undefined), [selected, requirements, runes, preferences.runeHolds, spared, craftItems, settings]);
   const estimate = useMemo(() => (input ? estimateRuneOptimizationBuilds(input) : undefined), [input]);
   /* The question on screen. The account is never part of it: the player follows the
      table by moving, gemming, grinding and locking runes, and a sync or a lock that
      brings that back updates the builds (`rune-optimization-refresh.ts`). Listing
      fewer builds is the same table cut shorter. */
   const { resultCount, ...searchSettings } = settings;
-  const inputKey = JSON.stringify({ unitId, requirements, settings: searchSettings });
+  const inputKey = JSON.stringify({ unitId, requirements, settings: searchSettings, spared });
   /* A table stays on screen while its monster is chosen, whatever is changed above
      it: it is still the answer to the question it was asked, read with that
      question's own requirements, and the warning beside Find builds says the
@@ -215,7 +222,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
   }, [tableAlwaysCritsCount, screenTargets, screenCeilings, alwaysCrits]);
   const builds = useMemo(() => (current && selected && tableLimits
     ? currentBuilds(current.answer.builds.slice(0, resultCount), {
-      unitId: selected.unitId, monster: selected.record, requirements: tableLimits, settings: current.settings,
+      unitId: selected.unitId, monster: selected.record, requirements: tableLimits, settings: current.settings, spared: current.spared,
       before: { runes: current.runes, items: current.items },
       now: { runes: runesById, items: itemsById, holds: preferences.runeHolds },
     })
@@ -258,7 +265,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
   async function calculate() {
     if (!input || !requirements) return;
     const searched = {
-      unitId, requirements, settings, runes: runesById, items: itemsById, resultCount,
+      unitId, requirements, settings, spared, runes: runesById, items: itemsById, resultCount,
     };
     setState('calculating');
     setProgress(0);
@@ -450,8 +457,12 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
             onUse={(grinds) => onUpdate({ grinds })} onGrade={(grindGrade) => onUpdate({ grindGrade })} onRoll={(grindRollAssumption) => onUpdate({ grindRollAssumption })} />
           <div className="filter-group rune-optimization-sources">
             <span className="filter-label">Runes</span>
-            <CheckboxRow label="Take runes from other monsters" checked={settings.runesOnOtherMonsters}
-              onChange={(runesOnOtherMonsters) => onUpdate({ runesOnOtherMonsters })} />
+            {/* Both worded as what ticking them adds, and both start off. Neither
+                disables the other: the second is simply moot while the first is on. */}
+            <CheckboxRow label="Only use runes from inventory" checked={!settings.runesOnOtherMonsters}
+              onChange={(inventoryOnly) => onUpdate({ runesOnOtherMonsters: !inventoryOnly })} />
+            <CheckboxRow label="Include runes from higher-priority monsters" checked={settings.includeHigherPriority}
+              onChange={(includeHigherPriority) => onUpdate({ includeHigherPriority })} />
             <CheckboxRow label="Count unfinished runes at their +15 main stat" checked={settings.unfinishedAtMaximum}
               onChange={(unfinishedAtMaximum) => onUpdate({ unfinishedAtMaximum })} />
           </div>

@@ -18,6 +18,7 @@ import type { RuneOptimizationSettings } from './lib/rune-optimization-settings'
 import type { SpeedTuningPreferences } from './lib/speed-tuning-preferences';
 import { readRunes } from './lib/runes';
 import type { MonsterCopyPreferences } from './lib/monster-preferences';
+import type { MonsterPriority } from './lib/monster-priority';
 import { statesSomething } from './lib/monster-preferences';
 import type { RuneHold } from './lib/rune-holds';
 import { runeHoldVerdict } from './lib/rune-holds';
@@ -26,7 +27,7 @@ import type { OpenRuneOverlay, RuneOverlayTarget } from './components/rune-link'
 import { useSessionStorageState } from './lib/session-storage-state';
 import { type Page, type ReportCategory } from './lib/workspace-config';
 
-const pageChoices: readonly Page[] = ['home', 'monsters', 'artifact-list', 'optimizer', 'speed', 'rune-setup', 'potential', 'artifacts', 'gems', 'rune-simulator', 'relics', 'settings', 'the-math'];
+const pageChoices: readonly Page[] = ['home', 'monsters', 'artifact-list', 'optimizer', 'speed', 'priority', 'rune-setup', 'potential', 'artifacts', 'gems', 'rune-simulator', 'relics', 'settings', 'the-math'];
 const isPage = (value: unknown): value is Page => typeof value === 'string' && pageChoices.includes(value as Page);
 const ArtifactList = lazy(() => import('./components/artifact-list').then(({ ArtifactList: component }) => ({ default: component })));
 const ArtifactsSection = lazy(() => import('./components/artifacts-section').then(({ ArtifactsSection: component }) => ({ default: component })));
@@ -39,6 +40,7 @@ const SettingsSection = lazy(() => import('./components/settings-section').then(
 const TheMathSection = lazy(() => import('./components/the-math-section').then(({ TheMathSection: component }) => ({ default: component })));
 const RuneSimulatorSection = lazy(() => import('./components/rune-simulator-section').then(({ RuneSimulatorSection: component }) => ({ default: component })));
 const SpeedTuningSection = lazy(() => import('./components/speed-tuning-section').then(({ SpeedTuningSection: component }) => ({ default: component })));
+const MonsterPrioritySection = lazy(() => import('./components/monster-priority-section').then(({ MonsterPrioritySection: component }) => ({ default: component })));
 const RuneOptimizationSection = lazy(() => import('./components/rune-optimization-section').then(({ RuneOptimizationSection: component }) => ({ default: component })));
 const MonsterOverlay = lazy(() => import('./components/monster-overlay').then(({ MonsterOverlay: component }) => ({ default: component })));
 const RuneOverlay = lazy(() => import('./components/rune-overlay').then(({ RuneOverlay: component }) => ({ default: component })));
@@ -417,6 +419,11 @@ export default function Home() {
     changePreferences((current) => ({ ...current, speedTuning: change(current.speedTuning) }));
   }
 
+  /* The priority list's one route to storage. */
+  function writeMonsterPriority(change: (current: MonsterPriority) => MonsterPriority) {
+    changePreferences((current) => ({ ...current, monsterPriority: change(current.monsterPriority) }));
+  }
+
   function writePresets(change: (current: RunePotentialPreset[]) => RunePotentialPreset[]) {
     changePreferences((current) => ({ ...current, runePotentialPresets: change(current.runePotentialPresets) }));
   }
@@ -577,6 +584,14 @@ export default function Home() {
         monsters={monsters}
         preferences={preferences}
         onWrite={writeSpeedTuning}
+        onOpenMonster={openMonsterOverlay}
+      /></Suspense>}
+
+      {page === 'priority' && <Suspense fallback={<WorkspaceLoading />}><MonsterPrioritySection
+        game={game}
+        monsters={monsters}
+        preferences={preferences}
+        onWrite={writeMonsterPriority}
         onOpenMonster={openMonsterOverlay}
       /></Suspense>}
 

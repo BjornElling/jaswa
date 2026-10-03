@@ -108,6 +108,9 @@ export function scenarioGenerator(firstSeed = 20260930, runesPerSlot = [3, 5]) {
         artifacts: [{ pri_effect: [101, 100] }, { pri_effect: [100, 1500] }],
       },
       runes, holds, craftItems,
+      /* Every fourth account ranks copy 2 above the one being searched for, without
+         drawing on the generator, so the accounts the other seeds produce stay as they were. */
+      spared: index % 4 === 3 ? ['2'] : [],
       requirements: {
         builds: wantedBuilds,
         slotMains: { slot2: random() < 0.3 ? ['Spd'] : [], slot4: [], slot6: [] },

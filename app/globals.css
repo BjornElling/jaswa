@@ -313,7 +313,7 @@ label[for] {
 .best-monster-artifact-details h3, .craft-best-use-item h3, .empty-state h2,
 .field-lead > span, .overlay-block-title, .speed-basis-title,
 .overlay-facts dd, .rune-overlay-location .monster-name, .rune-build-centre-name,
-.rune-optimization-monster-select .jaswa-select {
+.rune-optimization-monster-select .jaswa-select, .jaswa-select.monster-priority-select {
   font-family: var(--font-heading);
   font-size: var(--type-heading);
   font-weight: 600;
@@ -349,7 +349,8 @@ label[for] {
 .rune-overlay-readings, .rune-overlay-readings tbody th,
 .rune-build-card-innate, .rune-build-card-subs, .rune-build-change-list, .rune-build-change-none,
 .rune-build-missing, .rune-build-card-where-value, .rune-optimization-choose,
-.speed-summary, .speed-basis-level, .speed-basis-bonus, .speed-dungeon-facts dd {
+.speed-summary, .speed-basis-level, .speed-basis-bonus, .speed-dungeon-facts dd,
+.monster-priority-place, .monster-priority-empty {
   font-family: var(--font-body);
   font-size: var(--type-body);
   font-weight: 400;
@@ -2341,6 +2342,48 @@ label[for] {
 }
 .rune-optimization-monster-select .jaswa-select { height: 52px; padding-left: calc(36px + var(--s4)); }
 .rune-optimization-open-preset { gap: var(--s2); }
+
+/* ------------------------------------------------------- priority list */
+/* Held to a reading measure: a name and the arrows that move it belong on one
+   line the eye can cross, which a 3440 px wide row is not. */
+.monster-priority { display: grid; gap: var(--s5); max-width: 1120px; }
+.monster-priority .panel { padding: var(--s4) var(--s5); }
+/* The field the list is made from, on the left as Rune Optimization's is, and
+   beside it what the list is for. */
+.monster-priority-add-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 48ch) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--s4) var(--s7);
+}
+.monster-priority-add { display: grid; gap: var(--s2); justify-items: start; }
+/* As tall and as wide as Rune Optimization's monster field, and fixed, so no
+   name in the menu can widen it. The width is the column's, counted in the
+   panel's characters: counted in the field's own larger ones it ran into the
+   text beside it. */
+.monster-priority-add { width: 100%; }
+.jaswa-select.monster-priority-select { width: 100%; height: 52px; }
+.monster-priority-about { max-width: 64ch; }
+.monster-priority-list-panel { display: grid; gap: var(--s3); }
+.monster-priority-list-panel h3 { margin: 0; }
+.monster-priority-empty { margin: 0; color: var(--text-muted); }
+.monster-priority-list { list-style: none; margin: 0; padding: 0; display: grid; }
+/* Every entry is one fixed height, whatever its name: the place, the name with
+   its portrait, and the three controls in a column of their own. */
+.monster-priority-entry {
+  display: grid;
+  grid-template-columns: 5ch minmax(0, 1fr) max-content;
+  align-items: center;
+  gap: var(--s3);
+  height: 44px;
+  padding: 0 var(--s2);
+  border-bottom: 1px solid var(--line);
+}
+.monster-priority-entry:hover { background: var(--hover); }
+.monster-priority-list[data-sorting] .monster-priority-entry:hover { background: none; }
+.monster-priority-place { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.monster-priority-name { display: flex; min-width: 0; }
+.monster-priority-controls { display: flex; gap: var(--s1); }
 
 /* The depth carries a line of its own, so the build count stands clear of it
    rather than reading as a third line of the same group. */

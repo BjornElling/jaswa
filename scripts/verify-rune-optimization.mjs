@@ -200,6 +200,8 @@ let withWork = 0;
 let lockedAwayChecked = 0;
 let itemsChecked = 0;
 let alwaysCritting = 0;
+/* Searches that had to leave a higher-priority copy's runes where they were. */
+let sparedChecked = 0;
 /* Brute force is only a proof while it finishes, and a theoretical Gem multiplies a
    rune into a dozen end states. An account whose unreduced combinations run past
    this is drawn again rather than searched for minutes. */
@@ -231,6 +233,17 @@ for (let index = 0; index < scenarios; index += 1) {
     const immemorial = new Set(input.craftItems.flatMap((item, at) => (item.lineage === 'immemorial' ? [at] : [])));
     assert.ok(problem.slots.flat().every((candidate) => candidate.stock.every((entry) => !immemorial.has(entry))),
       'an Immemorial item was spent although the profile refuses them');
+  }
+  if (input.spared.length > 0) {
+    const wearers = new Map(input.runes.map((rune) => [rune.id, rune.occupiedId]));
+    const worn = (candidate) => wearers.get(candidate.runeId);
+    assert.ok(problem.slots.flat().every((candidate) => !input.spared.includes(worn(candidate))),
+      `scenario ${index}: a rune worn by a higher-priority monster was offered`);
+    /* The same account with the list ignored offers some of those runes, so the refusal above was a refusal. */
+    if (input.settings.runesOnOtherMonsters) {
+      const unspared = prepareRuneOptimization({ ...input, spared: [] }, { reduce: false });
+      if (unspared.slots.flat().some((candidate) => input.spared.includes(worn(candidate)))) sparedChecked += 1;
+    }
   }
   const context = `scenario ${index}: ${JSON.stringify({ builds: input.requirements.builds, broken: input.requirements.allowBroken, rank: input.requirements.rankBy, targets: input.requirements.targets, ceilings: input.requirements.ceilings, gems: input.settings.gems, grinds: input.settings.grinds })}`;
   assert.ok(whole.complete, `${context} did not finish`);
@@ -286,7 +299,7 @@ for (let index = 0; index < scenarios; index += 1) {
   }));
   /* One re-reading of a build against the account `runes`, the holds and the items. */
   const reread = (build, runes, { holds = input.holds, items = itemsById } = {}) => currentBuilds([build], {
-    unitId: input.unitId, monster: input.monster, requirements: input.requirements, settings: input.settings,
+    unitId: input.unitId, monster: input.monster, requirements: input.requirements, settings: input.settings, spared: input.spared,
     before: { runes: runesById, items: itemsById }, now: { runes, items, holds },
   })[0];
   const issues = (build) => build.runes.flatMap((picked) => (picked.issue ? [`${picked.slot}:${picked.issue.kind}`] : []));
@@ -413,6 +426,7 @@ assert.ok(withWork > scenarios / 4, `only ${withWork} builds had work to follow`
 assert.ok(refusedMidway > scenarios / 4, 'too few searches lost their card midway to prove the processor finishes');
 assert.ok(lockedAwayChecked > scenarios / 4, `only ${lockedAwayChecked} builds had a rune to lock away`);
 assert.ok(itemsChecked > scenarios / 10, `only ${itemsChecked} builds spent a held item`);
+assert.ok(sparedChecked > scenarios / 10, `only ${sparedChecked} searches had a higher-priority monster's runes to leave alone`);
 assert.ok(alwaysCritting > scenarios / 10, `only ${alwaysCritting} builds were for a monster that always crits`);
 console.log(`PASS: ${scenarios} random accounts, ${checkedRows} ranked builds — the search, whole and split three ways,`
   + ` matches brute force on every row (${emptyTables} tables were rightly empty; ${alwaysCritting} builds always crit); in passes it matches the`

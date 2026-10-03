@@ -23,7 +23,7 @@
  * Some changes leave a build that cannot be followed at all, and the build says so
  * rune by rune rather than leaving the table: the rune was sold or fed, it is locked
  * where it is, another rune is locked into its slot on this monster, it now sits on
- * a monster the settings keep their runes, or the Gems and Grindstones still to come
+ * a monster whose runes the settings or the priority list keep, or the Gems and Grindstones still to come
  * need more of an item than the account holds. The row keeps its place, so the player
  * does not lose the one they were reading.
  *
@@ -37,7 +37,7 @@ import { targetFigureKeys } from './monster-stats';
 import type { EndStateLine } from './rune-craft-end-state';
 import type { CraftItem } from './rune-craft-items';
 import type { RuneHolds } from './rune-holds';
-import { buildFigures, figureIndex, targetCeilings, targetFloors } from './rune-optimization-problem';
+import { buildFigures, figureIndex, mayTakeFrom, targetCeilings, targetFloors } from './rune-optimization-problem';
 import type { RankFigure, RuneOptimizationRequirements } from './rune-optimization-problem';
 import type { RuneOptimizationSettings } from './rune-optimization-settings';
 import type { Rune } from './runes';
@@ -50,7 +50,7 @@ export type PickIssue =
   | { kind: 'locked-away'; wearer: string | null }
   /** Another rune is locked into this slot on this monster. */
   | { kind: 'slot-taken'; runeId: string }
-  /** Worn by another monster, whose runes the settings keep. */
+  /** Worn by another monster, whose runes the settings or the priority list keep. */
   | { kind: 'worn-elsewhere'; wearer: string }
   /** A Gem or Grindstone still to come needs more of a held item than the account has left. */
   | { kind: 'items' };
@@ -79,6 +79,8 @@ export type RefreshContext = {
   monster: GameRecord;
   requirements: Pick<RuneOptimizationRequirements, 'targets' | 'ceilings' | 'alwaysCrits'>;
   settings: Pick<RuneOptimizationSettings, 'runesOnOtherMonsters'>;
+  /** The copies whose runes the search was not allowed to take, as `RuneOptimizationInput.spared`. */
+  spared: readonly string[];
   /** The runes and held items the search read. */
   before: { runes: ReadonlyMap<string, Rune>; items: ReadonlyMap<string, CraftItem> };
   now: { runes: ReadonlyMap<string, Rune>; items: ReadonlyMap<string, CraftItem>; holds: RuneHolds };
@@ -196,7 +198,7 @@ function readBuild(build: OptimizedBuild, context: RefreshContext, lockedSlots: 
     const taken = lockedSlots.get(picked.slot);
     if (locked && !lockedHere) issue = { kind: 'locked-away', wearer: is.occupiedId };
     else if (taken !== undefined && taken !== found.runeId) issue = { kind: 'slot-taken', runeId: taken };
-    else if (!context.settings.runesOnOtherMonsters && is.occupiedId !== null && is.occupiedId !== unitId) {
+    else if (is.occupiedId !== null && is.occupiedId !== unitId && !mayTakeFrom(context, is.occupiedId)) {
       issue = { kind: 'worn-elsewhere', wearer: is.occupiedId };
     }
     picks.push({ ...picked, issue });

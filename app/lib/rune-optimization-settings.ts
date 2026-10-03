@@ -91,8 +91,17 @@ export type RuneOptimizationSettings = {
   /**
    * Whether a rune another monster wears may be moved onto this one. A locked rune
    * never may, whatever this says: the lock is the user's own word (`rune-holds.ts`).
+   * The page asks it the other way round — *Only use runes from inventory* — so both
+   * switches beside it start off and each says what ticking it does.
    */
   runesOnOtherMonsters: boolean;
+  /**
+   * Whether a monster may also take the runes worn by monsters above it on the
+   * priority list (`monster-priority.ts`) — and, when it is not on the list, those
+   * of every monster that is. Off, the list is respected. It means nothing while
+   * runes come from the inventory only, and stays a choice of its own regardless.
+   */
+  includeHigherPriority: boolean;
   /**
    * Whether an unfinished rune's main property is counted at its `+15` value.
    * A main property grows deterministically with the power-up level, so this is a
@@ -118,6 +127,7 @@ export const defaultRuneOptimizationSettings: RuneOptimizationSettings = {
   grindGrade: 'Hero',
   grindRollAssumption: defaultCraftRollAssumption,
   runesOnOtherMonsters: true,
+  includeHigherPriority: false,
   unfinishedAtMaximum: true,
   depth: 'balanced',
   resultCount: 20,
@@ -131,6 +141,7 @@ export const runeOptimizationSettingChecks: FieldChecks<RuneOptimizationSettings
   grindGrade: isOneOf<ItemGrade>(itemGrades),
   grindRollAssumption: isOneOf(craftRollAssumptions),
   runesOnOtherMonsters: isBoolean,
+  includeHigherPriority: isBoolean,
   unfinishedAtMaximum: isBoolean,
   depth: isOneOf(runeOptimizationDepths),
   resultCount: isOneOf(runeOptimizationResultCounts),

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Dropdown } from './dropdown';
+import { ArrowIcon, RemoveIcon } from './list-icons';
 import { MonsterLink } from './monster-link';
 import type { OpenMonsterOverlay } from './monster-link';
 import { useDragReorder } from './use-drag-reorder';
@@ -52,16 +53,6 @@ function verdictState(member: MemberReading, enemiesKnown: boolean): 'good' | 'w
     case 'in-place': return enemiesKnown && (member.cutInAt.length > 0 || (member.range !== null && !member.inRange)) ? 'warn' : 'good';
     default: return 'warn';
   }
-}
-
-function ArrowIcon({ direction }: { direction: 'up' | 'down' }) {
-  return <svg className="speed-icon" viewBox="0 0 16 16" aria-hidden="true">
-    <path d={direction === 'up' ? 'M8 13V3M4 7l4-4 4 4' : 'M8 3v10M4 9l4 4 4-4'} />
-  </svg>;
-}
-
-function RemoveIcon() {
-  return <svg className="speed-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg>;
 }
 
 /** The mark for a monster that moves somebody else's turn: two chevrons, a push forward. */

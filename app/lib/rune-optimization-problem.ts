@@ -78,6 +78,12 @@ export type RuneOptimizationInput = {
   monster: GameRecord;
   runes: readonly Rune[];
   holds: RuneHolds;
+  /**
+   * Copies whose worn runes this calculation may not take, whatever the settings
+   * say about other monsters: those above it on the priority list, resolved by the
+   * page (`higherPriorityThan`) so the search never reads the list itself.
+   */
+  spared: readonly string[];
   craftItems: readonly CraftItem[];
   requirements: RuneOptimizationRequirements;
   settings: RuneOptimizationSettings;
@@ -351,17 +357,26 @@ function usableSetsOf(builds: BuildRequirement[] | null): ReadonlySet<number> | 
 }
 
 /**
+ * Whether a rune worn by `wearer`, another copy, may be moved onto this one. One
+ * rule for the search and for the re-reading of a found build, so a row is never
+ * dimmed for a source the search itself would have taken.
+ */
+export function mayTakeFrom(input: { settings: Pick<RuneOptimizationSettings, 'runesOnOtherMonsters'>; spared: readonly string[] }, wearer: string): boolean {
+  return input.settings.runesOnOtherMonsters && !input.spared.includes(wearer);
+}
+
+/**
  * The filters of §3: whether a rune may enter its slot at all, before any craft
  * item or reduction. One function, so the preparation and the estimate on the page
  * cannot disagree about which runes are in play. `locked` is a rune locked to this
  * monster — its slot's one answer, which no filter can take away.
  */
 function admission(input: RuneOptimizationInput, usableSets: ReadonlySet<number> | null, rune: Rune): 'locked' | 'refused' | 'admitted' {
-  const { requirements, settings, unitId } = input;
+  const { requirements, unitId } = input;
   const onThisMonster = rune.occupiedId === unitId;
   /* A lock anywhere else keeps the rune where it is. */
   if (input.holds[rune.id]?.locked) return onThisMonster ? 'locked' : 'refused';
-  if (!onThisMonster && rune.occupiedId !== null && !settings.runesOnOtherMonsters) return 'refused';
+  if (!onThisMonster && rune.occupiedId !== null && !mayTakeFrom(input, rune.occupiedId)) return 'refused';
   if (rune.setId === intangibleSetId && !requirements.allowIntangible) return 'refused';
   if (usableSets !== null && rune.setId !== intangibleSetId && !usableSets.has(rune.setId)) return 'refused';
   const mains = rune.slot === 2 ? requirements.slotMains.slot2

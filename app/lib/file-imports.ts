@@ -4,6 +4,7 @@ import type {
 } from './types';
 import { readMonsterPreferences } from './monster-preferences';
 import { readRuneHolds } from './rune-holds';
+import { readMonsterPriority } from './monster-priority';
 import { readArtifact } from './artifacts';
 import { readRelic } from './relics';
 import { craftRollAssumptions, craftSettingAssumptions, defaultCraftRollAssumption, itemGrades, readCraftItem } from './rune-craft-items';
@@ -103,6 +104,7 @@ export function blankPreferences(): Preferences {
     runePotentialPresets: defaultRunePotentialPresets(),
     artifacts: defaultArtifactSettings,
     speedTuning: blankSpeedTuningPreferences(),
+    monsterPriority: [],
     runeOptimization: defaultRuneOptimizationSettings,
   };
 }
@@ -138,7 +140,7 @@ const runePotentialSettingChecks: FieldChecks<RunePotentialSettings> = {
 const preferenceSections = [
   'updatedAt', 'hardwareAcceleration', 'importRoute', 'directImportMode', 'general',
   'monsterPreferences', 'runeHolds', 'runePotential', 'runePotentialPresets', 'artifacts', 'speedTuning',
-  'runeOptimization',
+  'monsterPriority', 'runeOptimization',
 ] as const satisfies readonly (keyof Preferences)[];
 
 /**
@@ -165,6 +167,7 @@ export function readPreferences(value: unknown, game: ImportedGame | null): Pref
     runePotentialPresets: readRunePotentialPresets(stored.runePotentialPresets),
     artifacts: readSettings(stored.artifacts, blank.artifacts, artifactSettingChecks),
     speedTuning: readSpeedTuningPreferences(stored.speedTuning),
+    monsterPriority: readMonsterPriority(stored.monsterPriority),
     runeOptimization: readSettings(stored.runeOptimization, blank.runeOptimization, runeOptimizationSettingChecks),
   };
 }
