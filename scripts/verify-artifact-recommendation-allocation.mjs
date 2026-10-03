@@ -26,8 +26,8 @@ try {
     { monsterId: 'two', category: 'attribute' },
     { monsterId: 'two', category: 'type' },
   ];
-  const candidate = (artifactId, category, monsterId, value, artifactOrder, monsterOrder) =>
-    ({ artifactId, category, monsterId, value, artifactOrder, monsterOrder });
+  const candidate = (artifactId, category, monsterId, value, artifactOrder, monsterOrder, exclusiveGroup) =>
+    ({ artifactId, category, monsterId, value, artifactOrder, monsterOrder, exclusiveGroup });
 
   /* The strongest pair wins even though a sum optimiser could choose another
      arrangement. The following pairs then fill the remaining legal slots. */
@@ -93,6 +93,23 @@ try {
     { monsterId: 'two', category: 'attribute' },
     { monsterId: 'two', category: 'type' },
   ], 'every unfilled category slot must be reported explicitly');
+
+  /* Intangible is a cross-category exception: the winning one may fill either
+     slot, but a monster cannot wear a second Intangible in the other slot. */
+  const intangibles = allocateArtifactPlacements([
+    candidate('attribute-intangible', 'attribute', 'one', 100, 0, 0, 'intangible'),
+    candidate('type-intangible', 'type', 'one', 99, 1, 0, 'intangible'),
+    candidate('ordinary-type', 'type', 'one', 98, 2, 0),
+    candidate('type-intangible', 'type', 'two', 97, 1, 1, 'intangible'),
+  ], slots);
+  assert.deepEqual(intangibles.placements.map((placement) => [placement.monsterId, placement.artifactId]), [
+    ['one', 'attribute-intangible'], ['one', 'ordinary-type'], ['two', 'type-intangible'],
+  ], 'one monster may receive only one Intangible artifact across its two slots');
+  assert.throws(() => assertArtifactAllocation([
+    candidate('attribute-intangible', 'attribute', 'one', 100, 0, 0, 'intangible'),
+    candidate('type-intangible', 'type', 'one', 99, 1, 0, 'intangible'),
+  ], slots), /exclusive group member/,
+  'a manual allocation with two Intangible artifacts on one monster must fail loudly');
 
   assert.throws(() => allocateArtifactPlacements([
     candidate('A', 'attribute', 'one', 50, 0, 0),

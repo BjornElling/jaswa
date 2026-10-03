@@ -11,6 +11,8 @@ export type ArtifactPlacementCandidate<Category extends string = string> = {
   monsterId: string;
   monsterOrder: number;
   value: number;
+  /** At most one placement in this group may go to the same monster. */
+  exclusiveGroup?: string;
 };
 
 export type ArtifactPlacement<Category extends string = string> = ArtifactPlacementCandidate<Category>;
@@ -37,6 +39,9 @@ function assertCandidate<Category extends string>(candidate: ArtifactPlacementCa
   }
   if (!Number.isSafeInteger(candidate.artifactOrder) || !Number.isSafeInteger(candidate.monsterOrder)) {
     throw new Error('Artifact allocation requires a stable order for artifacts and monsters.');
+  }
+  if (candidate.exclusiveGroup !== undefined && !candidate.exclusiveGroup) {
+    throw new Error('Artifact allocation requires a non-empty exclusivity group when one is set.');
   }
 }
 
@@ -74,13 +79,18 @@ export function allocateArtifactPlacements<Category extends string>(
     || left.category.localeCompare(right.category));
   const placedArtifacts = new Set<string>();
   const filledSlots = new Set<string>();
+  const exclusiveGroups = new Set<string>();
   const placements: ArtifactPlacement<Category>[] = [];
 
   for (const candidate of ranked) {
     const key = slotKey(candidate.monsterId, candidate.category);
-    if (placedArtifacts.has(candidate.artifactId) || filledSlots.has(key)) continue;
+    const exclusiveKey = candidate.exclusiveGroup === undefined
+      ? undefined : `${candidate.monsterId}\u0000${candidate.exclusiveGroup}`;
+    if (placedArtifacts.has(candidate.artifactId) || filledSlots.has(key)
+      || (exclusiveKey !== undefined && exclusiveGroups.has(exclusiveKey))) continue;
     placedArtifacts.add(candidate.artifactId);
     filledSlots.add(key);
+    if (exclusiveKey !== undefined) exclusiveGroups.add(exclusiveKey);
     placements.push(candidate);
   }
 
@@ -97,12 +107,18 @@ export function assertArtifactAllocation<Category extends string>(
   const validSlots = new Set(slots.map((slot) => slotKey(slot.monsterId, slot.category)));
   const artifacts = new Set<string>();
   const filledSlots = new Set<string>();
+  const exclusiveGroups = new Set<string>();
   for (const placement of placements) {
     assertCandidate(placement);
     const key = slotKey(placement.monsterId, placement.category);
     if (!validSlots.has(key)) throw new Error('Artifact allocation placed an artifact outside its recommendation scope.');
     if (artifacts.has(placement.artifactId)) throw new Error('Artifact allocation assigned one artifact more than once.');
     if (filledSlots.has(key)) throw new Error('Artifact allocation assigned more than one artifact to a monster slot.');
+    if (placement.exclusiveGroup !== undefined) {
+      const exclusiveKey = `${placement.monsterId}\u0000${placement.exclusiveGroup}`;
+      if (exclusiveGroups.has(exclusiveKey)) throw new Error('Artifact allocation assigned more than one exclusive group member to a monster.');
+      exclusiveGroups.add(exclusiveKey);
+    }
     artifacts.add(placement.artifactId);
     filledSlots.add(key);
   }

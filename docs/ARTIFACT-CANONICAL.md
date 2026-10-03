@@ -61,6 +61,11 @@ slot, or an Intangible type artifact in its type slot; it can never take an
 attribute artifact in the type slot. §15.1 records the encoding and the
 evidence.
 
+**A monster may wear at most one Intangible artifact.** The wildcard may fill
+either its Attribute or its Type slot, never both at once. This is a
+cross-category equip rule: it constrains a monster's two slots together, while
+the category rule above still decides which individual slot an artifact fills.
+
 Each artifact has:
 
 - one **main property** — flat HP, ATK, or DEF;
@@ -1886,9 +1891,10 @@ rule — the artifact's own order — never by residual floating-point noise.
 
 Each monster has exactly two distinct slots: one Attribute and one Type. A
 placement may fill only the matching category slot, and an artifact may occur
-in only one placement. The allocator checks both claims after every pass; a
-duplicate artifact or a third artifact for a monster fails loudly rather than
-silently becoming advice.
+in only one placement. An Intangible may fill either slot, but at most one
+Intangible placement may go to the same monster. The allocator checks all three
+claims after every pass; a duplicate artifact, a second Intangible, or a third
+artifact for a monster fails loudly rather than silently becoming advice.
 
 The table shows the complete result, not only moves: **Keep** is a selected
 artifact already on its locked monster, **Equip** is a selected artifact that

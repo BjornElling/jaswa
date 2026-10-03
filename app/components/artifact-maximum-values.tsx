@@ -38,6 +38,7 @@ import type { ArtifactConversion, ArtifactScoreRequest, ArtifactScoreResult } fr
 import type { GameRecord } from '../lib/game-data';
 import type { ArtifactSettings, GeneralSettings } from '../lib/types';
 import { artifactOptimizationMonsters } from '../lib/artifact-optimization-monsters';
+import { intangibleRestrictionCode } from '../lib/compute/artifact-score-protocol';
 
 const categoryOrder: readonly ArtifactCategory[] = ['attribute', 'type'];
 /* Intangible joins the named classes so the wildcard artifacts can be filtered
@@ -146,6 +147,7 @@ function allocateArtifacts(
     monsterId: string;
     monsterOrder: number;
     value: number;
+    exclusiveGroup?: string;
     allocation: Allocation;
   }> = [];
   for (const calculation of categories) {
@@ -168,6 +170,10 @@ function allocateArtifacts(
           monsterId: monster.unitId,
           monsterOrder,
           value,
+          /* Intangible artifacts are wildcards, but the game allows one on a
+             monster across both artifact categories. The allocator owns this
+             cross-slot constraint with the rest of the placement rules. */
+          exclusiveGroup: artifact.restriction === intangibleRestrictionCode ? 'intangible' : undefined,
           allocation: { monster, value, conversions: conversionAt(calculation, artifact.id, monster.masterId) },
         });
       }
