@@ -21,6 +21,7 @@
    the figure order comes from `monster-stats.ts` rather than from the
    preferences module that sits beside the dataset. */
 import type { GameRecord } from './game-data';
+import type { CriticalRateBonuses } from './monster-stats';
 import type { RuneSlotKey } from './monster-defaults';
 import type { MonsterStatTargets } from './monster-preferences';
 import {
@@ -60,7 +61,7 @@ export type RankFigure = keyof MonsterStatTargets;
  * an optimizer that read it as "none will do" would answer a question the screen
  * never asked.
  */
-export type RuneOptimizationRequirements = {
+export type RuneOptimizationRequirements = CriticalRateBonuses & {
   builds: readonly string[];
   slotMains: Readonly<Record<RuneSlotKey, readonly RuneSlotMain[]>>;
   /** Whether a rune may complete no set — in the slots a build leaves free, or anywhere where no build is named. */
@@ -68,8 +69,7 @@ export type RuneOptimizationRequirements = {
   allowIntangible: boolean;
   /** Whether a held Immemorial Gem or Grindstone may be spent. An assumed item is never one. */
   allowImmemorial: boolean;
-  /** Every figure counted at a certain crit, and no CRI Rate floor asked (`alwaysCritsLift`). */
-  alwaysCrits: boolean;
+  /** Every figure counted at a certain crit, and no CRI Rate floor asked. */
   /** Floors the build must reach. Absent is "not aimed at"; `0` is a floor of nothing. */
   targets: Partial<Record<RankFigure, number>>;
   /** The most each figure may reach — the other end of each range. Absent is no limit. */
@@ -79,7 +79,7 @@ export type RuneOptimizationRequirements = {
 
 export type RuneOptimizationInput = {
   unitId: string;
-  /** The copy's own export record: its base stats and the artifacts it wears. */
+  /** The copy's own export record: its base stats, artifacts and engraved relic. */
   monster: GameRecord;
   runes: readonly Rune[];
   holds: RuneHolds;
@@ -140,11 +140,11 @@ export type SlotReport = {
 };
 
 export type RuneOptimizationProblem = {
-  /** The copy's base stats, CRI Rate lifted by `criticalRateLift` where it always crits. */
+  /** The copy's base stats, with combat CRI Rate points lifted for the search. */
   base: Float64Array;
   /** What `base` lifted CRI Rate by, for the figures shown to take back off. */
   criticalRateLift: number;
-  /** The accumulators before any rune: the artifacts' main properties. */
+  /** The accumulators before any rune: artifact and engraved relic mains. */
   start: Float64Array;
   /** Index 0 is slot 1. Complementary picks first at finite depths, then `proxy`. */
   slots: Candidate[][];
@@ -298,21 +298,21 @@ function runeEffects(rune: Rune, mainValue: number, lines: readonly EndStateLine
 /** One rune of a build in the end state a figure is counted in. */
 export type BuildPiece = { rune: Rune; mainValue: number; lines: readonly EndStateLine[] };
 
-/** The copy's base stats as the search reads them: CRI Rate lifted where it always crits. */
-export function searchBase(monster: GameRecord, alwaysCrits: boolean): Float64Array {
+/** The copy's base stats as the search reads them, including combat CRI Rate points. */
+export function searchBase(monster: GameRecord, bonuses: CriticalRateBonuses): Float64Array {
   const base = monsterBaseStats(monster);
-  base[4] += criticalRateLift(alwaysCrits);
+  base[4] += criticalRateLift(bonuses);
   return base;
 }
 
 /**
  * The eleven figures of six runes on a copy, summed exactly as the search sums a
  * finished build — the artifacts, each rune's effects, the completed sets with the
- * Intangible's completion, a certain crit where the copy always crits — so a build
+ * Intangible's completion and the copy's combat crit conditions — so a build
  * counted again after the account changed reads the figure the search would have
  * given it.
  */
-export function buildFigures(monster: GameRecord, pieces: readonly BuildPiece[], alwaysCrits: boolean): number[] {
+export function buildFigures(monster: GameRecord, pieces: readonly BuildPiece[], bonuses: CriticalRateBonuses): number[] {
   const effects = new Float64Array(effectSlotCount);
   addEquipmentEffects(monster, effects);
   const counts = new Int32Array(setIdBound);
@@ -322,8 +322,8 @@ export function buildFigures(monster: GameRecord, pieces: readonly BuildPiece[],
     if (piece.rune.setId > 0 && piece.rune.setId < setIdBound) counts[piece.rune.setId] += 1;
   }
   addSetBonuses(counts, intangibleCompletion(counts), effects);
-  const figures = figuresOf(searchBase(monster, alwaysCrits), effects, new Float64Array(targetFigureCount));
-  return Array.from(unliftedFigures(figures, criticalRateLift(alwaysCrits)));
+  const figures = figuresOf(searchBase(monster, bonuses), effects, new Float64Array(targetFigureCount));
+  return Array.from(unliftedFigures(figures, criticalRateLift(bonuses)));
 }
 
 /* The lines a Grindstone would newly touch: a stone bigger than the one the rune
@@ -580,7 +580,7 @@ export function prepareRuneOptimization(
   options.onStage?.('candidates');
   const reduce = options.reduce ?? true;
   const { requirements, settings, unitId, monster } = input;
-  const base = searchBase(monster, requirements.alwaysCrits);
+  const base = searchBase(monster, requirements);
   const start = new Float64Array(effectSlotCount);
   addEquipmentEffects(monster, start);
 
@@ -779,7 +779,7 @@ export function prepareRuneOptimization(
   }
 
   const problem: RuneOptimizationProblem = {
-    base, criticalRateLift: criticalRateLift(requirements.alwaysCrits), start, slots, builds, guides: [],
+    base, criticalRateLift: criticalRateLift(requirements), start, slots, builds, guides: [],
     allowBroken: requirements.allowBroken, setPieces: setPiecesById, allowIntangible: requirements.allowIntangible,
     targets, ceilings, rank, relevant, resultCount: settings.resultCount, stock,
     timeLimitMs: plan.seconds * 1000,

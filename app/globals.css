@@ -324,7 +324,7 @@ label[for] {
 .type-body, .lead, .notice, .dialog p, .slider-note, .radio-note,
 .overlay-current-value, .overlay-current-build, .overlay-nickname-input, .overlay-empty, .usage-entry, .overlay-stat-value,
 .choice-menu-summary, .choice-menu-option-label, .rune-build-set,
-.overlay-substat-name, .overlay-toggle, .choice-menu-empty,
+.overlay-substat-name, .overlay-toggle, .overlay-crit-lead, .choice-menu-empty,
 .checkbox-row, .editor-note, .route-links, .artifact-conversion-intro,
 .statistics-lead, .best-artifact-ranking, .best-artifact-empty,
 .best-artifact-fact dt, .statistics dt, .empty-state p,
@@ -4193,7 +4193,7 @@ input[type='checkbox']:checked {
    restyling one of their own: they are the same control asking the same kind
    of question, and a second definition is how two text boxes on one page come
    to have two different heights. */
-.field input, .field textarea, .stat-range-input, .overlay-substat input {
+.field input, .field textarea, .stat-range-input, .overlay-substat input, .overlay-crit-lead input {
   display: block; width: 100%;
   height: 36px;
   background: var(--sunk);
@@ -4237,7 +4237,7 @@ input[type='checkbox']:checked {
   font-family: var(--font-body); line-height: 1.55;
 }
 .field input:focus, .jaswa-select:focus, .field textarea:focus,
-.stat-range-input:focus, .overlay-substat input:focus {
+.stat-range-input:focus, .overlay-substat input:focus, .overlay-crit-lead input:focus {
   outline: none; border-color: var(--text-accent);
 }
 
@@ -4999,8 +4999,8 @@ input[type='checkbox']:checked {
 /* The overlay takes the account tables' own measure. It is brought up over the
    table the user was reading, so sharing that width is what makes it read as
    the same page rather than as a narrower panel floating off to one side — and
-   the panel needs the room besides, since two artifact blocks sit side by side
-   inside it. The body scrolls while the identity above it stays put, and the
+   the panel needs the room besides, since three equipment blocks sit side by
+   side inside it. The body scrolls while the identity above it stays put, and the
    ways out sit on the lower edge, so the reader always knows how to leave. */
 .dialog.overlay {
   position: relative;
@@ -5471,7 +5471,7 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
-/* CRI Rate carries the Always crits mark after its figure, on the figure's line. */
+/* CRI Rate carries its crit-context mark after its own figure. */
 .stat-range .overlay-stat-current, .overlay-stat .overlay-stat-current { display: flex; align-items: center; gap: var(--s1); }
 
 /* The tie-break question sits under the eleven fields it depends on, reading
@@ -5491,11 +5491,12 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
    sentence whose subject is the question beside it. */
 .overlay-suggestion-select { width: 200px; flex: none; }
 
-.overlay-artifact-pair {
+.overlay-equipment-panels {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--seam);
 }
+.overlay-equipment-panels .overlay-lines { grid-template-columns: 100px minmax(0, 1fr); }
 
 /* ------------------------------------------------- choice menus */
 
@@ -5786,9 +5787,10 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 .overlay-toggle { display: inline-flex; align-items: center; gap: var(--s2); color: var(--text-muted); cursor: pointer; }
 .overlay-toggle input { border-color: var(--gold-edge); }
 .overlay-toggles { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); }
-/* A fact about how the copy fights rather than part of the tie-break sentence, so
-   it keeps to the far end of the row. */
-.overlay-always-crits { margin-left: auto; }
+/* Each crit source owns a fixed box, so checking one leaves its neighbours still. */
+.overlay-crit-options { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s4); margin-top: var(--s3); }
+.overlay-crit-lead { display: inline-flex; align-items: center; gap: var(--s2); color: var(--text-muted); }
+.overlay-crit-lead input { width: 80px; font-variant-numeric: tabular-nums; }
 
 /* Three slots on one row: each names itself and opens its own mains. */
 .overlay-slot-row {
@@ -5831,7 +5833,7 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 .overlay-substat input { width: 100%; font-variant-numeric: tabular-nums; }
 .overlay-substat-unit { color: var(--text-muted); }
 
-.usage-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s3); }
+.usage-line { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--s3); row-gap: 0; }
 /* Most common is reference, never an answer, so all of it reads muted. */
 .usage-entry { color: var(--text-muted); }
 /* The name leads and the number qualifies it — no bars, which would be

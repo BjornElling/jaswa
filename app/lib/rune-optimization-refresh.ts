@@ -33,7 +33,7 @@
  */
 import type { OptimizedBuild, PickedRune } from './compute/rune-optimization-protocol';
 import type { GameRecord } from './game-data';
-import { targetFigureKeys } from './monster-stats';
+import { criticalRateLift, targetFigureKeys } from './monster-stats';
 import type { EndStateLine } from './rune-craft-end-state';
 import type { CraftItem } from './rune-craft-items';
 import type { RuneHolds } from './rune-holds';
@@ -75,9 +75,9 @@ export const buildFollowable = (build: CurrentBuild): boolean => build.runes.eve
 /** What a calculation was and what the account is now, for one re-reading. */
 export type RefreshContext = {
   unitId: string;
-  /** The copy's record as it is now: its artifacts are counted as well as its runes. */
+  /** The copy's record as it is now: its artifacts and relic are counted with its runes. */
   monster: GameRecord;
-  requirements: Pick<RuneOptimizationRequirements, 'targets' | 'ceilings' | 'alwaysCrits'>;
+  requirements: Pick<RuneOptimizationRequirements, 'targets' | 'ceilings' | 'alwaysCrits' | 'alwaysElementAdvantage' | 'critLead'>;
   settings: Pick<RuneOptimizationSettings, 'runesOnOtherMonsters'>;
   /** The copies whose runes the search was not allowed to take, as `RuneOptimizationInput.spared`. */
   spared: readonly string[];
@@ -222,14 +222,16 @@ function readBuild(build: OptimizedBuild, context: RefreshContext, lockedSlots: 
   const moves = picks.filter((picked) => picked.moves).length;
   if (gone) return { ...build, runes: picks, moves, figures: null, short: [], over: [] };
   /* Untouched since the search: its own figures, exactly. After a sync every build is
-     counted again, since an artifact can change as well as a rune. */
+     counted again, since equipment can change as well as a rune. */
   const figures = changed
-    ? buildFigures(context.monster, pieces, context.requirements.alwaysCrits)
+    ? buildFigures(context.monster, pieces, context.requirements)
     : build.figures;
   const floors = targetFloors(context.requirements);
-  const missed = targetFigureKeys.filter((key) => figures[figureIndex(key)] < floors[figureIndex(key)]);
+  const judged = (key: RankFigure) => figures[figureIndex(key)]
+    + (key === 'criRate' ? criticalRateLift(context.requirements) : 0);
+  const missed = targetFigureKeys.filter((key) => judged(key) < floors[figureIndex(key)]);
   const ceilings = targetCeilings(context.requirements);
-  const past = targetFigureKeys.filter((key) => figures[figureIndex(key)] > ceilings[figureIndex(key)]);
+  const past = targetFigureKeys.filter((key) => judged(key) > ceilings[figureIndex(key)]);
   return { ...build, runes: picks, moves, figures, short: missed, over: past };
 }
 

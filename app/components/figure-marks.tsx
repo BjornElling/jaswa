@@ -13,7 +13,7 @@ import type { FigureMark, FigureMarkTone } from '../lib/figure-marks';
  * - **red** — something is wrong with the figure. Nothing uses it yet.
  * - **yellow** — something is left to do: a wish the copy does not meet yet, a
  *   found build the account has moved out from under.
- * - **green** — a fact in the figure's favour: a monster that always crits.
+ * - **green** — a fact in the figure's favour, including combat CRI Rate bonuses.
  *
  * Each says what it means in words, for a screen reader and on hover.
  */

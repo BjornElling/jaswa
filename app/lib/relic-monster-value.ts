@@ -22,9 +22,13 @@ export type RelicMonsterModel = {
 export function relicMonsterModel(monster: GameRecord): RelicMonsterModel {
   const rawBase = monsterBaseStats(monster);
   const base = { HP: rawBase[0], ATK: rawBase[1], DEF: rawBase[2], SPD: rawBase[3] };
-  const sheet = calculateMonsterTotals(monster);
+  /* Candidate relics are compared against the same sheet before engraving;
+     counting the currently worn relic here would give every candidate its main
+     property twice. */
+  const withoutRelic = { ...monster, relics: [] };
+  const sheet = calculateMonsterTotals(withoutRelic);
   const totals = { HP: sheet.hp, ATK: sheet.atk, DEF: sheet.def, SPD: sheet.spd };
-  const runes = calculateMonsterTotals({ ...monster, artifacts: [] });
+  const runes = calculateMonsterTotals({ ...withoutRelic, artifacts: [] });
   const runeIncreases = { HP: 0, ATK: 0, DEF: 0 };
   const weights = { HP: 0, ATK: 0, DEF: 0 };
   const model: RelicMonsterModel = { status: 'missing-stats', base, totals, runeIncreases, weights };

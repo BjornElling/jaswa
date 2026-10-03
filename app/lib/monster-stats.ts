@@ -209,10 +209,9 @@ function records(value: unknown): RecordLike[] {
 }
 
 /**
- * What a copy's gear adds that is not a rune: each artifact's main property, a
- * fixed HP, ATK or DEF addition. Artifact secondary effects are situational battle
- * effects and relics act at the start of battle, so neither moves the always-visible
- * sheet.
+ * Artifacts add their fixed main property. An engraved relic's main property is
+ * a percentage of the wearer's base stat and appears on the game's stat panel;
+ * its unique property acts at the start of battle and does not appear there.
  */
 export function addEquipmentEffects(monster: RecordLike, effects: Float64Array): void {
   for (const artifact of records(monster.artifacts)) {
@@ -223,6 +222,17 @@ export function addEquipmentEffects(monster: RecordLike, effects: Float64Array):
       case 100: effects[effectSlot.hpFlat] += value; break;
       case 101: effects[effectSlot.atkFlat] += value; break;
       case 102: effects[effectSlot.defFlat] += value; break;
+      default: break;
+    }
+  }
+  for (const relic of records(monster.relics)) {
+    const effect = relic.pri_effect;
+    if (!Array.isArray(effect) || effect.length < 2) continue;
+    const value = numberValue(effect[1]);
+    switch (numberValue(effect[0])) {
+      case 100: effects[effectSlot.hpPercent] += value; break;
+      case 101: effects[effectSlot.atkPercent] += value; break;
+      case 102: effects[effectSlot.defPercent] += value; break;
       default: break;
     }
   }
@@ -277,21 +287,28 @@ export function monsterSpeedParts(monster: RecordLike): { baseSpeed: number; swi
 }
 
 /**
- * **Always crits.** The CRI Rate a monster whose owner says it always crits is
- * counted with on top of its own — a skill that cannot miss a crit, a leader or a
- * team that guarantees one. DMG reads CRI Rate capped at 100 %, so from here every
- * hit is a crit and nothing a rune adds to CRI Rate moves a figure.
+ * A copy's combat crit conditions are added to its own CRI Rate while a search
+ * judges a build. A guaranteed crit adds enough to reach the 100 % DMG cap;
+ * element advantage and a lead each contribute their own points.
  *
  * It is a lift on the stat rather than a second DMG formula because Rune
  * Optimization's search, and the shader beside it, read CRI Rate from the monster's
  * base: lifting the base there is the whole of the rule, with no second
  * implementation to drift. A CRI Rate *shown* is always the monster's own —
- * `unliftedFigures` takes the lift back off — and a CRI Rate *target* is met by
- * definition, so it is never asked.
+ * `unliftedFigures` takes the lift back off. A guaranteed crit satisfies a
+ * CRI Rate target by definition, so that target is never asked.
  */
 export const alwaysCritsLift = 100;
 
-export const criticalRateLift = (alwaysCrits: boolean): number => (alwaysCrits ? alwaysCritsLift : 0);
+export type CriticalRateBonuses = {
+  alwaysCrits: boolean;
+  alwaysElementAdvantage: boolean;
+  critLead?: number;
+};
+
+/** External CRI Rate points used by a calculation, never printed as the copy's own stat. */
+export const criticalRateLift = (bonuses: CriticalRateBonuses): number =>
+  (bonuses.alwaysCrits ? alwaysCritsLift : 0) + (bonuses.alwaysElementAdvantage ? 15 : 0) + (bonuses.critLead ?? 0);
 
 /** Figures summed over a lifted base, with the CRI Rate put back to the monster's own. */
 export function unliftedFigures<Figures extends { [index: number]: number }>(figures: Figures, lift: number): Figures {
@@ -310,12 +327,12 @@ export function unliftedFigures<Figures extends { [index: number]: number }>(fig
  * (`AGENTS.md` §6). The truncation is `RUNE-PRESET-METRICS.md`'s display rule,
  * so a figure compared here is the figure the user was shown.
  */
-export function monsterTargetFigures(totals: MonsterTotals, alwaysCrits = false): {
+export function monsterTargetFigures(totals: MonsterTotals, bonuses: CriticalRateBonuses): {
   hp: number; atk: number; def: number; spd: number;
   criRate: number; criDmg: number; res: number; acc: number;
   dmg: number; ehp: number; ehpD: number;
 } {
-  const lift = criticalRateLift(alwaysCrits);
+  const lift = criticalRateLift(bonuses);
   const figures = new Float64Array(targetFigureCount);
   figuresInto([
     totals.hp, totals.atk, totals.def, totals.spd,

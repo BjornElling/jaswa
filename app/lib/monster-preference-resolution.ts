@@ -115,6 +115,8 @@ export type ResolvedMonsterPreferences = {
   runeSuggestionStat?: keyof MonsterStatTargets;
   /** Whether every figure is counted at a certain crit (`monster-stats.ts` `alwaysCritsLift`). */
   alwaysCrits: boolean;
+  alwaysElementAdvantage: boolean;
+  critLead?: number;
 };
 
 const noChoices = <T,>(): ResolvedChoices<T> => ({ chosen: [], source: 'default', shares: new Map<T, number>() });
@@ -290,5 +292,7 @@ export function resolveMonsterPreferences(
     statCeilings: resolveStatTargets(stated?.statCeilings),
     ...(stated?.runeSuggestionStat === undefined ? {} : { runeSuggestionStat: stated.runeSuggestionStat }),
     alwaysCrits: stated?.alwaysCrits ?? false,
+    alwaysElementAdvantage: stated?.alwaysElementAdvantage ?? false,
+    critLead: stated?.critLead,
   };
 }

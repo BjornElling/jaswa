@@ -3,7 +3,7 @@ import { MultiChoiceMenu } from './choice-menu';
 import type { ChoiceMenuOption } from './choice-menu';
 import { Dropdown } from './dropdown';
 import { FigureMarks } from './figure-marks';
-import { alwaysCritsMark, shortfallMarks } from '../lib/figure-marks';
+import { criticalRateMarks, shortfallMarks } from '../lib/figure-marks';
 import { MonsterPortrait } from './monster-portrait';
 import { RuneBuildField } from './rune-build-field';
 import { RuneSlotMainField } from './rune-slot-main-field';
@@ -240,8 +240,8 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
      in the row that shows them, so the reference column and the shortfall check
      can never disagree about whether a target is met. */
   const current = useMemo(
-    () => (totals ? monsterTargetFigures(totals, resolved.alwaysCrits) : undefined),
-    [totals, resolved.alwaysCrits],
+    () => (totals ? monsterTargetFigures(totals, resolved) : undefined),
+    [totals, resolved],
   );
 
   const worn = useMemo(() => {
@@ -455,7 +455,7 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
                 {formatNumber(current[row.key], general)}
                 <FigureMarks marks={[
                   ...shortfallMarks(marks, general),
-                  ...(row.key === 'criRate' && resolved.alwaysCrits ? [alwaysCritsMark] : []),
+                  ...(row.key === 'criRate' ? criticalRateMarks(resolved) : []),
                 ]} />
               </>;
               /* A monster that always crits is never asked for CRI Rate, so the
@@ -490,15 +490,35 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
               }}>
               {targetRows.map((row) => <option key={row.key} value={row.key}>{row.label}</option>)}
             </Dropdown>
-            <label className="overlay-toggle overlay-always-crits">
+          </div>}
+          {editable && <div className="overlay-crit-options" role="group" aria-label="Crit bonuses">
+            <label className="overlay-toggle">
               <input type="checkbox" checked={resolved.alwaysCrits}
                 onChange={(event) => change((state) => ({ ...state, alwaysCrits: event.target.checked }))} />
               <span>Always crits</span>
             </label>
+            <label className="overlay-toggle">
+              <input type="checkbox" checked={resolved.alwaysElementAdvantage}
+                onChange={(event) => change((state) => ({ ...state, alwaysElementAdvantage: event.target.checked }))} />
+              <span>Always element advantage</span>
+            </label>
+            <label className="overlay-crit-lead">
+              <span>Crit lead</span>
+              <input type="number" min={0} max={100} step={1} inputMode="numeric"
+                aria-label="Crit lead, in percent" placeholder="—" value={draft.critLead ?? ''}
+                onChange={(event) => {
+                  const raw = event.target.value.trim();
+                  const parsed = Number(raw);
+                  const value = raw === '' || !Number.isFinite(parsed)
+                    ? undefined : Math.min(100, Math.max(0, Math.round(parsed)));
+                  change((state) => ({ ...state, critLead: value }));
+                }} />
+              <span>%</span>
+            </label>
           </div>}
         </Section>}
 
-        <div className="overlay-artifact-pair">
+        <div className="overlay-equipment-panels">
           {(['attribute', 'type'] as const).map((category) => {
             const stated = draft.artifacts?.[category];
             const equipped = worn.artifacts[category];
@@ -597,8 +617,6 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
               </div>
             </Section>;
           })}
-        </div>
-
         <Section title="Relics">
           <div className="overlay-lines">
             {editable && <Line label="Main stats">
@@ -636,6 +654,7 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
             </Line>
           </div>
         </Section>
+        </div>
       </div>
   </Overlay>;
 }

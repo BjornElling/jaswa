@@ -16,7 +16,7 @@ for (let index = 0; index < 8; index += 1) {
     allowBroken: true, allowIntangible: false, alwaysCrits: false, rankBy: index % 2 ? 'ehp' : 'dmg', ceilings: {} };
   input.runes = input.runes.filter((rune) => rune.setId !== 25).map((rune) => ({ ...rune, setId: 13 }));
   const sample = Array.from({ length: 6 }, (_, slot) => input.runes.find((rune) => rune.slot === slot + 1));
-  const figures = buildFigures(input.monster, sample.map((rune) => ({ rune, mainValue: rune.mainValue, lines: rune.subProperties })), false);
+  const figures = buildFigures(input.monster, sample.map((rune) => ({ rune, mainValue: rune.mainValue, lines: rune.subProperties })), input.requirements);
   input.requirements.targets = Object.fromEntries(['spd', 'acc', 'hp'].map((stat) => [stat, Math.floor(figures[figureIndex(stat)] * 0.98)]));
   const problems = runeOptimizationDepths.map((depth) => {
     input.settings.depth = depth;
@@ -104,13 +104,14 @@ const intangible = generator.scenario(0);
 intangible.holds = {}; intangible.spared = [];
 intangible.settings = { ...intangible.settings, depth: 'complete', gems: 'none', grinds: 'none', runesOnOtherMonsters: true };
 intangible.requirements = { ...intangible.requirements, builds: [], slotMains: { slot2: [], slot4: [], slot6: [] },
-  allowBroken: true, allowIntangible: true, alwaysCrits: false, targets: {}, ceilings: {}, rankBy: 'ehp' };
+  allowBroken: true, allowIntangible: true, alwaysCrits: false, alwaysElementAdvantage: false,
+  critLead: undefined, targets: {}, ceilings: {}, rankBy: 'ehp' };
 intangible.runes = Array.from({ length: 6 }, (_, slot) => ({
   ...intangible.runes.find((rune) => rune.slot === slot + 1),
   id: String(slot + 1), occupiedId: null, setId: [1, 2, 4, 25, 1, 2][slot], subProperties: [], prefixStatId: null, prefixValue: 0,
 }));
 const exactFigures = buildFigures(intangible.monster, intangible.runes.map((rune) =>
-  ({ rune, mainValue: rune.mainValue, lines: rune.subProperties })), false);
+  ({ rune, mainValue: rune.mainValue, lines: rune.subProperties })), intangible.requirements);
 intangible.settings.unfinishedAtMaximum = false;
 intangible.requirements.targets = Object.fromEntries(['hp', 'def', 'criRate'].map((key) => [key, exactFigures[figureIndex(key)]]));
 const intangibleResult = searchRuneBuilds(prepareRuneOptimization(intangible));

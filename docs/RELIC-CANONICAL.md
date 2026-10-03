@@ -82,6 +82,12 @@ indexes a relic's whole strength against its level, which is why
 `relicMainPercent` is one half of the strength index that `V(l, d)` in §7.2
 measures a relic against; its unique-property threshold is the other half.
 
+The main percentage is part of the visible personal stat sheet. An in-game
+capture of Icaru #2 shows 736 base DEF + 2,467 = 3,203 total, while the sheet
+without its DEF +12 % relic read 3,114. Adding 12 percentage points to the
+base-DEF bonus before the sheet's single rounding step accounts for all 89 DEF.
+The relic's unique property is still a battle effect and is not added here.
+
 ## 3. What is known about the mechanic, and from where
 
 | Fact | Source |

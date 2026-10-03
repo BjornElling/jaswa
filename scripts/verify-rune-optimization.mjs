@@ -52,7 +52,7 @@
  */
 import assert from 'node:assert/strict';
 import {
-  calculateMonsterTotals, intangibleSetId, monsterTargetFigures, targetFigureKeys, unliftedFigures,
+  calculateMonsterTotals, criticalRateLift, intangibleSetId, monsterTargetFigures, targetFigureKeys, unliftedFigures,
 } from '../app/lib/monster-stats.ts';
 import { monsterStatTargetKeys } from '../app/lib/monster-preferences.ts';
 import { buildFigures, prepareRuneOptimization } from '../app/lib/rune-optimization-problem.ts';
@@ -81,7 +81,7 @@ function sheet(input, chosen) {
       };
     }),
   };
-  const shown = monsterTargetFigures(calculateMonsterTotals(record), input.requirements.alwaysCrits);
+  const shown = monsterTargetFigures(calculateMonsterTotals(record), input.requirements);
   return figures.map((key) => shown[key]);
 }
 
@@ -145,8 +145,10 @@ function bruteForce(input) {
       for (const candidate of chosen) for (const entry of candidate.stock) spent.set(entry, (spent.get(entry) ?? 0) + 1);
       for (const [entry, count] of spent) if (count > problem.stock[entry].amount) return;
       const values = sheet(input, chosen);
-      for (const [key, floor] of floorsOf(input)) if (values[figures.indexOf(key)] < floor) return;
-      for (const [key, ceiling] of ceilingsOf(input)) if (values[figures.indexOf(key)] > ceiling) return;
+      const compared = (key) => values[figures.indexOf(key)]
+        + (key === 'criRate' ? criticalRateLift(input.requirements) : 0);
+      for (const [key, floor] of floorsOf(input)) if (compared(key) < floor) return;
+      for (const [key, ceiling] of ceilingsOf(input)) if (compared(key) > ceiling) return;
       found.push({ value: values[rank], moves: chosen.filter((candidate) => candidate.moves).length });
       return;
     }
@@ -321,7 +323,7 @@ for (let index = 0; index < scenarios; index += 1) {
   for (const build of found) {
     const chosen = build.picks.map((at, slot) => problem.slots[slot][at]);
     assert.deepEqual(build.figures, sheet(input, chosen), `${context}: a reported figure is not the stat sheet's`);
-    assert.deepEqual(buildFigures(input.monster, build.runes.map((picked) => ({ rune: runesById.get(picked.runeId), mainValue: picked.mainValue, lines: picked.lines })), input.requirements.alwaysCrits),
+    assert.deepEqual(buildFigures(input.monster, build.runes.map((picked) => ({ rune: runesById.get(picked.runeId), mainValue: picked.mainValue, lines: picked.lines })), input.requirements),
       build.figures, `${context}: buildFigures disagrees with the search`);
     if (input.requirements.alwaysCrits) {
       /* Every hit a crit, written out: ATK × (1 + CRI Dmg). */

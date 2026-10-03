@@ -50,14 +50,15 @@ The monster's profile — its *preset*, in the page's own words — states the
 answer's shape: the builds it will accept, the mains of slots 2, 4 and 6, whether
 a rune may complete no set (no unless the owner said yes), whether an Intangible
 rune and an Immemorial Gem or Grindstone may be spent (both yes unless the owner
-said no), whether the monster always crits (no unless the owner said yes), the
-range each figure must fall in, and the figure to rank by. The page opens on exactly that, read *resolved*
+said no), whether the monster always crits or always has element advantage, its
+crit lead (none unless stated), the range each figure must fall in, and the figure
+to rank by. The page opens on exactly that, read *resolved*
 (`monster-preference-resolution.ts`), so a slot the owner never answered carries
 the community's answer — and says so under the field.
 
-Anything may be changed on the page. **A change there is for this calculation
-only** and never written back to the profile; *Reset to preset* discards it, once
-the user has confirmed it.
+The page's own controls may be changed for this calculation only and never write
+back to the profile; *Reset to preset* discards those changes after confirmation.
+Combat crit conditions are edited on the monster overlay and read here.
 
 ### 2.1 Empty means any
 
@@ -82,7 +83,7 @@ Each of the eleven figures has a range: a floor (`targets`, the profile's
 on its own. Absent means "no limit at that end"; `0` is a stated limit of nothing
 (`AGENTS.md` §3). A build outside any range is not listed at all.
 
-### 2.2.1 Always crits
+### 2.2.1 Crit conditions
 
 A monster whose owner says it always crits — a skill, a leader or a team that
 guarantees one — is counted at a certain crit. `monster-stats.ts` states the rule
@@ -91,7 +92,14 @@ reads. DMG reads CRI Rate capped at 100 %, so every hit is a crit and nothing a 
 adds to CRI Rate moves a figure; the reductions stop comparing CRI Rate for DMG,
 and a CRI Rate floor is never asked. Because the lift is on the base, the card's
 shader needs no rule of its own. Every CRI Rate *shown* is the monster's own, with
-the green *Always crits* mark after it.
+the green info mark after it.
+
+*Always element advantage* adds 15 CRI Rate points and *Crit lead* adds the
+stated percentage points. They add to each other and to the copy's own CRI Rate
+for DMG, CRI Rate floors and ceilings, capped at 100 % for DMG. They do not alter
+the CRI Rate printed on screen. The green mark beside that figure explains each
+contribution on hover. A blank lead means no stated bonus; an explicit zero is
+kept as the user's choice. *Always crits* still makes every CRI Rate target moot.
 
 ### 2.3 The figure to rank by
 
@@ -633,9 +641,10 @@ keeps the previous result table.
   Enhance, Accuracy and Tolerance as including the wearer; the stat sheet has never
   counted them and was matched against SWOP Pro without them. An in-game capture
   should settle whether the game's own stat panel shows them.
-- **Relics.** A relic's main property is a percentage of HP, ATK or DEF, and the
-  sheet does not count it, because it is not known whether it acts on the visible
-  stats or at the start of battle. Artifacts and relics are used as worn.
+- **Relic unique properties.** A relic's main HP, ATK or DEF percentage is counted
+  on the visible sheet. The Icaru #2 game panel showed 3,203 DEF against 3,114
+  without its +12 % DEF relic: 736 base DEF × 12 % adds 89 after the sheet's one
+  rounding step. Its unique property remains a battle effect, outside the sheet.
 - **Repeated two-sets.** `rune-set-pairs.ts` cannot express `Energy/Energy/Energy`,
   which the game allows. The search handles repeated sets; the build vocabulary
   does not yet offer them.

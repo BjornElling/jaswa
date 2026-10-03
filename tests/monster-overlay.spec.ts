@@ -84,6 +84,86 @@ test('a monster name opens its overlay without moving the row it sits in', async
   await expect(page.locator('.stat-range-input').first()).toBeFocused();
 });
 
+test('engraved relic mains appear in current stats, while a bare copy keeps its base', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await importAccount(page);
+  const links = await monsterLinks(page);
+  const equippedRow = page.locator('tbody tr').filter({ has: links.first() }).first();
+  const before = await equippedRow.boundingBox();
+  await page.screenshot({ path: testInfo.outputPath('relic-stat-before.png') });
+  await links.first().click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.locator('.stat-range[data-figure="hp"] .overlay-stat-current')).toContainText(/34[.,]390/);
+  const panels = dialog.locator('.overlay-equipment-panels > section');
+  await expect(panels).toHaveCount(3);
+  const boxes = await Promise.all([0, 1, 2].map((at) => panels.nth(at).boundingBox()));
+  expect(boxes.every((box) => box !== null)).toBe(true);
+  expect(Math.max(...boxes.map((box) => box!.width)) - Math.min(...boxes.map((box) => box!.width))).toBeLessThan(2);
+  await page.screenshot({ path: testInfo.outputPath('relic-stat-equipped.png') });
+  expect(await equippedRow.boundingBox()).toEqual(before);
+  const body = dialog.locator('.overlay-body');
+  await body.evaluate((element) => { element.scrollTop = element.scrollHeight; });
+  expect(await body.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  const commonSubs = panels.first().locator('.usage-line').last().locator('.usage-entry');
+  const firstLine = await commonSubs.nth(0).boundingBox();
+  const nextLine = await commonSubs.nth(1).boundingBox();
+  expect(firstLine && nextLine && nextLine.y - firstLine.y).toBeLessThanOrEqual(firstLine!.height + 2);
+  await page.screenshot({ path: testInfo.outputPath('equipment-filled.png') });
+
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await links.nth(1).click();
+  await expect(dialog.locator('.stat-range[data-figure="hp"] .overlay-stat-current')).toContainText(/16[.,]500/);
+  await dialog.locator('.overlay-body').evaluate((element) => { element.scrollTop = element.scrollHeight; });
+  expect(await dialog.locator('.overlay-body').evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('relic-stat-bare.png') });
+});
+
+test('element advantage and a crit lead add to the calculation without changing shown CRI Rate', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await importAccount(page);
+  await openOverlay(page);
+  const dialog = page.getByRole('dialog');
+  const rate = dialog.locator('.stat-range[data-figure="criRate"]');
+  const before = await rate.boundingBox();
+  await expect(rate.locator('.overlay-stat-current')).toContainText('51');
+  await page.screenshot({ path: testInfo.outputPath('crit-bonuses-empty.png') });
+
+  await dialog.getByLabel('Always element advantage').check();
+  await dialog.getByRole('spinbutton', { name: 'Crit lead, in percent' }).fill('33');
+  await expect(rate.locator('.overlay-stat-current')).toContainText('51');
+  const mark = rate.getByRole('img', { name: /Element advantage adds 15% CRI Rate.*Crit lead adds 33% CRI Rate/ });
+  await expect(mark).toBeVisible();
+  await expect(mark).toHaveAttribute('title', /15%.*33%/);
+  const critFloor = rate.getByRole('spinbutton', { name: 'CtR%: at least' });
+  await critFloor.fill('99');
+  await expect(rate.getByRole('img', { name: /You want CtR%/ })).toHaveCount(0);
+  await critFloor.fill('100');
+  await expect(rate.getByRole('img', { name: /effective 99 with combat bonuses/ })).toBeVisible();
+  await critFloor.fill('');
+  expect(await rate.boundingBox()).toEqual(before);
+  await page.screenshot({ path: testInfo.outputPath('crit-bonuses-filled.png') });
+  await dialog.getByRole('checkbox', { name: 'Always crits' }).check();
+  await dialog.getByRole('spinbutton', { name: 'Crit lead, in percent' }).fill('100');
+  expect(await rate.boundingBox()).toEqual(before);
+  await page.screenshot({ path: testInfo.outputPath('crit-bonuses-all.png') });
+  await dialog.getByRole('checkbox', { name: 'Always crits' }).uncheck();
+  await dialog.getByRole('spinbutton', { name: 'Crit lead, in percent' }).fill('33');
+
+  await dialog.getByRole('button', { name: 'Save changes' }).click();
+  await page.reload();
+  await openOverlay(page);
+  await expect(dialog.getByLabel('Always element advantage')).toBeChecked();
+  await expect(dialog.getByRole('spinbutton', { name: 'Crit lead, in percent' })).toHaveValue('33');
+  await dialog.getByRole('spinbutton', { name: 'Crit lead, in percent' }).fill('');
+  await expect(rate.getByRole('img', { name: /Element advantage adds 15% CRI Rate/ })).toBeVisible();
+  await dialog.getByRole('spinbutton', { name: 'Crit lead, in percent' }).fill('33');
+  await dialog.getByRole('button', { name: /^Optimize runes for / }).click();
+  const optimizationStats = page.getByRole('group', { name: 'Stats', exact: true });
+  await expect(optimizationStats.locator('.stat-range[data-figure="criRate"] .overlay-stat-current')).toContainText('51');
+  await expect(optimizationStats.getByRole('img', { name: /Element advantage adds 15% CRI Rate.*Crit lead adds 33% CRI Rate/ })).toBeVisible();
+  await expect(optimizationStats.locator('.stat-range[data-figure="dmg"] .overlay-stat-current')).toContainText(/8[.,]183/);
+});
+
 test('Optimize opens this copy in Rune Optimization and keeps an unsaved choice', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await importAccount(page);

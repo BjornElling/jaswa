@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { Button } from './button';
 import { CalculationStatus } from './calculation-status';
 import { FigureMarks } from './figure-marks';
-import { alwaysCritsMark, buildIssueMarks } from '../lib/figure-marks';
+import { buildIssueMarks, criticalRateMarks } from '../lib/figure-marks';
 import { CheckboxRow, RadioLine } from './form-controls';
 import { Dropdown } from './dropdown';
 import { MonsterPortrait } from './monster-portrait';
@@ -226,8 +226,13 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
       delete rest.criRate;
       return rest;
     };
-    return { targets: withoutCriRate(screenTargets), ceilings: withoutCriRate(screenCeilings), alwaysCrits: tableAlwaysCritsCount };
-  }, [tableAlwaysCritsCount, screenTargets, screenCeilings, alwaysCrits]);
+    return {
+      targets: withoutCriRate(screenTargets), ceilings: withoutCriRate(screenCeilings),
+      alwaysCrits: tableAlwaysCritsCount,
+      alwaysElementAdvantage: current?.requirements.alwaysElementAdvantage ?? false,
+      critLead: current?.requirements.critLead,
+    };
+  }, [tableAlwaysCritsCount, screenTargets, screenCeilings, alwaysCrits, current]);
   const builds = useMemo(() => (current && selected && tableLimits
     ? currentBuilds(current.answer.builds.slice(0, resultCount), {
       unitId: selected.unitId, monster: selected.record, requirements: tableLimits, settings: current.settings, spared: current.spared,
@@ -235,15 +240,14 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
       now: { runes: runesById, items: itemsById, holds: preferences.runeHolds },
     })
     : undefined), [current, selected, tableLimits, resultCount, runesById, itemsById, preferences.runeHolds]);
-  const figuresNow = useCallback((crits: boolean) => {
+  const figuresNow = useCallback((bonuses: RuneOptimizationRequirements) => {
     if (!selected) return undefined;
-    const figures = monsterTargetFigures(calculateMonsterTotals(selected.record), crits);
+    const figures = monsterTargetFigures(calculateMonsterTotals(selected.record), bonuses);
     return monsterStatTargetKeys.map((key) => figures[key]);
   }, [selected]);
-  const currentFigures = useMemo(() => figuresNow(alwaysCrits), [figuresNow, alwaysCrits]);
+  const currentFigures = useMemo(() => requirements ? figuresNow(requirements) : undefined, [figuresNow, requirements]);
   /* The table's `Now` row is counted the way its builds were. */
-  const tableAlwaysCrits = current?.requirements.alwaysCrits ?? alwaysCrits;
-  const tableNowFigures = useMemo(() => figuresNow(tableAlwaysCrits), [figuresNow, tableAlwaysCrits]);
+  const tableNowFigures = useMemo(() => current ? figuresNow(current.requirements) : undefined, [figuresNow, current]);
   const currentBuild = selected ? runeBuildName(activeRuneSets(selected.record).map((set) => set.name)) : '';
 
   function change(update: (current: RuneOptimizationRequirements) => RuneOptimizationRequirements) {
@@ -451,7 +455,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
                   disabled={crits} title={crits ? 'Always crits, so no CRI Rate is needed' : undefined}
                   current={<>
                     {currentFigures ? formatNumber(currentFigures[figureIndex(key)], general) : '—'}
-                    {key === 'criRate' && <FigureMarks marks={alwaysCrits ? [alwaysCritsMark] : []} />}
+                    {key === 'criRate' && <FigureMarks marks={requirements ? criticalRateMarks(requirements) : []} />}
                   </>} />;
               })}
             </div>

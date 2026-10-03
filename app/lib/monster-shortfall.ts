@@ -3,7 +3,7 @@ import type { ArtifactCategory } from './artifact-properties';
 import { artifactProperty } from './artifact-properties';
 import type { GameRecord } from './game-data';
 import type { MonsterTotals } from './monster-stats';
-import { monsterTargetFigures } from './monster-stats';
+import { criticalRateLift, monsterTargetFigures } from './monster-stats';
 import type { PreferenceSource, ResolvedMonsterPreferences } from './monster-preference-resolution';
 import type { MonsterStatTargets } from './monster-preferences';
 import type { Relic } from './relics';
@@ -61,6 +61,8 @@ export type Shortfall = {
   /** For a stat or a substat floor: what was asked for and what is there. */
   target?: number;
   current?: number;
+  /** Whether `current` includes combat crit points hidden from the displayed CRI Rate. */
+  withCombatBonuses?: boolean;
   /** A stat past the upper end of its range, rather than short of the lower. */
   over?: boolean;
   /** Which artifact category or rune slot this concerns, where one applies. */
@@ -254,13 +256,14 @@ function relicShortfalls(resolved: ResolvedMonsterPreferences, worn: readonly Re
 
 function statShortfalls(resolved: ResolvedMonsterPreferences, totals: MonsterTotals): Shortfall[] {
   const shortfalls: Shortfall[] = [];
-  const current = monsterTargetFigures(totals, resolved.alwaysCrits);
+  const current = monsterTargetFigures(totals, resolved);
+  const critLift = criticalRateLift(resolved);
   for (const [key, target] of Object.entries(resolved.statTargets)) {
     if (!target) continue;
     const statKey = key as keyof MonsterStatTargets;
     /* A copy that always crits has every crit its CRI Rate could buy. */
     if (statKey === 'criRate' && resolved.alwaysCrits) continue;
-    const reached = current[statKey];
+    const reached = current[statKey] + (statKey === 'criRate' ? critLift : 0);
     /* A target of `0` is a stated target of nothing and is always met; an absent
        one never reaches this loop at all (`AGENTS.md` §3). */
     if (reached >= target.value) continue;
@@ -270,6 +273,7 @@ function statShortfalls(resolved: ResolvedMonsterPreferences, totals: MonsterTot
       wanted: statLabels[statKey] ?? statKey,
       target: target.value,
       current: reached,
+      ...(statKey === 'criRate' && critLift > 0 ? { withCombatBonuses: true } : {}),
     });
   }
   /* The upper end of a range, read the same way: a figure past it is as far from
@@ -278,7 +282,7 @@ function statShortfalls(resolved: ResolvedMonsterPreferences, totals: MonsterTot
     if (!ceiling) continue;
     const statKey = key as keyof MonsterStatTargets;
     if (statKey === 'criRate' && resolved.alwaysCrits) continue;
-    const reached = current[statKey];
+    const reached = current[statKey] + (statKey === 'criRate' ? critLift : 0);
     if (reached <= ceiling.value) continue;
     shortfalls.push({
       kind: 'stat',
@@ -286,6 +290,7 @@ function statShortfalls(resolved: ResolvedMonsterPreferences, totals: MonsterTot
       wanted: statLabels[statKey] ?? statKey,
       target: ceiling.value,
       current: reached,
+      ...(statKey === 'criRate' && critLift > 0 ? { withCombatBonuses: true } : {}),
       over: true,
     });
   }

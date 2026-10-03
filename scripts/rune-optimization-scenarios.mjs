@@ -94,6 +94,8 @@ export function scenarioGenerator(firstSeed = 20260930, runesPerSlot = [3, 5]) {
     const grinds = pick(['none', 'owned', 'theoretical']);
     const allowImmemorial = random() < 0.7;
     const alwaysCrits = random() < 0.3;
+    const alwaysElementAdvantage = index % 4 === 0;
+    const critLead = index % 5 === 0 ? [0, 19, 24, 33][index % 4] : undefined;
     const allowBroken = random() < 0.5;
     /* The other end of a range now and then: a ceiling turns "more is better" off on
        what it reads, which is exactly what the exact reduction must notice. */
@@ -106,6 +108,7 @@ export function scenarioGenerator(firstSeed = 20260930, runesPerSlot = [3, 5]) {
       monster: {
         unit_id: 1, con: 700, atk: 700, def: 600, spd: 101, critical_rate: 15, critical_damage: 50, resist: 15, accuracy: 0,
         artifacts: [{ pri_effect: [101, 100] }, { pri_effect: [100, 1500] }],
+        relics: index % 2 === 0 ? [{ pri_effect: [102, 12] }] : [],
       },
       runes, holds, craftItems,
       /* Every fourth account ranks copy 2 above the one being searched for, without
@@ -114,7 +117,7 @@ export function scenarioGenerator(firstSeed = 20260930, runesPerSlot = [3, 5]) {
       requirements: {
         builds: wantedBuilds,
         slotMains: { slot2: random() < 0.3 ? ['Spd'] : [], slot4: [], slot6: [] },
-        allowBroken, allowIntangible, allowImmemorial, alwaysCrits, targets, ceilings, rankBy,
+        allowBroken, allowIntangible, allowImmemorial, alwaysCrits, alwaysElementAdvantage, critLead, targets, ceilings, rankBy,
       },
       settings: {
         ...defaultRuneOptimizationSettings, gems, grinds, gemGrade: 'Legend', grindGrade: 'Hero',

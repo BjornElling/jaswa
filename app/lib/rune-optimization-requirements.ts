@@ -50,6 +50,8 @@ export function profileRequirements(
       allowIntangible: resolved.runes.allowIntangible,
       allowImmemorial: resolved.runes.allowImmemorial,
       alwaysCrits: resolved.alwaysCrits,
+      alwaysElementAdvantage: resolved.alwaysElementAdvantage,
+      critLead: resolved.critLead,
       targets,
       ceilings,
       rankBy: named ?? defaultRankFigure(monsterPresentation(masterId).archetype),

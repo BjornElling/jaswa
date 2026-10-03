@@ -153,6 +153,10 @@ export type MonsterCopyPreferences = {
    * Absent is no.
    */
   alwaysCrits?: boolean;
+  /** Whether every target has elemental disadvantage against this copy. Absent is no. */
+  alwaysElementAdvantage?: boolean;
+  /** CRI Rate points supplied by its leader. Absent is no lead; zero is a stated zero. */
+  critLead?: number;
   /**
    * The main stats wanted in slots 2, 4 and 6 — several may be, so each slot
    * holds a list. Slots 1, 3 and 5 carry a fixed main and cannot be stated.
@@ -248,6 +252,8 @@ export function statesSomething(preferences: MonsterCopyPreferences): boolean {
   if (preferences.allowIntangibleRunes !== undefined) return true;
   if (preferences.allowImmemorialItems !== undefined) return true;
   if (preferences.alwaysCrits !== undefined) return true;
+  if (preferences.alwaysElementAdvantage !== undefined) return true;
+  if (preferences.critLead !== undefined) return true;
   if (runeSlotKeys.some((key) => preferences.runeSlots?.[key] !== undefined)) return true;
   for (const category of ['attribute', 'type'] as const) {
     const artifact = preferences.artifacts?.[category];
@@ -406,6 +412,8 @@ const copyFieldChecks: Record<Exclude<keyof MonsterCopyPreferences, 'unitId'>, (
   allowIntangibleRunes: (value) => typeof value === 'boolean',
   allowImmemorialItems: (value) => typeof value === 'boolean',
   alwaysCrits: (value) => typeof value === 'boolean',
+  alwaysElementAdvantage: (value) => typeof value === 'boolean',
+  critLead: (value) => typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 100,
   runeSlots: isRuneSlots,
   artifacts: isArtifactPreferences,
   relics: isRelicPreference,
