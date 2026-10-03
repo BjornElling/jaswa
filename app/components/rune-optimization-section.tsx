@@ -22,6 +22,7 @@ import { formatNumber } from '../lib/formatting';
 import type { GameRecord } from '../lib/game-data';
 import { runeSlotKeys } from '../lib/monster-defaults';
 import type { RuneSlotKey } from '../lib/monster-defaults';
+import { monsterPresentation } from '../lib/monster-catalog';
 import { monsterNameCollator } from '../lib/monster-grid';
 import { monsterCopyNames } from '../lib/monster-names';
 import { monsterCompositeTargetMaximum, monsterStatTargetKeys } from '../lib/monster-preferences';
@@ -126,6 +127,11 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
     .sort((left, right) => monsterNameCollator.compare(left.name, right.name) || left.unitId.localeCompare(right.unitId)),
   [monsters, names]);
   const selected = options.find((option) => option.unitId === unitId);
+  const buildMonster = useMemo(() => {
+    if (!selected) return { unitId, name: '', initial: '?' };
+    const display = monsterPresentation(selected.masterId);
+    return { unitId: selected.unitId, name: selected.name, imageFilename: display.imageFilename, initial: display.shortName };
+  }, [selected, unitId]);
   const wearers = useMemo(() => new Map(options.map((option) => [option.unitId, { name: option.name, masterId: option.masterId }])), [options]);
 
   const profile = useMemo(() => (selected
@@ -349,7 +355,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
     {builds && showingBuild && chosenBuild !== null && builds[chosenBuild] && <RuneBuildOverlay
       index={chosenBuild} buildName={buildNameOf(builds[chosenBuild].runes.map((rune) => rune.setId))}
       moves={builds[chosenBuild].moves} runes={builds[chosenBuild].runes} runesById={runesById}
-      thisMonster={unitId} wearer={(id) => wearers.get(id)}
+      monster={buildMonster} wearer={(id) => wearers.get(id)}
       general={general} onClose={closeBuild} onOpenRune={onOpenRune} onOpenMonster={onOpenMonster} />}
   </WorkspacePage>;
 }

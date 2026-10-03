@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { MonsterLink } from './monster-link';
+import { MonsterPortrait } from './monster-portrait';
 import type { OpenMonsterOverlay } from './monster-link';
 import { Overlay } from './overlay';
 import { RuneEmblem } from './rune-emblem';
@@ -30,6 +31,9 @@ import type { GeneralSettings } from '../lib/types';
 const subPropertySlots = 4;
 
 export type BuildWearer = { name: string; masterId: string };
+
+/** The monster the build is for, as its portrait and copy name. */
+export type BuildMonster = { unitId: string; name: string; imageFilename?: string; initial: string };
 
 type Change =
   | { kind: 'gem'; before: EndStateLine; after: EndStateLine }
@@ -163,15 +167,15 @@ function RuneCard({ picked, rune, thisMonster, wearer, format, onOpenRune, onOpe
 }
 
 export function RuneBuildOverlay({
-  index, buildName, moves, runes, runesById, thisMonster, wearer, general, onClose, onOpenRune, onOpenMonster,
+  index, buildName, moves, runes, runesById, monster, wearer, general, onClose, onOpenRune, onOpenMonster,
 }: {
   index: number;
   buildName: string;
   moves: number;
   runes: readonly PickedRune[];
   runesById: ReadonlyMap<string, Rune>;
-  /** The monster the build is for, so its own runes read as staying put. */
-  thisMonster: string;
+  /** Drawn in the middle of the circle, and the wearer its own runes read as staying on. */
+  monster: BuildMonster;
   wearer: (unitId: string) => BuildWearer | undefined;
   general: GeneralSettings;
   onClose: () => void;
@@ -205,13 +209,20 @@ export function RuneBuildOverlay({
     </header>
 
     <div className="overlay-body rune-build-body">
-      {/* The game's circle: the grid places each card by its slot, so the list
-          itself stays in slot order for a screen reader. */}
-      <ol className="rune-build-circle" aria-label="Runes">
-        {bySlot.map((picked) => <RuneCard key={picked.slot} picked={picked} rune={runesById.get(picked.runeId)}
-          thisMonster={thisMonster} wearer={wearer} format={format} onOpenRune={onOpenRune} onOpenMonster={onOpenMonster} />)}
-        <li className="rune-build-centre" aria-hidden="true">{buildName}</li>
-      </ol>
+      {/* The game's circle around the monster that wears it, as the game draws its
+          rune screen. The list sits in the grid by `display: contents`, so its cards
+          are placed by slot while it stays in slot order for a screen reader, and
+          the monster is not read as a seventh rune. */}
+      <div className="rune-build-circle">
+        <ol className="rune-build-runes" aria-label="Runes">
+          {bySlot.map((picked) => <RuneCard key={picked.slot} picked={picked} rune={runesById.get(picked.runeId)}
+            thisMonster={monster.unitId} wearer={wearer} format={format} onOpenRune={onOpenRune} onOpenMonster={onOpenMonster} />)}
+        </ol>
+        <div className="rune-build-centre">
+          <MonsterPortrait imageFilename={monster.imageFilename} initial={monster.initial} name={monster.name} decorative />
+          <span className="rune-build-centre-name" title={monster.name}>{monster.name}</span>
+        </div>
+      </div>
 
       <section className="rune-build-changes" aria-labelledby="rune-build-changes-title">
         <h3 id="rune-build-changes-title" className="overlay-block-title">Modifications</h3>

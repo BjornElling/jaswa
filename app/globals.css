@@ -297,7 +297,7 @@ label[for] {
 .best-artifact-category h3, .best-artifact-current-slot-title,
 .best-monster-artifact-details h3, .craft-best-use-item h3, .empty-state h2,
 .field-lead > span, .overlay-block-title, .speed-basis-title,
-.overlay-facts dd, .rune-overlay-location .monster-name {
+.overlay-facts dd, .rune-overlay-location .monster-name, .rune-build-centre-name {
   font-family: var(--font-heading);
   font-size: var(--type-heading);
   font-weight: 600;
@@ -379,7 +379,7 @@ label[for] {
 .overlay-stat-current, .overlay-substat-unit, .overlay-slot-name,
 .choice-menu-option-note, .rune-build-leader-pieces, .rune-build-leader-count,
 .rune-build-note, .rune-build-composed, .overlay-suggestion-label, .speed-lane-turn text, .speed-lane-figure,
-.rune-optimization-provenance, .rune-build-card-grade, .rune-build-change-kind, .rune-build-centre,
+.rune-optimization-provenance, .rune-build-card-grade, .rune-build-change-kind,
 .speed-summary-state, .speed-leader-skill {
   font-family: var(--font-body);
   font-size: var(--type-label);
@@ -2394,23 +2394,33 @@ label[for] {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   grid-template-rows: repeat(6, var(--rune-build-row));
   gap: var(--s3);
-  margin: 0;
-  padding: 0;
-  list-style: none;
 }
+.rune-build-runes { display: contents; }
 .rune-build-card[data-slot="1"] { grid-area: 1 / 2 / span 2 / span 1; }
 .rune-build-card[data-slot="2"] { grid-area: 2 / 3 / span 2 / span 1; }
 .rune-build-card[data-slot="3"] { grid-area: 4 / 3 / span 2 / span 1; }
 .rune-build-card[data-slot="4"] { grid-area: 5 / 2 / span 2 / span 1; }
 .rune-build-card[data-slot="5"] { grid-area: 4 / 1 / span 2 / span 1; }
 .rune-build-card[data-slot="6"] { grid-area: 2 / 1 / span 2 / span 1; }
+/* The monster the build is for, where the game puts it: inside the ring. The
+   portrait is the monster overlay's own size, and the name gives way to an
+   ellipsis rather than widen the column the two cards above and below share. */
 .rune-build-centre {
   grid-area: 3 / 2 / span 2 / span 1;
   display: grid;
-  place-items: center;
+  place-content: center;
+  justify-items: center;
+  gap: var(--s3);
+  min-width: 0;
   padding: var(--s3);
-  color: var(--text-muted);
-  text-align: center;
+}
+.rune-build-centre .monster-portrait { width: 108px; height: 108px; border-radius: var(--radius); }
+.rune-build-centre-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-strong);
 }
 .rune-build-card {
   min-width: 0;
