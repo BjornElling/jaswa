@@ -365,18 +365,24 @@ test('arena teams are numbered and face a worst-case enemy', async ({ page }, te
   /* A first turn with no later one beside it is not spelled out. */
   await expect(card.getByRole('region', { name: 'Enemy cut in' }).locator('tbody tr')).toHaveText(['Worst caseLushen #2']);
   await expect(card.getByRole('region', { name: 'Enemy cut in' }).getByRole('img', { name: 'Can cut in before Megan (2A)' })).toBeVisible();
-  /* Two copies at one arena speed tie on the bar; only field position can settle
-     that. The lower one, looking up at the other, says so; the upper one is in
-     place, but a tie is not a perfect order, so it quotes the range that
-     breaks it. Megan is warned that the worst-case enemy gets in before her,
-     and no display speed of hers alone keeps it out: a dash. */
+  /* Two copies at one arena speed tie on the bar; both name the field-position
+     decision without suggesting a speed change. Megan still reports the enemy
+     turn and has no display speed that keeps it out: a dash. */
   await expect(card.locator('.speed-verdict:not([data-state="good"])')).toHaveCount(3);
-  await expect(card.locator('.speed-slot').nth(1).locator('.speed-verdict')).toHaveText(/^In place · moves 2nd · needs \d+–\d+ display speed$/);
-  await expect(card.locator('.speed-slot').nth(2).locator('.speed-verdict')).toHaveText('Tied with Lushen #1 · position decides');
+  await expect(card.locator('.speed-slot').nth(1).locator('.speed-verdict')).toHaveText('Tied with Lushen #2. Position decides.');
+  await expect(card.locator('.speed-slot').nth(2).locator('.speed-verdict')).toHaveText('Tied with Lushen #1. Position decides.');
   const megan = card.locator('.speed-slot').nth(3);
   await expect(megan.locator('.speed-verdict')).toHaveText('In place · moves 4th · worst-case enemy cuts in');
   await expect(megan.locator('.speed-verdict')).toHaveAttribute('data-state', 'warn');
   await expect(megan.locator('.speed-slot-range')).toHaveText('—');
+  const tiedBox = await box(card.locator('.speed-team-editor'));
+  await card.screenshot({ path: testInfo.outputPath('speed-arena-tied.png') });
+  const tiedWhatIf = card.getByLabel('What-if display speed for Lushen #2 in Arena team #1');
+  await tiedWhatIf.fill('1');
+  await expect(card.locator('.speed-slot').nth(1).locator('.speed-verdict')).not.toContainText('Tied with');
+  expectSameHeight((await box(card.locator('.speed-team-editor'))).height, tiedBox.height);
+  await card.screenshot({ path: testInfo.outputPath('speed-arena-tie-broken.png') });
+  await tiedWhatIf.fill('');
   await card.getByRole('button', { name: 'Add this team' }).click();
   await expect(card).toHaveCount(0);
 
@@ -384,7 +390,7 @@ test('arena teams are numbered and face a worst-case enemy', async ({ page }, te
   await page.getByRole('dialog', { name: 'New arena team' }).getByLabel('Add a monster to Arena team #2').selectOption({ label: 'Veromos' });
   await page.getByRole('dialog').getByRole('button', { name: 'Add this team' }).click();
   const first = arena.getByRole('button', { name: /^Arena team #1:/ });
-  await expect(first.locator('.speed-summary-state')).toHaveText('1 of 4 out of place · Enemy can cut in');
+  await expect(first.locator('.speed-summary-state')).toHaveText('Tied · position decides · Enemy can cut in');
   await expect(first.locator('.speed-summary-mark')).toHaveAttribute('data-state', 'bad');
   /* A lone monster always opens before an enemy level with it: the tie is the attacker's. */
   await expect(arena.getByRole('button', { name: /^Arena team #2:/ }).locator('.speed-summary-state')).toHaveText('Turn order holds');

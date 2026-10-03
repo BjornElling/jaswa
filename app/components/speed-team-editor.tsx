@@ -31,8 +31,9 @@ function ordinal(value: number): string {
  * offers is one the team can be tuned through from the top down.
  */
 function verdictText(member: MemberReading, names: Record<string, MonsterCopyName>, area: 'arena' | 'dungeon',
-  enemiesKnown: boolean, general: GeneralSettings): string {
+  enemiesKnown: boolean, general: GeneralSettings, tiedWith: string | null): string {
   const { verdict } = member;
+  if (tiedWith !== null) return `Tied with ${names[tiedWith]?.name ?? 'a teammate'}. Position decides.`;
   const fix = enemiesKnown && !member.inRange ? displaySpeedIntervalText(member.range, general) : null;
   const stages = member.cutInAt;
   const enemyWarning = !enemiesKnown || stages.length === 0 ? ''
@@ -40,7 +41,7 @@ function verdictText(member: MemberReading, names: Record<string, MonsterCopyNam
       : ` · enemy cuts in (stage${stages.length === 1 ? '' : 's'} ${stages.join(', ')})`;
   const fault = verdict.kind === 'in-place' ? `In place · moves ${ordinal(member.actualPosition)}`
     : verdict.kind === 'order' ? `Too fast · moves ${ordinal(member.actualPosition)}`
-      : `Tied with ${names[verdict.with]?.name ?? 'a teammate'} · position decides`;
+      : `Tied with ${names[verdict.with]?.name ?? 'a teammate'}. Position decides.`;
   return `${fault}${fix === null ? '' : ` · ${fix}`}${enemyWarning}`;
 }
 
@@ -213,7 +214,9 @@ export function SpeedTeamEditor({ reading, title, names, choices, general, onCha
           used.length ? `${used.map((skill) => `${skill.name}: ${skill.effects.map(describeTurnEffect).join(', ')}`).join('; ')} — counted on every turn` : '',
           uncounted.length ? `Not counted, because its size depends on the battle: ${uncounted.join(', ')}` : '',
         ].filter(Boolean).join('. ');
-        const verdict = verdictText(monster, names, content.area, enemiesKnown, general);
+        const tiedWith = monster.verdict.kind === 'tie' ? monster.verdict.with
+          : reading.members.find((other) => other.verdict.kind === 'tie' && other.verdict.with === monster.unitId)?.unitId ?? null;
+        const verdict = verdictText(monster, names, content.area, enemiesKnown, general, tiedWith);
         /* Until the dungeon is chosen its enemies are nobody's, so neither is a range. */
         const range = rangeText(enemiesKnown ? monster.range : null, general);
         const noRange = enemiesKnown && monster.range === null;
@@ -270,7 +273,7 @@ export function SpeedTeamEditor({ reading, title, names, choices, general, onCha
           </tr>
           <tr className="speed-verdict-row">
             <td className="speed-verdict-cell">
-              <span className="speed-verdict type-caption" data-state={verdictState(monster, enemiesKnown)} title={verdict}>{verdict}</span>
+              <span className="speed-verdict type-caption" data-state={tiedWith !== null ? 'warn' : verdictState(monster, enemiesKnown)} title={verdict}>{verdict}</span>
               {boostTag !== '' && <span className="speed-boost-tag type-caption" aria-hidden="true">{boostTag}</span>}
             </td>
           </tr>

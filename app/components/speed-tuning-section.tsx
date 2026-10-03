@@ -140,6 +140,7 @@ function teamStatus(reading: TeamReading): { text: string; state: Verdict } {
      faster than any build, and there it is reported without a verdict. */
   const cutFails = reading.content.area === 'arena' && cut !== '';
   if (reading.perfect) return { text: `Turn order holds${cut}`, state: cutFails ? 'bad' : 'good' };
+  if (outOfPlaceCount(reading) === 0) return { text: `Tied · position decides${cut}`, state: cutFails ? 'bad' : 'none' };
   return { text: `${outOfPlaceCount(reading)} of ${reading.members.length} out of place${cut}`, state: 'bad' };
 }
 

@@ -548,9 +548,9 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
   };
 }
 
-/** How many members do not move where they were put — the one count every verdict on a team quotes. */
+/** A field-position tie is unresolved, but only a strict order fault is out of place. */
 export function outOfPlaceCount(reading: TeamReading): number {
-  return reading.members.filter((member) => member.verdict.kind !== 'in-place').length;
+  return reading.members.filter((member) => member.verdict.kind === 'order').length;
 }
 
 /** "arena speed" or "dungeon speed" — the page always says which combat speed a figure is. */
