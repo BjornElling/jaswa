@@ -298,6 +298,11 @@ for (let index = 0; index < scenarios; index += 1) {
     }
   }
   const exactly = (table) => table.builds.map((build) => ({ picks: build.picks, figures: build.figures, moves: build.moves }));
+  if (problem.ceilings.some(Number.isFinite)) {
+    const unpruned = searchRuneBuilds(problem, 0, 1, { pruneCeilings: false });
+    assert.ok(unpruned.complete, `${context}: the interval comparison timed out`);
+    assert.deepEqual(exactly(whole), exactly(unpruned), `${context}: interval pruning changed a ranked row or tie`);
+  }
   const passes = await searchRuneBuildsInPasses(problem, everyPairCard(40), { blocks: 3, pairs: 60 });
   assert.equal(passes.processorTook, false, `${context}: the stand-in card was not asked every pass`);
   assert.deepEqual(exactly(passes.outcome), exactly(whole), `${context}: the search in passes differs from the processor's`);
@@ -450,13 +455,102 @@ for (let index = 0; index < scenarios; index += 1) {
   }
 }
 
+/* Tight endpoints exercise every figure, including percentage/flat rounding and
+   composites. A second figure supplies the rank, so a ceiling is not just a cap
+   on the objective. The comparison reads actual sheets, not search bounds. */
+let intervalTables = 0;
+for (let index = 0; index < figures.length; index += 1) {
+  const input = scenarioGenerator(20261004 + index, [3, 3]).scenario(index);
+  input.holds = {}; input.spared = [];
+  Object.assign(input.requirements, {
+    builds: [], slotMains: { slot2: [], slot4: [], slot6: [] }, allowBroken: true,
+    allowIntangible: true, alwaysCrits: false, alwaysElementAdvantage: false, critLead: undefined,
+    targets: {}, ceilings: {}, rankBy: figures[(index + 1) % figures.length],
+  });
+  Object.assign(input.settings, { gems: 'none', grinds: 'none', runesOnOtherMonsters: true });
+  const anchor = searchRuneBuilds(prepareRuneOptimization(input)).builds[0];
+  assert.ok(anchor, `interval ${figures[index]} needs a feasible anchor`);
+  const center = anchor.figures[index];
+  for (const limits of [
+    { targets: { [figures[index]]: center }, ceilings: { [figures[index]]: center } },
+    { targets: { [figures[index]]: center - 1 }, ceilings: { [figures[index]]: center + 1 } },
+    { targets: { [figures[index]]: center + 1 }, ceilings: { [figures[index]]: center } },
+    { targets: {}, ceilings: { [figures[index]]: -1 } },
+    { targets: {}, ceilings: Object.fromEntries(figures.map((key, at) => [key, anchor.figures[at]])) },
+  ]) {
+    Object.assign(input.requirements, limits);
+    const problem = prepareRuneOptimization(input);
+    const result = searchRuneBuilds(problem);
+    assert.ok(result.complete, `interval ${figures[index]} timed out`);
+    assert.deepEqual(result.builds.map((build) => ({ value: build.figures[problem.rank], moves: build.moves })),
+      bruteForce(input), `interval ${figures[index]} lost a build at a tight or contradictory endpoint`);
+    intervalTables += 1;
+  }
+}
+
+/* Four fixed slots leave wide tail groups, so the interval boxes really split.
+   All runes share a set, while the two free slots vary both flat and percentage
+   properties; a scalar ordering of rounded HP or DMG would be unsafe here. */
+for (let index = 0; index < figures.length; index += 1) {
+  const input = scenarioGenerator(20261015 + index, [20, 20]).scenario(0);
+  input.holds = {}; input.spared = [];
+  input.runes = input.runes.filter((rune, at, all) => rune.slot >= 5
+    || all.findIndex((other) => other.slot === rune.slot) === at)
+    .map((rune) => ({ ...rune, setId: 1, occupiedId: null }));
+  Object.assign(input.requirements, {
+    builds: [], slotMains: { slot2: [], slot4: [], slot6: [] }, allowBroken: true,
+    allowIntangible: false, alwaysCrits: false, alwaysElementAdvantage: false, critLead: undefined,
+    targets: {}, ceilings: {}, rankBy: figures[(index + 1) % figures.length],
+  });
+  Object.assign(input.settings, { gems: 'none', grinds: 'none', depth: 'complete' });
+  const anchor = searchRuneBuilds(prepareRuneOptimization(input, { reduce: false })).builds[0];
+  assert.ok(anchor, `tail interval ${figures[index]} needs a feasible anchor`);
+  input.requirements.targets = { [figures[index]]: anchor.figures[index] - 1 };
+  input.requirements.ceilings = { [figures[index]]: anchor.figures[index] + 1 };
+  const problem = prepareRuneOptimization(input, { reduce: false });
+  const result = searchRuneBuilds(problem);
+  const original = searchRuneBuilds(problem, 0, 1, { pruneCeilings: false });
+  assert.ok(result.complete && original.complete, `tail interval ${figures[index]} timed out`);
+  assert.deepEqual(result.builds, original.builds, `tail interval ${figures[index]} changed rows or ties`);
+  assert.deepEqual(result.builds.map((build) => ({ value: build.figures[problem.rank], moves: build.moves })),
+    bruteForce(input), `tail interval ${figures[index]} differs from the actual stat sheets`);
+  intervalTables += 1;
+}
+
+/* A fixed pool makes unnecessary work a reproducible count rather than a timing
+   threshold that depends on the machine. Both paths must finish and keep the
+   same physical builds, crafting plans, figures and tie order. */
+const intervalInput = scenarioGenerator(20260930, [10, 10]).scenario(0);
+intervalInput.holds = {}; intervalInput.spared = [];
+Object.assign(intervalInput.requirements, {
+  builds: [], slotMains: { slot2: [], slot4: [], slot6: [] }, allowBroken: true,
+  allowIntangible: false, alwaysCrits: false, alwaysElementAdvantage: false, critLead: undefined,
+  rankBy: 'spd', targets: { spd: 120 }, ceilings: { spd: 140 },
+});
+Object.assign(intervalInput.settings, {
+  gems: 'none', grinds: 'theoretical', runesOnOtherMonsters: true, unfinishedAtMaximum: true,
+  depth: 'complete', resultCount: 5,
+});
+const intervalProblem = prepareRuneOptimization(intervalInput);
+const noRunes = searchRuneBuilds(prepareRuneOptimization({ ...intervalInput, runes: [] }));
+assert.ok(noRunes.complete && noRunes.builds.length === 0, 'an empty capped pool must finish without builds');
+const beforeInterval = searchRuneBuilds(intervalProblem, 0, 1, { pruneCeilings: false });
+const afterInterval = searchRuneBuilds(intervalProblem);
+assert.ok(beforeInterval.complete && afterInterval.complete, 'interval work comparison timed out');
+assert.deepEqual(afterInterval.builds, beforeInterval.builds, 'interval work reduction changed the top builds');
+assert.ok(afterInterval.combinations < beforeInterval.combinations / 10,
+  `interval work regressed: ${afterInterval.combinations} vs ${beforeInterval.combinations} full combinations`);
+console.log(`PASS: ${intervalTables} tight interval tables match brute force; interval pruning reduces the fixed`
+  + ` SPD pool from ${beforeInterval.combinations} to ${afterInterval.combinations} full combinations with identical rows.`);
+
 assert.ok(checkedRows > scenarios, 'too few builds were compared to prove anything');
-assert.ok(withWork > scenarios / 4, `only ${withWork} builds had work to follow`);
+// Accounts after 160 deliberately disable crafting, locks and priority exclusions.
+const personalScenarios = Math.min(scenarios, 160);
+assert.ok(withWork > personalScenarios / 4, `only ${withWork} builds had work to follow`);
 assert.ok(refusedMidway > scenarios / 4, 'too few searches lost their card midway to prove the processor finishes');
-assert.ok(lockedAwayChecked > scenarios / 4, `only ${lockedAwayChecked} builds had a rune to lock away`);
-// Accounts after 160 deliberately disable craft items to widen the set checks.
-assert.ok(itemsChecked >= Math.min(scenarios, 160) / 10, `only ${itemsChecked} builds spent a held item`);
-assert.ok(sparedChecked > scenarios / 10, `only ${sparedChecked} searches had a higher-priority monster's runes to leave alone`);
+assert.ok(lockedAwayChecked > personalScenarios / 4, `only ${lockedAwayChecked} builds had a rune to lock away`);
+assert.ok(itemsChecked >= personalScenarios / 10, `only ${itemsChecked} builds spent a held item`);
+assert.ok(sparedChecked > personalScenarios / 10, `only ${sparedChecked} searches had a higher-priority monster's runes to leave alone`);
 assert.ok(alwaysCritting > scenarios / 10, `only ${alwaysCritting} builds were for a monster that always crits`);
 console.log(`PASS: ${scenarios} random accounts, ${checkedRows} ranked builds — the search, whole and split three ways,`
   + ` and resource matching on ${allocatedCases} pools,`

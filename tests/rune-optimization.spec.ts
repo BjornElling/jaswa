@@ -506,6 +506,53 @@ test('the build menu cascades three deep, past the edge of its own line, without
   await expect(line).toHaveAttribute('aria-label', 'Desired rune builds: Will/Will/Will, Despair/Will');
 });
 
+test('all stat ranges keep an exact speed endpoint and fixed controls', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await freshWorkspace(page);
+  await page.getByLabel('Use the graphics card for heavy calculations').uncheck();
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
+  await expect(page.getByText('rune-optimization-account.json').first()).toBeVisible();
+  await openOptimization(page);
+  await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  await page.getByLabel('Rank by', { exact: true }).selectOption('spd');
+  await page.getByRole('slider', { name: 'Depth', exact: true }).press('End');
+  const requirements = page.getByRole('region', { name: 'Requirements for this calculation' });
+  await expect(requirements.locator('input[type="number"]')).toHaveCount(22);
+  for (const field of await requirements.locator('input[type="number"]').all()) await expect(field).toHaveValue('');
+  const find = page.getByRole('button', { name: 'Find builds', exact: true });
+  await find.click();
+  await expect(find).toBeEnabled();
+  const table = page.getByRole('table', { name: 'Rune builds' });
+  await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
+  const first = table.getByRole('row').filter({ has: page.getByRole('button', { name: 'Show build 1', exact: true }) });
+  const cells = await first.getByRole('cell').allInnerTexts();
+  const values = cells.slice(3).map((text) => Number(text.replace(/\D/g, '')));
+  expect(values).toHaveLength(11);
+  const before = await box(requirements);
+  await page.screenshot({ path: testInfo.outputPath('intervals-empty.png'), fullPage: true });
+  const ranges = requirements.locator('.stat-range');
+  for (let at = 0; at < values.length; at += 1) {
+    await ranges.nth(at).getByRole('spinbutton').nth(0).fill('0');
+    await ranges.nth(at).getByRole('spinbutton').nth(1).fill(String(values[at]));
+  }
+  await page.getByLabel('Spd: at least').fill(String(values[3]));
+  expect(await box(requirements)).toEqual(before);
+  await page.screenshot({ path: testInfo.outputPath('intervals-filled.png'), fullPage: true });
+  await find.click();
+  await expect(find).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
+  const rows = table.getByRole('row').filter({ has: page.getByRole('button', { name: /^Show build \d+$/ }) });
+  for (const row of await rows.all()) {
+    const figures = (await row.getByRole('cell').allInnerTexts()).slice(3)
+      .map((text) => Number(text.replace(/\D/g, '')));
+    expect(figures[3]).toBe(values[3]);
+    figures.forEach((value, at) => expect(value).toBeLessThanOrEqual(values[at]));
+    await expect(row).not.toHaveAttribute('data-stale', 'true');
+  }
+  expect(await box(requirements)).toEqual(before);
+  await page.screenshot({ path: testInfo.outputPath('intervals-results.png'), fullPage: true });
+});
+
 test('a lone four-set, a ceiling and a reset to the preset', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await freshWorkspace(page);

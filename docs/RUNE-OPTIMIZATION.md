@@ -449,11 +449,31 @@ rune must also sit in a completed set (`noBrokenSets`).
 
 ### 6.3.1 Ceilings
 
-Every bound in the tree is an upper estimate, and an upper estimate past a ceiling
-says nothing about the build beneath it, so a ceiling never prunes the tree. It is
-judged once, on a finished build's own figures, after its real sets are counted.
-The card is unaffected: its answer is already generous, and every pair it sends
-back is judged on the processor.
+Floors and the ranking bar read upper bounds; ceilings read **lower bounds**.
+After each placement, the prefix plus each remaining slot's independent accumulator
+minima and already completed set bonuses underestimates every completion. If even
+that sheet exceeds a ceiling, the branch stops. Intangible credit is omitted here:
+its completion can change as more runes are placed. Equality at either endpoint
+stays eligible. Every figure is read through the shared stat sheet, including DMG,
+E.HP and E.HP D.
+
+Tail blocks and first-rune placements use their groups' accumulator minima and
+their **exact** set bonus for the same test, before opening pairs or sending a block
+to the card. The last group also has a balanced tree of minimum/maximum boxes,
+with at most eight candidates per leaf: a box wholly outside any requested range
+is skipped. For a capped ordinary stat whose candidates vary in only one
+accumulator, candidates are ordered by that stat and binary searches locate both
+ends of the eligible interval before visiting the boxes. Percentage/flat pairs
+qualify only when their percentage is constant; rounded standalone values and
+composites are never assumed to order their completed sheets.
+
+These tests remove only impossible completions; they do not narrow the depth's
+shortlist or replace the final check on a build's real figures. The card's shader
+still overestimates eligibility, and returned pairs are checked on the processor.
+`verify:rune-optimization` compares pruning with the unpruned traversal, checks
+tight and contradictory intervals on all eleven figures against brute force, and
+holds a fixed SPD/Grindstone pool to fewer than a tenth of its previous full pair
+evaluations with identical ranked rows and ties.
 
 An Intangible completes the one set that is exactly one rune short
 (`RUNE-CANONICAL.md` §10). **Where several are, it completes none.** This is not an
@@ -705,8 +725,8 @@ table pick for pick. It needs a running dev server and a card, and is not part o
    row now outside it, and widening it again lifts the dimming. The figures
    themselves stay counted as the search counted them, *Always crits* included.
 
-   The status line says the runes or the locks changed, because a better build the
-   change made possible is only found by searching again. Listing fewer builds cuts
+   Row marks report changed runes or locks; a better build the change made possible
+   is only found by searching again. Listing fewer builds cuts
    the same table shorter. Changing the requirements or the other search settings —
    or listing more builds than were searched — marks the table as stale; a monster
    that left the account says so.

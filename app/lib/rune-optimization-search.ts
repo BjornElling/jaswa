@@ -29,7 +29,7 @@
  * sends back on the processor before it may enter the table.
  */
 import {
-  addSetBonuses, baseStatCount, effectSlotCount, figureOf, figuresInto, intangibleCompletion, intangibleSetId,
+  addSetBonuses, baseStatCount, effectSlot, effectSlotCount, figureOf, figuresInto, intangibleCompletion, intangibleSetId,
   setIdBound, statSetBonuses, targetFigureCount, totalsInto,
 } from './monster-stats';
 import { canStillFinishSets, canStillSatisfy, noBrokenSets, overCeiling, satisfiesBuild } from './rune-optimization-problem';
@@ -141,6 +141,8 @@ export type PassLimits = { blocks: number; pairs: number };
  * like one search rather than like eight small ones.
  */
 export type SearchHooks = {
+  /** Verification compares interval pruning with the same exhaustive traversal. */
+  pruneCeilings?: boolean;
   /** Verification can compare resource matching with exhaustive end states. */
   allocateCraft?: boolean;
   onProgress?: (fraction: number) => void;
@@ -199,6 +201,15 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
   const targetIndexes = [...targets.keys()].filter((index) => Number.isFinite(targets[index]));
   const ceilings = problem.ceilings;
   const capped = ceilings.some((value) => Number.isFinite(value));
+  const ceilingIndexes = [...ceilings.keys()].filter((index) => Number.isFinite(ceilings[index]));
+  const pruneCeilings = capped && hooks.pruneCeilings !== false;
+  // A single varying accumulator orders a stat exactly even after rounding.
+  // Percentage/flat pairs qualify only when their percentage is constant; a
+  // rounded standalone HP (or a composite) cannot otherwise order completions.
+  const percentSlots = [effectSlot.hpPercent, effectSlot.atkPercent, effectSlot.defPercent, effectSlot.spdPercent];
+  const intervalIndex = pruneCeilings ? ceilingIndexes.find((index) => index < baseStatCount && (index >= 4
+    || problem.slots[order[lastTail]].every((candidate) => candidate.effects[percentSlots[index]]
+      === problem.slots[order[lastTail]][0]?.effects[percentSlots[index]]))) : undefined;
   const { allowBroken, setPieces } = problem;
   const rank = problem.rank;
   const capacity = problem.resultCount;
@@ -231,6 +242,20 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
    * accumulator-wise maximum — still a bound, only a looser one.
    */
   const suffixRowCap = 24;
+  // Independent minima can underestimate a real completion, never exceed it.
+  // Intangible credit is omitted: a later rune can change which set it completes.
+  const suffixMinimum: Float64Array[] = new Array(depthCount + 1);
+  suffixMinimum[depthCount] = new Float64Array(effectSlotCount);
+  if (pruneCeilings) for (let depth = depthCount - 1; depth >= 0; depth -= 1) {
+    const minimum = new Float64Array(effectSlotCount).fill(Infinity);
+    for (let at = 0; at < counts[depth]; at += 1) {
+      for (let slot = 0; slot < effectSlotCount; slot += 1) {
+        minimum[slot] = Math.min(minimum[slot], effects[depth][at * effectSlotCount + slot]);
+      }
+    }
+    for (let slot = 0; slot < effectSlotCount; slot += 1) minimum[slot] += suffixMinimum[depth + 1][slot];
+    suffixMinimum[depth] = minimum;
+  }
   const suffixRows: Float64Array[] = new Array(depthCount + 1);
   const suffixLoose: Float64Array[] = new Array(depthCount + 1);
   suffixRows[depthCount] = new Float64Array(effectSlotCount);
@@ -342,10 +367,14 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
   const groupOf = (setId: number): number => (intangibleInReach || !allowBroken || setId === intangibleSetId
     || needSets.has(setId) || relevantStatSets.has(setId) ? setId : 0);
 
-  type Group = { set: number; start: number; count: number; best: Float64Array };
-  /* Per tail depth: the candidates in group order (each group keeps the slot's own
-     best-first order, and groups come in the order of their best member), their
-     effects in that order, and the groups as ranges over it. */
+  type TailRange = {
+    from: number; to: number; minimum: Float64Array; maximum: Float64Array;
+    left?: TailRange; right?: TailRange;
+  };
+  type Group = { set: number; start: number; count: number; best: Float64Array; minimum: Float64Array; range?: TailRange };
+  /* Groups come in the order of their best member. Within a group, uncapped
+     searches keep the slot's best-first order; capped tails cluster interval
+     values so their minimum/maximum boxes can skip more impossible pairs. */
   const tailOrder: Int32Array[] = [];
   const tailEffects: Float64Array[] = [];
   const groups: Group[][] = [];
@@ -360,9 +389,21 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
     const orderHere = new Int32Array(counts[depth]);
     const packed = new Float64Array(counts[depth] * effectSlotCount);
     const list: Group[] = [];
+    const intervalValues = new Float64Array(counts[depth]);
+    if (pruneCeilings && depth === lastTail) {
+      const totals = new Float64Array(baseStatCount);
+      problem.slots[order[depth]].forEach((candidate, at) => {
+        totalsInto(problem.base, candidate.effects, totals);
+        intervalValues[at] = figureOf(totals, intervalIndex ?? ceilingIndexes[0]);
+      });
+    }
     let next = 0;
     for (const [set, members] of bySet) {
+      // Nearby values make the range boxes tighter. The boxes, not this ordering,
+      // decide what can be skipped; final ties still use the original picks.
+      if (pruneCeilings && depth === lastTail) members.sort((a, b) => intervalValues[b] - intervalValues[a] || a - b);
       const best = new Float64Array(effectSlotCount).fill(-Infinity);
+      const minimum = new Float64Array(effectSlotCount).fill(Infinity);
       const start = next;
       for (const at of members) {
         orderHere[next] = at;
@@ -370,10 +411,34 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
           const value = effects[depth][at * effectSlotCount + slot];
           packed[next * effectSlotCount + slot] = value;
           if (value > best[slot]) best[slot] = value;
+          if (value < minimum[slot]) minimum[slot] = value;
         }
         next += 1;
       }
-      list.push({ set, start, count: members.length, best });
+      list.push({ set, start, count: members.length, best, minimum });
+    }
+    if (pruneCeilings && depth === lastTail) {
+      const range = (from: number, to: number): TailRange => {
+        const minimum = new Float64Array(effectSlotCount).fill(Infinity);
+        const maximum = new Float64Array(effectSlotCount).fill(-Infinity);
+        const node: TailRange = { from, to, minimum, maximum };
+        if (to - from > 8) {
+          const middle = (from + to) >>> 1;
+          node.left = range(from, middle); node.right = range(middle, to);
+          for (let slot = 0; slot < effectSlotCount; slot += 1) {
+            minimum[slot] = Math.min(node.left.minimum[slot], node.right.minimum[slot]);
+            maximum[slot] = Math.max(node.left.maximum[slot], node.right.maximum[slot]);
+          }
+        } else {
+          for (let at = from; at < to; at += 1) for (let slot = 0; slot < effectSlotCount; slot += 1) {
+            const value = packed[at * effectSlotCount + slot];
+            minimum[slot] = Math.min(minimum[slot], value);
+            maximum[slot] = Math.max(maximum[slot], value);
+          }
+        }
+        return node;
+      };
+      for (const group of list) group.range = range(group.start, group.start + group.count);
     }
     tailOrder.push(orderHere);
     tailEffects.push(packed);
@@ -559,6 +624,12 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
     return figureOf(totals, rank) >= bar;
   }
 
+  function withinCeilings(effectsNow: ArrayLike<number>): boolean {
+    totalsInto(problem.base, effectsNow, totals);
+    for (const index of ceilingIndexes) if (figureOf(totals, index) > ceilings[index]) return false;
+    return true;
+  }
+
   function spendable(stock: Int32Array, list: readonly number[]): boolean {
     for (let at = 0; at < list.length; at += 1) {
       const entry = list[at];
@@ -621,6 +692,13 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
   function promising(depthNow: number): boolean {
     nodes += 1;
     const from = depthNow * effectSlotCount;
+    if (pruneCeilings) {
+      for (let slot = 0; slot < effectSlotCount; slot += 1) {
+        planned[slot] = accumulated[from + slot] + suffixMinimum[depthNow][slot];
+      }
+      addSetBonuses(setCounts, -1, planned);
+      if (!withinCeilings(planned)) return false;
+    }
     if (!allowBroken && depthNow >= 3) {
       const completions = completionRows(depthNow);
       if (completions.rows.length === 0) return false;
@@ -753,32 +831,85 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
       ticks += 1;
       if ((ticks & clockEvery) === 0) checkClock();
       if (!passes(planned)) continue;
-      if (firstSpent.length > 0) spend(stock, firstSpent, 1);
-      for (let m = lastFrom; m < lastTo; m += 1) {
-        ticks += 1;
-        if ((ticks & clockEvery) === 0) checkClock();
-        if (stopped) break;
-        const last = lastOrder[m];
-        const lastSpent = spends[lastTail][last];
-        if (lastSpent.length > 0 && !spendable(stock, lastSpent)) continue;
-        if (counted) combinations += 1;
+      if (pruneCeilings) {
         for (let slot = 0; slot < effectSlotCount; slot += 1) {
-          finished[slot] = withFirst[slot] + lastEffects[m * effectSlotCount + slot];
-          planned[slot] = finished[slot] + bonus[bonusAt + slot];
+          planned[slot] = withFirst[slot] + lastGroup.minimum[slot] + bonus[bonusAt + slot];
         }
-        if (!passes(planned)) continue;
-        exactCounts.set(prefixCounts);
-        exactCounts[sets[firstTail][first]] += 1;
-        exactCounts[sets[lastTail][last]] += 1;
-        addSetBonuses(exactCounts, intangibleCompletion(exactCounts), finished);
-        totalsInto(problem.base, finished, totals);
-        figuresInto(totals, figures);
-        /* A ceiling is judged here, on the build's own figures, and nowhere above:
-           every bound in the tree is an *upper* estimate, and an upper estimate past
-           a ceiling says nothing about whether the build itself is. */
-        if (!grouped && capped && overCeiling(figures, ceilings)) continue;
-        record(prefix, first, last);
+        if (!withinCeilings(planned)) continue;
       }
+      if (firstSpent.length > 0) spend(stock, firstSpent, 1);
+      let pairFrom = lastFrom;
+      let pairTo = lastTo;
+      if (intervalIndex !== undefined) {
+        const valueAt = (at: number): number => {
+          for (let slot = 0; slot < effectSlotCount; slot += 1) {
+            planned[slot] = withFirst[slot] + lastEffects[at * effectSlotCount + slot] + bonus[bonusAt + slot];
+          }
+          totalsInto(problem.base, planned, totals);
+          return figureOf(totals, intervalIndex);
+        };
+        // Descending values make both ends of the legal interval binary searches.
+        // Equal endpoints stay eligible; other figures and stock still decide rows.
+        let low = lastFrom; let high = lastTo;
+        while (low < high) {
+          const middle = (low + high) >>> 1;
+          if (valueAt(middle) > ceilings[intervalIndex]) low = middle + 1;
+          else high = middle;
+        }
+        pairFrom = low;
+        const floor = Math.max(Number.isFinite(targets[intervalIndex]) ? targets[intervalIndex] : -Infinity,
+          rank === intervalIndex ? bar : -Infinity);
+        high = lastTo;
+        while (low < high) {
+          const middle = (low + high) >>> 1;
+          if (valueAt(middle) >= floor) low = middle + 1;
+          else high = middle;
+        }
+        pairTo = low;
+      }
+      const evaluatePairs = (from: number, to: number) => {
+        for (let m = from; m < to; m += 1) {
+          ticks += 1;
+          if ((ticks & clockEvery) === 0) checkClock();
+          if (stopped) break;
+          const last = lastOrder[m];
+          const lastSpent = spends[lastTail][last];
+          if (lastSpent.length > 0 && !spendable(stock, lastSpent)) continue;
+          if (counted) combinations += 1;
+          for (let slot = 0; slot < effectSlotCount; slot += 1) {
+            finished[slot] = withFirst[slot] + lastEffects[m * effectSlotCount + slot];
+            planned[slot] = finished[slot] + bonus[bonusAt + slot];
+          }
+          if (!passes(planned)) continue;
+          exactCounts.set(prefixCounts);
+          exactCounts[sets[firstTail][first]] += 1;
+          exactCounts[sets[lastTail][last]] += 1;
+          addSetBonuses(exactCounts, intangibleCompletion(exactCounts), finished);
+          totalsInto(problem.base, finished, totals);
+          figuresInto(totals, figures);
+          // Bounds only prove impossibility; the real sheet still decides each row.
+          if (!grouped && capped && overCeiling(figures, ceilings)) continue;
+          record(prefix, first, last);
+        }
+      };
+      // Bounds include this block's exact set bonus. Unlike a partial Intangible
+      // completion, it cannot change when a different rune in the group is chosen.
+      const visit = (range: TailRange): void => {
+        if (stopped || range.to <= pairFrom || range.from >= pairTo) return;
+        nodes += 1;
+        for (let slot = 0; slot < effectSlotCount; slot += 1) {
+          planned[slot] = withFirst[slot] + range.minimum[slot] + bonus[bonusAt + slot];
+        }
+        if (!withinCeilings(planned)) return;
+        for (let slot = 0; slot < effectSlotCount; slot += 1) {
+          planned[slot] = withFirst[slot] + range.maximum[slot] + bonus[bonusAt + slot];
+        }
+        if (!passes(planned)) return;
+        if (range.left && range.right) { visit(range.left); visit(range.right); }
+        else evaluatePairs(Math.max(pairFrom, range.from), Math.min(pairTo, range.to));
+      };
+      if (lastGroup.range && pairTo - pairFrom > 8) visit(lastGroup.range);
+      else evaluatePairs(pairFrom, pairTo);
       if (firstSpent.length > 0) spend(stock, firstSpent, -1);
     }
   }
@@ -836,6 +967,12 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
         planned[slot] = accumulated[accAt + slot] + firstGroup.best[slot] + lastGroup.best[slot] + bonuses[bonusAt + slot];
       }
       if (!passes(planned)) continue;
+      if (pruneCeilings) {
+        for (let slot = 0; slot < effectSlotCount; slot += 1) {
+          planned[slot] = accumulated[accAt + slot] + firstGroup.minimum[slot] + lastGroup.minimum[slot] + bonuses[bonusAt + slot];
+        }
+        if (!withinCeilings(planned)) continue;
+      }
       if (mode === 'card') {
         hold(blocks[at], blocks[at + 1], bonuses, bonusAt);
       } else {
