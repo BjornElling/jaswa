@@ -124,7 +124,7 @@ function noBroken(counts) {
 
 function bruteForce(input) {
   const problem = prepareRuneOptimization(input, { reduce: false });
-  const found = [];
+  const found = new Map();
   const chosen = [];
   const rank = figures.indexOf(input.requirements.rankBy);
   function walk(slot) {
@@ -143,7 +143,9 @@ function bruteForce(input) {
         + (key === 'criRate' ? criticalRateLift(input.requirements) : 0);
       for (const [key, floor] of floorsOf(input)) if (compared(key) < floor) return;
       for (const [key, ceiling] of ceilingsOf(input)) if (compared(key) > ceiling) return;
-      found.push({ value: values[rank], moves: chosen.filter((candidate) => candidate.moves).length });
+      const identity = JSON.stringify(chosen.map((candidate) => candidate.runeId));
+      const build = { value: values[rank], moves: chosen.filter((candidate) => candidate.moves).length };
+      if (!found.has(identity) || build.value > found.get(identity).value) found.set(identity, build);
       return;
     }
     for (const candidate of problem.slots[slot]) {
@@ -153,8 +155,8 @@ function bruteForce(input) {
     }
   }
   walk(0);
-  found.sort((left, right) => right.value - left.value || left.moves - right.moves);
-  return found.slice(0, input.settings.resultCount);
+  return [...found.values()].sort((left, right) => right.value - left.value || left.moves - right.moves)
+    .slice(0, input.settings.resultCount);
 }
 
 const uniqueShort = new Int32Array(26); uniqueShort[1] = 1; uniqueShort[intangibleSetId] = 1;
@@ -201,6 +203,7 @@ let withWork = 0;
 /* How often the rarer re-readings and Always crits were actually exercised. */
 let lockedAwayChecked = 0;
 let itemsChecked = 0;
+let allocatedCases = 0;
 let alwaysCritting = 0;
 /* Searches that had to leave a higher-priority copy's runes where they were. */
 let sparedChecked = 0;
@@ -235,6 +238,15 @@ for (let index = 0; index < scenarios; index += 1) {
   const input = affordableScenario(index);
   const problem = prepareRuneOptimization(input);
   const whole = searchRuneBuilds(problem);
+  assert.equal(new Set(whole.builds.map((build) => build.identity)).size, whole.builds.length,
+    `scenario ${index}: craft alternatives filled multiple physical build rows`);
+  if (problem.craft) {
+    const expanded = searchRuneBuilds(problem, 0, 1, { allocateCraft: false });
+    const reading = (answer) => answer.builds.map((build) => [build.figures[problem.rank], build.moves]);
+    assert.ok(whole.complete && expanded.complete, `scenario ${index}: allocation agreement cannot be measured on a timeout`);
+    assert.deepEqual(reading(whole), reading(expanded), `scenario ${index}: matching differs from full craft combinations`);
+    allocatedCases += 1;
+  }
   const split = mergeBuildResults([0, 1, 2].map((part) => searchRuneBuilds(problem, part, 3)), problem.rank, problem.resultCount);
   let shared = -Infinity;
   const sharing = { sharedBar: () => shared, onBar: (value) => { shared = Math.max(shared, value); } };
@@ -442,10 +454,12 @@ assert.ok(checkedRows > scenarios, 'too few builds were compared to prove anythi
 assert.ok(withWork > scenarios / 4, `only ${withWork} builds had work to follow`);
 assert.ok(refusedMidway > scenarios / 4, 'too few searches lost their card midway to prove the processor finishes');
 assert.ok(lockedAwayChecked > scenarios / 4, `only ${lockedAwayChecked} builds had a rune to lock away`);
-assert.ok(itemsChecked > scenarios / 10, `only ${itemsChecked} builds spent a held item`);
+// Accounts after 160 deliberately disable craft items to widen the set checks.
+assert.ok(itemsChecked >= Math.min(scenarios, 160) / 10, `only ${itemsChecked} builds spent a held item`);
 assert.ok(sparedChecked > scenarios / 10, `only ${sparedChecked} searches had a higher-priority monster's runes to leave alone`);
 assert.ok(alwaysCritting > scenarios / 10, `only ${alwaysCritting} builds were for a monster that always crits`);
 console.log(`PASS: ${scenarios} random accounts, ${checkedRows} ranked builds — the search, whole and split three ways,`
+  + ` and resource matching on ${allocatedCases} pools,`
   + ` matches brute force on every row (${emptyTables} tables were rightly empty; ${alwaysCritting} builds always crit); in passes it matches the`
   + ` processor pick for pick, and ${refusedMidway} searches finished on the processor after the card refused;`
   + ` no build spent a held Gem or Grindstone more often than the account holds it (${spentChecked} stacks checked);`

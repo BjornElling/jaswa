@@ -408,10 +408,11 @@ export function craftedLines(
 /**
  * One half of a supply — the Gems or the Grindstones — as the optimizer is allowed
  * to spend it on one rune. Indexed by effect id: what an item of that id would put
- * on a line (`-1` for none), and the held stack it would come out of (`-1` where the
+ * on a line, and the held stack it would come out of (`-1` where the
  * item is assumed rather than held, which is a stock that never runs out).
  */
-export type CraftHalf = { readonly value: Float64Array; readonly stock: Int32Array };
+export type CraftChoice = { readonly value: number; readonly stock: number };
+export type CraftHalf = { readonly choices: ReadonlyArray<readonly CraftChoice[]> };
 
 export type CraftSupply = { readonly gem: CraftHalf | null; readonly grind: CraftHalf | null };
 
@@ -429,40 +430,37 @@ export function assumedCraftHalf(
   const key = `${kind}|${lineage}|${grade}|${assumption}`;
   const found = assumedHalves.get(key);
   if (found) return found;
-  const value = new Float64Array(statIdBound).fill(-1);
-  const stock = new Int32Array(statIdBound).fill(-1);
+  const choices: CraftChoice[][] = Array.from({ length: statIdBound }, () => []);
   for (const statId of allStatIds) {
     const roll = craftItemRoll(kind, lineage, statId, grade, assumption);
-    if (roll !== null) value[statId] = roll;
+    if (roll !== null) choices[statId].push({ value: roll, stock: -1 });
   }
-  const half = { value, stock };
+  const half = { choices };
   assumedHalves.set(key, half);
   return half;
 }
 
 /**
- * The half the account actually holds, for one rune: the best item of this kind per
+ * The half the account actually holds, for one rune: every item of this kind per
  * effect id among `items`, which the caller has already narrowed to the ones whose
  * lineage fits the rune. `stock` is the caller's own index for each item's stack, so
  * the search can count how many times a stack has been spent.
  *
- * Only the best item per id is offered. Where it runs out the next-best would still
- * do, and offering it is a refinement the search does not make yet —
- * `RUNE-OPTIMIZATION.md` §6.4 records it.
+ * Different stacks are different resources even at equal rolls: preserving a
+ * set-specific item or an Immemorial item can decide which other rune is usable.
  */
 export function heldCraftHalf(
   kind: CraftKind, items: ReadonlyArray<{ item: CraftItem; stock: number }>, assumption: CraftRollAssumption,
 ): CraftHalf {
-  const value = new Float64Array(statIdBound).fill(-1);
-  const stock = new Int32Array(statIdBound).fill(-1);
+  const choices: CraftChoice[][] = Array.from({ length: statIdBound }, () => []);
   for (const { item, stock: index } of items) {
-    if (item.kind !== kind || item.statId < 0 || item.statId >= statIdBound) continue;
+    if (item.kind !== kind || item.amount <= 0 || item.statId < 0 || item.statId >= statIdBound) continue;
     const roll = craftItemRoll(kind, item.lineage, item.statId, item.grade, assumption);
-    if (roll === null || roll <= value[item.statId]) continue;
-    value[item.statId] = roll;
-    stock[item.statId] = index;
+    if (roll === null) continue;
+    choices[item.statId].push({ value: roll, stock: index });
   }
-  return { value, stock };
+  for (const options of choices) options.sort((a, b) => b.value - a.value || a.stock - b.stock);
+  return { choices };
 }
 
 /** One legal end state of one rune, with what it costs. */
@@ -489,33 +487,35 @@ export type CraftVariant = {
  *   line is then ground where it can be (rule 4);
  * - no Gem is always one of the answers, so considering a Gem can only add options.
  *
- * Where the stones come out of held stacks the unground line-up is offered as well,
- * because a stack can run out and a rune that needs none is then still usable. An
- * assumed stone never runs out, so there the ground line-up is the only one.
+ * Held stones are optional independently on every line. An assumed stone never
+ * runs out, but remains optional where a ceiling makes the smaller value useful.
  */
 export function craftVariants(
   supply: CraftSupply, slot: number, mainStatId: number, prefixStatId: number | null,
   lines: readonly EndStateLine[], gemAllowed: boolean, wanted: (statId: number) => boolean,
+  keepLower: (statId: number) => boolean = () => false,
 ): CraftVariant[] {
   const grind = supply.grind;
-  function ground(from: readonly EndStateLine[], stock: number[]): EndStateLine[] {
-    if (!grind) return [...from];
-    return from.map((line) => {
-      if (!wanted(line.statId)) return line;
-      const stone = grind.value[line.statId];
-      if (!(stone > line.grind)) return line;
-      if (grind.stock[line.statId] >= 0) stock.push(grind.stock[line.statId]);
-      return { ...line, grind: stone };
-    });
-  }
-
   const variants: CraftVariant[] = [];
   function offer(from: readonly EndStateLine[], gemmedAt: number, stock: readonly number[]) {
-    const groundStock = [...stock];
-    const finished = ground(from, groundStock);
-    variants.push({ lines: finished, gemmedAt, stock: groundStock });
-    /* `ground` records only held stacks, so a longer list means one was spent. */
-    if (groundStock.length > stock.length) variants.push({ lines: from, gemmedAt, stock });
+    let states: CraftVariant[] = [{ lines: from, gemmedAt, stock }];
+    if (grind) for (const [at, line] of from.entries()) {
+      if (!wanted(line.statId)) continue;
+      const stones = grind.choices[line.statId].filter((choice) => choice.value > line.grind);
+      if (stones.length === 0) continue;
+      const next: CraftVariant[] = [];
+      for (const state of states) {
+        // Held stones are optional one line at a time: spending on ATK must not
+        // force spending the scarce SPD stone needed on another rune.
+        if (keepLower(line.statId) || stones.every((choice) => choice.stock >= 0)) next.push(state);
+        for (const stone of stones) next.push({
+          lines: state.lines.map((entry, index) => index === at ? { ...entry, grind: stone.value } : entry),
+          gemmedAt, stock: stone.stock < 0 ? state.stock : [...state.stock, stone.stock],
+        });
+      }
+      states = next;
+    }
+    variants.push(...states);
   }
 
   offer(lines, -1, []);
@@ -528,19 +528,21 @@ export function craftVariants(
     if (onlyAt !== -1 && at !== onlyAt) continue;
     const line = lines[at];
     for (const statId of allStatIds) {
-      const roll = gem.value[statId];
-      if (roll < 0 || !wanted(statId)) continue;
+      if (!wanted(statId) && !keepLower(line.statId)) continue;
       if (statId === mainStatId || statId === prefixStatId || !slotAllowsSubStat(slot, statId)) continue;
       if (lines.some((other, index) => index !== at && other.statId === statId)) continue;
-      /* Re-rolling a line into less than it already holds changes nothing a
-         player would choose, so it is not an end state worth a candidate. */
-      if (statId === line.statId && roll <= line.value) continue;
-      const replaced = lines.map((entry, index) => (index !== at ? entry : {
-        statId, value: roll, gemmed: true,
-        /* Re-rolling a line's own id keeps its stone (rule 3); any other id starts bare. */
-        grind: statId === line.statId ? line.grind : 0,
-      }));
-      offer(replaced, at, gem.stock[statId] >= 0 ? [gem.stock[statId]] : []);
+      /* A lower reroll can meet a ceiling; otherwise it can only spend an item
+         to weaken the same contribution and is safely left out. */
+      for (const choice of gem.choices[statId]) {
+        const roll = choice.value;
+        if (statId === line.statId && (roll === line.value || (roll < line.value && !keepLower(statId)))) continue;
+        const replaced = lines.map((entry, index) => (index !== at ? entry : {
+          statId, value: roll, gemmed: true,
+          /* Re-rolling a line's own id keeps its stone (rule 3); any other id starts bare. */
+          grind: statId === line.statId ? line.grind : 0,
+        }));
+        offer(replaced, at, choice.stock >= 0 ? [choice.stock] : []);
+      }
     }
   }
   return variants;

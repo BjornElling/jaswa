@@ -36,7 +36,9 @@ import type { CraftItem } from './rune-craft-items';
 import { lineageFits } from './rune-craft-plan';
 import type { RuneHolds } from './rune-holds';
 import { runeOptimizationDepthPlans } from './rune-optimization-settings';
-import { availableStatSets, complementaryCandidates, rangeFeasibleCandidates } from './rune-optimization-shortlist';
+import { craftRecipeKey, prepareCraftAllocation } from './rune-optimization-craft-allocation';
+import type { CraftAllocationPreparation } from './rune-optimization-craft-allocation';
+import { availableStatSets, complementaryCandidates, rangeFeasibleCandidates, setFeasibleCandidates } from './rune-optimization-shortlist';
 import type { CraftUse, RuneOptimizationSettings } from './rune-optimization-settings';
 import { mainPropertyMaximum } from './rune-properties';
 import { runeBuild, runeSlotCount } from './rune-set-pairs';
@@ -140,6 +142,8 @@ export type SlotReport = {
 };
 
 export type RuneOptimizationProblem = {
+  /** Craft recipes prepared once, then shared with the search workers. */
+  craft?: CraftAllocationPreparation | null;
   /** The copy's base stats, with combat CRI Rate points lifted for the search. */
   base: Float64Array;
   /** What `base` lifted CRI Rate by, for the figures shown to take back off. */
@@ -170,7 +174,7 @@ export type RuneOptimizationProblem = {
   relevant: readonly number[];
   resultCount: number;
   /** Held stacks the calculation may spend, and how deep each is. */
-  stock: ReadonlyArray<{ itemId: string; amount: number }>;
+  stock: ReadonlyArray<{ itemId: string; amount: number; kind: CraftItem['kind']; statId: number }>;
   timeLimitMs: number;
   report: {
     /** Distinct runes that could enter at least one slot. */
@@ -481,6 +485,7 @@ export function estimateRuneOptimizationBuilds(input: RuneOptimizationInput): nu
  */
 function undominated(
   candidates: Candidate[], relevant: readonly number[], pinned: ReadonlySet<number>, base: Float64Array, keep: number,
+  stock: RuneOptimizationProblem['stock'],
 ): Candidate[] {
   /* HP, ATK and DEF each come as a percentage and a flat pair, and the game rounds
      their sum up once. `a` is safely no worse on a pair when it is no worse on both
@@ -537,34 +542,49 @@ function undominated(
     return better ? 1 : 0;
   }
 
-  function spendsNoMore(a: Candidate, b: Candidate): boolean {
-    if (a.stock.length === 0) return true;
-    const left = [...b.stock];
-    for (const entry of a.stock) {
-      const at = left.indexOf(entry);
-      if (at === -1) return false;
-      left.splice(at, 1);
-    }
-    return true;
+  // One stack addresses one kind and stat, used at most once on each of six
+  // runes. A stack of six cannot constrain a build; still record its actual spend.
+  const scarce = candidates.map((candidate) => candidate.stock.filter((at) => stock[at].amount < 6).sort((a, b) => a - b));
+  const pinnedSlots = relevant.filter((at) => pinned.has(at));
+  const signature = (candidate: Candidate) => pinnedSlots.map((at) => candidate.effects[at]).join(',');
+  const buckets = new Map<string, Map<string, typeof ordered>>();
+  for (const entry of ordered) {
+    const key = signature(entry.candidate);
+    let byStock = buckets.get(key);
+    if (!byStock) { byStock = new Map(); buckets.set(key, byStock); }
+    const spend = scarce[entry.index].join(',');
+    const bucket = byStock.get(spend) ?? [];
+    bucket.push(entry); byStock.set(spend, bucket);
   }
 
   return candidates.filter((b, bIndex) => {
-    let dominators = 0;
+    const dominators = new Set<string>();
     const bScore = scores[bIndex];
-    for (const entry of ordered) {
+    // Only subsets of this end state's scarce spend can dominate it. Looking
+    // through every unrelated craft plan made reduction quadratic in inventory.
+    const byStock = buckets.get(signature(b))!;
+    const spend = scarce[bIndex];
+    const subsets = new Set<string>();
+    for (let mask = 0; mask < 2 ** spend.length; mask += 1) {
+      subsets.add(spend.filter((_, at) => mask & (1 << at)).join(','));
+    }
+    for (const subset of subsets) for (const entry of byStock.get(subset) ?? []) {
       if (entry.score < bScore) break;
       const aIndex = entry.index;
       if (aIndex === bIndex) continue;
       const a = entry.candidate;
+      if (a.moves && !b.moves) continue;
       const order = compare(a, b);
       /* Two identical end states dominate each other, and dropping both would lose
          the pair. The one already on the monster wins the tie — a build that moves
          nothing is the better answer at equal figures — and then the earlier one. */
       if (order < 0) continue;
       if (order === 0 && (a.moves !== b.moves ? a.moves : aIndex > bIndex)) continue;
-      if (!spendsNoMore(a, b)) continue;
-      dominators += 1;
-      if (dominators >= keep) return false;
+      // Alternative work on the same physical rune improves the same row, not
+      // a second build. Other dominators must name distinct physical runes.
+      if (a.runeId === b.runeId) return false;
+      dominators.add(a.runeId);
+      if (dominators.size >= keep) return false;
     }
     return true;
   });
@@ -586,23 +606,27 @@ function cut(
 ): Candidate[] {
   if (candidates.length <= keep) return candidates;
   const kept = new Set<Candidate>();
-  const takeFamilies = (ordered: Candidate[]) => {
+  const takeFamilies = (ordered: Candidate[], width = keep) => {
     const seen = new Set<string>();
     for (const candidate of ordered) {
       if (seen.has(candidate.runeId)) continue;
       seen.add(candidate.runeId); kept.add(candidate);
-      if (seen.size === keep) break;
+      if (seen.size === width) break;
     }
   };
   const byProxy = [...candidates].sort((left, right) => right.proxy - left.proxy);
   takeFamilies(byProxy);
+  // The most promising fully crafted family can exhaust a shared stack. Give
+  // item-free complements their own lane instead of pricing unlimited supply.
+  takeFamilies(byProxy.filter((candidate) => candidate.stock.length === 0), Math.max(1, Math.floor(keep / 3)));
+  const requirementWidth = keep;
   for (const slope of targetSlopes) {
     const byTarget = [...candidates].sort((left, right) => dot(slope, right.effects) - dot(slope, left.effects));
-    takeFamilies(byTarget);
+    takeFamilies(byTarget, requirementWidth);
   }
   for (const slope of ceilingSlopes) {
     const byCeiling = [...candidates].sort((left, right) => dot(slope, left.effects) - dot(slope, right.effects));
-    takeFamilies(byCeiling);
+    takeFamilies(byCeiling, requirementWidth);
   }
   return candidates.filter((candidate) => kept.has(candidate));
 }
@@ -652,9 +676,20 @@ export function prepareRuneOptimization(
   const builds = buildRequirements(requirements.builds);
   const usableSets = usableSetsOf(builds);
 
+  const admitted: Rune[][] = Array.from({ length: 6 }, () => []);
+  for (const rune of input.runes) if (admission(input, usableSets, rune) !== 'refused') admitted[rune.slot - 1].push(rune);
+  for (const [at, slot] of admitted.entries()) {
+    const held = slot.find((rune) => admission(input, usableSets, rune) === 'locked');
+    if (held) admitted[at] = [held];
+  }
+  const supported = options.reduce === false ? admitted : setFeasibleCandidates(admitted, {
+    builds, allowBroken: requirements.allowBroken, allowIntangible: requirements.allowIntangible, setPieces: setPiecesById,
+  });
+  const supportedIds = new Set(supported.flat().map((rune) => rune.id));
+
   /* Held stacks are numbered once, so every candidate names its spend by index and
      the search counts it in a flat array. */
-  const stock = input.craftItems.map((item) => ({ itemId: item.id, amount: item.amount }));
+  const stock = input.craftItems.map((item) => ({ itemId: item.id, amount: item.amount, kind: item.kind, statId: item.statId }));
   const heldItems = input.craftItems.map((item, index) => ({ item, stock: index }))
     .filter(({ item }) => requirements.allowImmemorial || item.lineage !== 'immemorial');
   const halves = new Map<string, CraftHalf | null>();
@@ -681,6 +716,7 @@ export function prepareRuneOptimization(
   const runesSeen = new Set<string>();
 
   for (const rune of input.runes) {
+    if (!supportedIds.has(rune.id)) continue;
     const verdict = admission(input, usableSets, rune);
     const onThisMonster = rune.occupiedId === unitId;
     const slotIndex = rune.slot - 1;
@@ -708,7 +744,8 @@ export function prepareRuneOptimization(
     const supply: CraftSupply = { gem: half(gemPlan, rune), grind: half(grindPlan, rune) };
     const variants = supply.gem === null && supply.grind === null
       ? [{ lines, gemmedAt: -1, stock: [] as number[] }]
-      : craftVariants(supply, rune.slot, rune.mainStatId, rune.prefixStatId, lines, rune.level >= gemMinimumLevel, wanted);
+      : craftVariants(supply, rune.slot, rune.mainStatId, rune.prefixStatId, lines, rune.level >= gemMinimumLevel, wanted,
+        (statId) => pinned.has(effectSlotOf(statId)));
 
     runesSeen.add(rune.id);
     for (const variant of variants) {
@@ -721,6 +758,32 @@ export function prepareRuneOptimization(
     }
   }
 
+  const eligibleCounts = bySlot.map((slot) => slot.length);
+  const craftPools = bySlot.map((slot) => slot);
+  if (reduce) {
+    // Work alternatives on one rune compete for the same physical build row.
+    // Reduce those small families before the much wider cross-rune comparison.
+    for (const [at, slot] of bySlot.entries()) {
+      const families = new Map<string, Candidate[]>();
+      for (const candidate of slot) {
+        const family = families.get(candidate.runeId) ?? []; family.push(candidate); families.set(candidate.runeId, family);
+      }
+      bySlot[at] = [...families.values()].flatMap((family) => undominated(family, relevant, pinned, base, 1, stock));
+    }
+    // Dominance is quadratic in the pool width. Range proofs are linear and
+    // should remove impossible end states before asking who dominates whom.
+    const ranged = rangeFeasibleCandidates({
+      base, criticalRateLift: criticalRateLift(requirements), start, slots: bySlot, guides: [], builds,
+      allowBroken: requirements.allowBroken, setPieces: setPiecesById, allowIntangible: requirements.allowIntangible,
+      targets, ceilings, rank, relevant, resultCount: settings.resultCount, stock, timeLimitMs: 0,
+      report: { runes: runesSeen.size, slots: [], keep: null },
+    });
+    const feasible = setFeasibleCandidates(ranged, {
+      builds, allowBroken: requirements.allowBroken, allowIntangible: requirements.allowIntangible, setPieces: setPiecesById,
+    });
+    for (const [at, slot] of feasible.entries()) bySlot[at] = slot;
+  }
+
   /* Price the question's admitted pool, never the monster's current build. Each
      physical rune gets one vote, regardless of how many Gem alternatives it has.
      An equipped rune still matters for admission, locks and moves, not stat prices. */
@@ -731,8 +794,22 @@ export function prepareRuneOptimization(
       const family = families.get(candidate.runeId) ?? [];
       family.push(candidate); families.set(candidate.runeId, family);
     }
-    for (const family of families.values()) for (const candidate of family) {
-      for (let stat = 0; stat < effectSlotCount; stat += 1) reference[stat] += candidate.effects[stat] / family.length / families.size;
+    for (const family of families.values()) {
+      const shapes = new Map<string, Candidate[]>();
+      for (const candidate of family) {
+        const shape = `${candidate.gemmedAt}|${candidate.lines.map((line) => line.statId)}`;
+        const group = shapes.get(shape) ?? []; group.push(candidate); shapes.set(shape, group);
+      }
+      const representatives = new Set<Candidate>();
+      const strength = (candidate: Candidate) => relevant.reduce((sum, at) => sum + candidate.effects[at], 0);
+      for (const group of shapes.values()) {
+        representatives.add(group.reduce((a, b) => strength(b) > strength(a) ? b : a));
+        representatives.add(group.reduce((a, b) => b.stock.length < a.stock.length
+          || (b.stock.length === a.stock.length && strength(b) > strength(a)) ? b : a));
+      }
+      for (const candidate of representatives) {
+        for (let stat = 0; stat < effectSlotCount; stat += 1) reference[stat] += candidate.effects[stat] / representatives.size / families.size;
+      }
     }
   }
   const rankSlope = gradient(base, reference, rank);
@@ -798,14 +875,16 @@ export function prepareRuneOptimization(
       }
     }
   }
-  for (const candidates of bySlot) for (const candidate of candidates) {
+  for (const candidates of craftPools) for (const candidate of candidates) {
     candidate.proxy = dot(rankSlope, candidate.effects);
     if (freeSets) for (const [setId, pieces, stat, value] of orderableBonuses) {
       if (candidate.setId === setId) candidate.proxy += orderingSlope[stat] * value / pieces;
     }
   }
 
-  const dominanceGroup = dominanceGroupOf(builds, requirements, relevant);
+  const dominanceGroup = dominanceGroupOf(builds, { ...requirements,
+    allowIntangible: requirements.allowIntangible || bySlot.some((slot) => slot.some((candidate) => candidate.setId === intangibleSetId)),
+  }, relevant);
 
   const plan = runeOptimizationDepthPlans[settings.depth];
   const keep = Number.isFinite(plan.keep) ? plan.keep : null;
@@ -816,7 +895,7 @@ export function prepareRuneOptimization(
     const eligible = bySlot[slotIndex];
     if (locked[slotIndex]) {
       slots.push(eligible);
-      reports.push({ slot: slotIndex + 1, eligible: 1, undominated: 1, kept: 1, locked: true });
+      reports.push({ slot: slotIndex + 1, eligible: eligibleCounts[slotIndex], undominated: eligible.length, kept: eligible.length, locked: true });
       continue;
     }
     const bySet = new Map<number, Candidate[]>();
@@ -830,13 +909,13 @@ export function prepareRuneOptimization(
     const kept: Candidate[] = [];
     for (const group of bySet.values()) {
       if (!reduce) { undominatedCount += group.length; kept.push(...group); continue; }
-      const left = undominated(group, relevant, pinned, base, settings.resultCount);
+      const left = undominated(group, relevant, pinned, base, settings.resultCount, stock);
       undominatedCount += left.length;
       kept.push(...left);
     }
     kept.sort((left, right) => right.proxy - left.proxy || left.runeId.localeCompare(right.runeId));
     slots.push(kept);
-    reports.push({ slot: slotIndex + 1, eligible: eligible.length, undominated: undominatedCount, kept: kept.length, locked: false });
+    reports.push({ slot: slotIndex + 1, eligible: eligibleCounts[slotIndex], undominated: undominatedCount, kept: kept.length, locked: false });
   }
 
   const problem: RuneOptimizationProblem = {
@@ -853,7 +932,7 @@ export function prepareRuneOptimization(
       options.onStage?.('guiding');
       const guidance = complementaryCandidates(problem);
       const complementary = guidance.candidates;
-      problem.slots = problem.slots.map((slot) => {
+      problem.slots = problem.slots.map((slot, slotIndex) => {
         const groups = new Map<number, Candidate[]>();
         for (const candidate of slot) {
           const key = dominanceGroup(candidate.setId);
@@ -861,7 +940,8 @@ export function prepareRuneOptimization(
           group.push(candidate); groups.set(key, group);
         }
         const independent = new Set([...groups.values()].flatMap((group) => cut(group, keep, targetSlopes, ceilingSlopes)));
-        return slot.filter((candidate) => independent.has(candidate) || complementary.has(candidate))
+        const recipes = new Set(slot.filter((candidate) => independent.has(candidate) || complementary.has(candidate)).map(craftRecipeKey));
+        return craftPools[slotIndex].filter((candidate) => recipes.has(craftRecipeKey(candidate)))
           /* Guides are seeded into the result table before the tree opens. The tree
              therefore gets the strongest bound-raising candidates first; putting
              every guide candidate ahead of them delayed the bar and made a narrower
@@ -869,9 +949,15 @@ export function prepareRuneOptimization(
           .sort((a, b) => b.proxy - a.proxy || Number(complementary.has(b)) - Number(complementary.has(a)) || a.runeId.localeCompare(b.runeId));
       });
       problem.guides = guidance.builds.map((build) => build.map((candidate, slot) => problem.slots[slot].indexOf(candidate)));
+    } else if (!ceilings.some(Number.isFinite)) {
+      problem.slots = problem.slots.map((slot, at) => {
+        const families = new Set(slot.map((candidate) => candidate.runeId));
+        return craftPools[at].filter((candidate) => families.has(candidate.runeId)).sort((a, b) => b.proxy - a.proxy);
+      });
     }
     for (const [at, slot] of problem.slots.entries()) reports[at].kept = slot.length;
   }
+  problem.craft = prepareCraftAllocation(problem);
   return problem;
 }
 

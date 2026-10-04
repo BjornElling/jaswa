@@ -11,6 +11,48 @@ export function availableStatSets(builds: readonly BuildRequirement[] | null): t
     build.free >= pieces || build.needs.some((need) => need.setId === setId)));
 }
 
+/**
+ * Prove set support before multiplying runes by craft alternatives. Six slots
+ * choose set identities, not physical runes. A bounded traversal may decline to
+ * prove anything on an open pool; it must then preserve every original choice.
+ */
+export function setFeasibleCandidates<T extends { setId: number }>(
+  slots: T[][], rules: Pick<RuneOptimizationProblem, 'builds' | 'allowBroken' | 'setPieces' | 'allowIntangible'>,
+): T[][] {
+  const sets = slots.map((slot) => [...new Set(slot.map((candidate) => candidate.setId))]);
+  const supported = sets.map(() => new Set<number>());
+  const counts = new Int32Array(rules.setPieces.length);
+  const picks = new Int32Array(6);
+  const order = sets.map((_, at) => at).sort((a, b) => sets[a].length - sets[b].length || a - b);
+  let work = 0;
+  let declined = false;
+  let allSupported = false;
+  function visit(depth: number) {
+    if (++work > 50_000) { declined = true; return; }
+    if (depth === 6) {
+      const completion = intangibleCompletion(counts);
+      if (rules.builds !== null && !rules.builds.some((build) => satisfiesBuild(build, counts, completion))) return;
+      if (!rules.allowBroken && !noBrokenSets(counts, completion, rules.setPieces)) return;
+      for (let at = 0; at < 6; at += 1) supported[at].add(picks[at]);
+      allSupported = supported.every((support, at) => support.size === sets[at].length);
+      return;
+    }
+    const at = order[depth];
+    for (const set of sets[at]) {
+      if (set === intangibleSetId && counts[set] > 0) continue;
+      counts[set] += 1; picks[at] = set;
+      const possible = (rules.builds === null || rules.builds.some((build) => canStillSatisfy(build, counts, depth + 1)))
+        && (rules.allowBroken || canStillFinishSets(counts, depth + 1, rules.setPieces));
+      if (possible) visit(depth + 1);
+      counts[set] -= 1;
+      if (declined || allSupported) return;
+    }
+  }
+  visit(0);
+  if (declined || allSupported) return slots;
+  return slots.map((slot, at) => slot.filter((candidate) => supported[at].has(candidate.setId)));
+}
+
 type Prefix = {
   picks: Candidate[];
   effects: Float64Array;
@@ -44,11 +86,39 @@ export function complementaryCandidates(problem: RuneOptimizationProblem): { can
   const selected = new Set<Candidate>();
   const guides: Candidate[][] = [];
   if (problem.slots.some((slot) => slot.length === 0)) return { candidates: selected, builds: guides };
+  // Resource alternatives multiply a rune's end states, not its complements.
+  // The beam sees each Gem shape at its strongest and cheapest, plus its quiet
+  // ceiling variants. Pair improvements below still read the entire exact pool.
+  const beamSlots = problem.slots.map((slot) => {
+    const groups = new Map<string, Candidate[]>();
+    for (const candidate of slot) {
+      const key = `${candidate.runeId}|${candidate.gemmedAt}|${candidate.lines.map((line) => line.statId)}`;
+      const group = groups.get(key) ?? []; group.push(candidate); groups.set(key, group);
+    }
+    const kept = new Set<Candidate>();
+    const hasCeiling = problem.ceilings.some(Number.isFinite);
+    for (const group of groups.values()) {
+      // Within a Gem shape every positive accumulator shares the same direction.
+      const strength = (candidate: Candidate) => problem.relevant.reduce((sum, at) => sum + candidate.effects[at], 0);
+      kept.add(group.reduce((a, b) => strength(b) > strength(a) ? b : a));
+      kept.add(group.reduce((a, b) => b.stock.length < a.stock.length
+        || (b.stock.length === a.stock.length && strength(b) > strength(a)) ? b : a));
+      const low = Math.min(...group.map(strength));
+      const high = Math.max(...group.map(strength));
+      for (const price of [0.25, 0.75]) {
+        const worth = (candidate: Candidate) => (strength(candidate) - low) / Math.max(1, high - low)
+          - price * candidate.stock.reduce((cost, at) => cost + 1 / problem.stock[at].amount, 0);
+        kept.add(group.reduce((a, b) => worth(b) > worth(a) ? b : a));
+      }
+      if (hasCeiling) for (const candidate of group) kept.add(candidate);
+    }
+    return slot.filter((candidate) => kept.has(candidate));
+  });
   const order = problem.slots.map((_, slot) => slot)
-    .sort((a, b) => problem.slots[a].length - problem.slots[b].length || a - b);
+    .sort((a, b) => beamSlots[a].length - beamSlots[b].length || a - b);
   const remaining = Array.from({ length: 7 }, () => new Float64Array(effectSlotCount));
   for (let depth = 5; depth >= 0; depth -= 1) {
-    const candidates = problem.slots[order[depth]];
+    const candidates = beamSlots[order[depth]];
     const families = new Map<string, Candidate>();
     // Gem alternatives must not give one physical rune several votes in the reference.
     for (const candidate of candidates) {
@@ -80,12 +150,12 @@ export function complementaryCandidates(problem: RuneOptimizationProblem): { can
   const orderableBonuses = availableStatSets(problem.builds);
 
   // Fixed work across depths makes the guidance independent of the larger depth's cut.
-  for (const price of [1, 4, 16, 64]) {
+  for (const [price, resourcePrice] of limits.length === 0 ? [[1, 0]] : [[1, 0], [4, 0.03], [16, 0.1], [64, 0.3]]) {
     let beam: Prefix[] = [{ picks: [], effects: new Float64Array(problem.start),
       counts: new Int32Array(problem.setPieces.length), spent: [], score: 0 }];
     for (let depth = 0; depth < 6 && beam.length > 0; depth += 1) {
       let next: Prefix[] = [];
-      for (const prefix of beam) for (const candidate of problem.slots[order[depth]]) {
+      for (const prefix of beam) for (const candidate of beamSlots[order[depth]]) {
         if (candidate.setId === intangibleSetId && prefix.counts[intangibleSetId] > 0) continue;
         const counts = new Int32Array(prefix.counts);
         counts[candidate.setId] += 1;
@@ -130,7 +200,8 @@ export function complementaryCandidates(problem: RuneOptimizationProblem): { can
         }
         if (depth === 5 && deficit > 0) continue;
         next.push({ picks: [...prefix.picks, candidate], effects, counts, spent,
-          score: figures[problem.rank] / rankScale - price * deficit });
+          score: figures[problem.rank] / rankScale - price * deficit
+            - (depth === 5 ? 0 : resourcePrice * spent.reduce((cost, at) => cost + 1 / problem.stock[at].amount, 0)) });
         // A wide crafted pool must not allocate its whole cross product in memory.
         // Anything below 128 distinct leaders cannot enter the final 64 leaders.
         if (next.length >= 4096) next = bestPrefixes(next, problem.relevant, 128);
@@ -189,11 +260,11 @@ export function complementaryCandidates(problem: RuneOptimizationProblem): { can
           }
           picks[first] = aBest; picks[second] = bBest;
           for (let stat = 0; stat < effectSlotCount; stat += 1) effects[stat] = rest[stat] - bonus[stat] + aBest.effects[stat] + bBest.effects[stat];
-          for (const candidate of picks) selected.add(candidate);
         }
       }
       if (!improved) break;
     }
+    for (const candidate of picks) selected.add(candidate);
     guides.push([...picks]);
   }
   // Preserve the same guide at every finite depth, so shallower discoveries survive.
@@ -216,6 +287,19 @@ export function rangeFeasibleCandidates(problem: RuneOptimizationProblem): Candi
   const minima = problem.slots.map((slot) => Float64Array.from({ length: effectSlotCount }, (_, stat) =>
     slot.reduce((best, candidate) => Math.min(best, candidate.effects[stat]), Infinity)));
   if (problem.slots.some((slot) => slot.length === 0)) return problem.slots;
+  const highBonus = new Float64Array(effectSlotCount);
+  const lowBonus = new Float64Array(effectSlotCount);
+  const hasIntangible = problem.slots.some((slot) => slot.some((candidate) => candidate.setId === intangibleSetId));
+  for (const [setId, pieces, stat, value] of availableStatSets(problem.builds)) {
+    // Independent set maxima remain optimistic, but a set present in only one
+    // slot cannot promise three completions. The wildcard can supply one piece.
+    const possible = problem.slots.filter((slot) => slot.some((candidate) => candidate.setId === setId)).length;
+    highBonus[stat] += Math.floor(Math.min(6, possible + Number(hasIntangible)) / pieces) * value;
+    if (problem.builds !== null && problem.builds.length > 0) {
+      const required = Math.min(...problem.builds.map((build) => build.needs.find((need) => need.setId === setId)?.pieces ?? 0));
+      lowBonus[stat] += Math.floor(required / pieces) * value;
+    }
+  }
   const totals = new Float64Array(baseStatCount);
   const figures = new Float64Array(targetFigureCount);
   return problem.slots.map((slot, own) => {
@@ -227,7 +311,9 @@ export function rangeFeasibleCandidates(problem: RuneOptimizationProblem): Candi
         low[stat] += minima[other][stat];
       }
     }
-    for (const [, pieces, stat, value] of statSetBonuses) high[stat] += Math.floor(6 / pieces) * value;
+    for (let stat = 0; stat < effectSlotCount; stat += 1) {
+      high[stat] += highBonus[stat]; low[stat] += lowBonus[stat];
+    }
     return slot.filter((candidate) => {
       const effects = Float64Array.from(high, (value, stat) => value + candidate.effects[stat]);
       totalsInto(problem.base, effects, totals); figuresInto(totals, figures);

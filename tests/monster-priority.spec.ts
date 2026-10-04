@@ -172,6 +172,8 @@ test('the monster overlay Optimize button shares the priority button hover', asy
 });
 
 test('Rune Optimization leaves a higher-priority monster\'s runes alone until told otherwise', async ({ page }, testInfo) => {
+  /* Six complete searches and the priority edits share this test's time budget. */
+  test.slow();
   await page.setViewportSize({ width: 1920, height: 1080 });
   await freshWorkspace(page);
   await importAccount(page);

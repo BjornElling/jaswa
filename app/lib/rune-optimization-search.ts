@@ -35,9 +35,12 @@ import {
 import { canStillFinishSets, canStillSatisfy, noBrokenSets, overCeiling, satisfiesBuild } from './rune-optimization-problem';
 import type { RuneOptimizationProblem } from './rune-optimization-problem';
 import { availableStatSets } from './rune-optimization-shortlist';
+import { craftAllocation } from './rune-optimization-craft-allocation';
 
 /** One build the search found: a candidate index per slot (index 0 is slot 1), and its figures. */
 export type FoundBuild = {
+  /** Physical rune combination, shared across workers and craft alternatives. */
+  identity: string;
   picks: number[];
   figures: number[];
   moves: number;
@@ -74,8 +77,11 @@ export function compareFoundBuilds(rank: number) {
 export function mergeBuildResults<Build extends FoundBuild>(
   outcomes: ReadonlyArray<Omit<SearchOutcome, 'builds'> & { builds: Build[] }>, rank: number, count: number,
 ): Omit<SearchOutcome, 'builds'> & { builds: Build[] } {
+  const seen = new Set<string>();
+  const builds = outcomes.flatMap((outcome) => outcome.builds).sort(compareFoundBuilds(rank))
+    .filter((build) => { if (seen.has(build.identity)) return false; seen.add(build.identity); return true; }).slice(0, count);
   return {
-    builds: outcomes.flatMap((outcome) => outcome.builds).sort(compareFoundBuilds(rank)).slice(0, count),
+    builds,
     complete: outcomes.every((outcome) => outcome.complete),
     stoppedBy: outcomes.some((outcome) => outcome.stoppedBy === 'user') ? 'user'
       : outcomes.some((outcome) => !outcome.complete) ? 'time-limit' : undefined,
@@ -135,6 +141,8 @@ export type PassLimits = { blocks: number; pairs: number };
  * like one search rather than like eight small ones.
  */
 export type SearchHooks = {
+  /** Verification can compare resource matching with exhaustive end states. */
+  allocateCraft?: boolean;
   onProgress?: (fraction: number) => void;
   /** This part's own bar rose. */
   onBar?: (bar: number) => void;
@@ -151,6 +159,10 @@ type Mode = 'processor' | 'card';
 const clockEvery = 0x3fff;
 
 function createSearch(problem: RuneOptimizationProblem, part: number, parts: number, hooks: SearchHooks) {
+  const source = problem;
+  const allocation = hooks.allocateCraft === false ? null : craftAllocation(source);
+  const grouped = allocation !== null;
+  if (allocation) problem = allocation.problem;
   const { onProgress, onBar } = hooks;
   const now = hooks.now ?? (() => performance.now());
   /* Fewest candidates first: a locked slot costs nothing at the top, and a narrow
@@ -674,7 +686,30 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
       if (seeded.has(key)) return;
       if (seed) seeded.add(key);
     }
-    const found: FoundBuild = { picks: bySlot, figures: Array.from(figures), moves: moved };
+    let actualPicks = bySlot;
+    let actualFigures = Array.from(figures);
+    if (allocation) {
+      const resolved = allocation.resolve(bySlot);
+      if (!resolved) return;
+      actualPicks = resolved;
+      finished.set(source.start); exactCounts.fill(0);
+      for (const [slot, pick] of resolved.entries()) {
+        const candidate = source.slots[slot][pick];
+        exactCounts[candidate.setId] += 1;
+        for (let stat = 0; stat < effectSlotCount; stat += 1) finished[stat] += candidate.effects[stat];
+      }
+      addSetBonuses(exactCounts, intangibleCompletion(exactCounts), finished);
+      if (!passes(finished)) return;
+      totalsInto(source.base, finished, totals); figuresInto(totals, figures);
+      actualFigures = Array.from(figures);
+    }
+    const identity = JSON.stringify(actualPicks.map((pick, slot) => source.slots[slot][pick].runeId));
+    const found: FoundBuild = { identity, picks: actualPicks, figures: actualFigures, moves: moved };
+    const previous = table.findIndex((build) => build.identity === identity);
+    if (previous >= 0) {
+      if (ordered(found, table[previous]) >= 0) return;
+      table.splice(previous, 1);
+    }
     if (table.length >= capacity && ordered(found, table[table.length - 1]) >= 0) return;
     let at = table.length;
     while (at > 0 && ordered(found, table[at - 1]) < 0) at -= 1;
@@ -741,7 +776,7 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
         /* A ceiling is judged here, on the build's own figures, and nowhere above:
            every bound in the tree is an *upper* estimate, and an upper estimate past
            a ceiling says nothing about whether the build itself is. */
-        if (capped && overCeiling(figures, ceilings)) continue;
+        if (!grouped && capped && overCeiling(figures, ceilings)) continue;
         record(prefix, first, last);
       }
       if (firstSpent.length > 0) spend(stock, firstSpent, -1);
@@ -923,7 +958,7 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
     if (!passes(finished)) return;
     totalsInto(problem.base, finished, totals);
     figuresInto(totals, figures);
-    if (capped && overCeiling(figures, ceilings)) return;
+    if (!grouped && capped && overCeiling(figures, ceilings)) return;
     record(order.slice(0, tailDepth).map((slot) => guide[slot]), guide[order[firstTail]], guide[order[lastTail]], true);
   }
   if (!idle) for (const guide of problem.guides) {

@@ -13,6 +13,7 @@ which are not, and where each part of it runs.
 | `app/lib/rune-optimization-requirements.ts` | A calculation's requirements, seeded from the profile (§2) |
 | `app/lib/rune-optimization-problem.ts` | Candidates, filters, exact reduction, the depth's cut (§3–§5) |
 | `app/lib/rune-optimization-shortlist.ts` | Exact range feasibility, complementary builds and paired improvements for the cut (§4.3, §5) |
+| `app/lib/rune-optimization-craft-allocation.ts` | Exact per-stat allocation of held grades and stones after Gem placements are chosen (§6.4) |
 | `app/lib/rune-optimization-search.ts` | The tree, the tail's blocks, the passes to a card, the merge of parts (§6–§7) |
 | `app/lib/rune-optimization-settings.ts` | How to search: craft items, rune sources, depth, table size |
 | `app/lib/compute/rune-optimization-*.ts` | Workers, the client that fans out to them and relays their bars, the engine door (§6.5, §7) |
@@ -156,6 +157,19 @@ and from `+12` one Gem into every legal wanted stat. A Gem or stone on a stat
 nothing in the calculation reads is not offered — it spends an item to change no
 figure.
 
+Every held grade and compatible stack is offered, and each held Grindstone is
+optional independently. A theoretical stone is also optional where a ceiling
+reads its stat. A lower same-stat Gem, or a Gem into a stat the question otherwise
+ignores, is retained where removing an existing contribution can meet a ceiling.
+An item that changes no read figure and removes no ceiling contribution is omitted.
+
+Before craft expansion, six slot/set lists are reconciled against the real finished
+set rules. A set identity with no valid six-slot assignment is removed. The traversal
+stops when every identity has support, or after 50,000 visits; exceeding that budget
+keeps every identity. This is an exact proof with a bounded opportunity to decline,
+not another heuristic cut. A locked rune remains the slot's only choice, including
+a locked Intangible when the owner has disabled taking additional Intangibles.
+
 ## 4. Exact reduction
 
 ### 4.1 Only what the question reads
@@ -191,9 +205,18 @@ can take back.
 **One dominator is not enough when the table lists more than one build.** *b* could
 still hold the second row that *a* leaves free. Each dominator gives one build at
 least as good as any build using *b*, so *b* is dropped only once as many
-dominators exist as the table has rows. That is what makes the whole table exact,
-not only its first row. Identical candidates break the tie towards the rune
-already on the monster.
+distinct physical dominators exist as the table has rows. Several work plans for
+one rune cannot count as several different builds. Within one physical rune,
+one dominating plan is enough: it improves the same result row. Those small
+families are reduced before the wider cross-rune comparison. A dominator that
+requires an extra move cannot remove a worn rune, because surplus in a target
+stat need not improve the ranking figure. Identical candidates break the tie
+towards the rune already on the monster.
+
+A held stack of six cannot run out: one kind/stat stack is used at most once
+per rune. Dominance may ignore that stack's scarcity while still reporting its
+actual spend. Comparisons are indexed by identical ceiling contributions and
+subsets of scarce spend, avoiding comparisons between incompatible resource plans.
 
 With no build stated, no Intangible allowed and broken sets allowed, a set matters
 only for the stat bonus it completes, so every set without one — Violent, Will, Despair and the rest
@@ -203,11 +226,14 @@ real account this halves the candidates of an unconstrained search.
 ### 4.3 A rune that cannot reach a range
 
 Before the depth cut, each candidate is combined with independent maxima from the
-other five slots and every stat-set bonus at once. This deliberately overestimates
+other five slots and independent reachable stat-set bonuses. This overestimates
 what a real build can achieve. If even that sum misses a floor, the candidate cannot
-belong to any accepted build. Independent minima, with no set bonuses, give the
-opposite proof: if that sum exceeds a ceiling, the candidate cannot be used either.
+belong to any accepted build. A set absent from enough slots cannot promise a
+completion; an Intangible can supply at most one missing piece. Independent minima,
+with bonuses every stated build requires, give the opposite proof: if that sum
+exceeds a ceiling, the candidate cannot be used either.
 These checks do not read the current build and never use a heuristic price.
+They run before the quadratic dominance comparison and again after reduction.
 
 ## 5. The depth's cut — the one shortcut that is not exact
 
@@ -255,8 +281,12 @@ The cut keeps the best distinct physical rune families by each measure: one
 representative per physical rune for the ranking lane, each floor lane and each
 ceiling lane. Different lanes may retain different Gem variants of the same rune;
 several variants cannot occupy the same slot together, so letting one family fill
-one lane would spend the lane on mutually exclusive copies. For the tightest stated
-ceilings it also keeps the lowest-contribution end states, because a high-ranked
+one lane would spend the lane on mutually exclusive copies. A separate item-free
+lane retains at most a third of the width, rounded down with a minimum of one.
+After a lane chooses a Gem placement, all its legal grade and Grindstone
+alternatives remain reachable; resource allocation is never a depth shortcut.
+For the tightest stated ceilings it also keeps the lowest-contribution end states,
+because a high-ranked
 rune can be a bad complement when the other five runes already approach the upper
 limit. Every ceiling still participates in exact range checks, dominance and the
 finished-build judgement; only the bounded heuristic lane chooses the tightest few.
@@ -286,6 +316,11 @@ builds before picking individual runes**:
 - Four deterministic beam searches retain 64 prefixes each, with different prices
   for unmet floors and exceeded ceilings. Their reference for open slots comes from
   the admitted pool; set feasibility and held-item stock are checked as they grow.
+  Where there are no ranges the identical beams run once. Each Gem placement
+  contributes its strongest, cheapest and two resource-priced representatives
+  rather than every product of stone alternatives; ceilings keep all representatives.
+  Partial prefixes also price scarcity, so six runes do not each reserve the same
+  one-item stack in their ordering. Finished guides are ranked by actual figures.
 - Finished guides must satisfy the actual sets, ranges, Intangible rule and stock.
   Up to four different guides are improved by replacing two same-set runes at once,
   for at most two rounds and 200,000 pair evaluations per guide. This can trade speed
@@ -303,8 +338,9 @@ builds even when a short time limit leaves most combinations unvisited. A seeded
 build's identity is remembered so revisiting it cannot fill another row or raise the
 bar with a duplicate. This adds no cut: the tree still searches the same candidates.
 
-Preparation runs once in a worker, then the prepared problem is shared with the
-search parts. Beam prefixes carry only the stack indexes they spend, sorted with
+Preparation, including indexed craft recipes, runs once in a worker, then the
+prepared problem is shared with the search parts. Beam prefixes carry only the
+stack indexes they spend, sorted with
 repetitions, rather than copying the account's entire craft inventory on every
 expansion. This changes allocation cost, not supply or candidate selection.
 
@@ -428,10 +464,34 @@ once for the sheet, the build names and the search.
 
 ### 6.4 Held items
 
-With *Owned only*, every candidate names the stacks it spends and the search counts
-them: a combination needing three stones from a stack of two is not offered.
-**Known gap:** only the best held item per stat is offered for a rune; where that
-stack runs out, the next-best stack would still do and is not tried yet.
+With *Owned only*, every candidate names the stacks it spends: a combination needing
+three stones from a stack of two is not offered. All compatible grades and stacks
+participate, including set-specific alternatives to an Immemorial item.
+
+**Without ceilings, choose placement first and allocate items afterwards.** A recipe
+names a rune and the Gem's replacement line and stat, with no Gem as its own recipe.
+The tree and the card bound each recipe by its independent accumulator maxima.
+These are optimistic figures only. For a promising six-recipe combination, each
+kind/stat group assigns at most six lines to the compatible stacks, maximizing
+their total contribution. An optional stone has a free unchanged choice; an
+assumed item has unlimited supply. Independent best choices are used immediately
+when they fit; otherwise a minimum-cost flow finds the exact assignment.
+
+This is exact because all read figures and floors are monotone, and stacks of
+different kinds or stat ids cannot compete. Maximizing each accumulator's
+contribution at once maximizes every read figure for those placements. The final
+six actual end states are looked up and counted by the shared stat sheet. A failed
+assignment rejects the recipe combination, never an imported rune. Matching results
+have a 4,096-entry cache per worker; eviction repeats the same answer.
+
+**With any ceiling, retain the full end-state search.** More can exceed a ceiling,
+so the monotone allocation proof does not apply. Optional stones and lower Gem
+alternatives remain candidates and are judged on their actual figures.
+
+**One row per physical combination.** Alternative Gem or stone plans for the same
+six rune ids improve that row rather than filling another. Each worker and the
+merge keep the best plan found for each combination. Bars come from tables of
+distinct physical combinations, so a worker's bar remains safe for every other part.
 
 ### 6.5 Time, parallelism and a shared bar
 
@@ -490,6 +550,10 @@ an open Shield/Will search at depth 1, stopping with results, an immediate time
 limit, and a worker allocation failure that recovers in one worker.
 
 ### 6.7 Measured
+
+The 4 October review and measurements of resource allocation, including the
+comparison with full grade/stone combinations on the same shortlist, are in
+[Rune Optimization candidate review](RUNE-OPTIMIZATION-CANDIDATE-REVIEW.md).
 
 Historical measurements before the guided shortlist, on a real 2,444-rune account,
 the Rune Optimization page itself, eight workers,

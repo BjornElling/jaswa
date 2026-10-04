@@ -4,6 +4,7 @@ import { prepareRuneOptimization, buildFigures, figureIndex } from '../app/lib/r
 import { effectSlot } from '../app/lib/monster-stats.ts';
 import { runeOptimizationDepths, runeOptimizationSettingChecks, runeOptimizationWorkWarning } from '../app/lib/rune-optimization-settings.ts';
 import { mergeBuildResults, searchRuneBuilds } from '../app/lib/rune-optimization-search.ts';
+import { assumedCraftHalf, craftVariants, heldCraftHalf } from '../app/lib/rune-craft-end-state.ts';
 
 // Fixed wide pools expose the depth cut; small brute-force cases hold exact reductions elsewhere.
 const generator = scenarioGenerator(20261003, [14, 18]);
@@ -224,3 +225,97 @@ for (let at = 0; at < 16; at += 1) {
 }
 assert.ok(spendingGuides > 0, 'crafted guide checks spent no held item');
 console.log(`PASS: seeded, unseeded and split tables agree on 16 crafted accounts, including ${spendingGuides} guides spending held items.`);
+
+// Independent supply fixtures hold the alternatives that a search-vs-search
+// comparison cannot detect: both searches would otherwise share the missing item.
+const heldStone = (id, statId, grade, amount) => ({ id, kind: 'grindstone', lineage: 'standard', setId: 13,
+  setName: 'Violent', statId, statName: '', grade, amount });
+const partialSupply = heldCraftHalf('grindstone', [
+  { item: heldStone('speed', 8, 'Legend', 1), stock: 0 },
+  { item: heldStone('attack', 4, 'Legend', 1), stock: 1 },
+], 'maximum');
+const partial = craftVariants({ gem: null, grind: partialSupply }, 3, 5, null,
+  [{ statId: 8, value: 10, grind: 0, gemmed: false }, { statId: 4, value: 10, grind: 0, gemmed: false }],
+  true, () => true);
+assert.deepEqual(new Set(partial.map((variant) => [...variant.stock].sort().join(','))), new Set(['', '0', '1', '0,1']),
+  'each held stone must be independently optional');
+
+const supplyInput = generator.scenario(0);
+supplyInput.holds = {}; supplyInput.spared = [];
+supplyInput.monster = { ...supplyInput.monster, spd: 101 };
+supplyInput.requirements = { ...supplyInput.requirements, builds: [], slotMains: { slot2: [], slot4: [], slot6: [] },
+  allowBroken: true, allowIntangible: false, allowImmemorial: true, alwaysCrits: false,
+  alwaysElementAdvantage: false, critLead: undefined, targets: {}, ceilings: {}, rankBy: 'spd' };
+supplyInput.settings = { ...supplyInput.settings, gems: 'none', grinds: 'owned', grindRollAssumption: 'maximum',
+  runesOnOtherMonsters: true, resultCount: 1 };
+supplyInput.runes = Array.from({ length: 6 }, (_, at) => ({
+  ...templates[at], id: `supply-${at}`, occupiedId: null, setId: 13, prefixStatId: null, prefixValue: 0,
+  mainStatId: [3, 4, 5, 10, 1, 6][at], mainValue: [160, 63, 160, 80, 2448, 63][at], level: 15,
+  subProperties: [{ statId: 8, value: 10, grind: 0, gemmed: false }],
+}));
+supplyInput.craftItems = [heldStone('legend', 8, 'Legend', 1), heldStone('hero', 8, 'Hero', 5)];
+for (const depth of ['quick', 'complete']) {
+  supplyInput.settings.depth = depth;
+  const problem = prepareRuneOptimization(supplyInput);
+  const answer = searchRuneBuilds(problem);
+  assert.ok(answer.complete && answer.builds.length === 1);
+  assert.equal(answer.builds[0].figures[figureIndex('spd')], 101 + 60 + 5 + 5 * 4,
+    `${depth}: one Legend stone and five Hero stones must beat using only the best held grade`);
+  const spent = answer.builds[0].picks.flatMap((pick, at) => problem.slots[at][pick].stock);
+  assert.equal(spent.filter((at) => at === 0).length, 1);
+  assert.equal(spent.filter((at) => at === 1).length, 5);
+}
+
+supplyInput.settings = { ...supplyInput.settings, depth: 'quick', grinds: 'theoretical', grindGrade: 'Hero' };
+supplyInput.requirements.ceilings = { spd: 111 };
+supplyInput.runes = supplyInput.runes.map((rune) => ({ ...rune,
+  subProperties: [{ statId: 8, value: 1, grind: 0, gemmed: false }],
+}));
+const ceilingCraft = prepareRuneOptimization(supplyInput);
+assert.equal(searchRuneBuilds(ceilingCraft).builds[0]?.figures[figureIndex('spd')], 111,
+  'a theoretical stone must remain optional under a ceiling');
+
+const removingGem = craftVariants({ gem: assumedCraftHalf('gem', 'standard', 'Legend', 'maximum'), grind: null },
+  3, 5, null, [{ statId: 8, value: 20, grind: 0, gemmed: false }], true,
+  (stat) => stat === 8, (stat) => stat === 8);
+assert.ok(removingGem.some((variant) => variant.lines[0].statId === 8 && variant.lines[0].value === 10),
+  'a same-stat lower Gem can satisfy an upper range');
+assert.ok(removingGem.some((variant) => variant.lines[0].statId === 12),
+  'an otherwise irrelevant Gem can remove a stat that exceeds a ceiling');
+console.log('PASS: partial grinding, lower owned grades, exact shared supply at depths 1 and 10, optional theoretical stones and ceiling-reducing Gems remain reachable.');
+
+// Two open runes keep the full Cartesian oracle affordable while different
+// lineages, set-specific stacks and Immemorial alternatives compete for supply.
+for (let index = 0; index < 16; index += 1) {
+  const input = structuredClone(supplyInput);
+  input.requirements = { ...input.requirements, rankBy: ['spd', 'dmg', 'ehp', 'atk'][index % 4],
+    ceilings: {}, targets: index % 2 ? { spd: 115 } : {}, allowImmemorial: index % 3 !== 0 };
+  input.settings = { ...input.settings, depth: 'complete', gems: 'owned', grinds: 'owned',
+    gemRollAssumption: 'maximum', grindRollAssumption: 'maximum' };
+  input.runes = input.runes.map((rune, at) => ({ ...rune, occupiedId: input.unitId,
+    setId: at === 2 && index % 2 ? 15 : 13, ancient: at === 2 && index % 4 === 0,
+    subProperties: at === 0 || at === 2 ? [
+      { statId: 2, value: 8 + index, grind: index % 3, gemmed: false },
+      { statId: 4, value: 10 + index, grind: 0, gemmed: false },
+      { statId: 8, value: 2, grind: 0, gemmed: index % 5 === 0 },
+      { statId: 9, value: 5, grind: 0, gemmed: false },
+    ] : rune.subProperties,
+  }));
+  input.holds = Object.fromEntries(input.runes.filter((_, at) => at !== 0 && at !== 2).map((rune) => [rune.id, { locked: true }]));
+  input.craftItems = ['standard', 'ancient'].flatMap((lineage) => [13, 15].flatMap((setId) =>
+    ['Hero', 'Legend'].flatMap((grade) => [2, 4, 8].map((statId) => ({
+      ...heldStone(`${lineage}-${setId}-${grade}-${statId}`, statId, grade, 1), lineage, setId,
+    })).concat({ id: `${lineage}-${setId}-gem`, kind: 'gem', lineage, setId, setName: '', statId: 8, statName: 'SPD', grade: 'Legend', amount: 1 }))));
+  input.craftItems.push({ ...heldStone('universal', 8, 'Legend', 1), lineage: 'immemorial', setId: null });
+  const problem = prepareRuneOptimization(input);
+  const matched = searchRuneBuilds(problem);
+  const expanded = searchRuneBuilds(problem, 0, 1, { allocateCraft: false });
+  assert.ok(problem.craft && matched.complete && expanded.complete, `craft pool ${index}: agreement needs completed searches`);
+  const reading = (answer) => answer.builds.map((build) => [build.identity, build.figures[problem.rank], build.moves]);
+  assert.deepEqual(reading(matched), reading(expanded), `craft pool ${index}: matching differs from enumerating all owned plans`);
+  assert.equal(matched.builds.length, 1, `craft pool ${index}: one physical combination must give one row`);
+  const copied = structuredClone(problem);
+  assert.equal(copied.craft.sourceSlots, copied.slots, 'worker cloning must preserve the prepared recipe source');
+  assert.deepEqual(searchRuneBuilds(copied).builds, matched.builds, 'sharing prepared recipes must keep the same result');
+}
+console.log('PASS: 16 richer held-item pools agree with full craft enumeration across standard, Ancient, set-specific and Immemorial supply, including converted lines and worker cloning.');

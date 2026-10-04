@@ -224,7 +224,16 @@ test('an Ancient rune carries its A at the right edge of a build card', async ({
 test('an open build follows the runes as the player works on them', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await freshWorkspace(page);
-  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
+  /* Keep one physical Slot 4 choice so ranking other slots cannot change the rune this sync exercises. */
+  type GameRune = { rune_id: number; slot_no: number; sec_eff: number[][] };
+  const game = JSON.parse(readFileSync(account, 'utf8')) as {
+    runes: GameRune[]; unit_list: Array<{ runes: GameRune[] }>;
+  };
+  game.runes = game.runes.filter((rune) => rune.slot_no !== 4 || rune.rune_id === 5037);
+  for (const unit of game.unit_list) unit.runes = unit.runes.filter((rune) => rune.slot_no !== 4);
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
+    name: 'rune-optimization-account.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(game)),
+  });
   await expect(page.getByText('rune-optimization-account.json').first()).toBeVisible();
   await openOptimization(page);
   await page.getByLabel('Monster', { exact: true }).selectOption('11');
@@ -233,17 +242,17 @@ test('an open build follows the runes as the player works on them', async ({ pag
   await settings.getByRole('radio', { name: 'Theoretical' }).nth(1).check();
   await page.getByRole('button', { name: 'Find builds' }).click();
   const table = page.getByRole('table', { name: 'Rune builds' });
-  await page.getByRole('button', { name: 'Show build 2', exact: true }).click();
-  const detail = page.getByRole('dialog', { name: 'Build 2' });
-  /* Build 2 puts a Gem on rune 5037's ATK +19% line, turning it into SPD, and grinds it. */
+  await page.getByRole('button', { name: 'Show build 1', exact: true }).click();
+  const detail = page.getByRole('dialog', { name: 'Build 1' });
+  /* The build puts a Gem on rune 5037's ATK +19% line, turning it into SPD, and grinds it. */
   const slot4 = detail.getByRole('region', { name: 'Slot 4 modifications' });
   await expect(slot4.getByText('Enchanted Gem')).toBeVisible();
   await expect(slot4.getByText('Grindstone')).toBeVisible();
-  const rowBefore = await table.getByRole('row').filter({ has: page.getByRole('button', { name: 'Show build 2', exact: true }) }).innerText();
+  await expect(slot4.locator('[data-kind="gem"]')).toContainText('+19%');
+  const rowBefore = await table.getByRole('row').filter({ has: page.getByRole('button', { name: 'Show build 1', exact: true }) }).innerText();
 
   /* The player gems the line in the game, rolls SPD +5 rather than the +7 the search
      assumed, and the sync brings it back while the overlay is still open. */
-  const game = JSON.parse(readFileSync(account, 'utf8')) as { runes: Array<{ rune_id: number; sec_eff: number[][] }> };
   const rune = game.runes.find((entry) => entry.rune_id === 5037);
   if (!rune) throw new Error('the fixture no longer holds rune 5037');
   rune.sec_eff[0] = [8, 5, 1, 0];
@@ -262,7 +271,7 @@ test('an open build follows the runes as the player works on them', async ({ pag
 
   /* The table is still there, the status line still only reports the search, and the build's figures follow the roll. */
   await expect(page.getByRole('status').filter({ hasText: 'builds checked' })).not.toContainText('changed since');
-  const rowAfter = await table.getByRole('row').filter({ has: page.getByRole('button', { name: 'Show build 2', exact: true }) }).innerText();
+  const rowAfter = await table.getByRole('row').filter({ has: page.getByRole('button', { name: 'Show build 1', exact: true }) }).innerText();
   expect(rowAfter).not.toEqual(rowBefore);
   await expect(page.getByText('You should rebuild.', { exact: false })).toBeHidden();
 });
