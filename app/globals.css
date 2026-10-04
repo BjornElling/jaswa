@@ -2437,6 +2437,7 @@ label[for] {
 .rune-optimization-work-warning { height: 3lh; margin: 0; overflow: hidden; visibility: hidden; }
 .rune-optimization-work-warning[data-tone] { visibility: visible; color: var(--state-warn); }
 .rune-optimization-work-warning[data-tone='bad'] { color: var(--state-bad); }
+.rune-optimization-work-warning[data-tone='neutral'] { color: var(--faint); }
 
 /* A fixed measure, so the status line at its foot can change its wording — a
    percentage, then a line of counts — without the columns beside it moving. */

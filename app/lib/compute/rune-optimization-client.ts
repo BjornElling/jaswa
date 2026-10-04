@@ -14,6 +14,7 @@
 import { figureIndex } from '../rune-optimization-problem';
 import type { RuneOptimizationInput, RuneOptimizationProblem } from '../rune-optimization-problem';
 import { mergeBuildResults } from '../rune-optimization-search';
+import { runeOptimizationWorkPool } from '../rune-optimization-work';
 import { combineCalculationBackends } from './calculation-summary';
 import type {
   RuneOptimizationAnswer, RuneOptimizationOutcome, RuneOptimizationWorkerResponse,
@@ -42,6 +43,7 @@ export function cancelRuneOptimization(): void {
 export function optimizeRuneBuilds(
   input: RuneOptimizationInput, preferWebGpu: boolean, onProgress?: (fraction: number) => void,
   onPhase?: (phase: RuneOptimizationPhase) => void,
+  preparedProblem?: RuneOptimizationProblem,
 ): Promise<RuneOptimizationOutcome> {
   cancelRuneOptimization();
   let parts = searchWorkerCount();
@@ -94,9 +96,7 @@ export function optimizeRuneBuilds(
           if (message.type === 'prepared') {
             prepared = message.problem;
             onPhase?.('searching');
-            const slots = [...prepared.slots].sort((a, b) => a.length - b.length);
-            const split = slots.findIndex((slot) => slot.length > 1);
-            parts = slots.some((slot) => slot.length === 0) || split < 0 || split >= 4 ? 1 : Math.min(parts, slots[split].length);
+            parts = Math.min(parts, runeOptimizationWorkPool(prepared).width);
             answers.length = parts; progress.length = parts;
             try {
               worker.postMessage({ type: 'calculate', requestId: 0, request: { problem: prepared, part: 0, parts, preferWebGpu } });
@@ -147,6 +147,12 @@ export function optimizeRuneBuilds(
         failed('JASWA could not hand this account to its rune search.');
       }
     }
-    startWorker(0);
+    if (preparedProblem) {
+      prepared = preparedProblem;
+      parts = Math.min(parts, runeOptimizationWorkPool(prepared).width);
+      answers.length = parts; progress.length = parts;
+      onPhase?.('searching');
+      for (let part = 0; part < parts; part += 1) startWorker(part, prepared);
+    } else startWorker(0);
   });
 }

@@ -51,3 +51,14 @@ export async function searchRuneBuildsAccelerated(
   const backend = answer.result.processorTook ? combineCalculationBackends([answer.backend, 'cpu']) : answer.backend;
   return { outcome: answer.result.outcome, backend };
 }
+
+/** Charge each branch for search work, rather than multiplying per-worker setup. */
+export async function timeRuneBuildSearch(
+  problem: RuneOptimizationProblem, part: number, parts: number, preferWebGpu: boolean,
+) {
+  let started: number | undefined;
+  const answer = await searchRuneBuildsAccelerated({ problem, part, parts, hooks: { now: () => {
+    const time = performance.now(); started ??= time; return time;
+  } } }, preferWebGpu);
+  return { ...answer, durationMs: performance.now() - (started ?? performance.now()) };
+}

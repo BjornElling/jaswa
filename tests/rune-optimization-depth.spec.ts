@@ -54,7 +54,7 @@ test('all ten depths keep their box, expose their value, and survive a reload', 
   await page.screenshot({ path: testInfo.outputPath('depth-full-ranges.png'), fullPage: true });
 });
 
-test('processor and excessive-work warnings are yellow and red without moving the panel', async ({ page }, testInfo) => {
+test('a huge impossible pool gets measured without a false time warning or moving the panel', async ({ page }, testInfo) => {
   await start(page);
   await page.getByLabel('Use the graphics card for heavy calculations').uncheck();
   const data = JSON.parse(readFileSync(account, 'utf8'));
@@ -67,19 +67,54 @@ test('processor and excessive-work warnings are yellow and red without moving th
   });
   await open(page);
   const warning = page.locator('#rune-optimization-work-warning');
-  await expect(warning).toHaveAttribute('data-tone', 'warn');
-  await expect(warning).toContainText('Graphics card use is off');
-  await page.screenshot({ path: testInfo.outputPath('depth-yellow.png'), fullPage: true });
+  await expect(warning).toHaveAttribute('data-tone', 'neutral');
+  await expect(warning).toContainText('Choose a monster');
+  await page.screenshot({ path: testInfo.outputPath('depth-before-trial.png'), fullPage: true });
   await page.getByLabel('Monster', { exact: true }).selectOption('11');
   const panel = page.locator('.rune-optimization-monster-panel');
   const panelBox = await box(panel);
+  await page.getByLabel('Spd: at least', { exact: true }).fill('999999');
   await page.getByRole('slider', { name: 'Depth', exact: true }).press('End');
-  await expect(warning).toHaveAttribute('data-tone', 'bad');
-  await expect(warning).toContainText('Very large search');
+  await expect(warning).toContainText('This search finished', { timeout: 30_000 });
+  await expect(warning).toHaveAttribute('data-tone', 'neutral');
+  await expect(warning).toContainText('Processor');
+  await expect(warning).toHaveAttribute('title', /physical runes.*end states/);
   expect(await box(panel)).toEqual(panelBox);
-  await page.screenshot({ path: testInfo.outputPath('depth-red.png'), fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath('depth-measured.png'), fullPage: true });
+  await page.getByRole('button', { name: 'Find builds', exact: true }).click();
+  await expect(warning).toContainText('Last run finished', { timeout: 30_000 });
+  expect(await box(panel)).toEqual(panelBox);
   await page.getByRole('slider', { name: 'Depth', exact: true }).press('Home');
   await page.getByLabel('Monster', { exact: true }).selectOption('');
-  await expect(warning).toHaveAttribute('data-tone', 'warn');
+  await expect(warning).toHaveAttribute('data-tone', 'neutral');
+  await expect(warning).toContainText('Choose a monster');
   expect(await box(panel)).toEqual(panelBox);
+});
+
+test('an unavailable trial leaves the real search usable and its boxes fixed', async ({ page }, testInfo) => {
+  await page.addInitScript(() => {
+    const NativeWorker = window.Worker;
+    window.Worker = class extends NativeWorker {
+      constructor(url: string | URL, options?: WorkerOptions) {
+        if (String(url).includes('rune-optimization-work-worker')) throw new Error('Simulated trial refusal');
+        super(url, options);
+      }
+    };
+  });
+  await start(page);
+  await page.getByLabel('Use the graphics card for heavy calculations').uncheck();
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
+  await open(page);
+  await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  const warning = page.locator('#rune-optimization-work-warning');
+  const panel = page.locator('.rune-optimization-monster-panel');
+  const requirements = page.getByRole('region', { name: 'Requirements for this calculation' });
+  const before = { panel: await box(panel), requirements: await box(requirements) };
+  await expect(warning).toContainText('Search trial unavailable');
+  await page.screenshot({ path: testInfo.outputPath('trial-unavailable.png'), fullPage: true });
+  await page.getByRole('button', { name: 'Find builds', exact: true }).click();
+  await expect(warning).toContainText('Last run finished');
+  expect(await box(panel)).toEqual(before.panel);
+  expect(await box(requirements)).toEqual(before.requirements);
+  await page.screenshot({ path: testInfo.outputPath('trial-unavailable-search-finished.png'), fullPage: true });
 });

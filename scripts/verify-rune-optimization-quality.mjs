@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { scenarioGenerator } from './rune-optimization-scenarios.mjs';
 import { prepareRuneOptimization, buildFigures, figureIndex } from '../app/lib/rune-optimization-problem.ts';
 import { effectSlot } from '../app/lib/monster-stats.ts';
-import { runeOptimizationDepths, runeOptimizationSettingChecks, runeOptimizationWorkWarning } from '../app/lib/rune-optimization-settings.ts';
+import { runeOptimizationDepths, runeOptimizationSettingChecks } from '../app/lib/rune-optimization-settings.ts';
 import { mergeBuildResults, searchRuneBuilds } from '../app/lib/rune-optimization-search.ts';
 import { assumedCraftHalf, craftVariants, heldCraftHalf } from '../app/lib/rune-craft-end-state.ts';
 
@@ -58,11 +58,6 @@ assert.equal(searchRuneBuilds(refused).builds.length, 0);
 console.log('PASS: Depth 1 finds the depth-10 optimum on eight fixed wide pools; finite depths keep every shallower candidate, changing the worn build leaves the shortlist unchanged, and empty and impossible questions return no builds.');
 
 for (const depth of runeOptimizationDepths) assert.ok(runeOptimizationSettingChecks.depth(depth));
-assert.equal(runeOptimizationWorkWarning(undefined, 'quick', true).tone, null);
-assert.equal(runeOptimizationWorkWarning(undefined, 'quick', false).tone, 'warn');
-assert.equal(runeOptimizationWorkWarning(1e30, 'complete', true).tone, 'bad');
-assert.equal(runeOptimizationWorkWarning(16e6, 'quick', false).tone, 'warn');
-assert.equal(runeOptimizationWorkWarning(16e6, 'quick', true).tone, null);
 
 // Identical rune stats isolate set bonuses from rune quality and Gem alternatives.
 const setInput = generator.scenario(0);

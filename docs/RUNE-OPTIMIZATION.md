@@ -16,6 +16,7 @@ which are not, and where each part of it runs.
 | `app/lib/rune-optimization-craft-allocation.ts` | Exact per-stat allocation of held grades and stones after Gem placements are chosen (§6.4) |
 | `app/lib/rune-optimization-search.ts` | The tree, the tail's blocks, the passes to a card, the merge of parts (§6–§7) |
 | `app/lib/rune-optimization-settings.ts` | How to search: craft items, rune sources, depth, table size |
+| `app/lib/rune-optimization-work.ts` | Measured trials, sampling uncertainty and the work recommendation (§5) |
 | `app/lib/compute/rune-optimization-*.ts` | Workers, the client that fans out to them and relays their bars, the engine door (§6.5, §7) |
 | `app/lib/compute/{backends,webgpu}/*rune-optimization*` | The card's packing, agreement gate, layout and shader (§7) |
 | `app/components/rune-optimization-section.tsx` | The page (§8) |
@@ -258,18 +259,50 @@ Its value and warning each have a fixed box. The established saved choices keep
 their meaning: `quick`, `balanced`, `thorough` and `complete` remain valid preference
 values at steps 1, 4, 7 and 10. The intermediate steps are additional choices.
 
-The existing coarse estimate (§8) is compared with a broad work budget: one million
-combinations per search second on the processor, fifty million with graphics-card
-use enabled. These are planning thresholds, not measured speeds. Going above the
-budget warns in yellow; above ten times it warns in red. Switching graphics-card use
-off also warns in yellow even without a monster selected. A severe work warning takes
-precedence. None prevents starting the search.
+The combination count (§8) describes the pool before reduction; **it does not decide
+the warning**. A large product can be cheap to prove, while Gems, ceilings and item
+competition can make a smaller pool expensive. Nor does switching off the card
+establish that a search is too slow.
 
-The warning says it may stop at the limit and keeps the builds found: pruning can make a huge combination
-space cheap, Gem variants and supplemental picks can expand it, and enabling the card
-does not guarantee that it will accept the calculation. The actual engine and whether
-the search reached its limit are still reported after it runs. No second GPU decision
-or device probe is introduced for this estimate.
+After 750 ms without an edit, one background worker prepares the actual question and
+tries the whole search with a 500 ms search budget. It uses the normal engine door
+and card agreement gate, and reports the engine that really answered. If it finishes,
+the page reports its measured time without a warning. A finished trial has searched
+the chosen depth's pool, not necessarily every eligible rune at a finite depth.
+
+Otherwise it times three branches: first, middle and last of the first open tree
+slot, with 250 ms search budgets each. These samples span the ordered candidates
+instead of timing only the strongest runes. The
+partition width comes from the actual recipe pool used by the search, after exact
+reduction, the depth cut and held-item grouping; a two-slot tail has one share.
+The client uses this same width to avoid launching idle workers.
+
+Only three **finished**, reasonably consistent shares support a sampling envelope.
+The lowest and highest observed durations are scaled by the share count and
+available search workers, then widened by a factor of two in each direction. A
+minimum below 5 ms, a spread above fourfold, or an unfinished share gives **uncertain**,
+without a speed recommendation. This is a heuristic envelope, not a statistical
+confidence interval: unsampled branches, contention and later pruning can differ.
+The lower end above the chosen search limit warns in yellow; above four times the
+limit warns in red. Neither blocks searching or promises completion. An actual run
+replaces the trial reading: finishing reports its time including preparation;
+reaching the limit warns from observed evidence. A user stopping is not a timeout.
+Trial timing starts at the engine's own first clock read, after packing and the
+card gate: their per-worker setup cost must not be multiplied by the branch count.
+
+Edits, account changes, hardware-setting changes and leaving the workspace cancel
+the trial and invalidate its evidence. Starting a calculation terminates the trial;
+its prepared pool, when available, is reused without changing any candidates or the
+normal time limit. A 20-second watchdog bounds preparation and driver calls too.
+A failed or expired trial says the time is unknown and never disables Find builds.
+No preference is added or reset; all trial evidence stays in memory on this computer.
+
+The reading's tooltip records choices by slot, physical runes and end states,
+judged figures, ceilings and slots without a required set. Gems, Grindstones,
+Intangible, Immemorial, stock, locks, mains and rune sources are assessed through the
+actual prepared question, without a second implementation of their rules.
+Measurements and their limits are in
+[Rune Optimization work assessment](RUNE-OPTIMIZATION-WORK-ASSESSMENT.md).
 
 A candidate's independent worth is its **first-order contribution** to the ranking
 figure, measured against the admitted candidate pool. Each physical rune gets one
@@ -672,8 +705,9 @@ table pick for pick. It needs a running dev server and a card, and is not part o
    the runes the filters admit, at most the depth's number per slot and set,
    multiplied across the slots — and the time limit as "up to". It skips craft
    variants and the exact reduction, so it is an order of magnitude, never a
-   count; with no monster chosen it says in words how much the depth looks
-   through. A reserved three-line box below it carries the work warning (§5).
+   count or a timing prediction; with no monster chosen it says in words how much
+   the depth looks through. A reserved three-line box below it carries the measured
+   trial, uncertainty or work warning (§5), without moving either panel.
 2. **Requirements for this calculation** — two thirds: builds, the three slot
    mains, the figure to rank by and the eleven ranges in two rows, with a caption
    line under each that says only what differs from the preset or where an

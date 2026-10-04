@@ -69,6 +69,7 @@ test('worker allocation failures retry once and preserve the previous table', as
     let created = 0;
     window.Worker = class extends NativeWorker {
       constructor(url: string | URL, options?: WorkerOptions) {
+        if (String(url).includes('rune-optimization-work-worker')) { super(url, options); return; }
         document.documentElement.dataset.workerAllocations = String(++created);
         if (created === 2) throw new Error('Simulated worker allocation failure');
         super(url, options);
@@ -106,6 +107,13 @@ test('a time limit keeps guide builds and never calls the unfinished search impo
   await page.addInitScript(() => {
     const NativeWorker = window.Worker;
     window.Worker = class extends NativeWorker {
+      postMessage(message: unknown, transferOrOptions?: Transferable[] | StructuredSerializeOptions) {
+        const request = message as { type?: string; request?: { problem: { timeLimitMs: number } } };
+        // A completed trial can supply the prepared pool without a prepare message.
+        if (request.type === 'calculate' && request.request) request.request.problem.timeLimitMs = -1;
+        if (Array.isArray(transferOrOptions)) super.postMessage(message, transferOrOptions);
+        else super.postMessage(message, transferOrOptions);
+      }
       addEventListener(type: string, listener: EventListenerOrEventListenerObject | null, options?: boolean | AddEventListenerOptions) {
         if (type !== 'message' || !listener) return super.addEventListener(type, listener, options);
         super.addEventListener(type, (event: MessageEvent) => {

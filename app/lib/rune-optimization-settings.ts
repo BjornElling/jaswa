@@ -84,26 +84,6 @@ export const runeOptimizationDepthPlans: Readonly<Record<RuneOptimizationDepth, 
   complete: { keep: Infinity, seconds: 600 },
 };
 
-/** A planning signal, not a timing prediction: pruning and hardware vary greatly. */
-export function runeOptimizationWorkWarning(estimate: number | undefined, depth: RuneOptimizationDepth, hardwareAcceleration: boolean): {
-  tone: 'warn' | 'bad' | null; text: string;
-} {
-  const seconds = runeOptimizationDepthPlans[depth].seconds;
-  // Deliberately broad budgets: the estimate counts combinations before pruning,
-  // while the card can examine a tail in bulk. Neither is measured device speed.
-  const budget = seconds * (hardwareAcceleration ? 50_000_000 : 1_000_000);
-  if (estimate !== undefined && estimate > budget * 10) return {
-    tone: 'bad', text: 'Very large search: it may stop at the time limit. Builds found are kept; completion is not guaranteed.',
-  };
-  if (estimate !== undefined && estimate > budget) return {
-    tone: 'warn', text: 'Large search: it may reach the time limit. Builds found are kept; narrower requirements can help it finish.',
-  };
-  if (!hardwareAcceleration) return {
-    tone: 'warn', text: 'Graphics card use is off. Large searches may reach the time limit on the processor.',
-  };
-  return { tone: null, text: '' };
-}
-
 /** How many builds the table may list. */
 export const runeOptimizationResultCounts = [10, 20, 50, 100] as const;
 export type RuneOptimizationResultCount = typeof runeOptimizationResultCounts[number];

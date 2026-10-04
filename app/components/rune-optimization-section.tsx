@@ -22,6 +22,8 @@ import { TableColumnGroup } from './data-table-page';
 import { useSortedRows } from './use-sorted-rows';
 import type { SortableColumn } from './use-sorted-rows';
 import { WorkspacePage } from './workspace-page';
+import { useRuneOptimizationWork } from './use-rune-optimization-work';
+import { runeOptimizationFinishedWarning, runeOptimizationWorkWarning } from '../lib/rune-optimization-work';
 import { cancelRuneOptimization, optimizeRuneBuilds, stopRuneOptimization } from '../lib/compute/rune-optimization-client';
 import type { RuneOptimizationAnswer, RuneOptimizationPhase } from '../lib/compute/rune-optimization-protocol';
 import { formatNumber } from '../lib/formatting';
@@ -44,7 +46,7 @@ import type { CurrentBuild } from '../lib/rune-optimization-refresh';
 import { profileRequirements, sameList } from '../lib/rune-optimization-requirements';
 import {
   craftUseLabels, craftUses, runeOptimizationDepthPlans, runeOptimizationDepthReach, runeOptimizationDepths,
-  runeOptimizationMonsterKey, runeOptimizationResultCounts, runeOptimizationWorkWarning,
+  runeOptimizationMonsterKey, runeOptimizationResultCounts,
 } from '../lib/rune-optimization-settings';
 import type { CraftUse, RuneOptimizationSettings } from '../lib/rune-optimization-settings';
 import { presetTargetColumns } from '../lib/rune-potential-presets';
@@ -195,6 +197,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
     unitId: selected.unitId, monster: selected.record, runes, holds: preferences.runeHolds, spared, craftItems, requirements, settings,
   } : undefined), [selected, requirements, runes, preferences.runeHolds, spared, craftItems, settings]);
   const estimate = useMemo(() => (input ? estimateRuneOptimizationBuilds(input) : undefined), [input]);
+  const trial = useRuneOptimizationWork(input, preferences.hardwareAcceleration, state === 'calculating');
   /* The question on screen. The account is never part of it: the player follows the
      table by moving, gemming, grinding and locking runes, and a sync or a lock that
      brings that back updates the builds (`rune-optimization-refresh.ts`). Listing
@@ -279,14 +282,16 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
     const searched = {
       unitId, requirements, settings, spared, runes: runesById, items: itemsById, resultCount,
     };
+    trial.cancel();
     setState('calculating');
     setPhase('candidates');
     setError('');
     setProgress(0);
     setChosenBuild(null);
-    const outcome = await optimizeRuneBuilds(input, preferences.hardwareAcceleration, setProgress, setPhase);
+    const outcome = await optimizeRuneBuilds(input, preferences.hardwareAcceleration, setProgress, setPhase, trial.problem);
     if (outcome.status === 'superseded') { setState('idle'); return; }
     if (outcome.status === 'failed') { setError(outcome.message); setState('error'); return; }
+    trial.record(outcome.answer);
     setCalculation((previous) => ({ inputKey, answer: outcome.answer, ...searched, id: (previous?.id ?? 0) + 1 }));
     setState('idle');
   }
@@ -302,7 +307,11 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
 
   const plan = runeOptimizationDepthPlans[settings.depth];
   const depthStep = runeOptimizationDepths.indexOf(settings.depth) + 1;
-  const workWarning = runeOptimizationWorkWarning(estimate, settings.depth, preferences.hardwareAcceleration);
+  const workWarning = !input ? { tone: null, text: 'Choose a monster to check the actual search.' }
+    : trial.finished ? runeOptimizationFinishedWarning(trial.finished)
+    : trial.failed ? { tone: null, text: 'Search trial unavailable. Completion time is uncertain.' }
+      : runeOptimizationWorkWarning(trial.work, plan.seconds * 1000);
+  const workDetails = trial.work ? `After reduction: ${trial.work.slots.join(' × ')} choices by slot; ${trial.work.physicalRunes} physical runes, ${trial.work.variants} end states; ${trial.work.figures} judged figures, ${trial.work.ceilings} ceilings; up to ${trial.work.freeSlots} slots without a required set. Gems, Grindstones, stock limits and Intangible follow this calculation's settings.` : undefined;
   const changed = (same: boolean) => (same ? undefined : 'Changed for this calculation');
   const edited = edits !== null && edits.unitId === unitId;
   const display = selected ? monsterPresentation(selected.masterId) : undefined;
@@ -355,10 +364,10 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
                 searches finish well inside it. */}
             <div id="rune-optimization-depth-estimate"><Provenance>{`${estimate === undefined
               ? runeOptimizationDepthReach[settings.depth]
-              : `Considers around ${roughCount(estimate, general)} builds`} · search up to ${plan.seconds < 60
+              : `Before reduction: around ${roughCount(estimate, general)} combinations`} · search up to ${plan.seconds < 60
               ? `${plan.seconds} s` : `${plan.seconds / 60} min`}`}</Provenance></div>
             <p id="rune-optimization-work-warning" className="rune-optimization-work-warning type-caption"
-              role="status" data-tone={workWarning.tone ?? undefined} aria-hidden={workWarning.tone === null ? true : undefined}>
+              role="status" data-tone={workWarning.tone ?? 'neutral'} title={workDetails}>
               {workWarning.text || '\u00a0'}
             </p>
           </div>
