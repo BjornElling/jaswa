@@ -2489,7 +2489,7 @@ label[for] {
 .rune-optimization-reset { display: flex; justify-content: flex-end; }
 .rune-optimization-settings {
   display: grid;
-  gap: var(--s5);
+  gap: var(--s4);
   align-content: start;
   min-width: 0;
   padding-left: var(--s6);
@@ -2505,6 +2505,19 @@ label[for] {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+/* Craft choices read downwards, with one compact gap between each line. */
+.rune-optimization-craft { gap: var(--s2); }
+.rune-optimization-craft .radio-line { grid-template-columns: minmax(0, 1fr); gap: var(--s2); }
+.rune-optimization-sets, .rune-optimization-items { position: relative; }
+/* Provenance belongs beside the heading, so an empty caption adds no extra row. */
+.rune-optimization-settings .rune-optimization-provenance {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: calc(100% - 16ch);
+  min-height: 0;
+  text-align: right;
 }
 .rune-optimization-craft-choices { display: flex; gap: var(--s2); }
 .rune-optimization-craft-choices .jaswa-select { width: 16ch; }
@@ -6871,6 +6884,6 @@ th.align-center .sort-button { justify-content: center; }
 
 /* The optional limit always keeps its field and label in the row. */
 .rune-optimization-change-limit { display: flex; align-items: center; gap: var(--s2); color: var(--text); }
-.rune-optimization-change-limit .stat-range-input { width: 6ch; flex: none; }
+.rune-optimization-change-limit .stat-range-input { width: 6ch; height: calc(var(--s5) + var(--s1)); flex: none; }
 .rune-optimization-settings .checkbox-row[data-disabled] { color: var(--text-muted); cursor: not-allowed; }
 .rune-optimization-settings .checkbox-row input:disabled { opacity: .4; cursor: not-allowed; }
