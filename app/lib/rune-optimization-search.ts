@@ -195,6 +195,10 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
   });
   const sets = order.map((slot) => Int32Array.from(problem.slots[slot], (candidate) => candidate.setId));
   const moves = order.map((slot) => Uint8Array.from(problem.slots[slot], (candidate) => (candidate.moves ? 1 : 0)));
+  const minimumChanges = new Uint8Array(depthCount + 1);
+  for (let d = depthCount - 1; d >= 0; d -= 1) {
+    minimumChanges[d] = minimumChanges[d + 1] + moves[d].reduce((least, value) => Math.min(least, value), 1);
+  }
   const spends = order.map((slot) => problem.slots[slot].map((candidate) => candidate.stock));
   const heldStock = Int32Array.from(problem.stock, (entry) => entry.amount);
 
@@ -699,6 +703,11 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
    * does, and the node cost one evaluation.
    */
   function promising(depthNow: number): boolean {
+    if (problem.maxChanges !== undefined) {
+      let changes = minimumChanges[depthNow];
+      for (let d = 0; d < depthNow; d += 1) changes += moves[d][picks[d]];
+      if (changes > problem.maxChanges) return false;
+    }
     nodes += 1;
     const from = depthNow * effectSlotCount;
     if (pruneCeilings) {
@@ -766,6 +775,8 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
       moved += moves[at][prefix[at]];
       bySlot[order[at]] = prefix[at];
     }
+    // Card pairs and processor pairs share this check before raising the table bar.
+    if (problem.maxChanges !== undefined && moved > problem.maxChanges) return;
     bySlot[order[firstTail]] = first;
     bySlot[order[lastTail]] = last;
     const identity = JSON.stringify(bySlot.map((pick, slot) => problem.slots[slot][pick].runeId));

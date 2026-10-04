@@ -517,8 +517,8 @@ test('all stat ranges keep an exact speed endpoint and fixed controls', async ({
   await page.getByLabel('Rank by', { exact: true }).selectOption('spd');
   await page.getByRole('slider', { name: 'Depth', exact: true }).press('End');
   const requirements = page.getByRole('region', { name: 'Requirements for this calculation' });
-  await expect(requirements.locator('input[type="number"]')).toHaveCount(22);
-  for (const field of await requirements.locator('input[type="number"]').all()) await expect(field).toHaveValue('');
+  await expect(requirements.locator('.stat-ranges input[type="number"]')).toHaveCount(22);
+  for (const field of await requirements.locator('.stat-ranges input[type="number"]').all()) await expect(field).toHaveValue('');
   const find = page.getByRole('button', { name: 'Find builds', exact: true });
   await find.click();
   await expect(find).toBeEnabled();
@@ -635,7 +635,7 @@ test('owned craft work respects a tight ceiling and leaves full requirement pane
   await page.getByRole('slider', { name: 'Depth', exact: true }).press('Home');
   await page.getByLabel('Rank by', { exact: true }).selectOption('dmg');
   const requirements = page.getByRole('region', { name: 'Requirements for this calculation' });
-  for (const input of await requirements.locator('input[type="number"]').all()) {
+  for (const input of await requirements.locator('.stat-ranges input[type="number"]').all()) {
     await input.fill((await input.getAttribute('aria-label'))?.includes('at most') ? '1000000000' : '0');
   }
   await page.getByLabel('Spd: at most', { exact: true }).fill('170');
@@ -666,4 +666,97 @@ test('owned craft work respects a tight ceiling and leaves full requirement pane
   await page.screenshot({ path: testInfo.outputPath('craft-ranges-build.png'), fullPage: true });
   await page.keyboard.press('Escape');
   await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeFocused();
+});
+
+
+test('selection and adjustment choices keep their boxes and survive a reload', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await freshWorkspace(page);
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
+  await openOptimization(page);
+  await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  const settings = page.getByRole('complementary', { name: 'Settings' });
+  const before = await box(settings);
+  const fields = settings.locator('input, select');
+  const positions = await Promise.all((await fields.all()).map(box));
+  await page.screenshot({ path: testInfo.outputPath('selection-before.png'), fullPage: true });
+  const odd = settings.getByLabel('Slot 1/3/5 only counts at +12');
+  await odd.check();
+  await settings.getByLabel('Count unfinished runes at their +15 main stat').uncheck();
+  await expect(odd).toBeDisabled(); await expect(odd).toBeChecked();
+  await settings.getByLabel('Limit changes').check();
+  const maximum = settings.getByLabel('Maximum changes');
+  await expect(maximum).toHaveValue('');
+  await expect(page.getByRole('button', { name: 'Find builds' })).toBeDisabled();
+  await maximum.fill('0'); await expect(maximum).toHaveValue('');
+  await maximum.fill('7'); await expect(maximum).toHaveValue('');
+  await maximum.fill('1');
+  await expect(page.getByRole('button', { name: 'Find builds' })).toBeEnabled();
+  await maximum.fill('6');
+  await settings.getByLabel('Just fill in empty slots').check();
+  await settings.getByLabel('Only use runes from inventory').check();
+  await settings.getByLabel('Include runes from higher-priority monsters').check();
+  await settings.getByLabel('Count unfinished runes at their +15 main stat').check();
+  await settings.getByRole('radio', { name: 'Theoretical', exact: true }).first().check();
+  await settings.getByRole('radio', { name: 'Theoretical', exact: true }).last().check();
+  await settings.getByLabel('Gems: grade').selectOption('Legend');
+  await settings.getByLabel('Grindstones: grade').selectOption('Legend');
+  await settings.getByLabel('Gems: roll').selectOption('maximum');
+  expect(await box(settings)).toEqual(before);
+  expect(await Promise.all((await fields.all()).map(box))).toEqual(positions);
+  await page.screenshot({ path: testInfo.outputPath('selection-after.png'), fullPage: true });
+  await page.getByRole('button', { name: 'Find builds' }).click();
+  const table = page.getByRole('table', { name: 'Rune builds' });
+  await expect(table.getByRole('button', { name: 'Changes', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Show build 2', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Show build 1', exact: true }).click();
+  const detail = page.getByRole('dialog', { name: 'Build 1' });
+  await expect(detail.getByText('As it is', { exact: true })).toHaveCount(6);
+  await page.keyboard.press('Escape');
+  await page.reload();
+  await expect(settings.getByLabel('Just fill in empty slots')).toBeChecked();
+  await expect(settings.getByLabel('Slot 1/3/5 only counts at +12')).toBeChecked();
+  await expect(settings.getByLabel('Maximum changes')).toHaveValue('6');
+  await expect(settings.getByLabel('Gems: grade')).toHaveValue('Legend');
+  await maximum.fill('');
+  await settings.getByLabel('Limit changes').uncheck();
+  await page.reload();
+  await expect(maximum).toHaveValue('');
+  await expect(settings.getByLabel('Just fill in empty slots')).toBeChecked();
+});
+
+test('an empty monster respects the maximum changes when filling its six slots', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await freshWorkspace(page);
+  const game = JSON.parse(readFileSync(account, 'utf8'));
+  const monster = game.unit_list.find((unit: { unit_id: number }) => unit.unit_id === 11);
+  monster.runes = [];
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
+    name: 'empty-slots.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(game)),
+  });
+  await openOptimization(page);
+  await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  await page.getByLabel('Just fill in empty slots').check();
+  await page.getByLabel('Limit changes').check();
+  await page.getByLabel('Maximum changes').fill('1');
+  await page.screenshot({ path: testInfo.outputPath('empty-slots-before.png'), fullPage: true });
+  await page.getByRole('button', { name: 'Find builds' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'builds checked' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toHaveCount(0);
+  await page.getByLabel('Maximum changes').fill('6');
+  await page.getByRole('button', { name: 'Find builds' }).click();
+  await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
+  const table = page.getByRole('table', { name: 'Rune builds' });
+  const changesHeading = table.getByRole('columnheader', { name: 'Changes', exact: true });
+  expect(await changesHeading.locator('.sort-button-label').evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  const beforeSort = await box(table);
+  await changesHeading.getByRole('button').click();
+  expect(await box(table)).toEqual(beforeSort);
+  const column = await table.getByRole('columnheader').allTextContents();
+  const at = column.findIndex((text) => text.includes('Changes'));
+  for (const row of await table.locator('tbody tr').all()) {
+    if (await row.getByRole('button', { name: /^Show build/ }).count()) await expect(row.getByRole('cell').nth(at)).toHaveText('6');
+  }
+  await page.screenshot({ path: testInfo.outputPath('empty-slots-after.png'), fullPage: true });
 });

@@ -103,6 +103,24 @@ try {
   assert.deepEqual(priority.monsterPriority, ['18', '17'], 'an unreadable or repeated priority entry costs only itself');
   assert.deepEqual(readPreferences({ ...chosen, monsterPriority: [] }, null).monsterPriority, [], 'a priority list the user emptied stays empty');
 
+  const optimization = { ...chosen.runeOptimization, fillEmptySlotsOnly: true, oddSlotsAtTwelve: true,
+    limitChanges: true, maxChanges: 6, gems: 'theoretical', gemGrade: 'Legend' };
+  assert.deepEqual(readPreferences({ ...chosen, runeOptimization: optimization }, null).runeOptimization,
+    optimization, 'every optimization choice survives');
+  for (const bad of [0, 7, 1.5, '3', null]) {
+    const read = readPreferences({ ...chosen, runeOptimization: { ...optimization, maxChanges: bad } }, null);
+    const { maxChanges, ...kept } = read.runeOptimization;
+    assert.equal(maxChanges, undefined, 'an invalid limit starts blank');
+    const { maxChanges: ignored, ...expected } = optimization;
+    assert.equal(ignored, 6);
+    assert.deepEqual(kept, expected, 'a rejected limit keeps every neighbouring choice');
+  }
+  for (const added of ['fillEmptySlotsOnly', 'oddSlotsAtTwelve', 'limitChanges', 'maxChanges']) {
+    const stored = { ...optimization }; delete stored[added];
+    const read = readPreferences({ ...chosen, runeOptimization: stored }, null).runeOptimization;
+    for (const key of Object.keys(stored)) assert.equal(read[key], stored[key], 'a missing setting keeps all other choices');
+  }
+
   /* A team that fails costs that team. */
   const badTeam = { ...chosen.speedTuning.teams[0], id: 'team-b', leaderUnitId: '99' };
   const badRule = { ...chosen.speedTuning.rules[0], id: 'rule-c', must: { kind: 'stay-between', minimum: 160, maximum: 150 } };

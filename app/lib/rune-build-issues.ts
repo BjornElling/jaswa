@@ -15,6 +15,8 @@ export function pickIssueText(issue: PickIssue, wearerName: (unitId: string) => 
       : `The rune is locked to ${wearerName(issue.wearer) ?? 'another monster'}`;
     case 'slot-taken': return 'Another rune is locked into this slot';
     case 'worn-elsewhere': return `The rune is now on ${wearerName(issue.wearer) ?? 'another monster'}, and the settings keep other monsters’ runes`;
+    case 'slot-filled': return 'Another rune now fills this slot, and only empty slots may change';
+    case 'changes-limit': return `The build now needs more than ${issue.maximum} rune changes`;
     case 'items': return 'Too few items are left for the Gem or Grindstone still to come';
   }
 }

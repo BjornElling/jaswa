@@ -45,7 +45,7 @@ test('an open two-set search at depth 1 stops with its builds and leaves control
   await open(page, true);
   await twoSets(page);
   const requirements = page.getByRole('region', { name: 'Requirements for this calculation' });
-  for (const input of await requirements.locator('input[type="number"]').all()) {
+  for (const input of await requirements.locator('.stat-ranges input[type="number"]').all()) {
     await input.fill((await input.getAttribute('aria-label'))?.includes('at most') ? '999999999999' : '0');
   }
   const panel = page.locator('.rune-optimization-monster-panel');

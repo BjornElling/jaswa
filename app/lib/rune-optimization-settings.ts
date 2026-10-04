@@ -122,6 +122,13 @@ export type RuneOptimizationSettings = {
    * properties are counted as they stand either way.
    */
   unfinishedAtMaximum: boolean;
+  /** Keep occupied slots exactly as worn and search only the empty ones. */
+  fillEmptySlotsOnly: boolean;
+  /** Keep flat-main slots at +12 unless they have already passed it. */
+  oddSlotsAtTwelve: boolean;
+  limitChanges: boolean;
+  /** Absent is a blank field, distinct from any stated limit. */
+  maxChanges?: number;
   depth: RuneOptimizationDepth;
   resultCount: RuneOptimizationResultCount;
 };
@@ -142,6 +149,9 @@ export const defaultRuneOptimizationSettings: RuneOptimizationSettings = {
   runesOnOtherMonsters: true,
   includeHigherPriority: false,
   unfinishedAtMaximum: true,
+  fillEmptySlotsOnly: false,
+  oddSlotsAtTwelve: false,
+  limitChanges: false,
   depth: 'balanced',
   resultCount: 20,
 };
@@ -156,6 +166,10 @@ export const runeOptimizationSettingChecks: FieldChecks<RuneOptimizationSettings
   runesOnOtherMonsters: isBoolean,
   includeHigherPriority: isBoolean,
   unfinishedAtMaximum: isBoolean,
+  fillEmptySlotsOnly: isBoolean,
+  oddSlotsAtTwelve: isBoolean,
+  limitChanges: isBoolean,
+  maxChanges: (value) => typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 6,
   depth: isOneOf(runeOptimizationDepths),
   resultCount: isOneOf(runeOptimizationResultCounts),
 };

@@ -14,6 +14,7 @@ import type { EndStateLine } from '../lib/rune-craft-end-state';
 import type { RankFigure } from '../lib/rune-optimization-problem';
 import type { CurrentPick } from '../lib/rune-optimization-refresh';
 import { runeLineFigure, runeLineStat } from '../lib/runes';
+import { flatMainPropertyAtTwelve } from '../lib/rune-properties';
 import type { Rune } from '../lib/runes';
 import type { GeneralSettings } from '../lib/types';
 
@@ -22,7 +23,7 @@ import type { GeneralSettings } from '../lib/types';
  * game's own rune circle — slot 1 at the top, the rest clockwise — each exactly
  * as it is in the account today, and beside the circle the work the build takes
  * for granted: which line a Gem replaces, which stones go on, which main property
- * is counted at +15 before the rune gets there.
+ * is counted at +12 or +15 before the rune gets there.
  *
  * The circle shows what the player will find in the game and the list shows what
  * to do to it, so the two read as before and after rather than as two versions of
@@ -41,7 +42,7 @@ export type BuildMonster = { unitId: string; masterId: string; name: string; ima
 type Change =
   | { kind: 'gem'; before: EndStateLine; after: EndStateLine }
   | { kind: 'grind'; statId: number; before: number; after: number }
-  | { kind: 'main'; statId: number; before: number; after: number };
+  | { kind: 'main'; statId: number; before: number; after: number; level: number };
 
 const changeLabels: Record<Change['kind'], string> = {
   gem: 'Enchanted Gem',
@@ -58,7 +59,8 @@ const changeLabels: Record<Change['kind'], string> = {
 function changesOf(rune: Rune, picked: PickedRune): Change[] {
   const changes: Change[] = [];
   if (picked.mainValue !== rune.mainValue) {
-    changes.push({ kind: 'main', statId: rune.mainStatId, before: rune.mainValue, after: picked.mainValue });
+    changes.push({ kind: 'main', statId: rune.mainStatId, before: rune.mainValue, after: picked.mainValue,
+      level: rune.slot % 2 === 1 && picked.mainValue === flatMainPropertyAtTwelve(rune.stars, rune.mainStatId) ? 12 : 15 });
   }
   const before = rune.subProperties;
   if (picked.gemmedAt >= 0 && before[picked.gemmedAt] && picked.lines[picked.gemmedAt]) {
@@ -107,7 +109,7 @@ function ChangeLine({ change, format }: { change: Change; format: (value: number
     </span>;
   }
   return <li className="rune-build-change" data-kind={change.kind}>
-    <span className="rune-build-change-kind">{changeLabels[change.kind]}</span>
+    <span className="rune-build-change-kind">{change.kind === 'main' ? `Counted at +${change.level}` : changeLabels[change.kind]}</span>
     <span className="rune-build-change-body">{body}</span>
   </li>;
 }
@@ -202,7 +204,7 @@ export function RuneBuildOverlay({
   const grinds = changes.reduce((sum, entry) => sum + entry.changes.filter((change) => change.kind === 'grind').length, 0);
   const facts = [
     { label: 'Sets', value: buildName || 'No set completed' },
-    { label: 'Moves', value: formatNumber(moves, general) },
+    { label: 'Changes', value: formatNumber(moves, general) },
     { label: 'Gems', value: formatNumber(gems, general) },
     { label: 'Grindstones', value: formatNumber(grinds, general) },
     { label: 'Targets', value: short.length === 0 ? 'Met' : shortText(short) },

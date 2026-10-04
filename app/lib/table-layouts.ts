@@ -297,8 +297,8 @@ export const relicMonsterTableColumns: readonly TableColumn[] = [
  */
 export const runeOptimizationTableColumns: readonly TableColumn[] = [
   { key: 'index', width: '4%', align: 'left' },
-  { key: 'build', width: '15%', align: 'left' },
-  { key: 'moves', width: '5%', align: 'right' },
+  { key: 'build', width: '13%', align: 'left' },
+  { key: 'moves', width: '7%', align: 'right' },
   ...['hp', 'atk', 'def', 'spd', 'criRate', 'criDmg', 'res', 'acc', 'dmg', 'ehp', 'ehpD']
     .map((key): TableColumn => ({ key, width: `${76 / 11}%`, align: 'right' })),
 ];

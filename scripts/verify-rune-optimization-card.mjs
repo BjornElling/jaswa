@@ -43,6 +43,12 @@ const inputs = [
   }),
 ];
 
+inputs.push(...inputs.slice(0, 18).map(({ input }, index) => ({
+  kind: 'limited changes',
+  input: { ...input, settings: { ...input.settings, limitChanges: true,
+    maxChanges: index % 6 + 1, oddSlotsAtTwelve: index % 2 === 0 } },
+})));
+
 const browser = await chromium.launch({ channel: 'chromium', headless: true, args: ['--enable-unsafe-webgpu'] });
 try {
   const page = await browser.newPage();

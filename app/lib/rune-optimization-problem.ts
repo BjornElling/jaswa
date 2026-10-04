@@ -41,7 +41,7 @@ import { availableStatSets, bindingRangeLimits, ceilingEffectSlots, figureEffect
 import type { CraftAllocationPreparation } from './rune-optimization-craft-allocation';
 import { complementaryCandidates, rangeFeasibleCandidates, setFeasibleCandidates } from './rune-optimization-shortlist';
 import type { CraftUse, RuneOptimizationSettings } from './rune-optimization-settings';
-import { mainPropertyMaximum } from './rune-properties';
+import { flatMainPropertyAtTwelve, mainPropertyMaximum } from './rune-properties';
 import { runeBuild, runeSlotCount } from './rune-set-pairs';
 import { runeSetId, runeSetPieceCount } from './rune-sets';
 import { runeSlotMainByEffect } from './rune-slot-mains';
@@ -174,6 +174,8 @@ export type RuneOptimizationProblem = {
    */
   relevant: readonly number[];
   resultCount: number;
+  /** Maximum runes moved onto the monster; absent means unrestricted. */
+  maxChanges?: number;
   /** Held stacks the calculation may spend, and how deep each is. */
   stock: ReadonlyArray<{ itemId: string; amount: number; kind: CraftItem['kind']; statId: number }>;
   timeLimitMs: number;
@@ -365,6 +367,10 @@ export function mayTakeFrom(input: { settings: Pick<RuneOptimizationSettings, 'r
 function admission(input: RuneOptimizationInput, usableSets: ReadonlySet<number> | null, rune: Rune): 'locked' | 'refused' | 'admitted' {
   const { requirements, unitId } = input;
   const onThisMonster = rune.occupiedId === unitId;
+  if (input.settings.fillEmptySlotsOnly) {
+    const worn = input.runes.find((entry) => entry.slot === rune.slot && entry.occupiedId === unitId);
+    if (worn) return worn.id === rune.id ? 'locked' : 'refused';
+  }
   /* A lock anywhere else keeps the rune where it is. */
   if (input.holds[rune.id]?.locked) return onThisMonster ? 'locked' : 'refused';
   if (!onThisMonster && rune.occupiedId !== null && !mayTakeFrom(input, rune.occupiedId)) return 'refused';
@@ -630,6 +636,8 @@ export function prepareRuneOptimization(
   options.onStage?.('candidates');
   const reduce = options.reduce ?? true;
   const { requirements, settings, unitId, monster } = input;
+  if (settings.limitChanges && (settings.maxChanges === undefined || !Number.isInteger(settings.maxChanges)
+    || settings.maxChanges < 1 || settings.maxChanges > 6)) throw new Error('Maximum changes must be a whole number from 1 to 6.');
   const base = searchBase(monster, requirements);
   const start = new Float64Array(effectSlotCount);
   addEquipmentEffects(monster, start);
@@ -708,15 +716,18 @@ export function prepareRuneOptimization(
       const lines = rune.subProperties.map((line) => ({ ...line }));
       bySlot[slotIndex] = [{
         runeId: rune.id, slot: rune.slot, setId: rune.setId, effects: runeEffects(rune, rune.mainValue, lines),
-        mainValue: rune.mainValue, main: effectSlotOf(rune.mainStatId), lines, gemmedAt: -1, groundAt: [], stock: [], moves: false, locked: true, proxy: 0,
+        mainValue: rune.mainValue, main: effectSlotOf(rune.mainStatId), lines, gemmedAt: -1, groundAt: [], stock: [], moves: false, locked: input.holds[rune.id]?.locked === true, proxy: 0,
       }];
       runesSeen.add(rune.id);
       continue;
     }
     if (locked[slotIndex] || verdict === 'refused') continue;
 
+    const atTwelve = settings.oddSlotsAtTwelve && rune.slot % 2 === 1;
     const mainValue = settings.unfinishedAtMaximum && rune.level < runeMaximumLevel
-      ? Math.max(rune.mainValue, mainPropertyMaximum(rune.stars, rune.mainStatId))
+      ? atTwelve
+        ? rune.level > 12 ? rune.mainValue : Math.max(rune.mainValue, flatMainPropertyAtTwelve(rune.stars, rune.mainStatId))
+        : Math.max(rune.mainValue, mainPropertyMaximum(rune.stars, rune.mainStatId))
       : rune.mainValue;
     const lines: EndStateLine[] = rune.subProperties.map((line) => ({
       statId: line.statId, value: line.value, grind: line.grind, gemmed: line.gemmed,
@@ -914,6 +925,7 @@ export function prepareRuneOptimization(
     allowBroken: requirements.allowBroken, setPieces: setPiecesById, allowIntangible: requirements.allowIntangible,
     targets, ceilings, rank, relevant, resultCount: settings.resultCount, stock,
     timeLimitMs: plan.seconds * 1000,
+    maxChanges: settings.limitChanges ? settings.maxChanges : undefined,
     report: { runes: runesSeen.size, slots: reports, keep },
   };
   if (reduce) {

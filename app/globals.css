@@ -6868,3 +6868,9 @@ th.align-center .sort-button { justify-content: center; }
 .speed-lane-figure[data-state="waiting"] { color: var(--text); }
 .speed-lane-figure[data-state="turn"] { color: var(--text-accent); }
 .speed-lane-row[data-enemy] .speed-lane-figure[data-state="turn"] { color: var(--state-bad); }
+
+/* The optional limit always keeps its field and label in the row. */
+.rune-optimization-change-limit { display: flex; align-items: center; gap: var(--s2); color: var(--text); }
+.rune-optimization-change-limit .stat-range-input { width: 6ch; flex: none; }
+.rune-optimization-settings .checkbox-row[data-disabled] { color: var(--text-muted); cursor: not-allowed; }
+.rune-optimization-settings .checkbox-row input:disabled { opacity: .4; cursor: not-allowed; }

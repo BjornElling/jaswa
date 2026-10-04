@@ -193,7 +193,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
   const sparing = settings.runesOnOtherMonsters && !settings.includeHigherPriority;
   const spared = useMemo(() => (sparing ? higherPriorityThan(preferences.monsterPriority, unitId) : []),
     [sparing, preferences.monsterPriority, unitId]);
-  const input = useMemo<RuneOptimizationInput | undefined>(() => (selected && requirements ? {
+  const input = useMemo<RuneOptimizationInput | undefined>(() => (selected && requirements && (!settings.limitChanges || settings.maxChanges !== undefined) ? {
     unitId: selected.unitId, monster: selected.record, runes, holds: preferences.runeHolds, spared, craftItems, requirements, settings,
   } : undefined), [selected, requirements, runes, preferences.runeHolds, spared, craftItems, settings]);
   const estimate = useMemo(() => (input ? estimateRuneOptimizationBuilds(input) : undefined), [input]);
@@ -381,7 +381,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
         <div className="rune-optimization-actions">
           <div className="rune-optimization-action-row">
             <Button tone="primary" size="prominent" className="rune-optimization-find" busy={state === 'calculating'} busyLabel="Searching…"
-              disabled={!input} onClick={() => void calculate()}>Find builds</Button>
+              disabled={!input || (settings.limitChanges && settings.maxChanges === undefined)} onClick={() => void calculate()}>Find builds</Button>
             {/* Stopping is a footnote to searching, so it is a mark beside the
                 button rather than a second button of the same weight. It is
                 there in every state, and can only be pressed while a search runs. */}
@@ -480,32 +480,56 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
 
         <aside className="rune-optimization-settings" aria-label="Settings">
           <div className="filter-group rune-optimization-sets">
-            <span className="filter-label">Any set</span>
+            <span className="filter-label">Runes</span>
             <CheckboxRow label="Allow broken sets" checked={requirements.allowBroken}
               onChange={(checked) => change((state) => ({ ...state, allowBroken: checked }))} />
             <CheckboxRow label="Allow Intangible runes" checked={requirements.allowIntangible}
               onChange={(checked) => change((state) => ({ ...state, allowIntangible: checked }))} />
+            <Provenance>{changed(requirements.allowBroken === profile.requirements.allowBroken
+              && requirements.allowIntangible === profile.requirements.allowIntangible) ?? ''}</Provenance>
+          </div>
+          <div className="filter-group rune-optimization-sources">
+            <span className="filter-label">Selection</span>
+            <CheckboxRow label="Only use runes from inventory" checked={!settings.runesOnOtherMonsters}
+              onChange={(inventoryOnly) => onUpdate({ runesOnOtherMonsters: !inventoryOnly })} />
+            <CheckboxRow label="Just fill in empty slots" checked={settings.fillEmptySlotsOnly}
+              onChange={(fillEmptySlotsOnly) => onUpdate({ fillEmptySlotsOnly })} />
+            <CheckboxRow label="Include runes from higher-priority monsters" checked={settings.includeHigherPriority}
+              onChange={(includeHigherPriority) => onUpdate({ includeHigherPriority })} />
+            <div className="rune-optimization-change-limit">
+              <label className="checkbox-row">
+                <input type="checkbox" aria-label="Limit changes" checked={settings.limitChanges}
+                  onChange={(event) => onUpdate({ limitChanges: event.target.checked })} />
+                <span>Max</span>
+              </label>
+              <input className="stat-range-input" type="number" min={1} max={6} step={1}
+                aria-label="Maximum changes" placeholder="1–6" required={settings.limitChanges} aria-invalid={settings.limitChanges && settings.maxChanges === undefined} value={settings.maxChanges ?? ''} disabled={!settings.limitChanges}
+                onChange={(event) => {
+                  const raw = event.target.value;
+                  const value = raw === '' ? undefined : Number(raw);
+                  if (value === undefined || (Number.isInteger(value) && value >= 1 && value <= 6)) onUpdate({ maxChanges: value });
+                }} />
+              <span>changes</span>
+            </div>
+          </div>
+          <div className="filter-group rune-optimization-adjustments">
+            <span className="filter-label">Adjustments</span>
+            <CheckboxRow label="Count unfinished runes at their +15 main stat" checked={settings.unfinishedAtMaximum}
+              onChange={(unfinishedAtMaximum) => onUpdate({ unfinishedAtMaximum })} />
+            <CheckboxRow label="Slot 1/3/5 only counts at +12" checked={settings.oddSlotsAtTwelve}
+              disabled={!settings.unfinishedAtMaximum}
+              onChange={(oddSlotsAtTwelve) => onUpdate({ oddSlotsAtTwelve })} />
+          </div>
+          <div className="filter-group rune-optimization-items">
+            <span className="filter-label">Gems/Grinds</span>
             <CheckboxRow label="Allow Immemorial Gems and Grindstones" checked={requirements.allowImmemorial}
               onChange={(checked) => change((state) => ({ ...state, allowImmemorial: checked }))} />
-            <Provenance>{changed(requirements.allowBroken === profile.requirements.allowBroken
-              && requirements.allowIntangible === profile.requirements.allowIntangible
-              && requirements.allowImmemorial === profile.requirements.allowImmemorial) ?? ''}</Provenance>
+            <Provenance>{changed(requirements.allowImmemorial === profile.requirements.allowImmemorial) ?? ''}</Provenance>
           </div>
           <CraftSetting legend="Gems" name="rune-optimization-gems" use={settings.gems} grade={settings.gemGrade} roll={settings.gemRollAssumption}
             onUse={(gems) => onUpdate({ gems })} onGrade={(gemGrade) => onUpdate({ gemGrade })} onRoll={(gemRollAssumption) => onUpdate({ gemRollAssumption })} />
           <CraftSetting legend="Grindstones" name="rune-optimization-grinds" use={settings.grinds} grade={settings.grindGrade} roll={settings.grindRollAssumption}
             onUse={(grinds) => onUpdate({ grinds })} onGrade={(grindGrade) => onUpdate({ grindGrade })} onRoll={(grindRollAssumption) => onUpdate({ grindRollAssumption })} />
-          <div className="filter-group rune-optimization-sources">
-            <span className="filter-label">Runes</span>
-            {/* Both worded as what ticking them adds, and both start off. Neither
-                disables the other: the second is simply moot while the first is on. */}
-            <CheckboxRow label="Only use runes from inventory" checked={!settings.runesOnOtherMonsters}
-              onChange={(inventoryOnly) => onUpdate({ runesOnOtherMonsters: !inventoryOnly })} />
-            <CheckboxRow label="Include runes from higher-priority monsters" checked={settings.includeHigherPriority}
-              onChange={(includeHigherPriority) => onUpdate({ includeHigherPriority })} />
-            <CheckboxRow label="Count unfinished runes at their +15 main stat" checked={settings.unfinishedAtMaximum}
-              onChange={(unfinishedAtMaximum) => onUpdate({ unfinishedAtMaximum })} />
-          </div>
         </aside>
       </section>}
 
@@ -604,7 +628,7 @@ function Results({ answer, builds, rankBy, currentBuild, currentFigures, general
   const columns = useMemo<SortableColumn<ResultRow>[]>(() => [
     { key: 'index', label: '#', align: 'left', compare: (left, right) => left.index - right.index },
     { key: 'build', label: 'Build', align: 'left', compare: (left, right) => left.name.localeCompare(right.name) },
-    { key: 'moves', label: 'Moves', align: 'right', compare: (left, right) => left.build.moves - right.build.moves },
+    { key: 'moves', label: 'Changes', align: 'right', compare: (left, right) => left.build.moves - right.build.moves },
     ...monsterStatTargetKeys.map((key): SortableColumn<ResultRow> => ({
       key, label: figureLabels[key], align: 'right', initialDirection: 'descending',
       compare: (left, right) => figureOf(left.build, figureIndex(key)) - figureOf(right.build, figureIndex(key)),

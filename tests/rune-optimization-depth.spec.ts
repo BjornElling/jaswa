@@ -45,7 +45,7 @@ test('all ten depths keep their box, expose their value, and survive a reload', 
   await expect(page.getByRole('slider', { name: 'Depth', exact: true })).toHaveValue('8');
   // Every numeric range stated, including a deliberate zero and an unreachable floor.
   await page.getByLabel('Monster', { exact: true }).selectOption('11');
-  for (const input of await page.getByRole('region', { name: 'Requirements for this calculation' }).locator('input[type="number"]').all()) {
+  for (const input of await page.getByRole('region', { name: 'Requirements for this calculation' }).locator('.stat-ranges input[type="number"]').all()) {
     await input.fill((await input.getAttribute('aria-label'))?.includes('at most') ? '999999999999' : '0');
   }
   await page.getByLabel('HP: at least', { exact: true }).fill('999999999998');

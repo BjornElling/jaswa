@@ -168,6 +168,17 @@ const mainPropertiesAtMaximumByStar: Readonly<Record<number, Readonly<Record<num
 export const mainPropertyMaximum = (stars: number, statId: number): number =>
   mainPropertiesAtMaximumByStar[stars]?.[statId] ?? 0;
 
+/** Flat mains at +12: base plus twelve increments, before the final-level bonus.
+ * Source: https://summonerswar.spokland.com/rune/stat (Main Stats).
+ */
+export function flatMainPropertyAtTwelve(stars: number, statId: number): number {
+  const attack = [0, 39, 53, 67, 82, 99, 118];
+  const hp = [0, 580, 790, 1000, 1240, 1530, 1800];
+  const value = (statId === 1 ? hp : statId === 3 || statId === 5 ? attack : [])[stars];
+  if (value === undefined || stars < 1) throw new Error(`No +12 flat main for ${stars} stars and stat ${statId}.`);
+  return value;
+}
+
 
 /**
  * A completed set's permanent contribution to its wearer's own stats

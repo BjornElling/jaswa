@@ -53,7 +53,9 @@ export type PickIssue =
   /** Worn by another monster, whose runes the settings or the priority list keep. */
   | { kind: 'worn-elsewhere'; wearer: string }
   /** A Gem or Grindstone still to come needs more of a held item than the account has left. */
-  | { kind: 'items' };
+  | { kind: 'items' }
+  | { kind: 'slot-filled' }
+  | { kind: 'changes-limit'; maximum: number };
 
 export type CurrentPick = PickedRune & { issue: PickIssue | null };
 
@@ -78,7 +80,7 @@ export type RefreshContext = {
   /** The copy's record as it is now: its artifacts and relic are counted with its runes. */
   monster: GameRecord;
   requirements: Pick<RuneOptimizationRequirements, 'targets' | 'ceilings' | 'alwaysCrits' | 'alwaysElementAdvantage' | 'critLead'>;
-  settings: Pick<RuneOptimizationSettings, 'runesOnOtherMonsters'>;
+  settings: Pick<RuneOptimizationSettings, 'runesOnOtherMonsters' | 'fillEmptySlotsOnly' | 'limitChanges' | 'maxChanges'>;
   /** The copies whose runes the search was not allowed to take, as `RuneOptimizationInput.spared`. */
   spared: readonly string[];
   /** The runes and held items the search read. */
@@ -142,7 +144,7 @@ export function currentPick(picked: PickedRune, before: Rune, now: Rune, unitId:
     groundAt.push(line);
   }
 
-  /* A main counted at +15 stays counted there until the rune gets there itself. */
+  /* A projected main stays counted at its planned level until the rune gets there itself. */
   const mainValue = picked.mainValue > before.mainValue ? Math.max(now.mainValue, picked.mainValue) : now.mainValue;
   const moves = now.occupiedId !== unitId;
   return { ...picked, setId: now.setId, mainValue, lines, gemmedAt, groundAt, moves, locked: false };
@@ -201,6 +203,10 @@ function readBuild(build: OptimizedBuild, context: RefreshContext, lockedSlots: 
     else if (is.occupiedId !== null && is.occupiedId !== unitId && !mayTakeFrom(context, is.occupiedId)) {
       issue = { kind: 'worn-elsewhere', wearer: is.occupiedId };
     }
+    if (issue === null && context.settings.fillEmptySlotsOnly) {
+      const worn = [...now.runes.values()].find((rune) => rune.slot === picked.slot && rune.occupiedId === unitId);
+      if (worn && worn.id !== picked.runeId) issue = { kind: 'slot-filled' };
+    }
     picks.push({ ...picked, issue });
     pieces.push({ rune: is, mainValue: picked.mainValue, lines: picked.lines });
 
@@ -220,6 +226,11 @@ function readBuild(build: OptimizedBuild, context: RefreshContext, lockedSlots: 
   }
 
   const moves = picks.filter((picked) => picked.moves).length;
+  if (context.settings.limitChanges && context.settings.maxChanges !== undefined && moves > context.settings.maxChanges) {
+    for (const picked of picks) if (picked.moves && picked.issue === null) {
+      picked.issue = { kind: 'changes-limit', maximum: context.settings.maxChanges };
+    }
+  }
   if (gone) return { ...build, runes: picks, moves, figures: null, short: [], over: [] };
   /* Untouched since the search: its own figures, exactly. After a sync every build is
      counted again, since equipment can change as well as a rune. */

@@ -161,6 +161,7 @@ function bruteForce(input) {
       for (const [key, ceiling] of ceilingsOf(input)) if (compared(key) > ceiling) return;
       const identity = JSON.stringify(chosen.map((candidate) => candidate.runeId));
       const build = { value: values[rank], moves: chosen.filter((candidate) => candidate.moves).length };
+      if (input.settings.limitChanges && build.moves > input.settings.maxChanges) return;
       if (!found.has(identity) || build.value > found.get(identity).value) found.set(identity, build);
       return;
     }
@@ -616,3 +617,107 @@ console.log(`PASS: ${scenarios} random accounts, ${checkedRows} ranked builds â€
   + ` no build spent a held Gem or Grindstone more often than the account holds it (${spentChecked} stacks checked);`
   + ` every build read again against a re-sent account and a followed one (${withWork} with Gems or stones) kept its figures,`
   + ` and a sold rune, a lock (${lockedAwayChecked}) and spent items (${itemsChecked}) were each named on the slot they block.`);
+
+// Filled slots stay untouched, including their craft work and unfinished mains.
+for (const filled of [0, 1, 3, 5, 6]) {
+  const input = scenario(2);
+  input.holds = {}; input.spared = [];
+  const occupied = new Set();
+  input.runes = input.runes.map((rune) => {
+    const keep = rune.slot <= filled && !occupied.has(rune.slot);
+    if (keep) occupied.add(rune.slot);
+    return { ...rune, occupiedId: keep ? input.unitId : null };
+  });
+  input.requirements = { ...input.requirements, builds: [], allowBroken: true,
+    allowIntangible: true, slotMains: { slot2: [], slot4: [], slot6: [] }, targets: {}, ceilings: {} };
+  input.settings = { ...input.settings, fillEmptySlotsOnly: true, limitChanges: false,
+    unfinishedAtMaximum: true, gems: 'theoretical', grinds: 'theoretical' };
+  const raw = prepareRuneOptimization(input, { reduce: false });
+  for (let slot = 0; slot < filled; slot += 1) {
+    const worn = input.runes.find((rune) => rune.slot === slot + 1 && rune.occupiedId === input.unitId);
+    assert.equal(raw.slots[slot].length, 1);
+    const picked = raw.slots[slot][0];
+    assert.equal(picked.runeId, worn.id);
+    assert.equal(picked.mainValue, worn.mainValue);
+    assert.deepEqual(picked.lines, worn.subProperties);
+    assert.equal(picked.gemmedAt, -1); assert.deepEqual(picked.groundAt, []);
+  }
+  // No crafting keeps the independent exhaustive oracle small at both extremes.
+  input.settings.gems = 'none'; input.settings.grinds = 'none';
+  const actual = searchRuneBuilds(prepareRuneOptimization(input));
+  const expected = bruteForce(input);
+  assert.deepEqual(actual.builds.map((build) => ({ value: build.figures[figures.indexOf(input.requirements.rankBy)], moves: build.moves })), expected);
+  for (const build of actual.builds) assert.equal(build.moves, 6 - filled);
+}
+const flatExpected = { 1: [580, 790, 1000, 1240, 1530, 1800], 3: [39, 53, 67, 82, 99, 118], 5: [39, 53, 67, 82, 99, 118] };
+for (let stars = 1; stars <= 6; stars += 1) {
+  for (const level of [0, 12, 13, 14, 15]) {
+    const input = scenario(2);
+    input.holds = {}; input.spared = [];
+    input.requirements = { ...input.requirements, builds: [], allowBroken: true, allowIntangible: true,
+      slotMains: { slot2: [], slot4: [], slot6: [] }, targets: {}, ceilings: {} };
+    input.settings = { ...input.settings, gems: 'none', grinds: 'none', limitChanges: false,
+      unfinishedAtMaximum: true, oddSlotsAtTwelve: true };
+    input.runes = input.runes.map((rune) => ({ ...rune, stars, level, occupiedId: null,
+      mainValue: level <= 12 ? 1 : 123 }));
+    const problem = prepareRuneOptimization(input, { reduce: false });
+    for (const slot of [1, 3, 5]) for (const candidate of problem.slots[slot - 1]) {
+      const rune = input.runes.find((rune) => rune.id === candidate.runeId);
+      assert.equal(candidate.mainValue, level <= 12 ? flatExpected[rune.mainStatId][stars - 1] : 123);
+    }
+    input.settings.unfinishedAtMaximum = false;
+    for (const candidate of prepareRuneOptimization(input, { reduce: false }).slots.flat()) {
+      assert.equal(candidate.mainValue, level <= 12 ? 1 : 123);
+    }
+  }
+}
+console.log('PASS: empty-slot selection preserves every occupied rune; +12 flat mains cover all six star classes, unfinished and completed levels, and the disabled adjustment.');
+
+for (let index = 0; index < 36; index += 1) {
+  const input = affordableScenario(index);
+  input.settings.limitChanges = true;
+  input.settings.maxChanges = index % 6 + 1;
+  input.settings.oddSlotsAtTwelve = index % 2 === 0;
+  const problem = prepareRuneOptimization(input);
+  const whole = searchRuneBuilds(problem);
+  const expected = bruteForce(input);
+  assert.deepEqual(whole.builds.map((build) => ({ value: build.figures[problem.rank], moves: build.moves })), expected);
+  const passed = await searchRuneBuildsInPasses(problem, everyPairCard(40), { blocks: 8, pairs: 500 });
+  assert.deepEqual(passed.outcome.builds, whole.builds);
+  const parts = [0, 1, 2].map((part) => searchRuneBuilds(problem, part, 3));
+  assert.deepEqual(mergeBuildResults(parts, problem.rank, problem.resultCount).builds, whole.builds);
+}
+console.log('PASS: 36 change-limited searches match exhaustive enumeration, split workers and card passes for limits 1â€“6.');
+
+{
+  const input = affordableScenario(2);
+  input.holds = {}; input.spared = [];
+  input.requirements = { ...input.requirements, builds: [], allowBroken: true, allowIntangible: true,
+    slotMains: { slot2: [], slot4: [], slot6: [] }, targets: {}, ceilings: {} };
+  input.settings = { ...input.settings, fillEmptySlotsOnly: true, gems: 'none', grinds: 'none' };
+  const occupied = new Set();
+  input.runes = input.runes.map((rune) => {
+    const first = !occupied.has(rune.slot); occupied.add(rune.slot);
+    return { ...rune, setId: 1, occupiedId: first ? input.unitId : null };
+  });
+  const problem = prepareRuneOptimization(input);
+  const answer = searchRuneBuilds(problem).builds[0];
+  assert.ok(answer);
+  const runes = answer.picks.map((pick, slot) => ({ ...problem.slots[slot][pick], spends: [] }));
+  const build = { ...answer, runes };
+  const before = new Map(input.runes.map((rune) => [rune.id, rune]));
+  const now = new Map([...before].map(([id, rune]) => [id, { ...rune,
+    occupiedId: rune.slot <= 2 ? null : rune.occupiedId }]));
+  const context = { unitId: input.unitId, monster: input.monster, requirements: input.requirements,
+    settings: { ...input.settings, limitChanges: true, maxChanges: 1 }, spared: [],
+    before: { runes: before, items: new Map() }, now: { runes: now, items: new Map(), holds: {} } };
+  const limited = currentBuilds([build], context)[0];
+  assert.equal(limited.moves, 2);
+  assert.equal(limited.runes.filter((rune) => rune.issue?.kind === 'changes-limit').length, 2);
+  const replacement = [...now.values()].find((rune) => rune.slot === 1 && rune.id !== runes[0].runeId);
+  assert.ok(replacement);
+  now.set(replacement.id, { ...replacement, occupiedId: input.unitId });
+  context.settings.limitChanges = false;
+  assert.equal(currentBuilds([build], context)[0].runes[0].issue?.kind, 'slot-filled');
+}
+console.log('PASS: refreshed builds identify newly occupied slots and changes beyond their saved limit.');

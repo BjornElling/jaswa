@@ -149,6 +149,25 @@ not touch it.
 **Unfinished runes.** A main property grows deterministically with power-up level,
 so *Count unfinished runes at their +15 main stat* is a fact about what the rune
 will carry, not a projection of luck. Sub properties are counted as they stand.
+With *Slot 1/3/5 only counts at +12* also on, a flat-main rune at +12 or below
+is counted at +12; one already at +13 or +14 keeps its actual main. The choice is
+disabled while the +15 switch is off, without losing its saved selection.
+The +12 flat mains use base plus twelve increments from
+[Spokland's main-stat table](https://summonerswar.spokland.com/rune/stat):
+ATK/DEF 39, 53, 67, 82, 99, 118 and HP 580, 790, 1,000, 1,240, 1,530, 1,800
+for one through six stars. Ancient runes have the same main values.
+
+**Selection.** *Just fill in empty slots* preserves every occupied slot exactly as
+worn, without main projection or craft work on its rune, even where a slot's main
+or set is outside the requested choices. Whole-build sets and stat ranges still
+apply. A fully equipped monster therefore offers only its unchanged build.
+*Max … changes* limits how many of the six chosen runes must move onto the monster,
+including inventory runes that fill empty slots. Gems, Grindstones and power-ups
+are not changes in this column. The optional checkbox activates a whole-number
+limit from 1 to 6; a blank field blocks searching until it is filled. The limit
+prunes a prefix only when its selected runes plus the minimum changes in every
+remaining slot already exceed it. It is also checked before admitting results or raising a shared ranking bar, for processor
+and card answers alike.
 
 **Gems and Grindstones** have their own settings, deliberately not Rune Clean-up's:
 *None*, *Owned only* (the account's own stacks, each spendable as often as it is
@@ -779,8 +798,10 @@ table pick for pick. It needs a running dev server and a card, and is not part o
    mains, the figure to rank by and the eleven ranges in two rows, with a caption
    line under each that says only what differs from the preset or where an
    unstated answer came from; *Reset to preset* under them. One third, down the
-   whole box: the settings — *Any set* (broken sets, Intangible, Immemorial) from
-   the preset, and Gems, Grindstones and rune sources, which are saved
+   whole box: *Runes* (broken sets and Intangible) from the preset; *Selection*
+   (inventory, empty slots, priority and maximum changes); *Adjustments* (unfinished
+   mains and the +12 limit); *Gems/Grinds* (Immemorial from the preset), then Gems
+   and Grindstones. Selection, adjustments and craft assumptions are saved
    preferences and hold for every monster.
 4. **Status** — at the foot of the monster panel, under *Find builds*, dimmed:
    the search's progress while it runs, then builds checked and runes considered
@@ -794,13 +815,13 @@ table pick for pick. It needs a running dev server and a card, and is not part o
    the top, the rest clockwise — each as it is in the account now: set, level,
    main, innate, sub properties and where the rune is; and beside the circle, slot
    by slot, the modifications the build assumes — which line a Gem replaces and
-   with what, which stone goes on which line, and a main counted at +15.
+   with what, which stone goes on which line, and a main counted at +12 or +15.
 6. **Following the table** — a change to the runes does not throw the table away.
    The player follows it by moving, gemming and grinding, and a sync bringing that
    back re-reads every build against the account as it is now
    (`rune-optimization-refresh.ts`): a Gem or stone applied since the search counts
    as done at what it rolled and leaves the modifications, one not yet applied is
-   still counted as planned, Moves follow where each rune now sits, and the figures
+   still counted as planned, Changes follow where each rune now sits, and the figures
    are summed again with the search's own arithmetic (`buildFigures`).
 
    A change that stands in a build's way keeps the row and names the rune, slot by
@@ -811,6 +832,8 @@ table pick for pick. It needs a running dev server and a card, and is not part o
    - it now sits on **another monster** whose runes the search could not take —
      *Only use runes from inventory* was ticked, or that monster is above this one on
      the priority list;
+   - **another rune now fills the slot** while only empty slots may change;
+   - the build now needs **more rune changes than its limit**;
    - the Gems and Grindstones **still to come need more of a held item** than the
      account has left, counted over the whole build.
 
