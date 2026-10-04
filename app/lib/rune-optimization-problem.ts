@@ -146,7 +146,7 @@ export type RuneOptimizationProblem = {
   criticalRateLift: number;
   /** The accumulators before any rune: artifact and engraved relic mains. */
   start: Float64Array;
-  /** Index 0 is slot 1. Complementary picks first at finite depths, then `proxy`. */
+  /** Index 0 is slot 1. Finite-depth candidates are ordered by `proxy`; guides are seeded separately. */
   slots: Candidate[][];
   /** Feasible whole-build guides, in slot order, checked again before seeding the table. */
   guides: number[][];
@@ -396,21 +396,32 @@ function admission(input: RuneOptimizationInput, usableSets: ReadonlySet<number>
   return 'admitted';
 }
 
-const statSets = new Set(statSetBonuses.map(([setId]) => setId));
-
 /*
- * Which runes may stand in for each other in the exact reduction. Normally only
- * runes of one set: swapping sets could break a stated build. With no build stated
- * a set matters only for the stat bonus it completes, so every set without one —
- * Violent, Will, Despair and the rest — is one group, and a Violent rune can be
- * dominated by a better Will rune. Not while an Intangible may be worn: which set
- * it completes depends on which sets are one short, so there the sets stay apart.
- * Nor while broken sets are refused, because then a rune's set decides whether
- * the build can be finished at all.
+ * Which runes may stand in for each other in the exact reduction. A set stays
+ * separate when it is required, completes a judged stat set, can be completed by
+ * an Intangible, or must be finished because broken sets are refused. Otherwise a
+ * free slot can swap it for any other unobservable set without changing the
+ * question, so those sets share one group and a better rune in one may dominate a
+ * weaker rune in another.
  */
-function dominanceGroupOf(builds: BuildRequirement[] | null, requirements: RuneOptimizationRequirements) {
-  const mergeSetless = builds === null && requirements.allowBroken && !requirements.allowIntangible;
-  return (setId: number) => (mergeSetless && !statSets.has(setId) ? 0 : setId);
+function dominanceGroupOf(
+  builds: BuildRequirement[] | null,
+  requirements: RuneOptimizationRequirements,
+  relevant: readonly number[],
+) {
+  /* A set is observable by the question only when it is required by a stated
+     build or completes a stat bonus on an accumulator the question reads. With
+     broken sets allowed and no Intangible, a free slot can swap any other set
+     without changing set validity or a judged figure. The old rule kept every
+     stat set separate here, even Energy and Guard in a DMG-only question, which
+     inflated the exact dominance work without protecting an answer. */
+  const required = new Set(builds?.flatMap((build) => build.needs.map((need) => need.setId)) ?? []);
+  const relevantStatSets = new Set(statSetBonuses
+    .filter(([, , stat]) => relevant.includes(stat))
+    .map(([setId]) => setId));
+  const hasFreeBuild = builds === null || builds.some((build) => build.free > 0);
+  const mergeSetless = hasFreeBuild && requirements.allowBroken && !requirements.allowIntangible;
+  return (setId: number) => (mergeSetless && !required.has(setId) && !relevantStatSets.has(setId) ? 0 : setId);
 }
 
 /**
@@ -424,7 +435,12 @@ function dominanceGroupOf(builds: BuildRequirement[] | null, requirements: RuneO
 export function estimateRuneOptimizationBuilds(input: RuneOptimizationInput): number {
   const builds = buildRequirements(input.requirements.builds);
   const usableSets = usableSetsOf(builds);
-  const group = dominanceGroupOf(builds, input.requirements);
+  const targets = targetFloors(input.requirements);
+  const ceilings = targetCeilings(input.requirements);
+  const relevant = [...new Set([input.requirements.rankBy, ...targetFigureKeys.filter((key) =>
+    Number.isFinite(targets[figureIndex(key)]) || Number.isFinite(ceilings[figureIndex(key)]))]
+    .flatMap((figure) => slotsOf(figure, input.requirements.alwaysCrits)))];
+  const group = dominanceGroupOf(builds, input.requirements, relevant);
   const { keep } = runeOptimizationDepthPlans[input.settings.depth];
   const counts = Array.from({ length: 6 }, () => new Map<number, number>());
   const locked = [false, false, false, false, false, false];
@@ -479,6 +495,24 @@ function undominated(
   const singles = relevant.filter((slot) => !paired.has(slot));
   const usedPairs = pairs.filter(([percent, flat]) => relevant.includes(percent) || relevant.includes(flat));
 
+  /* A dominator cannot have a lower value under this positive scalar. For a
+     percentage/flat pair it uses the same unrounded contribution as the safe
+     pair comparison below; for a single accumulator its value is monotone by
+     definition. Sorting by it lets the exact test stop before unrelated low
+     candidates, while equal-valued candidates still receive the full test. */
+  const orderWeight = new Float64Array(effectSlotCount);
+  for (const slot of singles) orderWeight[slot] = 1;
+  for (const [percent, flat, stat] of usedPairs) {
+    orderWeight[percent] = stat / 100;
+    orderWeight[flat] = 1;
+  }
+  const ordered = candidates.map((candidate, index) => ({
+    candidate, index,
+    score: dot(orderWeight, candidate.effects),
+  })).sort((left, right) => right.score - left.score || left.index - right.index);
+  const scores = new Float64Array(candidates.length);
+  for (const entry of ordered) scores[entry.index] = entry.score;
+
   /* -1: a is worse somewhere; 0: identical in everything read; 1: a strictly better. */
   function compare(a: Candidate, b: Candidate): number {
     let better = false;
@@ -516,9 +550,12 @@ function undominated(
 
   return candidates.filter((b, bIndex) => {
     let dominators = 0;
-    for (let aIndex = 0; aIndex < candidates.length; aIndex += 1) {
+    const bScore = scores[bIndex];
+    for (const entry of ordered) {
+      if (entry.score < bScore) break;
+      const aIndex = entry.index;
       if (aIndex === bIndex) continue;
-      const a = candidates[aIndex];
+      const a = entry.candidate;
       const order = compare(a, b);
       /* Two identical end states dominate each other, and dropping both would lose
          the pair. The one already on the monster wins the tie — a build that moves
@@ -535,12 +572,13 @@ function undominated(
 
 /**
  * **The depth's cut (§5).** Of what the exact reduction left in one slot and set,
- * keep the `keep` best by their first-order worth to the ranking figure, and the
- * `keep` best for each target as well — a rune that does little for DMG may be the
- * only way to reach the SPD floor, and a cut blind to targets would make a
- * reachable build look impossible. Upper ranges get a matching low-contribution
- * lane: a strong rune that overshoots a ceiling is not a safe replacement for a
- * quieter complement.
+ * keep the `keep` best physical rune families by their first-order worth to the
+ * ranking figure, and the `keep` best families for each target as well — a rune
+ * that does little for DMG may be the only way to reach the SPD floor, and a cut
+ * blind to targets would make a reachable build look impossible. Upper ranges get
+ * a matching low-contribution lane: a strong rune that overshoots a ceiling is not
+ * a safe replacement for a quieter complement. Each lane keeps one end state per
+ * physical rune; different lanes may choose different Gem variants.
  */
 function cut(
   candidates: Candidate[], keep: number,
@@ -557,15 +595,14 @@ function cut(
     }
   };
   const byProxy = [...candidates].sort((left, right) => right.proxy - left.proxy);
-  for (const candidate of byProxy.slice(0, keep)) kept.add(candidate);
   takeFamilies(byProxy);
   for (const slope of targetSlopes) {
     const byTarget = [...candidates].sort((left, right) => dot(slope, right.effects) - dot(slope, left.effects));
-    for (const candidate of byTarget.slice(0, keep)) kept.add(candidate);
+    takeFamilies(byTarget);
   }
   for (const slope of ceilingSlopes) {
     const byCeiling = [...candidates].sort((left, right) => dot(slope, left.effects) - dot(slope, right.effects));
-    for (const candidate of byCeiling.slice(0, keep)) kept.add(candidate);
+    takeFamilies(byCeiling);
   }
   return candidates.filter((candidate) => kept.has(candidate));
 }
@@ -768,7 +805,7 @@ export function prepareRuneOptimization(
     }
   }
 
-  const dominanceGroup = dominanceGroupOf(builds, requirements);
+  const dominanceGroup = dominanceGroupOf(builds, requirements, relevant);
 
   const plan = runeOptimizationDepthPlans[settings.depth];
   const keep = Number.isFinite(plan.keep) ? plan.keep : null;
@@ -825,7 +862,11 @@ export function prepareRuneOptimization(
         }
         const independent = new Set([...groups.values()].flatMap((group) => cut(group, keep, targetSlopes, ceilingSlopes)));
         return slot.filter((candidate) => independent.has(candidate) || complementary.has(candidate))
-          .sort((a, b) => Number(complementary.has(b)) - Number(complementary.has(a)) || b.proxy - a.proxy || a.runeId.localeCompare(b.runeId));
+          /* Guides are seeded into the result table before the tree opens. The tree
+             therefore gets the strongest bound-raising candidates first; putting
+             every guide candidate ahead of them delayed the bar and made a narrower
+             shortlist slower than the complete one on broad pools. */
+          .sort((a, b) => b.proxy - a.proxy || Number(complementary.has(b)) - Number(complementary.has(a)) || a.runeId.localeCompare(b.runeId));
       });
       problem.guides = guidance.builds.map((build) => build.map((candidate, slot) => problem.slots[slot].indexOf(candidate)));
     }

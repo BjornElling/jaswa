@@ -167,8 +167,13 @@ DMG build with no Accuracy floor.
 
 ### 4.2 Dominance
 
-Within one slot and one set, candidate *a* **dominates** *b* when *a* is at least
-as good on every accumulator that matters and spends no held item *b* does not.
+Within one slot and one set-equivalence group, candidate *a* **dominates** *b*
+when *a* is at least as good on every accumulator that matters and spends no held
+item *b* does not. A group normally is one set. When broken sets are allowed,
+Intangible is unavailable, and a stated build leaves free slots (or no build is
+stated), sets that are neither required by a build nor able to complete a stat
+bonus the question reads are equivalent and share a group: exchanging one for
+another cannot change a valid build or any judged figure.
 Every figure JASWA computes rises with every accumulator, so replacing *b* by *a*
 in any build keeps its sets, its item spend and every target it met, and cannot
 lower the ranking figure.
@@ -246,8 +251,11 @@ vote in that reference, however many Gem alternatives it has. **The currently wo
 build never prices candidates.** It supplies the `Now` row; ownership and locks
 still decide admission and move counts.
 
-The cut keeps the best end states by that measure, the best distinct physical runes
-by that measure, and the best end states for each floor. For the tightest stated
+The cut keeps the best distinct physical rune families by each measure: one
+representative per physical rune for the ranking lane, each floor lane and each
+ceiling lane. Different lanes may retain different Gem variants of the same rune;
+several variants cannot occupy the same slot together, so letting one family fill
+one lane would spend the lane on mutually exclusive copies. For the tightest stated
 ceilings it also keeps the lowest-contribution end states, because a high-ranked
 rune can be a bad complement when the other five runes already approach the upper
 limit. Every ceiling still participates in exact range checks, dominance and the
@@ -283,8 +291,10 @@ builds before picking individual runes**:
   for at most two rounds and 200,000 pair evaluations per guide. This can trade speed
   or Accuracy between slots while gaining damage, where neither change works alone.
 - Candidates from those improvements and twelve finished guides supplement the
-  independent lanes and are tried first in the final search. The guide is identical
-  across finite depths: a deeper shortlist retains every shallower candidate.
+  independent lanes. The guides seed the result table before the tree opens, while
+  the candidates remain ordered by proxy so strong bound-raising candidates lift
+  the bar early. The guide is identical across finite depths: a deeper shortlist
+  retains every shallower candidate.
 
 The search also checks those whole guides and their same-set one-rune neighbours
 before opening the tree. Their real sets, ranges and held-item spend are checked

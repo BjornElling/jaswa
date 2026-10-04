@@ -86,6 +86,30 @@ assert.equal(constrained.find((candidate) => candidate.setId === 8).proxy,
   "Fatal cannot promise a completed four-set in Violent's two free slots");
 console.log('PASS: free-set ordering follows damage and demanding HP targets, and does not credit a four-set that cannot fit beside the required four-set.');
 
+/* A stated two-set build leaves free slots whose neutral set identity cannot
+   affect a DMG-only question. The exact reduction may merge those sets, but an
+   Intangible must keep them distinct because its completion depends on the set
+   counts. */
+const neutralSets = [1, 2, 3, 7, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24];
+const neutralInput = {
+  ...setInput,
+  runes: templates.flatMap((rune, slot) => neutralSets.map((setId, at) => ({
+    ...rune, id: `neutral-${slot}-${at}`, setId, occupiedId: null,
+  }))),
+  requirements: { ...setInput.requirements, builds: ['Violent'], allowBroken: true, allowIntangible: false,
+    targets: {}, ceilings: {}, rankBy: 'dmg' },
+  settings: { ...setInput.settings, depth: 'quick', resultCount: 10 },
+};
+const neutralProblem = prepareRuneOptimization(neutralInput);
+assert.ok(neutralProblem.report.slots.some((report) => report.undominated < report.eligible),
+  'neutral sets in a free slot should share an exact dominance group');
+const intangibleNeutral = prepareRuneOptimization({ ...neutralInput,
+  requirements: { ...neutralInput.requirements, allowIntangible: true },
+});
+assert.ok(intangibleNeutral.report.slots.every((report) => report.undominated === report.eligible),
+  'sets must stay distinct when an Intangible could complete one of them');
+console.log('PASS: free-slot neutral sets merge only when their identity cannot affect the question or Intangible completion.');
+
 /* A ceiling needs quiet complements as well as high individual scores. Two wide
    slots each have eight high-damage, +10 SPD runes followed by four quieter
    alternatives. Two high choices exceed the ceiling, while high + quiet is
