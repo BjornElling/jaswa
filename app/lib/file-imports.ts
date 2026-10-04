@@ -9,6 +9,7 @@ import { readArtifact } from './artifacts';
 import { readRelic } from './relics';
 import { craftRollAssumptions, craftSettingAssumptions, defaultCraftRollAssumption, itemGrades, readCraftItem } from './rune-craft-items';
 import { readRune } from './runes';
+import { intangibleSetId } from './monster-stats';
 import { hasMonsterCatalogEntry } from './monster-catalog';
 import { skyTribeTotemProblem } from './sky-tribe-totem';
 import type { GameRecord } from './game-data';
@@ -230,6 +231,18 @@ function isValidRuneRecord(record: GameRecord): boolean {
   return readRune(record) !== null;
 }
 
+/** The game allows one Intangible Rune in a monster's equipped six. */
+function hasAtMostOneEquippedIntangible(records: readonly GameRecord[]): boolean {
+  const owners = new Set<string>();
+  for (const record of records) {
+    if (record.set_id !== intangibleSetId || record.occupied_type !== 1) continue;
+    const owner = String(record.occupied_id);
+    if (owners.has(owner)) return false;
+    owners.add(owner);
+  }
+  return true;
+}
+
 function isValidStorageRecord(record: GameRecord): boolean {
   const masterId = record.unit_master_id;
   const quantity = record.quantity;
@@ -261,6 +274,9 @@ function validateAccountCollections(value: GameRecord): string | undefined {
   }
   if (!isValidIdentifiedCollection(value.runes, 'rune_id', isValidRuneRecord)) {
     return 'This file contains a rune JASWA cannot read.';
+  }
+  if (!hasAtMostOneEquippedIntangible(recordCollection(value.runes))) {
+    return 'This file equips more than one Intangible Rune on one monster.';
   }
   if (value.unit_storage_list !== undefined && !isValidIdentifiedCollection(value.unit_storage_list, 'unit_master_id', isValidImportedStorageRecord)) {
     return 'This file contains a sealed-shrine monster JASWA cannot read.';
@@ -298,6 +314,9 @@ function validateAccountCollections(value: GameRecord): string | undefined {
   for (const unit of units) {
     if (unit.runes !== undefined && !isValidIdentifiedCollection(unit.runes, 'rune_id', isValidRuneRecord)) {
       return 'This file contains an equipped rune JASWA cannot read.';
+    }
+    if (unit.runes !== undefined && !hasAtMostOneEquippedIntangible(recordCollection(unit.runes))) {
+      return 'This file equips more than one Intangible Rune on one monster.';
     }
     if (unit.artifacts !== undefined && !isValidIdentifiedCollection(unit.artifacts, 'rid', (artifact) => readArtifact(artifact) !== null)) {
       return 'This file contains an equipped artifact JASWA cannot read.';

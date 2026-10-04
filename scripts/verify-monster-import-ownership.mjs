@@ -25,6 +25,18 @@ try {
   assert.equal(validateGameFile(account([owned])).valid, true,
     'a snapshot containing this account\'s monster remains importable');
 
+  const intangible = (rune_id, slot_no) => ({
+    rune_id, set_id: 25, slot_no, class: 6, rank: 5, extra: 5, upgrade_curr: 0,
+    occupied_type: 1, occupied_id: 10, pri_eff: [3, 22], prefix_eff: [0, 0], sec_eff: [],
+  });
+  const twoIntangible = validateGameFile({
+    ...account([owned]),
+    runes: [intangible(21, 1), intangible(22, 2)],
+  });
+  assert.equal(twoIntangible.valid, false,
+    'a monster with two equipped Intangible Runes must be rejected by the import boundary');
+  assert.match(twoIntangible.message, /more than one Intangible Rune/);
+
   const twoLocations = validateGameFile({
     ...account([owned]),
     unit_storage_normal_list: [{ unit_id: 10, unit_master_id: 14314, unit_level: 1 }],

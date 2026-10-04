@@ -117,8 +117,8 @@ export function activeRuneSets(monster: Record<string, unknown>): ActiveRuneSet[
     if (runeSetNames[setId] && runeSetPieces[setId]) counts[setId] = (counts[setId] ?? 0) + 1;
     else hasBrokenRune = true;
   }
-  /* Where it is not known which set the Intangible completes, it is shown as the
-     broken rune the stat sheet also counts it as, rather than as a guess. */
+  /* Where no set, more than one set, or more than one Intangible is present, the
+     game completes no set; show the rune as broken rather than guessing a winner. */
   const completes = intangibleCompletion(worn);
   if (completes > 0) counts[completes] = (counts[completes] ?? 0) + 1;
   else if (worn[intangibleSetId] > 0) hasBrokenRune = true;

@@ -538,9 +538,14 @@ function undominated(
  * keep the `keep` best by their first-order worth to the ranking figure, and the
  * `keep` best for each target as well — a rune that does little for DMG may be the
  * only way to reach the SPD floor, and a cut blind to targets would make a
- * reachable build look impossible.
+ * reachable build look impossible. Upper ranges get a matching low-contribution
+ * lane: a strong rune that overshoots a ceiling is not a safe replacement for a
+ * quieter complement.
  */
-function cut(candidates: Candidate[], keep: number, targetSlopes: readonly Float64Array[]): Candidate[] {
+function cut(
+  candidates: Candidate[], keep: number,
+  targetSlopes: readonly Float64Array[], ceilingSlopes: readonly Float64Array[],
+): Candidate[] {
   if (candidates.length <= keep) return candidates;
   const kept = new Set<Candidate>();
   const takeFamilies = (ordered: Candidate[]) => {
@@ -557,6 +562,10 @@ function cut(candidates: Candidate[], keep: number, targetSlopes: readonly Float
   for (const slope of targetSlopes) {
     const byTarget = [...candidates].sort((left, right) => dot(slope, right.effects) - dot(slope, left.effects));
     for (const candidate of byTarget.slice(0, keep)) kept.add(candidate);
+  }
+  for (const slope of ceilingSlopes) {
+    const byCeiling = [...candidates].sort((left, right) => dot(slope, left.effects) - dot(slope, right.effects));
+    for (const candidate of byCeiling.slice(0, keep)) kept.add(candidate);
   }
   return candidates.filter((candidate) => kept.has(candidate));
 }
@@ -691,6 +700,21 @@ export function prepareRuneOptimization(
   }
   const rankSlope = gradient(base, reference, rank);
   const targetSlopes = targetFigures.map((figure) => gradient(base, reference, figureIndex(figure)));
+  /* All ceilings remain exact in range checks, dominance and finished-build
+     judging. The heuristic cut gets dedicated low-contribution lanes only for
+     the tightest few, otherwise a profile with eleven ceilings multiplies the
+     shortlist by eleven before the guide has had a chance to do its job. */
+  const referenceFigures = figuresOf(base, reference, new Float64Array(targetFigureCount));
+  const ceilingLaneLimit = 3;
+  const ceilingSlopes = ceilingFigures
+    .map((figure) => {
+      const at = figureIndex(figure);
+      const scale = Math.max(1, Math.abs(referenceFigures[at]), Math.abs(ceilings[at]));
+      return { slope: gradient(base, reference, at), slack: (ceilings[at] - referenceFigures[at]) / scale };
+    })
+    .sort((left, right) => left.slack - right.slack)
+    .slice(0, ceilingLaneLimit)
+    .map(({ slope }) => slope);
   /* Clean-up's selection pressure is an additional lane, not a replacement for
      the actual ranking figure or the composite targets it cannot express. Use
      the pool's most common main per slot; this price only guides the depth cut. */
@@ -799,7 +823,7 @@ export function prepareRuneOptimization(
           const group = groups.get(key) ?? [];
           group.push(candidate); groups.set(key, group);
         }
-        const independent = new Set([...groups.values()].flatMap((group) => cut(group, keep, targetSlopes)));
+        const independent = new Set([...groups.values()].flatMap((group) => cut(group, keep, targetSlopes, ceilingSlopes)));
         return slot.filter((candidate) => independent.has(candidate) || complementary.has(candidate))
           .sort((a, b) => Number(complementary.has(b)) - Number(complementary.has(a)) || b.proxy - a.proxy || a.runeId.localeCompare(b.runeId));
       });

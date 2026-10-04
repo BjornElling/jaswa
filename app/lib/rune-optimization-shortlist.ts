@@ -109,7 +109,7 @@ export function complementaryCandidates(problem: RuneOptimizationProblem): { can
         }
         const completes = intangibleCompletion(counts);
         if (depth === 5) {
-          if (counts[intangibleSetId] > 0 && completes < 0) continue;
+          if (!problem.allowBroken && counts[intangibleSetId] > 0 && completes < 0) continue;
           if (problem.builds !== null && !problem.builds.some((build) => satisfiesBuild(build, counts, completes))) continue;
           if (!problem.allowBroken && !noBrokenSets(counts, completes, problem.setPieces)) continue;
         }

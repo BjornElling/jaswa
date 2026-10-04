@@ -1,7 +1,7 @@
 # Rune Optimization — how six runes are chosen out of thousands
 
 **Status:** Binding contract for the Rune Optimization page and its engine
-**Reviewed:** 3 October 2026
+**Reviewed:** 4 October 2026
 
 Rune Optimization finds the rune builds one monster can wear that meet what its
 profile asks for, and ranks them by one figure. This document says what it
@@ -75,6 +75,14 @@ build belongs to a completed set, so `Violent` means Violent and some whole
 two-set; on, the free slots take anything. The same switch holds where no build is
 named at all. An Intangible counts as belonging to a set only where it completes
 one.
+
+The game allows at most one Intangible Rune in a monster's six equipped runes.
+The optimizer enforces that while choosing a build, so two Intangible candidates
+can never consume two slots in one answer. A single Intangible completes a set
+only when exactly one set is one piece short. If two or more sets are one piece
+short, it completes none; there is no set-choice conflict to resolve. With
+*Allow broken sets* on, that Intangible may still occupy the slot as a broken
+rune. With it off, the combination is rejected by the ordinary broken-set rule.
 
 ### 2.2 Targets are ranges
 
@@ -239,8 +247,12 @@ build never prices candidates.** It supplies the `Now` row; ownership and locks
 still decide admission and move counts.
 
 The cut keeps the best end states by that measure, the best distinct physical runes
-by that measure, and the best end states for each floor. It also treats the eight
-direct-stat floors as a temporary Clean-up preset: `substatWeights` and
+by that measure, and the best end states for each floor. For the tightest stated
+ceilings it also keeps the lowest-contribution end states, because a high-ranked
+rune can be a bad complement when the other five runes already approach the upper
+limit. Every ceiling still participates in exact range checks, dominance and the
+finished-build judgement; only the bounded heuristic lane chooses the tightest few.
+It also treats the eight direct-stat floors as a temporary Clean-up preset: `substatWeights` and
 `weightedValuation` price their selection pressure in max-roll equivalents. The
 reference is this copy's base, its actual artifact contribution and the admitted
 pool's most common main per slot. This extra lane rewards the targets that ask most
@@ -398,10 +410,11 @@ The card is unaffected: its answer is already generous, and every pair it sends
 back is judged on the processor.
 
 An Intangible completes the one set that is exactly one rune short
-(`RUNE-CANONICAL.md` §10). **Where several are, the game picks one and JASWA does
-not know which**, so such a combination is not offered, and the stat sheet counts
-no completion for it. `intangibleCompletion` in `monster-stats.ts` states this once
-for the sheet, the build names and the search.
+(`RUNE-CANONICAL.md` §10). **Where several are, it completes none.** This is not an
+unknown state and JASWA must not choose a set or discard the combination merely
+because the Intangible has no completion: *Allow broken sets* decides whether the
+result may still be worn. `intangibleCompletion` in `monster-stats.ts` states this
+once for the sheet, the build names and the search.
 
 ### 6.4 Held items
 

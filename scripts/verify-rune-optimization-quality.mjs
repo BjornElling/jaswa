@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { scenarioGenerator } from './rune-optimization-scenarios.mjs';
 import { prepareRuneOptimization, buildFigures, figureIndex } from '../app/lib/rune-optimization-problem.ts';
+import { effectSlot } from '../app/lib/monster-stats.ts';
 import { runeOptimizationDepths, runeOptimizationSettingChecks, runeOptimizationWorkWarning } from '../app/lib/rune-optimization-settings.ts';
 import { mergeBuildResults, searchRuneBuilds } from '../app/lib/rune-optimization-search.ts';
 
@@ -85,6 +86,47 @@ assert.equal(constrained.find((candidate) => candidate.setId === 8).proxy,
   "Fatal cannot promise a completed four-set in Violent's two free slots");
 console.log('PASS: free-set ordering follows damage and demanding HP targets, and does not credit a four-set that cannot fit beside the required four-set.');
 
+/* A ceiling needs quiet complements as well as high individual scores. Two wide
+   slots each have eight high-damage, +10 SPD runes followed by four quieter
+   alternatives. Two high choices exceed the ceiling, while high + quiet is
+   valid; the low-contribution lane must keep those alternatives at depth 1. */
+const ceilingInput = generator.scenario(0);
+ceilingInput.holds = {}; ceilingInput.spared = [];
+ceilingInput.settings = { ...ceilingInput.settings, depth: 'quick', gems: 'none', grinds: 'none', runesOnOtherMonsters: true, resultCount: 10 };
+ceilingInput.requirements = { ...ceilingInput.requirements, builds: [], slotMains: { slot2: [], slot4: [], slot6: [] },
+  allowBroken: true, allowIntangible: false, alwaysCrits: false, alwaysElementAdvantage: false,
+  critLead: undefined, targets: {}, ceilings: { spd: 115 }, rankBy: 'dmg' };
+const ceilingTemplates = Array.from({ length: 6 }, (_, slot) => ceilingInput.runes.find((rune) => rune.slot === slot + 1));
+ceilingInput.runes = [];
+let ceilingId = 1;
+for (let slot = 1; slot <= 6; slot += 1) {
+  const count = slot === 2 || slot === 4 ? 12 : 1;
+  for (let at = 0; at < count; at += 1) {
+    const template = ceilingTemplates[slot - 1];
+    if (!template) throw new Error(`Missing ceiling template for slot ${slot}`);
+    const high = at < 8;
+    ceilingInput.runes.push({ ...template, id: `ceiling-${ceilingId++}`, setId: 13, setName: 'Violent', occupiedId: null,
+      subProperties: slot === 2 || slot === 4 ? [
+        { statId: 8, value: high ? 10 : 0, gemmed: false, grind: 0 },
+        { statId: 10, value: high ? 80 + at : 20 + at, gemmed: false, grind: 0 },
+      ] : [] });
+  }
+}
+const ceilingProblem = prepareRuneOptimization(ceilingInput);
+assert.ok(ceilingProblem.slots[1].some((candidate) => candidate.effects[effectSlot.spdFlat] === 0),
+  'depth 1 must retain quiet slot-2 complements for a SPD ceiling');
+assert.ok(ceilingProblem.slots[3].some((candidate) => candidate.effects[effectSlot.spdFlat] === 0),
+  'depth 1 must retain quiet slot-4 complements for a SPD ceiling');
+const ceilingQuick = searchRuneBuilds(ceilingProblem);
+ceilingInput.settings.depth = 'complete';
+const ceilingCompleteProblem = prepareRuneOptimization(ceilingInput);
+const ceilingComplete = searchRuneBuilds(ceilingCompleteProblem);
+assert.ok(ceilingQuick.builds.length > 0 && ceilingComplete.builds.length > 0,
+  'the ceiling case must leave a feasible answer');
+assert.equal(ceilingQuick.builds[0].figures[ceilingProblem.rank], ceilingComplete.builds[0].figures[ceilingCompleteProblem.rank],
+  'the ceiling lane must keep the best low-depth answer');
+console.log('PASS: the depth cut keeps quiet ceiling complements and depth 1 matches the complete ceiling answer.');
+
 // A stop request keeps already checked guides even before the tree can finish.
 const guided = prepareRuneOptimization({ ...setInput, requirements: { ...setInput.requirements, builds: [] } });
 guided.timeLimitMs = -1;
@@ -118,6 +160,26 @@ const intangibleResult = searchRuneBuilds(prepareRuneOptimization(intangible));
 assert.equal(intangibleResult.builds.length, 1, 'a worn Intangible lost the only Energy/Guard/Blade build');
 assert.deepEqual(intangibleResult.builds[0].figures, exactFigures);
 console.log('PASS: a worn Intangible lets Energy, Guard and Blade all complete with only two slots left.');
+
+/* Two incomplete sets are not a choice the optimizer may invent. With broken
+   sets allowed, the one Intangible remains a usable broken rune and completes
+   neither set; with broken sets refused, the shared noBrokenSets rule rejects it. */
+const ambiguousIntangible = { ...intangible,
+  requirements: { ...intangible.requirements, targets: {}, ceilings: {}, allowBroken: true },
+  runes: Array.from({ length: 6 }, (_, slot) => ({
+    ...intangible.runes[slot], id: String(slot + 1), occupiedId: null,
+    setId: [1, 2, 25, 3, 3, 3][slot],
+  })),
+};
+const ambiguousProblem = prepareRuneOptimization(ambiguousIntangible);
+const ambiguousResult = searchRuneBuilds(ambiguousProblem);
+assert.equal(ambiguousResult.builds.length, 1,
+  'an ambiguous Intangible must remain usable when broken sets are allowed');
+assert.equal(ambiguousResult.builds[0].figures[ambiguousProblem.rank],
+  buildFigures(ambiguousIntangible.monster, ambiguousIntangible.runes.map((rune) =>
+    ({ rune, mainValue: rune.mainValue, lines: rune.subProperties })), ambiguousIntangible.requirements)[ambiguousProblem.rank],
+  'an ambiguous Intangible must add no guessed set bonus');
+console.log('PASS: an Intangible that could complete two sets completes neither, without being discarded when broken sets are allowed.');
 
 const craftedGenerator = scenarioGenerator(20261004, [3, 4]);
 let spendingGuides = 0;

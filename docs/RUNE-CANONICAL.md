@@ -1,7 +1,7 @@
 # Rune-regler — kanonisk specifikation
 
 **Status:** Bindende regelgrundlag for JASWA Rune Clean-up  
-**Kontrolleret:** 23. august 2026
+**Kontrolleret:** 4. oktober 2026
 **Spil:** *Summoners War: Sky Arena* (ikke *Chronicles* eller *Lost Centuria*)
 
 Dette dokument er den kanoniske beskrivelse af spilregler, som Rune Clean-up
@@ -447,6 +447,14 @@ numeriske Rune Clean-up-score eller -ceiling:
   fuldføre flere ufuldstændige sets samtidig.
 - Et monster må højst have **én** Intangible Rune. Den er dermed ikke en
   generel erstatning for flere manglende runer.
+
+- **Binding game rule (October 2026):** The one Intangible Rune replaces a
+  missing rune only when exactly one Rune Set is one piece short. If two or more
+  sets are one piece short, the Intangible completes **none** of them; the game
+  does not choose a winner. This is the rule JASWA must use in the stat sheet,
+  active-set display and Rune Optimization. With broken sets allowed, the rune
+  may still be worn as a broken rune. With broken sets refused, that build is
+  invalid.
 - Intangible kan ikke Reappraise. Den må kun have Intangible- eller
   Immemorial Gems/Grindstones og kan heller ikke Rune Refine.
 - **Rune Refinement** kræver +12 eller højere, bevarer Sub Property-typer og

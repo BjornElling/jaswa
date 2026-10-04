@@ -95,23 +95,23 @@ const setPieces: Readonly<Record<number, number>> = {
 export const setPieceCount = (setId: number): number => setPieces[setId] ?? 0;
 
 /**
- * Which set a worn Intangible rune completes, `-1` for none, or `-2` where the
- * answer is not known.
+ * Which set a worn Intangible rune completes, or `-1` for none.
  *
  * `RUNE-CANONICAL.md` §10: an Intangible completes one set that is exactly one rune
- * short, and never several. Where exactly one set is short the answer is that set.
- * Where several are, the game picks one and JASWA does not know how — so it says so
- * with `-2` rather than choosing, and each caller decides what an unknown means for
- * it: the stat sheet counts no completion, the optimizer refuses the combination.
+ * short. Where no set, more than one set, or more than one Intangible is present,
+ * it completes none. There is no tie-breaker to guess and no unknown state for a
+ * caller to interpret differently: with broken sets allowed the rune remains a
+ * broken rune, and with broken sets refused the combination is rejected.
  */
 export function intangibleCompletion(counts: ArrayLike<number>): number {
-  if ((counts[intangibleSetId] ?? 0) === 0) return -1;
+  if ((counts[intangibleSetId] ?? 0) !== 1) return -1;
   let found = -1;
   for (let setId = 1; setId < setIdBound; setId += 1) {
     const pieces = setPieces[setId];
     if (pieces === undefined || (counts[setId] ?? 0) === 0) continue;
     if (counts[setId] % pieces !== pieces - 1) continue;
-    if (found !== -1) return -2;
+    /* The game deliberately refuses to choose between two incomplete sets. */
+    if (found !== -1) return -1;
     found = setId;
   }
   return found;

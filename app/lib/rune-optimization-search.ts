@@ -398,7 +398,7 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
     function walk(d: number) {
       if (d === depthCount) {
         const completes = intangibleCompletion(counted);
-        if (completes === -2 || !buildMet(counted, completes)) return;
+        if (!buildMet(counted, completes)) return;
         const row = new Float64Array(sum);
         addSetBonuses(counted, completes, row);
         rows.push(row);
@@ -474,10 +474,11 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
         const lastSet = lastGroups[h].set;
         if (lastSet === intangibleSetId && counted[intangibleSetId] > 0) continue;
         counted[lastSet] += 1;
-        /* Several sets one rune short and one Intangible: the game completes one of
-           them and JASWA does not know which, so the block is not offered (§6.3). */
+        /* Several sets one rune short and one Intangible complete none. The block
+           remains valid when broken sets are allowed; `buildMet` and the final
+           broken-set check decide whether the question accepts it (§6.3). */
         const completes = intangibleCompletion(counted);
-        if (completes !== -2 && buildMet(counted, completes)) {
+        if (buildMet(counted, completes)) {
           bonus.fill(0);
           addSetBonuses(counted, completes, bonus);
           blocks.push(g, h);
@@ -917,7 +918,7 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
       for (let slot = 0; slot < effectSlotCount; slot += 1) finished[slot] += effects[d][at * effectSlotCount + slot];
     }
     const completes = intangibleCompletion(guideCounts);
-    if (!valid || completes === -2 || !buildMet(guideCounts, completes)) return;
+    if (!valid || !buildMet(guideCounts, completes)) return;
     addSetBonuses(guideCounts, completes, finished);
     if (!passes(finished)) return;
     totalsInto(problem.base, finished, totals);

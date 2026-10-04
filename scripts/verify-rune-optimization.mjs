@@ -52,7 +52,7 @@
  */
 import assert from 'node:assert/strict';
 import {
-  calculateMonsterTotals, criticalRateLift, intangibleSetId, monsterTargetFigures, targetFigureKeys, unliftedFigures,
+  calculateMonsterTotals, criticalRateLift, intangibleCompletion, intangibleSetId, monsterTargetFigures, targetFigureKeys, unliftedFigures,
 } from '../app/lib/monster-stats.ts';
 import { monsterStatTargetKeys } from '../app/lib/monster-preferences.ts';
 import { buildFigures, prepareRuneOptimization } from '../app/lib/rune-optimization-problem.ts';
@@ -92,19 +92,14 @@ const floorsOf = (input) => Object.entries(input.requirements.targets)
 const ceilingsOf = (input) => Object.entries(input.requirements.ceilings)
   .filter(([key]) => !(input.requirements.alwaysCrits && key === 'criRate'));
 
-function oneShort(counts) {
-  const short = [...counts.entries()].filter(([setId, count]) => setId !== intangibleSetId && runeSetPiecesById(setId) && count % runeSetPiecesById(setId) === runeSetPiecesById(setId) - 1);
-  return short.length;
-}
-
 const piecesById = new Map(Object.entries(runeSetPieceCount).map(([name, pieces]) => [runeSetId(name), pieces]));
 function runeSetPiecesById(setId) { return piecesById.get(setId); }
 
-/* The set an Intangible completes: the one set a rune short, or none. */
+/* The set an Intangible completes: only one set one rune short, or none. */
 function completedBy(counts) {
   const intangible = counts.get(intangibleSetId) ?? 0;
   const short = [...counts.entries()].filter(([setId, count]) => setId !== intangibleSetId && count % runeSetPiecesById(setId) === runeSetPiecesById(setId) - 1);
-  return intangible > 0 && short.length === 1 ? short[0][0] : -1;
+  return intangible === 1 && short.length === 1 ? short[0][0] : -1;
 }
 
 /* A build names the sets it must hold; whatever else is worn fills its free slots. */
@@ -137,7 +132,6 @@ function bruteForce(input) {
       const counts = new Map();
       for (const candidate of chosen) counts.set(candidate.setId, (counts.get(candidate.setId) ?? 0) + 1);
       if ((counts.get(intangibleSetId) ?? 0) > 1) return;
-      if ((counts.get(intangibleSetId) ?? 0) === 1 && oneShort(counts) > 1) return;
       const wanted = input.requirements.builds;
       if (wanted.length > 0 && !wanted.some((id) => buildMet(id, counts))) return;
       if (!input.requirements.allowBroken && !noBroken(counts)) return;
@@ -162,6 +156,12 @@ function bruteForce(input) {
   found.sort((left, right) => right.value - left.value || left.moves - right.moves);
   return found.slice(0, input.settings.resultCount);
 }
+
+const uniqueShort = new Int32Array(26); uniqueShort[1] = 1; uniqueShort[intangibleSetId] = 1;
+assert.equal(intangibleCompletion(uniqueShort), 1, 'one Intangible must complete the one set that is one rune short');
+const ambiguousShort = new Int32Array(26); ambiguousShort[1] = 1; ambiguousShort[2] = 1; ambiguousShort[intangibleSetId] = 1;
+assert.equal(intangibleCompletion(ambiguousShort), -1,
+  'an Intangible that could complete two sets must complete neither');
 
 /* The search reads its figure order from the stat sheet so that no worker loads the
    statistics dataset the preferences' own list sits beside. Two lists that must
