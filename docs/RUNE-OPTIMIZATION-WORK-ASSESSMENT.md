@@ -71,9 +71,11 @@ Several findings matter to a recommendation:
   possible or needed. Its per-slot widths were 1/1/1/1/136/127.
 - **Gems change the choices; stones alone need not.** In this question Gems
   expanded the pool much more than assumed stones. Held-item recipes reduced
-  18,226 end states to 2,863 choices without losing item competition. A ceiling
-  requires the full end-state search, retaining 45,753 choices. The model must
-  read this actual pool rather than assign one fixed multiplier to craft use.
+  18,226 end states to 2,863 choices without losing item competition. At the time
+  of this measurement, a ceiling disabled recipe allocation and retained 45,753
+  choices. The subsequent [range-allocation improvement](RUNE-OPTIMIZATION-RANGE-ALLOCATION.md)
+  keeps only ceiling-sensitive work concrete. The model reads the actual current
+  pool rather than assigning one fixed multiplier to craft use.
 - **Intangible and table size affect exact reduction too.** Intangible retained
   more set identities and choices. Requesting 100 rows preserved candidates
   a ten-row answer could safely dominate. Neither is represented by rune count.

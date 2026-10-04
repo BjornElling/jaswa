@@ -28,7 +28,7 @@
  */
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
-import { scenarioGenerator } from './rune-optimization-scenarios.mjs';
+import { craftedRangeScenarios, scenarioGenerator } from './rune-optimization-scenarios.mjs';
 
 const origin = 'http://localhost:3000';
 
@@ -37,6 +37,10 @@ const wide = scenarioGenerator(20261001, [14, 22]);
 const inputs = [
   ...Array.from({ length: 60 }, (_, index) => ({ kind: 'narrow', input: narrow.scenario(index) })),
   ...Array.from({ length: 24 }, (_, index) => ({ kind: 'wide', input: wide.scenario(index) })),
+  ...craftedRangeScenarios().map((input, index) => {
+    input.requirements.ceilings = [{ spd: 180 }, { atk: 2000 }, { ehp: 150000 }][index % 3];
+    return { kind: 'crafted ranges', input };
+  }),
 ];
 
 const browser = await chromium.launch({ channel: 'chromium', headless: true, args: ['--enable-unsafe-webgpu'] });

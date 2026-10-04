@@ -129,3 +129,31 @@ export function scenarioGenerator(firstSeed = 20260930, runesPerSlot = [3, 5]) {
 
   return { scenario, random };
 }
+
+/** Two open slots leave a complete craft oracle affordable, even with tight ranges. */
+export function craftedRangeScenarios() {
+  const generator = scenarioGenerator(20261006, [2, 2]);
+  return Array.from({ length: 18 }, (_, index) => {
+    const input = generator.scenario(0);
+    input.holds = {}; input.spared = [];
+    input.runes = input.runes.filter((rune, at, all) => rune.slot >= 5
+      || all.findIndex((other) => other.slot === rune.slot) === at).map((rune, at) => ({
+      ...rune, occupiedId: rune.slot < 5 ? input.unitId : null, level: 15,
+      setId: at % 3 === 0 ? 15 : 13, ancient: index % 3 === 0 && rune.slot === 5,
+    }));
+    input.holds = Object.fromEntries(input.runes.filter((rune) => rune.slot < 5).map((rune) => [rune.id, { locked: true }]));
+    input.requirements = { ...input.requirements, builds: [], slotMains: { slot2: [], slot4: [], slot6: [] },
+      allowBroken: true, allowIntangible: false, allowImmemorial: true, alwaysCrits: index % 7 === 0,
+      alwaysElementAdvantage: false, critLead: undefined, targets: {}, ceilings: {},
+      rankBy: ['dmg', 'ehp', 'spd'][index % 3] };
+    input.settings = { ...input.settings, depth: 'complete', gems: 'owned', grinds: 'owned',
+      runesOnOtherMonsters: true, resultCount: 3 };
+    input.craftItems = ['standard', 'ancient', 'immemorial'].flatMap((lineage) =>
+      (lineage === 'immemorial' ? [null] : [13, 15]).flatMap((setId) =>
+        ['Hero', 'Legend'].flatMap((grade) => ['gem', 'grindstone'].flatMap((kind) => (kind === 'gem' ? [8] : [4, 8]).map((statId) => ({
+          id: `${lineage}-${setId}-${kind}-${grade}-${statId}`, kind, lineage, setId, setName: null,
+          statId, statName: 'Synthetic', grade, amount: grade === 'Legend' ? 1 : 2,
+        }))))));
+    return input;
+  });
+}

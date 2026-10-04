@@ -12,6 +12,7 @@ which are not, and where each part of it runs.
 | --- | --- |
 | `app/lib/rune-optimization-requirements.ts` | A calculation's requirements, seeded from the profile (§2) |
 | `app/lib/rune-optimization-problem.ts` | Candidates, filters, exact reduction, the depth's cut (§3–§5) |
+| `app/lib/rune-optimization-ranges.ts` | Figure dependencies, generous envelopes and proof of binding limits (§4.1, §4.3) |
 | `app/lib/rune-optimization-shortlist.ts` | Exact range feasibility, complementary builds and paired improvements for the cut (§4.3, §5) |
 | `app/lib/rune-optimization-craft-allocation.ts` | Exact per-stat allocation of held grades and stones after Gem placements are chosen (§6.4) |
 | `app/lib/rune-optimization-search.ts` | The tree, the tail's blocks, the passes to a card, the merge of parts (§6–§7) |
@@ -180,6 +181,15 @@ accumulators matter. DMG reads ATK, CRI Rate and CRI Dmg; E.HP reads HP and DEF.
 accumulator is ignored by every reduction below — a rune's Accuracy is noise to a
 DMG build with no Accuracy floor.
 
+Before reduction, independent slot maxima and reachable set bonuses prove which
+ceilings could bind at all; minima and unavoidable bonuses prove which floors
+could still fail. A ceiling at or above that upper envelope, or a floor at or
+below the lower envelope, is no longer read by the search. This proof uses the
+full admitted craft pool before the depth cut, never a heuristic shortlist.
+The original requirements stay intact on screen, in preferences and when results
+are re-read. Only the calculation's internal limits and relevant accumulators
+are simplified. `rune-optimization-ranges.ts` owns these dependencies and envelopes.
+
 ### 4.2 Dominance
 
 Within one slot and one set-equivalence group, candidate *a* **dominates** *b*
@@ -235,6 +245,9 @@ with bonuses every stated build requires, give the opposite proof: if that sum
 exceeds a ceiling, the candidate cannot be used either.
 These checks do not read the current build and never use a heuristic price.
 They run before the quadratic dominance comparison and again after reduction.
+Each range reduction repeats until no slot shrinks, for at most eight passes;
+a removal in one slot can tighten every other slot's envelope. Stopping that
+iteration early only retains extra candidates.
 
 ## 5. The depth's cut — the one shortcut that is not exact
 
@@ -351,7 +364,10 @@ builds before picking individual runes**:
   the admitted pool; set feasibility and held-item stock are checked as they grow.
   Where there are no ranges the identical beams run once. Each Gem placement
   contributes its strongest, cheapest and two resource-priced representatives
-  rather than every product of stone alternatives; ceilings keep all representatives.
+  rather than every product of stone alternatives. A ceiling fixes only the
+  affected lines' amounts and item stacks; independent craft choices still use
+  those representatives. Lower values and alternative stacks on ceiling-sensitive
+  lines keep separate groups.
   Partial prefixes also price scarcity, so six runes do not each reserve the same
   one-item stack in their ordering. Finished guides are ranked by actual figures.
 - Finished guides must satisfy the actual sets, ranges, Intangible rule and stock.
@@ -402,7 +418,10 @@ is what lets the tail be handed to a card in passes (§7).
 At every node of the tree the open slots can add at most what their candidates
 hold. Every figure rises with every accumulator, so the figures of an optimistic
 sum bound every build below the node. A node is entered only if its bound meets
-every target and could beat the build now last in the table.
+every target and could beat the build now last in the table. Direct-stat ceilings
+also cap the optimistic totals before the shared sheet reads a composite: excess
+ATK forbidden by its ceiling cannot promise extra DMG. A ceiling on the ranking
+figure itself caps that bound too. Equal scores stay eligible for the tie order.
 
 **Only what the question reads.** The ranking figure and the targets read a few
 accumulators (§4.1). A set bonus on any other accumulator moves no figure a decision
@@ -521,7 +540,8 @@ With *Owned only*, every candidate names the stacks it spends: a combination nee
 three stones from a stack of two is not offered. All compatible grades and stacks
 participate, including set-specific alternatives to an Immemorial item.
 
-**Without ceilings, choose placement first and allocate items afterwards.** A recipe
+**Choose placement and ceiling-sensitive work first; allocate independent items afterwards.**
+A recipe
 names a rune and the Gem's replacement line and stat, with no Gem as its own recipe.
 The tree and the card bound each recipe by its independent accumulator maxima.
 These are optimistic figures only. For a promising six-recipe combination, each
@@ -530,16 +550,28 @@ their total contribution. An optional stone has a free unchanged choice; an
 assumed item has unlimited supply. Independent best choices are used immediately
 when they fit; otherwise a minimum-cost flow finds the exact assignment.
 
-This is exact because all read figures and floors are monotone, and stacks of
-different kinds or stat ids cannot compete. Maximizing each accumulator's
+This is exact because all read figures and floors are monotone in these free
+accumulators, and stacks of different kinds or stat ids cannot compete. Maximizing each accumulator's
 contribution at once maximizes every read figure for those placements. The final
 six actual end states are looked up and counted by the shared stat sheet. A failed
 assignment rejects the recipe combination, never an imported rune. Matching results
 have a 4,096-entry cache per worker; eviction repeats the same answer.
 
-**With any ceiling, retain the full end-state search.** More can exceed a ceiling,
-so the monotone allocation proof does not apply. Optional stones and lower Gem
-alternatives remain candidates and are judged on their actual figures.
+**A ceiling fixes only the work it reads.** Each recipe additionally names the
+exact value and grind on every ceiling-sensitive line, and the stacks those lines
+spend. The tree counts that fixed spend normally. Work on other stats is allocated
+with the same matching as an uncapped question, because kind/stat stacks cannot
+compete across that boundary. Recipe bounds equal their actual ceiling contributions;
+only free accumulators may be optimistic. Optional stones, lower Gem grades and
+set-specific or Immemorial alternatives remain distinct wherever a ceiling reads
+them. Composite ceilings fix all the accumulators they read, not just one stat.
+
+Every retained recipe restores the full legal product of its independent item
+choices before matching, including at depth 10. This prevents an earlier dominance
+or range reduction from leaving a required supply alternative out of the lookup.
+Resolved builds are checked on the shared stat sheet against floors and ceilings.
+A physical row already found needs no further matching when another work plan's
+optimistic score is strictly lower; equal scores still resolve for the tie order.
 
 **One row per physical combination.** Alternative Gem or stone plans for the same
 six rune ids improve that row rather than filling another. Each worker and the
@@ -603,6 +635,9 @@ an open Shield/Will search at depth 1, stopping with results, an immediate time
 limit, and a worker allocation failure that recovers in one worker.
 
 ### 6.7 Measured
+
+The 4 October range-allocation improvements, their before/after measurements and
+limits, are in [Rune Optimization range allocation](RUNE-OPTIMIZATION-RANGE-ALLOCATION.md).
 
 The 4 October review and measurements of resource allocation, including the
 comparison with full grade/stone combinations on the same shortlist, are in

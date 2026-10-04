@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { scenarioGenerator } from './rune-optimization-scenarios.mjs';
+import { craftedRangeScenarios, scenarioGenerator } from './rune-optimization-scenarios.mjs';
 import { prepareRuneOptimization, buildFigures, figureIndex } from '../app/lib/rune-optimization-problem.ts';
 import { effectSlot } from '../app/lib/monster-stats.ts';
 import { runeOptimizationDepths, runeOptimizationSettingChecks } from '../app/lib/rune-optimization-settings.ts';
@@ -314,3 +314,28 @@ for (let index = 0; index < 16; index += 1) {
   assert.deepEqual(searchRuneBuilds(copied).builds, matched.builds, 'sharing prepared recipes must keep the same result');
 }
 console.log('PASS: 16 richer held-item pools agree with full craft enumeration across standard, Ancient, set-specific and Immemorial supply, including converted lines and worker cloning.');
+
+let constrainedQualityRows = 0;
+for (const [index, source] of craftedRangeScenarios().slice(0, 6).entries()) {
+  const input = { ...source, runes: source.runes.flatMap((rune) => rune.slot < 5 ? [rune]
+    : Array.from({ length: 6 }, (_, at) => ({ ...rune, id: `${rune.id}-quality-${at}`,
+      subProperties: rune.subProperties.map((line) => ({ ...line, value: line.value + at % 3 })),
+    }))) };
+  const anchorProblem = prepareRuneOptimization(input);
+  const anchor = searchRuneBuilds(anchorProblem);
+  assert.ok(anchor.complete && anchor.builds.length > 0, 'crafted quality needs a completed anchor');
+  const stat = ['spd', 'atk', 'hp'][index % 3];
+  const center = anchor.builds[0].figures[figureIndex(stat)];
+  input.requirements = { ...input.requirements,
+    targets: { [stat]: center - 2 }, ceilings: { [stat]: center + 2 } };
+  const quickProblem = prepareRuneOptimization({ ...input, settings: { ...input.settings, depth: 'quick' } });
+  const fullProblem = prepareRuneOptimization(input);
+  const quick = searchRuneBuilds(quickProblem);
+  const full = searchRuneBuilds(fullProblem);
+  assert.ok(quick.complete && full.complete && full.builds.length > 0, `crafted quality ${index}: a timeout proves no quality`);
+  assert.equal(quick.builds[0].figures[quickProblem.rank], full.builds[0].figures[fullProblem.rank],
+    `crafted quality ${index}: depth 1 lost the known constrained optimum`);
+  constrainedQualityRows += quick.builds.length;
+}
+assert.ok(constrainedQualityRows >= 12, 'too few constrained quality rows were exercised');
+console.log('PASS: depth 1 retains the depth-10 optimum on six wider held-item pools with tight ranges.');

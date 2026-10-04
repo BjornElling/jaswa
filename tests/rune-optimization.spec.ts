@@ -624,3 +624,46 @@ test('a lone four-set, a ceiling and a reset to the preset', async ({ page }, te
   await expect(page.getByRole('button', { name: /^Desired rune builds/ })).toHaveAttribute('aria-label', 'Desired rune builds: Any build');
   await expect(reset).toBeDisabled();
 });
+
+test('owned craft work respects a tight ceiling and leaves full requirement panels in place', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await freshWorkspace(page);
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
+  await openOptimization(page);
+  await page.screenshot({ path: testInfo.outputPath('craft-ranges-empty.png'), fullPage: true });
+  await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  await page.getByRole('slider', { name: 'Depth', exact: true }).press('Home');
+  await page.getByLabel('Rank by', { exact: true }).selectOption('dmg');
+  const requirements = page.getByRole('region', { name: 'Requirements for this calculation' });
+  for (const input of await requirements.locator('input[type="number"]').all()) {
+    await input.fill((await input.getAttribute('aria-label'))?.includes('at most') ? '1000000000' : '0');
+  }
+  await page.getByLabel('Spd: at most', { exact: true }).fill('170');
+  const settings = page.getByRole('complementary', { name: 'Settings' });
+  for (const radio of await settings.getByRole('radio', { name: 'Owned only', exact: true }).all()) await radio.check();
+  const panel = page.locator('.rune-optimization-monster-panel');
+  const before = { panel: await box(panel), requirements: await box(requirements) };
+  await page.screenshot({ path: testInfo.outputPath('craft-ranges-before.png'), fullPage: true });
+  await page.getByRole('button', { name: 'Find builds' }).click();
+  await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Find builds' })).toBeEnabled();
+  const table = page.getByRole('table', { name: 'Rune builds' });
+  const headers = await table.getByRole('columnheader').allInnerTexts();
+  const speed = headers.findIndex((text) => text.trim() === 'SPD');
+  expect(speed).toBeGreaterThan(0);
+  const rows = table.getByRole('row').filter({ has: page.getByRole('button', { name: /^Show build \d+$/ }) });
+  expect(await rows.count()).toBeGreaterThan(0);
+  for (const row of await rows.all()) {
+    expect(Number((await row.getByRole('cell').nth(speed).innerText()).replace(/\D/g, ''))).toBeLessThanOrEqual(170);
+    await expect(row).not.toHaveAttribute('data-stale', 'true');
+  }
+  expect(await box(panel)).toEqual(before.panel);
+  expect(await box(requirements)).toEqual(before.requirements);
+  await expect(page.getByLabel('Spd: at most', { exact: true })).toHaveValue('170');
+  await page.screenshot({ path: testInfo.outputPath('craft-ranges-after.png'), fullPage: true });
+  await page.getByRole('button', { name: 'Show build 1', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Build 1', exact: true })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('craft-ranges-build.png'), fullPage: true });
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeFocused();
+});

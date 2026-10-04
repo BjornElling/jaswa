@@ -1,5 +1,6 @@
-import { effectSlotCount } from './monster-stats';
+import { effectSlotCount, effectSlotOf } from './monster-stats';
 import type { Candidate, RuneOptimizationProblem } from './rune-optimization-problem';
+import { ceilingEffectSlots } from './rune-optimization-ranges';
 
 type Choice = { stock: number; value: number };
 type Operation = { kind: 'gem' | 'grindstone'; statId: number; line: number; choices: Choice[]; key: number };
@@ -8,6 +9,16 @@ type Edge = { to: number; reverse: number; capacity: number; cost: number };
 
 export const craftRecipeKey = (candidate: Candidate): string =>
   `${candidate.runeId}|${candidate.gemmedAt}|${candidate.lines.map((line) => line.statId)}`;
+
+/** Ceiling-sensitive work is fixed; only independent, monotone operations are deferred. */
+export function craftAllocationKey(
+  candidate: Candidate, capped: ReadonlySet<number>, stock: RuneOptimizationProblem['stock'],
+): string {
+  if (capped.size === 0) return craftRecipeKey(candidate);
+  return `${craftRecipeKey(candidate)}|${candidate.lines.map((line) => capped.has(effectSlotOf(line.statId))
+    ? `${line.value}:${line.grind}` : '').join(',')}|${candidate.stock
+    .filter((at) => capped.has(effectSlotOf(stock[at].statId))).sort((a, b) => a - b)}`;
+}
 
 /** Assign at most six lines to held stacks, with the greatest total contribution. */
 function assign(operations: Operation[], stock: RuneOptimizationProblem['stock']): Choice[] | null {
@@ -59,8 +70,8 @@ function assign(operations: Operation[], stock: RuneOptimizationProblem['stock']
 }
 
 /**
- * With no ceilings, more of a stat cannot hurt any read figure. Once six Gem
- * placements are chosen, grades and stones need only maximize each stat's sum.
+ * Once ceiling-sensitive work and six Gem placements are fixed, more of each
+ * remaining stat cannot hurt. Grades and stones need only maximize its sum.
  * Item kinds and stat ids have disjoint stacks, so small independent matchings
  * replace the Cartesian product of every grade and optional Grindstone.
  * All options come from legal end states supplied by rune-craft-end-state; this
@@ -77,14 +88,14 @@ const planKey = (candidate: Pick<Candidate, 'lines' | 'stock'>) =>
   `${candidate.lines.map((line) => `${line.value}:${line.grind}`)}|${[...candidate.stock].sort((a, b) => a - b)}`;
 
 export function prepareCraftAllocation(source: RuneOptimizationProblem): CraftAllocationPreparation | null {
-  if (source.ceilings.some(Number.isFinite)) return null;
+  const capped = ceilingEffectSlots(source.ceilings);
   const recipes: Recipe[][] = [];
   const originalToRecipe: Int32Array[] = [];
   const operationKeys = new Map<string, number>();
   const slots = source.slots.map((slot, own) => {
     const groups = new Map<string, number[]>();
     slot.forEach((candidate, at) => {
-      const key = craftRecipeKey(candidate);
+      const key = craftAllocationKey(candidate, capped, source.stock);
       const group = groups.get(key) ?? []; group.push(at); groups.set(key, group);
     });
     const mapping = new Int32Array(slot.length);
@@ -94,6 +105,7 @@ export function prepareCraftAllocation(source: RuneOptimizationProblem): CraftAl
       const first = slot[indexes[0]];
       const operations: Operation[] = [];
       for (const [line, property] of first.lines.entries()) {
+        if (capped.has(effectSlotOf(property.statId))) continue;
         for (const kind of line === first.gemmedAt ? ['gem', 'grindstone'] as const : ['grindstone'] as const) {
           const choices = new Map<number, number>();
           for (const index of indexes) {
@@ -115,7 +127,8 @@ export function prepareCraftAllocation(source: RuneOptimizationProblem): CraftAl
         if (!variants.has(key)) variants.set(key, index);
       }
       here.push({ indexes, operations, variants });
-      candidates.push({ ...first, stock: [], effects: Float64Array.from({ length: effectSlotCount }, (_, stat) =>
+      candidates.push({ ...first, stock: first.stock.filter((at) => capped.has(effectSlotOf(source.stock[at].statId))),
+        effects: Float64Array.from({ length: effectSlotCount }, (_, stat) =>
         indexes.reduce((maximum, at) => Math.max(maximum, slot[at].effects[stat]), 0)) });
     }
     recipes[own] = here; originalToRecipe[own] = mapping;
@@ -142,7 +155,7 @@ export function craftAllocation(source: RuneOptimizationProblem): {
         const group = groups.get(key) ?? []; group.push({ slot, operation }); groups.set(key, group);
       }));
       const lines = selected.map((recipe, at) => source.slots[at][recipe.indexes[0]].lines.map((line) => ({ ...line })));
-      const spends: number[][] = picks.map(() => []);
+      const spends: number[][] = picks.map((pick, at) => [...slots[at][pick].stock]);
       for (const group of groups.values()) {
         const key = group.map((entry) => entry.operation.key).join(',');
         if (!matchingCache.has(key)) {

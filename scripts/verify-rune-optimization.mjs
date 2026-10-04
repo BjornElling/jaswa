@@ -62,7 +62,7 @@ import {
 } from '../app/lib/rune-optimization-search.ts';
 import { runeBuild } from '../app/lib/rune-set-pairs.ts';
 import { runeSetId, runeSetPieceCount } from '../app/lib/rune-sets.ts';
-import { scenarioGenerator } from './rune-optimization-scenarios.mjs';
+import { craftedRangeScenarios, scenarioGenerator } from './rune-optimization-scenarios.mjs';
 
 const { scenario } = scenarioGenerator();
 const figures = monsterStatTargetKeys;
@@ -544,6 +544,47 @@ console.log(`PASS: ${intervalTables} tight interval tables match brute force; in
   + ` SPD pool from ${beforeInterval.combinations} to ${afterInterval.combinations} full combinations with identical rows.`);
 
 assert.ok(checkedRows > scenarios, 'too few builds were compared to prove anything');
+
+let hybridPools = 0;
+for (const [index, input] of craftedRangeScenarios().entries()) {
+  const anchorProblem = prepareRuneOptimization(input, { reduce: false });
+  const anchor = searchRuneBuilds(anchorProblem).builds[0];
+  assert.ok(anchor, `crafted range ${index} needs a feasible anchor`);
+  const stat = ['spd', 'atk', 'hp', 'def', 'dmg', 'ehp'][index % 6];
+  const center = anchor.figures[figures.indexOf(stat)];
+  for (const limits of [
+    { targets: { [stat]: center - 1 }, ceilings: { [stat]: center + 1 } },
+    { targets: {}, ceilings: Object.fromEntries(figures.map((key) => [key, 1e12])) },
+  ]) {
+    Object.assign(input.requirements, limits);
+    const originalRequirements = JSON.stringify(input.requirements);
+    const problem = prepareRuneOptimization(input);
+    const answer = searchRuneBuilds(problem);
+    const expanded = searchRuneBuilds(problem, 0, 1, { allocateCraft: false });
+    const reading = (table) => table.builds.map((build) => ({ value: build.figures[problem.rank], moves: build.moves }));
+    assert.ok(answer.complete && expanded.complete, `crafted range ${index}: both searches must finish`);
+    assert.deepEqual(reading(answer), bruteForce(input), `crafted range ${index}: hybrid allocation lost an oracle row`);
+    assert.deepEqual(reading(answer), reading(expanded), `crafted range ${index}: allocation changed the ranked scores`);
+    if (stat === 'spd' && Object.keys(limits.ceilings).length === 1 && problem.craft) hybridPools += 1;
+    if (Object.keys(limits.ceilings).length === figures.length) assert.ok(problem.ceilings.every(Number.isNaN),
+      'provably loose ceilings must not retain constrained work');
+    assert.equal(JSON.stringify(input.requirements), originalRequirements, 'range proofs changed saved requirements');
+    for (const build of answer.builds) {
+      const compared = sheet(input, build.picks.map((pick, slot) => problem.slots[slot][pick]));
+      const spent = new Map();
+      build.picks.forEach((pick, slot) => problem.slots[slot][pick].stock.forEach((at) => spent.set(at, (spent.get(at) ?? 0) + 1)));
+      for (const [at, count] of spent) assert.ok(count <= problem.stock[at].amount, 'hybrid allocation overspent a fixed or deferred item');
+      for (const [key, ceiling] of ceilingsOf(input)) assert.ok(compared[figures.indexOf(key)] <= ceiling,
+        `crafted range ${index}: a resolved build exceeds ${key}`);
+    }
+    const copied = structuredClone(problem);
+    assert.deepEqual(searchRuneBuilds(copied).builds, answer.builds, 'cloning hybrid recipes changed the answer');
+    const split = mergeBuildResults([0, 1, 2].map((part) => searchRuneBuilds(problem, part, 3)), problem.rank, problem.resultCount);
+    assert.deepEqual(split.builds, answer.builds, 'splitting hybrid recipes changed rows or tie order');
+  }
+}
+assert.ok(hybridPools > 0, 'no active SPD ceiling exercised deferred non-SPD craft work');
+console.log('PASS: 36 rich crafted range tables match unreduced brute force, full item enumeration, cloning and split search; fixed and deferred stacks respect supply and loose limits leave the saved choices intact.');
 // Accounts after 160 deliberately disable crafting, locks and priority exclusions.
 const personalScenarios = Math.min(scenarios, 160);
 assert.ok(withWork > personalScenarios / 4, `only ${withWork} builds had work to follow`);

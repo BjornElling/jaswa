@@ -36,9 +36,10 @@ import type { CraftItem } from './rune-craft-items';
 import { lineageFits } from './rune-craft-plan';
 import type { RuneHolds } from './rune-holds';
 import { runeOptimizationDepthPlans } from './rune-optimization-settings';
-import { craftRecipeKey, prepareCraftAllocation } from './rune-optimization-craft-allocation';
+import { craftAllocationKey, craftRecipeKey, prepareCraftAllocation } from './rune-optimization-craft-allocation';
+import { availableStatSets, bindingRangeLimits, ceilingEffectSlots, figureEffectSlots } from './rune-optimization-ranges';
 import type { CraftAllocationPreparation } from './rune-optimization-craft-allocation';
-import { availableStatSets, complementaryCandidates, rangeFeasibleCandidates, setFeasibleCandidates } from './rune-optimization-shortlist';
+import { complementaryCandidates, rangeFeasibleCandidates, setFeasibleCandidates } from './rune-optimization-shortlist';
 import type { CraftUse, RuneOptimizationSettings } from './rune-optimization-settings';
 import { mainPropertyMaximum } from './rune-properties';
 import { runeBuild, runeSlotCount } from './rune-set-pairs';
@@ -185,28 +186,7 @@ export type RuneOptimizationProblem = {
   };
 };
 
-/** Where a figure's accumulators are, for the reductions that only look at what matters. */
-const figureSlots: Readonly<Record<RankFigure, readonly number[]>> = {
-  hp: [effectSlot.hpPercent, effectSlot.hpFlat],
-  atk: [effectSlot.atkPercent, effectSlot.atkFlat],
-  def: [effectSlot.defPercent, effectSlot.defFlat],
-  spd: [effectSlot.spdPercent, effectSlot.spdFlat],
-  criRate: [effectSlot.criticalRate],
-  criDmg: [effectSlot.criticalDamage],
-  res: [effectSlot.resistance],
-  acc: [effectSlot.accuracy],
-  dmg: [effectSlot.atkPercent, effectSlot.atkFlat, effectSlot.criticalRate, effectSlot.criticalDamage],
-  ehp: [effectSlot.hpPercent, effectSlot.hpFlat, effectSlot.defPercent, effectSlot.defFlat],
-  ehpD: [effectSlot.hpPercent, effectSlot.hpFlat, effectSlot.defPercent, effectSlot.defFlat],
-};
-
 export const figureIndex = (figure: RankFigure): number => targetFigureKeys.indexOf(figure);
-
-/* What a figure reads once a monster always crits: DMG no longer moves with CRI
-   Rate, so a reduction that still compared it would keep runes for nothing. */
-const slotsOf = (figure: RankFigure, alwaysCrits: boolean): readonly number[] => (alwaysCrits && figure === 'dmg'
-  ? figureSlots.dmg.filter((slot) => slot !== effectSlot.criticalRate)
-  : figureSlots[figure]);
 
 /**
  * The floors a calculation asks for, with `NaN` where none is set. A monster that
@@ -443,7 +423,7 @@ export function estimateRuneOptimizationBuilds(input: RuneOptimizationInput): nu
   const ceilings = targetCeilings(input.requirements);
   const relevant = [...new Set([input.requirements.rankBy, ...targetFigureKeys.filter((key) =>
     Number.isFinite(targets[figureIndex(key)]) || Number.isFinite(ceilings[figureIndex(key)]))]
-    .flatMap((figure) => slotsOf(figure, input.requirements.alwaysCrits)))];
+    .flatMap((figure) => figureEffectSlots(figure, input.requirements.alwaysCrits)))];
   const group = dominanceGroupOf(builds, input.requirements, relevant);
   const { keep } = runeOptimizationDepthPlans[input.settings.depth];
   const counts = Array.from({ length: 6 }, () => new Map<number, number>());
@@ -659,13 +639,13 @@ export function prepareRuneOptimization(
   const targetFigures = targetFigureKeys.filter((key) => Number.isFinite(targets[figureIndex(key)]));
   const ceilings = targetCeilings(requirements);
   const ceilingFigures = targetFigureKeys.filter((key) => Number.isFinite(ceilings[figureIndex(key)]));
-  const pinned = new Set(ceilingFigures.flatMap((figure) => slotsOf(figure, requirements.alwaysCrits)));
+  const pinned = new Set(ceilingFigures.flatMap((figure) => figureEffectSlots(figure, requirements.alwaysCrits)));
 
   /* Only what the ranking figure, the targets and the ceilings read matters to any
      reduction. A rune's Accuracy is noise to a DMG build with no Accuracy floor, and
      a reduction that compared it would keep a hundred runes for their Accuracy alone. */
   const relevant = [...new Set([requirements.rankBy, ...targetFigures, ...ceilingFigures]
-    .flatMap((figure) => slotsOf(figure, requirements.alwaysCrits)))];
+    .flatMap((figure) => figureEffectSlots(figure, requirements.alwaysCrits)))];
   const relevantSlots = new Uint8Array(effectSlotCount);
   for (const slot of relevant) relevantSlots[slot] = 1;
   const wanted = (statId: number) => {
@@ -756,6 +736,17 @@ export function prepareRuneOptimization(
         stock: variant.stock, moves: !onThisMonster, locked: false, proxy: 0,
       });
     }
+  }
+
+  if (reduce) {
+    const limits = bindingRangeLimits({ base, start, slots: bySlot, builds, targets, ceilings });
+    targets.set(limits.targets); ceilings.set(limits.ceilings);
+    targetFigures.splice(0, targetFigures.length, ...targetFigureKeys.filter((key) => Number.isFinite(targets[figureIndex(key)])));
+    ceilingFigures.splice(0, ceilingFigures.length, ...targetFigureKeys.filter((key) => Number.isFinite(ceilings[figureIndex(key)])));
+    pinned.clear();
+    for (const figure of ceilingFigures) for (const stat of figureEffectSlots(figure, requirements.alwaysCrits)) pinned.add(stat);
+    relevant.splice(0, relevant.length, ...new Set([requirements.rankBy, ...targetFigures, ...ceilingFigures]
+      .flatMap((figure) => figureEffectSlots(figure, requirements.alwaysCrits))));
   }
 
   const eligibleCounts = bySlot.map((slot) => slot.length);
@@ -949,10 +940,14 @@ export function prepareRuneOptimization(
           .sort((a, b) => b.proxy - a.proxy || Number(complementary.has(b)) - Number(complementary.has(a)) || a.runeId.localeCompare(b.runeId));
       });
       problem.guides = guidance.builds.map((build) => build.map((candidate, slot) => problem.slots[slot].indexOf(candidate)));
-    } else if (!ceilings.some(Number.isFinite)) {
+    } else {
+      // Matching free-stat items needs the complete product for each retained
+      // placement and fixed ceiling plan, including its cheaper supply choices.
+      const capped = ceilingEffectSlots(ceilings);
       problem.slots = problem.slots.map((slot, at) => {
-        const families = new Set(slot.map((candidate) => candidate.runeId));
-        return craftPools[at].filter((candidate) => families.has(candidate.runeId)).sort((a, b) => b.proxy - a.proxy);
+        const recipes = new Set(slot.map((candidate) => craftAllocationKey(candidate, capped, stock)));
+        return craftPools[at].filter((candidate) => recipes.has(craftAllocationKey(candidate, capped, stock)))
+          .sort((a, b) => b.proxy - a.proxy);
       });
     }
     for (const [at, slot] of problem.slots.entries()) reports[at].kept = slot.length;

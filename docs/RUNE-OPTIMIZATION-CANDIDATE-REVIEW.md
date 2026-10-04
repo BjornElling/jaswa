@@ -13,7 +13,7 @@ from [RUNE-CANONICAL.md](RUNE-CANONICAL.md); damage and effective HP still use
 | Intangible | It occupies one slot, at most one may be worn, and it completes only a uniquely one-piece-short set. A locked Intangible is still worn when additional Intangibles are disabled. | Use the shared final-set rules in support proofs; retain set identities wherever an admitted Intangible can affect completion. |
 | Owned Gems | Only the best compatible grade/stack was offered. A scarce Legend or Immemorial item could hide a feasible lower-grade or set-specific plan. | Offer every compatible held stack with its true capacity. Keep standard, Ancient and Immemorial lineage rules in the craft owner. |
 | Owned Grindstones | All wanted lines were ground together, or none were. A plan could not preserve just the scarce SPD stone while grinding ATK. | Make every held stone independently optional. |
-| Ceilings | Fully grinding a theoretical rune, or refusing a lower same-stat Gem, could remove the only accepted build. An irrelevant Gem can be relevant when it removes excess SPD. | Retain unchanged theoretical lines and ceiling-reducing Gems. Keep the full numeric end-state search whenever a ceiling is present. |
+| Ceilings | Fully grinding a theoretical rune, or refusing a lower same-stat Gem, could remove the only accepted build. An irrelevant Gem can be relevant when it removes excess SPD. | Retain unchanged theoretical lines and ceiling-reducing Gems. This review initially kept every numeric end state under a ceiling; the later range-allocation review narrows that expansion to ceiling-sensitive work. |
 | Exact reduction | Range proofs followed the quadratic comparison; comparisons scanned unrelated stock plans; several work plans for one rune counted as several dominators. | Run ranges early, index ceiling/stock compatibility, reduce physical families locally, and count distinct physical dominators. Preserve the fewer-moves tie. |
 | Range bonuses | Independent triple stat sets were promised even where too few actual slots could wear them. Required bonuses were omitted from lower bounds. | Bound bonuses by reachable slots and wildcard capacity; include unavoidable required bonuses in ceiling proofs. |
 | Low depth | Grade and stone combinations could consume work without adding a new Gem placement. Independent high-scoring choices could reserve the same scarce stack. | Price resource scarcity in whole-build guidance, retain cheap and item-free complements, and keep every legal supply alternative for a selected placement. |
@@ -39,8 +39,11 @@ legal alternatives supplied by the craft owner.
 The tree and shader see optimistic recipe maxima, which may assume the same scarce
 item on several runes. Only a processor-side allocation and the shared stat sheet
 can admit a result. Graphics-card routing, agreement, fallback and buffer layout
-remain under their existing owners. A ceiling invalidates the monotonicity proof,
-so that question uses the full end-state search.
+remain under their existing owners. A ceiling invalidates the monotonicity proof
+on the accumulators it reads. The subsequent
+[range-allocation improvement](RUNE-OPTIMIZATION-RANGE-ALLOCATION.md) keeps that
+work concrete while matching independent craft work separately; the measurements
+below precede that improvement.
 
 ## Measurements and their limits
 

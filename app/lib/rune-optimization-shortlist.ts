@@ -1,15 +1,11 @@
 import {
   addSetBonuses, baseStatCount, effectSlotCount, figuresInto, intangibleCompletion,
-  intangibleSetId, statSetBonuses, targetFigureCount, totalsInto,
+  intangibleSetId, targetFigureCount, totalsInto,
 } from './monster-stats';
+import { availableStatSets, ceilingEffectSlots, rangeEnvelope } from './rune-optimization-ranges';
+import { craftAllocationKey } from './rune-optimization-craft-allocation';
 import { canStillFinishSets, canStillSatisfy, noBrokenSets, satisfiesBuild } from './rune-optimization-problem';
-import type { BuildRequirement, Candidate, RuneOptimizationProblem } from './rune-optimization-problem';
-
-/** A free slot should not promise a four-set beside an already required four-set. */
-export function availableStatSets(builds: readonly BuildRequirement[] | null): typeof statSetBonuses {
-  return statSetBonuses.filter(([setId, pieces]) => builds === null || builds.some((build) =>
-    build.free >= pieces || build.needs.some((need) => need.setId === setId)));
-}
+import type { Candidate, RuneOptimizationProblem } from './rune-optimization-problem';
 
 /**
  * Prove set support before multiplying runes by craft alternatives. Six slots
@@ -87,16 +83,16 @@ export function complementaryCandidates(problem: RuneOptimizationProblem): { can
   const guides: Candidate[][] = [];
   if (problem.slots.some((slot) => slot.length === 0)) return { candidates: selected, builds: guides };
   // Resource alternatives multiply a rune's end states, not its complements.
-  // The beam sees each Gem shape at its strongest and cheapest, plus its quiet
-  // ceiling variants. Pair improvements below still read the entire exact pool.
+  // The beam fixes ceiling-sensitive work and sees independent craft work at
+  // several prices. Pair improvements below still read the entire exact pool.
+  const capped = ceilingEffectSlots(problem.ceilings);
   const beamSlots = problem.slots.map((slot) => {
     const groups = new Map<string, Candidate[]>();
     for (const candidate of slot) {
-      const key = `${candidate.runeId}|${candidate.gemmedAt}|${candidate.lines.map((line) => line.statId)}`;
+      const key = craftAllocationKey(candidate, capped, problem.stock);
       const group = groups.get(key) ?? []; group.push(candidate); groups.set(key, group);
     }
     const kept = new Set<Candidate>();
-    const hasCeiling = problem.ceilings.some(Number.isFinite);
     for (const group of groups.values()) {
       // Within a Gem shape every positive accumulator shares the same direction.
       const strength = (candidate: Candidate) => problem.relevant.reduce((sum, at) => sum + candidate.effects[at], 0);
@@ -110,7 +106,6 @@ export function complementaryCandidates(problem: RuneOptimizationProblem): { can
           - price * candidate.stock.reduce((cost, at) => cost + 1 / problem.stock[at].amount, 0);
         kept.add(group.reduce((a, b) => worth(b) > worth(a) ? b : a));
       }
-      if (hasCeiling) for (const candidate of group) kept.add(candidate);
     }
     return slot.filter((candidate) => kept.has(candidate));
   });
@@ -279,27 +274,25 @@ export function complementaryCandidates(problem: RuneOptimizationProblem): { can
 /**
  * An impossible range needs no heuristic. Independent maxima and every stat set
  * at once deliberately overestimate what five other slots can supply; minima
- * omit all set bonuses. Failing these bounds proves a candidate cannot be worn.
+ * include only unavoidable set bonuses. Failing these bounds proves a candidate
+ * cannot be worn.
  */
 export function rangeFeasibleCandidates(problem: RuneOptimizationProblem): Candidate[][] {
-  const maxima = problem.slots.map((slot) => Float64Array.from({ length: effectSlotCount }, (_, stat) =>
-    slot.reduce((best, candidate) => Math.max(best, candidate.effects[stat]), 0)));
-  const minima = problem.slots.map((slot) => Float64Array.from({ length: effectSlotCount }, (_, stat) =>
-    slot.reduce((best, candidate) => Math.min(best, candidate.effects[stat]), Infinity)));
-  if (problem.slots.some((slot) => slot.length === 0)) return problem.slots;
-  const highBonus = new Float64Array(effectSlotCount);
-  const lowBonus = new Float64Array(effectSlotCount);
-  const hasIntangible = problem.slots.some((slot) => slot.some((candidate) => candidate.setId === intangibleSetId));
-  for (const [setId, pieces, stat, value] of availableStatSets(problem.builds)) {
-    // Independent set maxima remain optimistic, but a set present in only one
-    // slot cannot promise three completions. The wildcard can supply one piece.
-    const possible = problem.slots.filter((slot) => slot.some((candidate) => candidate.setId === setId)).length;
-    highBonus[stat] += Math.floor(Math.min(6, possible + Number(hasIntangible)) / pieces) * value;
-    if (problem.builds !== null && problem.builds.length > 0) {
-      const required = Math.min(...problem.builds.map((build) => build.needs.find((need) => need.setId === setId)?.pieces ?? 0));
-      lowBonus[stat] += Math.floor(required / pieces) * value;
-    }
+  let slots = problem.slots;
+  // A bounded fixed point cannot remove extra solutions: stopping early simply
+  // leaves candidates that a later pass might have proved impossible.
+  for (let pass = 0; pass < 8; pass += 1) {
+    const next = rangeFeasiblePass({ ...problem, slots });
+    if (next.every((slot, at) => slot.length === slots[at].length)) return next;
+    slots = next;
+    if (slots.some((slot) => slot.length === 0)) return slots.map(() => []);
   }
+  return slots;
+}
+
+function rangeFeasiblePass(problem: RuneOptimizationProblem): Candidate[][] {
+  if (problem.slots.some((slot) => slot.length === 0)) return problem.slots;
+  const { maxima, minima, highBonus, lowBonus } = rangeEnvelope(problem);
   const totals = new Float64Array(baseStatCount);
   const figures = new Float64Array(targetFigureCount);
   return problem.slots.map((slot, own) => {
@@ -314,8 +307,9 @@ export function rangeFeasibleCandidates(problem: RuneOptimizationProblem): Candi
     for (let stat = 0; stat < effectSlotCount; stat += 1) {
       high[stat] += highBonus[stat]; low[stat] += lowBonus[stat];
     }
+    const effects = new Float64Array(effectSlotCount);
     return slot.filter((candidate) => {
-      const effects = Float64Array.from(high, (value, stat) => value + candidate.effects[stat]);
+      for (let stat = 0; stat < effectSlotCount; stat += 1) effects[stat] = high[stat] + candidate.effects[stat];
       totalsInto(problem.base, effects, totals); figuresInto(totals, figures);
       if (figures.some((value, at) => value < problem.targets[at])) return false;
       for (let stat = 0; stat < effectSlotCount; stat += 1) effects[stat] = low[stat] + candidate.effects[stat];

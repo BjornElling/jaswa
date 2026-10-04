@@ -34,7 +34,7 @@ import {
 } from './monster-stats';
 import { canStillFinishSets, canStillSatisfy, noBrokenSets, overCeiling, satisfiesBuild } from './rune-optimization-problem';
 import type { RuneOptimizationProblem } from './rune-optimization-problem';
-import { availableStatSets } from './rune-optimization-shortlist';
+import { availableStatSets } from './rune-optimization-ranges';
 import { craftAllocation } from './rune-optimization-craft-allocation';
 
 /** One build the search found: a candidate index per slot (index 0 is slot 1), and its figures. */
@@ -617,11 +617,16 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
      on a finished build. */
   function passes(effectsNow: ArrayLike<number>): boolean {
     totalsInto(problem.base, effectsNow, totals);
+    // A completion cannot exceed either the optimistic contribution or a
+    // stated direct-stat ceiling. Composites read these tighter totals through
+    // the shared sheet, so a forbidden ATK surplus cannot promise extra DMG.
+    for (const index of ceilingIndexes) if (index < baseStatCount) totals[index] = Math.min(totals[index], ceilings[index]);
     for (let at = 0; at < targetIndexes.length; at += 1) {
       const index = targetIndexes[at];
       if (figureOf(totals, index) < targets[index]) return false;
     }
-    return figureOf(totals, rank) >= bar;
+    const rankBound = figureOf(totals, rank);
+    return (Number.isFinite(ceilings[rank]) ? Math.min(rankBound, ceilings[rank]) : rankBound) >= bar;
   }
 
   function withinCeilings(effectsNow: ArrayLike<number>): boolean {
@@ -759,6 +764,12 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
     }
     bySlot[order[firstTail]] = first;
     bySlot[order[lastTail]] = last;
+    const identity = JSON.stringify(bySlot.map((pick, slot) => problem.slots[slot][pick].runeId));
+    const previous = table.findIndex((build) => build.identity === identity);
+    // Many work plans improve the same physical row. Do not allocate items for
+    // one whose optimistic figure is already strictly worse; ties still settle
+    // through the ordinary total order after resolving its actual work.
+    if (allocation && previous >= 0 && figures[rank] < table[previous].figures[rank]) return;
     if (seeded.size > 0 || seed) {
       const key = bySlot.join(',');
       if (seeded.has(key)) return;
@@ -777,13 +788,11 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
         for (let stat = 0; stat < effectSlotCount; stat += 1) finished[stat] += candidate.effects[stat];
       }
       addSetBonuses(exactCounts, intangibleCompletion(exactCounts), finished);
-      if (!passes(finished)) return;
+      if (!passes(finished) || (capped && !withinCeilings(finished))) return;
       totalsInto(source.base, finished, totals); figuresInto(totals, figures);
       actualFigures = Array.from(figures);
     }
-    const identity = JSON.stringify(actualPicks.map((pick, slot) => source.slots[slot][pick].runeId));
     const found: FoundBuild = { identity, picks: actualPicks, figures: actualFigures, moves: moved };
-    const previous = table.findIndex((build) => build.identity === identity);
     if (previous >= 0) {
       if (ordered(found, table[previous]) >= 0) return;
       table.splice(previous, 1);
