@@ -32,7 +32,7 @@ import {
   addSetBonuses, baseStatCount, effectSlot, effectSlotCount, figureOf, figuresInto, intangibleCompletion, intangibleSetId,
   setIdBound, statSetBonuses, targetFigureCount, totalsInto,
 } from './monster-stats';
-import { canStillFinishSets, canStillSatisfy, noBrokenSets, overCeiling, satisfiesBuild } from './rune-optimization-problem';
+import { canStillFinishSets, canStillSatisfy, noBrokenSets, overCeiling, remainingSetSupport, satisfiesBuild } from './rune-optimization-problem';
 import type { RuneOptimizationProblem } from './rune-optimization-problem';
 import { availableStatSets } from './rune-optimization-ranges';
 import { craftAllocation } from './rune-optimization-craft-allocation';
@@ -172,6 +172,10 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
      therefore the tail. */
   const order = [0, 1, 2, 3, 4, 5].sort((left, right) => problem.slots[left].length - problem.slots[right].length || left - right);
   const depthCount = order.length;
+  const readSets = !problem.allowBroken ? new Set(problem.slots.flatMap((slot) => slot.map((candidate) => candidate.setId)))
+    : new Set(problem.builds?.flatMap((build) => build.needs.map((need) => need.setId)));
+  const setSupport = remainingSetSupport(problem.slots, order).map((support, depth) =>
+    [...readSets].some((set) => set !== intangibleSetId && support[set] < order.length - depth) ? support : undefined);
   const tailDepth = depthCount - 2;
   const firstTail = tailDepth;
   const lastTail = tailDepth + 1;
@@ -650,9 +654,9 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
   }
 
   function setsStillPossible(placedCount: number): boolean {
-    if (!allowBroken && !canStillFinishSets(setCounts, placedCount, setPieces)) return false;
+    if (!allowBroken && !canStillFinishSets(setCounts, placedCount, setPieces, setSupport[placedCount])) return false;
     if (builds === null) return true;
-    for (let at = 0; at < buildCount; at += 1) if (canStillSatisfy(builds[at], setCounts, placedCount)) return true;
+    for (let at = 0; at < buildCount; at += 1) if (canStillSatisfy(builds[at], setCounts, placedCount, setSupport[placedCount])) return true;
     return false;
   }
 

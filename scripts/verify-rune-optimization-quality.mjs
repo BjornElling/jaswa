@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { craftedRangeScenarios, scenarioGenerator } from './rune-optimization-scenarios.mjs';
+import { craftedRangeScenarios, scenarioGenerator, stockGuidanceScenarios } from './rune-optimization-scenarios.mjs';
 import { prepareRuneOptimization, buildFigures, figureIndex } from '../app/lib/rune-optimization-problem.ts';
 import { effectSlot } from '../app/lib/monster-stats.ts';
 import { runeOptimizationDepths, runeOptimizationSettingChecks } from '../app/lib/rune-optimization-settings.ts';
@@ -339,3 +339,22 @@ for (const [index, source] of craftedRangeScenarios().slice(0, 6).entries()) {
 }
 assert.ok(constrainedQualityRows >= 12, 'too few constrained quality rows were exercised');
 console.log('PASS: depth 1 retains the depth-10 optimum on six wider held-item pools with tight ranges.');
+
+const stockGuidance = stockGuidanceScenarios(27);
+for (const [index, expected] of [[7, 184848], [9, 187227], [11, 189916], [15, 203109], [26, 3191]]) {
+  const input = stockGuidance[index];
+  const quickProblem = prepareRuneOptimization(input);
+  const recipes = quickProblem.guides.map((guide) => guide.map((pick, slot) =>
+    quickProblem.craft?.originalToRecipe[slot][pick] ?? pick).join(','));
+  assert.equal(new Set(recipes).size, recipes.length, `stock guide ${index}: repeated recipes waste seed work`);
+  const early = searchRuneBuilds({ ...quickProblem, timeLimitMs: -1 }, 0, 1, { now: () => 0 });
+  assert.ok(early.builds[0]?.figures[quickProblem.rank] >= expected,
+    `stock guide ${index}: an immediate stop lost a stronger or independent guide`);
+  const fullProblem = prepareRuneOptimization({ ...input, settings: { ...input.settings, depth: 'complete' } });
+  const quick = searchRuneBuilds(quickProblem);
+  const full = searchRuneBuilds(fullProblem);
+  assert.ok(quick.complete && full.complete, `stock guide ${index}: quality needs completed references`);
+  assert.equal(quick.builds[0].figures[quickProblem.rank], full.builds[0].figures[fullProblem.rank],
+    `stock guide ${index}: the depth-1 result lost the complete pool's optimum`);
+}
+console.log('PASS: five scarce-stock pools retain strong guides on an immediate stop and the depth-10 optimum at depth 1, including the independent-guide regression.');

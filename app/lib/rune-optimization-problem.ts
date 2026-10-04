@@ -921,7 +921,7 @@ export function prepareRuneOptimization(
     for (const [at, slot] of problem.slots.entries()) reports[at].undominated = slot.length;
     if (keep !== null) {
       options.onStage?.('guiding');
-      const guidance = complementaryCandidates(problem);
+      const guidance = complementaryCandidates(problem, craftPools);
       const complementary = guidance.candidates;
       problem.slots = problem.slots.map((slot, slotIndex) => {
         const groups = new Map<number, Candidate[]>();
@@ -931,7 +931,8 @@ export function prepareRuneOptimization(
           group.push(candidate); groups.set(key, group);
         }
         const independent = new Set([...groups.values()].flatMap((group) => cut(group, keep, targetSlopes, ceilingSlopes)));
-        const recipes = new Set(slot.filter((candidate) => independent.has(candidate) || complementary.has(candidate)).map(craftRecipeKey));
+        const recipes = new Set([...slot.filter((candidate) => independent.has(candidate)),
+          ...[...complementary].filter((candidate) => candidate.slot === slotIndex + 1)].map(craftRecipeKey));
         return craftPools[slotIndex].filter((candidate) => recipes.has(craftRecipeKey(candidate)))
           /* Guides are seeded into the result table before the tree opens. The tree
              therefore gets the strongest bound-raising candidates first; putting
@@ -953,6 +954,14 @@ export function prepareRuneOptimization(
     for (const [at, slot] of problem.slots.entries()) reports[at].kept = slot.length;
   }
   problem.craft = prepareCraftAllocation(problem);
+  // Different beam prices can discover the same work recipe. Its allocation
+  // and neighbours are identical, so seeding it again only delays the tree.
+  const guideKeys = new Set<string>();
+  problem.guides = problem.guides.filter((guide) => {
+    const key = guide.map((pick, slot) => problem.craft?.originalToRecipe[slot][pick] ?? pick).join(',');
+    if (guideKeys.has(key)) return false;
+    guideKeys.add(key); return true;
+  });
   return problem;
 }
 
@@ -983,9 +992,14 @@ export function satisfiesBuild(build: BuildRequirement, counts: ArrayLike<number
  * left — the search's set pruning. It is allowed to be optimistic, never pessimistic:
  * the finished build is checked exactly by `satisfiesBuild`.
  */
-export function canStillSatisfy(build: BuildRequirement, counts: ArrayLike<number>, placed: number): boolean {
+export function canStillSatisfy(build: BuildRequirement, counts: ArrayLike<number>, placed: number, remaining?: ArrayLike<number>): boolean {
   let missing = 0;
-  for (const need of build.needs) missing += Math.max(0, need.pieces - counts[need.setId]);
+  for (const need of build.needs) {
+    const shortfall = Math.max(0, need.pieces - counts[need.setId]);
+    if (remaining && shortfall > remaining[need.setId]
+      && shortfall > remaining[need.setId] + Math.min(1, counts[intangibleSetId] + remaining[intangibleSetId])) return false;
+    missing += shortfall;
+  }
   return missing - Math.min(1, counts[intangibleSetId]) <= 6 - placed;
 }
 
@@ -1007,12 +1021,25 @@ export function noBrokenSets(counts: ArrayLike<number>, completes: number, setPi
  * Whether the open slots can still finish every set started so far — the pruning
  * for `noBrokenSets`, optimistic in the same way `canStillSatisfy` is.
  */
-export function canStillFinishSets(counts: ArrayLike<number>, placed: number, setPieces: Int32Array): boolean {
+export function canStillFinishSets(counts: ArrayLike<number>, placed: number, setPieces: Int32Array, remaining?: ArrayLike<number>): boolean {
   let missing = 0;
   for (let setId = 1; setId < setPieces.length; setId += 1) {
     const worn = counts[setId];
     if (worn === 0 || setPieces[setId] === 0) continue;
-    missing += (setPieces[setId] - (worn % setPieces[setId])) % setPieces[setId];
+    const shortfall = (setPieces[setId] - (worn % setPieces[setId])) % setPieces[setId];
+    if (remaining && shortfall > remaining[setId]
+      && shortfall > remaining[setId] + Math.min(1, counts[intangibleSetId] + remaining[intangibleSetId])) return false;
+    missing += shortfall;
   }
   return missing - Math.min(1, counts[intangibleSetId]) <= 6 - placed;
+}
+
+/** Each open slot can promise a set once; shared slots and the wildcard stay optimistic. */
+export function remainingSetSupport(slots: readonly (readonly { setId: number }[])[], order: readonly number[]): Int32Array[] {
+  const support = Array.from({ length: order.length + 1 }, () => new Int32Array(setIdBound));
+  for (let depth = order.length - 1; depth >= 0; depth -= 1) {
+    support[depth].set(support[depth + 1]);
+    for (const setId of new Set(slots[order[depth]].map((candidate) => candidate.setId))) support[depth][setId] += 1;
+  }
+  return support;
 }

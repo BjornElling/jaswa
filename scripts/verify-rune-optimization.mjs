@@ -52,10 +52,10 @@
  */
 import assert from 'node:assert/strict';
 import {
-  calculateMonsterTotals, criticalRateLift, intangibleCompletion, intangibleSetId, monsterTargetFigures, targetFigureKeys, unliftedFigures,
+  calculateMonsterTotals, criticalRateLift, intangibleCompletion, intangibleSetId, monsterTargetFigures, setIdBound, targetFigureKeys, unliftedFigures,
 } from '../app/lib/monster-stats.ts';
 import { monsterStatTargetKeys } from '../app/lib/monster-preferences.ts';
-import { buildFigures, prepareRuneOptimization } from '../app/lib/rune-optimization-problem.ts';
+import { buildFigures, canStillFinishSets, canStillSatisfy, prepareRuneOptimization, remainingSetSupport } from '../app/lib/rune-optimization-problem.ts';
 import { currentBuilds } from '../app/lib/rune-optimization-refresh.ts';
 import {
   mergeBuildResults, searchRuneBuilds, searchRuneBuildsInPasses, searchRuneBuildsInSlices,
@@ -66,6 +66,22 @@ import { craftedRangeScenarios, scenarioGenerator } from './rune-optimization-sc
 
 const { scenario } = scenarioGenerator();
 const figures = monsterStatTargetKeys;
+
+const supportSlots = [[13, 15], [13, 15], [13], [15], [15], [15]].map((sets) => sets.map((setId) => ({ setId })));
+const support = remainingSetSupport(supportSlots, [0, 1, 2, 3, 4, 5]);
+const requiredSets = { needs: [{ setId: 13, pieces: 4 }, { setId: 15, pieces: 2 }], free: 0 };
+const worn = new Int32Array(setIdBound); worn[13] = 2;
+const pieces = new Int32Array(setIdBound); pieces[13] = 4; pieces[15] = 2;
+assert.ok(canStillSatisfy(requiredSets, worn, 2), 'the loose slot count should admit this impossible prefix');
+assert.ok(!canStillSatisfy(requiredSets, worn, 2, support[2]), 'one remaining Violent slot cannot supply two pieces');
+assert.ok(!canStillFinishSets(worn, 2, pieces, support[2]), 'broken sets refused must read actual slot support too');
+worn[13] = 3; worn[intangibleSetId] = 1;
+assert.ok(canStillSatisfy(requiredSets, worn, 4, support[4]), 'a worn Intangible completes Violent without another slot');
+assert.ok(canStillFinishSets(worn, 4, pieces, support[4]), 'the worn wildcard must survive the support proof');
+const future = new Int32Array(setIdBound); future[13] = 1; future[15] = 1; future[intangibleSetId] = 1;
+worn.fill(0); worn[13] = 2; worn[15] = 1;
+assert.ok(canStillSatisfy(requiredSets, worn, 3, future), 'a future Intangible must stay available to the support bound');
+console.log('PASS: remaining set support rejects impossible prefixes and preserves worn and future Intangible completions.');
 
 /* The stat sheet of six chosen end states, through the Monsters page's own reader. */
 function sheet(input, chosen) {

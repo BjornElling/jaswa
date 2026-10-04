@@ -379,19 +379,39 @@ builds before picking individual runes**:
   the candidates remain ordered by proxy so strong bound-raising candidates lift
   the bar early. The guide is identical across finite depths: a deeper shortlist
   retains every shallower candidate.
+- With held items, an additional beam searches Gem placements within the physical
+  rune families those independent guides chose. It restores their legal supply
+  alternatives, then resolves each finished placement through the same exact craft
+  allocation as the final search. Only guides with a strictly stronger ranking
+  figure than the independent guides add candidates. The independent guides stay;
+  the extra lane does not repeat their paired improvement sweep. This bounded
+  supplement can find a grade allocation the representative choices missed without
+  repeating a beam over the entire account.
+
+Both beams stop a prefix that cannot reach a floor even with independent remaining
+maxima and generous set bonuses, or must exceed a ceiling even with minima and
+unavoidable bonuses. The envelopes use the admitted supply alternatives, not a
+depth shortlist. Set feasibility also reads which sets the remaining slots actually
+offer. These checks discard impossible prefixes within the heuristic guidance;
+the beam's width and prices remain heuristic.
 
 The search also checks those whole guides and their same-set one-rune neighbours
 before opening the tree. Their real sets, ranges and held-item spend are checked
 again, and each belongs to its eventual search part. They start the table with useful
 builds even when a short time limit leaves most combinations unvisited. A seeded
 build's identity is remembered so revisiting it cannot fill another row or raise the
-bar with a duplicate. This adds no cut: the tree still searches the same candidates.
+bar with a duplicate. Guides are also deduplicated by their allocated recipe before
+the search, so repeated discoveries do not repeat the same neighbour sweep. Fixed
+ceiling values and stacks remain part of that identity. This adds no cut: the tree
+still searches the same candidates.
 
 Preparation, including indexed craft recipes, runs once in a worker, then the
 prepared problem is shared with the search parts. Beam prefixes carry only the
 stack indexes they spend, sorted with
 repetitions, rather than copying the account's entire craft inventory on every
 expansion. This changes allocation cost, not supply or candidate selection.
+Failed beam extensions reuse scratch buffers; only queued prefixes own copies of
+their effects and set counts.
 
 The beam and its paired improvements are heuristics within the reported cut. They
 prove no candidate inferior and do not establish a global optimum. Preparation has
@@ -498,6 +518,14 @@ build — or, with broken sets refused, can no longer finish every set it has
 started — stops at the rune that ruined it. A finished combination is a stated
 build when every set the build names is complete; with broken sets refused, every
 rune must also sit in a completed set (`noBrokenSets`).
+
+An open slot promises a set only if one of its actual candidates carries it. A
+suffix table counts that support once per slot; required sets and started sets
+that cannot gather enough supported pieces stop before stat bounds run. A worn
+or reachable Intangible may contribute one optimistic wildcard. The same open
+slot and wildcard may be promised to several sets independently, deliberately:
+this can retain impossible branches, but cannot remove a valid completion. Where
+every open slot offers every read set, the extra support check is omitted.
 
 ### 6.3.1 Ceilings
 
@@ -635,6 +663,10 @@ an open Shield/Will search at depth 1, stopping with results, an immediate time
 limit, and a worker allocation failure that recovers in one worker.
 
 ### 6.7 Measured
+
+The 4 October guidance review records accepted and rejected pruning experiments,
+low-depth quality and before/after timings in
+[Rune Optimization guidance review](RUNE-OPTIMIZATION-GUIDANCE-REVIEW.md).
 
 The 4 October range-allocation improvements, their before/after measurements and
 limits, are in [Rune Optimization range allocation](RUNE-OPTIMIZATION-RANGE-ALLOCATION.md).
@@ -824,5 +856,3 @@ keeps the previous result table.
 - **Repeated two-sets.** `rune-set-pairs.ts` cannot express `Energy/Energy/Energy`,
   which the game allows. The search handles repeated sets; the build vocabulary
   does not yet offer them.
-- **The Intangible ambiguity** (§6.3) needs one capture of a monster wearing an
-  Intangible with two sets one rune short.

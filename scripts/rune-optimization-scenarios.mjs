@@ -16,6 +16,26 @@ import { runeBuild } from '../app/lib/rune-set-pairs.ts';
 import { runeSetId } from '../app/lib/rune-sets.ts';
 import { slotAllowsSubStat, slotMainProperties } from '../app/lib/runes.ts';
 
+/** Scarce grades expose craft choices that an independent per-rune guide can miss. */
+export function stockGuidanceScenarios(count = 40) {
+  const generator = scenarioGenerator(20261005, [3, 5]);
+  return Array.from({ length: count }, (_, index) => {
+    const input = generator.scenario(index);
+    input.holds = {}; input.spared = [];
+    input.runes = input.runes.map((rune) => ({ ...rune, setId: 13, occupiedId: null, ancient: false, level: 15 }));
+    input.requirements = { ...input.requirements, builds: [], slotMains: { slot2: [], slot4: [], slot6: [] },
+      allowBroken: true, allowIntangible: false, alwaysCrits: false,
+      rankBy: index % 2 ? 'ehp' : 'dmg', targets: {}, ceilings: {} };
+    input.settings = { ...input.settings, depth: 'quick', gems: 'owned', grinds: 'owned',
+      runesOnOtherMonsters: true, resultCount: 10 };
+    input.craftItems = ['gem', 'grindstone'].flatMap((kind) =>
+      (kind === 'gem' ? [1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12] : [1, 2, 3, 4, 5, 6, 8]).flatMap((statId) =>
+        ['Hero', 'Legend'].map((grade) => ({ id: `${kind}-${statId}-${grade}`, kind,
+          lineage: 'standard', setId: 13, setName: 'Violent', statId, statName: 'Synthetic', grade, amount: 1 }))));
+    return input;
+  });
+}
+
 export function scenarioGenerator(firstSeed = 20260930, runesPerSlot = [3, 5]) {
   let seed = firstSeed;
   const random = () => {

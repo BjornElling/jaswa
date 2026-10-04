@@ -3,8 +3,8 @@ import {
   intangibleSetId, targetFigureCount, totalsInto,
 } from './monster-stats';
 import { availableStatSets, ceilingEffectSlots, rangeEnvelope } from './rune-optimization-ranges';
-import { craftAllocationKey } from './rune-optimization-craft-allocation';
-import { canStillFinishSets, canStillSatisfy, noBrokenSets, satisfiesBuild } from './rune-optimization-problem';
+import { craftAllocation, craftAllocationKey } from './rune-optimization-craft-allocation';
+import { canStillFinishSets, canStillSatisfy, noBrokenSets, remainingSetSupport, satisfiesBuild } from './rune-optimization-problem';
 import type { Candidate, RuneOptimizationProblem } from './rune-optimization-problem';
 
 /**
@@ -20,6 +20,7 @@ export function setFeasibleCandidates<T extends { setId: number }>(
   const counts = new Int32Array(rules.setPieces.length);
   const picks = new Int32Array(6);
   const order = sets.map((_, at) => at).sort((a, b) => sets[a].length - sets[b].length || a - b);
+  const support = remainingSetSupport(slots, order);
   let work = 0;
   let declined = false;
   let allSupported = false;
@@ -37,8 +38,8 @@ export function setFeasibleCandidates<T extends { setId: number }>(
     for (const set of sets[at]) {
       if (set === intangibleSetId && counts[set] > 0) continue;
       counts[set] += 1; picks[at] = set;
-      const possible = (rules.builds === null || rules.builds.some((build) => canStillSatisfy(build, counts, depth + 1)))
-        && (rules.allowBroken || canStillFinishSets(counts, depth + 1, rules.setPieces));
+      const possible = (rules.builds === null || rules.builds.some((build) => canStillSatisfy(build, counts, depth + 1, support[depth + 1])))
+        && (rules.allowBroken || canStillFinishSets(counts, depth + 1, rules.setPieces, support[depth + 1]));
       if (possible) visit(depth + 1);
       counts[set] -= 1;
       if (declined || allSupported) return;
@@ -78,7 +79,38 @@ function bestPrefixes(prefixes: Prefix[], relevant: readonly number[], limit: nu
  * complement, so its picks supplement rather than replace the independent cut.
  * Several prices for unmet ranges keep damage and feasibility in contention.
  */
-export function complementaryCandidates(problem: RuneOptimizationProblem): { candidates: Set<Candidate>; builds: Candidate[][] } {
+export function complementaryCandidates(problem: RuneOptimizationProblem, craftPools = problem.slots): { candidates: Set<Candidate>; builds: Candidate[][] } {
+  const independent = guidedCandidates(problem, craftPools, false);
+  if (problem.stock.length === 0) return independent;
+  // Concentrate the extra craft search on physical families the broad guide
+  // already found promising. Repeating the whole account's beam costs more
+  // than the extra placements save, especially under several active ceilings.
+  const families = problem.slots.map((_, slot) => new Set([...independent.candidates]
+    .filter((candidate) => candidate.slot === slot + 1).map((candidate) => candidate.runeId)));
+  const allocated = guidedCandidates({ ...problem, slots: problem.slots.map((slot, at) =>
+    slot.filter((candidate) => families[at].has(candidate.runeId))) }, craftPools, true);
+  const totals = new Float64Array(baseStatCount);
+  const figures = new Float64Array(targetFigureCount);
+  const rank = (build: Candidate[]) => {
+    const effects = new Float64Array(problem.start);
+    const counts = new Int32Array(problem.setPieces.length);
+    for (const candidate of build) {
+      counts[candidate.setId] += 1;
+      for (let stat = 0; stat < effectSlotCount; stat += 1) effects[stat] += candidate.effects[stat];
+    }
+    addSetBonuses(counts, intangibleCompletion(counts), effects);
+    totalsInto(problem.base, effects, totals); figuresInto(totals, figures);
+    return figures[problem.rank];
+  };
+  const bar = independent.builds.reduce((best, build) => Math.max(best, rank(build)), -Infinity);
+  // A supplementary lane must earn its extra tree choices with a stronger guide.
+  // Equal or weaker recipes still remain eligible through the independent cut.
+  const improvements = allocated.builds.filter((build) => rank(build) > bar);
+  return { candidates: new Set([...independent.candidates, ...improvements.flat()]),
+    builds: [...independent.builds, ...improvements] };
+}
+
+function guidedCandidates(problem: RuneOptimizationProblem, craftPools: Candidate[][], assignItems: boolean): { candidates: Set<Candidate>; builds: Candidate[][] } {
   const selected = new Set<Candidate>();
   const guides: Candidate[][] = [];
   if (problem.slots.some((slot) => slot.length === 0)) return { candidates: selected, builds: guides };
@@ -86,7 +118,17 @@ export function complementaryCandidates(problem: RuneOptimizationProblem): { can
   // The beam fixes ceiling-sensitive work and sees independent craft work at
   // several prices. Pair improvements below still read the entire exact pool.
   const capped = ceilingEffectSlots(problem.ceilings);
-  const beamSlots = problem.slots.map((slot) => {
+  // Exact reductions may remove a particular cheap supply combination. Restore
+  // the complete product for admitted placements before assigning shared stock.
+  const source = { ...problem, slots: assignItems ? problem.slots.map((slot, at) => {
+    const keys = new Set(slot.map((candidate) => craftAllocationKey(candidate, capped, problem.stock)));
+    return craftPools[at].filter((candidate) => keys.has(craftAllocationKey(candidate, capped, problem.stock)));
+  }) : problem.slots };
+  const allocation = assignItems ? craftAllocation(source) : null;
+  if (assignItems && !allocation) return { candidates: selected, builds: guides };
+  const beamSource = allocation?.problem ?? problem;
+  const recipeIndexes = allocation ? beamSource.slots.map((slot) => new Map(slot.map((candidate, at) => [candidate, at]))) : [];
+  const beamSlots = allocation ? beamSource.slots : problem.slots.map((slot) => {
     const groups = new Map<string, Candidate[]>();
     for (const candidate of slot) {
       const key = craftAllocationKey(candidate, capped, problem.stock);
@@ -111,6 +153,14 @@ export function complementaryCandidates(problem: RuneOptimizationProblem): { can
   });
   const order = problem.slots.map((_, slot) => slot)
     .sort((a, b) => beamSlots[a].length - beamSlots[b].length || a - b);
+  const support = remainingSetSupport(beamSlots, order);
+  const envelope = rangeEnvelope(source);
+  const suffixHigh = Array.from({ length: 7 }, () => new Float64Array(effectSlotCount));
+  const suffixLow = Array.from({ length: 7 }, () => new Float64Array(effectSlotCount));
+  for (let depth = 5; depth >= 0; depth -= 1) for (let stat = 0; stat < effectSlotCount; stat += 1) {
+    suffixHigh[depth][stat] = suffixHigh[depth + 1][stat] + envelope.maxima[order[depth]][stat];
+    suffixLow[depth][stat] = suffixLow[depth + 1][stat] + envelope.minima[order[depth]][stat];
+  }
   const remaining = Array.from({ length: 7 }, () => new Float64Array(effectSlotCount));
   for (let depth = 5; depth >= 0; depth -= 1) {
     const candidates = beamSlots[order[depth]];
@@ -141,6 +191,10 @@ export function complementaryCandidates(problem: RuneOptimizationProblem): { can
     Number.isFinite(problem.targets[at]) ? Math.abs(problem.targets[at]) : 0,
     Number.isFinite(problem.ceilings[at]) ? Math.abs(problem.ceilings[at]) : 0));
   const complete: Prefix[] = [];
+  // Failed extensions need no owned buffers. Only prefixes retained for the
+  // beam receive copies; the scratch state is never placed in its queue.
+  const candidateCounts = new Int32Array(problem.setPieces.length);
+  const candidateEffects = new Float64Array(effectSlotCount);
   const freeSets = problem.builds === null || problem.builds.some((build) => build.free > 0);
   const orderableBonuses = availableStatSets(problem.builds);
 
@@ -152,14 +206,15 @@ export function complementaryCandidates(problem: RuneOptimizationProblem): { can
       let next: Prefix[] = [];
       for (const prefix of beam) for (const candidate of beamSlots[order[depth]]) {
         if (candidate.setId === intangibleSetId && prefix.counts[intangibleSetId] > 0) continue;
-        const counts = new Int32Array(prefix.counts);
+        const counts = candidateCounts;
+        counts.set(prefix.counts);
         counts[candidate.setId] += 1;
-        if (problem.builds !== null && !problem.builds.some((build) => canStillSatisfy(build, counts, depth + 1))) continue;
-        if (!problem.allowBroken && !canStillFinishSets(counts, depth + 1, problem.setPieces)) continue;
+        if (problem.builds !== null && !problem.builds.some((build) => canStillSatisfy(build, counts, depth + 1, support[depth + 1]))) continue;
+        if (!problem.allowBroken && !canStillFinishSets(counts, depth + 1, problem.setPieces, support[depth + 1])) continue;
         // A prefix spends only a few stacks, even when the account owns thousands.
         // Copying the whole inventory for every beam expansion was the dominant
         // allocation cost on an open crafted search.
-        const spent = [...prefix.spent, ...candidate.stock].sort((a, b) => a - b);
+        const spent = candidate.stock.length === 0 ? prefix.spent : [...prefix.spent, ...candidate.stock].sort((a, b) => a - b);
         let available = true;
         for (const stack of candidate.stock) {
           let used = 0;
@@ -167,7 +222,8 @@ export function complementaryCandidates(problem: RuneOptimizationProblem): { can
           if (used > problem.stock[stack].amount) { available = false; break; }
         }
         if (!available) continue;
-        const effects = new Float64Array(prefix.effects);
+        const effects = candidateEffects;
+        effects.set(prefix.effects);
         for (let stat = 0; stat < effectSlotCount; stat += 1) {
           effects[stat] += candidate.effects[stat];
           projected[stat] = effects[stat] + remaining[depth + 1][stat];
@@ -188,14 +244,49 @@ export function complementaryCandidates(problem: RuneOptimizationProblem): { can
           }
         }
         read(projected);
+        let actualPicks: Candidate[] | undefined;
+        let actualEffects = effects;
+        let actualSpent = spent;
+        if (depth === 5 && allocation) {
+          actualPicks = [...prefix.picks, candidate];
+          const indexes = new Array<number>(6);
+          actualPicks.forEach((pick, at) => { indexes[order[at]] = recipeIndexes[order[at]].get(pick)!; });
+          const resolved = allocation.resolve(indexes);
+          if (!resolved) continue;
+          actualPicks = order.map((slot) => source.slots[slot][resolved[slot]]);
+          actualEffects = new Float64Array(problem.start);
+          actualSpent = [];
+          for (const pick of actualPicks) {
+            for (let stat = 0; stat < effectSlotCount; stat += 1) actualEffects[stat] += pick.effects[stat];
+            actualSpent.push(...pick.stock);
+          }
+          actualSpent.sort((a, b) => a - b);
+          projected.set(actualEffects); addSetBonuses(counts, completes, projected); read(projected);
+        }
         let deficit = 0;
+        let floorMiss = false;
+        let ceilingMiss = false;
         for (const at of limits) {
-          if (figures[at] < problem.targets[at]) deficit += (problem.targets[at] - figures[at]) / scales[at];
-          if (figures[at] > problem.ceilings[at]) deficit += (figures[at] - problem.ceilings[at]) / scales[at];
+          if (figures[at] < problem.targets[at]) { deficit += (problem.targets[at] - figures[at]) / scales[at]; floorMiss = true; }
+          if (figures[at] > problem.ceilings[at]) { deficit += (figures[at] - problem.ceilings[at]) / scales[at]; ceilingMiss = true; }
         }
         if (depth === 5 && deficit > 0) continue;
-        next.push({ picks: [...prefix.picks, candidate], effects, counts, spent,
-          score: figures[problem.rank] / rankScale - price * deficit
+        const rankValue = figures[problem.rank];
+        // A beam position is scarce. An impossible prefix must not displace a
+        // feasible complement just because its projected damage looks stronger.
+        if (depth < 5 && floorMiss) {
+          for (let stat = 0; stat < effectSlotCount; stat += 1) projected[stat] = effects[stat] + suffixHigh[depth + 1][stat] + envelope.highBonus[stat];
+          read(projected);
+          if (limits.some((at) => figures[at] < problem.targets[at])) continue;
+        }
+        if (depth < 5 && ceilingMiss) {
+          for (let stat = 0; stat < effectSlotCount; stat += 1) projected[stat] = effects[stat] + suffixLow[depth + 1][stat] + envelope.lowBonus[stat];
+          read(projected);
+          if (limits.some((at) => figures[at] > problem.ceilings[at])) continue;
+        }
+        next.push({ picks: actualPicks ?? [...prefix.picks, candidate], effects: new Float64Array(actualEffects),
+          counts: new Int32Array(counts), spent: actualSpent,
+          score: rankValue / rankScale - price * deficit
             - (depth === 5 ? 0 : resourcePrice * spent.reduce((cost, at) => cost + 1 / problem.stock[at].amount, 0)) });
         // A wide crafted pool must not allocate its whole cross product in memory.
         // Anything below 128 distinct leaders cannot enter the final 64 leaders.
@@ -207,6 +298,16 @@ export function complementaryCandidates(problem: RuneOptimizationProblem): { can
     complete.push(...beam.filter((prefix) => prefix.picks.length === 6));
   }
   complete.sort((a, b) => b.score - a.score);
+  if (assignItems) {
+    // Preserve the independent guides and their paired improvements. This extra
+    // lane supplies stock-resolved complements without repeating the pair sweep.
+    for (const prefix of complete.slice(0, 12)) {
+      const picks = new Array<Candidate>(6);
+      prefix.picks.forEach((candidate, at) => { picks[order[at]] = candidate; selected.add(candidate); });
+      guides.push(picks);
+    }
+    return { candidates: selected, builds: guides };
+  }
   const seeds: Prefix[] = [];
   for (const prefix of complete) {
     if (seeds.some((seed) => prefix.picks.filter((candidate, at) => candidate.runeId !== seed.picks[at].runeId).length < 2)) continue;
