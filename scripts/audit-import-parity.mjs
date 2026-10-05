@@ -188,6 +188,7 @@ try {
   const { artifactEquipClass } = await server.ssrLoadModule('/app/lib/artifact-grid.ts');
   const { createImportedGame, validateGameFile } = await server.ssrLoadModule('/app/lib/file-imports.ts');
   const { accountCounts } = await server.ssrLoadModule('/app/lib/account-counts.ts');
+  const { readDeckPresets } = await server.ssrLoadModule('/app/lib/deck-presets.ts');
 
   /* Import the account through the real entry point, so the audit measures the
      pipeline the user actually gets rather than a convenient subset of it. */
@@ -237,6 +238,18 @@ try {
   for (const [label, expected, actual] of preparedCountRows) {
     report(expected === actual, `${label} count survives the import unchanged (${expected} game / ${actual} JASWA)`);
   }
+
+  const sourceDecks = readDeckPresets(snapshot);
+  const importedDecks = readDeckPresets(data);
+  report(sourceDecks.length === importedDecks.length,
+    `saved Deck Preset count survives the import unchanged (${sourceDecks.length} game / ${importedDecks.length} JASWA)`);
+  const deckAssignments = (decks) => decks.map((deck) => [deck.deckType, deck.deckSequence,
+    [...deck.runeOwnerById].sort((left, right) => left[0].localeCompare(right[0])),
+    [...deck.artifactOwnerById].sort((left, right) => left[0].localeCompare(right[0]))]);
+  report(JSON.stringify(deckAssignments(sourceDecks)) === JSON.stringify(deckAssignments(importedDecks)),
+    'every saved Deck Preset rune and artifact assignment survives the import');
+  console.log(`  saved decks with missing physical runes: ${importedDecks.filter((deck) => deck.missingRuneIds.length).length}`);
+  console.log(`  saved decks with missing physical artifacts: ${importedDecks.filter((deck) => deck.missingArtifactIds.length).length}`);
 
   /* An equipped item lives below its owner in the export as well as in the
      account list. Parity is measured after that merge, against the union of

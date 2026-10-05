@@ -9,6 +9,7 @@ import { readArtifact } from './artifacts';
 import { readRelic } from './relics';
 import { craftRollAssumptions, craftSettingAssumptions, defaultCraftRollAssumption, itemGrades, readCraftItem } from './rune-craft-items';
 import { readRune } from './runes';
+import { readDeckPresets } from './deck-presets';
 import { intangibleSetId } from './monster-stats';
 import { hasMonsterCatalogEntry } from './monster-catalog';
 import { skyTribeTotemProblem } from './sky-tribe-totem';
@@ -277,6 +278,11 @@ function validateAccountCollections(value: GameRecord): string | undefined {
   }
   if (!hasAtMostOneEquippedIntangible(recordCollection(value.runes))) {
     return 'This file equips more than one Intangible Rune on one monster.';
+  }
+  try {
+    readDeckPresets(value);
+  } catch (error) {
+    return error instanceof Error ? error.message : 'This account contains a Deck Preset JASWA cannot read.';
   }
   if (value.unit_storage_list !== undefined && !isValidIdentifiedCollection(value.unit_storage_list, 'unit_master_id', isValidImportedStorageRecord)) {
     return 'This file contains a sealed-shrine monster JASWA cannot read.';
