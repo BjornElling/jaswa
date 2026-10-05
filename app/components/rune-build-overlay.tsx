@@ -216,6 +216,7 @@ export function RuneBuildOverlay({
   ];
   const wearerName = (unitId: string) => wearer(unitId)?.name;
   const complete = bySlot.length === 6 && bySlot.every((picked) => runesById.has(picked.runeId));
+  const alreadyEngraved = complete && bySlot.every((picked) => runesById.get(picked.runeId)?.occupiedId === monster.unitId);
 
   async function engrave() {
     setSaving(true);
@@ -240,7 +241,7 @@ export function RuneBuildOverlay({
         </div>)}
       </dl>
       <div className="rune-build-engrave">
-        <Button type="button" tone="primary" disabled={!canEngrave || !complete} busy={saving}
+        <Button type="button" tone="primary" disabled={!canEngrave || !complete || alreadyEngraved} busy={saving}
           busyLabel="Engraving…" onClick={() => void engrave()}>Engrave on monster</Button>
         <span className="rune-build-engrave-info" tabIndex={canEngrave ? -1 : 0}
           role="img" aria-hidden={canEngrave}

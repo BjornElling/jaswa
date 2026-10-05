@@ -89,6 +89,7 @@ test('engraving a build moves its runes into the saved account and survives relo
   await expect(detail).toBeHidden();
   await page.getByRole('button', { name: `Show build ${chosen}`, exact: true }).click();
   await expect(detail.locator('.rune-build-card-where-value').filter({ hasText: 'This monster' })).toHaveCount(6);
+  await expect(action).toBeDisabled();
   expect(await box(detail.locator('.rune-build-head'))).toEqual(before);
   await page.screenshot({ path: testInfo.outputPath('engrave-after.png') });
   await page.reload();
