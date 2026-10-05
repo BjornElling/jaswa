@@ -699,19 +699,35 @@ fn relay(
                 .is_some_and(|path| path.split('?').next() == Some(GATEWAY_PATH));
             last_request = request.clone();
             last_response.clear();
+            let exchange_started = Instant::now();
             let mut outgoing = connect_upstream(hostname, upstream, &roots, &name)?;
             let response = exchange_once(&mut outgoing, &request)?;
+            let upstream_time = exchange_started.elapsed();
             last_response = response.clone();
-            if captures_gateway {
-                capture(&request, &response, &shared);
+            // A long scout result must reach the game before the helper spends
+            // time decoding and merging it into JASWA's account snapshot.
+            // Capture still runs if the game has already closed its socket.
+            let (forwarded, forward_time, capture_time) =
+                finish_exchange(&mut incoming, &response, || {
+                    if captures_gateway {
+                        capture(&request, &response, &shared);
+                    }
+                });
+            if upstream_time >= Duration::from_secs(5)
+                || forward_time >= Duration::from_secs(1)
+                || capture_time >= Duration::from_secs(1)
+            {
+                diagnostics::record(
+                    "game",
+                    &format!(
+                        "Gateway exchange timing: upstream {} ms, forwarding {} ms, capture {} ms",
+                        upstream_time.as_millis(),
+                        forward_time.as_millis(),
+                        capture_time.as_millis()
+                    ),
+                );
             }
-            // The game may close its keep-alive socket immediately after the
-            // response it asked for. On Windows that close can surface while
-            // rustls is flushing the response as WSAECONNRESET (10054). The
-            // upstream exchange and capture are already complete at this
-            // point, so a client-side disconnect must not turn a valid update
-            // into a helper-wide capture gap.
-            if !forward_response(&mut incoming, &response)? {
+            if !forwarded? {
                 diagnostics::record(
                     "game",
                     "Summoners War closed the local gateway connection while the helper was forwarding a completed response",
@@ -939,6 +955,21 @@ fn forward_response<S: Read + Write>(
             "Could not forward the gateway response to Summoners War: {error}"
         )),
     }
+}
+
+fn finish_exchange<S: Read + Write>(
+    connection: &mut Connection<S>,
+    response: &[u8],
+    capture: impl FnOnce(),
+) -> (Result<bool, String>, Duration, Duration) {
+    let forward_started = Instant::now();
+    let forwarded = forward_response(connection, response);
+    let forward_time = forward_started.elapsed();
+    // A disconnect says nothing about whether the upstream answer contained
+    // account changes. Keep those changes even when the game times out.
+    let capture_started = Instant::now();
+    capture();
+    (forwarded, forward_time, capture_started.elapsed())
 }
 
 fn capture(request: &[u8], response: &[u8], shared: &Shared) {
@@ -1251,6 +1282,7 @@ fn remove_hosts() -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{cell::RefCell, rc::Rc};
 
     fn encoded(value: &Value, compressed: bool) -> String {
         use base64::{Engine as _, engine::general_purpose::STANDARD};
@@ -1468,6 +1500,40 @@ mod tests {
         assert_eq!(forward_response(&mut connection, b"response").unwrap(), false);
         assert!(peer_disconnected(io::ErrorKind::ConnectionReset));
         assert!(!peer_disconnected(io::ErrorKind::TimedOut));
+    }
+
+    #[test]
+    fn forwards_before_capture_and_captures_after_a_game_disconnect() {
+        struct ObservedWriter(Rc<RefCell<Vec<&'static str>>>);
+        impl Read for ObservedWriter {
+            fn read(&mut self, _buffer: &mut [u8]) -> io::Result<usize> {
+                Ok(0)
+            }
+        }
+        impl Write for ObservedWriter {
+            fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+                self.0.borrow_mut().push("forward");
+                Ok(buffer.len())
+            }
+            fn flush(&mut self) -> io::Result<()> {
+                Ok(())
+            }
+        }
+
+        let events = Rc::new(RefCell::new(Vec::new()));
+        let mut connection = Connection::new(ObservedWriter(Rc::clone(&events)));
+        let (forwarded, _, _) = finish_exchange(&mut connection, b"response", || {
+            events.borrow_mut().push("capture");
+        });
+        assert_eq!(forwarded.unwrap(), true);
+        assert_eq!(*events.borrow(), ["forward", "capture"]);
+
+        let mut disconnected = Connection::new(ResetWriter);
+        let (forwarded, _, _) = finish_exchange(&mut disconnected, b"response", || {
+            events.borrow_mut().push("capture after disconnect");
+        });
+        assert_eq!(forwarded.unwrap(), false);
+        assert_eq!(events.borrow().last(), Some(&"capture after disconnect"));
     }
 
     /// A message that stops mid-body is a real failure and must stay one, so a
