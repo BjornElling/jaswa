@@ -60,6 +60,84 @@ test('without an import the page says what it needs', async ({ page }, testInfo)
   await page.screenshot({ path: testInfo.outputPath('optimization-no-import.png'), fullPage: true });
 });
 
+test('engraving a build moves its runes into the saved account and survives reload', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await freshWorkspace(page);
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
+  await openOptimization(page);
+  await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  await page.getByRole('button', { name: 'Find builds' }).click();
+  await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
+  const count = await page.getByRole('button', { name: /^Show build \d+$/ }).count();
+  let chosen = 0;
+  for (let index = 1; index <= count; index += 1) {
+    await page.getByRole('button', { name: `Show build ${index}`, exact: true }).click();
+    if (await page.getByRole('dialog', { name: `Build ${index}` }).locator('.rune-build-card-where-value .monster-link').count()) {
+      chosen = index;
+      break;
+    }
+    await page.keyboard.press('Escape');
+  }
+  expect(chosen).toBeGreaterThan(0);
+  const detail = page.getByRole('dialog', { name: `Build ${chosen}` });
+  const action = detail.getByRole('button', { name: 'Engrave on monster' });
+  await expect(action).toBeEnabled();
+  await expect(detail.locator('.rune-build-card-where-value .monster-link').first()).toBeVisible();
+  const before = await box(detail.locator('.rune-build-head'));
+  await page.screenshot({ path: testInfo.outputPath('engrave-before.png') });
+  await action.click();
+  await expect(detail).toBeHidden();
+  await page.getByRole('button', { name: `Show build ${chosen}`, exact: true }).click();
+  await expect(detail.locator('.rune-build-card-where-value').filter({ hasText: 'This monster' })).toHaveCount(6);
+  expect(await box(detail.locator('.rune-build-head'))).toEqual(before);
+  await page.screenshot({ path: testInfo.outputPath('engrave-after.png') });
+  await page.reload();
+  await openOptimization(page);
+  await expect(page.getByLabel('Monster', { exact: true })).toHaveValue('11');
+  const stored = await page.evaluate(async () => new Promise<{ runes: Array<{ rune_id: number; occupied_id: number; occupied_type: number }>; unit_list: Array<{ unit_id: number; runes: Array<{ rune_id: number }> }> }>((resolve) => {
+    const request = indexedDB.open('jaswa-local', 1);
+    request.onsuccess = () => {
+      const db = request.result;
+      const read = db.transaction('workspace', 'readonly').objectStore('workspace').get('imported-game');
+      read.onsuccess = () => { resolve(read.result.data); db.close(); };
+    };
+  }));
+  const worn = stored.runes.filter((rune) => rune.occupied_type === 1 && rune.occupied_id === 11);
+  expect(worn).toHaveLength(6);
+  const original = JSON.parse(readFileSync(account, 'utf8')) as { unit_list: Array<{ runes: Array<{ rune_id: number; occupied_id: number }> }> };
+  const oldWorn = original.unit_list.flatMap((unit) => unit.runes);
+  expect(worn.some((rune) => oldWorn.some((old) => old.rune_id === rune.rune_id && old.occupied_id === 12))).toBe(true);
+  expect(stored.runes.some((rune) => rune.occupied_type === 2 && oldWorn.some((old) =>
+    old.rune_id === rune.rune_id && old.occupied_id === 11))).toBe(true);
+  expect(stored.unit_list.find((unit) => unit.unit_id === 11)?.runes.map((rune) => rune.rune_id).sort())
+    .toEqual(worn.map((rune) => rune.rune_id).sort());
+  for (const unit of stored.unit_list) expect(unit.runes.map((rune) => rune.rune_id).sort())
+    .toEqual(stored.runes.filter((rune) => rune.occupied_type === 1 && rune.occupied_id === unit.unit_id)
+      .map((rune) => rune.rune_id).sort());
+});
+
+test('live synchronization explains why engraving is unavailable', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.route('http://127.0.0.1:37654/**', (route) => route.fulfill({ status: 503, body: '' }));
+  await freshWorkspace(page);
+  await page.evaluate(() => {
+    const preferences = JSON.parse(localStorage.getItem('jaswa-preferences') ?? '{}');
+    localStorage.setItem('jaswa-preferences', JSON.stringify({ ...preferences, importRoute: 'direct', directImportMode: 'live',
+      updatedAt: new Date(Date.now() + 1000).toISOString() }));
+  });
+  await page.reload();
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
+  await openOptimization(page);
+  await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  await page.getByRole('button', { name: 'Find builds' }).click();
+  await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Show build 1', exact: true }).click();
+  const detail = page.getByRole('dialog', { name: 'Build 1' });
+  await expect(detail.getByRole('button', { name: 'Engrave on monster' })).toBeDisabled();
+  await expect(detail.getByRole('img', { name: /Read on game start or Load a JSON file/ })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('engrave-live-disabled.png') });
+});
+
 test('finds builds from the profile, keeps the profile untouched, and moves nothing it did not choose', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await freshWorkspace(page);

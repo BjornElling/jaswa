@@ -816,6 +816,14 @@ table pick for pick. It needs a running dev server and a card, and is not part o
    main, innate, sub properties and where the rune is; and beside the circle, slot
    by slot, the modifications the build assumes — which line a Gem replaces and
    with what, which stone goes on which line, and a main counted at +12 or +15.
+   *Engrave on monster* moves the six physical runes into the selected monster in
+   the saved import. Its former runes return to inventory; a rune borrowed from
+   another monster leaves that monster. The account rune list and each monster's
+   equipment are updated together, with no separate plan or undo state. Gems,
+   Grindstones and future power-ups remain modifications to perform in the game.
+   The action is unavailable under *Always synchronized*, where the next helper
+   update would replace the local placement. *Read on game start* and *Load a
+   JSON file* allow it.
 6. **Following the table** — a change to the runes does not throw the table away.
    The player follows it by moving, gemming and grinding, and a sync bringing that
    back re-reads every build against the account as it is now

@@ -132,11 +132,13 @@ function Provenance({ children }: { children: ReactNode }) {
   return <p className="rune-optimization-provenance">{children}</p>;
 }
 
-export function RuneOptimizationSection({ game, monsters, preferences, onUpdate, onOpenMonster, onOpenRune }: {
+export function RuneOptimizationSection({ game, monsters, preferences, onUpdate, canEngrave, onEngrave, onOpenMonster, onOpenRune }: {
   game: ImportedGame | null;
   monsters: readonly GameRecord[];
   preferences: Preferences;
   onUpdate: (update: Partial<RuneOptimizationSettings>) => void;
+  canEngrave: boolean;
+  onEngrave: (unitId: string, runeIds: readonly string[]) => Promise<void>;
   onOpenMonster: OpenMonsterOverlay;
   onOpenRune: OpenRuneOverlay;
 }) {
@@ -572,7 +574,8 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
       index={chosenBuild} buildName={buildNameOf(builds[chosenBuild].runes.map((rune) => rune.setId))}
       moves={builds[chosenBuild].moves} runes={builds[chosenBuild].runes} short={builds[chosenBuild].short}
       runesById={runesById} monster={buildMonster} wearer={(id) => wearers.get(id)}
-      general={general} onClose={closeBuild} onOpenRune={onOpenRune} onOpenMonster={onOpenMonster} />}
+      general={general} canEngrave={canEngrave} onEngrave={onEngrave}
+      onClose={closeBuild} onOpenRune={onOpenRune} onOpenMonster={onOpenMonster} />}
   </WorkspacePage>;
 }
 

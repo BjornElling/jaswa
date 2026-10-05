@@ -2567,10 +2567,19 @@ label[for] {
    the modifications the rest, and at anything narrower the gem lines wrap. */
 .rune-build-head {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--s3);
   padding: var(--s5);
   border-bottom: 1px solid var(--line);
 }
+.rune-build-head .overlay-hero-name { grid-column: 1 / -1; }
+.rune-build-engrave { display: flex; align-items: center; gap: var(--s2); align-self: center; position: relative; }
+.rune-build-engrave-info { width: var(--s4); height: var(--s4); color: var(--text-muted); opacity: 0; }
+.rune-build-engrave-info[data-visible='true'] { opacity: 1; }
+.rune-build-engrave-info svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.5; }
+.rune-build-engrave-info:focus-visible { outline: 2px solid var(--text-accent); outline-offset: 2px; }
+.rune-build-engrave-error { position: absolute; top: 100%; right: 0; color: var(--state-bad); opacity: 0; pointer-events: none; }
+.rune-build-engrave-error[data-visible='true'] { opacity: 1; }
 .rune-build-body { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: start; }
 
 /* The game's rune circle: slot 1 at the top and the rest clockwise. Every card

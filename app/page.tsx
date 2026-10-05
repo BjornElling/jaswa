@@ -18,6 +18,7 @@ import type { RuneOptimizationSettings } from './lib/rune-optimization-settings'
 import { runeOptimizationMonsterKey } from './lib/rune-optimization-settings';
 import type { SpeedTuningPreferences } from './lib/speed-tuning-preferences';
 import { readRunes } from './lib/runes';
+import { engraveRuneBuild } from './lib/engrave-rune-build';
 import type { MonsterCopyPreferences } from './lib/monster-preferences';
 import type { MonsterPriority } from './lib/monster-priority';
 import { statesSomething } from './lib/monster-preferences';
@@ -254,6 +255,21 @@ export default function Home() {
     forgetAppliedHelperImport();
     setGame(null);
     setMessage('');
+  }
+
+  async function engraveBuild(unitId: string, runeIds: readonly string[]): Promise<void> {
+    if (!game || (preferences.importRoute === 'direct' && preferences.directImportMode === 'live')) {
+      throw new Error('This build cannot be engraved in the current import mode.');
+    }
+    try {
+      const next = { ...game, data: engraveRuneBuild(game.data, unitId, runeIds) };
+      await saveImportedGame(next);
+      setGame(next);
+      setMessage('');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'JASWA could not save this build. Please try again.');
+      throw error;
+    }
   }
 
   /* This is the sole route from a committed preference choice to both React and
@@ -614,6 +630,8 @@ export default function Home() {
         monsters={monsters}
         preferences={preferences}
         onUpdate={updateRuneOptimizationSettings}
+        canEngrave={preferences.importRoute === 'file' || preferences.directImportMode === 'on-load'}
+        onEngrave={engraveBuild}
         onOpenMonster={openMonsterOverlay}
         onOpenRune={openRuneOverlay}
       /></Suspense>}

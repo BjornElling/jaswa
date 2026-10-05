@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { Button } from './button';
 import { AncientMark } from './ancient-mark';
 import { MonsterLink } from './monster-link';
 import type { OpenMonsterOverlay } from './monster-link';
@@ -177,7 +178,7 @@ function RuneCard({ picked, rune, thisMonster, wearer, format, onOpenRune, onOpe
 }
 
 export function RuneBuildOverlay({
-  index, buildName, moves, runes, short, runesById, monster, wearer, general, onClose, onOpenRune, onOpenMonster,
+  index, buildName, moves, runes, short, runesById, monster, wearer, general, canEngrave, onEngrave, onClose, onOpenRune, onOpenMonster,
 }: {
   index: number;
   buildName: string;
@@ -190,10 +191,14 @@ export function RuneBuildOverlay({
   monster: BuildMonster;
   wearer: (unitId: string) => BuildWearer | undefined;
   general: GeneralSettings;
+  canEngrave: boolean;
+  onEngrave: (unitId: string, runeIds: readonly string[]) => Promise<void>;
   onClose: () => void;
   onOpenRune: OpenRuneOverlay;
   onOpenMonster: OpenMonsterOverlay;
 }) {
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(false);
   const format = (value: number) => formatNumber(value, general);
   const bySlot = [...runes].sort((left, right) => left.slot - right.slot);
   const changes = bySlot.map((picked) => {
@@ -210,6 +215,20 @@ export function RuneBuildOverlay({
     { label: 'Targets', value: short.length === 0 ? 'Met' : shortText(short) },
   ];
   const wearerName = (unitId: string) => wearer(unitId)?.name;
+  const complete = bySlot.length === 6 && bySlot.every((picked) => runesById.has(picked.runeId));
+
+  async function engrave() {
+    setSaving(true);
+    setSaveError(false);
+    try {
+      await onEngrave(monster.unitId, bySlot.map((picked) => picked.runeId));
+      onClose();
+    } catch {
+      setSaveError(true);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return <Overlay labelledBy="rune-build-overlay-title" describedBy="rune-build-overlay-facts" className="rune-build-overlay" onClose={onClose}>
     <header className="rune-build-head">
@@ -220,6 +239,19 @@ export function RuneBuildOverlay({
           <dd>{fact.value}</dd>
         </div>)}
       </dl>
+      <div className="rune-build-engrave">
+        <Button type="button" tone="primary" disabled={!canEngrave || !complete} busy={saving}
+          busyLabel="Engraving…" onClick={() => void engrave()}>Engrave on monster</Button>
+        <span className="rune-build-engrave-info" tabIndex={canEngrave ? -1 : 0}
+          role="img" aria-hidden={canEngrave}
+          aria-label={canEngrave ? undefined : 'To engrave a build, choose Read on game start or Load a JSON file instead of Always synchronized.'}
+          title="Choose Read on game start or Load a JSON file to engrave a build."
+          data-visible={!canEngrave}>
+          <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" /><path d="M8 7.2v3.5M8 5.1h.01" /></svg>
+        </span>
+        <span className="rune-build-engrave-error" role="alert" aria-hidden={!saveError}
+          data-visible={saveError}>Could not save this build.</span>
+      </div>
     </header>
 
     <div className="overlay-body rune-build-body">
