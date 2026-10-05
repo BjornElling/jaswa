@@ -107,8 +107,10 @@ the green info mark after it.
 
 *Always element advantage* adds 15 CRI Rate points and *Crit lead* adds the
 stated percentage points. They add to each other and to the copy's own CRI Rate
-for DMG, CRI Rate floors and ceilings, capped at 100 % for DMG. They do not alter
-the CRI Rate printed on screen. The green mark beside that figure explains each
+for DMG, capped at 100 % there. CRI Rate floors and ceilings apply to the copy's
+own displayed CRI Rate before these bonuses. A range of 67–69 with a 33-point
+lead therefore still requires 67–69 on the copy. The bonuses do not alter the
+CRI Rate printed on screen. The green mark beside that figure explains each
 contribution on hover. A blank lead means no stated bonus; an explicit zero is
 kept as the user's choice. *Always crits* still makes every CRI Rate target moot.
 

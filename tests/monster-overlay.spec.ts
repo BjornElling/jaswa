@@ -135,10 +135,10 @@ test('element advantage and a crit lead add to the calculation without changing 
   await expect(mark).toBeVisible();
   await expect(mark).toHaveAttribute('title', /15%.*33%/);
   const critFloor = rate.getByRole('spinbutton', { name: 'CtR%: at least' });
-  await critFloor.fill('99');
+  await critFloor.fill('51');
   await expect(rate.getByRole('img', { name: /You want CtR%/ })).toHaveCount(0);
-  await critFloor.fill('100');
-  await expect(rate.getByRole('img', { name: /effective 99 with combat bonuses/ })).toBeVisible();
+  await critFloor.fill('67');
+  await expect(rate.getByRole('img', { name: /You want CtR% at least 67, and this copy has 51/ })).toBeVisible();
   await critFloor.fill('');
   expect(await rate.boundingBox()).toEqual(before);
   await page.screenshot({ path: testInfo.outputPath('crit-bonuses-filled.png') });

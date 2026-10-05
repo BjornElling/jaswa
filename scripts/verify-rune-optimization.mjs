@@ -52,10 +52,10 @@
  */
 import assert from 'node:assert/strict';
 import {
-  calculateMonsterTotals, criticalRateLift, intangibleCompletion, intangibleSetId, monsterTargetFigures, setIdBound, targetFigureKeys, unliftedFigures,
+  calculateMonsterTotals, intangibleCompletion, intangibleSetId, monsterTargetFigures, setIdBound, targetFigureKeys, unliftedFigures,
 } from '../app/lib/monster-stats.ts';
 import { monsterStatTargetKeys } from '../app/lib/monster-preferences.ts';
-import { buildFigures, canStillFinishSets, canStillSatisfy, prepareRuneOptimization, remainingSetSupport } from '../app/lib/rune-optimization-problem.ts';
+import { buildFigures, canStillFinishSets, canStillSatisfy, prepareRuneOptimization, remainingSetSupport, targetCeilings, targetFloors } from '../app/lib/rune-optimization-problem.ts';
 import { currentBuilds } from '../app/lib/rune-optimization-refresh.ts';
 import {
   mergeBuildResults, searchRuneBuilds, searchRuneBuildsInPasses, searchRuneBuildsInSlices,
@@ -155,8 +155,7 @@ function bruteForce(input) {
       for (const candidate of chosen) for (const entry of candidate.stock) spent.set(entry, (spent.get(entry) ?? 0) + 1);
       for (const [entry, count] of spent) if (count > problem.stock[entry].amount) return;
       const values = sheet(input, chosen);
-      const compared = (key) => values[figures.indexOf(key)]
-        + (key === 'criRate' ? criticalRateLift(input.requirements) : 0);
+      const compared = (key) => values[figures.indexOf(key)];
       for (const [key, floor] of floorsOf(input)) if (compared(key) < floor) return;
       for (const [key, ceiling] of ceilingsOf(input)) if (compared(key) > ceiling) return;
       const identity = JSON.stringify(chosen.map((candidate) => candidate.runeId));
@@ -476,6 +475,40 @@ for (let index = 0; index < scenarios; index += 1) {
    composites. A second figure supplies the rank, so a ceiling is not just a cap
    on the objective. The comparison reads actual sheets, not search bounds. */
 let intervalTables = 0;
+for (const bonuses of [
+  { alwaysElementAdvantage: false, critLead: 33, lift: 33 },
+  { alwaysElementAdvantage: true, critLead: 33, lift: 48 },
+]) {
+  const { lift, ...conditions } = bonuses;
+  const input = scenarioGenerator(20261025 + bonuses.lift, [3, 3]).scenario(0);
+  input.holds = {}; input.spared = [];
+  Object.assign(input.requirements, {
+    builds: [], slotMains: { slot2: [], slot4: [], slot6: [] }, allowBroken: true,
+    alwaysCrits: false, ...conditions, targets: { criRate: 67 }, ceilings: { criRate: 69 }, rankBy: 'spd',
+  });
+  Object.assign(input.settings, { gems: 'none', grinds: 'none', runesOnOtherMonsters: true });
+  const criRate = figures.indexOf('criRate');
+  assert.equal(targetFloors(input.requirements)[criRate], 67 + lift);
+  assert.equal(targetCeilings(input.requirements)[criRate], 69 + lift);
+  const problem = prepareRuneOptimization(input);
+  const result = searchRuneBuilds(problem);
+  assert.ok(result.complete, 'the raw CRI Rate interval search timed out');
+  assert.deepEqual(result.builds.map((build) => ({ value: build.figures[problem.rank], moves: build.moves })),
+    bruteForce(input), 'the raw 67–69 CRI Rate interval disagrees with the displayed stat sheets');
+  intervalTables += 1;
+  const open = { ...input, requirements: { ...input.requirements, targets: {}, ceilings: {} } };
+  const anchor = searchRuneBuilds(prepareRuneOptimization(open)).builds[0];
+  assert.ok(anchor, 'a populated raw CRI Rate interval needs a build');
+  const ownRate = anchor.figures[criRate] - lift;
+  input.requirements.targets = { criRate: ownRate };
+  input.requirements.ceilings = { criRate: ownRate };
+  const exact = prepareRuneOptimization(input);
+  const populated = searchRuneBuilds(exact);
+  assert.ok(populated.builds.length > 0, 'the crit lead must not move a raw CRI Rate build outside its own interval');
+  assert.deepEqual(populated.builds.map((build) => ({ value: build.figures[exact.rank], moves: build.moves })),
+    bruteForce(input), 'the populated raw CRI Rate interval disagrees with the displayed stat sheets');
+  intervalTables += 1;
+}
 for (let index = 0; index < figures.length; index += 1) {
   const input = scenarioGenerator(20261004 + index, [3, 3]).scenario(index);
   input.holds = {}; input.spared = [];

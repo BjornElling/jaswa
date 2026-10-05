@@ -456,7 +456,7 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
                 <FigureMarks marks={[
                   ...shortfallMarks(marks, general),
                   ...(row.key === 'criRate' ? criticalRateMarks(resolved) : []),
-                ]} />
+                ]} reserve={row.key === 'criRate' ? 2 : 1} />
               </>;
               /* A monster that always crits is never asked for CRI Rate, so the
                  fields say so by standing still rather than by vanishing. */

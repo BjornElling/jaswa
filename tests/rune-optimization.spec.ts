@@ -466,6 +466,39 @@ test('a monster that always crits is counted at a certain crit and shows its own
   await page.screenshot({ path: testInfo.outputPath('always-crits-table.png'), fullPage: true });
 });
 
+test('CRI Rate range stays on the displayed stat when a crit lead is active', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await freshWorkspace(page);
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
+  await openOptimization(page);
+  await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  const stats = page.getByRole('group', { name: 'Stats', exact: true });
+  const rate = stats.locator('.stat-range[data-figure="criRate"]');
+  const before = await box(rate);
+  const shown = await rate.locator('.overlay-stat-current').innerText();
+  await page.screenshot({ path: testInfo.outputPath('raw-crit-range-empty.png') });
+  await page.getByRole('button', { name: 'Open preset' }).click();
+  const profile = page.getByRole('dialog').filter({ has: page.getByRole('spinbutton', { name: 'Crit lead, in percent' }) });
+  await profile.getByRole('spinbutton', { name: 'Crit lead, in percent' }).fill('33');
+  await profile.getByRole('button', { name: 'Save changes' }).click();
+  await rate.getByRole('spinbutton', { name: 'CtR%: at least' }).fill('67');
+  await rate.getByRole('spinbutton', { name: 'CtR%: at most' }).fill('69');
+  await expect(rate.getByRole('img', { name: /Crit lead adds 33% CRI Rate/ })).toBeVisible();
+  await expect(rate.locator('.overlay-stat-current')).toHaveText(shown);
+  expect(await box(rate)).toEqual(before);
+  await page.screenshot({ path: testInfo.outputPath('raw-crit-range-filled.png') });
+  await page.getByRole('button', { name: 'Find builds' }).click();
+  const table = page.getByRole('table', { name: 'Rune builds' });
+  await expect(table).toBeVisible();
+  const rows = table.getByRole('row').filter({ has: page.getByRole('button', { name: /^Show build \d+$/ }) });
+  for (const row of await rows.all()) {
+    const value = Number(await row.getByRole('cell').nth(7).innerText());
+    expect(value).toBeGreaterThanOrEqual(67);
+    expect(value).toBeLessThanOrEqual(69);
+  }
+  await page.screenshot({ path: testInfo.outputPath('raw-crit-range-results.png'), fullPage: true });
+});
+
 test('a target nothing can reach is answered with an empty table that says why', async ({ page }, testInfo) => {
   await freshWorkspace(page);
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);

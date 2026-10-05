@@ -30,7 +30,7 @@ function describeShortfall(shortfall: Shortfall, general: GeneralSettings): stri
 
   if (shortfall.kind === 'stat' && shortfall.target !== undefined && shortfall.current !== undefined) {
     return `${where}${whose} ${shortfall.wanted} ${shortfall.over ? 'at most' : 'at least'} ${formatNumber(shortfall.target, general)},`
-      + ` and this copy has ${shortfall.withCombatBonuses ? 'an effective ' : ''}${formatNumber(shortfall.current, general)}${shortfall.withCombatBonuses ? ' with combat bonuses' : ''}.`;
+      + ` and this copy has ${formatNumber(shortfall.current, general)}.`;
   }
   /* A substat floor states both figures in percentage points, since that is how
      the game shows a roll and how the user typed the floor. */

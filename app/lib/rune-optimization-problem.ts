@@ -194,20 +194,22 @@ export const figureIndex = (figure: RankFigure): number => targetFigureKeys.inde
  * The floors a calculation asks for, with `NaN` where none is set. A monster that
  * always crits is never asked for CRI Rate: every hit it lands is already a crit.
  */
-export function targetFloors(requirements: Pick<RuneOptimizationRequirements, 'targets' | 'alwaysCrits'>): Float64Array {
-  return figureLimits(requirements.targets, requirements.alwaysCrits);
+export function targetFloors(requirements: Pick<RuneOptimizationRequirements, 'targets' | 'alwaysCrits' | 'alwaysElementAdvantage' | 'critLead'>): Float64Array {
+  return figureLimits(requirements.targets, requirements);
 }
 
 /** The ceilings a calculation asks for, read as `targetFloors` reads the floors. */
-export function targetCeilings(requirements: Pick<RuneOptimizationRequirements, 'ceilings' | 'alwaysCrits'>): Float64Array {
-  return figureLimits(requirements.ceilings, requirements.alwaysCrits);
+export function targetCeilings(requirements: Pick<RuneOptimizationRequirements, 'ceilings' | 'alwaysCrits' | 'alwaysElementAdvantage' | 'critLead'>): Float64Array {
+  return figureLimits(requirements.ceilings, requirements);
 }
 
-function figureLimits(limits: Partial<Record<RankFigure, number>>, alwaysCrits: boolean): Float64Array {
+function figureLimits(limits: Partial<Record<RankFigure, number>>, bonuses: CriticalRateBonuses): Float64Array {
   const values = new Float64Array(targetFigureCount).fill(Number.NaN);
   for (const [key, value] of Object.entries(limits)) {
-    if (alwaysCrits && key === 'criRate') continue;
-    if (typeof value === 'number' && Number.isFinite(value)) values[figureIndex(key as RankFigure)] = value;
+    if (bonuses.alwaysCrits && key === 'criRate') continue;
+    // The search carries combat CRI Rate in its base; the entered range names the displayed stat.
+    if (typeof value === 'number' && Number.isFinite(value)) values[figureIndex(key as RankFigure)] =
+      value + (key === 'criRate' ? criticalRateLift(bonuses) : 0);
   }
   return values;
 }
