@@ -25,7 +25,7 @@ import { combineCalculationBackends } from './compute/calculation-summary';
 import { countRuneChances } from './compute/rune-chance-engine';
 import type { CalculationBackend } from './compute/calculation-summary';
 import {
-  generateRuneBody, randomInteger, upgradeRuneBody,
+  generateRuneBody, generatedRuneGrade, randomInteger, upgradeRuneBody,
 } from './rune-generation';
 import type { RandomSource } from './rune-generation';
 
@@ -163,14 +163,9 @@ export const defaultRuneSimulationConfig: RuneSimulationConfig = {
   },
 };
 
-const asUnit = (value: number): number => Math.min(0.9999999999999999, Math.max(0, value));
-
 /** The simulator's only legal rune-grade distribution, fixed by slot. */
 export function simulationGradeForSlot(slot: number, random: RandomSource = defaultRandom): RuneDefaultGrade {
-  const roll = asUnit(random());
-  if (slot % 2 === 1) return roll < 0.75 ? 'Hero' : 'Legend';
-  if (roll < 0.25) return 'Rare';
-  return roll < 0.75 ? 'Hero' : 'Legend';
+  return generatedRuneGrade(slot, random);
 }
 
 /** The one display helper for the stat vocabulary used by the simulator. */

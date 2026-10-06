@@ -23,7 +23,7 @@ import {
 import type {
   Build, ChanceAsk, CountingJob, CraftCredit, MatchRank, OrdinaryBox, RuneCandidate,
 } from './rune-cleanup-model';
-import { countJobs } from './rune-power-up-outcomes';
+import { countJobs, playForward, runScore } from './rune-power-up-outcomes';
 import type { RuneFuture, RuneRuns } from './rune-power-up-outcomes';
 import type { Valuation } from './rune-substat-weights';
 import { lastSubPropertyLevel, slotMainProperties } from './rune-properties';
@@ -36,9 +36,16 @@ import type { EndStateLine } from './rune-craft-end-state';
 const floorCalibrationCredit: CraftCredit = {
   gem: 'three-quarters', gemGrade: 'Hero', grind: 'three-quarters', grindGrade: 'Hero',
 };
-/* The most lenient stops define the shared floor. User changes are then
+/* The middle stops define the shared floor. User changes are then
    monotone candidate filters instead of moving that floor. */
-const floorCalibrationTolerances = { accepted: 1, broken: 0.90 } as const;
+const floorCalibrationTolerances = { accepted: 0.85, broken: 0.80 } as const;
+/* The fresh-rune balance is measured on the set mix the shipped settings keep: a
+   4-set rune's share doubled, an Intangible one's raised by half. Fixed rather than
+   read from the user's sliders, because a balance that followed them let turning
+   the 4-set preference on sell slot-1 runes of other sets. Without any set weight
+   the balance leaned towards odd slots wherever a doubled share reached the whole
+   box in some slots and not others. */
+const floorCalibrationSetWeights = { fourPiece: 2, intangible: 1.5 } as const;
 
 /**
  * Who answers the odds.
@@ -115,72 +122,57 @@ function valuationNumber(valuation: Valuation): number {
 
 /**
  * How many ordinary runes per slot the balance between slots is measured on. At a
- * quarter kept, a thousand runes put one standard error of a slot's share at about
- * 1.4 points, which is finer than any two slots can be told apart by in a real box.
+ * quarter kept, two thousand runes put one standard error of a slot's share at about
+ * one point, which is finer than any two slots can be told apart by in a real box.
  */
 const balanceSampleRunes = 2000;
+/* A fresh rune is played forward before it can be judged, so its sample is
+   smaller and its runs fewer than a counted chance uses (§9.4). */
+const freshBalanceSampleRunes = 600;
+const freshBalanceRuns = 64;
 
 /**
- * **How much of each main's own box passes, so that every slot keeps the same share
- * of what it produces.** `docs/RUNE-CLEANUP-MATH.md` §9.3 owns the reasoning.
- *
- * §9.1 makes the floor a share `q` of the ordinary box of one slot *holding one main*.
- * That is fair between slots 1, 3 and 5, which have one main each, and it is not fair
- * to slots 2, 4 and 6, which have seven or eight: a preset names one or two of them,
- * so most of those slots' runes are runes it cannot use at all, and `q` of the few it
- * can use is a small share of the slot. Measured per shipped preset on an ordinary
- * box of every main, that kept 1–7 % of slots 2, 4 and 6 against 15–20 % of slots 1,
- * 3 and 5, and about half as many across all presets together — while a monster needs
- * one of each.
- *
- * So the floor is stated for the **whole slot** instead. The slot's ordinary runes are
- * a mixture of its `M` legal mains, each drawn on `1/M` of runes (the game states no
- * main-property rate, and none has been measured; uniform is the stated assumption).
- * The calibration uses one fixed yardstick: the most lenient Accepted/Broken stops.
- * The user's slider changes, Intangible and craft preferences are applied later to candidates; they never move this yardstick.
- * One share `q'` of *every* main's own box is then found such that the slot as a whole
- * keeps `q`:
- *
- * ```
- * (1/M) · Σ_m P( w_m · X_m ≥ T_m(q') ) = q
- * ```
- *
- * where `X_m` is main `m`'s ordinary Max value and `T_m(q')` the Max value at which the
- * best `q'` of its box begins. A preferred main contributes `q'` exactly; the fixed
- * calibration discounts the other ranks. The left side is continuous and never falls as
- * `q'` rises, so one bisection finds it.
- *
- * - **Slots 1, 3 and 5 are unchanged**: one main, preferred, so `q' = q`.
- * - **Many preferred mains need little help and one needs a lot**, which is the case a
- *   flat "double it" gets wrong: four of slot 6's eight mains preferred is `q' = 2q`,
- *   one of them is `8q`. The preset's own choices set the factor.
- * - **One `q'` for every main of the slot**, not one Max value, so §9.1's promise
- *   still holds between mains: a CRI Dmg slot-4 rune and an ATK % one are cut at the
- *   same place in their own boxes, whichever of the two blocks the stat the role wants.
- * - **Where even `q' = 1` falls short**, the slot cannot produce `q` of runes the preset
- *   can use, and every rune of a wanted main clears the floor. That is the arithmetic
- *   of "as many as any other slot" and it is stated rather than hidden: a preset asking
- *   for SPD alone in slot 2 has one slot-2 rune in seven to choose from.
+ * A quality floor names a share of the mains at least one build can use, rather
+ * than all mains a slot can produce (§9.3). The per-main floor reads fixed middle
+ * rank weights, so a user's Accepted/Broken choice does not move it; the fresh-rune
+ * balance above it may only lower a slot's factor at stricter choices (§9.4).
  */
 class SlotShares {
   private readonly found = new Map<string, number>();
   private readonly balance = new Map<number, readonly number[]>();
+  private readonly freshBalance = new Map<number, readonly number[]>();
   private readonly scope: ReturnType<typeof newRuneAdviceScope>;
   private readonly presets: readonly RunePotentialPreset[];
   private readonly builds: ReadonlyMap<string, readonly Build[]>;
   private readonly base: ReadonlyMap<string, ReferenceStats>;
   private readonly qualityBar: number;
+  private readonly chanceBar: number;
+  private readonly acceptedWorth: number;
+  private readonly brokenWorth: number;
+  private readonly eligible: readonly number[];
 
   constructor(
     scope: ReturnType<typeof newRuneAdviceScope>,
     presets: readonly RunePotentialPreset[], builds: ReadonlyMap<string, readonly Build[]>,
-    base: ReadonlyMap<string, ReferenceStats>, qualityBar: number,
+    base: ReadonlyMap<string, ReferenceStats>, qualityBar: number, chanceBar = 0.20,
+    acceptedWorth: number = floorCalibrationTolerances.accepted,
+    brokenWorth: number = floorCalibrationTolerances.broken,
   ) {
     this.scope = scope;
     this.presets = presets;
     this.builds = builds;
     this.base = base;
     this.qualityBar = qualityBar;
+    this.chanceBar = chanceBar;
+    this.acceptedWorth = acceptedWorth;
+    this.brokenWorth = brokenWorth;
+    this.eligible = [1, 2, 3, 4, 5, 6].map((slot) => {
+      const mains = slotMainProperties[slot] ?? [];
+      return mains.filter((main) => presets.some((preset) => base.has(preset.type)
+        && (builds.get(preset.id) ?? []).some((build) => slot % 2 === 1
+          || build.mains[slot as 2 | 4 | 6] === 0 || build.mains[slot as 2 | 4 | 6] === main))).length
+        / Math.max(1, mains.length);
+    });
   }
 
   /**
@@ -188,39 +180,22 @@ class SlotShares {
    * for a rune whose retention share is `wanted`: the slot's balance (below) applied
    * to it, then spread over the slot's mains.
    */
-  shareFor(preset: RunePotentialPreset, slot: number, stars: number, wanted: number): number {
-    const balance = this.balanceOf(stars)[slot - 1] ?? 1;
-    return this.shareOf(preset, slot, stars, Math.min(1, wanted * balance));
+  shareFor(preset: RunePotentialPreset, slot: number, stars: number, wanted: number, level = 15): number {
+    const balance = (level < lastSubPropertyLevel ? this.freshBalanceOf(stars) : this.balanceOf(stars))[slot - 1] ?? 1;
+    /* A remembered calibration is asked with a later call's copy of the preset. Its
+       own copy keeps the scope's identity-keyed caches from growing with every call. */
+    const own = this.presets.find((known) => known.id === preset.id) ?? preset;
+    return this.shareOf(own, slot, stars, Math.min(1, wanted * balance));
   }
 
-  /**
-   * **The balance between slots once every preset judges at once.** `RUNE-CLEANUP-MATH.md`
-   * §9.4 owns the reasoning.
-   *
-   * The per-main share above balances slots for one preset at a time, and a rune is
-   * kept if *any* preset keeps it. Those are different things. A good slot-1 rune tends
-   * to be good for several presets, so what the presets keep of slot 1 overlaps and
-   * the rune is counted once; on slots 2, 4 and 6 each preset keeps runes of its own
-   * mains, so what they keep barely overlaps and adds up. Measured on an ordinary box
-   * against the eight shipped presets, each of them balanced on its own, slots 2, 4
-   * and 6 kept 34–49 % where slots 1, 3 and 5 kept 23–25 %.
-   *
-   * So each slot gets one factor `λ` on its target, found so that the share of the
-   * slot's ordinary runes kept by *at least one* preset is the same in every slot. The
-   * level is where slots 1, 3 and 5 stand without any factor, so the overall number
-   * kept stays where the quality floor puts it and only its distribution changes. It
-   * is measured on `ordinarySample` — a fixed draw of the same ordinary runes the box
-   * states, every main even and every set preferred — judged by the same candidate,
-   * box and share as a real rune, because the question is about the joint behaviour
-   * of several boxes and no single box can answer it.
-   */
+  /** The +12/+15 union of presets uses the same per-usable-main target as §9.4. */
   private balanceOf(stars: number): readonly number[] {
     const known = this.balance.get(stars);
     if (known) return known;
     const bar = this.qualityBar;
     /* One reading per sample rune: for each preset that can judge it, the best standing
        any of its builds gives the neutral floor yardstick, independent of settings. */
-    const readings = [1, 2, 3, 4, 5, 6].map((slot) => ordinarySample(slot, stars, balanceSampleRunes).map((rune) => {
+    const readings = [1, 2, 3, 4, 5, 6].map((slot) => ordinarySample(slot, stars, balanceSampleRunes, 15, 'drop').map((rune) => {
       const candidatesByPreset = this.presets.flatMap((preset) => {
         const line = this.base.get(preset.type);
         if (!line) return [];
@@ -252,7 +227,8 @@ class SlotShares {
       const floors = new Map(this.presets.map((preset) => [preset.id, 1 - this.shareOf(preset, slot, stars, target)]));
       const runes = readings[slot - 1];
       return runes.filter((reading) => reading.some(({ preset, standing }) =>
-        standing >= (floors.get(preset.id) ?? Infinity))).length / Math.max(1, runes.length);
+        standing >= (floors.get(preset.id) ?? Infinity))).length
+        / Math.max(1, runes.length * (this.eligible[slot - 1] ?? 0));
     };
     const level = (keptAt(1, 1) + keptAt(3, 1) + keptAt(5, 1)) / 3;
     const found = [1, 2, 3, 4, 5, 6].map((slot) => {
@@ -271,6 +247,128 @@ class SlotShares {
     return found;
   }
 
+  /**
+   * A fresh rune has to survive the chance gate as well as the quality floor.
+   * The finished-rune balance cannot see that difference in natural grades between
+   * slots. This fixed sample asks the same question at +0, at the active chance
+   * bar and the middle Accepted/Broken discounts. Stricter Accepted/Broken choices
+   * then only cap factors, never raise them, so they cannot re-admit a rune.
+   */
+  private freshBalanceOf(stars: number): readonly number[] {
+    const known = this.freshBalance.get(stars);
+    if (known) return known;
+    const acceptedIndex = Math.max(0, acceptedWorth.indexOf(this.acceptedWorth));
+    const brokenIndex = Math.max(0, brokenWorth.indexOf(this.brokenWorth));
+    const runsPerSample = this.chanceBar <= 0.05 ? 128 : freshBalanceRuns;
+    const readings = [1, 2, 3, 4, 5, 6].map((slot) => [0, 10_000, 20_000, 30_000].flatMap((offset) =>
+      ordinarySample(slot, stars, freshBalanceSampleRunes / 4, 0, 'drop', offset)).map((rune) => {
+      const multiplier = (isFourPieceSet(rune.setName) ? floorCalibrationSetWeights.fourPiece : 1)
+        * (rune.setName === 'Intangible' ? floorCalibrationSetWeights.intangible : 1);
+      let runs: ReturnType<typeof playForward> | null = null;
+      const standings = this.presets.flatMap((preset) => {
+        const line = this.base.get(preset.type);
+        if (!line) return [];
+        const builds = this.builds.get(preset.id) ?? [];
+        let standing = 0;
+        let preferredStanding = 0;
+        const acceptedStandings = [0, 0, 0, 0, 0];
+        const brokenStandings = [0, 0, 0, 0, 0];
+        for (const build of builds) {
+          const candidate = prepareRuneCandidate(rune, preset, build, line, floorCalibrationCredit, this.scope);
+          if (!candidate) continue;
+          const box = ordinaryBox(slotMainFamily(
+            preset, builds, slot, candidate.main, stars, line, floorCalibrationCredit, this.scope,
+          ));
+          runs ??= playForward(candidate.future, runsPerSample);
+          const outcomes = Array.from({ length: runsPerSample }, (_, at) =>
+            runScore(runs!, candidate.scoring, at) / candidate.ceiling);
+          outcomes.sort((left, right) => right - left);
+          const quantile = outcomes[Math.max(0, Math.ceil(this.chanceBar * runsPerSample) - 1)] ?? 0;
+          const worth = candidate.rank === 'preferred' ? 1
+            : candidate.rank === 'acceptable' ? floorCalibrationTolerances.accepted : floorCalibrationTolerances.broken;
+          standing = Math.max(standing, standingIn(box, quantile * worth));
+          if (candidate.rank === 'preferred') {
+            preferredStanding = Math.max(preferredStanding, standingIn(box, quantile));
+          }
+          if (candidate.rank === 'acceptable') acceptedWorth.forEach((weight, at) => {
+            acceptedStandings[at] = Math.max(acceptedStandings[at], standingIn(box, quantile * weight));
+          });
+          if (candidate.rank === 'broken') brokenWorth.forEach((weight, at) => {
+            brokenStandings[at] = Math.max(brokenStandings[at], standingIn(box, quantile * weight));
+          });
+        }
+        return standing > 0 || preferredStanding > 0 || acceptedStandings[0] > 0 || brokenStandings[0] > 0
+          ? [{ preset, standing, preferredStanding, acceptedStandings, brokenStandings }] : [];
+      });
+      return { multiplier, standings };
+    }));
+    const keptAt = (slot: number, factor: number, pair?: readonly [number, number]) => {
+      const runes = readings[slot - 1];
+      return runes.filter(({ multiplier, standings }) => standings.some(({
+        preset, standing, preferredStanding, acceptedStandings, brokenStandings,
+      }) => (pair ? Math.max(preferredStanding, acceptedStandings[pair[0]], brokenStandings[pair[1]]) : standing)
+        >= 1 - this.shareOf(preset, slot, stars,
+          Math.min(1, this.qualityBar * factor * multiplier)))).length
+        / Math.max(1, runes.length * (this.eligible[slot - 1] ?? 0));
+    };
+    const target = [1, 3, 5].reduce((sum, slot) => sum + keptAt(slot, 1), 0) / 3;
+    const found = [1, 2, 3, 4, 5, 6].map((slot) => {
+      if (!(target > 0) || !(this.eligible[slot - 1] > 0)) return 1;
+      let low = 0.6;
+      let high = 3;
+      if (keptAt(slot, low) >= target) return low;
+      if (keptAt(slot, high) <= target) return high;
+      for (let step = 0; step < 24; step += 1) {
+        const middle = (low + high) / 2;
+        if (keptAt(slot, middle) < target) low = middle; else high = middle;
+      }
+      return high;
+    });
+    /* Strict Accepted/Broken choices can leave far fewer usable combinations on
+       even slots. Lower only the slots above the least-kept rate. A small margin
+       avoids chasing the fixed sample's ordinary binomial noise. */
+    const lenientRates = found.map((factor, at) => keptAt(at + 1, factor, [0, 0]));
+    const lenientTotal = lenientRates.reduce((sum, rate, at) => sum + rate * (this.eligible[at] ?? 0), 0);
+    const eligibleTotal = this.eligible.reduce((sum, share) => sum + share, 0);
+    const overallLenient = eligibleTotal > 0 ? lenientTotal / eligibleTotal : 0;
+    const lenientChi = lenientRates.reduce((sum, rate, at) => {
+      const expected = overallLenient * (this.eligible[at] ?? 0) * freshBalanceSampleRunes;
+      const missed = (1 - overallLenient) * (this.eligible[at] ?? 0) * freshBalanceSampleRunes;
+      const gap = (rate - overallLenient) * (this.eligible[at] ?? 0) * freshBalanceSampleRunes;
+      return sum + (expected > 0 ? gap * gap / expected : 0)
+        + (missed > 0 ? gap * gap / missed : 0);
+    }, 0);
+    const calibrateLenient = this.chanceBar >= 0.5 && overallLenient >= 0.15 && lenientChi > 15.1;
+    if (!calibrateLenient && acceptedIndex < 3 && brokenIndex < 3) {
+      this.freshBalance.set(stars, found);
+      return found;
+    }
+    const capped = [...found];
+    for (let acceptedAt = 0; acceptedAt <= acceptedIndex; acceptedAt += 1) {
+      for (let brokenAt = 0; brokenAt <= brokenIndex; brokenAt += 1) {
+        if (!calibrateLenient && acceptedAt < 3 && brokenAt < 3) continue;
+        const pair = [acceptedAt, brokenAt] as const;
+        const selectedRates = found.map((factor, at) => keptAt(at + 1, factor, pair));
+        const eligibleRates = selectedRates.filter((_, at) => this.eligible[at] > 0);
+        const targetRate = eligibleRates.length > 0 ? Math.min(...eligibleRates) : 0;
+        found.forEach((factor, at) => {
+          const slot = at + 1;
+          if (selectedRates[at] <= targetRate * 1.05) return;
+          let low = 0;
+          let high = factor;
+          for (let step = 0; step < 24; step += 1) {
+            const middle = (low + high) / 2;
+            if (keptAt(slot, middle, pair) <= targetRate * 1.05) low = middle;
+            else high = middle;
+          }
+          capped[at] = Math.min(capped[at], low);
+        });
+      }
+    }
+    this.freshBalance.set(stars, capped);
+    return capped;
+  }
+
   private shareOf(preset: RunePotentialPreset, slot: number, stars: number, wanted: number): number {
     const builds = this.builds.get(preset.id) ?? [];
     const base = this.base.get(preset.type);
@@ -286,11 +384,12 @@ class SlotShares {
           : family.rank === 'acceptable' ? floorCalibrationTolerances.accepted : floorCalibrationTolerances.broken;
       return { box: ordinaryBox(family), worth };
     });
+    const usableMains = readings.filter(({ box }) => box.below.length > 0).length;
     const kept = (share: number) => readings.reduce((total, { box, worth }) => {
       if (worth <= 0 || box.below.length === 0) return total;
       if (share >= 1) return total + 1;
       return total + 1 - standingIn(box, boxThreshold(box, share) / worth);
-    }, 0) / Math.max(1, mains.length);
+    }, 0) / Math.max(1, usableMains);
     let share = 1;
     if (kept(1) > wanted) {
       let low = 0;
@@ -423,9 +522,8 @@ export type RuneAdvice = {
   standing: number;
   /**
    * The share of its own box the floor let through for this rune: the quality stop's
-   * share of the whole slot, spread over the slot's mains (§9.3). A slot-1 rune's is
-   * the stop itself; a slot-2 rune's is larger wherever the preset can use only a few
-   * of slot 2's mains. `standing` passed where it reached `1 - floorShare`.
+   * share among mains the preset can use, spread over their own boxes (§9.3).
+   * `standing` passed where it reached `1 - floorShare`.
    */
   floorShare: number;
   /**
@@ -554,17 +652,51 @@ function policyOf(settings: RunePotentialSettings) {
  * **The share of its own box a rune must clear, by preset and slot**, when these
  * presets judge together at these settings — what `floorShare` reports on a row, laid
  * out for a reader instead of for one rune. It is the same `SlotShares` a calculation
- * builds, for a rune of `stars` with no 4-set or Intangible preference.
+ * builds, for a rune of `stars` and `level` with no 4-set or Intangible preference.
+ * The level matters: below the last sub-property a rune is held to the fresh-rune
+ * balance of §9.4, not the finished one.
  */
 export function slotFloorShares(
   presets: readonly RunePotentialPreset[], settings: RunePotentialSettings,
-  base: ReadonlyMap<string, ReferenceStats>, stars = 6,
+  base: ReadonlyMap<string, ReferenceStats>, stars = 6, level = runeMaximumLevel,
 ): Map<string, number[]> {
   const { qualityBar } = policyOf(settings);
-  const builds = new Map<string, Build[]>(presets.map((preset) => [preset.id, presetBuilds(preset)]));
-  const shares = new SlotShares(newRuneAdviceScope(), presets, builds, base, qualityBar);
+  const shares = calibrationFor(presets, settings, base);
   return new Map(presets.map((preset) => [preset.id,
-    [1, 2, 3, 4, 5, 6].map((slot) => shares.shareFor(preset, slot, stars, qualityBar))]));
+    [1, 2, 3, 4, 5, 6].map((slot) => shares.shareFor(preset, slot, stars, qualityBar, level))]));
+}
+
+/**
+ * **The slot calibration outlives the call that made it.** It depends on the presets,
+ * the reference lines and the policy, and never on which runes are asked about. A
+ * refresh after a sync, one rune opened in the overlay and the simulator's four
+ * checkpoints all ask again with the same inputs, and the fresh-rune balance costs
+ * seconds, so asking about one rune used to cost as much as asking about the box.
+ * The key is the inputs' content rather than their identity, because the worker
+ * receives a new copy of every object with each message. Craft credit is not in it:
+ * the calibration always reads the fixed `floorCalibrationCredit`.
+ */
+const calibrations = new Map<string, SlotShares>();
+const calibrationsKept = 4;
+
+function calibrationFor(
+  presets: readonly RunePotentialPreset[], settings: RunePotentialSettings,
+  base: ReadonlyMap<string, ReferenceStats>,
+): SlotShares {
+  const { qualityBar, chanceBar, accepted, broken } = policyOf(settings);
+  const key = JSON.stringify([presets, [...base], qualityBar, chanceBar, accepted, broken]);
+  const known = calibrations.get(key);
+  if (known) {
+    calibrations.delete(key);
+    calibrations.set(key, known);
+    return known;
+  }
+  const builds = new Map<string, Build[]>(presets.map((preset) => [preset.id, presetBuilds(preset)]));
+  const shares = new SlotShares(newRuneAdviceScope(), presets, builds, base, qualityBar, chanceBar,
+    accepted, broken);
+  calibrations.set(key, shares);
+  while (calibrations.size > calibrationsKept) calibrations.delete(calibrations.keys().next().value!);
+  return shares;
 }
 
 export async function runeAdvice(
@@ -587,12 +719,11 @@ export async function runeAdvice(
      for its duration, which is what makes the keys inside it sound. */
   const scope = newRuneAdviceScope();
   const ledger = new ChanceLedger();
-  /* The floor is calibrated once against the same neutral yardstick for every
-     setting. Letting Accepted/Broken, Intangible or craft credit change that
-     calibration can move the preferred-main bar itself, so a stricter filter
-     could admit more runes. Those settings now only change their own candidate's
-     verdict. */
-  const slotShares = new SlotShares(scope, presets, builds, base, qualityBar);
+  /* The preferred-main floor is calibrated on fixed middle Accepted/Broken weights
+     and the fixed craft credit, so those settings change their own candidates'
+     verdicts and not the bar. The fresh-rune balance does read the policy (§9.4),
+     and is built so that a stricter choice can only lower a slot's factor. */
+  const slotShares = calibrationFor(presets, settings, base);
   const prepared: RunePlan[] = [];
 
   /* ------------------------------------------------- 1. everything that is certain */
@@ -643,7 +774,7 @@ export async function runeAdvice(
       const box = ordinaryBox(slotMainFamily(
         preset, presetBuildList, rune.slot, family[0].main, stars, line, floorCalibrationCredit, scope,
       ));
-      const share = slotShares.shareFor(preset, rune.slot, stars, retentionShare);
+      const share = slotShares.shareFor(preset, rune.slot, stars, retentionShare, rune.level);
       for (const candidate of family) {
         const worth = worthOf(candidate.rank);
         /* Two figures, and they are not interchangeable. `maxValue` is what the row

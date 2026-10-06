@@ -2,7 +2,7 @@
 
 **Status:** Binding contract for Rune Clean-up verdicts
 **Depends on:** `docs/RUNE-CANONICAL.md` and `docs/RUNE-PRESET-METRICS.md`
-**Reviewed:** 25 September 2026
+**Reviewed:** 5 October 2026
 
 This document describes the calculation, not the game rules. Game facts and their
 sources belong in `RUNE-CANONICAL.md`; where the two differ on a game fact, the
@@ -28,6 +28,7 @@ file, `npm run verify:rune-chance-stability` holds the odds still, and
 | A value inside its legal integer interval | Modelled uniformly; the 6★ distribution has a measured check. |
 | Upgrade target and new-line type | Uniform over legal choices — a game rule, `RUNE-CANONICAL.md` §7. |
 | Main-property rate on slots 2, 4 and 6 | Assumed uniform over the slot's legal mains (§9.3); not measured. |
+| Generated drop's default grade | Simulator assumption: odd slots 75 % Hero / 25 % Legend; even slots 25 % Rare / 50 % Hero / 25 % Legend. Unsorted drops have not been measured. |
 | Artifact main properties | Verified table in `ARTIFACT-CANONICAL.md` §2; confirmed against 262 real artifacts. |
 | How a preset's artifact choice fills two slots | Stated assumption: evenly over the stats it named (§4.1). |
 | The set a build completes | **Not modelled.** A preset states no set combination, and guessing one from the candidate is what §4.3 forbids. |
@@ -694,7 +695,7 @@ the verdict independent of how many other runes happen to match the same preset.
 at stop 1, 15 % at the default stop 3, a few per cent at stop 5 — and §9.1 is how a
 share becomes a Max value. The box is the synthetic one this document has always
 named: ordinary Legend-born runes at `+15` of the candidate's star class, for the role
-in question, every main of the slot counted (§9.3). The substat event stream is still
+in question, every usable main of the slot counted (§9.3). The substat event stream is still
 complete at `+12`; `+12`→`+15` raises only the deterministic main stat. What changed is
 that the ladder now says the share and the model works out the Max value, rather
 than the ladder being a Max value calibrated to produce the share.
@@ -844,127 +845,101 @@ nothing. `verify:rune-cleanup-craft-monotonic` checks the candidate rule, and
 The row names one preset and prints one build reading's figures — its Max value,
 standing and Chance together (§5.1).
 
-## 9.3 A slot's share is of everything it produces
+## 9.3 A slot's share is of mains the presets can use
 
-**§9.1 made the floor fair between slots holding one main each, and slots 2, 4 and 6
-hold seven or eight.** A preset names one or two of them, so most of those slots' runes
-are runes it cannot use at all, and a share `q` of the few it can use is a small share
-of the slot. Measured per shipped preset on a box of every main, the default floor
-kept 1–7 % of slots 2, 4 and 6 against 15–20 % of slots 1, 3 and 5 — about half as
-many across all presets together — while a monster needs one rune of each.
+Odd slots have one legal main. Even slots have seven or eight, but the active
+presets may name only some of them. A quality floor stated over *all* drops
+would therefore force a role that wants only CRI Dmg in slot 4 to keep almost
+every CRI Dmg rune to match slot 1. That would erase the quality judgement.
 
-It is not the substats. The obvious explanation is that a slot-2, -4 or -6 main is
-usually a stat the role wants, which then cannot appear as a substat, so those runes
-have worse odds of being good; but that is exactly what §9.1's box per slot *and main*
-already neutralises, and `verify:rune-slot-neutrality` still measures it neutral — a
-role built mostly on DEF keeps its slot-1 runes, which can never carry DEF, at 17 %
-against 12–16 % elsewhere, well inside the χ² gate. What was left was the count of
-mains.
-
-**So the floor is stated for the whole slot.** Its ordinary runes are a mixture of its
-`M` legal mains, each on `1/M` of runes — the game publishes no rate and none has been
-measured, so uniform is the stated assumption (§1). A rune of main `m` is worth `w_m`
-of itself to the preset under one fixed calibration: `1` preferred, and the most
-lenient Accepted/Broken stops for the other ranks. The user's sliders do not move this
-yardstick. One share `q'` of *every* main's own box is found such that the slot as a
-whole keeps `q`:
+For each preset and slot, `shareOf` counts only mains that at least one of its
+builds can use. Each usable main has the same assumed drop frequency. The
+calibration uses fixed Accepted and Broken weights of 0.85 and 0.80; changing
+those controls does not move the floor of another rune. If `U` mains are usable,
+the share `q'` of each main's own box solves
 
 ```
-(1/M) · Σ_m P( w_m · X_m ≥ T_m(q') ) = q
+(1/U) · Σ_usable mains P( w_m · X_m ≥ T_m(q') ) = q
 ```
 
-where `X_m` is main `m`'s ordinary Max value and `T_m(q')` the Max value at which the
-best `q'` of its box begins. A preferred main contributes `q'` exactly, a fixed-
-discounted one less, an unwanted one nothing; the left side is continuous and never
-falls as `q'` rises, so a bisection finds it. The 4-set and Intangible preferences
-scale `q` for the candidate after calibration, never the shared yardstick itself.
+Here `X_m` is the main's ordinary Max value, `w_m` its fixed rank weight, and
+`T_m(q')` the boundary of the best `q'` of its own box. The bisection stops at
+`q' = 1` if the usable mains cannot reach the target. Every row still reports
+its own Max value, standing, and `floorShare`; `slotFloorShares` exposes the
+same floor by preset and slot.
 
-- **Slots 1, 3 and 5 are unchanged**: one main, preferred, so `q' = q`.
-- **The preset's own choices set the factor**, which is what a flat "double slots 2, 4
-  and 6" gets wrong. Five of slot 6's eight mains preferred is `q' = 1.6q`; one of them
-  is `8q`. Measured in `verify:rune-slot-neutrality`, one preferred slot-6 main and
-  five kept 8.9 % and 9.0 % of a whole box at the stop naming 9 %.
-- **One `q'` for every main of the slot**, not one Max value, so §9.1's promise still
-  holds between mains: a CRI Dmg slot-4 rune and an ATK % one are cut at the same place
-  in their own boxes, whichever of the two blocks the stat the role wants.
-- **Where even `q' = 1` falls short, every rune of a wanted main is kept.** CRI Dmg
-  alone on slot 4 is one rune in eight, fewer than the default floor's 15 %, so the only
-  way slot 4 keeps as many as slot 1 is to keep every CRI Dmg slot-4 rune, however it
-  rolled. That is the arithmetic of "as many as any other slot", chosen deliberately
-  over a cap that would leave the slot short; a preset that names more mains, or names
-  some acceptable ones, gives the slot more to choose from. The slot's target is the
-  one §9.4 sets, so whether a slot is short depends on the presets beside it: with the
-  eight shipped presets at the default settings, none is.
+This is a rate **per rune with a usable main**, the denominator the player chose
+for the slot comparison. It does not promise equal raw counts of drops. Slots
+2, 4 and 6 can produce mains that no active preset uses, and those are not
+recommendations waiting to be equalised.
 
-What the row prints does not change: Max value is still the fraction of a perfect rune
-and standing still a position in the rune's own box. `floorShare` on every row is the
-`q'` its standing was held to, so a check — and a reader — can see which bar applied;
-`slotFloorShares` lays the same figures out by preset and slot.
+## 9.4 Several presets and the power-up gate
 
-## 9.4 Several presets keep a slot together
+A rune survives when any compatible preset clears both its quality floor and
+its chance threshold. Presets overlap on odd slots and often name different
+mains on even slots, so balancing each preset separately cannot balance their
+combined recommendations. `SlotShares` measures the union and finds one factor
+per slot by bisection. Its target is the average rate in slots 1, 3 and 5,
+measured per usable main. The same factor scales a rune's quality share for
+each compatible preset; it never changes its score or chance.
 
-**§9.3 balanced each preset on its own, and a player's table is every preset at once.**
-A rune is kept when *any* preset keeps it, and that is a different count. A good slot-1
-rune tends to be good for several presets, so what the presets keep of slot 1 overlaps
-and each rune is counted once; on slots 2, 4 and 6 each preset keeps runes of its own
-mains — SPD for one, ATK % for another, HP % for a third — so what they keep barely
-overlaps and adds up. Measured on an ordinary box against the eight shipped presets at
-the default settings, every one of them balanced on its own, slots 2, 4 and 6 kept
-**34–49 %** where slots 1, 3 and 5 kept **23–25 %**. On a player's real box, collected
-over a long time, that read as a steady 330 runes on slots 2, 4 and 6 against 250 on 1,
-3 and 5 — which is how it was found.
+There are two populations. Finished runes (`+12` and `+15`) use 2,000 fixed
+drop-grade runes per slot and star class. Fresh runes (`+0`, `+3`, `+6`, `+9`)
+use 600 fixed drops per slot with the simulator's grade mix, the active
+power-up threshold, and 64 possible futures per rune (128 for the two most
+lenient chance stops). Both samples cycle
+every legal main and draw ordinary sets evenly from the preset vocabulary. The
+fresh balance is needed because the chance gate and the grade mix can move
+recommendations between slots before the last sub-property appears. It weighs
+the sample's sets as the shipped settings do — a 4-set rune's share doubled, an
+Intangible one's raised by half — whatever the user's own 4-set and Intangible
+choices are. Those choices still widen their own runes' share after calibration,
+as in §9.3. A calibration that read them let turning the 4-set preference on sell
+slot-1 runes of other sets; one with no set weight at all leaned towards odd slots
+at the strictest policy, where a doubled share fills some slots' boxes and not
+others.
+`verify:rune-cleanup-preference-monotonic` judges fresh drops as well as
+finished runes for that reason.
 
-**So each slot's target is scaled by one factor `λ_s`**, found so that the share of the
-slot's ordinary runes kept by *at least one* preset is the same in all six slots:
+The reference balance holds Accepted and Broken at their middle weights. At
+stricter choices, some slot rates can still diverge: at Broken = No,
+for example, a slot with fewer preferred set/main combinations has fewer
+eligible candidates. A second pass at choices stricter than the midpoint
+lowers only factors whose slot rate exceeds the least-kept slot by more than
+5 %. With a strict chance threshold, when the most lenient pair already shows
+a statistically clear imbalance and recommends at least 15 % of usable mains,
+the second pass starts there.
+Each stricter pair inherits the lowest factor from every less strict pair
+in the active range, so a stricter tolerance cannot re-admit a rune by moving its
+floor. This cap never raises a factor or relaxes a user's quality or chance rule.
+At the most restrictive settings, there may be too few passing runes to
+estimate a slot rate; no algorithm can promise six nonzero counts while
+honouring those settings.
 
-```
-K_s(λ) = share of slot s's ordinary runes r with  ∃ preset p :  standing_p(r) ≥ 1 − q'_p,s(λ · q)
-λ_s    = the λ at which K_s(λ) = (K_1(1) + K_3(1) + K_5(1)) / 3
-```
+The deterministic sample is a model, not a measured game drop table. The game
+has not published main or grade rates. The simulator and the calibration use
+the same grade assumption; a real unsorted drop capture would test it.
+Previously the balance was measured only on completed Legend runes. That
+population missed the Hero/Rare mix and the chance gate seen in fresh drops,
+which explains why the old synthetic check passed while the user's `+0`
+inventory and the Rune Simulator exposed a large even-slot bias.
 
-`q'_p,s(t)` is §9.3's share for preset `p` in slot `s` at target `t`, so everything §9.3
-promises within one preset still holds; `λ_s` only moves the target it is solved for.
-The level is where slots 1, 3 and 5 stood without a factor, so the total a floor keeps
-stays where the floor puts it and only its spread over the slots changes. `K_s` never
-falls as `λ` rises, so a bisection finds each `λ_s`; a slot that cannot reach the level
-even with its target at 1 takes its largest factor. The 4-set and Intangible
-preferences scale `q` per rune as before, and `λ_s` scales the result.
+`verify:rune-slot-neutrality` checks the combined verdict and the sample's
+checkpoint consistency. An inventory already thinned by earlier selling is
+not an unsorted drop sample: its raw slot counts also reflect that history.
+The verdict for one rune does not depend on the other runes still held.
 
-**It is measured, not worked out**, because it is a question about several boxes at
-once: whether *some* preset keeps a rune depends on how its standings in all of them
-move together, and no product of single boxes says that. `ordinarySample` draws 2,000
-ordinary runes per slot and star class from a fixed stream — Legend-born at `+15`, every
-main even, every roll uniform, an innate on 50 % — and judges each exactly as a real
-rune is judged: the same candidates, boxes, discounts and shares. At a quarter kept,
-2,000 runes put one standard error of a slot's share at about one point.
-
-**Its sets are drawn evenly over every set a preset can name, and that matters.**
-Presets overlap on a rune only where they all want its set. The first form of the sample
-made every rune Intangible, whose set every preset prefers; its presets overlapped far
-more than any real box does, and it aimed the balance at keeping 54 % of slot 1 where
-the presets actually keep 22 % — and made the imbalance worse. Evenly over sets is the
-stated assumption (§1); every slot gets the same draw, so no set is moved against
-another (§4.3).
-
-Measured after the change on a population of 3,000 runes per slot, the shipped G1
-settings kept **15.1–18.4 %** at the final `+15` checkpoint (spread `1.22×`,
-χ² `18.4` on five degrees of freedom). That is a small residual, especially in slots
-4 and 6, but it is materially smaller than a `1.42×` inventory ratio.
-The same settings at the diagnostic `+9` checkpoint kept **22.1–24.3 %** (spread
-`1.10×`, χ² `4.5`). This distinction matters: below `+12`, the chance gate can
-temporarily move the slot mix even though the quality floor itself is calibrated on
-the finished `+15` projection. At `+0`, the synthetic mix can even lean the other
-way, so “harder to roll into the desired substats” is not by itself an explanation
-for more surviving slot-2/4/6 runes.
-
-`verify:rune-slot-neutrality` holds the final checkpoint with every shipped preset at
-once, with their own set preferences and with every set preferred. What it does not
-promise: a box a player has already sorted — flat mains sold on slots 2, 4 and 6,
-say — has the player's acquisition and selling history in it, not the ordinary box
-the calibration measures. The calibration is against the runes a slot *produces*,
-not against which other runes happen to remain in the box, because a verdict must not
-depend on that history (§9).
-
+`verify:rune-slot-policy-matrix` judges a separate set of 400 drops per slot
+against the shipped presets. It crosses both ends of Power-up policy, Rune
+quality floor, Accepted and Broken, then repeats the demanding cases with
+another seed and checks the middle stops, and two settings with the 4-set
+preference off, since the balance is measured with it on. Among the non-sparse corners, the
+largest Pearson χ² is 11.2 on five degrees of freedom; every combined odd/even
+rate ratio is below 1.5. At Balanced, the highest quality floor and middle
+Accepted/Broken, one holdout keeps 5.5–7.0 % per usable main. The most restrictive
+policy and floor together keep only one to three runes among roughly 1,880
+usable mains in this population. Those counts cannot establish slot evenness;
+the settings themselves leave almost no qualifying runes.
 ## 9.5 The live Statistics box is an estimate, not a second model
 
 Rune Set-up's Statistics box asks two deliberately narrow questions of one fixed
@@ -976,8 +951,9 @@ synthetic population:
   verdicts both survive the sell gate and whose `+12` verdict is `Keep`.
 
 The population is 50 runes for each of the six slots, or **300 runes at each
-checkpoint**. It is Legend-born six-star runes, with every legal main cycled evenly;
-the +0, +9 and +12 records consume the same deterministic random stream, so they are
+checkpoint**. It uses the simulator's drop-grade mix of six-star runes, with every
+legal main cycled evenly. Each rune has its own deterministic random stream, so the
++0, +9 and +12 records are
 checkpoints of the same bodies rather than three unrelated samples. The statistics
 calculation then uses the ordinary advice engine, including the current presets,
 quality floor, chance policy, set preferences and craft assumptions. Accepted, Broken,
@@ -1005,12 +981,17 @@ population as a fixed seed plus a generator, rather than as a checked-in 10,000-
 file, makes that update safe and avoids a cache-invalidation path that could silently
 judge an old population with a new method.
 
-**What it costs.** The sample is 12,000 runes judged against every preset, once per
-calculation and star class present. Building its key strings was most of that at first
-— 5.4 s, of which 3.5 s went on concatenating cache keys for answers already known — so
-the weights, ceilings and legal Gems are now remembered by the objects they depend on
-rather than by strings made of them. The sample then costs about a second, and the same
-change took a calculation of 18,000 runes from 10.4 s to 2.2 s.
+**What it costs.** The finished balance judges 2,000 drops per slot and the fresh
+balance judges another 600 per slot, playing 64 possible futures for each fresh
+candidate (128 at the two lenient chance stops). Both are computed once per star
+class. The calibration depends on the presets, the reference lines and the policy,
+never on the runes asked about, so the engine keeps the last four calibrations by
+the content of those inputs. A refresh after a sync, one rune opened in the
+overlay and the Rune Simulator's four checkpoints then reuse it; without that,
+judging a single `+0` rune cost about 8 seconds in Node, as much as the whole
+calibration. The first calculation still pays it: a 3,001-rune synthetic box took
+about 42 seconds in headless Chromium's processor path on the development machine.
+The worker kept the page responsive.
 
 ## 9.6 Which preset a rune is named for
 
@@ -1092,12 +1073,12 @@ a gate that only demanded neutrality would pass just as happily on an engine tha
 stopped reading the set at all.
 
 `scripts/verify-rune-slot-neutrality.mjs` is the fairness gate on §§9.1 and 9.3, and
-it is built the same way: a synthetic box of ordinary six-star `+15` runes is generated
-for every slot, its mains cycled evenly over every main the slot allows and its sets
-cycled so that the set cannot move a verdict, and the shares that survive the gates
-are tested against each other with Pearson's χ². A slot the preset can use less of
-than the floor's share is checked separately and exactly: it must keep every usable
-rune and nothing else. It runs the eight shipped presets, seven adversarial
+it is built the same way: a synthetic box of six-star drops at `+15` is generated
+for every slot, its mains and sets cycled evenly, and the rates among usable mains
+that survive the gates are tested against each other with Pearson's χ². It checks
+that no slot keeps a rune whose main none of the presets can use. It also checks
+their combined +0 verdict on the simulator's
+drop-grade mix. It runs the eight shipped presets, seven adversarial
 single-stat roles, the craft sliders at maximum, both ends of the quality ladder, the
 strictest stop on the roles whose single mains need the most help, and one against
 five preferred slot-6 mains. It then checks the three things a bare equality
@@ -1166,9 +1147,10 @@ rank, Max value and standing to the bit.
 
 ## 10.1 What it costs
 
-Measured on a synthetic account of 1,500 runes against the eight shipped presets, in
-Node, warm — three settings, because the craft sliders are what the old engine cost
-the most of:
+Historical chance-engine benchmark, before the fresh slot calibration in §9.4, on
+a synthetic account of 1,500 runes against the eight shipped presets in Node, warm.
+It compares the old enumeration with counted futures; it is not the current
+end-to-end latency:
 
 | | Enumerated | Counted |
 | --- | ---: | ---: |

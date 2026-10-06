@@ -14,6 +14,14 @@ import { slotAllowsSubStat } from './runes';
 
 export type RandomSource = () => number;
 
+/** The drop mix used by Rune Simulator and the slot-balance population. */
+export function generatedRuneGrade(slot: number, random: RandomSource): RuneDefaultGrade {
+  const roll = Math.min(0.9999999999999999, Math.max(0, random()));
+  if (slot % 2 === 1) return roll < 0.75 ? 'Hero' : 'Legend';
+  if (roll < 0.25) return 'Rare';
+  return roll < 0.75 ? 'Hero' : 'Legend';
+}
+
 export type GeneratedRuneLine = {
   statId: number;
   value: number;

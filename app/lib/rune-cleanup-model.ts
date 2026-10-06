@@ -65,7 +65,7 @@ import {
   meanGemGain, playForward, runeFuture,
 } from './rune-power-up-outcomes';
 import type { CountingJob, EndStateScoring, RuneFuture, RuneRuns } from './rune-power-up-outcomes';
-import { generateRuneBody, upgradeRuneBody } from './rune-generation';
+import { generateRuneBody, generatedRuneGrade, upgradeRuneBody } from './rune-generation';
 
 export type { CraftCredit } from './rune-craft-end-state';
 
@@ -728,15 +728,12 @@ function gaussianKernel(steps: number, offset: number): Float64Array {
  *
  * A box is one preset's distribution, worked out exactly. Several presets judge the
  * same rune, and whether one of them keeps it depends on how its standings in all of
- * them move together — which no product of single boxes can say. So the runes are
- * drawn, by the same construction `ordinaryBox` states: a Legend-born rune of this
- * star class, its main even over the slot's legal mains, four lines drawn without
- * replacement, an innate on 50 % of runes, one initial roll each and four upgrades
- * falling uniformly, every roll uniform over its interval. Callers may stop the same
- * fixed stream at +0, +12 or +15 when they need to read a checkpoint rather than the
- * finished box.
+ * them move together — which no product of single boxes can say. The default is the
+ * Legend-born reference of `ordinaryBox`; slot balance and Statistics ask for the
+ * simulator's drop-grade mix. Both draw legal lines and uniform rolls. Each copy's
+ * fixed stream gives the same body at +0, +9, +12 and +15.
  *
- * **Its sets are drawn evenly over every set a preset can name**, and that is not a
+ * **Its sets are drawn evenly over the ordinary preset set vocabulary**, and that is not a
  * detail. Several presets overlap on a rune only where they all want its set, so a
  * sample of runes every preset wants — all Intangible, which was the first form of
  * this — overlapped far more than any real box and aimed the balance at keeping 54 %
@@ -744,29 +741,52 @@ function gaussianKernel(steps: number, offset: number): Float64Array {
  * game publishes no set rate either. Every slot gets the same draw of sets, so the
  * sample moves no set against another (§4.3).
  *
- * The draws are a fixed stream, so the sample — and every verdict calibrated on it —
+ * The draws are fixed, so the sample — and every verdict calibrated on it —
  * is the same on every calculation.
  */
 export type OrdinarySampleLevel = 0 | 3 | 6 | 9 | 12 | 15;
 
-export function ordinarySample(slot: number, stars: number, count: number, level: OrdinarySampleLevel = 15): Rune[] {
-  let state = (0x9e3779b9 ^ Math.imul(slot, 0x85ebca6b) ^ Math.imul(stars, 0xc2b2ae35)) >>> 0 || 1;
-  const next = () => {
-    state ^= state << 13; state >>>= 0;
-    state ^= state >>> 17;
-    state ^= state << 5; state >>>= 0;
-    return state / 0x1_0000_0000;
-  };
+export function ordinarySample(
+  slot: number, stars: number, count: number, level: OrdinarySampleLevel = 15,
+  population: 'legend' | 'drop' = 'legend', sampleOffset = 0,
+): Rune[] {
   const runes: Rune[] = [];
   for (let at = 0; at < count; at += 1) {
-    const mainStatId = (slotMainProperties[slot] ?? [])[at % (slotMainProperties[slot]?.length ?? 1)];
+    /* A per-rune stream keeps the +0, +9 and +12 views of a Rare or Hero body
+       identical up to each checkpoint. Advancing one shared stream to +15 without
+       adding future lines cannot do that: later draws would have a different pool. */
+    let state = (0x9e3779b9 ^ Math.imul(slot, 0x85ebca6b) ^ Math.imul(stars, 0xc2b2ae35)
+      ^ Math.imul(at + sampleOffset + 1, 0x27d4eb2d)) >>> 0;
+    /* Avalanche neighbouring sample ids before the xorshift stream. Without this,
+       cycling main ids by sample index can correlate a main with its set and grade. */
+    state ^= state >>> 16;
+    state = Math.imul(state, 0x7feb352d);
+    state ^= state >>> 15;
+    state = Math.imul(state, 0x846ca68b);
+    state = (state ^ (state >>> 16)) >>> 0 || 1;
+    const next = () => {
+      state ^= state << 13; state >>>= 0;
+      state ^= state >>> 17;
+      state ^= state << 5; state >>>= 0;
+      return state / 0x1_0000_0000;
+    };
+    const mains = slotMainProperties[slot] ?? [];
+    const sampleIndex = at + sampleOffset;
+    const mainIndex = sampleIndex % Math.max(1, mains.length);
+    const occurrence = Math.floor(sampleIndex / Math.max(1, mains.length));
+    const gradeIndex = (occurrence + mainIndex) % 4;
+    /* Cover each main × grade × set combination before repeating it. Pure random
+       set and grade draws gave a reproducible calibration but a different slot mix
+       in independent samples, especially at the strict floor's small tail. */
+    const setIndex = (Math.floor(occurrence / 4) + mainIndex * 7 + gradeIndex * 5)
+      % presetRuneSetNameList.length;
+    const mainStatId = mains[mainIndex];
     const body = upgradeRuneBody(generateRuneBody({
-      setName: presetRuneSetNameList[Math.floor(next() * presetRuneSetNameList.length)] ?? null,
-      slot, stars, defaultGrade: 'Legend', mainStatId, random: next,
-    }), level, next, 15);
-    const sampleId = level === 15
-      ? `ordinary-sample:${slot}:${stars}:${at}`
-      : `ordinary-sample:${slot}:${stars}:${level}:${at}`;
+      setName: presetRuneSetNameList[setIndex] ?? null,
+      slot, stars, defaultGrade: population === 'drop'
+        ? generatedRuneGrade(slot, () => (gradeIndex + 0.5) / 4) : 'Legend', mainStatId, random: next,
+    }), level, next);
+    const sampleId = `ordinary-sample:${population}:${slot}:${stars}:${level}:${at + sampleOffset}`;
     runes.push({
       id: sampleId, setId: 0, setName: body.setName ?? '', slot, stars,
       ancient: false, defaultGrade: body.defaultGrade, level, mainStatId: body.mainStatId,

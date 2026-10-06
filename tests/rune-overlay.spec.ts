@@ -140,6 +140,9 @@ test('anywhere in a verdict row opens its rune, and selecting text there does no
 });
 
 test('Instructions hold a rune under its own word, files it under Keep, and outlives a re-import', async ({ page }, testInfo) => {
+  /* This flow calculates twice, once after a fresh import, so it needs room for
+     two independent slot calibrations when the full suite drives eight browsers. */
+  test.setTimeout(90_000);
   await page.setViewportSize({ width: 1920, height: 1080 });
   await openCleanup(page);
   const table = page.getByRole('table', { name: 'Rune verdicts' });
@@ -196,7 +199,7 @@ test('Instructions hold a rune under its own word, files it under Keep, and outl
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
   await page.getByRole('button', { name: 'Calculate', exact: true }).click();
-  await expect(advice(violentRow)).toHaveText('Unsellable');
+  await expect(advice(violentRow)).toHaveText('Unsellable', { timeout: 60_000 });
   await expect(advice(fatalRow)).toHaveText('Locked');
 
   /* Taking the choices off hands the row back to the engine. */

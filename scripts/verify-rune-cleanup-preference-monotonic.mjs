@@ -21,8 +21,11 @@ const base = new Map([
   ['No type', { hp: 10404, atk: 720, def: 608, spd: 104, criRate: 17, criDmg: 50, res: 17, acc: 4 }],
 ]);
 
+/* Finished runes and fresh drops: below +12 a rune is held to the fresh-rune balance
+   (RUNE-CLEANUP-MATH.md §9.4), which reads the policy, so a slider that moved it the
+   wrong way would only show there. */
 const runes = [1, 2, 3, 4, 5, 6].flatMap((slot) =>
-  ordinarySample(slot, 6, 12, 15).flatMap((rune) => [
+  [...ordinarySample(slot, 6, 12, 15), ...ordinarySample(slot, 6, 24, 0, 'drop', 80_000)].flatMap((rune) => [
     rune,
     { ...rune, id: `${rune.id}:violent`, setName: 'Violent' },
     { ...rune, id: `${rune.id}:intangible`, setName: 'Intangible' },
@@ -99,6 +102,11 @@ for (const rune of runes.filter((entry) =>
     `Broken = No must not let a broken reading hide another match (${rune.id})`);
 }
 
+await assertOnlyGetsStricter(
+  'Power-up policy',
+  { ...defaultRunePotentialSettings, powerUpPolicy: 3 },
+  { ...defaultRunePotentialSettings, powerUpPolicy: 4 },
+);
 await assertOnlyGetsStricter(
   'Enchanted gems',
   { ...defaultRunePotentialSettings, gemRoll: 'maximum' },

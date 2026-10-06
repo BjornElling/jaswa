@@ -144,12 +144,13 @@ let choseAmongPassing = 0;
 let movedFromBestCase = 0;
 for (const [label, settings] of scenarios) {
   const advice = await runeAdvice(runes, presets, settings, base);
-  const shares = slotFloorShares(presets, settings, base, 6);
+  /* Below +12 a rune is held to the fresh-rune balance, so the floor is asked per level. */
+  const sharesByLevel = new Map([0, 6, 9, 12].map((level) => [level, slotFloorShares(presets, settings, base, 6, level)]));
   const bar = chanceThresholds[settings.powerUpPolicy - 1];
   const scope = newRuneAdviceScope();
   for (const rune of runes) {
     const row = advice.get(rune.id);
-    const readings = readingsOf(rune, settings, shares, scope);
+    const readings = readingsOf(rune, settings, sharesByLevel.get(rune.level), scope);
     if (readings.length === 0) { check(row.preset === null, `${label} ${rune.id}: a preset named with no reading`); continue; }
     for (const reading of readings) {
       check(reading.rawExpected <= reading.rawMax + 1e-12,

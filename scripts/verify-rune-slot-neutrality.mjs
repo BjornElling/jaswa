@@ -50,9 +50,11 @@ import {
   initialSubPropertyRange, runeInnateFrequency, slotMainProperties, startingSubPropertyCount, subPropertyLevels,
   upgradeSubPropertyRange,
 } from '../app/lib/rune-properties.ts';
+import { ordinarySample } from '../app/lib/rune-cleanup-model.ts';
 import { runeDefaultGrades, runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
 import { presetRuneSetNameList } from '../app/lib/rune-sets.ts';
 import { calculateRunePotentialMetrics, displayRunePotentialMetric } from '../app/lib/rune-potential-metrics.ts';
+import { generatedRuneGrade } from '../app/lib/rune-generation.ts';
 
 const args = new Map(process.argv.slice(2).filter((arg) => arg.startsWith('--') && arg.includes('='))
   .map((arg) => arg.slice(2).split('=', 2)));
@@ -92,24 +94,24 @@ const draw = (random, low, high) => low + Math.floor(random() * (high - low + 1)
 /* ------------------------------------------------------- the ordinary box */
 
 /**
- * One ordinary six-star rune at the selected checkpoint, built by the game's own
- * loop: a Legend body with four lines drawn without replacement from the ids the
- * slot allows, an innate on 50 % of them (`RUNE-CANONICAL.md` §4), and four upgrades
- * falling uniformly. The default checkpoint is `+15`; lower levels are an explicit
- * diagnostic for the path a real inventory took to get there.
+ * One ordinary six-star drop at the selected checkpoint, built by the game's own
+ * loop: its slot's grade mix, lines drawn without replacement from the legal ids,
+ * an innate on 50 % (`RUNE-CANONICAL.md` §4), and four upgrade events. The grade
+ * mix matters: a Legend-only box passed at +15 while fresh drops were skewed.
  *
- * This is deliberately the same population `ordinaryBox` states analytically. The
- * point of the script is not to re-derive that mean — `verify:rune-substat-weights`
- * gates the arithmetic — but to check what the *policy* does with it once the gates,
- * the discounts have all had their say.
+ * This generator is independent of the stratified calibration draw. The
+ * Legend-only ladder below checks the analytic box; these drops check how the
+ * finished and fresh policy behave on a separate stream.
  */
-function ordinaryRune(random, id, slot, mainStatId, setName) {
+function ordinaryRune(random, id, slot, mainStatId, setName, checkpoint = level, population = 'drop') {
+  const defaultGrade = population === 'drop' ? generatedRuneGrade(slot, random) : 'Legend';
+  const bornLines = startingSubPropertyCount(runeDefaultGrades.indexOf(defaultGrade) + 1);
   const legal = runeStatIds.filter((stat) => stat !== mainStatId && slotAllowsSubStat(slot, stat));
   const prefixStatId = random() < runeInnateFrequency ? choose(random, legal) : null;
   const available = legal.filter((stat) => stat !== prefixStatId);
   const held = new Set();
   const subProperties = [];
-  for (let at = 0; at < startingSubPropertyCount(5); at += 1) {
+  for (let at = 0; at < bornLines; at += 1) {
     const statId = choose(random, available.filter((stat) => !held.has(stat)));
     held.add(statId);
     const range = initialSubPropertyRange(6, statId, false);
@@ -118,17 +120,24 @@ function ordinaryRune(random, id, slot, mainStatId, setName) {
   const prefix = prefixStatId === null ? null : initialSubPropertyRange(6, prefixStatId, false);
   const rune = {
     id, setId: 1, setName, slot, stars: 6, ancient: false,
-    defaultGrade: runeDefaultGrades[4], level: 0, mainStatId, mainValue: 0, prefixStatId,
+    defaultGrade, level: 0, mainStatId, mainValue: 0, prefixStatId,
     prefixValue: prefix ? draw(random, prefix.minimum, prefix.maximum) : 0,
     subProperties, occupiedId: null, obtainedOrder: 0,
   };
   for (let at = 0; at < subPropertyLevels.length; at += 1) {
-    const line = choose(random, rune.subProperties);
-    const range = upgradeSubPropertyRange(6, line.statId, false);
-    const value = draw(random, range.minimum, range.maximum);
-    if (subPropertyLevels[at] <= level) line.value += value;
+    if (subPropertyLevels[at] > checkpoint) break;
+    if (at >= bornLines) {
+      const statId = choose(random, available.filter((stat) => !held.has(stat)));
+      held.add(statId);
+      const range = initialSubPropertyRange(6, statId, false);
+      rune.subProperties.push({ statId, value: draw(random, range.minimum, range.maximum), gemmed: false, grind: 0 });
+    } else {
+      const line = choose(random, rune.subProperties);
+      const range = upgradeSubPropertyRange(6, line.statId, false);
+      line.value += draw(random, range.minimum, range.maximum);
+    }
   }
-  rune.level = level;
+  rune.level = checkpoint;
   return rune;
 }
 
@@ -235,7 +244,7 @@ const baseSettings = {
  * Every rune of every slot judged against one role, and the share of each slot that
  * survives.
  */
-async function sharesBySlot(presetOrList, settings, random) {
+async function sharesBySlot(presetOrList, settings, random, checkpoint = level, population = 'drop') {
   const presets = Array.isArray(presetOrList) ? presetOrList : [presetOrList];
   const runes = [];
   for (const slot of [1, 2, 3, 4, 5, 6]) {
@@ -246,7 +255,7 @@ async function sharesBySlot(presetOrList, settings, random) {
          one. Mains cycle over every main the slot allows, which is the population the
          floor is a share of. */
       runes.push(ordinaryRune(random, `${slot}-${at}`, slot, mains[at % mains.length],
-        presetRuneSetNameList[at % presetRuneSetNameList.length]));
+        presetRuneSetNameList[at % presetRuneSetNameList.length], checkpoint, population));
     }
   }
   const advice = await runeAdvice(runes, presets, settings, referenceStats);
@@ -389,42 +398,25 @@ const scenarios = [
   },
 ];
 
-console.log(`Slot neutrality — ${perSlot.toLocaleString('en')} ordinary 6★ runes at +${level} per slot,`
+console.log(`Slot neutrality — ${perSlot.toLocaleString('en')} six-star drops at +${level} per slot,`
   + ` ${scenarios.length} scenarios, seed ${seed}.\n`);
 console.log('                        1      2      3      4      5      6    overall    spread     chi2');
 
 for (const scenario of scenarios) {
   const random = makeRandom(seed);
-  const { seen: allSeen, kept: allKept, usable: allUsable } = await sharesBySlot(scenario.preset, scenario.settings, random);
-  /* A slot whose usable runes are fewer than the floor's share keeps every one of
-     them, which is a count rather than a sample: it is checked exactly, and the
-     comparison of shares is made between the slots that had enough to choose from. */
-  const named = qualityThresholds[scenario.settings.runeQuality - 1];
-  const capped = [1, 2, 3, 4, 5, 6].map((slot) => usableShare(scenario.preset, slot, scenario.settings) <= named);
-  const seen = allSeen.map((count, at) => (capped[at] ? 0 : count));
-  const kept = allKept.map((count, at) => (capped[at] ? 0 : count));
-  const rates = allSeen.map((count, at) => (count > 0 ? allKept[at] / count : null));
-  const measured = rates.filter((rate, at) => rate !== null && !capped[at]);
+  const { kept: allKept, usable: allUsable } = await sharesBySlot(scenario.preset, scenario.settings, random);
+  const seen = allUsable;
+  const kept = allKept;
+  const rates = seen.map((count, at) => (count > 0 ? kept[at] / count : null));
+  const measured = rates.filter((rate) => rate !== null);
   const overall = kept.reduce((sum, value) => sum + value, 0) / Math.max(1, seen.reduce((sum, value) => sum + value, 0));
   const spread = Math.min(...measured) > 0 ? Math.max(...measured) / Math.min(...measured) : Infinity;
   const statistic = chiSquare(seen, kept);
-  /* A slot with fewer usable runes than the floor's share is held to the level the
-     other slots reach, or to every usable rune where it cannot get there — never more
-     than it can use, and within the binomial noise of the smaller of the two. The level
-     is what the other slots actually keep, not the stop's own number: the balance aims
-     at slots 1, 3 and 5, so a slot that can use 14.3 % of its runes keeps 13.5 % where
-     they keep 13.5 %, and all of them only where they keep more. */
   for (let at = 0; at < 6; at += 1) {
-    if (!capped[at]) continue;
-    const usable = allUsable[at];
-    const expected = Math.min(usable, allSeen[at] * overall);
-    const noise = 3 * Math.sqrt(Math.max(1, allSeen[at] * overall * (1 - overall))) + 1;
-    check(allKept[at] <= usable, `${scenario.label}: slot ${at + 1} kept ${allKept[at]} runes and can use only ${usable}.`);
-    check(Math.abs(allKept[at] - expected) <= noise, `${scenario.label}: slot ${at + 1} can use ${usable} of its runes`
-      + ` and should keep about ${expected.toFixed(0)}, the other slots' level or all of them, but kept ${allKept[at]}.`);
+    check(allKept[at] <= allUsable[at], `${scenario.label}: slot ${at + 1} kept ${allKept[at]} runes and can use only ${allUsable[at]}.`);
   }
   const cells = rates.map((rate, at) => (rate === null ? '    - '
-    : `${(rate * 100).toFixed(1)}${capped[at] ? '*' : ' '}%`.padStart(7)));
+    : `${(rate * 100).toFixed(1)} %`.padStart(7)));
   console.log(`${scenario.label.padEnd(20)} ${cells.join('')}  ${(overall * 100).toFixed(1).padStart(5)} %`
     + `  ${spread.toFixed(2).padStart(7)}x  ${statistic.toFixed(1).padStart(7)}`);
 
@@ -433,10 +425,43 @@ for (const scenario of scenarios) {
     `${scenario.label} kept ${cells.map((cell) => cell.trim()).join(' / ')} of the six slots`
     + ` — chi-square ${statistic.toFixed(1)} on 5 degrees of freedom, past the limit of ${chiSquareLimit}.`);
   const allowed = spreadLimit * spreadAllowance(overall, Math.min(...seen.filter((count) => count > 0)));
-  check(spread <= allowed,
+  check(seen.every((count) => count * overall >= 5) ? spread <= allowed : statistic <= chiSquareLimit,
     `${scenario.label} kept ${(Math.max(...measured) * 100).toFixed(1)} % of one slot`
     + ` and ${(Math.min(...measured) * 100).toFixed(1)} % of another, a spread of ${spread.toFixed(2)}x`
     + ` against ${allowed.toFixed(2)}x of sampling noise at this size.`);
+}
+
+/* The finished-rune check once passed while fresh drops kept nearly twice as many
+   slot-6 runes as slots 1 and 3. The simulator's grade mix is part of the population
+   the player actually sees, and the +0 chance gate is part of the recommendation. */
+if (level === 15) {
+  const shipped = defaultRunePotentialPresets();
+  const fresh = await sharesBySlot(shipped, shippedG1Settings, makeRandom(seed), 0);
+  const usable = fresh.usable;
+  const oddRate = [0, 2, 4].reduce((sum, at) => sum + fresh.kept[at], 0)
+    / [0, 2, 4].reduce((sum, at) => sum + usable[at], 0);
+  const evenRate = [1, 3, 5].reduce((sum, at) => sum + fresh.kept[at], 0)
+    / [1, 3, 5].reduce((sum, at) => sum + usable[at], 0);
+  const rates = fresh.kept.map((count, at) => `${(100 * count / usable[at]).toFixed(1)} %`);
+  console.log(`\nFresh +0 drops per usable main, shipped G1 and Balanced: ${rates.join(' / ')}`);
+  check(Math.max(oddRate, evenRate) / Math.min(oddRate, evenRate) <= 1.5,
+    `fresh drops keep odd slots at ${(100 * oddRate).toFixed(1)} % and even slots at ${(100 * evenRate).toFixed(1)} %.`);
+
+  for (const slot of [1, 2, 3, 4, 5, 6]) {
+    const freshBodies = ordinarySample(slot, 6, 40, 0, 'drop');
+    const rolledBodies = ordinarySample(slot, 6, 40, 9, 'drop');
+    for (let at = 0; at < freshBodies.length; at += 1) {
+      const freshRune = freshBodies[at];
+      const rolledRune = rolledBodies[at];
+      check(freshRune.defaultGrade === rolledRune.defaultGrade
+        && freshRune.mainStatId === rolledRune.mainStatId
+        && freshRune.setName === rolledRune.setName
+        && freshRune.prefixStatId === rolledRune.prefixStatId
+        && freshRune.prefixValue === rolledRune.prefixValue
+        && freshRune.subProperties.every((line, index) => line.statId === rolledRune.subProperties[index]?.statId),
+      `slot ${slot}, copy ${at}: +0 and +9 must show the same rune body.`);
+    }
+  }
 }
 
 /* ------------------------------- 2. the floor admits the share it names */
@@ -475,12 +500,12 @@ const ladderPreset = withRefreshedMetrics({
 });
 for (let stop = 1; stop <= qualityThresholds.length; stop += 1) {
   const random = makeRandom(seed);
-  const { seen, kept } = await sharesBySlot(ladderPreset, { ...baseSettings, runeQuality: stop }, random);
-  const overall = kept.reduce((sum, value) => sum + value, 0) / seen.reduce((sum, value) => sum + value, 0);
+  const { usable, kept } = await sharesBySlot(ladderPreset, { ...baseSettings, runeQuality: stop }, random, 15, 'legend');
+  const overall = kept.reduce((sum, value) => sum + value, 0) / usable.reduce((sum, value) => sum + value, 0);
   const named = qualityThresholds[stop - 1];
   console.log(`  stop ${stop}: says ${(named * 100).toFixed(0).padStart(2)} %, admits ${(overall * 100).toFixed(1).padStart(5)} %`);
   check(overall >= named * 0.75 && overall <= named * 1.3 + 0.01,
-    `quality stop ${stop} names ${(named * 100).toFixed(0)} % of an ordinary box and admitted`
+    `quality stop ${stop} names ${(named * 100).toFixed(0)} % of usable runes and admitted`
     + ` ${(overall * 100).toFixed(1)} %.`);
 }
 

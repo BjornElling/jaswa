@@ -31,7 +31,7 @@ export type RuneCleanupStatistics = {
 
 function syntheticCheckpoint(level: 0 | 9 | 12): ReturnType<typeof ordinarySample> {
   return runeStatisticsSlots.flatMap((slot) =>
-    ordinarySample(slot, runeStatisticsStars, runeStatisticsRunesPerSlot, level));
+    ordinarySample(slot, runeStatisticsStars, runeStatisticsRunesPerSlot, level, 'drop'));
 }
 
 export async function calculateRuneCleanupStatistics(
