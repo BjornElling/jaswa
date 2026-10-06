@@ -333,10 +333,7 @@ impl ProfileStore {
                     received_unit_ids.push(id);
                 }
             }
-            let current = collection(&profile, entity.collection).to_vec();
-            let next = merge_collection(current.clone(), vec![item.clone()], entity.identifier);
-            if next != current {
-                set_collection(&mut profile, entity.collection, next);
+            if merge_into(&mut profile, entity.collection, item, entity.identifier) {
                 changed = true;
                 if entity.collection == "unit_list" {
                     changed |= sync_unit_equipment(&mut profile, item);
@@ -905,35 +902,68 @@ fn merge_record(current: Option<&Value>, incoming: Value) -> Value {
         (_, value) => value,
     }
 }
+/* Indexed, because a linear search per record made a merge quadratic in the
+collection: one scout result of a hundred runes into an account of 1,500 took
+eighteen seconds, and the game gave up waiting for its next answer. */
 fn merge_collection(current: Vec<Value>, incoming: Vec<Value>, key: &str) -> Vec<Value> {
-    let mut result = Vec::new();
-    for item in current {
+    let mut result: Vec<Value> = Vec::new();
+    let mut positions = std::collections::HashMap::new();
+    for item in current.into_iter().chain(incoming) {
         if valid_identifier(&item, key) {
             let id = identifier(&item, key).expect("validated identifier");
-            if let Some(index) = result
-                .iter()
-                .position(|current| identifier(current, key).as_deref() == Some(&id))
-            {
+            if let Some(&index) = positions.get(&id) {
                 result[index] = merge_record(Some(&result[index]), item);
             } else {
-                result.push(item);
-            }
-        }
-    }
-    for item in incoming {
-        if valid_identifier(&item, key) {
-            let id = identifier(&item, key).expect("validated identifier");
-            if let Some(index) = result
-                .iter()
-                .position(|current| identifier(current, key).as_deref() == Some(&id))
-            {
-                result[index] = merge_record(Some(&result[index]), item);
-            } else {
+                positions.insert(id, result.len());
                 result.push(item);
             }
         }
     }
     result
+}
+
+/* Merges one record into a collection where it stands. Every account collection
+is already free of duplicate and invalid ids — the snapshot is rejected
+otherwise — so this agrees with `merge_collection` without copying the whole
+collection for each record a response carries. */
+fn merge_item(items: &mut Vec<Value>, item: &Value, key: &str) -> bool {
+    let Some(id) = identifier(item, key).filter(|_| valid_identifier(item, key)) else {
+        return false;
+    };
+    match items
+        .iter()
+        .position(|current| identifier(current, key).as_deref() == Some(&id))
+    {
+        Some(index) => {
+            let merged = merge_record(Some(&items[index]), item.clone());
+            if merged == items[index] {
+                return false;
+            }
+            items[index] = merged;
+            true
+        }
+        None => {
+            items.push(item.clone());
+            true
+        }
+    }
+}
+
+fn merge_into(profile: &mut Value, key: &str, item: &Value, identifier_key: &str) -> bool {
+    let Some(object) = profile.as_object_mut() else {
+        return false;
+    };
+    let entry = object
+        .entry(key)
+        .or_insert_with(|| Value::Array(Vec::new()));
+    if !entry.is_array() {
+        *entry = Value::Array(Vec::new());
+    }
+    merge_item(
+        entry.as_array_mut().expect("array ensured above"),
+        item,
+        identifier_key,
+    )
 }
 
 /* Zero and missing ids belong to reward definitions and previews, not to an
@@ -1076,12 +1106,8 @@ fn remove_collection_items(
 fn sync_unit_equipment(profile: &mut Value, unit: &Value) -> bool {
     let mut changed = false;
     for entity in [ENTITIES[1], ENTITIES[2], ENTITIES[3]] {
-        let current = collection(profile, entity.collection).to_vec();
-        let incoming = collection(unit, entity.collection).to_vec();
-        let next = merge_collection(current.clone(), incoming, entity.identifier);
-        if next != current {
-            set_collection(profile, entity.collection, next);
-            changed = true;
+        for item in collection(unit, entity.collection) {
+            changed |= merge_into(profile, entity.collection, item, entity.identifier);
         }
     }
     changed
@@ -1632,24 +1658,23 @@ fn sync_equipment_copies(profile: &mut Value, entity: Entity, item: &Value) -> b
     let Some(id) = identifier(item, entity.identifier) else {
         return false;
     };
+    let Some(units) = profile.get_mut("unit_list").and_then(Value::as_array_mut) else {
+        return false;
+    };
     let mut changed = false;
-    let mut units = collection(profile, "unit_list").to_vec();
-    for unit in &mut units {
-        let current = collection(unit, entity.collection).to_vec();
-        if !current
-            .iter()
-            .any(|equipment| identifier(equipment, entity.identifier).as_deref() == Some(&id))
-        {
+    for unit in units {
+        let Some(equipment) = unit
+            .get_mut(entity.collection)
+            .and_then(Value::as_array_mut)
+        else {
             continue;
+        };
+        if equipment
+            .iter()
+            .any(|current| identifier(current, entity.identifier).as_deref() == Some(&id))
+        {
+            changed |= merge_item(equipment, item, entity.identifier);
         }
-        let next = merge_collection(current.clone(), vec![item.clone()], entity.identifier);
-        if next != current {
-            set_collection(unit, entity.collection, next);
-            changed = true;
-        }
-    }
-    if changed {
-        set_collection(profile, "unit_list", units);
     }
     changed
 }
