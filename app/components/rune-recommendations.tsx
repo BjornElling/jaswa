@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { AncientName } from './ancient-mark';
 import { CalculationStatus } from './calculation-status';
@@ -21,10 +21,17 @@ import { monsterCopyNames } from '../lib/monster-names';
 import type { MonsterPreferences } from '../lib/monster-preferences';
 import { runeVerdictLabels, runeVerdictOrder } from '../lib/rune-cleanup-advice';
 import type { RuneVerdict } from '../lib/rune-cleanup-advice';
-import { calculateRuneAdvice, cancelRuneAdvice } from '../lib/compute/rune-advice-client';
+import {
+  calculateRuneAdvice, cancelRuneAdvice, cancelRuneAdviceRefresh, refreshRuneAdvice,
+} from '../lib/compute/rune-advice-client';
 import { rememberRuneAdvice } from '../lib/compute/rune-advice-memory';
 import type { CalculationBackend } from '../lib/compute/calculation-summary';
 import { noReferenceLineMessage, referenceLines } from '../lib/rune-reference-stats';
+import type { ReferenceStats } from '../lib/rune-reference-stats';
+import {
+  heldRuneAdvice, inArrangedOrder, runesToJudgeAgain, shownRuneAdvice, withFreshAdvice,
+} from '../lib/rune-cleanup-refresh';
+import type { HeldRuneAdvice } from '../lib/rune-cleanup-refresh';
 import {
   compareRuneCleanupRows, compareRuneGameSort, defaultRuneCleanupSortDirections,
   runeChanceShown, runeChanceText, runeCleanupSearchText, runeGameSortKeys, runeGameSortLabels,
@@ -33,7 +40,7 @@ import {
 import { filteredRuneVerdict, runeHoldVerdict } from '../lib/rune-holds';
 import type { RuneHolds } from '../lib/rune-holds';
 import type { RuneCleanupRow, RuneCleanupSortKey, RuneGameSortKey } from '../lib/rune-cleanup-grid';
-import type { RuneDefaultGrade } from '../lib/runes';
+import type { Rune, RuneDefaultGrade } from '../lib/runes';
 import type { RunePotentialPreset } from '../lib/rune-potential-presets';
 import type { GameRecord } from '../lib/game-data';
 import type { GeneralSettings, ImportedGame, RunePotentialSettings } from '../lib/types';
@@ -162,7 +169,8 @@ const columns: readonly SortableColumn<RuneCleanupRow>[] = (() => {
  * controls that shape it. The calculation waits for the button rather than
  * running as sliders move: it reads every rune against every preset and every
  * build, and a table that re-ran itself under a dragging thumb would be a table
- * nobody could read.
+ * nobody could read. What the player does in the game is different: a sync judges
+ * only the runes it changed, and the rows keep their places (`rune-cleanup-refresh.ts`).
  */
 export function RuneRecommendations({ game, monsterPreferences, runeHolds, settings, presets, general, hardwareAcceleration, onOpenRune }: {
   game: ImportedGame | null;
@@ -183,16 +191,32 @@ export function RuneRecommendations({ game, monsterPreferences, runeHolds, setti
     selectedStars, selectedQualities, lowestLevel, highestLevel, selectedPlaces,
     showOnlyAncient, gameSort } = filters;
 
-  /* The held result, and the settings it answers. A result is kept until the user
-     asks for another one, so a slider moved after a calculation leaves the table
-     standing and says it is out of date rather than silently changing under them. */
+  /* The held result, and the standards it answers: the presets, settings and
+     reference lines it was judged by. A result is kept until the user asks for
+     another one, so a slider moved after a calculation leaves the table standing
+     rather than silently changing under them. What the account does to its runes
+     meanwhile is laid over it rune by rune, judged by those same standards
+     (`rune-cleanup-refresh.ts`). */
   const [result, setResult] = useState<{
-    rows: RuneCleanupRow[];
-    at: string;
+    id: number;
+    /** The account it was calculated for. Another account's import is not a sync of this one. */
+    account: string;
+    entries: ReadonlyMap<string, HeldRuneAdvice>;
+    presets: RunePotentialPreset[];
+    settings: RunePotentialSettings;
+    base: ReadonlyMap<string, ReferenceStats>;
     durationMs: number;
     backend: CalculationBackend;
   } | null>(null);
   const [busy, setBusy] = useState(false);
+  /* At most one re-reading in flight. A sync arriving meanwhile is picked up when
+     it lands, by comparing again, so nothing is lost and nothing is superseded
+     half-way through a box of power-ups. */
+  const refreshing = useRef(false);
+  const [refreshRound, setRefreshRound] = useState(0);
+  /* The runes a re-reading failed on, so it is not retried in a loop; the next
+     sync tries again. */
+  const [refreshFailedFor, setRefreshFailedFor] = useState<readonly Rune[] | null>(null);
   /* A failed calculation says so and leaves the previous table standing. Clearing
      it would read as "no runes qualify", which is a different and wrong answer. */
   const [failure, setFailure] = useState<string | null>(null);
@@ -222,44 +246,78 @@ export function RuneRecommendations({ game, monsterPreferences, runeHolds, setti
 
   /* Leaving the page mid-calculation gives the processor back rather than
      finishing into a void. */
-  useEffect(() => cancelRuneAdvice, []);
+  useEffect(() => () => { cancelRuneAdvice(); cancelRuneAdviceRefresh(); }, []);
+
+  const account = game?.data?.wizard_id === undefined ? '' : String(game.data.wizard_id);
+  const held = result !== null && result.account === account ? result : null;
+  const runesById = useMemo(() => new Map(runes.map((rune) => [rune.id, rune])), [runes]);
 
   async function calculate() {
     if (!base) return;
     setBusy(true);
     setFailure(null);
+    /* A whole calculation answers every rune, so a re-reading still in flight has
+       nothing left to add. */
+    cancelRuneAdviceRefresh();
     const outcome = await calculateRuneAdvice({ runes, presets, settings, base, preferWebGpu: hardwareAcceleration });
     /* A newer request has taken over the busy state and the table, so this one
        returns without touching either. */
     if (outcome.status === 'superseded') return;
     setBusy(false);
     if (outcome.status === 'failed') { setFailure(outcome.message); return; }
-    const { advice } = outcome;
-    /* The overlay reads a rune's answer from here instead of asking for it again. */
-    if (game?.data) rememberRuneAdvice({ data: game.data, settings, presets }, runes, advice);
-    setResult({
-      rows: runes.map((rune, index) => ({
-        rune,
-        index,
-        advice: advice.get(rune.id) ?? {
-          verdict: 'sell', reason: '', maxValue: 0, standing: 0, floorShare: 0, floorMaxValue: 0, chance: 0, preset: null, rank: 'broken',
-          craftedLines: null, buildMains: null, readings: null,
-        },
-        location: rune.occupiedId === null ? 'Inventory' : monsterNames[rune.occupiedId]?.name ?? null,
-        hold: null,
-      })),
-      at: new Date().toISOString(),
-      durationMs: outcome.durationMs,
-      backend: outcome.backend,
-    });
+    setRefreshFailedFor(null);
+    setResult((previous) => ({
+      id: (previous?.id ?? 0) + 1, account, entries: heldRuneAdvice(runes, outcome.advice), presets, settings, base,
+      durationMs: outcome.durationMs, backend: outcome.backend,
+    }));
   }
 
+  /* The account moved under the held result: judge again the runes that changed
+     or arrived, by the result's own standards, and lay the answers over it. */
+  useEffect(() => {
+    if (held === null || busy || refreshing.current || refreshFailedFor === runes) return;
+    const changed = runesToJudgeAgain(held.entries, runes);
+    if (changed.length === 0) return;
+    refreshing.current = true;
+    const { id } = held;
+    void refreshRuneAdvice({
+      runes: changed, presets: held.presets, settings: held.settings, base: held.base, preferWebGpu: hardwareAcceleration,
+    }).then((outcome) => {
+      if (outcome.status === 'failed') setRefreshFailedFor(runes);
+      if (outcome.status !== 'done') return;
+      setResult((previous) => (previous?.id === id
+        ? { ...previous, entries: withFreshAdvice(previous.entries, changed, outcome.advice) }
+        : previous));
+    }).finally(() => {
+      refreshing.current = false;
+      setRefreshRound((round) => round + 1);
+    });
+  }, [held, busy, runes, refreshFailedFor, refreshRound, hardwareAcceleration]);
+
+  /* The overlay reads a rune's answer from here instead of asking for it again —
+     but only while the table answers the standards on screen, and only for a rune
+     whose answer still fits it. */
+  useEffect(() => {
+    if (held === null || !game?.data || held.presets !== presets || held.settings !== settings || base === null) return;
+    if (JSON.stringify([...held.base]) !== JSON.stringify([...base])) return;
+    const fitting = shownRuneAdvice(held.entries, runesById).filter((entry) => !entry.gone && runesById.get(entry.rune.id) === entry.rune);
+    rememberRuneAdvice({ data: game.data, settings, presets }, fitting.map((entry) => entry.rune),
+      new Map(fitting.map((entry) => [entry.rune.id, entry.advice])));
+  }, [held, game, presets, settings, base, runesById]);
+
   /* A hold is the user's, not the calculation's, so it is laid over the held result
-     on every change rather than frozen into it at Calculate. */
-  const rows = useMemo(
-    () => (result?.rows ?? []).map((row) => ({ ...row, hold: runeHoldVerdict(runeHolds[row.rune.id]) })),
-    [result, runeHolds],
+     on every change rather than frozen into it at Calculate. Where the rune sits is
+     read the same way: moving it changes nothing the advice reads. */
+  const rows = useMemo<RuneCleanupRow[]>(
+    () => (held === null ? [] : shownRuneAdvice(held.entries, runesById)).map(({ rune, advice, index, gone }) => ({
+      rune, advice, index, gone,
+      location: gone ? 'Sold' : rune.occupiedId === null ? 'Inventory' : monsterNames[rune.occupiedId]?.name ?? null,
+      hold: gone ? null : runeHoldVerdict(runeHolds[rune.id]),
+    })),
+    [held, runesById, monsterNames, runeHolds],
   );
+  const rowsById = useMemo(() => new Map(rows.map((row) => [row.rune.id, row])), [rows]);
+  const owned = rows.filter((row) => !row.gone).length;
   /* Offered from the account's own runes, so a filter never names a set or a main
      stat that no row can carry. */
   const setOptions = useMemo(
@@ -311,6 +369,19 @@ export function RuneRecommendations({ game, monsterPreferences, runeHolds, setti
      states its own direction, in the sign of its sort key — the game offers one
      arrangement per option, not a pair to toggle between, so reversing it here
      would invent an order the panel does not have. */
+  /* The order on screen is taken when the reader arranges the table — a sort, a
+     filter, a calculation — and held while syncs change the runes under it, so a
+     rune just powered up or sold does not jump away from the row being read. */
+  const arrangement = JSON.stringify({ filters, sort, result: held?.id ?? null });
+  const [arranged, setArranged] = useState<{ key: string; ids: string[]; known: Set<string> } | null>(null);
+  if (held !== null && arranged?.key !== arrangement) {
+    setArranged({ key: arrangement, ids: sorted.map((row) => row.rune.id), known: new Set(rowsById.keys()) });
+  }
+  const shown = held !== null && arranged?.key === arrangement
+    ? inArrangedOrder(sorted, rowsById, arranged, (row) => row.rune.id)
+    : sorted;
+  const shownOwned = shown.filter((row) => !row.gone).length;
+
   const sortingByGame = runeGameSortKeys.includes(sort.key as RuneGameSortKey);
   useEffect(() => {
     if (gameSort !== null) setSort({ key: gameSort, direction: 'ascending' });
@@ -381,19 +452,19 @@ export function RuneRecommendations({ game, monsterPreferences, runeHolds, setti
         does on every other page without a bar. */}
     <div className="panel list-actions">
       <p className="list-count">
-        {result
-          ? <><b>{visible.length.toLocaleString('en')}</b> of {rows.length.toLocaleString('en')} runes</>
+        {held
+          ? <><b>{shownOwned.toLocaleString('en')}</b> of {owned.toLocaleString('en')} runes</>
           : <><b>{runes.length.toLocaleString('en')}</b> runes ready to judge</>}
       </p>
       {/* All three wordings in one LabelSwap, so the first result turning
           Calculate into Recalculate does not resize the button either. */}
       <Button tone="primary" onClick={calculate} busy={busy}>
-        <LabelSwap showing={busy ? 'busy' : result ? 'again' : 'first'}
+        <LabelSwap showing={busy ? 'busy' : held ? 'again' : 'first'}
           faces={{ first: 'Calculate', again: 'Recalculate', busy: 'Calculating' }} />
       </Button>
     </div>
 
-    {!result
+    {!held
       ? <section className="empty-state">
         <h2>Nothing calculated yet.</h2>
         <p className="next-step">
@@ -492,15 +563,17 @@ export function RuneRecommendations({ game, monsterPreferences, runeHolds, setti
               which of the answers are on screen. */}
           {toggleGroup('Where', 'Filter by where the rune is', placeOptions, selectedPlaces,
             'selectedPlaces', (place) => placeLabels[place], 'rune-filter-usage')}
-          <FilterSummary visible={visible.length} total={rows.length} noun="runes"
+          <FilterSummary visible={shownOwned} total={owned} noun="runes"
             onReset={() => setFilters(defaultRuneFilters)} className="rune-filter-status" />
         </>}
       >
         <tbody>
-          {sorted.length ? sorted.map((row) => <tr key={row.rune.id} {...rowOpener}>
+          {shown.length ? shown.map((row) => <tr key={row.rune.id} {...rowOpener}
+            data-stale={row.gone ? 'true' : undefined}>
             <td className={cell('set', qualityRuleHost)}>
+              {/* A sold rune opens as it last was: the account has no rune by that id to open. */}
               <RuneLink
-                target={{ kind: 'account', runeId: row.rune.id }}
+                target={row.gone ? { kind: 'generated', rune: row.rune } : { kind: 'account', runeId: row.rune.id }}
                 label={`${row.rune.setName} rune, slot ${row.rune.slot}`}
                 onOpen={onOpenRune}
               >
@@ -557,12 +630,14 @@ export function RuneRecommendations({ game, monsterPreferences, runeHolds, setti
         </tbody>
       </DataTablePage>}
 
-    {failure
-      ? <p className="calculation-status" role="status" data-failed="">{failure}</p>
-      : result && <CalculationStatus
-        detail={<>{formatNumber(runes.length, general)} runes judged against {formatNumber(presets.length, general)} presets</>}
-        durationMs={result.durationMs}
-        backend={result.backend}
+    {failure || (held && refreshFailedFor === runes)
+      ? <p className="calculation-status" role="status" data-failed="">
+        {failure ?? 'JASWA could not judge the runes changed in the game. Recalculate to try again.'}
+      </p>
+      : held && <CalculationStatus
+        detail={<>{formatNumber(owned, general)} runes judged against {formatNumber(held.presets.length, general)} presets</>}
+        durationMs={held.durationMs}
+        backend={held.backend}
         general={general}
       />}
   </>;

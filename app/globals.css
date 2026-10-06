@@ -2559,8 +2559,11 @@ label[for] {
 .rune-optimization-build-name { display: flex; align-items: center; gap: var(--s1); min-width: 0; }
 .rune-optimization-build-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* A build the account has moved out from under: still there to read, in the dimmed
-   ink of the house's two-tone device, with the mark saying why. */
-.rune-optimization-table tbody tr[data-stale='true'] td { color: var(--text-muted); }
+   ink of the house's two-tone device, with the mark saying why. A sold rune in
+   Rune Clean-up is the same fact and wears the same ink, its verdict and gold
+   lines included, with Sold where it sits. */
+.rune-optimization-table tbody tr[data-stale='true'] td,
+.rune-cleanup-grid tbody tr[data-stale='true'] :is(td, td *) { color: var(--text-muted); }
 
 /* ------------------------------------------------------ rune build overlay */
 /* The overlay keeps the frame's full measure: the circle takes two thirds and

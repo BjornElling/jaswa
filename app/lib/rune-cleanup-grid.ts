@@ -26,6 +26,8 @@ export type RuneCleanupRow = {
    * must not read as an empty inventory.
    */
   location: string | null;
+  /** Sold since the calculation: the row stays, as the rune last was, so the rows around it do not move. */
+  gone: boolean;
   /** The user's own word over the advice. Read beside the held result rather than
       into it, so locking a rune changes its row at once without a recalculation. */
   hold: RuneHoldVerdict | null;

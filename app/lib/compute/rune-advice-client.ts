@@ -108,3 +108,9 @@ export function runeAdviceChannel(): RuneAdviceChannel {
 const cleanupChannel = runeAdviceChannel();
 export const calculateRuneAdvice = cleanupChannel.calculate;
 export const cancelRuneAdvice = cleanupChannel.cancel;
+
+/* The table's re-reading of the runes a sync changed. A channel of its own, so a
+   sync landing during Recalculate cannot cancel the whole calculation. */
+const refreshChannel = runeAdviceChannel();
+export const refreshRuneAdvice = refreshChannel.calculate;
+export const cancelRuneAdviceRefresh = refreshChannel.cancel;
