@@ -136,6 +136,7 @@ never hidden for want of a name (AGENTS.md §0.1). Confirmed so far
 | 2 | A three-monster guild content, not yet which (§7) | `deck_seq` |
 | 3 | Rift Raid | `deck_seq` |
 | 6 | Trial of Ascension | `deck_seq` |
+| 19, 20, 21 | Dimension Raid phases 1, 2, 3 | `deck_seq` |
 | 24 | Cairos Dungeon: the hundreds of `deck_seq` are 1 Giant's Keep, 2 Dragon's Lair, 3 Necropolis, 4 Spiritual Realm, 5 Steel Fortress, 6 Punisher's Crypt | `deck_seq` mod 100 |
 
 4 and 6 under type 24 were confirmed through the recent decks, whose Cairos
@@ -266,8 +267,7 @@ and says so where it matters.
   they are not the shared pool. They are Siege Battle attack or World Guild
   Battle / Guild Rival Battle attack; the developer has no guild access to look.
   Shown as *Guild Battle (unconfirmed)*, judged as independent presets.
-- **`deck_type` 4, 8, 9, 19, 20, 21.** Five-monster decks not yet matched on
-  screen. Shown under their numbers.
+- **`deck_type` 4, 8, 9.** Five-monster decks not yet matched on screen. Shown under their numbers.
 - **Saving the Arena Interserver defense.** Not yet captured. The helper takes
   any answer carrying `server_arena_defense_deck_info` whole, as it does for
   the Arena defense, whose save is confirmed.

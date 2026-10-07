@@ -136,7 +136,7 @@ function presetOrder(left: Preset, right: Preset): number {
   return rank(left) - rank(right) || (left.number ?? 0) - (right.number ?? 0);
 }
 
-const contentOrder: readonly PresetContentId[] = ['arena-attack', 'arena-defense', 'interserver-defense', 'trial-of-ascension', 'rift-raid', 'guild-unconfirmed',
+const contentOrder: readonly PresetContentId[] = ['arena-attack', 'arena-defense', 'interserver-defense', 'trial-of-ascension', 'rift-raid', 'dimension-raid-1', 'dimension-raid-2', 'dimension-raid-3', 'guild-unconfirmed',
   'giants', 'dragons', 'necropolis', 'spiritual', 'steel', 'punisher'];
 
 function contentRank(id: PresetContentId): number {

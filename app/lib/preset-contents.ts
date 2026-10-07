@@ -17,7 +17,8 @@ export type PresetColumn = 'dungeons' | 'arena' | 'other';
 export type PresetContentId =
   | 'arena-attack' | 'arena-defense' | 'interserver-defense'
   | 'giants' | 'dragons' | 'necropolis' | 'spiritual' | 'steel' | 'punisher'
-  | 'trial-of-ascension' | 'rift-raid' | 'guild-unconfirmed';
+  | 'trial-of-ascension' | 'rift-raid' | 'guild-unconfirmed'
+  | 'dimension-raid-1' | 'dimension-raid-2' | 'dimension-raid-3';
 
 export type PresetContent = {
   id: PresetContentId;
@@ -47,6 +48,9 @@ const contents: readonly PresetContent[] = [
   { id: 'punisher', name: "Punisher's Crypt", column: 'dungeons', teamSize: 5, speed: 'punisher', sharedPool: false },
   { id: 'trial-of-ascension', name: 'Trial of Ascension', column: 'other', teamSize: 5, speed: null, sharedPool: false },
   { id: 'rift-raid', name: 'Rift Raid', column: 'other', teamSize: 6, speed: null, sharedPool: false },
+  { id: 'dimension-raid-1', name: 'Dimension Raid Phase 1', column: 'other', teamSize: 5, speed: null, sharedPool: false },
+  { id: 'dimension-raid-2', name: 'Dimension Raid Phase 2', column: 'other', teamSize: 5, speed: null, sharedPool: false },
+  { id: 'dimension-raid-3', name: 'Dimension Raid Phase 3', column: 'other', teamSize: 5, speed: null, sharedPool: false },
   /* Siege Battle or World Guild Battle / Guild Rival Battle attack — three
      monsters and more decks than Siege defense allows, so not its shared pool;
      which of the two is open (`DECK-PRESETS.md` §7). */
@@ -74,6 +78,7 @@ export function isPresetContentId(value: unknown): value is PresetContentId {
  *   defense presets and their shared pool.
  * - `deck_type` 3 holds the Rift Raid decks, numbered by `deck_seq`.
  * - `deck_type` 6 holds the Trial of Ascension decks, numbered by `deck_seq`.
+ * - `deck_type` 19, 20 and 21 hold Dimension Raid phases 1, 2 and 3.
  * - `deck_type` 24 holds the Cairos Dungeon decks; the hundreds of `deck_seq`
  *   name the dungeon and the rest is the preset's number within it: 1 Giant's
  *   Keep, 2 Dragon's Lair, 3 Necropolis, 4 Spiritual Realm, 5 Steel Fortress,
@@ -84,12 +89,16 @@ export function isPresetContentId(value: unknown): value is PresetContentId {
  */
 const cairosByHundreds: Readonly<Record<number, PresetContentId>> = { 1: 'giants', 2: 'dragons', 3: 'necropolis', 4: 'spiritual', 5: 'steel', 6: 'punisher' };
 
+const dimensionRaidPhases: Readonly<Record<number, PresetContentId>> = { 19: 'dimension-raid-1', 20: 'dimension-raid-2', 21: 'dimension-raid-3' };
+
 /** What a saved deck's two numbers mean, where that is confirmed. */
 export function deckContent(deckType: number, deckSequence: number): { content: PresetContent; number: number } | null {
   if (deckType === 1) return { content: presetContent('arena-attack'), number: deckSequence };
   if (deckType === 2) return { content: presetContent('guild-unconfirmed'), number: deckSequence };
   if (deckType === 3) return { content: presetContent('rift-raid'), number: deckSequence };
   if (deckType === 6) return { content: presetContent('trial-of-ascension'), number: deckSequence };
+  const phase = dimensionRaidPhases[deckType];
+  if (phase) return { content: presetContent(phase), number: deckSequence };
   if (deckType === 24) {
     const id = cairosByHundreds[Math.floor(deckSequence / 100)];
     return id ? { content: presetContent(id), number: deckSequence % 100 } : null;
