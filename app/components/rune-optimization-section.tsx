@@ -217,9 +217,6 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
 
   const accountRunes = useMemo(() => (game ? readRunes(game.data) : []), [game]);
   const runes = useMemo(() => (preset ? runesInPreset(accountRunes, preset) : []), [accountRunes, preset]);
-  /* A rune the chosen preset leaves on no monster may still be engraved in
-     Default, and the game shows it on that monster; the overlay names it as the
-     game does rather than "Inventory". */
   const defaultPlaces = useMemo(() => (preset && preset.kind !== 'default'
     ? new Map(accountRunes.map((rune) => [rune.id, rune.occupiedId])) : undefined), [accountRunes, preset]);
   const holds = useMemo(() => (preset ? holdsIn(preset, preferences.runeHolds) : preferences.runeHolds), [preset, preferences.runeHolds]);

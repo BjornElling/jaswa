@@ -119,7 +119,7 @@ type Places = {
   thisMonster: string;
   /** The preset the build is for. */
   presetId: string;
-  /** Each rune's monster in Default, where the build is for a preset; `undefined` in Default itself. */
+  /** The game's engraving outside presets, which its rune list still shows. */
   defaultPlaces: ReadonlyMap<string, string | null> | undefined;
   engravedOn: (unitId: string) => EngravedOnMonster | undefined;
   onOpenMonster: OpenMonsterOverlay;
@@ -136,15 +136,18 @@ function monsterName(place: string, presetId: string, { thisMonster, engravedOn,
     : 'Monster not in this import';
 }
 
-/* A place as the card names it: this monster, the inventory, or a link to the
-   monster the rune is engraved on. A rune no monster of the preset carries but
-   one carries in Default names that monster, because the game shows it engraved
-   there and draws no line between the two; "Inventory" would send the player
-   looking for it in the game's inventory. */
-function placeName(runeId: string, place: string | null, places: Places): ReactNode {
-  if (place !== null) return monsterName(place, places.presetId, places);
+/* The preset owns the build's moves. A rune free here but on another monster
+   in Default names that monster as the game's list does. Default's copy of the
+   monster being optimized is the one exception: its rune is inventory here. */
+function presetPlaceName(place: string | null, places: Places): ReactNode {
+  return place === null ? 'Inventory' : monsterName(place, places.presetId, places);
+}
+
+function gamePlaceName(runeId: string, place: string | null, places: Places): ReactNode {
+  if (place !== null) return presetPlaceName(place, places);
   const inDefault = places.defaultPlaces?.get(runeId) ?? null;
-  return inDefault === null ? 'Inventory' : monsterName(inDefault, defaultPresetId, places);
+  return inDefault === null || inDefault === places.thisMonster
+    ? 'Inventory' : monsterName(inDefault, defaultPresetId, places);
 }
 
 function RuneCard({ picked, rune, loadedPlace, places, format, onOpenRune }: {
@@ -165,9 +168,9 @@ function RuneCard({ picked, rune, loadedPlace, places, format, onOpenRune }: {
   if (picked.locked) location = 'Locked to this monster';
   else if (picked.issue?.kind === 'locked-away' && rune.occupiedId === null) location = 'Locked in the inventory';
   else if (rune.occupiedId === null || rune.occupiedId === places.thisMonster) {
-    location = placeName(rune.id, rune.occupiedId, places);
+    location = gamePlaceName(rune.id, rune.occupiedId, places);
   } else {
-    const link = placeName(rune.id, rune.occupiedId, places);
+    const link = gamePlaceName(rune.id, rune.occupiedId, places);
     location = picked.issue?.kind === 'locked-away' ? <>Locked to {link}</> : link;
   }
   /* Only where the rune has really moved since the import: one moved and moved
@@ -211,7 +214,7 @@ function RuneCard({ picked, rune, loadedPlace, places, format, onOpenRune }: {
     <div className="rune-build-card-where" data-visible={moved} aria-hidden={!moved}>
       <span className="rune-build-card-where-label">Previously</span>
       <span className="rune-build-card-where-value">
-        {moved ? placeName(rune.id, loadedPlace, places) : ''}
+        {moved ? presetPlaceName(loadedPlace, places) : ''}
       </span>
     </div>
   </li>;
@@ -230,7 +233,7 @@ export function RuneBuildOverlay({
   runesById: ReadonlyMap<string, Rune>;
   /** Where the runes JASWA has moved sat in this preset when the import was loaded (`ImportedGame`). */
   loadedPlacements: Readonly<Record<string, string | null>> | undefined;
-  /** Each rune's monster in Default, where the build is for a preset; `undefined` for a build in Default. */
+  /** Default's owner, which the game's rune list shows even when this preset leaves the rune free. */
   defaultPlaces: ReadonlyMap<string, string | null> | undefined;
   /** Drawn in the middle of the circle, and the monster its own runes read as staying on. */
   monster: BuildMonster;

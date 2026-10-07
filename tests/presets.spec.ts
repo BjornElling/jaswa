@@ -699,8 +699,12 @@ test('a rune engraved on a monster in another preset is free here, and an engrav
   /* Engraved here, the build is written into this preset and nowhere else. */
   await page.getByRole('button', { name: 'Show build 1', exact: true }).click();
   const detail = page.getByRole('dialog', { name: 'Build 1' });
+  const circleBefore = await box(detail.locator('.rune-build-circle'));
+  await detail.screenshot({ path: testInfo.outputPath('preset-build-inventory.png') });
   await detail.getByRole('button', { name: 'Engrave on monster' }).click();
   await expect(detail.getByRole('button', { name: 'Engraved', exact: true })).toBeDisabled();
+  expect(await box(detail.locator('.rune-build-circle'))).toEqual(circleBefore);
+  await detail.screenshot({ path: testInfo.outputPath('preset-build-engraved.png') });
   type Data = { runes: Array<{ rune_id: number; occupied_type: number; occupied_id: number }>; deck_list: Array<{ deck_type: number; deck_seq: number; equip: Array<{ unit_id: number; rune_id_list: number[] }> | null }> };
   const saved = await page.evaluate(async () => new Promise<Data>((resolve) => {
     const request = indexedDB.open('jaswa-local', 1);
@@ -719,4 +723,74 @@ test('a rune engraved on a monster in another preset is free here, and an engrav
   const imported = [...base.runes, ...base.unit_list.flatMap((unit: { runes: Data['runes'] }) => unit.runes)];
   expect(placed(saved)).toEqual(placed({ runes: imported }));
   expect(saved.deck_list.filter((entry) => entry !== keep)).toEqual(account.deck_list.filter((entry) => !(entry.deck_type === 24)));
+});
+
+test('a rune on the optimized monster in Default is inventory in another preset', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await freshWorkspace(page);
+  /* The only six runes are on 11 in Default. Arena Attack 1 saves 11 with
+     empty slots, so each must be engraved in this preset despite its Default owner. */
+  const locationRunes = base.unit_list.find((unit: { unit_id: number }) => unit.unit_id === 11).runes
+    .map((rune: { slot_no: number; pri_eff: number[] }) => ({ ...rune,
+      pri_eff: rune.slot_no === 2 ? [8, 42] : rune.slot_no === 4 || rune.slot_no === 6 ? [4, 63] : rune.pri_eff }));
+  const locationAccount = {
+    ...base,
+    runes: [],
+    unit_list: base.unit_list.map((unit: { unit_id: number; runes: unknown[] }) =>
+      ({ ...unit, runes: unit.unit_id === 11 ? locationRunes : [] })),
+    deck_list: [{ deck_type: 1, deck_seq: 1, unit_id_list: [11, 0, 0, 0], leader_unit_id: 11,
+      equip: [{ unit_id: 11, rune_id_list: [], artifact_id_list: [] }] }],
+  };
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
+    name: 'preset-location.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(locationAccount)),
+  });
+  await openOptimization(page);
+  await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  await page.getByLabel('Preset', { exact: true }).selectOption('deck-1-1');
+  await find(page);
+  await page.getByRole('button', { name: 'Show build 1', exact: true }).click();
+  const detail = page.getByRole('dialog', { name: 'Build 1' });
+  const cards = detail.locator('.rune-build-card');
+  await expect(cards).toHaveCount(6);
+  await expect(detail.locator('.overlay-facts')).toContainText('Changes6');
+  for (const card of await cards.all()) {
+    await expect(card.locator('.rune-build-card-where').first()).toHaveText('LocationInventory');
+  }
+  const circleBefore = await box(detail.locator('.rune-build-circle'));
+  await detail.screenshot({ path: testInfo.outputPath('default-engraved-preset-inventory.png') });
+  await detail.getByRole('button', { name: 'Engrave on monster' }).click();
+  await expect(detail.getByRole('button', { name: 'Engraved', exact: true })).toBeDisabled();
+  expect(await box(detail.locator('.rune-build-circle'))).toEqual(circleBefore);
+  await detail.screenshot({ path: testInfo.outputPath('default-engraved-preset-engraved.png') });
+});
+
+test('a rune on another monster in Default names that monster in a preset build', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await freshWorkspace(page);
+  const locationRunes = base.unit_list.find((unit: { unit_id: number }) => unit.unit_id === 11).runes
+    .map((rune: { slot_no: number; pri_eff: number[] }) => ({ ...rune, occupied_id: 12,
+      pri_eff: rune.slot_no === 2 ? [8, 42] : rune.slot_no === 4 || rune.slot_no === 6 ? [4, 63] : rune.pri_eff }));
+  const locationAccount = {
+    ...base,
+    runes: [],
+    unit_list: base.unit_list.map((unit: { unit_id: number; runes: unknown[] }) =>
+      ({ ...unit, runes: unit.unit_id === 12 ? locationRunes : [] })),
+    deck_list: [{ deck_type: 1, deck_seq: 1, unit_id_list: [11, 0, 0, 0], leader_unit_id: 11,
+      equip: [{ unit_id: 11, rune_id_list: [], artifact_id_list: [] }] }],
+  };
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
+    name: 'other-monster-location.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(locationAccount)),
+  });
+  await openOptimization(page);
+  const otherName = (await page.getByLabel('Monster', { exact: true }).locator('option[value="12"]').innerText()).trim();
+  await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  await page.getByLabel('Preset', { exact: true }).selectOption('deck-1-1');
+  await find(page);
+  await page.getByRole('button', { name: 'Show build 1', exact: true }).click();
+  const detail = page.getByRole('dialog', { name: 'Build 1' });
+  await expect(detail.locator('.rune-build-card')).toHaveCount(6);
+  for (const card of await detail.locator('.rune-build-card').all()) {
+    await expect(card.locator('.rune-build-card-where').first()).toContainText(otherName);
+  }
+  await detail.screenshot({ path: testInfo.outputPath('other-monster-engraved.png') });
 });

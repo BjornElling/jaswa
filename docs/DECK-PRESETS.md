@@ -229,6 +229,12 @@ an import, and are checked one preset at a time on load.
   not yet named are listed in the right-hand column and say why they are not
   judged, rather than being judged by a guessed rule.
 
+**Rune Optimization.** A build's Location names the Default monster for a rune
+free in the selected preset, as the game's rune list does. If that Default
+monster is the one being optimized, the card says *Inventory* instead: the
+rune still has to be engraved in this preset, which the Changes figure counts.
+Previously names the rune's earlier place in that preset after JASWA moves it.
+
 **Rune Clean-up, Gems & Grinds and every rune or artifact list.**
 - One *Engraved* label replaces the monster name in the location column. A
   fixed-width count beside it gives the number of placements.
