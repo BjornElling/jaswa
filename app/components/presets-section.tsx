@@ -117,6 +117,13 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
       return { key: unitId, name: choice?.name ?? 'Not in this import', imageFilename: display?.imageFilename, initial: display?.shortName ?? '?' };
     }) }))), [group, owned]);
 
+  /* A preset added here joins the chosen content as the game's own do, and is
+     offered the name the game would give the next one: the content and the
+     number after the highest it holds. */
+  const groupContent = group?.presets.find((entry) => entry.content !== null)?.content ?? null;
+  const suggestedName = groupContent === null || group === null ? ''
+    : `${groupContent.name} ${Math.max(group.presets.length, ...group.presets.map((entry) => entry.number ?? 0)) + 1}`;
+
   function chooseGroup(label: string) {
     const next = groups.find((entry) => entry.label === label);
     const fallback = next?.presets.find((entry) => entry.kind === 'default');
@@ -252,9 +259,9 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
         </div>
         <p className="monster-priority-about">{preset ? presetWarnings(preset) : ''}</p>
         <div className="monster-priority-actions">
-          {/* A preset is added beside one already chosen, in its content: Default
-              has no content to add to. */}
-          <Button ref={createButton} tone="important" disabled={!canCreate || preset === null || preset.kind === 'default'}
+          {/* A preset is added to the content chosen, whether or not one of its
+              presets is: Default has no content to add to. */}
+          <Button ref={createButton} tone="important" disabled={!canCreate || group === null || group.presets.some((entry) => entry.kind === 'default')}
             onClick={() => setCreating(true)}
             title={canCreate ? undefined : 'Automatic synchronization is on: presets come from the game.'}>Add preset</Button>
           <Button tone="danger" disabled={!deletable} onClick={deletePreset}>Delete preset</Button>
@@ -331,7 +338,7 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
             </div>}
       </section>
     </div>
-    {creating && <AddPresetDialog content={preset?.content?.id ?? null} onCancel={() => { setCreating(false); createButton.current?.focus(); }}
+    {creating && <AddPresetDialog content={groupContent?.id ?? null} name={suggestedName} onCancel={() => { setCreating(false); createButton.current?.focus(); }}
       onCreate={(name, content) => { setCreating(false); create(name, content); }} />}
   </WorkspacePage>;
 }
@@ -377,13 +384,15 @@ function CrownIcon() {
 
 const presetNameLimit = 60;
 
-function AddPresetDialog({ content: chosenContent, onCancel, onCreate }: {
-  /** The content of the preset it was opened beside, which the new one starts in. */
+function AddPresetDialog({ content: chosenContent, name: suggestedName, onCancel, onCreate }: {
+  /** The content chosen on the page, which the new preset starts in. */
   content: PresetContentId | null;
+  /** The name the game would give the content's next preset, `''` where it has none. */
+  name: string;
   onCancel: () => void;
   onCreate: (name: string, content: PresetContentId | null) => void;
 }) {
-  const [name, setName] = useState('');
+  const [name, setName] = useState(suggestedName);
   const [content, setContent] = useState<PresetContentId | ''>(chosenContent ?? '');
   const nameField = useRef<HTMLInputElement>(null);
   const cancel = useRef(onCancel);

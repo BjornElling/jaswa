@@ -6693,7 +6693,12 @@ th.align-center .sort-button { justify-content: center; }
   cursor: pointer;
   transition: background-color .12s ease, border-color .12s ease;
 }
-.speed-summary:hover { background: color-mix(in srgb, var(--gold-deep) 35%, var(--raise)); border-color: var(--gold-edge); }
+.speed-summary:not([aria-disabled="true"]):hover { background: color-mix(in srgb, var(--gold-deep) 35%, var(--raise)); border-color: var(--gold-edge); }
+.speed-summary[aria-disabled="true"] { cursor: default; }
+/* A name is the handle for its place in the order. */
+.speed-summary-member[draggable="true"] { cursor: grab; }
+/* The preset's number stays first however the names are drawn while one is dragged. */
+.speed-summary-preset { order: -1; }
 .speed-summary:focus-visible { outline: 2px solid var(--text-accent); outline-offset: 2px; }
 .speed-summary-mark { grid-area: mark; display: block; width: 24px; height: 24px; color: var(--text-muted); }
 .speed-summary-mark svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }

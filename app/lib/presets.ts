@@ -131,9 +131,12 @@ function readOwnPreset(own: OwnPreset, fallback: Preset, ownedRunes: ReadonlySet
 
 /* The game's capacity table lists contents in a fixed order; a deck whose
    content is not yet named follows every named one, in the export's order. */
+/* By content, and inside a content the game's presets by number before the
+   ones built here, which carry no number. */
 function presetOrder(left: Preset, right: Preset): number {
   const rank = (preset: Preset) => preset.content === null ? Number.MAX_SAFE_INTEGER : contentRank(preset.content.id);
-  return rank(left) - rank(right) || (left.number ?? 0) - (right.number ?? 0);
+  const built = (preset: Preset) => (preset.kind === 'own' ? 1 : 0);
+  return rank(left) - rank(right) || built(left) - built(right) || (left.number ?? 0) - (right.number ?? 0);
 }
 
 const contentOrder: readonly PresetContentId[] = ['arena-attack', 'arena-defense', 'interserver-defense', 'trial-of-ascension', 'rift-raid', 'dimension-raid-1', 'dimension-raid-2', 'dimension-raid-3', 'guild-unconfirmed',
@@ -143,17 +146,23 @@ function contentRank(id: PresetContentId): number {
   return contentOrder.indexOf(id);
 }
 
-/** Default first, then the game's presets by content, then the presets built in JASWA. */
+/**
+ * Default first, then every preset by content. A preset built in JASWA stands
+ * in its content as the game's do, after them; one without a content stands
+ * with the decks not yet matched to one.
+ */
 export function readPresets(data: GameRecord | undefined, own: readonly OwnPreset[]): Preset[] {
   if (!data) return [];
   const fallback = readDefault(data);
   const ownedRunes = new Set(ids(data.runes, 'rune_id'));
   const ownedArtifacts = new Set(ids(data.artifacts, 'rid'));
-  const game = readDeckPresets(data).map((deck) => readGamePreset(deck, fallback))
-    .map((preset, at) => ({ preset, at }))
+  const rest = [
+    ...readDeckPresets(data).map((deck) => readGamePreset(deck, fallback)),
+    ...own.map((entry) => readOwnPreset(entry, fallback, ownedRunes, ownedArtifacts)),
+  ].map((preset, at) => ({ preset, at }))
     .sort((left, right) => presetOrder(left.preset, right.preset) || left.at - right.at)
     .map((entry) => entry.preset);
-  return [fallback, ...game, ...own.map((entry) => readOwnPreset(entry, fallback, ownedRunes, ownedArtifacts))];
+  return [fallback, ...rest];
 }
 
 /** Every record of the account by id, to put a monster's gear together in a preset. */
@@ -272,18 +281,22 @@ export function runesInPreset<T extends { id: string; occupiedId: string | null 
 
 /**
  * Presets as every preset menu groups them, following the game: Default alone,
- * then each content's presets together, then the decks not yet matched to a
- * content, then the presets built here.
+ * then each content's presets together — the ones built here among them — then
+ * the presets not matched to a content.
  */
 export function presetGroupsOf(presets: readonly Preset[]): { label: string; presets: Preset[] }[] {
   const groups: { label: string; presets: Preset[] }[] = [];
   for (const preset of presets) {
-    const label = preset.kind === 'default' ? 'Default' : preset.kind === 'own' ? 'Built in JASWA'
-      : preset.content?.name ?? 'Not yet named';
+    const label = preset.kind === 'default' ? 'Default' : presetGroupLabel(preset);
     const group = groups.find((entry) => entry.label === label);
     if (group) group.presets.push(preset); else groups.push({ label, presets: [preset] });
   }
   return groups;
+}
+
+/** The content a preset is listed under, whoever built it. */
+export function presetGroupLabel(preset: Preset): string {
+  return preset.content?.name ?? 'Not yet named';
 }
 
 /**

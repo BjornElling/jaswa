@@ -171,14 +171,15 @@ an import, and are checked one preset at a time on load.
 
 **Presets** (formerly Rune priority).
 - *Content* heads the page with *Preset* below it, and opens on Default.
-- *Content* lists only the contents — Default, each content the imported
-  presets are played in, and the player's own. Default is chosen there
-  outright; any other content offers its presets in *Preset*, each shown with
-  the faces of its team, and the list below is empty until one is chosen.
-- *Add preset* sits at the right, starts the new preset in the chosen
-  preset's content, and is available only beside a chosen preset other than
-  Default and only while live sync is
-  off.
+- *Content* lists only the contents — Default, and each content a preset is
+  played in. Default is chosen there outright; any other content offers its
+  presets in *Preset*, each shown with the faces of its team, and the list
+  below is empty until one is chosen.
+- A preset built in JASWA stands in its content exactly as the game's do,
+  after them; one without a content stands with the presets not yet named.
+- *Add preset* sits at the right, starts the new preset in the chosen content
+  under the name the game would give its next one, and is available as soon as
+  a content other than Default is chosen, and only while live sync is off.
 - The order of monsters within a preset is their priority for runes. Rune
   competition exists only inside a preset, so that is the only place a
   priority means anything.

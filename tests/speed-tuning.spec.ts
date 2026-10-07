@@ -142,6 +142,54 @@ test('a tied dungeon preset gets a green check on the overview', async ({ page }
   await expect(dialog.locator('.speed-slot-empty')).toHaveText(['3Empty in this preset', '4Empty in this preset', '5Empty in this preset']);
 });
 
+test('a line\'s names are dragged within it to change the team\'s order, kept at once', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await freshWorkspace(page);
+  await importAccount(page);
+  await openSpeedTuning(page);
+  const dungeons = page.getByRole('region', { name: 'Dungeons', exact: true });
+  const line = presetLine(dungeons, "Giant's Keep 1");
+  const names = line.locator('.speed-summary-name');
+  await expect(names).toHaveText(['Megan (2A)', 'Bernard (2A)', 'Lushen #1', 'Veromos', 'Verdehile']);
+  const others = presetLine(dungeons, "Giant's Keep 2");
+  const [lineBefore, othersBefore] = [await box(line), await box(others)];
+
+  /* Bernard taken by its name and dropped to the left of Megan. */
+  const bernard = await box(line.locator('.speed-summary-member').nth(1));
+  const megan = await box(line.locator('.speed-summary-member').nth(0));
+  await page.mouse.move(bernard.x + bernard.width / 2, bernard.y + bernard.height / 2);
+  await page.mouse.down();
+  for (let step = 1; step <= 8; step += 1) {
+    await page.mouse.move(bernard.x + bernard.width / 2 - (bernard.x - megan.x + 4) * step / 8, megan.y + megan.height / 2);
+  }
+  await page.mouse.move(megan.x + 3, megan.y + megan.height / 2);
+  /* The preview is the line drawn in the drop's order, before anything is kept. */
+  await expect(line.locator('.speed-summary-member[data-dragging] .speed-summary-name')).toHaveText('Bernard (2A)');
+  await expect(line.locator('.speed-summary-member[data-dragging]')).toHaveCSS('order', '0');
+  await page.screenshot({ path: testInfo.outputPath('speed-line-drag-preview.png') });
+  await page.mouse.up();
+
+  await expect(names).toHaveText(['Bernard (2A)', 'Megan (2A)', 'Lushen #1', 'Veromos', 'Verdehile']);
+  /* A drop is not a click: the team's overlay stays shut, and nothing beyond the line moved. */
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  expect((await box(line)).y).toBe(lineBefore.y);
+  expect(await box(others)).toEqual(othersBefore);
+  /* Kept as the team's order, as Save in the overlay would keep it, and the overlay opens on it. */
+  await expect.poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem('jaswa-preferences') ?? '{}').speedTuning?.presets?.['deck-24-101']?.order))
+    .toEqual(['1', '2', '4', '6', '3']);
+  await page.reload();
+  await openSpeedTuning(page);
+  await expect(names).toHaveText(['Bernard (2A)', 'Megan (2A)', 'Lushen #1', 'Veromos', 'Verdehile']);
+  await line.click();
+  await expect(page.getByRole('dialog', { name: "Giant's Keep 1" }).locator('.speed-monster .monster-name'))
+    .toHaveText(['Bernard (2A)', 'Megan (2A)', 'Lushen #1', 'Veromos', 'Verdehile']);
+  await page.keyboard.press('Escape');
+
+  /* A line Speed Tuning cannot judge has no team order to drag. */
+  await expect(presetLine(page.getByRole('region', { name: 'Other presets', exact: true }), 'Deck 99 · 1')
+    .locator('.speed-summary-member[draggable="true"]')).toHaveCount(0);
+});
+
 test('tunes a dungeon preset, explains every miss, and keeps the card still', async ({ page }, testInfo) => {
   /* Long on purpose — a whole preset reordered, edited, saved and reloaded — and
      run beside every other spec against one dev server. Twenty seconds on a

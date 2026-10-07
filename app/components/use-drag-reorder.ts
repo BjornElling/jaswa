@@ -119,6 +119,8 @@ export function useDragReorder<Container extends HTMLElement>({ count, onMove }:
     containerProps: {
       ref: container,
       'data-sorting': drag === null ? undefined : 'true',
+      /* A drop that follows an entry nobody accepted lands on the page, not the list. */
+      onDragEnter: (event: DragEvent<Container>) => { if (drag !== null) event.preventDefault(); },
       onDragOver: over,
       onDrop: drop,
       onPointerDownCapture: (event: PointerEvent<Container>) =>
@@ -133,6 +135,93 @@ export function useDragReorder<Container extends HTMLElement>({ count, onMove }:
       onDragEnd: () => setDrag(null),
     }),
     /** Where an entry is drawn while a drag is previewed, so a numbered list reads 1 to n down the screen. */
+    place: (at: number) => order === null ? at : order.indexOf(at),
+  };
+}
+
+/** An entry's box at rest, from its container's corner, in screen pixels. */
+type Spot = { left: number; top: number; width: number; height: number };
+
+/**
+ * Reordering a line of entries that runs across and wraps as words do — Speed
+ * Tuning's line of a preset's names — by dragging, with the same private data
+ * and the same one-list-only rule as `useDragReorder`.
+ *
+ * The place is read off where every entry sat when the drag began, as there:
+ * the row under the pointer, then the entries on it left of the pointer. The
+ * preview is the line itself in the order the drop would leave it, drawn with
+ * flex `order` from `place` rather than entries slid aside — names of different
+ * widths cannot slide into one another's places on a wrapping line — and
+ * never by moving the elements, because a browser ends a drag whose source
+ * element is taken out of the page. Only the line being dragged in redraws.
+ */
+export function useInlineReorder<Container extends HTMLElement>({ count, onMove }: {
+  count: number;
+  onMove: (from: number, to: number) => void;
+}) {
+  const container = useRef<Container>(null);
+  const [drag, setDrag] = useState<{ from: number; over: number; spots: readonly Spot[] } | null>(null);
+  const order = drag === null ? null : moveItem(Array.from({ length: count }, (_, at) => at), drag.from, drag.over);
+
+  function start(event: DragEvent<HTMLElement>, from: number) {
+    const holder = container.current;
+    if (!holder || count < 2) return;
+    const corner = holder.getBoundingClientRect();
+    const spots = entries(holder).slice(0, count).map((entry) => {
+      const box = entry.getBoundingClientRect();
+      return { left: box.left - corner.left, top: box.top - corner.top, width: box.width, height: box.height };
+    });
+    if (spots.length !== count) return;
+    /* The press may land on an element inside the entry; the drag is the entry's. */
+    event.stopPropagation();
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData(dragType, String(from));
+    setDrag({ from, over: from, spots });
+  }
+
+  function over(event: DragEvent<Container>) {
+    if (drag === null || !container.current) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    const corner = container.current.getBoundingClientRect();
+    const x = event.clientX - corner.left;
+    const y = event.clientY - corner.top;
+    const rows = [...new Set(drag.spots.map((spot) => Math.round(spot.top)))].sort((left, right) => left - right);
+    /* The row whose band holds the pointer; above the first or below the last, that one. */
+    const row = rows.findLast((top) => y >= top) ?? rows[0];
+    /* Every other entry on an earlier row, or on this row with its middle left of the pointer, comes first. */
+    const place = drag.spots.filter((spot, at) => at !== drag.from
+      && (Math.round(spot.top) < row || (Math.round(spot.top) === row && spot.left + spot.width / 2 < x))).length;
+    if (place !== drag.over) setDrag({ ...drag, over: place });
+  }
+
+  function drop(event: DragEvent<Container>) {
+    if (drag === null) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (drag.over !== drag.from) onMove(drag.from, drag.over);
+    setDrag(null);
+  }
+
+  return {
+    containerProps: {
+      ref: container,
+      'data-sorting': drag === null ? undefined : 'true',
+      /* Accepted on entering as well as while over: a pointer crossing from one
+         name onto the next is entering, and a drop that follows an entry nobody
+         accepted lands on the page rather than the line. */
+      onDragEnter: (event: DragEvent<Container>) => { if (drag !== null) event.preventDefault(); },
+      onDragOver: over,
+      onDrop: drop,
+    },
+    entryProps: (at: number) => ({
+      'data-reorder-index': at,
+      'data-dragging': drag?.from === at ? 'true' : undefined,
+      draggable: count > 1,
+      onDragStart: (event: DragEvent<HTMLElement>) => start(event, at),
+      onDragEnd: () => setDrag(null),
+    }),
+    /** Where an entry is drawn: its place in the drop's order while a drag is previewed. */
     place: (at: number) => order === null ? at : order.indexOf(at),
   };
 }

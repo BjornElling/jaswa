@@ -118,12 +118,14 @@ const ownStored = [
 ];
 const presets = readPresets(prepared, readOwnPresets(ownStored));
 assert.deepEqual(presets.map((preset) => preset.name),
-  ['Default', 'Arena Attack 4', 'Arena Attack 5', 'Arena Defense', "Giant's Keep 1", 'Deck 99 · 1', 'Draft', 'Geared'],
-  'Default first, the game\'s presets by content and number, an unnamed deck after every named one, the user\'s own last');
-assert.deepEqual(presets.map((preset) => preset.kind), ['default', 'game', 'game', 'game', 'game', 'game', 'own', 'own']);
-assert.deepEqual(presets.map((preset) => preset.id).slice(0, 6), ['default', 'deck-1-4', 'deck-1-5', 'arena-defense', 'deck-24-101', 'deck-99-1']);
+  ['Default', 'Arena Attack 4', 'Arena Attack 5', 'Arena Defense', "Giant's Keep 1", 'Draft', 'Deck 99 · 1', 'Geared'],
+  'Default first, every preset by content, the user\'s own after the game\'s in theirs, and anything without a content last');
+assert.deepEqual(presets.map((preset) => preset.kind), ['default', 'game', 'game', 'game', 'game', 'own', 'game', 'own']);
+assert.deepEqual(presets.map((preset) => preset.id), ['default', 'deck-1-4', 'deck-1-5', 'arena-defense', 'deck-24-101', 'own-a', 'deck-99-1', 'own-b']);
 assert.deepEqual(presetGroupsOf(presets).map((group) => group.label),
-  ['Default', 'Arena Attack', 'Arena Defense', "Giant's Keep", 'Not yet named', 'Built in JASWA'], 'the menu groups follow the game');
+  ['Default', 'Arena Attack', 'Arena Defense', "Giant's Keep", 'Not yet named'], 'the menu groups follow the game, the user\'s own presets in theirs');
+assert.deepEqual(presetGroupsOf(presets).find((group) => group.label === "Giant's Keep").presets.map((preset) => preset.name),
+  ["Giant's Keep 1", 'Draft'], 'a preset built here stands in its content beside the game\'s');
 assert.equal(presets.find((preset) => preset.id === 'deck-24-101').number, 1, 'a Cairos preset is numbered within its dungeon');
 assert.deepEqual(readPresets(undefined, []), [], 'no import, no presets');
 const presetById = new Map(presets.map((preset) => [preset.id, preset]));

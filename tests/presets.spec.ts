@@ -132,7 +132,8 @@ test('the page opens on Default, and a content\'s presets are chosen by their fa
   await expect(chosenPreset(page)).toHaveText('Choose preset');
   await expect(page.getByText('No preset chosen yet.', { exact: true })).toBeVisible();
   await expect(addMenu(page)).toBeDisabled();
-  await expect(page.getByRole('button', { name: 'Add preset' })).toBeDisabled();
+  /* A preset can be added to the content before one of its presets is chosen. */
+  await expect(page.getByRole('button', { name: 'Add preset' })).toBeEnabled();
   expect(await fields()).toEqual(still);
   await presetChoice(page).click();
   await expect(presetChoice(page)).toHaveAttribute('aria-expanded', 'true');
@@ -348,13 +349,15 @@ test('a preset built here is created, filled, led and deleted without moving the
   await openPresets(page);
   const names = await copyNames(page);
 
-  /* A preset is added beside a chosen one. The dialog opens on its name, Escape closes it and gives focus back. */
-  await choosePreset(page, 'Arena Attack', 'Arena Attack 4');
+  /* A preset is added to the chosen content, offered the name the game would give its next one.
+     The dialog opens on that name, Escape closes it and gives focus back. */
+  await contentChoice(page).selectOption('Arena Attack');
   const create = page.getByRole('button', { name: 'Add preset' });
   await create.click();
   const dialog = page.getByRole('dialog', { name: 'Add preset' });
   await expect(dialog.getByLabel('Name')).toBeFocused();
-  await expect(dialog.getByRole('button', { name: 'Add preset' })).toBeDisabled();
+  await expect(dialog.getByLabel('Name')).toHaveValue('Arena Attack 5');
+  await expect(dialog.getByRole('button', { name: 'Add preset' })).toBeEnabled();
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
   await expect(create).toBeFocused();
@@ -363,7 +366,7 @@ test('a preset built here is created, filled, led and deleted without moving the
   await dialog.getByLabel('Name').fill('   ');
   await expect(dialog.getByRole('button', { name: 'Add preset' })).toBeDisabled();
   await dialog.getByLabel('Name').fill('Arena draft');
-  /* It starts in the content of the preset it was added beside. */
+  /* It starts in the content chosen on the page. */
   await expect(dialog.getByLabel('Content')).toHaveValue('arena-attack');
   /* The content menu keeps focus however long it is open: the helper poll re-renders the page every two seconds. */
   await dialog.getByLabel('Content').focus();
@@ -373,11 +376,12 @@ test('a preset built here is created, filled, led and deleted without moving the
   await dialog.getByRole('button', { name: 'Add preset' }).click();
   await expect(dialog).toHaveCount(0);
 
-  /* Created, it is the chosen preset, under its own group, empty and saying what to do. */
-  await expect(contentChoice(page)).toHaveValue('Built in JASWA');
+  /* Created, it is the chosen preset, in its content after the game's, empty and saying what to do. */
+  await expect(contentChoice(page)).toHaveValue('Arena Attack');
+  await expect(contentChoice(page).locator('option')).toHaveText(['Default', 'Arena Attack', "Giant's Keep", 'Not yet named']);
   await expect(chosenPreset(page)).toHaveText('Arena draft');
   await presetChoice(page).click();
-  await expect(page.getByRole('listbox').locator('.preset-team-name')).toHaveText(['Arena draft']);
+  await expect(page.getByRole('listbox').locator('.preset-team-name')).toHaveText(['Arena Attack 4', 'Arena draft']);
   await page.keyboard.press('Escape');
   await expect(page.locator('.monster-priority-about')).toHaveText('');
   await expect(page.getByText('Nobody here yet.', { exact: false })).toBeVisible();
@@ -428,16 +432,15 @@ test('a preset built here is created, filled, led and deleted without moving the
   expect(await order(page)).toEqual([names[11]]);
   expect((await stored(page)).presets[0]).toMatchObject({ members: ['11'], leaderUnitId: null });
 
-  /* Kept across a reload; deleted, it is gone, and with the last of its content the page is back on Default. */
+  /* Kept across a reload; deleted, it is gone, and the page stays in its content, which still has the game's preset. */
   await page.reload();
   await openPresets(page);
   await expect(chosenPreset(page)).toHaveText('Arena draft');
   expect(await order(page)).toEqual([names[11]]);
   await page.getByRole('button', { name: 'Delete preset' }).click();
-  await expect(contentChoice(page)).toHaveValue('Default');
+  await expect(contentChoice(page)).toHaveValue('Arena Attack');
   await expect(chosenPreset(page)).toHaveText('Choose preset');
-  await expect(contentChoice(page).locator('option[value="Built in JASWA"]')).toHaveCount(0);
-  await expect(page.getByText('Nobody here yet.', { exact: false })).toBeVisible();
+  await expect(page.getByText('No preset chosen yet.', { exact: true })).toBeVisible();
   expect((await stored(page)).presets).toEqual([]);
 });
 

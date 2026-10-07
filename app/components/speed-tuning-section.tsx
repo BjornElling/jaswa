@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import type { ReactNode } from 'react';
 import { PageHeader } from './page-chrome';
+import { useInlineReorder } from './use-drag-reorder';
 import { WorkspacePage } from './workspace-page';
 import { SpeedTeamOverlay } from './speed-team-overlay';
 import { SpeedVerdictMark } from './speed-verdict-mark';
@@ -8,9 +8,11 @@ import type { SpeedVerdict } from './speed-verdict-mark';
 import type { OpenMonsterOverlay } from './monster-link';
 import { formatNumber } from '../lib/formatting';
 import type { GameRecord } from '../lib/game-data';
+import { moveItem } from '../lib/list-order';
 import { monsterCopyNames } from '../lib/monster-names';
+import type { MonsterCopyName } from '../lib/monster-names';
 import type { PresetColumn } from '../lib/preset-contents';
-import { accountItems, monsterInPreset } from '../lib/presets';
+import { accountItems, monsterInPreset, presetGroupLabel } from '../lib/presets';
 import type { Preset } from '../lib/presets';
 import { readSkyTribeTotem } from '../lib/sky-tribe-totem';
 import { totemMaximumLevel } from '../lib/speed-tick';
@@ -39,27 +41,54 @@ function LeaderMark() {
 }
 
 /**
- * One line of the page and the button that opens it. Two lines and a mark:
+ * One line of the page, which opens its preset's team. Two lines and a mark:
  * the preset's monsters in the order asked for, a sentence saying whether the
  * runes the preset engraves deliver it, and that verdict again at the right
  * edge. What was stated is never coloured; it is the user's choice, not a verdict.
+ *
+ * The names are the team's order and are dragged within the line to change it,
+ * saved at once as the overlay's arrows would after Save. So the line is a box
+ * that acts as a button rather than a `button`: nothing inside a button can be
+ * picked up. Its keyboard way to the same move is the overlay it opens.
  */
-function SummaryLine({ label, status, state, onOpen, children }: {
-  label: string;
-  status: string;
-  state: Verdict;
+function PresetLine({ line, names, known, onOpen, onReorder }: {
+  line: Line;
+  names: Record<string, MonsterCopyName>;
+  known: (unitId: string) => boolean;
   /** `undefined` for a preset the page cannot judge: listed, not opened. */
   onOpen?: (opener: HTMLElement) => void;
-  children: ReactNode;
+  onReorder: (from: number, to: number) => void;
 }) {
-  return <button type="button" className="speed-summary" disabled={onOpen === undefined}
-    onClick={(event) => onOpen?.(event.currentTarget)}>
-    <span className="visually-hidden">{label}: </span>
-    <span className="speed-summary-names">{children}</span>
+  const order = line.kind === 'team' ? line.team.members.map((member) => member.unitId) : line.preset.members;
+  const status = line.kind === 'team' ? teamStatus(line.reading) : { text: line.reason, state: 'none' as const };
+  const reorder = useInlineReorder<HTMLSpanElement>({ count: line.kind === 'team' ? order.length : 0, onMove: onReorder });
+  return <div className="speed-summary" role="button" tabIndex={onOpen ? 0 : -1} aria-disabled={onOpen ? undefined : true}
+    onClick={(event) => onOpen?.(event.currentTarget)}
+    onKeyDown={(event) => {
+      if (!onOpen || (event.key !== 'Enter' && event.key !== ' ')) return;
+      event.preventDefault();
+      onOpen(event.currentTarget);
+    }}>
+    <span className="visually-hidden">{line.preset.name}: </span>
+    <span className="speed-summary-names" {...reorder.containerProps}>
+      <span className="speed-summary-preset" aria-hidden="true">{line.preset.number ?? ''}</span>
+      {order.map((unitId, at) => {
+        /* Drawn in the drop's order while a drag is previewed, so the arrows
+           between the names follow the places, not the entries. */
+        const place = reorder.place(at);
+        const entry = line.kind === 'team' ? reorder.entryProps(at) : {};
+        return <span key={unitId} className="speed-summary-member" style={{ order: place }} {...entry}>
+          {place > 0 && <span className="speed-summary-step" aria-hidden="true">›</span>}
+          <span className="speed-summary-name">{known(unitId) ? names[unitId]?.name ?? unitId : 'Not in this import'}</span>
+          {line.preset.leaderUnitId === unitId && <LeaderMark />}
+          {place < order.length - 1 && <span className="visually-hidden">, </span>}
+        </span>;
+      })}
+    </span>
     <span className="visually-hidden"> — </span>
-    <span className="speed-summary-state" data-state={state}>{status}</span>
-    <SpeedVerdictMark state={state} />
-  </button>;
+    <span className="speed-summary-state" data-state={status.state}>{status.text}</span>
+    <SpeedVerdictMark state={status.state} />
+  </div>;
 }
 
 /**
@@ -96,11 +125,6 @@ function cutInText(reading: TeamReading): string {
    the last. */
 function columnOf(preset: Preset): PresetColumn {
   return preset.content?.column ?? 'other';
-}
-
-function groupLabel(preset: Preset): string {
-  if (preset.content) return preset.content.name;
-  return preset.kind === 'own' ? 'Built in JASWA' : 'Not yet named';
 }
 
 const columns: readonly { id: PresetColumn; title: string; empty: string }[] = [
@@ -178,7 +202,7 @@ export function SpeedTuningSection({ game, monsters, preferences, presets, openP
       {columns.map((column) => {
         const groups: { label: string; lines: Line[] }[] = [];
         for (const line of lines.filter((entry) => columnOf(entry.preset) === column.id)) {
-          const label = groupLabel(line.preset);
+          const label = presetGroupLabel(line.preset);
           const group = groups.find((entry) => entry.label === label);
           if (group) group.lines.push(line); else groups.push({ label, lines: [line] });
         }
@@ -207,18 +231,13 @@ export function SpeedTuningSection({ game, monsters, preferences, presets, openP
 
   /* A preset's line: its number, its monsters in the order asked for, its leader marked. */
   function renderLine(line: Line) {
-    const order = line.kind === 'team' ? line.team.members.map((member) => member.unitId) : line.preset.members;
-    const status = line.kind === 'team' ? teamStatus(line.reading) : { text: line.reason, state: 'none' as const };
-    return <SummaryLine label={line.preset.name} status={status.text} state={status.state}
-      onOpen={line.kind === 'team' ? (opener) => setEditing({ presetId: line.preset.id, opener }) : undefined}>
-      <span className="speed-summary-preset" aria-hidden="true">{line.preset.number ?? ''}</span>
-      {order.map((unitId, at) => <span key={unitId} className="speed-summary-member">
-        {at > 0 && <span className="speed-summary-step" aria-hidden="true">›</span>}
-        <span className="speed-summary-name">{monsterById.has(unitId) ? names[unitId]?.name ?? unitId : 'Not in this import'}</span>
-        {line.preset.leaderUnitId === unitId && <LeaderMark />}
-        {at < order.length - 1 && <span className="visually-hidden">, </span>}
-      </span>)}
-    </SummaryLine>;
+    return <PresetLine line={line} names={names} known={(unitId) => monsterById.has(unitId)}
+      onOpen={line.kind === 'team' ? (opener) => setEditing({ presetId: line.preset.id, opener }) : undefined}
+      onReorder={(from, to) => {
+        if (line.kind !== 'team') return;
+        const team = { ...line.team, members: moveItem(line.team.members, from, to) };
+        onWrite((current) => ({ ...current, presets: { ...current.presets, [team.id]: speedTuningOf(team) } }));
+      }} />;
   }
 }
 
