@@ -2458,10 +2458,11 @@ monster. A preference the user regrets is theirs to change.
 **The main stat is the one exception, and it advises rather than validates.**
 Which of HP, ATK and DEF a piece should carry needs no skill data: it follows
 from how far the copy's runes lift each stat above base
-(`docs/MAIN-STAT-MODEL.md`). So the main's default is computed rather than
-polled, and a stated main that contradicts the computation carries a yellow
-info mark on the overlay saying what the maths would choose. The user's answer
-is still the one scored; the mark never overrules it.
+(`docs/MAIN-STAT-MODEL.md`). Unfinished slot-2/4/6 mains count at their
+deterministic +15 values for that judgement. So the main's default is computed
+rather than polled, and a stated main that contradicts the computation carries
+a yellow info mark on the overlay saying what the maths would choose. The
+user's answer is still the one scored; the mark never overrules it.
 
 ### 19.2 Preferences are held per owned copy, keyed by `(category, property)`
 

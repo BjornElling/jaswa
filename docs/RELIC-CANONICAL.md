@@ -828,7 +828,9 @@ Sections 5–9 still decide Power up, Keep or Sell without any change.
 The priorities are the main-stat model's need (`docs/MAIN-STAT-MODEL.md`), read
 through `copyMainStatNeed` — the same need that decides an artifact's main, so a
 relic and an artifact are never told different stories about one monster. It
-comes from the copy's six runes, else the species' rune statistics; it excludes the fixed flat mains of slots 1, 3 and 5.
+comes from the copy's six runes, else the species' rune statistics. It counts
+unfinished slot-2/4/6 mains at +15 and excludes the fixed flat mains of slots
+1, 3 and 5.
 The copy's base B and its engraved sheet T (artifact mains included, no relic)
 are read through `monster-stats.ts`. No second stat-sheet implementation is
 allowed.
@@ -874,7 +876,9 @@ used continuous scaling; it was not an in-game measurement. No claim of verified
 battle arithmetic is made. SWCalc remains the calculation authority and states
 no relic-specific rule at the time of this change.
 
-A source uses the imported personal sheet and this candidate's main bonus.
+A source uses the imported personal sheet at the runes' current levels and this
+candidate's main bonus. The +15 main projection changes priorities, not the
+source value a unique effect would have now.
 Leaders, towers, guild flags, team set effects, buffs, passives and other battle
 conditions are not invented. The sheet's existing Intangible and team-set
 limitations therefore apply here too.

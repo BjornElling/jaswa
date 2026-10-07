@@ -26,6 +26,17 @@ near(model.weights.DEF, 0.375);
 assert.equal(model.weights.ATK, 0);
 assert.equal(model.totals.SPD, 200);
 
+/* Priorities judge the completed main; source totals still describe the
+   currently engraved build that a unique property would read now. */
+const lowMain = relicMonsterModel({ ...monster, runes: sixRunes(
+  { ...hpRune, class: 6, upgrade_curr: 9, pri_eff: [2, 40] },
+) });
+const highMain = relicMonsterModel({ ...monster, runes: sixRunes(
+  { ...hpRune, class: 6, upgrade_curr: 15, pri_eff: [2, 63] },
+) });
+assert.deepEqual(lowMain.weights, highMain.weights);
+assert.equal(highMain.totals.HP - lowMain.totals.HP, 12000 * 0.23);
+
 const geared = relicMonsterModel({ ...monster, artifacts: [{ pri_effect: [100, 1500] }] });
 assert.deepEqual(geared.weights, model.weights);
 assert.equal(geared.totals.HP, model.totals.HP + 1500);
@@ -54,7 +65,7 @@ assert.ok(fixed.totals.ATK > model.totals.ATK);
    to fall back on, nothing can. */
 assert.equal(relicMonsterModel({ ...monster, runes: [{ ...hpRune, slot_no: 2 }] }).status, 'no-priorities');
 near(Object.values(sets.weights).reduce((sum, value) => sum + value, 0), 1);
-console.log('Relic priorities follow the main-stat need: base-relative flats, grinds and set bonuses on a finished build, fixed mains left out, an unfinished build unread; absent stats and empty gear stay explicit.');
+console.log('Relic priorities follow the main-stat need: projected even-slot mains, base-relative flats, grinds and set bonuses on a finished build, fixed mains left out, an unfinished build unread; current source totals, absent stats and empty gear stay explicit.');
 
 const relic = (propertyId, mainProperty = 'HP', mainPercent = 15, threshold = 125, percent = 2) => ({
   id: String(propertyId), mainProperty, mainPercent,

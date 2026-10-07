@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 import { basename } from 'node:path';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 /**
@@ -22,13 +23,17 @@ const account = fileURLToPath(new URL('./fixtures/monster-overlay-account.json',
 
 type StoredPreferences = Record<string, Record<string, unknown>> | undefined;
 
-async function importAccount(page: Page) {
+async function importAccount(page: Page, variant?: (account: Record<string, unknown>) => void) {
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.evaluate(() => { window.localStorage.clear(); window.sessionStorage.clear(); });
   await page.reload();
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
-  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
+  const source = JSON.parse(readFileSync(account, 'utf8')) as Record<string, unknown>;
+  variant?.(source);
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
+    name: basename(account), mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(source)),
+  });
   await expect(page.getByText(basename(account)).first()).toBeVisible();
 }
 
@@ -395,6 +400,30 @@ test('a stated main the maths would not choose carries a yellow mark, and moves 
   await dialog.getByRole('button', { name: /^Main stat, accepted:/ }).click();
   await page.getByRole('menu', { name: 'Main stat, accepted' }).getByRole('menuitem', { name: 'HP', exact: true }).click();
   await expect(advice).toHaveCount(0);
+  expect(await boxes()).toEqual(before);
+});
+
+test('an unfinished even-slot rune keeps its completed main in gear advice', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await importAccount(page, (source) => {
+    const units = source.unit_list as { runes: { slot_no: number; upgrade_curr: number; pri_eff: number[] }[] }[];
+    const attackRune = units[0].runes.find((rune) => rune.slot_no === 2)!;
+    attackRune.upgrade_curr = 9;
+    attackRune.pri_eff[1] = 33;
+  });
+  await openOverlay(page);
+  const dialog = page.getByRole('dialog');
+  const gear = dialog.locator('.overlay-gear');
+  const boxes = () => gear.locator('.overlay-row-label, .overlay-band-field').evaluateAll((elements) =>
+    elements.map((element) => { const box = element.getBoundingClientRect(); return [box.x, box.y, box.width, box.height].map(Math.round).join(','); }));
+  const before = await boxes();
+  await gear.screenshot({ path: testInfo.outputPath('unfinished-main-before.png') });
+  await dialog.getByRole('button', { name: /^Main stat, preferred:/ }).click();
+  await page.getByRole('menu', { name: 'Main stat, preferred' }).getByRole('menuitem', { name: 'DEF', exact: true }).click();
+  const advice = dialog.getByRole('img', { name: /by the maths/ });
+  await expect(advice).toHaveAttribute('aria-label', 'Its six runes lift ATK +63%, HP +48%, DEF +9% over base,'
+    + ' so by the maths artifacts want ATK; the relic wants ATK (accepting HP).');
+  await gear.screenshot({ path: testInfo.outputPath('unfinished-main-after.png') });
   expect(await boxes()).toEqual(before);
 });
 

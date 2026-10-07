@@ -13,7 +13,7 @@
  *   one preferred main;
  * - the sources, in order: a stated answer with a preferred main, else six
  *   runes, else statistics — stat targets never — with the fixed flat mains of
- *   slots 1, 3 and 5 never counted;
+ *   slots 1, 3 and 5 never counted, and unfinished even-slot mains at +15;
  * - an artifact's fixed main is worth more on a stat with a small base, and a
  *   relic's percentage is not;
  * - what counts as contradicting the model, and that accepted mains with none
@@ -75,6 +75,25 @@ try {
   const guarded = copyMainStatNeed(copy(build({ pri_eff: [2, 40] }).map((rune) => ({ ...rune, set_id: rune.slot_no <= 2 ? 2 : 0 }))));
   assert.deepEqual(guarded.need, { HP: 40, ATK: 0, DEF: 15 });
 
+  /* Only the deterministic remainder of an unfinished even-slot main is
+     projected. Star class, including Ancient, decides its +15 value. */
+  const partlyLeveled = copy(build(
+    { class: 6, upgrade_curr: 9, pri_eff: [2, 40], sec_eff: [[4, 7, 0, 3]] },
+    { class: 5, upgrade_curr: 12, pri_eff: [4, 30] },
+    { class: 16, upgrade_curr: 14, pri_eff: [5, 100] },
+  ));
+  assert.deepEqual(copyMainStatNeed(partlyLeveled).need, { HP: 63, ATK: 61, DEF: 16 });
+  assert.deepEqual(copyMainStatAdvice(partlyLeveled).relic.bands,
+    { HP: 'preferred', ATK: 'preferred', DEF: 'unwanted' });
+  const finished = copy(build(
+    { class: 6, upgrade_curr: 15, pri_eff: [2, 63], sec_eff: [[4, 7, 0, 3]] },
+    { class: 5, upgrade_curr: 15, pri_eff: [4, 51] },
+    { class: 16, upgrade_curr: 15, pri_eff: [5, 160] },
+  ));
+  assert.deepEqual(copyMainStatNeed(partlyLeveled), copyMainStatNeed(finished));
+  assert.deepEqual(copyArtifactMainBands(partlyLeveled, undefined), copyArtifactMainBands(finished, undefined));
+  assert.equal(partlyLeveled.runes[0].pri_eff[1], 40, 'The imported rune remains at its actual level');
+
   /* Five runes are not a build, and stat targets are never a source. */
   const unfinished = copy(build({ pri_eff: [4, 63] }).filter((rune) => rune.slot_no !== 3));
   assert.equal(copyMainStatNeed(unfinished), undefined, 'Five runes and no species say nothing');
@@ -130,7 +149,7 @@ try {
   assert.equal(says(['HP'], []), true, 'A preferred main left out altogether');
   assert.equal(says(['ATK'], ['HP', 'DEF']), true, 'Two mains in opposite order');
 
-  console.log(`Main-stat model: bands, sources, fixed mains, artifact relief and contradictions hold;`
+  console.log(`Main-stat model: bands, sources, projected even-slot mains, fixed mains, artifact relief and contradictions hold;`
     + ` all ${judged} captured species have a preferred main.`);
 } finally {
   await server.close();

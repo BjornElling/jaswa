@@ -39,12 +39,19 @@ It is read from the first of two sources that can say:
 
 | # | Source | Used when | Need per stat |
 | --- | --- | --- | --- |
-| 1 | **Runes** | the copy has six runes engraved, one per slot | everything the six runes add — slot-2/4/6 mains, innates, subs, grinds and completed-set bonuses — except the fixed flat mains of slots 1, 3 and 5. A flat line is converted against the copy's own base. |
+| 1 | **Runes** | the copy has six runes engraved, one per slot | everything the six runes add — slot-2/4/6 mains at their +15 values, current innates, subs, grinds and completed-set bonuses — except the fixed flat mains of slots 1, 3 and 5. A flat line is converted against the copy's own base. |
 | 2 | **Statistics** | no finished build | the game's rune panel for the species: each slot-2/4/6 % main at its +15 value times its share of that slot, plus each % sub line at its expected +12 worth times how often a build carries it. |
 
 A need is never negative. A source whose three needs are all zero cannot say
 anything, and the next one is tried. Where none can, the model gives no answer
 and nothing is defaulted or marked.
+
+An unfinished rune in slot 2, 4 or 6 contributes its deterministic +15 main
+value for this judgement, using its own star class (Ancient follows six-star
+values). Only the missing main value is added. Future substat reveals and rolls
+are unknown and are not projected. The monster's displayed stats and a relic's
+source-dependent effect still use the rune's current value; they describe what
+the engraved build supplies now.
 
 **Why the fixed mains are excluded.** Slots 1, 3 and 5 always carry flat ATK,
 DEF and HP whatever the build is for. Counting them adds roughly the same

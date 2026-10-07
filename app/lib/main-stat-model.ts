@@ -6,6 +6,8 @@ import type { BandedChoices, MonsterCopyPreferences } from './monster-preference
 import { statedBand } from './monster-preferences';
 import { effectSlot, monsterBaseStats, monsterEffects } from './monster-stats';
 import { relicMainPercent, relicMaximumLevel } from './relic-properties';
+import { mainPropertyMaximum } from './rune-properties';
+import { runeMaximumLevel } from './runes';
 
 /**
  * **Which main stat a copy's gear should carry, worked out rather than polled.**
@@ -94,13 +96,28 @@ export function hasFullRuneBuild(monster: GameRecord): boolean {
   return runes.length === 6 && [1, 2, 3, 4, 5, 6].every((slot) => slots.has(slot));
 }
 
+/* The main's remaining power-up is deterministic. Count it in the priority,
+   without changing the copy's actual stat sheet or guessing future sub rolls. */
+function mainAtMaximum(rune: RecordLike): RecordLike {
+  const slot = rune.slot_no;
+  const level = rune.upgrade_curr;
+  const stars = rune.class === 16 ? 6 : rune.class;
+  const main = rune.pri_eff;
+  if (slot !== 2 && slot !== 4 && slot !== 6) return rune;
+  if (typeof level !== 'number' || !Number.isInteger(level) || level < 0 || level >= runeMaximumLevel
+    || typeof stars !== 'number' || !Number.isInteger(stars) || stars < 1 || stars > 6
+    || !Array.isArray(main) || typeof main[0] !== 'number' || typeof main[1] !== 'number') return rune;
+  const maximum = mainPropertyMaximum(stars, main[0]);
+  return maximum > main[1] ? { ...rune, pri_eff: [main[0], maximum] } : rune;
+}
+
 /* Everything the six runes add, sets and grinds included, except the three fixed
    mains. A flat line is a real part of the build and is counted against this
    copy's own base. */
 function runeNeed(monster: GameRecord, base: BaseStats): Record<MainStat, number> | undefined {
   if (!hasFullRuneBuild(monster)) return undefined;
   const runes = records(monster.runes).map((rune) =>
-    (fixedMainSlots.has(Number(rune.slot_no)) ? { ...rune, pri_eff: undefined } : rune));
+    (fixedMainSlots.has(Number(rune.slot_no)) ? { ...rune, pri_eff: undefined } : mainAtMaximum(rune)));
   const effects = monsterEffects({ runes });
   const need = {
     HP: effects[effectSlot.hpPercent] + effects[effectSlot.hpFlat] / base.HP * 100,
