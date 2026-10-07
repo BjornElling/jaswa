@@ -30,7 +30,7 @@ import type { PresetWrites } from './components/presets-section';
 import { statesSomething } from './lib/monster-preferences';
 import type { RuneHold } from './lib/rune-holds';
 import { runeHoldVerdict } from './lib/rune-holds';
-import type { MonsterReference } from './components/monster-link';
+import type { MonsterReference, OpenMonsterOverlay } from './components/monster-link';
 import type { OpenRuneOverlay, RuneOverlayTarget } from './components/rune-link';
 import { useSessionStorageState, writeSessionValue } from './lib/session-storage-state';
 import { type Page, type ReportCategory } from './lib/workspace-config';
@@ -55,7 +55,7 @@ const MonsterOverlay = lazy(() => import('./components/monster-overlay').then(({
 const RuneOverlay = lazy(() => import('./components/rune-overlay').then(({ RuneOverlay: component }) => ({ default: component })));
 
 type OverlayTarget =
-  | { kind: 'monster'; target: MonsterReference }
+  | { kind: 'monster'; target: MonsterReference; presetId?: string }
   | { kind: 'rune'; target: RuneOverlayTarget };
 
 function WorkspaceLoading() {
@@ -320,19 +320,13 @@ export default function Home() {
     });
   }
 
-  /**
-   * The one route from a monster overlay's choice to storage — a named wrapper
-   * over `changePreferences`, never a second route.
-   *
-   * A record that ends up saying nothing is removed rather than kept as a husk,
-   * so the map holds copies the user has actually decided something about and a
-   * count of records is a count of decisions. A record holding only cleared
-   * preferences still says something and stays.
-   */
-  function openMonsterOverlay(target: MonsterReference, opener: HTMLElement) {
+  /* The preset the opener is about is the overlay's own, and leaves the one
+     chosen across the program alone: looking at a monster of Arena Attack 1
+     from Speed Tuning is not a decision to read every page in Arena Attack 1. */
+  const openMonsterOverlay: OpenMonsterOverlay = (target, opener, presetId) => {
     overlayOpener.current = opener;
-    setOverlay({ kind: 'monster', target });
-  }
+    setOverlay({ kind: 'monster', target, presetId });
+  };
 
   const openRuneOverlay: OpenRuneOverlay = (target, opener) => {
     overlayOpener.current = opener;
@@ -349,6 +343,15 @@ export default function Home() {
     if (opener?.isConnected) opener.focus();
   }
 
+  /**
+   * The one route from a monster overlay's choice to storage — a named wrapper
+   * over `changePreferences`, never a second route.
+   *
+   * A record that ends up saying nothing is removed rather than kept as a husk,
+   * so the map holds copies the user has actually decided something about and a
+   * count of records is a count of decisions. A record holding only cleared
+   * preferences still says something and stays.
+   */
   function updateMonsterPreferences(unitId: string, next: MonsterCopyPreferences) {
     changePreferences((current) => {
       const monsterPreferences = { ...current.monsterPreferences };
@@ -771,7 +774,7 @@ export default function Home() {
       preferences={overlay.target.kind === 'copy' ? preferences.monsterPreferences[overlay.target.unitId] : undefined}
       onSave={updateMonsterPreferences}
       onClose={closeOverlay}
-      presetId={selectedPreset}
+      presetId={overlay.presetId ?? selectedPreset}
       onOptimize={optimizeMonster}
     /></Suspense>}
 

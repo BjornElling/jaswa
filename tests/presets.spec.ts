@@ -557,6 +557,34 @@ test('the monster overlay names the preset its build is for, and Optimize opens 
   await expect(filled(page.getByRole('dialog'))).toHaveCount(6);
 });
 
+test('a monster opened from a preset\'s Speed Tuning team is read and optimized in that preset, not Default', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await freshWorkspace(page);
+  await importAccount(page);
+  await openPresets(page);
+  const names = await copyNames(page);
+
+  /* The program stands on Default; the team names its own preset. */
+  await page.getByRole('navigation').getByRole('button', { name: 'Speed Tuning' }).click();
+  await page.getByRole('region', { name: 'Arena', exact: true }).getByRole('button', { name: /^Arena Attack 4: / }).click();
+  const team = page.getByRole('dialog', { name: 'Arena Attack 4' });
+  await page.screenshot({ path: testInfo.outputPath('speed-team-before.png') });
+  await team.getByRole('button', { name: names[12], exact: true }).click();
+  const overlay = page.getByRole('dialog').filter({ has: page.getByRole('group', { name: 'Build for preset' }) });
+  await expect(overlay.getByRole('group', { name: 'Build for preset' })).toHaveText('Build forArena Attack 4');
+  await expect(overlay.getByRole('list', { name: 'Engraved runes' }).locator('.engraved-rune:not([data-empty])')).toHaveCount(3);
+  await page.screenshot({ path: testInfo.outputPath('speed-team-monster.png') });
+
+  await overlay.getByRole('button', { name: `Optimize runes for ${names[12]}` }).click();
+  await expect(page.getByRole('heading', { name: 'Rune Optimization', exact: true })).toBeVisible();
+  await expect(page.getByLabel('Preset', { exact: true })).toHaveValue('deck-1-4');
+  await expect(page.getByLabel('Monster', { exact: true })).toHaveValue('12');
+
+  /* Opened from a place about no preset, the overlay still reads the program's choice. */
+  await page.getByRole('button', { name: 'Open profile' }).click();
+  await expect(page.getByRole('dialog').getByRole('group', { name: 'Build for preset' })).toHaveText('Build forArena Attack 4');
+});
+
 test('the monster overlay Optimize button shares the preset row\'s hover', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await freshWorkspace(page);

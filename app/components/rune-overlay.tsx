@@ -363,7 +363,7 @@ export function RuneOverlay({ rune, game, general, settings, roles, hardwareAcce
                 ? <EngravedPlace places={places} presets={placements.presets} monsterName={monsterName} />
                 : <span title={engravingLines(places, placements.presets, monsterName).join('\n')}>
                   <MonsterLink target={engraved.target} name={engraved.name} portrait={{ imageFilename: engraved.imageFilename, initial: engraved.initial }}
-                    onOpen={onOpenMonster} />
+                    presetId={places[0].presetId} onOpen={onOpenMonster} />
                 </span>}
             </dd>
           </div>

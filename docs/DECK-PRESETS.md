@@ -192,6 +192,11 @@ an import, and are checked one preset at a time on load.
   can be changed there: one plain list of Default and the presets the monster
   stands in. Choosing a monster its preset has no place for goes back to
   Default.
+- A monster opened from a place about one preset — a preset's list, a Speed
+  Tuning team, a rune engraved in one preset, a build — opens its overlay on
+  that preset, and *Optimize* there opens Rune Optimization on it. Opening the
+  overlay leaves the preset chosen across the program alone; only *Optimize*
+  changes it.
 - The candidate runes are every owned rune, minus those engraved on other
   monsters of the same preset where the settings say so, minus the Siege Battle
   defense pool when the preset is a Siege Battle defense preset. Runes in other

@@ -309,7 +309,7 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
                   <span className="monster-priority-name">
                     {choice && display
                       ? <MonsterLink target={{ kind: 'copy', unitId, masterId: choice.masterId }} name={name}
-                        portrait={{ imageFilename: display.imageFilename, initial: display.shortName }} onOpen={onOpenMonster} />
+                        portrait={{ imageFilename: display.imageFilename, initial: display.shortName }} presetId={preset.id} onOpen={onOpenMonster} />
                       : <span className="monster-name muted">{name}</span>}
                   </span>
                   {/* The row's own small controls rather than page buttons: they are ways out

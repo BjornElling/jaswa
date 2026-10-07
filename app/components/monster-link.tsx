@@ -14,7 +14,14 @@ export type MonsterReference =
   | { kind: 'copy'; unitId: string; masterId: string }
   | { kind: 'species'; speciesId: string };
 
-export type OpenMonsterOverlay = (target: MonsterReference, opener: HTMLElement) => void;
+/**
+ * `presetId` is the preset the place naming the monster is about — a preset's
+ * team, a rune's place in one preset, a build for one preset. The overlay reads
+ * that preset, and Optimize takes it on, so a monster opened from Arena Attack 1
+ * is not optimized for Default. A place about no preset leaves it out, and the
+ * overlay reads the preset chosen across the program.
+ */
+export type OpenMonsterOverlay = (target: MonsterReference, opener: HTMLElement, presetId?: string) => void;
 
 /**
  * A monster's name, as the way into its overlay.
@@ -32,10 +39,12 @@ export type OpenMonsterOverlay = (target: MonsterReference, opener: HTMLElement)
  * `target` of `null` renders the name as the inert text it is today — a monster
  * this import does not contain, or a location that is not a monster at all.
  */
-export function MonsterLink({ target, name, portrait, onOpen, children }: {
+export function MonsterLink({ target, name, portrait, presetId, onOpen, children }: {
   target: MonsterReference | null;
   name: string;
   portrait?: { imageFilename?: string; initial: string };
+  /** The preset this place is about, where it is about one (`OpenMonsterOverlay`). */
+  presetId?: string;
   onOpen?: OpenMonsterOverlay;
   /** What to render in place of the name, where a caller draws its own cell. */
   children?: ReactNode;
@@ -56,7 +65,7 @@ export function MonsterLink({ target, name, portrait, onOpen, children }: {
     className={portrait === undefined ? 'monster-link' : 'monster-link monster-cell'}
     aria-haspopup="dialog"
     aria-label={name}
-    onClick={(event: MouseEvent<HTMLButtonElement>) => onOpen(target, event.currentTarget)}
+    onClick={(event: MouseEvent<HTMLButtonElement>) => onOpen(target, event.currentTarget, presetId)}
   >
     {body}
   </button>;

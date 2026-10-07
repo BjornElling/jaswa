@@ -250,7 +250,7 @@ export function MonsterOverlay({ target, game, general, preferences, presetId, o
   game: GameRecord | undefined;
   general: GeneralSettings;
   preferences: MonsterCopyPreferences | undefined;
-  /** The preset chosen across the program; read here only where the copy stands in it. */
+  /** The preset the overlay was opened for, else the one chosen across the program; read here only where the copy stands in it. */
   presetId: string;
   onSave: (unitId: string, preferences: MonsterCopyPreferences) => void;
   onClose: () => void;
@@ -266,7 +266,8 @@ export function MonsterOverlay({ target, game, general, preferences, presetId, o
 
   /* One preset for the whole panel — the gear it shows, the figures it reads and
      the build Optimize opens — so the box in the head names what everything
-     below is about. It is the program's chosen preset where the copy stands in
+     below is about. It is the preset the overlay was opened for — or, from a
+     place about no preset, the program's chosen one — where the copy stands in
      it, and Default where it does not. */
   const preset = useMemo(() => {
     const unitId = target.kind === 'copy' ? target.unitId : '';

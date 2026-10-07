@@ -381,7 +381,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
           <Button size="compact" className="rune-optimization-open-profile" disabled={!selected}
             aria-haspopup="dialog"
             onClick={(event) => {
-              if (selected) onOpenMonster({ kind: 'copy', unitId: selected.unitId, masterId: selected.masterId }, event.currentTarget);
+              if (selected) onOpenMonster({ kind: 'copy', unitId: selected.unitId, masterId: selected.masterId }, event.currentTarget, activePresetId);
             }}>
             <PencilIcon /><span>Open profile</span>
           </Button>
@@ -622,7 +622,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
     {builds && showingBuild && chosenBuild !== null && builds[chosenBuild] && <RuneBuildOverlay
       index={chosenBuild} buildName={buildNameOf(builds[chosenBuild].runes.map((rune) => rune.setId))}
       moves={builds[chosenBuild].moves} runes={builds[chosenBuild].runes}
-      runesById={runesById} loadedPlacements={game?.loadedPlacements?.[activePresetId]} defaultPlaces={defaultPlaces} monster={buildMonster} engravedOn={(id) => monstersByUnitId.get(id)}
+      runesById={runesById} presetId={activePresetId} loadedPlacements={game?.loadedPlacements?.[activePresetId]} defaultPlaces={defaultPlaces} monster={buildMonster} engravedOn={(id) => monstersByUnitId.get(id)}
       general={general} canEngrave={canEngrave || preset?.kind === 'own'} onEngrave={(engraveUnitId, runeIds) => onEngrave(activePresetId, engraveUnitId, runeIds)}
       onClose={closeBuild} onOpenRune={onOpenRune} onOpenMonster={onOpenMonster} />}
   </WorkspacePage>;

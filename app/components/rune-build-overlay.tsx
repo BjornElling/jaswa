@@ -10,6 +10,7 @@ import type { OpenRuneOverlay } from './rune-link';
 import { RuneInnateLine, RuneSubLine } from './rune-sub-line';
 import type { PickedRune } from '../lib/compute/rune-optimization-protocol';
 import { formatNumber } from '../lib/formatting';
+import { defaultPresetId } from '../lib/presets';
 import { pickIssueText } from '../lib/rune-build-issues';
 import type { EndStateLine } from '../lib/rune-craft-end-state';
 import type { CurrentPick } from '../lib/rune-optimization-refresh';
@@ -116,17 +117,22 @@ function ChangeLine({ change, format }: { change: Change; format: (value: number
 
 type Places = {
   thisMonster: string;
+  /** The preset the build is for. */
+  presetId: string;
   /** Each rune's monster in Default, where the build is for a preset; `undefined` in Default itself. */
   defaultPlaces: ReadonlyMap<string, string | null> | undefined;
   engravedOn: (unitId: string) => EngravedOnMonster | undefined;
   onOpenMonster: OpenMonsterOverlay;
 };
 
-function monsterName(place: string, { thisMonster, engravedOn, onOpenMonster }: Places): ReactNode {
+/* `presetId` is where the monster carries the rune, so its overlay opens on the
+   build the rune is part of there. */
+function monsterName(place: string, presetId: string, { thisMonster, engravedOn, onOpenMonster }: Places): ReactNode {
   if (place === thisMonster) return 'This monster';
   const engraved = engravedOn(place);
   return engraved
-    ? <MonsterLink target={{ kind: 'copy', unitId: place, masterId: engraved.masterId }} name={engraved.name} onOpen={onOpenMonster} />
+    ? <MonsterLink target={{ kind: 'copy', unitId: place, masterId: engraved.masterId }} name={engraved.name}
+      presetId={presetId} onOpen={onOpenMonster} />
     : 'Monster not in this import';
 }
 
@@ -136,8 +142,9 @@ function monsterName(place: string, { thisMonster, engravedOn, onOpenMonster }: 
    there and draws no line between the two; "Inventory" would send the player
    looking for it in the game's inventory. */
 function placeName(runeId: string, place: string | null, places: Places): ReactNode {
-  const shown = place ?? places.defaultPlaces?.get(runeId) ?? null;
-  return shown === null ? 'Inventory' : monsterName(shown, places);
+  if (place !== null) return monsterName(place, places.presetId, places);
+  const inDefault = places.defaultPlaces?.get(runeId) ?? null;
+  return inDefault === null ? 'Inventory' : monsterName(inDefault, defaultPresetId, places);
 }
 
 function RuneCard({ picked, rune, loadedPlace, places, format, onOpenRune }: {
@@ -211,10 +218,12 @@ function RuneCard({ picked, rune, loadedPlace, places, format, onOpenRune }: {
 }
 
 export function RuneBuildOverlay({
-  index, buildName, moves, runes, runesById, loadedPlacements, defaultPlaces, monster, engravedOn, general, canEngrave, onEngrave, onClose,
+  index, buildName, moves, runes, runesById, presetId, loadedPlacements, defaultPlaces, monster, engravedOn, general, canEngrave, onEngrave, onClose,
   onOpenRune, onOpenMonster,
 }: {
   index: number;
+  /** The preset the build is for. */
+  presetId: string;
   buildName: string;
   moves: number;
   runes: readonly CurrentPick[];
@@ -250,7 +259,7 @@ export function RuneBuildOverlay({
     { label: 'Grindstones', value: formatNumber(grinds, general) },
   ];
   const engravedOnName = (unitId: string) => engravedOn(unitId)?.name;
-  const places: Places = { thisMonster: monster.unitId, defaultPlaces, engravedOn, onOpenMonster };
+  const places: Places = { thisMonster: monster.unitId, presetId, defaultPlaces, engravedOn, onOpenMonster };
   const complete = bySlot.length === 6 && bySlot.every((picked) => runesById.has(picked.runeId));
   const alreadyEngraved = complete && bySlot.every((picked) => runesById.get(picked.runeId)?.occupiedId === monster.unitId);
 
@@ -305,7 +314,7 @@ export function RuneBuildOverlay({
         </ol>
         <div className="rune-build-centre">
           <MonsterLink target={{ kind: 'copy', unitId: monster.unitId, masterId: monster.masterId }}
-            name={monster.name} portrait={{ imageFilename: monster.imageFilename, initial: monster.initial }} onOpen={onOpenMonster}>
+            name={monster.name} portrait={{ imageFilename: monster.imageFilename, initial: monster.initial }} presetId={presetId} onOpen={onOpenMonster}>
             <span className="rune-build-centre-name" title={monster.name}>{monster.name}</span>
           </MonsterLink>
         </div>

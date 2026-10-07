@@ -215,7 +215,7 @@ export function SpeedTeamEditor({ reading, title, names, general, onChange, onWh
             <td className="speed-monster">
               <span className="speed-monster-line">
                 <MonsterLink target={{ kind: 'copy', unitId: member.unitId, masterId: monster.masterId }}
-                  name={name} onOpen={onOpenMonster} />
+                  name={name} presetId={team.id} onOpen={onOpenMonster} />
                 {/* The mark's box is always there, so a team gaining a booster
                     does not shift the name beside it. */}
                 <span className="speed-boost-slot">
