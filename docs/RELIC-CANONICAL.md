@@ -828,8 +828,7 @@ Sections 5–9 still decide Power up, Keep or Sell without any change.
 The priorities are the main-stat model's need (`docs/MAIN-STAT-MODEL.md`), read
 through `copyMainStatNeed` — the same need that decides an artifact's main, so a
 relic and an artifact are never told different stories about one monster. It
-comes from the copy's six runes, else its HP, ATK and DEF floors, else the
-species' rune statistics; it excludes the fixed flat mains of slots 1, 3 and 5.
+comes from the copy's six runes, else the species' rune statistics; it excludes the fixed flat mains of slots 1, 3 and 5.
 The copy's base B and its equipped sheet T (artifact mains included, no relic)
 are read through `monster-stats.ts`. No second stat-sheet implementation is
 allowed.
@@ -848,7 +847,7 @@ grant. CRI Rate, CRI Dmg, RES and ACC are not granted by relics either.
 All four source bases and totals must be finite and positive. Missing stats
 produce `No recommendation` with an import instruction. A copy for which no
 source yields a need produces the same verdict with an instruction to equip six
-runes or state a floor. Neither is silently excluded. A zero weight stays zero.
+runes. Neither is silently excluded. A zero weight stays zero.
 
 ### 11.2 The effect calculation
 

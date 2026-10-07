@@ -50,16 +50,11 @@ const fixed = relicMonsterModel({ ...monster, runes: sixRunes(hpRune).map((rune)
 assert.deepEqual(fixed.weights, model.weights);
 assert.ok(fixed.totals.ATK > model.totals.ATK);
 
-/* Short of six runes the build is unfinished, and the copy's own floors speak:
-   a stated HP target the base, fixed main and lead fall short of. */
-const partial = { ...monster, runes: [{ ...hpRune, slot_no: 2 }] };
-assert.equal(relicMonsterModel(partial).status, 'no-priorities');
-const targeted = relicMonsterModel(partial, { unitId: '1', statTargets: { hp: 24000 }, hpLead: 15 });
-assert.equal(targeted.basis, 'targets');
-near(targeted.need.HP, (24000 - 2448) / 12000 * 100 - 100 - 15);
-assert.deepEqual(targeted.weights, { HP: 1, ATK: 0, DEF: 0 });
+/* Short of six runes the build is unfinished and says nothing; with no species
+   to fall back on, nothing can. */
+assert.equal(relicMonsterModel({ ...monster, runes: [{ ...hpRune, slot_no: 2 }] }).status, 'no-priorities');
 near(Object.values(sets.weights).reduce((sum, value) => sum + value, 0), 1);
-console.log('Relic priorities follow the main-stat need: base-relative flats, grinds and set bonuses on a finished build, fixed mains left out, stated floors short of one; absent stats and empty gear stay explicit.');
+console.log('Relic priorities follow the main-stat need: base-relative flats, grinds and set bonuses on a finished build, fixed mains left out, an unfinished build unread; absent stats and empty gear stay explicit.');
 
 const relic = (propertyId, mainProperty = 'HP', mainPercent = 15, threshold = 125, percent = 2) => ({
   id: String(propertyId), mainProperty, mainPercent,

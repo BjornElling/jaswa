@@ -398,32 +398,29 @@ test('a stated main the maths would not choose carries a yellow mark, and moves 
   expect(await boxes()).toEqual(before);
 });
 
-test('a figure to sort by with no HP, ATK or DEF floor carries a red mark, and moves nothing', async ({ page }, testInfo) => {
+test('accepted mains with none preferred carry a red mark until one is preferred', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await importAccount(page);
   await openOverlay(page);
   const dialog = page.getByRole('dialog');
-  const sortBy = dialog.getByRole('combobox', { name: 'When met, sort by' });
-  const warning = dialog.getByRole('img', { name: /Set a minimum for HP, ATK or DEF/ });
-  const cell = dialog.locator('.overlay-sort');
+  const warning = dialog.getByRole('img', { name: /choose at least one preferred main stat/ });
+  const gear = dialog.locator('.overlay-gear');
+  const boxes = () => gear.locator('.overlay-row-label, .overlay-band-field').evaluateAll((elements) =>
+    elements.map((element) => { const box = element.getBoundingClientRect(); return [box.x, box.y, box.width, box.height].map(Math.round).join(','); }));
+  const before = await boxes();
 
-  /* Nothing to sort by asks for nothing. */
-  await expect(warning).toHaveCount(0);
-  const before = await sortBy.boundingBox();
-
-  await sortBy.selectOption('spd');
+  await dialog.getByRole('button', { name: /^Main stat, accepted:/ }).click();
+  await page.getByRole('menu', { name: 'Main stat, accepted' }).getByRole('menuitem', { name: 'DEF', exact: true }).click();
   await expect(warning).toHaveCount(1);
   await expect(warning).toHaveAttribute('data-tone', 'red');
-  await cell.screenshot({ path: testInfo.outputPath('sort-without-floor.png') });
-  /* The mark has its room before it arrives: the menu stays where it was. */
-  expect(await sortBy.boundingBox()).toEqual(before);
+  await gear.screenshot({ path: testInfo.outputPath('main-stat-no-preferred.png') });
+  expect(await boxes()).toEqual(before);
 
-  /* A floor on SPD alone says nothing the main-stat model can read. */
-  await dialog.getByRole('spinbutton', { name: 'Spd: at least' }).fill('200');
-  await expect(warning).toHaveCount(1);
-  await dialog.getByRole('spinbutton', { name: 'HP: at least', exact: true }).fill('20000');
+  /* A preferred main makes it an answer, and the red mark goes. */
+  await dialog.getByRole('button', { name: /^Main stat, preferred:/ }).click();
+  await page.getByRole('menu', { name: 'Main stat, preferred' }).getByRole('menuitem', { name: 'ATK', exact: true }).click();
   await expect(warning).toHaveCount(0);
-  expect(await sortBy.boundingBox()).toEqual(before);
+  expect(await boxes()).toEqual(before);
 });
 
 test('a composite target is stated and kept, alongside the stat it is derived from', async ({ page }) => {

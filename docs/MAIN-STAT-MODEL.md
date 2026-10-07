@@ -9,6 +9,15 @@ carry, worked out from what the monster needs rather than from what other
 players happen to equip. This document is the rule; the module is its only
 implementation.
 
+**Where the answer comes from, in order:**
+
+1. **The owner's own answer**, where it prefers at least one main. Its preferred
+   and accepted bands are the whole answer.
+2. **The copy's six runes**, where it wears a finished build.
+3. **The game's rune statistics** for its species.
+
+The model computes 2 and 3; 1 replaces them (§5).
+
 ---
 
 ## 1. The premise
@@ -26,13 +35,12 @@ base**. Percentages are the common scale because a rune's HP %, ATK % and DEF %
 lines roll from identical ranges: one point of any of them costs the runes the
 same.
 
-It is read from the first of three sources that can say:
+It is read from the first of two sources that can say:
 
 | # | Source | Used when | Need per stat |
 | --- | --- | --- | --- |
 | 1 | **Runes** | the copy wears six runes, one per slot | everything the six runes add — slot-2/4/6 mains, innates, subs, grinds and completed-set bonuses — except the fixed flat mains of slots 1, 3 and 5. A flat line is converted against the copy's own base. |
-| 2 | **Targets** | no finished build, and the copy states a floor for HP, ATK or DEF | `(target − fixed flat main) / base − 100 % − lead`. A stat with no floor needs nothing (`AGENTS.md` §3). |
-| 3 | **Statistics** | neither of the above | the game's rune panel for the species: each slot-2/4/6 % main at its +15 value times its share of that slot, plus each % sub line at its expected +12 worth times how often a build carries it. |
+| 2 | **Statistics** | no finished build | the game's rune panel for the species: each slot-2/4/6 % main at its +15 value times its share of that slot, plus each % sub line at its expected +12 worth times how often a build carries it. |
 
 A need is never negative. A source whose three needs are all zero cannot say
 anything, and the next one is tried. Where none can, the model gives no answer
@@ -48,9 +56,12 @@ stat it adds to, and a species has no single base. A copy that falls back on its
 species' statistics reads them exactly as the species does, so the two cannot
 disagree for a reason that has nothing to do with the copy.
 
-**Not read:** the composite targets. An E.HP can be reached through HP or DEF,
-and dividing it between them would be a guess. A copy whose only floors are
-composites falls through to the statistics.
+**Stat targets are not a source.** They were, between the runes and the
+statistics, and were removed: a target is a floor a build must clear, not a
+statement of what the build is for. The figure a copy is really built around is
+usually the one it maximises once its floors are met, and that one rarely has a
+floor at all — so a need read off the floors misses exactly the stat that
+matters most, and the answer turned on how many floors happened to be typed.
 
 ## 3. The worth of a main on a piece
 
@@ -98,13 +109,14 @@ Worked examples (relic, so worth is the need's own order):
 
 ## 5. Where the answer is used
 
-- **Defaults.** Where a copy has not stated `mainStat`, its artifact mains and
-  its relic main default to the model's answer for that copy, through
-  `resolveMonsterPreferences`. The population's main-stat shares are no longer a
+- **Defaults.** Where a copy has no honoured main answer (`honouredMainStat`:
+  at least one preferred main), its artifact mains and its relic main default to
+  the model's answer for that copy, through `resolveMonsterPreferences`. Two
+  cleared bands are no answer, and the model decides. The population's main-stat shares are no longer a
   default; they remain on the overlay as reference.
 - **Artifact scoring.** A species row is scored on the model's statistics answer
   for that species. An owned copy whose own answer differs — because its runes
-  or targets say something its species' statistics do not — gets a row of its
+  say something its species' statistics do not — gets a row of its
   own, exactly as a copy with stated preferences does (`ARTIFACT-CANONICAL.md`
   §19.2). Both readers take the main through `copyArtifactMainBands`.
 - **Relic plan.** `relic-monster-value.ts` weights a relic's main and unique by
@@ -115,17 +127,13 @@ Worked examples (relic, so worth is the need's own order):
   the copy needs and what the model would choose. A contradiction is a main
   stated preferred that the model calls not wanted (or the reverse), or two mains
   ranked in opposite order. Moving one main a single band is the owner's call and
-  is not marked; nor is `Any`, which declines to narrow rather than narrowing the
-  wrong way. The owner's answer still stands — the mark informs, it never
+  is not marked. The owner's answer still stands — the mark informs, it never
   overrides.
-
-- **The missing-floor mark.** A copy that names a figure to sort by but states
-  no HP, ATK or DEF floor carries a red mark beside *When met, sort by*. The
-  figure maximised is rarely one given a floor, so the floors are what say what
-  else the build must carry, and where the copy wears no six runes they are what
-  this model reads. A floor on any other figure does not clear the mark: the
-  model cannot read it. `statesMainStatFloor` is the one test of that, shared by
-  the mark and the model.
+- **The no-preferred mark.** Mains accepted with none preferred are not an
+  answer: an accepted main is one taken when nothing preferred is to hand, and
+  here nothing ever is. They are kept as typed and ignored — the model decides —
+  and the same row carries a red mark asking for a preferred main. Red, not
+  yellow, because the answer is incomplete rather than merely debatable.
 
 ## 6. One stated answer, two pieces
 

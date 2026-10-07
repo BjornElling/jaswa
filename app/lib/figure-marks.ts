@@ -1,7 +1,7 @@
 import { artifactMainPropertyOrder } from './artifact-properties';
 import type { GearKind, GearMainAdvice, MainStat, MainStatAdvice, MainStatBasis } from './main-stat-model';
-import { contradictsAdvice, statesMainStatFloor } from './main-stat-model';
-import type { BandedChoices, MonsterCopyPreferences } from './monster-preferences';
+import { contradictsAdvice, honouredMainStat, mainStatStatement } from './main-stat-model';
+import type { MonsterCopyPreferences } from './monster-preferences';
 import type { Shortfall } from './monster-shortfall';
 import type { CombatBonuses, LeadStat } from './monster-stats';
 import { leadStats } from './monster-stats';
@@ -69,26 +69,8 @@ export function buildIssueMarks(reading: string): FigureMark[] {
   return reading === '' ? [] : [{ key: 'build-issue', tone: 'yellow', reading, glyph: 'slashed' }];
 }
 
-/**
- * A figure to sort by with no HP, ATK or DEF floor beside it: red, because the
- * answer is incomplete rather than merely unfinished. The figure maximised is
- * rarely one given a floor, so the floors are what say what else the build must
- * carry — and where the copy wears no six runes, they are what the artifact and
- * relic mains are worked out from (`main-stat-model.ts`).
- */
-export function sortWithoutFloorMarks(stated: MonsterCopyPreferences | undefined): FigureMark[] {
-  if (stated?.runeSuggestionStat === undefined || statesMainStatFloor(stated)) return [];
-  return [{
-    key: 'sort-without-floor',
-    tone: 'red',
-    reading: 'Set a minimum for HP, ATK or DEF too: artifact and relic recommendations can rest on these minimums.',
-    glyph: 'ring',
-  }];
-}
-
 const basisWords: Readonly<Record<MainStatBasis, string>> = {
   runes: 'Its six runes lift',
-  targets: 'Its stat targets ask for',
   statistics: 'The game’s rune statistics lift',
 };
 
@@ -102,15 +84,27 @@ function adviceWords(advice: GearMainAdvice): string {
 }
 
 /**
- * A stated main the model would not have chosen: something to reconsider, not
- * something broken, so it is yellow. The owner's answer still stands — the mark
- * says what the maths makes of this copy and leaves the decision where it was.
- * Empty where nothing was stated, where the model cannot say, or where the two
- * do not contradict (`contradictsAdvice`).
+ * What the overlay says about a copy's stated main, after its label.
+ *
+ * **Red** where mains are accepted but none preferred: that is not yet an
+ * answer, so it is ignored and the maths decides (`mainStatStatement`). **Yellow**
+ * where a preferred answer contradicts what the maths would choose
+ * (`contradictsAdvice`): something to reconsider, not something broken — the
+ * owner's answer still stands, and the mark only says what the maths makes of
+ * this copy. Nothing where nothing was stated.
  */
 export function mainStatAdviceMarks(
-  stated: BandedChoices<MainStat> | undefined, advice: MainStatAdvice | undefined,
+  preferences: MonsterCopyPreferences | undefined, advice: MainStatAdvice | undefined,
 ): FigureMark[] {
+  if (mainStatStatement(preferences) === 'no-preferred') {
+    return [{
+      key: 'main-stat-no-preferred',
+      tone: 'red',
+      reading: 'Accepted main stats count only beside a preferred one, so the maths decides for now: choose at least one preferred main stat.',
+      glyph: 'ring',
+    }];
+  }
+  const stated = honouredMainStat(preferences);
   if (stated === undefined || advice === undefined) return [];
   const pieces = (['artifact', 'relic'] as const).filter((kind) => contradictsAdvice(stated, advice[kind]));
   if (pieces.length === 0) return [];

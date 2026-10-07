@@ -2,6 +2,7 @@ import { relicEngravingLimit } from './relic-properties';
 import type { Relic } from './relics';
 import type { MonsterCopyPreferences } from './monster-preferences';
 import { statedBand } from './monster-preferences';
+import { honouredMainStat } from './main-stat-model';
 import { relicMonsterValue } from './relic-monster-value';
 import type { RelicMonsterModel, RelicMonsterValue } from './relic-monster-value';
 
@@ -20,8 +21,10 @@ export type RelicCandidate = { relic: Relic; value: RelicMonsterValue };
  * acceptable relic does not outrank a preferred one that is merely weaker.
  */
 function relicTier(relic: Relic, preferences?: MonsterCopyPreferences): 0 | 1 | undefined {
+  /* A main answer with nothing preferred is not an answer yet (`mainStatStatement`). */
+  const mainStat = honouredMainStat(preferences);
   const bands = [
-    preferences?.mainStat === undefined ? 'preferred' : statedBand(preferences.mainStat, relic.mainProperty),
+    mainStat === undefined ? 'preferred' : statedBand(mainStat, relic.mainProperty),
     preferences?.relics?.unique === undefined ? 'preferred' : statedBand(preferences.relics.unique, relic.unique.definition.id),
   ];
   if (bands.includes('unwanted')) return undefined;

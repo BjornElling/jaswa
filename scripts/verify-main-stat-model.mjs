@@ -11,11 +11,13 @@
  * - the bands: 80/10/10 is one preferred main and nothing accepted, 40/40/20 is
  *   two preferred and one accepted, and every captured species has at least
  *   one preferred main;
- * - the sources, in order: six runes, else HP/ATK/DEF floors, else statistics,
- *   with the fixed flat mains of slots 1, 3 and 5 never counted;
+ * - the sources, in order: a stated answer with a preferred main, else six
+ *   runes, else statistics — stat targets never — with the fixed flat mains of
+ *   slots 1, 3 and 5 never counted;
  * - an artifact's fixed main is worth more on a stat with a small base, and a
  *   relic's percentage is not;
- * - what counts as contradicting the model, and that `Any` never does.
+ * - what counts as contradicting the model, and that accepted mains with none
+ *   preferred, or two cleared bands, are no answer at all.
  *
  * Usage: node scripts/verify-main-stat-model.mjs
  */
@@ -27,6 +29,7 @@ const server = await createServer({ configFile: false, appType: 'custom', server
 try {
   const {
     copyMainStatAdvice, copyMainStatNeed, speciesMainStatAdvice, contradictsAdvice, copyArtifactMainBands,
+    honouredMainStat, mainStatStatement,
   } = await server.ssrLoadModule('/app/lib/main-stat-model.ts');
   const { defaultedMonsterSpeciesIds } = await server.ssrLoadModule('/app/lib/monster-defaults.ts');
 
@@ -72,19 +75,12 @@ try {
   const guarded = copyMainStatNeed(copy(build({ pri_eff: [2, 40] }).map((rune) => ({ ...rune, set_id: rune.slot_no <= 2 ? 2 : 0 }))));
   assert.deepEqual(guarded.need, { HP: 40, ATK: 0, DEF: 15 });
 
-  /* The sources, in order. Five runes are not a build; targets speak then. */
+  /* Five runes are not a build, and stat targets are never a source. */
   const unfinished = copy(build({ pri_eff: [4, 63] }).filter((rune) => rune.slot_no !== 3));
-  assert.equal(copyMainStatNeed(unfinished), undefined, 'Five runes, no floor and no species say nothing');
-  const floors = { unitId: '1', statTargets: { def: 2160, spd: 300 }, defLead: 20 };
-  const fromTargets = copyMainStatNeed(unfinished, floors);
-  assert.equal(fromTargets.basis, 'targets');
-  near(fromTargets.need.DEF, (2160 - 160) / 1000 * 100 - 100 - 20, 'DEF floor');
-  assert.equal(fromTargets.need.HP, 0, 'A stat without a floor needs nothing');
-  assert.equal(copyMainStatNeed(copy(build({ pri_eff: [4, 63] })), floors).basis, 'runes', 'Six runes outrank targets');
-  assert.equal(copyMainStatNeed(unfinished, { unitId: '1', statTargets: { ehp: 60000 } }), undefined,
-    'A composite floor is not split into HP and DEF');
-  assert.equal(copyMainStatNeed(unfinished, { unitId: '1', statTargets: { hp: 1000 } }), undefined,
-    'A floor the base already clears needs nothing');
+  assert.equal(copyMainStatNeed(unfinished), undefined, 'Five runes and no species say nothing');
+  const floored = { ...unfinished, unit_master_id: undefined };
+  assert.equal(copyArtifactMainBands(floored, { unitId: '1', statTargets: { def: 2160 } }), undefined,
+    'A DEF floor says nothing about which main a copy is for');
 
   /* Statistics: every captured species has at least one preferred main, and a
      copy with nothing of its own answers exactly as its species does. */
@@ -112,6 +108,17 @@ try {
   assert.deepEqual(copyArtifactMainBands(hpBuild, undefined), { HP: 'preferred', ATK: 'unwanted', DEF: 'unwanted' });
   assert.deepEqual(copyArtifactMainBands(hpBuild, { unitId: '1', mainStat: { preferred: ['ATK'], acceptable: [] } }),
     { HP: 'unwanted', ATK: 'preferred', DEF: 'unwanted' });
+  /* Accepted mains with none preferred, and two cleared bands, are no answer:
+     the model decides, and only the first is flagged. */
+  const onlyAccepted = { unitId: '1', mainStat: { preferred: [], acceptable: ['DEF'] } };
+  const cleared = { unitId: '1', mainStat: { preferred: [], acceptable: [] } };
+  assert.equal(mainStatStatement(onlyAccepted), 'no-preferred');
+  assert.equal(mainStatStatement(cleared), 'silent');
+  assert.equal(mainStatStatement(undefined), 'silent');
+  for (const statement of [onlyAccepted, cleared]) {
+    assert.equal(honouredMainStat(statement), undefined);
+    assert.deepEqual(copyArtifactMainBands(hpBuild, statement), copyArtifactMainBands(hpBuild, undefined));
+  }
 
   /* Contradiction: two bands apart, or two mains in opposite order. */
   const model = shared.relic; // HP and DEF preferred, ATK accepted
@@ -122,7 +129,6 @@ try {
   assert.equal(says(['ATK']), true, 'Preferring the weakest and dropping the strongest');
   assert.equal(says(['HP'], []), true, 'A preferred main left out altogether');
   assert.equal(says(['ATK'], ['HP', 'DEF']), true, 'Two mains in opposite order');
-  assert.equal(says([], []), false, 'Any declines to narrow');
 
   console.log(`Main-stat model: bands, sources, fixed mains, artifact relief and contradictions hold;`
     + ` all ${judged} captured species have a preferred main.`);

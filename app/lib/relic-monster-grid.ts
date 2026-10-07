@@ -84,7 +84,7 @@ export function relicMonsterReason(row: {
   const { recommendation, verdict } = row;
   switch (recommendation.unavailable) {
     case 'missing-stats': return 'Import this monster’s base stats.';
-    case 'no-priorities': return 'Equip six runes or set an HP, ATK or DEF target.';
+    case 'no-priorities': return 'Equip six runes to establish priorities.';
     case 'no-relics': return 'Import relics to compare.';
     case 'preferences': return 'No owned relic matches your choices.';
   }

@@ -1,7 +1,6 @@
 import type { GameRecord } from './game-data';
 import type { MainStatBasis } from './main-stat-model';
 import { copyMainStatNeed } from './main-stat-model';
-import type { MonsterCopyPreferences } from './monster-preferences';
 import { calculateMonsterTotals, monsterBaseStats } from './monster-stats';
 import type { RelicMainProperty, RelicSourceStat } from './relic-properties';
 import type { Relic } from './relics';
@@ -28,7 +27,7 @@ export type RelicMonsterModel = {
  * unique reads its source from use the shared stat engine, so flats, grinds and
  * sets agree with the monster overlay.
  */
-export function relicMonsterModel(monster: GameRecord, stated?: MonsterCopyPreferences): RelicMonsterModel {
+export function relicMonsterModel(monster: GameRecord): RelicMonsterModel {
   const rawBase = monsterBaseStats(monster);
   const base = { HP: rawBase[0], ATK: rawBase[1], DEF: rawBase[2], SPD: rawBase[3] };
   /* Candidate relics are compared against the same sheet before engraving;
@@ -42,7 +41,7 @@ export function relicMonsterModel(monster: GameRecord, stated?: MonsterCopyPrefe
   if (Object.values(base).some((value) => !Number.isFinite(value) || value <= 0)
     || Object.values(totals).some((value) => !Number.isFinite(value) || value <= 0)) return model;
 
-  const found = copyMainStatNeed(monster, stated);
+  const found = copyMainStatNeed(monster);
   const investment = found === undefined ? 0 : found.need.HP + found.need.ATK + found.need.DEF;
   if (found === undefined || !(investment > 0) || !Number.isFinite(investment)) {
     model.status = 'no-priorities';

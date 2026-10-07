@@ -20,9 +20,11 @@ import { mainPropertyMaximum } from './rune-properties';
  *
  * The answer is in two steps, kept apart because the second differs by piece:
  *
- * 1. **The need** — what HP, ATK and DEF are lifted by, in percent of base, from
- *    the first source that can say: the copy's six runes, else its stat targets,
- *    else the game's rune statistics for its species.
+ * 1. **The need** — what HP, ATK and DEF are lifted by, in percent of base: off
+ *    the copy's six runes, else the game's rune statistics for its species. Stat
+ *    targets are deliberately not a source: a floor says what a build must reach,
+ *    not what it is for, and the figure it is really built around is usually
+ *    the one with no floor at all.
  * 2. **The worth of each main on each piece** — the need times how much of that
  *    stat the piece's main supplies, in the same percent of base. A relic's main is
  *    a percentage, the same for all three, so its answer is the need's own order;
@@ -34,7 +36,7 @@ export type MainStatBand = 'preferred' | 'acceptable' | 'unwanted';
 export type GearKind = 'artifact' | 'relic';
 
 /** Where a need was read from, in the order the sources are tried. */
-export type MainStatBasis = 'runes' | 'targets' | 'statistics';
+export type MainStatBasis = 'runes' | 'statistics';
 
 export type MainStatNeed = {
   basis: MainStatBasis;
@@ -76,24 +78,6 @@ function records(value: unknown): RecordLike[] {
    says nothing about what the runes were chosen to lift. */
 const fixedMainSlots: ReadonlySet<number> = new Set([1, 3, 5]);
 
-/* The fixed mains at +15 on a six-star rune, by the stat they lift. A target is
-   a whole-monster figure, and these three are already in it whatever runes reach
-   it. */
-const fixedMainValues: Record<MainStat, number> = {
-  HP: mainPropertyMaximum(6, 1), ATK: mainPropertyMaximum(6, 3), DEF: mainPropertyMaximum(6, 5),
-};
-
-const leadFields: Record<MainStat, 'hpLead' | 'atkLead' | 'defLead'> = { HP: 'hpLead', ATK: 'atkLead', DEF: 'defLead' };
-const targetFields: Record<MainStat, 'hp' | 'atk' | 'def'> = { HP: 'hp', ATK: 'atk', DEF: 'def' };
-
-/**
- * Whether a copy states a floor the model can read — one on HP, ATK or DEF. A
- * stated `0` counts: it is an answer, if an answer of nothing.
- */
-export function statesMainStatFloor(stated: MonsterCopyPreferences | undefined): boolean {
-  return artifactMainPropertyOrder.some((stat) => stated?.statTargets?.[targetFields[stat]] !== undefined);
-}
-
 type BaseStats = Record<MainStat, number>;
 
 function baseStatsOf(monster: GameRecord): BaseStats | undefined {
@@ -128,44 +112,20 @@ function runeNeed(monster: GameRecord, base: BaseStats): Record<MainStat, number
   return hasNeed(need) ? need : undefined;
 }
 
-/*
- * A stated floor for HP, ATK or DEF, less what the base, the fixed mains and the
- * copy's own lead already supply. A stat left without a floor is one this copy
- * does not aim at (`AGENTS.md` §3), so it needs nothing. Composite targets are not
- * read: an E.HP can be reached through HP or DEF, and splitting it between them
- * would be a guess.
- */
-function targetNeed(base: BaseStats, stated: MonsterCopyPreferences | undefined): Record<MainStat, number> | undefined {
-  const targets = stated?.statTargets;
-  if (!targets || !statesMainStatFloor(stated)) return undefined;
-  const need = { HP: 0, ATK: 0, DEF: 0 };
-  for (const stat of artifactMainPropertyOrder) {
-    const target = targets[targetFields[stat]];
-    if (target === undefined) continue;
-    const lift = (target - fixedMainValues[stat]) / base[stat] * 100 - 100 - (stated?.[leadFields[stat]] ?? 0);
-    need[stat] = Math.max(0, lift);
-  }
-  return hasNeed(need) ? need : undefined;
-}
-
 function statisticsNeed(masterId: unknown): Record<MainStat, number> | undefined {
   return monsterDefaults(masterId)?.runes?.mainStatNeed;
 }
 
 /**
  * What one owned copy's runes have to lift, from the first source that can say.
- * `undefined` where none can: no finished build, no floor on HP, ATK or DEF, and a
- * species the statistics never captured.
+ * `undefined` where none can: no finished build, and a species the statistics
+ * never captured.
  */
-export function copyMainStatNeed(
-  monster: GameRecord, stated: MonsterCopyPreferences | undefined,
-): MainStatNeed | undefined {
+export function copyMainStatNeed(monster: GameRecord): MainStatNeed | undefined {
   const base = baseStatsOf(monster);
   if (base !== undefined) {
     const runes = runeNeed(monster, base);
     if (runes !== undefined) return { basis: 'runes', need: runes };
-    const targets = targetNeed(base, stated);
-    if (targets !== undefined) return { basis: 'targets', need: targets };
   }
   const statistics = statisticsNeed(monster.unit_master_id);
   return statistics === undefined ? undefined : { basis: 'statistics', need: statistics };
@@ -210,10 +170,8 @@ function adviceFrom(need: MainStatNeed, base: BaseStats | undefined): MainStatAd
 }
 
 /** The model's answer for one owned copy, or `undefined` where nothing can say. */
-export function copyMainStatAdvice(
-  monster: GameRecord, stated: MonsterCopyPreferences | undefined,
-): MainStatAdvice | undefined {
-  const need = copyMainStatNeed(monster, stated);
+export function copyMainStatAdvice(monster: GameRecord): MainStatAdvice | undefined {
+  const need = copyMainStatNeed(monster);
   return need === undefined ? undefined : adviceFrom(need, baseStatsOf(monster));
 }
 
@@ -227,19 +185,43 @@ export function speciesMainStatAdvice(masterId: unknown): MainStatAdvice | undef
 }
 
 /**
- * The artifact mains one copy is scored on: its owner's statement where there is
- * one, the model's answer for this copy otherwise. The one reading the packed
- * scorer and the per-artifact reader both take, so they cannot place a main
- * differently.
+ * What a copy's stated main answer amounts to.
+ *
+ * - `stated` — at least one main is preferred, and the two bands are the answer.
+ * - `no-preferred` — mains are accepted but none preferred. That is not an
+ *   answer the model can stand aside for: an accepted main is one taken when
+ *   nothing preferred is to hand, and here nothing ever is. It is kept as typed
+ *   (`AGENTS.md` §0) and ignored until a preferred main joins it, and the overlay
+ *   says so in red.
+ * - `silent` — nothing stated, or both bands cleared. The model answers.
+ */
+export type MainStatStatement = 'stated' | 'no-preferred' | 'silent';
+
+export function mainStatStatement(stated: MonsterCopyPreferences | undefined): MainStatStatement {
+  const mains = stated?.mainStat;
+  if (mains === undefined || (mains.preferred.length === 0 && mains.acceptable.length === 0)) return 'silent';
+  return mains.preferred.length > 0 ? 'stated' : 'no-preferred';
+}
+
+/** The stated main answer where it is one the model stands aside for, else `undefined`. */
+export function honouredMainStat(stated: MonsterCopyPreferences | undefined): BandedChoices<MainStat> | undefined {
+  return mainStatStatement(stated) === 'stated' ? stated?.mainStat : undefined;
+}
+
+/**
+ * The artifact mains one copy is scored on: its owner's statement where it
+ * names a preferred main, the model's answer for this copy otherwise. The one
+ * reading the packed scorer and the per-artifact reader both take, so they
+ * cannot place a main differently.
  */
 export function copyArtifactMainBands(
   monster: GameRecord, stated: MonsterCopyPreferences | undefined,
 ): Record<MainStat, MainStatBand> | undefined {
-  const mains = stated?.mainStat;
+  const mains = honouredMainStat(stated);
   if (mains !== undefined) {
     return { HP: statedBand(mains, 'HP'), ATK: statedBand(mains, 'ATK'), DEF: statedBand(mains, 'DEF') };
   }
-  return copyMainStatAdvice(monster, stated)?.artifact.bands;
+  return copyMainStatAdvice(monster)?.artifact.bands;
 }
 
 const bandRank: Record<MainStatBand, number> = { preferred: 2, acceptable: 1, unwanted: 0 };
@@ -251,11 +233,10 @@ const bandRank: Record<MainStatBand, number> = { preferred: 2, acceptable: 1, un
  * calls unwanted (or the reverse), or two mains put in opposite order. Moving one
  * main a single band — accepting what the model prefers — is a judgement call the
  * owner is entitled to, and an answer may well have to straddle an artifact and
- * a relic that disagree by one band. `Any` contradicts nothing: it declines to
- * narrow rather than narrowing the wrong way.
+ * a relic that disagree by one band. Only an honoured answer is judged
+ * (`honouredMainStat`); one with no preferred main is not an answer yet.
  */
 export function contradictsAdvice(stated: BandedChoices<MainStat>, advice: GearMainAdvice): boolean {
-  if (stated.preferred.length === 0 && stated.acceptable.length === 0) return false;
   const said = (stat: MainStat) => bandRank[statedBand(stated, stat)];
   const model = (stat: MainStat) => bandRank[advice.bands[stat]];
   return artifactMainPropertyOrder.some((stat) => Math.abs(said(stat) - model(stat)) >= 2)

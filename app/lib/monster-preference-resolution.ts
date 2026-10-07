@@ -2,7 +2,7 @@ import type { ArtifactCategory, ArtifactMainProperty } from './artifact-properti
 import { artifactMainPropertyOrder } from './artifact-properties';
 import type { GameRecord } from './game-data';
 import type { GearMainAdvice, MainStatAdvice } from './main-stat-model';
-import { copyMainStatAdvice, speciesMainStatAdvice } from './main-stat-model';
+import { copyMainStatAdvice, honouredMainStat, speciesMainStatAdvice } from './main-stat-model';
 import type {
   DefaultEntry, MonsterDefaults, RuneSlotKey,
 } from './monster-defaults';
@@ -249,7 +249,7 @@ function resolveArtifactCategory(
   const categoryDefaults = defaults?.artifacts?.[category];
   /* The main is the model's, not the population's: both categories carry the
      same three mains at the same values, so the model answers them alike. */
-  const main = resolveBands(stated?.mainStat, modelDefaults(advice?.artifact));
+  const main = resolveBands(honouredMainStat(stated), modelDefaults(advice?.artifact));
   const sub = resolveBands(stated?.artifacts?.sub?.[category], categoryDefaults?.sub);
   return { main, sub, judged: answers(main) || answers(sub) };
 }
@@ -262,7 +262,7 @@ function resolveRelics(
   const relicDefaults = defaults?.relics;
   /* The one main answer serves the relic as it serves both artifacts; where it
      was never given, the model's answer for a relic stands in. */
-  const main = resolveBands(stated?.mainStat, modelDefaults(advice?.relic));
+  const main = resolveBands(honouredMainStat(stated), modelDefaults(advice?.relic));
   const unique = resolveBands(stated?.relics?.unique, relicDefaults?.unique);
   return { main, unique, judged: answers(main) || answers(unique) };
 }
@@ -297,7 +297,7 @@ export function resolveMonsterPreferences(
   monster?: GameRecord,
 ): ResolvedMonsterPreferences {
   const defaults = monsterDefaults(masterId);
-  const advice = monster === undefined ? speciesMainStatAdvice(masterId) : copyMainStatAdvice(monster, stated);
+  const advice = monster === undefined ? speciesMainStatAdvice(masterId) : copyMainStatAdvice(monster);
   return {
     unitId,
     ...(defaults === undefined ? {} : { speciesId: defaults.speciesId }),

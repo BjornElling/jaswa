@@ -6,7 +6,7 @@ import { artifactLineMaxRolls } from '../artifact-optimal-value';
 import type { Artifact, ArtifactSubProperty } from '../artifacts';
 import type { ArtifactCategory, ArtifactMainProperty } from '../artifact-properties';
 import type { GameRecord } from '../game-data';
-import { copyArtifactMainBands } from '../main-stat-model';
+import { copyArtifactMainBands, honouredMainStat } from '../main-stat-model';
 import { canEquipArtifacts } from '../monster-equipment-eligibility';
 import type { MonsterCopyPreferences, MonsterPreferences } from '../monster-preferences';
 import { statedBand } from '../monster-preferences';
@@ -124,7 +124,7 @@ function packMonster(speciesId: string, category: ArtifactCategory): PackedMonst
  * user's answers replace the statistics rather than blending with them (§19.4):
  * a stated list of mains is the whole list of mains, and a stated list of
  * substats is the whole list. Or the main-stat model may read this copy's own
- * runes or targets differently from its species' statistics
+ * runes differently from its species' statistics
  * (`main-stat-model.ts`), and a copy built for HP is ranked as one. Where the
  * row would repeat the species row exactly, there is none.
  *
@@ -152,7 +152,7 @@ function packCopy(
     ? species.mainPreferences
     : [preferenceCode(mains.HP), preferenceCode(mains.ATK), preferenceCode(mains.DEF)];
   const ownMains = mainPreferences.some((code, at) => code !== species.mainPreferences[at]);
-  if (stated?.mainStat === undefined && subs === undefined && !ownMains) return undefined;
+  if (honouredMainStat(stated) === undefined && subs === undefined && !ownMains) return undefined;
 
   return {
     ...species,

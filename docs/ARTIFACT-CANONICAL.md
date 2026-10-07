@@ -2498,7 +2498,7 @@ says this Lushen wants DEF artifacts is entitled to see that answer ranked.
 The matrix is therefore **species rows plus the copies that disagree**. A row is
 a species by default, so a collaboration pair still ranks once and every copy
 that wants what its species wants still answers to it; a copy that has stated
-anything about artifacts, or whose own runes or targets give the main-stat model
+anything about artifacts, or whose own runes give the main-stat model
 a different answer from its species' statistics, gets one row of its own, keyed
 by its `unit_id`, named as every table names that copy, and carrying
 `ownerUnitId`. A copy row exists only for a species the request asks about.
@@ -2536,8 +2536,9 @@ bulk wants HP or DEF on whichever piece carries a main; asking per artifact
 category and again per relic only ever produced three copies of one answer, so
 `MonsterCopyPreferences.mainStat` is stated once and read by the artifact scorer
 for both categories and by the relic plan. Several mains may be named — someone
-building for bulk is equally glad of HP or DEF. Where it is never stated, the
-main-stat model's answer for the copy stands in (`docs/MAIN-STAT-MODEL.md`), and
+building for bulk is equally glad of HP or DEF. Where it names no preferred
+main — never stated, cleared, or only accepted mains — the main-stat model's
+answer for the copy stands in (`docs/MAIN-STAT-MODEL.md`), and
 an artifact and the relic may still default differently: an artifact's main is a
 fixed amount, worth more on a stat with a small base.
 
@@ -2549,7 +2550,9 @@ accepted one the acceptable worth of §19.6, so a copy's answer is weighed exact
 as the statistics are. An option sits in at most one band; one in neither is not
 wanted. **Two empty bands are `Any`** — the question narrows nothing, and every
 option counts as preferred — because "none of these" would score every artifact
-at zero for an answer the overlay reads as `Any`.
+at zero for an answer the overlay reads as `Any`. **The main is the exception:**
+two empty bands there, like accepted mains with none preferred, leave the answer
+to the main-stat model, which always names a preferred main.
 
 A sub property has no minimum roll. One was offered — `Damage Taken from Wind at
 15 % or better` — and removed with the overlay that asked for it: the bands say

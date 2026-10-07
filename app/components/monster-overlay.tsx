@@ -3,7 +3,7 @@ import { BandedChoiceLine } from './banded-choice-line';
 import type { ChoiceBand } from './banded-choice-line';
 import { Dropdown } from './dropdown';
 import { FigureMarks } from './figure-marks';
-import { combatBonusMarks, mainStatAdviceMarks, shortfallMarks, sortWithoutFloorMarks } from '../lib/figure-marks';
+import { combatBonusMarks, mainStatAdviceMarks, shortfallMarks } from '../lib/figure-marks';
 import type { FigureMark } from '../lib/figure-marks';
 import { MonsterPortrait } from './monster-portrait';
 import { WornArtifacts, WornRelics, WornRunes } from './monster-worn-gear';
@@ -505,13 +505,7 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
               {/* The tie-break the ranges leave open, in the twelfth cell beside
                   them: what to maximise once every range above is met. */}
               {editable && <div className="overlay-sort">
-                {/* The mark sits beside the label rather than in it, so the menu's
-                    accessible name stays its own, and keeps its room when absent so
-                    the menu never moves (`AGENTS.md` §2). */}
-                <span className="overlay-sort-head">
-                  <label className="overlay-stat-head" htmlFor="rune-suggestion-stat">When met, sort by</label>
-                  <FigureMarks marks={sortWithoutFloorMarks(draft)} reserve={1} />
-                </span>
+                <label className="overlay-stat-head" htmlFor="rune-suggestion-stat">When met, sort by</label>
                 <Dropdown id="rune-suggestion-stat" className="overlay-sort-select"
                   placeholder="No preference"
                   value={draft.runeSuggestionStat ?? ''}
@@ -572,7 +566,7 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
               <p className="overlay-row-label">Preferred</p>
               <p className="overlay-row-label">Accepted</p>
               <GearRow name="Main stat" options={mainStatOptions} value={draft.mainStat}
-                marks={mainStatAdviceMarks(draft.mainStat, resolved.mainStatAdvice)}
+                marks={mainStatAdviceMarks(draft, resolved.mainStatAdvice)}
                 onChange={(next) => change((state) => ({ ...state, mainStat: next }))} />
               {(['attribute', 'type'] as const).map((category) => <GearRow key={category}
                 name={`${categoryLabels[category]} substats`} options={substatOptions(category)}

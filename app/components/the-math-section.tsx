@@ -698,7 +698,7 @@ export function TheMathSection() {
         </p>
         <h3 className="type-heading">1. Read the build</h3>
         <p>
-          If runes add 100 % HP and 60 % DEF, with no extra ATK, the weights are <b className="type-body-emphasis">62.5 % HP and 37.5 % DEF</b>: divide each increase by their total, 160 %. Flat stats, grinds and completed personal stat sets count too; the flat mains every slot 1, 3 and 5 rune carries do not, since they say nothing about the build. A monster without six runes is read from its HP, ATK and DEF targets instead, and one with neither from the game’s rune statistics for its species. Artifacts help size a relic’s effect, but do not set the priorities.
+          If runes add 100 % HP and 60 % DEF, with no extra ATK, the weights are <b className="type-body-emphasis">62.5 % HP and 37.5 % DEF</b>: divide each increase by their total, 160 %. Flat stats, grinds and completed personal stat sets count too; the flat mains every slot 1, 3 and 5 rune carries do not, since they say nothing about the build. A monster without six runes is read from the game’s rune statistics for its species instead. Artifacts help size a relic’s effect, but do not set the priorities.
         </p>
         <h3 className="type-heading">2. Add the two bonuses</h3>
         <p>
@@ -729,7 +729,7 @@ export function TheMathSection() {
           Stat bonuses use base stats. A unique scales continuously: 200 SPD at 2 % per 125 SPD gives 3.2 %, not 2 %. It reads the imported stat sheet plus the relic’s main bonus, once, before its own bonus. These battle-order and scaling rules are model assumptions awaiting an in-game check. Leaders, towers, team bonuses and skill behaviour are not inferred, so the score is exact within this model, not a promise of exact battle performance. In particular, damage dealt uses ATK priority even for a monster whose skills scale with HP or DEF.
         </p>
         <p>
-          JASWA picks the highest score within your saved main and unique choices; cleared menus allow any. Equal value keeps the relic already worn. A full relic cannot take a new wearer, so the next available one is named. Missing base stats, or no priorities from any of the three, get an explanation instead of an invented build. The Power up, Keep or Sell rules below keep their own account-wide model.
+          JASWA picks the highest score within your saved main and unique choices; cleared menus allow any. Equal value keeps the relic already worn. A full relic cannot take a new wearer, so the next available one is named. Missing base stats, or no priorities from runes or statistics, get an explanation instead of an invented build. The Power up, Keep or Sell rules below keep their own account-wide model.
         </p>
       </div>
     </Disclosure>
