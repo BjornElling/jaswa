@@ -16,6 +16,7 @@ import { Overlay, OverlayAction } from './overlay';
 import { PencilIcon } from './pencil-icon';
 import type { MonsterReference } from './monster-link';
 import type { Artifact } from '../lib/artifacts';
+import { usePresets } from '../lib/presets-context';
 import { readArtifacts } from '../lib/artifacts';
 import type { ArtifactCategory, ArtifactMainProperty } from '../lib/artifact-properties';
 import { artifactMainPropertyOrder, artifactPropertiesFor } from '../lib/artifact-properties';
@@ -258,6 +259,7 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
   const [dirty, setDirty] = useState(false);
   const [editingNickname, setEditingNickname] = useState(false);
   const firstField = useRef<HTMLInputElement>(null);
+  const presetsReading = usePresets();
 
   const monster = useMemo(() => {
     if (target.kind !== 'copy' || !game) return undefined;
@@ -352,10 +354,18 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
      reading `—` rather than disappearing when the import cannot say, so the row
      keeps its shape. A species' element is the last digit of its id, which is
      how the game numbers the five elemental copies. */
-  const facts = [
+  /* The gear below is Default's; the presets the copy also stands in, each with
+     gear of its own, are counted here and named on hover (`DECK-PRESETS.md` §5). */
+  const memberOf = target.kind === 'copy'
+    ? presetsReading.presets.filter((preset) => preset.kind !== 'default' && preset.members.includes(target.unitId))
+    : [];
+  const facts: { label: string; value: string | undefined; title?: string }[] = [
     { label: 'Element', value: elementName(target.kind === 'copy' ? monster?.attribute : Number(masterId.at(-1))) },
     { label: 'Type', value: display.archetype && display.archetype !== 'none' ? display.archetype : undefined },
-    ...(target.kind === 'copy' ? [{ label: 'Level', value: monster?.unit_level === undefined ? undefined : String(monster.unit_level) }] : []),
+    ...(target.kind === 'copy' ? [
+      { label: 'Level', value: monster?.unit_level === undefined ? undefined : String(monster.unit_level) },
+      { label: 'Presets', value: String(memberOf.length), title: memberOf.map((preset) => preset.name).join('\n') || undefined },
+    ] : []),
   ];
 
   /** One end of one range, written back as a whole number or cleared. */
@@ -431,7 +441,7 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
               onCommit={(label) => change((state) => ({ ...state, label }))} />}
           </div>
           <dl className="overlay-facts">
-            {facts.map((fact) => <div key={fact.label}>
+            {facts.map((fact) => <div key={fact.label} title={fact.title}>
               <dt>{fact.label}</dt>
               <dd>{fact.value ?? '—'}</dd>
             </div>)}
@@ -587,6 +597,7 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
             : <>
               {/* What the copy has engraved, written the way a desired build is, so the
                   two read against each other without translation. */}
+              {/* Default's gear: the copy's own, outside every preset. */}
               <Section title="Engraved runes" note={currentBuild === '' ? 'No runes engraved' : currentBuild}>
                 <EngravedRunes runes={engravedRunes} format={format} />
               </Section>
