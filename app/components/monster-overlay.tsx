@@ -527,10 +527,12 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
               <div className="overlay-settings-toggles" role="group" aria-label="Rune allowances and crit bonuses">
                 {toggle('Allow broken sets', resolved.runes.allowBroken,
                   (checked) => change((state) => ({ ...state, allowBrokenSets: checked })))}
-                {toggle('Allow Intangible runes', resolved.runes.allowIntangible,
-                  (checked) => change((state) => ({ ...state, allowIntangibleRunes: checked })))}
+                {/* Two columns read down: the rune allowances on the left, how
+                    damage is counted on the right. */}
                 {toggle('Always crits', resolved.alwaysCrits,
                   (checked) => change((state) => ({ ...state, alwaysCrits: checked })))}
+                {toggle('Allow Intangible runes', resolved.runes.allowIntangible,
+                  (checked) => change((state) => ({ ...state, allowIntangibleRunes: checked })))}
                 {toggle('Always element advantage', resolved.alwaysElementAdvantage,
                   (checked) => change((state) => ({ ...state, alwaysElementAdvantage: checked })))}
               </div>
