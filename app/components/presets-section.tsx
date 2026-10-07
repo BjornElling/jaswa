@@ -19,6 +19,7 @@ import { artifactSlotCount, engravedCounts, monsterNameCollator } from '../lib/m
 import { runeSlotCount } from '../lib/rune-set-pairs';
 import { monsterCopyNames } from '../lib/monster-names';
 import { presetPriorityOf } from '../lib/monster-priority';
+import { presetSpeedTeam } from '../lib/speed-tuning-preferences';
 import type { MonsterPriority } from '../lib/monster-priority';
 import { presetContent, presetContents } from '../lib/preset-contents';
 import type { PresetContentId } from '../lib/preset-contents';
@@ -51,7 +52,7 @@ export type PresetWrites = {
  * their order is the user's. A preset built here is the user's whole: a draft to
  * build in the game once its runes are right.
  */
-export function PresetsSection({ game, monsters, preferences, presets, selectedId, canCreate, onSelect, onWrite, onOpenMonster, onOptimize }: {
+export function PresetsSection({ game, monsters, preferences, presets, selectedId, canCreate, onSelect, onWrite, onOpenMonster, onOptimize, onTuneSpeed }: {
   game: ImportedGame | null;
   monsters: readonly GameRecord[];
   preferences: Preferences;
@@ -65,6 +66,8 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
   onOpenMonster: OpenMonsterOverlay;
   /** Opens Rune Optimization on this copy in this preset. */
   onOptimize: (presetId: string, unitId: string) => void;
+  /** Opens Speed Tuning on this preset's team. */
+  onTuneSpeed: (presetId: string) => void;
 }) {
   const [creating, setCreating] = useState(false);
   const [pickedGroup, setPickedGroup] = useState<string | null>(null);
@@ -98,6 +101,11 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
   /* The game's presets live in the import, which live sync would put back at once. */
   const gameEditable = preset?.kind === 'game' && canCreate;
   const deletable = own !== null || gameEditable;
+  /* Speed Tuning opens a team only where it has a speed model for the content
+     and the preset fields no more monsters than the content does. */
+  const speed = preset?.kind === 'default' ? null : preset?.content?.speed ?? null;
+  const tunable = preset !== null && speed !== null && preset.members.length > 0
+    && presetSpeedTeam(preset, speed, preferences.speedTuning.presets[preset.id]) !== null;
   const groups = useMemo(() => presetGroupsOf(presets), [presets]);
   /* The content follows the chosen preset; only between choosing a content and
      choosing one of its presets is it a choice of its own. */
@@ -297,10 +305,17 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
                         portrait={{ imageFilename: display.imageFilename, initial: display.shortName }} onOpen={onOpenMonster} />
                       : <span className="monster-name muted">{name}</span>}
                   </span>
-                  {/* The row's own small control rather than a page button: it is a way out
-                      of the list, and should not outshout the names it sits beside. */}
-                  <button type="button" className="speed-icon-button monster-priority-optimize" disabled={!choice}
-                    aria-label={`Optimize runes for ${name}`} onClick={() => onOptimize(preset.id, unitId)}>Optimize</button>
+                  {/* The row's own small controls rather than page buttons: they are ways out
+                      of the list, and should not outshout the names they sit beside. Speed
+                      Tuning opens the whole preset's team, from whichever row it is asked;
+                      it is on every row, and disabled where there is no team to open, so the
+                      rows keep one shape. */}
+                  <span className="monster-priority-ways">
+                    <button type="button" className="speed-icon-button monster-priority-optimize" disabled={!tunable}
+                      aria-label={`Speed tuning for ${preset.name}, from ${name}`} onClick={() => onTuneSpeed(preset.id)}>Speed tuning</button>
+                    <button type="button" className="speed-icon-button monster-priority-optimize" disabled={!choice}
+                      aria-label={`Optimize runes for ${name}`} onClick={() => onOptimize(preset.id, unitId)}>Optimize</button>
+                  </span>
                   {choice ? <Gear monster={monsterInPreset(choice.record, preset, items)} preset={preset} unitId={unitId} /> : <><span /><span /><span /></>}
                   <span className="monster-priority-controls">
                     <button type="button" className="speed-icon-button" aria-label={`Move ${name} up`}

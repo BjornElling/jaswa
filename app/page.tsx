@@ -80,6 +80,8 @@ export default function Home() {
   const [saveFolder, setSaveFolder] = useState<DirectoryHandle | null>(null);
   const [overlay, setOverlay] = useState<OverlayTarget | null>(null);
   const [optimizerVisit, setOptimizerVisit] = useState(0);
+  /* The preset whose team Speed Tuning was asked to open, from Presets. */
+  const [speedRequest, setSpeedRequest] = useState<string | null>(null);
   /* The control that opened the overlay, so focus returns to the exact row the
      reader came from. It is held here rather than in the overlay because it has
      to outlive the overlay's own unmount. */
@@ -523,6 +525,16 @@ export default function Home() {
     setPage('optimizer');
   }
 
+  /* Into Speed Tuning with the preset's team already open. The request lasts
+     until that overlay closes, so Forward back onto the page opens it again;
+     the rail asks for the page alone and clears it. */
+  function tuneSpeed(presetId: string) {
+    setSpeedRequest(presetId);
+    overlayOpener.current = null;
+    setOverlay(null);
+    setPage('speed');
+  }
+
   function writeRoles(change: (current: RuneRole[]) => RuneRole[]) {
     changePreferences((current) => ({ ...current, runePotentialPresets: change(current.runePotentialPresets) }));
   }
@@ -585,7 +597,7 @@ export default function Home() {
   if (!ready) return <main className="loading-screen">Preparing your local workspace…</main>;
 
   return <PresetsContext.Provider value={presetsReading}><main className="app-shell">
-    <AppRail page={page} onNavigate={setPage} onReport={() => openReport()} />
+    <AppRail page={page} onNavigate={(next) => { setSpeedRequest(null); setPage(next); }} onReport={() => openReport()} />
 
     <section className="workspace">
       {game && <ImportBadge ref={importBadge} game={game} general={preferences.general} />}
@@ -683,7 +695,9 @@ export default function Home() {
         monsters={monsters}
         preferences={preferences}
         presets={presets}
+        openPresetId={speedRequest}
         onWrite={writeSpeedTuning}
+        onTeamClosed={() => setSpeedRequest(null)}
         onOpenMonster={openMonsterOverlay}
       /></Suspense>}
 
@@ -698,6 +712,7 @@ export default function Home() {
         onWrite={presetWrites}
         onOpenMonster={openMonsterOverlay}
         onOptimize={(presetId, unitId) => optimizeMonster(unitId, presetId)}
+        onTuneSpeed={tuneSpeed}
       /></Suspense>}
 
       {page === 'optimizer' && <Suspense fallback={<WorkspaceLoading />}><RuneOptimizationSection

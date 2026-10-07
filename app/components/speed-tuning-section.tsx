@@ -109,17 +109,24 @@ const columns: readonly { id: PresetColumn; title: string; empty: string }[] = [
   { id: 'other', title: 'Other presets', empty: 'No other presets.' },
 ];
 
-export function SpeedTuningSection({ game, monsters, preferences, presets, onWrite, onOpenMonster }: {
+export function SpeedTuningSection({ game, monsters, preferences, presets, openPresetId = null, onWrite, onTeamClosed, onOpenMonster }: {
   game: ImportedGame | null;
   monsters: readonly GameRecord[];
   preferences: Preferences;
   presets: readonly Preset[];
+  /** A team to open on arrival, asked for from another page. */
+  openPresetId?: string | null;
   onWrite: (change: (current: SpeedTuningPreferences) => SpeedTuningPreferences) => void;
+  /** Told when a team's overlay closes, so a request to open one is spent. */
+  onTeamClosed?: () => void;
   onOpenMonster: OpenMonsterOverlay;
 }) {
   const tuning = preferences.speedTuning.presets;
   const general = preferences.general;
-  const [editing, setEditing] = useState<{ presetId: string; opener: HTMLElement } | null>(null);
+  /* A team asked for from elsewhere has no line here that opened it, so focus
+     goes nowhere in particular when it closes. */
+  const [editing, setEditing] = useState<{ presetId: string; opener: HTMLElement | null } | null>(
+    () => (openPresetId === null ? null : { presetId: openPresetId, opener: null }));
 
   const names = useMemo(() => monsterCopyNames(monsters, preferences.monsterPreferences), [monsters, preferences.monsterPreferences]);
   const monsterById = useMemo(() => new Map(monsters
@@ -151,6 +158,7 @@ export function SpeedTuningSection({ game, monsters, preferences, presets, onWri
   function close() {
     const opener = editing?.opener;
     setEditing(null);
+    onTeamClosed?.();
     requestAnimationFrame(() => { if (opener?.isConnected) opener.focus(); });
   }
 

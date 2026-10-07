@@ -481,6 +481,47 @@ test('Optimize opens Rune Optimization on that monster in that preset', async ({
   await expect(preset.locator('option')).toHaveText(['Default', 'Arena Attack 4', 'Deck 99 · 1']);
 });
 
+test('Speed tuning opens the preset\'s team in Speed Tuning, from any of its rows', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await freshWorkspace(page);
+  await importAccount(page);
+  await openPresets(page);
+  const names = await copyNames(page);
+  const speed = (name: string, preset: string) => page.getByRole('button', { name: `Speed tuning for ${preset}, from ${name}` });
+
+  /* Default has no team, and a deck whose content is unnamed has no speed model. */
+  await addMenu(page).selectOption('12');
+  await expect(speed(names[12], 'Default')).toBeDisabled();
+  await choosePreset(page, 'Not yet named', 'Deck 99 · 1');
+  await expect(speed(names[12], 'Deck 99 · 1')).toBeDisabled();
+
+  /* Left of Optimize, in the same dress. */
+  await choosePreset(page, 'Arena Attack', 'Arena Attack 4');
+  const button = speed(names[11], 'Arena Attack 4');
+  const optimize = page.getByRole('button', { name: `Optimize runes for ${names[11]}` });
+  await expect(button).toBeEnabled();
+  const [at, next] = [await box(button), await box(optimize)];
+  expect(at.x + at.width).toBeLessThan(next.x);
+  expect(at.height).toBe(next.height);
+  expect(await button.evaluate((element) => element.className)).toBe(await optimize.evaluate((element) => element.className));
+  await page.screenshot({ path: testInfo.outputPath('preset-speed-button.png') });
+
+  await button.click();
+  await expect(page.getByRole('heading', { name: 'Speed Tuning', exact: true })).toBeVisible();
+  const team = page.getByRole('dialog', { name: 'Arena Attack 4' });
+  await expect(team).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('preset-speed-overlay.png') });
+  /* Closed, it stays closed on Speed Tuning; Back goes to Presets. */
+  await page.keyboard.press('Escape');
+  await expect(team).toHaveCount(0);
+  await page.goBack();
+  await expect(page.getByRole('heading', { name: 'Presets', exact: true })).toBeVisible();
+  /* The rail asks for the page alone. */
+  await page.getByRole('navigation').getByRole('button', { name: 'Speed tuning' }).click();
+  await expect(page.getByRole('heading', { name: 'Speed Tuning', exact: true })).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
 test('the monster overlay names the preset its build is for, and Optimize opens it there', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await freshWorkspace(page);

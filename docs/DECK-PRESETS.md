@@ -182,7 +182,9 @@ an import, and are checked one preset at a time on load.
 - The order of monsters within a preset is their priority for runes. Rune
   competition exists only inside a preset, so that is the only place a
   priority means anything.
-- Each monster has a shortcut to Rune Optimization in that preset.
+- Each monster has a shortcut to Rune Optimization in that preset, and beside
+  it one to Speed Tuning with the preset's team open, disabled where Speed
+  Tuning has no team for the preset.
 
 **Rune Optimization.**
 - The preset being optimized for is shown prominently, under the monster, and

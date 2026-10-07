@@ -2447,14 +2447,14 @@ label[for] {
   color: var(--text-muted);
 }
 .monster-priority-list { list-style: none; margin: 0; padding: 0; }
-/* As tall as the arrows and as quiet, with a faint edge so it still reads as a
-   box; the margin holds it back from the counts, nearer the name it opens. */
+/* As tall as the arrows and as quiet, with a faint edge so each still reads as a
+   box; the margin holds the pair back from the counts, nearer the name. */
 .speed-icon-button.monster-priority-optimize {
   width: auto;
   padding: 0 var(--s2);
   border-color: var(--line);
-  margin-right: var(--s6);
 }
+.monster-priority-ways { display: flex; gap: var(--s2); margin-right: var(--s6); }
 .monster-priority-gear { display: inline-flex; align-items: center; gap: var(--s1); }
 .monster-priority-count { font-variant-numeric: tabular-nums; }
 /* Every entry is one fixed height, whatever its name. */
