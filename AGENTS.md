@@ -68,7 +68,7 @@ The rule has three parts, and the third is the one that gets violated:
 value the vocabulary does not cover is not a licence to shrug: it is evidence
 about a game mechanic JASWA does not model yet. Find out what the game means by
 it — the in-game panel names things the export only numbers — and model it.
-`ARTIFACT-CANONICAL.md` §15.1's equip class `98` was exactly this: 31 artifacts
+`ARTIFACT-CANONICAL.md` §15.1's engrave class `98` was exactly this: 31 artifacts
 imported and hidden for want of one lookup, and the game itself called them
 Intangible on screen.
 
@@ -348,7 +348,7 @@ parts an agent must not quietly break:
   Artifacts answers from the same engine and the same settings. Concretely:
   - The **rules** live in `app/lib/artifact-optimal-value.ts` (what a preferred
     or acceptable line is worth, what the main property adds, the benchmark in
-    the denominator) and in `artifact-score-protocol.ts` (the equip rule). Both
+    the denominator) and in `artifact-score-protocol.ts` (the engrave rule). Both
     readers — the packed scorer for rankings, `artifact-value-on-monster.ts`
     for a single artifact — call those rather than restating them.
   - The **settings** come through `scoringSettings()`, which is the one
