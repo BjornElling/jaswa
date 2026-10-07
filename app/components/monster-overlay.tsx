@@ -17,6 +17,7 @@ import { PencilIcon } from './pencil-icon';
 import type { MonsterReference } from './monster-link';
 import type { Artifact } from '../lib/artifacts';
 import { usePresets } from '../lib/presets-context';
+import { accountItems, defaultPresetId, monsterInPreset } from '../lib/presets';
 import { readArtifacts } from '../lib/artifacts';
 import type { ArtifactCategory, ArtifactMainProperty } from '../lib/artifact-properties';
 import { artifactMainPropertyOrder, artifactPropertiesFor } from '../lib/artifact-properties';
@@ -244,14 +245,16 @@ function Nickname({ value, editing, onEditingChange, onCommit }: {
   </>;
 }
 
-export function MonsterOverlay({ target, game, general, preferences, onSave, onClose, onOptimize }: {
+export function MonsterOverlay({ target, game, general, preferences, presetId, onSave, onClose, onOptimize }: {
   target: MonsterReference;
   game: GameRecord | undefined;
   general: GeneralSettings;
   preferences: MonsterCopyPreferences | undefined;
+  /** The preset chosen across the program; read here only where the copy stands in it. */
+  presetId: string;
   onSave: (unitId: string, preferences: MonsterCopyPreferences) => void;
   onClose: () => void;
-  onOptimize: (unitId: string) => void;
+  onOptimize: (unitId: string, presetId: string) => void;
 }) {
   const [draft, setDraft] = useState<MonsterCopyPreferences>(
     () => preferences ?? blankMonsterCopyPreferences(target.kind === 'copy' ? target.unitId : ''),
@@ -261,11 +264,21 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
   const firstField = useRef<HTMLInputElement>(null);
   const presetsReading = usePresets();
 
+  /* One preset for the whole panel — the gear it shows, the figures it reads and
+     the build Optimize opens — so the box in the head names what everything
+     below is about. It is the program's chosen preset where the copy stands in
+     it, and Default where it does not. */
+  const preset = useMemo(() => {
+    const unitId = target.kind === 'copy' ? target.unitId : '';
+    return presetsReading.presets.find((entry) => entry.id === presetId && (entry.kind === 'default' || entry.members.includes(unitId)))
+      ?? presetsReading.presets.find((entry) => entry.kind === 'default');
+  }, [presetsReading.presets, presetId, target]);
   const monster = useMemo(() => {
     if (target.kind !== 'copy' || !game) return undefined;
     const roster = Array.isArray(game.unit_list) ? game.unit_list : [];
-    return roster.find((record) => String((record as GameRecord)?.unit_id) === target.unitId) as GameRecord | undefined;
-  }, [game, target]);
+    const record = roster.find((entry) => String((entry as GameRecord)?.unit_id) === target.unitId) as GameRecord | undefined;
+    return record && preset ? monsterInPreset(record, preset, accountItems(game)) : record;
+  }, [game, target, preset]);
 
   const masterId = target.kind === 'copy' ? target.masterId : target.speciesId;
   const display = target.kind === 'copy' ? monsterPresentation(masterId) : monsterSpeciesPresentation(masterId);
@@ -294,15 +307,17 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
     if (!monster || !game) return { artifacts: {} as Partial<Record<ArtifactCategory, Artifact>>, relics: [] as Relic[] };
     const unitId = String(monster.unit_id);
     const artifacts: Partial<Record<ArtifactCategory, Artifact>> = {};
+    /* The preset's artifacts, not the ones the export marks as engraved, which are Default's. */
+    const inPreset = new Set(preset?.artifactsOf.get(unitId) ?? []);
     for (const artifact of readArtifacts(game)) {
       if (!canEngraveArtifacts(monster)) continue;
-      if (artifact.occupiedId === unitId) artifacts[artifact.category] = artifact;
+      if (inPreset.has(artifact.id)) artifacts[artifact.category] = artifact;
     }
     const relicIds = new Set((Array.isArray(monster.relics) ? monster.relics : [])
       .map((entry) => String((entry as GameRecord | null)?.rid)));
     return { artifacts, relics: canEngraveRelics(monster)
       ? readRelics(game).filter((relic) => relicIds.has(relic.id)) : [] };
-  }, [game, monster]);
+  }, [game, monster, preset]);
 
   /* Read from the copy's own record, where the export keeps what a monster
      has engraved, through the one rune reader every page uses. */
@@ -354,8 +369,8 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
      reading `—` rather than disappearing when the import cannot say, so the row
      keeps its shape. A species' element is the last digit of its id, which is
      how the game numbers the five elemental copies. */
-  /* The gear below is Default's; the presets the copy also stands in, each with
-     gear of its own, are counted here and named on hover (`DECK-PRESETS.md` §5). */
+  /* The presets the copy stands in, each with gear of its own, are counted here
+     and named on hover (`DECK-PRESETS.md` §5); the box beside names the one read. */
   const memberOf = target.kind === 'copy'
     ? presetsReading.presets.filter((preset) => preset.kind !== 'default' && preset.members.includes(target.unitId))
     : [];
@@ -451,8 +466,14 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
           aria-label={`Optimize runes for ${heroName}`}
           onClick={() => {
             if (dirty) onSave(target.unitId, { ...draft, unitId: target.unitId });
-            onOptimize(target.unitId);
+            onOptimize(target.unitId, preset?.id ?? defaultPresetId);
           }}>Optimize</Button>}
+        {/* Which preset the build is for, where it cannot be missed: the same copy
+            carries a different build in each preset it stands in. */}
+        {editable && <div className="monster-overlay-preset" role="group" aria-label="Build for preset">
+          <span className="monster-overlay-preset-label">Build for</span>
+          <span className="monster-overlay-preset-name" title={preset?.name}>{preset?.name ?? 'Default'}</span>
+        </div>}
       </header>
 
       <div className="overlay-body monster-overlay-body">
@@ -597,7 +618,7 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
             : <>
               {/* What the copy has engraved, written the way a desired build is, so the
                   two read against each other without translation. */}
-              {/* Default's gear: the copy's own, outside every preset. */}
+              {/* The gear of the preset named in the head; the relics are Default's in every preset. */}
               <Section title="Engraved runes" note={currentBuild === '' ? 'No runes engraved' : currentBuild}>
                 <EngravedRunes runes={engravedRunes} format={format} />
               </Section>

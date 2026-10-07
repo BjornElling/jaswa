@@ -756,6 +756,7 @@ export default function Home() {
       preferences={overlay.target.kind === 'copy' ? preferences.monsterPreferences[overlay.target.unitId] : undefined}
       onSave={updateMonsterPreferences}
       onClose={closeOverlay}
+      presetId={selectedPreset}
       onOptimize={optimizeMonster}
     /></Suspense>}
 

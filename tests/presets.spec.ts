@@ -471,10 +471,46 @@ test('Optimize opens Rune Optimization on that monster in that preset', async ({
   await expect(page.getByRole('heading', { name: 'Rune Optimization', exact: true })).toBeVisible();
   await expect(page.getByLabel('Preset', { exact: true })).toHaveValue('deck-24-101');
   await expect(page.getByLabel('Monster', { exact: true })).toHaveValue('11');
-  /* Only the preset's own monsters can be built for in it. */
-  await expect(page.getByLabel('Monster', { exact: true }).locator('option[value="12"]')).toHaveCount(0);
+  /* One plain list of the presets the monster stands in, Default first, with no headings. */
+  const preset = page.getByLabel('Preset', { exact: true });
+  await expect(preset.locator('optgroup')).toHaveCount(0);
+  await expect(preset.locator('option')).toHaveText(['Default', 'Arena Attack 4', "Giant's Keep 1"]);
+  /* A monster the preset has no place for takes the build back to Default, and lists its own presets. */
+  await page.getByLabel('Monster', { exact: true }).selectOption('12');
+  await expect(preset).toHaveValue('default');
+  await expect(preset.locator('option')).toHaveText(['Default', 'Arena Attack 4', 'Deck 99 · 1']);
+});
+
+test('the monster overlay names the preset its build is for, and Optimize opens it there', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await freshWorkspace(page);
+  await importAccount(page);
+  await openPresets(page);
+  const names = await copyNames(page);
+
+  /* From Arena Attack 4 the overlay reads 12 there: its three runes, not Default's six. */
+  await choosePreset(page, 'Arena Attack', 'Arena Attack 4');
+  await page.locator('.monster-priority-entry').first().locator('.monster-link').click();
+  const dialog = page.getByRole('dialog');
+  const box = dialog.getByRole('group', { name: 'Build for preset' });
+  await expect(box).toHaveText('Build forArena Attack 4');
+  await expect(box).toHaveCSS('border-top-color', 'rgb(217, 173, 82)');
+  const filled = (scope: Locator) => scope.getByRole('list', { name: 'Engraved runes' }).locator('.engraved-rune:not([data-empty])');
+  await expect(filled(dialog)).toHaveCount(3);
+  const optimize = dialog.getByRole('button', { name: `Optimize runes for ${names[12]}` });
+  const [boxAt, optimizeAt] = [await box.boundingBox(), await optimize.boundingBox()];
+  expect(optimizeAt!.x + optimizeAt!.width).toBeLessThanOrEqual(boxAt!.x);
+  await page.screenshot({ path: testInfo.outputPath('overlay-preset-box.png') });
+  await optimize.click();
+  await expect(page.getByRole('heading', { name: 'Rune Optimization', exact: true })).toBeVisible();
+  await expect(page.getByLabel('Preset', { exact: true })).toHaveValue('deck-1-4');
+  await expect(page.getByLabel('Monster', { exact: true })).toHaveValue('12');
+
+  /* In Default, it says so. */
   await page.getByLabel('Preset', { exact: true }).selectOption('default');
-  await expect(page.getByLabel('Monster', { exact: true }).locator('option[value="12"]')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Open profile' }).click();
+  await expect(page.getByRole('dialog').getByRole('group', { name: 'Build for preset' })).toHaveText('Build forDefault');
+  await expect(filled(page.getByRole('dialog'))).toHaveCount(6);
 });
 
 test('the monster overlay Optimize button shares the preset row\'s hover', async ({ page }, testInfo) => {
@@ -527,8 +563,8 @@ test('Rune Optimization leaves a higher-priority monster\'s runes in the same pr
   const names = await copyNames(page);
 
   await openOptimization(page);
-  await page.getByLabel('Preset', { exact: true }).selectOption('deck-1-4');
   await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  await page.getByLabel('Preset', { exact: true }).selectOption('deck-1-4');
   const freeOnly = page.getByLabel('Only use runes free in this preset');
   const include = page.getByLabel('Include runes from higher-priority monsters');
   /* Both off, and neither ever disables the other. */

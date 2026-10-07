@@ -298,7 +298,8 @@ label[for] {
 /* Title — what a panel, card, dialog or disclosure is called. */
 .type-title, .block-title, .bar-head b, .dialog h2, .role-name, .route-name,
 .route-body-title, .statistics h4, .acceleration-word, .handheld-brand,
-.rune-simulator-count-input, .rune-simulator-stats-total, .rune-emblem.placeholder {
+.rune-simulator-count-input, .rune-simulator-stats-total, .rune-emblem.placeholder,
+.monster-overlay-preset-name {
   font-family: var(--font-heading);
   font-size: var(--type-title);
   font-weight: 600;
@@ -388,7 +389,7 @@ label[for] {
 .artifact-recommendation-table th, .overlay-row-label, .overlay-stat-head,
 .rune-simulator-stats-table thead th, .overlay-facts dt, .rune-overlay-subs th,
 .rune-overlay-readings thead th, .speed-group-title, .rune-build-card-where-label, .rune-build-change-title,
-.monster-priority-head, .engraved-artifact-category {
+.monster-priority-head, .engraved-artifact-category, .monster-overlay-preset-label {
   font-family: var(--font-body);
   font-size: var(--type-label);
   font-weight: 700;
@@ -5172,11 +5173,29 @@ html.overlay-open .overlay-backdrop { right: var(--overlay-gutter, 0px); }
   padding: var(--s5);
   border-bottom: 1px solid var(--line);
 }
-.monster-overlay-head { grid-template-columns: auto minmax(0, 1fr) auto; }
+.monster-overlay-head { grid-template-columns: auto minmax(0, 1fr) auto auto; }
 .monster-overlay-optimize { justify-self: end; }
+/* The preset the whole panel is read in, at the head's far edge in the accent:
+   the one fact here a reader must not take for Default when it is not. As tall
+   as the portrait's middle third and of a fixed width, so a long preset name
+   ellipsises rather than squeezing the monster's name. */
+.monster-overlay-preset {
+  display: grid;
+  align-content: center;
+  gap: var(--s1);
+  width: 30ch;
+  min-height: 72px;
+  padding: var(--s3) var(--s5);
+  border: 2px solid var(--text-accent);
+  border-radius: var(--radius);
+  background: var(--gold-deep);
+}
+.monster-overlay-preset-label { color: var(--text-muted); }
+.monster-overlay-preset-name { color: var(--text-accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 640px) {
   .monster-overlay-head { grid-template-columns: auto minmax(0, 1fr); }
   .monster-overlay-optimize { grid-column: 2; justify-self: start; }
+  .monster-overlay-preset { grid-column: 1 / -1; width: auto; }
 }
 /* A mark rather than type, so its size is stated here the way --glyph-* is:
    large enough that the monster is recognised before its name is read. */

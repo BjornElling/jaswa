@@ -37,7 +37,7 @@ import { higherPriorityThan, presetPriorityOf } from '../lib/monster-priority';
 import { monsterCopyNames } from '../lib/monster-names';
 import { monsterStatTargetKeys, readTargetField } from '../lib/monster-preferences';
 import { monsterTargetFigures } from '../lib/monster-stats';
-import { accountItems, defaultPresetId, monsterInPreset, presetGroupsOf, runesInPreset } from '../lib/presets';
+import { accountItems, defaultPresetId, monsterInPreset, runesInPreset } from '../lib/presets';
 import type { Preset } from '../lib/presets';
 import type { RuneHolds } from '../lib/rune-holds';
 import { craftRollAssumptions, craftRollLabels, itemGrades, readCraftItems } from '../lib/rune-craft-items';
@@ -183,16 +183,21 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
 
   /* Every build is for one preset: its runes are the preset's, and runes the
      preset leaves free are free whatever other presets hold (`DECK-PRESETS.md` §4). */
-  const preset = presets.find((entry) => entry.id === presetId) ?? presets.find((entry) => entry.id === defaultPresetId);
+  /* The monster is chosen first, and a preset only among those it stands in:
+     Default always, and a preset that does not hold the monster is read as
+     Default rather than as a build for a monster the preset has no place for. */
+  const presetChoices = useMemo(() => presets.filter((entry) => entry.kind === 'default' || (unitId !== '' && entry.members.includes(unitId))),
+    [presets, unitId]);
+  const preset = presetChoices.find((entry) => entry.id === presetId) ?? presets.find((entry) => entry.id === defaultPresetId);
   const items = useMemo(() => accountItems(game?.data), [game]);
   const names = useMemo(() => monsterCopyNames(monsters, preferences.monsterPreferences), [monsters, preferences.monsterPreferences]);
   const options = useMemo<MonsterOption[]>(() => (preset ? monsters : [])
     .filter((monster) => monster.unit_id !== undefined && monster.unit_id !== null)
-    .filter((monster) => preset?.kind === 'default' || preset?.members.includes(String(monster.unit_id)))
     .map((monster) => {
       const id = String(monster.unit_id);
+      const inPreset = preset && (preset.kind === 'default' || preset.members.includes(id));
       return { unitId: id, masterId: String(monster.unit_master_id ?? ''), name: names[id]?.name ?? id,
-        record: preset ? monsterInPreset(monster, preset, items) : monster };
+        record: preset && inPreset ? monsterInPreset(monster, preset, items) : monster };
     })
     .sort((left, right) => monsterNameCollator.compare(left.name, right.name) || left.unitId.localeCompare(right.unitId)),
   [monsters, names, preset, items]);
@@ -292,6 +297,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
 
   function chooseMonster(next: string) {
     setUnitId(next);
+    if (preset && preset.kind !== 'default' && !preset.members.includes(next)) onSelectPreset(defaultPresetId);
     setEdits(null);
     setChosenBuild(null);
   }
@@ -379,9 +385,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
           <label className="filter-label" htmlFor="rune-optimization-preset">Preset</label>
           <Dropdown id="rune-optimization-preset" className="rune-optimization-preset-select" value={activePresetId}
             onChange={(event) => { onSelectPreset(event.target.value); setEdits(null); setChosenBuild(null); }}>
-            {presetGroupsOf(presets).map((group) => <optgroup key={group.label} label={group.label}>
-              {group.presets.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
-            </optgroup>)}
+            {presetChoices.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
           </Dropdown>
         </div>
 

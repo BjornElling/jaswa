@@ -185,8 +185,10 @@ an import, and are checked one preset at a time on load.
 - Each monster has a shortcut to Rune Optimization in that preset.
 
 **Rune Optimization.**
-- The preset being optimized for is shown prominently and can be changed
-  there.
+- The preset being optimized for is shown prominently, under the monster, and
+  can be changed there: one plain list of Default and the presets the monster
+  stands in. Choosing a monster its preset has no place for goes back to
+  Default.
 - The candidate runes are every owned rune, minus those engraved on other
   monsters of the same preset where the settings say so, minus the Siege Battle
   defense pool when the preset is a Siege Battle defense preset. Runes in other
