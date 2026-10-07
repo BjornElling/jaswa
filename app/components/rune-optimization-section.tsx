@@ -215,7 +215,13 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
     : undefined), [selected, preferences.monsterPreferences]);
   const requirements = edits !== null && edits.unitId === unitId ? edits.requirements : profile?.requirements;
 
-  const runes = useMemo(() => (game && preset ? runesInPreset(readRunes(game.data), preset) : []), [game, preset]);
+  const accountRunes = useMemo(() => (game ? readRunes(game.data) : []), [game]);
+  const runes = useMemo(() => (preset ? runesInPreset(accountRunes, preset) : []), [accountRunes, preset]);
+  /* A rune the chosen preset leaves on no monster may still be engraved in
+     Default, and the game shows it on that monster; the overlay names it as the
+     game does rather than "Inventory". */
+  const defaultPlaces = useMemo(() => (preset && preset.kind !== 'default'
+    ? new Map(accountRunes.map((rune) => [rune.id, rune.occupiedId])) : undefined), [accountRunes, preset]);
   const holds = useMemo(() => (preset ? holdsIn(preset, preferences.runeHolds) : preferences.runeHolds), [preset, preferences.runeHolds]);
   const runesById = useMemo(() => new Map(runes.map((rune) => [rune.id, rune])), [runes]);
   const craftItems = useMemo(() => (game ? readCraftItems(game.data) : []), [game]);
@@ -616,7 +622,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
     {builds && showingBuild && chosenBuild !== null && builds[chosenBuild] && <RuneBuildOverlay
       index={chosenBuild} buildName={buildNameOf(builds[chosenBuild].runes.map((rune) => rune.setId))}
       moves={builds[chosenBuild].moves} runes={builds[chosenBuild].runes}
-      runesById={runesById} loadedPlacements={game?.loadedPlacements?.[activePresetId]} monster={buildMonster} engravedOn={(id) => monstersByUnitId.get(id)}
+      runesById={runesById} loadedPlacements={game?.loadedPlacements?.[activePresetId]} defaultPlaces={defaultPlaces} monster={buildMonster} engravedOn={(id) => monstersByUnitId.get(id)}
       general={general} canEngrave={canEngrave || preset?.kind === 'own'} onEngrave={(engraveUnitId, runeIds) => onEngrave(activePresetId, engraveUnitId, runeIds)}
       onClose={closeBuild} onOpenRune={onOpenRune} onOpenMonster={onOpenMonster} />}
   </WorkspacePage>;

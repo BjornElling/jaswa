@@ -114,13 +114,15 @@ function ChangeLine({ change, format }: { change: Change; format: (value: number
   </li>;
 }
 
-/* A place as the card names it: this monster, the inventory, or a link to the
-   monster the rune is engraved on. */
-function placeName(
-  place: string | null, thisMonster: string,
-  engravedOn: (unitId: string) => EngravedOnMonster | undefined, onOpenMonster: OpenMonsterOverlay,
-): ReactNode {
-  if (place === null) return 'Inventory';
+type Places = {
+  thisMonster: string;
+  /** Each rune's monster in Default, where the build is for a preset; `undefined` in Default itself. */
+  defaultPlaces: ReadonlyMap<string, string | null> | undefined;
+  engravedOn: (unitId: string) => EngravedOnMonster | undefined;
+  onOpenMonster: OpenMonsterOverlay;
+};
+
+function monsterName(place: string, { thisMonster, engravedOn, onOpenMonster }: Places): ReactNode {
   if (place === thisMonster) return 'This monster';
   const engraved = engravedOn(place);
   return engraved
@@ -128,16 +130,24 @@ function placeName(
     : 'Monster not in this import';
 }
 
-function RuneCard({ picked, rune, thisMonster, loadedPlace, engravedOn, format, onOpenRune, onOpenMonster }: {
+/* A place as the card names it: this monster, the inventory, or a link to the
+   monster the rune is engraved on. A rune no monster of the preset carries but
+   one carries in Default names that monster, because the game shows it engraved
+   there and draws no line between the two; "Inventory" would send the player
+   looking for it in the game's inventory. */
+function placeName(runeId: string, place: string | null, places: Places): ReactNode {
+  const shown = place ?? places.defaultPlaces?.get(runeId) ?? null;
+  return shown === null ? 'Inventory' : monsterName(shown, places);
+}
+
+function RuneCard({ picked, rune, loadedPlace, places, format, onOpenRune }: {
   picked: CurrentPick;
   rune: Rune | undefined;
-  thisMonster: string;
   /** Where the rune sat when the import was loaded, where JASWA has moved it since; else `undefined`. */
   loadedPlace: string | null | undefined;
-  engravedOn: (unitId: string) => EngravedOnMonster | undefined;
+  places: Places;
   format: (value: number) => string;
   onOpenRune: OpenRuneOverlay;
-  onOpenMonster: OpenMonsterOverlay;
 }) {
   if (!rune) {
     return <li className="rune-build-card" data-slot={picked.slot} aria-label={`Slot ${picked.slot}`}>
@@ -147,10 +157,10 @@ function RuneCard({ picked, rune, thisMonster, loadedPlace, engravedOn, format, 
   let location: ReactNode;
   if (picked.locked) location = 'Locked to this monster';
   else if (picked.issue?.kind === 'locked-away' && rune.occupiedId === null) location = 'Locked in the inventory';
-  else if (rune.occupiedId === null || rune.occupiedId === thisMonster) {
-    location = placeName(rune.occupiedId, thisMonster, engravedOn, onOpenMonster);
+  else if (rune.occupiedId === null || rune.occupiedId === places.thisMonster) {
+    location = placeName(rune.id, rune.occupiedId, places);
   } else {
-    const link = placeName(rune.occupiedId, thisMonster, engravedOn, onOpenMonster);
+    const link = placeName(rune.id, rune.occupiedId, places);
     location = picked.issue?.kind === 'locked-away' ? <>Locked to {link}</> : link;
   }
   /* Only where the rune has really moved since the import: one moved and moved
@@ -194,14 +204,14 @@ function RuneCard({ picked, rune, thisMonster, loadedPlace, engravedOn, format, 
     <div className="rune-build-card-where" data-visible={moved} aria-hidden={!moved}>
       <span className="rune-build-card-where-label">Previously</span>
       <span className="rune-build-card-where-value">
-        {moved ? placeName(loadedPlace, thisMonster, engravedOn, onOpenMonster) : ''}
+        {moved ? placeName(rune.id, loadedPlace, places) : ''}
       </span>
     </div>
   </li>;
 }
 
 export function RuneBuildOverlay({
-  index, buildName, moves, runes, runesById, loadedPlacements, monster, engravedOn, general, canEngrave, onEngrave, onClose,
+  index, buildName, moves, runes, runesById, loadedPlacements, defaultPlaces, monster, engravedOn, general, canEngrave, onEngrave, onClose,
   onOpenRune, onOpenMonster,
 }: {
   index: number;
@@ -211,6 +221,8 @@ export function RuneBuildOverlay({
   runesById: ReadonlyMap<string, Rune>;
   /** Where the runes JASWA has moved sat in this preset when the import was loaded (`ImportedGame`). */
   loadedPlacements: Readonly<Record<string, string | null>> | undefined;
+  /** Each rune's monster in Default, where the build is for a preset; `undefined` for a build in Default. */
+  defaultPlaces: ReadonlyMap<string, string | null> | undefined;
   /** Drawn in the middle of the circle, and the monster its own runes read as staying on. */
   monster: BuildMonster;
   engravedOn: (unitId: string) => EngravedOnMonster | undefined;
@@ -238,6 +250,7 @@ export function RuneBuildOverlay({
     { label: 'Grindstones', value: formatNumber(grinds, general) },
   ];
   const engravedOnName = (unitId: string) => engravedOn(unitId)?.name;
+  const places: Places = { thisMonster: monster.unitId, defaultPlaces, engravedOn, onOpenMonster };
   const complete = bySlot.length === 6 && bySlot.every((picked) => runesById.has(picked.runeId));
   const alreadyEngraved = complete && bySlot.every((picked) => runesById.get(picked.runeId)?.occupiedId === monster.unitId);
 
@@ -288,8 +301,7 @@ export function RuneBuildOverlay({
       <div className="rune-build-circle">
         <ol className="rune-build-runes" aria-label="Runes">
           {bySlot.map((picked) => <RuneCard key={picked.slot} picked={picked} rune={runesById.get(picked.runeId)}
-            thisMonster={monster.unitId} loadedPlace={loadedPlacements?.[picked.runeId]}
-            engravedOn={engravedOn} format={format} onOpenRune={onOpenRune} onOpenMonster={onOpenMonster} />)}
+            loadedPlace={loadedPlacements?.[picked.runeId]} places={places} format={format} onOpenRune={onOpenRune} />)}
         </ol>
         <div className="rune-build-centre">
           <MonsterLink target={{ kind: 'copy', unitId: monster.unitId, masterId: monster.masterId }}
