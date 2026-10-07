@@ -10,7 +10,8 @@ import type { FigureMark, FigureMarkTone } from '../lib/figure-marks';
  * read first, and each is coloured: a mark with no tone of its own would be one
  * the reader cannot rank. The tones are the verdict colours (`globals.css`):
  *
- * - **red** — something is wrong with the figure. Nothing uses it yet.
+ * - **red** — something is wrong with the figure: a figure to sort by with no
+ *   HP, ATK or DEF floor to say what else the build must carry.
  * - **yellow** — something is left to do: a wish the copy does not meet yet, a
  *   found build the account has moved out from under.
  * - **green** — a fact in the figure's favour, including combat CRI Rate bonuses.

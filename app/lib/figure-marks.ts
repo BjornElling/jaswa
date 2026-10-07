@@ -1,7 +1,7 @@
 import { artifactMainPropertyOrder } from './artifact-properties';
 import type { GearKind, GearMainAdvice, MainStat, MainStatAdvice, MainStatBasis } from './main-stat-model';
-import { contradictsAdvice } from './main-stat-model';
-import type { BandedChoices } from './monster-preferences';
+import { contradictsAdvice, statesMainStatFloor } from './main-stat-model';
+import type { BandedChoices, MonsterCopyPreferences } from './monster-preferences';
 import type { Shortfall } from './monster-shortfall';
 import type { CombatBonuses, LeadStat } from './monster-stats';
 import { leadStats } from './monster-stats';
@@ -67,6 +67,23 @@ export function shortfallMarks(shortfalls: readonly Shortfall[], general: Genera
 /** A found build that no longer holds as the search found it. Empty where it still does. */
 export function buildIssueMarks(reading: string): FigureMark[] {
   return reading === '' ? [] : [{ key: 'build-issue', tone: 'yellow', reading, glyph: 'slashed' }];
+}
+
+/**
+ * A figure to sort by with no HP, ATK or DEF floor beside it: red, because the
+ * answer is incomplete rather than merely unfinished. The figure maximised is
+ * rarely one given a floor, so the floors are what say what else the build must
+ * carry — and where the copy wears no six runes, they are what the artifact and
+ * relic mains are worked out from (`main-stat-model.ts`).
+ */
+export function sortWithoutFloorMarks(stated: MonsterCopyPreferences | undefined): FigureMark[] {
+  if (stated?.runeSuggestionStat === undefined || statesMainStatFloor(stated)) return [];
+  return [{
+    key: 'sort-without-floor',
+    tone: 'red',
+    reading: 'Set a minimum for HP, ATK or DEF too: artifact and relic recommendations can rest on these minimums.',
+    glyph: 'ring',
+  }];
 }
 
 const basisWords: Readonly<Record<MainStatBasis, string>> = {

@@ -86,6 +86,14 @@ const fixedMainValues: Record<MainStat, number> = {
 const leadFields: Record<MainStat, 'hpLead' | 'atkLead' | 'defLead'> = { HP: 'hpLead', ATK: 'atkLead', DEF: 'defLead' };
 const targetFields: Record<MainStat, 'hp' | 'atk' | 'def'> = { HP: 'hp', ATK: 'atk', DEF: 'def' };
 
+/**
+ * Whether a copy states a floor the model can read — one on HP, ATK or DEF. A
+ * stated `0` counts: it is an answer, if an answer of nothing.
+ */
+export function statesMainStatFloor(stated: MonsterCopyPreferences | undefined): boolean {
+  return artifactMainPropertyOrder.some((stat) => stated?.statTargets?.[targetFields[stat]] !== undefined);
+}
+
 type BaseStats = Record<MainStat, number>;
 
 function baseStatsOf(monster: GameRecord): BaseStats | undefined {
@@ -129,7 +137,7 @@ function runeNeed(monster: GameRecord, base: BaseStats): Record<MainStat, number
  */
 function targetNeed(base: BaseStats, stated: MonsterCopyPreferences | undefined): Record<MainStat, number> | undefined {
   const targets = stated?.statTargets;
-  if (!targets || artifactMainPropertyOrder.every((stat) => targets[targetFields[stat]] === undefined)) return undefined;
+  if (!targets || !statesMainStatFloor(stated)) return undefined;
   const need = { HP: 0, ATK: 0, DEF: 0 };
   for (const stat of artifactMainPropertyOrder) {
     const target = targets[targetFields[stat]];

@@ -5551,6 +5551,7 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 /* The tie-break, in the twelfth cell of the ranges it follows from: its name on
    the line the figures' names sit on, its answer on the line of their fields. */
 .overlay-sort { display: grid; gap: var(--s1); align-content: start; min-width: 0; }
+.overlay-sort-head { display: flex; align-items: center; gap: var(--s1); min-width: 0; }
 
 /* The switches that qualify the answers: four toggles two by two, each owning a
    fixed cell so checking one moves nothing, and the leads beside them under their

@@ -119,6 +119,14 @@ Worked examples (relic, so worth is the need's own order):
   wrong way. The owner's answer still stands — the mark informs, it never
   overrides.
 
+- **The missing-floor mark.** A copy that names a figure to sort by but states
+  no HP, ATK or DEF floor carries a red mark beside *When met, sort by*. The
+  figure maximised is rarely one given a floor, so the floors are what say what
+  else the build must carry, and where the copy wears no six runes they are what
+  this model reads. A floor on any other figure does not clear the mark: the
+  model cannot read it. `statesMainStatFloor` is the one test of that, shared by
+  the mark and the model.
+
 ## 6. One stated answer, two pieces
 
 The owner states one main answer for all gear (`ARTIFACT-CANONICAL.md` §19.2),
