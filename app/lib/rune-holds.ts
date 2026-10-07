@@ -18,8 +18,10 @@ import type { Rune } from './runes';
 export type RuneHold = {
   /** Never to be sold, whatever the engine reads it as. */
   unsellable?: true;
-  /** Staying on the monster it is on. Only an engraved rune can be locked, but a
-      lock is kept when the rune leaves: the next sync must not undo it. */
+  /** Staying on the monster it is on in Default. A preset holds its own runes
+      (`DECK-PRESETS.md` §4), so the lock binds Default and no preset. Only a rune
+      engraved in Default can be locked, but a lock is kept when the rune leaves:
+      the next sync must not undo it. */
   locked?: true;
 };
 
@@ -46,7 +48,7 @@ export function runeHoldVerdict(hold: RuneHold | undefined): RuneHoldVerdict | n
 export const filteredRuneVerdict = (verdict: ShownRuneVerdict): RuneVerdict =>
   verdict === 'locked' || verdict === 'unsellable' ? 'keep' : verdict;
 
-/** Whether the lock can be put on: only an engraved rune has a monster to be locked to. */
+/** Whether the lock can be put on: only a rune engraved in Default has a monster to be locked to. */
 export const canLockRune = (rune: Rune): boolean => rune.occupiedId !== null;
 
 /**

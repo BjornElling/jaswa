@@ -142,17 +142,25 @@ says the figure was chosen from the monster's type.
 
 ## 3. Candidates
 
+Every search is for one monster **in one preset** — Default or a saved preset
+(`DECK-PRESETS.md` §4). The page reads the monster's artifacts and the runes it
+starts from out of that preset, and every rune's place is read through
+`runesInPreset`: `occupiedId` names the monster carrying it *in this preset*, or
+`null` where none of the preset's monsters does. A rune engraved only in other
+presets is therefore free here, because a preset holds its own gear.
+
 A **candidate** is one rune in one end state: as it stands, or with the Gem and
 Grindstones the settings allow. A rune enters its own slot's list when:
 
-- it is **not locked to another monster** (`rune-holds.ts`). A rune locked to *this*
-  monster is the slot's only candidate, exactly as engraved: no filter removes it and
-  no craft item is counted on it.
-- it sits in the inventory, on this monster, or — unless *Only use runes from
-  inventory* is ticked — on another monster;
-- that other monster is not **above it on the priority list** (`monster-priority.ts`,
-  the *Rune Priority* page), unless *Include runes from higher-priority monsters* is
-  ticked. A monster not on the list ranks below every monster on it, so it takes no
+- in Default, it is **not locked to another monster** (`rune-holds.ts`). A rune
+  locked to *this* monster is the slot's only candidate, exactly as engraved: no
+  filter removes it and no craft item is counted on it. A lock binds Default only;
+  in a preset it neither holds nor refuses a rune.
+- it is free in the preset, on this monster, or — unless *Only use runes free in
+  this preset* is ticked — on another monster of the preset;
+- that other monster is not **above it on the preset's priority list**
+  (`monster-priority.ts`, the *Presets* page), unless *Include runes from
+  higher-priority monsters* is ticked. A monster not on the list ranks below every monster on it, so it takes no
   rune from any of them. The page resolves the list into the copies spared
   (`RuneOptimizationInput.spared`); the search never reads the order or the switch,
   and `mayTakeFrom` is the one rule both it and the re-reading of a build apply. The
@@ -819,7 +827,7 @@ table pick for pick. It needs a running dev server and a card, and is not part o
    line under each that says only what differs from the profile or where an
    unstated answer came from; *Reset to profile* under them. One third, down the
    whole box: *Runes* (broken sets and Intangible) from the profile; *Selection*
-   (inventory, empty slots, priority and maximum changes); *Adjustments* (unfinished
+   (free runes, empty slots, priority and maximum changes); *Adjustments* (unfinished
    mains and the +12 limit); *Gems/Grinds* (Immemorial from the profile), then Gems
    and Grindstones. Selection, adjustments and craft assumptions are saved
    preferences and hold for every monster.
@@ -836,14 +844,17 @@ table pick for pick. It needs a running dev server and a card, and is not part o
    main, innate, sub properties and where the rune is; and beside the circle, slot
    by slot, the modifications the build assumes — which line a Gem replaces and
    with what, which stone goes on which line, and a main counted at +12 or +15.
-   *Engrave on monster* moves the six physical runes into the selected monster in
-   the saved import. Its former runes return to inventory; a rune borrowed from
-   another monster leaves that monster. The account rune list and each monster's
-   gear are updated together, with no separate plan or undo state. Gems,
-   Grindstones and future power-ups remain modifications to perform in the game.
-   The action is unavailable under *Always synchronized*, where the next helper
-   update would replace the local placement. *Read on game start* and *Load a
-   JSON file* allow it.
+   *Engrave on monster* engraves the six runes on the selected monster **in the
+   chosen preset and nowhere else**. In Default it moves the physical runes in the
+   saved import, its former runes returning to inventory; in a game preset it
+   rewrites that deck's saved gear, a preset that saved only its monsters first
+   taking every member's Default gear; in a preset built in JASWA it writes the
+   preference. A rune taken from another monster of the same preset leaves that
+   monster; no other preset changes. There is no separate plan or undo state.
+   Gems, Grindstones and future power-ups remain modifications to perform in the
+   game. Engraving in Default or a game preset is unavailable under *Always
+   synchronized*, where the next helper update would replace the local placement;
+   a preset built in JASWA may always be engraved.
 6. **Following the table** — a change to the runes does not throw the table away.
    The player follows it by moving, gemming and grinding, and a sync bringing that
    back re-reads every build against the account as it is now
@@ -858,8 +869,8 @@ table pick for pick. It needs a running dev server and a card, and is not part o
    - it is **locked where it is**, and that is not this monster (or the inventory);
    - **another rune is locked into its slot** on this monster;
    - it now sits on **another monster** whose runes the search could not take —
-     *Only use runes from inventory* was ticked, or that monster is above this one on
-     the priority list;
+     *Only use runes free in this preset* was ticked, or that monster is above this
+     one on the preset's priority list;
    - **another rune now fills the slot** while only empty slots may change;
    - the build now needs **more rune changes than its limit**;
    - the Gems and Grindstones **still to come need more of a held item** than the

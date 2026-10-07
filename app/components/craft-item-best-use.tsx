@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { AncientName } from './ancient-mark';
 import { FilterButton } from './button';
 import { Dropdown } from './dropdown';
+import { EngravedPlace } from './engraved-place';
 import { ValueSlider } from './range-slider';
 import { SortableHeader } from './sortable-table';
 import { useRowOpener } from './use-row-opener';
@@ -14,6 +15,8 @@ import { formatDecimal, formatNumber } from '../lib/formatting';
 import type { GameRecord } from '../lib/game-data';
 import { monsterNameCollator } from '../lib/monster-grid';
 import { monsterCopyNames } from '../lib/monster-names';
+import type { Engraving } from '../lib/presets';
+import { usePresets } from '../lib/presets-context';
 import type { MonsterPreferences } from '../lib/monster-preferences';
 import {
   craftKindLabels, craftLineageLabels, craftLineageNotes, craftRollDescriptions,
@@ -101,7 +104,7 @@ function isBestUseState(value: unknown): value is BestUseState {
     && candidate.count >= optionRange.minimum && candidate.count <= optionRange.maximum;
 }
 
-type Row = { candidate: CraftCandidate; location: string; order: number };
+type Row = { candidate: CraftCandidate; location: 'Engraved' | 'Inventory'; places: readonly Engraving[]; order: number };
 
 /**
  * One ranking, with the sentence that says what it ranked by.
@@ -198,6 +201,7 @@ export function CraftItemBestUse({ items, runes, monsters, monsterPreferences, r
   const roleId = role?.id ?? '';
 
   const monsterNames = useMemo(() => monsterCopyNames(monsters, monsterPreferences), [monsters, monsterPreferences]);
+  const placements = usePresets();
 
   /* A follow-up grind is only a question for a gem, and only for one whose stat
      can be ground at all (§8). The control stays mounted in every state and
@@ -223,26 +227,28 @@ export function CraftItemBestUse({ items, runes, monsters, monsterPreferences, r
     };
     const found: Row[] = [];
     runes.forEach((rune, order) => {
-      const engraved = rune.occupiedId !== null;
+      const places = placements.runes.get(rune.id) ?? [];
+      const engraved = places.length > 0;
       if (engraved ? !state.showEngraved : !state.showInventory) return;
       if (role && !roleWantsRune(role, rune)) return;
       const candidate = craftCandidate(item, rune, options);
       if (!candidate) return;
       found.push({
         candidate,
-        location: rune.occupiedId === null ? 'Inventory' : monsterNames[rune.occupiedId]?.name ?? 'A monster',
+        location: engraved ? 'Engraved' : 'Inventory',
+        places,
         order,
       });
     });
     return found;
   }, [item, runes, role, state.roll, state.showEngraved, state.showInventory,
-    grindApplied, grindRange, state.grindGrade, monsterNames]);
+    grindApplied, grindRange, state.grindGrade, placements]);
 
   const columns = useMemo<SortableColumn<Row>[]>(() => [
     /* Sorted on the name as the column draws it, mark included, so a set's
        Ancient runes sit beside its ordinary ones instead of tying with them. */
     { key: 'rune', label: 'Rune', align: 'left', compare: (left, right) => monsterNameCollator.compare(runeName(left.candidate.rune), runeName(right.candidate.rune)) || left.candidate.rune.slot - right.candidate.rune.slot },
-    { key: 'location', label: 'Location', align: 'left', compare: (left, right) => monsterNameCollator.compare(left.location, right.location) },
+    { key: 'location', label: 'Location', align: 'left', compare: (left, right) => left.location.localeCompare(right.location) || left.places.length - right.places.length },
     { key: 'target', label: item?.kind === 'grindstone' ? 'Improves' : 'Replaces', align: 'left', compare: (left, right) => left.candidate.replaced.statId - right.candidate.replaced.statId },
     { key: 'now', label: 'Now', align: 'right', compare: (left, right) => (left.candidate.scoreNow ?? -1) - (right.candidate.scoreNow ?? -1), initialDirection: 'descending' },
     { key: 'after', label: 'After', align: 'right', compare: (left, right) => (craftLandingScore(left.candidate) ?? -1) - (craftLandingScore(right.candidate) ?? -1), initialDirection: 'descending' },
@@ -292,7 +298,7 @@ export function CraftItemBestUse({ items, runes, monsters, monsterPreferences, r
 
   /* The table shows the rune's own facts; the gem's arithmetic is in the two
      score columns beside them. A rune is named by what a player would call it. */
-  const body = (sorted: readonly Row[]) => <tbody>{sorted.map(({ candidate, location }) => <tr key={candidate.rune.id} {...rowOpener}>
+  const body = (sorted: readonly Row[]) => <tbody>{sorted.map(({ candidate, places }) => <tr key={candidate.rune.id} {...rowOpener}>
     <td className={cell('rune')}>
       <RuneLink
         target={{ kind: 'account', runeId: candidate.rune.id }}
@@ -310,7 +316,9 @@ export function CraftItemBestUse({ items, runes, monsters, monsterPreferences, r
         </span>
       </RuneLink>
     </td>
-    <td className={cell('location')}>{location}</td>
+    <td className={cell('location')}>
+      <EngravedPlace places={places} presets={placements.presets} monsterName={(unitId: string) => monsterNames[unitId]?.name ?? 'A monster not in this import'} />
+    </td>
     {/* What lands where, in the game's own numbers: the property being spent
         on, and what it would read afterwards. A gem changes the stat as well
         as the value, so the name line carries the change too. */}
@@ -342,7 +350,7 @@ export function CraftItemBestUse({ items, runes, monsters, monsterPreferences, r
      ruled every candidate out, or the game's rules did — and in the second case
      the box list's own words say which rule, from the same reader, so the two
      pages cannot explain the same dead stack differently. */
-  const reach = useMemo(() => (item ? craftReach([item], runes).get(item.id) : undefined), [item, runes]);
+  const reach = useMemo(() => (item ? craftReach([item], runes, placements.runes).get(item.id) : undefined), [item, runes, placements]);
 
   return <div className="craft-best-use">
     <p className="lead">

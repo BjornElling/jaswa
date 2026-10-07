@@ -38,13 +38,18 @@ try {
     runePotentialPresets: [withRefreshedMetrics({ ...firstRole, name: 'My nuker', targets: { ...firstRole.targets, atk: 3100 } }), otherRoles[0]],
     artifacts: { ...blank.artifacts, acceptableWorth: 75, recalculate: 'on-change' },
     speedTuning: {
-      teams: [{ id: 'team-a', content: speedContents[0].id, members: [{ unitId: '17' }], leaderUnitId: '17' }],
-      rules: [
-        { id: 'rule-a', unitId: '17', must: { kind: 'move-before', unitId: '18' }, displaySpeed: true, dungeonSpeed: false, arenaSpeed: true },
-        { id: 'rule-b', unitId: '18', must: { kind: 'stay-between', minimum: 150, maximum: 160 }, displaySpeed: false, dungeonSpeed: false, arenaSpeed: false },
-      ],
+      presets: {
+        'deck-24-101': { order: ['18', '17'], whatIfs: { 17: 140 } },
+        'own-arena': { order: ['17'], whatIfs: {} },
+      },
     },
     monsterPriority: ['18', '17'],
+    presets: [
+      { id: 'own-arena', name: 'Arena draft', content: 'arena-attack', members: ['17', '18'], leaderUnitId: '18', gear: null },
+      { id: 'own-geared', name: 'Geared', content: null, members: ['17'], leaderUnitId: null,
+        gear: { 17: { runeIds: ['901', '902'], artifactIds: ['7001'] } } },
+    ],
+    presetPriority: { 'deck-1-4': ['18', '17'], 'deck-24-101': ['17'] },
     runeOptimization: { ...blank.runeOptimization, includeHigherPriority: true },
   };
 
@@ -134,15 +139,45 @@ try {
     for (const key of Object.keys(stored)) assert.equal(read[key], stored[key], 'a missing setting keeps all other choices');
   }
 
-  /* A team that fails costs that team. */
-  const badTeam = { ...chosen.speedTuning.teams[0], id: 'team-b', leaderUnitId: '99' };
-  const badRule = { ...chosen.speedTuning.rules[0], id: 'rule-c', must: { kind: 'stay-between', minimum: 160, maximum: 150 } };
-  const speed = readPreferences({ ...chosen, speedTuning: { teams: [chosen.speedTuning.teams[0], badTeam], rules: [...chosen.speedTuning.rules, badRule] } }, null);
-  assert.deepEqual(speed.speedTuning, chosen.speedTuning, 'an unreadable team or rule costs only itself');
+  /* A preset's speed tuning that fails costs that preset; inside one, a what-if
+     or an order entry that fails costs only itself. */
+  const speed = readPreferences({ ...chosen, speedTuning: { presets: {
+    ...chosen.speedTuning.presets,
+    'deck-1-9': 'not a tuning',
+    'deck-24-101': { order: ['18', 18, '17', '18'], whatIfs: { 17: 140, 18: 0 }, marginEnabled: true },
+  } } }, null);
+  assert.deepEqual(speed.speedTuning, chosen.speedTuning, 'an unreadable preset tuning, order entry or what-if costs only itself');
 
-  /* A team field the page no longer offers is left out, and the team kept. */
-  const retiredTeamField = readPreferences({ ...chosen, speedTuning: { ...chosen.speedTuning, teams: [{ ...chosen.speedTuning.teams[0], marginEnabled: true, margin: 2 }] } }, null);
-  assert.deepEqual(retiredTeamField.speedTuning, chosen.speedTuning, 'a retired team field costs nothing');
+  /* The teams-and-rules shape that came before presets is nothing the contract
+     names: it reads as nothing tuned, and costs no other section anything. */
+  const oldSpeed = readPreferences({ ...chosen, speedTuning: {
+    teams: [{ id: 'team-a', content: speedContents[0].id, members: [{ unitId: '17' }], leaderUnitId: '17' }],
+    rules: [{ id: 'rule-a', unitId: '17', must: { kind: 'move-before', unitId: '18' }, displaySpeed: true, dungeonSpeed: false, arenaSpeed: true }],
+  } }, null);
+  assert.deepEqual(oldSpeed.speedTuning, { presets: {} }, 'teams and rules read as nothing tuned');
+  for (const other of Object.keys(chosen)) {
+    if (other !== 'speedTuning') assert.deepEqual(oldSpeed[other], chosen[other], `an old speedTuning must keep "${other}"`);
+  }
+
+  /* A preset built here is judged whole — its fields bind one another — but
+     one that fails costs only itself, never its neighbours or another section. */
+  const brokenPresets = readPreferences({ ...chosen, presets: [
+    chosen.presets[0],
+    { ...chosen.presets[0], id: 'own-lost-leader', leaderUnitId: '99' },
+    { ...chosen.presets[1], id: 'own-twice', members: ['17', '18'], gear: { 17: { runeIds: ['901'], artifactIds: [] }, 18: { runeIds: ['901'], artifactIds: [] } } },
+    { ...chosen.presets[0], id: 'not-own' },
+    chosen.presets[1],
+    { ...chosen.presets[1], name: 'Same id again' },
+  ] }, null);
+  assert.deepEqual(brokenPresets.presets, chosen.presets, 'an unreadable own preset costs only itself');
+  for (const other of Object.keys(chosen)) {
+    if (other !== 'presets') assert.deepEqual(brokenPresets[other], chosen[other], `a broken own preset must keep "${other}"`);
+  }
+  assert.deepEqual(readPreferences({ ...chosen, presets: [] }, null).presets, [], 'an emptied preset list stays empty');
+
+  /* A game preset's order loses the entry it cannot read, not the preset or its neighbours. */
+  const order = readPreferences({ ...chosen, presetPriority: { ...chosen.presetPriority, 'deck-1-4': ['18', 5, '18', '', '17'], 'deck-99-1': 'x', '': ['17'] } }, null);
+  assert.deepEqual(order.presetPriority, chosen.presetPriority, 'an unreadable preset order entry costs only itself');
 
   /* A key the contract does not name is not a reason to reject anything. */
   assert.deepEqual(readPreferences({ ...chosen, retiredSection: { anything: true } }, null), chosen, 'an unknown section is ignored');

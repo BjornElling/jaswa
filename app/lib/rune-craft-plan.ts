@@ -277,7 +277,8 @@ export type CraftReach = {
   /** Runes the item can legally be spent on. */
   fits: number;
   /**
-   * How many of those are sitting in the rune inventory.
+   * How many of those are engraved nowhere — on no monster in Default and in
+   * no preset (`DECK-PRESETS.md` §1), since crafting one changes it in each.
    *
    * The split is the difference between an item that can be spent this evening
    * and one that costs a monster its build first, which is the fact a box list
@@ -300,7 +301,7 @@ export type CraftReach = {
  * names a set and can never reach past it, and scanning the whole box for each
  * of several hundred stacks is work with a known answer.
  */
-export function craftReach(items: readonly CraftItem[], runes: readonly Rune[]): Map<string, CraftReach> {
+export function craftReach(items: readonly CraftItem[], runes: readonly Rune[], engraved: { has(runeId: string): boolean }): Map<string, CraftReach> {
   const bySet = new Map<number, Rune[]>();
   const ordinary: Rune[] = [];
   for (const rune of runes) {
@@ -322,7 +323,7 @@ export function craftReach(items: readonly CraftItem[], runes: readonly Rune[]):
         continue;
       }
       fits += 1;
-      if (rune.occupiedId === null) spare += 1;
+      if (!engraved.has(rune.id)) spare += 1;
     }
     reach.set(item.id, {
       fits,

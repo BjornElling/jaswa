@@ -109,17 +109,21 @@ export type RuneOptimizationSettings = {
    */
   allowImmemorial: boolean;
   /**
-   * Whether a rune engraved on another monster may be moved onto this one. A locked rune
-   * never may, whatever this says: the lock is the user's own word (`rune-holds.ts`).
-   * The page asks it the other way round — *Only use runes from inventory* — so both
-   * switches beside it start off and each says what ticking it does.
+   * Whether a rune engraved on another monster *of the same preset* may be moved
+   * onto this one. A rune engraved only in other presets is always free: a preset
+   * holds its own gear (`DECK-PRESETS.md` §1), so taking it costs them nothing. A
+   * locked rune in Default never may, whatever this says: the lock is the user's
+   * own word (`rune-holds.ts`). The page asks it the other way round — *Only use
+   * runes free in this preset* — so both switches beside it start off and each
+   * says what ticking it does.
    */
   runesOnOtherMonsters: boolean;
   /**
-   * Whether a monster may also take the runes engraved on monsters above it on the
-   * priority list (`monster-priority.ts`) — and, when it is not on the list, those
-   * of every monster that is. Off, the list is respected. It means nothing while
-   * runes come from the inventory only, and stays a choice of its own regardless.
+   * Whether a monster may also take the runes engraved on monsters above it on
+   * the preset's priority list (`monster-priority.ts`) — and, when it is not on
+   * the list, those of every monster that is. Off, the list is respected. It
+   * means nothing while runes come only from those free in the preset, and stays
+   * a choice of its own regardless.
    */
   includeHigherPriority: boolean;
   /**

@@ -1,37 +1,109 @@
 import { expect, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+
+/**
+ * The import boundary of `docs/DECK-PRESETS.md`: what a saved deck may say
+ * reaches the Presets page in full, and what contradicts itself is refused with
+ * the reason, never skipped (AGENTS.md §0.1).
+ */
 
 const account = JSON.parse(readFileSync(new URL('./fixtures/synthetic-account.json', import.meta.url), 'utf8'));
 const craft = JSON.parse(readFileSync(new URL('./fixtures/craft-account.json', import.meta.url), 'utf8'));
 const rune = craft.unit_list[0].runes[0];
 
-function withDecks(duplicateWithinDeck: boolean) {
-  const engravings = (unitId: number) => ({ unit_id: unitId, rune_id_list: [rune.rune_id], artifact_id_list: [] });
-  return { ...account, runes: [rune], deck_list: duplicateWithinDeck
-    ? [{ deck_type: 1, deck_seq: 1, equip: [engravings(1), engravings(2)] }]
-    : [
-      { deck_type: 1, deck_seq: 1, equip: [engravings(1)] },
-      { deck_type: 1, deck_seq: 2, equip: [engravings(2)] },
-    ] };
+type Deck = { deck_type: number; deck_seq: number; unit_id_list: unknown[]; equip: unknown };
+const engraved = (unitId: number, runeIds: number[] = [rune.rune_id]) => ({ unit_id: unitId, rune_id_list: runeIds, artifact_id_list: [] });
+const withDecks = (deck_list: Deck[], extra: Record<string, unknown> = {}) => ({ ...account, runes: [rune], deck_list, ...extra });
+
+async function freshWorkspace(page: Page) {
+  await page.goto('/');
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  await page.evaluate(async () => {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+    await new Promise((resolve) => {
+      const request = indexedDB.deleteDatabase('jaswa-local');
+      request.onsuccess = request.onerror = request.onblocked = () => resolve(undefined);
+    });
+  });
+  await page.reload();
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
 }
 
-test('imports two saved decks that place one rune on different monsters', async ({ page }, testInfo) => {
-  await page.goto('/');
-  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
-  await page.screenshot({ path: testInfo.outputPath('before-import.png') });
+async function importFile(page: Page, name: string, data: unknown) {
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
-    name: 'deck-presets.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(withDecks(false))),
+    name, mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(data)),
   });
+}
+
+async function openPresets(page: Page) {
+  await page.getByRole('navigation').getByRole('button', { name: 'Presets' }).click();
+  await expect(page.getByRole('heading', { name: 'Presets', exact: true })).toBeVisible();
+}
+
+test('imports two saved decks that place one rune on different monsters, and both defense decks', async ({ page }, testInfo) => {
+  await freshWorkspace(page);
+  await page.screenshot({ path: testInfo.outputPath('before-import.png') });
+  await importFile(page, 'deck-presets.json', withDecks([
+    { deck_type: 1, deck_seq: 1, unit_id_list: [1, 0, 0, 0], equip: [engraved(1)] },
+    { deck_type: 1, deck_seq: 2, unit_id_list: [2, 0, 0, 0], equip: [engraved(2)] },
+  ], {
+    defense_deck_info: { unit_id_list: [2, 1, 0, 0], equip: null },
+    server_arena_defense_deck_info: { unit_id_list: [{ pos_id: 1, unit_id: 1 }, { pos_id: 2, unit_id: 0 }], equip: null },
+  }));
   await expect(page.getByText('deck-presets.json')).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('after-import.png') });
+
+  /* Every deck is reachable: the rune is engraved once in each attack preset, on its own monster. */
+  await openPresets(page);
+  const choice = page.getByLabel('Preset', { exact: true });
+  await expect(choice.locator('option')).toHaveText(['Choose preset', 'Default', 'Arena Attack 1', 'Arena Attack 2', 'Arena Defense', 'Arena Interserver Defense']);
+  for (const presetId of ['deck-1-1', 'deck-1-2']) {
+    await choice.selectOption(presetId);
+    const entries = page.locator('.monster-priority-entry');
+    await expect(entries).toHaveCount(1);
+    await expect(entries.first().getByRole('img', { name: '1 of 6 runes engraved' })).toBeVisible();
+  }
+  await choice.selectOption('arena-defense');
+  /* A defense deck has no leader field: the game leads with the first position. */
+  await expect(page.locator('.monster-priority-entry')).toHaveCount(2);
+  await expect(page.locator('.monster-priority-entry').first().getByRole('img', { name: 'Leader' })).toBeVisible();
+  await expect(page.locator('.monster-priority-about')).toHaveText('Arena Defense · saves monsters only, each on its Default gear');
 });
 
-test('reports a rune assigned twice inside one saved deck', async ({ page }, testInfo) => {
-  await page.goto('/');
-  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
-  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
-    name: 'invalid-deck.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(withDecks(true))),
-  });
-  await expect(page.getByText('This Deck Preset assigns a rune more than once or has an invalid rune ID.')).toBeVisible();
-  await page.screenshot({ path: testInfo.outputPath('invalid-deck.png') });
+test('a rune a deck still names after it was sold stays visible', async ({ page }, testInfo) => {
+  await freshWorkspace(page);
+  await importFile(page, 'sold-rune.json', withDecks([
+    { deck_type: 1, deck_seq: 1, unit_id_list: [1], equip: [engraved(1, [rune.rune_id, 999999999])] },
+  ]));
+  await expect(page.getByText('sold-rune.json')).toBeVisible();
+  await openPresets(page);
+  await page.getByLabel('Preset', { exact: true }).selectOption('deck-1-1');
+  await expect(page.locator('.monster-priority-about')).toHaveText('Arena Attack · saves runes and artifacts · names 1 sold item');
+  /* The sold rune is named beside the count, not counted as engraved. */
+  await expect(page.locator('.monster-priority-entry').getByRole('img', { name: '1 of 6 runes engraved, and 1 sold' })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('sold-rune.png') });
 });
+
+for (const [title, decks, message] of [
+  ['a rune assigned twice inside one saved deck',
+    [{ deck_type: 1, deck_seq: 1, unit_id_list: [1, 2], equip: [engraved(1), engraved(2)] }],
+    'This Deck Preset assigns a rune more than once or has an invalid rune ID.'],
+  ['a deck that saves gear for some of its monsters but not all',
+    [{ deck_type: 1, deck_seq: 1, unit_id_list: [1, 2], equip: [engraved(1)] }],
+    'This Deck Preset saves engravings for some of its monsters but not all.'],
+  ['gear engraved on a monster outside the deck',
+    [{ deck_type: 1, deck_seq: 1, unit_id_list: [1], equip: [engraved(1, []), engraved(2)] }],
+    'This Deck Preset engraves gear on a monster outside the deck, or twice on one.'],
+  ['a deck without a monster list',
+    [{ deck_type: 1, deck_seq: 1, equip: null }],
+    'This account contains a Deck Preset without a monster list.'],
+] as const) {
+  test(`reports ${title}`, async ({ page }, testInfo) => {
+    await freshWorkspace(page);
+    await importFile(page, 'invalid-deck.json', withDecks(decks as unknown as Deck[]));
+    await expect(page.getByText(message)).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath('invalid-deck.png') });
+  });
+}

@@ -1,16 +1,17 @@
 /**
- * What the user has stated on the Speed Tuning page: the teams they intend to
- * tune, the order each should move in, and the standing rules about single
- * monsters. Nothing here is shipped — the page starts empty and holds only what
- * the user typed.
+ * What the user has stated on the Speed Tuning page, preset by preset: the
+ * order each preset's monsters should move in, and the what-if display speeds
+ * tried on them. The teams themselves are the presets (`DECK-PRESETS.md` §5):
+ * their monsters and leader are the preset's, so nothing here repeats them.
  *
  * Only the user's decisions are stored. Every figure the page shows — arena
  * speed, dungeon speed, a tick, an interval — is derived from the current
- * import by `speed-tick.ts` on every render, so a stored team can never carry a
- * stale reading of a monster whose runes have since changed.
+ * import by `speed-tick.ts` on every render, so a stored order can never carry
+ * a stale reading of a monster whose runes have since changed.
  */
-import { speedContent, speedContents, speedContentTeamSize } from './speed-contents';
+import { speedContentTeamSize } from './speed-contents';
 import type { SpeedContentId } from './speed-contents';
+import { isRecord } from './preference-reading';
 
 /**
  * One monster's place in a team, and the what-if display speed the user tried
@@ -20,7 +21,9 @@ import type { SpeedContentId } from './speed-contents';
  */
 export type SpeedTeamMember = { unitId: string; whatIfDisplaySpeed?: number };
 
+/** A preset as Speed Tuning reads it. */
 export type SpeedTeam = {
+  /** The preset's id. */
   id: string;
   content: SpeedContentId;
   /**
@@ -33,73 +36,17 @@ export type SpeedTeam = {
   leaderUnitId: string | null;
 };
 
-/**
- * What a rule asks of its monster: a turn order against another monster, or a
- * figure to reach, stay under or stay inside. The figure is read in each
- * speed form the rule is checked in, so one rule can say "at least 160" of
- * display speed and of dungeon speed at once.
- */
-export type SpeedRuleMust =
-  | { kind: 'move-before'; unitId: string }
-  | { kind: 'move-after'; unitId: string }
-  | { kind: 'reach-at-least'; speed: number }
-  | { kind: 'stay-at-most'; speed: number }
-  | { kind: 'stay-between'; minimum: number; maximum: number };
+/** The user's word on one preset: the turn order wanted, and the what-ifs tried. */
+export type PresetSpeedTuning = { order: string[]; whatIfs: Record<string, number> };
 
-export type SpeedRuleKind = SpeedRuleMust['kind'];
-
-/**
- * A standing reminder about one monster, judged on its own and never inside a
- * team: the teams on the page are one question, a rule is another. Where it is
- * checked is the user's to tick, and a rule ticked nowhere is still a rule —
- * kept, and judged by nothing until a box is ticked.
- */
-export type SpeedRule = {
-  id: string;
-  unitId: string;
-  must: SpeedRuleMust;
-  displaySpeed: boolean;
-  dungeonSpeed: boolean;
-  arenaSpeed: boolean;
-};
-
-/** The highest figure a rule accepts. Far above any display speed, dungeon speed or arena speed a build reaches. */
-export const speedRuleFigureMaximum = 999;
-
-export type SpeedTuningPreferences = { teams: SpeedTeam[]; rules: SpeedRule[] };
+export type SpeedTuningPreferences = { presets: Record<string, PresetSpeedTuning> };
 
 export function blankSpeedTuningPreferences(): SpeedTuningPreferences {
-  return { teams: [], rules: [] };
-}
-
-export function newSpeedTuningId(kind: 'team' | 'rule'): string {
-  return `${kind}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-/**
- * The name a team goes by: its content and its place among that content's
- * teams, in the order they are listed — added last, or dragged since. A team not yet saved is counted as the
- * last, which is where saving puts it, so an editor names it as the page will.
- */
-export function speedTeamTitle(teams: readonly SpeedTeam[], team: SpeedTeam): string {
-  const base = team.content === 'arena' ? 'Arena team' : `${speedContent(team.content).name} team`;
-  const placed = teams.some((entry) => entry.id === team.id)
-    ? teams.map((entry) => entry.id === team.id ? team : entry)
-    : [...teams, team];
-  return `${base} #${placed.filter((entry) => entry.content === team.content).findIndex((entry) => entry.id === team.id) + 1}`;
+  return { presets: {} };
 }
 
 /** The highest display speed the editor accepts as a what-if. Far above any rune build. */
 export const whatIfDisplaySpeedMaximum = 999;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-function hasExactKeys(value: Record<string, unknown>, required: readonly string[], optional: readonly string[] = []): boolean {
-  const allowed = new Set([...required, ...optional]);
-  return required.every((key) => key in value) && Object.keys(value).every((key) => allowed.has(key));
-}
 
 function isIdentifier(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0 && value.length <= 64;
@@ -109,102 +56,75 @@ function isWhatIfDisplaySpeed(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 1 && value <= whatIfDisplaySpeedMaximum;
 }
 
-function isMember(value: unknown): value is SpeedTeamMember {
-  return isRecord(value) && hasExactKeys(value, ['unitId'], ['whatIfDisplaySpeed']) && isIdentifier(value.unitId)
-    && (!('whatIfDisplaySpeed' in value) || isWhatIfDisplaySpeed(value.whatIfDisplaySpeed));
-}
-
-/* A what-if is its own choice, apart from the team it sits in: one the
-   contract refuses is dropped alone, and the team the user built is read as it
+/* An order entry and a what-if are each their own choice: one the contract
+   refuses is dropped alone, and the rest of the preset's tuning is read as it
    stands (`preference-reading.ts`). */
-function withValidWhatIfs(value: unknown): unknown {
-  if (!isRecord(value) || !Array.isArray(value.members)) return value;
-  return {
-    ...value,
-    members: value.members.map((member) => {
-      if (!isRecord(member) || !('whatIfDisplaySpeed' in member) || isWhatIfDisplaySpeed(member.whatIfDisplaySpeed)) return member;
-      const kept = { ...member };
-      delete kept.whatIfDisplaySpeed;
-      return kept;
-    }),
-  };
-}
-
-const teamKeys = ['id', 'content', 'members', 'leaderUnitId'] as const;
-
-function isTeam(value: unknown): value is SpeedTeam {
-  if (!isRecord(value) || !hasExactKeys(value, teamKeys)) return false;
-  if (!isIdentifier(value.id)) return false;
-  if (!speedContents.some((content) => content.id === value.content)) return false;
-  const members = value.members;
-  if (!Array.isArray(members) || !members.every(isMember)) return false;
-  if (members.length > speedContentTeamSize(value.content as SpeedContentId)) return false;
-  const unitIds = members.map((member) => member.unitId);
-  if (new Set(unitIds).size !== unitIds.length) return false;
-  return value.leaderUnitId === null || (isIdentifier(value.leaderUnitId) && unitIds.includes(value.leaderUnitId));
-}
-
-/* Keys the contract does not name are left out before a team is judged, as
-   `readSettings` leaves them out of a settings block: a field the page no
-   longer offers is not a reason to lose the team the user built. */
-function withTeamKeysOnly(value: unknown): unknown {
-  if (!isRecord(value)) return value;
-  return Object.fromEntries(teamKeys.filter((key) => key in value).map((key) => [key, value[key]]));
-}
-
-export function isSpeedRuleFigure(value: unknown): value is number {
-  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 1 && value <= speedRuleFigureMaximum;
-}
-
-function isMust(value: unknown, unitId: string): value is SpeedRuleMust {
-  if (!isRecord(value)) return false;
-  switch (value.kind) {
-    case 'move-before':
-    case 'move-after':
-      return hasExactKeys(value, ['kind', 'unitId']) && isIdentifier(value.unitId) && value.unitId !== unitId;
-    case 'reach-at-least':
-    case 'stay-at-most':
-      return hasExactKeys(value, ['kind', 'speed']) && isSpeedRuleFigure(value.speed);
-    case 'stay-between':
-      return hasExactKeys(value, ['kind', 'minimum', 'maximum'])
-        && isSpeedRuleFigure(value.minimum) && isSpeedRuleFigure(value.maximum) && value.minimum <= value.maximum;
-    default:
-      return false;
+function readPresetSpeedTuning(value: unknown): PresetSpeedTuning | null {
+  if (!isRecord(value)) return null;
+  const order: string[] = [];
+  for (const unitId of Array.isArray(value.order) ? value.order : []) {
+    if (isIdentifier(unitId) && !order.includes(unitId)) order.push(unitId);
   }
-}
-
-function isRule(value: unknown): value is SpeedRule {
-  if (!isRecord(value) || !hasExactKeys(value, ['id', 'unitId', 'must', 'displaySpeed', 'dungeonSpeed', 'arenaSpeed'])) return false;
-  return isIdentifier(value.id) && isIdentifier(value.unitId) && isMust(value.must, value.unitId)
-    && typeof value.displaySpeed === 'boolean' && typeof value.dungeonSpeed === 'boolean' && typeof value.arenaSpeed === 'boolean';
+  const whatIfs: Record<string, number> = {};
+  if (isRecord(value.whatIfs)) {
+    for (const [unitId, speed] of Object.entries(value.whatIfs)) {
+      if (isIdentifier(unitId) && isWhatIfDisplaySpeed(speed)) whatIfs[unitId] = speed;
+    }
+  }
+  return { order, whatIfs };
 }
 
 /** Whether a whole document meets the current contract, as a `.sw` writer must produce it. */
 export function isSpeedTuningPreferences(value: unknown): value is SpeedTuningPreferences {
-  if (!isRecord(value) || !hasExactKeys(value, ['teams', 'rules'])) return false;
-  if (!Array.isArray(value.teams) || !value.teams.every(isTeam)) return false;
-  if (!Array.isArray(value.rules) || !value.rules.every(isRule)) return false;
-  const ids = [...value.teams.map((team) => team.id), ...value.rules.map((rule) => rule.id)];
-  return new Set(ids).size === ids.length;
+  if (!isRecord(value) || Object.keys(value).join() !== 'presets' || !isRecord(value.presets)) return false;
+  return Object.entries(value.presets).every(([presetId, entry]) => {
+    if (!isIdentifier(presetId) || !isRecord(entry) || Object.keys(entry).sort().join() !== 'order,whatIfs') return false;
+    const read = readPresetSpeedTuning(entry);
+    return read !== null && Array.isArray(entry.order) && read.order.length === entry.order.length
+      && isRecord(entry.whatIfs) && Object.keys(read.whatIfs).length === Object.keys(entry.whatIfs).length;
+  });
+}
+
+/** The stored page, preset by preset. */
+export function readSpeedTuningPreferences(value: unknown): SpeedTuningPreferences {
+  const stored = isRecord(value) && isRecord(value.presets) ? value.presets : {};
+  const presets: Record<string, PresetSpeedTuning> = {};
+  for (const [presetId, entry] of Object.entries(stored)) {
+    const read = isIdentifier(presetId) ? readPresetSpeedTuning(entry) : null;
+    if (read) presets[presetId] = read;
+  }
+  return { presets };
 }
 
 /**
- * The stored page, team by team and rule by rule (`preference-reading.ts`). A
- * team's fields bind one another — the leader must be a member, the members
- * must fit the content — so a team is the smallest unit that can be judged,
- * and one that fails is dropped without costing the others. A repeated id
- * keeps its first holder.
+ * A preset as a team to tune: its own monsters and leader, in the turn order
+ * the user asked for — with a monster the preset gained since placed last and
+ * one it lost left out — and the what-ifs tried on them. `null` where the
+ * preset holds more monsters than its content fields.
  */
-export function readSpeedTuningPreferences(value: unknown): SpeedTuningPreferences {
-  const stored = isRecord(value) ? value : {};
-  const seen = new Set<string>();
-  const unseen = (entry: { id: string }) => {
-    if (seen.has(entry.id)) return false;
-    seen.add(entry.id);
-    return true;
-  };
+export function presetSpeedTeam(
+  preset: { id: string; members: readonly string[]; leaderUnitId: string | null },
+  content: SpeedContentId, tuning: PresetSpeedTuning | undefined,
+): SpeedTeam | null {
+  if (preset.members.length > speedContentTeamSize(content)) return null;
+  const asked = (tuning?.order ?? []).filter((unitId) => preset.members.includes(unitId));
+  const order = [...asked, ...preset.members.filter((unitId) => !asked.includes(unitId))];
   return {
-    teams: (Array.isArray(stored.teams) ? stored.teams : []).map(withTeamKeysOnly).map(withValidWhatIfs).filter(isTeam).filter(unseen),
-    rules: (Array.isArray(stored.rules) ? stored.rules : []).filter(isRule).filter(unseen),
+    id: preset.id,
+    content,
+    members: order.map((unitId) => {
+      const whatIf = tuning?.whatIfs[unitId];
+      return whatIf === undefined ? { unitId } : { unitId, whatIfDisplaySpeed: whatIf };
+    }),
+    leaderUnitId: preset.leaderUnitId,
+  };
+}
+
+/** What a team's draft states, back as the preset's tuning. */
+export function speedTuningOf(team: SpeedTeam): PresetSpeedTuning {
+  return {
+    order: team.members.map((member) => member.unitId),
+    whatIfs: Object.fromEntries(team.members.flatMap((member) =>
+      member.whatIfDisplaySpeed === undefined ? [] : [[member.unitId, member.whatIfDisplaySpeed] as const])),
   };
 }

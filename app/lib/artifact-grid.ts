@@ -14,17 +14,23 @@ import { monsterNameCollator } from './monster-grid';
  * and the second needs the chosen property, which is not a property of the two
  * rows being compared.
  */
+import type { Engraving } from './presets';
+
 export type ArtifactSortKey = 'index' | 'location' | 'value' | 'category' | 'engraveClass' | 'grade' | 'mainProperty' | 'subProperties' | 'refinement' | 'subProperty';
 
 export type ArtifactRow = {
   artifact: Artifact;
   index: number;
-  /** The display name of the monster it is engraved on, or `null` while the artifact sits in the inventory. */
-  location: string | null;
-  /* The monster this row names, where the roster has it. Carried so the Location
-     cell can open that monster's overlay: the row already resolves the monster to
-     print its name, and throwing the identity away made the cell the one place
-     naming a monster it could not point at. */
+  /**
+   * Every place the artifact is engraved — a monster in Default or in a preset
+   * (`DECK-PRESETS.md` §1) — in words, "monster — preset", or `Inventory` where
+   * it is on none. What a sort and a search read; the cell shows the places.
+   */
+  location: string;
+  places: readonly Engraving[];
+  /* The one monster this row names, where it is engraved in a single place and
+     the roster has that monster. Carried so the Location cell can open that
+     monster's overlay rather than naming a monster it could not point at. */
   engravedOn?: { unitId: string; masterId: string };
   /**
    * How well the artifact scores on the monster it is engraved on, in whole percentage

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AncientName } from './ancient-mark';
 import { CircularArrowsMark } from './converted-artifact-mark';
+import { EngravedPlace } from './engraved-place';
 import { MonsterLink } from './monster-link';
 import type { MonsterReference, OpenMonsterOverlay } from './monster-link';
 import { Overlay } from './overlay';
@@ -11,6 +12,8 @@ import { formatNumber } from '../lib/formatting';
 import { runeChanceText } from '../lib/rune-cleanup-grid';
 import type { GameRecord } from '../lib/game-data';
 import { monsterPresentation } from '../lib/monster-catalog';
+import { engravingLines } from '../lib/presets';
+import { usePresets } from '../lib/presets-context';
 import { runeAdviceChannel } from '../lib/compute/rune-advice-client';
 import { rememberedRuneAdvice, rememberRuneAdvice } from '../lib/compute/rune-advice-memory';
 import { runeCraftSteps } from '../lib/rune-cleanup-advice';
@@ -41,18 +44,17 @@ import type { GeneralSettings, RunePotentialSettings } from '../lib/types';
     four, so a rune with two does not make a shorter panel than one with four. */
 const subPropertySlots = 4;
 
-/** The monster the rune is engraved on, as a way into its own overlay. One this
+/** A monster the rune is engraved on, as a way into its own overlay. One this
     import does not contain is named as such and opens nothing. */
-function engravedOn(rune: Rune, game: GameRecord | undefined): {
+function engravedOn(unitId: string, game: GameRecord | undefined): {
   target: MonsterReference | null; name: string; imageFilename?: string; initial: string;
-} | null {
-  if (rune.occupiedId === null) return null;
+} {
   const units = Array.isArray(game?.unit_list) ? game.unit_list as GameRecord[] : [];
-  const unit = units.find((entry) => String(entry.unit_id) === rune.occupiedId);
+  const unit = units.find((entry) => String(entry.unit_id) === unitId);
   if (unit === undefined) return { target: null, name: 'Monster not in this import', initial: '?' };
   const display = monsterPresentation(unit.unit_master_id);
   return {
-    target: { kind: 'copy', unitId: rune.occupiedId, masterId: String(unit.unit_master_id) },
+    target: { kind: 'copy', unitId, masterId: String(unit.unit_master_id) },
     name: display.name,
     imageFilename: display.imageFilename,
     initial: display.shortName,
@@ -250,9 +252,10 @@ function Evaluation({ rune, roles, explained }: {
  * **The user's own word on the rune**, which Rune Clean-up prints over its advice
  * and files under Keep. Stored by `rune_id`, so no import and no live sync resets it.
  *
- * The lock needs a monster to lock to, so an inventory rune cannot take one — but a
- * rune that left its monster after being locked keeps the lock and can still have
- * it taken off, rather than holding a choice the user can see and not undo.
+ * The lock keeps the rune on its monster in Default (`rune-holds.ts`), so a rune
+ * on no monster there cannot take one — but a rune that left its monster after
+ * being locked keeps the lock and can still have it taken off, rather than
+ * holding a choice the user can see and not undo.
  */
 function Instructions({ rune, hold, onHold }: { rune: Rune; hold: RuneHold | undefined; onHold: (next: RuneHold) => void }) {
   const locked = hold?.locked === true;
@@ -270,7 +273,7 @@ function Instructions({ rune, hold, onHold }: { rune: Rune; hold: RuneHold | und
         <span>Unsellable</span>
       </label>
       <label className="checkbox-row" data-disabled={!lockable || undefined}
-        title={lockable ? undefined : 'Only a rune on a monster can be locked to it'}>
+        title={lockable ? 'Keeps it on its monster in Default; presets hold their own runes' : 'Only a rune on a monster in Default can be locked to it'}>
         <input type="checkbox" checked={locked} disabled={!lockable} onChange={(event) => change('locked', event.target.checked)} />
         <span>Lock to monster</span>
       </label>
@@ -315,7 +318,12 @@ export function RuneOverlay({ rune, game, general, settings, roles, hardwareAcce
   onClose: () => void;
   onOpenMonster: OpenMonsterOverlay;
 }) {
-  const engraved = useMemo(() => engravedOn(rune, game), [rune, game]);
+  /* Every place the rune is engraved. One place is named and opens its
+     monster; more are counted, and named on hover. */
+  const placements = usePresets();
+  const places = useMemo(() => placements.runes.get(rune.id) ?? [], [placements, rune.id]);
+  const engraved = useMemo(() => (places.length === 1 ? engravedOn(places[0].unitId, game) : null), [places, game]);
+  const monsterName = (unitId: string) => engravedOn(unitId, game).name;
   const { known, explained } = useRuneAdvice(rune, game, settings, roles, hardwareAcceleration);
   const maxCraft = maxCraftOf(known, explained, rune);
   const figure = (value: number) => formatNumber(value, general);
@@ -352,9 +360,11 @@ export function RuneOverlay({ rune, game, general, settings, roles, hardwareAcce
             <dt>Location</dt>
             <dd>
               {engraved === null
-                ? 'Inventory'
-                : <MonsterLink target={engraved.target} name={engraved.name} portrait={{ imageFilename: engraved.imageFilename, initial: engraved.initial }}
-                  onOpen={onOpenMonster} />}
+                ? <EngravedPlace places={places} presets={placements.presets} monsterName={monsterName} />
+                : <span title={engravingLines(places, placements.presets, monsterName).join('\n')}>
+                  <MonsterLink target={engraved.target} name={engraved.name} portrait={{ imageFilename: engraved.imageFilename, initial: engraved.initial }}
+                    onOpen={onOpenMonster} />
+                </span>}
             </dd>
           </div>
         </dl>

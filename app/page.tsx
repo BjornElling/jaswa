@@ -18,9 +18,13 @@ import type { RuneOptimizationSettings } from './lib/rune-optimization-settings'
 import { runeOptimizationMonsterKey } from './lib/rune-optimization-settings';
 import type { SpeedTuningPreferences } from './lib/speed-tuning-preferences';
 import { readRunes } from './lib/runes';
-import { engraveImportedGame, readLoadedRuneLocations } from './lib/engrave-rune-build';
+import { engraveImportedGame, engraveOwnPreset, readLoadedPlacements } from './lib/engrave-rune-build';
 import type { MonsterCopyPreferences } from './lib/monster-preferences';
 import type { MonsterPriority } from './lib/monster-priority';
+import { engravings, readPresets, selectedPresetKey } from './lib/presets';
+import { PresetsContext } from './lib/presets-context';
+import type { OwnPreset } from './lib/presets';
+import type { PresetWrites } from './components/presets-section';
 import { statesSomething } from './lib/monster-preferences';
 import type { RuneHold } from './lib/rune-holds';
 import { runeHoldVerdict } from './lib/rune-holds';
@@ -29,8 +33,9 @@ import type { OpenRuneOverlay, RuneOverlayTarget } from './components/rune-link'
 import { useSessionStorageState, writeSessionValue } from './lib/session-storage-state';
 import { type Page, type ReportCategory } from './lib/workspace-config';
 
-const pageChoices: readonly Page[] = ['home', 'monsters', 'artifact-list', 'optimizer', 'speed', 'priority', 'rune-setup', 'potential', 'artifacts', 'gems', 'rune-simulator', 'relics', 'settings', 'the-math'];
+const pageChoices: readonly Page[] = ['home', 'monsters', 'artifact-list', 'optimizer', 'speed', 'presets', 'rune-setup', 'potential', 'artifacts', 'gems', 'rune-simulator', 'relics', 'settings', 'the-math'];
 const isPage = (value: unknown): value is Page => typeof value === 'string' && pageChoices.includes(value as Page);
+const isString = (value: unknown): value is string => typeof value === 'string';
 const ArtifactList = lazy(() => import('./components/artifact-list').then(({ ArtifactList: component }) => ({ default: component })));
 const ArtifactsSection = lazy(() => import('./components/artifacts-section').then(({ ArtifactsSection: component }) => ({ default: component })));
 const GemsSection = lazy(() => import('./components/gems-section').then(({ GemsSection: component }) => ({ default: component })));
@@ -42,7 +47,7 @@ const SettingsSection = lazy(() => import('./components/settings-section').then(
 const TheMathSection = lazy(() => import('./components/the-math-section').then(({ TheMathSection: component }) => ({ default: component })));
 const RuneSimulatorSection = lazy(() => import('./components/rune-simulator-section').then(({ RuneSimulatorSection: component }) => ({ default: component })));
 const SpeedTuningSection = lazy(() => import('./components/speed-tuning-section').then(({ SpeedTuningSection: component }) => ({ default: component })));
-const MonsterPrioritySection = lazy(() => import('./components/monster-priority-section').then(({ MonsterPrioritySection: component }) => ({ default: component })));
+const PresetsSection = lazy(() => import('./components/presets-section').then(({ PresetsSection: component }) => ({ default: component })));
 const RuneOptimizationSection = lazy(() => import('./components/rune-optimization-section').then(({ RuneOptimizationSection: component }) => ({ default: component })));
 const MonsterOverlay = lazy(() => import('./components/monster-overlay').then(({ MonsterOverlay: component }) => ({ default: component })));
 const RuneOverlay = lazy(() => import('./components/rune-overlay').then(({ RuneOverlay: component }) => ({ default: component })));
@@ -99,8 +104,8 @@ export default function Home() {
       const validGame = savedGame && isValidImportedGame(savedGame) ? savedGame : null;
       /* The engrave record is read on its own, so a malformed one loses the
          record and keeps the import. */
-      const loadedRuneLocations = readLoadedRuneLocations(validGame?.loadedRuneLocations);
-      const savedCurrentGame = validGame === null ? null : { ...validGame, loadedRuneLocations };
+      const loadedPlacements = readLoadedPlacements(validGame?.loadedPlacements);
+      const savedCurrentGame = validGame === null ? null : { ...validGame, loadedPlacements };
       setGame(savedCurrentGame);
       if (savedCurrentGame?.helperSession) appliedHelperSession.current = `${savedCurrentGame.helperSession.instanceId}:${savedCurrentGame.helperSession.sessionId}`;
       const savedCurrentPreferences = readPreferences(savedPreferences, savedCurrentGame);
@@ -191,6 +196,11 @@ export default function Home() {
     () => (Array.isArray(game?.data?.unit_list) ? game.data.unit_list : []) as GameRecord[],
     [game],
   );
+  /* Default and every preset, resolved once for every page that reads one
+     (`DECK-PRESETS.md` §4). */
+  const presets = useMemo(() => readPresets(game?.data, preferences.presets), [game, preferences.presets]);
+  const presetsReading = useMemo(() => ({ presets, ...engravings(presets) }), [presets]);
+  const [selectedPreset, setSelectedPreset] = useSessionStorageState<string>(selectedPresetKey, '', isString);
 
   /* The overlay's rune is the same object for as long as the overlay and the import
      stand. Read afresh in render, it was a new rune on every render of this page —
@@ -261,12 +271,23 @@ export default function Home() {
     setMessage('');
   }
 
-  async function engraveBuild(unitId: string, runeIds: readonly string[]): Promise<void> {
-    if (!game || (preferences.importRoute === 'direct' && preferences.directImportMode === 'live')) {
+  /* A build is engraved in one preset and nowhere else. A preset built in JASWA
+     lives in the preferences, which no sync overwrites; Default and the game's
+     presets live in the import, which live sync would put back. */
+  async function engraveBuild(presetId: string, unitId: string, runeIds: readonly string[]): Promise<void> {
+    const preset = presets.find((entry) => entry.id === presetId);
+    if (preset?.kind === 'own') {
+      const own = preferences.presets.find((entry) => entry.id === presetId);
+      if (!own) throw new Error('This preset is no longer in your preferences.');
+      const next = engraveOwnPreset(own, preset, unitId, runeIds);
+      changePreferences((current) => ({ ...current, presets: current.presets.map((entry) => entry.id === presetId ? next : entry) }));
+      return;
+    }
+    if (!game || !preset || (preferences.importRoute === 'direct' && preferences.directImportMode === 'live')) {
       throw new Error('This build cannot be engraved in the current import mode.');
     }
     try {
-      const next = engraveImportedGame(game, unitId, runeIds);
+      const next = engraveImportedGame(game, preset, unitId, runeIds);
       await saveImportedGame(next);
       setGame(next);
       setMessage('');
@@ -441,14 +462,25 @@ export default function Home() {
     changePreferences((current) => ({ ...current, speedTuning: change(current.speedTuning) }));
   }
 
-  /* The priority list's one route to storage. */
-  function writeMonsterPriority(change: (current: MonsterPriority) => MonsterPriority) {
-    changePreferences((current) => ({ ...current, monsterPriority: change(current.monsterPriority) }));
-  }
+  /* The Presets page's routes to storage: Default's list, a game preset's
+     order, and the presets built in JASWA. */
+  const presetWrites: PresetWrites = {
+    monsterPriority(change: (current: MonsterPriority) => MonsterPriority) {
+      changePreferences((current) => ({ ...current, monsterPriority: change(current.monsterPriority) }));
+    },
+    presetOrder(presetId: string, order: readonly string[]) {
+      changePreferences((current) => ({ ...current, presetPriority: { ...current.presetPriority, [presetId]: [...order] } }));
+    },
+    ownPresets(change: (current: OwnPreset[]) => OwnPreset[]) {
+      changePreferences((current) => ({ ...current, presets: change(current.presets) }));
+    },
+  };
 
   /* Remount the search when this route starts inside Rune Optimization too:
-     a build and its monster overlay can both be open over the current search. */
-  function optimizeMonster(unitId: string) {
+     a build and its monster overlay can both be open over the current search.
+     The preset travels with the monster: a build is always for one preset. */
+  function optimizeMonster(unitId: string, presetId?: string) {
+    if (presetId !== undefined) setSelectedPreset(presetId);
     writeSessionValue(runeOptimizationMonsterKey, unitId);
     overlayOpener.current = null;
     setOverlay(null);
@@ -517,7 +549,7 @@ export default function Home() {
 
   if (!ready) return <main className="loading-screen">Preparing your local workspace…</main>;
 
-  return <main className="app-shell">
+  return <PresetsContext.Provider value={presetsReading}><main className="app-shell">
     <AppRail page={page} onNavigate={setPage} onReport={() => openReport()} />
 
     <section className="workspace">
@@ -615,17 +647,22 @@ export default function Home() {
         game={game}
         monsters={monsters}
         preferences={preferences}
+        presets={presets}
         onWrite={writeSpeedTuning}
         onOpenMonster={openMonsterOverlay}
       /></Suspense>}
 
-      {page === 'priority' && <Suspense fallback={<WorkspaceLoading />}><MonsterPrioritySection
+      {page === 'presets' && <Suspense fallback={<WorkspaceLoading />}><PresetsSection
         game={game}
         monsters={monsters}
         preferences={preferences}
-        onWrite={writeMonsterPriority}
+        presets={presets}
+        selectedId={selectedPreset}
+        canCreate={!(preferences.importRoute === 'direct' && preferences.directImportMode === 'live')}
+        onSelect={setSelectedPreset}
+        onWrite={presetWrites}
         onOpenMonster={openMonsterOverlay}
-        onOptimize={optimizeMonster}
+        onOptimize={(presetId, unitId) => optimizeMonster(unitId, presetId)}
       /></Suspense>}
 
       {page === 'optimizer' && <Suspense fallback={<WorkspaceLoading />}><RuneOptimizationSection
@@ -633,6 +670,9 @@ export default function Home() {
         game={game}
         monsters={monsters}
         preferences={preferences}
+        presets={presets}
+        presetId={selectedPreset}
+        onSelectPreset={setSelectedPreset}
         onUpdate={updateRuneOptimizationSettings}
         canEngrave={preferences.importRoute === 'file' || preferences.directImportMode === 'on-load'}
         onEngrave={engraveBuild}
@@ -703,5 +743,5 @@ export default function Home() {
       onCancel={() => setReport(null)}
       onSend={sendReport}
     />}
-  </main>;
+  </main></PresetsContext.Provider>;
 }

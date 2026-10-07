@@ -201,7 +201,7 @@ function RuneCard({ picked, rune, thisMonster, loadedPlace, engravedOn, format, 
 }
 
 export function RuneBuildOverlay({
-  index, buildName, moves, runes, runesById, loadedRuneLocations, monster, engravedOn, general, canEngrave, onEngrave, onClose,
+  index, buildName, moves, runes, runesById, loadedPlacements, monster, engravedOn, general, canEngrave, onEngrave, onClose,
   onOpenRune, onOpenMonster,
 }: {
   index: number;
@@ -209,8 +209,8 @@ export function RuneBuildOverlay({
   moves: number;
   runes: readonly CurrentPick[];
   runesById: ReadonlyMap<string, Rune>;
-  /** Where the runes JASWA has moved sat when the import was loaded (`ImportedGame`). */
-  loadedRuneLocations: Readonly<Record<string, string | null>> | undefined;
+  /** Where the runes JASWA has moved sat in this preset when the import was loaded (`ImportedGame`). */
+  loadedPlacements: Readonly<Record<string, string | null>> | undefined;
   /** Drawn in the middle of the circle, and the monster its own runes read as staying on. */
   monster: BuildMonster;
   engravedOn: (unitId: string) => EngravedOnMonster | undefined;
@@ -288,7 +288,7 @@ export function RuneBuildOverlay({
       <div className="rune-build-circle">
         <ol className="rune-build-runes" aria-label="Runes">
           {bySlot.map((picked) => <RuneCard key={picked.slot} picked={picked} rune={runesById.get(picked.runeId)}
-            thisMonster={monster.unitId} loadedPlace={loadedRuneLocations?.[picked.runeId]}
+            thisMonster={monster.unitId} loadedPlace={loadedPlacements?.[picked.runeId]}
             engravedOn={engravedOn} format={format} onOpenRune={onOpenRune} onOpenMonster={onOpenMonster} />)}
         </ol>
         <div className="rune-build-centre">

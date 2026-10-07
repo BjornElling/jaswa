@@ -429,6 +429,10 @@ impl ProfileStore {
         if command == "movestoragefromto" {
             changed |= apply_shrine_move(&mut profile, response);
         }
+        if command == "setdecklist" {
+            changed |= apply_deck_list(&mut profile, response);
+        }
+        changed |= apply_defense_decks(&mut profile, response);
         for entity in [ENTITIES[1], ENTITIES[2], ENTITIES[3]] {
             if command.contains("equip")
                 || command.contains("occupation")
@@ -648,6 +652,63 @@ fn shrine_move_sides(request: &Value) -> (Option<String>, Option<String>) {
   the generic merge files and which then evicts its shrine record.
 The stack list here is only the stacks this move touched, never the whole tab,
 so it updates stacks by master id instead of replacing the collection. */
+/* Saving a Deck Preset answers with every saved deck of that one content type
+(`deck_info.deck_type`) as it now stands, so those decks replace the type's
+decks in the account and every other type's are left alone. A deck is named
+by both `deck_type` and `deck_seq`; keying on the type alone would overwrite
+real placements (`docs/DECK-PRESETS.md` §3). An answer that does not carry a
+type and a list changes nothing. */
+fn apply_deck_list(profile: &mut Value, response: &Value) -> bool {
+    let Some(info) = response.get("deck_info") else {
+        return false;
+    };
+    let Some(deck_type) = info.get("deck_type").and_then(Value::as_i64) else {
+        return false;
+    };
+    let Some(decks) = info.get("deck_list").and_then(Value::as_array) else {
+        return false;
+    };
+    if decks
+        .iter()
+        .any(|deck| deck.get("deck_type").and_then(Value::as_i64) != Some(deck_type))
+    {
+        return false;
+    }
+    let current = collection(profile, "deck_list").to_vec();
+    let mut next = current
+        .iter()
+        .filter(|deck| deck.get("deck_type").and_then(Value::as_i64) != Some(deck_type))
+        .cloned()
+        .collect::<Vec<_>>();
+    next.extend(decks.iter().cloned());
+    if next == current {
+        return false;
+    }
+    set_collection(profile, "deck_list", next);
+    true
+}
+
+/* An Arena defense deck is one record of its own, in the same field the login
+snapshot carries it in. Saving it (`arenav2_setDefenseUnitList`) answers with
+that field whole, and so may other commands: any answer that carries it with
+its monster list states the defense as it now stands. */
+fn apply_defense_decks(profile: &mut Value, response: &Value) -> bool {
+    let mut changed = false;
+    for key in ["defense_deck_info", "server_arena_defense_deck_info"] {
+        let Some(deck) = response.get(key).filter(|deck| deck.get("unit_id_list").is_some_and(Value::is_array)) else {
+            continue;
+        };
+        if profile.get(key) == Some(deck) {
+            continue;
+        }
+        if let Some(object) = profile.as_object_mut() {
+            object.insert(key.into(), deck.clone());
+            changed = true;
+        }
+    }
+    changed
+}
+
 fn apply_shrine_move(profile: &mut Value, response: &Value) -> bool {
     let mut changed = false;
     for side in ["result_from", "result_to"] {
@@ -1421,7 +1482,16 @@ fn non_account_container(parent: &str) -> bool {
             | "friend_list"
             | "guild"
             | "defense_deck_info"
+            | "server_arena_defense_deck_info"
             | "temporary_defense_deck"
+            /* A saved deck names each monster by `unit_id` beside the runes it
+            carries in that deck. Read as a unit record it wrote the deck's
+            `rune_id_list` into the monster itself on every preset the player
+            saved; the deck is read whole in `apply_deck_list` instead. */
+            | "deck_info"
+            | "deck_list"
+            | "deck_recent_list"
+            | "equip"
             | "world_arena_rune_equip_list"
             | "world_arena_artifact_equip_list"
     )
@@ -2057,6 +2127,55 @@ mod tests {
             store.read().unwrap().data["unit_list"][0]["runes"],
             json!([])
         );
+    }
+
+    /* The shape is the game's own, trimmed from a captured `setDeckList`: the
+    answer carries every saved deck of the one type that was saved. */
+    #[test]
+    fn a_saved_deck_replaces_its_type_and_never_touches_a_monster() {
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({
+            "wizard_id": 7,
+            "unit_list": [{"unit_id": 1, "wizard_id": 7, "runes": []}, {"unit_id": 2, "wizard_id": 7, "runes": []}],
+            "runes": [{"rune_id": 5}], "artifacts": [], "relics": [], "rune_craft_item_list": [],
+            "deck_list": [
+                {"deck_type": 1, "deck_seq": 1, "equip": [], "leader_unit_id": 1, "unit_id_list": [1, 0, 0, 0]},
+                {"deck_type": 24, "deck_seq": 101, "equip": [], "leader_unit_id": 2, "unit_id_list": [2, 0, 0, 0, 0]}
+            ]
+        })));
+        let saved = json!({"deck_type": 1, "deck_seq": 1, "leader_unit_id": 1, "unit_id_list": [1, 2, 0, 0],
+            "equip": [{"unit_id": 1, "rune_id_list": [5], "artifact_id_list": []}, {"unit_id": 2, "rune_id_list": [], "artifact_id_list": []}]});
+        assert!(store.apply_update(
+            &json!({"command": "setDeckList", "ret_code": 0, "deck_info": {"deck_type": 1, "wizard_id": 7, "deck_list": [saved.clone()]}}),
+            &json!({"command": "setDeckList", "deck_list": [saved.clone()]})
+        ));
+        let data = store.read().unwrap().data;
+        let decks = data["deck_list"].as_array().unwrap();
+        assert_eq!(decks.len(), 2);
+        assert!(decks.contains(&saved));
+        assert!(decks.iter().any(|deck| deck["deck_type"] == 24 && deck["deck_seq"] == 101));
+        for unit in data["unit_list"].as_array().unwrap() {
+            assert!(unit.get("rune_id_list").is_none(), "a deck's runes never land on the monster");
+        }
+        assert!(!store.apply_update(
+            &json!({"command": "setDeckList", "ret_code": 0, "deck_info": {"deck_type": 1, "deck_list": [saved.clone()]}}),
+            &json!({"command": "setDeckList"})
+        ), "the same answer again changes nothing");
+    }
+
+    #[test]
+    fn an_arena_defense_arriving_whole_replaces_the_one_held() {
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({
+            "wizard_id": 7, "unit_list": [{"unit_id": 1, "wizard_id": 7}, {"unit_id": 2, "wizard_id": 7}],
+            "runes": [], "artifacts": [], "relics": [], "rune_craft_item_list": [],
+            "defense_deck_info": {"unit_id_list": [1, 2], "equip": []}
+        })));
+        let defense = json!({"unit_id_list": [2, 1], "equip": []});
+        assert!(store.apply_update(&json!({"ret_code": 0, "defense_deck_info": defense.clone()}), &json!({"command": "arenav2_setDefenseUnitList"})));
+        assert_eq!(store.read().unwrap().data["defense_deck_info"], defense);
+        assert!(!store.apply_update(&json!({"ret_code": 0, "defense_deck_info": {"battle_power": 1}}), &json!({"command": "GetArenaInfo"})),
+            "a defense without its monster list is not a defense to keep");
     }
 
     /* The request and response shapes in the shrine tests below are the

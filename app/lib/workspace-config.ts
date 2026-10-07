@@ -1,7 +1,7 @@
 import type { AccelerationState } from './hardware-acceleration';
 import type { HelperConnection } from './helper-client';
 
-export type Page = 'home' | 'monsters' | 'artifact-list' | 'optimizer' | 'speed' | 'priority' | 'rune-setup' | 'potential' | 'artifacts' | 'gems' | 'relics' | 'settings' | 'the-math' | 'rune-simulator';
+export type Page = 'home' | 'monsters' | 'artifact-list' | 'optimizer' | 'speed' | 'presets' | 'rune-setup' | 'potential' | 'artifacts' | 'gems' | 'relics' | 'settings' | 'the-math' | 'rune-simulator';
 export type ReportCategory = 'Monster' | 'Rune' | 'Gem' | 'Grindstone' | 'Artifact' | 'Relic' | 'Other';
 
 /* `label` is what the rail shows, under a heading that supplies the subject.
@@ -34,9 +34,9 @@ export const navigationGroups: Array<{ heading: string; items: NavigationItem[] 
          Runes group keeps the work done on the runes themselves. */
       { id: 'optimizer', label: 'Optimization', name: 'Rune Optimization', glyph: '◈' },
       { id: 'speed', label: 'Speed tuning', name: 'Speed Tuning', glyph: '↝' },
-      /* Read only by Rune Optimization, but it is an order of monsters, so it
-         sits with them; the arrows are the up and down it is edited with. */
-      { id: 'priority', label: 'Rune priority', name: 'Rune Priority', glyph: '⇅' },
+      /* Teams of monsters, and the order they have first pick of runes in,
+         so it sits with them; the arrows are the up and down it is edited with. */
+      { id: 'presets', label: 'Presets', name: 'Presets', glyph: '⇅' },
     ],
   },
   {

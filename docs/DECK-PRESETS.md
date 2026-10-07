@@ -99,27 +99,47 @@ their spelling only where the raw export is read.
 ## 3. What the export establishes
 
 `HubUserLogin` carries `deck_list`. A saved preset is identified by **both**
-`deck_type` and `deck_seq`. Its optional `equip` array holds one record per
-monster: `unit_id`, `rune_id_list`, `artifact_id_list`. `equip: null` means
-the preset saved monsters only. `world_arena_rune_equip_list` is World Arena's
-separate system. `deck_recent_list` is a recent-deck list, not a preset list.
+`deck_type` and `deck_seq`. Each deck lists its monsters in `unit_id_list`, `0`
+for an empty position, and names its `leader_unit_id`. Its `equip` array holds
+one record per monster: `unit_id`, `rune_id_list`, `artifact_id_list`; `null`
+or an empty array means the preset saved monsters only. The Arena defense and
+the Arena Interserver defense are not in `deck_list` but in
+`defense_deck_info` and `server_arena_defense_deck_info`, each with its
+`unit_id_list` (the Interserver one as `{pos_id, unit_id}`) and `equip`, and
+no leader field: the first monster leads. `world_arena_rune_equip_list` is
+World Arena's separate system. `deck_recent_list` is the recent decks, not a
+preset list.
 
-`setDeckList` responses carry `deck_info.deck_type` and a
-`deck_info.deck_list` for that type, with the same fields. The helper does not
-yet merge them (`helper/src-tauri/src/profile.rs`), so a live import keeps
-stale presets after the player edits one in the game.
+Saving a preset sends `setDeckList`; the answer's `deck_info` carries the
+`deck_type` saved and **every** saved deck of that type as it now stands
+(captured October 7, 2026). The helper replaces that type's decks and no other
+(`apply_deck_list`). A deck's `equip` entries name monsters by `unit_id`, so
+the helper never reads a deck as a unit record. An edit left unsaved sends
+nothing. Saving the Arena defense sends `arenav2_setDefenseUnitList`, whose
+answer carries `defense_deck_info` in the login's own shape; the helper keeps
+whichever defense field an answer carries whole (`apply_defense_decks`).
 
-A captured account held 55 saved decks, 32 with equipment, eight with rune
-assignments. 52 rune IDs occurred in more than one deck, up to three, including
-different `deck_seq` under one `deck_type`. One deck named a rune the account
-no longer owned, and there were 24 such artifact references.
+A captured account held 57 saved decks, two of them the Arena defenses. Runes
+occurred in up to three decks at once, including different `deck_seq` under
+one `deck_type`; decks named one rune and several artifacts the account no
+longer owned.
 
-**The numeric `deck_type` values are not yet matched to content names.**
-Neither the notices nor the export give the mapping. It is established by
-comparing a fresh capture with the game's Deck Building screen, never by
-inferring from team sizes or order. Until a value is matched, JASWA shows the
-preset under its number and still uses it fully; a preset is never hidden for
-want of a name (AGENTS.md §0.1).
+**The numeric `deck_type` values are matched to contents only from the game's
+own screen**, never by inferring from team sizes or order alone. A value not
+yet matched keeps its number on screen and is still used fully; a preset is
+never hidden for want of a name (AGENTS.md §0.1). Confirmed so far
+(`preset-contents.ts`):
+
+| `deck_type` | Content | Number shown |
+| --- | --- | --- |
+| 1 | Arena Attack | `deck_seq` |
+| 2 | A three-monster guild content, not yet which (§7) | `deck_seq` |
+| 3 | Rift Raid | `deck_seq` |
+| 6 | Trial of Ascension | `deck_seq` |
+| 24 | Cairos Dungeon: the hundreds of `deck_seq` are 1 Giant's Keep, 2 Dragon's Lair, 3 Necropolis, 4 Spiritual Realm, 5 Steel Fortress, 6 Punisher's Crypt | `deck_seq` mod 100 |
+
+4 and 6 under type 24 were confirmed through the recent decks, whose Cairos
+sub-types 19–24 run in the same order and were matched on screen for all six.
 
 ## 4. The model
 
@@ -163,25 +183,36 @@ an import, and are checked one preset at a time on load.
 - The preset being optimized for is shown prominently and can be changed
   there.
 - The candidate runes are every owned rune, minus those engraved on other
-  monsters of the same preset, minus the Siege Battle defense pool when the
-  preset is a Siege Battle defense preset. Runes in other presets cost
-  nothing and are always candidates.
-- *Only use runes from inventory* is removed.
+  monsters of the same preset where the settings say so, minus the Siege Battle
+  defense pool when the preset is a Siege Battle defense preset. Runes in other
+  presets cost nothing and are always candidates. `runesInPreset` gives each
+  rune the monster carrying it in the chosen preset, so the search reads one
+  preset's placement and no other.
+- *Only use runes from inventory* became *Only use runes free in this preset*:
+  ticked, no monster of the preset gives up a rune.
 - *Include runes from higher-priority monsters* refers to monsters of the same
   preset.
 - *Just fill in empty slots* and *Max changes* are measured against the
   monster's build in the chosen preset.
 - *Engrave* writes the build into the chosen preset and moves nothing out of
   any other context.
-- A lock means "keep this rune on this monster in this preset".
+- A lock keeps a rune on its monster in Default. A preset holds its own gear,
+  so a lock binds no preset; the stored locks the user already made keep their
+  meaning.
 
 **Speed Tuning.**
 - Rules are removed.
 - The three columns hold presets by content: dungeons left (Cairos, Dimension
   Hole, Rift of Worlds), Arena Attack and Defense centre, all others right.
+- A preset's monsters and leader are the game's; the user states the turn order
+  wanted and the what-if display speeds, stored per preset. Until an order is
+  stated, the preset is read in the game's own order.
 - Every speed is computed from the preset's own runes, with the relic from
   Default.
-- The player's tuning settings are stored per preset.
+- A content Speed Tuning has no model for — no enemy data and no settled
+  leader-skill area, such as Trial of Ascension — and a preset whose content is
+  not yet named are listed in the right-hand column and say why they are not
+  judged, rather than being judged by a guessed rule.
 
 **Rune Clean-up, Gems & Grinds and every rune or artifact list.**
 - One *Engraved* label replaces the monster name in the location column. A
@@ -192,7 +223,9 @@ an import, and are checked one preset at a time on load.
 - A sell recommendation for an engraved item carries a red mark, because
   selling empties a slot in every context that uses it.
 
-**Artifact pages** read a context the same way: the chosen preset, or Default.
+**Artifact pages.** The artifact list's location follows the rune rule above.
+Artifact Optimization and its value columns plan Default: which artifact a
+monster carries in Default and what to engrave, keep or sell there.
 
 **Monster pages** show Default and the number of presets each monster
 belongs to.
@@ -222,3 +255,27 @@ duplicate preset identity, an item twice in one preset, an unknown monster and
 a doubly filled slot; `verify:deck-presets` holds it and can measure a private
 traffic log without printing IDs:
 `node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs scripts/verify-deck-presets.mjs <log-path>`.
+
+## 7. Open questions
+
+Each is a TODO: until it is answered, JASWA keeps the safe reading named here
+and says so where it matters.
+
+- **`deck_type` 2 — which guild content.** Fourteen three-monster decks,
+  numbered 1–15. More than ten rules out the Siege Battle defense presets, so
+  they are not the shared pool. They are Siege Battle attack or World Guild
+  Battle / Guild Rival Battle attack; the developer has no guild access to look.
+  Shown as *Guild Battle (unconfirmed)*, judged as independent presets.
+- **`deck_type` 4, 8, 9, 19, 20, 21.** Five-monster decks not yet matched on
+  screen. Shown under their numbers.
+- **Saving the Arena Interserver defense.** Not yet captured. The helper takes
+  any answer carrying `server_arena_defense_deck_info` whole, as it does for
+  the Arena defense, whose save is confirmed.
+- **Contents placing several decks at once** (Temple of Chaos, Rift Raid,
+  Dimension Raid, World Guild Battle, Guild Rival Battle) — whether their decks
+  may share a rune (§1). Read as independent presets.
+- **The Siege Battle defense pool** is modelled (`sharedPool`) but no deck type
+  is matched to it yet.
+- **Speed Tuning outside arena and Cairos.** Trial of Ascension, raids and the
+  rest have no enemy data or settled leader-skill area, so they are listed and
+  not judged.

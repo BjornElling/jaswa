@@ -1,5 +1,6 @@
 import type { MonsterPreferences } from './monster-preferences';
-import type { MonsterPriority } from './monster-priority';
+import type { MonsterPriority, PresetPriority } from './monster-priority';
+import type { OwnPreset } from './presets';
 import type { CraftRollAssumption } from './rune-craft-items';
 import type { RuneHolds } from './rune-holds';
 import type { RuneOptimizationSettings } from './rune-optimization-settings';
@@ -11,13 +12,14 @@ export type HelperSession = { instanceId: string; sessionId: number };
 export type ImportedGame = {
   fileName: string; importedAt: string; data: Record<string, unknown>; report: ImportReport; helperSession?: HelperSession;
   /**
-   * Where each rune JASWA has moved since this import sat when it was loaded:
-   * the `unit_id` it is engraved on, or `null` for the inventory. Written by an engrave,
-   * the first time a rune moves, and never again, so a rune moved twice still
-   * names where the game had it. Absent on every fresh import, file or helper
-   * alike — the account is then where the game says, and nothing has moved.
+   * Where each rune JASWA has moved since this import sat when it was loaded,
+   * by preset id: the monster's `unit_id`, or `null` where the preset had it on
+   * none. Written by an engrave, the first time a rune moves in that preset,
+   * and never again, so a rune moved twice still names where the game had it.
+   * Absent on every fresh import, file or helper alike — the account is then
+   * where the game says, and nothing has moved.
    */
-  loadedRuneLocations?: Record<string, string | null>;
+  loadedPlacements?: Record<string, Record<string, string | null>>;
 };
 /** The five item grades from `docs/RUNE-CANONICAL.md`, shared by gems and grindstones. */
 export type ItemGrade = 'Normal' | 'Magic' | 'Rare' | 'Hero' | 'Legend';
@@ -131,4 +133,4 @@ export type ArtifactSettings = {
  * `runePotentialPresets` keeps the name roles had when they were called
  * presets: it is the stored key, and renaming it would drop the user's roles.
  */
-export type Preferences = { updatedAt: string; hardwareAcceleration: boolean; importRoute: ImportRoute; directImportMode: DirectImportMode; general: GeneralSettings; monsterPreferences: MonsterPreferences; runeHolds: RuneHolds; runePotential: RunePotentialSettings; runePotentialPresets: RuneRole[]; artifacts: ArtifactSettings; speedTuning: SpeedTuningPreferences; monsterPriority: MonsterPriority; runeOptimization: RuneOptimizationSettings };
+export type Preferences = { updatedAt: string; hardwareAcceleration: boolean; importRoute: ImportRoute; directImportMode: DirectImportMode; general: GeneralSettings; monsterPreferences: MonsterPreferences; runeHolds: RuneHolds; runePotential: RunePotentialSettings; runePotentialPresets: RuneRole[]; artifacts: ArtifactSettings; speedTuning: SpeedTuningPreferences; monsterPriority: MonsterPriority; presets: OwnPreset[]; presetPriority: PresetPriority; runeOptimization: RuneOptimizationSettings };

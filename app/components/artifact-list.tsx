@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo } from 'react';
 import { FilterButton } from './button';
 import { PageHeader } from './page-chrome';
 import { DataTablePage, TableColumnGroup } from './data-table-page';
@@ -8,6 +8,7 @@ import { useSortedRows } from './use-sorted-rows';
 import type { SortableColumn } from './use-sorted-rows';
 import { Dropdown } from './dropdown';
 import { ConvertedArtifactMark } from './converted-artifact-mark';
+import { EngravedPlace } from './engraved-place';
 import { MonsterLink } from './monster-link';
 import type { OpenMonsterOverlay } from './monster-link';
 import { UnrefinedArtifactMark } from './unrefined-artifact-mark';
@@ -28,6 +29,8 @@ import {
 } from '../lib/artifact-properties';
 import type { ArtifactCategory, ArtifactGrade, ArtifactMainProperty } from '../lib/artifact-properties';
 import { monsterCopyNames } from '../lib/monster-names';
+import { engravingLines } from '../lib/presets';
+import { usePresets } from '../lib/presets-context';
 import { formatNumber } from '../lib/formatting';
 import { useSessionStorageState } from '../lib/session-storage-state';
 import { WorkspacePage } from './workspace-page';
@@ -193,8 +196,11 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
     sortBySubProperty, showEngraved, showInventory, includeIntangible } = filters;
   const artifacts = useMemo(() => readArtifacts(game?.data), [game]);
 
+  const placements = usePresets();
+  const copyNames = useMemo(() => monsterCopyNames(monsters, preferences.monsterPreferences), [monsters, preferences.monsterPreferences]);
+  const monsterName = useCallback((unitId: string) => copyNames[unitId]?.name ?? 'A monster not in this import', [copyNames]);
   const rows = useMemo<ArtifactRow[]>(() => {
-    const names = monsterCopyNames(monsters, preferences.monsterPreferences);
+    const names = copyNames;
     const monstersByUnitId = new Map<string, GameRecord>();
     for (const monster of monsters) {
       if (monster.unit_id !== undefined && monster.unit_id !== null) monstersByUnitId.set(String(monster.unit_id), monster);
@@ -202,28 +208,26 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
     return artifacts.map((artifact, index) => {
       const engravedOn = artifact.occupiedId === null ? undefined : monstersByUnitId.get(artifact.occupiedId);
       const unitId = engravedOn?.unit_id === undefined ? null : String(engravedOn.unit_id);
+      const places = placements.artifacts.get(String(artifact.id)) ?? [];
+      const only = places.length === 1 ? monstersByUnitId.get(places[0].unitId) : undefined;
+      const nameOf = (id: string) => names[id]?.name ?? 'A monster not in this import';
       const preference = unitId === null ? undefined : preferences.monsterPreferences[unitId];
       const propertyPreferences = engravedOn
         ? defaultPropertyPreferences(engravedOn.unit_master_id, artifact.category)
         : undefined;
-      /* The statement of the monster it is engraved on, where it has one, so this
-         column answers for that copy rather than for its species. */
+      /* The statement of the monster it is engraved on in Default, where it has
+         one, so this column answers for that copy rather than for its species. */
       const value = engravedOn
         ? artifactValueOnMonster(artifact, engravedOn, preferences.artifacts, preference)
         : undefined;
       return {
         artifact,
         index,
-        /* Three different states, kept apart: `Inventory` for an artifact
-           it is on no monster, the monster's name where the roster has it, and
-           `null` for a monster the roster does not contain — a gap in the
-           import, which must not read as an empty inventory. */
-        location: artifact.occupiedId === null
-          ? 'Inventory'
-          : unitId === null ? null : names[unitId]?.name ?? null,
-        engravedOn: unitId === null || engravedOn?.unit_master_id === undefined
+        location: places.length === 0 ? 'Inventory' : engravingLines(places, placements.presets, nameOf).join(' · '),
+        places,
+        engravedOn: only === undefined || only.unit_master_id === undefined
           ? undefined
-          : { unitId, masterId: String(engravedOn.unit_master_id) },
+          : { unitId: places[0].unitId, masterId: String(only.unit_master_id) },
         /* Rounded once, here, so the column, its colour band and the sort all
            read the same whole-point score the user sees. */
         valuePercent: value === undefined ? undefined : Math.round(value * 100),
@@ -232,7 +236,7 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
         subPropertyPreferences: propertyPreferences?.sub ?? null,
       };
     });
-  }, [artifacts, monsters, preferences]);
+  }, [artifacts, monsters, preferences, placements, copyNames]);
 
   const subPropertyOptions = useMemo(() => {
     const definitions = new Map<number, { id: number; name: string }>();
@@ -265,7 +269,7 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
     const filtered = rows.filter((row) => {
-      const engraved = row.artifact.occupiedId !== null;
+      const engraved = row.places.length > 0;
       if (!showEngraved && engraved) return false;
       if (!showInventory && !engraved) return false;
       /* Include, not narrow-to: switched off, the wildcards leave the list;
@@ -279,7 +283,7 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
       if (activeSortBySubProperty !== null
         && !row.subProperties.some((property) => property.definition.id === activeSortBySubProperty)) return false;
       if (!term) return true;
-      return row.location?.toLowerCase().includes(term)
+      return row.location.toLowerCase().includes(term)
         || row.subProperties.some((property) => property.definition.name.toLowerCase().includes(term));
     });
     return filtered;
@@ -479,15 +483,15 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
                 })}
               </ul>
             </td>
-            <td className={artifactCell('location', !row.location && 'muted')}
-              title={row.location === null ? 'Engraved on a monster this import does not contain' : undefined}>
-              {/* `Inventory` and an absent monster are locations rather than
-                  monsters, so they stay the plain text they always were. */}
-              {row.engravedOn === undefined || row.location === null
-                ? row.location ?? 'Unknown monster'
+            <td className={artifactCell('location')} title={row.places.length === 1 ? row.location : undefined}>
+              {/* One place names its monster and opens it; several are counted
+                  and named on hover, since an artifact can sit on a monster in
+                  many presets at once. */}
+              {row.engravedOn === undefined
+                ? <EngravedPlace places={row.places} presets={placements.presets} monsterName={monsterName} />
                 : <MonsterLink
                   target={{ kind: 'copy', unitId: row.engravedOn.unitId, masterId: row.engravedOn.masterId }}
-                  name={row.location}
+                  name={monsterName(row.engravedOn.unitId)}
                   onOpen={onOpenMonster}
                 />}
             </td>

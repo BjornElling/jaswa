@@ -1,6 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { AncientName } from './ancient-mark';
+import { EngravedPlace } from './engraved-place';
+import { FigureMarks } from './figure-marks';
+import { engravedSaleMarks } from '../lib/figure-marks';
 import { CalculationStatus } from './calculation-status';
 import { Dropdown } from './dropdown';
 import { Button, FilterButton, LabelSwap } from './button';
@@ -18,6 +21,8 @@ import { alignmentClass, runeCleanupTableColumns } from '../lib/table-layouts';
 import { formatNumber } from '../lib/formatting';
 import { readRunes, runeMaximumLevel, runeStatName } from '../lib/runes';
 import { monsterCopyNames } from '../lib/monster-names';
+import { engravingLines } from '../lib/presets';
+import { usePresets } from '../lib/presets-context';
 import type { MonsterPreferences } from '../lib/monster-preferences';
 import { runeVerdictLabels, runeVerdictOrder } from '../lib/rune-cleanup-advice';
 import type { RuneVerdict } from '../lib/rune-cleanup-advice';
@@ -239,6 +244,19 @@ export function RuneRecommendations({ game, monsterPreferences, runeHolds, setti
     return monsterCopyNames(Array.isArray(units) ? units as GameRecord[] : [], monsterPreferences);
   }, [game, monsterPreferences]);
 
+  /* Every place a rune is engraved, in Default and in each preset, read from
+     the one resolution the page made (`presets-context.ts`). */
+  const reading = usePresets();
+  const monsterName = useCallback((unitId: string) => monsterNames[unitId]?.name ?? 'A monster not in this import', [monsterNames]);
+  const placeOf = useCallback((runeId: string, gone: boolean) => {
+    const places = gone ? [] : reading.runes.get(runeId) ?? [];
+    return {
+      location: gone ? 'Sold' as const : places.length > 0 ? 'Engraved' as const : 'Inventory' as const,
+      places,
+      placeText: engravingLines(places, reading.presets, monsterName).join(' '),
+    };
+  }, [reading, monsterName]);
+
   const base = useMemo(() => {
     const lines = referenceLines(game?.data);
     return lines === null ? null : new Map([...lines].map(([type, line]) => [type, line.stats]));
@@ -311,10 +329,10 @@ export function RuneRecommendations({ game, monsterPreferences, runeHolds, setti
   const rows = useMemo<RuneCleanupRow[]>(
     () => (held === null ? [] : shownRuneAdvice(held.entries, runesById)).map(({ rune, advice, index, gone }) => ({
       rune, advice, index, gone,
-      location: gone ? 'Sold' : rune.occupiedId === null ? 'Inventory' : monsterNames[rune.occupiedId]?.name ?? null,
+      ...placeOf(rune.id, gone),
       hold: gone ? null : runeHoldVerdict(runeHolds[rune.id]),
     })),
-    [held, runesById, monsterNames, runeHolds],
+    [held, runesById, placeOf, runeHolds],
   );
   const rowsById = useMemo(() => new Map(rows.map((row) => [row.rune.id, row])), [rows]);
   const owned = rows.filter((row) => !row.gone).length;
@@ -339,7 +357,7 @@ export function RuneRecommendations({ game, monsterPreferences, runeHolds, setti
     const term = search.trim().toLowerCase();
     return rows.filter((row) => {
       if (selectedPlaces.length === 1
-        && selectedPlaces[0] !== (row.rune.occupiedId === null ? 'inventory' : 'engraved')) return false;
+        && selectedPlaces[0] !== (row.location === 'Engraved' ? 'engraved' : 'inventory')) return false;
       if (showOnlyAncient && !row.rune.ancient) return false;
       if (selectedSets.length && !selectedSets.includes(row.rune.setName)) return false;
       if (selectedSlots.length && !selectedSlots.includes(row.rune.slot)) return false;
@@ -596,9 +614,8 @@ export function RuneRecommendations({ game, monsterPreferences, runeHolds, setti
                 ? <span className="muted">—</span>
                 : row.rune.subProperties.map((property, at) => <RuneSubLine key={at} property={property} />)}
             </td>
-            <td className={cell('location', !row.location && 'muted')}
-              title={row.location === null ? 'Engraved on a monster this import does not contain' : undefined}>
-              {row.location ?? 'Unknown monster'}
+            <td className={cell('location')}>
+              <EngravedPlace places={row.places} sold={row.gone} presets={reading.presets} monsterName={monsterName} />
             </td>
             <td className={cell('role', !row.advice.role && 'muted')}>
               {row.advice.role?.name ?? '—'}
@@ -618,8 +635,11 @@ export function RuneRecommendations({ game, monsterPreferences, runeHolds, setti
             {/* The verdict alone. The chance it rests on is the column beside it, so
                 repeating it underneath only said the same number twice. */}
             <td className={cell('advice')}>
-              <span className="rune-verdict" data-verdict={shownRuneVerdict(row)}>
-                {shownRuneVerdictLabel(row)}
+              <span className="rune-verdict-line">
+                <span className="rune-verdict" data-verdict={shownRuneVerdict(row)}>
+                  {shownRuneVerdictLabel(row)}
+                </span>
+                <FigureMarks marks={engravedSaleMarks(shownRuneVerdict(row), row.places.length)} reserve={1} />
               </span>
             </td>
           </tr>) : <tr>

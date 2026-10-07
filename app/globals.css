@@ -313,7 +313,8 @@ label[for] {
 .best-monster-artifact-details h3, .craft-best-use-item h3, .empty-state h2,
 .field-lead > span, .overlay-block-title, .speed-basis-title,
 .overlay-facts dd, .rune-overlay-location .monster-name, .rune-build-centre-name,
-.rune-optimization-monster-select .jaswa-select, .jaswa-select.monster-priority-select {
+.rune-optimization-monster-select .jaswa-select, .jaswa-select.monster-priority-select,
+.jaswa-select.rune-optimization-preset-select {
   font-family: var(--font-heading);
   font-size: var(--type-heading);
   font-weight: 600;
@@ -369,7 +370,7 @@ label[for] {
 }
 
 /* Controls name actions, but keep the same body family and measure. */
-.type-control, .button, .filter-reset, .text-link, .radio-line-legend, .speed-add-item,
+.type-control, .button, .filter-reset, .text-link, .radio-line-legend,
 .role-row-label, .expandable-list-toggle, .notice-link,
 .field > span {
   font-family: var(--font-body);
@@ -2345,20 +2346,26 @@ label[for] {
 }
 .rune-optimization-monster-select .jaswa-select { height: 52px; padding-left: calc(36px + var(--s4)); }
 .rune-optimization-open-profile { gap: var(--s2); }
+/* The preset heads the panel in the same voice and size as the monster field:
+   the two together are the question every build answers. */
+.jaswa-select.rune-optimization-preset-select { width: 100%; height: 52px; margin-bottom: var(--s2); }
 
 /* ------------------------------------------------------- priority list */
 /* Held to a reading measure: a name and the arrows that move it belong on one
    line the eye can cross, which a 3440 px wide row is not. */
 .monster-priority { display: grid; gap: var(--s5); max-width: 1120px; }
 .monster-priority .panel { padding: var(--s4) var(--s5); }
-/* The field the list is made from, on the left as Rune Optimization's is, and
-   beside it what the list is for. */
+/* The fields the list is made from, on the left as Rune Optimization's are,
+   beside them what the chosen preset is, and the page's own actions at the far
+   edge. */
 .monster-priority-add-panel {
   display: grid;
-  grid-template-columns: minmax(0, 48ch) minmax(0, 1fr);
-  align-items: center;
+  grid-template-columns: minmax(0, 48ch) minmax(0, 1fr) max-content;
+  align-items: end;
   gap: var(--s4) var(--s7);
 }
+.monster-priority-fields { display: grid; gap: var(--s4); }
+.monster-priority-actions { display: grid; gap: var(--s2); align-self: end; }
 .monster-priority-add { display: grid; gap: var(--s2); justify-items: start; }
 /* As tall and as wide as Rune Optimization's monster field, and fixed, so no
    name in the menu can widen it. The width is the column's, counted in the
@@ -2388,7 +2395,7 @@ label[for] {
    0/6 sit on the same verticals and nothing moves as a count changes. */
 .monster-priority-table {
   display: grid;
-  grid-template-columns: 5ch minmax(0, 1fr) max-content 10ch 10ch 6ch max-content;
+  grid-template-columns: 5ch 3ch minmax(0, 1fr) max-content 10ch 10ch 6ch max-content;
   column-gap: var(--s3);
 }
 .monster-priority-head, .monster-priority-list, .monster-priority-entry {
@@ -2426,6 +2433,12 @@ label[for] {
 .monster-priority-place { color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .monster-priority-name { display: flex; min-width: 0; }
 .monster-priority-controls { display: flex; gap: var(--s1); }
+/* The leader's crown, in its place on every row: dimmed where the row does not
+   lead, so naming a leader changes a colour and moves nothing. */
+.preset-leader { display: inline-flex; align-items: center; justify-content: center; color: var(--text-muted); opacity: 0.35; }
+.preset-leader[data-on], .preset-leader[aria-pressed="true"] { color: var(--text-accent); opacity: 1; }
+.preset-leader svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linejoin: round; }
+.monster-priority-list-panel[aria-disabled="true"] .monster-priority-empty { color: var(--text-muted); }
 
 /* The depth carries a line of its own, so the build count stands clear of it
    rather than reading as a third line of the same group. */
@@ -2438,7 +2451,7 @@ label[for] {
 .rune-optimization-work-warning { height: 3lh; margin: 0; overflow: hidden; visibility: hidden; }
 .rune-optimization-work-warning[data-tone] { visibility: visible; color: var(--state-warn); }
 .rune-optimization-work-warning[data-tone='bad'] { color: var(--state-bad); }
-.rune-optimization-work-warning[data-tone='neutral'] { color: var(--faint); }
+.rune-optimization-work-warning[data-tone='neutral'] { color: var(--text-muted); }
 
 /* A fixed measure, so the status line at its foot can change its wording — a
    percentage, then a line of counts — without the columns beside it moving. */
@@ -6301,6 +6314,10 @@ th.align-center .sort-button { justify-content: center; }
 .rune-innate { margin-right: 0; }
 
 .rune-verdict { display: block; }
+/* The verdict and the mark after it on one line; the mark's box is held even
+   when empty, so a verdict gaining one does not move. */
+.rune-verdict-line { display: inline-flex; align-items: center; gap: var(--s1); }
+.rune-verdict-line .rune-verdict { display: inline; }
 .rune-verdict[data-verdict='power-up'] { color: var(--state-good); }
 .rune-verdict:is([data-verdict='keep'], [data-verdict='unsellable'], [data-verdict='locked']) { color: var(--text-strong); }
 .rune-verdict[data-verdict='sell'] { color: var(--state-bad); }
@@ -6687,23 +6704,6 @@ th.align-center .sort-button { justify-content: center; }
 }
 .speed-basis-facts { display: grid; gap: var(--s1); min-width: 0; }
 .speed-basis p { margin: 0; }
-/* The page's one Add, and its menu hung from the button's right edge, over
-   the columns rather than pushing them down. */
-.speed-add { position: relative; }
-.speed-add .button { gap: var(--s2); }
-.speed-add-menu {
-  position: absolute; z-index: 10; top: calc(100% + var(--s1)); right: 0;
-  min-width: 100%; display: grid; padding: var(--s1);
-  background: var(--raise);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-sm);
-  box-shadow: 0 18px 44px rgba(0, 0, 0, .55);
-}
-.speed-add-item {
-  padding: var(--s2) var(--s3); border: 0; border-radius: var(--radius-sm);
-  background: transparent; color: var(--text-strong); text-align: left; white-space: nowrap; cursor: pointer;
-}
-.speed-add-item:hover, .speed-add-item:focus-visible { background: var(--sunk); color: var(--text-accent); outline: none; }
 .speed-basis-title { margin: 0 0 var(--s1); color: var(--text-strong); }
 .speed-basis-level, .speed-basis-bonus { color: var(--text-muted); }
 .speed-basis-figure { color: var(--text-strong); font-variant-numeric: tabular-nums; }
@@ -6819,7 +6819,6 @@ th.align-center .sort-button { justify-content: center; }
 .speed-icon-button:disabled { opacity: .35; cursor: default; }
 .speed-icon { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .speed-slot-empty td { color: var(--text-muted); }
-.speed-add-monster { width: 32ch; max-width: 100%; height: 32px; }
 
 /* The tick above, the lead it brings below, both centred in the column so a
    team's leader reads down one line. Only colour tells the states apart:
@@ -6866,50 +6865,8 @@ th.align-center .sort-button { justify-content: center; }
 .speed-enemy-table tbody th { color: var(--text-muted); }
 .speed-enemy-after-name { color: var(--text-strong); }
 .speed-enemy-after-turn { color: var(--text-muted); }
-/* A rule as a draft: three lines that read as one sentence — the monster,
-   what it must do, what that is measured against — and under them the speed
-   forms it is checked in, each with its verdict. */
-.dialog.speed-rule-overlay { width: min(680px, 100%); }
-.speed-rule-body { gap: var(--s5); }
-.speed-rule-lines {
-  display: grid; grid-template-columns: 16ch minmax(0, 1fr);
-  grid-auto-rows: 36px; align-items: center; gap: var(--s3) var(--s4);
-}
-/* Centred on its control's line; `label[for]` would otherwise sit it at the top. */
-.speed-rule-lines .filter-label { margin: 0; align-self: center; }
-.speed-rule-target { display: flex; align-items: center; gap: var(--s2); min-width: 0; height: 36px; }
-.speed-rule-figure {
-  width: 8ch; height: 36px;
-  padding: 0 var(--s2);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-sm);
-  background: var(--sunk);
-  color: var(--text-strong);
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  color-scheme: dark;
-}
-.speed-rule-figure:focus { outline: none; border-color: var(--text-accent); }
-.speed-rule-and { color: var(--text-muted); }
-.speed-rule-hint { min-width: 0; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.speed-rule-hint[data-state='bad'] { color: var(--state-bad); }
-/* One row per speed form, every column a fixed measure, so a verdict that
-   changes as a figure is typed never moves the row or the rows below it. */
-.speed-rule-where { display: grid; gap: var(--s2); margin: 0; padding: 0; border: 0; min-width: 0; }
-.speed-rule-where legend { padding: 0; margin-bottom: var(--s2); }
-.speed-rule-check {
-  display: grid; grid-template-columns: 16ch 14ch minmax(0, 1fr) 16px;
-  align-items: center; column-gap: var(--s4); min-height: 28px;
-}
-.speed-rule-figures { color: var(--text-strong); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.speed-rule-check[data-checked='false'] .speed-rule-figures { color: var(--text-muted); }
-.speed-rule-verdict { min-width: 0; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.speed-rule-verdict[data-state='good'] { color: var(--state-good); }
-.speed-rule-verdict[data-state='bad'] { color: var(--state-bad); }
 .speed-summary-mark.speed-summary-mark-small { grid-area: auto; }
 .speed-summary-mark.speed-summary-mark-small, .speed-summary-mark-small svg { width: 16px; height: 16px; }
-.speed-rule-check[data-read='false'] .speed-summary-mark { visibility: hidden; }
-.speed-summary-figure { font-variant-numeric: tabular-nums; }
 .dialog.speed-confirm { width: min(480px, 100%); }
 .speed-confirm h2 { margin: 0; }
 .speed-confirm .dialog-actions { margin-top: 0; }
@@ -6978,3 +6935,8 @@ th.align-center .sort-button { justify-content: center; }
 .rune-optimization-change-limit .stat-range-input { width: 6ch; height: calc(var(--s5) + var(--s1)); flex: none; }
 .rune-optimization-settings .checkbox-row[data-disabled] { color: var(--text-muted); cursor: not-allowed; }
 .rune-optimization-settings .checkbox-row input:disabled { opacity: .4; cursor: not-allowed; }
+
+/* An item's location: the word, and the count of places beside it in a box
+   of its own, so a row reading ×12 is as wide as one reading nothing. */
+.engraved-place { display: inline-flex; gap: var(--s1); white-space: nowrap; }
+.engraved-place-count { min-width: 4ch; font-variant-numeric: tabular-nums; color: var(--text-muted); }

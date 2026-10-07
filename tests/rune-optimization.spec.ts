@@ -827,6 +827,10 @@ test('selection and adjustment choices keep their boxes and survive a reload', a
   await freshWorkspace(page);
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
   await openOptimization(page);
+  /* The preset leads the panel; an account with no saved decks has Default alone, chosen. */
+  const preset = page.getByLabel('Preset', { exact: true });
+  await expect(preset).toHaveValue('default');
+  await expect(preset.locator('option')).toHaveText(['Default']);
   await page.getByLabel('Monster', { exact: true }).selectOption('11');
   const settings = page.getByRole('complementary', { name: 'Settings' });
   const before = await box(settings);
@@ -847,7 +851,7 @@ test('selection and adjustment choices keep their boxes and survive a reload', a
   await expect(page.getByRole('button', { name: 'Find builds' })).toBeEnabled();
   await maximum.fill('6');
   await settings.getByLabel('Just fill in empty slots').check();
-  await settings.getByLabel('Only use runes from inventory').check();
+  await settings.getByLabel('Only use runes free in this preset').check();
   await settings.getByLabel('Include runes from higher-priority monsters').check();
   await settings.getByLabel('Count unfinished runes at their +15 main stat').check();
   await settings.getByRole('radio', { name: 'Theoretical', exact: true }).first().check();
@@ -870,6 +874,7 @@ test('selection and adjustment choices keep their boxes and survive a reload', a
   await page.reload();
   await expect(settings.getByLabel('Just fill in empty slots')).toBeChecked();
   await expect(settings.getByLabel('Slot 1/3/5 only counts at +12')).toBeChecked();
+  await expect(settings.getByLabel('Only use runes free in this preset')).toBeChecked();
   await expect(settings.getByLabel('Maximum changes')).toHaveValue('6');
   await expect(settings.getByLabel('Gems: grade')).toHaveValue('Legend');
   await maximum.fill('');

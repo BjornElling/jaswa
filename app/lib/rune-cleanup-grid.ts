@@ -14,6 +14,7 @@ import { runeVerdictLabels } from './rune-cleanup-advice';
 import { filteredRuneVerdict, runeHoldLabels } from './rune-holds';
 import type { RuneHoldVerdict, ShownRuneVerdict } from './rune-holds';
 import { lastSubPropertyLevel } from './rune-properties';
+import type { Engraving } from './presets';
 
 export type RuneCleanupRow = {
   rune: Rune;
@@ -21,12 +22,15 @@ export type RuneCleanupRow = {
   index: number;
   advice: RuneAdvice;
   /**
-   * Where the rune is: the name of the monster it is engraved on, `Inventory`
-   * when it is on none, and
-   * `null` for a monster this import does not contain — a gap in the import, which
-   * must not read as an empty inventory.
+   * Where the rune is: engraved on a monster in Default or a preset, in
+   * inventory when on none, or sold since the calculation. A rune can be
+   * engraved in many presets at once (`DECK-PRESETS.md` §1), so the places are
+   * listed in `places` and the cell says only which of the three it is.
    */
-  location: string | null;
+  location: 'Engraved' | 'Inventory' | 'Sold';
+  places: readonly Engraving[];
+  /** The places in words — "monster — preset" — so a search finds a rune by where it is. */
+  placeText: string;
   /** Sold since the calculation: the row stays, as the rune last was, so the rows around it do not move. */
   gone: boolean;
   /** The user's own word over the advice. Read beside the held result rather than
@@ -214,7 +218,7 @@ export function compareRuneCleanupRows(
     case 'main': return (runeStatName(left.rune.mainStatId) ?? '').localeCompare(runeStatName(right.rune.mainStatId) ?? '');
     case 'innate': return runeInnateText(left.rune).localeCompare(runeInnateText(right.rune));
     case 'subs': return runeSubText(left.rune).localeCompare(runeSubText(right.rune));
-    case 'location': return (left.location ?? '').localeCompare(right.location ?? '');
+    case 'location': return left.location.localeCompare(right.location) || left.places.length - right.places.length;
     case 'role': return (left.advice.role?.name ?? '').localeCompare(right.advice.role?.name ?? '');
     case 'maxValue': return left.advice.maxValue - right.advice.maxValue;
     case 'chance': return left.advice.chance - right.advice.chance;
@@ -237,6 +241,7 @@ export function runeCleanupSearchText(row: RuneCleanupRow): string {
     runeSubText(row.rune),
     row.advice.role?.name ?? '',
     shownRuneVerdictLabel(row),
-    row.location ?? '',
+    row.location,
+    row.placeText,
   ].join(' ').toLowerCase();
 }

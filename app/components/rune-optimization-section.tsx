@@ -33,10 +33,13 @@ import { runeSlotKeys } from '../lib/monster-defaults';
 import type { RuneSlotKey } from '../lib/monster-defaults';
 import { monsterPresentation } from '../lib/monster-catalog';
 import { monsterNameCollator } from '../lib/monster-grid';
-import { higherPriorityThan } from '../lib/monster-priority';
+import { higherPriorityThan, presetPriorityOf } from '../lib/monster-priority';
 import { monsterCopyNames } from '../lib/monster-names';
 import { monsterStatTargetKeys, readTargetField } from '../lib/monster-preferences';
 import { monsterTargetFigures } from '../lib/monster-stats';
+import { accountItems, defaultPresetId, monsterInPreset, presetGroupsOf, runesInPreset } from '../lib/presets';
+import type { Preset } from '../lib/presets';
+import type { RuneHolds } from '../lib/rune-holds';
 import { craftRollAssumptions, craftRollLabels, itemGrades, readCraftItems } from '../lib/rune-craft-items';
 import type { CraftItem, CraftRollAssumption } from '../lib/rune-craft-items';
 import { estimateRuneOptimizationBuilds, figureIndex } from '../lib/rune-optimization-problem';
@@ -95,6 +98,7 @@ type MonsterOption = { unitId: string; masterId: string; name: string; record: G
    back the work the player did from the table. */
 type Calculation = {
   inputKey: string;
+  presetId: string;
   unitId: string;
   requirements: RuneOptimizationRequirements;
   settings: RuneOptimizationSettings;
@@ -132,13 +136,29 @@ function Provenance({ children }: { children: ReactNode }) {
   return <p className="rune-optimization-provenance">{children}</p>;
 }
 
-export function RuneOptimizationSection({ game, monsters, preferences, onUpdate, canEngrave, onEngrave, onOpenMonster, onOpenRune }: {
+/* A lock keeps a rune where it sits in Default (`rune-holds.ts`); a preset holds
+   its own gear, so in a preset a Default lock neither holds nor refuses a rune. */
+function holdsIn(preset: Preset, holds: RuneHolds): RuneHolds {
+  if (preset.kind === 'default') return holds;
+  return Object.fromEntries(Object.entries(holds).flatMap(([runeId, hold]) => {
+    const rest = { ...hold };
+    delete rest.locked;
+    return Object.keys(rest).length > 0 ? [[runeId, rest]] : [];
+  }));
+}
+
+export function RuneOptimizationSection({ game, monsters, preferences, presets, presetId, onSelectPreset, onUpdate, canEngrave, onEngrave, onOpenMonster, onOpenRune }: {
   game: ImportedGame | null;
   monsters: readonly GameRecord[];
   preferences: Preferences;
+  presets: readonly Preset[];
+  /** The preset every build on the page is for; `''` reads as Default. */
+  presetId: string;
+  onSelectPreset: (presetId: string) => void;
   onUpdate: (update: Partial<RuneOptimizationSettings>) => void;
+  /** Whether builds may be engraved in the game's presets and Default; a preset built in JASWA always may. */
   canEngrave: boolean;
-  onEngrave: (unitId: string, runeIds: readonly string[]) => Promise<void>;
+  onEngrave: (presetId: string, unitId: string, runeIds: readonly string[]) => Promise<void>;
   onOpenMonster: OpenMonsterOverlay;
   onOpenRune: OpenRuneOverlay;
 }) {
@@ -161,15 +181,21 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
   /* A search the user walked away from gives the processor back. */
   useEffect(() => () => cancelRuneOptimization(), []);
 
+  /* Every build is for one preset: its runes are the preset's, and runes the
+     preset leaves free are free whatever other presets hold (`DECK-PRESETS.md` §4). */
+  const preset = presets.find((entry) => entry.id === presetId) ?? presets.find((entry) => entry.id === defaultPresetId);
+  const items = useMemo(() => accountItems(game?.data), [game]);
   const names = useMemo(() => monsterCopyNames(monsters, preferences.monsterPreferences), [monsters, preferences.monsterPreferences]);
-  const options = useMemo<MonsterOption[]>(() => monsters
+  const options = useMemo<MonsterOption[]>(() => (preset ? monsters : [])
     .filter((monster) => monster.unit_id !== undefined && monster.unit_id !== null)
+    .filter((monster) => preset?.kind === 'default' || preset?.members.includes(String(monster.unit_id)))
     .map((monster) => {
       const id = String(monster.unit_id);
-      return { unitId: id, masterId: String(monster.unit_master_id ?? ''), name: names[id]?.name ?? id, record: monster };
+      return { unitId: id, masterId: String(monster.unit_master_id ?? ''), name: names[id]?.name ?? id,
+        record: preset ? monsterInPreset(monster, preset, items) : monster };
     })
     .sort((left, right) => monsterNameCollator.compare(left.name, right.name) || left.unitId.localeCompare(right.unitId)),
-  [monsters, names]);
+  [monsters, names, preset, items]);
   const selected = options.find((option) => option.unitId === unitId);
   const buildMonster = useMemo(() => {
     if (!selected) return { unitId, masterId: '', name: '', initial: '?' };
@@ -184,20 +210,22 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
     : undefined), [selected, preferences.monsterPreferences]);
   const requirements = edits !== null && edits.unitId === unitId ? edits.requirements : profile?.requirements;
 
-  const runes = useMemo(() => (game ? readRunes(game.data) : []), [game]);
+  const runes = useMemo(() => (game && preset ? runesInPreset(readRunes(game.data), preset) : []), [game, preset]);
+  const holds = useMemo(() => (preset ? holdsIn(preset, preferences.runeHolds) : preferences.runeHolds), [preset, preferences.runeHolds]);
   const runesById = useMemo(() => new Map(runes.map((rune) => [rune.id, rune])), [runes]);
   const craftItems = useMemo(() => (game ? readCraftItems(game.data) : []), [game]);
   const itemsById = useMemo(() => new Map(craftItems.map((item) => [item.id, item])), [craftItems]);
   const alwaysCrits = requirements?.alwaysCrits ?? false;
 
-  /* The priority list is resolved here, into the copies this one may not take from,
-     so the search reads one list of monstersByUnitId and never the switch or the order. */
+  /* The preset's priority list is resolved here, into the copies this one may not
+     take from, so the search reads one list of monsters and never the switch or the order. */
   const sparing = settings.runesOnOtherMonsters && !settings.includeHigherPriority;
-  const spared = useMemo(() => (sparing ? higherPriorityThan(preferences.monsterPriority, unitId) : []),
-    [sparing, preferences.monsterPriority, unitId]);
+  const spared = useMemo(() => (sparing && preset
+    ? higherPriorityThan(presetPriorityOf(preset, preferences.monsterPriority, preferences.presetPriority), unitId) : []),
+  [sparing, preset, preferences.monsterPriority, preferences.presetPriority, unitId]);
   const input = useMemo<RuneOptimizationInput | undefined>(() => (selected && requirements && (!settings.limitChanges || settings.maxChanges !== undefined) ? {
-    unitId: selected.unitId, monster: selected.record, runes, holds: preferences.runeHolds, spared, craftItems, requirements, settings,
-  } : undefined), [selected, requirements, runes, preferences.runeHolds, spared, craftItems, settings]);
+    unitId: selected.unitId, monster: selected.record, runes, holds, spared, craftItems, requirements, settings,
+  } : undefined), [selected, requirements, runes, holds, spared, craftItems, settings]);
   const estimate = useMemo(() => (input ? estimateRuneOptimizationBuilds(input) : undefined), [input]);
   const trial = useRuneOptimizationWork(input, preferences.hardwareAcceleration, state === 'calculating');
   /* The question on screen. The account is never part of it: the player follows the
@@ -205,12 +233,13 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
      brings that back updates the builds (`rune-optimization-refresh.ts`). Listing
      fewer builds is the same table cut shorter. */
   const { resultCount, ...searchSettings } = settings;
-  const inputKey = JSON.stringify({ unitId, requirements, settings: searchSettings, spared });
+  const activePresetId = preset?.id ?? defaultPresetId;
+  const inputKey = JSON.stringify({ presetId: activePresetId, unitId, requirements, settings: searchSettings, spared });
   /* A table stays on screen while its monster is chosen, whatever is changed above
      it: it is still the answer to the question it was asked, read with that
      question's own requirements, and the warning beside Find builds says the
      question on screen is now a different one. */
-  const current = calculation !== undefined && calculation.unitId === unitId && selected ? calculation : undefined;
+  const current = calculation !== undefined && calculation.unitId === unitId && calculation.presetId === activePresetId && selected ? calculation : undefined;
   const stale = current !== undefined && (current.inputKey !== inputKey || current.resultCount < resultCount);
   /* Once the user has asked again, the warning has been acted on: a search running
      under it would read as the new search answering the old question. */
@@ -243,9 +272,9 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
     ? currentBuilds(current.answer.builds.slice(0, resultCount), {
       unitId: selected.unitId, monster: selected.record, requirements: tableLimits, settings: current.settings, spared: current.spared,
       before: { runes: current.runes, items: current.items },
-      now: { runes: runesById, items: itemsById, holds: preferences.runeHolds },
+      now: { runes: runesById, items: itemsById, holds },
     })
-    : undefined), [current, selected, tableLimits, resultCount, runesById, itemsById, preferences.runeHolds]);
+    : undefined), [current, selected, tableLimits, resultCount, runesById, itemsById, holds]);
   const figuresNow = useCallback((bonuses: RuneOptimizationRequirements) => {
     if (!selected) return undefined;
     const figures = monsterTargetFigures(selected.record, bonuses);
@@ -283,7 +312,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
   async function calculate() {
     if (!input || !requirements) return;
     const searched = {
-      unitId, requirements, settings, spared, runes: runesById, items: itemsById, resultCount,
+      presetId: activePresetId, unitId, requirements, settings, spared, runes: runesById, items: itemsById, resultCount,
     };
     trial.cancel();
     setState('calculating');
@@ -323,6 +352,15 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
     <div className="rune-optimization">
       <div className="panel rune-optimization-monster-panel">
         <div className="filter-group rune-optimization-monster">
+          {/* The preset leads the panel: every build below is for it, and the same
+              monster can carry a different build in each. */}
+          <label className="filter-label" htmlFor="rune-optimization-preset">Preset</label>
+          <Dropdown id="rune-optimization-preset" className="rune-optimization-preset-select" value={activePresetId}
+            onChange={(event) => { onSelectPreset(event.target.value); setEdits(null); setChosenBuild(null); }}>
+            {presetGroupsOf(presets).map((group) => <optgroup key={group.label} label={group.label}>
+              {group.presets.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+            </optgroup>)}
+          </Dropdown>
           <label className="filter-label" htmlFor="rune-optimization-monster">Monster</label>
           {/* The portrait sits inside the field, at the start of the name it
               belongs to. Its box is there with no monster chosen too, so choosing
@@ -493,7 +531,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
           </div>
           <div className="filter-group rune-optimization-sources">
             <span className="filter-label">Selection</span>
-            <CheckboxRow label="Only use runes from inventory" checked={!settings.runesOnOtherMonsters}
+            <CheckboxRow label="Only use runes free in this preset" checked={!settings.runesOnOtherMonsters}
               onChange={(inventoryOnly) => onUpdate({ runesOnOtherMonsters: !inventoryOnly })} />
             <CheckboxRow label="Just fill in empty slots" checked={settings.fillEmptySlotsOnly}
               onChange={(fillEmptySlotsOnly) => onUpdate({ fillEmptySlotsOnly })} />
@@ -573,8 +611,8 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
     {builds && showingBuild && chosenBuild !== null && builds[chosenBuild] && <RuneBuildOverlay
       index={chosenBuild} buildName={buildNameOf(builds[chosenBuild].runes.map((rune) => rune.setId))}
       moves={builds[chosenBuild].moves} runes={builds[chosenBuild].runes}
-      runesById={runesById} loadedRuneLocations={game?.loadedRuneLocations} monster={buildMonster} engravedOn={(id) => monstersByUnitId.get(id)}
-      general={general} canEngrave={canEngrave} onEngrave={onEngrave}
+      runesById={runesById} loadedPlacements={game?.loadedPlacements?.[activePresetId]} monster={buildMonster} engravedOn={(id) => monstersByUnitId.get(id)}
+      general={general} canEngrave={canEngrave || preset?.kind === 'own'} onEngrave={(engraveUnitId, runeIds) => onEngrave(activePresetId, engraveUnitId, runeIds)}
       onClose={closeBuild} onOpenRune={onOpenRune} onOpenMonster={onOpenMonster} />}
   </WorkspacePage>;
 }

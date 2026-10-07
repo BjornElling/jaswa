@@ -249,6 +249,23 @@ try {
   report(JSON.stringify(deckAssignments(sourceDecks)) === JSON.stringify(deckAssignments(importedDecks)),
     'every saved Deck Preset rune and artifact assignment survives the import');
   console.log(`  saved decks with missing physical runes: ${importedDecks.filter((deck) => deck.missingRuneIds.length).length}`);
+
+  /* Every saved deck must be a preset the interface can reach, carrying its
+     own placements: a deck read and then not offered is the invisible gap
+     `AGENTS.md` §0.1 forbids (`DECK-PRESETS.md` §6, step 9). */
+  const { readPresets, presetGroupsOf } = await server.ssrLoadModule('/app/lib/presets.ts');
+  const presets = readPresets(data, []);
+  const offered = new Set(presetGroupsOf(presets).flatMap((group) => group.presets.map((preset) => preset.id)));
+  const unreachable = importedDecks.filter((deck) => !offered.has(deck.key));
+  report(unreachable.length === 0, `every saved deck is a preset on offer (${unreachable.length} not offered)`);
+  const misplaced = importedDecks.filter((deck) => {
+    const preset = presets.find((entry) => entry.id === deck.key);
+    if (!preset || !deck.savesGear) return false;
+    return [...deck.runeOwnerById].some(([runeId, unitId]) => preset.runeOwner.get(runeId) !== unitId)
+      || [...deck.artifactOwnerById].some(([artifactId, unitId]) => preset.artifactOwner.get(artifactId) !== unitId);
+  });
+  report(misplaced.length === 0, `every saved placement is the preset's own (${misplaced.length} presets differ)`);
+  console.log(`  presets: ${presets.length} (Default and ${importedDecks.length} saved decks), ${presets.filter((preset) => preset.content === null && preset.kind === 'game').length} not yet named`);
   console.log(`  saved decks with missing physical artifacts: ${importedDecks.filter((deck) => deck.missingArtifactIds.length).length}`);
 
   /* An engraved item lives below its owner in the export as well as in the

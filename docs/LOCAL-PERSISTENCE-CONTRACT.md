@@ -18,7 +18,9 @@ in the current browser tab only and is cleared when that tab closes.
 
 The durable workspace contains:
 
-- the current imported game, including its prepared account data;
+- the current imported game, including its prepared account data and, for
+  each preset JASWA has engraved a build in, where each moved rune sat when the
+  import was loaded (`loadedPlacements`, the build overlay's *Previously*);
 - all preferences: import route and mode, graphics preference, formats and
   time zone, per-copy monster preferences (the user's own name for a copy, its
   chosen rune builds and slot main stats, the switches that qualify them, its
@@ -30,15 +32,13 @@ The durable workspace contains:
   different jobs), Rune Clean-up settings, Rune Clean-up
   roles, and Artifact Optimization settings (whether to factor in only owned
   monsters or only Lv. 40 monsters, how conversion stones are sourced, the
-  assumed stone value, and the acceptable-property factor), and Speed Tuning's
-  teams and rules (each team's dungeon or arena, its monsters in the order they
-  should move, its leader and any what-if display speed
-  tried on a monster — keyed by `unit_id`; the what-if is stored with the team
-  but read only by the team's overlay, never by the page or any other figure;
-  and each standing
-  rule about one monster — that it moves before or after another, or that it
-  reaches, stays under or stays between figures — and which of display speed,
-  dungeon speed and arena speed it is checked in), and Rune Optimization's
+  assumed stone value, and the acceptable-property factor), the presets built
+  in JASWA (`DECK-PRESETS.md` §4: a name, a content, the monsters, the leader
+  and, once engraved, every member's runes and artifacts), Default's priority
+  list and the order the user gave each game preset's monsters, Speed Tuning's
+  word on each preset (the turn order wanted and any what-if display speed
+  tried on a monster — keyed by `unit_id`; the what-if is read only by the
+  preset's overlay, never by the page or any other figure), and Rune Optimization's
   settings, among them whether held Immemorial Gems and Grindstones may be spent —
   one answer for every monster;
 - the chosen export-folder handle when the browser supports it.
@@ -78,10 +78,17 @@ IndexedDB transaction to complete before appearing as saved state.
 A Speed Tuning change goes through `writeSpeedTuning` in `app/page.tsx`, a
 named wrapper over `changePreferences`. Only the user's statements are stored;
 every arena speed, dungeon speed, verdict and interval is derived from the
-current import on each render, so a saved team cannot carry a stale reading.
+current import on each render, so a saved order cannot carry a stale reading.
 A what-if the contract refuses — not a whole display speed from 1 to 999 — is
-dropped alone, and the team it sat in is read as it stands. A saved team whose monster the
-import no longer holds keeps its slot and says so until the user removes it.
+dropped alone, and the rest of the preset's tuning is read as it stands. A
+stored order names monsters by `unit_id`; one the preset no longer holds is
+left out and one it gained since is read last.
+
+The Presets page writes through `presetWrites` in `app/page.tsx` — Default's
+list, a game preset's order and the presets built in JASWA — each a named
+wrapper over `changePreferences`. A preset built in JASWA is read back one
+preset at a time (`readOwnPresets`): one that fails its check is dropped and
+every other is kept.
 
 A monster-overlay choice goes through `updateMonsterPreferences` in
 `app/page.tsx`, which is a named wrapper over `changePreferences` and not a

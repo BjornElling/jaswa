@@ -371,33 +371,6 @@ function tuningRange(candidates: readonly Candidate[], content: SpeedContent, cu
   return { minimum, maximum: index === 0 ? null : ceiling };
 }
 
-/**
- * The run of display speeds nearest `current` at which `passes` holds, from
- * bare runes up to the page's ceiling. A team's member and a standing rule are
- * both asked "which display speeds would put this right" through this one
- * search, so the two cannot come to disagree about what an interval is.
- */
-export function nearestPassingDisplaySpeeds(baseSpeed: number, swift: boolean, current: number,
-  passes: (shown: number) => boolean): DisplaySpeedInterval | null {
-  const lowest = displaySpeed(baseSpeed, swift, 0);
-  const runs: DisplaySpeedInterval[] = [];
-  let start: number | null = null;
-  for (let shown = lowest; shown <= whatIfDisplaySpeedMaximum; shown += 1) {
-    const ok = passes(shown);
-    if (ok && start === null) start = shown;
-    if (!ok && start !== null) {
-      runs.push({ minimum: start, maximum: shown - 1 });
-      start = null;
-    }
-  }
-  if (start !== null) runs.push({ minimum: start, maximum: null });
-  if (runs.length === 0) return null;
-  const distance = (run: DisplaySpeedInterval) => current < run.minimum
-    ? run.minimum - current
-    : run.maximum !== null && current > run.maximum ? current - run.maximum : 0;
-  return [...runs].sort((left, right) => distance(left) - distance(right))[0];
-}
-
 /* Leo's cap spares a boss, and a dungeon stage does not say which of its
    enemies is one, so in a dungeon every enemy is read as uncapped: the
    pessimistic reading. Arena has no bosses. */
@@ -565,14 +538,4 @@ export function displaySpeedIntervalText(interval: DisplaySpeedInterval | null, 
   if (interval.maximum === null) return `needs ${minimum}+ display speed`;
   if (interval.maximum === interval.minimum) return `needs exactly ${minimum} display speed`;
   return `needs ${minimum}–${formatNumber(interval.maximum, general)} display speed`;
-}
-
-/**
- * A monster joins in the slot it was added from — the first empty one — and
- * nowhere else. Sorting it in by speed moved it away from where the user just
- * put it, and the order is the user's statement, not the program's guess.
- */
-export function withMonsterAdded(team: SpeedTeam, unitId: string): SpeedTeam {
-  if (team.members.some((member) => member.unitId === unitId) || team.members.length >= speedContent(team.content).teamSize) return team;
-  return { ...team, members: [...team.members, { unitId }] };
 }

@@ -199,13 +199,14 @@ try {
     readRune({ rune_id: 4, set_id: 8, slot_no: 2, class: 6, rank: 5, extra: 5, upgrade_curr: 12, occupied_type: 2, occupied_id: 0, pri_eff: [4, 63], prefix_eff: [0, 0], sec_eff: [[2, 8, 0, 0]] }),
   ];
   assert.equal(box.every(Boolean), true, 'every fixture rune reads');
-  const reach = craftReach([violentSpdGem, fatalSpdGem], box);
+  const engraved = new Set(box.filter((rune) => rune.occupiedId !== null).map((rune) => rune.id));
+  const reach = craftReach([violentSpdGem, fatalSpdGem], box, engraved);
   assert.deepEqual(reach.get(violentSpdGem.id), { fits: 2, spare: 1, block: null });
   assert.deepEqual(reach.get(fatalSpdGem.id), { fits: 1, spare: 1, block: null });
   /* Nothing fits: the blocker reported is the nearest miss across the box, not
      the first one met. Rune 3 is the right set and merely under-levelled, so
      "no rune has reached +12" is the honest line, not "you own no Violent rune". */
-  const blocked = craftReach([violentSpdGem], [box[2], box[3]]);
+  const blocked = craftReach([violentSpdGem], [box[2], box[3]], engraved);
   assert.equal(blocked.get(violentSpdGem.id).fits, 0);
   assert.equal(blocked.get(violentSpdGem.id).block, 'level');
 

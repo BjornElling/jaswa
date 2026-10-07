@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { Dropdown } from './dropdown';
-import { ArrowIcon, RemoveIcon } from './list-icons';
+import { ArrowIcon } from './list-icons';
 import { MonsterLink } from './monster-link';
 import type { OpenMonsterOverlay } from './monster-link';
 import { useDragReorder } from './use-drag-reorder';
@@ -15,8 +14,6 @@ import type { DisplaySpeedInterval, MemberReading, TeamReading } from '../lib/sp
 import { whatIfDisplaySpeedMaximum } from '../lib/speed-tuning-preferences';
 import type { SpeedTeam } from '../lib/speed-tuning-preferences';
 import type { GeneralSettings } from '../lib/types';
-
-export type MonsterChoice = { unitId: string; masterId: string; name: string };
 
 function ordinal(value: number): string {
   const tens = value % 100;
@@ -91,13 +88,10 @@ type EditorProps = {
   reading: TeamReading;
   title: string;
   names: Record<string, MonsterCopyName>;
-  /** Owned monsters not yet in this team. */
-  choices: readonly MonsterChoice[];
   general: GeneralSettings;
   onChange: (change: (team: SpeedTeam) => SpeedTeam) => void;
   /** A what-if typed or cleared: saved with the team, but read only by the team's overlay. */
   onWhatIf: (unitId: string, value: number | undefined) => void;
-  onAddMonster: (unitId: string) => void;
   onOpenMonster: OpenMonsterOverlay;
   /** The way into the tick-by-tick view, set beside the turn order it details. */
   turnOrderAction?: ReactNode;
@@ -116,26 +110,21 @@ function rangeText(range: DisplaySpeedInterval | null, general: GeneralSettings)
   return range.maximum === null ? `${minimum}+` : `${minimum} – ${formatNumber(range.maximum, general)}`;
 }
 
-/** Everything a team states and everything read from it: the leader, each slot and its verdict, and what the team faces. */
-export function SpeedTeamEditor({ reading, title, names, choices, general, onChange, onWhatIf, onAddMonster, onOpenMonster, turnOrderAction, enemiesKnown = true }: EditorProps) {
+/**
+ * Everything a preset's team states and everything read from it: the leader,
+ * each slot and its verdict, and what the team faces. The monsters and the
+ * leader are the preset's, so only the turn order wanted and the what-ifs are
+ * the user's to change here.
+ */
+export function SpeedTeamEditor({ reading, title, names, general, onChange, onWhatIf, onOpenMonster, turnOrderAction, enemiesKnown = true }: EditorProps) {
   const { team, content } = reading;
   const reorder = useDragReorder<HTMLTableElement>({ count: team.members.length, onMove: move });
   const speedName = combatSpeedName(reading);
   const readingById = new Map(reading.members.map((member) => [member.unitId, member]));
-  const full = team.members.length >= content.teamSize;
 
   function move(from: number, to: number) {
     if (to < 0 || to >= team.members.length || from === to) return;
     onChange((current) => ({ ...current, members: moveItem(current.members, from, to) }));
-  }
-
-  /* The member's what-if leaves with it: it is stored on the member. */
-  function removeMember(unitId: string) {
-    onChange((current) => ({
-      ...current,
-      members: current.members.filter((member) => member.unitId !== unitId),
-      leaderUnitId: current.leaderUnitId === unitId ? null : current.leaderUnitId,
-    }));
   }
 
   const contentWord = content.area === 'arena' ? 'Arena' : 'Dungeon';
@@ -157,7 +146,7 @@ export function SpeedTeamEditor({ reading, title, names, choices, general, onCha
         <th scope="col" className="align-right">Interval</th>
         <th scope="col" className="align-right">What if...</th>
         <th scope="col" className="align-right">{contentWord} speed</th>
-        <th scope="col"><span className="visually-hidden">Move or remove</span></th>
+        <th scope="col"><span className="visually-hidden">Move</span></th>
       </tr></thead>
       {/* One body per slot, two rows each: the name, and under it the
           verdict. Every other cell spans both and sits in their middle, so a
@@ -166,17 +155,10 @@ export function SpeedTeamEditor({ reading, title, names, choices, general, onCha
       {Array.from({ length: content.teamSize }, (_, at) => {
         const member = team.members[at];
         if (!member) {
-          const firstEmpty = at === team.members.length;
           return <tbody key={`empty-${at}`} className="speed-slot speed-slot-empty">
             <tr className="speed-row">
               <td className="speed-order" rowSpan={2}>{at + 1}</td>
-              <td className="speed-add-cell" rowSpan={2}>
-                {firstEmpty && !full && <Dropdown aria-label={`Add a monster to ${title}`} value="" placeholder="Add a monster"
-                  className="speed-add-monster"
-                  onChange={(event) => { if (event.target.value) onAddMonster(event.target.value); }}>
-                  {choices.map((choice) => <option key={choice.unitId} value={choice.unitId}>{choice.name}</option>)}
-                </Dropdown>}
-              </td>
+              <td className="speed-add-cell" rowSpan={2}><span className="muted">Empty in this preset</span></td>
               <td colSpan={6} />
             </tr>
             <tr className="speed-verdict-row"><td colSpan={6} /></tr>
@@ -189,8 +171,6 @@ export function SpeedTeamEditor({ reading, title, names, choices, general, onCha
             disabled={at === 0} onClick={() => move(at, at - 1)}><ArrowIcon direction="up" /></button>
           <button type="button" className="speed-icon-button" aria-label={`Move ${name} later`}
             disabled={at === team.members.length - 1} onClick={() => move(at, at + 1)}><ArrowIcon direction="down" /></button>
-          <button type="button" className="speed-icon-button danger" aria-label={`Remove ${name} from ${title}`}
-            onClick={() => removeMember(member.unitId)}><RemoveIcon /></button>
         </td>;
         /* Numbered by where the slot is drawn, so a drag's preview reads 1 to n down the table. */
         const number = reorder.place(at) + 1;
@@ -244,15 +224,13 @@ export function SpeedTeamEditor({ reading, title, names, choices, general, onCha
                 </span>
               </span>
             </td>
-            {/* One leader per team: ticking another moves the lead, ticking the
-                leader again leaves the team without one. A chosen lead that does
-                not count here says so in red; one not chosen stays quiet whatever
-                it reaches, and a monster with no lead has nothing to tick. */}
+            {/* The preset names its leader, so the box only reports it. A
+                chosen lead that does not count here says so in red; one not
+                chosen stays quiet whatever it reaches. */}
             <td className="speed-leader-cell" rowSpan={2}>
               <label className="speed-leader" title={lead ? describeLeaderSkill(lead) : undefined}>
-                <input type="checkbox" checked={leads} disabled={lead === null && !leads}
-                  aria-label={`${name} leads ${title}`}
-                  onChange={(event) => onChange((current) => ({ ...current, leaderUnitId: event.target.checked ? member.unitId : null }))} />
+                <input type="checkbox" checked={leads} disabled readOnly
+                  aria-label={`${name} leads ${title}`} />
                 <span className="speed-leader-skill" data-state={lead === null ? 'none' : !leads ? 'idle' : reaches ? 'chosen' : 'bad'}>
                   {lead ? shortLeaderSkill(lead) : '—'}
                 </span>

@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { usePresets } from '../lib/presets-context';
 import { AncientName } from './ancient-mark';
 import { FilterButton } from './button';
 import { CraftItemBestUse } from './craft-item-best-use';
@@ -129,7 +130,8 @@ export function GemsSection({ game, roles, preferences, onOpenRune }: {
     () => (Array.isArray(data?.unit_list) ? data.unit_list : []) as GameRecord[],
     [data],
   );
-  const reach = useMemo(() => craftReach(items, runes), [items, runes]);
+  const placements = usePresets();
+  const reach = useMemo(() => craftReach(items, runes, placements.runes), [items, runes, placements]);
   const format = useMemo(() => (value: number) => formatNumber(value, preferences.general), [preferences.general]);
 
   const rows = useMemo<CraftRow[]>(() => items.map((item, index) => ({
