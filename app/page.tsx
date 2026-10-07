@@ -19,6 +19,8 @@ import { runeOptimizationMonsterKey } from './lib/rune-optimization-settings';
 import type { SpeedTuningPreferences } from './lib/speed-tuning-preferences';
 import { readRunes } from './lib/runes';
 import { engraveImportedGame, engraveOwnPreset, readLoadedPlacements } from './lib/engrave-rune-build';
+import { deleteGamePreset, leadGamePreset } from './lib/game-preset-edits';
+import { usePageHistory } from './lib/page-history';
 import type { MonsterCopyPreferences } from './lib/monster-preferences';
 import type { MonsterPriority } from './lib/monster-priority';
 import { engravings, readPresets, selectedPresetKey } from './lib/presets';
@@ -61,7 +63,7 @@ function WorkspaceLoading() {
 }
 
 export default function Home() {
-  const [page, setPage] = useSessionStorageState<Page>('jaswa.navigation.page', 'home', isPage);
+  const [page, setStoredPage] = useSessionStorageState<Page>('jaswa.navigation.page', 'home', isPage);
   const [game, setGame] = useState<ImportedGame | null>(null);
   const [preferences, setPreferences] = useState<Preferences>(blankPreferences());
   const [pendingGame, setPendingGame] = useState<ImportedGame | null>(null);
@@ -82,6 +84,11 @@ export default function Home() {
      reader came from. It is held here rather than in the overlay because it has
      to outlive the overlay's own unmount. */
   const overlayOpener = useRef<HTMLElement | null>(null);
+  /* A step back closes an overlay too: it was opened over the page being left. */
+  const setPage = usePageHistory(page, setStoredPage, isPage, () => {
+    overlayOpener.current = null;
+    setOverlay(null);
+  });
   const preferencesRef = useRef(preferences);
   /* The import badge's own box, so the confirmation that opens in the same
      corner can measure what it has to clear rather than assume a height. */
@@ -474,7 +481,35 @@ export default function Home() {
     ownPresets(change: (current: OwnPreset[]) => OwnPreset[]) {
       changePreferences((current) => ({ ...current, presets: change(current.presets) }));
     },
+    async deleteGamePreset(presetId: string) {
+      const preset = presets.find((entry) => entry.id === presetId);
+      if (!preset) return;
+      if (await changeGamePreset((current) => deleteGamePreset(current, preset))) {
+        changePreferences((current) => ({ ...current,
+          presetPriority: Object.fromEntries(Object.entries(current.presetPriority).filter(([id]) => id !== presetId)) }));
+      }
+    },
+    async leadGamePreset(presetId: string, unitId: string | null) {
+      const preset = presets.find((entry) => entry.id === presetId);
+      if (preset) await changeGamePreset((current) => leadGamePreset(current, preset, unitId));
+    },
   };
+
+  /* A game preset lives in the import, so a change to one is saved there, as an
+     engrave is; live sync would put the game's own back at once, so it refuses. */
+  async function changeGamePreset(change: (current: ImportedGame) => ImportedGame): Promise<boolean> {
+    if (!game || (preferences.importRoute === 'direct' && preferences.directImportMode === 'live')) return false;
+    try {
+      const next = change(game);
+      await saveImportedGame(next);
+      setGame(next);
+      setMessage('');
+      return true;
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'JASWA could not save this preset. Please try again.');
+      return false;
+    }
+  }
 
   /* Remount the search when this route starts inside Rune Optimization too:
      a build and its monster overlay can both be open over the current search.

@@ -67,7 +67,7 @@ test('imports two saved decks that place one rune on different monsters, and bot
   /* Every deck is reachable: the rune is engraved once in each attack preset, on its own monster. */
   await openPresets(page);
   await expect(page.getByLabel('Content', { exact: true }).locator('option'))
-    .toHaveText(['Choose content', 'Default', 'Arena Attack', 'Arena Defense', 'Arena Interserver Defense']);
+    .toHaveText(['Default', 'Arena Attack', 'Arena Defense', 'Arena Interserver Defense']);
   await page.getByLabel('Content', { exact: true }).selectOption('Arena Attack');
   for (const name of ['Arena Attack 1', 'Arena Attack 2']) {
     await choosePreset(page, name);
@@ -78,9 +78,18 @@ test('imports two saved decks that place one rune on different monsters, and bot
   await page.getByLabel('Content', { exact: true }).selectOption('Arena Defense');
   await choosePreset(page, 'Arena Defense');
   /* A defense deck has no leader field: the game leads with the first position. */
-  await expect(page.locator('.monster-priority-entry')).toHaveCount(2);
-  await expect(page.locator('.monster-priority-entry').first().getByRole('img', { name: 'Leader' })).toBeVisible();
+  const entries = page.locator('.monster-priority-entry');
+  await expect(entries).toHaveCount(2);
+  await expect(entries.first().locator('.preset-leader')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('.monster-priority-about')).toHaveText('');
+  /* So a new leader trades places with the old one, and the leader's own crown takes nothing away. */
+  const [first, second] = await entries.locator('.monster-name').allInnerTexts();
+  await entries.nth(1).locator('.preset-leader').click();
+  await expect(entries.locator('.monster-name')).toHaveText([second, first]);
+  await expect(entries.first().locator('.preset-leader')).toHaveAttribute('aria-pressed', 'true');
+  await expect(entries.nth(1).locator('.preset-leader')).toHaveAttribute('aria-pressed', 'false');
+  await entries.first().locator('.preset-leader').click();
+  await expect(entries.first().locator('.preset-leader')).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('a rune a deck still names after it was sold stays visible', async ({ page }, testInfo) => {

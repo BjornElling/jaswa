@@ -813,7 +813,8 @@ table pick for pick. It needs a running dev server and a card, and is not part o
 ## 8. The page
 
 1. **Monster** — every owned copy by its copy name in a large field with its
-   portrait, *Open profile* under it; the depth slider and table size beside it, because they
+   portrait, *Open profile* under it, and the *Preset* the build is for under
+   that; the depth slider and table size beside it, because they
    are read at the moment of searching; then *Find builds* and a square stop mark.
    The line under the depth gives a rough size of the search before it runs —
    the runes the filters admit, at most the depth's number per slot and set,

@@ -600,6 +600,9 @@ test('the page wears the house panels, and its controls say what they do', async
   /* Open profile sits under the monster, not beside it. */
   const select = await box(page.getByLabel('Monster', { exact: true }));
   expect(before.profile.y).toBeGreaterThan(select.y + select.height - 1);
+  /* And the preset under both: the monster comes first, its button with it. */
+  const preset = await box(page.getByLabel('Preset', { exact: true }));
+  expect(preset.y).toBeGreaterThan(before.profile.y + before.profile.height - 1);
   await expect(page.locator('.rune-optimization-monster-select .monster-portrait')).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('optimization-layout-chosen.png'), fullPage: true });
 });

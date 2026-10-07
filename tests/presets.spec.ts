@@ -100,22 +100,23 @@ test('without an import the page says what it needs', async ({ page }, testInfo)
   await page.screenshot({ path: testInfo.outputPath('presets-no-import.png'), fullPage: true });
 });
 
-test('nothing below the preset field is active until a preset is chosen', async ({ page }, testInfo) => {
+test('the page opens on Default, and a content\'s presets are chosen by their faces', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await freshWorkspace(page);
   await importAccount(page);
   await openPresets(page);
 
-  await expect(contentChoice(page)).toHaveValue('');
+  await expect(contentChoice(page)).toHaveValue('Default');
   await expect(presetChoice(page)).toBeDisabled();
   await expect(chosenPreset(page)).toHaveText('Choose preset');
-  await expect(addMenu(page)).toBeDisabled();
-  await expect(page.getByText('No preset chosen yet.', { exact: true })).toBeVisible();
+  await expect(addMenu(page)).toBeEnabled();
+  await expect(page.getByText('Nobody here yet.', { exact: false })).toBeVisible();
   await expect(page.locator('.monster-priority-about')).toHaveText('');
   await expect(page.getByRole('button', { name: 'Delete preset' })).toBeDisabled();
-  await expect(page.getByRole('button', { name: 'Create preset' })).toBeEnabled();
+  /* Default has no content to add a preset to. */
+  await expect(page.getByRole('button', { name: 'Add preset' })).toBeDisabled();
   /* Only the contents, as the game groups them: Default alone, each content, then the decks not yet named. */
-  await expect(contentChoice(page).locator('option')).toHaveText(['Choose content', 'Default', 'Arena Attack', "Giant's Keep", 'Not yet named']);
+  await expect(contentChoice(page).locator('option')).toHaveText(['Default', 'Arena Attack', "Giant's Keep", 'Not yet named']);
   const fields = () => page.locator('.monster-priority-add-panel > *').evaluateAll((elements) =>
     elements.map((element) => {
       const rect = element.getBoundingClientRect();
@@ -124,12 +125,14 @@ test('nothing below the preset field is active until a preset is chosen', async 
   const still = await fields();
   await page.screenshot({ path: testInfo.outputPath('presets-choose.png'), fullPage: true });
 
-  /* A content opens its presets in the field beside it, each with its team's faces; the
+  /* A content opens its presets in the field below it, each with its team's faces; the
      field was there all along, so nothing moves. */
   await contentChoice(page).selectOption('Arena Attack');
   await expect(presetChoice(page)).toBeEnabled();
   await expect(chosenPreset(page)).toHaveText('Choose preset');
   await expect(page.getByText('No preset chosen yet.', { exact: true })).toBeVisible();
+  await expect(addMenu(page)).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Add preset' })).toBeDisabled();
   expect(await fields()).toEqual(still);
   await presetChoice(page).click();
   await expect(presetChoice(page)).toHaveAttribute('aria-expanded', 'true');
@@ -142,6 +145,7 @@ test('nothing below the preset field is active until a preset is chosen', async 
   await expect(chosenPreset(page)).toHaveText('Arena Attack 4');
   await expect(presetChoice(page).locator('.monster-portrait')).toHaveCount(2);
   await expect(presetChoice(page)).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Add preset' })).toBeEnabled();
   expect(await fields()).toEqual(still);
   await page.screenshot({ path: testInfo.outputPath('presets-team-chosen.png'), fullPage: true });
 
@@ -249,7 +253,18 @@ test('Default\'s list is built from the menu, ordered three ways, and kept', asy
   await expect(page.getByText('Nobody here yet.', { exact: false })).toBeVisible();
 });
 
-test('a game preset shows the game\'s monsters and gear, and only its order is the user\'s', async ({ page }, testInfo) => {
+type SavedDeck = { deck_type: number; deck_seq: number; leader_unit_id?: number };
+/* The game's presets as the import now holds them in IndexedDB. */
+const savedDecks = (page: Page) => page.evaluate(async () => new Promise<SavedDeck[]>((resolve) => {
+  const request = indexedDB.open('jaswa-local', 1);
+  request.onsuccess = () => {
+    const db = request.result;
+    const read = db.transaction('workspace', 'readonly').objectStore('workspace').get('imported-game');
+    read.onsuccess = () => { resolve(read.result.data.deck_list); db.close(); };
+  };
+}));
+
+test('a game preset shows the game\'s monsters and gear; its order, leader and place are the user\'s', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await freshWorkspace(page);
   await importAccount(page);
@@ -263,12 +278,13 @@ test('a game preset shows the game\'s monsters and gear, and only its order is t
   await expect(addMenu(page)).toBeDisabled();
   await expect(page.getByRole('button', { name: `Remove ${names[12]} from this preset` })).toBeDisabled();
   await expect(page.getByRole('button', { name: `Remove ${names[11]} from this preset` })).toBeDisabled();
-  await expect(page.getByRole('button', { name: 'Delete preset' })).toBeDisabled();
-  /* The leader is marked and not a control: the game chose it. */
+  await expect(page.getByRole('button', { name: 'Delete preset' })).toBeEnabled();
+  /* The game's leader is marked on its crown, and every crown is a control. */
   const entries = page.locator('.monster-priority-entry');
-  await expect(entries.nth(0).getByRole('img', { name: 'Leader' })).toBeVisible();
-  await expect(entries.nth(1).getByRole('img', { name: 'Leader' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /leads this preset$/ })).toHaveCount(0);
+  const crown11 = page.getByRole('button', { name: `${names[11]} leads this preset` });
+  const crown12 = page.getByRole('button', { name: `${names[12]} leads this preset` });
+  await expect(crown12).toHaveAttribute('aria-pressed', 'true');
+  await expect(crown11).toHaveAttribute('aria-pressed', 'false');
   /* Gear read from the preset, not from Default: 12 carries six runes in Default and three here. */
   await expect(entries.nth(0).getByRole('img', { name: '3 of 6 runes engraved' })).toHaveText('3/6');
   await expect(entries.nth(1).getByRole('img', { name: '6 of 6 runes engraved' })).toBeVisible();
@@ -285,6 +301,28 @@ test('a game preset shows the game\'s monsters and gear, and only its order is t
   await expect(chosenPreset(page)).toHaveText('Arena Attack 4');
   expect(await order(page)).toEqual([names[11], names[12]]);
 
+  /* The crown passes the lead and takes it away, written into the import and moving nothing. */
+  const layout = () => page.locator('.monster-priority-entry, .monster-priority-entry > *, .monster-priority-add-panel').evaluateAll((elements) =>
+    elements.map((element) => {
+      const rect = element.getBoundingClientRect();
+      return [rect.x, rect.y, rect.width, rect.height].map((value) => Math.round(value * 10) / 10).join(',');
+    }));
+  const still = await layout();
+  const arenaFour = async () => (await savedDecks(page)).find((deck) => deck.deck_type === 1 && deck.deck_seq === 4)?.leader_unit_id;
+  await crown11.click();
+  await expect(crown11).toHaveAttribute('aria-pressed', 'true');
+  await expect(crown12).toHaveAttribute('aria-pressed', 'false');
+  await expect.poll(arenaFour).toBe(11);
+  expect(await layout()).toEqual(still);
+  await crown11.click();
+  await expect(crown11).toHaveAttribute('aria-pressed', 'false');
+  await expect.poll(arenaFour).toBe(0);
+  await crown12.click();
+  await expect.poll(arenaFour).toBe(12);
+  await page.reload();
+  await openPresets(page);
+  await expect(crown12).toHaveAttribute('aria-pressed', 'true');
+
   /* A preset that saved its monsters only runs them on their Default gear. */
   await choosePreset(page, "Giant's Keep", "Giant's Keep 1");
   expect(await order(page)).toEqual([names[11]]);
@@ -292,6 +330,15 @@ test('a game preset shows the game\'s monsters and gear, and only its order is t
   /* A deck whose content is not yet named is still read in full. */
   await choosePreset(page, 'Not yet named', 'Deck 99 · 1');
   expect(await order(page)).toEqual([names[12]]);
+
+  /* Deleted, it is gone from the import; the content it was the last of goes with it, and the page is back on Default. */
+  await page.getByRole('button', { name: 'Delete preset' }).click();
+  await expect(contentChoice(page)).toHaveValue('Default');
+  await expect(contentChoice(page).locator('option')).toHaveText(['Default', 'Arena Attack', "Giant's Keep"]);
+  await expect.poll(async () => (await savedDecks(page)).map((deck) => `${deck.deck_type}-${deck.deck_seq}`)).toEqual(['1-4', '24-101']);
+  await page.reload();
+  await openPresets(page);
+  await expect(contentChoice(page).locator('option')).toHaveText(['Default', 'Arena Attack', "Giant's Keep"]);
 });
 
 test('a preset built here is created, filled, led and deleted without moving the page', async ({ page }, testInfo) => {
@@ -301,23 +348,29 @@ test('a preset built here is created, filled, led and deleted without moving the
   await openPresets(page);
   const names = await copyNames(page);
 
-  /* The dialog opens on its name, Escape closes it and gives focus back. */
-  const create = page.getByRole('button', { name: 'Create preset' });
+  /* A preset is added beside a chosen one. The dialog opens on its name, Escape closes it and gives focus back. */
+  await choosePreset(page, 'Arena Attack', 'Arena Attack 4');
+  const create = page.getByRole('button', { name: 'Add preset' });
   await create.click();
-  const dialog = page.getByRole('dialog', { name: 'Create preset' });
+  const dialog = page.getByRole('dialog', { name: 'Add preset' });
   await expect(dialog.getByLabel('Name')).toBeFocused();
-  await expect(dialog.getByRole('button', { name: 'Create preset' })).toBeDisabled();
+  await expect(dialog.getByRole('button', { name: 'Add preset' })).toBeDisabled();
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
   await expect(create).toBeFocused();
 
   await create.click();
   await dialog.getByLabel('Name').fill('   ');
-  await expect(dialog.getByRole('button', { name: 'Create preset' })).toBeDisabled();
+  await expect(dialog.getByRole('button', { name: 'Add preset' })).toBeDisabled();
   await dialog.getByLabel('Name').fill('Arena draft');
-  await dialog.getByLabel('Content').selectOption({ label: 'Arena Attack' });
+  /* It starts in the content of the preset it was added beside. */
+  await expect(dialog.getByLabel('Content')).toHaveValue('arena-attack');
+  /* The content menu keeps focus however long it is open: the helper poll re-renders the page every two seconds. */
+  await dialog.getByLabel('Content').focus();
+  await page.waitForTimeout(3000);
+  await expect(dialog.getByLabel('Content')).toBeFocused();
   await page.screenshot({ path: testInfo.outputPath('preset-create-dialog.png') });
-  await dialog.getByRole('button', { name: 'Create preset' }).click();
+  await dialog.getByRole('button', { name: 'Add preset' }).click();
   await expect(dialog).toHaveCount(0);
 
   /* Created, it is the chosen preset, under its own group, empty and saying what to do. */
@@ -375,20 +428,20 @@ test('a preset built here is created, filled, led and deleted without moving the
   expect(await order(page)).toEqual([names[11]]);
   expect((await stored(page)).presets[0]).toMatchObject({ members: ['11'], leaderUnitId: null });
 
-  /* Kept across a reload; deleted, it is gone and nothing is chosen. */
+  /* Kept across a reload; deleted, it is gone, and with the last of its content the page is back on Default. */
   await page.reload();
   await openPresets(page);
   await expect(chosenPreset(page)).toHaveText('Arena draft');
   expect(await order(page)).toEqual([names[11]]);
   await page.getByRole('button', { name: 'Delete preset' }).click();
-  await expect(contentChoice(page)).toHaveValue('');
+  await expect(contentChoice(page)).toHaveValue('Default');
   await expect(chosenPreset(page)).toHaveText('Choose preset');
   await expect(contentChoice(page).locator('option[value="Built in JASWA"]')).toHaveCount(0);
-  await expect(page.getByText('No preset chosen yet.', { exact: true })).toBeVisible();
+  await expect(page.getByText('Nobody here yet.', { exact: false })).toBeVisible();
   expect((await stored(page)).presets).toEqual([]);
 });
 
-test('a preset cannot be built here while live sync owns the presets', async ({ page }) => {
+test('a preset cannot be added, deleted or led here while live sync owns the presets', async ({ page }) => {
   await page.route('http://127.0.0.1:37654/**', (route) => route.fulfill({ status: 503, body: '' }));
   await freshWorkspace(page);
   await page.evaluate(() => {
@@ -399,9 +452,14 @@ test('a preset cannot be built here while live sync owns the presets', async ({ 
   await page.reload();
   await importAccount(page);
   await openPresets(page);
-  const create = page.getByRole('button', { name: 'Create preset' });
+  await choosePreset(page, 'Arena Attack', 'Arena Attack 4');
+  const create = page.getByRole('button', { name: 'Add preset' });
   await expect(create).toBeDisabled();
   await expect(create).toHaveAttribute('title', 'Automatic synchronization is on: presets come from the game.');
+  await expect(page.getByRole('button', { name: 'Delete preset' })).toBeDisabled();
+  /* The game's leader is shown, not offered. */
+  await expect(page.locator('.monster-priority-entry').first().getByRole('img', { name: 'Leader' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /leads this preset$/ })).toHaveCount(0);
 });
 
 test('Optimize opens Rune Optimization on that monster in that preset', async ({ page }) => {

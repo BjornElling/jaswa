@@ -34,6 +34,10 @@ export type PresetWrites = {
   /** A game preset's order. */
   presetOrder: (presetId: string, order: readonly string[]) => void;
   ownPresets: (change: (current: OwnPreset[]) => OwnPreset[]) => void;
+  /** One of the game's presets, taken out of the import. */
+  deleteGamePreset: (presetId: string) => Promise<void>;
+  /** A game preset's leader, `null` for none. */
+  leadGamePreset: (presetId: string, unitId: string | null) => Promise<void>;
 };
 
 /**
@@ -65,7 +69,10 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
   const [creating, setCreating] = useState(false);
   const [pickedGroup, setPickedGroup] = useState<string | null>(null);
   const createButton = useRef<HTMLButtonElement>(null);
-  const preset = presets.find((entry) => entry.id === selectedId) ?? null;
+  /* Default until the user says otherwise: the page always opens on a list, and
+     is empty only between choosing a content and choosing one of its presets. */
+  const preset = presets.find((entry) => entry.id === selectedId)
+    ?? (pickedGroup === null ? presets.find((entry) => entry.kind === 'default') ?? null : null);
   const own = preset?.kind === 'own' ? preferences.presets.find((entry) => entry.id === preset.id) ?? null : null;
   const priority = useMemo(() => (preset ? presetPriorityOf(preset, preferences.monsterPriority, preferences.presetPriority) : []),
     [preset, preferences.monsterPriority, preferences.presetPriority]);
@@ -88,6 +95,9 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
   }, [owned, priority]);
   const reorder = useDragReorder<HTMLOListElement>({ count: priority.length, onMove: move });
   const editable = preset !== null && preset.kind !== 'game';
+  /* The game's presets live in the import, which live sync would put back at once. */
+  const gameEditable = preset?.kind === 'game' && canCreate;
+  const deletable = own !== null || gameEditable;
   const groups = useMemo(() => presetGroupsOf(presets), [presets]);
   /* The content follows the chosen preset; only between choosing a content and
      choosing one of its presets is it a choice of its own. */
@@ -159,7 +169,17 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
   }
 
   function lead(unitId: string) {
-    writeOwn((current) => ({ ...current, leaderUnitId: current.leaderUnitId === unitId ? null : unitId }));
+    if (own) {
+      writeOwn((current) => ({ ...current, leaderUnitId: current.leaderUnitId === unitId ? null : unitId }));
+      return;
+    }
+    if (!preset || !gameEditable) return;
+    /* A defense is led by whoever stands first, so it always has a leader:
+       its crown only ever passes on. */
+    const defense = preset.deck?.source.kind !== 'deck';
+    if (preset.leaderUnitId === unitId) {
+      if (!defense) void onWrite.leadGamePreset(preset.id, null);
+    } else void onWrite.leadGamePreset(preset.id, unitId);
   }
 
   function create(name: string, content: PresetContentId | null) {
@@ -168,10 +188,13 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
     onSelect(id);
   }
 
-  function deleteOwn() {
-    if (!own) return;
-    onWrite.ownPresets((current) => current.filter((entry) => entry.id !== own.id));
-    setPickedGroup(null);
+  /* Back to the content it was in while that content still has presets to
+     choose from, and to Default once it has none. */
+  function deletePreset() {
+    if (!preset || !deletable) return;
+    if (own) onWrite.ownPresets((current) => current.filter((entry) => entry.id !== own.id));
+    else void onWrite.deleteGamePreset(preset.id);
+    setPickedGroup(group && group.presets.length > 1 ? group.label : null);
     onSelect('');
   }
 
@@ -196,7 +219,7 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
             of one and is chosen from here outright. */}
         <div className="filter-group monster-priority-add monster-priority-content">
           <label className="filter-label" htmlFor="preset-content">Content</label>
-          <Dropdown id="preset-content" className="monster-priority-select" value={group?.label ?? ''} placeholder="Choose content"
+          <Dropdown id="preset-content" className="monster-priority-select" value={group?.label ?? ''}
             onChange={(event) => chooseGroup(event.target.value)}>
             {groups.map((entry) => <option key={entry.label} value={entry.label}>{entry.label}</option>)}
           </Dropdown>
@@ -221,9 +244,12 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
         </div>
         <p className="monster-priority-about">{preset ? presetWarnings(preset) : ''}</p>
         <div className="monster-priority-actions">
-          <Button ref={createButton} tone="important" disabled={!canCreate} onClick={() => setCreating(true)}
-            title={canCreate ? undefined : 'Automatic synchronization is on: presets come from the game.'}>Create preset</Button>
-          <Button tone="danger" disabled={own === null} onClick={deleteOwn}>Delete preset</Button>
+          {/* A preset is added beside one already chosen, in its content: Default
+              has no content to add to. */}
+          <Button ref={createButton} tone="important" disabled={!canCreate || preset === null || preset.kind === 'default'}
+            onClick={() => setCreating(true)}
+            title={canCreate ? undefined : 'Automatic synchronization is on: presets come from the game.'}>Add preset</Button>
+          <Button tone="danger" disabled={!deletable} onClick={deletePreset}>Delete preset</Button>
         </div>
       </div>
 
@@ -260,7 +286,7 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
                   <span className="monster-priority-place">#{number}</span>
                   {/* The crown is always in its place and only dimmed when off, so
                       choosing a leader moves nothing (AGENTS.md §2). */}
-                  {own
+                  {own || gameEditable
                     ? <button type="button" className="speed-icon-button preset-leader" aria-pressed={leader}
                       aria-label={`${name} leads this preset`} onClick={() => lead(unitId)}><CrownIcon /></button>
                     : <span className="preset-leader" data-on={leader || undefined} role="img"
@@ -290,7 +316,7 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
             </div>}
       </section>
     </div>
-    {creating && <CreatePresetDialog onCancel={() => { setCreating(false); createButton.current?.focus(); }}
+    {creating && <AddPresetDialog content={preset?.content?.id ?? null} onCancel={() => { setCreating(false); createButton.current?.focus(); }}
       onCreate={(name, content) => { setCreating(false); create(name, content); }} />}
   </WorkspacePage>;
 }
@@ -336,31 +362,39 @@ function CrownIcon() {
 
 const presetNameLimit = 60;
 
-function CreatePresetDialog({ onCancel, onCreate }: {
+function AddPresetDialog({ content: chosenContent, onCancel, onCreate }: {
+  /** The content of the preset it was opened beside, which the new one starts in. */
+  content: PresetContentId | null;
   onCancel: () => void;
   onCreate: (name: string, content: PresetContentId | null) => void;
 }) {
   const [name, setName] = useState('');
-  const [content, setContent] = useState<PresetContentId | ''>('');
+  const [content, setContent] = useState<PresetContentId | ''>(chosenContent ?? '');
   const nameField = useRef<HTMLInputElement>(null);
+  const cancel = useRef(onCancel);
   const trimmed = name.trim();
 
+  useEffect(() => { cancel.current = onCancel; }, [onCancel]);
+  /* Once, on opening. `onCancel` is a new function on every render of the
+     page, and an effect keyed on it moved focus back to the name each time the
+     helper poll re-rendered the page — every two seconds — which shut the
+     content menu under the user's pointer. */
   useEffect(() => {
     nameField.current?.focus();
     function onKey(event: globalThis.KeyboardEvent) {
       if (event.key !== 'Escape') return;
       event.preventDefault();
-      onCancel();
+      cancel.current();
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onCancel]);
+  }, []);
 
   return <div className="modal-backdrop" role="presentation">
-    <form className="dialog" role="dialog" aria-modal="true" aria-labelledby="create-preset-title"
+    <form className="dialog" role="dialog" aria-modal="true" aria-labelledby="add-preset-title"
       onSubmit={(event) => { event.preventDefault(); if (trimmed) onCreate(trimmed, content === '' ? null : content); }}>
       <p className="eyebrow">Presets</p>
-      <h2 id="create-preset-title">Create preset</h2>
+      <h2 id="add-preset-title">Add preset</h2>
       <label className="field"><span>Name</span>
         <input ref={nameField} type="text" value={name} maxLength={presetNameLimit} onChange={(event) => setName(event.target.value)} />
       </label>
@@ -371,7 +405,7 @@ function CreatePresetDialog({ onCancel, onCreate }: {
       </label>
       <div className="dialog-actions">
         <Button type="button" onClick={onCancel}>Cancel</Button>
-        <Button type="submit" tone="primary" disabled={!trimmed}>Create preset</Button>
+        <Button type="submit" tone="primary" disabled={!trimmed}>Add preset</Button>
       </div>
     </form>
   </div>;

@@ -352,15 +352,6 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
     <div className="rune-optimization">
       <div className="panel rune-optimization-monster-panel">
         <div className="filter-group rune-optimization-monster">
-          {/* The preset leads the panel: every build below is for it, and the same
-              monster can carry a different build in each. */}
-          <label className="filter-label" htmlFor="rune-optimization-preset">Preset</label>
-          <Dropdown id="rune-optimization-preset" className="rune-optimization-preset-select" value={activePresetId}
-            onChange={(event) => { onSelectPreset(event.target.value); setEdits(null); setChosenBuild(null); }}>
-            {presetGroupsOf(presets).map((group) => <optgroup key={group.label} label={group.label}>
-              {group.presets.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
-            </optgroup>)}
-          </Dropdown>
           <label className="filter-label" htmlFor="rune-optimization-monster">Monster</label>
           {/* The portrait sits inside the field, at the start of the name it
               belongs to. Its box is there with no monster chosen too, so choosing
@@ -382,6 +373,16 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
             }}>
             <PencilIcon /><span>Open profile</span>
           </Button>
+          {/* Under the monster, with the monster's own button between them: every
+              build below is for this preset, and the same monster can carry a
+              different build in each. */}
+          <label className="filter-label" htmlFor="rune-optimization-preset">Preset</label>
+          <Dropdown id="rune-optimization-preset" className="rune-optimization-preset-select" value={activePresetId}
+            onChange={(event) => { onSelectPreset(event.target.value); setEdits(null); setChosenBuild(null); }}>
+            {presetGroupsOf(presets).map((group) => <optgroup key={group.label} label={group.label}>
+              {group.presets.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+            </optgroup>)}
+          </Dropdown>
         </div>
 
         {/* How hard to look, beside the button that starts looking: these two are
