@@ -182,9 +182,10 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
   } = filters;
 
   const relicsById = useMemo(() => new Map(relics.map((relic) => [relic.id, relic])), [relics]);
-  const models = useMemo(() => new Map(monsters.map((monster, index) => [
-    String(monster.unit_id ?? `unknown-${index}`), relicMonsterModel(monster),
-  ])), [monsters]);
+  const models = useMemo(() => new Map(monsters.map((monster, index) => {
+    const unitId = String(monster.unit_id ?? `unknown-${index}`);
+    return [unitId, relicMonsterModel(monster, preferences.monsterPreferences[unitId])];
+  })), [monsters, preferences.monsterPreferences]);
 
   /* The relics a monster wears, resolved against the account's own relic list
      rather than read out of the monster record. The export repeats the whole

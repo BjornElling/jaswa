@@ -119,14 +119,14 @@ function recommendationMonsters(monsters: readonly GameRecord[], settings: Artif
 
    Both readings come from `artifactPairScore`, which every artifact view uses,
    so a figure here cannot disagree with the same pair shown on another page. */
-function currentScoreAt(calculation: CategoryCalculation, artifactId: string, masterId: string): number | undefined {
-  return artifactPairScore([calculation.request], artifactId, monsterSpeciesId(masterId),
-    { conversions: false })?.value;
+function currentScoreAt(calculation: CategoryCalculation, artifactId: string, monster: OwnedMonster): number | undefined {
+  return artifactPairScore([calculation.request], artifactId, monsterSpeciesId(monster.masterId),
+    { conversions: false, unitId: monster.unitId })?.value;
 }
 
-function conversionAt(calculation: CategoryCalculation, artifactId: string, masterId: string): readonly ArtifactConversion[] {
-  return artifactPairScore([calculation.request], artifactId, monsterSpeciesId(masterId),
-    { conversions: true })?.conversions ?? [];
+function conversionAt(calculation: CategoryCalculation, artifactId: string, monster: OwnedMonster): readonly ArtifactConversion[] {
+  return artifactPairScore([calculation.request], artifactId, monsterSpeciesId(monster.masterId),
+    { conversions: true, unitId: monster.unitId })?.conversions ?? [];
 }
 
 /**
@@ -153,13 +153,20 @@ function allocateArtifacts(
   for (const calculation of categories) {
     const matrix = calculation.result.scoreMatrix;
     if (!matrix) continue;
-    const monsterIndexes = new Map(calculation.request.monsters.map((monster, index) => [monster.id, index]));
+    /* A copy with a row of its own is read from it (§19.2); every other copy
+       from its species' row. */
+    const speciesIndexes = new Map<string, number>();
+    const copyIndexes = new Map<string, number>();
+    calculation.request.monsters.forEach((monster, index) => {
+      if (monster.ownerUnitId === undefined) speciesIndexes.set(monster.id, index);
+      else copyIndexes.set(monster.ownerUnitId, index);
+    });
     for (let artifactIndex = 0; artifactIndex < calculation.request.artifacts.length; artifactIndex += 1) {
       const artifact = calculation.request.artifacts[artifactIndex];
       const category: ArtifactCategory = artifact.category === 1 ? 'attribute' : 'type';
       for (let monsterOrder = 0; monsterOrder < scopedMonsters.length; monsterOrder += 1) {
         const monster = scopedMonsters[monsterOrder];
-        const monsterIndex = monsterIndexes.get(monsterSpeciesId(monster.masterId));
+        const monsterIndex = copyIndexes.get(monster.unitId) ?? speciesIndexes.get(monsterSpeciesId(monster.masterId));
         if (monsterIndex === undefined) continue;
         const value = matrix[artifactIndex * calculation.request.monsters.length + monsterIndex];
         if (value <= 0) continue;
@@ -174,7 +181,7 @@ function allocateArtifacts(
              monster across both artifact categories. The allocator owns this
              cross-slot constraint with the rest of the placement rules. */
           exclusiveGroup: artifact.restriction === intangibleRestrictionCode ? 'intangible' : undefined,
-          allocation: { monster, value, conversions: conversionAt(calculation, artifact.id, monster.masterId) },
+          allocation: { monster, value, conversions: conversionAt(calculation, artifact.id, monster) },
         });
       }
     }
@@ -263,7 +270,7 @@ export function ArtifactMaximumValues({ data, monsters, monsterPreferences, sett
   const selectedSubPropertyId = subPropertyOptions.some((option) => String(option.id) === filters.subPropertyId) ? filters.subPropertyId : '';
   const inputKey = JSON.stringify({
     artifacts: artifacts.map((artifact) => [artifact.id, artifact.category, artifact.occupiedId, artifact.mainProperty, artifact.convertedPropertyIndex, ...artifact.subProperties.map((property) => [property.definition.id, property.valueHundredths, property.maximumHundredths])]),
-    monsters: scopedMonsters.map((monster) => [monster.unitId, monster.masterId]), settings: scoringSettings(settings),
+    monsters: scopedMonsters.map((monster) => [monster.unitId, monster.masterId]), monsterPreferences, settings: scoringSettings(settings),
   });
   const currentCalculation = calculation?.inputKey === inputKey ? calculation : undefined;
   const visibleArtifacts = useMemo(() => artifacts.filter((artifact) => {
@@ -291,7 +298,7 @@ export function ArtifactMaximumValues({ data, monsters, monsterPreferences, sett
   }
 
   async function calculate() {
-    const requests = buildArtifactScoreRequestsForMonsterIds(data, scopedMonsters.map((monster) => monster.masterId), settings)
+    const requests = buildArtifactScoreRequestsForMonsterIds(data, scopedMonsters.map((monster) => monster.masterId), settings, undefined, monsterPreferences)
       .map((request) => ({ ...request, includeScoreMatrix: true }));
     if (!requests.length || !scopedMonsters.length) {
       setCalculation(undefined);
@@ -342,7 +349,7 @@ export function ArtifactMaximumValues({ data, monsters, monsterPreferences, sett
     if (!scopedMonsterIds.has(artifact.occupiedId)) return undefined;
     const wearer = wearerByUnitId.get(artifact.occupiedId);
     const category = currentCalculation.categories.find((entry) => entry.request.artifacts[0]?.category === (artifact.category === 'attribute' ? 1 : 2));
-    return wearer && category ? currentScoreAt(category, artifact.id, wearer.masterId) : undefined;
+    return wearer && category ? currentScoreAt(category, artifact.id, wearer) : undefined;
   };
 
   const rows = useMemo(() => !currentCalculation ? [] : visibleArtifacts.map((artifact) => {

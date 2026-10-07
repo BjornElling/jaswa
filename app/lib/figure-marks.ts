@@ -1,3 +1,7 @@
+import { artifactMainPropertyOrder } from './artifact-properties';
+import type { GearKind, GearMainAdvice, MainStat, MainStatAdvice, MainStatBasis } from './main-stat-model';
+import { contradictsAdvice } from './main-stat-model';
+import type { BandedChoices } from './monster-preferences';
 import type { Shortfall } from './monster-shortfall';
 import type { CombatBonuses, LeadStat } from './monster-stats';
 import { leadStats } from './monster-stats';
@@ -63,4 +67,42 @@ export function shortfallMarks(shortfalls: readonly Shortfall[], general: Genera
 /** A found build that no longer holds as the search found it. Empty where it still does. */
 export function buildIssueMarks(reading: string): FigureMark[] {
   return reading === '' ? [] : [{ key: 'build-issue', tone: 'yellow', reading, glyph: 'slashed' }];
+}
+
+const basisWords: Readonly<Record<MainStatBasis, string>> = {
+  runes: 'Its six runes lift',
+  targets: 'Its stat targets ask for',
+  statistics: 'The game’s rune statistics lift',
+};
+
+const pieceWords: Readonly<Record<GearKind, string>> = { artifact: 'artifacts', relic: 'the relic' };
+
+function adviceWords(advice: GearMainAdvice): string {
+  const byWorth = [...artifactMainPropertyOrder].sort((left, right) => advice.worth[right] - advice.worth[left]);
+  const preferred = byWorth.filter((stat) => advice.bands[stat] === 'preferred');
+  const acceptable = byWorth.filter((stat) => advice.bands[stat] === 'acceptable');
+  return `${preferred.join(' or ')}${acceptable.length === 0 ? '' : ` (accepting ${acceptable.join(' or ')})`}`;
+}
+
+/**
+ * A stated main the model would not have chosen: something to reconsider, not
+ * something broken, so it is yellow. The owner's answer still stands — the mark
+ * says what the maths makes of this copy and leaves the decision where it was.
+ * Empty where nothing was stated, where the model cannot say, or where the two
+ * do not contradict (`contradictsAdvice`).
+ */
+export function mainStatAdviceMarks(
+  stated: BandedChoices<MainStat> | undefined, advice: MainStatAdvice | undefined,
+): FigureMark[] {
+  if (stated === undefined || advice === undefined) return [];
+  const pieces = (['artifact', 'relic'] as const).filter((kind) => contradictsAdvice(stated, advice[kind]));
+  if (pieces.length === 0) return [];
+  const lifts = [...artifactMainPropertyOrder].sort((left, right) => advice.need[right] - advice.need[left])
+    .map((stat) => `${stat} +${Math.round(advice.need[stat])}%`).join(', ');
+  const same = pieces.length === 2 && adviceWords(advice.artifact) === adviceWords(advice.relic);
+  const answers = same
+    ? `artifacts and the relic want ${adviceWords(advice.artifact)}`
+    : pieces.map((kind) => `${pieceWords[kind]} want${kind === 'relic' ? 's' : ''} ${adviceWords(advice[kind])}`).join('; ');
+  const reading = `${basisWords[advice.basis]} ${lifts} over base, so by the maths ${answers}.`;
+  return [{ key: 'main-stat-advice', tone: 'yellow', reading, glyph: 'info' }];
 }

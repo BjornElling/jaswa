@@ -13,7 +13,7 @@ import { useAutoRecalculate } from './use-auto-recalculate';
 import { calculateArtifactScores } from '../lib/compute/artifact-score-client';
 import { combineCalculationBackends } from '../lib/compute/calculation-summary';
 import type { CalculationBackend } from '../lib/compute/calculation-summary';
-import { buildArtifactScoreRequestsForMonsterIds } from '../lib/compute/artifact-score-input';
+import { buildArtifactScoreRequestsForCopy, buildArtifactScoreRequestsForMonsterIds } from '../lib/compute/artifact-score-input';
 import { artifactEquipClassLabel, artifactValueTint, displaySubProperty } from '../lib/artifact-grid';
 import { artifactCategoryLabels, artifactGradeOrder, artifactMainPropertyOrder } from '../lib/artifact-properties';
 import { artifactOptimizationMonsters } from '../lib/artifact-optimization-monsters';
@@ -94,6 +94,8 @@ type ScoreContext = {
   /** Packed for every monster wearing something, for the score it has there now. */
   wearerRequests: readonly ArtifactScoreRequest[];
   speciesId: string;
+  /** The chosen copy, whose own row answers where it has one. */
+  unitId: string;
 };
 
 /* `names` covers the whole roster, so a copy keeps its number when the
@@ -241,8 +243,10 @@ function CurrentArtifact({ category, artifact, context }: {
   context: ScoreContext;
 }) {
   const label = artifactCategoryLabels[category];
-  const asIs = artifact && artifactPairScore(context.monsterRequests, artifact.id, context.speciesId, { conversions: false });
-  const potential = artifact && artifactPairScore(context.monsterRequests, artifact.id, context.speciesId, { conversions: true });
+  const asIs = artifact && artifactPairScore(context.monsterRequests, artifact.id, context.speciesId,
+    { conversions: false, unitId: context.unitId });
+  const potential = artifact && artifactPairScore(context.monsterRequests, artifact.id, context.speciesId,
+    { conversions: true, unitId: context.unitId });
 
   return <article className={`best-artifact-current-slot ${artifact ? qualityRuleHost : ''}`}
     aria-label={`Current ${label.toLowerCase()} artifact`}>
@@ -273,9 +277,11 @@ function CurrentArtifact({ category, artifact, context }: {
  */
 function Recommendation({ row, context }: { row: ResultRow; context: ScoreContext }) {
   const { artifact, target, wearer } = row;
-  const onThisMon = artifactPairScore(context.monsterRequests, artifact.id, context.speciesId, { conversions: false });
+  const onThisMon = artifactPairScore(context.monsterRequests, artifact.id, context.speciesId,
+    { conversions: false, unitId: context.unitId });
   const onCurrentMon = wearer
-    ? artifactPairScore(context.wearerRequests, artifact.id, monsterSpeciesId(wearer.masterId), { conversions: false })
+    ? artifactPairScore(context.wearerRequests, artifact.id, monsterSpeciesId(wearer.masterId),
+      { conversions: false, unitId: wearer.unitId })
     : undefined;
 
   return <li className={`best-artifact-entry ${qualityRuleHost}`}>
@@ -342,8 +348,8 @@ export function BestArtifactForMonster({ data, monsters, monsterPreferences, set
      something. Both are the same input the compute backends are given, so a
      figure shown beside a ranking was produced by the scorer that built it. */
   const monsterRequests = useMemo(() => selectedMonster
-    ? buildArtifactScoreRequestsForMonsterIds(data, [monsterSpeciesId(selectedMonster.masterId)], settings)
-    : [], [data, selectedMonster, settings]);
+    ? buildArtifactScoreRequestsForCopy(data, selectedMonster.unitId, selectedMonster.masterId, settings, monsterPreferences)
+    : [], [data, selectedMonster, settings, monsterPreferences]);
   const wearerRequests = useMemo(() => {
     const speciesIds = new Set<string>();
     for (const artifact of artifacts) {
@@ -351,13 +357,14 @@ export function BestArtifactForMonster({ data, monsters, monsterPreferences, set
       const wearer = wearers.get(artifact.occupiedId);
       if (wearer) speciesIds.add(monsterSpeciesId(wearer.masterId));
     }
-    return buildArtifactScoreRequestsForMonsterIds(data, [...speciesIds], settings);
-  }, [artifacts, data, settings, wearers]);
+    return buildArtifactScoreRequestsForMonsterIds(data, [...speciesIds], settings, undefined, monsterPreferences);
+  }, [artifacts, data, settings, wearers, monsterPreferences]);
 
   const inputKey = JSON.stringify({
     artifacts: artifacts.map((artifact) => [artifact.id, artifact.occupiedId, artifact.mainProperty, artifact.convertedPropertyIndex,
       ...artifact.subProperties.map((subProperty) => [subProperty.definition.id, subProperty.valueHundredths, subProperty.maximumHundredths])]),
     selectedUnitId: filters.selectedUnitId,
+    monsterPreferences,
     settings: scoringSettings(settings),
   });
   const currentCalculation = calculation?.inputKey === inputKey ? calculation : undefined;
@@ -402,6 +409,7 @@ export function BestArtifactForMonster({ data, monsters, monsterPreferences, set
   const context: ScoreContext | undefined = selectedMonster ? {
     general, stones, mode: settings.conversionStoneMode, monsterRequests, wearerRequests,
     speciesId: monsterSpeciesId(selectedMonster.masterId),
+    unitId: selectedMonster.unitId,
   } : undefined;
 
   function toggle<T extends string>(key: keyof RecommendationFilters, value: T) {

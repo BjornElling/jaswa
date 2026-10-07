@@ -1,4 +1,8 @@
 import type { ArtifactCategory, ArtifactMainProperty } from './artifact-properties';
+import { artifactMainPropertyOrder } from './artifact-properties';
+import type { GameRecord } from './game-data';
+import type { GearMainAdvice, MainStatAdvice } from './main-stat-model';
+import { copyMainStatAdvice, speciesMainStatAdvice } from './main-stat-model';
 import type {
   DefaultEntry, MonsterDefaults, RuneSlotKey,
 } from './monster-defaults';
@@ -129,6 +133,12 @@ export type ResolvedMonsterPreferences = {
   alwaysElementAdvantage: boolean;
   /** What its leader adds, stat by stat; a stat it does not name gets nothing. */
   leads: Leads;
+  /**
+   * What the main-stat model makes of this copy (`main-stat-model.ts`) — the
+   * default its gear mains fall back on, and what a stated main is checked
+   * against. Absent where no source can say.
+   */
+  mainStatAdvice?: MainStatAdvice;
 };
 
 const noChoices = <T,>(): ResolvedChoices<T> => ({ chosen: [], source: 'default', shares: new Map<T, number>() });
@@ -223,13 +233,23 @@ function resolveRunes(
   };
 }
 
+/* The model's answer for one piece in the shape a default takes, its worth
+   standing where a population share stands elsewhere. */
+function modelDefaults(advice: GearMainAdvice | undefined): Map<ArtifactMainProperty, DefaultEntry> | undefined {
+  if (advice === undefined) return undefined;
+  return new Map(artifactMainPropertyOrder.map((stat) => [stat, { band: advice.bands[stat], share: advice.worth[stat] }]));
+}
+
 function resolveArtifactCategory(
   stated: MonsterCopyPreferences | undefined,
   defaults: MonsterDefaults | undefined,
+  advice: MainStatAdvice | undefined,
   category: ArtifactCategory,
 ): ResolvedArtifactCategory {
   const categoryDefaults = defaults?.artifacts?.[category];
-  const main = resolveBands(stated?.mainStat, categoryDefaults?.main);
+  /* The main is the model's, not the population's: both categories carry the
+     same three mains at the same values, so the model answers them alike. */
+  const main = resolveBands(stated?.mainStat, modelDefaults(advice?.artifact));
   const sub = resolveBands(stated?.artifacts?.sub?.[category], categoryDefaults?.sub);
   return { main, sub, judged: answers(main) || answers(sub) };
 }
@@ -237,11 +257,12 @@ function resolveArtifactCategory(
 function resolveRelics(
   stated: MonsterCopyPreferences | undefined,
   defaults: MonsterDefaults | undefined,
+  advice: MainStatAdvice | undefined,
 ): ResolvedRelics {
   const relicDefaults = defaults?.relics;
   /* The one main answer serves the relic as it serves both artifacts; where it
-     was never given, the relic panel's own statistics stand in. */
-  const main = resolveBands(stated?.mainStat, relicDefaults?.main);
+     was never given, the model's answer for a relic stands in. */
+  const main = resolveBands(stated?.mainStat, modelDefaults(advice?.relic));
   const unique = resolveBands(stated?.relics?.unique, relicDefaults?.unique);
   return { main, unique, judged: answers(main) || answers(unique) };
 }
@@ -264,30 +285,34 @@ function resolveStatTargets(
 /**
  * What this owned copy wants, with every answer carrying where it came from.
  *
- * `masterId` is taken rather than derived from the copy, because the caller
- * already holds the monster record and re-deriving it here would make this
- * module depend on the account data.
+ * `masterId` is taken rather than derived from the copy, so a species with no
+ * copy can be answered too. `monster` is the copy's own record where the caller
+ * holds one: the main-stat model reads its runes and base stats, and without it
+ * answers for the species.
  */
 export function resolveMonsterPreferences(
   unitId: string,
   masterId: unknown,
   stated: MonsterCopyPreferences | undefined,
+  monster?: GameRecord,
 ): ResolvedMonsterPreferences {
   const defaults = monsterDefaults(masterId);
+  const advice = monster === undefined ? speciesMainStatAdvice(masterId) : copyMainStatAdvice(monster, stated);
   return {
     unitId,
     ...(defaults === undefined ? {} : { speciesId: defaults.speciesId }),
     runes: resolveRunes(stated, defaults),
     artifacts: {
-      attribute: resolveArtifactCategory(stated, defaults, 'attribute'),
-      type: resolveArtifactCategory(stated, defaults, 'type'),
+      attribute: resolveArtifactCategory(stated, defaults, advice, 'attribute'),
+      type: resolveArtifactCategory(stated, defaults, advice, 'type'),
     },
-    relics: resolveRelics(stated, defaults),
+    relics: resolveRelics(stated, defaults, advice),
     statTargets: resolveStatTargets(stated?.statTargets),
     statCeilings: resolveStatTargets(stated?.statCeilings),
     ...(stated?.runeSuggestionStat === undefined ? {} : { runeSuggestionStat: stated.runeSuggestionStat }),
     alwaysCrits: stated?.alwaysCrits ?? false,
     alwaysElementAdvantage: stated?.alwaysElementAdvantage ?? false,
     leads: statedLeads(stated),
+    ...(advice === undefined ? {} : { mainStatAdvice: advice }),
   };
 }

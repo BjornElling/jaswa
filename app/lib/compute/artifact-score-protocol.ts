@@ -203,3 +203,16 @@ export type ArtifactScoreWorkerResponse = {
   requestId: number;
   message: string;
 };
+
+/**
+ * The row one monster is scored under in one request: the copy's own where it
+ * has one, its species' otherwise (`ARTIFACT-CANONICAL.md` §19.2). Per request,
+ * because a copy may state the substats of one artifact category and not the
+ * other.
+ */
+export function artifactScoreRow(
+  request: ArtifactScoreRequest, speciesId: string, unitId?: string,
+): PackedMonsterScoreInput | undefined {
+  return (unitId === undefined ? undefined : request.monsters.find((entry) => entry.ownerUnitId === unitId))
+    ?? request.monsters.find((entry) => entry.id === speciesId && entry.ownerUnitId === undefined);
+}

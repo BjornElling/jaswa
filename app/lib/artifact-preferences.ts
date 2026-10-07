@@ -1,7 +1,7 @@
 import statistics from '../data/engraving-statistics.json';
 import type { ArtifactPropertyPreference } from './artifact-optimal-value';
 import type { ArtifactCategory, ArtifactMainProperty } from './artifact-properties';
-import { artifactMainProperties } from './artifact-properties';
+import { speciesMainStatAdvice } from './main-stat-model';
 import { monsterSpeciesId, monsterStatisticsId } from './monster-identity';
 
 type EffectCount = { effectId: number; count: number; slotId?: number };
@@ -42,14 +42,11 @@ export const recordedArtifactPreferenceMonsterIds = Object.keys(monsterStatistic
 const categorySlots: Record<ArtifactCategory, number> = { attribute: 1, type: 2 };
 
 /**
- * `ARTIFACT-CANONICAL.md` §19.3's thresholds, as shares of the property's own
- * distribution.
- * Main Property has three values against each sub-property list's 23, so one
- * threshold would either discard useful main alternatives or call most sub
- * properties desirable.
+ * `ARTIFACT-CANONICAL.md` §19.3's sub-property thresholds, as shares of the
+ * property's own distribution. The main is not polled at all: it is the
+ * main-stat model's answer for the species (`main-stat-model.ts`).
  */
 const thresholds = {
-  main: { preferred: 0.4, acceptable: 0.1 },
   sub: { preferred: 0.1, acceptable: 0.05 },
 } as const;
 
@@ -76,8 +73,9 @@ function totalCount(rows: EffectCount[]): number {
 }
 
 /**
- * What the community equips on this monster species, in this artifact category,
- * turned into preferences by `ARTIFACT-CANONICAL.md` §19.3's fixed shares. A
+ * What this monster species wants in this artifact category: the main from the
+ * main-stat model, the substats from what the community equips, turned into
+ * preferences by `ARTIFACT-CANONICAL.md` §19.3's fixed shares. A
  * master id resolves to its species first, so a collaboration monster and its
  * generic twin answer alike whichever name the player's copy carries.
  *
@@ -100,22 +98,15 @@ export function defaultPropertyPreferences(
   if (!artifacts) return undefined;
 
   const slot = categorySlots[category];
-  const primary = (artifacts.primaryEffect ?? []).filter((row) => row.slotId === slot);
   const secondary = (artifacts.secondaryEffect ?? []).filter((row) => row.slotId === slot);
   /* A captured type with no observations in this slot cannot be judged either:
      dividing by its total would be a division by zero, and the honest answer is
      the same "not judged" an uncaptured type gets. */
-  const primaryTotal = totalCount(primary);
   const secondaryTotal = totalCount(secondary);
-  if (!primaryTotal || !secondaryTotal) return undefined;
+  const advice = speciesMainStatAdvice(masterId);
+  if (!secondaryTotal || advice === undefined) return undefined;
 
-  const main: Record<ArtifactMainProperty, ArtifactPropertyPreference> = {
-    HP: 'unwanted', ATK: 'unwanted', DEF: 'unwanted',
-  };
-  for (const row of primary) {
-    const property = artifactMainProperties[row.effectId];
-    if (property) main[property] = classify(row.count / primaryTotal, thresholds.main);
-  }
+  const main: Record<ArtifactMainProperty, ArtifactPropertyPreference> = { ...advice.artifact.bands };
 
   const sub = new Map<number, ArtifactPropertyPreference>();
   const subShares = new Map<number, number>();

@@ -52,6 +52,7 @@ try {
   const { canEquipArtifacts } = await server.ssrLoadModule('/app/lib/monster-equipment-eligibility.ts');
   const { monsterSpeciesId } = await server.ssrLoadModule('/app/lib/monster-species.ts');
   const { createImportedGame } = await server.ssrLoadModule('/app/lib/file-imports.ts');
+  const { speciesMainStatAdvice } = await server.ssrLoadModule('/app/lib/main-stat-model.ts');
 
   /* The app never scores the raw export: the import merges the equipped pieces
      into one artifact list first, so the comparison starts where the app does. */
@@ -78,6 +79,7 @@ try {
 
   let compared = 0;
   let statedCompared = 0;
+  let copyRowCompared = 0;
   for (const acceptableWorth of acceptableWorthChoices) {
     const settings = {
       acceptableWorth,
@@ -97,13 +99,13 @@ try {
 
     for (const [species, entries] of bySpecies) {
       for (const { artifact, unit, masterId, unitId } of entries) {
-        /* A copy that states its own answers is scored on those, under its own
-           row keyed by `unit_id`. Both readers have to reach the same number
-           through the user's statement exactly as they do through the
-           statistics — the two bands and the shared main are the parts that
-           can silently diverge, so the stated case is exercised below. */
+        /* The library answers for the copy wearing the artifact, and a copy
+           whose own runes give the main-stat model a different answer from its
+           species has its own row — so the engine is asked for the copy, and
+           falls back on the species row exactly where the copy has none. A copy
+           that states its own answers is exercised below. */
         const library = artifactValueOnMonster(artifact, unit, settings);
-        const engine = artifactPairScore(requests, artifact.id, species, { conversions: false });
+        const engine = artifactPairScore(requests, artifact.id, species, { conversions: false, unitId });
         const libraryPercent = library === undefined ? undefined : Math.round(library * 100);
         const enginePercent = engine === undefined ? undefined : engine.value;
         const where = `artifact ${artifact.id} on species ${species} at acceptableWorth ${acceptableWorth} %`;
@@ -117,6 +119,35 @@ try {
         assert.equal(libraryPercent, enginePercent,
           `${where}: the library says ${libraryPercent} % and the packed scorer says ${enginePercent} %.`);
         compared += 1;
+
+        /* The same artifact again, on a copy rebuilt so the main-stat model
+           reads it apart from its species: six runes lifting only the main its
+           species' statistics value least. The fixture holds no such copy, and
+           this is the row the library and the engine are likeliest to reach by
+           different routes. */
+        const speciesBands = speciesMainStatAdvice(species)?.artifact.bands;
+        if (speciesBands !== undefined) {
+          const least = ['HP', 'ATK', 'DEF'].find((stat) => speciesBands[stat] === 'unwanted')
+            ?? ['HP', 'ATK', 'DEF'].find((stat) => speciesBands[stat] !== 'preferred');
+          const effectId = { HP: 2, ATK: 4, DEF: 6 }[least];
+          const blank = { 1: [3, 0], 2: [8, 0], 3: [5, 0], 4: [2, 0], 5: [1, 0], 6: [2, 0] };
+          const runes = [1, 2, 3, 4, 5, 6].map((slot) => ({ slot_no: slot, set_id: 0, pri_eff: slot === 2 ? [effectId, 63] : blank[slot] }));
+          const rebuilt = { con: 1000, atk: 1000, def: 1000, ...unit, runes };
+          const rebuiltGame = { ...game, unit_list: game.unit_list.map((entry) => (String(entry.unit_id) === unitId ? rebuilt : entry)) };
+          const rebuiltRequests = buildArtifactScoreRequestsForMonsterIds(rebuiltGame, [...bySpecies.keys()], settings);
+          assert.ok(rebuiltRequests.some((request) => request.monsters.some((row) => row.ownerUnitId === unitId)),
+            `copy ${unitId} built for ${least} has no row of its own beside species ${species}`);
+          const rebuiltLibrary = artifactValueOnMonster(artifact, rebuilt, settings);
+          const rebuiltEngine = artifactPairScore(rebuiltRequests, artifact.id, species, { conversions: false, unitId });
+          const rebuiltWhere = `artifact ${artifact.id} on copy ${unitId} rebuilt for ${least} at acceptableWorth ${acceptableWorth} %`;
+          assert.equal(rebuiltLibrary === undefined, rebuiltEngine === undefined, `${rebuiltWhere}: one reader judges and the other does not.`);
+          if (rebuiltLibrary !== undefined) {
+            assert.equal(Math.round(rebuiltLibrary * 100), rebuiltEngine.value,
+              `${rebuiltWhere}: the library says ${Math.round(rebuiltLibrary * 100)} % and the packed scorer says ${rebuiltEngine.value} %.`);
+            compared += 1;
+            copyRowCompared += 1;
+          }
+        }
 
         /* The same artifact again, against two statements its owner could make.
            The first uses both bands: the main it carries only accepted, and the
@@ -140,7 +171,7 @@ try {
             game, [...bySpecies.keys()], settings, undefined, { [unitId]: stated },
           );
           const statedLibrary = artifactValueOnMonster(artifact, unit, settings, stated);
-          const statedEngine = artifactPairScore(statedRequests, artifact.id, unitId, { conversions: false });
+          const statedEngine = artifactPairScore(statedRequests, artifact.id, species, { conversions: false, unitId });
           const statedLibraryPercent = statedLibrary === undefined ? undefined : Math.round(statedLibrary * 100);
           const statedEnginePercent = statedEngine === undefined ? undefined : statedEngine.value;
           const statedWhere = `artifact ${artifact.id} on stated copy ${unitId}`
@@ -160,10 +191,12 @@ try {
     }
   }
 
+  assert.ok(copyRowCompared > 0, 'No copy with a main-stat row of its own was compared, so that path measured nothing.');
   assert.ok(statedCompared > 0,
     'No stated-preference reading was compared, so the per-copy path measured nothing.');
   console.log(`Both artifact score readers agree on ${compared} judged readings`
     + ` (${pairs} equipped artifacts across ${bySpecies.size} species,`
+    + ` ${copyRowCompared} of them on a copy rebuilt so the main-stat model reads it apart from its species,`
     + ` at each of ${acceptableWorthChoices.length} acceptable-worth settings;`
     + ` ${statedCompared} of them against a per-copy statement in two bands or cleared to Any).`);
 } finally {

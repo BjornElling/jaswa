@@ -1,9 +1,10 @@
 import statistics from '../data/engraving-statistics.json';
 import type { ArtifactCategory, ArtifactMainProperty } from './artifact-properties';
 import { artifactMainProperties } from './artifact-properties';
-import { monsterSpeciesId, monsterStatisticsId } from './monster-identity';
+import { monsterStatisticsId } from './monster-identity';
 import type { RelicMainProperty } from './relic-properties';
 import { relicMainProperties } from './relic-properties';
+import { mainPropertyMaximum, subPropertyRange } from './rune-properties';
 import type { RuneSlotMain } from './rune-slot-mains';
 import { runeSlotMainByEffect } from './rune-slot-mains';
 import { runeSetName, runeSetPieceCount } from './rune-sets';
@@ -14,7 +15,8 @@ import { brokenRuneBuildPart, runeBuildName } from './rune-set-pairs';
  *
  * Every statistics-derived default in JASWA is produced here and nowhere else,
  * and it is consulted for exactly one purpose: as the fallback in
- * `monster-preference-resolution.ts`. Nothing scores, ranks, filters or sorts on
+ * `monster-preference-resolution.ts` — directly, or through the main-stat need
+ * `main-stat-model.ts` reads off the rune panel. Nothing scores, ranks, filters or sorts on
  * a default directly. They are provisional values — what the wider player base
  * does, offered so the user is not handed a roster of empty forms — and the
  * user's own statement replaces them wherever it exists
@@ -96,6 +98,12 @@ export type RuneDefaults = {
   slots: Record<RuneSlotKey, Map<RuneSlotMain, DefaultEntry>>;
   /** Observations behind each slot. */
   slotObservations: Record<RuneSlotKey, number>;
+  /**
+   * What the population's runes add to HP, ATK and DEF, in percent of base, for
+   * `main-stat-model.ts` to read when a copy says nothing of its own. Absent where
+   * the panel holds no percentage line at all.
+   */
+  mainStatNeed?: Record<ArtifactMainProperty, number>;
 };
 
 export type ArtifactCategoryDefaults = {
@@ -173,7 +181,8 @@ export const defaultedMonsterSpeciesIds: readonly string[] = Object.keys(monster
  * no panel leaves a captured monster with nothing at all.
  *
  * - **Artifact main** is §19.3's own, unchanged: three values against an even
- *   33 %.
+ *   33 %. It is reference now, read only by the overlay's Most common row: the
+ *   main's default is the main-stat model's (`main-stat-model.ts`).
  * - **Artifact sub** is deliberately *not* §19.3's 10 %, and this is the one
  *   place the overlay's cuts and the scorer's part company. They answer
  *   different questions. The scorer asks "how much is this roll worth", where a
@@ -199,7 +208,8 @@ export const defaultedMonsterSpeciesIds: readonly string[] = Object.keys(monster
  *   where 40 % undershoots at 1.67 and 30 % overshoots at 2.30. It also absorbs
  *   the inflation `RuneSetShareBasis` describes.
  * - **Relic main** is identical to artifact main by construction. Two 3-value
- *   distributions asking the same question cannot have two sets of cuts.
+ *   distributions asking the same question cannot have two sets of cuts. It is
+ *   reference too, for the same reason.
  * - **Relic unique** has sixteen values, so chance is exactly 6.25 % — and that
  *   is the acceptable cut: a property at or above chance is worth accepting.
  *   Preferred at 15 % is 2.4× chance, the same multiple §19.3 uses for artifact
@@ -329,7 +339,56 @@ function runeDefaults(panel: RunePanelStatistics | undefined): RuneDefaults | un
   const hasSlots = runeSlotKeys.some((key) => slots[key].size > 0);
   if (sets.size === 0 && !hasSlots) return undefined;
 
-  return { sets, builds, basis: 'observed-top-ten', setObservations, slots, slotObservations };
+  const mainStatNeed = runeStatisticsNeed(panel);
+  return {
+    sets, builds, basis: 'observed-top-ten', setObservations, slots, slotObservations,
+    ...(mainStatNeed === undefined ? {} : { mainStatNeed }),
+  };
+}
+
+const percentEffectIds: Record<ArtifactMainProperty, number> = { HP: 2, ATK: 4, DEF: 6 };
+
+/* A six-star sub line's expected worth at +12: its initial roll and, since four
+   upgrades fall across four lines, one upgrade on average. Grinds are left out —
+   the panel cannot say how many lines carry one. */
+function expectedSubLine(effectId: number): number {
+  const mean = (kind: 'initial' | 'upgrade') => {
+    const range = subPropertyRange(6, effectId, kind);
+    return range === undefined ? 0 : (range.minimum + range.maximum) / 2;
+  };
+  return mean('initial') + mean('upgrade');
+}
+
+/**
+ * The population's rune build as an expected HP, ATK and DEF percentage — the
+ * statistics stand-in for the six runes a copy may not yet wear.
+ *
+ * A slot-2/4/6 main is counted at its +15 value against that slot's own total;
+ * a sub line at `expectedSubLine` against the average number of runes a slot
+ * reports, since slots 1, 3 and 5 report no main to count them by. Flat lines are
+ * left out: converting one needs the base stat it adds to, which a species does
+ * not have, and a copy falling back on this panel must read it as its species
+ * does or it would disagree with its own species row for no reason.
+ */
+function runeStatisticsNeed(panel: RunePanelStatistics): Record<ArtifactMainProperty, number> | undefined {
+  const primary = panel.primaryEffect ?? [];
+  const secondary = panel.secondaryEffect ?? [];
+  const slotTotals = runeSlotKeys.map((key) => totalCount(primary.filter((row) => row.slotId === runeSlotNumbers[key])));
+  const runesPerSlot = slotTotals.reduce((sum, total) => sum + total, 0) / slotTotals.length;
+  if (!(runesPerSlot > 0)) return undefined;
+
+  const need = { HP: 0, ATK: 0, DEF: 0 } as Record<ArtifactMainProperty, number>;
+  for (const stat of ['HP', 'ATK', 'DEF'] as const) {
+    const effectId = percentEffectIds[stat];
+    runeSlotKeys.forEach((key, at) => {
+      if (slotTotals[at] <= 0) return;
+      const count = totalCount(primary.filter((row) => row.slotId === runeSlotNumbers[key] && row.effectId === effectId));
+      need[stat] += count / slotTotals[at] * mainPropertyMaximum(6, effectId);
+    });
+    const lines = totalCount(secondary.filter((row) => row.effectId === effectId));
+    need[stat] += lines / runesPerSlot * expectedSubLine(effectId);
+  }
+  return need.HP + need.ATK + need.DEF > 0 ? need : undefined;
 }
 
 function artifactCategoryDefaults(
@@ -401,7 +460,7 @@ const resolved = new Map<string, MonsterDefaults | undefined>();
  */
 export function monsterDefaults(masterId: unknown): MonsterDefaults | undefined {
   if (typeof masterId !== 'number' && typeof masterId !== 'string') return undefined;
-  const speciesId = monsterSpeciesId(masterId);
+  const speciesId = monsterStatisticsId(masterId);
   const cached = resolved.get(speciesId);
   if (cached !== undefined || resolved.has(speciesId)) return cached;
 

@@ -6,14 +6,16 @@ import { artifactLineMaxRolls } from '../artifact-optimal-value';
 import type { Artifact, ArtifactSubProperty } from '../artifacts';
 import type { ArtifactCategory, ArtifactMainProperty } from '../artifact-properties';
 import type { GameRecord } from '../game-data';
+import { copyArtifactMainBands } from '../main-stat-model';
+import { canEquipArtifacts } from '../monster-equipment-eligibility';
 import type { MonsterCopyPreferences, MonsterPreferences } from '../monster-preferences';
 import { statedBand } from '../monster-preferences';
 import { monsterSpeciesPresentation } from '../monster-catalog';
 import { monsterSpeciesId } from '../monster-identity';
-import { labelledMonsterName } from '../monster-names';
+import { labelledMonsterName, monsterCopyNames } from '../monster-names';
 import { elementName } from '../rune-sets';
 import { artifactPropertyIndex, categoryCode, scoredArtifactProperties } from './artifact-score-schema';
-import { artifactFitsClassCodes, intangibleRestrictionCode } from './artifact-score-protocol';
+import { artifactFitsClassCodes, artifactScoreRow, intangibleRestrictionCode } from './artifact-score-protocol';
 import type { ArtifactScoreRequest, PackedArtifactScoreInput, PackedMonsterScoreInput } from './artifact-score-protocol';
 import type { ArtifactSettings } from '../types';
 import { artifactOptimizationMonsters } from '../artifact-optimization-monsters';
@@ -116,46 +118,50 @@ function packMonster(speciesId: string, category: ArtifactCategory): PackedMonst
 }
 
 /**
- * One owned copy's own row, where its owner has stated what it is for.
+ * One owned copy's own row, where it wants something its species does not.
  *
- * The user's answers replace the statistics rather than blending with them
- * (§19.4): a stated list of mains is the whole list of mains, and a stated list
- * of substats is the whole list. Where they stated nothing about a half, that
- * half falls back on the species defaults — which is why the species row is
- * read first and then overwritten in place.
+ * That is so in two ways. Its owner may have stated what it is for, and the
+ * user's answers replace the statistics rather than blending with them (§19.4):
+ * a stated list of mains is the whole list of mains, and a stated list of
+ * substats is the whole list. Or the main-stat model may read this copy's own
+ * runes or targets differently from its species' statistics
+ * (`main-stat-model.ts`), and a copy built for HP is ranked as one. Where the
+ * row would repeat the species row exactly, there is none.
  *
  * The copy inherits the *species'* element and archetype. Those are facts about
  * the monster rather than preferences about the copy, and an artifact's equip
  * rule is checked against them, so taking them from anywhere else would let a
  * copy be offered artifacts it cannot wear.
  */
-function packStatedCopy(
-  unitId: string,
+function packCopy(
+  monster: GameRecord,
   speciesId: string,
   category: ArtifactCategory,
-  stated: MonsterCopyPreferences,
+  stated: MonsterCopyPreferences | undefined,
+  name: string | undefined,
 ): PackedMonsterScoreInput | undefined {
   const species = packMonster(speciesId, category);
   if (!species) return undefined;
-  const mains = stated.mainStat;
-  const subs = stated.artifacts?.sub?.[category];
-  if (mains === undefined && subs === undefined) return undefined;
+  const unitId = String(monster.unit_id);
+  const mains = copyArtifactMainBands(monster, stated);
+  const subs = stated?.artifacts?.sub?.[category];
+  /* The user's two bands are the scorer's two bands, and an option in neither
+     is unwanted — `copyArtifactMainBands` and `statedBand` are the readings of
+     that, shared with the per-artifact reader. */
+  const mainPreferences: readonly [number, number, number] = mains === undefined
+    ? species.mainPreferences
+    : [preferenceCode(mains.HP), preferenceCode(mains.ATK), preferenceCode(mains.DEF)];
+  const ownMains = mainPreferences.some((code, at) => code !== species.mainPreferences[at]);
+  if (stated?.mainStat === undefined && subs === undefined && !ownMains) return undefined;
 
   return {
     ...species,
     id: unitId,
     ownerUnitId: unitId,
-    name: labelledMonsterName(species.name, stated.label),
-    /* The user's two bands are the scorer's two bands, and an option in neither
-       is unwanted — `statedBand` is the one reading of that, shared with the
-       per-artifact reader. */
-    mainPreferences: mains === undefined
-      ? species.mainPreferences
-      : [
-        preferenceCode(statedBand(mains, 'HP')),
-        preferenceCode(statedBand(mains, 'ATK')),
-        preferenceCode(statedBand(mains, 'DEF')),
-      ],
+    /* The copy's own name, numbered as every table numbers it, so its row and
+       its species' row can be told apart in one ranking. */
+    name: name ?? labelledMonsterName(species.name, stated?.label),
+    mainPreferences,
     subPropertyPreferences: subs === undefined
       ? species.subPropertyPreferences
       : scoredArtifactProperties.map((property) => preferenceCode(statedBand(subs, property.id))),
@@ -251,29 +257,33 @@ export function canonicalArtifactScoreMonsterIds(monsterIds: readonly string[]):
 }
 
 /**
- * The owned copies that state artifact preferences of their own, paired with
- * the species whose defaults stand behind them.
+ * The owned copies that want something their species does not, paired with the
+ * species whose defaults stand behind them.
  *
  * A copy earns a row only where it actually disagrees with its species. A
- * record holding just a label, or just stat targets, says nothing about
- * artifacts, so giving it a row would add a duplicate of the species row and
- * make a collaboration pair rank twice for no gain.
+ * record holding just a label says nothing about artifacts, and a copy whose
+ * runes the model reads as its species' statistics wants what they want, so
+ * giving either a row would add a duplicate of the species row and make a
+ * collaboration pair rank twice for no gain.
  */
-function statedCopyRows(
+function copyRows(
   data: GameRecord | undefined,
+  speciesIds: ReadonlySet<string>,
   monsterPreferences: MonsterPreferences,
   category: ArtifactCategory,
 ): PackedMonsterScoreInput[] {
-  const roster = Array.isArray(data?.unit_list) ? data.unit_list : [];
+  const roster = (Array.isArray(data?.unit_list) ? data.unit_list : [])
+    .filter((record): record is GameRecord => Boolean(record) && typeof record === 'object');
+  const names = monsterCopyNames(roster, monsterPreferences);
   const rows: PackedMonsterScoreInput[] = [];
-  for (const record of roster) {
-    const monster = record as GameRecord | null;
-    if (!monster) continue;
-    const unitId = String(monster.unit_id);
-    const stated = monsterPreferences[unitId];
-    if (!stated) continue;
+  for (const monster of roster) {
+    if (monster.unit_id === undefined || monster.unit_id === null || !canEquipArtifacts(monster)) continue;
+    const stated = monsterPreferences[String(monster.unit_id)];
     const speciesId = monsterSpeciesId(String(monster.unit_master_id));
-    const row = packStatedCopy(unitId, speciesId, category, stated);
+    /* A copy's row stands beside its species' row, so a species the request
+       leaves out takes its copies with it. */
+    if (!speciesIds.has(speciesId)) continue;
+    const row = packCopy(monster, speciesId, category, stated, names[String(monster.unit_id)]?.name);
     if (row) rows.push(row);
   }
   return rows;
@@ -310,11 +320,11 @@ export function buildArtifactScoreRequestsForMonsterIds(
       .map(packArtifact),
     /* The species rows, then the rows of the copies that disagree with them.
        Both are scored: a copy with its own answers is ranked against those, and
-       every copy that stated nothing still answers to its species. */
+       every copy that wants what its species wants still answers to it. */
     monsters: [
       ...sourceIds.map((id) => packMonster(id, category))
         .filter((monster): monster is PackedMonsterScoreInput => monster !== undefined),
-      ...statedCopyRows(data, monsterPreferences, category),
+      ...copyRows(data, new Set(sourceIds), monsterPreferences, category),
     ],
     acceptableWorth: settings.acceptableWorth,
     conversionMode,
@@ -336,4 +346,24 @@ export function buildArtifactScoreRequests(
   return buildArtifactScoreRequestsForMonsterIds(
     data, sourceMonsterIds(monsters, settings), settings, artifactIds, monsterPreferences,
   );
+}
+
+/**
+ * The requests for one owned copy alone: each holds the one row that copy is
+ * scored under, so a request's maximum over its monsters is that copy's score.
+ */
+export function buildArtifactScoreRequestsForCopy(
+  data: GameRecord | undefined,
+  unitId: string,
+  masterId: string,
+  settings: ArtifactSettings,
+  monsterPreferences: MonsterPreferences = {},
+): ArtifactScoreRequest[] {
+  const speciesId = monsterSpeciesId(masterId);
+  return buildArtifactScoreRequestsForMonsterIds(data, [speciesId], settings, undefined, monsterPreferences)
+    .map((request) => {
+      const row = artifactScoreRow(request, speciesId, unitId);
+      return { ...request, monsters: row === undefined ? [] : [row] };
+    })
+    .filter((request) => request.monsters.length > 0);
 }

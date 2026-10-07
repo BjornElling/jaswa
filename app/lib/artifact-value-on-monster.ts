@@ -2,6 +2,7 @@ import { calculateArtifactOptimalValue } from './artifact-optimal-value';
 import { artifactPreferenceStatus, defaultPropertyPreferences } from './artifact-preferences';
 import { scoringSettings } from './artifact-recommendations';
 import { artifactFitsMonster } from './compute/artifact-score-input';
+import { copyArtifactMainBands } from './main-stat-model';
 import { artifactPropertyIndex } from './compute/artifact-score-schema';
 import { monsterSpeciesId } from './monster-identity';
 import { canEquipArtifacts } from './monster-equipment-eligibility';
@@ -68,7 +69,9 @@ export function artifactValueOnMonster(
      is outside every vocabulary the user answers from — even `Any` — exactly as
      it is outside the packed scorer's. */
   const statedSubs = stated?.artifacts?.sub?.[artifact.category];
-  const statedMains = stated?.mainStat;
+  /* The main as this copy wants it — stated, or the model's answer for its own
+     runes — through the reading the packed scorer's copy row takes. */
+  const copyMains = copyArtifactMainBands(monster, stated);
   const preferenceFor = (id: number): ArtifactPropertyPreference => {
     if (statedSubs === undefined) return preferences.sub.get(id) ?? 'unwanted';
     return artifactPropertyIndex.has(id) ? statedBand(statedSubs, id) : 'unwanted';
@@ -99,9 +102,7 @@ export function artifactValueOnMonster(
   return calculateArtifactOptimalValue({
     acceptableWorth,
     hasPropertyPreferences: true,
-    mainPreference: statedMains === undefined
-      ? preferences.main[artifact.mainProperty]
-      : statedBand(statedMains, artifact.mainProperty),
+    mainPreference: (copyMains ?? preferences.main)[artifact.mainProperty],
     subProperties,
   });
 }

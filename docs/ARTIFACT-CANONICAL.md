@@ -2455,6 +2455,14 @@ Validating one against the monster's kit would reintroduce the skill dependency
 and would put the program in the position of overruling the user about their own
 monster. A preference the user regrets is theirs to change.
 
+**The main stat is the one exception, and it advises rather than validates.**
+Which of HP, ATK and DEF a piece should carry needs no skill data: it follows
+from how far the copy's runes lift each stat above base
+(`docs/MAIN-STAT-MODEL.md`). So the main's default is computed rather than
+polled, and a stated main that contradicts the computation carries a yellow
+info mark on the overlay saying what the maths would choose. The user's answer
+is still the one scored; the mark never overrules it.
+
 ### 19.2 Preferences are held per owned copy, keyed by `(category, property)`
 
 Preferences are held **per owned copy**, keyed by the game's own `unit_id`. A
@@ -2489,9 +2497,14 @@ says this Lushen wants DEF artifacts is entitled to see that answer ranked.
 
 The matrix is therefore **species rows plus the copies that disagree**. A row is
 a species by default, so a collaboration pair still ranks once and every copy
-that has stated nothing still answers to its species; a copy that has stated
-anything about artifacts gets one row of its own, keyed by its `unit_id` and
-carrying `ownerUnitId`. It inherits the species' element and archetype, because
+that wants what its species wants still answers to it; a copy that has stated
+anything about artifacts, or whose own runes or targets give the main-stat model
+a different answer from its species' statistics, gets one row of its own, keyed
+by its `unit_id`, named as every table names that copy, and carrying
+`ownerUnitId`. A copy row exists only for a species the request asks about.
+Every page asking about an owned copy reads its own row where it has one and its
+species' row otherwise (`artifactScoreRow`), and passes the owner's statements
+into the request so that row can exist. It inherits the species' element and archetype, because
 those are facts about the monster rather than preferences about the copy and the
 equip rule is checked against them.
 
@@ -2523,9 +2536,10 @@ bulk wants HP or DEF on whichever piece carries a main; asking per artifact
 category and again per relic only ever produced three copies of one answer, so
 `MonsterCopyPreferences.mainStat` is stated once and read by the artifact scorer
 for both categories and by the relic plan. Several mains may be named — someone
-building for bulk is equally glad of HP or DEF. Where it is never stated, each
-piece's own statistics panel stands in, so an artifact category and the relic may
-still default differently.
+building for bulk is equally glad of HP or DEF. Where it is never stated, the
+main-stat model's answer for the copy stands in (`docs/MAIN-STAT-MODEL.md`), and
+an artifact and the relic may still default differently: an artifact's main is a
+fixed amount, worth more on a stat with a small base.
 
 **A gear answer is two bands: preferred and accepted.** The main, each
 category's substats and the relic uniques are each a `BandedChoices` — what the
@@ -2544,8 +2558,12 @@ what is wanted, and how well it rolled is what the score already measures.
 ### 19.3 The statistics supply the defaults, by fixed shares
 
 The engraving statistics (`docs/ENGRAVING-STATISTICS.md`) supply the **default**
-preferences, classified from the raw counts of one `(species, category, view)`
-distribution — never from rounded display percentages:
+sub-property preferences, classified from the raw counts of one
+`(species, category, view)` distribution — never from rounded display
+percentages. The **main property is not polled**: its default is the main-stat
+model's (`docs/MAIN-STAT-MODEL.md`), which for a species reads the rune panel's
+mains and subs rather than what the population puts on its artifacts. The main
+panel's shares remain on the overlay as reference only.
 
 ```text
 share = property count / sum of all property counts in that distribution
@@ -2553,7 +2571,6 @@ share = property count / sum of all property counts in that distribution
 
 | View | Preferred | Acceptable | Neither |
 | --- | --- | --- | --- |
-| Main Property (HP, ATK, DEF) | share ≥ 40 % | ≥ 10 % and < 40 % | < 10 % |
 | Sub Property, **for scoring** | share ≥ 10 % | ≥ 5 % and < 10 % | < 5 % |
 | Sub Property, **for the overlay** | share ≥ 6 % | — | < 6 % |
 

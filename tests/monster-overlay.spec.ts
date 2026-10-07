@@ -359,6 +359,45 @@ test('an option is preferred or accepted, never both, and an empty band says wha
   expect((await storedPreferences(page))?.['1']?.mainStat).toEqual({ preferred: ['HP'], acceptable: ['ATK'] });
 });
 
+test('a stated main the maths would not choose carries a yellow mark, and moves nothing', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await importAccount(page);
+  await openOverlay(page);
+  const dialog = page.getByRole('dialog');
+  const preferred = dialog.getByRole('button', { name: /^Main stat, preferred:/ });
+  const menu = page.getByRole('menu', { name: 'Main stat, preferred' });
+  const advice = dialog.getByRole('img', { name: /by the maths/ });
+  const gear = dialog.locator('.overlay-gear');
+  const boxes = () => gear.locator('.overlay-row-label, .overlay-band-field').evaluateAll((elements) =>
+    elements.map((element) => { const box = element.getBoundingClientRect(); return [box.x, box.y, box.width, box.height].map(Math.round).join(','); }));
+
+  /* Saying nothing contradicts nothing: the maths is then the answer itself. */
+  await expect(advice).toHaveCount(0);
+  const before = await boxes();
+  await gear.screenshot({ path: testInfo.outputPath('main-stat-advice-before.png') });
+
+  /* The copy's six runes lift ATK furthest, so DEF alone contradicts both pieces. */
+  await preferred.click();
+  await menu.getByRole('menuitem', { name: 'DEF', exact: true }).click();
+  await expect(advice).toHaveCount(1);
+  await expect(advice).toHaveAttribute('data-tone', 'yellow');
+  await expect(advice).toHaveAttribute('aria-label', 'Its six runes lift ATK +63%, HP +48%, DEF +9% over base,'
+    + ' so by the maths artifacts want ATK; the relic wants ATK (accepting HP).');
+  await gear.screenshot({ path: testInfo.outputPath('main-stat-advice-after.png') });
+  /* The mark sits after a name in a fixed column: nothing around it moves. */
+  expect(await boxes()).toEqual(before);
+
+  /* ATK preferred and HP accepted is the relic's answer exactly and the
+     artifacts' within one band, which is the owner's call to make. */
+  await dialog.getByRole('button', { name: 'Remove DEF from Main stat, preferred' }).click();
+  await preferred.click();
+  await menu.getByRole('menuitem', { name: 'ATK', exact: true }).click();
+  await dialog.getByRole('button', { name: /^Main stat, accepted:/ }).click();
+  await page.getByRole('menu', { name: 'Main stat, accepted' }).getByRole('menuitem', { name: 'HP', exact: true }).click();
+  await expect(advice).toHaveCount(0);
+  expect(await boxes()).toEqual(before);
+});
+
 test('a composite target is stated and kept, alongside the stat it is derived from', async ({ page }) => {
   await importAccount(page);
   await openOverlay(page);

@@ -823,29 +823,32 @@ The engraving question uses `relic-monster-value.ts` and `relic-monster-fit.ts`.
 It does not use the population, synergy bands or the investment strength proxy.
 Sections 5–9 still decide Power up, Keep or Sell without any change.
 
-### 11.1 Rune investment supplies the priorities
+### 11.1 The main-stat model supplies the priorities
 
-Read the copy's base B, its rune-only sheet R and its equipped sheet T through
-`monster-stats.ts`. R includes rune mains, innates, substats, grinds and completed
-personal stat sets. T also includes artifact mains. Neither includes a relic.
-No second stat-sheet implementation is allowed.
+The priorities are the main-stat model's need (`docs/MAIN-STAT-MODEL.md`), read
+through `copyMainStatNeed` — the same need that decides an artifact's main, so a
+relic and an artifact are never told different stories about one monster. It
+comes from the copy's six runes, else its HP, ATK and DEF floors, else the
+species' rune statistics; it excludes the fixed flat mains of slots 1, 3 and 5.
+The copy's base B and its equipped sheet T (artifact mains included, no relic)
+are read through `monster-stats.ts`. No second stat-sheet implementation is
+allowed.
 
-For each of HP, ATK and DEF:
+For each of HP, ATK and DEF, with the need in percent of base:
 
 ```
-increase[s] = max(0, (R[s] − B[s]) / B[s])
-weight[s]   = increase[s] / sum(increase)
+weight[s] = need[s] / sum(need)
 ```
 
-Adding 100 % HP and 60 % DEF yields HP weight 0.625 and DEF weight 0.375.
-Artifacts affect what a unique property reads, not the rune priorities. SPD
-sizes a source-dependent effect, but cannot be a priority for a stat relics do
-not grant. CRI Rate, CRI Dmg, RES and ACC are not granted by relics either.
+A need of 100 % HP and 60 % DEF yields HP weight 0.625 and DEF weight 0.375.
+Artifacts affect what a unique property reads, not the priorities. SPD sizes a
+source-dependent effect, but cannot be a priority for a stat relics do not
+grant. CRI Rate, CRI Dmg, RES and ACC are not granted by relics either.
 
 All four source bases and totals must be finite and positive. Missing stats
-produce `No recommendation` with an import instruction. No HP/ATK/DEF rune
-investment produces the same verdict with an instruction to equip runes. Neither
-is silently excluded or filled from population habit. A zero weight stays zero.
+produce `No recommendation` with an import instruction. A copy for which no
+source yields a need produces the same verdict with an instruction to equip six
+runes or state a floor. Neither is silently excluded. A zero weight stays zero.
 
 ### 11.2 The effect calculation
 

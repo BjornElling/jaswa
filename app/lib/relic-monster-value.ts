@@ -1,4 +1,7 @@
 import type { GameRecord } from './game-data';
+import type { MainStatBasis } from './main-stat-model';
+import { copyMainStatNeed } from './main-stat-model';
+import type { MonsterCopyPreferences } from './monster-preferences';
 import { calculateMonsterTotals, monsterBaseStats } from './monster-stats';
 import type { RelicMainProperty, RelicSourceStat } from './relic-properties';
 import type { Relic } from './relics';
@@ -9,43 +12,47 @@ export type RelicMonsterModel = {
   status: 'ready' | 'missing-stats' | 'no-priorities';
   base: RelicStatValues;
   totals: RelicStatValues;
-  runeIncreases: RelicStatWeights;
+  /** Where the need came from, where one was found (`main-stat-model.ts`). */
+  basis?: MainStatBasis;
+  /** How far each stat is lifted above base, in percent of base. */
+  need: RelicStatWeights;
   weights: RelicStatWeights;
 };
 
 /**
- * Rune investment is evidence about this copy, not its species. Artifacts
- * contribute to the source stat a relic reads, but cannot invent a rune priority.
- * Both sheets use the shared stat engine so flats, grinds and sets agree with
- * the monster overlay.
+ * What this copy needs is the main-stat model's answer, not one of this
+ * module's own: the same need decides an artifact's main and a relic's, so the
+ * two cannot be told different stories about one monster. The weights are that
+ * need's shares, and a relic's main is worth its percentage times its stat's
+ * share — exactly the order the model's relic bands are in. The totals a
+ * unique reads its source from use the shared stat engine, so flats, grinds and
+ * sets agree with the monster overlay.
  */
-export function relicMonsterModel(monster: GameRecord): RelicMonsterModel {
+export function relicMonsterModel(monster: GameRecord, stated?: MonsterCopyPreferences): RelicMonsterModel {
   const rawBase = monsterBaseStats(monster);
   const base = { HP: rawBase[0], ATK: rawBase[1], DEF: rawBase[2], SPD: rawBase[3] };
   /* Candidate relics are compared against the same sheet before engraving;
      counting the currently worn relic here would give every candidate its main
      property twice. */
-  const withoutRelic = { ...monster, relics: [] };
-  const sheet = calculateMonsterTotals(withoutRelic);
+  const sheet = calculateMonsterTotals({ ...monster, relics: [] });
   const totals = { HP: sheet.hp, ATK: sheet.atk, DEF: sheet.def, SPD: sheet.spd };
-  const runes = calculateMonsterTotals({ ...withoutRelic, artifacts: [] });
-  const runeIncreases = { HP: 0, ATK: 0, DEF: 0 };
+  const need = { HP: 0, ATK: 0, DEF: 0 };
   const weights = { HP: 0, ATK: 0, DEF: 0 };
-  const model: RelicMonsterModel = { status: 'missing-stats', base, totals, runeIncreases, weights };
+  const model: RelicMonsterModel = { status: 'missing-stats', base, totals, need, weights };
   if (Object.values(base).some((value) => !Number.isFinite(value) || value <= 0)
     || Object.values(totals).some((value) => !Number.isFinite(value) || value <= 0)) return model;
 
-  runeIncreases.HP = Math.max(0, (runes.hp - base.HP) / base.HP);
-  runeIncreases.ATK = Math.max(0, (runes.atk - base.ATK) / base.ATK);
-  runeIncreases.DEF = Math.max(0, (runes.def - base.DEF) / base.DEF);
-  const investment = runeIncreases.HP + runeIncreases.ATK + runeIncreases.DEF;
-  if (!(investment > 0) || !Number.isFinite(investment)) {
+  const found = copyMainStatNeed(monster, stated);
+  const investment = found === undefined ? 0 : found.need.HP + found.need.ATK + found.need.DEF;
+  if (found === undefined || !(investment > 0) || !Number.isFinite(investment)) {
     model.status = 'no-priorities';
     return model;
   }
-  weights.HP = runeIncreases.HP / investment;
-  weights.ATK = runeIncreases.ATK / investment;
-  weights.DEF = runeIncreases.DEF / investment;
+  model.basis = found.basis;
+  for (const stat of ['HP', 'ATK', 'DEF'] as const) {
+    need[stat] = found.need[stat];
+    weights[stat] = found.need[stat] / investment;
+  }
   model.status = 'ready';
   return model;
 }

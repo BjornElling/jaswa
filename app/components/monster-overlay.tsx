@@ -3,7 +3,8 @@ import { BandedChoiceLine } from './banded-choice-line';
 import type { ChoiceBand } from './banded-choice-line';
 import { Dropdown } from './dropdown';
 import { FigureMarks } from './figure-marks';
-import { combatBonusMarks, shortfallMarks } from '../lib/figure-marks';
+import { combatBonusMarks, mainStatAdviceMarks, shortfallMarks } from '../lib/figure-marks';
+import type { FigureMark } from '../lib/figure-marks';
 import { MonsterPortrait } from './monster-portrait';
 import { WornArtifacts, WornRelics, WornRunes } from './monster-worn-gear';
 import { RuneBuildField } from './rune-build-field';
@@ -146,15 +147,18 @@ function Usage({ entries }: {
  * One gear question across the gear grid: its name and the two bands it is
  * answered in, on one row.
  */
-function GearRow<T extends string | number>({ name, options, value, onChange }: {
+function GearRow<T extends string | number>({ name, options, value, onChange, marks = [] }: {
   name: string;
   options: readonly TokenChoiceOption<T>[];
   value: BandedChoices<T> | undefined;
   onChange: (next: BandedChoices<T>) => void;
+  /* After the name, which sits flush left in a fixed column, so a mark arriving
+     moves nothing (`AGENTS.md` §2). */
+  marks?: readonly FigureMark[];
 }) {
   const bands: ChoiceBand[] = ['preferred', 'acceptable'];
   return <>
-    <p className="overlay-row-label">{name}</p>
+    <p className="overlay-row-label">{name}<FigureMarks marks={marks} /></p>
     {bands.map((band) => <BandedChoiceLine key={band} name={name} band={band}
       options={options} value={value} onChange={onChange} />)}
   </>;
@@ -272,8 +276,8 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
   }, [game, target, display.name]);
   const usage: MonsterUsage = useMemo(() => monsterUsage(masterId), [masterId]);
   const resolved: ResolvedMonsterPreferences = useMemo(
-    () => resolveMonsterPreferences(target.kind === 'copy' ? target.unitId : '', masterId, draft),
-    [target, masterId, draft],
+    () => resolveMonsterPreferences(target.kind === 'copy' ? target.unitId : '', masterId, draft, monster),
+    [target, masterId, draft, monster],
   );
 
   /* The eleven figures this copy has, as its own panel shows them — no lead in
@@ -562,6 +566,7 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
               <p className="overlay-row-label">Preferred</p>
               <p className="overlay-row-label">Accepted</p>
               <GearRow name="Main stat" options={mainStatOptions} value={draft.mainStat}
+                marks={mainStatAdviceMarks(draft.mainStat, resolved.mainStatAdvice)}
                 onChange={(next) => change((state) => ({ ...state, mainStat: next }))} />
               {(['attribute', 'type'] as const).map((category) => <GearRow key={category}
                 name={`${categoryLabels[category]} substats`} options={substatOptions(category)}

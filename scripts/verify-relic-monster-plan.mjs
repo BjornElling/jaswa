@@ -73,7 +73,9 @@ assert.equal(cleared.recommendations.get('cleared').chosen.relic.id, '9002');
 const noMatch = allocateRelicEngravings([subject('no-match', hp, [], { relics: { unique: { preferred: [16], acceptable: [] } } })], relics, new Map());
 assert.equal(noMatch.recommendations.get('no-match').unavailable, 'preferences');
 
-const unruned = relicMonsterModel({ ...account.unit_list[0], runes: [] });
+/* No build, no floor and no captured species: nothing can say what the copy
+   needs. A captured species would answer from its statistics instead. */
+const unruned = relicMonsterModel({ ...account.unit_list[0], unit_master_id: undefined, runes: [] });
 for (const [model, reason] of [[relicMonsterModel({}), 'missing-stats'], [unruned, 'no-priorities']]) {
   const unscored = allocateRelicEngravings([subject('empty', model)], relics, new Map());
   assert.equal(unscored.recommendations.size, 1, 'Unscorable monsters must stay visible');

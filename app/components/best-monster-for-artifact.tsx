@@ -184,19 +184,23 @@ export function BestMonsterForArtifact({ data, monsters, monsterPreferences, set
   }, [artifacts]);
   const artifactInput = artifacts.map((artifact) => [artifact.id, artifact.occupiedId, artifact.mainProperty, artifact.convertedPropertyIndex,
     ...artifact.subProperties.map((subProperty) => [subProperty.definition.id, subProperty.valueHundredths, subProperty.maximumHundredths])]);
-  const inputKey = JSON.stringify({ artifactInput, monsterIds: ownMonsters.map((monster) => [monster.unitId, monster.speciesId]), selectedArtifactId: filters.selectedArtifactId, settings: scoringSettings(settings) });
+  const inputKey = JSON.stringify({ artifactInput, monsterIds: ownMonsters.map((monster) => [monster.unitId, monster.speciesId]), monsterPreferences, selectedArtifactId: filters.selectedArtifactId, settings: scoringSettings(settings) });
   const currentCalculation = calculation?.inputKey === inputKey ? calculation : undefined;
   const owner = selectedArtifact?.occupiedId === null || selectedArtifact === undefined
     ? undefined : ownMonsters.find((monster) => monster.unitId === selectedArtifact.occupiedId);
-  const currentScore = owner ? currentCalculation?.ownedScores.get(owner.speciesId) : undefined;
+  /* A copy that wants something its species does not is scored under its own
+     row (§19.2); every other copy answers to its species'. */
+  const ownedScore = (monster: MonsterOption) =>
+    currentCalculation?.ownedScores.get(monster.unitId) ?? currentCalculation?.ownedScores.get(monster.speciesId);
+  const currentScore = owner ? ownedScore(owner) : undefined;
   const slotlessRows = ownMonsters.filter((monster) => selectedArtifact !== undefined
     && !equippedSlots.get(monster.unitId)?.has(selectedArtifact.category))
-    .map((monster) => ({ monster, score: currentCalculation?.ownedScores.get(monster.speciesId) }))
+    .map((monster) => ({ monster, score: ownedScore(monster) }))
     .sort((left, right) => (right.score?.value ?? -1) - (left.score?.value ?? -1) || left.monster.name.localeCompare(right.monster.name))
     .slice(0, 10);
   /* §17.2 and §17.3: only a destination that genuinely beats the artifact's
      current home, by more than the band the user called meaningful. */
-  const improvementRows = ownMonsters.map((monster) => ({ monster, score: currentCalculation?.ownedScores.get(monster.speciesId) }))
+  const improvementRows = ownMonsters.map((monster) => ({ monster, score: ownedScore(monster) }))
     .filter((row) => currentScore !== undefined && row.score !== undefined
       && isWorthwhileGain(row.score.value, currentScore.value, settings))
     .sort((left, right) => (right.score?.value ?? 0) - (left.score?.value ?? 0) || left.monster.name.localeCompare(right.monster.name))
@@ -258,9 +262,9 @@ export function BestMonsterForArtifact({ data, monsters, monsterPreferences, set
   async function calculate() {
     if (!selectedArtifact) return;
     const selected = new Set([selectedArtifact.id]);
-    const scopeRequests = buildArtifactScoreRequests(data, monsters, settings, selected)
+    const scopeRequests = buildArtifactScoreRequests(data, monsters, settings, selected, monsterPreferences)
       .map((request) => ({ ...request, includeAllScores: true }));
-    const ownedRequests = buildArtifactScoreRequestsForMonsterIds(data, ownMonsters.map((monster) => monster.speciesId), settings, selected)
+    const ownedRequests = buildArtifactScoreRequestsForMonsterIds(data, ownMonsters.map((monster) => monster.speciesId), settings, selected, monsterPreferences)
       .map((request) => ({ ...request, includeAllScores: true }));
     if (!scopeRequests.length) {
       setCalculation(undefined);

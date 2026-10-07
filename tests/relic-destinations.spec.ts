@@ -116,7 +116,9 @@ test('the same rune build scores identically on different monster species', asyn
 test('changing the rune build changes the relic recommendation', async ({ page }) => {
   await importAccount(page, (account) => {
     const monsters = account.unit_list as Record<string, unknown>[];
-    monsters[0].runes = (monsters[2].runes as Record<string, unknown>[]).map((rune) => ({ ...rune, rune_id: 10001, occupied_id: 1 }));
+    /* Beth's six runes, renumbered so the two copies hold distinct runes. */
+    monsters[0].runes = (monsters[2].runes as Record<string, unknown>[])
+      .map((rune) => ({ ...rune, rune_id: Number(rune.rune_id) + 500000, occupied_id: 1 }));
   });
   await openUseForMons(page);
   const elucia = monsterRow(page, 'Elucia');
@@ -125,25 +127,28 @@ test('changing the rune build changes the relic recommendation', async ({ page }
   await expect(mainStat(elucia)).toHaveText('18.00');
 });
 
-test('missing stats and an empty rune build remain visible with specific instructions', async ({ page }) => {
+test('missing stats are explained, and a bare copy is read from its species statistics', async ({ page }) => {
   await importAccount(page, (account) => {
     const monsters = account.unit_list as Record<string, unknown>[];
     delete monsters[0].con;
     monsters[1].runes = [];
+    monsters[3].runes = [];
   });
   await openUseForMons(page);
   await expect(destinations(page)).toHaveCount(4);
   const missing = monsterRow(page, 'Elucia');
-  const unruned = monsterRow(page, 'Kaimann');
   await expect(advice(missing)).toContainText('Import this monster’s base stats.');
-  await expect(advice(unruned)).toContainText('Equip runes to establish priorities.');
-  for (const row of [missing, unruned]) {
-    await expect(recommended(row)).toHaveText('—');
-    await expect(mainStat(row)).toHaveText('—');
-    await expect(uniqueStat(row)).toHaveText('—');
-    await expect(advice(row)).toContainText('No recommendation');
-    await expect(advice(row)).not.toContainText('No capacity');
+  /* Bare of runes and without a floor, a captured species is read from its rune
+     statistics and still gets a recommendation. A copy nothing can speak for is
+     held in `verify:relic-monster-plan`: every species here is captured. */
+  for (const name of ['Kaimann', 'Bulldozer']) {
+    await expect(recommended(monsterRow(page, name))).not.toHaveText('—');
   }
+  await expect(recommended(missing)).toHaveText('—');
+  await expect(mainStat(missing)).toHaveText('—');
+  await expect(uniqueStat(missing)).toHaveText('—');
+  await expect(advice(missing)).toContainText('No recommendation');
+  await expect(advice(missing)).not.toContainText('No capacity');
 });
 
 test('saved relic choices constrain engraving and survive a reload', async ({ page }) => {

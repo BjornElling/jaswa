@@ -34,6 +34,106 @@
    "accuracy": 0,
    "runes": [
     {
+     "rune_id": 100011,
+     "occupied_id": 1,
+     "occupied_type": 1,
+     "set_id": 13,
+     "slot_no": 1,
+     "class": 6,
+     "rank": 5,
+     "extra": 5,
+     "upgrade_curr": 15,
+     "pri_eff": [
+      3,
+      0
+     ],
+     "prefix_eff": [
+      0,
+      0
+     ],
+     "sec_eff": []
+    },
+    {
+     "rune_id": 100012,
+     "occupied_id": 1,
+     "occupied_type": 1,
+     "set_id": 13,
+     "slot_no": 2,
+     "class": 6,
+     "rank": 5,
+     "extra": 5,
+     "upgrade_curr": 15,
+     "pri_eff": [
+      8,
+      0
+     ],
+     "prefix_eff": [
+      0,
+      0
+     ],
+     "sec_eff": []
+    },
+    {
+     "rune_id": 100013,
+     "occupied_id": 1,
+     "occupied_type": 1,
+     "set_id": 13,
+     "slot_no": 3,
+     "class": 6,
+     "rank": 5,
+     "extra": 5,
+     "upgrade_curr": 15,
+     "pri_eff": [
+      5,
+      0
+     ],
+     "prefix_eff": [
+      0,
+      0
+     ],
+     "sec_eff": []
+    },
+    {
+     "rune_id": 100014,
+     "occupied_id": 1,
+     "occupied_type": 1,
+     "set_id": 13,
+     "slot_no": 4,
+     "class": 6,
+     "rank": 5,
+     "extra": 5,
+     "upgrade_curr": 15,
+     "pri_eff": [
+      2,
+      0
+     ],
+     "prefix_eff": [
+      0,
+      0
+     ],
+     "sec_eff": []
+    },
+    {
+     "rune_id": 100015,
+     "occupied_id": 1,
+     "occupied_type": 1,
+     "set_id": 13,
+     "slot_no": 5,
+     "class": 6,
+     "rank": 5,
+     "extra": 5,
+     "upgrade_curr": 15,
+     "pri_eff": [
+      1,
+      0
+     ],
+     "prefix_eff": [
+      0,
+      0
+     ],
+     "sec_eff": []
+    },
+    {
      "rune_id": 10001,
      "occupied_id": 1,
      "occupied_type": 1,
@@ -118,6 +218,106 @@
    "accuracy": 0,
    "runes": [
     {
+     "rune_id": 100021,
+     "occupied_id": 2,
+     "occupied_type": 1,
+     "set_id": 13,
+     "slot_no": 1,
+     "class": 6,
+     "rank": 5,
+     "extra": 5,
+     "upgrade_curr": 15,
+     "pri_eff": [
+      3,
+      0
+     ],
+     "prefix_eff": [
+      0,
+      0
+     ],
+     "sec_eff": []
+    },
+    {
+     "rune_id": 100022,
+     "occupied_id": 2,
+     "occupied_type": 1,
+     "set_id": 13,
+     "slot_no": 2,
+     "class": 6,
+     "rank": 5,
+     "extra": 5,
+     "upgrade_curr": 15,
+     "pri_eff": [
+      8,
+      0
+     ],
+     "prefix_eff": [
+      0,
+      0
+     ],
+     "sec_eff": []
+    },
+    {
+     "rune_id": 100023,
+     "occupied_id": 2,
+     "occupied_type": 1,
+     "set_id": 13,
+     "slot_no": 3,
+     "class": 6,
+     "rank": 5,
+     "extra": 5,
+     "upgrade_curr": 15,
+     "pri_eff": [
+      5,
+      0
+     ],
+     "prefix_eff": [
+      0,
+      0
+     ],
+     "sec_eff": []
+    },
+    {
+     "rune_id": 100024,
+     "occupied_id": 2,
+     "occupied_type": 1,
+     "set_id": 13,
+     "slot_no": 4,
+     "class": 6,
+     "rank": 5,
+     "extra": 5,
+     "upgrade_curr": 15,
+     "pri_eff": [
+      2,
+      0
+     ],
+     "prefix_eff": [
+      0,
+      0
+     ],
+     "sec_eff": []
+    },
+    {
+     "rune_id": 100025,
+     "occupied_id": 2,
+     "occupied_type": 1,
+     "set_id": 13,
+     "slot_no": 5,
+     "class": 6,
+     "rank": 5,
+     "extra": 5,
+     "upgrade_curr": 15,
+     "pri_eff": [
+      1,
+      0
+     ],
+     "prefix_eff": [
+      0,
+      0
+     ],
+     "sec_eff": []
+    },
+    {
      "rune_id": 10002,
      "occupied_id": 2,
      "occupied_type": 1,
@@ -168,6 +368,106 @@
    "resist": 15,
    "accuracy": 0,
    "runes": [
+    {
+     "rune_id": 100031,
+     "occupied_id": 3,
+     "occupied_type": 1,
+     "set_id": 13,
+     "slot_no": 1,
+     "class": 6,
+     "rank": 5,
+     "extra": 5,
+     "upgrade_curr": 15,
+     "pri_eff": [
+      3,
+      0
+     ],
+     "prefix_eff": [
+      0,
+      0
+     ],
+     "sec_eff": []
+    },
+    {
+     "rune_id": 100032,
+     "occupied_id": 3,
+     "occupied_type": 1,
+     "set_id": 13,
+     "slot_no": 2,
+     "class": 6,
+     "rank": 5,
+     "extra": 5,
+     "upgrade_curr": 15,
+     "pri_eff": [
+      8,
+      0
+     ],
+     "prefix_eff": [
+      0,
+      0
+     ],
+     "sec_eff": []
+    },
+    {
+     "rune_id": 100033,
+     "occupied_id": 3,
+     "occupied_type": 1,
+     "set_id": 13,
+     "slot_no": 3,
+     "class": 6,
+     "rank": 5,
+     "extra": 5,
+     "upgrade_curr": 15,
+     "pri_eff": [
+      5,
+      0
+     ],
+     "prefix_eff": [
+      0,
+      0
+     ],
+     "sec_eff": []
+    },
+    {
+     "rune_id": 100034,
+     "occupied_id": 3,
+     "occupied_type": 1,
+     "set_id": 13,
+     "slot_no": 4,
+     "class": 6,
+     "rank": 5,
+     "extra": 5,
+     "upgrade_curr": 15,
+     "pri_eff": [
+      2,
+      0
+     ],
+     "prefix_eff": [
+      0,
+      0
+     ],
+     "sec_eff": []
+    },
+    {
+     "rune_id": 100035,
+     "occupied_id": 3,
+     "occupied_type": 1,
+     "set_id": 13,
+     "slot_no": 5,
+     "class": 6,
+     "rank": 5,
+     "extra": 5,
+     "upgrade_curr": 15,
+     "pri_eff": [
+      1,
+      0
+     ],
+     "prefix_eff": [
+      0,
+      0
+     ],
+     "sec_eff": []
+    },
     {
      "rune_id": 10003,
      "occupied_id": 3,
@@ -231,6 +531,106 @@
    "accuracy": 0,
    "runes": [
     {
+     "rune_id": 100041,
+     "occupied_id": 4,
+     "occupied_type": 1,
+     "set_id": 13,
+     "slot_no": 1,
+     "class": 6,
+     "rank": 5,
+     "extra": 5,
+     "upgrade_curr": 15,
+     "pri_eff": [
+      3,
+      0
+     ],
+     "prefix_eff": [
+      0,
+      0
+     ],
+     "sec_eff": []
+    },
+    {
+     "rune_id": 100042,
+     "occupied_id": 4,
+     "occupied_type": 1,
+     "set_id": 13,
+     "slot_no": 2,
+     "class": 6,
+     "rank": 5,
+     "extra": 5,
+     "upgrade_curr": 15,
+     "pri_eff": [
+      8,
+      0
+     ],
+     "prefix_eff": [
+      0,
+      0
+     ],
+     "sec_eff": []
+    },
+    {
+     "rune_id": 100043,
+     "occupied_id": 4,
+     "occupied_type": 1,
+     "set_id": 13,
+     "slot_no": 3,
+     "class": 6,
+     "rank": 5,
+     "extra": 5,
+     "upgrade_curr": 15,
+     "pri_eff": [
+      5,
+      0
+     ],
+     "prefix_eff": [
+      0,
+      0
+     ],
+     "sec_eff": []
+    },
+    {
+     "rune_id": 100044,
+     "occupied_id": 4,
+     "occupied_type": 1,
+     "set_id": 13,
+     "slot_no": 4,
+     "class": 6,
+     "rank": 5,
+     "extra": 5,
+     "upgrade_curr": 15,
+     "pri_eff": [
+      2,
+      0
+     ],
+     "prefix_eff": [
+      0,
+      0
+     ],
+     "sec_eff": []
+    },
+    {
+     "rune_id": 100045,
+     "occupied_id": 4,
+     "occupied_type": 1,
+     "set_id": 13,
+     "slot_no": 5,
+     "class": 6,
+     "rank": 5,
+     "extra": 5,
+     "upgrade_curr": 15,
+     "pri_eff": [
+      1,
+      0
+     ],
+     "prefix_eff": [
+      0,
+      0
+     ],
+     "sec_eff": []
+    },
+    {
      "rune_id": 10004,
      "occupied_id": 4,
      "occupied_type": 1,
@@ -281,6 +681,106 @@
    "resist": 15,
    "accuracy": 0,
    "runes": [
+    {
+     "rune_id": 100051,
+     "occupied_id": 5,
+     "occupied_type": 1,
+     "set_id": 13,
+     "slot_no": 1,
+     "class": 6,
+     "rank": 5,
+     "extra": 5,
+     "upgrade_curr": 15,
+     "pri_eff": [
+      3,
+      0
+     ],
+     "prefix_eff": [
+      0,
+      0
+     ],
+     "sec_eff": []
+    },
+    {
+     "rune_id": 100052,
+     "occupied_id": 5,
+     "occupied_type": 1,
+     "set_id": 13,
+     "slot_no": 2,
+     "class": 6,
+     "rank": 5,
+     "extra": 5,
+     "upgrade_curr": 15,
+     "pri_eff": [
+      8,
+      0
+     ],
+     "prefix_eff": [
+      0,
+      0
+     ],
+     "sec_eff": []
+    },
+    {
+     "rune_id": 100053,
+     "occupied_id": 5,
+     "occupied_type": 1,
+     "set_id": 13,
+     "slot_no": 3,
+     "class": 6,
+     "rank": 5,
+     "extra": 5,
+     "upgrade_curr": 15,
+     "pri_eff": [
+      5,
+      0
+     ],
+     "prefix_eff": [
+      0,
+      0
+     ],
+     "sec_eff": []
+    },
+    {
+     "rune_id": 100054,
+     "occupied_id": 5,
+     "occupied_type": 1,
+     "set_id": 13,
+     "slot_no": 4,
+     "class": 6,
+     "rank": 5,
+     "extra": 5,
+     "upgrade_curr": 15,
+     "pri_eff": [
+      2,
+      0
+     ],
+     "prefix_eff": [
+      0,
+      0
+     ],
+     "sec_eff": []
+    },
+    {
+     "rune_id": 100055,
+     "occupied_id": 5,
+     "occupied_type": 1,
+     "set_id": 13,
+     "slot_no": 5,
+     "class": 6,
+     "rank": 5,
+     "extra": 5,
+     "upgrade_curr": 15,
+     "pri_eff": [
+      1,
+      0
+     ],
+     "prefix_eff": [
+      0,
+      0
+     ],
+     "sec_eff": []
+    },
     {
      "rune_id": 10005,
      "occupied_id": 5,

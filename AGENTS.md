@@ -396,6 +396,11 @@ parts an agent must not quietly break:
   copy. Chromium's new headless mode (`channel: 'chromium'`) does expose this
   machine's card, and `verify:rune-optimization-card` uses it to execute the
   optimization shader against the processor.
+- **One main-stat model.** `docs/MAIN-STAT-MODEL.md` is binding, and
+  `app/lib/main-stat-model.ts` is the only place that decides which of HP, ATK
+  and DEF a monster's artifacts and relic should carry. The overlay's defaults,
+  both artifact score readers, the relic plan and the overlay's advice mark all
+  read it; none computes a need of its own.
 - **One stat sheet, one build search.** `app/lib/monster-stats.ts` is the only
   place a monster's stats are summed — the Monsters page, the overlay, Speed
   Tuning and Rune Optimization all read it — and `docs/RUNE-OPTIMIZATION.md` is

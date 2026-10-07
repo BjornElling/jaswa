@@ -3,6 +3,7 @@ import { readEngravedConversionStones } from './artifact-conversion-stones';
 import { scoreArtifactOnMonster, scorePercent } from './compute/artifact-score-core';
 import type { EngravedConversionStone } from './artifact-conversion-stones';
 import type { ArtifactCategory } from './artifact-properties';
+import { artifactScoreRow } from './compute/artifact-score-protocol';
 import type { ArtifactConversion, ArtifactScoreRequest } from './compute/artifact-score-protocol';
 import type { GameRecord } from './game-data';
 import type { ArtifactSettings } from './types';
@@ -57,11 +58,14 @@ export function artifactPairScore(
   artifactId: string,
   /** The monster's species id: score matrices are indexed by species. */
   monsterId: string,
-  options: { conversions: boolean },
+  /* `unitId` names the owned copy being asked about, where there is one. A copy
+     that wants something its species does not has a row of its own, and the
+     question is then answered from that row (§19.2). */
+  options: { conversions: boolean; unitId?: string },
 ): { value: number; conversions: readonly ArtifactConversion[] } | undefined {
   for (const request of requests) {
     const artifact = request.artifacts.find((entry) => entry.id === artifactId);
-    const monster = request.monsters.find((entry) => entry.id === monsterId);
+    const monster = artifactScoreRow(request, monsterId, options.unitId);
     if (!artifact || !monster) continue;
     const score = scoreArtifactOnMonster(artifact, monster,
       options.conversions ? request : { ...request, conversionMode: 0 });
