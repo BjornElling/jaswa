@@ -14,7 +14,7 @@ import { intangibleSetId } from './monster-stats';
 import { hasMonsterCatalogEntry } from './monster-catalog';
 import { skyTribeTotemProblem } from './sky-tribe-totem';
 import type { GameRecord } from './game-data';
-import { defaultRunePotentialPresets, readRunePotentialPresets } from './rune-potential-presets';
+import { defaultRuneRoles, readRuneRoles } from './rune-roles';
 import { blankGeneralSettings, readGeneralSettings } from './regional-settings';
 import { blankSpeedTuningPreferences, readSpeedTuningPreferences } from './speed-tuning-preferences';
 import { defaultRuneOptimizationSettings, runeOptimizationSettingChecks } from './rune-optimization-settings';
@@ -69,7 +69,7 @@ export const defaultArtifactSettings: ArtifactSettings = {
   ignoreInsignificantDifferences: false,
   insignificantDifference: 2,
   /* On: an Intangible fits the chosen monster like any other artifact, so
-     excluding it would understate what the account can actually equip. */
+     excluding it would understate what the account can actually engrave. */
   includeIntangibleArtifacts: true,
   /* Manual: a calculation over the whole library is work the user asked for,
      and re-running it on every slider nudge would spend it without being
@@ -103,7 +103,7 @@ export function blankPreferences(): Preferences {
     monsterPreferences: {},
     runeHolds: {},
     runePotential: defaultRunePotentialSettings,
-    runePotentialPresets: defaultRunePotentialPresets(),
+    runePotentialPresets: defaultRuneRoles(),
     artifacts: defaultArtifactSettings,
     speedTuning: blankSpeedTuningPreferences(),
     monsterPriority: [],
@@ -166,7 +166,7 @@ export function readPreferences(value: unknown, game: ImportedGame | null): Pref
     monsterPreferences: readMonsterPreferences(stored.monsterPreferences),
     runeHolds: readRuneHolds(stored.runeHolds),
     runePotential: readSettings(stored.runePotential, blank.runePotential, runePotentialSettingChecks),
-    runePotentialPresets: readRunePotentialPresets(stored.runePotentialPresets),
+    runePotentialPresets: readRuneRoles(stored.runePotentialPresets),
     artifacts: readSettings(stored.artifacts, blank.artifacts, artifactSettingChecks),
     speedTuning: readSpeedTuningPreferences(stored.speedTuning),
     monsterPriority: readMonsterPriority(stored.monsterPriority),
@@ -232,8 +232,8 @@ function isValidRuneRecord(record: GameRecord): boolean {
   return readRune(record) !== null;
 }
 
-/** The game allows one Intangible Rune in a monster's equipped six. */
-function hasAtMostOneEquippedIntangible(records: readonly GameRecord[]): boolean {
+/** The game allows one Intangible Rune in a monster's engraved six. */
+function hasAtMostOneEngravedIntangible(records: readonly GameRecord[]): boolean {
   const owners = new Set<string>();
   for (const record of records) {
     if (record.set_id !== intangibleSetId || record.occupied_type !== 1) continue;
@@ -276,8 +276,8 @@ function validateAccountCollections(value: GameRecord): string | undefined {
   if (!isValidIdentifiedCollection(value.runes, 'rune_id', isValidRuneRecord)) {
     return 'This file contains a rune JASWA cannot read.';
   }
-  if (!hasAtMostOneEquippedIntangible(recordCollection(value.runes))) {
-    return 'This file equips more than one Intangible Rune on one monster.';
+  if (!hasAtMostOneEngravedIntangible(recordCollection(value.runes))) {
+    return 'This file has more than one Intangible Rune engraved on one monster.';
   }
   try {
     readDeckPresets(value);
@@ -319,13 +319,13 @@ function validateAccountCollections(value: GameRecord): string | undefined {
   }
   for (const unit of units) {
     if (unit.runes !== undefined && !isValidIdentifiedCollection(unit.runes, 'rune_id', isValidRuneRecord)) {
-      return 'This file contains an equipped rune JASWA cannot read.';
+      return 'This file contains an engraved rune JASWA cannot read.';
     }
-    if (unit.runes !== undefined && !hasAtMostOneEquippedIntangible(recordCollection(unit.runes))) {
-      return 'This file equips more than one Intangible Rune on one monster.';
+    if (unit.runes !== undefined && !hasAtMostOneEngravedIntangible(recordCollection(unit.runes))) {
+      return 'This file has more than one Intangible Rune engraved on one monster.';
     }
     if (unit.artifacts !== undefined && !isValidIdentifiedCollection(unit.artifacts, 'rid', (artifact) => readArtifact(artifact) !== null)) {
-      return 'This file contains an equipped artifact JASWA cannot read.';
+      return 'This file contains an engraved artifact JASWA cannot read.';
     }
     if (unit.relics !== undefined && !isValidIdentifiedCollection(unit.relics, 'rid', (relic) => readRelic(relic) !== null)) {
       return 'This file contains an engraved relic JASWA cannot read.';
@@ -353,7 +353,7 @@ function validateAccountCollections(value: GameRecord): string | undefined {
 
 /* Artifacts and relics both carry their own id as `rid`, not `artifact_id` or
    `relic_id`: no record in the export has either, so keying on them silently
-   de-duplicated nothing and would let an equipped item appear twice once the
+   de-duplicated nothing and would let an engraved item appear twice once the
    account list and a unit's list overlapped. Runes really do use `rune_id`.
    `ARTIFACT-CANONICAL.md` §15.1 settles the artifact field, and the relic
    records in the same export carry the same one. */
@@ -363,9 +363,9 @@ function itemId(section: 'runes' | 'artifacts' | 'relics', item: GameRecord): st
   return typeof value === 'number' || typeof value === 'string' ? `${key}:${value}` : undefined;
 }
 
-/* Equipped items live below their owner in the export. The prepared game keeps
+/* Engraved items live below their owner in the export. The prepared game keeps
    the owner data and also exposes a complete account-wide collection. */
-function completeEquipmentCollections(data: GameRecord): GameRecord {
+function completeEngravedCollections(data: GameRecord): GameRecord {
   const units = recordCollection(data.unit_list);
   const complete = (section: 'runes' | 'artifacts' | 'relics') => {
     const seen = new Set<string>();
@@ -455,7 +455,7 @@ export function createImportedGame(fileName: string, data: Record<string, unknow
   return {
     fileName,
     importedAt: new Date().toISOString(),
-    data: completeEquipmentCollections(removeExcludedKeys(data) as GameRecord),
+    data: completeEngravedCollections(removeExcludedKeys(data) as GameRecord),
     report,
     ...(helperSession ? { helperSession } : {}),
   };

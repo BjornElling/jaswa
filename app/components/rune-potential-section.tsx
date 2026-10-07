@@ -8,15 +8,15 @@ import { ChoiceEditor, ChoiceLegend } from './choice-editor';
 import { PencilIcon } from './pencil-icon';
 import { craftSettingAssumptions, itemGrades } from '../lib/rune-craft-items';
 import {
-  createRunePotentialPreset, presetNameMaximum, presetStatTargetKeys, presetTargetColumns,
-  presetTargetMaximum, presetTypes, runeMainStatsBySlot,
+  createRuneRole, roleNameMaximum, roleStatTargetKeys, roleTargetColumns,
+  roleTargetMaximum, roleTypes, runeMainStatsBySlot,
   withRefreshedMetrics,
-} from '../lib/rune-potential-presets';
-import type { PresetChoice, PresetStatTargets, PresetType, RuneMainStat, RunePotentialPreset } from '../lib/rune-potential-presets';
+} from '../lib/rune-roles';
+import type { RoleChoice, RoleStatTargets, RoleType, RuneMainStat, RuneRole } from '../lib/rune-roles';
 import type { GeneralSettings, ImportedGame, ItemGrade, RunePotentialSettings } from '../lib/types';
 import type { MonsterPreferences } from '../lib/monster-preferences';
 import type { RuneHolds } from '../lib/rune-holds';
-import { presetRuneSetNameList } from '../lib/rune-sets';
+import { roleRuneSetNameList } from '../lib/rune-sets';
 import { formatDecimal } from '../lib/formatting';
 import { calculationBackendLabel, type CalculationBackend } from '../lib/compute/calculation-summary';
 import { calculateRuneStatistics, cancelRuneStatistics } from '../lib/compute/rune-statistics-client';
@@ -84,17 +84,17 @@ type RuneStatisticsState =
   | { status: 'ready'; statistics: RuneCleanupStatistics; backend: CalculationBackend }
   | { status: 'failed'; message: string };
 
-export function RuneSetupSection({ game, settings, presets, general, hardwareAcceleration, onUpdate, onWritePresets }: {
+export function RuneSetupSection({ game, settings, roles, general, hardwareAcceleration, onUpdate, onWriteRoles }: {
   game: ImportedGame | null;
   settings: RunePotentialSettings;
-  presets: RunePotentialPreset[];
+  roles: RuneRole[];
   general: GeneralSettings;
   hardwareAcceleration: boolean;
   onUpdate: (update: Partial<RunePotentialSettings>) => void;
-  onWritePresets: (change: (current: RunePotentialPreset[]) => RunePotentialPreset[]) => void;
+  onWriteRoles: (change: (current: RuneRole[]) => RuneRole[]) => void;
 }) {
-  const [editing, setEditing] = useState<{ draft: RunePotentialPreset; isNew: boolean } | null>(null);
-  const [deleting, setDeleting] = useState<RunePotentialPreset | null>(null);
+  const [editing, setEditing] = useState<{ draft: RuneRole; isNew: boolean } | null>(null);
+  const [deleting, setDeleting] = useState<RuneRole | null>(null);
   const [statistics, setStatistics] = useState<RuneStatisticsState>({ status: 'unavailable' });
   const base = useMemo(() => {
     const lines = referenceLines(game?.data);
@@ -102,7 +102,7 @@ export function RuneSetupSection({ game, settings, presets, general, hardwareAcc
   }, [game]);
 
   useEffect(() => {
-    if (!base || presets.length === 0) {
+    if (!base || roles.length === 0) {
       cancelRuneStatistics();
       return undefined;
     }
@@ -110,7 +110,7 @@ export function RuneSetupSection({ game, settings, presets, general, hardwareAcc
     let disposed = false;
     const timer = window.setTimeout(() => {
       setStatistics({ status: 'calculating' });
-      void calculateRuneStatistics({ presets, settings, base, preferWebGpu: hardwareAcceleration }).then((outcome) => {
+      void calculateRuneStatistics({ roles, settings, base, preferWebGpu: hardwareAcceleration }).then((outcome) => {
         if (disposed || outcome.status === 'superseded') return;
         setStatistics(outcome.status === 'done'
           ? { status: 'ready', statistics: outcome.statistics, backend: outcome.backend }
@@ -122,11 +122,11 @@ export function RuneSetupSection({ game, settings, presets, general, hardwareAcc
       window.clearTimeout(timer);
       cancelRuneStatistics();
     };
-  }, [base, hardwareAcceleration, presets, settings]);
+  }, [base, hardwareAcceleration, roles, settings]);
 
-  function savePreset(preset: RunePotentialPreset, isNew: boolean) {
-    const saved = withRefreshedMetrics(preset);
-    onWritePresets((current) => {
+  function saveRole(role: RuneRole, isNew: boolean) {
+    const saved = withRefreshedMetrics(role);
+    onWriteRoles((current) => {
       if (isNew) return [...current, saved];
       const index = current.findIndex((entry) => entry.id === saved.id);
       return index === -1 ? current : current.map((entry) => (entry.id === saved.id ? saved : entry));
@@ -134,27 +134,27 @@ export function RuneSetupSection({ game, settings, presets, general, hardwareAcc
     setEditing(null);
   }
 
-  function deletePreset(id: string) {
-    onWritePresets((current) => current.filter((entry) => entry.id !== id));
+  function deleteRole(id: string) {
+    onWriteRoles((current) => current.filter((entry) => entry.id !== id));
     setDeleting(null);
   }
 
-  function movePreset(from: number, to: number) {
-    onWritePresets((current) => moveItem(current, from, to));
+  function moveRole(from: number, to: number) {
+    onWriteRoles((current) => moveItem(current, from, to));
   }
   /* Dragged by the card, or a place at a time by its arrows. */
-  const presetOrder = useDragReorder<HTMLDivElement>({ count: presets.length, onMove: movePreset });
+  const roleOrder = useDragReorder<HTMLDivElement>({ count: roles.length, onMove: moveRole });
 
-  const readyStatistics = base && presets.length > 0 && statistics.status === 'ready' ? statistics : null;
+  const readyStatistics = base && roles.length > 0 && statistics.status === 'ready' ? statistics : null;
   const statisticsReady = readyStatistics !== null;
   const statisticsCopy = !base
     ? 'Import an account with a level 40 monster to give the synthetic box a reference.'
-    : presets.length === 0
-      ? 'Add a preset to give the synthetic box something to be judged against.'
+    : roles.length === 0
+      ? 'Add a role to give the synthetic box something to be judged against.'
       : statistics.status === 'failed'
         ? statistics.message
         : 'A fast fixed estimate from synthetic runes, judged by your current settings — not a drop-rate claim.';
-  const statisticsStatus = !base || presets.length === 0
+  const statisticsStatus = !base || roles.length === 0
     ? 'Waiting for an account'
     : statistics.status === 'calculating'
     ? 'Calculating…'
@@ -258,50 +258,50 @@ export function RuneSetupSection({ game, settings, presets, general, hardwareAcc
       </div>
     </Disclosure>
 
-    <Disclosure title="Presets" sessionKey="rune-setup.presets">
+    <Disclosure title="Roles" sessionKey="rune-setup.roles">
       <div className="stack">
         <div className="list-actions">
-          <p className="list-count"><b>{presets.length}</b> presets</p>
-          <Button tone="primary" onClick={() => setEditing({ draft: createRunePotentialPreset(), isNew: true })}>
+          <p className="list-count"><b>{roles.length}</b> roles</p>
+          <Button tone="primary" onClick={() => setEditing({ draft: createRuneRole(), isNew: true })}>
             <span className="button-glyph" aria-hidden="true">+</span>
-            Add preset
+            Add role
           </Button>
         </div>
 
-        {presets.length === 0
-          ? <p className="notice">Every preset is gone, including the ones JASWA started you with. Add one to say what a rune should be judged against.</p>
-          : <div className="preset-list" {...presetOrder.containerProps}>
-            {presets.map((preset, index) => <PresetCard
-              key={preset.id}
-              preset={preset}
-              dragProps={presetOrder.entryProps(index)}
-              onEdit={() => setEditing({ draft: preset, isNew: false })}
-              onDelete={() => setDeleting(preset)}
-              onMoveEarlier={() => movePreset(index, index - 1)}
-              onMoveLater={() => movePreset(index, index + 1)}
+        {roles.length === 0
+          ? <p className="notice">Every role is gone, including the ones JASWA started you with. Add one to say what a rune should be judged against.</p>
+          : <div className="role-list" {...roleOrder.containerProps}>
+            {roles.map((role, index) => <RoleCard
+              key={role.id}
+              role={role}
+              dragProps={roleOrder.entryProps(index)}
+              onEdit={() => setEditing({ draft: role, isNew: false })}
+              onDelete={() => setDeleting(role)}
+              onMoveEarlier={() => moveRole(index, index - 1)}
+              onMoveLater={() => moveRole(index, index + 1)}
               canMoveEarlier={index > 0}
-              canMoveLater={index < presets.length - 1}
+              canMoveLater={index < roles.length - 1}
             />)}
           </div>}
       </div>
     </Disclosure>
 
-    {editing && <PresetEditor
+    {editing && <RoleEditor
       key={editing.draft.id}
       draft={editing.draft}
       isNew={editing.isNew}
       onCancel={() => setEditing(null)}
-      onSave={(preset) => savePreset(preset, editing.isNew)}
+      onSave={(role) => saveRole(role, editing.isNew)}
     />}
 
     {deleting && <div className="modal-backdrop" role="presentation">
-      <section className="dialog" role="dialog" aria-modal="true" aria-labelledby="delete-preset-title">
-        <p className="eyebrow">Delete preset</p>
-        <h2 id="delete-preset-title">Delete “{deleting.name}”?</h2>
-        <p>This preset is removed from this computer. Runes stop being judged against it, and nothing else changes.</p>
+      <section className="dialog" role="dialog" aria-modal="true" aria-labelledby="delete-role-title">
+        <p className="eyebrow">Delete role</p>
+        <h2 id="delete-role-title">Delete “{deleting.name}”?</h2>
+        <p>This role is removed from this computer. Runes stop being judged against it, and nothing else changes.</p>
         <div className="dialog-actions">
           <Button onClick={() => setDeleting(null)}>Keep it</Button>
-          <Button tone="danger" onClick={() => deletePreset(deleting.id)}>Delete preset</Button>
+          <Button tone="danger" onClick={() => deleteRole(deleting.id)}>Delete role</Button>
         </div>
       </section>
     </div>}
@@ -309,13 +309,13 @@ export function RuneSetupSection({ game, settings, presets, general, hardwareAcc
 }
 
 export function RunePotentialSection({
-  game, monsterPreferences, runeHolds, settings, presets, general, hardwareAcceleration, onOpenRune,
+  game, monsterPreferences, runeHolds, settings, roles, general, hardwareAcceleration, onOpenRune,
 }: {
   game: ImportedGame | null;
   monsterPreferences: MonsterPreferences;
   runeHolds: RuneHolds;
   settings: RunePotentialSettings;
-  presets: RunePotentialPreset[];
+  roles: RuneRole[];
   general: GeneralSettings;
   /** The user's own setting, on its way to the worker that counts the odds. */
   hardwareAcceleration: boolean;
@@ -328,7 +328,7 @@ export function RunePotentialSection({
   >
     {/* No bar: the verdicts are the page's only content, and a disclosure
         with nothing beside it to fold away only adds a click and a frame. */}
-    <RuneRecommendations game={game} monsterPreferences={monsterPreferences} runeHolds={runeHolds} settings={settings} presets={presets} general={general}
+    <RuneRecommendations game={game} monsterPreferences={monsterPreferences} runeHolds={runeHolds} settings={settings} roles={roles} general={general}
       hardwareAcceleration={hardwareAcceleration} onOpenRune={onOpenRune} />
   </WorkspacePage>;
 }
@@ -353,7 +353,7 @@ function PotentialSlider({ id, label, value, description, stepLabels, className,
   </div>;
 }
 
-function ChoiceLine({ choice }: { choice?: PresetChoice<string> }) {
+function ChoiceLine({ choice }: { choice?: RoleChoice<string> }) {
   const preferred = choice?.preferred ?? [];
   const acceptable = (choice?.acceptable ?? []).filter((value) => !preferred.includes(value));
   if (!preferred.length && !acceptable.length) return <span className="choice-none">—</span>;
@@ -363,15 +363,15 @@ function ChoiceLine({ choice }: { choice?: PresetChoice<string> }) {
   </span>;
 }
 
-function PresetRow({ label, children }: { label: string; children: ReactNode }) {
-  return <div className="preset-row">
-    <span className="preset-row-label">{label}</span>
-    <div className="preset-row-value">{children}</div>
+function RoleRow({ label, children }: { label: string; children: ReactNode }) {
+  return <div className="role-row">
+    <span className="role-row-label">{label}</span>
+    <div className="role-row-value">{children}</div>
   </div>;
 }
 
-function PresetCard({ preset, dragProps, onEdit, onDelete, onMoveEarlier, onMoveLater, canMoveEarlier, canMoveLater }: {
-  preset: RunePotentialPreset;
+function RoleCard({ role, dragProps, onEdit, onDelete, onMoveEarlier, onMoveLater, canMoveEarlier, canMoveLater }: {
+  role: RuneRole;
   dragProps: ReorderEntryProps;
   onEdit: () => void;
   onDelete: () => void;
@@ -380,68 +380,68 @@ function PresetCard({ preset, dragProps, onEdit, onDelete, onMoveEarlier, onMove
   canMoveEarlier: boolean;
   canMoveLater: boolean;
 }) {
-  const artifacts: Array<[string, boolean]> = [['ATK', preset.artifacts.atk], ['DEF', preset.artifacts.def], ['HP', preset.artifacts.hp]];
+  const artifacts: Array<[string, boolean]> = [['ATK', role.artifacts.atk], ['DEF', role.artifacts.def], ['HP', role.artifacts.hp]];
 
-  return <article className="preset-card" {...dragProps}>
-    <header className="preset-head">
-      <div className="preset-title">
-        <h4 className="preset-name">{preset.name}</h4>
-        <div className="preset-subhead">
-          <p className="preset-type">{preset.type}</p>
+  return <article className="role-card" {...dragProps}>
+    <header className="role-head">
+      <div className="role-title">
+        <h4 className="role-name">{role.name}</h4>
+        <div className="role-subhead">
+          <p className="role-type">{role.type}</p>
         </div>
       </div>
-      <div className="preset-actions">
+      <div className="role-actions">
         <button className="icon-button" type="button" onClick={onMoveEarlier} disabled={!canMoveEarlier}
-          title={`Move ${preset.name} earlier`} aria-label={`Move ${preset.name} earlier`}>
-          <PresetMoveIcon direction="up" />
+          title={`Move ${role.name} earlier`} aria-label={`Move ${role.name} earlier`}>
+          <RoleMoveIcon direction="up" />
         </button>
         <button className="icon-button" type="button" onClick={onMoveLater} disabled={!canMoveLater}
-          title={`Move ${preset.name} later`} aria-label={`Move ${preset.name} later`}>
-          <PresetMoveIcon direction="down" />
+          title={`Move ${role.name} later`} aria-label={`Move ${role.name} later`}>
+          <RoleMoveIcon direction="down" />
         </button>
-        <button className="icon-button" onClick={onEdit} title={`Edit ${preset.name}`} aria-label={`Edit ${preset.name}`}>
+        <button className="icon-button" onClick={onEdit} title={`Edit ${role.name}`} aria-label={`Edit ${role.name}`}>
           <PencilIcon />
         </button>
-        <button className="icon-button danger" onClick={onDelete} title={`Delete ${preset.name}`} aria-label={`Delete ${preset.name}`}>
+        <button className="icon-button danger" onClick={onDelete} title={`Delete ${role.name}`} aria-label={`Delete ${role.name}`}>
           <TrashIcon />
         </button>
       </div>
     </header>
 
-    <div className="preset-rows">
-      <PresetRow label="Runes"><ChoiceLine choice={preset.sets} /></PresetRow>
-      <PresetRow label="Rune slots">
+    <div className="role-rows">
+      <RoleRow label="Runes"><ChoiceLine choice={role.sets} /></RoleRow>
+      <RoleRow label="Rune slots">
         <div className="slot-group">
-          {([['Slot 2', preset.slots.slot2], ['Slot 4', preset.slots.slot4], ['Slot 6', preset.slots.slot6]] as const)
+          {([['Slot 2', role.slots.slot2], ['Slot 4', role.slots.slot4], ['Slot 6', role.slots.slot6]] as const)
             .map(([label, choice]) => <div className="slot" key={label}>
               <span className="slot-label">{label}</span>
               <ChoiceLine choice={choice} />
             </div>)}
         </div>
-      </PresetRow>
-      <PresetRow label="Artifacts">
+      </RoleRow>
+      <RoleRow label="Artifacts">
         <span className="flag-line">
           {artifacts.map(([label, wanted]) => <span className={wanted ? 'flag yes' : 'flag no'} key={label}>
             {label}<b>{wanted ? 'Yes' : 'No'}</b>
           </span>)}
         </span>
-      </PresetRow>
-      <PresetRow label="Desired stats">
+      </RoleRow>
+      <RoleRow label="Desired stats">
         <dl className="target-line">
-          {presetTargetColumns.map((column) => {
-            const value = preset.targets[column.key];
+          {roleTargetColumns.map((column) => {
+            const value = role.targets[column.key];
             return <div className={value === undefined ? 'target empty' : 'target'} key={column.key}>
               <dt>{column.label}</dt>
               <dd>{value === undefined ? '—' : <>{value.toLocaleString('en')}{column.unit && <span className="unit">{column.unit}</span>}</>}</dd>
             </div>;
           })}
         </dl>
-      </PresetRow>
+      </RoleRow>
     </div>
   </article>;
 }
 
-function PresetMoveIcon({ direction }: { direction: 'up' | 'down' }) {
+function RoleMoveIcon({ direction }: { direction: 'up' | 'down' }) {
   return <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor"
     strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <path d={direction === 'up' ? 'M10 17V3M4 9l6-6 6 6' : 'M10 3v14M4 11l6 6 6-6'} />
@@ -458,13 +458,13 @@ function TrashIcon() {
   </svg>;
 }
 
-function PresetEditor({ draft, isNew, onCancel, onSave }: {
-  draft: RunePotentialPreset;
+function RoleEditor({ draft, isNew, onCancel, onSave }: {
+  draft: RuneRole;
   isNew: boolean;
   onCancel: () => void;
-  onSave: (preset: RunePotentialPreset) => void;
+  onSave: (role: RuneRole) => void;
 }) {
-  const [preset, setPreset] = useState<RunePotentialPreset>(draft);
+  const [role, setRole] = useState<RuneRole>(draft);
   const [openedAs] = useState(() => draft.name.trim());
   const nameField = useRef<HTMLInputElement>(null);
 
@@ -482,13 +482,13 @@ function PresetEditor({ draft, isNew, onCancel, onSave }: {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [onCancel]);
 
-  const named = preset.name.trim().length > 0;
-  function update(change: Partial<RunePotentialPreset>) { setPreset((current) => ({ ...current, ...change })); }
-  function updateSlot(slot: keyof RunePotentialPreset['slots'], choice: PresetChoice<RuneMainStat>) {
-    setPreset((current) => ({ ...current, slots: { ...current.slots, [slot]: choice } }));
+  const named = role.name.trim().length > 0;
+  function update(change: Partial<RuneRole>) { setRole((current) => ({ ...current, ...change })); }
+  function updateSlot(slot: keyof RuneRole['slots'], choice: RoleChoice<RuneMainStat>) {
+    setRole((current) => ({ ...current, slots: { ...current.slots, [slot]: choice } }));
   }
-  function updateTarget(key: keyof PresetStatTargets, value: number | undefined) {
-    setPreset((current) => {
+  function updateTarget(key: keyof RoleStatTargets, value: number | undefined) {
+    setRole((current) => {
       const targets = { ...current.targets };
       if (value === undefined) delete targets[key]; else targets[key] = value;
       return { ...current, targets };
@@ -497,31 +497,31 @@ function PresetEditor({ draft, isNew, onCancel, onSave }: {
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!named) return;
-    onSave({ ...preset, name: preset.name.trim() });
+    onSave({ ...role, name: role.name.trim() });
   }
 
   return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onCancel(); }}>
-    <form className="dialog editor" role="dialog" aria-modal="true" aria-labelledby="preset-editor-title" onSubmit={submit}>
+    <form className="dialog editor" role="dialog" aria-modal="true" aria-labelledby="role-editor-title" onSubmit={submit}>
       <header className="editor-head">
-        <p className="eyebrow">{isNew ? 'Add preset' : 'Edit preset'}</p>
-        <h2 id="preset-editor-title">{isNew ? 'A new preset' : openedAs || 'This preset'}</h2>
+        <p className="eyebrow">{isNew ? 'Add role' : 'Edit role'}</p>
+        <h2 id="role-editor-title">{isNew ? 'A new role' : openedAs || 'This role'}</h2>
       </header>
 
       <div className="editor-body">
         <div className="editor-pair">
           <label className="field"><span>Name</span>
-            <input ref={nameField} value={preset.name} placeholder="e.g. Fast DD" maxLength={presetNameMaximum}
+            <input ref={nameField} value={role.name} placeholder="e.g. Fast DD" maxLength={roleNameMaximum}
               onChange={(event) => update({ name: event.target.value })} />
           </label>
           <label className="field"><span>Type</span>
-            <Dropdown value={preset.type} onChange={(event) => update({ type: event.target.value as PresetType })}>
-              {presetTypes.map((type) => <option key={type}>{type}</option>)}
+            <Dropdown value={role.type} onChange={(event) => update({ type: event.target.value as RoleType })}>
+              {roleTypes.map((type) => <option key={type}>{type}</option>)}
             </Dropdown>
           </label>
         </div>
 
         <EditorBlock title="Rune sets" legend note="Preferred is what the role is built around. Acceptable still works when the box does not oblige.">
-          <ChoiceEditor choice={preset.sets} options={presetRuneSetNameList} columns
+          <ChoiceEditor choice={role.sets} options={roleRuneSetNameList} columns
             onChange={(sets) => update({ sets })} />
         </EditorBlock>
 
@@ -529,7 +529,7 @@ function PresetEditor({ draft, isNew, onCancel, onSave }: {
           <div className="editor-slots">
             {([['slot2', 'Slot 2'], ['slot4', 'Slot 4'], ['slot6', 'Slot 6']] as const).map(([key, label]) => <div className="editor-slot" key={key}>
               <p className="editor-slot-label">{label}</p>
-              <ChoiceEditor choice={preset.slots[key]} options={runeMainStatsBySlot[key]}
+              <ChoiceEditor choice={role.slots[key]} options={runeMainStatsBySlot[key]}
                 onChange={(choice) => updateSlot(key, choice)} />
             </div>)}
           </div>
@@ -540,19 +540,19 @@ function PresetEditor({ draft, isNew, onCancel, onSave }: {
             {([['atk', 'ATK'], ['def', 'DEF'], ['hp', 'HP']] as const).map(([key, label]) => <CheckboxRow
               key={key}
               label={label}
-              checked={preset.artifacts[key]}
-              onChange={(checked) => update({ artifacts: { ...preset.artifacts, [key]: checked } })} />)}
+              checked={role.artifacts[key]}
+              onChange={(checked) => update({ artifacts: { ...role.artifacts, [key]: checked } })} />)}
           </div>
         </EditorBlock>
 
         <EditorBlock title="Desired stats" note="Leave a stat empty — or enter 0 — to leave it unstated. DMG, E.HP and E.HP D follow from these and are not entered.">
           <div className="editor-targets">
-            {presetStatTargetKeys.map((key) => {
-              const column = presetTargetColumns.find((entry) => entry.key === key);
-              const value = preset.targets[key];
+            {roleStatTargetKeys.map((key) => {
+              const column = roleTargetColumns.find((entry) => entry.key === key);
+              const value = role.targets[key];
               return <label className="field field-compact" key={key}>
                 <span>{column?.label ?? key}{column?.unit}</span>
-                <input type="number" min={0} max={presetTargetMaximum} step={1} inputMode="numeric"
+                <input type="number" min={0} max={roleTargetMaximum} step={1} inputMode="numeric"
                   value={value === undefined ? '' : value}
                   placeholder="—"
                   onChange={(event) => {
@@ -560,7 +560,7 @@ function PresetEditor({ draft, isNew, onCancel, onSave }: {
                     const parsed = Number(raw);
                     updateTarget(key, raw === '' || !Number.isFinite(parsed)
                       ? undefined
-                      : Math.min(presetTargetMaximum, Math.max(0, Math.round(parsed))));
+                      : Math.min(roleTargetMaximum, Math.max(0, Math.round(parsed))));
                   }} />
               </label>;
             })}
@@ -571,7 +571,7 @@ function PresetEditor({ draft, isNew, onCancel, onSave }: {
       <div className="dialog-actions">
         <Button onClick={onCancel}>Cancel</Button>
         <Button type="submit" tone="primary" disabled={!named}>
-          {isNew ? 'Add preset' : 'Save changes'}
+          {isNew ? 'Add role' : 'Save changes'}
         </Button>
       </div>
     </form>

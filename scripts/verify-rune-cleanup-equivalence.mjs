@@ -7,7 +7,7 @@
  * one did, rune by rune and field by field. That is what this script is for.
  *
  * It builds one fixed population from a fixed seed, runs `runeAdvice` over
- * several settings and preset scenarios, and records every public field of every
+ * several settings and role scenarios, and records every public field of every
  * row. Given a baseline it diffs the two and reports, per field, how many rows
  * differ and by how much. Nothing here is random at run time: the same checkout
  * always produces the same records, so a difference is a change in the engine
@@ -30,7 +30,7 @@
  * should not have touched the odds at all has to say so. A stage that did touch them
  * states its own figure and records a fresh baseline in the same commit.
  */
-import { defaultRunePotentialPresets } from '../app/lib/rune-potential-presets.ts';
+import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
 import { runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
 import {
   initialSubPropertyRange, runeInnateFrequency, slotMainProperties, subPropertyLevels, upgradeSubPropertyRange,
@@ -75,7 +75,7 @@ const setNames = [
   'Fight', 'Determination', 'Enhance', 'Accuracy', 'Tolerance', 'Seal', 'Intangible',
 ];
 
-/* One reference line per preset family, as the page reads them off the account's
+/* One reference line per role family, as the page reads them off the account's
    own Lv. 40 averages. Fixed here so a flat-line conversion cannot drift. */
 const referenceStats = new Map([
   ['Attack type', { hp: 9708, atk: 808, def: 568, spd: 105, criRate: 18, criDmg: 50, res: 15, acc: 4 }],
@@ -200,8 +200,8 @@ function namedFixtures(random) {
     ],
   });
 
-  /* A slot-2 main no shipped preset names, so every preset's build finder must
-     reject it and the row falls back to "No preset can use it". */
+  /* A slot-2 main no shipped role names, so every role's build finder must
+     reject it and the row falls back to "No role can use it". */
   const wrongMain = freshRune(random, 'wrong', { slot: 2, stars: 6, ancient: false, subCount: 4 });
   push('incompatible-main', { ...wrongMain, mainStatId: 11 });
 
@@ -236,23 +236,23 @@ const baseSettings = {
   intangibleRunes: 1, keepMoreForLargerSets: false,
 };
 
-const shipped = defaultRunePotentialPresets();
+const shipped = defaultRuneRoles();
 
-/** A preset stripped of every positive target: it can never yield a candidate. */
-function emptyTargetPreset() {
+/** A role stripped of every positive target: it can never yield a candidate. */
+function emptyTargetRole() {
   const source = shipped[0];
   return { ...source, id: 'fixture-empty-targets', name: 'Empty targets', targets: {} };
 }
 
 /**
- * A preset that names slots 4 and 6 and leaves slot 2 blank.
+ * A role that names slots 4 and 6 and leaves slot 2 blank.
  *
- * `presetBuilds` and `judgeAgainstBuild` both read a blank slot as "every legal
- * main, at the broken rank"; `runeAdvice`'s build finder reads it as "this preset
+ * `roleBuilds` and `judgeAgainstBuild` both read a blank slot as "every legal
+ * main, at the broken rank"; `runeAdvice`'s build finder reads it as "this role
  * judges nothing". That disagreement is §10.4's subject and Stage 8's decision,
  * and it has to be pinned here *before* any refactor collapses the two readings.
  */
-function unstatedSlotPreset() {
+function unstatedSlotRole() {
   const source = shipped[0];
   return {
     ...source, id: 'fixture-unstated-slot', name: 'Unstated slot',
@@ -260,8 +260,8 @@ function unstatedSlotPreset() {
   };
 }
 
-/** Two presets with the same vocabulary, to pin the tie order candidates keep. */
-function twinPresets() {
+/** Two roles with the same vocabulary, to pin the tie order candidates keep. */
+function twinRoles() {
   const source = shipped[1];
   return [
     { ...source, id: 'fixture-twin-a', name: 'Twin A' },
@@ -269,8 +269,8 @@ function twinPresets() {
   ];
 }
 
-/** A preset aiming only at Resistance — disjoint from every shipped role. */
-function disjointPreset() {
+/** A role aiming only at Resistance — disjoint from every shipped role. */
+function disjointRole() {
   const source = shipped[0];
   return {
     ...source, id: 'fixture-disjoint', name: 'Disjoint',
@@ -279,20 +279,20 @@ function disjointPreset() {
 }
 
 function scenarios() {
-  const fixturePresets = [
-    ...shipped, emptyTargetPreset(), unstatedSlotPreset(), ...twinPresets(), disjointPreset(),
+  const fixtureRoles = [
+    ...shipped, emptyTargetRole(), unstatedSlotRole(), ...twinRoles(), disjointRole(),
   ];
   const all = [
-    { name: 'defaults', settings: baseSettings, presets: shipped },
-    { name: 'max-craft', presets: shipped, settings: { ...baseSettings, gemRoll: 'maximum', grindstoneRoll: 'maximum', gemGrade: 'Legend', grindstoneGrade: 'Legend' } },
-    { name: 'half-craft', presets: shipped, settings: { ...baseSettings, gemRoll: 'average', grindstoneRoll: null, gemGrade: 'Rare', grindstoneGrade: 'Legend' } },
-    { name: 'broken-rejected', presets: shipped, settings: { ...baseSettings, brokenRunes: 5 } },
-    { name: 'strict', presets: shipped, settings: { ...baseSettings, runeQuality: 5, powerUpPolicy: 5, acceptedRunes: 5 } },
-    { name: 'permissive', presets: shipped, settings: { ...baseSettings, runeQuality: 1, powerUpPolicy: 1, acceptedRunes: 1, brokenRunes: 1 } },
-    { name: 'multiple-matches', presets: fixturePresets, settings: baseSettings },
-    { name: 'fixture-presets', presets: fixturePresets, settings: baseSettings },
+    { name: 'defaults', settings: baseSettings, roles: shipped },
+    { name: 'max-craft', roles: shipped, settings: { ...baseSettings, gemRoll: 'maximum', grindstoneRoll: 'maximum', gemGrade: 'Legend', grindstoneGrade: 'Legend' } },
+    { name: 'half-craft', roles: shipped, settings: { ...baseSettings, gemRoll: 'average', grindstoneRoll: null, gemGrade: 'Rare', grindstoneGrade: 'Legend' } },
+    { name: 'broken-rejected', roles: shipped, settings: { ...baseSettings, brokenRunes: 5 } },
+    { name: 'strict', roles: shipped, settings: { ...baseSettings, runeQuality: 5, powerUpPolicy: 5, acceptedRunes: 5 } },
+    { name: 'permissive', roles: shipped, settings: { ...baseSettings, runeQuality: 1, powerUpPolicy: 1, acceptedRunes: 1, brokenRunes: 1 } },
+    { name: 'multiple-matches', roles: fixtureRoles, settings: baseSettings },
+    { name: 'fixture-roles', roles: fixtureRoles, settings: baseSettings },
   ];
-  return quick ? all.filter((scenario) => ['defaults', 'fixture-presets'].includes(scenario.name)) : all;
+  return quick ? all.filter((scenario) => ['defaults', 'fixture-roles'].includes(scenario.name)) : all;
 }
 
 // ---------------------------------------------------------------------------
@@ -300,8 +300,8 @@ function scenarios() {
 // ---------------------------------------------------------------------------
 
 /** Everything a row can say, in one flat record per rune per scenario. */
-async function record(runes, presets, settings) {
-  const advice = await runeAdvice(runes, presets, settings, referenceStats);
+async function record(runes, roles, settings) {
+  const advice = await runeAdvice(runes, roles, settings, referenceStats);
   const rows = [];
   const counts = new Map();
   for (const rune of runes) {
@@ -309,10 +309,10 @@ async function record(runes, presets, settings) {
     if (!answer) { rows.push({ id: rune.id, missing: true }); continue; }
     rows.push({
       id: rune.id, verdict: answer.verdict, reason: answer.reason,
-      preset: answer.preset?.id ?? null, rank: answer.rank,
+      role: answer.role?.id ?? null, rank: answer.rank,
       maxValue: answer.maxValue, standing: answer.standing, chance: answer.chance,
     });
-    const key = `${answer.preset?.id ?? '—'}/${answer.verdict}`;
+    const key = `${answer.role?.id ?? '—'}/${answer.verdict}`;
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
   return { rows, counts: Object.fromEntries([...counts].sort(([a], [b]) => a.localeCompare(b))) };
@@ -328,15 +328,15 @@ async function degenerateChecks(runes) {
   const expect = (claim, condition) => { if (!condition) failures.push(claim); };
   const nothing = await runeAdvice([], shipped, baseSettings, referenceStats);
   expect('no runes yields no advice', nothing.size === 0);
-  const noPresets = await runeAdvice(runes, [], baseSettings, referenceStats);
-  expect('no presets yields one row per rune', noPresets.size === runes.length);
-  expect('no presets sells every rune',
-    [...noPresets.values()].every((answer) => answer.verdict === 'sell'));
-  const emptyOnly = await runeAdvice(runes, [emptyTargetPreset()], baseSettings, referenceStats);
-  expect('a preset with no positive target can use nothing',
-    [...emptyOnly.values()].every((answer) => answer.preset === null));
+  const noRoles = await runeAdvice(runes, [], baseSettings, referenceStats);
+  expect('no roles yields one row per rune', noRoles.size === runes.length);
+  expect('no roles sells every rune',
+    [...noRoles.values()].every((answer) => answer.verdict === 'sell'));
+  const emptyOnly = await runeAdvice(runes, [emptyTargetRole()], baseSettings, referenceStats);
+  expect('a role with no positive target can use nothing',
+    [...emptyOnly.values()].every((answer) => answer.role === null));
   const neither = await runeAdvice([], [], baseSettings, referenceStats);
-  expect('no runes and no presets is still an empty map', neither.size === 0);
+  expect('no runes and no roles is still an empty map', neither.size === 0);
   return failures;
 }
 
@@ -368,7 +368,7 @@ async function buildResults() {
   const runes = [...sweptPopulation(random), ...namedFixtures(random)];
   const results = {};
   for (const scenario of scenarios()) {
-    results[scenario.name] = await record(runes, scenario.presets, scenario.settings);
+    results[scenario.name] = await record(runes, scenario.roles, scenario.settings);
   }
   return { runes, results };
 }
@@ -378,9 +378,9 @@ async function buildResults() {
 // ---------------------------------------------------------------------------
 
 /* `standing` is held to bit equality alongside `maxValue`, and for the same reason:
-   it is a deterministic function of the preset, the slot and the rune, so a refactor
+   it is a deterministic function of the role, the slot and the rune, so a refactor
    has no business moving it. It is the one of the two the gates actually read. */
-const exactFields = ['verdict', 'reason', 'preset', 'rank', 'maxValue', 'standing'];
+const exactFields = ['verdict', 'reason', 'role', 'rank', 'maxValue', 'standing'];
 
 function diff(before, after) {
   const problems = [];

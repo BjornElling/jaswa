@@ -63,10 +63,10 @@ test('every stack says how far it reaches, and a dead one says why', async ({ pa
      names the rule it failed rather than printing a bare zero. */
   const rage = rows.filter({ hasText: 'Rage' });
   await expect(rage).toContainText('You own no Rage rune');
-  /* A gem whose only home is worn by a monster costs a build before it costs a
+  /* A gem whose only home is engraved on a monster costs a build before it costs a
      gem, which is the difference the last column exists to show. */
-  await expect(rows.filter({ hasText: 'Fatal' })).toContainText('1 equipped');
-  await expect(rows.filter({ hasText: 'Immemorial' })).toContainText('1 in inventory · 1 equipped');
+  await expect(rows.filter({ hasText: 'Fatal' })).toContainText('1 engraved');
+  await expect(rows.filter({ hasText: 'Immemorial' })).toContainText('1 in inventory · 1 engraved');
   /* Ancient items carry their own verified ranges, not a borrowed ordinary
      table. The row is found by the mark rather than by the word: the Set column
      names the set and the mark says Ancient, and there is no Family column. */
@@ -183,16 +183,16 @@ test('a role narrows which runes are offered', async ({ page }) => {
   /* Bomber takes both sets but wants ATK % or HP % in slot 4, so the CRI Dmg
      rune the Fatal gem lives on falls out of the role and the Violent one
      stays. Neither rune's own figures move: a role narrows the candidates. */
-  await page.getByRole('combobox', { name: 'Judge the runes against one preset' })
+  await page.getByRole('combobox', { name: 'Judge the runes against one role' })
     .selectOption({ label: 'Bomber' });
   await expect(strongest.locator('tbody tr')).toHaveCount(1);
   await expect(strongest.locator('tbody tr').first()).toContainText('Violent');
 
-  /* Turning off both rune scopes leaves nothing, and the page says which
+  /* Turning off both locations leaves nothing, and the page says which
      control to widen rather than looking broken. */
-  const scope = page.getByRole('group', { name: 'Choose which runes to include' });
-  await scope.getByRole('button', { name: 'Equipped' }).click();
+  const scope = page.getByRole('group', { name: 'Choose rune locations' });
+  await scope.getByRole('button', { name: 'Engraved' }).click();
   await scope.getByRole('button', { name: 'Inventory' }).click();
   await expect(page.locator('.craft-best-use .notice.warning'))
-    .toContainText('No rune matches the Role and the Runes filters above.');
+    .toContainText('No rune matches the Role and the Location filters above.');
 });

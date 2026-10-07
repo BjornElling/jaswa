@@ -28,15 +28,15 @@ assert.equal(calculateMonsterTotals({ ...monster, runes: [], relics: [{ pri_effe
 assert.equal(calculateMonsterTotals({ ...monster, runes: [], relics: [{ pri_effect: [101, 12] }] }).atk,
   Math.ceil(monster.atk * 1.12));
 
-/* Relic advice compares each candidate with an unengraved sheet. A worn relic
+/* Relic advice compares each candidate with an unengraved sheet. An engraved relic
    on the imported copy must not give the candidate a second main bonus. */
 const account = JSON.parse(readFileSync(new URL('../tests/fixtures/monster-overlay-account.json', import.meta.url), 'utf8'));
-const equipped = account.unit_list[0];
-const unengraved = { ...equipped, relics: [] };
-const model = relicMonsterModel(equipped);
+const engraved = account.unit_list[0];
+const unengraved = { ...engraved, relics: [] };
+const model = relicMonsterModel(engraved);
 const sheet = calculateMonsterTotals(unengraved);
 assert.deepEqual(model.totals, { HP: sheet.hp, ATK: sheet.atk, DEF: sheet.def, SPD: sheet.spd });
-assert.ok(calculateMonsterTotals(equipped).hp > sheet.hp);
+assert.ok(calculateMonsterTotals(engraved).hp > sheet.hp);
 
 /* Element advantage lifts the DMG a figure is shown with, never the CRI Rate. */
 const totals = calculateMonsterTotals(monster);

@@ -90,10 +90,10 @@ test('builds the list from the menu, orders it three ways, and keeps it', async 
   /* A rule between entries, none under the last. */
   const rules = await page.locator('.monster-priority-entry').evaluateAll((entries) => entries.map((entry) => getComputedStyle(entry).borderBottomWidth));
   expect(rules).toEqual(['1px', '0px']);
-  /* What each copy wears, read from the import: six runes, no artifacts, no relic. */
+  /* What each copy has engraved, read from the import: six runes, no artifacts, no relic. */
   const firstEntry = page.locator('.monster-priority-entry').first();
-  await expect(firstEntry.getByRole('img', { name: '6 of 6 runes equipped' })).toHaveText('6/6');
-  await expect(firstEntry.getByRole('img', { name: '0 of 2 artifacts equipped' })).toHaveText('0/2');
+  await expect(firstEntry.getByRole('img', { name: '6 of 6 runes engraved' })).toHaveText('6/6');
+  await expect(firstEntry.getByRole('img', { name: '0 of 2 artifacts engraved' })).toHaveText('0/2');
   await expect(firstEntry.getByRole('img', { name: 'No relic' })).toBeVisible();
   expect(await firstEntry.locator('.speed-summary-mark').evaluateAll((marks) => marks.map((mark) => mark.getAttribute('data-state'))))
     .toEqual(['good', 'bad', 'bad']);

@@ -8,7 +8,7 @@
  * A monster not on the list ranks below every monster that is.
  *
  * The list holds copies by unit id, so a copy that leaves the account stays in it
- * until removed: it costs the search nothing, since no rune is worn by it, and a
+ * until removed: it costs the search nothing, since no rune is engraved on it, and a
  * second import of the same account brings it back to its place.
  */
 export type MonsterPriority = readonly string[];

@@ -18,7 +18,7 @@ import { runeSetId } from './rune-sets';
 import type { EndStateLine } from './rune-craft-end-state';
 import { runeAdvice } from './rune-cleanup-advice';
 import type { RuneAdvice, RuneVerdict } from './rune-cleanup-advice';
-import type { RunePotentialPreset } from './rune-potential-presets';
+import type { RuneRole } from './rune-roles';
 import type { ReferenceStats } from './rune-reference-stats';
 import type { RunePotentialSettings } from './types';
 import { combineCalculationBackends } from './compute/calculation-summary';
@@ -63,7 +63,7 @@ export type RuneSimulationConfig = {
 };
 
 export type RuneSimulationContext = {
-  presets: readonly RunePotentialPreset[];
+  roles: readonly RuneRole[];
   settings: RunePotentialSettings;
   base: ReadonlyMap<string, ReferenceStats> | null;
   /** Whether recommendation checkpoints may count their odds on the graphics card. */
@@ -94,16 +94,16 @@ export type SimulatedRune = {
 
 /**
  * Rune Clean-up's reading of one simulated rune, reduced to what crosses the
- * worker boundary: the preset is carried by id and name rather than as the whole
- * preset, which the page already holds.
+ * worker boundary: the role is carried by id and name rather than as the whole
+ * role, which the page already holds.
  */
 export type SimulationVerdict = {
   verdict: RuneVerdict;
   reason: string;
   maxValue: number;
   chance: number;
-  presetId: string | null;
-  presetName: string | null;
+  roleId: string | null;
+  roleName: string | null;
 };
 
 export type SimulationEntry = {
@@ -111,7 +111,7 @@ export type SimulationEntry = {
   /**
    * The engine's verdict, asked at every checkpoint whether or not the gate acts
    * on it, so the table always says what Rune Clean-up would do. `null` only when
-   * there is nothing to ask it with: no reference monster or no preset.
+   * there is nothing to ask it with: no reference monster or no role.
    */
   verdict: SimulationVerdict | null;
   /** Whether this checkpoint's gate removed the rune; only a recommendation gate can. */
@@ -239,8 +239,8 @@ function verdictFor(advice: RuneAdvice): SimulationVerdict {
     reason: advice.reason,
     maxValue: advice.maxValue,
     chance: advice.chance,
-    presetId: advice.preset?.id ?? null,
-    presetName: advice.preset?.name ?? null,
+    roleId: advice.role?.id ?? null,
+    roleName: advice.role?.name ?? null,
   };
 }
 
@@ -300,16 +300,16 @@ async function recommendationsFor(
   engines: CalculationBackend[],
 ): Promise<ReadonlyMap<string, RuneAdvice> | null> {
   const { base } = context;
-  if (base === null || context.presets.length === 0) {
+  if (base === null || context.roles.length === 0) {
     if (config.gates[stage].policy === 'keep-all') return null;
     throw new Error(base === null
       ? 'Rune Clean-up recommendations need a level 40 reference monster.'
-      : 'Rune Clean-up recommendations need at least one preset.');
+      : 'Rune Clean-up recommendations need at least one role.');
   }
   if (runes.length === 0) return new Map();
   return runeAdvice(
     runes.map((rune, index) => simulationRuneToCleanupRune(rune, index + 1)),
-    context.presets,
+    context.roles,
     context.settings,
     base,
     async (jobs, chanceBar) => {
@@ -357,7 +357,7 @@ export async function simulateRunes(
      rune it produced. Every rune is judged with the credited items already spent, so
      the crafted rune stands where the bare one did; the row shows the rune the
      verdict counted rather than the bare one from before. Without a
-     preset or a reference monster nothing says which Gem helps, so nothing is spent. */
+     role or a reference monster nothing says which Gem helps, so nothing is spent. */
   const poweredToTwelve = afterNine.map((rune) => powerUpRune(rune, 12, random));
   const craftPlans = await recommendationsFor(poweredToTwelve, 12, config, context, engines);
   const atTwelve = poweredToTwelve.map((rune) => {

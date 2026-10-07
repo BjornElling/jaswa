@@ -95,7 +95,7 @@ try {
   ], 'every unfilled category slot must be reported explicitly');
 
   /* Intangible is a cross-category exception: the winning one may fill either
-     slot, but a monster cannot wear a second Intangible in the other slot. */
+     slot, but a monster cannot take a second Intangible in the other slot. */
   const intangibles = allocateArtifactPlacements([
     candidate('attribute-intangible', 'attribute', 'one', 100, 0, 0, 'intangible'),
     candidate('type-intangible', 'type', 'one', 99, 1, 0, 'intangible'),

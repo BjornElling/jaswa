@@ -14,7 +14,7 @@ type RawAccount = { unit_list: Array<{ unit_id: number; runes: RawRune[] }>; run
  */
 function workedAccount(): RawAccount {
   const account = JSON.parse(readFileSync(accountPath, 'utf8')) as RawAccount;
-  const worn = account.unit_list[0].runes.pop() as RawRune;
+  const engraved = account.unit_list[0].runes.pop() as RawRune;
   const inventory = account.runes.filter((rune) => rune.rune_id !== 104);
   const powered = inventory.find((rune) => rune.rune_id === 102) as RawRune;
   powered.upgrade_curr = 12;
@@ -25,7 +25,7 @@ function workedAccount(): RawAccount {
   crafted.sec_eff[2] = [12, 6, 1, 0];
   account.runes = [
     ...inventory,
-    { ...worn, occupied_type: 2, occupied_id: 0 },
+    { ...engraved, occupied_type: 2, occupied_id: 0 },
     {
       rune_id: 105, set_id: 13, slot_no: 2, class: 6, rank: 5, extra: 5, upgrade_curr: 0, occupied_type: 2, occupied_id: 0,
       pri_eff: [4, 11], prefix_eff: [0, 0], sec_eff: [[2, 5, 0, 0], [9, 4, 0, 0], [10, 4, 0, 0], [12, 5, 0, 0]],
@@ -40,7 +40,7 @@ function workedAccount(): RawAccount {
  * a changed rune is answered in place, and a new rune lands above the rest.
  */
 test('a sync updates Rune Clean-up rune by rune without moving the rows', async ({ page }, testInfo) => {
-  /* Three calculations of every preset on the processor: the whole one, the
+  /* Three calculations of every role on the processor: the whole one, the
      re-reading, and Recalculate. */
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1600, height: 1000 });

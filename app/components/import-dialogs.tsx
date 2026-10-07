@@ -83,7 +83,7 @@ export function DirectImportModeDialog({ mode, onCancel, onConfirm }: {
 
 /**
  * Loading a .sw file replaces every preference at once — names, goals, rune
- * requirements, presets — and the file is chosen before JASWA can say what is
+ * requirements, roles — and the file is chosen before JASWA can say what is
  * in it, so the warning has to come before the picker rather than after.
  */
 export function LoadPreferencesDialog({ onCancel, onConfirm }: {
@@ -99,7 +99,7 @@ export function LoadPreferencesDialog({ onCancel, onConfirm }: {
       <h2 id="load-preferences-title">Replace your personalization?</h2>
       <p id="load-preferences-warning">
         Everything you have set up for monsters, runes and artifacts — names,
-        goals, rune requirements and saved presets — is overwritten by the file
+        goals, rune requirements and saved roles — is overwritten by the file
         you choose next. Your imported game data is not affected.
       </p>
       <div className="dialog-actions">

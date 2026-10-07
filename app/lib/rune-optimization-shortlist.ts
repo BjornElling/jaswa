@@ -376,7 +376,7 @@ function guidedCandidates(problem: RuneOptimizationProblem, craftPools: Candidat
  * An impossible range needs no heuristic. Independent maxima and every stat set
  * at once deliberately overestimate what five other slots can supply; minima
  * include only unavoidable set bonuses. Failing these bounds proves a candidate
- * cannot be worn.
+ * cannot be engraved.
  */
 export function rangeFeasibleCandidates(problem: RuneOptimizationProblem): Candidate[][] {
   let slots = problem.slots;

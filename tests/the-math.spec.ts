@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('The Math sits under Technical and explains the equipment recommendations', async ({ page }) => {
+test('The Math sits under Technical and explains the gear recommendations', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.evaluate(() => { window.localStorage.clear(); window.sessionStorage.clear(); });

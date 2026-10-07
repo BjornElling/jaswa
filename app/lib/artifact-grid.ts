@@ -14,22 +14,22 @@ import { monsterNameCollator } from './monster-grid';
  * and the second needs the chosen property, which is not a property of the two
  * rows being compared.
  */
-export type ArtifactSortKey = 'index' | 'location' | 'value' | 'category' | 'equipClass' | 'grade' | 'mainProperty' | 'subProperties' | 'refinement' | 'subProperty';
+export type ArtifactSortKey = 'index' | 'location' | 'value' | 'category' | 'engraveClass' | 'grade' | 'mainProperty' | 'subProperties' | 'refinement' | 'subProperty';
 
 export type ArtifactRow = {
   artifact: Artifact;
   index: number;
-  /** The wearer's display name, or `null` while the artifact sits in the inventory. */
+  /** The display name of the monster it is engraved on, or `null` while the artifact sits in the inventory. */
   location: string | null;
-  /* The wearer this row names, where the roster has it. Carried so the Location
-     cell can open that monster's overlay: the row already resolves the wearer to
+  /* The monster this row names, where the roster has it. Carried so the Location
+     cell can open that monster's overlay: the row already resolves the monster to
      print its name, and throwing the identity away made the cell the one place
      naming a monster it could not point at. */
-  wearer?: { unitId: string; masterId: string };
+  engravedOn?: { unitId: string; masterId: string };
   /**
-   * How well the artifact scores on its current wearer, in whole percentage
+   * How well the artifact scores on the monster it is engraved on, in whole percentage
    * points, or `undefined` when nothing judged it — an artifact in the
-   * inventory, or a wearer with no recorded preferences. Whole points because
+   * inventory, or a monster with no recorded preferences. Whole points because
    * that is what a score *is* (`ARTIFACT-CANONICAL.md` §17.1), so the row
    * carries the number the column shows and the band is read from the same
    * value the user sees rather than from an unrounded one behind it.
@@ -37,7 +37,7 @@ export type ArtifactRow = {
   valuePercent: number | undefined;
   mainPropertyPreference: ArtifactPropertyPreference;
   subProperties: ArtifactSubProperty[];
-  /** `null` means this artifact is not currently worn by a judged monster. */
+  /** `null` means this artifact is not currently engraved on a judged monster. */
   subPropertyPreferences: ReadonlyMap<number, ArtifactPropertyPreference> | null;
 };
 
@@ -45,7 +45,7 @@ export type ArtifactRow = {
    sorts descending, because the question it answers is "which are best". */
 export const defaultArtifactSortDirections: Record<ArtifactSortKey, boolean> = {
   index: true, location: true, value: false, category: true,
-  equipClass: true, grade: false, mainProperty: true, subProperties: true,
+  engraveClass: true, grade: false, mainProperty: true, subProperties: true,
   /* Both gather their interesting rows at the descending end: the unrefined
      flag marks work to do, and a substat ranking leads with the best roll. */
   refinement: false, subProperty: false,
@@ -56,23 +56,23 @@ const gradeRank = new Map<ArtifactGrade, number>(artifactGradeOrder.map((grade, 
 
 /**
  * The single class this artifact restricts to, or `null` when it restricts to
- * none. Use `artifactEquipClassLabel` for display: `null` means Intangible, not
+ * none. Use `artifactEngraveClassLabel` for display: `null` means Intangible, not
  * unknown, and every reader must have already rejected a class it cannot name.
  */
-export function artifactEquipClass(artifact: Artifact): string | null {
+export function artifactEngraveClass(artifact: Artifact): string | null {
   return artifact.category === 'attribute' ? artifact.element : artifact.archetype;
 }
 
 /**
- * The equip class as the interface names it — an element, a monster type, or
+ * The engrave class as the interface names it — an element, a monster type, or
  * `Intangible` for the wildcard the game calls an "Intangible Type Artifact".
  *
  * Always returns a name. An artifact whose class JASWA cannot name never
  * reaches the interface, because `readArtifact` rejects it under `AGENTS.md`
  * §0.1 rather than importing a piece it would then hide.
  */
-export function artifactEquipClassLabel(artifact: Artifact): string {
-  return artifactEquipClass(artifact) ?? artifactIntangibleLabel;
+export function artifactEngraveClassLabel(artifact: Artifact): string {
+  return artifactEngraveClass(artifact) ?? artifactIntangibleLabel;
 }
 
 export function artifactCategoryLabel(category: ArtifactCategory): string {
@@ -148,7 +148,7 @@ export function compareArtifactRows(
     if (key === 'category') return artifactCategoryLabel(row.artifact.category);
     /* Intangible sorts under its own name rather than as a missing value: it is
        a class the user can look for, not an absence. */
-    if (key === 'equipClass') return artifactEquipClassLabel(row.artifact);
+    if (key === 'engraveClass') return artifactEngraveClassLabel(row.artifact);
     if (key === 'mainProperty') return row.artifact.mainProperty;
     /* Sorted on the property names alone: the column groups artifacts that
        carry the same properties, and folding the rolled values in would order

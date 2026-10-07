@@ -8,7 +8,7 @@ Reviewed: 4 October 2026. The binding contract is
 - **Actual remaining set support.** Counting free slots alone can promise a
   missing Violent piece where none of those slots offers Violent. The support
   bound reads actual slot/set availability during admission, guidance and search.
-  It preserves both worn and future Intangible completions. Independent support
+  It preserves both engraved and future Intangible completions. Independent support
   can reuse a slot or wildcard, so it is an overestimate; only failure prunes.
   The search omits the extra check where all open slots offer every read set.
 - **Impossible guide prefixes stop early.** Independent remaining maxima and
@@ -116,7 +116,7 @@ Inputs and detailed outputs remain local under `work/optimization-pruning/`.
 The exact oracle checks 200 random accounts and 66 tight interval tables against
 unreduced brute force, plus 36 rich crafted-range tables against full item
 enumeration. It also checks splitting, worker cloning, shared bars, card passes
-and processor recovery. Dedicated support cases preserve worn and future
+and processor recovery. Dedicated support cases preserve engraved and future
 Intangibles while rejecting a missing set that the remaining slots cannot supply.
 
 The quality suite holds nested depths, seeded and unseeded tables, empty and

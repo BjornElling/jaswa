@@ -85,7 +85,7 @@ export type ResolvedRunes = {
   /** The exact builds wanted, as `rune-set-pairs.ts` names them. */
   sets: ResolvedChoices<string>;
   slots: Record<RuneSlotKey, ResolvedChoices<RuneSlotMain>>;
-  /** Whether runes that complete no set may be worn. */
+  /** Whether runes that complete no set may be engraved. */
   allowBroken: boolean;
   /** Whether an Intangible rune may complete a set that is one short. */
   allowIntangible: boolean;
@@ -205,8 +205,8 @@ function resolveRunes(
 ): ResolvedRunes {
   const runeDefaults = defaults?.runes;
   /*
-   * The dataset counts how often each *set* is equipped and never which sets
-   * were worn together, so it cannot name a build. A user who has stated no
+   * The dataset counts how often each *set* is engraved and never which sets
+   * were engraved together, so it cannot name a build. A user who has stated no
    * builds therefore gets none rather than a guess assembled from two popular
    * sets — which is exactly the inference this model exists to stop making.
    */

@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
 /**
- * Two defects the preset editor carried, held apart because they fail
+ * Two defects the role editor carried, held apart because they fail
  * differently.
  *
  * The focus one is a timing bug: the page re-renders every two seconds while it
@@ -11,7 +11,7 @@ import type { Page } from '@playwright/test';
  * the test waits past two poll ticks with the caret somewhere else.
  *
  * The slot one is a vocabulary bug: every slot offered all eight main stats,
- * including mains that slot can never roll. A preset naming one matched no rune
+ * including mains that slot can never roll. A role naming one matched no rune
  * at all and said nothing about it.
  */
 
@@ -21,7 +21,7 @@ const slotOptions = {
   'Slot 6': { offered: ['HP%', 'Atk%', 'Def%', 'Res%', 'Acc%'], impossible: ['Spd', 'CtR%', 'CtD%'] },
 } as const;
 
-async function openPresetEditor(page: Page, { pollForHelper = false } = {}) {
+async function openRoleEditor(page: Page, { pollForHelper = false } = {}) {
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.evaluate(() => { window.localStorage.clear(); window.sessionStorage.clear(); });
@@ -32,13 +32,13 @@ async function openPresetEditor(page: Page, { pollForHelper = false } = {}) {
      reproducing the focus bug, not incidental setup — no helper need answer. */
   if (pollForHelper) await page.getByRole('radio', { name: 'Direct import' }).check();
   await page.getByRole('button', { name: 'Rune Set-up' }).click();
-  await page.locator('summary').filter({ hasText: 'Presets' }).click();
+  await page.locator('summary').filter({ hasText: 'Roles' }).click();
   await page.getByRole('button', { name: 'Edit Slow DD' }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
 }
 
 test('each rune slot offers only the main stats it can roll', async ({ page }) => {
-  await openPresetEditor(page);
+  await openRoleEditor(page);
 
   for (const [slot, { offered, impossible }] of Object.entries(slotOptions)) {
     const chips = page.locator('.editor-slot').filter({ hasText: slot }).locator('.choice-chip');
@@ -50,7 +50,7 @@ test('each rune slot offers only the main stats it can roll', async ({ page }) =
 });
 
 test('the caret stays where the user put it while the editor is open', async ({ page }) => {
-  await openPresetEditor(page, { pollForHelper: true });
+  await openRoleEditor(page, { pollForHelper: true });
 
   const name = page.getByRole('textbox', { name: 'Name' });
   await expect(name).toBeFocused();
@@ -70,18 +70,18 @@ test('a zero desired stat is saved as unstated', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.getByRole('button', { name: 'Rune Set-up' }).click();
-  await page.locator('summary').filter({ hasText: 'Presets' }).click();
-  await page.getByRole('button', { name: 'Add preset' }).click();
+  await page.locator('summary').filter({ hasText: 'Roles' }).click();
+  await page.getByRole('button', { name: 'Add role' }).click();
 
   const hp = page.getByRole('spinbutton', { name: 'HP', exact: true });
   await expect(hp).toHaveValue('');
   await hp.fill('0');
-  await page.getByRole('button', { name: 'Add preset' }).last().click();
+  await page.getByRole('button', { name: 'Add role' }).last().click();
   await expect(page.getByRole('dialog')).toBeHidden();
 
-  const saved = page.locator('.preset-card').filter({ hasText: 'New preset' });
+  const saved = page.locator('.role-card').filter({ hasText: 'New role' });
   await expect(saved.locator('.target.empty')).toHaveCount(11);
 
-  await page.getByRole('button', { name: 'Edit New preset' }).click();
+  await page.getByRole('button', { name: 'Edit New role' }).click();
   await expect(page.getByRole('spinbutton', { name: 'HP', exact: true })).toHaveValue('');
 });

@@ -40,9 +40,9 @@ for (let index = 0; index < 8; index += 1) {
   }
   input.settings.depth = 'quick';
   input.runes = input.runes.map((rune) => ({ ...rune, occupiedId: null }));
-  const unequipped = identities(prepareRuneOptimization(input));
-  identities(problems[0]).forEach((slot, at) => assert.deepEqual(unequipped[at], slot,
-    `account ${index}: wearing a different current build changed the shortlist`));
+  const inInventory = identities(prepareRuneOptimization(input));
+  identities(problems[0]).forEach((slot, at) => assert.deepEqual(inInventory[at], slot,
+    `account ${index}: a different engraved build changed the shortlist`));
 }
 const empty = generator.scenario(0);
 empty.runes = []; empty.settings.depth = 'quick';
@@ -55,7 +55,7 @@ impossible.settings.depth = 'quick';
 const refused = prepareRuneOptimization(impossible);
 assert.ok(refused.slots.every((slot) => slot.length === 0), 'impossible ranges should be removed before the cut');
 assert.equal(searchRuneBuilds(refused).builds.length, 0);
-console.log('PASS: Depth 1 finds the depth-10 optimum on eight fixed wide pools; finite depths keep every shallower candidate, changing the worn build leaves the shortlist unchanged, and empty and impossible questions return no builds.');
+console.log('PASS: Depth 1 finds the depth-10 optimum on eight fixed wide pools; finite depths keep every shallower candidate, changing the engraved build leaves the shortlist unchanged, and empty and impossible questions return no builds.');
 
 for (const depth of runeOptimizationDepths) assert.ok(runeOptimizationSettingChecks.depth(depth));
 
@@ -160,7 +160,7 @@ assert.equal(stopped.stoppedBy, 'user');
 assert.ok(stopped.builds.length > 0, 'stopping discarded feasible whole-build guides');
 console.log('PASS: seeded and unseeded tables agree without duplicates, and time limits and stop requests retain checked guides.');
 
-// An already worn Intangible can finish a set without spending another slot.
+// An already engraved Intangible can finish a set without spending another slot.
 // Three two-sets each one piece short need two slots and that one credit, not three.
 const intangible = generator.scenario(0);
 intangible.holds = {}; intangible.spared = [];
@@ -177,9 +177,9 @@ const exactFigures = buildFigures(intangible.monster, intangible.runes.map((rune
 intangible.settings.unfinishedAtMaximum = false;
 intangible.requirements.targets = Object.fromEntries(['hp', 'def', 'criRate'].map((key) => [key, exactFigures[figureIndex(key)]]));
 const intangibleResult = searchRuneBuilds(prepareRuneOptimization(intangible));
-assert.equal(intangibleResult.builds.length, 1, 'a worn Intangible lost the only Energy/Guard/Blade build');
+assert.equal(intangibleResult.builds.length, 1, 'an engraved Intangible lost the only Energy/Guard/Blade build');
 assert.deepEqual(intangibleResult.builds[0].figures, exactFigures);
-console.log('PASS: a worn Intangible lets Energy, Guard and Blade all complete with only two slots left.');
+console.log('PASS: an engraved Intangible lets Energy, Guard and Blade all complete with only two slots left.');
 
 /* Two incomplete sets are not a choice the optimizer may invent. With broken
    sets allowed, the one Intangible remains a usable broken rune and completes

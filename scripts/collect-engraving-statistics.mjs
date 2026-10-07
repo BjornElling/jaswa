@@ -239,7 +239,7 @@ function captureList(catalog) {
        counted its captured statistics in the dataset while never listing it as
        work — imported and used, but invisible to coverage. */
     if (!Number.isInteger(id)) continue;
-    /* Material monsters — Devilmons, rainbowmons — wear no equipment, and the
+    /* Material monsters — Devilmons, rainbowmons — take no engravings, and the
        Korean-named rows are test entries the live game does not offer. Both
        would otherwise sit in the work list forever, uncapturable. */
     if (monster.archetype === 'Material') continue;

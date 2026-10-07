@@ -1,9 +1,9 @@
-# Rune Clean-up — investigation into "Best preset"
+# Rune Clean-up — investigation into "Best role"
 
 **Status:** Findings and resolution. **Resolved 20 September 2026.**
 **Date:** 18 September 2026
 **Scope:** `app/lib/rune-cleanup-model.ts`, `app/lib/rune-cleanup-advice.ts`,
-`app/lib/rune-potential-presets.ts`, `docs/RUNE-CLEANUP-MATH.md`
+`app/lib/rune-roles.ts`, `docs/RUNE-CLEANUP-MATH.md`
 **Prompted by:** three recommendations that looked wrong on the Rune Clean-up page.
 
 > **Resolution.** The defect below is fixed. `app/lib/rune-substat-weights.ts` gives
@@ -15,9 +15,9 @@
 > pre-fix engine's and several no longer exist; the document is kept as the record of
 > how the defect was found and what exactly it was.
 
-> **Follow-up.** The later finite preset-capacity allocator was removed as well.
+> **Follow-up.** The later finite role-capacity allocator was removed as well.
 > A rune that passes the quality and Chance gates is now matched independently and
-> is never sold because another rune reached the same preset first. The Intangible
+> is never sold because another rune reached the same role first. The Intangible
 > slider and 4-set preference remain as relative retention preferences.
 
 ---
@@ -33,10 +33,10 @@ valuable. As a direct consequence:
 - For **Slow DD, Fast DD, Def DD, No-spd bruiser and Bruiser**, the only sub property the model
   considers worthless is **Resistance**. Accuracy, HP and DEF count in full, at exactly
   the same rate per roll as CRI Dmg.
-- Those five presets have **identical relevance sets**, so they produce **identical Max
+- Those five roles have **identical relevance sets**, so they produce **identical Max
   values**. Over 2,677 synthetic runes scored against a shared reference line, the raw
   Max value differed between them **zero times**.
-- Therefore "Best preset" is not decided by the rune's sub properties at all. It is
+- Therefore "Best role" is not decided by the rune's sub properties at all. It is
   decided by **set membership**, by **main-stat legality in slots 2/4/6**, and — when
   those tie, which is often — by the per-rune best-match tie-break.
 
@@ -48,15 +48,15 @@ matters for how it should be fixed: the contract has to change first.
 
 ## 1. The root cause, in two lines of code
 
-`preset.targets` is read in the entire clean-up engine in exactly two places, both in
+`role.targets` is read in the entire clean-up engine in exactly two places, both in
 `buildDemand`:
 
 ```ts
 // rune-cleanup-model.ts:161
-const wanted = targetStats.filter((stat) => (preset.targets[stat] ?? 0) > 0);
+const wanted = targetStats.filter((stat) => (role.targets[stat] ?? 0) > 0);
 
 // rune-cleanup-model.ts:171
-shares.get(slot)?.set(stat, preset.targets[stat] ?? 0);
+shares.get(slot)?.set(stat, role.targets[stat] ?? 0);
 ```
 
 Line 161 uses the target as a **boolean**. Line 171 stores the number into
@@ -73,7 +73,7 @@ uses only its keys:
 `Demand.shares` is typed `ReadonlyMap<TargetStat, number>`. The `number` is dead data.
 The type promises a weighting the code does not implement.
 
-**So a preset's stat targets are a relevance switch and nothing more.** `Fast DD` asking
+**So a role's stat targets are a relevance switch and nothing more.** `Fast DD` asking
 for 215 SPD and `Slow DD` asking for 150 SPD are, to this engine, the same request.
 `Fast DD` asking for 175 CRI Dmg and 25 Accuracy is, to this engine, the same request
 twice.
@@ -96,16 +96,16 @@ stat and every native-point stat, one max roll is therefore **exactly 1.0**. Fro
 | Accuracy | 8 | 1.0 |
 
 A maximum Accuracy roll and a maximum CRI Dmg roll are the same number. The only way one
-stat can outrank another is by being switched **off** — and a damage-dealer preset
+stat can outrank another is by being switched **off** — and a damage-dealer role
 switches off only Resistance.
 
 ---
 
 ## 2. The relevance sets, as shipped
 
-Computed from `defaultRunePotentialPresets()`:
+Computed from `defaultRuneRoles()`:
 
-| Preset | Type | Stats with a positive target |
+| Role | Type | Stats with a positive target |
 | --- | --- | --- |
 | Slow DD | Attack | hp, atk, def, spd, criRate, criDmg, acc |
 | Fast DD | Attack | hp, atk, def, spd, criRate, criDmg, acc |
@@ -116,7 +116,7 @@ Computed from `defaultRunePotentialPresets()`:
 | Support | Support | hp, def, spd, acc |
 | PvP def | HP | hp, def, spd, res, acc |
 
-Four distinct sets across eight presets. Five presets share one of them.
+Four distinct sets across eight roles. Five roles share one of them.
 
 The token targets are what does the damage. `Fast DD` states `def: 814` and `acc: 25` —
 figures a build reaches incidentally, from an artifact or a single line. Under the
@@ -130,9 +130,9 @@ speed damage dealer.
 Reproduce with the probe scripts described in §7. Reference base lines are plausible
 Lv. 40 averages, not the user's own roster (see §6, limitation 2).
 
-### 3.1 The five damage-dealer presets never disagree
+### 3.1 The five damage-dealer roles never disagree
 
-4,000 synthetic legal 6★ runes, one shared reference line for all preset types:
+4,000 synthetic legal 6★ runes, one shared reference line for all role types:
 
 ```
 runes scored by >= 2 of {Slow DD, Fast DD, Def DD, No-spd bruiser, Bruiser}:  2677
@@ -140,7 +140,7 @@ runes where their raw Max values differ at all:                       0
 largest gap:                                                       0.00 pp
 ```
 
-With **distinct per-family reference lines** (the realistic case), the same five presets
+With **distinct per-family reference lines** (the realistic case), the same five roles
 diverge by at most **3.89 pp**, and that divergence comes entirely from the monsters'
 base HP/ATK/DEF changing the flat-line conversion — not from anything about the roles.
 For comparison, the rank discount at slider stop 3 is a factor of 0.85 or 0.60, i.e.
@@ -154,7 +154,7 @@ rolls, same roll sizes. The only difference is which stats the rolls landed on:
 - **F** — CRI Rate 24, CRI Dmg 20, ATK % 8, SPD 5, prefix CRI Dmg 7 *(textbook DD rune)*
 - **G** — DEF % 24, Accuracy 20, HP % 8, SPD 5, prefix Accuracy 7 *(textbook support rune)*
 
-| Preset | F Max value | G Max value |
+| Role | F Max value | G Max value |
 | --- | --- | --- |
 | Slow DD | 96.56 % | **91.20 %** |
 | Fast DD | 96.56 % | **91.20 %** |
@@ -168,7 +168,7 @@ rolls, same roll sizes. The only difference is which stats the rolls landed on:
 A rune with **zero attack stats anywhere on it** reads **91 %** as a Fast DD rune, 5.4 pp
 behind a perfect crit rune. Any quality floor that keeps F keeps G. Note also that the
 model *can* discriminate — Support and PvP def correctly put F at 9 % — so the failure is
-concentrated in exactly the presets whose authors stated a target for nearly every stat.
+concentrated in exactly the roles whose authors stated a target for nearly every stat.
 
 ### 3.3 The three reported runes
 
@@ -178,7 +178,7 @@ prints.
 
 **(a) Blade, slot 2, SPD main, HP +747 / DEF +65 / Accuracy 7 / HP % 33, +15 → Fast DD**
 
-| Preset | Rank | Raw | After discount |
+| Role | Rank | Raw | After discount |
 | --- | --- | --- | --- |
 | **Fast DD** | preferred | 86.4 % | **86.4 %** |
 | Bruiser | preferred | 82.1 % | 82.1 % |
@@ -199,7 +199,7 @@ an attack score.
 
 **(b) Vampire, slot 1, ATK+ main, SPD 6 / CRI Rate 12 / HP % 19 / CRI Dmg 14, +12 → Fast DD**
 
-| Preset | Rank | Raw | After discount |
+| Role | Rank | Raw | After discount |
 | --- | --- | --- | --- |
 | **Fast DD** | preferred | 81.9 % | **81.9 %** |
 | Def DD | preferred | 81.9 % | **81.9 %** |
@@ -210,11 +210,11 @@ an attack score.
 | PvP def | acceptable | 37.5 % | 31.9 % |
 | Support | broken | 37.5 % | 22.5 % |
 
-**This is the clearest case.** Four presets are tied at the identical score to twelve
+**This is the clearest case.** Four roles are tied at the identical score to twelve
 decimal places. Nothing about the rune breaks the tie. `candidates.sort` in
-`rune-cleanup-advice.ts:175` is V8's stable sort over an array built in preset order, so
-the fallback goes to whichever of them appears first in the preset list — Fast DD — and
-the displayed match goes to the strongest passing preset after the quality and Chance
+`rune-cleanup-advice.ts:175` is V8's stable sort over an array built in role order, so
+the fallback goes to whichever of them appears first in the role list — Fast DD — and
+the displayed match goes to the strongest passing role after the quality and Chance
 gates have been applied.
 
 The original suspicion that Slow DD "seems more obvious" is right about the outcome but
@@ -224,14 +224,14 @@ a defensible answer — lost the coin toss, not the argument.
 
 **(c) Guard, slot 5, HP+ main, HP % 30 / SPD 15 / Accuracy 11 / Resistance 16, +15 → Def DD**
 
-| Preset | Rank | Raw | After discount |
+| Role | Rank | Raw | After discount |
 | --- | --- | --- | --- |
 | **Def DD** | preferred | 84.7 % | **84.7 %** |
 | Support | acceptable | 84.7 % | 72.0 % |
 | PvP def | **broken** | **100.0 %** | 60.0 % |
 | Slow DD / Fast DD / Bomber / No-spd bruiser / Bruiser | broken | 84.7 % | 50.8 % |
 
-**PvP def is the only preset that scores this rune correctly**, at 100 %: it is the only
+**PvP def is the only role that scores this rune correctly**, at 100 %: it is the only
 role whose targets make Resistance relevant, and HP/SPD/Accuracy are exactly what it
 wants. It loses anyway, by 40 pp, because `Guard` appears in neither its preferred nor
 its acceptable set list, so the broken discount multiplies it by 0.60. Def DD wins with a
@@ -268,7 +268,7 @@ Stated for balance, because a fix must not throw these away.
   `verify:rune-cleanup-calibration`.
 - The set/main-stat rank machinery works as designed. Its weight relative to stat fit is
   the problem, not its existence.
-- Presets with genuinely narrow targets (Support, PvP def, Bomber) discriminate properly.
+- Roles with genuinely narrow targets (Support, PvP def, Bomber) discriminate properly.
   This is evidence that the mechanism is salvageable.
 
 ---
@@ -288,23 +288,23 @@ coincidence: under the current model there is no number to put in it.
 
 ### 5.2 The Math page describes a discrimination the model does not perform
 
-`the-math-section.tsx:113` — "That division is what makes **the perfect rune for a preset
-read 100 %**, whatever the preset is asking for." True as written, but it reads as a
-claim that the scale is preset-sensitive. §3.2 shows a rune with no attack stats reading
+`the-math-section.tsx:113` — "That division is what makes **the perfect rune for a role
+read 100 %**, whatever the role is asking for." True as written, but it reads as a
+claim that the scale is role-sensitive. §3.2 shows a rune with no attack stats reading
 91 % for Fast DD. A user reading the Math page would not predict that.
 
-### 5.3 No finite preset quota
+### 5.3 No finite role quota
 
 The former post-gate allocator has been retired. A rune that clears the quality and
-Chance gates for any preset is retained, even when several other runes match that same
-preset. The row chooses one strongest passing match only for explanation; it does not
+Chance gates for any role is retained, even when several other runes match that same
+role. The row chooses one strongest passing match only for explanation; it does not
 consume a slot, reduce another rune's chance, or produce a sell verdict. The
 Intangible slider and 4-set preference now widen the retained share used by the gates,
-so they still affect relative retention without introducing a finite preset pool.
+so they still affect relative retention without introducing a finite role pool.
 
 ### 5.4 Grindstone value is in the numerator but not in the denominator
 
-Separate from the preset question, and found while checking the ceiling.
+Separate from the role question, and found while checking the ceiling.
 
 `supplyOf` (`rune-cleanup-model.ts:310`) counts `runeSubValue(property) = value + grind`,
 so a grindstone already applied to a rune contributes to `fill`. `slotCeiling`
@@ -341,7 +341,7 @@ needs the raw `sec_eff` row (§7.1).
 1. **The three runes are reconstructions.** The original report gave the sub properties
    and, for two of them, the set and slot. For rune (c) the set, slot and main stat were
    not given; `Guard` / slot 5 / HP+ was chosen as a plausible fit to the observed
-   outcome. The reconstructions reproduce the reported preset attribution, but the exact
+   outcome. The reconstructions reproduce the reported role attribution, but the exact
    percentages will differ from the page. §7 lists what would make them exact.
 2. **The reference base lines are assumed**, not read from the user's account. The
    engine reads the average Lv. 40 monster per family from the live roster; no export is
@@ -349,12 +349,12 @@ needs the raw `sec_eff` row (§7.1).
    and therefore the absolute percentages. It does **not** affect §3.1's core result,
    which was measured with a single shared base line precisely to remove that variable.
 3. **The synthetic population is uniform over stats**, which a real rune box is not. It is
-   used only for the structural claims (do presets ever disagree; does the score
+   used only for the structural claims (do roles ever disagree; does the score
    saturate). No claim in §0 depends on its realism.
 4. **The craft sliders were set to "none"** (no gem, no grindstone credit). An Enchanted
    Gem *can* replace an irrelevant line with a relevant one, so credit would raise the
-   absolute scores — but it raises them for every preset that finds the stat relevant,
-   and §3.1's five presets have identical relevance sets, so it cannot separate them.
+   absolute scores — but it raises them for every role that finds the stat relevant,
+   and §3.1's five roles have identical relevance sets, so it cannot separate them.
    §5.4's grind measurements use grind **already on the rune**, which the sliders do not
    affect.
 
@@ -372,7 +372,7 @@ To move from "confirmed structurally" to "reproduced exactly on your account":
    Broken runes, and the two craft settings), so the discounts can be matched exactly.
 3. The reference base lines the page is actually using — the average Lv. 40 stats per
    family on the account.
-4. Whether the shipped presets have been edited since first use, since they are copied
+4. Whether the shipped roles have been edited since first use, since they are copied
    into preferences and are editable.
 
 ## 8. Open design questions, for whoever fixes this
@@ -382,17 +382,17 @@ repaired.
 
 1. **Should a target magnitude become a weight?** The obvious fix is to weight each
    relevant stat by its target, normalised. It would immediately separate the five tied
-   presets and stop Accuracy counting as CRI Dmg. But it makes `hp: 15042` and
+   roles and stop Accuracy counting as CRI Dmg. But it makes `hp: 15042` and
    `criDmg: 175` directly comparable numbers in different units, which is not
    meaningful without a normalisation rule of its own. `RUNE-CLEANUP-MATH.md` §3's
    refusal to use the target as a cap was a deliberate, well-argued decision; the
    argument against using it as a *weight* has never been made, and should be.
-2. **Or should the presets simply stop stating token targets?** Removing `def: 814` and
+2. **Or should the roles simply stop stating token targets?** Removing `def: 814` and
    `acc: 25` from Fast DD is a one-line change that fixes §3.3(a) and part of §3.2. It
    does not fix §3.3(b) — Slow DD and Fast DD would still be identical — and it pushes
    the modelling burden onto the user, who must now understand that a stated target is a
    switch and not a goal.
-3. **What should break a genuine tie?** Once two presets legitimately score a rune the
+3. **What should break a genuine tie?** Once two roles legitimately score a rune the
    same, silently taking the first in array order is the worst available answer. Showing
    both, or saying "several roles, none preferred", is honest; the current output is not.
 4. **Should the set-rank discount really outrank stat fit by 20–50 pp?** §3.3(c) is a
@@ -410,7 +410,7 @@ and were run with the repository's own type-stripping loader:
 node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs <probe>.mjs
 ```
 
-Each probe does one of: enumerate each preset's relevance set from
-`defaultRunePotentialPresets()`; call `judgeAgainstBuild` for one rune against every
-preset with `withChance = false`; or generate a legal synthetic population and call
+Each probe does one of: enumerate each role's relevance set from
+`defaultRuneRoles()`; call `judgeAgainstBuild` for one rune against every
+role with `withChance = false`; or generate a legal synthetic population and call
 `runeAdvice`. No repository file was modified.

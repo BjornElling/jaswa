@@ -68,7 +68,7 @@ export function ArtifactsSection({ settings, data, monsters, monsterPreferences,
   return <WorkspacePage
     header={<PageHeader
       title="Artifact Optimization"
-      tagline="That artifact is superb. Just not for the monster wearing it." />}
+      tagline="That artifact is superb. Just not for the monster it is engraved on." />}
   >
     {!data && <section className="empty-state">
       <h2>Compares artifact effects against the monsters that would gain most from them.</h2>

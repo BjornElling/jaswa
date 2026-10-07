@@ -3,7 +3,7 @@
  *
  * `docs/RUNE-CLEANUP-MATH.md` owns the reasoning; this owns the arithmetic. Every
  * figure the Rune Clean-up page states — a rune's Max value, its chance of reaching a
- * threshold, which preset suits it — is settled here and nowhere else. A second
+ * threshold, which role suits it — is settled here and nowhere else. A second
  * implementation would not merely duplicate work: it would drift, and the page would
  * then state two Max values for the same rune without either being obviously wrong.
  *
@@ -40,14 +40,14 @@
  */
 import { slotAllowsSubStat } from './runes';
 import type { Rune } from './runes';
-import { isIntangibleRuneSet, presetRuneSetNameList, runeSetPieceCount } from './rune-sets';
+import { isIntangibleRuneSet, roleRuneSetNameList, runeSetPieceCount } from './rune-sets';
 import {
   allStatIds, mainPropertyMaximum, maximumRoll, runeInnateFrequency, slotMainProperties,
   subPropertyRange,
 } from './rune-properties';
 import type { ReferenceStats } from './rune-reference-stats';
-import type { PresetChoice, RunePotentialPreset } from './rune-potential-presets';
-import { runeMainStatIds } from './rune-potential-presets';
+import type { RoleChoice, RuneRole } from './rune-roles';
+import { runeMainStatIds } from './rune-roles';
 import {
   newSubstatWeightScope, substatWeights, targetStats, weightedValuation,
 } from './rune-substat-weights';
@@ -71,19 +71,19 @@ export type { CraftCredit } from './rune-craft-end-state';
 
 export { targetStats };
 
-/** Whether a rune answers a preset's wish in full, partly, or not at all. */
+/** Whether a rune answers a role's wish in full, partly, or not at all. */
 export type MatchRank = 'preferred' | 'acceptable' | 'broken';
 
-const rankOf = <T>(choice: PresetChoice<T>, value: T): MatchRank =>
+const rankOf = <T>(choice: RoleChoice<T>, value: T): MatchRank =>
   choice.preferred.includes(value) ? 'preferred'
     : choice.acceptable.includes(value) ? 'acceptable' : 'broken';
 
 /**
- * Intangible's set rank is a product rule, not a preset preference. It completes
+ * Intangible's set rank is a product rule, not a role preference. It completes
  * one missing set and is therefore always preferred for the set half of every
- * preset. The preset may still judge the rune's main stat separately.
+ * role. The role may still judge the rune's main stat separately.
  */
-export function runeSetMatchRank(choice: PresetChoice<string>, setName: string): MatchRank {
+export function runeSetMatchRank(choice: RoleChoice<string>, setName: string): MatchRank {
   return isIntangibleRuneSet(setName) ? 'preferred' : rankOf(choice, setName);
 }
 
@@ -99,7 +99,7 @@ export function worseRank(left: MatchRank, right: MatchRank): MatchRank {
 /**
  * One combination of main stats across the three slots that carry a choice.
  *
- * A preset does not describe a build; it describes a family of them. Judging a rune
+ * A role does not describe a build; it describes a family of them. Judging a rune
  * against the family as a whole would need a guess about which member the player
  * will actually assemble, and that guess is the thing the brief says cannot be
  * made. So every member is enumerated and each rune keeps its best result.
@@ -115,15 +115,15 @@ export type Build = {
   ranks: Readonly<Record<2 | 4 | 6, MatchRank>>;
 };
 
-/** Every main-stat combination a preset allows, preferred and acceptable alike. */
-export function presetBuilds(preset: RunePotentialPreset): Build[] {
+/** Every main-stat combination a role allows, preferred and acceptable alike. */
+export function roleBuilds(role: RuneRole): Build[] {
   const options = ([2, 4, 6] as const).map((slot) => {
-    const choice = preset.slots[`slot${slot}` as 'slot2' | 'slot4' | 'slot6'];
+    const choice = role.slots[`slot${slot}` as 'slot2' | 'slot4' | 'slot6'];
     const entries = [...choice.preferred.map((stat) => ({ stat, rank: 'preferred' as MatchRank })),
       ...choice.acceptable.filter((stat) => !choice.preferred.includes(stat))
         .map((stat) => ({ stat, rank: 'acceptable' as MatchRank }))];
-    /* A slot the preset says nothing about accepts every main the slot allows, at
-       the broken rank. Refusing to build any combination at all would make a preset
+    /* A slot the role says nothing about accepts every main the slot allows, at
+       the broken rank. Refusing to build any combination at all would make a role
        with one unstated slot judge nothing, which is not what leaving it blank
        means. */
     return entries.length > 0 ? entries : [{ stat: null, rank: 'broken' as MatchRank }];
@@ -156,7 +156,7 @@ export type RuneOutcome = {
   maxValue: number;
   /** `0`–`1`: the chance the rune reaches the final +15 projection; RNG ends at +12. */
   chance: number;
-  /** How the rune's own set and main stat answer the preset. */
+  /** How the rune's own set and main stat answer the role. */
   rank: MatchRank;
 };
 
@@ -331,7 +331,7 @@ type OrdinaryPrices = {
  */
 /**
  * What one ordinary box describes: one slot holding one main property, at one star
- * class and one craft credit, priced in every build of a preset family that accepts
+ * class and one craft credit, priced in every build of a role family that accepts
  * that main. The credit is the account's and the stars and main the rune's, so the
  * only thing that varies inside a family is the build's valuation.
  */
@@ -420,7 +420,7 @@ function valuationNumber(valuation: Valuation): number {
  *
  * ## Why it takes a family of builds and not one
  *
- * A preset describes a family of builds and §5.1 lets a rune keep its best of them.
+ * A role describes a family of builds and §5.1 lets a rune keep its best of them.
  * A slot-1 rune fits **every** build, because its main property is fixed and no
  * build can disagree with it; a slot-2 rune fits only the builds that name its own
  * main. So the two take their maximum over pools of very different sizes — 24
@@ -469,7 +469,7 @@ export function ordinaryBox(family: OrdinaryFamily): OrdinaryBox {
   if (ids.length < 4) return empty;
 
   /* The family is named by short numbers rather than by its valuations' own keys.
-     This runs once per rune per preset, and a valuation key carries the whole
+     This runs once per rune per role, and a valuation key carries the whole
      target row and reference line — two dozen of them concatenated is a kilobyte
      of string built and thrown away for every lookup. A number per valuation
      identifies it exactly as well, because a valuation is already memoised per
@@ -723,21 +723,21 @@ function gaussianKernel(steps: number, offset: number): Float64Array {
 
 /**
  * **A fixed sample of the ordinary runes a slot produces**, every main counted evenly,
- * for the one question the box's closed form cannot answer: what *several presets
+ * for the one question the box's closed form cannot answer: what *several roles
  * together* keep of a slot (`rune-cleanup-advice.ts`, `RUNE-CLEANUP-MATH.md` §9.3).
  *
- * A box is one preset's distribution, worked out exactly. Several presets judge the
+ * A box is one role's distribution, worked out exactly. Several roles judge the
  * same rune, and whether one of them keeps it depends on how its standings in all of
  * them move together — which no product of single boxes can say. The default is the
  * Legend-born reference of `ordinaryBox`; slot balance and Statistics ask for the
  * simulator's drop-grade mix. Both draw legal lines and uniform rolls. Each copy's
  * fixed stream gives the same body at +0, +9, +12 and +15.
  *
- * **Its sets are drawn evenly over the ordinary preset set vocabulary**, and that is not a
- * detail. Several presets overlap on a rune only where they all want its set, so a
- * sample of runes every preset wants — all Intangible, which was the first form of
+ * **Its sets are drawn evenly over the ordinary role set vocabulary**, and that is not a
+ * detail. Several roles overlap on a rune only where they all want its set, so a
+ * sample of runes every role wants — all Intangible, which was the first form of
  * this — overlapped far more than any real box and aimed the balance at keeping 54 %
- * of slot 1 where the presets actually keep 22 %. Evenly is the stated assumption; the
+ * of slot 1 where the roles actually keep 22 %. Evenly is the stated assumption; the
  * game publishes no set rate either. Every slot gets the same draw of sets, so the
  * sample moves no set against another (§4.3).
  *
@@ -779,10 +779,10 @@ export function ordinarySample(
        set and grade draws gave a reproducible calibration but a different slot mix
        in independent samples, especially at the strict floor's small tail. */
     const setIndex = (Math.floor(occurrence / 4) + mainIndex * 7 + gradeIndex * 5)
-      % presetRuneSetNameList.length;
+      % roleRuneSetNameList.length;
     const mainStatId = mains[mainIndex];
     const body = upgradeRuneBody(generateRuneBody({
-      setName: presetRuneSetNameList[setIndex] ?? null,
+      setName: roleRuneSetNameList[setIndex] ?? null,
       slot, stars, defaultGrade: population === 'drop'
         ? generatedRuneGrade(slot, () => (gradeIndex + 0.5) / 4) : 'Legend', mainStatId, random: next,
     }), level, next);
@@ -802,7 +802,7 @@ export function ordinarySample(
 /* ------------------------------------------------------------ the candidate */
 
 /**
- * Everything one rune against one build of one preset settles before a threshold
+ * Everything one rune against one build of one role settles before a threshold
  * is named.
  *
  * The page asks two questions of the same pair, and they arrive separately: what
@@ -839,10 +839,10 @@ export type RuneCandidate = {
 /**
  * The scratchpad for one whole calculation.
  *
- * The weights and the ceilings do not depend on the rune — only on the preset, the
+ * The weights and the ceilings do not depend on the rune — only on the role, the
  * build, the slot, the rune's set and the reference line — so they are memoised
  * here rather than in a module-global cache. The lifetime is what makes them safe:
- * presets are user-editable and the reference lines depend on the imported account,
+ * roles are user-editable and the reference lines depend on the imported account,
  * so there is no stable key that outlives a call and no invalidation rule worth
  * inventing for one.
  *
@@ -853,15 +853,15 @@ export type RuneAdviceScope = {
   weights: SubstatWeightScope;
   /** The perfect rune of one slot, by valuation, craft credit, slot and main. */
   ceiling: Remembered;
-  /** One build's weights and valuation, by preset, build, reference line, credit and stars. */
+  /** One build's weights and valuation, by role, build, reference line, credit and stars. */
   pricing: Remembered;
   /** The ordinary box of one slot, by the same plus the whole family of builds. */
   ordinary: Map<string, OrdinaryBox>;
   /**
-   * What a rune may still become, which every preset judging it asks the same way.
+   * What a rune may still become, which every role judging it asks the same way.
    *
    * It is also what the runs are gathered by: playing a rune forward is a fact about
-   * the rune, so one set of runs answers every preset and every build. That sharing is the whole reason the odds are
+   * the rune, so one set of runs answers every role and every build. That sharing is the whole reason the odds are
    * affordable, and it is why a job carries this object rather than a copy of it.
    */
   futures: Map<string, RuneFuture>;
@@ -897,7 +897,7 @@ function remembered<T>(tree: Remembered, path: readonly unknown[], make: () => T
 
 /** The deterministic half: everything that does not depend on the threshold. */
 export function prepareRuneCandidate(
-  rune: Rune, preset: RunePotentialPreset, build: Build, base: ReferenceStats, credit: CraftCredit,
+  rune: Rune, role: RuneRole, build: Build, base: ReferenceStats, credit: CraftCredit,
   scope: RuneAdviceScope = newRuneAdviceScope(),
   comparisonCredit: CraftCredit = credit,
 ): RuneCandidate | null {
@@ -906,7 +906,7 @@ export function prepareRuneCandidate(
   if (mainOfSlot(build, rune.slot) !== rune.mainStatId && build.mains[rune.slot as 2 | 4 | 6] !== 0) return null;
 
   /* **The scale is the one for the main property the rune actually carries.**
-     A slot the preset says nothing about accepts every main it allows (§3), so the
+     A slot the role says nothing about accepts every main it allows (§3), so the
      build states none and `mainOfSlot` answers `0`. That is the right answer for the
      *requirement* — a slot that promised nothing subtracts nothing (§4.1) — and the
      wrong one for the *scale*, because `0` is not a main property: it bars no effect
@@ -914,7 +914,7 @@ export function prepareRuneCandidate(
      rune with four sub properties and no main at all, which the game cannot produce.
      Measured on a slot-2 ATK % rune against Fast DD with slot 2 cleared, the ceiling
      rose from 6.52 to 7.23 and the rune read 61.3 % where its own scale says 67.9 %.
-     The rune's own main is a fact about the rune whatever the preset left blank. */
+     The rune's own main is a fact about the rune whatever the role left blank. */
   const main = mainOfSlot(build, rune.slot) || rune.mainStatId;
   const stars = referenceStars(rune);
   /* `credit` belongs to the candidate: it changes the projected end state. The
@@ -922,7 +922,7 @@ export function prepareRuneCandidate(
      assumption must not move the perfect denominator or ordinary box underneath
      every other rune. The clean-up engine passes its fixed neutral yardstick here;
      direct callers retain the old single-credit behaviour by default. */
-  const priced = buildPricing(preset, build, base, comparisonCredit, stars, scope);
+  const priced = buildPricing(role, build, base, comparisonCredit, stars, scope);
   if (!priced) return null;
   const { weights, valuation } = priced;
 
@@ -947,7 +947,7 @@ export function prepareRuneCandidate(
      whatever it rolled — it decides which build the rune belongs to, not how good a
      member of it the rune is. The factor this replaced read a perfect five-star rune
      at two thirds of a perfect six-star one, which is the star table talking. */
-  const setRank = runeSetMatchRank(preset.sets, rune.setName);
+  const setRank = runeSetMatchRank(role.sets, rune.setName);
   const mainRank: MatchRank = rune.slot === 2 || rune.slot === 4 || rune.slot === 6
     ? build.ranks[rune.slot as 2 | 4 | 6] : 'preferred';
 
@@ -969,25 +969,25 @@ export const referenceStars = (rune: Rune): number => (rune.ancient ? 6 : rune.s
 
 /** One build's weights and the valuation they price a rune of `stars` with. */
 function buildPricing(
-  preset: RunePotentialPreset, build: Build, base: ReferenceStats, credit: CraftCredit, stars: number,
+  role: RuneRole, build: Build, base: ReferenceStats, credit: CraftCredit, stars: number,
   scope: RuneAdviceScope,
 ): { weights: SubstatWeights; valuation: Valuation } | null {
-  return remembered(scope.pricing, [preset, build, base, credit, stars],
-    () => priceBuild(preset, build, base, credit, stars, scope));
+  return remembered(scope.pricing, [role, build, base, credit, stars],
+    () => priceBuild(role, build, base, credit, stars, scope));
 }
 
 function priceBuild(
-  preset: RunePotentialPreset, build: Build, base: ReferenceStats, credit: CraftCredit, stars: number,
+  role: RuneRole, build: Build, base: ReferenceStats, credit: CraftCredit, stars: number,
   scope: RuneAdviceScope,
 ): { weights: SubstatWeights; valuation: Valuation } | null {
   /* The weights read nothing about the rune. Two runes that differ only in their set
      are scored identically, which is what lets the recommendation compare them; a set
-     decides a verdict through the preset's own ranking and the relative retention
+     decides a verdict through the role's own ranking and the relative retention
      preferences, never through the arithmetic. Intangible's set rank is permanently
      preferred; its slider only widens the retained share. `verify:rune-set-neutrality`
      is the check. */
   const weights = substatWeights({
-    targets: preset.targets, mains: buildMains(build), artifacts: preset.artifacts, base, credit,
+    targets: role.targets, mains: buildMains(build), artifacts: role.artifacts, base, credit,
   }, scope.weights);
   if (weights.weights.size === 0) return null;
   return { weights, valuation: weightedValuation(base, weights, stars) };
@@ -1013,7 +1013,7 @@ function buildAccepts(build: Build, slot: number, main: number): boolean {
 
 /**
  * **The family of builds a rune of this slot, main and star class is judged in** —
- * every build of the preset that accepts the main, priced for that star class. It is
+ * every build of the role that accepts the main, priced for that star class. It is
  * what a real rune's ordinary box is built from, and it can be asked of a main no rune
  * in the account carries, which is what the slot's share of §9.3 needs.
  *
@@ -1022,14 +1022,14 @@ function buildAccepts(build: Build, slot: number, main: number): boolean {
  * `prepareRuneCandidate` leaves them out, so a rune's box and this family are one.
  */
 export function slotMainFamily(
-  preset: RunePotentialPreset, builds: readonly Build[], slot: number, main: number, stars: number,
+  role: RuneRole, builds: readonly Build[], slot: number, main: number, stars: number,
   base: ReferenceStats, credit: CraftCredit, scope: RuneAdviceScope,
 ): OrdinaryFamily & { rank: MatchRank } {
   const valuations: Valuation[] = [];
   let rank: MatchRank = 'preferred';
   for (const build of builds) {
     if (!buildAccepts(build, slot, main)) continue;
-    const priced = buildPricing(preset, build, base, credit, stars, scope);
+    const priced = buildPricing(role, build, base, credit, stars, scope);
     if (!priced) continue;
     if (cachedCeiling(priced.valuation, slot, main, credit, stars, scope) <= 0) continue;
     valuations.push(priced.valuation);
@@ -1074,7 +1074,7 @@ export function candidateExpectedValue(candidate: RuneCandidate, runs: () => Run
 /**
  * **A ceiling on `candidateExpectedValue` that needs no runs**: the exact part plus the
  * most a Gem can add to any run, and never above the Max value, since no run beats the
- * best end state. It is what lets Best preset skip a reading without counting it.
+ * best end state. It is what lets Best role skip a reading without counting it.
  */
 export function candidateExpectedBound(candidate: RuneCandidate): number {
   const { future, scoring } = candidate;
@@ -1096,7 +1096,7 @@ const onScale = (candidate: RuneCandidate, score: number): number => {
  * So few are enough because only the Gem is averaged — the rest of the expectation is
  * exact — and what a Gem adds moves far less from run to run than whether a run clears
  * a bar. Measured against an exact enumeration it stays within half a point; on a real
- * account of 2,958 runes, all 4,096 runs named another preset for 8 of them, each a
+ * account of 2,958 runes, all 4,096 runs named another role for 8 of them, each a
  * near-tie. More runs cost the calculation a tenth of its time for that.
  */
 export const expectationRuns = 256;
@@ -1206,7 +1206,7 @@ export { chanceRuns };
 export type { CountingJob } from './rune-power-up-outcomes';
 
 /**
- * One rune against one build of one preset, both answers at once.
+ * One rune against one build of one role, both answers at once.
  *
  * `rune-cleanup-advice.ts` no longer takes this route — it prepares a candidate
  * and asks the two questions separately — but `verify-rune-cleanup-calibration.mjs`
@@ -1215,14 +1215,14 @@ export type { CountingJob } from './rune-power-up-outcomes';
  * being independent, so this signature stays.
  */
 export function judgeAgainstBuild(
-  rune: Rune, preset: RunePotentialPreset, build: Build, base: ReferenceStats,
+  rune: Rune, role: RuneRole, build: Build, base: ReferenceStats,
   threshold: number, credit: CraftCredit,
   /* The chance is still the expensive half, and most builds are rejected on their
      ceiling long before anyone needs it. So it is only worked out when the caller
      says it will be used, which is what makes checking every build affordable. */
   withChance = true,
 ): RuneOutcome | null {
-  const candidate = prepareRuneCandidate(rune, preset, build, base, credit);
+  const candidate = prepareRuneCandidate(rune, role, build, base, credit);
   if (!candidate) return null;
   return {
     maxValue: candidateMaxValue(candidate),

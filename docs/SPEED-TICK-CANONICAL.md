@@ -27,7 +27,7 @@ speed (`runeSpeedForDisplay`), so an experiment changes the runes and nothing
 else: base speed, Swift, totem and leader stay the monster's own. It is saved
 with the team, so the experiment is there when the team is opened again, but
 only the team's overlay reads it: the page behind it, its verdicts and every
-other figure judge the runes worn.
+other figure judge the runes engraved.
 
 ## 2. Combat speed
 

@@ -3,16 +3,16 @@
  *
  * `verify:rune-slot-neutrality` holds the finished `+15` box and the shipped
  * settings. This script holds the other half of `docs/RUNE-CLEANUP-MATH.md` §9.4:
- * a separate set of `+0` drops, judged by the shipped presets at both ends of Power-up
+ * a separate set of `+0` drops, judged by the shipped roles at both ends of Power-up
  * policy, Rune quality floor, Accepted and Broken, plus the middle stops, must be
  * recommended for power-up at about the same rate per usable main in every slot.
  * Pearson's χ² on five degrees of freedom and the odd/even ratio are the gates; the
  * most restrictive policy and floor together leave too few runes to measure, and
  * the most lenient corner must keep nearly everything.
  */
-import { defaultRunePotentialPresets } from '../app/lib/rune-potential-presets.ts';
+import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
 import { defaultRunePotentialSettings } from '../app/lib/file-imports.ts';
-import { ordinarySample, presetBuilds } from '../app/lib/rune-cleanup-model.ts';
+import { ordinarySample, roleBuilds } from '../app/lib/rune-cleanup-model.ts';
 import { runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
 import { countJobs } from '../app/lib/rune-power-up-outcomes.ts';
 
@@ -27,8 +27,8 @@ const base = new Map([
    main × grade × set coverage keeps the comparison about policy, not a lucky
    collection of sets. A second holdout checks the two difficult cases. */
 const perSlot = 400;
-const presets = defaultRunePotentialPresets();
-const builds = presets.flatMap((preset) => presetBuilds(preset));
+const roles = defaultRuneRoles();
+const builds = roles.flatMap((role) => roleBuilds(role));
 const scenarios = [
   ...[1, 5].flatMap((powerUpPolicy) => [5, 1].flatMap((runeQuality) =>
     [[1, 1], [1, 5], [5, 1], [5, 5]].map(([acceptedRunes, brokenRunes]) =>
@@ -51,7 +51,7 @@ for (const { powerUpPolicy, runeQuality, acceptedRunes, brokenRunes, offset, kee
   const settings = {
     ...defaultRunePotentialSettings, powerUpPolicy, runeQuality, acceptedRunes, brokenRunes, keepMoreForLargerSets,
   };
-  const result = await runeAdvice(runes, presets, settings, base,
+  const result = await runeAdvice(runes, roles, settings, base,
     (jobs) => countJobs(jobs.map((job) => ({ ...job, runs: 512 }))));
   const counts = [1, 2, 3, 4, 5, 6].map((slot) => runes.filter((rune) => rune.slot === slot
     && result.get(rune.id)?.verdict === 'power-up').length);

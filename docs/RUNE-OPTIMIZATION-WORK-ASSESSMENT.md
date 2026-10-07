@@ -66,7 +66,7 @@ Several findings matter to a recommendation:
   Impossible requirements cut the pool to zero. Exact set requirements narrowed
   it and made the bounds stronger. Counting filled fields cannot capture this.
 - **Free set slots and open physical slots are different.** Violent leaves two
-  slots free to wear other sets, but all six rune slots still participate in
+  slots free for other sets, but all six rune slots still participate in
   the tree. Four locked slots leave only a two-slot tail: no tree sharing is
   possible or needed. Its per-slot widths were 1/1/1/1/136/127.
 - **Gems change the choices; stones alone need not.** In this question Gems

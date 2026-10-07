@@ -19,7 +19,7 @@
  *
  * This script is therefore a fairness check rather than an arithmetic one, and it is
  * built to answer one question: **of an ordinary box of runes, does every slot get
- * the same share of the recommendations?** It is asked of every shipped preset and of
+ * the same share of the recommendations?** It is asked of every shipped role and of
  * seven adversarial ones built to make the skew as large as it can be — a role built
  * almost entirely around DEF, one around ATK, one around SPD and so on, each putting
  * the main property that carries its own stat in all three choosing slots so the
@@ -27,24 +27,24 @@
  *
  * **The population is every rune a slot produces**, its main drawn evenly over every
  * main the slot allows (`RUNE-CLEANUP-MATH.md` §9.3). It used to hold the main fixed to
- * one the preset named, and that hid the larger half of the skew: slots 1, 3 and 5
- * have one main each and slots 2, 4 and 6 have seven or eight, so a preset naming one
+ * one the role named, and that hid the larger half of the skew: slots 1, 3 and 5
+ * have one main each and slots 2, 4 and 6 have seven or eight, so a role naming one
  * or two of them could use a seventh of those slots' runes and kept a seventh as many.
- * Measured on the shipped presets that was 1–7 % of slots 2, 4 and 6 against 15–20 %
+ * Measured on the shipped roles that was 1–7 % of slots 2, 4 and 6 against 15–20 %
  * of slots 1, 3 and 5. Now every slot must keep the same share of *everything* it
- * produces — except where the preset can use less of the slot than that share, and
+ * produces — except where the role can use less of the slot than that share, and
  * then it must keep every rune it can use and no more (`usableShare` below). Every
  * set is preferred, so the only things left that can move a verdict are the slot and
- * the main — except in the two rows that put **every shipped preset on the box at
+ * the main — except in the two rows that put **every shipped role on the box at
  * once**, which is what the Recommendations table actually does and where the sets
- * are part of the question (`RUNE-CLEANUP-MATH.md` §9.4). Each preset balanced on its
+ * are part of the question (`RUNE-CLEANUP-MATH.md` §9.4). Each role balanced on its
  * own still kept 50 % of slot 2 and 25 % of slot 1 together, and only those rows see it.
  *
  * The last section is the mirror image and matters just as much: the scale must still
  * *discriminate*. A check that only demanded equal shares would pass on an engine that
  * had stopped reading the rune at all.
  */
-import { defaultRunePotentialPresets, runeMainStatIds, withRefreshedMetrics } from '../app/lib/rune-potential-presets.ts';
+import { defaultRuneRoles, runeMainStatIds, withRefreshedMetrics } from '../app/lib/rune-roles.ts';
 import { qualityThresholds, runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
 import {
   initialSubPropertyRange, runeInnateFrequency, slotMainProperties, startingSubPropertyCount, subPropertyLevels,
@@ -52,7 +52,7 @@ import {
 } from '../app/lib/rune-properties.ts';
 import { ordinarySample } from '../app/lib/rune-cleanup-model.ts';
 import { runeDefaultGrades, runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
-import { presetRuneSetNameList } from '../app/lib/rune-sets.ts';
+import { roleRuneSetNameList } from '../app/lib/rune-sets.ts';
 import { calculateRunePotentialMetrics, displayRunePotentialMetric } from '../app/lib/rune-potential-metrics.ts';
 import { generatedRuneGrade } from '../app/lib/rune-generation.ts';
 
@@ -142,43 +142,43 @@ function ordinaryRune(random, id, slot, mainStatId, setName, checkpoint = level,
 }
 
 /**
- * The share of a slot's runes a preset can use at all: those whose main one of its
+ * The share of a slot's runes a role can use at all: those whose main one of its
  * builds accepts. A slot left blank accepts every main, at the broken worth. The floor
  * can never keep more of a slot than this, so it is the expected share wherever it is
  * smaller than the one the floor names.
  */
-function usableShare(presetOrList, slot, settings) {
-  const presets = Array.isArray(presetOrList) ? presetOrList : [presetOrList];
+function usableShare(roleOrList, slot, settings) {
+  const roles = Array.isArray(roleOrList) ? roleOrList : [roleOrList];
   const mains = slotMainProperties[slot];
-  return mains.filter((main) => presets.some((preset) => usableMain(preset, slot, main, settings))).length / mains.length;
+  return mains.filter((main) => roles.some((role) => usableMain(role, slot, main, settings))).length / mains.length;
 }
 
-function usableMain(preset, slot, main, settings) {
+function usableMain(role, slot, main, settings) {
   if (slot === 1 || slot === 3 || slot === 5) return true;
-  const choice = preset.slots[`slot${slot}`];
+  const choice = role.slots[`slot${slot}`];
   const named = [...choice.preferred, ...choice.acceptable].map((stat) => runeMainStatIds[stat]);
   if (named.length === 0) return settings.brokenRunes !== 5;
   return named.includes(main);
 }
 
-/** The main properties a preset named for one slot; slots 1, 3 and 5 have one. */
-function mainsFor(preset, slot) {
+/** The main properties a role named for one slot; slots 1, 3 and 5 have one. */
+function mainsFor(role, slot) {
   if (slot === 1 || slot === 3 || slot === 5) return slotMainProperties[slot];
-  const choice = preset.slots[`slot${slot}`];
+  const choice = role.slots[`slot${slot}`];
   const named = [...choice.preferred, ...choice.acceptable];
   return named.map((stat) => runeMainStatIds[stat]);
 }
 
 /* ------------------------------------------------------ adversarial roles */
 
-/** A preset written here rather than shipped, with its composites derived as usual. */
+/** A role written here rather than shipped, with its composites derived as usual. */
 function role({ id, name, type, targets, slot2, slot4, slot6 }) {
   const { hp = 0, atk = 0, def = 0, criRate = 0, criDmg = 0 } = targets;
   const metrics = calculateRunePotentialMetrics({ atk, hp, def, criticalRate: criRate, criticalDamage: criDmg });
   const only = (stat) => ({ preferred: [stat], acceptable: [] });
   return {
     id, name, type,
-    sets: { preferred: presetRuneSetNameList, acceptable: [] },
+    sets: { preferred: roleRuneSetNameList, acceptable: [] },
     slots: { slot2: only(slot2), slot4: only(slot4), slot6: only(slot6) },
     artifacts: { atk: false, def: false, hp: false },
     targets: {
@@ -202,14 +202,14 @@ const someOfEverything = {
 };
 
 /**
- * Roles chosen to make the skew as large as a preset can make it while still leaving
+ * Roles chosen to make the skew as large as a role can make it while still leaving
  * every slot something to do.
  *
  * Each of the first six is dominated by one stat — its target is several times what
  * the modest baseline asks of the others, so its weight comes out at `1` and the rest
  * near zero — and each puts the main property that carries that stat in all three
  * choosing slots. The wanted stat is then barred as a sub property in **four of the
- * six slots**, and the weight vector is about as peaked as a preset can make it.
+ * six slots**, and the weight vector is about as peaked as a role can make it.
  * Those are exactly the conditions under which an absolute Max-value floor was at its
  * worst: the ceiling of a slot that cannot draw the wanted stat collapses onto
  * whatever is second best, and the box underneath it does not follow.
@@ -219,7 +219,7 @@ const someOfEverything = {
  * a broken engine has little room to show its bias there, and a passing result on it
  * alone would mean nothing.
  */
-const adversarialPresets = [
+const adversarialRoles = [
   role({ id: 'mostly-def', name: 'Mostly DEF', type: 'Defence type', slot2: 'Def%', slot4: 'Def%', slot6: 'Def%', targets: { ...someOfEverything, def: 3000 } }),
   role({ id: 'mostly-atk', name: 'Mostly ATK', type: 'Attack type', slot2: 'Atk%', slot4: 'Atk%', slot6: 'Atk%', targets: { ...someOfEverything, atk: 3000 } }),
   role({ id: 'mostly-hp', name: 'Mostly HP', type: 'HP type', slot2: 'HP%', slot4: 'HP%', slot6: 'HP%', targets: { ...someOfEverything, hp: 45000 } }),
@@ -244,8 +244,8 @@ const baseSettings = {
  * Every rune of every slot judged against one role, and the share of each slot that
  * survives.
  */
-async function sharesBySlot(presetOrList, settings, random, checkpoint = level, population = 'drop') {
-  const presets = Array.isArray(presetOrList) ? presetOrList : [presetOrList];
+async function sharesBySlot(roleOrList, settings, random, checkpoint = level, population = 'drop') {
+  const roles = Array.isArray(roleOrList) ? roleOrList : [roleOrList];
   const runes = [];
   for (const slot of [1, 2, 3, 4, 5, 6]) {
     const mains = slotMainProperties[slot];
@@ -255,17 +255,17 @@ async function sharesBySlot(presetOrList, settings, random, checkpoint = level, 
          one. Mains cycle over every main the slot allows, which is the population the
          floor is a share of. */
       runes.push(ordinaryRune(random, `${slot}-${at}`, slot, mains[at % mains.length],
-        presetRuneSetNameList[at % presetRuneSetNameList.length], checkpoint, population));
+        roleRuneSetNameList[at % roleRuneSetNameList.length], checkpoint, population));
     }
   }
-  const advice = await runeAdvice(runes, presets, settings, referenceStats);
+  const advice = await runeAdvice(runes, roles, settings, referenceStats);
   const seen = [0, 0, 0, 0, 0, 0];
   const kept = [0, 0, 0, 0, 0, 0];
   const usable = [0, 0, 0, 0, 0, 0];
   for (const rune of runes) {
     const answer = advice.get(rune.id);
     seen[rune.slot - 1] += 1;
-    if (presets.some((preset) => usableMain(preset, rune.slot, rune.mainStatId, settings))) usable[rune.slot - 1] += 1;
+    if (roles.some((role) => usableMain(role, rune.slot, rune.mainStatId, settings))) usable[rune.slot - 1] += 1;
     if (answer.verdict !== 'sell') {
       kept[rune.slot - 1] += 1;
     }
@@ -336,8 +336,8 @@ function spreadAllowance(rate, smallestCell) {
   return (1 + noise) / Math.max(0.25, 1 - noise);
 }
 
-/* The shipped discounts for accepted and broken runes. The single-preset rows switch
-   them off so a discount cannot move a slot; with every preset at once they are part
+/* The shipped discounts for accepted and broken runes. The single-role rows switch
+   them off so a discount cannot move a slot; with every role at once they are part
    of what the overlap is made of, and switched off they hid most of it. */
 const defaultDiscounts = { ...baseSettings, acceptedRunes: 3, brokenRunes: 3 };
 const shippedSettings = {
@@ -347,52 +347,52 @@ const shippedG1Settings = { ...shippedSettings, runeQuality: 4 };
 const floorOnlyG1Settings = { ...shippedG1Settings, powerUpPolicy: 1 };
 
 const scenarios = [
-  ...defaultRunePotentialPresets().map((preset) => ({
-    preset: { ...preset, sets: { preferred: presetRuneSetNameList, acceptable: [] } },
-    settings: baseSettings, label: preset.name,
+  ...defaultRuneRoles().map((role) => ({
+    role: { ...role, sets: { preferred: roleRuneSetNameList, acceptable: [] } },
+    settings: baseSettings, label: role.name,
   })),
-  ...adversarialPresets.map((preset) => ({ preset, settings: baseSettings, label: preset.name })),
-  /* **Every preset at once**, which is what a player's Recommendations table is. Each
-     preset above is balanced on its own, and that was not enough: a rune is kept when
-     any preset keeps it, the presets' picks of slot 1 overlap while their picks of slots
-     2, 4 and 6 — each preset its own mains — barely do, and the engine that passed every
+  ...adversarialRoles.map((role) => ({ role, settings: baseSettings, label: role.name })),
+  /* **Every role at once**, which is what a player's Recommendations table is. Each
+     role above is balanced on its own, and that was not enough: a rune is kept when
+     any role keeps it, the roles' picks of slot 1 overlap while their picks of slots
+     2, 4 and 6 — each role its own mains — barely do, and the engine that passed every
      row above kept 34–49 % of slots 2, 4 and 6 and 23–25 % of 1, 3 and 5 here. Once with
      the shipped set preferences, which is the real overlap, and once with every set
      preferred, which is the most overlap there can be. */
-  { preset: defaultRunePotentialPresets(), settings: defaultDiscounts, label: 'All shipped presets' },
-  { preset: defaultRunePotentialPresets(), settings: shippedSettings, label: 'Shipped defaults' },
-  { preset: defaultRunePotentialPresets(), settings: shippedG1Settings, label: 'Shipped G1 floor' },
-  { preset: defaultRunePotentialPresets(), settings: floorOnlyG1Settings, label: 'G1 floor, YOLO chance' },
+  { role: defaultRuneRoles(), settings: defaultDiscounts, label: 'All shipped roles' },
+  { role: defaultRuneRoles(), settings: shippedSettings, label: 'Shipped defaults' },
+  { role: defaultRuneRoles(), settings: shippedG1Settings, label: 'Shipped G1 floor' },
+  { role: defaultRuneRoles(), settings: floorOnlyG1Settings, label: 'G1 floor, YOLO chance' },
   {
-    preset: defaultRunePotentialPresets().map((preset) => ({ ...preset, sets: { preferred: presetRuneSetNameList, acceptable: [] } })),
+    role: defaultRuneRoles().map((role) => ({ ...role, sets: { preferred: roleRuneSetNameList, acceptable: [] } })),
     settings: defaultDiscounts, label: 'All, every set',
   },
   /* Craft settings get their own run: the candidate projection changes, while the
      common neutral ruler stays fixed across slots (§6). */
   {
-    preset: adversarialPresets[0], label: 'Mostly DEF, crafted',
+    role: adversarialRoles[0], label: 'Mostly DEF, crafted',
     settings: { ...baseSettings, gemRoll: 'maximum', grindstoneRoll: 'maximum' },
   },
   /* Both ends of the quality ladder, where the box is read furthest from its middle
      and a mismatch in the *shape* of two slots' boxes would show up first. */
-  { preset: adversarialPresets[3], label: 'Mostly SPD, floor 1', settings: { ...baseSettings, runeQuality: 1 } },
-  { preset: adversarialPresets[3], label: 'Mostly SPD, floor 5', settings: { ...baseSettings, runeQuality: 5 } },
+  { role: adversarialRoles[3], label: 'Mostly SPD, floor 1', settings: { ...baseSettings, runeQuality: 1 } },
+  { role: adversarialRoles[3], label: 'Mostly SPD, floor 5', settings: { ...baseSettings, runeQuality: 5 } },
   /* The strictest floor asks for 4 % of a slot, which every one-main slot of the roles
      above can supply — so here the share is found rather than capped, and a slot-2
      rune must clear seven times as much of its own box as a slot-1 rune does. */
-  { preset: adversarialPresets[0], label: 'Mostly DEF, floor 5', settings: { ...baseSettings, runeQuality: 5 } },
-  { preset: adversarialPresets[1], label: 'Mostly ATK, floor 5', settings: { ...baseSettings, runeQuality: 5 } },
+  { role: adversarialRoles[0], label: 'Mostly DEF, floor 5', settings: { ...baseSettings, runeQuality: 5 } },
+  { role: adversarialRoles[1], label: 'Mostly ATK, floor 5', settings: { ...baseSettings, runeQuality: 5 } },
   /* The case a flat "double it" gets wrong: one role, one preferred slot-6 main
      against five. Five of eight is past any floor's share and needs almost no help;
      one of eight needs eight times the share. Both must land where slot 1 does. */
   {
-    preset: { ...adversarialPresets[6], id: 'one-six', slots: { ...adversarialPresets[6].slots, slot6: { preferred: ['HP%'], acceptable: [] } } },
+    role: { ...adversarialRoles[6], id: 'one-six', slots: { ...adversarialRoles[6].slots, slot6: { preferred: ['HP%'], acceptable: [] } } },
     label: 'One slot-6 main, fl 4', settings: { ...baseSettings, runeQuality: 4 },
   },
   {
-    preset: {
-      ...adversarialPresets[6], id: 'five-six',
-      slots: { ...adversarialPresets[6].slots, slot6: { preferred: ['HP%', 'Atk%', 'Def%', 'Res%', 'Acc%'], acceptable: [] } },
+    role: {
+      ...adversarialRoles[6], id: 'five-six',
+      slots: { ...adversarialRoles[6].slots, slot6: { preferred: ['HP%', 'Atk%', 'Def%', 'Res%', 'Acc%'], acceptable: [] } },
     },
     label: 'Five slot-6 mains, 4', settings: { ...baseSettings, runeQuality: 4 },
   },
@@ -404,7 +404,7 @@ console.log('                        1      2      3      4      5      6    ove
 
 for (const scenario of scenarios) {
   const random = makeRandom(seed);
-  const { kept: allKept, usable: allUsable } = await sharesBySlot(scenario.preset, scenario.settings, random);
+  const { kept: allKept, usable: allUsable } = await sharesBySlot(scenario.role, scenario.settings, random);
   const seen = allUsable;
   const kept = allKept;
   const rates = seen.map((count, at) => (count > 0 ? kept[at] / count : null));
@@ -435,7 +435,7 @@ for (const scenario of scenarios) {
    slot-6 runes as slots 1 and 3. The simulator's grade mix is part of the population
    the player actually sees, and the +0 chance gate is part of the recommendation. */
 if (level === 15) {
-  const shipped = defaultRunePotentialPresets();
+  const shipped = defaultRuneRoles();
   const fresh = await sharesBySlot(shipped, shippedG1Settings, makeRandom(seed), 0);
   const usable = fresh.usable;
   const oddRate = [0, 2, 4].reduce((sum, at) => sum + fresh.kept[at], 0)
@@ -474,22 +474,22 @@ if (level === 15) {
  *
  * The tolerance is still wide. The box is the model's own stated rune and this is a
  * population the game's loop produced, so the two agree to a few per cent rather than
- * exactly, and a preset's own targets move the agreement a little either way. What
+ * exactly, and a role's own targets move the agreement a little either way. What
  * this check is for is the gross error: a ladder left behind by a change of scale,
  * which is how the stops came to be restated twice already.
  *
  * The role is stated here rather than taken from the shipped list. It used to be
- * "the second shipped preset", and when the shipped presets were replaced that
+ * "the second shipped role", and when the shipped roles were replaced that
  * became a different role and the ladder read 23.6 % where it had read 26.2 % —
- * a failure about the fixture, not the ladder. Shipped presets are the user's to
+ * a failure about the fixture, not the ladder. Shipped roles are the user's to
  * edit and reorder; a calibration cannot stand on them.
  */
 console.log('\nWhat each stop of the quality floor lets through, against what it says:');
-const ladderPreset = withRefreshedMetrics({
+const ladderRole = withRefreshedMetrics({
   id: 'ladder-first-turn-debuff',
   name: 'First-turn debuff',
   type: 'Support type',
-  sets: { preferred: presetRuneSetNameList, acceptable: [] },
+  sets: { preferred: roleRuneSetNameList, acceptable: [] },
   slots: {
     slot2: { preferred: ['Spd'], acceptable: ['Atk%'] },
     slot4: { preferred: ['CtD%'], acceptable: [] },
@@ -500,7 +500,7 @@ const ladderPreset = withRefreshedMetrics({
 });
 for (let stop = 1; stop <= qualityThresholds.length; stop += 1) {
   const random = makeRandom(seed);
-  const { usable, kept } = await sharesBySlot(ladderPreset, { ...baseSettings, runeQuality: stop }, random, 15, 'legend');
+  const { usable, kept } = await sharesBySlot(ladderRole, { ...baseSettings, runeQuality: stop }, random, 15, 'legend');
   const overall = kept.reduce((sum, value) => sum + value, 0) / usable.reduce((sum, value) => sum + value, 0);
   const named = qualityThresholds[stop - 1];
   console.log(`  stop ${stop}: says ${(named * 100).toFixed(0).padStart(2)} %, admits ${(overall * 100).toFixed(1).padStart(5)} %`);
@@ -518,7 +518,7 @@ for (let stop = 1; stop <= qualityThresholds.length; stop += 1) {
  * A role that wants **DEF and nothing else** cannot be served by a slot-1 rune at
  * all: slot 1 may carry neither DEF % nor flat DEF, so every legal sub property is
  * worth nothing to that role and there is no box to be a position in. That is a fact
- * about `RUNE-CANONICAL.md` §5, not a bias, and the engine must say "No preset can
+ * about `RUNE-CANONICAL.md` §5, not a bias, and the engine must say "No role can
  * use it" rather than inventing a scale for a rune that has nothing to put on it.
  * The check above deliberately avoids such roles — it would read an honest zero as a
  * failure — so the case is asserted here instead.
@@ -534,8 +534,8 @@ const barred = Array.from({ length: 50 }, (_, at) =>
 const ableSlot = Array.from({ length: 50 }, (_, at) =>
   ordinaryRune(degenerateRandom, `able-${at}`, 3, slotMainProperties[3][0], 'Violent'));
 const degenerateAdvice = await runeAdvice([...barred, ...ableSlot], [degenerate], baseSettings, referenceStats);
-const barredRated = barred.filter((rune) => degenerateAdvice.get(rune.id).preset !== null).length;
-const ableRated = ableSlot.filter((rune) => degenerateAdvice.get(rune.id).preset !== null).length;
+const barredRated = barred.filter((rune) => degenerateAdvice.get(rune.id).role !== null).length;
+const ableRated = ableSlot.filter((rune) => degenerateAdvice.get(rune.id).role !== null).length;
 console.log(`  Wanting only DEF: ${barredRated} of ${barred.length} slot-1 runes rated,`
   + ` ${ableRated} of ${ableSlot.length} slot-3 runes rated.`);
 check(barredRated === 0, `${barredRated} slot-1 runes were rated for a role that wants only DEF,`
@@ -552,7 +552,7 @@ check(ableRated === ableSlot.length, `only ${ableRated} slot-3 runes were rated 
  * and to still prefer the stat the role actually asked for.
  */
 console.log('\nThe scale still discriminates:');
-const discriminating = adversarialPresets[0];
+const discriminating = adversarialRoles[0];
 const random = makeRandom(seed ^ 0x9e3779b9);
 const probe = [];
 for (const slot of [1, 2, 3, 4, 5, 6]) {
@@ -569,7 +569,7 @@ const probeAdvice = await runeAdvice(probe, [discriminating], baseSettings, refe
 let inversions = 0;
 for (const slot of [1, 2, 3, 4, 5, 6]) {
   const rows = probe.filter((rune) => rune.slot === slot).map((rune) => probeAdvice.get(rune.id))
-    .filter((answer) => answer.preset !== null)
+    .filter((answer) => answer.role !== null)
     .sort((left, right) => left.maxValue - right.maxValue);
   for (let at = 1; at < rows.length; at += 1) {
     if (rows[at].standing + 1e-12 < rows[at - 1].standing) inversions += 1;

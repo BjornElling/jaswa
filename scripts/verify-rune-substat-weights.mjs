@@ -8,11 +8,11 @@
  * do a build's main properties actually come off the requirement, does a rune's own
  * set stay out of it, and does the rune the denominator describes really read 100 %.
  *
- * Every figure below is derived from the shipped presets and one fixed reference
+ * Every figure below is derived from the shipped roles and one fixed reference
  * line, so a failure is a change in the model and never a change in the data.
  */
-import { defaultRunePotentialPresets } from '../app/lib/rune-potential-presets.ts';
-import { presetBuilds, prepareRuneCandidate, candidateMaxValue } from '../app/lib/rune-cleanup-model.ts';
+import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
+import { roleBuilds, prepareRuneCandidate, candidateMaxValue } from '../app/lib/rune-cleanup-model.ts';
 import { newSubstatWeightScope, substatWeights } from '../app/lib/rune-substat-weights.ts';
 import { maximumRoll, slotMainProperties, subPropertyTargetStat } from '../app/lib/rune-properties.ts';
 import { runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
@@ -29,10 +29,10 @@ function check(condition, message) {
 }
 const close = (left, right, tolerance = 1e-9) => Math.abs(left - right) <= tolerance;
 
-const presets = defaultRunePotentialPresets();
-const preset = (id) => {
-  const found = presets.find((entry) => entry.id === id);
-  if (!found) throw new Error(`the shipped presets no longer contain ${id}`);
+const roles = defaultRuneRoles();
+const role = (id) => {
+  const found = roles.find((entry) => entry.id === id);
+  if (!found) throw new Error(`the shipped roles no longer contain ${id}`);
   return found;
 };
 const mainsOf = (build) => ({ 1: 3, 2: build.mains[2], 3: 5, 4: build.mains[4], 5: 1, 6: build.mains[6] });
@@ -47,8 +47,8 @@ const mainsOf = (build) => ({ 1: 3, 2: build.mains[2], 3: 5, 4: build.mains[4], 
  * is the claim the page makes, and it is held here.
  */
 function verifyTargetsAreNotSwitches() {
-  const fastDd = preset('fast-dd');
-  const build = presetBuilds(fastDd).find((candidate) => candidate.mains[2] === 4);
+  const fastDd = role('fast-dd');
+  const build = roleBuilds(fastDd).find((candidate) => candidate.mains[2] === 4);
   const weights = substatWeights({ targets: fastDd.targets, mains: mainsOf(build), artifacts: fastDd.artifacts, base, credit: noCraft });
   const of = (stat) => weights.weights.get(stat) ?? 0;
 
@@ -68,8 +68,8 @@ function verifyTargetsAreNotSwitches() {
 /** A build that puts HP % in two slots asks its runes for far less HP than one that
     does not, and the same rune is therefore worth different amounts to the two. */
 function verifyMainsReduceTheRequirement() {
-  const bomber = preset('bomber');
-  const mains = mainsOf(presetBuilds(bomber)[0]);
+  const bomber = role('bomber');
+  const mains = mainsOf(roleBuilds(bomber)[0]);
   const withHp = substatWeights({ targets: bomber.targets, mains: { ...mains, 4: 2, 6: 2 }, artifacts: bomber.artifacts, base, credit: noCraft });
   const withAtk = substatWeights({ targets: bomber.targets, mains: { ...mains, 4: 4, 6: 4 }, artifacts: bomber.artifacts, base, credit: noCraft });
   const hpRow = (weights) => weights.rows.find((row) => row.stat === 'hp');
@@ -94,8 +94,8 @@ function verifyMainsReduceTheRequirement() {
  * of arithmetic that caused it.
  */
 function verifySetsNeverReachTheRequirement() {
-  const fastDd = preset('fast-dd');
-  const mains = mainsOf(presetBuilds(fastDd).find((candidate) => candidate.mains[2] === 4));
+  const fastDd = role('fast-dd');
+  const mains = mainsOf(roleBuilds(fastDd).find((candidate) => candidate.mains[2] === 4));
   const weights = substatWeights({ targets: fastDd.targets, mains, artifacts: fastDd.artifacts, base, credit: noCraft });
   const atk = weights.rows.find((row) => row.stat === 'atk');
   check(close(atk.fromBase + atk.fromMains + atk.fromArtifacts + atk.needed, atk.target),
@@ -106,14 +106,14 @@ function verifySetsNeverReachTheRequirement() {
 }
 
 /**
- * The two artifacts a monster wears carry a flat main property each — HP +1,500, ATK
- * +100 or DEF +100 (`ARTIFACT-CANONICAL.md` §2) — and a preset states which of the
- * three its role wants. Whatever it names, two artifacts' worth comes off the
+ * The two artifacts engraved on a monster carry a flat main property each — HP +1,500, ATK
+ * +100 or DEF +100 (`ARTIFACT-CANONICAL.md` §2) — and a role states which of the
+ * three it wants. Whatever it names, two artifacts' worth comes off the
  * requirement and no more, spread evenly over the stats named.
  */
 function verifyArtifactsComeOffTheRequirement() {
-  const fastDd = preset('fast-dd');
-  const mains = mainsOf(presetBuilds(fastDd).find((candidate) => candidate.mains[2] === 4));
+  const fastDd = role('fast-dd');
+  const mains = mainsOf(roleBuilds(fastDd).find((candidate) => candidate.mains[2] === 4));
   const of = (artifacts) => substatWeights({ targets: fastDd.targets, mains, artifacts, base, credit: noCraft }).rows;
   const from = (rows, stat) => rows.find((row) => row.stat === stat)?.fromArtifacts ?? 0;
 
@@ -122,7 +122,7 @@ function verifyArtifactsComeOffTheRequirement() {
   const two = of({ atk: true, def: true, hp: false });
   const three = of({ atk: true, def: true, hp: true });
 
-  check(from(none, 'atk') === 0, 'a preset that names no artifact should have none credited.');
+  check(from(none, 'atk') === 0, 'a role that names no artifact should have none credited.');
   check(from(one, 'atk') === 200, `one named stat should take both artifacts: ${from(one, 'atk')}, not 200.`);
   check(from(two, 'atk') === 100 && from(two, 'def') === 100,
     'two named stats should take one artifact each.');
@@ -149,8 +149,8 @@ function verifyArtifactsComeOffTheRequirement() {
  * credited nothing moves at all.
  */
 function verifyGrindstonesComeOffTheRequirement() {
-  const fastDd = preset('fast-dd');
-  const mains = mainsOf(presetBuilds(fastDd).find((candidate) => candidate.mains[2] === 4));
+  const fastDd = role('fast-dd');
+  const mains = mainsOf(roleBuilds(fastDd).find((candidate) => candidate.mains[2] === 4));
   const ground = { gem: null, gemGrade: 'Hero', grind: 'three-quarters', grindGrade: 'Hero' };
   const of = (credit) => substatWeights({ targets: fastDd.targets, mains, artifacts: fastDd.artifacts, base, credit });
   const bare = of(noCraft);
@@ -191,16 +191,16 @@ function verifyGrindstonesComeOffTheRequirement() {
 
 /** A target already met without a single sub property asks the runes for nothing. */
 function verifyMetTargetsAskForNothing() {
-  const noSpdBruiser = preset('no-spd-bruiser');
-  const build = presetBuilds(noSpdBruiser)[0];
+  const noSpdBruiser = role('no-spd-bruiser');
+  const build = roleBuilds(noSpdBruiser)[0];
   const weights = substatWeights({ targets: noSpdBruiser.targets, mains: mainsOf(build), artifacts: noSpdBruiser.artifacts, base, credit: noCraft });
   const spd = weights.rows.find((row) => row.stat === 'spd');
   check(spd === undefined, "No-spd bruiser's cleared SPD target should not enter the weight table.");
 
-  /* And the degenerate case that would otherwise leave a preset unable to judge
+  /* And the degenerate case that would otherwise leave a role unable to judge
      anything: every target met, so every stat the role names is scored alike. */
   const met = substatWeights({ targets: { spd: 1, acc: 1 }, mains: mainsOf(build), artifacts: noSpdBruiser.artifacts, base, credit: noCraft });
-  check(met.degenerate, 'a preset whose every target is already met should report the degenerate case.');
+  check(met.degenerate, 'a role whose every target is already met should report the degenerate case.');
   check([...met.weights.values()].every((weight) => weight === 1),
     'in the degenerate case every named stat should be scored alike rather than at nothing.');
 }
@@ -211,12 +211,12 @@ function verifyMetTargetsAskForNothing() {
  * The perfect rune, built to the definition: four sub properties at their maximum,
  * the most valuable of them carrying all four later upgrades as well, and an innate
  * property at the maximum of the next most valuable effect id. It must read exactly
- * 100 %, whatever the preset is asking for — that is what makes the number readable
- * without a hidden per-slot or per-preset multiplier.
+ * 100 %, whatever the role is asking for — that is what makes the number readable
+ * without a hidden per-slot or per-role multiplier.
  */
 function verifyThePerfectRuneReadsFull() {
-  for (const entry of presets) {
-    for (const build of presetBuilds(entry)) {
+  for (const entry of roles) {
+    for (const build of roleBuilds(entry)) {
       for (const stars of [4, 5, 6]) for (const slot of [1, 2, 3, 4, 5, 6]) {
         const main = slot === 1 ? 3 : slot === 3 ? 5 : slot === 5 ? 1 : build.mains[slot];
         if (main === 0 || !slotMainProperties[slot].includes(main)) continue;
@@ -251,7 +251,7 @@ function verifyThePerfectRuneReadsFull() {
       }
     }
   }
-  console.log('The perfect rune of every star class reads 100 % in every slot of every shipped preset build.');
+  console.log('The perfect rune of every star class reads 100 % in every slot of every shipped role build.');
 }
 
 /** One max roll of an effect id, in max rolls of its own star class against this base line. */
@@ -270,8 +270,8 @@ function rollWorth(statId, line, stars) {
  * different rune in the finished build to carry something else.
  */
 function verifySurplusKeepsPaying() {
-  const fastDd = preset('fast-dd');
-  const build = presetBuilds(fastDd).find((candidate) => candidate.mains[2] === 4);
+  const fastDd = role('fast-dd');
+  const build = roleBuilds(fastDd).find((candidate) => candidate.mains[2] === 4);
   const make = (spdValue) => ({
     id: 'surplus', setId: 13, setName: 'Violent', slot: 2, stars: 6, ancient: false,
     defaultGrade: 'Legend', level: 12, mainStatId: 4, mainValue: 0,
@@ -305,8 +305,8 @@ function verifySurplusKeepsPaying() {
  * which was the star tables talking rather than a judgement of the rune.
  */
 function verifyEachStarClassIsItsOwnScale() {
-  const fastDd = preset('fast-dd');
-  const build = presetBuilds(fastDd).find((candidate) => candidate.mains[2] === 4);
+  const fastDd = role('fast-dd');
+  const build = roleBuilds(fastDd).find((candidate) => candidate.mains[2] === 4);
   const make = (stars, level) => ({
     id: `stars-${stars}`, setId: 13, setName: 'Violent', slot: 2, stars, ancient: false,
     defaultGrade: 'Legend', level, mainStatId: 4, mainValue: 0,
@@ -353,8 +353,8 @@ function verifyEachStarClassIsItsOwnScale() {
 /** Credited Grindstones lift a rune and the perfect rune together, so no rune can
     read past 100 % merely because the settings promised it a stone. */
 function verifyCraftCreditMovesBothEnds() {
-  const fastDd = preset('fast-dd');
-  const build = presetBuilds(fastDd).find((candidate) => candidate.mains[2] === 4);
+  const fastDd = role('fast-dd');
+  const build = roleBuilds(fastDd).find((candidate) => candidate.mains[2] === 4);
   const rune = {
     id: 'craft', setId: 13, setName: 'Violent', slot: 2, stars: 6, ancient: false,
     defaultGrade: 'Legend', level: 12, mainStatId: 4, mainValue: 0,

@@ -10,7 +10,7 @@ import type { Relic } from './relics';
 import { runeSlotKeys } from './monster-defaults';
 import type { RuneSlotKey } from './monster-defaults';
 import { relicProperty, relicPropertyLabel } from './relic-properties';
-import { presetTargetColumns } from './rune-potential-presets';
+import { roleTargetColumns } from './rune-roles';
 import { runeSlotMainByEffect } from './rune-slot-mains';
 import { runeStatNames } from './runes';
 import { activeRuneSets } from './rune-sets';
@@ -32,7 +32,7 @@ import { brokenRuneBuildPart, runeBuild, runeBuildName } from './rune-set-pairs'
  * anything.
  *
  * Nothing here scores or ranks. A shortfall is a statement of fact — this is
- * wanted, that is equipped — and the overlay shows the gap rather than grading
+ * wanted, that is engraved — and the overlay shows the gap rather than grading
  * it.
  */
 
@@ -55,7 +55,7 @@ export type Shortfall = {
   wanted: string;
   /**
    * What is there instead. `undefined` means the slot is empty, which is a
-   * different failure from the wrong thing being equipped and reads differently.
+   * different failure from the wrong thing being engraved and reads differently.
    */
   present?: string;
   /** For a stat: what was asked for and what is there. */
@@ -71,10 +71,10 @@ export type Shortfall = {
 
 /* The eleven figures a target may name, in the words the user reads them in.
    `monsterTargetFigures` answers all eleven from one stat sheet, so the two
-   vocabularies — a preset's `criRate` against a stat sheet's `criticalRate` —
+   vocabularies — a role's `criRate` against a stat sheet's `criticalRate` —
    are reconciled there rather than by a second mapping here. */
 const statLabels: Partial<Record<keyof MonsterStatTargets, string>> = Object.fromEntries(
-  presetTargetColumns.map((column) => [column.key, `${column.label}${column.unit ?? ''}`]),
+  roleTargetColumns.map((column) => [column.key, `${column.label}${column.unit ?? ''}`]),
 );
 
 const runeSlotNumbers: Record<RuneSlotKey, number> = { slot2: 2, slot4: 4, slot6: 6 };
@@ -83,7 +83,7 @@ const categoryLabels: Record<ArtifactCategory, string> = { attribute: 'Attribute
 
 /* Named from the vocabulary rather than from what happens to be engraved: a
    unique that is wanted and absent is exactly the case being reported, so
-   looking it up among the worn relics would print `Property 14` for the one
+   looking it up among the engraved relics would print `Property 14` for the one
    name the reader most needs. */
 function relicUniqueName(id: number): string {
   const definition = relicProperty(id);
@@ -101,10 +101,10 @@ function runeShortfalls(monster: GameRecord, resolved: ResolvedMonsterPreference
   const completed = new Set(active.map((set) => set.name));
   const wantedBuilds = resolved.runes.sets;
   /* One shortfall for the whole group rather than one per build. A monster
-     wears one build at a time, so a list of four is a list of alternatives, and
+     carries one build at a time, so a list of four is a list of alternatives, and
      reporting each as a failure would read as four problems where there is
      one. A build leaves its unnamed slots free, and whether those may be broken
-     is the copy's own answer — so `Violent` worn as `Violent/Broken` meets it only
+     is the copy's own answer — so `Violent` engraved as `Violent/Broken` meets it only
      where broken sets are allowed. Where no build is named nothing is checked:
      the switch qualifies a wish, and without one there is no wish to fall short of. */
   const broken = completed.has(brokenRuneBuildPart) && !resolved.runes.allowBroken;
@@ -128,12 +128,12 @@ function runeShortfalls(monster: GameRecord, resolved: ResolvedMonsterPreference
     const wanted = resolved.runes.slots[key];
     if (wanted.chosen.length === 0) continue;
     const slot = runeSlotNumbers[key];
-    const worn = runes.find((rune) => {
+    const engraved = runes.find((rune) => {
       const record = rune as GameRecord | null;
       return typeof record?.slot_no === 'number' && record.slot_no === slot;
     }) as GameRecord | undefined;
-    const mainId = typeof worn?.pri_eff === 'object' && Array.isArray(worn.pri_eff)
-      ? Number(worn.pri_eff[0]) : null;
+    const mainId = typeof engraved?.pri_eff === 'object' && Array.isArray(engraved.pri_eff)
+      ? Number(engraved.pri_eff[0]) : null;
     const present = mainId === null || !Number.isFinite(mainId) ? undefined : runeSlotMainByEffect(mainId);
     if (present !== undefined && wanted.chosen.some((stat) => stat === present)) continue;
     shortfalls.push({
@@ -153,14 +153,14 @@ function runeShortfalls(monster: GameRecord, resolved: ResolvedMonsterPreference
 
 function artifactShortfalls(
   resolved: ResolvedMonsterPreferences,
-  worn: Partial<Record<ArtifactCategory, Artifact>>,
+  engraved: Partial<Record<ArtifactCategory, Artifact>>,
 ): Shortfall[] {
   const shortfalls: Shortfall[] = [];
 
   for (const category of ['attribute', 'type'] as const) {
     const wishes = resolved.artifacts[category];
     if (!wishes.judged) continue;
-    const artifact = worn[category];
+    const artifact = engraved[category];
     const where = categoryLabels[category];
 
     const mains = resolvedOptions(wishes.main);
@@ -199,14 +199,14 @@ function artifactShortfalls(
   return shortfalls;
 }
 
-function relicShortfalls(resolved: ResolvedMonsterPreferences, worn: readonly Relic[]): Shortfall[] {
+function relicShortfalls(resolved: ResolvedMonsterPreferences, engraved: readonly Relic[]): Shortfall[] {
   const shortfalls: Shortfall[] = [];
   const wishes = resolved.relics;
   if (!wishes.judged) return shortfalls;
 
   const mains = resolvedOptions(wishes.main);
   const uniques = resolvedOptions(wishes.unique);
-  if (worn.length === 0) {
+  if (engraved.length === 0) {
     shortfalls.push({
       kind: 'relic-missing',
       source: wishes.main.source,
@@ -215,26 +215,26 @@ function relicShortfalls(resolved: ResolvedMonsterPreferences, worn: readonly Re
     return shortfalls;
   }
 
-  /* A monster wears several relics at once and any of them can answer the wish,
+  /* A monster has several relics engraved at once and any of them can answer the wish,
      so the question is whether *none* does — not whether each one does. As with
      an artifact's main, an acceptable answer answers it. */
-  if (mains.length > 0 && !worn.some((relic) => mains.includes(relic.mainProperty))) {
+  if (mains.length > 0 && !engraved.some((relic) => mains.includes(relic.mainProperty))) {
     shortfalls.push({
       kind: 'relic-main',
       source: wishes.main.source,
       wanted: mains.join(' or '),
-      present: [...new Set(worn.map((relic) => relic.mainProperty))].join(', '),
+      present: [...new Set(engraved.map((relic) => relic.mainProperty))].join(', '),
     });
   }
 
   if (uniques.length > 0) {
-    const engraved = new Set(worn.map((relic) => relic.unique.definition.id));
-    if (!uniques.some((id) => engraved.has(id))) {
+    const engravedUniques = new Set(engraved.map((relic) => relic.unique.definition.id));
+    if (!uniques.some((id) => engravedUniques.has(id))) {
       shortfalls.push({
         kind: 'relic-unique',
         source: wishes.unique.source,
         wanted: uniques.map(relicUniqueName).join(' or '),
-        present: [...new Set(worn.map((relic) => relicPropertyLabel(relic.unique.definition)))].join(', '),
+        present: [...new Set(engraved.map((relic) => relicPropertyLabel(relic.unique.definition)))].join(', '),
       });
     }
   }

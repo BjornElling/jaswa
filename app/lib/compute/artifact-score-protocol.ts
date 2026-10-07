@@ -12,7 +12,7 @@ export type ArtifactComputeBackend = ComputeBackend;
 export const intangibleRestrictionCode = 0;
 
 /**
- * The equip rule (`ARTIFACT-CANONICAL.md` §1), on the class codes the protocol
+ * The engrave rule (`ARTIFACT-CANONICAL.md` §1), on the class codes the protocol
  * carries: an attribute artifact goes on a monster of its element, a type
  * artifact on a monster of its archetype, and an Intangible on any monster its
  * category allows.
@@ -24,9 +24,9 @@ export const intangibleRestrictionCode = 0;
  *
  * Declared here, next to the code it tests, because it is a rule two different
  * readers have to reach. The packed scorer applies it to rank; the artifact
- * library applies it before putting a number beside a wearer. It lived only in
+ * library applies it before putting a number beside the monster it is engraved on. It lived only in
  * the scorer, and the library scored every pair it was handed — so an artifact
- * the equip rule forbids read as a number on one page and "not judged" on the
+ * the engrave rule forbids read as a number on one page and "not judged" on the
  * other.
  */
 export function artifactFitsClassCodes(
@@ -107,14 +107,14 @@ export type ArtifactScoreRequest = {
    */
   ownedConversionPropertyIndexes: readonly number[];
   /**
-   * The stones usable on one equip class, keyed by that class's code — a stone
+   * The stones usable on one engrave class, keyed by that class's code — a stone
    * is engraved for one class and converts nothing else
    * (`ARTIFACT-CANONICAL.md` §15.12). `intangibleRestrictionCode` holds the
    * union, because an Intangible artifact names no class and every stone of the
    * category applies to it.
    */
   ownedConversionPropertyIndexesByClass: Readonly<Record<number, readonly number[]>>;
-  /** When supplied, report the score on this artifact's actual wearer as well as the category maximum. */
+  /** When supplied, report the score on the monster this artifact is engraved on as well as the category maximum. */
   targetMonsterIdByArtifact?: Readonly<Record<string, string>>;
   /** Return every eligible artifact-to-monster score for a focused comparison. */
   includeAllScores?: boolean;

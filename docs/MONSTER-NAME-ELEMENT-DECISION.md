@@ -45,7 +45,7 @@ reproduce at every size a name appears in. Without the qualifier the two records
 are the same string.
 
 **Element is also load-bearing, not cosmetic.** An Attribute artifact may only be
-equipped to a monster of a matching element (`ARTIFACT-CANONICAL.md` §2), so a
+engraved to a monster of a matching element (`ARTIFACT-CANONICAL.md` §2), so a
 user reading a recommendation for `DHALSIM` cannot act on it without knowing
 which DHALSIM. Hiding the element hides the reason a recommendation applies.
 

@@ -14,11 +14,11 @@ import { monsterPresentation } from '../lib/monster-catalog';
 import { runeAdviceChannel } from '../lib/compute/rune-advice-client';
 import { rememberedRuneAdvice, rememberRuneAdvice } from '../lib/compute/rune-advice-memory';
 import { runeCraftSteps } from '../lib/rune-cleanup-advice';
-import type { PresetReading, RuneAdvice, RuneCraftStep } from '../lib/rune-cleanup-advice';
+import type { RoleReading, RuneAdvice, RuneCraftStep } from '../lib/rune-cleanup-advice';
 import type { MatchRank } from '../lib/rune-cleanup-model';
 import { canLockRune } from '../lib/rune-holds';
 import type { RuneHold } from '../lib/rune-holds';
-import type { RunePotentialPreset } from '../lib/rune-potential-presets';
+import type { RuneRole } from '../lib/rune-roles';
 import { lastSubPropertyLevel } from '../lib/rune-properties';
 import { referenceLines } from '../lib/rune-reference-stats';
 import { runeLineFigure, runeLineStat, runeLineValue, runeStatName } from '../lib/runes';
@@ -33,7 +33,7 @@ import type { GeneralSettings, RunePotentialSettings } from '../lib/types';
  * That last column is not a projection of the overlay's own. It is Rune
  * Clean-up's verdict for this one rune, asked of the same engine with the same
  * settings, and it prints the line-up that verdict counted (`craftedLines`). A
- * rune's advice depends on nothing but itself, the presets and the reference
+ * rune's advice depends on nothing but itself, the roles and the reference
  * monsters, so asking about one rune gives the answer the table gives.
  */
 
@@ -41,9 +41,9 @@ import type { GeneralSettings, RunePotentialSettings } from '../lib/types';
     four, so a rune with two does not make a shorter panel than one with four. */
 const subPropertySlots = 4;
 
-/** Who wears the rune, as a way into that monster's own overlay. A wearer this
+/** The monster the rune is engraved on, as a way into its own overlay. One this
     import does not contain is named as such and opens nothing. */
-function wearer(rune: Rune, game: GameRecord | undefined): {
+function engravedOn(rune: Rune, game: GameRecord | undefined): {
   target: MonsterReference | null; name: string; imageFilename?: string; initial: string;
 } | null {
   if (rune.occupiedId === null) return null;
@@ -67,15 +67,15 @@ function wearer(rune: Rune, game: GameRecord | undefined): {
 type MaxCraft =
   | { state: 'pending' }
   | { state: 'unavailable'; reason: string }
-  | { state: 'ready'; steps: RuneCraftStep[]; presetName: string };
+  | { state: 'ready'; steps: RuneCraftStep[]; roleName: string };
 
 function craftOf(rune: Rune, advice: RuneAdvice | undefined): MaxCraft {
-  return advice?.craftedLines && advice.preset
-    ? { state: 'ready', steps: runeCraftSteps(rune, advice.craftedLines), presetName: advice.preset.name }
-    : { state: 'unavailable', reason: 'No preset can use this rune' };
+  return advice?.craftedLines && advice.role
+    ? { state: 'ready', steps: runeCraftSteps(rune, advice.craftedLines), roleName: advice.role.name }
+    : { state: 'unavailable', reason: 'No role can use this rune' };
 }
 
-/** Rune Clean-up's verdict on this rune with every preset's reading beside it. */
+/** Rune Clean-up's verdict on this rune with every role's reading beside it. */
 type Explained =
   | { state: 'pending' }
   | { state: 'unavailable'; reason: string }
@@ -90,41 +90,41 @@ const overlayChannel = runeAdviceChannel();
  * when they were calculated with these very inputs, and otherwise asked of the
  * worker, off the main thread, where the one-rune calculation takes about a second.
  *
- * The table's answers carry no per-preset readings — it asks about every rune at
+ * The table's answers carry no per-role readings — it asks about every rune at
  * once and would pay for nine expectations it never shows — so an answer from there
  * still paints the craft column at once while the explained one is asked for.
  */
 function useRuneAdvice(rune: Rune, game: GameRecord | undefined, settings: RunePotentialSettings,
-  presets: readonly RunePotentialPreset[], hardwareAcceleration: boolean,
+  roles: readonly RuneRole[], hardwareAcceleration: boolean,
 ): { known: RuneAdvice | undefined; explained: Explained } {
   const base = useMemo(() => {
     const lines = referenceLines(game);
     return lines === null ? null : new Map([...lines].map(([type, line]) => [type, line.stats]));
   }, [game]);
   const blocked = game === undefined || base === null ? 'Needs a level 40 monster in the import'
-    : presets.length === 0 ? 'Needs a Rune Clean-up preset' : null;
+    : roles.length === 0 ? 'Needs a Rune Clean-up role' : null;
   const known = useMemo(
-    () => (game === undefined ? undefined : rememberedRuneAdvice({ data: game, settings, presets }, rune)),
-    [game, settings, presets, rune],
+    () => (game === undefined ? undefined : rememberedRuneAdvice({ data: game, settings, roles }, rune)),
+    [game, settings, roles, rune],
   );
   const [asked, setAsked] = useState<{ rune: Rune; explained: Explained } | null>(null);
   const settled = known?.readings != null;
   useEffect(() => {
     if (blocked !== null || settled || game === undefined || base === null) return undefined;
     let current = true;
-    void overlayChannel.calculate({ runes: [rune], presets, settings, base, preferWebGpu: hardwareAcceleration, explain: true })
+    void overlayChannel.calculate({ runes: [rune], roles, settings, base, preferWebGpu: hardwareAcceleration, explain: true })
       .then((outcome) => {
         if (!current || outcome.status === 'superseded') return;
         if (outcome.status === 'failed') {
           setAsked({ rune, explained: { state: 'unavailable', reason: outcome.message } });
           return;
         }
-        rememberRuneAdvice({ data: game, settings, presets }, [rune], outcome.advice);
+        rememberRuneAdvice({ data: game, settings, roles }, [rune], outcome.advice);
         const advice = outcome.advice.get(rune.id);
-        setAsked({ rune, explained: advice ? { state: 'ready', advice } : { state: 'unavailable', reason: 'No preset can use this rune' } });
+        setAsked({ rune, explained: advice ? { state: 'ready', advice } : { state: 'unavailable', reason: 'No role can use this rune' } });
       });
     return () => { current = false; };
-  }, [rune, game, presets, settings, base, blocked, settled, hardwareAcceleration]);
+  }, [rune, game, roles, settings, base, blocked, settled, hardwareAcceleration]);
   /* Closing the overlay gives the worker back rather than finishing into a void. */
   useEffect(() => overlayChannel.cancel, []);
   if (blocked !== null) return { known: undefined, explained: { state: 'unavailable', reason: blocked } };
@@ -143,13 +143,13 @@ function maxCraftOf(known: RuneAdvice | undefined, explained: Explained, rune: R
     `74 %` beside a Sell would explain nothing. */
 const tenths = (fraction: number) => `${(fraction * 100).toFixed(1)} %`;
 
-/** How the rune's set and main answer Best preset, in the words the preset editor uses. */
+/** How the rune's set and main answer Best role, in the words the role editor uses. */
 const suitabilityLabels: Record<MatchRank, string> = { preferred: 'Preferred', acceptable: 'Accepted', broken: 'Broken' };
 
 /**
  * A preferred rune gets a tick and an accepted one a ring: two shapes rather than
  * one shape in two tones, so the difference survives a glance, and the ring is also
- * dimmed, the house's device for acceptable against preferred. A rune the preset
+ * dimmed, the house's device for acceptable against preferred. A rune the role
  * names neither way gets nothing: a blank cell is quicker to read past than a third mark.
  */
 function MatchMark({ rank }: { rank: MatchRank }) {
@@ -164,15 +164,15 @@ function MatchMark({ rank }: { rank: MatchRank }) {
 }
 
 /**
- * The presets in the order Best preset is decided in: the readings that clear both
+ * The roles in the order Best role is decided in: the readings that clear both
  * gates before those that do not, then by average worth at +15, then Max value — so
  * the starred row leads and no row above it can carry a higher average. The one
- * exception is Broken = No, where a preset that reads the rune only as broken is
- * listed by its figures but never chosen. Presets that cannot read the rune close
+ * exception is Broken = No, where a role that reads the rune only as broken is
+ * listed by its figures but never chosen. Roles that cannot read the rune close
  * the list in their own order.
  */
-function ranked(presets: readonly RunePotentialPreset[], readings: ReadonlyMap<string, PresetReading>) {
-  return [...presets].sort((left, right) => {
+function ranked(roles: readonly RuneRole[], readings: ReadonlyMap<string, RoleReading>) {
+  return [...roles].sort((left, right) => {
     const a = readings.get(left.id);
     const b = readings.get(right.id);
     if (!a || !b) return (a ? 0 : 1) - (b ? 0 : 1);
@@ -181,27 +181,27 @@ function ranked(presets: readonly RunePotentialPreset[], readings: ReadonlyMap<s
 }
 
 /**
- * **Why Best preset is the preset it is**, and what the floor asked of it.
+ * **Why Best role is the role it is**, and what the floor asked of it.
  *
- * Every preset gets a row whether or not it can read the rune, and every row is
+ * Every role gets a row whether or not it can read the rune, and every row is
  * drawn while the answer is still on its way, so the box has one height from the
  * first paint to the last. The best row is set apart by ink and a star, never by
  * weight, so marking it moves nothing (`AGENTS.md` §2).
  */
-function Evaluation({ rune, presets, explained }: {
-  rune: Rune; presets: readonly RunePotentialPreset[]; explained: Explained;
+function Evaluation({ rune, roles, explained }: {
+  rune: Rune; roles: readonly RuneRole[]; explained: Explained;
 }) {
   const advice = explained.state === 'ready' ? explained.advice : undefined;
-  const readings = new Map((advice?.readings ?? []).map((reading) => [reading.presetId, reading]));
-  const chosen = advice?.preset ?? null;
+  const readings = new Map((advice?.readings ?? []).map((reading) => [reading.roleId, reading]));
+  const chosen = advice?.role ?? null;
   const placeholder = explained.state === 'pending' ? 'Calculating'
     : explained.state === 'unavailable' ? explained.reason : '—';
   /* A rune at +12 has no odds left to quote; the Rune Clean-up table prints a dash there too. */
   const oddsLeft = rune.level < lastSubPropertyLevel;
   const facts = [
-    { label: 'Best preset for this rune', value: chosen?.name ?? placeholder },
-    { label: 'Rune set and main stat desirability for this preset', value: chosen && advice ? suitabilityLabels[advice.rank] : '—' },
-    /* The floor and its cutoff are one statement, set a step apart from which preset
+    { label: 'Best role for this rune', value: chosen?.name ?? placeholder },
+    { label: 'Rune set and main stat desirability for this role', value: chosen && advice ? suitabilityLabels[advice.rank] : '—' },
+    /* The floor and its cutoff are one statement, set a step apart from which role
        it is and how well the rune suits it. */
     { label: 'Based on the Rune quality floor, the rune must be among the best', value: chosen && advice ? tenths(advice.floorShare) : '—', opensGroup: true },
     /* A floor that lets the whole box through has no cutoff to state, and says so
@@ -217,28 +217,28 @@ function Evaluation({ rune, presets, explained }: {
         <dd>{fact.value}</dd>
       </div>)}
     </dl>
-    <table className="rune-overlay-readings" aria-label="Every preset's reading">
+    <table className="rune-overlay-readings" aria-label="Every role's reading">
       <thead>
         <tr>
-          <th scope="col">Preset</th>
-          <th scope="col" title="How the rune's set and main property answer the preset: a tick where it prefers both, a ring where it only accepts one or both, nothing where it asked for neither">Match</th>
+          <th scope="col">Role</th>
+          <th scope="col" title="How the rune's set and main property answer the role: a tick where it prefers both, a ring where it only accepts one or both, nothing where it asked for neither">Match</th>
           <th scope="col">Max value</th>
           <th scope="col">Chance</th>
-          <th scope="col" title="What the rune is worth on average once levelled to +15, against a perfect rune — the figure Best preset is chosen on">Avg. at +15</th>
+          <th scope="col" title="What the rune is worth on average once levelled to +15, against a perfect rune — the figure Best role is chosen on">Avg. at +15</th>
           <th scope="col">Best</th>
         </tr>
       </thead>
       <tbody>
-        {ranked(presets, readings).map((preset) => {
-          const reading = readings.get(preset.id);
-          const best = chosen?.id === preset.id;
-          return <tr key={preset.id} data-best={best || undefined} aria-current={best ? 'true' : undefined}>
-            <th scope="row" title={preset.name}>{preset.name}</th>
+        {ranked(roles, readings).map((role) => {
+          const reading = readings.get(role.id);
+          const best = chosen?.id === role.id;
+          return <tr key={role.id} data-best={best || undefined} aria-current={best ? 'true' : undefined}>
+            <th scope="row" title={role.name}>{role.name}</th>
             <td>{reading && <MatchMark rank={reading.rank} />}</td>
             <td>{reading ? tenths(reading.maxValue) : '—'}</td>
             <td>{reading && oddsLeft ? runeChanceText(reading.chance) : '—'}</td>
             <td>{reading ? tenths(reading.expected) : '—'}</td>
-            <td>{best && <StarIcon className="rune-overlay-best-mark" label="Best preset" />}</td>
+            <td>{best && <StarIcon className="rune-overlay-best-mark" label="Best role" />}</td>
           </tr>;
         })}
       </tbody>
@@ -301,12 +301,12 @@ function CraftCell({ gemStatId, gemRoll, grind, statId, format }: {
   </span>;
 }
 
-export function RuneOverlay({ rune, game, general, settings, presets, hardwareAcceleration, hold, onHold, onClose, onOpenMonster }: {
+export function RuneOverlay({ rune, game, general, settings, roles, hardwareAcceleration, hold, onHold, onClose, onOpenMonster }: {
   rune: Rune;
   game: GameRecord | undefined;
   general: GeneralSettings;
   settings: RunePotentialSettings;
-  presets: readonly RunePotentialPreset[];
+  roles: readonly RuneRole[];
   /** Whether the graphics card may count the odds, as for every other calculation. */
   hardwareAcceleration: boolean;
   hold: RuneHold | undefined;
@@ -315,14 +315,14 @@ export function RuneOverlay({ rune, game, general, settings, presets, hardwareAc
   onClose: () => void;
   onOpenMonster: OpenMonsterOverlay;
 }) {
-  const worn = useMemo(() => wearer(rune, game), [rune, game]);
-  const { known, explained } = useRuneAdvice(rune, game, settings, presets, hardwareAcceleration);
+  const engraved = useMemo(() => engravedOn(rune, game), [rune, game]);
+  const { known, explained } = useRuneAdvice(rune, game, settings, roles, hardwareAcceleration);
   const maxCraft = maxCraftOf(known, explained, rune);
   const figure = (value: number) => formatNumber(value, general);
   const maxHeading = maxCraft.state === 'ready'
     ? rune.level >= lastSubPropertyLevel
-      ? `The Gem and Grindstones Max value counts, for ${maxCraft.presetName}`
-      : `The Grindstones Max value counts, for ${maxCraft.presetName}. The Gem is decided at +${lastSubPropertyLevel}, when a Gem becomes legal`
+      ? `The Gem and Grindstones Max value counts, for ${maxCraft.roleName}`
+      : `The Grindstones Max value counts, for ${maxCraft.roleName}. The Gem is decided at +${lastSubPropertyLevel}, when a Gem becomes legal`
     : maxCraft.state === 'unavailable' ? maxCraft.reason : 'Calculating';
   const facts = [
     { label: 'Slot', value: String(rune.slot) },
@@ -351,9 +351,9 @@ export function RuneOverlay({ rune, game, general, settings, presets, hardwareAc
           <div className="rune-overlay-location">
             <dt>Location</dt>
             <dd>
-              {worn === null
+              {engraved === null
                 ? 'Inventory'
-                : <MonsterLink target={worn.target} name={worn.name} portrait={{ imageFilename: worn.imageFilename, initial: worn.initial }}
+                : <MonsterLink target={engraved.target} name={engraved.name} portrait={{ imageFilename: engraved.imageFilename, initial: engraved.initial }}
                   onOpen={onOpenMonster} />}
             </dd>
           </div>
@@ -414,7 +414,7 @@ export function RuneOverlay({ rune, game, general, settings, presets, hardwareAc
 
       {onHold && <Instructions rune={rune} hold={hold} onHold={(next) => onHold(rune.id, next)} />}
 
-      <Evaluation rune={rune} presets={presets} explained={explained} />
+      <Evaluation rune={rune} roles={roles} explained={explained} />
     </div>
   </Overlay>;
 }

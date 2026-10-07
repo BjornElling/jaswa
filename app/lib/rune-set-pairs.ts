@@ -1,4 +1,4 @@
-import { presetRuneSetNameList, runeSetPieceCount } from './rune-sets';
+import { roleRuneSetNameList, runeSetPieceCount } from './rune-sets';
 
 /**
  * The exact rune builds a user may ask for, as whole six-slot combinations.
@@ -35,15 +35,15 @@ import { presetRuneSetNameList, runeSetPieceCount } from './rune-sets';
  * spells them, joined by `/` with no spaces, leading set first. That string is the
  * identifier: it is what the user reads, what a preference stores, and what the
  * optimizer matches, so there is no second encoding to keep in step with the
- * first. `runeBuildName` is the one place that writes it, and a worn build goes
- * through it too — a worn build still ends in `Broken` where slots are broken,
+ * first. `runeBuildName` is the one place that writes it, and an engraved build goes
+ * through it too — an engraved build still ends in `Broken` where slots are broken,
  * because that describes runes, not a wish.
  */
 
 /** The separator between the parts of one build, in the identifier and on screen. */
 export const runeBuildSeparator = '/';
 
-/** The part that names the slots no set completes in a *worn* build. A wanted build never carries it. */
+/** The part that names the slots no set completes in an *engraved* build. A wanted build never carries it. */
 export const brokenRuneBuildPart = 'Broken';
 
 export type RuneBuild = {
@@ -58,11 +58,11 @@ export type RuneBuild = {
 };
 
 /** The six sets that take four of the six slots, alphabetically. */
-export const fourPieceRuneSets: readonly string[] = presetRuneSetNameList
+export const fourPieceRuneSets: readonly string[] = roleRuneSetNameList
   .filter((name) => runeSetPieceCount[name] === 4);
 
 /** The sixteen sets that take two slots and may stack up to three times. */
-export const twoPieceRuneSets: readonly string[] = presetRuneSetNameList
+export const twoPieceRuneSets: readonly string[] = roleRuneSetNameList
   .filter((name) => runeSetPieceCount[name] === 2);
 
 /** The most sets one build may name: three two-sets fill all six slots. */
@@ -71,9 +71,9 @@ export const runeBuildMaximumSets = 3;
 export const runeSlotCount = 6;
 
 /**
- * A worn or wanted build, written the one way builds are written. `names` are
+ * An engraved or wanted build, written the one way builds are written. `names` are
  * set names as the game spells them; the `Broken` that `activeRuneSets` ends a
- * worn build with is this module's own leftover part.
+ * engraved build with is this module's own leftover part.
  */
 export function runeBuildName(names: readonly string[]): string {
   return names.join(runeBuildSeparator);
@@ -88,7 +88,7 @@ export function runeSetSlots(sets: readonly string[]): number {
 export function makeRuneBuild(sets: readonly string[]): RuneBuild | undefined {
   const leading = sets[0];
   if (leading === undefined || sets.length > runeBuildMaximumSets) return undefined;
-  if (!sets.every((name) => presetRuneSetNameList.includes(name))) return undefined;
+  if (!sets.every((name) => roleRuneSetNameList.includes(name))) return undefined;
   /* A four-set takes four slots, so it can only lead: after it there is room
      for one two-set and nothing else. */
   if (sets.slice(1).some((name) => runeSetPieceCount[name] !== 2)) return undefined;
@@ -116,7 +116,7 @@ export function runeBuild(id: string): RuneBuild | undefined {
   return build?.id === id ? build : undefined;
 }
 
-/** Whether a stored identifier names a build the game can actually equip. */
+/** Whether a stored identifier names a build the game can actually engrave. */
 export function isRuneBuildId(id: string): boolean {
   return runeBuild(id) !== undefined;
 }

@@ -2,7 +2,7 @@ import type { GameRecord } from './game-data';
 import type { MonsterArchetype } from './monster-catalog';
 import {
   artifactArchetypes, artifactCategoryFromType, artifactElements, artifactGradeFromRank,
-  artifactIntangibleEquipClass, artifactMainProperties, artifactProperty,
+  artifactIntangibleEngraveClass, artifactMainProperties, artifactProperty,
   bestArtifactLineContributions,
 } from './artifact-properties';
 import type {
@@ -22,7 +22,7 @@ export type Artifact = {
   id: string;
   category: ArtifactCategory;
   /**
-   * The element or monster type it may be equipped to. `null` on an Intangible
+   * The element or monster type it may be engraved on. `null` on an Intangible
    * artifact, which names no single class because it matches every one of them
    * — read `intangible` rather than testing these for absence, and never treat
    * `null` as "unknown".
@@ -30,9 +30,9 @@ export type Artifact = {
   element: string | null;
   archetype: MonsterArchetype | null;
   /**
-   * Whether this artifact may be equipped to any element (attribute category)
+   * Whether this artifact may be engraved on any element (attribute category)
    * or any monster type (type category). The game calls it Intangible and
-   * `artifactIntangibleEquipClass` records the code and the evidence. The
+   * `artifactIntangibleEngraveClass` records the code and the evidence. The
    * category slot still binds; only the class within it is open.
    */
   intangible: boolean;
@@ -47,7 +47,7 @@ export type Artifact = {
   subProperties: ArtifactSubProperty[];
   /** The zero-based sub-property position permanently bound to conversion. */
   convertedPropertyIndex: number | null;
-  /** The wearer's `unit_id`, or `null` when the artifact sits in the inventory. */
+  /** The `unit_id` it is engraved on, or `null` when the artifact sits in the inventory. */
   occupiedId: string | null;
   /**
    * The account's acquisition sequence, which is what the game's own "Obtained"
@@ -241,25 +241,25 @@ export function readArtifact(record: unknown): Artifact | null {
     : legacyConversionLocks)[0] ?? null;
 
   const occupied = numberOrNull(source.occupied_id);
-  /* §15.1: `type` decides which of the two fields carries the equip class, and
+  /* §15.1: `type` decides which of the two fields carries the engrave class, and
      the other is always 0. Reading only the field that governs keeps a value in
      the unused field from being mistaken for this artifact's class. */
-  const equipClassCode = numberOrNull(category === 'attribute' ? source.attribute : source.unit_style);
-  const intangible = equipClassCode === artifactIntangibleEquipClass;
-  /* Parity rule (`AGENTS.md` §0.1): an equip class JASWA cannot name is a
+  const engraveClassCode = numberOrNull(category === 'attribute' ? source.attribute : source.unit_style);
+  const intangible = engraveClassCode === artifactIntangibleEngraveClass;
+  /* Parity rule (`AGENTS.md` §0.1): an engrave class JASWA cannot name is a
      reader gap, and the loud failure of a rejected record is what surfaces it.
      Accepting one would import an artifact the user owns and then hide it from
      every recommendation, because no monster could ever match it — the silent
      shortfall the parity rule exists to prevent. */
   const namedClass = category === 'attribute'
-    ? artifactElements[equipClassCode ?? -1] !== undefined
-    : artifactArchetypes[equipClassCode ?? -1] !== undefined;
+    ? artifactElements[engraveClassCode ?? -1] !== undefined
+    : artifactArchetypes[engraveClassCode ?? -1] !== undefined;
   if (!namedClass && !intangible) return null;
   return {
     id: String(id),
     category,
-    element: category === 'attribute' ? artifactElements[equipClassCode ?? -1] ?? null : null,
-    archetype: category === 'type' ? artifactArchetypes[equipClassCode ?? -1] ?? null : null,
+    element: category === 'attribute' ? artifactElements[engraveClassCode ?? -1] ?? null : null,
+    archetype: category === 'type' ? artifactArchetypes[engraveClassCode ?? -1] ?? null : null,
     intangible,
     mainProperty,
     grade,
@@ -275,8 +275,8 @@ export function readArtifact(record: unknown): Artifact | null {
 }
 
 /**
- * Every artifact on the account. `completeEquipmentCollections` has already
- * merged the equipped ones into `data.artifacts` and de-duplicated them on
+ * Every artifact on the account. `completeEngravedCollections` has already
+ * merged the engraved ones into `data.artifacts` and de-duplicated them on
  * `rid`, so this reads that one list rather than walking the roster again.
  */
 export function readArtifacts(data: GameRecord | undefined): Artifact[] {

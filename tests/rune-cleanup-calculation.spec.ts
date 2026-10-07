@@ -19,12 +19,12 @@ test('calculates and shows a verdict for every imported rune', async ({ page }, 
      label is always Processor here — but asserting that would make the check a
      statement about the test browser rather than about the page. */
   await expect(page.locator('.calculation-status'))
-    .toHaveText(/4 runes judged against [\d,]+ presets · [\d,]+ ms · (Graphics card|Processor)/);
+    .toHaveText(/4 runes judged against [\d,]+ roles · [\d,]+ ms · (Graphics card|Processor)/);
   const table = page.getByRole('table', { name: 'Rune verdicts' });
   await expect(table.locator('tbody tr')).toHaveCount(4);
   await expect(table.getByRole('img', { name: /quality$/ })).toHaveCount(4);
   await expect(page.getByRole('table', { name: 'Rune verdict columns' }).locator('thead th'))
-    .toHaveText(['Set', 'Slot', 'Lv.', 'Main', 'Innate', 'Sub properties', 'Location', 'Best preset', 'Maxvalue', 'Chance', 'Advice']);
+    .toHaveText(['Set', 'Slot', 'Lv.', 'Main', 'Innate', 'Sub properties', 'Location', 'Best role', 'Maxvalue', 'Chance', 'Advice']);
   await page.screenshot({ path: testInfo.outputPath('rune-cleanup-calculated.png') });
 });
 

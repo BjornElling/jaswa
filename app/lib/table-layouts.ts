@@ -90,9 +90,9 @@ export const monsterTableColumns: readonly TableColumn[] = [
   { key: 'index', width: '4.1284%', align: 'left' },
   { key: 'name', width: '13.7615%', align: 'left' },
   { key: 'sets', width: '7.7982%', align: 'left' },
-  /* Equipment slots read as codes rather than quantities, so they take the text
+  /* Gear slots read as codes rather than quantities, so they take the text
      side of the convention along with the rune sheet they follow: all three say
-     what the monster is *wearing*, and the gear reads as one left-aligned block
+     what the monster has *engraved*, and the gear reads as one left-aligned block
      before the run of figures begins. */
   { key: 'artifacts', width: '6.422%', align: 'left' },
   { key: 'relic', width: '4.5872%', align: 'left' },
@@ -126,7 +126,7 @@ export const storageTableColumns: readonly TableColumn[] = [
  * The artifact library, in the order Artifact Optimization reads the same
  * artifact: what it is, then where it sits and what it is worth there. Location
  * and value belong side by side because the value is read *against* that
- * wearer — and the library once led with the two, which is why it read
+ * monster — and the library once led with the two, which is why it read
  * differently from its sibling and opened a hole between a short `Inventory`
  * and the right-aligned figure after it, the slack of both columns landing in
  * one seam.
@@ -138,7 +138,7 @@ export const storageTableColumns: readonly TableColumn[] = [
  */
 export const artifactTableColumns: readonly TableColumn[] = [
   { key: 'category', width: '7.3394%', align: 'left' },
-  { key: 'equipClass', width: '7.7982%', align: 'left' },
+  { key: 'engraveClass', width: '7.7982%', align: 'left' },
   { key: 'grade', width: '7.3394%', align: 'left' },
   { key: 'mainProperty', width: '8.7156%', align: 'left' },
   { key: 'subProperties', width: '43.0092%', align: 'left' },
@@ -158,7 +158,7 @@ export const artifactTableColumns: readonly TableColumn[] = [
  * The Rune Clean-up verdict table.
  *
  * The two figures the whole page exists for — Max value and Chance — sit beside
- * each other and beside the preset they were measured against, because reading one
+ * each other and beside the role they were measured against, because reading one
  * without the other two says nothing. The sub properties take the widest column:
  * they are what the player is actually judging when they disagree with the verdict.
  *
@@ -183,7 +183,7 @@ export const runeCleanupTableColumns: readonly TableColumn[] = [
      the room they had. */
   { key: 'subs', width: '27%', align: 'left' },
   { key: 'location', width: '11%', align: 'left' },
-  { key: 'preset', width: '8%', align: 'left' },
+  { key: 'role', width: '8%', align: 'left' },
   { key: 'maxValue', width: '5%', align: 'right' },
   { key: 'chance', width: '6%', align: 'right' },
   /* A verdict and its chance share this column, and its width is reserved for the
@@ -210,7 +210,7 @@ export const runeSimulatorTableColumns: readonly TableColumn[] = [
   { key: 'main', width: '9%', align: 'left', gutter: 'left' },
   { key: 'innate', width: '12%', align: 'left' },
   { key: 'subs', width: '17%', align: 'left' },
-  { key: 'preset', width: '10%', align: 'left' },
+  { key: 'role', width: '10%', align: 'left' },
   { key: 'maxValue', width: '6%', align: 'right' },
   { key: 'chance', width: '6%', align: 'right' },
   { key: 'action', width: '11%', align: 'left', gutter: 'left' },

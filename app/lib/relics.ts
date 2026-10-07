@@ -1,5 +1,5 @@
 import type { GameRecord } from './game-data';
-import { canEquipRelics } from './monster-equipment-eligibility';
+import { canEngraveRelics } from './monster-engrave-eligibility';
 import {
   relicMainProperties, relicMaximumDurability, relicMaximumLevel, relicProperty,
 } from './relic-properties';
@@ -111,7 +111,7 @@ export function readRelic(record: unknown): Relic | null {
 }
 
 /**
- * Every relic on the account. `completeEquipmentCollections` has already merged
+ * Every relic on the account. `completeEngravedCollections` has already merged
  * the engraved copies into `data.relics` and de-duplicated them on `rid`, so
  * this reads that one list.
  */
@@ -153,20 +153,20 @@ export function relicPowerUpStoneCount(data: GameRecord | undefined): number | u
 }
 
 /**
- * How many monsters wear each relic, keyed by relic id.
+ * How many monsters each relic is engraved on, keyed by relic id.
  *
- * A relic is not equipment the way a rune is. The game engraves one relic on
+ * A relic is not gear the way a rune is. The game engraves one relic on
  * many monsters at once, so the export references the same `rid` from every
- * wearer and the relic record itself names no owner — there is no
+ * monster and the relic record itself names no owner — there is no
  * `occupied_id` to read. The count therefore comes from walking the roster,
- * and a relic nobody wears is simply absent from the map.
+ * and a relic engraved on nobody is simply absent from the map.
  */
 export function relicEngravingCounts(monsters: readonly GameRecord[]): Map<string, number> {
   const counts = new Map<string, number>();
   for (const monster of monsters) {
-    if (!canEquipRelics(monster)) continue;
+    if (!canEngraveRelics(monster)) continue;
     if (!Array.isArray(monster.relics)) continue;
-    /* One monster cannot wear the same relic twice, but the export is a file
+    /* One monster cannot have the same relic engraved twice, but the export is a file
        the user can hand over, so a repeated id counts once rather than
        inflating the reach of a relic. */
     const seen = new Set<string>();

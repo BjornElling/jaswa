@@ -3,7 +3,7 @@
 **Status:** Binding contract for the Rune Optimization page and its engine
 **Reviewed:** 4 October 2026
 
-Rune Optimization finds the rune builds one monster can wear that meet what its
+Rune Optimization finds the rune builds one monster can have engraved that meet what its
 profile asks for, and ranks them by one figure. This document says what it
 calculates, how the search is kept finite, which of its shortcuts are exact and
 which are not, and where each part of it runs.
@@ -49,7 +49,7 @@ that stage is visible on screen.
 
 ## 2. Requirements: the profile, then this calculation
 
-The monster's profile — its *preset*, in the page's own words — states the
+The monster's profile states the
 answer's shape: the builds it will accept, the mains of slots 2, 4 and 6, whether
 a rune may complete no set (no unless the owner said yes), whether an Intangible
 rune may be spent (yes unless the owner said no), whether the monster always crits
@@ -62,7 +62,7 @@ opens on exactly that, read *resolved*
 the community's answer — and says so under the field.
 
 The page's own controls may be changed for this calculation only and never write
-back to the profile; *Reset to preset* discards those changes after confirmation.
+back to the profile; *Reset to profile* discards those changes after confirmation.
 Combat crit conditions are edited on the monster overlay and read here.
 
 ### 2.1 Empty means any
@@ -81,7 +81,7 @@ two-set; on, the free slots take anything. The same switch holds where no build 
 named at all. An Intangible counts as belonging to a set only where it completes
 one.
 
-The game allows at most one Intangible Rune in a monster's six equipped runes.
+The game allows at most one Intangible Rune in a monster's six engraved runes.
 The optimizer enforces that while choosing a build, so two Intangible candidates
 can never consume two slots in one answer. A single Intangible completes a set
 only when exactly one set is one piece short. If two or more sets are one piece
@@ -146,7 +146,7 @@ A **candidate** is one rune in one end state: as it stands, or with the Gem and
 Grindstones the settings allow. A rune enters its own slot's list when:
 
 - it is **not locked to another monster** (`rune-holds.ts`). A rune locked to *this*
-  monster is the slot's only candidate, exactly as worn: no filter removes it and
+  monster is the slot's only candidate, exactly as engraved: no filter removes it and
   no craft item is counted on it.
 - it sits in the inventory, on this monster, or — unless *Only use runes from
   inventory* is ticked — on another monster;
@@ -178,9 +178,9 @@ ATK/DEF 39, 53, 67, 82, 99, 118 and HP 580, 790, 1,000, 1,240, 1,530, 1,800
 for one through six stars. Ancient runes have the same main values.
 
 **Selection.** *Just fill in empty slots* preserves every occupied slot exactly as
-worn, without main projection or craft work on its rune, even where a slot's main
+engraved, without main projection or craft work on its rune, even where a slot's main
 or set is outside the requested choices. Whole-build sets and stat ranges still
-apply. A fully equipped monster therefore offers only its unchanged build.
+apply. A fully engraved monster therefore offers only its unchanged build.
 *Max … changes* limits how many of the six chosen runes must move onto the monster,
 including inventory runes that fill empty slots. Gems, Grindstones and power-ups
 are not changes in this column. The optional checkbox activates a whole-number
@@ -259,7 +259,7 @@ distinct physical dominators exist as the table has rows. Several work plans for
 one rune cannot count as several different builds. Within one physical rune,
 one dominating plan is enough: it improves the same result row. Those small
 families are reduced before the wider cross-rune comparison. A dominator that
-requires an extra move cannot remove a worn rune, because surplus in a target
+requires an extra move cannot remove an engraved rune, because surplus in a target
 stat need not improve the ranking figure. Identical candidates break the tie
 towards the rune already on the monster.
 
@@ -358,7 +358,7 @@ Measurements and their limits are in
 
 A candidate's independent worth is its **first-order contribution** to the ranking
 figure, measured against the admitted candidate pool. Each physical rune gets one
-vote in that reference, however many Gem alternatives it has. **The currently worn
+vote in that reference, however many Gem alternatives it has. **The currently engraved
 build never prices candidates.** It supplies the `Now` row; ownership and locks
 still decide admission and move counts.
 
@@ -375,7 +375,7 @@ because a high-ranked
 rune can be a bad complement when the other five runes already approach the upper
 limit. Every ceiling still participates in exact range checks, dominance and the
 finished-build judgement; only the bounded heuristic lane chooses the tightest few.
-It also treats the eight direct-stat floors as a temporary Clean-up preset: `substatWeights` and
+It also treats the eight direct-stat floors as a temporary Clean-up role: `substatWeights` and
 `weightedValuation` price their selection pressure in max-roll equivalents. The
 reference is this copy's base, its actual artifact contribution and the admitted
 pool's most common main per slot. This extra lane rewards the targets that ask most
@@ -498,7 +498,7 @@ still a bound, only a looser one.
 **Set bonuses are bounded per plan.** Assuming every set bonus at once — Fatal, Rage
 and triple Blade together — made the bound useless on an unconstrained search. The
 free slots hold only so many pieces, so the bound is taken for each way the free
-slots could still complete stat sets, with a worn Intangible standing in for one
+slots could still complete stat sets, with an engraved Intangible standing in for one
 missing piece once. Only *maximal* plans are tried — a plan that could still complete
 one more set never decides — and of those only the ones no other plan beats on every
 accumulator. Which plans those are depends only on the free slots, the Intangible
@@ -508,7 +508,7 @@ worked out once per search.
 A plan can credit only stat sets that fit beside the required sets, or that the
 build itself requires. Slots still owed to required neutral sets — and started
 neutral sets when broken sets are refused — are reserved before planning stat
-bonuses. An already worn Intangible may complete a set one piece short without
+bonuses. An already engraved Intangible may complete a set one piece short without
 using another slot. Letting that credit also reduce the reservation deliberately
 overestimates what is possible; it cannot hide an accepted build.
 
@@ -536,7 +536,7 @@ group, the block's exact set bonus — cannot reach the table is never opened.
 A set only needs a group of its own where it can change a decision: a stated build
 asks for it, its bonus lands on an accumulator the question reads, or it is
 Intangible. Every other set shares one neutral group. That stops being true the
-moment an Intangible can be worn, because which set it completes depends on which
+moment an Intangible can be engraved, because which set it completes depends on which
 sets are one short, so with one in reach every set keeps its own group — and so
 does refusing broken sets, because then a rune's set decides whether the build can
 be finished at all.
@@ -560,7 +560,7 @@ rune must also sit in a completed set (`noBrokenSets`).
 
 An open slot promises a set only if one of its actual candidates carries it. A
 suffix table counts that support once per slot; required sets and started sets
-that cannot gather enough supported pieces stop before stat bounds run. A worn
+that cannot gather enough supported pieces stop before stat bounds run. An engraved
 or reachable Intangible may contribute one optimistic wildcard. The same open
 slot and wildcard may be promised to several sets independently, deliberately:
 this can retain impossible branches, but cannot remove a valid completion. Where
@@ -598,7 +598,7 @@ An Intangible completes the one set that is exactly one rune short
 (`RUNE-CANONICAL.md` §10). **Where several are, it completes none.** This is not an
 unknown state and JASWA must not choose a set or discard the combination merely
 because the Intangible has no completion: *Allow broken sets* decides whether the
-result may still be worn. `intangibleCompletion` in `monster-stats.ts` states this
+result may still be engraved. `intangibleCompletion` in `monster-stats.ts` states this
 once for the sheet, the build names and the search.
 
 ### 6.4 Held items
@@ -693,7 +693,7 @@ per cent too tight, and a dominance that dropped on one dominator, both fail it.
 tables on the same shortlists, checks that no build is counted twice, checks that
 time limits and stop requests preserve feasible guides, and holds the Intangible
 completion that needs no further slot. In that case, Energy, Guard and Blade are
-each one piece short with an Intangible already worn: two open slots finish all
+each one piece short with an Intangible already engraved: two open slots finish all
 three. Charging another slot for the Intangible loses the only accepted build;
 restoring that charge was checked to make the regression fail. Seeded, unseeded
 and split tables also agree on 16 crafted accounts, with 156 guides spending held
@@ -805,7 +805,7 @@ table pick for pick. It needs a running dev server and a card, and is not part o
 ## 8. The page
 
 1. **Monster** — every owned copy by its copy name in a large field with its
-   portrait, *Open preset* under it; the depth slider and table size beside it, because they
+   portrait, *Open profile* under it; the depth slider and table size beside it, because they
    are read at the moment of searching; then *Find builds* and a square stop mark.
    The line under the depth gives a rough size of the search before it runs —
    the runes the filters admit, at most the depth's number per slot and set,
@@ -816,11 +816,11 @@ table pick for pick. It needs a running dev server and a card, and is not part o
    trial, uncertainty or work warning (§5), without moving either panel.
 2. **Requirements for this calculation** — two thirds: builds, the three slot
    mains, the figure to rank by and the eleven ranges in two rows, with a caption
-   line under each that says only what differs from the preset or where an
-   unstated answer came from; *Reset to preset* under them. One third, down the
-   whole box: *Runes* (broken sets and Intangible) from the preset; *Selection*
+   line under each that says only what differs from the profile or where an
+   unstated answer came from; *Reset to profile* under them. One third, down the
+   whole box: *Runes* (broken sets and Intangible) from the profile; *Selection*
    (inventory, empty slots, priority and maximum changes); *Adjustments* (unfinished
-   mains and the +12 limit); *Gems/Grinds* (Immemorial from the preset), then Gems
+   mains and the +12 limit); *Gems/Grinds* (Immemorial from the profile), then Gems
    and Grindstones. Selection, adjustments and craft assumptions are saved
    preferences and hold for every monster.
 4. **Status** — at the foot of the monster panel, under *Find builds*, dimmed:
@@ -839,7 +839,7 @@ table pick for pick. It needs a running dev server and a card, and is not part o
    *Engrave on monster* moves the six physical runes into the selected monster in
    the saved import. Its former runes return to inventory; a rune borrowed from
    another monster leaves that monster. The account rune list and each monster's
-   equipment are updated together, with no separate plan or undo state. Gems,
+   gear are updated together, with no separate plan or undo state. Gems,
    Grindstones and future power-ups remain modifications to perform in the game.
    The action is unavailable under *Always synchronized*, where the next helper
    update would replace the local placement. *Read on game start* and *Load a
@@ -867,7 +867,7 @@ table pick for pick. It needs a running dev server and a card, and is not part o
 
    Some changes alter the work rather than block it. A rune that took a Gem on
    another line cannot take the planned one (a rune holds one converted line), so
-   that Gem is dropped. A rune newly locked to this monster is used as worn, as the
+   that Gem is dropped. A rune newly locked to this monster is used as engraved, as the
    search uses a locked rune, so the work still planned on it is dropped. Where the
    figures fall below a target or above a ceiling, the overlay's *Targets* and the
    row's mark say which, and the row is dimmed.
@@ -897,7 +897,7 @@ keeps the previous result table.
 ## 9. Open questions, recorded rather than guessed
 
 - **Team sets on the stat sheet.** `rune-properties.ts` lists Fight, Determination,
-  Enhance, Accuracy and Tolerance as including the wearer; the stat sheet has never
+  Enhance, Accuracy and Tolerance as including the monster they are engraved on; the stat sheet has never
   counted them and was matched against SWOP Pro without them. An in-game capture
   should settle whether the game's own stat panel shows them.
 - **Relic unique properties.** A relic's main HP, ATK or DEF percentage is counted

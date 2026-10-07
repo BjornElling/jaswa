@@ -79,7 +79,7 @@ import type { Valuation } from './rune-substat-weights';
  * sampling spread can flip rows.
  *
  * Measured on 1,500 synthetic runes at the fullest craft settings, against the eight
- * shipped presets: 1,024 runs retained 67 Keep and 170 Power up, 4,096 retained 67 and
+ * shipped roles: 1,024 runs retained 67 Keep and 170 Power up, 4,096 retained 67 and
  * 169, 16,384 retained 67 and 169, and 65,536 retained 67 and 169. Per slot the counts
  * move by at most one rune anywhere above 1,024. Sixteen times the work buys nothing a
  * player could see, so the second, finer round this once had was removed rather than
@@ -142,8 +142,8 @@ function drawBelow(seed: number, counter: number, bound: number): number {
  * **A stone is not one of those fields.** It prices an end state and never decides
  * which improvement lands where, so it cannot change what the rune may become. Taking
  * it in gave a rune ground to exactly the credited stone a different stream from the
- * same rune bare, and once the Gem's expectation began choosing Best preset from that
- * stream, the grind moved the preset and the Max value with it — against the one
+ * same rune bare, and once the Gem's expectation began choosing Best role from that
+ * stream, the grind moved the role and the Max value with it — against the one
  * standard of `RUNE-CLEANUP-MATH.md` §9.2 that a stone the credit already counts
  * changes nothing.
  */
@@ -175,7 +175,7 @@ type Interval = { minimum: number; maximum: number };
 /**
  * Everything about what a rune may still become, worked out once per rune.
  *
- * It reads nothing about the role, so one of these serves every preset the rune is
+ * It reads nothing about the role, so one of these serves every role the rune is
  * judged against — which is also why the sample runs can be shared.
  */
 export type RuneFuture = {
@@ -245,7 +245,7 @@ export function runeFuture(rune: Rune): RuneFuture {
  * What the role pays, and what its craft items can do — one rune against one build.
  *
  * It is separate from `RuneFuture` because the future is a fact about the rune and
- * this is a fact about the role, and every preset asks the same rune the same
+ * this is a fact about the role, and every role asks the same rune the same
  * question with a different one of these.
  */
 export type EndStateScoring = {
@@ -398,7 +398,7 @@ export function leastEndState(future: RuneFuture, scoring: EndStateScoring): num
  * state at `+15`, because the last three levels improve only the main property.
  *
  * Only the *lines* are recorded, not what they are worth: what the game does to a
- * rune is a fact about the rune, so one set of runs answers every preset that asks
+ * rune is a fact about the rune, so one set of runs answers every role that asks
  * about it, and the role's price list is applied afterwards. The stones are applied
  * afterwards too, so the same runs serve every craft credit.
  *
@@ -610,7 +610,7 @@ export function chanceStep(future: RuneFuture, scoring: EndStateScoring, wanted:
 
 /** The processor's answer to a batch of jobs, and the reference every other one
  *  is held to. Jobs are gathered by rune first, so a rune is played forward once
- *  however many presets are asking about it. */
+ *  however many roles are asking about it. */
 export function countJobs(jobs: readonly CountingJob[]): Float64Array {
   const shares = new Float64Array(jobs.length);
   const byRune = new Map<RuneFuture, number[]>();

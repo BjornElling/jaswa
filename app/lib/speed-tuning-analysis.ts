@@ -451,7 +451,7 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
   totemPercent: number;
   /**
    * What-if display speeds, by unit id. Only the team's overlay passes them;
-   * the team stores them, but every other reader judges the runes worn and
+   * the team stores them, but every other reader judges the runes engraved and
    * leaves this out, so a what-if never reaches a figure outside the overlay.
    */
   whatIfs?: ReadonlyMap<string, number>;

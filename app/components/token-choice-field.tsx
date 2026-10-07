@@ -139,7 +139,7 @@ export function TokenChoiceField<T extends string | number>({
      ticked, so the line reads the same whichever way round the two were chosen
      and a pill does not jump position when its neighbour is removed. */
   const picked = options.filter((option) => chosen.includes(option.value));
-  /* A value the vocabulary no longer covers — a preset renamed since the filter
+  /* A value the vocabulary no longer covers — a role renamed since the filter
      was stored — still shows, so the user can see what is narrowing the table
      and take it off. Silently dropping it would leave rows missing with nothing
      on screen saying why. */

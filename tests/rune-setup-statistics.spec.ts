@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 const account = fileURLToPath(new URL('./fixtures/craft-account.json', import.meta.url));
 
-/* One statistics calculation — 900 synthetic runes against every shipped preset —
+/* One statistics calculation — 900 synthetic runes against every shipped role —
    measured about 10 s in a browser on its own, and twice that with the whole suite's
    browsers sharing the processor. The config's 15 s wait is for a page to arrive, not
    for this, so each wait on a finished calculation says how long it may take. */

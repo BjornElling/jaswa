@@ -131,15 +131,15 @@ test('engraving a build moves its runes into the saved account and survives relo
       read.onsuccess = () => { resolve(read.result.data); db.close(); };
     };
   }));
-  const worn = stored.runes.filter((rune) => rune.occupied_type === 1 && rune.occupied_id === 11);
-  expect(worn).toHaveLength(6);
+  const onMonster = stored.runes.filter((rune) => rune.occupied_type === 1 && rune.occupied_id === 11);
+  expect(onMonster).toHaveLength(6);
   const original = JSON.parse(readFileSync(account, 'utf8')) as { unit_list: Array<{ runes: Array<{ rune_id: number; occupied_id: number }> }> };
-  const oldWorn = original.unit_list.flatMap((unit) => unit.runes);
-  expect(worn.some((rune) => oldWorn.some((old) => old.rune_id === rune.rune_id && old.occupied_id === 12))).toBe(true);
-  expect(stored.runes.some((rune) => rune.occupied_type === 2 && oldWorn.some((old) =>
+  const imported = original.unit_list.flatMap((unit) => unit.runes);
+  expect(onMonster.some((rune) => imported.some((old) => old.rune_id === rune.rune_id && old.occupied_id === 12))).toBe(true);
+  expect(stored.runes.some((rune) => rune.occupied_type === 2 && imported.some((old) =>
     old.rune_id === rune.rune_id && old.occupied_id === 11))).toBe(true);
   expect(stored.unit_list.find((unit) => unit.unit_id === 11)?.runes.map((rune) => rune.rune_id).sort())
-    .toEqual(worn.map((rune) => rune.rune_id).sort());
+    .toEqual(onMonster.map((rune) => rune.rune_id).sort());
   for (const unit of stored.unit_list) expect(unit.runes.map((rune) => rune.rune_id).sort())
     .toEqual(stored.runes.filter((rune) => rune.occupied_type === 1 && rune.occupied_id === unit.unit_id)
       .map((rune) => rune.rune_id).sort());
@@ -193,7 +193,7 @@ test('finds builds from the profile, keeps the profile untouched, and moves noth
   const requirements = page.getByRole('region', { name: 'Requirements for this calculation' });
   await expect(requirements).toBeVisible();
   /* This copy has no profile, so the builds are open and the figures are its own. */
-  await expect(requirements.getByText('The preset names no build, so any will do')).toBeVisible();
+  await expect(requirements.getByText('The profile names no build, so any will do')).toBeVisible();
 
   /* Intangible runes and Immemorial items are allowed until the owner says not. */
   await expect(requirements.getByLabel('Allow Intangible runes')).toBeChecked();
@@ -473,7 +473,7 @@ test('a monster that always crits is counted at a certain crit and shows its own
   const targets = page.getByRole('group', { name: 'Stats', exact: true });
   const before = await targets.innerText();
 
-  await page.getByRole('button', { name: 'Open preset' }).click();
+  await page.getByRole('button', { name: 'Open profile' }).click();
   const profile = page.getByRole('dialog').filter({ has: page.getByLabel('Always crits') });
   const toggle = profile.getByLabel('Always crits');
   await expect(toggle).not.toBeChecked();
@@ -517,7 +517,7 @@ test('a CRI Rate range counts the crit lead, and the table shows each build\'s o
   const before = await box(rate);
   const shown = await rate.locator('.overlay-stat-current').innerText();
   await page.screenshot({ path: testInfo.outputPath('raw-crit-range-empty.png') });
-  await page.getByRole('button', { name: 'Open preset' }).click();
+  await page.getByRole('button', { name: 'Open profile' }).click();
   const profile = page.getByRole('dialog').filter({ has: page.getByRole('spinbutton', { name: 'Crit lead, in percent' }) });
   await profile.getByRole('spinbutton', { name: 'Crit lead, in percent' }).fill('33');
   await profile.getByRole('button', { name: 'Save changes' }).click();
@@ -562,21 +562,21 @@ test('the page wears the house panels, and its controls say what they do', async
   await expect(page.getByText('rune-optimization-account.json').first()).toBeVisible();
   await openOptimization(page);
 
-  /* Nothing chosen: the preset cannot be opened and there is nothing to find, but
+  /* Nothing chosen: the profile cannot be opened and there is nothing to find, but
      every control is already in its place. */
-  const openPreset = page.getByRole('button', { name: 'Open preset' });
+  const openProfile = page.getByRole('button', { name: 'Open profile' });
   const find = page.getByRole('button', { name: 'Find builds' });
   const stop = page.getByRole('button', { name: 'Stop the search' });
-  await expect(openPreset).toBeDisabled();
+  await expect(openProfile).toBeDisabled();
   await expect(find).toBeDisabled();
   await expect(stop).toBeDisabled();
-  const before = { preset: await box(openPreset), find: await box(find), stop: await box(stop) };
+  const before = { profile: await box(openProfile), find: await box(find), stop: await box(stop) };
   await page.screenshot({ path: testInfo.outputPath('optimization-layout-empty.png'), fullPage: true });
 
   await page.getByLabel('Monster', { exact: true }).selectOption('11');
-  await expect(openPreset).toBeEnabled();
+  await expect(openProfile).toBeEnabled();
   /* Choosing a monster moves none of them (`AGENTS.md` §2). */
-  expect({ preset: await box(openPreset), find: await box(find), stop: await box(stop) }).toEqual(before);
+  expect({ profile: await box(openProfile), find: await box(find), stop: await box(stop) }).toEqual(before);
 
   /* The raised ground of every other workspace, not the sunk ground of a filter strip. */
   const ground = (selector: string) => page.locator(selector).first().evaluate((element) => getComputedStyle(element).backgroundColor);
@@ -597,9 +597,9 @@ test('the page wears the house panels, and its controls say what they do', async
   expect(stopBox.width).toBe(stopBox.height);
   expect(stopBox.width).toBeLessThan(before.find.width);
   expect(await stop.locator('svg').evaluate((svg) => svg.getBoundingClientRect().width)).toBeGreaterThan(0);
-  /* Open preset sits under the monster, not beside it. */
+  /* Open profile sits under the monster, not beside it. */
   const select = await box(page.getByLabel('Monster', { exact: true }));
-  expect(before.preset.y).toBeGreaterThan(select.y + select.height - 1);
+  expect(before.profile.y).toBeGreaterThan(select.y + select.height - 1);
   await expect(page.locator('.rune-optimization-monster-select .monster-portrait')).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('optimization-layout-chosen.png'), fullPage: true });
 });
@@ -706,14 +706,14 @@ test('all stat ranges keep an exact speed endpoint and fixed controls', async ({
   await page.screenshot({ path: testInfo.outputPath('intervals-results.png'), fullPage: true });
 });
 
-test('a lone four-set, a ceiling and a reset to the preset', async ({ page }, testInfo) => {
+test('a lone four-set, a ceiling and a reset to the profile', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await freshWorkspace(page);
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
   await expect(page.getByText('rune-optimization-account.json').first()).toBeVisible();
   await openOptimization(page);
   await page.getByLabel('Monster', { exact: true }).selectOption('11');
-  const reset = page.getByRole('button', { name: 'Reset to preset' });
+  const reset = page.getByRole('button', { name: 'Reset to profile' });
   await expect(reset).toBeDisabled();
 
   /* `Violent` alone: four Violent runes and, with broken sets refused, a whole
@@ -763,15 +763,15 @@ test('a lone four-set, a ceiling and a reset to the preset', async ({ page }, te
   await page.getByLabel('Spd: at least').fill('');
   for (let at = 0; at < count; at += 1) await expect(rows.nth(at)).not.toHaveAttribute('data-stale', 'true');
 
-  /* Resetting asks first, keeps everything on the safe answer, and only then puts the preset back. */
+  /* Resetting asks first, keeps everything on the safe answer, and only then puts the profile back. */
   await expect(reset).toBeEnabled();
   await reset.click();
-  const confirm = page.getByRole('dialog', { name: 'Put back what the preset says?' });
+  const confirm = page.getByRole('dialog', { name: 'Put back what the profile says?' });
   await expect(confirm.getByRole('button', { name: 'Keep my changes' })).toBeFocused();
   await confirm.getByRole('button', { name: 'Keep my changes' }).click();
   await expect(page.getByLabel('Spd: at most')).toHaveValue('170');
   await reset.click();
-  await confirm.getByRole('button', { name: 'Reset to preset' }).click();
+  await confirm.getByRole('button', { name: 'Reset to profile' }).click();
   await expect(confirm).toBeHidden();
   await expect(page.getByLabel('Spd: at most')).toHaveValue('');
   await expect(page.getByRole('button', { name: /^Desired rune builds/ })).toHaveAttribute('aria-label', 'Desired rune builds: Any build');

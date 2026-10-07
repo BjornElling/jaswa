@@ -32,12 +32,12 @@ try {
   /* An attribute stone: category 101, Water (010), archetype 0 with grade 5,
      property 301 (Damage Dealt on Water). */
   assert.deepEqual(readEngravedConversionStone({ master_id: 101010005301, quantity: 2 }), {
-    category: 'attribute', equipClassCode: 1, grade: 'Legend', propertyId: 301, quantity: 2,
+    category: 'attribute', engraveClassCode: 1, grade: 'Legend', propertyId: 301, quantity: 2,
   });
   /* A type stone: category 102, no element, archetype 1 (Attack) with grade 3,
      property 407 ([Skill 1] Accuracy). */
   assert.deepEqual(readEngravedConversionStone({ master_id: 102000103407, quantity: 1 }), {
-    category: 'type', equipClassCode: 1, grade: 'Rare', propertyId: 407, quantity: 1,
+    category: 'type', engraveClassCode: 1, grade: 'Rare', propertyId: 407, quantity: 1,
   });
 
   /* A legacy property has no known range (§12), so a conversion to it cannot be

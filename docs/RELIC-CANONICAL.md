@@ -43,7 +43,7 @@ verdict: keep, power up, or sell.
 ## 2. What the export carries
 
 One record per relic in `relics`, and the same records again beneath every
-monster that wears one. `completeEquipmentCollections` merges and de-duplicates
+monster it is engraved on. `completeEngravedCollections` merges and de-duplicates
 them on `rid`, exactly as it does for artifacts.
 
 ```json
@@ -66,9 +66,9 @@ The current export records their stack as
 The Relics filter strip shows that exact quantity; when an import does not carry
 `inventory_info`, it says so rather than treating an unknown balance as zero.
 
-**There is no `occupied_id`.** A relic record names no wearer, because it has
+**There is no `occupied_id`.** A relic record names no monster, because it has
 many. Engraving counts are derived by walking the roster
-(`relicEngravingCounts`), and a relic nobody wears is simply absent from that
+(`relicEngravingCounts`), and a relic engraved on nobody is simply absent from that
 map — never `0` mistaken for "unknown".
 
 **`type` and `sec_effect[0]` state the family twice.** Every relic this account
@@ -829,7 +829,7 @@ The priorities are the main-stat model's need (`docs/MAIN-STAT-MODEL.md`), read
 through `copyMainStatNeed` — the same need that decides an artifact's main, so a
 relic and an artifact are never told different stories about one monster. It
 comes from the copy's six runes, else the species' rune statistics; it excludes the fixed flat mains of slots 1, 3 and 5.
-The copy's base B and its equipped sheet T (artifact mains included, no relic)
+The copy's base B and its engraved sheet T (artifact mains included, no relic)
 are read through `monster-stats.ts`. No second stat-sheet implementation is
 allowed.
 
@@ -846,7 +846,7 @@ grant. CRI Rate, CRI Dmg, RES and ACC are not granted by relics either.
 
 All four source bases and totals must be finite and positive. Missing stats
 produce `No recommendation` with an import instruction. A copy for which no
-source yields a need produces the same verdict with an instruction to equip six
+source yields a need produces the same verdict with an instruction to engrave six
 runes. Neither is silently excluded. A zero weight stays zero.
 
 ### 11.2 The effect calculation
@@ -931,18 +931,18 @@ restriction. Neither consults the statistics default, and none is rewritten.
 If no owned relic matches the selections, show `No recommendation` and say why.
 
 Within those choices, highest score wins. A numerical tie keeps the relic already
-worn; acquisition order settles the rest. The former 5 % replacement margin is
+engraved; acquisition order settles the rest. The former 5 % replacement margin is
 removed: any meaningful increase in the computed value may be recommended.
 The only tolerance is 1e-10 score points to absorb floating-point arithmetic.
 
-The import's **150 engraving limit** still gates new wearers. A full relic
-remains available to a monster already wearing it. Recommendations do not reserve
+The import's **150 engraving limit** still gates new engravings. A full relic
+remains available to a monster it is already engraved on. Recommendations do not reserve
 places or queue monsters: they are independent answers, not a jointly feasible
 account allocation. If every matching relic is full, show `No capacity`.
 If no relics were imported, show an import instruction instead.
 
-A blocked ideal counts the known current wearers receiving fewer points, including
-wearers whose preferences no longer accept that relic. Missing or unruned wearers
+A blocked ideal counts the known monsters it is engraved on receiving fewer points, including
+monsters whose preferences no longer accept that relic. Missing or unruned monsters
 cannot be compared and are not counted as worse. This count alone depends on the
 rest of the roster; it never changes the recommendation.
 
@@ -960,7 +960,7 @@ computed alone receives the same recommendation and value as in the full roster.
 ### 11.7 What the table shows
 
 Current relic shows every relic the export gives the monster. Recommended relic
-names one candidate, or Same when it is already worn. Main value and Unique value
+names one candidate, or Same when it is already engraved. Main value and Unique value
 show the recommended candidate's weighted contributions in score points, to two
 decimal places. Their sum is the score used by the ranking, before display
 rounding. Each title names the actual bonus, source value, total score and the

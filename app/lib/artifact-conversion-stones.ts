@@ -4,7 +4,7 @@ import type { GameRecord } from './game-data';
 
 /**
  * An engraved conversion stone the account owns, as `artifact_crafts` records
- * it. The stone names one property *and* one equip class: a Water stone
+ * it. The stone names one property *and* one engrave class: a Water stone
  * converts a Water attribute artifact and nothing else, which is why the class
  * travels with the property rather than being discarded.
  *
@@ -13,7 +13,7 @@ import type { GameRecord } from './game-data';
 export type EngravedConversionStone = {
   category: ArtifactCategory;
   /** Element for an attribute stone, archetype for a type stone. */
-  equipClassCode: number;
+  engraveClassCode: number;
   grade: ArtifactGrade;
   propertyId: number;
   quantity: number;
@@ -82,12 +82,12 @@ export function readEngravedConversionStone(record: unknown): EngravedConversion
        half governs is exactly the invention `AGENTS.md` §0.1 forbids. */
     if (archetypeCode !== 0 || elementCode === 0 || elementCode % elementCodeScale !== 0) return undefined;
     if (definition.availability === 'type') return undefined;
-    return { category: 'attribute', equipClassCode: elementCode / elementCodeScale, grade, propertyId, quantity };
+    return { category: 'attribute', engraveClassCode: elementCode / elementCodeScale, grade, propertyId, quantity };
   }
   if (categoryCode === typeStoneCategoryCode) {
     if (elementCode !== 0 || archetypeCode === 0) return undefined;
     if (definition.availability === 'attribute') return undefined;
-    return { category: 'type', equipClassCode: archetypeCode, grade, propertyId, quantity };
+    return { category: 'type', engraveClassCode: archetypeCode, grade, propertyId, quantity };
   }
   return undefined;
 }

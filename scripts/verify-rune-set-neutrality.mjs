@@ -12,13 +12,13 @@
  *
  * So this script is a fairness check, not an arithmetic one. It is paired by
  * construction: one population of rune *bodies* is generated once and every set is
- * judged on exactly those bodies, against presets rewritten to prefer every set. Any
+ * judged on exactly those bodies, against roles rewritten to prefer every set. Any
  * difference in any field is then caused by the set label and by nothing else.
  *
- * The last check is the mirror image and matters just as much: where a preset *does*
+ * The last check is the mirror image and matters just as much: where a role *does*
  * distinguish sets, the distinction must still bite. Neutral is not the same as blind.
  */
-import { defaultRunePotentialPresets } from '../app/lib/rune-potential-presets.ts';
+import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
 import { runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
 import { runeSetMatchRank } from '../app/lib/rune-cleanup-model.ts';
 import {
@@ -26,7 +26,7 @@ import {
   upgradeSubPropertyRange,
 } from '../app/lib/rune-properties.ts';
 import { runeDefaultGrades, runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
-import { presetRuneSetNameList } from '../app/lib/rune-sets.ts';
+import { roleRuneSetNameList } from '../app/lib/rune-sets.ts';
 
 const args = new Map(process.argv.slice(2).filter((arg) => arg.startsWith('--') && arg.includes('='))
   .map((arg) => arg.slice(2).split('=', 2)));
@@ -119,20 +119,20 @@ const random = makeRandom(seed);
 const bodies = Array.from({ length: runeCount }, (_, id) =>
   powerUp(random, freshBody(random, id), [0, 6, 9, 12, 15][id % 5]));
 
-const everySet = { preferred: presetRuneSetNameList, acceptable: [] };
-const openPresets = defaultRunePotentialPresets().map((preset) => ({ ...preset, sets: everySet }));
+const everySet = { preferred: roleRuneSetNameList, acceptable: [] };
+const openRoles = defaultRuneRoles().map((role) => ({ ...role, sets: everySet }));
 const settings = {
   powerUpPolicy: 3, runeQuality: 3, gemRoll: null, grindstoneRoll: null, gemGrade: 'Hero',
   grindstoneGrade: 'Hero', acceptedRunes: 3, brokenRunes: 3, intangibleRunes: 1,
   keepMoreForLargerSets: false,
 };
 
-/* Intangible is not a preset option, but it is still a preferred set match for
-   every preset. Check the policy directly, including against a deliberately empty
+/* Intangible is not a role option, but it is still a preferred set match for
+   every role. Check the policy directly, including against a deliberately empty
    choice, so a future editor or ranking refactor cannot make it user-configurable. */
-for (const preset of defaultRunePotentialPresets()) {
-  check(runeSetMatchRank(preset.sets, 'Intangible') === 'preferred',
-    `${preset.name} must treat Intangible as preferred`);
+for (const role of defaultRuneRoles()) {
+  check(runeSetMatchRank(role.sets, 'Intangible') === 'preferred',
+    `${role.name} must treat Intangible as preferred`);
 }
 check(runeSetMatchRank({ preferred: [], acceptable: ['Intangible'] }, 'Intangible') === 'preferred',
   'an acceptable Intangible entry must not be able to downgrade the permanent rule');
@@ -141,7 +141,7 @@ check(runeSetMatchRank({ preferred: [], acceptable: ['Intangible'] }, 'Intangibl
 
 const answers = new Map();
 for (const setName of sets) {
-  const advice = await runeAdvice(bodies.map((body) => ({ ...body, setName })), openPresets, settings, referenceStats);
+  const advice = await runeAdvice(bodies.map((body) => ({ ...body, setName })), openRoles, settings, referenceStats);
   answers.set(setName, advice);
 }
 const control = answers.get('Violent');
@@ -155,12 +155,12 @@ for (const setName of sets) {
     const left = control.get(body.id);
     const right = advice.get(body.id);
     const moved = fields.some((field) => !Object.is(left[field], right[field]))
-      || (left.preset?.id ?? null) !== (right.preset?.id ?? null);
+      || (left.role?.id ?? null) !== (right.role?.id ?? null);
     if (!moved) continue;
     differing += 1;
     if (!firstDifference) {
-      firstDifference = `rune ${body.id}: ${left.verdict}/${left.maxValue}/${left.chance}/${left.preset?.id}`
-        + ` -> ${right.verdict}/${right.maxValue}/${right.chance}/${right.preset?.id}`;
+      firstDifference = `rune ${body.id}: ${left.verdict}/${left.maxValue}/${left.chance}/${left.role?.id}`
+        + ` -> ${right.verdict}/${right.maxValue}/${right.chance}/${right.role?.id}`;
     }
   }
   check(differing === 0, `${setName} answered differently from Violent on ${differing} of ${bodies.length}`
@@ -184,13 +184,13 @@ for (const body of sample) {
     mixed.push({ ...body, id: `${body.id.padStart(6, '0')}-${at}`, setName: sets[at] });
   }
 }
-const intangibleMixed = await runeAdvice(mixed, openPresets, { ...settings, intangibleRunes: 5 }, referenceStats);
+const intangibleMixed = await runeAdvice(mixed, openRoles, { ...settings, intangibleRunes: 5 }, referenceStats);
 const countKept = (answers, setName) => mixed
   .filter((rune) => rune.setName === setName && answers.get(rune.id).verdict !== 'sell').length;
 check(countKept(intangibleMixed, 'Intangible') > countKept(intangibleMixed, 'Violent'),
   'the Intangible slider must prefer Intangible runes over otherwise identical normal runes.');
 
-const fourSetMixed = await runeAdvice(mixed, openPresets, { ...settings, keepMoreForLargerSets: true }, referenceStats);
+const fourSetMixed = await runeAdvice(mixed, openRoles, { ...settings, keepMoreForLargerSets: true }, referenceStats);
 const fourSetKept = ['Swift', 'Rage', 'Fatal', 'Intangible'].reduce((sum, setName) => sum + countKept(fourSetMixed, setName), 0);
 const twoSetKept = ['Violent', 'Despair', 'Energy', 'Guard'].reduce((sum, setName) => sum + countKept(fourSetMixed, setName), 0);
 check(fourSetKept > twoSetKept,
@@ -198,16 +198,16 @@ check(fourSetKept > twoSetKept,
 
 /* ------------------------------------- 3. neutral is not the same as blind */
 
-/* The preset's own ranking is where a set is *supposed* to decide a verdict, and a
+/* The role's own ranking is where a set is *supposed* to decide a verdict, and a
    check that only demanded neutrality would pass just as happily on an engine that
    had stopped reading the set at all. */
-const pickyPresets = defaultRunePotentialPresets().map((preset) => ({
-  ...preset, sets: { preferred: ['Fatal'], acceptable: [] },
+const pickyRoles = defaultRuneRoles().map((role) => ({
+  ...role, sets: { preferred: ['Fatal'], acceptable: [] },
 }));
 const rejecting = { ...settings, brokenRunes: 5 };
-const fatal = await runeAdvice(bodies.map((body) => ({ ...body, setName: 'Fatal' })), pickyPresets, rejecting, referenceStats);
-const violent = await runeAdvice(bodies.map((body) => ({ ...body, setName: 'Violent' })), pickyPresets, rejecting, referenceStats);
-const intangible = await runeAdvice(bodies.map((body) => ({ ...body, setName: 'Intangible' })), pickyPresets, rejecting, referenceStats);
+const fatal = await runeAdvice(bodies.map((body) => ({ ...body, setName: 'Fatal' })), pickyRoles, rejecting, referenceStats);
+const violent = await runeAdvice(bodies.map((body) => ({ ...body, setName: 'Violent' })), pickyRoles, rejecting, referenceStats);
+const intangible = await runeAdvice(bodies.map((body) => ({ ...body, setName: 'Intangible' })), pickyRoles, rejecting, referenceStats);
 const fatalKept = [...fatal.values()].filter((answer) => answer.verdict !== 'sell').length;
 const violentKept = [...violent.values()].filter((answer) => answer.verdict !== 'sell').length;
 const intangibleKept = [...intangible.values()].filter((answer) => answer.verdict !== 'sell').length;
@@ -221,4 +221,4 @@ if (failures) {
   console.error(`\n${failures} neutrality check${failures === 1 ? '' : 's'} failed.`);
   process.exit(1);
 }
-console.log('\nPASS: a set moves a verdict only through the preset, never through the arithmetic.');
+console.log('\nPASS: a set moves a verdict only through the role, never through the arithmetic.');

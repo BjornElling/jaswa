@@ -3,13 +3,13 @@
  *
  * Preferences used to be accepted only as one complete document, so a single
  * field the stored copy did not carry — a setting added by the change just
- * made, a preset gaining a property — rejected the whole of it and every page
+ * made, a role gaining a property — rejected the whole of it and every page
  * fell back to its defaults. Every restart of the dev server after such a
- * change quietly erased the user's presets, the import mode and the Rune
+ * change quietly erased the user's roles, the import mode and the Rune
  * Clean-up settings at once.
  *
  * The unit of rejection is therefore the smallest thing the user chose on its
- * own: a setting, a preset, a monster's field, a team, a rule. A value that
+ * own: a setting, a role, a monster's field, a team, a rule. A value that
  * fails its check is dropped and that one choice starts from its default;
  * nothing beside it is touched. Nothing is repaired into a shape it never had
  * either — an invalid value is never coerced, only replaced by the default.

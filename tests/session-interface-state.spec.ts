@@ -93,11 +93,11 @@ test('keeps navigation, disclosures, and table filters in the current tab only',
        opened or shut. */
     await expect(newTab.locator('details')).toHaveCount(0);
     await expect(newTab.locator('summary').filter({ hasText: 'Settings' })).toHaveCount(0);
-    await expect(newTab.locator('summary').filter({ hasText: 'Presets' })).toHaveCount(0);
+    await expect(newTab.locator('summary').filter({ hasText: 'Roles' })).toHaveCount(0);
     await newTab.getByRole('button', { name: 'Rune Set-up', exact: true }).click();
     await expect(newTab.getByRole('heading', { name: 'Rune Set-up', exact: true })).toBeVisible();
     await expect(newTab.locator('details').filter({ hasText: 'Settings' })).toHaveCount(1);
-    await expect(newTab.locator('details').filter({ hasText: 'Presets' })).toHaveCount(1);
+    await expect(newTab.locator('details').filter({ hasText: 'Roles' })).toHaveCount(1);
   } finally {
     await newTab.close();
   }

@@ -1,8 +1,8 @@
 /**
- * Role-neutral build metrics used by Rune Clean-up presets.
+ * Role-neutral build metrics used by Rune Clean-up roles.
  *
  * These are comparison metrics, not a replacement for a skill's actual damage
- * calculation. See docs/RUNE-PRESET-METRICS.md for the canonical contract.
+ * calculation. See docs/RUNE-ROLE-METRICS.md for the canonical contract.
  */
 export type RunePotentialMetricInput = {
   atk: number;
@@ -58,7 +58,7 @@ function finiteNonNegative(value: number): number {
 }
 
 /*
- * The three formulas of `RUNE-PRESET-METRICS.md` §2–4, one scalar function each.
+ * The three formulas of `RUNE-ROLE-METRICS.md` §2–4, one scalar function each.
  * They are scalars rather than one object-returning call because Rune Optimization
  * evaluates them once per combination it tries, and the object version below is
  * built on them, so the two cannot answer differently.
@@ -80,7 +80,7 @@ export function metricEhpD(hp: number, def: number): number {
   return finiteNonNegative(hp) * (1142 + 3.572 * finiteNonNegative(def) * 0.3) / 1000;
 }
 
-/** Calculates the three static-preset metrics from a monster's total stats. */
+/** Calculates the three static-role metrics from a monster's total stats. */
 export function calculateRunePotentialMetrics(input: RunePotentialMetricInput): RunePotentialMetrics {
   return {
     dmg: metricDmg(input.atk, input.criticalRate, input.criticalDamage),

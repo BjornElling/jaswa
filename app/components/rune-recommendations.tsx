@@ -41,7 +41,7 @@ import { filteredRuneVerdict, runeHoldVerdict } from '../lib/rune-holds';
 import type { RuneHolds } from '../lib/rune-holds';
 import type { RuneCleanupRow, RuneCleanupSortKey, RuneGameSortKey } from '../lib/rune-cleanup-grid';
 import type { Rune, RuneDefaultGrade } from '../lib/runes';
-import type { RunePotentialPreset } from '../lib/rune-potential-presets';
+import type { RuneRole } from '../lib/rune-roles';
 import type { GameRecord } from '../lib/game-data';
 import type { GeneralSettings, ImportedGame, RunePotentialSettings } from '../lib/types';
 import { useSessionStorageState } from '../lib/session-storage-state';
@@ -64,7 +64,7 @@ type RuneFilterState = {
   selectedSets: string[];
   selectedSlots: number[];
   selectedVerdicts: RuneVerdict[];
-  selectedPresets: string[];
+  selectedRoles: string[];
   selectedMains: number[];
   selectedStars: number[];
   selectedQualities: RuneDefaultGrade[];
@@ -78,14 +78,14 @@ type RuneFilterState = {
 
 /* Where a rune sits, chosen like every other value on the strip: none chosen and
    both chosen alike show every rune, and only one of the two narrows. */
-const placeOptions = ['equipped', 'inventory'] as const;
+const placeOptions = ['engraved', 'inventory'] as const;
 type RunePlace = typeof placeOptions[number];
-const placeLabels: Readonly<Record<RunePlace, string>> = { equipped: 'Equipped', inventory: 'Inventory' };
+const placeLabels: Readonly<Record<RunePlace, string>> = { engraved: 'Engraved', inventory: 'Inventory' };
 
 /* The table opens in the game's own Obtained order, newest first, so it reads
    like the box the player just left in Summoners War. */
 const defaultRuneFilters: RuneFilterState = {
-  search: '', selectedSets: [], selectedSlots: [], selectedVerdicts: [], selectedPresets: [],
+  search: '', selectedSets: [], selectedSlots: [], selectedVerdicts: [], selectedRoles: [],
   selectedMains: [], selectedStars: [], selectedQualities: [], lowestLevel: 0,
   highestLevel: runeMaximumLevel, selectedPlaces: [],
   showOnlyAncient: false, gameSort: 'gameObtained',
@@ -101,7 +101,7 @@ function isRuneFilterState(value: unknown): value is RuneFilterState {
     && Array.isArray(candidate.selectedSlots) && candidate.selectedSlots.every((e) => slotOptions.includes(e as number))
     && Array.isArray(candidate.selectedVerdicts)
     && candidate.selectedVerdicts.every((e) => runeVerdictOrder.includes(e as RuneVerdict))
-    && Array.isArray(candidate.selectedPresets) && candidate.selectedPresets.every((e) => typeof e === 'string')
+    && Array.isArray(candidate.selectedRoles) && candidate.selectedRoles.every((e) => typeof e === 'string')
     && Array.isArray(candidate.selectedMains) && candidate.selectedMains.every((e) => typeof e === 'number')
     && Array.isArray(candidate.selectedStars) && candidate.selectedStars.every((e) => starOptions.includes(e as number))
     && Array.isArray(candidate.selectedQualities)
@@ -143,7 +143,7 @@ const columns: readonly SortableColumn<RuneCleanupRow>[] = (() => {
     column('innate', 'Innate'),
     column('subs', 'Sub properties'),
     column('location', 'Location'),
-    column('preset', 'Best preset'),
+    column('role', 'Best role'),
     column('maxValue', <span className="table-heading-two-line" aria-label="Max value: the best end state it can reach against a perfect ordinary rune for that slot. An Ancient rune can exceed 100 per cent. The quality floor you set is a share of the ordinary runes a slot produces, so the Max value it comes to differs from slot to slot">Max<br />value</span>),
     column('chance', <span className="table-heading-two-line" aria-label="Chance to reach the final +15 quality floor; random substat rolls end at +12">Chance</span>),
     column('advice', 'Advice'),
@@ -167,18 +167,18 @@ const columns: readonly SortableColumn<RuneCleanupRow>[] = (() => {
  *
  * It is the answer the user came for; the Rune Set-up workspace holds the
  * controls that shape it. The calculation waits for the button rather than
- * running as sliders move: it reads every rune against every preset and every
+ * running as sliders move: it reads every rune against every role and every
  * build, and a table that re-ran itself under a dragging thumb would be a table
  * nobody could read. What the player does in the game is different: a sync judges
  * only the runes it changed, and the rows keep their places (`rune-cleanup-refresh.ts`).
  */
-export function RuneRecommendations({ game, monsterPreferences, runeHolds, settings, presets, general, hardwareAcceleration, onOpenRune }: {
+export function RuneRecommendations({ game, monsterPreferences, runeHolds, settings, roles, general, hardwareAcceleration, onOpenRune }: {
   game: ImportedGame | null;
   monsterPreferences: MonsterPreferences;
   /** The runes the user has said are not to be sold, which print their own word over the advice. */
   runeHolds: RuneHolds;
   settings: RunePotentialSettings;
-  presets: RunePotentialPreset[];
+  roles: RuneRole[];
   general: GeneralSettings;
   /** Whether the graphics card may count the odds. The worker is told, not asked. */
   hardwareAcceleration: boolean;
@@ -187,11 +187,11 @@ export function RuneRecommendations({ game, monsterPreferences, runeHolds, setti
   const [filters, setFilters] = useSessionStorageState(
     'jaswa.filters.rune-cleanup', defaultRuneFilters, isRuneFilterState,
   );
-  const { search, selectedSets, selectedSlots, selectedVerdicts, selectedPresets, selectedMains,
+  const { search, selectedSets, selectedSlots, selectedVerdicts, selectedRoles, selectedMains,
     selectedStars, selectedQualities, lowestLevel, highestLevel, selectedPlaces,
     showOnlyAncient, gameSort } = filters;
 
-  /* The held result, and the standards it answers: the presets, settings and
+  /* The held result, and the standards it answers: the roles, settings and
      reference lines it was judged by. A result is kept until the user asks for
      another one, so a slider moved after a calculation leaves the table standing
      rather than silently changing under them. What the account does to its runes
@@ -202,7 +202,7 @@ export function RuneRecommendations({ game, monsterPreferences, runeHolds, setti
     /** The account it was calculated for. Another account's import is not a sync of this one. */
     account: string;
     entries: ReadonlyMap<string, HeldRuneAdvice>;
-    presets: RunePotentialPreset[];
+    roles: RuneRole[];
     settings: RunePotentialSettings;
     base: ReadonlyMap<string, ReferenceStats>;
     durationMs: number;
@@ -225,7 +225,7 @@ export function RuneRecommendations({ game, monsterPreferences, runeHolds, setti
   /**
    * Every rune the import holds, and the population every calculation judges.
    *
-   * Every imported rune is judged independently. Equipped runes and runes at +15
+   * Every imported rune is judged independently. Engraved runes and runes at +15
    * are judged like any other; whether they are *on screen* is the filter strip's
    * business, and a filter cannot move a single figure.
    */
@@ -259,7 +259,7 @@ export function RuneRecommendations({ game, monsterPreferences, runeHolds, setti
     /* A whole calculation answers every rune, so a re-reading still in flight has
        nothing left to add. */
     cancelRuneAdviceRefresh();
-    const outcome = await calculateRuneAdvice({ runes, presets, settings, base, preferWebGpu: hardwareAcceleration });
+    const outcome = await calculateRuneAdvice({ runes, roles, settings, base, preferWebGpu: hardwareAcceleration });
     /* A newer request has taken over the busy state and the table, so this one
        returns without touching either. */
     if (outcome.status === 'superseded') return;
@@ -267,7 +267,7 @@ export function RuneRecommendations({ game, monsterPreferences, runeHolds, setti
     if (outcome.status === 'failed') { setFailure(outcome.message); return; }
     setRefreshFailedFor(null);
     setResult((previous) => ({
-      id: (previous?.id ?? 0) + 1, account, entries: heldRuneAdvice(runes, outcome.advice), presets, settings, base,
+      id: (previous?.id ?? 0) + 1, account, entries: heldRuneAdvice(runes, outcome.advice), roles, settings, base,
       durationMs: outcome.durationMs, backend: outcome.backend,
     }));
   }
@@ -281,7 +281,7 @@ export function RuneRecommendations({ game, monsterPreferences, runeHolds, setti
     refreshing.current = true;
     const { id } = held;
     void refreshRuneAdvice({
-      runes: changed, presets: held.presets, settings: held.settings, base: held.base, preferWebGpu: hardwareAcceleration,
+      runes: changed, roles: held.roles, settings: held.settings, base: held.base, preferWebGpu: hardwareAcceleration,
     }).then((outcome) => {
       if (outcome.status === 'failed') setRefreshFailedFor(runes);
       if (outcome.status !== 'done') return;
@@ -298,12 +298,12 @@ export function RuneRecommendations({ game, monsterPreferences, runeHolds, setti
      but only while the table answers the standards on screen, and only for a rune
      whose answer still fits it. */
   useEffect(() => {
-    if (held === null || !game?.data || held.presets !== presets || held.settings !== settings || base === null) return;
+    if (held === null || !game?.data || held.roles !== roles || held.settings !== settings || base === null) return;
     if (JSON.stringify([...held.base]) !== JSON.stringify([...base])) return;
     const fitting = shownRuneAdvice(held.entries, runesById).filter((entry) => !entry.gone && runesById.get(entry.rune.id) === entry.rune);
-    rememberRuneAdvice({ data: game.data, settings, presets }, fitting.map((entry) => entry.rune),
+    rememberRuneAdvice({ data: game.data, settings, roles }, fitting.map((entry) => entry.rune),
       new Map(fitting.map((entry) => [entry.rune.id, entry.advice])));
-  }, [held, game, presets, settings, base, runesById]);
+  }, [held, game, roles, settings, base, runesById]);
 
   /* A hold is the user's, not the calculation's, so it is laid over the held result
      on every change rather than frozen into it at Calculate. Where the rune sits is
@@ -330,30 +330,30 @@ export function RuneRecommendations({ game, monsterPreferences, runeHolds, setti
       .map((statId) => ({ value: statId, label: runeStatName(statId) ?? '?' })),
     [runes],
   );
-  const presetOptions = useMemo(
-    () => presets.map((preset) => ({ value: preset.name, label: preset.name })),
-    [presets],
+  const roleOptions = useMemo(
+    () => roles.map((role) => ({ value: role.name, label: role.name })),
+    [roles],
   );
 
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
     return rows.filter((row) => {
       if (selectedPlaces.length === 1
-        && selectedPlaces[0] !== (row.rune.occupiedId === null ? 'inventory' : 'equipped')) return false;
+        && selectedPlaces[0] !== (row.rune.occupiedId === null ? 'inventory' : 'engraved')) return false;
       if (showOnlyAncient && !row.rune.ancient) return false;
       if (selectedSets.length && !selectedSets.includes(row.rune.setName)) return false;
       if (selectedSlots.length && !selectedSlots.includes(row.rune.slot)) return false;
       if (selectedStars.length && !selectedStars.includes(row.rune.stars)) return false;
       if (selectedQualities.length && !selectedQualities.includes(row.rune.defaultGrade)) return false;
       if (selectedVerdicts.length && !selectedVerdicts.includes(filteredRuneVerdict(shownRuneVerdict(row)))) return false;
-      if (selectedPresets.length && !selectedPresets.includes(row.advice.preset?.name ?? '')) return false;
+      if (selectedRoles.length && !selectedRoles.includes(row.advice.role?.name ?? '')) return false;
       if (selectedMains.length && !selectedMains.includes(row.rune.mainStatId)) return false;
       if (row.rune.level < lowestLevel || row.rune.level > highestLevel) return false;
       if (!term) return true;
       return runeCleanupSearchText(row).includes(term);
     });
   }, [rows, search, selectedSets, selectedSlots, selectedStars, selectedQualities, selectedVerdicts,
-    selectedPresets, selectedMains, lowestLevel, highestLevel, selectedPlaces, showOnlyAncient]);
+    selectedRoles, selectedMains, lowestLevel, highestLevel, selectedPlaces, showOnlyAncient]);
 
   const { sorted, sort, toggle: toggleColumn, setSort } = useSortedRows(
     visible, columns, gameSort === null
@@ -437,9 +437,9 @@ export function RuneRecommendations({ game, monsterPreferences, runeHolds, setti
       <p className="next-step">{noReferenceLineMessage}</p>
     </section>;
   }
-  if (!presets.length) {
+  if (!roles.length) {
     return <section className="empty-state">
-      <h2>There are no presets to judge runes against.</h2>
+      <h2>There are no roles to judge runes against.</h2>
       <p className="next-step">Add one under Rune Set-up to say what a rune should be worth.</p>
     </section>;
   }
@@ -487,7 +487,7 @@ export function RuneRecommendations({ game, monsterPreferences, runeHolds, setti
                 <span aria-hidden="true">⌕</span>
                 <input value={search}
                   onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
-                  placeholder="Filter runes" aria-label="Filter runes by set, stat, preset or advice" />
+                  placeholder="Filter runes" aria-label="Filter runes by set, stat, role or advice" />
                 <FilterButton
                   onClick={() => setFilters((current) => ({ ...current, search: '' }))}
                   hidden={!search} disabled={!search} aria-label="Clear filter">✕</FilterButton>
@@ -534,7 +534,7 @@ export function RuneRecommendations({ game, monsterPreferences, runeHolds, setti
           {toggleGroup('Slot', 'Filter by slot', slotOptions, selectedSlots,
             'selectedSlots', (slot) => String(slot), 'rune-filter-slot')}
           {/* Three long vocabularies — twenty-two sets, a dozen main properties, a
-              preset list that grows with use — each answered on one line rather
+              role list that grows with use — each answered on one line rather
               than spelled out in full across the strip. */}
           <TokenChoiceField label="Set" description="Filter by rune set" empty="Any set"
             className="rune-filter-set" options={setOptions} chosen={selectedSets}
@@ -542,9 +542,9 @@ export function RuneRecommendations({ game, monsterPreferences, runeHolds, setti
           <TokenChoiceField label="Main" description="Filter by main property" empty="Any main"
             className="rune-filter-main" options={mainOptions} chosen={selectedMains}
             onChange={(next) => setFilters((current) => ({ ...current, selectedMains: next }))} />
-          <TokenChoiceField label="Preset" description="Filter by best-matching preset" empty="Any preset"
-            className="rune-filter-preset" options={presetOptions} chosen={selectedPresets}
-            onChange={(next) => setFilters((current) => ({ ...current, selectedPresets: next }))} />
+          <TokenChoiceField label="Role" description="Filter by best-matching role" empty="Any role"
+            className="rune-filter-role" options={roleOptions} chosen={selectedRoles}
+            onChange={(next) => setFilters((current) => ({ ...current, selectedRoles: next }))} />
           <div className="filter-group rune-filter-level" role="group" aria-label="Filter by power-up level">
             <span className="filter-label">Level</span>
             <div className="filter-group-controls">
@@ -561,7 +561,7 @@ export function RuneRecommendations({ game, monsterPreferences, runeHolds, setti
           {/* "Where the rune is", not "which runes count": every rune was judged
               before this strip was reached, and these two buttons decide only
               which of the answers are on screen. */}
-          {toggleGroup('Where', 'Filter by where the rune is', placeOptions, selectedPlaces,
+          {toggleGroup('Location', 'Filter by location', placeOptions, selectedPlaces,
             'selectedPlaces', (place) => placeLabels[place], 'rune-filter-usage')}
           <FilterSummary visible={shownOwned} total={owned} noun="runes"
             onReset={() => setFilters(defaultRuneFilters)} className="rune-filter-status" />
@@ -597,11 +597,11 @@ export function RuneRecommendations({ game, monsterPreferences, runeHolds, setti
                 : row.rune.subProperties.map((property, at) => <RuneSubLine key={at} property={property} />)}
             </td>
             <td className={cell('location', !row.location && 'muted')}
-              title={row.location === null ? 'Worn by a monster this import does not contain' : undefined}>
+              title={row.location === null ? 'Engraved on a monster this import does not contain' : undefined}>
               {row.location ?? 'Unknown monster'}
             </td>
-            <td className={cell('preset', !row.advice.preset && 'muted')}>
-              {row.advice.preset?.name ?? '—'}
+            <td className={cell('role', !row.advice.role && 'muted')}>
+              {row.advice.role?.name ?? '—'}
             </td>
             {/* The two figures the verdict is made of, printed beside it so the
                 advice is arguable rather than something to be taken on trust. */}
@@ -635,7 +635,7 @@ export function RuneRecommendations({ game, monsterPreferences, runeHolds, setti
         {failure ?? 'JASWA could not judge the runes changed in the game. Recalculate to try again.'}
       </p>
       : held && <CalculationStatus
-        detail={<>{formatNumber(owned, general)} runes judged against {formatNumber(held.presets.length, general)} presets</>}
+        detail={<>{formatNumber(owned, general)} runes judged against {formatNumber(held.roles.length, general)} roles</>}
         durationMs={held.durationMs}
         backend={held.backend}
         general={general}

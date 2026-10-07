@@ -16,7 +16,7 @@
  * Both now take their weights, their main-property points and the benchmark in
  * the denominator from `artifact-optimal-value.ts`, so the *definition* is one.
  * What this script holds is the *result*: for every artifact on an account,
- * against the monster wearing it, at every value the acceptable-worth setting
+ * against the monster it is engraved on, at every value the acceptable-worth setting
  * can take, the two routes must agree to the whole percentage point — and must
  * agree about which pairs are not judged at all.
  *
@@ -49,25 +49,25 @@ try {
   const { artifactValueOnMonster } = await server.ssrLoadModule('/app/lib/artifact-value-on-monster.ts');
   const { buildArtifactScoreRequestsForMonsterIds } = await server.ssrLoadModule('/app/lib/compute/artifact-score-input.ts');
   const { artifactPairScore } = await server.ssrLoadModule('/app/lib/artifact-recommendations.ts');
-  const { canEquipArtifacts } = await server.ssrLoadModule('/app/lib/monster-equipment-eligibility.ts');
+  const { canEngraveArtifacts } = await server.ssrLoadModule('/app/lib/monster-engrave-eligibility.ts');
   const { monsterSpeciesId } = await server.ssrLoadModule('/app/lib/monster-species.ts');
   const { createImportedGame } = await server.ssrLoadModule('/app/lib/file-imports.ts');
   const { speciesMainStatAdvice } = await server.ssrLoadModule('/app/lib/main-stat-model.ts');
 
-  /* The app never scores the raw export: the import merges the equipped pieces
+  /* The app never scores the raw export: the import merges the engraved pieces
      into one artifact list first, so the comparison starts where the app does. */
   const raw = JSON.parse(readFileSync(exportPath, 'utf8'));
   const game = createImportedGame('agreement-check', raw, { knownSections: [], unknownMonsterIds: [] }).data;
   const artifacts = readArtifacts(game);
   const units = new Map((game.unit_list ?? []).map((unit) => [String(unit.unit_id), unit]));
 
-  /* Grouped by the wearer's species, because a score matrix is indexed by
+  /* Grouped by the species it is engraved on, because a score matrix is indexed by
      species and one request then answers for every artifact on that species. */
   const bySpecies = new Map();
   for (const artifact of artifacts) {
     if (artifact.occupiedId === null) continue;
     const unit = units.get(String(artifact.occupiedId));
-    if (!unit || !canEquipArtifacts(unit)) continue;
+    if (!unit || !canEngraveArtifacts(unit)) continue;
     const species = monsterSpeciesId(unit.unit_master_id);
     if (!bySpecies.has(species)) bySpecies.set(species, []);
     bySpecies.get(species).push({ artifact, unit, masterId: unit.unit_master_id, unitId: String(unit.unit_id) });
@@ -75,7 +75,7 @@ try {
 
   const pairs = [...bySpecies.values()].reduce((total, entries) => total + entries.length, 0);
   assert.ok(pairs > 0,
-    `No equipped artifact in ${exportPath} has a wearer on the roster, so this check measured nothing.`);
+    `No engraved artifact in ${exportPath} is engraved on a monster on the roster, so this check measured nothing.`);
 
   let compared = 0;
   let statedCompared = 0;
@@ -99,7 +99,7 @@ try {
 
     for (const [species, entries] of bySpecies) {
       for (const { artifact, unit, masterId, unitId } of entries) {
-        /* The library answers for the copy wearing the artifact, and a copy
+        /* The library answers for the copy the artifact is engraved on, and a copy
            whose own runes give the main-stat model a different answer from its
            species has its own row — so the engine is asked for the copy, and
            falls back on the species row exactly where the copy has none. A copy
@@ -195,7 +195,7 @@ try {
   assert.ok(statedCompared > 0,
     'No stated-preference reading was compared, so the per-copy path measured nothing.');
   console.log(`Both artifact score readers agree on ${compared} judged readings`
-    + ` (${pairs} equipped artifacts across ${bySpecies.size} species,`
+    + ` (${pairs} engraved artifacts across ${bySpecies.size} species,`
     + ` ${copyRowCompared} of them on a copy rebuilt so the main-stat model reads it apart from its species,`
     + ` at each of ${acceptableWorthChoices.length} acceptable-worth settings;`
     + ` ${statedCompared} of them against a per-copy statement in two bands or cleared to Any).`);

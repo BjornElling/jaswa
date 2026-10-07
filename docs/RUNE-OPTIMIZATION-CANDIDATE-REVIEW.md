@@ -10,12 +10,12 @@ from [RUNE-CANONICAL.md](RUNE-CANONICAL.md); damage and effective HP still use
 | Stage | Finding | Result |
 | --- | --- | --- |
 | Rune admission | A locally permitted set can be impossible across six actual slots. With Shield/Will and broken sets refused, a third four-set cannot fit. | Reconcile slot/set support before generating craft alternatives. Preserve every choice if the bounded proof runs out of work. |
-| Intangible | It occupies one slot, at most one may be worn, and it completes only a uniquely one-piece-short set. A locked Intangible is still worn when additional Intangibles are disabled. | Use the shared final-set rules in support proofs; retain set identities wherever an admitted Intangible can affect completion. |
+| Intangible | It occupies one slot, at most one may be engraved, and it completes only a uniquely one-piece-short set. A locked Intangible is still engraved when additional Intangibles are disabled. | Use the shared final-set rules in support proofs; retain set identities wherever an admitted Intangible can affect completion. |
 | Owned Gems | Only the best compatible grade/stack was offered. A scarce Legend or Immemorial item could hide a feasible lower-grade or set-specific plan. | Offer every compatible held stack with its true capacity. Keep standard, Ancient and Immemorial lineage rules in the craft owner. |
 | Owned Grindstones | All wanted lines were ground together, or none were. A plan could not preserve just the scarce SPD stone while grinding ATK. | Make every held stone independently optional. |
 | Ceilings | Fully grinding a theoretical rune, or refusing a lower same-stat Gem, could remove the only accepted build. An irrelevant Gem can be relevant when it removes excess SPD. | Retain unchanged theoretical lines and ceiling-reducing Gems. This review initially kept every numeric end state under a ceiling; the later range-allocation review narrows that expansion to ceiling-sensitive work. |
 | Exact reduction | Range proofs followed the quadratic comparison; comparisons scanned unrelated stock plans; several work plans for one rune counted as several dominators. | Run ranges early, index ceiling/stock compatibility, reduce physical families locally, and count distinct physical dominators. Preserve the fewer-moves tie. |
-| Range bonuses | Independent triple stat sets were promised even where too few actual slots could wear them. Required bonuses were omitted from lower bounds. | Bound bonuses by reachable slots and wildcard capacity; include unavoidable required bonuses in ceiling proofs. |
+| Range bonuses | Independent triple stat sets were promised even where too few actual slots could hold them. Required bonuses were omitted from lower bounds. | Bound bonuses by reachable slots and wildcard capacity; include unavoidable required bonuses in ceiling proofs. |
 | Low depth | Grade and stone combinations could consume work without adding a new Gem placement. Independent high-scoring choices could reserve the same scarce stack. | Price resource scarcity in whole-build guidance, retain cheap and item-free complements, and keep every legal supply alternative for a selected placement. |
 | Results | Alternative work on the same six runes filled separate rows and inflated the apparent diversity of a table. | Keep one row per physical rune combination, including across workers. Update that row when a better feasible plan is found. |
 | Search | Enumerating every combination of optional stones and grades is unnecessary when no ceiling makes surplus harmful. | Search rune/Gem placements, then allocate each kind/stat supply exactly. Share prepared recipes and cache repeated supply matchings. |
@@ -89,5 +89,5 @@ questions and ceiling-heavy questions can still hit their time limit.
 - Import parity is audited against the local 2,437-rune capture. Personal exports,
   benchmarks and screenshots remain local under `work/`.
 
-Presets, settings and import mode keep their existing meanings and readers. No
+Roles, settings and import mode keep their existing meanings and readers. No
 preference field or format was changed.

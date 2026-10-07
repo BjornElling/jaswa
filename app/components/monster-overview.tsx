@@ -22,7 +22,7 @@ import { activeRuneSets, elementName, elementNameList } from '../lib/rune-sets';
 import type { Preferences } from '../lib/types';
 import {
   compareNumbersWithBlanks, compareTextWithBlanks, defaultMonsterSortDirections,
-  displayArtifactTypes, displayRelicType, equippedEquipmentTypes, isStoredMonster,
+  displayArtifactTypes, displayRelicType, engravedGearTypes, isStoredMonster,
   monsterArchetypeLabels, monsterFilterArchetypes, numericOrNull,
 } from '../lib/monster-grid';
 import type { MonsterGridColumn, MonsterRow, SortKey } from '../lib/monster-grid';
@@ -207,8 +207,8 @@ export function MonsterOverview({ monsters, gameData, preferences, onOpenMonster
         imageFilename: display.imageFilename,
         initial: display.shortName,
         sets: activeRuneSets(monster),
-        artifactTypes: equippedEquipmentTypes(monster, 'artifacts'),
-        relicTypes: equippedEquipmentTypes(monster, 'relics'),
+        artifactTypes: engravedGearTypes(monster, 'artifacts'),
+        relicTypes: engravedGearTypes(monster, 'relics'),
         index,
         inStorage: isStoredMonster(monster),
         level: numericOrNull(monster.unit_level),
@@ -254,7 +254,7 @@ export function MonsterOverview({ monsters, gameData, preferences, onOpenMonster
      filtered — widening towards ids this table cannot list would accept nothing.
 
      A row's own name, its aliases and its rune sets are matched here too, and a
-     set match seeds no widening: `fight` names equipment this copy is wearing,
+     set match seeds no widening: `fight` names gear this copy has engraved,
      not a monster whose awakened form is also wanted. */
   const searchedMasterIds = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -398,10 +398,10 @@ export function MonsterOverview({ monsters, gameData, preferences, onOpenMonster
                 ? <span className="set-mark" title={row.sets.map((set) => set.name).join(' / ')}>{row.sets.map((set) => set.abbreviation).join('/')}</span>
                 : <span className="set-none">—</span>}
             </td>
-            <td className={cell('artifactTypes', 'equipment-start', row.artifactTypes.some((type) => type !== null) ? 'equipment-types' : 'muted')}>
+            <td className={cell('artifactTypes', 'gear-start', row.artifactTypes.some((type) => type !== null) ? 'gear-types' : 'muted')}>
               {displayArtifactTypes(row.artifactTypes)}
             </td>
-            <td className={cell('relicTypes', row.relicTypes.some((type) => type !== null) ? 'equipment-types' : 'muted')}>
+            <td className={cell('relicTypes', row.relicTypes.some((type) => type !== null) ? 'gear-types' : 'muted')}>
               {displayRelicType(row.relicTypes)}
             </td>
             <td className={cell('level', row.level === null ? 'dim muted' : 'dim')}>{formatNumber(row.level, preferences.general)}</td>

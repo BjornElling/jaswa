@@ -74,7 +74,7 @@ function totalCount(rows: EffectCount[]): number {
 
 /**
  * What this monster species wants in this artifact category: the main from the
- * main-stat model, the substats from what the community equips, turned into
+ * main-stat model, the substats from what the community engraves, turned into
  * preferences by `ARTIFACT-CANONICAL.md` §19.3's fixed shares. A
  * master id resolves to its species first, so a collaboration monster and its
  * generic twin answer alike whichever name the player's copy carries.

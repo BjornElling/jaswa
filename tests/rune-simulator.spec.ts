@@ -96,7 +96,7 @@ test('simulates random runes through +0, +9, +12 and +15, spending no craft with
   expect(after).toEqual(before);
 });
 
-test('reads every checkpoint with Rune Clean-up and counts the keepers by preset and slot', async ({ page }, testInfo) => {
+test('reads every checkpoint with Rune Clean-up and counts the keepers by role and slot', async ({ page }, testInfo) => {
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
@@ -131,7 +131,7 @@ test('reads every checkpoint with Rune Clean-up and counts the keepers by preset
   const keeps = await page.locator('.rune-simulator-table tbody [data-verdict="keep"]').count();
 
   const stats = page.locator('.rune-simulator-stats-table');
-  await expect(stats.locator('thead th')).toHaveText(['Preset', 'Slot 1', 'Slot 2', 'Slot 3', 'Slot 4', 'Slot 5', 'Slot 6']);
+  await expect(stats.locator('thead th')).toHaveText(['Role', 'Slot 1', 'Slot 2', 'Slot 3', 'Slot 4', 'Slot 5', 'Slot 6']);
   const totals = (await stats.locator('tfoot td').allTextContents()).map(Number);
   expect(totals.reduce((sum, value) => sum + value, 0)).toBe(keeps);
   const cells = (await stats.locator('tbody td').allTextContents()).map(Number);

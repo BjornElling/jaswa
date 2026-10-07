@@ -64,7 +64,7 @@ ${gpuIndexPreamble}
 @group(0) @binding(0) var<storage, read> artifacts: array<f32>;
 @group(0) @binding(1) var<storage, read> monsters: array<f32>;
 @group(0) @binding(2) var<storage, read> propertyAvailability: array<i32>;
-// One row of PROPERTY_COUNT flags per equip class, because a stone is engraved
+// One row of PROPERTY_COUNT flags per engrave class, because a stone is engraved
 // for one class and converts nothing else. Row 0 is the Intangible union.
 @group(0) @binding(3) var<storage, read> ownedProperties: array<i32>;
 // Each setting choice resolves to a fraction of that property's own conversion

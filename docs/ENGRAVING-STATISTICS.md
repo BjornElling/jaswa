@@ -13,7 +13,7 @@ defaults) and `app/lib/artifact-preferences.ts`
 ## 1. What the data is
 
 The game's **Monster Info → Statistics** panel reports what the wider player
-base equips on a monster. Three panels sit behind one monster, and JASWA records
+base engraves on a monster. Three panels sit behind one monster, and JASWA records
 all three:
 
 | Command | Panel | Response |
@@ -51,11 +51,11 @@ so it cannot be forgotten at a call site.
 
 **Every rune main is read.** The rune primary distributions include flat
 `HP +`, `ATK +` and `DEF +` mains (effect ids 1, 3 and 5). They used to be
-excluded, because the preset vocabulary `RuneMainStat` has no word for them.
+excluded, because the role vocabulary `RuneMainStat` has no word for them.
 A monster's slots are now read in `app/lib/rune-slot-mains.ts`, which names all
 seven or eight mains the game allows per slot, so the flat mains are counted,
 shown under the slot and offered as a choice. `RuneMainStat` stays the Clean-up
-presets' own.
+roles' own.
 
 **A rune build's share is the game's.** Each `runeset` row is one whole
 combination with its count, and the monster overlay's Most common line shows
@@ -104,7 +104,7 @@ statistics responses enters the repository.
 
 **There are two statistical models per monster type, and `favorite_type` selects
 between them: `0` is PvE, `1` is RTA. JASWA captures PvE**, for artifacts and
-relics alike, because that is the mode most of an account's equipment is
+relics alike, because that is the mode most of an account's gear is
 actually built for and it rests on far more observations — 41,861 against 4,961
 on Onmyouji, 65,983 against 3,598 on Beth.
 
@@ -135,7 +135,7 @@ separate id with its own statistics.
 Tier `2` is the *Imperfect* line and tiers `4`–`7` are Ancient Spirits, guild
 bosses and Towers. None is an awakening above 2A, and all are excluded along
 with every six-digit id: the player-monster space is exactly the five-digit
-ids. Less 12 Material monsters, which wear no equipment, and 16 test rows, the
+ids. Less 12 Material monsters, which take no engravings, and 16 test rows, the
 capture list is **1,086 monster types**.
 
 **2A is a separate monster, not a variant.** Bulldozer 2A returns a distribution

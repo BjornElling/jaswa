@@ -28,9 +28,9 @@ self.onmessage = async (event: MessageEvent<RuneAdviceWorkerRequest>) => {
   if (message.type !== 'calculate') return;
   try {
     const startedAt = performance.now();
-    const { runes, presets, settings, base, preferWebGpu, explain } = message.request;
+    const { runes, roles, settings, base, preferWebGpu, explain } = message.request;
     const engines: CalculationBackend[] = [];
-    const advice = await runeAdvice(runes, presets, settings, base, async (jobs, chanceBar) => {
+    const advice = await runeAdvice(runes, roles, settings, base, async (jobs, chanceBar) => {
       const answer = await countRuneChances(jobs, preferWebGpu, chanceBar);
       engines.push(answer.backend);
       return answer.shares;
@@ -46,7 +46,7 @@ self.onmessage = async (event: MessageEvent<RuneAdviceWorkerRequest>) => {
   } catch {
     const response: RuneAdviceWorkerResponse = {
       type: 'error', requestId: message.requestId,
-      message: 'JASWA could not judge these runes against these presets.',
+      message: 'JASWA could not judge these runes against these roles.',
     };
     self.postMessage(response);
   }

@@ -14,7 +14,7 @@ import { calculateArtifactScores } from '../lib/compute/artifact-score-client';
 import { combineCalculationBackends } from '../lib/compute/calculation-summary';
 import type { CalculationBackend } from '../lib/compute/calculation-summary';
 import { buildArtifactScoreRequestsForCopy, buildArtifactScoreRequestsForMonsterIds } from '../lib/compute/artifact-score-input';
-import { artifactEquipClassLabel, artifactValueTint, displaySubProperty } from '../lib/artifact-grid';
+import { artifactEngraveClassLabel, artifactValueTint, displaySubProperty } from '../lib/artifact-grid';
 import { artifactCategoryLabels, artifactGradeOrder, artifactMainPropertyOrder } from '../lib/artifact-properties';
 import { artifactOptimizationMonsters } from '../lib/artifact-optimization-monsters';
 import { artifactPairScore, engravedStonesFor, scoringSettings } from '../lib/artifact-recommendations';
@@ -33,7 +33,7 @@ import type { EngravedConversionStone } from '../lib/artifact-conversion-stones'
 import type { GameRecord } from '../lib/game-data';
 import type { ArtifactSettings, GeneralSettings } from '../lib/types';
 
-const artifactLocations = ['inventory', 'equipped'] as const;
+const artifactLocations = ['inventory', 'engraved'] as const;
 const categoryOrder: readonly ArtifactCategory[] = ['attribute', 'type'];
 const recommendationRange = { minimum: 1, maximum: 10, default: 3 } as const;
 
@@ -81,7 +81,7 @@ type ResultRow = {
   artifact: Artifact;
   index: number;
   target: ArtifactMaximumScore;
-  wearer: MonsterOption | undefined;
+  engravedOn: MonsterOption | undefined;
 };
 
 /** Everything the two figure-bearing blocks need to read a pair's scores. */
@@ -91,8 +91,8 @@ type ScoreContext = {
   mode: ArtifactSettings['conversionStoneMode'];
   /** Packed for the chosen monster, so any artifact's score on it is one call away. */
   monsterRequests: readonly ArtifactScoreRequest[];
-  /** Packed for every monster wearing something, for the score it has there now. */
-  wearerRequests: readonly ArtifactScoreRequest[];
+  /** Packed for every monster with something engraved, for the score it has there now. */
+  engravedRequests: readonly ArtifactScoreRequest[];
   speciesId: string;
   /** The chosen copy, whose own row answers where it has one. */
   unitId: string;
@@ -219,7 +219,7 @@ function ArtifactName({ artifact }: { artifact: Artifact }) {
   /* The grade is named in text as well as drawn as the margin rule, because a
      colour nobody can read is not a fact (AGENTS.md §5). */
   return <p className="best-artifact-entry-name">
-    {artifact.grade} · {artifactEquipClassLabel(artifact)}
+    {artifact.grade} · {artifactEngraveClassLabel(artifact)}
   </p>;
 }
 
@@ -231,7 +231,7 @@ function SubProperties({ artifact, general }: { artifact: Artifact; general: Gen
 }
 
 /**
- * What the monster is wearing in one slot today, and what it is worth there.
+ * What the monster has engraved in one slot today, and what it is worth there.
  *
  * Both figures are computed straight from the packed request rather than from a
  * calculation, so the box answers the moment a monster is chosen: the user came
@@ -264,7 +264,7 @@ function CurrentArtifact({ category, artifact, context }: {
       <SubProperties artifact={artifact} general={context.general} />
       <Improvements label="Potential value on mon" score={potential?.value}
         conversions={potential?.conversions ?? []} artifact={artifact} context={context} />
-    </> : <p className="best-artifact-empty">No artifact equipped</p>}
+    </> : <p className="best-artifact-empty">No artifact engraved</p>}
   </article>;
 }
 
@@ -276,12 +276,12 @@ function CurrentArtifact({ category, artifact, context }: {
  * card's columns fight over two separate conclusions.
  */
 function Recommendation({ row, context }: { row: ResultRow; context: ScoreContext }) {
-  const { artifact, target, wearer } = row;
+  const { artifact, target, engravedOn } = row;
   const onThisMon = artifactPairScore(context.monsterRequests, artifact.id, context.speciesId,
     { conversions: false, unitId: context.unitId });
-  const onCurrentMon = wearer
-    ? artifactPairScore(context.wearerRequests, artifact.id, monsterSpeciesId(wearer.masterId),
-      { conversions: false, unitId: wearer.unitId })
+  const onCurrentMon = engravedOn
+    ? artifactPairScore(context.engravedRequests, artifact.id, monsterSpeciesId(engravedOn.masterId),
+      { conversions: false, unitId: engravedOn.unitId })
     : undefined;
 
   return <li className={`best-artifact-entry ${qualityRuleHost}`}>
@@ -290,13 +290,13 @@ function Recommendation({ row, context }: { row: ResultRow; context: ScoreContex
     <div className="best-artifact-entry-facts">
       <dl className="best-artifact-facts">
         <Fact label="Main stat">{artifact.mainProperty}</Fact>
-        <Fact label="Current location" group>{wearer?.name ?? 'Inventory'}</Fact>
+        <Fact label="Current location" group>{engravedOn?.name ?? 'Inventory'}</Fact>
         {/* Where it is worth something today, so a move can be weighed against
-            what it costs the monster wearing it. Deliberately quiet: it is
+            what it costs the monster it is engraved on. Deliberately quiet: it is
             context for the score above, not the decision. */}
         <Fact label="Score on current mon">
           <Percent value={onCurrentMon?.value} general={context.general}
-            fallback={wearer ? 'Not judged' : '—'} />
+            fallback={engravedOn ? 'Not judged' : '—'} />
         </Fact>
         <ScoreFact label="Score on this mon" value={onThisMon?.value}
           general={context.general} group />
@@ -330,7 +330,7 @@ export function BestArtifactForMonster({ data, monsters, monsterPreferences, set
   const artifacts = useMemo(() => readArtifacts(data), [data]);
   const artifactNumbers = useMemo(() => new Map(artifacts.map((artifact, index) => [artifact.id, index])), [artifacts]);
   const stones = useMemo(() => engravedStonesFor(data), [data]);
-  const wearers = useMemo(() => new Map(allMonsters.map((monster) => [monster.unitId, monster])), [allMonsters]);
+  const monstersByUnitId = useMemo(() => new Map(allMonsters.map((monster) => [monster.unitId, monster])), [allMonsters]);
   const subPropertyOptions = useMemo(() => {
     const definitions = new Map<number, { id: number; name: string }>();
     for (const artifact of artifacts) {
@@ -344,21 +344,21 @@ export function BestArtifactForMonster({ data, monsters, monsterPreferences, set
   const selectedSubPropertyId = subPropertyOptions.some((option) => String(option.id) === filters.subPropertyId)
     ? filters.subPropertyId : '';
 
-  /* Packed once for the chosen monster and once for every monster wearing
+  /* Packed once for the chosen monster and once for every monster with
      something. Both are the same input the compute backends are given, so a
      figure shown beside a ranking was produced by the scorer that built it. */
   const monsterRequests = useMemo(() => selectedMonster
     ? buildArtifactScoreRequestsForCopy(data, selectedMonster.unitId, selectedMonster.masterId, settings, monsterPreferences)
     : [], [data, selectedMonster, settings, monsterPreferences]);
-  const wearerRequests = useMemo(() => {
+  const engravedRequests = useMemo(() => {
     const speciesIds = new Set<string>();
     for (const artifact of artifacts) {
       if (artifact.occupiedId === null) continue;
-      const wearer = wearers.get(artifact.occupiedId);
-      if (wearer) speciesIds.add(monsterSpeciesId(wearer.masterId));
+      const engravedOn = monstersByUnitId.get(artifact.occupiedId);
+      if (engravedOn) speciesIds.add(monsterSpeciesId(engravedOn.masterId));
     }
     return buildArtifactScoreRequestsForMonsterIds(data, [...speciesIds], settings, undefined, monsterPreferences);
-  }, [artifacts, data, settings, wearers, monsterPreferences]);
+  }, [artifacts, data, settings, monstersByUnitId, monsterPreferences]);
 
   const inputKey = JSON.stringify({
     artifacts: artifacts.map((artifact) => [artifact.id, artifact.occupiedId, artifact.mainProperty, artifact.convertedPropertyIndex,
@@ -379,16 +379,16 @@ export function BestArtifactForMonster({ data, monsters, monsterPreferences, set
         artifact,
         index,
         target,
-        wearer: artifact.occupiedId === null ? undefined : wearers.get(artifact.occupiedId),
+        engravedOn: artifact.occupiedId === null ? undefined : monstersByUnitId.get(artifact.occupiedId),
       }];
     }).sort((left, right) => right.target.value - left.target.value || left.index - right.index);
-  }, [artifacts, artifactNumbers, currentCalculation, selectedMonster, wearers]);
+  }, [artifacts, artifactNumbers, currentCalculation, selectedMonster, monstersByUnitId]);
 
   /* Every filter narrows a ranking that was already calculated, so clicking one
      answers immediately rather than asking for the scores again. The order is
      never touched: the list stays the ranking, minus the rows filtered out. */
   const visibleRows = rows.filter((row) => (!filters.locations.length
-    || filters.locations.includes(row.artifact.occupiedId === null ? 'inventory' : 'equipped'))
+    || filters.locations.includes(row.artifact.occupiedId === null ? 'inventory' : 'engraved'))
     && (!filters.mainProperties.length || filters.mainProperties.includes(row.artifact.mainProperty))
     && (!filters.grades.length || filters.grades.includes(row.artifact.grade))
     && (filters.includeIntangible || !row.artifact.intangible)
@@ -397,17 +397,17 @@ export function BestArtifactForMonster({ data, monsters, monsterPreferences, set
     .filter((row) => row.artifact.category === category)
     .slice(0, filters.count);
 
-  const wornArtifacts = useMemo(() => {
-    const worn = new Map<ArtifactCategory, Artifact>();
-    if (!selectedMonster) return worn;
+  const engravedArtifacts = useMemo(() => {
+    const engraved = new Map<ArtifactCategory, Artifact>();
+    if (!selectedMonster) return engraved;
     for (const artifact of artifacts) {
-      if (artifact.occupiedId === selectedMonster.unitId) worn.set(artifact.category, artifact);
+      if (artifact.occupiedId === selectedMonster.unitId) engraved.set(artifact.category, artifact);
     }
-    return worn;
+    return engraved;
   }, [artifacts, selectedMonster]);
 
   const context: ScoreContext | undefined = selectedMonster ? {
-    general, stones, mode: settings.conversionStoneMode, monsterRequests, wearerRequests,
+    general, stones, mode: settings.conversionStoneMode, monsterRequests, engravedRequests,
     speciesId: monsterSpeciesId(selectedMonster.masterId),
     unitId: selectedMonster.unitId,
   } : undefined;
@@ -477,7 +477,7 @@ export function BestArtifactForMonster({ data, monsters, monsterPreferences, set
   </div>;
 
   return <div className="best-artifact-for-monster">
-    <p className="lead">Choose a monster, see what it wears today, then rank every artifact that could take the slot.</p>
+    <p className="lead">Choose a monster, see what it has engraved today, then rank every artifact that could take the slot.</p>
 
     {/* The monster leads: everything below it — the current artifacts, the
         filters, the two rankings — is an answer about this one monster. */}
@@ -504,7 +504,7 @@ export function BestArtifactForMonster({ data, monsters, monsterPreferences, set
 
     <div className="filter-panel best-artifact-filters">
       {buttonGroup('Location', 'locations', artifactLocations,
-        (location) => location === 'inventory' ? 'Inventory' : 'Equipped', 'best-artifact-filter-location')}
+        (location) => location === 'inventory' ? 'Inventory' : 'Engraved', 'best-artifact-filter-location')}
       {buttonGroup('Main stat', 'mainProperties', artifactMainPropertyOrder,
         (property) => property, 'best-artifact-filter-main')}
       {buttonGroup('Quality', 'grades', artifactGradeOrder,
@@ -546,7 +546,7 @@ export function BestArtifactForMonster({ data, monsters, monsterPreferences, set
       <h3 id="best-artifact-current-title">Current artifacts</h3>
       <div className="best-artifact-current-slots">
         {categoryOrder.map((category) => <CurrentArtifact key={category} category={category}
-          artifact={wornArtifacts.get(category)} context={context} />)}
+          artifact={engravedArtifacts.get(category)} context={context} />)}
       </div>
     </section>}
 

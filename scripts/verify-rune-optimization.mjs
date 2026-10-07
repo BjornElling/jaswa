@@ -73,18 +73,18 @@ const figures = monsterStatTargetKeys;
 const supportSlots = [[13, 15], [13, 15], [13], [15], [15], [15]].map((sets) => sets.map((setId) => ({ setId })));
 const support = remainingSetSupport(supportSlots, [0, 1, 2, 3, 4, 5]);
 const requiredSets = { needs: [{ setId: 13, pieces: 4 }, { setId: 15, pieces: 2 }], free: 0 };
-const worn = new Int32Array(setIdBound); worn[13] = 2;
+const engraved = new Int32Array(setIdBound); engraved[13] = 2;
 const pieces = new Int32Array(setIdBound); pieces[13] = 4; pieces[15] = 2;
-assert.ok(canStillSatisfy(requiredSets, worn, 2), 'the loose slot count should admit this impossible prefix');
-assert.ok(!canStillSatisfy(requiredSets, worn, 2, support[2]), 'one remaining Violent slot cannot supply two pieces');
-assert.ok(!canStillFinishSets(worn, 2, pieces, support[2]), 'broken sets refused must read actual slot support too');
-worn[13] = 3; worn[intangibleSetId] = 1;
-assert.ok(canStillSatisfy(requiredSets, worn, 4, support[4]), 'a worn Intangible completes Violent without another slot');
-assert.ok(canStillFinishSets(worn, 4, pieces, support[4]), 'the worn wildcard must survive the support proof');
+assert.ok(canStillSatisfy(requiredSets, engraved, 2), 'the loose slot count should admit this impossible prefix');
+assert.ok(!canStillSatisfy(requiredSets, engraved, 2, support[2]), 'one remaining Violent slot cannot supply two pieces');
+assert.ok(!canStillFinishSets(engraved, 2, pieces, support[2]), 'broken sets refused must read actual slot support too');
+engraved[13] = 3; engraved[intangibleSetId] = 1;
+assert.ok(canStillSatisfy(requiredSets, engraved, 4, support[4]), 'an engraved Intangible completes Violent without another slot');
+assert.ok(canStillFinishSets(engraved, 4, pieces, support[4]), 'the engraved wildcard must survive the support proof');
 const future = new Int32Array(setIdBound); future[13] = 1; future[15] = 1; future[intangibleSetId] = 1;
-worn.fill(0); worn[13] = 2; worn[15] = 1;
-assert.ok(canStillSatisfy(requiredSets, worn, 3, future), 'a future Intangible must stay available to the support bound');
-console.log('PASS: remaining set support rejects impossible prefixes and preserves worn and future Intangible completions.');
+engraved.fill(0); engraved[13] = 2; engraved[15] = 1;
+assert.ok(canStillSatisfy(requiredSets, engraved, 3, future), 'a future Intangible must stay available to the support bound');
+console.log('PASS: remaining set support rejects impossible prefixes and preserves engraved and future Intangible completions.');
 
 /* The stat sheet of six chosen end states, through the Monsters page's own reader:
    counted with the leads, as every range and ranking judges, or as shown. */
@@ -122,7 +122,7 @@ function completedBy(counts) {
   return intangible === 1 && short.length === 1 ? short[0][0] : -1;
 }
 
-/* A build names the sets it must hold; whatever else is worn fills its free slots. */
+/* A build names the sets it must hold; whatever else is engraved fills its free slots. */
 function buildMet(id, counts) {
   const build = runeBuild(id);
   const completes = completedBy(counts);
@@ -284,14 +284,14 @@ for (let index = 0; index < scenarios; index += 1) {
       'an Immemorial item was spent although the profile refuses them');
   }
   if (input.spared.length > 0) {
-    const wearers = new Map(input.runes.map((rune) => [rune.id, rune.occupiedId]));
-    const worn = (candidate) => wearers.get(candidate.runeId);
-    assert.ok(problem.slots.flat().every((candidate) => !input.spared.includes(worn(candidate))),
-      `scenario ${index}: a rune worn by a higher-priority monster was offered`);
+    const placeByRuneId = new Map(input.runes.map((rune) => [rune.id, rune.occupiedId]));
+    const placeOf = (candidate) => placeByRuneId.get(candidate.runeId);
+    assert.ok(problem.slots.flat().every((candidate) => !input.spared.includes(placeOf(candidate))),
+      `scenario ${index}: a rune engraved on a higher-priority monster was offered`);
     /* The same account with the list ignored offers some of those runes, so the refusal above was a refusal. */
     if (input.settings.runesOnOtherMonsters) {
       const unspared = prepareRuneOptimization({ ...input, spared: [] }, { reduce: false });
-      if (unspared.slots.flat().some((candidate) => input.spared.includes(worn(candidate)))) sparedChecked += 1;
+      if (unspared.slots.flat().some((candidate) => input.spared.includes(placeOf(candidate)))) sparedChecked += 1;
     }
   }
   const context = `scenario ${index}: ${JSON.stringify({ builds: input.requirements.builds, broken: input.requirements.allowBroken, rank: input.requirements.rankBy, targets: input.requirements.targets, ceilings: input.requirements.ceilings, gems: input.settings.gems, grinds: input.settings.grinds })}`;
@@ -675,12 +675,12 @@ for (const filled of [0, 1, 3, 5, 6]) {
     unfinishedAtMaximum: true, gems: 'theoretical', grinds: 'theoretical' };
   const raw = prepareRuneOptimization(input, { reduce: false });
   for (let slot = 0; slot < filled; slot += 1) {
-    const worn = input.runes.find((rune) => rune.slot === slot + 1 && rune.occupiedId === input.unitId);
+    const engraved = input.runes.find((rune) => rune.slot === slot + 1 && rune.occupiedId === input.unitId);
     assert.equal(raw.slots[slot].length, 1);
     const picked = raw.slots[slot][0];
-    assert.equal(picked.runeId, worn.id);
-    assert.equal(picked.mainValue, worn.mainValue);
-    assert.deepEqual(picked.lines, worn.subProperties);
+    assert.equal(picked.runeId, engraved.id);
+    assert.equal(picked.mainValue, engraved.mainValue);
+    assert.deepEqual(picked.lines, engraved.subProperties);
     assert.equal(picked.gemmedAt, -1); assert.deepEqual(picked.groundAt, []);
   }
   // No crafting keeps the independent exhaustive oracle small at both extremes.

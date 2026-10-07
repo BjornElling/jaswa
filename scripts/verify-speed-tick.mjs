@@ -189,7 +189,7 @@ check(!isSpeedTuningPreferences({ teams: [team([{ unitId: '1', whatIfDisplaySpee
     'a malformed what-if is dropped on its own; its neighbour and the team it sat in are kept');
 }
 {
-  /* Stored, a what-if still never reaches a reading that is not handed it: the page judges the runes worn. */
+  /* Stored, a what-if still never reaches a reading that is not handed it: the page judges the runes engraved. */
   const unitId = '1';
   const monster = { unit_id: 1, unit_master_id: 14712, attribute: 2, spd: 100, skills: [], runes: [{ set_id: 1, slot_no: 2, pri_eff: [8, 40], sec_eff: [] }] };
   const monsters = new Map([[unitId, monster]]);

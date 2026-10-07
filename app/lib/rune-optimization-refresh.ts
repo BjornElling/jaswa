@@ -11,7 +11,7 @@
  *   as done, at whatever the game actually rolled, and stops being listed as work;
  * - one not applied yet is still counted at the value the search assumed — unless it
  *   can no longer be applied: a rune that took a Gem on another line cannot take a
- *   second, and a rune locked to this monster is used as worn, as the search uses it;
+ *   second, and a rune locked to this monster is used as engraved, as the search uses it;
  * - where the rune now sits decides whether it still has to move;
  * - the figures are summed again by `buildFigures`, the search's own arithmetic, and
  *   a target the new figures no longer reach is named.
@@ -46,12 +46,12 @@ import type { Rune } from './runes';
 export type PickIssue =
   /** No longer in the account: sold, or fed to another rune. */
   | { kind: 'gone' }
-  /** Locked where it is, which is not this monster. `wearer` is `null` for the inventory. */
-  | { kind: 'locked-away'; wearer: string | null }
+  /** Locked where it is, which is not this monster. `engravedOn` is `null` for the inventory. */
+  | { kind: 'locked-away'; engravedOn: string | null }
   /** Another rune is locked into this slot on this monster. */
   | { kind: 'slot-taken'; runeId: string }
-  /** Worn by another monster, whose runes the settings or the priority list keep. */
-  | { kind: 'worn-elsewhere'; wearer: string }
+  /** Engraved on another monster, whose runes the settings or the priority list keep. */
+  | { kind: 'engraved-elsewhere'; engravedOn: string }
   /** A Gem or Grindstone still to come needs more of a held item than the account has left. */
   | { kind: 'items' }
   | { kind: 'slot-filled' }
@@ -101,7 +101,7 @@ function sameRune(left: Rune, right: Rune): boolean {
 /**
  * One picked rune, re-read against what it has become since `before`. `lockedHere`
  * is whether it is now locked on this monster: the search counts such a rune as
- * worn, with nothing spent on it, and so does the re-reading.
+ * engraved, with nothing spent on it, and so does the re-reading.
  */
 export function currentPick(picked: PickedRune, before: Rune, now: Rune, unitId: string, lockedHere = picked.locked): PickedRune {
   if (lockedHere) {
@@ -199,14 +199,14 @@ function readBuild(build: OptimizedBuild, context: RefreshContext, lockedSlots: 
 
     let issue: PickIssue | null = null;
     const taken = lockedSlots.get(picked.slot);
-    if (locked && !lockedHere) issue = { kind: 'locked-away', wearer: is.occupiedId };
+    if (locked && !lockedHere) issue = { kind: 'locked-away', engravedOn: is.occupiedId };
     else if (taken !== undefined && taken !== found.runeId) issue = { kind: 'slot-taken', runeId: taken };
     else if (is.occupiedId !== null && is.occupiedId !== unitId && !mayTakeFrom(context, is.occupiedId)) {
-      issue = { kind: 'worn-elsewhere', wearer: is.occupiedId };
+      issue = { kind: 'engraved-elsewhere', engravedOn: is.occupiedId };
     }
     if (issue === null && context.settings.fillEmptySlotsOnly) {
-      const worn = [...now.runes.values()].find((rune) => rune.slot === picked.slot && rune.occupiedId === unitId);
-      if (worn && worn.id !== picked.runeId) issue = { kind: 'slot-filled' };
+      const engraved = [...now.runes.values()].find((rune) => rune.slot === picked.slot && rune.occupiedId === unitId);
+      if (engraved && engraved.id !== picked.runeId) issue = { kind: 'slot-filled' };
     }
     picks.push({ ...picked, issue });
     pieces.push({ rune: is, mainValue: picked.mainValue, lines: picked.lines });
@@ -234,7 +234,7 @@ function readBuild(build: OptimizedBuild, context: RefreshContext, lockedSlots: 
   }
   if (gone) return { ...build, runes: picks, moves, figures: null, counted: null, short: [], over: [] };
   /* Untouched since the search: its own figures, exactly. After a sync every build is
-     counted again, since equipment can change as well as a rune. Ranges are judged
+     counted again, since gear can change as well as a rune. Ranges are judged
      on the figures counted with the leads, never on the ones shown. */
   const { figures, counted } = changed
     ? buildFigures(context.monster, pieces, context.requirements)

@@ -296,7 +296,7 @@ label[for] {
 }
 
 /* Title — what a panel, card, dialog or disclosure is called. */
-.type-title, .block-title, .bar-head b, .dialog h2, .preset-name, .route-name,
+.type-title, .block-title, .bar-head b, .dialog h2, .role-name, .route-name,
 .route-body-title, .statistics h4, .acceleration-word, .handheld-brand,
 .rune-simulator-count-input, .rune-simulator-stats-total, .rune-emblem.placeholder {
   font-family: var(--font-heading);
@@ -324,8 +324,8 @@ label[for] {
 .type-body, .lead, .notice, .dialog p, .slider-note, .radio-note,
 .overlay-nickname-input, .overlay-empty, .usage-entry, .overlay-stat-value,
 .rune-build-set, .overlay-toggle, .overlay-lead,
-.worn-rune-main, .worn-rune-innate, .worn-rune-subs, .worn-artifact-main, .worn-artifact-subs,
-.worn-relic-main, .worn-relic-unique,
+.engraved-rune-main, .engraved-rune-innate, .engraved-rune-subs, .engraved-artifact-main, .engraved-artifact-subs,
+.engraved-relic-main, .engraved-relic-unique,
 .checkbox-row, .editor-note, .route-links, .artifact-conversion-intro,
 .statistics-lead, .best-artifact-ranking, .best-artifact-empty,
 .best-artifact-fact dt, .statistics dt, .empty-state p,
@@ -361,7 +361,7 @@ label[for] {
 /* Body emphasis — weight carries priority without changing the family or size. */
 .type-body-emphasis, .monster-name, .slider-choice, .relic-verdict, .rune-verdict, .speed-summary-name, .speed-basis-figure,
 .drop-zone.settled strong, .acceleration-adapter b, .rune-build-card-identity .rune-link, .rune-build-card-main,
-.worn-rune-set {
+.engraved-rune-set {
   font-family: var(--font-body);
   font-size: var(--type-body);
   font-weight: 500;
@@ -370,7 +370,7 @@ label[for] {
 
 /* Controls name actions, but keep the same body family and measure. */
 .type-control, .button, .filter-reset, .text-link, .radio-line-legend, .speed-add-item,
-.preset-row-label, .expandable-list-toggle, .notice-link,
+.role-row-label, .expandable-list-toggle, .notice-link,
 .field > span {
   font-family: var(--font-body);
   font-size: var(--type-body);
@@ -386,7 +386,7 @@ label[for] {
 .artifact-recommendation-table th, .overlay-row-label, .overlay-stat-head,
 .rune-simulator-stats-table thead th, .overlay-facts dt, .rune-overlay-subs th,
 .rune-overlay-readings thead th, .speed-group-title, .rune-build-card-where-label, .rune-build-change-title,
-.monster-priority-head, .worn-artifact-category {
+.monster-priority-head, .engraved-artifact-category {
   font-family: var(--font-body);
   font-size: var(--type-label);
   font-weight: 700;
@@ -395,8 +395,8 @@ label[for] {
 }
 .type-caption, .slot-label, .editor-slot-label, .target dt, .choice-legend,
 .field-compact > span, .relic-stone-balance-label, .craft-held-balance-label,
-.preset-type, .overlay-provenance, .usage-share,
-.overlay-stat-current, .overlay-slot-name, .worn-rune-level, .worn-artifact-class,
+.role-type, .overlay-provenance, .usage-share,
+.overlay-stat-current, .overlay-slot-name, .engraved-rune-level, .engraved-artifact-class,
 .speed-lane-turn text, .speed-lane-figure,
 .rune-optimization-provenance, .rune-build-card-grade, .rune-build-change-kind,
 .speed-summary-state, .speed-leader-skill, .monster-priority-optimize {
@@ -1245,7 +1245,7 @@ label[for] {
 
 /* ------------------------------------------------ relics on the roster
    The same two-line cell the relic library uses, now three times over: what
-   the monster wears, what the plan gives it, and the verdict with its reason.
+   the monster has engraved, what the plan gives it, and the verdict with its reason.
    Rows centre against those rather than hanging from the top, for the reason
    the library states — a lone figure level with a two-line neighbour reads as
    part of the same row instead of a footnote to it. */
@@ -1258,7 +1258,7 @@ label[for] {
 .relic-monster-grid td.align-right { font-family: var(--font-body); font-variant-numeric: tabular-nums; }
 
 /* Four verdicts on one ladder: a bare monster gaining a relic is a clean win,
-   a swap says the relic it wears is the wrong one, nothing to do stays in full
+   a swap says the relic engraved on it is the wrong one, nothing to do stays in full
    ink, and a monster the limit has locked out is the page reporting that it
    cannot act. `--state-*` is the verdict vocabulary `AGENTS.md` §5 allows for
    exactly this, and the band's name is written beside the colour, so the
@@ -1366,10 +1366,10 @@ label[for] {
 .craft-best-use-filters {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   grid-template-areas:
-    "kind  family grade stat"
-    "item  item   item  item"
-    "role  roll   grind runes"
-    "count count  .     actions";
+    "kind  family grade stat    "
+    "item  item   item  item    "
+    "role  roll   grind location"
+    "count count  .     actions ";
 }
 .craft-best-use-kind { grid-area: kind; }
 .craft-best-use-lineage { grid-area: family; }
@@ -1379,7 +1379,7 @@ label[for] {
 .craft-best-use-role { grid-area: role; }
 .craft-best-use-roll { grid-area: roll; }
 .craft-best-use-grind { grid-area: grind; }
-.craft-best-use-runes { grid-area: runes; }
+.craft-best-use-location { grid-area: location; }
 .craft-best-use-count { grid-area: count; }
 .craft-best-use-actions { grid-area: actions; justify-self: end; }
 .craft-best-use-select .filter-group-controls,
@@ -1489,12 +1489,12 @@ label[for] {
   font-family: var(--font-body);
 }
 
-/* Artifacts and relics are equipment alongside the rune sheet, and now sit
+/* Artifacts and relics are gear alongside the rune sheet, and now sit
    directly after it. The reserved inset separates that compact pair from the
    sets without drawing a hard rule through the table or changing its measured
    columns. */
-.monster-grid .equipment-start { padding-left: var(--s5); }
-.monster-grid .equipment-types { white-space: nowrap; }
+.monster-grid .gear-start { padding-left: var(--s5); }
+.monster-grid .gear-types { white-space: nowrap; }
 
 .row-index { color: var(--text-muted); font-family: var(--font-body); font-size: var(--type-label); width: 64px; }
 
@@ -2344,7 +2344,7 @@ label[for] {
   pointer-events: none;
 }
 .rune-optimization-monster-select .jaswa-select { height: 52px; padding-left: calc(36px + var(--s4)); }
-.rune-optimization-open-preset { gap: var(--s2); }
+.rune-optimization-open-profile { gap: var(--s2); }
 
 /* ------------------------------------------------------- priority list */
 /* Held to a reading measure: a name and the arrows that move it belong on one
@@ -2384,7 +2384,7 @@ label[for] {
 /* One set of columns for the names above and every entry below, shared through
    subgrid so a column sized by its content is sized once for all of them: the
    place, the name with its portrait, the way to Rune Optimization, what the copy
-   wears, and the three controls. The equipment columns are fixed, so a 6/6 and a
+   has engraved, and the three controls. The gear columns are fixed, so a 6/6 and a
    0/6 sit on the same verticals and nothing moves as a count changes. */
 .monster-priority-table {
   display: grid;
@@ -2690,7 +2690,7 @@ label[for] {
   stroke-linejoin: round;
 }
 
-/* What the monster wears today, before any advice: the comparison every
+/* What the monster has engraved today, before any advice: the comparison every
    recommendation below is measured against, so it sits between the choice and
    the filters rather than at the end of the page. Two boxes, one per slot,
    because a monster carries exactly one artifact of each category (§1). */
@@ -2698,7 +2698,7 @@ label[for] {
 .best-artifact-current h3 { margin: 0; }
 .best-artifact-current-slots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s4); }
 /* The facts column is the same fixed measure the recommendations below use, so
-   an artifact's lines start at the same offset whether it is the one worn now
+   an artifact's lines start at the same offset whether it is the one engraved now
    or one of the candidates. */
 .best-artifact-current-slot {
   display: grid;
@@ -2726,7 +2726,7 @@ label[for] {
 .best-artifact-current-slot .best-artifact-empty { grid-column: 1 / -1; padding: 0; }
 
 /* One ranking per category, each led by its own full-width heading, because
-   the two are separate decisions: a monster equips one of each and never
+   the two are separate decisions: a monster takes one of each and never
    chooses between them. */
 .best-artifact-results { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s5); }
 .best-artifact-category { display: grid; gap: var(--s3); }
@@ -3094,7 +3094,7 @@ label[for] {
 .artifact-recommendation-table th:nth-child(3) { width: 24%; }
 /* Monster names, which have to stay on one line to be scannable. The two are
    not the same width: the Location column also holds "Inventory" for every
-   unequipped piece and is the wider of the two, while the recommended monster
+   piece in inventory and is the wider of the two, while the recommended monster
    is a name and nothing else. */
 .artifact-recommendation-table th:nth-child(4) { width: 11%; }
 .artifact-recommendation-table th:nth-child(7) { width: 10%; }
@@ -3146,7 +3146,7 @@ label[for] {
    its connective words, one step down from full ink and one step up from the
    `--text-muted` a sold row is written in. "Inventory" is deliberately not dimmed:
    a piece that is free to move is the readiest row in the table. */
-.artifact-recommendation-wearer { color: var(--text); }
+.artifact-recommendation-engraved-on { color: var(--text); }
 .artifact-recommendation-keep,
 .artifact-recommendation-no-conversion { color: var(--text-accent); }
 /* Below about 1240px the action no longer fits beside the filters, so it drops
@@ -3380,9 +3380,9 @@ label[for] {
 .acceleration-adapter span { color: var(--text); font-weight: 400; }
 .acceleration-adapter b { color: var(--text-strong); }
 
-/* --------------------------------------------------------------- presets */
+/* --------------------------------------------------------------- roles */
 
-/* Each preset is its own record rather than a row in one dense table: eight
+/* Each role is its own record rather than a row in one dense table: eight
    roles, each stating six different kinds of thing, needed height and a shared
    label column far more than it needed compactness. The card, the --sunk
    ground and the gold heading are the same devices the statistics block uses,
@@ -3396,7 +3396,7 @@ label[for] {
 [data-reorder-index][data-dragging] { opacity: .5; }
 [data-sorting] > [data-reorder-index]:not(tbody) { transform: translateY(var(--reorder-shift, 0)); transition: transform .15s ease; }
 
-.preset-list { display: grid; gap: var(--s4); }
+.role-list { display: grid; gap: var(--s4); }
 
 /* The count on the left, the one action that adds to the list on the right.
    Above the list rather than below it: the button is looked for before the
@@ -3422,25 +3422,25 @@ label[for] {
   margin-right: var(--s2);
 }
 
-.preset-card {
+.role-card {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--sunk);
   padding: var(--s4) var(--s5) var(--s5);
 }
-.preset-card:hover { border-color: var(--line-strong); }
+.role-card:hover { border-color: var(--line-strong); }
 
 /* The rule closes the name and its type together, so the two read as one
    heading rather than as a heading and a first row. */
-.preset-head {
+.role-head {
   display: flex; align-items: flex-start; justify-content: space-between;
   gap: var(--s4);
   margin: 0 0 var(--s3);
   padding-bottom: var(--s3);
   border-bottom: 1px solid var(--line);
 }
-.preset-title { min-width: 0; }
-.preset-actions { display: flex; gap: var(--s1); flex: 0 0 auto; }
+.role-title { min-width: 0; }
+.role-actions { display: flex; gap: var(--s1); flex: 0 0 auto; }
 
 /* A square target for one stroked icon. Quiet until the card or the button is
    under the pointer, so eight cards do not present sixteen lit controls — but
@@ -3454,7 +3454,7 @@ label[for] {
   color: var(--text-muted);
   transition: color .12s, border-color .12s, background .12s;
 }
-.preset-card:hover .icon-button { color: var(--text-muted); }
+.role-card:hover .icon-button { color: var(--text-muted); }
 .icon-button:hover:not(:disabled) {
   color: var(--text-accent);
   border-color: var(--line-strong);
@@ -3464,8 +3464,8 @@ label[for] {
 .icon-button:disabled { opacity: .35; cursor: default; }
 .icon-button:focus-visible { color: var(--text-accent); }
 /* A long name wraps rather than pushing the actions off the line, and stops at
-   three lines so one preset cannot take a screen to itself. */
-.preset-name {
+   three lines so one role cannot take a screen to itself. */
+.role-name {
   margin: 0;
   color: var(--text-accent);
   overflow-wrap: anywhere;
@@ -3473,9 +3473,9 @@ label[for] {
   overflow: hidden;
 }
 /* The family the role belongs to, in the quiet voice the row labels use: it
-   classifies the preset rather than naming it, so it must not compete with the
+   classifies the role rather than naming it, so it must not compete with the
    gold above it. */
-.preset-type {
+.role-type {
   margin: 2px 0 0;
   color: var(--text-muted);
 }
@@ -3484,35 +3484,35 @@ label[for] {
    below use: the share starts where a row's value starts, so it reads down the
    card with the runes and the slots rather than trailing the type. Below the
    width that measure survives, the two stack and the share keeps its label. */
-.preset-subhead {
+.role-subhead {
   display: grid;
   grid-template-columns: 124px minmax(0, 1fr);
   gap: var(--s5);
   align-items: baseline;
 }
 @media (max-width: 640px) {
-  .preset-subhead { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .role-subhead { grid-template-columns: minmax(0, 1fr); gap: 0; }
 }
 
-.preset-rows { display: grid; gap: var(--s1); }
+.role-rows { display: grid; gap: var(--s1); }
 
 /* One shared label column, so the six rows line up down the card and the
-   labels read as a list of what a preset consists of. */
-.preset-row {
+   labels read as a list of what a role consists of. */
+.role-row {
   display: grid;
   grid-template-columns: 124px minmax(0, 1fr);
   gap: var(--s5);
   align-items: baseline;
   padding: var(--s3) 0;
 }
-.preset-row + .preset-row { border-top: 1px solid var(--line); }
-/* Sans-serif at the weight the sliders' own labels carry, so a preset's parts
+.role-row + .role-row { border-top: 1px solid var(--line); }
+/* Sans-serif at the weight the sliders' own labels carry, so a role's parts
    are named in the same voice as the settings above rather than in the
    table-header voice of the grid. */
-.preset-row-label {
+.role-row-label {
   color: var(--text);
 }
-.preset-row-value { min-width: 0; }
+.role-row-value { min-width: 0; }
 
 /* preferred in full ink, acceptable dimmed — the only distinction the two
    groups need, and it survives being read at a glance down the column */
@@ -3615,9 +3615,9 @@ label[for] {
   .target-line { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 }
 @media (min-width: 1921px) and (max-width: 720px) {
-  .preset-card { padding: var(--s4); }
+  .role-card { padding: var(--s4); }
   /* the label moves above its value so neither column is squeezed */
-  .preset-row { grid-template-columns: minmax(0, 1fr); gap: var(--s1); }
+  .role-row { grid-template-columns: minmax(0, 1fr); gap: var(--s1); }
   .target-line { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   /* three sets of main stats will not fit a phone; one slot per line does */
   .slot-group { grid-template-columns: minmax(0, 1fr); }
@@ -4844,9 +4844,9 @@ input[type='checkbox']:checked {
 .dialog .field { margin-top: var(--s4); }
 .dialog-actions { display: flex; justify-content: flex-end; gap: var(--s2); margin-top: var(--s5); }
 
-/* ------------------------------------------------------- preset editor */
+/* ------------------------------------------------------- role editor */
 
-/* Wider than a confirmation and capped at the viewport: a preset states six
+/* Wider than a confirmation and capped at the viewport: a role states six
    different kinds of thing, so the body scrolls while the heading and the two
    actions stay put — the reader always knows how to leave. */
 .dialog.editor {
@@ -4888,7 +4888,7 @@ input[type='checkbox']:checked {
 }
 
 /* Name and type share a line: both are one short answer, and the pair reads as
-   the preset's identity before its contents. */
+   the role's identity before its contents. */
 .editor-pair {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 220px);
@@ -5036,7 +5036,7 @@ input[type='checkbox']:checked {
 /* The overlay takes the account tables' own measure. It is brought up over the
    table the user was reading, so sharing that width is what makes it read as
    the same page rather than as a narrower panel floating off to one side — and
-   the panel needs the room besides, since three equipment blocks sit side by
+   the panel needs the room besides, since three gear blocks sit side by
    side inside it. The body scrolls while the identity above it stays put, and the
    ways out sit on the lower edge, so the reader always knows how to leave. */
 .dialog.overlay {
@@ -5196,7 +5196,7 @@ html.overlay-open .overlay-backdrop { right: var(--overlay-gutter, 0px); }
 
 /* The head's facts as labelled boxes in a row, each value set a step above
    body text so it reads at a glance rather than as a caption. Every value box
-   is the height of a wearer's portrait, so a rune worn and one in the inventory
+   is the height of a monster's portrait, so a rune engraved and one in the inventory
    put their values on the same line and the head keeps one height. */
 .overlay-facts { display: flex; margin: 0; }
 .overlay-facts > div { display: grid; gap: var(--s1); padding: 0 var(--s4); border-left: 1px solid var(--line); }
@@ -5210,7 +5210,7 @@ html.overlay-open .overlay-backdrop { right: var(--overlay-gutter, 0px); }
   font-variant-numeric: tabular-nums;
 }
 
-/* The same four-layer edge fade the preset editor uses. With six blocks a cut
+/* The same four-layer edge fade the role editor uses. With six blocks a cut
    mid-block is certain, and the fade is what makes it read as more to come
    rather than as a clipped row. */
 .overlay-body {
@@ -5287,7 +5287,7 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 
 /* Location closes the rune's row of facts at its far end. */
 .overlay-facts > .rune-overlay-location { margin-left: auto; padding-right: 0; border-left: 0; min-width: 180px; }
-/* A worn rune's location is a way into its monster, so it wears the accent
+/* An engraved rune's location is a way into its monster, so it wears the accent
    from the first paint rather than only under the pointer. */
 .rune-overlay-location .monster-link { color: var(--text-accent); }
 
@@ -5389,8 +5389,8 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 
 /* The verdict, explained: the same sunk box as the stats above it, so the two read
    as one record. Three facts, each a sentence on the left and its figure at the
-   right edge, then every preset's reading. The figures take fixed columns and
-   tabular digits, and the table draws a row for every preset from the first paint,
+   right edge, then every role's reading. The figures take fixed columns and
+   tabular digits, and the table draws a row for every role from the first paint,
    so nothing moves when the answer lands. */
 .rune-overlay-evaluation {
   display: grid;
@@ -5474,9 +5474,9 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 
 /* ------------------------------------------------ monster overlay columns */
 
-/* What is wanted takes two thirds and what is worn the last third, read across
+/* What is wanted takes two thirds and what is engraved the last third, read across
    one line of sight. Both columns start at the top and size to their content,
-   so a copy wearing nothing leaves the right column short rather than moving
+   so a copy with nothing engraved leaves the right column short rather than moving
    the answers on the left. */
 .monster-overlay-body {
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
@@ -5484,9 +5484,9 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   align-items: start;
   padding-top: var(--s4);
 }
-.monster-overlay-wants, .monster-overlay-worn { display: grid; gap: var(--s4); align-content: start; min-width: 0; }
+.monster-overlay-wants, .monster-overlay-engraved { display: grid; gap: var(--s4); align-content: start; min-width: 0; }
 .monster-overlay-body .overlay-block { gap: var(--s2); }
-.monster-overlay-worn .notice { margin: 0; }
+.monster-overlay-engraved .notice { margin: 0; }
 
 /* The eleven ranges — the eight stats and the three composites — in two rows of
    six, because two fields a figure do not fit eleven abreast. Equal fractions
@@ -5597,7 +5597,7 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   align-items: center;
   gap: var(--s1) var(--s4);
 }
-/* The population's artifacts, beside what is worn: a narrower label column,
+/* The population's artifacts, beside what is engraved: a narrower label column,
    since the right third has no room for the left's. */
 .overlay-common { grid-template-columns: 112px minmax(0, 1fr); gap: var(--s1) var(--s3); }
 /* Inline rather than flex, so a row too long for its column ends in an ellipsis
@@ -5838,13 +5838,13 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 .overlay-slot { display: grid; gap: var(--s1); min-width: 0; align-content: start; }
 .overlay-slot-name { color: var(--text-muted); }
 
-/* ------------------------------------------------ what a copy wears now */
+/* -------------------------------------------- what a copy has engraved now */
 
 /* Six runes in two rows of three, in slot order. Every card is one fixed shape —
    emblem beside three lines, a step, then four sub-property rows — so an empty
    slot, a rune without an innate and one with two sub properties draw the same
    box and the grid never re-flows. */
-.worn-runes {
+.engraved-runes {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--s2);
@@ -5852,7 +5852,7 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   padding: 0;
   list-style: none;
 }
-.worn-rune {
+.engraved-rune {
   min-width: 0;
   display: grid;
   grid-template-columns: 36px minmax(0, 1fr);
@@ -5865,30 +5865,30 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 }
 /* The overlay's emblem at a third, every layer by the same factor, so the slots
    keep the proportions they have in the game's circle. */
-.worn-rune .rune-emblem, .worn-rune-blank { grid-row: 1 / span 3; width: 36px; height: 36px; border-radius: var(--radius-sm); }
-.worn-rune .rune-emblem-frame { width: 30px; }
-.worn-rune .rune-emblem[data-slot="1"] .rune-emblem-frame,
-.worn-rune .rune-emblem[data-slot="4"] .rune-emblem-frame { width: 25px; }
-.worn-rune .rune-emblem-glyph { width: 19px; }
-.worn-rune-blank {
+.engraved-rune .rune-emblem, .engraved-rune-blank { grid-row: 1 / span 3; width: 36px; height: 36px; border-radius: var(--radius-sm); }
+.engraved-rune .rune-emblem-frame { width: 30px; }
+.engraved-rune .rune-emblem[data-slot="1"] .rune-emblem-frame,
+.engraved-rune .rune-emblem[data-slot="4"] .rune-emblem-frame { width: 25px; }
+.engraved-rune .rune-emblem-glyph { width: 19px; }
+.engraved-rune-blank {
   display: grid; place-items: center;
   border: 1px dashed var(--line-strong);
   color: var(--text-muted);
 }
-.worn-rune-set, .worn-rune-main, .worn-rune-innate {
+.engraved-rune-set, .engraved-rune-main, .engraved-rune-innate {
   grid-column: 2;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.worn-rune-set { display: flex; justify-content: space-between; gap: var(--s1); color: var(--text-strong); }
-.worn-rune-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.worn-rune-main { color: var(--text-strong); font-variant-numeric: tabular-nums; }
-.worn-rune[data-empty='true'] :is(.worn-rune-set, .worn-rune-main) { color: var(--text-muted); }
-.worn-rune-level { flex: none; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-.worn-rune-innate .rune-sub { margin-right: 0; }
-.worn-rune-subs {
+.engraved-rune-set { display: flex; justify-content: space-between; gap: var(--s1); color: var(--text-strong); }
+.engraved-rune-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.engraved-rune-main { color: var(--text-strong); font-variant-numeric: tabular-nums; }
+.engraved-rune[data-empty='true'] :is(.engraved-rune-set, .engraved-rune-main) { color: var(--text-muted); }
+.engraved-rune-level { flex: none; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.engraved-rune-innate .rune-sub { margin-right: 0; }
+.engraved-rune-subs {
   grid-column: 1 / -1;
   display: grid;
   grid-auto-rows: 1lh;
@@ -5896,15 +5896,15 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   padding: 0;
   list-style: none;
 }
-.worn-rune-subs .rune-sub { margin-right: 0; }
-.worn-rune[data-empty='true'] .worn-rune-subs { display: none; }
-.worn-rune[data-empty='true']::after { content: ''; grid-column: 1 / -1; height: calc(4lh + var(--s2)); }
+.engraved-rune-subs .rune-sub { margin-right: 0; }
+.engraved-rune[data-empty='true'] .engraved-rune-subs { display: none; }
+.engraved-rune[data-empty='true']::after { content: ''; grid-column: 1 / -1; height: calc(4lh + var(--s2)); }
 
 /* The two artifacts side by side, each the same five rows: its category and the
    class it fits, the main named, and four lines that clip with the whole line in
    the title rather than wrap and make one card taller than its neighbour. */
-.worn-artifacts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s2); }
-.worn-artifact {
+.engraved-artifacts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s2); }
+.engraved-artifact {
   min-width: 0;
   display: grid;
   grid-template-rows: 1lh 1lh auto;
@@ -5914,18 +5914,18 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   border-radius: var(--radius-sm);
   background: var(--sunk);
 }
-.worn-artifact-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s2); margin: 0; min-width: 0; }
-.worn-artifact-category { color: var(--text-muted); }
-.worn-artifact-class { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
-.worn-artifact-main { margin: 0; color: var(--text-strong); }
-.worn-artifact-subs { display: grid; grid-auto-rows: 1lh; margin: 0; padding: 0; list-style: none; color: var(--text); }
-.worn-artifact-subs li { display: flex; align-items: center; min-width: 0; white-space: nowrap; }
-.worn-artifact-line { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.engraved-artifact-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s2); margin: 0; min-width: 0; }
+.engraved-artifact-category { color: var(--text-muted); }
+.engraved-artifact-class { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
+.engraved-artifact-main { margin: 0; color: var(--text-strong); }
+.engraved-artifact-subs { display: grid; grid-auto-rows: 1lh; margin: 0; padding: 0; list-style: none; color: var(--text); }
+.engraved-artifact-subs li { display: flex; align-items: center; min-width: 0; white-space: nowrap; }
+.engraved-artifact-line { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
-/* A relic per line — main, unique, level — so a copy wearing several costs the
+/* A relic per line — main, unique, level — so a copy with several engraved costs the
    column one line each; the unique clips with the whole effect in its title. */
-.worn-relics { display: grid; gap: var(--s1); margin: 0; padding: 0; list-style: none; }
-.worn-relic {
+.engraved-relics { display: grid; gap: var(--s1); margin: 0; padding: 0; list-style: none; }
+.engraved-relic {
   display: grid;
   grid-template-columns: 9ch minmax(0, 1fr) auto;
   align-items: baseline;
@@ -5935,8 +5935,8 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   border-radius: var(--radius-sm);
   background: var(--sunk);
 }
-.worn-relic-main { color: var(--text-strong); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.worn-relic-unique { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.engraved-relic-main { color: var(--text-strong); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.engraved-relic-unique { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
 
 .usage-line { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--s3); row-gap: 0; }
 /* Most common is reference, never an answer, so all of it reads muted. */
@@ -6331,7 +6331,7 @@ th.align-center .sort-button { justify-content: center; }
   grid-template-areas:
     "search  advice ancient stars"
     "level   main   quality usage"
-    "slot    set    preset  sort-by";
+    "slot    set    role  sort-by";
 }
 .rune-filter-strip > .filter-group,
 .rune-filter-strip > .filter-group:nth-child(2n + 1),
@@ -6350,7 +6350,7 @@ th.align-center .sort-button { justify-content: center; }
 .rune-filter-slot { grid-area: slot; padding-left: 0 !important; border-left: 0 !important; }
 .rune-filter-set { grid-area: set; }
 .rune-filter-main { grid-area: main; }
-.rune-filter-preset { grid-area: preset; }
+.rune-filter-role { grid-area: role; }
 .rune-filter-usage { grid-area: usage; }
 .rune-filter-status { grid-area: status; }
 
@@ -6437,7 +6437,7 @@ th.align-center .sort-button { justify-content: center; }
 }
 .rune-simulator-note { white-space: nowrap; }
 
-/* The keepers, preset by slot. Counts are figures, so they sit right under
+/* The keepers, role by slot. Counts are figures, so they sit right under
    right-aligned headings; zero is dimmed rather than blanked, so every cell
    still reads as a count and the grid keeps its shape. */
 .rune-simulator-stats {
@@ -6529,7 +6529,7 @@ th.align-center .sort-button { justify-content: center; }
 .rune-simulator-table { table-layout: fixed; }
 .rune-simulator-table tbody td { height: auto; vertical-align: top; padding-block: var(--s2); white-space: nowrap; }
 .rune-simulator-set,
-.rune-simulator-preset { overflow: hidden; text-overflow: ellipsis; }
+.rune-simulator-role { overflow: hidden; text-overflow: ellipsis; }
 /* Every row is four substats tall, whatever it holds. A rare or hero rune gains
    its fourth line at +12, and a row that grew with it would push every row
    below down the moment the checkpoint changed. */
@@ -6560,8 +6560,8 @@ th.align-center .sort-button { justify-content: center; }
 }
 .rune-simulator-roll-arrow { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 
-/* Set, Main and Preset are token lines rather than chip rows: their vocabularies
-   run to twenty-two sets, a dozen main properties and however many presets the
+/* Set, Main and Role are token lines rather than chip rows: their vocabularies
+   run to twenty-two sets, a dozen main properties and however many roles the
    user has written, which as chips took six rows of the strip to state options
    nobody was reading. Each is now one row high whatever is chosen. */
 

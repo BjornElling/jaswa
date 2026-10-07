@@ -15,7 +15,7 @@ import type {
 const weight = artifactPreferenceWeight;
 
 /**
- * Whether the equip rule (§1) permits this pair. The rule itself is
+ * Whether the engrave rule (§1) permits this pair. The rule itself is
  * `artifactFitsClassCodes`, shared with the artifact library's own reader; this
  * only unpacks the two inputs into the four codes it tests.
  *
@@ -128,7 +128,7 @@ export function scorePercent(value: number): number {
 }
 
 /**
- * The stones usable on this artifact. A stone is engraved for one equip class
+ * The stones usable on this artifact. A stone is engraved for one engrave class
  * and converts nothing else (§15.12), so the artifact's own class selects the
  * set. Only restricted artifacts reach here: §10.1 stops an Intangible before
  * any conversion is projected, so there is no classless case to answer.

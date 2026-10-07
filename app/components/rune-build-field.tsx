@@ -24,7 +24,7 @@ import {
  * for. A click at any depth adds the build as far as it has been named, so
  * `Violent` is one click and `Will/Will/Will` is three columns deep. Only what
  * still fits in six slots is offered, so nothing in the menu can be a build the
- * game cannot equip.
+ * game cannot engrave.
  *
  * Each row is the set's name and nothing else: what is already chosen stays in
  * place, dimmed, rather than being counted or annotated, so a row reads the same

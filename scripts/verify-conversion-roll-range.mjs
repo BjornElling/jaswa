@@ -14,7 +14,7 @@ try {
   /* Captured from the active direct import. Sub-property 3 is the conversion:
      effect 221 rolls 25–40, the line stores no power-ups, and its value of 37
      is a perfectly ordinary single roll. Judging it against `25 × 2` rejected
-     the artifact, and with it the account it was equipped on. */
+     the artifact, and with it the account it was engraved on. */
   const record = {
     rid: 1213788120, type: 1, attribute: 4, unit_style: 0, natural_rank: 5,
     rank: 5, level: 15, pri_effect: [100, 1500, 15, 0, 0],

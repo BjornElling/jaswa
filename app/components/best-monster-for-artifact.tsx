@@ -15,7 +15,7 @@ import { ConversionList } from './conversion-list';
 import { engravedStonesFor, isWorthwhileGain, scoringSettings } from '../lib/artifact-recommendations';
 import { useAutoRecalculate } from './use-auto-recalculate';
 import type { SortableColumn } from './use-sorted-rows';
-import { artifactCategoryLabel, artifactEquipClassLabel, artifactValueTint, displaySubProperty } from '../lib/artifact-grid';
+import { artifactCategoryLabel, artifactEngraveClassLabel, artifactValueTint, displaySubProperty } from '../lib/artifact-grid';
 import { artifactArchetypes, artifactCategoryLabels, artifactElements, artifactGradeOrder, artifactIntangibleLabel, artifactMainPropertyOrder } from '../lib/artifact-properties';
 import { readArtifacts } from '../lib/artifacts';
 import { formatNumber } from '../lib/formatting';
@@ -38,7 +38,7 @@ const categoryOrder: readonly ArtifactCategory[] = ['attribute', 'type'];
 const restrictionOptions = [
   ...Object.values(artifactElements), ...Object.values(artifactArchetypes), artifactIntangibleLabel,
 ];
-const artifactLocations = ['inventory', 'equipped'] as const;
+const artifactLocations = ['inventory', 'engraved'] as const;
 
 type ArtifactLocation = typeof artifactLocations[number];
 
@@ -82,7 +82,7 @@ const optionSubstatSeparator = '\u2002|\u2002';
 
 function artifactSortKey(artifact: ReturnType<typeof readArtifacts>[number]): string {
   return [
-    artifactCategoryLabel(artifact.category), artifactEquipClassLabel(artifact), artifact.mainProperty,
+    artifactCategoryLabel(artifact.category), artifactEngraveClassLabel(artifact), artifact.mainProperty,
     ...artifact.subProperties.map((property) => `${property.definition.name} ${property.valueHundredths}`),
   ].join(' · ');
 }
@@ -162,17 +162,17 @@ export function BestMonsterForArtifact({ data, monsters, monsterPreferences, set
   const selectedSubPropertyId = subPropertyOptions.some((option) => String(option.id) === filters.subPropertyId)
     ? filters.subPropertyId : '';
   const artifactsByFilter = useMemo(() => artifacts.filter((artifact) => {
-    const restriction = artifactEquipClassLabel(artifact);
+    const restriction = artifactEngraveClassLabel(artifact);
     return (!filters.categories.length || filters.categories.includes(artifact.category))
       && (!filters.restrictions.length || filters.restrictions.includes(restriction))
       && (!filters.grades.length || filters.grades.includes(artifact.grade))
       && (!filters.mainProperties.length || filters.mainProperties.includes(artifact.mainProperty))
       && (!selectedSubPropertyId || artifact.subProperties.some((property) => String(property.definition.id) === selectedSubPropertyId))
-      && (!filters.locations.length || filters.locations.includes(artifact.occupiedId === null ? 'inventory' : 'equipped'));
+      && (!filters.locations.length || filters.locations.includes(artifact.occupiedId === null ? 'inventory' : 'engraved'));
   }).sort((left, right) => monsterNameCollator.compare(artifactSortKey(left), artifactSortKey(right))
     || monsterNameCollator.compare(left.id, right.id)), [artifacts, filters, selectedSubPropertyId]);
   const selectedArtifact = artifactsByFilter.find((artifact) => artifact.id === filters.selectedArtifactId);
-  const equippedSlots = useMemo(() => {
+  const engravedSlots = useMemo(() => {
     const slots = new Map<string, Set<ArtifactCategory>>();
     for (const artifact of artifacts) {
       if (artifact.occupiedId === null) continue;
@@ -194,7 +194,7 @@ export function BestMonsterForArtifact({ data, monsters, monsterPreferences, set
     currentCalculation?.ownedScores.get(monster.unitId) ?? currentCalculation?.ownedScores.get(monster.speciesId);
   const currentScore = owner ? ownedScore(owner) : undefined;
   const slotlessRows = ownMonsters.filter((monster) => selectedArtifact !== undefined
-    && !equippedSlots.get(monster.unitId)?.has(selectedArtifact.category))
+    && !engravedSlots.get(monster.unitId)?.has(selectedArtifact.category))
     .map((monster) => ({ monster, score: ownedScore(monster) }))
     .sort((left, right) => (right.score?.value ?? -1) - (left.score?.value ?? -1) || left.monster.name.localeCompare(right.monster.name))
     .slice(0, 10);
@@ -324,7 +324,7 @@ export function BestMonsterForArtifact({ data, monsters, monsterPreferences, set
         </div>
       </div>
       {buttonGroup('Main stat', 'mainProperties', artifactMainPropertyOrder, (property) => property, 'best-monster-filter-main')}
-      {buttonGroup('Location', 'locations', artifactLocations, (location) => location === 'inventory' ? 'Inventory' : 'Equipped', 'best-monster-filter-location')}
+      {buttonGroup('Location', 'locations', artifactLocations, (location) => location === 'inventory' ? 'Inventory' : 'Engraved', 'best-monster-filter-location')}
       <div className="filter-group best-monster-artifact-select">
         <label className="filter-label" htmlFor="best-monster-artifact">Artifact</label>
         <div className="filter-group-controls">
@@ -337,7 +337,7 @@ export function BestMonsterForArtifact({ data, monsters, monsterPreferences, set
                  silently dropped the segment read as an ordinary artifact whose
                  category happened to be the last word before the main stat. */
               const categoryAndRestriction = [
-                artifactCategoryLabel(artifact.category), artifactEquipClassLabel(artifact),
+                artifactCategoryLabel(artifact.category), artifactEngraveClassLabel(artifact),
               ].join(optionRestrictionSeparator);
               return <option key={artifact.id} value={artifact.id}>{[
                 artifact.grade,
@@ -364,7 +364,7 @@ export function BestMonsterForArtifact({ data, monsters, monsterPreferences, set
       <div>
         <p className="filter-label">Selected artifact</p>
         <h3 id="selected-artifact-title"><UnrefinedArtifactMark unrefined={selectedArtifact.unrefined} />{selectedArtifact.grade} {artifactCategoryLabel(selectedArtifact.category)}</h3>
-        <p>{artifactEquipClassLabel(selectedArtifact)} · Main stat {selectedArtifact.mainProperty}</p>
+        <p>{artifactEngraveClassLabel(selectedArtifact)} · Main stat {selectedArtifact.mainProperty}</p>
         {selectedArtifact.intangible && <p className="best-monster-intangible">
           Intangible: it fits any {selectedArtifact.category === 'attribute' ? 'element' : 'monster type'}, so every
           monster below is eligible.
@@ -390,7 +390,7 @@ export function BestMonsterForArtifact({ data, monsters, monsterPreferences, set
       <CalculationStatus evaluatedPairs={currentCalculation.evaluatedPairs} durationMs={currentCalculation.durationMs}
         backend={currentCalculation.backend} general={general} />
       <div className="best-monster-results">
-        <ResultCard title="No artifact in this slot" description="The ten strongest eligible monsters with no artifact in this category equipped yet."
+        <ResultCard title="No artifact in this slot" description="The ten strongest eligible monsters with no artifact in this category engraved yet."
           empty={slotlessRows.length ? undefined : 'Every monster already has an artifact in this slot.'}>
           <table className="best-monster-table">
             <SortableHeader columns={monsterColumns} sort={slotless.sort} onToggle={slotless.toggle} />
@@ -401,8 +401,8 @@ export function BestMonsterForArtifact({ data, monsters, monsterPreferences, set
             </tr>)}</tbody>
           </table>
         </ResultCard>
-        <ResultCard title="Improves on current" description={owner ? `The ten strongest monsters that beat this artifact's ${owner.name} score.` : 'Equip this inventory artifact first to establish a current score.'}
-          empty={owner === undefined ? 'This artifact is in inventory, so it has no current score to improve.' : improvementRows.length ? undefined : 'No monster beats its current wearer by enough to be worth the move.'}>
+        <ResultCard title="Improves on current" description={owner ? `The ten strongest monsters that beat this artifact's ${owner.name} score.` : 'Engrave this inventory artifact first to establish a current score.'}
+          empty={owner === undefined ? 'This artifact is in inventory, so it has no current score to improve.' : improvementRows.length ? undefined : 'No monster beats the monster it is engraved on by enough to be worth the move.'}>
           <table className="best-monster-table">
             <SortableHeader columns={improvementColumns} sort={improvements.sort} onToggle={improvements.toggle} />
             <tbody>{improvements.sorted.map(({ monster, score }) => <tr key={monster.unitId}>

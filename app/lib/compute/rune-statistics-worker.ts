@@ -16,8 +16,8 @@ self.onmessage = async (event: MessageEvent<RuneStatisticsWorkerRequest>) => {
   if (message.type !== 'calculate') return;
   try {
     const engines: CalculationBackend[] = [];
-    const { presets, settings, base, preferWebGpu } = message.request;
-    const statistics = await calculateRuneCleanupStatistics(presets, settings, base, async (jobs, chanceBar) => {
+    const { roles, settings, base, preferWebGpu } = message.request;
+    const statistics = await calculateRuneCleanupStatistics(roles, settings, base, async (jobs, chanceBar) => {
       const answer = await countRuneChances(jobs, preferWebGpu, chanceBar);
       engines.push(answer.backend);
       return answer.shares;

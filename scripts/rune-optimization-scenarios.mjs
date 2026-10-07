@@ -93,8 +93,8 @@ export function scenarioGenerator(firstSeed = 20260930, runesPerSlot = [3, 5]) {
     }
     const holds = {};
     if (random() < 0.3) {
-      const worn = runes.find((rune) => rune.occupiedId === '1');
-      if (worn) holds[worn.id] = { locked: true };
+      const engraved = runes.find((rune) => rune.occupiedId === '1');
+      if (engraved) holds[engraved.id] = { locked: true };
     }
     const other = runes.find((rune) => rune.occupiedId === '2');
     if (other && random() < 0.5) holds[other.id] = { locked: true };

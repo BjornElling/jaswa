@@ -28,7 +28,7 @@ The durable workspace contains:
   preferred and an accepted band — and the stat ranges the copy is built toward,
   keyed by the game's `unit_id`, so two copies of one monster can be built for
   different jobs), Rune Clean-up settings, Rune Clean-up
-  presets, and Artifact Optimization settings (whether to factor in only owned
+  roles, and Artifact Optimization settings (whether to factor in only owned
   monsters or only Lv. 40 monsters, how conversion stones are sourced, the
   assumed stone value, and the acceptable-property factor), and Speed Tuning's
   teams and rules (each team's dungeon or arena, its monsters in the order they
@@ -61,7 +61,7 @@ bars closed.
 
 ## What is not a saved choice
 
-Open dialogs, unfinished preset edits, drag highlighting, messages, loading
+Open dialogs, unfinished role edits, drag highlighting, messages, loading
 states, sorting, scroll positions, and hardware-detection results are
 temporary interface state. A draft becomes durable only when the user presses
 its explicit save or confirmation control.

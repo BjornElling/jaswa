@@ -9,7 +9,7 @@
  *
  * Release run: --runes=250000 --rollouts=30000.
  */
-import { defaultRunePotentialPresets } from '../app/lib/rune-potential-presets.ts';
+import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
 import { runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
 import {
   initialSubPropertyRange, runeInnateFrequency, slotMainProperties, startingSubPropertyCount,
@@ -17,7 +17,7 @@ import {
 } from '../app/lib/rune-properties.ts';
 import { runeDefaultGradeOrder, runeDefaultGrades, runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
 import { craftRollValue, craftValueRange } from '../app/lib/rune-craft-items.ts';
-import { chanceRuns, judgeAgainstBuild, prepareRuneCandidate, presetBuilds } from '../app/lib/rune-cleanup-model.ts';
+import { chanceRuns, judgeAgainstBuild, prepareRuneCandidate, roleBuilds } from '../app/lib/rune-cleanup-model.ts';
 
 const args = new Map(process.argv.slice(2).filter((arg) => arg.startsWith('--') && arg.includes('='))
   .map((arg) => arg.slice(2).split('=', 2)));
@@ -134,12 +134,12 @@ function powerUp(random, rune, targetLevel) {
   rune.level = targetLevel;
   return rune;
 }
-async function policy(source, presets, random) {
+async function policy(source, roles, random) {
   let active = source.map(clone);
   const retained = [];
   for (const stop of [0, 9, 12]) {
     if (stop) active = active.map((rune) => powerUp(random, rune, stop));
-    const advice = await runeAdvice(active, presets, settings, referenceStats);
+    const advice = await runeAdvice(active, roles, settings, referenceStats);
     if (stop === 12) {
       for (const rune of active) {
         const answer = advice.get(rune.id);
@@ -169,23 +169,23 @@ function check(condition, message) {
  */
 function verifyProbability(credit, label) {
   const random = makeRandom(seed ^ 0x4d43504b);
-  const presets = defaultRunePotentialPresets();
+  const roles = defaultRuneRoles();
   const fixtures = [];
   for (let attempt = 0; attempt < 4000 && fixtures.length < 12; attempt += 1) {
     const variant = [[4, false], [5, false], [6, false], [6, true]][attempt % 4];
     const rune = freshRune(random, 'chance-' + attempt, variant[0], variant[1]);
     powerUp(random, rune, [0, 3, 6, 9][attempt % 4]);
-    const preset = presets[attempt % presets.length];
-    const build = presetBuilds(preset).find((candidate) => {
+    const role = roles[attempt % roles.length];
+    const build = roleBuilds(role).find((candidate) => {
       const expectedMain = rune.slot === 1 ? 3 : rune.slot === 3 ? 5 : rune.slot === 5 ? 1 : candidate.mains[rune.slot];
       return expectedMain === rune.mainStatId || ![2, 4, 6].includes(rune.slot);
     });
-    const base = referenceStats.get(preset.type);
+    const base = referenceStats.get(role.type);
     const threshold = .20 + attempt % 13 * .045;
     if (!build || !base) continue;
-    const outcome = judgeAgainstBuild(rune, preset, build, base, threshold, credit, true);
+    const outcome = judgeAgainstBuild(rune, role, build, base, threshold, credit, true);
     if (outcome && outcome.chance > .03 && outcome.chance < .97) {
-      fixtures.push({ rune, preset, build, base, threshold, expected: outcome.chance });
+      fixtures.push({ rune, role, build, base, threshold, expected: outcome.chance });
     }
   }
   check(fixtures.length >= 8, label + ': only ' + fixtures.length + ' non-degenerate chance fixtures were found.');
@@ -196,7 +196,7 @@ function verifyProbability(credit, label) {
     let hits = 0;
     for (let trial = 0; trial < rolloutCount; trial += 1) {
       const finalRune = powerUp(randomTrial, clone(fixture.rune), 12);
-      const outcome = judgeAgainstBuild(finalRune, fixture.preset, fixture.build, fixture.base,
+      const outcome = judgeAgainstBuild(finalRune, fixture.role, fixture.build, fixture.base,
         fixture.threshold, credit, false);
       if (outcome && outcome.maxValue + 1e-12 >= fixture.threshold) hits += 1;
     }
@@ -266,7 +266,7 @@ function independentEndState(rune, credit, valuation) {
 
 function verifyCraftEndState() {
   const random = makeRandom(seed ^ 0x43524654);
-  const presets = defaultRunePotentialPresets();
+  const roles = defaultRuneRoles();
   const credits = [
     noCraft,
     { gem: null, gemGrade: 'Hero', grind: 'maximum', grindGrade: 'Legend' },
@@ -289,15 +289,15 @@ function verifyCraftEndState() {
         if (grindableInScript.includes(line.statId)) line.grind = draw(random, 1, 40);
       }
     }
-    const preset = presets[index % presets.length];
-    const base = referenceStats.get(preset.type);
-    const build = presetBuilds(preset).find((candidate) => {
+    const role = roles[index % roles.length];
+    const base = referenceStats.get(role.type);
+    const build = roleBuilds(role).find((candidate) => {
       const expectedMain = rune.slot === 1 ? 3 : rune.slot === 3 ? 5 : rune.slot === 5 ? 1 : candidate.mains[rune.slot];
       return expectedMain === rune.mainStatId || ![2, 4, 6].includes(rune.slot);
     });
     if (!build || !base) continue;
     for (const credit of credits) {
-      const candidate = prepareRuneCandidate(rune, preset, build, base, credit, undefined, false);
+      const candidate = prepareRuneCandidate(rune, role, build, base, credit, undefined, false);
       if (!candidate) continue;
       const expected = independentEndState(rune, credit, candidate.valuation);
       const difference = Math.abs(candidate.best - expected);
@@ -335,7 +335,7 @@ async function verifyVariants() {
        independent chance fixtures above already cover unfinished states. */
     const sample = Array.from({ length: variantRuneCount }, (_, id) =>
       powerUp(random, freshRune(random, variant.name + '-' + id, variant.stars, variant.ancient), 12));
-    const advice = await runeAdvice(sample, defaultRunePotentialPresets(), settings, referenceStats);
+    const advice = await runeAdvice(sample, defaultRuneRoles(), settings, referenceStats);
     let usable = 0;
     for (const rune of sample) {
       const answer = advice.get(rune.id);
@@ -349,7 +349,7 @@ async function verifyVariants() {
 async function verifyMixedBox() {
   const random = makeRandom(seed);
   const source = Array.from({ length: runeCount }, (_, id) => freshRune(random, 'mixed-' + id));
-  const retained = await policy(source, defaultRunePotentialPresets(), random);
+  const retained = await policy(source, defaultRuneRoles(), random);
   const rate = retained.length / source.length;
   console.log('Mixed box: ' + retained.length.toLocaleString('en') + ' / ' + source.length.toLocaleString('en')
     + ' retained (' + percent(retained.length, source.length) + ').');
@@ -366,11 +366,11 @@ async function verifyMixedBox() {
   const spread = Math.max(...rates) / Math.max(1e-9, Math.min(...rates));
   console.log('Slots: ' + slots.map(({ slot, kept, seen }) => slot + '=' + percent(kept, seen)).join(', ')
     + '; spread ' + spread.toFixed(3) + 'x.');
-  /* Slot distribution is reported, not forced. A preset count is the user's
+  /* Slot distribution is reported, not forced. A role count is the user's
      stated preference; forcing six equal slot buckets would silently overwrite it. */
   const attribution = new Map();
   for (const { answer } of retained) {
-    const name = answer?.preset?.name ?? 'unassigned';
+    const name = answer?.role?.name ?? 'unassigned';
     attribution.set(name, (attribution.get(name) ?? 0) + 1);
   }
   console.log('Best-match attribution: ' + [...attribution.entries()]

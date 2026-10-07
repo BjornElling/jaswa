@@ -41,19 +41,19 @@ const statOrder = (statId: number) => runeStatIds.indexOf(statId);
  * on all eight hundred rows. It is true, it is derivable from the three columns
  * to its left, and repeated that many times it reads as wallpaper. What a
  * reader cannot get anywhere else is the split: an item with spare runes to
- * land on can be spent tonight, while one whose every target is equipped costs
+ * land on can be spent tonight, while one whose every target is engraved costs
  * a monster its build first. A zero in `Fits` keeps the explanation, because
  * that is the row where the rule *is* the news.
  */
 export function craftScopeText(item: CraftItem, reach: CraftReach): string {
   if (reach.block !== null) return craftBlockReason(item, reach.block);
-  const equipped = reach.fits - reach.spare;
+  const engraved = reach.fits - reach.spare;
   /* The half that is zero is left out rather than written as a zero: "0
-     equipped" is a fact nobody needs, and the two halves read as one sentence
+     engraved" is a fact nobody needs, and the two halves read as one sentence
      whichever of them survives. */
   return [
     reach.spare ? `${reach.spare} in inventory` : '',
-    equipped ? `${equipped} equipped` : '',
+    engraved ? `${engraved} engraved` : '',
   ].filter(Boolean).join(' · ');
 }
 

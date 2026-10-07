@@ -37,7 +37,7 @@ const { readArtifact } = await server.ssrLoadModule('/app/lib/artifacts.ts');
 const {
   artifactCategoryFromType, artifactGradeFromRank, artifactMainProperties,
   artifactProperty, artifactElements, artifactArchetypes,
-  artifactIntangibleEquipClass,
+  artifactIntangibleEngraveClass,
 } = await server.ssrLoadModule('/app/lib/artifact-properties.ts');
 
 const number = (value) => (typeof value === 'number' && Number.isFinite(value) ? value
@@ -63,12 +63,12 @@ function explain(record) {
     if (flag === null || !Number.isInteger(flag) || flag < 0) return `sec_effects[${index}] conversion flag ${JSON.stringify(Array.isArray(entry) ? entry[4] : entry)} is not a non-negative integer`;
     if (!artifactProperty(Array.isArray(entry) ? entry[0] : null)) return `sec_effects[${index}] unknown property id ${JSON.stringify(Array.isArray(entry) ? entry[0] : entry)}`;
   }
-  const equipClassCode = number(category === 'attribute' ? record.attribute : record.unit_style);
+  const engraveClassCode = number(category === 'attribute' ? record.attribute : record.unit_style);
   const named = category === 'attribute'
-    ? artifactElements[equipClassCode ?? -1] !== undefined
-    : artifactArchetypes[equipClassCode ?? -1] !== undefined;
-  if (!named && equipClassCode !== artifactIntangibleEquipClass) {
-    return `unnamed ${category === 'attribute' ? 'element' : 'archetype'} code ${JSON.stringify(equipClassCode)} (${category === 'attribute' ? 'attribute' : 'unit_style'} field)`;
+    ? artifactElements[engraveClassCode ?? -1] !== undefined
+    : artifactArchetypes[engraveClassCode ?? -1] !== undefined;
+  if (!named && engraveClassCode !== artifactIntangibleEngraveClass) {
+    return `unnamed ${category === 'attribute' ? 'element' : 'archetype'} code ${JSON.stringify(engraveClassCode)} (${category === 'attribute' ? 'attribute' : 'unit_style'} field)`;
   }
   return `unrecognised structural shape (date_add ${JSON.stringify(record.date_add)})`;
 }
@@ -77,7 +77,7 @@ const rows = [];
 const units = Array.isArray(account.unit_list) ? account.unit_list : [];
 for (const unit of units) {
   for (const artifact of Array.isArray(unit.artifacts) ? unit.artifacts : []) {
-    if (readArtifact(artifact) === null) rows.push({ where: `equipped on unit ${unit.unit_id}`, artifact });
+    if (readArtifact(artifact) === null) rows.push({ where: `engraved on unit ${unit.unit_id}`, artifact });
   }
 }
 for (const artifact of Array.isArray(account.artifacts) ? account.artifacts : []) {

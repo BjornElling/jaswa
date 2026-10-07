@@ -38,7 +38,7 @@ function row(index, {
       obtainedOrder,
     },
     index,
-    advice: { verdict: 'sell', reason: '', maxValue: 0, chance: 0, preset: null, rank: 'broken' },
+    advice: { verdict: 'sell', reason: '', maxValue: 0, chance: 0, role: null, rank: 'broken' },
     location: 'Inventory',
   };
 }

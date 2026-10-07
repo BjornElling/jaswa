@@ -6,14 +6,14 @@
 
 Which main stat — HP, ATK or DEF — a monster's artifacts and relic should
 carry, worked out from what the monster needs rather than from what other
-players happen to equip. This document is the rule; the module is its only
+players happen to engrave. This document is the rule; the module is its only
 implementation.
 
 **Where the answer comes from, in order:**
 
 1. **The owner's own answer**, where it prefers at least one main. Its preferred
    and accepted bands are the whole answer.
-2. **The copy's six runes**, where it wears a finished build.
+2. **The copy's six runes**, where it has a finished build engraved.
 3. **The game's rune statistics** for its species.
 
 The model computes 2 and 3; 1 replaces them (§5).
@@ -39,7 +39,7 @@ It is read from the first of two sources that can say:
 
 | # | Source | Used when | Need per stat |
 | --- | --- | --- | --- |
-| 1 | **Runes** | the copy wears six runes, one per slot | everything the six runes add — slot-2/4/6 mains, innates, subs, grinds and completed-set bonuses — except the fixed flat mains of slots 1, 3 and 5. A flat line is converted against the copy's own base. |
+| 1 | **Runes** | the copy has six runes engraved, one per slot | everything the six runes add — slot-2/4/6 mains, innates, subs, grinds and completed-set bonuses — except the fixed flat mains of slots 1, 3 and 5. A flat line is converted against the copy's own base. |
 | 2 | **Statistics** | no finished build | the game's rune panel for the species: each slot-2/4/6 % main at its +15 value times its share of that slot, plus each % sub line at its expected +12 worth times how often a build carries it. |
 
 A need is never negative. A source whose three needs are all zero cannot say
@@ -97,7 +97,7 @@ Each main's worth is divided by the best main's worth:
 | below | not wanted |
 
 The best main is always at 100 %, so **every answer has at least one preferred
-main**. 80 % because a need measured off worn runes moves by a sub roll or two
+main**. 80 % because a need measured off engraved runes moves by a sub roll or two
 with every rune swapped, and two needs within a fifth of each other are a tie
 inside that noise. 50 % because a main worth half the best still takes real work
 off the runes; below that it is a concession.

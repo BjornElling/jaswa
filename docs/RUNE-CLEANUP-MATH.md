@@ -1,7 +1,7 @@
 # Rune Clean-up — the calculation contract
 
 **Status:** Binding contract for Rune Clean-up verdicts
-**Depends on:** `docs/RUNE-CANONICAL.md` and `docs/RUNE-PRESET-METRICS.md`
+**Depends on:** `docs/RUNE-CANONICAL.md` and `docs/RUNE-ROLE-METRICS.md`
 **Reviewed:** 5 October 2026
 
 This document describes the calculation, not the game rules. Game facts and their
@@ -30,8 +30,8 @@ file, `npm run verify:rune-chance-stability` holds the odds still, and
 | Main-property rate on slots 2, 4 and 6 | Assumed uniform over the slot's legal mains (§9.3); not measured. |
 | Generated drop's default grade | Simulator assumption: odd slots 75 % Hero / 25 % Legend; even slots 25 % Rare / 50 % Hero / 25 % Legend. Unsorted drops have not been measured. |
 | Artifact main properties | Verified table in `ARTIFACT-CANONICAL.md` §2; confirmed against 262 real artifacts. |
-| How a preset's artifact choice fills two slots | Stated assumption: evenly over the stats it named (§4.1). |
-| The set a build completes | **Not modelled.** A preset states no set combination, and guessing one from the candidate is what §4.3 forbids. |
+| How a role's artifact choice fills two slots | Stated assumption: evenly over the stats it named (§4.1). |
+| The set a build completes | **Not modelled.** A role states no set combination, and guessing one from the candidate is what §4.3 forbids. |
 | What a substat is *worth* to a role | A product decision, as `RUNE-CANONICAL.md` §12 requires. §4 states it in full. |
 
 The stochastic rules a rune's own future follows are applied in one loop — the one
@@ -71,7 +71,7 @@ for is a six-star one, so a requirement, the main properties that come off it an
 Grindstones that come off it are counted in six-star rolls, and the weights that come
 out of it are the same for every star class.
 
-The reference base is the average of the user's own level-40 monsters in the preset's
+The reference base is the average of the user's own level-40 monsters in the role's
 family. A missing family uses the account-wide level-40 average; with no level-40
 monster, Rune Clean-up refuses to calculate rather than fabricating a reference.
 
@@ -80,24 +80,24 @@ says so.
 
 ## 3. What a target means
 
-A positive preset target says the role aims at that stat, and **how far it aims**.
+A positive role target says the role aims at that stat, and **how far it aims**.
 It is deliberately not a per-rune requirement and it is never used as a cap. A 21 SPD
 rune remains more valuable than a 17 SPD rune in a role aiming at 17 SPD per rune:
 its surplus lets a different rune carry HP, ACC or another required stat in the
 eventual build. **No rune is ever scored lower for exceeding a target.**
 
-Only these things make a line worth nothing: the preset has no positive target for
+Only these things make a line worth nothing: the role has no positive target for
 its target stat, the build already meets that target without any substat at all, the
 effect id is illegal on the slot, or it duplicates an effect id the game forbids. Set
 and main-stat preferences determine preferred, acceptable and broken rank; they do
 not turn a wanted substat off.
 
-**A slot the preset names no main stat for accepts every main that slot allows, at
+**A slot the role names no main stat for accepts every main that slot allows, at
 the broken rank.** This is the canonical reading. Leaving a slot blank means the role
-has no preference there, not that it refuses to judge runes in it — a preset that
+has no preference there, not that it refuses to judge runes in it — a role that
 states slots 4 and 6 and leaves slot 2 blank still judges slot-2 runes, and they take
 the broken main rank because nothing was preferred. The opposite reading would make a
-rune the preset wants report "No preset can use it" because of a slot it does not
+rune the role wants report "No role can use it" because of a slot it does not
 mention, which is the invisible failure `AGENTS.md` §0.1 forbids.
 
 ## 4. What one substat is worth
@@ -108,7 +108,7 @@ identically for Fast DD, because both stats had a positive target; a 215 SPD tar
 and a 25 Accuracy target asked the runes for the same thing. They do not.
 
 Each target gets a **multiplier between 0 and 1**, and every max roll of that stat is
-scored with it. The multiplier is derived in the steps below, for one preset and one build.
+scored with it. The multiplier is derived in the steps below, for one role and one build.
 Nothing in it reads the rune being judged, which is §4.3's whole subject.
 
 ### 4.1 Subtract what the build already brings
@@ -123,16 +123,16 @@ needed = max(0, target − reference base − the build's main properties − th
   the rune being judged, because the requirement describes the finished six-star
   build. Slots 1, 3 and 5 are fixed, slots 2, 4 and 6 come from the build being
   evaluated. A percent main is applied to the reference base; a flat one is added
-  outright. A slot the preset leaves blank contributes nothing, because it has
+  outright. A slot the role leaves blank contributes nothing, because it has
   promised nothing. `mainContribution` in `rune-substat-weights.ts` reads
   `mainPropertyMaximum(6, …)` and nothing else.
 - **Artifacts.** A monster carries exactly two, one of each category, and each has one
   flat main property: **HP +1,500, ATK +100 or DEF +100** (`ARTIFACT-CANONICAL.md` §2,
   confirmed against 262 real artifacts, which carry those values at every natural grade
-  with no spread at all). A preset states which of the three its role wants and nothing
+  with no spread at all). A role states which of the three it wants and nothing
   narrower, so the two slots are **spread evenly over the stats it named** — two of one
   where it names one, one of each where it names two, two thirds of each where it names
-  all three. Two artifacts' worth comes off, never more, and a preset that names none
+  all three. Two artifacts' worth comes off, never more, and a role that names none
   has none credited.
 - **No completed set is subtracted.** §4.3 is why, and it is the one true statement
   about the game this model deliberately declines to use.
@@ -149,7 +149,7 @@ carriers        = how many of the six slots may legally carry the stat at all
 perRune         = rollsToRoll / carriers
 ordinaryPerRune = what one ordinary carrying rune rolls of it anyway
 tightness       = perRune / ordinaryPerRune
-weight          = tightness / (the largest tightness in this preset)
+weight          = tightness / (the largest tightness in this role)
 ```
 
 `ordinaryPerRune` is computed slot by slot from the same event model the chance
@@ -226,7 +226,7 @@ the normalisation removes.
 
 **Why a ratio of means and not the tail probability.** `P(an ordinary rune supplies
 this share)` is the obvious reading of "how hard", and it was implemented and
-measured first. Every target a real preset states sits deep in that tail, and tails
+measured first. Every target a real role states sits deep in that tail, and tails
 that deep differ by many orders of magnitude for reasons that have nothing to do with
 what a player should value. A Slow DD slot-2 rune carries ATK % as its main property,
 so its ATK share is reachable only through flat ATK lines; the probability collapsed
@@ -239,7 +239,7 @@ the ceiling this rune's own slot is measured against.
 
 **Every target already met.** Where no target needs anything from substats at all,
 there is no tightest target to normalise against. Every stat the role names is then
-scored alike. The alternative — every weight zero — would leave the preset unable to
+scored alike. The alternative — every weight zero — would leave the role unable to
 judge any rune, which is the invisible failure §3 already rules out.
 
 ### 4.3 Why a rune's own set is kept out of it
@@ -254,7 +254,7 @@ missing 514 ATK before a single sub property was read. Every clause of that is t
 It is still the wrong input, because **the weights are the yardstick a rune is measured
 against, and a recommendation is a comparison across sets.** Give each set its own
 yardstick and the comparison stops meaning anything. Measured on 1,500 identical rune
-bodies relabelled set by set, against presets that preferred every set equally, the
+bodies relabelled set by set, against roles that preferred every set equally, the
 same runes were retained **431 to 520 times** on the strength of the label alone:
 
 | Set | Retained, against Violent |
@@ -269,7 +269,7 @@ same runes were retained **431 to 520 times** on the strength of the label alone
 | Rage | −7.9 % |
 
 Note that it runs both ways. A set that relieves a target the role was *not* short of
-lowers the ceiling and flatters every rune wearing it; a set that relieves the tightest
+lowers the ceiling and flatters every rune carrying it; a set that relieves the tightest
 target lowers that target's tightness, the normalisation lifts every other weight, and
 the ceiling rises instead. Neither ordering is one a player asked for or could predict.
 
@@ -279,32 +279,32 @@ the weight vector, which moves each rune's ratio by an amount that depends on wh
 rune happens to have rolled. Equal treatment across sets therefore requires that the
 weights not depend on the candidate's set at all. That is arithmetic, not preference.
 
-A set still decides a great deal through the preset's preferred/acceptable/broken
+A set still decides a great deal through the role's preferred/acceptable/broken
 ranking, but **Intangible is a permanent exception**: its set side is always
-`preferred` for every preset. Intangible is not offered in the preset set choices,
+`preferred` for every role. Intangible is not offered in the role set choices,
 and no setting can downgrade or override that rule. The rune's main-stat preference
 remains a separate judgement. The two retention settings are separate policy
 preferences: the 4-set switch and Intangible slider widen the share of their own
 ordinary box that can pass the quality and chance gates. They never change the
 score or downgrade the permanent Intangible set rank.
 
-**The way back.** If the requirement should count set bonuses again, a preset has to
+**The way back.** If the requirement should count set bonuses again, a role has to
 state the set *combination* its builds use. `RUNE-CANONICAL.md` §10.1 already argues
 that a build is a combination rather than a list of sets, and `app/lib/rune-set-pairs.ts`
-already holds that vocabulary for monsters. A combination the preset states is the same
+already holds that vocabulary for monsters. A combination the role states is the same
 for every candidate, so it can shape the requirement without tilting the comparison; a
-combination inferred from the one rune under judgement cannot. Until a preset says it,
+combination inferred from the one rune under judgement cannot. Until a role says it,
 this model does not guess it.
 
 `npm run verify:rune-set-neutrality` is the check, and it holds both halves: identical
-rune bodies must receive identical answers under every set label, and a preset that
+rune bodies must receive identical answers under every set label, and a role that
 does rank sets must still be obeyed.
 
 ### 4.4 A worked example
 
 Fast DD, against a reference attack-type monster of 9,708 HP, 808 ATK, 568 DEF,
 105 SPD, 18 CRI Rate, 50 CRI Dmg and 4 ACC; the build is ATK % / CRI Dmg % / ATK %
-in slots 2, 4 and 6, and the preset names ATK artifacts and no others, so both
+in slots 2, 4 and 6, and the role names ATK artifacts and no others, so both
 artifact slots are ATK, and no Grindstone is credited (§4.2.1 shows what one does).
 The candidate's set is not an input, so this one table is the answer for every rune in
 that slot of that build (§4.3).
@@ -365,7 +365,7 @@ are not, so a higher Ancient initial roll can correctly print above 100 % rather
 being flattened to it.
 
 `npm run verify:rune-substat-weights` builds that rune for every star class, slot and
-build of every shipped preset and fails unless it reads exactly 100 %.
+build of every shipped role and fails unless it reads exactly 100 %.
 
 **Max value is what the row prints and is not what the gates read.** A ratio against
 the perfect rune of a slot is an honest description of one rune, and it is not
@@ -373,18 +373,18 @@ comparable between slots, because the perfect runes of two slots are not equally
 above what those slots ordinarily produce. §9.1 states the second anchor the gates
 use and why the two numbers have to stay apart.
 
-### 5.1 Every build of a preset is now evaluated
+### 5.1 Every build of a role is now evaluated
 
-A preset describes a family of builds. It used to be enough to judge a rune against
+A role describes a family of builds. It used to be enough to judge a rune against
 the first build whose own slot matched, because nothing outside the rune's slot could
 change its score. §4.1 ended that: a build with HP % in slots 4 and 6 asks its runes
 for thousands less HP than one with ATK % there. Every compatible build is therefore
 prepared and **the rune keeps its best**.
 
-**Every compatible build is a complete reading.** A preset's builds are the main-stat
+**Every compatible build is a complete reading.** A role's builds are the main-stat
 combinations it accepts in slots 2, 4 and 6. Each supplies its own Max value, quality
 floor and Chance. A build clears only when that same reading clears both gates; a
-high Max value from one build may not borrow a passing Chance from another. Best preset
+high Max value from one build may not borrow a passing Chance from another. Best role
 is then the passing reading the rune is expected to be worth most to, or, where none
 pass, simply the reading it is expected to be worth most to (§9.6).
 
@@ -395,9 +395,9 @@ reasons. A rune is played forward once however many builds ask about it; another
 is another price list over the same runs. A build whose best end state misses its own
 bar settles at zero without a run. And two builds whose main stats differ only where
 the role wants nothing price every line alike and draw the same bar, so they ask one
-question, counted once — on a preset with 64 builds that was half of its jobs. Measured
-on the processor, 2,500 runes against the shipped presets went from 2.7 s to about 8 s;
-adding a 64-build preset costs a further 1.5 s. The counting is the part the graphics
+question, counted once — on a role with 64 builds that was half of its jobs. Measured
+on the processor, 2,500 runes against the shipped roles went from 2.7 s to about 8 s;
+adding a 64-build role costs a further 1.5 s. The counting is the part the graphics
 card takes over (§10.2).
 
 **The consequence, stated rather than left to be discovered.** A rune with one
@@ -405,7 +405,7 @@ excellent line may still find the build whose other targets are covered by main
 properties, because that is the build in which its line is worth most. But the row
 reports that build's own Chance as well; it never splices together two favourable
 answers. Narrowing the family would mean asking the user which build they actually
-intend — a preset-model decision, not an arithmetic one, and not made here.
+intend — a role-model decision, not an arithmetic one, and not made here.
 
 ## 6. Gems and Grindstones
 
@@ -549,7 +549,7 @@ below is part of the contract rather than a claim that each row is exact.
 The number that had to be checked is not that one. A verdict is a threshold, and a
 threshold turns a spread into flipped rows — so what matters is what the resolution
 does to a **box**. Measured on 1,500 synthetic runes at the fullest craft settings,
-against the eight shipped presets:
+against the eight shipped roles:
 
 | Runs per answer | Keep | Power up | Time |
 | ---: | ---: | ---: | ---: |
@@ -593,14 +593,14 @@ the third is why it is the rune and not the id:
 A sub property's stone is deliberately left out of the hash. It prices an end state
 and never decides where an improvement lands, and taking it in gave a rune ground to
 exactly the credited stone a different stream from the same rune bare — which, once
-the Gem's expectation began choosing Best preset (§9.6), let the grind move the preset
+the Gem's expectation began choosing Best role (§9.6), let the grind move the role
 against §9.2.
 
 `npm run verify:rune-chance-stability` is the check, and it is the one that says
 counting is enough. One population is judged several times at **different
 resolutions** — a quarter of the shipped run count, the shipped one, and sixteen times
 it, which is a sixty-fourfold sweep end to end — with nothing about the runes or the
-policy changing, and the totals, the breakdown by slot, by preset and by
+policy changing, and the totals, the breakdown by slot, by role and by
 preferred/acceptable/broken rank, and the certainties all have to hold still. Measured
 over 3,000 runes with Gems and Grindstones credited:
 
@@ -609,7 +609,7 @@ over 3,000 runes with Gems and Grindstones credited:
 | Power up and Sell at `+0` | 0 runes |
 | Power up and Sell at `+9` | 8 runes in 3,000 |
 | Any one slot's retained count | at most 3 |
-| Any one preset's retained count | at most 4 |
+| Any one role's retained count | at most 4 |
 | **Everything at `+12` and `+15`** | **nothing at all** |
 
 The last row is not luck: a rune at `+12` has no substat events left, so §7's first
@@ -648,19 +648,19 @@ with its star class and nothing else. A perfect four-star rune reads 100 % again
 perfect four-star rune, and whether a four-star rune is worth keeping at all is the
 floor's question, asked of the four-star box (§9.1).
 
-## 9. Verdict and unbounded preset matching
+## 9. Verdict and unbounded role matching
 
 The population judged is every rune the import holds, and no setting narrows it.
-This is binding because every rune is judged independently. A rune equipped on a
+This is binding because every rune is judged independently. A rune engraved on a
 monster and a rune already at +12 are judged like any other. The table's
-Equipped/Inventory buttons and its level range are presentation filters applied
+Engraved/Inventory buttons and its level range are presentation filters applied
 after the engine has answered, and they change no figure.
 
-For every build of every preset the engine applies the set/main rank discount, the
+For every build of every role the engine applies the set/main rank discount, the
 Max-value quality floor, and then the Chance floor. Every viable reading competes:
 a preferred reading never suppresses an acceptable one, nor a broken one while the
 Broken runes setting permits it. The rank makes that reading's own gates stricter or
-looser; it is not a priority rule between presets. **The Chance floor is one
+looser; it is not a priority rule between roles. **The Chance floor is one
 comparison: the rune's chance in that same build reading (§5.1) — against the Power-up policy
 stop**, and the stops mean what their labels say: Full YOLO 1 %, Adventurous 5 %,
 Balanced 20 %, Picky 50 %, Take no chances 80 %. They used to run 2 %–40 %, so Take no
@@ -669,16 +669,16 @@ column prints whole percentage points rounded **down**, so the number on screen 
 the stop exactly when the rune does; rounded to the nearest point, a 79.6 % rune
 printed `80 %` beside a Sell. A real chance under one point prints `<1 %`.
 
-A passing rune is eligible for every preset it passed. If it passes at least one
-preset, it is **Power up** below +12, **Keep** at +12, and **Power up** again at +13 or +14. At +15 it is **Keep**. Between +12 and +15 the
-action is deterministic main-stat investment; no new chance is shown. **Best preset is
+A passing rune is eligible for every role it passed. If it passes at least one
+role, it is **Power up** below +12, **Keep** at +12, and **Power up** again at +13 or +14. At +15 it is **Keep**. Between +12 and +15 the
+action is deterministic main-stat investment; no new chance is shown. **Best role is
 the passing reading the rune is expected to be worth most to** (§9.6). Max value and
-Chance always come from that same build. If no reading passes both gates, Best preset
+Chance always come from that same build. If no reading passes both gates, Best role
 is instead the reading it is expected to be worth most to, regardless of its Chance.
 A passing reading therefore always outranks a failing one. This rule is the single source
-for every Best preset label in Rune Clean-up and Rune Simulator; it cannot displace
+for every Best role label in Rune Clean-up and Rune Simulator; it cannot displace
 another rune or make an otherwise passing rune **Sell**. A rune that passes none of
-the presets is **Sell** for the first applicable ordinary reason.
+the roles is **Sell** for the first applicable ordinary reason.
 
 The +12 and +15 readings are otherwise identical: Max value, standing, chance and
 the keep/sell decision are all based on the same finished +15 projection. +15 is a
@@ -687,9 +687,9 @@ requirements is already **Sell** at +12, and an owned rune at +15 still displays
 **Sell** when its final projection fails them.
 
 The 4-set and Intangible settings alter only the retained share used by the two
-gates. They do not create a finite preset inventory, a global quota, or a one-rune-
-per-preset assignment. This keeps their intended relative preference while making
-the verdict independent of how many other runes happen to match the same preset.
+gates. They do not create a finite role inventory, a global quota, or a one-rune-
+per-role assignment. This keeps their intended relative preference while making
+the verdict independent of how many other runes happen to match the same role.
 
 **The quality floor's five stops state a share of an ordinary box** — a third of it
 at stop 1, 15 % at the default stop 3, a few per cent at stop 5 — and §9.1 is how a
@@ -707,7 +707,7 @@ slots 2, 4 and 6 because their legal main and substat pools are different. The
 anchor is therefore converted to the calibrated share of each slot's own ordinary
 `+15` box, with the middle stop deliberately unchanged so existing good-rune
 counts remain stable. `verify:rune-slot-neutrality` is the statistical check: the
-same synthetic population is judged for every slot and every shipped preset, and
+same synthetic population is judged for every slot and every shipped role, and
 the retained shares must remain close rather than hiding a slot-specific drought.
 
 Broken-rune credit is intentionally gentler at the three middle settings (`0.90`,
@@ -729,9 +729,9 @@ and says nothing about the body — and the body is where the verdicts are made.
 
 What one Max-value floor kept, measured by `verify:rune-slot-neutrality` against the
 engine before this section existed — 2,000 ordinary six-star `+15` runes per slot,
-every one carrying a main the preset asked for, at the default setting:
+every one carrying a main the role asked for, at the default setting:
 
-| Preset | 1 | 2 | 3 | 4 | 5 | 6 | Spread |
+| Role | 1 | 2 | 3 | 4 | 5 | 6 | Spread |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | Def DD | 28.2 % | 22.1 % | 29.6 % | **8.8 %** | 16.8 % | 22.0 % | 3.4x |
 | Bruiser | **62.1 %** | 27.6 % | 52.1 % | 34.4 % | 43.5 % | 34.9 % | 2.3x |
@@ -744,8 +744,8 @@ account, and needed one of each. **It runs both ways**, which is why no rule of
 thumb repairs it: a slot that cannot draw the wanted stat has a *lower* ceiling, so
 an ordinary rune reads higher against it and the slot over-fills; a slot that can
 draw it has a high ceiling that ordinary runes fall far short of, and the slot
-starves. Which of the two happens to which slot depends on the preset, and the two
-DEF rows above show the same preset family doing each.
+starves. Which of the two happens to which slot depends on the role, and the two
+DEF rows above show the same role family doing each.
 
 **So the floor is read from each slot's own box.** `ordinaryBox` in
 `rune-cleanup-model.ts` states a second concrete rune beside §5's perfect one:
@@ -766,7 +766,7 @@ DEF rows above show the same preset family doing each.
 
 A rune's **standing** is then where its Max value falls in that box, `0`–`1`, and the
 floor is a share of it. Standing is what every gate and every comparison between
-presets is settled on; Max value is what the row prints, because "42 %
+roles is settled on; Max value is what the row prints, because "42 %
 of a perfect rune" is the honest description of the rune itself and a percentile is
 not. They are deliberately different numbers, and a slot-4 rune kept beside a
 slot-3 rune that reads higher is the system working.
@@ -778,7 +778,7 @@ after the one before it had been fixed:
    moves by the same factor when it goes and the normalisation removes it. Nothing
    removes it here, so the box carries it.
 2. **The family of builds.** §5.1 lets a rune keep its best build. A slot-1 rune fits
-   *every* build of a preset because its main is fixed; a slot-2 rune fits only those
+   *every* build of a role because its main is fixed; a slot-2 rune fits only those
    naming its own main — 24 against 6 for Bruiser — and a maximum over more draws is
    simply larger. The ordinary rune is therefore offered the same choice: each drawn
    line-up is priced in every build of the family and keeps its best, and only then
@@ -792,7 +792,7 @@ after the one before it had been fixed:
    rolls genuinely is one.
 
 `npm run verify:rune-slot-neutrality` is the gate. It puts a synthetic box of every
-slot against all eight shipped presets and seven adversarial ones — roles built
+slot against all eight shipped roles and seven adversarial ones — roles built
 almost entirely on DEF, on ATK, on HP, on SPD, on ACC, on crit, and one that wants
 everything — holding the main property fixed so that only the slot can move a
 verdict, and tests the six shares with Pearson's χ² on five degrees of freedom. It
@@ -842,17 +842,17 @@ the active credit through §6's `max`, so a real stone no larger than the credit
 nothing. `verify:rune-cleanup-craft-monotonic` checks the candidate rule, and
 `verify:rune-cleanup-preference-monotonic` checks the complete recommendation funnel.
 
-The row names one preset and prints one build reading's figures — its Max value,
+The row names one role and prints one build reading's figures — its Max value,
 standing and Chance together (§5.1).
 
-## 9.3 A slot's share is of mains the presets can use
+## 9.3 A slot's share is of mains the roles can use
 
 Odd slots have one legal main. Even slots have seven or eight, but the active
-presets may name only some of them. A quality floor stated over *all* drops
+roles may name only some of them. A quality floor stated over *all* drops
 would therefore force a role that wants only CRI Dmg in slot 4 to keep almost
 every CRI Dmg rune to match slot 1. That would erase the quality judgement.
 
-For each preset and slot, `shareOf` counts only mains that at least one of its
+For each role and slot, `shareOf` counts only mains that at least one of its
 builds can use. Each usable main has the same assumed drop frequency. The
 calibration uses fixed Accepted and Broken weights of 0.85 and 0.80; changing
 those controls does not move the floor of another rune. If `U` mains are usable,
@@ -866,29 +866,29 @@ Here `X_m` is the main's ordinary Max value, `w_m` its fixed rank weight, and
 `T_m(q')` the boundary of the best `q'` of its own box. The bisection stops at
 `q' = 1` if the usable mains cannot reach the target. Every row still reports
 its own Max value, standing, and `floorShare`; `slotFloorShares` exposes the
-same floor by preset and slot.
+same floor by role and slot.
 
 This is a rate **per rune with a usable main**, the denominator the player chose
 for the slot comparison. It does not promise equal raw counts of drops. Slots
-2, 4 and 6 can produce mains that no active preset uses, and those are not
+2, 4 and 6 can produce mains that no active role uses, and those are not
 recommendations waiting to be equalised.
 
-## 9.4 Several presets and the power-up gate
+## 9.4 Several roles and the power-up gate
 
-A rune survives when any compatible preset clears both its quality floor and
-its chance threshold. Presets overlap on odd slots and often name different
-mains on even slots, so balancing each preset separately cannot balance their
+A rune survives when any compatible role clears both its quality floor and
+its chance threshold. Roles overlap on odd slots and often name different
+mains on even slots, so balancing each role separately cannot balance their
 combined recommendations. `SlotShares` measures the union and finds one factor
 per slot by bisection. Its target is the average rate in slots 1, 3 and 5,
 measured per usable main. The same factor scales a rune's quality share for
-each compatible preset; it never changes its score or chance.
+each compatible role; it never changes its score or chance.
 
 There are two populations. Finished runes (`+12` and `+15`) use 2,000 fixed
 drop-grade runes per slot and star class. Fresh runes (`+0`, `+3`, `+6`, `+9`)
 use 600 fixed drops per slot with the simulator's grade mix, the active
 power-up threshold, and 64 possible futures per rune (128 for the two most
 lenient chance stops). Both samples cycle
-every legal main and draw ordinary sets evenly from the preset vocabulary. The
+every legal main and draw ordinary sets evenly from the role vocabulary. The
 fresh balance is needed because the chance gate and the grade mix can move
 recommendations between slots before the last sub-property appears. It weighs
 the sample's sets as the shipped settings do — a 4-set rune's share doubled, an
@@ -930,7 +930,7 @@ not an unsorted drop sample: its raw slot counts also reflect that history.
 The verdict for one rune does not depend on the other runes still held.
 
 `verify:rune-slot-policy-matrix` judges a separate set of 400 drops per slot
-against the shipped presets. It crosses both ends of Power-up policy, Rune
+against the shipped roles. It crosses both ends of Power-up policy, Rune
 quality floor, Accepted and Broken, then repeats the demanding cases with
 another seed and checks the middle stops, and two settings with the 4-set
 preference off, since the balance is measured with it on. Among the non-sparse corners, the
@@ -955,7 +955,7 @@ checkpoint**. It uses the simulator's drop-grade mix of six-star runes, with eve
 legal main cycled evenly. Each rune has its own deterministic random stream, so the
 +0, +9 and +12 records are
 checkpoints of the same bodies rather than three unrelated samples. The statistics
-calculation then uses the ordinary advice engine, including the current presets,
+calculation then uses the ordinary advice engine, including the current roles,
 quality floor, chance policy, set preferences and craft assumptions. Accepted, Broken,
 Intangible, the four-set preference and craft credit still change their own verdicts, but the floor's slot-balance
 calibration uses one fixed neutral yardstick for every setting. Otherwise tightening a
@@ -970,8 +970,8 @@ of 50 %, 300 observations have a binomial standard error of about 2.9 percentage
 points and a rough 95 % interval of about ±5.7 points. That is useful for seeing how
 the settings move the recommendation, but it is not evidence of the game's real rune
 drop rate and it is not the population from which the scoring rules are inferred.
-The one-preset score remains the closed-form `ordinaryBox`; the larger 2,000-per-slot
-sample in §9.4 is reserved for the slower multi-preset slot-balance calibration.
+The one-role score remains the closed-form `ordinaryBox`; the larger 2,000-per-slot
+sample in §9.4 is reserved for the slower multi-role slot-balance calibration.
 
 There is no serialized ordinary population to become stale. `ordinarySample` calls
 the canonical generator in `rune-generation.ts`, which is also the generator used by
@@ -984,7 +984,7 @@ judge an old population with a new method.
 **What it costs.** The finished balance judges 2,000 drops per slot and the fresh
 balance judges another 600 per slot, playing 64 possible futures for each fresh
 candidate (128 at the two lenient chance stops). Both are computed once per star
-class. The calibration depends on the presets, the reference lines and the policy,
+class. The calibration depends on the roles, the reference lines and the policy,
 never on the runes asked about, so the engine keeps the last four calibrations by
 the content of those inputs. A refresh after a sync, one rune opened in the
 overlay and the Rune Simulator's four checkpoints then reuse it; without that,
@@ -993,22 +993,22 @@ calibration. The first calculation still pays it: a 3,001-rune synthetic box too
 about 42 seconds in headless Chromium's processor path on the development machine.
 The worker kept the page responsive.
 
-## 9.6 Which preset a rune is named for
+## 9.6 Which role a rune is named for
 
-**Best preset is the reading the rune is expected to be worth most to**, chosen first
+**Best role is the reading the rune is expected to be worth most to**, chosen first
 among the readings that clear both gates and, only where none does, among all of them.
 The order of those two steps is the promise that matters: a role that says **Sell** can
 never be named while another role says **Keep** or **Power up**, because a failing
-reading is not in the pool while a passing one exists. `npm run verify:rune-best-preset`
+reading is not in the pool while a passing one exists. `npm run verify:rune-best-role`
 holds it, rebuilding every reading of a population from the model's own pieces.
 
 **It used to be the reading with the highest Max value, and Max value is the best
 case.** At `+0` it is the one outcome in several hundred where every improvement lands
 on one line at its maximum. That flatters the role that prices one stat alone. A
 six-star Hero Will slot-5 rune with ATK % 5, CRI Rate 4 and SPD 5, measured against a
-real account's presets, showed the whole effect:
+real account's roles, showed the whole effect:
 
-| Preset | Best case (Max value) | Expected at `+15` | Chance, exact |
+| Role | Best case (Max value) | Expected at `+15` | Chance, exact |
 | --- | ---: | ---: | ---: |
 | Support | **81.7 %** | 49.2 % | 15.7 % |
 | Bruiser | 79.9 % | **71.4 %** | 3.5 % |
@@ -1037,7 +1037,7 @@ alike at its initial midpoint plus its stone (`expectedPlainScore`). Only what t
 adds is not linear, and it is averaged over the first 256 of the runs the chance is
 counted on (`meanGemGain`) — the same runs, because a run is a function of its own
 number. So few are enough because only the Gem is averaged: on a real account of 2,958
-runes, averaging over all 4,096 instead named another preset for 8 of them, each a
+runes, averaging over all 4,096 instead named another role for 8 of them, each a
 near-tie, and cost the calculation a tenth of its time. It is capped at the Max value, which no expectation can exceed, and it
 carries the same accepted/broken discount. Measured against an exact enumeration of
 every outcome on runes with one or two events left, it agrees to within half a point.
@@ -1063,12 +1063,12 @@ switch, that main properties, the role's artifacts and the credited Grindstones 
 the requirement while a rune's own set does not, that a met target asks for nothing,
 that surplus is never penalised, that every star class is priced in its own max rolls,
 that credited craft items move both ends, and that the §5 rune reads exactly 100 % at
-every star class in every slot of every build of every shipped preset.
+every star class in every slot of every build of every shipped role.
 
 `scripts/verify-rune-set-neutrality.mjs` is the fairness gate on §4.3, and it is paired
 by construction: one synthetic population of rune *bodies* is generated once, every set
 is judged on exactly those bodies, and every field of every answer must match. It then
-checks the mirror image — that a preset which *does* rank sets is still obeyed, because
+checks the mirror image — that a role which *does* rank sets is still obeyed, because
 a gate that only demanded neutrality would pass just as happily on an engine that had
 stopped reading the set at all.
 
@@ -1076,14 +1076,14 @@ stopped reading the set at all.
 it is built the same way: a synthetic box of six-star drops at `+15` is generated
 for every slot, its mains and sets cycled evenly, and the rates among usable mains
 that survive the gates are tested against each other with Pearson's χ². It checks
-that no slot keeps a rune whose main none of the presets can use. It also checks
+that no slot keeps a rune whose main none of the roles can use. It also checks
 their combined +0 verdict on the simulator's
-drop-grade mix. It runs the eight shipped presets, seven adversarial
+drop-grade mix. It runs the eight shipped roles, seven adversarial
 single-stat roles, the craft sliders at maximum, both ends of the quality ladder, the
 strictest stop on the roles whose single mains need the most help, and one against
 five preferred slot-6 mains. It then checks the three things a bare equality
 test would miss: that the ladder admits the share it names, that a slot which can
-legally carry nothing the role wants reports "No preset can use it" rather than being
+legally carry nothing the role wants reports "No role can use it" rather than being
 given a scale, and that a rune which out-scores another of its own slot still outranks
 it.
 
@@ -1103,7 +1103,7 @@ instead of the best pair fails it by nine per cent of a rune's score.
 
 Its population section reports the total retained rate and the slots but does not
 impose an invented universal slot distribution or retained percentage: those follow the
-user's presets and standards. `npm run verify:rune-cleanup-calibration` is the fast
+user's roles and standards. `npm run verify:rune-cleanup-calibration` is the fast
 regression guard; `npm run verify:rune-cleanup-calibration:large` is the 1,000-rune
 statistical run used before release.
 
@@ -1111,7 +1111,7 @@ statistical run used before release.
 enough. One population of rune bodies is generated once and judged several times at
 different **resolutions**, which changes how finely every answer in the account is
 counted while changing not a single rune, and the totals, the breakdown by slot, by
-preset and by rank, and the certainties at `+12`/`+15` all have to hold still. It also puts
+role and by rank, and the certainties at `+12`/`+15` all have to hold still. It also puts
 two copies of one rune in a box and requires one answer twice, which is the half that
 says a player pressing Calculate sees a consistent account rather than merely a
 repeatable one.
@@ -1131,7 +1131,7 @@ confirms that is still true.
 `scripts/verify-rune-cleanup-equivalence.mjs` answers the other question, which the
 calibration oracle deliberately cannot: whether this build says what the last one did.
 It records every public field of every row over a fixed population and eight settings
-and preset scenarios, and diffs them against a recorded baseline. The gates are
+and role scenarios, and diffs them against a recorded baseline. The gates are
 complementary — the weights gate says the score means the right thing, the set gate
 says the same rune is scored alike whatever it is labelled, the slot gate says the
 floor cuts every slot at the same place, the craft gate says a Gem does what §8 says,
@@ -1142,13 +1142,13 @@ the engine runs all of them.
 **The equivalence gate treats `chance` as a numeric field with a tolerance and every
 other field as exact.** It was exact on every field before, because the odds were
 enumerated rather than counted; now a baseline recorded on one build and compared on
-the next agrees on `chance` to the resolution of §7.2, and on verdict, reason, preset,
+the next agrees on `chance` to the resolution of §7.2, and on verdict, reason, role,
 rank, Max value and standing to the bit.
 
 ## 10.1 What it costs
 
 Historical chance-engine benchmark, before the fresh slot calibration in §9.4, on
-a synthetic account of 1,500 runes against the eight shipped presets in Node, warm.
+a synthetic account of 1,500 runes against the eight shipped roles in Node, warm.
 It compares the old enumeration with counted futures; it is not the current
 end-to-end latency:
 
@@ -1165,7 +1165,7 @@ the counting:
 - **The event schedule collapses** (§7.1). Every remaining improvement precedes every
   remaining addition, so the additions are a *subset* and not an ordering:
   `C(10,4) = 210` arrangements where the old engine walked 5,040.
-- **A rune is played forward once** however many presets ask about it. Playing it out
+- **A rune is played forward once** however many roles ask about it. Playing it out
   is a fact about the rune; only the pricing is a fact about the role.
 - **Pricing is a table lookup.** A `Valuation` is linear by contract, so the eleven
   slopes are read once per role into a flat array. That is the innermost operation of

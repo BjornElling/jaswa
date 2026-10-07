@@ -16,13 +16,13 @@
  * This sweep deliberately exercises more than the rune that exposed either defect:
  * every slot, ordinary and Ancient lineages, several star classes and starting
  * grades, unfinished event schedules, already-ground lines, an existing Gem line,
- * several presets and every craft assumption.
+ * several roles and every craft assumption.
  */
 import assert from 'node:assert/strict';
-import { defaultRunePotentialPresets, withRefreshedMetrics } from '../app/lib/rune-potential-presets.ts';
+import { defaultRuneRoles, withRefreshedMetrics } from '../app/lib/rune-roles.ts';
 import { runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
 import {
-  candidateChance, candidateMaxValue, prepareRuneCandidate, presetBuilds,
+  candidateChance, candidateMaxValue, prepareRuneCandidate, roleBuilds,
 } from '../app/lib/rune-cleanup-model.ts';
 import { craftPlan, grindCredit } from '../app/lib/rune-craft-end-state.ts';
 import {
@@ -136,9 +136,9 @@ function powerUp(random, rune, targetLevel) {
   return rune;
 }
 
-const presets = defaultRunePotentialPresets();
-const selectedPresets = presets.filter((preset) =>
-  ['pvp-def', 'fast-dd', 'support', 'bruiser', 'slow-dd'].includes(preset.id));
+const roles = defaultRuneRoles();
+const selectedRoles = roles.filter((role) =>
+  ['pvp-def', 'fast-dd', 'support', 'bruiser', 'slow-dd'].includes(role.id));
 const runes = [];
 const random = makeRandom(0x51a7c0de);
 let id = 0;
@@ -159,31 +159,31 @@ const eps = 1e-10;
 const atScore = (candidate, score) => score / candidate.ceiling;
 let comparisons = 0;
 for (const rune of runes) {
-  for (const preset of selectedPresets) {
-    const base = baseByType.get(preset.type);
+  for (const role of selectedRoles) {
+    const base = baseByType.get(role.type);
     if (!base) continue;
-    const build = presetBuilds(preset).find((candidate) => {
+    const build = roleBuilds(role).find((candidate) => {
       const expectedMain = rune.slot === 1 ? 3 : rune.slot === 3 ? 5 : rune.slot === 5 ? 1
         : candidate.mains[rune.slot];
       return expectedMain === rune.mainStatId;
     });
     if (!build) continue;
-    const neutralCandidate = prepareRuneCandidate(rune, preset, build, base, neutral);
+    const neutralCandidate = prepareRuneCandidate(rune, role, build, base, neutral);
     if (!neutralCandidate) continue;
     const neutralRaw = neutralCandidate.best;
     for (const credit of credits) {
-      const candidate = prepareRuneCandidate(rune, preset, build, base, credit);
-      assert.ok(candidate, `${rune.id}/${preset.id} must remain judgeable with craft credit`);
+      const candidate = prepareRuneCandidate(rune, role, build, base, credit);
+      assert.ok(candidate, `${rune.id}/${role.id} must remain judgeable with craft credit`);
       assert.ok(candidate.best + eps >= neutralRaw,
-        `${rune.id}/${preset.id}: raw best score fell after craft credit`);
+        `${rune.id}/${role.id}: raw best score fell after craft credit`);
       for (const threshold of [0.35, 0.7, 0.9]) {
         const score = threshold * neutralCandidate.ceiling;
         const neutralChance = candidateChance(neutralCandidate, threshold);
         const craftChance = candidateChance(candidate, atScore(candidate, score));
         assert.ok(craftChance + eps >= neutralChance,
-          `${rune.id}/${preset.id}: chance fell at threshold ${threshold}`);
+          `${rune.id}/${role.id}: chance fell at threshold ${threshold}`);
         assert.ok(craftChance >= -eps && craftChance <= 1 + eps,
-          `${rune.id}/${preset.id}: chance left [0, 1]`);
+          `${rune.id}/${role.id}: chance left [0, 1]`);
         comparisons += 1;
       }
     }
@@ -224,7 +224,7 @@ const pvp = withRefreshedMetrics({
   artifacts: { atk: false, def: false, hp: true },
   targets: { hp: 43860, def: 1303, spd: 200, res: 80, acc: 25 },
 });
-const pvpBuild = pvp && presetBuilds(pvp)[4];
+const pvpBuild = pvp && roleBuilds(pvp)[4];
 const pvpBase = pvp && baseByType.get(pvp.type);
 assert.ok(pvp && pvpBuild && pvpBase);
 const toleranceNeutralCandidate = prepareRuneCandidate(tolerance, pvp, pvpBuild, pvpBase, neutral);
@@ -285,7 +285,7 @@ assert.equal(candidateChance(toleranceCraftCandidate, craftedBar), withCraft,
  *
  * So every fixture is ground for real, line by line, to exactly the credited stone and
  * then past it. At the credit the row must not move by a bit: Max value, standing,
- * preset, verdict — and chance, at `+12`, where it is settled rather than counted.
+ * role, verdict — and chance, at `+12`, where it is settled rather than counted.
  * Past it the rune may only rise.
  */
 const policySettings = {
@@ -315,9 +315,9 @@ const groundTo = (rune, extra) => ({
   }),
 });
 const standardRunes = [...runes.filter((rune) => !rune.ancient), shield];
-const bare = await runeAdvice(standardRunes, presets, policySettings, baseByType);
-const atCredit = await runeAdvice(standardRunes.map((rune) => groundTo(rune, 0)), presets, policySettings, baseByType);
-const pastCredit = await runeAdvice(standardRunes.map((rune) => groundTo(rune, 1)), presets, policySettings, baseByType);
+const bare = await runeAdvice(standardRunes, roles, policySettings, baseByType);
+const atCredit = await runeAdvice(standardRunes.map((rune) => groundTo(rune, 0)), roles, policySettings, baseByType);
+const pastCredit = await runeAdvice(standardRunes.map((rune) => groundTo(rune, 1)), roles, policySettings, baseByType);
 for (const rune of standardRunes) {
   const before = bare.get(rune.id);
   const same = atCredit.get(`${rune.id}-ground-0`);
@@ -327,7 +327,7 @@ for (const rune of standardRunes) {
     `${rune.id}: a stone no larger than the credited one moved Max value from ${before.maxValue} to ${same.maxValue}`);
   assert.equal(same.standing, before.standing,
     `${rune.id}: a stone no larger than the credited one moved the standing from ${before.standing} to ${same.standing}`);
-  assert.equal(same.preset?.id, before.preset?.id, `${rune.id}: grinding to the credit changed the preset`);
+  assert.equal(same.role?.id, before.role?.id, `${rune.id}: grinding to the credit changed the role`);
   if (rune.level >= 12) {
     assert.equal(same.verdict, before.verdict,
       `${rune.id}: grinding to the credit turned ${before.verdict} into ${same.verdict}`);
@@ -338,7 +338,7 @@ for (const rune of standardRunes) {
   }
 }
 /* The Shield rune's own verdict is asked of the role it was sold for alone. Across
-   every shipped preset its answer is whatever those presets make of it — the Support
+   every shipped role its answer is whatever those roles make of it — the Support
    that replaced the old one wants its 18 SPD and keeps it — and that is not the
    regression: a Bruiser keeping it for a grind the credit had already counted is. */
 const bruiser = [withRefreshedMetrics({
@@ -369,14 +369,14 @@ assert.equal(shieldGround.verdict, 'sell',
 const oracleFixtures = [];
 for (const rune of runes) {
   if (rune.level >= 12 || oracleFixtures.length >= 8) continue;
-  for (const preset of selectedPresets) {
-    const base = baseByType.get(preset.type);
-    const build = presetBuilds(preset).find((candidate) => {
+  for (const role of selectedRoles) {
+    const base = baseByType.get(role.type);
+    const build = roleBuilds(role).find((candidate) => {
       const expectedMain = rune.slot === 1 ? 3 : rune.slot === 3 ? 5 : rune.slot === 5 ? 1
         : candidate.mains[rune.slot];
       return expectedMain === rune.mainStatId;
     });
-    if (base && build) { oracleFixtures.push({ rune, preset, build, base }); break; }
+    if (base && build) { oracleFixtures.push({ rune, role, build, base }); break; }
   }
 }
 for (const [fixtureIndex, fixture] of oracleFixtures.entries()) {
@@ -384,7 +384,7 @@ for (const [fixtureIndex, fixture] of oracleFixtures.entries()) {
     { gem: 'three-quarters', gemGrade: 'Hero', grind: null, grindGrade: 'Hero' },
     { gem: 'three-quarters', gemGrade: 'Hero', grind: 'three-quarters', grindGrade: 'Hero' },
   ]) {
-    const candidate = prepareRuneCandidate(fixture.rune, fixture.preset, fixture.build,
+    const candidate = prepareRuneCandidate(fixture.rune, fixture.role, fixture.build,
       fixture.base, credit);
     assert.ok(candidate);
     const expected = candidateChance(candidate, 0.7);
@@ -393,7 +393,7 @@ for (const [fixtureIndex, fixture] of oracleFixtures.entries()) {
     const trials = 800;
     for (let trial = 0; trial < trials; trial += 1) {
       const finalRune = powerUp(randomTrial, cloneRune(fixture.rune), 12);
-      const finalCandidate = prepareRuneCandidate(finalRune, fixture.preset, fixture.build,
+      const finalCandidate = prepareRuneCandidate(finalRune, fixture.role, fixture.build,
         fixture.base, credit);
       if (finalCandidate && candidateMaxValue(finalCandidate) + eps >= 0.7) hits += 1;
     }

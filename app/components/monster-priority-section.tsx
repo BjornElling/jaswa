@@ -12,7 +12,7 @@ import { WorkspacePage } from './workspace-page';
 import type { GameRecord } from '../lib/game-data';
 import { moveItem } from '../lib/list-order';
 import { monsterPresentation } from '../lib/monster-catalog';
-import { artifactSlotCount, equippedCounts, monsterNameCollator } from '../lib/monster-grid';
+import { artifactSlotCount, engravedCounts, monsterNameCollator } from '../lib/monster-grid';
 import { runeSlotCount } from '../lib/rune-set-pairs';
 import { monsterCopyNames } from '../lib/monster-names';
 import type { MonsterPriority } from '../lib/monster-priority';
@@ -137,7 +137,7 @@ export function MonsterPrioritySection({ game, monsters, preferences, onWrite, o
                     of the list, and should not outshout the names it sits beside. */}
                 <button type="button" className="speed-icon-button monster-priority-optimize" disabled={!choice}
                   aria-label={`Optimize runes for ${name}`} onClick={() => onOptimize(unitId)}>Optimize</button>
-                {choice ? <Equipment monster={choice.record} /> : <><span /><span /><span /></>}
+                {choice ? <Gear monster={choice.record} /> : <><span /><span /><span /></>}
                 <span className="monster-priority-controls">
                   <button type="button" className="speed-icon-button" aria-label={`Move ${name} up`}
                     disabled={at === 0} onClick={() => move(at, at - 1)}><ArrowIcon direction="up" /></button>
@@ -155,22 +155,22 @@ export function MonsterPrioritySection({ game, monsters, preferences, onWrite, o
   </WorkspacePage>;
 }
 
-/* Three cells: what the copy wears against what it can wear, and a tick only
+/* Three cells: what the copy has engraved against what it can take, and a tick only
    when every slot is filled. */
-function Equipment({ monster }: { monster: GameRecord }) {
-  const worn = equippedCounts(monster);
+function Gear({ monster }: { monster: GameRecord }) {
+  const engraved = engravedCounts(monster);
   return <>
-    <Worn count={worn.runes} of={runeSlotCount} what="runes" />
-    <Worn count={worn.artifacts} of={artifactSlotCount} what="artifacts" />
-    <span className="monster-priority-gear" role="img" title={worn.relic ? 'Relic engraved' : 'No relic'}
-      aria-label={worn.relic ? 'Relic engraved' : 'No relic'}>
-      <SpeedVerdictMark state={worn.relic ? 'good' : 'bad'} small />
+    <Engraved count={engraved.runes} of={runeSlotCount} what="runes" />
+    <Engraved count={engraved.artifacts} of={artifactSlotCount} what="artifacts" />
+    <span className="monster-priority-gear" role="img" title={engraved.relic ? 'Relic engraved' : 'No relic'}
+      aria-label={engraved.relic ? 'Relic engraved' : 'No relic'}>
+      <SpeedVerdictMark state={engraved.relic ? 'good' : 'bad'} small />
     </span>
   </>;
 }
 
-function Worn({ count, of, what }: { count: number; of: number; what: string }) {
-  const reading = `${count} of ${of} ${what} equipped`;
+function Engraved({ count, of, what }: { count: number; of: number; what: string }) {
+  const reading = `${count} of ${of} ${what} engraved`;
   return <span className="monster-priority-gear" role="img" title={reading} aria-label={reading}>
     <span className="monster-priority-count">{count}/{of}</span>
     <SpeedVerdictMark state={count >= of ? 'good' : 'bad'} small />

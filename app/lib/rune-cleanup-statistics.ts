@@ -11,7 +11,7 @@
 import { ordinarySample } from './rune-cleanup-model';
 import type { ChanceCounter } from './rune-cleanup-advice';
 import { runeAdvice } from './rune-cleanup-advice';
-import type { RunePotentialPreset } from './rune-potential-presets';
+import type { RuneRole } from './rune-roles';
 import type { ReferenceStats } from './rune-reference-stats';
 import type { RunePotentialSettings } from './types';
 
@@ -35,7 +35,7 @@ function syntheticCheckpoint(level: 0 | 9 | 12): ReturnType<typeof ordinarySampl
 }
 
 export async function calculateRuneCleanupStatistics(
-  presets: readonly RunePotentialPreset[],
+  roles: readonly RuneRole[],
   settings: RunePotentialSettings,
   base: ReadonlyMap<string, ReferenceStats>,
   count: ChanceCounter,
@@ -44,7 +44,7 @@ export async function calculateRuneCleanupStatistics(
   const atZero = syntheticCheckpoint(0);
   const atNine = syntheticCheckpoint(9);
   const atTwelve = syntheticCheckpoint(12);
-  const advice = await runeAdvice([...atZero, ...atNine, ...atTwelve], presets, settings, base, count);
+  const advice = await runeAdvice([...atZero, ...atNine, ...atTwelve], roles, settings, base, count);
   const rolled = atZero.filter((rune) => advice.get(rune.id)?.verdict === 'power-up').length;
   let kept = 0;
   for (let index = 0; index < atZero.length; index += 1) {

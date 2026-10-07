@@ -224,7 +224,7 @@ export function RelicList({ game, monsters, preferences, onOpenMonster }: {
 
   /* Two questions, two menus. The library asks what a relic is worth to the
      account and answers keep, power up, or sell; the roster asks which relic
-     each monster should be wearing. They share the relics and nothing else —
+     each monster should have engraved. They share the relics and nothing else —
      different rows, different filters, different arithmetic — so they are
      separate disclosures rather than one table with a mode switch. */
   return <WorkspacePage

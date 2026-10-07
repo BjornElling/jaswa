@@ -34,7 +34,7 @@ try {
     runes: [intangible(21, 1), intangible(22, 2)],
   });
   assert.equal(twoIntangible.valid, false,
-    'a monster with two equipped Intangible Runes must be rejected by the import boundary');
+    'a monster with two engraved Intangible Runes must be rejected by the import boundary');
   assert.match(twoIntangible.message, /more than one Intangible Rune/);
 
   const twoLocations = validateGameFile({

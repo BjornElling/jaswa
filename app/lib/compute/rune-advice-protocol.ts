@@ -1,14 +1,14 @@
 /**
  * What crosses the thread boundary for a Rune Clean-up calculation.
  *
- * `runeAdvice`'s inputs are already plain data — runes, presets, settings and a
+ * `runeAdvice`'s inputs are already plain data — runes, roles, settings and a
  * `Map` of reference lines — and its output is a `Map` of plain records, so both
  * are structurally cloneable as they stand and no serialisation contract had to
  * be invented. These types exist to keep the client and the worker honest about
  * that rather than to reshape anything.
  */
 import type { Rune } from '../runes';
-import type { RunePotentialPreset } from '../rune-potential-presets';
+import type { RuneRole } from '../rune-roles';
 import type { ReferenceStats } from '../rune-reference-stats';
 import type { RunePotentialSettings } from '../types';
 import type { RuneAdvice } from '../rune-cleanup-advice';
@@ -16,7 +16,7 @@ import type { CalculationBackend } from './calculation-summary';
 
 export type RuneAdviceRequest = {
   runes: readonly Rune[];
-  presets: readonly RunePotentialPreset[];
+  roles: readonly RuneRole[];
   settings: RunePotentialSettings;
   base: ReadonlyMap<string, ReferenceStats>;
   /**
@@ -28,7 +28,7 @@ export type RuneAdviceRequest = {
    * the user flipped once.
    */
   preferWebGpu: boolean;
-  /** Whether each answer carries every preset's reading (`RuneAdvice.readings`). */
+  /** Whether each answer carries every role's reading (`RuneAdvice.readings`). */
   explain?: boolean;
 };
 

@@ -2,7 +2,7 @@ import type { GameRecord } from './game-data';
 import { readRune } from './runes';
 import type { ImportedGame } from './types';
 
-/* A rune record's place as the export states it: its wearer, or `null`. */
+/* A rune record's place as the export states it: the monster it is engraved on, or `null`. */
 function placeOf(record: GameRecord): string | null {
   return record.occupied_type === 1 ? String(record.occupied_id) : null;
 }
@@ -28,7 +28,7 @@ export function engraveImportedGame(game: ImportedGame, unitId: string, runeIds:
 
 /**
  * The stored record read back one rune at a time (`AGENTS.md` §6): an entry
- * that is not a rune id against a wearer id or `null` is dropped, and the rest
+ * that is not a rune id against a monster id or `null` is dropped, and the rest
  * kept. A malformed record costs the "Previously" line, never the import.
  */
 export function readLoadedRuneLocations(value: unknown): Record<string, string | null> | undefined {
@@ -41,7 +41,7 @@ export function readLoadedRuneLocations(value: unknown): Record<string, string |
 }
 
 /** Move six physical runes in the prepared import, then rebuild each monster's
- * equipment from the account list so every workspace reads the same placement. */
+ * gear from the account list so every workspace reads the same placement. */
 export function engraveRuneBuild(data: GameRecord, unitId: string, runeIds: readonly string[]): GameRecord {
   const units = data.unit_list;
   const records = data.runes;
@@ -64,20 +64,20 @@ export function engraveRuneBuild(data: GameRecord, unitId: string, runeIds: read
   const runes = records.map((record) => {
     const rune = record as GameRecord;
     const id = String(rune.rune_id);
-    const equipped = picked.has(id);
-    if (!equipped && !(rune.occupied_type === 1 && String(rune.occupied_id) === unitId)) return rune;
-    return { ...rune, occupied_type: equipped ? 1 : 2, occupied_id: equipped ? Number(unitId) : 0 };
+    const chosen = picked.has(id);
+    if (!chosen && !(rune.occupied_type === 1 && String(rune.occupied_id) === unitId)) return rune;
+    return { ...rune, occupied_type: chosen ? 1 : 2, occupied_id: chosen ? Number(unitId) : 0 };
   });
-  const worn = new Map<string, GameRecord[]>();
+  const engraved = new Map<string, GameRecord[]>();
   for (const rune of runes) {
     if ((rune as GameRecord).occupied_type !== 1) continue;
     const owner = String((rune as GameRecord).occupied_id);
-    const list = worn.get(owner) ?? [];
+    const list = engraved.get(owner) ?? [];
     list.push(rune as GameRecord);
-    worn.set(owner, list);
+    engraved.set(owner, list);
   }
   return { ...data, runes, unit_list: units.map((unit) => {
     const monster = unit as GameRecord;
-    return { ...monster, runes: worn.get(String(monster.unit_id)) ?? [] };
+    return { ...monster, runes: engraved.get(String(monster.unit_id)) ?? [] };
   }) };
 }

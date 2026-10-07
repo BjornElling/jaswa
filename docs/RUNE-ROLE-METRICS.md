@@ -1,12 +1,12 @@
-# Rune Clean-up — preset-metrikker
+# Rune Clean-up — rolle-metrikker
 
 **Status:** Kanonisk beregningskontrakt for `DMG`, `E.HP`, `E.HP D` og `Eff. %`
-i Rune Clean-up-presets
+i Rune Clean-up-roller
 **Afhængighed:** `docs/RUNE-CLEANUP-MATH.md` og `docs/RUNE-CANONICAL.md`  
 **Kontrolleret:** 1. oktober 2026
 
 Dette er det eneste dokument, der fastlægger disse fire metrikker. De bruges
-til at vægte, hvilke stats og Rune Sets en preset finder ønskværdige, når
+til at vægte, hvilke stats og Rune Sets en rolle finder ønskværdige, når
 Rune Clean-up senere vurderer, om en rune bør rulles eller sælges. De er ikke
 en universel kamp-simulator og erstatter aldrig en monsters specifikke skill.
 
@@ -22,7 +22,7 @@ personlige setbonusser og artefakternes Main Property:
 Account-towers, leader skills, buffs, skill-ups, artefakters sekundære
 kampvirkninger, fjendens DEF, element, tilfældig damage variance og
 kampafhængige seteffekter indgår ikke. Denne afgrænsning gør metrikkerne
-stabile til en generel rune-preset.
+stabile til en generel rune-rolle.
 
 ## 2. DMG — gennemsnitlig ATK-baseret kritisk output
 
@@ -101,7 +101,7 @@ aritmetiske gennemsnit af de seks udstyrede runers uafrundede `Eff. %`, vist
 med to decimaler.
 
 `Eff. %` er en generel kvalitetsindikator og er derfor vægtet 2 i alle
-arbejds-presets. Den kan ikke alene gøre en rune ønskværdig for en bestemt
+arbejds-roller. Den kan ikke alene gøre en rune ønskværdig for en bestemt
 rolle; set-, substat- og de øvrige metrikvægte gælder fortsat.
 
 ## 6. Verificering mod Culpa-kontrollen
@@ -132,9 +132,9 @@ den indtil 1. oktober 2026. SWCalcs `1142 + 3.572 × DEF` er siden gjort
 autoritativ (`CALCULATION-AUTHORITY.md`), så E.HP og E.HP D afviger nu bevidst
 fra SWOP Pro; de øvrige rækker matcher fortsat.
 
-## 7. Preset-vægte
+## 7. Rolle-vægte
 
-Hver låste arbejds-preset har en heltalsvægt `0–5` for hver metriks betydning:
+Hver låste arbejds-rolle har en heltalsvægt `0–5` for hver metriks betydning:
 
 | Vægt | Betydning |
 | --- | --- |
@@ -146,7 +146,7 @@ Hver låste arbejds-preset har en heltalsvægt `0–5` for hver metriks betydnin
 
 Vægtene er produktvalg, ikke spilregler. Rune Clean-up's rulle-/sælg-algoritme
 beregner nu runens lovlige Max value og dens sandsynlighed for at nå den, som
-beskrevet i `RUNE-CLEANUP-MATH.md`, og anvender derefter den valgte presets set-
+beskrevet i `RUNE-CLEANUP-MATH.md`, og anvender derefter den valgte rolles set-
 og slotvalg. En manglende metric eller vægt må aldrig få en
 stiltiende default.
 

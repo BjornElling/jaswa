@@ -5,8 +5,8 @@ export type DeckPreset = {
   /** The game identifies a saved deck by both fields. Neither identifies a content name alone. */
   deckType: number;
   deckSequence: number;
-  /** An absent equipment list is a saved monster deck without saved engravings. */
-  hasEquipment: boolean;
+  /** An absent engravings list is a saved monster deck without saved engravings. */
+  hasEngravings: boolean;
   runeOwnerById: ReadonlyMap<string, string>;
   artifactOwnerById: ReadonlyMap<string, string>;
   /** A saved deck can refer to a rune the account no longer owns. Keep that fact visible. */
@@ -70,18 +70,18 @@ export function readDeckPresets(data: GameRecord): DeckPreset[] {
     if (keys.has(key)) throw new Error('This account contains duplicate Deck Preset identities.');
     keys.add(key);
     if (source.equip !== null && source.equip !== undefined && !Array.isArray(source.equip)) {
-      throw new Error('This account contains an invalid Deck Preset equipment list.');
+      throw new Error('This account contains an invalid Deck Preset engravings list.');
     }
-    const equipment = Array.isArray(source.equip) ? source.equip : null;
+    const engravings = Array.isArray(source.equip) ? source.equip : null;
     const runeOwnerById = new Map<string, string>();
     const artifactOwnerById = new Map<string, string>();
     const missingRuneIds: string[] = [];
     const missingArtifactIds: string[] = [];
     const slotsByUnit = new Map<string, Set<number>>();
-    for (const entry of equipment ?? []) {
+    for (const entry of engravings ?? []) {
       if (!record(entry) || !Array.isArray(entry.rune_id_list)
         || entry.artifact_id_list !== undefined && !Array.isArray(entry.artifact_id_list)) {
-        throw new Error('This account contains invalid Deck Preset equipment.');
+        throw new Error('This account contains invalid Deck Preset engravings.');
       }
       const unitId = positiveId(entry.unit_id);
       if (unitId === null || !ownedUnits.has(unitId)) {
@@ -113,7 +113,7 @@ export function readDeckPresets(data: GameRecord): DeckPreset[] {
       }
       slotsByUnit.set(unitId, slots);
     }
-    return { deckType, deckSequence, hasEquipment: equipment !== null,
+    return { deckType, deckSequence, hasEngravings: engravings !== null,
       runeOwnerById, artifactOwnerById, missingRuneIds, missingArtifactIds };
   });
 }

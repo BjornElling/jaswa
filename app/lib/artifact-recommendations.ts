@@ -49,7 +49,7 @@ export function scoringSettings(settings: ArtifactSettings): Omit<ArtifactSettin
  * the request, and the value comes back in the whole percentage points every
  * score is compared on (§17.1).
  *
- * `undefined` means the pair was never scorable — an ineligible equip class, a
+ * `undefined` means the pair was never scorable — an ineligible engrave class, a
  * monster with no recorded preferences, an artifact the settings excluded — and
  * is deliberately not zero, which would read as a judgement.
  */
@@ -97,7 +97,7 @@ export function isWorthwhileGain(candidate: number, current: number, settings: A
 
 /**
  * The stone a recommendation would spend: the best grade owned for this
- * property and equip class (§17.6). `undefined` when the account owns none,
+ * property and engrave class (§17.6). `undefined` when the account owns none,
  * which is the ordinary case in the theoretical mode where nothing is spent.
  *
  * Only restricted artifacts ever reach this: an Intangible cannot be converted
@@ -106,13 +106,13 @@ export function isWorthwhileGain(candidate: number, current: number, settings: A
 export function engravedStoneFor(
   stones: readonly EngravedConversionStone[],
   category: ArtifactCategory,
-  equipClassCode: number,
+  engraveClassCode: number,
   propertyId: number,
 ): EngravedConversionStone | undefined {
   let best: EngravedConversionStone | undefined;
   for (const stone of stones) {
     if (stone.category !== category || stone.propertyId !== propertyId) continue;
-    if (stone.equipClassCode !== equipClassCode) continue;
+    if (stone.engraveClassCode !== engraveClassCode) continue;
     if (!best || gradeRank(stone.grade) > gradeRank(best.grade)) best = stone;
   }
   return best;
@@ -130,11 +130,11 @@ export function engravedStonesFor(data: GameRecord | undefined): EngravedConvers
 }
 
 /**
- * The equip classes by their export code, which is the same numbering the score
+ * The engrave classes by their export code, which is the same numbering the score
  * protocol uses for an artifact's restriction — so a stone and the artifact it
  * would be spent on are named from one table.
  */
-const stoneEquipClassNames: Record<ArtifactCategory, Record<number, string>> = {
+const stoneEngraveClassNames: Record<ArtifactCategory, Record<number, string>> = {
   attribute: artifactElements,
   type: artifactArchetypes,
 };
@@ -167,6 +167,6 @@ export function conversionDescription(
     : [conversion.sourceIndex];
   const source = `Sub ${sourceIndexes.map((index) => index + 1).join('/')}`;
   if (!stone) return { action, source, target };
-  const equipClass = stoneEquipClassNames[stone.category][stone.equipClassCode] ?? '';
-  return { action, source, target, stone: `${stone.grade} ${equipClass} stone`.replace('  ', ' ') };
+  const engraveClass = stoneEngraveClassNames[stone.category][stone.engraveClassCode] ?? '';
+  return { action, source, target, stone: `${stone.grade} ${engraveClass} stone`.replace('  ', ' ') };
 }

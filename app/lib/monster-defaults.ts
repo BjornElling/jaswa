@@ -50,8 +50,8 @@ const runeSlotNumbers: Record<RuneSlotKey, number> = { slot2: 2, slot4: 4, slot6
 /*
  * A slot's mains are read in `rune-slot-mains.ts`'s vocabulary, which names the
  * flat HP +, ATK + and DEF + as well. They used to be dropped from the
- * denominator because the preset vocabulary had no word for them; a monster's
- * slots now offer every main the game does, so every main the population wears
+ * denominator because the role vocabulary had no word for them; a monster's
+ * slots now offer every main the game does, so every main the population engraves
  * is counted and shown.
  */
 
@@ -201,9 +201,9 @@ export const defaultedMonsterSpeciesIds: readonly string[] = Object.keys(monster
  *   that holds one rune. These distributions are far from even — a slot's leader
  *   routinely takes half of it — so 40 % discriminates here despite the count.
  * - **Rune set** is the one panel whose cuts could not be inherited. Its shares
- *   are *participation rates*, not a partition: a build wearing two sets votes
+ *   are *participation rates*, not a partition: a build with two sets votes
  *   for both, so they sum to about 1.7 rather than 1, and a cut therefore has to
- *   sit higher to mean "a clear leader". A monster also wears two sets at once,
+ *   sit higher to mean "a clear leader". A monster also has two sets engraved at once,
  *   so the right answer is about two preferred sets, not one: 35 % yields 1.96,
  *   where 40 % undershoots at 1.67 and 30 % overshoots at 2.30. It also absorbs
  *   the inflation `RuneSetShareBasis` describes.
@@ -361,7 +361,7 @@ function expectedSubLine(effectId: number): number {
 
 /**
  * The population's rune build as an expected HP, ATK and DEF percentage — the
- * statistics stand-in for the six runes a copy may not yet wear.
+ * statistics stand-in for the six runes a copy may not yet have engraved.
  *
  * A slot-2/4/6 main is counted at its +15 value against that slot's own total;
  * a sub line at `expectedSubLine` against the average number of runes a slot
@@ -446,7 +446,7 @@ function relicDefaults(panel: PanelStatistics | undefined): RelicDefaults | unde
 const resolved = new Map<string, MonsterDefaults | undefined>();
 
 /**
- * What the wider player base equips on this monster species, across all three
+ * What the wider player base engraves on this monster species, across all three
  * panels, as the provisional preferences a copy of it starts from.
  *
  * A master id resolves to its species first, so a collaboration monster and its

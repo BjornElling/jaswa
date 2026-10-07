@@ -14,7 +14,7 @@ import type { RankFigure, RuneOptimizationRequirements } from './rune-optimizati
  *
  * The profile is read *resolved*, so a slot its owner never answered carries the
  * community's answer, exactly as every other page that reads a profile does — and
- * the page is told which, because "you asked for SPD" and "most players wear SPD"
+ * the page is told which, because "you asked for SPD" and "most players engrave SPD"
  * are different reasons for the same pill.
  */
 export type RequirementSources = {

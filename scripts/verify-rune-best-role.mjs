@@ -1,11 +1,11 @@
 /**
- * The gate on how Rune Clean-up chooses a rune's Best preset.
+ * The gate on how Rune Clean-up chooses a rune's Best role.
  *
  * `docs/RUNE-CLEANUP-MATH.md` §9.6 states two promises and this holds both, against the
  * engine's own readings rebuilt from the model's exported pieces:
  *
- * 1. **A passing reading always wins over a failing one.** Where any build of any preset
- *    clears both the quality floor and the chance bar, Best preset is one of those — so
+ * 1. **A passing reading always wins over a failing one.** Where any build of any role
+ *    clears both the quality floor and the chance bar, Best role is one of those — so
  *    a row can never name a role that says Sell while another role says Keep.
  * 2. **Among the readings it chooses from, the one the rune is expected to be worth most
  *    to wins**, not the one with the best best-case.
@@ -17,17 +17,17 @@
  * outcome.
  *
  *   node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs \
- *     scripts/verify-rune-best-preset.mjs
+ *     scripts/verify-rune-best-role.mjs
  */
 import assert from 'node:assert/strict';
-import { defaultRunePotentialPresets } from '../app/lib/rune-potential-presets.ts';
+import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
 import { defaultRunePotentialSettings } from '../app/lib/file-imports.ts';
 import {
   acceptedWorth, brokenWorth, chanceThresholds, runeAdvice, slotFloorShares,
 } from '../app/lib/rune-cleanup-advice.ts';
 import {
   boxThreshold, candidateChance, candidateExpectedBound, candidateExpectedValue, candidateMaxValue,
-  newRuneAdviceScope, ordinaryBox, ordinarySample, prepareRuneCandidate, presetBuilds, runeRuns,
+  newRuneAdviceScope, ordinaryBox, ordinarySample, prepareRuneCandidate, roleBuilds, runeRuns,
   slotMainFamily, standingIn,
 } from '../app/lib/rune-cleanup-model.ts';
 import { craftedScore } from '../app/lib/rune-craft-end-state.ts';
@@ -39,7 +39,7 @@ const base = new Map([
   ['HP type', { hp: 11836, atk: 653, def: 592, spd: 104, criRate: 16, criDmg: 50, res: 18, acc: 4 }],
   ['No type', { hp: 10404, atk: 720, def: 608, spd: 104, criRate: 17, criDmg: 50, res: 17, acc: 4 }],
 ]);
-const presets = defaultRunePotentialPresets();
+const roles = defaultRuneRoles();
 const neutral = { gem: 'three-quarters', gemGrade: 'Hero', grind: 'three-quarters', grindGrade: 'Hero' };
 
 /* Intangible and the 4-set preference widen a rune's own retention share, which the
@@ -66,24 +66,24 @@ function readingsOf(rune, settings, shares, scope) {
   const worthOf = (rank) => (rank === 'preferred' ? 1 : rank === 'acceptable' ? accepted : broken);
   const readings = [];
   let runs = null;
-  for (const preset of presets) {
-    const line = base.get(preset.type);
-    const builds = presetBuilds(preset);
+  for (const role of roles) {
+    const line = base.get(role.type);
+    const builds = roleBuilds(role);
     const family = builds
       .filter((build) => ![2, 4, 6].includes(rune.slot)
         || build.mains[rune.slot] === rune.mainStatId || build.mains[rune.slot] === 0)
-      .map((build) => prepareRuneCandidate(rune, preset, build, line, credit, scope, neutral))
+      .map((build) => prepareRuneCandidate(rune, role, build, line, credit, scope, neutral))
       .filter(Boolean);
     if (family.length === 0) continue;
-    const box = ordinaryBox(slotMainFamily(preset, builds, rune.slot, family[0].main, 6, line, neutral, scope));
-    const share = shares.get(preset.id)[rune.slot - 1];
+    const box = ordinaryBox(slotMainFamily(role, builds, rune.slot, family[0].main, 6, line, neutral, scope));
+    const share = shares.get(role.id)[rune.slot - 1];
     for (const candidate of family) {
       const worth = worthOf(candidate.rank);
       const maxValue = candidateMaxValue(candidate) * worth;
       const threshold = worth > 0 ? boxThreshold(box, share) / worth : Number.POSITIVE_INFINITY;
       const expected = candidateExpectedValue(candidate, () => (runs ??= runeRuns(candidate.future)));
       readings.push({
-        preset, candidate, rank: candidate.rank, maxValue, value: standingIn(box, maxValue),
+        role, candidate, rank: candidate.rank, maxValue, value: standingIn(box, maxValue),
         passesValue: standingIn(box, maxValue) >= 1 - share,
         chance: candidateChance(candidate, threshold),
         expected: expected * worth, bound: candidateExpectedBound(candidate) * worth,
@@ -143,53 +143,53 @@ let exactChecked = 0;
 let choseAmongPassing = 0;
 let movedFromBestCase = 0;
 for (const [label, settings] of scenarios) {
-  const advice = await runeAdvice(runes, presets, settings, base);
+  const advice = await runeAdvice(runes, roles, settings, base);
   /* Below +12 a rune is held to the fresh-rune balance, so the floor is asked per level. */
-  const sharesByLevel = new Map([0, 6, 9, 12].map((level) => [level, slotFloorShares(presets, settings, base, 6, level)]));
+  const sharesByLevel = new Map([0, 6, 9, 12].map((level) => [level, slotFloorShares(roles, settings, base, 6, level)]));
   const bar = chanceThresholds[settings.powerUpPolicy - 1];
   const scope = newRuneAdviceScope();
   for (const rune of runes) {
     const row = advice.get(rune.id);
     const readings = readingsOf(rune, settings, sharesByLevel.get(rune.level), scope);
-    if (readings.length === 0) { check(row.preset === null, `${label} ${rune.id}: a preset named with no reading`); continue; }
+    if (readings.length === 0) { check(row.role === null, `${label} ${rune.id}: a role named with no reading`); continue; }
     for (const reading of readings) {
       check(reading.rawExpected <= reading.rawMax + 1e-12,
-        `${label} ${rune.id} ${reading.preset.name}: expectation ${reading.rawExpected} above Max value ${reading.rawMax}`);
+        `${label} ${rune.id} ${reading.role.name}: expectation ${reading.rawExpected} above Max value ${reading.rawMax}`);
       check(reading.expected <= reading.bound + 1e-12,
-        `${label} ${rune.id} ${reading.preset.name}: expectation ${reading.expected} above its bound ${reading.bound}`);
+        `${label} ${rune.id} ${reading.role.name}: expectation ${reading.expected} above its bound ${reading.bound}`);
     }
     const passing = readings.filter((reading) => reading.passesValue && reading.chance >= bar);
     const pool = passing.length > 0 ? passing : readings;
     const top = [...pool].sort((left, right) => right.expected - left.expected
       || right.maxValue - left.maxValue || right.value - left.value || right.chance - left.chance
-      || left.preset.id.localeCompare(right.preset.id))[0];
+      || left.role.id.localeCompare(right.role.id))[0];
     if (passing.length > 0) {
       choseAmongPassing += 1;
-      check(passing.some((reading) => reading.preset.id === row.preset?.id && reading.maxValue === row.maxValue),
-        `${label} ${rune.id}: Best preset ${row.preset?.name} is not one of the readings that pass`);
+      check(passing.some((reading) => reading.role.id === row.role?.id && reading.maxValue === row.maxValue),
+        `${label} ${rune.id}: Best role ${row.role?.name} is not one of the readings that pass`);
       check(row.verdict !== 'sell', `${label} ${rune.id}: sold although a reading passes`);
     } else {
       check(row.verdict === 'sell', `${label} ${rune.id}: kept although no reading passes`);
     }
-    check(row.preset?.id === top.preset.id && row.maxValue === top.maxValue && row.chance === top.chance,
-      `${label} ${rune.id}: chose ${row.preset?.name} ${row.maxValue}, the highest expectation is `
-      + `${top.preset.name} ${top.maxValue} (${top.expected})`);
+    check(row.role?.id === top.role.id && row.maxValue === top.maxValue && row.chance === top.chance,
+      `${label} ${rune.id}: chose ${row.role?.name} ${row.maxValue}, the highest expectation is `
+      + `${top.role.name} ${top.maxValue} (${top.expected})`);
     const bestCase = [...pool].sort((left, right) => right.maxValue - left.maxValue)[0];
-    if (bestCase.preset.id !== top.preset.id) movedFromBestCase += 1;
+    if (bestCase.role.id !== top.role.id) movedFromBestCase += 1;
 
     if (label === 'default' && (rune.level === 6 || rune.level === 9)) {
       for (const reading of readings) {
         const exact = exactExpectation(reading.candidate);
         exactChecked += 1;
         check(Math.abs(exact - reading.rawExpected) < 0.005,
-          `${rune.id} ${reading.preset.name}: expectation ${reading.rawExpected} against exact ${exact}`);
+          `${rune.id} ${reading.role.name}: expectation ${reading.rawExpected} against exact ${exact}`);
       }
     }
   }
 }
 
-console.log(`Best preset: ${runes.length} runes x ${scenarios.length} settings; `
-  + `${choseAmongPassing} chosen among passing readings, ${movedFromBestCase} where the best case would name another preset; `
+console.log(`Best role: ${runes.length} runes x ${scenarios.length} settings; `
+  + `${choseAmongPassing} chosen among passing readings, ${movedFromBestCase} where the best case would name another role; `
   + `${exactChecked} expectations against exact enumeration.`);
 assert.ok(choseAmongPassing > 0, 'no rune had a passing reading, so promise 1 was never exercised');
 assert.ok(movedFromBestCase > 0, 'no rune was one the best case would have judged differently');

@@ -19,7 +19,7 @@ import { artifactPairScore, engravedStonesFor, scoringSettings } from '../lib/ar
 import { allocateArtifactPlacements } from '../lib/artifact-recommendation-allocation';
 import type { SortableColumn } from './use-sorted-rows';
 import { artifactPreferenceStatus, recordedArtifactPreferenceMonsterIds } from '../lib/artifact-preferences';
-import { artifactCategoryLabel, artifactEquipClassLabel, artifactValueTint, displaySubProperty } from '../lib/artifact-grid';
+import { artifactCategoryLabel, artifactEngraveClassLabel, artifactValueTint, displaySubProperty } from '../lib/artifact-grid';
 import {
   artifactArchetypes, artifactCategoryLabels, artifactElements, artifactGradeOrder,
   artifactIntangibleLabel, artifactMainPropertyOrder,
@@ -46,7 +46,7 @@ const categoryOrder: readonly ArtifactCategory[] = ['attribute', 'type'];
 const restrictionOptions = [
   ...Object.values(artifactElements), ...Object.values(artifactArchetypes), artifactIntangibleLabel,
 ];
-const artifactLocations = ['inventory', 'equipped'] as const;
+const artifactLocations = ['inventory', 'engraved'] as const;
 
 type ArtifactLocation = typeof artifactLocations[number];
 /* The one option under "Already matching". It is a list like every other
@@ -62,7 +62,7 @@ type ArtifactFilters = {
   subPropertyId: string;
   /** Where the artifact sits in the imported data, before any advice. */
   locations: ArtifactLocation[];
-  /** Where following the plan would put it: equipped if a monster was
+  /** Where following the plan would put it: engraved if a monster was
    * allocated one, inventory if the advice is to sell it. */
   plannedLocations: ArtifactLocation[];
   matching: MatchingFilter[];
@@ -72,13 +72,13 @@ type CategoryCalculation = { request: ArtifactScoreRequest; result: ArtifactScor
 type Allocation = { monster: OwnedMonster; value: number; conversions: readonly ArtifactConversion[] };
 type UnscoredSlot = { monster: OwnedMonster; category: ArtifactCategory; status: 'missing' | 'empty' };
 type Calculation = { inputKey: string; backend: CalculationBackend; durationMs: number; evaluatedPairs: number; ownedConversionCount: number; categories: CategoryCalculation[]; allocations: Map<string, Allocation>; unfilledSlots: number; slotCount: number; unscoredSlots: readonly UnscoredSlot[] };
-/* The view opens on the work the plan asks for: the artifacts it would equip,
+/* The view opens on the work the plan asks for: the artifacts it would engrave,
    minus the ones already on the monster it names. Everything else — the pieces
    to sell, and the placements that are already right — stays one click away in
    the panel rather than filling the first screen with rows carrying no action.
    Both are ordinary filters, so "Clear results" and the buttons themselves
    return the complete plan. */
-const defaultFilters: ArtifactFilters = { categories: [], restrictions: [], grades: [], mainProperties: [], subPropertyId: '', locations: [], plannedLocations: ['equipped'], matching: ['hide'] };
+const defaultFilters: ArtifactFilters = { categories: [], restrictions: [], grades: [], mainProperties: [], subPropertyId: '', locations: [], plannedLocations: ['engraved'], matching: ['hide'] };
 
 /* `names` is read off the whole roster, never off `monsters`: numbering a
    filtered subset would call the second Lushen "Lushen" whenever the first was
@@ -260,7 +260,7 @@ export function ArtifactMaximumValues({ data, monsters, monsterPreferences, sett
   const copyNames = useMemo(() => monsterCopyNames(monsters, monsterPreferences), [monsters, monsterPreferences]);
   const ownedMonsters = useMemo(() => readOwnedMonsters(monsters, copyNames), [monsters, copyNames]);
   const scopedMonsters = useMemo(() => recommendationMonsters(monsters, settings, copyNames), [monsters, settings, copyNames]);
-  const wearerByUnitId = useMemo(() => new Map(ownedMonsters.map((monster) => [monster.unitId, monster])), [ownedMonsters]);
+  const monsterByUnitId = useMemo(() => new Map(ownedMonsters.map((monster) => [monster.unitId, monster])), [ownedMonsters]);
   const scopedMonsterIds = useMemo(() => new Set(scopedMonsters.map((monster) => monster.unitId)), [scopedMonsters]);
   const subPropertyOptions = useMemo(() => {
     const definitions = new Map<number, { id: number; name: string }>();
@@ -274,13 +274,13 @@ export function ArtifactMaximumValues({ data, monsters, monsterPreferences, sett
   });
   const currentCalculation = calculation?.inputKey === inputKey ? calculation : undefined;
   const visibleArtifacts = useMemo(() => artifacts.filter((artifact) => {
-    const restriction = artifactEquipClassLabel(artifact);
+    const restriction = artifactEngraveClassLabel(artifact);
     return (!filters.categories.length || filters.categories.includes(artifact.category))
       && (!filters.restrictions.length || filters.restrictions.includes(restriction))
       && (!filters.grades.length || filters.grades.includes(artifact.grade))
       && (!filters.mainProperties.length || filters.mainProperties.includes(artifact.mainProperty))
       && (!selectedSubPropertyId || artifact.subProperties.some((property) => String(property.definition.id) === selectedSubPropertyId))
-      && (!filters.locations.length || filters.locations.includes(artifact.occupiedId === null ? 'inventory' : 'equipped'));
+      && (!filters.locations.length || filters.locations.includes(artifact.occupiedId === null ? 'inventory' : 'engraved'));
   }), [artifacts, filters, selectedSubPropertyId]);
 
   function toggle(key: keyof ArtifactFilters, value: string) {
@@ -344,30 +344,30 @@ export function ArtifactMaximumValues({ data, monsters, monsterPreferences, sett
     </Fragment>)}</div>
   </div>;
 
-  const scoreForWearer = (artifact: Artifact): number | undefined => {
+  const scoreWhereEngraved = (artifact: Artifact): number | undefined => {
     if (!currentCalculation || artifact.occupiedId === null) return undefined;
     if (!scopedMonsterIds.has(artifact.occupiedId)) return undefined;
-    const wearer = wearerByUnitId.get(artifact.occupiedId);
+    const engravedOn = monsterByUnitId.get(artifact.occupiedId);
     const category = currentCalculation.categories.find((entry) => entry.request.artifacts[0]?.category === (artifact.category === 'attribute' ? 1 : 2));
-    return wearer && category ? currentScoreAt(category, artifact.id, wearer) : undefined;
+    return engravedOn && category ? currentScoreAt(category, artifact.id, engravedOn) : undefined;
   };
 
   const rows = useMemo(() => !currentCalculation ? [] : visibleArtifacts.map((artifact) => {
     const allocation = currentCalculation?.allocations.get(artifact.id);
-    const wearer = artifact.occupiedId === null ? undefined : wearerByUnitId.get(artifact.occupiedId);
-    const current = scoreForWearer(artifact);
+    const engravedOn = artifact.occupiedId === null ? undefined : monsterByUnitId.get(artifact.occupiedId);
+    const current = scoreWhereEngraved(artifact);
     return {
       artifact,
       order: artifactOrder.get(artifact.id) ?? 0,
-      wearerName: artifact.occupiedId === null ? 'Inventory' : wearer?.name ?? 'Missing monster',
+      engravedOnName: artifact.occupiedId === null ? 'Inventory' : engravedOn?.name ?? 'Missing monster',
       current,
       allocation,
-      action: allocation ? (artifact.occupiedId === allocation.monster.unitId ? 'Keep' : 'Equip') : 'Sell',
+      action: allocation ? (artifact.occupiedId === allocation.monster.unitId ? 'Keep' : 'Engrave') : 'Sell',
     };
-    /* `scoreForWearer` reads only the calculation and the wearer map, both of
+    /* `scoreWhereEngraved` reads only the calculation and the monster map, both of
        which are dependencies here, so it does not need to be one itself. */
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [visibleArtifacts, currentCalculation, wearerByUnitId, artifactOrder]);
+  }), [visibleArtifacts, currentCalculation, monsterByUnitId, artifactOrder]);
 
   /* Two of the filters ask about the advice rather than the artifact, so they
      cannot run in `visibleArtifacts` with the rest: the allocation is not known
@@ -376,7 +376,7 @@ export function ArtifactMaximumValues({ data, monsters, monsterPreferences, sett
      whole library, exactly as before, so a filter still never changes the
      advice in the rows that remain. */
   const plannedRows = useMemo(() => rows.filter((row) => {
-    const plannedLocation: ArtifactLocation = row.allocation ? 'equipped' : 'inventory';
+    const plannedLocation: ArtifactLocation = row.allocation ? 'engraved' : 'inventory';
     const alreadyMatching = row.allocation !== undefined
       && row.artifact.occupiedId === row.allocation.monster.unitId;
     return (!filters.plannedLocations.length || filters.plannedLocations.includes(plannedLocation))
@@ -413,7 +413,7 @@ export function ArtifactMaximumValues({ data, monsters, monsterPreferences, sett
     /* Substats order by the artifact's own grade and then its first line, which
        is the closest thing to "how good is this piece" the column shows. */
     { key: 'subs', label: 'Substats', align: 'left', compare: (left, right) => artifactGradeOrder.indexOf(left.artifact.grade) - artifactGradeOrder.indexOf(right.artifact.grade) || monsterNameCollator.compare(left.artifact.subProperties[0]?.definition.name ?? '', right.artifact.subProperties[0]?.definition.name ?? ''), initialDirection: 'descending' },
-    { key: 'location', label: 'Location', align: 'left', compare: (left, right) => monsterNameCollator.compare(left.wearerName, right.wearerName) },
+    { key: 'location', label: 'Location', align: 'left', compare: (left, right) => monsterNameCollator.compare(left.engravedOnName, right.engravedOnName) },
     { key: 'current', label: 'Value on mon', align: 'right', compare: (left, right) => (left.current ?? -1) - (right.current ?? -1), initialDirection: 'descending' },
     { key: 'action', label: 'Plan', align: 'left', compare: (left, right) => left.action.localeCompare(right.action) },
     { key: 'recommendation', label: 'Monster', align: 'left', compare: (left, right) => monsterNameCollator.compare(left.allocation?.monster.name ?? '', right.allocation?.monster.name ?? '') },
@@ -470,8 +470,8 @@ export function ArtifactMaximumValues({ data, monsters, monsterPreferences, sett
           where it sits in the import, and where following this plan would put
           it. Naming them "before" and "after" is what keeps them from reading
           as one filter shown twice. */}
-      {buttonGroup('Location before', 'locations', artifactLocations, (location) => location === 'inventory' ? 'Inventory' : 'Equipped', 'artifact-recommendation-filter-location')}
-      {buttonGroup('Location after', 'plannedLocations', artifactLocations, (location) => location === 'inventory' ? 'Inventory' : 'Equipped', 'artifact-recommendation-filter-planned-location')}
+      {buttonGroup('Location before', 'locations', artifactLocations, (location) => location === 'inventory' ? 'Inventory' : 'Engraved', 'artifact-recommendation-filter-location')}
+      {buttonGroup('Location after', 'plannedLocations', artifactLocations, (location) => location === 'inventory' ? 'Inventory' : 'Engraved', 'artifact-recommendation-filter-planned-location')}
       {/* On by default (`defaultFilters`): a row where the plan agrees with
           reality is still part of the plan, but it asks nothing of the user, so
           the view opens on the work list and the button restores the whole
@@ -542,7 +542,7 @@ export function ArtifactMaximumValues({ data, monsters, monsterPreferences, sett
               names from reading as loudly as the advice. */}
           <td className={cellClass('location', row.artifact.occupiedId === row.allocation?.monster.unitId
             ? 'artifact-recommendation-keep'
-            : row.artifact.occupiedId === null ? '' : 'artifact-recommendation-wearer')}>{row.wearerName}</td>
+            : row.artifact.occupiedId === null ? '' : 'artifact-recommendation-engraved-on')}>{row.engravedOnName}</td>
           <td className={cellClass('current')}><Score value={row.current} general={general} /></td>
           <td className={cellClass('action', row.action === 'Sell' ? 'artifact-recommendation-sell' : row.action === 'Keep' ? 'artifact-recommendation-keep' : '')}>{row.action}</td>
           <td className={cellClass('recommendation', row.allocation ? row.artifact.occupiedId === row.allocation.monster.unitId ? 'artifact-recommendation-keep' : '' : 'artifact-recommendation-sell')}>{row.allocation?.monster.name ?? '—'}</td>

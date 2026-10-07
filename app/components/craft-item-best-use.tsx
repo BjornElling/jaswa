@@ -23,12 +23,12 @@ import type { CraftItem, CraftKind, CraftLineage, CraftRollAssumption } from '..
 import { craftItemRange } from '../lib/rune-craft-end-state';
 import { craftRangeText } from '../lib/rune-craft-grid';
 import {
-  craftBlockReason, craftCandidate, craftLandingScore, craftReach, presetWantsRune, subPropertyText,
+  craftBlockReason, craftCandidate, craftLandingScore, craftReach, roleWantsRune, subPropertyText,
 } from '../lib/rune-craft-plan';
 import type { CraftCandidate } from '../lib/rune-craft-plan';
 import { runeStatIds, runeStatName } from '../lib/runes';
 import type { Rune } from '../lib/runes';
-import type { RunePotentialPreset } from '../lib/rune-potential-presets';
+import type { RuneRole } from '../lib/rune-roles';
 import type { GeneralSettings, ItemGrade } from '../lib/types';
 import { useSessionStorageState } from '../lib/session-storage-state';
 import { RuneLink } from './rune-link';
@@ -55,13 +55,13 @@ type BestUseState = {
   grades: ItemGrade[];
   statId: string;
   selectedItemId: string;
-  /** A preset id, or `''` for every rune the item can legally go on. */
-  presetId: string;
+  /** A role id, or `''` for every rune the item can legally go on. */
+  roleId: string;
   roll: CraftRollAssumption;
   /** Grind the gemmed property afterwards, at `grindGrade`'s range. */
   grindAfter: boolean;
   grindGrade: ItemGrade;
-  showEquipped: boolean;
+  showEngraved: boolean;
   showInventory: boolean;
   count: number;
 };
@@ -72,13 +72,13 @@ const defaultState: BestUseState = {
   grades: [],
   statId: '',
   selectedItemId: '',
-  presetId: '',
+  roleId: '',
   /* The program's one default for a craft roll. Best would rank the box by how
      well it could conceivably go. */
   roll: defaultCraftRollAssumption,
   grindAfter: false,
   grindGrade: 'Legend',
-  showEquipped: true,
+  showEngraved: true,
   showInventory: true,
   count: optionRange.default,
 };
@@ -91,17 +91,17 @@ function isBestUseState(value: unknown): value is BestUseState {
     && Array.isArray(candidate.grades) && candidate.grades.every((entry) => itemGrades.includes(entry as ItemGrade))
     && typeof candidate.statId === 'string'
     && typeof candidate.selectedItemId === 'string'
-    && typeof candidate.presetId === 'string'
+    && typeof candidate.roleId === 'string'
     && craftRollAssumptions.includes(candidate.roll as CraftRollAssumption)
     && typeof candidate.grindAfter === 'boolean'
     && itemGrades.includes(candidate.grindGrade as ItemGrade)
-    && typeof candidate.showEquipped === 'boolean'
+    && typeof candidate.showEngraved === 'boolean'
     && typeof candidate.showInventory === 'boolean'
     && typeof candidate.count === 'number' && Number.isInteger(candidate.count)
     && candidate.count >= optionRange.minimum && candidate.count <= optionRange.maximum;
 }
 
-type Row = { candidate: CraftCandidate; where: string; order: number };
+type Row = { candidate: CraftCandidate; location: string; order: number };
 
 /**
  * One ranking, with the sentence that says what it ranked by.
@@ -127,12 +127,12 @@ function ResultCard({ title, description, children, empty }: {
   </section>;
 }
 
-export function CraftItemBestUse({ items, runes, monsters, monsterPreferences, presets, general, onOpenRune }: {
+export function CraftItemBestUse({ items, runes, monsters, monsterPreferences, roles, general, onOpenRune }: {
   items: readonly CraftItem[];
   runes: readonly Rune[];
   monsters: readonly GameRecord[];
   monsterPreferences: MonsterPreferences;
-  presets: readonly RunePotentialPreset[];
+  roles: readonly RuneRole[];
   general: GeneralSettings;
   onOpenRune: OpenRuneOverlay;
 }) {
@@ -189,13 +189,13 @@ export function CraftItemBestUse({ items, runes, monsters, monsterPreferences, p
 
   /* Both choosers read back what the current lists can actually offer, not what
      state remembers. Narrowing the filters past the chosen item, or deleting the
-     chosen preset on the Clean-up page, would otherwise leave a select whose
+     chosen role on the Clean-up page, would otherwise leave a select whose
      value names nothing — which the browser draws as an empty control rather
      than as the placeholder that says what to do. */
   const item = offered.find((entry) => entry.id === state.selectedItemId);
-  const preset = presets.find((entry) => entry.id === state.presetId);
+  const role = roles.find((entry) => entry.id === state.roleId);
   const selectedItemId = item?.id ?? '';
-  const presetId = preset?.id ?? '';
+  const roleId = role?.id ?? '';
 
   const monsterNames = useMemo(() => monsterCopyNames(monsters, monsterPreferences), [monsters, monsterPreferences]);
 
@@ -223,26 +223,26 @@ export function CraftItemBestUse({ items, runes, monsters, monsterPreferences, p
     };
     const found: Row[] = [];
     runes.forEach((rune, order) => {
-      const equipped = rune.occupiedId !== null;
-      if (equipped ? !state.showEquipped : !state.showInventory) return;
-      if (preset && !presetWantsRune(preset, rune)) return;
+      const engraved = rune.occupiedId !== null;
+      if (engraved ? !state.showEngraved : !state.showInventory) return;
+      if (role && !roleWantsRune(role, rune)) return;
       const candidate = craftCandidate(item, rune, options);
       if (!candidate) return;
       found.push({
         candidate,
-        where: rune.occupiedId === null ? 'Inventory' : monsterNames[rune.occupiedId]?.name ?? 'A monster',
+        location: rune.occupiedId === null ? 'Inventory' : monsterNames[rune.occupiedId]?.name ?? 'A monster',
         order,
       });
     });
     return found;
-  }, [item, runes, preset, state.roll, state.showEquipped, state.showInventory,
+  }, [item, runes, role, state.roll, state.showEngraved, state.showInventory,
     grindApplied, grindRange, state.grindGrade, monsterNames]);
 
   const columns = useMemo<SortableColumn<Row>[]>(() => [
     /* Sorted on the name as the column draws it, mark included, so a set's
        Ancient runes sit beside its ordinary ones instead of tying with them. */
     { key: 'rune', label: 'Rune', align: 'left', compare: (left, right) => monsterNameCollator.compare(runeName(left.candidate.rune), runeName(right.candidate.rune)) || left.candidate.rune.slot - right.candidate.rune.slot },
-    { key: 'where', label: 'Where', align: 'left', compare: (left, right) => monsterNameCollator.compare(left.where, right.where) },
+    { key: 'location', label: 'Location', align: 'left', compare: (left, right) => monsterNameCollator.compare(left.location, right.location) },
     { key: 'target', label: item?.kind === 'grindstone' ? 'Improves' : 'Replaces', align: 'left', compare: (left, right) => left.candidate.replaced.statId - right.candidate.replaced.statId },
     { key: 'now', label: 'Now', align: 'right', compare: (left, right) => (left.candidate.scoreNow ?? -1) - (right.candidate.scoreNow ?? -1), initialDirection: 'descending' },
     { key: 'after', label: 'After', align: 'right', compare: (left, right) => (craftLandingScore(left.candidate) ?? -1) - (craftLandingScore(right.candidate) ?? -1), initialDirection: 'descending' },
@@ -292,7 +292,7 @@ export function CraftItemBestUse({ items, runes, monsters, monsterPreferences, p
 
   /* The table shows the rune's own facts; the gem's arithmetic is in the two
      score columns beside them. A rune is named by what a player would call it. */
-  const body = (sorted: readonly Row[]) => <tbody>{sorted.map(({ candidate, where }) => <tr key={candidate.rune.id} {...rowOpener}>
+  const body = (sorted: readonly Row[]) => <tbody>{sorted.map(({ candidate, location }) => <tr key={candidate.rune.id} {...rowOpener}>
     <td className={cell('rune')}>
       <RuneLink
         target={{ kind: 'account', runeId: candidate.rune.id }}
@@ -310,7 +310,7 @@ export function CraftItemBestUse({ items, runes, monsters, monsterPreferences, p
         </span>
       </RuneLink>
     </td>
-    <td className={cell('where')}>{where}</td>
+    <td className={cell('location')}>{location}</td>
     {/* What lands where, in the game's own numbers: the property being spent
         on, and what it would read afterwards. A gem changes the stat as well
         as the value, so the name line carries the change too. */}
@@ -386,12 +386,12 @@ export function CraftItemBestUse({ items, runes, monsters, monsterPreferences, p
       </div>
 
       <div className="filter-group craft-best-use-role">
-        <label className="filter-label" htmlFor="craft-best-use-preset">Role</label>
+        <label className="filter-label" htmlFor="craft-best-use-role">Role</label>
         <div className="filter-group-controls">
-          <Dropdown id="craft-best-use-preset" value={presetId} placeholder="Every rune it fits"
-            onChange={(event) => setState((current) => ({ ...current, presetId: event.target.value }))}
-            aria-label="Judge the runes against one preset">
-            {presets.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+          <Dropdown id="craft-best-use-role" value={roleId} placeholder="Every rune it fits"
+            onChange={(event) => setState((current) => ({ ...current, roleId: event.target.value }))}
+            aria-label="Judge the runes against one role">
+            {roles.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
           </Dropdown>
         </div>
       </div>
@@ -428,12 +428,12 @@ export function CraftItemBestUse({ items, runes, monsters, monsterPreferences, p
         </div>
       </div>
 
-      <div className="filter-group craft-best-use-runes" role="group" aria-label="Choose which runes to include">
-        <span className="filter-label">Runes</span>
+      <div className="filter-group craft-best-use-location" role="group" aria-label="Choose rune locations">
+        <span className="filter-label">Location</span>
         <div className="filter-group-controls">
-          <FilterButton active={state.showEquipped}
-            onClick={() => setState((current) => ({ ...current, showEquipped: !current.showEquipped }))}
-          >Equipped</FilterButton>
+          <FilterButton active={state.showEngraved}
+            onClick={() => setState((current) => ({ ...current, showEngraved: !current.showEngraved }))}
+          >Engraved</FilterButton>
           <FilterButton active={state.showInventory}
             onClick={() => setState((current) => ({ ...current, showInventory: !current.showInventory }))}
           >Inventory</FilterButton>
@@ -511,7 +511,7 @@ export function CraftItemBestUse({ items, runes, monsters, monsterPreferences, p
 
     {item && !rows.length && <p className="notice warning" role="status">{reach?.block
       ? `Nothing in your rune box can take this. ${craftBlockReason(item, reach.block)}.`
-      : 'No rune matches the Role and the Runes filters above. Widen one of them to see where this can go.'}</p>}
+      : 'No rune matches the Role and the Location filters above. Widen one of them to see where this can go.'}</p>}
 
     {item && Boolean(rows.length) && <div className="craft-best-use-results">
       {/* Ranked by where it *ends up*, which is not the same question as where

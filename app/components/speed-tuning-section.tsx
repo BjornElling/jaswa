@@ -65,7 +65,7 @@ function LeaderMark() {
 /**
  * One line of the page — a team or a rule — and the button that opens it.
  * Two lines and a mark: what the user stated, a sentence saying whether the
- * runes worn deliver it, and that verdict again at the right edge. What was
+ * runes engraved deliver it, and that verdict again at the right edge. What was
  * stated is never coloured; it is the user's choice, not a verdict.
  */
 function SummaryLine({ label, status, state, spoken, keys, onOpen, children }: {
@@ -124,7 +124,7 @@ function SummaryList<T>({ entries, keyOf, onMove, render }: {
 }
 
 /**
- * A team's verdict in one sentence. The page only ever reads the runes worn —
+ * A team's verdict in one sentence. The page only ever reads the runes engraved —
  * a what-if lives and dies inside the open editor — so the sentence need not
  * say which reading it is.
  */

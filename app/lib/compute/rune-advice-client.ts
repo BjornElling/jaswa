@@ -6,7 +6,7 @@
  * made the browser report a hung page rather than a slow one. The arithmetic is
  * now fast enough that no account should get near that, but "fast enough" moves a
  * threshold where a worker removes the failure mode: an account several times the
- * size of anything measured, with thirty user presets, is still several seconds of
+ * size of anything measured, with thirty user roles, is still several seconds of
  * work, and several seconds of frozen page is a defect whatever the cause.
  *
  * Built on `artifact-score-client.ts`, which owns the same shape for the same

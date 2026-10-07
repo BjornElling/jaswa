@@ -79,7 +79,7 @@ test('Improvements names the Gem and the stones the verdict counted', async ({ p
   await expect(maxOf(/^Resistance/)).toHaveText('');
 });
 
-test('Evaluation explains Best preset with every preset\'s reading, at one height', async ({ page }) => {
+test('Evaluation explains Best role with every role\'s reading, at one height', async ({ page }) => {
   await openCleanup(page);
   const row = page.getByRole('table', { name: 'Rune verdicts' }).locator('tbody tr')
     .filter({ hasText: 'Violent', has: page.getByRole('img', { name: 'Legend quality' }) })
@@ -87,23 +87,23 @@ test('Evaluation explains Best preset with every preset\'s reading, at one heigh
   await row.locator('.rune-link').click();
   const overlay = page.getByRole('dialog', { name: 'Violent' });
   const evaluation = overlay.getByRole('region', { name: 'Evaluation' });
-  const readings = evaluation.getByRole('table', { name: 'Every preset\'s reading' });
-  /* Every preset has a row before the answer lands, so the box does not grow under it. */
+  const readings = evaluation.getByRole('table', { name: 'Every role\'s reading' });
+  /* Every role has a row before the answer lands, so the box does not grow under it. */
   await expect(readings.locator('tbody tr')).toHaveCount(10);
   const early = await evaluation.boundingBox();
   const best = readings.locator('tbody tr[aria-current="true"]');
   await expect(best).toHaveCount(1);
   expect(await evaluation.boundingBox()).toEqual(early);
-  /* Ranked the way Best preset is chosen, so the choice leads the list. */
+  /* Ranked the way Best role is chosen, so the choice leads the list. */
   await expect(readings.locator('tbody tr').first()).toHaveAttribute('aria-current', 'true');
 
-  /* The starred row is the preset the verdict table names, with the same Max value. */
-  const presetName = (await best.getByRole('rowheader').textContent())!;
-  await expect(best.getByRole('img', { name: 'Best preset' })).toBeVisible();
-  await expect(evaluation.getByText(presetName, { exact: true }).first()).toBeVisible();
-  await expect(row).toContainText(presetName);
+  /* The starred row is the role the verdict table names, with the same Max value. */
+  const roleName = (await best.getByRole('rowheader').textContent())!;
+  await expect(best.getByRole('img', { name: 'Best role' })).toBeVisible();
+  await expect(evaluation.getByText(roleName, { exact: true }).first()).toBeVisible();
+  await expect(row).toContainText(roleName);
   const bestMax = (await best.locator('td').nth(1).textContent())!;
-  /* A preset that prefers or accepts the rune says so; one that cannot read it, nothing. */
+  /* A role that prefers or accepts the rune says so; one that cannot read it, nothing. */
   await expect(readings.getByRole('img', { name: /^(Preferred|Accepted)$/ }).first()).toBeVisible();
   await expect(readings.locator('tbody tr').last().locator('td').first()).toBeEmpty();
   await expect(row).toContainText(`${Math.round(Number.parseFloat(bestMax))} %`);
@@ -168,13 +168,13 @@ test('Instructions hold a rune under its own word, files it under Keep, and outl
   await page.keyboard.press('Escape');
   await expect(advice(violentRow)).toHaveText('Unsellable');
 
-  /* A worn rune can take both, and Locked is the word that wins. */
+  /* An engraved rune can take both, and Locked is the word that wins. */
   await fatalRow.locator('.rune-link').click();
   const fatal = page.getByRole('dialog', { name: 'Fatal' }).getByRole('region', { name: 'Instructions' });
   await fatal.getByRole('checkbox', { name: 'Unsellable' }).check();
   await fatal.getByRole('checkbox', { name: 'Lock to monster' }).check();
   await page.screenshot({ path: testInfo.outputPath('your-call-full.png') });
-  /* Four sub properties, both choices and every preset: the tallest the overlay gets,
+  /* Four sub properties, both choices and every role: the tallest the overlay gets,
      and still no scrollbar of its own. */
   const overflow = await page.getByRole('dialog', { name: 'Fatal' }).evaluate((dialog) => {
     const scrolling = [dialog, ...dialog.querySelectorAll('*')].filter((element) => element.scrollHeight > element.clientHeight + 1
@@ -213,7 +213,7 @@ test('Instructions hold a rune under its own word, files it under Keep, and outl
   await expect(advice(fatalRow)).toHaveText('Unsellable');
 });
 
-test('a worn rune names its wearer as a way into that monster', async ({ page }) => {
+test('an engraved rune names its monster as a way into that monster', async ({ page }) => {
   const links = await openCleanup(page);
   await links.filter({ hasText: 'Fatal' }).click();
   const overlay = page.getByRole('dialog', { name: 'Fatal' });

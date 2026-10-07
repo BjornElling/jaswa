@@ -17,7 +17,7 @@ const runeSetNames: Record<number, string> = {
   24: 'Seal', 25: 'Intangible',
 };
 
-// The number of equipped pieces a set needs before its bonus applies.
+// The number of engraved pieces a set needs before its bonus applies.
 const runeSetPieces: Record<number, number> = {
   1: 2, 2: 2, 3: 4, 4: 2, 5: 4, 6: 2, 7: 2, 8: 4, 10: 4, 11: 4, 13: 4,
   14: 2, 15: 2, 16: 2, 17: 2, 18: 2, 19: 2, 20: 2, 21: 2, 22: 2, 23: 2,
@@ -36,7 +36,7 @@ export const runeSetPieceCount: Readonly<Record<string, number>> = Object.fromEn
   Object.entries(runeSetNames).map(([setId, name]) => [name, runeSetPieces[Number(setId)] ?? 2]),
 );
 
-/** Intangible is a permanent Rune Clean-up exception, not a preset choice. */
+/** Intangible is a permanent Rune Clean-up exception, not a role choice. */
 export const intangibleRuneSetName = 'Intangible';
 
 export const isIntangibleRuneSet = (setName: string): boolean => setName === intangibleRuneSetName;
@@ -61,17 +61,17 @@ export const allRuneSetNames: readonly string[] = Object.values(runeSetNames).so
 const runeSetIdsByName = new Map(Object.entries(runeSetNames).map(([id, name]) => [name, Number(id)]));
 
 /**
- * The sets a preset may ask for, alphabetically. The preset editor offers these,
- * so a preset cannot name a set the game does not have — and a saved or imported
- * preset is held to the same list, so one naming a set that is not choosable
+ * The sets a role may ask for, alphabetically. The role editor offers these,
+ * so a role cannot name a set the game does not have — and a saved or imported
+ * role is held to the same list, so one naming a set that is not choosable
  * loses it on load rather than keeping a choice the editor could not have made.
  *
- * Intangible is deliberately absent. A monster may wear at most one, it carries
+ * Intangible is deliberately absent. A monster may have at most one engraved, it carries
  * no set bonus of its own, and it completes a set that is one rune short rather
  * than being a set a role is built around. Rune Clean-up therefore treats its set
- * side as preferred centrally; the preset editor must not offer a second answer.
+ * side as preferred centrally; the role editor must not offer a second answer.
  */
-export const presetRuneSetNameList: readonly string[] = allRuneSetNames.filter((name) => !isIntangibleRuneSet(name));
+export const roleRuneSetNameList: readonly string[] = allRuneSetNames.filter((name) => !isIntangibleRuneSet(name));
 
 export type ActiveRuneSet = { name: string; abbreviation: string; count: number };
 
@@ -101,7 +101,7 @@ export function elementName(attribute: unknown): string | undefined {
 export function activeRuneSets(monster: Record<string, unknown>): ActiveRuneSet[] {
   const runes = Array.isArray(monster.runes) ? monster.runes : [];
   const counts: Record<number, number> = {};
-  const worn = new Int32Array(setIdBound);
+  const engraved = new Int32Array(setIdBound);
   let hasBrokenRune = false;
 
   for (const rune of runes) {
@@ -110,7 +110,7 @@ export function activeRuneSets(monster: Record<string, unknown>): ActiveRuneSet[
       continue;
     }
     const setId = numberValue((rune as Record<string, unknown>).set_id);
-    if (setId > 0 && setId < setIdBound) worn[setId] += 1;
+    if (setId > 0 && setId < setIdBound) engraved[setId] += 1;
     /* An Intangible is not a set of its own: it completes one that is a rune
        short, or it is a broken rune (`RUNE-CANONICAL.md` §10). */
     if (setId === intangibleSetId) continue;
@@ -119,9 +119,9 @@ export function activeRuneSets(monster: Record<string, unknown>): ActiveRuneSet[
   }
   /* Where no set, more than one set, or more than one Intangible is present, the
      game completes no set; show the rune as broken rather than guessing a winner. */
-  const completes = intangibleCompletion(worn);
+  const completes = intangibleCompletion(engraved);
   if (completes > 0) counts[completes] = (counts[completes] ?? 0) + 1;
-  else if (worn[intangibleSetId] > 0) hasBrokenRune = true;
+  else if (engraved[intangibleSetId] > 0) hasBrokenRune = true;
 
   const completedSets = Object.entries(counts)
     .map(([rawSetId, count]) => {

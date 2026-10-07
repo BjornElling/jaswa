@@ -1,11 +1,11 @@
 import type { MonsterArchetype } from './monster-catalog';
 import type { GameRecord } from './game-data';
 
-export type EquipmentPrimaryType = 'HP' | 'ATK' | 'DEF';
-export type EquipmentPrimaryTypeSlot = EquipmentPrimaryType | null;
+export type GearPrimaryType = 'HP' | 'ATK' | 'DEF';
+export type GearPrimaryTypeSlot = GearPrimaryType | null;
 export type NumericSortKey = 'level' | 'hp' | 'atk' | 'def' | 'spd' | 'criticalRate' | 'criticalDamage' | 'resistance' | 'accuracy' | 'ehp' | 'ehpD' | 'dmg';
-export type EquipmentSortKey = 'artifactTypes' | 'relicTypes';
-export type SortKey = 'index' | 'name' | 'sets' | EquipmentSortKey | NumericSortKey;
+export type GearSortKey = 'artifactTypes' | 'relicTypes';
+export type SortKey = 'index' | 'name' | 'sets' | GearSortKey | NumericSortKey;
 export type MonsterGridColumn = { key: SortKey; label: string };
 
 export type MonsterRow = {
@@ -23,8 +23,8 @@ export type MonsterRow = {
   imageFilename?: string;
   initial: string;
   sets: Array<{ name: string; abbreviation: string }>;
-  artifactTypes: EquipmentPrimaryTypeSlot[];
-  relicTypes: EquipmentPrimaryTypeSlot[];
+  artifactTypes: GearPrimaryTypeSlot[];
+  relicTypes: GearPrimaryTypeSlot[];
   index: number;
   /** In Monster Storage; its complement is the roster the game calls Inventory. */
   inStorage: boolean;
@@ -70,44 +70,44 @@ export function isStoredMonster(monster: GameRecord): boolean {
   return buildingId !== null && buildingId !== 0;
 }
 
-const equipmentPrimaryTypes: Record<number, EquipmentPrimaryType> = { 100: 'HP', 101: 'ATK', 102: 'DEF' };
+const gearPrimaryTypes: Record<number, GearPrimaryType> = { 100: 'HP', 101: 'ATK', 102: 'DEF' };
 
-function primaryEquipmentType(item: unknown): EquipmentPrimaryTypeSlot {
+function primaryGearType(item: unknown): GearPrimaryTypeSlot {
   if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
   const effect = (item as GameRecord).pri_effect;
   if (!Array.isArray(effect) || typeof effect[0] !== 'number' || !Number.isFinite(effect[0])) return null;
-  return equipmentPrimaryTypes[effect[0]] ?? null;
+  return gearPrimaryTypes[effect[0]] ?? null;
 }
 
-export function equippedEquipmentTypes(monster: GameRecord, key: 'artifacts' | 'relics'): EquipmentPrimaryTypeSlot[] {
+export function engravedGearTypes(monster: GameRecord, key: 'artifacts' | 'relics'): GearPrimaryTypeSlot[] {
   if (!Array.isArray(monster[key])) return [];
-  return monster[key].map(primaryEquipmentType);
+  return monster[key].map(primaryGearType);
 }
 
 export const artifactSlotCount = 2;
 
 /**
- * What a copy wears: runes and artifacts as the slots they fill, the relic as
+ * What a copy has engraved: runes and artifacts as the slots they fill, the relic as
  * engraved or not, since a monster carries one at most.
  */
-export function equippedCounts(monster: GameRecord): { runes: number; artifacts: number; relic: boolean } {
-  const worn = (value: unknown) => (Array.isArray(value)
+export function engravedCounts(monster: GameRecord): { runes: number; artifacts: number; relic: boolean } {
+  const engraved = (value: unknown) => (Array.isArray(value)
     ? value.filter((entry) => Boolean(entry) && typeof entry === 'object' && !Array.isArray(entry))
     : []) as GameRecord[];
   return {
-    runes: worn(monster.runes).length,
-    artifacts: worn(monster.artifacts).length,
-    relic: worn(monster.relics).some((relic) => numericOrNull(relic.rid) !== null),
+    runes: engraved(monster.runes).length,
+    artifacts: engraved(monster.artifacts).length,
+    relic: engraved(monster.relics).some((relic) => numericOrNull(relic.rid) !== null),
   };
 }
 
-export function displayArtifactTypes(types: EquipmentPrimaryTypeSlot[]): string {
+export function displayArtifactTypes(types: GearPrimaryTypeSlot[]): string {
   if (!types.some((type) => type !== null)) return '—';
   return [types[0] ?? '-', types[1] ?? '-'].join('/');
 }
 
-export function displayRelicType(types: EquipmentPrimaryTypeSlot[]): string {
-  return types.find((type): type is EquipmentPrimaryType => type !== null) ?? '—';
+export function displayRelicType(types: GearPrimaryTypeSlot[]): string {
+  return types.find((type): type is GearPrimaryType => type !== null) ?? '—';
 }
 
 export function compareNumbersWithBlanks(left: number | null, right: number | null, direction: number): number {

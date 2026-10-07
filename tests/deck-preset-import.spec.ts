@@ -6,12 +6,12 @@ const craft = JSON.parse(readFileSync(new URL('./fixtures/craft-account.json', i
 const rune = craft.unit_list[0].runes[0];
 
 function withDecks(duplicateWithinDeck: boolean) {
-  const equipment = (unitId: number) => ({ unit_id: unitId, rune_id_list: [rune.rune_id], artifact_id_list: [] });
+  const engravings = (unitId: number) => ({ unit_id: unitId, rune_id_list: [rune.rune_id], artifact_id_list: [] });
   return { ...account, runes: [rune], deck_list: duplicateWithinDeck
-    ? [{ deck_type: 1, deck_seq: 1, equip: [equipment(1), equipment(2)] }]
+    ? [{ deck_type: 1, deck_seq: 1, equip: [engravings(1), engravings(2)] }]
     : [
-      { deck_type: 1, deck_seq: 1, equip: [equipment(1)] },
-      { deck_type: 1, deck_seq: 2, equip: [equipment(2)] },
+      { deck_type: 1, deck_seq: 1, equip: [engravings(1)] },
+      { deck_type: 1, deck_seq: 2, equip: [engravings(2)] },
     ] };
 }
 

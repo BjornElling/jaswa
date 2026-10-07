@@ -20,7 +20,7 @@ assert.equal(decks.length, 3);
 assert.equal(decks[0].runeOwnerById.get(String(rune.rune_id)), String(unitId));
 assert.equal(decks[1].runeOwnerById.get(String(rune.rune_id)), String(otherUnit.unit_id));
 assert.equal(decks[1].artifactOwnerById.get(String(artifactId)), String(otherUnit.unit_id));
-assert.equal(decks[2].hasEquipment, false);
+assert.equal(decks[2].hasEngravings, false);
 assert.deepEqual(decks[0].missingRuneIds, []);
 assert.deepEqual(decks[0].missingArtifactIds, []);
 assert.equal(validateGameFile({ ...account, artifacts: [] }).valid, true,
@@ -56,7 +56,7 @@ assert.throws(() => readDeckPresets({ ...account, deck_list: [
   ] },
 ] }), /assigns an artifact more than once/);
 
-console.log('Deck Preset identity, per-deck equipment ownership, stale references and duplicate guards passed.');
+console.log('Deck Preset identity, per-deck engraving ownership, stale references and duplicate guards passed.');
 
 if (process.argv[2]) {
   const lines = readFileSync(process.argv[2], 'utf8').split(/\r?\n/);
@@ -69,5 +69,5 @@ if (process.argv[2]) {
   }
   if (!snapshot) throw new Error('The traffic log contains no login snapshot.');
   const captured = readDeckPresets(snapshot);
-  console.log(`Captured account: ${captured.length} saved decks, ${captured.filter((deck) => deck.hasEquipment).length} with equipment, ${captured.reduce((count, deck) => count + deck.missingRuneIds.length, 0)} stale rune references, ${captured.reduce((count, deck) => count + deck.missingArtifactIds.length, 0)} stale artifact references.`);
+  console.log(`Captured account: ${captured.length} saved decks, ${captured.filter((deck) => deck.hasEngravings).length} with engravings, ${captured.reduce((count, deck) => count + deck.missingRuneIds.length, 0)} stale rune references, ${captured.reduce((count, deck) => count + deck.missingArtifactIds.length, 0)} stale artifact references.`);
 }

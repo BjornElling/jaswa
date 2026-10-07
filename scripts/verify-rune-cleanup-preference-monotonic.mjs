@@ -6,11 +6,11 @@
  * resulting recommendations for the rest of the box.
  */
 import assert from 'node:assert/strict';
-import { defaultRunePotentialPresets } from '../app/lib/rune-potential-presets.ts';
+import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
 import { defaultRunePotentialSettings } from '../app/lib/file-imports.ts';
 import { runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
 import {
-  newRuneAdviceScope, ordinarySample, prepareRuneCandidate, presetBuilds,
+  newRuneAdviceScope, ordinarySample, prepareRuneCandidate, roleBuilds,
 } from '../app/lib/rune-cleanup-model.ts';
 
 const base = new Map([
@@ -30,16 +30,16 @@ const runes = [1, 2, 3, 4, 5, 6].flatMap((slot) =>
     { ...rune, id: `${rune.id}:violent`, setName: 'Violent' },
     { ...rune, id: `${rune.id}:intangible`, setName: 'Intangible' },
   ]));
-const presets = defaultRunePotentialPresets();
+const roles = defaultRuneRoles();
 const noCraft = { gem: null, gemGrade: 'Hero', grind: null, grindGrade: 'Hero' };
-const builds = presets.map((preset) => [preset, presetBuilds(preset)]);
+const builds = roles.map((role) => [role, roleBuilds(role)]);
 
 function hasCandidateAtRank(rune, wantedRank) {
   const scope = newRuneAdviceScope();
-  return builds.some(([preset, presetBuildsForRune]) => {
-    const line = base.get(preset.type);
-    return line !== undefined && presetBuildsForRune.some((build) =>
-      prepareRuneCandidate(rune, preset, build, line, noCraft, scope)?.rank === wantedRank);
+  return builds.some(([role, roleBuildsForRune]) => {
+    const line = base.get(role.type);
+    return line !== undefined && roleBuildsForRune.some((build) =>
+      prepareRuneCandidate(rune, role, build, line, noCraft, scope)?.rank === wantedRank);
   });
 }
 
@@ -48,7 +48,7 @@ function kept(advice) {
 }
 
 async function judged(settings) {
-  return runeAdvice(runes, presets, settings, base);
+  return runeAdvice(runes, roles, settings, base);
 }
 
 async function assertOnlyGetsStricter(label, lenientSettings, strictSettings) {

@@ -27,9 +27,9 @@ page lists.
 
 | SWCalc term | JASWA | Where |
 | --- | --- | --- |
-| Term 2, Crit = 1 + displayed CD | `DMG = ATK × (1 + CR × CD)` | `RUNE-PRESET-METRICS.md` §2 |
-| Term 4, DefenseFactor = 1000 / (1142 + 3.572 · DEF) | `E.HP = HP × (1142 + 3.572 × DEF) / 1000` | `RUNE-PRESET-METRICS.md` §3 |
-| Term 4, Dbreak = 0.3 | `E.HP D` uses `0.3 × DEF` | `RUNE-PRESET-METRICS.md` §4 |
+| Term 2, Crit = 1 + displayed CD | `DMG = ATK × (1 + CR × CD)` | `RUNE-ROLE-METRICS.md` §2 |
+| Term 4, DefenseFactor = 1000 / (1142 + 3.572 · DEF) | `E.HP = HP × (1142 + 3.572 × DEF) / 1000` | `RUNE-ROLE-METRICS.md` §3 |
+| Term 4, Dbreak = 0.3 | `E.HP D` uses `0.3 × DEF` | `RUNE-ROLE-METRICS.md` §4 |
 | Ch. 2, CombatSpeed = ⌈B(1 + ΣSpd%) + ΣFlat⌉ · SpdBuff | one rounding up, then the buff unrounded | `SPEED-TICK-CANONICAL.md` §2 |
 | Ch. 2, SpdBuff% = ⌊30 · (1 + effect)⌋ | 30 % (no speed-up effect is read) | `SPEED-TICK-CANONICAL.md` §2 |
 | Ch. 2, ΔATB = CombatSpeed · TickSize | 7 % per tick | `SPEED-TICK-CANONICAL.md` §3 |

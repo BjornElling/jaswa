@@ -32,4 +32,4 @@ export const monsterStride =
 export const artifactScoreLanes = 64;
 
 /** Class codes run 0 (Intangible) through 5 (Dark). */
-export const equipClassRows = 6;
+export const engraveClassRows = 6;

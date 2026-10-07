@@ -5,8 +5,8 @@ import { runeSlotKeys } from './monster-defaults';
 import { relicProperty } from './relic-properties';
 import type { LeadStat, Leads } from './monster-stats';
 import { leadStats } from './monster-stats';
-import type { PresetTargets } from './rune-potential-presets';
-import { presetStatTargetKeys, presetTargetMaximum } from './rune-potential-presets';
+import type { RoleTargets } from './rune-roles';
+import { roleStatTargetKeys, roleTargetMaximum } from './rune-roles';
 import type { RuneSlotMain } from './rune-slot-mains';
 import { runeSlotMainsBySlot } from './rune-slot-mains';
 import { runeBuild, runeBuildKey } from './rune-set-pairs';
@@ -18,7 +18,7 @@ import { runeBuild, runeBuildKey } from './rune-set-pairs';
  * one built for speed in arena and one for damage in a dungeon, and a model
  * that cannot say so is describing the game rather than the account.
  * `unit_id` is the game's own persistent per-copy identifier — an artifact
- * names its wearer by it — so a record survives re-importing the same account;
+ * names the monster it is engraved on by it — so a record survives re-importing the same account;
  * only selling the copy ends it.
  *
  * The defaults these start from stay species-level, because the game's
@@ -32,19 +32,19 @@ import { runeBuild, runeBuildKey } from './rune-set-pairs';
  */
 
 /**
- * The eleven figures a copy may be built toward: the eight stats a rune preset
- * states, and the three composites `RUNE-PRESET-METRICS.md` defines.
+ * The eleven figures a copy may be built toward: the eight stats a rune role
+ * states, and the three composites `RUNE-ROLE-METRICS.md` defines.
  *
- * It is `PresetTargets` rather than a shape of its own because the eleven a
- * preset reads are the eleven a monster aims at, and two lists that have to
+ * It is `RoleTargets` rather than a shape of its own because the eleven a
+ * role reads are the eleven a monster aims at, and two lists that have to
  * agree are one list. What differs is only who states them — see
  * `MonsterCopyPreferences.statTargets`.
  */
-export type MonsterStatTargets = PresetTargets;
+export type MonsterStatTargets = RoleTargets;
 
 /** The eleven, in the order the overlay offers them. */
 export const monsterStatTargetKeys: ReadonlyArray<keyof MonsterStatTargets> = [
-  ...presetStatTargetKeys, 'dmg', 'ehp', 'ehpD',
+  ...roleStatTargetKeys, 'dmg', 'ehp', 'ehpD',
 ];
 
 /*
@@ -183,7 +183,7 @@ export type MonsterCopyPreferences = {
    * The stats this copy is being built toward.
    *
    * Deliberately `MonsterStatTargets` rather than a shape of its own: the eight
-   * stats a rune preset aims at are the eight a monster aims at, and two lists
+   * stats a rune role aims at are the eight a monster aims at, and two lists
    * that have to agree are one list.
    *
    * **The three composites are targets here, not derived figures.** `AGENTS.md`
@@ -397,7 +397,7 @@ export const monsterCompositeTargetMaximum = 1_000_000;
 const compositeTargetKeys: ReadonlySet<string> = new Set(['dmg', 'ehp', 'ehpD']);
 
 function targetCeiling(key: string): number {
-  return compositeTargetKeys.has(key) ? monsterCompositeTargetMaximum : presetTargetMaximum;
+  return compositeTargetKeys.has(key) ? monsterCompositeTargetMaximum : roleTargetMaximum;
 }
 
 /**

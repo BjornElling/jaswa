@@ -25,7 +25,7 @@ import {
 import type { CraftRow, CraftSortKey } from '../lib/rune-craft-grid';
 import { craftReach } from '../lib/rune-craft-plan';
 import { readRunes, runeStatIds, runeStatName } from '../lib/runes';
-import type { RunePotentialPreset } from '../lib/rune-potential-presets';
+import type { RuneRole } from '../lib/rune-roles';
 import type { ImportedGame, ItemGrade, Preferences } from '../lib/types';
 import { useSessionStorageState } from '../lib/session-storage-state';
 import type { OpenRuneOverlay } from './rune-link';
@@ -111,9 +111,9 @@ const craftColumns: readonly SortableColumn<CraftRow>[] = (() => {
   ];
 })();
 
-export function GemsSection({ game, presets, preferences, onOpenRune }: {
+export function GemsSection({ game, roles, preferences, onOpenRune }: {
   game: ImportedGame | null;
-  presets: readonly RunePotentialPreset[];
+  roles: readonly RuneRole[];
   preferences: Preferences;
   onOpenRune: OpenRuneOverlay;
 }) {
@@ -370,7 +370,7 @@ export function GemsSection({ game, presets, preferences, onOpenRune }: {
         runes={runes}
         monsters={monsters}
         monsterPreferences={preferences.monsterPreferences}
-        presets={presets}
+        roles={roles}
         general={preferences.general}
         onOpenRune={onOpenRune}
       />}

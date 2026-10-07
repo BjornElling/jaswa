@@ -13,7 +13,7 @@ import { canChooseSaveFolder, chooseSaveFolder, forgetSaveFolder, loadSaveFolder
 import type { DirectoryHandle } from './lib/save-location';
 import type { GameRecord } from './lib/game-data';
 import type { ArtifactSettings, DirectImportMode, GeneralSettings, ImportRoute, ImportedGame, Preferences, RunePotentialSettings } from './lib/types';
-import type { RunePotentialPreset } from './lib/rune-potential-presets';
+import type { RuneRole } from './lib/rune-roles';
 import type { RuneOptimizationSettings } from './lib/rune-optimization-settings';
 import { runeOptimizationMonsterKey } from './lib/rune-optimization-settings';
 import type { SpeedTuningPreferences } from './lib/speed-tuning-preferences';
@@ -456,7 +456,7 @@ export default function Home() {
     setPage('optimizer');
   }
 
-  function writePresets(change: (current: RunePotentialPreset[]) => RunePotentialPreset[]) {
+  function writeRoles(change: (current: RuneRole[]) => RuneRole[]) {
     changePreferences((current) => ({ ...current, runePotentialPresets: change(current.runePotentialPresets) }));
   }
 
@@ -552,11 +552,11 @@ export default function Home() {
       {page === 'rune-setup' && <Suspense fallback={<WorkspaceLoading />}><RuneSetupSection
         game={game}
         settings={preferences.runePotential}
-        presets={preferences.runePotentialPresets}
+        roles={preferences.runePotentialPresets}
         general={preferences.general}
         hardwareAcceleration={preferences.hardwareAcceleration}
         onUpdate={updateRunePotentialSettings}
-        onWritePresets={writePresets}
+        onWriteRoles={writeRoles}
       /></Suspense>}
 
       {page === 'potential' && <Suspense fallback={<WorkspaceLoading />}><RunePotentialSection
@@ -564,7 +564,7 @@ export default function Home() {
         monsterPreferences={preferences.monsterPreferences}
         runeHolds={preferences.runeHolds}
         settings={preferences.runePotential}
-        presets={preferences.runePotentialPresets}
+        roles={preferences.runePotentialPresets}
         general={preferences.general}
         hardwareAcceleration={preferences.hardwareAcceleration}
         onOpenRune={openRuneOverlay}
@@ -596,7 +596,7 @@ export default function Home() {
       {page === 'rune-simulator' && <Suspense fallback={<WorkspaceLoading />}><RuneSimulatorSection
         game={game}
         settings={preferences.runePotential}
-        presets={preferences.runePotentialPresets}
+        roles={preferences.runePotentialPresets}
         general={preferences.general}
         hardwareAcceleration={preferences.hardwareAcceleration}
         onOpenRune={openRuneOverlay}
@@ -606,7 +606,7 @@ export default function Home() {
 
       {page === 'gems' && <Suspense fallback={<WorkspaceLoading />}><GemsSection
         game={game}
-        presets={preferences.runePotentialPresets}
+        roles={preferences.runePotentialPresets}
         preferences={preferences}
         onOpenRune={openRuneOverlay}
       /></Suspense>}
@@ -689,7 +689,7 @@ export default function Home() {
       game={game?.data}
       general={preferences.general}
       settings={preferences.runePotential}
-      presets={preferences.runePotentialPresets}
+      roles={preferences.runePotentialPresets}
       hardwareAcceleration={preferences.hardwareAcceleration}
       hold={preferences.runeHolds[overlayRune.id]}
       onHold={overlay?.kind === 'rune' && overlay.target.kind === 'account' ? updateRuneHold : undefined}

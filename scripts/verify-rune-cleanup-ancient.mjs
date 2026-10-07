@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import {
-  candidateChance, candidateMaxValue, prepareRuneCandidate, presetBuilds,
+  candidateChance, candidateMaxValue, prepareRuneCandidate, roleBuilds,
 } from '../app/lib/rune-cleanup-model.ts';
 
 const credit = { gem: null, gemGrade: 'Hero', grind: null, grindGrade: 'Hero' };
 const base = { hp: 0, atk: 0, def: 0, spd: 0, criRate: 0, criDmg: 0, res: 0, acc: 0 };
-const preset = {
+const role = {
   id: 'ancient-rolls', name: 'Ancient rolls', type: 'No type',
   sets: { preferred: ['Violent'], acceptable: [] },
   slots: {
@@ -16,7 +16,7 @@ const preset = {
   artifacts: { hp: false, atk: false, def: false },
   targets: { spd: 1 },
 };
-const build = presetBuilds(preset)[0];
+const build = roleBuilds(role)[0];
 
 function rune(ancient, firstValue, defaultGrade = 'Legend') {
   return {
@@ -33,8 +33,8 @@ function rune(ancient, firstValue, defaultGrade = 'Legend') {
   };
 }
 
-const ordinary = prepareRuneCandidate(rune(false, 6), preset, build, base, credit);
-const ancient = prepareRuneCandidate(rune(true, 7), preset, build, base, credit);
+const ordinary = prepareRuneCandidate(rune(false, 6), role, build, base, credit);
+const ancient = prepareRuneCandidate(rune(true, 7), role, build, base, credit);
 assert.ok(ordinary);
 assert.ok(ancient);
 assert.equal(candidateMaxValue(ordinary), 1, 'an ordinary max roll stays at 100 %');
@@ -67,8 +67,8 @@ assert.ok(ancientChance > 0.05 && ancientChance < 0.95,
 /* An Ancient initial-roll event is also used for a line added later in the
    candidate projection. This guards the max-value path separately from the
    already-imported line above. */
-const ordinaryMagic = prepareRuneCandidate(rune(false, 6, 'Magic'), preset, build, base, credit);
-const ancientMagic = prepareRuneCandidate(rune(true, 7, 'Magic'), preset, build, base, credit);
+const ordinaryMagic = prepareRuneCandidate(rune(false, 6, 'Magic'), role, build, base, credit);
+const ancientMagic = prepareRuneCandidate(rune(true, 7, 'Magic'), role, build, base, credit);
 assert.ok(ordinaryMagic);
 assert.ok(ancientMagic);
 assert.ok(candidateMaxValue(ancientMagic) > candidateMaxValue(ordinaryMagic),

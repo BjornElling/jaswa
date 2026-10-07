@@ -66,7 +66,7 @@ try {
     stars: 6,
     gates: { 0: { policy: 'keep-all' }, 9: { policy: 'keep-all' }, 12: { policy: 'keep-all' } },
   }, {
-    presets: [],
+    roles: [],
     settings: craftedSettings,
     base: null,
   }, () => 0.1);
@@ -86,17 +86,17 @@ try {
   'with no role to judge by, no Gem or Grindstone is spent');
   await assert.rejects(simulateRunes({
     ...defaultRuneSimulationConfig, count: 1,
-  }, { presets: [], settings: craftedSettings, base: null }, () => 0.1),
+  }, { roles: [], settings: craftedSettings, base: null }, () => 0.1),
   'a recommendation gate with nothing to judge by fails rather than keeping everything');
 
   /* The rune that exposed the craft defect: SPD, HP % and DEF % for a support role,
      with Resistance arriving at +12. Every grindable line is ground, and the Gem takes
      Resistance — the line worth least to the role — rather than DEF %. */
   const { runeAdvice } = await server.ssrLoadModule('/app/lib/rune-cleanup-advice.ts');
-  const { defaultRunePotentialPresets } = await server.ssrLoadModule('/app/lib/rune-potential-presets.ts');
+  const { defaultRuneRoles } = await server.ssrLoadModule('/app/lib/rune-roles.ts');
   const { isGrindableStatId } = await server.ssrLoadModule('/app/lib/rune-craft-end-state.ts');
-  const support = defaultRunePotentialPresets().filter((preset) => preset.id === 'support');
-  assert.equal(support.length, 1, 'the shipped Support preset exists');
+  const support = defaultRuneRoles().filter((role) => role.id === 'support');
+  assert.equal(support.length, 1, 'the shipped Support role exists');
   const supportBase = new Map([['Support type',
     { hp: 10856, atk: 639, def: 648, spd: 104, criRate: 15, criDmg: 50, res: 18, acc: 3 }]]);
   const reported = {
@@ -112,7 +112,7 @@ try {
   };
   const reportedAdvice = (await runeAdvice([reported], support, craftedSettings, supportBase)).get('reported');
   const crafted = reportedAdvice.craftedLines;
-  assert.ok(crafted, 'a +12 rune a preset can use reports the line-up its verdict assumed');
+  assert.ok(crafted, 'a +12 rune a role can use reports the line-up its verdict assumed');
   const passingLevelFixture = {
     ...reported,
     subProperties: [
@@ -139,7 +139,7 @@ try {
 
   /* The simulator spends what the verdict counted, on every rune it takes to +12. */
   const supported = await simulateRunes({ ...defaultRuneSimulationConfig, count: 40, slot: 5, stars: 6 },
-    { presets: support, settings: craftedSettings, base: supportBase }, makeRandom(0x5eed));
+    { roles: support, settings: craftedSettings, base: supportBase }, makeRandom(0x5eed));
   for (const { rune } of supported.stages[12].entries) {
     assert.ok(rune.subProperties.filter((property) => property.gemmed).length <= 1, `${rune.id} carries one Gem at most`);
     for (const property of rune.subProperties) {

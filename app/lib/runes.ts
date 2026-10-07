@@ -2,7 +2,7 @@
  * The account's runes, read once into the shape the workspaces judge.
  *
  * The export states a rune twice — once in the account's own `runes` list and
- * once under whichever monster wears it — and `completeEquipmentCollections`
+ * once under whichever monster it is engraved on — and `completeEngravedCollections`
  * has already merged and de-duplicated the two on `rune_id`. This reads that
  * one list, so a rune can never be counted in a total and missing from a table.
  *
@@ -180,7 +180,7 @@ export type Rune = {
   prefixStatId: number | null;
   prefixValue: number;
   subProperties: RuneSubProperty[];
-  /** The `unit_id` wearing it, or `null` while it sits in inventory. */
+  /** The `unit_id` it is engraved on, or `null` while it sits in inventory. */
   occupiedId: string | null;
   /**
    * The account's acquisition sequence, read from `rune_id` for the same reason
@@ -292,7 +292,7 @@ export function readRune(record: unknown): Rune | null {
   }
   if (subProperties.length > 4) return null;
 
-  /* `occupied_type` is `1` for a rune a monster wears and `2` for one in
+  /* `occupied_type` is `1` for a rune engraved on a monster and `2` for one in
      inventory. Anything else is a placement JASWA does not model, and a rune
      whose location is unknown cannot be offered as a target. */
   const occupiedType = numberOrNull(source.occupied_type);

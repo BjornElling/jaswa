@@ -29,7 +29,7 @@ export type OpenMonsterOverlay = (target: MonsterReference, opener: HTMLElement)
  * name exactly as it read before, because four hundred permanently gold names
  * in a table would leave gold meaning nothing (§5).
  *
- * `target` of `null` renders the name as the inert text it is today — a wearer
+ * `target` of `null` renders the name as the inert text it is today — a monster
  * this import does not contain, or a location that is not a monster at all.
  */
 export function MonsterLink({ target, name, portrait, onOpen, children }: {

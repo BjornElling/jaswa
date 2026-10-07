@@ -36,7 +36,7 @@ export const relicScoreTolerance = 1e-10;
 
 export function rankRelicsForMonster(
   relics: readonly Relic[], model: RelicMonsterModel,
-  worn: ReadonlySet<string> = new Set(), preferences?: MonsterCopyPreferences,
+  engraved: ReadonlySet<string> = new Set(), preferences?: MonsterCopyPreferences,
 ): RelicCandidate[] {
   const candidates: Array<RelicCandidate & { tier: number }> = [];
   for (const relic of relics) {
@@ -49,7 +49,7 @@ export function rankRelicsForMonster(
     const difference = right.value.score - left.value.score;
     return left.tier - right.tier
       || (Math.abs(difference) > relicScoreTolerance ? difference : 0)
-      || Number(worn.has(right.relic.id)) - Number(worn.has(left.relic.id))
+      || Number(engraved.has(right.relic.id)) - Number(engraved.has(left.relic.id))
       || left.relic.obtainedOrder - right.relic.obtainedOrder;
   }).map(({ relic, value }) => ({ relic, value }));
 }
@@ -62,13 +62,13 @@ export type RelicRecommendation = {
   limit: 'none' | 'capacity';
   unavailable: 'missing-stats' | 'no-priorities' | 'no-relics' | 'preferences' | 'capacity' | null;
   /** The sole roster-dependent annotation; it never affects the recommendation. */
-  displaceableWearers: number;
+  displaceableMonsters: number;
 };
 
 export type RelicAllocationSubject = {
   monsterId: string;
   model: RelicMonsterModel;
-  wornRelicIds: readonly string[];
+  engravedRelicIds: readonly string[];
   preferences?: MonsterCopyPreferences;
 };
 
@@ -92,8 +92,8 @@ function countBelow(sorted: readonly number[], value: number): number {
 
 /**
  * Each monster gets its own best available relic. Today's 150 engravings gate
- * new wearers; proposals for other monsters never reserve places. Filters cannot
- * reach this calculation. A full relic stays available to its current wearers.
+ * new monstersByUnitId; proposals for other monsters never reserve places. Filters cannot
+ * reach this calculation. A full relic stays available to its current monstersByUnitId.
  */
 export function allocateRelicEngravings(
   subjects: readonly RelicAllocationSubject[], relics: readonly Relic[],
@@ -101,27 +101,27 @@ export function allocateRelicEngravings(
 ): RelicAllocation {
   const engravings = new Map(relics.map((relic) => [relic.id, currentEngravings.get(relic.id) ?? 0]));
   const ranked = new Map<string, RelicCandidate[]>();
-  const wearerScores = new Map<string, number[]>();
+  const engravedScores = new Map<string, number[]>();
   for (const subject of subjects) {
-    const worn = new Set(subject.wornRelicIds);
-    ranked.set(subject.monsterId, rankRelicsForMonster(relics, subject.model, worn, subject.preferences));
-    // Preferences constrain recommendations, not the value a current wearer receives.
+    const engraved = new Set(subject.engravedRelicIds);
+    ranked.set(subject.monsterId, rankRelicsForMonster(relics, subject.model, engraved, subject.preferences));
+    // Preferences constrain recommendations, not the value the monster it is engraved on receives.
     for (const relic of relics) {
-      if (!worn.has(relic.id)) continue;
+      if (!engraved.has(relic.id)) continue;
       const value = relicMonsterValue(relic, subject.model);
       if (!value) continue;
-      const scores = wearerScores.get(relic.id);
+      const scores = engravedScores.get(relic.id);
       if (scores) scores.push(value.score);
-      else wearerScores.set(relic.id, [value.score]);
+      else engravedScores.set(relic.id, [value.score]);
     }
   }
-  for (const scores of wearerScores.values()) scores.sort((left, right) => left - right);
+  for (const scores of engravedScores.values()) scores.sort((left, right) => left - right);
   const recommendations = new Map<string, RelicRecommendation>();
   for (const subject of subjects) {
-    const worn = new Set(subject.wornRelicIds);
+    const engraved = new Set(subject.engravedRelicIds);
     const candidates = ranked.get(subject.monsterId) ?? [];
     const ideal = candidates[0] ?? null;
-    const chosen = candidates.find((candidate) => worn.has(candidate.relic.id)
+    const chosen = candidates.find((candidate) => engraved.has(candidate.relic.id)
       || (engravings.get(candidate.relic.id) ?? 0) < limit) ?? null;
     const blocked = Boolean(ideal && chosen?.relic.id !== ideal.relic.id);
     const unavailable = chosen ? null
@@ -130,10 +130,10 @@ export function allocateRelicEngravings(
           : !candidates.length ? 'preferences' : 'capacity';
     recommendations.set(subject.monsterId, {
       monsterId: subject.monsterId, chosen, ideal,
-      alreadyEngraved: chosen ? worn.has(chosen.relic.id) : false,
+      alreadyEngraved: chosen ? engraved.has(chosen.relic.id) : false,
       limit: blocked ? 'capacity' : 'none', unavailable,
-      displaceableWearers: blocked && ideal
-        ? countBelow(wearerScores.get(ideal.relic.id) ?? [], ideal.value.score) : 0,
+      displaceableMonsters: blocked && ideal
+        ? countBelow(engravedScores.get(ideal.relic.id) ?? [], ideal.value.score) : 0,
     });
   }
   const saturated = new Set([...engravings].filter(([, count]) => count >= limit).map(([id]) => id));
@@ -143,7 +143,7 @@ export function allocateRelicEngravings(
 export function assertRelicAllocation(
   allocation: RelicAllocation, subjects: readonly RelicAllocationSubject[], limit = relicEngravingLimit,
 ): void {
-  const known = new Map(subjects.map((subject) => [subject.monsterId, new Set(subject.wornRelicIds)]));
+  const known = new Map(subjects.map((subject) => [subject.monsterId, new Set(subject.engravedRelicIds)]));
   if (known.size !== subjects.length) throw new Error('Relic allocation received duplicate monster identifiers.');
   if (allocation.recommendations.size !== known.size) {
     throw new Error('Relic allocation must answer for every monster exactly once.');
@@ -153,7 +153,7 @@ export function assertRelicAllocation(
     const relicId = recommendation.chosen?.relic.id;
     if (relicId === undefined || known.get(monsterId)?.has(relicId)) continue;
     if ((allocation.engravings.get(relicId) ?? 0) >= limit) {
-      throw new Error(`Relic allocation recommended full relic ${relicId} to a new wearer.`);
+      throw new Error(`Relic allocation recommended full relic ${relicId} to another monster.`);
     }
   }
 }

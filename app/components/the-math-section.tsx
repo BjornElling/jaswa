@@ -13,7 +13,7 @@ export function TheMathSection() {
           For every rune you own, JASWA answers one question: <b className="type-body-emphasis">Power up</b>, <b className="type-body-emphasis">Keep</b>, or <b className="type-body-emphasis">Sell</b>. The answer rests on two numbers, and a rune has to satisfy both. <b className="type-body-emphasis">Max value</b> is the best this rune could ever become. <b className="type-body-emphasis">Chance</b> is how likely it is to actually get there.
         </p>
         <p>
-          Every rune you own is judged — the ones on your monsters and the ones already at +15 along with the rest. Nothing in Settings narrows that, because a preset&rsquo;s share is finite: a rune held back from the calculation would hand its place to the runes that remain and change their answers. What the table <i>shows</i> is a separate matter, and the filters above it move no figure at all.
+          Every rune you own is judged — the ones on your monsters and the ones already at +15 along with the rest. Nothing in Settings narrows that, because a role&rsquo;s share is finite: a rune held back from the calculation would hand its place to the runes that remain and change their answers. What the table <i>shows</i> is a separate matter, and the filters above it move no figure at all.
         </p>
         <p>
           A rune that could be wonderful but almost certainly will not be is not worth your mana. Neither is a rune that is certain to reach a ceiling that is too low. Both have to clear their bar.
@@ -57,7 +57,7 @@ export function TheMathSection() {
 
         <h3 className="type-heading">What your monsters actually bring</h3>
         <p>
-          Every preset names a family: Attack, Support, Defence, HP, or no type at all. JASWA averages the base stats of <i>your own</i> level 40 monsters of that family, and that average is what a target is measured against. An account of maxed nat-5s and an account of freshly-sixed farmables are asking their runes for different things, and a number shipped with the app would tell them both the same story.
+          Every role names a family: Attack, Support, Defence, HP, or no type at all. JASWA averages the base stats of <i>your own</i> level 40 monsters of that family, and that average is what a target is measured against. An account of maxed nat-5s and an account of freshly-sixed farmables are asking their runes for different things, and a number shipped with the app would tell them both the same story.
         </p>
         <p>
           If you have no level 40 monster of a family, the whole roster stands in. If you have none at all, the page says it cannot judge runes yet rather than inventing a monster.
@@ -72,7 +72,7 @@ export function TheMathSection() {
         </p>
         <div className="math-table-scroll">
           <table className="math-table math-table-verdicts">
-            <caption className="visually-hidden">The five steps that turn a preset target into a weight</caption>
+            <caption className="visually-hidden">The five steps that turn a role target into a weight</caption>
             <thead>
               <tr>
                 <th scope="col" className="align-left">Step</th>
@@ -110,7 +110,7 @@ export function TheMathSection() {
           </table>
         </div>
         <p>
-          <b className="type-body-emphasis">Your artifacts count here too.</b> A monster wears two, and each carries one flat main stat &mdash; always <span className="math-table-rolled">HP +1,500</span>, <span className="math-table-rolled">ATK +100</span> or <span className="math-table-rolled">DEF +100</span>, the same on every artifact whatever its grade. Your preset says which of the three the role wants, so the two slots are split evenly over what it named: both into one stat if you named one, one each if you named two, two thirds of each if you named all three.
+          <b className="type-body-emphasis">Your artifacts count here too.</b> A monster takes two, and each carries one flat main stat &mdash; always <span className="math-table-rolled">HP +1,500</span>, <span className="math-table-rolled">ATK +100</span> or <span className="math-table-rolled">DEF +100</span>, the same on every artifact whatever its grade. Your role says which of the three it wants, so the two slots are split evenly over what it named: both into one stat if you named one, one each if you named two, two thirds of each if you named all three.
         </p>
         <p>
           Worked through for <b className="type-body-emphasis">Fast DD</b>, against an attack-type monster with 9,708 HP, 808 ATK, 568 DEF and 105 SPD, with ATK artifacts named and no others, and no Grindstones assumed:
@@ -174,7 +174,7 @@ export function TheMathSection() {
           A maximum CRI Dmg roll is now worth <b className="type-body-emphasis">2.8 maximum Accuracy rolls</b> to this role, and a maximum SPD roll <b className="type-body-emphasis">6.3</b> of them. The weights are scaled so the hardest target weighs exactly 1; nothing depends on that choice except readability.
         </p>
         <p>
-          Watch what the artifacts did: they found 200 of the 514 ATK the build was short of, which moved ATK from 0.66 to 0.40 &mdash; from above CRI Dmg to below it. Naming an artifact stat in a preset is not decoration.
+          Watch what the artifacts did: they found 200 of the 514 ATK the build was short of, which moved ATK from 0.66 to 0.40 &mdash; from above CRI Dmg to below it. Naming an artifact stat in a role is not decoration.
         </p>
         <p>
           <b className="type-body-emphasis">Grindstones come off the same way.</b> JASWA reads the finished build as holding just enough lines of a stat to meet what is missing &mdash; each worth an ordinary line&rsquo;s rolls plus its stone, and never more lines than the six slots may legally hold. With Hero stones at three quarters, Fast DD&rsquo;s 18.3 SPD rolls put SPD on all six runes and the six stones find 4.0 of them; its 4.9 ATK rolls take about three lines, whose stones find 1.7; its 1.9 DEF rolls take one line. CRI Rate, CRI Dmg and Accuracy take no stone at all, so they now weigh more against SPD: CRI Rate rises from 0.66 to 0.84, ATK falls from 0.40 to 0.34.
@@ -192,7 +192,7 @@ export function TheMathSection() {
           A completed set carries stats of its own — Fatal is <span className="math-table-rolled">+35 % ATK</span>, Swift <span className="math-table-rolled">+25 % SPD</span> — and it is very tempting to subtract them too. A Fatal build really does need less ATK from its substats. <b className="type-body-emphasis">JASWA deliberately does not do it</b>, and it is worth saying why, because it is the one place a true fact about the game is left out on purpose.
         </p>
         <p>
-          The weights <i>are</i> the yardstick. Subtract a set&rsquo;s bonus and that set gets a yardstick of its own — and a recommendation is exactly a comparison between sets. Measured on 1,500 identical runes relabelled set by set, against presets that wanted every set equally, the same runes were kept <b className="type-body-emphasis">431 to 520 times</b> on the strength of the label alone:
+          The weights <i>are</i> the yardstick. Subtract a set&rsquo;s bonus and that set gets a yardstick of its own — and a recommendation is exactly a comparison between sets. Measured on 1,500 identical runes relabelled set by set, against roles that wanted every set equally, the same runes were kept <b className="type-body-emphasis">431 to 520 times</b> on the strength of the label alone:
         </p>
         <div className="math-table-scroll">
           <table className="math-table math-table-verdicts">
@@ -229,7 +229,7 @@ export function TheMathSection() {
           Note that it runs <i>both</i> ways, and that no player asked for or could predict that ordering. Nor can it be patched out by dividing differently: Max value is a ratio, so scaling the weights changes nothing, and the damage is a change in their <i>shape</i> — which moves each rune by an amount depending on what it happened to roll. Equal treatment across sets needs the weights to ignore the set entirely. That is arithmetic, not taste.
         </p>
         <p>
-          A set decides a verdict through the preset&rsquo;s preferred and acceptable lists, except that Intangible is a permanent rule: its set side is always preferred for every preset and no setting can override it. The rune&rsquo;s main-stat preference remains separate. If you ever want set bonuses back in the requirement, the honest route is for a preset to say which set <i>combination</i> its builds use; a combination you state is the same for every rune, so it can shape the requirement without tilting the comparison.
+          A set decides a verdict through the role&rsquo;s preferred and acceptable lists, except that Intangible is a permanent rule: its set side is always preferred for every role and no setting can override it. The rune&rsquo;s main-stat preference remains separate. If you ever want set bonuses back in the requirement, the honest route is for a role to say which set <i>combination</i> its builds use; a combination you state is the same for every rune, so it can shape the requirement without tilting the comparison.
         </p>
 
         <h3 className="type-heading">What a perfect rune looks like</h3>
@@ -338,7 +338,7 @@ export function TheMathSection() {
             <span className="math-equation-label">Max value</span><span>4.01</span><span aria-hidden="true">/</span><span>6.41</span><span aria-hidden="true">=</span><b className="type-body-emphasis">63 %</b>
           </p>
           <p>
-            The Accuracy line rolled near its maximum and still earns 0.139, while a slightly-above-average SPD line earns twenty times that. That is the whole point: the rune is good <i>because</i> of what it rolled into, not because it rolled into four things the preset happens to mention.
+            The Accuracy line rolled near its maximum and still earns 0.139, while a slightly-above-average SPD line earns twenty times that. That is the whole point: the rune is good <i>because</i> of what it rolled into, not because it rolled into four things the role happens to mention.
           </p>
         </article>
 
@@ -428,22 +428,22 @@ export function TheMathSection() {
           So the floor is not a Max value at all. <b className="type-body-emphasis">It is a share of the runes that slot ordinarily produces for that role</b> — the default setting keeps the best 15 % of them — and JASWA works out what Max value that comes to in each slot separately.
         </p>
         <p>
-          <b className="type-body-emphasis">And a slot means all of it.</b> Slots 1, 3 and 5 have one main stat each; slots 2, 4 and 6 have seven or eight, and a preset names one or two. Keeping 15 % of the runes a preset can use would keep 15 % of slot 1 but only a fraction of slot 4 &mdash; measured on the shipped presets, 1&ndash;7 % of slots 2, 4 and 6 against 15&ndash;20 % of the others. So the 15 % is of <i>everything</i> the slot produces, every main counted evenly, and the runes with a main the preset wants are let further into their own box to make up the rest. One preferred main out of eight needs eight times the share; five out of eight need barely any help. Where a preset can use fewer of a slot&rsquo;s runes than the floor asks for &mdash; CRI Dmg alone on slot 4 is one rune in eight &mdash; every one of them is kept, because that is the only way that slot keeps as many as the others.
+          <b className="type-body-emphasis">And a slot means all of it.</b> Slots 1, 3 and 5 have one main stat each; slots 2, 4 and 6 have seven or eight, and a role names one or two. Keeping 15 % of the runes a role can use would keep 15 % of slot 1 but only a fraction of slot 4 &mdash; measured on the shipped roles, 1&ndash;7 % of slots 2, 4 and 6 against 15&ndash;20 % of the others. So the 15 % is of <i>everything</i> the slot produces, every main counted evenly, and the runes with a main the role wants are let further into their own box to make up the rest. One preferred main out of eight needs eight times the share; five out of eight need barely any help. Where a role can use fewer of a slot&rsquo;s runes than the floor asks for &mdash; CRI Dmg alone on slot 4 is one rune in eight &mdash; every one of them is kept, because that is the only way that slot keeps as many as the others.
         </p>
         <p>
-          <b className="type-body-emphasis">And the presets are counted together.</b> A rune is kept when <i>any</i> preset keeps it. A good slot 1 rune tends to be good for several presets at once, so what they keep of slot 1 overlaps and is counted once; on slots 2, 4 and 6 each preset keeps runes of its own main stats, so what they keep barely overlaps and adds up. With every slot balanced preset by preset, the eight shipped presets together still kept 34&ndash;49 % of slots 2, 4 and 6 and 23&ndash;25 % of the others. So JASWA also measures what all your presets keep <i>together</i>, on a fixed sample of ordinary runes with every main and every set, and scales each slot until every slot keeps the same share. The level is where slots 1, 3 and 5 already stood, so the total number of runes you keep stays where your quality floor puts it; only how it is spread over the slots changes.
+          <b className="type-body-emphasis">And the roles are counted together.</b> A rune is kept when <i>any</i> role keeps it. A good slot 1 rune tends to be good for several roles at once, so what they keep of slot 1 overlaps and is counted once; on slots 2, 4 and 6 each role keeps runes of its own main stats, so what they keep barely overlaps and adds up. With every slot balanced role by role, the eight shipped roles together still kept 34&ndash;49 % of slots 2, 4 and 6 and 23&ndash;25 % of the others. So JASWA also measures what all your roles keep <i>together</i>, on a fixed sample of ordinary runes with every main and every set, and scales each slot until every slot keeps the same share. The level is where slots 1, 3 and 5 already stood, so the total number of runes you keep stays where your quality floor puts it; only how it is spread over the slots changes.
         </p>
         <p>
-          Here is that one default floor, at the default Gem and Grindstone settings and with all eight shipped presets in use, written out for four of them as the Max value it actually demands:
+          Here is that one default floor, at the default Gem and Grindstone settings and with all eight shipped roles in use, written out for four of them as the Max value it actually demands:
         </p>
         <div className="math-table-scroll">
           <table className="math-table">
             <caption className="visually-hidden">
-              The Max value the default quality floor comes to in each of the six slots, for four of the shipped presets judging together
+              The Max value the default quality floor comes to in each of the six slots, for four of the shipped roles judging together
             </caption>
             <thead>
               <tr>
-                <th scope="col" className="align-left">Preset</th>
+                <th scope="col" className="align-left">Role</th>
                 <th scope="col">Slot 1</th>
                 <th scope="col">Slot 2</th>
                 <th scope="col">Slot 3</th>
@@ -484,10 +484,10 @@ export function TheMathSection() {
           The Max value column is always the plain thing it says: how close this rune can get to a perfect rune for its slot. That is the honest description of one rune, and it is the number to compare two runes of the same slot with. The floor above is what it is measured against.
         </p>
         <p>
-          A preset describes a <i>family</i> of builds, not one build, and the main stats of the other five slots change what a rune is worth — a build with HP % in slots 4 and 6 asks its runes for thousands less HP than one with ATK % there. So every compatible build is scored as one complete reading: its Max value and its Chance stay together. Best preset is the passing reading the rune is expected to be worth most to once it is finished; if none pass, it is simply the reading with the highest expectation. A role that says Sell is never named while another says Keep or Power up. Max value is the best case — every roll landing on one line at its maximum — and a role that prices one stat alone wins that comparison on a rune whose other lines only another role can use, so it does not pick the preset.
+          A role describes a <i>family</i> of builds, not one build, and the main stats of the other five slots change what a rune is worth — a build with HP % in slots 4 and 6 asks its runes for thousands less HP than one with ATK % there. So every compatible build is scored as one complete reading: its Max value and its Chance stay together. Best role is the passing reading the rune is expected to be worth most to once it is finished; if none pass, it is simply the reading with the highest expectation. A role that says Sell is never named while another says Keep or Power up. Max value is the best case — every roll landing on one line at its maximum — and a role that prices one stat alone wins that comparison on a rune whose other lines only another role can use, so it does not pick the role.
         </p>
         <p>
-          That reads optimistically, and deliberately so: a rune with one excellent line will find the build whose other targets its main stats already cover, because that is the build where its one line counts for most. A PvP def rune carrying HP % and little else reaches 89 % against a DEF % / DEF % build and 77 % against an HP % / HP % one. Both are true of the build they describe, and your preset says it will take either.
+          That reads optimistically, and deliberately so: a rune with one excellent line will find the build whose other targets its main stats already cover, because that is the build where its one line counts for most. A PvP def rune carrying HP % and little else reaches 89 % against a DEF % / DEF % build and 77 % against an HP % / HP % one. Both are true of the build they describe, and your role says it will take either.
         </p>
 
         <h3 className="type-heading">Chance: will it actually get there?</h3>
@@ -504,7 +504,7 @@ export function TheMathSection() {
           The alternative is to list every path instead of sampling them, and JASWA did that until it stopped being worth it: with four upgrades, four lines, every roll value each could take and a Gem decision that depends on all of them, one box of 1,500 runes took nine seconds to produce a column printed to the nearest per cent. Counting gives the same answer to within half a point, in two.
         </p>
         <p>
-          <b className="type-body-emphasis">The same rune always prints the same number.</b> The dice are a hash of the rune itself — its slot, its grade, its level, every line it carries — and not a running generator, so pressing Calculate twice gives an identical account, and <i>two identical runes are given identical odds</i>. Nor does the number of runes JASWA keeps move: counted at a quarter of the usual number of runs, at it, and at sixty-four times it, a box of three thousand kept the same final +15 decisions every time, in the same slots, under the same presets.
+          <b className="type-body-emphasis">The same rune always prints the same number.</b> The dice are a hash of the rune itself — its slot, its grade, its level, every line it carries — and not a running generator, so pressing Calculate twice gives an identical account, and <i>two identical runes are given identical odds</i>. Nor does the number of runes JASWA keeps move: counted at a quarter of the usual number of runs, at it, and at sixty-four times it, a box of three thousand kept the same final +15 decisions every time, in the same slots, under the same roles.
         </p>
         <p>
           A future line is drawn without replacement from the legal missing effect ids, and every remaining upgrade lands on a line the rune already has — new lines arrive last, so nothing can improve a line that does not exist yet. Every realised roll contributes in full, weighted by its stat, including surplus SPD or Accuracy.
@@ -558,10 +558,10 @@ export function TheMathSection() {
 
         <h3 className="type-heading">The sliders, and how many runes survive</h3>
         <p>
-          <b className="type-body-emphasis">Rune quality floor</b> sets the bar, and its five stops say how much of an ordinary box of runes to keep: <b className="type-body-emphasis">a third</b>, then 23 %, then <b className="type-body-emphasis">15 %</b> where the slider opens, then 9 %, then 4 %. Each stop asks that of every slot separately, which is the section above. <b className="type-body-emphasis">Power-up policy</b> sets the Chance bar, and each stop means what it says: Full YOLO rolls a <b className="type-body-emphasis">1 %</b> shot, Adventurous 5 %, Balanced 20 %, Picky 50 % and Take no chances only a rune <b className="type-body-emphasis">80 %</b> sure to get there. The verdict is that one comparison, and the Chance column prints whole points rounded down, so the number you read clears the bar exactly when the rune does. <b className="type-body-emphasis">Accepted</b> and <b className="type-body-emphasis">Broken runes</b> discount a rune whose set or main stat the preset only tolerates, or never asked for — and at <i>No</i>, a broken rune is rejected outright whatever else is true of it.
+          <b className="type-body-emphasis">Rune quality floor</b> sets the bar, and its five stops say how much of an ordinary box of runes to keep: <b className="type-body-emphasis">a third</b>, then 23 %, then <b className="type-body-emphasis">15 %</b> where the slider opens, then 9 %, then 4 %. Each stop asks that of every slot separately, which is the section above. <b className="type-body-emphasis">Power-up policy</b> sets the Chance bar, and each stop means what it says: Full YOLO rolls a <b className="type-body-emphasis">1 %</b> shot, Adventurous 5 %, Balanced 20 %, Picky 50 % and Take no chances only a rune <b className="type-body-emphasis">80 %</b> sure to get there. The verdict is that one comparison, and the Chance column prints whole points rounded down, so the number you read clears the bar exactly when the rune does. <b className="type-body-emphasis">Accepted</b> and <b className="type-body-emphasis">Broken runes</b> discount a rune whose set or main stat the role only tolerates, or never asked for — and at <i>No</i>, a broken rune is rejected outright whatever else is true of it.
         </p>
         <p>
-          A rune that passes the quality and Chance gates is kept under its strongest matching preset. Another rune cannot make it fail by reaching that preset first; the verdict rests on the rune itself and the standards you set.
+          A rune that passes the quality and Chance gates is kept under its strongest matching role. Another rune cannot make it fail by reaching that role first; the verdict rests on the rune itself and the standards you set.
         </p>
 
         <h3 className="type-heading">The verdict</h3>
@@ -598,7 +598,7 @@ export function TheMathSection() {
           </table>
         </div>
         <p>
-          A rune is checked against <i>every</i> preset and every compatible main-stat choice. If several presets accept it, the strongest match is shown. A passing rune is never sold because another rune reached the same preset first.
+          A rune is checked against <i>every</i> role and every compatible main-stat choice. If several roles accept it, the strongest match is shown. A passing rune is never sold because another rune reached the same role first.
         </p>
         <p>
           Every star class is rated, each against the best rune of its own class. An Ancient rune uses its higher verified initial-roll interval only in its Max-value and Chance projections; its role valuation, reference box and denominator use the ordinary 6★ rules. Ancient Gems and Grindstones use their own legal tables.
@@ -609,7 +609,7 @@ export function TheMathSection() {
     <Disclosure title="Artifact Optimization" sessionKey="the-math.artifacts">
       <div className="math-copy">
         <p className="lead">
-          JASWA checks every artifact that fits the monster’s category and equip class. Each one earns a number of points, which is then converted into a score on a 0–100 % scale.
+          JASWA checks every artifact that fits the monster’s category and engrave class. Each one earns a number of points, which is then converted into a score on a 0–100 % scale.
         </p>
 
         <h3 className="type-heading">Substats</h3>
@@ -729,14 +729,14 @@ export function TheMathSection() {
           Stat bonuses use base stats. A unique scales continuously: 200 SPD at 2 % per 125 SPD gives 3.2 %, not 2 %. It reads the imported stat sheet plus the relic’s main bonus, once, before its own bonus. These battle-order and scaling rules are model assumptions awaiting an in-game check. Leaders, towers, team bonuses and skill behaviour are not inferred, so the score is exact within this model, not a promise of exact battle performance. In particular, damage dealt uses ATK priority even for a monster whose skills scale with HP or DEF.
         </p>
         <p>
-          JASWA picks the highest score within your saved main and unique choices; cleared menus allow any. Equal value keeps the relic already worn. A full relic cannot take a new wearer, so the next available one is named. Missing base stats, or no priorities from runes or statistics, get an explanation instead of an invented build. The Power up, Keep or Sell rules below keep their own account-wide model.
+          JASWA picks the highest score within your saved main and unique choices; cleared menus allow any. Equal value keeps the relic already engraved. A full relic cannot be engraved on another monster, so the next available one is named. Missing base stats, or no priorities from runes or statistics, get an explanation instead of an invented build. The Power up, Keep or Sell rules below keep their own account-wide model.
         </p>
       </div>
     </Disclosure>
     <Disclosure title="Power up, Keep or Sell" sessionKey="the-math.relic-verdicts">
       <div className="math-copy">
         <p className="lead">
-          The section above asks which relic a monster should wear. This one asks a different question about the same relics: of everything in your inventory, which deserve your <b className="type-body-emphasis">Relic Power-up Stones</b>, which are worth keeping as they are, and which should go.
+          The section above asks which relic a monster should have engraved. This one asks a different question about the same relics: of everything in your inventory, which deserve your <b className="type-body-emphasis">Relic Power-up Stones</b>, which are worth keeping as they are, and which should go.
         </p>
         <p>
           Every relic passes through three questions in order, and <b className="type-body-emphasis">the first one it fails is its answer</b>. Nothing further is asked. That order is the whole rule, and it exists so that a relic cannot be recommended for stones on one ground while failing on a more important one.

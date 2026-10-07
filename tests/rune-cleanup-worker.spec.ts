@@ -85,7 +85,7 @@ test('a superseded calculation cannot commit its result', async ({ page }) => {
   const outcomes = await page.evaluate(async () => {
     const client = await import('/app/lib/compute/rune-advice-client.ts');
     const request = {
-      runes: [], presets: [], base: new Map(),
+      runes: [], roles: [], base: new Map(),
       settings: {
         powerUpPolicy: 3, runeQuality: 3, gemRoll: null, grindstoneRoll: null,
         gemGrade: 'Hero', grindstoneGrade: 'Hero', acceptedRunes: 3, brokenRunes: 3,

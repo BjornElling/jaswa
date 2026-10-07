@@ -1,11 +1,11 @@
 import type { RuneCleanupStatistics } from '../rune-cleanup-statistics';
-import type { RunePotentialPreset } from '../rune-potential-presets';
+import type { RuneRole } from '../rune-roles';
 import type { ReferenceStats } from '../rune-reference-stats';
 import type { RunePotentialSettings } from '../types';
 import type { CalculationBackend } from './calculation-summary';
 
 export type RuneStatisticsRequest = {
-  presets: readonly RunePotentialPreset[];
+  roles: readonly RuneRole[];
   settings: RunePotentialSettings;
   base: ReadonlyMap<string, ReferenceStats>;
   preferWebGpu: boolean;

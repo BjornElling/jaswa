@@ -5,7 +5,7 @@ import { artifactFitsMonster } from './compute/artifact-score-input';
 import { copyArtifactMainBands } from './main-stat-model';
 import { artifactPropertyIndex } from './compute/artifact-score-schema';
 import { monsterSpeciesId } from './monster-identity';
-import { canEquipArtifacts } from './monster-equipment-eligibility';
+import { canEngraveArtifacts } from './monster-engrave-eligibility';
 import type { Artifact } from './artifacts';
 import type { ArtifactPropertyPreference } from './artifact-optimal-value';
 import type { MonsterCopyPreferences } from './monster-preferences';
@@ -14,12 +14,12 @@ import type { ArtifactSettings } from './types';
 import type { GameRecord } from './game-data';
 
 /**
- * How fully an artifact rolled on what its current wearer's monster type wants.
+ * How fully an artifact rolled on what the type of the monster it is engraved on wants.
  * The one measure, `calculateArtifactOptimalValue`, is left to do the judging;
  * this only supplies it with the preferences and the roll fractions.
  *
- * `undefined` means the question does not apply — the artifact is unequipped,
- * the wearer is unknown, the monster type has no recorded preferences, or a
+ * `undefined` means the question does not apply — the artifact is in inventory,
+ * the monster it is engraved on is unknown, the monster type has no recorded preferences, or a
  * legacy line makes the artifact unjudgeable. Under §19.5 that is shown
  * as *not judged*, never as a zero: every artifact would score zero against an
  * unjudged type, and a zero sorts and reads as an answer.
@@ -45,21 +45,21 @@ export function artifactValueOnMonster(
      precisely how one view came to read one setting where the others read
      eight. */
   settings: ArtifactSettings,
-  /* What the copy wearing this artifact says it is for, where its owner has
+  /* What the copy this artifact is engraved on says it is for, where its owner has
      said anything. Optional because most callers are asking about a species —
      "what is this artifact worth on a Lushen" — and only a caller holding one
      owned copy can answer for that copy. */
   stated?: MonsterCopyPreferences,
 ): number | undefined {
-  if (!canEquipArtifacts(monster)) return undefined;
+  if (!canEngraveArtifacts(monster)) return undefined;
   const masterId = monster.unit_master_id;
   const { acceptableWorth } = scoringSettings(settings);
   const preferences = defaultPropertyPreferences(masterId, artifact.category);
   if (!preferences) return undefined;
   if (artifactPreferenceStatus(masterId, artifact.category) !== 'scorable') return undefined;
-  /* The equip rule (§1) decides whether the question can be asked at all. This
+  /* The engrave rule (§1) decides whether the question can be asked at all. This
      reader used to score whatever pair it was handed, so an artifact the game
-     would never let a monster wear still got a number here while the
+     would never let a monster take still got a number here while the
      optimization pages, which do apply the rule, called it not judged. */
   if (!artifactFitsMonster(artifact, monsterSpeciesId(masterId))) return undefined;
 

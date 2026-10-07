@@ -5,7 +5,7 @@ import { createServer } from 'vite';
  * A change to the preferences contract must never cost the user the choices it
  * did not touch. Every stored copy used to be accepted whole or not at all, so
  * adding `speedTuning` rejected every saved document and the next dev-server
- * restart put the presets, the import mode and the Rune Clean-up settings back
+ * restart put the roles, the import mode and the Rune Clean-up settings back
  * to their defaults at once. This holds the reader to the opposite rule: one
  * choice the contract cannot honour costs that one choice.
  */
@@ -18,13 +18,13 @@ const server = await createServer({
 
 try {
   const { blankPreferences, readPreferences, defaultDirectImportMode } = await server.ssrLoadModule('/app/lib/file-imports.ts');
-  const { withRefreshedMetrics } = await server.ssrLoadModule('/app/lib/rune-potential-presets.ts');
+  const { withRefreshedMetrics } = await server.ssrLoadModule('/app/lib/rune-roles.ts');
   const { speedContents } = await server.ssrLoadModule('/app/lib/speed-contents.ts');
 
   assert.equal(defaultDirectImportMode, 'live', 'a connected helper keeps the workspace synchronized by default');
 
   const blank = blankPreferences();
-  const [firstPreset, ...otherPresets] = blank.runePotentialPresets;
+  const [firstRole, ...otherRoles] = blank.runePotentialPresets;
   const chosen = {
     ...blank,
     updatedAt: '2026-09-01T12:00:00.000Z',
@@ -35,7 +35,7 @@ try {
     monsterPreferences: { 17: { unitId: '17', label: 'Arena defence', allowIntangibleRunes: true } },
     runeHolds: { 901: { unsellable: true }, 902: { unsellable: true, locked: true } },
     runePotential: { ...blank.runePotential, powerUpPolicy: 2, gemGrade: 'Legend', keepMoreForLargerSets: true },
-    runePotentialPresets: [withRefreshedMetrics({ ...firstPreset, name: 'My nuker', targets: { ...firstPreset.targets, atk: 3100 } }), otherPresets[0]],
+    runePotentialPresets: [withRefreshedMetrics({ ...firstRole, name: 'My nuker', targets: { ...firstRole.targets, atk: 3100 } }), otherRoles[0]],
     artifacts: { ...blank.artifacts, acceptableWorth: 75, recalculate: 'on-change' },
     speedTuning: {
       teams: [{ id: 'team-a', content: speedContents[0].id, members: [{ unitId: '17' }], leaderUnitId: '17' }],
@@ -70,25 +70,25 @@ try {
   assert.equal(retiredField.runePotential.runeQuality, blank.runePotential.runeQuality, 'the unreadable setting starts from its default');
   assert.ok(!('retiredSetting' in retiredField.runePotential), 'a setting the contract no longer names is not carried');
 
-  /* A preset the contract has grown past still keeps what the user wrote in it. */
-  const { artifacts: _artifacts, ...presetWithoutArtifacts } = chosen.runePotentialPresets[0];
-  const grownPast = readPreferences({ ...chosen, runePotentialPresets: [{ ...presetWithoutArtifacts, retired: true }, otherPresets[0]] }, null);
-  assert.equal(grownPast.runePotentialPresets.length, 2, 'a preset missing a field is kept');
+  /* A role the contract has grown past still keeps what the user wrote in it. */
+  const { artifacts: _artifacts, ...roleWithoutArtifacts } = chosen.runePotentialPresets[0];
+  const grownPast = readPreferences({ ...chosen, runePotentialPresets: [{ ...roleWithoutArtifacts, retired: true }, otherRoles[0]] }, null);
+  assert.equal(grownPast.runePotentialPresets.length, 2, 'a role missing a field is kept');
   assert.equal(grownPast.runePotentialPresets[0].name, 'My nuker', 'its name survives');
   assert.equal(grownPast.runePotentialPresets[0].targets.atk, 3100, 'its targets survive');
   assert.deepEqual(grownPast.runePotentialPresets[0].artifacts, { atk: false, def: false, hp: false }, 'the missing field starts empty');
 
-  /* Composites are derived: a stale stored copy is recomputed, not a reason to lose the preset. */
+  /* Composites are derived: a stale stored copy is recomputed, not a reason to lose the role. */
   const stale = readPreferences({ ...chosen, runePotentialPresets: [{ ...chosen.runePotentialPresets[0], targets: { ...chosen.runePotentialPresets[0].targets, dmg: 1 } }] }, null);
   assert.deepEqual(stale.runePotentialPresets[0], chosen.runePotentialPresets[0], 'a stale composite is recomputed');
 
-  /* Only a preset that can no longer be told apart or named is dropped, and alone. */
-  const unnamed = readPreferences({ ...chosen, runePotentialPresets: [{ ...chosen.runePotentialPresets[0], name: '' }, otherPresets[0]] }, null);
-  assert.deepEqual(unnamed.runePotentialPresets, [otherPresets[0]], 'an unnamed preset costs only itself');
+  /* Only a role that can no longer be told apart or named is dropped, and alone. */
+  const unnamed = readPreferences({ ...chosen, runePotentialPresets: [{ ...chosen.runePotentialPresets[0], name: '' }, otherRoles[0]] }, null);
+  assert.deepEqual(unnamed.runePotentialPresets, [otherRoles[0]], 'an unnamed role costs only itself');
 
   /* Undefined and empty stay different answers. */
   assert.deepEqual(readPreferences({ ...chosen, runePotentialPresets: [] }, null).runePotentialPresets, [], 'a list the user emptied stays empty');
-  assert.equal(readPreferences({ ...chosen, runePotentialPresets: undefined }, null).runePotentialPresets.length, blank.runePotentialPresets.length, 'no list at all gets the shipped presets');
+  assert.equal(readPreferences({ ...chosen, runePotentialPresets: undefined }, null).runePotentialPresets.length, blank.runePotentialPresets.length, 'no list at all gets the shipped roles');
 
   /* A monster copy loses the field it cannot read, not the copy. */
   const monster = readPreferences({ ...chosen, monsterPreferences: { 17: { ...chosen.monsterPreferences[17], runeSets: ['NotASet'], retired: 1 } } }, null);

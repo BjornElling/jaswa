@@ -1,10 +1,10 @@
-import type { PresetChoice } from '../lib/rune-potential-presets';
+import type { RoleChoice } from '../lib/rune-roles';
 
 /**
  * The three-state chip row, shared by every place a user says what they want.
  *
  * It lives here rather than beside one of its callers because two of them now
- * exist — a rune preset's role card and a monster's own preferences — and a
+ * exist — a role's card and a monster's own preferences — and a
  * second, almost identical chip editor is exactly how one control becomes two
  * that drift apart.
  *
@@ -31,7 +31,7 @@ export function ChoiceLegend() {
  * One chip, told what it is rather than working it out.
  *
  * Taking the state and the label as given is what lets the monster overlay use
- * the same chip for a map keyed by a numeric property id, where the preset
+ * the same chip for a map keyed by a numeric property id, where the role
  * editor uses it for a list of strings. `note` is appended to the accessible
  * name, so a chip standing in from the community statistics can say so to a
  * screen reader rather than relying on its dashed border alone.
@@ -57,10 +57,10 @@ export function ChoiceChip({ state, label, note, onCycle }: {
 }
 
 export function ChoiceEditor<T extends string>({ choice, options, columns = false, onChange }: {
-  choice: PresetChoice<T>;
+  choice: RoleChoice<T>;
   options: readonly T[];
   columns?: boolean;
-  onChange: (choice: PresetChoice<T>) => void;
+  onChange: (choice: RoleChoice<T>) => void;
 }) {
   function state(option: T): ChoiceState {
     if (choice.preferred.includes(option)) return 'preferred';

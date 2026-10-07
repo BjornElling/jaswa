@@ -4,7 +4,7 @@ import { basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /* Three monsters across three locations for the roster and Storage strips; the
-   synthetic account is the one carrying artifacts, both equipped and loose. */
+   synthetic account is the one carrying artifacts, both engraved and loose. */
 const monsterAccount = fileURLToPath(new URL('./fixtures/storage-location-account.json', import.meta.url));
 const artifactAccount = fileURLToPath(new URL('./fixtures/synthetic-account.json', import.meta.url));
 
@@ -168,12 +168,12 @@ test('Reset filters restores the artifact library defaults', async ({ page }) =>
   expect(total).toBeTruthy();
 
   await page.getByRole('textbox', { name: 'Filter artifacts by monster or property' }).fill('zzzz');
-  await strip.locator('.artifact-filter-location').getByRole('button', { name: 'Equipped' }).click();
+  await strip.locator('.artifact-filter-location').getByRole('button', { name: 'Engraved' }).click();
   await expect(summary).not.toContainText(`${total} of ${total} shown`);
 
   await page.getByRole('button', { name: 'Reset artifacts filters' }).click();
   await expect(summary).toContainText(`${total} of ${total} shown`);
-  await expect(strip.locator('.artifact-filter-location').getByRole('button', { name: 'Equipped' }))
+  await expect(strip.locator('.artifact-filter-location').getByRole('button', { name: 'Engraved' }))
     .toHaveAttribute('aria-pressed', 'true');
 });
 

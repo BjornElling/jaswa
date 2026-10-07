@@ -64,7 +64,7 @@ test('every monster gets exactly one relic named', async ({ page }) => {
   }
 });
 
-test('a monster already wearing its best relic reads Keep and Same', async ({ page }) => {
+test('a monster with its best relic already engraved reads Keep and Same', async ({ page }) => {
   await importAccount(page);
   await openUseForMons(page);
   const elucia = monsterRow(page, 'Elucia');
@@ -85,7 +85,7 @@ test('a bare monster is told to engrave, and the relic names its level in words'
   await expect(advice(beth)).toHaveText('Engrave');
 });
 
-test('a monster wearing the wrong relic is told to replace it', async ({ page }) => {
+test('a monster with the wrong relic engraved is told to replace it', async ({ page }) => {
   await importAccount(page);
   await openUseForMons(page);
   const bulldozer = monsterRow(page, 'Bulldozer');
@@ -172,7 +172,7 @@ test('saved relic choices constrain engraving and survive a reload', async ({ pa
   await expect(page.getByRole('dialog').getByRole('button', { name: /^Relic uniques, preferred:/ }))
     .toHaveAttribute('aria-label', 'Relic uniques, preferred: Any');
 });
-test('the current relic cell shows every relic a monster wears', async ({ page }) => {
+test('the current relic cell shows every relic engraved on a monster', async ({ page }) => {
   await importAccount(page);
   await openUseForMons(page);
   const kaimann = monsterRow(page, 'Kaimann');
@@ -247,7 +247,7 @@ test('the destination headings say what their column holds', async ({ page }) =>
   await importAccount(page);
   await openUseForMons(page);
   const heading = page.getByRole('table', { name: 'Relic destination columns' });
-  await expect(heading.getByRole('button', { name: 'The relic this monster wears today' })).toBeVisible();
+  await expect(heading.getByRole('button', { name: 'The relic engraved on this monster today' })).toBeVisible();
   await expect(heading.getByRole('button', { name: 'The relic to engrave on this monster' })).toBeVisible();
   await expect(heading.getByRole('button', {
     name: "The recommended main bonus in weighted score points",

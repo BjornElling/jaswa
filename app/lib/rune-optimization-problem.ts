@@ -25,7 +25,7 @@ import type { CombatBonuses } from './monster-stats';
 import type { RuneSlotKey } from './monster-defaults';
 import type { MonsterStatTargets } from './monster-preferences';
 import {
-  addEquipmentEffects, addLeaderEffects, addSetBonuses, baseStatCount, criticalRateLift, effectSlot, effectSlotCount, effectSlotOf,
+  addGearEffects, addLeaderEffects, addSetBonuses, baseStatCount, criticalRateLift, effectSlot, effectSlotCount, effectSlotOf,
   figuresInto, intangibleCompletion, intangibleSetId, monsterBaseStats, setIdBound,
   statSetBonuses, targetFigureCount, targetFigureKeys, totalsInto, unliftedFigures,
 } from './monster-stats';
@@ -84,7 +84,7 @@ export type RuneOptimizationInput = {
   runes: readonly Rune[];
   holds: RuneHolds;
   /**
-   * Copies whose worn runes this calculation may not take, whatever the settings
+   * Copies whose engraved runes this calculation may not take, whatever the settings
    * say about other monsters: those above it on the priority list, resolved by the
    * page (`higherPriorityThan`) so the search never reads the list itself.
    */
@@ -301,7 +301,7 @@ export function searchBase(monster: GameRecord, bonuses: CombatBonuses): Float64
  */
 export function buildFigures(monster: GameRecord, pieces: readonly BuildPiece[], bonuses: CombatBonuses): BuildFigures {
   const start = new Float64Array(effectSlotCount);
-  addEquipmentEffects(monster, start);
+  addGearEffects(monster, start);
   const leads = new Float64Array(effectSlotCount);
   addLeaderEffects(bonuses.leads, leads);
   return figuresWithAndWithoutLeads(searchBase(monster, bonuses), criticalRateLift(bonuses), start, leads,
@@ -379,12 +379,12 @@ function usableSetsOf(builds: BuildRequirement[] | null): ReadonlySet<number> | 
 }
 
 /**
- * Whether a rune worn by `wearer`, another copy, may be moved onto this one. One
+ * Whether a rune engraved on `engravedOn`, another copy, may be moved onto this one. One
  * rule for the search and for the re-reading of a found build, so a row is never
  * dimmed for a source the search itself would have taken.
  */
-export function mayTakeFrom(input: { settings: Pick<RuneOptimizationSettings, 'runesOnOtherMonsters'>; spared: readonly string[] }, wearer: string): boolean {
-  return input.settings.runesOnOtherMonsters && !input.spared.includes(wearer);
+export function mayTakeFrom(input: { settings: Pick<RuneOptimizationSettings, 'runesOnOtherMonsters'>; spared: readonly string[] }, engravedOn: string): boolean {
+  return input.settings.runesOnOtherMonsters && !input.spared.includes(engravedOn);
 }
 
 /**
@@ -397,8 +397,8 @@ function admission(input: RuneOptimizationInput, usableSets: ReadonlySet<number>
   const { requirements, unitId } = input;
   const onThisMonster = rune.occupiedId === unitId;
   if (input.settings.fillEmptySlotsOnly) {
-    const worn = input.runes.find((entry) => entry.slot === rune.slot && entry.occupiedId === unitId);
-    if (worn) return worn.id === rune.id ? 'locked' : 'refused';
+    const engraved = input.runes.find((entry) => entry.slot === rune.slot && entry.occupiedId === unitId);
+    if (engraved) return engraved.id === rune.id ? 'locked' : 'refused';
   }
   /* A lock anywhere else keeps the rune where it is. */
   if (input.holds[rune.id]?.locked) return onThisMonster ? 'locked' : 'refused';
@@ -669,7 +669,7 @@ export function prepareRuneOptimization(
     || settings.maxChanges < 1 || settings.maxChanges > 6)) throw new Error('Maximum changes must be a whole number from 1 to 6.');
   const base = searchBase(monster, requirements);
   const start = new Float64Array(effectSlotCount);
-  addEquipmentEffects(monster, start);
+  addGearEffects(monster, start);
   const leads = new Float64Array(effectSlotCount);
   addLeaderEffects(requirements.leads, leads);
   for (let slot = 0; slot < effectSlotCount; slot += 1) start[slot] += leads[slot];
@@ -741,7 +741,7 @@ export function prepareRuneOptimization(
     const onThisMonster = rune.occupiedId === unitId;
     const slotIndex = rune.slot - 1;
     if (verdict === 'locked') {
-      /* Locked and immutable: the slot's one answer, exactly as it is worn. No
+      /* Locked and immutable: the slot's one answer, exactly as it is engraved. No
          craft item is counted on it, and no filter can take it away — a lock that a
          requirement could override would be a lock in name only. */
       locked[slotIndex] = true;
@@ -820,7 +820,7 @@ export function prepareRuneOptimization(
 
   /* Price the question's admitted pool, never the monster's current build. Each
      physical rune gets one vote, regardless of how many Gem alternatives it has.
-     An equipped rune still matters for admission, locks and moves, not stat prices. */
+     An engraved rune still matters for admission, locks and moves, not stat prices. */
   const reference = new Float64Array(start);
   for (const candidates of bySlot) {
     const families = new Map<string, Candidate[]>();
@@ -1055,8 +1055,8 @@ export function noBrokenSets(counts: ArrayLike<number>, completes: number, setPi
   if (counts[intangibleSetId] > 0 && completes < 0) return false;
   for (let setId = 1; setId < setPieces.length; setId += 1) {
     if (setId === intangibleSetId) continue;
-    const worn = counts[setId] + (completes === setId ? 1 : 0);
-    if (worn > 0 && (setPieces[setId] === 0 || worn % setPieces[setId] !== 0)) return false;
+    const engraved = counts[setId] + (completes === setId ? 1 : 0);
+    if (engraved > 0 && (setPieces[setId] === 0 || engraved % setPieces[setId] !== 0)) return false;
   }
   return true;
 }
@@ -1068,9 +1068,9 @@ export function noBrokenSets(counts: ArrayLike<number>, completes: number, setPi
 export function canStillFinishSets(counts: ArrayLike<number>, placed: number, setPieces: Int32Array, remaining?: ArrayLike<number>): boolean {
   let missing = 0;
   for (let setId = 1; setId < setPieces.length; setId += 1) {
-    const worn = counts[setId];
-    if (worn === 0 || setPieces[setId] === 0) continue;
-    const shortfall = (setPieces[setId] - (worn % setPieces[setId])) % setPieces[setId];
+    const engraved = counts[setId];
+    if (engraved === 0 || setPieces[setId] === 0) continue;
+    const shortfall = (setPieces[setId] - (engraved % setPieces[setId])) % setPieces[setId];
     if (remaining && shortfall > remaining[setId]
       && shortfall > remaining[setId] + Math.min(1, counts[intangibleSetId] + remaining[intangibleSetId])) return false;
     missing += shortfall;

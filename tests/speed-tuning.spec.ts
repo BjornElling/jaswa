@@ -290,14 +290,14 @@ test('tunes a dungeon team, explains every miss, and keeps the card still', asyn
   await expect(saved).toBeVisible();
   await expect(opener).toBeFocused();
 
-  /* The line judges the runes worn, never the experiment: Megan's what-if fixes
+  /* The line judges the runes engraved, never the experiment: Megan's what-if fixes
      the editor's reading and is saved with the team, but the page does not
      read it, and the leader is marked. */
   await saved.getByRole('button', { name: 'Save changes' }).click();
   await expect(line).toBeFocused();
   /* The names follow the order asked for, uncoloured; only the mark and the sentence change. */
   await expect(line.locator('.speed-summary-name')).toHaveText(['Bernard (2A)', 'Megan (2A)', 'Lushen #1', 'Veromos', 'Verdehile']);
-  /* With the runes worn, the three below Megan still move before her. */
+  /* With the runes engraved, the three below Megan still move before her. */
   await expect(line.locator('.speed-summary-state')).toHaveText('3 of 5 out of place');
   /* Opened again, the what-if is still there, and the overlay reads it. */
   await line.click();

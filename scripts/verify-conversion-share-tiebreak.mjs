@@ -45,7 +45,7 @@ try {
 
   assert.deepEqual(
     conversionDescription({ sourceIndex: 0, equivalentSourceIndexes: [0], propertyId: 300, value: 0, gain: 0, preference: 'acceptable' },
-      { category: 'attribute', equipClassCode: 1, grade: 'Rare', propertyId: 300, quantity: 1 }),
+      { category: 'attribute', engraveClassCode: 1, grade: 'Rare', propertyId: 300, quantity: 1 }),
     { action: 'Convert to', source: 'Sub 1', target: 'Damage Dealt on Fire', stone: 'Rare Water stone' },
     'a recommendation exposes its action, source, target and stone for distinct presentation');
 

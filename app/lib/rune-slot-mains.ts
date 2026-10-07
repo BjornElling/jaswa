@@ -1,18 +1,18 @@
-import type { RuneMainStat } from './rune-potential-presets';
-import { runeMainStatIds, runeMainStats } from './rune-potential-presets';
+import type { RuneMainStat } from './rune-roles';
+import { runeMainStatIds, runeMainStats } from './rune-roles';
 import { slotMainProperties } from './rune-properties';
 
 /**
  * Every main a monster's slots 2, 4 and 6 can be asked for — the game's whole
  * list for each slot, flat mains included.
  *
- * `RuneMainStat` is the Clean-up presets' vocabulary and has no word for a flat
- * HP +, ATK + or DEF +: a preset judges rune *quality*, where a flat main is
+ * `RuneMainStat` is the Clean-up roles' vocabulary and has no word for a flat
+ * HP +, ATK + or DEF +: a role judges rune *quality*, where a flat main is
  * simply the weaker roll. A monster's owner asks something else — which main
- * this copy will wear — and the game offers seven or eight mains per slot, so an
+ * this copy will have engraved — and the game offers seven or eight mains per slot, so an
  * overlay offering four or five of them was answering a narrower question than
  * the one on screen. This vocabulary is that one plus the three flat mains, and
- * it stays out of the presets so the Clean-up engine keeps its own.
+ * it stays out of the roles so the Clean-up engine keeps its own.
  *
  * Each slot lists its mains in the order `RUNE-CANONICAL.md` §3's table reads,
  * which is the game's own.

@@ -22,7 +22,7 @@ export type MonsterTotals = {
  * object-shaped functions below are thin readers of the same arithmetic. A second
  * copy tuned for speed would be exactly the drift `AGENTS.md` §6 forbids: the
  * optimizer would print one E.HP for a build and the overlay another for the same
- * six runes once it was worn.
+ * six runes once it was engraved.
  *
  * The sheet is summed into twelve accumulators, in the order `effectSlot` names,
  * and read out in the order `MonsterTotals` names.
@@ -58,9 +58,9 @@ export function effectSlotOf(statId: number): number {
  *
  * **Open question, recorded rather than settled here.** `rune-properties.ts`
  * `setBonuses` also lists the five team sets (Fight, Determination, Enhance,
- * Accuracy, Tolerance) that `RUNE-CANONICAL.md` §10 says include the wearer. This
+ * Accuracy, Tolerance) that `RUNE-CANONICAL.md` §10 says include the monster it is engraved on. This
  * sheet has never counted them and was matched against SWOP Pro without them
- * (`RUNE-PRESET-METRICS.md` §6), so whether the game's own stat panel shows them is
+ * (`RUNE-ROLE-METRICS.md` §6), so whether the game's own stat panel shows them is
  * unverified. Until an in-game capture says, the sheet keeps its measured form —
  * and because every page reads it from here, they all keep it together.
  */
@@ -95,7 +95,7 @@ const setPieces: Readonly<Record<number, number>> = {
 export const setPieceCount = (setId: number): number => setPieces[setId] ?? 0;
 
 /**
- * Which set a worn Intangible rune completes, or `-1` for none.
+ * Which set an engraved Intangible rune completes, or `-1` for none.
  *
  * `RUNE-CANONICAL.md` §10: an Intangible completes one set that is exactly one rune
  * short. Where no set, more than one set, or more than one Intangible is present,
@@ -118,14 +118,14 @@ export function intangibleCompletion(counts: ArrayLike<number>): number {
 }
 
 /**
- * Add the completed sets' personal-stat bonuses to `effects`, from a count of worn
+ * Add the completed sets' personal-stat bonuses to `effects`, from a count of engraved
  * runes by `set_id`. `completes` is the set an Intangible completes, as
  * `intangibleCompletion` answered it; anything below zero completes nothing.
  */
 export function addSetBonuses(counts: ArrayLike<number>, completes: number, effects: Float64Array): void {
   for (const [setId, pieces, slot, value] of statSetBonuses) {
-    const worn = (counts[setId] ?? 0) + (completes === setId ? 1 : 0);
-    if (worn >= pieces) effects[slot] += Math.floor(worn / pieces) * value;
+    const engraved = (counts[setId] ?? 0) + (completes === setId ? 1 : 0);
+    if (engraved >= pieces) effects[slot] += Math.floor(engraved / pieces) * value;
   }
 }
 
@@ -159,7 +159,7 @@ export const targetFigureCount = targetFigureKeys.length;
 /**
  * The eleven figures from eight totals, into `out` in `monsterStatTargetKeys`
  * order — HP, ATK, DEF, SPD, CRI Rate, CRI Dmg, RES, ACC, DMG, E.HP, E.HP D.
- * The composites are truncated as `RUNE-PRESET-METRICS.md` displays them, so a
+ * The composites are truncated as `RUNE-ROLE-METRICS.md` displays them, so a
  * figure compared anywhere is the figure the user is shown.
  */
 export function figuresInto(totals: ArrayLike<number>, out: Float64Array): void {
@@ -210,10 +210,10 @@ function records(value: unknown): RecordLike[] {
 
 /**
  * Artifacts add their fixed main property. An engraved relic's main property is
- * a percentage of the wearer's base stat and appears on the game's stat panel;
+ * a percentage of the monster's own base stat and appears on the game's stat panel;
  * its unique property acts at the start of battle and does not appear there.
  */
-export function addEquipmentEffects(monster: RecordLike, effects: Float64Array): void {
+export function addGearEffects(monster: RecordLike, effects: Float64Array): void {
   for (const artifact of records(monster.artifacts)) {
     const effect = artifact.pri_effect;
     if (!Array.isArray(effect) || effect.length < 2) continue;
@@ -242,7 +242,7 @@ type AccountStatModifiers = Partial<Record<'hpPercent' | 'atkPercent' | 'defPerc
 
 /**
  * Calculates the current personal stat sheet from the imported monster and its
- * equipped runes. The optional modifiers are reserved for account-wide bonuses
+ * engraved runes. The optional modifiers are reserved for account-wide bonuses
  * once their full import rules have been established; they default to zero so
  * imported game data is never silently guessed or invented.
  */
@@ -255,7 +255,7 @@ export function calculateMonsterTotals(monster: RecordLike, accountModifiers: Ac
   };
 }
 
-/** The twelve accumulators a copy's worn runes, equipment and completed sets add up to. */
+/** The twelve accumulators a copy's engraved runes, gear and completed sets add up to. */
 export function monsterEffects(monster: RecordLike, accountModifiers: AccountStatModifiers = {}): Float64Array {
   const effects = new Float64Array(effectSlotCount);
   effects[effectSlot.hpPercent] = numberValue(accountModifiers.hpPercent);
@@ -271,14 +271,14 @@ export function monsterEffects(monster: RecordLike, accountModifiers: AccountSta
     addEffect(rune.prefix_eff, effects);
     if (Array.isArray(rune.sec_eff)) rune.sec_eff.forEach((effect) => addEffect(effect, effects));
   }
-  addEquipmentEffects(monster, effects);
+  addGearEffects(monster, effects);
   addSetBonuses(counts, intangibleCompletion(counts), effects);
   return effects;
 }
 
 /**
  * What a copy's display speed is made of, for Speed Tuning: the base speed, and
- * whether a four-piece Swift set is worn. The display speed itself is the stat
+ * whether a four-piece Swift set is engraved. The display speed itself is the stat
  * sheet's own figure, so it can never disagree with the Monsters page.
  */
 export function monsterSpeedParts(monster: RecordLike): { baseSpeed: number; swift: boolean; displaySpeed: number } {
@@ -358,7 +358,7 @@ export function unliftedFigures<Figures extends { [index: number]: number }>(fig
  * one answer. Two call sites deriving DMG separately is how one screen comes to
  * say a target is met while the other says it is not — and the composites are
  * derived here rather than stored precisely so that cannot happen
- * (`AGENTS.md` §6). The truncation is `RUNE-PRESET-METRICS.md`'s display rule.
+ * (`AGENTS.md` §6). The truncation is `RUNE-ROLE-METRICS.md`'s display rule.
  *
  * `shown` is the copy as its panel shows it; `counted` adds its leads, and is
  * what a stated range and a shortfall are judged by (`addLeaderEffects`).

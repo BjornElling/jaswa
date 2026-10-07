@@ -8,14 +8,14 @@
  */
 import assert from 'node:assert/strict';
 import {
-  candidateChance, chanceRuns, prepareRuneCandidate, presetBuilds,
+  candidateChance, chanceRuns, prepareRuneCandidate, roleBuilds,
 } from '../app/lib/rune-cleanup-model.ts';
 import { remainingEvents } from '../app/lib/rune-properties.ts';
 import { runeDefaultGradeOrder } from '../app/lib/runes.ts';
 
 const credit = { gem: null, gemGrade: 'Hero', grind: null, grindGrade: 'Hero' };
 const base = { hp: 0, atk: 0, def: 0, spd: 0, criRate: 0, criDmg: 0, res: 0, acc: 0 };
-const preset = {
+const role = {
   id: 'probability-order', name: 'Probability order', type: 'No type',
   sets: { preferred: ['Violent'], acceptable: [] },
   slots: {
@@ -26,7 +26,7 @@ const preset = {
   artifacts: { hp: false, atk: false, def: false },
   targets: { spd: 1 },
 };
-const build = presetBuilds(preset)[0];
+const build = roleBuilds(role)[0];
 const bornCount = { Normal: 0, Magic: 1, Rare: 2, Hero: 3, Legend: 4 };
 const expectedEvents = {
   Normal: ['add', 'add', 'add', 'add'],
@@ -52,7 +52,7 @@ for (const grade of Object.keys(expectedEvents)) {
     })),
     occupiedId: null, obtainedOrder: 1,
   };
-  const candidate = prepareRuneCandidate(rune, preset, build, base, credit);
+  const candidate = prepareRuneCandidate(rune, role, build, base, credit);
   assert.ok(candidate, `${grade} fixture should be judgeable`);
   /* The starting SPD line is 4/6 max-roll units. Reaching 25 % of this
      one-stat ceiling therefore requires at least one later SPD improvement.

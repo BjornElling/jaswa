@@ -9,7 +9,7 @@ import type { Rune } from './runes';
  * once survives every later import and every live sync from the helper. It is
  * the user's statement, not the account's: nothing an import carries sets,
  * clears or moves it, and a rune the next import no longer holds simply has
- * no row to wear it on.
+ * no row to engrave it on.
  *
  * Both choices override the advice the same way a Keep does — a filter for
  * Keep shows them — and differ only in the word, so the table says which runes
@@ -18,7 +18,7 @@ import type { Rune } from './runes';
 export type RuneHold = {
   /** Never to be sold, whatever the engine reads it as. */
   unsellable?: true;
-  /** Staying on the monster it is on. Only an equipped rune can be locked, but a
+  /** Staying on the monster it is on. Only an engraved rune can be locked, but a
       lock is kept when the rune leaves: the next sync must not undo it. */
   locked?: true;
 };
@@ -46,7 +46,7 @@ export function runeHoldVerdict(hold: RuneHold | undefined): RuneHoldVerdict | n
 export const filteredRuneVerdict = (verdict: ShownRuneVerdict): RuneVerdict =>
   verdict === 'locked' || verdict === 'unsellable' ? 'keep' : verdict;
 
-/** Whether the lock can be put on: only a worn rune has a monster to be locked to. */
+/** Whether the lock can be put on: only an engraved rune has a monster to be locked to. */
 export const canLockRune = (rune: Rune): boolean => rune.occupiedId !== null;
 
 /**

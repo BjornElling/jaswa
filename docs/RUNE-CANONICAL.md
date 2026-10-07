@@ -453,7 +453,7 @@ numeriske Rune Clean-up-score eller -ceiling:
   sets are one piece short, the Intangible completes **none** of them; the game
   does not choose a winner. This is the rule JASWA must use in the stat sheet,
   active-set display and Rune Optimization. With broken sets allowed, the rune
-  may still be worn as a broken rune. With broken sets refused, that build is
+  may still be engraved as a broken rune. With broken sets refused, that build is
   invalid.
 - Intangible kan ikke Reappraise. Den må kun have Intangible- eller
   Immemorial Gems/Grindstones og kan heller ikke Rune Refine.
@@ -483,7 +483,7 @@ names joined by ` / `, leading set first, which is also what the user reads.
 Two concessions are asked separately, because each is a real choice and neither
 is one to make on a user's behalf. **Broken pairs** allows a build whose last two
 runes complete no set. **Intangible runes** allows the one Intangible a monster
-may wear to complete a set that is one rune short. Both default to off.
+may have engraved complete a set that is one rune short. Both default to off.
 
 ## 11. Afgrænsede eller fortsat uafklarede kampregler
 

@@ -6,7 +6,7 @@ import { FigureMarks } from './figure-marks';
 import { combatBonusMarks, mainStatAdviceMarks, shortfallMarks } from '../lib/figure-marks';
 import type { FigureMark } from '../lib/figure-marks';
 import { MonsterPortrait } from './monster-portrait';
-import { WornArtifacts, WornRelics, WornRunes } from './monster-worn-gear';
+import { EngravedArtifacts, EngravedRelics, EngravedRunes } from './monster-engraved-gear';
 import { RuneBuildField } from './rune-build-field';
 import { RuneSlotMainField } from './rune-slot-main-field';
 import { StatRangeField } from './stat-range-field';
@@ -41,9 +41,9 @@ import { monsterUsage } from '../lib/monster-usage-statistics';
 import type { MonsterUsage } from '../lib/monster-usage-statistics';
 import type { Relic } from '../lib/relics';
 import { readRelics } from '../lib/relics';
-import { canEquipArtifacts, canEquipRelics } from '../lib/monster-equipment-eligibility';
+import { canEngraveArtifacts, canEngraveRelics } from '../lib/monster-engrave-eligibility';
 import { relicProperties, relicPropertyLabel } from '../lib/relic-properties';
-import { presetTargetColumns } from '../lib/rune-potential-presets';
+import { roleTargetColumns } from '../lib/rune-roles';
 import { runeSlotMainsBySlot } from '../lib/rune-slot-mains';
 import { activeRuneSets, elementName } from '../lib/rune-sets';
 import { runeBuildName } from '../lib/rune-set-pairs';
@@ -56,7 +56,7 @@ import type { GeneralSettings } from '../lib/types';
  *
  * **Everything on this panel is a statement the optimizers will act on.** The
  * user names the rune builds they will accept, the artifact and relic
- * properties worth equipping, and the figures the copy is being built toward;
+ * properties worth engraving, and the figures the copy is being built toward;
  * the account's current gear and the community's statistics appear beside those
  * answers as *reference*, never as an answer already given.
  *
@@ -70,9 +70,9 @@ import type { GeneralSettings } from '../lib/types';
  * It opens over the table the user was reading rather than replacing the page,
  * because there is no router to bring them back to the row they came from.
  *
- * **Two columns: what is wanted on the left, what is worn on the right.** The
+ * **Two columns: what is wanted on the left, what is engraved on the right.** The
  * answers take two thirds, in the order they are given — builds, stats, the
- * switches that qualify both, then gear — and what the copy wears now takes the
+ * switches that qualify both, then gear — and what the copy has engraved now takes the
  * last third, compactly, so the two are read across one line of sight and the
  * whole panel fits a 1080-pixel screen without scrolling.
  */
@@ -94,7 +94,7 @@ const leadFigures: ReadonlySet<string> = new Set(['criRate', 'atk', 'def', 'spd'
 
 /** The eleven figures a copy can be built toward, in the order they are offered. */
 const targetRows: ReadonlyArray<{ key: keyof MonsterStatTargets; label: string }> =
-  presetTargetColumns.map((column) => ({ key: column.key, label: `${column.label}${column.unit ?? ''}` }));
+  roleTargetColumns.map((column) => ({ key: column.key, label: `${column.label}${column.unit ?? ''}` }));
 
 function Section({ title, note, children }: { title: string; note?: string; children: ReactNode }) {
   return <section className="overlay-block">
@@ -288,26 +288,26 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
     [monster, resolved],
   );
 
-  const worn = useMemo(() => {
+  const engraved = useMemo(() => {
     if (!monster || !game) return { artifacts: {} as Partial<Record<ArtifactCategory, Artifact>>, relics: [] as Relic[] };
     const unitId = String(monster.unit_id);
     const artifacts: Partial<Record<ArtifactCategory, Artifact>> = {};
     for (const artifact of readArtifacts(game)) {
-      if (!canEquipArtifacts(monster)) continue;
+      if (!canEngraveArtifacts(monster)) continue;
       if (artifact.occupiedId === unitId) artifacts[artifact.category] = artifact;
     }
-    const engraved = new Set((Array.isArray(monster.relics) ? monster.relics : [])
+    const relicIds = new Set((Array.isArray(monster.relics) ? monster.relics : [])
       .map((entry) => String((entry as GameRecord | null)?.rid)));
-    return { artifacts, relics: canEquipRelics(monster)
-      ? readRelics(game).filter((relic) => engraved.has(relic.id)) : [] };
+    return { artifacts, relics: canEngraveRelics(monster)
+      ? readRelics(game).filter((relic) => relicIds.has(relic.id)) : [] };
   }, [game, monster]);
 
   /* Read from the copy's own record, where the export keeps what a monster
-     wears, through the one rune reader every page uses. */
-  const wornRunes = useMemo(() => (Array.isArray(monster?.runes) ? monster.runes : [])
+     has engraved, through the one rune reader every page uses. */
+  const engravedRunes = useMemo(() => (Array.isArray(monster?.runes) ? monster.runes : [])
     .map(readRune).filter((rune): rune is Rune => rune !== null), [monster]);
 
-  /* What the copy wears, written the way a desired build is, so the two read
+  /* What the copy has engraved, written the way a desired build is, so the two read
      against each other without translation. */
   const currentBuild = useMemo(
     () => (monster ? runeBuildName(activeRuneSets(monster).map((set) => set.name)) : ''),
@@ -315,8 +315,8 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
   );
 
   const shortfalls: Shortfall[] = useMemo(
-    () => (monster ? monsterShortfalls(monster, resolved, worn) : []),
-    [monster, resolved, worn],
+    () => (monster ? monsterShortfalls(monster, resolved, engraved) : []),
+    [monster, resolved, engraved],
   );
   const statShortfalls = useMemo(() => {
     const byStat = new Map<string, Shortfall[]>();
@@ -328,7 +328,7 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
     return byStat;
   }, [shortfalls]);
 
-  /* The same reason the preset editor keeps its focus call alone: this effect
+  /* The same reason the role editor keeps its focus call alone: this effect
      re-runs whenever `dirty` flips or the page re-renders around it, and a
      re-run would pull the caret back to the first field mid-edit. */
   useEffect(() => { firstField.current?.focus(); }, []);
@@ -578,27 +578,27 @@ export function MonsterOverlay({ target, game, general, preferences, onSave, onC
           </Section>}
         </div>
 
-        <div className="monster-overlay-worn">
+        <div className="monster-overlay-engraved">
           {monster === undefined
             ? <p className="notice">
               You do not own a copy of this monster, so there is nothing to set preferences on.
-              What the wider player base equips is below.
+              What the wider player base engraves is below.
             </p>
             : <>
-              {/* What the copy wears, written the way a desired build is, so the
+              {/* What the copy has engraved, written the way a desired build is, so the
                   two read against each other without translation. */}
-              <Section title="Equipped runes" note={currentBuild === '' ? 'No runes equipped' : currentBuild}>
-                <WornRunes runes={wornRunes} format={format} />
+              <Section title="Engraved runes" note={currentBuild === '' ? 'No runes engraved' : currentBuild}>
+                <EngravedRunes runes={engravedRunes} format={format} />
               </Section>
-              <Section title="Equipped artifacts">
-                <WornArtifacts artifacts={worn.artifacts} format={format} />
+              <Section title="Engraved artifacts">
+                <EngravedArtifacts artifacts={engraved.artifacts} format={format} />
               </Section>
               <Section title="Engraved relics">
-                <WornRelics relics={worn.relics} format={format} />
+                <EngravedRelics relics={engraved.relics} format={format} />
               </Section>
             </>}
           {/* The population's artifacts, as reference beside what this copy
-              wears rather than inside the answers. Relics are left out: their
+              has engraved rather than inside the answers. Relics are left out: their
               statistics are one unique nearly every monster leads with, and say
               almost nothing about this one (`ARTIFACT-CANONICAL.md` §19.3). */}
           <Section title="Most common artifacts">

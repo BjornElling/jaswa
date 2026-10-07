@@ -7,7 +7,7 @@ import type { Artifact, ArtifactSubProperty } from '../artifacts';
 import type { ArtifactCategory, ArtifactMainProperty } from '../artifact-properties';
 import type { GameRecord } from '../game-data';
 import { copyArtifactMainBands, honouredMainStat } from '../main-stat-model';
-import { canEquipArtifacts } from '../monster-equipment-eligibility';
+import { canEngraveArtifacts } from '../monster-engrave-eligibility';
 import type { MonsterCopyPreferences, MonsterPreferences } from '../monster-preferences';
 import { statedBand } from '../monster-preferences';
 import { monsterSpeciesPresentation } from '../monster-catalog';
@@ -37,7 +37,7 @@ function masterIdElement(masterId: string): number {
 }
 
 /**
- * The equip class as a comparison code, or `intangibleRestrictionCode` for an
+ * The engrave class as a comparison code, or `intangibleRestrictionCode` for an
  * Intangible artifact, which matches every monster its category allows.
  *
  * `readArtifact` has already rejected any artifact whose class cannot be named,
@@ -56,7 +56,7 @@ export function artifactRestriction(artifact: Artifact): number {
 }
 
 /**
- * The equip rule (§1) for an artifact and one monster species, named rather
+ * The engrave rule (§1) for an artifact and one monster species, named rather
  * than packed. The rule itself is `artifactFitsClassCodes`; this reads the four
  * codes out of an artifact object and a species id, so a caller holding those
  * rather than packed inputs asks the same question the scorer asks.
@@ -129,9 +129,9 @@ function packMonster(speciesId: string, category: ArtifactCategory): PackedMonst
  * row would repeat the species row exactly, there is none.
  *
  * The copy inherits the *species'* element and archetype. Those are facts about
- * the monster rather than preferences about the copy, and an artifact's equip
+ * the monster rather than preferences about the copy, and an artifact's engrave
  * rule is checked against them, so taking them from anywhere else would let a
- * copy be offered artifacts it cannot wear.
+ * copy be offered artifacts it cannot take.
  */
 function packCopy(
   monster: GameRecord,
@@ -182,7 +182,7 @@ function ownMonsterSpeciesIds(monsters: readonly GameRecord[]): string[] {
   return [...ids];
 }
 
-/* The equip class as the score protocol codes it. Attribute stones name an
+/* The engrave class as the score protocol codes it. Attribute stones name an
    element and type stones an archetype, on the same numbering the artifacts
    themselves use, so a stone and an artifact are compared on one scale. */
 const stoneClassCodes: Record<ArtifactCategory, Record<number, number>> = {
@@ -191,7 +191,7 @@ const stoneClassCodes: Record<ArtifactCategory, Record<number, number>> = {
 };
 
 /**
- * The engraved stones usable on each equip class of one category, as compact
+ * The engraved stones usable on each engrave class of one category, as compact
  * property indexes.
  *
  * A stone is engraved for a single class and converts nothing else
@@ -207,7 +207,7 @@ export function ownedConversionPropertyIndexesByClass(
   const byClass: Record<number, Set<number>> = {};
   for (const stone of readEngravedConversionStones(data)) {
     if (stone.category !== category) continue;
-    const classCode = stoneClassCodes[category][stone.equipClassCode];
+    const classCode = stoneClassCodes[category][stone.engraveClassCode];
     const propertyIndex = artifactPropertyIndex.get(stone.propertyId);
     if (classCode === undefined || propertyIndex === undefined) continue;
     (byClass[classCode] ??= new Set()).add(propertyIndex);
@@ -216,15 +216,15 @@ export function ownedConversionPropertyIndexesByClass(
 }
 
 /**
- * The stones usable on one equip class, for the verification script and for
+ * The stones usable on one engrave class, for the verification script and for
  * anything asking the question about a single artifact rather than a matrix.
  */
 export function ownedConversionPropertyIndexesFor(
   data: GameRecord | undefined,
   category: ArtifactCategory,
-  equipClassCode: number,
+  engraveClassCode: number,
 ): number[] {
-  return ownedConversionPropertyIndexesByClass(data, category)[equipClassCode] ?? [];
+  return ownedConversionPropertyIndexesByClass(data, category)[engraveClassCode] ?? [];
 }
 
 /** Every current property any owned engraved stone names, for reporting a count. */
@@ -277,7 +277,7 @@ function copyRows(
   const names = monsterCopyNames(roster, monsterPreferences);
   const rows: PackedMonsterScoreInput[] = [];
   for (const monster of roster) {
-    if (monster.unit_id === undefined || monster.unit_id === null || !canEquipArtifacts(monster)) continue;
+    if (monster.unit_id === undefined || monster.unit_id === null || !canEngraveArtifacts(monster)) continue;
     const stated = monsterPreferences[String(monster.unit_id)];
     const speciesId = monsterSpeciesId(String(monster.unit_master_id));
     /* A copy's row stands beside its species' row, so a species the request

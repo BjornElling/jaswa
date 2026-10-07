@@ -57,7 +57,7 @@ export function SpeedTeamOverlay({
 
   /* What-ifs are saved with the team, so an experiment is there the next time
      it is opened, and typing one is an edit like any other. But only this
-     overlay reads them: the page judges the runes worn and never passes them. */
+     overlay reads them: the page judges the runes engraved and never passes them. */
   const whatIfs = useMemo(() => new Map(draft.members.flatMap((member) =>
     member.whatIfDisplaySpeed === undefined ? [] : [[member.unitId, member.whatIfDisplaySpeed] as const])), [draft]);
   const reading = useMemo(() => readSpeedTeam({ team: draft, monsters, totemPercent: totemShare, whatIfs, ranges: true }),

@@ -185,7 +185,7 @@ try {
   console.log(`Snapshot from ${logPath}\n`);
 
   const { readArtifact } = await server.ssrLoadModule('/app/lib/artifacts.ts');
-  const { artifactEquipClass } = await server.ssrLoadModule('/app/lib/artifact-grid.ts');
+  const { artifactEngraveClass } = await server.ssrLoadModule('/app/lib/artifact-grid.ts');
   const { createImportedGame, validateGameFile } = await server.ssrLoadModule('/app/lib/file-imports.ts');
   const { accountCounts } = await server.ssrLoadModule('/app/lib/account-counts.ts');
   const { readDeckPresets } = await server.ssrLoadModule('/app/lib/deck-presets.ts');
@@ -198,7 +198,7 @@ try {
 
   /* These are the game's account counts at the snapshot boundary. The helper
      and file routes must both arrive at these same numbers after they merge
-     account-level and equipped copies. */
+     account-level and engraved copies. */
   const rawUnits = Array.isArray(snapshot.unit_list) ? snapshot.unit_list : [];
   const rawNormalStorage = Array.isArray(snapshot.unit_storage_normal_list) ? snapshot.unit_storage_normal_list : [];
   const rawStorage = Array.isArray(snapshot.unit_storage_list) ? snapshot.unit_storage_list : [];
@@ -251,7 +251,7 @@ try {
   console.log(`  saved decks with missing physical runes: ${importedDecks.filter((deck) => deck.missingRuneIds.length).length}`);
   console.log(`  saved decks with missing physical artifacts: ${importedDecks.filter((deck) => deck.missingArtifactIds.length).length}`);
 
-  /* An equipped item lives below its owner in the export as well as in the
+  /* An engraved item lives below its owner in the export as well as in the
      account list. Parity is measured after that merge, against the union of
      both places, so an item present only under its owner still has to arrive. */
   const rawArtifactIds = expectedCounts.artifacts.ids;
@@ -262,7 +262,7 @@ try {
   const rejected = read.filter((entry) => entry.artifact === null);
   const accepted = read.filter((entry) => entry.artifact !== null);
 
-  console.log(`Artifacts in snapshot (account + equipped, de-duplicated): ${rawArtifactIds.size}`);
+  console.log(`Artifacts in snapshot (account + engraved, de-duplicated): ${rawArtifactIds.size}`);
   console.log(`Artifacts after import merge: ${artifactRecords.length}`);
   report(artifactRecords.length === rawArtifactIds.size,
     `the import merge keeps every distinct artifact (${rawArtifactIds.size - artifactRecords.length} lost)`);
@@ -278,8 +278,8 @@ try {
      import, be counted, and then be absent from every recommendation, which is
      the silent shortfall the parity rule forbids. */
   const nameless = accepted.filter((entry) =>
-    artifactEquipClass(entry.artifact) === null && !entry.artifact.intangible);
-  report(nameless.length === 0, `every accepted artifact has a nameable equip class (${nameless.length} nameless)`);
+    artifactEngraveClass(entry.artifact) === null && !entry.artifact.intangible);
+  report(nameless.length === 0, `every accepted artifact has a nameable engrave class (${nameless.length} nameless)`);
 
   const intangible = accepted.filter((entry) => entry.artifact.intangible);
   console.log(`  Intangible (fits any class in its category): ${intangible.length}`);
@@ -336,7 +336,7 @@ try {
   // ---- Runes ---------------------------------------------------------------
   /* Runes have no whole-record reader to audit; what the interface depends on
      is the set id resolving to a name, so an unrecognised set is the rune-side
-     equivalent of an unresolved equip class. */
+     equivalent of an unresolved engrave class. */
   const { runeSetName } = await server.ssrLoadModule('/app/lib/rune-sets.ts');
   const runeRecords = Array.isArray(data.runes) ? data.runes : [];
   const unknownSets = runeRecords.filter((rune) => runeSetName(rune?.set_id) === undefined);

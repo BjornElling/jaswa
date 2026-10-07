@@ -103,7 +103,7 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
     figures[FIGURE_RES] = question[QUESTION_BASE_AT + FIGURE_RES] + effects[ACC_RESISTANCE];
     figures[FIGURE_ACC] = question[QUESTION_BASE_AT + FIGURE_ACC] + effects[ACC_ACCURACY];
 
-    // RUNE-PRESET-METRICS.md §2–4, as rune-potential-metrics.ts states them.
+    // RUNE-ROLE-METRICS.md §2–4, as rune-potential-metrics.ts states them.
     let hp = max(0.0, figures[FIGURE_HP]);
     let def = max(0.0, figures[FIGURE_DEF]);
     let criticalRate = min(1.0, max(0.0, figures[FIGURE_CRI_RATE]) / 100.0);

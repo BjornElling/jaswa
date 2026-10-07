@@ -49,7 +49,7 @@ import {
   runeOptimizationMonsterKey, runeOptimizationResultCounts,
 } from '../lib/rune-optimization-settings';
 import type { CraftUse, RuneOptimizationSettings } from '../lib/rune-optimization-settings';
-import { presetTargetColumns } from '../lib/rune-potential-presets';
+import { roleTargetColumns } from '../lib/rune-roles';
 import { runeSlotMainsBySlot } from '../lib/rune-slot-mains';
 import { activeRuneSets } from '../lib/rune-sets';
 import { runeBuildName } from '../lib/rune-set-pairs';
@@ -78,7 +78,7 @@ const slotNumbers: Record<RuneSlotKey, number> = { slot2: 2, slot4: 4, slot6: 6 
 
 /** The eleven figures under the words the profile uses for them. */
 const figureLabels: Readonly<Record<RankFigure, string>> = Object.fromEntries(
-  presetTargetColumns.map((column) => [column.key, `${column.label}${column.unit ?? ''}`]),
+  roleTargetColumns.map((column) => [column.key, `${column.label}${column.unit ?? ''}`]),
 ) as Record<RankFigure, string>;
 
 const isString = (value: unknown): value is string => typeof value === 'string';
@@ -176,8 +176,8 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
     const display = monsterPresentation(selected.masterId);
     return { unitId: selected.unitId, masterId: selected.masterId, name: selected.name, imageFilename: display.imageFilename, initial: display.shortName };
   }, [selected, unitId]);
-  const wearers = useMemo(() => new Map(options.map((option) => [option.unitId, { name: option.name, masterId: option.masterId }])), [options]);
-  const describeBuild = useCallback((build: CurrentBuild) => buildIssueReading(build, (id) => wearers.get(id)?.name), [wearers]);
+  const monstersByUnitId = useMemo(() => new Map(options.map((option) => [option.unitId, { name: option.name, masterId: option.masterId }])), [options]);
+  const describeBuild = useCallback((build: CurrentBuild) => buildIssueReading(build, (id) => monstersByUnitId.get(id)?.name), [monstersByUnitId]);
 
   const profile = useMemo(() => (selected
     ? profileRequirements(selected.unitId, selected.masterId, preferences.monsterPreferences[selected.unitId])
@@ -191,7 +191,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
   const alwaysCrits = requirements?.alwaysCrits ?? false;
 
   /* The priority list is resolved here, into the copies this one may not take from,
-     so the search reads one list of wearers and never the switch or the order. */
+     so the search reads one list of monstersByUnitId and never the switch or the order. */
   const sparing = settings.runesOnOtherMonsters && !settings.includeHigherPriority;
   const spared = useMemo(() => (sparing ? higherPriorityThan(preferences.monsterPriority, unitId) : []),
     [sparing, preferences.monsterPriority, unitId]);
@@ -337,12 +337,12 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
           </div>
           {/* Always on screen and only enabled with a monster to open, so the
               panel keeps its height whether or not one is chosen. */}
-          <Button size="compact" className="rune-optimization-open-preset" disabled={!selected}
+          <Button size="compact" className="rune-optimization-open-profile" disabled={!selected}
             aria-haspopup="dialog"
             onClick={(event) => {
               if (selected) onOpenMonster({ kind: 'copy', unitId: selected.unitId, masterId: selected.masterId }, event.currentTarget);
             }}>
-            <PencilIcon /><span>Open preset</span>
+            <PencilIcon /><span>Open profile</span>
           </Button>
         </div>
 
@@ -424,7 +424,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
             <RuneBuildField chosen={requirements.builds}
               onChange={(next) => change((state) => ({ ...state, builds: next }))} />
             <Provenance>{changed(sameList(requirements.builds, profile.requirements.builds))
-              ?? (profile.requirements.builds.length === 0 ? 'The preset names no build, so any will do' : '')}</Provenance>
+              ?? (profile.requirements.builds.length === 0 ? 'The profile names no build, so any will do' : '')}</Provenance>
           </div>
           <div className="rune-optimization-slot-row">
             {runeSlotKeys.map((key) => <div className="filter-group rune-optimization-slot" key={key}>
@@ -433,7 +433,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
                 chosen={requirements.slotMains[key]} className="rune-optimization-slot-field"
                 onChange={(next) => change((state) => ({ ...state, slotMains: { ...state.slotMains, [key]: next } }))} />
               <Provenance>{changed(sameList(requirements.slotMains[key], profile.requirements.slotMains[key]))
-                ?? (profile.sources.slots[key] === 'user' ? '' : 'What most players wear')}</Provenance>
+                ?? (profile.sources.slots[key] === 'user' ? '' : 'What most players engrave')}</Provenance>
             </div>)}
             <div className="filter-group rune-optimization-rank">
               <label className="filter-label" htmlFor="rune-optimization-rank">Rank by</label>
@@ -475,9 +475,9 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
               && requirements.ceilings[key] === profile.requirements.ceilings[key])) ?? ''}</Provenance>
           </div>
           {/* Under the question it undoes, and always there: disabled until
-              something here differs from the preset. */}
+              something here differs from the profile. */}
           <div className="rune-optimization-reset">
-            <Button size="compact" disabled={!edited} onClick={() => setConfirmingReset(true)}>Reset to preset</Button>
+            <Button size="compact" disabled={!edited} onClick={() => setConfirmingReset(true)}>Reset to profile</Button>
           </div>
         </div>
 
@@ -535,21 +535,21 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
         </aside>
       </section>}
 
-      {/* The preset's answers replace every change made here, which cannot be
+      {/* The profile's answers replace every change made here, which cannot be
           undone, so it is asked once. The safe answer takes focus. */}
       {confirmingReset && <Overlay labelledBy="rune-optimization-reset-title" describedBy="rune-optimization-reset-text"
         className="speed-confirm" onClose={() => setConfirmingReset(false)}>
         <div className="overlay-body">
           <div>
-            <p className="eyebrow">Reset to preset</p>
-            <h2 id="rune-optimization-reset-title">Put back what the preset says?</h2>
+            <p className="eyebrow">Reset to profile</p>
+            <h2 id="rune-optimization-reset-title">Put back what the profile says?</h2>
           </div>
           <p id="rune-optimization-reset-text">
-            Every change made here for this calculation — builds, slots, ranking, stats and the set allowances — goes back to the monster’s preset.
+            Every change made here for this calculation — builds, slots, ranking, stats and the set allowances — goes back to the monster’s profile.
           </p>
           <div className="dialog-actions">
             <Button autoFocus onClick={() => setConfirmingReset(false)}>Keep my changes</Button>
-            <Button tone="danger" onClick={() => { setEdits(null); setConfirmingReset(false); }}>Reset to preset</Button>
+            <Button tone="danger" onClick={() => { setEdits(null); setConfirmingReset(false); }}>Reset to profile</Button>
           </div>
         </div>
       </Overlay>}
@@ -573,7 +573,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
     {builds && showingBuild && chosenBuild !== null && builds[chosenBuild] && <RuneBuildOverlay
       index={chosenBuild} buildName={buildNameOf(builds[chosenBuild].runes.map((rune) => rune.setId))}
       moves={builds[chosenBuild].moves} runes={builds[chosenBuild].runes}
-      runesById={runesById} loadedRuneLocations={game?.loadedRuneLocations} monster={buildMonster} wearer={(id) => wearers.get(id)}
+      runesById={runesById} loadedRuneLocations={game?.loadedRuneLocations} monster={buildMonster} engravedOn={(id) => monstersByUnitId.get(id)}
       general={general} canEngrave={canEngrave} onEngrave={onEngrave}
       onClose={closeBuild} onOpenRune={onOpenRune} onOpenMonster={onOpenMonster} />}
   </WorkspacePage>;
@@ -650,7 +650,7 @@ function Results({ answer, builds, rankBy, currentBuild, currentFigures, general
       <tbody>
         <tr className="rune-optimization-current">
           <td className={cell('index')}>Now</td>
-          <td className={cell('build')}>{currentBuild || 'No runes equipped'}</td>
+          <td className={cell('build')}>{currentBuild || 'No runes engraved'}</td>
           <td className={cell('moves')}>—</td>
           {monsterStatTargetKeys.map((key) => <td key={key} className={cell(key)}>
             {formatNumber(currentFigures[figureIndex(key)], general)}

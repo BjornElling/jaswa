@@ -43,12 +43,12 @@ A monster carries **exactly two artifacts**, one of each category:
 | **Type Artifact** | type | Attack, Defense, HP, Support |
 
 A Wind/Attack Teshar takes one Wind artifact and one Attack artifact. It cannot
-equip a Water, HP, or Support artifact. This is the fundamental equip rule, and
+engrave a Water, HP, or Support artifact. This is the fundamental engrave rule, and
 it is the first thing validation checks.
 
-**A monster must be evolved to six stars before it can equip either artifact.**
+**A monster must be evolved to six stars before it can engrave either artifact.**
 This is an eligibility rule before category or class matching: JASWA never
-scores, recommends, or displays an artifact as equipped on a lower-star copy.
+scores, recommends, or displays an artifact as engraved on a lower-star copy.
 The artifact remains in the account's collection and may be recommended to a
 six-star monster.
 
@@ -61,9 +61,9 @@ slot, or an Intangible type artifact in its type slot; it can never take an
 attribute artifact in the type slot. §15.1 records the encoding and the
 evidence.
 
-**A monster may wear at most one Intangible artifact.** The wildcard may fill
+**A monster may have at most one Intangible artifact engraved.** The wildcard may fill
 either its Attribute or its Type slot, never both at once. This is a
-cross-category equip rule: it constrains a monster's two slots together, while
+cross-category engrave rule: it constrains a monster's two slots together, while
 the category rule above still decides which individual slot an artifact fills.
 
 Each artifact has:
@@ -83,7 +83,7 @@ A workable shape for the model:
 ```ts
 interface Artifact {
   category: 'ATTRIBUTE' | 'TYPE';
-  equipClass: Attribute | MonsterType;
+  engraveClass: Attribute | MonsterType;
 
   mainStat: 'HP_FLAT' | 'ATK_FLAT' | 'DEF_FLAT';
   naturalGrade: 'NORMAL' | 'MAGIC' | 'RARE' | 'HERO' | 'LEGEND';
@@ -111,7 +111,7 @@ There are only three, and each ends at a fixed value:
 | ATK | +100 ATK |
 | DEF | +100 DEF |
 
-Because a monster wears two artifacts, artifacts alone can contribute +3,000
+Because a monster takes two artifacts, artifacts alone can contribute +3,000
 HP, +200 ATK, +200 DEF, or any mixture such as +1,500 HP with +100 DEF. Both
 artifacts may carry the same main stat.
 
@@ -308,7 +308,7 @@ artifacts may still carry the separate legacy names (§12).
 
 *X* is one of Fire, Water, Wind, Light, Dark — ten properties in total.
 
-**It is the target's element that matters**, not the wearer's. A Wind unit with
+**It is the target's element that matters**, not that of the monster it is engraved on. A Wind unit with
 `Damage Dealt on Water +18%` gains that bonus against Water opponents.
 
 ### 5.3 Available on both categories
@@ -467,7 +467,7 @@ Applied in the reduction bucket, **after** additional damage has been added
 Merged in v8 from the former separate `Counterattack Damage` and `Attacking
 Together Damage`. Applies when the unit participates in that attack type; for
 co-op it covers both the unit pulled into the team-up and the participating
-unit wearing the artifact.
+unit the artifact is engraved on.
 
 ### 6.9 Bomb Damage — a multiplier on the bomb result
 
@@ -712,7 +712,7 @@ dropped with for as long as it exists, and `convertedPropertyIndex` is `null` on
 every one of them.
 
 This follows the shape of the mechanic rather than contradicting it. §15.12
-records that a stone is engraved for **one equip class** and converts nothing
+records that a stone is engraved for **one engrave class** and converts nothing
 else, and §15.1 records that an Intangible names no class at all. There is no
 class for a stone to match, so there is no stone the artifact can accept — the
 wildcard that makes an Intangible fit every monster is the same fact that leaves
@@ -1127,7 +1127,7 @@ strength. Pick one per surface, label it, and never average them.
    ranges, legacy property names. Secondary; superseded by current official text
    or reproducible client observation on conflict.
 8. **The user's own account**, read from a `HubUserLogin` response on
-   August 30, 2026: 1,251 account artifacts and 534 equipped, 1,785 records.
+   August 30, 2026: 1,251 account artifacts and 534 engraved, 1,785 records.
    Primary and checkable, and the basis of §15. It settles the field layout, the
    property vocabulary and its category split, the power-up encoding and its
    grade invariant, the conversion slot, and how legacy properties are
@@ -1142,7 +1142,7 @@ property ID must never receive a silent fallback rule.
 ## 15. The export encoding — settled
 
 **Answered August 30, 2026** against a real `HubUserLogin` response: 1,251
-account artifacts and 534 equipped ones, 1,785 records in total. Every claim
+account artifacts and 534 engraved ones, 1,785 records in total. Every claim
 below is a count over that data, not an inference from a guide. The section
 that preceded this one listed six open questions; five are now closed and the
 sixth is narrowed to a single field.
@@ -1152,8 +1152,8 @@ sixth is narrowed to a single field.
 ```jsonc
 {
   "rid": 319233427,          // the artifact's own id
-  "occupied_id": 0,          // 0 when unequipped; otherwise the wearer's unit_id
-  "slot": 0,                 // 0 when unequipped; else 1 = Attribute, 2 = Type
+  "occupied_id": 0,          // 0 in inventory; otherwise the unit_id it is engraved on
+  "slot": 0,                 // 0 in inventory; else 1 = Attribute, 2 = Type
   "type": 2,                 // 1 = Attribute artifact, 2 = Type artifact
   "attribute": 0,            // element, on type 1 only
   "unit_style": 2,           // monster type, on type 2 only
@@ -1170,7 +1170,7 @@ sixth is narrowed to a single field.
 **`type` decides which of `attribute` and `unit_style` carries meaning**, and
 the other is `0`. In 1,251 records a non-zero `attribute` appeared only on
 `type: 1` and a non-zero `unit_style` only on `type: 2`, with no exceptions.
-`slot` agrees with `type` on every equipped artifact (`1/1` and `2/2`), so it is
+`slot` agrees with `type` on every engraved artifact (`1/1` and `2/2`), so it is
 a second statement of the same fact rather than an independent one.
 
 **`rank` and `level` are constants.** All 1,785 records are `rank: 5`,
@@ -1178,11 +1178,11 @@ a second statement of the same fact rather than an independent one.
 build a level or upgrade path; there is nothing to model. `extra` was empty on
 every record, and `natural_rank` never fell below 3.
 
-**The value 98 is the Intangible equip class — settled September 1, 2026.**
+**The value 98 is the Intangible engrave class — settled September 1, 2026.**
 It appears in `attribute` (25 records) and `unit_style` (6) across the 1,862
 artifacts of the user's account. The game names it in the artifact panel:
 **"Intangible Type Artifact"**. It is the same wildcard concept
-`RUNE-CANONICAL.md` §10 records for the Intangible rune, applied to the equip
+`RUNE-CANONICAL.md` §10 records for the Intangible rune, applied to the engrave
 restriction rather than to the set.
 
 **An Intangible artifact fills its category slot but matches every class inside
@@ -1208,7 +1208,7 @@ archetypes 1–4) so no restricted artifact can collide with it. `fits` in
 it identically; a disagreement there would make the two backends return
 different candidate sets for the same account.
 
-**An equip class JASWA cannot name is rejected, not imported.** `readArtifact`
+**An engrave class JASWA cannot name is rejected, not imported.** `readArtifact`
 refuses a record whose class is neither a named element/type nor Intangible.
 Under `AGENTS.md` §0.1 the loud failure is the point: accepting one would import
 an artifact the user owns and then hide it from every recommendation, because no
@@ -1227,7 +1227,7 @@ always zero. The id/value pairs observed are exactly three, and only three:
 | 101 | 100 | ATK +100 |
 | 102 | 100 | DEF +100 |
 
-This **confirms `equipmentPrimaryTypes` in `app/lib/monster-grid.ts`** and the
+This **confirms `gearPrimaryTypes` in `app/lib/monster-grid.ts`** and the
 `pri_effect[1]` addition in `app/lib/monster-stats.ts`. Both were right, and the
 distribution is near-even: 424 HP, 408 ATK, 419 DEF.
 
@@ -1340,7 +1340,7 @@ The conversion position is now settled by the game panel (§15.6). The fifth
 field's broader numeric meaning remains unmodelled: it is retained solely as a
 legacy lock fallback, and its magnitude does not enter any calculation.
 `attribute`/`unit_style` value 98 was the other uncertainty and is now settled
-as the Intangible equip class (§15.1).
+as the Intangible engrave class (§15.1).
 
 ### 15.9 Corrections from building the reader — August 30, 2026
 
@@ -1496,7 +1496,7 @@ attribute stone always carries an element and archetype `0`, a type stone
 always the reverse. That is what lets one code carry the class unambiguously,
 and a record filling both is malformed rather than merely unusual.
 
-**A stone is engraved for one equip class, and the class binds.** A Water stone
+**A stone is engraved for one engrave class, and the class binds.** A Water stone
 converts a Water attribute artifact and no other. Any model that treats an
 owned stone as usable on every artifact of its category overstates what the
 account can actually do — for this account, 21 properties available to a Water
@@ -1723,12 +1723,12 @@ So a preferred main adds 2 points, an acceptable main `2a`, and an unwanted main
 its sub properties earned. That is the whole change, and the one it repairs is
 `if (main === 0) return 0`, which also skipped the conversion search: an artifact
 on the wrong main was not merely scored at zero, it was never offered a
-conversion that would have made it worth equipping elsewhere.
+conversion that would have made it worth engraving elsewhere.
 
 ### The benchmark must be an artifact that can exist, on a monster that exists
 
 The benchmark is **the best artifact the game can build on the profile the
-monsters actually offer, wearing the main property that monster wants**: a
+monsters actually offer, carrying the main property that monster wants**: a
 preferred main, a Legend whose preferred line holds four maximum rolls, and
 three acceptable lines of one maximum roll each. Its lines hold 4, 1, 1 and 1
 contributions — seven of the eight a finished Legend has, so it is buildable
@@ -1823,7 +1823,7 @@ stood here — median 43 %, p90 63 %, p99 77 %, best 106 % — were measured on 
 multiplier model. The top of that distribution is undisturbed, since the
 benchmark gained the main property on both sides of the fraction: the same best
 artifact reads about 104 %. The middle rises, because a preferred main is now a
-floor of `2 / (7 + a)` — about 27 % — that every artifact wearing one keeps
+floor of `2 / (7 + a)` — about 27 % — that every artifact carrying one keeps
 whatever its lines rolled. That lift is the repair working, not drift, but it is
 an arithmetic projection rather than a measurement: re-measure before quoting a
 distribution, and before cutting any threshold that reads one (§18.2).
@@ -1855,14 +1855,14 @@ A monster category with no property preferences is **not judged** and returns
 `undefined`; a judged category whose artifact matches nothing it chose — main
 property included — returns the real value `0`. Since §16.1 that takes all five
 terms, so a zero now means the artifact is genuinely useless to this monster
-rather than merely wearing the wrong flat stat. Invalid roll data is rejected as
+rather than merely carrying the wrong flat stat. Invalid roll data is rejected as
 `undefined`, never clamped or repaired.
 
 ---
 
 ## 17. The optimizer's purpose, and the rules that follow from it
 
-The workspace answers **one** question: *which artifact, wearing which
+The workspace answers **one** question: *which artifact, carrying which
 conversion, belongs in each monster's Attribute and Type slots?*
 
 It ranks every positive artifact/monster score together, locks the highest pair
@@ -1897,9 +1897,9 @@ claims after every pass; a duplicate artifact, a second Intangible, or a third
 artifact for a monster fails loudly rather than silently becoming advice.
 
 The table shows the complete result, not only moves: **Keep** is a selected
-artifact already on its locked monster, **Equip** is a selected artifact that
+artifact already on its locked monster, **Engrave** is a selected artifact that
 belongs elsewhere, and every unselected artifact says **Sell**. This preserves
-the one-to-one plan and prevents an equipped artifact from disappearing merely
+the one-to-one plan and prevents an engraved artifact from disappearing merely
 because no move is required.
 
 A score of zero means that an artifact is legal but contributes nothing. It is
@@ -2002,7 +2002,7 @@ would invite the user to spend a stone on the concession.
 ### 17.6 A recommendation names the stone it would spend
 
 Where a recommendation depends on an engraved conversion stone, it says **which
-stone** — its grade and equip class, as the game names them, in the shortest
+stone** — its grade and engrave class, as the game names them, in the shortest
 form that still identifies the item the user has to go and find:
 `Legend Water stone`, `Rare Attack stone`. The property is already named by the
 conversion itself, so the stone label does not repeat it.
@@ -2021,7 +2021,7 @@ each page invites the three views to disagree about the same account.
 The library's own `Include` toggle is not an exception to this, because it is
 not the same question. Settings asks whether these artifacts should be *judged*;
 the library's toggle asks only whether they are *listed*, the way its Location
-buttons ask whether equipped ones are. The library is deliberately separate from
+buttons ask whether engraved ones are. The library is deliberately separate from
 the workspace — it answers what the account owns, not what to change — so a
 view filter there decides nothing about a recommendation. It defaults to on:
 these are artifacts the account holds, and a library that omitted them by
@@ -2092,9 +2092,9 @@ are in the figure, or the figure is not the one to print.
 The recommendation table answers both "where is this artifact now" and "where
 would the plan put it", and those are separate filters — **Location before**
 and **Location after**. Before reads the import; after reads the allocation:
-equipped if a monster was allocated the artifact, inventory if the advice is to
+engraved if a monster was allocated the artifact, inventory if the advice is to
 sell it. The two partition the rows identically and independently, so
-`after: Equipped` always yields exactly as many rows as the summary reports
+`after: Engraved` always yields exactly as many rows as the summary reports
 filled slots — a cross-check the user can perform by eye, once **Already
 matching** is off. With it on, as the view opens, the difference between the
 two figures is precisely the rows it hides: 558 filled slots, 19 already
@@ -2105,8 +2105,8 @@ artifact already sits on the monster the plan names, which is the `Keep`
 action.
 
 **The view opens on the work list.** Two of these filters start applied:
-`Location after: Equipped` and `Already matching: Hide`. What remains is the
-plan's *unfinished* part — the artifacts it would equip, minus the ones already
+`Location after: Engraved` and `Already matching: Hide`. What remains is the
+plan's *unfinished* part — the artifacts it would engrave, minus the ones already
 where it wants them — because that is the list the user acts from, and it is a
 fraction of the whole: 539 rows of the captured account's 1,862.
 
@@ -2258,7 +2258,7 @@ already left behind, and offering it back is offering a different monster.
 Scope is one element's chain, not the family. `Kyle` never answers a search for
 `Todd`: they are the Water and Fire awakenings of one release, separate monsters
 that merely awaken alike, and element decides which artifacts a monster may even
-wear.
+take.
 
 **Both monster tables answer this way.** *September 10, 2026.* Stats and Numbers
 each present a search box, and two controls that look alike must behave alike:
@@ -2268,8 +2268,8 @@ page and missed it on the other. Both now read `withHigherAwakenings`, and
 the pair cannot drift again.
 
 Stats also matches a monster's rune sets, which Numbers has no column for. That
-match seeds no widening: `fight` names the equipment a particular copy is
-wearing, not a monster whose awakened form is also wanted.
+match seeds no widening: `fight` names the gear a particular copy has
+engraved, not a monster whose awakened form is also wanted.
 
 **The seed is the whole account; the result is the page's own rows.**
 *September 10, 2026.* Reading both from the rows a table lists left Stats still
@@ -2316,8 +2316,8 @@ Two consequences for the Stats table, both about reading order:
 
 - **Gear reads as one block.** Artifacts and Relic sat at the far right, past
   nine stat columns, though they answer the same question the rune sheet does:
-  what is this monster *wearing*. They now follow Runes directly, and the run of
-  stats is unbroken by them. The `.equipment-start` inset moves with them and
+  what does this monster have *engraved*. They now follow Runes directly, and the run of
+  stats is unbroken by them. The `.gear-start` inset moves with them and
   still does its old job — separating the compact pair from the sets without a
   rule drawn through the table. Having left the numeric run, the pair is
   **left-aligned**: `HP/ATK` and `DEF` are codes, not quantities, so there are no
@@ -2325,7 +2325,7 @@ Two consequences for the Stats table, both about reading order:
   reaching for a right edge it no longer shares with anything.
 - **A derived figure sits a step back.** `E.HP`, `E.HP D` and `DMG` are computed
   from the stats beside them rather than read off the export, so they take the
-  same `dim` the level column has always worn. Full ink is for what the game
+  same `dim` the level column has always engraved. Full ink is for what the game
   itself states. This is the two-tone device of `AGENTS.md` §5 and not a new
   colour: nothing is tinted, and the figures keep their own column and width.
 
@@ -2471,12 +2471,12 @@ dungeon — and a model that cannot say so is describing the game rather than th
 account.
 
 `unit_id` is the right key because the game already treats it as the copy's
-permanent name: an artifact records its wearer by it, so a record survives
+permanent name: an artifact records the monster it is engraved on by it, so a record survives
 re-importing the same account and ends only when the copy is sold.
 
 **This reverses an earlier decision**, which held preferences per species on the
 grounds that a preference says what a *kind* of monster is for. That is true of
-the defaults and false of the statement: what the player base equips is a fact
+the defaults and false of the statement: what the player base engraves is a fact
 about the species, and what this copy is being built for is a fact about the
 copy.
 
@@ -2506,15 +2506,15 @@ Every page asking about an owned copy reads its own row where it has one and its
 species' row otherwise (`artifactScoreRow`), and passes the owner's statements
 into the request so that row can exist. It inherits the species' element and archetype, because
 those are facts about the monster rather than preferences about the copy and the
-equip rule is checked against them.
+engrave rule is checked against them.
 
 `npm run verify:artifact-score-agreement` holds both readers to one answer on
-both kinds of row: it compares every equipped artifact against its species and
+both kinds of row: it compares every engraved artifact against its species and
 then again against two stated copies — one answering in both bands, so the worth
 of an accepted line is compared, and one cleared to `Any`.
 
 A preference is keyed by **`(category, property)`**, not by property alone. A
-monster wears one artifact of each category, so "which property do I want here"
+monster takes one artifact of each category, so "which property do I want here"
 is genuinely two questions: a `Life Drain` roll on the Attribute artifact is a
 different opportunity from one on the Type artifact and competes against a
 different set of alternatives. The fourteen properties available on both
@@ -2613,9 +2613,9 @@ even — a slot's leader routinely takes half of it — so 40 % discriminates he
 despite the value count.
 
 **Rune set** could not inherit any of them, for two reasons. Its shares are
-*participation rates* rather than a partition: a build wearing two sets votes for
+*participation rates* rather than a partition: a build with two sets votes for
 both, so they sum to about 1.7, and a cut has to sit higher to mean "a clear
-leader". And a monster wears two sets at once, so the right answer is about two
+leader". And a monster has two sets engraved at once, so the right answer is about two
 preferred sets: 35 % yields 1.96, where 40 % undershoots at 1.67 and 30 %
 overshoots at 2.30.
 

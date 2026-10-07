@@ -7,8 +7,8 @@
  * `provisionalRuneScore` below, which is the one seam the real scorer replaces.
  */
 import { calculateRuneEfficiency } from './rune-potential-metrics';
-import type { RunePotentialPreset } from './rune-potential-presets';
-import { runeMainStatIds } from './rune-potential-presets';
+import type { RuneRole } from './rune-roles';
+import { runeMainStatIds } from './rune-roles';
 import { craftItemRoll } from './rune-craft-end-state';
 import type { CraftItem, CraftRollAssumption } from './rune-craft-items';
 import type { ItemGrade } from './types';
@@ -97,12 +97,12 @@ export function craftItemFit(item: CraftItem, rune: Rune): CraftFit {
 /**
  * ————— PROVISIONAL —————
  *
- * What a rune is worth. Rune scoring against a preset is not built yet, so this
+ * What a rune is worth. Rune scoring against a role is not built yet, so this
  * stands in for it: SWOP's published rune efficiency, which
  * `rune-potential-metrics.ts` already implements and which reads the main
  * property, the innate and every sub property with its grindstone bonus
  * included. It is therefore a real reading and it does move when a gem or a
- * grindstone lands — but it is *role-blind*, and the preset a user chooses
+ * grindstone lands — but it is *role-blind*, and the role a user chooses
  * currently narrows which runes are offered rather than changing this figure.
  *
  * Every view that reports a score goes through this one function, so the real
@@ -242,29 +242,29 @@ export function craftCandidate(
   return best;
 }
 
-/* ------------------------------------------------------------ preset scope */
+/* ------------------------------------------------------------ role scope */
 
 const slotChoiceKeys = { 2: 'slot2', 4: 'slot4', 6: 'slot6' } as const;
 
 /**
- * Whether a preset would have this rune at all.
+ * Whether a role would have this rune at all.
  *
- * Only the two things a preset actually states about a rune are read: the sets
+ * Only the two things a role actually states about a rune are read: the sets
  * the role is built on, and the main stats it accepts in the three slots that
  * carry a choice. Preferred and acceptable count alike here — narrowing a list
  * of candidates is not the place to re-litigate which of the two a role prefers,
- * and a preset that names neither narrows nothing.
+ * and a role that names neither narrows nothing.
  */
-export function presetWantsRune(preset: RunePotentialPreset, rune: Rune): boolean {
-  const sets = [...preset.sets.preferred, ...preset.sets.acceptable];
-  /* Intangible is deliberately absent from the preset vocabulary — it completes
-     a set rather than being one — so a preset can never name it and it is
+export function roleWantsRune(role: RuneRole, rune: Rune): boolean {
+  const sets = [...role.sets.preferred, ...role.sets.acceptable];
+  /* Intangible is deliberately absent from the role vocabulary — it completes
+     a set rather than being one — so a role can never name it and it is
      judged by the set it is standing in for rather than excluded outright. */
   if (sets.length && rune.setName !== 'Intangible' && !sets.includes(rune.setName)) return false;
 
   const key = slotChoiceKeys[rune.slot as 2 | 4 | 6];
   if (!key) return true;
-  const choice = preset.slots[key];
+  const choice = role.slots[key];
   const mains = [...choice.preferred, ...choice.acceptable];
   if (!mains.length) return true;
   return mains.some((stat) => runeMainStatIds[stat] === rune.mainStatId);

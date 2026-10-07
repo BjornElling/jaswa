@@ -31,7 +31,7 @@ import {
 } from '../lib/relic-monster-grid';
 import type { RelicMonsterRow, RelicMonsterSortKey } from '../lib/relic-monster-grid';
 import { formatDecimal, formatNumber } from '../lib/formatting';
-import { canEquipRelics } from '../lib/monster-equipment-eligibility';
+import { canEngraveRelics } from '../lib/monster-engrave-eligibility';
 import { useSessionStorageState } from '../lib/session-storage-state';
 
 /* The game caps monsters at 40 today, so a level below that is not maxed. A
@@ -59,7 +59,7 @@ type RelicMonsterFilterState = {
    * engraving first — so this leaves the monsters that can be acted on today.
    *
    * Not `recommendation.alreadyEngraved`, which is the narrower claim that the
-   * relic it wears is the one this page would give it.
+   * relic it has engraved is the one this page would give it.
    */
   hideAlreadyEngraved: boolean;
   /**
@@ -124,7 +124,7 @@ const relicMonsterColumns: readonly SortableColumn<RelicMonsterRow>[] = (() => {
     column('element', 'Elem'),
     column('archetype', 'Type'),
     column('level', 'LVL'),
-    column('current', <span className="table-heading-two-line" aria-label="The relic this monster wears today">Current<br />relic</span>),
+    column('current', <span className="table-heading-two-line" aria-label="The relic engraved on this monster today">Current<br />relic</span>),
     column('recommended', <span className="table-heading-two-line" aria-label="The relic to engrave on this monster">Recommended<br />relic</span>),
     /* The two score contributions describe the recommended relic, not its popularity. */
     column('mainStat', <span className="table-heading-two-line" aria-label="The recommended main bonus in weighted score points">Main<br />value</span>),
@@ -145,7 +145,7 @@ function halfExplanation(
     ? `${points(value.mainGain)} ${relic.mainProperty}`
     : `${points(value.uniquePercent)} % ${relic.unique.definition.grants}, from ${points(value.sourceValue)} ${relic.unique.definition.per}`;
   return `${points(value[half])} weighted score points; ${effect}; `
-    + (current === null ? 'nothing worn to compare' : `first current relic: ${points(current)} points`)
+    + (current === null ? 'nothing engraved to compare' : `first current relic: ${points(current)} points`)
     + `; total value: ${points(value.score)} points. See The Math for assumptions.`;
 }
 /** A relic cell: the property over its main and level, or an em dash. */
@@ -169,11 +169,11 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
   );
 
   /* The plan's scope, and the only place the roster is narrowed by anything but
-     a display filter. Material monsters wear no equipment, so giving one a
+     a display filter. Material monsters take no engravings, so giving one a
      place on a relic would take that place from a monster that could use it —
      and the account holds fodder by the dozen. */
   const monsters = useMemo(
-    () => roster.filter((monster) => isRelicEngravableMonster(monster.unit_master_id) && canEquipRelics(monster)),
+    () => roster.filter((monster) => isRelicEngravableMonster(monster.unit_master_id) && canEngraveRelics(monster)),
     [roster],
   );
   const {
@@ -186,14 +186,14 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
     String(monster.unit_id ?? `unknown-${index}`), relicMonsterModel(monster),
   ])), [monsters]);
 
-  /* The relics a monster wears, resolved against the account's own relic list
+  /* The relics engraved on a monster, resolved against the account's own relic list
      rather than read out of the monster record. The export repeats the whole
-     relic under every wearer, and the library has already merged and validated
+     relic under every monster it is engraved on, and the library has already merged and validated
      those copies — reading them twice would let a monster show a relic the
      library rejected, which is exactly the invisible row `AGENTS.md` §0.1
      forbids. */
-  const wornByMonster = useMemo(() => {
-    const worn = new Map<string, Relic[]>();
+  const engravedByMonster = useMemo(() => {
+    const engraved = new Map<string, Relic[]>();
     monsters.forEach((monster, index) => {
       const unitId = String(monster.unit_id ?? `unknown-${index}`);
       const list: Relic[] = [];
@@ -209,9 +209,9 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
           if (relic) list.push(relic);
         }
       }
-      worn.set(unitId, list);
+      engraved.set(unitId, list);
     });
-    return worn;
+    return engraved;
   }, [monsters, relicsById]);
 
   /* Every monster the account holds is answered here, whatever the filters above
@@ -225,7 +225,7 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
       return {
         monsterId: unitId,
         model: models.get(unitId)!,
-        wornRelicIds: (wornByMonster.get(unitId) ?? []).map((relic) => relic.id),
+        engravedRelicIds: (engravedByMonster.get(unitId) ?? []).map((relic) => relic.id),
         /* Only saved choices constrain the plan; statistics defaults never score. */
         ...(stated === undefined ? {} : { preferences: stated }),
       };
@@ -235,17 +235,17 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
     );
     assertRelicAllocation(result, subjects);
     return result;
-  }, [monsters, relics, wornByMonster, preferences.monsterPreferences, models]);
+  }, [monsters, relics, engravedByMonster, preferences.monsterPreferences, models]);
 
   const rows = useMemo<RelicMonsterRow[]>(() => {
     const copyNames = monsterCopyNames(monsters, preferences.monsterPreferences);
     return monsters.map((monster, index) => {
       const unitId = String(monster.unit_id ?? `unknown-${index}`);
       const display = monsterPresentation(monster.unit_master_id);
-      const worn = wornByMonster.get(unitId) ?? [];
+      const engraved = engravedByMonster.get(unitId) ?? [];
       const recommendation = allocation.recommendations.get(unitId)!;
-      const verdict = relicMonsterVerdict(recommendation, worn);
-      const current = worn[0] ? relicMonsterValue(worn[0], models.get(unitId)!) : null;
+      const verdict = relicMonsterVerdict(recommendation, engraved);
+      const current = engraved[0] ? relicMonsterValue(engraved[0], models.get(unitId)!) : null;
       const chosen = recommendation.chosen?.value;
       return {
         unitId,
@@ -259,7 +259,7 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
         initial: display.shortName,
         inStorage: isStoredMonster(monster),
         level: numericOrNull(monster.unit_level),
-        worn,
+        engraved,
         recommendation,
         verdict,
         reason: relicMonsterReason({ recommendation, verdict }),
@@ -267,7 +267,7 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
         currentHalves: { main: current?.main ?? null, unique: current?.unique ?? null },
       };
     });
-  }, [monsters, preferences, wornByMonster, allocation, models]);
+  }, [monsters, preferences, engravedByMonster, allocation, models]);
 
   /* A search names a monster, and awakening it does not change which monster it
      is, so a term reaches the forms above what it matched and never the forms
@@ -285,14 +285,14 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
     return rows.filter((row) => {
-      /* `Keep` is precisely "already wearing what the page would recommend", so
+      /* `Keep` is precisely "already has engraved what the page would recommend", so
          hiding it leaves the rows that ask for something — and, like every
          other control here, it drops rows rather than touching a judgement. */
       if (hideAlreadyOptimal && row.verdict === 'keep') return false;
-      /* The relics the monster wears, as the account's own relic list gave them
+      /* The relics engraved on the monster, as the account's own relic list gave them
          — so a row hidden here is one the export really does show engraved, not
          one whose record merely mentions a relic the library rejected. */
-      if (hideAlreadyEngraved && row.worn.length) return false;
+      if (hideAlreadyEngraved && row.engraved.length) return false;
       /* Storage and Inventory are the game's two places a monster can be, so
          the pair is exhaustive: turning both off is a request for nothing. */
       if (!showStorage && row.inStorage) return false;
@@ -306,7 +306,7 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
   }, [rows, search, searchedMasterIds, selectedElements, selectedArchetypes,
     showInventory, showStorage, showBelowMaxLevel, hideAlreadyEngraved, hideAlreadyOptimal]);
 
-  /* The page exists to answer "what should this monster be wearing", so it opens
+  /* The page exists to answer "what should be engraved on this monster", so it opens
      on the rows that want something done rather than on the import's own order:
      Engrave, then Replace, then the rows already carrying their answer. */
   const { sorted, sort, toggle } = useSortedRows(
@@ -339,7 +339,7 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
         ? 'None of these monsters can carry a relic.'
         : 'This import holds no monsters to engrave.'}</h2>
       <p className="next-step">{roster.length
-        ? 'Material monsters wear no equipment, so there is nothing here to plan.'
+        ? 'Material monsters take no engravings, so there is nothing here to plan.'
         : 'Go to Home and drop in the JSON file exported from Summoners War.'}</p>
     </section>;
   }
@@ -414,13 +414,13 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
               onClick={() => setFilters((current) => ({
                 ...current, hideAlreadyEngraved: !current.hideAlreadyEngraved,
               }))}
-              title="Monsters already wearing a relic, whichever relic it is"
+              title="Monsters with a relic already engraved, whichever relic it is"
             >Already engraved</FilterButton>
             <FilterButton active={hideAlreadyOptimal}
               onClick={() => setFilters((current) => ({
                 ...current, hideAlreadyOptimal: !current.hideAlreadyOptimal,
               }))}
-              title="Monsters already wearing the relic this page would give them"
+              title="Monsters with the relic this page would give them already engraved"
             >Already optimal</FilterButton>
           </div>
         </div>
@@ -451,15 +451,15 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
               {formatNumber(row.level, preferences.general)}
             </td>
             <td className={relicMonsterCell('current')}>
-              <RelicCell relic={row.worn[0]} />
+              <RelicCell relic={row.engraved[0]} />
               {/* Parity before tidiness: a monster the export gives more than
                   one relic shows every one of them rather than having the
                   extras quietly dropped from the page. */}
-              {row.worn.length > 1 && <span className="relic-effect">
-                {row.worn.slice(1).map((relic) => relicMonsterRelicLabel(relic)).join(', ')}
+              {row.engraved.length > 1 && <span className="relic-effect">
+                {row.engraved.slice(1).map((relic) => relicMonsterRelicLabel(relic)).join(', ')}
               </span>}
             </td>
-            {/* Where the plan names the relic the monster is already wearing,
+            {/* Where the plan names the relic already engraved on the monster,
                 the cell says so in a word instead of repeating the two lines
                 beside it. The repetition made a row with nothing to do look
                 exactly as busy as a row with a swap to make. */}

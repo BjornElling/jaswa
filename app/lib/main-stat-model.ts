@@ -56,7 +56,7 @@ export type MainStatAdvice = MainStatNeed & Record<GearKind, GearMainAdvice>;
  * 100 %, so every answer has at least one preferred main.
  *
  * - **80 % for preferred.** One six-star sub roll is 5–8 % of base, and a need
- *   measured off worn runes moves by a roll or two with every rune swapped; two
+ *   measured off engraved runes moves by a roll or two with every rune swapped; two
  *   needs within a fifth of each other are a tie inside that noise, and a tie is
  *   two preferred mains rather than a coin toss.
  * - **50 % for acceptable.** A main worth half the best one still takes real work
@@ -88,7 +88,7 @@ function baseStatsOf(monster: GameRecord): BaseStats | undefined {
 const hasNeed = (need: Record<MainStat, number>) => artifactMainPropertyOrder.some((stat) => need[stat] > 0);
 
 /** Six runes, one in each slot: a finished build, which is what a need is read off. */
-export function wearsFullRuneBuild(monster: GameRecord): boolean {
+export function hasFullRuneBuild(monster: GameRecord): boolean {
   const runes = records(monster.runes);
   const slots = new Set(runes.map((rune) => Number(rune.slot_no)));
   return runes.length === 6 && [1, 2, 3, 4, 5, 6].every((slot) => slots.has(slot));
@@ -98,7 +98,7 @@ export function wearsFullRuneBuild(monster: GameRecord): boolean {
    mains. A flat line is a real part of the build and is counted against this
    copy's own base. */
 function runeNeed(monster: GameRecord, base: BaseStats): Record<MainStat, number> | undefined {
-  if (!wearsFullRuneBuild(monster)) return undefined;
+  if (!hasFullRuneBuild(monster)) return undefined;
   const runes = records(monster.runes).map((rune) =>
     (fixedMainSlots.has(Number(rune.slot_no)) ? { ...rune, pri_eff: undefined } : rune));
   const effects = monsterEffects({ runes });

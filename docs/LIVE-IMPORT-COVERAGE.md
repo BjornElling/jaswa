@@ -23,14 +23,14 @@ new reward wrapper names do not silently lose a record.
 
 | Account data | Direct records | Reward records | Removal or movement |
 | --- | --- | --- | --- |
-| Monsters | `unit`, `unit_info`, `target_unit`, `unit_list` | Full unit records in a reward payload | `MoveUnitBuilding` (Monster Storage and back), any request naming a `building_id` and the units moving into it, `remove_unit_id_list`, sacrifice sources, sell requests, and the monsters a `ConvertUnitToItem` request names (crafting Engraved Stones answers with the item alone, so the request is the only record of what it spent; roster and Normal shrine copies both go, and a conversion naming no readable monster or spending an equipped one stops live import) |
+| Monsters | `unit`, `unit_info`, `target_unit`, `unit_list` | Full unit records in a reward payload | `MoveUnitBuilding` (Monster Storage and back), any request naming a `building_id` and the units moving into it, `remove_unit_id_list`, sacrifice sources, sell requests, and the monsters a `ConvertUnitToItem` request names (crafting Engraved Stones answers with the item alone, so the request is the only record of what it spent; roster and Normal shrine copies both go, and a conversion naming no readable monster or spending an engraved one stops live import) |
 | Sealed Shrine | `unit_storage_normal_list` at the top of a response; `unit_storage_list` from `getUnitStorageList` and from the `GetUnitStorageList` inside `GetWizardDataPart1` | — | Those lists are the whole tab and replace the collection. `SacrificeUnit_V4` answers with only the Summoned stacks it fed from — an empty list when every fodder came from the roster — and updates those stacks alone; a fed stack its answer does not restate, or a top-level Summoned list under any other command, stops live import. `MoveStorageFromTo` is read side by side — see below |
-| Runes | `rune`, `rune_info`, `runes` | V2 `changed_item_list` type `8`; legacy `reward.crate.rune(s)`; shop and black-market responses | Upgrade, reappraisal, refine/convert, equip/unequip, sell and remove lists |
+| Runes | `rune`, `rune_info`, `runes` | V2 `changed_item_list` type `8`; legacy `reward.crate.rune(s)`; shop and black-market responses | Upgrade, reappraisal, refine/convert, engrave/remove, sell and remove lists |
 | Artifacts | `artifact`, `artifact_info`, `artifacts` | V2 `changed_item_list` type `73`; legacy reward crates and quest/mail claims | Upgrade, occupation changes, sell and remove lists |
 | Relics | `relic`, `relic_info`, `relics` | Relic-shaped `changed_item_list` records and reward crates | Power-up, occupation changes, breakdown/sell and remove lists; the root relic stays present because one relic can be engraved on many monsters |
 | Gems, grindstones and engraved conversion stones | `rune_craft_item`, `craft`, `craft_item`, `changestone(s)`, craft lists | Craft records inside reward crates and generic account reward containers | Amplify/convert and `SellRuneCraftItem` consume the requested quantity from a stack |
 | Artifact craft materials | `artifact_craft`, `artifact_crafts` | Full artifact-craft records in account reward containers | Explicit artifact-craft removal fields and sell requests |
-| Other account inventory | `inventory_item`, `inventory_info`, `inventory_item_list` | Full inventory rows in account reward containers | Updated by full account rows; opaque currency-only values remain outside the equipment model |
+| Other account inventory | `inventory_item`, `inventory_info`, `inventory_item_list` | Full inventory rows in account reward containers | Updated by full account rows; opaque currency-only values remain outside the gear model |
 
 ## Acquisition paths covered
 
@@ -43,7 +43,7 @@ new reward wrapper names do not silently lose a record.
 - Relic crafting, relic power-ups and relic breakdown rewards.
 - Monster summons, fusion/evolution/awakening/skill changes and feeding when
   the response returns a full or partial account unit.
-- Monster roster/storage moves, one monster or a batch, and equipment
+- Monster roster/storage moves, one monster or a batch, and gear
   occupation changes.
 - Sealing a monster into either Sealed Shrine tab and taking one back out, from
   the game's own answer to the move rather than only from a full account read.
@@ -66,8 +66,8 @@ The stack list in a move's answer holds only the stacks the move touched, so
 it updates those stacks instead of replacing the tab. A stack left at quantity
 zero is removed.
 
-Any other side, a known side answered without the fields above, equipment
-coming off with the seal, or sealing a monster that still carries equipment
+Any other side, a known side answered without the fields above, gear
+coming off with the seal, or sealing a monster that still carries gear
 opens a capture gap and pauses live import. Before this, the helper assumed
 side `3` was Monster Storage. Sealed Summoned copies were filed as Storage, and
 a monster sealed into the Normal tab stayed in the inventory, because an

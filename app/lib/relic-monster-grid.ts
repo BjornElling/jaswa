@@ -25,7 +25,7 @@ export const relicMonsterVerdictLabels: Record<RelicMonsterVerdict, string> = {
 /**
  * Whether this monster can carry a relic at all.
  *
- * **Material monsters wear no equipment**, which `ENGRAVING-STATISTICS.md` §4
+ * **Material monsters take no engravings**, which `ENGRAVING-STATISTICS.md` §4
  * states as the reason the capture list leaves all twelve of them out. On this
  * page that is not a cosmetic matter: engraving capacity is finite, so a
  * Rainbowmon handed a place on the account's best relic takes it from a monster
@@ -57,8 +57,8 @@ export type RelicMonsterRow = {
   /** In Monster Storage; its complement is the roster the game calls Inventory. */
   inStorage: boolean;
   level: number | null;
-  /** The relics this monster wears today, in the order the export lists them. */
-  worn: readonly Relic[];
+  /** The relics engraved on this monster today, in the order the export lists them. */
+  engraved: readonly Relic[];
   recommendation: RelicRecommendation;
   verdict: RelicMonsterVerdict;
   reason: string;
@@ -70,10 +70,10 @@ export type RelicMonsterRow = {
   currentHalves: { main: number | null; unique: number | null };
 };
 
-export function relicMonsterVerdict(recommendation: RelicRecommendation, worn: readonly Relic[]): RelicMonsterVerdict {
+export function relicMonsterVerdict(recommendation: RelicRecommendation, engraved: readonly Relic[]): RelicMonsterVerdict {
   if (!recommendation.chosen) return recommendation.unavailable === 'capacity' ? 'none' : 'unrated';
   if (recommendation.alreadyEngraved) return 'keep';
-  return worn.length ? 'replace' : 'engrave';
+  return engraved.length ? 'replace' : 'engrave';
 }
 
 /** Explain capacity or missing evidence; the two value columns explain scored rows. */
@@ -84,7 +84,7 @@ export function relicMonsterReason(row: {
   const { recommendation, verdict } = row;
   switch (recommendation.unavailable) {
     case 'missing-stats': return 'Import this monster’s base stats.';
-    case 'no-priorities': return 'Equip six runes to establish priorities.';
+    case 'no-priorities': return 'Engrave six runes to establish priorities.';
     case 'no-relics': return 'Import relics to compare.';
     case 'preferences': return 'No owned relic matches your choices.';
   }
@@ -92,9 +92,9 @@ export function relicMonsterReason(row: {
   const chosen = recommendation.chosen;
   if (!chosen) return '';
   if (recommendation.limit === 'capacity') {
-    const displaceable = recommendation.displaceableWearers;
+    const displaceable = recommendation.displaceableMonsters;
     return displaceable > 0
-      ? `Best one is full; ${displaceable} wear it worse.`
+      ? `Best one is full; ${displaceable} use it worse.`
       : `Best one is at its ${relicEngravingLimit} limit.`;
   }
   return '';
@@ -129,7 +129,7 @@ function relicSortText(relic: Relic | undefined): string | null {
 }
 
 function currentRelic(row: RelicMonsterRow): Relic | undefined {
-  return row.worn[0];
+  return row.engraved[0];
 }
 
 function chosenCandidate(row: RelicMonsterRow): RelicCandidate | null {
@@ -194,7 +194,7 @@ export function relicMonsterSearchText(row: RelicMonsterRow): string {
   return [
     row.name,
     row.element ?? '',
-    row.worn.map((relic) => `${relicMonsterRelicLabel(relic)} ${relicMonsterRelicDetail(relic)}`).join(' '),
+    row.engraved.map((relic) => `${relicMonsterRelicLabel(relic)} ${relicMonsterRelicDetail(relic)}`).join(' '),
     chosen ? `${relicMonsterRelicLabel(chosen.relic)} ${relicMonsterRelicDetail(chosen.relic)}` : '',
     relicMonsterVerdictLabels[row.verdict],
     row.reason,

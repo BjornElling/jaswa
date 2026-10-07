@@ -19,8 +19,8 @@
  * Three things are held, and the third is the one that is easy to lose:
  *
  * 1. **The totals.** Keep, Power up and Sell, at `+0`, at `+9`, at `+12` and at `+15`.
- * 2. **The breakdown.** By slot, by preset, and by the rank the rune answered its
- *    preset at — preferred, acceptable, broken — because a stable total made of
+ * 2. **The breakdown.** By slot, by role, and by the rank the rune answered its
+ *    role at — preferred, acceptable, broken — because a stable total made of
  *    unstable parts is not stable, it is two errors cancelling.
  * 3. **The certainties.** A rune at `+12` or `+15` has nothing left to gamble on, so its
  *    chance is `1` or `0` and never a count. A sampled answer there would mean the
@@ -36,7 +36,7 @@
  * other half of that repair) and because the Gem decision is the one part of a rune's
  * end state that depends on how its lines actually rolled.
  */
-import { defaultRunePotentialPresets } from '../app/lib/rune-potential-presets.ts';
+import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
 import { runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
 import { chanceRuns } from '../app/lib/rune-cleanup-model.ts';
 import { countJobs } from '../app/lib/rune-power-up-outcomes.ts';
@@ -166,7 +166,7 @@ const resolutions = [chanceRuns / 4, chanceRuns, chanceRuns * heaviest];
 let failures = 0;
 const check = (condition, message) => { if (!condition) { failures += 1; console.error(`FAIL: ${message}`); } };
 
-const presets = defaultRunePotentialPresets();
+const roles = defaultRuneRoles();
 const bodyRandom = makeRandom(seed);
 const bodies = Array.from({ length: runeCount }, (_, index) => freshBody(bodyRandom, index));
 /* One power-up history, shared by every labeling, so the bodies really are the same
@@ -181,11 +181,11 @@ for (const resolution of resolutions) {
   const stages = {};
   for (const [name, source] of [['+0', bodies], ['+9', atNine], ['+12', atTwelve], ['+15', atFifteen]]) {
     const runes = named(source);
-    const advice = await runeAdvice(runes, presets, settings, referenceStats, countingAt(resolution));
+    const advice = await runeAdvice(runes, roles, settings, referenceStats, countingAt(resolution));
     const tally = {
       keep: 0, 'power-up': 0, sell: 0, retained: 0,
       preferred: 0, acceptable: 0, broken: 0,
-      slots: [0, 0, 0, 0, 0, 0], presets: new Map(),
+      slots: [0, 0, 0, 0, 0, 0], roles: new Map(),
     };
     for (const rune of runes) {
       const answer = advice.get(rune.id);
@@ -196,8 +196,8 @@ for (const resolution of resolutions) {
       tally.retained += 1;
       tally[answer.rank] += 1;
       tally.slots[rune.slot - 1] += 1;
-      const key = answer.preset?.id ?? 'none';
-      tally.presets.set(key, (tally.presets.get(key) ?? 0) + 1);
+      const key = answer.role?.id ?? 'none';
+      tally.roles.set(key, (tally.roles.get(key) ?? 0) + 1);
       /* At +12 and +15 there is nothing left to gamble on, so the engine must have settled
          the answer rather than counted it. */
       if (name === '+12' || name === '+15') {
@@ -255,15 +255,15 @@ for (const stage of ['+0', '+9', '+12', '+15']) {
     const { low, high } = spread(`${stage} retained in slot ${slot + 1}`, (tally) => tally[stage].slots[slot]);
     return `${slot + 1}=${low}${low === high ? '' : `–${high}`}`;
   });
-  const presetIds = [...new Set(tallies.flatMap((tally) => [...tally[stage].presets.keys()]))].sort();
-  const perPreset = presetIds.map((id) => {
-    const { low, high } = spread(`${stage} retained by ${id}`, (tally) => tally[stage].presets.get(id) ?? 0);
+  const roleIds = [...new Set(tallies.flatMap((tally) => [...tally[stage].roles.keys()]))].sort();
+  const perRole = roleIds.map((id) => {
+    const { low, high } = spread(`${stage} retained by ${id}`, (tally) => tally[stage].roles.get(id) ?? 0);
     return `${id} ${low}${low === high ? '' : `–${high}`}`;
   });
   console.log(`${stage.padEnd(4)} ${verdicts.join(', ')}`);
   console.log(`     ranks: ${ranks.join(', ')}`);
   console.log(`     slots: ${slots.join(', ')}`);
-  console.log(`     presets: ${perPreset.join('; ')}\n`);
+  console.log(`     roles: ${perRole.join('; ')}\n`);
 }
 
 /* A box that kept everything or nothing would pass every spread test above while
@@ -271,7 +271,7 @@ for (const stage of ['+0', '+9', '+12', '+15']) {
 /* Two identical runes are one rune as far as the odds are concerned. */
 const twin = { ...clone(atNine[0]), id: 'twin-a', obtainedOrder: 1 };
 const twins = [twin, { ...clone(twin), id: 'twin-b', obtainedOrder: 2 }];
-const twinAdvice = await runeAdvice(twins, presets, settings, referenceStats);
+const twinAdvice = await runeAdvice(twins, roles, settings, referenceStats);
 check(twinAdvice.get('twin-a').chance === twinAdvice.get('twin-b').chance,
   'two identical runes were given different odds: '
   + `${twinAdvice.get('twin-a').chance} against ${twinAdvice.get('twin-b').chance}`);

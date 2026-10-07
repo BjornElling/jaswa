@@ -306,7 +306,7 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
    * a plan that could still complete one more set is never the one that decides —
    * only the *maximal* plans are tried, and of those only the ones no other plan
    * beats on every accumulator. Which plans those are depends on nothing but the
-   * free slots, whether a worn Intangible can still stand in for one missing piece,
+   * free slots, whether an engraved Intangible can still stand in for one missing piece,
    * and how far each planned set already is towards its next completion: a handful
    * of states per search, each worked out once.
    */
@@ -366,7 +366,7 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
    * the question reads, or it is Intangible. Every other set — Violent, Will,
    * Despair, and Energy on a question about DMG — behaves identically in every rule
    * a block applies, so all of them share one group, numbered 0, which no set rule
-   * reads. That stops being true the moment an Intangible can be worn, because which
+   * reads. That stops being true the moment an Intangible can be engraved, because which
    * set it completes depends on which sets are one short; with one in reach every set
    * keeps its own group.
    */
@@ -744,10 +744,10 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
         let missing = 0;
         for (let set = 1; set < setPieces.length; set += 1) {
           if (setPieces[set] === 0 || relevantStatSets.has(set)) continue;
-          const worn = setCounts[set];
-          const finish = !allowBroken ? (setPieces[set] - worn % setPieces[set]) % setPieces[set] : 0;
+          const engraved = setCounts[set];
+          const finish = !allowBroken ? (setPieces[set] - engraved % setPieces[set]) % setPieces[set] : 0;
           const required = build?.needs.find((need) => need.setId === set)?.pieces ?? 0;
-          missing += Math.max(finish, required - worn);
+          missing += Math.max(finish, required - engraved);
         }
         reserved = Math.min(reserved, missing);
       }

@@ -24,14 +24,14 @@ that document were amended to carry, each in its own commit, as its §9 requires
 > was true while a target merely selected a direction; it stopped being true the
 > moment a build's main properties began to be subtracted from what the role still
 > needs. Every compatible build is enumerated again, and the measured cost of doing
-> so is small — 2,000 runes against the eight shipped presets judge in about 500 ms,
+> so is small — 2,000 runes against the eight shipped roles judge in about 500 ms,
 > which is where the engine already stood. Everything else below stands as a record
 > of the engine as it was profiled, and the function names in it are that engine's.
 
-> **Superseded in part, 22 September 2026.** The finite preset allocator and its
+> **Superseded in part, 22 September 2026.** The finite role allocator and its
 > `runeShare` field were removed. The current policy judges each rune independently;
 > the Intangible and 4-set preferences widen their relative retained shares, while
-> no preset quota can sell a rune that passed its gates. Sections below that measure
+> no role quota can sell a rune that passed its gates. Sections below that measure
 > global quotas or allocation indexing are historical performance notes, not current
 > product behaviour.
 
@@ -48,11 +48,11 @@ that document were amended to carry, each in its own commit, as its §9 requires
 > `app/lib/rune-power-up-outcomes.ts` is the arithmetic.
 >
 > What that did to the figures below, measured on 1,500 synthetic runes against the
-> eight shipped presets, in Node, warm: **8.98 s → 2.39 s** with both craft sliders at
+> eight shipped roles, in Node, warm: **8.98 s → 2.39 s** with both craft sliders at
 > maximum, **1.25 s → 0.83 s** with neither, and **9.20 s → 1.92 s** on a box of 400
 > level-0 runes. Three things account for it and only one is the counting — the event
 > schedule collapsing to a *subset* rather than an ordering, a rune being played
-> forward once however many presets ask about it, and a linear valuation being read
+> forward once however many roles ask about it, and a linear valuation being read
 > once per role into a flat array instead of a `Map` lookup per line per branch.
 >
 > Every profile, every flame-graph attribution and every function name below belongs to
@@ -79,7 +79,7 @@ inside one function, `convolveDistribution`, and **two thirds of the total runti
 spent converting floating-point numbers to decimal strings and back** in that
 function's inner loop.
 
-Measured on a synthetic 1,200-rune box against the eight shipped presets:
+Measured on a synthetic 1,200-rune box against the eight shipped roles:
 
 | | Baseline | After the five changes in §4 |
 | --- | ---: | ---: |
@@ -87,7 +87,7 @@ Measured on a synthetic 1,200-rune box against the eight shipped presets:
 | Convolution cells evaluated | 332,831,840 | 5,726,425 |
 | Largest intermediate distribution | 51,454 entries | 2,066 entries |
 | Verdicts differing | — | **0** |
-| Best preset differing | — | **0** |
+| Best role differing | — | **0** |
 | max \|Δ chance\| | — | 4.7 × 10⁻¹³ |
 
 The project's own independent oracle agrees. `verify-rune-cleanup-calibration` at
@@ -96,7 +96,7 @@ output** — including the Monte Carlo agreement line, the retained population, 
 spread and every quota — in 1.1 s against the baseline's 92.5 s.
 
 All five changes are internal to `rune-cleanup-model.ts`. None touches
-`rune-cleanup-advice.ts`'s policy, the preset allocation, or any documented figure.
+`rune-cleanup-advice.ts`'s policy, the role allocation, or any documented figure.
 
 ---
 
@@ -113,7 +113,7 @@ Everything below rests on measurement, not on reading. The method, so it can be 
    with counters. The instrumented copies reproduce the baseline verdict counts
    exactly, so the counters describe the real calculation.
 5. Each proposed change was applied **one at a time** behind an environment flag, and
-   every run compared verdict, chosen preset, `maxValue`, `chance` and the printed
+   every run compared verdict, chosen role, `maxValue`, `chance` and the printed
    reason string for every rune against the unmodified baseline.
 6. Finally the project's own calibration oracle was run against the changed model and
    diffed against the unmodified run.
@@ -122,7 +122,7 @@ Nothing in the repository was modified. The harness lives in the session scratch
 
 ### 1.1 The baseline profile
 
-250 runes, 8 presets, 16.2 s:
+250 runes, 8 roles, 16.2 s:
 
 ```
 --- SELF TIME ---
@@ -151,7 +151,7 @@ lineDistMiss            226     lineDistHit       10,547
 ```
 
 Read those two blocks together and the whole picture is there. The model visits only
-1,535 rune/preset pairs and only ever runs 4,028 real probability branches — the
+1,535 rune/role pairs and only ever runs 4,028 real probability branches — the
 enumeration is *small*. But those 4,028 branches evaluate 64 million convolution
 cells, and each cell calls `Number(value.toFixed(12))`.
 
@@ -184,7 +184,7 @@ the reason is that the surrounding design is sound.
 
 The one architectural cost I would charge against the current design is in §4.6: the
 model/policy boundary forces `judgeAgainstBuild` to be called twice for the same
-rune/preset/build, recomputing everything but the chance the second time. That is a
+rune/role/build, recomputing everything but the chance the second time. That is a
 real cost, but it is a small one and the boundary is worth more than it costs.
 
 ---
@@ -258,7 +258,7 @@ Each carries what it is founded on, what to change, and why the answer cannot mo
 const probabilityKey = (value: number): number => Math.round(value * 1e12) / 1e12;
 ```
 
-**Measured:** 16.1 s → 4.6 s on its own (3.5×). Verdicts, presets, `maxValue`, `chance`
+**Measured:** 16.1 s → 4.6 s on its own (3.5×). Verdicts, roles, `maxValue`, `chance`
 and printed reasons **all bit-identical**, max \|Δ chance\| exactly 0.
 
 **Why the outcome cannot move:** both forms canonicalise a double to twelve decimal
@@ -272,11 +272,11 @@ exactly as before.
 
 **One caution, and it is the reason this is specified so precisely.** A coarser key is
 *not* safe without a matching change elsewhere. I tried `Math.round(value * 1e9) / 1e9`
-first and it moved the chance on 7 of 250 runes and flipped 5 chosen presets. The cause
+first and it moved the chance on 7 of 250 runes and flipped 5 chosen roles. The cause
 is that `reachChance` compares with a hard-coded `+ 1e-12` tolerance; a key rounded to
 1e-9 can land up to 5 × 10⁻¹⁰ *below* the capped `gap`, and the comparison then rejects
 the very mass the cap was collecting. I then tried raising every `1e-12` in the file to
-`1e-9` to match: that restored all verdicts and presets, but it is no longer exact — it
+`1e-9` to match: that restored all verdicts and roles, but it is no longer exact — it
 admits a sliver of boundary mass and produced a max \|Δ chance\| of 8 × 10⁻⁴.
 
 So: **keep the 1e-12 scale and leave the epsilons alone.** The key's precision and the
@@ -347,7 +347,7 @@ cached `Distribution` and can hang off the existing `lineDistribution` cache
 (a `WeakMap` keyed on the distribution works and needs no new invalidation rule).
 
 **Measured, on top of 4.1 and 4.2:** 1.85 s → 0.50 s at 250 runes. Cells 42.4 M →
-5.0 M. Verdicts, presets and reasons identical; max \|Δ chance\| 2.3 × 10⁻¹³.
+5.0 M. Verdicts, roles and reasons identical; max \|Δ chance\| 2.3 × 10⁻¹³.
 
 **Why the outcome cannot move:** for independent terms, `P(X + Y ≥ g) = Σ_x P(X = x)
 · P(Y ≥ g − x)`. That is the definition of the convolution's tail, not an approximation
@@ -384,7 +384,7 @@ sizes.
 
 **Founded on:** 10,918 enumerated branches producing 4,028 distinct convolutions, and
 the structure of the enumeration: `combinations(missing, adds)` enumerates every legal
-set of added effect ids, including ids the preset has no target for. A line the role
+set of added effect ids, including ids the role has no target for. A line the role
 does not want contributes nothing — `reachChance`'s own `add` helper filters it out —
 so many enumerated branches reduce to an identical term list.
 
@@ -422,16 +422,16 @@ type is module-internal, so narrowing it is invisible outside the file.
 
 **b. `buildDemand` is rune-independent and is called once per rune.**
 
-It is a pure function of `(preset, build, base)`. It ran 7,867 times for a 1,200-rune
-box; with the slot narrowing of (a) it is a pure function of `(preset, build, slot)` and
-has at most `presets × builds × 6` distinct results — a few hundred. Memoise it for the
+It is a pure function of `(role, build, base)`. It ran 7,867 times for a 1,200-rune
+box; with the slot narrowing of (a) it is a pure function of `(role, build, slot)` and
+has at most `roles × builds × 6` distinct results — a few hundred. Memoise it for the
 duration of one `runeAdvice` call.
 
 *Why the outcome cannot move:* memoising a pure function of its arguments returns the
-same value. `base` is fixed for the whole call; `presetBuilds` is already hoisted for
+same value. `base` is fixed for the whole call; `roleBuilds` is already hoisted for
 exactly this reason, so the precedent and the lifetime are established.
 
-**c. `judgeAgainstBuild` is called twice for the same rune, preset and build.**
+**c. `judgeAgainstBuild` is called twice for the same rune, role and build.**
 
 Once with `withChance = false` to get `maxValue`, and again with `withChance = true` on
 the candidates that pass. The second call recomputes `buildDemand`, `projectedSupply`,
@@ -443,13 +443,13 @@ give the chance its own entry point that consumes it. This is the one change tha
 touches the model's exported surface, so it is worth doing deliberately rather than as
 part of a performance pass.
 
-**d. `projectedSupply` re-runs the whole craft search once per preset.**
+**d. `projectedSupply` re-runs the whole craft search once per role.**
 
 It called `supplyOf` 162,689 times for 7,867 invocations — about 21 candidate line-ups
 evaluated per call. The *enumeration* of legal gem and grind actions depends only on the
 rune, its lineage and the credit settings; only the *choice between* them depends on
 `shares`. The candidate list can be built once per rune and scored per distinct share
-set, of which there are a handful across eight presets.
+set, of which there are a handful across eight roles.
 
 *Why the outcome cannot move:* the winner is chosen by `fillOf(...)` over the same
 candidate list; building that list once and scoring it several times evaluates the same
@@ -477,7 +477,7 @@ value = min(1, best / ceiling) × mainScale × worth
 The `min(1, …)` bounds the first factor at 1, so **`value ≤ mainScale × worth`
 always** — and both of those are known before the model is entered. `mainScale` is a
 pure function of the rune's star class and main stat id; `worth` is a pure function of
-the rank (the preset's own set and slot lists, read directly) and the slider stops.
+the rank (the role's own set and slot lists, read directly) and the slider stops.
 
 So if `mainScale × worth < qualityBar`, that candidate is provably ineligible and no
 model call can change it.
@@ -508,10 +508,10 @@ than a proof.**
 ### 4.8 Two smaller structural notes
 
 **a. An O(N) scan inside a sort comparator.** `rune-cleanup-advice.ts:231-235` sorts
-the presets by allocation capacity, and the comparator runs two full `pending.filter()`
-scans on every comparison. It is correct, and at eight presets and 1,200 runes it costs
+the roles by allocation capacity, and the comparator runs two full `pending.filter()`
+scans on every comparison. It is correct, and at eight roles and 1,200 runes it costs
 nothing measurable. It is O(P log P × N × E) and would become noticeable for a user with
-thirty presets. Compute each preset's capacity once into a `Map` and sort on that.
+thirty roles. Compute each role's capacity once into a `Map` and sort on that.
 Sorting on a precomputed key rather than recomputing it per comparison cannot change the
 order, since the key is a pure function of state that does not change during the sort.
 
@@ -528,8 +528,8 @@ when the reference base line changes.
 ## 5. What "the outcome does not change" means precisely
 
 Across every comparison run — four seeds, 250 to 1,200 runes, gem and grind credit from
-none to maximum, roughly 2,500 runes judged against 8 presets each — **no verdict and no
-chosen preset differed**, and `maxValue` was bit-identical throughout.
+none to maximum, roughly 2,500 runes judged against 8 roles each — **no verdict and no
+chosen role differed**, and `maxValue` was bit-identical throughout.
 
 `chance` differed by at most 5.7 × 10⁻¹³, from floating-point summation order in 4.3.
 In every run but one, that was invisible: the table rounds to whole percent.
@@ -578,13 +578,13 @@ Moving `runeAdvice` behind the same kind of client is worth doing **even after t
 hundredfold speed-up**, and the argument is not speed:
 
 - It removes the hung-page failure mode categorically, rather than moving the threshold.
-- A 3,000-rune box with twenty or thirty user presets is several times the load measured
+- A 3,000-rune box with twenty or thirty user roles is several times the load measured
   here. The algorithmic fixes buy enough headroom that this stops being urgent; they do
   not make it impossible.
 - It is what lets the button report honest progress instead of a spinner, and lets the
   user cancel.
 
-`runeAdvice`'s inputs are plain data — runes, presets, settings, and a `Map` of base
+`runeAdvice`'s inputs are plain data — runes, roles, settings, and a `Map` of base
 stats — and its output is a `Map` of plain records. It is structurally clonable as it
 stands; no serialisation contract has to be invented.
 
@@ -597,15 +597,15 @@ defaults both to `false` and validates them.
 **Neither is read by `runeAdvice` or by `RuneRecommendations`.** Grep finds no consumer.
 
 I am flagging this first as a correctness matter and only second as a performance one.
-A user who unticks "Include runes equipped on monsters" is told something will happen
-and nothing does — the equipped runes are judged anyway and appear in the table, because
-the table's own Equipped/Inventory filter is a separate control applied afterwards. That
+A user who unticks "Include runes engraved on monsters" is told something will happen
+and nothing does — the engraved runes are judged anyway and appear in the table, because
+the table's own Engraved/Inventory filter is a separate control applied afterwards. That
 is the invisible failure `AGENTS.md` §0.1 forbids, and it should be resolved on its own
 terms: either the settings drive the calculation, or they should not be on the panel.
 
 If they are wired up, they are also the single largest reduction available in the input
 population. In the synthetic box, +12 and above is 23 % of the runes; on a real account,
-equipped runes are commonly half the box or more. Honesty about the size of the win:
+engraved runes are commonly half the box or more. Honesty about the size of the win:
 runes at +12 and +15 have no remaining sub-property events, so `reachChance` returns
 immediately for them and they are already among the cheapest — the saving from
 `includeLevel12Runes` is much smaller than its share of the population.
@@ -628,8 +628,8 @@ against one threshold at a time, with `cap` and `floor` both defined by that thr
 
 An alternative shape: compute the **full distribution of the final fill once per
 (rune, relevant-stat-set)** and answer every threshold by a lookup on its tail. The
-number of distinct relevant-stat sets across a preset list is small — a handful, not
-one per preset. That would make a slider move nearly free and could retire the Calculate
+number of distinct relevant-stat sets across a role list is small — a handful, not
+one per role. That would make a slider move nearly free and could retire the Calculate
 button entirely.
 
 I am **not** recommending it as a first step, and the reason is that it is in tension
@@ -712,10 +712,10 @@ I reviewed the complete calculation path rather than only the hottest function:
 - `app/components/rune-recommendations.tsx`, including the Calculate handler and the
   separation between calculation scope and post-calculation filters;
 - `app/lib/rune-cleanup-advice.ts`, including candidate selection, chance gating and
-  global preset allocation;
+  global role allocation;
 - `app/lib/rune-cleanup-model.ts`, including demand construction, craft projection,
   deterministic maximum, event enumeration and probability convolution;
-- `app/lib/rune-properties.ts`, `rune-craft-items.ts`, the preset and reference-line
+- `app/lib/rune-properties.ts`, `rune-craft-items.ts`, the role and reference-line
   modules, `RUNE-CLEANUP-MATH.md` and the relevant parts of `RUNE-CANONICAL.md`;
 - `scripts/verify-rune-cleanup-calibration.mjs` and the Rune Clean-up Playwright test.
 
@@ -760,7 +760,7 @@ The current user-visible timeout has two distinct causes:
 
 The preceding analysis is therefore directionally right, but its statement that the
 calculation is slow for “one reason” is too narrow. The engine can be made much faster
-and the page should still use a worker, because a large account or many user presets
+and the page should still use a worker, because a large account or many user roles
 can make an exact calculation long again.
 
 My overall judgement is:
@@ -782,12 +782,12 @@ The calculation is easier to reason about when its stages are separated:
 
 | Stage | What it does now | Structural observation |
 | --- | --- | --- |
-| Input preparation | Reads every imported rune, all presets and one reference line per preset type. | Cheap compared with scoring. The two “include” settings are not applied here. |
-| Preset preparation | Builds every slot-2/4/6 main-stat Cartesian combination for every preset. | More structure than this page needs; only one current-slot-compatible representative is later used per rune. |
-| Deterministic candidate pass | For each rune and preset, calculates craft projection, demand, remaining events and the best reachable fill, with chance disabled. | Necessary information, but several pieces are repeated in the second pass. |
+| Input preparation | Reads every imported rune, all roles and one reference line per role type. | Cheap compared with scoring. The two “include” settings are not applied here. |
+| Role preparation | Builds every slot-2/4/6 main-stat Cartesian combination for every role. | More structure than this page needs; only one current-slot-compatible representative is later used per rune. |
+| Deterministic candidate pass | For each rune and role, calculates craft projection, demand, remaining events and the best reachable fill, with chance disabled. | Necessary information, but several pieces are repeated in the second pass. |
 | Candidate ordering | Sorts discounted candidate values and preserves a fallback candidate. | Correctly cannot choose by Max value alone because chance is a separate gate. |
 | Probability pass | Re-runs the candidate model with chance enabled for candidates that may matter. | Correctly ordered after the value gate, but repeats deterministic work. |
-| Global allocation | Builds quotas, scans eligible runes per preset, sorts each preset's candidates and assigns each rune once. | Correct, but currently scan-heavy. It is not the primary timeout source at the shipped preset count. |
+| Global allocation | Builds quotas, scans eligible runes per role, sorts each role's candidates and assigns each rune once. | Correct, but currently scan-heavy. It is not the primary timeout source at the shipped role count. |
 | UI materialisation | Creates one result row per imported rune and then filters and sorts in React. | Cheap compared with `runeAdvice`; post-calculation filters must remain post-calculation because they do not define the score. |
 
 This decomposition matters because “calculate recommendations” is not one indivisible
@@ -807,9 +807,9 @@ The following decisions should be protected:
    quality floor must not be rescued by a chance calculation, and a candidate with a
    high Max value must not win merely because it has a low chance. The current candidate
    loop preserves that distinction.
-3. **Allocation is global.** A post-hoc “best preset per rune” result would not honour
+3. **Allocation is global.** A post-hoc “best role per rune” result would not honour
    `runeShare`, finite capacity or the narrow-pool-first rule. This is why simply
-   parallelising each preset independently would be wrong: the probability stage can be
+   parallelising each role independently would be wrong: the probability stage can be
    independent, but the final assignment is not.
 4. **The calculation is independent of table filters.** Set, slot, location, search and
    verdict filters narrow the displayed rows after calculation. Using those filters as a
@@ -823,7 +823,7 @@ The following decisions should be protected:
 
 This is the most important architectural addition to the preceding analysis.
 
-`presetBuilds()` creates the Cartesian family of slot-2, slot-4 and slot-6 main-stat
+`roleBuilds()` creates the Cartesian family of slot-2, slot-4 and slot-6 main-stat
 choices. `runeAdvice()` then immediately chooses one member with:
 
 ```text
@@ -844,12 +844,12 @@ so another slot cannot cap this rune's contribution. No cross-slot optimisation 
 being performed by the current page after the representative has been selected.
 
 That means the page's effective candidate is not a whole build. It is a
-`preset × rune-slot × compatible-main-stat` candidate with a set rank and a main rank.
-The Cartesian build family is useful vocabulary for the preset editor and for generic
+`role × rune-slot × compatible-main-stat` candidate with a set rank and a main rank.
+The Cartesian build family is useful vocabulary for the role editor and for generic
 tests, but it is unnecessary input to this page's scoring loop.
 
 **Recommendation:** introduce a slot-local candidate or demand representation for
-Rune Clean-up. Precompute, per preset and relevant slot/main choice:
+Rune Clean-up. Precompute, per role and relevant slot/main choice:
 
 ```text
 {
@@ -860,13 +860,13 @@ Rune Clean-up. Precompute, per preset and relevant slot/main choice:
 }
 ```
 
-Then let the page judge a rune against that representation. `presetBuilds()` can remain
+Then let the page judge a rune against that representation. `roleBuilds()` can remain
 for code that genuinely needs complete builds, including the independent calibration
 fixtures, but Rune Clean-up should not build or search the unused dimensions.
 
 **Why the result is preserved:** this is not a heuristic. For the current call graph,
 the result is a function of `rune.slot`, the compatible `mainStatId`, the slot's main
-rank, the preset targets, the reference line and the craft settings. The unused main
+rank, the role targets, the reference line and the craft settings. The unused main
 choices in other slots never enter `slotShares`, `ceiling`, `projectedSupply`,
 `bestReachableFill`, `rank` or `reachChance`. Replacing the family with the values that
 are actually read is therefore a projection of the existing calculation, not a new
@@ -887,7 +887,7 @@ all the discarded combinations.
 
 The first and second calls to `judgeAgainstBuild()` do not ask entirely different
 questions. The second call asks for one additional result — the chance — using the same
-rune, preset, slot demand, credit assumptions and projected current state.
+rune, role, slot demand, credit assumptions and projected current state.
 
 The current shape recomputes:
 
@@ -910,8 +910,8 @@ chanceFromPreparedCandidate(context, threshold)
 ```
 
 The context should live only for one `runeAdvice()` call unless a stable, validated
-cache key is deliberately designed. Presets are user-editable, reference lines depend
-on the imported account, and a preset id alone is not a safe cache key.
+cache key is deliberately designed. Roles are user-editable, reference lines depend
+on the imported account, and a role id alone is not a safe cache key.
 
 **Why the result is preserved:** the context contains values already computed by the
 current implementation. The policy still passes the candidate-specific threshold to
@@ -953,11 +953,11 @@ small allocation reduction, not a change to the craft policy.
 
 #### 9.7.3 Empty target vocabularies should be rejected before rune iteration
 
-`buildDemand()` eventually returns a zero ceiling for a preset with no relevant target
-stat. Such a preset cannot produce a usable candidate for any rune. It can be marked
-inactive once per calculation instead of being sent through every rune/preset pair.
+`buildDemand()` eventually returns a zero ceiling for a role with no relevant target
+stat. Such a role cannot produce a usable candidate for any rune. It can be marked
+inactive once per calculation instead of being sent through every rune/role pair.
 
-The output contract must still decide whether an entirely empty preset is shown as
+The output contract must still decide whether an entirely empty role is shown as
 inactive or retained as a named, zero-value fallback. The expensive model call itself
 is not needed either way; if the fallback label is retained, it can be represented by a
 cheap zero candidate with the same deterministic tie order.
@@ -967,7 +967,7 @@ cheap zero candidate with the same deterministic tie order.
 At the “No” Broken-runes setting, a broken candidate's discounted value is exactly zero
 and it can never clear the value gate. It still may be needed as the named fallback that
 the current policy displays when no preferred or acceptable candidate exists. Therefore
-the safe optimisation is to create a zero-valued placeholder in the original preset
+the safe optimisation is to create a zero-valued placeholder in the original role
 order, not to drop the candidate blindly. It must not invoke probability or craft logic.
 
 This is a good example of why an optimisation must be checked against the complete row
@@ -1073,26 +1073,26 @@ If pursued, compare the complete `maxValue` field over generated runes including
 
 ### 9.10 Global allocation is correct but can be indexed
 
-The allocation stage is not the current hotspot at eight presets, but its shape is worth
-fixing if the product is expected to support many user presets. The current code scans
-`pending` inside the `activePresets` test, scans it again for `totalEligible`, scans it
-again in the allocation-order comparator, and scans it once per preset to build and sort
+The allocation stage is not the current hotspot at eight roles, but its shape is worth
+fixing if the product is expected to support many user roles. The current code scans
+`pending` inside the `activeRoles` test, scans it again for `totalEligible`, scans it
+again in the allocation-order comparator, and scans it once per role to build and sort
 candidate lists.
 
 An exact alternative is to build an index while each pending item is produced:
 
 ```text
-preset id -> eligible pending items
+role id -> eligible pending items
 ```
 
 Then compute each capacity once, sort the same candidate list with the same priority,
 chance and rune-id tie-breakers, and remove assigned rune ids from later lists. The
-largest-remainder quotas and scarce-preset-first order must remain exactly as they are.
+largest-remainder quotas and scarce-role-first order must remain exactly as they are.
 This changes data access, not allocation policy.
 
 The same principle applies to the preceding document's §4.8a: precompute each
-preset's capacity once rather than scanning `pending` from inside a sort comparator.
-That finding is low priority today but becomes relevant if the preset count is no
+role's capacity once rather than scanning `pending` from inside a sort comparator.
+That finding is low priority today but becomes relevant if the role count is no
 longer small.
 
 ### 9.11 The ignored input-scope settings are a correctness issue first
@@ -1104,12 +1104,12 @@ The Settings panel labels two checkboxes **Runes to include**:
 
 They are present in the validated preferences contract and default settings, but
 `runeAdvice()` receives all runes and never reads either value. The table's
-`showEquipped`/`showStored` controls are separate post-calculation filters, and both are
+`showEngraved`/`showStored` controls are separate post-calculation filters, and both are
 on by default. Consequently the settings tell the user that the calculation scope has
 changed when it has not.
 
 This violates the intended meaning of an input control even when it does not cause the
-timeout. It also matters for performance: equipped runes can be a large fraction of an
+timeout. It also matters for performance: engraved runes can be a large fraction of an
 account, while maxed runes with no craft credit have little probability work left.
 
 **Recommendation:** settle the product contract before treating these as an optimisation:
@@ -1121,14 +1121,14 @@ account, while maxed runes with no craft credit have little probability work lef
 
 Wiring them into the calculation deliberately changes the result, and that is correct
 when it follows the user's explicit scope choice. It must not be presented as a
-semantics-preserving speed improvement. In particular, excluding equipped runes changes
-finite preset allocation because the eligible pool and quotas are global.
+semantics-preserving speed improvement. In particular, excluding engraved runes changes
+finite role allocation because the eligible pool and quotas are global.
 
 ### 9.12 Worker architecture and result identity
 
 The project already has a worker pattern in `app/lib/compute/artifact-score-client.ts`
 and `artifact-score-worker.ts`. Rune Clean-up's input is structurally cloneable: runes,
-presets, settings and a `Map` of reference lines are plain data. The same pattern can
+roles, settings and a `Map` of reference lines are plain data. The same pattern can
 host `runeAdvice()` without changing its arithmetic.
 
 The worker design should include three safeguards:
@@ -1138,7 +1138,7 @@ The worker design should include three safeguards:
    replace a newer table.
 2. **Explicit error state:** worker failure must leave the old result visible or show a
    clear calculation error; it must not silently fall back to an empty table.
-3. **Optional cancellation:** cancellation is useful when the user changes a preset or
+3. **Optional cancellation:** cancellation is useful when the user changes a role or
    imports another account. It is a responsiveness feature, not a mathematical
    shortcut. A cancelled calculation must not be treated as a completed calculation.
 
@@ -1168,7 +1168,7 @@ capture and compare the old and new result for every rune:
 
 - verdict;
 - reason text;
-- selected preset id;
+- selected role id;
 - rank;
 - `maxValue`;
 - `chance`;
@@ -1176,7 +1176,7 @@ capture and compare the old and new result for every rune:
 
 The fixture matrix should include:
 
-- no runes, no presets and a preset with no positive targets;
+- no runes, no roles and a role with no positive targets;
 - every rune already at +12 or above;
 - runes at +0, +3, +6 and +9 with zero through four existing sub-properties;
 - ordinary 4★/5★/6★ and Ancient 6★;
@@ -1184,7 +1184,7 @@ The fixture matrix should include:
 - flat HP/ATK/DEF beside their percent counterparts;
 - incompatible slot mains, broken-worth zero, and exact quality/chance boundaries;
 - duplicate candidate term lists reached through different branch labels;
-- several presets with identical candidates and several with disjoint candidates.
+- several roles with identical candidates and several with disjoint candidates.
 
 For the probability tail optimisation, compare both the internal numeric field and the
 rendered percentage. If the internal field is allowed a tolerance, state that tolerance
@@ -1241,7 +1241,7 @@ narrow and makes the worker P0; §7 had it at step 6.
 **Settled by measurement.** The optimised engine, scaled to the largest account this
 product can plausibly meet:
 
-| Box | Presets | Optimised `runeAdvice` |
+| Box | Roles | Optimised `runeAdvice` |
 | ---: | ---: | ---: |
 | 1,200 | 8 | 514 ms |
 | 3,000 | 8 | 877 ms |
@@ -1340,7 +1340,7 @@ This is strictly better than either proposal, for three reasons that are not abo
 3. Integer map keys are at least as fast as double keys.
 
 **Measured:** identical speed to the float-key variant (135–248 ms at 300–400 runes
-against a 10–17 s baseline), no verdict or preset differences on any seed, and the
+against a 10–17 s baseline), no verdict or role differences on any seed, and the
 calibration oracle at `--runes=500 --share-runes=300 --rollouts=800 --variant-runes=20`
 produced **byte-identical output** to the unmodified model. It also lands on the correct
 side of the boundary in §10.2.
@@ -1354,7 +1354,7 @@ a test costs nothing.
 
 This is the most consequential correction in this section, and it goes against §9.
 
-§9.5 argues that Rune Clean-up does not need `presetBuilds`' Cartesian family, because only
+§9.5 argues that Rune Clean-up does not need `roleBuilds`' Cartesian family, because only
 the rune's own slot is ever read. **That part is correct**, and I verified it:
 `judgeAgainstBuild` reads `mainOfSlot(build, rune.slot)`, `shares.get(rune.slot)`,
 `ceilings.get(rune.slot)` and `build.ranks[rune.slot]`, and nothing else build-dependent.
@@ -1363,13 +1363,13 @@ the rune's own slot is ever read. **That part is correct**, and I verified it:
 But §9.5 then concludes that replacing the family "is therefore a projection of the
 existing calculation, not a new scoring rule". **That is false, because the existing
 calculation is not one calculation. Two layers currently disagree about what an unstated
-preset slot means, and the disagreement is user-visible.**
+role slot means, and the disagreement is user-visible.**
 
-`presetBuilds` emits `mains = 0, rank = 'broken'` for a slot the preset says nothing about,
+`roleBuilds` emits `mains = 0, rank = 'broken'` for a slot the role says nothing about,
 and its own comment states the intent plainly:
 
-> *"A slot the preset says nothing about accepts every main the slot allows, at the broken
-> rank. Refusing to build any combination at all would make a preset with one unstated slot
+> *"A slot the role says nothing about accepts every main the slot allows, at the broken
+> rank. Refusing to build any combination at all would make a role with one unstated slot
 > judge nothing, which is not what leaving it blank means."*
 
 `judgeAgainstBuild` honours that: its guard carries an explicit
@@ -1381,21 +1381,21 @@ and its own comment states the intent plainly:
 return candidate.mains[rune.slot] === rune.mainStatId;   // 0 === 4 → false
 ```
 
-**Demonstrated.** A preset stating slot 4 and slot 6 and leaving slot 2 blank, against a
+**Demonstrated.** A role stating slot 4 and slot 6 and leaving slot 2 blank, against a
 perfect +12 Violent ATK% slot-2 rune:
 
 ```text
-presetBuilds      -> 1 build, mains {2:0, 4:10, 6:4}, ranks {2:broken, ...}
-runeAdvice's find -> undefined                 => the preset is skipped entirely
+roleBuilds      -> 1 build, mains {2:0, 4:10, 6:4}, ranks {2:broken, ...}
+runeAdvice's find -> undefined                 => the role is skipped entirely
 judgeAgainstBuild -> maxValue 1.0000, chance 1.0000, rank broken
-page reports      -> sell, "No preset can use it", preset null, maxValue 0
+page reports      -> sell, "No role can use it", role null, maxValue 0
 
-same preset with slot 2 stated as Atk%
-page reports      -> keep, "Already there", preset named, maxValue 1, rank preferred
+same role with slot 2 stated as Atk%
+page reports      -> keep, "Already there", role named, maxValue 1, rank preferred
 ```
 
-So a rune the preset wants is reported as unusable by any preset, purely because the user
-left one slot blank — which is exactly the outcome `presetBuilds`' comment says must not
+So a rune the role wants is reported as unusable by any role, purely because the user
+left one slot blank — which is exactly the outcome `roleBuilds`' comment says must not
 happen, and exactly the invisible failure `AGENTS.md` §0.1 forbids. Two places state the
 intent; one place silently contradicts it, so the build finder is the defect.
 
@@ -1406,10 +1406,10 @@ intent; one place silently contradicts it, so the build finder is the defect.
    refactor that collapses them will silently canonise whichever one the author happened to
    reimplement.
 2. **The refactor cannot be gated by byte-identical calibration output.** Every shipped
-   preset states all three slots, which is why the oracle is silent here. The gate for this
+   role states all three slots, which is why the oracle is silent here. The gate for this
    change must be a fixture with an unstated slot, written first.
 3. **A hard constraint §9 did not note:** `scripts/verify-rune-cleanup-calibration.mjs`
-   imports `presetBuilds` and calls `judgeAgainstBuild(rune, preset, build, base, threshold,
+   imports `roleBuilds` and calls `judgeAgainstBuild(rune, role, build, base, threshold,
    credit, withChance)` directly. Both exports must survive the refactor with their current
    signatures. If the independent oracle has to be rewritten in the same commit as the model
    it checks, it has stopped being independent and the project has lost its gate for the
@@ -1456,30 +1456,30 @@ Two refinements from reading the row contract:
 - The placeholder's displayed Max value is genuinely `0`, not merely unknown. The table
   prints `advice.maxValue`, which carries the rank discount, and the discount is zero. So a
   zero placeholder is display-correct and no model call is needed to produce it.
-- "In the original preset order" is right for a reason §9.7.4 does not give:
+- "In the original role order" is right for a reason §9.7.4 does not give:
   `candidates.sort((l, r) => r.value - l.value)` is stable in every engine this project
-  targets, and candidates are pushed in preset order, so equal values keep preset order
+  targets, and candidates are pushed in role order, so equal values keep role order
   today. A placeholder must preserve that, and a test should pin it, because it is currently
   an emergent property rather than a stated rule.
 
-### 10.8 §9.7.3 empty-target presets: agreed, and safe for allocation too
+### 10.8 §9.7.3 empty-target roles: agreed, and safe for allocation too
 
-§9.7.3 is right, and the allocation concern it raises resolves cleanly. A preset with no
+§9.7.3 is right, and the allocation concern it raises resolves cleanly. A role with no
 positive target yields a zero ceiling, so `judgeAgainstBuild` returns `null`, so it produces
-no candidates, so it never enters `activePresets` and never takes a quota. Marking it
+no candidates, so it never enters `activeRoles` and never takes a quota. Marking it
 inactive once per calculation reaches the same state by a cheaper route.
 
 ### 10.9 §9.10 and §4.8a allocation indexing: agreed, and confirmed low priority
 
-No disagreement. The measurement that sets the priority: at 3,000 runes and 40 presets —
-five times the shipped preset count — the *entire* optimised calculation is 2,976 ms.
+No disagreement. The measurement that sets the priority: at 3,000 runes and 40 roles —
+five times the shipped role count — the *entire* optimised calculation is 2,976 ms.
 Allocation is a fraction of that. Do it for the sake of not having an O(N) scan inside a
 sort comparator, which is a defect of form, not because it is on the critical path.
 
 ### 10.10 §9.11 and §6.2, the ignored settings: agreed, with §9's addition accepted
 
 Both documents reach the same conclusion. §9.11 adds one thing §6.2 missed and it is
-important: because quotas are global and largest-remainder, excluding equipped runes changes
+important: because quotas are global and largest-remainder, excluding engraved runes changes
 the allocation for the runes that remain, not merely the size of the table. That makes it
 unambiguously a product decision rather than a filter, and confirms it must not travel in
 the same commit as any speed work.
@@ -1496,7 +1496,7 @@ no-craft answer. The equivalence script therefore protects the current result fr
 refactors, while a deliberate change to those rules must update its baseline and its
 independent monotonicity tests together.
 
-The preserved contract is: every verdict, chosen preset, rank, Max value and chance is
+The preserved contract is: every verdict, chosen role, rank, Max value and chance is
 deterministic within one version; craft credit may never lower the candidate's own score or
 its chance of reaching a fixed score; and the exact chance is checked against the independent
 game-loop oracle. (The public-row half of that promise was withdrawn on 25 September 2026 —
@@ -1532,16 +1532,16 @@ previous one*.
 `npm run verify:rune-cleanup-equivalence`.
 
 It generates a fixed, seeded population, runs `runeAdvice`, and writes one record per rune
-with every public field: `verdict`, `reason`, `preset?.id`, `rank`, `maxValue`, `chance`,
-plus the per-preset assignment counts and quotas. Given a previously written baseline file it
+with every public field: `verdict`, `reason`, `role?.id`, `rank`, `maxValue`, `chance`,
+plus the per-role assignment counts and quotas. Given a previously written baseline file it
 diffs the two and reports, per field, the count of differences and the largest numeric delta.
-It should fail on any difference in `verdict`, `reason`, `preset.id`, `rank` or `maxValue`,
+It should fail on any difference in `verdict`, `reason`, `role.id`, `rank` or `maxValue`,
 and on a `chance` delta above a stated tolerance.
 
 The population must cover the matrix §9.14 lists. That list is good and is adopted wholesale;
 add two cases it does not name, both of which this analysis needed:
 
-- a preset with **one slot left unstated** (Stage 8's subject — the current build finder and
+- a role with **one slot left unstated** (Stage 8's subject — the current build finder and
   `judgeAgainstBuild` disagree about it, so it must be pinned before anything is refactored);
 - a rune whose chance lands on an **exact display boundary**, to pin §10.2.
 
@@ -1603,7 +1603,7 @@ anything in `rune-cleanup-advice.ts`.
 **The condition §9.8 requires, restated as an implementation rule:** the remaining maximum
 must be derived from the same `statId`, `stars`, roll `kind` and reference base as the
 distribution it bounds. It is a property of one branch state and **must never be stored in
-`lineDistributionCache`**, which is shared across branches, presets and runes.
+`lineDistributionCache`**, which is shared across branches, roles and runes.
 
 **Acceptance:** Stage 0 equivalence green, zero differences in every field; calibration
 byte-identical.
@@ -1640,7 +1640,7 @@ a place to sort.
   order separate; the key is for identity, the order is for cost.
 - The one-unit slack must be in `gapKey` (Stage 1), not re-applied inside the tail lookup.
 
-**Acceptance:** Stage 0 equivalence green on `verdict`, `reason`, `preset.id`, `rank` and
+**Acceptance:** Stage 0 equivalence green on `verdict`, `reason`, `role.id`, `rank` and
 `maxValue` with zero differences; `chance` within 1 × 10⁻⁹; the exact-boundary fixture
 asserting the value from §10.2. Calibration output byte-identical.
 
@@ -1649,8 +1649,8 @@ combination, but §10.11 is the claim being made, not byte-stability. If a futur
 a printed-percent difference at another exact boundary, check it the way §10.2 was checked —
 compensated summation on both sides — before treating it as a regression.
 
-**Measured effect at the end of Stage 3:** 75,617 ms → ~500 ms at 1,200 runes × 8 presets;
-2,976 ms at 3,000 runes × 40 presets.
+**Measured effect at the end of Stage 3:** 75,617 ms → ~500 ms at 1,200 runes × 8 roles;
+2,976 ms at 3,000 runes × 40 roles.
 
 ---
 
@@ -1679,7 +1679,7 @@ problem.** Everything after it is improvement.
 Split the two questions `judgeAgainstBuild` currently answers twice:
 
 ```text
-prepareRuneCandidate(rune, preset, build, base, credit)
+prepareRuneCandidate(rune, role, build, base, credit)
   -> { supply, slotShares, ceiling, best, mainScale, rank, adds, rolls }
 
 candidateMaxValue(context)            -> number
@@ -1691,7 +1691,7 @@ in sequence. This is not politeness to old code: §10.4 established that
 `verify-rune-cleanup-calibration.mjs` calls it directly, and if the oracle has to change in
 the same commit as the model it checks, the project loses its gate.
 
-The context lives for one `runeAdvice` call. Do not give it a longer-lived cache: presets are
+The context lives for one `runeAdvice` call. Do not give it a longer-lived cache: roles are
 user-editable and reference lines depend on the import, so no stable key exists without
 designing one, and §9.6 is right to warn against it.
 
@@ -1706,7 +1706,7 @@ stage removes recomputation only and has no numerical excuse.
 (and one line in `rune-cleanup-advice.ts`).
 
 1. Narrow `buildDemand` to the one slot that is read. It has no other caller (verified).
-2. Memoise it per `(preset.id, the build's main for that slot, slot)` for the call's duration.
+2. Memoise it per `(role.id, the build's main for that slot, slot)` for the call's duration.
 3. In `projectedSupply`, build the legal gem/grind candidate list once per rune and score it
    per distinct share set; retain the winning supply map instead of recomputing
    `supplyOf(winner)` at return. When neither credit is present, take the direct path.
@@ -1745,22 +1745,22 @@ test passes; the table stays interactive during a 3,000-rune calculation.
 
 ---
 
-### Stage 8 — Decide what an unstated preset slot means
+### Stage 8 — Decide what an unstated role slot means
 
 **Implements §10.4. A product decision, not a performance change. It changes output.**
 
-**The decision to make:** `presetBuilds`' comment and `judgeAgainstBuild`'s guard both say an
+**The decision to make:** `roleBuilds`' comment and `judgeAgainstBuild`'s guard both say an
 unstated slot accepts every legal main at the broken rank. `runeAdvice`'s build finder says the
-preset judges nothing. Two places against one, and the one is silent about it, so the finder is
+role judges nothing. Two places against one, and the one is silent about it, so the finder is
 almost certainly the defect — but this is the user's product call and should be made explicitly
 rather than inferred from a comment.
 
 **If the documented behaviour is confirmed:** change the finder in `rune-cleanup-advice.ts` to
 accept `candidate.mains[rune.slot] === 0` as well. Runes in that slot then appear against the
-preset at broken rank with a real Max value, instead of reporting "No preset can use it".
+role at broken rank with a real Max value, instead of reporting "No role can use it".
 
 **If the opposite is chosen:** remove the `!== 0` clause from `judgeAgainstBuild`'s guard and
-the `stat: null` branch from `presetBuilds`, and correct that comment. Leaving the
+the `stat: null` branch from `roleBuilds`, and correct that comment. Leaving the
 contradiction in place is the one option that should be rejected outright.
 
 **Acceptance:** the unstated-slot fixture added in Stage 0 asserts the chosen behaviour.
@@ -1780,10 +1780,10 @@ by nothing.
 - **If they define calculation scope:** filter the population before `runeAdvice` and make the
   row count and the status line reflect the judged population, not the imported one.
 - **If they were only ever about table visibility:** remove them from the settings panel and
-  from `RunePotentialSettings`; the table's own Equipped/Inventory filter already does that job.
+  from `RunePotentialSettings`; the table's own Engraved/Inventory filter already does that job.
 
 Either resolves the parity break. **It must not travel with any speed work**, because excluding
-equipped runes changes the global quota allocation for the runes that remain (§10.10) — the
+engraved runes changes the global quota allocation for the runes that remain (§10.10) — the
 result legitimately changes, and that must be visible in its own commit.
 
 ---
@@ -1792,14 +1792,14 @@ result legitimately changes, and that must be visible in its own commit.
 
 **Implements §9.5, constrained by §10.4. Only after Stage 8.**
 
-Replace the page's use of the Cartesian build family with a precomputed, per-preset list of
+Replace the page's use of the Cartesian build family with a precomputed, per-role list of
 slot-local candidates:
 
 ```text
 { slot, mainStatId, mainRank, relevantShares, legalCeiling }
 ```
 
-**Keep `presetBuilds` and `judgeAgainstBuild` exported and working** — Stage 5's reason applies
+**Keep `roleBuilds` and `judgeAgainstBuild` exported and working** — Stage 5's reason applies
 unchanged, and the calibration oracle uses both.
 
 **Why the result is preserved:** §9.5's argument is sound *once Stage 8 has removed the
@@ -1821,10 +1821,10 @@ post-Stage-8 baseline.
 
 - The `mainScale × worth < qualityBar` pre-gate (§4.7), skipping the chance half only, with the
   fallback caveat that section states.
-- Zero placeholders for broken-at-zero candidates, preserving the stable preset-order tie
+- Zero placeholders for broken-at-zero candidates, preserving the stable role-order tie
   break, with a test pinning that order (§10.7).
-- Mark zero-ceiling presets inactive once per calculation (§10.8).
-- Build a `preset id -> eligible items` index once; compute each capacity once; sort on the
+- Mark zero-ceiling roles inactive once per calculation (§10.8).
+- Build a `role id -> eligible items` index once; compute each capacity once; sort on the
   precomputed key instead of scanning `pending` inside the comparator (§10.9).
 
 **Acceptance:** Stage 0 equivalence, zero differences in every field. §4.7 in particular must be
@@ -1867,13 +1867,13 @@ decisions to make.
 
 ---
 
-## 12. Interaction with `RUNE-PRESET-MATCH-INVESTIGATION.md`
+## 12. Interaction with `RUNE-ROLE-MATCH-INVESTIGATION.md`
 
 **Added:** 18 September 2026, after that document appeared in `docs/`.
 
-A separate investigation, `docs/RUNE-PRESET-MATCH-INVESTIGATION.md`, concludes that
-`preset.targets` currently acts as a **relevance switch rather than a weight**, that the
-five damage-dealer presets therefore produce identical Max values, and that
+A separate investigation, `docs/RUNE-ROLE-MATCH-INVESTIGATION.md`, concludes that
+`role.targets` currently acts as a **relevance switch rather than a weight**, that the
+five damage-dealer roles therefore produce identical Max values, and that
 `RUNE-CLEANUP-MATH.md` §3–§4 has to change before the code can. Its §8.1 asks whether a
 target magnitude should become a weight; its §5.5 asks whether `Demand.shares` should stop
 carrying a number it never uses.
@@ -1892,12 +1892,12 @@ in; it does not change the machinery that consumes them.
 So the performance work does not constrain the semantics decision, and the semantics
 decision does not have to wait for it. Do this one first, for the plain reason that the
 other one requires a contract change and a design debate, and this one does not — and
-nobody should have to debate preset weighting while the page takes 75 seconds to answer.
+nobody should have to debate role weighting while the page takes 75 seconds to answer.
 
 ### 12.2 One concrete caveat, and Stage 1 is what catches it
 
 If §8.1 of that document is answered by weighting each relevant stat by its raw stated
-target, contribution magnitudes stop being bounded by "a few max rolls". A preset stating
+target, contribution magnitudes stop being bounded by "a few max rolls". A role stating
 `hp: 15042` would, unnormalised, push fill values four orders of magnitude higher.
 
 That matters here specifically because **Stage 1 pins the integer key scale at 1e12, which
@@ -1964,7 +1964,7 @@ The investigation has reached a sound conclusion about the reported timeout:
 5. The two “include” settings are a correctness debt, not a free optimisation. Their
    labels say they define calculation scope; if that is confirmed, wiring them will
    deliberately change the population and the global allocation result.
-6. The separate preset-match investigation exposes a semantic question about whether
+6. The separate role-match investigation exposes a semantic question about whether
    numeric target magnitudes should influence value. That question is orthogonal to the
    convolution optimisations, but it is a dependency for any permanent narrowing of the
    `Demand` type.
@@ -1984,9 +1984,9 @@ The implementation plan must keep them separate:
 | The hotspots and the reported speed ratios | Strong measured evidence, but the instrumentation scripts are not committed | Reproduce the profile with a committed or explicitly recorded synthetic harness before using a ratio as an acceptance requirement. |
 | Integer key versus decimal-string key | Demonstrated to differ at the 1e-12 unit in the operative range | Treat as a precision/contract decision, not as a proven drop-in replacement. |
 | The 7/8 display boundary | Strong evidence that 0.875 is the intended mathematical value, but summation-order agreement is not a formal exact oracle | Add a fixture and make the display policy explicit before accepting a changed printed percentage. |
-| Unstated preset slots | A real contradiction in the current code; the intended reading is strongly indicated by `presetBuilds()` and `judgeAgainstBuild()` | Add the fixture first, then adopt the recommended canonical behaviour in §13.3. |
+| Unstated role slots | A real contradiction in the current code; the intended reading is strongly indicated by `roleBuilds()` and `judgeAgainstBuild()` | Add the fixture first, then adopt the recommended canonical behaviour in §13.3. |
 | `includeLevel12Runes` and `includeEquippedRunes` | Directly established as stored/rendered but unused | Resolve as a separate product-contract change. |
-| Target magnitudes as weights | Open product semantics, documented by `RUNE-PRESET-MATCH-INVESTIGATION.md` | Do not silently decide it as part of performance work. |
+| Target magnitudes as weights | Open product semantics, documented by `RUNE-ROLE-MATCH-INVESTIGATION.md` | Do not silently decide it as part of performance work. |
 
 The reported measurements in §10 remain useful and credible, but the absent profiling
 harness is a reproducibility gap. A final repository plan should not require a future agent
@@ -1996,13 +1996,13 @@ verification report.
 
 ### 13.3 Definitive resolutions for the remaining design questions
 
-#### Unstated preset slot
+#### Unstated role slot
 
 The recommended canonical behaviour is:
 
-> A slot omitted from a preset accepts every legal main stat at the `broken` rank.
+> A slot omitted from a role accepts every legal main stat at the `broken` rank.
 
-This is the only reading that is consistent with the existing `presetBuilds()` comment,
+This is the only reading that is consistent with the existing `roleBuilds()` comment,
 the `judgeAgainstBuild()` guard, and the established distinction between “no preference”
 and “a preferred or acceptable choice”. It also obeys import parity: a rune must not become
 invisible merely because a user left one optional slot blank.
@@ -2016,7 +2016,7 @@ implementation plan. The implementation should:
 - retain the `broken` rank and the existing broken-worth policy;
 - update `RUNE-CLEANUP-MATH.md` §3 to make this behaviour binding;
 - review the intentional output change: the result becomes a named broken candidate with
-  a real Max value instead of “No preset can use it”.
+  a real Max value instead of “No role can use it”.
 
 If product intent later rejects this behaviour, the contract must say so and both existing
 implementations must be changed together. Leaving the contradiction is not an acceptable
@@ -2029,7 +2029,7 @@ they are placed under **Runes to include** and are stored as calculation setting
 that reading:
 
 - `includeLevel12Runes = false` excludes maxed runes from the calculation population;
-- `includeEquippedRunes = false` excludes equipped runes from the calculation population;
+- `includeEquippedRunes = false` excludes engraved runes from the calculation population;
 - the result count, empty state and calculation status must describe the judged population;
 - post-calculation table filters remain presentation filters and cannot reintroduce excluded
   runes.
@@ -2084,7 +2084,7 @@ be silently decided by whichever accumulation order happens to be fastest.
 
 The performance work may memoise demand and narrow the loop to one slot, but Stage 6 must
 not permanently change `ReadonlyMap<TargetStat, number>` to `ReadonlySet<TargetStat>` until
-the preset-match investigation has decided whether the numbers become weights. The safe
+the role-match investigation has decided whether the numbers become weights. The safe
 intermediate shape is a semantically named per-slot demand object whose representation can
 carry either a relevance set or normalised weights without another architectural rewrite.
 
@@ -2101,10 +2101,10 @@ It must:
 - generate a deterministic synthetic population with the complete edge-case matrix;
 - include ordinary 4★/5★/6★, Ancient 6★, all relevant levels, sub-property counts,
   credits, empty targets, incompatible mains and exact display-boundary fixtures;
-- include a preset with one unstated slot;
+- include a role with one unstated slot;
 - serialise every public per-rune field plus assignment counts and quotas;
-- distinguish `null` preset from a named preset and preserve tie order;
-- compare `verdict`, `reason`, `preset.id`, `rank` and `maxValue` exactly;
+- distinguish `null` role from a named role and preserve tie order;
+- compare `verdict`, `reason`, `role.id`, `rank` and `maxValue` exactly;
 - compare `chance` under an explicitly named tolerance only where the approved contract
   permits numerical variation;
 - fail with a field-level diff, not only a total pass/fail result.
@@ -2114,7 +2114,7 @@ repository. The real run is for scale and browser diagnosis, not a source-contro
 fixture. The synthetic output is the repeatable regression gate.
 
 At this point, add the unstated-slot test and the target-relevance/tie tests from the
-preset-match investigation, but do not change their expected behaviour yet. The baseline
+role-match investigation, but do not change their expected behaviour yet. The baseline
 must capture what the current page actually does and the contract review must then decide
 which differences are intentional.
 
@@ -2167,7 +2167,7 @@ current exported signature as an adapter for the independent oracle and direct t
 
 Then memoise demand for the duration of one `runeAdvice()` call, hoist the immutable craft
 credit, reuse the winning projected supply map and take the direct no-credit path. Keep
-cache keys local to the call unless a complete invalidation contract is designed; preset
+cache keys local to the call unless a complete invalidation contract is designed; role
 ids alone are not enough to identify mutable user data.
 
 Acceptance for this phase is zero difference in every public field, including `chance`,
@@ -2194,7 +2194,7 @@ pre-worker calculation plus interactive-page behaviour.
 #### Phase 5 — Apply the slot-local architecture
 
 Only after the unstated-slot contract is fixed, replace the page's use of the full build
-Cartesian product with precomputed slot-local candidates. Preserve `presetBuilds()` and
+Cartesian product with precomputed slot-local candidates. Preserve `roleBuilds()` and
 `judgeAgainstBuild()` for the independent oracle and generic domain tests until an
 equivalent replacement has its own independent coverage.
 
@@ -2210,8 +2210,8 @@ that time; do not assume a set of relevant stats is still sufficient.
 
 Only after a new profile confirms that the work is worthwhile, implement:
 
-- zero-ceiling preset precomputation;
-- broken-worth-zero placeholders with explicit preset-order tie-breaking;
+- zero-ceiling role precomputation;
+- broken-worth-zero placeholders with explicit role-order tie-breaking;
 - allocation indexing and precomputed capacities;
 - the conservative value-gate precheck, preserving the first fallback candidate's displayed
   Max/chance/reason data.
@@ -2235,15 +2235,15 @@ of done. For the calculation itself, the gates are:
 
 The equivalence fixture must report separately:
 
-- exact fields: verdict, reason, preset id, rank, Max value and allocation;
+- exact fields: verdict, reason, role id, rank, Max value and allocation;
 - tolerance fields: internal chance, only if the approved math contract permits it;
 - rendered fields: the printed percentage and status text, which require an explicit
   boundary policy and may not be hidden inside a numeric tolerance.
 
 The test matrix must include both extremes required by the project rules: an empty account,
-empty presets/targets and no credit, plus all supported options selected, long preset
-lists, large rune populations, maxed and equipped runes, Ancient runes, full craft credit,
-duplicate candidate terms, tied presets and an unstated slot.
+empty roles/targets and no credit, plus all supported options selected, long role
+lists, large rune populations, maxed and engraved runes, Ancient runes, full craft credit,
+duplicate candidate terms, tied roles and an unstated slot.
 
 ### 13.6 Final approval status
 
@@ -2301,7 +2301,7 @@ The figures in §0–§13 come from a synthetic box built for the analysis, and 
 flags that its harness was never committed — *"a final repository plan should not require a
 future agent to trust a measurement that cannot be rerun."* That gap is now closed: the
 figures below come from `scripts/verify-rune-cleanup-equivalence.mjs`, which **is**
-committed, is deterministic, and is the gate. 582 runes across eight settings-and-preset
+committed, is deterministic, and is the gate. 582 runes across eight settings-and-role
 scenarios, one fixed seed, no randomness at run time.
 
 The two populations are not the same, so the per-stage ratios differ from §10's and neither
@@ -2318,21 +2318,21 @@ acceptance was always field equality, never speed.
 | Stage 6 — demand and craft memoisation | 663 ms | 1.26× | **75×** |
 
 Stage 4 is a checkpoint, Stage 7 moves the same arithmetic to another thread, and the
-allocation indexing was not separately measurable at eight presets — exactly what §10.9
+allocation indexing was not separately measurable at eight roles — exactly what §10.9
 predicted.
 
 **Equivalence, field by field.** Stages 1, 2, 5 and 6 produced **zero differences in every
 field including `chance`**, at a tolerance of zero. Stage 3 reassociates a floating-point
 sum and produced differences on `chance` alone: **296 rows, largest |Δ| 1.336 × 10⁻¹³**.
 §5's figure was 5.7 × 10⁻¹³ on its own population; the order of magnitude agrees. `verdict`,
-`reason`, `preset.id`, `rank` and `maxValue` were bit-identical at every stage.
+`reason`, `role.id`, `rank` and `maxValue` were bit-identical at every stage.
 
 **The calibration oracle stayed byte-identical at every arithmetic stage**, at
 `--runes=500 --share-runes=300 --rollouts=800 --variant-runes=20`. That is stronger than
 §11 Stage 3 was willing to promise, and it is recorded as an observation, not as a contract.
 §10.11 remains the claim being made.
 
-**In a real browser**, after Stage 7: a 3,000-rune box against the eight shipped presets
+**In a real browser**, after Stage 7: a 3,000-rune box against the eight shipped roles
 finishes in **1,110 ms**, and the page painted **73 animation frames** while it ran.
 §10.1's projection for 3,000 × 8 was 877 ms in Node, so the browser is within a quarter
 of it.
@@ -2342,14 +2342,14 @@ of it.
 §13.3 required four questions to be answered explicitly rather than settled by
 implementation. They were answered as follows.
 
-**Unstated preset slot — recommended reading adopted.** The user was asked and chose it.
+**Unstated role slot — recommended reading adopted.** The user was asked and chose it.
 `runeAdvice`'s finder now accepts a candidate main of `0`, the `broken` rank and
 broken-worth policy are unchanged, and `RUNE-CLEANUP-MATH.md` §3 makes it binding. The
 fixture went into the gate before the finder changed, as §13.3 requires.
 
 **Include settings — calculation-scope semantics adopted.** The user was asked and chose
 it. The population is filtered before the engine; the ready count, the empty state and the
-status line describe the judged population; the table's Equipped/Inventory filter remains a
+status line describe the judged population; the table's Engraved/Inventory filter remains a
 presentation filter and cannot reintroduce an excluded rune. `RUNE-CLEANUP-MATH.md` §7
 states it. It travelled in its own commit, as §13.3 demands.
 
@@ -2379,11 +2379,11 @@ fields; making them exact is the strongest form of that.
 
 **Target magnitudes and `Demand` — left open, as instructed.** §12.4 suggested Stage 6 also
 narrow `shares` to `ReadonlySet<TargetStat>`; §13.3 overrides it and forbids that until the
-preset-match investigation decides whether the numbers become weights. §13.3 wins, and the
+role-match investigation decides whether the numbers become weights. §13.3 wins, and the
 implementation follows it: `Demand` is now a *"semantically named per-slot demand object"*
 — `{ shares: ReadonlyMap<TargetStat, number>; ceiling: number }` — whose representation can
 carry either a relevance set or normalised weights without another rewrite. The dead number
-survives, deliberately, and `RUNE-PRESET-MATCH-INVESTIGATION.md` §5.5 still owns the
+survives, deliberately, and `RUNE-ROLE-MATCH-INVESTIGATION.md` §5.5 still owns the
 question.
 
 ### 14.4 Where the implementation departed from the approved plan
@@ -2391,8 +2391,8 @@ question.
 #### 14.4.1 Phase 0's gate: two gaps, and three additions
 
 **Gap — quotas are not serialised.** §13.4 Phase 0 asks for *"every public per-rune field
-plus assignment counts and quotas"*. The gate records every per-rune field and a per-preset
-`(preset, verdict)` assignment count, but not the quota numbers themselves: `runeAdvice`
+plus assignment counts and quotas"*. The gate records every per-rune field and a per-role
+`(role, verdict)` assignment count, but not the quota numbers themselves: `runeAdvice`
 does not return them, and exporting internal state purely to diff it would have widened the
 model's surface for the benefit of a test. The assignment counts are downstream of the
 quotas and moved when Stage 8 changed allocation, so the coverage is real — but a quota
@@ -2407,7 +2407,7 @@ account when one is at hand.
 
 **Addition — the display-boundary fixture is detected, not constructed.** §11 Stage 0 asks
 for *"a rune whose chance lands on an exact display boundary"*. Constructing one blind means
-engineering a rune, preset and threshold whose exact chance is a chosen dyadic rational —
+engineering a rune, role and threshold whose exact chance is a chosen dyadic rational —
 fragile, and pinned to whatever seed produced it. The gate instead scans every scenario for a
 chance within 10⁻⁹ of a `k + 0.5` percent boundary and records them. That catches the ones
 that exist today *and* any a future change introduces. It worked: the population contains
@@ -2418,7 +2418,7 @@ and 6 for zero differences *including* `chance`, and allows Stage 3 1 × 10⁻�
 cannot serve both. `--chance-tolerance` defaults to `0`, so a stage must ask for slack
 explicitly, on the command line, where it is visible. Only Stage 3 was run with it.
 
-**Addition — degenerate-input assertions.** No runes; no presets; a preset with no positive
+**Addition — degenerate-input assertions.** No runes; no roles; a role with no positive
 target; neither. `AGENTS.md` §3 requires both extremes of input, and an empty account has one
 right answer that cannot drift — so it belongs in an assertion, not in a baseline someone
 could re-record.
@@ -2439,8 +2439,8 @@ What was at risk, and what actually happened:
   because the contract change is measured against a baseline that already contains it.
 - **In fact** each contract change still landed in its own commit, was gated on its own, and
   was re-baselined deliberately with the diff read by hand. Stage 8's diff was confined to
-  the two scenarios containing a blank-slot preset, changed no verdict, and moved no other
-  preset's allocation. Stage 9 does not touch the engine at all — the equivalence gate and
+  the two scenarios containing a blank-slot role, changed no verdict, and moved no other
+  role's allocation. Stage 9 does not touch the engine at all — the equivalence gate and
   the calibration oracle were untouched by it, which is the proof that it absorbed nothing.
 - **The one real consequence** is that the performance baselines were taken against
   pre-Stage-8 output. They were re-taken after Stage 8, so the tree is now in the state
@@ -2469,7 +2469,7 @@ requires. It is still exercised: the equivalence run drives it across 582 runes 
 #### 14.4.4 Stage 6's memo lifetime is an explicit scope, not a module-global
 
 **§11 said:** memoise *"for the call's duration"*. **§13.4 Phase 3 said:** *"Keep cache keys
-local to the call unless a complete invalidation contract is designed; preset ids alone are
+local to the call unless a complete invalidation contract is designed; role ids alone are
 not enough to identify mutable user data."*
 
 **What was built:** `RuneAdviceScope`, created by `runeAdvice` and passed down, holding both
@@ -2479,16 +2479,16 @@ last parameter and defaults to a fresh one.
 **Why.** "The call's duration" has no expression in `rune-cleanup-model.ts`, which does not
 know when a calculation begins or ends. A module-global map needs an exported `reset()` every
 caller must remember, and the failure when one forgets is a stale figure rather than a crash.
-A `WeakMap` on the preset object relies on presets being replaced rather than mutated, which
+A `WeakMap` on the role object relies on roles being replaced rather than mutated, which
 is true today and is a rule nobody wrote down. An explicit scope makes **the lifetime the
 key**, which is what §9.6 and §13.4 were both asking for. The default of a fresh scope means
 a lone `judgeAgainstBuild` — from a test, or from the independent oracle — gets no sharing,
 which is right for a caller asking one question.
 
 The memo key also carries the reference base line, which §11's proposed key omits.
-`slotDemand` reads `base` through `slotCeiling`, and the shipped presets span five families
+`slotDemand` reads `base` through `slotCeiling`, and the shipped roles span five families
 with five different reference lines, so omitting it would have returned one family's ceiling
-for another family's preset.
+for another family's role.
 
 #### 14.4.5 Stage 6's craft restructure goes one function further than §11
 
@@ -2499,7 +2499,7 @@ take the direct no-credit path."*
 **What was built:** the line-ups are **priced into supplies** once per rune, not merely
 enumerated. `craftLineUps` returns the supplies; `projectedSupply` only chooses among them.
 
-**Why.** Enumerating once but calling `supplyOf` per preset leaves the larger half of the cost
+**Why.** Enumerating once but calling `supplyOf` per role leaves the larger half of the cost
 in place — `supplyOf` walks every line and converts each to max rolls, and depends only on the
 rune and the reference base, never on the role. The split the plan identified is real; it
 falls one function later than §11 puts it.
@@ -2540,22 +2540,22 @@ allocation indexing was done anyway. The justification is §10.9's, not a measur
 full `pending` scans inside a sort comparator are a defect of form, the replacement is
 provably order-preserving — the key is a pure function of state the sort does not touch, and
 both sorts that read the index end in a rune-id tie-break — and the equivalence gate showed
-zero differences. It bought nothing measurable at eight presets, which is what §10.9 said it
+zero differences. It bought nothing measurable at eight roles, which is what §10.9 said it
 would.
 
 ### 14.5 What is still open
 
 | Item | Status | Reason |
 | --- | --- | --- |
-| **Phase 5 / Stage 10** — slot-local candidate model | **Not done** | §10.4 and §13.4 both require it to follow the unstated-slot decision, which landed in the same session. Stage 6's narrowing already removed its measured cost, so what remains is an architecture argument, and it should be made against a tree where Phase 1 has settled. `presetBuilds` and `judgeAgainstBuild` are both still exported with their signatures, so nothing blocks it. |
+| **Phase 5 / Stage 10** — slot-local candidate model | **Not done** | §10.4 and §13.4 both require it to follow the unstated-slot decision, which landed in the same session. Stage 6's narrowing already removed its measured cost, so what remains is an architecture argument, and it should be made against a tree where Phase 1 has settled. `roleBuilds` and `judgeAgainstBuild` are both still exported with their signatures, so nothing blocks it. |
 | **Phase 6** — value-gate precheck (§4.7) | **Not done** | §4.7's own instruction is *"after 4.1–4.5 are in and verified, or not at all"*, and §11 Stage 11 warns it *"must be checked against the fallback rows, not only the assigned ones — that is where its argument is weakest"*. At 663 ms there is nothing left to buy with that risk. |
-| **Phase 6** — broken-worth-zero placeholders (§9.7.4, §10.7) | **Not done** | After Stage 6 the arithmetic it avoids is a memo lookup and a line-up score. Its caveat — the candidate may still be the named fallback, in preset order, which is currently an *emergent* property of a stable sort — is more delicate than the saving is large. §10.7 is right that the order must be pinned by a test first. |
-| **Phase 6** — zero-ceiling preset precomputation (§9.7.3) | **Subsumed** | Stage 6's memo computes a preset's slot demand once per `(preset, slot, main, base)`, so an empty-target preset costs one zero ceiling per slot for the whole account rather than one per rune. A separate flag would save nothing measurable. |
+| **Phase 6** — broken-worth-zero placeholders (§9.7.4, §10.7) | **Not done** | After Stage 6 the arithmetic it avoids is a memo lookup and a line-up score. Its caveat — the candidate may still be the named fallback, in role order, which is currently an *emergent* property of a stable sort — is more delicate than the saving is large. §10.7 is right that the order must be pinned by a test first. |
+| **Phase 6** — zero-ceiling role precomputation (§9.7.3) | **Subsumed** | Stage 6's memo computes a role's slot demand once per `(role, slot, main, base)`, so an empty-target role costs one zero ceiling per slot for the whole account rather than one per rune. A separate flag would save nothing measurable. |
 | §9.9 / §10.6 closed-form `bestReachableFill` | **Not done** | §10.6 prices it at 2.0 % of self time. Unchanged, and §11's *"Not in the plan"* table already rejects it. |
 | §6.3 streaming results | **Open, now possible** | §6.3 says *"worth having once the calculation is in a worker, and not before."* The precondition is now met. Not done because 1.1 s does not need progressive rendering. |
 | §6.4 threshold-independent full distribution | **Not done** | §6.4 recommends against it, and Stages 2 and 3 strengthened the case: both prunes are threshold-dependent and together they are most of the win. |
 | §4.8b bounding `lineDistributionCache` | **Not done, noted** | §4.8b anticipated that §4.3 would add a sorted view per entry. It does, as a `WeakMap` keyed on the distribution object, so the view cannot outlive the entry it derives from and adds no independent growth. The underlying cache is still unbounded over a small key space, which is where §4.8b left it. |
-| Target magnitudes as weights | **Open, another document's** | `RUNE-PRESET-MATCH-INVESTIGATION.md` §8.1. §12.2's warning now has a home in the contract: `RUNE-CLEANUP-MATH.md` §6.1 names the 9,007-max-roll ceiling, and the runtime guard is what turns an unnormalised weighting into a loud failure instead of silent precision loss. |
+| Target magnitudes as weights | **Open, another document's** | `RUNE-ROLE-MATCH-INVESTIGATION.md` §8.1. §12.2's warning now has a home in the contract: `RUNE-CLEANUP-MATH.md` §6.1 names the 9,007-max-roll ceiling, and the runtime guard is what turns an unnormalised weighting into a loud failure instead of silent precision loss. |
 
 ### 14.6 The one claim that was never exercised
 
@@ -2583,7 +2583,7 @@ stands. Two consequences:
 §6.2, §9.11, §10.10 and §13.3 all discuss wiring up `includeLevel12Runes` and
 `includeEquippedRunes`, and none of them mentions that both were stored **`false`**.
 
-Honouring `false` would have made a first-time user's calculation silently skip their equipped
+Honouring `false` would have made a first-time user's calculation silently skip their engraved
 runes and everything at +12 — for a real account, most of the box, and an import-parity break
 under `AGENTS.md` §0.1 on the first press of the button. Both defaults moved to `true`. Nothing
 had ever read them, so no behaviour depended on them, and opening included is what makes the
@@ -2618,7 +2618,7 @@ Three tests were added, and each exists because nothing else could have caught i
   currently produce two overlapping requests — the button is disabled while one runs.
 - `tests/rune-cleanup-scope.spec.ts` drives the two include settings against the fixture
   account, which happens to be built for exactly this: three inventory runes, two of them at
-  +12, and one +15 equipped on a monster.
+  +12, and one +15 engraved on a monster.
 
 ### 14.9 How to use the gate next time
 
@@ -2632,7 +2632,7 @@ easy to get wrong:
    yourself rather than only the exit code.
 2. **A `reason` difference is never a rounding detail.** `reason` carries the printed
    percentage. See §14.6.
-3. **A change to preset semantics invalidates the baseline, not the script.** §12.3 is right:
+3. **A change to role semantics invalidates the baseline, not the script.** §12.3 is right:
    re-capture rather than adjust an expectation to whatever comes out.
 
 It is deliberately outside `npm test`, because without a baseline it fails, and a check that
@@ -2653,7 +2653,7 @@ the answer: `includeLevel12Runes` and `includeEquippedRunes` are gone from
 `RunePotentialSettings`, from the Settings panel and from the page.
 
 What settled it was the first real account to press Calculate after Stage 9. It holds 3,242
-runes — 1,686 equipped and 1,556 in the inventory, 2,088 of them at +12 or above. The table
+runes — 1,686 engraved and 1,556 in the inventory, 2,088 of them at +12 or above. The table
 answered for 1,147: the inventory runes below +12, and nothing else. The engine was doing
 exactly what the settings said. The settings were the ones §14.7 had just moved to `true`,
 but that account's stored preferences predated the move and still held `false` for both —
@@ -2664,15 +2664,15 @@ user had never made.
 The defaults were not the defect and neither was the wiring. The defect was that scope was a
 saved setting at all. Every rune the import holds is judged now, always; where a rune sits and
 how far it is powered up decide what the table **shows**, through the filter strip that was
-already there and already on. That also removes the trap §9.11 named without weighing: preset
-quotas are global, so a rune held out of the engine hands its place in a preset's share to the
+already there and already on. That also removes the trap §9.11 named without weighing: role
+quotas are global, so a rune held out of the engine hands its place in a role's share to the
 runes that remain and changes *their* verdicts. A display filter cannot do that. A scope
 setting could, and did.
 
 `RUNE-CLEANUP-MATH.md` §7 now states the population rule rather than the settings, and
 `tests/rune-cleanup-scope.spec.ts` was rewritten against the same fixture to hold the
-distinction: four runes judged including the equipped +15, Settings offering no scope control,
-and hiding the equipped rune changing the rows on screen while the judged count stands.
+distinction: four runes judged including the engraved +15, Settings offering no scope control,
+and hiding the engraved rune changing the rows on screen while the judged count stands.
 
 A stored preference the current form no longer defines is left where it lies rather than
 migrated — `AGENTS.md` §0 — so the dead keys in an existing preferences document are simply

@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
  * measured against that table rather than against the window.
  */
 
-/* One equipped copy and one bare copy: both ends of `AGENTS.md` rule 3 in one
+/* One engraved copy and one bare copy: both ends of `AGENTS.md` rule 3 in one
    account, so the empty case is exercised by the same fixture. */
 const account = fileURLToPath(new URL('./fixtures/monster-overlay-account.json', import.meta.url));
 
@@ -88,24 +88,24 @@ test('engraved relic mains appear in current stats, while a bare copy keeps its 
   await page.setViewportSize({ width: 1920, height: 1080 });
   await importAccount(page);
   const links = await monsterLinks(page);
-  const equippedRow = page.locator('tbody tr').filter({ has: links.first() }).first();
-  const before = await equippedRow.boundingBox();
+  const engravedRow = page.locator('tbody tr').filter({ has: links.first() }).first();
+  const before = await engravedRow.boundingBox();
   await page.screenshot({ path: testInfo.outputPath('relic-stat-before.png') });
   await links.first().click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.locator('.stat-range[data-figure="hp"] .overlay-stat-current')).toContainText(/34[.,]390/);
-  /* Every worn card is one fixed shape, so a rune without an innate or with two
+  /* Every engraved card is one fixed shape, so a rune without an innate or with two
      sub properties draws the same box as a full one. */
   const sizes = async (selector: string) => (await dialog.locator(selector).evaluateAll((elements) =>
     elements.map((element) => { const box = element.getBoundingClientRect(); return `${Math.round(box.width)}x${Math.round(box.height)}`; })));
-  const runeCards = await sizes('.worn-rune');
+  const runeCards = await sizes('.engraved-rune');
   expect(runeCards).toHaveLength(6);
   expect(new Set(runeCards).size).toBe(1);
-  const artifactCards = await sizes('.worn-artifact');
+  const artifactCards = await sizes('.engraved-artifact');
   expect(artifactCards).toHaveLength(2);
   expect(new Set(artifactCards).size).toBe(1);
-  await page.screenshot({ path: testInfo.outputPath('relic-stat-equipped.png') });
-  expect(await equippedRow.boundingBox()).toEqual(before);
+  await page.screenshot({ path: testInfo.outputPath('relic-stat-engraved.png') });
+  expect(await engravedRow.boundingBox()).toEqual(before);
   /* The whole panel fits a 1080-pixel screen: nothing to scroll either way. */
   const body = dialog.locator('.overlay-body');
   const fits = (element: Element) => element.scrollWidth <= element.clientWidth && element.scrollHeight <= element.clientHeight;
@@ -115,8 +115,8 @@ test('engraved relic mains appear in current stats, while a bare copy keeps its 
   await links.nth(1).click();
   await expect(dialog.locator('.stat-range[data-figure="hp"] .overlay-stat-current')).toContainText(/16[.,]500/);
   /* A bare copy draws the same six cards and two artifact boxes, empty. */
-  expect(await sizes('.worn-rune')).toEqual(runeCards);
-  expect(await sizes('.worn-artifact')).toEqual(artifactCards);
+  expect(await sizes('.engraved-rune')).toEqual(runeCards);
+  expect(await sizes('.engraved-artifact')).toEqual(artifactCards);
   expect(await dialog.locator('.overlay-body').evaluate(fits)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('relic-stat-bare.png') });
 });
@@ -536,7 +536,7 @@ test('a rune build is chosen as a whole, set by set, never as loose sets', async
   expect(stored?.allowBrokenSets).toBe(true);
 });
 
-test('what is wanted takes the left, and what is worn the right third', async ({ page }) => {
+test('what is wanted takes the left, and what is engraved the right third', async ({ page }) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await importAccount(page);
   await openOverlay(page);
@@ -544,13 +544,13 @@ test('what is wanted takes the left, and what is worn the right third', async ({
   const runeLabels = await dialog.locator('.monster-overlay-wants .overlay-block').first().locator('.overlay-row-label').allTextContents();
   expect(runeLabels).toEqual(['Desired builds', 'Most common']);
   const wants = (await dialog.locator('.monster-overlay-wants').boundingBox())!;
-  const worn = (await dialog.locator('.monster-overlay-worn').boundingBox())!;
-  expect(worn.x).toBeGreaterThan(wants.x + wants.width);
-  expect(Math.abs(worn.width / (wants.width + worn.width) - 1 / 3)).toBeLessThan(0.03);
-  /* The worn build heads the worn runes, written the way a desired one is, and
+  const column = (await dialog.locator('.monster-overlay-engraved').boundingBox())!;
+  expect(column.x).toBeGreaterThan(wants.x + wants.width);
+  expect(Math.abs(column.width / (wants.width + column.width) - 1 / 3)).toBeLessThan(0.03);
+  /* The engraved build heads the engraved runes, written the way a desired one is, and
      nothing else: no sample size beside the shares. */
-  const equipped = dialog.locator('.overlay-block').filter({ has: page.getByRole('heading', { name: 'Equipped runes' }) });
-  await expect(equipped.locator('.overlay-provenance')).toHaveText(/^[A-Z][a-z]+(\/[A-Z][a-z]+)+$/);
+  const engraved = dialog.locator('.overlay-block').filter({ has: page.getByRole('heading', { name: 'Engraved runes' }) });
+  await expect(engraved.locator('.overlay-provenance')).toHaveText(/^[A-Z][a-z]+(\/[A-Z][a-z]+)+$/);
   await expect(dialog.getByText(/measured/)).toHaveCount(0);
 });
 
@@ -559,11 +559,11 @@ test('the Runes block opens the panel, above the stats', async ({ page }) => {
   await openOverlay(page);
   const titles = await page.locator('.overlay-block-title').allTextContents();
   expect(titles).toEqual([
-    'Runes', 'Stats', 'Settings', 'Artifacts and relics', 'Equipped runes', 'Equipped artifacts', 'Engraved relics', 'Most common artifacts',
+    'Runes', 'Stats', 'Settings', 'Artifacts and relics', 'Engraved runes', 'Engraved artifacts', 'Engraved relics', 'Most common artifacts',
   ]);
 });
 
-test('a copy with nothing equipped says so in every panel', async ({ page }) => {
+test('a copy with nothing engraved says so in every panel', async ({ page }) => {
   await importAccount(page);
   const links = await monsterLinks(page);
   /* The second roster row is the bare copy, which carries no runes, no
@@ -573,9 +573,10 @@ test('a copy with nothing equipped says so in every panel', async ({ page }) => 
   await bare.click();
   await expect(page.getByRole('dialog')).toBeVisible();
 
-  await expect(page.getByText('No runes equipped')).toBeVisible();
-  await expect(page.getByText('None equipped').first()).toBeVisible();
-  await expect(page.getByText('None engraved')).toBeVisible();
+  await expect(page.getByText('No runes engraved')).toBeVisible();
+  /* Both artifact slots and the relic list say it in the same words. */
+  await expect(page.getByText('None engraved')).toHaveCount(3);
+  await expect(page.locator('.overlay-empty').getByText('None engraved')).toBeVisible();
 
   /* An empty account must not widen the canvas: the overlay is a fixed box over
      it, and a panel that overflowed would scroll the page behind the backdrop. */

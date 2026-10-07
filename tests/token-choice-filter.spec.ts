@@ -3,7 +3,7 @@ import type { Locator, Page } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
 
 /**
- * The one-line filter that Set, Main and Preset are answered on.
+ * The one-line filter that Set, Main and Role are answered on.
  *
  * Two things are worth holding here, because both were the reason for building
  * it and neither is visible in the code: the group is one control-row high

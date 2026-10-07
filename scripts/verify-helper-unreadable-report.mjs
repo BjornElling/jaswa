@@ -41,7 +41,7 @@ try {
     sec_effects: [[215, 7, 0, 0, 0], [222, 13, 2, 0, 0], [221, 37, 0, 0, 5], [218, 0.9, 2, 0, 0]],
     occupied_id: 10, locked: 0, source: 50001, extra: [], date_add: '2026-08-28 17:22:22',
   };
-  /* An unknown equip attribute cannot match any monster, so it must be rejected. */
+  /* An unknown engrave attribute cannot match any monster, so it must be rejected. */
   const unreadable = { ...readable, attribute: 999 };
 
   const envelope = (data) => ({
@@ -56,7 +56,7 @@ try {
   const bad = classifyHelperProfile(envelope(account([unreadable])));
   assert.equal(bad.state, 'unreadable',
     'an account JASWA cannot read is a reportable rejection, not an absent snapshot');
-  assert.match(bad.reason, /equipped artifact JASWA cannot read/,
+  assert.match(bad.reason, /engraved artifact JASWA cannot read/,
     'the rejection carries the same sentence the file route shows');
   assert.deepEqual(bad.identity, { instanceId: 'helper-1', sessionId: 1, revision: 4 },
     'the rejection names the snapshot, so the poll reports it once rather than every two seconds');

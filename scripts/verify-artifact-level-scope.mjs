@@ -22,7 +22,7 @@ function artifact(id) {
 
 try {
   const { artifactOptimizationMonsters } = await server.ssrLoadModule('/app/lib/artifact-optimization-monsters.ts');
-  const { canEquipArtifacts, canEquipRelics } = await server.ssrLoadModule('/app/lib/monster-equipment-eligibility.ts');
+  const { canEngraveArtifacts, canEngraveRelics } = await server.ssrLoadModule('/app/lib/monster-engrave-eligibility.ts');
   const { relicEngravingCounts } = await server.ssrLoadModule('/app/lib/relics.ts');
   const { buildArtifactScoreRequests } = await server.ssrLoadModule('/app/lib/compute/artifact-score-input.ts');
   const { defaultArtifactSettings } = await server.ssrLoadModule('/app/lib/file-imports.ts');
@@ -46,16 +46,16 @@ try {
   assert.deepEqual(requests.flatMap((request) => request.artifacts.map((entry) => entry.id)), ['1', '2'],
     'the level restriction must never remove artifacts from the calculation pool');
 
-  assert.equal(canEquipArtifacts(monsters[1]), true, 'a six-star monster can equip artifacts');
-  assert.equal(canEquipArtifacts(monsters[3]), false, 'a five-star monster cannot equip artifacts');
-  assert.equal(canEquipRelics(monsters[1]), true, 'a level-40 monster can receive relic engravings');
-  assert.equal(canEquipRelics(monsters[0]), false, 'a level-39 monster cannot receive relic engravings');
+  assert.equal(canEngraveArtifacts(monsters[1]), true, 'a six-star monster can engrave artifacts');
+  assert.equal(canEngraveArtifacts(monsters[3]), false, 'a five-star monster cannot engrave artifacts');
+  assert.equal(canEngraveRelics(monsters[1]), true, 'a level-40 monster can receive relic engravings');
+  assert.equal(canEngraveRelics(monsters[0]), false, 'a level-39 monster cannot receive relic engravings');
   assert.deepEqual([...relicEngravingCounts([
     { ...monsters[1], relics: [{ rid: 10 }] },
     { ...monsters[0], relics: [{ rid: 10 }] },
   ])], [['10', 1]], 'only legal level-40 relic engravings consume account capacity');
 
-  console.log('Artifact and relic destinations follow the game equipment unlocks.');
+  console.log('Artifact and relic destinations follow the game’s engraving unlocks.');
 } finally {
   await server.close();
 }

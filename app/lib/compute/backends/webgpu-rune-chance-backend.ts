@@ -4,7 +4,7 @@
  * The processor's version is `countJobs` in `rune-power-up-outcomes.ts`, and it stays
  * the reference: this backend decides nothing the processor would decide differently,
  * it runs the same runs in parallel. Everything upstream of a job — which runes are
- * certain noes, which are certain yeses, and what bar each preset sets — has already
+ * certain noes, which are certain yeses, and what bar each role sets — has already
  * happened on the processor by the time anything here is packed.
  *
  * ## The agreement gate
@@ -109,7 +109,7 @@ function packScoring(into: Float32Array, at: number, scoring: EndStateScoring): 
  * One buffer set from a list of jobs.
  *
  * Runes and price lists are de-duplicated on object identity, which is exactly the
- * sharing the model already arranges: one `RuneFuture` per rune however many presets
+ * sharing the model already arranges: one `RuneFuture` per rune however many roles
  * ask about it, and one `EndStateScoring` per role and craft credit. On a real box
  * that turns tens of thousands of jobs into a few thousand rune records and a few
  * dozen price lists.
@@ -143,7 +143,7 @@ function pack(jobs: readonly CountingJob[]) {
  * A job writes one count per lane, so the answer buffer is 256 bytes of it — and
  * every WebGPU implementation guarantees only 128 MiB for one storage binding, which
  * 524,288 jobs would pass. That is not a hypothetical size: `rune-advice-client.ts`
- * names an account of several thousand runes against thirty user presets as the
+ * names an account of several thousand runes against thirty user roles as the
  * reason the worker exists, and such an account raises jobs by the hundred thousand.
  *
  * Going over would not be wrong, it would be *refused* — the pass is rejected, the

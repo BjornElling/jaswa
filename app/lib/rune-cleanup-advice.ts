@@ -12,12 +12,12 @@
  */
 import { runeMaximumLevel } from './runes';
 import type { Rune } from './runes';
-import type { RunePotentialPreset } from './rune-potential-presets';
+import type { RuneRole } from './rune-roles';
 import type { RunePotentialSettings } from './types';
 import type { ReferenceStats } from './rune-reference-stats';
 import {
   boxThreshold, candidateChanceAsk, candidateExpectedBound, candidateExpectedValue, candidateMaxValue, isFourPieceSet,
-  newRuneAdviceScope, ordinaryBox, ordinarySample, prepareRuneCandidate, presetBuilds, referenceStars,
+  newRuneAdviceScope, ordinaryBox, ordinarySample, prepareRuneCandidate, roleBuilds, referenceStars,
   runeRuns, slotMainFamily, standingIn,
 } from './rune-cleanup-model';
 import type {
@@ -71,9 +71,9 @@ class ChanceLedger {
   private readonly slots: number[][] = [];
   private readonly unique: CountingJob[] = [];
   /**
-   * **The same question is counted once.** Two builds of a preset whose main stats
+   * **The same question is counted once.** Two builds of a role whose main stats
    * differ only where the role wants nothing price every line alike and draw the
-   * same bar, so they ask one rune one question twice. Measured on a preset with
+   * same bar, so they ask one rune one question twice. Measured on a role with
    * three main stats in each of slots 2, 4 and 6, half its jobs were such repeats.
    * A job is the rune's future, the role's valuation and craft plan, the bar and
    * the run count — every one of them either memoised or a number, so identity is
@@ -142,7 +142,7 @@ class SlotShares {
   private readonly balance = new Map<number, readonly number[]>();
   private readonly freshBalance = new Map<number, readonly number[]>();
   private readonly scope: ReturnType<typeof newRuneAdviceScope>;
-  private readonly presets: readonly RunePotentialPreset[];
+  private readonly roles: readonly RuneRole[];
   private readonly builds: ReadonlyMap<string, readonly Build[]>;
   private readonly base: ReadonlyMap<string, ReferenceStats>;
   private readonly qualityBar: number;
@@ -153,13 +153,13 @@ class SlotShares {
 
   constructor(
     scope: ReturnType<typeof newRuneAdviceScope>,
-    presets: readonly RunePotentialPreset[], builds: ReadonlyMap<string, readonly Build[]>,
+    roles: readonly RuneRole[], builds: ReadonlyMap<string, readonly Build[]>,
     base: ReadonlyMap<string, ReferenceStats>, qualityBar: number, chanceBar = 0.20,
     acceptedWorth: number = floorCalibrationTolerances.accepted,
     brokenWorth: number = floorCalibrationTolerances.broken,
   ) {
     this.scope = scope;
-    this.presets = presets;
+    this.roles = roles;
     this.builds = builds;
     this.base = base;
     this.qualityBar = qualityBar;
@@ -168,66 +168,66 @@ class SlotShares {
     this.brokenWorth = brokenWorth;
     this.eligible = [1, 2, 3, 4, 5, 6].map((slot) => {
       const mains = slotMainProperties[slot] ?? [];
-      return mains.filter((main) => presets.some((preset) => base.has(preset.type)
-        && (builds.get(preset.id) ?? []).some((build) => slot % 2 === 1
+      return mains.filter((main) => roles.some((role) => base.has(role.type)
+        && (builds.get(role.id) ?? []).some((build) => slot % 2 === 1
           || build.mains[slot as 2 | 4 | 6] === 0 || build.mains[slot as 2 | 4 | 6] === main))).length
         / Math.max(1, mains.length);
     });
   }
 
   /**
-   * The share of its own box a rune of this slot, star class and preset must clear,
+   * The share of its own box a rune of this slot, star class and role must clear,
    * for a rune whose retention share is `wanted`: the slot's balance (below) applied
    * to it, then spread over the slot's mains.
    */
-  shareFor(preset: RunePotentialPreset, slot: number, stars: number, wanted: number, level = 15): number {
+  shareFor(role: RuneRole, slot: number, stars: number, wanted: number, level = 15): number {
     const balance = (level < lastSubPropertyLevel ? this.freshBalanceOf(stars) : this.balanceOf(stars))[slot - 1] ?? 1;
-    /* A remembered calibration is asked with a later call's copy of the preset. Its
+    /* A remembered calibration is asked with a later call's copy of the role. Its
        own copy keeps the scope's identity-keyed caches from growing with every call. */
-    const own = this.presets.find((known) => known.id === preset.id) ?? preset;
+    const own = this.roles.find((known) => known.id === role.id) ?? role;
     return this.shareOf(own, slot, stars, Math.min(1, wanted * balance));
   }
 
-  /** The +12/+15 union of presets uses the same per-usable-main target as §9.4. */
+  /** The +12/+15 union of roles uses the same per-usable-main target as §9.4. */
   private balanceOf(stars: number): readonly number[] {
     const known = this.balance.get(stars);
     if (known) return known;
     const bar = this.qualityBar;
-    /* One reading per sample rune: for each preset that can judge it, the best standing
+    /* One reading per sample rune: for each role that can judge it, the best standing
        any of its builds gives the neutral floor yardstick, independent of settings. */
     const readings = [1, 2, 3, 4, 5, 6].map((slot) => ordinarySample(slot, stars, balanceSampleRunes, 15, 'drop').map((rune) => {
-      const candidatesByPreset = this.presets.flatMap((preset) => {
-        const line = this.base.get(preset.type);
+      const candidatesByRole = this.roles.flatMap((role) => {
+        const line = this.base.get(role.type);
         if (!line) return [];
-        const builds = this.builds.get(preset.id) ?? [];
+        const builds = this.builds.get(role.id) ?? [];
         const candidates: { standing: number; max: number; rank: MatchRank }[] = [];
         let box: OrdinaryBox | null = null;
         for (const build of builds) {
-          const candidate = prepareRuneCandidate(rune, preset, build, line, floorCalibrationCredit, this.scope);
+          const candidate = prepareRuneCandidate(rune, role, build, line, floorCalibrationCredit, this.scope);
           if (!candidate) continue;
-          box ??= ordinaryBox(slotMainFamily(preset, builds, slot, candidate.main, stars, line, floorCalibrationCredit, this.scope));
+          box ??= ordinaryBox(slotMainFamily(role, builds, slot, candidate.main, stars, line, floorCalibrationCredit, this.scope));
           const worth = candidate.rank === 'preferred' ? 1
             : candidate.rank === 'acceptable' ? floorCalibrationTolerances.accepted : floorCalibrationTolerances.broken;
           const max = candidateMaxValue(candidate) * worth;
           candidates.push({ standing: standingIn(box, max), max, rank: candidate.rank });
         }
-        return candidates.length === 0 ? [] : [{ preset, candidates }];
+        return candidates.length === 0 ? [] : [{ role, candidates }];
       });
-      return candidatesByPreset.flatMap(({ preset, candidates }) => {
+      return candidatesByRole.flatMap(({ role, candidates }) => {
         const best = candidates.reduce<{ standing: number; max: number; rank: MatchRank } | null>(
           (current, candidate) => !current || candidate.standing > current.standing
             || (candidate.standing === current.standing && candidate.max > current.max) ? candidate : current,
           null,
         );
-        return best ? [{ preset, standing: best.standing, rank: best.rank }] : [];
+        return best ? [{ role, standing: best.standing, rank: best.rank }] : [];
       });
     }));
     const keptAt = (slot: number, balance: number) => {
       const target = Math.min(1, bar * balance);
-      const floors = new Map(this.presets.map((preset) => [preset.id, 1 - this.shareOf(preset, slot, stars, target)]));
+      const floors = new Map(this.roles.map((role) => [role.id, 1 - this.shareOf(role, slot, stars, target)]));
       const runes = readings[slot - 1];
-      return runes.filter((reading) => reading.some(({ preset, standing }) =>
-        standing >= (floors.get(preset.id) ?? Infinity))).length
+      return runes.filter((reading) => reading.some(({ role, standing }) =>
+        standing >= (floors.get(role.id) ?? Infinity))).length
         / Math.max(1, runes.length * (this.eligible[slot - 1] ?? 0));
     };
     const level = (keptAt(1, 1) + keptAt(3, 1) + keptAt(5, 1)) / 3;
@@ -265,19 +265,19 @@ class SlotShares {
       const multiplier = (isFourPieceSet(rune.setName) ? floorCalibrationSetWeights.fourPiece : 1)
         * (rune.setName === 'Intangible' ? floorCalibrationSetWeights.intangible : 1);
       let runs: ReturnType<typeof playForward> | null = null;
-      const standings = this.presets.flatMap((preset) => {
-        const line = this.base.get(preset.type);
+      const standings = this.roles.flatMap((role) => {
+        const line = this.base.get(role.type);
         if (!line) return [];
-        const builds = this.builds.get(preset.id) ?? [];
+        const builds = this.builds.get(role.id) ?? [];
         let standing = 0;
         let preferredStanding = 0;
         const acceptedStandings = [0, 0, 0, 0, 0];
         const brokenStandings = [0, 0, 0, 0, 0];
         for (const build of builds) {
-          const candidate = prepareRuneCandidate(rune, preset, build, line, floorCalibrationCredit, this.scope);
+          const candidate = prepareRuneCandidate(rune, role, build, line, floorCalibrationCredit, this.scope);
           if (!candidate) continue;
           const box = ordinaryBox(slotMainFamily(
-            preset, builds, slot, candidate.main, stars, line, floorCalibrationCredit, this.scope,
+            role, builds, slot, candidate.main, stars, line, floorCalibrationCredit, this.scope,
           ));
           runs ??= playForward(candidate.future, runsPerSample);
           const outcomes = Array.from({ length: runsPerSample }, (_, at) =>
@@ -298,16 +298,16 @@ class SlotShares {
           });
         }
         return standing > 0 || preferredStanding > 0 || acceptedStandings[0] > 0 || brokenStandings[0] > 0
-          ? [{ preset, standing, preferredStanding, acceptedStandings, brokenStandings }] : [];
+          ? [{ role, standing, preferredStanding, acceptedStandings, brokenStandings }] : [];
       });
       return { multiplier, standings };
     }));
     const keptAt = (slot: number, factor: number, pair?: readonly [number, number]) => {
       const runes = readings[slot - 1];
       return runes.filter(({ multiplier, standings }) => standings.some(({
-        preset, standing, preferredStanding, acceptedStandings, brokenStandings,
+        role, standing, preferredStanding, acceptedStandings, brokenStandings,
       }) => (pair ? Math.max(preferredStanding, acceptedStandings[pair[0]], brokenStandings[pair[1]]) : standing)
-        >= 1 - this.shareOf(preset, slot, stars,
+        >= 1 - this.shareOf(role, slot, stars,
           Math.min(1, this.qualityBar * factor * multiplier)))).length
         / Math.max(1, runes.length * (this.eligible[slot - 1] ?? 0));
     };
@@ -369,16 +369,16 @@ class SlotShares {
     return capped;
   }
 
-  private shareOf(preset: RunePotentialPreset, slot: number, stars: number, wanted: number): number {
-    const builds = this.builds.get(preset.id) ?? [];
-    const base = this.base.get(preset.type);
+  private shareOf(role: RuneRole, slot: number, stars: number, wanted: number): number {
+    const builds = this.builds.get(role.id) ?? [];
+    const base = this.base.get(role.type);
     if (!base) return 0;
-    const key = `${preset.id}|${slot}|${stars}|${wanted}`;
+    const key = `${role.id}|${slot}|${stars}|${wanted}`;
     const known = this.found.get(key);
     if (known !== undefined) return known;
     const mains = slotMainProperties[slot] ?? [];
     const readings = mains.map((main) => {
-      const family = slotMainFamily(preset, builds, slot, main, stars, base, floorCalibrationCredit, this.scope);
+      const family = slotMainFamily(role, builds, slot, main, stars, base, floorCalibrationCredit, this.scope);
       const worth = family.valuations.length === 0 ? 0
         : family.rank === 'preferred' ? 1
           : family.rank === 'acceptable' ? floorCalibrationTolerances.accepted : floorCalibrationTolerances.broken;
@@ -405,16 +405,16 @@ class SlotShares {
   }
 }
 
-/** One preset's best reading of one rune, valued but not yet gated. */
+/** One role's best reading of one rune, valued but not yet gated. */
 type Contender = {
-  preset: RunePotentialPreset; prepared: RuneCandidate; box: OrdinaryBox;
+  role: RuneRole; prepared: RuneCandidate; box: OrdinaryBox;
   value: number; maxValue: number; rank: MatchRank;
   /** The share of this rune's own box that passes: the slot's share, spread over its mains (§9.3). */
   share: number;
 };
 
 /**
- * One preset the policy will walk: its best-valued build, whose Max value and standing
+ * One role the policy will walk: its best-valued build, whose Max value and standing
  * the row prints, and one numbered question per build whose odds are asked.
  */
 type Step = { candidate: Contender; passesValue: boolean; asks: number[] };
@@ -423,7 +423,7 @@ type RunePlan = { rune: Rune; steps: Step[] };
 
 type Answer = {
   value: number; maxValue: number; chance: number; share: number; floorMaxValue: number;
-  preset: RunePotentialPreset; rank: MatchRank;
+  role: RuneRole; rank: MatchRank;
   /** The one build whose Max value, Chance and craft decision the row shows. */
   candidate: RuneCandidate;
 };
@@ -454,7 +454,7 @@ export const runeVerdictLabels: Record<RuneVerdict, string> = {
  * ids: slot 1 may never carry DEF and slot 3 may never carry ATK, so for a Def DD
  * account the same `0.49` admitted 25 % of the ordinary slot-3 runes and 5 % of the
  * ordinary slot-4 ones. Stated as a share of each slot's own box, it admits the same
- * fraction of every slot by construction, whatever the preset asks for.
+ * fraction of every slot by construction, whatever the role asks for.
  * `rune-cleanup-model.ts`'s `ordinaryBox` is the arithmetic and §9.1 is the reasoning.
  *
  * **This is the second time the stops have been restated**, and the reason is the
@@ -485,7 +485,7 @@ export const qualityThresholds: readonly number[] = [0.33, 0.23, 0.15, 0.09, 0.0
 export const chanceThresholds: readonly number[] = [0.01, 0.05, 0.20, 0.50, 0.80];
 
 /**
- * What a rune the preset merely accepts is worth against one it prefers, by the
+ * What a rune the role merely accepts is worth against one it prefers, by the
  * Accepted runes slider. A multiplier on Max value, so an accepted rune has to be
  * that much better in itself to earn the same verdict. The middle of the ladder is
  * also shifted one stop towards leniency, so the old `Forgiving` bar is now
@@ -494,7 +494,7 @@ export const chanceThresholds: readonly number[] = [0.01, 0.05, 0.20, 0.50, 0.80
 export const acceptedWorth: readonly number[] = [1.00, 0.95, 0.85, 0.70, 0.55];
 
 /**
- * The same for a rune the preset names neither way. The middle of the ladder is
+ * The same for a rune the role names neither way. The middle of the ladder is
  * shifted one stop towards leniency, so the old `A good rune is a good rune` bar is
  * now `Occasionally`. The last stop remains `0`: "No" means no, and no amount of
  * quality redeems a set the role never asked for.
@@ -522,7 +522,7 @@ export type RuneAdvice = {
   standing: number;
   /**
    * The share of its own box the floor let through for this rune: the quality stop's
-   * share among mains the preset can use, spread over their own boxes (§9.3).
+   * share among mains the role can use, spread over their own boxes (§9.3).
    * `standing` passed where it reached `1 - floorShare`.
    */
   floorShare: number;
@@ -534,48 +534,48 @@ export type RuneAdvice = {
   floorMaxValue: number;
   /** `0`–`1`: the chance of reaching the final +15 bar; RNG ends at +12. */
   chance: number;
-  /** The preset this rune answers best, or `null` when none can use it. */
-  preset: RunePotentialPreset | null;
+  /** The role this rune answers best, or `null` when none can use it. */
+  role: RuneRole | null;
   rank: MatchRank;
   /**
-   * The line-up its Max value assumed for `preset`. From `+12`: every grindable line
+   * The line-up its Max value assumed for `role`. From `+12`: every grindable line
    * ground and the Gem spent where it gains most, as `craftedLines` decides it. Below
    * `+12`: the lines it shows so far, each grindable one ground and no Gem, because a
    * stone may go on at any level and a Gem only from `+12` (`groundLines`). `null` only
-   * where no preset can use the rune. Carried out so that whatever acts on the verdict
+   * where no role can use the rune. Carried out so that whatever acts on the verdict
    * spends the items the verdict counted, rather than deciding the craft a second time.
    */
   craftedLines: EndStateLine[] | null;
   /**
-   * The slot 2, 4 and 6 mains of the build `preset` was read in, `0` where the preset
+   * The slot 2, 4 and 6 mains of the build `role` was read in, `0` where the role
    * leaves a slot open. A rune keeps its best build, and which one that is decides what
    * each of its lines is worth — a CRI Rate % main in slot 4 can meet the role's whole
    * CRI Rate target and leave a CRI Rate sub worth nothing — so the page names it.
-   * `null` only where no preset can use the rune.
+   * `null` only where no role can use the rune.
    */
   buildMains: Build['mains'] | null;
   /**
-   * Every preset's own best reading of this rune, for a page that explains the
-   * choice of Best preset rather than only stating it. `null` unless asked for:
+   * Every role's own best reading of this rune, for a page that explains the
+   * choice of Best role rather than only stating it. `null` unless asked for:
    * a reading's expectation costs a pass over the rune's runs, and the table,
    * which asks about every rune at once, has no use for the other nine.
    */
-  readings: PresetReading[] | null;
+  readings: RoleReading[] | null;
 };
 
 /**
- * **One preset's view of one rune**, chosen within that preset by the same rule Best
- * preset is chosen by across all of them: the readings that clear both gates first,
+ * **One role's view of one rune**, chosen within that role by the same rule Best
+ * role is chosen by across all of them: the readings that clear both gates first,
  * the one expected to be worth most among those. So the reading marked best in a list
  * of these is exactly the one the row names.
  */
-export type PresetReading = {
-  presetId: string;
-  /** How the rune's set and main answer this preset — the worse of the two. */
+export type RoleReading = {
+  roleId: string;
+  /** How the rune's set and main answer this role — the worse of the two. */
   rank: MatchRank;
   maxValue: number;
   chance: number;
-  /** What the rune is expected to be worth at `+15`, on the Max value scale — the figure Best preset is chosen on. */
+  /** What the rune is expected to be worth at `+15`, on the Max value scale — the figure Best role is chosen on. */
   expected: number;
   floorShare: number;
   floorMaxValue: number;
@@ -606,13 +606,13 @@ const percent = (fraction: number) => {
  * **Every rune's advice at once, in three passes.**
  *
  * Whole-account rather than per-rune because the thresholds a rune is held to are
- * account-wide: the same slider settings, the same presets and the same reference
+ * account-wide: the same slider settings, the same roles and the same reference
  * base line decide every row, and computing them once per call is what keeps two
  * rows from being judged against two different bars.
  *
  * The three passes are what let the odds be answered anywhere but here:
  *
- * 1. **What is certain.** Every rune against every build of every preset: the weights,
+ * 1. **What is certain.** Every rune against every build of every role: the weights,
  *    the perfect rune of its slot, the box of ordinary runes it is measured in, its
  *    own Max value and its standing. Nothing random, nothing deferred. Every question
  *    about odds that the policy will ask is *written down* rather than answered, and
@@ -622,7 +622,7 @@ const percent = (fraction: number) => {
  *    the only reason the pass exists: one batch is one errand for the graphics card,
  *    where a question at a time would be thousands of them, and the processor's own
  *    version is faster for it too, because a rune is played forward once however many
- *    presets are asking about it.
+ *    roles are asking about it.
  * 3. **What it means.** The policy, with the answers in hand. It walks exactly the
  *    candidates the first pass walked, because what it skips depends on Max value and
  *    the retention share and never on the odds.
@@ -649,25 +649,25 @@ function policyOf(settings: RunePotentialSettings) {
 }
 
 /**
- * **The share of its own box a rune must clear, by preset and slot**, when these
- * presets judge together at these settings — what `floorShare` reports on a row, laid
+ * **The share of its own box a rune must clear, by role and slot**, when these
+ * roles judge together at these settings — what `floorShare` reports on a row, laid
  * out for a reader instead of for one rune. It is the same `SlotShares` a calculation
  * builds, for a rune of `stars` and `level` with no 4-set or Intangible preference.
  * The level matters: below the last sub-property a rune is held to the fresh-rune
  * balance of §9.4, not the finished one.
  */
 export function slotFloorShares(
-  presets: readonly RunePotentialPreset[], settings: RunePotentialSettings,
+  roles: readonly RuneRole[], settings: RunePotentialSettings,
   base: ReadonlyMap<string, ReferenceStats>, stars = 6, level = runeMaximumLevel,
 ): Map<string, number[]> {
   const { qualityBar } = policyOf(settings);
-  const shares = calibrationFor(presets, settings, base);
-  return new Map(presets.map((preset) => [preset.id,
-    [1, 2, 3, 4, 5, 6].map((slot) => shares.shareFor(preset, slot, stars, qualityBar, level))]));
+  const shares = calibrationFor(roles, settings, base);
+  return new Map(roles.map((role) => [role.id,
+    [1, 2, 3, 4, 5, 6].map((slot) => shares.shareFor(role, slot, stars, qualityBar, level))]));
 }
 
 /**
- * **The slot calibration outlives the call that made it.** It depends on the presets,
+ * **The slot calibration outlives the call that made it.** It depends on the roles,
  * the reference lines and the policy, and never on which runes are asked about. A
  * refresh after a sync, one rune opened in the overlay and the simulator's four
  * checkpoints all ask again with the same inputs, and the fresh-rune balance costs
@@ -680,19 +680,19 @@ const calibrations = new Map<string, SlotShares>();
 const calibrationsKept = 4;
 
 function calibrationFor(
-  presets: readonly RunePotentialPreset[], settings: RunePotentialSettings,
+  roles: readonly RuneRole[], settings: RunePotentialSettings,
   base: ReadonlyMap<string, ReferenceStats>,
 ): SlotShares {
   const { qualityBar, chanceBar, accepted, broken } = policyOf(settings);
-  const key = JSON.stringify([presets, [...base], qualityBar, chanceBar, accepted, broken]);
+  const key = JSON.stringify([roles, [...base], qualityBar, chanceBar, accepted, broken]);
   const known = calibrations.get(key);
   if (known) {
     calibrations.delete(key);
     calibrations.set(key, known);
     return known;
   }
-  const builds = new Map<string, Build[]>(presets.map((preset) => [preset.id, presetBuilds(preset)]));
-  const shares = new SlotShares(newRuneAdviceScope(), presets, builds, base, qualityBar, chanceBar,
+  const builds = new Map<string, Build[]>(roles.map((role) => [role.id, roleBuilds(role)]));
+  const shares = new SlotShares(newRuneAdviceScope(), roles, builds, base, qualityBar, chanceBar,
     accepted, broken);
   calibrations.set(key, shares);
   while (calibrations.size > calibrationsKept) calibrations.delete(calibrations.keys().next().value!);
@@ -700,22 +700,22 @@ function calibrationFor(
 }
 
 export async function runeAdvice(
-  runes: readonly Rune[], presets: readonly RunePotentialPreset[],
+  runes: readonly Rune[], roles: readonly RuneRole[],
   settings: RunePotentialSettings, base: ReadonlyMap<string, ReferenceStats>,
   /** Who answers the odds. The processor by default; the worker passes the card. */
   count: ChanceCounter = async (jobs) => countJobs(jobs),
-  /** Whether to carry every preset's reading out (`RuneAdvice.readings`). */
+  /** Whether to carry every role's reading out (`RuneAdvice.readings`). */
   { explain = false }: { explain?: boolean } = {},
 ): Promise<Map<string, RuneAdvice>> {
   const { qualityBar, chanceBar, accepted, broken, intangible, credit } = policyOf(settings);
   const worthOf = (rank: MatchRank) => (rank === 'preferred' ? 1 : rank === 'acceptable' ? accepted : broken);
   /* Builds are the same for every rune, so they are enumerated once. About sixty
-     across the shipped presets; a preset with three choices in every slot would
+     across the shipped roles; a role with three choices in every slot would
      give twenty-four on its own, which is still nothing. */
-  const builds = new Map<string, Build[]>(presets.map((preset) => [preset.id, presetBuilds(preset)]));
+  const builds = new Map<string, Build[]>(roles.map((role) => [role.id, roleBuilds(role)]));
 
-  /* Work the model would otherwise repeat per rune or per preset, held for
-     exactly as long as this call. The presets and the reference lines are fixed
+  /* Work the model would otherwise repeat per rune or per role, held for
+     exactly as long as this call. The roles and the reference lines are fixed
      for its duration, which is what makes the keys inside it sound. */
   const scope = newRuneAdviceScope();
   const ledger = new ChanceLedger();
@@ -723,12 +723,12 @@ export async function runeAdvice(
      and the fixed craft credit, so those settings change their own candidates'
      verdicts and not the bar. The fresh-rune balance does read the policy (§9.4),
      and is built so that a stricter choice can only lower a slot's factor. */
-  const slotShares = calibrationFor(presets, settings, base);
+  const slotShares = calibrationFor(roles, settings, base);
   const prepared: RunePlan[] = [];
 
   /* ------------------------------------------------- 1. everything that is certain */
   for (const rune of runes) {
-    /* Every preset and build this rune could serve, valued but not yet gated.
+    /* Every role and build this rune could serve, valued but not yet gated.
        Selecting a winner on Max value alone and *then* asking whether its chance
        clears the bar is how a rune gets sold: a build worth 91 % at a 30 % chance
        would beat one worth 90 % at 70 %, and only the second one survives both
@@ -739,8 +739,8 @@ export async function runeAdvice(
       * (rune.setName === 'Intangible' ? intangible : 1);
     const retentionShare = Math.min(1, qualityBar * retentionMultiplier);
     const stars = referenceStars(rune);
-    for (const preset of presets) {
-      const line = base.get(preset.type);
+    for (const role of roles) {
+      const line = base.get(role.type);
       if (!line) continue;
       /* The family first, then the scale it is measured on. A rune's standing is
          read against an ordinary rune offered the same choice of builds, so the
@@ -755,31 +755,31 @@ export async function runeAdvice(
          than one with ATK % there, and the same slot-2 rune is worth different
          amounts to the two. Keeping whichever build happened to be enumerated
          first would have picked one of those answers at random. */
-      for (const build of builds.get(preset.id) ?? []) {
-        /* A slot the preset says nothing about accepts every main the slot allows,
-           at the broken rank — `presetBuilds` emits `0` for exactly that, and
+      for (const build of builds.get(role.id) ?? []) {
+        /* A slot the role says nothing about accepts every main the slot allows,
+           at the broken rank — `roleBuilds` emits `0` for exactly that, and
            `prepareRuneCandidate`'s guard honours it. Demanding an exact match here
-           would skip the preset outright, which made a rune the preset wants report
-           "No preset can use it" purely because the user left a different slot
+           would skip the role outright, which made a rune the role wants report
+           "No role can use it" purely because the user left a different slot
            blank. */
         if (rune.slot === 2 || rune.slot === 4 || rune.slot === 6) {
           const wanted = build.mains[rune.slot];
           if (wanted !== rune.mainStatId && wanted !== 0) continue;
         }
-        const candidate = prepareRuneCandidate(rune, preset, build, line, credit, scope, floorCalibrationCredit);
+        const candidate = prepareRuneCandidate(rune, role, build, line, credit, scope, floorCalibrationCredit);
         if (candidate) family.push(candidate);
       }
       if (family.length === 0) continue;
-      const presetBuildList = builds.get(preset.id) ?? [];
+      const roleBuildList = builds.get(role.id) ?? [];
       const box = ordinaryBox(slotMainFamily(
-        preset, presetBuildList, rune.slot, family[0].main, stars, line, floorCalibrationCredit, scope,
+        role, roleBuildList, rune.slot, family[0].main, stars, line, floorCalibrationCredit, scope,
       ));
-      const share = slotShares.shareFor(preset, rune.slot, stars, retentionShare, rune.level);
+      const share = slotShares.shareFor(role, rune.slot, stars, retentionShare, rune.level);
       for (const candidate of family) {
         const worth = worthOf(candidate.rank);
         /* Two figures, and they are not interchangeable. `maxValue` is what the row
            prints: the plain fraction of a perfect rune, discounted for a set or main
-           the preset merely accepts, which is the honest description of the rune
+           the role merely accepts, which is the honest description of the rune
            itself. `value` is that same discounted figure read as a position in this
            slot's own box of ordinary runes, and it is what every gate and every
            comparison is settled on — because it is the only one of the two that
@@ -788,11 +788,11 @@ export async function runeAdvice(
            discounting the rune rather than the population. */
         const maxValue = candidateMaxValue(candidate) * worth;
         const value = standingIn(box, maxValue);
-        candidates.push({ preset, prepared: candidate, box, maxValue, value, rank: candidate.rank, share });
+        candidates.push({ role, prepared: candidate, box, maxValue, value, rank: candidate.rank, share });
       }
     }
 
-    /* **Every build is one complete reading.** A preset's builds are the main-stat
+    /* **Every build is one complete reading.** A role's builds are the main-stat
        combinations it would accept in slots 2, 4 and 6. A row may name a reading only
        when that reading's own Max value and Chance clear their gates; it must not pair
        one build's high Max value with another's high Chance.
@@ -811,7 +811,7 @@ export async function runeAdvice(
        where the best runes live, a whole span of Max values can. Falling through to
        the rune id there would seat an excellent rune behind a merely good one for
        want of a comparison that was available all along. */
-    /* The row's Best preset is not a standing reading. A standing decides whether
+    /* The row's Best role is not a standing reading. A standing decides whether
        one reading clears its own quality floor, but cannot decide which role the
        rune best serves: the boxes differ from role to role. Keep every build as a
        complete pair of Max value and Chance, so a high Max value from one build
@@ -835,7 +835,7 @@ export async function runeAdvice(
     /* These preferences change how much of the ordinary box this rune is
        allowed to represent. They widen the retained share; they never remove
        another rune's place or introduce any global limit. Every candidate is
-       asked separately: the Max value and the Chance that selects Best preset must
+       asked separately: the Max value and the Chance that selects Best role must
        describe the same build. */
     for (const candidate of contenders) {
       const passesValue = candidate.value >= 1 - candidate.share;
@@ -855,11 +855,11 @@ export async function runeAdvice(
       value: step.candidate.value, maxValue: step.candidate.maxValue, share: step.candidate.share,
       floorMaxValue: boxThreshold(step.candidate.box, step.candidate.share),
       chance: step.asks.reduce((best, at) => Math.max(best, answers[at]), 0),
-      preset: step.candidate.preset, rank: step.candidate.rank, candidate: step.candidate.prepared,
+      role: step.candidate.role, rank: step.candidate.rank, candidate: step.candidate.prepared,
     }));
-    /* A rune may satisfy several presets. **The readings that clear both gates are
+    /* A rune may satisfy several roles. **The readings that clear both gates are
        chosen from first, and only where there are none does any other reading
-       compete**, so a Best preset that says Sell can never stand in for one that
+       compete**, so a Best role that says Sell can never stand in for one that
        says Keep or Power up. Within that pool the reading the rune is expected to
        be worth most to wins (`RUNE-CLEANUP-MATH.md` §9.6). It used to be the one
        with the highest Max value, which is the best case — every improvement on
@@ -884,7 +884,7 @@ export async function runeAdvice(
       ...decide({
         rune: plan.rune, value: chosen?.maxValue ?? 0, standing: chosen?.value ?? 0,
         chance: chosen?.chance ?? 0,
-        preset: chosen?.preset ?? null, rank: chosen?.rank ?? 'broken',
+        role: chosen?.role ?? null, rank: chosen?.rank ?? 'broken',
         cleared: selected !== null,
         brokenRejected: broken === 0,
       }),
@@ -892,32 +892,32 @@ export async function runeAdvice(
       floorMaxValue: chosen?.floorMaxValue ?? 0,
       craftedLines: chosen ? finishedLines(chosen.candidate) : null,
       buildMains: chosen ? chosen.candidate.build.mains : null,
-      readings: explain ? presetReadings(presets, answersWithSteps, allowed, chanceBar, worthOf) : null,
+      readings: explain ? roleReadings(roles, answersWithSteps, allowed, chanceBar, worthOf) : null,
     });
   }
   return advice;
 }
 
 /**
- * Each preset's own pick, by the rule the row's pick is made by, so the list can
- * never mark as best a reading the row does not name. A preset whose only readings
+ * Each role's own pick, by the rule the row's pick is made by, so the list can
+ * never mark as best a reading the row does not name. A role whose only readings
  * are broken, at Broken = No, still shows them rather than a blank: the list explains
- * the choice, and "this preset could only read it as broken" is part of that.
+ * the choice, and "this role could only read it as broken" is part of that.
  */
-function presetReadings(
-  presets: readonly RunePotentialPreset[], answered: readonly AnswerWithStep[], allowed: readonly AnswerWithStep[],
+function roleReadings(
+  roles: readonly RuneRole[], answered: readonly AnswerWithStep[], allowed: readonly AnswerWithStep[],
   chanceBar: number, worthOf: (rank: MatchRank) => number,
-): PresetReading[] {
+): RoleReading[] {
   let runs: RuneRuns | null = null;
-  return presets.flatMap((preset) => {
-    const own = (list: readonly AnswerWithStep[]) => list.filter(({ answer }) => answer.preset.id === preset.id);
+  return roles.flatMap((role) => {
+    const own = (list: readonly AnswerWithStep[]) => list.filter(({ answer }) => answer.role.id === role.id);
     const pool = own(allowed).length > 0 ? own(allowed) : own(answered);
     const qualified = pool.filter(({ answer, passesValue }) => passesValue && answer.chance >= chanceBar);
     const pick = mostExpected(qualified.length > 0 ? qualified : pool, worthOf)?.answer;
     if (!pick) return [];
     const raw = candidateExpectedValue(pick.candidate, () => (runs ??= runeRuns(pick.candidate.future)));
     return [{
-      presetId: preset.id, rank: pick.rank, maxValue: pick.maxValue, chance: pick.chance, expected: worthOf(pick.rank) * raw,
+      roleId: role.id, rank: pick.rank, maxValue: pick.maxValue, chance: pick.chance, expected: worthOf(pick.rank) * raw,
       floorShare: pick.share, floorMaxValue: pick.floorMaxValue, cleared: qualified.length > 0,
     }];
   });
@@ -926,7 +926,7 @@ function presetReadings(
 /**
  * **The reading the rune is expected to be worth most to**, after the same
  * accepted/broken discount its Max value carries. Ties fall to Max value, then standing,
- * then chance, then the preset id, so the answer never depends on enumeration order.
+ * then chance, then the role id, so the answer never depends on enumeration order.
  *
  * The Gem's share of the expectation is counted over the rune's runs, so a reading costs
  * a pass over them. Most readings are never counted: each has a ceiling on its
@@ -961,7 +961,7 @@ function mostExpected<T extends { answer: Answer }>(
     const current = best?.answer;
     const wins = !current || expected > bestExpected || (expected === bestExpected && (
       answer.maxValue - current.maxValue || answer.value - current.value || answer.chance - current.chance
-      || current.preset.id.localeCompare(answer.preset.id)) > 0);
+      || current.role.id.localeCompare(answer.role.id)) > 0);
     if (wins) { best = entry; bestExpected = expected; }
   }
   return best;
@@ -971,7 +971,7 @@ function mostExpected<T extends { answer: Answer }>(
  * The decision, in the order the rules outrank each other.
  *
  * **The broken gate is asked first**, and it is the one the sliders cannot argue
- * with: "No" on Broken runes means the account only wants runes a preset asked for,
+ * with: "No" on Broken runes means the account only wants runes a role asked for,
  * and a rune that reaches a wonderful end state in a set nothing wants is still a
  * rune nothing wants. Asking about its ceiling first would let quality overturn a
  * choice the user has already made.
@@ -1020,14 +1020,14 @@ export function runeCraftSteps(rune: Rune, crafted: readonly EndStateLine[]): Ru
   });
 }
 
-function decide({ rune, value, standing, chance, preset, rank, cleared, brokenRejected }: {
+function decide({ rune, value, standing, chance, role, rank, cleared, brokenRejected }: {
   rune: Rune; value: number; standing: number; chance: number;
-  preset: RunePotentialPreset | null; rank: MatchRank;
+  role: RuneRole | null; rank: MatchRank;
   cleared: boolean; brokenRejected: boolean;
 }): Omit<RuneAdvice, 'craftedLines' | 'buildMains' | 'floorShare' | 'floorMaxValue' | 'readings'> {
-  const base = { maxValue: value, standing, chance, preset, rank };
-  if (preset === null) {
-    return { ...base, verdict: 'sell', reason: 'No preset can use it' };
+  const base = { maxValue: value, standing, chance, role, rank };
+  if (role === null) {
+    return { ...base, verdict: 'sell', reason: 'No role can use it' };
   }
   if (rank === 'broken' && brokenRejected) {
     return { ...base, verdict: 'sell', reason: 'Broken: not wanted' };

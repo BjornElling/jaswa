@@ -11,7 +11,7 @@ const relics = account.relics.map(readRelic);
 assert.ok(relics.every(Boolean));
 const hp = relicMonsterModel(account.unit_list[0]);
 const atk = relicMonsterModel(account.unit_list[2]);
-const subject = (id, model = hp, wornRelicIds = [], preferences) => ({ monsterId: String(id), model, wornRelicIds, preferences });
+const subject = (id, model = hp, engravedRelicIds = [], preferences) => ({ monsterId: String(id), model, engravedRelicIds, preferences });
 const subjects = Array.from({ length: 2 * relicEngravingLimit + 1 }, (_, at) => subject(at));
 const plan = allocateRelicEngravings(subjects, relics, new Map());
 assertRelicAllocation(plan, subjects);
@@ -24,13 +24,13 @@ for (const recommendation of plan.recommendations.values()) {
 assert.equal(plan.engravings.get('9002'), 0, 'Proposals must not reserve places');
 
 const full = new Map([['9002', relicEngravingLimit]]);
-const gated = allocateRelicEngravings([subject('new'), subject('worn', hp, ['9002'])], relics, full);
-assertRelicAllocation(gated, [subject('new'), subject('worn', hp, ['9002'])]);
+const gated = allocateRelicEngravings([subject('new'), subject('engraved', hp, ['9002'])], relics, full);
+assertRelicAllocation(gated, [subject('new'), subject('engraved', hp, ['9002'])]);
 assert.equal(gated.recommendations.get('new').chosen.relic.id, '9001');
 assert.equal(gated.recommendations.get('new').ideal.relic.id, '9002');
 assert.equal(gated.recommendations.get('new').limit, 'capacity');
-assert.equal(gated.recommendations.get('worn').chosen.relic.id, '9002');
-assert.equal(gated.recommendations.get('worn').alreadyEngraved, true);
+assert.equal(gated.recommendations.get('engraved').chosen.relic.id, '9002');
+assert.equal(gated.recommendations.get('engraved').alreadyEngraved, true);
 const allFull = allocateRelicEngravings([subject(1)], relics,
   new Map(relics.map((relic) => [relic.id, relicEngravingLimit])));
 assert.equal(allFull.recommendations.get('1').chosen, null);
@@ -45,15 +45,15 @@ const smallUpgrade = { ...twin, mainPercent: original.mainPercent + 0.0001 };
 assert.equal(allocateRelicEngravings([subject('upgrade', hp, ['9002'])], [original, smallUpgrade], new Map())
   .recommendations.get('upgrade').chosen.relic.id, '100', 'Even a gain under 5% must use the higher mathematical value');
 
-const mixed = [subject('HP'), subject('ATK', atk), subject('wearer', atk, ['9002'])];
+const mixed = [subject('HP'), subject('ATK', atk), subject('engraved', atk, ['9002'])];
 const together = allocateRelicEngravings(mixed, relics, full);
 for (const monster of mixed) {
   const alone = allocateRelicEngravings([monster], relics, full);
-  const omitAnnotation = ({ displaceableWearers, ...recommendation }) => recommendation;
+  const omitAnnotation = ({ displaceableMonsters, ...recommendation }) => recommendation;
   assert.deepEqual(omitAnnotation(together.recommendations.get(monster.monsterId)),
     omitAnnotation(alone.recommendations.get(monster.monsterId)));
 }
-assert.equal(together.recommendations.get('HP').displaceableWearers, 1);
+assert.equal(together.recommendations.get('HP').displaceableMonsters, 1);
 
 const none = { preferred: [], acceptable: [] };
 const preferences = { mainStat: { preferred: ['ATK'], acceptable: [] }, relics: { unique: { preferred: [1], acceptable: [] } } };

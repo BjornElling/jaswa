@@ -48,7 +48,7 @@ try {
     await page.setViewportSize({ width, height: 900 });
     /* The toggle is whichever filter chip that page keeps in its strip: every
        library must be able to take a click on one without its heading moving. */
-    for (const [pageName, toggleName] of [['Monsters', 'Storage'], ['Artifacts', 'Equipped'], ['Gems & Grinds', 'Usable']]) {
+    for (const [pageName, toggleName] of [['Monsters', 'Storage'], ['Artifacts', 'Engraved'], ['Gems & Grinds', 'Usable']]) {
       await railButton(pageName).click();
       const tablePage = page.locator('.data-table-page').first();
       await tablePage.waitFor();

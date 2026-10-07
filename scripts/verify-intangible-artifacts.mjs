@@ -1,9 +1,9 @@
 /**
- * Intangible artifacts — the wildcard equip class (`ARTIFACT-CANONICAL.md`
+ * Intangible artifacts — the wildcard engrave class (`ARTIFACT-CANONICAL.md`
  * §15.1). Fixture-based, so it guards the rule without needing a real capture.
  *
  * The rule it defends: an Intangible artifact fills its category slot but
- * matches every class inside it, and an equip class JASWA cannot name is
+ * matches every class inside it, and an engrave class JASWA cannot name is
  * rejected rather than imported and hidden (`AGENTS.md` §0.1).
  */
 import assert from 'node:assert/strict';
@@ -30,36 +30,36 @@ function artifact(id, { type, attribute = 0, unitStyle = 0 }) {
 
 try {
   const { readArtifact } = await server.ssrLoadModule('/app/lib/artifacts.ts');
-  const { artifactEquipClass, artifactEquipClassLabel } = await server.ssrLoadModule('/app/lib/artifact-grid.ts');
-  const { artifactIntangibleEquipClass, artifactIntangibleLabel } = await server.ssrLoadModule('/app/lib/artifact-properties.ts');
+  const { artifactEngraveClass, artifactEngraveClassLabel } = await server.ssrLoadModule('/app/lib/artifact-grid.ts');
+  const { artifactIntangibleEngraveClass, artifactIntangibleLabel } = await server.ssrLoadModule('/app/lib/artifact-properties.ts');
   const { scoreArtifactOnMonster } = await server.ssrLoadModule('/app/lib/compute/artifact-score-core.ts');
   const { intangibleRestrictionCode } = await server.ssrLoadModule('/app/lib/compute/artifact-score-protocol.ts');
 
   // ---- Reading ------------------------------------------------------------
-  const intangibleAttribute = readArtifact(artifact(1, { type: 1, attribute: artifactIntangibleEquipClass }));
+  const intangibleAttribute = readArtifact(artifact(1, { type: 1, attribute: artifactIntangibleEngraveClass }));
   assert.ok(intangibleAttribute, 'an Intangible attribute artifact must import');
   assert.equal(intangibleAttribute.intangible, true);
   assert.equal(intangibleAttribute.category, 'attribute', 'the category still binds');
-  assert.equal(artifactEquipClass(intangibleAttribute), null, 'it names no single class');
-  assert.equal(artifactEquipClassLabel(intangibleAttribute), artifactIntangibleLabel);
+  assert.equal(artifactEngraveClass(intangibleAttribute), null, 'it names no single class');
+  assert.equal(artifactEngraveClassLabel(intangibleAttribute), artifactIntangibleLabel);
 
-  const intangibleType = readArtifact(artifact(2, { type: 2, unitStyle: artifactIntangibleEquipClass }));
+  const intangibleType = readArtifact(artifact(2, { type: 2, unitStyle: artifactIntangibleEngraveClass }));
   assert.ok(intangibleType, 'an Intangible type artifact must import');
   assert.equal(intangibleType.intangible, true);
   assert.equal(intangibleType.category, 'type');
-  assert.equal(artifactEquipClassLabel(intangibleType), artifactIntangibleLabel);
+  assert.equal(artifactEngraveClassLabel(intangibleType), artifactIntangibleLabel);
 
   const dark = readArtifact(artifact(3, { type: 1, attribute: 5 }));
   assert.ok(dark);
   assert.equal(dark.intangible, false, 'a named class is not Intangible');
-  assert.equal(artifactEquipClassLabel(dark), 'Dark');
+  assert.equal(artifactEngraveClassLabel(dark), 'Dark');
 
   /* §15.1: the field `type` does not name is always 0, so a stray value there
      must not become this artifact's class. */
-  const strayField = readArtifact(artifact(4, { type: 2, attribute: artifactIntangibleEquipClass, unitStyle: 1 }));
+  const strayField = readArtifact(artifact(4, { type: 2, attribute: artifactIntangibleEngraveClass, unitStyle: 1 }));
   assert.ok(strayField);
   assert.equal(strayField.intangible, false, 'the unused field must not decide the class');
-  assert.equal(artifactEquipClassLabel(strayField), 'Attack');
+  assert.equal(artifactEngraveClassLabel(strayField), 'Attack');
 
   // ---- Parity: an unnameable class is rejected, never hidden --------------
   for (const code of [7, 42, 99, 200]) {
@@ -69,7 +69,7 @@ try {
       `unit_style ${code} names no class, so the record must be rejected`);
   }
   assert.equal(readArtifact(artifact(7, { type: 1, attribute: 0 })), null,
-    'a missing equip class is a rejection, not an Intangible');
+    'a missing engrave class is a rejection, not an Intangible');
 
   // ---- Scoring: the wildcard fits every class in its category -------------
   const request = {

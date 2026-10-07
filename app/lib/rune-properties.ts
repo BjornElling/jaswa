@@ -181,12 +181,12 @@ export function flatMainPropertyAtTwelve(stars: number, statId: number): number 
 
 
 /**
- * A completed set's permanent contribution to its wearer's own stats
+ * A completed set's permanent contribution to its monster's own stats
  * (`RUNE-CANONICAL.md` §10). Battle, chance and conditional effects are absent
  * because they cannot be turned into a stat without inventing a number.
  *
  * `percent` applies to the monster's base stat; `flat` is added outright. The five
- * team sets are here too: §10 is explicit that "all Monsters" includes the wearer,
+ * team sets are here too: §10 is explicit that "all Monsters" includes the monster it is engraved on,
  * and each contribution is a percentage of the *receiver's* own base stat, which is
  * exactly how it is applied below.
  */
@@ -209,7 +209,7 @@ export const setBonuses: Readonly<Record<string, SetBonus>> = {
 };
 
 /**
- * The stats a preset states a target for, paired with the sub-property types that
+ * The stats a role states a target for, paired with the sub-property types that
  * can move them.
  *
  * HP, ATK and DEF each have two: a percent line and a flat one. Keeping the pair

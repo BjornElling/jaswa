@@ -23,7 +23,7 @@ import {
 import { runeVerdictLabels } from '../lib/rune-cleanup-advice';
 import { calculateRuneSimulation } from '../lib/compute/rune-simulator-client';
 import type { GeneralSettings, ImportedGame, ItemGrade, RunePotentialSettings } from '../lib/types';
-import type { RunePotentialPreset } from '../lib/rune-potential-presets';
+import type { RuneRole } from '../lib/rune-roles';
 import { referenceLines, noReferenceLineMessage } from '../lib/rune-reference-stats';
 import { craftRollDescriptions, craftRollLabels } from '../lib/rune-craft-items';
 import type { CraftRollAssumption } from '../lib/rune-craft-items';
@@ -59,9 +59,9 @@ const gateOptions = [
 
 const slots = [1, 2, 3, 4, 5, 6] as const;
 
-/** The presets a run was judged against, frozen with it so an edit afterwards cannot relabel it. */
-type PresetLabel = { id: string; name: string };
-type SimulationRun = { result: RuneSimulationResult; presets: readonly PresetLabel[] };
+/** The roles a run was judged against, frozen with it so an edit afterwards cannot relabel it. */
+type RoleLabel = { id: string; name: string };
+type SimulationRun = { result: RuneSimulationResult; roles: readonly RoleLabel[] };
 
 const cell = columnClasses(runeSimulatorTableColumns);
 
@@ -102,10 +102,10 @@ function setFormValue<K extends keyof FormState>(setForm: Dispatch<SetStateActio
   setForm((current) => ({ ...current, [key]: value }));
 }
 
-export function RuneSimulatorSection({ game, settings, presets, general, hardwareAcceleration, onOpenRune }: {
+export function RuneSimulatorSection({ game, settings, roles, general, hardwareAcceleration, onOpenRune }: {
   game: ImportedGame | null;
   settings: RunePotentialSettings;
-  presets: RunePotentialPreset[];
+  roles: RuneRole[];
   general: GeneralSettings;
   hardwareAcceleration: boolean;
   onOpenRune: OpenRuneOverlay;
@@ -140,22 +140,22 @@ export function RuneSimulatorSection({ game, settings, presets, general, hardwar
       setMessage(noReferenceLineMessage);
       return;
     }
-    if (requiresRecommendation && presets.length === 0) {
-      setMessage('Add a Rune Clean-up preset before using recommendation sell rules.');
+    if (requiresRecommendation && roles.length === 0) {
+      setMessage('Add a Rune Clean-up role before using recommendation sell rules.');
       return;
     }
     setBusy(true);
     setMessage('');
-    const judgedBy = presets.map(({ id, name }) => ({ id, name }));
+    const judgedBy = roles.map(({ id, name }) => ({ id, name }));
     /* The experiment is deterministic for the supplied random source, which keeps one
        rule for every caller. The page sends the account-wide work to a worker, so
        generation and all three checkpoints can finish without freezing the controls. */
     void (async () => {
       try {
         const result = await calculateRuneSimulation(toConfig(form, count), {
-          presets, settings, base, preferWebGpu: hardwareAcceleration,
+          roles, settings, base, preferWebGpu: hardwareAcceleration,
         });
-        setRun({ result, presets: judgedBy });
+        setRun({ result, roles: judgedBy });
         setStage(0);
       } catch (error) {
         setMessage(error instanceof Error ? error.message : 'The simulator could not generate these runes.');
@@ -240,24 +240,24 @@ export function RuneSimulatorSection({ game, settings, presets, general, hardwar
 }
 
 /**
- * How many runes Rune Clean-up keeps at +15, each counted once under the preset it
- * answers best. That is the engine's own choice of preset, so a rune two presets
+ * How many runes Rune Clean-up keeps at +15, each counted once under the role it
+ * answers best. That is the engine's own choice of role, so a rune two roles
  * would both keep lands in exactly one cell and the columns add up to the total.
  */
 function KeeperStatistics({ run }: { run: SimulationRun | null }) {
   const counts = useMemo(() => {
     if (!run || run.result.summary.kept === null) return null;
     const rows = new Map<string, { name: string; slots: number[] }>(
-      run.presets.map((preset) => [preset.id, { name: preset.name, slots: slots.map(() => 0) }]));
+      run.roles.map((role) => [role.id, { name: role.name, slots: slots.map(() => 0) }]));
     for (const entry of run.result.stages[15].entries) {
       const verdict = entry.verdict;
-      if (verdict?.verdict !== 'keep' || verdict.presetId === null) continue;
-      /* A keeper is always judged against a preset from the frozen list; one that
+      if (verdict?.verdict !== 'keep' || verdict.roleId === null) continue;
+      /* A keeper is always judged against a role from the frozen list; one that
          is not would be a defect in the engine, and it still gets its own row rather
          than vanishing from a total the footer claims is complete. */
-      const row = rows.get(verdict.presetId) ?? { name: verdict.presetName ?? verdict.presetId, slots: slots.map(() => 0) };
+      const row = rows.get(verdict.roleId) ?? { name: verdict.roleName ?? verdict.roleId, slots: slots.map(() => 0) };
       row.slots[entry.rune.slot - 1] += 1;
-      rows.set(verdict.presetId, row);
+      rows.set(verdict.roleId, row);
     }
     const totals = slots.map((_, at) => [...rows.values()].reduce((sum, row) => sum + row.slots[at], 0));
     return { rows: [...rows.entries()], totals };
@@ -268,7 +268,7 @@ function KeeperStatistics({ run }: { run: SimulationRun | null }) {
     {counts
       ? <table className="rune-simulator-stats-table">
         <thead><tr>
-          <th scope="col">Preset</th>
+          <th scope="col">Role</th>
           {slots.map((slot) => <th key={slot} scope="col">Slot {slot}</th>)}
         </tr></thead>
         <tbody>
@@ -278,14 +278,14 @@ function KeeperStatistics({ run }: { run: SimulationRun | null }) {
           </tr>)}
         </tbody>
         <tfoot><tr>
-          <th scope="row">All presets</th>
+          <th scope="row">All roles</th>
           {counts.totals.map((value, at) => <td key={at}>{value}</td>)}
         </tr></tfoot>
       </table>
       : <p className="rune-simulator-stats-note type-caption">
         {run === null
-          ? 'Generate runes to count the keepers, preset by preset and slot by slot.'
-          : 'Counting keepers needs an imported account with a level 40 monster and at least one Rune Clean-up preset.'}
+          ? 'Generate runes to count the keepers, role by role and slot by slot.'
+          : 'Counting keepers needs an imported account with a level 40 monster and at least one Rune Clean-up role.'}
       </p>}
   </section>;
 }
@@ -387,7 +387,7 @@ function RuneSimulationResults({ result, stage, onStageChange, general, onOpenRu
       detail="Simulation and recommendation checks" />
 
     {unjudged && <p className="rune-simulator-stage-summary type-caption">
-      Best preset, Max value, Chance and Action need an imported account with a level 40 monster and at least one Rune Clean-up preset.
+      Best role, Max value, Chance and Action need an imported account with a level 40 monster and at least one Rune Clean-up role.
     </p>}
 
     <div className="table-wrap card rune-simulator-table-wrap">
@@ -402,7 +402,7 @@ function RuneSimulationResults({ result, stage, onStageChange, general, onOpenRu
           <th scope="col" className={cell('main')}>Main</th>
           <th scope="col" className={cell('innate')}>Innate</th>
           <th scope="col" className={cell('subs')}>Substats</th>
-          <th scope="col" className={cell('preset')}>Best preset</th>
+          <th scope="col" className={cell('role')}>Best role</th>
           <th scope="col" className={cell('maxValue')}>
             <span className="table-heading-two-line" aria-label="Max value: the best end state it can reach against a perfect ordinary rune for that slot">Max<br />value</span>
           </th>
@@ -425,7 +425,7 @@ function RuneSimulationResults({ result, stage, onStageChange, general, onOpenRu
 
 function SimulationRow({ entry, onOpenRune }: { entry: SimulationEntry; onOpenRune: OpenRuneOverlay }) {
   const { rune, verdict } = entry;
-  const judged = verdict !== null && verdict.presetName !== null;
+  const judged = verdict !== null && verdict.roleName !== null;
   const rowOpener = useRowOpener();
   return <tr {...rowOpener}>
     <td className={cell('set', qualityRuleHost, 'rune-simulator-set')}>
@@ -452,8 +452,8 @@ function SimulationRow({ entry, onOpenRune }: { entry: SimulationEntry; onOpenRu
         ? <span className="muted">—</span>
         : <ul>{rune.subProperties.map((property) => <SimulationSubProperty key={property.statId} property={property} />)}</ul>}
     </td>
-    <td className={cell('preset', !judged && 'muted', 'rune-simulator-preset')} title={verdict?.presetName ?? undefined}>
-      {verdict?.presetName ?? '—'}
+    <td className={cell('role', !judged && 'muted', 'rune-simulator-role')} title={verdict?.roleName ?? undefined}>
+      {verdict?.roleName ?? '—'}
     </td>
     {/* The same two figures, printed the same way, as Rune Clean-up's own table:
         a simulated rune is judged by that engine and should read like it. */}

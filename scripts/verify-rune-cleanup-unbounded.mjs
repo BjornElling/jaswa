@@ -1,8 +1,8 @@
 /**
- * Keep Rune Clean-up free of finite preset quotas.
+ * Keep Rune Clean-up free of finite role quotas.
  *
- * A passing rune may be explained by one preset, but it must never be removed
- * because another rune matched that preset first. This small source-contract
+ * A passing rune may be explained by one role, but it must never be removed
+ * because another rune matched that role first. This small source-contract
  * check keeps the retired count field and the old post-gate quota path from
  * returning under a new UI label during a later refactor.
  */
@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 
 const files = {
   advice: 'app/lib/rune-cleanup-advice.ts',
-  presets: 'app/lib/rune-potential-presets.ts',
+  roles: 'app/lib/rune-roles.ts',
   section: 'app/components/rune-potential-section.tsx',
 };
 
@@ -21,15 +21,15 @@ function forbid(key, pattern, message) {
   if (pattern.test(source[key])) failures.push(message);
 }
 
-forbid('advice', /\bruneShare\b/u, 'rune advice must not read a preset quantity field.');
+forbid('advice', /\bruneShare\b/u, 'rune advice must not read a role quantity field.');
 forbid('advice', /\b(?:quota|capacity|eligibleFor|assignments|allocationOrder)\b/iu,
-  'rune advice must not contain a finite preset assignment path.');
-forbid('advice', /Outside requested preset capacity/u,
-  'rune advice must not sell a rune for a requested preset amount.');
-forbid('presets', /\b(?:runeShare|presetRuneShare|defaultRuneShare)\b/u,
-  'rune presets must not carry a desired quantity field.');
-forbid('section', /\b(?:runeShare|presetRuneShare|runeShareLabel|preset-rune-share)\b/u,
-  'the rune preset editor must not expose a desired quantity control.');
+  'rune advice must not contain a finite role assignment path.');
+forbid('advice', /Outside requested role capacity/u,
+  'rune advice must not sell a rune for a requested role amount.');
+forbid('roles', /\b(?:runeShare|roleRuneShare|defaultRuneShare)\b/u,
+  'rune roles must not carry a desired quantity field.');
+forbid('section', /\b(?:runeShare|roleRuneShare|runeShareLabel|role-rune-share)\b/u,
+  'the rune role editor must not expose a desired quantity control.');
 
 for (const required of [
   ['advice', /keepMoreForLargerSets/u, 'the 4-set retention preference must remain in the calculation.'],
@@ -44,4 +44,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('PASS: Rune Clean-up has no finite preset quota and retains both relative set preferences.');
+console.log('PASS: Rune Clean-up has no finite role quota and retains both relative set preferences.');

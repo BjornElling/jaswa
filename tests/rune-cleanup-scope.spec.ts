@@ -9,7 +9,7 @@ const account = fileURLToPath(new URL('./fixtures/craft-account.json', import.me
  * Settings do not decide which runes enter the engine. Where a rune sits and how
  * far it is powered up decide what the table *shows*, and a filter moves no figure.
  * The fixture account is built for the distinction — three runes
- * in the inventory, two of them at +12, and one +15 rune equipped on a monster.
+ * in the inventory, two of them at +12, and one +15 rune engraved on a monster.
  */
 test('every rune is judged, and the filters only decide what is shown', async ({ page }) => {
   await page.goto('/');
@@ -27,7 +27,7 @@ test('every rune is judged, and the filters only decide what is shown', async ({
   await calculate.click();
   await expect(status).toContainText('4 runes judged against');
   await expect(rows).toHaveCount(4);
-  /* The equipped +15 is one of the four, and it is there under its wearer's name
+  /* The engraved +15 is one of the four, and it is there under the name of the monster it is engraved on
      rather than under Inventory. */
   await expect(rows.filter({ hasText: 'Inventory' })).toHaveCount(3);
 
@@ -36,13 +36,13 @@ test('every rune is judged, and the filters only decide what is shown', async ({
   await expect(cleanup.locator('summary').filter({ hasText: 'Settings' })).toHaveCount(0);
   await expect(page.getByRole('navigation').getByRole('button', { name: 'Rune Set-up', exact: true })).toBeVisible();
 
-  /* Where is chosen like every other value: none chosen shows every rune, one
+  /* Location is chosen like every other value: none chosen shows every rune, one
      chosen narrows to it, and both chosen is every rune again. Narrowing takes
      rows off the screen and leaves the calculation exactly where it was. */
-  const where = page.getByRole('group', { name: 'Filter by where the rune is' });
-  const equipped = where.getByRole('button', { name: 'Equipped' });
-  const inventory = where.getByRole('button', { name: 'Inventory' });
-  await expect(equipped).toHaveAttribute('aria-pressed', 'false');
+  const location = page.getByRole('group', { name: 'Filter by location' });
+  const engraved = location.getByRole('button', { name: 'Engraved' });
+  const inventory = location.getByRole('button', { name: 'Inventory' });
+  await expect(engraved).toHaveAttribute('aria-pressed', 'false');
   await expect(inventory).toHaveAttribute('aria-pressed', 'false');
 
   await inventory.click();
@@ -50,13 +50,13 @@ test('every rune is judged, and the filters only decide what is shown', async ({
   await expect(status).toContainText('4 runes judged against');
   await expect(cleanup.getByText('3 of 4 runes')).toBeVisible();
 
-  await equipped.click();
+  await engraved.click();
   await expect(rows).toHaveCount(4);
 
   await inventory.click();
   await expect(rows).toHaveCount(1);
   await expect(rows.filter({ hasText: 'Inventory' })).toHaveCount(0);
 
-  await equipped.click();
+  await engraved.click();
   await expect(rows).toHaveCount(4);
 });

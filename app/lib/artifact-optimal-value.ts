@@ -58,7 +58,7 @@ export const benchmarkPreferredMaxRolls = 4;
 /**
  * The weighted max-roll points the benchmark artifact holds. It is the best
  * artifact the game can build on the profile the monsters actually offer,
- * **wearing the main property that monster wants**:
+ * **carrying the main property that monster wants**:
  *
  * ```text
  * benchmark points = 2 + 4 + 3a

@@ -17,16 +17,16 @@ and every future account collection.
 ## Canonical count boundary
 
 Counts are taken only from the prepared account data after the import boundary
-has merged account-level and equipped records. The same prepared collections
+has merged account-level and engraved records. The same prepared collections
 feed the badge, tables, filters, and calculations.
 
 | Game account value | JASWA count | Rule |
 | --- | --- | --- |
 | Monsters | `unit_list` length | One row per distinct positive `unit_id`; storage and fodder monsters still count. |
-| Runes | `runes` length | One per distinct positive `rune_id` across the account list and equipped copies. |
+| Runes | `runes` length | One per distinct positive `rune_id` across the account list and engraved copies. |
 | Gems, grindstones, and engraved conversion stones | Sum of `amount` | The game groups identical craft items into stacks; stack count is not item count. |
-| Artifacts | Readable artifact rows | One per distinct positive `rid` across the account list and equipped copies. Every counted row must be accepted by the artifact reader. |
-| Relics | `relics` length | One per distinct positive `rid`; an equipped relic is a reference to the same inventory relic and is not counted again. |
+| Artifacts | Readable artifact rows | One per distinct positive `rid` across the account list and engraved copies. Every counted row must be accepted by the artifact reader. |
+| Relics | `relics` length | One per distinct positive `rid`; an engraved relic is a reference to the same inventory relic and is not counted again. |
 
 Filters may hide rows, but they may not change the account total. A summary such
 as “visible of total” therefore uses the same canonical rows as the account
@@ -40,7 +40,7 @@ count and makes the filtering explicit.
   game remainder, not an owned entity. It may pass the shape check so a live
   response cannot reject the whole account, but it is removed before storage;
   malformed zero records still fail the import.
-- Account-level and equipped copies are merged by their stable identifier.
+- Account-level and engraved copies are merged by their stable identifier.
   Runes and artifacts are counted once even when the export carries both copies;
   relics are counted once because the game permits one relic to be referenced by
   multiple monsters.

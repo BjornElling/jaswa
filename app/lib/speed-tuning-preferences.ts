@@ -16,7 +16,7 @@ import type { SpeedContentId } from './speed-contents';
  * One monster's place in a team, and the what-if display speed the user tried
  * on it, if any. The what-if is kept so the experiment is there next time the
  * team is opened, but it is read only inside the team's overlay: the page and
- * everything else judge the runes worn, and never see it.
+ * everything else judge the runes engraved, and never see it.
  */
 export type SpeedTeamMember = { unitId: string; whatIfDisplaySpeed?: number };
 

@@ -1,12 +1,12 @@
 /**
  * What a monster brings before its runes.
  *
- * A preset states whole-monster targets — Support wants 275 SPD — and a rune can
+ * A role states whole-monster targets — Support wants 275 SPD — and a rune can
  * only be asked for the part its own runes have to find. That difference is the
  * monster's own base stats, and this is where they come from.
  *
  * They are read off **the user's own roster**, not off a table shipped with the
- * app: a preset names a family of monster (Attack, Support, Defence, HP), the game
+ * app: a role names a family of monster (Attack, Support, Defence, HP), the game
  * gives every monster that same classification, and the average Lv. 40 monster of
  * that family on this account is the honest answer to "what does a monster of this
  * sort bring". An account of maxed nat-5s and an account of newly-sixed farmables
@@ -14,7 +14,7 @@
  * them both the same story.
  */
 import type { GameRecord } from './game-data';
-import type { PresetType } from './rune-potential-presets';
+import type { RoleType } from './rune-roles';
 import type { TargetStat } from './rune-properties';
 import monsterCatalogue from '../data/swarfarm-monsters.json';
 
@@ -36,11 +36,11 @@ export type ReferenceBasis = 'family' | 'roster';
 
 export type ReferenceLine = { stats: ReferenceStats; basis: ReferenceBasis; monsters: number };
 
-/* SWARFARM's own word for the family, against the word a preset uses. `Material`
+/* SWARFARM's own word for the family, against the word a role uses. `Material`
    and `none` cover farmable fodder and unclassified entries, and neither names a
-   family a preset can ask for, so both are left out of every family average and
+   family a role can ask for, so both are left out of every family average and
    counted only in the roster-wide one. */
-const archetypeForPresetType: Readonly<Record<PresetType, string | null>> = {
+const archetypeForRoleType: Readonly<Record<RoleType, string | null>> = {
   'Attack type': 'Attack',
   'Support type': 'Support',
   'Defence type': 'Defense',
@@ -100,7 +100,7 @@ export function referenceMonsters(data: GameRecord | undefined): GameRecord[] {
 }
 
 /**
- * The base line every preset of each type is judged against, or `null` where the
+ * The base line every role of each type is judged against, or `null` where the
  * account cannot supply one.
  *
  * `null` is a real answer and the page prints it as one. An account with no Lv. 40
@@ -108,19 +108,19 @@ export function referenceMonsters(data: GameRecord | undefined): GameRecord[] {
  * place would be a statement about somebody else's roster presented as a statement
  * about this one.
  */
-export function referenceLines(data: GameRecord | undefined): Map<PresetType, ReferenceLine> | null {
+export function referenceLines(data: GameRecord | undefined): Map<RoleType, ReferenceLine> | null {
   const monsters = referenceMonsters(data);
   if (monsters.length === 0) return null;
 
   const rosterWide = average(monsters);
-  const lines = new Map<PresetType, ReferenceLine>();
-  for (const [presetType, archetype] of Object.entries(archetypeForPresetType) as Array<[PresetType, string | null]>) {
+  const lines = new Map<RoleType, ReferenceLine>();
+  for (const [roleType, archetype] of Object.entries(archetypeForRoleType) as Array<[RoleType, string | null]>) {
     if (archetype === null) {
-      lines.set(presetType, { stats: rosterWide, basis: 'roster', monsters: monsters.length });
+      lines.set(roleType, { stats: rosterWide, basis: 'roster', monsters: monsters.length });
       continue;
     }
     const family = monsters.filter((monster) => archetypes.get(numberValue(monster.unit_master_id)) === archetype);
-    lines.set(presetType, family.length > 0
+    lines.set(roleType, family.length > 0
       ? { stats: average(family), basis: 'family', monsters: family.length }
       : { stats: rosterWide, basis: 'roster', monsters: monsters.length });
   }

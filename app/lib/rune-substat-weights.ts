@@ -27,7 +27,7 @@
  *
  * **Why a ratio and not the tail probability.** The obvious reading of "how hard"
  * is `P(an ordinary rune supplies this share)`, and it was tried. Every target a
- * real preset states sits deep in that tail, and tails that deep differ by many
+ * real role states sits deep in that tail, and tails that deep differ by many
  * orders of magnitude for reasons that have nothing to do with what a player
  * should value: a Slow DD slot-2 rune already carries ATK % as its main property,
  * so its ATK share is only reachable through flat ATK lines, and the probability
@@ -49,7 +49,7 @@ import {
 import type { TargetStat } from './rune-properties';
 import { slotAllowsSubStat } from './runes';
 import type { ReferenceStats } from './rune-reference-stats';
-import type { PresetArtifacts, PresetTargets } from './rune-potential-presets';
+import type { RoleArtifacts, RoleTargets } from './rune-roles';
 import { artifactMainValue, artifactsPerMonster } from './artifact-properties';
 import { craftPlan, grindCredit } from './rune-craft-end-state';
 import type { CraftCredit, CraftPlan } from './rune-craft-end-state';
@@ -71,7 +71,7 @@ export type Valuation = {
   value(statId: number, raw: number): number;
 };
 
-/** The eight stats a preset can aim at, in the order every table reads them. */
+/** The eight stats a role can aim at, in the order every table reads them. */
 export const targetStats: readonly TargetStat[] = ['hp', 'atk', 'def', 'spd', 'criRate', 'criDmg', 'res', 'acc'];
 
 /** The six slots, which every requirement is measured across. */
@@ -201,7 +201,7 @@ function mainContribution(mainStatId: number, stat: TargetStat, base: ReferenceS
  * the candidate's own set gave each set its own yardstick, and a recommendation is a
  * comparison *across* sets.
  *
- * Measured on 1,500 identical rune bodies relabelled set by set, against presets that
+ * Measured on 1,500 identical rune bodies relabelled set by set, against roles that
  * preferred every set equally, the same runes were retained **431 to 520 times**
  * depending on nothing but the label: Swift +11 %, Fatal +1.5 %, Rage −8 %, Focus
  * −7 %. No choice of denominator fixes it, because changing the *shape* of the weight
@@ -209,15 +209,15 @@ function mainContribution(mainStatId: number, stat: TargetStat, base: ReferenceS
  * have rolled. Equal treatment across sets requires that the weights not depend on
  * the candidate's set at all.
  *
- * A set still decides plenty through the preset's preferred/acceptable/broken
+ * A set still decides plenty through the role's preferred/acceptable/broken
  * ranking and the relative retention preferences. Intangible is the permanent
- * exception: its set side is always preferred and is not a user-editable preset
+ * exception: its set side is always preferred and is not a user-editable role
  * choice; its slider only changes the retained share.
  *
- * **The way back**, if the requirement should count set bonuses again: a preset would
+ * **The way back**, if the requirement should count set bonuses again: a role would
  * have to state the set *combination* its builds use — `RUNE-CANONICAL.md` §10.1
  * already has that vocabulary, and `app/lib/rune-set-pairs.ts` already holds it for
- * monsters. A combination stated by the preset is the same for every candidate, so it
+ * monsters. A combination stated by the role is the same for every candidate, so it
  * can shape the requirement without tilting the comparison. A combination guessed
  * from the one rune being judged cannot.
  */
@@ -225,18 +225,18 @@ function mainContribution(mainStatId: number, stat: TargetStat, base: ReferenceS
 /**
  * What the monster's two artifacts contribute to one stat.
  *
- * A monster wears two artifacts and each carries one flat main property, measured at
- * HP +1,500, ATK +100 or DEF +100 (`artifact-properties.ts`). A preset states which of
- * the three its role wants, and nothing narrower — so the two slots are spread evenly
+ * A monster takes two artifacts and each carries one flat main property, measured at
+ * HP +1,500, ATK +100 or DEF +100 (`artifact-properties.ts`). A role states which of
+ * the three it wants, and nothing narrower — so the two slots are spread evenly
  * over what it named: **two of one where a role wants one stat, one of each where it
  * wants two, two thirds of each where it wants all three.** The total is always two
- * artifacts' worth, which is the only thing the preset has actually promised.
+ * artifacts' worth, which is the only thing the role has actually promised.
  *
  * Like the main properties above and unlike a rune set, this is a fact about the role
  * rather than about the candidate, so it shapes the requirement without giving any
  * rune a yardstick of its own (§4.3).
  */
-function artifactContribution(stat: TargetStat, artifacts: PresetArtifacts): number {
+function artifactContribution(stat: TargetStat, artifacts: RoleArtifacts): number {
   const wanted = (['hp', 'atk', 'def'] as const).filter((key) => artifacts[key]);
   if (wanted.length === 0 || !wanted.includes(stat as 'hp' | 'atk' | 'def')) return 0;
   const property = { hp: 'HP', atk: 'ATK', def: 'DEF' } as const;
@@ -364,7 +364,7 @@ function groundRelief(
 /** One target, from what the role asks for to what a max roll of it is worth. */
 export type SubstatWeightRow = {
   stat: TargetStat;
-  /** The whole-build figure the preset states. */
+  /** The whole-build figure the role states. */
   target: number;
   /** What the reference monster, the build's main properties and its artifacts bring. */
   fromBase: number;
@@ -404,15 +404,15 @@ export type SubstatWeights = {
 };
 
 export type SubstatWeightInput = {
-  targets: PresetTargets;
+  targets: RoleTargets;
   mains: BuildMains;
-  artifacts: PresetArtifacts;
+  artifacts: RoleArtifacts;
   base: ReferenceStats;
   /** The comparison credit. Only its Grindstone half reaches the weights. */
   credit: CraftCredit;
 };
 
-/** Weights are shared by every rune judged against one build of one preset. */
+/** Weights are shared by every rune judged against one build of one role. */
 export type SubstatWeightScope = { weights: Map<string, SubstatWeights> };
 
 export const newSubstatWeightScope = (): SubstatWeightScope => ({ weights: new Map() });
@@ -423,8 +423,8 @@ export const newSubstatWeightScope = (): SubstatWeightScope => ({ weights: new M
  *
  * It depends on the whole six-slot build rather than on any one slot, because the
  * build's main properties are what decide how much of a target is left for sub
- * properties to find. Two builds of the same preset therefore price the same rune
- * differently, and the rune keeps its best. The preset's artifact choice comes off the
+ * properties to find. Two builds of the same role therefore price the same rune
+ * differently, and the rune keeps its best. The role's artifact choice comes off the
  * requirement for the same reason and in the same way.
  *
  * **It depends on nothing about the candidate**, which is what makes one rune's Max
@@ -478,7 +478,7 @@ export function substatWeights(
   /* Every target already met without a single sub property. The role still wants
      those stats — a rune that brings them frees a different rune from having to —
      so they are scored alike rather than all scored at nothing, which would leave
-     the preset unable to judge any rune at all. */
+     the role unable to judge any rune at all. */
   const degenerate = tightest <= 0;
   const weights = new Map<TargetStat, number>();
   for (const row of rows) {
@@ -491,11 +491,11 @@ export function substatWeights(
   return result;
 }
 
-/* A preset's targets are re-read for every rune, every build and every set, and the
+/* A role's targets are re-read for every rune, every build and every set, and the
    answer is a pure function of an object the editor replaces rather than mutates. */
-const targetKeys = new WeakMap<PresetTargets, string>();
+const targetKeys = new WeakMap<RoleTargets, string>();
 
-function targetsKey(targets: PresetTargets): string {
+function targetsKey(targets: RoleTargets): string {
   const cached = targetKeys.get(targets);
   if (cached !== undefined) return cached;
   const key = targetStats.map((stat) => targets[stat] ?? 0).join(',');

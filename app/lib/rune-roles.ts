@@ -1,7 +1,7 @@
 /**
- * The working presets a rune is judged against.
+ * The working roles a rune is judged against.
  *
- * Each preset states, for one role: which rune sets it wants, which main
+ * Each role states which rune sets it wants, which main
  * stats it will accept in the three slots that carry a choice (2, 4 and 6),
  * whether an artifact's primary stat suits it, and the stat targets the
  * finished build aims at.
@@ -11,13 +11,13 @@
  * box does not oblige. The distinction is carried through to the interface,
  * where preferred reads in full ink and acceptable is dimmed.
  *
- * The presets below are the ones JASWA starts with, and nothing more: they
+ * The roles below are the ones JASWA starts with, and nothing more: they
  * are copied into the user's own preferences on first use, and from then on
- * are edited and deleted exactly like presets the user typed in themselves.
+ * are edited and deleted exactly like roles the user typed in themselves.
  */
 import { calculateRunePotentialMetrics, displayRunePotentialMetric } from './rune-potential-metrics';
 import { slotMainProperties } from './rune-properties';
-import { presetRuneSetNameList } from './rune-sets';
+import { roleRuneSetNameList } from './rune-sets';
 
 /**
  * The main stats a rune can carry in slots 2, 4 and 6, named as the source
@@ -51,13 +51,13 @@ export const runeMainStatByEffect: Readonly<Record<number, RuneMainStat>> = Obje
  *
  * Derived from `slotMainProperties`, which is `RUNE-CANONICAL.md` §3's table and
  * the only place the rule is written down. Every slot used to be offered the
- * whole vocabulary, so a preset could ask for CRI Dmg in slot 2 or Speed in slot
+ * whole vocabulary, so a role could ask for CRI Dmg in slot 2 or Speed in slot
  * 6 — mains no rune has ever carried. Nothing complained: the slot simply
- * matched no rune, and the preset judged a narrower box than its author thought
+ * matched no rune, and the role judged a narrower box than its author thought
  * they had asked for, which is exactly the invisible failure `AGENTS.md` §0.1
  * forbids.
  */
-export const runeMainStatsBySlot: Readonly<Record<keyof PresetSlots, readonly RuneMainStat[]>> = {
+export const runeMainStatsBySlot: Readonly<Record<keyof RoleSlots, readonly RuneMainStat[]>> = {
   slot2: mainStatsAllowedIn(2),
   slot4: mainStatsAllowedIn(4),
   slot6: mainStatsAllowedIn(6),
@@ -65,27 +65,27 @@ export const runeMainStatsBySlot: Readonly<Record<keyof PresetSlots, readonly Ru
 
 /* The flat mains (HP +, ATK +, DEF +) drop out here rather than being listed as
    exclusions: `RuneMainStat` has no word for them, so a slot offers exactly the
-   intersection of what the game allows and what a preset can say. */
+   intersection of what the game allows and what a role can say. */
 function mainStatsAllowedIn(slot: number): readonly RuneMainStat[] {
   const allowed = slotMainProperties[slot] ?? [];
   return runeMainStats.filter((stat) => allowed.includes(runeMainStatIds[stat]));
 }
 
 /** Preferred first, acceptable second — the same split for sets and main stats. */
-export type PresetChoice<T> = { preferred: readonly T[]; acceptable: readonly T[] };
+export type RoleChoice<T> = { preferred: readonly T[]; acceptable: readonly T[] };
 
 /** Slots 1, 3 and 5 have a fixed main stat, so only these three are stated. */
-export type PresetSlots = { slot2: PresetChoice<RuneMainStat>; slot4: PresetChoice<RuneMainStat>; slot6: PresetChoice<RuneMainStat> };
+export type RoleSlots = { slot2: RoleChoice<RuneMainStat>; slot4: RoleChoice<RuneMainStat>; slot6: RoleChoice<RuneMainStat> };
 
 /** Whether an artifact's primary stat suits the role. */
-export type PresetArtifacts = { atk: boolean; def: boolean; hp: boolean };
+export type RoleArtifacts = { atk: boolean; def: boolean; hp: boolean };
 
 /**
  * The stat targets a role aims at, as stated. A stat left `undefined` is one
  * the role does not aim at and is shown as a dash; `0` means the same thing
  * when it is saved, so it is dropped rather than becoming a false target.
  */
-export type PresetStatTargets = {
+export type RoleStatTargets = {
   hp?: number; atk?: number; def?: number; spd?: number;
   res?: number; acc?: number; criRate?: number; criDmg?: number;
 };
@@ -93,56 +93,56 @@ export type PresetStatTargets = {
 /**
  * The full target row: the stated stats plus the three composite figures. The
  * composites are never stated — `withRefreshedMetrics` derives them from the
- * stats above by the contract in `docs/RUNE-PRESET-METRICS.md` on every save,
- * so a preset cannot carry a DMG or E.HP that its own stats do not produce.
+ * stats above by the contract in `docs/RUNE-ROLE-METRICS.md` on every save,
+ * so a role cannot carry a DMG or E.HP that its own stats do not produce.
  */
-export type PresetTargets = PresetStatTargets & {
+export type RoleTargets = RoleStatTargets & {
   dmg?: number; ehp?: number; ehpD?: number;
 };
 
 /**
- * The broad family a role belongs to, shown under the preset's own name. It
+ * The broad family a role belongs to, shown under the role's own name. It
  * says which stat the build is organised around, where the name says what the
  * monster is for. `No type` is for a role that commits to none of them — the
  * `All` of the source spreadsheet, which wants every family at once and so
  * privileges none.
  */
-export type PresetType = 'Attack type' | 'Support type' | 'Defence type' | 'HP type' | 'No type';
+export type RoleType = 'Attack type' | 'Support type' | 'Defence type' | 'HP type' | 'No type';
 
 /** The families, in the order the editor offers them. */
-export const presetTypes: readonly PresetType[] = ['Attack type', 'Support type', 'Defence type', 'HP type', 'No type'];
+export const roleTypes: readonly RoleType[] = ['Attack type', 'Support type', 'Defence type', 'HP type', 'No type'];
 
-export type RunePotentialPreset = {
+export type RuneRole = {
   id: string;
   name: string;
-  type: PresetType;
-  sets: PresetChoice<string>;
-  slots: PresetSlots;
-  artifacts: PresetArtifacts;
-  targets: PresetTargets;
+  type: RoleType;
+  sets: RoleChoice<string>;
+  slots: RoleSlots;
+  artifacts: RoleArtifacts;
+  targets: RoleTargets;
 };
 
 /**
- * As a preset is written in this file: the composites are not its author's to
+ * As a role is written in this file: the composites are not its author's to
  * state. They are derived from the target stats below and are refreshed on
  * every save.
  */
-type PresetSource = Omit<RunePotentialPreset, 'targets'> & { targets: PresetStatTargets };
+type RoleSource = Omit<RuneRole, 'targets'> & { targets: RoleStatTargets };
 
 /**
- * Fills in `dmg`, `ehp` and `ehpD` from the preset's own stat targets, using
+ * Fills in `dmg`, `ehp` and `ehpD` from the role's own stat targets, using
  * the same calculation and the same truncating display rule the rest of the app
  * uses for these figures. A role that states no ATK, CRI Rate or CRI Dmg still
  * gets a DMG of 0 rather than a dash: nothing is missing, the answer is zero.
  */
-function withDerivedMetrics(preset: PresetSource): RunePotentialPreset {
-  const targets = statTargetsOnly(preset.targets);
+function withDerivedMetrics(role: RoleSource): RuneRole {
+  const targets = statTargetsOnly(role.targets);
   const { hp = 0, atk = 0, def = 0, criRate = 0, criDmg = 0 } = targets;
   const metrics = calculateRunePotentialMetrics({
     atk, hp, def, criticalRate: criRate, criticalDamage: criDmg,
   });
   return {
-    ...preset,
+    ...role,
     targets: {
       ...targets,
       dmg: targets.atk === undefined || targets.criRate === undefined || targets.criDmg === undefined
@@ -154,15 +154,15 @@ function withDerivedMetrics(preset: PresetSource): RunePotentialPreset {
 }
 
 /**
- * The stats a preset states, as distinct from the three composites derived
+ * The stats a role states, as distinct from the three composites derived
  * from them. The editor offers exactly these, in this order.
  */
-export const presetStatTargetKeys: ReadonlyArray<keyof PresetStatTargets> = ['hp', 'atk', 'def', 'spd', 'criRate', 'criDmg', 'res', 'acc'];
+export const roleStatTargetKeys: ReadonlyArray<keyof RoleStatTargets> = ['hp', 'atk', 'def', 'spd', 'criRate', 'criDmg', 'res', 'acc'];
 
 /* The order the targets are read in, with the short labels the interface
    uses. Kept beside the data so a new target cannot be added without also
    being given a place to appear. */
-export const presetTargetColumns: ReadonlyArray<{ key: keyof PresetTargets; label: string; unit?: string }> = [
+export const roleTargetColumns: ReadonlyArray<{ key: keyof RoleTargets; label: string; unit?: string }> = [
   { key: 'hp', label: 'HP' },
   { key: 'atk', label: 'Atk' },
   { key: 'def', label: 'Def' },
@@ -177,17 +177,17 @@ export const presetTargetColumns: ReadonlyArray<{ key: keyof PresetTargets; labe
 ];
 
 /*
- * The presets JASWA ships with. These are ordinary starting values, not
+ * The roles JASWA ships with. These are ordinary starting values, not
  * fixtures: they are copied into the user's preferences the first time the
  * workspace is opened, and are then editable and deletable like any other.
  *
  * These are copied from the developer's current preferences. Their order is
  * the order of that workspace rather than an inferred ranking. DMG, E.HP and
  * E.HP D are deliberately absent: `withDerivedMetrics`
- * computes them from each preset's own stats, so editing a stat cannot leave a
+ * computes them from each role's own stats, so editing a stat cannot leave a
  * stale composite behind.
  */
-const presetSources: readonly PresetSource[] = [
+const roleSources: readonly RoleSource[] = [
   {
     id: 'no-spd-bruiser',
     name: 'No-spd bruiser',
@@ -253,7 +253,7 @@ const presetSources: readonly PresetSource[] = [
     targets: { hp: 45000, def: 1580, spd: 200, res: 80, acc: 25 },
   },
   {
-    id: 'preset-mulz0dpa-pmulj0',
+    id: 'role-mulz0dpa-pmulj0',
     name: 'Def-tank',
     type: 'Defence type',
     sets: {
@@ -351,25 +351,25 @@ const presetSources: readonly PresetSource[] = [
 ];
 
 /**
- * The presets a first-time user starts with. A fresh array each call: the
+ * The roles a first-time user starts with. A fresh array each call: the
  * caller owns what it gets back and may edit or delete any of it.
  */
-export function defaultRunePotentialPresets(): RunePotentialPreset[] {
-  return presetSources.map(withDerivedMetrics);
+export function defaultRuneRoles(): RuneRole[] {
+  return roleSources.map(withDerivedMetrics);
 }
 
-/* ------------------------------------------------------------- new presets */
+/* ------------------------------------------------------------- new roles */
 
-/** An empty choice, for a preset or a slot that has not been given one yet. */
-function emptyChoice<T>(): PresetChoice<T> { return { preferred: [], acceptable: [] }; }
+/** An empty choice, for a role or a slot that has not been given one yet. */
+function emptyChoice<T>(): RoleChoice<T> { return { preferred: [], acceptable: [] }; }
 
 /**
- * A new preset starts with no targets. The editor keeps that absence visible
+ * A new role starts with no targets. The editor keeps that absence visible
  * until the user chooses what the role is aiming at.
  */
-export function createRunePotentialPreset(name = 'New preset'): RunePotentialPreset {
+export function createRuneRole(name = 'New role'): RuneRole {
   return withDerivedMetrics({
-    id: newPresetId(),
+    id: newRoleId(),
     name,
     type: 'No type',
     sets: emptyChoice<string>(),
@@ -384,44 +384,44 @@ export function createRunePotentialPreset(name = 'New preset'): RunePotentialPre
  * shown. Time plus a random tail is enough, and needs no counter to carry
  * across a reload.
  */
-export function newPresetId(): string {
-  return `preset-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+export function newRoleId(): string {
+  return `role-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 /**
- * Recomputes DMG, E.HP and E.HP D from a preset's own stat targets. Called on
- * every edit, so a saved preset can never carry a composite its stats do not
- * produce — the same guarantee the shipped presets get.
+ * Recomputes DMG, E.HP and E.HP D from a role's own stat targets. Called on
+ * every edit, so a saved role can never carry a composite its stats do not
+ * produce — the same guarantee the shipped roles get.
  */
-export function withRefreshedMetrics(preset: RunePotentialPreset): RunePotentialPreset {
-  return withDerivedMetrics(preset);
+export function withRefreshedMetrics(role: RuneRole): RuneRole {
+  return withDerivedMetrics(role);
 }
 
 /** The stated stats of a target row, with the three derived composites dropped. */
-function statTargetsOnly(targets: PresetTargets): PresetStatTargets {
-  const stats: PresetStatTargets = {};
-  for (const key of presetStatTargetKeys) {
+function statTargetsOnly(targets: RoleTargets): RoleStatTargets {
+  const stats: RoleStatTargets = {};
+  for (const key of roleStatTargetKeys) {
     if (targets[key] !== undefined && targets[key] !== 0) stats[key] = targets[key];
   }
   return stats;
 }
 
 /**
- * The largest target a preset may state. Well past anything the game produces,
+ * The largest target a role may state. Well past anything the game produces,
  * and low enough that the figures derived from it stay inside the width the
  * card reserves for them — a nine-digit HP produced a sixteen-digit E.HP that
  * painted over the columns beside it.
  */
-export const presetTargetMaximum = 100_000;
+export const roleTargetMaximum = 100_000;
 
-/** The longest name a preset may carry, in the editor and in a saved file alike. */
-export const presetNameMaximum = 60;
+/** The longest name a role may carry, in the editor and in a saved file alike. */
+export const roleNameMaximum = 60;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
-function isChoice<T extends string>(value: unknown, allowed: readonly T[]): value is PresetChoice<T> {
+function isChoice<T extends string>(value: unknown, allowed: readonly T[]): value is RoleChoice<T> {
   if (!isRecord(value) || !Array.isArray(value.preferred) || !Array.isArray(value.acceptable)) return false;
   const members = [...value.preferred, ...value.acceptable];
   return members.every((entry): entry is T => typeof entry === 'string' && allowed.includes(entry as T))
@@ -430,44 +430,44 @@ function isChoice<T extends string>(value: unknown, allowed: readonly T[]): valu
 
 /* Each stated target on its own. The composites are not read at all: they are
    derived, so the reader recomputes them rather than trusting a stored copy. */
-function readStatTargets(value: unknown): PresetStatTargets {
+function readStatTargets(value: unknown): RoleStatTargets {
   const stored = isRecord(value) ? value : {};
-  const targets: PresetStatTargets = {};
-  for (const key of presetStatTargetKeys) {
+  const targets: RoleStatTargets = {};
+  for (const key of roleStatTargetKeys) {
     const target = stored[key];
-    if (typeof target === 'number' && Number.isInteger(target) && target > 0 && target <= presetTargetMaximum) targets[key] = target;
+    if (typeof target === 'number' && Number.isInteger(target) && target > 0 && target <= roleTargetMaximum) targets[key] = target;
   }
   return targets;
 }
 
-function isPresetName(value: unknown): value is string {
-  return typeof value === 'string' && value.trim() === value && value.length > 0 && value.length <= presetNameMaximum;
+function isRoleName(value: unknown): value is string {
+  return typeof value === 'string' && value.trim() === value && value.length > 0 && value.length <= roleNameMaximum;
 }
 
 /*
- * A preset is kept whenever it can still be told apart and named; every other
- * field is its own choice and starts from an empty preset's value when the
- * stored one is missing or fails. A preset gaining a field must never cost the
- * user the presets they edited (`preference-reading.ts`).
+ * A role is kept whenever it can still be told apart and named; every other
+ * field is its own choice and starts from an empty role's value when the
+ * stored one is missing or fails. A role gaining a field must never cost the
+ * user the roles they edited (`preference-reading.ts`).
  */
-function readRunePotentialPreset(value: unknown): RunePotentialPreset | null {
-  if (!isRecord(value) || typeof value.id !== 'string' || value.id.length === 0 || !isPresetName(value.name)) return null;
-  const blank = createRunePotentialPreset(value.name);
+function readRuneRole(value: unknown): RuneRole | null {
+  if (!isRecord(value) || typeof value.id !== 'string' || value.id.length === 0 || !isRoleName(value.name)) return null;
+  const blank = createRuneRole(value.name);
   const slots = isRecord(value.slots) ? value.slots : {};
   const artifacts = isRecord(value.artifacts) ? value.artifacts : {};
-  const slot = (key: keyof PresetSlots) => {
+  const slot = (key: keyof RoleSlots) => {
     const stored = slots[key];
     return isChoice(stored, runeMainStatsBySlot[key]) ? stored : blank.slots[key];
   };
-  const flag = (key: keyof RunePotentialPreset['artifacts']) => {
+  const flag = (key: keyof RuneRole['artifacts']) => {
     const stored = artifacts[key];
     return typeof stored === 'boolean' ? stored : blank.artifacts[key];
   };
   return withDerivedMetrics({
     id: value.id,
     name: value.name,
-    type: presetTypes.includes(value.type as PresetType) ? value.type as PresetType : blank.type,
-    sets: isChoice(value.sets, presetRuneSetNameList) ? value.sets : blank.sets,
+    type: roleTypes.includes(value.type as RoleType) ? value.type as RoleType : blank.type,
+    sets: isChoice(value.sets, roleRuneSetNameList) ? value.sets : blank.sets,
     slots: { slot2: slot('slot2'), slot4: slot('slot4'), slot6: slot('slot6') },
     artifacts: { atk: flag('atk'), def: flag('def'), hp: flag('hp') },
     targets: readStatTargets(value.targets),
@@ -475,19 +475,19 @@ function readRunePotentialPreset(value: unknown): RunePotentialPreset | null {
 }
 
 /**
- * The stored preset list, preset by preset. No list at all means the user never
- * had one and gets the shipped presets; an empty list is the user having
- * deleted them all, and stays empty. A repeated id keeps its first preset.
+ * The stored role list, role by role. No list at all means the user never
+ * had one and gets the shipped roles; an empty list is the user having
+ * deleted them all, and stays empty. A repeated id keeps its first role.
  */
-export function readRunePotentialPresets(value: unknown): RunePotentialPreset[] {
-  if (!Array.isArray(value)) return defaultRunePotentialPresets();
+export function readRuneRoles(value: unknown): RuneRole[] {
+  if (!Array.isArray(value)) return defaultRuneRoles();
   const seen = new Set<string>();
-  const presets: RunePotentialPreset[] = [];
+  const roles: RuneRole[] = [];
   for (const stored of value) {
-    const preset = readRunePotentialPreset(stored);
-    if (!preset || seen.has(preset.id)) continue;
-    seen.add(preset.id);
-    presets.push(preset);
+    const role = readRuneRole(stored);
+    if (!role || seen.has(role.id)) continue;
+    seen.add(role.id);
+    roles.push(role);
   }
-  return presets;
+  return roles;
 }

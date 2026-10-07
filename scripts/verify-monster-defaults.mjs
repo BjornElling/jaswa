@@ -6,7 +6,7 @@
  * `app/lib/monster-defaults.ts` turns three captured distributions into
  * provisional preferences, and every cut in `defaultThresholds` was chosen by
  * measuring what it produces across the whole dataset — one preferred main per
- * rune slot, about two preferred rune sets because a monster wears two, and a
+ * rune slot, about two preferred rune sets because a monster carries two, and a
  * relic unique band that still distinguishes something
  * (`ARTIFACT-CANONICAL.md` §19.3).
  *

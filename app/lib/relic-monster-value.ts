@@ -31,7 +31,7 @@ export function relicMonsterModel(monster: GameRecord): RelicMonsterModel {
   const rawBase = monsterBaseStats(monster);
   const base = { HP: rawBase[0], ATK: rawBase[1], DEF: rawBase[2], SPD: rawBase[3] };
   /* Candidate relics are compared against the same sheet before engraving;
-     counting the currently worn relic here would give every candidate its main
+     counting the currently engraved relic here would give every candidate its main
      property twice. */
   const sheet = calculateMonsterTotals({ ...monster, relics: [] });
   const totals = { HP: sheet.hp, ATK: sheet.atk, DEF: sheet.def, SPD: sheet.spd };

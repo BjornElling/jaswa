@@ -7,9 +7,9 @@
  * unique property drawn from a space of exactly sixteen, fixed at the moment
  * the relic is obtained and never added to by a power-up.
  */
-import type { EquipmentPrimaryType } from './monster-grid';
+import type { GearPrimaryType } from './monster-grid';
 
-export type RelicMainProperty = EquipmentPrimaryType;
+export type RelicMainProperty = GearPrimaryType;
 
 /** The export's primary-effect codes, shared with artifacts (`ENGRAVING-STATISTICS.md` §1). */
 export const relicMainProperties: Record<number, RelicMainProperty> = { 100: 'HP', 101: 'ATK', 102: 'DEF' };
@@ -155,7 +155,7 @@ export const relicMaximumDurability = 3;
  * How many monsters one relic can be engraved on at once.
  *
  * **This is the mechanic that makes a relic unlike every other piece of
- * equipment JASWA judges.** A rune belongs to one monster and an artifact to one
+ * gear JASWA judges.** A rune belongs to one monster and an artifact to one
  * monster, so recommending one is a private matter between that monster and that
  * item. A relic is shared, and shared a finite number of times: once this many
  * monsters carry it, the game refuses the next engraving until it is unengraved
@@ -236,7 +236,7 @@ export function relicThreshold(level: number, source: RelicSourceStat): number {
  * most on the Nimble properties.
  *
  * **The halves are weighted equally, and that is a stated choice.** Which one
- * matters more depends on the monster wearing the relic — a unique property is
+ * matters more depends on the monster the relic is engraved on — a unique property is
  * worth what the monster's own SPD or ATK makes it worth — while this investment proxy does not
  * read a monster. Engraving uses `relic-monster-value.ts` instead. Two equal
  * halves is the same premise the whole page rests on: a relic is its main

@@ -9,12 +9,12 @@ function whole(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isSafeInteger(value) ? value : undefined;
 }
 
-/** Whether this owned monster can legally wear either artifact category. */
-export function canEquipArtifacts(monster: GameRecord): boolean {
+/** Whether this owned monster can legally take either artifact category. */
+export function canEngraveArtifacts(monster: GameRecord): boolean {
   return whole(monster.class) === artifactMinimumMonsterStars;
 }
 
 /** Whether this owned monster can legally receive a relic engraving. */
-export function canEquipRelics(monster: GameRecord): boolean {
+export function canEngraveRelics(monster: GameRecord): boolean {
   return (whole(monster.unit_level) ?? -1) >= relicMinimumMonsterLevel;
 }

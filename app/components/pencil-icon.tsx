@@ -1,4 +1,4 @@
-/** The one edit mark, so a preset card and a monster's nickname say "edit" alike. */
+/** The one edit mark, so a role card and a monster's nickname say "edit" alike. */
 export function PencilIcon() {
   return <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor"
     strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

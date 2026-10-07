@@ -20,7 +20,7 @@ import {
   artifactCategoryAt, artifactConvertedPropertyAt, artifactMainPropertyAt,
   artifactRestrictionAt, artifactScoreLanes, artifactStride,
   artifactSubPropertyIndexesAt, artifactSubPropertyRollPointsAt,
-  artifactSubPropertyCount, equipClassRows, monsterArchetypeAt,
+  artifactSubPropertyCount, engraveClassRows, monsterArchetypeAt,
   monsterElementAt, monsterMainPreferencesAt, monsterMainPropertyCount, monsterStride,
   monsterSubPropertyPreferencesAt,
 } from '../webgpu/artifact-score-layout';
@@ -60,15 +60,15 @@ function packed(request: ArtifactScoreRequest) {
         monster.subPropertyPreferences[property];
     }
   }
-  /* One row of flags per equip class, indexed by the class code the artifacts
+  /* One row of flags per engrave class, indexed by the class code the artifacts
      carry, because a stone converts only the class it was engraved for. The
      table is sized to the highest class code rather than to the number of
      classes, so row 0 — the Intangible code — is simply never written and
      never read: an Intangible cannot be converted (§10.1). */
-  const owned = new Int32Array(equipClassRows * scoredArtifactProperties.length);
+  const owned = new Int32Array(engraveClassRows * scoredArtifactProperties.length);
   for (const [classCode, indexes] of Object.entries(request.ownedConversionPropertyIndexesByClass)) {
     const row = Number(classCode);
-    if (!Number.isInteger(row) || row < 0 || row >= equipClassRows) continue;
+    if (!Number.isInteger(row) || row < 0 || row >= engraveClassRows) continue;
     for (const propertyIndex of indexes) {
       if (propertyIndex >= 0 && propertyIndex < scoredArtifactProperties.length) {
         owned[row * scoredArtifactProperties.length + propertyIndex] = 1;
@@ -113,7 +113,7 @@ export async function calculateArtifactScoresOnGpu(
  *
  * The battery is built here rather than taken from an import, so it exists before
  * anything has been imported. It covers the four branches the shader could get wrong
- * on its own: an artifact its monster's equip class refuses, one it accepts, a
+ * on its own: an artifact its monster's engrave class refuses, one it accepts, a
  * preferred line against an acceptable one, and a conversion the import owns a
  * stone for.
  */
@@ -125,7 +125,7 @@ export async function artifactScoreAgreement(context: GpuContext): Promise<boole
   for (let at = 0; at < ours.length; at += 1) {
     /* An ineligible pair is `-1` on both sides and must stay exactly that: it is a
        verdict, not a score, and a card that turned it into a number would put an
-       artifact on a monster that cannot wear it. */
+       artifact on a monster that cannot take it. */
     if (ours[at] < 0 !== theirs[at] < 0) return false;
     if (Math.abs(theirs[at] - ours[at]) > agreementTolerance) return false;
   }

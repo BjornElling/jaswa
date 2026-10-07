@@ -3,7 +3,7 @@ import type { MonsterPriority } from './monster-priority';
 import type { CraftRollAssumption } from './rune-craft-items';
 import type { RuneHolds } from './rune-holds';
 import type { RuneOptimizationSettings } from './rune-optimization-settings';
-import type { RunePotentialPreset } from './rune-potential-presets';
+import type { RuneRole } from './rune-roles';
 import type { SpeedTuningPreferences } from './speed-tuning-preferences';
 
 export type ImportReport = { valid: boolean; message: string; knownSections: string[]; unknownMonsterIds: string[] };
@@ -12,7 +12,7 @@ export type ImportedGame = {
   fileName: string; importedAt: string; data: Record<string, unknown>; report: ImportReport; helperSession?: HelperSession;
   /**
    * Where each rune JASWA has moved since this import sat when it was loaded:
-   * the wearer's `unit_id`, or `null` for the inventory. Written by an engrave,
+   * the `unit_id` it is engraved on, or `null` for the inventory. Written by an engrave,
    * the first time a rune moves, and never again, so a rune moved twice still
    * names where the game had it. Absent on every fresh import, file or helper
    * alike — the account is then where the game says, and nothing has moved.
@@ -124,8 +124,11 @@ export type ArtifactSettings = {
   recalculate: ArtifactRecalculateMode;
 };
 /**
- * The presets are part of the user's own preferences rather than of the
+ * The roles are part of the user's own preferences rather than of the
  * program: JASWA supplies a starting set, and after that they are the user's
  * to rename, retune and delete, and they travel with the .sw file.
+ *
+ * `runePotentialPresets` keeps the name roles had when they were called
+ * presets: it is the stored key, and renaming it would drop the user's roles.
  */
-export type Preferences = { updatedAt: string; hardwareAcceleration: boolean; importRoute: ImportRoute; directImportMode: DirectImportMode; general: GeneralSettings; monsterPreferences: MonsterPreferences; runeHolds: RuneHolds; runePotential: RunePotentialSettings; runePotentialPresets: RunePotentialPreset[]; artifacts: ArtifactSettings; speedTuning: SpeedTuningPreferences; monsterPriority: MonsterPriority; runeOptimization: RuneOptimizationSettings };
+export type Preferences = { updatedAt: string; hardwareAcceleration: boolean; importRoute: ImportRoute; directImportMode: DirectImportMode; general: GeneralSettings; monsterPreferences: MonsterPreferences; runeHolds: RuneHolds; runePotential: RunePotentialSettings; runePotentialPresets: RuneRole[]; artifacts: ArtifactSettings; speedTuning: SpeedTuningPreferences; monsterPriority: MonsterPriority; runeOptimization: RuneOptimizationSettings };

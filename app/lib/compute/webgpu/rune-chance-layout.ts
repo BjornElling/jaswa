@@ -15,8 +15,8 @@
  * - a **scoring**, which is what one role pays and what its craft items could do;
  * - a **job**, which pairs one of each with one bar to clear, and its bar beside it.
  *
- * A rune and a scoring are each referenced by many jobs — eight presets asking about
- * one rune share its record, and every rune judged against one build of one preset
+ * A rune and a scoring are each referenced by many jobs — eight roles asking about
+ * one rune share its record, and every rune judged against one build of one role
  * shares that build's price list — so they are uploaded once and indexed.
  */
 import { statIdBound } from '../../rune-craft-end-state';

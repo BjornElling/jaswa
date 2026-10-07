@@ -21,8 +21,9 @@ export type RuneCleanupRow = {
   index: number;
   advice: RuneAdvice;
   /**
-   * Where the rune is: the wearer's name, `Inventory` when nothing wears it, and
-   * `null` for a wearer this import does not contain — a gap in the import, which
+   * Where the rune is: the name of the monster it is engraved on, `Inventory`
+   * when it is on none, and
+   * `null` for a monster this import does not contain — a gap in the import, which
    * must not read as an empty inventory.
    */
   location: string | null;
@@ -40,7 +41,7 @@ export const shownRuneVerdictLabel = (row: RuneCleanupRow): string =>
   row.hold ? runeHoldLabels[row.hold] : runeVerdictLabels[row.advice.verdict];
 
 export type RuneCleanupSortKey =
-  'set' | 'slot' | 'level' | 'main' | 'innate' | 'subs' | 'location' | 'preset' | 'maxValue' | 'chance' | 'advice';
+  'set' | 'slot' | 'level' | 'main' | 'innate' | 'subs' | 'location' | 'role' | 'maxValue' | 'chance' | 'advice';
 
 /**
  * The orderings the game's own Manage panel offers, reproduced rather than
@@ -75,7 +76,7 @@ export const runeGameSortLabels: Readonly<Record<RuneGameSortKey, string>> = {
  */
 export const defaultRuneCleanupSortDirections: Readonly<Record<RuneCleanupSortKey, boolean>> = {
   set: true, slot: true, level: true, main: true, innate: true, subs: true, location: true,
-  preset: true, maxValue: false, chance: false, advice: true,
+  role: true, maxValue: false, chance: false, advice: true,
 };
 
 /**
@@ -139,8 +140,8 @@ export function compareRuneGameSort(
   return 0;
 }
 
-/** Whether the row prints a Max value: not where no preset can use the rune. */
-export const runeMaxValueShown = (row: RuneCleanupRow): boolean => row.advice.preset !== null;
+/** Whether the row prints a Max value: not where no role can use the rune. */
+export const runeMaxValueShown = (row: RuneCleanupRow): boolean => row.advice.role !== null;
 
 /**
  * Whether the row prints a Chance. A rune at `+12` has no substat upgrades left and no odds
@@ -148,7 +149,7 @@ export const runeMaxValueShown = (row: RuneCleanupRow): boolean => row.advice.pr
  * so it prints a dash, and a dash is not 100 %.
  */
 export const runeChanceShown = (row: RuneCleanupRow): boolean =>
-  row.advice.preset !== null && row.rune.level < lastSubPropertyLevel;
+  row.advice.role !== null && row.rune.level < lastSubPropertyLevel;
 
 /**
  * The chance as the column prints it: whole percentage points, **rounded down**.
@@ -214,7 +215,7 @@ export function compareRuneCleanupRows(
     case 'innate': return runeInnateText(left.rune).localeCompare(runeInnateText(right.rune));
     case 'subs': return runeSubText(left.rune).localeCompare(runeSubText(right.rune));
     case 'location': return (left.location ?? '').localeCompare(right.location ?? '');
-    case 'preset': return (left.advice.preset?.name ?? '').localeCompare(right.advice.preset?.name ?? '');
+    case 'role': return (left.advice.role?.name ?? '').localeCompare(right.advice.role?.name ?? '');
     case 'maxValue': return left.advice.maxValue - right.advice.maxValue;
     case 'chance': return left.advice.chance - right.advice.chance;
     case 'advice': return adviceRank(left) - adviceRank(right);
@@ -234,7 +235,7 @@ export function runeCleanupSearchText(row: RuneCleanupRow): string {
     runeStatName(row.rune.mainStatId) ?? '',
     runeInnateText(row.rune),
     runeSubText(row.rune),
-    row.advice.preset?.name ?? '',
+    row.advice.role?.name ?? '',
     shownRuneVerdictLabel(row),
     row.location ?? '',
   ].join(' ').toLowerCase();

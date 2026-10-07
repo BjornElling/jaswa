@@ -116,7 +116,7 @@ export const artifactMainValue: Readonly<Record<ArtifactMainProperty, number>> =
 export const artifactsPerMonster = 2;
 
 /* The categories as the export encodes them, and the classes each one must
-   match on the monster wearing it (§1). */
+   match on the monster it is engraved on (§1). */
 export const artifactCategoryFromType: Record<number, ArtifactCategory> = { 1: 'attribute', 2: 'type' };
 export const artifactCategoryLabels: Record<ArtifactCategory, string> = { attribute: 'Attribute', type: 'Type' };
 
@@ -124,12 +124,12 @@ export const artifactElements: Record<number, string> = { 1: 'Water', 2: 'Fire',
 export const artifactArchetypes: Record<number, MonsterArchetype> = { 1: 'Attack', 2: 'Defense', 3: 'HP', 4: 'Support' };
 
 /**
- * The equip-class code the game uses for an **Intangible** artifact: one that
+ * The engrave-class code the game uses for an **Intangible** artifact: one that
  * fills its category slot but matches *any* element or *any* monster type. The
  * game names it in the artifact panel — "Intangible Type Artifact".
  *
  * It is the same wildcard concept `RUNE-CANONICAL.md` §10 records for the
- * Intangible rune, applied to the equip restriction instead of the set.
+ * Intangible rune, applied to the engrave restriction instead of the set.
  *
  * `ARTIFACT-CANONICAL.md` §15.1 recorded the code as pending; the user's own
  * account settles it. 31 of 1,862 records carry it — 25 on `attribute`, 6 on
@@ -140,7 +140,7 @@ export const artifactArchetypes: Record<number, MonsterArchetype> = { 1: 'Attack
  * properties, so the **category** restriction still binds and only the class
  * within it is open.
  */
-export const artifactIntangibleEquipClass = 98;
+export const artifactIntangibleEngraveClass = 98;
 
 /** What the interface calls the wildcard class, as the game names it. */
 export const artifactIntangibleLabel = 'Intangible';
@@ -185,7 +185,7 @@ export const artifactProperties: readonly ArtifactPropertyDefinition[] = [
   { id: 226, name: 'ATK/DEF UP Effect', availability: 'both', status: 'current', minRoll: 3, maxRoll: 5 },
 
   /* Attribute artifacts only. It is the target's element that matters, not the
-     wearer's (§5.2), so the names say "on" and "from" rather than naming the
+     monster's (§5.2), so the names say "on" and "from" rather than naming the
      monster's own attribute. */
   { id: 300, name: 'Damage Dealt on Fire', availability: 'attribute', status: 'current', minRoll: 3, maxRoll: 5 },
   { id: 301, name: 'Damage Dealt on Water', availability: 'attribute', status: 'current', minRoll: 3, maxRoll: 5 },
@@ -224,7 +224,7 @@ export const artifactProperties: readonly ArtifactPropertyDefinition[] = [
      unanchored — it is the one legacy id this account does not carry, so its
      name still rests on §12's list alone.
 
-     Every id here does occur on this account once equipped artifacts are read
+     Every id here does occur on this account once engraved artifacts are read
      as well: they cluster on the roster, not in the inventory, which is why
      §15.5 saw only three of them from `data.artifacts` by itself.
 

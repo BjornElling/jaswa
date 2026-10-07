@@ -5,7 +5,7 @@
  * Four properties, each of which the user can verify by eye and would
  * therefore notice breaking:
  *
- * - The view opens on the work list — the artifacts the plan would equip, minus
+ * - The view opens on the work list — the artifacts the plan would engrave, minus
  *   those already on the monster it names — and that opening is exactly its two
  *   default filters applied to the complete plan, not a separate reading of it.
  * - Location before reads the import; Location after reads the plan. Each
@@ -75,7 +75,7 @@ try {
   await page.getByRole('button', { name: /Calculate recommendations/ }).click();
   await page.locator('.artifact-recommendation-table').waitFor({ timeout: 180000 });
 
-  /* The view opens on the work list: "Location after / Equipped" and
+  /* The view opens on the work list: "Location after / Engraved" and
      "Already matching / Hide" are on by default, because a row the plan would
      sell or has already placed asks nothing of the user. Assert that first —
      it is what a user sees on arriving — then clear both to measure the
@@ -85,35 +85,35 @@ try {
     .evaluateAll((cells) => cells.filter((cell) => cell.textContent.trim() === 'Sell').length);
   const openingKeep = await (await columnCells('Plan'))
     .evaluateAll((cells) => cells.filter((cell) => cell.textContent.trim() === 'Keep').length);
-  assert.equal(openingSell, 0, 'The view does not open on the plan’s equipped rows.');
+  assert.equal(openingSell, 0, 'The view does not open on the plan’s engraved rows.');
   assert.equal(openingKeep, 0, 'The view opens showing rows already on their recommended monster.');
 
-  await setFilter('Location after', 'Equipped', false);
+  await setFilter('Location after', 'Engraved', false);
   await setFilter('Already matching', 'Hide', false);
   const all = await rowCount();
   assert.ok(all > opening,
     `Clearing the opening filters must restore rows: ${opening} of ${all}.`);
 
   /* "Location after" splits the rows in two: a row is either allocated to a
-     monster (equipped) or it is not (inventory, the Sell advice). */
-  await setFilter('Location after', 'Equipped', true);
-  const plannedEquipped = await rowCount();
+     monster (engraved) or it is not (inventory, the Sell advice). */
+  await setFilter('Location after', 'Engraved', true);
+  const plannedEngraved = await rowCount();
   const sellShown = await (await columnCells('Plan'))
     .evaluateAll((cells) => cells.filter((cell) => cell.textContent.trim() === 'Sell').length);
-  assert.equal(sellShown, 0, 'Location after / Equipped still shows rows the plan would not equip.');
+  assert.equal(sellShown, 0, 'Location after / Engraved still shows rows the plan would not engrave.');
 
-  await setFilter('Location after', 'Equipped', false);
+  await setFilter('Location after', 'Engraved', false);
   await setFilter('Location after', 'Inventory', true);
   const plannedInventory = await rowCount();
   const nonSell = await (await columnCells('Plan'))
     .evaluateAll((cells) => cells.filter((cell) => cell.textContent.trim() !== 'Sell').length);
-  assert.equal(nonSell, 0, 'Location after / Inventory shows rows the plan would equip.');
-  assert.equal(plannedEquipped + plannedInventory, all,
-    `Location after does not partition the rows: ${plannedEquipped} + ${plannedInventory} != ${all}.`);
+  assert.equal(nonSell, 0, 'Location after / Inventory shows rows the plan would engrave.');
+  assert.equal(plannedEngraved + plannedInventory, all,
+    `Location after does not partition the rows: ${plannedEngraved} + ${plannedInventory} != ${all}.`);
   await setFilter('Location after', 'Inventory', false);
 
   /* "Already matching / Hide" removes exactly the Keep rows — the ones whose
-     current wearer is the monster the plan names. */
+     current monster is the one the plan names. */
   const keepRows = await (await columnCells('Plan'))
     .evaluateAll((cells) => cells.filter((cell) => cell.textContent.trim() === 'Keep').length);
   await setFilter('Already matching', 'Hide', true);
@@ -128,11 +128,11 @@ try {
 
   /* The opening view is exactly the two filters applied together, which is
      what makes it a view of the plan rather than a separate reading of it. */
-  await setFilter('Location after', 'Equipped', true);
+  await setFilter('Location after', 'Engraved', true);
   await setFilter('Already matching', 'Hide', true);
   assert.equal(await rowCount(), opening,
     'Applying both opening filters by hand does not reproduce the opening view.');
-  await setFilter('Location after', 'Equipped', false);
+  await setFilter('Location after', 'Engraved', false);
   await setFilter('Already matching', 'Hide', false);
 
   /* "Location before" keeps its old meaning: the imported location. */
@@ -140,7 +140,7 @@ try {
   const beforeInventory = await (await columnCells('Location'))
     .evaluateAll((cells) => cells.map((cell) => cell.textContent.trim()));
   assert(beforeInventory.every((name) => name === 'Inventory'),
-    'Location before / Inventory shows an artifact that was equipped at import.');
+    'Location before / Inventory shows an artifact that was engraved at import.');
   await setFilter('Location before', 'Inventory', false);
 
   /* An Intangible cannot be converted at all (§10.1), and the conversion
@@ -190,7 +190,7 @@ try {
   assert.equal(number(slots[1]) + remainder, number(slots[2]),
     `The slot figures do not add up: ${slots[0]}`);
 
-  console.log(`Verified the view opens on ${opening} rows of work, Location after partitions ${all} rows into ${plannedEquipped} equipped and ${plannedInventory} inventory, Already matching hides the ${keepRows} Keep rows, Location before still reads the import, ${goldMarks.length} of ${intangibleRows} Intangible rows name the rule in gold, and "${slots[0]}" reconciles.`);
+  console.log(`Verified the view opens on ${opening} rows of work, Location after partitions ${all} rows into ${plannedEngraved} engraved and ${plannedInventory} inventory, Already matching hides the ${keepRows} Keep rows, Location before still reads the import, ${goldMarks.length} of ${intangibleRows} Intangible rows name the rule in gold, and "${slots[0]}" reconciles.`);
 } finally {
   await browser.close();
 }

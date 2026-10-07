@@ -7,7 +7,7 @@ import { relicProperty, relicPropertyLabel } from './relic-properties';
 import type { RuneSlotMain } from './rune-slot-mains';
 
 /**
- * What the wider player base most commonly equips, ready to read.
+ * What the wider player base most commonly engraves, ready to read.
  *
  * The defaults module already folds the three panels into bands; this turns the
  * same folding into ordered lists for the overlay's "most common" rows, so the

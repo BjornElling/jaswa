@@ -14,7 +14,7 @@ import type { ItemGrade } from './types';
  *
  * **Deliberately not Rune Clean-up's craft settings.** Clean-up asks what a rune
  * could become if the player chose to invest in it; the optimizer asks what build a
- * monster can wear, and a player who lets Clean-up assume Legend Gems to decide
+ * monster can take, and a player who lets Clean-up assume Legend Gems to decide
  * what to keep has not thereby said they will spend them on this monster tonight.
  * One set of switches answering both questions would make each wrong for the other.
  */
@@ -109,14 +109,14 @@ export type RuneOptimizationSettings = {
    */
   allowImmemorial: boolean;
   /**
-   * Whether a rune another monster wears may be moved onto this one. A locked rune
+   * Whether a rune engraved on another monster may be moved onto this one. A locked rune
    * never may, whatever this says: the lock is the user's own word (`rune-holds.ts`).
    * The page asks it the other way round — *Only use runes from inventory* — so both
    * switches beside it start off and each says what ticking it does.
    */
   runesOnOtherMonsters: boolean;
   /**
-   * Whether a monster may also take the runes worn by monsters above it on the
+   * Whether a monster may also take the runes engraved on monsters above it on the
    * priority list (`monster-priority.ts`) — and, when it is not on the list, those
    * of every monster that is. Off, the list is respected. It means nothing while
    * runes come from the inventory only, and stays a choice of its own regardless.
@@ -129,7 +129,7 @@ export type RuneOptimizationSettings = {
    * properties are counted as they stand either way.
    */
   unfinishedAtMaximum: boolean;
-  /** Keep occupied slots exactly as worn and search only the empty ones. */
+  /** Keep occupied slots exactly as engraved and search only the empty ones. */
   fillEmptySlotsOnly: boolean;
   /** Keep flat-main slots at +12 unless they have already passed it. */
   oddSlotsAtTwelve: boolean;

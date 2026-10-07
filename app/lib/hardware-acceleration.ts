@@ -1,7 +1,7 @@
 /**
  * Whether this browser can hand JASWA the graphics card, and which one it got.
  *
- * The heavy work ahead — scoring every rune in an account against every preset,
+ * The heavy work ahead — scoring every rune in an account against every role,
  * and searching six slots for a combination — is the same short calculation run
  * hundreds of thousands of times. A GPU runs those in parallel; the processor
  * runs them one after another. So the connection is opened once, on the page

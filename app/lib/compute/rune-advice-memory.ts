@@ -2,10 +2,10 @@
  * The newest Rune Clean-up answers, kept so a rune overlay can read one rather
  * than ask again.
  *
- * A rune's advice depends on nothing but the rune, the presets, the settings and
+ * A rune's advice depends on nothing but the rune, the roles, the settings and
  * the import's reference monsters, so an answer the table already holds *is* the
  * overlay's answer — and asking again costs about a second of the worker per rune.
- * An answer is only handed out for the very same import, settings and presets
+ * An answer is only handed out for the very same import, settings and roles
  * objects it was calculated with: those are replaced, never edited, whenever the
  * user changes one, so identity is exactly "nothing has changed since". The rune
  * itself is compared by content, because a simulated rune's id is reused by the
@@ -13,20 +13,20 @@
  */
 import type { GameRecord } from '../game-data';
 import type { RuneAdvice } from '../rune-cleanup-advice';
-import type { RunePotentialPreset } from '../rune-potential-presets';
+import type { RuneRole } from '../rune-roles';
 import type { Rune } from '../runes';
 import type { RunePotentialSettings } from '../types';
 
 export type RuneAdviceInputs = {
   data: GameRecord;
   settings: RunePotentialSettings;
-  presets: readonly RunePotentialPreset[];
+  roles: readonly RuneRole[];
 };
 
 let remembered: (RuneAdviceInputs & { entries: Map<string, { rune: Rune; advice: RuneAdvice }> }) | null = null;
 
 const sameInputs = (left: RuneAdviceInputs, right: RuneAdviceInputs) =>
-  left.data === right.data && left.settings === right.settings && left.presets === right.presets;
+  left.data === right.data && left.settings === right.settings && left.roles === right.roles;
 
 const sameRune = (left: Rune, right: Rune) => left === right || JSON.stringify(left) === JSON.stringify(right);
 

@@ -18,7 +18,7 @@ import { readArtifacts } from '../lib/artifacts';
 import { artifactValueOnMonster } from '../lib/artifact-value-on-monster';
 import { defaultPropertyPreferences } from '../lib/artifact-preferences';
 import {
-  artifactCategoryLabel, artifactEquipClassLabel, artifactValueTint, compareArtifactRows,
+  artifactCategoryLabel, artifactEngraveClassLabel, artifactValueTint, compareArtifactRows,
   defaultArtifactSortDirections, displaySubProperty,
 } from '../lib/artifact-grid';
 import type { ArtifactRow, ArtifactSortKey } from '../lib/artifact-grid';
@@ -49,7 +49,7 @@ type ArtifactFilterState = {
   selectedGrades: ArtifactGrade[];
   selectedMainProperties: ArtifactMainProperty[];
   sortBySubProperty: number | null;
-  showEquipped: boolean;
+  showEngraved: boolean;
   showInventory: boolean;
   /**
    * Whether Intangible artifacts appear at all. On by default: they are real
@@ -66,7 +66,7 @@ const defaultArtifactFilters: ArtifactFilterState = {
   selectedGrades: [],
   selectedMainProperties: [],
   sortBySubProperty: null,
-  showEquipped: true,
+  showEngraved: true,
   showInventory: true,
   includeIntangible: true,
 };
@@ -87,7 +87,7 @@ function isArtifactFilterState(value: unknown): value is ArtifactFilterState {
       || (typeof candidate.sortBySubProperty === 'number'
         && Number.isSafeInteger(candidate.sortBySubProperty)
         && candidate.sortBySubProperty >= 0))
-    && typeof candidate.showEquipped === 'boolean'
+    && typeof candidate.showEngraved === 'boolean'
     && typeof candidate.showInventory === 'boolean'
     && typeof candidate.includeIntangible === 'boolean';
 }
@@ -143,7 +143,7 @@ const artifactColumns = (subPropertyId: number | null): readonly SortableColumn<
   });
   return [
     column('category', 'Type'),
-    column('equipClass', 'Fits'),
+    column('engraveClass', 'Fits'),
     column('grade', 'Quality'),
     column('mainProperty', 'Main stat'),
     column('subProperties', 'Substats'),
@@ -190,40 +190,40 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
     'jaswa.filters.artifacts', defaultArtifactFilters, isArtifactFilterState,
   );
   const { search, selectedCategories, selectedClasses, selectedGrades, selectedMainProperties,
-    sortBySubProperty, showEquipped, showInventory, includeIntangible } = filters;
+    sortBySubProperty, showEngraved, showInventory, includeIntangible } = filters;
   const artifacts = useMemo(() => readArtifacts(game?.data), [game]);
 
   const rows = useMemo<ArtifactRow[]>(() => {
     const names = monsterCopyNames(monsters, preferences.monsterPreferences);
-    const wearers = new Map<string, GameRecord>();
+    const monstersByUnitId = new Map<string, GameRecord>();
     for (const monster of monsters) {
-      if (monster.unit_id !== undefined && monster.unit_id !== null) wearers.set(String(monster.unit_id), monster);
+      if (monster.unit_id !== undefined && monster.unit_id !== null) monstersByUnitId.set(String(monster.unit_id), monster);
     }
     return artifacts.map((artifact, index) => {
-      const wearer = artifact.occupiedId === null ? undefined : wearers.get(artifact.occupiedId);
-      const unitId = wearer?.unit_id === undefined ? null : String(wearer.unit_id);
+      const engravedOn = artifact.occupiedId === null ? undefined : monstersByUnitId.get(artifact.occupiedId);
+      const unitId = engravedOn?.unit_id === undefined ? null : String(engravedOn.unit_id);
       const preference = unitId === null ? undefined : preferences.monsterPreferences[unitId];
-      const propertyPreferences = wearer
-        ? defaultPropertyPreferences(wearer.unit_master_id, artifact.category)
+      const propertyPreferences = engravedOn
+        ? defaultPropertyPreferences(engravedOn.unit_master_id, artifact.category)
         : undefined;
-      /* The wearer's own statement where it has one, so this column answers for
-         the copy actually wearing the artifact rather than for its species. */
-      const value = wearer
-        ? artifactValueOnMonster(artifact, wearer, preferences.artifacts, preference)
+      /* The statement of the monster it is engraved on, where it has one, so this
+         column answers for that copy rather than for its species. */
+      const value = engravedOn
+        ? artifactValueOnMonster(artifact, engravedOn, preferences.artifacts, preference)
         : undefined;
       return {
         artifact,
         index,
         /* Three different states, kept apart: `Inventory` for an artifact
-           nothing is wearing, the monster's name where the roster has it, and
-           `null` for a wearer the roster does not contain — a gap in the
+           it is on no monster, the monster's name where the roster has it, and
+           `null` for a monster the roster does not contain — a gap in the
            import, which must not read as an empty inventory. */
         location: artifact.occupiedId === null
           ? 'Inventory'
           : unitId === null ? null : names[unitId]?.name ?? null,
-        wearer: unitId === null || wearer?.unit_master_id === undefined
+        engravedOn: unitId === null || engravedOn?.unit_master_id === undefined
           ? undefined
-          : { unitId, masterId: String(wearer.unit_master_id) },
+          : { unitId, masterId: String(engravedOn.unit_master_id) },
         /* Rounded once, here, so the column, its colour band and the sort all
            read the same whole-point score the user sees. */
         valuePercent: value === undefined ? undefined : Math.round(value * 100),
@@ -265,9 +265,9 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
     const filtered = rows.filter((row) => {
-      const equipped = row.artifact.occupiedId !== null;
-      if (!showEquipped && equipped) return false;
-      if (!showInventory && !equipped) return false;
+      const engraved = row.artifact.occupiedId !== null;
+      if (!showEngraved && engraved) return false;
+      if (!showInventory && !engraved) return false;
       /* Include, not narrow-to: switched off, the wildcards leave the list;
          switched on, they sit among the rest and the class buttons still
          choose between elements and archetypes as before. */
@@ -275,7 +275,7 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
       if (selectedCategories.length && !selectedCategories.includes(row.artifact.category)) return false;
       if (selectedGrades.length && !selectedGrades.includes(row.artifact.grade)) return false;
       if (selectedMainProperties.length && !selectedMainProperties.includes(row.artifact.mainProperty)) return false;
-      if (selectedClasses.length && !selectedClasses.includes(artifactEquipClassLabel(row.artifact))) return false;
+      if (selectedClasses.length && !selectedClasses.includes(artifactEngraveClassLabel(row.artifact))) return false;
       if (activeSortBySubProperty !== null
         && !row.subProperties.some((property) => property.definition.id === activeSortBySubProperty)) return false;
       if (!term) return true;
@@ -284,7 +284,7 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
     });
     return filtered;
   }, [rows, search, selectedCategories, selectedClasses, selectedGrades, selectedMainProperties,
-    showEquipped, showInventory, includeIntangible, activeSortBySubProperty]);
+    showEngraved, showInventory, includeIntangible, activeSortBySubProperty]);
 
   const columns = useMemo(() => artifactColumns(activeSortBySubProperty), [activeSortBySubProperty]);
   const { sorted, sort, toggle: toggleColumnSort, setSort } = useSortedRows(
@@ -335,8 +335,8 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
     setFilters((current) => ({ ...current, sortBySubProperty: update }));
   }
 
-  function setShowEquipped(update: (current: boolean) => boolean) {
-    setFilters((current) => ({ ...current, showEquipped: update(current.showEquipped) }));
+  function setShowEngraved(update: (current: boolean) => boolean) {
+    setFilters((current) => ({ ...current, showEngraved: update(current.showEngraved) }));
   }
 
   function setShowInventory(update: (current: boolean) => boolean) {
@@ -427,9 +427,9 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
       <div className="filter-group artifact-filter-location" role="group" aria-label="Choose artifact locations">
         <span className="filter-label">Location</span>
         <div className="filter-group-controls">
-          <FilterButton active={showEquipped}
-            onClick={() => setShowEquipped((current) => !current)}
-          >Equipped</FilterButton>
+          <FilterButton active={showEngraved}
+            onClick={() => setShowEngraved((current) => !current)}
+          >Engraved</FilterButton>
           <FilterButton active={showInventory}
             onClick={() => setShowInventory((current) => !current)}
           >Inventory</FilterButton>
@@ -454,9 +454,9 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
           {sorted.length ? sorted.map((row) => <tr key={row.artifact.id}>
             <td className={artifactCell('category', 'dim')}>{artifactCategoryLabel(row.artifact.category)}</td>
             {/* Type and Fits are both plain description of the artifact, so
-                they read at one weight: full ink here made the equip class
+                they read at one weight: full ink here made the engrave class
                 look like the more important of the two. */}
-            <td className={artifactCell('equipClass', 'dim')}>{artifactEquipClassLabel(row.artifact)}</td>
+            <td className={artifactCell('engraveClass', 'dim')}>{artifactEngraveClassLabel(row.artifact)}</td>
             <td className={artifactCell('grade', 'dim')}>{row.artifact.grade}</td>
             <td className={artifactCell('mainProperty', `artifact-main-${row.mainPropertyPreference}`)}>
               {row.artifact.mainProperty}
@@ -480,13 +480,13 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
               </ul>
             </td>
             <td className={artifactCell('location', !row.location && 'muted')}
-              title={row.location === null ? 'Worn by a monster this import does not contain' : undefined}>
-              {/* `Inventory` and an absent wearer are locations rather than
+              title={row.location === null ? 'Engraved on a monster this import does not contain' : undefined}>
+              {/* `Inventory` and an absent monster are locations rather than
                   monsters, so they stay the plain text they always were. */}
-              {row.wearer === undefined || row.location === null
+              {row.engravedOn === undefined || row.location === null
                 ? row.location ?? 'Unknown monster'
                 : <MonsterLink
-                  target={{ kind: 'copy', unitId: row.wearer.unitId, masterId: row.wearer.masterId }}
+                  target={{ kind: 'copy', unitId: row.engravedOn.unitId, masterId: row.engravedOn.masterId }}
                   name={row.location}
                   onOpen={onOpenMonster}
                 />}

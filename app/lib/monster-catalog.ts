@@ -154,7 +154,7 @@ function twinName(masterId: string, ownCatalogueName: string): string | undefine
 //
 // Collaboration units ship five elemental copies under one licensed name, so a
 // roster holding Water and Fire DHALSIM shows "DHALSIM" twice with nothing to
-// tell them apart — and element decides which artifacts a monster may even wear.
+// tell them apart — and element decides which artifacts a monster may even take.
 // The qualifier is therefore part of the name, not decoration.
 //
 // The trigger is the ambiguity itself, not a list of monsters: a name shared by
